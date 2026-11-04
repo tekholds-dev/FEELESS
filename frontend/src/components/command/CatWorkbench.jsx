@@ -461,6 +461,7 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
         <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}>{ic}</button>)}{rate ? <em>in memory · 🗂 Jobs</em> : null}</span> : null}
       {you ? null : <PreviewButton text={m.text} />}
       {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}
+      {m.open === 'bids' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('bids')} data-tip="Its Bids desk on the Desktop, with its PoB folders" data-testid="cwb-open-bids">🎲 Open the Bids desk</button> : null}
       {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop">📉 Open the PoP desk</button> : null}</div></li>;
 }
 const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the site each window is on and the step it is taking.'],
@@ -865,14 +866,14 @@ function PotSend({ cat }) {
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function PopApp({ cat, d, setD }) {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popFolders: j.popFolders ?? x?.popFolders, popPoi: j.popPoi ?? x?.popPoi }))).catch(() => {}); };
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popRead: j.popRead, popFolders: j.popFolders ?? x?.popFolders, popPoi: j.popPoi ?? x?.popPoi }))).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const [asking, setAsking] = useState(null);   // the minds take about 15 s: the desk says so until a new card, trade or filed row arrives
   const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
   useEffect(() => { if (!asking) return undefined; if (asking !== mark) { setAsking(null); return undefined; } const t = setTimeout(() => setAsking(null), 90000); return () => clearTimeout(t); }, [asking, mark]);
   const send = async job => { setBusy(true); setErr(''); try { await work(cat.id, { op: 'pop', job }); if (job === 'propose' || job === 'start') setAsking(mark); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  const busyNow = busy || !!asking;
-  return <PopExplorer cat={cat} d={d} setD={setD} send={send} busy={busyNow}>{rows => <PopDesk d={d} send={send} busy={busyNow} asking={!!asking} err={err}>{rows}</PopDesk>}</PopExplorer>;
+  const busyNow = busy || !!asking || !!d?.popRead;
+  return <PopExplorer cat={cat} d={d} setD={setD} send={send} busy={busyNow}>{rows => <PopDesk d={d} send={send} busy={busyNow} asking={!!asking || !!d?.popRead} err={err}>{rows}</PopDesk>}</PopExplorer>;
 }
 // 📉 THE PoP EXPLORER (owner 2026-11-04: "PoP needs to be folders like PoW"): PoP › each dated folder › REPORT, a folder per market they read, the discussion. The same Tile, crumbs and steps as PoW.
 const POP_STEPS = ['READ', 'CALL', 'AGREE', 'OPEN', 'EXIT', 'FILED'];
@@ -887,12 +888,17 @@ function PopChart({ f }) {
   const lines = e ? [{ id: 'entry', price: e, color: '#ffffff', title: 'ENTRY' }, { id: 'tp', price: e * (1 + dir * f.tp / 100), color: '#45e486', title: 'TAKE', dash: true }, { id: 'sl', price: e * (1 - dir * f.sl / 100), color: '#ff8fa3', title: 'STOP', dash: true }] : [];
   return <div className="pop-chart m-glass" data-testid="pop-chart"><Suspense fallback={<p className="dsk-note">Loading true candles…</p>}><PopChartLazy asset={f.market} iv="1m" lines={lines} /></Suspense></div>;
 }
+// 🌐 what a mind actually opened in its own window, and what it read there
+function Browsed({ b }) {
+  if (!b) return null;
+  return <div className="pop-web" data-testid="pop-browsed"><em>🌐 {(b.sites || []).length ? b.sites.join(' · ') : 'Opened no site'}</em>{b.note ? <small>{b.note}</small> : null}</div>;
+}
 // 🛰 each mind's own sources, each measured against the chart
 function PopSources({ f }) {
   const minds = Object.entries(f.sources || {});
   if (!minds.length) return <p className="dsk-note">This folder is from before sources were filed.</p>;
   return <div className="pop-srcs" data-testid="pop-sources">{minds.map(([mind, rows]) => { const sites = [...new Set(rows.map(r => r.site))];
-    return <section key={mind} className={`pop-src m-glass is-m${mind}`}><b>MIND {mind === '0' ? 'A' : 'B'}</b>{sites.map(site => { const these = rows.filter(r => r.site === site);
+    return <section key={mind} className={`pop-src m-glass is-m${mind}`}><b>MIND {mind === '0' ? 'A' : 'B'}</b><Browsed b={f.browsed?.[mind]} />{f.browseWhy ? <small className="pop-web-why">Browsing: {f.browseWhy}</small> : null}{sites.map(site => { const these = rows.filter(r => r.site === site);
       return <div key={site} className="pop-src-site"><span><em>{site}</em><small>{these[0]?.kind}</small></span>{these.map(r => <span key={r.market} className={`pop-dev${!r.ok ? ' is-none' : r.off ? ' is-off' : ''}`} data-tip={r.ok ? `${r.market} read $${Number(r.px).toLocaleString()}, ${r.devBps} bps from the chart${r.funding != null ? ` · funding ${r.funding}% per 8h` : ''}` : `${r.market}: no read, recorded as a gap`}><i>{r.market}</i><u><s style={{ transform: `scaleX(${r.ok ? Math.min(1, Math.abs(r.devBps) / 25) : 0})` }} /></u><small className="m-num">{r.ok ? `${r.devBps > 0 ? '+' : ''}${r.devBps} bps` : 'gap'}</small></span>)}</div>; })}</section>; })}</div>;
 }
 function PopMarket({ f, read, m }) {
@@ -943,20 +949,43 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
     <div key={path.join('/')} className="dsk-pull">{body}</div></div>;
 }
 // 🎲 THE BIDS FOLDER (owner 2026-11-04): a starting dash like PoW, then the free-chip board and the USA real-money links, each its own folder.
-function BidsApp() {
-  const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(''); const [m, setM] = useState(null);
+// 🎲 THE PoB FOLDERS: each mind's call and what it read in its own browser, graded by the market's recorded result
+const pobTone = x => (x.status !== 'closed' ? 'live' : x.won ? 'good' : x.won === false ? 'bad' : 'none');
+function PobFolder({ f }) {
+  const r = f.report; const tone = pobTone(f);
+  return <div className="pob" data-testid="pob-folder">
+    <div className={`dsk-trade is-${tone === 'live' ? 'open' : tone}`}><b>{r?.grade || '● OPEN'}{f.side ? ` · ${String(f.side).toUpperCase()}` : ''}</b><small className="m-num">{f.q || f.why || ''}{f.chips ? ` · ${f.chips} free chips` : ''}</small></div>
+    {r ? <p className="dsk-note">{r.lesson}</p> : <p className="dsk-note">The market's own result files this.</p>}
+    {f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}
+    <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'} · {c.side ? String(c.side).toUpperCase() : 'NO BID'}</b><small className="pob-why">{c.why || 'No reason given.'}</small><Browsed b={f.browsed?.[c.mind]} /></section>)}</div></div>;
+}
+function PobShelf({ d, open, setOpen }) {
+  const rows = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]; const f = rows.find(x => x.id === open);
+  if (f) return <PobFolder f={f} />;
+  if (!rows.length) return <p className="dsk-note">No PoB filed yet. Press File a bid.</p>;
+  return <div className="dsk-xgrid" data-testid="pob-shelf">{rows.map((x, i) => <Tile key={x.id} i={i} tone={pobTone(x)} ic="🎲" label={`PoB #${x.n || i + 1}`} sub={x.report?.grade || 'open'} onOpen={() => setOpen(x.id)} tip={x.q || x.why || 'Open this proof'} testid={`pob-${x.id}`} />)}</div>;
+}
+function BidsApp({ cat, d, setD }) {
+  const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(''); const [m, setM] = useState(null); const [open, setOpen] = useState(''); const [err, setErr] = useState('');
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders }))).catch(() => {}); };
+    load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
+  const busy = !!d?.pobRead || !!d?.pobRun;
+  const file = () => { setErr(''); work(cat.id, { op: 'pob' }).then(() => setD?.(x => ({ ...x, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
   useEffect(() => { let on = true; const load = () => { if (!document.hidden && !path) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setM(x)).catch(() => {}); };
     load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, path]);
   const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
-  const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA' }[path];
+  const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA', pob: 'Its proofs' }[path];
   return <div className="dsk-pow bd" data-testid="dsk-bids">
     {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => setPath('')} aria-label="Up one folder" data-tip="Up one folder">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span></p> : null}
-    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
-      <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span></header>
-      <div className="hv-pow-stats" data-testid="bd-stats">{[['LIVE', m ? live.length : '…'], ['SETTLED', m ? settled.length : '…'], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—'], ['SITES', BID_SITES.length]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
+      <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : 'Each mind reads sites in its own browser, then calls a market. If they agree, it bids 50 free chips'} data-testid="pob-file">🎲 File a bid</button></header>
+      {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
+      {err ? <p className="dsk-note" role="alert">{err}</p> : null}
+      <div className="hv-pow-stats" data-testid="bd-stats">{[['LIVE', m ? live.length : '…'], ['SETTLED', m ? settled.length : '…'], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—'], ['ITS PROOFS', (d?.pobFolders || []).length + (d?.pobRun ? 1 : 0)], ['SITES', BID_SITES.length]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
       <div className="dsk-xgrid"><Tile tone="live" ic="⚡" label="Live board" sub={`${live.length} open`} onOpen={() => setPath('live')} tip="Bid free chips on proofs running now" testid="bd-live" />
         <Tile i={1} tone="none" ic="✓" label="Settled" sub={`${settled.length} closed`} onOpen={() => setPath('settled')} tip="How finished proofs ended" testid="bd-settled" />
-        <Tile i={2} tone="good" ic="🇺🇸" label="Real money" sub={`${BID_SITES.length} USA sites`} onOpen={() => setPath('sites')} tip="Links to USA real-money sites, with what each says about automation" testid="bd-sites" /></div>
+        <Tile i={2} tone={d?.pobRun ? 'live' : 'none'} ic="🎲" label="Its proofs" sub={d?.pobRun ? '1 open' : `${(d?.pobFolders || []).length} filed`} onOpen={() => { setOpen(''); setPath('pob'); }} tip="Its PoB folders: what each mind read and called, and how the market ended" testid="bd-pob" />
+        <Tile i={3} tone="good" ic="🇺🇸" label="Real money" sub={`${BID_SITES.length} USA sites`} onOpen={() => setPath('sites')} tip="Links to USA real-money sites, with what each says about automation" testid="bd-sites" /></div>
       {live.length ? <ul className="bd-live">{live.slice(0, 5).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath('live')} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{x.q}</span></button></li>)}</ul> : <p className="dsk-note">A free-chip market opens when one of your agents’ PoW buys or a PoP opens.</p>}</>}</div></div>;
 }
 function HoneyPot({ cat }) {
@@ -1078,7 +1107,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}

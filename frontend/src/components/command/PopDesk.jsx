@@ -57,7 +57,7 @@ export function PopDesk({ d, send, busy, asking = false, err, children = null })
         : <button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('start')} data-tip="Each mind reads its own sources against the chart and makes one small paid model call. A paper trade runs if they agree. Or type file a perp" data-testid="pop-start">File a PoP</button>}</span></header>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     <div className="pop-stats">{[['PROOFS', rows.filter(r => !r.proposal).length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['PAPER P/L', `${paper >= 0 ? '+' : '−'}$${Math.abs(paper).toFixed(2)}`]].map(([k, v]) => <span key={k} className="m-glass"><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
-    {asking ? <p className="pop-asking m-glass" role="status" data-testid="pop-asking"><i aria-hidden="true" />Each mind is reading its own sources against the chart…</p> : null}
+    {asking ? <p className="pop-asking m-glass" role="status" data-testid="pop-asking"><i aria-hidden="true" />{d?.popRead ? 'Each mind is reading sites in its own window. Watch its monitors…' : 'Each mind is reading its own sources against the chart…'}</p> : null}
     <ProposalScore rows={rows} />
     {children}
   </section>;

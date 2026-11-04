@@ -105,11 +105,12 @@ def trade_cell(cat, side, pos, px_usd, now):
 
 # 🍯 owner 2026-11-04: honey travels with its record. An agent sends only with its proof; a manual send names a proof or a reason; one proof, one send.
 def proofs_of(cat, shares):
-    """Its filed PoW + PoP folders, newest first, each marked if honey already went with it."""
+    """Its filed PoW + PoP + PoB folders, newest first, each marked if honey already went with it."""
     used = {(x.get('proof') or {}).get('id') for x in shares if x.get('cat') == cat.get('id')}
     pow_ = [{'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym'), 'pnlPct': f.get('pnlPct'), 'at': f.get('at')} for f in cat.get('powFolders') or [] if f.get('status') == 'closed' and f.get('id')]
     pop_ = [{'kind': 'PoP', 'id': f.get('id'), 'name': f"PoP #{f.get('n')}", 'sym': f.get('market'), 'pnlPct': f.get('roePct'), 'at': f.get('at')} for f in cat.get('popFolders') or [] if f.get('id') and not f.get('noTrade') and not f.get('proposal')]
-    rows = [{**r, 'used': r['id'] in used} for r in pow_ + pop_]
+    pob_ = [{'kind': 'PoB', 'id': f.get('id'), 'name': f"PoB #{f.get('n')}", 'sym': f.get('sym'), 'pnlPct': None, 'at': f.get('at')} for f in cat.get('pobFolders') or [] if f.get('id') and not f.get('noTrade') and not f.get('void')]
+    rows = [{**r, 'used': r['id'] in used} for r in pow_ + pop_ + pob_]
     return sorted(rows, key=lambda r: -float(r.get('at') or 0))
 
 

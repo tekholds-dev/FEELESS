@@ -531,6 +531,20 @@ test('📉 PoP is folders like PoW: dated folder → report, market folder, disc
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
 });
 
+test('🎲 PoB: files from the Bids desk, and a folder shows what each mind read in its own browser', async () => {
+  const f = global.fetch; const sent = [];
+  const pob = { id: 'b1', n: 1, status: 'closed', won: true, side: 'yes', q: 'SOL higher in 1h?', chips: 50, report: { grade: 'GOOD BID', lesson: 'It bid YES and the market said YES: +40 chips.' }, calls: [{ mind: 0, side: 'yes', why: 'up 4% on dexscreener' }], browsed: { 0: { sites: ['dexscreener.com'], note: 'SOL up 4%' } } };
+  global.fetch = jest.fn((u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; sent.push(b); return Promise.resolve({ ok: true, json: async () => (String(u).includes('rep-markets') ? { live: [], settled: [] } : { pobFolders: b.op === 'state' ? [pob] : [], ok: true, chat: [] }) }); });
+  const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = t2 => document.querySelector(`[data-testid="${t2}"]`);
+  await act(async () => { q('pob-file').click(); }); expect(sent.some(b => b.op === 'pob')).toBe(true); expect(q('pob-reading')).not.toBeNull();
+  await act(async () => { q('bd-pob').click(); }); await act(async () => { q('pob-b1').click(); });
+  expect(q('pob-folder').textContent).toContain('GOOD BID'); expect(q('pop-browsed').textContent).toContain('dexscreener.com');
+  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
+});
+
 test('🎲 the Bids folder opens on a dash, and the USA sites are links that never overclaim', async () => {
   const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => ({ live: [{ id: 'm', kind: 'agent', q: 'Happy: long SOL PoP ends in profit?' }, { id: 'x', kind: 'double', q: 'not an agent' }], settled: [], bank: { chips: 777 } }) }));
   const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);

@@ -92,7 +92,7 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 
 | ID | Status | Deliverable |
 |---|---|---|
-| AG06 | OPEN | Trader agents browse sites as they file PoW (works). PoP reads free APIs, not browser windows; PoB does not exist yet, only the Bids folder. Both still to build. 5 free commands shipped: price gap, trench, check, history, perps. |
+| AG06 | VERIFY | PoP now reads sites in each mind's own window before it calls (coinglass, hyperliquid and others), each mind sees only its own read, and the folder shows what it opened. New PoB: `file a bid` or Bids › File a bid. Minds read sites, call a market blind, agree, then 50 free chips go on it and the market's result grades the folder. Tested with a fake browser and fake minds only; not run live (paid model and browser calls). |
 | AG08 | VERIFY | `watch a wallet` is built: its browser gets the job to find 3 top wallets on pump.fun and another source and read their recent trades. Not run yet (paid model calls). Still to do: file the result as a PoW-style folder. |
 | AG10 | VERIFY | A web page an agent writes in chat gets ▶ Preview on its monitor: sandboxed, desktop or phone width (tests only). Still to do: a coding agent's real project files and a dev server. |
 | AG11 | VERIFY | New 🎨 Creations drawer: images from its storage, pages and posts it wrote (tests only). Still to do: agents have no make-an-image command yet, though `ai_router` can generate images. |

@@ -12280,6 +12280,24 @@ async def rep_market_stake(p: RepStake):
     return _repm.board(st, now, me, _rep_of(ws))
 
 
+@app.post('/api/reputation/internal/agent-bid')
+async def internal_agent_bid(request: Request, body: dict):
+    """🎲 A PoB's door to the board: free chips only, staked or read under the board's lock, as `agent:<id>`. Its chips never earn season points."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    who = f"agent:{str(body.get('catId') or '')[:40]}"; mid = str(body.get('market') or '')[:16]; now = time.time()
+    async with _rm_lock:
+        st = _json_load(REP_MARKETS_PATH, {}) or {}
+        if body.get('op') == 'stake':
+            try:
+                _repm.stake(st, who, mid, str(body.get('side') or ''), int(body.get('chips') or 0), now, 50)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _json_save(REP_MARKETS_PATH, st)
+        m = next((x for x in st.get('markets') or [] if x['id'] == mid), None)
+    return {'market': _repm.view(m, now, who) if m else None}
+
+
 async def _predict_tick(now):
     """Every ~minute: settle rounds whose hour is over (biggest move wins, points via season_award, quest events, inbox note) and open this hour's ballot."""
     import predict as _pr
