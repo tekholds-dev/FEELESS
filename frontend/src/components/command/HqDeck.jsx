@@ -1,5 +1,6 @@
 import '../../styles/hqNav.css';
 import { FeeCategories } from './FeeCategories';
+import { ProviderReady } from './ProviderReady';
 import NumInput from '../NumInput';
 import { GuardPanel } from './GuardPanel';
 import { DefencePanel } from './DefencePanel';
@@ -248,6 +249,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'feecat' && <><FeeCatDesk call={call} /><FeeCatTune call={call} /></>}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'familia' && (isOwner ? <FamiliaAdmin call={call} /> : <p className="cc-empty">Only the creator wallet runs Familia.</p>)}
+    {tab === 'fees' && isOwner ? <ProviderReady call={call} /> : null}
     {tab === 'fees' && <FeeCategories call={call} Trading={<><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>} Fuse={<FuseFees call={call} />} />}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}

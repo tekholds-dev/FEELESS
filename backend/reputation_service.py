@@ -17472,6 +17472,14 @@ async def admin_rpc_set(request: Request):
     return {'ok': True, 'slot': slot, 'provider': _chain.provider_of(url), 'holders': bool(res.get('holders')), 'ms': res.get('ms'), 'lanes': _rpc_quota_state()}
 
 
+@app.get('/api/reputation/admin/providers')
+async def admin_providers(request: Request):
+    """🔑 Owner only: which provider keys are set, by name. Never a value. Calls nothing."""
+    _require_owner(request)
+    import provider_ready as _pr
+    return _pr.status(os.environ)
+
+
 @app.get('/api/reputation/admin/ai-key')
 async def admin_ai_key_status(request: Request):
     """🔑 Owner only: which AI providers have a key — provider, set, the last 4 characters. Never a key."""

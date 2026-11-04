@@ -6420,3 +6420,5 @@ Spotlight › Privacy; ~6 GB swap (Chrome + LM Studio + Claude). `frontend/.env.
 - 2026-10-31: Emergent deps/overlays removed · general agents never get free credit (staff too; `heal_general_credit` at feecat start) · hard lock: agent wallets refused by `create_cat` + `feeless-launch`, NEVER regex = FEELESS only · ☁ `agent_files.py` storage + workbench ＋ attach + `upload` action · ⬇ desk picture PNG (`lib/svgPng.js`).
 - 2026-10-31 · desk v4: free Nemotron minds for Fee, API keys in the cabinet, glass cost minds + model ages + usage notes, leaderboard windows, visitor theater with rails + stored pop, FEELESS-only trader demo (BTC chart → perps + narrative), research-only trader browser (backend)
 - 2026-10-31 · NEXA retired (free cloud models beat her): code, desk, rig, router lane, Prompt Studio key, MCP installer and tests removed; Fee runs her rules + Nemotron brains (paper)
+
+- 2026-11-04: PoP folders + pink live folder, Bids dash + USA sites (links only), CH01 charts draw source candles unedited (agents' inputs unchanged), push wallet claim needs a session, provider card, start-backend starts the watcher.
