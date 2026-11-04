@@ -105,10 +105,10 @@ def append(data_dir, cat_id, mind, folder, mint, at, pulls, metrics, steps=(), v
                 return prior
             sites = sorted({x['site'] for x in facts})
             labels = sorted({x['label'] for x in facts})
-            route = sorted(set(str(x)[:64] for x in steps or []))[:80]
+            route = list(dict.fromkeys(str(x)[:64] for x in steps or []))[:80]
             row = {'v': VERSION, 'id': ident, 'generation': len(rows) + 1, 'prev': rows[-1]['integrity'] if rows else None,
                    'at': int(at), 'folder': str(folder), 'mint': str(mint), 'mind': mind, 'sites': sites, 'labels': labels,
-                   'visited': sorted(set(visited or sites)), 'route': route, 'facts': facts, 'metrics': {k: (metrics or {}).get(k) for k in
+                   'visited': list(dict.fromkeys(visited or sites)), 'route': route, 'facts': facts, 'metrics': {k: (metrics or {}).get(k) for k in
                    ('durationSec', 'visits', 'verified', 'factsPerVisit', 'factsPerUsd', 'costUsd', 'gaps')}}
             policy = evolution(rows + [row])
             row['policy'] = {'v': 1, 'states': policy['states'],
@@ -181,6 +181,20 @@ def memory_versions(data_dir, cat_id):
     return load(data_dir, cat_id, 2)
 
 
+def version(data_dir, cat_id):
+    """Cheap owner-poll cache key; changes after any DNA or memory append."""
+    parts = []
+    for mind in (0, 1, 2):
+        try:
+            st = _path(data_dir, cat_id, mind).stat()
+            parts.append(f'{st.st_mtime_ns}:{st.st_size}')
+        except FileNotFoundError:
+            parts.append('0')
+        except OSError:
+            parts.append('error')
+    return '|'.join(parts)
+
+
 def preserve_model_memory(data_dir, cat_id, before, after_models, at):
     """Seal a recoverable version before a model swap can clear or sort active notes."""
     path = _path(data_dir, cat_id, 2)
@@ -217,4 +231,6 @@ def owner_view(data_dir, cat_id):
         minds.append({'mind': mind, 'generations': fp['generations'], 'uniqueRoutes': fp['uniqueRoutes'],
                       'verified': fp['verified'], 'coverage': fp['coverage'], 'states': policy['states'],
                       'events': policy['events'][-8:]})
-    return {'v': VERSION, 'minds': minds, 'memoryVersions': len(memory_versions(data_dir, cat_id))}
+    memories = memory_versions(data_dir, cat_id)
+    return {'v': VERSION, 'minds': minds, 'memoryVersions': len(memories),
+            'versions': [{'generation': r['generation'], 'at': r['at'], 'models': r.get('source', {}).get('brains') or []} for r in memories[-8:]]}

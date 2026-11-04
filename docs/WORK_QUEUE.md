@@ -31,8 +31,8 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 |---|---|---|
 | SI11 | VERIFY | Encrypted authenticated versioned per-mind Research DNA, append-only chain, verified evidence references and strict file permissions (`poi.py`). |
 | SI12 | VERIFY | Separate mind fingerprints with route diversity and observed facts per site; source ranking uses the mind's own history. |
-| SI13 | VERIFY | Cross-mind inheritance of promoted sites; four-observation promotion and subsequent regression retirement. Method combination and explicit rollback remain OPEN. |
-| SI14 | VERIFY | Sealed canonical model-memory snapshot before a model swap; owner sees version count. Migration comparison and restore controls remain OPEN. |
+| SI13 | VERIFY | Cross-mind inheritance of promoted sites; four-observation promotion and subsequent regression retirement. Unbought coins get same-interval, price-only counterfactuals when a folder actually buys and sells. Method combination, shadow proposal tracking and explicit rollback remain OPEN. |
+| SI14 | VERIFY | Actual model-switch path seals prior context before keep/sort/fresh; owner sees versions and can restore with two taps, with current context saved first. Model-assisted migration and strategy comparison remain OPEN. |
 | SI15 | VERIFY | Deterministic evidence-only promotion rule; risk/order guards remain in the existing engine. A unified versioned kernel for all resources remains OPEN. |
 | SI16 | VERIFY | Browser page readiness and search now wait for events rather than fixed sleeps. Real-session latency and frame-rate measurements remain OPEN. |
 | SI17 | VERIFY | 45-second manual challenge path with owner-visible outcome counts. Cross-worker authorized session reuse and lifecycle tests remain OPEN. |
@@ -40,7 +40,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | SI19 | VERIFY | Research DNA and share ledger have versioned records and stable keys. Whole-system service contracts and migration remain OPEN. |
 | SI20 | VERIFY | Owner PoW Explorer displays DNA source states and recovery counts. Full command-center redesign and device/performance verification remain OPEN. |
 
-**Still open from the full request:** shadow and counterfactual trades; out-of-sample method comparison/combination and rollback; canonical memory migration/restore; unified kernel resource limits; real browser duration, evidence completeness, FPS and challenge-recovery baselines; authorized cross-worker sessions; transferred/distributed Colony reconciliation; versioned contracts and safe legacy encryption migration; responsive command-center redesign. Do not mark these complete from synthetic tests or visual labels alone.
+**Still open from the full request:** persistent shadow proposals beyond completed trade intervals; out-of-sample method comparison/combination and rollback; model-assisted memory migration and strategy comparison; unified kernel resource limits; real browser duration, evidence completeness, FPS and challenge-recovery baselines; authorized cross-worker sessions; transferred/distributed Colony reconciliation; versioned contracts and safe legacy encryption migration; responsive command-center redesign. The plaintext legacy agent store is restricted to owner-only file permissions; full encryption requires updating its many cross-service readers safely. Do not mark these complete from synthetic tests or visual labels alone.
 
 **Security audit finding:** new per-agent PoW archive entries and saved site session contexts use the existing per-agent Fernet seal. Legacy archive entries and the main agent state file remain plaintext on disk; a careful, versioned migration with backups is still required before claiming full at-rest encryption. Public archive replies now omit private plans, browser steps and exact page excerpts. No claim of complete encryption is made for this pass.
 

@@ -719,3 +719,6 @@ body.theme-day .dsk-fp { background: #faf8ff; } body.theme-day .dsk-fp-sites b {
 @media (max-width: 640px) { .dsk-fp-sites li { grid-template-columns: 110px minmax(0, 1fr) 40px; } }
 
 .ck-v-row b.is-pow { color: #ffd76a; text-shadow: 0 0 10px #ffd76a55; font-size: 11px; }
+.dsk-rep-shadow{margin-top:12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--gold,#d6ae5a) 28%,transparent);border-radius:10px;display:grid;gap:5px;background:color-mix(in srgb,var(--gold,#d6ae5a) 5%,transparent)}
+.dsk-rep-shadow>b{font-size:10px;letter-spacing:.11em}.dsk-rep-shadow>small{opacity:.65}.dsk-rep-shadow ul{list-style:none;padding:0;margin:3px 0 0;display:flex;flex-wrap:wrap;gap:6px}.dsk-rep-shadow li{display:flex;gap:8px;padding:5px 8px;border-radius:6px;background:color-mix(in srgb,currentColor 5%,transparent);font-size:11px}
+.dsk-poi-versions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.dsk-poi-versions>b{font-size:10px;letter-spacing:.1em;margin-right:5px}.dsk-poi-versions .m-btn{font-size:10px}

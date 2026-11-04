@@ -689,8 +689,33 @@ def test_required_coin_verification_survives_exhausted_global_rotation(monkeypat
     cat = {'id': 'new-cat', 'powFolders': []}
     assert fs._pow2_research(cat, {'id': 'f1', 'charts': {}}, {'mint': 'fresh', 'pair': 'pair', 'sym': 'NEW', 'src': 'pump'}, 0, 1000)
     assert {'solscan.io', 'pump.fun'} <= set(seen['pow']['order'])
+    assert not {'solscan.io', 'pump.fun'} & set(seen['pow']['used'])
     assert len(seen['pow']['order']) >= 3
     fs._WORK.pop('new-cat', None)
+
+
+def test_shadow_comparison_is_price_only_and_marks_missing_observations():
+    f = {'mint': 'A', 'coins': [{'mint': 'A', 'sym': 'A', 'safe': True}, {'mint': 'B', 'sym': 'B', 'safe': True},
+                               {'mint': 'C', 'sym': 'C', 'safe': True}, {'mint': 'D', 'sym': 'D', 'safe': False}],
+         'shadowEntry': {'A': {'px': 1, 'at': 100}, 'B': {'px': 2, 'at': 100}, 'C': {'px': 3, 'at': 100}}}
+    out = pw.shadow_compare(f, {'B': 2.4}, 200)
+    assert [(x['mint'], x['priceMovePct']) for x in out] == [('B', 20.0), ('C', None)]
+    assert all('no fill' in x['basis'] for x in out)
+
+
+def test_shadow_exit_uses_one_batched_price_read_and_never_resamples(monkeypatch):
+    import feecat_service as fs
+    f = {'mint': 'A', 'coins': [{'mint': 'A', 'pair': 'PA', 'sym': 'A', 'safe': True},
+                               {'mint': 'B', 'pair': 'PB', 'sym': 'B', 'safe': True}]}
+    fs._pow2_shadow_entry(f, {'PA': {'priceNative': '1'}, 'PB': {'priceNative': '2'}}, 100)
+    calls = []
+    async def prices(_, pairs):
+        calls.append(pairs)
+        return {'PB': {'priceNative': '2.2'}}
+    monkeypatch.setattr(fs, '_pair_prices', prices)
+    asyncio.run(fs._pow2_shadow_exit(None, f, 200))
+    asyncio.run(fs._pow2_shadow_exit(None, f, 300))
+    assert calls == [['PB']] and f['shadow'][0]['priceMovePct'] == 10
 
 
 def test_keep_and_delete_pow_folders_on_the_desktop_never_the_archive(monkeypatch, tmp_path):

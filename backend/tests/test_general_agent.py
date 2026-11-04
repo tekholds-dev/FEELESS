@@ -115,6 +115,8 @@ def test_models_switch_after_24h_and_delete_is_guarded(monkeypatch):
     store = {'cats': {'g1': cat}, 'events': []}
     monkeypatch.setattr(svc, '_load', lambda: store)
     monkeypatch.setattr(svc, '_save', lambda s: None)
+    snapshots = []
+    monkeypatch.setattr(svc._poi, 'preserve_model_memory', lambda data, cid, old, models, at: snapshots.append((cid, list(old['brains']), list(models), list(old['cloud']))))
     req = SimpleNamespace(headers={})
 
     def act(**k):
@@ -133,12 +135,34 @@ def test_models_switch_after_24h_and_delete_is_guarded(monkeypatch):
     monkeypatch.setattr(svc, '_model_limit', limit)
     act(action='models', brains=['b/y'])
     assert cat['brainsCfg']['brains'] == ['b/y'] and cat['brainsCfg']['prompt'] == 'sealed' and cat['brainsCfg']['cloud'] == [{'text': 'kept'}]
+    assert snapshots == [('g1', ['a/x'], ['b/y'], [{'text': 'kept'}])]
+    def broken_snapshot(*args):
+        raise OSError('disk unavailable')
+    monkeypatch.setattr(svc._poi, 'preserve_model_memory', broken_snapshot)
+    with pytest.raises(HTTPException) as blocked:
+        act(action='models', brains=['a/x'], memory='fresh')
+    assert blocked.value.status_code == 503 and cat['brainsCfg']['brains'] == ['b/y'] and cat['brainsCfg']['cloud'] == [{'text': 'kept'}]
     with pytest.raises(HTTPException):
         act(action='delete', text='Scout')                    # retire first
     cat['revoked'] = True
     with pytest.raises(HTTPException):
         act(action='delete', text='wrong name')
     assert act(action='delete', text='scout')['deleted'] == 'g1' and 'g1' not in store['cats']
+
+
+def test_agent_store_is_private_and_corrupt_state_cannot_be_overwritten(monkeypatch, tmp_path):
+    import feecat_service as svc
+    path = tmp_path / 'agents.json'
+    monkeypatch.setattr(svc, 'STORE_PATH', path)
+    svc._save({'cats': {}, 'events': []})
+    assert path.stat().st_mode & 0o777 == 0o600
+    path.chmod(0o644)
+    assert svc._load() == {'cats': {}, 'events': []}
+    assert path.stat().st_mode & 0o777 == 0o600
+    path.write_text('{corrupt')
+    with pytest.raises(RuntimeError, match='refusing to start with empty state'):
+        svc._load()
+    assert path.read_text() == '{corrupt'
 
 
 @pytest.mark.parametrize('url,ok', [('https://feeless.app/', True), ('https://feeless.app/terminal/trenches', True), ('https://feeless.app/terminal/launch', False),

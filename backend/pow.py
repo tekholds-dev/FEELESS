@@ -724,11 +724,27 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'kept', 'hidden')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'shadow', 'kept', 'hidden')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]
     return out
+
+
+def shadow_compare(f, exit_prices, at):
+    """Counterfactual price moves for unbought folder coins, never executable P/L."""
+    first = f.get('shadowEntry') or {}
+    rows = []
+    for coin in f.get('coins') or []:
+        mint = coin.get('mint')
+        if not mint or mint == f.get('mint') or not coin.get('safe', True):
+            continue
+        start = first.get(mint) or {}
+        entry, exit_ = _f(start.get('px')), _f((exit_prices or {}).get(mint))
+        rows.append({'mint': mint, 'sym': coin.get('sym'), 'at': start.get('at'), 'exitAt': round(at),
+                     'priceMovePct': round(pnl_pct(entry, exit_), 2) if entry > 0 and exit_ > 0 else None,
+                     'basis': 'observed price only; no fill, fees or liquidity assumed'})
+    return rows
 
 
 def report(f):
@@ -748,7 +764,7 @@ def report(f):
     r = {'name': f.get('name'), 'coins': coins, 'researched': sum(1 for c in coins if c['vitals'] or c['shots']), 'pick': f.get('sym'),
          'sol': f.get('sol'), 'tp': f.get('tp'), 'sl': f.get('sl'), 'pnlPct': p, 'pnlSol': f.get('pnlSol'), 'grade': grade, 'why': f.get('why'),
          'held': round((_f(f.get('soldAt')) - _f(f.get('boughtAt'))) / 60, 1) if f.get('boughtAt') is not None and f.get('soldAt') else None, 'checks': f.get('checks') or 0,
-         'costUsd': cost, 'real': bool(f.get('real')), 'lesson': lesson}
+         'costUsd': cost, 'real': bool(f.get('real')), 'lesson': lesson, 'shadow': f.get('shadow') or []}
     md = [f"# {r['name']} — FINAL REPORT", '', f"**{grade}**" + (f" · {p:+.2f}% ({_f(f.get('pnlSol')):+.6f} SOL)" if p is not None else '')
           + (' · real money' if r['real'] else ' · paper'), f"Why it ended: {r['why'] or '—'}", f"Lesson: {lesson}", '', '## Coins']
     for c in coins:
@@ -756,6 +772,9 @@ def report(f):
                   f"{c['vitals']} vitals · {c['shots']} snapshots · sites: {', '.join(c['sites']) or 'none'}")
     if pk:
         md += ['', '## Trade', f"- size {r['sol']} SOL · TP +{r['tp']}% · SL −{r['sl']}% · held {r['held'] or 0} min · {r['checks']} live checks"]
+    if r['shadow']:
+        md += ['', '## Counterfactuals (observed price move only; no trade or P/L)']
+        md += [f"- ${x.get('sym') or '?'}: {x['priceMovePct']:+.2f}%" if x.get('priceMovePct') is not None else f"- ${x.get('sym') or '?'}: insufficient price observations" for x in r['shadow']]
     md += ['', f"Model cost: ${cost:.4f}", '', '## The discussion'] + [f"- **{t.get('by')}**: {t.get('text')}" for t in (f.get('talk') or [])]
     return r, '\n'.join(md) + '\n'
 

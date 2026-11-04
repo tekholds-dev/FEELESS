@@ -84,12 +84,16 @@ def honest_brain(cat):
 def _load() -> dict:
     if STORE_PATH.exists():
         try:
+            if STORE_PATH.stat().st_mode & 0o077:
+                STORE_PATH.chmod(0o600)
             store = json.loads(STORE_PATH.read_text())
+            if not isinstance(store, dict) or not isinstance(store.get('cats'), dict):
+                raise ValueError('invalid agent store schema')
             for c in (store.get('cats') or {}).values():
                 honest_brain(c)
             return store
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError) as e:
+            raise RuntimeError(f'Agent store is unreadable; refusing to start with empty state: {e}') from e
     return _empty_store()
 
 
@@ -130,7 +134,10 @@ def _save(store: dict):
     # Readers include the live agent loops. Never let one read a half-written JSON file and mistake it for an empty store.
     tmp = STORE_PATH.with_name(f'{STORE_PATH.name}.{uuid.uuid4().hex}.tmp')
     try:
-        tmp.write_text(json.dumps(store, indent=2))
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as fh:
+            json.dump(store, fh, indent=2)
+            fh.flush(); os.fsync(fh.fileno())
         tmp.replace(STORE_PATH)
     finally:
         tmp.unlink(missing_ok=True)
@@ -1378,9 +1385,10 @@ _POW_WANT: dict = {}   # 💬 'file a PoW' / 'stop PoW' from the chat, read by t
 
 
 def _pow_ver(cat):
-    """A cheap version of the filed PoW folders: changes when one is filed, kept, deleted or a coin folder is hidden."""
+    """Cheap owner desk version; a DNA or memory append updates PoI without full-folder polling."""
     fs_ = cat.get('powFolders') or []
-    return f"{len(fs_)}:{(fs_[-1] if fs_ else {}).get('id', '')}:{sum(1 for x in fs_ if x.get('kept'))}:{sum(len(x.get('hidden') or []) for x in fs_)}"
+    base = f"{len(fs_)}:{(fs_[-1] if fs_ else {}).get('id', '')}:{sum(1 for x in fs_ if x.get('kept'))}:{sum(len(x.get('hidden') or []) for x in fs_)}"
+    return f"{base}:{_poi.version(DATA_DIR, cat['id'])}"
 
 
 def _pow2_on(cat):
@@ -1453,7 +1461,9 @@ def _pow2_research(cat, f, coin, mind_i, now):
     rp['known'] = sorted(set(rp['known']) | {x['label'] for x in reused_})
     rp['reusedSites'] = sorted({x['site'] for x in reused_})
     rp['required'] = ['solscan.io'] + (['pump.fun'] if coin.get('src') == 'pump' else [])
-    rp['used'] = sorted(set(rp['used']) | blocked_sites_ | set(rp['reusedSites']))
+    same_coin_sites_ = {h for row in prior_ for h in row.get('sites') or []}
+    required_fresh_ = set(rp['required']) - same_coin_sites_ - set(rp['reusedSites'])
+    rp['used'] = sorted((set(rp['used']) | blocked_sites_ | set(rp['reusedSites'])) - required_fresh_)
     rp['priorSteps'] = sorted(blocked_steps_)
     rp['prior'] = _pow.archive_brief(_pow.archive_find(archive_, coin['mint']))
     recent_, _ = _pow.site_memory(cat.get('powFolders'))
@@ -1470,7 +1480,7 @@ def _pow2_research(cat, f, coin, mind_i, now):
     # for this mint. If rotation exhausts the catalog, reuse the least spent
     # available sites rather than filing a coin with no browser investigation.
     for host in rp['required']:
-        if host not in blocked_sites_ and host not in rp['reusedSites'] and host in _pow.HOSTS and host not in ranked_:
+        if host in required_fresh_ and host in _pow.HOSTS and host not in ranked_:
             ranked_.insert(0, host)
     if len(ranked_) < 3:
         fallback_ = _pow.ranked_sources(blocked_sites_ | set(rp['reusedSites']), _src_book(), fp_.get('coverage'), now, inherited_)
@@ -1543,7 +1553,7 @@ def _pow2_collect(f, t_, who, now):
             f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
-    steps_ = sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []})
+    steps_ = list(dict.fromkeys(_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []))
     _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
                                       vitals=pub_['pulls'], metrics=f['evidenceMetrics'][m_], sites=sorted((pw_.get('sites') or {}).keys()), steps=steps_, walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
     if pw_.get('cat'):
@@ -1602,6 +1612,23 @@ async def _pow2_reconcile(http, cat, f):
     f.update(buySig=buy['sig'], sellSig=sell['sig'], netPnlSol=round(fills[1]['cashSol'] - fills[0]['cashSol'], 9),
              settlementVerified=True, cashSpentSol=fills[0]['cashSol'], cashReturnedSol=fills[1]['cashSol'])
     return True
+
+
+def _pow2_shadow_entry(f, prices, now):
+    """Start same-time paper comparisons when the chosen buy actually fills."""
+    f['shadowEntry'] = {c['mint']: {'px': _num((prices.get(c['pair']) or {}).get('priceNative')), 'at': round(now)}
+                        for c in f.get('coins') or [] if c.get('safe', True) and c.get('pair')}
+
+
+async def _pow2_shadow_exit(http, f, now):
+    if not f.get('shadowEntry') or f.get('shadow') is not None:
+        return
+    alternatives = [c for c in f.get('coins') or [] if c.get('mint') != f.get('mint') and c.get('safe', True) and c.get('pair')]
+    try:
+        prices = await _pair_prices(http, [c['pair'] for c in alternatives]) if alternatives else {}
+    except (httpx.HTTPError, ValueError):
+        prices = {}
+    f['shadow'] = _pow.shadow_compare(f, {c['mint']: _num((prices.get(c['pair']) or {}).get('priceNative')) for c in alternatives}, now)
 
 
 def _pow2_close(cat, f, why, now, exit_px=0.0):
@@ -1837,7 +1864,8 @@ async def _pow2_tick(http, store, cat, now):
         if f.get('pid'):   # 💵 a REAL buy: the folder waits for its wallet to fill it — it never tracks a buy that did not happen (live 2026-11-01)
             p_ = next((x for x in cat.get('proposals') or [] if x.get('id') == f['pid']), None) or {}
             if p_.get('status') == 'done' or f['mint'] in (cat.get('realHeld') or {}):
-                live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
+                prices = await _pair_prices(http, [c['pair'] for c in f['coins'] if c.get('safe', True)])
+                live = prices.get(f['pair']) or {}; _pow2_shadow_entry(f, prices, now)
                 f.update(entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
                 _pow2_say(f, 'engine', f"its wallet bought {f['sol']:g} SOL of ${f['sym']} on FEELESS")
             elif 'wallet holds' in str(p_.get('agentWhy') or '') or 'no SOL left' in str(p_.get('agentWhy') or ''):   # 💸 it can't afford it: say so NOW, never wait 10 min
@@ -1864,7 +1892,8 @@ async def _pow2_tick(http, store, cat, now):
             f.update(sol=sol, real=True, pid=row.get('pid'), phaseAt=round(now))
             _pow2_say(f, 'engine', f"its wallet is buying {sol:g} SOL of ${f['sym']} on FEELESS")
             return
-        live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
+        prices = await _pair_prices(http, [c['pair'] for c in f['coins'] if c.get('safe', True)])
+        live = prices.get(f['pair']) or {}; _pow2_shadow_entry(f, prices, now)
         f.update(sol=sol, real=False, entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
         _pow2_say(f, 'engine', f"bought {sol:g} SOL of ${f['sym']} on FEELESS (paper)")
         return
@@ -1916,6 +1945,7 @@ async def _pow2_tick(http, store, cat, now):
             if not f.get('settlementVerified'):
                 return  # the folder stays recoverable until both on-chain fills can be verified
             f.pop('settlementPending', None)
+            await _pow2_shadow_exit(http, f, now)
             _pow2_close(cat, f, f.get('sellWhy') or 'its wallet sold', now, px)
         elif sale.get('status') in ('failed', 'expired'):
             f.pop('sellPid', None)
@@ -1925,6 +1955,7 @@ async def _pow2_tick(http, store, cat, now):
     if not held:   # its stops (or you) already sold it
         if f.get('real'):
             f['settlementPending'] = True
+        await _pow2_shadow_exit(http, f, now)
         _pow2_close(cat, f, 'sold by its stops', now, px); return
     if px:
         f['chart'] = (f.get('chart') or [])[-40:] + [{'at': round(now), 'px': px}]
@@ -1941,6 +1972,7 @@ async def _pow2_tick(http, store, cat, now):
             f['phase'] = 'sell'
             return
         _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
+        await _pow2_shadow_exit(http, f, now)
         _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
     rr_ = int(f.get('rr') or 0)
     researcher = rr_ % f['minds']   # 🔁 research rounds ALTERNATE minds in the background while the chart is checked live
@@ -3195,7 +3227,6 @@ async def create_cat(payload: CreatePayload):
     }
     if payload.brains:
         cat_ = await _or_models()
-        previous_memory_ = cat.get('brainsCfg') or {}
         ids_ = {m['id'] for m in cat_.get('models') or []}
         try:
             cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None, max_models=await _model_limit(payload.session or ''))
@@ -3208,11 +3239,6 @@ async def create_cat(payload: CreatePayload):
                 if payload.taskCap: cat['taskCap'] = max(0.005, min(TASK_CAP_MAX, float(payload.taskCap)))
         except ValueError as e:
             raise HTTPException(400, str(e))
-        try:
-            _poi.preserve_model_memory(DATA_DIR, cat_id, previous_memory_, cat['brainsCfg']['brains'], time.time())
-        except (OSError, ValueError) as e:
-            cat['brainsCfg'] = previous_memory_
-            raise HTTPException(503, f'Model switch paused: prior memory could not be sealed ({e}).')
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
             row = next((m for m in cat_.get('models', []) if m['id'] == model), {})
             if effort not in row.get('efforts', []):
@@ -4037,6 +4063,26 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'unmedia':
         cat['media'] = [m for m in cat.get('media') or [] if m.get('url') != p.text]; _save(store)
         return {'media': cat['media']}
+    if p.op == 'memory_restore':
+        if w and not w.get('done'):
+            raise HTTPException(409, 'Let its current task finish before restoring model memory.')
+        b_ = cat.get('brainsCfg')
+        if not b_:
+            raise HTTPException(400, 'This agent has no model memory.')
+        try:
+            version = next((r for r in _poi.memory_versions(DATA_DIR, cat_id) if r['generation'] == p.i), None)
+            if version is None:
+                raise HTTPException(404, 'That sealed memory version was not found.')
+            _poi.preserve_model_memory(DATA_DIR, cat_id, b_, b_.get('brains') or [], time.time())
+        except (OSError, ValueError) as e:
+            raise HTTPException(503, f'Memory restore paused: sealed versions could not be verified ({e}).')
+        source = version['source']
+        b_['cloud'] = source.get('cloud') or []
+        b_['decisions'] = source.get('decisions') or []
+        b_['minds'] = {m: note for m, note in (source.get('minds') or {}).items() if m in (b_.get('brains') or [])}
+        _log_event(store, cat, 'LEARN', f"🔁 restored model memory version {version['generation']}")
+        _save(store)
+        return {'memoryRestored': version['generation'], 'poi': _poi_owner_view(cat_id)}
     if p.op == 'mode':   # 🧭 plan together → one answer · each mind its own job
         if p.job not in _ca.MODES:
             raise HTTPException(400, 'Pick plan or jobs.')
@@ -5132,13 +5178,19 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         if not cat.get('brainsCfg') and not cat.get('isLeader'):
             raise HTTPException(400, 'This cat has no AI models.')
         cat_ = await _or_models()
-        try:   # the brief and credit carry over; its memory (cloud + decisions) too, unless you start fresh
-            prev_ = cat.get('brainsCfg') or {'kind': 'trading', 'billing': 'payg'}
-            cat['brainsCfg'] = _lc.clean({'brains': payload.brains, 'brainKind': prev_.get('kind') or 'trading', 'billing': prev_.get('billing') or 'payg', 'prompt': payload.text or ''},
-                                         prev_ if cat.get('brainsCfg') else None, {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
+        prev_ = cat.get('brainsCfg') or {'kind': 'trading', 'billing': 'payg'}
+        try:   # the brief and credit carry over; the old model context is sealed before a fresh or sorted copy replaces it
+            next_ = _lc.clean({'brains': payload.brains, 'brainKind': prev_.get('kind') or 'trading', 'billing': prev_.get('billing') or 'payg', 'prompt': payload.text or ''},
+                              prev_ if cat.get('brainsCfg') else None, {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
         except ValueError as e:
             raise HTTPException(400, str(e))
-        if payload.memory == 'fresh':   # 🧹 a clean slate for the new models: its old memory is deleted, never mixed in
+        if cat.get('brainsCfg'):
+            try:
+                _poi.preserve_model_memory(DATA_DIR, cat_id, prev_, next_['brains'], time.time())
+            except (OSError, ValueError) as e:
+                raise HTTPException(503, f'Model switch paused: prior memory could not be sealed ({e}).')
+        cat['brainsCfg'] = next_
+        if payload.memory == 'fresh':   # 🧹 clean active context; the original sealed version remains recoverable
             cat['brainsCfg'].update(cloud=[], decisions=[], minds={})
         elif payload.memory == 'sort':   # 🧠 the NEW lead model reads its old cloud and keeps only what still helps (the rest is deleted)
             asyncio.create_task(_sort_cloud(cat_id, cat['brainsCfg']['brains'][0]))

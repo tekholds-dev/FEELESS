@@ -729,6 +729,8 @@ function ReportFile({ f, catId }) {
     <p className="dsk-rep-l"><b>Lesson</b> {r.lesson}</p>
     <ul className="dsk-rep-c">{(r.coins || []).map(c => <li key={c.mint} className={c.pick ? 'is-pick' : c.safe ? '' : 'is-bad'}><b>{c.pick ? '⭐ ' : ''}${c.sym}</b><em>{c.src}</em>
       <u><s style={{ transform: `scaleX(${Math.min(1, (c.vitals || 0) / 9)})` }} /></u><small className="m-num">{c.safe ? `${c.vitals} vitals · ${c.shots} 📸` : `unsafe — ${c.risk || ''}`}</small></li>)}</ul>
+    {(r.shadow || []).length ? <div className="dsk-rep-shadow" data-testid="dsk-rep-shadow"><b>COUNTERFACTUAL · NO TRADE</b><small>Observed price move over the same hold; no fill, fees or liquidity assumed.</small>
+      <ul>{r.shadow.map(x => <li key={x.mint}><span>${x.sym}</span><strong className="m-num">{x.priceMovePct == null ? 'price gap' : `${x.priceMovePct >= 0 ? '+' : ''}${x.priceMovePct}%`}</strong></li>)}</ul></div> : null}
   </div>;
 }
 // 🤝 SHARE PoW WINS WITH THE POT (owner 2026-11-02: "an option in the PoW folder to still send x% of winnings to the pot wallet without colonize"):
@@ -756,9 +758,13 @@ function FingerPanel({ fp }) {
       <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
     {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
 }
-function PoiPanel({ poi }) {
+function PoiPanel({ poi, catId, onRestore }) {
+  const [confirm, setConfirm] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   if (!poi) return null;
   if (poi.error) return <div className="dsk-poi" role="alert"><b>🧬 Research DNA needs repair</b><small>{poi.error}</small></div>;
+  const restore = async generation => { if (confirm !== generation) { setConfirm(generation); return; }
+    setBusy(true); setError(''); try { const x = await work(catId, { op: 'memory_restore', i: generation }); onRestore?.(x.poi); setConfirm(null); }
+    catch (e) { setError(e.message); } finally { setBusy(false); } };
   return <section className="dsk-poi" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
     <b>🧬 PROOF OF INTELLIGENCE</b><small>Private verified research · version {poi.v} · {poi.memoryVersions || 0} sealed model memory versions</small>
     <div className="dsk-poi-minds">{(poi.minds || []).map(m => <article key={m.mind}><strong>Mind {m.mind ? 'B' : 'A'}</strong>
@@ -766,6 +772,8 @@ function PoiPanel({ poi }) {
       <small>{Object.entries(m.states || {}).filter(([, state]) => state === 'promoted').map(([host]) => host).join(' · ') || 'No source promoted yet'}</small>
       {(m.events || []).length ? <em>{m.events.at(-1).site} {m.events.at(-1).state} at generation {m.events.at(-1).generation}</em> : null}
     </article>)}</div>
+    {(poi.versions || []).length ? <div className="dsk-poi-versions"><b>SEALED MODEL MEMORY</b>{poi.versions.slice().reverse().map(v => <button key={v.generation} type="button" className="m-btn" disabled={busy} onClick={() => restore(v.generation)} data-testid={`dsk-memory-${v.generation}`}>{confirm === v.generation ? 'Restore this version? Tap again' : `Version ${v.generation} · ${new Date(v.at * 1000).toLocaleDateString()}`}</button>)}</div> : null}
+    {error ? <small role="alert">{error}</small> : null}
   </section>;
 }
 function PowReplay({ f, catId, onShot }) {
@@ -798,7 +806,7 @@ function PowExplorer({ cat, d, setD }) {
   else if (!f) body = <>
     <PowShare cat={cat} />
     <FingerPanel fp={d?.fingerprint} />
-    <PoiPanel poi={d?.poi} />
+    <PoiPanel poi={d?.poi} catId={cat.id} onRestore={poi => setD?.(x => ({ ...x, poi }))} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
