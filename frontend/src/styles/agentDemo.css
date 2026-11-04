@@ -138,7 +138,8 @@ body.theme-day .agl-vit dt { color: #6a5a8a; }
 .agl.agd .agd-wins { padding-bottom: 0; }
 .agl-load { display: grid; place-items: center; height: 100%; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { color: #4a3a6a; }
-@media (max-width: 640px) { .agd-wins { grid-template-columns: minmax(0, 504px); } .agl-plot :is(.chart-foot-chips, .chart-style-toggle, .ccp-lens) { display: none; } }   /* phone windows: the candles, not chips on top of them */
+@media (max-width: 640px) { .agd-wins { grid-template-columns: minmax(0, 504px); } }
+.agl-plot :is(.chart-foot-chips, .chart-style-toggle, .ccp-lens) { display: none; }   /* owner 2026-11-04: on an agent window these chips sat on the time axis and each other */   /* phone windows: the candles, not chips on top of them */
 
 /* ☁ the head cloud between the two minds — fills and glows once both agree; a beam from each bubble feeds it */
 .agl-minds.has-cloud { align-items: center; gap: clamp(14px, 4vw, 48px); }
