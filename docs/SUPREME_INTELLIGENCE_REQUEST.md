@@ -60,6 +60,15 @@ Implement:
 * Automatic promotion, rejection and rollback under deterministic rules.
 * Permanent generation history.
 PoI must learn which browser investigation methods produce the most useful evidence, not merely which trades happened to win.
+
+PoI folder inside every PoW folder — required visual upgrade:
+
+* Every PoW folder, live or filed, contains exactly one clearly named PoI child folder. It belongs to that PoW and remains available with the archived folder.
+* Make this a striking, responsive, information-dense visual experience: living evidence paths, source-coverage and quality vitals, two distinct mind fingerprints, DNA generations, inherited methods, promotions, retirements, rollbacks, and research efficiency. Animate actual state changes; keep it smooth and readable on desktop, tablet and mobile.
+* Show how that specific PoW used PoI: which source or method was scheduled because of a fingerprint, what each mind independently verified, what was reused, what changed during research, which policy or safeguard affected the path, and what evidence or outcome the new generation contributed. Link each claim to its timestamped PoW evidence and replay where available.
+* Distinguish candidate, validated, rejected and unavailable information. Show gaps and insufficient samples honestly; never infer a learning result from a winning trade alone or display decorative/fabricated metrics.
+* Keep private DNA, credentials, raw cookies and protected browser details behind the owner's access boundary. The folder may display safe summaries and provenance without exposing sealed records.
+
 3. Hardcoded Evolution Kernel
 Build a deterministic, model-independent engine responsible for:
 * Evidence validation and freshness.
