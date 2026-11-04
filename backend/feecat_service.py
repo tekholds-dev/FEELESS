@@ -1714,6 +1714,12 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     run_ = cat.setdefault('powRun', {}); run_.pop('folder', None); run_['rested'] = now
 
 
+def _order_wait(cat):
+    """Who a real order waits on: its own wallet on auto, you on ASK ME, your wallet's signature when it has none of its own."""
+    w_ = cat.get('agentWallet')
+    return "waiting for your wallet's signature" if not w_ else 'its wallet is sending it' if w_.get('mode') == 'auto' else 'waiting for your OK'
+
+
 async def _pow2_vet(http, c, now, read=True):
     """📥 A coin's FEELESS live read + the SAME guards + safety check a buy runs (free, server-side) — the minds only choose what can be bought."""
     if read:
@@ -1919,8 +1925,11 @@ async def _pow2_tick(http, store, cat, now):
                 cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"💸 {f['name']}: its wallet can't buy ${f['sym']} — {p_['agentWhy']}. Add SOL to its wallet, then file a PoW again.", 'at': time.time(), 'open': 'pow'}])[-40:]
                 _pow2_close(cat, f, f"its wallet is short — {p_['agentWhy']}", now)
             elif p_.get('status') in ('failed', 'expired', 'skip') or now - f['phaseAt'] > _pow.SIGN_WAIT_S:
+                sent_ = p_.get('agentTx') and any(t.get('key') == p_['agentTx'] and t.get('status') in _at.LIVE for t in cat.get('agentTx') or [])
+                if p_.get('status') == 'pending' and sent_ and now - f['phaseAt'] <= 2 * _pow.SIGN_WAIT_S:   # already sent: the chain decides. Closing now could leave a coin with no folder watching it
+                    return
                 if p_.get('status') == 'pending':
-                    p_.update(status='expired', why2='its PoW folder closed before it was signed')   # nothing left hanging
+                    p_.update(status='expired', why2='sent, but the chain never confirmed it' if sent_ else 'its PoW folder closed before it was signed')   # nothing left hanging
                 _pow2_close(cat, f, f"the buy did not fill ({p_.get('why2') or p_.get('status') or 'not signed'})", now)
             return
         sol = round(float(f.get('sol') or min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0)), 4)   # the size the minds agreed
@@ -2034,7 +2043,7 @@ async def _pow2_tick(http, store, cat, now):
         if row.get('state') == 'proposed':
             _pow2_approve(cat, row.get('pid'))   # its wallet sells on its own too
             f.update(sellPid=row.get('pid'), sellWhy=why_x or f.get('sellWhy') or 'the watcher said sell', phase='sell_wait')
-            _pow2_say(f, 'engine', f"sell submitted; waiting for its wallet's confirmed fill — {row.get('why')}")
+            _pow2_say(f, 'engine', f"sell sent; waiting for its wallet's confirmed fill (because {f['sellWhy']})")
             return
         if f.get('real'):
             _pow2_say(f, 'engine', f"sell not confirmed — {row.get('why')}; the folder keeps watching")
@@ -5046,7 +5055,7 @@ async def _run_order(store, cat, text, http):
         if real_:   # a coin its own wallet really holds
             p_ = _real.propose(cat, 'sell', real_[0], real_[1].get('pair'), real_[1].get('symbol'), f"your order: {text}", now, fraction=order['fraction'])
             _notify_real(cat, p_)
-            return _co.note(cat, text, order, 'proposed', f"✍ sell {round(order['fraction'] * 100)}% — waiting for your OK", now, real_[1].get('symbol'), p_['id'])
+            return _co.note(cat, text, order, 'proposed', f"✍ sell {round(order['fraction'] * 100)}% — {_order_wait(cat)}", now, real_[1].get('symbol'), p_['id'])
         pos = _co.held_of(cat.get('positions'), order['coin'])
         if not pos:
             return _co.note(cat, text, order, 'refused', f"🫥 it holds no ${order['coin']}", now, order['coin'])
@@ -5080,7 +5089,7 @@ async def _run_order(store, cat, text, http):
         if not p_:
             return _co.note(cat, text, order, 'refused', '🫥 could not build the proposal', now, sym)
         _notify_real(cat, p_)
-        return _co.note(cat, text, order, 'proposed', f"✍ buy {p_['sol']:g} SOL{capped} — guards passed, waiting for your wallet's signature", now, sym, p_['id'])
+        return _co.note(cat, text, order, 'proposed', f"✍ buy {p_['sol']:g} SOL{capped} — guards passed, {_order_wait(cat)}", now, sym, p_['id'])
     if sol <= 0 or cat.get('balanceSol', 0) < sol or not px:
         return _co.note(cat, text, order, 'refused', f"💰 paper balance {cat.get('balanceSol', 0):.3f} SOL — not enough for {sol:g} SOL", now, sym)
     cat['balanceSol'] = round(cat['balanceSol'] - sol, 6)

@@ -251,7 +251,6 @@ CLAUDE's former CURRENT TASKS is preserved below for exact wording and the detai
 | Q25 | OPEN | FeeCat pages: charts first, minds under them, tighter layout; FeeCat on a profile is a pop-out. |
 | Q28 | OPEN | Family command center: owner sets any cost (for example 5 MP for a city lot). |
 | Q29 | OWNER | HQ › Fees showed the swap fee at 1500 bps (15%) on 2026-10-29: confirm that is intended. |
-| SEC02 | OPEN | Forged phone sign-ups from before the fix are not found or removed. `reactions` still trusts the voter name. (`edge/observe` now checks the server's price on Solana.) |
 | CH05 | OWNER | Move agents and the real card onto true candles after a shadow test. They still read filled bars. |
 
 **Standing rules:** US users only reach venues allowed for them. The user's wallet signs real money; FEELESS holds no keys or pooled funds. Every new buy door ships with guards. Touching a page means its whole flow. Money surfaces lead with the aggressive play and name the risk.

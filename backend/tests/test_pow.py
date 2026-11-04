@@ -410,6 +410,11 @@ def test_a_real_buy_waits_for_its_wallet_and_a_folder_never_tracks_a_buy_that_di
     cat2 = dict(cat, powRun={'folder': {**f, 'phase': 'buy', 'pid': 'pp2', 'phaseAt': 100}}, proposals=[{'id': 'pp2', 'status': 'pending'}], realHeld={})
     asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat2}}, cat2, 100 + pw.SIGN_WAIT_S + 1))
     assert cat2['proposals'][0]['status'] == 'expired' and 'did not fill' in cat2['powFolders'][-1]['why']   # withdrawn, folder closed
+    cat3 = dict(cat, powRun={'folder': {**f, 'phase': 'buy', 'pid': 'pp3', 'phaseAt': 100}}, proposals=[{'id': 'pp3', 'status': 'pending', 'agentTx': 'k3'}], agentTx=[{'key': 'k3', 'status': 'pending'}], realHeld={})
+    asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat3}}, cat3, 100 + pw.SIGN_WAIT_S + 1))
+    assert cat3['powRun']['folder']['phase'] == 'buy' and cat3['proposals'][0]['status'] == 'pending'   # already sent: the chain decides, nothing is orphaned
+    asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat3}}, cat3, 100 + 2 * pw.SIGN_WAIT_S + 1))
+    assert 'chain never confirmed' in cat3['powFolders'][-1]['why']
 
 
 def test_the_minds_set_size_tp_sl_clamped_to_the_wallet_budget_and_agree_on_the_safer_one():

@@ -1895,6 +1895,7 @@ class ReactPayload(BaseModel):
     messageId: str
     emoji: str
     voter: str
+    session: Optional[str] = None
 
 
 @app.post('/api/reputation/reactions')
@@ -1902,6 +1903,10 @@ async def react(payload: ReactPayload):
     import street_chat as _stc
     if payload.emoji not in (_stc.REACTS if payload.room.startswith('city-') else REACTIONS) or not (6 <= len(payload.voter) <= 80):
         raise HTTPException(400, 'Invalid reaction.')
+    if not payload.voter.startswith('browser-'):   # 🔒 a wallet's vote needs that wallet's signed session; a guest votes as this browser
+        owner_ = session_address(payload.session) if payload.session else None
+        if not owner_ or primary_of(owner_) != primary_of(payload.voter):
+            raise HTTPException(401, 'Sign in to react as this wallet.')
     async with _react_lock:
         d = _react_load()
         msg = d['rooms'].setdefault(payload.room[:120], {}).setdefault(payload.messageId[:80], {})

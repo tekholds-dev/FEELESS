@@ -19,6 +19,12 @@ export function readChatSession(address, ownOnly = false, fresh = false) {   // 
   } catch { /* ignore */ }
   return null;
 }
+// 🔒 Who a reaction counts as: the wallet with its signed session, else this browser as a guest. The server refuses a wallet with no session.
+export function reactionVoter(address) {
+  const session = address ? readChatSession(address) : null;
+  if (session) return { voter: address, session };
+  try { let v = localStorage.getItem('feeless-voter'); if (!v) { v = `browser-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`; localStorage.setItem('feeless-voter', v); } return { voter: v }; } catch { return { voter: 'browser-anon' }; }
+}
 export function clearChatSession(address) { try { localStorage.removeItem(key(address)); } catch { /* ignore */ } }
 // 🔒 Sign out = signed out here: every chat session in this browser goes, so agents fall back to their public view (owner 2026-10-30).
 export function clearAllChatSessions() {

@@ -6,7 +6,7 @@ import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './Ch
 import { PanelBoundary } from './PanelBoundary';
 import { useDraft } from '../lib/useDraft';
 import { RepMark } from './RepMark';
-import { readChatSession } from '../lib/chatSession';
+import { readChatSession, reactionVoter } from '../lib/chatSession';
 import { WalletMark } from './WalletPfp';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FuseChatCard } from './FuseChatCard';
@@ -40,10 +40,6 @@ const registeredCalls = new Set();
 const EMOJIS = ['🔥', '🚀', '💎', '💀'];
 const WINDOW = 40;   // messages on the page at once (older ones load on tap) — a long wall stays light
 let callerBoard = { at: 0, map: new Map() };
-const voterId = wallet => {
-  if (wallet?.address) return wallet.address;
-  try { let v = localStorage.getItem('feeless-voter'); if (!v) { v = `browser-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`; localStorage.setItem('feeless-voter', v); } return v; } catch { return 'browser-anon'; }
-};
 // Reactions, per-message call performance and caller track records for one room.
 function useChatMeta(room, wallet) {
   const [meta, setMeta] = useState({ reactions: {}, calls: {}, board: callerBoard.map });
@@ -51,7 +47,7 @@ function useChatMeta(room, wallet) {
     if (typeof fetch !== 'function') return;
     try {
       const [r, c] = await Promise.all([
-        fetch(apiUrl(`/api/reputation/reactions?room=${encodeURIComponent(room)}&voter=${encodeURIComponent(voterId(wallet))}`)).then(x => (x.ok ? x.json() : {})),
+        fetch(apiUrl(`/api/reputation/reactions?room=${encodeURIComponent(room)}&voter=${encodeURIComponent(reactionVoter(wallet?.address).voter)}`)).then(x => (x.ok ? x.json() : {})),
         fetch(apiUrl(`/api/reputation/calls/by-room?room=${encodeURIComponent(room)}`)).then(x => (x.ok ? x.json() : {})),
       ]);
       if (Date.now() - callerBoard.at > 60000) {
@@ -63,7 +59,7 @@ function useChatMeta(room, wallet) {
   }, [room, wallet]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 8000); return () => clearInterval(t); }, [load]);
   const react = async (messageId, emoji) => {
-    await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, messageId: String(messageId), emoji, voter: voterId(wallet) }) }).catch(() => {});
+    await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, messageId: String(messageId), emoji, ...reactionVoter(wallet?.address) }) }).catch(() => {});
     load();
   };
   return { ...meta, react };

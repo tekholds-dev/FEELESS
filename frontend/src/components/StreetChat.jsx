@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { reactionVoter } from '../lib/chatSession';
 import { useGlide } from '../lib/useGlide';
 import { FamilyCrest } from './FamilyCrest';
 import { familiaTrade } from './FamiliaTrade';
@@ -26,7 +27,6 @@ const SPLIT = /(@[A-Za-z0-9_.-]{2,32}|\$[A-Za-z][A-Za-z0-9]{1,11}\b|\b[1-9A-HJ-N
 export function streetParts(text) {
   return String(text || '').split(SPLIT).filter(Boolean).map(t => ({ t, k: t[0] === '@' ? 'at' : t[0] === '$' ? 'tick' : /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(t) ? 'ca' : 'text' }));
 }
-const voter = addr => { if (addr) return addr; try { let v = localStorage.getItem('feeless-voter'); if (!v) { v = `browser-${Math.random().toString(36).slice(2)}`; localStorage.setItem('feeless-voter', v); } return v; } catch { return 'browser-anon'; } };
 
 // 🌃 the drawn street: far + near skyline (lit windows), the city's neon sign, a lamp, rain, a wet-street sheen — one calm moving layer each
 const StreetScene = memo(function StreetScene({ name, heat = 0 }) {
@@ -183,7 +183,7 @@ export default function StreetChat({ city, name, addr, sess }) {
   const react = async (id, emoji) => {
     setD(x => x && ({ ...x, lines: x.lines.map(l => { if (l.id !== id) return l; const r = { ...(l.reacts || {}) }; const c = r[emoji] || { n: 0, mine: false };
       r[emoji] = { n: Math.max(0, c.n + (c.mine ? -1 : 1)), mine: !c.mine }; return { ...l, reacts: r }; }) }));
-    await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: d?.room || `city-${city}`, messageId: id, emoji, voter: voter(addr) }) }).catch(() => {});
+    await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: d?.room || `city-${city}`, messageId: id, emoji, ...(addr && sess ? { voter: addr, session: sess } : reactionVoter()) }) }).catch(() => {});
   };
   const mod = async (l, act) => {
     if (!need() || ((act === 'pull' || act === 'mute') && !window.confirm(act === 'mute' ? `Pull this line and mute ${l.name} for an hour?` : 'Pull this line off the street?'))) return;
