@@ -92,13 +92,10 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 
 | ID | Status | Deliverable |
 |---|---|---|
-| AG05 | OPEN | Flipped cabinet: cleaner, fewer long boxes of text. |
-| AG06 | OPEN | Trader agents browse sites as they file PoW / PoP / PoB, miss nothing the general agent has, and get more trader tools. |
-| AG07 | OPEN | Trader asked for non-trading work: it carries it out but tells the user it won't be as accurate. |
-| AG08 | OPEN | Watch a Wallet command: go to pump.fun and other sources, find 3 top wallets, run PoW on their recent trades. Real mouse, clicks and gestures, no fake movements. |
-| AG09 | OPEN | 5 more vital commands and mechanics (price gap, trench, perp). |
-| AG10 | OPEN | General agent coding: its monitor previews the frontend of the code it built. |
-| AG11 | OPEN | Content creator: a folder showing its posts and AI-generated images. |
+| AG06 | OPEN | Trader agents browse sites as they file PoW (works). PoP reads free APIs, not browser windows; PoB does not exist yet, only the Bids folder. Both still to build. 5 free commands shipped: price gap, trench, check, history, perps. |
+| AG08 | VERIFY | `watch a wallet` is built: its browser gets the job to find 3 top wallets on pump.fun and another source and read their recent trades. Not run yet (paid model calls). Still to do: file the result as a PoW-style folder. |
+| AG10 | VERIFY | A web page an agent writes in chat gets ▶ Preview on its monitor: sandboxed, desktop or phone width (tests only). Still to do: a coding agent's real project files and a dev server. |
+| AG11 | VERIFY | New 🎨 Creations drawer: images from its storage, pages and posts it wrote (tests only). Still to do: agents have no make-an-image command yet, though `ai_router` can generate images. |
 | AG12 | OPEN | Think ahead: general agents get what coding and content need, traders only money (trading, perps). Add what's missing. |
 
 Status: **OPEN** = requested; **VERIFY** = built, needs a real run or the owner's check; **OWNER** = key, account, signature or decision; **LATER** = needs a lawyer or audit first. Nothing here authorizes a trade or a payment.

@@ -14,7 +14,7 @@
   background: radial-gradient(70% 90% at 0% 0%, #f5c54214, transparent 60%), radial-gradient(60% 80% at 100% 100%, #b388ff12, transparent 60%), #0b0716; box-shadow: inset 0 1px 0 #ffffff10; }
 body.fx-lite .hv-sw i, body.fx-lite .cmf-tr { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hv-sw i, .cmf-tr { animation: none !important; } }
-body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border-color: #c8930033; } body.theme-day .cmf-ledger { background: #fff; } body.theme-day .cmf-tr { color: #1b1233; }
+body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border-color: #c8930033; } body.theme-day .cmf-ledger { background: #fff; } body.theme-day .cmf-tr.is-head { background: #f3eefc; color: #5a4a7a; } body.theme-day .cmf-tr { color: #1b1233; }
 @media (max-width: 640px) { .cfl { padding: 12px 8px; } }
 /* 🏺 the colony pot (command center › 👑 OWNER): a vault bar — the locked floor, the growth above it, the part that may leave */
 .hv-pow { --hv: #f5c542; display: grid; gap: 12px; }

@@ -11,6 +11,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
+import agent_commands as _ac
 import cat_agent as _ca
 import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
@@ -1718,6 +1719,22 @@ def _order_wait(cat):
     """Who a real order waits on: its own wallet on auto, you on ASK ME, your wallet's signature when it has none of its own."""
     w_ = cat.get('agentWallet')
     return "waiting for your wallet's signature" if not w_ else 'its wallet is sending it' if w_.get('mode') == 'auto' else 'waiting for your OK'
+
+
+async def _quick_answer(q):
+    """⚡ A free command's reply. Read-only; a failed read says so."""
+    async with httpx.AsyncClient(timeout=30) as http:
+        if q['tool'] != 'check':
+            return str((await _ct.run_tool(http, q['tool'], q['q']))[0])[:2400]
+        read, coin = await _ct.run_tool(http, 'coin', q['q'])
+        if not coin:
+            return str(read)[:1200]
+        pair = await _order_pair(http, coin.get('mint') or q['q'])
+        if not pair:
+            return f"🛑 It would NOT buy this: no pool it can trade.\n\n{str(read)[:700]}"
+        ok_, why_ = _co.buy_guards(pair, time.time() * 1000)
+        safe_, swhy_, _cv = await _safety(http, pair) if ok_ else (False, '', 0)
+        return f"{_ac.verdict(ok_, why_, safe_, swhy_)}\n\n{str(read)[:700]}"
 
 
 async def _pow2_vet(http, c, now, read=True):
@@ -4466,6 +4483,16 @@ async def cat_work(cat_id: str, p: WorkPayload):
         research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
+        q_ = _ac.quick(p.text)
+        if q_:   # ⚡ a free command: FEELESS's own data, answered now, no model call
+            say_ = await _quick_answer(q_)
+            store = _load(); cat = store['cats'][cat_id]   # the read can take seconds: the engine saved meanwhile, so write onto the newest store with no wait before the save
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        p.text = _ac.watch_goal(p.text) or p.text   # 👁 Watch a Wallet: its own browser does the finding
+        if _ac.off_lane(b.get('kind'), p.text):   # 🧭 it still does the work, and says so first
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': _ac.TRADER_NOTE, 'at': time.time()}])[-200:]
         pop_cmd_ = _pop.command(p.text)
         if pop_cmd_:
             ok_, say_ = _pop.reply(pop_cmd_.split(':')[0], cat.get('popRun'), cat.get('popCard'))
@@ -4554,7 +4581,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'commands': _pow.COMMANDS + _pop.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'commands': _pow.COMMANDS + _pop.COMMANDS + _ac.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎

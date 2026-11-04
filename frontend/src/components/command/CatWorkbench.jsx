@@ -1,3 +1,4 @@
+import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
@@ -458,6 +459,7 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p>
       {m.tid && onRate ? <span className="cwb-rate" role="group" aria-label="Rate this answer — it goes into both minds' memory">{[['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
         <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}>{ic}</button>)}{rate ? <em>in memory · 🗂 Jobs</em> : null}</span> : null}
+      {you ? null : <PreviewButton text={m.text} />}
       {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}
       {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop">📉 Open the PoP desk</button> : null}</div></li>;
 }
@@ -1282,7 +1284,7 @@ function WorkbenchLive({ cat }) {
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
-  const [unseen, toBottom] = useStickToBottom(chatRef, msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
+  const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
@@ -1303,6 +1305,7 @@ function WorkbenchLive({ cat }) {
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),
+      ['made', '🎨', 'Creations', (d?.storage?.files || []).length, <Creations files={d?.storage?.files || []} chat={msgs} />],
       ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />],
       ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
       ['cmds', '⌘', 'Commands', (d?.commands || []).length, <CommandList rows={d?.commands} onPick={setText} />],
