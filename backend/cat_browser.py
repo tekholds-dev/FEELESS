@@ -748,6 +748,10 @@ class LivePage:
         await self._p.wait_for_timeout(400)
         return await self._sync()
 
+    async def find_private(self, js):
+        """👀 Where emails, phone numbers and password fields sit on screen. A read of the page, nothing changes."""
+        return await self._p.evaluate(js)
+
     async def shot(self):
         """A small JPEG of the window (the snapshot view when no live URL can be shown)."""
         try:

@@ -64,6 +64,17 @@ function Chart3d({ rows }) {
     <ul className="pfx-legend"><li><i className="is-win" />up</li><li><i className="is-loss" />down</li></ul></figure>;
 }
 
+// 🧠 Which mind has the better record on what. From the filed folders; a topic shows once a proof on it was graded.
+export function MindBoard({ board }) {
+  const rows = Object.entries(board || {}).map(([topic, m]) => [topic, Object.entries(m).map(([name, r]) => ({ name, right: r.right, n: r.right + r.wrong }))])
+    .sort((a, b) => b[1].reduce((s, x) => s + x.n, 0) - a[1].reduce((s, x) => s + x.n, 0)).slice(0, 8);
+  return <section className="pfx-minds" data-testid="mind-board"><b className="m-label">BEST MIND BY TOPIC</b>
+    {rows.length ? rows.map(([topic, ms]) => { const best = Math.max(...ms.map(x => x.right / Math.max(1, x.n)));
+      return <div key={topic} className="pfx-mind"><span>{topic}</span>{ms.map(x => { const hit = x.right / Math.max(1, x.n);
+        return <em key={x.name} className={ms.length > 1 && hit === best ? 'is-top' : ''} data-tip={`${x.name}: ${x.right} of ${x.n} right`}><u style={{ transform: `scaleX(${Math.max(0.03, hit)})` }} /><small>{x.name}</small><b className="m-num">{x.right}/{x.n}</b></em>; })}</div>; })
+      : <small className="pfx-none">No graded proofs yet. Each mind's record starts with its first closed proof.</small>}
+  </section>;
+}
 function LoopOrbit({ rows }) {
   const tracks = Object.keys(KINDS).map((k, i) => { const r = rows.filter(x => x.kind === k); const won = r.filter(x => x.state === 'win').length; const lost = r.filter(x => x.state === 'loss').length; return { k, r: 54 - i * 15, n: r.length, won, rate: won + lost ? won / (won + lost) : 0, graded: won + lost }; });
   return <figure className="pfx-part" data-testid="pfx-orbit"><figcaption>THE PROOF LOOP</figcaption>
@@ -99,6 +110,7 @@ export function ProofsFolder({ cat, d, onOpenFolder }) {
   const days = useMemo(() => rows.reduce((out, r) => { const k = day(r.at); const last = out[out.length - 1]; if (last?.k === k) last.rows.push(r); else out.push({ k, rows: [r] }); return out; }, []), [rows]);
   return <div className="pfx" data-testid="dsk-proofs">
     <div className="pfx-parts"><Ring rows={rows} /><Chart3d rows={rows} /><LoopOrbit rows={all} /></div>
+    <MindBoard board={cat?.mindBoard} />
     <header className="pfx-bar-h"><h3><Ic3 e="🕒" size="22px" /> PoI TIMELINE</h3>
       <div className="m-seg" role="group" aria-label="Which proofs">{[['all', 'All'], ...Object.entries(KINDS).map(([k, v]) => [k, v[1]])].map(([k, l]) => <button key={k} type="button" className={lens === k ? 'active' : ''} aria-pressed={lens === k} onClick={() => setLens(k)} data-testid={`pfx-lens-${k}`}>{l}</button>)}</div></header>
     {days.length ? <div className="pfx-line">{days.map(g => <section key={g.k}><h4 className="pfx-day m-num">{g.k}</h4><ol>{g.rows.map((r, i) => <Entry key={r.id} r={r} i={i} cat={cat} open={open === r.id} onToggle={() => setOpen(open === r.id ? '' : r.id)} onShot={setBig} onOpenFolder={onOpenFolder} />)}</ol></section>)}</div>

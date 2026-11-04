@@ -119,7 +119,7 @@ function OwnerDesk({ cat, trades, feeApps, agentApps }) {
     <PerfGlass {...glass} testid={`own-glass-${k}`} /></button>;
   return <><div className="own" data-testid="fch-owner">
     {monitor('fee', 'fee', 'FEE', 'her desktop', ['🧠', '🎭', '🎚', '👛', '⛏', '📉', '🎲', '🔐'], feeGlass)}
-    {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['🐝', '🏺', '⛏', '🎟'], { ...agentsGlass(flow) })}
+    {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['💎', '💎', '⛏', '🎟'], { ...agentsGlass(flow) })}
   </div>
     {open === 'fee' ? <AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /> : null}
     {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...agentApps, { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
@@ -195,8 +195,8 @@ export function FeeCatDesk({ call }) {
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
       { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
     ]} agentApps={[
-      { k: 'colony', ic: '🐝', label: 'Colony', tip: 'The tree: the pot, every agent, every winning proof', body: <ColonyFlow api={flowApi} /> },
-      { k: 'pot', ic: '🏺', label: 'Honeypot', tip: 'The colony wallet, its guards and the airdrop', body: <ColonyPot call={call} /> },
+      { k: 'colony', ic: '💎', label: 'Collective', tip: 'The tree: the Pool, every agent, every winning proof', body: <ColonyFlow api={flowApi} /> },
+      { k: 'pot', ic: '💎', label: 'The Pool', tip: 'The Pool wallet, its guards and the airdrop', body: <ColonyPot call={call} /> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
     ]} /> : null}

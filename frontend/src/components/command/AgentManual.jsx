@@ -27,6 +27,7 @@ const SYSTEM = [
     { k: 'pob', ic: '🎲', t: 'PoB', sub: 'Any topic, or chips', say: 'Name a topic. Each mind reads major sites with snapshots and calls it blind. Nothing is staked.', cmd: 'file a pob best NFL picks', live: d => (d?.pobFolders || []).length && `${d.pobFolders.length} filed` },
   ] },
   { lane: 'WHAT IT KEEPS', tone: 'keep', nodes: [
+    { k: 'character', ic: '🎭', t: 'Character', sub: 'Who it is', say: 'Pick who this agent is, or use your own picture. Turn on camera and voice if you want, and go live as it on your own channels.', open: 'character' },
     { k: 'proofs', ic: '🏆', t: 'Proofs folder', sub: 'Everything it filed', say: 'One timeline of every proof, with the decisions and snapshots from that moment.' },
     { k: 'loop', ic: '🪄', t: 'Proof Loop', sub: 'Studies itself first', say: 'Before a new proof it reads its old ones. A coin shaped like a past loss is skipped, and a topic you repeat continues one series.', cmd: 'file a pob lakers parlays' },
     { k: 'fp', ic: '🧬', t: 'Fingerprint', sub: 'What really works', say: 'Sources are measured against results. The useful ones rise, the others retire, sealed per mind.' },
@@ -37,13 +38,13 @@ const ALL_NODES = SYSTEM.flatMap(l => l.nodes.map(n => ({ ...n, tone: l.tone }))
 const KINDS = [ // [what, trader, general] : 2 = on its own, 1 = when you ask, 0 = no
   ['Private desktop + folders', 2, 2], ['Vault + signed-in sites', 2, 2], ['Own wallet', 2, 2], ['Two minds + commands', 2, 2],
   ['PoW research + buy', 2, 1], ['PoP paper perps', 1, 1], ['Buys inside its limits', 2, 1], ['Hard exits on its trades', 2, 2],
-  ['Browse any site', 0, 2], ['Coin + narrative research', 2, 2], ['Colony + honey', 2, 0], ['Job cards + hourly brief', 0, 2],
+  ['Browse any site', 0, 2], ['Coin + narrative research', 2, 2], ['Collective + honey', 2, 0], ['Job cards + hourly brief', 0, 2],
 ];
 const LEVEL = [['none', 'No'], ['ask', 'When you ask'], ['auto', 'On its own']];
 const CODE = [
   ['Rules the models can’t change', [['pow_kernel.py', 'Every hard limit, hash pinned'], ['pow.py', 'PoW phases and budgets'], ['pop.py', 'Agreement, exits, reports']]],
   ['What they read', [['pop_sources.py', 'Perps sources, measured'], ['cat_agent.py', 'Browser windows'], ['candles_service.py', 'True candles + fills']]],
-  ['What they remember', [['poi.py', 'Sealed fingerprints'], ['colony.py', 'Colony + honey'], ['hive.py', 'Graded calls']]],
+  ['What they remember', [['poi.py', 'Sealed fingerprints'], ['colony.py', 'Collective + honey'], ['hive.py', 'Graded calls']]],
   ['What moves money', [['agent_trade.py', 'Guards, one in flight'], ['cat_real.py', 'Proposals'], ['agent_wallet.py', 'Its own wallet']]],
 ];
 const POB_FLOW = [['💬', 'ASK', 'Any topic'], ['🌐', 'READ', 'Major sites'], ['📸', 'SNAPSHOT', 'One per site'], ['🕶', 'BLIND CALL', 'Each mind alone'], ['🤝', 'AGREE', 'Same picks only'], ['📁', 'FILE', 'You mark it right or wrong']];

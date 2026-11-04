@@ -40,7 +40,9 @@ const queryClient = new QueryClient({
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/rewards') {   // 🧪 the rewards dash on fixtures, signed in (src/dev/RewardsHarness.jsx)
+if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/colony') {   // 🧪 the Colony on fixtures
+  import('./dev/ColonyHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/rewards') {   // 🧪 the rewards dash on fixtures, signed in (src/dev/RewardsHarness.jsx)
   import('./dev/RewardsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)
   import('./dev/HqHarness').then(m => root.render(<m.default />));

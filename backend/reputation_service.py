@@ -13,6 +13,7 @@ no provider API keys) so it can run standalone.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
+import name_lock as _name_lock
 import reserve_pool
 import perf
 import verify
@@ -2077,6 +2078,15 @@ async def save_profile(payload: ProfileSave):
         if clean['featuredBadges']:
             earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
             clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
+        locks_ = dict(prev.get('nameLock') or {})   # 🪪 a name changes once every 7 days, staff any time; each change is stamped and past names are sealed
+        for k_ in ('displayName', 'handle'):
+            if not locks_.get(k_) and prev.get(k_) == clean[k_]:   # a name from before the rule stays, unstamped, until it changes
+                continue
+            ok_, rec_, why_ = _name_lock.check(locks_.get(k_), owner, clean[k_], _is_staff(owner))
+            if not ok_:
+                raise HTTPException(429, why_)
+            if rec_:
+                locks_[k_] = rec_
         un, _r = _unlocks(owner)
         if (RING_TIERS[clean['ring']] > tier and f"ring:{clean['ring']}" not in un) or (NAMEFX_TIERS[clean['nameFx']] > tier and f"nameFx:{clean['nameFx']}" not in un):
             raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
@@ -2092,9 +2102,9 @@ async def save_profile(payload: ProfileSave):
                 clean[k] = prev[k]
             if prev.get(k) and prev[k] != clean.get(k):
                 hist.append({'field': k, 'url': prev[k], 'at': time.time()})
-        d['profiles'][owner] = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time()}
+        d['profiles'][owner] = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time(), 'nameLock': locks_}
         tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)  # atomic: no half-written file
-    return {'ok': True, 'profile': d['profiles'][owner]}
+    return {'ok': True, 'profile': {k: v for k, v in d['profiles'][owner].items() if k != 'nameLock'}}
 
 
 # 𝕏 SIGN IN WITH X (owner 2026-10-26: "a true account link so they're actually signed in to X, not an API"): X's own OAuth 2.0 (PKCE). FEELESS asks
@@ -2157,7 +2167,7 @@ async def get_profile(address: str):
     p = _profiles_load()['profiles'].get(address)
     board = await caller_board(days=30)
     caller = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
-    return {'address': address, 'profile': p, 'caller': caller, 'verified': is_verified(address)}
+    return {'address': address, 'profile': {k: v for k, v in p.items() if k != 'nameLock'} if p else p, 'caller': caller, 'verified': is_verified(address)}
 
 
 @app.get('/api/reputation/profiles')

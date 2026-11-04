@@ -4,8 +4,8 @@ What it is used for decides which sites come first. A step is done by the real t
 Pure and tested. The service stores `cat['setup']`.
 """
 USES = ('trade', 'bids', 'content', 'research', 'all')
-TERMS_V = 1
-STEPS = ('use', 'email', 'sites', 'fund', 'limits', 'colony', 'post', 'trades', 'security', 'terms')
+TERMS_V = 2
+STEPS = ('use', 'face', 'email', 'sites', 'fund', 'limits', 'colony', 'post', 'trades', 'security', 'terms')
 # step → the uses that need it. A step that is not listed is for everyone.
 ONLY = {'post': ('content', 'all'), 'trades': ('trade', 'bids', 'all')}
 # what to sign in to first, by use: [site, what it is for]. The owner signs in by hand in every one of them.
@@ -24,6 +24,8 @@ def _done(cat, step, s):
     if step == 'terms':
         return int(s.get('termsV') or 0) >= TERMS_V
     said = step in (s.get('done') or [])
+    if step == 'face':
+        return bool((cat.get('face') or {}).get('id')) or said
     if step == 'email':
         return bool((cat.get('mailbox') or {}).get('address')) or said
     if step == 'sites':

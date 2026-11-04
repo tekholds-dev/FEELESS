@@ -1,8 +1,8 @@
 /* 🍯 HONEY TANKS (ht-*): glass vessels filled by real numbers. Built on m-glass. Waves and bubbles are transform-only; one keyframe set (ht*). */
 .ht-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.ht-tank { --ht-a: #ffd76a; --ht-b: #f59e0b; --mg: #f5a623; display: grid; justify-items: center; gap: 2px; padding: 12px 8px 10px; text-align: center; min-width: 0; outline: none; transition: transform .16s ease, border-color .16s ease; animation: htIn .4s ease-out calc(var(--i) * 55ms) both; }
+.ht-tank { --ht-a: #8fd2ff; --ht-b: #2f6fe8; --mg: #4f9dff; display: grid; justify-items: center; gap: 2px; padding: 12px 8px 10px; text-align: center; min-width: 0; outline: none; transition: transform .16s ease, border-color .16s ease; animation: htIn .4s ease-out calc(var(--i) * 55ms) both; }
 .ht-tank:hover { transform: translateY(-3px); } .ht-tank:active { transform: translateY(0); } .ht-tank:focus-visible { outline: 2px solid var(--ht-a); outline-offset: 2px; }
-.ht-tank.is-amber { --ht-a: #ffc14d; --ht-b: #e76f1c; --mg: #e76f1c; } .ht-tank.is-deep { --ht-a: #f5b83d; --ht-b: #9a5a06; --mg: #b86e0a; }
+.ht-tank.is-amber { --ht-a: #c9a8ff; --ht-b: #7b45e8; --mg: #9c6bff; } .ht-tank.is-deep { --ht-a: #7fa8ff; --ht-b: #2a3f9e; --mg: #4f6fe0; }
 .ht-tank.is-mint { --ht-a: #7df0b4; --ht-b: #15a860; --mg: #15d16a; } .ht-tank.is-violet { --ht-a: #c9a8ff; --ht-b: #7b45e8; --mg: #9c6bff; } .ht-tank.is-cyan { --ht-a: #7fe6f5; --ht-b: #1787c9; --mg: #2fb8e6; }
 .ht-vessel { width: min(100%, 92px); height: auto; overflow: visible; filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--ht-b) 42%, transparent)); }
 .ht-tank.is-empty .ht-vessel { filter: none; }

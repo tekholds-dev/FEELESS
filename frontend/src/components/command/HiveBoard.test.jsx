@@ -16,7 +16,9 @@ test('🌳 the colony tree: the pot on top, true vessels, the comb, winning proo
     ledger: [{ at: 1793521620, kind: 'sell', agent: 'Happy', sym: 'SIS', sol: 0.0051, sig: '5DMYabcd', memo: 'PoW sell' }, { at: 1793521000, kind: 'buy', agent: 'Happy', sym: 'SIS', sol: 0.006, sig: '3xYzefgh', memo: 'PoW buy' }] };
   await act(async () => { createRoot(el).render(<ColonyFlow api={async u => (u.includes('/flow') ? FLOW : HIVE)} onOpen={o => opened.push(o.id)} />); });
   expect(el.querySelector('[data-testid="ctr-pot"]').textContent).toContain('0.0500 SOL');
-  expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('3/4'); expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('owes 0.0001 SOL');
+  expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('3/4'); 
+  await act(async () => { el.querySelector('[data-testid="cv-seat-a1"]').click(); });   // a click raises it and shows every vital
+  expect(el.querySelector('[data-testid="cv-seat-a1"]').className).toContain('is-up-now'); expect(el.querySelector('[data-testid="cv-detail-a1"]').textContent).toContain('0.0001 SOL');
   await act(async () => { el.querySelector('[data-testid="ctr-agent-a1"]').click(); }); expect(opened).toEqual(['a1']);
   const w = el.querySelector('[data-testid="ctr-wins"]'); expect(w.textContent).toContain('⏳ owes 0.0001 SOL'); expect(w.querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/TX1');
   const rows = el.querySelectorAll('.cmf-tr:not(.is-head)'); expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('PoW sell'); expect(rows[1].textContent).toContain('−0.0060');
@@ -73,7 +75,7 @@ test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each p
   await act(async () => { createRoot(el).render(<PowEngine />); });
   expect(el.querySelectorAll('.hv-pow-flow li')).toHaveLength(6); expect(el.textContent).toContain('≤ 4 sites · ≤ 5 moves each');
   const cards = el.querySelectorAll('[data-testid="ck-pow"]'); expect(cards).toHaveLength(2);
-  expect(cards[0].className).toContain('is-dn'); expect(cards[0].textContent).toContain('revoked'); expect(cards[0].textContent).toContain('🍯 +2');
+  expect(cards[0].className).toContain('is-dn'); expect(cards[0].textContent).toContain('revoked'); expect(cards[0].textContent).toContain('💧 +2');
   expect(cards[1].textContent).toContain('⏳ grading');
   expect(el.querySelector('.hv-pow-stats').textContent).toContain('100%');   // 1 graded, 1 right
   global.fetch = async () => ({ ok: true, json: async () => ({ ...POW, folders: [{ cat: 'h1', name: 'Happy', live: true, folder: { id: 'pow1', name: 'PoW #1 · Nov 01', phase: 'watch', status: 'open', coins: [{ mint: 'M1', sym: 'SIS', src: 'dex', liq: 64000 }], pick: { mint: 'M1' }, shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'r0_rugcheck.xyz_1.jpg' }] } }] }) });

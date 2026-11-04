@@ -77,3 +77,14 @@ test('🛒 the order card answers through the same door as typing', async () => 
   expect(calls[0]).toEqual({ op: 'site_trade', job: 'yes' });
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('each mind shows its record by topic, and nothing is made up before a grade', async () => {
+  const { MindBoard } = require('./ProofsFolder');
+  const { createRoot: cr } = require('react-dom/client'); const { act: a } = require('react');
+  const el = document.createElement('div'); const root = cr(el);
+  await a(async () => { root.render(<MindBoard board={{ 'trenches pump': { alpha: { right: 5, wrong: 1 }, beta: { right: 1, wrong: 4 } } }} />); });
+  expect(el.textContent).toContain('trenches pump'); expect(el.textContent).toContain('5/6'); expect(el.textContent).toContain('1/5');
+  expect(el.querySelectorAll('.is-top').length).toBe(1);
+  await a(async () => { root.render(<MindBoard board={{}} />); });
+  expect(el.textContent).toContain('No graded proofs yet');
+});

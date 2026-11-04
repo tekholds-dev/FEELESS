@@ -37,3 +37,6 @@
 body.fx-lite :is(.stp-stage, .stp-art, .stp-card, .stp-tile, .mon-screen::after, .mon-frame, .mon-frame li, .mon-cmd span) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.stp-stage, .stp-art, .stp-card, .stp-tile, .mon-screen::after, .mon-frame, .mon-frame li, .mon-cmd span) { animation: none; } }
 body.theme-day .stp-slide { background: #ffffffc9; border-color: #0a7a3e33; box-shadow: none; } body.theme-day .stp-body h3, body.theme-day :is(.stp-card b, .stp-tile b, .stp-terms summary, .stp-more summary, .stp-folder h3, .stp-dial button, .stp-pill) { color: #12261b; } body.theme-day :is(.stp-sub, .stp-card small, .stp-hint, .stp-terms small, .stp-more small, .stp-tile > span) { color: #3f5247; } body.theme-day :is(.stp-card, .stp-tile, .stp-terms details, .stp-more, .stp-dial button, .stp-folder section) { background: #0000000a; border-color: #0000001f; } body.theme-day .stp-pill { background: #fff; } body.theme-day .stp { --c: #0a7a3e; } body.theme-day .stp-tile small { color: #0a7a3e; } body.theme-day .stp-top i { background: #00000024; } body.theme-day .stp-top .is-done i { background: #0a7a3e; } body.theme-day .stp-top .is-at i { background: #12261b; }
+
+.stp-faces { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: min(100%, 460px); }
+@media (max-width: 640px) { .stp-faces { gap: 5px; } }

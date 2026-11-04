@@ -84,7 +84,7 @@ export function DeskTour({ onDone }) {
 const MOODS = {
   agent: { a: [0.012, 0.05, 0.03], b: [0.03, 0.27, 0.155], c: [0.08, 0.82, 0.42], hex: 0 },
   fee: { a: [0.035, 0.018, 0.085], b: [0.2, 0.09, 0.5], c: [0.7, 0.53, 1], hex: 0 },
-  colony: { a: [0.06, 0.032, 0.01], b: [0.3, 0.165, 0.02], c: [1, 0.71, 0.28], hex: 1 },
+  colony: { a: [0.012, 0.02, 0.07], b: [0.07, 0.13, 0.42], c: [0.42, 0.55, 1], hex: 0 },
 };
 const VERT = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
 const FRAG = `precision mediump float;uniform float t;uniform vec2 r;uniform vec3 a,b,c;uniform float h;
@@ -97,9 +97,6 @@ float ribbon=pow(max(0.,1.-abs(sin(q.x*.9+q.y*.6+w*.5+t*.05)-.2)),10.);col+=c*ri
 vec2 sg=floor(p*22.);vec2 sf=fract(p*22.)-.5;float sn=fract(sin(dot(sg,vec2(12.9,78.2)))*43758.5);
 if(sn>.965){float tw=.5+.5*sin(t*(1.+sn*3.)+sn*40.);col+=mix(c,vec3(1.),.6)*tw*smoothstep(.16,.0,length(sf))*.85;}
 col*=.5+.5*(1.-smoothstep(.1,1.35,length(u-vec2(.62,.68))));
-if(h>.5){vec2 s=vec2(1.,1.732);vec2 hp=p*5.;vec2 ha=mod(hp,s)-s*.5;vec2 hb=mod(hp-s*.5,s)-s*.5;vec2 g2=dot(ha,ha)<dot(hb,hb)?ha:hb;vec2 id=hp-g2;
-float e=max(abs(g2.x),dot(abs(g2),normalize(s)));float pu=pow(.5+.5*sin(id.x*1.7+id.y*2.3+t*.6),12.);
-col+=c*(smoothstep(.43,.49,e)*.2+pu*.16*(1.-e*1.6));}
 gl_FragColor=vec4(col,1.);}`;
 
 function still() {

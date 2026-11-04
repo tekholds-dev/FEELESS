@@ -4,10 +4,10 @@ import { apiUrl } from '../../lib/api';
 import { AiCursor, FolderView, readCursor } from './CatWorkbench';
 import { PowCard } from './CatCockpit';
 import '../../styles/hive.css';
-import '../../styles/colonyTree.css';
-import { HoneyTank } from './HoneyTanks';
-import { ShaderWall } from './DeskShell';
+import '../../styles/collective.css';
 import { Ic3 } from '../../lib/icon3d';
+import { agentAuthQuery } from '../../lib/chatSession';
+import { AgentPortrait } from './AgentPortrait';
 
 // 🐝 THE HIVE (owner 2026-10-31: "a FEELESS twist on Crawl — they browse forever until turned off and compound"): proof of insight. Agents with the
 // Hive on read the trenches on their own and file CELLS (BUY / WATCH / AVOID + why); an hour on every cell is graded on what the coin really did —
@@ -61,46 +61,55 @@ export function AgentLedger({ api, agent }) {
   const { d, fresh } = useColonyFlow(api); const key = String(agent || '').slice(0, 12);
   return <section className="cfl cmf" data-testid="agent-ledger"><ColonyLedger rows={(d?.ledger || []).filter(r => String(r.agent || '').startsWith(key))} fresh={fresh} ready={!!d} /></section>;
 }
-// 🌳 THE COLONY TREE (owner 2026-11-04): the pot at the top of the chain, what flows into it, every agent in the comb, every winning proof and what it owes.
-const BEES = [['6%', '12%', '19s', '0s'], ['62%', '30%', '24s', '-7s'], ['28%', '62%', '21s', '-13s']];
-const DRIPS = [['18%', '9s', '0s'], ['46%', '12s', '-4s'], ['77%', '10s', '-7s']];
+// 💎 THE COLLECTIVE (owner 2026-11-04, from his picture): the Pool as a crystal on its pedestal, the top three agents on the stage, everyone else in the glass row. Each bar is a live pool of that agent's score. Click anyone: it rises and shows every vital. Numbers are real; an empty place says so.
+const Person = () => <svg className="cv-person" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c-8 0-13 6-13 14 0 5 2 10 5 13 1 2 1 4-1 5-6 3-13 5-15 12-1 3 1 6 4 6h40c3 0 5-3 4-6-2-7-9-9-15-12-2-1-2-3-1-5 3-3 5-8 5-13 0-8-5-14-13-14Z" /></svg>;
+const PoolBar = ({ level, i = 0, down }) => <span className={`cv-bar${down ? ' is-dn' : ''}`} aria-hidden="true"><span className="cv-liq" style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, level))})` }} /><i className="cv-wave" style={{ '--i': i, left: `${Math.max(3, Math.min(100, level * 100))}%` }} /></span>;
+const HexFrame = () => <svg className="cv-hex" viewBox="0 0 280 260" preserveAspectRatio="none" aria-hidden="true"><path d="M126 6Q140 0 154 6L262 62Q276 70 276 86V176Q276 192 262 200L154 254Q140 260 126 254L18 200Q4 192 4 176V86Q4 70 18 62Z" /><path d="M18 200 126 254Q140 260 154 254L262 200" /></svg>;
+function Who({ a, size }) { return <AgentPortrait cat={a} size={size} fallback={<Person />} />; }
+function Crystal() {
+  return <svg className="cv-gem" viewBox="0 0 200 200" aria-hidden="true"><defs>
+      <linearGradient id="cvA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#bfe9ff" /><stop offset="1" stopColor="#2f7dff" /></linearGradient><linearGradient id="cvB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6f8dff" /><stop offset="1" stopColor="#6a33ee" /></linearGradient><linearGradient id="cvC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e7f7ff" /><stop offset="1" stopColor="#58b3ff" /></linearGradient></defs>
+    <path fill="url(#cvA)" d="M100 8 40 34 12 92l32-14 34-48Z" /><path fill="url(#cvB)" d="m100 8 60 26 28 58-32-14-34-48Z" /><path fill="url(#cvC)" d="M100 8 78 30 44 78l56 18 56-18-34-48Z" /><path fill="url(#cvA)" opacity=".85" d="M12 92 44 78l56 18-22 74-38-28Z" /><path fill="url(#cvB)" d="m188 92-32-14-56 18 22 74 38-28Z" /><path fill="#2a5be0" d="M100 96 78 170l22 22 22-22Z" /><path fill="#7fc4ff" opacity=".55" d="M12 92 40 142l38 28-34-92Z" /><path fill="#4b22b8" opacity=".6" d="m188 92-28 50-38 28 34-92Z" /><g fill="none" stroke="#e8f6ff" strokeOpacity=".5" strokeWidth="1"><path d="M100 8 78 30 44 78l56 18 56-18-34-48ZM12 92l32-14M188 92l-32-14M100 96v96M78 170l22-74 22 74" /></g></svg>;
+}
+function Vitals({ a, onOpen, onClose }) {
+  const rows = [['SCORE', `${a.honey > 0 ? '+' : ''}${a.honey}`, 'Graded calls this epoch'], ['RIGHT CALLS', a.graded ? `${a.right}/${a.graded}` : 'None yet', 'Its calls that were right'], ['TRADES WON', `${a.won}/${a.trades}`, 'Winning proofs of all closed'], ['P/L', sol4(a.pnlSol), 'From its closed trades'], ['PROOFS', a.proofs, 'Every proof it filed'], ['POOL SHARE', a.sharePct ? `${a.sharePct}%` : 'Off', 'Of each winning trade, signed by its owner'], ['OWES THE POOL', a.owedSol > 0 ? solT(a.owedSol) : 'Nothing', 'Shares not sent yet'], ['JOB', a.kind === 'general' ? 'General' : 'Trader', 'What it was built for']];
+  return <div className="cv-detail" data-testid={`cv-detail-${a.id}`}>
+    <header><span className="cv-detail-who"><Who a={a} size={64} /><b>{a.name}</b></span><span><button type="button" className="m-btn m-go" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} data-testid={`ctr-agent-${a.id}`}>Open its desk</button> <button type="button" className="m-btn" onClick={onClose} aria-label="Close">✕</button></span></header>
+    <dl>{rows.map(([k, v, tip], i) => <div key={k} style={{ '--i': i }} data-tip={tip}><dt>{k}</dt><dd className={`m-num${k === 'P/L' && a.pnlSol > 0 ? ' is-up' : k === 'P/L' && a.pnlSol < 0 ? ' is-dn' : ''}`}>{v}</dd></div>)}</dl>
+  </div>;
+}
+function Seat({ a, kind, tone, i, level, open, onPick }) {
+  if (!a) return <div className={`cv-seat is-${kind} is-open-seat is-${tone}`} style={{ '--i': i }}>{kind === 'hex' ? <HexFrame /> : <span className="cv-frame" aria-hidden="true" />}<span className="cv-who"><Person /></span>{kind === 'card' ? <i className="cv-pad" aria-hidden="true" /> : <PoolBar level={0} />}<small>Open place</small></div>;
+  return <button type="button" className={`cv-seat is-${kind} is-${tone}${open ? ' is-up-now' : ''}`} style={{ '--i': i }} onClick={onPick} aria-expanded={open} data-tip={`${a.name}: tap for its vitals`} data-testid={`cv-seat-${a.id}`}>
+    {kind === 'hex' ? <HexFrame /> : <span className="cv-frame" aria-hidden="true" />}<span className="cv-who"><Who a={a} size={kind === 'card' ? 74 : 62} /></span>{kind === 'card' ? <i className="cv-pad" aria-hidden="true" /> : null}
+    <b>{a.name}</b><PoolBar level={level} i={i} down={a.honey < 0} /><small className="m-num">{a.honey > 0 ? '+' : ''}{a.honey} · {a.graded ? `${a.right}/${a.graded}` : 'no calls'}</small></button>;
+}
 export function ColonyFlow({ api, onOpen }) {
-  const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0);
+  const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0); const [pick, setPick] = useState(null);
   useEffect(() => { const c = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(c); }, []);
   const sh = d?.shares || {}; const pot = d?.pot || {}; const ep = d?.epoch || {}; const ad = d?.airdrop || {}; const t = d?.tree || {}; const agents = t.agents || []; const wins = t.wins || [];
   const left = ad.next ? Math.max(0, ad.next - Date.now() / 1000) : null; const cycle = ad.cadence === 'weekly' ? 604800 : 86400;
-  const owed = sh.owedSol || 0; const sent = d?.sentSol || 0; const paid = ad.paidSol || 0; const potSol = pot.sol || 0; const most = Math.max(potSol, owed, sent, paid);
-  const lvl = v => (most > 0 ? v / most : 0); const usdOf = v => usd2(v, px) || 'nothing yet'; const topHoney = Math.max(1, ...agents.map(a => Math.abs(a.honey)));
-  return <section className="ctr" data-testid="colony-flow" aria-label="The colony tree">
-    <i className="ctr-sky" aria-hidden="true" />
-    <div className="ctr-live" aria-hidden="true"><ShaderWall mood="colony" />{BEES.map(([x, y, d, w]) => <svg key={x} className="ctr-bee" style={{ '--x': x, '--y': y, '--d': d, '--w': w }} viewBox="0 0 26 20"><g className="w"><ellipse cx="10" cy="5" rx="5" ry="3.4" fill="#ffffffa8" /><ellipse cx="16" cy="5" rx="5" ry="3.4" fill="#ffffff80" /></g><ellipse cx="13" cy="12" rx="8" ry="5.6" fill="#ffc533" /><path d="M10 7v10M15 7v10" stroke="#2a1604" strokeWidth="2.4" /><circle cx="20" cy="11" r="2.8" fill="#2a1604" /></svg>)}{DRIPS.map(([x, d, w]) => <i key={x} className="ctr-drip" style={{ '--x': x, '--d': d, '--w': w }} />)}</div>
-    <div className="ctr-crown">
-      <div className="ctr-side">
-        <span className="ctr-clock" data-tip="The next airdrop to owners who shared, each waiting for approval"><em><Ic3 e="🪂" /> NEXT AIRDROP</em><b className="m-num">{left == null ? '—' : `${Math.floor(left / 3600)}h ${String(Math.floor(left / 60) % 60).padStart(2, '0')}m`}</b><u><s style={{ transform: `scaleX(${left == null ? 0 : Math.min(1, left / cycle)})` }} /></u></span>
-      </div>
-      <HoneyTank shape="barrel" tone="honey" level={lvl(potSol)} label="🏺 THE POT" value={d ? solT(potSol) : '…'} sub={usdOf(potSol)} testid="ctr-pot" tip="The colony wallet's balance, read on-chain" />
-      <div className="ctr-side">
-        <span data-tip="Honey every graded call earned this epoch"><em><Ic3 e="🐝" /> THIS EPOCH</em><b className={`m-num ${ep.honey > 0 ? 'is-up' : ep.honey < 0 ? 'is-dn' : ''}`}>{ep.honey > 0 ? '+' : ''}{ep.honey || 0}</b><small>{ep.agents || 0} agents graded</small></span>
-        {pot.address ? <a className="m-btn" href={`https://solscan.io/account/${pot.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the pot on-chain">{pot.address.slice(0, 4)}…{pot.address.slice(-4)} ↗</a> : <small className="m-dim">The pot isn't opened yet</small>}
-      </div>
+  const owed = sh.owedSol || 0; const sent = d?.sentSol || 0; const paid = ad.paidSol || 0; const potSol = pot.sol || 0; const most = Math.max(potSol, owed, sent, paid, 0.000001);
+  const usdOf = v => usd2(v, px) || 'nothing yet'; const topScore = Math.max(1, ...agents.map(a => Math.abs(a.honey || 0)));
+  const ranked = [...agents].sort((x, y) => (y.honey || 0) - (x.honey || 0)); const top = [0, 1, 2].map(k => ranked[k] || null); const rest = ranked.slice(3); const row = [...rest, ...Array.from({ length: Math.max(0, 5 - rest.length) }, () => null)];
+  const open = ranked.find(a => a.id === pick); const elapsed = left == null ? 0 : 1 - left / cycle; const dots = Math.max(1, Math.ceil(elapsed * 5));
+  const toggle = id => setPick(p => (p === id ? null : id));
+  return <section className="cv" data-testid="colony-flow" aria-label="The Collective">
+    <svg className="cv-sky" viewBox="0 0 1600 500" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="cvArc" x1="0" x2="1"><stop offset="0" stopColor="#1f7dff" stopOpacity="0" /><stop offset=".22" stopColor="#3ea8ff" /><stop offset=".5" stopColor="#7fd0ff" /><stop offset=".78" stopColor="#8a4dff" /><stop offset="1" stopColor="#8a4dff" stopOpacity="0" /></linearGradient></defs><path className="cv-arc-glow" d="M0 170C340 -30 1260 -30 1600 170" /><path className="cv-arc" d="M0 170C340 -30 1260 -30 1600 170" /></svg>
+    {['l', 'r'].map(s => <svg key={s} className={`cv-city is-${s}`} viewBox="0 0 220 180" aria-hidden="true"><path fill="#141a3a" d="M0 180V132l18-8 8-30 5 30 10-52 7-30 7 30 6 44 9-22 7 22 10 18 8-34 6 34 16 22 36 20 40 8v0H0Z" /><path fill="#090c22" d="M0 180v-30l40-8 22 6 30-10 40 14 88 28Z" />{[[24, 112], [47, 84], [50, 110], [71, 118], [92, 136]].map(([x, y]) => <rect key={x} className="cv-lit" x={x} y={y} width="2" height="3" />)}</svg>)}
+    <i className="cv-rail is-l" aria-hidden="true" /><i className="cv-rail is-r" aria-hidden="true" />
+    <div className="cv-crown">
+      <div className="cv-pill" data-tip="The Pool: what the agents' shares built" data-testid="ctr-pot"><svg className="cv-pill-ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6 40 14 24 22 8 14Z" /><path d="M8 22l16 8 16-8M8 30l16 8 16-8" /></svg><div><em>THE POOL</em><b className="m-num" key={potSol}>{d ? solT(potSol) : '…'}</b><PoolBar level={potSol / most} /><small>{usdOf(potSol)} · owed {solT(owed)} · sent {solT(sent)}</small></div></div>
+      <div className="cv-gemwrap"><i className="cv-orbit" aria-hidden="true"><u /><u /><u /></i><Crystal /><i className="cv-stand" aria-hidden="true"><u /><u /><u /></i></div>
+      <div className="cv-pill is-right" data-tip="The next payout to owners who shared, each waiting for approval"><svg className="cv-pill-ic is-bolt" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 4 10 28h12l-4 16 20-26H26Z" /></svg><div><em>NEXT PAYOUT</em><b className="m-num">{left == null ? 'Not set' : hm(Math.floor(left))}</b><span className="cv-dots" aria-hidden="true">{[0, 1, 2, 3, 4].map(k => <i key={k} className={k < dots && left != null ? 'is-on' : ''} />)}</span><small>paid back {solT(paid)}{ep.honey ? ` · score ${ep.honey > 0 ? '+' : ''}${ep.honey}` : ''}</small></div>{pot.address ? <a className="cv-chain" href={`https://solscan.io/account/${pot.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the Pool on-chain">↗</a> : null}</div>
     </div>
-    <div className="ctr-chain" aria-hidden="true">{[owed > 0, sent > 0, paid > 0].map((on, i) => <i key={i} className={on ? 'is-on' : ''}><u /></i>)}</div>
-    <div className="ctr-vessels">
-      <HoneyTank i={1} shape="jar" tone="amber" level={lvl(owed)} label="OWED" value={solT(owed)} sub={`${sh.count || 0} wins · ${sh.sharing || 0} sharing`} testid="ctr-owed" tip="Shares of winning proofs on the ledger, not sent yet" />
-      <HoneyTank i={2} shape="hex" tone="deep" level={lvl(sent)} label="SENT" value={solT(sent)} sub={usdOf(sent)} testid="ctr-sent" tip="SOL owners sent to the pot, each with a proof or a reason" />
-      <HoneyTank i={3} shape="drop" tone="mint" level={lvl(paid)} label="PAID BACK" value={solT(paid)} sub={usdOf(paid)} testid="ctr-paid" tip="What the pot has paid out to sharers" />
-    </div>
-    <header className="ctr-cap"><b><Ic3 e="🐝" /> THE COMB</b><small>{agents.length} agents · honey fills each cell</small></header>
-    <ul className="ctr-comb" data-testid="ctr-comb">{agents.map((a, i) => <li key={a.id} className="ctr-cell" style={{ '--i': Math.min(i, 12) }}>
-        <HoneyTank shape="hex" tone={a.pnlSol < 0 ? 'amber' : 'honey'} level={Math.abs(a.honey) / topHoney} label={a.name} value={`${a.honey > 0 ? '+' : ''}${a.honey} honey`} sub={a.kind === 'general' ? 'general' : 'trader'} />
-        <span className="ctr-v"><em>RIGHT</em><u><s style={{ transform: `scaleX(${a.graded ? a.right / a.graded : 0})` }} /></u><b className="m-num">{a.graded ? `${a.right}/${a.graded}` : '—'}</b></span>
-        <span className="ctr-v"><em>WON</em><u><s style={{ transform: `scaleX(${a.trades ? a.won / a.trades : 0})` }} /></u><b className="m-num">{a.won}/{a.trades}</b></span>
-        <span className="ctr-n"><b className={`m-num ${a.pnlSol > 0 ? 'is-up' : a.pnlSol < 0 ? 'is-dn' : ''}`}>{sol4(a.pnlSol)}</b><small>{a.proofs} proofs{a.owedSol > 0 ? ` · owes ${solT(a.owedSol)}` : ''}{a.sharePct ? ` · ${a.sharePct}% share` : ''}</small></span>
-      <button type="button" className="ctr-open" onClick={() => onOpen?.(a)} aria-label={`Open ${a.name}`} data-tip={`Open ${a.name}`} data-testid={`ctr-agent-${a.id}`} /></li>)}{!agents.length ? <li className="m-dim">{d ? 'No agents yet.' : 'Reading the colony…'}</li> : null}</ul>
-    <header className="ctr-cap"><b><Ic3 e="🏆" /> WINNING PROOFS</b><small>each one, and what it owes the pot</small></header>
-    <ul className="ctr-wins" data-testid="ctr-wins">{wins.map((w, i) => <li key={w.id} className={`m-glass is-${w.state}`} style={{ '--i': Math.min(i, 12) }}><span className="m-chip">{w.kind}</span><b>${w.sym}</b><em className="m-num is-up">+{Number(w.pnlPct || 0).toFixed(1)}%</em><small>{w.agent} · {w.name}</small>
-      <strong>{w.state === 'sent' ? <><Ic3 e="🍯" /> {solT(w.honeySol)} sent{w.sig ? <a href={`https://solscan.io/tx/${w.sig}`} target="_blank" rel="noopener noreferrer" data-tip="See it on-chain"> tx ↗</a> : null}</> : w.state === 'owed' ? `⏳ owes ${solT(w.honeySol)}` : 'no share on'}</strong></li>)}{!wins.length ? <li className="m-dim">{d ? 'No winning real proof yet.' : '…'}</li> : null}</ul>
-    <ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} />
+    <div className="cv-stage"><i className="cv-disc" aria-hidden="true" /><div className="cv-cards" data-testid="ctr-comb">{top.map((a, k) => <Seat key={a?.id || k} a={a} kind="card" tone={['blue', 'violet', 'green'][k]} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div></div>
+    <div className="cv-row">{row.map((a, k) => <Seat key={a?.id || `o${k}`} a={a} kind="hex" tone={k % 2 ? 'blue' : 'violet'} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div>
+    {open ? <Vitals a={open} onOpen={onOpen} onClose={() => setPick(null)} /> : null}
+    {!agents.length ? <p className="cv-none">{d ? 'No agents yet.' : 'Reading the Collective…'}</p> : null}
+    <details className="cv-more"><summary><Ic3 e="🏆" /> WINNING PROOFS <small>{wins.length}</small></summary><ul className="ctr-wins" data-testid="ctr-wins">{wins.map((w, i) => <li key={w.id} className={`is-${w.state}`} style={{ '--i': Math.min(i, 12) }}><span className="m-chip">{w.kind}</span><b>${w.sym}</b><em className="m-num is-up">+{Number(w.pnlPct || 0).toFixed(1)}%</em><small>{w.agent} · {w.name}</small>
+      <strong>{w.state === 'sent' ? <>{solT(w.honeySol)} sent{w.sig ? <a href={`https://solscan.io/tx/${w.sig}`} target="_blank" rel="noopener noreferrer" data-tip="See it on-chain"> tx ↗</a> : null}</> : w.state === 'owed' ? `⏳ owes ${solT(w.honeySol)}` : 'no share on'}</strong></li>)}{!wins.length ? <li className="m-dim">{d ? 'No winning proof yet.' : '…'}</li> : null}</ul></details>
+    <details className="cv-more"><summary><Ic3 e="📒" /> LEDGER</summary><ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} /></details>
   </section>;
 }
 
@@ -113,7 +122,7 @@ const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locke
 // ⛏ THE PoW ENGINE (owner 2026-10-31: "an official PoW engine in Fee's command center — Ultimate"): the hard rules every agent works under, the
 // pipeline a colonized agent runs, the live numbers (filed · graded · right · strength) and the newest proofs. Reads the public /api/cats/pow.
 const POW_STAGES = [['📥', 'INTAKE', 'one coin from the FEELESS intake'], ['🔎', 'SEARCH', 'DuckDuckGo first, DexScreener when walled'], ['🌐', 'SITES', '≤ {sites} sites · ≤ {steps} moves each'],
-  ['🧪', 'VITALS', '≤ {pulls} vitals a site, numbers only'], ['⚖', 'CALL', 'BUY · WATCH · AVOID + why'], ['🍯', 'GRADED', 'an hour on, on what it really did']];
+  ['🧪', 'VITALS', '≤ {pulls} vitals a site, numbers only'], ['⚖', 'CALL', 'BUY · WATCH · AVOID + why'], ['💧', 'GRADED', 'an hour on, on what it really did']];
 export function PowEngine({ limit = 12 }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [seen, setSeen] = useState(null);
   useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) fetch(apiUrl(`/api/cats/pow?limit=${limit}`)).then(r => r.json()).then(x => { if (on) { setD(x); setErr(''); } }).catch(e => on && setErr(e.message)); };
@@ -123,7 +132,7 @@ export function PowEngine({ limit = 12 }) {
   const avg = rows.length ? Math.round(rows.reduce((a, x) => a + (Number(x.strength) || 0), 0) / rows.length) : 0;
   const fill = t => t.replace('{sites}', r.sites ?? 4).replace('{steps}', r.steps ?? 5).replace('{pulls}', r.pulls ?? 3);
   return <article className="fch-card fch-wide hv-pow m-live" data-testid="pow-engine">
-    <h4><Ic3 e="⛏" /> PROOF OF WORK ENGINE<small>every colonized agent · one intake coin per {r.everyMin ?? 30} min · rules are code, the same for every model</small></h4>
+    <h4><Ic3 e="⛏" /> PROOF OF WORK ENGINE<small>every Collective agent · one intake coin per {r.everyMin ?? 30} min · rules are code, the same for every model</small></h4>
     <ol className="hv-pow-flow" aria-label="The PoW pipeline">{POW_STAGES.map(([ic, k, t], i) => <li key={k} style={{ '--i': i }} data-tip={fill(t)}><b aria-hidden="true"><Ic3 e={ic} /></b><em>{k}</em><small>{fill(t)}</small></li>)}</ol>
     <div className="hv-pow-stats">{[['FILED', rows.length, 'Proofs in this list'], ['GRADED', graded.length, 'Judged an hour after the call'], ['RIGHT', graded.length ? `${Math.round(100 * right / graded.length)}%` : '—', 'Graded calls that earned honey'],
       ['STRENGTH', avg, 'Average work behind a call: sites with vitals, distinct vitals, safety vitals, a vital confirmed twice']].map(([k, v, tip]) =>
@@ -132,27 +141,27 @@ export function PowEngine({ limit = 12 }) {
       <ul className="hv-pow-shelf">{d.folders.map(x => { const k = `${x.cat}-${x.folder?.id}`; const p = x.folder?.pnlPct; return <li key={k}><button type="button" className={`${shown === k ? 'on' : ''}${x.live ? ' is-live' : ''}`} aria-expanded={shown === k} onClick={() => setSeen(shown === k ? '' : k)} data-tip={x.folder?.why || x.folder?.name} data-testid={`pow-shelf-${x.folder?.id}`}><b>{x.folder?.sym ? `$${x.folder.sym}` : x.folder?.name}</b><small>{x.name}{x.live ? ' · ● live' : ''}</small><em className={`m-num ${p > 0 ? 'is-up' : p < 0 ? 'is-dn' : ''}`}>{p == null ? (x.live ? 'live' : '—') : `${p >= 0 ? '+' : ''}${p}%`}</em></button></li>; })}</ul>
       {(() => { const x = d.folders.find(y => `${y.cat}-${y.folder?.id}` === shown); return x ? <div className="hv-pow-db-row"><FolderView f={x.folder} live={x.live} catId={x.cat} /></div> : null; })()}</div> : null}
     {rows.length ? <div className="hv-pow-grid">{rows.map((x, i) => <div key={x.id} className="hv-pow-cell" style={{ '--i': i }}><small className="hv-pow-by">{x.name}</small><PowCard p={x} compact /></div>)}</div>
-      : (d?.folders || []).length ? null : <p className="fch-nil">{err || 'No proof filed yet — colonize an agent (🐝 Colonize on its desk) and its next free moment researches an intake coin.'}</p>}
+      : (d?.folders || []).length ? null : <p className="fch-nil">{err || 'No proof filed yet — add an agent to the Collective (💎 Join on its desk) and its next free moment researches an intake coin.'}</p>}
   </article>;
 }
 
 export function ColonyPot({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
   const [pool, setPool] = useState(''); const [plat, setPlat] = useState(''); const seeded = useRef(false);
-  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); if (!seeded.current) { seeded.current = true; setPool(x.poolDraft?.amountA ? String(x.poolDraft.amountA) : ''); setPlat(x.poolDraft?.amountB ? String(x.poolDraft.amountB) : ''); } } else setErr('The colony did not answer.'); };
+  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); if (!seeded.current) { seeded.current = true; setPool(x.poolDraft?.amountA ? String(x.poolDraft.amountA) : ''); setPlat(x.poolDraft?.amountB ? String(x.poolDraft.amountB) : ''); } } else setErr('The Collective did not answer.'); };
   useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) call('/admin/colony').then(x => on && take(x)).catch(e => on && setErr(e.message)); };
     go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra) => { setBusy(action); setErr(''); try { take(await call('/admin/colony', { method: 'POST', body: JSON.stringify({ action, ...extra }) })); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
-  if (!d) return <article className="fch-card hv-pot" data-testid="colony-pot"><h4><Ic3 e="🏺" /> COLONY POT</h4><p className="fch-nil">{err || 'reading the pot…'}</p></article>;
+  if (!d) return <article className="fch-card hv-pot" data-testid="colony-pot"><h4><Ic3 e="💎" /> THE POOL</h4><p className="fch-nil">{err || 'reading the Pool…'}</p></article>;
   const v = d.value?.usd ?? 0; const top = Math.max(v, d.principalUsd, 1);
   return <article className="fch-card fch-wide hv-pot" data-testid="colony-pot">
-    <h4><Ic3 e="🏺" /> COLONY POT<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} colonized · next airdrop in {Math.max(0, Math.round((d.nextAirdrop * 1000 - Date.now()) / 3600000))}h</small></h4>
-    {!d.wallet ? <p className="hv-pot-new"><span>The pot is ONE Circle wallet. Your users' money is never pooled — each agent trades from its own wallet; the pot only ever pays out what it GREW.</span>
-      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('create')} data-tip="Makes the pot's Solana wallet on the agent Circle account (one, ever — a second click returns the same wallet)" data-testid="colony-create">{busy === 'create' ? 'Making…' : '🏺 Create the pot wallet'}</button></p>
+    <h4><Ic3 e="💎" /> THE POOL<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} in the Collective · next airdrop in {Math.max(0, Math.round((d.nextAirdrop * 1000 - Date.now()) / 3600000))}h</small></h4>
+    {!d.wallet ? <p className="hv-pot-new"><span>The Pool is ONE Circle wallet. Your users' money is never pooled — each agent trades from its own wallet; the Pool only ever pays out what it GREW.</span>
+      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('create')} data-tip="Makes the Pool's Solana wallet on the agent Circle account (one, ever — a second click returns the same wallet)" data-testid="colony-create">{busy === 'create' ? 'Making…' : '💎 Create the Pool wallet'}</button></p>
       : <>
         <div className="hv-pot-vault" data-tip="Locked principal (never pays out) · growth above it · the part that may leave this epoch">
           <i className="is-floor" style={{ transform: `scaleX(${Math.min(1, d.principalUsd / top)})` }} /><i className="is-grow" style={{ transform: `scaleX(${Math.min(1, v / top)})` }} />
-          <p className="fch-flow"><span><b className="m-num" key={v}>{usd(v)}</b><small>in the pot</small></span><i aria-hidden>−</i><span><b className="m-num">{usd(d.principalUsd)}</b><small><Ic3 e="🔒" /> locked</small></span><i aria-hidden>=</i>
+          <p className="fch-flow"><span><b className="m-num" key={v}>{usd(v)}</b><small>in the Pool</small></span><i aria-hidden>−</i><span><b className="m-num">{usd(d.principalUsd)}</b><small><Ic3 e="🔒" /> locked</small></span><i aria-hidden>=</i>
             <span className={d.growthUsd ? 'is-good' : ''}><b className="m-num">{usd(d.growthUsd)}</b><small>growth</small></span><i aria-hidden>→</i><span className="hv-pot-pay"><b className="m-num">{usd(d.payableUsd)}</b><small>may pay this epoch</small></span></p></div>
         <p className="hv-pot-parts m-note">{d.value ? `${d.value.sol} SOL · ${usd(d.value.usdc)} USDC · ${usd(d.value.feecatUsd)} FEECAT` : "couldn't read the chain — numbers are the last good ones"}</p>
         <div className="hv-pot-row">
@@ -165,8 +174,8 @@ export function ColonyPot({ call }) {
             <button type="button" className="m-btn" disabled={!!busy || !d.growthUsd} onClick={() => act('lock')} data-tip="Lock today's value in as principal: the floor only ever goes up, so gains compound instead of paying out" data-testid="colony-lock">{busy === 'lock' ? 'Locking…' : '🔒 Lock gains in'}</button></div>
         </div>
         <div className="hv-pot-row">
-          <form className="hv-pot-pool" onSubmit={e => e.preventDefault()} data-tip="Opportunity 1: the colony's own FEECAT / SOL pool on Meteora — fees compound into it, the colony wallet pays, nothing is sent until you create">
-            <span>🌊 COLONY POOL {d.pool ? <em className="is-on">OPEN · {d.pool.platform}</em> : <em>Meteora · not open</em>}</span>
+          <form className="hv-pot-pool" onSubmit={e => e.preventDefault()} data-tip="Opportunity 1: the Collective's own FEECAT / SOL pool on Meteora — fees compound into it, the Pool wallet pays, nothing is sent until you create">
+            <span>🌊 COLLECTIVE LP {d.pool ? <em className="is-on">OPEN · {d.pool.platform}</em> : <em>Meteora · not open</em>}</span>
             {d.pool ? <small className="hv-pool-addr"><code>{d.pool.address.slice(0, 6)}…{d.pool.address.slice(-6)}</code>{d.pool.sol ? ` · ${d.pool.feecat?.toLocaleString()} FEECAT + ${d.pool.sol} SOL` : ''}{d.pool.lock ? ' · liquidity locked' : ''}</small> : <>
               <label><small>FEECAT in</small><input className="m-input" inputMode="decimal" value={pool} onChange={e => setPool(e.target.value)} placeholder="1,000,000" aria-label="FEECAT to put in the pool" data-testid="colony-pool-feecat" /></label>
               <label><small>SOL in</small><input className="m-input" inputMode="decimal" value={plat} onChange={e => setPlat(e.target.value)} placeholder="0.5" aria-label="SOL to put in the pool" data-testid="colony-pool-sol" /></label>
@@ -174,13 +183,13 @@ export function ColonyPot({ call }) {
               <span className="hv-pool-acts"><button type="button" className="m-btn" disabled={!!busy || !(Number(pool) > 0 && Number(plat) > 0)} onClick={() => act('pool_preview', { feecat: Number(pool), sol: Number(plat) })} data-testid="colony-pool-preview"
                 data-tip="Builds the real transaction with Meteora's SDK and simulates it on Solana — free, nothing signed or sent">{busy === 'pool_preview' ? 'Simulating…' : '🔍 Preview (free)'}</button>
                 <button type="button" className="m-btn m-go" disabled={!!busy || !(d.poolDraft?.ok && d.poolDraft.amountA === Number(pool) && d.poolDraft.amountB === Number(plat))}
-                  onClick={() => window.confirm(`Create the colony pool on Meteora with ${Number(pool).toLocaleString()} FEECAT + ${plat} SOL from the colony wallet? The liquidity is LOCKED (it stays in the pool for good, earning compounding fees).`) && act('pool_create', { feecat: Number(pool), sol: Number(plat) })}
-                  data-testid="colony-pool-create" data-tip="Circle signs it as the colony wallet and it is sent — only after a clean preview of these exact amounts">{busy === 'pool_create' ? 'Creating…' : '🌊 Create the pool'}</button></span>
-              {d.poolDraft ? <small className={`hv-pool-sim ${d.poolDraft.ok ? 'is-ok' : 'is-bad'}`} data-testid="colony-pool-sim">{d.poolDraft.ok ? `✓ simulation passed · pool ${String(d.poolDraft.pool).slice(0, 6)}…` : `✗ simulation: ${String(d.poolDraft.err).includes('AccountNotFound') ? 'the colony wallet has no SOL yet — fund it first' : String(d.poolDraft.err).slice(0, 90)}`}</small> : null}</>}</form>
+                  onClick={() => window.confirm(`Create the Collective LP on Meteora with ${Number(pool).toLocaleString()} FEECAT + ${plat} SOL from the Pool wallet? The liquidity is LOCKED (it stays in the pool for good, earning compounding fees).`) && act('pool_create', { feecat: Number(pool), sol: Number(plat) })}
+                  data-testid="colony-pool-create" data-tip="Circle signs it as the Pool wallet and it is sent — only after a clean preview of these exact amounts">{busy === 'pool_create' ? 'Creating…' : '🌊 Create the pool'}</button></span>
+              {d.poolDraft ? <small className={`hv-pool-sim ${d.poolDraft.ok ? 'is-ok' : 'is-bad'}`} data-testid="colony-pool-sim">{d.poolDraft.ok ? `✓ simulation passed · pool ${String(d.poolDraft.pool).slice(0, 6)}…` : `✗ simulation: ${String(d.poolDraft.err).includes('AccountNotFound') ? 'the Pool wallet has no SOL yet — fund it first' : String(d.poolDraft.err).slice(0, 90)}`}</small> : null}</>}</form>
           <div className="hv-pot-set"><label><span><Ic3 e="🪂" /> AIRDROP<b className="m-num">{d.sharers}</b><small>signed sharers · {d.sharedSol} SOL shared, unsent</small></span>
             <span className="m-seg" role="group" aria-label="How often the airdrop pays">{[['daily', 'Every 24 h'], ['weekly', 'Weekly']].map(([k, l]) => <button key={k} type="button" className={d.policy.cadence === k ? 'active' : ''} aria-pressed={d.policy.cadence === k} disabled={!!busy} onClick={() => act('policy', { policy: { cadence: k } })} data-testid={`colony-cadence-${k}`}>{l}</button>)}</span></label>
-            <label data-tip="Agents only ever send to ONE place — the colony wallet. This picks where those shares end up: kept in the wallet, or added to the colony pool (once it is open)"><span>🤝 SHARES LAND IN<small>{d.policy.dest === 'pool' ? (d.pool ? 'the colony pool' : 'the pool — not open yet, they wait in the wallet') : 'the colony wallet'}</small></span>
-              <span className="m-seg" role="group" aria-label="Where shared winnings land">{[['wallet', '🏺 Colony wallet'], ['pool', '🌊 Colony pool']].map(([k, l]) => <button key={k} type="button" className={(d.policy.dest || 'wallet') === k ? 'active' : ''} aria-pressed={(d.policy.dest || 'wallet') === k} disabled={!!busy} onClick={() => act('policy', { policy: { dest: k } })} data-testid={`colony-dest-${k}`}>{l}</button>)}</span></label></div>
+            <label data-tip="Agents only ever send to ONE place — the Pool wallet. This picks where those shares end up: kept in the wallet, or added to the Collective LP (once it is open)"><span>🤝 SHARES LAND IN<small>{d.policy.dest === 'pool' ? (d.pool ? 'the Collective LP' : 'the pool — not open yet, they wait in the wallet') : 'the Pool wallet'}</small></span>
+              <span className="m-seg" role="group" aria-label="Where shared winnings land">{[['wallet', '💎 Pool wallet'], ['pool', '🌊 Collective LP']].map(([k, l]) => <button key={k} type="button" className={(d.policy.dest || 'wallet') === k ? 'active' : ''} aria-pressed={(d.policy.dest || 'wallet') === k} disabled={!!busy} onClick={() => act('policy', { policy: { dest: k } })} data-testid={`colony-dest-${k}`}>{l}</button>)}</span></label></div>
         </div>
         <ol className="hv-board hv-split" aria-label="The next airdrop" data-testid="colony-airdrop"><li className="hv-board-h"><Ic3 e="🪂" /> NEXT AIRDROP · {usd(d.payableUsd)} BY WHAT EACH SHARED</li>
           {d.airdrop.length ? d.airdrop.map((r, i) => <li key={r.owner} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{r.owner.slice(0, 4)}…{r.owner.slice(-4)}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.03, r.pct / 100)})` }} /></i>
@@ -208,7 +217,7 @@ function ColonyScreen({ a, w, side, tick }) {
   let body;
   if (a.incognito) body = <span className="cl-off is-incog"><b aria-hidden="true">🕶</b>incognito</span>;
   else if (w?.frozen) body = <span className="cl-off is-frozen"><b aria-hidden="true">❄</b>paused — its owner is signing in</span>;
-  else if (w?.screen && !bad) body = <img src={apiUrl(w.last ? `/api/cats/${a.id}/last/${w.slot ?? w.i}` : `/api/cats/${a.id}/screen/${w.i}?t=${tick}`)} alt={`${a.name}'s window ${side}`} loading="lazy" onError={() => setBad(true)} />;
+  else if (w?.screen && !bad) body = <img src={apiUrl(w.last ? `/api/cats/${a.id}/last/${w.slot ?? w.i}` : `/api/cats/${a.id}/screen/${w.i}?t=${tick}&${agentAuthQuery()}`)} alt={`${a.name}'s window ${side}`} loading="lazy" onError={() => setBad(true)} />;
   else if (a.status === 'working' || w?.status === 'working') body = <span className="cl-off"><i className="cl-scan" aria-hidden="true" />loading the screen…</span>;
   else body = <span className="cl-desk" aria-label="idle — its desktop"><i className="cl-desk-glow" aria-hidden="true" /><b className="cl-desk-mark" aria-hidden="true">FEELESS</b>   {/* 🖥 idle = its desktop (owner 2026-11-01) */}
     <span className="cl-desk-icons" aria-hidden="true"><i className="is-v" /><i className="is-p" /><i className="is-h" /><i className="is-f" /></span>
@@ -225,11 +234,11 @@ function ColonyCell({ a, onOpen, i, top, extra }) {
   useEffect(() => { const t = a.carrying?.at; if (!t || t === seenAt.current) return undefined; seenAt.current = t; setDrop(a.carrying.text); const k = setTimeout(() => setDrop(null), 2600); return () => clearTimeout(k); }, [a.carrying?.at, a.carrying?.text]);   // 🗄 a NEW keep drops into the agent
   return <article ref={ref} className={`cl-cell${a.colonized ? ' is-col' : ''}${live ? ' is-go' : ''}`} style={{ '--i': i }} data-testid={`cl-${a.id}`}>
     <header className="cl-foot">
-      <button type="button" className="cl-who" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`}><i className={`cl-dot${live ? ' is-go' : ''}`} aria-hidden="true" /><b>{a.name}</b><small>{a.kind === 'general' ? 'GENERAL' : 'TRADER'} · LVL {a.level || 1}{a.colonized ? ' · 🐝 COLONIZED' : ''}</small></button>
+      <button type="button" className="cl-who" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`}><AgentPortrait cat={a} size={34} fallback={<i className={`cl-dot${live ? ' is-go' : ''}`} aria-hidden="true" />} /><b>{a.name}</b><small>{a.kind === 'general' ? 'GENERAL' : 'TRADER'} · LVL {a.level || 1}{a.colonized ? ' · 💎 IN THE COLLECTIVE' : ''}</small></button>
       <small className={`cl-carry${drop ? ' is-new' : ''}`} data-tip="What it stored last — it goes into its drawer">› {a.carrying ? <>carrying “{a.carrying.text}” to its drawer</> : a.status === 'working' ? 'reading — nothing kept yet' : 'nothing carried yet'}</small>
       {drop ? <span className="cl-drop" key={a.carrying.at} aria-hidden="true" data-testid={`cl-drop-${a.id}`}>🗄 {drop}</span> : null}
       {c ? <span className={`cl-call ${CALL[c.call] || ''}${c.honey > 0 ? ' is-right' : c.honey < 0 ? ' is-wrong' : ''}`} data-tip={`${c.call} $${c.sym} — ${c.why}`}>{c.call} ${c.sym}<em>{c.honey == null ? '⏳' : `${c.honey > 0 ? '+' : ''}${c.honey}`}</em></span> : <span className="cl-call is-none">no call yet</span>}
-      <span className="cl-honey" data-tip={`${a.honey} honey this epoch · ${a.right}/${a.graded} graded calls right`}><em><Ic3 e="🍯" /></em><b className={`m-num ${a.honey < 0 ? 'is-dn' : ''}`} key={a.honey}>{a.honey > 0 ? '+' : ''}{a.honey}</b>
+      <span className="cl-honey" data-tip={`${a.honey} score this epoch · ${a.right}/${a.graded} graded calls right`}><em><Ic3 e="💧" /></em><b className={`m-num ${a.honey < 0 ? 'is-dn' : ''}`} key={a.honey}>{a.honey > 0 ? '+' : ''}{a.honey}</b>
         <i aria-hidden="true"><u className={a.honey < 0 ? 'is-dn' : ''} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(a.honey) / Math.max(1, top)))})` }} /></i><small>{a.right}/{a.graded} right</small></span>
       {extra ? extra(a) : null}
     </header>
@@ -239,17 +248,17 @@ function ColonyCell({ a, onOpen, i, top, extra }) {
 export function ColonyGrid({ api, onOpen, ids, extra }) {
   const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [err, setErr] = useState(''); const pageRef = useRef(0); const busy = useRef(false); const end = useRef(null); const seeEnd = useSeen(end);
   const load = useCallback(async (page, replace) => { if (busy.current) return; busy.current = true;
-    try { const x = await api(`/api/cats/colony?page=${page}${ids ? `&ids=${encodeURIComponent(ids)}` : ''}`); if (!x || !Array.isArray(x.agents)) throw new Error('The colony did not answer.');
+    try { const x = await api(`/api/cats/colony?page=${page}${ids ? `&ids=${encodeURIComponent(ids)}` : ''}`); if (!x || !Array.isArray(x.agents)) throw new Error('The Collective did not answer.');
       setRows(r => (replace ? x.agents : [...r.filter(o => !x.agents.some(n => n.id === o.id)), ...x.agents])); setMeta(x); pageRef.current = page; setErr(''); }
     catch (e) { setErr(e.message); } finally { busy.current = false; } }, [api, ids]);
   useEffect(() => { load(0, true); const t = setInterval(() => { if (!document.hidden) load(0, false); }, 15000); return () => clearInterval(t); }, [load]);
   useEffect(() => { if (seeEnd && meta?.more && meta.page === pageRef.current) load(pageRef.current + 1, false); }, [seeEnd, meta, load]);   // more on scroll
   const top = Math.max(1, ...rows.map(r => Math.abs(r.honey || 0)));
   return <section className={`cl${ids ? ' is-mine' : ''}`} data-testid={ids ? 'colony-mine' : 'colony'}>
-    {ids ? null : <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
-      <p>Every agent's two windows, live — an idle one shows its desktop. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
+    {ids ? null : <header className="cl-head"><span className="cl-brand"><small>THE COLLECTIVE</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> in the Collective · <em className="m-num">{meta.total}</em> agents</> : 'reading the Collective…'}</b></span>
+      <p>Every agent's two windows, live — an idle one shows its desktop. Collective agents file graded calls and their trades are graded before and after; score splits the Pool's growth.</p></header>}
     {err && !rows.length ? <p className="hv-nil">{err}</p> : null}
-    {ids ? null : <ColonyFlow api={api} onOpen={onOpen} />}   {/* 🐝 the live loop at the TOP (owner 2026-11-01) */}
+    {ids ? null : <ColonyFlow api={api} onOpen={onOpen} />}   {/* 💎 the live loop at the TOP (owner 2026-11-01) */}
     {ids ? null : <ColonyManual />}
     <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} onOpen={onOpen} i={k % 10} top={top} extra={extra} />)}</div>
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>

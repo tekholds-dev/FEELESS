@@ -65,8 +65,8 @@ const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3"
 const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
 const COLONY_STEPS = [['🔎', 'It reads the trenches on its own', 'One coin at a time, one small model call each, inside its $ limits — until you turn it off.'],
   ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
-  ['🍯', 'Honey is its proof', 'Graded calls earn or lose honey — it ranks your agent on the Colony. Nobody is paid for being right.'],
-  ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the colony.']];
+  ['💧', 'Honey is its proof', 'Graded calls earn or lose score — it ranks your agent on the Collective. Nobody is paid for being right.'],
+  ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the Collective.']];
 const SHARE_PCTS = [5, 10, 15, 20, 25];
 const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
@@ -88,25 +88,25 @@ export function HiveSwitch({ cat }) {
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
     <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => (h.on ? set(false, h.every) : (setErr(''), setPop(true)))} data-testid="hive-toggle"
-      data-tip={h.on ? `🐝 Colonized: it files a graded call every ${every} and its trades are graded — click to leave the colony` : '🐝 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="🐝" /></i> {h.on ? 'COLONIZED' : 'COLONIZE'}</button>
+      data-tip={h.on ? `💎 In the Collective: it files a graded call every ${every} and its trades are graded — click to leave the Collective` : '💎 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="💎" /></i> {h.on ? 'COLONIZED' : 'JOIN THE COLLECTIVE'}</button>
     {h.on ? <select value={h.every} disabled={busy} onChange={e => set(true, Number(e.target.value))} aria-label="How often it files a call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select> : null}
     {pop ? createPortal(<div className="hv-shade" onClick={e => e.target === e.currentTarget && setPop(false)}>
       <section className="hv-pop m-pop" role="dialog" aria-modal="true" aria-labelledby="hv-pop-h" data-testid="colonize-pop">
-        <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLONY</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
+        <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLLECTIVE</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
         <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true"><Ic3 e={ic} /></b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
-        <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLONY</small>
-          <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the colony pool</strong>
+        <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLLECTIVE</small>
+          <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the Collective LP</strong>
             <small>The pool lives on its own platform and pays on its own epochs.</small>
-            <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the colony wallet'}</em></span></article>
+            <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the Pool wallet'}</em></span></article>
           <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Share its winnings, get airdrops</strong>
-            <small>Sign once: each WINNING trade sends the % you pick of its profit to the colony wallet. The colony airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
+            <small>Sign once: each WINNING trade sends the % you pick of its profit to the Pool wallet. The Collective airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
             {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
                 <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> Sign to share</button></span>}</span></article></div>
         <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
-        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '🐝 Colonize'}</button></footer>
+        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '💎 Colonize'}</button></footer>
       </section></div>, document.body) : null}</span>;
 }
 
@@ -362,7 +362,7 @@ export function ColonyTab({ cat }) {
   const share = cat.colonyShare || {}; const f = folders.find(x => x.id === pick);
   const pnlText = `${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)} SOL`;
   return <section className="col-tab" data-testid="col-tab">
-    <div className="col-head"><b><Ic3 e="🐝" /> ITS COLONY</b>{[['WALLET', w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…'], ['SHARING', share.on ? `${share.pct}% of wins` : 'off'], ['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', pnlText], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
+    <div className="col-head"><b><Ic3 e="💎" /> IN THE COLLECTIVE</b>{[['WALLET', w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…'], ['SHARING', share.on ? `${share.pct}% of wins` : 'off'], ['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', pnlText], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className={`m-num${k === 'P/L' ? (pnl >= 0 ? ' is-up' : ' is-dn') : ''}`}>{v}</b></span>)}</div>
     <div className="col-dots-wrap" data-tip="Each dot is one PoW folder — up = it made money, down = it lost; tap one"><PowDots folders={folders} onPick={setPick} pick={pick} /></div>
     {f ? <p className="col-pick" data-testid="col-pick"><b>{f.name}</b>{f.sym ? ` · $${f.sym}` : ''} · {f.live ? `live — ${f.phase}` : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`} — {f.why || ''}</p> : null}
@@ -527,10 +527,10 @@ export function MindRail({ w, side, d }) {
       <div><dt>SCREEN</dt><dd className={w?.screen && !w?.last ? 'is-up' : ''}>{w?.frozen ? 'PAUSED' : w?.last ? 'LAST PAGE' : w?.screen ? 'LIVE' : '—'}</dd></div>
       {side === 'left' ? <div><dt>LEVEL</dt><dd className="m-num">{d?.level ?? '—'}</dd></div> : <div><dt>W / L</dt><dd className="m-num">{d ? `${d.wins || 0} / ${d.losses || 0}` : '—'}</dd></div>}
       {side === 'left' ? <div><dt>STORED</dt><dd className="m-num" key={d?.stored}>{d?.stored ?? 0}</dd></div> : <div><dt>P/L</dt><dd className={`m-num ${Number(d?.pnlSol) < 0 ? 'is-dn' : 'is-up'}`}>{d?.pnlSol != null ? `${Number(d.pnlSol) >= 0 ? '+' : ''}${Number(d.pnlSol).toFixed(3)} SOL` : '—'}</dd></div>}
-      {side === 'left' ? <div data-tip="Honey this epoch: its graded calls and trades, judged an hour on"><dt><Ic3 e="🍯" /> HONEY</dt><dd className={`m-num ${Number(d?.honey) < 0 ? 'is-dn' : d?.honey ? 'is-up' : ''}`} key={d?.honey}>{d?.honey != null ? `${d.honey > 0 ? '+' : ''}${d.honey}` : '—'}</dd></div>
+      {side === 'left' ? <div data-tip="Score this epoch: its graded calls and trades, judged an hour on"><dt><Ic3 e="💧" /> SCORE</dt><dd className={`m-num ${Number(d?.honey) < 0 ? 'is-dn' : d?.honey ? 'is-up' : ''}`} key={d?.honey}>{d?.honey != null ? `${d.honey > 0 ? '+' : ''}${d.honey}` : '—'}</dd></div>
         : <div data-tip="Graded calls it got right this epoch"><dt>RIGHT</dt><dd className="m-num">{d ? `${d.right || 0} / ${d.graded || 0}` : '—'}</dd></div>}
-      {side === 'left' ? <div><dt>COLONY</dt><dd className={d?.colonized ? 'is-up' : ''}>{d?.colonized ? '🐝 IN' : 'OUT'}</dd></div>
-        : <div data-tip="Its newest call, and the honey it earned once graded"><dt>LAST CALL</dt><dd>{d?.lastCall ? `${d.lastCall.call} $${d.lastCall.sym}${d.lastCall.honey != null ? ` ${d.lastCall.honey > 0 ? '+' : ''}${d.lastCall.honey}` : ' ⏳'}` : '—'}</dd></div>}</dl>
+      {side === 'left' ? <div><dt>COLLECTIVE</dt><dd className={d?.colonized ? 'is-up' : ''}>{d?.colonized ? '💎 IN' : 'OUT'}</dd></div>
+        : <div data-tip="Its newest call, and the score it earned once graded"><dt>LAST CALL</dt><dd>{d?.lastCall ? `${d.lastCall.call} $${d.lastCall.sym}${d.lastCall.honey != null ? ` ${d.lastCall.honey > 0 ? '+' : ''}${d.lastCall.honey}` : ' ⏳'}` : '—'}</dd></div>}</dl>
     {d?.pow?.[String(w?.i ?? (side === 'left' ? 0 : 1))] ? <PowCard p={d.pow[String(w?.i ?? (side === 'left' ? 0 : 1))]} compact /> : null}
   </aside>;
 }
@@ -641,7 +641,7 @@ export function FolderView({ f, live, catId }) {
   const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
   const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', sell_wait: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
-    <span className="dsk-fold-h"><b><Ic3 e="📁" /> {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
+    <span className="dsk-fold-h"><b><Ic3 e="📁" /> {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the Collective</small> : null}</span>
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
     <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={`${f.pick?.mint === c.mint ? 'is-pick' : ''}${open === c.mint ? ' is-open' : ''}`}>
       <button type="button" onClick={() => setOpen(o => (o === c.mint ? null : c.mint))} aria-expanded={open === c.mint} data-tip="Open this coin's folder — its vitals and snapshots">
@@ -757,9 +757,9 @@ function PowShare({ cat }) {
   const [share, , sign, canSign] = useColonyShare(cat); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
   const pick = async pct => { setBusy(String(pct)); setErr(''); try { await sign(pct > 0, pct); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(''); } };
   const cur = share?.on ? share.pct : 0;
-  return <div className="dsk-share" data-testid="dsk-share"><span><b>🤝 SHARE WINS WITH THE POT</b><small>{cur ? `${cur}% of each winning PoW's profit goes to the colony pot — no colonizing needed` : 'Off — its PoW wins stay in its wallet. Pick a % to share (one wallet signature).'}</small></span>
+  return <div className="dsk-share" data-testid="dsk-share"><span><b>🤝 SHARE WINS WITH THE POOL</b><small>{cur ? `${cur}% of each winning PoW's profit goes to the Pool — no colonizing needed` : 'Off — its PoW wins stay in its wallet. Pick a % to share (one wallet signature).'}</small></span>
     <span className="m-seg" role="radiogroup" aria-label="Share of each PoW win">{[0, ...SHARE_PCTS].map(p => <button key={p} type="button" role="radio" aria-checked={cur === p} className={cur === p ? 'active' : ''} disabled={!!busy || (p > 0 && !canSign)}
-      onClick={() => cur !== p && pick(p)} data-tip={p ? `Sign once: ${p}% of each winning PoW's profit to the colony pot` : 'Stop sharing (no signature)'} data-testid={`dsk-share-${p}`}>{busy === String(p) ? '…' : p ? `${p}%` : 'OFF'}</button>)}</span>
+      onClick={() => cur !== p && pick(p)} data-tip={p ? `Sign once: ${p}% of each winning PoW's profit to the Pool` : 'Stop sharing (no signature)'} data-testid={`dsk-share-${p}`}>{busy === String(p) ? '…' : p ? `${p}%` : 'OFF'}</button>)}</span>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
 }
 // 🧬 ITS FINGERPRINT (owner 2026-11-02): the sources it read and the facts it filed before each trade, scored by how that trade went — its own,
@@ -852,6 +852,7 @@ function PowExplorer({ cat, d, setD }) {
 // 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
 // field), the gas reserve always stays, Circle signs one transfer; it lands on the colony ledger with its tx
 const BidsLazy = lazy(() => import('../RepMarkets'));
+const CharacterLazy = lazy(() => import('./CharacterFolder').then(m => ({ default: m.CharacterFolder })));
 const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.AgentLedger })));
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {
@@ -863,14 +864,14 @@ function PotSend({ cat }) {
   const send = async () => { setBusy(true); setMsg(''); setOk(null);
     try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt), ...(way === 'proof' ? { job: pick } : { text: why.trim() }) }); setOk(j.sent); setAmt(''); setPick(''); setWhy(''); loadProofs(); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
   return <form className="dsk-potsend" onSubmit={e => { e.preventDefault(); send(); }} data-testid="dsk-potsend">
-    <span><b><Ic3 e="🏺" /> SEND TO THE COLONY POT</b><small>Honey travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
+    <span><b><Ic3 e="💎" /> SEND TO THE POOL</b><small>A share travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
     <div className="m-seg" role="tablist" aria-label="What goes with this honey">{[['proof', '🧾 A proof'], ['why', '✍ A reason']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={way === k} className={way === k ? 'on' : ''} onClick={() => setWay(k)} data-testid={`dsk-pot-${k}`}>{l}</button>)}</div>
-    {way === 'proof' ? (free.length ? <select className="m-input" value={pick} onChange={e => setPick(e.target.value)} aria-label="Proof to send with this honey" data-tip="Each proof can go to the pot once" data-testid="dsk-pot-proof"><option value="">Pick a proof…</option>{free.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.sym || '—'}{p.pnlPct != null ? ` · ${p.pnlPct >= 0 ? '+' : ''}${Number(p.pnlPct).toFixed(1)}%` : ''}</option>)}</select>
-      : <small className="m-dim" data-testid="dsk-pot-none">{proofs.length ? 'Every proof it has already went to the pot.' : 'It has no filed proof yet.'} Give a reason instead.</small>)
+    {way === 'proof' ? (free.length ? <select className="m-input" value={pick} onChange={e => setPick(e.target.value)} aria-label="Proof to send with this honey" data-tip="Each proof can go to the Pool once" data-testid="dsk-pot-proof"><option value="">Pick a proof…</option>{free.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.sym || '—'}{p.pnlPct != null ? ` · ${p.pnlPct >= 0 ? '+' : ''}${Number(p.pnlPct).toFixed(1)}%` : ''}</option>)}</select>
+      : <small className="m-dim" data-testid="dsk-pot-none">{proofs.length ? 'Every proof it has already went to the Pool.' : 'It has no filed proof yet.'} Give a reason instead.</small>)
       : <input className="m-input" maxLength={80} placeholder="Why are you sending this?" value={why} onChange={e => setWhy(e.target.value)} aria-label="Reason for sending" data-testid="dsk-pot-why" />}
-    <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder="SOL to send" value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL to send to the colony pot" />
-      <button type="submit" className="m-btn m-go" disabled={busy || !ready || !(Number(amt) > 0)} data-tip={ready ? 'Its wallet signs one transfer to the colony pot' : 'Attach a proof or a reason first'} data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
-    {ok ? <small className="dsk-wal-msg" role="status">✓ {ok.sol} SOL sent to the pot · <a href={`https://solscan.io/tx/${ok.sig}`} target="_blank" rel="noopener noreferrer">tx ↗</a></small> : null}
+    <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder="SOL to send" value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL to send to the Pool" />
+      <button type="submit" className="m-btn m-go" disabled={busy || !ready || !(Number(amt) > 0)} data-tip={ready ? 'Its wallet signs one transfer to the Pool' : 'Attach a proof or a reason first'} data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
+    {ok ? <small className="dsk-wal-msg" role="status">✓ {ok.sol} SOL sent to the Pool · <a href={`https://solscan.io/tx/${ok.sig}`} target="_blank" rel="noopener noreferrer">tx ↗</a></small> : null}
     {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</form>;
 }
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
@@ -1027,12 +1028,12 @@ function HoneyPot({ cat }) {
   const share = cat.colonyShare || {};
   return <div className="dsk-honey" data-testid="dsk-honey">
     <div className="dsk-honey-top">
-      <span data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em><Ic3 e="🍯" /> HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
-      <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b></span>
-      <span data-tip="The colony pool (Meteora) the colony wallet opens: stake into it once it is open"><em>COLONY POOL</em><b className="m-num">{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'not open'}</b></span>
+      <span data-tip="Score this epoch: its graded calls, proofs and trades, judged an hour on"><em><Ic3 e="💧" /> HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
+      <span data-tip="Its share of each winning trade sent to the Pool wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b></span>
+      <span data-tip="The Collective LP (Meteora) the Pool wallet opens: stake into it once it is open"><em>COLLECTIVE LP</em><b className="m-num">{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'not open'}</b></span>
     </div>
     <HoneyTanks ledger={ledger} live={v} colony={m} px={px} />
-    <div className="dsk-honey-ways"><b>WAYS INTO THE COLONY</b><small>Opportunity 1 · stake into the colony pool — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the colony airdrops back by what you shared.</small>
+    <div className="dsk-honey-ways"><b>WAYS INTO THE COLLECTIVE</b><small>Opportunity 1 · stake into the Collective LP — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the Collective airdrops back by what you shared.</small>
       <HiveSwitch cat={cat} /></div>
     <PotSend cat={cat} />
     <Suspense fallback={<p className="dsk-note">reading the ledger…</p>}><AgentLedgerLazy api={flowApi} agent={cat.name} /></Suspense>
@@ -1068,7 +1069,7 @@ function WalletApp({ cat }) {
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['character', '🎭', 'Character'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '💧', 'The Pool'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 // 🧱 what each thin folder shows on its wall. Real counts from its state only; a tile with no action is just a number.
 const won = rows => rows.filter(f => Number(f.roePct ?? f.net) > 0 || f.graded === 'right').length; const lost = rows => rows.filter(f => Number(f.roePct ?? f.net) < 0 || f.graded === 'wrong').length;
 function wallFor(k, d, cat) {
@@ -1096,7 +1097,7 @@ export function clearOfIcons(win, icons, width) {
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 // 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
 const ICON_TIP = { terms: 'How this agent is locked down, and the terms you run it under', proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
-  pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
+  pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the Collective', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
   const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
@@ -1104,7 +1105,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
   useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, terms: { open: false, min: false, max: false, x: 170, y: 48 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
+    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, character: { open: false, min: false, max: false, x: 130, y: 30 }, terms: { open: false, min: false, max: false, x: 170, y: 48 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight, extra.map(a => a.k)); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
@@ -1147,7 +1148,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💧 The Pool', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}

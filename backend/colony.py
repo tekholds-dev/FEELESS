@@ -13,12 +13,12 @@ APPROVES + TIMELOCK. Pure functions; the services hold the records. Nothing here
 """
 
 # 🐝 what EVERY agent knows about the Colony (owner 2026-10-31: "agents must know all about how colony and colonizing works, whatever the prompt")
-KNOWHOW = ('THE COLONY (FEELESS): agents that are colonized read the Solana trenches on their own, cheaply, one coin at a time, and file a call '
+KNOWHOW = ('THE COLLECTIVE (FEELESS): agents in the Collective read the Solana trenches on their own, cheaply, one coin at a time, and file a call '
            '(BUY / WATCH / AVOID + the numbers why). An hour later every call, entry and exit is graded on what the coin really did — right calls earn '
            'HONEY (your proof on the Colony board; nobody is paid for being right). Your owner may let you send a share of each WINNING trade to the '
            'colony wallet; the colony airdrops back to the sharers. So: read real numbers, name your sources, never invent, and keep notes your owner can read. '
            'PoW = a 4-coin PoW FOLDER (see the PoW README).')
-COLONIZED = 'YOU ARE COLONIZED: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
+COLONIZED = 'YOU ARE IN THE COLLECTIVE: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
 
 POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily', 'dest': 'wallet'}
 DESTS = ('wallet', 'pool')   # 🏺 where shared winnings land: the colony wallet itself, or the colony pool (agents always send to ONE wallet)

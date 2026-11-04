@@ -94,7 +94,7 @@ def test_every_owner_door_refuses_a_signed_out_caller(monkeypatch):
         if not path.startswith('/api/cats/{cat_id}') or path in public_ok:
             continue
         url = path.replace('{cat_id}', 'g').replace('{i}', '0').replace('{file_id}', 'a' * 32).replace('{name}', 'x')
-        for m in getattr(r, 'methods', []) - {'HEAD', 'OPTIONS'}:
+        for m in set(getattr(r, 'methods', None) or []) - {'HEAD', 'OPTIONS'}:
             code = c.request(m, url, json={'ownerId': 'browser-1', 'op': 'state', 'action': 'stop'}).status_code
             assert code in (401, 403, 404, 405, 422), (m, path, code)
             seen += 1
@@ -117,9 +117,9 @@ def test_the_public_live_view_shows_hosts_and_a_screen_flag_never_steps_or_the_p
          'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]},
          {'i': 1, 'model': 'a/b', 'status': 'human', 'url': 'https://x.com/login', 'steps': []}]}}
     out = fs.public_live(w)
-    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'slot': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True, 'last': False, 'cursor': None},
-                                                                         {'i': 1, 'slot': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False, 'last': False, 'cursor': None}]}   # handed to its owner = frozen, no screen
-    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'slot': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False, 'last': False, 'cursor': None}   # 🕶 nothing shown
+    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'slot': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'private': True, 'screen': True, 'last': False, 'cursor': None},
+                                                                         {'i': 1, 'slot': 1, 'model': 'b', 'status': 'human', 'host': '', 'frozen': True, 'private': True, 'screen': False, 'last': False, 'cursor': None}]}   # handed to its owner = frozen, no screen
+    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'slot': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'private': True, 'screen': False, 'last': False, 'cursor': None}   # 🕶 nothing shown
     assert fs.public_live(None) == {'status': 'idle', 'windows': [], 'incognito': False}
     w['task']['windows'][0]['cursor'] = {'x': 0.42, 'y': 1.7, 'act': 'click', 'at': 5, 'typed': 'hunter2'}   # 🖱 a visitor sees where its mouse is, nothing else
     assert fs.public_live(w)['windows'][0]['cursor'] == {'x': 0.42, 'y': 1, 'act': 'click', 'at': 5} and fs.public_live(w, {'incognito': True})['windows'][0]['cursor'] is None
@@ -172,12 +172,14 @@ def test_a_visitor_screen_is_a_cached_jpeg_never_a_link_and_incognito_costs_5_on
     class Pg:
         live = True
         async def shot(self): shots.append(1); return b'JPG'
+        async def find_private(self, js): return {'rects': [], 'w': 1, 'h': 1}
+    monkeypatch.setattr(fs._vv, 'redact', lambda jpg, found: jpg)
     monkeypatch.setitem(fs._WORK, 'g', {'pages': [Pg()], 'task': {'status': 'working', 'windows': [{'i': 0, 'status': 'working', 'url': 'https://x.com'}]}})
     assert c.get('/api/cats/g/screen/0').content == b'JPG' and c.get('/api/cats/g/screen/0').content == b'JPG' and len(shots) == 1   # cached: 1 capture
     assert c.get('/api/cats/g/screen/5').status_code == 404
     fs._WORK['g']['task'] = {'status': 'done', 'windows': [{'i': 0, 'status': 'done', 'url': 'https://x.com'}]}   # 🖼 the task ended: its last page stays
     r_ = c.get('/api/cats/g/screen/0'); assert r_.content == b'JPG' and r_.headers.get('X-Last-Page') == '1' and len(shots) == 1
     assert fs.public_live(fs._WORK['g'], {'id': 'g'})['windows'][0]['last'] is True and fs.public_live(fs._WORK['g'], {'id': 'g', 'incognito': True})['windows'][0]['screen'] is False
-    fs._WORK['g']['task']['windows'][0]['status'] = 'human'; assert c.get('/api/cats/g/screen/0').status_code == 404   # handed to its owner: frozen, even the last frame
+    fs._WORK['g']['task']['windows'][0]['status'] = 'human'; assert c.get('/api/cats/g/screen/0').headers.get('X-Private') == '1'   # handed to its owner: frozen, even the last frame
     store['cats']['g']['incognito'] = True
     assert c.get('/api/cats/g/screen/0').status_code == 404 and c.get('/api/cats/g/live').json()['incognito'] is True

@@ -22,11 +22,11 @@ export const CHAPTERS = [
     ['build a trader or a general agent with 2 minds', 'give it its own wallet — it pays for its own thinking', 'type "file a PoW" in its chat to put it to work']],
 ];
 // 📖 the manual's tutorial (owner 2026-11-02: "anything under the header should look like a manual with more tutorial details")
-export const SYNOPSIS = [['🐱', 'Meet the cats', 'every agent with its two live windows, its honey and its last call', '/terminal/feecat/cats'],
+export const SYNOPSIS = [['🐱', 'Meet the cats', 'every agent with its two live windows, its score and its last call', '/terminal/feecat/cats'],
   ['🛠', 'Build an agent', 'trader or general · pick 2 minds · fund its OWN wallet (it pays for its own thinking)', '/terminal/feecat/new'],
   ['⛏', 'file a PoW', 'type it in its chat: a pool of buyable coins → each mind proposes 3 → takes 2 + a plan → researches → decides → buys', null],
-  ['🐝', 'Colonize', 'share a part of each win with the colony pot — the pot airdrops back by what you shared', null],
-  ['💸', 'colony --flow', 'watch every SOL: trades in, P/L, shares, the pot, the ledger with each tx', null]];
+  ['💎', 'Colonize', 'share a part of each win with the Pool — the Pool airdrops back by what you shared', null],
+  ['💸', 'colony --flow', 'watch every SOL: trades in, P/L, shares, the Pool, the ledger with each tx', null]];
 export const COMMANDS = [['file a PoW', 'both minds work a new PoW folder and buy the one they agree on'], ['A: file a PoW', 'mind A alone (B: for mind B)'],
   ['propose a PoW', 'the same work, filed as a card — nothing bought'], ['file a PoP', 'both minds call a perp; a paper trade runs if they agree'], ['propose a PoP', 'the same call as a card; nothing opens until you press Run'], ['stop PoW', 'ends the folder — sells if it bought'], ['/', 'every command, as you type']];
 const sol = v => `${(Number(v) || 0) >= 0 ? '+' : ''}${(Number(v) || 0).toFixed(2)} SOL`;

@@ -10,6 +10,7 @@ import { getChatSession } from '../../lib/chatSession';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
+import { AgentPortrait } from './AgentPortrait';
 import { downloadSvgPng } from '../../lib/svgPng';
 import { FeeCatMark } from '../FeeCatMark';
 import { catByName } from './catCoats';
@@ -233,7 +234,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <header className="kd-hero">
         <button type="button" className="kd-dl" onClick={e => downloadSvgPng(e.currentTarget.parentElement.querySelector('.kd-stage svg'), cat.name).catch(() => {})}
           aria-label={`Download ${cat.name}'s picture`} data-tip={`Download ${cat.name}'s picture (PNG, 1024 px) — e.g. for its coin or socials`} data-testid="kd-dl"><i aria-hidden="true" /></button>
-        <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />}</div>
+        <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <AgentPortrait cat={cat} size={170} fallback={<LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />} />}</div>
         <div className="kd-id">
           <span className={`kd-state is-${state[1]}`} data-testid="kd-state"><i />{state[0]}</span>
           <h1>{cat.name}<small>@{cat.handle}</small></h1>
@@ -251,7 +252,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         </div>
       </header>
     </>}
-    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '🐝 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
+    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '💎 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" onClick={() => setDeskAt('none')} data-tip="Its wallet, limits, proofs, mail and everything else" data-testid="kd-open-desktop"><Ic3 e="🖥" /> DESKTOP<SetupDot id={cat.id} /></button></nav> : null}
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}

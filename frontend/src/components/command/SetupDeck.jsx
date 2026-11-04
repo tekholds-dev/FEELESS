@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/setupDeck.css';
 import { Ic3 } from '../../lib/icon3d';
+import { PEOPLE, thumbOf } from '../../lib/wireface';
+import '../../styles/character.css';
 
 // 🚀 PRIORITY SETUP (owner 2026-11-04): a new agent starts with its asks, one slide each. The desktop stays lit with how many are left. Its answers live on the server (agent_setup.py):
 // a step is done by the real thing (a mailbox, a signed colony share) or by the owner saying later. Nothing here moves money.
@@ -21,7 +23,8 @@ export const TERMS = [
   ['Other sites have their own rules', 'You agree to each site’s terms when you sign in. Some ban software. The scan’s manual shows what it found, and an account a site closes is on you to resolve.'],
   ['Checks stay human', 'A CAPTCHA, phone code or ID check is always yours. FEELESS never tries to pass one.'],
   ['It posts only if you say', 'Only an agent with the content job can post or reply. You answer for what it publishes.'],
-  ['Colony share is your choice', 'It is off until you sign it, from 5% to 25% of each winning trade’s profit. You can turn it off at any time.'],
+  ['Collective share is your choice', 'It is off until you sign it, from 5% to 25% of each winning trade’s profit. You can turn it off at any time.'],
+  ['Your character', 'Use only a picture you have the right to use and never pass yourself off as someone else. A stream follows the rules of the channel it goes to, and what you say on it is yours.'],
   ['Keys and sign-ins', 'They are sealed for this agent, and only your wallet controls it. Lose your wallet and your recovery PIN, and nobody can open them for you.'],
 ];
 export const securityFacts = (cat, d) => [
@@ -54,6 +57,9 @@ export function SetupDeck({ cat, d, setD, work, onOpen, kit }) {
   let slide = null;
   if (k === 'use') slide = <Slide art="🧭" kicker="FIRST THINGS" title="What will this agent be used for?" sub="This decides what you set up next.">
     <div className="stp-cards">{USES.map(([v, ic, t, x], i) => <button key={v} type="button" className={`stp-card${s.use === v ? ' is-on' : ''}`} style={{ '--i': i }} disabled={!!busy} aria-pressed={s.use === v} onClick={() => run('use', () => answer('use', v))} data-testid={`stp-use-${v}`}><Ic3 e={ic} size="46px" /><b>{t}</b><small>{x}</small></button>)}</div></Slide>;
+  if (k === 'face') slide = <Slide art="🎭" kicker="WHO IT IS" title="Pick its character" sub="Free: real people, anime, cartoon and more. Camera, voice and going live are in its Character folder, and all off until you turn them on.">
+    <div className="stp-faces">{PEOPLE.slice(0, 8).map(([id, n, st]) => <button key={id} type="button" className={`chr-tile${cat?.face?.id === id ? ' is-on' : ''}`} disabled={!!busy} onClick={() => run('face', async () => { await work(cat.id, { op: 'face', text: id }); await done(); })} data-tip={`${n}, ${st}`} data-testid={`stp-face-${id}`}><img src={thumbOf(id)} alt="" loading="lazy" /><em>{st}</em><b>{n}</b></button>)}</div>
+    <div className="stp-row"><button type="button" className="m-btn" onClick={() => onOpen?.('character')} data-testid="stp-face-more">See all, or use your picture</button>{later}</div></Slide>;
   if (k === 'email') slide = <Slide art="📧" kicker="ITS OWN EMAIL" title={d?.mailbox?.address ? 'It has its own email' : 'Give it its own email'} sub="It signs up to sites with this and reads its own codes.">
     {d?.mailbox?.address ? <button type="button" className="stp-pill m-num" onClick={() => copy(d.mailbox.address)} data-tip="Copy it" data-testid="stp-email">{d.mailbox.address}{copied ? ' · copied' : ''}</button> : null}
     <div className="stp-row">{d?.mailbox?.address ? <button type="button" className="m-btn m-go" onClick={() => setAt(at + 1)} data-testid="stp-next-email">Next</button> : <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('mail', async () => { const j = await work(cat.id, { op: 'mail_make' }); setD?.(x => ({ ...x, mailbox: j.mailbox, logins: j.logins ?? x?.logins })); const v = await work(cat.id, { op: 'setup' }); setD?.(x => ({ ...x, setup: v.setup })); })} data-testid="stp-make-email">{busy === 'mail' ? 'Making it…' : 'Make its email'}</button>}{d?.mailbox?.address ? null : later}</div></Slide>;
@@ -68,7 +74,7 @@ export function SetupDeck({ cat, d, setD, work, onOpen, kit }) {
   if (k === 'limits') slide = <Slide art="🎚" kicker="ITS LIMITS" title="The most one task may spend" sub="Hard exits always run. The full list is in Limits.">
     <div className="m-seg stp-seg" role="radiogroup" aria-label="The most a task may spend">{(kit?.caps || []).map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(Number(d?.cap) - c) < 1e-9} className={Math.abs(Number(d?.cap) - c) < 1e-9 ? 'active' : ''} disabled={!!busy} onClick={() => run('cap', async () => { const j = await work(cat.id, { op: 'cap', cap: c }); setD?.(x => ({ ...x, ...j })); }, false)} data-testid={`stp-cap-${c}`}>${c}</button>)}</div>
     <div className="stp-row"><button type="button" className="m-btn m-go" disabled={!!busy} onClick={done} data-testid="stp-limits-ok">That works</button></div></Slide>;
-  if (k === 'colony') slide = <Slide art="🍯" kicker="THE COLONY" title="Send part of its winnings to the colony?" sub="Only from winning trades on its own wallet. The colony airdrops back to the agents who share. Your wallet signs, with no transaction.">
+  if (k === 'colony') slide = <Slide art="💧" kicker="THE COLLECTIVE" title="Send part of its winnings to the Collective?" sub="Only from winning trades on its own wallet. The Collective airdrops back to the agents who share. Your wallet signs, with no transaction.">
     <div className="stp-dial" role="radiogroup" aria-label="Share of each win">{SHARES.map(p => <button key={p} type="button" role="radio" aria-checked={pct === p} className={pct === p ? 'is-on' : ''} onClick={() => setPct(p)} data-testid={`stp-share-${p}`}><b className="m-num">{p}%</b></button>)}</div>
     {share?.on ? <small className="stp-hint">It shares {share.pct}% now.</small> : null}
     <div className="stp-row"><button type="button" className="m-btn m-go" disabled={!!busy || (pct > 0 && !canSign)} onClick={() => run('share', async () => { if (pct > 0) await signShare(true, pct); else if (share?.on) await signShare(false); await answer('done', 'colony'); })} data-testid="stp-share-go">{pct > 0 ? `Sign ${pct}% of each win` : 'No share for now'}</button></div></Slide>;

@@ -12,7 +12,7 @@ export const SPECIES = [['cat', '🐱', 'Panther', 'the FeeCat body'], ['queen',
 // real species, real colours: [key, name, head, thorax, gaster, legs]
 export const ANTS = [['fire', 'Fire ant', '#a83c1c', '#b4471f', '#3a1a10', '#7a2e14'], ['carpenter', 'Carpenter ant', '#221c1b', '#2c2321', '#141111', '#4a3a33'],
   ['weaver', 'Weaver ant', '#d9862b', '#e09538', '#c97a22', '#b06a1e'], ['bullet', 'Bullet ant', '#3b1a10', '#4a2216', '#24110a', '#5a2a18'],
-  ['honeypot', 'Honeypot ant', '#6b4523', '#7a5029', '#e6a93a', '#5a3a1c'], ['greenhead', 'Green-head ant', '#1f5a46', '#244c3e', '#1a2f2a', '#3a3a2a']];
+  ['honeypot', 'The Pool ant', '#6b4523', '#7a5029', '#e6a93a', '#5a3a1c'], ['greenhead', 'Green-head ant', '#1f5a46', '#244c3e', '#1a2f2a', '#3a3a2a']];
 // [key, name, thorax, stripes, abdomen, eyes]
 export const FLIES = [['house', 'Housefly', '#6a6a64', '#2a2a28', '#8c7a52', '#b2322a'], ['blue', 'Bluebottle', '#3a4658', '#1e2430', '#2147a8', '#a8281e'],
   ['green', 'Greenbottle', '#2f8a58', '#1d5a3a', '#2fc074', '#b8301e'], ['hover', 'Hoverfly', '#3a2a12', '#1a1208', '#f2c230', '#5a2a12'],

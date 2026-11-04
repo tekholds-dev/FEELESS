@@ -105,3 +105,110 @@ def perp_note(loop):
     if not past:
         return ''
     return f"\nThis is loop {loop['n']}. Your last proofs: " + '; '.join(f"{r.get('market')} {r.get('side')} {r['roe']:+.1f}%" for r in past) + '. Study them. A call like a recent loss needs a new reason.'
+
+
+# 🐝 COLONY LOSS SHAPES (owner 2026-11-04): an agent that shares its winnings also gets the shapes the colony keeps losing on. Shapes only: no coin, agent or owner crosses over, and it can only make it trade less.
+COLONY_LOSSES, COLONY_AGENTS, COLONY_HIT = 3, 2, 0.4   # a shape is a small bucket, so one stranger's bad trade never blocks it
+
+
+def _shares(cat):
+    return bool((cat.get('colonyShare') or {}).get('on')) and not cat.get('incognito')
+
+
+def colony_shapes(cats, me=None):
+    """{fingerprint: {losses, wins, agents}} for the shapes that lost at least 3 times, across at least 2 sharing agents, winning under 40% of the time. Nothing for an agent that does not share."""
+    cats = cats or {}
+    if me is not None and not _shares(cats.get(me) or {}):
+        return {}
+    seen = {}
+    for cid, cat in cats.items():
+        if not _shares(cat or {}):
+            continue
+        for f in cat.get('powFolders') or []:
+            c = _picked(f)
+            if not c or f.get('status') != 'closed' or f.get('propose') or f.get('pnlSol') is None:
+                continue
+            row = seen.setdefault(coin_sig(c), {'losses': 0, 'wins': 0, 'who': set()})
+            if _f(f.get('pnlSol')) < 0:
+                row['losses'] += 1; row['who'].add(cid)
+            else:
+                row['wins'] += 1
+    return {sig: {'losses': r['losses'], 'wins': r['wins'], 'agents': len(r['who'])} for sig, r in seen.items()
+            if r['losses'] >= COLONY_LOSSES and len(r['who']) >= COLONY_AGENTS and r['wins'] / (r['wins'] + r['losses']) < COLONY_HIT}
+
+
+def colony_like(coin, shapes):
+    return (shapes or {}).get(coin_sig(coin))
+
+
+# 🧠 BEST MIND PER TOPIC (owner 2026-11-04): each mind keeps a record by topic, from the filed folders only. The stronger one has the last word on a PoW and both minds see the record on a PoB or PoP.
+LEAD_MIN, LEAD_GAP = 3, 0.15   # 3 graded calls each and a 15-point lead: fewer is noise
+
+
+def _short(m):
+    return str(m).split('/')[-1][:24]
+
+
+def _credit(board, topic, name, won):
+    if topic and name:
+        row = board.setdefault(str(topic), {}).setdefault(str(name), {'right': 0, 'wrong': 0})
+        row['right' if won else 'wrong'] += 1
+
+
+def mind_board(cat):
+    """{topic: {model: {right, wrong}}}. PoW: a mind is graded on the coin it finally picked, when that coin was the one bought. PoP: on the market it called. PoB: on each word of the topic."""
+    cat = cat or {}; board = {}
+    now_names = [_short(m) for m in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]]
+    for f in cat.get('powFolders') or []:
+        c = _picked(f)
+        if not c or f.get('status') != 'closed' or f.get('propose') or f.get('pnlSol') is None:
+            continue
+        names = f.get('models') or now_names
+        k = next((i for i, x in enumerate(f.get('coins') or []) if x.get('mint') == f.get('mint')), None)
+        for i, pick in (f.get('picks') or {}).items():
+            if pick == k and str(i).isdigit() and int(i) < len(names):
+                _credit(board, f'trenches {c.get("src") or "any"}', names[int(i)], _f(f.get('pnlSol')) > 0)
+    for f in cat.get('popFolders') or []:
+        if f.get('status') == 'closed' and not f.get('noTrade') and f.get('roePct') is not None:
+            for c in f.get('calls') or []:
+                if c.get('side') == f.get('side') and c.get('market') == f.get('market'):
+                    _credit(board, f'perps {f.get("market")}', c.get('name'), _f(f.get('roePct')) > 0)
+    for f in cat.get('pobFolders') or []:
+        if f.get('graded') in ('right', 'wrong') and not f.get('noTrade'):
+            for w in sorted(_key_words(_label(f))):
+                for c in f.get('calls') or []:
+                    _credit(board, w, c.get('name'), f.get('graded') == 'right')
+    return board
+
+
+def lead_of(board, topics, names):
+    """The mind with the better record over these topics, or None. Both need 3 graded calls and a 15-point gap."""
+    names = [str(n) for n in names or []]
+    if len(names) < 2:
+        return None
+    rows = [{'right': sum(((board or {}).get(str(t)) or {}).get(n, {}).get('right', 0) for t in topics), 'wrong': sum(((board or {}).get(str(t)) or {}).get(n, {}).get('wrong', 0) for t in topics)} for n in names[:2]]
+    if any(r['right'] + r['wrong'] < LEAD_MIN for r in rows):
+        return None
+    hit = [r['right'] / (r['right'] + r['wrong']) for r in rows]
+    if abs(hit[0] - hit[1]) < LEAD_GAP:
+        return None
+    i = 0 if hit[0] > hit[1] else 1
+    return {'i': i, 'name': names[i], 'right': rows[i]['right'], 'n': rows[i]['right'] + rows[i]['wrong'], 'otherRight': rows[1 - i]['right'], 'otherN': rows[1 - i]['right'] + rows[1 - i]['wrong']}
+
+
+def lead_note(lead):
+    if not lead:
+        return ''
+    return f"\nOn this topic {lead['name']} has called {lead['right']} of {lead['n']} right, the other mind {lead['otherRight']} of {lead['otherN']}. Weigh that record, and still say what you see yourself."
+
+
+def pob_topics(topic):
+    return sorted(_key_words(topic))
+
+
+def pow_topics(coins):
+    return sorted({f'trenches {c.get("src") or "any"}' for c in coins or []})
+
+
+def pop_topics(reads):
+    return [f"perps {r.get('market')}" for r in reads or []]

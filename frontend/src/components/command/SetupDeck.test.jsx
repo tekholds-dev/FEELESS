@@ -4,8 +4,8 @@ import { act } from 'react-dom/test-utils';
 import { SetupDeck, TermsFolder, TERMS, securityFacts } from './SetupDeck';
 import { SetupDot, Lamp } from './DeskShell';
 
-const steps = (done = {}) => ['use', 'email', 'sites', 'fund', 'limits', 'colony', 'trades', 'security', 'terms'].map(k => ({ k, done: !!done[k] }));
-const SETUP = { use: null, left: 9, total: 9, termsV: 1, sites: [['pump.fun', 'Coin trades']], steps: steps() };
+const steps = (done = {}) => ['use', 'face', 'email', 'sites', 'fund', 'limits', 'colony', 'trades', 'security', 'terms'].map(k => ({ k, done: k === 'face' || !!done[k] }));
+const SETUP = { use: null, left: 9, total: 10, termsV: 2, sites: [['pump.fun', 'Coin trades']], steps: steps() };
 
 function Host({ work, d0, kit }) {
   const [d, setD] = useState(d0);
@@ -24,8 +24,8 @@ test('🚀 setup opens on its first ask, an answer goes to the server and moves 
   expect(q('am-setup').textContent).toContain('What will this agent be used for?');
   await click(q('stp-use-trade'));
   expect(calls[0]).toEqual({ op: 'setup', job: 'use', text: 'trade' });
-  expect(q('am-setup').textContent).toContain('Give it its own email');
-  expect(q('am-setup').textContent).toContain('8 of 9 left');
+  expect(q('am-setup').textContent).toContain('Pick its character');
+  expect(q('am-setup').textContent).toContain('8 of 10 left');
   await done();
 });
 

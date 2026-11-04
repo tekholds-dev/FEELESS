@@ -11,7 +11,7 @@ import { Ic3 } from '../../lib/icon3d';
 // with folders… bg options that are clean + calming, pick the card colour instead of purple"). Under the two live windows:
 //   [ MIND A vitals ] [ the chat: bubbles, A left · B right · you ] [ MIND B vitals ]  →  📁 the log, one folder per kind of thing it did.
 // Desk skins = the owner's real nature clips (Earth · creek · forest) or plain Night; they stop under fx-lite / reduced motion.
-export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '🐝', 'Live hive'], ['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
+export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '💎', 'Live hive'], ['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
 export const ACCENTS = ['#b388ff', '#9dffcf', '#45e486', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
@@ -96,14 +96,14 @@ export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, h
 // ⛏ one mind's latest PROOF OF WORK (backend/pow.py): the intake coin, the vitals it pulled per site, its call, and its honey once graded
 const POW_TONE = { BUY: 'up', AVOID: 'dn', WATCH: 'warn' };
 export function PowCard({ p, compact = false }) {
-  if (!p) return <div className="ck-pow is-empty" data-testid="ck-pow" data-tip="Colonized agents research one intake coin at a time: ≤4 sites, ≤5 moves and ≤3 vitals per site, graded an hour on">
-    <span className="ck-pow-h"><b><Ic3 e="⛏" /> PoW</b><em>none yet</em></span><small>No proof yet — a colonized agent researches one intake coin at a time.</small></div>;
+  if (!p) return <div className="ck-pow is-empty" data-testid="ck-pow" data-tip="Collective agents research one intake coin at a time: ≤4 sites, ≤5 moves and ≤3 vitals per site, graded an hour on">
+    <span className="ck-pow-h"><b><Ic3 e="⛏" /> PoW</b><em>none yet</em></span><small>No proof yet — a Collective agent researches one intake coin at a time.</small></div>;
   const tone = POW_TONE[p.call] || 'mute'; const st = Math.max(0, Math.min(100, Number(p.strength) || 0));
   return <div className={`ck-pow is-${tone}`} data-testid="ck-pow" style={{ '--st': st / 100 }}>
     <span className="ck-pow-h"><b><Ic3 e="⛏" /> PoW</b><i className={`is-${tone}`}>{p.call || '…'}</i><strong>${p.sym}</strong><em>{p.at ? `${ago(p.at)} ago` : ''}</em></span>
     <span className="ck-pow-st" data-tip="Strength: sites with vitals, distinct vitals, safety vitals read, a vital confirmed on two sites"><u><s /></u><b className="m-num">{st}</b></span>
     <ul className="ck-pow-v">{(p.pulls || []).slice(0, compact ? 3 : 6).map((x, j) => <li key={`${x.site}${x.label}`} style={{ '--i': j }}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
-    <span className="ck-pow-f"><em>{p.sites || 0} sites · {p.steps || 0} moves</em><b className={`m-num ${p.honey > 0 ? 'is-up' : p.honey < 0 ? 'is-dn' : ''}`} data-tip="Honey: graded an hour after the call on what the coin really did">{p.honey != null ? `🍯 ${p.honey > 0 ? '+' : ''}${p.honey}` : '⏳ grading'}</b></span>
+    <span className="ck-pow-f"><em>{p.sites || 0} sites · {p.steps || 0} moves</em><b className={`m-num ${p.honey > 0 ? 'is-up' : p.honey < 0 ? 'is-dn' : ''}`} data-tip="Honey: graded an hour after the call on what the coin really did">{p.honey != null ? `💧 ${p.honey > 0 ? '+' : ''}${p.honey}` : '⏳ grading'}</b></span>
     {!compact && p.why ? <small className="ck-pow-why">{p.why}</small> : null}
   </div>;
 }

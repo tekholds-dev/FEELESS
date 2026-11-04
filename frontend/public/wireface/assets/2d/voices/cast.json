@@ -1,0 +1,176 @@
+[
+ {
+  "id": "ava",
+  "name": "Ava",
+  "cues": [
+   [
+    0,
+    "happy"
+   ]
+  ]
+ },
+ {
+  "id": "pip",
+  "name": "Pip",
+  "cues": [
+   [
+    0,
+    "excited"
+   ],
+   [
+    3.67,
+    "amused"
+   ]
+  ]
+ },
+ {
+  "id": "sora",
+  "name": "Sora",
+  "cues": [
+   [
+    0,
+    "happy"
+   ],
+   [
+    2.39,
+    "curious"
+   ]
+  ]
+ },
+ {
+  "id": "mabel",
+  "name": "Mabel",
+  "cues": [
+   [
+    0,
+    "concerned"
+   ],
+   [
+    1.99,
+    "amused"
+   ]
+  ]
+ },
+ {
+  "id": "rex",
+  "name": "Rex",
+  "cues": [
+   [
+    0,
+    "calm"
+   ],
+   [
+    3.69,
+    "happy"
+   ]
+  ]
+ },
+ {
+  "id": "eleanor",
+  "name": "Eleanor",
+  "cues": [
+   [
+    0,
+    "calm"
+   ],
+   [
+    4.42,
+    "happy"
+   ]
+  ]
+ },
+ {
+  "id": "hazel",
+  "name": "Hazel",
+  "cues": [
+   [
+    0,
+    "content"
+   ],
+   [
+    3.84,
+    "amused"
+   ]
+  ]
+ },
+ {
+  "id": "theo",
+  "name": "Theo",
+  "cues": [
+   [
+    0,
+    "thinking"
+   ],
+   [
+    4.08,
+    "calm"
+   ]
+  ]
+ },
+ {
+  "id": "kit",
+  "name": "Kit",
+  "cues": [
+   [
+    0,
+    "excited"
+   ]
+  ]
+ },
+ {
+  "id": "gus",
+  "name": "Gus",
+  "cues": [
+   [
+    0,
+    "happy"
+   ],
+   [
+    3.2,
+    "amused"
+   ]
+  ]
+ },
+ {
+  "id": "vee",
+  "name": "Vee",
+  "cues": [
+   [
+    0,
+    "calm"
+   ],
+   [
+    1.78,
+    "happy"
+   ]
+  ]
+ },
+ {
+  "id": "fern",
+  "name": "Fern",
+  "cues": [
+   [
+    0,
+    "calm"
+   ],
+   [
+    3.2,
+    "curious"
+   ]
+  ]
+ },
+ {
+  "id": "bolt",
+  "name": "Bolt",
+  "cues": [
+   [
+    0,
+    "calm"
+   ],
+   [
+    4.99,
+    "amused"
+   ]
+  ]
+ }
+]
