@@ -153,3 +153,7 @@ body.theme-day .ck-safe-box { background: #fff5f7; } body.theme-day .ck-safe-box
 .ck-more button:hover { background: #b388ff26; } .ck-more button:active { transform: scale(.97); } .ck-more button:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
 body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; }
 @media (prefers-reduced-motion: reduce) { .ck-more button { transition: none; } }
+/* the cabinet's drawers sit in one row over the open drawer, never a tall empty column (owner 2026-11-04: "long wide stuff") */
+.ck-cabinet { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.ck-log .ck-folders { flex-direction: row; flex-wrap: wrap; } .ck-log .ck-folders button { width: auto; flex: 0 1 auto; min-height: 36px; } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-1px); } .ck-log .ck-folders button.is-on { transform: none; }
+.kd .cwb-hbtn { width: fit-content; justify-self: end; margin-inline-start: auto; min-height: 34px; }

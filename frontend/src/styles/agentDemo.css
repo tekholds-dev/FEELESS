@@ -179,7 +179,7 @@ body.fx-lite .agd-print li { animation: none; } @media (prefers-reduced-motion: 
 .agl.is-locked .agd-screen, .agl.is-locked .agd-win canvas { pointer-events: none; }
 
 /* 🗂 decision toasts over the bottom of the windows: in, a few seconds, then down into the folder · 📈 live P&L dot */
-.agl .agd-toasts { position: absolute; left: 16px; right: 16px; bottom: 12px; z-index: 4; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.agl .agd-toasts { position: absolute; left: 16px; right: 16px; bottom: 12px; width: auto; transform: none; z-index: 4; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; pointer-events: none; }
 .agl .agd-toasts li { justify-self: start; max-width: min(720px, 100%); padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(179, 136, 255, .35); background: rgba(10, 6, 22, .94);
   box-shadow: 0 8px 24px -12px #000; color: #e8defc; font: 600 11.5px var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: aglToastIn .3s cubic-bezier(.2, .9, .25, 1.1) both; }
 .agl .agd-toasts li.is-out { animation: aglToastOut .6s cubic-bezier(.5, 0, .75, 0) forwards; }

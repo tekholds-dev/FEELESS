@@ -243,10 +243,10 @@ export const MetaDetector = ({ pairs, onSelect }) => {
     return () => { alive = false; clearInterval(t); };
   }, []);
   const local = useMemo(() => detectMetas(pairs || []), [pairs]);
-  const metas = engine?.metas?.length ? engine.metas : null;
+  const metas = engine?.metas?.length ? engine.metas : null; const [allMetas, setAllMetas] = useState(false);
   return <section className="meta-detector" data-testid="meta-detector">
-    <div className="section-title"><h2><Layers3 size={18} />Meta detector</h2><small>{metas ? `${engine.coinsScanned.toLocaleString()} coins across ${engine.chains} chains · refreshed every 2 min` : 'Themes forming across live markets right now'}</small></div>
-    {metas ? <div className="meta-grid">{metas.slice(0, 12).map(m => { const [label, tone] = STATUS[m.status] || STATUS.steady; return <div key={m.meta} className={`meta-card ${open === m.meta ? 'is-open' : ''}`}>
+    <div className="section-title"><h2><Layers3 size={18} />Meta detector</h2>{metas?.length > 6 ? <button type="button" className="m-btn" aria-expanded={allMetas} onClick={() => setAllMetas(x => !x)} data-tip={allMetas ? 'Back to the top 6 themes' : 'Show the top 12 themes'} data-testid="meta-more">{allMetas ? 'Show fewer' : 'Show all'}</button> : null}<small>{metas ? `${engine.coinsScanned.toLocaleString()} coins across ${engine.chains} chains · refreshed every 2 min` : 'Themes forming across live markets right now'}</small></div>
+    {metas ? <div className="meta-grid">{metas.slice(0, allMetas ? 12 : 6).map(m => { const [label, tone] = STATUS[m.status] || STATUS.steady; return <div key={m.meta} className={`meta-card ${open === m.meta ? 'is-open' : ''}`}>
       <button type="button" className="meta-card-head" onClick={() => setOpen(open === m.meta ? null : m.meta)}>
         <b>#{m.meta.toUpperCase()}</b><span className={`meta-status ${tone}`}>{label}</span>
         <span className="meta-count">{m.coins} coins · {m.chains.length} chain{m.chains.length === 1 ? '' : 's'}</span>
