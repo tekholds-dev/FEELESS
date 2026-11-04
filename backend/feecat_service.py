@@ -1557,7 +1557,7 @@ def _pow2_collect(f, t_, who, now):
     if not pw_.get('costed'):   # 💲 the research round's own browsing cost
         pw_['costed'] = True; _pow2_cost(f, int(f.get('base') or 0) + int(pw_.get('mind') or 0), float(t_.get('cost') or 0))
     vit_ = f.setdefault('vitals', {}); vit_[m_] = _pow.merge_vitals(vit_.get(m_), pub_['pulls'])   # 🧹 one row per fact, never the same fact twice
-    f.setdefault('evidenceMetrics', {})[m_] = _pow.research_metrics(pw_, t_.get('cost'), now)
+    f.setdefault('evidenceMetrics', {})[m_] = {**_pow.research_metrics(pw_, t_.get('cost'), now), 'openSec': t_.get('openSec'), 'modelSec': round(sum(float(x.get('modelSec') or 0) for x in t_.get('windows') or []), 1), 'modelCalls': sum(int(x.get('modelCalls') or 0) for x in t_.get('windows') or [])}   # ⏱ open · model · the rest is the browser
     if m_ == f.get('mint') and f.get('entry'):
         f['research'] = _pow.merge_vitals(f.get('research'), pub_['pulls'])
     f.setdefault('moves', {}).setdefault(m_, {}).update(pub_.get('moves') or {})   # 🎲 each site's random moves, kept
@@ -2652,6 +2652,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
     async with httpx.AsyncClient(timeout=30) as http:
         sessions, pages = [], []
         try:
+            t_open_ = time.time()
             asked_ = [bool(j) for j in _ca.split_jobs(text, len(models))] if len(models) > 1 else [True]
             for i, _m in enumerate(models):
                 if len(models) > 1 and sum(asked_) == 1 and not asked_[i]:   # "A: …" only: the mind not asked opens no cloud browser (it sat on a blank tab, billing minutes)
@@ -2663,17 +2664,24 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 except Exception as e:   # the live browser did not connect → the reader keeps the model working
                     sessions[-1] = {**s_, 'provider': 'reader', 'live': None, 'note': f"{s_['provider']} did not connect ({str(e)[:60]})"}
                     pages.append(_cb.ReaderPage(http))
-            w.update(sessions=sessions, pages=pages)
+            w.update(sessions=sessions, pages=pages); w['task']['openSec'] = round(time.time() - t_open_, 1)
 
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
+
+            def spend_left(model):
+                """What this call may still spend: the task's cap, or in a pair round the mind's own ceiling (the two minds share nothing)."""
+                t_ = w['task']; left_ = t_['cap'] - t_['cost']
+                if t_.get('pows'):
+                    left_ = min(left_, _pow.ROUND_USD - max([float(x.get('cost') or 0) for x in t_['windows'] if x.get('model') == model] or [0.0]))
+                return left_
 
             def reply_room(model, messages):
                 """🎚 The longest reply that still fits what is left of its $ cap (owner's low cap: a short question must still run), up to 4096 tokens."""
                 row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
                 if row is None or not row.get('outUsd'):
                     return 4096
-                t_ = w['task']; sent = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) / 3 + 256
-                return max(0, min(4096, int((t_['cap'] - t_['cost'] - sent * row['inUsd'] / 1e6) / row['outUsd'] * 1e6)))
+                sent = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) / 3 + 256
+                return max(0, min(4096, int((spend_left(model) - sent * row['inUsd'] / 1e6) / row['outUsd'] * 1e6)))
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
                 _OR_LAST.pop('err', None); _OR_LAST.pop('backup', None)
@@ -2688,9 +2696,14 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         pass   # → its wallet's pay-per-call provider, then the free backup (the creator's order)
                 room_ = paid_['usdc'] - _ap.RESERVE_USD
                 if paid_['on'] and room_ > 0:
-                    t_ = w['task']; text_, usd_ = await _wallet_call(cat_now, model, orders + messages, reply_room(model, messages), min(room_, t_['cap'] - t_['cost']))
+                    t_ = w['task']; ceil_ = min(room_, spend_left(model)); paid_['usdc'] -= ceil_   # held while it is in flight: two minds can never both spend the same USDC
+                    usd_ = 0.0
+                    try:
+                        text_, usd_ = await _wallet_call(cat_now, model, orders + messages, reply_room(model, messages), ceil_)
+                    finally:
+                        paid_['usdc'] += ceil_ - usd_
                     if str(text_ or '').strip():
-                        paid_['usdc'] -= usd_; t_['walletPaid'] = round((t_.get('walletPaid') or 0) + usd_, 6)
+                        t_['walletPaid'] = round((t_.get('walletPaid') or 0) + usd_, 6)
                         return text_, usd_
                 text_, usd_ = await _or_call(model, orders + messages, max_tokens=reply_room(model, messages), backup=True, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
                 if not str(text_ or '').strip():
@@ -3568,6 +3581,41 @@ async def cat_colony(page: int = 0, ids: str = ''):
 _FLOW_POT: dict = {'at': 0.0, 'sol': None}
 
 
+async def _pot_balance(now):
+    """🏺 The colony pot's address, its balance read on-chain at most once a minute (kept in _FLOW_POT). Read only."""
+    try:
+        pot_addr = ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
+    except (OSError, ValueError):
+        pot_addr = None
+    if pot_addr and now - _FLOW_POT['at'] > 60:
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                _FLOW_POT.update(at=now, sol=int(((await _crpc._rpc(http, 'getBalance', [pot_addr, {'commitment': 'confirmed'}])) or {}).get('value') or 0) / 1e9)
+        except Exception:   # noqa: BLE001
+            _FLOW_POT['at'] = now
+    return pot_addr
+
+
+_SIG_CONFIRMED: set = set()   # a confirmed transaction stays confirmed: never asked twice
+
+
+async def _colony_reconcile(cat, shares, now):
+    """🧾 Read-only check of the ledger against the chain: every transfer this agent's ledger claims has a confirmed signature, and what the pot holds next to what the ledger says went in and out. Moves nothing."""
+    sigs = sorted({x['sig'] for x in shares if x.get('cat') == cat.get('id') and x.get('sent') and x.get('sig')})
+    todo = [x for x in sigs if x not in _SIG_CONFIRMED][:100]; read = True
+    if todo:
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                got = ((await _crpc._rpc(http, 'getSignatureStatuses', [todo, {'searchTransactionHistory': True}])) or {}).get('value') or []
+            _SIG_CONFIRMED.update(s for s, st in zip(todo, got) if st and not st.get('err') and st.get('confirmationStatus') in ('confirmed', 'finalized'))
+        except Exception:   # noqa: BLE001 — no read: it says so rather than passing or failing the ledger
+            read = False
+    pot_addr = await _pot_balance(now)
+    return {'transfers': len(sigs), 'confirmed': sum(1 for x in sigs if x in _SIG_CONFIRMED), 'read': read, 'potOpen': bool(pot_addr), 'potSol': _FLOW_POT['sol'] if pot_addr else None,
+            'ledgerInSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift') or x.get('state') == 'transferred'), 9),
+            'ledgerOutSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift') and x.get('state') != 'transferred'), 9)}
+
+
 @app.get('/api/cats/colony/flow')
 async def colony_flow(limit: int = 40):
     """💸 THE COLONY'S MONEY, LIVE (owner 2026-11-02: crawlnet's treasury --flow, FEELESS's own): PoW trades in → profit / loss → the shares
@@ -3578,16 +3626,7 @@ async def colony_flow(limit: int = 40):
     real = [f for f in folders if f.get('real') and f.get('entry')]
     in_sol = round(sum(_num(f.get('sol')) for f in real), 6); pnl = round(sum(_num(f.get('pnlSol')) for f in real), 6)
     shares = _shares(); owed = round(sum(_num(x.get('sol')) for x in shares if not x.get('sent')), 6)
-    try:
-        pot_addr = ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
-    except (OSError, ValueError):
-        pot_addr = None
-    if pot_addr and now - _FLOW_POT['at'] > 60:   # 🏺 the pot's balance read on-chain, at most once a minute
-        try:
-            async with httpx.AsyncClient(timeout=10) as http:
-                _FLOW_POT.update(at=now, sol=int(((await _crpc._rpc(http, 'getBalance', [pot_addr, {'commitment': 'confirmed'}])) or {}).get('value') or 0) / 1e9)
-        except Exception:   # noqa: BLE001
-            _FLOW_POT['at'] = now
+    pot_addr = await _pot_balance(now)
     names = {c['id']: str(c.get('name') or 'agent')[:24] for c in cats}
     rows = [{'at': int(t.get('at') or 0), 'kind': t.get('side'), 'agent': names[c['id']], 'sym': t.get('symbol'), 'sol': _num(t.get('sol')), 'sig': t.get('sig'),
              'memo': 'PoW ' + str(t.get('side')) if any(f.get('mint') == t.get('mint') for f in c.get('powFolders') or []) else str(t.get('side'))}
@@ -3894,7 +3933,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
-        return {'honey': _colony_money(cat, _shares())}
+        shares_ = _shares()
+        return {'honey': {**_colony_money(cat, shares_), 'check': await _colony_reconcile(cat, shares_, time.time())}}
     if p.op == 'share':   # 🤝 opportunity 2: its owner SIGNS to let it send pct % of each winning trade's profit to the colony wallet → the colony airdrops back
         if p.on:
             pct_ = _colony.share_pct(p.cap)

@@ -25,3 +25,5 @@ body.fx-lite .ht-wave, body.fx-lite .ht-bub, body.fx-lite .ht-tank, body.fx-lite
 @media (prefers-reduced-motion: reduce) { .ht-wave, .ht-bub, .ht-tank, .ht-tank b { animation: none; } .ht-bub { opacity: 0; } .ht-level { transition: none; } }
 body.theme-day .ht-back { fill: rgba(60, 40, 160, .06); } body.theme-day .ht-glass { stroke: rgba(60, 40, 120, .4); } body.theme-day .ht-shine { stroke: rgba(255, 255, 255, .7); }
 body.theme-day .ht-tank b { color: #1c1230; text-shadow: none; } body.theme-day .ht-tank small { color: #5a4f78; } body.theme-day .ht-tank em { color: color-mix(in srgb, var(--ht-b) 80%, #1c1230); }
+.ht-check { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 7px 12px; border-radius: 10px; background: #ffffff08; font: 600 10.5px var(--f-mono); color: #c9bce6; } .ht-check i { width: 8px; height: 8px; border-radius: 50%; background: #ffd76a; } .ht-check.is-ok i { background: #45e486; box-shadow: 0 0 8px #45e486; }
+body.theme-day .ht-check { background: #0000000a; color: #3a2a5a; }

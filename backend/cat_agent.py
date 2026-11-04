@@ -221,7 +221,8 @@ def named_site(goal):
 
 async def _ask(task, w, ask, model, messages):
     # One in-flight model call per task: concurrent windows cannot both spend the same remaining budget.
-    lock = task.setdefault('_ask_lock', asyncio.Lock())
+    # A PoW pair round is the exception: each mind has its own ceiling (mindCaps + a reply room sized to it), so each mind gets its own lane.
+    lock = task.setdefault('_ask_locks', {}).setdefault(w['i'], asyncio.Lock()) if task.get('pows') and w is not None else task.setdefault('_ask_lock', asyncio.Lock())
     async with lock:
         if task.get('stop'):
             raise Stopped()
@@ -234,10 +235,12 @@ async def _ask(task, w, ask, model, messages):
         bound = getattr(ask, 'cost_bound', lambda *_: 0)(model, messages)
         if task['cost'] + bound > task['cap']:
             raise Stopped('budget reached: the next call could exceed your remaining cap')
+        t0_ = time.time()
         text, usd = await ask(model, messages)
         task['cost'] = round(task['cost'] + float(usd or 0), 6)
         if w is not None:
             w['cost'] = round(w['cost'] + float(usd or 0), 6)
+            w['modelSec'] = round(float(w.get('modelSec') or 0) + time.time() - t0_, 2); w['modelCalls'] = int(w.get('modelCalls') or 0) + 1   # ⏱ where research time goes
         return text
 
 

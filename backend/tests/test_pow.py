@@ -909,3 +909,54 @@ def test_a_bot_check_page_is_never_kept_as_a_snapshot():
     assert len(p['_shots']) == 1 and p['_shots'][0]['saved'] is False
     asyncio.run(ca._pow_snap(p, page, 'holders 2,850', True))
     assert len(p['_shots']) == 1 and p['_shots'][0]['saved'] is True
+
+
+def test_a_pair_round_runs_both_minds_model_calls_at_once_each_inside_its_own_ceiling():
+    """The task-wide lock made two minds take turns. In a pair round each mind has its own lane; a normal task keeps one call in flight."""
+    def run(pows):
+        seen = {'now': 0, 'peak': 0}
+
+        async def ask(model, messages):
+            seen['now'] += 1; seen['peak'] = max(seen['peak'], seen['now'])
+            await asyncio.sleep(0.01)
+            seen['now'] -= 1
+            return 'ok', 0.002
+        t = ca.new_task('p', 'x', ['m/a', 'm/b'], 1.0, 5, 'jobs', [0.003, 0.003] if pows else None)
+        if pows:
+            t['pows'] = {0: {}, 1: {}}
+
+        async def both():
+            return await asyncio.gather(ca._ask(t, t['windows'][0], ask, 'm/a', []), ca._ask(t, t['windows'][1], ask, 'm/b', []))
+        asyncio.run(both())
+        return seen['peak'], t
+    assert run(False)[0] == 1
+    peak, t = run(True)
+    assert peak == 2 and t['windows'][0]['modelCalls'] == 1 and t['windows'][0]['modelSec'] >= 0
+    t['windows'][0]['cost'] = 0.003
+
+    async def later():
+        await ca._ask(t, t['windows'][0], lambda *a: None, 'm/a', [])
+    with __import__('pytest').raises(ca.Stopped):
+        asyncio.run(later())   # a mind past its own ceiling stops, whatever its partner has left
+
+
+def test_the_colony_check_reads_the_chain_and_never_passes_a_transfer_it_could_not_read(monkeypatch, tmp_path):
+    import feecat_service as fs
+    fs._SIG_CONFIRMED.clear()
+    monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)   # no pot created
+    calls = []
+
+    async def rpc(http, method, params, **k):
+        calls.append(method)
+        return {'value': [{'confirmationStatus': 'finalized', 'err': None}, {'confirmationStatus': 'confirmed', 'err': {'x': 1}}]}
+    monkeypatch.setattr(fs._crpc, '_rpc', rpc)
+    rows = [{'cat': 'c', 'sol': 0.1, 'sent': True, 'gift': True, 'state': 'transferred', 'sig': 'A'}, {'cat': 'c', 'sol': 0.2, 'sent': True, 'gift': True, 'state': 'transferred', 'sig': 'B'}, {'cat': 'other', 'sol': 9, 'sent': True, 'sig': 'Z'}]
+    out = asyncio.run(fs._colony_reconcile({'id': 'c'}, rows, 1000.0))
+    assert out['transfers'] == 2 and out['confirmed'] == 1 and out['read'] and not out['potOpen']   # the failed tx is not counted
+    assert calls == ['getSignatureStatuses']
+    async def down(http, method, params, **k):
+        raise OSError('rpc down')
+    monkeypatch.setattr(fs._crpc, '_rpc', down)
+    out = asyncio.run(fs._colony_reconcile({'id': 'c'}, rows, 1000.0))
+    assert out['read'] is False and out['confirmed'] == 1
+    fs._SIG_CONFIRMED.clear()

@@ -72,6 +72,7 @@ export function PoiFolder({ f, poi, onShot }) {
   const facts = coins.flatMap(c => f.vitals?.[c.mint] || []); const verified = facts.filter(x => x.verified).length;
   const req = Object.values(f.poiTrace || {}).flatMap(t => t.required || []); const reqSeen = Object.values(f.poiTrace || {}).flatMap(t => (t.required || []).filter(h => (t.visited || []).includes(h) || (t.reused || []).includes(h)));
   const ms = Object.values(f.evidenceMetrics || {}); const usd = ms.reduce((a, m) => a + (m.costUsd || 0), 0); const secs = ms.length ? Math.round(ms.reduce((a, m) => a + (m.durationSec || 0), 0) / ms.length) : null; const msFacts = ms.reduce((a, m) => a + (m.verified || 0), 0);
+  const spent = ms.reduce((a, m) => a + (m.durationSec || 0), 0); const modelSec = ms.reduce((a, m) => a + (m.modelSec || 0), 0); const openSec = ms.reduce((a, m) => a + (m.openSec || 0), 0); const timed = spent > 0 && ms.some(m => m.modelSec != null);
   const stateCount = s => all.filter(n => n.state === s).length;
   const openNode = pick ? (coins.find(c => c.mint === pick.mint) && nodesOf(f, coins.find(c => c.mint === pick.mint)).find(n => n.h === pick.h)) : null;
   return <section className="pf" data-testid="poi-folder" aria-label="Proof of Intelligence for this PoW">
@@ -82,7 +83,7 @@ export function PoiFolder({ f, poi, onShot }) {
       <Ring value={facts.length && traced ? verified / facts.length : null} label="VERIFIED" sub={traced ? `${verified} of ${facts.length} facts` : 'not recorded'} tip="Facts that matched the page text they came from" />
       <Ring value={req.length ? reqSeen.length / req.length : null} label="REQUIRED" sub={req.length ? `${reqSeen.length} of ${req.length} checked` : 'not recorded'} tip="Required sources such as Solscan and pump.fun that were really read" />
       <Stat label="FACTS PER $" value={usd > 0 ? (msFacts / usd).toFixed(0) : '—'} sub={usd > 0 ? `$${usd.toFixed(3)} research` : 'not recorded'} tip="Verified facts per reported research dollar" />
-      <Stat label="TIME A COIN" value={secs == null ? '—' : `${secs}s`} sub={ms.length ? `${ms.length} round${ms.length === 1 ? "" : "s"}` : 'not recorded'} tip="Average research time per coin in this PoW" />
+      <Stat label="TIME A COIN" value={secs == null ? '—' : `${secs}s`} sub={timed ? `model ${Math.round(100 * modelSec / spent)}% · open ${Math.round(100 * openSec / spent)}% · browser ${Math.max(0, Math.round(100 * (spent - modelSec - openSec) / spent))}%` : ms.length ? `${ms.length} round${ms.length === 1 ? '' : 's'}` : 'not recorded'} tip="Average research time per coin, and where that time went" />
     </div>
     <div className="pf-legend">{Object.entries(STATE).map(([k, l]) => <span key={k} className={`m-chip is-${k}`}><i aria-hidden="true" />{l} <b className="m-num">{stateCount(k)}</b></span>)}</div>
     <div className="pf-lanes">{coins.map(c => <Lane key={c.mint} f={f} c={c} on={pick?.mint === c.mint} onPick={() => setPick(p => (p?.mint === c.mint && !p.h ? null : { mint: c.mint }))} nodeKey={pick ? `${pick.mint}|${pick.h}` : ''} onNode={(cc, n) => setPick({ mint: cc.mint, h: n.h })} />)}
