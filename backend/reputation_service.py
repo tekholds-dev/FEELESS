@@ -9267,7 +9267,7 @@ async def _fblock_view(c, me=None, staff=False, rank=None):
             'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now),   # open plots to build on: always 4 until the block is full
             'town': _bmk.town_of(c), 'townMax': _bmk.TOWN_MAX, 'townAll': list(_bmk.TOWN),   # 🏘 the tool buildings the family picked
             'layout': _bmk.layout_of(c), 'layoutSaved': isinstance(c.get('layout'), dict), 'islandCells': _bmk.ISLAND_CELLS, 'layoutMax': _bmk.LAYOUT_MAX, 'stands': list(_bmk.STANDS),
-            'islandsPaid': max(1, int(c.get('islands') or 1)), 'islandMp': 0 if staff else _bmk.ISLAND_MP}   # 🏝 its arrangement (cells in order, islands of 15)
+            'islandsPaid': max(1, int(c.get('islands') or 1)), 'islandMp': 0 if staff else _bmk.island_price()}   # 🏝 its arrangement (cells in order, islands of 15)
     if mine_:
         out_['total'] = round(sum(float(b_.get('usd') or 0) for b_ in built_), 2)
         out_['canBuild'] = bool(staff or me == c.get('owner') or (rank or {}).get(me) == 'underboss')
@@ -9624,6 +9624,11 @@ async def admin_familia_overwatch(request: Request):
             'custody': 'Family wallets that hold real money wait on the custody pick (CLAUDE.md P5) — every member trades from their own wallet today.'}
 
 
+@app.on_event('startup')
+async def _familia_prices_load():
+    _fcity.set_prices(_admin_load().get('familiaPrices'))
+
+
 @app.get('/api/reputation/admin/familia/rules')
 async def admin_familia_rules(request: Request):
     """🏙 HQ › Familia control center: the rules (live + planned), what each one means, and the economy right now."""
@@ -9637,7 +9642,7 @@ async def admin_familia_rules(request: Request):
     cities = [{'key': k, 'name': n, 'plots': sum(1 for b in blocks if _fworld.borough_of(b) in bs), 'held': sum(1 for b in blocks if _fworld.borough_of(b) in bs and b in own)}
               for k, n, bs, _ in _fworld.CITIES]
     raids = list((w.get('raids') or {}).values())
-    return {'rules': r_, 'live': list(_fworld.LIVE_RULES), 'range': _fworld.RULE_RANGE,
+    return {'rules': r_, 'live': list(_fworld.LIVE_RULES), 'range': _fworld.RULE_RANGE, 'prices': _fcity.price_rows(_bmk.ISLAND_MP),
             'economy': {'families': len(crews_), 'members': sum(len(o.get('members') or []) for o in crews_), 'bankMp': sum(banks), 'topBankMp': max(banks or [0]),
                         'houseMp': int(st.get('house') or 0), 'raidsLive': sum(1 for x in raids if x.get('status') == 'live'),
                         'raids24h': sum(1 for x in raids if now - float(x.get('at') or x.get('startAt') or 0) < 86400), 'cities': cities},
@@ -9650,6 +9655,9 @@ async def admin_familia_rules_set(request: Request, body: dict):
     admin = _require_owner(request)
     async with _admin_lock:
         d = _admin_load(); d['familiaRules'] = _fworld.clean_rules(body if isinstance(body, dict) else {}, d.get('familiaRules'))
+        if isinstance(body, dict) and 'prices' in body:
+            d['familiaPrices'] = _fcity.clean_prices(body.get('prices') if isinstance(body.get('prices'), dict) else {}, _bmk.ISLAND_MP)
+            _fcity.set_prices(d['familiaPrices'])
         _audit(d, admin, 'familia', f"rules · block {d['familiaRules']['blockMp']:g} MP · Fee City ×{d['familiaRules']['feeTier']:g} · Family Fuse {d['familiaRules']['fuseMinMp']:g} MP")
         _admin_save(d)
     _fworld.set_rules(d['familiaRules'])

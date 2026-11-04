@@ -98,3 +98,19 @@ def test_casino_is_points_only_and_capped():
     assert r['stake'] == 1000
     with pytest.raises(ValueError):
         fc.casino(c, A, 1000, NOW + 60)                                     # once an hour
+
+
+def test_the_owners_prices_change_what_families_pay(monkeypatch):
+    monkeypatch.setattr(fc, 'PRICE_OVER', {})
+    import block_markets as bm
+    city = {'crew': [], 'lots': {}}
+    monkeypatch.setattr(fc, 'mart_off', lambda c: 0)
+    assert fc.build_cost('pizza', city) == fc.CATALOG['pizza'][2] and bm.island_price() == bm.ISLAND_MP
+    fc.set_prices(fc.clean_prices({'store:pizza': '5', 'goon:guard': 10, 'island': 500, 'store:nope': 9, 'store:gas': '', 'goon:thug': 'x'}, bm.ISLAND_MP))
+    assert fc.PRICE_OVER == {'store:pizza': 5, 'goon:guard': 10, 'island': 500}       # only known keys, a blank or junk is ignored
+    assert fc.build_cost('pizza', city) == 5 and fc.upgrade_cost('pizza', 1, city) == int(5 * 1.55)
+    assert fc.hire_cost('guard', city) == 10 and bm.island_price() == 500
+    assert fc.build_cost('gas', city) == fc.CATALOG['gas'][2]                          # untouched keeps its default
+    assert fc.clean_prices({'store:pizza': fc.CATALOG['pizza'][2], 'store:gas': 0, 'island': -4}, bm.ISLAND_MP) == {'store:gas': 0, 'island': 0}   # the default clears, free is allowed, never negative
+    row = next(r for r in fc.price_rows(bm.ISLAND_MP) if r['key'] == 'store:pizza')
+    assert row['now'] == 5 and row['base'] == fc.CATALOG['pizza'][2]

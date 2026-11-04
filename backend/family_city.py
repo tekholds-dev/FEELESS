@@ -181,16 +181,55 @@ def need_word(kind, met):
     return None if not rule else f"{rule[1]:,} {METRIC_WORD[rule[0]]} (now {int(met.get(rule[0]) or 0):,})"
 
 
+PRICE_MAX = 100_000_000
+PRICE_OVER: dict = {}   # 💰 HQ › Familia: the owner's prices, {'store:pizza': 5, 'goon:guard': 10, 'island': 500}. MP only. Anything not set keeps its default.
+
+
+def set_prices(prices):
+    PRICE_OVER.clear(); PRICE_OVER.update(prices or {})
+
+
+def price_defaults(island_mp):
+    return {'island': island_mp, **{f'store:{k}': v[2] for k, v in CATALOG.items()}, **{f'goon:{k}': v[2] for k, v in GOONS.items()}}
+
+
+def clean_prices(body, island_mp):
+    """Only known keys, whole MP from 0 up. A blank or the default itself clears the override."""
+    base = price_defaults(island_mp); out = {}
+    for k, v in (body or {}).items():
+        if k not in base or v in (None, ''):
+            continue
+        try:
+            mp = max(0, min(PRICE_MAX, int(float(v))))
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if mp != base[k]:
+            out[k] = mp
+    return out
+
+
+def price_rows(island_mp):
+    """For HQ: every price, its default and what it costs now."""
+    def row(key, name, icon, group, base):
+        return {'key': key, 'name': name, 'icon': icon, 'group': group, 'base': base, 'now': PRICE_OVER.get(key, base)}
+    return ([row('island', 'New island', '🏝', 'block', island_mp)] + [row(f'store:{k}', v[0], v[1], 'store', v[2]) for k, v in CATALOG.items()]
+            + [row(f'goon:{k}', v[0], v[1], 'crew', v[2]) for k, v in GOONS.items()])
+
+
+def _store_base(kind):
+    return PRICE_OVER.get(f'store:{kind}', CATALOG[kind][2])
+
+
 def upgrade_cost(kind, lvl, city=None):
-    return int(CATALOG[kind][2] * (1.55 ** lvl) * (1 - (mart_off(city) if city else 0)))
+    return int(_store_base(kind) * (1.55 ** lvl) * (1 - (mart_off(city) if city else 0)))
 
 
 def build_cost(kind, city):
-    return int(CATALOG[kind][2] * (1 - mart_off(city)))
+    return int(_store_base(kind) * (1 - mart_off(city)))
 
 
 def hire_cost(kind, city):
-    return int(GOONS[kind][2] * (1 - mart_off(city)) * (1 + 0.08 * len(city['crew'])))
+    return int(PRICE_OVER.get(f'goon:{kind}', GOONS[kind][2]) * (1 - mart_off(city)) * (1 + 0.08 * len(city['crew'])))
 
 
 def _log(city, word, now):

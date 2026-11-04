@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/familiaAdmin.css';
 import { shaped } from '../../lib/shape';
-const FAMILIA = shaped({ rules: {}, economy: { cities: [], families: 0, members: 0, raids: 0, raidsLive: 0, bankMp: 0, houseMp: 0, topBankMp: 0 }, range: {} });
+const FAMILIA = shaped({ prices: [], rules: {}, economy: { cities: [], families: 0, members: 0, raids: 0, raidsLive: 0, bankMp: 0, houseMp: 0, topBankMp: 0 }, range: {} });
 
 // 🏙 HQ › Build › Familia — the creator's control center (owner, 2026-10-21: "a huge FEELESS creator-wallet-only control center in Familia so I
 // can sort the real logic out"). The economy right now (families, MP banks, the house, raids, every city's plots), the LIVE rules the engine
@@ -29,12 +29,12 @@ function Field({ k, label, tip, val, range, onChange, live }) {
 }
 
 export function FamiliaAdmin({ call }) {
-  const [d, setD] = useState(null); const [r, setR] = useState({}); const [busy, setBusy] = useState(false);
+  const [d, setD] = useState(null); const [r, setR] = useState({}); const [busy, setBusy] = useState(false); const [prices, setPrices] = useState({});
   const [sim, setSim] = useState({ stake: 5, sender: 100, target: 1000 });
   const load = () => call('/admin/familia/rules').then(x => { const y = FAMILIA(x); setD(y); setR(y.rules); }).catch(e => toast.error(e.message));
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) call('/admin/familia/rules').then(x => setD(FAMILIA(x))).catch(() => {}); }, 20000); return () => clearInterval(t); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k, v) => setR(x => ({ ...x, [k]: v }));
-  const save = async () => { setBusy(true); try { const x = await call('/admin/familia/rules', { method: 'POST', body: JSON.stringify(r) }); const y = FAMILIA(x); setD(y); setR(y.rules); toast.success('Familia rules saved — live ones apply now'); } catch (e) { toast.error(e.message); } setBusy(false); };
+  const save = async () => { setBusy(true); try { const x = await call('/admin/familia/rules', { method: 'POST', body: JSON.stringify({ ...r, prices: Object.fromEntries((d?.prices || []).map(p => [p.key, prices[p.key] ?? (p.now === p.base ? '' : p.now)])) }) }); const y = FAMILIA(x); setD(y); setR(y.rules); setPrices({}); toast.success('Familia rules saved — live ones apply now'); } catch (e) { toast.error(e.message); } setBusy(false); };
   if (!d) return <p className="cc-empty">Reading the city…</p>;
   const e = d.economy; const pay = hitPayout(+sim.stake, +sim.sender, +sim.target, +r.hitRate || 0, +r.hitCapUsd || 0);
   return <section className="fad m-stack" data-testid="familia-admin">
@@ -50,6 +50,9 @@ export function FamiliaAdmin({ call }) {
       <div className="m-card fad-box is-planned"><header><span className="m-label">💵 REAL MONEY · priced now, live after the custody pick</span></header>
         <div className="fad-fields">{PLANNED.map(([k, l, t]) => <Field key={k} k={k} label={l} tip={t} val={r[k]} range={d.range[k]} onChange={set} />)}</div>
         <p className="m-note">Start a family: <b>${(+r.createUsd || 0).toFixed(2)}</b> → <b>${(+r.createFeeUsd || 0).toFixed(2)}</b> to FEE + <b>${Math.max(0, (+r.createUsd || 0) - (+r.createFeeUsd || 0)).toFixed(2)}</b> into the new family wallet.</p></div>
+      <div className="m-card fad-box is-wide" data-testid="fad-prices"><header><span className="m-label">💰 PRICES · any cost, in MP · leave blank for the default</span></header>
+        {[['block', '🏝 THE BLOCK'], ['store', '🏪 STORES'], ['crew', '🕴 CREW']].map(([g, l]) => <div key={g} className="fad-pgroup"><em>{l}</em><div className="fad-prices">{d.prices.filter(x => x.group === g).map(x => <label key={x.key} className="fad-f" data-tip={`Default ${n(x.base)} MP. Discounts and level or crew multipliers still apply`}><em>{x.icon} {x.name}</em>
+          <input className="m-input" type="number" min="0" step="1" placeholder={String(x.base)} value={prices[x.key] ?? (x.now === x.base ? '' : x.now)} onChange={ev => setPrices(p => ({ ...p, [x.key]: ev.target.value }))} data-testid={`fad-price-${x.key}`} /></label>)}</div></div>)}</div>
       <div className="m-card fad-box fad-sim"><header><span className="m-label">🎯 PAID-HIT CALCULATOR</span></header>
         {[['stake', 'HIT STAKE $'], ['sender', 'SENDER WALLET $'], ['target', 'TARGET WALLET $']].map(([k, l]) => <label key={k} className="fad-f"><em>{l}</em>
           <input className="m-input" type="number" min="0" step="any" value={sim[k]} onChange={ev => setSim(s => ({ ...s, [k]: ev.target.value }))} data-testid={`fad-sim-${k}`} /></label>)}

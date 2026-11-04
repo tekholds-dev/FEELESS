@@ -130,11 +130,16 @@ def islands_of(n, per=ISLAND_CELLS):
     return max(1, -(-int(n) // per))
 
 
+def island_price():
+    import family_city as _fc
+    return _fc.PRICE_OVER.get('island', ISLAND_MP)   # 💰 the owner's price from HQ › Familia, else the default
+
+
 def expand_cost(c, cells, staff=False):
     """→ (islands the block would have, MP the family pays). Only NEW islands past the ones already paid for cost; the creator pays nothing."""
     want = islands_of(len(cells or []))
     paid = max(1, int((c or {}).get('islands') or islands_of(len(layout_of(c)))))
-    return want, (0 if staff else max(0, want - paid) * ISLAND_MP)
+    return want, (0 if staff else max(0, want - paid) * island_price())
 
 
 def layout_of(c):

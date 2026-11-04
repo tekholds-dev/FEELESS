@@ -19,6 +19,8 @@
 .fad-save { justify-self: start; min-height: 38px; padding: 0 22px; }
 @keyframes fadIn { from { opacity: 0; transform: translateY(5px); } } @keyframes fadTick { from { opacity: .35; } }
 body.fx-lite .fad-kpis span, body.fx-lite .fad-cities p { animation: none; }
+.fad-box.is-wide { grid-column: 1 / -1; } .fad-pgroup { display: grid; gap: 6px; } .fad-pgroup > em { font: 800 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #ffd36b; }
+.fad-prices { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 @media (prefers-reduced-motion: reduce) { .fad-kpis span, .fad-cities p, .fad-kpis b, .fad-pay b, .fad-cities em { animation: none; } .fad-cities s { transition: none; } }
-body.theme-day .fad-cities b { color: #6a4a0a; } body.theme-day .fad-cities .is-fee b { color: #4a3205; text-shadow: none; } body.theme-day .fad-pay { background: #fff8e8; } body.theme-day .fad-pay b { color: #8a5a00; text-shadow: none; }
+body.theme-day .fad-pgroup > em { color: #6a4a0a; } body.theme-day .fad-cities b { color: #6a4a0a; } body.theme-day .fad-cities .is-fee b { color: #4a3205; text-shadow: none; } body.theme-day .fad-pay { background: #fff8e8; } body.theme-day .fad-pay b { color: #8a5a00; text-shadow: none; }
 @media (max-width: 640px) { .fad-cities p { grid-template-columns: 1fr 60px; } .fad-cities u, .fad-cities small { display: none; } .fad-fields { grid-template-columns: 1fr; } }

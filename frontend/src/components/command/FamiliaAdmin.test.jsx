@@ -26,3 +26,18 @@ test('the control center shows the economy, prices Fee City and saves the rules'
   expect(call).toHaveBeenLastCalledWith('/admin/familia/rules', expect.objectContaining({ method: 'POST' }));
   expect(JSON.parse(call.mock.calls.at(-1)[1].body).fuseMinMp).toBe('2500');
 });
+
+test('the owner sets a price: it posts, and a blank clears it', async () => {
+  const body = { rules: { blockMp: 1 }, range: {}, live: [], economy: { cities: [] }, prices: [{ key: 'store:pizza', name: 'Pump Pizzeria', icon: '🍕', group: 'store', base: 150, now: 150 }, { key: 'island', name: 'New island', icon: '🏝', group: 'block', base: 3000, now: 500 }] };
+  const posts = []; const call = jest.fn((u, o) => { if (o?.method === 'POST') posts.push(JSON.parse(o.body)); return Promise.resolve(body); });
+  const host = document.createElement('div'); document.body.appendChild(host); const root = createRoot(host);
+  await act(async () => { root.render(<FamiliaAdmin call={call} />); });
+  const inp = host.querySelector('[data-testid="fad-price-store:pizza"]'); expect(inp.placeholder).toBe('150');
+  expect(host.querySelector('[data-testid="fad-price-island"]').value).toBe('500');
+  const setV = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { setV.call(inp, '5'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { const i = host.querySelector('[data-testid="fad-price-island"]'); setV.call(i, ''); i.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { host.querySelector('[data-testid="fad-save"]').click(); });
+  expect(posts[0].prices).toEqual({ 'store:pizza': '5', island: '' });
+  act(() => root.unmount()); host.remove();
+});

@@ -247,7 +247,6 @@ CLAUDE's former CURRENT TASKS is preserved below for exact wording and the detai
 |---|---|---|
 | Q23 | OPEN | Price-gap engine: a live drawn view before buying, then the buyer's own running engine. Ships with buy guards. |
 | Q25 | OPEN | FeeCat pages: charts first, minds under them, tighter layout; FeeCat on a profile is a pop-out. |
-| Q28 | OPEN | Family command center: owner sets any cost (for example 5 MP for a city lot). |
 | Q29 | OWNER | HQ › Fees showed the swap fee at 1500 bps (15%) on 2026-10-29: confirm that is intended. |
 | CH05 | OWNER | Move agents and the real card onto true candles after a shadow test. They still read filled bars. |
 
