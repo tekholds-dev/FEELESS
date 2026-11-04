@@ -205,7 +205,7 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn 
     try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(ok); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   return <section className="fwd-tab m-card" data-testid="family-tab"><FamilyHQ mine={mine} world={v} act={act} busy={busy} onEnter={onEnter} tools={tools} />
-    {onLeave ? <button type="button" className="m-btn fhq-leave" disabled={busy} onClick={onLeave} data-testid="crew-leave">Leave the family</button> : null}</section>;
+    {onLeave ? <button type="button" className="m-btn fmhq-leave" disabled={busy} onClick={onLeave} data-testid="crew-leave">Leave the family</button> : null}</section>;
 }
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out

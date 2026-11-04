@@ -25,24 +25,24 @@ export function Realtor({ v, act, busy, onFly }) {
   const groups = useMemo(() => forSale(v, city), [v, city]);
   const me = v?.me; const turfMax = v?.rules?.turfMax || 12; const turf = (me?.turf || []).length;
   const full = me && turf >= turfMax;
-  return <section className="rl" data-testid="realtor">
-    <header className="rl-head"><span><em>FOR SALE · EVERY CITY</em><b>🏷 THE REALTOR</b></span>
-      {me ? <span className="rl-bank" data-tip="Your family bank — plots are paid in MP"><em>BANK</em><b>{mp(me.bank)} MP</b><small>turf {turf}/{turfMax}</small></span>
-        : <span className="rl-bank is-off"><b>Join a family to buy</b></span>}</header>
-    <div className="m-seg rl-cities" role="radiogroup" aria-label="City">{(v?.cities || []).map(c => <button key={c.key} type="button" role="radio" aria-checked={city === c.key} className={city === c.key ? 'active' : ''}
+  return <section className="rlt" data-testid="realtor">
+    <header className="rlt-head"><span><em>FOR SALE · EVERY CITY</em><b>🏷 THE REALTOR</b></span>
+      {me ? <span className="rlt-bank" data-tip="Your family bank — plots are paid in MP"><em>BANK</em><b>{mp(me.bank)} MP</b><small>turf {turf}/{turfMax}</small></span>
+        : <span className="rlt-bank is-off"><b>Join a family to buy</b></span>}</header>
+    <div className="m-seg rlt-cities" role="radiogroup" aria-label="City">{(v?.cities || []).map(c => <button key={c.key} type="button" role="radio" aria-checked={city === c.key} className={city === c.key ? 'active' : ''}
       onClick={() => setCity(c.key)} data-tip={`${c.name}: ${c.plots - c.held} of ${c.plots} plots free`} data-testid={`rl-city-${c.key}`}>{c.name}<small>{c.plots - c.held} free</small></button>)}</div>
-    {full ? <p className="rl-note">Your family holds {turf}/{turfMax} turf — sell a block before buying another.</p> : null}
-    {!groups.length ? <p className="rl-note">Sold out — every plot in this city is held. Raid one, or try another city.</p> : null}
-    {groups.map(({ tier: [k, label, , col], plots }) => <div key={k} className={`rl-tier k-${k}`} style={{ '--tc': col }} data-testid={`rl-tier-${k}`}>
-      <p className="rl-tlabel"><b>{label}</b><small>{plots.length} plot{plots.length === 1 ? '' : 's'} · from {plots[0].mp != null ? `${mp(plots[0].mp)} MP` : '—'}</small></p>
-      <ol className="rl-lots">{plots.slice(0, 12).map((p, i) => <li key={p.id} className={`rl-lot ${p.ok ? 'is-ok' : ''}`} style={{ '--i': i }} data-testid={`rl-lot-${p.id}`}>
-        <span className="rl-sign" aria-hidden="true"><i /><b>SALE</b></span>
-        <span className="rl-id"><b>{p.id}</b><small>{p.icon} {p.name} · ×{p.tierMul}</small></span>
+    {full ? <p className="rlt-note">Your family holds {turf}/{turfMax} turf — sell a block before buying another.</p> : null}
+    {!groups.length ? <p className="rlt-note">Sold out — every plot in this city is held. Raid one, or try another city.</p> : null}
+    {groups.map(({ tier: [k, label, , col], plots }) => <div key={k} className={`rlt-tier k-${k}`} style={{ '--tc': col }} data-testid={`rl-tier-${k}`}>
+      <p className="rlt-tlabel"><b>{label}</b><small>{plots.length} plot{plots.length === 1 ? '' : 's'} · from {plots[0].mp != null ? `${mp(plots[0].mp)} MP` : '—'}</small></p>
+      <ol className="rlt-lots">{plots.slice(0, 12).map((p, i) => <li key={p.id} className={`rlt-lot ${p.ok ? 'is-ok' : ''}`} style={{ '--i': i }} data-testid={`rl-lot-${p.id}`}>
+        <span className="rlt-sign" aria-hidden="true"><i /><b>SALE</b></span>
+        <span className="rlt-id"><b>{p.id}</b><small>{p.icon} {p.name} · ×{p.tierMul}</small></span>
         <strong className="m-num">{p.mp != null ? `${mp(p.mp)} MP` : '—'}</strong>
-        <span className="rl-acts">{onFly ? <button type="button" className="m-btn" onClick={() => onFly(p.id)} data-tip="Fly the city camera to this plot" aria-label={`Fly to ${p.id}`}>📍</button> : null}
+        <span className="rlt-acts">{onFly ? <button type="button" className="m-btn" onClick={() => onFly(p.id)} data-tip="Fly the city camera to this plot" aria-label={`Fly to ${p.id}`}>📍</button> : null}
           <button type="button" className="m-btn m-go" disabled={busy || !me || !p.ok || full} onClick={() => act({ act: 'buy', block: p.id }, `Bought ${p.id}`)}
             data-tip={!me ? 'Join a family first' : !p.ok ? `Needs ${mp((p.mp || 0) - (me.bank || 0))} more MP in the bank` : `Buy ${p.id} for ${mp(p.mp)} MP (Don / Underboss)`} data-testid={`rl-buy-${p.id}`}>Buy</button></span></li>)}</ol>
-      {plots.length > 12 ? <p className="rl-note">+{plots.length - 12} more in this tier — the cheapest are listed first.</p> : null}
+      {plots.length > 12 ? <p className="rlt-note">+{plots.length - 12} more in this tier — the cheapest are listed first.</p> : null}
     </div>)}
   </section>;
 }

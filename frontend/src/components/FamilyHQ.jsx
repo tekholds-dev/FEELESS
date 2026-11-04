@@ -21,14 +21,14 @@ export function useCount(target, ms = 650) {   // a number glides to its new val
 }
 function Ring({ v, max = 100, label, tone = 'gold', fmt = x => n(x) }) {
   const x = useCount(v); const k = Math.max(0, Math.min(1, x / max));
-  return <span className={`fhq-ring t-${tone}`} style={{ '--k': k }} data-tip={`${label}: ${fmt(v)}`}><i /><b className="m-num">{fmt(x)}</b><em>{label}</em></span>;
+  return <span className={`fmhq-ring t-${tone}`} style={{ '--k': k }} data-tip={`${label}: ${fmt(v)}`}><i /><b className="m-num">{fmt(x)}</b><em>{label}</em></span>;
 }
 function Meter({ label, v, max, txt, tone = '' }) {
   const k = Math.max(0.02, Math.min(1, (Number(v) || 0) / Math.max(1, max)));
-  return <span className={`fhq-meter ${tone}`} data-tip={`${label}: ${txt}`}><em>{label}</em><b className="m-num" key={txt}>{txt}</b><u><s style={{ transform: `scaleX(${k})` }} /></u></span>;
+  return <span className={`fmhq-meter ${tone}`} data-tip={`${label}: ${txt}`}><em>{label}</em><b className="m-num" key={txt}>{txt}</b><u><s style={{ transform: `scaleX(${k})` }} /></u></span>;
 }
 function Dots({ label, have, of }) {
-  return <span className="fhq-dots" data-tip={`${label}: ${have} of ${of}`}><em>{label}</em><span>{Array.from({ length: Math.min(of, 15) }, (_, i) => <i key={i} className={i < have ? 'on' : ''} style={{ '--i': i }} />)}</span><b className="m-num">{have}/{of}</b></span>;
+  return <span className="fmhq-dots" data-tip={`${label}: ${have} of ${of}`}><em>{label}</em><span>{Array.from({ length: Math.min(of, 15) }, (_, i) => <i key={i} className={i < have ? 'on' : ''} style={{ '--i': i }} />)}</span><b className="m-num">{have}/{of}</b></span>;
 }
 export const TOOLS = [['table', 'Table', Armchair], ['wire', 'Wire', Radio], ['card', 'Card', IdCard], ['invite', 'Invite', Mail], ['badge', 'Badge', Flower2], ['board', 'Board', MessagesSquare],
   ['bounty', 'Bounties', Crosshair], ['launch', 'Launch', Rocket], ['members', 'Seats', UserPlus], ['code', 'Code', KeyRound],
@@ -46,16 +46,16 @@ export function bookSum(book) {
 // 📒 THE BOOKS: every member's verified FEELESS trades this week as one tape (their own wallets — nothing is pooled; P5 custody decides more)
 export function FamilyBooks({ book }) {
   const s = useMemo(() => bookSum(book), [book]); const tot = useCount(s.usd); const top = Math.max(1, ...s.members.map(m => Math.abs(m.usd)));
-  return <div className="fhq-books" data-testid="family-books">
-    <div className="fhq-bsum"><span><em>THIS WEEK</em><b className={`m-num ${tot >= 0 ? 'up' : 'dn'}`}>{n2(tot)}</b></span><span><em>TRADES</em><b className="m-num">{s.n}</b></span>
+  return <div className="fmhq-books" data-testid="family-books">
+    <div className="fmhq-bsum"><span><em>THIS WEEK</em><b className={`m-num ${tot >= 0 ? 'up' : 'dn'}`}>{n2(tot)}</b></span><span><em>TRADES</em><b className="m-num">{s.n}</b></span>
       <span><em>WON</em><b className="m-num">{s.wonPct == null ? '—' : `${s.wonPct}%`}</b></span>{s.best ? <span><em>BEST</em><b className="m-num up">${s.best.symbol} {Math.round((s.best.ret || 0) * 100)}%</b></span> : null}</div>
-    {s.members.length ? <ol className="fhq-bmem">{s.members.map((m, i) => <li key={m.who + i} style={{ '--i': i }}><b>{m.who}</b><u><s className={m.usd >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(m.usd) / top)})` }} /></u>
+    {s.members.length ? <ol className="fmhq-bmem">{s.members.map((m, i) => <li key={m.who + i} style={{ '--i': i }}><b>{m.who}</b><u><s className={m.usd >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(m.usd) / top)})` }} /></u>
       <em className={m.usd >= 0 ? 'up' : 'dn'}>{n2(m.usd)}</em><small>{m.n}</small></li>)}</ol> : null}
-    <ol className="fhq-tape">{(book || []).map((r, i) => <li key={`${r.tx || i}-${r.symbol}`} style={{ '--i': Math.min(i, 12) }}>
+    <ol className="fmhq-tape">{(book || []).map((r, i) => <li key={`${r.tx || i}-${r.symbol}`} style={{ '--i': Math.min(i, 12) }}>
       <b>${r.symbol}</b><span>{r.who}</span><em className={(r.ret || 0) >= 0 ? 'up' : 'dn'}>{(r.ret || 0) >= 0 ? '+' : ''}{Math.round((r.ret || 0) * 100)}%</em><strong className={(r.usd || 0) >= 0 ? 'up' : 'dn'}>{n2(r.usd)}</strong>
       <small>{r.holdMin != null ? `${Math.round(r.holdMin)}m` : ''}</small>{r.tx ? <a href={`https://solscan.io/tx/${r.tx}`} target="_blank" rel="noopener noreferrer" data-tip="The sell, on-chain">↗</a> : <i />}</li>)}
-      {!(book || []).length ? <li className="fhq-nil">No verified trades from the family this week yet — every FEELESS trade a member closes lands here.</li> : null}</ol>
-    <p className="fhq-bnote">Price result only (fees apart) · each member trades from their own wallet · a shared family wallet waits on the custody pick.</p>
+      {!(book || []).length ? <li className="fmhq-nil">No verified trades from the family this week yet — every FEELESS trade a member closes lands here.</li> : null}</ol>
+    <p className="fmhq-bnote">Price result only (fees apart) · each member trades from their own wallet · a shared family wallet waits on the custody pick.</p>
   </div>;
 }
 const OWN = { books: m => <FamilyBooks book={m.book} />, pools: () => <PoolsPop />, vault: () => <NightVault />, trade: () => <AvenueRoom lens="pumpradar" />,
@@ -72,15 +72,15 @@ export function FamilyHQ({ mine, world, act, busy, onEnter, onFly, tools }) {
   const vt = mine.vitals || {}; const war = mine.war || {}; const me = world?.me || null;
   const week = useCount(vt.usd || 0); const turfMax = world?.rules?.turfMax || 12; const turf = (me?.turf || []).length + (me?.home ? 1 : 0);
   const next = nextTurf(me);
-  return <div className="fhq" data-testid="family-hq">
-    <header className="fhq-id">{mine.badge ? <FamilyBadge b={mine.badge} size="sm" /> : <span className="fhq-rose" aria-hidden="true" />}
+  return <div className="fmhq" data-testid="family-hq">
+    <header className="fmhq-id">{mine.badge ? <FamilyBadge b={mine.badge} size="sm" /> : <span className="fmhq-rose" aria-hidden="true" />}
       <span><b>{mine.name}</b><small>[{mine.tag}] · {mine.members.length}/{mine.seats} seats</small></span>
-      <span className={`fhq-week m-num ${week >= 0 ? 'up' : 'dn'}`} data-tip="This week's verified result (price only — fees apart)">{week >= 0 ? '+' : '−'}${Math.abs(week).toFixed(2)}</span></header>
-    <div className="fhq-vitals">
+      <span className={`fmhq-week m-num ${week >= 0 ? 'up' : 'dn'}`} data-tip="This week's verified result (price only — fees apart)">{week >= 0 ? '+' : '−'}${Math.abs(week).toFixed(2)}</span></header>
+    <div className="fmhq-vitals">
       <Ring v={vt.respect || 0} label="RESPECT" />
       <Ring v={vt.wonPct || 0} label="WON" tone="green" fmt={x => `${Math.round(x)}%`} />
       <Ring v={vt.heat || 0} label="HEAT" tone="red" />
-      <div className="fhq-grid">
+      <div className="fmhq-grid">
         <Dots label="WORKING 24H" have={vt.active || 0} of={vt.members || mine.members.length} />
         <Meter label="TRADES" v={vt.trades || 0} max={60} txt={n(vt.trades)} />
         <Meter label="WARS" v={war.wins || 0} max={(war.wins || 0) + (war.losses || 0) || 1} txt={`${war.wins || 0}–${war.losses || 0}`} tone="is-red" />
@@ -89,14 +89,14 @@ export function FamilyHQ({ mine, world, act, busy, onEnter, onFly, tools }) {
         {me ? <Meter label="TURF" v={turf} max={turfMax} txt={`${turf}/${turfMax}`} /> : null}
       </div>
     </div>
-    {me ? <div className="fhq-town" data-testid="family-town"><span className="fhq-label"><MapPinned size={13} aria-hidden="true" /> YOUR TOWN</span>
+    {me ? <div className="fmhq-town" data-testid="family-town"><span className="fmhq-label"><MapPinned size={13} aria-hidden="true" /> YOUR TOWN</span>
       <button type="button" className="m-btn m-go" onClick={onEnter} data-tip="Your own 3D block: build the stores, collect the stash, hire the crew" data-testid="hq-enter"><DoorOpen size={14} aria-hidden="true" /> Enter your block</button>
       {me.home ? <button type="button" className="m-btn" onClick={() => onFly?.(me.home)} data-tip="Fly the city camera to your home block" data-testid="hq-fly-home">Fly home · {me.home}</button> : null}
-      {next.length ? <ol className="fhq-next">{next.map((b, i) => <li key={b.id} style={{ '--i': i }}><button type="button" className={`m-btn ${b.ok ? '' : 'is-short'}`} disabled={busy || !b.ok} onClick={() => act({ act: 'buy', block: b.id }, `Expanded to ${b.id}`)}
+      {next.length ? <ol className="fmhq-next">{next.map((b, i) => <li key={b.id} style={{ '--i': i }}><button type="button" className={`m-btn ${b.ok ? '' : 'is-short'}`} disabled={busy || !b.ok} onClick={() => act({ act: 'buy', block: b.id }, `Expanded to ${b.id}`)}
         data-tip={b.ok ? `Expand the town: buy ${b.id} for ${n(b.mp)} MP (+4 % production, +1 recruit seat, more raid reach)` : `Needs ${n(b.mp - (me.bank || 0))} more MP`} data-testid={`hq-expand-${b.id}`}>＋ {b.id}<small>{n(b.mp)} MP</small></button></li>)}</ol> : null}
     </div> : null}
-    <nav className="fhq-tools" role="tablist" aria-label="Family tools">{TOOLS.map(([k, label, Icon], i) => <button key={k} type="button" role="tab" aria-selected={tool === k} className={tool === k ? 'active' : ''} style={{ '--i': i }}
+    <nav className="fmhq-tools" role="tablist" aria-label="Family tools">{TOOLS.map(([k, label, Icon], i) => <button key={k} type="button" role="tab" aria-selected={tool === k} className={tool === k ? 'active' : ''} style={{ '--i': i }}
       onClick={() => setTool(k)} data-tip={label} data-testid={`hq-tool-${k}`}><Icon size={16} aria-hidden="true" /><span>{label}</span>{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
-    <div className="fhq-pane" key={tool}>{OWN[tool] ? <Suspense fallback={<p className="m-dim">Opening…</p>}>{OWN[tool](mine)}</Suspense> : tools ? tools(tool, setTool) : null}</div>
+    <div className="fmhq-pane" key={tool}>{OWN[tool] ? <Suspense fallback={<p className="m-dim">Opening…</p>}>{OWN[tool](mine)}</Suspense> : tools ? tools(tool, setTool) : null}</div>
   </div>;
 }

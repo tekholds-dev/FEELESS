@@ -24,3 +24,10 @@ test.each(fs.readdirSync(__dirname).filter(f => f.endsWith('.css')))('%s has no 
 test.each(Object.entries(BUDGET))('%s stays under %s KB', (file, kb) => {
   expect(fs.statSync(path.join(__dirname, file)).size / 1024).toBeLessThanOrEqual(kb);
 });
+
+test('🧯 lazy sheets of different features never share a top class (Perps kd-* once blew up Fee\'s desk text)', () => {
+  const tops = f => new Set([...require('fs').readFileSync(require('path').join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(?:^|[},])\s*\.([a-zA-Z][\w-]*)/g)].map(m => m[1]));
+  for (const [a, b] of [['catDesk.css', 'perpsDash.css'], ['feeCats.css', 'pitReel.css'], ['realtor.css', 'moneyDesk.css'], ['familyHQ.css', 'fuseLab.css'], ['coachTape.css', 'chatThemes.css']]) {
+    const B = tops(b); expect([...tops(a)].filter(k => B.has(k))).toEqual([]);
+  }
+});
