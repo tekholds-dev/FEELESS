@@ -110,3 +110,14 @@ def test_a_stranger_reads_no_private_drawer_on_the_leader(monkeypatch):
         assert k not in seen, k
     assert 'me@a.co' not in str(seen)
     assert asyncio.run(fs.get_cat('fee', session='owner'))['cat']['chat']
+
+
+def test_the_leader_route_is_as_clean_as_the_card(monkeypatch):
+    cat = {'id': 'leader', 'isLeader': True, 'name': 'Fee', 'positions': [{'symbol': 'A'}], 'chat': [{'text': 'private'}], 'logins': [{'sealed': 'x', 'site': 'a.co', 'user': 'me@a.co', 'at': 1}], 'vaultLog': [{'what': 'signed in'}], 'siteSessions': {'a.co': {'ctx': 'v2:x', 'at': 1, 'n': 1}}}
+    monkeypatch.setattr(fs, '_load', lambda: {'cats': {'leader': cat}})
+    monkeypatch.setattr(fs, '_migrate', lambda store: None)
+    seen = asyncio.run(fs.leader())['cat']
+    assert seen['positions'] and seen['name'] == 'Fee'
+    for k in fs.LEADER_PRIVATE:
+        assert k not in seen, k
+    assert 'me@a.co' not in str(seen) and 'sealed' not in str(seen)

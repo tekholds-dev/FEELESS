@@ -4253,7 +4253,10 @@ def cats_brain():
 async def leader():
     store = _load()
     _migrate(store)
-    return _pub({'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan'), 'talk': store.get('aiTalk') or []})
+    seen = _pub({'cat': store['cats'].get(LEADER_ID)})['cat']   # 🔒 its public desk, without its private drawers: its owner reads those through /work
+    for k_ in LEADER_PRIVATE:
+        (seen or {}).pop(k_, None)
+    return _pub({'cat': seen, 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan'), 'talk': store.get('aiTalk') or []})
 
 
 class EvaluatePayload(BaseModel):
@@ -5994,7 +5997,7 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
 
 # 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
-LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink', 'agentWallet', 'realWallet')
+LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
 PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
                    'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')
