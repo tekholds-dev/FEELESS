@@ -10564,6 +10564,8 @@ async def familia_world_act(p: WorldAct):
                 t, bor, kind, stash = _world_target(st, w, p.vs, now, cartels_)
                 if kind == 'family' and float(((st['crews'].get(p.vs) or {}).get('world') or {}).get('shieldUntil') or 0) > now:
                     raise ValueError('They are under a truce flag right now.')
+                if kind == 'family' and _fworld.newcomer_shielded(st['crews'].get(p.vs), now):
+                    raise ValueError('That family is new: it cannot be raided for its first 24 hours.')
                 if not staff_ and not _fworld.can_raid(w, c['id'], bor, kind, lv.get('docks', 0)):   # ⚖ cartels: from any city
                     raise ValueError('Out of reach — hold a block in that borough or one bridge away (docks add reach).')
                 hit = [r['lvl'] for r in _fcity.ready(city, now, 'hitter')]

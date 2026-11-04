@@ -312,6 +312,14 @@ def reach(world, cid, target_borough, docks_lvl=0):
     return min([hops(m, target_borough) for m in mine] or [99]) <= lim
 
 
+NEW_FAMILY_SHIELD_S = 86400
+
+
+def newcomer_shielded(crew, now):
+    """🛡 A new family can't be raided for its first 24 hours (owner N08). A family with no founding date is an old one."""
+    return bool((crew or {}).get('created')) and float(now) - float(crew['created']) < NEW_FAMILY_SHIELD_S
+
+
 def can_raid(world, cid, target_borough, kind='family', docks_lvl=0):
     """Reach for a raid. CARTELS (the rep's bundlers / snipers / funders) are fair game from ANY city — Rug Shield HQ hunts them everywhere
     (owner 2026-10-27: "can't raid the bad guys from rep": 12 of 18 had no building and the docks sat out of reach). Families + CPU towns need reach."""

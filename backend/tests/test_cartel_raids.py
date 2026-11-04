@@ -18,3 +18,9 @@ def test_every_cartel_has_a_raidable_town_even_without_a_building():
     for c in cs:                                                                 # a board to raid exists for each one (lots + guards)
         t = fw.cartel_town(c)
         assert t['lots'] and t['guards']
+
+
+def test_a_new_family_cannot_be_raided_for_its_first_day():
+    assert fw.newcomer_shielded({'created': 1000}, 1000 + 86399) is True
+    assert fw.newcomer_shielded({'created': 1000}, 1000 + 86400) is False
+    assert fw.newcomer_shielded({}, 5) is False and fw.newcomer_shielded(None, 5) is False
