@@ -1,5 +1,6 @@
 import { FamilyFuseStrip } from './FamilyFuseBoard';
 import { sharedJson } from '../lib/sharedJson';
+import { FirstTips } from './FirstTips';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import NumInput from './NumInput';
 import { CardFx } from './CardFx';
@@ -96,6 +97,7 @@ export function FusePage() {
   const limits = useFuseLimits(addr);
   const go = t => { setTab(t); const u = new URL(window.location.href); u.searchParams.set('tab', t); window.history.replaceState(null, '', u); };
   return <section className="fuse-page" data-testid="fuse-page"><FuseFx /><FuseRoom />
+    <FirstTips id="fuse" tips={[['[data-testid="fuse-tab-runners"]', 'Runners', 'Live coins that are running. Pick from here to start a card.'], ['[data-testid="fuse-step-lab"]', 'Fuse Lab', 'Mix coins into one card, then read its fees and guards before you sign.'], ['[data-testid="fp-dock"]', 'Your cards', 'Your running cards stay here with their live P/L.']]} />
     <header className="fp-head"><h1 className="fp-title"><span className="fp-zap" data-text="Fuse">Fuse<i className="fp-bolt" aria-hidden="true" /><i className="fp-bolt b2" aria-hidden="true" /></span> <DnaHelix /></h1><p className="m-dim">Fuse pools + fresh runners into one card. You sign every move; we show every fee.</p>
       <div className="m-seg fp-tabs" role="tablist" aria-label="Fuse">{TOP_TABS.map(([k, l, sub]) => <button key={k} type="button" role="tab" aria-selected={topOf(tab) === k} className={topOf(tab) === k ? 'active' : ''} data-testid={`fuse-tab-${k}`} onClick={() => go(k)}>
         <b>{l}{k === 'lab' && runnerPicks.length ? ` · ${runnerPicks.length}` : ''}</b><small>{sub}</small></button>)}</div></header>

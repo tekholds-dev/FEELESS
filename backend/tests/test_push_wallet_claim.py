@@ -34,3 +34,9 @@ def test_no_backend_secret_value_is_in_the_frontend_source():
                 text = f.read_text(errors='ignore')
                 hits |= {k for k, v in secrets.items() if v in text}
     assert not hits, f'secret names found in the frontend: {sorted(hits)}'   # names only: a value never reaches a log
+
+
+def test_a_forged_edge_observation_needs_a_price_near_the_servers():
+    rs = pytest.importorskip('reputation_service')
+    assert rs._edge_price_ok(1.0, 1.1) and rs._edge_price_ok(2.9, 1.0)
+    assert not rs._edge_price_ok(100.0, 1.0) and not rs._edge_price_ok(1.0, 0)

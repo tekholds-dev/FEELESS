@@ -29567,10 +29567,30 @@ class EdgeObservation(BaseModel):
     priceUsd: float
 
 
+def _num_or_0(v):
+    try:
+        return float(v or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _edge_price_ok(sent, live):
+    """🔒 The browser's price is only believed near the server's own: a forged observation can't plant fake grades. With no live read, it is not filed."""
+    return bool(live) and live / 3 <= sent <= live * 3
+
+
 @app.post('/api/reputation/edge/observe')
 async def edge_observe(o: EdgeObservation):
-    if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24:
+    if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24 or not re.fullmatch(r'[A-Za-z0-9]+', o.pairAddress) or not re.fullmatch(r'[a-z0-9-]+', o.chain):
         raise HTTPException(400, 'bad observation')
+    if o.chain == 'solana':   # the live price read covers Solana; other chains keep their score only until they have one
+        try:
+            async with httpx.AsyncClient(timeout=4) as http_:
+                live_ = _num_or_0(((await http_.get(f'http://127.0.0.1:5099/api/candles/price/solana/{o.pairAddress}')).json() or {}).get('p'))
+        except (httpx.HTTPError, ValueError):
+            live_ = 0.0
+        if not _edge_price_ok(o.priceUsd, live_):
+            return {'ok': False, 'why': 'no matching live price'}
     async with _edge_lock:
         d = _json_load(EDGE_MEM_PATH, {'open': {}, 'done': []})
         key = f'{o.chain}:{o.pairAddress}'

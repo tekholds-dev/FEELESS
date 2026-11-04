@@ -1,3 +1,4 @@
+import { FirstTips } from './FirstTips';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Map as MapIcon, Crown, Swords, Trophy, Radio } from 'lucide-react';
@@ -75,6 +76,7 @@ export default function FamiliaApp() {
       <Link to="/terminal" className="fa-exit" data-tip="Back to the FEELESS terminal" data-testid="fa-exit">← FEELESS</Link>
       <span className="fa-brand"><Rose /><span><b>LA FAMILIA</b><small key={scene}>{SCENES[scene]?.[0] || 'Fee City'}</small></span></span>
       <nav className="fa-nav" role="tablist" aria-label="La Familia">{tabs('fa-tab')}</nav>
+      <FirstTips id="familia" tips={[['.fa-nav', 'The city', 'Each tab is a part of your family: the map, your block, your people.'], ['[data-testid="fa-wallet"]', 'Your wallet', 'Connect it to start or join a family. Real money stays in your own wallet.']]} />
       <span className="fa-pulse" data-tip="The families right now: how many there are and how many wars are burning">
         <span><i className="fa-dot" /><b className="m-num" key={board?.total}>{board?.total ?? '—'}</b><small>FAMILIES</small></span>
         <span className={wars ? 'is-hot' : ''}><b className="m-num" key={wars}>{wars}</b><small>WARS LIVE</small></span></span>

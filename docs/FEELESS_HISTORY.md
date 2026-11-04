@@ -6858,3 +6858,9 @@ NOTE: merging into main LOCALLY never restarts the backend — after a backend p
 
 | B07 | VERIFY | Fixed a real hole: anyone could register a phone subscription claiming another wallet and receive its alerts. A new claim now needs that wallet's signed session (`_push_prefs`); phones already holding a wallet keep it. Forged subscriptions made before this are not found or removed. Fakes only. Open from the same review: `reactions` trusts the voter name, `edge/observe` trusts the client's score and price. |
 - 2026-11-04: B07 proven live: a forged wallet claim answered walletLinked false. New-family 24 h raid shield (N08). Task list chopped from about 167 items to 73 rows.
+
+| Q21 | OPEN | Trading agent desk: decision bubbles float on each chart, no full-width rows. | CLOSED: Charts first with pins, seen on owner screenshot 2026-11-04.
+| Q22 | OPEN | Fee's wall takes the Fee's calls design; remove the separate calls panel. | CLOSED: FeeCallChat component is gone; FeeLiveTab threads calls.
+| Q24 | OPEN | No paper for users anywhere except the Fuse Arena: list what remains, then remove it. | CLOSED: Paper left: staff test tools, Fuse Arena, legal perps paper (DECISIONS), PoP by design.
+| Q27 | OPEN | First-visit tutorials for Family, Fuse, Trench, FeeCat. | CLOSED: FirstTips on Fuse, Familia, Trenches, FeeCat, Launch.
+- 2026-11-04 night: Perps `kd-*` collision fixed (Fee's giant text), file/propose a perp, PoP sources + fingerprint, Manual folder, shorter pages.
