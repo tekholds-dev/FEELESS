@@ -270,3 +270,36 @@ def test_the_folder_says_the_size_the_wallet_really_sends():
     fs = pytest.importorskip('feecat_service')
     cat = {'proposals': [{'id': 'a', 'sol': 0.008}, {'id': 'b'}]}
     assert fs._pow2_real_sol(cat, 'a', 0.01) == 0.008 and fs._pow2_real_sol(cat, 'b', 0.01) == 0.01 and fs._pow2_real_sol(cat, 'gone', 0.01) == 0.01
+
+
+def test_perp_words_work_like_pop_and_never_catch_a_question():
+    assert pop.command('file a perp') == 'start' and pop.command('place a perp trade') == 'start' and pop.command('/perp') == 'start'
+    assert pop.command('propose a perp') == 'propose' and pop.command('A: propose a perp') == 'propose:0' and pop.command('stop perp') == 'stop'
+    assert pop.command('what is a perp?') is None and pop.command('should I file a perp?') is None
+
+
+def test_each_mind_gets_different_sources_every_proof_and_one_carries_funding():
+    import pop_sources as ps
+    a = ps.pick([], 0); b = ps.pick([], 1, a)
+    assert len(a) == 2 and not set(a) & set(b) and ps.SOURCES[a[0]][0] == 'perp' and ps.SOURCES[b[0]][0] == 'perp'
+    filed = [{'sources': {'0': [{'site': s, 'ok': True, 'devBps': 1.0} for s in a]}}]
+    assert not set(ps.pick(filed, 0)) & set(a)                                          # never its own last sources
+    bad = next(iter(ps.SOURCES)); fails = [{'sources': {'0': [{'site': bad, 'ok': False}]}}, {'sources': {'0': [{'site': 'okx.com', 'ok': True, 'devBps': 1.0}]}}]
+    assert bad not in ps.pick(fails, 0)                                                  # a failing source drops down
+
+
+def test_reads_are_measured_against_the_chart_and_off_or_failed_reads_are_not_facts():
+    import pop_sources as ps
+    good = ps.measure('okx.com', 'SOL', {'px': 100.1, 'funding': 0.01}, 100.0)
+    off = ps.measure('kraken.com', 'SOL', {'px': 102.0}, 100.0); none = ps.measure('gemini.com', 'SOL', None, 100.0)
+    assert good['devBps'] == 10.0 and not good['off'] and off['off'] is True and none['ok'] is False
+    assert 'no read' in ps.line(none) and '+10.0 bps' in ps.line(good) and 'OFF' in ps.line(off)
+    assert sorted(f['label'] for f in ps.facts([good, off, none], 1)) == ['SOL funding', 'SOL price']
+
+
+def test_each_parser_reads_its_sources_real_shape():
+    import pop_sources as ps
+    assert ps._kraken({'result': {'XXBTZUSD': {'c': ['78000.1', '1']}}}, 'BTC')['px'] == 78000.1
+    h = ps._hyper([{'universe': [{'name': 'BTC'}, {'name': 'SOL'}]}, [{}, {'markPx': '93.2', 'funding': '0.0000125', 'openInterest': '5'}]], 'SOL')
+    assert h['px'] == 93.2 and abs(h['funding'] - 0.01) < 1e-9 and h['oi'] == 5.0
+    assert pop.chart_line('SOL', [[3, 1.0, 5.0, 2.0, 4.0, 9], [2, 2.0, 4.0, 2.0, 3.0, 9]]).startswith('SOL chart, last 2 5m closes: 3.00, 4.00') and pop.chart_line('SOL', []) == ''

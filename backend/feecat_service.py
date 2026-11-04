@@ -52,6 +52,7 @@ import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
 import chain_rpc as _crpc
 import pop as _pop
+import pop_sources as _popsrc
 import pow_kernel as _kernel
 import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
@@ -2121,10 +2122,35 @@ async def _pop_price(http, market):
         return 0.0
 
 
+def _pop_dna_id(cat_id):
+    """A PoP's fingerprint is kept apart from the PoW one: perps sources must never enter a coin's research rotation."""
+    return f'{cat_id}:pop'
+
+
+async def _pop_chart(http, market):
+    try:
+        return _pop.chart_line(market, (await http.get(f'{POP_FEED}/{market}-USD/candles', params={'granularity': 300})).json())
+    except Exception:   # noqa: BLE001 — no candles is a thinner brief, never a stopped proof
+        return ''
+
+
+async def _pop_gather(http, cat, reads, idx, rid, now):
+    """🛰 Each mind's own sources, measured against the chart, and its fingerprint updated. → {mind: [rows]}."""
+    out, taken = {}, []
+    for i in idx:
+        sites = _popsrc.pick(cat.get('popFolders'), i, taken); taken += sites
+        rows = await _popsrc.read_mind(http, sites, reads); out[str(i)] = rows
+        try:
+            _poi.append(DATA_DIR, _pop_dna_id(cat['id']), i, rid, 'PERPS', now, _popsrc.facts(rows, now), {'visits': len(sites), 'verified': sum(1 for r in rows if r.get('ok') and not r.get('off')), 'gaps': sorted({r['site'] for r in rows if not r.get('ok')})}, visited=sites)
+        except Exception as e:   # noqa: BLE001 — a fingerprint that cannot file never stops the proof
+            print(f'[pop] dna: {str(e)[:120]}')
+    return out
+
+
 async def _pop_round(cat, idx, sys_of, brief, box):
     """One blind round: the listed minds answer at once, inside the round's time limit. A mind that says nothing is a mind with no call."""
     try:
-        return await asyncio.wait_for(asyncio.gather(*(_pow2_ask(cat, i, sys_of(i), brief, 220, box) for i in idx)), _pop.ROUND_S)
+        return await asyncio.wait_for(asyncio.gather(*(_pow2_ask(cat, i, sys_of(i), brief(i), 220, box) for i in idx)), _pop.ROUND_S)
     except asyncio.TimeoutError:
         return [''] * len(idx)
 
@@ -2137,9 +2163,12 @@ async def _pop_open(http, cat, do, who, now):
     if not reads or not brains:
         _pop_file(cat, {**flag, 'id': rid, 'at': round(now), 'status': 'closed', 'noTrade': True, 'why': 'no live price' if not reads else 'it needs a model first', 'calls': []}, f'{icon} not filed: no live price or no model')
         return
-    brief = '\n'.join(_pop.market_line(r) for r in reads)
     names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
+    charts = [c for c in await asyncio.gather(*(_pop_chart(http, r['market']) for r in reads)) if c]
+    sources = await _pop_gather(http, cat, reads, idx, rid, now)
+    shared = '\n'.join([_pop.market_line(r) for r in reads] + charts)
+    brief = lambda i: shared + '\nYour own sources:\n' + '\n'.join(_popsrc.line(r) for r in sources.get(str(i), []))
     raw = await _pop_round(cat, idx, lambda i: _pop.SYS.format(name=names[i]), brief, box)
     parsed = [_pop.parse_call(x) for x in raw]
     calls = [{'mind': i, 'name': names[i], **(c or {'why': str(raw[k] or '')[:160]})} for k, (i, c) in enumerate(zip(idx, parsed))]
@@ -2149,7 +2178,7 @@ async def _pop_open(http, cat, do, who, now):
         second = [_pop.parse_call(x) if x else parsed[k] for k, x in enumerate(again)]   # a mind that went silent keeps its first call
         calls = [{'mind': i, 'name': names[i], **(c or {'why': str(again[k] or calls[k].get('why') or '')[:160]}), 'first': _pop.call_line(parsed[k])[:60], 'changed': (c or {}).get('side') != (parsed[k] or {}).get('side') or (c or {}).get('market') != (parsed[k] or {}).get('market')} for k, (i, c) in enumerate(zip(idx, second))]
         trade, why = _pop.agree(second); conviction = 'argued'
-    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads}
+    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads, 'sources': sources}
     if not trade:
         _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
         return
@@ -4508,7 +4537,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'popFolder': cat.get('popRun'), 'popCard': cat.get('popCard'),
+            'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
+            'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS + _pop.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}

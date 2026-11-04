@@ -854,7 +854,7 @@ function PotSend({ cat }) {
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function PopApp({ cat, d, setD }) {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popFolders: j.popFolders ?? x?.popFolders }))).catch(() => {}); };
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popFolders: j.popFolders ?? x?.popFolders, popPoi: j.popPoi ?? x?.popPoi }))).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const [asking, setAsking] = useState(null);   // the minds take about 15 s: the desk says so until a new card, trade or filed row arrives
   const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
@@ -869,6 +869,21 @@ const popDay = x => new Date(Number(x.at || x.openedAt || 0) * 1000).toLocaleDat
 const popPct = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(2)}%`;
 const popResult = x => (x.noTrade || x.state === 'ran' || x.status !== 'closed' ? null : x.won ? 'good' : 'bad');
 function popStep(x) { if (x.status === 'closed') return x.noTrade ? 2 : 6; return x.proposal ? 2 : 4; }
+const PopChartLazy = lazy(() => import('../perps/PerpsChart').then(m => ({ default: m.PerpsChart })));
+// 📈 what the minds are looking at: the true candles with this trade's levels on them
+function PopChart({ f }) {
+  const dir = f.side === 'short' ? -1 : 1; const e = Number(f.entry) || 0;
+  const lines = e ? [{ id: 'entry', price: e, color: '#ffffff', title: 'ENTRY' }, { id: 'tp', price: e * (1 + dir * f.tp / 100), color: '#45e486', title: 'TAKE', dash: true }, { id: 'sl', price: e * (1 - dir * f.sl / 100), color: '#ff8fa3', title: 'STOP', dash: true }] : [];
+  return <div className="pop-chart m-glass" data-testid="pop-chart"><Suspense fallback={<p className="dsk-note">Loading true candles…</p>}><PopChartLazy asset={f.market} iv="1m" lines={lines} /></Suspense></div>;
+}
+// 🛰 each mind's own sources, each measured against the chart
+function PopSources({ f }) {
+  const minds = Object.entries(f.sources || {});
+  if (!minds.length) return <p className="dsk-note">This folder is from before sources were filed.</p>;
+  return <div className="pop-srcs" data-testid="pop-sources">{minds.map(([mind, rows]) => { const sites = [...new Set(rows.map(r => r.site))];
+    return <section key={mind} className={`pop-src m-glass is-m${mind}`}><b>MIND {mind === '0' ? 'A' : 'B'}</b>{sites.map(site => { const these = rows.filter(r => r.site === site);
+      return <div key={site} className="pop-src-site"><span><em>{site}</em><small>{these[0]?.kind}</small></span>{these.map(r => <span key={r.market} className={`pop-dev${!r.ok ? ' is-none' : r.off ? ' is-off' : ''}`} data-tip={r.ok ? `${r.market} read $${Number(r.px).toLocaleString()}, ${r.devBps} bps from the chart${r.funding != null ? ` · funding ${r.funding}% per 8h` : ''}` : `${r.market}: no read, recorded as a gap`}><i>{r.market}</i><u><s style={{ transform: `scaleX(${r.ok ? Math.min(1, Math.abs(r.devBps) / 25) : 0})` }} /></u><small className="m-num">{r.ok ? `${r.devBps > 0 ? '+' : ''}${r.devBps} bps` : 'gap'}</small></span>)}</div>; })}</section>; })}</div>;
+}
 function PopMarket({ f, read, m }) {
   const pos = read && read.high > read.low ? Math.max(0, Math.min(1, (read.px - read.low) / (read.high - read.low))) : null; const minds = (f.calls || []).filter(c => c.market === m);
   return <div className="pop-mk" data-testid="pop-market">
@@ -890,12 +905,13 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
   const liveRows = [...(d?.popFolder ? [{ ...d.popFolder, live: true }] : []), ...(d?.popCard ? [{ ...d.popCard, live: true }] : [])]; const all = [...liveRows, ...(d?.popFolders || [])];
   const f = path[0] ? all.find(x => x.id === path[0]) : null; const name = x => (x.n ? `PoP #${x.n}` : x.live ? (x.proposal ? 'Proposal' : 'Open PoP') : 'PoP');
   const reads = f?.reads || []; const markets = f ? [...new Set([...reads.map(r => r.market), ...(f.calls || []).map(c => c.market), f.market].filter(Boolean))] : [];
-  const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
+  const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] === 'src' ? [['Sources', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
   let body;
-  if (!path[0] || !f) body = children(all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
+  if (!path[0] || !f) body = children(<>{d?.popPoi ? <section className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
     return <Tile key={x.id} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} />; })}</div>
-    : <p className="dsk-note">No proofs yet. Type “file a PoP” or “propose a PoP” in its chat, or tap a button.</p>);
+    : <p className="dsk-note">No proofs yet. Type “file a perp” or “propose a perp” in its chat, or tap a button.</p>}</>);
   else if (path[1] === 'report') body = <PopReport f={f} />;
+  else if (path[1] === 'src') body = <PopSources f={f} />;
   else if (path[1] === 'talk') body = (f.talk || []).length ? <ul className="dsk-fold-talk" data-testid="pop-talk">{f.talk.map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : <p className="dsk-note">The discussion is filed when this folder closes.</p>;
   else if (path[1]?.startsWith('m:')) { const m = path[1].slice(2); body = <PopMarket f={f} m={m} read={reads.find(r => r.market === m)} />; }
   else { const at = popStep(f);
@@ -903,9 +919,11 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
       <button type="button" className={`m-btn${sure === f.id ? ' is-danger' : ''}`} onClick={() => (sure === f.id ? act('delete', { text: f.id }) : setSure(f.id))} data-tip="Remove this folder from the desktop" data-testid="pop-del">{sure === f.id ? 'Tap again to delete' : '🗑 Delete'}</button></span> : null}
       <ol className="dsk-fold-steps pop-steps" aria-label="Where this folder is">{POP_STEPS.map((l, i) => <li key={l} className={i < at ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
       {f.live && f.proposal ? <ProposalCard c={f} send={send} busy={busy} /> : f.live ? <Live t={f} /> : null}
+      {f.live && f.market ? <PopChart f={f} /> : null}
       <div className="dsk-xgrid"><Tile kind="file" tone={popResult(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : 'when it closes'} onOpen={() => setPath([f.id, 'report'])} tip="What happened, the result, its cost and the limits it ran under" testid="pop-x-report" />
         {markets.map((m, i) => <Tile key={m} i={i + 1} tone={f.market === m ? (popResult(f) || 'live') : 'coin'} ic={f.market === m ? '⭐' : '📊'} label={`${m}-PERP`} sub={reads.find(r => r.market === m) ? popPct(reads.find(r => r.market === m).chgPct) : `${(f.calls || []).filter(c => c.market === m).length} calls`} onOpen={() => setPath([f.id, `m:${m}`])} tip={`${m}: what the minds read and who called it`} testid={`pop-x-m-${m}`} />)}
-        <Tile kind="file" i={markets.length + 1} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || f.calls || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every call the minds made and what the engine did" testid="pop-x-talk" /></div>
+        <Tile i={markets.length + 1} tone="none" ic="🛰" label="Sources" sub={f.sources ? `${Object.values(f.sources).flat().filter(r => r.ok).length} reads` : 'not recorded'} onOpen={() => setPath([f.id, 'src'])} tip="What each mind read, each number measured against the chart" testid="pop-x-src" />
+        <Tile kind="file" i={markets.length + 2} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || f.calls || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every call the minds made and what the engine did" testid="pop-x-talk" /></div>
       {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
   return <div className="dsk-pow pop-x" data-testid="dsk-pop">
     {path.length ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button>{crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p> : null}
