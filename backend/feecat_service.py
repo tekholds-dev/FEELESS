@@ -5985,12 +5985,16 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
     mine = owner_check(cat, _fresh_session_wallet(session), ownerId) in ('ok', 'claim')
     inside = request is not None and bool(request.headers.get('x-feeless-internal')) and _internal_ok(request)   # 🔒 FEELESS's own services (funding, withdraw) read the full record
     out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or inside or cat.get('isLeader') else public_cat(cat)})
+    if cat.get('isLeader') and not (mine or inside):   # 🔒 the leader's desk is public, its private drawers are not (found in the 2026-11-04 audit)
+        for k_ in LEADER_PRIVATE:
+            out['cat'].pop(k_, None)
     out['cat']['mine'] = mine
     return out
 
 
 # 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
+LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink', 'agentWallet', 'realWallet')
 PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
                    'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')

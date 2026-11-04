@@ -98,3 +98,15 @@ def test_the_old_30_share_pays_the_new_25_cap():
     import colony
     assert colony.SHARE_PCTS[-1] == 25 and colony.share_pct(30) == 25 and colony.share_pct(26) == 0
     assert colony.share_cut(1.0, 30) == 0.25
+
+
+def test_a_stranger_reads_no_private_drawer_on_the_leader(monkeypatch):
+    cat = {'id': 'fee', 'isLeader': True, 'name': 'Fee', 'wins': 3, 'ownerWallet': 'OWNER', 'chat': [{'text': 'private'}], 'logins': [{'sealed': 'x', 'site': 'a.co', 'user': 'me@a.co', 'at': 1}], 'vaultLog': [{'what': 'signed in'}], 'siteSessions': {'a.co': {'ctx': 'v2:x', 'at': 1, 'n': 1}}, 'orders': [{}]}
+    monkeypatch.setattr(fs, '_load', lambda: {'cats': {'fee': cat}})
+    monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s: {'owner': 'OWNER'}.get(s))
+    seen = asyncio.run(fs.get_cat('fee'))['cat']
+    assert seen['name'] == 'Fee' and seen['wins'] == 3 and seen['mine'] is False
+    for k in fs.LEADER_PRIVATE:
+        assert k not in seen, k
+    assert 'me@a.co' not in str(seen)
+    assert asyncio.run(fs.get_cat('fee', session='owner'))['cat']['chat']
