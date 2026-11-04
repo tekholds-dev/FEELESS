@@ -679,7 +679,23 @@ async def helius_candles(chain, pair, interval):
 
 
 @app.get('/api/candles/{chain}/{pair_address}')
-async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None, mint: Optional[str] = None):
+async def get_candles(chain: str, pair_address: str, interval: str = Query('1h'), before: Optional[int] = None, mint: Optional[str] = None, view: Optional[str] = None):
+    """view=true is what a chart draws: the source's own candles, unedited. Without it, callers keep the older filled bars (the agents' inputs, unchanged until the owner moves them)."""
+    out = await _candles_reply(chain, pair_address, interval, before, mint, view == 'true')
+    return _true_view(chain, pair_address, interval, out) if view == 'true' and not before else out
+
+
+def _true_view(chain, pair_address, interval, out):
+    """🕯 CH01: only real candles. No filled minutes, no forced opens, no clipped wicks and no sampled ticks written over a provider's bars. `_sanitize` only drops what cannot be drawn.
+    With no provider history it shows what FEELESS sampled, and says it is sampled prices, not trades."""
+    step = INTERVAL_SECONDS.get(interval, 3600); h = _live_hist.get((chain, pair_address, interval))
+    if h:
+        return {**out, 'candles': _sanitize(h[1], step)[-5000:], 'provider': h[2], 'sampled': False, 'source': f'{h[2]} candles, unedited. A minute with no trades has no candle.'}
+    ticks = _load().get(_pair_key(chain, pair_address), [])
+    return {**out, 'candles': _sanitize(_bucket_candles(ticks, step), step)[-5000:], 'provider': 'FEELESS', 'sampled': True, 'source': 'Prices FEELESS sampled, not trades. No provider has history for this pool yet.'}
+
+
+async def _candles_reply(chain, pair_address, interval, before, mint, unedited=False):
     key = (chain, pair_address, interval)
     hit = None if before else _resp_cache.get(key)
     if hit and time.time() - hit[0] < RESP_STALE_SEC:
@@ -694,7 +710,8 @@ async def get_candles(chain: str, pair_address: str, interval: str = Query('1h')
     await _accept_mint_hint(chain, pair_address, mint)
     if before:
         older = [c for c in await alchemy_candles(chain, pair_address, interval) if c[0] < before]
-        return {'candles': _fill_gaps(older, INTERVAL_SECONDS.get(interval, 3600)), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
+        step_ = INTERVAL_SECONDS.get(interval, 3600)
+        return {'candles': _sanitize(older, step_) if unedited else _fill_gaps(older, step_), 'provider': 'Alchemy' if older else 'none', 'interval': interval, 'before': before}
     _hot_pairs[_pair_key(chain, pair_address)] = time.time()
     task = _history_tasks.get(key)
     if not task or task.done():

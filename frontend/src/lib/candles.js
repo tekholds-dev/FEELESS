@@ -25,7 +25,7 @@ export function fetchFeelessCandles(chain, pairAddress, interval, before, mint) 
   // `mint` lets the server chart pools it can't identify yet (it verifies the mint on-chain first).
   const k = before ? null : `${chain}:${pairAddress}:${interval}`;
   if (k && inflight.has(k)) return inflight.get(k);
-  const p = fetch(apiUrl(`/api/candles/${chain}/${pairAddress}?interval=${interval}${before ? `&before=${before}` : ''}${mint ? `&mint=${mint}` : ''}`))
+  const p = fetch(apiUrl(`/api/candles/${chain}/${pairAddress}?view=true&interval=${interval}${before ? `&before=${before}` : ''}${mint ? `&mint=${mint}` : ''}`))
     .then(res => { if (!res.ok) throw new Error('FEELESS candle service unavailable.'); return res.json(); })
     .finally(() => { if (k) inflight.delete(k); });
   if (k) inflight.set(k, p);

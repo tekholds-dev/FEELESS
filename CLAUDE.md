@@ -104,9 +104,9 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
   tagged `discovery: 'rising'`; coins hosted on another chain are tagged `via` (Zora → Base). Never pad with unrelated coins.
 - Search ranks most trusted first (`rankSearch`/`trustScore` in SearchBox): FEELESS assets, pasted CA, exact $SYMBOL,
   then liquidity/mcap/age/profile; one row per token = its deepest pool.
-- Candles (ONGOING PRIORITY): `_sanitize` + `_fill_gaps` (server), `scrubCandles` + the live gap-filler (client): every
-  bucket exists, OHLC valid, and every candle OPENS AT THE PREVIOUS CLOSE (continuous; no floating one-price dashes).
-  History = first provider with ≥120 bars, else the longest that agrees with the live price. Change only with a test.
+- Candles (owner 2026-11-04, CH01; replaces the old "every bucket exists, opens at the previous close" rule): a chart draws the source's own candles, unedited (`?view=true`, `_true_view`, client `trueCandles`).
+  No filled minutes, forced opens, clipped wicks or sampled ticks over a provider's bars; a minute with no trades has no candle. No history = sampled prices, labelled as not trades.
+  History = first provider with ≥120 bars, else the longest that agrees with the live price. The agents' inputs (no `view`, `/api/candles/live`) still use filled bars until the owner moves them. Change only with a test.
 
 ## Degen meta playbook (how to build here)
 - Ship what a trader feels in 5 seconds: live numbers, their own position, one-tap action, the evidence behind a warning.

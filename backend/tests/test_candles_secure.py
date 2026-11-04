@@ -28,3 +28,16 @@ def test_no_skipped_candles_and_bad_bars_are_cleaned():
         assert c[2] >= max(c[1], c[4]) and c[3] <= min(c[1], c[4]) and c[3] > 0
     gap = next(c for c in out if c[0] == t0 + step)
     assert gap[1:5] == [1.1, 1.1, 1.1, 1.1] and gap[5] == 0
+
+
+def test_a_chart_gets_the_sources_own_candles_never_filled_forced_or_overwritten(monkeypatch):
+    step = 60; t0 = 1_700_000_040
+    hist = [[t0, 1.0, 1.2, 0.9, 1.1, 10.0], [t0 + 5 * step, 3.0, 3.5, 0.5, 3.2, 20.0]]   # a 4 minute gap, a big wick, and an open far from the last close
+    cs._live_hist[('solana', 'POOL', '1m')] = (time.time(), hist, 'Jupiter')
+    monkeypatch.setattr(cs, '_load', lambda: {cs._pair_key('solana', 'POOL'): [{'t': t0 * 1000, 'p': 9.0}]})
+    out = cs._true_view('solana', 'POOL', '1m', {'interval': '1m', 'candles': [['filled']]})
+    assert out['candles'] == hist and out['provider'] == 'Jupiter' and out['sampled'] is False   # every number exactly as the source sent it
+    cs._live_hist.pop(('solana', 'POOL', '1m'))
+    monkeypatch.setattr(cs, '_load', lambda: {})
+    none = cs._true_view('solana', 'POOL', '1m', {'interval': '1m'})
+    assert none['candles'] == [] and none['sampled'] is True and 'not trades' in none['source']
