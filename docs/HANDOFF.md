@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## 
 
 ## 🔁 NOW (rewrite this section in place every session) — 2026-11-04, production upgrade in progress
 > **Owner flow (2026-11-03):** keep working through the Supreme Intelligence list, stop for owner review after every 5–10 major tasks. Reference free sources before building. SI23–SI30 are in `HANDOFF.md` (A, B and C pushed, fixtures only for the visuals). SI31 paid PoW only with the owner's OK. Fixture FPS: `/dev/cats?general&wallet` in headless Chrome (`channel='chrome'`); a backgrounded pane reads 1 fps.
-> **Next (owner: chop this list down, stop and ask for more):** SI31 needs the owner's OK and closes the most at once. CH04 needs a stream key. Check the watcher before any restart: `bash scripts/background.sh status`; on 2026-11-04 it was NOT running and a kill left candles down. Watch real runs in Chrome through the Claude in Chrome extension: `localhost:51367/terminal/feecat/agents` → Happy Assistant; never restart `feecat_service` while a folder is open. New limits: change one and `test_pop.py` fails until `pow_kernel.VERSION` and the pin move on purpose. Fixtures: `/dev/cats?general&wallet`; a window fading in can screenshot blank, so wait 3 s.
+> **Next (owner: chop this list down):** 2026-11-04 overnight shipped PP01, MN01; SI50 waits on clean coins. SI31 needs the owner's OK and closes the most at once. CH04 needs a stream key. Check the watcher before any restart: `bash scripts/background.sh status`; on 2026-11-04 it was NOT running and a kill left candles down. Watch real runs in Chrome through the Claude in Chrome extension: `localhost:51367/terminal/feecat/agents` → Happy Assistant; never restart `feecat_service` while a folder is open. New limits: change one and `test_pop.py` fails until `pow_kernel.VERSION` and the pin move on purpose. Fixtures: `/dev/cats?general&wallet`; a window fading in can screenshot blank, so wait 3 s.
 
 **Verify in this order, one at a time, with the owner:**
 | # | Task | Status |
@@ -129,6 +129,14 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | ID | Status | Deliverable |
 |---|---|---|
 
+### Owner batch 2026-11-04, overnight
+
+| ID | Status | Deliverable |
+|---|---|---|
+| PP01 | VERIFY | `file a perp` / `propose a perp`. Each mind reads 2 of 8 free sources, never its partner's or its own last ones, measured against the Coinbase chart (`pop_sources.py`), with its own sealed fingerprint (`{cat}:pop`). Real proposal: Deribit + Bitstamp vs dYdX + Coinpaprika, $0.008, one mind passed so nothing opened. Real chart, sources and fingerprint seen in the owner's browser. A trade or card has not appeared live yet. Sources are API reads, not browser windows. |
+| MN01 | VERIFY | Desktop Manual folder (`AgentManual.jsx`): step-through tutorial, trader vs general board, drawn PoW / PoP / fingerprint flows, live limits, code map. Fixtures at 1280 px; phone and day not looked at. |
+| SI50 | OWNER | The one allowed real PoW has not bought: 5 tries, 0–1 of 20 coins passed the buy guards (top 10 share, known snipers, no holder data). No trade, no funds moved, guards not loosened. Happy: type `file a PoW` again when coins are cleaner, or decide whether the guards are too tight. |
+
 ### Owner batch 2026-11-04, second pass (charts, cleanup)
 
 | ID | Status | Deliverable |
@@ -150,7 +158,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | ID | Status | Task |
 |---|---|---|
 | FC03 | OPEN · OWNER FIRST (2026-11-02: only Happy has a key saved — Helius; no Birdeye / X / Telegram keys exist, so those reads can't be proven) | Wire the stored drawer keys into the brain (Birdeye holders, Helius RPC, X chatter, Telegram calls, signal webhook) — each read guarded + faked in tests. |
-| C11 | OPEN | ALL site chats look like FeeCat's "her calls" bubbles: real bubbles, proper name / time / alignment (own messages right), one shared bubble component. |
+| C11 | OPEN | One shared chat bubble component. Trench chat, Street chat and Messenger already have own-message and bubble styles, each in its own code; merging them is the rest. |
 | C12 | OPEN | Alliances: create from a reply, ≤ 10 members; after X days (owner to set X) an alliance can found a FEELESS Union; all alliance + union info lives in Support. |
 | FC06 | OWNER | Agents' EARLY calls (OSSY / G4; NEXA retired): call a coin while it falls toward the germ floor or just as it breaks out, not only at the floor. Real-money buy-rule change ⇒ edge-audit it first, owner approves. Today the desk models read a TEXT chart snapshot (`ai_snapshot.py`), never an image; OSSY (gpt-oss-20b) is text-only; G4 (Gemma, LAN) can take a chart IMAGE → add a rendered 1m chart PNG to G4's ask. OWNER 2026-10-30: YES — they need the image snapshot (add to the desk workflow). |
 | P11 | OWNER | Lag 2026-10-30: reputation loop blocked 68 % of 24 min (Lag catcher) while the Mac swapped 13 of 14 GB (24 GB RAM: LM Studio gpt-oss-20b 12 GB generating, ChatGPT/Codex, two dev servers, 6 stale preview servers from old sessions on :51412 :51433 :51437 :51399 :51411 :51431). Fixed in code: `reap_orphans` off the loop. Owner: close what isn't needed / move OSSY to the LAN box. |
@@ -158,7 +166,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | MAC01 | OPEN · after LAG01 | Mac storage + CPU burn: Spotlight on the project (owner toggles Privacy), swap ~6 GB, stale worktrees / caches — clean only what is ours, list the rest for the owner. |
 | OSSY01 | OPEN | OSSY prompt cost (NEXA retired) (~300 tokens a call): trim the system prompt + case text, cache static parts, measure tokens before/after. |
 | SEC01 | OPEN · AFTER the owner buys his first general agent (owner 2026-10-30) | FULL SECURITY HARDENING, front to back: prove nothing in the frontend bundle reaches backend secrets (no keys/tokens in JS, every write endpoint signed + owner-checked, CORS/CSP/headers, rate limits, SSRF + path guards, dependency audit), confirm encryption at rest (Fernet vault, BROKER_SECRET_KEY rotation) and in transit (TLS). Add 3 free defensive services layered so an attack only gets slower with no sure outcome (e.g. Cloudflare free WAF + bot fight + rate limiting, Cloudflare Turnstile on sign-ups, GitHub Dependabot/CodeQL secret + code scanning) — defensive only, no counter-attacks. Report findings + fixes. |
-| FC07 | OPEN · step 1/5 shipped, owner testing (2026-10-31) | FINISH FEECAT TABS/PAGES 100%, one step at a time with the owner: ✅ 1 tab copy + paper leftovers (paper test = STAFF ONLY: UI `isStaff` + server 403 on a brainless cat without a staff session) · 2 per-tab polish 360/466/890 day+night (known: 🗑 overlaps the P&L number on My agents cards; long names truncate) · 3 FC03 drawer keys → brain · 4 real-money run (HANDOFF 1-4, owner present) (FC04 closed: agents only propose perps.) |
+| FC07 | OPEN | FeeCat tabs: per-tab polish at 360, 466, 890, day and night. Real-money run is SI31 and the owner's verify table; perps sender closed; drawer keys are FC03. |
 | FC09 | OPEN · NEXT | Agents' go-to sources for sign-ups (email providers that allow automated sign-up, storage, socials) + try every LEGITIMATE path before handing a step to the human. Never bypass CAPTCHAs / ID checks (safety rule) — those stay human steps. |
 | FC11 | OPEN | Hive crawl engine (owner said GO 2026-10-31). OWNER: save X once in an agent's signed-in sites so traders can read X searches. |
 | FC13 | OWNER | Dropbox: the app was made team-scoped; make a new Scoped access app and add the redirect `http://localhost:51367/api/cats/cloud/callback`. Pump.fun wallet launch stays your wallet's signature, never an agent's. |
@@ -194,7 +202,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | A02 | OPEN | NSFA: at most five learning agents, ledger-based sizing/generation vitals; user Fuse dashboard with two charts, up to three agents and intake levels. Reconcile existing work first. |
 | A03 | VERIFY | Same-coin shadow ledger and fresh edge audit; repeat after ~50 newer model trades; diagnose G4 uptime. No claim of profitable unseen performance. |
 | A04 | OPEN | Cat learning/accept-loop parity with NEXA; G4 Models layout; trench theory only after shadow testing; launch-a-cat violet visual pass. |
-| LA01 | OPEN | Launch: coin-first flow plus pools switch, Range Lab before signing, selected-venue configuration and arbitrary supported quote pairing. |
+| LA01 | OPEN | Launch: selected-venue configuration and any supported quote pair. (The coin/pools switch and Range Lab before signing shipped in LaunchModes.) |
 | C02 | OPEN | Familia: live building P&L, real-money/MP errands, rank/badge pools, custom backdrops; drag within 3D block, new islands/bridges/lots/kiosks and saved family layout. |
 | C03 | OPEN | Block readers: Meteora DLMM, marginfi, Save, PumpSwap LP, Phoenix; construction state when funds removed; opt-in member positions. Verify each against an actual account. |
 | C04 | OPEN | Night Vault: DCA/limit orders, compound LP fees, retire old MP drag-errands/catalog; outer-city markets, held/launched coin buildings, in-city raids, MP buildings/ladders, MOBhouse and for-sale island. |
@@ -242,7 +250,6 @@ CLAUDE's former CURRENT TASKS is preserved below for exact wording and the detai
 |---|---|---|
 | Q23 | OPEN | Price-gap engine: a live drawn view before buying, then the buyer's own running engine. Ships with buy guards. |
 | Q25 | OPEN | FeeCat pages: charts first, minds under them, tighter layout; FeeCat on a profile is a pop-out. |
-| Q26 | OPEN | Pools one stop: AutoRange + price gaps; Night Vault moves into Pools for Family and Launch. |
 | Q28 | OPEN | Family command center: owner sets any cost (for example 5 MP for a city lot). |
 | Q29 | OWNER | HQ › Fees showed the swap fee at 1500 bps (15%) on 2026-10-29: confirm that is intended. |
 | SEC02 | OPEN | Forged phone sign-ups from before the fix are not found or removed. `reactions` still trusts the voter name. (`edge/observe` now checks the server's price on Solana.) |

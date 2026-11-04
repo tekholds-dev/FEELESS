@@ -6864,3 +6864,5 @@ NOTE: merging into main LOCALLY never restarts the backend — after a backend p
 | Q24 | OPEN | No paper for users anywhere except the Fuse Arena: list what remains, then remove it. | CLOSED: Paper left: staff test tools, Fuse Arena, legal perps paper (DECISIONS), PoP by design.
 | Q27 | OPEN | First-visit tutorials for Family, Fuse, Trench, FeeCat. | CLOSED: FirstTips on Fuse, Familia, Trenches, FeeCat, Launch.
 - 2026-11-04 night: Perps `kd-*` collision fixed (Fee's giant text), file/propose a perp, PoP sources + fingerprint, Manual folder, shorter pages.
+
+| Q26 | OPEN | Pools one stop: AutoRange + price gaps; Night Vault moves into Pools for Family and Launch. | CLOSED: Launch › Pools has AutoRange, Night Vault and Price gaps in one place (LaunchModes).
