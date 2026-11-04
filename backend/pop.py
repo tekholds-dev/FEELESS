@@ -16,6 +16,8 @@ HOLD_MAX_S = 3600                 # a proof ends within the hour
 COLLATERAL_USD = 10.0             # the paper stake every proof is measured on
 FILED_MAX = 40
 ROUND_S = 45                      # a round of model calls never holds the engine longer than this
+LINE_EVERY_S = 30                 # one price on the folder's trade line every 30 s
+LINE_MAX = 130
 PROPOSE_WINDOW_S = 900            # 💡 a proposal can be run for its first 15 minutes
 DRIFT_MAX = 0.5                   # ...until the price has used half its way to the stop or the take profit: that setup is gone
 SYS = ('You are {name}, one of two independent minds filing a PoP (Proof of Perps) on FEELESS. This is a paper trade on true prices. Read the live market below and '
@@ -178,8 +180,70 @@ def adopt_refusal(c, px, now):
 
 def adopt(c, px, now):
     """The owner's Run: a normal paper PoP at the live price, on the proposal's own numbers."""
-    keep = {k: c.get(k) for k in ('market', 'side', 'lev', 'tp', 'sl', 'calls', 'kernel', 'conviction')}
+    keep = {k: c.get(k) for k in ('market', 'side', 'lev', 'tp', 'sl', 'calls', 'kernel', 'conviction', 'reads', 'cost', 'spend')}
     return {**keep, 'id': f'pop{int(now)}', 'at': round(now), 'paper': True, 'status': 'open', 'fromCard': c.get('id'), 'entry': _f(px), 'mark': _f(px), 'roePct': 0.0, 'openedAt': round(now), 'liqPct': liq_move_pct(c.get('lev'))}
+
+
+def sample(trade, px, now):
+    """📈 One price for the folder's trade line, at most every 30 s. A proof lives an hour at most, so the line stays small."""
+    if _f(px) > 0 and _f(now) - _f(trade.get('lineAt')) >= LINE_EVERY_S and len(trade.get('line') or []) < LINE_MAX:
+        trade['line'] = [*(trade.get('line') or []), _f(px)]; trade['lineAt'] = round(_f(now))
+
+
+def number(cat):
+    """The next folder number. It never reuses a deleted folder's number."""
+    cat['popSeq'] = max(int(_f(cat.get('popSeq'))), len(cat.get('popFolders') or [])) + 1
+    return cat['popSeq']
+
+
+def trim(rows):
+    """The newest FILED_MAX folders. 📌 A kept folder is never trimmed."""
+    rows = list(rows or []); over = len(rows) - FILED_MAX
+    if over <= 0:
+        return rows
+    drop = {id(r) for r in [x for x in rows if not x.get('kept')][:over]}
+    return [r for r in rows if id(r) not in drop]
+
+
+def report(r):
+    """📋 The folder's final report, or None while it is still open. A ghost has no stake, so it reports what it would have made and never a P/L."""
+    if r.get('status') != 'closed':
+        return None
+    calls = r.get('calls') or []; roe = r.get('roePct'); side = f"{r.get('side')} {r.get('market')}"
+    if r.get('noTrade'):
+        grade, lesson, roe = 'NO TRADE', f"Nothing opened: {r.get('why') or 'no agreed call'}.", None
+    elif r.get('state') == 'ran':
+        grade, lesson, roe = 'RAN ON PAPER', f'You ran this proposal: {side}. Its result is in the folder of the trade it opened.', None
+    elif r.get('ghost'):
+        grade, lesson = ('GHOST WIN' if r.get('won') else 'GHOST LOSS'), f"Not run. {side} would have made {_f(roe):+.2f}% at {r.get('why')}. Never counted as P/L."
+    else:
+        grade, lesson = ('GOOD TRADE' if r.get('won') else 'BAD TRADE'), f"{side} closed at {r.get('why')}: {_f(roe):+.2f}% on the ${COLLATERAL_USD:.0f} paper stake."
+    held = round((_f(r.get('closedAt')) - _f(r.get('openedAt'))) / 60, 1) if r.get('closedAt') and r.get('openedAt') else None
+    return {'grade': grade, 'lesson': lesson, 'roePct': roe, 'pnlUsd': None if r.get('ghost') else r.get('pnlUsd'), 'held': held, 'minds': len(calls), 'conviction': r.get('conviction'), 'costUsd': _f(r.get('cost')), 'kernel': r.get('kernel')}
+
+
+def talk(r):
+    """💬 The folder's discussion, in order, built from what was filed."""
+    at = r.get('at'); rows = []
+    for c in r.get('calls') or []:
+        if c.get('first'):
+            rows.append({'at': at, 'by': c.get('name'), 'text': f"First call, blind: {c['first']}"})
+        call = f"{c['side']} {c['market']} at {c.get('lev')}×, take profit {c.get('tp')}%, stop {c.get('sl')}%" if c.get('side') else 'no trade'
+        rows.append({'at': at, 'by': c.get('name'), 'text': f"{'Changed to' if c.get('changed') else 'Called'} {call}. {c.get('why') or ''}".strip()})
+    if r.get('noTrade'):
+        rows.append({'at': at, 'by': 'Engine', 'text': f"No trade: {r.get('why')}"})
+    elif r.get('entry'):
+        rows.append({'at': r.get('openedAt') or at, 'by': 'Engine', 'text': f"{'Proposed' if r.get('proposal') else 'Opened on paper'}: {r.get('side')} {r.get('market')} at ${_f(r['entry']):,.2f}"})
+    if r.get('ranAt'):
+        rows.append({'at': r['ranAt'], 'by': 'You', 'text': 'Ran it on paper.'})
+    if r.get('closedAt') and not r.get('noTrade'):
+        rows.append({'at': r['closedAt'], 'by': 'Engine', 'text': f"{'Ghost closed' if r.get('ghost') else 'Closed'} at {r.get('why')}: {_f(r.get('roePct')):+.2f}%"})
+    return rows
+
+
+def folder(r, position=0):
+    """A filed or open proof as a desktop folder. An older record gets its number from its place in the list."""
+    return {**r, 'n': r.get('n') or position, 'report': report(r), 'talk': talk(r)}
 
 
 def ghost(c, px, now):

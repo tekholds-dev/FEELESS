@@ -513,3 +513,32 @@ test('a new desktop icon never lands on a saved one, and a full column wraps', (
   const at = placeIcons(saved, 800); const spots = Object.values(at).map(p => `${p.x},${p.y}`);
   expect(new Set(spots).size).toBe(spots.length); expect(at.pop.x).toBe(96); expect(at.vault).toEqual({ x: 0, y: 0 });
 });
+
+test('📉 PoP is folders like PoW: dated folder → report, market folder, discussion, keep; a ghost-free no-trade folder has no result', async () => {
+  const j = { ok: true, popFolders: [] };
+  const folders = [{ id: 'p2', n: 2, at: 1700000000, status: 'closed', side: 'short', market: 'BTC', lev: 2, tp: 3, sl: 1.5, entry: 100, roePct: -3.2, pnlUsd: -0.32, won: false, why: 'stop', line: [100, 101, 102], reads: [{ market: 'BTC', px: 100, chgPct: -0.6, high: 105, low: 95 }], calls: [{ mind: 0, name: 'mind-a', market: 'BTC', side: 'short', lev: 2, why: 'below the midpoint' }], report: { grade: 'BAD TRADE', lesson: 'short BTC closed at stop', roePct: -3.2, pnlUsd: -0.32, held: 15, minds: 1, costUsd: 0.008 }, talk: [{ at: 1, by: 'Engine', text: 'Closed at stop' }] }, { id: 'p1', n: 1, at: 1700000000, status: 'closed', noTrade: true, why: 'split', calls: [], talk: [] }];
+  const f = global.fetch; const asked = [];
+  global.fetch = jest.fn((u, o) => { if (o?.body) asked.push(JSON.parse(o.body)); return Promise.resolve({ ok: true, json: async () => (o?.body && JSON.parse(o.body).op === 'pop_folder' ? { ...j, popFolders: folders.map(x => ({ ...x, kept: true })) } : { popFolders: folders }) }); });
+  const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="pop" />); });
+  const q = t => document.querySelector(`[data-testid="${t}"]`);
+  expect(q('pop-desk')).not.toBeNull(); expect(q('pop-x-p2').textContent).toContain('PoP #2'); expect(q('pop-x-p1').textContent).toContain('no trade');
+  await act(async () => { q('pop-x-p2').click(); }); expect(q('pop-x-report').textContent).toContain('BAD TRADE'); expect(q('pop-x-m-BTC').textContent).toContain('-0.60%');
+  await act(async () => { q('pop-keep').click(); }); expect(asked.at(-1)).toMatchObject({ op: 'pop_folder', job: 'keep', text: 'p2', on: true }); expect(q('pop-keep').textContent).toContain('Kept');
+  await act(async () => { q('pop-x-report').click(); }); expect(q('pop-report').textContent).toContain('short BTC closed at stop');
+  await act(async () => { document.querySelector('[aria-label="Up one folder"]').click(); }); await act(async () => { q('pop-x-m-BTC').click(); }); expect(q('pop-market').textContent).toContain('below the midpoint');
+  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
+});
+
+test('🎲 the Bids folder opens on a dash, and the USA sites are links that never overclaim', async () => {
+  const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => ({ live: [{ id: 'm', kind: 'agent', q: 'Happy: long SOL PoP ends in profit?' }, { id: 'x', kind: 'double', q: 'not an agent' }], settled: [], bank: { chips: 777 } }) }));
+  const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
+  const q = t => document.querySelector(`[data-testid="${t}"]`);
+  expect(q('bd-stats').textContent).toContain('777'); expect(q('bd-live').textContent).toContain('1 open'); expect(q('dsk-bids').textContent).not.toContain('not an agent');
+  await act(async () => { q('bd-sites').click(); });
+  const links = [...q('bid-sites').querySelectorAll('a')]; expect(links.length).toBeGreaterThan(7); links.forEach(a => { expect(a.href).toMatch(/^https:\/\//); expect(a.rel).toContain('noopener'); expect(a.target).toBe('_blank'); });
+  expect(q('bs-fanduel').textContent).toContain('PEOPLE ONLY'); expect(q('bs-kalshi').textContent).toContain('API OK'); expect(q('bid-sites').textContent).toContain('No site says an AI browser may click for you');
+  await act(async () => { q('bs-lens-api').click(); }); expect(q('bs-fanduel')).toBeNull(); expect(q('bs-polymarket')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
+});

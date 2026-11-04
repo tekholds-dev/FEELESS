@@ -14,7 +14,8 @@ import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice } from '../../lib/solPrice';
 import { HoneyTanks } from './HoneyTanks';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
-import { PopDesk } from './PopDesk';
+import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
+import { BidSites, BID_SITES } from './BidSites';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
@@ -716,9 +717,9 @@ function Tile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, tes
 function TradeLine({ f }) {   // 📈 the trade drawn from its own price samples: entry, take profit, stop, where it sold
   const ys = (f.line || []).map(Number).filter(v => v > 0); const e = Number(f.entry) || 0;
   if (ys.length < 2 || !e) return null;
-  const tp = e * (1 + (Number(f.tp) || 0) / 100), sl = e * (1 - (Number(f.sl) || 0) / 100);
+  const dir = f.side === 'short' ? -1 : 1; const tp = e * (1 + dir * (Number(f.tp) || 0) / 100), sl = e * (1 - dir * (Number(f.sl) || 0) / 100);
   const lo = Math.min(...ys, sl), hi = Math.max(...ys, tp); const y = v => 6 + 88 * (1 - (v - lo) / ((hi - lo) || 1)); const x = k => (k / (ys.length - 1)) * 300;
-  const g = gradeOf(f) || (ys[ys.length - 1] >= e ? 'good' : 'bad');
+  const g = gradeOf(f) || ((ys[ys.length - 1] - e) * dir >= 0 ? 'good' : 'bad');
   return <svg className={`dsk-tl is-${g}`} viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label={`$${f.sym} trade: entry, take profit, stop and the price`}>
     <line x1="0" x2="300" y1={y(tp)} y2={y(tp)} className="dsk-tl-tp" /><line x1="0" x2="300" y1={y(sl)} y2={y(sl)} className="dsk-tl-sl" /><line x1="0" x2="300" y1={y(e)} y2={y(e)} className="dsk-tl-e" />
     <polyline points={ys.map((v, k) => `${x(k)},${y(v)}`).join(' ')} className="dsk-tl-px" /><circle cx="300" cy={y(ys[ys.length - 1])} r="3.5" className="dsk-tl-dot" /></svg>;
@@ -859,7 +860,74 @@ function PopApp({ cat, d, setD }) {
   const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
   useEffect(() => { if (!asking) return undefined; if (asking !== mark) { setAsking(null); return undefined; } const t = setTimeout(() => setAsking(null), 90000); return () => clearTimeout(t); }, [asking, mark]);
   const send = async job => { setBusy(true); setErr(''); try { await work(cat.id, { op: 'pop', job }); if (job === 'propose' || job === 'start') setAsking(mark); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  return <PopDesk d={d} send={send} busy={busy || !!asking} asking={!!asking} err={err} />;
+  const busyNow = busy || !!asking;
+  return <PopExplorer cat={cat} d={d} setD={setD} send={send} busy={busyNow}>{rows => <PopDesk d={d} send={send} busy={busyNow} asking={!!asking} err={err}>{rows}</PopDesk>}</PopExplorer>;
+}
+// 📉 THE PoP EXPLORER (owner 2026-11-04: "PoP needs to be folders like PoW"): PoP › each dated folder › REPORT, a folder per market they read, the discussion. The same Tile, crumbs and steps as PoW.
+const POP_STEPS = ['READ', 'CALL', 'AGREE', 'OPEN', 'EXIT', 'FILED'];
+const popDay = x => new Date(Number(x.at || x.openedAt || 0) * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const popPct = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(2)}%`;
+const popResult = x => (x.noTrade || x.state === 'ran' || x.status !== 'closed' ? null : x.won ? 'good' : 'bad');
+function popStep(x) { if (x.status === 'closed') return x.noTrade ? 2 : 6; return x.proposal ? 2 : 4; }
+function PopMarket({ f, read, m }) {
+  const pos = read && read.high > read.low ? Math.max(0, Math.min(1, (read.px - read.low) / (read.high - read.low))) : null; const minds = (f.calls || []).filter(c => c.market === m);
+  return <div className="pop-mk" data-testid="pop-market">
+    {f.market === m && f.entry ? <div className={`dsk-trade is-${popResult(f) || 'open'}`}><b>{popResult(f) === 'good' ? '👍 GOOD' : popResult(f) === 'bad' ? '👎 BAD' : '● THE PICK'} · {f.side} {m}-PERP</b><small className="m-num">{f.lev}× · TP +{f.tp}% · SL −{f.sl}% · {popPct(f.roePct)}</small><TradeLine f={{ ...f, sym: m, pnlPct: f.status === 'closed' ? f.roePct : null }} /></div> : null}
+    {read ? <div className="pop-read m-glass"><span><em>PRICE WHEN THEY READ IT</em><b className="m-num">${Number(read.px).toLocaleString()}</b></span><span><em>24H</em><b className={`m-num ${read.chgPct >= 0 ? 'is-up' : 'is-dn'}`}>{popPct(read.chgPct)}</b></span>
+      {pos != null ? <span className="pop-range" data-tip="Where the price sat inside its 24 hour range"><u><i style={{ left: `${pos * 100}%` }} /></u><small className="m-num">${Number(read.low).toLocaleString()}</small><small className="m-num">${Number(read.high).toLocaleString()}</small></span> : null}</div> : <p className="dsk-note">This folder is from before market reads were filed.</p>}
+    {minds.length ? <Calls calls={minds} /> : <p className="dsk-note">Neither mind called {m}.</p>}</div>;
+}
+function PopReport({ f }) {
+  const r = f.report; if (!r) return <div className="dsk-rep"><b className="dsk-rep-h">📋 FINAL REPORT</b><p className="dsk-note">Still open. Its report is written the moment it closes.</p></div>;
+  const tone = popResult(f);
+  return <div className={`dsk-rep is-${tone || 'none'}`} data-testid="pop-report"><span className="dsk-rep-h"><b>📋 FINAL REPORT</b><em>{r.grade}</em>{r.roePct != null ? <strong className={`m-num ${r.roePct >= 0 ? 'is-up' : 'is-dn'}`} data-tip={f.ghost ? 'What it would have made. Not counted as P/L' : undefined}>{popPct(r.roePct)}</strong> : null}</span>
+    <div className="hv-pow-stats">{[['P/L', r.pnlUsd != null ? `${r.pnlUsd >= 0 ? '+' : '−'}$${Math.abs(r.pnlUsd).toFixed(2)} paper` : 'none'], ['HELD', r.held != null ? `${r.held} min` : '—'], ['MINDS', r.minds], ['COST', `$${Number(r.costUsd || 0).toFixed(4)}`]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    <p className="dsk-rep-l"><b>Lesson</b> {r.lesson}</p>{f.entry ? <TradeLine f={{ ...f, sym: f.market, pnlPct: r.roePct }} /> : null}{r.kernel ? <small className="dsk-note">Limits version {String(r.kernel.hash || r.kernel).slice(0, 12)}</small> : null}</div>;
+}
+function PopExplorer({ cat, d, setD, send, busy, children }) {
+  const [path, setPath] = useState([]); const [sure, setSure] = useState(''); const [err, setErr] = useState('');
+  const act = async (job, extra) => { setErr(''); try { const j = await work(cat.id, { op: 'pop_folder', job, ...extra }); setD?.(x => ({ ...x, popFolders: j.popFolders })); setSure(''); if (job === 'delete') setPath([]); } catch (e) { setErr(e.message); } };
+  const liveRows = [...(d?.popFolder ? [{ ...d.popFolder, live: true }] : []), ...(d?.popCard ? [{ ...d.popCard, live: true }] : [])]; const all = [...liveRows, ...(d?.popFolders || [])];
+  const f = path[0] ? all.find(x => x.id === path[0]) : null; const name = x => (x.n ? `PoP #${x.n}` : x.live ? (x.proposal ? 'Proposal' : 'Open PoP') : 'PoP');
+  const reads = f?.reads || []; const markets = f ? [...new Set([...reads.map(r => r.market), ...(f.calls || []).map(c => c.market), f.market].filter(Boolean))] : [];
+  const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
+  let body;
+  if (!path[0] || !f) body = children(all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
+    return <Tile key={x.id} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} />; })}</div>
+    : <p className="dsk-note">No proofs yet. Type “file a PoP” or “propose a PoP” in its chat, or tap a button.</p>);
+  else if (path[1] === 'report') body = <PopReport f={f} />;
+  else if (path[1] === 'talk') body = (f.talk || []).length ? <ul className="dsk-fold-talk" data-testid="pop-talk">{f.talk.map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : <p className="dsk-note">The discussion is filed when this folder closes.</p>;
+  else if (path[1]?.startsWith('m:')) { const m = path[1].slice(2); body = <PopMarket f={f} m={m} read={reads.find(r => r.market === m)} />; }
+  else { const at = popStep(f);
+    body = <>{!f.live ? <span className="dsk-fold-acts"><button type="button" className={`m-btn${f.kept ? ' is-on' : ''}`} aria-pressed={!!f.kept} onClick={() => act('keep', { text: f.id, on: !f.kept })} data-tip={f.kept ? 'Kept: never trimmed from the desktop. Tap to un-keep' : 'Keep it: the desktop holds the newest 40 folders, a kept one stays for good'} data-testid="pop-keep">{f.kept ? '📌 Kept' : '📌 Keep'}</button>
+      <button type="button" className={`m-btn${sure === f.id ? ' is-danger' : ''}`} onClick={() => (sure === f.id ? act('delete', { text: f.id }) : setSure(f.id))} data-tip="Remove this folder from the desktop" data-testid="pop-del">{sure === f.id ? 'Tap again to delete' : '🗑 Delete'}</button></span> : null}
+      <ol className="dsk-fold-steps pop-steps" aria-label="Where this folder is">{POP_STEPS.map((l, i) => <li key={l} className={i < at ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
+      {f.live && f.proposal ? <ProposalCard c={f} send={send} busy={busy} /> : f.live ? <Live t={f} /> : null}
+      <div className="dsk-xgrid"><Tile kind="file" tone={popResult(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : 'when it closes'} onOpen={() => setPath([f.id, 'report'])} tip="What happened, the result, its cost and the limits it ran under" testid="pop-x-report" />
+        {markets.map((m, i) => <Tile key={m} i={i + 1} tone={f.market === m ? (popResult(f) || 'live') : 'coin'} ic={f.market === m ? '⭐' : '📊'} label={`${m}-PERP`} sub={reads.find(r => r.market === m) ? popPct(reads.find(r => r.market === m).chgPct) : `${(f.calls || []).filter(c => c.market === m).length} calls`} onOpen={() => setPath([f.id, `m:${m}`])} tip={`${m}: what the minds read and who called it`} testid={`pop-x-m-${m}`} />)}
+        <Tile kind="file" i={markets.length + 1} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || f.calls || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every call the minds made and what the engine did" testid="pop-x-talk" /></div>
+      {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
+  return <div className="dsk-pow pop-x" data-testid="dsk-pop">
+    {path.length ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button>{crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p> : null}
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    <div key={path.join('/')} className="dsk-pull">{body}</div></div>;
+}
+// 🎲 THE BIDS FOLDER (owner 2026-11-04): a starting dash like PoW, then the free-chip board and the USA real-money links, each its own folder.
+function BidsApp() {
+  const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(''); const [m, setM] = useState(null);
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden && !path) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setM(x)).catch(() => {}); };
+    load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, path]);
+  const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
+  const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA' }[path];
+  return <div className="dsk-pow bd" data-testid="dsk-bids">
+    {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => setPath('')} aria-label="Up one folder" data-tip="Up one folder">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span></p> : null}
+    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
+      <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span></header>
+      <div className="hv-pow-stats" data-testid="bd-stats">{[['LIVE', m ? live.length : '…'], ['SETTLED', m ? settled.length : '…'], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—'], ['SITES', BID_SITES.length]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+      <div className="dsk-xgrid"><Tile tone="live" ic="⚡" label="Live board" sub={`${live.length} open · free chips`} onOpen={() => setPath('live')} tip="Bid free chips on proofs running now" testid="bd-live" />
+        <Tile i={1} tone="none" ic="✓" label="Settled" sub={`${settled.length} closed`} onOpen={() => setPath('settled')} tip="How finished proofs ended" testid="bd-settled" />
+        <Tile i={2} tone="good" ic="🇺🇸" label="Real money" sub={`${BID_SITES.length} USA sites`} onOpen={() => setPath('sites')} tip="Links to USA real-money sites, with what each says about automation" testid="bd-sites" /></div>
+      {live.length ? <ul className="bd-live">{live.slice(0, 5).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath('live')} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{x.q}</span></button></li>)}</ul> : <p className="dsk-note">A free-chip market opens when one of your agents’ PoW buys or a PoP opens.</p>}</>}</div></div>;
 }
 function HoneyPot({ cat }) {
   const [v, setV] = useState(null); const [m, setM] = useState(null); const [ledger, setLedger] = useState(null); const px = useSolPrice();
@@ -921,16 +989,20 @@ export function placeIcons(saved, height) {
   return Object.fromEntries(ICONS.map(([k]) => [k, saved[k] || free()]));
 }
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
-function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
+function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null }) {
   const g = useRef(null); const dragged = useRef(false);
   const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) onMove(k, { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={() => { g.current = null; }}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={`dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
-    <i className="dsk-ico-art" aria-hidden="true"><em>{ic}</em></i><span>{label}</span></button>;
+    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : <em>{ic}</em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
+}
+// 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
+function PopFolderArt() {
+  return <svg className="dsk-pop-art" viewBox="0 0 40 26"><g>{[[5, 12, 8, 1], [13, 8, 10, 0], [21, 10, 9, 1], [29, 4, 14, 1]].map(([x, y, h, up], i) => <g key={x} className="dsk-pop-c" style={{ '--i': i }}><line x1={x + 2} x2={x + 2} y1={y - 3} y2={y + h + 2} className="dsk-pop-w" /><rect x={x} y={y} width="4" height={h} rx="1" className={up ? 'is-up' : 'is-dn'} /></g>)}</g><rect className="dsk-pop-sweep" x="-14" y="0" width="10" height="26" /></svg>;
 }
 const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
-  pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Bid free chips on whether its live trades end in profit', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
+  pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null }) {
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
@@ -954,7 +1026,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     <div className="dsk-wall" aria-hidden="true"><i /><b>FEELESS</b><small>private desktop · only you see this</small></div>
     <nav className="dsk-icons" aria-label="Desktop">
-      {ICONS.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k]} />)}
+      {ICONS.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k]} badge={k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
     </nav>
@@ -970,7 +1042,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids on agents', <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" /></Suspense>], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}

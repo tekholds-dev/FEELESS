@@ -10,11 +10,11 @@ function Band({ t }) {
   return <span className="pop-band" data-tip={`Stop −${t.sl}% · take profit +${t.tp}% of price · now ${mv >= 0 ? '+' : ''}${mv.toFixed(2)}%`}><u><s style={{ transform: `scaleX(${t.sl / span})` }} /><i style={{ left: `${at * 100}%` }} /></u><small>STOP −{t.sl}%</small><small>TAKE +{t.tp}%</small></span>;
 }
 
-function Calls({ calls }) {
+export function Calls({ calls }) {
   return <ul className="pop-calls">{(calls || []).map(c => <li key={c.mind} className={`m-glass is-m${c.mind}`}><b>{c.name}{c.changed ? ' · changed its call' : ''}</b>{c.side ? <em className={`is-${c.side}`}>{c.side} {c.market} · {c.lev}×</em> : <em>no trade</em>}<small>{c.why || 'gave no usable call'}</small></li>)}</ul>;
 }
 
-function Live({ t }) {
+export function Live({ t }) {
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const c = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(c); }, []);
   const mins = Math.max(0, Math.floor((now - t.openedAt) / 60));
@@ -29,7 +29,7 @@ const CONVICTION = { blind: ['🕶 BLIND AGREE', 'Both minds picked this without
 const STATE = { waiting: '', passed: 'You passed. Its ghost keeps tracking what you skipped.', expired: 'Its 15 minutes ran out. Its ghost keeps tracking it.' };
 
 // 💡 pPoP: the agreed trade as a card. Nothing is open: Run makes it a normal paper PoP at the live price, while the setup still holds.
-function ProposalCard({ c, send, busy }) {
+export function ProposalCard({ c, send, busy }) {
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
   const left = Math.max(0, c.expiresAt - now); const open = c.state === 'waiting' && left > 0; const room = Number(c.room || 0); const [tag, tip] = CONVICTION[c.conviction] || CONVICTION.solo;
@@ -49,9 +49,7 @@ function ProposalScore({ rows }) {
   const closed = rows.filter(r => r.ghost); if (!closed.length) return null;
   return <div className="pop-score" data-testid="pop-score"><em>THEIR PROPOSALS</em>{Object.entries(CONVICTION).map(([k, [tag]]) => { const xs = closed.filter(r => r.conviction === k); return xs.length ? <span key={k} className="m-chip">{tag} {xs.filter(r => r.won).length}/{xs.length}</span> : null; })}</div>;
 }
-const PROPOSAL_END = { passed: 'you passed', expired: 'not run in time', 'waiting-closed': 'not run', ran: 'you ran it' };
-
-export function PopDesk({ d, send, busy, asking = false, err }) {
+export function PopDesk({ d, send, busy, asking = false, err, children = null }) {
   const live = d?.popFolder; const card = d?.popCard; const rows = d?.popFolders || []; const done = rows.filter(r => !r.noTrade && !r.proposal); const won = done.filter(r => r.won).length; const paper = done.reduce((a, r) => a + (r.pnlUsd || 0), 0);
   return <section className="pop" data-testid="pop-desk">
     <header className="pop-head m-glass"><span><b>📉 PROOF OF PERPS</b><small>Both minds must agree. True prices, paper fills: no real order is sent.</small></span>
@@ -60,11 +58,7 @@ export function PopDesk({ d, send, busy, asking = false, err }) {
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     <div className="pop-stats">{[['PROOFS', rows.filter(r => !r.proposal).length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['PAPER P/L', `${paper >= 0 ? '+' : '−'}$${Math.abs(paper).toFixed(2)}`]].map(([k, v]) => <span key={k} className="m-glass"><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     {asking ? <p className="pop-asking m-glass" role="status" data-testid="pop-asking"><i aria-hidden="true" />The minds are reading SOL, ETH and BTC, each on its own…</p> : null}
-    {card ? <ProposalCard c={card} send={send} busy={busy} /> : null}
-    {live ? <Live t={live} /> : null}
     <ProposalScore rows={rows} />
-    {rows.length ? <ol className="pop-list">{rows.map((r, i) => <li key={r.id} className={`m-glass ${r.noTrade || r.state === 'ran' ? 'is-none' : r.won ? 'is-up' : 'is-dn'}`} style={{ '--i': i }}><span><b>{r.proposal ? '💡 ' : ''}{r.noTrade ? 'No trade' : `${r.side} ${r.market}-PERP · ${r.lev}×`}</b><small>{new Date(r.at * 1000).toLocaleString()} · {r.proposal && !r.noTrade ? `${PROPOSAL_END[r.state] || r.state}${r.ghost ? `, ghost hit ${r.why}` : ''}` : r.why}</small></span>
-      {r.noTrade || r.state === 'ran' ? null : <b className="m-num pop-roe-s" data-tip={r.ghost ? 'What it would have made. Not counted as P/L' : undefined}>{r.ghost ? 'would be ' : ''}{roeText(r.roePct)}</b>}<Calls calls={r.calls} /></li>)}</ol>
-      : !live ? <p className="dsk-note">No proofs yet. Type “file a PoP” or “propose a PoP” in its chat, or tap a button.</p> : null}
+    {children}
   </section>;
 }

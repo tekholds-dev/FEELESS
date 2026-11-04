@@ -1397,9 +1397,9 @@ _POW_WANT: dict = {}   # 💬 'file a PoW' / 'stop PoW' from the chat, read by t
 
 def _pow_ver(cat):
     """Cheap owner desk version; a DNA or memory append updates PoI without full-folder polling."""
-    fs_ = cat.get('powFolders') or []
+    fs_ = cat.get('powFolders') or []; pf_ = cat.get('popFolders') or []
     base = f"{len(fs_)}:{(fs_[-1] if fs_ else {}).get('id', '')}:{sum(1 for x in fs_ if x.get('kept'))}:{sum(len(x.get('hidden') or []) for x in fs_)}"
-    return f"{base}:{_poi.version(DATA_DIR, cat['id'])}:{len(cat.get('popFolders') or [])}"
+    return f"{base}:{_poi.version(DATA_DIR, cat['id'])}:{len(pf_)}:{(pf_[-1] if pf_ else {}).get('id', '')}:{sum(1 for x in pf_ if x.get('kept'))}"
 
 
 def _pow2_on(cat):
@@ -2099,8 +2099,13 @@ async def _pop_read(http, market):
 
 
 def _pop_file(cat, rec, line):
-    cat['popFolders'] = (list(cat.get('popFolders') or []) + [rec])[-_pop.FILED_MAX:]
+    cat['popFolders'] = _pop.trim(list(cat.get('popFolders') or []) + [{**rec, 'n': _pop.number(cat)}])
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': time.time(), 'open': 'pop'}])[-200:]
+
+
+def _pop_view(cat):
+    """🗂 Every filed proof as a desktop folder, newest first, with its report and discussion."""
+    return [_pop.folder(r, i + 1) for i, r in enumerate(cat.get('popFolders') or [])][::-1]
 
 
 async def _pop_price(http, market):
@@ -2139,7 +2144,7 @@ async def _pop_open(http, cat, do, who, now):
         second = [_pop.parse_call(x) if x else parsed[k] for k, x in enumerate(again)]   # a mind that went silent keeps its first call
         calls = [{'mind': i, 'name': names[i], **(c or {'why': str(again[k] or calls[k].get('why') or '')[:160]}), 'first': _pop.call_line(parsed[k])[:60], 'changed': (c or {}).get('side') != (parsed[k] or {}).get('side') or (c or {}).get('market') != (parsed[k] or {}).get('market')} for k, (i, c) in enumerate(zip(idx, second))]
         trade, why = _pop.agree(second); conviction = 'argued'
-    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend')}
+    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads}
     if not trade:
         _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
         return
@@ -2167,6 +2172,7 @@ async def _pop_card_tick(http, cat, c, do, now):
     elif do == 'pass' and c.get('state') == 'waiting':
         c['state'] = 'passed'; c.pop('refused', None)
     if px > 0:
+        _pop.sample(c, px, now)
         rec = _pop.ghost(c, px, now)
         if rec:
             cat.pop('popCard', None)
@@ -2182,7 +2188,7 @@ async def _pop_tick(http, cat, now):
         px = await _pop_price(http, run['market'])
         why = 'stopped by you' if do == 'stop' else _pop.hard_exit(run, px, now)
         if px > 0:
-            run.update(mark=px, roePct=_pop.roe_pct(run, px))
+            run.update(mark=px, roePct=_pop.roe_pct(run, px)); _pop.sample(run, px, now)
         if why and px > 0:
             rec = _pop.close(run, px, now, why); cat.pop('popRun', None)
             _pop_file(cat, rec, f"📉 PoP closed ({why}): {rec['side']} {rec['market']} {rec['roePct']:+.2f}% on paper")
@@ -4262,6 +4268,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if c_:
             c_['walletSwaps'] = ((c_.get('walletSwaps') or []) + [row_])[-20:]; _save(st_)
         return {'address': addr_, 'sol': after_[1], 'usdc': after_[0], 'gas': _at.GAS_SOL, 'canSwap': True, 'swap': row_, 'swaps': ((c_ or {}).get('walletSwaps') or [])[-8:]}
+    if p.op == 'pop_folder':   # 📌 keep / 🗑 delete a filed PoP folder from the desktop
+        pf_ = cat.get('popFolders') or []; f_ = next((x for x in pf_ if x.get('id') == p.text), None)
+        if not f_:
+            raise HTTPException(404, 'No such PoP folder.')
+        if p.job == 'keep':
+            f_['kept'] = bool(p.on)
+        elif p.job == 'delete':
+            cat['popFolders'] = [x for x in pf_ if x is not f_]
+        else:
+            raise HTTPException(400, 'keep or delete.')
+        keep_owned(cat); _save(store)
+        return {'ok': True, 'popFolders': _pop_view(cat)}
     if p.op == 'pow_folder':   # 📌 keep / 🗑 delete a PoW folder or one coin folder from the DESKTOP (owner 2026-11-02) — the forever archive is never touched
         fs_ = cat.get('powFolders') or []; f_ = next((x for x in fs_ if x.get('id') == p.text), None)
         if not f_:
@@ -4486,7 +4504,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'popFolder': cat.get('popRun'), 'popCard': cat.get('popCard'),
-            'popFolders': list(reversed(cat.get('popFolders') or []))[:20] if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS + _pop.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in

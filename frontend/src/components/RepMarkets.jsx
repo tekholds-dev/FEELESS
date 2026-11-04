@@ -56,14 +56,14 @@ function Market({ m, now, onStake, busy }) {
   );
 }
 
-export default function RepMarkets({ only } = {}) {
+export default function RepMarkets({ only, start = 'live' } = {}) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const address = wallet?.address;
   const [d, setD] = useState(null);
   const [now, setNow] = useState(() => Date.now() / 1000);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const [lens, setLens] = useState('live');
+  const [lens, setLens] = useState(start);
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setD(x)).catch(() => {}), [address]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => clearInterval(t); }, [load]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);

@@ -239,3 +239,27 @@ def test_walls_one_window_each_then_the_minds_move_on():
     book = src.record({}, 'solscan.io', False, now=1000)
     assert src.walled_lately(book, 'https://solscan.io/token/x', now=1000 + 60) and not src.walled_lately(book, 'solscan.io', now=1000 + src.WALL_MEMORY_S)
     assert not src.walled_lately(src.record(book, 'solscan.io', True, now=1100), 'solscan.io', now=1101)
+
+
+def test_a_filed_proof_becomes_a_numbered_folder_with_a_report_and_discussion_and_a_ghost_never_reports_pnl():
+    calls = [{'mind': 0, 'name': 'A', 'side': 'long', 'market': 'SOL', 'lev': 3, 'tp': 2, 'sl': 1, 'why': 'trend'}]
+    trade = {'id': 'p1', 'at': 100, 'status': 'closed', 'side': 'long', 'market': 'SOL', 'entry': 100.0, 'openedAt': 100, 'closedAt': 700, 'roePct': 6.0, 'pnlUsd': 0.6, 'won': True, 'why': 'take profit', 'calls': calls}
+    f = pop.folder(trade, 3)
+    assert f['n'] == 3 and f['report']['grade'] == 'GOOD TRADE' and f['report']['held'] == 10.0 and f['report']['pnlUsd'] == 0.6
+    assert [t['by'] for t in f['talk']] == ['A', 'Engine', 'Engine'] and 'take profit' in f['talk'][-1]['text']
+    g = pop.report({**trade, 'ghost': True, 'proposal': True})
+    assert g['grade'] == 'GHOST WIN' and g['pnlUsd'] is None and 'Never counted' in g['lesson']
+    none = pop.report({'status': 'closed', 'noTrade': True, 'why': 'long SOL vs long BTC', 'calls': calls})
+    assert none['grade'] == 'NO TRADE' and none['roePct'] is None and 'long SOL vs long BTC' in none['lesson']
+    assert pop.report({'status': 'open'}) is None
+
+
+def test_kept_folders_survive_the_trim_numbers_never_repeat_and_the_line_is_sampled_slowly():
+    rows = [{'id': i, 'kept': i == 0} for i in range(pop.FILED_MAX + 2)]
+    out = pop.trim(rows)
+    assert len(out) == pop.FILED_MAX and out[0]['id'] == 0 and {1, 2} not in [{r['id'] for r in out}] and all(r['id'] not in (1, 2) for r in out)
+    cat = {'popFolders': [{}, {}], 'popSeq': 9}
+    assert pop.number(cat) == 10 and pop.number({'popFolders': [{}, {}]}) == 3
+    t = {}
+    pop.sample(t, 100, 1000); pop.sample(t, 101, 1010); pop.sample(t, 102, 1030); pop.sample(t, 0, 1090)
+    assert t['line'] == [100.0, 102.0]
