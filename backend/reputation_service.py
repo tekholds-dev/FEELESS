@@ -29581,6 +29581,7 @@ def _edge_price_ok(sent, live):
 
 @app.post('/api/reputation/edge/observe')
 async def edge_observe(o: EdgeObservation):
+    import re
     if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24 or not re.fullmatch(r'[A-Za-z0-9]+', o.pairAddress) or not re.fullmatch(r'[a-z0-9-]+', o.chain):
         raise HTTPException(400, 'bad observation')
     if o.chain == 'solana':   # the live price read covers Solana; other chains keep their score only until they have one
