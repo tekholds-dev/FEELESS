@@ -27,7 +27,7 @@ export const SYNOPSIS = [['🐱', 'Meet the cats', 'every agent with its two liv
   ['🐝', 'Colonize', 'share a part of each win with the colony pot — the pot airdrops back by what you shared', null],
   ['💸', 'colony --flow', 'watch every SOL: trades in, P/L, shares, the pot, the ledger with each tx', null]];
 export const COMMANDS = [['file a PoW', 'both minds work a new PoW folder and buy the one they agree on'], ['A: file a PoW', 'mind A alone (B: for mind B)'],
-  ['propose a PoW', 'the same work, filed as a card — nothing bought'], ['stop PoW', 'ends the folder — sells if it bought'], ['/', 'every command, as you type']];
+  ['propose a PoW', 'the same work, filed as a card — nothing bought'], ['file a PoP', 'both minds call a perp; a paper trade runs if they agree'], ['propose a PoP', 'the same call as a card; nothing opens until you press Run'], ['stop PoW', 'ends the folder — sells if it bought'], ['/', 'every command, as you type']];
 const sol = v => `${(Number(v) || 0) >= 0 ? '+' : ''}${(Number(v) || 0).toFixed(2)} SOL`;
 // pure: a chapter's live number from the cat profile (+ the FEECAT asset)
 export function chapterStat(key, p, asset) {

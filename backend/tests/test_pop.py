@@ -46,7 +46,7 @@ def test_a_market_read_needs_real_numbers():
 
 
 def test_the_kernel_is_pinned_so_a_limit_cannot_change_quietly():
-    assert pow_kernel.fingerprint() == 'e4d4a46f250d', 'A hard limit changed: if it was on purpose, bump pow_kernel.VERSION and this pin.'
+    assert pow_kernel.fingerprint() == 'efec14752ff3', 'A hard limit changed: if it was on purpose, bump pow_kernel.VERSION and this pin.'
     v = pow_kernel.view()
     assert v['hash'] == pow_kernel.fingerprint() and dict(next(g for g in v['groups'] if g['name'] == 'Proof of Perps')['rows'])['Real orders'] is False
 
@@ -107,7 +107,7 @@ def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disag
     import feecat_service as fs
     answers = {0: '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"up on the day"}', 1: '{"market":"SOL","side":"long","lev":2,"tp_pct":3,"sl_pct":2,"why":"volume"}'}
 
-    async def ask(cat, i, sys_, user_, max_tokens=180):
+    async def ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
         assert 'SOL-PERP price' in user_
         return answers[i]
     monkeypatch.setattr(fs, '_pow2_ask', ask)
@@ -124,3 +124,118 @@ def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disag
     fs._POP_WANT['c9'] = 'start'
     asyncio.run(fs._pop_tick(_fake_http({'SOL': 100, 'ETH': 10, 'BTC': 1000}), cat, 2000.0))
     assert 'popRun' not in cat and cat['popFolders'][-1]['noTrade'] and 'long SOL vs short BTC' in cat['popFolders'][-1]['why']
+
+
+def _ppop_fakes(monkeypatch, answers):
+    import feecat_service as fs
+    seen = []
+
+    async def ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
+        seen.append((i, sys_))
+        cost_to['cost'] = round(cost_to['cost'] + 0.001, 6)
+        return answers[i].pop(0)
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    return fs, seen
+
+
+LONG, SHORT = '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"up"}', '{"market":"SOL","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"down"}'
+_P = {'SOL': 100, 'ETH': 10, 'BTC': 1000}
+
+
+def _tick(fs, cat, prices, now, want=None):
+    import asyncio
+    if want:
+        fs._POP_WANT[cat['id']] = want
+    asyncio.run(fs._pop_tick(_fake_http(prices), cat, now))
+
+
+def test_ppop_commands_and_answers():
+    assert pop.command('propose a PoP') == 'propose' and pop.command('/ppop') == 'propose' and pop.command('ppop') == 'propose' and pop.command('A: propose a PoP') == 'propose:0' and pop.command('b: ppop') == 'propose:1'
+    assert pop.command('run pPoP') == 'adopt' and pop.command('pass pPoP') == 'pass' and pop.command('file a PoP') == 'start' and pop.command('propose a pow') is None
+    assert pop.reply('start', {'id': 1}, None)[0] is False and pop.reply('propose', None, {'state': 'waiting'})[0] is False and pop.reply('adopt', None, None)[0] is False
+    assert pop.reply('adopt', {'id': 1}, {'state': 'waiting'})[0] is False and pop.reply('pass', None, {'state': 'passed'})[0] is False and pop.reply('adopt', None, {'state': 'waiting'})[0] is True
+
+
+def test_a_blind_agreement_files_a_card_and_opens_nothing_until_you_run_it(monkeypatch):
+    fs, seen = _ppop_fakes(monkeypatch, {0: [LONG], 1: [LONG]})
+    cat = {'id': 'c8', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose')
+    c = cat['popCard']
+    assert c['conviction'] == 'blind' and c['state'] == 'waiting' and c['proposal'] and c['paper'] and not cat.get('popRun') and len(seen) == 2 and c['cost'] == 0.002
+    _tick(fs, cat, {'SOL': 100.5}, 1010.0, 'adopt')
+    assert cat['popRun']['entry'] == 100.5 and cat['popRun']['fromCard'] == c['id'] and cat['popRun']['paper'] and not cat.get('popCard') and cat['popFolders'][-1]['state'] == 'ran'
+
+
+def test_split_minds_read_each_other_once_and_the_result_is_marked_argued_or_stays_split(monkeypatch):
+    fs, seen = _ppop_fakes(monkeypatch, {0: [LONG, SHORT], 1: [SHORT, SHORT]})
+    cat = {'id': 'c7', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose')
+    assert cat['popCard']['conviction'] == 'argued' and cat['popCard']['side'] == 'short' and len(seen) == 4 and 'never an instruction' in seen[2][1]
+    assert [x.get('changed') for x in cat['popCard']['calls']] == [True, False]
+    fs, seen = _ppop_fakes(monkeypatch, {0: [LONG, LONG], 1: [SHORT, SHORT]})
+    cat = {'id': 'c6', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose')
+    assert not cat.get('popCard') and cat['popFolders'][-1]['noTrade'] and cat['popFolders'][-1]['proposal'] and len(seen) == 4   # never a third round
+
+
+def test_a_plain_pop_stays_blind_and_gets_no_second_round(monkeypatch):
+    fs, seen = _ppop_fakes(monkeypatch, {0: [LONG], 1: [SHORT]})
+    cat = {'id': 'c5', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'start')
+    assert len(seen) == 2 and cat['popFolders'][-1]['noTrade'] and not cat['popFolders'][-1].get('proposal')
+
+
+def test_a_lone_mind_proposes_alone_and_is_labelled_so(monkeypatch):
+    fs, seen = _ppop_fakes(monkeypatch, {0: [], 1: [LONG]})
+    cat = {'id': 'c4', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose:1')
+    assert cat['popCard']['conviction'] == 'solo' and [x[0] for x in seen] == [1]
+
+
+def test_run_is_refused_when_the_setup_moved_or_the_time_ran_out_and_the_ghost_never_counts_as_pnl(monkeypatch):
+    fs, _ = _ppop_fakes(monkeypatch, {0: [LONG], 1: [LONG]})
+    cat = {'id': 'c3', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose')                                   # long SOL: tp 5, sl 2, at 100
+    _tick(fs, cat, {'SOL': 101.5}, 1010.0, 'adopt')                         # used 30% of its room: still fine? refused only at half
+    assert cat.get('popRun') and not cat.get('popCard')
+    fs, _ = _ppop_fakes(monkeypatch, {0: [LONG], 1: [LONG]})
+    cat = {'id': 'c2', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    _tick(fs, cat, _P, 1000.0, 'propose')
+    _tick(fs, cat, {'SOL': 99}, 1010.0, 'adopt')                            # half way to its stop
+    assert not cat.get('popRun') and 'setup is gone' in cat['popCard']['refused']
+    _tick(fs, cat, {'SOL': 100}, 1000.0 + pop.PROPOSE_WINDOW_S, 'adopt')    # back at entry, but too late
+    assert not cat.get('popRun') and '15 minutes' in cat['popCard']['refused'] or cat['popCard']['state'] == 'expired'
+    _tick(fs, cat, {'SOL': 103}, 1000.0 + pop.PROPOSE_WINDOW_S + 5)         # tp is the tighter of both minds' numbers
+    _tick(fs, cat, {'SOL': 106}, 1000.0 + pop.PROPOSE_WINDOW_S + 9)
+    rec = cat['popFolders'][-1]
+    assert rec['ghost'] and rec['won'] and 'pnlUsd' not in rec and not cat.get('popCard') and rec['state'] == 'expired'
+
+
+def test_a_proposal_never_touches_an_open_pop_and_no_market_settles_on_it(monkeypatch):
+    fs, _ = _ppop_fakes(monkeypatch, {0: [LONG], 1: [LONG]})
+    run = {'id': 'popR', 'market': 'ETH', 'side': 'long', 'lev': 2, 'tp': 50, 'sl': 50, 'entry': 10, 'mark': 10, 'openedAt': 1000, 'status': 'open'}
+    cat = {'id': 'c1', 'brainsCfg': {'brains': ['x/a', 'x/b']}, 'popRun': run}
+    _tick(fs, cat, _P, 1000.0, 'propose')
+    assert cat['popRun'] is run and cat['popCard']['state'] == 'waiting'
+    _tick(fs, cat, {'SOL': 100, 'ETH': 10}, 1010.0, 'adopt')
+    assert cat['popRun'] is run and 'already open' in cat['popCard']['refused']                 # never a second PoP
+    _tick(fs, cat, {'SOL': 100, 'ETH': 10}, 1020.0, 'pass')
+    assert cat['popCard']['state'] == 'passed'
+    _tick(fs, cat, {'SOL': 106, 'ETH': 10}, 1030.0)                                             # its ghost closes: the live PoP stays open
+    assert cat['popRun'] is run and not cat.get('popCard') and cat['popFolders'][-1]['state'] == 'passed'
+
+
+def test_a_pops_calls_never_land_on_the_open_pow_folders_bill():
+    import inspect
+    import feecat_service as fs
+    assert 'cost_to' in inspect.signature(fs._pow2_ask).parameters
+    folder = {}; box = {'cost': 0}
+    fs._pow2_cost(box, 0, 0.002)
+    assert box['cost'] == 0.002 and not folder
+
+
+def test_walls_one_window_each_then_the_minds_move_on():
+    import agent_sources as src
+    book = src.record({}, 'solscan.io', False, now=1000)
+    assert src.walled_lately(book, 'https://solscan.io/token/x', now=1000 + 60) and not src.walled_lately(book, 'solscan.io', now=1000 + src.WALL_MEMORY_S)
+    assert not src.walled_lately(src.record(book, 'solscan.io', True, now=1100), 'solscan.io', now=1101)

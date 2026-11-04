@@ -603,6 +603,8 @@ async def _pow_advance(w, pw, page, wait_human=None):
             w['powDone'] = True
             return '(ALL SITES DONE — answer now with action "answer", say = "BUY|WATCH|AVOID — why", from the vitals you pulled.)\n' + str(_pow.public(pw)['pulls'])
         _pow.step(pw, nxt)
+        w['url'] = nxt
+        _step(w, f'opening {_pow.host_of(nxt)}', 'open', nxt)   # said BEFORE the page loads: the window shows its browser at once, even when a wall comes next
         try:
             got = await page.goto(nxt)
         except Exception as e:   # noqa: BLE001 — a page that won't load is skipped like a wall
@@ -624,7 +626,6 @@ async def _pow_advance(w, pw, page, wait_human=None):
             continue
         got = await _pow_find(w, pw, page) or got
         w['_page'] = str(got)
-        _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
         await _pow_snap(pw, page, got)
         return f'NOW ON {_pow.host_of(nxt)} — save every visible vital in one verified snapshot, then it moves on.\n' + str(got)
 

@@ -1410,7 +1410,7 @@ def _pow2_on(cat):
         and cat.get('status') == 'running' and (cat.get('powLoop') or {}).get('on', True)
 
 
-async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
+async def _pow2_ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
     """One small call to mind i (inside its $ limits). → text ('' when nothing answered)."""
     b_ = cat['brainsCfg']; ms = b_.get('brains') or []
     if not ms:   # ⛏ a folder's calls skip the daily $ limit until the trade closes (owner 2026-11-01)
@@ -1424,7 +1424,7 @@ async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
         _lc.charge(b_, usd_)   # SingIt and OpenRouter both consume the agent's bought model budget
     elif usd_:
         day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + float(usd_), 6)}
-    _pow2_cost((cat.get('powRun') or {}).get('folder'), i, usd_)
+    _pow2_cost(cost_to if cost_to is not None else (cat.get('powRun') or {}).get('folder'), i, usd_)   # a PoP's calls are the PoP's, never the open PoW folder's
     return str(reply_ or '')
 
 
@@ -1618,7 +1618,7 @@ def _pow2_running(cat, f):
 
 def _any_hot():
     try:
-        return any(c.get('popRun') or ((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in _load()['cats'].values())
+        return any(c.get('popRun') or c.get('popCard') or ((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in _load()['cats'].values())
     except Exception:   # noqa: BLE001
         return False
 
@@ -2099,45 +2099,101 @@ async def _pop_read(http, market):
 
 
 def _pop_file(cat, rec, line):
-    cat['popFolders'] = (list(cat.get('popFolders') or []) + [rec])[-_pop.FILED_MAX:]; cat.pop('popRun', None)
-    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': time.time()}])[-200:]
+    cat['popFolders'] = (list(cat.get('popFolders') or []) + [rec])[-_pop.FILED_MAX:]
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': time.time(), 'open': 'pop'}])[-200:]
+
+
+async def _pop_price(http, market):
+    """The live price, or 0 when the feed gave none: a missed read is retried on the next pass, never guessed."""
+    try:
+        return _num(((await http.get(f"{POP_FEED}/{market}-USD/ticker")).json() or {}).get('price'))
+    except (httpx.HTTPError, ValueError):
+        return 0.0
+
+
+async def _pop_round(cat, idx, sys_of, brief, box):
+    """One blind round: the listed minds answer at once, inside the round's time limit. A mind that says nothing is a mind with no call."""
+    try:
+        return await asyncio.wait_for(asyncio.gather(*(_pow2_ask(cat, i, sys_of(i), brief, 220, box) for i in idx)), _pop.ROUND_S)
+    except asyncio.TimeoutError:
+        return [''] * len(idx)
+
+
+async def _pop_open(http, cat, do, who, now):
+    """📉 file a PoP / 💡 propose one. Both start blind. Only a proposal gets the second round: split minds see each other's call once and may hold or change."""
+    propose = do == 'propose'; icon = '💡 pPoP' if propose else '📉 PoP'
+    reads = [r for r in await asyncio.gather(*(_pop_read(http, m) for m in _pop.MARKETS)) if r]
+    brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; rid = f'pop{int(now)}'; flag = {'proposal': True} if propose else {}
+    if not reads or not brains:
+        _pop_file(cat, {**flag, 'id': rid, 'at': round(now), 'status': 'closed', 'noTrade': True, 'why': 'no live price' if not reads else 'it needs a model first', 'calls': []}, f'{icon} not filed: no live price or no model')
+        return
+    brief = '\n'.join(_pop.market_line(r) for r in reads)
+    names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}
+    idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
+    raw = await _pop_round(cat, idx, lambda i: _pop.SYS.format(name=names[i]), brief, box)
+    parsed = [_pop.parse_call(x) for x in raw]
+    calls = [{'mind': i, 'name': names[i], **(c or {'why': str(raw[k] or '')[:160]})} for k, (i, c) in enumerate(zip(idx, parsed))]
+    trade, why = _pop.agree(parsed); conviction = 'solo' if len(idx) == 1 else 'blind'
+    if propose and not trade and len(idx) == 2 and any(parsed):
+        again = await _pop_round(cat, idx, lambda i: _pop.CHALLENGE_SYS.format(name=names[i], mine=_pop.call_line(parsed[idx.index(i)]), other=_pop.call_line(parsed[1 - idx.index(i)])), brief, box)
+        second = [_pop.parse_call(x) if x else parsed[k] for k, x in enumerate(again)]   # a mind that went silent keeps its first call
+        calls = [{'mind': i, 'name': names[i], **(c or {'why': str(again[k] or calls[k].get('why') or '')[:160]}), 'first': _pop.call_line(parsed[k])[:60], 'changed': (c or {}).get('side') != (parsed[k] or {}).get('side') or (c or {}).get('market') != (parsed[k] or {}).get('market')} for k, (i, c) in enumerate(zip(idx, second))]
+        trade, why = _pop.agree(second); conviction = 'argued'
+    base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend')}
+    if not trade:
+        _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
+        return
+    px = next(r['px'] for r in reads if r['market'] == trade['market'])
+    if propose:
+        cat['popCard'] = _pop.card(rid, trade, px, now, calls, conviction, base)
+        line = f"💡 pPoP: {trade['side']} {trade['market']} {trade['lev']}× at ${px:,.2f}. Nothing is open. You have 15 minutes to run it."
+    else:
+        cat['popRun'] = {**base, **trade, 'status': 'open', 'entry': px, 'mark': px, 'roePct': 0.0, 'openedAt': round(now), 'liqPct': _pop.liq_move_pct(trade['lev'])}
+        line = f"📉 PoP open on paper: {trade['side']} {trade['market']} {trade['lev']}× at ${px:,.2f}"
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': now, 'open': 'pop'}])[-200:]
+
+
+async def _pop_card_tick(http, cat, c, do, now):
+    """💡 The open proposal: your Run or Pass, then one ghost price read on true prices."""
+    px = await _pop_price(http, c['market'])
+    if do == 'adopt':
+        why = 'a PoP is already open' if cat.get('popRun') else _pop.adopt_refusal(c, px, now)
+        if why:
+            c['refused'] = why
+        else:
+            cat['popRun'] = _pop.adopt(c, px, now); cat.pop('popCard', None)
+            _pop_file(cat, {**c, 'status': 'closed', 'state': 'ran', 'ranAt': round(now)}, f"📉 Ran the proposal on paper: {c['side']} {c['market']} {c['lev']}× at ${px:,.2f}")
+            return
+    elif do == 'pass' and c.get('state') == 'waiting':
+        c['state'] = 'passed'; c.pop('refused', None)
+    if px > 0:
+        rec = _pop.ghost(c, px, now)
+        if rec:
+            cat.pop('popCard', None)
+            _pop_file(cat, rec, f"💡 pPoP ghost closed ({rec['why']}): {rec['side']} {rec['market']} would have made {rec['roePct']:+.2f}%")
 
 
 async def _pop_tick(http, cat, now):
-    want = _POP_WANT.pop(cat['id'], None); run = cat.get('popRun')
+    want = _POP_WANT.pop(cat['id'], None); do, _, who = str(want or '').partition(':')
+    if cat.get('popCard'):
+        await _pop_card_tick(http, cat, cat['popCard'], do, now)
+    run = cat.get('popRun')
     if run:
-        px = _num(((await http.get(f"{POP_FEED}/{run['market']}-USD/ticker")).json() or {}).get('price'))
-        why = 'stopped by you' if want == 'stop' else _pop.hard_exit(run, px, now)
+        px = await _pop_price(http, run['market'])
+        why = 'stopped by you' if do == 'stop' else _pop.hard_exit(run, px, now)
         if px > 0:
             run.update(mark=px, roePct=_pop.roe_pct(run, px))
         if why and px > 0:
-            rec = _pop.close(run, px, now, why)
+            rec = _pop.close(run, px, now, why); cat.pop('popRun', None)
             _pop_file(cat, rec, f"📉 PoP closed ({why}): {rec['side']} {rec['market']} {rec['roePct']:+.2f}% on paper")
-        return
-    if want != 'start':
-        return
-    reads = [r for r in await asyncio.gather(*(_pop_read(http, m) for m in _pop.MARKETS)) if r]
-    brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; rid = f'pop{int(now)}'
-    if not reads or not brains:
-        _pop_file(cat, {'id': rid, 'at': round(now), 'status': 'closed', 'noTrade': True, 'why': 'no live price' if not reads else 'it needs a model first', 'calls': []}, '📉 PoP not filed: no live price or no model')
-        return
-    brief = '\n'.join(_pop.market_line(r) for r in reads)
-    names = [str(m).split('/')[-1][:24] for m in brains]
-    raw = await asyncio.gather(*(_pow2_ask(cat, i, _pop.SYS.format(name=names[i]), brief, 220) for i in range(len(brains))))
-    parsed = [_pop.parse_call(x) for x in raw]
-    calls = [{'mind': i, 'name': names[i], **(c or {'why': str(raw[i] or '')[:160]})} for i, c in enumerate(parsed)]
-    trade, why = _pop.agree(parsed)
-    base = {'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True}
-    if not trade:
-        _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'📉 PoP filed with no trade: {why}')
-        return
-    px = next(r['px'] for r in reads if r['market'] == trade['market'])
-    cat['popRun'] = {**base, **trade, 'status': 'open', 'entry': px, 'mark': px, 'roePct': 0.0, 'openedAt': round(now), 'liqPct': _pop.liq_move_pct(trade['lev'])}
-    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"📉 PoP open on paper: {trade['side']} {trade['market']} {trade['lev']}× at ${px:,.2f}", 'at': now}])[-200:]
+    elif do == 'start':
+        await _pop_open(http, cat, do, who, now)
+    if do == 'propose' and not cat.get('popCard'):
+        await _pop_open(http, cat, do, who, now)
 
 
 async def _pop_pass(store):
-    cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('id') in _POP_WANT]
+    cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('id') in _POP_WANT]
     if not cats:
         return
     async with httpx.AsyncClient(timeout=10) as http:
@@ -2809,12 +2865,16 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         win_['pw'] = {'site': h_.get('site'), 'user': got_[0][:120], 'pw': got_[1]}
                         w['task'].setdefault('vaultUsed', []).append(h_.get('site'))
                         return True
-                ev = w['events'][i] = asyncio.Event()
                 check_ = h_.get('kind') != 'login' and bool(re.search(r'captcha|bot check|cloudflare|checkpoint|blocked', str(h_.get('why') or ''), re.I))   # a WALL, not a sign-in (yours to do)
                 if check_:   # 🧭 a bot check / wall: the book learns it, and the window offers the best other sources
                     host_ = _src.host_of(h_.get('url') or win_.get('url'))
+                    known_ = _src.walled_lately(_src_book(), host_)
                     _src_note(host_, False)
                     h_['alts'] = _src.best(_src_book(), exclude=[host_]); win_['human'] = h_
+                    if h_.get('kind') == 'challenge' and (known_ or host_ in (w['task'].get('wallWaits') or [])):   # 🚧 one 45 s window per wall: the other mind and later coins move on at once, and the gap is recorded
+                        return False
+                    w['task'].setdefault('wallWaits', []).append(host_)
+                ev = w['events'][i] = asyncio.Event()
                 pg_ = pages[i] if i < len(pages) and getattr(pages[i], 'live', False) else None
                 try:
                     if pg_:
@@ -2871,6 +2931,9 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     await _pow_price(http, w['task'])
                 except Exception as e:   # noqa: BLE001 — no price = filed ungraded, never a broken desk
                     print(f'[pow] {cat_id}: {str(e)[:120]}')
+            for x_ in (w.get('task') or {}).get('windows') or []:   # a stopped round's browser is closed: its window must not claim it still works ("Session not found")
+                if x_.get('status') == 'working':
+                    x_['status'] = 'done'
             w['done'] = True
 
 
@@ -3710,7 +3773,7 @@ async def bids_feed():
             if x.get('boughtAt') and x.get('pnlPct') is not None and now - float(x.get('soldAt') or 0) < 172800:
                 rows.append({'id': x['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pow', 'open': False, 'won': x['pnlPct'] > 0})
         for x in (c.get('popFolders') or [])[-5:]:
-            if not x.get('noTrade') and now - float(x.get('closedAt') or 0) < 172800:
+            if not x.get('noTrade') and not x.get('proposal') and now - float(x.get('closedAt') or 0) < 172800:   # 💡 a proposal or its ghost is not a trade: no market settles on it
                 rows.append({'id': x['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pop', 'open': False, 'won': bool(x.get('won'))})
     return _pub({'rows': rows})
 
@@ -4032,8 +4095,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
     if p.op == 'pop':   # 📉 the PoP desk's buttons: the engine pass does the work
-        if p.job not in ('start', 'stop'):
-            raise HTTPException(400, 'Start or stop.')
+        if p.job not in ('start', 'stop', 'propose', 'adopt', 'pass'):
+            raise HTTPException(400, 'Not a PoP action.')
+        ok_, say_ = _pop.reply(p.job, cat.get('popRun'), cat.get('popCard'))
+        if not ok_:
+            raise HTTPException(409, say_)
         _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
         return {'ok': True}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
@@ -4336,8 +4402,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
         pop_cmd_ = _pop.command(p.text)
         if pop_cmd_:
-            _POP_WANT[cat_id] = pop_cmd_; _POW_WAKE.set()
-            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': '📉 Filing a PoP: both minds read SOL, ETH and BTC. Paper only.' if pop_cmd_ == 'start' else '📉 Stopping the PoP at the live price.', 'at': time.time()}])[-200:]
+            ok_, say_ = _pop.reply(pop_cmd_.split(':')[0], cat.get('popRun'), cat.get('popCard'))
+            if ok_:
+                _POP_WANT[cat_id] = pop_cmd_; _POW_WAKE.set()
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'pop'}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         cmd_ = _pow.command(p.text)
@@ -4417,9 +4485,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'popFolder': cat.get('popRun'),
+            'popFolder': cat.get('popRun'), 'popCard': cat.get('popCard'),
             'popFolders': list(reversed(cat.get('popFolders') or []))[:20] if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'commands': _pow.COMMANDS + _pop.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎

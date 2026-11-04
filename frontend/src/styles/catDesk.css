@@ -81,7 +81,10 @@
 .kd-learn { display: flex; flex-wrap: wrap; gap: 8px; } .kd-learn span { display: grid; gap: 1px; min-width: 100px; padding: 7px 10px; border-radius: 10px; background: #0a0614; border: 1px solid #ffffff10; }
 .kd-learn em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; } .kd-learn b { font-size: 14px; color: #fff; }
 .kd-lessons { margin: 0; padding-left: 16px; display: grid; gap: 4px; font: 500 11px/1.4 'Sora', system-ui, sans-serif; color: #c9bce6; }
-.kd-limits form { display: grid; gap: 12px; }
+.kd-limits form { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap: 8px; align-items: start; }
+.kd-limits form > :not(.kd-lim) { grid-column: 1 / -1; max-width: 480px; } .kd-limits form > .m-btn { max-width: none; } .kd-limits form > .m-btn { justify-self: end; width: auto; min-width: 170px; }
+.kd-limits .kd-lim { align-content: start; padding: 9px 11px 10px; border: 1px solid #ffffff10; border-radius: 12px; background: #ffffff05; transition: border-color .15s; } .kd-limits .kd-lim:hover, .kd-limits .kd-lim:focus-within { border-color: #b388ff55; }
+.kd-limits .kd-lim input[type='range'] { min-height: 22px; } .kd-limits .kd-lim-box .m-input { width: 72px; min-height: 30px; }
 .kd-lim { display: grid; gap: 5px; } .kd-lim > span { display: flex; justify-content: space-between; align-items: baseline; }
 .kd-lim em, .kd-list em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; } .kd-lim b { font-size: 13px; color: #fff; }
 .kd-lim small { font: 600 9px 'JetBrains Mono', monospace; color: #c9bce6; }
@@ -154,3 +157,5 @@ body.theme-day .kd.is-tabbed .kd-main > .kd-card { background: transparent; bord
 .kd.is-theater { position: fixed; top: var(--th-t, 0); left: var(--th-l, 0); right: 0; bottom: 0; z-index: 90; overflow: hidden; align-content: start; grid-auto-rows: max-content; padding: 10px 16px 12px; border-radius: 0; }
 body.kd-theater-on .terminal-footer { visibility: hidden; }   /* the page footer sits above the theater's layer — out of the way while it's open */
 @media (max-width: 900px) { body.kd-theater-on .terminal-footer { visibility: visible; } .kd.is-theater { position: relative; top: auto; left: auto; overflow: visible; padding: 0; } }
+body.theme-day .kd-limits .kd-lim { border-color: #2a165018; background: #ffffffa0; }
+@media (max-width: 640px) { .kd-limits form > .m-btn { width: 100%; } }

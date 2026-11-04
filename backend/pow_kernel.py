@@ -11,7 +11,7 @@ import poi as _poi
 import pop as _pop
 import pow as _pow
 
-VERSION = '2026.11.04'
+VERSION = '2026.11.04.2'
 
 
 def limits():
@@ -20,7 +20,7 @@ def limits():
         'Evidence': {'Saved pulls a site': _pow.SITE_PULLS, 'Snapshots a site': _ca.SNAPS_PER_SITE, 'Recent folders skipped': _pow.RECENT_FOLDERS, 'Manual bot-check seconds': 45},
         'Learning': {'Visits before promotion': _poi.PROMOTE_AFTER, 'Visits before retirement': _poi.RETIRE_AFTER, 'Useful revisits to roll back': _poi.ROLLBACK_AFTER},
         'Trade limits': {'Default stop %': _pow.STOP_PCT, 'Default take profit %': _pow.TAKE_PCT, 'Watch checks, seconds': list(_pow.CHECKS)},
-        'Proof of Perps': {'Leverage': [_pop.LEV_MIN, _pop.LEV_MAX], 'Longest hold, seconds': _pop.HOLD_MAX_S, 'Paper stake $': _pop.COLLATERAL_USD, 'Real orders': False},
+        'Proof of Perps': {'Leverage': [_pop.LEV_MIN, _pop.LEV_MAX], 'Longest hold, seconds': _pop.HOLD_MAX_S, 'Paper stake $': _pop.COLLATERAL_USD, 'Proposal window, seconds': _pop.PROPOSE_WINDOW_S, 'Stale after this share of its room': _pop.DRIFT_MAX, 'Real orders': False},
         'Colony': {'Share choices %': list(_colony.SHARE_PCTS), 'PoI can move treasury funds': False},
     }
 

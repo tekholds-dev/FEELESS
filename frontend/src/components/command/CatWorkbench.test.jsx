@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CatWorkbench, CommandList } from './CatWorkbench';
+import { CatWorkbench, CommandList, Window, placeIcons } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const signed = [];
 jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: async m => { signed.push(m); return 'SIG'; } }) }));
@@ -489,4 +489,27 @@ test('📌 keep / 🗑 delete a PoW folder or one coin folder from the desktop (
   await act(async () => { q('dsk-fold-del').click(); }); await act(async () => { q('dsk-fold-del').click(); });
   expect(posts.at(-1)).toMatchObject({ job: 'delete', text: 'pow9' }); expect(q('dsk-x-pow9')).toBeNull();
   act(() => root.unmount());
+});
+
+describe('its window follows the real state of the round', () => {
+  const base = { i: 0, slot: 0, model: 'x/a', provider: 'kernel', url: 'https://solscan.io/token/a', live: 'https://live.test/a', hand: null, goal: 'PROOF OF WORK on $A', coin: { pair: 'P', mint: 'M', symbol: 'A' }, steps: [{ action: 'feeless', thought: 'reads the coin on FEELESS first' }], bubble: 'opening solscan.io' };
+  const folder = { name: 'PoW #1', phase: 'scout', base: 0, coins: [{ mint: 'M', sym: 'A', pair: 'P' }], rMint: 'M' };
+  const paint = async (w, f) => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<Window w={w} catId="c" tick={0} folder={f} />); }); return el; };
+  test('research shows its browser, never the chart, right after the FEELESS pre-read', async () => {
+    const el = await paint({ ...base, status: 'working' }, folder);
+    expect(el.querySelector('[data-testid=cwb-live]')).toBeTruthy(); expect(el.querySelector('[data-testid=cwb-chart]')).toBeNull(); expect(el.querySelector('[data-testid=cwb-tab-web]').className).toContain('is-on');
+  });
+  test('a bot check shows the browser and the other sources get their own row', async () => {
+    const el = await paint({ ...base, status: 'human', hand: 'https://live.test/hand', human: { kind: 'challenge', why: 'a bot check', alts: ['birdeye.so'] } }, { ...folder, phase: 'watch' });
+    expect(el.querySelector('[data-testid=cwb-chart]')).toBeNull(); expect(el.querySelector('[data-testid=cwb-live]')).toBeTruthy(); expect(el.querySelector('[data-testid=cwb-alts]')).toBeTruthy();
+  });
+  test('a round that ended never shows a dead browser and stops claiming it works', async () => {
+    const el = await paint({ ...base, status: 'working' }, { ...folder, coins: [{ mint: 'M', sym: 'A' }], phase: 'buy', sym: 'A', mint: 'M' });
+    expect(el.querySelector('[data-testid=cwb-live]')).toBeNull(); expect(el.querySelector('[data-testid=cwb-powscr-0]')).toBeTruthy(); expect(el.textContent).toContain('BUYING'); expect(el.textContent).not.toContain('PROOF OF WORK on'); expect(el.querySelector('[data-testid=cwb-cursor]')).toBeNull();
+  });
+});
+test('a new desktop icon never lands on a saved one, and a full column wraps', () => {
+  const saved = Object.fromEntries(['vault', 'pow', 'jobs', 'sources', 'honey', 'wallet', 'files', 'cmds'].map((k, i) => [k, { x: 0, y: i * 96 }]));
+  const at = placeIcons(saved, 800); const spots = Object.values(at).map(p => `${p.x},${p.y}`);
+  expect(new Set(spots).size).toBe(spots.length); expect(at.pop.x).toBe(96); expect(at.vault).toEqual({ x: 0, y: 0 });
 });

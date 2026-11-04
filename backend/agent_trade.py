@@ -29,6 +29,8 @@ KEEP = 40
 REP = 'http://127.0.0.1:5077/api/reputation'
 SIGNERS = ('crossmint', 'circle')   # 🟦 owner 2026-10-30: Fee trades from her CIRCLE wallet too — Circle signs, our RPC sends, the same guards run
 RETRY_SEC = 60.0
+NEVER_LANDED_S = 180   # a blockhash is dead after about 90 s: a signature the chain has never seen by now can never land
+SIGNER_SILENT_S = 900  # a send the signer never answered: stop holding the wallet for it
 
 
 def _f(v, d=0.0):
@@ -146,11 +148,14 @@ def _internal_headers():
 
 
 async def _circle_status(http, sig):
-    """→ 'success' | 'failed' | None (not landed yet), from our own RPC proxy."""
+    """→ 'success' | 'failed' | 'unseen' (the RPC answered and the chain has no such signature) | None (no answer, or seen but not confirmed), from our own RPC proxy."""
     r = await http.post(f'{REP}/rpc', json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSignatureStatuses', 'params': [[sig], {'searchTransactionHistory': True}]}, timeout=15)
-    v = (((r.json() or {}).get('result') or {}).get('value') or [None])[0] if r.status_code == 200 else None
-    if not v:
+    if r.status_code != 200 or (r.json() or {}).get('result') is None:
         return None
+    v = ((r.json() or {}).get('result') or {}).get('value') or [None]
+    v = v[0]
+    if not v:
+        return 'unseen'
     return 'failed' if v.get('err') else ('success' if v.get('confirmationStatus') in ('confirmed', 'finalized') else None)
 
 
@@ -201,8 +206,14 @@ async def poll(http, cm_key, cat, now):
                 await _circle_post(http, cat, rec); n += 1
             except ValueError:
                 n += rec.get('status') == 'failed'
+                if rec.get('status') == 'sending' and now - _f(rec.get('at')) >= SIGNER_SILENT_S and settle(cat, rec, {'status': 'failed', 'error': 'the signer never answered, so this was dropped; check its wallet'}, now):
+                    rec.pop('tx', None); n += 1
         for rec in [t for t in cat.get('agentTx') or [] if t.get('status') in LIVE and t.get('sig')]:
             st = await _circle_status(http, rec['sig'])
+            if st == 'unseen':   # one dropped send must never hold the wallet: in_flight() stops every later buy and sell until this settles
+                if now - _f(rec.get('at')) >= NEVER_LANDED_S and settle(cat, rec, {'status': 'failed', 'error': 'it never landed on-chain, so no funds moved'}, now):
+                    n += 1
+                continue
             if st and settle(cat, rec, {'status': st, 'onChain': {'txId': rec['sig']}, 'error': 'failed on chain' if st == 'failed' else None}, now):
                 n += 1
         return n

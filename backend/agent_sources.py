@@ -22,6 +22,7 @@ WHAT = {'dexscreener.com': 'pairs, volume, buyers vs sellers', 'rugcheck.xyz': '
         'github.com': 'code + READMEs', 'wikipedia.org': 'background on anything', 'reuters.com': 'world news', 'apnews.com': 'world news',
         'bbc.com': 'world news', 'npr.org': 'news', 'investopedia.com': 'finance terms', 'reddit.com': 'what people say', 'news.ycombinator.com': 'tech news',
         'producthunt.com': 'new products', 'arxiv.org': 'research papers', 'sec.gov': 'filings', 'tradingview.com': 'charts + ideas', 'yahoo.com': 'finance + news'}
+WALL_MEMORY_S = 1800
 NEVER = ('gecko' + 'terminal.com',)   # the sitewide ban (spelled apart so the no-ban-word test stays clean)
 
 
@@ -38,7 +39,17 @@ def record(book, host, ok, now=None):
     r = book.setdefault(h, {'ok': 0, 'blocked': 0})
     r['ok' if ok else 'blocked'] += 1
     r['last'] = 'ok' if ok else 'blocked'; r['at'] = round(now or time.time())
+    if ok:
+        r.pop('blockedAt', None)
+    else:
+        r['blockedAt'] = r['at']
     return book
+
+
+def walled_lately(book, host, now=None, within=WALL_MEMORY_S):
+    """Did this site put up a wall in the last half hour? Bot checks stick to the IP, so a second wait on it only burns the round."""
+    at = ((book or {}).get(host_of(host)) or {}).get('blockedAt')
+    return bool(at) and (now or time.time()) - at < within
 
 
 def score(book, h):

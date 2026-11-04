@@ -62,6 +62,10 @@ def test_circle_send_endpoint_signs_only_the_assigned_wallet_and_never_twice(mon
     monkeypatch.setattr(rs, '_circle_wallets_live', wallets)
     monkeypatch.setattr(rs, '_circle', circle)
     monkeypatch.setattr(rs, '_krpc', krpc)
+
+    async def quiet(signed, sig, seconds=75):
+        calls['loop'] = sig
+    monkeypatch.setattr(rs, '_agent_send_loop', quiet)
     monkeypatch.setattr(rs, '_internal_key', lambda: 'IK')
     c = TestClient(rs.app)
     h = {'x-feeless-internal': 'IK'}
@@ -70,4 +74,71 @@ def test_circle_send_endpoint_signs_only_the_assigned_wallet_and_never_twice(mon
     assert c.post('/api/reputation/internal/agent-circle-send', json={**body, 'address': 'OTHER'}, headers=h).status_code == 403
     assert c.post('/api/reputation/internal/agent-circle-send', json=body, headers=h).json()['signature'] == 'SIGC1'
     assert c.post('/api/reputation/internal/agent-circle-send', json=body, headers=h).json()['again'] is True
-    assert calls == {'sign': 1, 'send': 1}
+    assert calls == {'sign': 1, 'send': 1, 'loop': 'SIGC1'}
+
+
+def _circle_cat(rec):
+    return {'id': 'c1', 'mode': 'real', 'agentWallet': {'address': 'AD', 'provider': 'circle', 'circleId': 'w', 'mode': 'auto'}, 'agentTx': [rec],
+            'proposals': [{'id': 'p1', 'side': 'buy', 'mint': 'M', 'status': 'pending', 'at': 1, 'until': 1e12, 'agentTx': 'k'}]}
+
+
+class _Rpc:
+    def __init__(self, status=200, value=(None,)):
+        self.status, self.value = status, value
+
+    async def post(self, url, **k):
+        status, value = self.status, self.value
+
+        class R:
+            status_code = status
+
+            def json(self):
+                return {'result': {'value': list(value)}} if status == 200 else {}
+        return R()
+
+
+def test_a_send_the_chain_never_saw_cannot_hold_the_wallet_forever():
+    rec = {'pid': 'p1', 'side': 'buy', 'status': 'pending', 'sig': 'S', 'at': 1000, 'key': 'k'}
+    cat = _circle_cat(rec)
+    asyncio.run(at.poll(_Rpc(), '', cat, 1000 + at.NEVER_LANDED_S - 1))
+    assert rec['status'] == 'pending' and at.in_flight(cat)                  # still inside the window: it may land
+    asyncio.run(at.poll(_Rpc(), '', cat, 1000 + at.NEVER_LANDED_S))
+    assert rec['status'] == 'failed' and 'never landed' in rec['error'] and not at.in_flight(cat)   # the wallet is free for the next buy or sell
+    assert cat['proposals'][0]['status'] == 'failed' and 'no funds moved' in cat['proposals'][0]['why2']
+
+
+def test_a_dead_rpc_is_never_read_as_a_dropped_trade():
+    rec = {'pid': 'p1', 'side': 'buy', 'status': 'pending', 'sig': 'S', 'at': 1000, 'key': 'k'}
+    cat = _circle_cat(rec)
+    asyncio.run(at.poll(_Rpc(status=503), '', cat, 1000 + 10 * at.NEVER_LANDED_S))
+    assert rec['status'] == 'pending'                                       # no answer proves nothing: a trade that may have landed is never written off
+
+
+def test_a_seen_but_unconfirmed_signature_keeps_waiting_and_a_landed_one_settles():
+    rec = {'pid': 'p1', 'side': 'buy', 'status': 'pending', 'sig': 'S', 'at': 1000, 'key': 'k'}
+    cat = _circle_cat(rec)
+    asyncio.run(at.poll(_Rpc(value=({'confirmationStatus': 'processed', 'err': None},)), '', cat, 1000 + 10 * at.NEVER_LANDED_S))
+    assert rec['status'] == 'pending'
+    asyncio.run(at.poll(_Rpc(value=({'confirmationStatus': 'finalized', 'err': None},)), '', cat, 1000 + 10 * at.NEVER_LANDED_S))
+    assert rec['status'] == 'success' and cat['proposals'][0]['status'] == 'done'
+
+
+def test_a_send_is_rebroadcast_until_the_chain_has_it_and_never_signed_twice(monkeypatch):
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    sent, reads = [], [{'value': [None]}, {'value': [{'confirmationStatus': 'processed'}]}]
+
+    async def broadcast(http, signed):
+        sent.append(signed)
+        return 3
+
+    async def krpc(http, method, params):
+        return reads.pop(0)
+
+    async def nap(_s):
+        return None
+    monkeypatch.setattr(rs, '_rpc_broadcast', broadcast)
+    monkeypatch.setattr(rs, '_krpc', krpc)
+    monkeypatch.setattr(rs.asyncio, 'sleep', nap)
+    asyncio.run(rs._agent_send_loop('SIGNED', 'SIG'))
+    assert sent == ['SIGNED', 'SIGNED'] and not reads                       # the same bytes, so the same signature: it can only land once

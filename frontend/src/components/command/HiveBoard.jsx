@@ -24,7 +24,7 @@ const MANUAL = [['🧺', 'POOL', 'FEELESS vets up to 8 coins (intake · Pump · 
 export function ColonyManual() {
   const [open, setOpen] = useState(false);
   return <section className={`cfm${open ? ' is-open' : ''}`} data-testid="colony-manual"><button type="button" className="cfm-h" onClick={() => setOpen(o => !o)} aria-expanded={open}>
-    <b>📖 THE PoW MANUAL</b><small>what every agent does when you type <code>file a PoW</code> · <code>propose a PoW</code> · <code>stop PoW</code></small><i aria-hidden="true">{open ? '−' : '+'}</i></button>
+    <b>📖 THE PoW MANUAL</b><small>what every agent does when you type <code>file a PoW</code> · <code>propose a PoW</code> · <code>stop PoW</code> · <code>propose a PoP</code></small><i aria-hidden="true">{open ? '−' : '+'}</i></button>
     <ol className="cfm-steps">{MANUAL.map(([ic, k, t], i) => <li key={k} style={{ '--i': i }}><span className="cfm-n" aria-hidden="true">{ic}</span><em>{i + 1} · {k}</em>{open ? <small>{t}</small> : null}</li>)}</ol>
   </section>;
 }

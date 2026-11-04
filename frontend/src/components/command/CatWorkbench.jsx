@@ -135,8 +135,10 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
 }
 // a general mind's vitals: what its window is doing right now
 const host = u => String(u || '').replace(/^https?:\/\//, '').split(/[/?#]/)[0];
+// ⛏ a research window whose round ended: its cloud browser is closed, so nothing may still say it works there
+const roundIsOver = (w, f) => /^PROOF OF WORK/.test(w?.goal || '') && !!f?.coins?.length && !['scout', 'research'].includes(f.phase);
 function WinVitals({ w, f = null, i = 0, model = '' }) {   // ⛏ while a PoW folder runs, its role in it (owner: "it says IDLE while they work")
-  if (f && !(w?.status === 'working' || w?.status === 'human')) {
+  if (f && (roundIsOver(w, f) || !(w?.status === 'working' || w?.status === 'human'))) {
     const me = String(i + (f.base || 0)); const name = String(model || '').split('/').pop().replace(':free', '');
     const said = [...(f.talk || [])].reverse().find(t => name && String(t.by).includes(name.slice(0, 12)));
     const rM = f.rPair ? f.rPair[i] : f.rMint && Number(f.rMind) === i ? f.rMint : null;
@@ -209,8 +211,6 @@ function PowScreen({ f, slot }) {
   const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : scoutC || coins[mine ?? (slot % Math.max(1, coins.length))] || {};
   return <div className="cwb-powscr" data-testid={`cwb-powscr-${slot}`}>   {/* 📈 the agent watches the FEELESS chart — never a page of cards (owner 2026-11-01) */}
     <span className="cwb-powscr-h"><b>⛏ {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
-    {f.plan?.length ? (() => { const at = f.phase === 'choose' && !f.scouted ? 0 : f.phase === 'scout' ? 1 : 2;   // one thin line — the candles stay clear
-      return <ol className="cwb-powscr-plan" aria-label="Its 3-step plan" data-tip={f.plan.map((x, k) => `${k + 1}) ${x}`).join('  ·  ')}>{f.plan.map((x, k) => <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{k === at ? <span>{x}</span> : null}</li>)}</ol>; })() : null}
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
       <McapChart coin={{ pair: c.pair, mint: c.mint, symbol: c.sym }}
         fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * (1 - (Number(f.sl) || 25) / 100), slPct: Number(f.sl) || 25, lines: [{ px: f.entryUsd * (1 + (Number(f.tp) || 60) / 100), title: `🎯 take profit +${Number(f.tp) || 60}%`, color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
@@ -219,14 +219,17 @@ function PowScreen({ f, slot }) {
   </div>;
 }
 
-function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null }) {
+export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null }) {
   const { drop, tray } = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
   const lastAct = (w?.steps || []).at(-1)?.action; const lastN = (w?.steps || []).length;
   useEffect(() => { if (lastAct === 'feeless' && w?.coin?.pair) setTab('chart'); else if (['open', 'click', 'scroll', 'search', 'type'].includes(lastAct)) setTab('web'); }, [lastAct, lastN, w?.coin?.pair]);
+  // 🌐 research and a wall always show its browser (owner 2026-11-04: "dont even see browser screen"): the FEELESS pre-read is a data read, and a bot check is only passable in the browser
+  const browserOnly = ['scout', 'research'].includes(folder?.phase) || w?.status === 'human';
+  const roundOver = roundIsOver(w, folder);
   const notAsked = !w?.goal && /not asked/.test(w?.bubble || w?.note || '');
-  const chart = tab === 'chart' && w?.coin?.pair;
+  const chart = tab === 'chart' && !browserOnly && !roundOver && w?.coin?.pair;
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
   const i = w?.i ?? 0; const sl = w?.slot ?? i;
@@ -235,25 +238,24 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
   const rPairM = folder?.rPair?.[sl - (folder?.base || 0)];   // 🏇 a pair round: this mind's own coin
   const scoutSym = folder?.phase === 'scout' ? (folder.coins || []).find(x => x.mint === (rPairM || folder.rMint))?.sym : null;
   const powDoing = !folder?.coins?.length ? '' : folder.phase === 'scout' ? (rPairM || sl - (folder.base || 0) === rIdx ? `RESEARCHING $${scoutSym || '…'}` : `WATCHING $${scoutSym || '…'}`)
-    : !powHeld ? 'AGREEING' : sl - (folder.base || 0) === rIdx && (folder.minds || 1) > 1 ? 'RESEARCHING' : `WATCHING $${folder.sym}`;
-  const working = w?.status === 'working';
+    : !powHeld ? (folder.phase === 'buy' ? 'BUYING' : 'AGREEING') : sl - (folder.base || 0) === rIdx && (folder.minds || 1) > 1 ? 'RESEARCHING' : `WATCHING $${folder.sym}`;
+  const working = w?.status === 'working' && !roundOver;
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
   const [lastBad, setLastBad] = useState(false); useEffect(() => setLastBad(false), [w?.status]);
   const coinSym = String(w?.coin?.symbol || '').slice(0, 12);   // a spam token's 'symbol' can be 60 joined tickers — it once blew the whole desk apart
   return <article ref={ref} className={`agd-win cwb-win w${sl % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
     <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[sl] || sl + 1}</b>
-      <small data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal ? ` · ${w.goal}` : ''}</small>
+      <small data-tip={roundOver ? undefined : w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal && !roundOver ? ` · ${w.goal}` : ''}</small>
       <em className={`cwb-prov ${pcls}`} data-tip={w?.note || (w?.provider === 'reader' ? 'No live browser right now — it reads pages as text so it keeps working' : 'A browser in the cloud — nothing runs on your device')}>{p}</em>
       <em className={`agd-live${working || powDoing ? '' : ' is-off'}`}>● {working ? 'LIVE' : powDoing || String(w?.status || 'idle').toUpperCase()}</em></span>
     <div className="agd-browser is-rec cwb-browser">
-    <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
-    {w?.coin?.pair ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
-      <span key={k} className={tab === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
+    <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{roundOver ? `feeless · $${folder.sym || 'its folder'}` : w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
+    {w?.coin?.pair && !roundOver ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
+      <span key={k} className={(chart ? 'chart' : 'web') === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
     <div className="agd-screen cwb-view">
       {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[sl] || sl + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
-        <McapChart coin={{ pair: w.coin.pair, mint: w.coin.mint, symbol: coinSym }} /></Suspense>
-        <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
+        <McapChart coin={{ pair: w.coin.pair, mint: w.coin.mint, symbol: coinSym }} /></Suspense></div>
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
         : !working && !w?.hand && w?.status !== 'human' && folder?.coins?.length ? <PowScreen f={folder} slot={sl} />
@@ -261,12 +263,12 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
-      {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
+      {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       <div className={`cwb-dock at-${sl % 2 ? 'right' : 'left'}`}>{tray.length ? <ul className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true">{t.icon}</i>{t.label}</li>)}</ul> : null}
-        {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null}</div>
+        {w?.bubble && w?.status !== 'idle' && !human && !roundOver ? <p className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null}</div>
     </div></div>
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
@@ -454,7 +456,8 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p>
       {m.tid && onRate ? <span className="cwb-rate" role="group" aria-label="Rate this answer — it goes into both minds' memory">{[['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
         <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}>{ic}</button>)}{rate ? <em>in memory · 🗂 Jobs</em> : null}</span> : null}
-      {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}</div></li>;
+      {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}
+      {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop">📉 Open the PoP desk</button> : null}</div></li>;
 }
 const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the site each window is on and the step it is taking.'],
   ['[data-testid="cwb-plus"]', 'Attach', 'Drop images or clips — they ride with your next ask (kept 24 h; ☁ Keep saves one to your own cloud).'],
@@ -637,7 +640,7 @@ export function FolderView({ f, live, catId }) {
   </div>;
 }
 // 💬 the commands it understands in the chat — tap one and it is in the chat box, ready to send
-const CMDS_FALLBACK = [['file a PoW', 'A new 4-coin PoW folder: they agree on 1, buy it on FEELESS, loop until it sells'], ['stop PoW', 'Ends the folder — sells if it bought']];
+const CMDS_FALLBACK = [['file a PoW', 'A new 4-coin PoW folder: they agree on 1, buy it on FEELESS, loop until it sells'], ['stop PoW', 'Ends the folder — sells if it bought'], ['file a PoP', 'Both minds call a perp; a paper trade runs if they agree'], ['propose a PoP', 'The same call filed as a card. Nothing opens until you press Run']];
 export function CommandList({ rows, onPick }) {
   const [hit, setHit] = useState('');
   return <ul className="dsk-cmds" data-testid="dsk-cmds">{(rows?.length ? rows : CMDS_FALLBACK).map(([c, why], i) => <li key={c} style={{ '--i': i }}>
@@ -850,10 +853,13 @@ function PotSend({ cat }) {
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function PopApp({ cat, d, setD }) {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popFolders: j.popFolders ?? x?.popFolders }))).catch(() => {}); };
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, popFolder: j.popFolder, popCard: j.popCard, popFolders: j.popFolders ?? x?.popFolders }))).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
-  const send = async job => { setBusy(true); setErr(''); try { await work(cat.id, { op: 'pop', job }); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  return <PopDesk d={d} send={send} busy={busy} err={err} />;
+  const [asking, setAsking] = useState(null);   // the minds take about 15 s: the desk says so until a new card, trade or filed row arrives
+  const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
+  useEffect(() => { if (!asking) return undefined; if (asking !== mark) { setAsking(null); return undefined; } const t = setTimeout(() => setAsking(null), 90000); return () => clearTimeout(t); }, [asking, mark]);
+  const send = async job => { setBusy(true); setErr(''); try { await work(cat.id, { op: 'pop', job }); if (job === 'propose' || job === 'start') setAsking(mark); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return <PopDesk d={d} send={send} busy={busy || !!asking} asking={!!asking} err={err} />;
 }
 function HoneyPot({ cat }) {
   const [v, setV] = useState(null); const [m, setM] = useState(null); const [ledger, setLedger] = useState(null); const px = useSolPrice();
@@ -908,6 +914,12 @@ function WalletApp({ cat }) {
 }
 const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 const iconsKey = id => `feeless.dsk.icons.${id}`;
+// 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot
+export function placeIcons(saved, height) {
+  const rows = Math.max(3, Math.floor((height - 110) / 96)); const taken = new Set(Object.values(saved).map(p => `${p.x},${p.y}`)); let n = 0;
+  const free = () => { for (;;) { const p = { x: Math.floor(n / rows) * 96, y: (n % rows) * 96 }; n += 1; if (!taken.has(`${p.x},${p.y}`)) return p; } };
+  return Object.fromEntries(ICONS.map(([k]) => [k, saved[k] || free()]));
+}
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
   const g = useRef(null); const dragged = useRef(false);
@@ -923,7 +935,7 @@ const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null }) {
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
     pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
-  const [pos, setPos] = useState(() => { const dflt = Object.fromEntries(ICONS.map(([k], i) => [k, { x: 0, y: i * 96 }])); try { return { ...dflt, ...JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') }; } catch { return dflt; } });
+  const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false }); setTop(k); };
   const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false); const [now, setNow] = useState(Date.now());

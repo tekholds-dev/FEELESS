@@ -34186,5 +34186,25 @@ async def internal_agent_circle_send(request: Request, body: dict):
         raise HTTPException(502, 'Circle did not sign it.')
     _json_save(AGENT_CIRCLE_SENT, {**book_, key_: sig_})   # written BEFORE the send
     async with httpx.AsyncClient(timeout=20) as http_:
-        await _krpc(http_, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+        took_ = await _krpc(http_, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+    if not took_:
+        print(f"[agent send] {key_}: the first RPC refused it or gave no answer; broadcasting until its blockhash dies")
+    asyncio.create_task(_agent_send_loop(signed_['signedTransaction'], sig_))
     return {'signature': sig_}
+
+
+async def _agent_send_loop(signed, sig, seconds=75):
+    """📡 The keeper's rule on an agent's send too: one send through one busy node is why trades expire. The same signed bytes go to every node until the
+    chain has them or the blockhash is dead. Same signature: it can only ever land once."""
+    end_ = time.time() + seconds
+    async with httpx.AsyncClient(timeout=8) as http_:
+        while time.time() < end_:
+            try:
+                await _rpc_broadcast(http_, signed)
+                await asyncio.sleep(2.5)
+                st_ = await _krpc(http_, 'getSignatureStatuses', [[sig]])
+                if ((st_ or {}).get('value') or [None])[0]:
+                    return
+            except (httpx.HTTPError, ValueError) as e:
+                print(f'[agent send] {sig[:10]}: {str(e)[:80]}')
+                await asyncio.sleep(2.5)
