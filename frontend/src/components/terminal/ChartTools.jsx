@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { CHART_TOOLS, toggleChartTool, useChartTools } from '../../lib/chartTools';
 import '../../styles/chartTools.css';
+import { Ic3 } from '../../lib/icon3d';
 
 const VERDICT = { edge: ['🟢', 'EDGE', 'is-edge'], wait: ['🟡', 'WAIT', 'is-wait'], none: ['🔴', 'NO EDGE', 'is-none'] };
 
@@ -13,12 +14,12 @@ export function ChartToolsMenu({ read }) {
   const e = read?.edge; const v = e ? VERDICT[e.verdict] : null;
   return <div className="ctl" ref={box} data-testid="chart-tools">
     <button type="button" className={`ctl-btn ${on.length ? 'is-on' : ''}`} onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label="Chart tools" data-testid="chart-tools-btn"
-      data-tip="Chart tools: FVG · magnets · gun line · germ · meta edge — drawn from the candles on screen, on every chart">🧰{on.length > 0 && <b>{on.includes('edge') ? '⚡' : on.length}</b>}</button>
+      data-tip="Chart tools: FVG · magnets · gun line · germ · meta edge — drawn from the candles on screen, on every chart"><Ic3 e="🧰" />{on.length > 0 && <b>{on.includes('edge') ? '⚡' : on.length}</b>}</button>
     {v && <button type="button" className={`ctl-edge ${v[2]}`} onClick={() => setMore(m => !m)} aria-expanded={more} data-testid="chart-edge" data-tip="Meta edge: a read of the candles on screen — tap for the reasons. Never a forecast.">
       {v[0]} <b>{e.score}</b> {v[1]}<span>{e.plan}</span></button>}
     {v && more && <ul className="ctl-why" data-testid="chart-edge-why">{e.why.map(w => <li key={w}>{w}</li>)}<li className="ctl-note">Rules-based read of these candles · not advice</li></ul>}
     {open && <div className="ctl-pop" role="menu" data-testid="chart-tools-pop">{CHART_TOOLS.map(([id, ic, name, tip]) => <button key={id} type="button" role="menuitemcheckbox" aria-checked={on.includes(id)} className={on.includes(id) ? 'active' : ''}
-      onClick={() => toggleChartTool(id)} data-testid={`chart-tool-${id}`}><i>{ic}</i><b>{name}</b><small>{tip}</small></button>)}</div>}
+      onClick={() => toggleChartTool(id)} data-testid={`chart-tool-${id}`}><i><Ic3 e={ic} /></i><b>{name}</b><small>{tip}</small></button>)}</div>}
   </div>;
 }
 

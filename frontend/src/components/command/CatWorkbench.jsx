@@ -86,13 +86,13 @@ export function HiveSwitch({ cat }) {
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
     <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => (h.on ? set(false, h.every) : (setErr(''), setPop(true)))} data-testid="hive-toggle"
-      data-tip={h.on ? `🐝 Colonized: it files a graded call every ${every} and its trades are graded — click to leave the colony` : '🐝 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true">🐝</i> {h.on ? 'COLONIZED' : 'COLONIZE'}</button>
+      data-tip={h.on ? `🐝 Colonized: it files a graded call every ${every} and its trades are graded — click to leave the colony` : '🐝 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="🐝" /></i> {h.on ? 'COLONIZED' : 'COLONIZE'}</button>
     {h.on ? <select value={h.every} disabled={busy} onChange={e => set(true, Number(e.target.value))} aria-label="How often it files a call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select> : null}
     {pop ? createPortal(<div className="hv-shade" onClick={e => e.target === e.currentTarget && setPop(false)}>
       <section className="hv-pop m-pop" role="dialog" aria-modal="true" aria-labelledby="hv-pop-h" data-testid="colonize-pop">
         <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLONY</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
-        <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true">{ic}</b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
+        <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true"><Ic3 e={ic} /></b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
         <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLONY</small>
           <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the colony pool</strong>
             <small>The pool lives on its own platform and pays on its own epochs.</small>
@@ -101,7 +101,7 @@ export function HiveSwitch({ cat }) {
             <small>Sign once: each WINNING trade sends the % you pick of its profit to the colony wallet. The colony airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
             {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
-                <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}>✍ Sign to share</button></span>}</span></article></div>
+                <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> Sign to share</button></span>}</span></article></div>
         <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
         <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '🐝 Colonize'}</button></footer>
@@ -216,7 +216,7 @@ function PowScreen({ f, slot }) {
   const coins = f.coins || []; const rM = f.rPair ? f.rPair[me] : f.rMint; const scoutC = f.phase === 'scout' && rM ? coins.find(x => x.mint === rM) : null;   // 🔎 the coin being researched — its chart, tight
   const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : scoutC || coins[mine ?? (slot % Math.max(1, coins.length))] || {};
   return <div className="cwb-powscr" data-testid={`cwb-powscr-${slot}`}>   {/* 📈 the agent watches the FEELESS chart — never a page of cards (owner 2026-11-01) */}
-    <span className="cwb-powscr-h"><b>⛏ {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
+    <span className="cwb-powscr-h"><b><Ic3 e="⛏" /> {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
       <McapChart coin={{ pair: c.pair, mint: c.mint, symbol: c.sym }}
         fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * (1 - (Number(f.sl) || 25) / 100), slPct: Number(f.sl) || 25, lines: [{ px: f.entryUsd * (1 + (Number(f.tp) || 60) / 100), title: `🎯 take profit +${Number(f.tp) || 60}%`, color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
@@ -255,7 +255,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
       <em className={`cwb-prov ${pcls}`} data-tip={w?.note || (w?.provider === 'reader' ? 'No live browser right now — it reads pages as text so it keeps working' : 'A browser in the cloud — nothing runs on your device')}>{p}</em>
       <em className={`agd-live${working || powDoing ? '' : ' is-off'}`}>● {working ? 'LIVE' : powDoing || String(w?.status || 'idle').toUpperCase()}</em></span>
     <div className="agd-browser is-rec cwb-browser">
-    <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{roundOver ? `feeless · $${folder.sym || 'its folder'}` : w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
+    <span className="agd-url" title={w?.url || ''}><i aria-hidden="true"><Ic3 e="🔒" /></i><b>{roundOver ? `feeless · $${folder.sym || 'its folder'}` : w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
     {w?.coin?.pair && !roundOver ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
       <span key={k} className={(chart ? 'chart' : 'web') === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
     <div className="agd-screen cwb-view">
@@ -270,14 +270,14 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
       {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
-      {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
+      {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
-      <div className={`cwb-dock at-${sl % 2 ? 'right' : 'left'}`}>{tray.length ? <ul className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true">{t.icon}</i>{t.label}</li>)}</ul> : null}
+      <div className={`cwb-dock at-${sl % 2 ? 'right' : 'left'}`}>{tray.length ? <ul className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true"><Ic3 e={t.icon} /></i>{t.label}</li>)}</ul> : null}
         {w?.bubble && w?.status !== 'idle' && !human && !roundOver ? <p className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null}</div>
     </div></div>
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
-        <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
+        <b><Ic3 e="🔑" /> {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></div>
       : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you{w.human.kind === 'challenge' ? ' · 45s window' : ''}</b><small>{w.human.why}{w.human.kind === 'challenge' ? ' · Open the live browser to complete this yourself. The agent will try another source if this stays blocked.' : ''}</small>
@@ -312,7 +312,7 @@ export function EarnCard({ cat }) {
   const plays = d?.plays || [];
   return <section className={`cwb-earn${e.on ? ' is-on' : ''}`} data-testid="cwb-earn">
     <header><button type="button" className={`cwb-earn-sw${e.on ? ' is-on' : ''}`} role="switch" aria-checked={e.on} disabled={busy} onClick={() => save({ on: !e.on })}
-      data-tip={e.on ? 'Earn Mode ON: when you are not asking it anything, it keeps this plan fresh — you sign each play' : 'Turn on Earn Mode: it plans what its money could earn on FEELESS when idle'} data-testid="cwb-earn-sw"><i aria-hidden="true" />⚡ EARN MODE <b>{e.on ? 'ON' : 'OFF'}</b></button>
+      data-tip={e.on ? 'Earn Mode ON: when you are not asking it anything, it keeps this plan fresh — you sign each play' : 'Turn on Earn Mode: it plans what its money could earn on FEELESS when idle'} data-testid="cwb-earn-sw"><i aria-hidden="true" /><Ic3 e="⚡" /> EARN MODE <b>{e.on ? 'ON' : 'OFF'}</b></button>
       <div className="m-seg" role="radiogroup" aria-label="Earn risk">{['safe', 'mid', 'risky'].map(k => <button key={k} type="button" role="radio" aria-checked={e.risk === k} className={e.risk === k ? 'active' : ''} disabled={busy} onClick={() => save({ risk: k })}
         data-tip={k === 'safe' ? 'Gaps, staking, stables, lending, big pools without impermanent loss' : k === 'mid' ? '+ auto-compound vaults and mid pools' : '+ loops, small pools, 100%+ APY'} data-testid={`cwb-earn-${k}`}>{k.toUpperCase()}</button>)}</div>
       <label className="cwb-earn-amt" data-tip="The $ it plans with (its wallet + yours) — the $/day below is on this amount"><em>$</em><input className="m-input" type="number" min="1" step="1" defaultValue={e.budgetUsd} key={e.budgetUsd} onBlur={x => Number(x.target.value) !== e.budgetUsd && save({ budgetUsd: Number(x.target.value) })} aria-label="Dollars to plan with" data-testid="cwb-earn-amt" /></label></header>
@@ -346,7 +346,7 @@ export function ColonyTab({ cat }) {
   const share = cat.colonyShare || {}; const f = folders.find(x => x.id === pick);
   const pnlText = `${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)} SOL`;
   return <section className="col-tab" data-testid="col-tab">
-    <div className="col-head"><b>🐝 ITS COLONY</b>{[['WALLET', w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…'], ['SHARING', share.on ? `${share.pct}% of wins` : 'off'], ['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', pnlText], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
+    <div className="col-head"><b><Ic3 e="🐝" /> ITS COLONY</b>{[['WALLET', w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…'], ['SHARING', share.on ? `${share.pct}% of wins` : 'off'], ['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', pnlText], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className={`m-num${k === 'P/L' ? (pnl >= 0 ? ' is-up' : ' is-dn') : ''}`}>{v}</b></span>)}</div>
     <div className="col-dots-wrap" data-tip="Each dot is one PoW folder — up = it made money, down = it lost; tap one"><PowDots folders={folders} onPick={setPick} pick={pick} /></div>
     {f ? <p className="col-pick" data-testid="col-pick"><b>{f.name}</b>{f.sym ? ` · $${f.sym}` : ''} · {f.live ? `live — ${f.phase}` : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`} — {f.why || ''}</p> : null}
@@ -376,7 +376,7 @@ export function TreasuryDrawer({ cat }) {
   const sol = l => `${(Number(l || 0) / 1e9).toFixed(4)} SOL${px ? ` ($${((Number(l || 0) / 1e9) * px).toFixed(2)})` : ''}`;
   const sp = t?.split || { holder: 50, credit: 30, buyback: 20 };
   return <div className="cwb-tre" data-testid="cwb-treasury">
-    <b className="cwb-pass-num">🏦 ITS TREASURY</b>
+    <b className="cwb-pass-num"><Ic3 e="🏦" /> ITS TREASURY</b>
     <small>Its own coin's creator fees land here. You set how they split; buybacks come from these fees only, capped at {t?.buybackMax ?? 50}%.</small>
     <label className="cwb-tre-mint"><em>ITS COIN</em><input className="m-input" value={mint} onChange={e => setMint(e.target.value.trim())} placeholder="its coin address — or ask it: launch my coin" aria-label="Its coin address" data-testid="cwb-tre-mint" />
       <button type="button" className="m-btn" disabled={busy || mint === (t?.mint || '')} onClick={() => save({ mint })}>Save</button></label>
@@ -411,10 +411,10 @@ export function PassDrawer({ cat }) {
       setStage('Checking it on-chain…'); const c = await post(`/api/reputation/agent-pass/${cat.id}/confirm`, { address: addr, session, signature: m.signature, asset: m.asset });
       setDone({ number: c.number, asset: c.asset }); setStage('');
     } catch (e) { setErr(e.message || 'The mint did not finish — nothing was recorded.'); setStage(''); } };
-  if (done?.asset) return <div className="cwb-pass is-minted" data-testid="cwb-pass"><b className="cwb-pass-num">🎫 AGENT PASS #{String(done.number || 0).padStart(4, '0')}</b>
+  if (done?.asset) return <div className="cwb-pass is-minted" data-testid="cwb-pass"><b className="cwb-pass-num"><Ic3 e="🎫" /> AGENT PASS #{String(done.number || 0).padStart(4, '0')}</b>
     <small>In your wallet · 10% of every resale goes to FEELESS</small><a className="m-btn" href={`https://explorer.solana.com/address/${done.asset}`} target="_blank" rel="noopener noreferrer">See it on-chain ↗</a></div>;
   const blocked = !cat?.recoveryConfirmedAt ? 'Confirm its recovery PIN first (👛 Wallet tab) — the Pass comes after its safe-keeping.' : r && !r.ready ? r.why : '';
-  return <div className="cwb-pass" data-testid="cwb-pass"><b className="cwb-pass-num">🎫 MINT ITS AGENT PASS</b>
+  return <div className="cwb-pass" data-testid="cwb-pass"><b className="cwb-pass-num"><Ic3 e="🎫" /> MINT ITS AGENT PASS</b>
     <small>A numbered NFT of this agent, minted to your wallet. Whoever holds it holds the agent — sell it later on the FEELESS marketplace or any Core marketplace.</small>
     {r ? <div className="cwb-pass-kv"><span><em>MINT FEE</em><b className="m-num">{sol(r.feeLamports)} SOL{usdOf(r.feeLamports)}</b></span><span><em>SOLANA'S COST</em><b className="m-num">{sol(r.providerLamports)} SOL</b></span>
       <span><em>RESALE ROYALTY</em><b className="m-num">{(r.royaltyBps || 0) / 100}% → FEELESS</b></span></div> : <small>Reading the mint fee…</small>}
@@ -461,12 +461,12 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
     <div><header><b>{you ? 'You' : (name || 'Its minds')}</b>{tags.map(t => <em key={t} className="cwb-tag">{t}</em>)}{m.at ? <time>{ago(m.at)} ago</time> : null}{m.cost != null && !you ? <small className="m-num">{usd(m.cost)}</small> : null}</header>
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p>
       {m.tid && onRate ? <span className="cwb-rate" role="group" aria-label="Rate this answer — it goes into both minds' memory">{[['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
-        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}>{ic}</button>)}{rate ? <em>in memory · 🗂 Jobs</em> : null}</span> : null}
+        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} /></button>)}{rate ? <em>in memory · <Ic3 e="🗂" /> Jobs</em> : null}</span> : null}
       {m.img ? <img className="ast-chat-img" src={apiUrl(m.img)} alt={text} loading="lazy" data-testid="cwb-img" /> : null}
       {you ? null : <PreviewButton text={m.text} url={m.page} />}
-      {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}
-      {m.open === 'bids' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('bids')} data-tip="Its Bids desk on the Desktop, with its PoB folders" data-testid="cwb-open-bids">🎲 Open the Bids desk</button> : null}
-      {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop">📉 Open the PoP desk</button> : null}</div></li>;
+      {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow"><Ic3 e="⛏" /> Open the PoW folder</button> : null}
+      {m.open === 'bids' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('bids')} data-tip="Its Bids desk on the Desktop, with its PoB folders" data-testid="cwb-open-bids"><Ic3 e="🎲" /> Open the Bids desk</button> : null}
+      {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop"><Ic3 e="📉" /> Open the PoP desk</button> : null}</div></li>;
 }
 const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the site each window is on and the step it is taking.'],
   ['[data-testid="cwb-plus"]', 'Attach', 'Drop images or clips — they ride with your next ask (kept 24 h; ☁ Keep saves one to your own cloud).'],
@@ -511,7 +511,7 @@ export function MindRail({ w, side, d }) {
       <div><dt>SCREEN</dt><dd className={w?.screen && !w?.last ? 'is-up' : ''}>{w?.frozen ? 'PAUSED' : w?.last ? 'LAST PAGE' : w?.screen ? 'LIVE' : '—'}</dd></div>
       {side === 'left' ? <div><dt>LEVEL</dt><dd className="m-num">{d?.level ?? '—'}</dd></div> : <div><dt>W / L</dt><dd className="m-num">{d ? `${d.wins || 0} / ${d.losses || 0}` : '—'}</dd></div>}
       {side === 'left' ? <div><dt>STORED</dt><dd className="m-num" key={d?.stored}>{d?.stored ?? 0}</dd></div> : <div><dt>P/L</dt><dd className={`m-num ${Number(d?.pnlSol) < 0 ? 'is-dn' : 'is-up'}`}>{d?.pnlSol != null ? `${Number(d.pnlSol) >= 0 ? '+' : ''}${Number(d.pnlSol).toFixed(3)} SOL` : '—'}</dd></div>}
-      {side === 'left' ? <div data-tip="Honey this epoch: its graded calls and trades, judged an hour on"><dt>🍯 HONEY</dt><dd className={`m-num ${Number(d?.honey) < 0 ? 'is-dn' : d?.honey ? 'is-up' : ''}`} key={d?.honey}>{d?.honey != null ? `${d.honey > 0 ? '+' : ''}${d.honey}` : '—'}</dd></div>
+      {side === 'left' ? <div data-tip="Honey this epoch: its graded calls and trades, judged an hour on"><dt><Ic3 e="🍯" /> HONEY</dt><dd className={`m-num ${Number(d?.honey) < 0 ? 'is-dn' : d?.honey ? 'is-up' : ''}`} key={d?.honey}>{d?.honey != null ? `${d.honey > 0 ? '+' : ''}${d.honey}` : '—'}</dd></div>
         : <div data-tip="Graded calls it got right this epoch"><dt>RIGHT</dt><dd className="m-num">{d ? `${d.right || 0} / ${d.graded || 0}` : '—'}</dd></div>}
       {side === 'left' ? <div><dt>COLONY</dt><dd className={d?.colonized ? 'is-up' : ''}>{d?.colonized ? '🐝 IN' : 'OUT'}</dd></div>
         : <div data-tip="Its newest call, and the honey it earned once graded"><dt>LAST CALL</dt><dd>{d?.lastCall ? `${d.lastCall.call} $${d.lastCall.sym}${d.lastCall.honey != null ? ` ${d.lastCall.honey > 0 ? '+' : ''}${d.lastCall.honey}` : ' ⏳'}` : '—'}</dd></div>}</dl>
@@ -547,7 +547,7 @@ function PublicMinds({ cat }) {
     <div className="cwb-stage agd-wins">{wins.map(w => { const go = w.status === 'working'; const i = w.i ?? 0;
       return <article key={i} className={`agd-win cwb-win w${i % 2} s-${w.status}`} data-testid={`cwb-pub-${i}`}>
         <span className={`agd-bar${go ? ' is-go' : ''}`}><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b><small>{w.model || 'model'}</small><em className={`agd-live${go ? '' : ' is-off'}`}>● {go ? 'LIVE' : String(w.status).toUpperCase()}</em></span>
-        <div className="agd-browser is-rec cwb-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>{w.host || 'about:blank'}</b>{go ? <em className="agd-rec">● LIVE</em> : null}</span>
+        <div className="agd-browser is-rec cwb-browser"><span className="agd-url"><i aria-hidden="true"><Ic3 e="🔒" /></i><b>{w.host || 'about:blank'}</b>{go ? <em className="agd-rec">● LIVE</em> : null}</span>
           <div className="agd-screen cwb-view cwb-pubscreen">{w.screen && !w.frozen ? <img className="cwb-shot" src={apiUrl(w.last ? `/api/cats/${cat.id}/last/${w.slot ?? i}` : `/api/cats/${cat.id}/screen/${i}?t=${tick}`)} alt={`${w.model || 'its'} window, ${w.last ? 'its last page' : 'live'}`} data-testid={`cwb-pubshot-${i}`} />
             : <><span className="cwb-pub-host" key={w.host}>{w.frozen ? '🔒 paused' : d?.incognito ? '🕶 incognito' : w.host || (go ? 'thinking…' : 'idle')}</span>
               <small className="cwb-pub-note">{w.frozen ? 'its owner is signing in — this window is hidden until they finish' : d?.incognito ? 'its owner keeps these screens private' : go ? 'reading…' : "waiting for its owner's ask"}</small></>}
@@ -581,7 +581,7 @@ function Credentials({ cat, rows, ask, onSaved, log = [] }) {
   const save = async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const form = e.currentTarget; setErr(''); setBusy(true);
     try { const j = await work(cat.id, { op: 'save_login', text: host, user: String(f.get('u') || ''), secret: String(f.get('p') || '') }); form.reset(); setSite(''); onSaved?.(j.logins); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const drop = async r => { try { onSaved?.((await work(cat.id, { op: 'unlogin', text: r.site, job: r.user })).logins); } catch (er) { setErr(er.message); } };
-  return <details ref={box} className="cwb-vault" open data-testid="cwb-vault"><summary data-tip="Logins its windows may use — sealed on the server, the AI models never see them">🔐 CREDENTIALS <b className="m-num">{rows?.length || 0}</b></summary>
+  return <details ref={box} className="cwb-vault" open data-testid="cwb-vault"><summary data-tip="Logins its windows may use — sealed on the server, the AI models never see them"><Ic3 e="🔐" /> CREDENTIALS <b className="m-num">{rows?.length || 0}</b></summary>
     {rows?.length ? <ul>{rows.map(r => <CredRow key={`${r.site}|${r.user}`} cat={cat} r={r} onDrop={drop} />)}</ul> : null}
     <form className="cwb-login cwb-cred-add" onSubmit={save} autoComplete="off" data-testid="cwb-cred-add">
       <input className="m-input" name="s" value={site} onChange={e => setSite(e.target.value)} placeholder="site (e.g. dropbox.com)" aria-label="Site" required data-testid="cwb-cred-site" />
@@ -610,7 +610,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
   const raw = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
   const vit = Object.values(raw.reduce((a, x) => ({ ...a, [x.label]: { ...x, sites: [...new Set([...(a[x.label]?.sites || []), ...(x.sites || [x.site])])] } }), {}));   // one row a fact (older folders too)
   return <div className="dsk-coin" data-testid={`dsk-coin-${c.mint}`}>
-    <span className="dsk-coin-h"><b>📁 ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
+    <span className="dsk-coin-h"><b><Ic3 e="📁" /> ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
     {met ? <div className="dsk-evidence-meter" data-testid="dsk-evidence-meter"><b>RESEARCH MEASURES</b><span>{met.verified} verified facts · {met.visits} browser visits · {met.durationSec}s · ${Number(met.costUsd || 0).toFixed(4)}</span><small>{met.factsPerVisit == null ? 'no browser visits' : `${met.factsPerVisit} facts/visit`} · {met.factsPerUsd == null ? 'no model charge' : `${met.factsPerUsd} facts/$`} {met.gaps?.length ? `· gaps: ${met.gaps.join(', ')}` : ''}</small></div> : null}
     {Object.keys(mv).length ? <ul className="dsk-coin-moves" aria-label="Sites and their random moves">{Object.entries(mv).map(([h, m]) => <li key={h} data-tip={`${h}: ${m.max} moves drawn at random (3–8), ${m.used} used`}><b>{h}</b><u><s style={{ transform: `scaleX(${Math.min(1, (m.used || 0) / (m.max || 1))})` }} /></u><small className="m-num">{m.used}/{m.max}</small></li>)}</ul> : null}
     {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.label}${k}`} className={x.contradiction ? 'is-disputed' : ''}><em>{x.label}{x.contradiction ? ' · CONFLICT' : ''}</em><b className="m-num">{x.value}</b><small>{(x.sites || [x.site]).join(' · ')} · {x.verified ? 'page verified' : 'reported'}</small>
@@ -625,11 +625,11 @@ export function FolderView({ f, live, catId }) {
   const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
   const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', sell_wait: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
-    <span className="dsk-fold-h"><b>📁 {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
+    <span className="dsk-fold-h"><b><Ic3 e="📁" /> {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
     <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={`${f.pick?.mint === c.mint ? 'is-pick' : ''}${open === c.mint ? ' is-open' : ''}`}>
       <button type="button" onClick={() => setOpen(o => (o === c.mint ? null : c.mint))} aria-expanded={open === c.mint} data-tip="Open this coin's folder — its vitals and snapshots">
-        <em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool · {cleanShots(f, c.mint).length} 📸</small></button></li>)}</ul>
+        <em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool · {cleanShots(f, c.mint).length} <Ic3 e="📸" /></small></button></li>)}</ul>
     {open ? <CoinFolder f={f} c={(f.coins || []).find(c => c.mint === open)} catId={catId} onShot={setBig} /> : null}
     {big ? <SnapStack f={f} shot={big} catId={catId} onClose={() => setBig(null)} onPick={setBig} /> : null}
     {(f.talk || []).length ? <ul className="dsk-fold-talk">{f.talk.slice(-5).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : null}
@@ -670,7 +670,7 @@ function JobsFolder({ d }) {   // 🗂 the same explorer as PoW (owner 2026-11-0
     <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{jobs.map((x, i) => { const rr = d?.jobRates?.[x.id]; return <Tile key={x.id} i={i} tone={rr === 'up' ? 'good' : rr === 'down' ? 'bad' : 'none'} ic={rr === 'up' ? '👍' : rr === 'down' ? '👎' : '🗂'}
       label={String(x.request).slice(0, 22)} sub={`${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
-  else if (k === 'answer') body = <div className={`dsk-rep is-${r === 'up' ? 'good' : r === 'down' ? 'bad' : 'none'}`}><span className="dsk-rep-h"><b>📋 ANSWER</b><em>{r === 'up' ? '👍 you liked it' : r === 'down' ? '👎 you did not' : j.status}</em></span><p className="dsk-rep-l">{j.answer}</p>
+  else if (k === 'answer') body = <div className={`dsk-rep is-${r === 'up' ? 'good' : r === 'down' ? 'bad' : 'none'}`}><span className="dsk-rep-h"><b><Ic3 e="📋" /> ANSWER</b><em>{r === 'up' ? '👍 you liked it' : r === 'down' ? '👎 you did not' : j.status}</em></span><p className="dsk-rep-l">{j.answer}</p>
     <div className="hv-pow-stats">{[['MINDS', (j.minds || []).length], ['STEPS', (j.minds || []).reduce((a, m) => a + (m.steps || []).length, 0)], ['COST', `$${Number(j.cost || 0).toFixed(4)}`], ['WHEN', `${ago(j.at)} ago`]].map(([kk, v]) => <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div></div>;
   else if (k != null) { const x = (j.minds || [])[k] || {};
     body = <div className="dsk-tree"><div className="dsk-tree-mind"><b>MIND {'AB'[k]} · {x.model}</b><em>{x.job}</em>
@@ -697,7 +697,7 @@ function SourcesFolder({ cat, d, setD }) {
     {pick ? <SignedSites cat={cat} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); setPick(null); }} /> : null}
     <ul>{rows.map((r, i) => <li key={r.host} style={{ '--i': i % 20 }} className={r.last === 'blocked' ? 'is-blocked' : r.ok ? 'is-ok' : ''}>
       <span><b>{r.host}</b><small>{r.what}</small></span>
-      <em className="m-num" data-tip="Source access · your agent's manual challenge results">{r.ok || 0} ✓ · {r.blocked || 0} 🛡{d?.challengeStats?.[r.host] ? ` · ${d.challengeStats[r.host].manualPass || 0} recovered / ${d.challengeStats[r.host].timedOut || 0} timed out` : ''}</em>
+      <em className="m-num" data-tip="Source access · your agent's manual challenge results">{r.ok || 0} ✓ · {r.blocked || 0} <Ic3 e="🛡" />{d?.challengeStats?.[r.host] ? ` · ${d.challengeStats[r.host].manualPass || 0} recovered / ${d.challengeStats[r.host].timedOut || 0} timed out` : ''}</em>
       {signed.has(r.host) ? <i className="dsk-src-in">signed in</i> : <button type="button" className="m-btn" onClick={() => setPick(r.host)} data-tip={`Opens ${r.host} live in its window — sign in once (its own email), it stays signed in`} data-testid={`src-signin-${r.host}`}>Sign in</button>}</li>)}</ul>
   </div>;
 }
@@ -722,9 +722,9 @@ function TradeLine({ f }) {   // 📈 the trade drawn from its own price samples
 }
 function ReportFile({ f, catId }) {
   const r = f.report;
-  if (!r) return <div className="dsk-rep" data-testid="dsk-report"><b className="dsk-rep-h">📋 FINAL REPORT</b><p className="dsk-note">This folder is still {f.phase} — its report is written the moment it closes.</p></div>;
+  if (!r) return <div className="dsk-rep" data-testid="dsk-report"><b className="dsk-rep-h"><Ic3 e="📋" /> FINAL REPORT</b><p className="dsk-note">This folder is still {f.phase} — its report is written the moment it closes.</p></div>;
   return <div className={`dsk-rep is-${gradeOf(f) || 'none'}`} data-testid="dsk-report">
-    <span className="dsk-rep-h"><b>📋 FINAL REPORT</b><em>{r.grade}</em>{r.pnlPct != null ? <strong className={`m-num ${r.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct}%</strong> : null}
+    <span className="dsk-rep-h"><b><Ic3 e="📋" /> FINAL REPORT</b><em>{r.grade}</em>{r.pnlPct != null ? <strong className={`m-num ${r.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct}%</strong> : null}
       <a className="m-btn" href={shotUrl(catId, f, 'report.md')} target="_blank" rel="noopener noreferrer" data-tip="The same report as a Markdown file">⬇ report.md</a></span>
     <div className="hv-pow-stats">{[['COINS', `${r.researched}/${(r.coins || []).length} researched`], ['TRADE', r.pick ? `$${r.pick} · ${r.sol} SOL` : 'none'], ['HELD', r.held != null ? `${r.held} min · ${r.checks} checks` : '—'], ['COST', `$${Number(r.costUsd || 0).toFixed(4)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
@@ -751,7 +751,7 @@ function PowShare({ cat }) {
 function PoiPanel({ poi, catId, onRestore }) {
   const [confirm, setConfirm] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   if (!poi) return null;
-  if (poi.error) return <p className="pf-gap" role="alert">🧬 Research DNA needs repair: {poi.error}</p>;
+  if (poi.error) return <p className="pf-gap" role="alert"><Ic3 e="🧬" /> Research DNA needs repair: {poi.error}</p>;
   const restore = async generation => { if (confirm !== generation) { setConfirm(generation); return; }
     setBusy(true); setError(''); try { const x = await work(catId, { op: 'memory_restore', i: generation }); onRestore?.(x.poi); setConfirm(null); }
     catch (e) { setError(e.message); } finally { setBusy(false); } };
@@ -847,7 +847,7 @@ function PotSend({ cat }) {
   const send = async () => { setBusy(true); setMsg(''); setOk(null);
     try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt), ...(way === 'proof' ? { job: pick } : { text: why.trim() }) }); setOk(j.sent); setAmt(''); setPick(''); setWhy(''); loadProofs(); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
   return <form className="dsk-potsend" onSubmit={e => { e.preventDefault(); send(); }} data-testid="dsk-potsend">
-    <span><b>🏺 SEND TO THE COLONY POT</b><small>Honey travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
+    <span><b><Ic3 e="🏺" /> SEND TO THE COLONY POT</b><small>Honey travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
     <div className="m-seg" role="tablist" aria-label="What goes with this honey">{[['proof', '🧾 A proof'], ['why', '✍ A reason']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={way === k} className={way === k ? 'on' : ''} onClick={() => setWay(k)} data-testid={`dsk-pot-${k}`}>{l}</button>)}</div>
     {way === 'proof' ? (free.length ? <select className="m-input" value={pick} onChange={e => setPick(e.target.value)} aria-label="Proof to send with this honey" data-tip="Each proof can go to the pot once" data-testid="dsk-pot-proof"><option value="">Pick a proof…</option>{free.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.sym || '—'}{p.pnlPct != null ? ` · ${p.pnlPct >= 0 ? '+' : ''}${Number(p.pnlPct).toFixed(1)}%` : ''}</option>)}</select>
       : <small className="m-dim" data-testid="dsk-pot-none">{proofs.length ? 'Every proof it has already went to the pot.' : 'It has no filed proof yet.'} Give a reason instead.</small>)
@@ -885,7 +885,7 @@ function PopChart({ f }) {
 // 🌐 what a mind actually opened in its own window, and what it read there
 function Browsed({ b }) {
   if (!b) return null;
-  return <div className="pop-web" data-testid="pop-browsed"><em>🌐 {(b.sites || []).length ? b.sites.join(' · ') : 'Opened no site'}</em>{b.note ? <small>{b.note}</small> : null}</div>;
+  return <div className="pop-web" data-testid="pop-browsed"><em><Ic3 e="🌐" /> {(b.sites || []).length ? b.sites.join(' · ') : 'Opened no site'}</em>{b.note ? <small>{b.note}</small> : null}</div>;
 }
 // 🛰 each mind's own sources, each measured against the chart
 function PopSources({ f }) {
@@ -905,9 +905,9 @@ function PopMarket({ f, read, m }) {
     {minds.length ? <Calls calls={minds} /> : <p className="dsk-note">Neither mind called {m}.</p>}</div>;
 }
 function PopReport({ f }) {
-  const r = f.report; if (!r) return <div className="dsk-rep"><b className="dsk-rep-h">📋 FINAL REPORT</b><p className="dsk-note">Still open. Its report is written the moment it closes.</p></div>;
+  const r = f.report; if (!r) return <div className="dsk-rep"><b className="dsk-rep-h"><Ic3 e="📋" /> FINAL REPORT</b><p className="dsk-note">Still open. Its report is written the moment it closes.</p></div>;
   const tone = popResult(f);
-  return <div className={`dsk-rep is-${tone || 'none'}`} data-testid="pop-report"><span className="dsk-rep-h"><b>📋 FINAL REPORT</b><em>{r.grade}</em>{r.roePct != null ? <strong className={`m-num ${r.roePct >= 0 ? 'is-up' : 'is-dn'}`} data-tip={f.ghost ? 'What it would have made. Not counted as P/L' : undefined}>{popPct(r.roePct)}</strong> : null}</span>
+  return <div className={`dsk-rep is-${tone || 'none'}`} data-testid="pop-report"><span className="dsk-rep-h"><b><Ic3 e="📋" /> FINAL REPORT</b><em>{r.grade}</em>{r.roePct != null ? <strong className={`m-num ${r.roePct >= 0 ? 'is-up' : 'is-dn'}`} data-tip={f.ghost ? 'What it would have made. Not counted as P/L' : undefined}>{popPct(r.roePct)}</strong> : null}</span>
     <div className="hv-pow-stats">{[['P/L', r.pnlUsd != null ? `${r.pnlUsd >= 0 ? '+' : '−'}$${Math.abs(r.pnlUsd).toFixed(2)} paper` : 'none'], ['HELD', r.held != null ? `${r.held} min` : '—'], ['MINDS', r.minds], ['COST', `$${Number(r.costUsd || 0).toFixed(4)}`]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <p className="dsk-rep-l"><b>Lesson</b> {r.lesson}</p>{f.entry ? <TradeLine f={{ ...f, sym: f.market, pnlPct: r.roePct }} /> : null}{r.kernel ? <small className="dsk-note">Limits version {String(r.kernel.hash || r.kernel).slice(0, 12)}</small> : null}</div>;
 }
@@ -972,7 +972,7 @@ function BidsApp({ cat, d, setD }) {
   return <div className="dsk-pow bd" data-testid="dsk-bids">
     {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => (open && path === 'pob' ? setOpen('') : setPath(''))} aria-label="Up one folder" data-tip="Up one folder">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span></p> : null}
     <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
-      <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : 'Each mind reads sites in its own browser, then calls a market. If they agree, it bids 50 free chips'} data-testid="pob-file">🎲 File a bid</button></header>
+      <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : 'Each mind reads sites in its own browser, then calls a market. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
       {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
       {err ? <p className="dsk-note" role="alert">{err}</p> : null}
       <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
@@ -993,7 +993,7 @@ function HoneyPot({ cat }) {
   const share = cat.colonyShare || {};
   return <div className="dsk-honey" data-testid="dsk-honey">
     <div className="dsk-honey-top">
-      <span data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
+      <span data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em><Ic3 e="🍯" /> HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
       <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b></span>
       <span data-tip="The colony pool (Meteora) the colony wallet opens: stake into it once it is open"><em>COLONY POOL</em><b className="m-num">{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'not open'}</b></span>
     </div>
@@ -1106,7 +1106,7 @@ export function TraderCabinet({ cat, items }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   const [desk, setDesk] = useState(false);
-  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open">🖥 Private desktop</button>
+  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Private desktop</button>
     <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />{desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}</>;
 }
 // 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
@@ -1132,7 +1132,7 @@ function SealedVault({ cat, rows = [], onSaved }) {
   const drop = async r => { try { onSaved?.((await work(cat.id, { op: 'drop_secret', text: r.id })).secrets); } catch (e) { setErr(e.message); } };
   const seal = async e => { e.preventDefault(); const form = e.currentTarget; const f = new FormData(form); setErr(''); setBusy('seal');
     try { onSaved?.((await work(cat.id, { op: 'seal', job: String(f.get('l') || ''), text: String(f.get('s') || ''), secret: String(f.get('n') || '') })).secrets); form.reset(); } catch (er) { setErr(er.message); } finally { setBusy(''); } };
-  return <section className="cwb-signed cwb-sealed" data-testid="cwb-sealed"><b className="cwb-signed-h">🔏 SEALED <em className="m-num">{rows.length}</em></b>
+  return <section className="cwb-signed cwb-sealed" data-testid="cwb-sealed"><b className="cwb-signed-h"><Ic3 e="🔏" /> SEALED <em className="m-num">{rows.length}</em></b>
     <small>Recovery phrases + files. A file you download in a window you used lands here by itself — sealed, and deleted from the cloud browser.</small>
     {rows.length ? <ul>{rows.map(r => <li key={r.id} data-testid={`cwb-secret-${r.id}`}><span><b>{r.kind === 'file' ? '📄' : '📝'} {r.label}</b><small>{kb(r.size || 0)} · {ago(r.at)} ago · sealed</small>
       {shown?.id === r.id ? <code className="cwb-sealed-open" data-testid="cwb-secret-text">{shown.text}</code> : null}</span>
@@ -1156,7 +1156,7 @@ export function SignedSites({ cat, rows = [], onSaved, nested = false, start = n
   useEffect(() => { if (start) run('signin_open', start); }, [start]);   // eslint-disable-line react-hooks/exhaustive-deps
   const run = async (op, text) => { setBusy(op); setErr('');
     try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive({ ...j, at: Date.now() }); setBig(!nested); } else { setLive(null); onSaved?.(j.signedIn || [], j.secrets); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
-  return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h">🔓 SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
+  return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h"><Ic3 e="🔓" /> SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
     <small>Blocked by a bot check, or your agent's own email? Sign in once here — its windows open signed in.</small>
     {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small data-tip="Only this site's own, newest, unexpired cookies are kept — trackers, other sites and stale logins are cut on every save and every load, then sealed with this agent's key">{ago(r.at)} ago · {r.n} cookies{r.dropped ? ` · ${r.dropped} cleaned out` : ''} · sealed</small></span>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('signin_drop', r.site)} data-tip={`Sign its windows out of ${r.site}`} data-testid={`cwb-signed-drop-${r.site}`}>Sign out</button></li>)}</ul> : null}
@@ -1207,15 +1207,15 @@ export function CloudDrawer({ cat, attachments, ipfs = [] }) {
   const files = [...picked, ...(attachments?.files || []).filter(f => !picked.some(x => x.id === f.id))].map(f => ({ ...f, ipfs: f.ipfs || kept.find(x => x.file === f.id) }));
   const pick = async e => { const file = e.target.files?.[0]; e.target.value = ''; if (!file) return; setPickErr(''); setBusy('pick');
     try { const j = await addFile(cat.id, file); setPicked(x => [{ ...j.file, autoIpfs: true }, ...x]); } catch (er) { setPickErr(er.message); } finally { setBusy(''); } };
-  return <details className="cwb-vault cwb-cloudd" open data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
+  return <details className="cwb-vault cwb-cloudd" open data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none"><Ic3 e="☁" /> CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
     {!link ? <div className="cwb-cloud-pick" data-testid="cwb-cloud-pick"><p className="m-note"><b>Connect your own cloud</b>Its files go to a FEELESS folder in your account. You sign in on Google / Dropbox — FEELESS never sees that password.</p>
       {(c?.providers || []).map(p => <button key={p.key} type="button" className={`m-btn${p.ready ? ' m-go' : ''}`} disabled={!p.ready || !!busy} onClick={() => connect(p.key)}
         data-tip={p.ready ? `Sign in to ${p.label} (${p.free}) — opens their page` : `${p.label} isn't set up on FEELESS yet`} data-testid={`cwb-cloud-${p.key}`}>{busy === p.key ? 'Opening…' : `Connect ${p.label}`} <small>{p.ready ? p.free : 'soon'}</small></button>)}</div> : <>
       <div className="cwb-meters cwb-cloud-bar" data-tip={total ? `${fileMb(used)} used of ${fileMb(total)} in your ${link.label}` : 'Your space'}><span><em>{link.label.toUpperCase()}</em>
         <b className="m-num" data-testid="cwb-cloud-left">{total ? `${fileMb(Math.max(0, total - used))} left` : '—'}</b><u aria-hidden="true"><s className={total && used > total * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${total ? Math.min(1, used / total) : 0})` }} /></u></span></div>
       {(c?.recent || []).length ? <div className="cwb-media-strip" data-testid="cwb-cloud-latest">{c.recent.map(f => <a key={f.id} href={f.link} target="_blank" rel="noopener noreferrer" data-tip={`${f.name} · ${fileMb(f.size)} — opens in your ${link.label}`}>
-        {f.thumb ? <img src={f.thumb} alt={f.name} loading="lazy" referrerPolicy="no-referrer" /> : <span className="cwb-cloud-ico" aria-hidden="true">📄</span>}<small>{f.name}</small></a>)}</div>
-        : <p className="cwb-cloud-empty">Nothing kept yet — ☁ a chat attachment below, or ask it to save something.</p>}
+        {f.thumb ? <img src={f.thumb} alt={f.name} loading="lazy" referrerPolicy="no-referrer" /> : <span className="cwb-cloud-ico" aria-hidden="true"><Ic3 e="📄" /></span>}<small>{f.name}</small></a>)}</div>
+        : <p className="cwb-cloud-empty">Nothing kept yet — <Ic3 e="☁" /> a chat attachment below, or ask it to save something.</p>}
       <button type="button" className="m-btn cwb-cred-x" disabled={!!busy} onClick={() => run('off', async () => { await post('cloud/disconnect'); await load(); })} data-tip="Disconnect — FEELESS forgets the sealed pass">Disconnect</button></>}
     <div className="cwb-ipfs-add" data-testid="cwb-ipfs-add"><span><b>⛓ KEEP ON IPFS</b><small>30 days, paid in SOL from its own wallet — you see the exact price before it pays</small></span>
       <label className={`m-btn m-go${busy === 'pick' ? ' is-busy' : ''}`} data-tip="Pick an image or GIF — it is added to its files and priced for IPFS">{busy === 'pick' ? 'Adding…' : '＋ Pick a file'}
@@ -1231,7 +1231,7 @@ export function CloudDrawer({ cat, attachments, ipfs = [] }) {
 // 🖼 its media drawer: what it saved for a campaign, a slide strip, cleaned after 7 days on its own
 function MediaDrawer({ items }) {
   if (!items?.length) return null;
-  return <section className="cwb-media" data-testid="cwb-media"><b>🖼 MEDIA <small>{items.length} · cleaned after 7 days</small></b>
+  return <section className="cwb-media" data-testid="cwb-media"><b><Ic3 e="🖼" /> MEDIA <small>{items.length} · cleaned after 7 days</small></b>
     <div className="cwb-media-strip">{items.map(m => <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" data-tip={m.title || m.url}>
       {m.kind === 'video' ? <video src={m.url} muted loop playsInline preload="metadata" /> : <img src={m.url} alt={m.title || ''} loading="lazy" />}<small>{m.title || 'untitled'}</small></a>)}</div></section>;
 }
@@ -1255,7 +1255,7 @@ function AttachChips({ files, store, onDrop }) {
     <img src={apiUrl(f.url)} alt="" /><b>{f.name}</b><small className="m-num">{fileMb(f.size)}</small>
     <button type="button" onClick={() => onDrop(f.id)} aria-label={`Take ${f.name} off this ask`} data-tip="Take it off this ask (it stays in its storage until cleaned)" data-testid={`cwb-file-x-${f.id}`}>✕</button></span>)}
     {store ? <span className="cwb-store" data-tip={`Attachments: ${fileMb(store.used)} of ${fileMb(store.quota)} — they leave FEELESS 24 h after last use (☁ Keep one in your own cloud)`} data-testid="cwb-store">
-      <em>☁ STORAGE</em><u aria-hidden="true"><s style={{ transform: `scaleX(${pct})` }} /></u><small className="m-num">{fileMb(store.used)} / {fileMb(store.quota)}</small></span> : null}</div>;
+      <em><Ic3 e="☁" /> STORAGE</em><u aria-hidden="true"><s style={{ transform: `scaleX(${pct})` }} /></u><small className="m-num">{fileMb(store.used)} / {fileMb(store.quota)}</small></span> : null}</div>;
 }
 
 function WorkbenchLive({ cat }) {
@@ -1299,11 +1299,11 @@ function WorkbenchLive({ cat }) {
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
-    <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
+    <header className="cwb-head"><span><b><Ic3 e="🧠" />🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
-      <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open">🖥 Desktop</button>
+      <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Desktop</button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
@@ -1332,13 +1332,13 @@ function WorkbenchLive({ cat }) {
     <ol ref={chatRef} className="cwb-chat" aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} />)}
-      {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true">🧠</i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
+      {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
         <span className="cwb-sugg">{SUGGEST.map(t => <button key={t} type="button" onClick={() => setText(t)}>{t}</button>)}</span></li> : null}
     </ol>
     {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest message" data-testid="cwb-newmsg">↓ {unseen} new</button> : null}
-    {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b>💸 Out of budget for that ask</b>
+    {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b><Ic3 e="💸" /> Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
     <TopupCard cat={cat} d={d} setD={setD} work={work} />
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
@@ -1348,7 +1348,7 @@ function WorkbenchLive({ cat }) {
       <button type="button" onClick={() => act('unpark', { i })} aria-label="Drop it" data-tip="Drop it" data-testid={`cwb-unpark-${i}`}>✕</button></li>)}</ol> : null}
     <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
     <div className={`cwb-pop${gear ? ' is-open' : ''}`} id="cwb-settings" role="dialog" aria-label="Chat settings" data-testid="cwb-settings" aria-hidden={!gear}>
-      {live ? <small className="m-note" data-testid="cwb-locked">🔒 Locked while it works — press ■ Stop to change these</small> : null}
+      {live ? <small className="m-note" data-testid="cwb-locked"><Ic3 e="🔒" /> Locked while it works — press ■ Stop to change these</small> : null}
       <em>HOW ITS MINDS WORK</em>
     <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
       className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>

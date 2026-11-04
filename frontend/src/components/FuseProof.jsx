@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { CardFx } from './CardFx';
 import { openCoin } from './CoinDrawer';
 import '../styles/fuseProof.css';
+import { Ic3 } from '../lib/icon3d';
 
 const ago = (t, now) => { const s = Math.max(0, now - t); return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h`; };
 const sg = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(Math.abs(v) >= 100 ? 0 : 1)}%`);
@@ -32,7 +33,7 @@ export function SetupDoor({ d, onGo, onRun }) {
         ? <><span>put in <b>${r.putIn}</b> → now <b>${r.nowUsd}</b></span><span>{r.closed} closed · <b>{r.wonPct ?? '—'}%</b> won</span><span>profit takes <b>{r.takes?.n || 0}</b> ({r.takes?.wonPct ?? '—'}% won)</span><span>full exits <b>{r.exits?.n || 0}</b> ({r.exits?.wonPct ?? '—'}% won)</span><span>{r.swaps} swaps · {r.days}d</span></>
         : <><span><b>{s.upPct ?? '—'}%</b> of windows up</span><span>worst <b>{sg(s.worstPct)}</b></span><span>{s.n} windows judged</span></>}</div>
       {real ? <button type="button" className="m-btn" disabled={!(d.realLegs?.[r.tpl] || []).length} onClick={() => onRun?.(d.realLegs[r.tpl])} data-testid={`setup-run-${s.key}`}
-        data-tip="Loads this card's current coins into the Lab so you can build your own card with them. You sign every buy yourself.">⚡ Build with its coins</button>
+        data-tip="Loads this card's current coins into the Lab so you can build your own card with them. You sign every buy yourself."><Ic3 e="⚡" /> Build with its coins</button>
         : <button type="button" className="m-btn" onClick={() => onGo?.('cards')} data-testid={`setup-run-${s.key}`} data-tip="Opens My cards, where each card has this setup as a one-tap choice">Use on my card →</button>}
     </li>; })}</ul>;
 }
@@ -72,7 +73,7 @@ export function FuseProof({ onGo, onRun }) {
   const d = useProof();
   const [lens, setLens] = useState('setups');
   return <section className="fpf" data-testid="fuse-proof">
-    <header><h3>🧾 PROOF, NOT PROMISES</h3><div className="m-seg" role="tablist" aria-label="Proof">{PROOF_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`proof-lens-${k}`}>{l}</button>)}</div></header>
+    <header><h3><Ic3 e="🧾" /> PROOF, NOT PROMISES</h3><div className="m-seg" role="tablist" aria-label="Proof">{PROOF_LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`proof-lens-${k}`}>{l}</button>)}</div></header>
     {!d ? <p className="m-note">Reading the record…</p> : lens === 'setups' ? <SetupDoor d={d} onGo={onGo} onRun={onRun} /> : lens === 'feed' ? <ProofFeed d={d} /> : <RealDuels d={d} />}
     <small className="m-dim fpf-fine">Every number here is a record of what happened: a replay on recorded prices or a real card's confirmed swaps. None of it says what happens next.</small>
   </section>;

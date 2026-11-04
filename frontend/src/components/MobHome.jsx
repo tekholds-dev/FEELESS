@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { hasRun } from './FiveRun';
 import { RankBadge } from './FamiliaHud';
 import '../styles/mobHome.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🌹 THE MOB LANDING around Fee City (owner, 2026-10-21: "finish the whole mob landing … the city + real-time data + how families work,
 // top to bottom"). Researched references, each given a FEELESS twist: Clash of Clans (your base IS the home screen, a resource bar, a big
@@ -60,10 +61,10 @@ export function CityActions({ v, go }) {
   const me = v.me; const live = (v.raids || []).some(r => r.status === 'live');
   return <div className="mh-acts" data-testid="city-actions">
     <button type="button" className={`mh-act k-raid ${live ? 'is-hot' : ''}`} onClick={() => go('raids')} data-tip={live ? 'Your raid is live — make your move' : 'Raids: pick a rival block on the city, then send a hitter'} data-testid="act-raid"><i>⚔</i><b>RAID</b></button>
-    <button type="button" className="mh-act k-fuse" onClick={() => go('fuse')} data-tip="Family Fuse in the Fuse Arena stadium" data-testid="act-fuse"><i>🧬</i><b>FUSE</b></button>
-    <button type="button" className="mh-act k-earn" onClick={() => go('sleep')} data-tip="Real money: the Night Vault's $5 run — Jupiter Lend compounding every block, your wallet signs" data-testid="act-earn"><i>💵</i><b>EARN</b></button>
+    <button type="button" className="mh-act k-fuse" onClick={() => go('fuse')} data-tip="Family Fuse in the Fuse Arena stadium" data-testid="act-fuse"><i><Ic3 e="🧬" /></i><b>FUSE</b></button>
+    <button type="button" className="mh-act k-earn" onClick={() => go('sleep')} data-tip="Real money: the Night Vault's $5 run — Jupiter Lend compounding every block, your wallet signs" data-testid="act-earn"><i><Ic3 e="💵" /></i><b>EARN</b></button>
     <button type="button" className="mh-act k-buy" onClick={() => go('realtor')} data-tip="The Realtor: every plot for sale in every city, by tier, one-tap buy" data-testid="act-realtor"><i>🏷</i><b>BUY</b></button>
-    {v.staff ? <button type="button" className="mh-act k-ow" onClick={() => go('overwatch')} data-tip="Creator only: every family's wallets, bank, trades, pools, members + Familia prices" data-testid="act-overwatch"><i>👑</i><b>WATCH</b></button> : null}
+    {v.staff ? <button type="button" className="mh-act k-ow" onClick={() => go('overwatch')} data-tip="Creator only: every family's wallets, bank, trades, pools, members + Familia prices" data-testid="act-overwatch"><i><Ic3 e="👑" /></i><b>WATCH</b></button> : null}
   </div>;
 }
 

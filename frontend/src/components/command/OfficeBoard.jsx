@@ -3,6 +3,7 @@ import { tiny } from '../../lib/num';
 import { devilOf, rowState, VERD } from '../../lib/agentRead';
 import { useOffice } from '../../lib/agentHub';
 import '../../styles/officeBoard.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🏢 THE OFFICE (HQ › Agents › 🏢 Office): the ten desks of the real-money chain as DATA — the mission from the real card's own numbers,
 // the current candidate moving through the line, one live card per agent (state, record, latency) and, on a tap, everything that
@@ -50,10 +51,10 @@ const Dump = ({ v }) => dump(v);
 export function OfficeMission({ m, bare }) {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) tick(n => n + 1); }, 1000); return () => clearInterval(t); }, []);
-  if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b>💵 REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
+  if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b><Ic3 e="💵" /> REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
   const la = m.lastAction; const prob = m.probation || []; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
   return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'} ${bare ? 'is-bare' : ''}`} data-testid="ofb-mission">
-    {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing.">💵 REAL MONEY MISSION</b>}
+    {bare ? null : <b data-tip="Every number here is the real Fuse card's own: its server value and what you put in. The page computes nothing."><Ic3 e="💵" /> REAL MONEY MISSION</b>}
     <div className="ofb-mgrid">
       <span data-testid="ofb-putin" data-tip={m.source}><small>PUT IN</small><em>{usd(m.putIn)}</em></span>
       <span data-testid="ofb-value" data-tip={m.source}><small>CURRENT EQUITY</small><em>{usd(m.value)}</em></span>
@@ -113,10 +114,10 @@ export function DataLine({ q, degraded, compact, noVol }) {
 }
 
 export function ChartBox({ c, cur }) {
-  if (!c) return <div className="ofb-chart is-none" data-testid="ofb-chart"><b>📈 CHART</b><span className="ofb-nil">no chart snapshot for this coin this pass — nothing is claimed about its structure</span></div>;
+  if (!c) return <div className="ofb-chart is-none" data-testid="ofb-chart"><b><Ic3 e="📈" /> CHART</b><span className="ofb-nil">no chart snapshot for this coin this pass — nothing is claimed about its structure</span></div>;
   const f = c.f || {}; const wd = cur?.warden?.preview ? null : cur?.warden; const dv = devilOf(cur);
   return <div className="ofb-chart" data-testid="ofb-chart">
-    <div className="ofb-chead"><b>📈 CHART · what the agents read</b><Tag cls={STRUCT_CLS[c.state] || 'is-wait'} tip={`${c.n} one-minute candles · ${c.src === 'candles' ? 'real OHLC candles' : "Tally's own tape (closes only — wicks not measured)"}`}>{c.state}</Tag>
+    <div className="ofb-chead"><b><Ic3 e="📈" /> CHART · what the agents read</b><Tag cls={STRUCT_CLS[c.state] || 'is-wait'} tip={`${c.n} one-minute candles · ${c.src === 'candles' ? 'real OHLC candles' : "Tally's own tape (closes only — wicks not measured)"}`}>{c.state}</Tag>
       <small>{c.src === 'candles' ? `${c.n} candles` : `RECONSTRUCTED FROM TAPE · ${c.n} tape readings`} · structure confidence {c.conf == null ? '—' : `${Math.round(c.conf * 100)}%`}</small></div>
     <DataLine q={c.q} />
     <div className="ofb-meters"><Meter label="TREND" v={c.trend} /><Meter label="CHOP" v={c.chop} bad /><Meter label="MOMENTUM" v={c.mom} /><Meter label="EXTENSION" v={c.ext} bad />
@@ -137,7 +138,7 @@ const STATUS_WORD = { active: '🟢 ACTIVE', alive: '🟢 ACTIVE', probation: '�
 export function AgentCard({ a, on, onPick }) {
   const c = a.card || {};
   return <button type="button" className={`ofb-agent ${STATUS_CLS[c.status] || 'is-alive'} ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => onPick(a.key)} data-testid={`office-${a.key}`}>
-    <span className="ofb-ahead"><b>{a.icon} {a.name}</b><Tag cls={STATUS_CLS[c.status]} tip={c.lifeWhy || c.why}>{STATUS_WORD[c.status] || '—'}</Tag></span>
+    <span className="ofb-ahead"><b><Ic3 e={a.icon} /> {a.name}</b><Tag cls={STATUS_CLS[c.status]} tip={c.lifeWhy || c.why}>{STATUS_WORD[c.status] || '—'}</Tag></span>
     <small className="ofb-role">{a.role}</small>
     <span className="ofb-nums"><span data-tip="Survival score 0–100: accuracy weighted by how much record there is, minus rule violations and stale data."><small>SURVIVAL</small><em>{c.survival ?? '—'}</em></span>
       <span data-tip="How much record stands behind the score (samples ÷ (samples + 30))."><small>CONF</small><em>{c.confidence != null ? `${Math.round(c.confidence * 100)}%` : '—'}</em></span>
@@ -161,7 +162,7 @@ export function AgentDetail({ a, learning }) {
     ['profit contribution', c.profit == null ? null : sgn(c.profit)], ['loss contribution', c.loss == null ? null : sgn(c.loss)], ['drawdown contribution', c.drawdown == null ? null : sgn(c.drawdown)],
     ['stale-data violations', c.stale], ['rule violations', c.violations], ['confidence', c.confidence == null ? null : `${Math.round(c.confidence * 100)}%`], ['survival score', c.survival], ['generation', c.gen]];
   return <div className="ofb-detail" data-testid={`detail-${a.key}`}>
-    <header><b>{a.icon} {a.name}</b><span>{a.role}</span></header>
+    <header><b><Ic3 e={a.icon} /> {a.name}</b><span>{a.role}</span></header>
     <div className="ofb-dgrid">
       <Sec title="IDEOLOGY" id="sec-ideology"><p className="ofb-ideo">{a.ideology}</p></Sec>
       <Sec title="ETHICS" id="sec-ethics"><Lines xs={a.ethics} /></Sec>
@@ -199,7 +200,7 @@ export function FreshLine({ f }) {
 // ⚡ MARKET-EVENT WAKEUPS: the live chart woke Reaper / Trigger between office passes (the timer is never the reason a move is missed)
 export function WakeLine({ w }) {
   if (!w) return null;
-  return <div className="ofb-wake" data-testid="ofb-wake"><small>⚡ CHART WAKEUPS</small><span>Reaper <b>{w.reaper}</b> · Trigger <b>{w.trigger}</b> · watching <b>{w.watching}</b> candidates</span>
+  return <div className="ofb-wake" data-testid="ofb-wake"><small><Ic3 e="⚡" /> CHART WAKEUPS</small><span>Reaper <b>{w.reaper}</b> · Trigger <b>{w.trigger}</b> · watching <b>{w.watching}</b> candidates</span>
     {(w.log || []).slice(-4).reverse().map(x => <i key={`${x.at}${x.sym}${x.kind}`}>{ago(x.at)} · {x.kind === 'reaper' ? '☠' : '⏱'} ${x.sym}: {x.why}</i>)}</div>;
 }
 
@@ -209,7 +210,7 @@ export function PositionCard({ p }) {
   const th = p.thesis; const seen = useRef({ at: Date.now(), next: p.nextReview }); if (seen.current.next !== p.nextReview) seen.current = { at: Date.now(), next: p.nextReview };
   const left = p.nextReview == null ? null : Math.max(0, p.nextReview - (Date.now() - seen.current.at) / 1000);
   return <article className={`ofb-pos ${REAP_CLS[p.state] || 'is-hold'}`} data-testid={`pos-${p.symbol}`}>
-    <header><b>${p.symbol}</b>{p.owner === 'agents' ? <Tag tip="A coin the agents put on the card">🤖 theirs</Tag> : <Tag tip="Not an agent seat: it keeps the card's own stop; Reaper still watches it for invalidation">card coin</Tag>}{p.exec === 'unconfirmed' ? <Tag cls="is-work">⏳ fill not confirmed</Tag> : null}
+    <header><b>${p.symbol}</b>{p.owner === 'agents' ? <Tag tip="A coin the agents put on the card">🤖 theirs</Tag> : <Tag tip="Not an agent seat: it keeps the card's own stop; Reaper still watches it for invalidation">card coin</Tag>}{p.exec === 'unconfirmed' ? <Tag cls="is-work"><Ic3 e="⏳" /> fill not confirmed</Tag> : null}
       <Tag cls={DECISION_CLS[p.decision] || REAP_CLS[p.state]}>REAPER: {p.decision || p.state}</Tag></header>
     {p.data || p.dataDegraded ? <DataLine q={p.data} degraded={p.dataDegraded} compact /> : null}
     <div className="ofb-pgrid">
@@ -243,7 +244,7 @@ export function MemoryLine({ m }) {
   if (!m || !m.n) return null;
   const p = m.proof || {};
   return <div className="ofb-take" data-testid="ofb-memory" data-tip="Every confirmed real exit, filed by what the coin looked like at the buy. A candidate whose learned real result is 3+ points under the card's typical trade is not bought — only while the memory beats its own skips on real trades it never saw.">
-    <span><small>🧠 REAL MEMORY</small><em className={p.ok ? 'ofb-up' : 'ofb-warn'}>{p.ok ? 'IN USE' : 'PROVING'}</em><u>{m.n} real trades</u></span>
+    <span><small><Ic3 e="🧠" /> REAL MEMORY</small><em className={p.ok ? 'ofb-up' : 'ofb-warn'}>{p.ok ? 'IN USE' : 'PROVING'}</em><u>{m.n} real trades</u></span>
     <span><small>KEPT (UNSEEN)</small><em>{p.take?.avg == null ? '—' : sgn(p.take.avg, 1)}</em><u>n {p.take?.n ?? 0}</u></span>
     <span><small>SKIPPED (UNSEEN)</small><em className="ofb-dn">{p.skip?.avg == null ? '—' : sgn(p.skip.avg, 1)}</em><u>n {p.skip?.n ?? 0}</u></span>
     <span><small>VETO</small><em>≤ {sgn(m.veto, 1)}</em></span>
@@ -278,10 +279,10 @@ export function OfficeExecution({ x }) {
 
 export function OfficePerf({ perf, agents }) {
   const rows = (agents || []).map(a => [a, perf?.agents?.[a.key] || {}]); const worst = Math.max(0.01, ...rows.map(([, l]) => l.p95 || 0));
-  return <div className="ofb-box" data-testid="ofb-perf"><b>⚡ RUNTIME · per desk, last 120 passes</b>
-    <table className="ofb-table"><thead><tr><th>desk</th><th>last</th><th>p50</th><th>p95</th><th>max</th><th /></tr></thead><tbody>{rows.map(([a, l]) => <tr key={a.key}><td>{a.icon} {a.name}</td><td>{ms(l.last)}</td><td>{ms(l.p50)}</td><td>{ms(l.p95)}</td><td>{ms(l.max)}</td>
+  return <div className="ofb-box" data-testid="ofb-perf"><b><Ic3 e="⚡" /> RUNTIME · per desk, last 120 passes</b>
+    <table className="ofb-table"><thead><tr><th>desk</th><th>last</th><th>p50</th><th>p95</th><th>max</th><th /></tr></thead><tbody>{rows.map(([a, l]) => <tr key={a.key}><td><Ic3 e={a.icon} /> {a.name}</td><td>{ms(l.last)}</td><td>{ms(l.p50)}</td><td>{ms(l.p95)}</td><td>{ms(l.max)}</td>
       <td className="ofb-barcell"><u aria-hidden><i style={{ transform: `scaleX(${Math.max(0.01, (l.p95 || 0) / worst)})` }} /></u></td></tr>)}</tbody></table>
-    <p className="ofb-lat" data-testid="ofb-candles">📈 shared chart snapshot: {ms(perf?.chart?.last)} for {(perf?.candles?.real ?? 0) + (perf?.candles?.tape ?? 0)} coins (p95 {ms(perf?.chart?.p95)}) · {perf?.candles?.real ?? 0} from real candles, {perf?.candles?.tape ?? 0} from the tape · candle requests this pass {perf?.candles?.req ?? 0} ({perf?.candles?.cached ?? 0} served from cache) · duplicated {perf?.candles?.dup ?? 0}</p>
+    <p className="ofb-lat" data-testid="ofb-candles"><Ic3 e="📈" /> shared chart snapshot: {ms(perf?.chart?.last)} for {(perf?.candles?.real ?? 0) + (perf?.candles?.tape ?? 0)} coins (p95 {ms(perf?.chart?.p95)}) · {perf?.candles?.real ?? 0} from real candles, {perf?.candles?.tape ?? 0} from the tape · candle requests this pass {perf?.candles?.req ?? 0} ({perf?.candles?.cached ?? 0} served from cache) · duplicated {perf?.candles?.dup ?? 0}</p>
     <p className="ofb-lat">whole chain this pass {ms(perf?.passMs)} · the four desks' pass incl. the board read {ms(perf?.deskMs)} · the page reads memory: it starts no desk, scan or quote</p></div>;
 }
 

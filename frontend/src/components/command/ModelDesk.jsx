@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import '../../styles/modelDesk.css';
 import { ModelRig } from './ModelRig';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧠 THE MODEL DESK (owner, 2026-10-23: "the Models tab should really show all this — server settings, MCP, load, inference … more vitals for all
 // models, and fix how the models look in the Brain"): LM Studio's own model panel, inside FEELESS. On top, VITALS for every model (tokens / s from
@@ -52,7 +53,7 @@ function VitalCard({ m, on, onPick, i }) {
         <Bar label="CTX FILL" v={v.ctxFill} max={1} word={v.ctxFill == null ? '—' : `${Math.round(v.ctxFill * 100)}%`} tip="How much of the loaded context the last prompt used" />
       </span></span>
     <span className="mdk-vf"><small>{v.calls || 0} calls · last answer {ago(v.lastOkAt)} ago</small>{v.errors ? <u className="mdk-err" data-tip={v.lastErr || ''}>✕ {v.errors}</u> : null}
-      {v.mindset ? <u className="mdk-mind" data-tip="The 🎭 mindset its last call carried">🎭 {v.mindset}</u> : null}</span>
+      {v.mindset ? <u className="mdk-mind" data-tip="The 🎭 mindset its last call carried"><Ic3 e="🎭" /> {v.mindset}</u> : null}</span>
     {m.stall ? <span className="mdk-stall" data-testid={`mdk-stall-${m.key}`} data-tip="The stall watchdog: it keeps failing while the desk keeps asking. It alerts you — the reload is your tap (⚡ Reload in its LOAD tab)."><i aria-hidden="true" />🩺 STALLED · {m.stall.why}</span> : null}
   </button>;
 }
@@ -70,9 +71,9 @@ function Info({ m }) {
       <i><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, fill))})` }} /></i></div>
     <KV rows={[['MODEL', i.name], ['PUBLISHER', i.publisher], ['ARCHITECTURE', i.arch], ['FORMAT', i.format], ['QUANT', i.quant ? `${i.quant}${i.bits ? ` · ${i.bits}-bit` : ''}` : null], ['SIZE', i.sizeGb ? `${i.sizeGb} GB` : null],
       ['PARAMS', i.params], ['PARALLEL', i.parallel ? `×${i.parallel}` : null], ['INSTANCES', i.instances], ['VARIANT', i.variant ? i.variant.split('@').pop() : null]]} />
-    <p className="mdk-caps">{i.toolUse ? <u className="is-on" data-tip="Trained for tool use — it can call FEELESS's MCP tools">🛠 tool use</u> : <u>🛠 no tool use</u>}
+    <p className="mdk-caps">{i.toolUse ? <u className="is-on" data-tip="Trained for tool use — it can call FEELESS's MCP tools"><Ic3 e="🛠" /> tool use</u> : <u><Ic3 e="🛠" /> no tool use</u>}
       <u className={i.vision ? 'is-on' : ''}>👁 {i.vision ? 'vision' : 'no vision'}</u>
-      {i.reasoning ? <u className="is-on" data-tip="Reasoning effort this model offers (LM Studio's own setting)">🧠 reasoning {i.reasoning.options.join(' / ')} · default {i.reasoning.default}</u> : null}</p>
+      {i.reasoning ? <u className="is-on" data-tip="Reasoning effort this model offers (LM Studio's own setting)"><Ic3 e="🧠" /> reasoning {i.reasoning.options.join(' / ')} · default {i.reasoning.default}</u> : null}</p>
     <p className="mdk-note">Read live from LM Studio's own model list (GET /api/v1/models).</p></>;
 }
 
@@ -81,8 +82,8 @@ function Infer({ m, call, onSaved }) {
   const save = async (f, v) => { setBusy(f); try { await call('/admin/ai/rig', { method: 'POST', body: JSON.stringify({ [m.key]: { infer: { [f]: v } } }) }); onSaved(); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } setBusy(''); };
   const stops = inf.infer?.stop || [];
   return <>
-    <section className="mdk-sys" data-testid="mdk-sys"><em>📜 SYSTEM PROMPT · what FEELESS sends</em>
-      <p>Its job prompt (seat / desk rules) {inf.mindset ? <>+ the <b>🎭 {inf.mindset.set.toUpperCase()}</b> mindset {inf.mindset.seen?.ok ? <u className="is-on">✓ in use · last call {ago(inf.mindset.seen.at)} ago</u> : <u>rides the next call</u>}</> : '· no mindset applied'} — read or change it in 🎭 Prompts.
+    <section className="mdk-sys" data-testid="mdk-sys"><em><Ic3 e="📜" /> SYSTEM PROMPT · what FEELESS sends</em>
+      <p>Its job prompt (seat / desk rules) {inf.mindset ? <>+ the <b><Ic3 e="🎭" /> {inf.mindset.set.toUpperCase()}</b> mindset {inf.mindset.seen?.ok ? <u className="is-on">✓ in use · last call {ago(inf.mindset.seen.at)} ago</u> : <u>rides the next call</u>}</> : '· no mindset applied'} — read or change it in <Ic3 e="🎭" /> Prompts.
         LM Studio's own preset box only feeds its own chat window; FEELESS's calls carry their own system prompt.</p></section>
     <div className="mdk-knobs">{KNOBS.map((k, i) => { const [f, label, opts, tip] = k; const w = knobWord(k, inf);
       return <div key={f} className="mdk-knob" style={{ '--i': i }} data-tip={tip} data-testid={`mdk-knob-${f}`}>
@@ -98,7 +99,7 @@ function Infer({ m, call, onSaved }) {
       ['STRUCTURED OUTPUT', 'one JSON object, parsed by FEELESS', 'The schema rides in the prompt; a broken answer is retried or skipped'],
       ['SPECULATIVE DECODING', m.key === 'win' ? (inf.speculative ? 'on' : 'off') : 'off — needs a draft model loaded in LM Studio'],
       inf.reasoning ? ['REASONING EFFORT', `${inf.reasoning.options.join(' / ')} · default ${inf.reasoning.default}`, 'gpt-oss reasoning effort, set in LM Studio'] : null]} />
-    <div className="mdk-chat"><em>💬 BRAIN CHAT · temperature + length for your Talk tab</em><ModelRig call={call} cards={false} /></div>
+    <div className="mdk-chat"><em><Ic3 e="💬" /> BRAIN CHAT · temperature + length for your Talk tab</em><ModelRig call={call} cards={false} /></div>
   </>;
 }
 

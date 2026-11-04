@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { CardFx } from './CardFx';
 import '../styles/pumpProfile.css';
 import { sweepable } from '../lib/cacheSweep';
+import { Ic3 } from '../lib/icon3d';
 
 const big = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
 const age = h => h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`;
@@ -42,10 +43,10 @@ export function PumpProfile({ mint, compact = false }) {
       <div className="pp-id"><b>${p.symbol} <small>{p.name}</small></b>
         <span className="pp-chips"><span className={`m-chip ${p.graduated ? 'is-grad' : 'is-curve'}`} data-tip={p.graduated ? 'Bonded: it left Pump\'s launch curve and trades in a real pool' : 'Still on Pump\'s launch curve — no pool yet'}>{p.graduated ? '🎓 graduated' : '📈 on the curve'}</span>
           {p.live && <span className="m-chip is-live" data-tip="The creator is streaming on Pump right now">🔴 live</span>}
-          {p.verified && <span className="m-chip" data-tip="Marked verified by Pump">✔ verified</span>}
-          {p.cashback && <span className="m-chip" data-tip="Pump cashback is on for this coin">💸 cashback</span>}
+          {p.verified && <span className="m-chip" data-tip="Marked verified by Pump"><Ic3 e="✔" /> verified</span>}
+          {p.cashback && <span className="m-chip" data-tip="Pump cashback is on for this coin"><Ic3 e="💸" /> cashback</span>}
           {p.banned && <span className="m-chip is-bad" data-tip="Pump has banned this coin">⛔ banned</span>}
-          <span className="m-chip" data-tip="Replies on its Pump page">💬 {p.replies}</span></span></div>
+          <span className="m-chip" data-tip="Replies on its Pump page"><Ic3 e="💬" /> {p.replies}</span></span></div>
     </header>
     {p.description && !compact && <p className="pp-desc">{p.description}</p>}
     <div className="pp-tiles">{tiles.map(([l, v, bad], i) => <div key={l} className={bad || ''} style={{ '--i': i }}><small className="m-label">{l}</small><b className="m-num">{v}</b></div>)}</div>

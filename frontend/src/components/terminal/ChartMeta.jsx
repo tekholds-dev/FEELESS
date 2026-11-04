@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Maximize2, Megaphone, Cat } from 'lucide-react';
+import { Copy, Maximize2 } from 'lucide-react';
+import { Megaphone, Cat } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import { formatUSD } from '../../lib/dexscreener';
 

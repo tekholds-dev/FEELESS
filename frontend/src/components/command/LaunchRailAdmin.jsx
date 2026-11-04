@@ -8,6 +8,7 @@ import { CopyBtn } from '../CopyBtn';
 import { errorText } from '../../lib/api';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
+import { Ic3 } from '../../lib/icon3d';
 const CmdLaunch = lazy(() => import('./CmdLaunch').then(m => ({ default: m.CmdLaunch })));
 
 const FIELDS = [
@@ -38,7 +39,7 @@ function PartnerFees({ configs }) {
     } catch (e) { toast.error(e.message || 'Claim failed'); } finally { setBusy(''); }
   };
   const total = (rows || []).reduce((a, r) => a + r.unclaimed, 0);
-  return <div className="cc-block"><h4>💰 FEELESS fee share to claim <small className="chain-tag">{rows ? `${total.toFixed(4)} across ${rows.length} coin${rows.length === 1 ? '' : 's'}` : 'reading pools…'}</small></h4>
+  return <div className="cc-block"><h4><Ic3 e="💰" /> FEELESS fee share to claim <small className="chain-tag">{rows ? `${total.toFixed(4)} across ${rows.length} coin${rows.length === 1 ? '' : 's'}` : 'reading pools…'}</small></h4>
     <p className="cc-empty">Every coin launched on your configs pays FEELESS its share of trading fees. It waits inside that coin's pool until the fee claimer wallet signs a claim — then it lands in that wallet.</p>
     {rows && !rows.length && <p className="cc-empty">Nothing to claim yet.</p>}
     {(rows || []).slice(0, 20).map(r => <div key={r.pool} className="rail-house"><b>{r.label}</b><span>{r.unclaimed.toFixed(5)} {r.quote === 'USDC' ? 'USDC' : 'SOL'} unclaimed · pool <code>{r.pool.slice(0, 4)}…{r.pool.slice(-4)}</code></span><button type="button" className="btn-primary" disabled={!!busy} onClick={() => claim(r)}>{busy || (wallet?.address === r.feeClaimer ? 'Claim' : 'Connect claimer')}</button></div>)}
@@ -82,7 +83,7 @@ function LaunchMap({ rail }) {
     </div>
     <details className="tr-explain"><summary>❓ Is the config one-time? Do I pick it per coin?</summary>
       <p><b>One-time.</b> The config is a template stored on-chain: curve, fees, anti-snipe, where FEELESS's fee share goes. You create it once; after that the Launch page uses it automatically for every coin — nobody picks it per coin. It can't be edited. To change terms, create a new one: new coins use the new config, coins already launched keep theirs. Launching your own coin (e.g. from your fee reserve wallet) is step 2: connect that wallet on the Launch page, and its creator share of fees becomes claimable by that wallet.</p></details>
-    <div className="launch-kinds">{items.map(([ic, t, what, need, ok, href]) => <div key={t} className={`launch-kind ${ok ? 'ok' : 'todo'}`}><i>{ic}</i><b>{t}</b><small>{what}</small><em>{ok ? '✓' : '!'} {need}</em>{href && <a href={href}>Open →</a>}</div>)}</div>
+    <div className="launch-kinds">{items.map(([ic, t, what, need, ok, href]) => <div key={t} className={`launch-kind ${ok ? 'ok' : 'todo'}`}><i><Ic3 e={ic} /></i><b>{t}</b><small>{what}</small><em>{ok ? '✓' : '!'} {need}</em>{href && <a href={href}>Open →</a>}</div>)}</div>
   </div>;
 }
 
@@ -158,9 +159,9 @@ function ReadyBoard({ rail, keys, houses, go }) {
   const need = [['SOLANA_RPC_URL', 'Solana RPC (Helius / Alchemy quota)'], ['PUBLIC_SITE_URL', 'Public https domain for coin metadata'], ['JUPITER_API_KEY', 'Jupiter key (prices, swaps)'], ['DFLOW_API_KEY', 'DFlow — Kalshi trading'], ['SNAPTRADE_CLIENT_ID', 'SnapTrade — any broker'], ['TELEGRAM_BOT_TOKEN', 'Telegram bot — Familia race game + group posts']].filter(([k]) => keys && !has(k));
   return <div className="lrb" data-testid="launch-ready-board">
     <div className="lrb-grid">{tiles.map(([ic, name, ok, sub, cta, fn], i) => <div key={name} className={`lrb-tile ${ok ? 'is-ok' : 'is-need'}`} style={{ '--i': i }}>
-      <span className="lrb-top"><b>{ic} {name}</b><i>{ok ? 'READY' : 'NEEDS'}</i></span><small>{sub}</small>
+      <span className="lrb-top"><b><Ic3 e={ic} /> {name}</b><i>{ok ? 'READY' : 'NEEDS'}</i></span><small>{sub}</small>
       <button type="button" className={`m-btn ${ok ? 'm-go' : ''}`} onClick={fn}>{cta} →</button></div>)}</div>
-    {need.length ? <div className="lrb-keys"><b>🔑 ONLY YOU CAN ADD THESE</b><span>{need.map(([k, l]) => <i key={k} data-tip={`backend/.env → ${k}`}>{l}</i>)}</span><small>backend/.env, then restart the backend — keys are never shown here, only whether they are set.</small></div> : null}
+    {need.length ? <div className="lrb-keys"><b><Ic3 e="🔑" /> ONLY YOU CAN ADD THESE</b><span>{need.map(([k, l]) => <i key={k} data-tip={`backend/.env → ${k}`}>{l}</i>)}</span><small>backend/.env, then restart the backend — keys are never shown here, only whether they are set.</small></div> : null}
   </div>;
 }
 
@@ -226,7 +227,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
     {view === 'launch' && <>
     <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
       {!launchOpen
-        ? <><p className="cc-empty">Pick 🏠 House, 🌐 FEELESS or 💊 Pump.fun, choose the config for this coin, fill it in, sign once. The receipt (CA, pump link, tx, terms) shows right after. Launch from the wallet that should own the coin.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)} data-testid="open-cmd-launch">🚀 Open the launcher</button></>
+        ? <><p className="cc-empty">Pick 🏠 House, <Ic3 e="🌐" /> FEELESS or 💊 Pump.fun, choose the config for this coin, fill it in, sign once. The receipt (CA, pump link, tx, terms) shows right after. Launch from the wallet that should own the coin.</p><button type="button" className="btn-primary" onClick={() => setLaunchOpen(true)} data-testid="open-cmd-launch"><Ic3 e="🚀" /> Open the launcher</button></>
         : <Suspense fallback={<p className="cc-empty">Loading the launcher…</p>}><CmdLaunch rail={rail} /></Suspense>}</div>
     </>}
     {view === 'earnings' && <>
@@ -268,7 +269,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
     </>}
     {view === 'costs' && <>
       <LaunchCosts call={call} costs={rail?.costs} onSaved={load} solPx={solPx} />
-    <details className="tr-explain"><summary>💰 What the config numbers cost you</summary>
+    <details className="tr-explain"><summary><Ic3 e="💰" /> What the config numbers cost you</summary>
       <ul>
         <li><b>Opening / graduation market cap are valuations, not deposits.</b> Nobody pays {Number(p.initialMarketCap) || 0} SOL{solPx ? ` (${usd(p.initialMarketCap, solPx).slice(2)})` : ''} to launch. The curve simply starts pricing the coin there; buyers' SOL moves it up to graduation.</li>
         <li><b>Creating this config:</b> ~0.01 SOL{solPx ? ` (${usd(0.01, solPx).slice(2)})` : ''} rent, once, from your wallet.</li>
@@ -281,7 +282,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
       <SetupGuide keys={keys} rail={rail} routes={routes} />
     {isOwner && rail && <LaunchTabRules call={call} tab={rail.tab} onSaved={load} />}
       {isOwner && <TreasurySend ownerWallets={owners} />}
-    <details className="tr-explain"><summary>🔐 Secure your coins & airdrop on a small budget</summary>
+    <details className="tr-explain"><summary><Ic3 e="🔐" /> Secure your coins & airdrop on a small budget</summary>
       <ol>
         <li><b>Split roles:</b> keep the creator wallet cold (hardware wallet) and only connect it to sign; use a separate hot wallet for day-to-day.</li>
         <li><b>Treasury in a multisig:</b> create a Squads vault (2-of-3), set it as the fee claimer and treasury route. Fees can then only move with 2 signatures.</li>

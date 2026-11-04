@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { apiUrl } from '../lib/api';
 import { openCoin } from './CoinDrawer';
 import '../styles/fuseRoom.css';
+import { Ic3 } from '../lib/icon3d';
 
 const EcosystemChat = lazy(() => import('./EcosystemChat'));
 const KEY = 'feeless.fuseRoom';
@@ -42,14 +43,14 @@ export function FuseRoom() {
   return createPortal(<aside className="frm" data-testid="fuse-room" aria-label="Fuse room">
     <header className="frm-head"><i className="frm-logo" aria-hidden><b>⚛</b></i><strong>FUSE ROOM</strong>
       <button type="button" className="frm-x" onClick={() => setSt(s => ({ ...s, open: false }))} data-testid="fuse-room-hide" aria-label="Hide the Fuse room" data-tip="Hide to the side">›</button></header>
-    <nav className="frm-tabs" role="tablist">{FUSE_ROOMS.map(([k, ic, name, tip]) => <button key={k} type="button" role="tab" aria-selected={st.room === k} className={st.room === k ? 'active' : ''} onClick={() => setSt(s => ({ ...s, room: k }))} data-tip={tip} data-testid={`fuse-room-${k}`}>{ic} {name}</button>)}</nav>
+    <nav className="frm-tabs" role="tablist">{FUSE_ROOMS.map(([k, ic, name, tip]) => <button key={k} type="button" role="tab" aria-selected={st.room === k} className={st.room === k ? 'active' : ''} onClick={() => setSt(s => ({ ...s, room: k }))} data-tip={tip} data-testid={`fuse-room-${k}`}><Ic3 e={ic} /> {name}</button>)}</nav>
     <div className="frm-body">
       {st.room === 'big' && (!d ? <p className="frm-wait">Loading…</p> : big.length ? <ul className="frm-list" data-testid="fuse-room-big-list">{big.map(x => <li key={x.key}><button type="button" onClick={() => coin(x.mint, x.pair, x.sym)} data-tip={x.why || undefined}>
-        <i>{x.ic}</i><b>${x.sym || '…'}</b>{x.pct != null && <em className={x.pct >= 0 ? 'm-pos' : 'm-neg'}>{sg(x.pct)}</em>}<span>{x.text}</span><small>{ago(x.at)}</small></button></li>)}</ul>
+        <i><Ic3 e={x.ic} /></i><b>${x.sym || '…'}</b>{x.pct != null && <em className={x.pct >= 0 ? 'm-pos' : 'm-neg'}>{sg(x.pct)}</em>}<span>{x.text}</span><small>{ago(x.at)}</small></button></li>)}</ul>
         : <p className="frm-wait">Nothing big in the last hours. Small swaps are left out on purpose.</p>)}
       {st.room === 'chat' && <Suspense fallback={<p className="frm-wait">Opening the lounge…</p>}><div className="frm-chat"><EcosystemChat compact room="fuse-lab" ecosystem={{ id: 'fuse-lab', name: 'Fuse lounge' }} /></div></Suspense>}
       {st.room === 'radar' && (!d ? <p className="frm-wait">Loading…</p> : <div data-testid="fuse-room-radar-pane">
-        <span className="m-label">🎯 ENTRIES NOW</span>
+        <span className="m-label"><Ic3 e="🎯" /> ENTRIES NOW</span>
         {(d.fc?.entries || []).length ? <ul className="frm-list">{d.fc.entries.slice(0, 5).map(e => <li key={e.mint}><button type="button" onClick={() => coin(e.mint, e.pairAddress, e.symbol)} data-tip={e.why}>
           <i>{e.ico}</i><b>${e.symbol}</b><em className={Number(e.chg5m) >= 0 ? 'm-pos' : 'm-neg'}>{sg(e.chg5m)} 5m</em><span>{e.name} · {sg(e.chg1h)} 1h</span></button></li>)}</ul> : <p className="frm-wait">No safe coin shows an entry setup right now.</p>}
         <span className="m-label">🚪 FRONT-RUNNERS</span>

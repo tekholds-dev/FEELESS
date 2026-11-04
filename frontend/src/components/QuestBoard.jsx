@@ -5,6 +5,7 @@ import { useWallet } from '../hooks/useWallet';
 import { getChatSession } from '../lib/chatSession';
 import { BadgeArt } from './BadgeArt';
 import { QuestBadgeCard } from './QuestBadgeCard';
+import { Ic3 } from '../lib/icon3d';
 
 const SETS = [['feeless', 'FEELESS'], ['frsv', 'FEE RESERVE · FRSV'], ['earned', 'Earned']];
 const left = at => { const s = Math.max(0, Math.round(at - Date.now() / 1000)); const h = Math.floor(s / 3600); return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.floor((s % 3600) / 60)}m`; };
@@ -84,11 +85,11 @@ export function QuestBoard() {
     <div className="m-card m-live qb-hero">
       <div><span className="m-label">LEVEL {lv.level} · {lv.name.toUpperCase()}</span><div className="m-num">{lv.xp.toLocaleString()} XP</div>
         <i className="qb-bar big"><i style={{ transform: `scaleX(${pct / 100})` }} /></i><small className="m-dim">{lv.next ? `${(lv.next - lv.xp).toLocaleString()} XP to the next level` : 'Max level'}</small></div>
-      <div className="qb-stats"><div className="m-stat"><small>STREAK</small><b className="m-num">🔥 {d.metrics.streak}</b></div><div className="m-stat"><small>BADGES</small><b className="m-num">{d.earned}/{d.total}</b></div>
+      <div className="qb-stats"><div className="m-stat"><small>STREAK</small><b className="m-num"><Ic3 e="🔥" /> {d.metrics.streak}</b></div><div className="m-stat"><small>BADGES</small><b className="m-num">{d.earned}/{d.total}</b></div>
         <button type="button" className={`m-btn ${checked ? '' : 'primary m-go'}`} disabled={busy || checked} onClick={checkin} data-testid="quest-checkin">{checked ? '✓ Checked in today' : busy ? 'Signing…' : '🔥 Daily check-in'}</button></div>
     </div>
     {(d.perks?.feeDiscountPct > 0 || d.perks?.chatBgs?.length > 0) && <div className="m-card m-row" data-testid="quest-perks"><span className="m-label">YOUR BADGE PERKS</span>
-      {d.perks.feeDiscountPct > 0 && <span className="m-chip ok">−{d.perks.feeDiscountPct}% fee · {d.perks.from?.fee}</span>}{d.perks.chatBgs.map(id => <span key={id} className="m-chip ok">🎨 {id} chat bg</span>)}</div>}
+      {d.perks.feeDiscountPct > 0 && <span className="m-chip ok">−{d.perks.feeDiscountPct}% fee · {d.perks.from?.fee}</span>}{d.perks.chatBgs.map(id => <span key={id} className="m-chip ok"><Ic3 e="🎨" /> {id} chat bg</span>)}</div>}
     <div className="m-grid"><Quests title="DAILY QUESTS" block={d.quests.daily} /><Quests title="WEEKLY QUESTS" block={d.quests.weekly} /></div>
     <Season me={d} />
     {d.trophies?.length > 0 && <div className="m-card m-row"><span className="m-label">TROPHIES</span>{d.trophies.map(it => <span key={it.id} className={`m-chip tier-${it.rarity}`}>{it.glyph} {it.name}</span>)}</div>}

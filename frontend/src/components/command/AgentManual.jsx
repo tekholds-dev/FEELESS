@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KernelCard, PoiMinds } from './PoiFolder';
 import '../../styles/agentManual.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📖 THE MANUAL (owner 2026-11-04: "eye candy, never just hella text"): drawn flows, a step-through tutorial, a trader vs general board, live limits, live fingerprints and a code map.
 // Words stay labels. Each claim here matches the engine: change the code, change this file.
@@ -31,7 +32,7 @@ const CODE = [
 const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
 
 function Flow({ steps, tone = 'pow' }) {
-  return <ol className={`am-flow is-${tone}`} data-testid={`am-flow-${tone}`}>{steps.map(([ic, l, s], i) => <li key={l} style={{ '--i': i }} data-tip={s}><i aria-hidden="true"><em>{ic}</em></i><b>{l}</b><small>{s}</small>{i < steps.length - 1 ? <u aria-hidden="true"><s /></u> : null}</li>)}</ol>;
+  return <ol className={`am-flow is-${tone}`} data-testid={`am-flow-${tone}`}>{steps.map(([ic, l, s], i) => <li key={l} style={{ '--i': i }} data-tip={s}><i aria-hidden="true"><em><Ic3 e={ic} /></em></i><b>{l}</b><small>{s}</small>{i < steps.length - 1 ? <u aria-hidden="true"><s /></u> : null}</li>)}</ol>;
 }
 function Tutorial({ onCommand }) {
   const [at, setAt] = useState(0); const s = STEPS[at];
@@ -44,7 +45,7 @@ function Tutorial({ onCommand }) {
   </section>;
 }
 function Kinds() {
-  return <section className="am-kinds m-glass" data-testid="am-kinds"><header><span /><b>🏇 TRADER</b><b>🧭 GENERAL</b></header>
+  return <section className="am-kinds m-glass" data-testid="am-kinds"><header><span /><b>🏇 TRADER</b><b><Ic3 e="🧭" /> GENERAL</b></header>
     {KINDS.map(([w, t, g], i) => <div key={w} style={{ '--i': i }}><span>{w}</span>{[t, g].map((v, k) => <i key={k} className={`am-lv is-${LEVEL[v][0]}`} data-tip={LEVEL[v][1]} aria-label={LEVEL[v][1]} />)}</div>)}
     <footer>{LEVEL.slice().reverse().map(([k, l]) => <span key={k}><i className={`am-lv is-${k}`} aria-hidden="true" />{l}</span>)}</footer></section>;
 }
@@ -66,7 +67,7 @@ export function AgentManual({ d, onCommand }) {
       {tab === 'kinds' ? <Kinds /> : null}
       {tab === 'pow' ? <Flow steps={POW_FLOW} /> : null}
       {tab === 'pop' ? <Flow steps={POP_FLOW} tone="pop" /> : null}
-      {tab === 'print' ? <><Flow steps={FP_FLOW} tone="print" /><div className="am-prints"><section><b>⛏ PoW</b>{d?.poi?.minds ? <PoiMinds poi={d.poi} /> : <div className="am-empty">No fingerprint read.</div>}</section><section><b>📉 PoP</b>{d?.popPoi?.minds ? <PoiMinds poi={d.popPoi} /> : <div className="am-empty">Files on its first proof.</div>}</section></div></> : null}
+      {tab === 'print' ? <><Flow steps={FP_FLOW} tone="print" /><div className="am-prints"><section><b><Ic3 e="⛏" /> PoW</b>{d?.poi?.minds ? <PoiMinds poi={d.poi} /> : <div className="am-empty">No fingerprint read.</div>}</section><section><b><Ic3 e="📉" /> PoP</b>{d?.popPoi?.minds ? <PoiMinds poi={d.popPoi} /> : <div className="am-empty">Files on its first proof.</div>}</section></div></> : null}
       {tab === 'limits' ? <LiveLimits kernel={d?.kernel} /> : null}
       {tab === 'code' ? <CodeMap /> : null}
     </div></div>;

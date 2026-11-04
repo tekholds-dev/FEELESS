@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Flame, Crown, Megaphone, Zap, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import { Flame, Crown, Megaphone, Zap } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import '../../styles/discovery.css';
 import { AnimatedNumber } from './AnimatedNumber';
 import { formatUSD } from '../../lib/dexscreener';
 import { LivePrice, LiveChange24 } from './LiveCells';
+import { Ic3 } from '../../lib/icon3d';
 
 const fmtX = v => (v == null ? '—' : `${v >= 100 ? v.toFixed(0) : v.toFixed(2)}×`);
 const ago = s => { const d = Date.now() / 1000 - s; return d < 60 ? `${Math.round(d)}s` : d < 3600 ? `${Math.round(d / 60)}m` : d < 86400 ? `${Math.round(d / 3600)}h` : `${Math.round(d / 86400)}d`; };
@@ -92,7 +94,7 @@ export function TrenchLanding({ ecosystemName, onEnter }) {
       </div>
       <button type="button" className="lets-trench trenches-font" onClick={onEnter} data-testid="lets-trench">Let's Trench →</button>
     </div>
-    <div className="trench-features">{FEATURES.map(([icon, title, text]) => <article key={title}><span>{icon}</span><h3>{title}</h3><p>{text}</p></article>)}</div>
+    <div className="trench-features">{FEATURES.map(([icon, title, text]) => <article key={title}><span><Ic3 e={icon} /></span><h3>{title}</h3><p>{text}</p></article>)}</div>
   </section>;
 }
 

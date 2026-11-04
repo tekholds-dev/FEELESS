@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { RISK_DIALS } from '../lib/riskDial';
 import { CYCLE_OPTS, SHAPE_WORDS, CLOCK_WORDS, STOP_WORDS, STRATEGY_WORDS, COIN_WORDS, TRENCH_WORDS } from '../lib/fuseGlossary';
 import '../styles/fuseGuide.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📖 "What it means": every dial, cycle, shape, clock, stop mode, strategy and coin source in plain words — and you can PICK
 // a dial or a cycle right from it. Centered pop-up (portal), Esc / click outside closes, animates in ≤200ms.
@@ -32,7 +33,7 @@ export function FuseGuide({ dial, onDial, cycle, onCycle, label = '📖 What it 
     <button type="button" className="m-btn fg-open" onClick={() => setOpen(true)} data-tip="Every dial, cycle, shape and strategy in plain words — pick right from the guide" data-testid="fg-open">{label}</button>
     {open && createPortal(<div className="fg-shade" role="presentation" onClick={() => setOpen(false)} data-testid="fuse-guide">
       <aside className="fg m-card" role="dialog" aria-modal="true" aria-label="What it means" onClick={e => e.stopPropagation()}>
-        <header><span className="m-label">📖 WHAT IT MEANS</span><button type="button" className="m-btn fg-x" onClick={() => setOpen(false)} aria-label="Close">✕</button></header>
+        <header><span className="m-label"><Ic3 e="📖" /> WHAT IT MEANS</span><button type="button" className="m-btn fg-x" onClick={() => setOpen(false)} aria-label="Close">✕</button></header>
         <div className="m-seg fg-tabs" role="tablist">{GUIDE_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`fg-tab-${k}`}>{l}</button>)}</div>
         <div className="fg-body" key={tab}>{body[tab]}</div>
         <p className="m-note">Mechanics are proven on paper and real fills; profit never is. Fees are always shown apart from P&amp;L.</p>

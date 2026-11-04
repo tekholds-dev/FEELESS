@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { fetchLaunchRail } from '../lib/launchRail';
 import { apiUrl } from '../lib/api';
 import '../styles/launchLab.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🧪 LAUNCH LAB (owner, 2026-10-20: "pools and launch need a cool layout with live animated demonstrations of the type of pool / coin being
 // created, plus the major configs from the top platforms, plus FEELESS exclusives — in HQ and for users"). Each type plays what really
@@ -122,16 +123,16 @@ export function LaunchLab({ start = 'pump', hq = false, noHero = false }) {
   const t = TYPES.find(x => x.id === id) || TYPES[0];
   return <section className="llb" data-testid="launch-lab">
     {noHero ? null : <LaunchFloor t={t} rail={rail} />}
-    <header className="llb-head"><span className="eyebrow">🧪 LAUNCH LAB{hq ? ' · HQ' : ''}</span><h2>See what you're creating before you sign.</h2></header>
-    <div className="llb-types" role="tablist">{TYPES.map(x => <button key={x.id} type="button" role="tab" aria-selected={x.id === id} className={x.id === id ? 'is-on' : ''} onClick={() => setId(x.id)} data-testid={`llb-${x.id}`}><b>{x.icon}</b>{x.name}<small>{x.where}</small></button>)}</div>
+    <header className="llb-head"><span className="eyebrow"><Ic3 e="🧪" /> LAUNCH LAB{hq ? ' · HQ' : ''}</span><h2>See what you're creating before you sign.</h2></header>
+    <div className="llb-types" role="tablist">{TYPES.map(x => <button key={x.id} type="button" role="tab" aria-selected={x.id === id} className={x.id === id ? 'is-on' : ''} onClick={() => setId(x.id)} data-testid={`llb-${x.id}`}><b><Ic3 e={x.icon} /></b>{x.name}<small>{x.where}</small></button>)}</div>
     <div className="llb-stage" key={t.id}><div className="llb-demo"><Demo kind={t.demo} /></div>
-      <div className="llb-how"><h3>{t.icon} {t.name} <small>{t.where}</small></h3><ol>{t.steps.map((s, i) => <li key={s} style={{ '--i': i }}>{s}</li>)}</ol>
+      <div className="llb-how"><h3><Ic3 e={t.icon} /> {t.name} <small>{t.where}</small></h3><ol>{t.steps.map((s, i) => <li key={s} style={{ '--i': i }}>{s}</li>)}</ol>
         <h4>WHAT YOU SET</h4><ul className="llb-knobs">{t.knobs.map(k => <li key={k}>{k}</li>)}</ul>
         {DOOR[t.id] ? <Door to={DOOR[t.id][0]} className="m-btn m-go llb-door" tip={DOOR[t.id][2]} testId={`llb-door-${t.id}`}>{DOOR[t.id][1]}</Door> : null}</div></div>
     <div className="llb-table" role="table" aria-label="Launch platforms compared"><div className="llb-row is-head" role="row">{['', 'Curve', 'Graduates to', 'Creator earns', 'Anti-snipe', 'Liquidity after', 'You set'].map(h => <span key={h} role="columnheader">{h}</span>)}</div>
       {PLATFORMS.map(p => <div key={p.name} className={`llb-row${p.feeless ? ' is-feeless' : ''}`} role="row"><b><Door to={PLATFORM_DOOR[p.name] || '#launchpads'} className="llb-plink" tip={`Open ${p.name}`} testId={`llb-plat-${p.name.split(' ')[0]}`}>{p.name} ›</Door></b><span>{p.curve}</span><span>{p.grad}</span><span>{p.creator}</span><span>{p.antiSnipe}</span><span>{p.lp}</span><span>{p.you}</span></div>)}</div>
     <p className="llb-note">Fee numbers change on each platform's side — check their docs. FEELESS's rail right now: {rail?.ready ? 'ready' : 'not set up yet'}{rail?.tab?.maxDevBuySol ? ` · dev buy up to ${rail.tab.maxDevBuySol} SOL` : ''}{rail?.costs?.pumpSlippagePct != null ? ` · Pump launch slippage ${rail.costs.pumpSlippagePct}%` : ''}.</p>
-    <h4 className="llb-h">⚡ ONLY ON FEELESS</h4><div className="llb-ex">{EXCLUSIVES.filter(e => hq || e[1] !== 'House config (HQ)').map(([i, n, w], k) => <Door key={n} to={EX_DOOR[n] || '#launchpads'} className="llb-exd" tip={`${n} — open it`} testId={`llb-ex-${k}`}><div style={{ '--i': k }}><b>{i}</b><strong>{n}</strong><small>{w}</small><em aria-hidden="true">›</em></div></Door>)}</div>
+    <h4 className="llb-h"><Ic3 e="⚡" /> ONLY ON FEELESS</h4><div className="llb-ex">{EXCLUSIVES.filter(e => hq || e[1] !== 'House config (HQ)').map(([i, n, w], k) => <Door key={n} to={EX_DOOR[n] || '#launchpads'} className="llb-exd" tip={`${n} — open it`} testId={`llb-ex-${k}`}><div style={{ '--i': k }}><b>{i}</b><strong>{n}</strong><small>{w}</small><em aria-hidden="true">›</em></div></Door>)}</div>
   </section>;
 }
 export default LaunchLab;

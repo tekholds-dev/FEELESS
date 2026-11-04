@@ -6,6 +6,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useGlide } from '../lib/useGlide';
 import { cash } from '../lib/earnStake';
 import '../styles/paperPerps.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📉 THE PAPER DESK — the Perps building's own order ticket (docs/DECISIONS.md #1): long / short the market you picked with a margin and
 // your leverage, at the REAL mark price; the position lives here with the real funding accruing and liquidates at the real distance. Paper
@@ -32,10 +33,10 @@ export function PaperPerps({ row, lev, devAddress = '' }) {   // owner, 2026-10-
   };
   if (!addr) return <p className="pp-gate" data-testid="pp-gate">Connect your wallet to open a paper perps book — $10,000 paper, the real prices.</p>;
   if (!sess) return <p className="pp-gate" data-testid="pp-gate">One signature keeps your paper book (no transaction, no fee). <button type="button" className="m-btn m-go"
-    onClick={async () => { try { setSess(await getChatSession(addr, signMessage)); } catch (e) { toast.error(e.message); } }} data-testid="pp-signin">🔑 Sign in</button></p>;
+    onClick={async () => { try { setSess(await getChatSession(addr, signMessage)); } catch (e) { toast.error(e.message); } }} data-testid="pp-signin"><Ic3 e="🔑" /> Sign in</button></p>;
   const maxLev = row?.maxLev || 1; const L = Math.min(lev, maxLev); const size = margin * L; const liqMove = Math.max(0, 100 / L - 0.5);
   return <div className="pp" data-testid="paper-perps">
-    <header className="pp-head"><span><em>📉 THE PAPER DESK · LIVE PRICES · PAPER DOLLARS</em><b className="m-num" key={Math.round(b?.equity || 0)}>{cash(equity)}</b>
+    <header className="pp-head"><span><em><Ic3 e="📉" /> THE PAPER DESK · LIVE PRICES · PAPER DOLLARS</em><b className="m-num" key={Math.round(b?.equity || 0)}>{cash(equity)}</b>
       <small>{b ? `${b.trades} closed${b.winPct != null ? ` · ${b.winPct}% won` : ''} · realized ${sgn(b.realized)} · cash ${cash(b.cash)}` : 'opening your book…'}</small></span>
       <u className="pp-eq" aria-hidden="true"><s className={(b?.equity ?? 1e4) >= (b?.start ?? 1e4) ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, (b?.equity || 0) / ((b?.start || 1e4) * 2)))})` }} /></u></header>
     {row ? <div className="pp-ticket">

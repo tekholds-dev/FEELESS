@@ -1,7 +1,8 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ArrowLeft, Cat, ChevronRight, Play, Plus, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronRight, Play, Plus, X } from 'lucide-react';
+import { Cat } from '../../lib/lucide3d';
 import { CAT_VARIATIONS, CatAvatar } from './catCoats';
 import '../../styles/feecatPage.css';
 import '../../styles/catForge.css';
@@ -21,6 +22,7 @@ const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ defau
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { ColonyGrid } from './HiveBoard';
 import { FeeOwnerBar } from './FeeOwnerBar';
+import { Ic3 } from '../../lib/icon3d';
 const api = async (path, options = {}) => {
   // 🔒 every cat action carries the signed-in wallet's session (the service refuses anyone else's cat, and anyone signed out)
   if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...agentAuth(), ...JSON.parse(options.body) }) };
@@ -144,7 +146,7 @@ function SignInGate({ onIn }) {
   if (agentSignedIn()) return null;
   const go = async () => { setErr(''); setBusy(true);
     try { if (!wallet?.address) await connect?.(); else { await getChatSession(wallet.address, signMessage, { own: true, fresh: true }); onIn?.(); } } catch (x) { setErr(x.message); } setBusy(false); };
-  return <div className="m-note warn" data-testid="fc-signin" role="status"><b>🔒 Sign in to control your agents</b>
+  return <div className="m-note warn" data-testid="fc-signin" role="status"><b><Ic3 e="🔒" /> Sign in to control your agents</b>
     <span>Your agents only answer their owner's wallet, signed in within the last 24 h. Sign in to see and control them.</span>
     <button type="button" className="m-btn m-go" onClick={go} disabled={busy} data-tip="One signature, no transaction — proves this wallet owns its agents" data-testid="fc-signin-go">{busy ? 'Waiting for the wallet…' : wallet?.address ? 'Sign in' : 'Connect wallet'}</button>
     {err ? <span className="kd-err" role="alert">⚠ {err}</span> : null}</div>;
@@ -156,7 +158,7 @@ function RecoverAgent({ onBack }) {
   const go = async e => { e.preventDefault(); setErr(''); setBusy(true);
     try { const r = await api('/api/cats/recover', { method: 'POST', body: JSON.stringify({ handle: handle.trim(), pin: pin.trim(), ...agentAuth() }) }); setHandle(''); setPin(''); onBack(r.cat); }
     catch (x) { setErr(x.message); } setBusy(false); };
-  return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost this browser? Bring your agent here with its recovery PIN">🔑 Recover an agent</summary>
+  return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost this browser? Bring your agent here with its recovery PIN"><Ic3 e="🔑" /> Recover an agent</summary>
     <form onSubmit={go}><input className="m-input" value={handle} onChange={e => setHandle(e.target.value)} placeholder="its @handle" aria-label="Its handle" data-testid="fc-recover-handle" />
       <input className="m-input" value={pin} onChange={e => setPin(e.target.value)} placeholder="XXXX-XXXX-XXXX" aria-label="Recovery PIN" autoComplete="off" data-testid="fc-recover-pin" />
       <button type="submit" className="m-btn m-go" disabled={busy || !handle.trim() || !pin.trim()} data-testid="fc-recover-go">{busy ? 'Checking…' : 'Recover'}</button></form>
@@ -206,7 +208,7 @@ export default function FeeCatsPlatform() {
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
-    ['colony', <>🐝 Colony</>, 'Every agent working, two windows each — colonized agents file graded calls and their trades are graded; honey splits the colony pot']];
+    ['colony', <><Ic3 e="🐝" /> Colony</>, 'Every agent working, two windows each — colonized agents file graded calls and their trades are graded; honey splits the colony pot']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
@@ -227,6 +229,6 @@ export default function FeeCatsPlatform() {
             return <span className="cl-acts" data-testid={`cw-${cat.id}`}><button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
               <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>
-            <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}>🗑</button></span>; }} /></>}</section>}
+            <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}><Ic3 e="🗑" /></button></span>; }} /></>}</section>}
   </div>;
 }

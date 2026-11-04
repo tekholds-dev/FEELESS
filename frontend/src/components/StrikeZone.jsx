@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { gunStats, xpBar, BOT_DIFF } from '../lib/strikeGame';
 import { tgInitData } from '../lib/telegram';
 import '../styles/strikeZone.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🎯 STRIKE ZONE — the lobby (owner 2026-10-27: "a third-person shooter instead of the raceway, vs bots or online, real levelling + gun
 // customisation"). Your level + XP bar, the GUNSMITH (4 guns × barrel · optic · magazine · stock · skin — each part unlocks at a level, the
@@ -60,7 +61,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
       <aside className="sz-side">
         {mode === 'bots' ? <span className="m-seg sz-diff" role="radiogroup" aria-label="Difficulty">{Object.entries(BOT_DIFF).map(([k, x]) => <button key={k} type="button" role="radio" aria-checked={diff === k} className={diff === k ? 'active' : ''} onClick={() => setDiff(k)} data-tip={`${x.n} bots · ${Math.round(x.acc * 100)}% aim · ${x.react}s to react`} data-testid={`sz-diff-${k}`}>{k.toUpperCase()}</button>)}</span>
           : <label className="sz-room"><span>ROOM</span><input value={room} onChange={e => setRoom(e.target.value.replace(/[^a-z0-9-_]/gi, '').slice(0, 24))} aria-label="Room name" data-testid="sz-room" /><small>{(d.rooms || []).find(r => r.room === room)?.n || 0} in it now · share the name with your family</small></label>}
-        <button type="button" className="m-btn m-go sz-play" onClick={() => { setMsg(''); setPlaying(true); }} data-tip="Opens full screen — first to the kill target or the clock" data-testid="sz-play">🎯 PLAY · {mode === 'bots' ? `${BOT_DIFF[diff].n} BOTS` : room}</button>
+        <button type="button" className="m-btn m-go sz-play" onClick={() => { setMsg(''); setPlaying(true); }} data-tip="Opens full screen — first to the kill target or the clock" data-testid="sz-play"><Ic3 e="🎯" /> PLAY · {mode === 'bots' ? `${BOT_DIFF[diff].n} BOTS` : room}</button>
         <small className="sz-xp">XP: {d.xp.kill} a kill · +{d.xp.head} headshot · +{d.xp.win} win{family ? ' · +5 MP a kill to the family bank (150 / day)' : ''}</small>
         {last ? <p className="sz-last">Last match: {last.k} kills · {last.d} deaths{last.xp ? ` · +${last.xp} XP` : ''}</p> : null}
         {msg ? <p className="sz-msg">{msg}</p> : null}

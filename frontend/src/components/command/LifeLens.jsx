@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { genRisk, tug, dedupeAutopsies, readAs, missedWord, dropFrac, winRate, genEdge, genTimeline, genBoard } from '../../lib/lifeLens';
 import '../../styles/lifeLens.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧬 THE LIFE LENS (owner, 2026-10-15: "a cool way to show stuff like this in live realtime meta degen animation"): the generations, the rug
 // autopsy and the creed were a wall of unstyled text. Now: one pod per role (its gen, life left before replacement, wins vs losses, its
@@ -59,13 +60,13 @@ export function GenPod({ g, a, i }) {
 export function GenPods({ gens, agents }) {
   const meta = useMemo(() => Object.fromEntries((agents || []).map(a => [a.key, a])), [agents]);
   const board = useMemo(() => genBoard(gens), [gens]);
-  if (!(gens || []).length) return <div className="lfl-box" data-testid="agd-gens"><h4>🧬 GENERATIONS</h4><small className="m-dim">the lifecycle book arrives with the first office pass</small></div>;
+  if (!(gens || []).length) return <div className="lfl-box" data-testid="agd-gens"><h4><Ic3 e="🧬" /> GENERATIONS</h4><small className="m-dim">the lifecycle book arrives with the first office pass</small></div>;
   const hot = gens.filter(g => genRisk(g).frac >= 0.66).length;
   const nm = k => (meta[k] || {}).name || k;
-  return <div className="lfl-box m-card" data-testid="agd-gens"><h4>🧬 GENERATIONS <small>one lifecycle for all ten roles · judged on real exits only{hot ? ` · ⚠ ${hot} near replacement` : ''}</small></h4>
+  return <div className="lfl-box m-card" data-testid="agd-gens"><h4><Ic3 e="🧬" /> GENERATIONS <small>one lifecycle for all ten roles · judged on real exits only{hot ? ` · ⚠ ${hot} near replacement` : ''}</small></h4>
     <div className="lfl-board" data-testid="gen-board">
-      {board.best ? <span className="lfl-crown is-good"><small>👑 BEST NOW</small><b>{nm(board.best.role)}</b><Flip v={board.best.r}>{board.best.r}% won</Flip></span> : <span className="lfl-crown"><small>👑 BEST NOW</small><b>—</b></span>}
-      {board.improved ? <span className="lfl-crown is-rise"><small>📈 MOST IMPROVED</small><b>{nm(board.improved.role)}</b><Flip v={board.improved.e.delta}>+{board.improved.e.delta} pts on old gens</Flip></span> : null}
+      {board.best ? <span className="lfl-crown is-good"><small><Ic3 e="👑" /> BEST NOW</small><b>{nm(board.best.role)}</b><Flip v={board.best.r}>{board.best.r}% won</Flip></span> : <span className="lfl-crown"><small><Ic3 e="👑" /> BEST NOW</small><b>—</b></span>}
+      {board.improved ? <span className="lfl-crown is-rise"><small><Ic3 e="📈" /> MOST IMPROVED</small><b>{nm(board.improved.role)}</b><Flip v={board.improved.e.delta}>+{board.improved.e.delta} pts on old gens</Flip></span> : null}
     </div>
     <ul className="lfl-pods">{gens.map((g, i) => <GenPod key={`${g.role}-${g.generation}`} g={g} a={meta[g.role] || {}} i={i} />)}</ul></div>;
 }
@@ -85,7 +86,7 @@ export function RugWall({ list, signs }) {
   const rows = useMemo(() => dedupeAutopsies(list), [list]); const [all, setAll] = useState(false);
   const show = all ? rows : rows.slice(0, 6);
   const go = rows.filter(r => r.go).length;
-  return <div className="lfl-box m-card" data-testid="agd-autopsy"><h4>🔬 RUG AUTOPSY <small>{rows.length ? `${rows.length} rug${rows.length === 1 ? '' : 's'} on the desk${go ? ` · ${go} after a GO` : ''} · what it fell, what we read, what we missed` : 'no rug on the desk yet'}</small></h4>
+  return <div className="lfl-box m-card" data-testid="agd-autopsy"><h4><Ic3 e="🔬" /> RUG AUTOPSY <small>{rows.length ? `${rows.length} rug${rows.length === 1 ? '' : 's'} on the desk${go ? ` · ${go} after a GO` : ''} · what it fell, what we read, what we missed` : 'no rug on the desk yet'}</small></h4>
     {rows.length ? <ul className="lfl-rugs">{show.map((r, i) => <RugCard key={`${r.sym}-${r.calledAt}`} r={r} i={i} />)}</ul> : null}
     {rows.length > 6 ? <button type="button" className="m-btn lfl-more" onClick={() => setAll(v => !v)} data-testid="lfl-rugs-more">{all ? 'Show fewer' : `Show all ${rows.length}`}</button> : null}
     {(signs || []).length > 0 && <div className="lfl-chips"><small>RUG SIGNS</small>{signs.map(x => <i key={x.key} className={`lfl-chip ${x.n >= 3 ? 'is-bad' : ''}`}>☠ {x.words} ×{x.n}</i>)}</div>}</div>;
@@ -96,6 +97,6 @@ export function CreedFold({ creed }) {
   useEffect(() => { setOpen(false); }, [creed]);
   if (!(creed || []).length) return null;
   return <details className="lfl-box lfl-creed m-card" data-testid="agd-creed" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary><h4>📜 THE CREED <small>{creed.length} lines engraved in their code · tap to read</small></h4></summary>
+    <summary><h4><Ic3 e="📜" /> THE CREED <small>{creed.length} lines engraved in their code · tap to read</small></h4></summary>
     <ol>{creed.map((c, i) => <li key={i} style={{ '--i': i }}>{c}</li>)}</ol></details>;
 }

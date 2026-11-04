@@ -9,6 +9,7 @@ import { launchCoin, launchOnPump } from '../../lib/launchRail';
 import { launchTerms, receiptLinks, coinErrors, socialLink } from '../../lib/cmdLaunch';
 import { CopyBtn } from '../CopyBtn';
 import { moneyConfirmed } from '../../lib/moneyConfirm';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ launcher: pick the rail (house / FEELESS / pump.fun), pick the config for THIS coin, fill the coin,
 // review every term, sign once, get the full receipt (CA, links, tx, metadata) right after.
@@ -94,7 +95,7 @@ export function CmdLaunch({ rail }) {
     <div className="m-label">1 · WHERE DOES THIS COIN GO?</div>
     <div className="cl-rails" role="radiogroup" aria-label="Launch rail">{RAILS.map(r => { const ok = r.id === 'pump' || (r.id === 'house' ? house.length > 0 : rail?.ready);
       return <button key={r.id} type="button" role="radio" aria-checked={kind === r.id} disabled={!ok} className={`cl-rail ${kind === r.id ? 'active' : ''}`} onClick={() => { setKind(r.id); setStep('coin'); }} data-testid={`cl-rail-${r.id}`}>
-        <span className="cl-rail-top"><b>{r.icon} {r.name}</b><em>{r.where}</em></span><span>{r.what}</span><small>{ok ? r.after : r.id === 'house' ? 'Create a house config in Step 1 first.' : 'Create the public config in Step 1 first.'}</small></button>; })}</div>
+        <span className="cl-rail-top"><b><Ic3 e={r.icon} /> {r.name}</b><em>{r.where}</em></span><span>{r.what}</span><small>{ok ? r.after : r.id === 'house' ? 'Create a house config in Step 1 first.' : 'Create the public config in Step 1 first.'}</small></button>; })}</div>
     {kind === 'house' && <div className="m-row"><span className="m-label">WHICH HOUSE CONFIG</span>
       <div className="m-seg" role="radiogroup" aria-label="House config">{house.map(h => <button key={h.config} type="button" role="radio" aria-checked={houseId === h.config} onClick={() => setHouseId(h.config)}>{h.label}</button>)}</div></div>}
     <div className="m-card cl-terms"><div className="m-label">2 · {kind === 'pump' ? 'PUMP.FUN TERMS (set by pump.fun)' : 'TERMS FOR THIS COIN (set by the config)'} <em>{cfg?.config ? `${cfg.config.slice(0, 4)}…${cfg.config.slice(-4)}` : ''}</em></div>
@@ -166,6 +167,6 @@ export function LaunchReceipt({ r, onNew }) {
       <dt>Transaction</dt><dd><code>{r.signature}</code></dd>
       {r.uri && <><dt>Metadata</dt><dd><a href={r.uri} target="_blank" rel="noopener noreferrer">{r.uri}</a></dd></>}
       {(r.terms || []).map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{v}</dd></React.Fragment>)}</dl>
-    {onNew && <button type="button" className="m-btn wide" onClick={onNew}>🚀 Launch another coin</button>}
+    {onNew && <button type="button" className="m-btn wide" onClick={onNew}><Ic3 e="🚀" /> Launch another coin</button>}
   </div>;
 }

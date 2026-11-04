@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, ShieldAlert, Shield, ShieldQuestion, Search, Layers, Star, HelpCircle, Link2 } from 'lucide-react';
+import { ShieldQuestion, Layers, HelpCircle } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Shield, Search, Star, Link2 } from '../../lib/lucide3d';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { fetchLeaderboard, fetchCreator, fetchClusters, BADGE_LABEL } from '../../lib/reputation';
 import { CreatorProfileCard, AddressPill, WatchlistDashboard } from './CreatorProfile';

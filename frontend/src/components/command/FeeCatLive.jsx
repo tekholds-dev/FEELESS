@@ -5,6 +5,7 @@ import React from 'react';
 import { chartCalls } from './AgentCockpit';
 import { avatarOf } from '../../lib/aiAvatars';
 import { tapeRow } from '../../lib/feeTape';
+import { Ic3 } from '../../lib/icon3d';
 
 const n = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 const agoS = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - (n(t) > 1e12 ? n(t) / 1000 : n(t) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
@@ -41,14 +42,14 @@ function TapeChips({ r }) {
     {r.sol != null ? <i>{r.sol} SOL</i> : null}
     {r.move != null ? <i className={r.move >= 0 ? 'is-up' : 'is-dn'}>{r.move > 0 ? '+' : ''}{r.move}%</i> : null}
     {r.pnl != null ? <i className={`fcl-pnl ${r.pnl >= 0 ? 'is-up' : 'is-dn'}`}>{r.pnl >= 0 ? '+' : ''}{(+r.pnl).toFixed(4)} SOL</i> : null}
-    {r.ai ? <i className="fcl-ai">🔮 FeeCat AI</i> : null}
+    {r.ai ? <i className="fcl-ai"><Ic3 e="🔮" /> FeeCat AI</i> : null}
     {r.tag ? <i className="fcl-tag">{r.tag}</i> : null}
   </span>;
 }
 
 export function FeeTape({ events }) {
   const ev = events || [];
-  return <article className="fch-card fch-wide fcl-tape" data-testid="fcl-tape"><h4>⚡ LIVE ACTIVITY<small>{ev.length ? `newest ${agoS(ev[0].ts)} ago` : 'quiet'}</small></h4>
+  return <article className="fch-card fch-wide fcl-tape" data-testid="fcl-tape"><h4><Ic3 e="⚡" /> LIVE ACTIVITY<small>{ev.length ? `newest ${agoS(ev[0].ts)} ago` : 'quiet'}</small></h4>
     {ev.length ? <ol>{ev.map((e, i) => <li key={e.id || i} className={`is-${String(e.type || '').toLowerCase()} ${i === 0 ? 'is-new' : ''}`}>
       <b>{e.type}</b><TapeChips r={tapeRow(e)} /><small>{agoS(e.ts)}</small></li>)}</ol> : <p className="fch-nil">no moves yet on this paper trail</p>}
   </article>;

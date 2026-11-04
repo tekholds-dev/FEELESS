@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/popDesk.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📉 PROOF OF PERPS: both minds read the live market on their own, and a paper trade runs on true prices only when they agree. No real order is ever sent from here.
 const roeText = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(2)}%`;
@@ -33,7 +34,7 @@ export function ProposalCard({ c, send, busy }) {
   const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
   const left = Math.max(0, c.expiresAt - now); const open = c.state === 'waiting' && left > 0; const room = Number(c.room || 0); const [tag, tip] = CONVICTION[c.conviction] || CONVICTION.solo;
-  return <article className={`pop-live pop-card m-glass is-${c.roePct >= 0 ? 'up' : 'dn'}`} data-testid="pop-card"><header><em className="pop-tag">💡 PROPOSED</em><em className={`pop-side is-${c.side}`}>{c.side}</em><b>{c.market}-PERP</b><small>{c.lev}× · nothing open</small><em className="pop-tag is-how" data-tip={tip}>{tag}</em></header>
+  return <article className={`pop-live pop-card m-glass is-${c.roePct >= 0 ? 'up' : 'dn'}`} data-testid="pop-card"><header><em className="pop-tag"><Ic3 e="💡" /> PROPOSED</em><em className={`pop-side is-${c.side}`}>{c.side}</em><b>{c.market}-PERP</b><small>{c.lev}× · nothing open</small><em className="pop-tag is-how" data-tip={tip}>{tag}</em></header>
     <div className="pop-ghost"><span><em>IF IT WERE OPEN</em><b className="pop-roe m-num" key={c.mark}>{roeText(c.roePct)}</b></span>
       {open ? <span className="pop-clock" data-tip="After this it can no longer run"><em>{Math.floor(left / 60)}:{String(Math.floor(left % 60)).padStart(2, '0')} TO RUN IT</em><u><s style={{ transform: `scaleX(${left / 900})` }} /></u><em className={room >= 0.35 ? 'is-hot' : ''} data-tip="At half its way to the stop or take profit, Run is refused">{Math.round(room * 100)}% OF ITS ROOM USED</em><u className="is-room"><s style={{ transform: `scaleX(${Math.min(1, room * 2)})` }} /></u></span> : <small>{STATE[c.state] || STATE.expired}</small>}</div>
     <Band t={c} />
@@ -52,8 +53,8 @@ function ProposalScore({ rows }) {
 export function PopDesk({ d, send, busy, asking = false, err, children = null }) {
   const live = d?.popFolder; const card = d?.popCard; const rows = d?.popFolders || []; const done = rows.filter(r => !r.noTrade && !r.proposal); const won = done.filter(r => r.won).length; const paper = done.reduce((a, r) => a + (r.pnlUsd || 0), 0);
   return <section className="pop" data-testid="pop-desk">
-    <header className="pop-head m-glass"><span><b>📉 PROOF OF PERPS</b><small>Both minds must agree. True prices, paper fills: no real order is sent.</small></span>
-      <span className="pop-head-acts">{!card ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('propose')} data-tip="The same paid call, filed as a card. Nothing opens until you press Run. Or type propose a perp" data-testid="pop-propose">💡 Propose</button> : null}{live ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('stop')} data-tip="Ends this PoP at the live price" data-testid="pop-stop">■ Stop</button>
+    <header className="pop-head m-glass"><span><b><Ic3 e="📉" /> PROOF OF PERPS</b><small>Both minds must agree. True prices, paper fills: no real order is sent.</small></span>
+      <span className="pop-head-acts">{!card ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('propose')} data-tip="The same paid call, filed as a card. Nothing opens until you press Run. Or type propose a perp" data-testid="pop-propose"><Ic3 e="💡" /> Propose</button> : null}{live ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('stop')} data-tip="Ends this PoP at the live price" data-testid="pop-stop">■ Stop</button>
         : <button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('start')} data-tip="Each mind reads its own sources against the chart and makes one small paid model call. A paper trade runs if they agree. Or type file a perp" data-testid="pop-start">File a PoP</button>}</span></header>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     <div className="pop-stats">{[['PROOFS', rows.filter(r => !r.proposal).length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['PAPER P/L', `${paper >= 0 ? '+' : '−'}$${Math.abs(paper).toFixed(2)}`]].map(([k, v]) => <span key={k} className="m-glass"><em>{k}</em><b className="m-num">{v}</b></span>)}</div>

@@ -7,6 +7,7 @@ import { FamilyCardArt, CARD_SCENE } from './FamilyCardArt';
 import { WalletPfp } from './WalletPfp';
 import { useFloatPop } from '../lib/floatPop';
 import '../styles/familyRoom.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🎩 THE FAMILY ROOM (owner, 2026-10-20: "a REAL layout — family vitals, per-member activity, ranks and roles"): the family's hero with its
 // live numbers, THE TABLE (every member by rank, with role, heat, streak, last trade) and THE WIRE (the family's newest closed trades).
@@ -49,8 +50,8 @@ export function FamilyHero({ mine, busy, onLeave }) {
         {mine.badge?.motto ? <i className="frm-motto">“{mine.badge.motto}”</i> : null}
         <div className="frm-heat" data-tip="How hard the family is trading right now (members' trades in the last 24h)"><em>HEAT</em><span><i style={{ transform: `scaleX(${Math.max(0.03, (v.heat || 0) / 100)})` }} /></span><b>{v.heat ?? 0}</b></div>
         <div className="frm-spot">
-          {v.hot ? <span className="frm-chip is-hot">🔥 hot hand · {v.hot.name}</span> : null}
-          {v.streak ? <span className="frm-chip">🎯 {v.streak.n} wins straight · {v.streak.name}</span> : null}
+          {v.hot ? <span className="frm-chip is-hot"><Ic3 e="🔥" /> hot hand · {v.hot.name}</span> : null}
+          {v.streak ? <span className="frm-chip"><Ic3 e="🎯" /> {v.streak.n} wins straight · {v.streak.name}</span> : null}
           <span className="frm-chip">{mine.members.length}/{mine.seats} seats</span>
         </div>
       </div>
@@ -75,11 +76,11 @@ function RoleMenu({ m, mine, addr, sess, onDone }) {
   };
   return (
     <>
-      <button type="button" ref={fp.ref} aria-expanded={open} className="frm-set" onClick={() => setOpen(!open)} data-testid={`role-${m.address.slice(0, 6)}`} aria-label={`Set ${m.name}'s role and rank`}>⚙</button>
+      <button type="button" ref={fp.ref} aria-expanded={open} className="frm-set" onClick={() => setOpen(!open)} data-testid={`role-${m.address.slice(0, 6)}`} aria-label={`Set ${m.name}'s role and rank`}><Ic3 e="⚙" /></button>
       {open && createPortal(
         <div ref={fp.popRef} style={fp.style} className="frm-pop" role="dialog" aria-label="Role and rank">
           <span className="frm-ph">ROLE · {m.name}</span>
-          <div className="frm-opts">{Object.entries(mine.roles || {}).map(([k, [ic, word]]) => <button key={k} type="button" disabled={busy} className={m.role === k ? 'active' : ''} onClick={() => set({ role: m.role === k ? '' : k }, `${ic} ${m.name} is your ${word}`)}>{ic} {word}</button>)}</div>
+          <div className="frm-opts">{Object.entries(mine.roles || {}).map(([k, [ic, word]]) => <button key={k} type="button" disabled={busy} className={m.role === k ? 'active' : ''} onClick={() => set({ role: m.role === k ? '' : k }, `${ic} ${m.name} is your ${word}`)}><Ic3 e={ic} /> {word}</button>)}</div>
           {!m.owner && <>
             <span className="frm-ph">RANK</span>
             <div className="frm-opts">{(mine.promote || []).map(k => <button key={k} type="button" disabled={busy} className={m.rank === k ? 'active' : ''} onClick={() => set({ rank: k }, `${m.name} promoted`)}>{k}</button>)}
@@ -161,7 +162,7 @@ export function MemberFile({ m, mine, onClose }) {
       <h4 className="frm-h">📒 THEIR LAST TRADES</h4>
       {trades.length ? <ol className="frm-ftrades">{trades.map(r => <li key={`${r.at}-${r.sym}`} className={r.pct >= 0 ? 'is-up' : 'is-dn'}><b>${r.sym}</b><em>{r.pct >= 0 ? '+' : ''}{r.pct}%</em><small>{usdTxt(r.usd)} · {agoTxt(r.at)}</small></li>)}</ol>
         : <p className="frm-empty">No closed verified trades this week.</p>}
-      <button type="button" className="m-btn" onClick={() => window.dispatchEvent(new CustomEvent('feeless:investigate', { detail: m.address }))} data-tip="Their wallet case file — trades, funders, flags — right here" data-testid="member-case">🔎 Case file</button>
+      <button type="button" className="m-btn" onClick={() => window.dispatchEvent(new CustomEvent('feeless:investigate', { detail: m.address }))} data-tip="Their wallet case file — trades, funders, flags — right here" data-testid="member-case"><Ic3 e="🔎" /> Case file</button>
     </article></div>, document.body);
 }
 
@@ -183,10 +184,10 @@ export function CardStudio({ mine, owner, addr, sess, onChanged, preview }) {
   return <div className="frm-studio" data-testid="card-studio">
     <div className="frm-studio-prev">{preview(d)}</div>
     <div className="frm-studio-ctl">
-      <fieldset><legend>🎨 SCENE</legend>
+      <fieldset><legend><Ic3 e="🎨" /> SCENE</legend>
         <div className="fcc-styles">{(opts.style || []).map((v, i) => <button key={v} type="button" disabled={!owner} style={{ '--i': i }} className={`fcc-mini ${d.style === v ? 'active' : ''}`} onClick={() => setD(x => ({ ...x, style: v }))} data-tip={`${CARD_SCENE[v] || v} — the drawn scene behind your crest`} data-testid={`card-style-${v}`}>
           <FamilyCardArt style={v} />{mine.badge ? <FamilyBadge b={mine.badge} size="sm" px={30} /> : null}<small>{CARD_SCENE[v] || v}</small></button>)}</div></fieldset>
-      <fieldset><legend>✨ LIVE EFFECT</legend>
+      <fieldset><legend><Ic3 e="✨" /> LIVE EFFECT</legend>
         <div className="frm-opts">{(opts.fx || []).map(v => <button key={v} type="button" disabled={!owner} className={d.fx === v ? 'active' : ''} onClick={() => setD(x => ({ ...x, fx: v }))} data-tip="A calm effect over the scene" data-testid={`card-fx-${v}`}>{CARD_WORD[v] || v}</button>)}</div></fieldset>
       <fieldset><legend>✒ TAGLINE</legend><input className="m-input" value={d.line} maxLength={40} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, line: e.target.value }))} aria-label="Card tagline" /></fieldset>
       {owner ? <button type="button" className="m-btn m-go" disabled={busy} onClick={save} data-testid="card-save">Save the family card</button> : <p className="frm-empty">Only the Don styles the family card.</p>}

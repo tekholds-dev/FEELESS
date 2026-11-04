@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, UserRound, Pencil, ArrowUpRight } from 'lucide-react';
+import { X, ArrowUpRight } from 'lucide-react';
+import { UserRound, Pencil } from '../lib/lucide3d';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { ApprovalsCheck } from './ApprovalsCheck';

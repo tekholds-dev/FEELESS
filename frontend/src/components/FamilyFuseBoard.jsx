@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { ArenaBest } from './ArenaBest';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { Ic3 } from '../lib/icon3d';
 const EcosystemChat = React.lazy(() => import('./EcosystemChat'));
 
 // ⚔ FAMILY FUSE — the Fuse Arena's board (owner, 2026-10-21: "two families' Fuse cards (same coin count ±1), paper or MP (2K min), spectator
@@ -25,7 +26,7 @@ function Ticking({ left }) {
 // 💬 one room per fight — mounted only once opened (a board of fights never loads a chat nobody is reading)
 function FightChat({ f }) {
   const [open, setOpen] = useState(false);
-  return <details className="ffb-chat" data-testid={`ffb-chat-${f.id}`} onToggle={e => setOpen(e.currentTarget.open)}><summary data-tip="Everyone watching this fight, one room">💬 Fight chat <small>[{f.a.tag}] vs [{f.b.tag}]</small></summary>
+  return <details className="ffb-chat" data-testid={`ffb-chat-${f.id}`} onToggle={e => setOpen(e.currentTarget.open)}><summary data-tip="Everyone watching this fight, one room"><Ic3 e="💬" /> Fight chat <small>[{f.a.tag}] vs [{f.b.tag}]</small></summary>
     {open ? <Suspense fallback={<small className="m-dim">Opening the room…</small>}><EcosystemChat compact room={`ffuse-${f.id}`} ecosystem={{ id: `ffuse-${f.id}`, name: `Family Fuse · ${f.a.tag} vs ${f.b.tag}` }} /></Suspense> : null}</details>;
 }
 
@@ -64,7 +65,7 @@ function Fight({ f, me, cards, act, busy }) {
       {!ok.length ? <small className="m-dim">No card with {(f.a.card?.coins || 0) - 1}–{(f.a.card?.coins || 0) + 1} coins — build one in the Fuse tab.</small> : null}</div> : null}
     {f.status === 'open' && mineA && (me?.boss || f.stake !== 'mp') ? <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'cancel', fight: f.id }, 'Challenge pulled')}>Pull the challenge</button> : null}
     {f.status === 'done' && f.paid ? <p className="ffb-paid">{f.winner === 'draw' ? 'Draw — stakes and bids refunded.' : `[${f[f.winner].tag}] took ${f.mp ? `${n((f.paid.fam || {})[f[f.winner].id])} MP` : 'the paper win'} · ${Object.keys(f.paid.bids || {}).length} bidders paid · house ${n(f.paid.house)}`}</p> : null}
-    {f.elo ? <p className="ffb-elo" data-tip="Ranked: the Fuse ratings after the final bell">🎖 [{f.a.tag}] {n(f.elo.a[0])} → <b className={f.elo.a[1] >= f.elo.a[0] ? 'm-pos' : 'm-neg'}>{n(f.elo.a[1])}</b> · [{f.b.tag}] {n(f.elo.b[0])} → <b className={f.elo.b[1] >= f.elo.b[0] ? 'm-pos' : 'm-neg'}>{n(f.elo.b[1])}</b></p> : null}
+    {f.elo ? <p className="ffb-elo" data-tip="Ranked: the Fuse ratings after the final bell"><Ic3 e="🎖" /> [{f.a.tag}] {n(f.elo.a[0])} → <b className={f.elo.a[1] >= f.elo.a[0] ? 'm-pos' : 'm-neg'}>{n(f.elo.a[1])}</b> · [{f.b.tag}] {n(f.elo.b[0])} → <b className={f.elo.b[1] >= f.elo.b[0] ? 'm-pos' : 'm-neg'}>{n(f.elo.b[1])}</b></p> : null}
     <FightChat f={f} />
   </article>;
 }
@@ -75,7 +76,7 @@ export function nextBand(rating, brackets) {
   return hi == null ? 1 : Math.max(0.03, Math.min(1, (rating - lo) / (hi - lo)));
 }
 function FuseLadder({ rows, brackets, me }) {
-  return <div className="ffb-ladder" data-testid="ffb-ladder"><span className="m-label">🎖 FUSE LADDER · {(brackets || []).map(b => b.word).join(' → ')}</span>
+  return <div className="ffb-ladder" data-testid="ffb-ladder"><span className="m-label"><Ic3 e="🎖" /> FUSE LADDER · {(brackets || []).map(b => b.word).join(' → ')}</span>
     <ol>{rows.map((r, i) => <li key={r.id} className={me?.id === r.id ? 'is-me' : ''} style={{ '--i': i }}><b>{i + 1}</b><i>[{r.tag}]</i><span>{r.name}</span><em data-tip={`${r.bracket} bracket`}>{r.bracket}</em>
       <u aria-hidden="true"><s style={{ transform: `scaleX(${nextBand(r.rating, brackets)})` }} /></u><strong>{n(r.rating)}</strong></li>)}</ol></div>;
 }
@@ -87,7 +88,7 @@ function Challenge({ v, act, busy }) {
   const need = Math.max(v.rules?.fuseMinMp || 2000, +mp_ || 0);
   if (!ff.cards?.length) return <p className="ffb-hint">Your family has no Fuse card yet — <a href="/terminal/fuse?tab=lab">build one in the Fuse tab</a>, then call a rival out.</p>;
   return <form className="ffb-call" onSubmit={e => { e.preventDefault(); act({ act: 'challenge', vs, card, stake, mp: stake === 'mp' ? +mp_ : 0, mins }, 'Challenge sent'); }} data-testid="ffb-call">
-    <span className="m-label">📣 CALL A FAMILY OUT</span>
+    <span className="m-label"><Ic3 e="📣" /> CALL A FAMILY OUT</span>
     <select className="m-input" value={vs} onChange={e => setVs(e.target.value)} aria-label="Rival family" data-testid="ffb-vs"><option value="">Rival family…</option>{rivals.map(r => <option key={r.id} value={r.id}>[{r.tag}] {r.name}</option>)}</select>
     <select className="m-input" value={card} onChange={e => setCard(e.target.value)} aria-label="Your card" data-testid="ffb-mycard"><option value="">Your card…</option>{ff.cards.map(c => <option key={c.key} value={c.key}>{c.name} · {c.coins} coins</option>)}</select>
     <div className="m-seg">{['paper', 'mp'].map(s => <button key={s} type="button" className={stake === s ? 'active' : ''} disabled={s === 'mp' && !me.boss} onClick={() => setStake(s)} data-tip={s === 'mp' ? `Both banks put up the stake; needs ${n(v.rules?.fuseMinMp)} MP in the bank` : 'Glory + the ladder, nothing staked'} data-testid={`ffb-stake-${s}`}>{s === 'mp' ? 'MP' : 'Paper'}</button>)}</div>

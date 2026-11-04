@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { shaped } from '../lib/shape';
+import { Ic3 } from '../lib/icon3d';
 const FUSE_HQ = shaped({ book: { pnlUsd: 0, positions: 0, winners: 0, losers: 0 }, outlook: {}, bloodline: [], blockedCuts: [], published: [] });
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
@@ -25,7 +26,7 @@ export function FuseExplainer({ admin = false }) {
   const steps = admin ? ADMIN : TRADER;
   return <div className={`fx-explain ${admin ? 'is-admin' : ''}`} data-testid="fuse-explainer">
     {/* HQ: the five-step strip is help, not a dashboard — it opens with the explainer instead of sitting above the numbers */}
-    {(!admin || open) && <ol className="fx-flow">{steps.map(([ic, t, s], i) => <li key={t} style={{ animationDelay: `${i * 60}ms` }}><b>{ic}</b><span>{t}<small>{s}</small></span></li>)}</ol>}
+    {(!admin || open) && <ol className="fx-flow">{steps.map(([ic, t, s], i) => <li key={t} style={{ animationDelay: `${i * 60}ms` }}><b><Ic3 e={ic} /></b><span>{t}<small>{s}</small></span></li>)}</ol>}
     <button type="button" className="fx-more" aria-expanded={open} onClick={() => setOpen(o => !o)}>{open ? 'Less' : admin ? 'How the deck works' : 'What exactly is a Fuse?'}</button>
     {open && <div className="fx-body">{admin ? <>
       <p><b>A Fuse is a basket of live pools bought in one click.</b> Each pool becomes a normal FEELESS swap paid in SOL; the trader holds the coins. Nothing is pooled, locked or custodied.</p>
@@ -75,7 +76,7 @@ export function FuseDeck({ panels, call }) {
     </div>}
     <div className="fdeck-main">
       <nav className="fdeck-rail is-v2" role="tablist" aria-label="Fuse deck">
-        <button type="button" role="tab" aria-selected={isMap} className={isMap ? 'active' : ''} onClick={() => go('map')} data-testid="fdeck-map"><b>🗺 Overview</b></button>
+        <button type="button" role="tab" aria-selected={isMap} className={isMap ? 'active' : ''} onClick={() => go('map')} data-testid="fdeck-map"><b><Ic3 e="🗺" /> Overview</b></button>
         {panels.map(([k, l, , blurb, group], i) => <React.Fragment key={k}>
         {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
         <button type="button" role="tab" aria-selected={!isMap && cur[0] === k} className={!isMap && cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`} data-tip={blurb}>
@@ -126,7 +127,7 @@ export function Verdict({ call }) {
   const rows = (v.rows || []).filter(r => lens === 'all' || r.verdict === lens);
   return <section className="fdeck-verdict" data-testid="fdeck-verdict"><span className="fdeck-group">WHAT'S WORKING · WHAT'S NOT</span>
     <p className="fdv-head" data-testid="fdv-head">{v.headline}</p>
-    <small className="m-dim fdv-meta">Runs by itself every hour (your inbox hears when something turns ✅ or ❌){v.at ? ` · checked ${new Date(v.at * 1000).toLocaleTimeString()}` : ''} ·
+    <small className="m-dim fdv-meta">Runs by itself every hour (your inbox hears when something turns <Ic3 e="✅" /> or ❌){v.at ? ` · checked ${new Date(v.at * 1000).toLocaleTimeString()}` : ''} ·
       every card keeps its own config — 🃏 "one card" goes to <select className="m-input fdv-tier" value={tier} onChange={e => setTier(e.target.value)} aria-label="Card for one-card actions">{VERDICT_TIERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></small>
     <span className="m-seg fdv-lens" role="tablist" aria-label="Filter">{VERDICT_LENS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => { setLens(k); setMore(false); }} data-testid={`fdv-${k}`}>
       {l}{k !== 'all' && <em className="m-num">{v[k] || 0}</em>}</button>)}</span>
@@ -137,7 +138,7 @@ export function Verdict({ call }) {
         onClick={() => act(r, a)} data-testid={`fdv-act-${a}-${i}`}>{busy === `${r.area}${r.name}${a}` ? '…' : a === 'apply-one' ? `${l}: ${VERDICT_TIERS.find(t => t[0] === tier)[1]}` : l}</button>)}</div>}</li>)}</ul>
     {rows.length > 10 && <button type="button" className="m-btn fdv-more" onClick={() => setMore(m => !m)}>{more ? 'Show less' : `Show all ${rows.length}`}</button>}
     {!rows.length && <small className="m-dim">Nothing in this group.</small>}
-    <small className="m-dim">Nothing changes until you click. ✅ = enough samples with the average AND the typical run above 0 — one lucky run can't make it green.</small></section>;
+    <small className="m-dim">Nothing changes until you click. <Ic3 e="✅" /> = enough samples with the average AND the typical run above 0 — one lucky run can't make it green.</small></section>;
 }
 
 // Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);
@@ -152,7 +153,7 @@ export function VaultMath() {
     <div className="vmath-col is-fuse"><span className="m-label">⚛️ FUSE · PRICE MOVES</span><p>$1 split into live pools rides their prices. Last 24h (6h / 1h on young pools; ±95% outliers dropped) on {y.pools} deep Solana pools:</p>
       <dl><dt>Best pool</dt><dd className="m-pos">$1 → ${y.fuse1.best.toFixed(2)} <small>{pct(y.fuse1.best)}</small></dd><dt>Typical</dt><dd>$1 → ${y.fuse1.median.toFixed(2)}</dd><dt>Worst</dt><dd className="m-neg">$1 → ${y.fuse1.worst.toFixed(2)} <small>{pct(y.fuse1.worst)}</small></dd></dl>
       <small className="m-dim">This is where +20¢…+50¢ on $1 in a day can happen — and where −30¢ happens too. The engine's job: pick baskets that lean to the good side (grade, depth, momentum) and the Arena proves whether it does.</small></div>
-    <div className="vmath-col is-vault"><span className="m-label">🏦 VAULT · POOL FEES</span><p>The Vault would hold real liquidity positions, so it EARNS the trading fees a Fuse never does. Best deep pools now ≈ <b>{y.vaultAprPct}% APR</b>:</p>
+    <div className="vmath-col is-vault"><span className="m-label"><Ic3 e="🏦" /> VAULT · POOL FEES</span><p>The Vault would hold real liquidity positions, so it EARNS the trading fees a Fuse never does. Best deep pools now ≈ <b>{y.vaultAprPct}% APR</b>:</p>
       <dl><dt>$1</dt><dd>+{c$(y.vaultPerDay['1'])}/day</dd><dt>$20</dt><dd>+{c$(y.vaultPerDay['20'])}/day</dd><dt>$100</dt><dd>+{c$(y.vaultPerDay['100'])}/day</dd></dl>
       <small className="m-dim">Fees alone can't make +20¢/day on $1 — that needs {y.aprFor20c.toLocaleString()}% APR, which only shows up in tiny pools for hours (and they bleed on price). What the Vault adds: one shared rebalance instead of 3 network fees per person, fee income on top of the price moves, and true auto take-profit / stop-loss (the contract can act; your wallet can't be signed for). Not live until audited.</small></div>
   </div>;

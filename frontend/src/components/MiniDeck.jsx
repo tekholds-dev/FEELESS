@@ -8,6 +8,7 @@ import { TokenAvatar } from './terminal/MarketPrimitives';
 import { openCoin } from './CoinDrawer';
 import '../styles/miniDeck.css';
 import { familiaRoom } from '../lib/familiaRoom';
+import { Ic3 } from '../lib/icon3d';
 
 // 🧰 The bottom-right mini box's own panes: 💼 Mine (coins you hold + your Fuse cards) and 🔥 Top 10 (the busiest Solana launch
 // coins under 12 hours old, by the last hour's volume). One fetch each, only while the pane is open; rows open the coin drawer.
@@ -29,7 +30,7 @@ export function MiniTop() {
       .then(a => alive && setRows(topTen(a.flatMap(x => x.pairs || [])))); };
     load(true); const t = setInterval(() => load(false), 30000); return () => { alive = false; clearInterval(t); }; }, []);
   if (!rows) return <div className="md is-ghost" />;
-  return <div className="md cfx-host" data-testid="mini-top"><CardFx kind="embers" /><span className="m-label">🔥 TOP 10 · SOLANA · UNDER 12H · BY 1H VOLUME</span>
+  return <div className="md cfx-host" data-testid="mini-top"><CardFx kind="embers" /><span className="m-label"><Ic3 e="🔥" /> TOP 10 · SOLANA · UNDER 12H · BY 1H VOLUME</span>
     {rows.length ? <ol className="md-list">{rows.map((p, i) => <li key={p.baseToken.address} style={{ '--i': i }}>
       <button type="button" onClick={() => openCoin(p)} data-testid={`mini-top-${i}`}><i>{i + 1}</i><TokenAvatar pair={p} size={22} />
         <b>{p.baseToken.symbol}</b><span className="m-num">{usd(p.volume?.h1)}<small>/h</small></span>
@@ -59,9 +60,9 @@ export function MiniMine() {
     {(cards > 0 || !real.length) && <a className="md-fuse" href="/terminal/fuse?tab=cards" onClick={e => familiaRoom('fuse', e)} data-testid="mini-fuse">{cards ? <><b>{cards} card{cards === 1 ? '' : 's'}</b><span className="m-num">{usd(fuse.valueUsd)}</span>
       <em className={`m-num ${(fuse.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{(fuse.pnlUsd || 0) >= 0 ? '+' : '−'}{usd(Math.abs(fuse.pnlUsd || 0))} · {pct(fuse.pnlPct)}</em></> : <b>No open cards — open My cards →</b>}</a>}
     {real.map(c => { const put = c.realBook?.fundedUsd || c.startUsd || 0; const pnl = (c.math?.pnlUsd != null ? c.math.pnlUsd : (c.valueUsd || 0) - put);
-      return <a key={c.tpl} className="md-fuse" href="/terminal/fuse?tab=cards" onClick={e => familiaRoom('fuse', e)} data-testid={`mini-real-${c.tpl}`}><b>💵 {c.label}</b><span className="m-num">{usd(c.valueUsd)}</span>
+      return <a key={c.tpl} className="md-fuse" href="/terminal/fuse?tab=cards" onClick={e => familiaRoom('fuse', e)} data-testid={`mini-real-${c.tpl}`}><b><Ic3 e="💵" /> {c.label}</b><span className="m-num">{usd(c.valueUsd)}</span>
         <em className={`m-num ${pnl >= 0 ? 'm-pos' : 'm-neg'}`}>{pnl >= 0 ? '+' : '−'}{usd(Math.abs(pnl))} all-time · {pct(c.pnlPct)} this run</em></a>; })}
-    <span className="m-label">💼 COINS I HOLD</span>
+    <span className="m-label"><Ic3 e="💼" /> COINS I HOLD</span>
     {held.length ? <ol className="md-list is-plain">{held.slice(0, 12).map((t, i) => <li key={t.mint} style={{ '--i': i }}>
       <button type="button" onClick={() => openCoin({ mint: t.mint, symbol: t.symbol, pairAddress: t.pairAddress })}><i>{i + 1}</i>
         <b>{t.symbol || `${String(t.mint).slice(0, 4)}…`}</b><span className="m-num">{Number(t.holding).toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>

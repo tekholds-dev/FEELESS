@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import '../styles/rugBounty.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🪙 RUG BOUNTY: recent catches and the top finders. Only wallets FEELESS's own forensics prove bundled or sniped the coin are accepted
 // (the same rule as reporting from a launch's forensics), the first finder earns season points. GET /bounty. Fits the Reputation page.
@@ -14,7 +15,7 @@ export function RugBounty() {
   useEffect(() => { let alive = true; sharedJson('/api/reputation/bounty', { maxAge: 60000 }).then(x => alive && setD(x)).catch(() => {}); return () => { alive = false; }; }, []);
   const rows = d?.[tab] || [];
   return <section className="rb m-card m-live" data-testid="rug-bounty">
-    <header><span className="m-label">🪙 RUG BOUNTY</span><small data-tip={d?.rule || 'Evidence-checked reports earn season points.'}>{d?.total ? `${d.total.wallets} wallets flagged on ${d.total.coins} coins` : 'evidence-checked reports earn points'}</small></header>
+    <header><span className="m-label"><Ic3 e="🪙" /> RUG BOUNTY</span><small data-tip={d?.rule || 'Evidence-checked reports earn season points.'}>{d?.total ? `${d.total.wallets} wallets flagged on ${d.total.coins} coins` : 'evidence-checked reports earn points'}</small></header>
     <div className="m-seg rb-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
     {!d && <small className="m-dim">Loading the board…</small>}
     {d && !rows.length && <p className="rb-empty m-dim">{tab === 'recent' ? 'No catches yet. Open a launch\'s forensics and report the wallets it proves bundled or sniped — the first finder earns points.' : 'Nobody on the board for this window yet.'}</p>}

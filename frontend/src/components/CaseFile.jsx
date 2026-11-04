@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { Search } from '../lib/lucide3d';
 import { WatchButton } from './WatchButton';
 import { VerifyReport } from './VerifyReport';
 import { ShareGifButton } from './ShareGif';

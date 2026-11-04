@@ -5,6 +5,7 @@ import { sharedJson } from '../lib/sharedJson';
 import { useHqBusy } from '../lib/hqBusy';
 import { pairedAddress } from '../lib/hqPaired';
 import '../styles/hqPop.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚡ HQ POP-OUT (owner, 2026-10-13: "in my lil mini cat bottom right make a one click big HQ popout … so I don't have to keep running to
 // HQ in profile"). CREATOR WALLET ONLY: the button exists only when the server's yes / no check says this connected wallet is the
@@ -49,8 +50,8 @@ function HqPopWindow({ address, signMessage, onClose }) {
     <div className="hqp-fx" aria-hidden="true"><i /><i /><i /></div>
     <header className="hqp-bar">
       <span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span>
-      <span className="hqp-mood" data-testid="hq-pop-mood" data-mood={mood.key}><b>{mood.icon} {mood.word}</b><small>{mood.line}</small></span>
-      <nav className="hqp-jumps" aria-label="HQ shortcuts">{HQ_JUMPS.map(([k, ic, label, detail]) => <button key={k} type="button" className={at === k ? 'active' : ''} onClick={() => go(k, detail)} data-testid={`hq-pop-go-${k}`}><i>{ic}</i>{label}</button>)}</nav>
+      <span className="hqp-mood" data-testid="hq-pop-mood" data-mood={mood.key}><b><Ic3 e={mood.icon} /> {mood.word}</b><small>{mood.line}</small></span>
+      <nav className="hqp-jumps" aria-label="HQ shortcuts">{HQ_JUMPS.map(([k, ic, label, detail]) => <button key={k} type="button" className={at === k ? 'active' : ''} onClick={() => go(k, detail)} data-testid={`hq-pop-go-${k}`}><i><Ic3 e={ic} /></i>{label}</button>)}</nav>
       <button type="button" className="hqp-x" onClick={onClose} aria-label="Close HQ" data-testid="hq-pop-close" data-tip="Close (Esc)">✕</button>
     </header>
     <div className="hqp-body"><Suspense fallback={<div className="hqp-load" data-testid="hq-pop-loading"><span className="hqp-mark is-big" aria-hidden="true"><i /><i /><b>HQ</b></span><small>opening HQ…</small></div>}>

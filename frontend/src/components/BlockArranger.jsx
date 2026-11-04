@@ -4,6 +4,7 @@ import { TOWN, STAND, MY_POOLS, ISLAND_CELLS, myPools, usd, dollarsSmall, apyTxt
 import { EarnTicker } from './EarnTicker';
 import { JOB_OF, openDesk } from './MoneyDesk';
 import '../styles/blockArranger.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ✋ ARRANGE THE BLOCK (owner, 2026-10-23: "more islands joined by bridges, pick your own lots, MOVE buildings, add little stands, a MY POOLS
 // combo building — the layout stored server-side per family"): the family's cells as drawn lots, island by island (15 a island, a bridge between
@@ -63,7 +64,7 @@ export function BlockArranger({ bl, busy, onSave, onClose }) {
         <button type="button" className="is-isle" onClick={() => { setCells(c => newIsland(c, per)); setPick(null); }} disabled={cells.length + 3 > LAYOUT_MAX}
           data-tip={`A new island east, joined by a bridge, with three open lots — ${bl?.islandMp ? `${bl.islandMp.toLocaleString('en-US')} MP from the family bank when you save` : 'free for the creator wallet'}`} data-testid="bar-add-island">+ 🏝 new island <small>{bl?.islandMp ? `${(bl.islandMp / 1000).toFixed(0)}K MP` : 'FREE'}</small></button>
         <button type="button" className="is-bin" onClick={() => { setCells(c => c.filter((_, i) => i !== pick)); setPick(null); }} disabled={pick == null || !removable(cells[pick])}
-          data-tip={pick != null && !removable(cells[pick]) ? 'Buildings come off the block from their own card — move it instead' : 'Clear the picked lot (open lots, land, stands, MY POOLS)'} data-testid="bar-bin">🗑 clear picked</button>
+          data-tip={pick != null && !removable(cells[pick]) ? 'Buildings come off the block from their own card — move it instead' : 'Clear the picked lot (open lots, land, stands, MY POOLS)'} data-testid="bar-bin"><Ic3 e="🗑" /> clear picked</button>
       </div>
       {onLot ? <div className="bar-build" data-testid="bar-build"><b>🏗 BUILD A MARKET ON THIS LOT</b><small>it stands here once you save · it lights up when a member opens a real position</small>
         {menu.length ? <div className="bar-build-list">{menu.map((m, k) => <button key={m.key} type="button" style={{ '--i': k }} onClick={() => { setCells(c => c.map((x, j) => (j === pick ? `new:${m.key}` : x))); setPick(null); }}
@@ -75,7 +76,7 @@ export function BlockArranger({ bl, busy, onSave, onClose }) {
           return <button key={`${c}-${i}`} type="button" className={`bar-cell t-${l.tone} ${pick === i ? 'is-pick' : ''} ${pick != null && pick !== i ? 'is-target' : ''} ${dg?.i === i ? 'is-drag' : ''} ${dg && dg.over === i && dg.i !== i ? 'is-over' : ''}`}
             style={{ '--c': l.color, '--i': i % per, ...(dg?.i === i ? { transform: `translate(${dg.dx}px, ${dg.dy}px) scale(1.06)` } : null) }} data-cell={i}
             onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; setDg(null); }} onClick={() => tap(i)} aria-pressed={pick === i} data-testid={`bar-cell-${i}`} data-tip={pick == null ? `${l.name} — drag it onto another lot (or tap, then tap where it goes)${c === 'open' ? ' · tap to build a market here' : ''}` : pick === i ? 'Picked — tap another lot to swap' : `Swap with ${cellLook(cells[pick], bl).name}`}>
-            <i aria-hidden="true">{l.icon}</i><b>{l.name}</b></button>; })}</div></div>)}</div>
+            <i aria-hidden="true"><Ic3 e={l.icon} /></i><b>{l.name}</b></button>; })}</div></div>)}</div>
       <footer className="bar-foot"><button type="button" className="m-btn" onClick={() => { setCells(startCells(bl)); setPick(null); }} disabled={busy} data-tip="Back to the saved layout">↺ Reset</button>
         <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onSave(cells)} data-testid="bar-save" data-tip="Saved on the family — every member sees it (nothing is bought or sold)">{busy ? 'Saving…' : '💾 Save the block'}</button></footer>
     </section></div>, document.body);
@@ -94,6 +95,6 @@ export function MyPoolsCard({ bl, lp }) {
       <b>{r.sym}</b><i><u style={{ transform: `scaleX(${Math.max(0.03, r.usd / top)})` }} /></i><em>{dollarsSmall(r.usd)}</em></li>)}</ul>
       : <p className="mpc-nil">No positions yet — open one from a building's card (or the money desk) and it lands here.</p>}
     {yr > 0 ? <EarnTicker perYear={yr} label="MY POOLS · EARNING NOW" tip="Every position on the block at its live APY — what they earn while you look (LP fees ride on top)" testid="mpc-earn" /> : null}
-    <button type="button" className="m-btn m-go mpc-go" onClick={() => openDesk({ job: JOB_OF[rows[0]?.kind] || 'best', title: 'MY POOLS · PUT MORE TO WORK' })} data-tip="The money desk pops out big — add to a pool, stake or lend; your wallet signs" data-testid="mpc-go">⚡ PUT MORE TO WORK</button>
+    <button type="button" className="m-btn m-go mpc-go" onClick={() => openDesk({ job: JOB_OF[rows[0]?.kind] || 'best', title: 'MY POOLS · PUT MORE TO WORK' })} data-tip="The money desk pops out big — add to a pool, stake or lend; your wallet signs" data-testid="mpc-go"><Ic3 e="⚡" /> PUT MORE TO WORK</button>
   </div>;
 }

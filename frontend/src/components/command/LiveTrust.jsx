@@ -1,7 +1,8 @@
 import { getChatSession } from '../../lib/chatSession';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ShieldAlert, Rocket, BookOpen, Radio, ThumbsUp, CheckCircle2 } from 'lucide-react';
+import { Radio, ThumbsUp, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Rocket, BookOpen } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';

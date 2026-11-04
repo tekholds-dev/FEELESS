@@ -3,6 +3,7 @@ import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';
 import '../styles/repMarkets.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🛡 Rep markets: YES / NO on what FEELESS measures. Free weekly chips (never bought, sent or cashed out) — net gain becomes season points.
 // The twist: two prices per market — the crowd's chips, and the same chips weighted by each wallet's verified trust score.
@@ -26,8 +27,8 @@ function Market({ m, now, onStake, busy }) {
   return (
     <article className={`rpm-card k-${m.kind} ${m.split ? 'is-split' : ''} ${m.state !== 'open' ? `is-done r-${m.result}` : ''}`}>
       <header>
-        <span className="rpm-kind">{m.icon} {KIND_WORD[m.kind]}</span>
-        {m.split && <span className="rpm-split" data-tip="Wallets with a FEELESS record disagree with the crowd by 15+ points">⚡ SMART SPLIT</span>}
+        <span className="rpm-kind"><Ic3 e={m.icon} /> {KIND_WORD[m.kind]}</span>
+        {m.split && <span className="rpm-split" data-tip="Wallets with a FEELESS record disagree with the crowd by 15+ points"><Ic3 e="⚡" /> SMART SPLIT</span>}
         <span className="rpm-clock">{m.state === 'open' ? (locked ? '🔒 locked' : `⏱ ${clock(left)}`) : `✓ ${String(m.result).toUpperCase()}`}</span>
       </header>
       <h4>{m.q}</h4>
@@ -38,7 +39,7 @@ function Market({ m, now, onStake, busy }) {
       </div>
       <div className="rpm-odds">
         <div><em>CROWD</em><i style={{ transform: `scaleX(${m.crowd / 100})` }} /><b>{m.crowd}¢ YES</b></div>
-        <div className="is-rep"><em>🛡 REP</em><i style={{ transform: `scaleX(${m.rep / 100})` }} /><b>{m.rep}¢ YES</b></div>
+        <div className="is-rep"><em><Ic3 e="🛡" /> REP</em><i style={{ transform: `scaleX(${m.rep / 100})` }} /><b>{m.rep}¢ YES</b></div>
       </div>
       <p className="rpm-pool">{m.yes + m.no} chips · {m.n} backers</p>
       {m.mine && <p className="rpm-mine">You: <b>{m.mine.side.toUpperCase()}</b> {m.mine.chips}{m.mine.paid != null && <> → <b className={m.mine.paid > m.mine.chips ? 'up' : m.mine.paid < m.mine.chips ? 'dn' : ''}>{m.mine.paid}</b></>}</p>}
@@ -95,10 +96,10 @@ export default function RepMarkets({ only, start = 'live' } = {}) {
       </header>
       <div className="rpm-bar">
         <div className="m-seg">
-          <button type="button" className={lens === 'live' ? 'active' : ''} onClick={() => setLens('live')}>⚡ Live {(d?.live || []).filter(m => !only || m.kind === only).length}</button>
+          <button type="button" className={lens === 'live' ? 'active' : ''} onClick={() => setLens('live')}><Ic3 e="⚡" /> Live {(d?.live || []).filter(m => !only || m.kind === only).length}</button>
           <button type="button" className={lens === 'settled' ? 'active' : ''} onClick={() => setLens('settled')}>✓ Settled</button>
         </div>
-        {!!d?.top?.length && <p className="rpm-top">🏆 {d.top.slice(0, 5).map((t, i) => <span key={t.w}>{i + 1}. {t.w} <b>+{t.net}</b></span>)}</p>}
+        {!!d?.top?.length && <p className="rpm-top"><Ic3 e="🏆" /> {d.top.slice(0, 5).map((t, i) => <span key={t.w}>{i + 1}. {t.w} <b>+{t.net}</b></span>)}</p>}
       </div>
       {err && <p className="rpm-err">⚠ {err}</p>}
       {list.length ? <div className="rpm-grid">{list.map((m, i) => <div key={m.id} style={{ '--i': i }} className="rpm-cell"><Market m={m} now={now} onStake={onStake} busy={busy} /></div>)}</div>

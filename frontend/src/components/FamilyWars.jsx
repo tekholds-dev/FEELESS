@@ -5,6 +5,7 @@ import NumInput from './NumInput';
 import { useGlide } from '../lib/useGlide';
 import { useCrewBoard } from './CrewCard';
 import '../styles/familyWars.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚔ THE WAR ROOM (family_wars.py): families call each other out, bid up a POINTS pot, set a bell and fight a battle trench — each team's verified
 // FEELESS trades inside the window decide it; allies can join a side. Points only, never money. GET /crews/wars · POST /crews/act war|answer|raise|join|ally|unally.
@@ -82,7 +83,7 @@ function WarCard({ w, myId, owner, act, busy, now }) {
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('answer', { id: w.id, ok: true, stake: Number(stake) }, '⚔ accepted — the bell is set')} data-testid="war-accept">Accept · match {w.potSides?.a}+</button>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('answer', { id: w.id, ok: false }, 'declined')}>Decline</button></div>}
     {owner && mySide && (w.state === 'open' || w.state === 'set') && clock > 0 && <div className="fwr-acts">
-      {[25, 100, 250].map(n => <button key={n} type="button" className="m-btn" disabled={!!busy} onClick={() => act('raise', { id: w.id, stake: n }, `🔥 +${n} in the pot`)} data-testid={`war-raise-${n}`}>🔥 +{n}</button>)}</div>}
+      {[25, 100, 250].map(n => <button key={n} type="button" className="m-btn" disabled={!!busy} onClick={() => act('raise', { id: w.id, stake: n }, `🔥 +${n} in the pot`)} data-testid={`war-raise-${n}`}><Ic3 e="🔥" /> +{n}</button>)}</div>}
     {owner && !mySide && w.state === 'set' && clock > 0 && <div className="fwr-acts"><button type="button" className="m-btn" disabled={!!busy} onClick={() => act('join', { id: w.id, stake: 50 }, '🤝 joined your ally')} data-testid="war-join">🤝 Join your ally · 50 pts</button></div>}
   </article>;
 }
@@ -99,7 +100,7 @@ export function QuietFront({ rows, note, cta = null }) {
       <span className="fwr-cname"><b>{r.name}</b><small>{r.members}/{r.seats} seats</small></span>
       <u aria-hidden="true"><s className={(Number(r.pct) || 0) >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(Number(r.pct) || 0) / top))})` }} /></u>
       <em className={r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct == null ? '—' : `${r.pct >= 0 ? '+' : ''}${r.pct}%`}</em></li>)}</ol></div> : null}
-    <ol className="fwr-howto">{HOWTO.map(([ic, k, d], i) => <li key={k} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{k}</b><small>{d}</small></li>)}</ol>
+    <ol className="fwr-howto">{HOWTO.map(([ic, k, d], i) => <li key={k} style={{ '--i': i }}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{k}</b><small>{d}</small></li>)}</ol>
     {cta}
   </div>;
 }
@@ -110,7 +111,7 @@ function CallOut({ mine, rows, act, busy }) {
   const [team, setTeam] = useState(() => mine.members.slice(0, 5).map(m => m.address));
   const flip = a => setTeam(t => (t.includes(a) ? t.filter(x => x !== a) : t.length >= 5 ? t : [...t, a]));
   return <form className="fwr-call" onSubmit={e => { e.preventDefault(); act('war', { vs, stake: Number(stake), startAt: Date.now() / 1000 + bell, hours, team }, `📣 [${vs}] called out — they have until the bell to answer`); }} data-testid="war-callout">
-    <b className="fwr-h">📣 CALL A FAMILY OUT</b>
+    <b className="fwr-h"><Ic3 e="📣" /> CALL A FAMILY OUT</b>
     <div className="fwr-field"><span>Family</span><select className="m-input" value={vs} onChange={e => setVs(e.target.value)} aria-label="Family to call out"><option value="">pick a family…</option>{others.map(r => <option key={r.id} value={r.tag}>[{r.tag}] {r.name}{r.warW != null ? ` · ${r.warW}W ${r.warL}L` : ''}</option>)}</select></div>
     <div className="fwr-field"><span>Stake</span><div className="m-seg">{STAKES.map(n => <button type="button" key={n} className={stake === n ? 'active' : ''} onClick={() => setStake(n)}>{n}</button>)}</div><small>from the war chest · {mine.war?.chest ?? 500} pts in it</small></div>
     <div className="fwr-field"><span>Bell in</span><div className="m-seg">{BELLS.map(([l, s]) => <button type="button" key={l} className={bell === s ? 'active' : ''} onClick={() => setBell(s)}>{l}</button>)}</div></div>
@@ -151,7 +152,7 @@ export function WarStrip() {
   useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
   const ws = (d?.wars || []).filter(w => ['live', 'set', 'open'].includes(w.state)).slice(0, 4);
   if (!ws.length) return null;
-  return <section className="fwr-strip" data-testid="war-strip"><b className="fwr-h">⚔ FAMILY WARS</b>{ws.map(w => <span key={w.id} className={`s-${w.state}`}>[{w.a.tag}] <i>vs</i> [{w.b.tag}] · 🪙 {w.pot} · {w.state === 'live' ? `ends ${clockWord(w.endAt - now)}` : `bell ${clockWord(w.startAt - now)}`}</span>)}</section>;
+  return <section className="fwr-strip" data-testid="war-strip"><b className="fwr-h">⚔ FAMILY WARS</b>{ws.map(w => <span key={w.id} className={`s-${w.state}`}>[{w.a.tag}] <i>vs</i> [{w.b.tag}] · <Ic3 e="🪙" /> {w.pot} · {w.state === 'live' ? `ends ${clockWord(w.endAt - now)}` : `bell ${clockWord(w.startAt - now)}`}</span>)}</section>;
 }
 
 

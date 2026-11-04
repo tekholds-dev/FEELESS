@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useGlide } from '../lib/useGlide';
 import '../styles/cartelBoard.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚖ THE CARTEL WAREHOUSE (owner 2026-10-27: "can't raid the bad guys from rep — they have no city"): every crew FEELESS's own rep flagged
 // (bundlers · snipers · funders, grouped by the coins they hit together) — not just the 6 strongest that stand as buildings in Cartel Docks.
@@ -32,14 +33,14 @@ export function CartelBoard({ v, me, act, busy, onFly }) {
     </div>
     <span className="m-seg cw-roles" role="radiogroup" aria-label="Cartel kind">{ROLES.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={role === k} className={role === k ? 'active' : ''} onClick={() => setRole(k)} data-testid={`cw-role-${k}`}>{l}</button>)}</span>
     <div className="fwd-carts">{rows.map((c, i) => { const bid = blockOf[c.id]; return <div key={c.id} className={`fwd-cart r-${c.role}`} style={{ '--i': Math.min(i, 12) }} data-testid={`cartel-${c.id}`}>
-      <header><i>{c.icon}</i><b>{c.name}</b><small>[{c.tag}] · level {c.level}</small></header>
+      <header><i><Ic3 e={c.icon} /></i><b>{c.name}</b><small>[{c.tag}] · level {c.level}</small></header>
       <span><em>WALLETS</em><b>{n0(c.members)}</b></span><span><em>HITS</em><b>{n0(c.hits)}</b></span><span><em>COINS</em><b>{n0(c.coins)}</b></span><span><em>ACTIVE 7D</em><b>{n0(c.active7d)}</b></span>
       <u><s style={{ transform: `scaleX(${Math.min(1, c.level / 10)})` }} /></u>
       <p className="cw-power" data-tip={`Power ${n0(c.power)} — its guards and stash grow with it`}><em>POWER</em><i aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.03, (c.power || 0) / top)})` }} /></i><b className="m-num">{n0(c.power)}</b></p>
       <div className="cw-acts">
         <button type="button" className="m-btn m-go" disabled={busy || !!why} onClick={() => act({ act: 'raid', vs: c.id }, `Raid on ${c.name} started — make your move`)}
           data-tip={why || `A raid is a chess game on their block: your move, theirs, 2+ rounds — loot pays ×1.5 (justice)`} data-testid={`cw-raid-${c.id}`}>⚔ RAID · ×1.5</button>
-        {bid && onFly ? <button type="button" className="m-btn" onClick={() => onFly(bid)} data-tip="Fly to their building in Cartel Docks" data-testid={`cw-fly-${c.id}`}>🗺 Their block</button> : null}
+        {bid && onFly ? <button type="button" className="m-btn" onClick={() => onFly(bid)} data-tip="Fly to their building in Cartel Docks" data-testid={`cw-fly-${c.id}`}><Ic3 e="🗺" /> Their block</button> : null}
       </div></div>; })}</div>
     {!cs.length ? <p className="m-dim">The rep engine has no cartel big enough right now.</p> : null}
   </div>;

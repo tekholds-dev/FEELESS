@@ -6,6 +6,7 @@ import { CAT_VARIATIONS } from './catCoats';
 import { LookAvatar } from './CatLook';
 import { AgentCritter } from './Critters';
 import '../../styles/feecatShell.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🐱 THE FEECAT APP SHELL (owner, 2026-10-23: "all terminal FeeCat pages / tabs clean cut, unneeded out — a full redo, not half"): every FeeCat
 // page sits in ONE violet-night shell with ONE nav — LIVE DESK · HER BRAIN · LORE (Fee, the leader) · AGENTS (create a trading cat) · BUILD A
@@ -41,7 +42,7 @@ export function FeeCatShell({ tab, children }) {
         <span className="fcx-mark"><FeeCatMark size={38} /></span><span><b>FEECAT</b><small>the trading cats · violet night</small></span></a>
       <nav className="fcx-nav" aria-label="FeeCat">{FC_NAV.map(([k, path, ic, name, why], i) => <a key={k} href={path} aria-current={tab === k ? 'page' : undefined}
         className={`${tab === k ? 'active' : ''} k-${k}`} style={{ '--i': i }} onClick={e => { e.preventDefault(); goTo(path); }} data-tip={`${name} — ${why}`} data-testid={`fcx-${k}`}>
-        <i aria-hidden="true">{ic}</i><span><b>{name}</b><small>{why}</small></span></a>)}</nav>
+        <i aria-hidden="true"><Ic3 e={ic} /></i><span><b>{name}</b><small>{why}</small></span></a>)}</nav>
       <div className="fcx-live">
         <span className={`fcx-chip ${h.nap ? 'nap' : 'hunt'}`} data-tip={h.nap ? 'Fee is napping — out of lives or cooling off, no new trades' : 'Fee is reading the live board right now'} data-testid="fcx-state">
           <i />{h.nap ? 'NAPPING' : h.open ? `HUNTING · ${h.open}` : 'HUNTING'}</span>

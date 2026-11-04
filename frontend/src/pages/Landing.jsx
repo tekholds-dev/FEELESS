@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TopCrews } from '../components/CrewCard';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, Rocket, Globe2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, ArrowRight } from 'lucide-react';
+import { Rocket, Globe2, ShieldCheck } from '../lib/lucide3d';
 import Globe3D from '../components/Globe3D';
 import EcosystemWorld from '../components/EcosystemWorld';
 import WalletModal from '../components/WalletModal';

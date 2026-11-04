@@ -7,6 +7,7 @@ import { CTRL_GROUPS, optWord, whoTone, WHO_WORD, bandTrack, hasIntel, gateCount
 import { aiMetricsLine } from '../../lib/aiRead';
 import { AiChipBtn } from './AiProviders';
 import '../../styles/agentControls.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎛 OPERATOR CONTROLS, META (owner, 2026-10-12: "update controls to be meta"): the creator's own limits as grouped segment rows instead
 // of loose selects — every option is the server's own list (`policy.controls`), every row says who decides it now (AGENTS / YOURS /
@@ -62,7 +63,7 @@ function ExitLine({ x }) {
 function ModelCard({ o, pend, disabled, onPick, checks = {}, hidden }) {
   const ai = useAi(o?.ai); const lr = ai?.learn || {};
   const intelN = Object.values(ai?.notes || {}).filter(n => Object.values(n || {}).some(x => hasIntel(x?.advice))).length;
-  return <div className="acx-card is-model" data-testid="acx-model" hidden={hidden}><p className="acx-ctitle"><b>🧠 MODEL</b><small>vital intel only — narrative, creator, conflicts, risks; it weighs only once its own record proves it</small></p>
+  return <div className="acx-card is-model" data-testid="acx-model" hidden={hidden}><p className="acx-ctitle"><b><Ic3 e="🧠" /> MODEL</b><small>vital intel only — narrative, creator, conflicts, risks; it weighs only once its own record proves it</small></p>
     <ControlRow c={{ key: 'agentAiLearn', label: 'Learn from the model', who: lr.on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: lr.on === false ? 'off' : 'on', options: ['on', 'off'],
       means: 'ON: a stance or risk read PROVEN on the model\'s own judged record (20+ calls, clearly better / worse than its other calls) moves the ranking by up to 10%. OFF: asked, shown and judged — it weighs nothing. It never buys, sizes, blocks or sells.' }}
       pending={pend.agentAiLearn} check={checks.agentAiLearn} disabled={disabled} onPick={onPick} />
@@ -85,7 +86,7 @@ function GateLine({ refused, armed }) {
   const g = gateCounts(refused);
   return <p className="acx-gate" data-testid="acx-gate">{g.total ? GATE_WORDS.filter(([k]) => g[k]).map(([k, l]) => <span key={k} className={`acx-gpill is-${k}`}><b>{g[k]}</b>{l}</span>)
     : <span className="acx-gpill is-ok">no refused buy lately</span>}
-    {armed?.n ? <span className="acx-gpill is-armed" data-tip={(armed.syms || []).map(s => `$${s}`).join(' · ')}>🎯 <b>{armed.n}</b>armed in</span> : null}</p>;
+    {armed?.n ? <span className="acx-gpill is-armed" data-tip={(armed.syms || []).map(s => `$${s}`).join(' · ')}><Ic3 e="🎯" /> <b>{armed.n}</b>armed in</span> : null}</p>;
 }
 
 // 😴 what each check COST: the coins it held back vs the coins taken, 30 min later — and the notch the agents moved it to (only where you left AGENTS)
@@ -134,7 +135,7 @@ function TrailLab({ trail }) {
 function TwinRow({ tw }) {
   const w = twinRead(tw);
   return <div className={`acx-twin ${w.n ? (w.up ? 'is-up' : 'is-dn') : 'is-none'}`} data-testid="acx-twin" data-tip="coins that reached +10% only — flatters any take rule; a rug after the take counts −100% on the rest">
-    <p className="acx-twinhead"><b>💰 SCALE-OUT TWIN</b><span>{w.line}</span>{w.n ? <em className={w.pays ? 'is-pays' : ''} data-testid="acx-twin-word">{w.word}</em> : null}</p>
+    <p className="acx-twinhead"><b><Ic3 e="💰" /> SCALE-OUT TWIN</b><span>{w.line}</span>{w.n ? <em className={w.pays ? 'is-pays' : ''} data-testid="acx-twin-word">{w.word}</em> : null}</p>
     {w.n ? <><p className="acx-twinbar"><small>TWIN</small><span><i className={w.twin.neg ? 'is-neg' : 'is-twin'} style={{ transform: `scaleX(${w.twin.fill.toFixed(3)})` }} /></span><b>{w.twin.avg}</b><u>med {w.twin.med}</u></p>
       <p className="acx-twinbar"><small>REAL</small><span><i className={w.real.neg ? 'is-neg' : ''} style={{ transform: `scaleX(${w.real.fill.toFixed(3)})` }} /></span><b>{w.real.avg}</b><u>med {w.real.med}</u></p>
       <p className="acx-twinwl"><span className="m-pos">▲ {w.better} better</span><span className="m-neg">▼ {w.worse} worse</span></p></> : null}
@@ -169,7 +170,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
   const row = (c, onPick) => <ControlRow key={c.key} c={c} pending={pend[c.key]} check={checks[c.key]} disabled={!isOwner || busy} onPick={onPick} />;
   const flag = (key, label, on, means) => row({ key, label, who: on === false ? 'CREATOR OVERRIDE' : 'AGENTS CHOOSE', value: on === false ? 'off' : 'on', options: ['on', 'off'], means }, (kk, v) => save({ [kk]: v === 'on' }, kk, v));
   return <section className="ack-ops acx" data-testid="ack-ops">
-    <header className="acx-head"><b>🎛 OPERATOR CONTROLS</b><small>your limits on the agents — one tap saves, the row confirms it is in force</small>
+    <header className="acx-head"><b><Ic3 e="🎛" /> OPERATOR CONTROLS</b><small>your limits on the agents — one tap saves, the row confirms it is in force</small>
       <span className="m-seg acx-auth" role="radiogroup" aria-label="Who decides">
         <button type="button" role="radio" aria-checked={!pol.manual} disabled={!isOwner || busy} className={!pol.manual ? 'active' : ''} onClick={() => pol.manual && save({ agentAuthority: 'agents' })} data-testid="ack-auth-agents">🤖 Agents inside limits</button>
         <button type="button" role="radio" aria-checked={!!pol.manual} disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => !pol.manual && save({ agentAuthority: 'manual' })}
@@ -182,12 +183,12 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
           return <button key={g} type="button" className={`acx-tab is-${g} ${cur === g ? 'active' : ''}`} aria-pressed={cur === g} onClick={() => setTab(g)} data-testid={`acx-tab-${g}`}>
             <b>{title}</b><span>{r.words.join(' · ')}</span>{r.mine ? <em data-tip="rows set by you">{r.mine} YOURS</em> : null}</button>; })}
         <button type="button" className={`acx-tab is-model ${cur === 'model' ? 'active' : ''}`} aria-pressed={cur === 'model'} onClick={() => setTab('model')} data-testid="acx-tab-model">
-          <b>🧠 MODEL</b><span>{(o?.ai?.learn || {}).state || 'intel only'}</span></button>
+          <b><Ic3 e="🧠" /> MODEL</b><span>{(o?.ai?.learn || {}).state || 'intel only'}</span></button>
       </nav>
       <div className="acx-pane">
         {groups.map(([g, title, blurb, keys]) => { const rows = keys.filter(k => ctl[k]);
           const live = [g === 'universe' ? <BandTrack key="b" band={pol.band} cands={cands} /> : null,
-            g === 'volume' ? <p key="v" className="acx-vol" data-testid="acx-vol-live"><b>🔥 {o?.universe?.trendingN ?? '—'}</b> on Pump trending now · <b>{o?.universe?.inLane ?? '—'}</b> coins in your lane this pass</p> : null,
+            g === 'volume' ? <p key="v" className="acx-vol" data-testid="acx-vol-live"><b><Ic3 e="🔥" /> {o?.universe?.trendingN ?? '—'}</b> on Pump trending now · <b>{o?.universe?.inLane ?? '—'}</b> coins in your lane this pass</p> : null,
             g === 'exits' ? <TrailLab key="t" trail={o?.trail} /> : null,
             g === 'seats' ? <CapitalMeter key="c" cap={o?.capital} /> : null,
             g === 'gate' ? <GateLine key="g" refused={o?.seat?.refused} armed={o?.armed} /> : null,

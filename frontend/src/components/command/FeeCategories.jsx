@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import NumInput from '../NumInput';
 import '../../styles/feeCats.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 💲 HQ › Core › FEES BY CATEGORY (owner, 2026-10-30: "the fees tab needs categories for the different things we charge for — agents, families,
 // trading…"). One segmented bar, one panel per product: 💱 Trading (the swap fee editor + money flows + the fee book) · 🤖 Agents (FEELESS's
@@ -42,7 +43,7 @@ export function AgentFees({ call }) {
       <span>Each trade · $</span><NumInput className="m-input" type="number" min="0" max="10" step="0.01" value={tradeFee} onChange={e => setTradeFee(e.target.value)} aria-label="Agent fee per trade in dollars" data-testid="fct-agent-trade" />
       <span>Everything else · $</span><NumInput className="m-input" type="number" min="0" max="10" step="0.01" value={otherFee} onChange={e => setOtherFee(e.target.value)} aria-label="Agent fee per task in dollars" data-testid="fct-agent-other" />
       <button type="button" className="m-btn m-go" onClick={save} disabled={!Number.isFinite(n) || (n === Number(f.catFeeUsd ?? 2) && Number(tradeFee) === Number(f.agentTradeFeeUsd ?? 0.05) && Number(otherFee) === Number(f.agentOtherFeeUsd ?? 0.1))} data-testid="fct-cat-save" data-tip="Applies to the next charge">Save</button></label>
-    <p className="m-note">Model calls are separate: a cat runs on its FEELESS model credit, or on its owner's own OpenRouter key from its 🔐 API drawer (they pay OpenRouter; no FEELESS credit). Agent wallets pay these flat fees instead of the % swap fee set in 💱 Trading.</p>
+    <p className="m-note">Model calls are separate: a cat runs on its FEELESS model credit, or on its owner's own OpenRouter key from its <Ic3 e="🔐" /> API drawer (they pay OpenRouter; no FEELESS credit). Agent wallets pay these flat fees instead of the % swap fee set in 💱 Trading.</p>
   </section>;
 }
 

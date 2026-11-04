@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import NumInput from './NumInput';
 import { toast } from 'sonner';
 import { FuseCard } from './FuseCard';
+import { Ic3 } from '../lib/icon3d';
 
 // 🧬 HQ › Fuse Evolution: pick a strategy + budget, the server breeds baskets of live pools over generations
 // (keep the elite, crossover, mutate — backend fuse.evolve) and returns 3 champions with every fitness part shown.
@@ -45,7 +46,7 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
   const top = d ? Math.max(1, ...d.history.map(h => h.best)) : 1;
   const done = d && shown >= d.history.length;
   return <section className="m-card fe" data-testid="fuse-evolve">
-    <header className="fe-head"><div><span className="m-label">🧬 FUSE EVOLUTION</span><h4>Breed the basket. Keep the strongest.</h4>
+    <header className="fe-head"><div><span className="m-label"><Ic3 e="🧬" /> FUSE EVOLUTION</span><h4>Breed the basket. Keep the strongest.</h4>
       <p className="m-dim">Live pools compete over generations: the fittest survive, cross over and mutate. You pick the strategy and budget; every score is shown.</p></div></header>
     <div className="fe-styles" role="radiogroup" aria-label="Strategy">{STYLES.map(([k, l]) => <button type="button" key={k} role="radio" aria-checked={style === k} className={`fe-style ${style === k ? 'active' : ''}`} onClick={() => setStyle(k)} data-tip={STYLE_TIP[k][1]}>
       <b>{l}</b><small>{STYLE_TIP[k][0]}</small></button>)}</div>
@@ -63,15 +64,15 @@ export function FuseEvolve({ call, onLoad, maxLegs = 10 }) {
     <button type="button" className="m-btn primary m-go wide" disabled={busy} onClick={run} data-testid="fe-run">{busy ? 'Breeding…' : d ? '🧬 Evolve again (new seed)' : '🧬 Evolve'}</button>
     {d && <>
       <div className="fe-chart" aria-label="Best fitness per generation" data-tip="Each bar = the best basket's score in that generation. It never drops (the best always survives).">{d.history.map((h, i) => <i key={h.gen} className={i < shown ? 'on' : ''} style={{ transform: `scaleY(${i < shown ? Math.max(0.04, h.best / top) : 0.02})` }} title={`Gen ${h.gen}: best ${h.best} · avg ${h.avg}`} />)}</div>
-      <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span>🧬 {d.seeded} bloodline seeds</span>}</div>
+      <div className="fe-meta m-dim"><span>{d.pool} live pools in the gene pool</span><span>{d.evaluated} baskets tested</span><span>gen {Math.min(shown, d.history.length)}/{d.history.length}</span>{d.seeded > 0 && <span><Ic3 e="🧬" /> {d.seeded} bloodline seeds</span>}</div>
       {done && <label className="fe-cut" data-tip="When traders buy a card you published, this % of the FEELESS fee goes to the creator (max 50%)"><span>Publish creator cut</span><NumInput className="m-input m-num" type="number" min="0" max="50" value={cut} onChange={e => setCut(Number(e.target.value))} data-testid="fe-cut" /><span>% of fee</span></label>}
       {done && <div className="fe-champs">{d.champions.map((c, i) => <article key={c.pools.join()} className={`fe-champ ${i === 0 ? 'is-top' : ''}`} style={{ animationDelay: `${i * 70}ms` }}>
         <FuseCard c={c} style={d.style || style} rank={i} budget={budget} />
         <div className="fe-acts"><button type="button" className={`m-btn ${i === 0 ? 'primary' : ''}`} onClick={() => onLoad?.(c.legs, sol)} data-testid={`fe-load-${i}`}>Load into Lab →</button>
           <button type="button" className="m-btn" title="Paper $5 for 24h at real prices" onClick={() => act('arena', c)} data-testid={`fe-arena-${i}`}>🏟</button>
-          <button type="button" className="m-btn" title="Save to bloodline" onClick={() => act('bloodline', c)}>🧬</button>
-          <button type="button" className="m-btn" data-tip="Publish this champion as a HQ Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}>⭐ Showcase</button>
-          <button type="button" className="m-btn primary" data-tip="Publish to the Arena AND load it into the Lab with your SOL amount — you approve the buy" onClick={() => showcase(c, i, true)} data-testid={`fe-buypub-${i}`}>⚡ Buy + publish</button></div>
+          <button type="button" className="m-btn" title="Save to bloodline" onClick={() => act('bloodline', c)}><Ic3 e="🧬" /></button>
+          <button type="button" className="m-btn" data-tip="Publish this champion as a HQ Fuse AND stage it on the public Arena (its effects grow with real buys). Edit or unstage it in 📣 Published." onClick={() => showcase(c, i)} data-testid={`fe-showcase-${i}`}><Ic3 e="⭐" /> Showcase</button>
+          <button type="button" className="m-btn primary" data-tip="Publish to the Arena AND load it into the Lab with your SOL amount — you approve the buy" onClick={() => showcase(c, i, true)} data-testid={`fe-buypub-${i}`}><Ic3 e="⚡" /> Buy + publish</button></div>
       </article>)}</div>}
       {done && d.champions[0]?.parts.feeDragPct > 5 && <div className="m-note warn"><b>FEE DRAG</b><span>At ${budget}, network fees eat {d.champions[0].parts.feeDragPct}% of the buy. Fewer pools or a bigger budget keeps more of it working.</span></div>}
       {done && <small className="m-dim">Ranks baskets on live numbers (grade, fee APR, 24h move, depth). Not a promise of profit — memes move fast.</small>}

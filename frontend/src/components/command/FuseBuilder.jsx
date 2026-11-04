@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › Fuse builder: search live pools (with their meta), weight them, name the Fuse, set the creator's cut
 // of FEELESS fees on its buys, and track volume / earned / owed per Fuse. Every save is signed and audit-logged.
@@ -23,7 +24,7 @@ export function FuseBuilder({ call }) {
   const save = async body => { try { await call('/admin/fuses', { method: 'POST', body: JSON.stringify(body) }); toast.success('Saved'); setDraft(EMPTY); load(); } catch (e) { toast.error(e.message); } };
   return <div className="cc-block fz-builder" data-testid="fuse-builder">
     <div className="m-row"><h4>⚛️ Fuse builder</h4><span className="m-dim">Fuse popular pools into one basket. Buyers fuse in leg by leg (their wallet signs each swap); the creator earns a cut of the FEELESS fee.</span></div>
-    <div className="fz-admin-list">{(d?.fuses || []).map(f => <div key={f.id} className={`qe-row ${f.enabled === false ? 'is-off' : ''}`}><span className="fz-emoji">{f.emoji}</span>
+    <div className="fz-admin-list">{(d?.fuses || []).map(f => <div key={f.id} className={`qe-row ${f.enabled === false ? 'is-off' : ''}`}><span className="fz-emoji"><Ic3 e={f.emoji} /></span>
       <div><b>{f.name}</b> <span className="m-chip">{f.score.grade}</span> <small className="m-dim">index {f.index} · {usd(f.tvlUsd)} depth · {f.stats.buys} buys · {usd(f.stats.volumeUsd)} volume</small>
         <div className="m-dim">Creator {String(f.creator).slice(0, 4)}…{String(f.creator).slice(-4)} · {f.creatorBps / 100}% of fees · earned {usd(f.stats.creatorEarnedUsd)} · owed {usd(f.stats.creatorOwedUsd)}</div></div>
       <div className="m-row"><button type="button" className="m-btn" onClick={() => setDraft({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline || '', creatorBps: f.creatorBps, legs: f.legs.map(l => ({ chainId: l.chainId, pairAddress: l.pairAddress, symbol: l.symbol, weight: l.weight, meta: l })) })}>Edit</button>

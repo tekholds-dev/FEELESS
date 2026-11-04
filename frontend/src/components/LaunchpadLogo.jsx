@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Globe2 } from 'lucide-react';
+import { Globe2 } from '../lib/lucide3d';
 import { FeelessMark } from './FeelessLogo';
 
 export default function LaunchpadLogo({ launchpad, size = 48 }) {

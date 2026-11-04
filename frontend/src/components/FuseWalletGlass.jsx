@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { useGlide } from '../lib/useGlide';
 import '../styles/fuseGlass.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🧬 YOUR FUSE WALLET, in the family building (owner 2026-10-26: "Fuse wallet should show in family building … glass styled vital P&L, live").
 // The wallet's real Fuse cards (/fuses/pnl: on-chain balances × live prices, fees never in P&L): the total ticking + flashing on every read,
@@ -23,9 +24,9 @@ export function FuseWalletGlass() {
   const legs = cards.flatMap(c => (c.legs || []).filter(l => l.soldUsd == null));
   const best = legs.reduce((m, l) => (m == null || (l.pnlPct ?? -1e9) > (m.pnlPct ?? -1e9) ? l : m), null); const worst = legs.reduce((m, l) => (m == null || (l.pnlPct ?? 1e9) < (m.pnlPct ?? 1e9) ? l : m), null);
   return <section className={`fwg ${pnl >= 0 ? 'is-up' : 'is-dn'}`} data-testid="fuse-wallet-glass">
-    <header><i className="fwg-dot" aria-hidden="true" /><span><b>🧬 YOUR FUSE WALLET</b><small>{d ? `${h.cards || 0} live card${h.cards === 1 ? '' : 's'} · on-chain × live price` : 'reading…'}</small></span></header>
+    <header><i className="fwg-dot" aria-hidden="true" /><span><b><Ic3 e="🧬" /> YOUR FUSE WALLET</b><small>{d ? `${h.cards || 0} live card${h.cards === 1 ? '' : 's'} · on-chain × live price` : 'reading…'}</small></span></header>
     {d && !h.cards ? <div className="fwg-empty"><p>No live Fuse card yet — a card trades 3–5 coins for you on the desk's rules.</p>
-      <a className="m-btn m-go" href="/terminal/fuse" data-tip="Open the Fuse page and make a card">🧬 MAKE A CARD</a></div> : null}
+      <a className="m-btn m-go" href="/terminal/fuse" data-tip="Open the Fuse page and make a card"><Ic3 e="🧬" /> MAKE A CARD</a></div> : null}
     {h.cards ? <>
       <div className="fwg-hero"><span><em>WORTH NOW</em><b className={`m-num ${flash}`}>{$(val)}</b></span>
         <span className={pnl >= 0 ? 'is-up' : 'is-dn'} data-tip="Live P&L on what reached the pools — fees are on the receipt, never in P&L"><em>P&L</em><b className="m-num">{$(pnl)}</b><small className="m-num">{pc(h.pnlPct)}</small></span></div>

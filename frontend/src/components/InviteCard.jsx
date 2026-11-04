@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Gift } from 'lucide-react';
+import { Copy } from 'lucide-react';
+import { Gift } from '../lib/lucide3d';
 import { Hint } from './Hint';
 import { useWallet } from '../hooks/useWallet';
+import { Ic3 } from '../lib/icon3d';
 
 export function InviteCard({ address }) {
   const [d, setD] = useState(null);
@@ -21,7 +23,7 @@ export function InviteCard({ address }) {
     {!base && <p className="m-dim">Your code is ready — the full link appears once FEELESS HQ sets the public site domain.</p>}
     <div className="m-grid"><div className="m-stat"><small>Invited</small><b className="m-num">{d.invited}</b></div><div className="m-stat"><small>Trading</small><b className="m-num">{d.tradingInvitees || 0}</b></div>
       <div className="m-stat"><small>Earned</small><b className="m-num m-pos">{usd(d.earnedUsd)}</b>{d.earnedSol > 0 && <span className="m-dim">{d.earnedSol.toFixed(4)} SOL</span>}</div></div>
-    <p className="m-dim">Invite 3 for the 📣 Recruiter badge, 10 for Legendary Recruiter{d.pct > 0 ? `, and earn ${d.pct}% of the FEELESS fees your invitees pay, forever` : ''}.</p>
+    <p className="m-dim">Invite 3 for the <Ic3 e="📣" /> Recruiter badge, 10 for Legendary Recruiter{d.pct > 0 ? `, and earn ${d.pct}% of the FEELESS fees your invitees pay, forever` : ''}.</p>
     {d.recent?.length > 0 && <div className="m-row">{d.recent.map(r => <a key={r.address} className="m-chip" href={`/terminal/profile/${r.address}`}>{r.address.slice(0, 4)}…{r.address.slice(-4)}</a>)}</div>}
   </section>;
 }

@@ -13,6 +13,7 @@ import { mcapOf } from '../../lib/mcap';
 import { tiny } from '../../lib/num';
 import '../../styles/pnlTicker.css';
 import { ChartLive } from './ChartLive';
+import { Ic3 } from '../../lib/icon3d';
 
 // The viewer's live position in this coin: average entry from their real swaps, P&L against the
 // live price (updates with every tick), and a flash the moment one of their trades confirms.
@@ -71,7 +72,7 @@ export function PnlBadge({ pos, pair, price, flash, symbol, imageUrl, mcPerPrice
   return <div key={flash} className={`my-pnl pnt ${cls} pnt-h-${tick.heat} ${pct >= 0 ? 'up' : 'down'} ${flash ? 'just-traded' : ''} ${open ? 'is-open' : ''}`} data-testid="my-pnl" data-heat={tick.heat}>
     {tick.n ? <i key={tick.n} className={`pnt-tick ${tick.dir > 0 ? 'is-up' : 'is-dn'}`} aria-hidden="true" /> : null}
     <button type="button" className="my-pnl-head" onClick={() => setOpen(o => !o)} aria-expanded={open} title="Your live position · tap for details">
-      <small>{label}</small>{label !== 'YOU' ? null : pos.locked ? <small className="my-pnl-lock" title="Entry locked: read from your wallet's transaction and priced at the moment you signed">🔒</small> : !pos.pending && <small className="my-pnl-est" title="Not locked yet: some of this is still an estimate">≈</small>}<b className="pnt-pct">{sign(sp)}{Math.abs(sp).toFixed(Math.abs(sp) >= 100 ? 0 : 2)}%</b><span>{sign(su)}{money(su)}</span><em>{money(sv)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
+      <small>{label}</small>{label !== 'YOU' ? null : pos.locked ? <small className="my-pnl-lock" title="Entry locked: read from your wallet's transaction and priced at the moment you signed"><Ic3 e="🔒" /></small> : !pos.pending && <small className="my-pnl-est" title="Not locked yet: some of this is still an estimate">≈</small>}<b className="pnt-pct">{sign(sp)}{Math.abs(sp).toFixed(Math.abs(sp) >= 100 ? 0 : 2)}%</b><span>{sign(su)}{money(su)}</span><em>{money(sv)}</em><i aria-hidden="true">{open ? '▾' : '▸'}</i>
     </button>
     {open && <div className="my-pnl-more">
       <dl className="m-kv"><dt>Bought</dt><dd>{money(sum.bought)}</dd>{sum.sold > 0 && <><dt>Sold</dt><dd>{money(sum.sold)}</dd></>}<dt>Holding</dt><dd>{money(value)}</dd><dt>Entry</dt><dd>{mcPerPrice ? `MC ${fmtMc(sum.entry * mcPerPrice)}` : `$${tiny(sum.entry, 4)}`} <small>after fees</small></dd><dt>Now</dt><dd>{nowMc ? `MC ${nowMc}` : `$${tiny(livePrice, 4)}`}</dd>

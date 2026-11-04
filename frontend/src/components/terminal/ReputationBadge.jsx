@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, ShieldQuestion, ShieldAlert, Shield } from 'lucide-react';
+import { ShieldQuestion } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Shield } from '../../lib/lucide3d';
 import { useReputation, BADGE_LABEL } from '../../lib/reputation';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert, risky: ShieldAlert, veteran: ShieldCheck };

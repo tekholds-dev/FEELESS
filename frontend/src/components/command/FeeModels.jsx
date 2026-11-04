@@ -3,6 +3,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import { apiUrl } from '../../lib/api';
 import { ModelPop } from './LaunchCat';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧠 FEE'S OWN MODELS (owner, 2026-10-30): the creator picks Fee's models from the FULL smart list in a pop-out (search · cheapest · $ range ·
 // categories), never a dropdown. Model A is her LEAD — it makes every buy / sell call; NEXA (FeeCat AI) helps: her read rides inside every case
@@ -40,14 +41,14 @@ export function FeeModels() {
         {i && pick[i] ? <button type="button" className="m-btn" onClick={() => setPick(p => [p[0], ''])} data-testid="fmd-drop-1">Drop</button> : null}</span>
     </div>; };
   return <section className="fmd" data-testid="fee-models">
-    <header><b>🧠 HER MODELS</b><small>{had ? `${b.brains.map(short).join(' + ')} · ${(b.decisions || []).length} decisions` : 'rules today — give her an OpenRouter lead'}</small></header>
+    <header><b><Ic3 e="🧠" /> HER MODELS</b><small>{had ? `${b.brains.map(short).join(' + ')} · ${(b.decisions || []).length} decisions` : 'rules today — give her an OpenRouter lead'}</small></header>
     <div className="fmd-pick">{slot(0)}{slot(1)}</div>
     <label className="fmd-prompt"><em>HER PROMPT</em><textarea className="m-input" rows={3} maxLength={1200} value={text} onChange={e => setText(e.target.value)} placeholder="How she trades — e.g. trade the trenches like a desk, buy germ floors with buyers leading, bank in pieces, never chase." data-testid="fmd-prompt" /></label>
     {had ? <div className="m-seg fmd-mem" role="radiogroup" aria-label="Her memory when the models change">{MEMORY.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`fmd-mem-${k}`}>{l}</button>)}</div> : null}
     <span className="fmd-acts"><button type="button" className="m-btn m-go" disabled={busy || !pick[0]} onClick={() => send({ action: 'models', brains, text, memory })} data-testid="fmd-save">{had ? 'Save models + prompt' : 'Make it her lead'}</button>
       {had ? <button type="button" className="m-btn" disabled={busy || text.trim().length < 20 || text === b.prompt} onClick={() => send({ action: 'brief', text })}>Save prompt only</button> : null}</span>
     {msg ? <p className={`fmd-msg ${msg.ok ? 'is-ok' : 'is-bad'}`} role="status">{msg.t}</p> : null}
-    {had ? <details className="fmd-cloud" data-testid="fmd-cloud"><summary>☁ HER MEMORY · {(b.cloud || []).length} kept · {(b.decisions || []).length} decisions</summary>
+    {had ? <details className="fmd-cloud" data-testid="fmd-cloud"><summary><Ic3 e="☁" /> HER MEMORY · {(b.cloud || []).length} kept · {(b.decisions || []).length} decisions</summary>
       <ul>{(b.cloud || []).slice(-12).reverse().map((c, i) => <li key={i}>{c.text || `${c.word} $${c.sym}${c.why ? ` — ${c.why}` : ''}`}</li>)}{!(b.cloud || []).length ? <li className="is-empty">nothing kept yet — a call lands here when both models agree</li> : null}</ul></details> : null}
     {open >= 0 ? <ModelPop d={d} title={open ? '🧠 MODEL B · SECOND OPINION' : '👑 MODEL A · HER LEAD'} picked={pick.filter(Boolean).map(id => ({ id }))} onPick={id => setPick(p => (open ? [p[0], id === p[0] ? '' : id] : [id, p[1] === id ? '' : p[1]]))} onClose={() => setOpen(-1)} /> : null}
   </section>;

@@ -7,6 +7,7 @@ import { sharedJson } from '../lib/sharedJson';
 import { openCoin } from './CoinDrawer';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import '../styles/homeEngine.css';
+import { Ic3 } from '../lib/icon3d';
 
 const HomeForgeCard = lazy(() => import('./HomeForgeCard'));   // the real live Fuse card (tier look + aura + live FX), its own chunk
 
@@ -42,7 +43,7 @@ export function HomeEngine({ onOpen }) {
       <i className="frg-burst" aria-hidden="true" />{[0, 1, 2, 3, 4, 5, 6, 7].map(s => <i key={s} className="frg-shard" aria-hidden="true" style={{ '--s': `${s * 45}deg` }} />)}
       <div className="frg-card is-live" data-testid="frg-card"><Suspense fallback={<div className="frg-tilt">
         <i className="frg-holo" aria-hidden="true" /><i className="frg-sheen" aria-hidden="true" />
-        <header><b>{cur.label}</b>{cur.real ? <em className="frg-real">💵 REAL MONEY</em> : <em>📄 PAPER</em>}</header>
+        <header><b>{cur.label}</b>{cur.real ? <em className="frg-real"><Ic3 e="💵" /> REAL MONEY</em> : <em><Ic3 e="📄" /> PAPER</em>}</header>
         <ul>{cur.coins.map((c, j) => <li key={`${c.mint}-${j}`}><TokenAvatar pair={pairOf(c)} size={18} /><span>${c.sym}</span><b className={c.pct == null ? '' : c.pct >= 0 ? 'up' : 'dn'}>{pctWord(c.pct)}</b></li>)}</ul>
         <footer><span>{n} COIN{n === 1 ? '' : 'S'}</span><i>⚛</i><span>ONE FUSE</span></footer>
       </div>}><HomeForgeCard card={cur.raw} /></Suspense></div>

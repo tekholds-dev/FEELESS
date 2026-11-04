@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Wallet, ArrowUpRight, ShieldCheck, LogOut, ChevronDown, Download } from 'lucide-react';
+import { ArrowUpRight, LogOut, ChevronDown, Download } from 'lucide-react';
+import { Wallet, ShieldCheck } from '../lib/lucide3d';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { useWallet, EVM_CHAINS, networkLabel, signWith, detectWallets } from '../hooks/useWallet';
 import { WalletIcon } from './WalletIcon';

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useLivePrice } from '../lib/livePriceHub';
 import { usd } from '../lib/cityPlan';
 import '../styles/trenchTowers.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🗼 TRENCH TOWERS (owner 2026-10-26: "a list with no real line data is a no go"): every intake coin is a live tower card — its REAL price line
 // (the agents' own tape: one price a pass, ~1 min apart, from /familia/intake) with the live price (FEELESS price hub, every 2s) ticking at the
@@ -48,7 +49,7 @@ function TowerCard({ r, i, onTrade }) {
       <span data-tip="Dollars traded in the last 5 minutes"><em>5M VOL</em><b className="m-num">{r.v5 != null ? usd(r.v5) : '—'}</b></span>
     </div>
     {r.read || r.theory ? <p className="tw-read" data-tip={r.theory || ''}>{r.read || r.theory}</p> : null}
-    <button type="button" className="m-btn m-go tw-go" disabled={!r.pair} onClick={() => onTrade(r)} data-tip="Chart + Quick trade slide over the room — your wallet signs" data-testid={`av-tt-${i}`}>⚡ TRADE ${r.sym}</button>
+    <button type="button" className="m-btn m-go tw-go" disabled={!r.pair} onClick={() => onTrade(r)} data-tip="Chart + Quick trade slide over the room — your wallet signs" data-testid={`av-tt-${i}`}><Ic3 e="⚡" /> TRADE ${r.sym}</button>
   </li>;
 }
 

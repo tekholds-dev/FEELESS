@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { investigate } from './CaseFile';
+import { Ic3 } from '../lib/icon3d';
 
 // Coin passport: one strip that answers "is this coin safe to touch?" from the same cited checks the
 // verification engine and case files use. Click any chip for the full case file.
@@ -27,5 +28,5 @@ export function CoinPassport({ pair }) {
     [check('top10') ? '✓' : '!', check('top10') ? 'Holders spread' : 'Top-heavy holders', check('top10') ? 'ok' : 'warn'],
   ];
   return <button type="button" className="coin-passport" data-testid="coin-passport" onClick={() => investigate(mint)} title="Open the full case file">
-    <small>PASSPORT</small>{chips.map(([ic, t, tone]) => <span key={t} className={`cp-chip ${tone}`}>{ic && <i>{ic}</i>}{t}</span>)}<em>case file →</em></button>;
+    <small>PASSPORT</small>{chips.map(([ic, t, tone]) => <span key={t} className={`cp-chip ${tone}`}>{ic && <i><Ic3 e={ic} /></i>}{t}</span>)}<em>case file →</em></button>;
 }

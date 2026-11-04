@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { Armchair, Radio, IdCard, Mail, Flower2, MessagesSquare, Crosshair, Rocket, UserPlus, KeyRound, DoorOpen, MapPinned, BookOpen, Waves, Moon, Zap, Coins, Dna } from 'lucide-react';
+import { Armchair, Radio, IdCard, Flower2, MessagesSquare, UserPlus, DoorOpen, MapPinned, Waves, Dna } from 'lucide-react';
+import { Mail, Crosshair, Rocket, KeyRound, BookOpen, Moon, Zap, Coins } from '../lib/lucide3d';
 import { FamilyBadge } from './FamilyBadge';
 import '../styles/familyHQ.css';
 const PoolsPop = lazy(() => import('./PoolHub').then(m => ({ default: () => { const pools = m.usePools(); return pools ? <m.PoolHub pools={pools} /> : <p className="m-dim">Reading the pools…</p>; } })));

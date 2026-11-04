@@ -8,6 +8,7 @@ import { CircleProfileForm, profileDraft } from '../CircleProfileEdit';
 import '../../styles/fuseMoney.css';
 
 import { tiny } from '../../lib/num';
+import { Ic3 } from '../../lib/icon3d';
 // HQ › Fuse › 👛 Fuse wallet (owner only): the Circle wallet that funds FEELESS's tier cards with REAL money.
 // 1 · pick the wallet + see its funds · 2 · hard limits · 3 · top up a tier (resets it as a new real run) or ↩ defund ·
 // 4 · 🔍 dry run = real Jupiter quotes for what a top-up would buy (never signs) · 5 · the audit trail (every order + tx).
@@ -127,8 +128,8 @@ export function FuseWallet({ call }) {
   const sweepUsd = Math.floor(Math.min(Math.max(freeSol, Number(d.topupSol || 0)) * Number(d.solUsd || 0), sweepRoom) * 100) / 100;   /* what a top-up may assign (counts reserve SOL parked as refundable rent) */
   const sweep = sweepTpl && sweepUsd >= 1 ? { tpl: sweepTpl, usd: sweepUsd, label: d.tiers?.[sweepTpl] || sweepTpl } : null;
   return <section className="m-card m-live fw" data-testid="fuse-wallet">
-    <header className="m-row"><span className="m-label">👛 FUSE WALLET · REAL MONEY FOR TIER CARDS</span><small className="m-dim">owner only · every change audited</small></header>
-    {!d.signer && <div className="fw-lock" data-testid="fw-lock"><b>🔒 Signing is not enabled yet.</b> Everything here works except sending: pick the wallet, see its funds, set limits and run 🔍 dry runs with real Jupiter quotes.
+    <header className="m-row"><span className="m-label"><Ic3 e="👛" /> FUSE WALLET · REAL MONEY FOR TIER CARDS</span><small className="m-dim">owner only · every change audited</small></header>
+    {!d.signer && <div className="fw-lock" data-testid="fw-lock"><b><Ic3 e="🔒" /> Signing is not enabled yet.</b> Everything here works except sending: pick the wallet, see its funds, set limits and run <Ic3 e="🔍" /> dry runs with real Jupiter quotes.
       Turning on signing (Circle signs each swap the keeper builds) is docs/GO_LIVE.md step 2 — it needs your go-ahead. Until then tier cards stay paper at true fills.</div>}
     {d.error && <small className="m-note warn">{d.error}</small>}
     <RpcKey call={call} />
@@ -140,7 +141,7 @@ export function FuseWallet({ call }) {
       <span data-tip="Paper fills vs real Jupiter quotes for the same coins and $ (every ~5 min, read-only)"><small>PAPER ⇄ REAL QUOTES</small><b className="m-num">{d.paperMatch?.n ? `${d.paperMatch.avgDevPct >= 0 ? '+' : ''}${d.paperMatch.avgDevPct}%` : '—'}</b><em>{d.paperMatch?.n ? `${d.paperMatch.within2Pct}% within 2% · ${d.paperMatch.n} checks` : 'first check in ~5 min'}</em></span>
       <span><small>SWAPS · FEES</small><b className="m-num">{d.totals?.swaps || 0}</b><em>network {usd(d.totals?.feesUsd)}</em></span></div>
     {sol != null && <div className="m-note" data-testid="fw-sol-breakdown"><b>Wallet SOL is fully separated:</b><span>{sol.toFixed(4)} total = {cardSol.toFixed(4)} card cash + {reserveSol.toFixed(4)} fee reserve + {freeSol.toFixed(4)} unassigned.</span>
-      {story ? <span data-testid="fw-story">💰 Chain audit: you deposited <b className="m-num">{story.depositedSol.toFixed(4)} SOL</b> ({usd(story.depositedSol * d.solUsd)}) in {story.n} transfer{story.n === 1 ? '' : 's'} → {(story.cardSol + story.coinsSol).toFixed(4)} in cards (SOL + coins) · {story.reserveSol.toFixed(4)} fee reserve · <b className="m-num">{story.unassignedSol.toFixed(4)} unassigned</b> · {story.spentSol.toFixed(4)} spent (trading result + network fees + open coin accounts). Unassigned is YOUR deposited SOL that no card was ever given — not profit, not fees.</span>
+      {story ? <span data-testid="fw-story"><Ic3 e="💰" /> Chain audit: you deposited <b className="m-num">{story.depositedSol.toFixed(4)} SOL</b> ({usd(story.depositedSol * d.solUsd)}) in {story.n} transfer{story.n === 1 ? '' : 's'} → {(story.cardSol + story.coinsSol).toFixed(4)} in cards (SOL + coins) · {story.reserveSol.toFixed(4)} fee reserve · <b className="m-num">{story.unassignedSol.toFixed(4)} unassigned</b> · {story.spentSol.toFixed(4)} spent (trading result + network fees + open coin accounts). Unassigned is YOUR deposited SOL that no card was ever given — not profit, not fees.</span>
         : <span>Unassigned is not proven profit or a new deposit. Audit: {Number(d.solProvenance?.cardFundedSol || 0).toFixed(4)} SOL funded into cards; {Number(d.solProvenance?.rentReturnedSol || 0).toFixed(4)} SOL cumulatively returned from closed token accounts.</span>}
       {story?.deposits?.length > 0 && <small className="m-dim">{story.deposits.map(r => <a key={r.sig} className="fw-dep" href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noreferrer" data-tip={`from ${r.from}`}>{new Date(r.at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} +{Number(r.sol).toFixed(4)} ↗ </a>)}</small>}
       {sweep && <button type="button" className="m-btn" data-testid="fw-sweep" data-tip={`Fills the top-up box for ${sweep.label} with ${usd(sweep.usd)} of your unassigned SOL (kept inside the ${usd(d.cfg?.maxCardUsd)} per-card cap). You still press Top up — it counts as new money PUT IN.`} onClick={() => setAmt(a => ({ ...a, [sweep.tpl]: sweep.usd.toFixed(2) }))}>➜ Put {usd(sweep.usd)} into {sweep.label}{sweep.usd > freeSol * Number(d.solUsd || 0) + 0.01 ? ` · ${usd(freeSol * d.solUsd)} unassigned + ${usd(sweep.usd - freeSol * d.solUsd)} of the fee reserve parked as refundable rent` : ' · unassigned'}</button>}
@@ -177,20 +178,20 @@ export function FuseWallet({ call }) {
       <NumInput className="m-input m-num" type="number" defaultValue={cfg?.[k]} onBlur={e => Number(e.target.value) !== cfg?.[k] && save({ [k]: Number(e.target.value) })} data-testid={`fw-${k}`} /><small className="m-dim">{tip}</small></label>)}</div></details>
     <div><span className="m-label">3 · TIER CARDS · TOP UP = NEW RUN</span><div className="fw-tiers">{Object.entries(d.tiers || {}).map(([tpl, label]) => { const b = d.books?.[tpl];
       return <div key={tpl} className={`fw-tier ${b ? 'is-real' : ''}`} data-testid={`fw-tier-${tpl}`}><span><b>{label}</b><small className="m-dim">{b ? ` · 💵 ${usd(b.valueUsd)} now · funded ${usd(b.fundedUsd)} · ${b.swaps} swaps${b.halt ? ' · ⏸ halted' : ''}${b.defund ? ' · ↩ selling' : ''}` : ' · 📄 paper'}</small>
-        {b && <small className="m-dim" data-testid={`fw-receipt-${tpl}`}>🧾 receipt: in {usd(b.topups || b.fundedUsd)} → bought {usd(b.bought)} · sold {usd(b.sold)} · network fees {usd(b.feesUsd)} · now {usd(b.valueUsd)} ({b.fundedUsd ? `${((b.valueUsd / b.fundedUsd - 1) * 100).toFixed(1)}%` : '—'})</small>}</span>
+        {b && <small className="m-dim" data-testid={`fw-receipt-${tpl}`}><Ic3 e="🧾" /> receipt: in {usd(b.topups || b.fundedUsd)} → bought {usd(b.bought)} · sold {usd(b.sold)} · network fees {usd(b.feesUsd)} · now {usd(b.valueUsd)} ({b.fundedUsd ? `${((b.valueUsd / b.fundedUsd - 1) * 100).toFixed(1)}%` : '—'})</small>}</span>
         <NumInput className="m-input m-num" inputMode="decimal" placeholder="$" value={amt[tpl] || ''} onChange={e => setAmt(a => ({ ...a, [tpl]: e.target.value.replace(/[^0-9.]/g, '') }))} aria-label={`${label} top-up $`} data-testid={`fw-amt-${tpl}`} />
-        <button type="button" className="m-btn" onClick={() => preview(tpl)} data-tip="Real Jupiter quotes for what this $ would buy now — never signs" data-testid={`fw-dry-${tpl}`}>🔍 Dry run</button>
-        <span className="m-row"><button type="button" className="m-btn primary m-go" disabled={!d.signer || !cfg?.armed} onClick={() => topup(tpl)} data-testid={`fw-topup-${tpl}`}>💵 {b ? 'Top up' : 'Fund'}</button>
+        <button type="button" className="m-btn" onClick={() => preview(tpl)} data-tip="Real Jupiter quotes for what this $ would buy now — never signs" data-testid={`fw-dry-${tpl}`}><Ic3 e="🔍" /> Dry run</button>
+        <span className="m-row"><button type="button" className="m-btn primary m-go" disabled={!d.signer || !cfg?.armed} onClick={() => topup(tpl)} data-testid={`fw-topup-${tpl}`}><Ic3 e="💵" /> {b ? 'Top up' : 'Fund'}</button>
           {b && <><button type="button" className="m-btn" onClick={() => cardAct(tpl, b.halt ? 'resume' : 'halt')}>{b.halt ? '▶' : '⏸'}</button><button type="button" className="m-btn danger" onClick={() => cardAct(tpl, 'defund')} data-tip="Sell every coin back to SOL; the card returns to paper">↩</button></>}</span></div>; })}</div></div>
-    {dry && <div className="ff-detail" data-testid="fw-dryrun"><b>🔍 Dry run · {d.tiers[dry.tpl]} · {usd(dry.usd)}</b>{dry.busy ? <small className="m-dim">quoting…</small> : <>
-      {dry.card && <><span data-testid="fw-dry-status">📄 Paper now: {usd(dry.card.paperUsd)} ({dry.card.paperPct >= 0 ? '+' : ''}{dry.card.paperPct}%) · round {dry.card.rounds + 1}{dry.card.phase ? ` · ${dry.card.phase} phase` : ''}</span>
+    {dry && <div className="ff-detail" data-testid="fw-dryrun"><b><Ic3 e="🔍" /> Dry run · {d.tiers[dry.tpl]} · {usd(dry.usd)}</b>{dry.busy ? <small className="m-dim">quoting…</small> : <>
+      {dry.card && <><span data-testid="fw-dry-status"><Ic3 e="📄" /> Paper now: {usd(dry.card.paperUsd)} ({dry.card.paperPct >= 0 ? '+' : ''}{dry.card.paperPct}%) · round {dry.card.rounds + 1}{dry.card.phase ? ` · ${dry.card.phase} phase` : ''}</span>
         <div className="ctab" role="table"><div className="ctab-row is-head" role="row"><span>COIN</span><span>WEIGHT</span><span>YOUR $</span><span>SINCE ENTRY</span></div>
           {dry.card.coins.map(c => <div key={c.pairAddress} className="ctab-row" role="row"><b>{c.role === 'anchor' ? '⚓ ' : c.role === 'runner' ? '🏃 ' : ''}${c.symbol}{c.frozen ? ' ❄' : ''}</b><span className="m-num">{c.weightPct}%</span>
             <span className="m-num">{usd(c.usd)}</span><em className={`m-num ${c.pricePct >= 0 ? 'm-pos' : 'm-neg'}`}>{c.pricePct >= 0 ? '+' : ''}{c.pricePct}%</em></div>)}</div>
         <small className="m-dim">{dry.note}</small></>}
       {(dry.orders || []).map((o, i) => <span key={i}>{o.side === 'buy' ? '🟢 buy' : '🔴 sell'} ${o.symbol} · {usd(o.usd)}{o.err ? ` · ⚠ ${o.err}` : ` · impact ${o.impactPct}% · via ${(o.route || []).join(' → ') || 'Jupiter'}`}</span>)}
       {!dry.orders?.length && <small className="m-dim">No swaps needed — this card is SOL right now (its SOL slice stays SOL).</small>}
-      <b data-testid="fw-dry-fees">💳 Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refunded into the card` : ''}) · FEELESS fee $0</b></>}</div>}
+      <b data-testid="fw-dry-fees"><Ic3 e="💳" /> Card gets {usd(dry.cardUsd)} · fees ≈ {usd(dry.feesUsdEst)} from the reserve (network {usd(dry.networkUsdEst)}{dry.newCoins ? ` + account rent for ${dry.newCoins} new coin${dry.newCoins > 1 ? 's' : ''} ${usd(dry.rentUsdEst)}, refunded into the card` : ''}) · FEELESS fee $0</b></>}</div>}
     <RunReport call={call} />
     {/* every row is kept — the trail just opens on demand instead of pushing the page four screens down */}
     <details className="hrt-fold" data-testid="fw-audit"><summary><b>4 · Audit trail</b><span>{d.ledger?.length || 0} rows · bought {usd(d.totals?.bought)} · sold {usd(d.totals?.sold)} · top-ups {usd(d.totals?.topups)}{d.ledger?.[0] ? ` · last: ${d.ledger[0].side} ${d.ledger[0].symbol ? `$${d.ledger[0].symbol} ` : ''}${new Date(d.ledger[0].at * 1000).toLocaleTimeString()}` : ''}</span></summary>
@@ -236,7 +237,7 @@ export function CircleProfiles({ call }) {
     {d?.error && <small className="m-note warn">{d.error}</small>}
     <div className="fw-tiers">{rows.map(w => <div key={w.id} className="fw-tier"><span><b>{w.profile?.name || w.name}</b><small className="m-dim"> {w.profile?.handle ? `@${w.profile.handle} · ` : ''}{w.address.slice(0, 4)}…{w.address.slice(-4)} · {w.blockchain}</small></span>
       <a className="m-btn" href={`/terminal/profile/${w.address}`} target="_blank" rel="noreferrer">Profile ↗</a>
-      <button type="button" className="m-btn" onClick={() => setEdit(profileDraft(w))} data-testid={`cp-edit-${w.id}`}>✏️ Edit</button></div>)}</div>
+      <button type="button" className="m-btn" onClick={() => setEdit(profileDraft(w))} data-testid={`cp-edit-${w.id}`}><Ic3 e="✏️" /> Edit</button></div>)}</div>
     {edit && <CircleProfileForm call={call} start={edit} onDone={saved => { setEdit(null); if (saved) load(); }} />}
   </section>;
 }

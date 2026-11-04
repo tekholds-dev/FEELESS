@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useGlide } from '../../lib/useGlide';
 import '../../styles/modelRig.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎛 LM STUDIO RIG (Brain › Models) — ONE view of every model setting (owner, 2026-10-21: "one full LM Studio Load + Inference view"):
 //   LOADED NOW = what LM Studio itself reports (GET /api/v1/models) · LOAD = what the model should be loaded with (⚡ Reload = your tap, never
@@ -24,7 +25,7 @@ export function LoadedNow({ lm }) {
   const inst = lm?.loaded?.[0];
   const ctx = useGlide(inst?.ctx ?? 0);
   if (!lm) return <div className="mrg-now is-off" data-testid="lms-now"><b>LM Studio not answering</b><small>start its server (Developer › Start) — the settings below still save</small></div>;
-  if (!inst) return <div className="mrg-now is-off" data-testid="lms-now"><b>NOTHING LOADED</b><small>{lm.model} is on disk · tap ⚡ Load below</small></div>;
+  if (!inst) return <div className="mrg-now is-off" data-testid="lms-now"><b>NOTHING LOADED</b><small>{lm.model} is on disk · tap <Ic3 e="⚡" /> Load below</small></div>;
   const pct = lm.maxCtx > 2048 ? Math.min(1, Math.max(0, Math.log2(inst.ctx / 2048) / Math.log2(lm.maxCtx / 2048))) : 0.5; const C = 2 * Math.PI * 22;   // log scale: 8K of 128K reads as a third, not a sliver
   return <div className="mrg-now" data-testid="lms-now">
     <svg className="mrg-ring" viewBox="0 0 56 56" aria-hidden data-tip="Loaded context on a log scale, from 2K to the model's max"><circle cx="28" cy="28" r="22" className="mrg-rbg" />
@@ -39,7 +40,7 @@ export function LoadedNow({ lm }) {
 // 🔖 a model's presets: save its rig now under a name, tap one to apply it (G4 / OSSY still reload only on ⚡), ✕ to drop
 function Presets({ k, list, busy, onAct }) {
   const [name, setName] = useState('');
-  return <div className="mrg-grp mrg-pre" data-testid={`rig-${k}-presets`}><em className="mrg-lbl">🔖 PRESETS <small>save · pick · apply</small></em>
+  return <div className="mrg-grp mrg-pre" data-testid={`rig-${k}-presets`}><em className="mrg-lbl"><Ic3 e="🔖" /> PRESETS <small>save · pick · apply</small></em>
     {list.length ? <div className="mrg-pchips">{list.map((p, i) => <span key={p.name} className="mrg-pchip" style={{ '--i': i }}>
       <button type="button" disabled={!!busy} onClick={() => onAct({ act: 'apply', key: k, name: p.name })} data-tip={`Apply "${p.name}"${p.words ? ` — ${p.words}` : ''}`} data-testid={`rig-${k}-preset-${p.name}`}>{p.name}</button>
       <button type="button" className="mrg-pdrop" disabled={!!busy} onClick={() => onAct({ act: 'drop', key: k, name: p.name })} aria-label={`Delete preset ${p.name}`} data-tip="Delete this preset">✕</button></span>)}</div> : null}
@@ -69,25 +70,25 @@ export function ModelRig({ call, only = null, bare = false, cards = true }) {   
   const say = t => window.dispatchEvent(new CustomEvent('feeless:brain-say', { detail: { text: t } }));
   if (!d?.rows) return <p className="mrg-wait">{err || 'reading the rig…'}</p>;
   return <div className="mrg" data-testid="model-rig">
-    {!bare && cards ? <header className="mrg-head"><b>🎛 LM STUDIO RIG</b><small>LOADED = what LM Studio reports · LOAD = applied only when you tap ⚡ Reload · SENDS + INFERENCE = live at once</small></header> : null}
+    {!bare && cards ? <header className="mrg-head"><b><Ic3 e="🎛" /> LM STUDIO RIG</b><small>LOADED = what LM Studio reports · LOAD = applied only when you tap <Ic3 e="⚡" /> Reload · SENDS + INFERENCE = live at once</small></header> : null}
     {d.chat && !bare ? <section className="mrg-inf" data-testid="rig-inference"><em className="mrg-lbl">🌡 INFERENCE · BRAIN CHAT</em>
       <div className="mrg-seg" data-tip="Temperature: how loose the answers get">{TEMPS.map(([v, l]) => <button key={v} type="button" className={d.chat.temp === v ? 'active' : ''} disabled={!!busy}
         onClick={() => chatSet({ temp: v })} data-testid={`rig-chat-temp-${v}`}>{l}<small>{v}</small></button>)}</div>
       <div className="mrg-seg" data-tip="Response length (max tokens per answer)">{Object.entries(d.chat.lens || {}).map(([k, n]) => <button key={k} type="button" className={d.chat.len === k ? 'active' : ''} disabled={!!busy}
         onClick={() => chatSet({ len: k })} data-testid={`rig-chat-len-${k}`}>{k}<small>{n}</small></button>)}</div></section> : null}
-    {bare ? null : <p className="mrg-say"><em>💬 OR SAY IT</em>{SAY.map(t => <button key={t} type="button" onClick={() => say(t)} data-tip="Puts this line in Talk — it becomes a proposal you ✅" data-testid={`rig-say-${t.split(' ')[0]}`}>“{t}”</button>)}</p>}
+    {bare ? null : <p className="mrg-say"><em><Ic3 e="💬" /> OR SAY IT</em>{SAY.map(t => <button key={t} type="button" onClick={() => say(t)} data-tip="Puts this line in Talk — it becomes a proposal you ✅" data-testid={`rig-say-${t.split(' ')[0]}`}>“{t}”</button>)}</p>}
     {note ? <p className={`mrg-note ${note.ok ? 'is-ok' : 'is-bad'}`} data-testid="rig-reload-note">{note.ok ? `✅ reloaded in ${(note.ms / 1000).toFixed(1)}s${note.note ? ` · ${note.note}` : ''}` : `✕ reload failed — ${note.err}`}</p> : null}
     {cards ? <div className={`mrg-grid ${only ? 'is-one' : ''}`}>{d.rows.filter(r => !only || r.key === only).map((r, i) => { const lv = d.live?.[r.key] || {}; const lm = r.lms; const gguf = String(lm?.fmt || 'gguf').toLowerCase() === 'gguf';
       const inst = lm?.loaded?.[0] || {}; const diff = Object.keys(r.diff || {}); const reloading = (d.reloading || []).includes(r.key) || busy === `reload.${r.key}`;
       return <section key={r.key} className={`mrg-card k-${r.key} ${diff.length ? 'is-diff' : ''}`} style={{ '--i': i }} data-testid={`rig-${r.key}`}>
         <header><span className="mrg-sweep" aria-hidden />{AV[r.key] ? <img src={AV[r.key]} alt="" /> : <i className="mrg-av">🪟</i>}<b>{r.name}</b>{lm?.name ? <small className="mrg-model">{String(lm.name).split('/').pop()}</small> : null}
         <form className="mrg-mid" onSubmit={e => { e.preventDefault(); save(r.key, 'model', String(new FormData(e.currentTarget).get('model') || '').trim()); }} data-tip="Type any model id LM Studio has (e.g. qwen/qwen3.5-9b) — empty = the .env default. No code change needed">
-          <em className="mrg-lbl">🧠 MODEL ID</em><input className="m-input" name="model" defaultValue={r.rigModel || ''} key={r.rigModel || ''} placeholder={r.model || 'model id · e.g. qwen/qwen3.5-9b'} aria-label={`${r.name} model id`} data-testid={`rig-${r.key}-model`} />
+          <em className="mrg-lbl"><Ic3 e="🧠" /> MODEL ID</em><input className="m-input" name="model" defaultValue={r.rigModel || ''} key={r.rigModel || ''} placeholder={r.model || 'model id · e.g. qwen/qwen3.5-9b'} aria-label={`${r.name} model id`} data-testid={`rig-${r.key}-model`} />
           <button type="submit" className="m-btn" disabled={!!busy} data-testid={`rig-${r.key}-model-save`}>Use</button></form>
           <span className={`mrg-st s-${String(lv.state || 'untested').toLowerCase().replace(/\s+/g, '-')}`}>{lv.state || 'UNTESTED'}{lv.lastMs ? ` · ${(lv.lastMs / 1000).toFixed(1)}s` : ''}</span></header>
         {r.load ? <>
           <LoadedNow lm={lm} />
-          <div className="mrg-grp"><em className="mrg-lbl">⚙ LOAD <small>reload to apply</small></em>
+          <div className="mrg-grp"><em className="mrg-lbl"><Ic3 e="⚙" /> LOAD <small>reload to apply</small></em>
             {LOAD.map(([f, label, word, tip]) => { const off = !gguf && ['flash', 'kv', 'batch'].includes(f); const cur = inst[f]; const w = r.load[f];
               return <div key={f} className={`mrg-row ${off ? 'is-na' : ''}`} data-tip={off ? `${tip} — not used by ${String(lm?.fmt || '').toUpperCase()} models` : tip}><em>{label}</em>
                 <div className="mrg-seg">{(d.loadOptions?.[f] || []).map(v => <button key={v} type="button" className={`${(w ?? cur) === v ? 'active' : ''} ${cur === v ? 'is-cur' : ''}`} disabled={!!busy || off}

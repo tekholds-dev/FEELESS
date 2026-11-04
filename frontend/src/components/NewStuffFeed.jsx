@@ -1,7 +1,8 @@
 import { HeldChip } from '../lib/myHoldings';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Sparkles, Flame, Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { Copy, ExternalLink, RefreshCw } from 'lucide-react';
+import { Sparkles, Flame } from '../lib/lucide3d';
 import { useMarket } from '../hooks/useMarket';
 import { matchesPad } from '../lib/launchpads';
 import { MarketAvailabilityNotice, TokenAvatar } from './terminal/MarketPrimitives';

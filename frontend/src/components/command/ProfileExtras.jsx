@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import { ShareGifButton } from '../ShareGif';
+import { Ic3 } from '../../lib/icon3d';
 
 export function usePerks(address) {
   const [d, setD] = useState(null);
@@ -37,7 +38,7 @@ export function PerksCard({ perks, mine }) {
     <div className="wpj-head"><h3>$FEE holder perks <Hint text="Your tier is checked live from the $FEE in your wallet — no subscriptions. Hold more to unlock more." /></h3><span className="wpj-count">holding <b>${perks.feeUsd}</b></span></div>
     <p className="wp-bio">No subscriptions. Hold $FEE and FEELESS unlocks more — checked live against the wallet.</p>
     <div className="wpp-ladder">{(perks.tiers || []).map(t => <div key={t.tier} className={`wpp-tier ${t.tier <= perks.tier ? 'on' : ''} ${t.tier === perks.tier ? 'current' : ''}`}>
-      <div className="wpp-top"><span>{t.icon}</span><b>{t.name}</b><small>{t.minUsd ? `$${t.minUsd.toLocaleString()}+` : 'free'}</small></div>
+      <div className="wpp-top"><span><Ic3 e={t.icon} /></span><b>{t.name}</b><small>{t.minUsd ? `$${t.minUsd.toLocaleString()}+` : 'free'}</small></div>
       <ul>{(t.perks || []).map(x => <li key={x}>{t.tier <= perks.tier ? '✓' : '🔒'} {x}</li>)}</ul>
     </div>)}</div>
     {perks.next && <div className="wpp-next"><div className="wpj-bar"><i style={{ width: `${pct}%` }} /></div><span>{mine ? 'You are' : 'They are'} ${perks.next.needUsd} of $FEE away from <b>{perks.next.name}</b>{mine && <> · <Link to="/terminal/fee">Get $FEE →</Link></>}</span></div>}
@@ -49,7 +50,7 @@ export function SetupCallout({ profile, onEdit }) {
   const done = steps.filter(([k]) => { const v = profile?.[k]; return Array.isArray(v) ? v.length : k === 'theme' ? v && v !== 'grid' : Boolean(v); }).length;
   if (done === steps.length) return null;
   return <section className="wp-card wp-setup" data-testid="profile-setup">
-    <div className="wpj-head"><h3>✨ Your profile is live — make it yours</h3><span className="wpj-count"><b>{done}</b>/{steps.length}</span></div>
+    <div className="wpj-head"><h3><Ic3 e="✨" /> Your profile is live — make it yours</h3><span className="wpj-count"><b>{done}</b>/{steps.length}</span></div>
     <div className="wpj-bar"><i style={{ width: `${(done / steps.length) * 100}%` }} /></div>
     <div className="wps-steps">{steps.map(([k, l]) => { const v = profile?.[k]; const ok = Array.isArray(v) ? v.length : k === 'theme' ? v && v !== 'grid' : Boolean(v); return <span key={k} className={ok ? 'ok' : ''}>{ok ? '✓' : '○'} {l}</span>; })}</div>
     <button type="button" className="btn-primary" onClick={onEdit}>Set up profile</button>

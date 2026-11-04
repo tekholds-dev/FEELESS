@@ -9,6 +9,7 @@ import { investigate } from './CaseFile';
 import { openCoin } from './CoinDrawer';
 import { useLivePrices } from '../lib/livePrices';
 import '../styles/runners.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏃 FUSE RUNNERS — coins come to it. Every launchpad coin the feed sees is gated (rugs out), scored, laned (scalp / runner
 // / hold) with a preset exit ladder; every 15 min a round keeps the best runners and adds newcomers; every round is
@@ -53,7 +54,7 @@ export function CoinRow({ r, live, px }) {
       {r.streak > 1 && <em className="rn-streak" data-tip={`Stayed in the top for ${r.streak} rounds`}>↻{r.streak}</em>}</small></span>
     <span className="rn-score" data-tip={(r.parts || []).map(p => `${p.part}: +${p.points} (${p.why})`).join('\n')}><i style={{ transform: `scaleX(${Math.min(1, (r.score || 0) / 100)})` }} /><b className="m-num">{Math.round(r.score || 0)}</b></span>
     <span className={`m-num rn-move fl-tick ${(move || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(move || 0).toFixed(1)} data-tip={live ? 'Since this round picked it (live)' : 'Last hour (live)'}>{pct(move)}</span>
-    <button type="button" className="rn-case" onClick={() => investigate(r.mint)} aria-label="Case file" data-tip="Open the coin's case file">🔎</button>
+    <button type="button" className="rn-case" onClick={() => investigate(r.mint)} aria-label="Case file" data-tip="Open the coin's case file"><Ic3 e="🔎" /></button>
   </div>;
 }
 
@@ -78,18 +79,18 @@ export function RunnersPanel({ call }) {
       <li key={l} style={{ animationDelay: `${k * 60}ms` }} data-tip={l === 'Passed gates' ? d.gates.join(' · ') : undefined}><b>{i}</b><span><em className="m-num">{n}</em><small>{l}</small></span></li>)}</ol>
     {(() => { const full = LANES.filter(([k]) => picks.some(p => p.lane === k)); const idle = LANES.filter(([k]) => !picks.some(p => p.lane === k));
       return <>{full.length > 0 && <div className="rn-lanes" style={{ '--lanes': full.length }}>{full.map(([k, ic, name, sub]) => <div key={k} className={`rn-lane lane-${k}`}>
-        <header><b>{ic} {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
+        <header><b><Ic3 e={ic} /> {name}</b><small>{sub}</small><em data-tip="Preset exits — alerts you at each step for a one-tap sell">{d.exits[k]}</em></header>
         {picks.filter(p => p.lane === k).map(r => <CoinRow key={r.mint} r={r} live px={lp.get(r.pairAddress)} />)}</div>)}</div>}
         {/* no dead fields: an empty lane is one slim chip with its exit plan, not a big empty box */}
         {idle.length > 0 && <div className="rn-idle" data-testid="rn-idle">{idle.map(([k, ic, name]) => <span key={k} className={`rn-idlechip lane-${k}`} data-tip={k === 'hold' ? 'A runner moves here after 2 rounds in the top' : `No coin in the ${name.toLowerCase()} lane this round — its exits wait: ${d.exits[k]}`}>
-          {ic} {name} <small>{k === 'hold' ? 'after 2 top rounds' : 'empty this round'}</small><em>{d.exits[k]}</em></span>)}</div>}</>; })()}
+          <Ic3 e={ic} /> {name} <small>{k === 'hold' ? 'after 2 top rounds' : 'empty this round'}</small><em>{d.exits[k]}</em></span>)}</div>}</>; })()}
     {(d.round?.swaps || []).length > 0 && <div className="rn-swaps" data-testid="rn-swaps">{d.round.swaps.slice(-3).reverse().map(s => <span key={s.at}>🔁 auto-swapped <b>${s.out.symbol}</b> → <b>${s.in.symbol}</b><small>{s.why[0]}</small></span>)}</div>}
     {picks.length > 0 && <div className={`rn-fuse ${d.proof.lights ? 'is-lit' : ''}`} key={d.round?.id}>
       <FuseCard c={{ pools: legs.map(l => l.pairAddress), fitness: Math.round(picks.reduce((a, p) => a + p.score, 0) / picks.length), bornGen: d.history.length,
         parts: { grade: d.proof.lights ? 'A' : 'C', aprScore: 0, momentum24h: 0, calm: '—', feeDragPct: sol ? Math.min(100, 0.0001 * picks.length * d.solUsd / budget * 100) : 0, impactLegs: 0 }, legs }} style="degen" rank={0} budget={budget} autoFlip={6000} />
       <div className="rn-fuse-side">
         <span className="m-label">RUNNER FUSE · THIS ROUND</span>
-        <p className="m-dim">{picks.length} runners, equal weight. Each is bought by mint (pre-bond on the curve or from its new pool) in one wallet approval; its lane's exit plan goes on your 🎯 limits.</p>
+        <p className="m-dim">{picks.length} runners, equal weight. Each is bought by mint (pre-bond on the curve or from its new pool) in one wallet approval; its lane's exit plan goes on your <Ic3 e="🎯" /> limits.</p>
         <div className="m-seg">{[1, 2, 5].map(v => <button type="button" key={v} className={budget === v ? 'active' : ''} onClick={() => setBudget(v)}>${v}</button>)}</div>
         {call && !d.proof.lights && <label className="m-toggle rn-override" data-tip="Admin only: fuse before the $5 run is positive"><input type="checkbox" checked={override} onChange={e => setOverride(e.target.checked)} /><span>Fuse unproven ($5 run: {d.proof.rounds ? pct(d.proof.avgPct) : 'no rounds yet'})</span></label>}
         {!go ? <button type="button" className={`m-btn primary m-go wide rn-go ${lit ? 'is-lit' : ''}`} disabled={!lit || !sol} onClick={() => setGo(true)} data-testid="rn-go">{lit ? `⚡ Fuse runners · $${budget}` : `🔒 Lights up when proven (${d.proof.need ? `${d.proof.need} rounds to go` : 'not winning yet'})`}</button>
@@ -98,7 +99,7 @@ export function RunnersPanel({ call }) {
     </div>}
     <div className="rn-cols">
       <div className="rn-board"><header><b>📡 Live board</b><small className="m-dim">{d.live.length} passing every gate · best first</small>{d.widen?.level > 0 && <span className="m-chip warn rn-widen" data-testid="rn-widen"
-        data-tip={`The board was dead, so the engine loosened only its SOFT gates (never holders-scan, insiders, dev, creator or spikes): ${Object.entries(d.widen.moved || {}).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(' · ')}. It steps back once 8+ coins pass.`}>🔧 Scope widened {d.widen.level}/{d.widen.max}</span>}</header>{d.live.slice(0, call ? 60 : 12).map(r => <CoinRow key={r.mint} r={r} px={lp.get(r.pairAddress)} />)}
+        data-tip={`The board was dead, so the engine loosened only its SOFT gates (never holders-scan, insiders, dev, creator or spikes): ${Object.entries(d.widen.moved || {}).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(' · ')}. It steps back once 8+ coins pass.`}><Ic3 e="🔧" /> Scope widened {d.widen.level}/{d.widen.max}</span>}</header>{d.live.slice(0, call ? 60 : 12).map(r => <CoinRow key={r.mint} r={r} px={lp.get(r.pairAddress)} />)}
         {!d.live.length && <><p className="m-dim rn-empty">Nothing passes every gate this minute — watching the busiest arrivals:</p>
           <ul className="rn-drop">{d.dropped.slice(0, 6).map(r => <li key={r.mint}><b>${r.symbol}</b><span>{r.gates.slice(0, 2).join(' · ')}</span></li>)}</ul></>}
         <button type="button" className="rn-drop-toggle" aria-expanded={showDrop} onClick={() => setShowDrop(s => !s)}>{showDrop ? 'Hide' : 'Show'} the {d.dropped.length} dropped (why)</button>

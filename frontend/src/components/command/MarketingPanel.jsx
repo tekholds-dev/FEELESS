@@ -4,6 +4,7 @@ import { ShareGifButton } from '../ShareGif';
 import { apiUrl } from '../../lib/api';
 
 import { tiny } from '../../lib/num';
+import { Ic3 } from '../../lib/icon3d';
 const CATS = [['coins', '🪙 FEELESS coins'], ['feecat', '🐱 FeeCat trades'], ['movers', '🚀 Top movers · 3 days'], ['reps', '🛡 Top reputation']];
 const mc = v => (!(v > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : `$${(v / 1e3).toFixed(1)}K`);
 const pct = v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
@@ -100,7 +101,7 @@ function FeelessCoins({ call }) {
       <div className="mk-coin-head">{logo ? <img src={logo} alt="" /> : <i>{sym.slice(0, 2)}</i>}<div><b>${sym}</b><small>{a.mint ? `${a.mint.slice(0, 4)}…${a.mint.slice(-4)}` : ''}</small></div><span className={ch >= 0 ? 'positive' : 'negative'}>{pctC(ch)}</span></div>
       <div className="mk-coin-stats"><span><small>PRICE</small><b>{$c(p.priceUsd)}</b></span><span><small>MC</small><b>{$c(p.marketCap || p.fdv)}</b></span><span><small>LIQ</small><b>{$c(p.liquidity?.usd)}</b></span><span><small>VOL 24H</small><b>{$c(p.volume?.h24)}</b></span></div>
       <pre className="mk-post">{post}</pre>
-      <div className="mk-coin-actions">{a.mint && call && <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => setLogo(a.mint, e.target.files?.[0])} />🖼 Set logo</label>}<button type="button" className="btn-outline" onClick={() => navigator.clipboard?.writeText(post).then(() => toast.success('Post copied'))}>Copy post</button>
+      <div className="mk-coin-actions">{a.mint && call && <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => setLogo(a.mint, e.target.files?.[0])} /><Ic3 e="🖼" /> Set logo</label>}<button type="button" className="btn-outline" onClick={() => navigator.clipboard?.writeText(post).then(() => toast.success('Post copied'))}>Copy post</button>
         <ShareGifButton label="🎞 Download GIF" card={{ kicker: 'FEELESS COIN · LIVE', title: `$${sym}`, imageUrl: logo, tone: ch < 0 ? 'down' : 'up', big: p.priceUsd ? pctC(ch) : 'LIVE SOON', lines: [`Price ${$c(p.priceUsd)} · MC ${$c(p.marketCap || p.fdv)}`, `Liquidity ${$c(p.liquidity?.usd)} · Vol ${$c(p.volume?.h24)}`, 'Zero-fee buys on FEELESS'], footer: 'feeless · non-custodial trading' }} /></div>
     </div>; })}</div>;
 }

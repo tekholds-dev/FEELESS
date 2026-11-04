@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, Trash2, Plus, Shuffle, Repeat, Repeat1, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Plus, Shuffle, Repeat, Repeat1, ChevronUp, ChevronDown } from 'lucide-react';
+import { Music, Trash2 } from '../../lib/lucide3d';
 
 // MySpace-style profile playlist: YouTube, Spotify and SoundCloud links.
 export function parse(url) {

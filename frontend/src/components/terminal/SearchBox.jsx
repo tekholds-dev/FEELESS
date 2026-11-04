@@ -1,8 +1,10 @@
 import { WalletPfp } from '../WalletPfp';
 import '../../styles/searchQuick.css';
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, ArrowUpRight, Clock, User, Coins, Wallet } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
+import { Search, Clock, User, Coins, Wallet } from '../../lib/lucide3d';
 import { formatUSD, formatPct } from '../../lib/dexscreener';
+import { Ic3 } from '../../lib/icon3d';
 
 const RECENT_KEY = 'feeless:recent-searches';
 const readRecent = () => { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').slice(0, 6); } catch { return []; } };
@@ -111,7 +113,7 @@ export function SearchBox({ ecosystem, nav }) {
     <input ref={input} data-testid="terminal-search-input" aria-label="Search coins, @names or wallets" placeholder={`${ecosystem?.name || 'Search'} · coins, $TICKER, @name or wallet…  ( / )`} maxLength={120} value={q} onFocus={() => setOpen(true)} onChange={e => { setQ(e.target.value); setOpen(true); }} onKeyDown={onKeyDown} autoComplete="off" />
     <button data-testid="terminal-search-submit" title="Search" type="submit"><ArrowUpRight size={16} /></button>
     {open && (list.length > 0 || !q.trim() || (q.trim().length >= 2 && !loading)) && <div className="search-drop" role="listbox" data-testid="search-results">
-      {!q.trim() && <div className="sd-quick" data-testid="search-quick"><small className="sd-head">⭐ FEELESS</small>{QUICK.map(([w, t]) => <button key={w} type="button" className="sd-chip" onMouseDown={e => { e.preventDefault(); setQ(w); }}>{t}</button>)}</div>}
+      {!q.trim() && <div className="sd-quick" data-testid="search-quick"><small className="sd-head"><Ic3 e="⭐" /> FEELESS</small>{QUICK.map(([w, t]) => <button key={w} type="button" className="sd-chip" onMouseDown={e => { e.preventDefault(); setQ(w); }}>{t}</button>)}</div>}
       {!q.trim() && list.length > 0 && <small className="sd-head"><Clock size={11} /> Recent</small>}
       {q.trim() && loading && !list.length && <small className="sd-head">Searching…</small>}
       {q.trim() && !loading && !list.length && <small className="sd-head">Nothing on {chainName} — switch network to search elsewhere.</small>}

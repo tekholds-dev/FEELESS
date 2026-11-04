@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import '../../styles/agentStudio.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🖥 What a general agent makes (owner 2026-11-04): code it wrote previews on its monitor, and its images, pages and answers live in one folder.
 // The page runs in a sandbox with no same-origin and no network, so it can't touch this site or send anything out.
@@ -20,7 +21,7 @@ export function CodeMonitor({ code, title = 'Its monitor', onClose }) {
   const [phone, setPhone] = useState(false);
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(<div className="ast-shade" role="dialog" aria-modal="true" aria-label={title} data-testid="ast-monitor" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="ast-screen m-glass"><header><b>🖥 {title}</b>
+    <div className="ast-screen m-glass"><header><b><Ic3 e="🖥" /> {title}</b>
       <span className="m-seg" role="radiogroup" aria-label="Preview width">{[[false, 'Desktop'], [true, 'Phone']].map(([v, l]) => <button key={l} type="button" role="radio" aria-checked={phone === v} onClick={() => setPhone(v)} data-tip={`See it at ${v ? '360 px' : 'full width'}`}>{l}</button>)}</span>
       <button type="button" className="m-btn" onClick={onClose} aria-label="Close the preview" data-tip="Close (Esc)" data-testid="ast-close">✕</button></header>
       <div className={`ast-view${phone ? ' is-phone' : ''}`}><iframe title={title} sandbox="allow-scripts" srcDoc={lockedPage(code)} data-testid="ast-frame" /></div>

@@ -30,7 +30,8 @@ import { MarketingPanel } from './MarketingPanel';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AgentDesk } from './AgentDesk';
-import { ShieldCheck, Users, Gift, Award, Bug, RefreshCw, Download, X, Activity, BarChart3, Wallet, Megaphone, Search } from 'lucide-react';
+import { Bug, RefreshCw, Download, X } from 'lucide-react';
+import { ShieldCheck, Users, Gift, Award, Activity, BarChart3, Wallet, Megaphone, Search } from '../../lib/lucide3d';
 import { apiUrl, errorText } from '../../lib/api';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 import { AirdropStudio, Snapshots } from './AirdropStudio';
@@ -56,6 +57,7 @@ import { tiny } from '../../lib/num';
 import { hqWrite, useHqBusy } from '../../lib/hqBusy';
 import { useRemembered } from '../../lib/remember';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 // 🧱 every HQ read through one shape (H01): an empty / partial reply renders an empty panel, never a crashed HQ
 const PULSE = shaped({ hourly: [], busiestRooms: [], topPosters: [], topClicks: [], top: [], messages: 0, activeWallets: 0, profiles: 0, pushSubscribers: 0, muted: 0, fee: {} });
 const TRAFFIC = shaped({ daily: [], hours: [], topPages24h: [], topPages7d: [], topClicks: [], referrers: [], topCoins: [], pairs: [] });
@@ -80,7 +82,7 @@ const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
 function HqBusyBar() {
   const b = useHqBusy();
   if (!b.n) return null;
-  return <div className={`hq-busy ${b.slow ? 'is-slow' : ''}`} role="status" data-testid="hq-busy"><i />{b.slow ? <span>⏳ still working{b.label ? ` — ${b.label}` : ''} · the server answers once the keeper finishes its current pass</span> : null}</div>;
+  return <div className={`hq-busy ${b.slow ? 'is-slow' : ''}`} role="status" data-testid="hq-busy"><i />{b.slow ? <span><Ic3 e="⏳" /> still working{b.label ? ` — ${b.label}` : ''} · the server answers once the keeper finishes its current pass</span> : null}</div>;
 }
 
 // 🧯 one tab can never take HQ down (H01, 2026-10-29: 16 of 32 tabs crashed the WHOLE HQ on an empty reply). A render error in a tab
@@ -159,7 +161,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   const toggle = a => setSelected(s => { const n = new Set(s); n.has(a) ? n.delete(a) : n.add(a); return n; });
 
   if (!session) return <div className="cc-shell" data-testid="hq-shell"><div className="cc-gate">
-    <div className="cc-crown">👑</div><h2 className="trenches-font live-gradient-text">FEELESS HQ</h2>
+    <div className="cc-crown"><Ic3 e="👑" /></div><h2 className="trenches-font live-gradient-text">FEELESS HQ</h2>
     <p>This wallet created $FEE. Sign once (free, no transaction) to open holders, airdrops, badges and the security monitor for the next 24 hours.</p>
     <div className="cc-gate-actions"><button type="button" className="btn-primary" disabled={busy} onClick={signIn}><ShieldCheck size={15} />{busy ? 'Check your wallet…' : 'Sign in to HQ'}</button><button type="button" className="btn-outline" onClick={onClose}>Back to profile</button></div>
   </div></div>;
@@ -228,7 +230,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
             <input type="checkbox" checked={selected.has(r.owner)} onChange={() => toggle(r.owner)} /><span>{i + 1}</span>
             <a href={`/terminal/profile/${r.owner}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>{shortAddress(r.owner)}</a>
             <span>{r.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span><span>{r.pct.toFixed(2)}%</span><span>{r.usd != null ? formatUSD(r.usd) : '—'}</span>
-            <span className="cc-tags">{r.isAdmin && <em className="t-gold">HQ</em>}{r.likelyPool && <em>pool</em>}{r.blocked && <em className="t-bad">blocked</em>}{r.customBadges.map(b => <em key={b.id} title={b.why}>{b.icon}</em>)}</span>
+            <span className="cc-tags">{r.isAdmin && <em className="t-gold">HQ</em>}{r.likelyPool && <em>pool</em>}{r.blocked && <em className="t-bad">blocked</em>}{r.customBadges.map(b => <em key={b.id} title={b.why}><Ic3 e={b.icon} /></em>)}</span>
           </label>)}</div>}
     </section>}
     {tab === 'studio' && (holders?.rows ? <AirdropStudio call={call} asset={asset} holders={holders.rows} selected={[...selected]} onScheduled={() => { loadDrops(); setTab('airdrops'); }} /> : <p className="cc-empty">Loading holders…</p>)}
@@ -244,7 +246,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
       ['fees', '💲 Fees', <FuseFees call={call} />, 'Every Fuse fee in one place: per-coin first buy, card swaps / sells, round packs — a live $ receipt and every fee paid, clickable down to its transaction.', 'MONEY'],
       ['payouts', '💸 Payouts', <FusePayouts call={call} />, 'Weekly Fee-Back / copy / creator payouts: plan frozen at today\'s SOL price, ONE approval from the fee wallet, credited only from verified transfers.', 'MONEY'],
       ['rules', '🃏 Card rules', <><CardRules call={call} /><AutoYieldDefault call={call} /></>, 'What traders can pick: auto-profit levels, hold/swap, Arena tiers, Fee-Back + copy cuts, and the default 💸 auto-collect.', 'MONEY'],
-      ['engine', '⚡ Engine', <><EngineFunnel call={call} /><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary>⚙ Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
+      ['engine', '⚡ Engine', <><EngineFunnel call={call} /><EngineDial call={call} /><EngineSuggest call={call} /><details className="m-card adv-cfg"><summary>⚛️ Fuse builder (manual basket: name, tagline, creator cut, any pools)</summary><FuseBuilder call={call} /></details><details className="m-card adv-cfg"><summary><Ic3 e="⚙" /> Advanced engine config (FeeCat tune keeps these at the sweet spot)</summary><RunnerSettings call={call} /></details></>, 'Runner engine settings: gates, flow, bond boxes, lanes, battles, auto card. ⚡ shows anything weaker than recommended — one click applies it.', 'SYSTEM'],
       ['vault', '⛓ On-chain (design)', <><ContractStatus call={call} /><VaultMath /><VaultDesigner call={call} /></>, 'Design only, never deployed or funded without you: the FUSE Vault + FUSE Card programs (what\'s built, what\'s blocked, how to test on localnet) and the future vault (SOL in → shares, fees in SOL).', 'SYSTEM']]} />}{tab === 'badges' && <><QuestEngineAdmin call={call} /><AwardBadges call={call} initial={[...selected]} /></>}
     {tab === 'feecat' && <><FeeCatDesk call={call} /><FeeCatTune call={call} /></>}
     {tab === 'pools' && <PoolsPanel call={call} />}
@@ -314,7 +316,7 @@ function Airdrops({ drops, call, reload }) {
     <div className="cc-block cc-top3"><h4>Season top-3 reward / holder fee-share</h4><div className="cc-toolbar"><NumInput inputMode="decimal" placeholder="Amount per winner" value={top3.amount} onChange={e => setTop3(t => ({ ...t, amount: e.target.value.replace(/[^0-9.]/g, '') }))} /><select value={top3.asset} onChange={e => setTop3(t => ({ ...t, asset: e.target.value }))}>{['fee', 'sol', 'feecat', 'rfee'].map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select><button type="button" className="btn-primary" onClick={draftTop3}>Draft top-3 drop</button></div><small className="cc-empty">For a holder fee-share, pick holders on the Holders tab and schedule with SOL — then Send from wallet here.</small></div>
     {!drops.length ? <p className="cc-empty">No airdrops yet. Select holders on the Holders tab to schedule one.</p> : drops.map(d => { const due = d.scheduledAt * 1000 <= Date.now() && d.status === 'scheduled';
       return <div key={d.id} className={`cc-drop s-${d.status} ${due ? 'due' : ''}`}>
-        <div className="cc-drop-top"><b>🪂 {d.name}</b><em>{due ? 'DUE NOW' : d.status}</em><small>{new Date(d.scheduledAt * 1000).toLocaleString()} · {d.recipients.length} wallets · {d.total.toLocaleString(undefined, { maximumFractionDigits: 4 })} {d.asset.toUpperCase()}</small></div>
+        <div className="cc-drop-top"><b><Ic3 e="🪂" /> {d.name}</b><em>{due ? 'DUE NOW' : d.status}</em><small>{new Date(d.scheduledAt * 1000).toLocaleString()} · {d.recipients.length} wallets · {d.total.toLocaleString(undefined, { maximumFractionDigits: 4 })} {d.asset.toUpperCase()}</small></div>
         <div className="cc-drop-actions">
           <button type="button" onClick={() => download(`${d.name}.csv`, csv([['address', 'amount'], ...d.recipients.map(r => [r.address, r.amount])]))}><Download size={13} />CSV</button>
           {d.status === 'scheduled' && <button type="button" className="btn-primary" disabled={!!sending[d.id]} onClick={() => sendNow(d)}>{sending[d.id] || 'Send from wallet'}</button>}{d.status === 'scheduled' && <><input placeholder="Paste tx signature after sending" value={sigs[d.id] || ''} onChange={e => setSigs(s => ({ ...s, [d.id]: e.target.value }))} /><button type="button" className="btn-primary" onClick={() => mark(d, 'sent')}>Verify & mark sent</button><button type="button" onClick={() => mark(d, 'cancelled')}>Cancel</button></>}
@@ -354,7 +356,7 @@ function AwardBadges({ call, initial }) {
     <div className="cc-block"><h4>Badge mechanics</h4><p className="cc-note">Awards are earned inventory. The profile and chat caps only control how many a user may display; they do not delete awards. Only HQ can issue or revoke them.</p><div className="cc-studio-grid"><label>Profile display cap<NumInput type="number" min="0" max="12" value={limits.profile} onChange={e => setLimits(x => ({ ...x, profile: e.target.value }))} /></label><label>Chat display cap<NumInput type="number" min="0" max="12" value={limits.chat} onChange={e => setLimits(x => ({ ...x, chat: e.target.value }))} /></label></div><button type="button" className="btn-primary" onClick={saveLimits}>Save display caps</button></div>
     </>}
     {view === 'award' && <div className="bdg-award">
-    <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}>{icon} {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
+    <div className="cc-award-preview"><span className={`badge-pill tone-${tone}`}><Ic3 e={icon} /> {label || 'Badge name'}</span><small>{why || 'Why they earned it'}</small></div>
     <div className="cc-award-form">
       <div className="cc-icons">{['⭐', '💎', '🔥', '🏆', '🧠', '🐞', '🛠️', '🎖️', '🦾', '🌙'].map(i => <button key={i} type="button" className={icon === i ? 'active' : ''} onClick={() => setIcon(i)}>{i}</button>)}</div>
       <input placeholder="Badge name (e.g. Bug Hunter)" maxLength={32} value={label} onChange={e => setLabel(e.target.value)} />
@@ -365,7 +367,7 @@ function AwardBadges({ call, initial }) {
     </div>
     </div>}
     {view === 'ledger' && <>
-    <div className="cc-block cc-badge-ledger"><h4>Issued badge ledger</h4>{!awards.rows.length ? <p className="cc-empty">No custom badges issued yet.</p> : awards.rows.map(row => <div className="cc-badge-wallet" key={row.address}><code>{shortAddress(row.address)}</code><div>{row.badges.map(b => <span key={b.id} className={`badge-pill tone-${b.tone}`} title={b.why}><i>{b.icon}</i>{b.label}<button type="button" aria-label={`Revoke ${b.label}`} onClick={() => revoke(row.address, b.id)}>×</button></span>)}</div></div>)}</div>
+    <div className="cc-block cc-badge-ledger"><h4>Issued badge ledger</h4>{!awards.rows.length ? <p className="cc-empty">No custom badges issued yet.</p> : awards.rows.map(row => <div className="cc-badge-wallet" key={row.address}><code>{shortAddress(row.address)}</code><div>{row.badges.map(b => <span key={b.id} className={`badge-pill tone-${b.tone}`} title={b.why}><i><Ic3 e={b.icon} /></i>{b.label}<button type="button" aria-label={`Revoke ${b.label}`} onClick={() => revoke(row.address, b.id)}>×</button></span>)}</div></div>)}</div>
     </>}
   </section>;
 }
@@ -420,7 +422,7 @@ export function ReservePool({ call }) {
         {plan && plan.assigned && !plan.poolSol && <div className="m-note warn"><b>Why 0?</b>The reserve wallet holds no SOL yet. Send SOL to it (fees, or your own wallet) and the pot fills at {plan.pct}% of whatever it holds.</div>}</div>
       <div className="m-card m-stack"><span className="m-label">TIER WEIGHTS</span><div className="m-row">{Object.entries(plan?.weights || {}).filter(([, w]) => w).map(([t, w]) => <span key={t} className="m-chip ok">{TIER_ICON[t]} {t} {w}×</span>)}</div><span className="m-dim">Recruit, blocklisted and FEELESS wallets earn nothing.</span></div>
     </div>
-    {plan?.payout ? <div className="bdg-paid">✅ {plan.payout.via === 'circle' ? 'Sent' : 'Paid'} {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · {plan.payout.via === 'circle' ? 'via Circle' : <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a>}
+    {plan?.payout ? <div className="bdg-paid"><Ic3 e="✅" /> {plan.payout.via === 'circle' ? 'Sent' : 'Paid'} {plan.payout.rows.reduce((a, r) => a + r.sol, 0).toFixed(4)} SOL to {plan.payout.rows.length} wallets · {plan.payout.via === 'circle' ? 'via Circle' : <a href={`https://solscan.io/tx/${plan.payout.sigs[0]}`} target="_blank" rel="noopener noreferrer">receipt</a>}
         {plan.payout.failed?.length > 0 && <><span className="bdg-warn"> · {plan.payout.failed.length} failed</span><CirclePay call={call} circle={circleW} rows={plan.payout.failed} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Retry ${plan.payout.failed.length} via Circle`} /></>}</div>
       : <div className="m-card m-row cs-bar"><span className="m-dim">{plan ? `${plan.rows.length} wallets · ${plan.paidSol} SOL${plan.droppedDust ? ` · ${plan.droppedDust} dust shares re-split` : ''}` : 'Loading…'}</span>
         {circleW ? <CirclePay call={call} circle={circleW} rows={plan?.rows || []} path={`/admin/reserve/${sid}/pay-circle`} onDone={reload} label={`Pay ${plan?.paidSol ?? ''} SOL via Circle`} /> : <button type="button" className="btn-primary" disabled={!!busy || !plan?.rows.length} title={plan?.ended ? '' : 'Season still live: shares will move until it ends'} onClick={pay}>{busy || (isReserve ? `Pay out ${plan?.paidSol ?? ''} SOL` : 'Connect the reserve wallet to pay')}</button>}</div>}
@@ -525,7 +527,7 @@ function FeesPanel({ call }) {
         <label>Least first funding ($)<input type="number" min="1" max="1000" step="1" value={cfg.catMinUsd ?? 10} onChange={e => set('catMinUsd', e.target.value)} data-testid="cat-min-usd"
           data-tip="The least a first funding may be — always more than the fee, so the cat's wallet gets money to trade" /></label>
         <small className="cc-empty">{`$${Number(cfg.catMinUsd ?? 10)} first funding → $${Number(cfg.catFeeUsd ?? 2)} to FEELESS once, $${Math.max(0, Number(cfg.catMinUsd ?? 10) - Number(cfg.catFeeUsd ?? 2))} into the cat's wallet. Top-ups: no fee. Staff wallets: no fee, $1 minimum.`}</small></div>
-        <label>🎫 Agent Pass mint fee (SOL)<input type="number" min="0" step="0.0001" value={cfg.agentPassFeeSol ?? ((cfg.agentPassFeeLamports || 0) / 1e9)} onChange={e => set('agentPassFeeSol', e.target.value)} data-tip="FEELESS's one-time fee per minted Agent Pass, paid in the same transaction. 0 = automatic: 2× what Solana charges for the asset. Every resale also pays FEELESS 10%." /></label>
+        <label><Ic3 e="🎫" /> Agent Pass mint fee (SOL)<input type="number" min="0" step="0.0001" value={cfg.agentPassFeeSol ?? ((cfg.agentPassFeeLamports || 0) / 1e9)} onChange={e => set('agentPassFeeSol', e.target.value)} data-tip="FEELESS's one-time fee per minted Agent Pass, paid in the same transaction. 0 = automatic: 2× what Solana charges for the asset. Every resale also pays FEELESS 10%." /></label>
         <small className="cc-empty">{Number(cfg.agentPassFeeSol ?? (cfg.agentPassFeeLamports || 0) / 1e9) > 0 ? `Each Agent Pass pays FEELESS ${Number(cfg.agentPassFeeSol ?? (cfg.agentPassFeeLamports || 0) / 1e9)} SOL once, + 10% of every resale.` : 'Automatic: each Agent Pass pays FEELESS 2× what Solana charges for it, + 10% of every resale.'}</small>
       <BundlePricing call={call} initial={cfg.bundle} swapBps={Number(cfg.platformFeeBps) || 0} />
       <RoundsPricing call={call} initial={cfg.rounds} />
@@ -658,7 +660,7 @@ function ModPanel({ call }) {
   return <section className="cc-panel">
     <div className="cc-toolbar"><input placeholder="Filter messages, @handles, rooms…" value={q} onChange={e => setQ(e.target.value)} /><button type="button" onClick={load}>Refresh</button></div>
     <div className="cc-bugs">{!shown.length ? <p className="cc-empty">No messages.</p> : shown.map(m => <div key={m.id} className={`cc-bug ${m.muted ? 'k-security' : ''}`}><div><em>{m.room.slice(0, 40)}</em><b>{m.text}</b><small>@{m.handle || m.username} · {new Date(m.ts).toLocaleString()}{m.muted ? ' · MUTED' : ''}</small></div>
-      <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button><button type="button" onClick={() => call('/admin/verify', { method: 'POST', body: JSON.stringify({ address: m.address, hours: 0 }) }).then(() => toast.success('✔ Verified')).catch(e => toast.error(e.message))}>✔ Verify</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
+      <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button><button type="button" onClick={() => call('/admin/verify', { method: 'POST', body: JSON.stringify({ address: m.address, hours: 0 }) }).then(() => toast.success('✔ Verified')).catch(e => toast.error(e.message))}><Ic3 e="✔" /> Verify</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
   </section>;
 }
 
@@ -673,14 +675,14 @@ function BroadcastPanel({ call }) {
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   return <section className="cc-panel">
-    <p className="cc-note">Announce drops, listings or airdrops. Posts land in chat as 👑 FEELESS HQ; push goes to everyone who enabled alerts. Use sparingly — every push is a real notification on someone's phone.</p>
+    <p className="cc-note">Announce drops, listings or airdrops. Posts land in chat as <Ic3 e="👑" /> FEELESS HQ; push goes to everyone who enabled alerts. Use sparingly — every push is a real notification on someone's phone.</p>
     <div className="cc-block cc-award-form">
       <input placeholder="Title (e.g. $FEE airdrop is live)" maxLength={60} value={f.title} onChange={e => set('title', e.target.value)} />
       <textarea rows={3} maxLength={240} placeholder="Message" value={f.body} onChange={e => set('body', e.target.value)} />
       <input placeholder="Link (/terminal/… or https://)" value={f.url} onChange={e => set('url', e.target.value)} />
       <input placeholder="Chat rooms (comma separated)" value={f.rooms} onChange={e => set('rooms', e.target.value)} />
       <label className="cc-check"><input type="checkbox" checked={f.push} onChange={e => set('push', e.target.checked)} />Also send as a push notification</label>
-      <button type="button" className="btn-primary" disabled={busy || f.title.length < 2 || f.body.length < 2} onClick={send}>📢 Broadcast</button>
+      <button type="button" className="btn-primary" disabled={busy || f.title.length < 2 || f.body.length < 2} onClick={send}><Ic3 e="📢" /> Broadcast</button>
     </div>
   </section>;
 }
@@ -697,7 +699,7 @@ function PoolsPanel({ call }) {
   const verify = async () => { setFound(null); try { const d = await (await fetch(`/api/market/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
-    <details className="tr-explain" open><summary>🔒 What does "lock" actually lock? (read this first)</summary>
+    <details className="tr-explain" open><summary><Ic3 e="🔒" /> What does "lock" actually lock? (read this first)</summary>
       <ul><li><b>A pool can never be deleted by anyone</b> — once it exists on-chain, anyone can trade it or add to it. Locking is about <b>your deposit</b> (your liquidity position), not the pool.</li>
         <li><b>Locked forever:</b> you can never pull your tokens + SOL back out, but that position keeps earning swap fees and you can claim them anytime. Holders can verify it → rug-proof badge.</li>
         <li><b>Not locked:</b> you keep full control — withdraw your deposit whenever you want, plus the fees. Holders see it can be pulled, so no rug-proof badge and less trust.</li>
@@ -714,7 +716,7 @@ function PoolsPanel({ call }) {
     <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>
     <div className="cc-block"><h4>Verify a new pool</h4><div className="cc-toolbar"><input placeholder="Paste the new pool / pair address" value={check} onChange={e => setCheck(e.target.value)} /><button type="button" className="btn-primary" onClick={verify}>Verify</button></div>
       {found === false && <small className="cc-empty">Not indexed yet — DexScreener usually picks up new pools within a few minutes.</small>}
-      {found && <div className="cc-sig"><span>✅ {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
+      {found && <div className="cc-sig"><span><Ic3 e="✅" /> {found.baseToken.symbol}/{found.quoteToken.symbol} on {found.dexId}</span><b>{formatUSD(found.liquidity?.usd)} liq</b></div>}</div>
     <div className="cc-block"><h4>Live pools for {asset.toUpperCase()}</h4>{!pools.length ? <small className="cc-empty">No pools indexed.</small> : pools.map(p => <div key={p.pairAddress} className="cc-sig"><a href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">{p.baseToken.symbol}/{p.quoteToken.symbol} · {p.dexId}</a><span>vol {formatUSD(p.volume?.h24)}</span><b>{formatUSD(p.liquidity?.usd)}</b></div>)}</div>
   </section>;
 }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiUrl } from '../lib/api';
 import { RepMark } from './RepMark';
+import { Ic3 } from '../lib/icon3d';
 
 // Live feed of coins launched through FEELESS: creator Rep, Shield, first-block snipers and, for
 // FEELESS-rail coins, how close the curve is to graduating.
@@ -35,7 +36,7 @@ export function LaunchRadar() {
     return () => { alive = false; clearInterval(t); };
   }, []);
   return <section className="launch-radar" data-testid="launch-radar">
-    <header><h3>🚀 Launch radar</h3><small>Every coin launched through FEELESS, with the evidence.</small></header>
+    <header><h3><Ic3 e="🚀" /> Launch radar</h3><small>Every coin launched through FEELESS, with the evidence.</small></header>
     {!rows ? <p className="lr-empty">Loading launches…</p> : !rows.length ? <p className="lr-empty">No FEELESS launches yet — the first one lands here live.</p>
       : <div className="lr-list">{rows.map(r => {
         const p = prog[r.mint];

@@ -8,6 +8,7 @@ import { readMyCat, saveMyCat, DEFAULT_CAT } from '../../lib/myCat';
 import { goTo } from './FeeCatShell';
 import { SPECIES, ANTS, FLIES, WINGS, FLUTTER, MOVES as BUG_MOVES, AgentCritter, Ant, Fly, cleanAgent } from './Critters';
 import '../../styles/catBuilder.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎨 BUILD A CAT (owner, 2026-10-23 — the collection page was a grid of floating heads, "3 fur patterns" that all drew the same, a "Set as featured
 // cat" button that only printed a line, and 25 of its 50 coats were copies): a real builder. The STUDIO = your full panther on a violet stage under
@@ -56,7 +57,7 @@ export function CatBuilder() {
         <div className="cbx-species" role="radiogroup" aria-label="Agent body">{SPECIES.map(([k, ic, l, why], i) => <button key={k} type="button" role="radio" aria-checked={agent.species === k}
           className={agent.species === k ? 'on' : ''} style={{ '--i': i }} onClick={() => setAgent({ species: k })} data-tip={`${l} — ${why}`} data-testid={`cbx-sp-${k}`}>
           <span className="cbx-sp-art">{k === 'cat' ? <FeeCatMark size={44} colors={[coat[1], coat[2]]} pattern={cat.pattern} animate={false} label="Panther" /> : <AgentCritter agent={{ ...agent, species: k }} size={44} />}</span>
-          <b>{ic} {l}</b><small>{why}</small></button>)}</div></section>
+          <b><Ic3 e={ic} /> {l}</b><small>{why}</small></button>)}</div></section>
       {bug ? <>
         <section className="cbx-step" style={{ '--i': 1 }}><header><em>01</em><b>{agent.species === 'fly' ? 'FLY' : 'ANT'} TYPE</b><small>{typeName} · real colours</small></header>
           <div className="cbx-tiles is-3">{types.map(([k, l], i) => <button key={k} type="button" className={agent[tk] === k ? 'on' : ''} style={{ '--i': i }} onClick={() => setAgent({ [tk]: k })} aria-pressed={agent[tk] === k} data-tip={l} data-testid={`cbx-type-${k}`}>
@@ -88,7 +89,7 @@ export function CatBuilder() {
         <div className="cbx-names"><input className="m-input" maxLength={16} value={cat.name} onChange={e => set({ name: e.target.value.replace(/[^\w .$-]/g, '') })} placeholder={coat[0]} aria-label="Cat name" data-testid="cbx-name-input" />
           <input className="m-input" maxLength={12} value={look.tag} onChange={e => setLook('tag', e.target.value)} placeholder="tag · 10X OR BUST" aria-label="Name tag" data-testid="cbx-tag-input" /></div></section>
       <div className="cbx-go">
-        <button type="button" className="m-btn" onClick={() => set(surprise())} data-testid="cbx-surprise" data-tip="A random coat, pattern, gear, eyes and aura">🎲 Surprise me</button>
+        <button type="button" className="m-btn" onClick={() => set(surprise())} data-testid="cbx-surprise" data-tip="A random coat, pattern, gear, eyes and aura"><Ic3 e="🎲" /> Surprise me</button>
         <button type="button" className={`m-btn cbx-keep ${saved ? 'is-saved' : ''}`} onClick={keep} data-testid="cbx-keep" data-tip="Save it as YOUR cat — the FeeCat bar wears it and new agents start from it">{saved ? '✓ YOUR CAT' : '⭐ Make it my cat'}</button>
         <button type="button" className="m-btn m-go" onClick={job} data-testid="cbx-job" data-tip="Create a trading or general agent wearing this body">🤖 Give it a job →</button>
       </div>

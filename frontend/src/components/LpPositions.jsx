@@ -3,6 +3,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useLpPositions, lpAction } from '../lib/lpPositions';
 import { dollarsSmall as cash } from '../lib/cityPlan';   // small money keeps its cents ($12.50, not $13)
 import '../styles/lpPositions.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏗 YOUR LP POSITIONS (owner, 2026-10-23: "show my LP positions as live buildings — fees earned, in range or not — with claim / remove / close
 // in place"): one card per position (the family block's pop-out, the money desk's list). Value now (both sides at the pool's own price), the fees
@@ -32,7 +33,7 @@ export function LpPositionCard({ p }) {
     <div className="lpc-acts">{ACTS.map(([k, w, tip]) => <button key={k} type="button" className={`m-btn ${k === 'claim' ? 'm-go' : ''}`} disabled={!mine || !!busy || (k === 'claim' && !(p.feeValueSol > 0)) || (k !== 'claim' && p.empty)}
       onClick={() => run(k)} data-tip={mine ? tip : 'Connect the wallet that holds this position'} data-testid={`lp-${k}-${p.id}`}>{busy === k ? '…' : w}</button>)}</div>
     {st ? <p className="lpc-st" aria-live="polite"><i />{st}</p> : null}
-    {done ? <p className="lpc-ok" data-testid="lp-done">✅ {done.act === 'claim' ? 'Fees claimed' : done.act === 'close' ? 'Position closed — your coins + rent are back' : 'Liquidity removed'} · tx {done.signature.slice(0, 8)}…</p> : null}
+    {done ? <p className="lpc-ok" data-testid="lp-done"><Ic3 e="✅" /> {done.act === 'claim' ? 'Fees claimed' : done.act === 'close' ? 'Position closed — your coins + rent are back' : 'Liquidity removed'} · tx {done.signature.slice(0, 8)}…</p> : null}
     {err ? <p className="lpc-err" role="alert">{err}</p> : null}
   </div>;
 }

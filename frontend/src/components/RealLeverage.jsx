@@ -5,6 +5,7 @@ import { useGlide } from '../lib/useGlide';
 import { cash } from '../lib/earnStake';
 import { SIZES, levMarkets, levPlan, levPnl, levOpen, levBuy, levClose, readLev } from '../lib/leverage';
 import '../styles/leverage.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚡ REAL LEVERAGE — the Perps building's REAL-money door (owner, 2026-10-23: "too many damn steps to do perps with coinbase — find another
 // way"): a Jupiter Lend loan from your own wallet — lock SOL / BTC / JUP, borrow USDC, buy more with it → 1.3–1.7× long with a liquidation
@@ -36,7 +37,7 @@ export function RealLeverage({ coin = '', devAddress = '' }) {   // devAddress: 
   const rail = p ? Math.max(4, Math.min(92, (p.liq / (m.price * 1.08)) * 100)) : 0;
   if (!m) return <section className="lv" data-testid="real-leverage"><p className="lv-dim">{mk ? 'Jupiter Lend has no leverage market open right now.' : 'Reading Jupiter Lend…'}</p></section>;
   return <section className="lv" data-testid="real-leverage">
-    <header className="lv-head"><span><em>⚡ REAL LEVERAGE · YOUR WALLET SIGNS · NO ACCOUNT</em><b>Long {m.coin} up to {m.maxLev}× on Jupiter Lend</b></span>
+    <header className="lv-head"><span><em><Ic3 e="⚡" /> REAL LEVERAGE · YOUR WALLET SIGNS · NO ACCOUNT</em><b>Long {m.coin} up to {m.maxLev}× on Jupiter Lend</b></span>
       <i className="lv-apr" data-tip="What the borrowed USDC costs a year on Jupiter Lend right now (instead of funding)">borrow {m.borrowApr}%/yr</i></header>
     <div className="m-seg lv-seg" role="radiogroup" aria-label="Coin">{rows.map(r => <button key={r.coin} type="button" role="radio" aria-checked={r.coin === m.coin} className={r.coin === m.coin ? 'active' : ''}
       onClick={() => setPick(r.coin)} data-tip={`${r.coin} at ${px(r.price)} · up to ${r.maxLev}× · ${cash(r.borrowableUsd)} left to borrow`} data-testid={`lv-c-${r.coin}`}><b>{r.coin}</b><small>{px(r.price)}</small></button>)}</div>

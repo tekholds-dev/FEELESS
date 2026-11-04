@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, Coins, Filter, Globe2, Gauge, LockKeyhole, Rocket, Search, ShieldCheck, Waves } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Filter, Gauge, LockKeyhole, Waves } from 'lucide-react';
+import { Coins, Globe2, Rocket, Search, ShieldCheck } from '../../lib/lucide3d';
 import { LAUNCHPADS } from '../../lib/launchpads';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import LaunchpadLogo from '../LaunchpadLogo';

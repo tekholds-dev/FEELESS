@@ -4,6 +4,7 @@ import { useGlide } from '../lib/useGlide';
 import { FamilyBadge } from './FamilyBadge';
 import { FamilyCardArt } from './FamilyCardArt';
 import '../styles/crews.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🌹 THE LIGHT FAMILIA PIECES (2026-10-23, task D "Familia loads as its own app package"): the family card, the Top Families strip, the
 // profile card + chip, the board read and the pure helpers. Home, Landing, profiles and the season ticker import THESE — so the full Familia app
@@ -54,7 +55,7 @@ export function CrewCard3D({ r, place, small, onOpen }) {
         {!small ? <span className="fcc-v"><b>{r.bounties || 0}</b><small>BOUNTIES</small></span> : null}
       </span>
       {!small && <span className="crw-heat" aria-hidden="true" data-tip="Heat = how active + how big the week's move is"><i style={{ transform: `scaleX(${Math.max(0.05, h)})` }} /></span>}
-      {r.launch && !small ? <span className="crw-3meta">🚀 ${r.launch}</span> : null}
+      {r.launch && !small ? <span className="crw-3meta"><Ic3 e="🚀" /> ${r.launch}</span> : null}
     </span>
   </button>;
 }

@@ -44,8 +44,8 @@ test('tries the indexed fallback before showing a neutral logo icon after image 
   act(() => image.dispatchEvent(new Event('error')));
   expect(host.querySelector('img').getAttribute('src')).toBe('https://dd.dexscreener.com/ds-data/tokens/ethereum/0xabc.png');
   act(() => host.querySelector('img').dispatchEvent(new Event('error')));
-  expect(host.querySelector('img')).toBeNull();
-  expect(host.querySelector('.token-avatar-fallback svg')).toBeTruthy();
+  expect(host.querySelector('img:not(.ic3)')).toBeNull();
+  expect(host.querySelector('.token-avatar-fallback img.ic3')).toBeTruthy();
   expect(host.textContent).not.toContain('BE');
   act(() => root.unmount());
 });

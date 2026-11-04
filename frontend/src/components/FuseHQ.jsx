@@ -6,6 +6,7 @@ import { useWallet } from '../hooks/useWallet';
 import { FuseGo } from './FuseGo';
 import { unfuseOrders } from '../lib/fuseGo';
 import { readChatSession } from '../lib/chatSession';
+import { Ic3 } from '../lib/icon3d';
 
 // Fuse money side. FusePnl = a trader's own fuses (Trade › Fuse Lab). FuseHQ = HQ: everyone's P&L, the paper
 // arena (champions run a pretend $5 for 24h — the proof a strategy works), bloodlines, published-Fuse health.
@@ -43,7 +44,7 @@ export function FusePnl() {
     <div className="fpn-head"><span className="m-label">YOUR FUSES</span><b className={`m-num ${tone(d.pnlUsd)}`}>{money(d.pnlUsd)} <small>{pct(d.pnlPct)}</small></b><small className="m-dim">{money(d.valueUsd)} now · {d.positions} fused</small></div>
     <div className="fpn-rows">{d.rows.slice(0, 4).map(r => <React.Fragment key={r.id}><div className={`fpn-row has-act ${r.closed ? 'is-closed' : ''}`}><span>{r.name}</span><small className="m-dim">{r.legs.map(l => l.symbol).join(' · ')} · {ago(r.at)}{r.closed ? ' · closed' : ''}</small><b className={`m-num ${tone(r.pnlUsd)}`}>{pct(r.pnlPct)}</b>
       {!r.closed && <span className="fpn-acts"><button type="button" className={`m-btn fl-clear ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} onClick={() => setLim(l => (l?.id === r.id ? null : { id: r.id, tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '' }))}
-        data-tip={r.guard ? `Armed: ${r.guard.tp ? `TP +${r.guard.tp}%` : ''} ${r.guard.sl ? `SL −${r.guard.sl}%` : ''} ${r.guard.trail ? `trail ${r.guard.trail}%` : ''}${r.guard.firedAt ? ' · fired' : ''}` : 'Set take-profit / stop-loss for the whole basket'} data-testid={`limits-${r.id}`}>🎯</button>
+        data-tip={r.guard ? `Armed: ${r.guard.tp ? `TP +${r.guard.tp}%` : ''} ${r.guard.sl ? `SL −${r.guard.sl}%` : ''} ${r.guard.trail ? `trail ${r.guard.trail}%` : ''}${r.guard.firedAt ? ' · fired' : ''}` : 'Set take-profit / stop-loss for the whole basket'} data-testid={`limits-${r.id}`}><Ic3 e="🎯" /></button>
         <button type="button" className="m-btn fl-clear" onClick={() => (exit?.id === r.id ? setExit(null) : unfuse(r))} data-testid={`unfuse-${r.id}`} data-tip="Sell every leg back to SOL — one approval">{exit?.id === r.id ? 'Close' : '↩ Unfuse'}</button></span>}</div>
       {lim?.id === r.id && <div className="fpn-lim" data-testid="limits-editor">
         <label data-tip="Alert + one-tap exit when the whole basket is up this much."><small>TAKE PROFIT</small><span>+<NumInput className="m-input m-num" inputMode="decimal" value={lim.tp} onChange={e => setLim(l => ({ ...l, tp: e.target.value.replace(/[^0-9.]/g, '') }))} />%</span></label>
@@ -82,8 +83,8 @@ export function FuseHQ({ call }) {
       </>}
       {tab === 'blood' && <div className="fhq-list">{d.bloodline.length ? d.bloodline.map(x => <div key={x.pools.join()} className="fpn-row"><span>{x.style || '—'} · {x.fitness}</span><small className="m-dim">{x.symbols.join(' · ')} · {ago(x.at)}</small>
         <button type="button" className="m-btn fl-clear" onClick={() => call('/admin/fuses/hq', { method: 'POST', body: JSON.stringify({ action: 'unbloodline', pools: x.pools }) }).then(load).catch(e => toast.error(e.message))}>Drop</button></div>)
-        : <p className="m-dim">Save champions with 🧬 in Evolution. Turn on "Breed from bloodline" and they seed the next run.</p>}</div>}
-      {tab === 'health' && (!h ? <div className="fl-row is-ghost" /> : <div className="fhq-list">{h.fuses.length ? h.fuses.map(f => <div key={f.id} className="fpn-row"><span>{f.emoji} {f.name}</span>
+        : <p className="m-dim">Save champions with <Ic3 e="🧬" /> in Evolution. Turn on "Breed from bloodline" and they seed the next run.</p>}</div>}
+      {tab === 'health' && (!h ? <div className="fl-row is-ghost" /> : <div className="fhq-list">{h.fuses.length ? h.fuses.map(f => <div key={f.id} className="fpn-row"><span><Ic3 e={f.emoji} /> {f.name}</span>
         <small className="m-dim">{f.dead ? 'pools gone' : `fitness ${f.fitness} vs champion ${f.champion}`}</small><b className={f.dead || f.beaten ? 'm-neg' : 'm-pos'}>{f.dead ? 'DEAD' : f.beaten ? `BEATEN +${f.gapPct}%` : 'HEALTHY'}</b></div>)
         : <p className="m-dim">No published Fuses yet.</p>}</div>)}
     </div>}

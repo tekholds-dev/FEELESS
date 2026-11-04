@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { apiUrl } from '../../lib/api';
 import { CopyBtn } from '../CopyBtn';
 import { ShareGifButton } from '../ShareGif';
+import { Ic3 } from '../../lib/icon3d';
 
 const short = a => `${a.slice(0, 4)}…${a.slice(-4)}`;
 
@@ -49,7 +50,7 @@ export function ShieldLeaderboard() {
   const [rows, setRows] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/shields/leaderboard')).then(x => x.json()).then(d => setRows(d.rows || [])).catch(() => setRows([])); }, []);
   return <section className="shield-board" data-testid="shield-leaderboard">
-    <header><h3>🛡 Shield leaderboard</h3><small>Creators ranked by public launch promises kept — and broken.</small></header>
+    <header><h3><Ic3 e="🛡" /> Shield leaderboard</h3><small>Creators ranked by public launch promises kept — and broken.</small></header>
     {rows == null ? <p className="wp-bio">Loading…</p> : !rows.length ? <p className="wp-bio">No shielded launches yet. Creators can Shield a coin from the launch page — the first to keep one tops this board.</p>
       : rows.map((r, i) => <Link key={r.creator} to={`/terminal/profile/${r.creator}`} className={`sb-row ${r.broken ? 'has-broken' : ''}`}><span className="sb-rank">#{i + 1}</span><b>@{r.handle}</b><CopyBtn value={r.creator} /><span className="sb-kept">✓ {r.kept} kept</span><span>{r.active} active</span>{r.broken > 0 && <span className="sb-broken">✗ {r.broken} broken</span>}</Link>)}
   </section>;

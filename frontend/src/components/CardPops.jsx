@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../styles/cardPops.css';
+import { Ic3 } from '../lib/icon3d';
 
 const POP = { compound: ['♻', 'COMPOUND'], skim: ['💰', 'PROFIT'], 'lock-bank': ['🏦', 'BANKED'], 'peak-sell': ['🏔', 'OFF PEAK'], tp: ['💰', 'PROFIT'], recycle: ['♻', 'RECYCLE'], ride: ['🔒', 'LOCKED'] };
 const key = e => `${Math.round((e.at || 0) * 10)}-${e.kind}-${e.symbol || ''}-${e.n || 0}`;
@@ -77,6 +78,6 @@ export function CardPops({ events, legs, cfg, tp, fills }) {
         {tier >= 4 && <i className="cpop-rays" />}{tier >= 3 && <i className="cpop-ring" />}
         {Array.from({ length: BITS[tier] }, (_, n) => <u key={n} className="cpop-bit" style={{ '--n': n, '--of': BITS[tier] }} />)}
         <b>{p.text}</b><small>{p.ico} {big ? `${big} ` : ''}{p.label}{p.symbol && p.label !== 'LOCKED' ? ` · $${p.symbol}` : ''}{p.tag ? ` · ${p.tag}` : ''}</small></span>; })}
-    {near.length > 0 && <div className="cpop-near" data-testid="card-near">{near.map(n => <span key={n.symbol} className="cpop-charge"><i style={{ transform: `scaleX(${n.fill})` }} /><b>⚡ ${n.symbol} +{n.gain.toFixed(0)}%</b><small>{n.kind} +{n.target}%</small></span>)}</div>}
+    {near.length > 0 && <div className="cpop-near" data-testid="card-near">{near.map(n => <span key={n.symbol} className="cpop-charge"><i style={{ transform: `scaleX(${n.fill})` }} /><b><Ic3 e="⚡" /> ${n.symbol} +{n.gain.toFixed(0)}%</b><small>{n.kind} +{n.target}%</small></span>)}</div>}
   </div>;
 }

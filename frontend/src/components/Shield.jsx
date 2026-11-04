@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import NumInput from './NumInput';
 import { toast } from 'sonner';
-import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, ShieldAlert } from '../lib/lucide3d';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';

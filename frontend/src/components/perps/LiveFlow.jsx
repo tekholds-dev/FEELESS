@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useGlide } from '../../lib/useGlide';
 import { useTicker, flowOf, whales, moveOf, rvol, WHALE_USD } from '../../lib/cbFeed';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🌊 LIVE FLOW — the real-time order flow beside your positions (every number from real prints, re-read 4× a second):
 // · TAKER PRESSURE — who is hitting the book: buy vs sell $ over 60 s (the hero) and 5 min (Coinbase trades; `side` = the maker's).
@@ -40,7 +41,7 @@ export function LiveFlow({ asset }) {
       {wh.length ? <ol>{wh.map((x, i) => <li key={x.t + x.usd} className={`${x.buy ? 'is-up' : 'is-dn'} ${i === 0 && now - x.t < 4000 ? 'is-new' : ''}`}>
         <b>{x.buy ? '▲ BUY' : '▼ SELL'}</b><i className="m-num">{big(x.usd)}</i><small className="m-num">{ago(now - x.t)}</small></li>)}</ol>
         : <p className="lf-dim">waiting for the first {big(WHALE_USD[asset])}+ print…</p>}</div>
-    <div className="lf-lead"><em>🏆 JUPITER {asset}-PERP · THIS WEEK</em><b className="m-num">{lead?.vol ? `${big(lead.vol)} traded` : '…'}</b>
+    <div className="lf-lead"><em><Ic3 e="🏆" /> JUPITER {asset}-PERP · THIS WEEK</em><b className="m-num">{lead?.vol ? `${big(lead.vol)} traded` : '…'}</b>
       <ol>{(lead?.pnl || []).map((r, i) => <li key={r.wallet} style={{ '--i': i }}><button type="button" onClick={() => open(r.wallet)} data-tip={`${r.wallet} · ${big(r.vol)} volume — open their case file`}>
         <i>{i + 1}</i><span>{r.wallet.slice(0, 4)}…{r.wallet.slice(-4)}</span><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.abs(r.pnl || 0) / topPnl})` }} /></u>
         <b className={`m-num ${(r.pnl || 0) >= 0 ? 'is-up' : 'is-dn'}`}>{(r.pnl || 0) >= 0 ? '+' : '−'}{big(Math.abs(r.pnl || 0))}</b></button></li>)}</ol></div>

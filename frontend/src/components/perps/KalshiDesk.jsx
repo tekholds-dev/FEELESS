@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { useGlide } from '../../lib/useGlide';
 import { post, signTx } from '../../lib/perps';
+import { Ic3 } from '../../lib/icon3d';
 
 // ⏱ KALSHI UP / DOWN — the US-legal (CFTC-regulated) side of the perps desk, tokenized on Solana by DFlow (backend/kalshi_trade.py):
 // BTC · ETH · SOL · DOGE · XRP (15-minute windows) and the S&P 500 · Nasdaq-100 (the soonest hourly window's at-the-money strike).
@@ -47,12 +48,12 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
   const pickRow = <div className="m-seg kal-mkts" role="radiogroup" aria-label="Kalshi market">{KMKTS.map(([key, l]) => { const x = kalshiRead(rows?.[key], marks?.[key], now);
     return <button key={key} type="button" role="radio" aria-checked={asset === key} className={asset === key ? 'active' : ''} onClick={() => setAsset(key)}
       data-tip={`${rows?.[key]?.name || key}: ${x ? `${Math.round(x.up * 100)}% UP right now` : 'no live window'}`} data-testid={`kd-m-${key}`}>{l}{x ? <i className="m-num">{Math.round(x.up * 100)}%</i> : null}</button>; })}</div>;
-  if (!r) return <div className="kal is-off" data-testid="kalshi-desk">{pickRow}<b>⏱ KALSHI</b><small>no live window on {nm} right now</small></div>;
+  if (!r) return <div className="kal is-off" data-testid="kalshi-desk">{pickRow}<b><Ic3 e="⏱" /> KALSHI</b><small>no live window on {nm} right now</small></div>;
   const mm = r.left == null ? '—' : r.left >= 3600 ? `${Math.floor(r.left / 3600)}h ${String(Math.floor((r.left % 3600) / 60)).padStart(2, '0')}m` : `${Math.floor(r.left / 60)}:${String(r.left % 60).padStart(2, '0')}`;
   const q = r.index ? `${nm} ABOVE ${px(r.target)} AT ${dayWord(k?.up?.closes)}?` : `${nm} UP IN 15 MIN?`;
   return <div className={`kal ${r.up >= 0.5 ? 'is-up' : 'is-dn'}`} data-testid="kalshi-desk">{pickRow}
     <div className="kal-odds" data-testid="pd-odds" data-tip={`Kalshi (CFTC-regulated, US-legal): "${q}" — UP pays $1 a contract if ${nm} closes the window at or above the target`}>
-      <span className="kal-hero"><em>⏱ {q}</em><b className="m-num">{g.toFixed(0)}%</b><small>KALSHI · US · CFTC</small></span>
+      <span className="kal-hero"><em><Ic3 e="⏱" /> {q}</em><b className="m-num">{g.toFixed(0)}%</b><small>KALSHI · US · CFTC</small></span>
       <span className="kal-k"><em>TARGET</em><b className="m-num">{px(r.target)}</b><small className={`m-num ${(r.above ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{r.above == null ? '' : `live ${r.above >= 0 ? '▲ +' : '▼ −'}${px(Math.abs(r.above))}`}</small></span>
       <span className="kal-k kal-clock"><em>CLOSES IN</em><b className="m-num">{mm}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.frac})` }} /></u></span>
       <span className="kal-k"><em>$1 PAYS</em><b className="m-num is-up">{r.payUp ? `$${r.payUp.toFixed(2)}` : '—'} <i>UP</i></b><b className="m-num is-dn">{r.payDn ? `$${r.payDn.toFixed(2)}` : '—'} <i>DOWN</i></b></span>
@@ -67,7 +68,7 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
         <button type="button" className="kal-buy is-up" disabled={!!busy} onClick={() => send(`UP $${usd} on ${asset}`, { coin: asset, side: 'up', usd })} data-tip={`$${usd} on ${asset} ending this window above the target`} data-testid="kal-up">▲ UP · ${usd} → {r.payUp ? `$${(usd * r.payUp).toFixed(2)}` : '—'}</button>
         <button type="button" className="kal-buy is-dn" disabled={!!busy} onClick={() => send(`DOWN $${usd} on ${asset}`, { coin: asset, side: 'down', usd })} data-tip={`$${usd} on ${asset} ending this window below the target`} data-testid="kal-down">▼ DOWN · ${usd} → {r.payDn ? `$${(usd * r.payDn).toFixed(2)}` : '—'}</button></>}
       {busy ? <small className="kal-busy">{busy}…</small> : null}
-    </div> : <span className="kal-lock" data-tip="Trading turns on when DFlow's production API key is in backend/.env (DFLOW_API_KEY)">🔒 TRADING WITH THE DFLOW KEY</span>}
+    </div> : <span className="kal-lock" data-tip="Trading turns on when DFlow's production API key is in backend/.env (DFLOW_API_KEY)"><Ic3 e="🔒" /> TRADING WITH THE DFLOW KEY</span>}
     {tradable && pos.length ? <ol className="kal-pos">{pos.map(p => <li key={p.mint} className={p.won === false ? 'is-dn' : p.won ? 'is-up' : ''}>
       <b>{p.side === 'UP' ? '▲' : '▼'} {p.contracts} {p.side}</b><small>{p.title || p.ticker} · {p.status}</small>
       {p.redeemable ? <button type="button" disabled={!!busy} onClick={() => send(`Redeem ${p.contracts} ${p.side}`, { act: 'redeem', mint: p.mint, amount: p.raw })} data-tip="Cash the winning contracts into USDC">REDEEM ${p.contracts.toFixed(2)}</button> : null}</li>)}</ol> : null}
@@ -79,7 +80,7 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
 // With the DFlow key: tap ABOVE / BELOW to buy that strike (the server only accepts a strike on its own live ladder).
 export function StrikeLadder({ rows, mark, name, usd, tradable, busy, onBuy }) {
   const at = rows.findIndex(r => r.strike >= (mark || 0));
-  return <div className="kal-lad" data-testid="kal-ladder"><header><b>🎯 STRIKES · {name}</b><small>closes {dayWord(rows[0]?.closes)} · odds it ends ABOVE each strike · $1 pays</small></header>
+  return <div className="kal-lad" data-testid="kal-ladder"><header><b><Ic3 e="🎯" /> STRIKES · {name}</b><small>closes {dayWord(rows[0]?.closes)} · odds it ends ABOVE each strike · $1 pays</small></header>
     <ol>{rows.map((r, i) => <React.Fragment key={r.ticker}>{i === at ? <li className="kal-lad-mark" aria-hidden="true"><i />LIVE {px(mark)}</li> : null}
       <li className={`${r.away >= 0 ? 'is-above' : 'is-below'}`} style={{ '--i': i }}>
         <b className="m-num">{px(r.strike)}</b><small className="m-num">{r.away >= 0 ? '+' : ''}{r.away.toFixed(1)}%</small>

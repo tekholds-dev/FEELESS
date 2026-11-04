@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Copy, Check, UserRound } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
+import { UserRound } from '../lib/lucide3d';
 
 // Icon-only copy button that sits beside any address. Never triggers a surrounding link/row.
 // `profile` adds a profile icon for wallet addresses (not token mints / pool addresses).

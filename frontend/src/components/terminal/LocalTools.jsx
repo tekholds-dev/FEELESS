@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
-import { Bell, Trash2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { Bell, Trash2 } from '../../lib/lucide3d';
 import { toast } from 'sonner';
 import { marketRequest, pairKey, formatUSD } from '../../lib/dexscreener';
 import { CONTEXTS } from '../../hooks/useWorkspace';

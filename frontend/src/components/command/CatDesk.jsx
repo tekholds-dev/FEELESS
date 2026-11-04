@@ -16,6 +16,7 @@ import { catByName } from './catCoats';
 import { openWarRoom } from '../WarRoomHost';
 import '../../styles/catDesk.css';
 import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared with Fee's models
+import { Ic3 } from '../../lib/icon3d';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -58,7 +59,7 @@ function SpendLimits({ cat, busy, onAct }) {
   const l = cat.limits || {}; const minds = (cat.brainsCfg?.brains || []).map(m => String(m).split('/').pop());
   const [v, setV] = useState(() => ({ taskUsd: cat.taskCap ?? 0.05, mind0: l.mindUsd?.[0] ?? 0, mind1: l.mindUsd?.[1] ?? 0, steps: l.steps ?? 0, dayUsd: l.dayUsd ?? 0 }));
   const set = k => x => setV(o => ({ ...o, [k]: x }));
-  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b>🧠 WHAT IT MAY SPEND</b><small>model credit · 0 = no extra limit</small></header>
+  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b><Ic3 e="🧠" /> WHAT IT MAY SPEND</b><small>model credit · 0 = no extra limit</small></header>
     <form onSubmit={e => { e.preventDefault(); onAct('controls', { limits: { taskUsd: v.taskUsd, mindUsd: [v.mind0, v.mind1], steps: v.steps, dayUsd: v.dayUsd } }); }}>
       <LimitRow k="taskUsd" label="MOST A TASK" lo={0.005} hi={2} st={0.005} unit="$" value={v.taskUsd} set={set('taskUsd')} note="Both minds together, on one task" />
       {minds.length > 1 ? minds.slice(0, 2).map((m, i) => <LimitRow key={m} k={`mind${i}`} label={`${'AB'[i]} · ${m.toUpperCase()}`} lo={0} hi={2} st={0.005} unit="$" value={v[`mind${i}`]} set={set(`mind${i}`)} note="This mind alone, on one task" />) : null}
@@ -78,7 +79,7 @@ function DeleteForGood({ cat, busy, onAct }) {
   const [t, setT] = useState('');
   return <form className="kd-del" onSubmit={e => { e.preventDefault(); if (t.trim().toLowerCase() === String(cat.name).toLowerCase()) onAct('delete', { text: t.trim() }); }}>
     <input className="m-input" value={t} onChange={e => setT(e.target.value)} placeholder={`type ${cat.name} to delete it`} aria-label="Type the agent's name to delete it" data-testid="kd-del-name" />
-    <button type="submit" className="m-btn kd-danger" disabled={busy || t.trim().toLowerCase() !== String(cat.name).toLowerCase()} data-testid="kd-delete" data-tip="Gone for good — withdraw its wallet first">🗑 Delete for good</button></form>;
+    <button type="submit" className="m-btn kd-danger" disabled={busy || t.trim().toLowerCase() !== String(cat.name).toLowerCase()} data-testid="kd-delete" data-tip="Gone for good — withdraw its wallet first"><Ic3 e="🗑" /> Delete for good</button></form>;
 }
 // 🔁 its models can be switched 24 h after you got it (the sealed brief, credit, memory and cloud carry over)
 export const MODEL_LOCK_H = 24;
@@ -182,7 +183,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
           {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
             : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
-  </> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+  </> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below"><Ic3 e="👑" /> YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
           {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
           {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
         </div>
@@ -211,13 +212,13 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     {visitor || (tabbed && (tab === 'desk' || tab === 'colony')) ? null : <div className={`kd-grid${runs && !tabbed ? '' : ' is-solo'}`}>
       {on('wallet') ? <div className="kd-main">
         {Real}
-        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
+        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b><Ic3 e="📈" /> P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
             <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
           <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>}
-        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b>🎯 WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
+        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
           {realCoins.length ? <ul className="kd-pos">{realCoins.map(([mint, c], i) => <li key={mint} style={{ '--i': i }}><button type="button" onClick={() => c.pair && openWarRoom({ chainId: 'solana', pairAddress: c.pair, baseToken: { address: mint, symbol: c.symbol } })} data-tip="Open its war room"><b>${c.symbol}</b><small>in its wallet</small></button></li>)}</ul>
-            : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b>🎯 WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
+            : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
           {v.open ? <ul className="kd-pos">{cat.positions.map((p, i) => { const ch = Number(p.currentChange) || 0; const held = p.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - p.openedAt) / 60)) : null;
             return <li key={p.pairAddress || p.mint || i} style={{ '--i': i }}><button type="button" onClick={() => p.pairAddress && openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress, baseToken: { address: p.mint, symbol: p.symbol } })}
               data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
@@ -225,14 +226,14 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
             : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
         {canEdit && !gen && !cat.isLeader && !tabbed ? <EarnCard cat={cat} /> : null}
         {Brains}
-        {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b>📚 WHAT IT LEARNED</b><small>from its own exits</small></header>
+        {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b><Ic3 e="📚" /> WHAT IT LEARNED</b><small>from its own exits</small></header>
           <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>
           {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
         {Activity}
       </div> : null}
       {runs && on('limits') ? <aside className="kd-side">
         {cat.brainsCfg?.kind === 'general' ? <SpendLimits cat={cat} busy={busy} onAct={onAct} /> : null}
-        <section className="kd-card kd-limits"><header><b>🎚 {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
+        <section className="kd-card kd-limits"><header><b><Ic3 e="🎚" /> {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
           <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
             {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <LimitRow key={k} k={k} label={l} lo={lo} hi={hi} st={st} unit="SOL" value={lim[k]} set={x => setLim(o => ({ ...o, [k]: x }))}
               note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance`} />)}
@@ -242,7 +243,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {cat.agentWallet ? null : <section className="kd-card kd-wd"><header><b>⏏ WITHDRAW</b><small>paper ledger only</small></header>
           <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
             <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>}
-        <section className="kd-card kd-revoke"><header><b>🔒 RETIRE IT</b><small>stops it for good · frees a slot</small></header>
+        <section className="kd-card kd-revoke"><header><b><Ic3 e="🔒" /> RETIRE IT</b><small>stops it for good · frees a slot</small></header>
           <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
           {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
         {cat.brainsCfg ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}

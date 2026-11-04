@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { evAgo } from './CrewCard';
 import '../styles/seasonLive.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏁 SEASON LIVE (owner, 2026-10-20: "finish the season tab — more versatile with every social event and cool vitals"): one hub on top of the
 // Seasons page — a countdown that ticks, the race vitals (leader, the gap, players, families, Fuse cards racing) and ONE feed with lenses across
@@ -52,7 +53,7 @@ export function SeasonLive({ d }) {
       <i className="sl-track"><u style={{ transform: `scaleX(${Math.max(0.03, r.score / Math.max(1, top[0].score))})` }} /></i><small>{Number(r.score).toLocaleString()}</small></div>)}</div> : null}
     <nav className="sl-lens m-seg" role="tablist">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`sl-lens-${k}`}>
       {l}{k !== 'all' && counts[k] ? <i>{counts[k]}</i> : null}</button>)}</nav>
-    {feed.length ? <ol className="sl-feed">{feed.map((e, i) => <li key={e.key} className={`l-${e.lens}`} style={{ '--i': i }}><i>{e.icon}</i><span>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
+    {feed.length ? <ol className="sl-feed">{feed.map((e, i) => <li key={e.key} className={`l-${e.lens}`} style={{ '--i': i }}><i><Ic3 e={e.icon} /></i><span>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
       : <p className="sl-empty">{lens === 'players' ? 'Rank moves show up here the moment they happen — keep this open.' : 'Nothing yet in this lens.'}</p>}
   </section>;
 }

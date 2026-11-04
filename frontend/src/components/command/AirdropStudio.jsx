@@ -2,10 +2,11 @@ import { CopyBtn } from '../CopyBtn';
 import NumInput from '../NumInput';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Sparkles, Clock, Camera, Gift } from 'lucide-react';
+import { Sparkles, Clock, Camera, Gift } from '../../lib/lucide3d';
 import { shortAddress, formatUSD } from '../../lib/dexscreener';
 
 import { tiny } from '../../lib/num';
+import { Ic3 } from '../../lib/icon3d';
 const DAY = 86400;
 const PRESETS = [
   { id: 'top10', label: '🏆 Top 10 holders', f: { top: 10 } },
@@ -73,7 +74,7 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
   };
   const gives = recipients.map(r => r.give);
   return <section className="cc-panel cc-studio" data-testid="airdrop-studio">
-    <div className="cc-presets">{PRESETS.map(p => <button key={p.id} type="button" onClick={() => applyPreset(p)}>{p.label}</button>)}{selected.length > 0 && <button type="button" onClick={() => setF(x => ({ ...x, useSelection: true }))}>✅ My selection ({selected.length})</button>}</div>
+    <div className="cc-presets">{PRESETS.map(p => <button key={p.id} type="button" onClick={() => applyPreset(p)}>{p.label}</button>)}{selected.length > 0 && <button type="button" onClick={() => setF(x => ({ ...x, useSelection: true }))}><Ic3 e="✅" /> My selection ({selected.length})</button>}</div>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4><Sparkles size={12} /> Who</h4>
         <label>Top N holders<NumInput type="number" min="0" placeholder="all" value={f.top} onChange={e => set('top', e.target.value)} /></label>
@@ -97,7 +98,7 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
       <div className="cc-block cc-preview"><h4>Preview</h4>
         <div className="cc-kpis"><span><small>Wallets</small><b>{recipients.length}</b></span><span><small>Biggest</small><b>{gives.length ? Math.max(...gives).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</b></span><span><small>Smallest</small><b>{gives.length ? Math.min(...gives).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}</b></span><span><small>Value @ now</small><b>{recipients[0]?.usd != null && recipients[0]?.amount ? formatUSD((Number(total) || 0) * (recipients[0].usd / recipients[0].amount)) : '—'}</b></span></div>
         <div className="cc-prev-list">{recipients.slice(0, 60).map((r, i) => <div key={r.owner}><span>{i + 1}</span><code>{shortAddress(r.owner)}</code><CopyBtn value={r.owner} profile /><small>{r.months ? `${r.months.toFixed(1)} mo` : ''}</small><b>{r.give.toLocaleString(undefined, { maximumFractionDigits: 2 })}</b></div>)}{recipients.length > 60 && <small className="cc-empty">+{recipients.length - 60} more</small>}</div>
-        <button type="button" className="btn-primary" disabled={!recipients.length} onClick={schedule}>🪂 Schedule for {recipients.length} wallets</button>
+        <button type="button" className="btn-primary" disabled={!recipients.length} onClick={schedule}><Ic3 e="🪂" /> Schedule for {recipients.length} wallets</button>
       </div>
     </div>
   </section>;
@@ -113,7 +114,7 @@ export function Snapshots({ call, asset }) {
   return <section className="cc-panel">
     <p className="cc-note">A snapshot freezes every holder and balance right now. Compare later to see who's new, who left, and who never sold — then airdrop the diamond hands.</p>
     <div className="cc-toolbar"><input placeholder="Label (e.g. Pre-listing)" value={label} onChange={e => setLabel(e.target.value)} /><button type="button" className="btn-primary" onClick={take}><Camera size={13} />Snapshot {asset.toUpperCase()} now</button></div>
-    {snaps.map(s => <div key={s.id} className="cc-drop"><div className="cc-drop-top"><b>📸 {s.label || s.asset.toUpperCase()}</b><em>{s.holders} holders</em><small>{new Date(s.at * 1000).toLocaleString()} · price {s.price ? `$${tiny(Number(s.price), 4)}` : '—'}</small></div>
+    {snaps.map(s => <div key={s.id} className="cc-drop"><div className="cc-drop-top"><b><Ic3 e="📸" /> {s.label || s.asset.toUpperCase()}</b><em>{s.holders} holders</em><small>{new Date(s.at * 1000).toLocaleString()} · price {s.price ? `$${tiny(Number(s.price), 4)}` : '—'}</small></div>
       <div className="cc-drop-actions"><button type="button" onClick={() => call(`/admin/snapshots/${s.id}/diff`).then(setDiff).catch(e => toast.error(e.message))}>Compare with now</button></div></div>)}
     {diff && <div className="cc-block"><h4>Since {diff.snap.label || 'snapshot'}</h4>
       <div className="cc-kpis cc-kpis-5">{Object.entries(diff.counts).map(([k, v]) => <span key={k} className={`d-${k}`}><small>{k}</small><b>{v}</b></span>)}</div>

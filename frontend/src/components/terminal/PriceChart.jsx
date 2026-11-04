@@ -33,6 +33,7 @@ import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
 import { snapMarkers } from '../../lib/chartMarkers';
 import { chartColors, useChartTheme } from '../../lib/chartTheme';
+import { Ic3 } from '../../lib/icon3d';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
@@ -442,7 +443,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
   const usd = v => `${v < 0 ? '−' : '+'}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(2)}`;
   return <div className={`chart-area ${bgOn ? 'has-bg' : ''}`} data-testid="price-chart">
     {bgOn && <ChartBg kind={bgKind} />}
-    {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span>{feePos.nexa ? <i className="fee-pnl-ai" data-testid="fee-pnl-ai">🔮 FeeCat AI pick</i> : null}<b>{shortPct(feePnl)}</b>{feePnlUsd != null && <b className="fee-pnl-usd">{usd(feePnlUsd)}</b>}<small>{Number(feePos.costSol).toFixed(2)} SOL{solUsd ? ` ($${(Number(feePos.costSol) * solUsd).toFixed(2)})` : ''}{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
+    {feeLive && feePos && feePnl != null && <div className={`fee-pnl ${feePnl >= 0 ? 'up' : 'down'}`} data-testid="fee-pnl"><span>🐱 Fee is in</span>{feePos.nexa ? <i className="fee-pnl-ai" data-testid="fee-pnl-ai"><Ic3 e="🔮" /> FeeCat AI pick</i> : null}<b>{shortPct(feePnl)}</b>{feePnlUsd != null && <b className="fee-pnl-usd">{usd(feePnlUsd)}</b>}<small>{Number(feePos.costSol).toFixed(2)} SOL{solUsd ? ` ($${(Number(feePos.costSol) * solUsd).toFixed(2)})` : ''}{feePos.peakChange ? ` · peak +${Number(feePos.peakChange).toFixed(1)}%` : ''}</small></div>}
     {charting && !candlesLoaded && <div className="chart-message" data-testid="chart-loading"><span className="loader" />Loading on-chain candles…</div>}
     {charting && !loading && usingFallbackTrail && trail.length < 2 && <div className="chart-message chart-building" role="status" data-testid="chart-building">
       <span className="signal-lines"><i /><i /><i /><i /></span>
@@ -466,7 +467,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     {charting && hasChart && !(pnl && typeof pnl === 'object') && fuse?.entry > 0 && <ChartLive seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} ratio={ratio}
       entry={fuse.entry} at={fuse.at || null} label={fuse.card ? '⚛ CARD' : 'SEAT'} entryWord={formatUSD(fuse.entry * ratio)} />}
     {charting && hasChart && fuse?.tpl && <ChartGrab seriesRef={seriesRef} container={container} fuse={fuse} ratio={ratio} />}
-    {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}>🕒 Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
+    {charting && hasChart && <div className="chart-foot-chips">{createdAt && <span className="chart-age" title={new Date(createdAt).toLocaleString()}><Ic3 e="🕒" /> Created {ageLabel(createdAt)} ago</span>}{feeLiveProp === undefined && <button type="button" className={`chart-fee-toggle ${feeOwn ? 'on' : ''}`} onClick={() => setFeeOwn(v => !v)}>🐱 Fee {feeOwn ? 'on' : 'off'}</button>}</div>}
     {charting && hasChart && displayCandles.length > 0 && <button type="button" className="chart-style-toggle" data-testid="chart-style-toggle" onClick={toggleStyle} title="Switch line / candles">{chartStyle === 'line' || (chartStyle === 'auto' && displayCandles.length < 3) ? '▮ Candles' : '〰 Line'}</button>}
     {feeRead && hasChart && <div className={`fee-live-read stance-${feeRead.stance.replace(/\s/g, '-')} ${feeOpen ? '' : 'min'}`} data-testid="fee-live-read">
       <button type="button" className="flr-head" onClick={() => setFeeOpen(o => !o)}><span className="flr-cat">🐱</span><b>Fee · live read</b><em>{feeRead.stance}</em><i className="flr-dot" /></button>

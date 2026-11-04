@@ -1,3 +1,4 @@
+import '../styles/deskShell.css';
 import React from 'react';
 
 // 🧊 One icon set, sitewide (owner 2026-11-04): 3dicons.co V1 (CC0) and its social set, compressed and served from our own origin (public/icons3d, ~1.6 KB each, lazy).
@@ -23,7 +24,8 @@ export const ic3Src = name => `/icons3d/${name}.webp`;
 export function Ic3({ e, name, social, size = '1.25em', className = '' }) {
   const n = social ? SOCIAL[social] && `social/${SOCIAL[social]}` : name || ic3Name(e);
   if (!n) return e ? <span className={className}>{e}</span> : null;
-  return <img className={`ic3 ${className}`.trim()} src={ic3Src(n)} alt="" aria-hidden="true" width="160" height="160" loading="lazy" decoding="async" draggable="false" style={{ width: size, height: size }} />;
+  // The symbol stays in the page's text, unseen: copy, search and anything reading the words still get it.
+  return <><img className={`ic3 ${className}`.trim()} src={ic3Src(n)} alt="" aria-hidden="true" width="160" height="160" loading="lazy" decoding="async" draggable="false" style={{ width: size, height: size }} />{e ? <span hidden>{e}</span> : null}</>;
 }
 
 // A label that starts with a symbol, from data ("⛏ PoW"): the icon, then its words.

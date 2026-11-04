@@ -9,6 +9,7 @@ import { familiaTrade } from './FamiliaTrade';
 import { sharedJson } from '../lib/sharedJson';
 import { useMarket } from '../hooks/useMarket';
 import '../styles/streetChat.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💬 THE STREETS — the Familia city chat (backend/street_chat.py; owner: "familia chat gotta be LITTY"). A drawn street at night (skyline with
 // lit windows, the city's neon sign, rain, lamp glow) behind one room per city where every line wears its family's crest plate, the Don gets
@@ -117,10 +118,10 @@ const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onRe
       <span className="st-reacts">{reacts.map(e => { const r = l.reacts?.[e]; return <button key={e} type="button" className={r?.mine ? 'is-on' : ''} aria-pressed={!!r?.mine} onClick={() => { if (!r?.mine) setBurst({ e, k: Date.now() }); onReact(l.id, e); }}
         data-tip={{ '🔥': 'Heat', '💀': 'Dead', '🫡': 'Respect', '💰': 'Paid' }[e]} data-testid={`st-react-${l.id}-${e}`}>{e}{r?.n ? <small>{r.n}</small> : null}{burst?.e === e ? <span key={burst.k} className="st-burst" aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <i key={i} style={{ '--i': i }}>{e}</i>)}</span> : null}</button>; })}
         <button type="button" className="st-act" onClick={() => onReply(l)} data-tip="Reply" aria-label="Reply">↩</button>
-        {replies?.length ? <button type="button" className={`st-act st-thr ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(v => !v)} data-tip={open ? 'Fold the thread' : `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'} — open the thread`} data-testid={`st-thread-${l.id}`}>💬 {replies.length}</button> : null}
-        {canPull ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'pull')} data-tip="Pull this line off the street" aria-label="Pull this line" data-testid={`st-pull-${l.id}`}>🗑</button> : null}
+        {replies?.length ? <button type="button" className={`st-act st-thr ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(v => !v)} data-tip={open ? 'Fold the thread' : `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'} — open the thread`} data-testid={`st-thread-${l.id}`}><Ic3 e="💬" /> {replies.length}</button> : null}
+        {canPull ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'pull')} data-tip="Pull this line off the street" aria-label="Pull this line" data-testid={`st-pull-${l.id}`}><Ic3 e="🗑" /></button> : null}
         {staff && !l.mine ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'mute')} data-tip="Pull + mute the poster for 1 hour" aria-label="Mute for an hour">🔇</button> : null}
-        {canPin ? <button type="button" className="st-act" onClick={() => onMod(l, 'pin')} data-tip="📌 Pin this on top of the street for an hour (Dons + staff)" aria-label="Pin this line" data-testid={`st-pin-${l.id}`}>📌</button> : null}</span>
+        {canPin ? <button type="button" className="st-act" onClick={() => onMod(l, 'pin')} data-tip="📌 Pin this on top of the street for an hour (Dons + staff)" aria-label="Pin this line" data-testid={`st-pin-${l.id}`}><Ic3 e="📌" /></button> : null}</span>
       {open && replies?.length ? <ol className="st-thread" data-testid={`st-thread-list-${l.id}`}>{replies.map((r, i) => <li key={r.id} style={{ '--i': i, '--fc': r.fam?.color || '#8f8470' }}>
         <b>{r.fam ? `[${r.fam.tag}] ` : ''}{r.name}</b><span>{String(r.text || '').slice(0, 200)}</span><time>{ago(r.ts)}</time></li>)}</ol> : null}
     </div>
@@ -146,11 +147,11 @@ function BestStrip({ onCall }) {
   return <div className="st-best" data-testid="st-best">
     {c ? <span className="st-bchip is-call" style={{ '--i': 0 }}><button type="button" className="st-bgo" onClick={() => familiaTrade({ chainId: c.chain || 'solana', pairAddress: c.pairAddress, baseToken: { symbol: c.symbol } })}
       data-tip={`The best call on FEELESS in 24h: ${c.caller} called $${c.symbol} — it ran ${xWord(c.peakX)}, now ${xWord(c.x)}. Tap to trade it here`} data-testid="st-best-call">
-      <em>🏆 BEST CALL</em><b>${c.symbol}</b><strong>{xWord(c.peakX)}</strong><small>{String(c.caller || '').slice(0, 14)}</small></button>
+      <em><Ic3 e="🏆" /> BEST CALL</em><b>${c.symbol}</b><strong>{xWord(c.peakX)}</strong><small>{String(c.caller || '').slice(0, 14)}</small></button>
       {c.mint ? <button type="button" className="st-bput" onClick={() => onCall(c.mint)} aria-label={`Call $${c.symbol} on the street`} data-tip="Drop it into your line as a call">↩</button> : null}</span> : null}
     {p ? <span className="st-bchip is-pump" style={{ '--i': 1 }}><button type="button" className="st-bgo" onClick={() => familiaTrade(p)}
       data-tip={`Pump's hottest coin right now: $${p.baseToken.symbol} +${Number(p.priceChange.m5).toFixed(1)}% in 5 minutes · liquidity ${mcWord(p.liquidity?.usd)}. Tap to trade it here`} data-testid="st-best-pump">
-      <em>🔥 PUMP NOW</em><b>${String(p.baseToken.symbol).slice(0, 10)}</b><strong>+{Number(p.priceChange.m5).toFixed(0)}%</strong><small>5m</small></button>
+      <em><Ic3 e="🔥" /> PUMP NOW</em><b>${String(p.baseToken.symbol).slice(0, 10)}</b><strong>+{Number(p.priceChange.m5).toFixed(0)}%</strong><small>5m</small></button>
       <button type="button" className="st-bput" onClick={() => onCall(p.baseToken.address)} aria-label={`Call $${p.baseToken.symbol} on the street`} data-tip="Drop it into your line as a call">↩</button></span> : null}
   </div>;
 }
@@ -217,7 +218,7 @@ export default function StreetChat({ city, name, addr, sess }) {
       <HeatMeter heat={heat} />
       {slow ? <span className="st-slow" data-tip={`🐢 Slow mode by ${slow.by || 'a Don'}: one line every ${slow.sec}s per wallet (Dons + staff exempt) · lifts in ${Math.ceil((slow.left || 0) / 60)}m`} data-testid="st-slow">🐢 <b>{slow.sec}s</b><small>SLOW</small></span> : null}
       {v.hot ? <button type="button" className="st-hot" onClick={() => { const l = lines.find(x => (x.calls || []).some(c => c.symbol === v.hot.symbol)); const c = l?.calls?.find(x => x.symbol === v.hot.symbol); if (c) familiaTrade({ chainId: c.chain, pairAddress: c.pairAddress, baseToken: { symbol: c.symbol } }); }}
-        data-tip={`Hottest call on this street: ${v.hot.by}${v.hot.fam ? ` [${v.hot.fam}]` : ''} · now ${xWord(v.hot.x)}`} data-testid="st-hot">🔥 ${v.hot.symbol} <b>{xWord(v.hot.peakX)}</b></button> : null}
+        data-tip={`Hottest call on this street: ${v.hot.by}${v.hot.fam ? ` [${v.hot.fam}]` : ''} · now ${xWord(v.hot.x)}`} data-testid="st-hot"><Ic3 e="🔥" /> ${v.hot.symbol} <b>{xWord(v.hot.peakX)}</b></button> : null}
     </header>
     <HitsTape hits={d?.hits} />
     <BestStrip onCall={mint => put(`📞 CALL ${mint}`)} />
@@ -225,7 +226,7 @@ export default function StreetChat({ city, name, addr, sess }) {
     {(d?.here || []).length ? <div className="st-here" data-testid="st-here">{d.here.slice(0, 14).map((h, i) => <button key={h.address} type="button" className="st-who-here" style={{ '--i': i, '--fc': h.fam?.color || '#8f8470' }}
       onClick={() => at(h.name)} data-tip={`${h.fam ? `[${h.fam.tag}] ` : ''}${h.name} — tap to mention`}>{h.fam?.badge ? <FamilyCrest b={h.fam.badge} px={18} banner={false} sheen={false} /> : <i>{String(h.name || '?')[0]}</i>}</button>)}
       {d.hereN > 14 ? <small>+{d.hereN - 14}</small> : null}{(v.families || []).length ? <em>{v.families.length} famil{v.families.length === 1 ? 'y' : 'ies'} talking</em> : null}</div> : null}
-    {d?.pinned ? <div className="st-pinned" data-testid="st-pinned"><em>📌 PINNED · {d.pinned.pinnedBy || 'a Don'} · {Math.ceil((d.pinned.left || 0) / 60)}m left</em>
+    {d?.pinned ? <div className="st-pinned" data-testid="st-pinned"><em><Ic3 e="📌" /> PINNED · {d.pinned.pinnedBy || 'a Don'} · {Math.ceil((d.pinned.left || 0) / 60)}m left</em>
       <p><b>{d.pinned.fam ? `[${d.pinned.fam.tag}] ` : ''}{d.pinned.name}</b> {String(d.pinned.text || '').slice(0, 140)}</p>
       {(d.pinned.calls || []).length ? <span className="st-coins">{d.pinned.calls.map(c => <Receipt key={c.pairAddress} c={c} />)}</span> : null}
       {mods.staff || mods.don ? <button type="button" className="st-act" onClick={() => mod(d.pinned, 'unpin')} aria-label="Unpin" data-tip="Take the pin down">✕</button> : null}</div> : null}
@@ -239,7 +240,7 @@ export default function StreetChat({ city, name, addr, sess }) {
       {reply ? <p className="st-reply"><span>↩ replying to <b>{reply.name}</b>: {String(reply.text).slice(0, 60)}</span><button type="button" onClick={() => setReply(null)} aria-label="Cancel the reply">✕</button></p> : null}
       <div className="st-tools m-seg" role="group" aria-label="Street tools">
         <button type="button" className={tool === 'call' ? 'active' : ''} onClick={() => { setTool(x => (x === 'call' ? null : 'call')); put('📞 CALL '); }} data-tip="Call a coin: paste its contract — the line becomes a coin card with a live receipt" data-testid="st-tool-call">📞 Call</button>
-        <button type="button" onClick={() => put(`🛡 RALLY — ${d?.me?.fam?.tag ? `[${d.me.fam.tag}] ` : ''}hold the block`)} data-tip="Rally your family on this street" data-testid="st-tool-rally">🛡 Rally</button>
+        <button type="button" onClick={() => put(`🛡 RALLY — ${d?.me?.fam?.tag ? `[${d.me.fam.tag}] ` : ''}hold the block`)} data-tip="Rally your family on this street" data-testid="st-tool-rally"><Ic3 e="🛡" /> Rally</button>
         <button type="button" className={tool === 'at' ? 'active' : ''} onClick={() => setTool(x => (x === 'at' ? null : 'at'))} data-tip="Mention someone on the block" data-testid="st-tool-at">@ Here</button>
         {mods.staff || mods.don ? <button type="button" className={tool === 'slow' ? 'active' : ''} onClick={() => setTool(x => (x === 'slow' ? null : 'slow'))} data-tip="🐢 Slow the street: one line per wallet every N seconds for 30 minutes (Dons + staff)" data-testid="st-tool-slow">🐢 Slow</button> : null}
       </div>

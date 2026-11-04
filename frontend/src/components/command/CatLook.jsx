@@ -1,6 +1,7 @@
 import React from 'react';
 import { CatAvatar } from './catCoats';
 import '../../styles/createCat.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🐆 Make the cat yours: a gear piece, an aura, eyes and a name tag on top of its coat. Pure look — the engine never reads it.
 // Mirrors feecat_service.LOOK_OPTIONS (change both).
@@ -34,7 +35,7 @@ export function LookPicker({ look, onChange }) {
   const set = (k, v) => onChange(cleanLook({ ...l, [k]: v }));
   const row = (k, label) => <div className="clk-row" key={k}><span className="paper-field-label">{label}</span><div className="clk-seg" role="group" aria-label={label}>
     {LOOK[k].map(([id, name, icon]) => <button type="button" key={id} className={l[k] === id ? 'is-on' : ''} aria-pressed={l[k] === id} onClick={() => set(k, id)} data-testid={`look-${k}-${id}`}>
-      {k === 'aura' && id !== 'none' ? <i className={`clk-sw clk-sw-${id}`} /> : icon ? <span>{icon}</span> : null}{name}</button>)}</div></div>;
+      {k === 'aura' && id !== 'none' ? <i className={`clk-sw clk-sw-${id}`} /> : icon ? <span><Ic3 e={icon} /></span> : null}{name}</button>)}</div></div>;
   return <div className="clk-picker" data-testid="cat-look-picker">
     {row('gear', 'Gear')}{row('aura', 'Aura')}{row('eyes', 'Eyes')}
     <label className="clk-row"><span className="paper-field-label">Name tag</span><input className="m-input" maxLength="12" value={l.tag} onChange={e => set('tag', e.target.value)} placeholder="e.g. 10X OR BUST" data-testid="look-tag" /></label>

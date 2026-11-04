@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import '../../styles/agentDemo.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🛸 AGENT DEMO (owner, 2026-10-29: "based on if trader or general picked show a demo — 2 trade chart windows; if general 2 demo browser windows
 // for what they would do, with a demo live activity over both windows so users get the gist"). Drawn from scratch: SVG candles on a random walk
@@ -64,12 +65,12 @@ function useRecording(want = true) {
 }
 export const FRAME_TICKS = 4;   // a frame stays ~2.6s (the general demo ticks every 650ms)
 function DemoBrowser({ frames, t, who, credit, label = 'MIND' }) {
-  if (!frames?.length) return <div className="agd-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>loading the recording…</b></span>
+  if (!frames?.length) return <div className="agd-browser"><span className="agd-url"><i aria-hidden="true"><Ic3 e="🔒" /></i><b>loading the recording…</b></span>
     <div className="agd-page"><i className="agd-sk w80" /><i className="agd-sk w60" /><i className="agd-sk w90" /></div></div>;
   const k = Math.floor(t / FRAME_TICKS) % frames.length; const sub = t % FRAME_TICKS; const f = frames[k];
   const typed = f.url.slice(0, sub ? f.url.length : Math.ceil(f.url.length / 3));
   return <div className="agd-browser is-rec">
-    <span className="agd-url"><i aria-hidden="true">🔒</i><b>{typed}</b><u className="agd-caret" aria-hidden="true" /><em className="agd-rec">● REC</em></span>
+    <span className="agd-url"><i aria-hidden="true"><Ic3 e="🔒" /></i><b>{typed}</b><u className="agd-caret" aria-hidden="true" /><em className="agd-rec">● REC</em></span>
     <div className="agd-screen">
       {frames.map((x, i) => <img key={x.src} src={x.src} alt="" className={i === k ? 'is-on' : ''} loading="lazy" draggable="false" />)}
       <span className="agd-track" style={{ transform: `translate(${f.cursor[0]}%, ${f.cursor[1]}%)` }} aria-hidden="true">

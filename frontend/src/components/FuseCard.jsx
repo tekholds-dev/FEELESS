@@ -11,6 +11,7 @@ import { useLivePrices } from '../lib/livePrices';
 import { tiny } from '../lib/num';
 import { useCoinEdge } from '../lib/coinEdge';
 import { leanOf } from '../lib/lean';
+import { Ic3 } from '../lib/icon3d';
 // A Fuse champion as a collectible card: drag to tilt, ⟲ to flip. Front = grade crest + the fused pools;
 // back = every number behind its score. Grade sets rarity, strategy sets the design.
 const RARITY = { A: 'legendary', B: 'epic', C: 'rare', D: 'common', F: 'common' };
@@ -145,6 +146,6 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
     {act && <CardLive legs={act} pnlPct={r.pnlPct} value={r.valueUsd} />}
     <MetaCard card={card} size="md" interactive flipped={flipped} onFlip={setFlipped} back={back} className="fcd-card" />
     <button type="button" className="fcd-flip" aria-label={flipped ? 'Show front' : 'Show live money'} onClick={() => setFlipped(f => !f)} data-testid={`live-card-flip-${r.id}`}>⟲</button>
-    {mini && <button type="button" className="fcd-pin" aria-label="Pin this card: keep it floating on every page" data-tip="📌 Mini card: keeps this card floating on every page — flip it to the chart of its coins, three sizes" onClick={() => openMiniCard(mini.kind === 'row' ? { ...mini, row: mini.row || r0 } : mini)} data-testid={`live-card-pin-${r.id}`}>📌</button>}
+    {mini && <button type="button" className="fcd-pin" aria-label="Pin this card: keep it floating on every page" data-tip="📌 Mini card: keeps this card floating on every page — flip it to the chart of its coins, three sizes" onClick={() => openMiniCard(mini.kind === 'row' ? { ...mini, row: mini.row || r0 } : mini)} data-testid={`live-card-pin-${r.id}`}><Ic3 e="📌" /></button>}
   </div>;
 }

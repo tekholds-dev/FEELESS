@@ -4,6 +4,7 @@ import { ShareGifButton } from './ShareGif';
 import '../styles/trackRecord.css';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // 📜 TRACK RECORD (beside the raw swap list in ReceiptsCard): proof of what a wallet really did — verified FEELESS trades (closed pieces + open lots priced live) and its chat calls with the
 // result since. From FEELESS's own records, price result, fees apart (GET /receipts/{address}). A losing entry shows as losing. Never self-reported.
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(Math.abs(v) >= 1 ? 0 : 1)}%`);
@@ -26,10 +27,10 @@ export function TrackRecord({ address, limit = 12 }) {
   const s = d.summary || {};
   return <details className="trk m-card" data-testid="track-record">
     <summary data-tip="Proof from FEELESS's own records: your verified trades matched buy → sell, and your chat calls with the result since. Price result, fees apart. A losing entry shows as losing.">
-      📜 Track record · {s.trades ? `${s.trades} trades · ${s.wonPct}% won · median ${s.medianPct >= 0 ? '+' : ''}${s.medianPct}%` : `${rs.length} on record`}{s.calls ? ` · ${s.calls} calls` : ''}</summary>
+      <Ic3 e="📜" /> Track record · {s.trades ? `${s.trades} trades · ${s.wonPct}% won · median ${s.medianPct >= 0 ? '+' : ''}${s.medianPct}%` : `${rs.length} on record`}{s.calls ? ` · ${s.calls} calls` : ''}</summary>
     <ul className="trk-list">{rs.slice(0, limit).map((r, i) => { const l = receiptLine(r); return <li key={`${r.at}-${r.mint}-${i}`} className={l.up ? 'is-up' : r.ret == null ? '' : 'is-dn'} style={{ '--i': i }}>
       <span className="trk-kind" data-tip={l.label}>{l.ico}</span><b>{l.title}</b><em className="m-num">{l.pct}</em><small>{l.sub}</small><i>{l.when}</i>
-      <span className="trk-acts">{r.tx ? <a className="m-btn" href={`https://solscan.io/tx/${r.tx}`} target="_blank" rel="noopener noreferrer" data-tip="The sell, on-chain">🔗</a> : null}
+      <span className="trk-acts">{r.tx ? <a className="m-btn" href={`https://solscan.io/tx/${r.tx}`} target="_blank" rel="noopener noreferrer" data-tip="The sell, on-chain"><Ic3 e="🔗" /></a> : null}
         {r.ret != null && <ShareGifButton className="m-btn" label="🎞" card={{ mascot: 'feecat', tone: r.ret >= 0 ? 'up' : 'down', kicker: `FEELESS · ${l.label.toUpperCase()}`, title: l.title, big: l.pct, lines: [l.sub, `${l.when} ago · verified by FEELESS`, 'price result · fees shown apart'], footer: 'feeless · track record 📜' }} />}</span></li>; })}</ul>
     {rs.length > limit && <small className="m-dim">Newest {limit} of {rs.length}.</small>}
   </details>;

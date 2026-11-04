@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
-import { X, ArrowUpRight, Rocket, Radio, Compass, Sparkles, Cat, Infinity as InfinityIcon } from 'lucide-react';
+import { X, ArrowUpRight, Radio, Infinity as InfinityIcon } from 'lucide-react';
+import { Rocket, Compass, Sparkles, Cat } from '../lib/lucide3d';
 import { searchTokens } from '../lib/dexscreener';
 import { reportQuest } from '../lib/questEvents';
 import EcosystemChat from './EcosystemChat';
@@ -13,6 +14,7 @@ import { DegenWeather } from './terminal/DegenWeather';
 import WarSky from './terminal/WarSky';
 import { ChartVitals } from './terminal/ChartVitals';
 import { TokenAvatar } from './terminal/MarketPrimitives';
+import { Ic3 } from '../lib/icon3d';
 
 const ROOM_LAYOUT_KEY = 'feeless-room-layout';
 const ROOM_EXPANDED_KEY = 'feeless-room-expanded';
@@ -111,7 +113,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
           <span className="eco-dot" style={{ background: ecosystem.color }} />
           <span className="eco-network-mark" aria-hidden="true">{ecosystem.symbol?.slice(0, 1) || ecosystem.name.slice(0, 1)}</span><div><small>YOU'RE INSIDE</small><h2 data-testid="eco-world-name">{ecosystem.name} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'NETWORK'}</h2></div>
         </div>
-        <div className="eco-world-head-actions">{(pad?.id === 'feeless-launch' || ecosystem.id === 'feeless-launch') && <a className="btn-primary eco-launch-btn" data-testid="eco-launch-btn" href="/terminal/launch?setup=feeless">🚀 Launch a coin</a>}
+        <div className="eco-world-head-actions">{(pad?.id === 'feeless-launch' || ecosystem.id === 'feeless-launch') && <a className="btn-primary eco-launch-btn" data-testid="eco-launch-btn" href="/terminal/launch?setup=feeless"><Ic3 e="🚀" /> Launch a coin</a>}
           <Link className="eco-enter-terminal" to="/terminal" data-testid="eco-world-enter-terminal">Enter {ecosystem.name} terminal<ArrowUpRight size={14} /></Link>
           <div className="eco-layout-controls" role="group" aria-label="Network room layout">
             <span>LAYOUT</span>

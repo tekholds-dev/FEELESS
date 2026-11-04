@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Ic3 } from '../lib/icon3d';
 
 // Snipe-risk chip (reads only cached FEELESS intel, so lists stay fast).
 const riskCache = {}; let pending = new Set(); let timer = null; const subs = new Set();
@@ -11,6 +12,6 @@ export function SnipeRisk({ mint }) {
   useEffect(() => { const f = () => force(x => x + 1); subs.add(f); queue(mint); return () => subs.delete(f); }, [mint]);
   const r = riskCache[mint];
   if (!r) return null;
-  return <span className={`snipe-chip lvl-${r.level}`} title={`Snipe risk ${r.risk}/100 · ${r.snipers} snipers · ${r.bundled} bundled · top 10 hold ${Number(r.top10).toFixed(0)}%`}>🎯 {r.level}</span>;
+  return <span className={`snipe-chip lvl-${r.level}`} title={`Snipe risk ${r.risk}/100 · ${r.snipers} snipers · ${r.bundled} bundled · top 10 hold ${Number(r.top10).toFixed(0)}%`}><Ic3 e="🎯" /> {r.level}</span>;
 }
 

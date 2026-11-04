@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { familiaDocked } from '../lib/familiaRoom';
 import { apiUrl } from '../lib/api';
 import '../styles/liveTank.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🫧 THE LIVE INTAKE (owner 2026-10-27: "the same intake from the agents tab in all the other spots — different water levels and colour dots, a
 // simple legend"): the HQ › Agents intake band's look, site-wide. Five WATER LEVELS, each a lane, every dot a real coin from a real read:
@@ -165,12 +166,12 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
       <p className="ltk-ph">{d0.img ? <img src={d0.img} alt="" /> : <i className="ltk-pi">{String(d0.sym || '?').slice(0, 2)}</i>}<b>${d0.sym}</b><em>{TANK_LEVELS[d0.lane][1]}</em>
         <button type="button" className="ltk-px" onClick={() => setSel(null)} aria-label="Close" data-testid="ltk-pop-x">✕</button></p>
       <ul className="ltk-facts">{(d0.facts || []).map(([k, v]) => <li key={k}><small>{k}</small><b className="m-num">{v}</b></li>)}</ul>
-      <div className="ltk-acts"><button type="button" className="m-btn" onClick={() => chart(d0)} data-tip={onChart ? "Show it on the agents' chart" : 'Open it on the Trenches floor — chart + Quick trade'} data-testid="ltk-chart">📈 CHART</button>
-        <button type="button" className="m-btn m-go" onClick={() => trade(d0)} data-tip={d0.pair ? 'Trench trade: its chart + Quick trade; your wallet signs' : 'Still on the bonding curve — opens on pump.fun'} data-testid="ltk-trade">⚡ {d0.pair ? 'TRADE' : 'PUMP.FUN'}</button>
+      <div className="ltk-acts"><button type="button" className="m-btn" onClick={() => chart(d0)} data-tip={onChart ? "Show it on the agents' chart" : 'Open it on the Trenches floor — chart + Quick trade'} data-testid="ltk-chart"><Ic3 e="📈" /> CHART</button>
+        <button type="button" className="m-btn m-go" onClick={() => trade(d0)} data-tip={d0.pair ? 'Trench trade: its chart + Quick trade; your wallet signs' : 'Still on the bonding curve — opens on pump.fun'} data-testid="ltk-trade"><Ic3 e="⚡" /> {d0.pair ? 'TRADE' : 'PUMP.FUN'}</button>
         {d0.mint ? <button type="button" className="m-btn" onClick={() => { try { navigator.clipboard.writeText(d0.mint); } catch { /* blocked */ } }} data-tip="Copy the coin's address" data-testid="ltk-copy">⧉ CA</button> : null}</div>
       {extra && d0.mint ? extra(d0) : null}
     </div> : null}
-    {best.length ? <div className="ltk-best" data-testid="ltk-best"><b className="ltk-bh" data-tip="Tradable coins ranked across every level: at the germ floor, READY, the move, 1h volume, and how many feeds agree">🏆 BEST IN THE TANK</b>
+    {best.length ? <div className="ltk-best" data-testid="ltk-best"><b className="ltk-bh" data-tip="Tradable coins ranked across every level: at the germ floor, READY, the move, 1h volume, and how many feeds agree"><Ic3 e="🏆" /> BEST IN THE TANK</b>
       <ol>{best.map(c => <li key={c.id} style={{ '--i': c.rank }}><button type="button" className={`ltk-bc t-${c.tone} ${sel === c.id ? 'is-on' : ''}`} onClick={() => setSel(s => (s === c.id ? null : c.id))}
         data-tip={`#${c.rank} $${c.sym} · ${c.why} · ${c.mc} MC — tap for its vitals`} data-testid={`ltk-best-${c.rank}`}><span className="ltk-br m-num">#{c.rank}</span><b>{c.img ? <img src={c.img} alt="" loading="lazy" /> : null}${c.sym}</b><em>{c.why}</em><small className="m-num">{c.mc}</small>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${c.bar})` }} /></u></button></li>)}</ol></div> : null}

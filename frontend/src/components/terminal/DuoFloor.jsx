@@ -15,6 +15,7 @@ import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useDuoFloor, readDuoPrefs, saveDuoPrefs, readRecent, saveRecent, pushRecent, floorFeed, stepFeed } from '../../lib/duo';
 import '../../styles/duoFloor.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📱📱 THE DUO FLOOR (owner 2026-10-27, iPhone Duo screenshot: "not a full app like split · the switches don't lock to the side · portrait can't
 // see full screen · landscape isn't using the new screen size · learn from the pump app"). On an unfolded iPhone Duo (890 × 626 wide, 626 × 890
@@ -96,7 +97,7 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
         {r.img ? <img src={r.img} alt="" loading="lazy" /> : <b>{String(r.symbol).slice(0, 2)}</b>}</button>)}</span>
       <button type="button" className="dfl-rb" aria-pressed={prefs.swap} onClick={() => set({ swap: !prefs.swap })} aria-label="Swap the two halves" data-tip="Swap the halves — chart ⇄ dock" data-testid="dfl-swap"><i className="dfl-dev" aria-hidden="true"><s /><s /></i></button>
       <Link className="dfl-rb" to="/terminal" aria-label="Home" data-tip="FEELESS home" data-testid="dfl-home">⌂</Link>
-      <span className="dfl-apps" aria-label="Duo apps">{[['trench', '/terminal/chat', '⚔', 'The Trenches'], ['pump', '/terminal/pump', '💊', 'Pump radar']].map(([k, to, ic, l]) => <Link key={k} to={to} className={`dfl-rb dfl-app ${mode === k ? 'is-on' : ''}`} aria-label={l} data-tip={`${l} — its own Duo app`} data-testid={`dfl-app-${k}`}>{ic}</Link>)}</span>
+      <span className="dfl-apps" aria-label="Duo apps">{[['trench', '/terminal/chat', '⚔', 'The Trenches'], ['pump', '/terminal/pump', '💊', 'Pump radar']].map(([k, to, ic, l]) => <Link key={k} to={to} className={`dfl-rb dfl-app ${mode === k ? 'is-on' : ''}`} aria-label={l} data-tip={`${l} — its own Duo app`} data-testid={`dfl-app-${k}`}><Ic3 e={ic} /></Link>)}</span>
     </nav> : null}
     <section className="dfl-chart" data-testid="dfl-chart">
       <header className="dfl-bar" {...swipe} data-testid="dfl-bar"><div className="dfl-row">

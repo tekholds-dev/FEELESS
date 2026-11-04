@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/feeCats.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🔑 HQ › Core: what still needs a human. Names only, and "set" never means funded: the row says so.
 export function ProviderReady({ call }) {
@@ -10,7 +11,7 @@ export function ProviderReady({ call }) {
   const rows = d.rows || []; const left = (d.total || 0) - (d.ready || 0);
   return <section className="m-card pvr" data-testid="provider-ready">
     <button type="button" className="pvr-head" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="Which provider keys are set, by name only. Set does not mean funded or within quota" data-testid="pr-toggle">
-      <span><b>🔑 NEEDS A HUMAN</b><small>{left ? `${left} provider${left === 1 ? '' : 's'} waiting on a key` : 'Every key is set'} · set does not mean funded</small></span>
+      <span><b><Ic3 e="🔑" /> NEEDS A HUMAN</b><small>{left ? `${left} provider${left === 1 ? '' : 's'} waiting on a key` : 'Every key is set'} · set does not mean funded</small></span>
       <span className="pvr-meter" aria-hidden="true"><i><u style={{ transform: `scaleX(${d.total ? d.ready / d.total : 0})` }} /></i></span><b className="m-num pvr-n">{d.ready || 0}/{d.total || 0}</b><em aria-hidden="true">{open ? '▴' : '▾'}</em></button>
     {open ? <ul className="pvr-list">{rows.map((r, i) => <li key={r.name} className={r.ready ? 'is-ok' : 'is-need'} style={{ '--i': i }}><i aria-hidden="true" /><span><b>{r.name}</b><small>{r.unlocks}</small></span>
       {r.ready ? <em>KEY SET</em> : <code data-tip={`Get it from ${r.where}, then add it to backend/.env`}>{r.missing.join(' · ')}</code>}</li>)}</ul> : null}

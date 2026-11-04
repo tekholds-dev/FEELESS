@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { loadFamilia } from '../../lib/familiaLoad';   // 🌹 warm the Familia chunk on hover
-import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Flame, Crown, Rss } from 'lucide-react';
+import { Menu, ArrowUpRight, X } from 'lucide-react';
+import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Wallet, Globe2, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Flame, Crown, Rss } from '../../lib/lucide3d';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';

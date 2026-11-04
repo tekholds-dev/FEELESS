@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
-import { ArrowLeftRight, Fuel, Repeat, ShieldCheck } from 'lucide-react';
+import { ArrowLeftRight, Fuel, Repeat } from 'lucide-react';
+import { ShieldCheck } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';

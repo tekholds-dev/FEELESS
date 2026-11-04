@@ -3,6 +3,7 @@ import { sharedJson } from '../lib/sharedJson';
 import * as candleLib from '../lib/candles';
 import { chartPulse, TF_WINDOW } from '../lib/chartPulse';
 import '../styles/quickPulse.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🫧 LIVE PANELS for the quick look (owner, 2026-10-08: "socials and any other live vitals to give a unique edge… the pop-out's vitals
 // need to change based on the chart as we watch… actual Pump callouts"). Four small pieces, each one job:
@@ -105,7 +106,7 @@ export function ChartPulse({ pairAddress, mint, tf }) {
     ['VOLUME', p.volX == null ? '—' : `${p.volX}×`, p.volX != null && p.volX < 0.5, 'Last five candles\' volume vs the fifteen before: above 1× = picking up'],
     ['BODY', `${p.conviction}%`, false, 'How much of each candle is body, not wick: high = one-way moves, low = fights']];
   return <div className={`qp-chart ${TONE[tone] || ''}`} data-testid="qp-chart">
-    <div className="qp-hd"><span className="m-label">📊 CHART · {String(tf).toUpperCase()} CANDLES</span><span className={`qp-word ${TONE[tone] || ''}`} key={word} data-tip={`Read from the last ${p.n} ${tf} candles on the chart. It changes when you change the timeframe. A read of the picture, never a forecast.`}>{ic} {word}</span></div>
+    <div className="qp-hd"><span className="m-label"><Ic3 e="📊" /> CHART · {String(tf).toUpperCase()} CANDLES</span><span className={`qp-word ${TONE[tone] || ''}`} key={word} data-tip={`Read from the last ${p.n} ${tf} candles on the chart. It changes when you change the timeframe. A read of the picture, never a forecast.`}><Ic3 e={ic} /> {word}</span></div>
     <div className="qp-range" data-tip={`Where the price sits between the lowest and highest candle on screen: ${p.pos}% of the way up`}><small>LOW</small><span><i style={{ transform: `translateX(${Math.max(0, Math.min(100, p.pos))}%)` }}><u /></i></span><small>HIGH</small><b>{p.pos}%</b></div>
     <div className="qp-tiles is-5">{tiles.map(([l, v, bad, tip]) => <div key={l} className={bad ? 'bad' : ''} data-tip={tip}><small>{l}</small><b key={v} className="fl-tick">{v}</b></div>)}</div>
   </div>;
@@ -116,10 +117,10 @@ export function PumpCall({ pc }) {
   if (!pc?.calls) return null;
   const l = pc.lead || {};
   return <div className="qp-call" data-testid="qp-call" data-tip="A callout is a public call a HOLDER makes on Pump. Other people's calls, read from Pump's own feed — not advice, and callers can already be in profit.">
-    <div className="qp-hd"><span className="m-label">📣 PUMP CALLOUTS · {pc.callers} CALLER{pc.callers === 1 ? '' : 'S'}{pc.verified ? ` · ${pc.verified} ✓` : ''}</span>
+    <div className="qp-hd"><span className="m-label"><Ic3 e="📣" /> PUMP CALLOUTS · {pc.callers} CALLER{pc.callers === 1 ? '' : 'S'}{pc.verified ? ` · ${pc.verified} ✓` : ''}</span>
       <span className="qp-heat" aria-label={`Callout heat ${pc.heat} of 100`}>{Array.from({ length: 10 }, (_, i) => <i key={i} className={pc.heat >= (i + 1) * 10 - 5 ? 'on' : ''} style={{ '--i': i }} />)}<b>{pc.heat}</b></span></div>
     <p className="qp-thesis"><b>@{l.user}{l.verified ? ' ✓' : ''}</b> {l.thesis ? `“${l.thesis}”` : 'called it out'}</p>
-    {pc.pro > 0 && <p className="qp-shift is-good" data-testid="qp-pro" data-tip="A proven caller: 3+ of their calls judged an hour later, typical result 1.2× or better, at least half up. Their record, never a promise.">🎯 {pc.pro} proven caller{pc.pro === 1 ? '' : 's'} on it: {(pc.pros || []).map(u => `@${u}`).join(' · ')}</p>}
+    {pc.pro > 0 && <p className="qp-shift is-good" data-testid="qp-pro" data-tip="A proven caller: 3+ of their calls judged an hour later, typical result 1.2× or better, at least half up. Their record, never a promise."><Ic3 e="🎯" /> {pc.pro} proven caller{pc.pro === 1 ? '' : 's'} on it: {(pc.pros || []).map(u => `@${u}`).join(' · ')}</p>}
     <small className="qp-callnums">{pc.firstMc ? `first called at ${big(pc.firstMc)}` : ''}{l.mult ? ` · ${l.mult}× since the lead call` : ''} · 👁 {Number(pc.views || 0).toLocaleString()} · {ago(pc.lastAt)}</small>
   </div>;
 }
@@ -151,7 +152,7 @@ export function PumpCallouts({ onOpen }) {
   const sym = c => `$${c.symbol || `${String(c.mint).slice(0, 4)}…`}`;
   const open = c => onOpen && onOpen({ mint: c.mint, symbol: c.symbol });
   return <div className="pcl" data-testid="pump-callouts">
-    <div className="qp-hd"><span className="m-label">📣 PUMP CALLOUTS · LIVE FROM PUMP</span>
+    <div className="qp-hd"><span className="m-label"><Ic3 e="📣" /> PUMP CALLOUTS · LIVE FROM PUMP</span>
       <span className="m-seg pcl-seg" role="radiogroup" aria-label="Callouts">{[['top', '🏆 Top today'], ['latest', '🆕 Newest'], ['best', '🎯 Best callers']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`pcl-${k}`}>{l}</button>)}</span></div>
     {tab === 'best' && <div className="pcl-rest pcl-best" data-testid="pcl-callers">{best.length ? best.map((c, i) => <span key={c.user} className={`pcl-chip ${c.proven ? 'is-pro' : ''}`} style={{ '--i': i }} data-tip={`@${c.user}: ${c.n} calls judged an hour later · typical ${c.medMult}× · ${c.wonPct}% up · best ${c.best}×${c.proven ? ' — proven' : ' — not proven yet (needs 3 calls, 1.2× typical, half up)'}`}>
       <b>{c.proven ? '🎯 ' : ''}@{c.user}</b><em className={c.medMult >= 1 ? 'm-pos' : 'm-neg'}>{c.medMult}×</em><small>{c.n} calls · {c.wonPct}% up</small></span>) : <small className="m-dim">The scoreboard starts now — each call is judged an hour after it is made.</small>}</div>}
@@ -172,7 +173,7 @@ export function CallAlert({ call }) {
   const cur = v ?? d?.alertCapK ?? 0; const caps = d?.alertCaps || [0, 50, 100, 250, 1000];
   const save = async capK => { setBusy(true); try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ callAlert: { capK } }) }); setV(capK); } catch { /* the select snaps back */ } finally { setBusy(false); } };
   return <label className="qp-alert" data-testid="call-alert" data-tip="A heads-up only: when 3 or more different Pump users call the same coin out inside 10 minutes and its cap is under your line, you get one inbox + phone alert (one per coin per 6 hours). Nothing is bought.">
-    <span>🔔 Alert me on a call rush</span><select className="m-input" value={String(cur)} disabled={busy} onChange={e => save(Number(e.target.value))} aria-label="Call rush alert" data-testid="call-alert-cap">
+    <span><Ic3 e="🔔" /> Alert me on a call rush</span><select className="m-input" value={String(cur)} disabled={busy} onChange={e => save(Number(e.target.value))} aria-label="Call rush alert" data-testid="call-alert-cap">
       {caps.map(k => <option key={k} value={String(k)}>{k ? `coins under $${k >= 1000 ? `${k / 1000}M` : `${k}K`}` : 'off'}</option>)}</select></label>;
 }
 

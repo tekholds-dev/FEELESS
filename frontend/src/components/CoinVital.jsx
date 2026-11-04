@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { RowVitals } from './RowVitals';
 import '../styles/coinVital.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🫀 THE VITAL (replaces the long chip row in pick lists; owner: "the long horizontal vitals aren't vital enough, try something else").
 // One verdict you read in a second: a grade ring (A–F + score), four bars — 🧩 holders spread · 👤 dev share · 👥 crew record · 🌱 organic
@@ -93,10 +94,10 @@ export function CoinVital({ r, live = false, only }) {
     <span className="cvl-grade" data-tip={`Vital ${v.score}/100 — ${v.word}. Holders, dev, crew and organic flow, from Jupiter's audit + our own holder scan. A reading, never a promise.`}>
       <span className="cvl-g">{v.grade}</span><span className="cvl-s">{v.score}</span></span>
     <span className="cvl-bars" aria-label="Vital bars">{BARS.map(([k, ic, tip]) => { const x = Number(v.bars?.[k]); const val = Number.isFinite(x) ? x : 0.5;
-      return <span key={k} className={`cvl-bar ${val >= 0.65 ? 'good' : val < 0.35 ? 'bad' : ''}`} data-tip={`${tip}: ${Math.round(val * 100)}%`}><span className="cvl-track"><span className="cvl-fill" style={{ transform: `scaleY(${Math.max(0.06, val)})` }} /></span><span className="cvl-ic">{ic}</span></span>; })}</span>
+      return <span key={k} className={`cvl-bar ${val >= 0.65 ? 'good' : val < 0.35 ? 'bad' : ''}`} data-tip={`${tip}: ${Math.round(val * 100)}%`}><span className="cvl-track"><span className="cvl-fill" style={{ transform: `scaleY(${Math.max(0.06, val)})` }} /></span><span className="cvl-ic"><Ic3 e={ic} /></span></span>; })}</span>
     <span className="cvl-body">
-      <span className="cvl-top"><span className="cvl-word">{v.word}</span>{crew && crew.kind !== 'unknown' && <span className={`cvl-crew is-${crew.kind}`} data-tip={crew.why}>{crew.icon} {crew.label}</span>}</span>
-      {v.flags?.length > 0 && <span className="cvl-flags">{v.flags.map(([ic, t, tone]) => <span key={t} className={`cvl-flag ${tone}`}>{ic} {t}</span>)}</span>}
+      <span className="cvl-top"><span className="cvl-word">{v.word}</span>{crew && crew.kind !== 'unknown' && <span className={`cvl-crew is-${crew.kind}`} data-tip={crew.why}><Ic3 e={crew.icon} /> {crew.label}</span>}</span>
+      {v.flags?.length > 0 && <span className="cvl-flags">{v.flags.map(([ic, t, tone]) => <span key={t} className={`cvl-flag ${tone}`}><Ic3 e={ic} /> {t}</span>)}</span>}
       <span className="cvl-stats">{statLine(r).join(' · ')}</span>
     </span>
   </div>;

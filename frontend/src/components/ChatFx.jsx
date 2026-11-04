@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { useCoinMood } from '../lib/coinMood';
 import { sweepable } from '../lib/cacheSweep';
 import '../styles/chatThemes.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🎨 Animated chat backgrounds (styles/chatThemes.css), chosen per room in every chat's ⚙ / 🎨 (saved as themes[room]: a coin's chat, the Brain
 // ('brain'), the inbox ('inbox')). Drawn from the trade itself — candles, order flow, depth, the radar, a ticker tape, the moon run, liquidation
@@ -165,5 +166,5 @@ export function ChatThemePicker({ prefs, setPrefs, room, feeUsd = 0, unlocked = 
     <div className="ctp-grid">{CHAT_THEMES.filter(t => t[2] === usd).map(([id, label], i) => { const ok = canUse(id, feeUsd, unlocked);
       return <button key={id} type="button" role="radio" aria-checked={cur === id} disabled={!ok} className={`ctp-tile ${cur === id ? 'active' : ''}`} style={{ '--i': i }} onClick={() => pick(id)}
         data-tip={ok ? `${label} — this room's background` : `Hold $${usd}+ of $FEE (or earn the badge) to unlock ${label}`} data-testid={`chat-theme-${id}`}>
-        {id === 'off' ? null : <ChatFx theme={id} room={room} />}<b>{label}</b>{ok ? null : <i className="ctp-lock" aria-hidden="true">🔒</i>}</button>; })}</div></section>)}</div>;
+        {id === 'off' ? null : <ChatFx theme={id} room={room} />}<b>{label}</b>{ok ? null : <i className="ctp-lock" aria-hidden="true"><Ic3 e="🔒" /></i>}</button>; })}</div></section>)}</div>;
 }

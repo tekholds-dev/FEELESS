@@ -4,6 +4,7 @@ import { LiveFuseCard } from './FuseCard';
 import { useLivePrices } from '../lib/livePrices';
 import { FuseProof } from './FuseProof';
 import '../styles/fuseLanding.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚡ Fuse landing: no box — the page's own dark backdrop, a spotlight comes on, ONE live tier card (its real design) spins up to
 // stage size; ⟲ flips it to its live book. Every number is the card's real state right now — it shows what a Fuse IS, it never promises a result.
@@ -60,7 +61,7 @@ export function FuseLanding({ onGo, onRun }) {
           <span><small>ROUNDS PLAYED</small><b key={rounds} className="m-num fl-tick">{rounds ? rounds.toLocaleString() : '—'}</b></span>
           <span><small>NEXT BELL</small><b className="m-num">{cards.length ? `${Math.floor(bell / 60)}:${String(Math.floor(bell % 60)).padStart(2, '0')}` : '—'}</b></span>
           <span><small>ON REAL MONEY</small><b className="m-num">{cards.filter(x => x.real).length}</b></span></div>
-        <div className="fld-cta"><button type="button" className="m-btn primary m-go" onClick={() => onGo?.('lab')} data-testid="fld-build">⚡ Build a card</button>
+        <div className="fld-cta"><button type="button" className="m-btn primary m-go" onClick={() => onGo?.('lab')} data-testid="fld-build"><Ic3 e="⚡" /> Build a card</button>
           <button type="button" className="m-btn" onClick={() => onGo?.('arena')} data-testid="fld-arena">🏟 Watch the Arena</button></div>
       </div>
       <div className="fld-rig">

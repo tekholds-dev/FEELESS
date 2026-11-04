@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { useGlide } from '../lib/useGlide';
 import '../styles/priceGaps.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📐 PRICE GAPS (owner 2026-10-29, L02 — the lootcollector idea: "price gaps … add-on to AutoCompound / pools / Night Vault"). READ-ONLY:
 // the tokens the Night Vault's pools hold, priced across every real pool they trade in (backend price_gap.py, GET /familia-pools/gaps, 1 min).
@@ -48,6 +49,6 @@ export function PriceGaps() {
     </header>
     {rows.length ? <ol className="gp-rails">{rows.map((g, i) => <Rail key={g.mint} g={g} i={i} age={g.open ? age : 0} />)}</ol>
       : <p className="gp-wait">{err ? 'The price feed did not answer — trying again in a minute.' : d ? 'No token trades in two real pools right now.' : 'Pricing every pool…'}</p>}
-    <p className="gp-use">⚡ Compound or enter through the <b className="is-lo">cheap</b> pool — Jupiter routes there for you. A gap that stays <b>open</b> is arbitrage volume: fees for the LPs of the <b className="is-hi">rich</b> side.</p>
+    <p className="gp-use"><Ic3 e="⚡" /> Compound or enter through the <b className="is-lo">cheap</b> pool — Jupiter routes there for you. A gap that stays <b>open</b> is arbitrage volume: fees for the LPs of the <b className="is-hi">rich</b> side.</p>
   </section>;
 }

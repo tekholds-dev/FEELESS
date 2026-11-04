@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Flame, Repeat, ShieldCheck } from 'lucide-react';
+import { Repeat } from 'lucide-react';
+import { Home, Flame, ShieldCheck } from '../lib/lucide3d';
 import { FeeCatMark } from './FeeCatMark';
 
 // Phone-only bottom tab bar: the five places people live, one thumb-tap away (hidden ≥ 761px).

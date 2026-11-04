@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { approvalLine, revokeApproval } from '../lib/revoke';
 import '../styles/defence.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🛡 APPROVALS CHECK (owner, 2026-10-21: "real web3 defence … drainers, approvals"): which of YOUR token accounts let another address move your
 // tokens (an SPL delegate — the thing a drainer leaves behind). One tap revokes it: your wallet signs a Revoke on your own account, nothing moves.
@@ -24,9 +25,9 @@ export function ApprovalsCheck({ compact = false }) {
   };
   const n = d?.approvals?.length;
   return <section className={`apc ${compact ? 'is-compact' : ''} ${n ? 'is-risk' : d ? 'is-safe' : ''}`} data-testid="approvals-check">
-    <header><span className="apc-shield" aria-hidden="true"><i /></span><b>🛡 APPROVALS</b><small>who can move your tokens besides you</small>
+    <header><span className="apc-shield" aria-hidden="true"><i /></span><b><Ic3 e="🛡" /> APPROVALS</b><small>who can move your tokens besides you</small>
       <button type="button" className="m-btn" disabled={!!busy} onClick={check} data-tip="Reads your token accounts on Solana — nothing is signed" data-testid="apc-check">{busy === 'check' ? 'Checking…' : sol ? (d ? 'Check again' : 'Check my wallet') : 'Connect wallet'}</button></header>
-    {d && !n ? <p className="apc-ok">✅ No approvals. Nothing can move your tokens but you.</p> : null}
+    {d && !n ? <p className="apc-ok"><Ic3 e="✅" /> No approvals. Nothing can move your tokens but you.</p> : null}
     {n ? <ul className="apc-list">{d.approvals.map((a, i) => <li key={a.account} style={{ '--i': i }}><span className="apc-dot" aria-hidden="true" /><span>{approvalLine(a)}</span>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => revoke(a)} data-tip="Your wallet signs a Revoke on your own token account — simulated first" data-testid={`apc-revoke-${i}`}>{busy === a.account ? '…' : 'Revoke'}</button></li>)}</ul> : null}
     {st ? <p className="apc-st" aria-live="polite">{st}</p> : null}

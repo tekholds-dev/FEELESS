@@ -5,6 +5,7 @@ import { useRemembered } from '../lib/remember';
 import { FamilyBooks as Books } from './FamilyHQ';
 import { AvenueRoom as Avenue, TrenchList as Trench } from './CityAvenue';   // already in Familia's graph (FamilyWorld) — static, same reason
 import { PoolHub, usePools } from './PoolHub';
+import { Ic3 } from '../lib/icon3d';
 
 // 🧰 THE FAMILY DECK (owner, 2026-10-22, on the block page: "img shows all requests never started" — the block had a 3D city over an empty void):
 // every real tool runs right here under the family's own block — the desk's live P&L, the Trench Towers coins with one-tap trade, pools with the
@@ -41,9 +42,9 @@ export function FamilyDeck({ mine, tools, town = null }) {
   }, [setTab]);
   const body = deckBody(tab, mine, tools);
   return <section className="fdk m-card" data-testid="family-deck">
-    <header><b>🧰 FAMILY DECK</b><small>{DECK.length} tools · run the money from the block</small></header>
+    <header><b><Ic3 e="🧰" /> FAMILY DECK</b><small>{DECK.length} tools · run the money from the block</small></header>
     <nav className="fdk-tabs" role="tablist" aria-label="Family tools">{deck.map(([k, ic, name, how], i) => <button key={k} type="button" role="tab" aria-selected={tab === k}
-      className={`${tab === k ? 'active' : ''}${town?.includes(k) ? ' in-town' : ''}`} style={{ '--i': i }} onClick={() => setTab(k)} data-tip={`${name} — ${how}`} data-testid={`deck-${k}`}><i aria-hidden="true">{ic}</i><span><b>{name}</b><small>{how}</small></span></button>)}</nav>
+      className={`${tab === k ? 'active' : ''}${town?.includes(k) ? ' in-town' : ''}`} style={{ '--i': i }} onClick={() => setTab(k)} data-tip={`${name} — ${how}`} data-testid={`deck-${k}`}><i aria-hidden="true"><Ic3 e={ic} /></i><span><b>{name}</b><small>{how}</small></span></button>)}</nav>
     <div className="fdk-body" key={tab}><Suspense fallback={<p className="m-dim">Opening {DECK.find(d => d[0] === tab)?.[2]}…</p>}>{body}</Suspense></div>
   </section>;
 }

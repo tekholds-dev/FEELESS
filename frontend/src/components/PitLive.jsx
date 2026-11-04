@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLivePrices } from '../lib/livePrices';
 import '../styles/pitReel.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📈 The Pit, live: a race line of both fighters' % since the bell (their paper books, one point a minute, ending at the live number)
 // and a ticker of every coin on both cards moving on live prices. Transform/opacity animation only; static under fx-lite.
@@ -26,7 +27,7 @@ export function RaceLine({ p }) {
     </svg>
     <i className="pl-dot a" style={{ left: `${(ax / 300) * 100}%`, top: `${(ay / 64) * 100}%` }} />
     <i className="pl-dot b" style={{ left: `${(bx / 300) * 100}%`, top: `${(by / 64) * 100}%` }} /></div>
-    <small><b className="m-pos">{p.a.emoji} {(p.a.now || 0) >= 0 ? '+' : ''}{(p.a.now || 0).toFixed(2)}%</b><em>since the bell · {Math.max(a.length, b.length) - 1}m</em><b className="m-neg">{p.b.emoji} {(p.b.now || 0) >= 0 ? '+' : ''}{(p.b.now || 0).toFixed(2)}%</b></small>
+    <small><b className="m-pos"><Ic3 e={p.a.emoji} /> {(p.a.now || 0) >= 0 ? '+' : ''}{(p.a.now || 0).toFixed(2)}%</b><em>since the bell · {Math.max(a.length, b.length) - 1}m</em><b className="m-neg"><Ic3 e={p.b.emoji} /> {(p.b.now || 0) >= 0 ? '+' : ''}{(p.b.now || 0).toFixed(2)}%</b></small>
   </div>;
 }
 
@@ -49,7 +50,7 @@ export function DuelBoard({ p }) {
   if (!d || !(d.seats || []).length) return null;
   const lead = d.a === d.b ? null : d.a > d.b ? 'a' : 'b';
   return <div className={`pl-duel ${d.overload ? 'is-overload' : ''}`} data-testid="pit-duels" data-tip="A game is one round, bell to bell: each coin duels the coin in the same seat on the other card (seat 1 = the biggest coin). Whichever moved more since the bell takes a spark. Most sparks wins; level → the whole card's move decides. Points only.">
-    <div className="pl-score"><b className={lead === 'a' ? 'is-lead' : ''}>{p.a.emoji} <span key={d.a} className="m-num fl-tick">{d.a}</span></b><em>⚡ SPARKS</em><b className={lead === 'b' ? 'is-lead' : ''}><span key={d.b} className="m-num fl-tick">{d.b}</span> {p.b.emoji}</b></div>
+    <div className="pl-score"><b className={lead === 'a' ? 'is-lead' : ''}><Ic3 e={p.a.emoji} /> <span key={d.a} className="m-num fl-tick">{d.a}</span></b><em><Ic3 e="⚡" /> SPARKS</em><b className={lead === 'b' ? 'is-lead' : ''}><span key={d.b} className="m-num fl-tick">{d.b}</span> <Ic3 e={p.b.emoji} /></b></div>
     <ol className="pl-seats">{d.seats.map((x, i) => <li key={x.seat} className={x.win ? `is-${x.win}` : 'is-tie'} style={{ '--i': i }} data-tip={`Seat ${x.seat}: $${x.a.symbol} ${sgn(x.a.pct)} vs $${x.b.symbol} ${sgn(x.b.pct)}${x.win ? ` — ${x.win === 'a' ? p.a.name : p.b.name} takes the spark` : ' — too close, no spark'}`}>
       <span className="a"><b>${x.a.symbol}{x.a.sub ? ' ⇄' : ''}</b><i className="m-num">{sgn(x.a.pct)}</i></span>
       <em>{x.win ? '⚡' : '·'}</em>

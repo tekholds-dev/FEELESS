@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/promptStudio.css';
 import { avatarOf } from '../../lib/aiAvatars';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎭 PROMPT STUDIO (owner, 2026-10-22: "context prompts and suggested prompts for all models — 3 auto-generated ELITE SUPREME PERSONAS and DEGEN
 // TRENCH prompts for each model … auto-tuned to fix the mindset, quick but patient when in profit"). Brain › 🎭 Prompts: pick G4 · OSSY →
@@ -51,7 +52,7 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
     {active ? <p className={`pst-proof ${active.seen?.ok ? 'is-live' : 'is-wait'}`} data-testid="pst-proof"
       data-tip={m.key === 'fee' ? "FEELESS sends this mindset inside the system prompt of every buy / sell call her brains make" : "FEELESS sends this mindset inside the system prompt of EVERY call it makes to this model (LM Studio / llamafile) — a model reload never loses it; LM Studio's own preset box is only for its own chat window"}>
       {active.seen?.ok ? <><b>✓ IN USE</b><span>last call {ago(active.seen.at)} ago carried it</span></> : active.seen ? <><b>⚠ SENT</b><span>its last call {ago(active.seen.at)} ago failed — the next one carries it again</span></>
-        : <><b>⏳ APPLIED</b><span>rides {m.name}'s next call</span></>}</p> : null}
+        : <><b><Ic3 e="⏳" /> APPLIED</b><span>rides {m.name}'s next call</span></>}</p> : null}
     {active ? <LmsMirror m={m} /> : null}
     {active ? <p className="pst-since" data-testid="pst-since" data-tip="Trades that opened after you applied this set">
       <b>SINCE APPLIED</b><span>{active.since?.n ? `${active.since.n} trades · ${active.since.wonPct}% won · ${sgn(active.since.avgPct)} avg` : 'no trade closed yet'}</span></p> : null}
@@ -77,10 +78,10 @@ function LmsMirror({ m }) {
   if (m.key === 'win' || m.key === 'fee') return null;
   const copy = () => { try { navigator.clipboard.writeText(lmsPrompt(m)); toast.success(`${m.name}'s live prompt copied — paste it into its LM Studio preset`); } catch { toast.error('Copy blocked by the browser'); } };
   return <p className="pst-lms" data-testid="pst-lms">
-    <b>📌 IN LM STUDIO</b>
+    <b><Ic3 e="📌" /> IN LM STUDIO</b>
     {m.lms ? <span>pick the preset <em>{m.lms.name}</em> — written {ago(m.lms.at)} ago with this mindset</span>
       : <span>{m.key === 'local' ? 'the preset FEELESS LIVE · OSSY appears once LM Studio is on this Mac' : `${m.name}'s LM Studio is on the desktop — paste its live prompt there`}</span>}
-    <button type="button" className="m-btn" onClick={copy} data-tip="Copies the exact system prompt FEELESS sends this model (seat prompt + this mindset)" data-testid="pst-lms-copy">📋 Copy prompt</button></p>;
+    <button type="button" className="m-btn" onClick={copy} data-tip="Copies the exact system prompt FEELESS sends this model (seat prompt + this mindset)" data-testid="pst-lms-copy"><Ic3 e="📋" /> Copy prompt</button></p>;
 }
 
 // pure: the auto-tune strip's state — RED (the switch acts), GREEN, PROVING (too few trades), WAITING (an applied set is in its cooldown)
@@ -124,7 +125,7 @@ const MEDAL = ['#f5c451', '#cfd8e3', '#d08a4e'];
 function Ladder({ m }) {
   const rows = m.ladder || []; const top = Math.max(5, ...rows.map(r => Math.abs(r.avgPct || 0)));
   return <section className="pst-lad" data-testid="pst-ladder">
-    <p className="pst-h"><b>🏆 MINDSET LADDER · {m.name}</b><small>each trade counts for the mindset that was on when it opened · ranked by average %</small></p>
+    <p className="pst-h"><b><Ic3 e="🏆" /> MINDSET LADDER · {m.name}</b><small>each trade counts for the mindset that was on when it opened · ranked by average %</small></p>
     <ol>{rows.map((r, i) => { const tried = r.n > 0; const v = r.avgPct || 0;
       return <li key={r.set} className={`k-${r.set}${r.active ? ' is-on' : ''}${tried ? '' : ' is-untried'}`} style={{ '--i': i }} data-testid={`pst-rung-${r.set}`}>
         <span className="pst-medal" style={tried && !r.proving && i < 3 ? { '--mc': MEDAL[i] } : undefined}>{tried ? i + 1 : '·'}</span>
@@ -146,11 +147,11 @@ export function PromptStudio({ call, only }) {
     setBusy(true);
     try { const r = await call('/admin/ai/prompts', { method: 'POST', body: JSON.stringify(body) }); setD(r); toast.success(word); } catch (e) { toast.error(String(e?.message || e)); } finally { setBusy(false); }
   };
-  if (!d || !m) return <div className="pst m-card is-load" data-testid="pst">{err || d ? <p className="m-note">🎭 {err || 'that brain did not answer — is its service up?'}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
+  if (!d || !m) return <div className="pst m-card is-load" data-testid="pst">{err || d ? <p className="m-note"><Ic3 e="🎭" /> {err || 'that brain did not answer — is its service up?'}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
   const w = windowOf(m); const r = m.record || {};
   const won = r.wonPct;
   return <div className="pst m-card m-live" data-testid="pst">
-    <header className="pst-head"><span><b className="m-label">🎭 PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
+    <header className="pst-head"><span><b className="m-label"><Ic3 e="🎭" /> PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>
         {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small className={x.active.seen?.ok ? 'is-live' : ''}>{x.active.seen?.ok ? '✓ ' : ''}{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>

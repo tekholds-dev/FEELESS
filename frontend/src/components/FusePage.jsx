@@ -41,6 +41,7 @@ import '../styles/fusePage.css';
 import '../styles/cardWindow.css';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
 // · My cards (live cards + every action). Runner picks and "Load" carry across tabs. Every money action is a normal
 // wallet-signed FuseGo approval; the server re-checks every signature before anything counts.
@@ -104,12 +105,12 @@ export function FusePage() {
     <p className="fp-tabtip" key={`tip-${tab}`} data-testid="fp-tabtip">{TAB_TIPS[tab]} <FuseGuide label="📖 What everything means" /></p>
     {topOf(tab) === 'lab' && <div className="m-seg fp-steps" role="tablist" aria-label="Build steps">
       <button type="button" role="tab" aria-selected={tab === 'runners'} className={tab === 'runners' ? 'active' : ''} onClick={() => go('runners')} data-testid="fuse-tab-runners"><b>1</b> 🏃 Pick runners <em>{runnerPicks.length}/{MAX_RUNNERS}</em></button>
-      <button type="button" role="tab" aria-selected={tab === 'lab'} className={tab === 'lab' ? 'active' : ''} onClick={() => go('lab')} data-testid="fuse-step-lab"><b>2</b> 🧪 Build the card</button></div>}
+      <button type="button" role="tab" aria-selected={tab === 'lab'} className={tab === 'lab' ? 'active' : ''} onClick={() => go('lab')} data-testid="fuse-step-lab"><b>2</b> <Ic3 e="🧪" /> Build the card</button></div>}
     <div className="fp-body" key={tab}>
       {tab === 'home' && <FuseLanding onGo={go} onRun={legs => { setRunnerPicks((legs || []).slice(0, 3).map(l => ({ mint: l.mint, symbol: l.symbol, pairAddress: l.pairAddress, lane: 'runner' }))); go('lab'); }} />}
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
-      {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary>🗑 Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}
+      {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary><Ic3 e="🗑" /> Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}
       {tab === 'arena' && <FamilyFuseStrip />}
       {tab === 'arena' && <ArenaBest />}
       {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={(legs, from) => { const run = legs.filter(l => l.runner); if (run.length) setRunnerPicks(run.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: l.lane || 'runner' })));
@@ -124,8 +125,8 @@ export function FeaturedFuses({ onLoad }) {
   const [list, setList] = useState(null);
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses')).then(r => (r.ok ? r.json() : null)).then(d => alive && setList((d?.fuses || []).filter(f => f.featured))).catch(() => alive && setList([])); return () => { alive = false; }; }, []);
   if (!list?.length) return null;
-  return <section className="m-card fp-featured" data-testid="fuse-featured"><span className="m-label">⭐ FEATURED FUSES</span>
-    {list.map(f => <div key={f.id} className="fp-feat"><span className="fz-emoji">{f.emoji}</span><div><b>{f.name}</b><small>{f.legs.map(l => l.symbol).join(' · ')} · grade {f.score?.grade} · index {Number(f.index || 100).toFixed(1)}</small></div>
+  return <section className="m-card fp-featured" data-testid="fuse-featured"><span className="m-label"><Ic3 e="⭐" /> FEATURED FUSES</span>
+    {list.map(f => <div key={f.id} className="fp-feat"><span className="fz-emoji"><Ic3 e={f.emoji} /></span><div><b>{f.name}</b><small>{f.legs.map(l => l.symbol).join(' · ')} · grade {f.score?.grade} · index {Number(f.index || 100).toFixed(1)}</small></div>
       <button type="button" className="m-btn" onClick={() => onLoad(f)} data-testid={`feat-load-${f.id}`}>Load</button></div>)}</section>;
 }
 
@@ -197,7 +198,7 @@ export function CompoundBadge({ s }) {
 
 // 💬 Card chat: every Arena card has its own thread (the normal chat, room fuse-card-<id>) — holders, copiers, watchers.
 export function CardChat({ c, onClose }) {
-  return <section className="m-card ar-chat" data-testid={`card-chat-${c.id}`}><header className="m-row"><span className="m-label">💬 {c.emoji} {c.name}</span><small className="m-dim">card chat · {c.kind === 'user' ? c.owner : c.kind}</small>
+  return <section className="m-card ar-chat" data-testid={`card-chat-${c.id}`}><header className="m-row"><span className="m-label"><Ic3 e="💬" /> <Ic3 e={c.emoji} /> {c.name}</span><small className="m-dim">card chat · {c.kind === 'user' ? c.owner : c.kind}</small>
     <button type="button" className="m-btn fl-clear" onClick={onClose} aria-label="Close card chat">×</button></header>
     <Suspense fallback={<div className="fl-row is-ghost" />}><EcosystemChat compact room={c.chat} ecosystem={{ id: c.chat, name: c.name }} /></Suspense></section>;
 }
@@ -224,7 +225,7 @@ export function CardReplay({ c, onClose }) {
   const [d, setD] = useState(null); const [run, setRun] = useState(0);
   useEffect(() => { let alive = true; fetch(apiUrl(`/api/reputation/fuses/replay/${c.kind}/${encodeURIComponent(c.id)}`)).then(r => (r.ok ? r.json() : null)).then(x => alive && setD(x || { legs: [] })).catch(() => alive && setD({ legs: [] })); return () => { alive = false; }; }, [c.kind, c.id]);
   const g = d && d.legs?.length ? replayPaths(d) : null;
-  return <section className="m-card rp" data-testid={`replay-${c.id}`}><header className="m-row"><span className="m-label">▶ REPLAY · LAST 24H</span><small className="m-dim">{c.emoji} {c.name}</small>
+  return <section className="m-card rp" data-testid={`replay-${c.id}`}><header className="m-row"><span className="m-label">▶ REPLAY · LAST 24H</span><small className="m-dim"><Ic3 e={c.emoji} /> {c.name}</small>
     <button type="button" className="m-btn" onClick={() => setRun(n => n + 1)} disabled={!g}>↻ Replay</button><button type="button" className="m-btn fl-clear" onClick={onClose} aria-label="Close replay">×</button></header>
     {!d ? <div className="fs-ghost" /> : !g || !g.lines.length ? <p className="m-dim">No price history for these coins yet.</p> : <>
       <svg className="rp-chart" viewBox="0 0 600 160" preserveAspectRatio="none" key={run} role="img" aria-label={`Card replay: ${pc(g.last)} over 24h`}>
@@ -299,14 +300,14 @@ export function ArenaBoard({ onPicks, onLoad }) {
     {!a ? <div className="ar-stage">{[0, 1, 2].map(i => <div key={i} className="frail-ghost" />)}</div>
       : !mega.length ? <p className="m-dim ar-none">No card on stage yet — a runner round that lights up lands here, and FEELESS stages its own cards here.</p>
       : <div className="ar-stage" data-testid="arena-stage">{mega.map(megaCard)}</div>}
-    {a?.bench?.length > 0 && <section className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label">🎨 CREATOR'S CUT · ENGINE CARDS</span>
+    {a?.bench?.length > 0 && <section className="ar-bench" data-testid="arena-bench"><header className="m-row"><span className="m-label"><Ic3 e="🎨" /> CREATOR'S CUT · ENGINE CARDS</span>
       <small className="m-dim">hand-picked by FEELESS from the engine playground, with their configs · they fight in The Pit like every card that made it</small></header>
       <div className="ar-stage is-bench">{a.bench.map(megaCard)}</div></section>}</>}
     {on('proving') && <>{a?.dials && <DialBoard dials={a.dials} />}
     <RunnersPanel />
     {a && <div className="m-card"><span className="m-label">STRATEGIES · WE RUN $5 FOR 24H</span><p className="m-dim">{a.outlook?.note || (a.outlook?.style ? `${a.outlook.style}: ${pc(a.outlook.avgPct)} avg over ${a.outlook.runs} runs, ${a.outlook.winRate}% won.` : 'Not enough settled runs yet.')}</p>
       <table className="vd-table"><thead><tr><th>Strategy</th><th>Runs</th><th>Avg</th><th>Won</th><th /></tr></thead><tbody>
-      {(a.board || []).map(b => <tr key={b.style}><td><b>{b.bred ? '🧬 ' : ''}{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}{b.bred && <small className="m-dim" data-tip={`Made by the engine from the arena record: more of what ${b.parent} does, less of what ${b.against} does. Scrapped by itself if it loses.`}> from {b.parent}</small>}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table>{((a.bred || []).length > 0 || (a.bredScrapped || []).length > 0) && <p className="m-note" data-testid="bred-line">🧬 Engine-made strategies: {(a.bred || []).length} running{(a.bred || []).filter(x => !x.runs).length ? ` (${(a.bred || []).filter(x => !x.runs).length} still on their first 24h)` : ''}{(a.bredScrapped || []).length ? ` · scrapped for losing: ${(a.bredScrapped || []).map(x => `${x.style} ${pc(x.medPct || 0)}`).join(', ')}` : ''}. A reading of paper runs, never a promise.</p>}</div>}</>}
+      {(a.board || []).map(b => <tr key={b.style}><td><b>{b.bred ? '🧬 ' : ''}{b.style}</b>{a.bestStyle === b.style ? ' 👑' : ''}{b.bred && <small className="m-dim" data-tip={`Made by the engine from the arena record: more of what ${b.parent} does, less of what ${b.against} does. Scrapped by itself if it loses.`}> from {b.parent}</small>}</td><td>{b.runs}</td><td className={(b.avgPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(b.avgPct || 0)}</td><td>{Math.round(b.winRate ?? 0)}%</td><td>{b.runs >= a.minSettled && b.avgPct > 0 ? <span className="m-chip ok">proven</span> : <span className="m-chip">needs {a.minSettled}+</span>}</td></tr>)}</tbody></table>{((a.bred || []).length > 0 || (a.bredScrapped || []).length > 0) && <p className="m-note" data-testid="bred-line"><Ic3 e="🧬" /> Engine-made strategies: {(a.bred || []).length} running{(a.bred || []).filter(x => !x.runs).length ? ` (${(a.bred || []).filter(x => !x.runs).length} still on their first 24h)` : ''}{(a.bredScrapped || []).length ? ` · scrapped for losing: ${(a.bredScrapped || []).map(x => `${x.style} ${pc(x.medPct || 0)}`).join(', ')}` : ''}. A reading of paper runs, never a promise.</p>}</div>}</>}
     </div>
     {replay && <CardReplay c={replay} onClose={() => setReplay(null)} />}
     {chat && <CardChat c={chat} onClose={() => setChat(null)} />}
@@ -318,14 +319,14 @@ export function ArenaBoard({ onPicks, onLoad }) {
 export function ArenaGuide() {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem('feeless:arena-guide') === 'open'; } catch { return false; } });   // closed until asked for: the Arena opens on the action
   const toggle = () => setOpen(o => { try { localStorage.setItem('feeless:arena-guide', o ? 'closed' : 'open'); } catch { /* private mode */ } return !o; });
-  return <details className="ar-guide m-card" open={open} onToggle={e => e.target.open !== open && toggle()} data-testid="arena-guide"><summary><span className="m-label">🗺 HOW THE ARENA WORKS</span><small className="m-dim">tap to {open ? 'hide' : 'show'}</small></summary>
+  return <details className="ar-guide m-card" open={open} onToggle={e => e.target.open !== open && toggle()} data-testid="arena-guide"><summary><span className="m-label"><Ic3 e="🗺" /> HOW THE ARENA WORKS</span><small className="m-dim">tap to {open ? 'hide' : 'show'}</small></summary>
     <ol>
-      <li><b>⭐ Tier cards</b><span>FEELESS's own cards, fully automatic. 💵 REAL = live money from the Fuse wallet (every swap has its tx) · 📄 PAPER = same engine at true fills, no money.</span></li>
-      <li><b>🔔 Rounds</b><span>each round ends with a 10s countdown, then the card deals its next coins. Losers get swapped, winners stay.</span></li>
+      <li><b><Ic3 e="⭐" /> Tier cards</b><span>FEELESS's own cards, fully automatic. <Ic3 e="💵" /> REAL = live money from the Fuse wallet (every swap has its tx) · <Ic3 e="📄" /> PAPER = same engine at true fills, no money.</span></li>
+      <li><b><Ic3 e="🔔" /> Rounds</b><span>each round ends with a 10s countdown, then the card deals its next coins. Losers get swapped, winners stay.</span></li>
       <li><b>🏇 Rules that protect</b><span>+150% or a whole round above +80% = held · 3 losing rounds = safer config · 3 wins = locked · −50% = 🛟 rescue cycle.</span></li>
-      <li><b>⚔ Battlefield</b><span>two cards fight each round — bigger move wins. 2 losses and you're out; last card standing is crowned 👑.</span></li>
-      <li><b>📜 Every number is real</b><span>tap any card for its config + live P&L per coin, or 📜 Audit for its paper book at true fills.</span></li>
-      <li><b>⚡ Join in</b><span>⚔ Back a side (free, XP) · 💰 Buy & back · ⚡ Copy any card to your Lab — you approve one buy, you own the coins.</span></li></ol></details>;
+      <li><b>⚔ Battlefield</b><span>two cards fight each round — bigger move wins. 2 losses and you're out; last card standing is crowned <Ic3 e="👑" />.</span></li>
+      <li><b><Ic3 e="📜" /> Every number is real</b><span>tap any card for its config + live P&L per coin, or <Ic3 e="📜" /> Audit for its paper book at true fills.</span></li>
+      <li><b><Ic3 e="⚡" /> Join in</b><span>⚔ Back a side (free, XP) · <Ic3 e="💰" /> Buy & back · <Ic3 e="⚡" /> Copy any card to your Lab — you approve one buy, you own the coins.</span></li></ol></details>;
 }
 
 // Swap streak badge: Survivor (≥1 swap) · Phoenix (≥3) · Immortal (≥5), only while the card still wins.
@@ -344,10 +345,10 @@ export function FuseSeason() {
   const [s, setS] = useState(null); const [now, setNow] = useState(Date.now() / 1000);
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses/season')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setS(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); const c = setInterval(() => setNow(Date.now() / 1000), 30000); return () => { alive = false; clearInterval(t); clearInterval(c); }; }, []);
-  if (!s) return <div className="m-card fs is-loading" data-testid="fuse-season"><span className="m-label">🏆 FUSE SEASON</span><div className="fs-ghost" /></div>;
+  if (!s) return <div className="m-card fs is-loading" data-testid="fuse-season"><span className="m-label"><Ic3 e="🏆" /> FUSE SEASON</span><div className="fs-ghost" /></div>;
   const top = Math.max(1, ...s.board.map(b => Math.abs(b.pnlPct || 0)));
   return <section className="m-card m-live fs" data-testid="fuse-season">
-    <header className="fs-head"><div><span className="m-label">🏆 FUSE SEASON · WEEK OF {wk(s.week).toUpperCase()}</span><h3>Best cards opened this week.</h3>
+    <header className="fs-head"><div><span className="m-label"><Ic3 e="🏆" /> FUSE SEASON · WEEK OF {wk(s.week).toUpperCase()}</span><h3>Best cards opened this week.</h3>
       <small className="m-dim">Real P&L of verified buys · {s.cards} cards · top 3 crowned Monday 00:00 UTC with +{s.boostPct}% Fee-Back on the card</small></div>
       <div className="fs-clock"><small>ENDS IN</small><b className="m-num">{left(s.endsAt - now)}</b></div></header>
     <div className={`fs-cat ${s.feecat?.pct == null ? 'is-idle' : ''}`} data-testid="season-feecat"><span>🐱</span><b>FeeCat this week</b>
@@ -390,18 +391,18 @@ export function Throne({ champs, now, onBuy, kingNode, challengers = [], onOpen 
       {challengers.slice(0, 2).map((c, i) => <div key={c.key} role="button" tabIndex={0} className={`th-ch p-${(i + (flip ? 1 : 0)) % 2}`} onClick={e => { if (!e.target.closest('.fcd-flip')) onOpen?.(c.key); }} onKeyDown={e => e.key === 'Enter' && onOpen?.(c.key)} data-tip={`Challenger: ${c.name} · ${c.badge} — tap for its config`} aria-label={`Challenger ${c.name}`}>
         {c.node ? <span className="th-card">{c.node}</span> : <span className="th-ghost">{c.emoji || '🃏'}</span>}<small className="m-num">{c.name} · {c.badge}</small></div>)}
       <div className="th-king" key={king.at} role={kingNode ? 'button' : undefined} tabIndex={kingNode ? 0 : undefined} onClick={e => { if (!e.target.closest('.fcd-flip, .bf-buychamp')) onOpen?.(king.key); }} onKeyDown={e => e.key === 'Enter' && onOpen?.(king.key)}>
-        <span className="th-plinth" aria-hidden="true" /><span className="th-crown" aria-hidden="true">👑</span>
+        <span className="th-plinth" aria-hidden="true" /><span className="th-crown" aria-hidden="true"><Ic3 e="👑" /></span>
         <span className="th-volt" aria-hidden="true"><i /><i /><i /><i className="th-ring" /></span>
         {kingNode ? <span className="th-card">{kingNode}</span> : <span className="th-ghost">{king.emoji || '👑'}</span>}</div>
     </div>
     <div className="th-side">
-      <div className="th-who"><small className="m-label">ON THE THRONE · SEASON #{king.season}</small><b>{king.emoji} {king.name}</b>
+      <div className="th-who"><small className="m-label">ON THE THRONE · SEASON #{king.season}</small><b><Ic3 e={king.emoji} /> {king.name}</b>
         <span className="th-stats"><em className="m-num">{king.w}W</em><em data-tip="Time since it took the crown">reigning {reign}</em></span>
         {king.legs?.length > 0 && onBuy && <button type="button" className="m-btn primary m-go bf-buychamp" onClick={() => onBuy(king)}
-          data-tip={king.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ">👑 Buy the champion</button>}</div>
+          data-tip={king.key?.startsWith('user:') ? "Copy the champion — its owner earns the champion's share (double copy cut) of your FEELESS fee, not extra cost to you" : 'Load the champion into your Lab'} data-testid="buy-champ"><Ic3 e="👑" /> Buy the champion</button>}</div>
       {fallen.length > 0 && <ol className="th-fallen" aria-label="Past champions">{fallen.slice(0, 3).map((c, j) => { const next = champs[j]; const kept = next.name === c.name;   // the same card winning again DEFENDED its crown — nobody knocked it off
         return <li key={c.at} style={{ '--i': j }} className={kept ? 'is-kept' : ''} data-tip={kept ? `Bracket #${c.season}: ${c.name} won with ${c.w} wins and kept the crown in #${next.season}` : `Bracket #${c.season} champion with ${c.w} wins — knocked off by ${next.name}`}>
-          {kept ? <b>{c.emoji} {c.name}</b> : <s>{c.emoji} {c.name}</s>}<small>#{c.season} · {c.w}W · {kept ? `🛡 defended in #${next.season}` : `knocked off by ${next.emoji} ${next.name}`}</small></li>; })}</ol>}
+          {kept ? <b><Ic3 e={c.emoji} /> {c.name}</b> : <s><Ic3 e={c.emoji} /> {c.name}</s>}<small>#{c.season} · {c.w}W · {kept ? `🛡 defended in #${next.season}` : `knocked off by ${next.emoji} ${next.name}`}</small></li>; })}</ol>}
     </div>
   </div>;
 }
@@ -476,16 +477,16 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
           <b>{x.name}</b>{st && <em className={`bf-br br-${st.status}`}>{st.status === 'winners' ? '🏆' : st.status === 'losers' ? '💀' : '✕'} {st.w}–{st.l}</em>}</span>
         <span className="bf-hp" data-tip={`HP ${Math.round(h)} — drops while the other card is ahead`}><i style={{ transform: `scaleX(${h / 100})` }} /><small>HP {Math.round(h)}</small></span>
         <em className={`bf-c-pct m-num fl-tick ${x.now >= 0 ? 'm-pos' : 'm-neg'}`} key={x.now}>{pc(x.now)}</em>
-        {x.paper && <span className="bf-paper" data-tip="This battle's paper book: $100 dealt at true fills (pool impact both ways) → what selling it all would pay now. Fees apart.">📄 {fmt$(x.paper.startUsd)} → {fmt$(x.paper.valueUsd)}</span>}
+        {x.paper && <span className="bf-paper" data-tip="This battle's paper book: $100 dealt at true fills (pool impact both ways) → what selling it all would pay now. Fees apart."><Ic3 e="📄" /> {fmt$(x.paper.startUsd)} → {fmt$(x.paper.valueUsd)}</span>}
         <span className="bf-btns"><button type="button" className={`m-btn bf-back ${mine === x.key ? 'is-on' : ''}`} disabled={!!mine} onClick={() => back(x.key)} data-tip="Free · points only" data-testid={`back-${k}-${i}`}>{mine === x.key ? '✓ Backed' : '⚔ Back'} · {(x.backers || 0) + (mine === x.key ? 1 : 0)}</button>
-        <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}>💰 Buy & back</button>
-        <button type="button" className="m-btn bf-cheer" onClick={() => cheer(x.key)} data-tip="Cheer your fighter (just for fun)" data-testid={`cheer-${k}-${i}`}>📣 {(cheers[x.key] || {}).n || ''}</button>
-        <button type="button" className="m-btn bf-audit" onClick={() => setAudit(x)} data-tip="Paper audit: every coin's true-fill entry → now, $ in → $ now, fees apart, past books" data-testid={`audit-${k}-${i}`}>📜 Audit</button></span></div></div>; };
+        <button type="button" className="m-btn bf-buy" onClick={() => buyBack(x)} data-tip="Buy this card (you own it) — counts on the 💰 bar" data-testid={`buyback-${k}-${i}`}><Ic3 e="💰" /> Buy & back</button>
+        <button type="button" className="m-btn bf-cheer" onClick={() => cheer(x.key)} data-tip="Cheer your fighter (just for fun)" data-testid={`cheer-${k}-${i}`}><Ic3 e="📣" /> {(cheers[x.key] || {}).n || ''}</button>
+        <button type="button" className="m-btn bf-audit" onClick={() => setAudit(x)} data-tip="Paper audit: every coin's true-fill entry → now, $ in → $ now, fees apart, past books" data-testid={`audit-${k}-${i}`}><Ic3 e="📜" /> Audit</button></span></div></div>; };
   const lg = b.league;
   return <section className="m-card m-live bf" data-testid="battlefield"><header className="m-row"><span className="m-label">{lg ? `⚔ ARENA SEASON #${lg.n} · ROUND ${Math.min(lg.round + 1, lg.rounds)}/${lg.rounds}` : `⚔ BATTLEFIELD · BRACKET #${br.season}`}</span>
     <small className="m-dim" data-testid="bf-rules">{lg ? `every card on its own $${lg.startUsd} book all season · bigger move this bell wins (3 pts · draw 1) · ≤ $${lg.cut.usd} or −${lg.cut.dropPct}% in ${lg.cut.bells} rounds = cycled for a playground card · top of the table after ${lg.rounds} rounds is crowned` : 'bigger move since the bell wins · 2 losses = out · last card standing is crowned'}</small>
     <span className="m-seg bf-lens" role="tablist" aria-label="Timeframe">{PIT_LENSES.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} data-tip={tip} onClick={() => setLens(k)} data-testid={`bf-lens-${k}`}>{l}</button>)}</span>
-    <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}>🔔 {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
+    <b className={`bf-bell m-num ${secs < 60 ? 'is-soon' : ''}`} key={secs < 60 ? secs : 'x'}><Ic3 e="🔔" /> {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}</b></header>
     {audit && <PaperAudit k={audit.key} name={audit.name} onClose={() => setAudit(null)} />}
     {cfgCard && <CardConfig c={cfgCard} onClose={() => setCfgKey(null)} onLoad={onLoad} onBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) && !mine ? () => back(cfgKey) : null}
       onBuyBack={b.pairs.some(p => [p.a.key, p.b.key].includes(cfgKey)) ? () => buyBack({ key: cfgKey, name: cfgCard.name }) : null} />}
@@ -494,11 +495,11 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
       {b.pairs.length > 0 && <span key={`intro-${b.endsAt}`} className="bf-intro" aria-hidden="true"><i className="bf-intro-flash" /><b>{lg ? `ROUND ${Math.min(lg.round + 1, lg.rounds)}` : 'NEW BELL'}</b><em>FIGHT!</em></span>}
       <span className="bf-show" aria-hidden="true"><i className="bfs-sweep a" /><i className="bfs-sweep b" /><i className="bfs-flash" />{Array.from({ length: 18 }, (_, k) => <i key={k} className="bfs-dot" style={{ '--i': k }} />)}</span>
       {b.pairs.length > 1 && <div className="bf-tabs" role="tablist" aria-label="Fights">{b.pairs.map((p, i) => <button key={p.a.key + p.b.key} type="button" role="tab" aria-selected={cur === i} className={cur === i ? 'active' : ''} onClick={() => setSpot(i)} data-testid={`bf-tab-${i}`}>
-        FIGHT {i + 1}<small>{p.a.emoji} vs {p.b.emoji}</small></button>)}</div>}
+        FIGHT {i + 1}<small><Ic3 e={p.a.emoji} /> vs <Ic3 e={p.b.emoji} /></small></button>)}</div>}
       {b.pairs.map((p, i) => { const d = p.a.now - p.b.now; const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
         const lane = status[p.a.key]?.status === 'losers' && status[p.b.key]?.status === 'losers' ? 'losers' : status[p.a.key]?.status === 'winners' && status[p.b.key]?.status === 'winners' ? 'winners' : 'cross';
         return <div key={p.a.key + p.b.key} className={`bf-pair lane-${lane} ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'} ${cur === i ? 'is-spot' : 'is-off'}`} style={{ '--i': i }} data-testid={`battle-${i}`} aria-hidden={cur !== i}>
-          {flip[i] && Date.now() - flip[i] < 4000 && <span key={flip[i]} className="bf-flipbanner" aria-live="polite">⚡ LEAD CHANGE!</span>}
+          {flip[i] && Date.now() - flip[i] < 4000 && <span key={flip[i]} className="bf-flipbanner" aria-live="polite"><Ic3 e="⚡" /> LEAD CHANGE!</span>}
           <span className="bf-lane">{lg ? `🏆 ROUND ${Math.min(lg.round + 1, lg.rounds)} OF ${lg.rounds} · ${(status[p.a.key]?.rank ? `#${status[p.a.key].rank}` : '')} vs ${(status[p.b.key]?.rank ? `#${status[p.b.key].rank}` : '')}` : lane === 'winners' ? '🏆 WINNERS BRACKET' : lane === 'losers' ? '💀 LOSERS BRACKET · LOSE = OUT' : '⚔ CROSSOVER'}{lens !== 'bell' && <i className="bf-lensnote"> · reading the last {lens === '60' ? 'hour' : `${lens} min`} (the bell still decides)</i>}</span>
           <p className="bf-call" key={pitCall(p, secs)} aria-live="polite" data-testid={`bf-call-${i}`}>🎙 {pitCall(p, secs)}</p>
           <span className="bf-crowd" data-tip="How the crowd is split: free backs + bought backs. Points only today — real bids on a fight are planned, and this split becomes the odds." data-testid={`bf-crowd-${i}`}>
@@ -510,7 +511,7 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
             <RaceLine p={p} />
             <i className="bf-tug" data-tip="Who's ahead since the bell"><i style={{ transform: `scaleX(${share})` }} /></i>
             <div className="bf-bars" data-testid={`bars-${i}`}>
-              <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em>💰 BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
+              <span className="bf-bar is-paid" data-tip="Wallets that BOUGHT a side's card to back it (real buys, you own the card)"><small>{p.a.paidN || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.paidUsd || 0, p.b.paidUsd || 0)})` }} /></i><small>{p.b.paidN || 0}</small><em><Ic3 e="💰" /> BUY BACKS {p.a.paidN || 0}/{p.b.paidN || 0} · ${Math.round(p.a.paidUsd || 0)}/${Math.round(p.b.paidUsd || 0)}</em></span>
               <span className="bf-bar is-free" data-tip="Free backs · +15 XP to back, winners count toward weekly quests → season rank"><small>{p.a.backers || 0}</small><i><i style={{ transform: `scaleX(${tugShare(p.a.backers || 0, p.b.backers || 0)})` }} /></i><small>{p.b.backers || 0}</small><em>⚔ BACKS {p.a.backers || 0}/{p.b.backers || 0} · +XP</em></span></div></div>
           {corner(p, 'b', i)}
           {cur === i && <div className="bf-tickrow"><CoinTicker legsA={cardOf(p.a.key)?.legs} legsB={cardOf(p.b.key)?.legs} nameA={p.a.name} nameB={p.b.name} /></div>}</div>; })}
@@ -519,10 +520,10 @@ export function Battlefield({ b: b0, cards = [], onLoad }) {
       challengers={power(br.board || []).filter(x => x.key !== br.champions[0].key && x.status !== 'out').slice(0, 2).map(x => ({ key: x.key, name: x.name, emoji: x.emoji, badge: `${x.w}W–${x.l}L`, node: nodeOf(x.key, x.pct) }))}
       onBuy={onLoad && (c => onLoad(c.legs, c.key?.startsWith('user:') ? { copyOf: c.key.slice(5), owner: c.name, champ: true, copyPct: (cardOf(c.key)?.copyPct || 10) * 2 } : { backName: c.name }))} />}
     {br.upNext?.length > 0 && <div className="bf-next" data-testid="bf-upnext"><span className="m-label">⏭ UP NEXT</span>{br.upNext.map((x, j) => <button key={x.key} type="button" className={`bf-nextcard br-${x.status}`} style={{ '--i': j }} onClick={() => setCfgKey(x.key)} data-tip="Fights at the next bell — tap for its config">
-      <b>{x.emoji}</b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
+      <b><Ic3 e={x.emoji} /></b><span>{x.name}</span><em>{x.status === 'winners' ? '🏆' : '💀'} {x.w}–{x.l}</em></button>)}</div>}
     {(br.board || []).length > 0 && <div className="bf-rail" data-testid="bf-power"><span className="m-label" data-tip="Every card in this season, top of the table first. 🔮 Call the champion (free) — right = season XP.">{lg ? `🏆 TABLE · ${b.bracket?.board?.length || 0}/${lg.fieldMax}` : '🥊 IN THE BRACKET'}</span>
       <div className="bf-rail-row">{power(br.board).map((x, i) => <span key={x.key} className={`bf-chip br-${x.status}`} style={{ '--i': i }}>
-        <button type="button" className="bf-chip-name" onClick={() => setCfgKey(x.key)} data-tip="Config, coins and DNA — copy it to your Lab" data-testid={`power-cfg-${i}`}>{x.emoji} {x.name}</button>
+        <button type="button" className="bf-chip-name" onClick={() => setCfgKey(x.key)} data-tip="Config, coins and DNA — copy it to your Lab" data-testid={`power-cfg-${i}`}><Ic3 e={x.emoji} /> {x.name}</button>
         {x.pts != null ? <><em className="m-num" data-tip={`${x.w}W ${x.d || 0}D ${x.l}L — win 3 · draw 1`}>#{x.rank} · {x.pts} pts</em><small className={`m-num ${(x.usd || 0) >= (lg?.startUsd || 20) ? 'm-pos' : 'm-neg'}`} data-tip={`Its season book: started at $${lg?.startUsd || 20}`}>{fmt$(x.usd)}</small></>
           : <><em className="m-num">{x.status === 'out' ? '✕ out' : `${x.status === 'winners' ? '🏆' : '💀'} ${x.w}–${x.l}`}</em><small className={`m-num ${x.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(x.pct)}</small></>}
         {x.status !== 'out' && <button type="button" className={`m-btn bf-call ${called === x.key ? 'is-on' : ''}`} disabled={!!called} onClick={() => callIt(x.key)} data-tip="Call it to win this bracket (free) — right = season XP" data-testid={`call-${i}`}>{called === x.key ? '✓' : '🔮'} {(x.calls || 0) + (called === x.key ? 1 : 0)}</button>}</span>)}</div></div>}
@@ -554,17 +555,17 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
   const cyc = dna.cycle || cfg.cycle || c.cycle;
   return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="card-config">
     <aside className="ce is-pop m-live cc-cfg ccx-win" role="dialog" aria-modal="true" aria-label={`${c.name} config`} onClick={e => e.stopPropagation()}>
-      <header><span className="m-label">⚙ CARD · LIVE</span><h3>{c.emoji} {c.name}{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}</h3>
+      <header><span className="m-label"><Ic3 e="⚙" /> CARD · LIVE</span><h3><Ic3 e={c.emoji} /> {c.name}{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}</h3>
         <button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
       <div className="ccx-grid">
         {/* 🃏 the card itself, big and in its own design (drag to tilt · ⟲ flips to its money math) */}
         <div className="ccx-hero" data-testid="cfg-card">{(c.legs || []).length > 0 && <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, legs: c.legs,
           parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: pctCard || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }} style={DIAL_STYLE[c.dial] || 'momentum'} rank={0} budget={20} aura={c.aura || ''} />}
           {c.tagline && <p className="m-dim">{c.tagline}</p>}
-          <div className="cc-cfg-acts">{onLoad && <button type="button" className="m-btn primary m-go" onClick={copy} data-testid="cfg-copy">⚡ Copy to Fuse Lab</button>}
+          <div className="cc-cfg-acts">{onLoad && <button type="button" className="m-btn primary m-go" onClick={copy} data-testid="cfg-copy"><Ic3 e="⚡" /> Copy to Fuse Lab</button>}
             {onBack && <button type="button" className="m-btn" onClick={() => { onBack(); onClose(); }} data-testid="cfg-back">⚔ Back it</button>}
-            {c.kind && c.id && <button type="button" className="m-btn" onClick={() => setAudit(true)} data-tip="Paper audit: its battle books at true fills — entry → now per coin, $, fees apart, won / lost" data-testid="cfg-audit">📜 Paper audit</button>}
-            {onBuyBack && <button type="button" className="m-btn bf-buy" onClick={() => { onBuyBack(); onClose(); }}>💰 Buy & back</button>}</div>
+            {c.kind && c.id && <button type="button" className="m-btn" onClick={() => setAudit(true)} data-tip="Paper audit: its battle books at true fills — entry → now per coin, $, fees apart, won / lost" data-testid="cfg-audit"><Ic3 e="📜" /> Paper audit</button>}
+            {onBuyBack && <button type="button" className="m-btn bf-buy" onClick={() => { onBuyBack(); onClose(); }}><Ic3 e="💰" /> Buy & back</button>}</div>
           <small className="m-dim">Copying loads the coins + these configs into your Lab — nothing moves until you approve one Fuse in.</small></div>
         <div className="ccx-main">
           <div className="ccx-pnl" data-testid="cfg-pnl">
@@ -579,15 +580,15 @@ export function CardConfig({ c, onClose, onLoad, onBack, onBuyBack }) {
               <span className="m-num">{l.entry ? `$${tiny(Number(l.entry), 3)}` : '—'} → {l.px ? `$${tiny(Number(l.px), 3)}` : '—'}</span>
               <em className={`m-num fl-tick ${(l.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={l.pct == null ? 'x' : l.pct.toFixed(1)}>{l.pct == null ? '—' : pc(l.pct)}{l.nowUsd != null && <small> · {fmt$(l.nowUsd)}</small>}</em></div>)}</div></div>
         <div className="ccx-side">
-          <section className="ccx-legend ccx-pane" data-testid="cfg-legend"><span className="m-label">🧬 HOW THIS CARD PLAYS</span>
+          <section className="ccx-legend ccx-pane" data-testid="cfg-legend"><span className="m-label"><Ic3 e="🧬" /> HOW THIS CARD PLAYS</span>
             {cyc && <p><b>🔄 Cycle · {cyc}</b><span>{CYCLE_WORDS[cyc] || (String(cyc).includes(',') ? `its own: ${String(cyc).split(',').join(' → ')}` : '')}</span></p>}
-            {(cfg.tp != null || cfg.sl != null) && <p><b>🎯 TP +{cfg.tp ?? '—'}% · SL −{cfg.sl ?? '—'}%</b><span>runners take profit at +{cfg.tp ?? '—'}%, stop at −{cfg.sl ?? '—'}%; ≥ +150% (or a round ≥ +80%) is 🏇 held instead</span></p>}
+            {(cfg.tp != null || cfg.sl != null) && <p><b><Ic3 e="🎯" /> TP +{cfg.tp ?? '—'}% · SL −{cfg.sl ?? '—'}%</b><span>runners take profit at +{cfg.tp ?? '—'}%, stop at −{cfg.sl ?? '—'}%; ≥ +150% (or a round ≥ +80%) is 🏇 held instead</span></p>}
             {(dna.clock || cfg.rotateHours) && <p><b>⟳ Clock · {(v => (v >= 1 ? `${v}h` : `${Math.round(v * 60)}m`))(dna.clock || cfg.rotateHours)}</b><span>how often a weak (losing) coin may be swapped out</span></p>}
-            {(dna.stop || cfg.slMode) && <p><b>✂ Stop · {dna.stop || cfg.slMode}</b><span>{STOP_WORDS[dna.stop || cfg.slMode] || ''}</span></p>}
+            {(dna.stop || cfg.slMode) && <p><b><Ic3 e="✂" /> Stop · {dna.stop || cfg.slMode}</b><span>{STOP_WORDS[dna.stop || cfg.slMode] || ''}</span></p>}
             {dna.compound && <p><b>♻ Compound · {dna.compound}</b><span>{dna.compound === 'smart' ? 'gains go into the strongest coins' : dna.compound === 'even' ? 'gains split evenly over the other coins' : 'gains are not reinvested'}</span></p>}
-            {dna.payoutPct != null && <p><b>💸 Payout · {dna.payoutPct}%</b><span>of PROFIT only — paid out only above what was put in; the rest stays in the card</span></p>}
+            {dna.payoutPct != null && <p><b><Ic3 e="💸" /> Payout · {dna.payoutPct}%</b><span>of PROFIT only — paid out only above what was put in; the rest stays in the card</span></p>}
             <p><b>🛟 Rescue</b><span>falls 50% under its start → safest ⇄ breakeven by itself</span></p></section>
-          <section className="ccx-pane ccx-trail" data-testid="cfg-trail"><span className="m-label">📜 TRAIL · ITS PAPER BOOK</span>
+          <section className="ccx-pane ccx-trail" data-testid="cfg-trail"><span className="m-label"><Ic3 e="📜" /> TRAIL · ITS PAPER BOOK</span>
             {(book?.events || []).length ? <ol>{book.events.slice(-7).reverse().map((e, i) => <li key={`${e.at}-${i}`} style={{ '--i': i }}><time className="m-num">{new Date(e.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</time><span>{e.why || e.kind}</span></li>)}</ol>
               : <small className="m-dim">The trail starts when this card steps into a battle: $100 dealt at true fills, every swap and the result land here.</small>}
             {book && <small className="m-dim">high {pc(book.hiPct || 0)} · low {pc(book.loPct || 0)} · fees {fmt$(book.feesUsd || 0)} apart</small>}</section>
@@ -614,15 +615,15 @@ export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) 
     <FuseCard c={{ pools: c.legs.map(l => l.pairAddress), fitness: c.activity?.score || 0, bornGen: c.legs.length, parts: { grade: c.grade || 'B', aprScore: 0, momentum24h: move, calm: '—', feeDragPct: 0, impactLegs: 0 }, legs: c.legs }}
       style={DIAL_STYLE[c.dial] || (c.kind === 'lit' ? 'degen' : 'momentum')} rank={0} budget={20} aura={c.aura || fx.aura} />
     <div className="ar-embers" aria-hidden="true">{Array.from({ length: fx.embers }, (_, k) => <i key={k} style={{ '--i': k }} />)}</div>
-    <div className="ar-meta"><b>{c.emoji} {c.name}{c.version ? <small className="ar-ver" data-tip="Engine version of this card — the engine re-deals it every round"> v.{String(c.version).padStart(2, '0')}</small> : null}</b>{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}
-      {c.dnaLabel && <span className="ar-dna" data-tip="This card's DNA — its own cycle, compound, payout, clock and stop (no two cards alike)" data-testid={`dna-${c.id}`}>🧬 {c.dnaLabel}</span>}
+    <div className="ar-meta"><b><Ic3 e={c.emoji} /> {c.name}{c.version ? <small className="ar-ver" data-tip="Engine version of this card — the engine re-deals it every round"> v.{String(c.version).padStart(2, '0')}</small> : null}</b>{c.dial && <span className={`ar-dial dl-${c.dial}`}>{DIAL_LABEL[c.dial]}</span>}
+      {c.dnaLabel && <span className="ar-dna" data-tip="This card's DNA — its own cycle, compound, payout, clock and stop (no two cards alike)" data-testid={`dna-${c.id}`}><Ic3 e="🧬" /> {c.dnaLabel}</span>}
       {c.cfg && <span className="ar-cfg" data-testid={`cfg-${c.id}`}><i data-tip="Take-profit per runner">TP +{c.cfg.tp}%</i><i data-tip="Stop per runner">SL −{c.cfg.sl}%</i>{c.cfg.rotateHours != null && <i data-tip="Rotates weak coins every">⟳ {c.cfg.rotateHours >= 1 ? `${c.cfg.rotateHours}h` : `${Math.round(c.cfg.rotateHours * 60)}m`}</i>}{c.cfg.slMode && <i data-tip="At the stop">{SL_WORD[c.cfg.slMode] || c.cfg.slMode}</i>}</span>}
       <span className="ar-act" data-tip="Activity: FEELESS buys + buyers (24h), $ flow through its coins, index move. Drives the effects."><small>ACT</small><i style={{ transform: `scaleX(${(c.activity?.score || 0) / 100})` }} /><em className="m-num">{c.activity?.score || 0}</em></span>
       {c.record_wl && <span className="ar-wl" data-tip="Arena battle record (wins – losses – draws)" data-testid={`wl-${c.id}`}>⚔ {c.record_wl.w}–{c.record_wl.l}{c.record_wl.d ? `–${c.record_wl.d}` : ''}</span>}
-      {(c.streak?.tier || c.compound?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.compound?.tier && <CompoundBadge s={c.compound} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too">⚡ {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
+      {(c.streak?.tier || c.compound?.tier || c.copies > 0) && <span className="ar-badges">{c.streak?.tier && <StreakBadge s={c.streak} />}{c.compound?.tier && <CompoundBadge s={c.compound} />}{c.copies > 0 && <span className="ar-copies" data-tip="Traders who fused this card too"><Ic3 e="⚡" /> {c.copies} {c.copies === 1 ? 'copy' : 'copies'}</span>}</span>}
       <small className="m-dim">{c.kind === 'scenario' ? "🎨 creator's pick · engine card" : c.kind === 'auto' ? `⚔ arena deal · ${c.tagline || ''}` : c.kind === 'feecat' ? `🐱 sim book · ${c.record?.winRate ?? '—'}% wins · ${(c.record?.realizedSol ?? 0) >= 0 ? '+' : ''}${c.record?.realizedSol ?? 0} SOL realized${c.record?.lives != null ? ` · ❤${c.record.lives}` : ''}` : c.kind === 'lit' ? '🔥 lit runner card' : c.kind === 'round' ? '⏳ this round · proving' : c.kind === 'user' ? `🃏 ${c.owner} · ${c.mode === 'swap' ? '⇄ swaps weak legs' : '🔒 holds together'}` : `⚛️ FEELESS card · ${c.legs.length} legs`} · <span className={`fl-tick ${move >= 0 ? 'm-pos' : 'm-neg'}`} key={move.toFixed(1)} data-tip={lp != null ? 'Live (3s prices)' : 'Last server update'}>{pc(move)}{lp != null && <i className="fl-livedot" />}</span>{c.buyers ? ` · ${c.buyers} buyers` : ''}</small>
       {cfgOpen && <CardConfig c={c} onClose={() => setCfgOpen(false)} onLoad={onLoad} />}
-      <span className="ar-acts"><button type="button" className="m-btn" onClick={() => setCfgOpen(true)} data-tip="This card's config — copy it to your Fuse Lab" data-testid={`mega-cfg-${c.id}`}>⚙</button>{onReplay && <button type="button" className="m-btn" onClick={onReplay} data-tip="Replay the last 24h of this card" data-testid={`mega-replay-${c.id}`}>▶</button>}{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}>💬</button>}
+      <span className="ar-acts"><button type="button" className="m-btn" onClick={() => setCfgOpen(true)} data-tip="This card's config — copy it to your Fuse Lab" data-testid={`mega-cfg-${c.id}`}><Ic3 e="⚙" /></button>{onReplay && <button type="button" className="m-btn" onClick={onReplay} data-tip="Replay the last 24h of this card" data-testid={`mega-replay-${c.id}`}>▶</button>}{c.chat && <button type="button" className={`m-btn ${chatOpen ? 'primary' : ''}`} onClick={onChat} aria-pressed={chatOpen} data-tip="This card's chat" data-testid={`mega-chat-${c.id}`}><Ic3 e="💬" /></button>}
       <button type="button" className="m-btn primary m-go" onClick={use} data-testid={`mega-use-${c.id}`}>{runners ? 'Use runners →' : c.kind === 'user' ? '⚡ Fuse this too' : c.legs.length > 3 ? 'Load top 3 →' : 'Load →'}</button></span></div>
   </article>;
 }
@@ -719,12 +720,12 @@ function RealCardFixes({ addr }) {
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const useful = cards.filter(c => (c.realBook?.recoverable || []).length || (c.realBook?.profitAvailableUsd || 0) > 0 || (c.realBook?.fundedUsd || 0) > 0);
   if (!useful.length) return null;
-  return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label">🛠 REAL CARD CASH / RECOVERY</span>
+  return <section className="m-card m-live" data-testid="real-card-fixes"><span className="m-label"><Ic3 e="🛠" /> REAL CARD CASH / RECOVERY</span>
     {useful.map(c => { const b = c.realBook || {}; const rec = b.recoverable || []; const off = b.offCard || []; const recon = b.reconciliation || {}; const profit = Number(b.profitAvailableUsd || 0); const cash = Number(b.profitCashAvailableUsd || 0); const recoveryNow = off.reduce((sum, x) => sum + Number(x.usd || 0), 0); const recoveryCost = off.reduce((sum, x) => sum + Number(x.costUsd || 0), 0); return <div key={c.tpl} className="fw-tier real-recovery-tier">
       <span><b>{c.label}</b><small className="m-dim"> · you have {m$(b.fundedUsd || 0)} in · profit above that {m$(profit)} · payable cash now {m$(cash)}</small>
         {profit <= 0 && <small className="m-dim">No payout yet — the card pays out only what it is worth above the money you still have in it.</small>}
         {profit > 0 && cash <= 0 && <small className="m-dim">Profit exists in coins, but none is card cash yet. It becomes payable as sells/rotations return SOL.</small>}</span>
-      <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`} data-tip="Profit = what the card is worth above the money you still have in it. Only profit that is already card cash can be paid out.">💸 Payout profit {m$(cash)}</button>
+      <span className="m-row"><button type="button" className="m-btn" disabled={cash <= 0 || !!busy} onClick={() => payout(c)} data-testid={`profit-payout-${c.tpl}`} data-tip="Profit = what the card is worth above the money you still have in it. Only profit that is already card cash can be paid out."><Ic3 e="💸" /> Payout profit {m$(cash)}</button>
         <button type="button" className="m-btn" disabled={!(recon.cardCashUsd > 0.01) || !!busy} onClick={() => withdraw(c, recon.cardCashUsd)} data-testid={`withdraw-cash-${c.tpl}`}
           data-tip={`Take the card's cash out to your wallet. Your principal drops by the same amount (${m$(b.fundedUsd || 0)} → ${m$(Math.max(0, (b.fundedUsd || 0) - (recon.cardCashUsd || 0)))}), so profit is then counted above what is still in. Sell part of a coin first to make cash.`}>↗ Withdraw card cash {m$(recon.cardCashUsd || 0)}</button></span>
       {recon.cardEquityUsd != null && <div className="m-note" data-testid={`card-reconciliation-${c.tpl}`}><b>Card truth: {m$(recon.cardEquityUsd)}</b><small className="m-dim">Confirmed positions + {m$(recon.cardCashUsd || 0)} card cash. Wallet funds outside this card: {m$(recon.outsideCardUsd || 0)}; gas reserve stays separate.</small></div>}
@@ -732,7 +733,7 @@ function RealCardFixes({ addr }) {
         {(b.deadOrders || []).map((o, i) => <div key={`${o.side}-${o.mint || o.symbol}-${i}`} className="fw-tier"><span><b>{o.side === 'buy' ? '🟢 BUY' : '🔴 SELL'} ${o.symbol}</b><small className="m-dim"> · {o.err || o.status}</small></span>
           <button type="button" className="m-btn" disabled={!!busy || !o.mint} onClick={() => retryDead(c, o)}>{busy === `dead-${c.tpl}-${o.side}-${o.mint}` ? 'Retrying…' : o.side === 'sell' ? 'Retry sell → card cash' : 'Retry buy from card cash'}</button></div>)}</details>}
       {(off.length > 0 || rec.length > 0) && <button type="button" className="m-btn danger" disabled={!!busy} onClick={() => sellAllDead(c)} data-testid={`dead-sell-all-${c.tpl}`}>{busy === `dead-all-${c.tpl}` ? 'Queueing confirmed sells…' : `Attempt sell current value ${m$(recoveryNow)} → ${c.label} cash`}</button>}
-      {off.length > 0 && <div className="fw-tiers" data-testid={`off-card-${c.tpl}`}><small className="m-dim">⏳ Confirmed wallet coins already included in Card truth · cost {m$(recoveryCost)} → current value {m$(recoveryNow)}. Only confirmed sale proceeds become card cash:</small>
+      {off.length > 0 && <div className="fw-tiers" data-testid={`off-card-${c.tpl}`}><small className="m-dim"><Ic3 e="⏳" /> Confirmed wallet coins already included in Card truth · cost {m$(recoveryCost)} → current value {m$(recoveryNow)}. Only confirmed sale proceeds become card cash:</small>
         {off.map(o => { const cost = Number(o.costUsd || 0); const now = Number(o.usd || 0); const loss = cost > 0 ? ((now / cost) - 1) * 100 : null; return <div key={o.mint} className="fw-tier"><span><b>${o.symbol}</b><small className="m-dim"> · {o.status}</small></span><b>{m$(cost)} cost → {m$(now)} now{loss != null ? ` · ${loss.toFixed(1)}%` : ''}</b></div>; })}</div>}
       {rec.length > 0 && <div className="fw-tiers" data-testid={`dead-swaps-${c.tpl}`}><small className="m-dim">⚠ Failed / dead swaps still held by the Fuse wallet:</small>
         {rec.map(r => <div key={r.mint} className="fw-tier"><span><b>${r.symbol}</b><small className="m-dim"> · {r.lastErr || r.lastStatus || 'old keeper balance'}</small></span>
@@ -756,14 +757,14 @@ function MyCardsBody({ realN, d, openRows, act, setAct, open, setMode, setRisk, 
   const held = openRows.length ? liveBook(openRows, live) : { pnlUsd: d.held?.pnlUsd, pnlPct: d.held?.pnlPct, value: d.held?.valueUsd };
   return <section className="fp-cards" data-testid="my-cards">
     {!(realN && !openRows.length) && <div className="m-row fp-book"><span className="m-label">CARDS YOU HOLD</span><b className={`m-num fl-tick ${(held.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={(held.pnlUsd || 0).toFixed(2)} data-testid="held-pnl">{m$(held.pnlUsd)} <small>{pc(held.pnlPct)}</small><i className="fl-livedot" /></b>
-      <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards">🎁 {m$(d.feebackUsd)} Fee-Back</span>}</div>}
+      <small className="m-dim">{m$(held.value)} now · {openRows.length} open · all-time {m$(d.pnlUsd)}</small>{d.feebackUsd > 0 && <span className="m-chip ok" data-tip="Fuse Fee-Back: your unlocked share of the fees you paid on cards"><Ic3 e="🎁" /> {m$(d.feebackUsd)} Fee-Back</span>}</div>}
     {!openRows.length && (realN ? <small className="m-dim" data-testid="no-bought-cards">Cards you buy from this wallet show here too, next to the real tier cards above.</small>
       : <div className="m-card fp-empty"><b>No open cards.</b><small className="m-dim">Build one in the Lab — 3 pools + up to 3 runners.</small></div>)}
     <div className="fp-cgrid">{openRows.map(r => <div key={r.id} className={`fp-cell ${r.onArena ? 'is-arena' : ''}`}><LiveFuseCard r={r} aura={r.onArena ? 'fire' : ''} mini={{ kind: 'row', name: r.name, aura: r.onArena ? 'fire' : '' }} />
       <CoinTable legs={r.legs.filter(l => l.soldUsd == null).map(l => { const px = live.get?.(l.pairAddress)?.price || l.priceNow; const nowUsd = px && l.tokens ? l.tokens * px + (l.realizedUsd || 0) : (l.valueUsd || 0);
         return { pairAddress: l.pairAddress, symbol: l.symbol, role: l.role, entryPx: l.tokens ? l.usd / l.tokens : null, nowPx: px, inUsd: l.usd || 0, nowUsd, pct: l.usd ? (nowUsd / l.usd - 1) * 100 : 0 }; })} />
       {r.missing?.length > 0 && <div className="fg-partial" data-testid={`missing-${r.id}`}><b>⚠ {r.missing.length} approved {r.missing.length === 1 ? 'coin' : 'coins'} didn't land</b><span>Only confirmed coins count on this card. Add {r.missing.length === 1 ? 'it' : 'them'} with ＋ Top up, or ↩ Withdraw to sell back what landed.</span></div>}
-      {r.heldShort?.length > 0 && <div className="fg-partial" data-testid={`short-${r.id}`}><b>🔗 Your wallet holds less than this card</b><span>Some coins left the wallet outside FEELESS — the card now counts only what's really there (checked on-chain every minute).</span></div>}
+      {r.heldShort?.length > 0 && <div className="fg-partial" data-testid={`short-${r.id}`}><b><Ic3 e="🔗" /> Your wallet holds less than this card</b><span>Some coins left the wallet outside FEELESS — the card now counts only what's really there (checked on-chain every minute).</span></div>}
       <div className="fp-risk"><RiskDial value={r.risk || 'custom'} onChange={id => setRisk(r, id)} testid={`card-risk-${r.id}`} /></div>
       <StrategyPicks hours={r.rotateHours || 24} current={{ rideAt: r.rideAt || 0, rideTrail: r.rideTrail || 10 }} testid={`card-strats-${r.id}`}
         onApply={st => setAdv(r, { rideAt: Number(st.cfg.rideAt), rideTrail: Number(st.cfg.trail), legs: Object.fromEntries(r.legs.filter(l => l.soldUsd == null).map(l => [l.pairAddress, { tp: Number(st.cfg.tp), sl: Number(st.cfg.sl) }])) })} />
@@ -773,10 +774,10 @@ function MyCardsBody({ realN, d, openRows, act, setAct, open, setMode, setRisk, 
         <span className="m-seg" role="group">{[5, 8, 10, 15, 20, 30].map(v => <button key={v} type="button" disabled={!r.rideAt} className={(r.rideTrail || 10) === v ? 'active' : ''} onClick={() => setAdv(r, { rideTrail: v })} data-testid={`freeze-trail-${r.id}-${v}`}>−{v}%</button>)}</span></div>
       {r.beatCat?.length > 0 && <span className="fs-crown r-cat" data-tip="Weeks this card beat FeeCat's average trade" data-testid={`beatcat-${r.id}`}>🐱 Beat FeeCat ×{r.beatCat.length}</span>}
       {r.seasonWin && <span className={`fs-crown r-${r.seasonWin.rank}`} data-tip={`Fuse season · week of ${wk(r.seasonWin.week)} — +Fee-Back boost on this card`} data-testid={`crown-${r.id}`}>{MEDAL[r.seasonWin.rank]} #{r.seasonWin.rank} · week of {wk(r.seasonWin.week)}</span>}
-      {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee">⚡ {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
-      {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}>🎁 {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
+      {(r.streak?.tier || r.compound?.tier || r.copies > 0) && <span className="ar-badges">{r.streak?.tier && <StreakBadge s={r.streak} />}{r.compound?.tier && <CompoundBadge s={r.compound} />}{r.copies > 0 && <span className="ar-copies" data-tip="Traders who copied this card — you earn a share of their FEELESS fee"><Ic3 e="⚡" /> {r.copies} {r.copies === 1 ? 'copy' : 'copies'} · {m$(r.copyEarnedUsd)} earned</span>}</span>}
+      {r.feeback && <small className={`fp-fb ${r.feeback.unlocked ? 'is-on' : ''}`} data-tip={`Fee-Back: ${r.feeback.pct}% of the $${(r.feeback.feesUsd || 0).toFixed(2)} fees you paid on this card${r.feeback.arena ? ' (incl. Arena bonus)' : ''}`}><Ic3 e="🎁" /> {r.feeback.unlocked ? `${m$(r.feeback.usd)} back · ${r.feeback.pct}%` : 'Fee-Back'}{r.feeback.next ? ` · ${r.feeback.next}` : ''}</small>}
       <div className="fp-quick" role="toolbar" aria-label={`${r.name} quick actions`}>
-        <button type="button" className="m-btn primary m-go" data-tip="Sell 50% of every coin back to SOL (change to 25 / 33 / 100% or pick coins before you approve)" onClick={() => open(r, 'take', { pct: 50 })} data-testid={`act-take-${r.id}`}>💰 Take 50%</button>
+        <button type="button" className="m-btn primary m-go" data-tip="Sell 50% of every coin back to SOL (change to 25 / 33 / 100% or pick coins before you approve)" onClick={() => open(r, 'take', { pct: 50 })} data-testid={`act-take-${r.id}`}><Ic3 e="💰" /> Take 50%</button>
         <SwitchButton r={r} onClick={() => open(r, 'switch')} />
         <button type="button" className="m-btn danger" data-tip="Sell every coin back to SOL — one approval. The card closes and its receipt goes to your profile." onClick={() => open(r, 'withdraw')} data-testid={`act-withdraw-${r.id}`}>↩ Withdraw all</button>
       </div>
@@ -797,21 +798,21 @@ function MyCardsBody({ realN, d, openRows, act, setAct, open, setMode, setRisk, 
         <div className="fp-adv" data-testid={`adv-${r.id}`}><span className="m-label" data-tip="Your card's own clock: how often you may switch a coin">⇄ ROTATE EVERY</span>
           <div className="m-seg">{ROTATE_PICKS.map(([h, l]) => <button key={l} type="button" className={Math.abs((r.rotateHours || 24) - h) < 0.005 ? 'active' : ''} onClick={() => setAdv(r, { rotateHours: h })} data-testid={`rot-${l}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Sell = the stop alert sells it · 🅿 Park = sell to SOL, then a one-tap buy-back alert when it's back at entry with buyers · ❄ Hold = no stop alerts">ON A COIN STOP</span>
-          <span className="m-label" data-tip="Share of each profit take paid to your wallet — the rest compounds">💸 PROFIT SPLIT</span>
+          <span className="m-label" data-tip="Share of each profit take paid to your wallet — the rest compounds"><Ic3 e="💸" /> PROFIT SPLIT</span>
           <div className="m-seg">{[0, 25, 50, 75, 100].map(v => <button key={v} type="button" className={(r.payoutPct ?? 100) === v ? 'active' : ''} onClick={() => setAdv(r, { payoutPct: v, onProfit: v > 0 ? 'collect' : 'compound' })} data-testid={`pay-${v}-${r.id}`}>{v}%</button>)}</div>
           <div className="m-seg">{[['smart', '🧲 Smart'], ['even', '⚖ Even'], ['off', '✋ Off']].map(([k, l]) => <button key={k} type="button" className={(r.compoundStyle || 'smart') === k ? 'active' : ''} onClick={() => setAdv(r, { compoundStyle: k })} data-testid={`cmp-${k}-${r.id}`}>{l}</button>)}</div>
           <span className="m-label" data-tip="Adaptive: a losing card's weak coin swaps into a major, a winning card's into a fresh runner">🔄 ROUND CYCLE</span>
           <div className="m-seg">{[['steady', '➡ Steady'], ['classic', '⚓→🔥 Classic'], ['adaptive', '🧠 Adaptive'], ['safe', '⚓⇄⚖ Safe'], ['press', '🔥⇄⚖ Press'], ['rescue', '🛟 Rescue'], ['auto', '🤖 Auto']].map(([k, l]) => <button key={k} type="button" className={(r.cycle || 'steady') === k ? 'active' : ''} onClick={() => setAdv(r, { cycle: k })} data-testid={`cyc-${k}-${r.id}`}>{l}</button>)}</div>
           <CycleBuilder value={r.cycle} onChange={v => setAdv(r, { cycle: v })} />
           <div className="m-seg">{[['sell', 'Sell'], ['park', '🅿 Park & buy back'], ['hold', '❄ Hold']].map(([k, l]) => <button key={k} type="button" className={(r.slMode || 'sell') === k ? 'active' : ''} onClick={() => setAdv(r, { slMode: k })} data-testid={`sl-${k}-${r.id}`}>{l}</button>)}</div>
-          <span className="m-label" data-tip="When the card's 5 rounds run out and it's up more than the pack price, it pays +5 rounds from its profit (owed until the next take). Never while it's flat or down. Swap fees always come out of the swap itself.">💸 FEES</span>
+          <span className="m-label" data-tip="When the card's 5 rounds run out and it's up more than the pack price, it pays +5 rounds from its profit (owed until the next take). Never while it's flat or down. Swap fees always come out of the swap itself."><Ic3 e="💸" /> FEES</span>
           <div className="m-seg">{[[true, '💸 Card pays from profit'], [false, '✋ I pay']].map(([k, l]) => <button key={l} type="button" className={(r.autoFees !== false) === k ? 'active' : ''} onClick={() => setAdv(r, { autoFees: k })} data-testid={`fees-${k ? 'card' : 'me'}-${r.id}`}>{l}</button>)}</div></div>
         <div className="fp-acts" role="toolbar" aria-label={`${r.name} more actions`}>
-        <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}>💸 {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
+        <button type="button" className={`m-btn ${r.autoYield ? 'is-armed' : ''}`} data-tip="Auto-collect: alert + pre-filled Collect profit when the card is up +X% (sells only the gain). You approve once." onClick={() => open(r, 'yield', { at: r.autoYield?.at || d.rules?.yieldDefault || 50, levels: d.rules?.yieldLevels || [25, 50, 100, 200] })} data-testid={`act-yield-${r.id}`}><Ic3 e="💸" /> {r.autoYield ? `Auto +${Math.round(r.autoYield.at)}%` : 'Auto-collect'}</button>
         <button type="button" className={`m-btn ${r.drift >= 5 ? 'is-warn' : ''}`} data-tip={`Back to the weights you bought (drift ${Math.round(r.drift || 0)} pts) — one approval`} onClick={() => open(r, 'rebalance')} data-testid={`act-rebalance-${r.id}`}>⚖ Rebalance</button>
-        <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}>🎯 Limits</button>
+        <button type="button" className={`m-btn ${r.guard && !r.guard.firedAt ? 'is-armed' : ''}`} data-tip="Take-profit / stop-loss / trailing on the whole card" onClick={() => open(r, 'limits', { tp: r.guard?.tp || 50, sl: r.guard?.sl || 20, trail: r.guard?.trail || '', legs: Object.fromEntries(Object.entries(r.legGuard || {}).map(([pa, g]) => [pa, { tp: g.tp ?? '', sl: g.sl ?? '' }])), onProfit: r.onProfit || 'collect' })} data-testid={`act-limits-${r.id}`}><Ic3 e="🎯" /> Limits</button>
         <button type="button" className="m-btn" data-tip="Replay this card's last 24h" onClick={() => open(r, 'replay')} data-testid={`act-replay-${r.id}`}>▶ Replay</button>
-        <span className="fp-legcharts" aria-label="Open each coin's chart (your trades marked)">{r.legs.filter(l => l.soldUsd == null).map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`${l.symbol}: open its chart — your confirmed buy is marked on the candles`} onClick={() => openCoin({ mint: l.mint, pairAddress: l.pairAddress, symbol: l.symbol, runner: l.role === 'runner' })} data-testid={`chart-${l.pairAddress}`}>📈 {l.symbol}</button>)}</span>
+        <span className="fp-legcharts" aria-label="Open each coin's chart (your trades marked)">{r.legs.filter(l => l.soldUsd == null).map(l => <button key={l.pairAddress} type="button" className="m-btn" data-tip={`${l.symbol}: open its chart — your confirmed buy is marked on the candles`} onClick={() => openCoin({ mint: l.mint, pairAddress: l.pairAddress, symbol: l.symbol, runner: l.role === 'runner' })} data-testid={`chart-${l.pairAddress}`}><Ic3 e="📈" /> {l.symbol}</button>)}</span>
       </div></details>
       {act?.id === r.id && <ActionPanel r={r} act={act} setAct={setAct} addr={addr} ses={ses} refresh={refresh} />}
     </div>)}</div>
@@ -845,7 +846,7 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
   if (act.kind === 'yield') {
     const save = async off => { const s = ses(); if (!s) return; try { await post('/api/reputation/fuses/auto-yield', { address: addr, session: s, id: r.id, at: Number(act.at) || 50, off }); toast.success(off ? 'Auto-collect off' : `Auto-collect armed at +${act.at}%`); close(); refresh(); } catch (e) { toast.error(e.message); } };
     const gain = Number(act.at) || 50; const sell = (gain / (100 + gain)) * 100;
-    return <div className="m-card fp-panel" data-testid="act-panel-yield"><b>💸 Auto-collect profit</b>
+    return <div className="m-card fp-panel" data-testid="act-panel-yield"><b><Ic3 e="💸" /> Auto-collect profit</b>
       <div className="m-seg" role="radiogroup" aria-label="Collect at">{(act.levels || [25, 50, 100, 200]).map(v => <button key={v} type="button" role="radio" aria-checked={gain === v} className={gain === v ? 'active' : ''} onClick={() => setAct({ ...act, at: v })} data-testid={`yield-lvl-${v}`}>+{v}%</button>)}</div>
       <small className="m-dim">Counted from your confirmed buy (price move only — card P&L never mixes in fees). Fees show on the receipt when you sell (≈ {m$(r.exitFeeUsd)} now).</small>
       <p className="m-note">At +{gain}% we alert you (inbox + phone) with <b>Collect profit</b> pre-filled: it sells {sell.toFixed(1)}% of each leg — just the gain — and your base stays in the card. After you collect it re-arms from the new value. <b>FEELESS never signs for you</b>: you approve once, fees only on that sell.</p>
@@ -858,7 +859,7 @@ function ActionPanel({ r, act, setAct, addr, ses, refresh }) {
     const savePlan = async () => { const s = ses(); if (!s) return;
       try { await post('/api/reputation/fuses/plan', { address: addr, session: s, id: r.id, plan: { mode: r.mode || 'hold', onProfit: act.onProfit, legs: Object.fromEntries(Object.entries(act.legs || {}).map(([pa, v]) => [pa, { tp: Number(v.tp) || null, sl: Number(v.sl) || null }])) } });
         toast.success('Coin limits saved'); refresh(); } catch (e) { toast.error(e.message); } };
-    return <div className="m-card fp-panel" data-testid="act-panel-limits"><b>🎯 Card limits</b><div className="m-row">{f('tp', 'Take profit', '+')}{f('sl', 'Stop loss', '−')}{f('trail', 'Trailing', '')}</div>
+    return <div className="m-card fp-panel" data-testid="act-panel-limits"><b><Ic3 e="🎯" /> Card limits</b><div className="m-row">{f('tp', 'Take profit', '+')}{f('sl', 'Stop loss', '−')}{f('trail', 'Trailing', '')}</div>
       <p className="m-note">Free to set. We check every minute and alert you with a one-tap exit; fees only if you exit.</p>
       <b>Per coin</b><div className="fp-leglims">{live.map(l => { const v = act.legs?.[l.pairAddress] || {}; const g = r.legGuard?.[l.pairAddress];
         return <div key={l.pairAddress} className={`fp-leglim ${g?.firedAt ? 'is-fired' : ''}`}><b>{l.symbol}</b><small className={(l.pnlPct || 0) >= 0 ? 'm-pos' : 'm-neg'}>{pc(l.pnlPct)}</small>
@@ -968,7 +969,7 @@ export function MyBattles({ address }) {
     {d.live.map((p, i) => { const me = p[p.mine]; const them = p[p.mine === 'a' ? 'b' : 'a']; const lead = (me.now || 0) - (them.now || 0);
       return <div key={me.key + them.key} className={`fp-mb-live ${lead > 0.05 ? 'is-up' : lead < -0.05 ? 'is-down' : ''}`} style={{ '--i': i }} data-testid={`mb-live-${i}`}>
         <b>{me.emoji || '🃏'} {me.name}</b><em className={`m-num fl-tick ${(me.now || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={me.now}>{pc(me.now)}</em><span className="bf-vs">VS</span>
-        <em className={`m-num ${(them.now || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(them.now)}</em><b>{them.emoji} {them.name}</b>
+        <em className={`m-num ${(them.now || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pc(them.now)}</em><b><Ic3 e={them.emoji} /> {them.name}</b>
         <i className="bf-tug"><i style={{ transform: `scaleX(${Math.max(0.08, Math.min(0.92, 0.5 + lead / 20))})` }} /></i></div>; })}
     {d.past.length > 0 && <div className="bf-log">{d.past.slice(0, 8).map(r => <small key={r.at + r.a} className={r.won ? 'is-won' : r.draw ? '' : 'is-lost'}>{r.draw ? '🤝' : r.won ? '🏆' : '✕'} {r.mine === 'a' ? r.a : r.b} vs {r.mine === 'a' ? r.b : r.a} <em>{pc(r.mine === 'a' ? r.aMove : r.bMove)} vs {pc(r.mine === 'a' ? r.bMove : r.aMove)}</em></small>)}</div>}
   </section>;
@@ -981,7 +982,7 @@ export function FusePopup({ onClose }) {
     return () => { window.removeEventListener('keydown', k); document.body.classList.remove('ce-open'); }; }, [onClose]);
   return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="fuse-popup">
     <aside className="ce is-pop m-live fp-popup" role="dialog" aria-modal="true" aria-label="Fuse a card" onClick={e => e.stopPropagation()}>
-      <header><span className="m-label">⚡ FUSE A CARD</span><h3>Pick pools + 1–3 runners, one approval.</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
+      <header><span className="m-label"><Ic3 e="⚡" /> FUSE A CARD</span><h3>Pick pools + 1–3 runners, one approval.</h3><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
       <FuseLab runnerPicks={picks} onRunnerPicks={setPicks} /></aside></div>, document.body);
 }
 

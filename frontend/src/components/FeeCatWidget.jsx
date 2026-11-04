@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Music2, MessageCircle, X, Plus, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1 } from 'lucide-react';
+import { Music2, X, Plus, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1 } from 'lucide-react';
+import { MessageCircle } from '../lib/lucide3d';
 import { FeeCatMark } from './FeeCatMark';
 import EcosystemChat from './EcosystemChat';
 import { parse, songTitle } from './command/ProfileMusic';
@@ -9,6 +10,7 @@ import MusicFind, { ytId } from './MusicFind';
 import { apiUrl } from '../lib/api';
 import HqPop, { useIsCreator } from './HqPop';
 import { MiniBrain } from './MiniBrain';
+import { Ic3 } from '../lib/icon3d';
 
 const PLAYLIST_KEY = 'feeless:site-playlist';
 // ▶ Like YouTube: a refresh comes back to the same song at the same second, still playing (or still paused).
@@ -142,9 +144,9 @@ export function FeeCatWidget() {
         <div className="feecat-tabs">
           <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}><MessageCircle size={13} />Chat</button>
           <button type="button" className={tab === 'music' ? 'active' : ''} onClick={() => setTab('music')}><Music2 size={13} />Music</button>
-          <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')} data-testid="mini-tab-mine">💼 Mine</button>
-          <button type="button" className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')} data-testid="mini-tab-top">🔥 Top 10</button>
-          {creator ? <button type="button" className={tab === 'brain' ? 'active' : ''} onClick={() => setTab('brain')} data-testid="mini-tab-brain" data-tip="Your AI brain: chat, teach it, fix the agents on your call">🧠 Brain</button> : null}
+          <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')} data-testid="mini-tab-mine"><Ic3 e="💼" /> Mine</button>
+          <button type="button" className={tab === 'top' ? 'active' : ''} onClick={() => setTab('top')} data-testid="mini-tab-top"><Ic3 e="🔥" /> Top 10</button>
+          {creator ? <button type="button" className={tab === 'brain' ? 'active' : ''} onClick={() => setTab('brain')} data-testid="mini-tab-brain" data-tip="Your AI brain: chat, teach it, fix the agents on your call"><Ic3 e="🧠" /> Brain</button> : null}
         </div>
         <button type="button" className="feecat-x" onClick={() => setOpen(false)} aria-label="Close"><X size={15} /></button>
       </div>
@@ -160,7 +162,7 @@ export function FeeCatWidget() {
             <button type="button" className="feecat-play" onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>{playing ? <Pause size={16} /> : <Play size={16} />}</button>
             <button type="button" onClick={() => go(1)} aria-label="Next"><SkipForward size={14} /></button>
             {MODES.map(([m, Icon, label]) => <button key={m} type="button" className={mode === m ? 'on' : ''} onClick={() => setMode(m)} aria-label={label} title={label}><Icon size={13} /></button>)}
-            <button type="button" className={showVideo ? 'on' : ''} onClick={() => setShowVideo(v => !v)} aria-pressed={showVideo} title={showVideo ? 'Hide video (keeps playing)' : 'Show video'} data-testid="music-video-toggle">📺</button>
+            <button type="button" className={showVideo ? 'on' : ''} onClick={() => setShowVideo(v => !v)} aria-pressed={showVideo} title={showVideo ? 'Hide video (keeps playing)' : 'Show video'} data-testid="music-video-toggle"><Ic3 e="📺" /></button>
           </div>
           <ol className="feecat-queue">{songs.map((sg, k) => <li key={`${sg.url}-${k}`}><button type="button" className={k === i ? 'on' : ''} onClick={() => { setI(k); setPlaying(true); }}>{k === i && playing ? <i className="eq"><b /><b /><b /></i> : <span>{k + 1}</span>}{sg.title || sg.url}</button><button type="button" className="feecat-x" aria-label={`Remove ${sg.title || 'song'}`} data-testid={`music-remove-${k}`} onClick={() => remove(k)}><X size={12} /></button></li>)}</ol>
         </> : <p className="feecat-empty">No songs yet — paste a YouTube, Spotify or SoundCloud link below.</p>}

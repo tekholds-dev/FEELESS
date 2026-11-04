@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { uploadImage, useAdmin } from '../lib/adminCall';
 import { apiUrl } from '../lib/api';
 import { CROP } from '../lib/cropImage';
+import { Ic3 } from '../lib/icon3d';
 
 // 🪪 The creator edits one of their own Circle wallets' public profile (name, @handle, bio, picture, cover). The server checks
 // the wallet is one of the owner's Circle wallets and that the session is the creator's; this file only draws the form.
@@ -16,7 +17,7 @@ export function CircleProfileForm({ call, start, onDone }) {
   useEffect(() => { setEdit(start); }, [start]);
   const save = () => call('/admin/circle/profile', { method: 'POST', body: JSON.stringify({ address: edit.address, profile: edit.profile }) })
     .then(() => { toast.success('Profile saved'); onDone(true); }).catch(e => toast.error(e.message));
-  return <div className="ff-detail" data-testid="cp-form"><b>✏️ {edit.address.slice(0, 6)}…</b>
+  return <div className="ff-detail" data-testid="cp-form"><b><Ic3 e="✏️" /> {edit.address.slice(0, 6)}…</b>
       {['name', 'handle', 'bio'].map(k => <label key={k} className="fw-grid">{k}<input className="m-input" value={edit.profile[k]} onChange={e => setEdit(x => ({ ...x, profile: { ...x.profile, [k]: e.target.value } }))} /></label>)}
       {[['avatar', 'Picture'], ['banner', 'Cover']].map(([k, label]) => <div key={k} className="fw-grid cp-img">{label}
         <span className="m-row">{edit.profile[k] && <img src={apiUrl(edit.profile[k])} alt="" className={`cp-thumb is-${k}`} />}

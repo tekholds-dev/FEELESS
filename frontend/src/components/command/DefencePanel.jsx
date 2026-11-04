@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ApprovalsCheck } from '../ApprovalsCheck';
 import '../../styles/defence.css';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const STORES = shaped({ stores: [], stale: 0, over: 0, totalMb: 0, staleMb: 0 });
 const DEFENCE = shaped({ blocks: [], rules: [], incidents: [], honeypots: [], tarpit: 0 });
 
@@ -22,15 +23,15 @@ export function DefencePanel({ call }) {
   const copy = t => { try { navigator.clipboard.writeText(t); toast.success('Report copied — send it to the network\'s abuse contact'); } catch { toast.error('Copy blocked'); } };
   const bar = classBar(st?.byClass);
   return <section className="m-card dfn" data-testid="defence-panel">
-    <div className="m-row"><span className="m-label">🧠 DEFENCE THAT LEARNS · NEVER ATTACKS BACK</span><small className="m-dim">decoys · learned rules · tarpits · abuse reports</small></div>
+    <div className="m-row"><span className="m-label"><Ic3 e="🧠" /> DEFENCE THAT LEARNS · NEVER ATTACKS BACK</span><small className="m-dim">decoys · learned rules · tarpits · abuse reports</small></div>
     {d ? <div className="dfn-vit">{[['BLOCKED NOW', d.blocks.length, 'Fingerprints that probed a decoy (24h, doubling)'], ['LEARNED RULES', d.rules.length, 'Scanner tools seen from many IPs'], ['SLOWED', d.tarpit, 'Scrapers / replayed sessions in the tarpit'], ['INCIDENTS', d.incidents.length, 'Each with its evidence + abuse report']].map(([k, n, tip], i) =>
       <span key={k} style={{ '--i': i }} data-tip={tip}><em>{k}</em><b>{n}</b></span>)}</div> : <div className="fl-row is-ghost" />}
     {d ? <p className="dfn-pots" data-tip="Paths no trader ever opens — a scanner that tries one is blocked and gets a plain 404">🪤 {d.honeypots.length} decoys: {d.honeypots.slice(0, 8).join(' · ')}…</p> : null}
     {d?.blocks?.length ? <ul className="dfn-list">{d.blocks.slice(0, 12).map((b, i) => <li key={b.fp} style={{ '--i': i }}><b>⛔ {b.fp}</b><span>{b.why}</span><small>{b.n > 1 ? `×${b.n} · ` : ''}{ago(b.left)} left</small>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => lift({ fp: b.fp })} data-tip="Lift this block (audited)">Lift</button></li>)}</ul> : null}
-    {d?.rules?.length ? <ul className="dfn-list is-rule">{d.rules.map((r, i) => <li key={r.ua} style={{ '--i': i }}><b>🧠 {r.ua.slice(0, 50)}</b><span>{r.why}</span><small>{r.hits} caught</small>
+    {d?.rules?.length ? <ul className="dfn-list is-rule">{d.rules.map((r, i) => <li key={r.ua} style={{ '--i': i }}><b><Ic3 e="🧠" /> {r.ua.slice(0, 50)}</b><span>{r.why}</span><small>{r.hits} caught</small>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => lift({ ua: r.ua })}>Drop</button></li>)}</ul> : null}
-    {d?.incidents?.length ? <details className="dfn-inc"><summary>📄 {d.incidents.length} incidents · evidence + abuse reports</summary>
+    {d?.incidents?.length ? <details className="dfn-inc"><summary><Ic3 e="📄" /> {d.incidents.length} incidents · evidence + abuse reports</summary>
       <ul className="dfn-list">{d.incidents.slice(0, 20).map((x, i) => <li key={`${x.fp}-${x.kind}`} style={{ '--i': i }} className={`k-${x.kind}`}><b>{x.kind}</b><span>{x.ip} · {x.n} requests · {x.action}</span><small>{ago(Date.now() / 1000 - x.last)} ago</small>
         <button type="button" className="m-btn" onClick={() => copy(x.report)} data-tip="Copy the plain abuse report">Copy report</button></li>)}</ul></details> : d ? <p className="m-dim dfn-quiet">Quiet — no attack seen yet. The decoys are set.</p> : null}
     <div className="m-row dfn-h"><span className="m-label">🗄 NO HOARDING · EVERY STORE</span><small className="m-dim">{st ? `${st.totalMb} MB · ${st.over} over cap · ${st.stale} stale snapshots (${st.staleMb} MB)` : 'reading…'}</small></div>

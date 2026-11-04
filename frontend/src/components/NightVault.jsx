@@ -9,6 +9,7 @@ import { usePools } from './PoolHub';
 import { PoolWaves } from './PoolWaves';
 import { PriceGaps } from './PriceGaps';
 import '../styles/nightVault.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💤 THE NIGHT VAULT — money while you sleep (FEELESS AVENUE building; backend sleep_money.py, GET /familia-pools/sleep). Five strategies from
 // LIVE rows only — 🥩 LST stack · 💵 stable lend · 🎰 JLP · 🌀 auto-compound vaults · 🔁 loops (Kamino's real SOL borrow rate + max LTV → net
@@ -55,7 +56,7 @@ function Picks({ s, rows, amt }) {
       <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (Number(r.apy) || 0) / hi)})` }} /></u><i className="m-num">{(Number(r.apy) || 0).toFixed(2)}%</i></li>)}</ol>
     <EarnTicker usd={amt} apy={best.apy} label={`$${amt} IN ${best.sym}`} testid={`nv-earn-${s.key}`} />
     <button type="button" className="m-btn m-go nv-go" onClick={() => openDesk({ job: JOB_OF[best.kind] || 'lend', focus: best, title: `${s.name} · PUT IT TO WORK` })}
-      data-tip="The money desk pops out big — the best pick in focus, your amount, watch it compound; your wallet signs" data-testid={`nv-go-${s.key}`}>⚡ PUT IT TO WORK</button>
+      data-tip="The money desk pops out big — the best pick in focus, your amount, watch it compound; your wallet signs" data-testid={`nv-go-${s.key}`}><Ic3 e="⚡" /> PUT IT TO WORK</button>
   </div>;
 }
 

@@ -13,6 +13,7 @@ import '../styles/fusePage.css';
 import '../styles/coinDrawer.css';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // 🪙 ONE coin drawer, sitewide: openCoin({ mint, pairAddress, symbol, logo, runner }) from anywhere → this panel slides in with
 // everything FEELESS knows about the coin (the coin edge: signals with sources, verification, runner gates + bond boxes, live
 // price) and the three things you do with a coin: 📈 Chart · 🔎 Case file · ＋ Add to card. Mounted once (CoinDrawerHost).
@@ -77,9 +78,9 @@ export function CoinDrawer({ coin, onClose }) {
       {st && <div className="cd-stats" data-testid="cd-stats">{[['MARKET CAP', big(st.mcap)], ['1H VOLUME', big(st.vol1h)], ['POOL', big(st.liq)], ['AGE', age(st.ageH)]].map(([l, x], i) => <div key={l} style={{ '--i': i }}><small>{l}</small><b className="m-num">{x}</b></div>)}</div>}
       {coin.pairAddress && <div className="cd-chart" data-testid="cd-chart-box">
         <i className="cd-disco" aria-hidden /><div className="cd-chart-in">
-          <div className="cd-chart-bar"><span className="m-label">📈 LIVE CHART</span>
+          <div className="cd-chart-bar"><span className="m-label"><Ic3 e="📈" /> LIVE CHART</span>
             <div className="m-seg" role="radiogroup" aria-label="Chart timeframe">{CD_TFS.map(t => <button key={t} type="button" role="radio" aria-checked={ctf === t} className={ctf === t ? 'active' : ''} onClick={() => setCtf(t)} data-testid={`cd-ctf-${t}`}>{t.toUpperCase()}</button>)}</div>
-            <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openMiniChart(pair); }} data-testid="cd-mini" data-tip="Mini chart: closes this and keeps the chart floating on every page" aria-label="Mini chart">📌</button>
+            <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openMiniChart(pair); }} data-testid="cd-mini" data-tip="Mini chart: closes this and keeps the chart floating on every page" aria-label="Mini chart"><Ic3 e="📌" /></button>
             <button type="button" className="m-btn cd-war" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="cd-war" data-tip="Open the full war room: big chart, live trades, chat and quick trade">⚔ War room</button></div>
           <React.Suspense fallback={<p className="m-dim cd-chart-wait">Loading chart…</p>}><PriceChart key={`${coin.pairAddress}-${ctf}-${mcapOf(live?.price, live?.mc, coin.mint) ? 'mc' : 'px'}`} pair={{ ...pair, priceUsd: live?.price ?? null, marketCap: mcapOf(live?.price, live?.mc, coin.mint) }} interval={ctf} metric={mcapOf(live?.price, live?.mc, coin.mint) ? 'marketCap' : 'price'} /* every chart opens on market cap; price only when the cap is unknown */ showVolume={false} /></React.Suspense>
         </div></div>}
@@ -91,12 +92,12 @@ export function CoinDrawer({ coin, onClose }) {
       {vit.length > 0 && <div className="cd-vit" data-testid="cd-vitals">{vit.map(([l, x, bad], i) => <div key={l} className={bad ? 'bad' : ''} style={{ '--i': i }}><small>{l}</small><b className="m-num">{x}</b></div>)}</div>}
       {e?.sources?.length > 0 && <div className="cd-src">{e.sources.map(sx => <span key={sx.kind} className="m-chip" data-tip={sx.detail}>{sx.label}</span>)}</div>}
       {e?.signals?.length > 0 && <ul className="cd-sig">{e.signals.map((s, i) => <li key={i} className={s.warn ? 'warn' : ''}><b>{s.text}</b><small className="m-dim">{s.source}</small></li>)}</ul>}
-      {run?.bond?.length > 0 && <div className="cd-bond"><small className="m-label">🔔 BOND BOXES</small><div>{run.bond.map(b => <span key={b.label} className={b.ok ? 'ok' : ''}>{b.ok ? '✓' : '·'} {b.label}</span>)}</div></div>}
+      {run?.bond?.length > 0 && <div className="cd-bond"><small className="m-label"><Ic3 e="🔔" /> BOND BOXES</small><div>{run.bond.map(b => <span key={b.label} className={b.ok ? 'ok' : ''}>{b.ok ? '✓' : '·'} {b.label}</span>)}</div></div>}
       {!e && (slow || !coin.mint ? <p className="m-note" data-testid="cd-noread">FEELESS has no holder read on this coin yet{coin.mint ? ' — open the 🔎 Case file to scan it now' : ''}.</p>
         : <p className="m-dim cd-reading"><i /><i /><i /> Reading the coin…</p>)}
       <div className="cd-acts">
-        <button type="button" className="m-btn" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="cd-chart">📈 Chart</button>
-        <button type="button" className="m-btn" onClick={() => { onClose(); investigate(coin.mint); }} data-testid="cd-case">🔎 Case file</button>
+        <button type="button" className="m-btn" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="cd-chart"><Ic3 e="📈" /> Chart</button>
+        <button type="button" className="m-btn" onClick={() => { onClose(); investigate(coin.mint); }} data-testid="cd-case"><Ic3 e="🔎" /> Case file</button>
         <button type="button" className="m-btn primary m-go" disabled={run && !run.passing && coin.runner} onClick={() => { onClose(); addToCard(coin); }} data-testid="cd-add"
           data-tip={run && !run.passing && coin.runner ? 'Fails a runner gate right now' : 'Add to your Fuse card (3 pools + 3 runners)'}>＋ Add to card</button>
       </div>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import '../../styles/missionTrack.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🛤 THE MISSION TRACK (owner P2: "roadmap / whitepaper as a real 3D view — text in a dropdown"): the roadmap as a road running into the
 // distance (CSS 3D, transform / opacity only). Every milestone is a pylon standing on it, lit by its status (LIVE green · TESTING amber ·
@@ -25,7 +26,7 @@ export function MissionTrack({ missions, filter = 'ALL' }) {
             style={{ '--z': z, '--i': i }} onClick={() => setOpen(o => (o === id ? null : id))} aria-expanded={open === id} data-testid={`mission-${id}`}
             data-tip={`${id} · ${title} — ${state}`}>
             <span className="mt-sign"><b>{id}</b><em>{state}</em><small>{title}</small></span><i className="mt-post" /></button>; })}
-          {here >= 0 ? <span className="mt-rocket" style={{ '--z': (here + 0.5) / Math.max(1, n - 1) }} aria-label="You are here"><b>🚀</b><small>YOU ARE HERE</small></span> : null}</div>
+          {here >= 0 ? <span className="mt-rocket" style={{ '--z': (here + 0.5) / Math.max(1, n - 1) }} aria-label="You are here"><b><Ic3 e="🚀" /></b><small>YOU ARE HERE</small></span> : null}</div>
       </div>
     </div>
     {pick ? <div className={`mt-drop t-${STATE_TONE[pick[2]] || 'plan'}`} data-testid="mission-drop"><span className="mt-tag">{pick[0]} · {pick[2]}</span><h3>{pick[1]}</h3><p>{pick[3]}</p>

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Bubble } from './LaunchCat';
 import { asModel } from './AgentLive';
 import '../../styles/catCockpit.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🛸 THE AGENT COCKPIT (owner, 2026-10-30: "skinny chat — not wide — with model vitals on each side, under that a realtime degen categorised log
 // with folders… bg options that are clean + calming, pick the card colour instead of purple"). Under the two live windows:
@@ -53,9 +54,9 @@ export function DeskBackdrop({ bg }) {
 }
 
 export function SkinPicker({ skin, set }) {
-  return <details className="ck-skin" data-testid="desk-skin"><summary data-tip="Your desk's backdrop + card colour (saved in this browser)"><i style={{ background: skin.acc }} aria-hidden="true" />🎨 DESK</summary>
+  return <details className="ck-skin" data-testid="desk-skin"><summary data-tip="Your desk's backdrop + card colour (saved in this browser)"><i style={{ background: skin.acc }} aria-hidden="true" /><Ic3 e="🎨" /> DESK</summary>
     <div className="ck-skin-pop">
-      <span className="ck-skin-row">{SCENES.map(([k, ic, l]) => <button key={k} type="button" className={skin.bg === k ? 'is-on' : ''} onClick={() => set({ bg: k })} aria-pressed={skin.bg === k} data-testid={`skin-${k}`} data-tip={`${l} backdrop`}><b aria-hidden="true">{ic}</b><small>{l}</small></button>)}</span>
+      <span className="ck-skin-row">{SCENES.map(([k, ic, l]) => <button key={k} type="button" className={skin.bg === k ? 'is-on' : ''} onClick={() => set({ bg: k })} aria-pressed={skin.bg === k} data-testid={`skin-${k}`} data-tip={`${l} backdrop`}><b aria-hidden="true"><Ic3 e={ic} /></b><small>{l}</small></button>)}</span>
       <span className="ck-skin-row is-dots">{ACCENTS.map(c => <button key={c} type="button" className={skin.acc === c ? 'is-on' : ''} style={{ '--d': c }} onClick={() => set({ acc: c })} aria-pressed={skin.acc === c} aria-label={`Card colour ${c}`} data-testid={`acc-${c}`}><i /></button>)}</span>
     </div></details>;
 }
@@ -93,10 +94,10 @@ export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, h
 const POW_TONE = { BUY: 'up', AVOID: 'dn', WATCH: 'warn' };
 export function PowCard({ p, compact = false }) {
   if (!p) return <div className="ck-pow is-empty" data-testid="ck-pow" data-tip="Colonized agents research one intake coin at a time: ≤4 sites, ≤5 moves and ≤3 vitals per site, graded an hour on">
-    <span className="ck-pow-h"><b>⛏ PoW</b><em>none yet</em></span><small>No proof yet — a colonized agent researches one intake coin at a time.</small></div>;
+    <span className="ck-pow-h"><b><Ic3 e="⛏" /> PoW</b><em>none yet</em></span><small>No proof yet — a colonized agent researches one intake coin at a time.</small></div>;
   const tone = POW_TONE[p.call] || 'mute'; const st = Math.max(0, Math.min(100, Number(p.strength) || 0));
   return <div className={`ck-pow is-${tone}`} data-testid="ck-pow" style={{ '--st': st / 100 }}>
-    <span className="ck-pow-h"><b>⛏ PoW</b><i className={`is-${tone}`}>{p.call || '…'}</i><strong>${p.sym}</strong><em>{p.at ? `${ago(p.at)} ago` : ''}</em></span>
+    <span className="ck-pow-h"><b><Ic3 e="⛏" /> PoW</b><i className={`is-${tone}`}>{p.call || '…'}</i><strong>${p.sym}</strong><em>{p.at ? `${ago(p.at)} ago` : ''}</em></span>
     <span className="ck-pow-st" data-tip="Strength: sites with vitals, distinct vitals, safety vitals read, a vital confirmed on two sites"><u><s /></u><b className="m-num">{st}</b></span>
     <ul className="ck-pow-v">{(p.pulls || []).slice(0, compact ? 3 : 6).map((x, j) => <li key={`${x.site}${x.label}`} style={{ '--i': j }}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
     <span className="ck-pow-f"><em>{p.sites || 0} sites · {p.steps || 0} moves</em><b className={`m-num ${p.honey > 0 ? 'is-up' : p.honey < 0 ? 'is-dn' : ''}`} data-tip="Honey: graded an hour after the call on what the coin really did">{p.honey != null ? `🍯 ${p.honey > 0 ? '+' : ''}${p.honey}` : '⏳ grading'}</b></span>
@@ -157,7 +158,7 @@ export function SafeGate({ label, onYes, onNo }) {
   useEffect(() => { const k = e => { if (e.key === 'Escape') onNo(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onNo]);
   return createPortal(<div className="ck-safe" role="presentation" onClick={e => { if (e.target === e.currentTarget) onNo(); }}>
     <div className="ck-safe-box m-pop" role="alertdialog" aria-modal="true" aria-labelledby="ck-safe-h" data-testid="safe-gate">
-      <i className="ck-safe-ic" aria-hidden="true">🛡</i><b id="ck-safe-h">Are you somewhere safe?</b>
+      <i className="ck-safe-ic" aria-hidden="true"><Ic3 e="🛡" /></i><b id="ck-safe-h">Are you somewhere safe?</b>
       <p>{label} holds sealed logins and recovery files. If you're <u>streaming, screen-sharing or recording</u>, or someone can see your screen, stop now — anything opened here could be used to take over these accounts.</p>
       <span><button type="button" className="m-btn" onClick={onNo} data-testid="safe-no" autoFocus>Not now</button>
         <button type="button" className="m-btn m-go" onClick={() => { try { sessionStorage.setItem(SAFE_KEY, '1'); } catch { /* private window: asks again */ } onYes(); }} data-testid="safe-yes">I'm in a safe place — open</button></span></div>
@@ -182,12 +183,12 @@ export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = n
     <div className="ck-cabinet">
       <nav className="ck-folders" role="tablist" aria-label="Log drawers">{drawers.map(([k, [ic, l]], i) => { const n = k === 'all' ? items.length : extra[k] ? extra[k].n : counts[k] || 0;
         return <span key={k} className="ck-fold">{k === 'all' ? null : <button type="button" className="ck-hide" onClick={() => hide(k)} aria-label={`Hide the ${l} drawer`} data-tip={`Hide the ${l} drawer (bring it back any time)`} data-testid={`log-hide-${k}`}>✕</button>}<button type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} disabled={!n && !extra[k]} style={{ '--i': i }} onClick={() => setF(k)} data-testid={`log-${k}`} data-tip={n || extra[k] ? `Open the ${l} drawer` : `The ${l} drawer is empty`}>
-          <i aria-hidden="true">{ic}</i><span>{l}</span><b className="m-num">{n}</b><u className="ck-handle" aria-hidden="true" /></button></span>; })}
+          <i aria-hidden="true"><Ic3 e={ic} /></i><span>{l}</span><b className="m-num">{n}</b><u className="ck-handle" aria-hidden="true" /></button></span>; })}
         {hidden.length ? <button type="button" className="ck-unhide" onClick={() => keep([])} data-tip={`Show ${hidden.map(k => names[k] || k).join(', ')} again`} data-testid="log-unhide">👁 {hidden.length} hidden · show</button> : null}</nav>
       {panel ? <div key={f} className="ck-panel ck-pull" role="tabpanel" data-testid={`cab-${f}`}>{panel}</div> : <ol key={f} className="ck-rows ck-pull" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${String(x.text).slice(0, 80)}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
         <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}
         {all.length > rows.length && shown < LOG_MAX ? <li className="ck-more"><button type="button" onClick={() => setShown(n => Math.min(LOG_MAX, n + LOG_STEP))} data-testid="log-more">View more · {all.length - rows.length} left</button></li>
-          : all.length > rows.length && onDesktop ? <li className="ck-more"><button type="button" onClick={onDesktop} data-testid="log-desktop">🖥 Open all {all.length} on its Desktop</button></li> : null}</ol>}
+          : all.length > rows.length && onDesktop ? <li className="ck-more"><button type="button" onClick={onDesktop} data-testid="log-desktop"><Ic3 e="🖥" /> Open all {all.length} on its Desktop</button></li> : null}</ol>}
     </div>
     {ask ? <SafeGate label={names[ask] || 'This drawer'} onYes={() => { setF0(ask); setAsk(null); }} onNo={() => setAsk(null)} /> : null}
   </section>;

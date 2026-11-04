@@ -6,6 +6,7 @@ import { formatLivePrice } from '../../lib/livePrice';
 import { investigate } from '../CaseFile';
 import { useWalletTags } from '../../lib/coinIntel';
 import { TrenchPulse } from './TrenchPulse';
+import { Ic3 } from '../../lib/icon3d';
 
 const TX_EXPLORER = { solana: 'https://solscan.io/tx/', ethereum: 'https://etherscan.io/tx/', base: 'https://basescan.org/tx/', bsc: 'https://bscscan.com/tx/', arbitrum: 'https://arbiscan.io/tx/', avalanche: 'https://snowtrace.io/tx/', polygon: 'https://polygonscan.com/tx/', sui: 'https://suiscan.xyz/mainnet/tx/' };
 
@@ -37,7 +38,7 @@ export function TradeTape({ pair, rows = 12 }) {
         <b>{t.kind === 'buy' ? 'BUY' : 'SELL'}</b><span>{formatUSD(t.usd)}</span>
         <a href={explorer ? `${explorer}${t.tx}` : undefined} target="_blank" rel="noopener noreferrer" title="Open the transaction">{formatLivePrice(t.price)}</a>
         <code>{mine ? '✓ YOU' : t.wallet ? <a className="tape-who" href={`/terminal/profile/${t.wallet}`} title="Open this wallet's profile">{`${t.wallet.slice(0, 4)}…${t.wallet.slice(-4)}`}</a> : '—'}{(tags.get(t.wallet) || []).map(g => <em key={g.id} className={`tape-tag ${g.tone}`} title={g.why} data-testid={`tape-tag-${g.id}`}>{g.label}</em>)}</code>
-        {t.wallet && !mine ? <button type="button" className="tape-case" title="Open this wallet's case file" aria-label="Open case file" onClick={() => investigate(t.wallet)}>🔎</button> : <span />}
+        {t.wallet && !mine ? <button type="button" className="tape-case" title="Open this wallet's case file" aria-label="Open case file" onClick={() => investigate(t.wallet)}><Ic3 e="🔎" /></button> : <span />}
       </div>;
     })}</div>
   </div>;

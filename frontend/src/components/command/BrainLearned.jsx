@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/brainLearned.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎓 LEARNED (owner, 2026-10-16: "tell me agents / AI are learning and I can go in the chat log to see learnings, proposals"): one read of
 // GET /admin/ai/learned — your standing words filed from the chat log, hold lessons, live rules, the germ entry's real record (agents vs
@@ -34,9 +35,9 @@ export function BrainLearned({ call }) {
         <span>{b.k}</span><span className="bln-bar"><i className={Number(b.med) >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.min(1, b.won / 100)})` }} /></span>
         <em className={Number(b.med) >= 0 ? 'up' : 'dn'}>{pc(b.med)}</em><small>{b.won}% won · n {b.n}</small></li>)}</ul>
         : <p className="bln-dim">your picks: no closed trade with an entry snapshot yet</p>}</section>
-    <section className="bln-sec"><h5>🛠 WAITING FOR YOUR ✅ <small>{(d.pending || []).length}</small></h5>
+    <section className="bln-sec"><h5><Ic3 e="🛠" /> WAITING FOR YOUR <Ic3 e="✅" /> <small>{(d.pending || []).length}</small></h5>
       {(d.pending || []).length ? <ul>{d.pending.map(p => <li key={p.id}><span><b>{p.agent}</b> {p.key} → {String(p.new)} · {p.reason}</span><em>{p.kind}</em></li>)}</ul>
-        : <p className="bln-dim">no proposal waiting — 🛠 Fix agents asks the model for some</p>}</section>
+        : <p className="bln-dim">no proposal waiting — <Ic3 e="🛠" /> Fix agents asks the model for some</p>}</section>
     <Notes title="💬 YOU SAID (from the chat log)" items={d.owner} empty="say how you trade in the chat (always / never / I hold …) and it is filed here" />
     <Notes title="🎓 LESSONS" items={d.lessons} empty="no lessons yet" />
     <Notes title="🧷 LIVE RULES" items={d.rules} empty="no live rules right now" />

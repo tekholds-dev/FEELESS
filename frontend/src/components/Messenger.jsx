@@ -1,13 +1,15 @@
 import { ChatBubble } from './ChatBubble';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MessageCircle, Send, Settings2 } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { MessageCircle, Settings2 } from '../lib/lucide3d';
 import { toast } from 'sonner';
 import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './ChatFx';
 import { useChatPrefs } from '../lib/chatPrefs';
 import { usePresence } from '../lib/presence';
 import { PresenceDot } from './PresenceDot';
 import '../styles/messenger.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💬 THE INBOX = A MESSENGER (owner, 2026-10-20: "chat should expand more vertically and look exactly like Facebook Messenger but better, with
 // features they forgot; fix overflow"): drawn on <body> (a portal — the profile's own layout can never sit on top of it or clip it), tall
@@ -46,7 +48,7 @@ function Text({ t }) {
   const m = String(t || '').match(CA);
   if (!m) return <>{t}</>;
   const [a, b] = [t.slice(0, m.index), t.slice(m.index + m[0].length)];
-  return <>{a}<a className="msx-ca" href={`/terminal/coin/solana/${m[0]}`} onClick={e => e.stopPropagation()}>🪙 {m[0].slice(0, 4)}…{m[0].slice(-4)}</a>{b}</>;
+  return <>{a}<a className="msx-ca" href={`/terminal/coin/solana/${m[0]}`} onClick={e => e.stopPropagation()}><Ic3 e="🪙" /> {m[0].slice(0, 4)}…{m[0].slice(-4)}</a>{b}</>;
 }
 
 export function Messenger({ mine, wallet, session, start, threads, withPeer, setWith, msgs, text, setText, send, policy, prefs, pending, setThreads, endRef, onClose }) {
@@ -72,8 +74,8 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
       {mine && withPeer ? <button type="button" className="msx-back" onClick={() => setWith(null)} aria-label="Back to chats">‹</button> : null}
       <span className="msx-ava is-head" style={{ '--h': hue(withPeer || 'inbox') }}>{withPeer ? ini(peer?.handle || withPeer) : <MessageCircle size={16} />}</span>
       <span className="msx-title"><b>{title}</b><small>{withPeer ? 'private · end to end between two wallets' : `${(threads || []).length} conversations`}</small></span>
-      {withPeer ? <button type="button" className={`msx-ic ${(look.pinned || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('pinned', withPeer)} aria-label="Pin this chat" data-tip="Pin to the top">📌</button> : null}
-      {withPeer ? <button type="button" className={`msx-ic ${(look.muted || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('muted', withPeer)} aria-label="Mute this chat" data-tip="Mute (moves to Muted)">🔕</button> : null}
+      {withPeer ? <button type="button" className={`msx-ic ${(look.pinned || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('pinned', withPeer)} aria-label="Pin this chat" data-tip="Pin to the top"><Ic3 e="📌" /></button> : null}
+      {withPeer ? <button type="button" className={`msx-ic ${(look.muted || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('muted', withPeer)} aria-label="Mute this chat" data-tip="Mute (moves to Muted)"><Ic3 e="🔕" /></button> : null}
       <button type="button" className={`msx-ic ${gear ? 'on' : ''}`} onClick={() => setGear(g => !g)} aria-label="Inbox settings" aria-expanded={gear} data-testid="dm-gear"><Settings2 size={15} /></button>
       <button type="button" className="msx-x" onClick={onClose} aria-label="Close" data-testid="dm-close">×</button>
     </header>
@@ -81,7 +83,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
       <div className="msx-gr"><span>THEME</span><div className="msx-seg">{DM_THEMES.map(([k, l]) => <button key={k} type="button" className={look.theme === k ? 'on' : ''} onClick={() => setLook({ theme: k })} data-testid={`dm-theme-${k}`}><i className={`msx-sw msx-t-${k}`} />{l}</button>)}</div></div>
       <div className="msx-gr"><span>BUBBLES</span><div className="msx-seg">{DM_BUBBLES.map(([k, l]) => <button key={k} type="button" className={look.bubble === k ? 'on' : ''} onClick={() => setLook({ bubble: k })}>{l}</button>)}</div>
         <span>TEXT</span><div className="msx-seg">{DM_SIZES.map(([k, l]) => <button key={k} type="button" className={look.size === k ? 'on' : ''} onClick={() => setLook({ size: k })}>{l}</button>)}</div></div>
-      <div className="msx-gr"><label className="msx-tg"><input type="checkbox" checked={!!look.spam} onChange={e => setLook({ spam: e.target.checked })} /><span>🛡 Spam filter — strangers pushing links, airdrops, "claim" or wallet verifies go to Spam</span></label>
+      <div className="msx-gr"><label className="msx-tg"><input type="checkbox" checked={!!look.spam} onChange={e => setLook({ spam: e.target.checked })} /><span><Ic3 e="🛡" /> Spam filter — strangers pushing links, airdrops, "claim" or wallet verifies go to Spam</span></label>
         <label className="msx-tg"><input type="checkbox" checked={!!look.enter} onChange={e => setLook({ enter: e.target.checked })} /><span>⏎ Enter sends (Shift+Enter = new line)</span></label></div>
       {policy ? <div className="msx-gr"><span>WHO CAN MESSAGE ME</span><div className="msx-seg">{[['everyone', 'Everyone'], ['requests', 'Requests first'], ['nobody', 'Nobody']].map(([k, l]) => <button key={k} type="button" className={policy === k ? 'on' : ''} onClick={() => prefs({ policy: k })}>{l}</button>)}</div></div> : null}
       <div className="msx-gr msx-motion"><span>MOTION · behind your chats</span><ChatThemePicker prefs={cprefs} setPrefs={setCprefs} room="inbox" feeUsd={feeUsd} unlocked={perkBgs} /></div>

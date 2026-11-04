@@ -13,6 +13,7 @@ import { useLivePrice } from '../lib/livePriceHub';
 import { feeTier, poolDayRate, bandEdge, REF_W } from '../lib/autoRange';
 import { AutoRangeDesk } from './AutoRangeDesk';
 import '../styles/moneyDesk.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💸 THE MONEY DESK — every money building's pop-out DOES the money in place (owner, 2026-10-23: "no redirects — click to choose the platform /
 // provider and do whatever from the pop-out · $5 wouldn't do shit · straight into rapid compound and growth"). Pick a PROVIDER (live APY from
@@ -101,7 +102,7 @@ function FeeHunters({ rows, amt, moon = false }) {
         <span className="md-hunt-id"><b>{r.sym}</b><small>{r.proto} · {turn >= 0.1 ? `${turn.toFixed(turn >= 10 ? 0 : 1)}× its size traded today` : 'quiet'}</small></span>
         <span className="md-hunt-apy"><i aria-hidden="true"><s /></i><strong className="m-num">{apy >= 100 ? Math.round(apy).toLocaleString('en-US') : apy.toFixed(1)}%</strong></span>
         <span className="md-hunt-n" data-tip={`At today's fee pace: ${cash(day / 3)} overnight (8h) · ${cash(day)} a day on ${cash(amt)} — fees only; the coins themselves can fall`}><em>OVERNIGHT</em><b className="m-num">+{cash(day / 3)}</b><small>{cash(day)} / day</small></span>
-        {tradeOf(r) ? <button type="button" className="m-btn" onClick={() => goTrade(r)} data-tip="Its coin on the chart + Quick trade, right here" data-testid={`md-hunt-trade-${r.id}`}>⚡</button> : <i />}</li>; })}</ol>
+        {tradeOf(r) ? <button type="button" className="m-btn" onClick={() => goTrade(r)} data-tip="Its coin on the chart + Quick trade, right here" data-testid={`md-hunt-trade-${r.id}`}><Ic3 e="⚡" /></button> : <i />}</li>; })}</ol>
     <small className="md-risk">⚠ {moon ? 'A tight band out-earns everything while the price sits inside it and earns 0 the moment it leaves; you end up holding the coin that fell (impermanent loss). Re-center it when it drifts.' : 'Fee pools pay in their own two coins: if one falls, you hold more of it (impermanent loss) — a memecoin pool can drop 50 % in an hour.'} No risk, no reward — size it like you can lose it.</small>
   </div>;
 }
@@ -124,15 +125,15 @@ function JoinBox({ row, amt, onClose }) {
     try { setDone(await dammZap({ provider, owner: wallet.address, pool: row.pool, coin: row.coin, solAmount: solIn * 2, onStatus: setSt })); lpChanged(); } catch (e) { setErr(e.code === 4001 ? 'Declined in the wallet — nothing more was sent.' : e.message); } setSt(''); setBusy(false); };
   return <div className="md-join" data-testid={`md-join-${row.id}`}>
     <div className="md-join-head"><b>＋ JOIN {row.sym}</b><small>{cash(amt / 2)} in SOL + {cash(amt / 2)} in ${row.coinSym} · your wallet signs</small><button type="button" className="md-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></div>
-    {done ? <p className="md-join-ok" data-testid="md-join-ok">✅ You're in the pool{done.swap ? ' (zapped)' : ''} — position <b>{done.position.slice(0, 6)}…</b> earns {(row.feeDay * 100).toFixed(1)}%/day at today's pace · tx {done.signature.slice(0, 8)}…</p>
+    {done ? <p className="md-join-ok" data-testid="md-join-ok"><Ic3 e="✅" /> You're in the pool{done.swap ? ' (zapped)' : ''} — position <b>{done.position.slice(0, 6)}…</b> earns {(row.feeDay * 100).toFixed(1)}%/day at today's pace · tx {done.signature.slice(0, 8)}…</p>
       : !q ? <div className="md-join-go"><button type="button" className="m-btn m-go md-zap" disabled={busy || (sol && !solIn)} onClick={zap} data-testid="md-join-zap"
           data-tip={`One tap: swap ${solIn ? solIn.toFixed(4) : '½'} SOL → $${row.coinSym} (FEELESS swap engine), then join with the other half + what it bought — two wallet approvals, each simulated first`}>
           {sol ? (solIn ? `⚡ ZAP ${cash(amt)} — ${solIn.toFixed(4)} SOL → $${row.coinSym}, then join` : 'Reading the SOL price…') : 'Connect wallet'}</button>
         {sol ? <button type="button" className="m-btn" disabled={busy || !solIn} onClick={quote} data-testid="md-join-quote" data-tip="Already hold the coin? Quote the join with what's in your wallet">Join with what I hold</button> : null}</div>
       : <div className="md-join-q">
         <span><em>YOU PUT IN</em><b className="m-num">{(Number(q.lamports) / 1e9).toFixed(4)} SOL</b><b className="m-num">{q.coinUi.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${row.coinSym}</b></span>
-        {q.short ? <button type="button" className="m-btn" onClick={getCoin} data-testid="md-join-getcoin" data-tip={`You hold less ${row.coinSym} than the pool needs — swap ${solIn ? solIn.toFixed(4) : ''} SOL into it here, then join`}>⚡ Get ${row.coinSym} first</button> : null}
-        <button type="button" className="m-btn m-go" disabled={busy || q.short} onClick={join} data-testid="md-join-sign" data-tip="Built with Meteora's SDK, simulated first — nothing is signed if the chain would reject it">✍ Join the pool</button></div>}
+        {q.short ? <button type="button" className="m-btn" onClick={getCoin} data-testid="md-join-getcoin" data-tip={`You hold less ${row.coinSym} than the pool needs — swap ${solIn ? solIn.toFixed(4) : ''} SOL into it here, then join`}><Ic3 e="⚡" /> Get ${row.coinSym} first</button> : null}
+        <button type="button" className="m-btn m-go" disabled={busy || q.short} onClick={join} data-testid="md-join-sign" data-tip="Built with Meteora's SDK, simulated first — nothing is signed if the chain would reject it"><Ic3 e="✍" /> Join the pool</button></div>}
     {swap ? <div className="md-swap"><Suspense fallback={<p className="md-empty">Opening the swap…</p>}><SwapWorkspace key={swap} pair={null} onWallet={() => {}} /></Suspense></div> : null}
     {st ? <p className="md-empty" aria-live="polite">{st}</p> : null}{err ? <p className="md-join-err" role="alert">{err}</p> : null}
     <small className="md-risk">A position also locks a little SOL as rent (back when you close it). If ${row.coinSym} dumps, you end up holding more of it — that's the risk the fees pay you for.</small>
@@ -141,7 +142,7 @@ function JoinBox({ row, amt, onClose }) {
 function HotPools({ amt }) {
   const rows = useHotPools(); const [open, setOpen] = useState(null);
   if (!rows) return <p className="md-empty">Reading Meteora's hottest pools…</p>; if (!rows.length) return null;
-  return <div className="md-hunt md-hot" data-testid="md-hot"><div className="md-hunt-head"><span><b>🔥 HOT POOLS · JOIN HERE</b><small>Meteora SOL pools paying LPs the most right now · ≥ $20K deep · ≥ 6 h old · ≥ 300 holders</small></span></div>
+  return <div className="md-hunt md-hot" data-testid="md-hot"><div className="md-hunt-head"><span><b><Ic3 e="🔥" /> HOT POOLS · JOIN HERE</b><small>Meteora SOL pools paying LPs the most right now · ≥ $20K deep · ≥ 6 h old · ≥ 300 holders</small></span></div>
     <ol>{rows.slice(0, 5).map((r, i) => { const day = amt * r.feeDay;
       return <li key={r.id} style={{ '--i': i, '--g': Math.min(1, r.feeDay / 0.1) }}>
         <span className="md-hunt-id"><b>{r.sym}</b><small>{Math.round(r.ageH)}h old · {r.holders.toLocaleString('en-US')} holders · {usd(r.tvl)} deep</small></span>
@@ -207,7 +208,7 @@ export function RangePicture({ pool = null, amt: amt0 = null, start = null }) {
   const span = Math.max(1.06, k ** 2.2); const pos = v => `${Math.max(0, Math.min(100, 50 + (Math.log(v) / Math.log(span)) * 50))}%`;   // a log axis scaled to the band: it fills ~45% of the lane
   const up = inSec / Math.max(1, allSec); const mmss = ms => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
   return <div className={`md-range rl ${inside ? 'is-in' : 'is-out'}`} data-testid="range-picture">
-    <header className="rl-head"><b>🎯 RANGE LAB</b><small>{pool?.sym ? `${pool.sym} · ` : ''}v3 / DLMM pay only while the price is inside your band</small>
+    <header className="rl-head"><b><Ic3 e="🎯" /> RANGE LAB</b><small>{pool?.sym ? `${pool.sym} · ` : ''}v3 / DLMM pay only while the price is inside your band</small>
       <span className={`rl-state ${inside ? 'is-in' : 'is-out'}`} role="status">{inside ? '● EARNING' : due != null ? `○ OUT · AUTO-RANGE IN ${mmss(due)}` : '○ OUT · EARNS 0'}</span></header>
     <div className="rl-amt" role="group" aria-label="Amount">{amt0 ? <b className="m-num">{cash(amt)}</b> : <>{AMTS.map(a => <button key={a} type="button" className={amt === a ? 'is-on' : ''} onClick={() => setOwn(a)} data-tip={`Plan it with $${a}`}>${a >= 1000 ? '1K' : a}</button>)}
       <label className="rl-in"><span>$</span><input type="number" min="1" value={own} onChange={e => setOwn(Math.max(1, Number(e.target.value) || 1))} aria-label="Amount in dollars" /></label></>}</div>
@@ -249,7 +250,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
   };
   const verb = !p ? '' : p.how === 'lend' ? `🏦 Deposit into ${p.sym} · Jupiter Lend` : p.how === 'trade' ? `⚡ Trade ${String(p.sym).split('-')[0]} here` : `⚡ ${p.fromSym} → ${p.sym}`;
   return <section className={`md j-${job} ${compact ? 'is-compact' : ''}`} data-testid={`money-desk-${job}`}>
-    <div className="md-head"><span><b>💸 {title || 'PUT IT TO WORK'}</b><small>{JOB_WORD[job]} · runs right here · your wallet signs</small></span>
+    <div className="md-head"><span><b><Ic3 e="💸" /> {title || 'PUT IT TO WORK'}</b><small>{JOB_WORD[job]} · runs right here · your wallet signs</small></span>
       <span className="m-seg md-risk-dial" role="radiogroup" aria-label="Risk">{RISKS.map(([k, w, tip]) => <button key={k} type="button" role="radio" aria-checked={risk === k} className={`${risk === k ? 'active' : ''} r-${k}`} onClick={() => setRisk(k)} data-tip={tip} data-testid={`md-risk-${k}`}>{w}</button>)}</span></div>
     <LpPositions compact />
     <div className="md-amt"><span className="m-seg" role="radiogroup" aria-label="Amount">{AMOUNTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-tip={`Run the numbers at $${a.toLocaleString('en-US')}`} data-testid={`md-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</span>
@@ -263,7 +264,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
       onClick={() => { setPid(x.id); setGo(null); }} data-tip={`${x.name} · ${x.sym}${x.tvl ? ` · TVL ${usd(x.tvl)}` : ''} — ${x.how === 'lend' ? 'deposit right here, withdraw any time' : x.how === 'trade' ? 'the pool\'s coin on the chart + Quick trade' : `swap ${x.fromSym} into it right here; holding it earns`}`} data-testid={`md-prov-${x.id}`}>
       <span><b>{x.sym}</b><small>{x.name}</small></span><i className="md-gauge" style={{ '--g': Math.min(1, (Number(x.apy) || 0) / 15) }}><s /></i><strong className="m-num">{x.apy != null ? apyTxt(x.apy) : 'fees'}</strong></button>)}</div>
       : <p className="md-empty">Reading the live providers…</p>}
-    {p && p.how === 'trade' && !(Number(p.apy) >= 0.5) ? <p className="md-note">A trade, not a yield: this pool publishes no APY worth compounding. ⚡ opens its chart + Quick trade right here — or pick a provider above that pays.</p> : null}
+    {p && p.how === 'trade' && !(Number(p.apy) >= 0.5) ? <p className="md-note">A trade, not a yield: this pool publishes no APY worth compounding. <Ic3 e="⚡" /> opens its chart + Quick trade right here — or pick a provider above that pays.</p> : null}
     {p && (p.how !== 'trade' || Number(p.apy) >= 0.5) ? <div className="md-grow">
       <div className="md-tiles">
         <span style={{ '--i': 0 }} className="is-hot"><em>OVERNIGHT</em><b className="m-num" key={`n${amt}${p.id}`}>+{cash(g.day / 3)}</b><small>8 hours</small></span>

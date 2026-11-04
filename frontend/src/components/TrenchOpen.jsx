@@ -8,6 +8,7 @@ import { SocialIcons } from './QuickPulse';
 import { PumpCallouts } from './QuickPulse';
 import { BsBar } from './BsBar';
 import { leanOf, rushScore } from '../lib/lean';
+import { Ic3 } from '../lib/icon3d';
 
 const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n.toFixed(0)}`; };
 const sg = v => (v == null ? '—' : Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : ''}${Number(v).toFixed(0)}%`);
@@ -55,17 +56,17 @@ function ReadCard({ r, onOpen, showAge, onPick, busy }) {
   return <div role="button" tabIndex={0} className={`tsp-card ${sf[2]} ${r.tv?.call ? `call-${r.tv.call[2]}` : ''}`} onClick={() => onOpen(r)} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen(r))}
     onMouseEnter={() => warmCoin(r)} onFocus={() => warmCoin(r)} data-testid={`rc-${r.symbol}`} data-tip={`Quick look: chart, every vital, pick · ${whyLine(r)}`}>
     <span className="tsp-av" aria-hidden="true">{String(r.symbol || '?').slice(0, 1)}{r.logo && <img src={r.logo} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}</span>
-    <span className="tsp-id"><b><SocialIcons r={r} />${r.symbol}{r.call && <i>{ICON[r.call]}</i>}{r.pc?.callers ? <i data-tip={`${r.pc.callers} Pump callers right now`}>📣{r.pc.callers}</i> : null}{r.fd?.n ? <i data-tip={`${r.fd.n} new Pump coins are paired with it — their buys route through its pool`}>🧲{r.fd.n}</i> : null}</b>
+    <span className="tsp-id"><b><SocialIcons r={r} />${r.symbol}{r.call && <i>{ICON[r.call]}</i>}{r.pc?.callers ? <i data-tip={`${r.pc.callers} Pump callers right now`}><Ic3 e="📣" />{r.pc.callers}</i> : null}{r.fd?.n ? <i data-tip={`${r.fd.n} new Pump coins are paired with it — their buys route through its pool`}>🧲{r.fd.n}</i> : null}</b>
       <small>{showAge ? <em className="tsp-age">{age(r.ageH)}</em> : `${age(r.ageH)} ·`} {big(r.mcap)} · {big(r.vol1h)}/h</small></span>
     <span className="tsp-mv"><span className={mv(r.chg5m)}>{sg(r.chg5m)}</span><small>5m</small><span className={mv(r.chg1h)}>{sg(r.chg1h)}</span><small>1h</small></span>
     <span className={`tsp-safe ${sf[2]}`} data-tip={sf[3]}>{sf[0]}</span>
-    {r.curvePct != null && <span className="tsp-bond" data-tip={`${Math.round(r.curvePct)}% along its launch curve`}><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curvePct / 100))})` }} /><small>🔔 {Math.round(r.curvePct)}%</small></span>}
+    {r.curvePct != null && <span className="tsp-bond" data-tip={`${Math.round(r.curvePct)}% along its launch curve`}><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curvePct / 100))})` }} /><small><Ic3 e="🔔" /> {Math.round(r.curvePct)}%</small></span>}
     {r.tv && <span className="tsp-tv"><TrenchVital r={r} mini /></span>}
     <span className="tsp-foot">{r.vital && <span className={`tsp-grade cvl-${r.vital.tone}`} data-tip={`Vital ${r.vital.score}/100 — ${r.vital.word}`}>🫀 {r.vital.grade}</span>}
-      {(r.tv?.tags || []).slice(0, 2).map(([ic, t, tn]) => <span key={t} className={`tsp-tag ${tn}`}>{ic} {t}</span>)}
+      {(r.tv?.tags || []).slice(0, 2).map(([ic, t, tn]) => <span key={t} className={`tsp-tag ${tn}`}><Ic3 e={ic} /> {t}</span>)}
       {r.buyShare != null && <span className="tsp-tag">{Math.round(r.buyShare)}% buys</span>}</span>
     <span className="tsp-flow" onClick={e => e.stopPropagation()} role="presentation">{r.mint && <BsBar mint={r.mint} compact />}<Lean r={r} />
-      {onPick && rush(r) != null && <button type="button" className="m-btn m-go tsp-go" disabled={busy} onClick={e => { e.stopPropagation(); onPick(r); }} data-testid={`rush-pick-${r.symbol}`}>⚡ Rush</button>}</span>
+      {onPick && rush(r) != null && <button type="button" className="m-btn m-go tsp-go" disabled={busy} onClick={e => { e.stopPropagation(); onPick(r); }} data-testid={`rush-pick-${r.symbol}`}><Ic3 e="⚡" /> Rush</button>}</span>
   </div>;
 }
 
@@ -107,14 +108,14 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
       <small className="m-dim">{d.rows.length} of {d.seen} coins in the feed. Nothing is hidden — read the safety word and the line under each coin before you pick. The engine never buys from this list.</small></div>
     <div className="top-bar"><div className="m-seg top-seg" role="group" aria-label="Layout">{LAYOUTS.map(([k, label]) => <button key={k} type="button" className={layout === k ? 'active' : ''} aria-pressed={layout === k} onClick={() => setLayout(k)} data-testid={`open-l-${k}`}>{label}</button>)}</div>
       <div className="m-seg top-seg" role="group" aria-label="Safety filter">{FILTERS.map(([k, label, fn]) => <button key={k} type="button" className={f === k ? 'active' : ''} aria-pressed={f === k} onClick={() => setF(k)} data-testid={`open-f-${k}`}>{label}<i>{d.rows.filter(fn).length}</i></button>)}</div>
-      <button type="button" className={`top-soc-btn ${soc ? 'on' : ''}`} aria-pressed={soc} onClick={() => setSoc(!soc)} data-tip="Coins with a website / X / Telegram link first" data-testid="open-soc">🔗 Socials first<i>{d.rows.filter(r => socN(r) > 0).length}</i></button>
+      <button type="button" className={`top-soc-btn ${soc ? 'on' : ''}`} aria-pressed={soc} onClick={() => setSoc(!soc)} data-tip="Coins with a website / X / Telegram link first" data-testid="open-soc"><Ic3 e="🔗" /> Socials first<i>{d.rows.filter(r => socN(r) > 0).length}</i></button>
       {layout === 'list' && <div className="m-seg top-seg" role="group" aria-label="Sort">{SORTS.map(([k, label]) => <button key={k} type="button" className={sort === k ? 'active' : ''} aria-pressed={sort === k} onClick={() => setSort(k)} data-testid={`open-s-${k}`}>{label}</button>)}</div>}</div>
     {layout === 'split' && <div className="tsp" data-testid="open-split">
       <div className="tsp-col" data-testid="split-new"><div className="tsp-head"><span className="m-label">🆕 NEWEST</span><small className="m-dim">{newest.length} coins · youngest first</small>
           <button type="button" className={`top-soc-btn ${clean ? 'on' : ''}`} aria-pressed={clean} onClick={() => setClean(c => !c)} data-tip="Hide failed scans and rug / busted / wash reads" data-testid="split-clean">🧹 Clean{hidden > 0 ? <i>{hidden} hidden</i> : null}</button></div>
         <div className="tsp-list">{newest.slice(0, cap).map(r => <ReadCard key={r.mint} r={r} showAge onOpen={x => open(x, newest)} onPick={onPick} busy={busy} />)}
           {!newest.length && <small className="m-dim top-none">No coin in this filter right now.</small>}</div></div>
-      <div className="tsp-col" data-testid="split-reads"><div className="tsp-head"><span className="m-label">🔥 THE READS</span>
+      <div className="tsp-col" data-testid="split-reads"><div className="tsp-head"><span className="m-label"><Ic3 e="🔥" /> THE READS</span>
         <div className="m-seg top-seg tsp-lanes" role="group" aria-label="Read lane">{lanes.map(([k, label, rs]) => <button key={k} type="button" className={lane === k ? 'active' : ''} aria-pressed={lane === k} onClick={() => setLane(k)} data-testid={`lane-${k}`}>{label}<i>{rs.length}</i></button>)}</div></div>
         <div className="tsp-list">{laneList.slice(0, cap).map((r, i) => <React.Fragment key={r.mint}>{lane === 'hot' && word(r) !== word(laneList[i - 1] || {}) && <small className="tsp-sub">{r.tv.call[0]} {word(r)} · {laneList.filter(x => word(x) === word(r)).length}</small>}
           <ReadCard r={r} onOpen={x => open(x, laneList)} onPick={onPick} busy={busy} /></React.Fragment>)}
@@ -144,9 +145,9 @@ export function TrenchOpen({ max = 10, onPick, busy }) {
     <div className="top-head"><span className="m-label">📡 FEELESS CALLS · CHECKED EVERY {Math.round((d.everySec || 210) / 60 * 10) / 10} MIN</span>
       <small className="m-dim">A coin is called once when it first leads a list; we then track what it did. Record so far:</small>
       <span className="top-kinds">{(d.kinds || []).map(k => <span key={k.key} className="top-kind" data-testid={`call-kind-${k.key}`} data-tip={`${k.name}: ${k.rule}. Settled 1 hour after the call (no price then = −100%). A record, never a promise.`}>
-        {k.icon} {k.name}: {k.proof?.n >= 5 ? <b className={k.proof.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(k.proof.medPct)} after 1h · {k.proof.wonPct}% up</b> : <b className="m-dim">{k.proof?.n || 0} of 5 settled — too early</b>}</span>)}
+        <Ic3 e={k.icon} /> {k.name}: {k.proof?.n >= 5 ? <b className={k.proof.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(k.proof.medPct)} after 1h · {k.proof.wonPct}% up</b> : <b className="m-dim">{k.proof?.n || 0} of 5 settled — too early</b>}</span>)}
         {Object.entries(d.earliness || {}).filter(([, v]) => v.n >= 5).map(([label, v]) => <span key={label} className="top-kind" data-testid={`early-${label}`} data-tip="Does being early pay? Coins grouped by how old they were when first called out; settled 1 hour later. A record, never a promise.">
-          ⏱ seen at {label}: <b className={v.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(v.medPct)} · {v.big} ran +50% · {v.dead} died</b></span>)}</span></div>
+          <Ic3 e="⏱" /> seen at {label}: <b className={v.medPct > 0 ? 'm-pos' : 'm-neg'}>typical {sg(v.medPct)} · {v.big} ran +50% · {v.dead} died</b></span>)}</span></div>
     {(d.feed || []).length ? <ul className="top-feed" data-testid="call-feed">{d.feed.slice(0, 8).map(c => <li key={`${c.kind}-${c.mint}-${c.at}`}><button type="button" onClick={() => open(c)}>
       <i>{ICON[c.kind]}</i><b>${c.symbol || `${String(c.mint).slice(0, 4)}…`}</b><span>{KIND[c.kind]} · called {c.mins < 60 ? `${c.mins}m` : `${Math.round(c.mins / 60)}h`} ago</span>
       <em className={`m-num ${Number(c.pct) >= 0 ? 'm-pos' : 'm-neg'}`}>{sg(c.pct)}</em><u>{c.live ? 'since the call' : 'after 1h'}</u></button></li>)}</ul>

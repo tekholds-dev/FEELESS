@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { apiUrl, errorText } from '../../lib/api';
 import { CROP, uploadCropped } from '../../lib/cropImage';
 import { MetaCard, CARD_DESIGNS, AuraPicker } from './MetaCard';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › Badges › Cards: every badge + season drop as a card. Pick one → edit front and back live
 // (drag the preview to turn it, click to flip). Money rules stay in Reserve pool / Badge pools.
@@ -55,7 +56,7 @@ export function CardStudio({ call }) {
           <div className="m-row"><label className="m-field"><span>Glyph</span><input className="m-input" style={{ width: 70, textAlign: 'center' }} maxLength={8} value={draft.glyph} onChange={e => set('glyph', e.target.value)} /></label>
             <label className="m-field"><span>Colour 1</span><input type="color" className="cs-color" value={draft.accent || '#15d16a'} onChange={e => set('accent', e.target.value)} /></label>
             <label className="m-field"><span>Colour 2</span><input type="color" className="cs-color" value={draft.accent2 || '#f5c451'} onChange={e => set('accent2', e.target.value)} /></label>
-            <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => art(e.target.files?.[0])} />🖼 {draft.art ? 'Change art' : 'Add art'}</label>
+            <label className="m-btn"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={e => art(e.target.files?.[0])} /><Ic3 e="🖼" /> {draft.art ? 'Change art' : 'Add art'}</label>
             {draft.art && <button type="button" className="m-btn danger" onClick={() => set('art', '')}>Remove art</button>}</div>
           <label className="m-field"><span>Lore (back of the card) · {(draft.lore || '').length}/600</span><textarea className="m-input" rows={4} maxLength={600} value={draft.lore} onChange={e => { set('lore', e.target.value); setFlipped(true); }} placeholder="The story holders read when they flip it." /></label>
           <CardRewards call={call} card={live} onSaved={load} />

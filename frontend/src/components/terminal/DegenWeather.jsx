@@ -3,6 +3,7 @@ import { useMarket } from '../../hooks/useMarket';
 import { useCoinRead } from './ChartVitals';
 import { useCoinEdge } from '../../lib/coinEdge';
 import '../../styles/warSky.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // Fun, but honest: the forecast is computed from the live launchpad board (share of green coins,
 // average 1h move, how many are dumping). The jokes are jokes; the numbers are real.
@@ -88,10 +89,10 @@ function CoinWeather({ pair, compact }) {
   useEffect(() => { window.dispatchEvent(new CustomEvent('feeless:war-weather', { detail: f.tone })); }, [f.tone]);
   return <section className={`degen-weather dw-coin t-${f.tone} ${compact ? 'is-compact' : ''}`} data-testid="degen-weather" data-tone={f.tone}>
     <div className="dw-main">
-      <span className="dw-icon" aria-hidden="true">{f.icon}</span>
+      <span className="dw-icon" aria-hidden="true"><Ic3 e={f.icon} /></span>
       <div><small>COIN WEATHER · ${pair?.baseToken?.symbol || ''} · LIVE{read ? '' : ' · reading…'}</small><b data-testid="dw-coin-line">{f.line}</b>
-        <em>{f.crew ? <span className={`dw-crew k-${f.crew.kind}`} data-tip={f.crew.why}>{f.crew.icon} {f.crew.label}</span> : null}
-          {f.rep ? <span className={`dw-rep is-${f.rep.tone}`} data-tip="The creator's reputation on FEELESS">🧪 creator {f.rep.word}</span> : null}
+        <em>{f.crew ? <span className={`dw-crew k-${f.crew.kind}`} data-tip={f.crew.why}><Ic3 e={f.crew.icon} /> {f.crew.label}</span> : null}
+          {f.rep ? <span className={`dw-rep is-${f.rep.tone}`} data-tip="The creator's reputation on FEELESS"><Ic3 e="🧪" /> creator {f.rep.word}</span> : null}
           {f.call ? <span className={`dw-call is-${f.call[2] || ''}`}>{f.call[0]} {f.call[1]}</span> : null}</em></div>
     </div>
     <div className="dw-tiles" data-testid="dw-tiles">{f.tiles.map((t, i) => <span key={t.k} className={t.t ? `is-${t.t}` : ''} style={{ '--i': i }} data-tip={t.tip}><i>{t.label}</i><b key={t.val}>{t.val}</b></span>)}</div>

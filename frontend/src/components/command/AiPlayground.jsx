@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/aiPlay.css';
+import { Ic3 } from '../../lib/icon3d';
 
 const IDEAS = { reaper: 'hold a winner one more read when buyers still lead the tape', agents: 'Devil should object to a coin whose dev sold in the last 5 min',
   ranking: 'rank coins with a site AND X a little higher', cockpit: 'show each seat’s snapshot count (📸 1/2) on its card', home: 'add the coin’s 5-minute sparkline to the spotlight' };
@@ -51,7 +52,7 @@ export function AiPlayground({ call, prov = 'auto' }) {
     <form className="apg-ask" onSubmit={e => { e.preventDefault(); make(null); }}>
       <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} placeholder={IDEAS[target] || 'what should change?'} maxLength={900} data-testid="apg-input" />
       <button type="submit" className="m-btn m-go" disabled={busy || txt.trim().length < 3} data-testid="apg-make">{busy ? '⚙ writing…' : '🧩 Propose'}</button>
-      {cur && cur.status === 'proposed' ? <button type="button" className="m-btn" disabled={busy || txt.trim().length < 3} onClick={() => make(cur.id)} data-testid="apg-change" data-tip="The model rewrites THIS proposal with your words">✏ Change it</button> : null}
+      {cur && cur.status === 'proposed' ? <button type="button" className="m-btn" disabled={busy || txt.trim().length < 3} onClick={() => make(cur.id)} data-testid="apg-change" data-tip="The model rewrites THIS proposal with your words"><Ic3 e="✏" /> Change it</button> : null}
     </form>
     {cur ? <div className={`apg-prop is-${cur.status}`} data-testid="apg-prop">
       <div className="apg-phead"><b>{cur.title}</b><em>{cur.kind === 'new' ? 'NEW' : 'CHANGE'} · {cur.file}</em><span className={`apg-st is-${cur.status}`}>{String(cur.status || 'proposed').toUpperCase()}</span></div>
@@ -66,7 +67,7 @@ export function AiPlayground({ call, prov = 'auto' }) {
           {sideBySide(cur.diff).map(([a, b, k], i) => <div key={i} className={`apg-sr is-${k}`} style={{ '--i': Math.min(i, 40) }}><code>{a ?? ''}</code><code>{b ?? ''}</code></div>)}</div>
         : view === 'diff' && cur.diff ? <pre className="apg-code is-diff" data-testid="apg-diff">{String(cur.diff).split('\n').map((l, i) => <span key={i} className={l.startsWith('+++') || l.startsWith('---') ? 'is-h' : l.startsWith('@@') ? 'is-at' : l.startsWith('+') ? 'is-add' : l.startsWith('-') ? 'is-del' : ''}>{l || ' '}{'\n'}</span>)}</pre>
         : <pre className="apg-code" data-testid="apg-code">{lines.map((l, i) => <span key={i}><i>{i + 1}</i>{l || ' '}{'\n'}</span>)}</pre>}
-      {cur.status === 'proposed' ? <div className="apg-act"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => decide(true)} data-testid="apg-approve">✅ Approve → build queue</button>
+      {cur.status === 'proposed' ? <div className="apg-act"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => decide(true)} data-testid="apg-approve"><Ic3 e="✅" /> Approve → build queue</button>
         <button type="button" className="m-btn" disabled={busy} onClick={() => decide(false)} data-testid="apg-drop">✕ Drop</button>
         <small>approving writes nothing yet — Claude Code applies it with tests when you say “build the queue”</small></div>
         : <small className="apg-note">{cur.status === 'approved' ? `✅ in the build queue${cur.build ? ` (${cur.build})` : ''}` : '✕ dropped'}</small>}

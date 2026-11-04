@@ -6,6 +6,7 @@ import { useWallet } from '../hooks/useWallet';
 import { readChatSession } from '../lib/chatSession';
 import { ReportBug } from './ReportBug';
 import '../styles/supportHub.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🛟 SUPPORT HUB (owner, 2026-10-20: "support with a visual live animated grid of bugs / reports auto-sorted by importance, community polls —
 // enough votes climb the ladder of approval — a support button in vital areas that leads to roadmap + whitepaper, and its own huge section").
@@ -30,9 +31,9 @@ function CardActs({ id, d, act, busy }) {
   const [open, setOpen] = useState(false); const [t, setT] = useState('');
   const r = d?.reacts?.[id] || { up: 0, down: 0, mine: 0 }; const cs = d?.comments?.[id] || [];
   return <div className="sup-acts" data-testid={`sup-acts-${id}`}>
-    <button type="button" className={r.mine === 1 ? 'is-on' : ''} disabled={!!busy} onClick={() => act({ react: id, v: 1 }, `r${id}`)} aria-pressed={r.mine === 1} data-tip="Like">👍 {r.up || ''}</button>
-    <button type="button" className={r.mine === -1 ? 'is-on is-dn' : ''} disabled={!!busy} onClick={() => act({ react: id, v: -1 }, `r${id}`)} aria-pressed={r.mine === -1} data-tip="Dislike">👎 {r.down || ''}</button>
-    <button type="button" className={open ? 'is-on' : ''} onClick={() => setOpen(!open)} aria-expanded={open} data-tip="Comments">💬 {cs.length || ''}</button>
+    <button type="button" className={r.mine === 1 ? 'is-on' : ''} disabled={!!busy} onClick={() => act({ react: id, v: 1 }, `r${id}`)} aria-pressed={r.mine === 1} data-tip="Like"><Ic3 e="👍" /> {r.up || ''}</button>
+    <button type="button" className={r.mine === -1 ? 'is-on is-dn' : ''} disabled={!!busy} onClick={() => act({ react: id, v: -1 }, `r${id}`)} aria-pressed={r.mine === -1} data-tip="Dislike"><Ic3 e="👎" /> {r.down || ''}</button>
+    <button type="button" className={open ? 'is-on' : ''} onClick={() => setOpen(!open)} aria-expanded={open} data-tip="Comments"><Ic3 e="💬" /> {cs.length || ''}</button>
     {open ? <div className="sup-thread"><ul>{cs.map((c, i) => <li key={i}><b>{c.by.slice(0, 4)}…{c.by.slice(-4)}</b><span>{c.text}</span></li>)}{!cs.length ? <li className="sup-none">No comments yet.</li> : null}</ul>
       <form onSubmit={async e => { e.preventDefault(); if (await act({ comment: id, text: t }, `c${id}`)) setT(''); }}><input className="m-input" value={t} maxLength={280} placeholder="Add a comment…" onChange={e => setT(e.target.value)} aria-label="Comment" />
         <button type="submit" className="m-btn" disabled={t.trim().length < 2 || !!busy}>Send</button></form></div> : null}
@@ -56,19 +57,19 @@ export function SupportHub() {
   return <section className="sup" data-testid="support-hub">
     <div className="sup-hero m-card m-live"><div><span className="eyebrow">FEELESS · SUPPORT</span><h1>Tell us. Vote on it. <em>Watch it ship.</em></h1>
       <p>Every report lands here, sorted by how many people it hits. Ideas go to a vote — enough votes climb the ladder, and the top of the ladder goes on the roadmap.</p>
-      <div className="sup-links"><Link to="/terminal/roadmap">🗺 Roadmap</Link><Link to="/terminal/whitepaper">📄 Whitepaper</Link><Link to="/terminal/learn">📚 Learn</Link></div></div>
+      <div className="sup-links"><Link to="/terminal/roadmap"><Ic3 e="🗺" /> Roadmap</Link><Link to="/terminal/whitepaper"><Ic3 e="📄" /> Whitepaper</Link><Link to="/terminal/learn"><Ic3 e="📚" /> Learn</Link></div></div>
       <div className="sup-kpis">{[['OPEN', c.open, 'warn'], ['FIXING', c.fixing, ''], ['FIXED', c.fixed, 'ok'], ['POLLS', c.polls, '']].map(([k, v, t], i) => <span key={k} className={t ? `t-${t}` : ''} style={{ '--i': i }}><em>{k}</em><b key={String(v)}>{v ?? '—'}</b></span>)}</div></div>
     <nav className="sup-lens m-seg" role="tablist">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`sup-lens-${k}`}>{l}</button>)}</nav>
     {lens === 'reports' ? <>
       <div className="sup-filter">{[['all', 'All'], ['bug', '🐞 Bugs'], ['idea', '💡 Ideas'], ['security', '🔒 Security']].map(([k, l]) => <button key={k} type="button" className={kind === k ? 'on' : ''} onClick={() => setKind(k)}>{l}</button>)}</div>
-      {!d ? <p className="sup-empty">Reading the board…</p> : !rows.length ? <p className="sup-empty">🟢 Nothing reported here. Seen something? 📝 Report it.</p>
+      {!d ? <p className="sup-empty">Reading the board…</p> : !rows.length ? <p className="sup-empty">🟢 Nothing reported here. Seen something? <Ic3 e="📝" /> Report it.</p>
         : <div className="sup-grid" data-testid="sup-grid">{rows.map((r, i) => { const [ic, st] = STATUS[r.status] || STATUS.open; const mine = (d.mine || []).includes(r.id);
           return <article key={r.id} className={`sup-card h-${heat(r.importance)} s-${r.status}`} style={{ '--i': Math.min(i, 20) }} data-testid="sup-card">
-            <header><i>{KIND[r.kind] || '🐞'}</i><span className="sup-area">{r.area}</span><span className="sup-st">{ic} {st}</span></header>
+            <header><i>{KIND[r.kind] || '🐞'}</i><span className="sup-area">{r.area}</span><span className="sup-st"><Ic3 e={ic} /> {st}</span></header>
             <b className="sup-title">{r.title}</b>
             <div className="sup-imp"><u style={{ transform: `scaleX(${Math.max(0.04, r.importance / 100)})` }} /></div>
             <footer><small>{r.count}× hit · importance {r.importance}</small>
-              <button type="button" className={`sup-plus${mine ? ' is-on' : ''}`} disabled={!!busy} aria-pressed={mine} onClick={() => act({ plus: r.id }, r.id)} data-testid="sup-plus">👍 me too {r.plus || ''}</button></footer>
+              <button type="button" className={`sup-plus${mine ? ' is-on' : ''}`} disabled={!!busy} aria-pressed={mine} onClick={() => act({ plus: r.id }, r.id)} data-testid="sup-plus"><Ic3 e="👍" /> me too {r.plus || ''}</button></footer>
             <CardActs id={r.id} d={d} act={act} busy={busy} />
           </article>; })}</div>}
     </> : null}
@@ -84,7 +85,7 @@ export function SupportHub() {
       <div className="sup-polls">{(d?.polls || []).map((p, i) => { const tot = Math.max(1, p.votes);
         return <article key={p.id} className={`sup-poll k-${p.stage?.key}`} style={{ '--i': Math.min(i, 20) }} data-testid="sup-poll">
           <header><span className="sup-stage">{p.stage?.label}</span><small>{p.votes} vote{p.votes === 1 ? '' : 's'}{p.stage?.next ? ` · ${p.stage.next.need} more → ${p.stage.next.label}` : ''}</small></header>
-          <b>{p.q}</b>{p.note ? <p className="sup-note">📌 {p.note}</p> : null}
+          <b>{p.q}</b>{p.note ? <p className="sup-note"><Ic3 e="📌" /> {p.note}</p> : null}
           <CardActs id={p.id} d={d} act={act} busy={busy} />
           <ul>{p.options.map((o, j) => <li key={j}><button type="button" className={p.mine === j ? 'is-mine' : ''} disabled={!!busy || ['roadmap', 'building', 'shipped', 'declined'].includes(p.stage?.key)}
             onClick={() => act({ poll: p.id, opt: j }, p.id)} data-testid={`sup-vote-${j}`}><span>{o}</span><i style={{ transform: `scaleX(${p.tally[j] / tot})` }} /><b>{Math.round((100 * p.tally[j]) / tot)}%</b></button></li>)}</ul>
@@ -92,10 +93,10 @@ export function SupportHub() {
     </> : null}
     {lens === 'ideas' ? <>
       <form className="sup-new m-card" onSubmit={async e => { e.preventDefault(); if (await act({ idea: true, text: idea }, 'idea')) { setIdea(''); toast.success('💡 idea posted'); } }}>
-        <b>💡 Pitch an idea</b><textarea className="m-input" rows="2" value={idea} maxLength={280} placeholder="What would make FEELESS better? One or two lines." onChange={e => setIdea(e.target.value)} aria-label="Your idea" />
+        <b><Ic3 e="💡" /> Pitch an idea</b><textarea className="m-input" rows="2" value={idea} maxLength={280} placeholder="What would make FEELESS better? One or two lines." onChange={e => setIdea(e.target.value)} aria-label="Your idea" />
         <button type="submit" className="m-btn m-go" disabled={busy === 'idea' || idea.trim().length < 8} data-testid="sup-idea-post">Post idea</button></form>
       <div className="sup-grid" data-testid="sup-ideas">{(d?.ideas || []).map((x, i) => { const rr = d?.reacts?.[x.id] || {}; return <article key={x.id} className="sup-card sup-idea" style={{ '--i': Math.min(i, 20) }}>
-        <header><i>💡</i><span className="sup-area">{x.by.slice(0, 4)}…{x.by.slice(-4)}</span><span className="sup-st">▲ {(rr.up || 0) - (rr.down || 0)}</span></header>
+        <header><i><Ic3 e="💡" /></i><span className="sup-area">{x.by.slice(0, 4)}…{x.by.slice(-4)}</span><span className="sup-st">▲ {(rr.up || 0) - (rr.down || 0)}</span></header>
         <b className="sup-title">{x.text}</b><CardActs id={x.id} d={d} act={act} busy={busy} /></article>; })}
         {!(d?.ideas || []).length ? <p className="sup-empty">No ideas yet — pitch the first one.</p> : null}</div>
     </> : null}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Countdown } from './RunnersPanel';
 import '../styles/stageBattles.css';
+import { Ic3 } from '../lib/icon3d';
 
 const sg = v => `${v >= 0 ? '+' : ''}${Number(v || 0).toFixed(1)}%`;
 const short = (s, n = 26) => (String(s || '').length > n ? `${String(s).slice(0, n - 1)}…` : String(s || ''));
@@ -24,17 +25,17 @@ export function StageBattles({ b, onFull, full, cardNode }) {
   const pairs = (b?.pairs || []).slice(0, 2);
   if (!pairs.length) return null;
   return <section className="sbt" data-testid="stage-battles">
-    <header className="sbt-head"><span className="m-label">⚔ LIVE NOW · {pairs.length} {pairs.length === 1 ? 'FIGHT' : 'FIGHTS'}</span>{b.endsAt ? <span className="sbt-bell">🔔 bell in <Countdown at={b.endsAt} /></span> : null}
+    <header className="sbt-head"><span className="m-label">⚔ LIVE NOW · {pairs.length} {pairs.length === 1 ? 'FIGHT' : 'FIGHTS'}</span>{b.endsAt ? <span className="sbt-bell"><Ic3 e="🔔" /> bell in <Countdown at={b.endsAt} /></span> : null}
       <button type="button" className="m-btn sbt-full" onClick={onFull} aria-expanded={!!full} data-testid="stage-battles-full">{full ? 'Hide the full fight' : 'Full fight, table & throne'}</button></header>
     <div className="sbt-row">{pairs.map((p, i) => { const r = fightRead(p);
-      const corner = k => <div className={`sbt-corner is-${k} ${r.lead === k ? 'is-lead' : r.lead ? 'is-behind' : ''}`}>{(() => { const node = cardNode ? cardNode(p[k].key, r[k]) : null; return node ? <span className="sbt-card" data-testid={`stage-card-${k}`}>{node}</span> : <i className="sbt-emoji" aria-hidden>{p[k].emoji || '🃏'}</i>; })()}{r.lead === k && <u className="sbt-crown" aria-label="leading">👑</u>}
-        <b data-tip={p[k].name}>{short(p[k].name)}</b><em className={`m-num ${r[k] >= 0 ? 'm-pos' : 'm-neg'}`} key={sg(r[k])}>{sg(r[k])}</em><small>{k === 'a' ? r.sa : r.sb} ⚡ sparks</small></div>;
+      const corner = k => <div className={`sbt-corner is-${k} ${r.lead === k ? 'is-lead' : r.lead ? 'is-behind' : ''}`}>{(() => { const node = cardNode ? cardNode(p[k].key, r[k]) : null; return node ? <span className="sbt-card" data-testid={`stage-card-${k}`}>{node}</span> : <i className="sbt-emoji" aria-hidden>{p[k].emoji || '🃏'}</i>; })()}{r.lead === k && <u className="sbt-crown" aria-label="leading"><Ic3 e="👑" /></u>}
+        <b data-tip={p[k].name}>{short(p[k].name)}</b><em className={`m-num ${r[k] >= 0 ? 'm-pos' : 'm-neg'}`} key={sg(r[k])}>{sg(r[k])}</em><small>{k === 'a' ? r.sa : r.sb} <Ic3 e="⚡" /> sparks</small></div>;
       return <article key={`${p.a.key}-${p.b.key}`} className="sbt-fight" style={{ '--i': i }} data-testid={`stage-fight-${i}`}>
         <i className="sbt-glow" aria-hidden /><span className="sbt-tag">FIGHT {i + 1}</span>
         <div className="sbt-ring">{corner('a')}<span className="sbt-vs" aria-hidden><i>💥</i><b>VS</b><s className="sbt-spark" style={{ '--dx': '-26px', '--dy': '-22px', '--k': 0 }} /><s className="sbt-spark" style={{ '--dx': '24px', '--dy': '-26px', '--k': 1 }} /><s className="sbt-spark" style={{ '--dx': '2px', '--dy': '-34px', '--k': 2 }} /></span>{corner('b')}</div>
         <div className="sbt-rope" aria-label={`Rope: ${r.lead ? `${p[r.lead].name} is pulling` : 'level'}`}><i className="sbt-knot" style={{ transform: `translateX(${(-r.pull * 46).toFixed(1)}%)` }} /></div>
         {r.seats.length > 0 && <ol className="sbt-pips" aria-label="Seat duels">{r.seats.map(s => <li key={s.seat} className={s.win === 'a' ? 'is-a' : s.win === 'b' ? 'is-b' : ''}
-          data-tip={`Seat ${s.seat}: $${s.a?.symbol} ${sg(s.a?.pct)} vs $${s.b?.symbol} ${sg(s.b?.pct)}${s.win ? ` — spark to $${s[s.win]?.symbol}` : ' — level'}`}><i>⚡</i></li>)}</ol>}
+          data-tip={`Seat ${s.seat}: $${s.a?.symbol} ${sg(s.a?.pct)} vs $${s.b?.symbol} ${sg(s.b?.pct)}${s.win ? ` — spark to $${s[s.win]?.symbol}` : ' — level'}`}><i><Ic3 e="⚡" /></i></li>)}</ol>}
         <p className="sbt-call" data-testid={`stage-call-${i}`}>🎙 {r.call}</p>
       </article>; })}</div>
   </section>;

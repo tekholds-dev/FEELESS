@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame } from 'lucide-react';
+import { Flame } from '../../lib/lucide3d';
 import { useMarket } from '../../hooks/useMarket';
 import { TokenAvatar, Change } from '../terminal/MarketPrimitives';
 import { LiveMarketCap } from '../terminal/LiveCells';

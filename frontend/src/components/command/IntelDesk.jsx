@@ -4,6 +4,7 @@ import { InvestigatePanel, investigate } from '../CaseFile';
 import { shortAddress } from '../../lib/dexscreener';
 import { errorText } from '../../lib/api';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const INTEL = shaped({ wanted: [], rings: [], moves: [] });
 
 // HQ › Investigate: the reputation department. A living database of ruggers, dumpers, snipers, bundlers and
@@ -55,7 +56,7 @@ export function IntelDesk({ call }) {
           <dl className="m-kv">{a.evidence.map((e, i) => <React.Fragment key={i}><dt>+{e.weight} · {e.source}</dt><dd>{e.claim}</dd></React.Fragment>)}</dl>
           {a.moves.length > 0 && <div className="m-stack">{a.moves.map((m, i) => <div key={i} className={`m-note ${m.confidence === 'high' ? 'bad' : 'warn'}`}><b>{m.move} {eta(m.eta)}</b>{m.why} · {m.confidence} confidence</div>)}</div>}
           <div className="m-row">{a.fundedBy && <button type="button" className="m-btn" onClick={() => setOpen(a.fundedBy)}>↑ Funded by {shortAddress(a.fundedBy)}</button>}
-            <button type="button" className="m-btn primary" onClick={() => investigate(a.address)}>🔎 Open case file</button></div>
+            <button type="button" className="m-btn primary" onClick={() => investigate(a.address)}><Ic3 e="🔎" /> Open case file</button></div>
         </div>}
       </div>)}</div>}
 

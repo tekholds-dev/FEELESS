@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import '../styles/miniChart.css';
 import '../styles/miniCard.css';
+import { Ic3 } from '../lib/icon3d';
 
 const MiniCardBody = React.lazy(() => import('./MiniCardBody'));   // the card + its chart load only when a mini card is open
 const KEY = 'feeless.miniCard';
@@ -35,7 +36,7 @@ export function MiniCardHost() {
       <b className="mcd-name">{src.name}</b>
       <span className="mch-acts">
         <button type="button" className={side === 'card' ? 'active' : ''} onClick={() => set({ side: 'card' })} aria-pressed={side === 'card'} data-testid="mcd-side-card" data-tip="The card (tap ⟲ on it for its live money)">🃏</button>
-        <button type="button" className={side === 'chart' ? 'active' : ''} onClick={() => set({ side: 'chart' })} aria-pressed={side === 'chart'} data-testid="mcd-side-chart" data-tip="Flip to the chart of its coins, with the card's entry, stop and lock">📈</button>
+        <button type="button" className={side === 'chart' ? 'active' : ''} onClick={() => set({ side: 'chart' })} aria-pressed={side === 'chart'} data-testid="mcd-side-chart" data-tip="Flip to the chart of its coins, with the card's entry, stop and lock"><Ic3 e="📈" /></button>
         <button type="button" onClick={() => set({ size: SIZES[(SIZES.indexOf(size) + 1) % SIZES.length] })} data-testid="mcd-size" data-tip={`Size: ${SZ_NAME[size]} — tap to change`} aria-label={`Size ${SZ_NAME[size]}, change`}>⤢</button>
         <button type="button" onClick={() => setSt(null)} data-testid="mcd-close" aria-label="Close mini card">×</button></span>
     </header>

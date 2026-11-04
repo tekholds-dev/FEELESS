@@ -17,6 +17,7 @@ import { SHARE_TO, shareLinks } from '../../lib/socialShare';
 import { FEED_BGS, FEED_FONTS, FEED_SIZES, FEED_ACCENTS, FEED_DENSITY, HANDLE_SITES, readLook, saveLook, lookVars, handleUrl } from '../../lib/feedLook';
 import '../../styles/feed.css';
 import '../../styles/feedPro.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📰 FEEd v5 (owner, 2026-10-28: "doesn't look like a feed, not lively"): ONE center column (≤ 600 px) under a sticky header — tabs (For you ·
 // Following · Calls · 🔥 Heat · 🪦 Graveyard) + the source chips as one swipe row; a composer on top (paste a CA → a live coin card);
@@ -61,7 +62,7 @@ function ShareRow({ text, url, label = 'Post to' }) {
   const off = !String(text || '').trim();
   return <div className="fd-share" role="group" aria-label={label}>{SHARE_TO.map(([k, ic, name]) =>
     <a key={k} className={`fd-sh is-${k} ${off ? 'is-off' : ''}`} href={off ? undefined : links[k]} target="_blank" rel="noopener noreferrer" aria-disabled={off} data-testid={`feed-share-${k}`}
-      data-tip={`Opens ${name}'s own post box with this filled in — you press Post there, on your own account. FEELESS never holds your login.`}><b>{ic}</b><span>{name}</span></a>)}</div>;
+      data-tip={`Opens ${name}'s own post box with this filled in — you press Post there, on your own account. FEELESS never holds your login.`}><b><Ic3 e={ic} /></b><span>{name}</span></a>)}</div>;
 }
 
 const signIn = () => { toast.error('Connect your wallet and open chat once to sign in (one signature, 7 days).'); };
@@ -242,7 +243,7 @@ function Post({ p, c, me, sess, onCount, follows, saved, toggle, live, i }) {
         <button type="button" className={`fd-act is-share ${share ? 'is-on' : ''}`} aria-expanded={share} onClick={() => setShare(s => !s)} aria-label="Share" data-tip="Share to X, Telegram, Reddit…"><i>⇪</i></button>
         <span className="fd-right">
           <button type="button" className={`fd-act ${sv ? 'is-on' : ''}`} aria-pressed={sv} onClick={() => toggle('save', p.id)} aria-label="Save" data-testid="feed-save" data-tip={sv ? 'Saved — in the 🔖 tab' : 'Save it to the 🔖 tab'}><i>{sv ? '🔖' : '🏷'}</i></button>
-          <button type="button" className="fd-act" onClick={link} aria-label="Copy link" data-tip="Copy the link"><i>🔗</i></button>
+          <button type="button" className="fd-act" onClick={link} aria-label="Copy link" data-tip="Copy the link"><i><Ic3 e="🔗" /></i></button>
           <code className="fd-hash" data-tip="this post's id">{hashOf(p.id)}</code></span>
       </footer>
       {share ? <ShareRow text={p.text} url={p.url} /> : null}
@@ -305,7 +306,7 @@ function FeedCallers() {
   const [rows, setRows] = useState(null);
   useEffect(() => { fetch(apiUrl('/api/reputation/calls/leaderboard?days=7&room=feed-')).then(r => (r.ok ? r.json() : {})).then(d => setRows(d.rows || [])).catch(() => setRows([])); }, []);
   const top = Math.max(1, ...(rows || []).map(r => r.hits || 0));
-  return <div className="fd-card fd-callers" data-testid="feed-callers"><h4>🏆 Top callers <small>7d</small><Explain>Post a coin address in any FEEd room and it becomes a tracked call. If it later peaks at 2×, 5× or 10× from your post, you earn 50, 150 or 400 season points automatically.</Explain></h4>
+  return <div className="fd-card fd-callers" data-testid="feed-callers"><h4><Ic3 e="🏆" /> Top callers <small>7d</small><Explain>Post a coin address in any FEEd room and it becomes a tracked call. If it later peaks at 2×, 5× or 10× from your post, you earn 50, 150 or 400 season points automatically.</Explain></h4>
     {!rows?.length ? <p className="fd-dim">Post a CA in FEEd — a 2×, 5× or 10× from your post earns season points.</p>
       : <ol>{rows.slice(0, 5).map((r, i) => <li key={r.caller} style={{ '--i': i }}>
         <i>{i + 1}</i>{r.callerAddress ? <Link to={`/terminal/profile/${r.callerAddress}`}>{r.caller}</Link> : <b>{r.caller}</b>}
@@ -319,7 +320,7 @@ function FeedTopCoins() {
   const { data } = useMarket('/feed?kind=trending&chain=solana', 60000);
   const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 6);
   const top = Math.max(1, ...pairs.map(p => Math.abs(Number(p.priceChange?.h24) || 0)));
-  return <div className="fd-card fd-trend" data-testid="feed-top-coins"><h4>🔥 Trending <small>live · 24h</small></h4>
+  return <div className="fd-card fd-trend" data-testid="feed-top-coins"><h4><Ic3 e="🔥" /> Trending <small>live · 24h</small></h4>
     {!pairs.length ? <div className="fd-skel is-rows">{[0, 1, 2].map(k => <span key={k} style={{ '--i': k }}><b /></span>)}</div> : pairs.map((p, i) => { const ch = Number(p.priceChange?.h24); return <button type="button" key={p.pairAddress} style={{ '--i': i }}
       onClick={() => openTrenchTrade({ chainId: p.chainId, pairAddress: p.pairAddress })} data-tip={`Open $${p.baseToken.symbol}'s Trenches floor`}>
       {p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" loading="lazy" /> : <span className="fd-dotico" />}<b>${p.baseToken.symbol}</b>
@@ -345,7 +346,7 @@ function Seg({ label, list, val, onPick, show = x => x[1] }) {
 function LookPanel({ look, set, onClose }) {
   const up = k => v => set({ ...look, [k]: v });
   return <div className="fd-look" role="dialog" aria-label="FEEd look" data-testid="feed-look">
-    <header><b>🎨 Make FEEd yours</b><button type="button" className="m-btn" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></header>
+    <header><b><Ic3 e="🎨" /> Make FEEd yours</b><button type="button" className="m-btn" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></header>
     <Seg label="Background" list={FEED_BGS} val={look.bg} onPick={up('bg')} />
     <Seg label="Font" list={FEED_FONTS} val={look.font} onPick={up('font')} show={x => <span style={{ fontFamily: x[2] }}>{x[1]}</span>} />
     <Seg label="Text" list={FEED_SIZES} val={look.size} onPick={up('size')} />
@@ -365,10 +366,10 @@ function MySites({ look, set }) {
       const r = await fetch(apiUrl('/api/reputation/x/oauth/start'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: me, session, back: window.location.pathname + window.location.search }) });
       const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'X sign-in is not available.'); window.location.href = b.url; }
     catch (e) { toast.error(e.message); setBusy(false); } };
-  return <div className="fd-card fd-sites" data-testid="feed-sites"><h4>🔗 Your sites <button type="button" className="m-btn" onClick={() => setEdit(e => !e)} data-testid="feed-sites-edit" data-tip="Add your public handles — never a password">{edit ? 'Done' : 'Connect'}</button></h4>
-    {edit ? HANDLE_SITES.map(([k, ic]) => <label key={k} className="fd-hrow"><i>{ic}</i><input className="m-input" defaultValue={h[k] || ''} placeholder={k === 'x' ? '@yourhandle' : 'your name there'} maxLength={40}
+  return <div className="fd-card fd-sites" data-testid="feed-sites"><h4><Ic3 e="🔗" /> Your sites <button type="button" className="m-btn" onClick={() => setEdit(e => !e)} data-testid="feed-sites-edit" data-tip="Add your public handles — never a password">{edit ? 'Done' : 'Connect'}</button></h4>
+    {edit ? HANDLE_SITES.map(([k, ic]) => <label key={k} className="fd-hrow"><i><Ic3 e={ic} /></i><input className="m-input" defaultValue={h[k] || ''} placeholder={k === 'x' ? '@yourhandle' : 'your name there'} maxLength={40}
       onBlur={e => set({ ...look, handles: { ...h, [k]: e.target.value } })} data-testid={`feed-handle-${k}`} /></label>)
-      : HANDLE_SITES.some(([k]) => h[k]) ? <ul className="fd-hlist">{HANDLE_SITES.filter(([k]) => h[k]).map(([k, ic]) => <li key={k}><a href={handleUrl(k, h[k])} target="_blank" rel="noopener noreferrer">{ic} @{h[k]}</a></li>)}</ul>
+      : HANDLE_SITES.some(([k]) => h[k]) ? <ul className="fd-hlist">{HANDLE_SITES.filter(([k]) => h[k]).map(([k, ic]) => <li key={k}><a href={handleUrl(k, h[k])} target="_blank" rel="noopener noreferrer"><Ic3 e={ic} /> @{h[k]}</a></li>)}</ul>
       : <p className="fd-dim">Add your X / Reddit / Bluesky / Telegram name — one tap to your profile, and the post box posts there as you.</p>}
     {xv ? <p className="fd-xok" data-testid="feed-x-verified">𝕏 <b>@{xv.username}</b> · verified by X</p>
       : <button type="button" className="m-btn m-go fd-xsign" onClick={signX} disabled={busy} data-testid="feed-x-signin" data-tip="Log in on x.com itself — FEELESS gets only your verified @handle, never your password or a token">{busy ? 'Opening X…' : '𝕏 Sign in with X'}</button>}
@@ -448,7 +449,7 @@ export function FeedPanel({ onConnect }) {
     <nav className="fd-mini" aria-label="FEEd">
       <b className="feed-wordmark">FEEd</b>
       {[['🏠', 'Home', () => { setRooms(false); pickSrc('all'); toTop(); }, 'Every site, mixed'], ['⚡', 'Rooms', () => setRooms(true), 'FEELESS live rooms — post, call, earn'],
-        ['🎨', 'Look', () => setLookOpen(o => !o), 'Background, font, size, accent'], ['⤢', 'Pop out', openFeedPop, 'Float FEEd over any page']].map(([ic, l, fn, tip]) => <button key={l} type="button" className="fd-mini-btn" onClick={fn} data-tip={tip}><i>{ic}</i><span>{l}</span></button>)}
+        ['🎨', 'Look', () => setLookOpen(o => !o), 'Background, font, size, accent'], ['⤢', 'Pop out', openFeedPop, 'Float FEEd over any page']].map(([ic, l, fn, tip]) => <button key={l} type="button" className="fd-mini-btn" onClick={fn} data-tip={tip}><i><Ic3 e={ic} /></i><span>{l}</span></button>)}
       <button type="button" className="m-btn m-go fd-mini-post" onClick={() => setSheet(true)} data-tip="Write a post">✎ Post</button>
     </nav>
     <div className="fd-col">
@@ -457,19 +458,19 @@ export function FeedPanel({ onConnect }) {
         <div className="fd-head"><b className="feed-wordmark">FEEd</b>
           <span className="fd-head-t"><b>{rooms ? '⚡ FEELESS rooms' : srcs.includes('all') ? 'Everything' : srcs.map(k => (FEED_SRC.find(s => s[0] === k) || [])[2]).join(' + ')}</b>
             <small><i className="fd-live" />{rooms ? current[3] : `LIVE · ${n1h} post${n1h === 1 ? "" : "s"} / hr`}</small></span>
-          <button type="button" className={`fd-iconbtn ${lookOpen ? 'on' : ''}`} aria-expanded={lookOpen} onClick={() => setLookOpen(o => !o)} data-testid="feed-look-open" data-tip="Make FEEd yours: background, font, size, accent">🎨</button>
+          <button type="button" className={`fd-iconbtn ${lookOpen ? 'on' : ''}`} aria-expanded={lookOpen} onClick={() => setLookOpen(o => !o)} data-testid="feed-look-open" data-tip="Make FEEd yours: background, font, size, accent"><Ic3 e="🎨" /></button>
           <button type="button" className="fd-iconbtn" onClick={openFeedPop} data-tip="Pop FEEd out into a floating window that stays over any page" data-testid="feed-popout">⤢</button></div>
         {rooms ? null : <FeedTabs tab={tab} setTab={setTab} follows={marks.follows} saved={marks.saved} />}
         <div className="fd-chips" role="group" aria-label="FEEd sites"><button type="button" className={`fd-chip is-rooms ${rooms ? 'on' : ''}`} aria-pressed={rooms} onClick={() => setRooms(!rooms)} data-testid="feed-rooms"
-          data-tip={rooms ? 'Back to the timeline' : 'FEELESS live rooms — post, call, earn season points'}><i>💬</i>ROOMS</button>
+          data-tip={rooms ? 'Back to the timeline' : 'FEELESS live rooms — post, call, earn season points'}><i><Ic3 e="💬" /></i>ROOMS</button>
           {FEED_SRC.map(([k, ic, label]) => { const on = !rooms && srcs.includes(k); return <button key={k} type="button" className={`fd-chip is-${k} ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => { setRooms(false); pickSrc(k); }} data-testid={`feed-src-${k}`}
-          data-tip={k === 'all' ? 'Every site mixed' : k === 'feeless' ? 'FEELESS posts on the timeline (the live rooms: 💬 ROOMS)' : `Mix ${label} in or out`}><i>{ic}</i>{label}</button>; })}
-          {POST_ONLY.map(([k, ic, label]) => <span key={k} className="fd-chip is-post" tabIndex={0} data-tip={`${label} doesn't let a site read its feed without its own paid API app. Post to it from the composer — it opens ${label}'s own post page on your account.`}><i>{ic}</i>{label}<small>post only</small></span>)}</div>
+          data-tip={k === 'all' ? 'Every site mixed' : k === 'feeless' ? 'FEELESS posts on the timeline (the live rooms: 💬 ROOMS)' : `Mix ${label} in or out`}><i><Ic3 e={ic} /></i>{label}</button>; })}
+          {POST_ONLY.map(([k, ic, label]) => <span key={k} className="fd-chip is-post" tabIndex={0} data-tip={`${label} doesn't let a site read its feed without its own paid API app. Post to it from the composer — it opens ${label}'s own post page on your account.`}><i><Ic3 e={ic} /></i>{label}<small>post only</small></span>)}</div>
       </header>
       {lookOpen ? <LookPanel look={look} set={setLook} onClose={() => setLookOpen(false)} /> : null}
       {rooms ? <div className="fd-rooms">
         <FeedCallers />
-        <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pickCat(id)}><span>{icon}</span>{label}</button>)}</nav>
+        <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pickCat(id)}><span><Ic3 e={icon} /></span>{label}</button>)}</nav>
         <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
       </div> : <>
         <Composer me={me} sess={sess} />

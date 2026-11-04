@@ -1,8 +1,9 @@
 import React from 'react';
-import { Zap } from 'lucide-react';
+import { Zap } from '../../lib/lucide3d';
 import { useReputation } from '../../lib/reputation';
 import { usePumpPulse, pulseSummary } from '../../lib/pumpPulse';
 import { useSnipersOut } from '../../lib/snipersOut';
+import { Ic3 } from '../../lib/icon3d';
 
 const BAD_CREATOR = new Set(['flagged', 'risky']);
 
@@ -22,7 +23,7 @@ export function BoltSignal({ pair, size = 13 }) {
   const snipers = useSnipersOut(pair);
   return <>
     {pulse && <i className={`pink-bolt pulse-${pulse.level}`} title={`Pump Pulse · 5m ${pulseSummary(pulse)}`} data-testid="bolt-signal"><Zap size={size} /></i>}
-    {snipers && <i className="snipers-out-tag" title={`Snipers out: ${snipers.text}`} data-testid="snipers-out-tag">🎯</i>}
+    {snipers && <i className="snipers-out-tag" title={`Snipers out: ${snipers.text}`} data-testid="snipers-out-tag"><Ic3 e="🎯" /></i>}
   </>;
 }
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { apiUrl } from '../lib/api';
 import { formatUSD, formatPct, shortAddress } from '../lib/dexscreener';
+import { Ic3 } from '../lib/icon3d';
 
 // Slash commands. Lookup commands show a private card (only you see it); text commands post.
 export const COMMANDS = [
@@ -114,7 +115,7 @@ export function SlashMenu({ input, tier, onPick }) {
   const list = COMMANDS.filter(c => c.cmd.startsWith(q));
   if (!list.length) return null;
   return <div className="slash-menu" role="listbox" data-testid="slash-menu">{list.map(c => <button type="button" key={c.cmd} className={c.tier > tier ? 'locked' : ''} onMouseDown={e => { e.preventDefault(); onPick(c); }}>
-    <b>/{c.cmd}</b>{c.args && <code>{c.args}</code>}<span>{c.desc}</span>{c.tier > tier && <em>🔒 {TIER_NAME[c.tier]}</em>}
+    <b>/{c.cmd}</b>{c.args && <code>{c.args}</code>}<span>{c.desc}</span>{c.tier > tier && <em><Ic3 e="🔒" /> {TIER_NAME[c.tier]}</em>}
   </button>)}</div>;
 }
 

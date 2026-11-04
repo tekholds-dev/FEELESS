@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { AnimatedNumber } from '../terminal/AnimatedNumber';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const NUMBERS = shaped({ history: [] });   // market stays null when $FEE isn't indexed (the note below reads it)
 
 const usd = v => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(v < 1 ? 6 : 2)}`);
@@ -46,7 +47,7 @@ export function NumbersPanel({ call }) {
     <header className="nm-head"><div><h3 className="live-gradient-text">The numbers</h3><small>Live from DexScreener, the chain and FEELESS receipts · refreshes every 30s</small></div><button type="button" className="btn-outline" onClick={load} disabled={busy}><RefreshCw size={13} className={busy ? 'spin' : ''} /> Refresh</button></header>
     {!d.market && <p className="nm-note">$FEE isn't indexed on any DEX yet (DexScreener has no pool for <code>{String(d.feeMint || '').slice(0, 6)}…</code>) — market tiles fill in automatically the moment a pool goes live.</p>}
     {/* H01 "hide '—' cells": a tile with no value folds into ONE line instead of a wall of dashes */}
-    {tiles.some(t => t[1] === '—') ? <p className="nm-note" data-testid="nm-wait">⏳ No data yet: {tiles.filter(t => t[1] === '—').map(t => t[0]).join(' · ')} — they fill in on their own.</p> : null}
+    {tiles.some(t => t[1] === '—') ? <p className="nm-note" data-testid="nm-wait"><Ic3 e="⏳" /> No data yet: {tiles.filter(t => t[1] === '—').map(t => t[0]).join(' · ')} — they fill in on their own.</p> : null}
     <div className="nm-tiles">{tiles.filter(t => t[1] !== '—').map(([label, big, sub, good]) => <div key={label} className={`nm-tile ${good === true ? 'good' : good === false ? 'bad' : ''}`}><small>{label}</small><b>{big}</b><span>{sub}</span></div>)}</div>
     <h4 className="nm-sub">Swap flow through FEELESS <small>(on-chain verified receipts)</small></h4>
     <div className="nm-flow">{[['24h', f.h24], ['7d', f.d7], ['All time', f.all]].map(([k, v]) => <div key={k}><small>{k}</small><b><AnimatedNumber value={v?.swaps || 0} format={x => Math.round(x).toLocaleString()} /> swaps</b><span>{(v?.solVolume ?? 0).toLocaleString()} SOL · {v?.traders ?? 0} traders</span></div>)}</div>

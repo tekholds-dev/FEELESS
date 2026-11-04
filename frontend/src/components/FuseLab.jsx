@@ -19,6 +19,7 @@ import { RISK_DIALS, applyRisk } from '../lib/riskDial';
 import { CYCLE_OPTS } from '../lib/fuseGlossary';
 import { FuseGuide } from './FuseGuide';
 import '../styles/fuseLab.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚛️ FUSE LAB: browse the chain's real pools, tick them, and see live how FEELESS auto-weighs them (fee APR × depth,
 // 10–70% each) and where one SOL amount goes. Traders fuse up to 3 pools; HQ (pass `call`) up to 6 with manual
@@ -45,14 +46,14 @@ export function CardPricing({ legs, admin }) {
   const [pr, setPr] = useState(null);
   useEffect(() => { let alive = true; pricingP = pricingP || fetch(apiUrl('/api/reputation/fees/pricing')).then(r => r.json()).catch(() => { pricingP = null; return null; });
     pricingP.then(d => alive && d?.bundle && setPr(d)); return () => { alive = false; }; }, []);
-  if (admin) return <div className="fl-price is-free" data-testid="card-pricing"><span className="m-label">💲 HQ CARD</span><b>$0 FEELESS fee</b><small>network + partner (Jupiter / pool) fees only</small></div>;
+  if (admin) return <div className="fl-price is-free" data-testid="card-pricing"><span className="m-label"><Ic3 e="💲" /> HQ CARD</span><b>$0 FEELESS fee</b><small>network + partner (Jupiter / pool) fees only</small></div>;
   if (!pr) return null;
   const rows = legs.map(l => ({ sym: l.symbol, u: Number(l.usd) || 0, ...legFee(Number(l.usd) || 0, pr) }));
   const fee = rows.reduce((a, r) => a + r.fee, 0); const usdIn = rows.reduce((a, r) => a + r.u, 0); const pct = usdIn ? fee / usdIn * 100 : 0;
   const flatAt = pr.bundle.perLegUsd / (pr.bundle.maxPct / 100);   // coin size where the flat fee starts
   const f$ = v => `$${v.toFixed(v < 1 ? 3 : 2)}`;
   return <div className={`fl-price ${pct > 5 ? 'is-warn' : ''}`} data-testid="card-pricing" data-tip={`Per coin: $${pr.bundle.perLegUsd.toFixed(2)} flat, but never more than ${pr.bundle.maxPct}% of that coin. Coins over $${pr.bundle.maxLegUsd} pay the normal ${(pr.swapBps / 100).toFixed(2)}%. Network fees are separate (shown on the receipt).`}>
-    <span className="m-label">💲 CARD PRICING</span><b className="m-num">{f$(fee)}</b><small>= {pct.toFixed(1)}% of your {f$(usdIn)} buy</small>
+    <span className="m-label"><Ic3 e="💲" /> CARD PRICING</span><b className="m-num">{f$(fee)}</b><small>= {pct.toFixed(1)}% of your {f$(usdIn)} buy</small>
     <ul className="fl-price-rows">{rows.map((r, i) => <li key={i}><span>${r.sym || `coin ${i + 1}`} · {f$(r.u)}</span><b className="m-num">{f$(r.fee)}</b><em>{r.why}</em></li>)}</ul>
     {pct > 5 && <small className="fl-price-tip" data-testid="pricing-tip">⚠ Small buy: each coin pays up to {pr.bundle.maxPct}%. From {f$(flatAt)} per coin the flat {f$(pr.bundle.perLegUsd)} applies — that's {(pr.bundle.perLegUsd / Math.max(flatAt, pr.bundle.maxLegUsd) * 100).toFixed(1)}% at ${pr.bundle.maxLegUsd}/coin.</small>}</div>;
 }
@@ -129,19 +130,19 @@ export function CardPlan({ legs, plan, setPlan }) {
   const runners = legs.filter(l => l.runner || l.role === 'runner').length;
   const maxR = RISK_DIALS[plan.risk]?.runners;
   const seg = (k, opts) => <div className="m-seg" role="radiogroup">{opts.map(([v, l, tip]) => <button key={String(v)} type="button" role="radio" aria-checked={plan[k] === v} className={plan[k] === v ? 'active' : ''} data-tip={tip} onClick={() => setPlan(p => ({ ...p, risk: 'custom', [k]: v }))} data-testid={`plan-${k}-${v}`}>{l}</button>)}</div>;
-  return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label">🎯 CARD PLAN</span><small className="m-dim">one dial sets it all · alerts with one-tap actions, you approve</small></summary>
+  return <details className="fl-plan" open data-testid="card-plan"><summary><span className="m-label"><Ic3 e="🎯" /> CARD PLAN</span><small className="m-dim">one dial sets it all · alerts with one-tap actions, you approve</small></summary>
     <button type="button" className="m-btn fl-brain fl-unique" onClick={() => fetch(apiUrl(`/api/reputation/fuses/dna/unique?dial=${plan.risk || ''}&seed=${Date.now()}`)).then(r => r.json())
       .then(x => { setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(x.dna) })); toast.success(`🎲 Unique DNA: ${x.label}`); }).catch(() => toast.error('Try again in a moment'))}
-      data-tip="A cycle · compound · payout · clock · stop combination no live card on FEELESS has — your card plays its own way" data-testid="plan-unique">🎲 Roll a unique DNA <small>no other live card plays like this</small></button>
-    {brain?.why?.length > 0 && <button type="button" className="m-btn fl-brain" onClick={() => setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(brain.dna) }))} data-tip={`Learned from ${brain.fights} engine battles: ${brain.why.join(' · ')}`} data-testid="plan-brain">🧠 Use the engine's best DNA <small>{brain.label}</small></button>}
-    <div className="fl-plan-row fl-risk"><span>🎚 Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(p => ({ ...applyRisk(legs, id), ...keepChoice(p) }))} />
+      data-tip="A cycle · compound · payout · clock · stop combination no live card on FEELESS has — your card plays its own way" data-testid="plan-unique"><Ic3 e="🎲" /> Roll a unique DNA <small>no other live card plays like this</small></button>
+    {brain?.why?.length > 0 && <button type="button" className="m-btn fl-brain" onClick={() => setPlan(p => ({ ...p, risk: 'custom', ...dnaPlan(brain.dna) }))} data-tip={`Learned from ${brain.fights} engine battles: ${brain.why.join(' · ')}`} data-testid="plan-brain"><Ic3 e="🧠" /> Use the engine's best DNA <small>{brain.label}</small></button>}
+    <div className="fl-plan-row fl-risk"><span><Ic3 e="🎚" /> Risk</span><RiskDial value={plan.risk || 'custom'} onChange={id => setPlan(p => ({ ...applyRisk(legs, id), ...keepChoice(p) }))} />
       <FuseGuide dial={plan.risk} onDial={id => setPlan(p => ({ ...applyRisk(legs, id), ...keepChoice(p) }))} cycle={plan.cycle} onCycle={v => setPlan(p => ({ ...p, risk: 'custom', cycle: v }))} /></div>
-    <div className="fl-plan-row fl-choice" data-testid="plan-choice"><span data-tip="How long the card runs on auto and how much it may swap. A round = one rotation window of the card's clock. Every card gets 5 rounds free.">🎟 Rounds & swaps</span>
+    <div className="fl-plan-row fl-choice" data-testid="plan-choice"><span data-tip="How long the card runs on auto and how much it may swap. A round = one rotation window of the card's clock. Every card gets 5 rounds free."><Ic3 e="🎟" /> Rounds & swaps</span>
       <div className="fl-choice-ctl">
         <div className="m-seg" role="radiogroup" aria-label="Auto rounds">{PLAN_ROUNDS.map(n => <button key={n} type="button" role="radio" aria-checked={choice.rounds === n} className={choice.rounds === n ? 'active' : ''} data-testid={`choice-rounds-${n}`} data-tip={n === FREE_ROUNDS ? '5 rounds are free on every card' : `${n} rounds = ${Math.ceil((n - FREE_ROUNDS) / 5)} round pack${n > 10 ? 's' : ''} on top of the free 5`} onClick={() => pick({ rounds: n })}>{n}{n === FREE_ROUNDS ? ' free' : ''}</button>)}</div>
         <div className="m-seg" role="radiogroup" aria-label="Most swaps in one round">{PLAN_SWAPS.map(n => <button key={n} type="button" role="radio" aria-checked={choice.swapsPerRound === n} className={choice.swapsPerRound === n ? 'active' : ''} data-testid={`choice-swaps-${n}`} data-tip={`At most ${n} coin swap${n > 1 ? 's' : ''} inside one round — the card can never churn past this`} onClick={() => pick({ swapsPerRound: n })}>{n} swap{n > 1 ? 's' : ''}/round</button>)}</div>
         <div className="m-seg" role="radiogroup" aria-label="When to pay">
-          <button type="button" role="radio" aria-checked={choice.upfront} className={choice.upfront ? 'active' : ''} data-testid="choice-upfront" data-tip="One extra SOL transfer in the same approval as the buy: your rounds and swaps are paid, and those swaps then carry no FEELESS fee" onClick={() => pick({ payUpfront: true })}>💳 Pay up front</button>
+          <button type="button" role="radio" aria-checked={choice.upfront} className={choice.upfront ? 'active' : ''} data-testid="choice-upfront" data-tip="One extra SOL transfer in the same approval as the buy: your rounds and swaps are paid, and those swaps then carry no FEELESS fee" onClick={() => pick({ payUpfront: true })}><Ic3 e="💳" /> Pay up front</button>
           <button type="button" role="radio" aria-checked={!choice.upfront} className={!choice.upfront ? 'active' : ''} data-testid="choice-free" data-tip="Pay nothing now: the card starts on its 5 free rounds, each swap pays its own small fee, and you can add rounds later" onClick={() => pick({ payUpfront: false })}>🆓 Free rounds first</button></div>
         <small className="m-dim" data-testid="choice-price">{choice.upfront
           ? <>Up front: <b className="m-num">${choice.usd.toFixed(2)}</b>{choice.packs ? ` = ${choice.packs} round pack${choice.packs > 1 ? 's' : ''} $${choice.roundsUsd.toFixed(2)}` : ''}{choice.swapsUsd > 0 ? `${choice.packs ? ' + ' : ' = '}${choice.swaps} swaps $${choice.swapsUsd.toFixed(2)}` : ''} · {choice.rounds} rounds, up to {choice.swapsPerRound} swap{choice.swapsPerRound > 1 ? 's' : ''} each</>
@@ -158,7 +159,7 @@ export function CardPlan({ legs, plan, setPlan }) {
       <CoinExtras pa={l.pairAddress} sym={l.symbol} plan={plan} setPlan={setPlan} /></div>; })}</div></details>
     <div className="fl-plan-row"><span>Profit trigger (price move)</span>{seg('at', [[null, 'Off', 'No card-level auto-profit'], ...levels.map(v => [v, `+${v}%`, `Alert when the whole card is up +${v}% from your confirmed buy (fees never mixed into card P&L)`])])}</div>
     <div className="fl-plan-row"><span>Profit split</span><div className="m-seg" role="radiogroup" data-tip="At each profit take: this share goes straight to your wallet, the rest compounds back into the card">{[0, 25, 50, 75, 100].map(v =>
-      <button key={v} type="button" role="radio" aria-checked={(plan.payoutPct ?? 50) === v} className={(plan.payoutPct ?? 50) === v ? 'active' : ''} onClick={() => setPlan(p => ({ ...p, risk: 'custom', payoutPct: v, onProfit: v > 0 ? 'collect' : 'compound' }))} data-testid={`plan-pay-${v}`}>💸 {v}%</button>)}</div></div>
+      <button key={v} type="button" role="radio" aria-checked={(plan.payoutPct ?? 50) === v} className={(plan.payoutPct ?? 50) === v ? 'active' : ''} onClick={() => setPlan(p => ({ ...p, risk: 'custom', payoutPct: v, onProfit: v > 0 ? 'collect' : 'compound' }))} data-testid={`plan-pay-${v}`}><Ic3 e="💸" /> {v}%</button>)}</div></div>
     <div className="fl-plan-row"><span>Compound</span>{seg('compoundStyle', [['smart', '🧲 Smart', 'The rest goes to your strongest coins (momentum-weighted), never into fading ones'], ['even', '⚖ Even', 'Split evenly across the other coins'], ['off', '✋ Off', 'The rest waits as SOL in the card']])}</div>
     <div className="fl-plan-row"><span>Card</span>{seg('mode', [['hold', '🔒 Hold · switch by hand', 'The card stays as built. One switch per 24h, your pick.'], ['swap', '🤖 Auto-rotate', `On your reshuffle clock a coin that fails a gate or drops ${rules?.swapDropPct ?? 25}% gets a pre-filled swap for the best gated runner — one approval`]])}</div>
     <div className="fl-plan-row"><span>Reshuffle every</span>{seg('rotateHours', [[5 / 60, '5m', 'A weak coin may be swapped every 5 minutes'], [0.25, '15m', 'Every 15 minutes'], [1, '1h', 'Every hour'], [12, '12h', 'Twice a day'], [24, '24h', 'Once a day']])}</div>
@@ -285,7 +286,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
     {!admin && <details className="fl-vm"><summary>Fuse vs Vault — where a dollar's return comes from (live)</summary><VaultMath /></details>}
     {admin ? <><FuseRail call={call} onUse={load} /><FuseEvolve call={call} maxLegs={MAX} onLoad={load} /></> : <>
       <FusePnl />
-      <div className="fl-best" data-testid="fl-best"><div><b>🧬 Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and deal you the winner for $5, $20 and $100.'}</small></div>
+      <div className="fl-best" data-testid="fl-best"><div><b><Ic3 e="🧬" /> Find my best 3</b><small className="m-dim">{best.style ? `Bred with the ${best.style} strategy${best.proven ? ' — proven in our 24h arena' : ''}` : 'We breed hundreds of baskets from live pools and deal you the winner for $5, $20 and $100.'}</small></div>
         <button type="button" className="m-btn primary m-go" disabled={best.busy} onClick={findBest} data-testid="fl-best-go">{best.busy ? 'Breeding…' : best.cards ? 'Breed again' : 'Find it'}</button></div>
       {(best.busy || best.cards) && <div className="frail-track fl-best-cards" data-testid="fl-best-cards">{best.busy ? [5, 20, 100].map(v => <div key={v} className="frail-ghost" />)
         : best.cards.map((c, i) => <article key={c.budget} className="frail-item" style={{ animationDelay: `${i * 90}ms` }}>
@@ -330,7 +331,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
       </div>
       <aside className="fl-mix" aria-live="polite">
         <div className="fl-mix-head"><span className="m-label">YOUR FUSE · {legsN}/{caps.total}</span>{legsN > 0 && <button type="button" className="m-btn fl-clear" onClick={() => { setPicked([]); onRunnerPicks([]); setCopy(null); }}>Clear</button>}</div>
-        {backing && <div className="fl-copy is-back" data-testid="fl-backing"><b>💰 Buying to back {backing.name}</b><small>Counts on the battle's 💰 bought bar once your buy confirms — free ⚔ backs stay separate. You own the card.</small><button type="button" className="m-btn fl-clear" onClick={() => setBacking(null)} aria-label="Stop backing">×</button></div>}
+        {backing && <div className="fl-copy is-back" data-testid="fl-backing"><b><Ic3 e="💰" /> Buying to back {backing.name}</b><small>Counts on the battle's <Ic3 e="💰" /> bought bar once your buy confirms — free ⚔ backs stay separate. You own the card.</small><button type="button" className="m-btn fl-clear" onClick={() => setBacking(null)} aria-label="Stop backing">×</button></div>}
         {copy && <div className="fl-copy" data-testid="fl-copy"><b>{copy.champ ? '👑 Buying the champion' : '⚡ Copying'} {copy.owner}'s card</b><small>They earn {copy.pct ?? 10}% of the FEELESS fee you pay — not an extra cost to you.</small><button type="button" className="m-btn fl-clear" onClick={() => setCopy(null)} aria-label="Stop copying">×</button></div>}
         {runnerPicks.length > 0 && <div className="fl-runner-picks" data-testid="fl-runner-picks"><small>🏃 RUNNERS {runnerPicks.length}/{caps.runners}</small>{runnerPicks.map(r => <span key={r.mint} className="fl-rchip">{r.symbol || `${r.mint.slice(0, 4)}…`}<em>{r.lane}</em>
           <button type="button" aria-label={`Remove ${r.symbol}`} onClick={() => onRunnerPicks(runnerPicks.filter(x => x.mint !== r.mint))}>×</button></span>)}</div>}
@@ -345,7 +346,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
             <div className="fl-preview-card" data-testid="fl-preview-card"><FuseCard c={{ pools: prev.legs.map(l => l.pairAddress), fitness: prev.score.points, bornGen: 0,
               parts: { grade: prev.score.grade, aprScore: Math.round(Math.min(400, prev.blendedAprPct) / 4), momentum24h: prev.backtest24hPct, calm: '—', feeDragPct: prev.usd ? Math.min(100, (0.0001 * prev.legs.length * prev.solUsd) / prev.usd * 100) : 0, impactLegs: (prev.impactWarn || []).length },
               legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} /><small className="m-dim">Live card of your picks · ⟲ for the money math</small>
-              <button type="button" className="m-btn fl-explain" onClick={() => setExplain(true)} data-testid="fl-explain">🔍 Explain this card</button></div>
+              <button type="button" className="m-btn fl-explain" onClick={() => setExplain(true)} data-testid="fl-explain"><Ic3 e="🔍" /> Explain this card</button></div>
             {explain && <CardExplain prev={prev} onClose={() => setExplain(false)} card={<FuseCard c={{ pools: prev.legs.map(l => l.pairAddress), fitness: prev.score.points, bornGen: 0,
               parts: { grade: prev.score.grade, aprScore: Math.round(Math.min(400, prev.blendedAprPct) / 4), momentum24h: prev.backtest24hPct, calm: '—', feeDragPct: 0, impactLegs: (prev.impactWarn || []).length }, legs: prev.legs }} style={manual ? 'steady' : 'yield'} rank={0} budget={Math.max(1, Math.round(prev.usd))} autoFlip={5000} />} />}
             <div className="fl-bar">{prev.legs.map(l => <i key={l.pairAddress} style={{ flexGrow: l.weight }} title={`${l.symbol} ${l.weight}%`}><span>{l.symbol} {Math.round(l.weight)}%</span></i>)}</div>

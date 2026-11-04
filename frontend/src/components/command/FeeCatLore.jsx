@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGlide } from '../../lib/useGlide';
 import '../../styles/feeCatLore.css';
 import { FeeCatBrainPage, ThinkFlow } from './FeeCatBrainPage';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📜 THE LEGEND OF FEE (owner P2: "FeeCat lore + other tabs — only the top was redone"; FeeCat = violet night). A drawn rooftop at night: Fee's
 // silhouette with eyes that blink, the moon, and NINE LANTERNS = her nine lives, lit from her live discipline (feecat_brain: a loss −1, a win +1,
@@ -62,7 +63,7 @@ export function FeeCatLore({ asset, community, onSelect, children, start = 'lege
   return <section className="fcl" data-testid="feecat-lore">
     <header className="fcl-hero">
       <Rooftop lives={Math.round(lives)} max={d.maxLives || 9} nap={d.pause} />
-      <div className="fcl-copy"><span className="fcl-eyebrow">📜 THE LEGEND OF FEE</span><h1>The first cat of FEELESS.</h1>
+      <div className="fcl-copy"><span className="fcl-eyebrow"><Ic3 e="📜" /> THE LEGEND OF FEE</span><h1>The first cat of FEELESS.</h1>
         <p className="fcl-tag" data-testid="feecat-launch-state">{asset?.status === 'market_observed' ? 'MARKET OBSERVED · DISTRIBUTIONS PLANNED' : 'AWAITING MARKET · DISTRIBUTIONS PLANNED'}</p>
         <div className="fcl-ctas"><Link className="m-btn m-go" to="/terminal/feecat/cats" data-testid="feecat-collection-link">🐱 Meet the cats</Link>
           {asset?.pair ? <button type="button" className="m-btn" onClick={() => onSelect?.(asset.pair)} data-testid="feecat-open-market">Open FEECAT market ↗</button> : null}</div></div>
@@ -73,7 +74,7 @@ export function FeeCatLore({ asset, community, onSelect, children, start = 'lege
     {sec === 'legend' ? <div className="fcl-mp" data-testid="lore-manual">
       <section className="fcl-mp-sec"><h3>NAME</h3><div><p><b>fee</b> — the first trading cat of FEELESS. <span className="m-num">{chapterStat('born', p, asset).join(' · ')}</span></p></div></section>
       <section className="fcl-mp-sec"><h3>SYNOPSIS</h3><div><ol className="fcl-mp-steps">{SYNOPSIS.map(([ic, k, what, to], i) => <li key={k} style={{ '--i': i }}><span className="fcl-mp-n">{i + 1}</span>
-        {to ? <Link to={to} className="fcl-mp-cmd" data-tip={what}>{ic} {k}</Link> : <code className="fcl-mp-cmd">{ic} {k}</code>}<small>{what}</small></li>)}</ol></div></section>
+        {to ? <Link to={to} className="fcl-mp-cmd" data-tip={what}><Ic3 e={ic} /> {k}</Link> : <code className="fcl-mp-cmd"><Ic3 e={ic} /> {k}</code>}<small>{what}</small></li>)}</ol></div></section>
       {CHAPTERS.map(([k, title, line, how], i) => { const [big, small] = chapterStat(k, p, asset); const lv = Math.round(lives); const mx = d.maxLives || 9;
         const w = Number(p?.cat?.wins) || 0, l = Number(p?.cat?.losses) || 0;
         return <section key={k} className={`fcl-mp-sec k-${k}`} style={{ '--i': i + 2 }} data-testid={`feecat-ch-${k}`}><h3>{title}</h3><div>

@@ -5,6 +5,7 @@ import '../styles/fuseMoney.css';
 import { LiveFuseCard } from './FuseCard';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // 💵 Fuse money, in plain words — shared by every card surface (tier cards, My cards, battle corners, profile, Lab):
 // MoneyMath (PUT IN → STILL IN CARD + PAID OUT = NOW, profit apart from fees), RoundBell (10s countdown into every round),
 // PaperAudit (a card's paper book: true-fill entries → now), CardCosts (fee receipt).
@@ -54,7 +55,7 @@ export function PaperAudit({ k, name, onClose }) {
   const b = d?.live;
   return createPortal(<div className="ce-shade is-pop" role="presentation" onClick={onClose} data-testid="paper-audit">
     <aside className="pa m-card m-live" role="dialog" aria-modal="true" aria-label={`${name} paper audit`} onClick={e => e.stopPropagation()}>
-      <header className="m-row"><span className="m-label">📜 PAPER AUDIT · TRUE FILLS</span><b>{name}</b><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
+      <header className="m-row"><span className="m-label"><Ic3 e="📜" /> PAPER AUDIT · TRUE FILLS</span><b>{name}</b><button type="button" className="cx-x" onClick={onClose} aria-label="Close">×</button></header>
       <p className="m-dim pa-how">Every card in an Arena battle runs $100 of paper dealt at the price a wallet would really get (pool impact both ways, learned from real Fuse-wallet fills). The trader's per-coin fee is booked apart, never in profit.</p>
       {!d ? <div className="frail-ghost" /> : b ? <>
         <div className="pa-top"><LiveFuseCard label="📄 PAPER · TRUE FILLS" aura="fire" r={{ id: `paper-${k}`, name, closed: false, costUsd: b.startUsd, valueUsd: b.valueUsd, realizedUsd: 0, baseUsd: b.startUsd, extraUsd: 0,
@@ -79,17 +80,17 @@ export function CardCosts({ coins = 3, amount = 20, staff = false, rounds = 10, 
   useEffect(() => { let alive = true; const t = setTimeout(() => fetch(apiUrl(`/api/reputation/fees/pricing?coins=${coins}&usd=${Math.max(1, amount || 0)}&rounds=${rounds}`)).then(r => r.json()).then(x => alive && setP(x)).catch(() => {}), 250);
     return () => { alive = false; clearTimeout(t); }; }, [coins, amount, rounds]);
   const x = p?.plan;
-  if (!x) return <div className="ccost m-card"><span className="m-label">💲 WHAT THIS CARD COSTS</span><small className="m-dim">loading prices…</small></div>;
-  return <div className="ccost m-card" data-testid="card-costs"><span className="m-label">💲 WHAT THIS CARD COSTS</span>
+  if (!x) return <div className="ccost m-card"><span className="m-label"><Ic3 e="💲" /> WHAT THIS CARD COSTS</span><small className="m-dim">loading prices…</small></div>;
+  return <div className="ccost m-card" data-testid="card-costs"><span className="m-label"><Ic3 e="💲" /> WHAT THIS CARD COSTS</span>
     {amount > 0 && amount <= 10 && amount / coins < 0.5 && <p className="m-note warn" data-testid="ccost-min">Cards of $10 or less buy at least $0.50 per coin — use {Math.max(1, Math.floor(amount / 0.5))} coins or more $.</p>}
     {staff ? <p className="ccost-free">HQ card · <b>$0 FEELESS fee</b> — only Solana network fees (~$0.001 per swap).</p> : <>
       <ul className="ccost-list">
         <li data-tip={`$${x.perCoinUsd.toFixed(2)} per coin, never more than ${p.bundle.maxPct}% of a coin's slice`}><span>🃏 First buy · {coins} coins</span><b className="m-num">{usd(x.buyUsd)}</b></li>
         <li data-tip="Every card runs 5 auto rounds free; each +5 is one round pack"><span>🔁 Rounds · first {x.free} free{x.packs ? ` · +${x.packs} pack${x.packs > 1 ? 's' : ''}` : ''}</span><b className="m-num">{usd(x.roundsUsd)}</b></li>
         <li data-tip={`One rotation = sell the old coin + buy the new one, $${p.bundle.swapUsd.toFixed(2)} each — it comes out of the swap, your wallet never pays it separately`}><span>⇄ Swaps · {x.rounds} rounds × {usd(x.swapUsd)}</span><b className="m-num">{usd(x.swapsUsd)}</b></li>
-        {p.prepay?.usd > 0 && <li data-tip="Paid with the first buy (same approval); those swaps then pay no FEELESS fee"><span>💳 Prepaid · first {p.prepay.rounds} rounds' swaps</span><b className="m-num">{usd(p.prepay.usd)}</b></li>}
+        {p.prepay?.usd > 0 && <li data-tip="Paid with the first buy (same approval); those swaps then pay no FEELESS fee"><span><Ic3 e="💳" /> Prepaid · first {p.prepay.rounds} rounds' swaps</span><b className="m-num">{usd(p.prepay.usd)}</b></li>}
         <li className="ccost-tot"><span>Total over {x.rounds} rounds</span><b className="m-num">{usd(x.totalUsd)} <em>({x.pct}% of {usd(amount)})</em></b></li></ul>
-      {onAutoFees && <label className="m-toggle ccost-auto" data-tip="When rounds run out and the card is up more than the pack price, the card pays +5 rounds from its profit (owed until the next take). Never while it's flat or down."><input type="checkbox" checked={autoFees !== false} onChange={e => onAutoFees(e.target.checked)} data-testid="auto-fees" /><span>💸 Card pays its fees from profit</span></label>}</>}
+      {onAutoFees && <label className="m-toggle ccost-auto" data-tip="When rounds run out and the card is up more than the pack price, the card pays +5 rounds from its profit (owed until the next take). Never while it's flat or down."><input type="checkbox" checked={autoFees !== false} onChange={e => onAutoFees(e.target.checked)} data-testid="auto-fees" /><span><Ic3 e="💸" /> Card pays its fees from profit</span></label>}</>}
     <small className="m-dim">Network fees (~$0.001/swap) go to Solana, not FEELESS. Fees are never counted in profit.</small></div>;
 }
 
@@ -99,9 +100,9 @@ export function TrailSummary({ events = [], legs = [] }) {
   const winners = [...new Set(events.filter(e => ['tp', 'payout'].includes(e.kind) && e.symbol).map(e => e.symbol))];
   const cut = [...new Set(events.filter(e => ['sl', 'rug', 'rotate', 'park', 'floor'].includes(e.kind) && e.symbol).map(e => e.symbol))];
   return <div className="ts" data-testid="trail-summary">
-    <span className="ts-good"><small>✅ DID GOOD</small><b>{winners.length ? winners.slice(0, 4).map(s => `$${s}`).join(' · ') : '—'}</b><em className="m-num">{usd(sum(['tp', 'payout']))} taken</em></span>
-    <span className="ts-stay"><small>🪙 STAYS</small><b>{legs.length ? legs.slice(0, 4).map(l => `$${l.symbol}`).join(' · ') : '—'}</b><em className="m-num">{usd(legs.reduce((a, l) => a + (l.usd ?? l.valueUsd ?? 0), 0))} held</em></span>
-    <span className="ts-cut"><small>✂ CUT / SWAPPED</small><b>{cut.length ? cut.slice(0, 4).map(s => `$${s}`).join(' · ') : '—'}</b><em className="m-num">{usd(sum(['sl', 'rug', 'park']))} sold</em></span></div>;
+    <span className="ts-good"><small><Ic3 e="✅" /> DID GOOD</small><b>{winners.length ? winners.slice(0, 4).map(s => `$${s}`).join(' · ') : '—'}</b><em className="m-num">{usd(sum(['tp', 'payout']))} taken</em></span>
+    <span className="ts-stay"><small><Ic3 e="🪙" /> STAYS</small><b>{legs.length ? legs.slice(0, 4).map(l => `$${l.symbol}`).join(' · ') : '—'}</b><em className="m-num">{usd(legs.reduce((a, l) => a + (l.usd ?? l.valueUsd ?? 0), 0))} held</em></span>
+    <span className="ts-cut"><small><Ic3 e="✂" /> CUT / SWAPPED</small><b>{cut.length ? cut.slice(0, 4).map(s => `$${s}`).join(' · ') : '—'}</b><em className="m-num">{usd(sum(['sl', 'rug', 'park']))} sold</em></span></div>;
 }
 
 // 📊 Entry · P&L per coin (My cards, profile): your real entry (from your confirmed buy) → live price, $ in → $ now, %.

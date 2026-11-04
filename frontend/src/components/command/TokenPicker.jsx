@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
-import { ChevronDown, Lock, Search } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
+import { Lock, Search } from '../../lib/lucide3d';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
 
 // Swap desk executes on Solana only; other networks are shown but locked so nobody picks a

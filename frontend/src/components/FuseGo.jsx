@@ -10,6 +10,7 @@ import { impactPercent } from '../lib/impactGuard';
 import { useLivePrices } from '../lib/livePrices';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
 const REFRESH_MS = 10000;
@@ -151,9 +152,9 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
               You get ≈ {fmt(l.tokens)} {l.symbol}{l.price ? <> at ≈ ${l.price < 0.01 ? tiny(l.price, 3) : l.price.toFixed(4)} each</> : null}.
               {l.feeUsd > 0 ? <> {usd2(l.feeUsd)} ({(l.feeBps / 100).toFixed(2)}%) is the FEELESS fee</> : <> No FEELESS fee</>}; {usd2(l.networkUsd)} goes to Solana validators.</span></li>)}
             <li><b>✓</b>The coins land in <em>your</em> wallet. FEELESS never holds them. From here each one moves with its own price — up or down. You don't earn the pool's trading fees (that's for liquidity providers); you own the coins.</li>
-            <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set 🎯 limits to get pinged at your target.</li></ol>
+            <li><b>↩</b>Exit any time with Unfuse (one approval, same fees once) or set <Ic3 e="🎯" /> limits to get pinged at your target.</li></ol>
         </details>}
-        {!sell && !position && prepay?.usd > 0 && !prepay.staff && <p className="fg-rcpt-note" data-testid="fg-prepay">💳 + {usd2(prepay.usd)} up front for {prepay.rounds} rounds{prepay.packs ? ` (${prepay.packs} round pack${prepay.packs > 1 ? 's' : ''} ${usd2(prepay.roundsUsd)})` : ''}{prepay.swapsUsd > 0 ? ` and ${prepay.swaps} swaps (${prepay.chosen ? `${prepay.swapsPerRound} a round` : 'prepaid'} × ${usd2(prepay.perSwapUsd)})` : ''} — in the same approval; those swaps then pay no FEELESS fee.</p>}
+        {!sell && !position && prepay?.usd > 0 && !prepay.staff && <p className="fg-rcpt-note" data-testid="fg-prepay"><Ic3 e="💳" /> + {usd2(prepay.usd)} up front for {prepay.rounds} rounds{prepay.packs ? ` (${prepay.packs} round pack${prepay.packs > 1 ? 's' : ''} ${usd2(prepay.roundsUsd)})` : ''}{prepay.swapsUsd > 0 ? ` and ${prepay.swaps} swaps (${prepay.chosen ? `${prepay.swapsPerRound} a round` : 'prepaid'} × ${usd2(prepay.perSwapUsd)})` : ''} — in the same approval; those swaps then pay no FEELESS fee.</p>}
         <p className="fg-rcpt-note">Costs {usd2(tot.fee + tot.net)} = <b>{tot.usd ? ((tot.fee + tot.net) / tot.usd * 100).toFixed(1) : 0}%</b> of {usd2(tot.usd)}. {tot.usd && (tot.fee + tot.net) / tot.usd > 0.05 ? 'High for this size — fewer pools or more SOL keeps more working.' : 'Quotes refresh every 10s until you sign.'}</p></div>}
       <div className="fg-acts"><button type="button" className="m-btn primary m-go" disabled={!ready.length || phase !== 'review'} onClick={signAll} data-testid="fg-sign">{phase === 'signing' ? 'Waiting for wallet…' : phase === 'sending' ? 'Sending…' : `${sell ? '↩ Unfuse' : '⚡ Approve'} ${ready.length} ${sell ? 'sell' : 'swap'}${ready.length === 1 ? '' : 's'} · 1 click`}</button>
         <button type="button" className="m-btn" disabled={['signing', 'sending'].includes(phase)} onClick={onClose}>Cancel</button></div>

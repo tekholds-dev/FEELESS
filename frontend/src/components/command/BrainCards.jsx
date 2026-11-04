@@ -3,6 +3,7 @@ import { usePrime } from '../ArenaPrime';
 import { useLivePrices } from '../../lib/livePrices';
 import { pct, usd } from '../../lib/num';
 import '../../styles/brainCards.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🃏 BRAIN POP-OUT › LIVE CARDS (owner, 2026-10-20: "brain popout with amazing vitals on current cards"): the real card(s) beside the chat — value,
 // all-time, cash, and every coin as a live row: who holds it (you · OSSY · G4 · agents), % now with a bar, peak, held time, its own lines.
@@ -30,7 +31,7 @@ export default function BrainCards() {
         <span><em>CASH</em><b>{usd(c.cash)}</b></span><span><em>SEATS</em><b>{rows.length} / {(c.legs || []).length}</b></span><span><em>ROUND</em><b>{pct(c.roundPct, 1)}</b></span></div>
       <ol className="bcd-legs">{rows.map((l, i) => { const v = legLive(l, live.get(l.pairAddress)); const [ic, who] = holderOf(l);
         return <li key={`${l.mint}-${i}`} style={{ '--i': i }} className={v.p >= 0 ? 'up' : 'dn'}>
-          <span className="bcd-who" data-tip={who}>{ic}<small>{who}</small></span><b>${l.symbol}</b>
+          <span className="bcd-who" data-tip={who}><Ic3 e={ic} /><small>{who}</small></span><b>${l.symbol}</b>
           <i className="bcd-bar"><u style={{ transform: `scaleX(${Math.min(1, Math.abs(v.p) / 50)})` }} /></i>
           <span className="bcd-p" key={Math.round(v.p * 10)}>{pct(v.p, 1)}</span>
           <small className="bcd-meta">{usd(v.usd)} · peak {v.pk != null ? pct(v.pk, 0) : '—'} · {held(l.at)}{l.tp ? ` · TP +${Math.round(l.tp)}` : ''}{l.sl ? ` · SL −${Math.round(l.sl)}` : ''}</small></li>; })}</ol>

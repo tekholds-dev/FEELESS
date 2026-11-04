@@ -3,6 +3,7 @@ import { apiUrl } from '../lib/api';
 import { FamilyBadge } from './FamilyBadge';
 import { FamilyCrest } from './FamilyCrest';
 import '../styles/familyCrest.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚒ THE CREST FORGE (owner, 2026-10-22: "badge customizing sucks"; research: Call of Duty's emblem editor — layers you move / scale / rotate /
 // flip / colour, a grid, a live canvas, "change shape keeps the adjustments"). FEELESS twist: a crest on a turntable under the family's
@@ -52,7 +53,7 @@ export function CrestForge({ mine, owner, addr, sess, costWord, act, busy }) {
       <div className="cf-turn"><FamilyBadge b={prev} size="lg" px={196} grid={grid} chips={false} /></div>
       <p className="cf-open" data-tip="Parts your family has unlocked — every lock reads a tracked number"><em><b>{open}</b>/{all.length} parts unlocked</em><span><i style={{ transform: `scaleX(${open / Math.max(1, all.length)})` }} /></span></p>
       <p className="cf-met">{Object.entries(cat.metrics).filter(([k]) => cat.metricWords[k]).map(([k, v], i) => <span key={k} style={{ '--i': i }} data-tip={cat.metricWords[k]}><b>{v ?? '—'}</b><small>{cat.metricWords[k]}</small></span>)}</p>
-      {owner ? <div className="cf-acts"><button type="button" className="m-btn" onClick={() => setD(x => rollBadge(cat, x))} data-tip="A random crest from your unlocked parts" data-testid="fbb-roll">🎲 Roll</button>
+      {owner ? <div className="cf-acts"><button type="button" className="m-btn" onClick={() => setD(x => rollBadge(cat, x))} data-tip="A random crest from your unlocked parts" data-testid="fbb-roll"><Ic3 e="🎲" /> Roll</button>
         <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('/api/reputation/crews/badge', { badge: d }, cat.built ? '🌹 crest restyled' : '🌹 crest forged', cat.built && !cat.free ? 'badge' : undefined)} data-tip={cat.built ? 'Save the new look — every family sees it on the board, podium, cards and chips' : 'The first crest is free'} data-testid="fbb-save">
           {cat.built ? `Restyle · ${cat.free ? 'free' : costWord || `$${cat.restyleUsd}`}` : 'Forge it · free'}</button></div> : <p className="m-dim crw-hint">Only the Don forges the crest — every unlock comes from what the family really did.</p>}
     </section>
@@ -66,7 +67,7 @@ export function CrestForge({ mine, owner, addr, sess, costWord, act, busy }) {
           return <button key={o.key} type="button" disabled={!o.ok || !owner} style={{ '--i': i }} className={`cf-tile ${d[layer] === o.key ? 'active' : ''} ${o.ok ? '' : 'is-locked'}`}
             onClick={() => set({ [layer]: o.key })} data-tip={o.ok ? o.label : `🔒 ${o.need}`} data-testid={`fbb-${layer}-${o.key}`}>
             <span className="cf-mini">{layer === 'fx' ? <FamilyBadge b={look} size="md" px={58} chips={false} /> : <FamilyCrest b={look} px={58} banner={layer === 'banner'} sheen={false} title={o.label} />}</span><small>{o.label}</small>
-            {o.ok ? null : <><i className="cf-lock" aria-hidden="true">🔒</i>{pr != null ? <span className="cf-prog"><b style={{ transform: `scaleX(${Math.max(0.04, pr)})` }} /></span> : null}<em>{o.need}</em></>}</button>; })}</div>
+            {o.ok ? null : <><i className="cf-lock" aria-hidden="true"><Ic3 e="🔒" /></i>{pr != null ? <span className="cf-prog"><b style={{ transform: `scaleX(${Math.max(0.04, pr)})` }} /></span> : null}<em>{o.need}</em></>}</button>; })}</div>
         {layer === 'field' ? <div className="cf-colors">
           <div className="cf-pairs">{COLOR_PAIRS.filter(p => p.every(c => cat.colors.includes(c))).map(([a1, a2]) => <button key={a1 + a2} type="button" disabled={!owner} className={d.c1 === a1 && d.c2 === a2 ? 'active' : ''} onClick={() => set({ c1: a1, c2: a2 })} aria-label={`colours ${a1} and ${a2}`} data-tip="A family colour pair"><i style={{ background: a1 }} /><i style={{ background: a2 }} /></button>)}</div>
           {swatches('c1', 'MAIN')}{swatches('c2', 'TRIM')}</div> : null}

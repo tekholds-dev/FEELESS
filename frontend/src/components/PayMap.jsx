@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import '../styles/payMap.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📊 WHAT PAYS: the real card's closed pieces by how long a coin was held, how it ended, who opened it — from confirmed fills only
 // (GET /fuses/pay-map, backend/pay_map.py). Plain-words advice cites the numbers. A record of what happened, never a promise.
@@ -24,7 +25,7 @@ export function PayMap({ card = 'degen' }) {
   if (!m?.pieces) return null;
   const { hold, kind } = payRows(m);
   return <details className="pm" data-testid="pay-map">
-    <summary data-tip="Every closed piece of this card, matched buy → sell. Price result, fees apart. A record, never a promise.">📊 What pays · {m.pieces} pieces · {usd(m.netUsd)}</summary>
+    <summary data-tip="Every closed piece of this card, matched buy → sell. Price result, fees apart. A record, never a promise."><Ic3 e="📊" /> What pays · {m.pieces} pieces · {usd(m.netUsd)}</summary>
     {m.advice?.length > 0 && <ul className="pm-adv">{m.advice.map(a => <li key={a.key} data-testid={`pay-adv-${a.key}`}>{a.text}</li>)}</ul>}
     <div className="pm-grid">
       <div><small className="m-label">HELD FOR</small>{hold.map((r, i) => <p key={r.k} className={r.usd >= 0 ? 'up' : 'dn'} style={{ '--i': i }} data-tip={`${r.n} pieces · ${r.wonPct}% won · avg ${r.avgRet >= 0 ? '+' : ''}${r.avgRet}% a piece`}><b>{r.k}</b><span><i style={{ transform: `scaleX(${r.w})` }} /></span><em>{usd(r.usd)}</em><small>{r.wonPct}% · {r.n}</small></p>)}</div>

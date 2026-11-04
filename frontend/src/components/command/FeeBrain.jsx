@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Ic3 } from '../../lib/icon3d';
 
 // Fee's brain, read live: her setup memory (which kinds of entries win), what she vetoed, how her exits
 // and entries are tuned right now, and her scoreboard. Everything here comes from her own closed trades.
@@ -19,10 +20,10 @@ export function FeeBrain({ catId = 'leader' }) {
   return <div className="fee-brain" data-testid="fee-brain">
     <div className="fb-kpis">{[['Realized', `${Number(c.realizedPnlSol || 0) >= 0 ? '+' : ''}${Number(c.realizedPnlSol || 0).toFixed(3)} SOL`, Number(c.realizedPnlSol || 0) >= 0 ? 'up' : 'down'], ['Win rate', c.winRate != null ? `${c.winRate}%` : '—', ''], ['Trades remembered', L.memory ?? 0, ''], ['Mode', L.mode || 'warming', ''], ['Runners missed / good exits', `${L.missed ?? 0} / ${L.good ?? 0}`, '']].map(([k, v, t]) => <span key={k} className={t}><small>{k}</small><b>{v}</b></span>)}</div>
     <div className="fb-grid">
-      <div className="cc-block"><h4>✅ Setups that pay her</h4>{!pb.best.length ? <p className="cc-empty">Needs 4+ closed trades per setup. She sizes these up (up to 1.5×).</p> : pb.best.map(r => <Row key={r.setup} r={r} />)}</div>
+      <div className="cc-block"><h4><Ic3 e="✅" /> Setups that pay her</h4>{!pb.best.length ? <p className="cc-empty">Needs 4+ closed trades per setup. She sizes these up (up to 1.5×).</p> : pb.best.map(r => <Row key={r.setup} r={r} />)}</div>
       <div className="cc-block"><h4>⛔ Setups that cost her</h4>{!pb.worst.length ? <p className="cc-empty">Nothing proven bad yet. Losers get sized down; 6+ trades at ≤20% wins and −8% avg are vetoed.</p> : pb.worst.map(r => <Row key={r.setup} r={r} />)}</div>
     </div>
-    {L.vetoes?.length > 0 && <div className="cc-block"><h4>🧠 Trades she refused (setup memory)</h4>{L.vetoes.map((v, i) => <div key={i} className="fb-veto"><b>${v.symbol}</b><span>{v.why}</span></div>)}</div>}
+    {L.vetoes?.length > 0 && <div className="cc-block"><h4><Ic3 e="🧠" /> Trades she refused (setup memory)</h4>{L.vetoes.map((v, i) => <div key={i} className="fb-veto"><b>${v.symbol}</b><span>{v.why}</span></div>)}</div>}
     <div className="cc-block"><h4>Exit tuning (learned after every sell)</h4><div className="fb-params">{Object.entries(L.params || {}).map(([k, v]) => <span key={k}><small>{k === 'runnerTrail' ? 'Runner trail' : k === 'takeProfit1' ? 'First profit at' : k}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
       <div className="fb-log">{(L.log || []).slice(0, 6).map((x, i) => <p key={i} className={x.missed ? 'miss' : ''}>{x.note}</p>)}</div></div>
   </div>;

@@ -7,6 +7,7 @@ import { useGlobeBubbles } from '../lib/globeBubbles';
 import { apiUrl } from '../lib/api';
 import { isEco } from '../lib/eco';
 import { burstObject, tickBurst, disposeBurst, coinHeat, kindFor, BURST_COLORS } from '../lib/globeBursts';
+import { Ic3 } from '../lib/icon3d';
 
 const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
 let glowTex = null;
@@ -198,7 +199,7 @@ const GlobeHud = React.memo(function GlobeHud({ hottest, openToken, feedPush, fi
           <a href="/terminal/reputation"><b>{stats.flaggedFunders ?? 0}</b><small>funders</small></a>
           <a href="/terminal/reputation"><b>{stats.blocklisted?.toLocaleString?.()}</b><small>blocked</small></a>
         </div>
-        {hottest && <button type="button" className="globe-hud-hot" onClick={() => openToken(hottest)}><i>🔥</i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}%</button>}
+        {hottest && <button type="button" className="globe-hud-hot" onClick={() => openToken(hottest)}><i><Ic3 e="🔥" /></i>${String(hottest.symbol).replace(/^\$/, '')} {Number(hottest.change24h) >= 0 ? '+' : ''}{Number(hottest.change24h).toFixed(1)}%</button>}
         {feed.length > 0 && <ul className="globe-feed" data-testid="globe-feed">{feed.map(f => <li key={f.id} style={{ '--c': f.color }}>{f.token ? <button type="button" onClick={() => openToken(f.token)}>{f.label}</button> : f.label}</li>)}</ul>}
       </div>}
   </>;

@@ -10,6 +10,7 @@ import { CoinPassport } from '../CoinPassport';
 import { resolveCoin } from '../../lib/resolveCoin';
 import { PumpProfile, usePumpProfile } from '../PumpProfile';
 import { CardFx } from '../CardFx';
+import { Ic3 } from '../../lib/icon3d';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? `${Math.floor(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 
@@ -79,8 +80,8 @@ export function CoinProfile({ chain, pairAddress }) {
         {!intel ? <p className="wp-bio">Scanning holders…</p> : <>
           <div className="cp-kv"><span>Top 10 wallets</span><b className={intel.top10Pct > 35 ? 'negative' : 'positive'}>{intel.top10Pct != null ? `${intel.top10Pct.toFixed(1)}%` : '—'}</b></div>
           <div className="cp-kv"><span>Insiders / dev</span><b>{intel.insidersHoldingPct?.toFixed?.(1) ?? '—'}% / {intel.devHoldingPct?.toFixed?.(1) ?? '—'}%</b></div>
-          <div className="cp-kv"><span>🎯 Snipers</span><b className={snip > 10 ? 'negative' : ''}>{snip ?? '—'}</b></div>
-          <div className="cp-kv"><span>📦 Bundled wallets</span><b className={bund > 0 ? 'negative' : ''}>{bund ?? '—'}</b></div>
+          <div className="cp-kv"><span><Ic3 e="🎯" /> Snipers</span><b className={snip > 10 ? 'negative' : ''}>{snip ?? '—'}</b></div>
+          <div className="cp-kv"><span><Ic3 e="📦" /> Bundled wallets</span><b className={bund > 0 ? 'negative' : ''}>{bund ?? '—'}</b></div>
           {(intel.flags || []).map(f => <p key={f} className="cp-flag">⚠️ {f}</p>)}
         </>}
       </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FamEmpty } from './FamEmpty';
 import '../styles/cardRoom.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🃏 THE CARD ROOM (owner 2026-10-27: "card room is corny and not live"): the family's recruits as a hand dealt on a noir felt table — each card
 // has a DRAWN face for its job (hitter = fedora + tommy gun, guard = shield, earner = money bag, spy = mask), its level as the card value, an XP
@@ -63,7 +64,7 @@ export function CardRoom({ crew, onGo }) {
     {sel ? (() => { const s = SUIT[sel.k] || SUIT.guard; const hurt = Math.max(0, (Number(sel.hurt) || 0) - gone);
       return <div className="crd-pick" data-testid="crd-pick"><b>{s[0]} {s[1]} · LEVEL {sel.lvl}{(sel.lvl || 0) >= 10 ? ' · KING' : ''}</b><p>{s[2]}</p>
         <span className="crd-pxp"><em>XP</em><i aria-hidden="true"><s style={{ transform: `scaleX(${sel.next ? Math.min(1, (sel.xp || 0) / sel.next) : 1})` }} /></i><small className="m-num">{sel.next ? `${sel.xp}/${sel.next} to level ${sel.lvl + 1}` : 'max level'}</small></span>
-        <div className="crd-acts">{hurt ? <button type="button" className="m-btn" onClick={() => onGo?.('rc')} data-tip="Challenges win fresh recruits while this one heals" data-testid="crd-go-rc">🎖 The gym · back in {mmss(hurt)}</button>
+        <div className="crd-acts">{hurt ? <button type="button" className="m-btn" onClick={() => onGo?.('rc')} data-tip="Challenges win fresh recruits while this one heals" data-testid="crd-go-rc"><Ic3 e="🎖" /> The gym · back in {mmss(hurt)}</button>
           : (MOVES[sel.k] || MOVES.guard).map(([k, l]) => <button key={k} type="button" className="m-btn m-go" onClick={() => onGo?.(k)} data-testid={`crd-go-${k}`}>{l}</button>)}</div></div>; })() : <p className="crd-hint">Tap a card — what it does, and the move that uses it right now.</p>}
   </div>;
 }

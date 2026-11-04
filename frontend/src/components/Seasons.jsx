@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Crown } from 'lucide-react';
+import { Crown } from '../lib/lucide3d';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { WeeklyDrops } from './SeasonBadges';
 import { SeasonEditor } from './SeasonEditor';
 import { useAdmin } from '../lib/adminCall';
 import { SeasonLive } from './SeasonLive';
+import { Ic3 } from '../lib/icon3d';
 
 // Season badges earn a weighted cut of the Fee Reserve: show the pot and this wallet's projected share.
 function ReservePot({ address }) {
@@ -17,7 +18,7 @@ function ReservePot({ address }) {
     return () => { alive = false; };
   }, [address]);
   if (!r?.active) return null;
-  return <div className="season-reserve" data-testid="season-reserve"><small>💰 RESERVE POOL · {r.pct}%</small><b>{r.potSol} SOL</b>
+  return <div className="season-reserve" data-testid="season-reserve"><small><Ic3 e="💰" /> RESERVE POOL · {r.pct}%</small><b>{r.potSol} SOL</b>
     <span>{r.me ? <>your {r.me.tier} badge ≈ <em>{r.me.sol} SOL</em> ({r.me.sharePct}%)</> : `split by tier across ${r.wallets} wallets · reach Bronze to earn`}</span></div>;
 }
 
@@ -91,7 +92,7 @@ export function SeasonsPage() {
       <div className="season-info">
         <div className="season-info-text"><span className="eyebrow">SEASON {s.id.replace('s', '')}</span><h1>{s.name}</h1><p>{s.theme}</p></div>
         <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
-        <p className="season-prize">🏆 {s.prize}</p>
+        <p className="season-prize"><Ic3 e="🏆" /> {s.prize}</p>
       </div>
     </section> : <section className="season-hero">
       <SeasonFx fx={s.bgFx} />
@@ -100,7 +101,7 @@ export function SeasonsPage() {
       <h1>{s.name}</h1>
       <p>{s.theme}</p>
       <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
-      <p className="season-prize">🏆 {s.prize}</p>
+      <p className="season-prize"><Ic3 e="🏆" /> {s.prize}</p>
     </section>}
     <SeasonLive d={d} />
     <SeasonRules s={s} />

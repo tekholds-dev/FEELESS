@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { TrendingDown, TrendingUp } from 'lucide-react';
+import { TrendingDown, TrendingUp } from '../../lib/lucide3d';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { currentSubscription, enablePush, readPushPrefs } from '../../lib/push';
 import { useWallet } from '../../hooks/useWallet';

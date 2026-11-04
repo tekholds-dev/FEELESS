@@ -45,6 +45,7 @@ import { recentResults } from '../../lib/coachTape';
 import { ShareGifButton } from '../ShareGif';
 import '../../styles/cockpitPlus.css';
 import '../../styles/duoFloor.css';   // 📱📱 the Duo floor shell (dfl-*) the Agents floor shares with the Trenches
+import { Ic3 } from '../../lib/icon3d';
 
 // 🎛 THE AGENTS COCKPIT (HQ › Agents, the whole top of the tab — built to the owner's reference, 2026-10-12): REAL MONEY MISSION ribbon ·
 // the four SEATS · ONE chart in MARKET CAP with the agents' real events lettered on it (T D W B R X) · the LIVE DECISIONS strip · the
@@ -89,7 +90,7 @@ const DECK_KEY = 'feeless.agentDeck'; const NAV_KEY = 'feeless.agentNav';
 // 🏷 a tab = icon first, one short word, a live badge, a mini meter that fills with the tab's own number (transform only)
 export function TabChip({ label, n, meter }) {
   const sp = String(label || '').indexOf(' '); const ic = sp > 0 ? label.slice(0, sp) : ''; const w = sp > 0 ? label.slice(sp + 1) : label;
-  return <span className="ack-tchip"><span className="ack-tic" aria-hidden>{ic}</span><span className="ack-tw">{w}</span>{n != null && n !== 0 ? <i key={n} className="ack-tbadge">{n}</i> : null}
+  return <span className="ack-tchip"><span className="ack-tic" aria-hidden><Ic3 e={ic} /></span><span className="ack-tw">{w}</span>{n != null && n !== 0 ? <i key={n} className="ack-tbadge">{n}</i> : null}
     {meter != null ? <span className="ack-tmeter" aria-hidden><b style={{ transform: `scaleX(${Math.max(0, Math.min(1, meter)).toFixed(3)})` }} /></span> : null}</span>;
 }
 // each deck tab's mini meter, from numbers the payload already carries: trades = share of closed real trades that won · desk = share of
@@ -134,7 +135,7 @@ export function pulseOf(o, nowMs = Date.now()) {
 function PulseAi({ o, now, onAi, sec }) {
   const ai = useAi(o?.ai); const lg = ai?.log || []; const last = lg.length ? lg[lg.length - 1] : null; const m = ai?.metrics || {};
   const age = last ? Math.max(0, now / 1000 - last.at) : null;
-  return <button type="button" className="ack-pz is-ai" onClick={onAi} data-testid="ack-pulse-ai" data-tip="The model's decisions — tap to open (queue · average answer time)"><small>🧠 MODEL</small>
+  return <button type="button" className="ack-pz is-ai" onClick={onAi} data-testid="ack-pulse-ai" data-tip="The model's decisions — tap to open (queue · average answer time)"><small><Ic3 e="🧠" /> MODEL</small>
     <b>{last ? `${last.stance || '—'}${last.symbol ? ` $${last.symbol}` : ''}` : 'no answer yet'}</b>
     <u>{[last ? `${sec(age)} ago` : null, m.queue ? `queue ${m.queue}` : null, m.avgMs ? `${(m.avgMs / 1000).toFixed(1)}s avg` : null].filter(Boolean).join(' · ')}</u></button>;
 }
@@ -162,7 +163,7 @@ function LivePulse({ o, onAi }) {
 // ── 💵 THE MONEY STRIP + the nav (sticky): card value · today's real result · the seats it holds with their live % · night state ──────
 export function ExitChips({ s, mini }) {
   const t = exitTags(s); if (!t.length) return null;
-  return <span className={`ack-xchips ${mini ? 'is-mini' : ''}`}>{t.map(x => <i key={x.k} className={`ack-xchip is-${x.k}`} data-tip={x.tip} data-testid={`ack-xchip-${x.k}`}>{x.ic}{mini ? null : <b>{x.word}</b>}</i>)}</span>;
+  return <span className={`ack-xchips ${mini ? 'is-mini' : ''}`}>{t.map(x => <i key={x.k} className={`ack-xchip is-${x.k}`} data-tip={x.tip} data-testid={`ack-xchip-${x.k}`}><Ic3 e={x.ic} />{mini ? null : <b>{x.word}</b>}</i>)}</span>;
 }
 const sgn = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(2)}`);
 function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null, brain = null }) {
@@ -172,9 +173,9 @@ function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null, brain
   return <header className={`ack-money is-${m.night.state}`} data-testid="ack-money">
     <div className="ack-mrow">
       <span className="ack-mcell is-card" data-tip={`card value now · put in ${m.putIn != null ? `$${m.putIn.toFixed(2)}` : '—'}${m.netPct != null ? ` · ${m.netPct >= 0 ? '+' : ''}${m.netPct.toFixed(1)}% all time` : ''}`}>
-        <small>💵 CARD</small><LiveNum v={m.value} fmt={x => `$${x.toFixed(2)}`} cls="" testid="ack-money-value" />{m.netPct != null ? <u className={tone(m.netPct)}>{m.netPct >= 0 ? '+' : ''}{m.netPct.toFixed(0)}%</u> : null}</span>
+        <small><Ic3 e="💵" /> CARD</small><LiveNum v={m.value} fmt={x => `$${x.toFixed(2)}`} cls="" testid="ack-money-value" />{m.netPct != null ? <u className={tone(m.netPct)}>{m.netPct >= 0 ? '+' : ''}{m.netPct.toFixed(0)}%</u> : null}</span>
       <span className="ack-mcell" data-tip={m.today.n ? `real trades closed since midnight: ${m.today.won} of ${m.today.n} won${m.today.partial ? ' (the tape holds only its newest trades)' : ''}` : 'no real trade closed since midnight'}>
-        <small>📅 TODAY</small><LiveNum v={m.today.usd} fmt={sgn} cls={tTone} testid="ack-money-today" />
+        <small><Ic3 e="📅" /> TODAY</small><LiveNum v={m.today.usd} fmt={sgn} cls={tTone} testid="ack-money-today" />
         <span className="ack-mwin" aria-hidden>{m.today.n ? <i style={{ transform: `scaleX(${(m.today.won / m.today.n).toFixed(3)})` }} /> : null}</span></span>
       {rr.you.usd == null && rr.agents.usd == null ? null : <span className="ack-mcell is-split" data-tip="realized in the last 24h — your own trades apart from the agents' (fees apart)" data-testid="ack-money-split">
         <small>👤 YOU · 🤖 AGENTS</small><b><em className={tone(rr.you.usd)}>{rr.you.usd == null ? '—' : sgn(rr.you.usd)}</em><i>·</i><em className={tone(rr.agents.usd)}>{rr.agents.usd == null ? '—' : sgn(rr.agents.usd)}</em></b></span>}
@@ -215,7 +216,7 @@ function NavTabs({ nav, go, navTabs }) {
 // ── 💵 the mission ribbon ───────────────────────────────────────────────────────────────────────────────────────────────────────
 export function MissionRibbon({ tiles, live, cold }) {
   return <section className="ack-ribbon m-live" data-testid="ack-ribbon">
-    <span className="ack-rhead"><b>💵 REAL MONEY MISSION</b><i className={live ? 'is-live' : ''}>{cold ? 'waiting' : live ? '● live' : '● snapshot'}</i></span>
+    <span className="ack-rhead"><b><Ic3 e="💵" /> REAL MONEY MISSION</b><i className={live ? 'is-live' : ''}>{cold ? 'waiting' : live ? '● live' : '● snapshot'}</i></span>
     {tiles.map(t => <span key={t.k} className={`ack-rt ${t.meter != null ? 'has-meter' : ''}`} data-testid={`ack-rt-${t.k}`} data-tip={[t.sub, t.tip].filter(Boolean).join(' · ') || undefined}><small>{t.label}</small>
       {t.fmt ? (t.live ? <LiveNum v={t.val} fmt={FMT[t.fmt]} cls={t.cls || ''} /> : <b className={`ack-num ${t.cls || ''}`}>{FMT[t.fmt](t.val)}</b>) : <b className={`ack-num ack-word ${t.cls || ''}`}>{t.text}</b>}
       {t.sub ? <u className={t.subCls || ''}>{t.sub}</u> : null}
@@ -261,7 +262,7 @@ function ReaperAsks({ o, call, isOwner, reload }) {
   return <div className="ack-asks" data-testid="ack-asks">
     {asks.map(a => <div key={a.mint} className="ack-ask" data-testid={`ack-ask-${a.mint}`}>
       <span><b>☠ Reaper asks · ${a.symbol}</b><small>{a.name} at {pc(a.pct)} — {a.why}</small></span>
-      <button type="button" className="m-btn" disabled={!isOwner || busy === a.mint} onClick={() => answer(a, true)} data-testid={`ack-ask-ok-${a.mint}`}>✅ Approve</button>
+      <button type="button" className="m-btn" disabled={!isOwner || busy === a.mint} onClick={() => answer(a, true)} data-testid={`ack-ask-ok-${a.mint}`}><Ic3 e="✅" /> Approve</button>
       <button type="button" className="m-btn m-go" disabled={!isOwner || busy === a.mint} onClick={() => answer(a, false)} data-testid={`ack-ask-keep-${a.mint}`}>✋ Keep my line</button></div>)}
     {rec ? <small className="ack-askrec" data-testid="ack-ask-rec">{rec}</small> : null}</div>;
 }
@@ -285,7 +286,7 @@ function SeatCard({ s, on, onPick, readyN, same, call }) {
   const st = seatState(s, readyN);
   if (s.open) return <div role="button" tabIndex={0} className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`} onClick={() => onPick(s)}
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(s); } }} data-tip="Hunting — tap for the coin this seat is closest to taking (or the review queue)">
-    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip={`${s.model || 'the model'}'s seat: it decides — the agents only argue`}>🧠 {s.model || '…'}</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
+    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip={`${s.model || 'the model'}'s seat: it decides — the agents only argue`}><Ic3 e="🧠" /> {s.model || '…'}</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <HuntLine why={s.why} ready={readyN} same={same} />
     <p className="ack-huntkv" data-testid={`ack-seat-huntkv-${s.seat}`}><span data-tip="Who has the turn to open this seat">TURN<b>{s.kind === 'g4' ? `🧠 ${s.model || '…'}` : '🤖 agents'}</b></span>
       <span data-tip="Coins that cleared every desk check right now">READY<b>{readyN || 0}</b></span><span data-tip="Buys this seat refused lately (the pre-check / keeper)">REFUSED<b>{(s.refused || []).length}</b></span></p>
@@ -294,7 +295,7 @@ function SeatCard({ s, on, onPick, readyN, same, call }) {
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', '']; const rug = rugMark(s);
   return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
-    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-testid={`ack-seat-model-${s.seat}`}>🧠 {s.model || '…'}</i> : null}{rug ? <i className={`ack-rugdot is-${rug.level}`} data-tip={`${rug.level === 'bad' ? '🔴 RUG RISK' : '🟡 POOL THINNING'} — ${rug.why}`} aria-label={rug.level === 'bad' ? 'rug risk' : 'pool thinning'} data-testid={`ack-seat-rug-${s.seat}`} /> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
+    <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-testid={`ack-seat-model-${s.seat}`}><Ic3 e="🧠" /> {s.model || '…'}</i> : null}{rug ? <i className={`ack-rugdot is-${rug.level}`} data-tip={`${rug.level === 'bad' ? '🔴 RUG RISK' : '🟡 POOL THINNING'} — ${rug.why}`} aria-label={rug.level === 'bad' ? 'rug risk' : 'pool thinning'} data-testid={`ack-seat-rug-${s.seat}`} /> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /><GermChip mint={s.mint} compact /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
     <div className="ack-seatmid"><dl className="ack-kv">
       <dt>ENTRY MC</dt><dd>{mcWord(s.entryMc)}</dd><dt>AGE</dt><dd>{mins(s.ageMin)}</dd>
@@ -306,7 +307,7 @@ function SeatCard({ s, on, onPick, readyN, same, call }) {
     <p className="ack-now" data-testid={`ack-seat-now-${s.seat}`}><span>☠ Reaper · {s.reaper || '—'}{s.rule ? ` · ${s.rule}` : ''}<ExitChips s={s} /></span><small>next review {secs(s.nextReview)}</small></p>
     <SeatStudy s={s} />
     <SeatHints s={s} call={call} />
-    <footer data-testid={`ack-seat-last-${s.seat}`}>{last ? <><span style={{ '--ag': AG[last.agent] || 'var(--m-accent)' }}>{ic} {nm} · {last.action}</span><small>{ago(last.at)} ago</small></> : <span className="m-dim">no decision line yet</span>}</footer>
+    <footer data-testid={`ack-seat-last-${s.seat}`}>{last ? <><span style={{ '--ag': AG[last.agent] || 'var(--m-accent)' }}><Ic3 e={ic} /> {nm} · {last.action}</span><small>{ago(last.at)} ago</small></> : <span className="m-dim">no decision line yet</span>}</footer>
   </button>;
 }
 
@@ -455,7 +456,7 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, is
 function TapeRow({ r, onPick, card, pulse }) {
   const [ic, nm] = TAPE_AGENT[r.agent] || ['•', r.agent];
   const Tag = card ? 'button' : 'li';
-  const body = <><small className="ack-tage">{ago(r.at)} ago</small><b style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }}>{ic} {nm}</b><em className={`ack-tact ${tapeTone(r)}`}>{r.action}</em>
+  const body = <><small className="ack-tage">{ago(r.at)} ago</small><b style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }}><Ic3 e={ic} /> {nm}</b><em className={`ack-tact ${tapeTone(r)}`}>{r.action}</em>
     {r.n > 1 ? <span className="ack-tsym ack-tgrp" data-testid={`ack-tgrp-${r.id}`}>×{r.n} · {r.syms.slice(0, 5).map(x => `$${x}`).join(' ')}{r.syms.length > 5 ? ' …' : ''}</span>
       : r.symbol ? <span className="ack-tsym">${r.symbol}{r.mc ? <small> · {mcWord(r.mc)} MC</small> : null}</span> : null}<span className="ack-twhy">{r.why}</span></>;
   return card ? <Tag type="button" className={`ack-tcard ${tapeTone(r)} ${pulse ? 'is-new' : ''}`} onClick={() => onPick(r)} data-tip={r.why || undefined} style={{ '--ag': AG[r.agent] || 'var(--m-accent)' }} data-testid={`ack-tape-${r.id}`}>{body}</Tag>
@@ -465,7 +466,7 @@ function DecisionTape({ rows, agent, setAgent, onPick, fresh }) {
   const [all, setAll] = useState(false);
   const list = groupTape(tapeOf(rows, { agent, n: all ? 120 : 24 })).slice(0, all ? 120 : 6);   // repeats fold into one line
   return <section className="ack-tape" data-testid="ack-tape">
-    <header data-tip="the latest real agent actions across all seats — a line exists only when something real changed"><b>⚡ LIVE DECISIONS</b><small>{agent ? `${TAPE_AGENT[agent]?.[1] || agent} only · ` : ''}latest real agent actions across all seats — a line exists only when something real changed</small>
+    <header data-tip="the latest real agent actions across all seats — a line exists only when something real changed"><b><Ic3 e="⚡" /> LIVE DECISIONS</b><small>{agent ? `${TAPE_AGENT[agent]?.[1] || agent} only · ` : ''}latest real agent actions across all seats — a line exists only when something real changed</small>
       {agent ? <button type="button" className="m-btn" onClick={() => setAgent(null)} data-testid="ack-tape-all-agents">✕ all agents</button> : null}
       <button type="button" className="m-btn ack-more" onClick={() => setAll(!all)} aria-expanded={all} data-testid="ack-tape-more">{all ? 'Show newest' : `View all decisions (${tapeOf(rows, { agent, n: 120 }).length}) →`}</button></header>
     {!list.length ? <p className="ack-nil" data-testid="ack-tape-empty">No decision lines yet — the tape writes only when an opinion, an order or a ruling really changes (a quiet market is a quiet tape).</p>
@@ -509,8 +510,8 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
   const live = o?.livePx?.[mint];
   const verdictWord = line?.word || word;
   return <aside className="ack-panel" data-testid="ack-panel">
-    <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i><CopyCa mint={mint} sym={dec?.symbol} testid="ack-dec-ca" /><GermChip mint={mint} />
-      {onTalk ? <button type="button" className="ack-talkbtn" onClick={onTalk} data-tip="OSSY × G4 — their live conversation beside the chart (a sheet on a phone)" data-testid="ack-talk-open">💬 OSSY × G4{talkN ? <i className="m-num">{talkN}</i> : null}</button> : null}
+    <header><b><Ic3 e="🧠" /> DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i><CopyCa mint={mint} sym={dec?.symbol} testid="ack-dec-ca" /><GermChip mint={mint} />
+      {onTalk ? <button type="button" className="ack-talkbtn" onClick={onTalk} data-tip="OSSY × G4 — their live conversation beside the chart (a sheet on a phone)" data-testid="ack-talk-open"><Ic3 e="💬" /> OSSY × G4{talkN ? <i className="m-num">{talkN}</i> : null}</button> : null}
       <select className="m-input ack-agsel" value={agent} onChange={e => setAgent(e.target.value)} aria-label="Agent" data-testid="ack-agent-sel">
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
     <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}><TabChip label={l} n={k === 'seats' && (seats || []).length ? `${(seats || []).filter(z => !z.open).length}/${seats.length}` : k === 'trace' ? (tr?.lines || []).length || null : null}
@@ -576,7 +577,7 @@ function AgentMatrix({ o, gens, agent, setAgent, rows, pulse }) {
     <div className={`ack-agents ${filt === 'all' ? 'is-flow' : ''}`}>{shown.map(({ a, g, word, why, l, st }, i) => <button key={a.key} type="button" className={`ack-agent ${agent === a.key ? 'is-on' : ''} ${g?.status === 'PROBATION' ? 'is-prob' : ''}`} style={{ '--ag': AG[a.key] }} onClick={() => setAgent(a.key)} aria-pressed={agent === a.key}
         data-tip={`${a.job || ''} — ${why}${l ? ` · last line: ${l.action} ${l.symbol ? `$${l.symbol}` : ''} ${ago(l.at)} ago` : ''}`} data-testid={`ack-agent-${a.key}`}>
         {filt === 'all' && i > 0 ? <span className="ack-ain" key={`in-${pulse[a.key] || 'x'}`} aria-hidden><i /></span> : null}
-        <span className={`ack-aname ${pulse[a.key] ? 'is-pulse' : ''}`} key={pulse[a.key] || 'x'}>{a.icon} {a.name}</span>
+        <span className={`ack-aname ${pulse[a.key] ? 'is-pulse' : ''}`} key={pulse[a.key] || 'x'}><Ic3 e={a.icon} /> {a.name}</span>
         {(perf[a.key]?.series || []).length > 1 ? <span className="ack-awork" data-tip={`work per pass: ${perf[a.key].last ?? '—'} ms now · ${perf[a.key].p50 ?? '—'} ms typical`}><Spark path={perf[a.key].series} w={72} h={14} /></span> : null}
         <small>{g ? `GEN ${g.generation} · ${g.status}` : '—'}</small>
         <small className="ack-acc" data-testid={`ack-rec-${a.key}`}>{recWord(st)}</small><VoteBar st={st} />
@@ -631,10 +632,10 @@ function ReviewQueue({ o, call, isOwner, onPick, sel }) {
   const cands = (o?.kernel || {}).candidates || []; const counts = bucketCounts(cands.filter(c => !['HELD', 'EXIT_PENDING'].includes(c.status)));
   const queue = reviewQueue(cands, bk).slice(0, 14);
   return <section className="ack-review" data-testid="ack-review">
-    <header><b>📋 REVIEW QUEUE</b><small>coins the agents are weighing · tap = chart + panel</small></header>
+    <header><b><Ic3 e="📋" /> REVIEW QUEUE</b><small>coins the agents are weighing · tap = chart + panel</small></header>
     <OwnerReview o={o} call={call} isOwner={isOwner} onPick={onPick} focus={sel} />
     <div className="m-seg ack-buckets" role="group" aria-label="Launch age">{AGE_BUCKETS.map(([k, l]) => <button key={k} type="button" className={bk === k ? 'active' : ''} onClick={() => setBk(k)} data-testid={`ack-bk-${k}`}>{l} <small>{counts[k]}</small></button>)}</div>
-    {queue.length ? <div className="ack-qwrap"><table className="ack-queue" data-testid="ack-queue"><thead><tr><th>COIN</th><th>AGE</th><th>MC</th><th>5M VOL</th><th>SCORE</th><th data-tip="The model's newest read of this coin: its rug-risk meter + where it is in its run (advisory — weighs only once proven)">🧠 AI</th><th>STATUS</th></tr></thead>
+    {queue.length ? <div className="ack-qwrap"><table className="ack-queue" data-testid="ack-queue"><thead><tr><th>COIN</th><th>AGE</th><th>MC</th><th>5M VOL</th><th>SCORE</th><th data-tip="The model's newest read of this coin: its rug-risk meter + where it is in its run (advisory — weighs only once proven)"><Ic3 e="🧠" /> AI</th><th>STATUS</th></tr></thead>
       <tbody>{queue.map(c => { const st = queueStatus(c); return <tr key={c.mint} className={sel === c.mint ? 'is-on' : ''} onClick={() => onPick(c.mint)} data-testid={`ack-q-${c.symbol}`}>
         <td><button type="button" className="ack-qcoin" onClick={e => { e.stopPropagation(); onPick(c.mint); }}>${c.symbol}</button>{c.owner ? <i className={`ack-mode is-${c.owner}`}>{c.owner}</i> : null}</td>
         <td>{mins(c.ageMin)}</td><td data-testid={`ack-qmc-${c.symbol}`}>{mcWord(queueMc(c))}</td><td>{mcWord(c.vol5m)}</td><td>{c.rank != null ? Math.round(c.rank) : '—'}</td>
@@ -670,7 +671,7 @@ function OpenPnl({ seats, onPick }) {
     <small>OPEN P&L</small><LiveNum v={p.pnl} fmt={v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toFixed(Math.abs(v) < 1 ? 3 : 2)}`} testid="ack-open-usd" />
     {p.pct != null ? <LiveNum v={p.pct} fmt={v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`} testid="ack-open-pct" /> : null}
     <i>${p.usd.toFixed(2)} at work</i>
-    {p.best && p.n > 1 ? <button type="button" onClick={() => onPick(p.best.mint)} data-testid="ack-open-best">🔥 ${p.best.symbol} {p.best.pct >= 0 ? '+' : ''}{p.best.pct.toFixed(1)}%</button> : null}</span>;
+    {p.best && p.n > 1 ? <button type="button" onClick={() => onPick(p.best.mint)} data-testid="ack-open-best"><Ic3 e="🔥" /> ${p.best.symbol} {p.best.pct >= 0 ? '+' : ''}{p.best.pct.toFixed(1)}%</button> : null}</span>;
 }
 
 export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', board: 'office', missed: 'missed', learn: 'paper', ctl: 'paper', life: 'gens' };
@@ -801,11 +802,11 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     const held = seats.filter(x => !x.open && x.mint);
     const stepSeat = dir => { if (!held.length) return; const i = held.findIndex(x => x.mint === mint); onPick(held[(i < 0 ? 0 : i + dir + held.length) % held.length].mint); };
     const sym = dec?.symbol || model?.symbol || held.find(x => x.mint === mint)?.symbol || 'AGENTS';
-    if (away) return <section className="ack ack-duo-away" data-testid="agent-cockpit"><span className="m-label">📱📱 AGENTS FLOOR</span><p>HQ is open — pick another tab, or go back to the agents' full-screen floor.</p>
+    if (away) return <section className="ack ack-duo-away" data-testid="agent-cockpit"><span className="m-label"><Ic3 e="📱" />📱 AGENTS FLOOR</span><p>HQ is open — pick another tab, or go back to the agents' full-screen floor.</p>
       <button type="button" className="m-btn m-go" onClick={() => setAway(false)} data-testid="ack-duo-open" data-tip="Back to the Agents floor (chart | desk)">⤢ Agents floor</button></section>;
     const hqBtn = <button type="button" className={wideCls('dfl-rb', duo.wide)} onClick={() => setAway(true)} aria-label="HQ controls" data-tip="Every HQ tab + close — the floor steps aside; ⤢ brings it back" data-testid="ack-duo-hq">☰</button>;
     const swapBtn = <button type="button" className={wideCls('dfl-rb', duo.wide)} aria-pressed={duoSwap} onClick={() => setDuoSwap(!duoSwap)} aria-label="Swap the halves" data-tip={duo.wide ? 'Swap the halves — chart ⇄ desk' : 'Desk on top ⇄ chart on top'} data-testid="ack-duo-swap">{duo.wide ? <i className="dfl-dev" aria-hidden="true"><s /><s /></i> : '⇅'}</button>;
-    const brainBtn = <button type="button" className={`${wideCls('dfl-rb', duo.wide)} ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠</button>;
+    const brainBtn = <button type="button" className={`${wideCls('dfl-rb', duo.wide)} ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)"><Ic3 e="🧠" /></button>;
     return <>{createPortal(<div className={`dfl dfl-agents ${duo.wide ? 'is-wide' : 'is-up'} ${duoSwap ? 'is-swap' : ''}`} data-mode="agents" ref={duoRoot} role="application" aria-label="Agents — Duo floor" data-testid="agent-duo-floor">
       <div className="dfl-fx" aria-hidden="true"><i /><i /></div>
       {duo.wide ? <nav className="dfl-rail" aria-label="Agents floor">
@@ -843,7 +844,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   return <section className="ack" data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
     {/* 💵 ONE sticky strip: the money at a glance + the icon nav; nothing else above the chart. Every other section is a pane behind the nav */}
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
-      brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
+      brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)"><Ic3 e="🧠" /> BRAIN</button>} />
     <div className="ack-topseats" data-testid="ack-topseats">
       <div className={`ack-seatrow n-${seats.length}`}>{seats.map((s, i) => <div key={s.seat} className="ack-seatwrap"><SeatCard s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />{isOwner ? <QuickTrade s={s} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div></div>
     <div className="ack-main">
@@ -851,8 +852,8 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
       <div className="ack-right">{/* 🧹 Decision only — the G4 × OSSY desk + the decision tape live under the chart (owner 2026-10-27: "less clutter"); 💬 swaps in their conversation (owner 2026-10-28) */}{talk ? <aside className="ack-talk" data-testid="ack-talk" role="dialog" aria-label="OSSY × G4 conversation">
-        <header><i className="ack-talkgrip" aria-hidden="true" /><b>💬 OSSY × G4</b><small>{d?.duo?.phase || 'live'}{d?.duo?.next ? ` · ${d.duo.next} next` : ''}</small>
-          <button type="button" className="ack-talkx" onClick={() => setTalk(false)} data-tip="Back to the Decision card" data-testid="ack-talk-close">🧠 DECISION</button></header>
+        <header><i className="ack-talkgrip" aria-hidden="true" /><b><Ic3 e="💬" /> OSSY × G4</b><small>{d?.duo?.phase || 'live'}{d?.duo?.next ? ` · ${d.duo.next} next` : ''}</small>
+          <button type="button" className="ack-talkx" onClick={() => setTalk(false)} data-tip="Back to the Decision card" data-testid="ack-talk-close"><Ic3 e="🧠" /> DECISION</button></header>
         <div className="ack-talkbody"><DuoSeat duo={d?.duo} call={call} /></div></aside> : null}{talk ? null : <DecisionPanel onTalk={() => setTalk(true)} talkN={(d?.duo?.log || []).filter(r => Date.now() / 1000 - (r.at || 0) < 600).length} o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>

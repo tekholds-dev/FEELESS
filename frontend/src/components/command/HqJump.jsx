@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search } from '../../lib/lucide3d';
 import { HQ_JUMPS, jumpSearch } from '../../lib/hqJump';
 
 // Search bar on top of HQ: type what you want ("profiles", "rpc", "payouts") → Enter / click goes there. "/" focuses it.

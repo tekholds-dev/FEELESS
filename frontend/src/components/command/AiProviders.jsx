@@ -2,6 +2,7 @@ import { useAi } from '../../lib/agentHub';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AiKeyBox } from './AiKeyBox';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧠 AI PROVIDERS (HQ › Agents › the AI chip; owner, 2026-10-12): the AI router's providers in their fallback order — local LM Studio
 // first, then Groq / OpenRouter / OpenAI / xAI / any OpenAI-compatible host. Per row: on / off, ▲▼ priority, Test, state, model, last
@@ -39,7 +40,7 @@ export function AiProviders({ call, isOwner = true, ai, close }) {
   const load = r => { if (window.confirm(`Load ${r.model} in ${r.label}${r.host ? ` (${r.host})` : ''}? LM Studio loads it now (a few seconds on the desktop).`)) post('/admin/ai/load', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: ${x.model} loaded · ${Math.round(x.ms / 100) / 10}s`) : toast.error(`${r.label}: ${x.err || 'load failed'}`))); };
   return <div className="aip-shade" onMouseDown={e => { if (e.target === e.currentTarget) close(); }} data-testid="ai-providers-shade">
     <aside className="aip" role="dialog" aria-label="AI providers" data-testid="ai-providers">
-      <header><b>🧠 AI PROVIDERS</b><small>fallback order · advisory only</small><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="aip-close">✕</button></header>
+      <header><b><Ic3 e="🧠" /> AI PROVIDERS</b><small>fallback order · advisory only</small><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="aip-close">✕</button></header>
       <p className="aip-note">{v?.note || 'Advisory only: an AI answer is shown next to the desk that asked; it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record.'}
         {' '}Never asked by: {(v?.never || ['tally', 'trigger', 'reaper', 'courier', 'warden']).join(' · ')}.</p>
       <ol className="aip-list" data-testid="aip-list">{rows.map((r, i) => <li key={r.key} className={`${r.enabled ? '' : 'is-disabled'}`} data-testid={`aip-row-${r.key}`}>

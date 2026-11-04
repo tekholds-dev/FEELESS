@@ -4,7 +4,8 @@ import { TrendingCards, TrenchLanding, TrenchBar, HotCalls, LiveCalls, CallerBoa
 import { LivePrice } from './LiveCells';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Radio, Rocket, Compass, Star, BarChart3, ArrowUpRight, CandlestickChart, Layers3 } from 'lucide-react';
+import { Radio, ArrowUpRight, Layers3 } from 'lucide-react';
+import { MessageCircle, Rocket, Compass, Star, BarChart3, CandlestickChart } from '../../lib/lucide3d';
 import EcosystemChat from '../EcosystemChat';
 import { useWorkspace } from '../../hooks/useWorkspace';
 

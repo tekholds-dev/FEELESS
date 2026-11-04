@@ -10,6 +10,7 @@ import { apiUrl } from '../lib/api';
 import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import '../styles/cityAvenue.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
 // buy … like a Pump Radar building that shows all of Pump Radar … people go to Familia for the one-stop shop in web3"). Every building on the
@@ -93,7 +94,7 @@ function FeeBank() {
         <strong className="m-num" key={r.price}>{r.price == null ? '—' : r.price < 0.01 ? `$${r.price.toPrecision(3)}` : `$${r.price.toFixed(4)}`}</strong>
         <Meter i={i} label="MARKET CAP" value={usd(r.mc)} fill={Math.log10(1 + (r.mc || 0)) / 9} tip="Market cap (DexScreener, or Jupiter while on the curve)" />
         <Meter i={i + 1} label="LIQUIDITY" value={usd(r.liq)} fill={Math.log10(1 + (r.liq || 0)) / 7} tip="Pool liquidity — how much you can buy without moving it far" />
-        <button type="button" className="m-btn m-go" onClick={() => trade(r.pair)} data-tip={`Buy $${r.sym} right here — fee-free; your wallet signs`} data-testid={`av-buy-${r.id}`}>⚡ Buy fee-free</button>
+        <button type="button" className="m-btn m-go" onClick={() => trade(r.pair)} data-tip={`Buy $${r.sym} right here — fee-free; your wallet signs`} data-testid={`av-buy-${r.id}`}><Ic3 e="⚡" /> Buy fee-free</button>
       </article>)}</div>
   </div>;
 }
@@ -122,8 +123,8 @@ function TradeCenter() {
       <em>{i + 1}</em><span className="av-who">{r.who}</span>
       <span className="av-sym"><b>${r.symbol}</b><small>{[r.state, r.action, r.why].filter(Boolean).join(' · ') || 'holding'}</small></span>
       <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num av-flash" key={r.pct}>{pct(r.pct)}</b></span>
-      <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Its chart + Quick trade, right here in the room" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
-      : <span className="av-lock" data-tip="Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here">🔒 SEATS PRIVATE · RECORD BELOW</span>}
+      <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Its chart + Quick trade, right here in the room" data-testid={`av-seat-${i}`}><Ic3 e="📈" /> Open</button></li>)}</ol>
+      : <span className="av-lock" data-tip="Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here"><Ic3 e="🔒" /> SEATS PRIVATE · RECORD BELOW</span>}
     {d.closed?.n ? <div className="av-closed" data-testid="av-closed"><em className="av-sub">REAL RECORD · LAST {d.closed.n} CLOSED LOTS (price only, fees apart)</em>
       <div className="av-models">{Object.entries(d.closed.by).map(([k, r], i) => <span key={k} className={`av-model ${r.median >= 0 ? 'up' : 'down'}`} style={{ '--i': i }} data-tip={`${k}: ${r.n} real trades, ${r.wonPct}% won, typical ${r.median}%`}>
         <b>{k}</b><em className="m-num">{r.wonPct}% won · {pct(r.median)}</em></span>)}</div>
@@ -148,7 +149,7 @@ function Courthouse() {
         {top.map((x, i) => <li key={x.wallet} style={{ '--i': i }}><em>{i + 1}</em>
           <span className="av-sym"><b>{x.wallet.slice(0, 4)}…{x.wallet.slice(-4)}</b><small>{(x.roles || []).join(' · ') || 'flagged'}{x.blocked ? ' · ⛔ blocklisted' : ''}</small></span>
           <span className="av-heat down"><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (x.launches || 0) / max)})` }} /></u><b className="m-num">{x.launches} launches</b></span>
-          <button type="button" className="m-btn" onClick={() => open(x.wallet)} data-tip="Open its case file — every launch it hit, who funded it, the evidence" data-testid={`av-case-${i}`}>🔎 Case</button></li>)}</ol></>}
+          <button type="button" className="m-btn" onClick={() => open(x.wallet)} data-tip="Open its case file — every launch it hit, who funded it, the evidence" data-testid={`av-case-${i}`}><Ic3 e="🔎" /> Case</button></li>)}</ol></>}
   </div>;
 }
 

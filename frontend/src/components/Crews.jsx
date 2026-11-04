@@ -19,7 +19,8 @@ import { FamilyBlock } from './FamilyBlock';
 import { FamilyWorld, FamilyTab } from './FamilyWorld';
 import { FamilyHQ } from './FamilyHQ';
 import { useRemembered } from '../lib/remember';
-import { Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
+import { Swords, Map as MapIcon, Radio } from 'lucide-react';
+import { Crown, Trophy } from '../lib/lucide3d';
 import '../styles/familyNoir.css';
 import '../styles/familiaBackdrop.css';
 import '../styles/familyWire.css';   // the Podium's own rules live there (it must never render bare without the page backdrop)
@@ -38,6 +39,7 @@ import { MobScene } from './MobScene';
 import { FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
 import '../styles/familyInvites.css';
 import { FamiliaTradeDock } from './FamiliaTrade';
+import { Ic3 } from '../lib/icon3d';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
 
@@ -57,7 +59,7 @@ function LaunchLive({ l }) {
   if (!l) return <FamEmpty art="launch" title="NO LAUNCH PINNED" note="The head pins the coin the family is behind — every member sees it live here." />;
   if (lp?.usd && !first.current) first.current = lp.usd;
   const since = lp?.usd && first.current ? (lp.usd / first.current - 1) * 100 : null;
-  return <div className="crw-launch" data-testid="crew-launch"><b>🚀 ${l.symbol || l.mint.slice(0, 4)}</b><span key={lp?.usd}>{lp?.usd ? pxWord(lp.usd) : 'reading…'}</span>
+  return <div className="crw-launch" data-testid="crew-launch"><b><Ic3 e="🚀" /> ${l.symbol || l.mint.slice(0, 4)}</b><span key={lp?.usd}>{lp?.usd ? pxWord(lp.usd) : 'reading…'}</span>
     {since != null ? <em className={since >= 0 ? 'm-pos' : 'm-neg'}>{since >= 0 ? '+' : ''}{since.toFixed(2)}% since you opened it</em> : null}
     {l.note && <p>{l.note}</p>}<a href={`/terminal/coin/solana/${l.mint}`}>open chart →</a></div>;
 }
@@ -80,13 +82,13 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows,
         <ul className="crw-posts">{roots.map((p, i) => <li key={p.id} style={{ '--i': i }}><b>{p.name}</b><small>{new Date(p.at * 1000).toLocaleString()}</small><p>{p.text}</p>
           {kids(p.id).map(k => <div key={k.id} className="crw-reply"><b>{k.name}</b> {k.text}</div>)}
           <button type="button" className="crw-rbtn" onClick={() => { const t = window.prompt('Reply:'); if (t) doAct('post', { text: t, parent: p.id }, '↩ replied'); }}>↩ reply</button></li>)}</ul>
-        <details className="crw-room"><summary>⚡ Live family room</summary><Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
+        <details className="crw-room"><summary><Ic3 e="⚡" /> Live family room</summary><Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
       </>}
       {tab === 'bounty' && <>
         {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('bounty', { text: txt, reward: Number(rew) }, '🎯 bounty posted'); }}><input className="m-input" placeholder="Task (e.g. find a germ entry under $50K)" value={txt} maxLength={120} onChange={e => setTxt(e.target.value)} aria-label="Bounty task" />
           <input className="m-input crw-tag" value={rew} onChange={e => setRew(e.target.value.replace(/\D/g, ''))} aria-label="Reward points" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post · {rew || 0} pts</button></form>}
         <p className="m-dim crw-hint">Bounties pay family points, never money.</p>
-        <ul className="crw-bounties">{(mine.bounties || []).slice().reverse().map(b => <li key={b.id} className={`is-${b.state}`}><b>🎯 {b.title}</b><em>{b.reward} pts</em><small>{b.state === 'open' ? 'open' : b.state === 'claimed' ? `claimed by ${b.byName}: ${b.proof}` : `paid to ${b.byName}`}</small>
+        <ul className="crw-bounties">{(mine.bounties || []).slice().reverse().map(b => <li key={b.id} className={`is-${b.state}`}><b><Ic3 e="🎯" /> {b.title}</b><em>{b.reward} pts</em><small>{b.state === 'open' ? 'open' : b.state === 'claimed' ? `claimed by ${b.byName}: ${b.proof}` : `paid to ${b.byName}`}</small>
           {b.state === 'open' && <button type="button" className="m-btn" disabled={!!busy} onClick={() => { const pr = window.prompt('Proof (a tx, a link, a line):'); if (pr) doAct('claim', { id: b.id, text: pr }, '🙋 claimed'); }}>Claim</button>}
           {b.state === 'claimed' && owner && <><button type="button" className="m-btn primary" onClick={() => doAct('settle', { id: b.id, pay: true }, '✅ paid')}>Pay</button><button type="button" className="m-btn" onClick={() => doAct('settle', { id: b.id, pay: false }, '↺ reopened')}>Reopen</button></>}</li>)}</ul>
       </>}
@@ -96,7 +98,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows,
       {tab === 'members' && <div className="crw-seats"><p className="m-dim crw-hint">{seatsLine(mine)} — everyone sits at the table above.</p>
         {owner ? <button type="button" className="m-btn primary" disabled={!!busy} onClick={() => act('/api/reputation/crews/seats', {}, `➕ +${mine.packSeats} seats`, 'seats')} data-testid="crew-seats">{`➕ +${mine.packSeats} seats · ${costText(q, 'seats') || `$${mine.packUsd}`}`}</button> : <p className="m-dim crw-hint">Only the Don adds seats.</p>}</div>}
       {tab === 'code' && <>
-        {plain && <div className="crw-plain" data-testid="crew-plain"><b>🔐 {plain}</b><small>shown ONCE — it is stored encrypted (salted hash). Copy it now.</small><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(inviteLink(window.location.origin, window.location.pathname, plain))}>⧉ Copy invite</button></div>}
+        {plain && <div className="crw-plain" data-testid="crew-plain"><b><Ic3 e="🔐" /> {plain}</b><small>shown ONCE — it is stored encrypted (salted hash). Copy it now.</small><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(inviteLink(window.location.origin, window.location.pathname, plain))}>⧉ Copy invite</button></div>}
         {link ? <div className="crw-invite"><code>{link}</code><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(link).then(() => toast.success('Invite link copied'))} data-testid="crew-copy">⧉ Copy invite</button></div>
           : <p className="m-dim crw-hint">{mine.codeSet ? `🔐 secure passcode set (…${mine.codeTail || ''}). Members join with it; it is never shown again.` : ''}</p>}
         {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('code', { code: code.trim() }, '🔐 code set'); setCode(''); }}><input className="m-input" placeholder="Your own code (6–24) — or leave empty to generate" value={code} maxLength={24} onChange={e => setCode(e.target.value)} aria-label="Crew code" /><button type="submit" className="m-btn primary" disabled={!!busy} data-testid="crew-code">{code.trim() ? 'Set code' : '🎲 Generate secure passcode'}</button></form>}
@@ -214,17 +216,17 @@ export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 i
   </>;
   const boardNode = <>
     <div className="crw-board m-card">
-      <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>
-      <p className="crw-prize" data-testid="crew-prizes">The top 3 families pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
+      <header><span className="m-label"><Ic3 e="🏆" /> WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>
+      <p className="crw-prize" data-testid="crew-prizes">The top 3 families pay every member season points each week: <b><Ic3 e="🥇" /> +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
       {board && !rows.length && <p className="crw-hint m-dim">No families yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
       <Podium rows={rows.filter(r => r.ranked).slice(0, 3)} />
       <ol>{rows.map((r, i) => <li key={r.id} className={r.ranked ? '' : 'is-off'} style={{ '--i': i }} data-testid={`crew-row-${r.tag}`}>
-        <b className={`crw-rank ${r.ranked && i < 3 ? `fcc-rank is-p${i + 1}` : ''}`}>{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" px={32} /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
+        <b className={`crw-rank ${r.ranked && i < 3 ? `fcc-rank is-p${i + 1}` : ''}`}>{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" px={32} /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> <Ic3 e="🚀" /> ${r.launch}</i> : null}</span>
         <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small>
         <span className="crw-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></span></li>)}</ol>
       <small className="m-dim crw-rule">{board?.rule}</small>
     </div>
-    <details className="crw-room crw-boardroom" open><summary data-tip="One room for every family on the board — trash talk, call-outs, congrats">💬 The board room <small>every family, one table</small></summary>
+    <details className="crw-room crw-boardroom" open><summary data-tip="One room for every family on the board — trash talk, call-outs, congrats"><Ic3 e="💬" /> The board room <small>every family, one table</small></summary>
       <Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room="familia-board" ecosystem={{ id: 'familia-board', name: 'Familia · The board room' }} /></div></Suspense></details>
   </>;
   // 🏙 the Familia tabs as places IN the city (owner, 2026-10-22: "80 % of these tabs in the cities, easy to find, with a pop-out"): the city's
@@ -245,8 +247,8 @@ export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 i
       onClick={async () => { setBusy('switch'); try { await post('/api/reputation/crews/switch', { address: addr, session: sess, cid: f.id }); await loadMine(); sharedJson.freshAt = Date.now(); toast.success(`[${f.tag}] is your active family`); } catch (e) { toast.error(e.message); } finally { setBusy(''); } }}
       data-tip={f.active ? 'The family every Familia page shows now' : `Switch to [${f.tag}] ${f.name}`} data-testid={`fam-switch-${f.tag}`}>[{f.tag}] {f.name}</button>)}</div> : null}
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
-    {addr && !sess ? <div className="m-note" role="status" data-testid="fam-signin"><b>🔑 You're connected but not signed in</b> — your family, turf and ＋expand show once you sign.
-      <button type="button" className="m-btn m-go" onClick={signIn} data-tip="One wallet signature — no transaction, no fee. Proves this wallet is yours." data-testid="fam-signin-go">🔑 Sign in · 1 signature</button></div> : null}
+    {addr && !sess ? <div className="m-note" role="status" data-testid="fam-signin"><b><Ic3 e="🔑" /> You're connected but not signed in</b> — your family, turf and ＋expand show once you sign.
+      <button type="button" className="m-btn m-go" onClick={signIn} data-tip="One wallet signature — no transaction, no fee. Proves this wallet is yours." data-testid="fam-signin-go"><Ic3 e="🔑" /> Sign in · 1 signature</button></div> : null}
     {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onSignIn={signIn} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} mine={mine} tools={hqTools} />)}
     {famTab === 'family' && (mine ? <>

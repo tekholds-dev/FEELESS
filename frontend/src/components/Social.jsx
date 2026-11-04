@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { MessageCircle, Gift } from 'lucide-react';
+import { MessageCircle, Gift } from '../lib/lucide3d';
 import { useWallet } from '../hooks/useWallet';
 import { getChatSession, readChatSession } from '../lib/chatSession';
 import { Hint } from './Hint';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../lib/push';
 import '../styles/inbox.css';
 import { Messenger } from './Messenger';
+import { Ic3 } from '../lib/icon3d';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 const q = o => new URLSearchParams(o).toString();
@@ -38,7 +39,7 @@ export function NotificationBell() {
   if (!wallet?.address) return null;
   return <span className="notif-wrap" ref={wrap}><button type="button" className="icon-btn notif-btn" data-testid="notif-bell" aria-label="Notifications" onClick={() => { setOpen(o => !o); if (!open) setTimeout(markRead, 1500); }}><MessageCircle size={17} />{d?.unread ? <i className="notif-dot">{d.unread > 9 ? '9+' : d.unread}</i> : null}</button>
     {open && <div className="notif-pop" data-testid="notif-pop">
-      <div className="np-head"><b>Notifications</b><button type="button" onClick={phone}>📱 Phone alerts</button></div>
+      <div className="np-head"><b>Notifications</b><button type="button" onClick={phone}><Ic3 e="📱" /> Phone alerts</button></div>
       {!session ? <div className="np-empty"><p>Sign once to get messages, wall posts and mentions.</p><button type="button" className="btn-primary" onClick={signIn}>Sign in (free)</button></div>
         : !d?.items?.length ? <p className="np-empty">Nothing yet. Messages, wall posts and @mentions land here.</p>
           : <NotificationList items={d.items} />}
@@ -78,7 +79,7 @@ export function NotificationList({ items: all }) {
     <div className="m-seg np-lens" role="radiogroup" aria-label="Filter notifications">{[['all', 'All'], ['trading', 'Trading'], ['social', 'Social']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={lens === k} data-testid={`np-lens-${k}`} onClick={() => setLens(k)}>{l} {k === 'all' ? all.length : all.filter(n => TRADING.has(n.kind) === (k === 'trading')).length}</button>)}</div>
     {!items.length && <p className="np-empty">Nothing here yet.</p>}
     {snipers.length > 0 && <details className="np-group" data-testid="np-snipers">
-      <summary className={unreadSnipers ? 'unread' : ''}><span>🎯</span><p><b>Snipers out</b> · {snipers.length} coin{snipers.length === 1 ? '' : 's'}</p>{unreadSnipers > 0 && <i className="np-count">{unreadSnipers}</i>}</summary>
+      <summary className={unreadSnipers ? 'unread' : ''}><span><Ic3 e="🎯" /></span><p><b>Snipers out</b> · {snipers.length} coin{snipers.length === 1 ? '' : 's'}</p>{unreadSnipers > 0 && <i className="np-count">{unreadSnipers}</i>}</summary>
       {snipers.map(n => { const c = sniperCoin(n); const mc = compactUsd(c.mcap); return <div key={n.id} className="np-sniper">
         <a href={n.url || '#'} className="np-coin" title={c.name || c.symbol}><b>${c.symbol}</b>{c.name && <em>{c.name}</em>}</a>
         {mc && <span className="np-mc">MC {mc}</span>}

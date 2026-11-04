@@ -4,6 +4,7 @@ import { hubLoad, useAi } from '../../lib/agentHub';
 import { uploadImage } from '../../lib/adminCall';
 import { RuleCard } from './VitalBoard';
 import '../../styles/teachBox.css';
+import { Ic3 } from '../../lib/icon3d';
 
 export const TEACH_KINDS = [['note', '💬 NOTE', 'how you trench, in your words — the AI reads it with every coin (it does not change a buy by itself; a RULE above does)'],
   ['narrative', '📖 NARRATIVE', 'a theme that is hot — coins whose name / ticker carry its words get your note in the AI\'s case'],
@@ -37,7 +38,7 @@ export function TeachBox({ o, mint, sym, call, isOwner }) {
       {rec?.n ? <em className={rec.med > 0 ? 'is-up' : 'is-dn'} data-testid="teach-record">🎓 {rec.n} judged · {rec.med > 0 ? '+' : ''}{rec.med}%</em> : <em data-testid="teach-record">🎓 learning</em>}</header>
     {(t.rules?.rules || []).length ? <div className="tch-rules" data-testid="teach-rules"><b className="tch-sub">🧷 RULES THE AGENTS RUN <small>a lesson that names one (e.g. “stop buying fake candles”) switches it on</small></b>
       {t.rules.rules.map(r => <RuleCard key={r.key} r={r} call={call} isOwner={isOwner} />)}</div> : null}
-    <b className="tch-sub">✍ NOTES FOR THE AI</b>
+    <b className="tch-sub"><Ic3 e="✍" /> NOTES FOR THE AI</b>
     <div className="m-seg tch-kinds" role="tablist" aria-label="What you are teaching">{TEACH_KINDS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
       onClick={() => setKind(k)} data-tip={tip} data-testid={`teach-kind-${k}`}>{l}<small>{(t.counts || {})[k] || 0}</small></button>)}</div>
     <div className="tch-write">

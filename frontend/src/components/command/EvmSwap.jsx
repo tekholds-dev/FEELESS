@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import NumInput from '../NumInput';
-import { ArrowDownUp, ChevronDown, RefreshCw, Search, ShieldCheck, Wallet } from 'lucide-react';
+import { ArrowDownUp, ChevronDown, RefreshCw } from 'lucide-react';
+import { Search, ShieldCheck, Wallet } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';

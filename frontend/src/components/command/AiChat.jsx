@@ -16,6 +16,7 @@ import { holdFx } from '../../lib/fxPause';
 import '../../styles/brainChat.css';
 import { ChatFx, ChatThemePicker, chatTheme } from '../ChatFx';
 import { useChatPrefs } from '../../lib/chatPrefs';
+import { Ic3 } from '../../lib/icon3d';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
   ['case', '🔎 Case', 'The structured read of the coin on the chart (validated JSON → shown as a verdict)'],
@@ -67,7 +68,7 @@ function Proposal({ p, busy, onDecide }) {
   const rig = p.kind === 'rig'; const sh = rig ? rigShow : show;
   return <li className={`cch-prop is-${p.status} ${rig ? 'is-rig' : ''}`} data-testid={`cch-prop-${p.id}`}>
     <p className="cch-phead"><b>{rig ? '🎛 RIG' : String(p.agent).toUpperCase()}</b><em>{KIND[p.kind] || p.kind}</em><span>{rig ? rigKey(p.key) : p.key}</span>{p.status !== 'pending' ? <u>{p.status.toUpperCase()}</u> : null}</p>
-    {rig && rigReloads(p.key) && p.status === 'pending' ? <p className="cch-reload" data-testid={`cch-reload-${p.id}`}>⚠ ✅ RELOADS {RIG_WHO[String(p.key).split('.')[0]]} — offline for a few seconds while it loads</p> : null}
+    {rig && rigReloads(p.key) && p.status === 'pending' ? <p className="cch-reload" data-testid={`cch-reload-${p.id}`}>⚠ <Ic3 e="✅" /> RELOADS {RIG_WHO[String(p.key).split('.')[0]]} — offline for a few seconds while it loads</p> : null}
     {p.kind === 'idea' ? <p className="cch-diff"><span className="is-new"><small>BUILD</small>{show(p.new)}</span></p>   /* an idea has no "now" value — only what would be built */
       : <p className="cch-diff"><span className="is-old"><small>NOW</small>{sh(p.old)}</span><i aria-hidden>→</i><span className="is-new"><small>PROPOSED</small>{sh(p.new)}</span></p>}
     <details className="cch-more"><summary>why · effect · rollback</summary>
@@ -75,7 +76,7 @@ function Proposal({ p, busy, onDecide }) {
       {p.effect ? <p className="cch-why"><small>EFFECT</small>{p.effect}</p> : null}
       <p className="cch-why"><small>ROLLBACK</small>{p.rollback}</p></details>
     {p.applied ? <p className="cch-why is-applied"><small>APPLIED</small>{p.applied}</p> : null}
-    {p.status === 'pending' ? <p className="cch-acts"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onDecide(p.id, true)} data-testid={`cch-approve-${p.id}`}>✅ Approve</button>
+    {p.status === 'pending' ? <p className="cch-acts"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onDecide(p.id, true)} data-testid={`cch-approve-${p.id}`}><Ic3 e="✅" /> Approve</button>
       <button type="button" className="m-btn" disabled={busy} onClick={() => onDecide(p.id, false)} data-testid={`cch-reject-${p.id}`}>✕ Reject</button></p> : null}
   </li>;
 }
@@ -91,7 +92,7 @@ export function DataChip({ d }) {
 
 // 🌐 the web results the answer was built from — each a real link the owner can open
 export function WebSrc({ w }) {
-  return <span className="cch-web" data-testid="cch-web"><small>🌐 SOURCES</small>{w.slice(0, 5).map((x, i) => {
+  return <span className="cch-web" data-testid="cch-web"><small><Ic3 e="🌐" /> SOURCES</small>{w.slice(0, 5).map((x, i) => {
     let host = ''; try { host = new URL(x.url).hostname.replace(/^www\./, ''); } catch { host = 'link'; }
     return /^https?:\/\//.test(x.url || '') ? <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer" data-tip={x.title}>{i + 1} · {host}</a> : null;
   })}</span>;
@@ -136,11 +137,11 @@ const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBui
     {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}{t.role === 'assistant' ? <AnswerCard text={t.text} /> : <span>{t.text}</span>}
       {t.meta?.data ? <DataChip d={t.meta.data} /> : null}
       {t.meta?.web?.length ? <WebSrc w={t.meta.web} /> : null}
-      <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}>🧠 Remember</button>
+      <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}><Ic3 e="🧠" /> Remember</button>
           <button type="button" onClick={() => onBuild(t.text)} data-tip="Build this: your tap is the permission — it joins the build queue the next build session ships" data-testid={`cch-build-${i}`}>🧱 Build this</button></> : null}
-        {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}>✏ Edit</button> : null}
+        {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}><Ic3 e="✏" /> Edit</button> : null}
         <button type="button" onClick={() => onDelete(i)} data-tip="Delete this message" aria-label="Delete this message" data-testid={`cch-del-${i}`}>✕</button></i></li>)
-      : !err ? <li className="cch-nil">Sees the desk. Learns what you 🧠 remember. Fixes only on your ✅.</li> : null}
+      : !err ? <li className="cch-nil">Sees the desk. Learns what you <Ic3 e="🧠" /> remember. Fixes only on your <Ic3 e="✅" />.</li> : null}
     {busy ? <ThinkBar call={call} /> : null}<li ref={end} aria-hidden className="cch-end" /></ol>;
 });
 
@@ -152,10 +153,10 @@ const Composer = memo(forwardRef(function Composer({ mode, busy, upl, isOwner, f
   return <form className="cch-form" onSubmit={send} autoComplete="off">
     <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { onAttach(e.target.files?.[0]); e.target.value = ''; }} data-testid="cch-file" />
     <button type="button" className="cch-ico cch-clip" onClick={() => fileRef.current?.click()} disabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</button>
-    <button type="button" className="cch-ico cch-clip" onClick={() => { const v = String(txt).trim(); if (v.length < 3) { toast.error('Describe the picture in the box first'); return; } setTxt(''); onDraw(v); }} disabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw">🎨</button>
+    <button type="button" className="cch-ico cch-clip" onClick={() => { const v = String(txt).trim(); if (v.length < 3) { toast.error('Describe the picture in the box first'); return; } setTxt(''); onDraw(v); }} disabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw"><Ic3 e="🎨" /></button>
     <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
       placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain… or set a model: “ossy context 16k, temp 0.6”'} />
-    <button type="button" className="cch-ico cch-qt" onClick={onQ} aria-pressed={qOn} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt">⚡</button>
+    <button type="button" className="cch-ico cch-qt" onClick={onQ} aria-pressed={qOn} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt"><Ic3 e="⚡" /></button>
     <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>;
 }));
 
@@ -219,21 +220,21 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   const room_ = lockProvider ? `brain-${lockProvider}` : 'brain';   // 🎨 the Brain + each model's own chat keep their own background (HQ = staff → every theme)
   const body = <section className={`cch has-cfx is-${pop ? 'pop' : variant} is-${mood.key} ${(showQ ?? !hist.length) ? 'is-q' : ''}`} data-testid="cch" data-mode={mode}>
     <ChatFx theme={chatTheme(cprefs, room_)} room={room_} />
-    {themeOpen ? <div className="cch-themes m-pop" data-testid="cch-themes"><header><span className="m-label">🎨 BACKGROUND · {room_.toUpperCase()}</span><button type="button" className="m-btn" onClick={() => setThemeOpen(false)} aria-label="Close">✕</button></header>
+    {themeOpen ? <div className="cch-themes m-pop" data-testid="cch-themes"><header><span className="m-label"><Ic3 e="🎨" /> BACKGROUND · {room_.toUpperCase()}</span><button type="button" className="m-btn" onClick={() => setThemeOpen(false)} aria-label="Close">✕</button></header>
       <ChatThemePicker prefs={cprefs} setPrefs={setCprefs} room={room_} feeUsd={Infinity} /></div> : null}
     <header className="cch-head">
-      <span className="cch-orb" aria-hidden="true"><i /><i /><b>🧠</b></span>
-      <span className="cch-title"><b>BRAIN{local?.boost ? <i className="cch-boostchip" data-testid="cch-boostchip" data-tip={`Local boost: ${local.why || ''} · every ${local.every ?? '—'}s · ${local.leftH}h left`}>💻 BOOST</i> : null}</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
-      <button type="button" className={`cch-themebtn ${themeOpen ? 'active' : ''}`} aria-pressed={themeOpen} onClick={() => setThemeOpen(v => !v)} data-tip="This chat's animated background" data-testid="cch-themebtn">🎨</button>
+      <span className="cch-orb" aria-hidden="true"><i /><i /><b><Ic3 e="🧠" /></b></span>
+      <span className="cch-title"><b>BRAIN{local?.boost ? <i className="cch-boostchip" data-testid="cch-boostchip" data-tip={`Local boost: ${local.why || ''} · every ${local.every ?? '—'}s · ${local.leftH}h left`}><Ic3 e="💻" /> BOOST</i> : null}</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
+      <button type="button" className={`cch-themebtn ${themeOpen ? 'active' : ''}`} aria-pressed={themeOpen} onClick={() => setThemeOpen(v => !v)} data-tip="This chat's animated background" data-testid="cch-themebtn"><Ic3 e="🎨" /></button>
       {lockProvider ? <span className="cch-model is-locked" data-testid="cch-locked">{title || lockProvider.toUpperCase()}</span> : <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order · Duet = Gemma answers, Qwen reads it and agrees or pushes back (both shown)">
         <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>}
-      {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete">🗂 {saved.length} saved</button>
+      {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete"><Ic3 e="🗂" /> {saved.length} saved</button>
         {showSaved ? <div className="cch-svpop" data-testid="cch-saved-list">{saved.map(c => <div key={c.id} className="cch-svrow">
           <button type="button" className="cch-svopen" onClick={() => { setShowSaved(false); openConvo(c.id); }} data-testid={`cch-sv-open-${c.id}`}><i>{(CHAT_MODES.find(m => m[0] === c.mode)?.[1] || '').split(' ')[0]}</i>{c.title}<small>{c.n} msgs</small></button>
-          <button type="button" className="cch-svact" onClick={() => { const t = window.prompt('Rename this chat', c.title); if (t && t.trim()) savedDo({ id: c.id, title: t.trim() }); }} aria-label="Rename" data-testid={`cch-sv-ren-${c.id}`}>✏</button>
-          <button type="button" className="cch-svact is-del" onClick={() => savedDo({ id: c.id, delete: true })} aria-label="Delete" data-testid={`cch-sv-del-${c.id}`}>🗑</button></div>)}
-          <button type="button" className="cch-svclear" onClick={() => { if (window.confirm(`Delete all ${saved.length} saved chats?`)) savedDo({ clearAll: true }); }} data-testid="cch-sv-clear">🗑 clear all saved</button></div> : null}</span> : null}
-      <button type="button" className={`cch-ico ${showSet ? 'is-on' : ''}`} onClick={() => setShowSet(v => !v)} aria-expanded={showSet} data-testid="cch-set" data-tip="Brain settings: how the model answers + what it may do on its own" aria-label="Brain settings">⚙</button>
+          <button type="button" className="cch-svact" onClick={() => { const t = window.prompt('Rename this chat', c.title); if (t && t.trim()) savedDo({ id: c.id, title: t.trim() }); }} aria-label="Rename" data-testid={`cch-sv-ren-${c.id}`}><Ic3 e="✏" /></button>
+          <button type="button" className="cch-svact is-del" onClick={() => savedDo({ id: c.id, delete: true })} aria-label="Delete" data-testid={`cch-sv-del-${c.id}`}><Ic3 e="🗑" /></button></div>)}
+          <button type="button" className="cch-svclear" onClick={() => { if (window.confirm(`Delete all ${saved.length} saved chats?`)) savedDo({ clearAll: true }); }} data-testid="cch-sv-clear"><Ic3 e="🗑" /> clear all saved</button></div> : null}</span> : null}
+      <button type="button" className={`cch-ico ${showSet ? 'is-on' : ''}`} onClick={() => setShowSet(v => !v)} aria-expanded={showSet} data-testid="cch-set" data-tip="Brain settings: how the model answers + what it may do on its own" aria-label="Brain settings"><Ic3 e="⚙" /></button>
       <button type="button" className="cch-ico cch-new" onClick={() => clear()} disabled={busy || !hist.length} data-testid="cch-clear" data-tip="New chat: a fresh thread for this mode" aria-label="New chat">＋</button>
       {onClose ? <button type="button" className="cch-ico" onClick={onClose} data-testid="ack-brain-close" data-tip="Close the Brain (Esc)" aria-label="Close the Brain">✕</button>
         : <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>}
@@ -241,20 +242,20 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
     {showSet ? <div className="cch-sets" data-testid="cch-sets">
       <p><small>🌡 HOW WILD</small>{[[0.1, 'exact'], [0.3, 'sharp'], [0.6, 'loose'], [0.9, 'wild']].map(([v, l]) => <button key={v} type="button" className={sets?.temp === v ? 'active' : ''} onClick={() => saveSet({ temp: v })} data-testid={`cch-temp-${v}`}>{l}</button>)}</p>
       <p><small>📏 ANSWER</small>{['short', 'normal', 'long'].map(v => <button key={v} type="button" className={sets?.len === v ? 'active' : ''} onClick={() => saveSet({ len: v })} data-testid={`cch-len-${v}`}>{v}</button>)}</p>
-      <p data-tip="off = no web · quick = search snippets · deep = also read the 2 most solid pages (Brave → DuckDuckGo)"><small>🔎 RESEARCH</small>{[['off', 'off'], ['quick', 'quick'], ['deep', 'deep 2 sources']].map(([v, l]) => <button key={v} type="button" className={(sets?.search || 'deep') === v ? 'active' : ''} onClick={() => saveSet({ search: v })} data-testid={`cch-search-${v}`}>{l}</button>)}</p>
-      <p data-tip="clean = no swearing · degen = profane when it lands · unhinged = full trench mouth (facts still sourced)"><small>🎭 VOICE</small>{[['clean', 'clean'], ['degen', 'degen'], ['unhinged', '🤬 unhinged']].map(([v, l]) => <button key={v} type="button" className={(sets?.voice || 'degen') === v ? 'active' : ''} onClick={() => saveSet({ voice: v })} data-testid={`cch-voice-${v}`}>{l}</button>)}</p>
+      <p data-tip="off = no web · quick = search snippets · deep = also read the 2 most solid pages (Brave → DuckDuckGo)"><small><Ic3 e="🔎" /> RESEARCH</small>{[['off', 'off'], ['quick', 'quick'], ['deep', 'deep 2 sources']].map(([v, l]) => <button key={v} type="button" className={(sets?.search || 'deep') === v ? 'active' : ''} onClick={() => saveSet({ search: v })} data-testid={`cch-search-${v}`}>{l}</button>)}</p>
+      <p data-tip="clean = no swearing · degen = profane when it lands · unhinged = full trench mouth (facts still sourced)"><small><Ic3 e="🎭" /> VOICE</small>{[['clean', 'clean'], ['degen', 'degen'], ['unhinged', '🤬 unhinged']].map(([v, l]) => <button key={v} type="button" className={(sets?.voice || 'degen') === v ? 'active' : ''} onClick={() => saveSet({ voice: v })} data-testid={`cch-voice-${v}`}>{l}</button>)}</p>
       <p data-tip="on = every answer carries your graded record + what FEELESS filed · off = answers cold"><small>🗄 MEMORY</small>{[['on', 'use it'], ['off', 'cold']].map(([v, l]) => <button key={v} type="button" className={(sets?.memory || 'on') === v ? 'active' : ''} onClick={() => saveSet({ memory: v })} data-testid={`cch-mem-${v}`}>{l}</button>)}</p>
       <p><small>🤝 SMALL THINGS</small><button type="button" className={sets?.allowSmall ? 'active' : ''} onClick={() => saveSet({ allowSmall: !sets?.allowSmall })} aria-pressed={!!sets?.allowSmall} data-testid="cch-small">{sets?.allowSmall ? 'ON — lessons + build ideas apply by themselves' : 'OFF — every fix waits for your ✅'}</button></p>
-      <p><small>💻 LOCAL BOOST</small><button type="button" className={local?.boost ? 'active' : ''} onClick={() => saveSet({ localBoost: !local?.boost })} aria-pressed={!!local?.boost} data-testid="cch-boost">{local?.boost ? `ON · ${local.leftH}h left` : 'OFF — tap for 24h'}</button></p>
+      <p><small><Ic3 e="💻" /> LOCAL BOOST</small><button type="button" className={local?.boost ? 'active' : ''} onClick={() => saveSet({ localBoost: !local?.boost })} aria-pressed={!!local?.boost} data-testid="cch-boost">{local?.boost ? `ON · ${local.leftH}h left` : 'OFF — tap for 24h'}</button></p>
       <LocalWatch w={local} />
-      <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
+      <p className="cch-setnote">Switches, rank weights and exit notches always wait for your <Ic3 e="✅" />. Execution, limits and the wallet are never reachable.</p></div> : null}
     <div className="cch-shell">
     {isOwner ? <div className="cch-navrow"><div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ['prompts', '🎭 Prompts'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
       const on = k === 'learn' ? extras.some(e => e[0] === pane) : pane === k;
       return <button key={k} type="button" role="tab" aria-selected={on} className={on ? 'active' : ''} onClick={() => setPane(k === 'learn' ? (extras.find(e => e[0] === lastLearn.current) || extras[0])[0] : k)} data-testid={k === 'learn' ? 'cch-tab-learn' : `cch-pane-${k}`}>{l}</button>; })}</div>
 <span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
-        <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
-        <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span></div> : null}
+        <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject"><Ic3 e="🛠" /> {pend}<small>YOUR CALL</small></u>
+        <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue"><Ic3 e="📋" /> {build?.open ?? 0}<small>TO BUILD</small></u></span></div> : null}
     {isOwner && extras.length ? <div className="cch-sub" hidden={!extras.some(e => e[0] === pane)} role="tablist" aria-label="Learn sections">{extras.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => { lastLearn.current = k; setPane(k); }} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
     {isOwner && pane === 'models' ? <div className="cch-extra" data-testid="cch-extra-models"><ModelLive call={call} /></div> : null}
     {isOwner && pane === 'prompts' ? <div className="cch-extra" data-testid="cch-extra-prompts"><PromptStudio call={call} /></div> : null}
@@ -274,11 +275,11 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       </div>
       <div className="cch-side">
       {pop && isOwner ? <BrainCards /> : null}
-      {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b>📋 BUILD QUEUE · {build.open} open</b><small>your ✅ = permission to build · Claude Code builds the queue when you open a session and say "build the queue" · ✅ SHIPPED when it is live</small></p>
+      {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b><Ic3 e="📋" /> BUILD QUEUE · {build.open} open</b><small>your <Ic3 e="✅" /> = permission to build · Claude Code builds the queue when you open a session and say "build the queue" · <Ic3 e="✅" /> SHIPPED when it is live</small></p>
         <ul>{build.items.slice(0, 6).map(b => <li key={b.id} className={`is-${b.status}`}><em>{b.status.toUpperCase()}</em><span data-tip={b.text}>{b.title}</span>
           {b.status === 'queued' ? <button type="button" className="cch-ico" onClick={() => moveBuild(b.id, 'dropped')} aria-label="Drop it" data-testid={`cch-bq-drop-${b.id}`}>✕</button> : null}</li>)}</ul></div> : null}
       {pend || (props.decided || []).length ? <div className={`cch-props ${sideOpen ? '' : 'is-shut'}`} data-testid="cch-props">
-        <button type="button" className="cch-ptitle" onClick={() => setOpenP(!sideOpen)} aria-expanded={sideOpen} data-testid="cch-props-toggle"><b>🛠 FIXES — YOUR CALL{pend ? ` · ${pend}` : ''}</b><small>nothing changes until you approve · execution, limits and the wallet are out of reach</small><i aria-hidden>{sideOpen ? '▾' : '▸'}</i></button>
+        <button type="button" className="cch-ptitle" onClick={() => setOpenP(!sideOpen)} aria-expanded={sideOpen} data-testid="cch-props-toggle"><b><Ic3 e="🛠" /> FIXES — YOUR CALL{pend ? ` · ${pend}` : ''}</b><small>nothing changes until you approve · execution, limits and the wallet are out of reach</small><i aria-hidden>{sideOpen ? '▾' : '▸'}</i></button>
         <ul hidden={!sideOpen}>{(props.pending || []).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />)}
           {(props.decided || []).length ? <li><button type="button" className="cch-done" onClick={() => setShowDone(x => !x)} aria-expanded={showDone} data-testid="cch-done">{showDone ? '▾' : '▸'} {props.decided.length} decided</button></li> : null}
           {showDone ? (props.decided || []).slice(0, pop ? 8 : 4).map(p => <Proposal key={p.id} p={p} busy={busy} onDecide={decide} />) : null}</ul></div> : null}</div>
@@ -286,5 +287,5 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
     </div>
   </section>;
   return pop && typeof document !== 'undefined' ? <>{createPortal(<div className="cch-shade" data-testid="cch-shade" onMouseDown={e => { if (e.target === e.currentTarget) setPop(false); }}>{body}</div>, document.body)}
-    <button type="button" className="cch-back" onClick={() => setPop(false)} data-testid="cch-popped">🧠 Brain is popped out — tap to bring it back</button></> : body;
+    <button type="button" className="cch-back" onClick={() => setPop(false)} data-testid="cch-popped"><Ic3 e="🧠" /> Brain is popped out — tap to bring it back</button></> : body;
 });

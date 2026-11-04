@@ -23,7 +23,7 @@ export function MemeTerms() {
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/meme-terms')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 120000); return () => { alive = false; clearInterval(t); }; }, []);
   return <section className="rep-memes m-card m-live" data-testid="rep-memes">
-    <header><div><span className="m-label">📖 TRENCH DICTIONARY · LEARNED TODAY</span><h3>What the trenches are saying.</h3>
+    <header><div><span className="m-label"><Ic3 e="📖" /> TRENCH DICTIONARY · LEARNED TODAY</span><h3>What the trenches are saying.</h3>
       <small className="m-dim">The rep engine reads every new launch + FEELESS chat and learns new words daily. Waves = coins named after the same thing — the first usually runs, copycats usually don't. Never a buy signal.</small></div>
       {d && <span className="rep-memes-kpi"><b className="m-num fl-tick" key={d.learned}>{(d.learned || 0).toLocaleString()}</b><small>words learned</small></span>}</header>
     {!d ? <div className="rep-memes-grid">{[0, 1, 2, 3].map(i => <i key={i} className="rep-term is-ghost" />)}</div>
@@ -82,7 +82,7 @@ function DarkSide() {
     <div className="rep-dark-list">
       {!rows.length && <p className="wp-bio">{d ? (tab === 'kols' ? (kols ? 'No KOL wallets tracked yet — admins add them in the HQ.' : 'Loading KOL trades…') : tab === 'whales' || tab === 'rugs' ? 'Nothing yet — the radar fills this as it watches live pools.' : 'None caught yet.') : 'Loading…'}</p>}
       {tab === 'offenders' && rows.map((r, i) => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row" style={{ '--i': i }}><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} profile /><RepMark compact address={r.wallet} /><span>{r.roles.join(' + ')} on <b>{r.strikes}</b> launch{r.strikes === 1 ? '' : 'es'}</span>{r.blocked && <em className="bad">⛔ blocklisted</em>}<small>{ago(r.lastSeen)}</small></Link>)}
-      {tab === 'funders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} profile /><RepMark compact address={r.wallet} /><span>bankrolled <b>{r.walletsFunded}</b> sniper/bundler wallets · {r.launches} launch{r.launches === 1 ? '' : 'es'}</span>{r.flagged && <em className="bad">🚩 repeat funder</em>}<small>{ago(r.lastSeen)}</small></Link>)}
+      {tab === 'funders' && rows.map(r => <Link key={r.wallet} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} profile /><RepMark compact address={r.wallet} /><span>bankrolled <b>{r.walletsFunded}</b> sniper/bundler wallets · {r.launches} launch{r.launches === 1 ? '' : 'es'}</span>{r.flagged && <em className="bad"><Ic3 e="🚩" /> repeat funder</em>}<small>{ago(r.lastSeen)}</small></Link>)}
       {tab === 'whales' && rows.map(r => <Link key={r.tx} to={`/terminal/profile/${r.wallet}`} className="rep-dark-row"><code>{short(r.wallet)}</code><CopyBtn value={r.wallet} profile /><RepMark compact address={r.wallet} /><span className={r.kind === 'buy' ? 'positive' : 'negative'}>{r.kind} <b>${Number(r.usd).toLocaleString()}</b> of ${r.symbol}</span><small>{ago(r.at)}</small></Link>)}
       {tab === 'kols' && rows.map(k => <div key={k.address} className={`rep-kol ${k.stats?.danger ? 'danger' : ''}`}>
         <Link to={`/terminal/profile/${k.address}`} className="rep-dark-row"><code>{k.name}</code><span>{k.x ? `@${k.x} · ` : ''}{k.chain}{k.stats ? ` · ${k.stats.closed} closed trades · median hold ${k.stats.medianHoldMin ?? '—'}m · flips ${k.stats.quickFlipPct ?? '—'}% in 1h · win ${k.stats.winPct ?? '—'}%` : ' · stats unavailable'}</span>{k.stats?.danger && <em className="bad">⚠ call-and-dump</em>}</Link>
@@ -94,6 +94,7 @@ function DarkSide() {
 }
 
 import { RugBounty } from '../RugBounty';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🛡 one Rep section at a time (ReputationCenter's nav)
 export function RepSection({ part }) {

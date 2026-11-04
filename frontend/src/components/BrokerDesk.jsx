@@ -5,6 +5,7 @@ import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { useGlide } from '../lib/useGlide';
 import '../styles/brokerDesk.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏦 THE BROKERAGE (docs/BROKERS.md, DECISIONS #9): YOUR own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE … via SnapTrade) linked to
 // your Familia wallet — one tap opens SnapTrade's portal where you log in to your broker (FEELESS never sees the password); then your cash,
@@ -37,13 +38,13 @@ export function BrokerDesk({ devAddress = '', venue = null }) {   // devAddress:
   if (!a || !s) return <section className="bk" data-testid="broker-desk"><b className="bk-t">{title}</b><p className="bk-dim">Sign in to Familia with your wallet (one signature, 7 days), then paste your keys once — they stay sealed to your wallet.</p>
     {venue === 'cdc' ? <CdcCaps a="" s="" /> : null}
     {venue ? <AlpacaKeys venue={venue} post={async () => { throw new Error('Sign in to Familia with your wallet first.'); }} onSaved={() => {}} /> : null}</section>;
-  if (d && !d.linked) return <section className="bk" data-testid="broker-desk"><b className="bk-t">🏦 YOUR BROKER · STOCKS · ETFS · CRYPTO</b>
+  if (d && !d.linked) return <section className="bk" data-testid="broker-desk"><b className="bk-t"><Ic3 e="🏦" /> YOUR BROKER · STOCKS · ETFS · CRYPTO</b>
     {d.snaptrade ? <button type="button" className="bk-go bk-any" disabled={!!busy} onClick={link} data-tip="Log in to YOUR broker (TradeStation · Webull · Coinbase · Kraken · E*TRADE …) on SnapTrade's secure portal — once; FEELESS never sees your password" data-testid="bk-link">{busy || '🔗 LINK MY BROKER · TRADESTATION · WEBULL · ANY'}</button> : null}
     {d.snaptrade ? <small className="bk-dim">— or paste free Alpaca keys —</small> : null}
     {venue === 'cdc' ? <CdcCaps a={a} s={s} /> : null}
     <AlpacaKeys venue={venue || 'alpaca'} post={post} onSaved={load} /></section>;
   return <section className="bk" data-testid="broker-desk">
-    <header className="bk-h"><b className="bk-t">🏦 THE BROKERAGE</b><span className="bk-val"><em>ALL ACCOUNTS</em><b className="m-num">{$(val)}</b>
+    <header className="bk-h"><b className="bk-t"><Ic3 e="🏦" /> THE BROKERAGE</b><span className="bk-val"><em>ALL ACCOUNTS</em><b className="m-num">{$(val)}</b>
       <small className={`m-num ${(d?.pnl ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{(d?.pnl ?? 0) >= 0 ? '+' : '−'}{$(d?.pnl)} open P&L</small></span>
       {d?.snaptrade ? <button type="button" className="bk-sm" onClick={link} data-tip="Add another broker">+ BROKER</button> : null}<button type="button" className="bk-sm" onClick={unlink} data-tip="Unlink every broker + delete your keys from FEELESS">UNLINK</button></header>
     {d?.alpacaError ? <p className="bk-err">⚠ {d.alpacaError}</p> : null}{d?.cdcError ? <p className="bk-err">⚠ {d.cdcError}</p> : null}
@@ -98,9 +99,9 @@ function CdcCaps({ a, s, onPick }) {
   const k = c?.key || {};
   const tiles = [['SPOT', c ? `${c.spot.n} pairs` : '…', 'BUY / SELL vs USD', true], ['PERPS', c ? `${c.perps.n} · to ${c.perps.maxLev}×` : '…', 'long / short · your account decides', true],
     ['FUTURES', c ? `${c.futures.n} dated` : '…', 'not wired in FEELESS yet', false], ['YOUR KEY', k.linked ? (k.reads ? `reads · $${Math.round(k.valueUsd || 0).toLocaleString()}` : 'refused') : 'not added', k.linked ? (k.reads ? 'balance read live' : (k.error || '')) : 'paste it below once', !!k.reads]];
-  return <div className="bk-caps" data-testid="cdc-caps"><b className="bk-t">🔑 WHAT YOUR CRYPTO.COM KEY CAN DO HERE</b>
+  return <div className="bk-caps" data-testid="cdc-caps"><b className="bk-t"><Ic3 e="🔑" /> WHAT YOUR CRYPTO.COM KEY CAN DO HERE</b>
     <div className="bk-capg">{tiles.map(([l, v, sub, ok], i) => <span key={l} className={ok ? 'is-ok' : 'is-off'} style={{ '--i': i }}><em>{l}</em><b className="m-num">{v}</b><small>{ok ? '✓ ' : '○ '}{sub}</small></span>)}</div>
-    {c?.devKey && !c?.envPair && !k.linked ? <p className="bk-err" data-testid="cdc-devkey">🔑 Your Crypto.com <b>Developer Platform</b> key is in .env — it reads Cronos chain data but can't trade. For trading add an <b>Exchange</b> key + secret (crypto.com/exchange → Settings → API Keys) below, or as CRYPTO_COM_API_KEY / CRYPTO_COM_API_SECRET in .env (rides your wallet automatically).</p> : null}
+    {c?.devKey && !c?.envPair && !k.linked ? <p className="bk-err" data-testid="cdc-devkey"><Ic3 e="🔑" /> Your Crypto.com <b>Developer Platform</b> key is in .env — it reads Cronos chain data but can't trade. For trading add an <b>Exchange</b> key + secret (crypto.com/exchange → Settings → API Keys) below, or as CRYPTO_COM_API_KEY / CRYPTO_COM_API_SECRET in .env (rides your wallet automatically).</p> : null}
     {c?.perps?.all?.length || c?.spot?.all?.length ? <CdcMarkets c={c} onPick={onPick} /> : null}</div>;
 }
 

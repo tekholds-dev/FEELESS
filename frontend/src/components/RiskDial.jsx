@@ -1,6 +1,7 @@
 import React from 'react';
 import { RISK_DIALS, useDialProof } from '../lib/riskDial';
 import '../styles/fuseLab.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🎚 One dial instead of ten settings. Each option shows how that dial did on the Arena's auto paper cards (24h) so you pick
 // with evidence. `value` 'custom' = hand-tuned. Used in the Lab card plan, My cards and (engine variant) HQ.
@@ -22,10 +23,10 @@ export function RiskDial({ value, onChange, dials = RISK_DIALS, proofs, testid =
 export function DialBoard({ dials }) {
   if (!dials) return null;
   const best = Object.entries(dials).filter(([, p]) => p.rounds).sort((a, b) => b[1].avgPct - a[1].avgPct)[0]?.[0];
-  return <section className="m-card dboard" data-testid="dial-board"><header><span className="m-label">🎚 AUTO PAPER CARDS · WHICH DIAL WINS</span>
+  return <section className="m-card dboard" data-testid="dial-board"><header><span className="m-label"><Ic3 e="🎚" /> AUTO PAPER CARDS · WHICH DIAL WINS</span>
     <small className="m-dim">every runner round also played with each dial's take-profit / stop-loss on real prices (24h). Configs go auto live only after this proves it.</small></header>
     <div className="dboard-row">{Object.entries(dials).map(([k, p]) => <div key={k} className={`dboard-tile r-${k} ${k === best ? 'is-best' : ''} ${p.lit ? 'is-lit' : ''}`} data-tip={p.why}>
       <b>{p.label || RISK_DIALS[k]?.label}</b><em className={`m-num ${p.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{p.rounds ? pc(p.avgPct) : '—'}</em>
       <small className="m-dim">{p.rounds ? `${p.rounds} rounds · ${p.winRate}% won · $1 → $${(p.per1 || 1).toFixed(2)}` : 'first rounds dealing'}</small>
-      {p.lit && <span className="dboard-lit">🔥 proven</span>}</div>)}</div></section>;
+      {p.lit && <span className="dboard-lit"><Ic3 e="🔥" /> proven</span>}</div>)}</div></section>;
 }

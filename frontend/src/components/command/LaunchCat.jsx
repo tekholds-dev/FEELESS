@@ -11,6 +11,7 @@ import { AgentDemo } from './AgentDemo';
 import { AgentCritter } from './Critters';
 import { FeeCatMark } from '../FeeCatMark';
 import '../../styles/launchCat.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
@@ -45,9 +46,9 @@ export const HOUSE = { general: 'RULES — never invent facts; stop for human-ne
 const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Circle holds its keys, never a browser. FEELESS signs only inside your limits.'], ['↩', 'Money comes back to you', 'Withdrawals go only to the wallet that owns this agent. No other address is possible.'],
   ['🗝', 'Passwords sealed', 'Encrypted. Its minds never see them and its log never shows them.'], ['🛑', 'Your limits hold', gen ? 'A $ cap per task, and it asks before each move until you choose auto.' : 'Caps on every buy and every day, enforced by the server.']];
 export function SafetyCard({ gen }) {
-  return <section className="lct-safe" data-testid="lct-safe"><span className="m-label">🔐 HOW YOUR AGENT STAYS SAFE</span>
-    <div className="lct-safe-grid">{SAFE(gen).map(([ic, t, why], i) => <span key={t} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{t}</b><small>{why}</small></span>)}</div>
-    <p className="lct-safe-next" data-testid="lct-safe-next"><i aria-hidden="true">🔑</i><span><b>Next: your recovery PIN.</b> It shows once, right after launch. It gets this agent back if you lose this browser. Your wallet's own recovery phrase stays yours: FEELESS never asks for it.</span></p></section>;
+  return <section className="lct-safe" data-testid="lct-safe"><span className="m-label"><Ic3 e="🔐" /> HOW YOUR AGENT STAYS SAFE</span>
+    <div className="lct-safe-grid">{SAFE(gen).map(([ic, t, why], i) => <span key={t} style={{ '--i': i }}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{t}</b><small>{why}</small></span>)}</div>
+    <p className="lct-safe-next" data-testid="lct-safe-next"><i aria-hidden="true"><Ic3 e="🔑" /></i><span><b>Next: your recovery PIN.</b> It shows once, right after launch. It gets this agent back if you lose this browser. Your wallet's own recovery phrase stays yours: FEELESS never asks for it.</span></p></section>;
 }
 export function briefFor(persona, kind, mode, solo = false) {
   const k = kind === 'general' ? 'general' : 'trading';
@@ -80,7 +81,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start })
   const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
   return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
-    <summary data-tip="Add your own API keys for this cat's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true">🔐</i><b>API DRAWER</b>
+    <summary data-tip="Add your own API keys for this cat's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true"><Ic3 e="🔐" /></i><b>API DRAWER</b>
       <small>{saved ? `${saved} key${saved > 1 ? 's' : ''} in` : 'your keys · optional'}</small><span className="akd-pips" aria-hidden="true">{API_PROVIDERS.map(([k]) => <u key={k} className={(rows || []).some(r => r.provider === k && r.saved) || draft?.[k] ? 'on' : ''} />)}</span></summary>
     <ul className="akd-list">{API_PROVIDERS.map(([k, label, use, wired, ph], i) => { const row = (rows || []).find(r => r.provider === k);
       return <li key={k} style={{ '--i': i }} className={row?.saved ? 'is-saved' : ''}>
@@ -90,7 +91,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start })
             onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}
         {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !draft?.[k]} onClick={() => onSave(k, draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
       </li>; })}</ul>
-    <p className="akd-note">🔒 Sealed at rest, never sent back. A key never opens another exchange — the cat trades on FEELESS rails only.</p>
+    <p className="akd-note"><Ic3 e="🔒" /> Sealed at rest, never sent back. A key never opens another exchange — the cat trades on FEELESS rails only.</p>
   </details>;
 }
 export function VenuePick({ value, onChange }) {
@@ -147,7 +148,7 @@ function ModelTile({ m, on, onPick, i, kind }) {
   const gen = kind === 'general'; const desc = m.why ? `${m.why}${m.desc ? ` — ${m.desc}` : ''}` : m.desc;
   return <div className={`lct-tile${on ? ' is-on' : ''}${m.tag ? ' is-rec' : ''}`} style={{ '--i': Math.min(i, 20) }}>
     <button type="button" className="lct-tile-pick" onClick={() => onPick(m)} data-testid={`lct-m-${m.id}`} aria-pressed={on} data-tip={on ? 'Picked — tap to drop it' : `Pick ${shortName(m)} as a ${gen ? 'mind' : 'brain'}`}>
-      <span className="lct-tile-top"><i className="lct-mono" aria-hidden="true">{mono(m)}</i>{m.tag ? <b className="lct-tag">⭐ {m.tag}</b> : <small>{m.provider}</small>}{m.intel != null ? <em title="intelligence index">♟ {m.intel}</em> : null}{ageOf(m.created) ? <em className="lct-age" data-tip="How long ago this model came out">{ageOf(m.created)}</em> : null}</span>
+      <span className="lct-tile-top"><i className="lct-mono" aria-hidden="true">{mono(m)}</i>{m.tag ? <b className="lct-tag"><Ic3 e="⭐" /> {m.tag}</b> : <small>{m.provider}</small>}{m.intel != null ? <em title="intelligence index"><Ic3 e="♟" /> {m.intel}</em> : null}{ageOf(m.created) ? <em className="lct-age" data-tip="How long ago this model came out">{ageOf(m.created)}</em> : null}</span>
       <strong>{shortName(m)}</strong>
       <span className="lct-tile-nums"><span><small>IN · 1M</small>{fmtM(m.inUsd)}</span><span><small>OUT · 1M</small>{fmtM(m.outUsd)}</span>
         <span className="is-hot"><small>{gen ? 'TASK EST.' : 'A DECISION'}</small>{fmtUsd(gen ? m.perTask : m.perDecision)}</span><span><small>MEMORY</small>{fmtCtx(m.ctx)}</span></span>
@@ -242,7 +243,7 @@ export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
           <i className="lct-cost-to" aria-hidden="true">→</i>
           <label>Max $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="no cap" value={cost[1]} onChange={e => setCostAt(1, e.target.value)} aria-label="Maximum model cost" data-testid="lct-max" /></span></label>
           <span className="lct-cost-n m-num" key={rows.length}>{rows.length}<small>match</small></span></div>
-        <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
+        <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}><Ic3 e="✨" /> All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
         <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
         {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
         {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>;
@@ -308,27 +309,27 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} mode={gen ? workMode : mode} />
       {gen ? <><div className="lct-ways" role="radiogroup" aria-label="How its two minds work">{WORK_WAYS.map(([k, ic, t, why, flow], i) => <button key={k} type="button" role="radio" aria-checked={workMode === k}
           className={`lct-way${workMode === k ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => setWorkMode(k)} data-testid={`lct-work-${k}`} data-tip={why}>
-          <span className="lct-way-h"><i aria-hidden="true">{ic}</i><b>{t}</b>{k === 'plan' ? <em>⭐ BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><span className="lct-use is-hi">HIGH USE · both windows{k === 'plan' ? ' + a merge' : ''}</span><small>{why}</small>
+          <span className="lct-way-h"><i aria-hidden="true"><Ic3 e={ic} /></i><b>{t}</b>{k === 'plan' ? <em><Ic3 e="⭐" /> BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><span className="lct-use is-hi">HIGH USE · both windows{k === 'plan' ? ' + a merge' : ''}</span><small>{why}</small>
           <ol className="lct-flow" data-testid={k === 'plan' ? 'lct-flow' : undefined}>{flow.map(([fi, ft, fw], j) => <li key={ft} style={{ '--i': j }}><i aria-hidden="true">{fi}</i><b>{ft}</b><small>{fw}</small></li>)}</ol></button>)}</div>
         <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : workMode === 'jobs' ? 'In its chat you write a job for each mind — A: … B: … — and both run at once.' : 'Ask one thing — they plan it in a sentence each, split it, research in their own windows, then hand you ONE answer.'}</p></>
       : <><VenuePick value={venues} onChange={setVenues} />{picked.length < 2 ? <p className="lct-note">One brain: it makes every call. Pick a second in step 1 to choose how they work together.</p> :
         <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={`${mode === m.key ? 'is-on' : ''}${m.key === BEST_MODE ? ' is-best' : ''}`} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}
-          data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best">⭐ BEST</em> : null}<b>{m.label}</b><small>{m.why}</small><span className={`lct-use ${USE[m.key]?.[0] || 'is-lo'}`}>{USE[m.key]?.[1] || 'LOW USE'}</span></button>)}</div>}</>}
+          data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best"><Ic3 e="⭐" /> BEST</em> : null}<b>{m.label}</b><small>{m.why}</small><span className={`lct-use ${USE[m.key]?.[0] || 'is-lo'}`}>{USE[m.key]?.[1] || 'LOW USE'}</span></button>)}</div>}</>}
     </div> : null}
     {step === 2 && gen ? <div className="lct-pane lct-brief" data-testid="lct-gsetup">
-      <section className="lct-pane"><h4 className="lct-h">🎯 WHAT IS IT FOR?</h4>
+      <section className="lct-pane"><h4 className="lct-h"><Ic3 e="🎯" /> WHAT IS IT FOR?</h4>
         <nav className="m-seg" role="tablist" aria-label="Kind of job">{JOB_GROUPS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={jobTab === k} className={jobTab === k ? 'active' : ''} onClick={() => setJobTab(k)} data-testid={`lct-jobtab-${k}`}>{l}</button>)}</nav>
         <div className="lct-modes lct-jobs">{(d?.personas?.general || []).filter(p => (JOB_GROUPS.find(g => g[0] === jobTab)?.[2] || []).includes(p.key)).map((p, i) => <button key={p.key} type="button" className={persona === p.key ? 'is-on' : ''} style={{ '--i': i }}
           onClick={() => { setPersona(p.key); setPrompt(briefFor(p, 'general', workMode, picked.length < 2)); }} data-testid={`lct-job-${p.key}`}><b>{p.label}</b><small>{p.brief}</small></button>)}</div></section>
       <div className="lct-gid">
         <label className="cct-field"><span>Name</span><input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="e.g. Scout" data-testid="lct-name" /></label>
-        <span className="lct-gbody" data-tip="Its body is the agent you built in 🎨 Build an agent"><BodyPreview /><small>its body · change it in 🎨 Build an agent</small></span>
+        <span className="lct-gbody" data-tip="Its body is the agent you built in 🎨 Build an agent"><BodyPreview /><small>its body · change it in <Ic3 e="🎨" /> Build an agent</small></span>
         <div className="lct-gcap"><span>MOST IT MAY SPEND ON ONE TASK</span><div className="m-seg" role="radiogroup" aria-label="Spend cap per task">{[0.02, 0.05, 0.25, 1].map(c => <button key={c} type="button" role="radio" aria-checked={taskCap === c} className={taskCap === c ? 'active' : ''} onClick={() => setTaskCap(c)} data-testid={`lct-cap-${c}`}>${c}</button>)}</div></div>
       </div>
-      <label className="lct-seal lct-gbrief"><span><b>📜 ITS BRIEF · BOTH MINDS</b><em>you can change it once an hour after launch — or let its minds propose a better one</em></span>
+      <label className="lct-seal lct-gbrief"><span><b><Ic3 e="📜" /> ITS BRIEF · BOTH MINDS</b><em>you can change it once an hour after launch — or let its minds propose a better one</em></span>
         <textarea className="m-input" rows={7} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Pick a job above — its brief is written for both minds — or write your own." data-testid="lct-prompt" />
         <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
-      <p className="lct-note lct-house" data-testid="lct-house" data-tip="Built into FEELESS on every step — no brief can remove these">🔒 ALWAYS ON · {HOUSE.general.replace(/^RULES — /, '')} It makes its own email + sign-ups first and stops only for your own accounts, CAPTCHAs, codes, payments and ID.</p>
+      <p className="lct-note lct-house" data-testid="lct-house" data-tip="Built into FEELESS on every step — no brief can remove these"><Ic3 e="🔒" /> ALWAYS ON · {HOUSE.general.replace(/^RULES — /, '')} It makes its own email + sign-ups first and stops only for your own accounts, CAPTCHAs, codes, payments and ID.</p>
     </div> : null}
     {step === 2 && !gen ? <div className="lct-pane lct-brief">
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
@@ -357,7 +358,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <div className="m-seg" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={fundToken === t} className={fundToken === t ? 'active' : ''} onClick={() => setFundToken(t)} data-tip={`Pay with ${t} from your wallet`} data-testid={`lct-pay-${t}`}>{t}</button>)}</div>
         <small className="lct-fund-note">{fundToken === 'USDC' ? 'paid in USDC · keep a little SOL in your wallet for the network fee' : 'paid in SOL at the live price'} · nothing is charged until you sign the receipt after launch</small></div>
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
-      {slots ? <span className={`m-chip ${slots.left ? 'ok' : 'warn'} lct-slots`} data-tip="Agents are limited across every buyer — new slots open over time" data-testid="lct-slots">🎟 {slots.left ? `${slots.left.toLocaleString()} of ${slots.open.toLocaleString()} slots left` : 'every slot is taken — new slots open soon'}</span> : null}
+      {slots ? <span className={`m-chip ${slots.left ? 'ok' : 'warn'} lct-slots`} data-tip="Agents are limited across every buyer — new slots open over time" data-testid="lct-slots"><Ic3 e="🎟" /> {slots.left ? `${slots.left.toLocaleString()} of ${slots.open.toLocaleString()} slots left` : 'every slot is taken — new slots open soon'}</span> : null}
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean) || (slots && !slots.left)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}
     <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? (gen ? ` · ≈ ${fmtUsd(plan.perTask)} a task` : ` · ${fmtUsd(plan.perDecision)} a decision`) : ''}</span>
@@ -375,12 +376,12 @@ export function OrderBox({ cat, act }) {
   const rows = (cat.orders || []).slice(-6).reverse();
   const go = async e => { e?.preventDefault?.(); if (!t.trim() || busy) return; setBusy(true); if (await act('order', { text: t })) setT(''); setBusy(false); };
   return <div className="lct-orders" data-testid="cat-orders">
-    <span className="lct-orders-h"><b>🧭 YOUR ORDERS</b><small>{cat.mode === 'real' ? `each one → ${signWord(cat)}` : 'paper fills — go real to run them'}</small></span>
+    <span className="lct-orders-h"><b><Ic3 e="🧭" /> YOUR ORDERS</b><small>{cat.mode === 'real' ? `each one → ${signWord(cat)}` : 'paper fills — go real to run them'}</small></span>
     <form className="lct-order-form" onSubmit={go}><input className="m-input" maxLength={200} value={t} onChange={e => setT(e.target.value)} placeholder="Order it in plain words — buy 0.05 SOL of $JUP" data-testid="order-text" aria-label="Your order" />
       <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()} data-testid="order-go" data-tip="It checks the coin first (pool, age, already-ran, rug / holders) — a stopped order says which guard">{busy ? 'Checking…' : '🧭 Order'}</button></form>
     <span className="lct-order-ex">{ORDER_EXAMPLES.map(x => <button key={x} type="button" onClick={() => setT(x)} data-tip="Fill the box with this order">{x}</button>)}</span>
     {rows.length ? <ol className="lct-order-log">{rows.map((r, i) => { const [ic, word, cls] = ORDER_STATE[r.state] || ORDER_STATE.unclear;
-      return <li key={`${r.at}-${i}`} className={cls} style={{ '--i': i }} data-tip={`You said: “${r.text}” — ${word}`}><i aria-hidden="true">{ic}</i><b>{orderWords(r.order)}</b><small>{r.why}</small></li>; })}</ol> : null}
+      return <li key={`${r.at}-${i}`} className={cls} style={{ '--i': i }} data-tip={`You said: “${r.text}” — ${word}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{orderWords(r.order)}</b><small>{r.why}</small></li>; })}</ol> : null}
   </div>;
 }
 
@@ -393,9 +394,9 @@ export function BriefCard({ cat, act, api }) {
   const run = async (action, extra = {}) => { setBusy(true); const ok = await act(action, extra); setBusy(false); return ok; };
   const pr = b.briefProposal;
   return <section className="lct-briefcard" data-testid="brief-card">
-    <header><b>📜 ITS BRIEF · BOTH MINDS</b><small>{editIn ? `you can change it in ${Math.ceil(editIn / 60)} min` : 'you can change it now'}</small></header>
+    <header><b><Ic3 e="📜" /> ITS BRIEF · BOTH MINDS</b><small>{editIn ? `you can change it in ${Math.ceil(editIn / 60)} min` : 'you can change it now'}</small></header>
     <p className="lct-briefnow">{b.prompt || 'No brief yet — write one or pick a preset.'}</p>
-    {pr ? <div className="lct-proposal" data-testid="brief-proposal"><em>🧠🧠 THEIR PROPOSAL</em><p>{pr.text}</p>{pr.why ? <small>why: {pr.why}</small> : null}
+    {pr ? <div className="lct-proposal" data-testid="brief-proposal"><em><Ic3 e="🧠" />🧠 THEIR PROPOSAL</em><p>{pr.text}</p>{pr.why ? <small>why: {pr.why}</small> : null}
       <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => run('brief_approve')} data-testid="brief-approve">✓ Use it</button>
         <button type="button" className="m-btn" disabled={busy} onClick={() => run('brief_dismiss')}>Keep mine</button></span></div> : null}
     <select className="m-input" value="" onChange={e => { const p = presets.find(x => x.key === e.target.value); if (p) setT(p.brief); }} aria-label="Fill from a preset" data-testid="brief-preset">
@@ -414,7 +415,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
   const act = async (action, extra = {}) => { setErr(''); try { const r = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); onChanged?.(r.cat); return true; } catch (e) { setErr(e.message); return false; } };
   const start = 10; const left = Math.max(0, b.credit ?? 0);
   return <section className="paper-panel lct-brains" data-testid="brain-panel">
-    <div className="paper-panel-head"><div><span className="eyebrow">🧠 BRAINS · {b.brainMode?.toUpperCase()}</span><h2>{b.brains.map(x => x.split('/').pop()).join(' + ')}</h2></div><Panther size={56} gesture={cat.status === 'running' ? 'purr' : 'sleep'} /></div>
+    <div className="paper-panel-head"><div><span className="eyebrow"><Ic3 e="🧠" /> BRAINS · {b.brainMode?.toUpperCase()}</span><h2>{b.brains.map(x => x.split('/').pop()).join(' + ')}</h2></div><Panther size={56} gesture={cat.status === 'running' ? 'purr' : 'sleep'} /></div>
     <div className="lct-vitals">
       <span><small>CREDIT LEFT</small><b className="fl-tick" key={left}>{fmtUsd(left)}</b><i className="lct-tank"><em style={{ transform: `scaleX(${Math.min(1, left / start)})` }} /></i></span>
       <span><small>DECISIONS</small><b className="fl-tick" key={b.asks}>{b.asks || 0}</b><small>{fmtUsd(b.spent || 0)} spent</small></span>
@@ -422,16 +423,16 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
       <span><small>MODEL FEES PAID</small><b>{fmtUsd(cat.brainFeesUsd || 0)}</b><small>apart from P/L</small></span>
     </div>
     {b.record ? <div className="lct-battle">{Object.entries(b.record).map(([m, r]) => <span key={m}><b>{m.split('/').pop()}</b>{r.n} trades · {r.won} won · <em className={r.pnlSol >= 0 ? 'positive' : 'negative'}>{r.pnlSol >= 0 ? '+' : ''}{r.pnlSol.toFixed(4)} SOL</em></span>)}</div> : null}
-    {b.prompt ? <details className="lct-fold"><summary>📜 Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
+    {b.prompt ? <details className="lct-fold"><summary><Ic3 e="📜" /> Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
     {noTalk ? null : <ul className="lct-dec">{(b.decisions || []).slice(-8).reverse().map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }} className={WORD[x.word] || ''}><b>{x.word}</b><span>${x.sym} · {x.by}</span><small>{x.why}</small></li>)}
       {!(b.decisions || []).length ? <li className="lct-load">No decision yet — the first comes before its first buy.</li> : null}</ul>}
     {b.kind === 'general' ? <><BriefCard cat={cat} act={act} api={api} /><OrderBox cat={cat} act={act} /></> : <VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />}{/* 🔑 its API keys live in its file cabinet (🔑 API keys), never a second copy here — owner 2026-10-31 */}
     {noTalk ? null : <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
-      <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>}
+      <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn"><Ic3 e="💬" /> Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}
     <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The cat stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
       {cat.agentWallet || cat.brainsCfg?.kind === 'general' ? <small className="lct-note">Add model credit from its wallet panel, in SOL or USDC.</small> : <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button>}</div>
-    {cat.needsTopup ? <p className="lct-note">🔒 Funds pulled — top up to start this cat again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
+    {cat.needsTopup ? <p className="lct-note"><Ic3 e="🔒" /> Funds pulled — top up to start this cat again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
     {err ? <p className="lct-err">⚠ {err}</p> : null}
   </section>;
 }

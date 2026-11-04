@@ -8,6 +8,7 @@ import { familiaTrade } from './FamiliaTrade';
 import { FamEmpty } from './FamEmpty';
 import { EarnTicker } from './EarnTicker';
 import '../styles/myMoney.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💵 YOUR MONEY (owner 1e: "one YOUR MONEY tower in the capital — every proved position, live"): the Avenue building's room. Your positions
 // as a drawn TOWER (one lit floor per position, wider = more of your money, green / red by the coin's 24 h move, gold = a market earning
@@ -56,6 +57,6 @@ export default function MyMoney({ devAddress = '' }) {   // devAddress: the /dev
         <u className="ym-share" aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.03, x.share || 0)})` }} /></u>
         <b className="m-num ym-usd">{cash(x.usd)}</b>
         {x.kind === 'coin' && x.pair ? <button type="button" className="m-btn m-go ym-go" onClick={() => familiaTrade({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.key, symbol: x.sym } })}
-          data-tip={`$${x.sym}: its chart + Quick trade, right here — your wallet signs`} data-testid={`ym-trade-${x.key}`}>⚡ Trade</button> : <small className="ym-tag">on your block</small>}</li>)}</ol>}
+          data-tip={`$${x.sym}: its chart + Quick trade, right here — your wallet signs`} data-testid={`ym-trade-${x.key}`}><Ic3 e="⚡" /> Trade</button> : <small className="ym-tag">on your block</small>}</li>)}</ol>}
   </div>;
 }

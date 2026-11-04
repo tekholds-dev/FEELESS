@@ -3,6 +3,7 @@ import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { LendBox, usePools } from './PoolHub';
 import '../styles/fiveRun.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💵 THE $5 RUN (owner, 2026-10-23: "a minimum of $5 to see REAL compound, real errands, no bs click and drop"): $5 into Jupiter Lend Earn —
 // it compounds ON-CHAIN every block. With a deposit, the big number is YOUR money: what Jupiter says the position is worth now (re-read every
@@ -49,7 +50,7 @@ export function FiveRun({ devAddress = '' }) {
   if (!a) return <section className="fr" data-testid="five-run"><p className="fr-dim">{d ? 'Jupiter Lend did not answer — the run waits for live rates.' : 'Reading Jupiter Lend…'}</p></section>;
   const base = mine ? mine.usd : 5;
   return <section className={`fr ${mine ? 'is-live' : ''}`} data-testid="five-run">
-    <header className="fr-head"><span><em>💵 THE $5 RUN · REAL COMPOUNDING</em><b>{mine ? 'Your money, compounding right now' : 'Start with $5 — watch it compound for real'}</b></span>
+    <header className="fr-head"><span><em><Ic3 e="💵" /> THE $5 RUN · REAL COMPOUNDING</em><b>{mine ? 'Your money, compounding right now' : 'Start with $5 — watch it compound for real'}</b></span>
       <span className="m-seg fr-seg" role="radiogroup" aria-label="Asset">{assets.map(x => <button key={x.sym} type="button" role="radio" aria-checked={x.sym === a.sym} className={x.sym === a.sym ? 'active' : ''}
         onClick={() => { setPick(x.sym); setBox(null); }} data-tip={`${x.sym} on Jupiter Lend Earn · ${x.apy}% a year now, paid every block`} data-testid={`fr-a-${x.sym}`}>{x.sym} <small>{x.apy}%</small></button>)}</span></header>
     <div className="fr-body">

@@ -4,7 +4,8 @@ import { lifiFeeConfig } from '../../lib/lifiFee';
 import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
 import { apiUrl } from '../../lib/api';
 import { toast } from 'sonner';
-import { Zap, ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight } from 'lucide-react';
+import { Zap } from '../../lib/lucide3d';
 import { useWallet, EVM_CHAINS } from '../../hooks/useWallet';
 import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
 

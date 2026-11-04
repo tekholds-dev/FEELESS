@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { duoState } from '../../lib/duo';
 import '../../styles/updatesLog.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 📜 SETTINGS › UPDATES (owner 2026-10-27: "a log of updates for site, backend or mobile — users see active fixes and what came from
 // requests" + "new Duo screens, closed and open, every orientation, in the settings log"). The shipped changes come from git
@@ -32,7 +33,7 @@ export function UpdatesLog() {
   const c = d?.counts || {}; const rows = (d?.rows || []).filter(r => lens === 'all' || r.parts.includes(lens));
   const tot = Math.max(1, (c.new || 0) + (c.fix || 0));
   return <section className="m-card upl" data-testid="updates-log">
-    <header className="upl-h"><span className="m-label">📜 UPDATES · WHAT SHIPPED</span>
+    <header className="upl-h"><span className="m-label"><Ic3 e="📜" /> UPDATES · WHAT SHIPPED</span>
       <span className="upl-split" data-tip="Of the last shipped changes: new features people asked for vs fixes"><i style={{ transform: `scaleX(${(c.new || 0) / tot})` }} />
         <b className="m-num">{c.new ?? '—'} NEW</b><b className="m-num is-fix">{c.fix ?? '—'} FIXES</b></span></header>
     <nav className="m-seg upl-lens" role="tablist" aria-label="Which updates">{LENSES.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''}

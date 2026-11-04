@@ -4,6 +4,7 @@ import NumInput from '../NumInput';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › Fuse admin settings. RunnerSettings: every gate / lane exit / light-up rule, range-checked by the server
 // (runners.CFG_RANGES); "Reset" = defaults. AutoYieldDefault: arm 💸 auto-collect on NEW cards (users can turn it off).
@@ -29,11 +30,11 @@ export function RunnerSettings({ call }) {
   useEffect(() => { call('/admin/runners/config').then(x => { setD(x); setCfg(x.cfg); }).catch(e => toast.error(e.message)); }, [call]);
   if (!d) return null;
   const save = async reset => { try { const x = await call('/admin/runners/config', { method: 'POST', body: JSON.stringify(reset ? { reset: true } : { cfg }) }); setCfg(x.cfg); toast.success(reset ? 'Runner settings reset' : 'Runner settings saved — next round uses them'); } catch (e) { toast.error(e.message); } };
-  return <details className="m-card rn-settings" data-testid="runner-settings"><summary><span className="m-label">⚙ RUNNER SETTINGS</span> <small className="m-dim">gates · lane exits · light-up</small></summary>
+  return <details className="m-card rn-settings" data-testid="runner-settings"><summary><span className="m-label"><Ic3 e="⚙" /> RUNNER SETTINGS</span> <small className="m-dim">gates · lane exits · light-up</small></summary>
     {(() => { const field = k => { const [lo, hi] = d.ranges[k]; return <label key={k} className="m-field"><span>{LABELS[k][0]} {LABELS[k][1] && <em>({LABELS[k][1]})</em>}</span>
       <NumInput className="m-input m-num" type="number" min={lo} max={hi} value={cfg[k] ?? ''} onChange={e => setCfg({ ...cfg, [k]: Number(e.target.value) })} data-testid={`rn-${k}`} /><small className="m-dim">{lo}–{hi} · default {d.defaults[k]}</small></label>; };
       const all = Object.keys(LABELS).filter(k => k in (d.ranges || {})); const vital = RUNNER_VITAL.filter(k => all.includes(k)); const rest = all.filter(k => !vital.includes(k));
-      return <><small className="m-dim">The seven numbers that decide which coins pass. The ⚡ funnel above shows what each gate is stopping right now.</small>
+      return <><small className="m-dim">The seven numbers that decide which coins pass. The <Ic3 e="⚡" /> funnel above shows what each gate is stopping right now.</small>
         <div className="m-grid" data-testid="rn-vital">{vital.map(field)}</div>
         <details className="adv-cfg" data-testid="rn-all"><summary>All {rest.length} other settings (lane exits · bond run · light-up · battles)</summary><div className="m-grid">{rest.map(field)}</div></details></>; })()}
     <div className="fg-acts"><button type="button" className="m-btn primary" onClick={() => save(false)}>Save settings</button><button type="button" className="m-btn" onClick={() => save(true)}>Reset to defaults</button></div></details>;
@@ -44,7 +45,7 @@ export function AutoYieldDefault({ call }) {
   useEffect(() => { call('/admin/fuses/auto-yield').then(setV).catch(() => {}); }, [call]);
   if (!v) return null;
   const save = async next => { try { setV(await call('/admin/fuses/auto-yield', { method: 'POST', body: JSON.stringify(next) })); toast.success(next.on ? `New cards auto-collect at +${next.at}%` : 'Auto-collect default off'); } catch (e) { toast.error(e.message); } };
-  return <div className="m-card m-row ay-default" data-testid="auto-yield-default"><span className="m-label">💸 AUTO-COLLECT DEFAULT</span>
+  return <div className="m-card m-row ay-default" data-testid="auto-yield-default"><span className="m-label"><Ic3 e="💸" /> AUTO-COLLECT DEFAULT</span>
     <label className="m-toggle"><input type="checkbox" checked={v.on} onChange={e => save({ ...v, on: e.target.checked })} />Arm on every new card</label>
     <label className="m-field"><span>at +%</span><NumInput className="m-input m-num" type="number" min="10" max="1000" value={v.at} onChange={e => setV({ ...v, at: Number(e.target.value) })} onBlur={() => save(v)} /></label>
     <small className="m-dim">Example: a $100 card hits <b className="m-pos">${(100 * (1 + v.at / 100)).toFixed(0)}</b> → the holder gets ONE alert with “Collect ${(v.at).toFixed(0)} profit” pre-filled (sells only the ${v.at.toFixed(0)} gain, the $100 keeps riding). They approve it; they can switch it off per card. FEELESS never signs.</small></div>;
@@ -104,7 +105,7 @@ export function CrewsPricing({ call, initial }) {
       <label data-tip="What +5 seats cost the family head, in $">$ per +5 seats<NumInput type="number" step="1" min="0" max="500" value={c.packUsd} onChange={e => setC({ ...c, packUsd: Number(e.target.value) })} data-testid="crews-pack" /></label>
       <label data-tip="What restyling the family badge costs after the first (free) forge, in $">$ per badge restyle<NumInput type="number" step="0.5" min="0" max="500" value={c.badgeUsd ?? 2} onChange={e => setC({ ...c, badgeUsd: Number(e.target.value) })} data-testid="crews-badge" /></label></div>
     <ul className="bundle-ex">{[5, 10, 15, 25].map(n => <li key={n}><b>{n} seats</b><span className="m-num">${crewCost(n, c).toFixed(2)}</span><small>{n === 5 ? 'to start' : `+${(n - 5) / 5} pack${n > 10 ? 's' : ''}`}</small></li>)}</ul>
-    {cat?.parts ? <details className="fam-unl" data-testid="familia-unlocks"><summary>🔓 Badge unlocks — what each part needs (tracked from real family numbers)</summary>
+    {cat?.parts ? <details className="fam-unl" data-testid="familia-unlocks"><summary><Ic3 e="🔓" /> Badge unlocks — what each part needs (tracked from real family numbers)</summary>
       {Object.entries(cat.parts).map(([part, rows]) => <div key={part} className="fam-unl-part"><b>{part.toUpperCase()}</b>{rows.map(r => { const k = `${part}.${r.key}`; const v = unl[k] || {};
         return <label key={k} data-tip={`default: ${r.default.metric ? `${r.default.metric} ${r.default.metric === 'best' ? '≤' : '≥'} ${r.default.min}` : 'free'}`}><span>{r.label}</span>
           <select className="m-input" value={v.metric || ''} onChange={e => setUnl(x => ({ ...x, [k]: { ...v, metric: e.target.value || null } }))} aria-label={`${r.label} unlock metric`}><option value="">free</option>{Object.entries(cat.metrics).map(([m, w]) => <option key={m} value={m}>{w}</option>)}</select>
@@ -178,7 +179,7 @@ export function CardRules({ call }) {
   return <section className="m-card card-rules" data-testid="card-rules">
     <div className="m-row"><span className="m-label">🃏 CARD RULES</span><small className="m-dim">what traders can pick + what FEELESS pays back · examples on a $100 card that paid $1.00 fees</small>
       <span className="cr-owed" data-tip="Fee-Back earned by holders vs still owed (pay it in 💸 Payouts)"><small>FEE-BACK OWED</small><b className="m-num">${fb.owedUsd.toFixed(2)}</b><em>of ${fb.earnedUsd.toFixed(2)} earned</em></span></div>
-    <div className="cr-group"><header><b>💰 AUTO-PROFIT LEVELS</b><small>The +% choices a trader sees (no free typing). Counted AFTER exit fees, so +50% means +50% in their pocket.</small></header>
+    <div className="cr-group"><header><b><Ic3 e="💰" /> AUTO-PROFIT LEVELS</b><small>The +% choices a trader sees (no free typing). Counted AFTER exit fees, so +50% means +50% in their pocket.</small></header>
       <div className="cr-levels">{levels.map(x => <button key={x} type="button" className={`m-chip ${r.yieldDefault === x ? 'is-on' : ''}`} onClick={() => setR({ ...r, yieldDefault: x })} data-tip={`$100 card → alert at $${100 + x}${r.yieldDefault === x ? ' · default' : ' · tap to make default'}`}>+{x}%{r.yieldDefault === x ? ' ★' : ''}</button>)}</div>
       <label className="m-field"><span>Levels (comma list) · ★ = default</span><input className="m-input m-num" value={lv} onChange={e => setLv(e.target.value)} placeholder="25, 50, 100, 200" data-testid="cr-levels" /></label></div>
     {RULE_GROUPS.map(([title, why, fields]) => <div key={title} className="cr-group"><header><b>{title}</b><small>{why}</small></header>
@@ -212,7 +213,7 @@ export function FusePayouts({ call }) {
       toast.success(`Paid $${out.paidUsd.toFixed(2)} to ${out.wallets} wallets — verified on-chain.`); setPlan(null);
     } catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
-  return <div className="m-card fpay" data-testid="fuse-payouts"><div className="m-row"><span className="m-label">💸 WEEKLY FUSE PAYOUT</span>
+  return <div className="m-card fpay" data-testid="fuse-payouts"><div className="m-row"><span className="m-label"><Ic3 e="💸" /> WEEKLY FUSE PAYOUT</span>
     <small className="m-dim">Fee-Back + copy cuts owed to traders · one approval from your fee wallet · verified on-chain</small>
     {!plan && <button type="button" className="m-btn primary m-go" onClick={load} data-testid="payout-load">Build this week's payout</button>}</div>
     {plan && <>{!plan.rows.length ? <p className="m-dim">Nobody is owed more than $0.05 right now{plan.bots ? ` (${plan.bots} flagged bot wallet${plan.bots > 1 ? 's' : ''} excluded)` : ''}.</p>
@@ -234,7 +235,7 @@ export function EngineSuggest({ call }) {
     toast.success('Stronger engine applied — the next round uses it.'); load(); } catch (e) { toast.error(e.message); } };
   const lanes = Object.entries(d.lanes || {});
   return <div className={`m-card eng-sug ${d.suggestions.length ? 'is-on' : ''}`} data-testid="engine-suggest">
-    <div className="m-row"><span className="m-label">⚡ ENGINE</span>{d.suggestions.length ? <b>Stronger config found · {d.suggestions.length} settings</b> : <small className="m-dim">Running the recommended engine.</small>}
+    <div className="m-row"><span className="m-label"><Ic3 e="⚡" /> ENGINE</span>{d.suggestions.length ? <b>Stronger config found · {d.suggestions.length} settings</b> : <small className="m-dim">Running the recommended engine.</small>}
       {d.suggestions.length > 0 && <button type="button" className="m-btn primary m-go" onClick={apply} data-testid="engine-apply">Apply stronger engine</button>}</div>
     {d.suggestions.length > 0 && <ul className="eng-list">{d.suggestions.map(s => <li key={s.key}><code>{s.key}</code><span className="m-num">{s.now} → <b>{s.to}</b></span><small className="m-dim">{s.why}</small></li>)}</ul>}
     {lanes.length > 0 && <div className="eng-lanes">{lanes.map(([l, p]) => <span key={l} className={`m-chip ${d.weights?.[l] < 1 ? 'warn' : d.weights?.[l] > 1 ? 'ok' : ''}`} data-tip={`${p.n} picks · ${p.winRate}% won · lost ${p.losingDays} day(s) in a row`}>{l} {p.avgPct >= 0 ? '+' : ''}{p.avgPct}% · ×{d.weights?.[l] ?? 1}</span>)}</div>}

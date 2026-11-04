@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Users } from '../../lib/lucide3d';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/agentCockpit.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🔑 AI API KEY (HQ › Agents › 🔑 AI key; owner, 2026-10-12). Paste a key → the server tests it with ONE read-only list-models request
 // (no tokens spent), saves it to backend/.env and sets it in the running service. The page never gets the key back: only the provider,
@@ -22,7 +23,7 @@ export function AiKeyBox({ call, isOwner = true }) {
     try { const r = await call('/admin/ai-key', { method: 'POST', body: JSON.stringify({ provider: p, clear: true }) }); setSt(r); toast.success('🔑 key removed'); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
   const rows = (st?.providers || []).filter(r => AI_PROVIDERS.some(p => p[0] === r.key));   // the providers the AI router can use
   return <section className="ack-ai" data-testid="ai-key-box">
-    <header><b>🔑 AI API KEY</b><small>tested with one read-only request, stored on the server only — this page never sees it again</small></header>
+    <header><b><Ic3 e="🔑" /> AI API KEY</b><small>tested with one read-only request, stored on the server only — this page never sees it again</small></header>
     {rows.length ? <ul className="ack-ai-list" data-testid="ai-key-list">{rows.map(r => <li key={r.key} className={`${r.set ? 'is-set' : ''} ${r.active ? 'is-active' : ''}`} data-testid={`ai-key-${r.key}`}>
       {r.label}{r.set ? ` · set ${r.hint || ''}` : ''}{r.set && isOwner ? <button type="button" className="m-btn" onClick={() => clear(r.key)} disabled={busy} aria-label={`Remove the ${r.label} key`} data-testid={`ai-key-clear-${r.key}`}>✕</button> : null}</li>)}</ul> : null}
     <form onSubmit={save} className="ack-ai-f" autoComplete="off">

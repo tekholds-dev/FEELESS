@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
 import '../../styles/codeHealth.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › Lag catcher › 🧹 Code health: the last static scan (backend/code_health.py, cached in data/code_health.json — nothing is
 // scanned on a request). Each row opens its file:line in the editor and says the fix.
@@ -32,8 +33,8 @@ function Row({ r, root, max, queued, onQueue }) {
     {r.lines != null && <span className="chl-bar" data-tip={`${r.lines} lines`}><i style={{ transform: `scaleX(${Math.min(1, r.lines / (max || 1))})` }} /><em>{r.lines}</em></span>}
     <span className="chl-fix">{r.fix}{r.twin && <a href={editorUrl(root, r.twin.split(':')[0], r.twin.split(':')[1])}> → twin</a>}</span>
     <button type="button" className="m-btn chl-copy" onClick={copy} aria-label="Copy file:line" data-tip="Copy file:line">⧉</button>
-    {['dead_file', 'dead_def', 'dead_export', 'dead_css'].includes(r.kind) ? (queued ? <span className="chl-q" data-tip="Waiting in the build queue — an engineering session removes it in a gated commit (tests + build green)">⏳ queued</span>
-      : <button type="button" className="m-btn chl-rm" onClick={() => onQueue(r)} data-tip="Queue the removal: it joins the build queue and lands only through the gate — nothing is deleted from here" data-testid={`chl-queue-${r.name}`}>🗑 Queue removal</button>) : null}
+    {['dead_file', 'dead_def', 'dead_export', 'dead_css'].includes(r.kind) ? (queued ? <span className="chl-q" data-tip="Waiting in the build queue — an engineering session removes it in a gated commit (tests + build green)"><Ic3 e="⏳" /> queued</span>
+      : <button type="button" className="m-btn chl-rm" onClick={() => onQueue(r)} data-tip="Queue the removal: it joins the build queue and lands only through the gate — nothing is deleted from here" data-testid={`chl-queue-${r.name}`}><Ic3 e="🗑" /> Queue removal</button>) : null}
   </li>;
 }
 

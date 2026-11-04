@@ -1,7 +1,8 @@
 import { LaunchRadar } from '../LaunchRadar';
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../../lib/api';
-import { ArrowUpRight, Activity, Star, Users, ExternalLink, RefreshCw, Zap, Layers3, TrendingUp, Droplets } from 'lucide-react';
+import { ArrowUpRight, ExternalLink, RefreshCw, Layers3, Droplets } from 'lucide-react';
+import { Activity, Star, Users, Zap, TrendingUp } from '../../lib/lucide3d';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { useMarket } from '../../hooks/useMarket';
 import { MarketAvailabilityNotice, TokenAvatar, Change } from '../terminal/MarketPrimitives';

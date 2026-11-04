@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Check, Copy, Orbit, RotateCw, BarChart3 } from 'lucide-react';
+import { ArrowUpRight, Check, Copy, Orbit, RotateCw } from 'lucide-react';
+import { BarChart3 } from '../../lib/lucide3d';
 import { toast } from 'sonner';
 import { FeelessMark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';

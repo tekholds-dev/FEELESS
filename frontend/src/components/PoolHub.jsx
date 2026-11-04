@@ -13,6 +13,7 @@ import { useStake, cash } from '../lib/earnStake';
 import { FamEmpty } from './FamEmpty';
 import { MoneyDesk, RangePicture, JOB_OF, openDesk } from './MoneyDesk';
 import { AutoRangeDesk } from './AutoRangeDesk';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -100,7 +101,7 @@ function PoolDetail({ r }) {
       {c ? <footer><span>{usd(c.first.tvl)} → <b>{usd(c.last.tvl)}</b></span><span>APY {apyTxt(c.first.apy)} → <b>{apyTxt(c.last.apy)}</b></span><span>{c.n} days of data · DefiLlama</span></footer> : null}
     </div>
     <div className="phb-earn">
-      <header><b>💵 REAL 24h</b><small>at today's APY · before gas</small></header>
+      <header><b><Ic3 e="💵" /> REAL 24h</b><small>at today's APY · before gas</small></header>
       {e ? <>
         <label className="phb-earn-in"><span>If you had</span><input type="range" min="5" max="100000" step="5" value={amt} onChange={e2 => setAmt(Number(e2.target.value))} aria-label="Amount deposited" /><b>{usd(amt)}</b></label>
         <p className="phb-earn-big"><b key={amt}>+{money(e.total)}</b><small>in 24h · {money(e.total * 30)} a month</small></p>
@@ -131,7 +132,7 @@ export function LendBox({ r, onClose, amount0 = '' }) {
     setBusy(false);
   };
   return <div className="phb-lend" data-testid={`lend-${r.id}`}>
-    <header><b>🏦 {r.sym} · Jupiter Lend</b><small>your wallet signs · FEELESS never holds funds</small><button type="button" className="phb-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></header>
+    <header><b><Ic3 e="🏦" /> {r.sym} · Jupiter Lend</b><small>your wallet signs · FEELESS never holds funds</small><button type="button" className="phb-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></header>
     <div className="phb-lend-row">
       <div className="m-seg" role="tablist" aria-label="Deposit or withdraw">{LEND_SIDES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => { setSide(k); setQ(null); }} data-tip={k === 'deposit' ? 'Lend it out and earn the APY' : 'Take it back out to your wallet'}>{w}</button>)}</div>
       <label className="phb-amt"><input className="m-input" inputMode="decimal" value={amt} onChange={e => { setAmt(e.target.value.replace(',', '.')); setQ(null); }} placeholder="0.00" aria-label={`Amount of ${r.sym}`} data-testid="lend-amt" /><em>{r.sym}</em></label>
@@ -140,7 +141,7 @@ export function LendBox({ r, onClose, amount0 = '' }) {
     {q ? <div className="phb-lend-q" data-testid="lend-quote"><p>{lendLine(q, amt)}</p><small>Checked: you pay + sign alone · runs only {q.programs.join(' · ')}</small>
       <button type="button" className="m-btn m-go" disabled={busy} onClick={sign} data-tip="Simulated first — nothing is signed if Solana would reject it" data-testid="lend-sign">Sign in wallet</button></div> : null}
     {st ? <p className="phb-lend-st" aria-live="polite"><i aria-hidden="true" />{st}</p> : null}
-    {sig ? <p className="phb-lend-ok">✅ Landed · <a href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noopener noreferrer">view on Solscan ↗</a> · <a href="https://jup.ag/lend/earn" target="_blank" rel="noopener noreferrer">your position on Jupiter ↗</a></p> : null}
+    {sig ? <p className="phb-lend-ok"><Ic3 e="✅" /> Landed · <a href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noopener noreferrer">view on Solscan ↗</a> · <a href="https://jup.ag/lend/earn" target="_blank" rel="noopener noreferrer">your position on Jupiter ↗</a></p> : null}
   </div>;
 }
 
@@ -157,10 +158,10 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink, onDesk = n
     {e ? <span className="phb-24" data-tip={`$${stake.toLocaleString('en-US')} here earned ${money(e.total)} in the last 24h at today's APY (${money(e.base)} fees / interest + ${money(e.reward)} rewards) — ${cash(e.total * 30)} a month, ${cash(e.total * 365)} a year`} data-testid={`pool-earn-${r.id}`}>
       <em>${stake >= 1000 ? `${stake / 1000}K` : stake} · DAY</em><b key={stake}>+{cash(e.total)}</b><small className="es-yr">{cash(e.total * 365)} / yr</small></span> : null}
     <span className="phb-acts">
-      <button type="button" className={`m-btn ${more ? 'active' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-tip="The pool's TVL + APY history and what your money would have earned" data-testid={`pool-more-${r.id}`}>📈 Chart + 24h</button>
-      {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS, right here: the chart + Quick trade open on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
-      {canLend ? <button type="button" className={`m-btn m-go ${lend ? 'active' : ''}`} aria-expanded={lend} onClick={() => setLend(v => !v)} data-tip="Deposit or withdraw right here — Jupiter builds it, FEELESS checks it, your wallet signs" data-testid={`pool-lend-${r.id}`}>🏦 Deposit here</button> : null}
-      <button type="button" className={`m-btn m-go ${desk ? 'active' : ''}`} aria-expanded={desk} onClick={() => { if (!(onDesk && onDesk(r))) setDesk(v => !v); }} data-tip="Put money to work from here: pick the provider, your amount, see it compound — the action runs in FEELESS and your wallet signs" data-testid={`pool-desk-${r.id}`}>💸 Put it to work</button>
+      <button type="button" className={`m-btn ${more ? 'active' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-tip="The pool's TVL + APY history and what your money would have earned" data-testid={`pool-more-${r.id}`}><Ic3 e="📈" /> Chart + 24h</button>
+      {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS, right here: the chart + Quick trade open on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}><Ic3 e="⚡" /> {t.word}</button> : null}
+      {canLend ? <button type="button" className={`m-btn m-go ${lend ? 'active' : ''}`} aria-expanded={lend} onClick={() => setLend(v => !v)} data-tip="Deposit or withdraw right here — Jupiter builds it, FEELESS checks it, your wallet signs" data-testid={`pool-lend-${r.id}`}><Ic3 e="🏦" /> Deposit here</button> : null}
+      <button type="button" className={`m-btn m-go ${desk ? 'active' : ''}`} aria-expanded={desk} onClick={() => { if (!(onDesk && onDesk(r))) setDesk(v => !v); }} data-tip="Put money to work from here: pick the provider, your amount, see it compound — the action runs in FEELESS and your wallet signs" data-testid={`pool-desk-${r.id}`}><Ic3 e="💸" /> Put it to work</button>
       {onLink && blocks.length ? (pick ? <select className="m-input phb-pick" autoFocus defaultValue="" onChange={e => { if (e.target.value) { onLink(e.target.value, r); setPick(false); } }} onBlur={() => setPick(false)} aria-label="Which of your buildings">
         <option value="" disabled>Set which building…</option>{blocks.map(b => <option key={b} value={b}>{b}</option>)}</select>
         : <button type="button" className="m-btn" onClick={() => (blocks.length === 1 ? onLink(blocks[0], r) : setPick(true))} data-tip="Your family's building wears this pool: its name, kind and live APY on the billboard (display only)" data-testid={`pool-link-${r.id}`}>🏠 Set building</button>) : null}
@@ -192,7 +193,7 @@ function CatCombo({ pools }) {
     <label className="phb-earn-in"><span>Put in</span><input type="range" min="5" max="50000" step="5" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
     <p className="phb-combo-big"><b key={amt}>{c.apy.toFixed(1)}% APY</b><span>≈ {m(c.day)} a day · {m(c.month)} a month · {m(c.year)} a year</span></p>
     <ol>{c.legs.map((l, i) => <li key={l.role} style={{ '--i': i }}><em>{l.role} · {Math.round(l.w * 100)}%</em><span><b>{l.r.sym}</b><small>{l.r.proto} · TVL {usd(l.r.tvl)} · {l.risk}</small></span>
-      <strong className="m-num">{apyTxt(l.r.apy)}</strong><button type="button" className={`m-btn m-go ${leg === l.role ? 'active' : ''}`} aria-expanded={leg === l.role} onClick={() => setLeg(x => (x === l.role ? null : l.role))} data-tip={`Put this leg to work right here — your wallet signs`} data-testid={`combo-go-${l.role}`}>💸</button></li>)}</ol>
+      <strong className="m-num">{apyTxt(l.r.apy)}</strong><button type="button" className={`m-btn m-go ${leg === l.role ? 'active' : ''}`} aria-expanded={leg === l.role} onClick={() => setLeg(x => (x === l.role ? null : l.role))} data-tip={`Put this leg to work right here — your wallet signs`} data-testid={`combo-go-${l.role}`}><Ic3 e="💸" /></button></li>)}</ol>
     {leg ? <MoneyDesk key={leg} job={JOB_OF[c.legs.find(l => l.role === leg)?.r.kind] || 'lend'} focus={c.legs.find(l => l.role === leg)?.r} title={`${leg} LEG`} compact /> : null}
   </div>;
 }
@@ -224,14 +225,14 @@ export function highYield(rows, n = 6) {
 function HighYield({ pools }) {
   const stake = useStake(); const rows = useMemo(() => highYield(pools?.pools), [pools]);
   if (!rows.length) return null;
-  return <div className="phb-hy" data-testid="high-yield"><header><b>🔥 HIGH YIELD · RIGHT NOW</b><small>the biggest APYs with real depth — the risk is named on each · your wallet signs</small></header>
+  return <div className="phb-hy" data-testid="high-yield"><header><b><Ic3 e="🔥" /> HIGH YIELD · RIGHT NOW</b><small>the biggest APYs with real depth — the risk is named on each · your wallet signs</small></header>
     <div className="phb-hyg">{rows.map(({ r, risk }, i) => { const day = (stake * r.apy) / 100 / 365;
       return <article key={r.id} className={`phb-hyc k-${r.kind}`} style={{ '--i': i, '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`hy-${r.id}`}>
         <span className="phb-hyt"><Gauge v={r.apy} /><span><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}</small></span></span>
         <strong className="m-num" key={r.apy}>{apyTxt(r.apy)}</strong>
         <span className="phb-hyd"><em>${stake >= 1000 ? `${stake / 1000}K` : stake} MAKES</em><b className="m-num">+{cash(day)}/day</b><small className="m-num">{cash(day * 30)}/mo · TVL {usd(r.tvl)}</small></span>
         <span className="phb-hyr">{risk.map(x => <i key={x}>⚠ {x}</i>)}</span>
-        <button type="button" className="m-btn m-go" onClick={() => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} data-tip="The money desk pops out with this pool in focus — your amount, see it compound, your wallet signs" data-testid={`hy-go-${r.id}`}>⚡ PUT IT TO WORK</button>
+        <button type="button" className="m-btn m-go" onClick={() => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} data-tip="The money desk pops out with this pool in focus — your amount, see it compound, your wallet signs" data-testid={`hy-go-${r.id}`}><Ic3 e="⚡" /> PUT IT TO WORK</button>
       </article>; })}</div></div>;
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { Ic3 } from '../../lib/icon3d';
 
 // FEE REPORT: what this wallet paid in FEELESS fees over the last 7 days and in total, plus the FeeBack it has
 // accrued. Numbers come from the fee ledger the trading service writes for every confirmed trade.
@@ -35,7 +36,7 @@ export function FeeReport({ address }) {
       <div className="fr-row"><div className="m-stat"><small>XP · level</small><b className="m-num sm">{(d.earned.xp ?? 0).toLocaleString()} · {d.earned.level || 'Rookie'}</b></div>
         <div className="m-stat"><small>Rep</small><b className="m-num sm">{d.earned.rep?.score ?? '—'}{d.earned.rep?.label ? ` · ${d.earned.rep.label}` : ''}</b></div>
         <div className="m-stat"><small>Points</small><b className="m-num sm">{(d.earned.points ?? 0).toLocaleString()}</b></div></div>
-      {d.earned.badgeFeeDiscountPct > 0 && <span className="m-chip ok">🏅 {d.earned.badgeFeeFrom} badge: −{d.earned.badgeFeeDiscountPct}% on every fee</span>}</div>}
+      {d.earned.badgeFeeDiscountPct > 0 && <span className="m-chip ok"><Ic3 e="🏅" /> {d.earned.badgeFeeFrom} badge: −{d.earned.badgeFeeDiscountPct}% on every fee</span>}</div>}
     <span className="m-chip ok">🐱 {d?.feeBackPct ?? 100}% of $FEE · FEECAT · rFEE trade fees back in FEECAT · other coins earn none · paid when FeeBack goes live</span>
   </div>;
 }
@@ -45,6 +46,6 @@ export function FeeReportChip({ address }) {
   const [open, setOpen] = useState(false);
   if (!address) return null;
   return <span className={`fr-chip ${open ? 'is-open' : ''}`} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} data-testid="fee-report-chip">
-    <button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(o => !o)} onFocus={() => setOpen(true)}>📊 Your fee report</button>
+    <button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(o => !o)} onFocus={() => setOpen(true)}><Ic3 e="📊" /> Your fee report</button>
     {open && <span className="fr-pop"><FeeReport address={address} /></span>}</span>;
 }

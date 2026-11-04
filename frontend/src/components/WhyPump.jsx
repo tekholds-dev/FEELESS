@@ -4,6 +4,7 @@ import { pct, usd } from '../lib/num';
 import { openCoin } from './CoinDrawer';
 import { SocialIcons } from './QuickPulse';
 import '../styles/whyPump.css';
+import { Ic3 } from '../lib/icon3d';
 
 // ❓ WHY DID IT PUMP? (owner, 2026-10-19: "can this be in rep and bring the words to life"): paste a CA → FEELESS reads the coin's live numbers,
 // its Pump callers and the web / X, and says what moved it — every reason with its source (backend/why_pump.py). A coin someone already
@@ -19,7 +20,7 @@ function Title() {
   const words = ['Why', 'did', 'it', 'pump?'];
   return <h2 className="wp-title" aria-label="Why did it pump?">{words.map((w, i) =>
     <span key={w} className={`wp-w${w === 'pump?' ? ' is-pump' : ''}`} style={{ '--i': i }} aria-hidden="true">{w === 'pump?' ? [...w].map((ch, j) => <b key={j} style={{ '--j': j }}>{ch}</b>) : w}</span>)}
-    <i className="wp-rocket" aria-hidden="true">🚀</i></h2>;
+    <i className="wp-rocket" aria-hidden="true"><Ic3 e="🚀" /></i></h2>;
 }
 
 function Working() {
@@ -34,14 +35,14 @@ function Answer({ a }) {
   const tiles = [['MOVE', mv[1] != null ? `${pct(mv[1], 0)} · ${mv[0]}` : '—', mv[1] > 0 ? 'up' : mv[1] < 0 ? 'dn' : ''], ['CAP', n.cap ? usd(n.cap) : '—'], ['1H VOLUME', n.vol1h ? usd(n.vol1h) : '—'],
     ['BUYS', n.buyShare != null ? `${Math.round(n.buyShare)}%` : '—', n.buyShare >= 55 ? 'up' : n.buyShare <= 45 ? 'dn' : ''], ['CALLERS', n.callers ? String(n.callers) : '0'], ['TOP-10', n.top10 != null ? `${Math.round(n.top10)}%` : '—', n.top10 >= 40 ? 'dn' : '']];
   return <article className="wp-ans m-card" data-testid="wp-answer">
-    <header><span className={`wp-stamp v-${String(a.verdict || 'UNCLEAR').toLowerCase()}`} data-testid="wp-verdict">{ic} {word}</span>
+    <header><span className={`wp-stamp v-${String(a.verdict || 'UNCLEAR').toLowerCase()}`} data-testid="wp-verdict"><Ic3 e={ic} /> {word}</span>
       <button type="button" className="wp-sym" onClick={() => openCoin({ mint: a.mint, symbol: n.symbol })}>{n.symbol ? `$${n.symbol}` : a.mint.slice(0, 6)}</button>
       <SocialIcons r={{ mint: a.mint, ...(a.socials || {}) }} />
       <small>{a.by === 'model' ? '🧠 written by FEELESS from the sources' : '⚙ engine read — no model answered, numbers only'}{a.cached ? ' · checked before = free' : ''}</small></header>
     <h3 className="wp-head">{a.headline}</h3>
     <div className="wp-tiles">{tiles.map(([k, v, t], i) => <span key={k} className={t ? `is-${t}` : ''} style={{ '--i': i }}><em>{k}</em><b>{v}</b></span>)}</div>
     <ol className="wp-drv">{(a.drivers || []).map((d, i) => <li key={i} style={{ '--i': i }}><span>{d.why}</span>
-      {d.source === 'ENGINE' ? <i className="wp-src is-eng" data-tip="Measured by FEELESS from the coin's own numbers">⚙ our numbers</i>
+      {d.source === 'ENGINE' ? <i className="wp-src is-eng" data-tip="Measured by FEELESS from the coin's own numbers"><Ic3 e="⚙" /> our numbers</i>
         : <a className="wp-src" href={d.source} target="_blank" rel="noopener noreferrer nofollow">↗ {hostOf(d.source)}</a>}</li>)}</ol>
     {a.risk ? <p className="wp-risk">⚠ {a.risk}</p> : null}
     {(a.sources || []).length ? <details className="wp-sources"><summary>{a.sources.length} sources read</summary><ul>{a.sources.map(s => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer nofollow">{s.title || hostOf(s.url)}</a> <small>{hostOf(s.url)}</small></li>)}</ul></details> : null}

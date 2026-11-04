@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import '../styles/firstTips.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 💡 FIRST-TIME TIPS (owner 2026-10-30: "small, hover over spot, first time only, a skip option"). A pulsing spot sits on each control the
 // first time you see a page; hover / focus it for one line on what it does, "Got it" retires that spot, "Skip all" retires the page.
@@ -30,6 +31,6 @@ export function FirstTips({ id, tips }) {
         <button type="button" className="ft-dot" aria-label={`Tip: ${title}`} aria-expanded={on} onFocus={() => setOpen(i)} onClick={() => setOpen(o => (o === i ? null : i))} data-testid={`tip-${id}-${i}`}><i aria-hidden="true" /></button>
         {on ? <span className="ft-card" role="tooltip"><b>{title}</b><small>{text}</small><span><button type="button" className="m-btn m-go" onClick={() => done(i)} data-testid={`tip-ok-${id}-${i}`}>Got it</button>
           <button type="button" className="m-btn" onClick={skip}>Skip all tips</button></span></span> : null}</span>; })}
-    <button type="button" className="ft-skip" onClick={skip} data-tip="Hide every first-time tip on this page" data-testid={`tips-skip-${id}`}>💡 {left.length} tip{left.length > 1 ? 's' : ''} · skip</button>
+    <button type="button" className="ft-skip" onClick={skip} data-tip="Hide every first-time tip on this page" data-testid={`tips-skip-${id}`}><Ic3 e="💡" /> {left.length} tip{left.length > 1 ? 's' : ''} · skip</button>
   </div>, document.body);
 }

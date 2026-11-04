@@ -7,6 +7,7 @@ import '../../styles/fusePage.css';
 import { toast } from 'sonner';
 import { RiskDial, DialBoard } from '../RiskDial';
 import { FuseCard } from '../FuseCard';
+import { Ic3 } from '../../lib/icon3d';
 const PG_STYLE = { safe: 'steady', balanced: 'yield', degen: 'degen' };
 const PG_SL = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 
@@ -40,15 +41,15 @@ export function ArenaOps() {
     </div>
     <div className="fops-cols">
       <div className="fops-box"><header><b>⚔ Live battles</b><small className="m-dim">bigger move since the bell wins</small></header>
-        {b.pairs.length ? b.pairs.map(p => <div key={p.a.key + p.b.key} className="fops-fight"><span className={p.a.now >= p.b.now ? 'lead' : ''}>{p.a.emoji} {p.a.name} <b className="m-num">{pct(p.a.now)}</b></span><i>vs</i>
-          <span className={p.b.now > p.a.now ? 'lead' : ''}>{p.b.emoji} {p.b.name} <b className="m-num">{pct(p.b.now)}</b></span></div>) : <p className="m-dim">Needs 2+ cards on the stage.</p>}
+        {b.pairs.length ? b.pairs.map(p => <div key={p.a.key + p.b.key} className="fops-fight"><span className={p.a.now >= p.b.now ? 'lead' : ''}><Ic3 e={p.a.emoji} /> {p.a.name} <b className="m-num">{pct(p.a.now)}</b></span><i>vs</i>
+          <span className={p.b.now > p.a.now ? 'lead' : ''}><Ic3 e={p.b.emoji} /> {p.b.name} <b className="m-num">{pct(p.b.now)}</b></span></div>) : <p className="m-dim">Needs 2+ cards on the stage.</p>}
         {b.log?.length > 0 && <ul className="fops-log">{b.log.map((x, i) => <li key={i}>{x.draw ? `🤝 ${x.a} = ${x.b}` : `🏆 ${x.winner} beat ${x.winner === x.a ? x.b : x.a}`} <small className="m-dim">{pct(x.aMove)} vs {pct(x.bMove)}</small></li>)}</ul>}</div>
-      <div className="fops-box"><header><b>🏆 Season board</b><small className="m-dim">real P&L % · cards opened this week</small></header>
+      <div className="fops-box"><header><b><Ic3 e="🏆" /> Season board</b><small className="m-dim">real P&L % · cards opened this week</small></header>
         {s.board.length ? <ol className="fops-board">{s.board.map(r => <li key={r.id}><b>{r.rank}</b><span>{r.name || 'Card'} <small className="m-dim">{r.handle}{r.beatsCat ? ' · 🐱 beat FeeCat' : ''}</small></span><em className={`m-num ${r.pnlPct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pnlPct)}</em></li>)}</ol>
           : <p className="m-dim">No cards this week yet.</p>}
         {s.past?.length > 0 && <small className="m-dim">Last crowned: {s.past.map(w => (w.top || []).slice(0, 1).map(t => t.name).join('')).filter(Boolean).join(' · ') || '—'}</small>}</div>
     </div>
-    <small className="m-dim">Battle length, auto-card coins/pools and season boost live in ⚡ Engine and 🃏 Card rules.</small>
+    <small className="m-dim">Battle length, auto-card coins/pools and season boost live in <Ic3 e="⚡" /> Engine and 🃏 Card rules.</small>
   </section>;
 }
 
@@ -106,7 +107,7 @@ export function EngineFunnel({ call }) {
   const max = Math.max(1, ...d.gates.map(g => g.stops));
   const top = d.gates.find(g => g.only > 0);
   return <section className="m-card m-live ef" data-testid="engine-funnel">
-    <header><span className="m-label">⚡ THE ENGINE RIGHT NOW</span>
+    <header><span className="m-label"><Ic3 e="⚡" /> THE ENGINE RIGHT NOW</span>
       <div className="ef-head"><div><small>COINS SEEN</small><b className="m-num">{d.seen}</b></div><i aria-hidden>→</i>
         <div><small>PASS EVERY GATE</small><b className={`m-num ${d.passing ? 'm-pos' : 'm-neg'}`}>{d.passing}</b></div>
         <p>{top ? <>The gate holding the most coins back by itself is <b>{top.label}</b>: {top.only} coin{top.only === 1 ? '' : 's'} fail nothing else{top.examples?.length ? ` (${top.examples.join(', ')})` : ''}. It is a <b>{top.kind}</b> gate{top.kind === 'safety' ? ' — loosening it lets riskier coins in' : ' — it is about size / age / activity, not safety'}.</> : 'No coin is one gate away from passing right now.'}</p></div></header>
@@ -116,7 +117,7 @@ export function EngineFunnel({ call }) {
       <span className="ef-bar"><i style={{ transform: `scaleX(${Math.max(0.01, g.stops / max)})` }} /><u style={{ transform: `scaleX(${Math.max(0, g.only / max)})` }} /></span>
       <span className="m-num ef-n">{g.stops}<small> stopped</small></span><span className={`m-num ef-n ${g.only ? 'is-cost' : ''}`}>{g.only}<small> only this</small></span>
       <span className="ef-regret">{g.regret ? <>{g.regret.ran}/{g.regret.stopped} <small>later ran 3×+</small></> : <small>no record yet</small>}</span></li>)}</ol>
-    {d.card?.steps?.length > 0 && <div className="ef-card"><span className="m-label">💵 {d.card.label} · WHAT REACHES THE REAL CARD</span>
+    {d.card?.steps?.length > 0 && <div className="ef-card"><span className="m-label"><Ic3 e="💵" /> {d.card.label} · WHAT REACHES THE REAL CARD</span>
       <ol>{d.card.steps.map(([l, n], i) => <li key={l} style={{ '--i': i }}><b className="m-num">{n}</b><small>{l}</small></li>)}</ol>
       {d.card.up?.length > 0 && <small className="m-dim">⏭ next in line: {d.card.up.slice(0, 5).map(u => `$${u.symbol} ${u.chg1h >= 0 ? '+' : ''}${Math.round(u.chg1h)}%`).join(' · ')}</small>}</div>}
     <small className="m-dim">Bright bar = coins failing the gate. Gold bar = coins failing ONLY that gate. Change gates with the dial below (one tap) or the fine-tune fold; every change is audited.</small></section>;
@@ -130,9 +131,9 @@ export function EngineDial({ call }) {
   if (!c?.dials) return null;
   const pick = dial => call('/admin/runners/config', { method: 'POST', body: JSON.stringify({ dial }) })
     .then(r => { toast.success(`Engine: ${c.dials[dial].label} — ${c.dials[dial].why}`); setC(x => ({ ...x, dial: r.dial, cfg: r.cfg })); window.dispatchEvent(new Event('feeless:runners')); }).catch(e => toast.error(e.message));
-  return <section className="m-card fops" data-testid="engine-dial"><div className="m-row"><span className="m-label">🎚 ENGINE DIAL</span><small className="m-dim">one choice sets every gate + lane exit · fine-tune below makes it Custom</small></div>
+  return <section className="m-card fops" data-testid="engine-dial"><div className="m-row"><span className="m-label"><Ic3 e="🎚" /> ENGINE DIAL</span><small className="m-dim">one choice sets every gate + lane exit · fine-tune below makes it Custom</small></div>
     <RiskDial value={c.dial || 'custom'} onChange={pick} dials={c.dials} noProof testid="engine" />
-    <label className="m-toggle" data-tip="Every runner round the engine switches to the dial with the PROVEN better record (8+ rounds, avg > 0, ≥2 pts ahead). Logged in the audit log + your inbox."><input type="checkbox" checked={c.autoTune !== false} onChange={e => call('/admin/runners/autotune', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).then(r => setC(x => ({ ...x, autoTune: r.autoTune }))).catch(err => toast.error(err.message))} data-testid="engine-autotune" /><span>🔧 Auto-strength every round</span></label></section>;
+    <label className="m-toggle" data-tip="Every runner round the engine switches to the dial with the PROVEN better record (8+ rounds, avg > 0, ≥2 pts ahead). Logged in the audit log + your inbox."><input type="checkbox" checked={c.autoTune !== false} onChange={e => call('/admin/runners/autotune', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).then(r => setC(x => ({ ...x, autoTune: r.autoTune }))).catch(err => toast.error(err.message))} data-testid="engine-autotune" /><span><Ic3 e="🔧" /> Auto-strength every round</span></label></section>;
 }
 
 // HQ › Fee 🐱: FeeCat tunes the engine in ONE click — she reads the dial proof (which Safe/Balanced/Degen engine actually
@@ -184,19 +185,19 @@ export function PlaygroundBattles({ call, onPublish }) {
     <header><b>⚔ Playground battles</b><small>HQ only · paper, real fills · separate from the Arena · next bell <b className="m-num" key={leftS}>{Math.floor(leftS / 60)}:{String(leftS % 60).padStart(2, '0')}</b></small></header>
     <div className="pgb-ctl">
       <label className="m-toggle"><input type="checkbox" checked={c.on} onChange={e => set({ cfg: { on: e.target.checked } })} data-testid="pgb-on" />On</label>
-      <span data-tip="Round length — the bell rings and the bigger % since the last bell wins">⏱</span>{seg('roundMins', [5, 15, 30, 60], v => `${v}m`)}
+      <span data-tip="Round length — the bell rings and the bigger % since the last bell wins"><Ic3 e="⏱" /></span>{seg('roundMins', [5, 15, 30, 60], v => `${v}m`)}
       <span data-tip="How many of the best scenario cards fight in the background (8 = four battles every bell)">🃏</span>{seg('cards', [2, 4, 6, 8], v => `${v}`)}
       {[['swapOnTp', '🎯 swap on TP'], ['swapOnSl', '🛑 swap on stop'], ['swapDead', '💀 swap dead']].map(([k, l]) => <label key={k} className="m-toggle" data-tip={k === 'swapDead' ? `No 5m trades or volume for ${c.deadMins} min → swapped for the best gated runner` : 'Swapped for the best gated runner not on the card'}><input type="checkbox" checked={c[k]} onChange={e => set({ cfg: { [k]: e.target.checked } })} />{l}</label>)}
-      <button type="button" className="m-btn" onClick={() => set({ bell: true })} data-testid="pgb-bell" data-tip="Settle this round now">🔔 Ring bell</button>
+      <button type="button" className="m-btn" onClick={() => set({ bell: true })} data-testid="pgb-bell" data-tip="Settle this round now"><Ic3 e="🔔" /> Ring bell</button>
       <button type="button" className="m-btn" onClick={() => window.confirm('Reset playground battles (fresh cards + records)?') && set({ reset: true })}>♻ Reset</button>
     </div>
     {!b.pairs.length ? <p className="m-dim">{c.on ? 'Dealing the first cards…' : 'Battles are off.'}</p>
       : <details className="hrt-fold pgb-bgfold" data-testid="pgb-bgfold"><summary><b>⚔ Background field · {b.field?.length || 0} big cards</b><span>they fight every bell — only the top {shownIds.length || 3} earn a playground seat</span></summary><div className="bf-pairs">{b.pairs.map((p, i) => { const d = (p.a.pct || 0) - (p.b.pct || 0); const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));
         const side = (x, k) => <span className={`bf-side ${k}`}><b>{x.name}</b>
-          <small className="pgb-meta"><i data-tip={`Timeframe this card goes to the Arena on: its best-averaging round length (≥ 2 bells), else spread over 5/15/30/60 by seat. ${Object.entries(x.clocks || {}).map(([m, v]) => `${m}m ${v.avgPct >= 0 ? '+' : ''}${v.avgPct}% ×${v.n}`).join(' · ')}`}>⏱ {x.clock}m</i>{x.bredFrom && <i data-tip="Lost its fight and now plays the strategy that beat it — named as that strategy's next version">🧬 from {x.bredFrom}</i>}</small>
+          <small className="pgb-meta"><i data-tip={`Timeframe this card goes to the Arena on: its best-averaging round length (≥ 2 bells), else spread over 5/15/30/60 by seat. ${Object.entries(x.clocks || {}).map(([m, v]) => `${m}m ${v.avgPct >= 0 ? '+' : ''}${v.avgPct}% ×${v.n}`).join(' · ')}`}><Ic3 e="⏱" /> {x.clock}m</i>{x.bredFrom && <i data-tip="Lost its fight and now plays the strategy that beat it — named as that strategy's next version"><Ic3 e="🧬" /> from {x.bredFrom}</i>}</small>
           <em className={`m-num fl-tick ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`} key={x.pct}>{pgPc(x.pct)}</em>
           <small className="m-dim">{x.legs.map(l => `${l.role === 'anchor' ? '⚓' : '🏃'}$${l.symbol}`).join(' ')}{x.record ? ` · ${x.record.w}–${x.record.l}${x.record.d ? `–${x.record.d}` : ''}` : ''}</small>
-          {x.dnaLabel && <small className="pgb-dna">🧬 {x.dnaLabel}{x.phase ? ` · now ${x.phase === 'anchor' ? '⚓ anchor' : x.phase === 'degen' ? '🔥 degen' : '⚖ mixed'} phase` : ''}</small>}
+          {x.dnaLabel && <small className="pgb-dna"><Ic3 e="🧬" /> {x.dnaLabel}{x.phase ? ` · now ${x.phase === 'anchor' ? '⚓ anchor' : x.phase === 'degen' ? '🔥 degen' : '⚖ mixed'} phase` : ''}</small>}
           {x.swaps?.length > 0 && <span className="pgb-swaps">{x.swaps.slice(-3).map((w, j) => <i key={j} className={`w-${w.why}`}>{PG_WHY[w.why]} ${w.out}→${w.in}</i>)}</span>}
           <button type="button" className={`m-btn ${(b.locked || []).includes(x.id) ? 'is-on' : ''}`} aria-pressed={(b.locked || []).includes(x.id)} onClick={() => set({ lock: x.id, on: !(b.locked || []).includes(x.id) })}
             data-tip="Lock this card's configs: its coins + DNA survive a loss and the brain never re-breeds it" data-testid={`pgb-lock-${x.id}`}>{(b.locked || []).includes(x.id) ? '🔒 Locked' : '🔓 Lock'}</button>
@@ -205,14 +206,14 @@ export function PlaygroundBattles({ call, onPublish }) {
         return <div key={p.a.id + p.b.id} className={`bf-pair ${d > 0.05 ? 'a-lead' : d < -0.05 ? 'b-lead' : 'even'}`} style={{ '--i': i }} data-testid={`pgb-pair-${i}`}>
           {side(p.a, 'a')}<span className="bf-vs" aria-hidden="true"><i className="bf-clash" />VS</span>{side(p.b, 'b')}
           <i className="bf-tug"><i style={{ transform: `scaleX(${share})` }} /></i></div>; })}</div></details>}
-    <div className="pgb-brain" data-testid="pgb-brain"><span className="m-label">🧠 ENGINE BRAIN · BEST DNA SO FAR</span>
-      {b.brain?.why?.length ? <><b>🧬 {b.brain.label}</b><small className="m-dim">{b.brain.why.join(' · ')}</small></> : <small className="m-dim">Learning — every bell scores each card's DNA (cycle, compound, payout, clock, stop). A losing card is re-bred with the winning DNA.</small>}</div>
+    <div className="pgb-brain" data-testid="pgb-brain"><span className="m-label"><Ic3 e="🧠" /> ENGINE BRAIN · BEST DNA SO FAR</span>
+      {b.brain?.why?.length ? <><b><Ic3 e="🧬" /> {b.brain.label}</b><small className="m-dim">{b.brain.why.join(' · ')}</small></> : <small className="m-dim">Learning — every bell scores each card's DNA (cycle, compound, payout, clock, stop). A losing card is re-bred with the winning DNA.</small>}</div>
     {b.field?.length > 0 && <div className="pgb-field" data-testid="pgb-field"><span className="m-label">🃏 THE FIELD · {b.field.length} CARDS</span>{b.field.map((x, i) => <span key={x.id} className={`pgb-fcard ${(b.picks || []).includes(x.id) ? 'is-picked' : ''}`} style={{ '--i': i }}>
-      <b>{x.name}</b><em className={`m-num ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pgPc(x.pct)}</em><small>{x.legs.length} coins · {x.legs.filter(l => l.role !== 'runner').length} pools · ⏱ {x.clock}m{x.record ? ` · ${x.record.w}–${x.record.l}` : ''}</small></span>)}</div>}
-    <small className="m-dim" data-testid="pgb-scope">🃏 every card plays ≥ 4 coins with ≤ 2 pools (half · same · double your HQ amount) · 🗑 {b.scrapped || 0} dead strategies scrapped (5 losses, no win) · max 4 engine cards on the Arena · ⏱ playing every round length (now {b.roundNow || b.cfg?.roundMins}m{b.bestClock ? ` · best so far ${b.bestClock}m` : ''}{Object.keys(b.clockStats || {}).length ? ` · ${Object.entries(b.clockStats).map(([m, v]) => `${m}m ${v.bestPct >= 0 ? '+' : ''}${v.bestPct}% (${v.bells})`).join(' · ')}` : ''})</small>
+      <b>{x.name}</b><em className={`m-num ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pgPc(x.pct)}</em><small>{x.legs.length} coins · {x.legs.filter(l => l.role !== 'runner').length} pools · <Ic3 e="⏱" /> {x.clock}m{x.record ? ` · ${x.record.w}–${x.record.l}` : ''}</small></span>)}</div>}
+    <small className="m-dim" data-testid="pgb-scope">🃏 every card plays ≥ 4 coins with ≤ 2 pools (half · same · double your HQ amount) · <Ic3 e="🗑" /> {b.scrapped || 0} dead strategies scrapped (5 losses, no win) · max 4 engine cards on the Arena · <Ic3 e="⏱" /> playing every round length (now {b.roundNow || b.cfg?.roundMins}m{b.bestClock ? ` · best so far ${b.bestClock}m` : ''}{Object.keys(b.clockStats || {}).length ? ` · ${Object.entries(b.clockStats).map(([m, v]) => `${m}m ${v.bestPct >= 0 ? '+' : ''}${v.bestPct}% (${v.bells})`).join(' · ')}` : ''})</small>
     {b.log.length > 0 && <div className="pgb-log">{b.log.slice(0, 6).map(l => <span key={l.at + l.a} className="pgb-res">
       {l.draw ? `🤝 ${l.aName} = ${l.bName}` : `🏆 ${l.winner === l.a ? l.aName : l.bName} beat ${l.winner === l.a ? l.bName : l.aName}`} <em>{pgPc(l.aPct)} vs {pgPc(l.bPct)}</em>
-      {!l.draw && onPublish && <button type="button" className="m-btn" onClick={() => onPublish(l.winner)} data-tip="Publish the winner to the Arena stage">⭐</button>}</span>)}</div>}
+      {!l.draw && onPublish && <button type="button" className="m-btn" onClick={() => onPublish(l.winner)} data-tip="Publish the winner to the Arena stage"><Ic3 e="⭐" /></button>}</span>)}</div>}
   </section>;
 }
 
@@ -229,7 +230,7 @@ export function EngineDoctor({ p, call, onChange }) {
   return <div className={`pg-box pg-doctor ${d.sitOut ? 'is-sitout' : d.filter ? 'is-on' : ''}`} data-testid="engine-doctor">
     <header><b>🩺 Engine doctor · which picks win</b><small>every past pick replayed by its entry snapshot · positive in 24h + 72h → applied by itself</small></header>
     <div className="pg-doc-now">{d.sitOut ? <b>🪑 Sitting out runners — nothing wins in 24h + 72h yet (the Arena Pick goes pools-only)</b>
-      : d.filter ? <b>✅ Applying {(rows.find(r => r.k === d.filter) || {}).label || d.filter}</b> : <b>⏳ No filter yet — taking every gated pick</b>}
+      : d.filter ? <b><Ic3 e="✅" /> Applying {(rows.find(r => r.k === d.filter) || {}).label || d.filter}</b> : <b><Ic3 e="⏳" /> No filter yet — taking every gated pick</b>}
       <small className="m-dim">{d.why || 'Checks every runner round (~15 min).'} · every pick now: {pc_(all.avgPct)} over {all.picks || 0}</small>
       {(d.filter || d.sitOut) && <button type="button" className="m-btn" onClick={() => set({ filter: '', sitOut: false })}>Clear</button>}</div>
     <div className="pg-filters">{rows.map((r, i) => <button key={r.k} type="button" className={`pg-filter ${d.filter === r.k ? 'is-on' : ''} ${(r.avgPct || 0) > 0 && (r.v72.avgPct || 0) > 0 ? 'up' : (r.avgPct || 0) < 0 ? 'down' : ''}`} style={{ '--i': i }}
@@ -243,11 +244,11 @@ export function EngineDoctor({ p, call, onChange }) {
 export function PgTop3({ shown, picks, field, call, onPicks }) {
   const pick = x => { const on = !picks.includes(x.id);
     call('/admin/fuses/scenario-pick', { method: 'POST', body: JSON.stringify({ id: x.id, on }) }).then(r => { onPicks?.(r.creatorPicks || []); toast.success(on ? `🎨 ${x.name} goes to the Arena` : `${x.name} back in the playground`); }).catch(e => toast.error(e.message)); };
-  return <div className="pg-top3" data-testid="pg-top3"><header><span className="m-label">🏆 PLAYGROUND TOP 3 · PICK FOR THE ARENA</span><small className="m-dim">{field ? `${field} big cards compete in the background — these 3 earned a seat` : 'The background field deals its first cards within a minute.'}</small></header>
+  return <div className="pg-top3" data-testid="pg-top3"><header><span className="m-label"><Ic3 e="🏆" /> PLAYGROUND TOP 3 · PICK FOR THE ARENA</span><small className="m-dim">{field ? `${field} big cards compete in the background — these 3 earned a seat` : 'The background field deals its first cards within a minute.'}</small></header>
     <div className="pg-top3-row">{shown.length ? shown.map((x, i) => { const on = picks.includes(x.id); return <article key={x.id} className={`pg-seat ${on ? 'is-on' : ''}`} style={{ '--i': i }} data-testid={`pg-seat-${i}`}>
       <span className="pg-seat-rank m-num">#{i + 1}</span><b>{x.name}</b>
       <em className={`m-num ${(x.pct || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{pgPc(x.pct)}</em>
-      <small>{x.record ? `${x.record.w}W–${x.record.l}L` : 'no bell yet'} · {x.legs.length} coins · ⏱ {x.clock}m</small>
+      <small>{x.record ? `${x.record.w}W–${x.record.l}L` : 'no bell yet'} · {x.legs.length} coins · <Ic3 e="⏱" /> {x.clock}m</small>
       <small className="m-dim pg-seat-legs">{x.legs.map(l => `${l.role === 'runner' ? '🏃' : '⚓'}$${l.symbol}`).join(' ')}</small>
       <button type="button" className={`m-btn ${on ? 'is-on' : 'primary m-go'}`} aria-pressed={on} onClick={() => pick(x)} data-testid={`pg-seat-pick-${i}`}>{on ? '✅ On Arena' : '🎨 Pick for Arena'}</button></article>; })
       : <p className="m-dim">No seats yet — turn playground battles on (🩺 Doctor · ⚔ battles below).</p>}</div></div>;
@@ -277,19 +278,19 @@ export function EnginePlayground({ call }) {
   const tiles = [['🏟 Strategy runs', c.arenaRuns, `${c.settled} settled · ${c.open} live`], ['🧬 Bloodline', c.bloodline, 'saved champions seed new breeds'],
     ['🎚 Dial scenarios', c.dialScenarios, 'rounds × dials × 6h/24h/72h'], ['🏃 Runner rounds', c.runnerRounds, `${c.litCards} lit cards`], ['⭐ Tier cards', c.tierCards, 'fully auto, paper'], ['📣 Published', c.published, 'on Trade + Arena when staged']];
   return <section className="m-card m-live fops pg" data-testid="engine-playground">
-    <div className="m-row"><span className="m-label">🧪 ENGINE PLAYGROUND · v.001</span><small className="m-dim">engine dial <b>{p.engineDial}</b> · auto-strength {p.autoTune ? 'on' : 'off'}</small></div>
+    <div className="m-row"><span className="m-label"><Ic3 e="🧪" /> ENGINE PLAYGROUND · v.001</span><small className="m-dim">engine dial <b>{p.engineDial}</b> · auto-strength {p.autoTune ? 'on' : 'off'}</small></div>
     <div className="pg-tiles">{tiles.map(([l, n, sub], i) => <div key={l} className="pg-tile" style={{ '--i': i }}><small>{l}</small><b className="m-num fl-tick" key={n}>{Number(n || 0).toLocaleString()}</b><em>{sub}</em></div>)}</div>
     <PgTop3 shown={p.pgBattle?.shown || []} picks={p.pgBattle?.picks || []} field={p.pgBattle?.field?.length || 0} call={call}
       onPicks={picks => setP(x => ({ ...x, pgBattle: { ...x.pgBattle, picks } }))} />
     <div className="pg-cols">
-      <div className="pg-box is-ready"><header><b>✅ Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
-      <div className="pg-box"><header><b>⏳ Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
+      <div className="pg-box is-ready"><header><b><Ic3 e="✅" /> Ready for the Arena</b><small>{p.ready.length}</small></header>{p.ready.length ? p.ready.map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>) : <p className="m-dim">Nothing proven yet — the engines keep testing.</p>}</div>
+      <div className="pg-box"><header><b><Ic3 e="⏳" /> Still proving</b><small>{p.proving.length}</small></header>{p.proving.slice(0, 10).map((r, i) => <div key={i} className="pg-row"><i>{r.kind}</i><b>{r.name}</b><small>{r.why}</small></div>)}</div>
     </div>
     <details className="hrt-fold pg-fold"><summary><b>🩺 Doctor · ⚔ playground battles</b><span>pick filters on trial and the engine's own paper fights</span></summary>
     <EngineDoctor p={p} call={call} onChange={doc => setP(x => ({ ...x, doctor: doc }))} />
     <PlaygroundBattles call={call} onPublish={id => { const sc = (p.scenarioCards || []).find(x => x.id === id); if (sc) publishScenario(sc); }} /></details>
-    <details className="hrt-fold pg-fold"><summary><b>🏆 Best scenarios → cards</b><span>{p.scenarioCards?.length || 0} cards ready to edit, pick for the Arena or publish</span></summary>
-    {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b>🏆 Best scenarios → cards</b><small>this round's gated runners + the most active major, played with each winning exit plan · auto-updated every round</small></header>
+    <details className="hrt-fold pg-fold"><summary><b><Ic3 e="🏆" /> Best scenarios → cards</b><span>{p.scenarioCards?.length || 0} cards ready to edit, pick for the Arena or publish</span></summary>
+    {p.scenarioCards?.length > 0 && <div className="pg-box is-ready"><header><b><Ic3 e="🏆" /> Best scenarios → cards</b><small>this round's gated runners + the most active major, played with each winning exit plan · auto-updated every round</small></header>
       <div className="pg-cards">{p.scenarioCards.map((sc, i) => <article key={sc.id} className={`pg-card ${sc.dial ? `d-${sc.dial}` : ''}`} style={{ '--i': i }} data-testid={`pg-card-${sc.id}`}>
         <span className="pg-fcard"><FuseCard c={{ pools: sc.legs.map(l => l.pairAddress), fitness: Math.round(sc.avgPct || 0), bornGen: sc.rounds || 0, legs: sc.legs,
           parts: { grade: (sc.avgPct || 0) >= 15 ? 'A' : (sc.avgPct || 0) > 0 ? 'B' : 'C', aprScore: 0, momentum24h: sc.avgPct || 0, calm: '—', feeDragPct: 0, impactLegs: 0 } }}
@@ -302,22 +303,22 @@ export function EnginePlayground({ call }) {
         <small className="m-dim">TP +{sc.tp}% · stop −{sc.sl}% per runner · {sc.rounds} rounds · {sc.winRate}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}</small>
         <button type="button" className={`m-btn pg-pick ${sc.listed === 'pick' || sc.listed === 'bench' ? 'is-on' : ''}`} aria-pressed={sc.listed === 'pick' || sc.listed === 'bench'} onClick={() => pickForArena(sc)} disabled={!seat(sc)}
           data-tip={seat(sc) ? "Creator's pick: put this runner-up on the Arena (it fights in the league). Tap again to take it off." : 'Still competing in the background field — only the top 3 big cards can be picked'} data-testid={`pg-pickbtn-${sc.id}`}>{sc.listed === 'pick' || sc.listed === 'bench' ? "🎨 Creator's pick ✓" : "🎨 Pick for Arena"}</button>
-        <span className="pg-acts"><button type="button" className="m-btn" onClick={() => editInBreed(sc)} data-tip="Open it in 🧬 Breed & fuse: rename, add / drop coins or pools, then publish" data-testid={`pg-edit-${sc.id}`}>✏️ Edit in Breed</button>
-        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}>⭐ Publish</button></span></article>)}</div></div>}</details>
+        <span className="pg-acts"><button type="button" className="m-btn" onClick={() => editInBreed(sc)} data-tip="Open it in 🧬 Breed & fuse: rename, add / drop coins or pools, then publish" data-testid={`pg-edit-${sc.id}`}><Ic3 e="✏️" /> Edit in Breed</button>
+        <button type="button" className="m-btn primary m-go" onClick={() => publishScenario(sc)} data-testid={`pg-pub-${sc.id}`}><Ic3 e="⭐" /> Publish</button></span></article>)}</div></div>}</details>
     <details className="hrt-fold pg-fold"><summary><b>🃏 Scenarios · dials · strategies</b><span>{p.scenarios?.length || 0} exit plans replayed · dials across windows · {p.board.length} strategies</span></summary>
     {p.scenarios?.length > 0 && <div className="pg-box"><header><b>🃏 Engine-cycled scenarios · {p.scenarios.length}</b><small>every runner round replayed under each exit plan · tap a card</small></header>
       <div className="pg-scen">{p.scenarios.map((sc, i) => <button key={sc.id} type="button" className={`pg-sc ${pick === sc.id ? 'is-on' : ''} ${sc.avgPct > 0 ? 'up' : sc.avgPct < 0 ? 'down' : ''}`} style={{ '--i': Math.min(i, 20) }} onClick={() => setPick(pick === sc.id ? null : sc.id)} data-testid={`pg-sc-${sc.id}`}>
         <small>{i === 0 && sc.rounds ? '👑 BEST · ' : ''}{sc.kind === 'dial' ? 'DIAL' : sc.kind === 'filter' ? 'PICK FILTER' : 'EXITS'} · {sc.window}</small><b>{sc.label}</b>
         <em className={`m-num ${sc.avgPct >= 0 ? 'm-pos' : 'm-neg'}`}>{sc.rounds ? fmt(sc.avgPct) : '—'}</em>
         {pick === sc.id && <span className="pg-sc-more">{sc.rounds || 0} rounds · {sc.winRate || 0}% won · $1 → ${Number(sc.per1 || 1).toFixed(2)}<br />take-profit +{sc.tp}% · stop −{sc.sl}% on every pick of every round, real prices after the round.</span>}</button>)}</div></div>}
-    <div className="pg-box"><header><b>🎚 Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>
+    <div className="pg-box"><header><b><Ic3 e="🎚" /> Dials across windows</b><small>same dial must win ≥ 2 windows before auto-strength switches</small></header>
       <table className="vd-table"><thead><tr><th>Dial</th>{Object.keys(p.dials).map(w => <th key={w}>{w}</th>)}</tr></thead><tbody>{Object.keys(Object.values(p.dials)[0] || {}).map(d => <tr key={d}><td>{d}</td>
         {Object.keys(p.dials).map(w => { const v = p.dials[w][d] || {}; return <td key={w} className={v.avgPct > 0 ? 'm-pos' : v.avgPct < 0 ? 'm-neg' : ''}>{v.rounds ? `${fmt(v.avgPct)} · ${v.rounds}r` : '—'}</td>; })}</tr>)}</tbody></table></div>
     {p.board.length > 0 && <div className="pg-box"><header><b>🏟 Strategies</b><small>$5 paper runs, settled after 24h</small></header>{p.board.map(r => <div key={r.style} className="pg-row"><b>{r.style}</b><small>{r.runs} runs · {r.winRate}% won</small><em className={r.avgPct >= 0 ? 'm-pos' : 'm-neg'}>{fmt(r.avgPct)}</em></div>)}</div>}</details>
-    <details className="hrt-fold pg-fold"><summary><b>🔧 Engine log</b><span>{p.gateRegret?.length || 0} gate regrets · {p.autoLog.length} engine changes, newest first</span></summary>
-    {p.gateRegret?.length > 0 && <div className="pg-box"><header><b>💡 Gate regret</b><small>coins a gate stopped that later ran 3×+ — a high rate means that ONE gate may be too strict</small></header>
+    <details className="hrt-fold pg-fold"><summary><b><Ic3 e="🔧" /> Engine log</b><span>{p.gateRegret?.length || 0} gate regrets · {p.autoLog.length} engine changes, newest first</span></summary>
+    {p.gateRegret?.length > 0 && <div className="pg-box"><header><b><Ic3 e="💡" /> Gate regret</b><small>coins a gate stopped that later ran 3×+ — a high rate means that ONE gate may be too strict</small></header>
       {p.gateRegret.slice(0, 6).map(g => <div key={g.gate} className="pg-row"><b>{g.gate}</b><small>{g.ran} of {g.stopped} ran 3×+{g.examples?.length ? ` · ${g.examples.join(', ')}` : ''}</small><em className={g.rate >= 20 ? 'm-neg' : 'm-dim'}>{g.rate}%</em></div>)}</div>}
-    {p.autoLog.length > 0 && <div className="pg-box"><header><b>🔧 Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}</details>
+    {p.autoLog.length > 0 && <div className="pg-box"><header><b><Ic3 e="🔧" /> Engine changes</b><small>auto + manual, newest first</small></header>{p.autoLog.map((a, i) => <div key={i} className="pg-row"><small>{new Date(a.at * 1000).toLocaleString()}</small><b>{a.admin === 'engine-auto' ? '🤖 auto' : '👤'}</b><small>{String(a.detail).slice(0, 110)}</small></div>)}</div>}</details>
   </section>;
 }
 
@@ -339,15 +340,15 @@ export function FeeCatBrain() {
 export function SimBrain({ call }) {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => call('/admin/fuses/sim').then(x => alive && setD(x)).catch(() => {}); load(); const t = setInterval(load, 60000); return () => { alive = false; clearInterval(t); }; }, [call]);
-  if (!d?.summary) return <section className="m-card"><span className="m-label">🧠 SIM BRAIN</span><small className="m-dim">First 300 sims run within ~15 min of the engine starting.</small></section>;
+  if (!d?.summary) return <section className="m-card"><span className="m-label"><Ic3 e="🧠" /> SIM BRAIN</span><small className="m-dim">First 300 sims run within ~15 min of the engine starting.</small></section>;
   const s = d.summary; const b = d.best || {};
   const apply = () => call('/admin/fuses/sim/apply', { method: 'POST' }).then(x => toast.success(`Applied: ${JSON.stringify(x.applied)}`)).catch(e => toast.error(e.message));
-  return <section className="m-card m-live" data-testid="sim-brain"><span className="m-label">🧠 SIM BRAIN · {s.n} CARDS REPLAYED ON REAL PRICES · FEES INCLUDED</span>
+  return <section className="m-card m-live" data-testid="sim-brain"><span className="m-label"><Ic3 e="🧠" /> SIM BRAIN · {s.n} CARDS REPLAYED ON REAL PRICES · FEES INCLUDED</span>
     <div className="fw-kpis"><span><small>TYPICAL CARD</small><b className={`m-num ${s.medianPct >= 0 ? 'm-pos' : 'm-neg'}`}>{s.medianPct}%</b><em>average {s.avgPct}%</em></span>
       <span><small>ENDED UP</small><b className="m-num">{s.upPct}%</b><em>of sim cards</em></span><span><small>BEST · WORST</small><b className="m-num">{s.bestPct}% · {s.worstPct}%</b></span>
       <span><small>24H · 6H</small><b className="m-num">{d.s24?.avgPct ?? '—'}% · {d.s6?.avgPct ?? '—'}%</b></span></div>
     <div className="ccx-legend">{Object.entries(b).map(([t, v]) => <p key={t}><b>{{ clock: '⟳ Round clock', tp: '🎯 Take-profit', sl: '🛑 Stop', minDrop: '⇄ Rotate only coins down', hold: '🏇 Hold rule' }[t] || t} · {t === 'clock' ? `${v.value}m` : t === 'tp' ? `+${v.value}%` : t === 'sl' || t === 'minDrop' ? `−${v.value}%` : v.value === 'True' ? 'on' : 'off'}</b>
       <span>typical card {v.medPct ?? v.avgPct}% (median) · {v.upPct}% of {v.n} sims ended up</span></p>)}</div>
-    <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={apply} data-testid="sim-apply">🧠 Apply the brain's clock + rotation to the tier engine</button>
+    <div className="m-row"><button type="button" className="m-btn primary m-go" onClick={apply} data-testid="sim-apply"><Ic3 e="🧠" /> Apply the brain's clock + rotation to the tier engine</button>
       <small className="m-dim">updated {new Date(d.at * 1000).toLocaleTimeString()} · ranking only — it never trades</small></div></section>;
 }

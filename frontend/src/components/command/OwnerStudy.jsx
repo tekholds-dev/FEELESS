@@ -1,5 +1,6 @@
 import React from 'react';
 import '../../styles/ownerStudy.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 👤 YOU — the owner study (backend owner_study.py, payload `ownerStudy`): how your own moves graded 30 min later, your seats vs where the
 // agents would have sold, your dragged SL / TP vs their lines, and what the study suggests (each one waits for your ✅ in 🧠 Brain › Fix).
@@ -22,6 +23,6 @@ export function OwnerStudy({ study, memory }) {
       <span data-tip="closed real trades where you dragged the SL / TP vs the agents' own lines"><small>YOUR LINES</small><b className={Number(y.med) >= Number(a.med) ? 'is-up' : 'is-dn'}>{pc(y.med)}</b><em>agents {pc(a.med)} · n {y.n || 0}</em></span>
       <span data-tip="notes filed for the AI (capped drawers: you · lessons · rules · coins · site)"><small>AI MEMORY</small><b>{memN}</b><em>{['owner', 'lessons', 'rules', 'coins'].map(k => `${k} ${mem[k] || 0}`).join(' · ')}</em></span></div>
     {(s.findings || []).length ? <ul className="ost-find">{s.findings.map((f, i) => <li key={i} style={{ '--i': i }}>{f}</li>)}</ul> : null}
-    {(s.suggestions || []).length ? <div className="ost-sugg"><small>THE STUDY SUGGESTS · waiting for your ✅ in 🧠 Brain › Fix</small>{s.suggestions.map((x, i) => <p key={i}><b>{x.agent}</b> {x.value}</p>)}</div> : null}
+    {(s.suggestions || []).length ? <div className="ost-sugg"><small>THE STUDY SUGGESTS · waiting for your <Ic3 e="✅" /> in <Ic3 e="🧠" /> Brain › Fix</small>{s.suggestions.map((x, i) => <p key={i}><b>{x.agent}</b> {x.value}</p>)}</div> : null}
   </div>;
 }

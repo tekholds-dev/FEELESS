@@ -6,6 +6,7 @@ import { WatchButton } from '../WatchButton';
 import { apiUrl } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { FeeReport } from './FeeReport';
+import { Ic3 } from '../../lib/icon3d';
 
 // Sticky side rails beside the centred profile card: the case verdict (same cited evidence as the case file)
 // on the left, the season run + reserve-pool share and quick moves on the right. Hidden on narrow screens.
@@ -39,7 +40,7 @@ export function IntelRail({ address }) {
         {ev.length > 0 && <ul className="wpr-ev">{ev.map((e, i) => <li key={i}><span>{e.claim}</span><em>{e.source}</em></li>)}</ul>}
         {c.trail?.fundedBy && <Link className="wpr-link" to={`/terminal/profile/${c.trail.fundedBy}`}>funded by {shortAddress(c.trail.fundedBy)} →</Link>}
       </>}
-      <button type="button" className="wpr-btn" onClick={() => investigate(address)}>🔎 Open case file</button>
+      <button type="button" className="wpr-btn" onClick={() => investigate(address)}><Ic3 e="🔎" /> Open case file</button>
     </div>
     <RecentMoves address={address} />
   </aside>;
@@ -63,8 +64,8 @@ export function SeasonRail({ address }) {
         <div className="wpr-bar"><i style={{ width: `${pct}%` }} /></div>
         <p className="wpr-dim">{me?.next ? `${me.toNext.toLocaleString()} pts to ${me.next}` : 'Max tier.'}</p>
       </>}
-      {r?.active && <div className="wpr-pot"><span>💰 Reserve pot</span><b>{r.potSol} SOL</b><em>{r.me ? `this wallet ≈ ${r.me.sol} SOL` : 'Bronze+ earns a cut'}</em></div>}
-      {pools.map(p => <div key={p.id} className="wpr-pot"><span>🎖 {p.name}</span><b>{p.me.sol} SOL</b><em>{p.me.why ? `earned by ${p.me.why}` : `${p.me.sharePct}% of the pot`}</em></div>)}
+      {r?.active && <div className="wpr-pot"><span><Ic3 e="💰" /> Reserve pot</span><b>{r.potSol} SOL</b><em>{r.me ? `this wallet ≈ ${r.me.sol} SOL` : 'Bronze+ earns a cut'}</em></div>}
+      {pools.map(p => <div key={p.id} className="wpr-pot"><span><Ic3 e="🎖" /> {p.name}</span><b>{p.me.sol} SOL</b><em>{p.me.why ? `earned by ${p.me.why}` : `${p.me.sharePct}% of the pot`}</em></div>)}
       <Link className="wpr-link" to="/terminal/seasons">Season board →</Link>
     </div>
     <TopBags address={address} />

@@ -13,6 +13,7 @@ import { useCoinRead } from './terminal/ChartVitals';
 import { Socials, FlowWindows, ChartPulse, PumpCall, Feeders } from './QuickPulse';
 import '../styles/trenchSplit.css';
 import { BsBar } from './BsBar';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚡ QUICK LOOK (owner, 2026-10-08: "a click to a hover chart, swap in etc with MAD TRENCH VITALS instead of the side panel"): one floating
 // panel over the list — live chart on the left, every vital on the right, the actions in one row. ← / → step through the same list, Esc closes.
@@ -117,7 +118,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
       </header>
       <div className="tql-body">
         <div className="tql-chart">
-          <div className="tql-bar"><span className="m-label">📈 LIVE · {useMc ? 'MARKET CAP' : 'PRICE'}</span>
+          <div className="tql-bar"><span className="m-label"><Ic3 e="📈" /> LIVE · {useMc ? 'MARKET CAP' : 'PRICE'}</span>
             <span className="m-seg" role="radiogroup" aria-label="Chart timeframe">{TFS.map(t => <button key={t} type="button" role="radio" aria-checked={tf === t} className={tf === t ? 'active' : ''} onClick={() => setTf(t)} data-testid={`tql-tf-${t}`}>{t.toUpperCase()}</button>)}</span></div>
           {r.pairAddress ? <React.Suspense fallback={<p className="m-dim tql-wait">Loading chart…</p>}>
             <PriceChart key={`${r.pairAddress}-${tf}-${useMc ? 'mc' : 'px'}`} pair={{ ...pair, priceUsd: price ?? null, marketCap: mc || null }} interval={tf} metric={useMc ? 'marketCap' : 'price'} showVolume={false} />
@@ -128,7 +129,7 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
           {r.tv && <TrenchVital r={r} />}
           <PumpCall pc={r.pc} />
           <Feeders r={r} />
-          {r.curvePct != null && <div className="tql-bond" data-tip="How far along its launch curve: at 100% it graduates to a pool"><small>🔔 BOND</small><span><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curvePct / 100))})` }} /></span><b>{Math.round(r.curvePct)}%</b></div>}
+          {r.curvePct != null && <div className="tql-bond" data-tip="How far along its launch curve: at 100% it graduates to a pool"><small><Ic3 e="🔔" /> BOND</small><span><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curvePct / 100))})` }} /></span><b>{Math.round(r.curvePct)}%</b></div>}
           {r.buyShare != null && <div className="tql-press" data-tip="Buys vs sells this hour"><small>BUY</small><span><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.buyShare / 100))})` }} /></span><small>SELL</small><b>{Math.round(r.buyShare)}%</b></div>}
           {r.vital && <CoinVital r={r} only="vital" />}
           <ChartPulse pairAddress={r.pairAddress} mint={r.mint} tf={tf} />
@@ -138,11 +139,11 @@ export function TrenchQuick({ row, list = [], onClose, onPick, busy }) {
         </div>
       </div>
       <footer className="tql-acts">
-        {onPick && <button type="button" className="m-btn primary m-go" disabled={!!busy} onClick={() => { onPick(r); onClose(); }} data-testid="tql-pick">⚡ Pick for the card</button>}
+        {onPick && <button type="button" className="m-btn primary m-go" disabled={!!busy} onClick={() => { onPick(r); onClose(); }} data-testid="tql-pick"><Ic3 e="⚡" /> Pick for the card</button>}
         {!onPick && <button type="button" className="m-btn primary m-go" onClick={() => { onClose(); addToCard({ mint: r.mint, pairAddress: r.pairAddress, symbol: r.symbol, runner: true }); }} data-testid="tql-add">＋ Add to card</button>}
         <button type="button" className="m-btn" onClick={() => { onClose(); openWarRoom(pair); }} data-testid="tql-war">⚔ War room</button>
-        <button type="button" className="m-btn" onClick={() => { onClose(); openMiniChart(pair); }} data-testid="tql-mini">📌 Mini chart</button>
-        <button type="button" className="m-btn" onClick={() => { onClose(); investigate(r.mint); }} data-testid="tql-case">🔎 Case file</button>
+        <button type="button" className="m-btn" onClick={() => { onClose(); openMiniChart(pair); }} data-testid="tql-mini"><Ic3 e="📌" /> Mini chart</button>
+        <button type="button" className="m-btn" onClick={() => { onClose(); investigate(r.mint); }} data-testid="tql-case"><Ic3 e="🔎" /> Case file</button>
         <button type="button" className="m-btn" onClick={copy} data-testid="tql-ca">{copied ? '✓ Copied' : '⧉ Copy CA'}</button>
         <small className="m-dim tql-note">← → next coin · Esc closes · a read, never a promise</small>
       </footer>

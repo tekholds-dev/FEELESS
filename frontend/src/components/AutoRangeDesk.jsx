@@ -7,6 +7,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useSolPrice } from '../lib/solPrice';
 import { getChatSession } from '../lib/chatSession';
 import '../styles/autoRange.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🤖 AUTORANGE DESK (owner 2026-10-26 mock-up: Pool Hall / Night Vault / Launch › Pools). The ENGINE (lib/autoRange.js) on this pool's REAL data:
 // its token's 15-minute candles (FEELESS candle service), the live price (price hub, 2s), the pool's real fee rate (24h volume × fee tier ÷ TVL).
@@ -211,7 +212,7 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
         </div> : null}
       </div>
       <div className="arx-go">
-        <header><b>🚀 DEPOSIT & RUN</b><small>{pool.proto} · Solana · your wallet signs each move</small></header>
+        <header><b><Ic3 e="🚀" /> DEPOSIT & RUN</b><small>{pool.proto} · Solana · your wallet signs each move</small></header>
         <div className="arx-amts" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'is-on' : ''} onClick={() => setAmt(a)} data-tip={`Plan it with $${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}
           <label className="arx-amtin" data-tip="Type any amount — the band re-sizes to it"><span>$</span><input type="number" min="1" step="any" value={amt} onChange={e => setAmt(Math.max(1, Number(e.target.value) || 1))} aria-label="Dollars to put in" data-testid="arx-amt" /></label></div>
         {vrow ? <button type="button" className="m-btn m-go arx-start" onClick={openReal} disabled={!!busy || !dec || dec.action === 'WAIT' || dec.action === 'PAUSE' || !(solPx > 0)} data-testid="arx-start"
@@ -219,7 +220,7 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
           {busy || (!me ? '🔌 CONNECT WALLET' : dec?.action === 'PAUSE' ? '⏸ TOO WILD — WATCH ONLY' : `⚡ START AUTORANGE · ${$(amt, 0)} · ${vrow.venue === 'raydium' ? 'RAYDIUM' : 'METEORA'}`)}</button>
           : <button type="button" className="m-btn arx-start" onClick={armed ? disarm : arm} disabled={!dec} data-testid="arx-start" data-tip="No Raydium CLMM / Meteora DLMM pool for this pair — the engine watches it here">{armed ? '■ STOP WATCHING' : venue.state === 'loading' ? 'Finding the pool…' : '👁 WATCH ONLY (no Raydium / Meteora pool)'}</button>}
         {err ? <p className="arx-err" role="alert">⚠ {err}</p> : null}
-        {done ? <p className="arx-ok" role="status">✅ {done.what} · {(done.sigs || []).length} transaction{(done.sigs || []).length === 1 ? '' : 's'} · {(done.sigs || []).slice(-1).map(sg => <a key={sg} href={`https://solscan.io/tx/${sg}`} target="_blank" rel="noopener noreferrer">{sg.slice(0, 8)}… ↗</a>)}</p> : null}
+        {done ? <p className="arx-ok" role="status"><Ic3 e="✅" /> {done.what} · {(done.sigs || []).length} transaction{(done.sigs || []).length === 1 ? '' : 's'} · {(done.sigs || []).slice(-1).map(sg => <a key={sg} href={`https://solscan.io/tx/${sg}`} target="_blank" rel="noopener noreferrer">{sg.slice(0, 8)}… ↗</a>)}</p> : null}
         {vrow && me ? <div className="arx-bands" data-testid="arx-bands"><em>YOUR BANDS · {vrow.name}</em>
           {bands == null ? <small>reading your positions…</small> : !bands.length ? <small>none open yet</small>
             : bands.map(b => <div key={b.position} className={`arx-band ${b.inRange ? 'is-in' : 'is-out'}`}><i aria-hidden="true" /><span><b>{b.inRange ? 'IN RANGE · EARNING' : 'OUT OF RANGE'}</b>
@@ -247,7 +248,7 @@ function SizedToYou({ s, amt, setAmt, custom, w }) {
     ['IL AT THE EDGE', `${s.ilEdge.toFixed(1)}%`, 'is-dn', 'vs holding, if the price runs to the band edge'],
     ['RENT LOCKED', $(s.rentUsd, 2), s.rentPct > 25 ? 'is-dn' : '', `${s.rentPct.toFixed(1)}% of your money · refunded when you close`]];
   return <div className={`arx-size ${s.tooSmall ? 'is-small' : ''}`} data-testid="arx-size">
-    <header><b>💵 SIZED TO YOUR ${amt.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><small>{custom ? `your width ±${w}% — the engine's best for this amount is ±${s.w}%` : `±${s.w}% nets the most at this amount — ${amt < 50 ? 'small money runs wider (fewer paid moves)' : amt >= 1000 ? 'big money can afford tighter bands' : 'balanced between fees and moves'}`}</small>
+    <header><b><Ic3 e="💵" /> SIZED TO YOUR ${amt.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><small>{custom ? `your width ±${w}% — the engine's best for this amount is ±${s.w}%` : `±${s.w}% nets the most at this amount — ${amt < 50 ? 'small money runs wider (fewer paid moves)' : amt >= 1000 ? 'big money can afford tighter bands' : 'balanced between fees and moves'}`}</small>
       <span className="arx-qa">{[10, 100, 1000].map(a => <button key={a} type="button" className="m-btn" onClick={() => setAmt(a)} data-tip={`See how the band changes at $${a}`}>${a >= 1000 ? '1K' : a}</button>)}</span></header>
     <div className="arx-size-in">
       <span className="arx-cbox"><svg viewBox="0 0 300 80" className="arx-curve" role="img" aria-label="Net dollars a day across band widths">

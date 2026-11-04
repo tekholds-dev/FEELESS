@@ -7,6 +7,7 @@ import { AG } from './agentWords';
 import { hasIntel, intelRows, scoutChips, labLine } from '../../lib/cockpitControls';
 import '../../styles/cockpitAi.css';
 import '../../styles/agentControls.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧠 THE MODEL'S DECISIONS (HQ › Agents › decision panel › 🧠 AI; owner, 2026-10-12: "I wanna see the LM model's decisions as well — fix
 // the AI input"). Every answer the local model (or the next provider) gave, newest first: which desk asked, the coin, its STANCE, how
@@ -30,8 +31,8 @@ export function AiIntel({ a, mini, testid }) {
   if (mini && !rows.length && !flags.length) return null;                     // a log row already prints the summary
   return <div className={`avt ${mini ? 'is-mini' : ''}`} data-testid={testid}>
     {!mini && a.summary ? <p className="avt-sum">{a.summary}</p> : null}
-    {flags.length ? <p className="avt-foot">{flags.map((f, i) => <span key={i} className="avt-flag is-risk">🚩 {f}</span>)}</p> : null}
-    {rows.length ? <ul className="avt-intel">{rows.map(r => <li key={r.k} className={`is-${r.k}`}><small>{r.icon} {r.label}</small><span>{r.text}</span></li>)}</ul> : null}
+    {flags.length ? <p className="avt-foot">{flags.map((f, i) => <span key={i} className="avt-flag is-risk"><Ic3 e="🚩" /> {f}</span>)}</p> : null}
+    {rows.length ? <ul className="avt-intel">{rows.map(r => <li key={r.k} className={`is-${r.k}`}><small><Ic3 e={r.icon} /> {r.label}</small><span>{r.text}</span></li>)}</ul> : null}
     {scoutChips(a.scout).length ? <p className="avt-scout" data-testid={testid ? `${testid}-scout` : undefined}>{scoutChips(a.scout).map(([k, l, c]) => <span key={k} className={`avt-sc ${c}`}>{l}</span>)}</p> : null}
   </div>;
 }
@@ -42,9 +43,9 @@ export function RuleLab({ lab }) {
   if (!lab) return null;
   const rules = lab.rules || []; const les = Object.entries(lab.lessons || {});
   return <div className="cai-lab" data-testid="cai-lab">
-    <p className="cai-lhead"><b>🧪 RULE LAB</b><small>the model proposes · our {lab.trades || 0} real trades decide · {rules.filter(r => r.status === 'live').length} live</small></p>
+    <p className="cai-lhead"><b><Ic3 e="🧪" /> RULE LAB</b><small>the model proposes · our {lab.trades || 0} real trades decide · {rules.filter(r => r.status === 'live').length} live</small></p>
     {les.length ? <p className="cai-lessons" data-testid="cai-lessons">{les.map(([d, ls]) => <span key={d}><b>{d}</b>{ls.join(' · ')}</span>)}</p> : <small className="cai-never">no lesson proven yet — a rule goes live only when unseen real trades back it</small>}
-    {lab.said?.summary ? <small className="cai-say">🧠 {lab.said.summary}</small> : null}
+    {lab.said?.summary ? <small className="cai-say"><Ic3 e="🧠" /> {lab.said.summary}</small> : null}
     {rules.length ? <ul className="cai-labrows">{rules.slice(0, 8).map(r => <li key={r.id} className={`is-${r.status}`} data-tip={r.why || ''}>
       <em className={`cai-labst is-${r.status}`}>{r.status === 'live' ? (r.door === 'new cause' ? 'NEW CAUSE' : 'LIVE') : r.status === 'failed' ? 'FAILED' : 'TESTING'}</em>
       <b>{r.act === 'avoid' ? '🚫' : '✅'} {r.name}</b><small>{(r.when || []).join(' & ')} · {r.desk}</small><span>{labLine(r)}</span></li>)}</ul> : null}
@@ -55,7 +56,7 @@ export function AiCell({ a }) {
   if (!a?.stance) return <small className="avt-none">—</small>;
   const n = (a.risk_flags || []).length;
   return <span className="avt-cell" data-tip={`${a.stance}${n ? ` · ${n} risk flag${n === 1 ? '' : 's'}: ${a.risk_flags.join(' · ')}` : ''}${a.narrative ? ` · ${a.narrative}` : ''} — ${a.summary || ''}`}>
-    <em className={`cai-stance ${STANCE_TONE[a.stance] || 'is-hold'}`}>{a.stance}</em>{n ? <small className="avt-rugs">🚩{n}</small> : null}</span>;
+    <em className={`cai-stance ${STANCE_TONE[a.stance] || 'is-hold'}`}>{a.stance}</em>{n ? <small className="avt-rugs"><Ic3 e="🚩" />{n}</small> : null}</span>;
 }
 
 // 📸 the chart the model judged: the SAME 1-minute closes it read (% vs entry or the first close) as a small line + its exit word
@@ -67,7 +68,7 @@ export function Snap({ pts, src, word }) {
   const last = pts[pts.length - 1]; const lo = Math.min(...pts, 0), hi = Math.max(...pts, 0), zy = 26 - ((0 - lo) / (hi - lo || 1)) * 26;
   return <span className={`cai-snap ${last >= 0 ? 'is-up' : 'is-dn'}`} data-testid="cai-snap" data-tip={`the chart the model read: ${pts.length} × 1m ${src === 'tape' ? 'tape closes' : 'candles'}, ${last >= 0 ? '+' : ''}${last}% at the read`}>
     <svg viewBox="0 0 120 26" preserveAspectRatio="none" aria-hidden><line x1="0" x2="120" y1={zy.toFixed(1)} y2={zy.toFixed(1)} /><path d={snapPath(pts)} /></svg>
-    <small>📸 {last >= 0 ? '+' : ''}{last}%</small>{word ? <em className={`cai-word is-${String(word).toLowerCase()}`}>{word}</em> : null}</span>;
+    <small><Ic3 e="📸" /> {last >= 0 ? '+' : ''}{last}%</small>{word ? <em className={`cai-word is-${String(word).toLowerCase()}`}>{word}</em> : null}</span>;
 }
 
 // 🔮 each model's PREDICTION record: its 15-minute numbers graded on the real price — direction right %, typical error, and what the coins it
@@ -79,20 +80,20 @@ export function predictWord(r) {
 }
 export function PredictBox({ p }) {
   const rows = Object.entries(p || {}).filter(([, r]) => r?.n);
-  if (!rows.length) return <p className="cai-predbox m-dim" data-testid="cai-predbox">🔮 PREDICTIONS · every read now carries a 15-minute number — graded once they are 15 min old</p>;
-  return <div className="cai-predbox" data-testid="cai-predbox"><b>🔮 PREDICTIONS</b>{rows.map(([k, r]) => <span key={k} className={r.proven ? 'is-proven' : ''}><small>{PRED_NAME[k] || k}</small>{predictWord(r)}</span>)}</div>;
+  if (!rows.length) return <p className="cai-predbox m-dim" data-testid="cai-predbox"><Ic3 e="🔮" /> PREDICTIONS · every read now carries a 15-minute number — graded once they are 15 min old</p>;
+  return <div className="cai-predbox" data-testid="cai-predbox"><b><Ic3 e="🔮" /> PREDICTIONS</b>{rows.map(([k, r]) => <span key={k} className={r.proven ? 'is-proven' : ''}><small>{PRED_NAME[k] || k}</small>{predictWord(r)}</span>)}</div>;
 }
 
 export function AiRow({ r, onPick }) {
   const [ic, nm] = TAPE_AGENT[r.role] || (r.role === 'owner' ? ['👤', 'You asked'] : ['🧠', r.role]); const ag = agreeOf(r);
   return <li className={`cai-row ${r.asked ? 'is-asked' : ''}`} style={{ '--ag': AG[r.role] || '#c9b8ff' }} data-testid={`cai-row-${r.at}`}>
     <button type="button" onClick={() => r.mint && onPick?.(r.mint)} disabled={!r.mint}>
-      <span className="cai-top"><b className="cai-who">{ic} {nm}</b><b className="cai-sym">{r.symbol ? `$${r.symbol}` : '—'}</b>
+      <span className="cai-top"><b className="cai-who"><Ic3 e={ic} /> {nm}</b><b className="cai-sym">{r.symbol ? `$${r.symbol}` : '—'}</b>
         {r.stance ? <em className={`cai-stance ${STANCE_TONE[r.stance] || 'is-hold'}`}>{r.stance}</em> : <em className="cai-stance is-off">NO ANSWER</em>}
         {r.stance ? <Delta d={r.delta} /> : null}<small className="cai-age">{ago(r.at)} ago</small></span>
       <span className="cai-say">{r.summary || r.why || '—'}</span>
       {r.snap?.length > 2 ? <Snap pts={r.snap} src={r.snapSrc} word={r.word} /> : null}
-      {r.predict != null ? <em className={`cai-pred ${r.predict >= 0 ? 'is-up' : 'is-dn'}`} data-testid="cai-pred" data-tip="the model's own number for the next 15 minutes — graded on the real price">🔮 {r.predict >= 0 ? '+' : ''}{r.predict}% in 15m</em> : null}
+      {r.predict != null ? <em className={`cai-pred ${r.predict >= 0 ? 'is-up' : 'is-dn'}`} data-testid="cai-pred" data-tip="the model's own number for the next 15 minutes — graded on the real price"><Ic3 e="🔮" /> {r.predict >= 0 ? '+' : ''}{r.predict}% in 15m</em> : null}
       {hasIntel(r) ? <AiIntel a={r} mini /> : null}
       <span className="cai-foot"><i className="cai-src">{r.label || r.source || 'AI'}</i>{r.ms != null ? <small>{r.ms >= 1000 ? `${(r.ms / 1000).toFixed(1)}s` : `${r.ms}ms`}</small> : null}
         {r.kernel ? <small>kernel: <b>{String(r.kernel).replace('_', ' ')}</b>{r.trigger ? ` · ⏱ ${r.trigger}` : ''}</small> : null}
@@ -106,7 +107,7 @@ const pctRight = x => (x?.n ? `${x.right}% of ${x.n}` : '—');
 // bigger model will be compared against. Shown only; the pooled record decides any weight.
 export function ModelReport({ rows }) {
   if (!(rows || []).length) return null;
-  return <div className="cai-mrep" data-testid="cai-model-report"><span className="cai-lhead"><b>🧠 MODEL REPORT CARD</b><em>same yardstick for every model</em></span>
+  return <div className="cai-mrep" data-testid="cai-model-report"><span className="cai-lhead"><b><Ic3 e="🧠" /> MODEL REPORT CARD</b><em>same yardstick for every model</em></span>
     <ul>{rows.map(r => <li key={r.prov} data-testid={`cai-model-${r.prov}`}><b>{PROV_WORD[r.prov] || r.prov}</b><small>{r.model || ''}</small>
       <span data-tip="Its CAUTION calls where the coin really fell 15 min later"><i>CAUTION</i>{pctRight(r.caution)}</span>
       <span data-tip="Its FAVOR calls where the coin really rose 15 min later"><i>FAVOR</i>{pctRight(r.favor)}</span>
@@ -123,8 +124,8 @@ export function DuetLine({ d }) {
   return <div className="cai-duet" data-testid="cai-duet" data-tip={why}>
     <span className="cai-lhead"><b>🤝 DUET · GEMMA + QWEN</b><em>{who ? `listens to ${who}` : 'LEARNING'}</em></span>
     <div className="cai-duet-row"><small>AGREE</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.agreePct)})` }} /></span><b>{d.agreePct == null ? '—' : `${d.agreePct}%`}</b><small>{d.pairs || 0} pairs</small></div>
-    <div className="cai-duet-row"><small>🖥 WINS SPLITS</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.leadPct)})` }} /></span><b>{d.leadPct == null ? '—' : `${d.leadPct}%`}</b>
-      <small>💻 {d.secondPct == null ? '—' : `${d.secondPct}%`} · {d.splits || 0} splits</small></div>
+    <div className="cai-duet-row"><small><Ic3 e="🖥" /> WINS SPLITS</small><span className="cai-meter"><i style={{ transform: `scaleX(${pct(d.leadPct)})` }} /></span><b>{d.leadPct == null ? '—' : `${d.leadPct}%`}</b>
+      <small><Ic3 e="💻" /> {d.secondPct == null ? '—' : `${d.secondPct}%`} · {d.splits || 0} splits</small></div>
     {d.bothCaution?.n ? <small className="cai-duet-note">both CAUTION: {d.bothCaution.right}% fell · typical {d.bothCaution.med > 0 ? '+' : ''}{d.bothCaution.med}% ({d.bothCaution.n})</small> : null}
   </div>;
 }
@@ -150,14 +151,14 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
     <div className="cai-head"><span className={`cai-dot ${live ? 'is-on' : ''}`} aria-hidden />
       <b>{live ? live.label : 'NO MODEL ONLINE'}</b><small>{ai?.model || (live ? '' : 'the kernel runs deterministic only')}</small>
       <small className="cai-stat">{ai?.totals ? `${ai.totals.answered} answers · ${ai.totals.cached} cached` : ''}{live?.lastMs != null ? ` · ${live.lastMs}ms` : ''}{ai?.lastAt ? ` · last round ${ago(ai.lastAt)} ago` : ''}</small>
-      <button type="button" className="m-btn" onClick={onProviders} data-testid="cai-providers">⚙ providers</button></div>
+      <button type="button" className="m-btn" onClick={onProviders} data-testid="cai-providers"><Ic3 e="⚙" /> providers</button></div>
     <div className="cai-loghead"><b>DECISIONS</b><span className="m-seg" role="group" aria-label="Which decisions">
       <button type="button" className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')} data-testid="cai-scope-all">All {(ai?.log || []).length}</button>
       <button type="button" className={scope === 'coin' ? 'active' : ''} onClick={() => setScope('coin')} disabled={!focus} data-testid="cai-scope-coin">{focusSym ? `$${focusSym}` : 'This coin'}</button></span></div>
     {rows.length ? <><ol className="cai-log" data-testid="cai-log">{(allRows ? rows : rows.slice(0, LOG_SHORT)).map(r => <AiRow key={`${r.at}-${r.role}-${r.mint}`} r={r} onPick={onPick} />)}</ol>{rows.length > LOG_SHORT ? <button type="button" className="m-btn cai-logmore" onClick={() => setAllRows(!allRows)} aria-expanded={allRows} data-testid="cai-log-more">{allRows ? 'Show newest' : `All ${rows.length} decisions`}</button> : null}</>
       : <p className="ack-nil" data-testid="cai-empty">{scope === 'coin' ? 'The model has not been asked about this coin yet — Ask above.' : live ? 'No model decision yet — the desk asks one about every 15s when a case is worth it (a conflicted coin, the top contender, a closed real trade).' : 'No model is online. Start LM Studio (or add a key under ⚙ providers) and its decisions appear here.'}</p>}
     <form className="cai-ask" onSubmit={ask} autoComplete="off" data-testid="cai-ask">
-      <label className="cai-lab" htmlFor="cai-ask-in">🧠 ASK THE MODEL{focusSym && !typed ? <small> · ${focusSym} (the coin on the chart)</small> : null}</label>
+      <label className="cai-lab" htmlFor="cai-ask-in"><Ic3 e="🧠" /> ASK THE MODEL{focusSym && !typed ? <small> · ${focusSym} (the coin on the chart)</small> : null}</label>
       <div className="cai-askrow"><input id="cai-ask-in" className="m-input" value={txt} onChange={e => { setTxt(e.target.value); setTyped(true); }} placeholder="a coin (CA / pump.fun · dexscreener link) — or any question" aria-label="Coin or question for the model"
         disabled={!isOwner || busy} spellCheck={false} data-testid="cai-ask-input" />
         {typed && focus ? <button type="button" className="m-btn" onClick={() => { setTyped(false); setTxt(focus); }} data-tip="Back to the coin on the chart" data-testid="cai-ask-reset">↺</button> : null}
@@ -166,7 +167,7 @@ export function AiPane({ ai: aiProp, lab, call, isOwner = true, focus, focusSym,
       {busy ? <p className="cai-think" role="status"><i /><i /><i />the model is reading…</p> : null}
       {ans && !busy ? <p className={`cai-ans ${ans.ok ? '' : 'is-warn'}`} data-testid="cai-answer">{ans.ok && ans.mode === 'general' ? <span className="cai-general" data-testid="cai-general">{ans.answer?.text}</span> : ans.ok ? <><em className={`cai-stance ${STANCE_TONE[ans.answer?.advice?.stance] || 'is-hold'}`}>{ans.answer?.advice?.stance}</em>{ans.symbol ? <b>${ans.symbol}</b> : null} {ans.answer?.advice?.summary}</> : (ans.answer?.why || 'no provider answered — deterministic only')}</p> : null}
       <small className="cai-never">advisory only — the model never buys, sizes, blocks or sells; the kernel never waits on it</small></form>
-    <details className="cai-record" data-testid="cai-record"><summary><b>📊 MODEL RECORD</b><small>{st.n ? `${st.pct}% agree with the kernel · ` : ''}{ai?.learn ? ai.learn.state : 'learning'} · rule lab · report</small></summary>
+    <details className="cai-record" data-testid="cai-record"><summary><b><Ic3 e="📊" /> MODEL RECORD</b><small>{st.n ? `${st.pct}% agree with the kernel · ` : ''}{ai?.learn ? ai.learn.state : 'learning'} · rule lab · report</small></summary>
     {ai?.metrics ? <div className="cai-metrics" data-testid="cai-metrics">{aiMetricsLine(ai.metrics).map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</div> : null}
     {st.n ? <div className="cai-agreebar" data-tip="How often the model's stance matched what the kernel itself decided (the kernel never reads the model)"><small>MODEL vs KERNEL</small>
       <span className="cai-meter"><i style={{ transform: `scaleX(${(st.pct || 0) / 100})` }} /></span><b>{st.pct}% agree</b><small>{st.agree} of {st.n}</small></div> : null}

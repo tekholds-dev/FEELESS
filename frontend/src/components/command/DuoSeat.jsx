@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
 import { hubApply } from '../../lib/agentHub';
 import { avatarOf } from '../../lib/aiAvatars';
+import { Ic3 } from '../../lib/icon3d';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
@@ -185,8 +186,8 @@ function Bubble({ r, onVote, busy }) {
     <span className="dsb-msg">{avatarOf(r.model) && !r.mine ? <img className="dsb-av" src={avatarOf(r.model)} alt="" loading="lazy" /> : null}<em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
       {r.pct != null ? <i className={r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct >= 0 ? '+' : ''}{Number(r.pct).toFixed(1)}%</i> : null}<span>{String(r.why || '').replace(/^to (G4|OSSY): (HOLD|SELL) — /, '')}</span></span>
     <span className="dsb-meta"><small>{ago(r.at)}</small>
-      {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}>👍{v.up || ''}</button>
-        <button type="button" className={`dsb-v is-dn ${v.mine < 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine < 0 ? 0 : -1)} aria-label="Dislike this call" data-testid={`dsb-dn-${r.key}`}>👎{v.down || ''}</button></> : null}
+      {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}><Ic3 e="👍" />{v.up || ''}</button>
+        <button type="button" className={`dsb-v is-dn ${v.mine < 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine < 0 ? 0 : -1)} aria-label="Dislike this call" data-testid={`dsb-dn-${r.key}`}><Ic3 e="👎" />{v.down || ''}</button></> : null}
         {Object.entries(v.by || {}).map(([k, x]) => <i key={k} className="dsb-by" data-tip={`${who(k)} ${x > 0 ? 'liked' : 'disliked'} it`}>{who(k)}{x > 0 ? '👍' : '👎'}</i>)}
         {verdictDots(v.res).map(d => <i key={d.w} className={`dsb-ck ${d.ok == null ? '' : d.ok > 0 ? 'is-ok' : d.ok < 0 ? 'is-bad' : 'is-draw'}`} data-tip={d.ok == null ? `${d.w}: the market hasn't decided yet` : `${d.w}: the coin moved ${d.move > 0 ? '+' : ''}${d.move}% → the call was ${d.ok > 0 ? 'RIGHT' : d.ok < 0 ? 'WRONG' : 'a draw'}${d.mine === true ? ' · your vote was RIGHT' : d.mine === false ? ' · your vote was WRONG' : ''}`}>{dotWord(d)}</i>)}</> : null}</span>
   </li>;
@@ -206,8 +207,8 @@ function TradeRoom({ duo, call }) {
     {rooms.length || coins.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past && !coin} className={!past && !coin ? 'active' : ''} onClick={() => pick(null, null)}>🟢 live ${duo.holding.symbol}</button> : null}
       {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={!coin && past?.mint === r.mint} className={`${!coin && past?.mint === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => pick(r.mint, null)} data-testid={`duo-room-${r.symbol}`}>
         {r.model} ${r.symbol}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : r.closed ? '' : ' …'}</button>)}
-      {coins.map(c => <button key={`c-${c.mint}`} type="button" role="tab" aria-selected={coin?.mint === c.mint} className={`is-coin ${coin?.mint === c.mint ? 'active' : ''}`} onClick={() => pick(null, c.mint)} data-testid={`duo-coin-${c.symbol}`}>💬 ${c.symbol} <small>{c.who === 'you' ? '👤' : '🤖'} {c.rows.length}</small></button>)}</p> : null}
-    {!h ? null : <><p className="dso-roomhd"><b>💬 {coin ? `$${coin.symbol} · ${coin.who === 'you' ? 'your coin' : "the agents' coin"} · G4 & OSSY talk it here` : between ? `between trades · ${duo.next || '—'} hunts next` : <>${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</>}</b>
+      {coins.map(c => <button key={`c-${c.mint}`} type="button" role="tab" aria-selected={coin?.mint === c.mint} className={`is-coin ${coin?.mint === c.mint ? 'active' : ''}`} onClick={() => pick(null, c.mint)} data-testid={`duo-coin-${c.symbol}`}><Ic3 e="💬" /> ${c.symbol} <small>{c.who === 'you' ? '👤' : '🤖'} {c.rows.length}</small></button>)}</p> : null}
+    {!h ? null : <><p className="dso-roomhd"><b><Ic3 e="💬" /> {coin ? `$${coin.symbol} · ${coin.who === 'you' ? 'your coin' : "the agents' coin"} · G4 & OSSY talk it here` : between ? `between trades · ${duo.next || '—'} hunts next` : <>${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</>}</b>
     {past || between || coin ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
@@ -230,7 +231,7 @@ function TurnGuard({ duo, call }) {
 function DuoSeatBody({ duo, call }) {
   const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => { if (!duo?.busy) return undefined; const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, [duo?.busy]);
-  if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
+  if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in <Ic3 e="🎛" /> Limits › <Ic3 e="🧠" /> G4 SEAT</small></div>;
   const log = duo.log || [];
   const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
   const last = log[0];
@@ -249,12 +250,12 @@ function DuoSeatBody({ duo, call }) {
         <div className="dso-core" data-testid="duo-open">
           {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
           <div className={`dso-hex${sold ? ` is-sold is-${(sold.pct || 0) >= 0 ? 'up' : 'dn'}` : ''}`}><i className="dso-ring" aria-hidden="true" />
-            <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : sold ? 'CLOSED · REVIEW' : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : sold ? <span className="dso-coin">${sold.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'OPEN'}</b>
+            <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : sold ? 'CLOSED · REVIEW' : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin"><Ic3 e="🪙" /> {duo.holding.symbol}</span> : sold ? <span className="dso-coin">${sold.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'OPEN'}</b>
             {duo.holding ? <SeatPnl h={duo.holding} /> : sold ? <strong className="dso-sold" key={sold.pct}>{sold.pct != null ? sgn(sold.pct) : '—'}</strong> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
           </div>
           <SeatDeck duo={duo} />
           {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
-            🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
+            <Ic3 e="🧾" /> {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
         </div>
         <TradeRoom duo={duo} call={call} />
       </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { sgn, ago, clock } from './OfficeBoard';
 import '../../styles/officeEdge.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // ⚡ THE OFFICE'S EDGE PASS on screen (HQ › Agents): restart readiness · the empty seats · the switch test · YOUR limits on the agents ·
 // the review queue · the winners we missed · launch context. Every number is a field of the ONE office payload (`backend/office_edge.py`,
@@ -87,7 +88,7 @@ export function CreatorLimits({ policy, mission, cfg, positions, isOwner = true,
     <small className="oed-now">in force: {pol.seats ?? '—'} seat{pol.seats === 1 ? '' : 's'} (never more than the card's coins)</small></li>;
   const pp = positionPolicy(o || { policy: pol, positions });
   return <div className="oed-box oed-limits" data-testid="oed-limits">
-    <header><b>🎛 YOUR LIMITS ON THE AGENTS · real Fuse card</b><span className="m-seg oed-auth" role="group" aria-label="Who decides">
+    <header><b><Ic3 e="🎛" /> YOUR LIMITS ON THE AGENTS · real Fuse card</b><span className="m-seg oed-auth" role="group" aria-label="Who decides">
       <button type="button" disabled={busy || !isOwner} className={!pol.manual ? 'active' : ''} onClick={() => set('agentAuthority', 'agents')} data-testid="oed-auth-agents">🤖 Agents decide inside my limits</button>
       <button type="button" disabled={busy || !isOwner} className={pol.manual ? 'active is-manual' : ''} onClick={() => set('agentAuthority', 'manual')} data-testid="oed-auth-manual">✋ Creator manual</button></span></header>
     <p className="oed-why">{pol.manual ? 'MANUAL: the agents make no discretionary move — no fill, no switch, no bank on a read. Only the hard safety exits and the limits YOU set below act.' : 'Blue = 🤖 the agents decide it from their own record and the chart. Gold = ✋ your number — a boundary they stay inside, never a target.'}</p>
@@ -134,7 +135,7 @@ export function ReviewQueue({ review, isOwner = true, save, onCoin }) {
   const rv = review || {}; const order = rv.order || []; const [cat, setCat] = useState(() => order.find(k => (rv.open || {})[k]) || order[0] || 'missed');
   const items = (rv.items || {})[cat] || [];
   return <div className="oed-box oed-review" data-testid="oed-review">
-    <header><b>📝 REVIEW QUEUE</b>{tag('is-ok', 'NON-BLOCKING', 'The agents keep working while items wait — nothing reads your marks back.')}<em>{Object.values(rv.open || {}).reduce((a, b) => a + b, 0)} waiting · {Object.values(rv.counts || {}).reduce((a, b) => a + b, 0)} on file</em></header>
+    <header><b><Ic3 e="📝" /> REVIEW QUEUE</b>{tag('is-ok', 'NON-BLOCKING', 'The agents keep working while items wait — nothing reads your marks back.')}<em>{Object.values(rv.open || {}).reduce((a, b) => a + b, 0)} waiting · {Object.values(rv.counts || {}).reduce((a, b) => a + b, 0)} on file</em></header>
     <p className="oed-why">{rv.note || 'Review is asynchronous.'}</p>
     <div className="m-seg oed-cats" role="tablist" aria-label="Review category">{order.map(k => <button key={k} type="button" role="tab" aria-selected={cat === k} className={cat === k ? 'active' : ''} onClick={() => setCat(k)} data-testid={`oed-cat-${k}`}>{(rv.labels || {})[k] || k}<small>{(rv.open || {})[k] ?? 0}</small></button>)}</div>
     {items.length ? <ul className="oed-items">{items.map(it => <ReviewItem key={it.key} it={it} cat={cat} isOwner={isOwner} save={save} onCoin={onCoin} />)}</ul> : <span className="oed-nil" data-testid="oed-review-empty">nothing in this category on the records of the last 6h</span>}
@@ -146,7 +147,7 @@ const Bars = ({ rows, total, label }) => <div className="oed-sub-box"><small>{la
 export function MissedWinners({ review, onCoin }) {
   const ms = review?.missedSummary || {}; const items = review?.items?.missed || []; const cf = ms.counter || {};
   return <div className="oed-box oed-missed" data-testid="oed-missed">
-    <header><b>🔎 WINNERS WE MISSED · last {ms.hours ?? 6}h · peaked ≥ +{ms.winnerPct ?? 50}%</b>{tag('', 'PAPER ONLY', 'A study of what happened — it never trades and never loosens a rule.')}</header>
+    <header><b><Ic3 e="🔎" /> WINNERS WE MISSED · last {ms.hours ?? 6}h · peaked ≥ +{ms.winnerPct ?? 50}%</b>{tag('', 'PAPER ONLY', 'A study of what happened — it never trades and never loosens a rule.')}</header>
     <div className="oed-tiles is-big">
       <span><small>missed</small><b>{ms.n ?? 0}</b><u>{ms.seen ?? 0} seen · {ms.never ?? 0} never found</u></span>
       <span><small>typical peak</small><b className="oed-up">{ms.medPeak != null ? sgn(ms.medPeak, 0) : '—'}</b><u>of the coins we missed</u></span>
@@ -167,7 +168,7 @@ export function MissedWinners({ review, onCoin }) {
 export function LaunchRecord({ launch }) {
   const rec = Object.entries(launch?.record || {}).sort((a, b) => b[1].n - a[1].n); const max = Math.max(5, ...rec.map(([, v]) => Math.abs(v.med5 || 0)));
   return <div className="oed-box oed-launch" data-testid="oed-launch">
-    <header><b>🚀 LAUNCH CONTEXT · each one on its own record</b><em>{Object.values(launch?.pads || {}).join(' · ') || '—'} identified · everything else UNKNOWN</em></header>
+    <header><b><Ic3 e="🚀" /> LAUNCH CONTEXT · each one on its own record</b><em>{Object.values(launch?.pads || {}).join(' · ') || '—'} identified · everything else UNKNOWN</em></header>
     {rec.length ? <table className="oed-cf is-wide"><thead><tr><th>pad · type</th><th>calls</th><th>5m typical</th><th /><th>15m</th><th>up</th><th>ENTER</th></tr></thead>
       <tbody>{rec.map(([k, v]) => <tr key={k} className={v.known ? '' : 'is-thin'}><td>{k.replace(':', ' · ')}</td><td>{v.n}</td><td className={pctCls(v.med5)}>{sgn(v.med5)}</td>
         <td><span className="oed-bar is-mid"><i className={v.med5 < 0 ? 'is-short' : ''} style={{ transform: `scaleX(${Math.min(1, Math.abs(v.med5 || 0) / max)})` }} /></span></td>

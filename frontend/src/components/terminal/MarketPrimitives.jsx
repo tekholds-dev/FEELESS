@@ -1,6 +1,7 @@
 import { AnimatedNumber } from './AnimatedNumber';
 import React, { useEffect, useState } from 'react';
-import { AlertTriangle, Coins, RefreshCw, UserRound } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Coins, UserRound } from '../../lib/lucide3d';
 import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
 import { useVerified } from '../../lib/verifyBatch';
 import { useReputation, cachedReputation } from '../../lib/reputation';

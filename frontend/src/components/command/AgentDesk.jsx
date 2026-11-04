@@ -13,6 +13,7 @@ import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
 import { AiChipBtn } from './AiProviders';
 import { GenPods, RugWall, CreedFold } from './LifeLens';
+import { Ic3 } from '../../lib/icon3d';
 export { rowState, rowWhy, pipsOf, rankFill };
 
 // 🤖 HQ › AGENTS (owner, 2026-10-09: "code your own agents to learn trading and trenching — one tracks the numbers, one knows why they
@@ -43,10 +44,10 @@ export const FEED = [['all', 'All'], ['tally', '📊'], ['sherlock', '🔍'], ['
 // bot swarms it caught (copy-paste callouts), and how many human calls it read.
 export function MindBox({ m }) {
   if (!m) return null;
-  return <div className="agd-box agd-mind" data-testid="agd-mind"><b>🧠 TRENCH MIND · what they learned from humans</b>
+  return <div className="agd-box agd-mind" data-testid="agd-mind"><b><Ic3 e="🧠" /> TRENCH MIND · what they learned from humans</b>
     <p className="m-dim">Read {m.callsRead || 0} Pump callouts · dictionary {m.dictionary || 0} words · {m.swarms || 0} bot swarm{m.swarms === 1 ? '' : 's'} caught on the live list</p>
     <span className="agd-tags">{(m.hot || []).map(h => <i key={h.key} data-tip={`${h.n} coins · $${Math.round((h.vol1h || 0) / 1000)}K traded this hour`}>{h.label} · {h.n}</i>)}{!(m.hot || []).length && <small className="m-dim">no narrative leads the board right now</small>}</span>
-    <span className="agd-tags is-lingo">{(m.learned || []).length ? m.learned.map(w => <i key={w.word} data-tip={`learned from callers' own words · seen ${w.n}×`}>📖 {w.word}</i>) : <small className="m-dim">no new slang yet — a word must show up on 2+ days, 6+ times, from humans (bot copies count once)</small>}</span></div>;
+    <span className="agd-tags is-lingo">{(m.learned || []).length ? m.learned.map(w => <i key={w.word} data-tip={`learned from callers' own words · seen ${w.n}×`}><Ic3 e="📖" /> {w.word}</i>) : <small className="m-dim">no new slang yet — a word must show up on 2+ days, 6+ times, from humans (bot copies count once)</small>}</span></div>;
 }
 const big = v => (v == null ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${Math.round(v)}`);
 const age = h => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${Math.round(h)}h` : `${Math.round(h / 24)}d`);
@@ -88,13 +89,13 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
   const c = cfg || {}; const o = c.options || { take: [5, 10, 20, 30, 50], mode: ['auto', 'pull', 'swap'], seats: [1, 2, 3, 4] };
   const MODE = { auto: '🤖 they choose', pull: '💰 pull to cash', swap: '⇄ swap runner' };
   const seg = (k, vals, lab) => <div className="m-seg" role="group">{vals.map(v => <button key={String(v)} type="button" disabled={busy || !isOwner} className={String(c[k]) === String(v) ? 'active' : ''} onClick={() => save({ cfg: { [k]: v } })} data-testid={`agc-${k}-${v}`}>{lab(v)}</button>)}</div>;
-  return <div className="agd-box agd-ctl" data-testid="agd-controls"><b>⚙ AGENT CONTROL · YOUR FUSE CARD</b>
+  return <div className="agd-box agd-ctl" data-testid="agd-controls"><b><Ic3 e="⚙" /> AGENT CONTROL · YOUR FUSE CARD</b>
     <div className="agd-ctl-row"><span data-tip="They fill every empty seat with their GO coins, switch a coin whose read broke (after 15 min) and bank at their take line. The engine's own swaps are off while this is on. Only coins 1h+ old in a $20K+ pool that passed the holder scan; at most 4 real buys an hour. ▶ Release on the card turns it off.">🎮 Agents control EVERY seat (real money)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentControl ? 'active' : ''} onClick={() => save({ cfg: { agentControl: true } })} data-testid="agc-control-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentControl ? 'active' : ''} onClick={() => save({ cfg: { agentControl: false } })} data-testid="agc-control-off">off</button></div></div>
     <div className="agd-ctl-row"><span>Their GO coins on my card</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentFeed ? 'active' : ''} onClick={() => save({ feed: true })} data-testid="agd-feed-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentFeed ? 'active' : ''} onClick={() => save({ feed: false })} data-testid="agd-feed-off">Paper only</button></div></div>
     <div className="agd-ctl-row"><span>🎓 Agents' own seat (1 coin, real money — they suggest for the rest)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: true } })} data-testid="agc-learn-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentLearn ? 'active' : ''} onClick={() => save({ cfg: { agentLearn: false } })} data-testid="agc-learn-off">off</button></div></div>
     {c.agentLearn && <div className="agd-ctl-row"><span>🤝 Trust them with a 2nd seat once your taken suggestions prove out (10+ closed, typical &gt; 0)</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentTrust ? 'active' : ''} onClick={() => save({ cfg: { agentTrust: true } })} data-testid="agc-trust-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentTrust ? 'active' : ''} onClick={() => save({ cfg: { agentTrust: false } })} data-testid="agc-trust-off">off</button></div></div>}
     <div className="agd-ctl-row"><span data-tip="Fresh Pump launches sit on their launch curve until they graduate (~$69K cap). With this OFF the keeper never buys a curve coin for an agent seat — so every newborn Pump coin was out of reach. ON: an agent seat may buy one, judged on the curve's own depth (the trench pool floor, price gap, sell-back and impact checks all still run). Curve coins under 15 min lost ~78% an hour on the edge audit — small seats.">🎢 Agents may buy fresh Pump coins still on their launch curve</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentCurve ? 'active' : ''} onClick={() => save({ cfg: { agentCurve: true } })} data-testid="agc-curve-on">ON</button><button type="button" disabled={busy || !isOwner} className={!c.agentCurve ? 'active' : ''} onClick={() => save({ cfg: { agentCurve: false } })} data-testid="agc-curve-off">off</button></div></div>
-    <div className="agd-ctl-row"><span data-tip="Once they have a scalp plan from their own paths, their seat banks at its take line (swap into the next GO, else cash) instead of your hold-until line. No stop is added.">⚡ Scalp their seat at the learned take line</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentScalp !== false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: true } })} data-testid="agc-scalp-on">ON</button><button type="button" disabled={busy || !isOwner} className={c.agentScalp === false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: false } })} data-testid="agc-scalp-off">off</button></div></div>
+    <div className="agd-ctl-row"><span data-tip="Once they have a scalp plan from their own paths, their seat banks at its take line (swap into the next GO, else cash) instead of your hold-until line. No stop is added."><Ic3 e="⚡" /> Scalp their seat at the learned take line</span><div className="m-seg"><button type="button" disabled={busy || !isOwner} className={c.agentScalp !== false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: true } })} data-testid="agc-scalp-on">ON</button><button type="button" disabled={busy || !isOwner} className={c.agentScalp === false ? 'active' : ''} onClick={() => save({ cfg: { agentScalp: false } })} data-testid="agc-scalp-off">off</button></div></div>
     {c.agentLearn && <div className="agd-ctl-row"><span>Their seat size</span>{seg('agentLearnPct', [100, 15, 10, 5], v => v >= 100 ? 'whole seat' : `${v}% ticket`)}</div>}
     <div className="agd-ctl-row"><span>Hold until profit</span>{seg('agentTakePct', o.take, v => `+${v}%`)}</div>
     <div className="agd-ctl-row"><span>Then</span>{seg('agentMode', o.mode, v => MODE[v] || v)}</div>
@@ -105,7 +106,7 @@ export function AgentControls({ cfg, decisions, proven, isOwner, busy, save }) {
 // 💡 tactics the desk found in its own record, sent up for the creator's review
 export function IdeaBox({ ideas, isOwner, busy, save, need = 15 }) {
   const fresh = (ideas || []).filter(i => i.status === 'new'); const past = (ideas || []).filter(i => i.status !== 'new').slice(0, 6);
-  return <div className="agd-box agd-ideas" data-testid="agd-ideas"><b>💡 IDEAS FOR YOUR REVIEW · {fresh.length} new</b>
+  return <div className="agd-box agd-ideas" data-testid="agd-ideas"><b><Ic3 e="💡" /> IDEAS FOR YOUR REVIEW · {fresh.length} new</b>
     {fresh.length ? <ul>{fresh.map(i => <li key={i.id} className={`is-${i.kind}`}><span>{i.kind === 'take' ? '🎯 TAKE' : '🚫 AVOID'} · {i.text}</span>
       <span className="agd-idea-do"><button type="button" className="m-btn m-go" disabled={busy || !isOwner || (i.n || 0) < need} onClick={() => save({ idea: { id: i.id, action: 'approve' } })} data-testid={`idea-ok-${i.id}`}>{(i.n || 0) < need ? `👀 ${i.n}/${need} calls` : 'Approve'}</button>
         <button type="button" className="m-btn" disabled={busy || !isOwner} onClick={() => save({ idea: { id: i.id, action: 'reject' } })} data-testid={`idea-no-${i.id}`}>Reject</button></span></li>)}</ul>
@@ -123,9 +124,9 @@ export const floorOf = d => { const t = d?.table || []; const freq = {};
 export function WorkFloor({ d, onPick }) { const go = s => () => onPick && onPick(s);
   const f = floorOf(d); const p = d?.perf || {}; const ms = k => (p[k] != null ? `${p[k]} ms` : '—');
   return <div className="agd-floor" data-testid="agd-floor" key={p.at || 0}>
-    <div className="agd-lane is-tally"><span className="agd-lane-h">📊 Tally <small>{f.dots.length} coins · {ms('tally')}</small></span><span className="agd-lane-b">{f.dots.map((x, i) => <i key={x.k} className={`agd-dot ${x.up ? 'is-up' : 'is-dn'}`} style={{ '--i': i }} data-tip={`$${x.sym}`} />)}</span></div>
-    <div className="agd-lane is-sherlock"><span className="agd-lane-h">🔍 Sherlock <small>{ms('sherlock')}</small></span><span className="agd-lane-b">{f.tags.map(([w, n], i) => <i key={w} className="agd-tag" style={{ '--i': i }}>{w} ×{n}</i>)}{!f.tags.length && <small className="m-dim">no reasons this pass</small>}</span></div>
-    <div className="agd-lane is-trigger"><span className="agd-lane-h">⏱ Trigger <small>{f.enters.length} ENTER · {ms('trigger')}</small></span><span className="agd-lane-b">{f.enters.map((x, i) => <button type="button" key={x.mint} className="agd-aim" style={{ '--i': i }} onClick={go(x.symbol)}>⌖ ${x.symbol}</button>)}{!f.enters.length && <small className="m-dim">nothing clean enough this pass</small>}</span></div>
+    <div className="agd-lane is-tally"><span className="agd-lane-h"><Ic3 e="📊" /> Tally <small>{f.dots.length} coins · {ms('tally')}</small></span><span className="agd-lane-b">{f.dots.map((x, i) => <i key={x.k} className={`agd-dot ${x.up ? 'is-up' : 'is-dn'}`} style={{ '--i': i }} data-tip={`$${x.sym}`} />)}</span></div>
+    <div className="agd-lane is-sherlock"><span className="agd-lane-h"><Ic3 e="🔍" /> Sherlock <small>{ms('sherlock')}</small></span><span className="agd-lane-b">{f.tags.map(([w, n], i) => <i key={w} className="agd-tag" style={{ '--i': i }}>{w} ×{n}</i>)}{!f.tags.length && <small className="m-dim">no reasons this pass</small>}</span></div>
+    <div className="agd-lane is-trigger"><span className="agd-lane-h"><Ic3 e="⏱" /> Trigger <small>{f.enters.length} ENTER · {ms('trigger')}</small></span><span className="agd-lane-b">{f.enters.map((x, i) => <button type="button" key={x.mint} className="agd-aim" style={{ '--i': i }} onClick={go(x.symbol)}>⌖ ${x.symbol}</button>)}{!f.enters.length && <small className="m-dim">nothing clean enough this pass</small>}</span></div>
     <div className="agd-lane is-devil"><span className="agd-lane-h">⚖ Devil <small>{ms('devil')}</small></span><span className="agd-lane-b">{f.verdicts.map((x, i) => <button type="button" key={x.sym} className={`agd-strike ${x.verdict === 'veto' ? 'is-no' : 'is-ok'}`} style={{ '--i': i }} onClick={go(x.sym)}>{x.verdict === 'veto' ? '✕' : x.verdict === 'warn' ? '⚠' : x.go ? '🟢' : '✓'} ${x.sym}</button>)}{!f.verdicts.length && <small className="m-dim">nothing to argue</small>}</span></div>
   </div>;
 }
@@ -133,9 +134,9 @@ export function WorkFloor({ d, onPick }) { const go = s => () => onPick && onPic
 export const DivBar = ({ v, max = 10 }) => <span className="agd-div" aria-hidden><i className={Number(v) >= 0 ? 'is-up' : 'is-dn'} style={{ transform: `scaleX(${Math.min(1, Math.abs(Number(v) || 0) / max)})` }} /></span>;
 export function Edge({ d }) {
   const cal = d?.calibration || {}; const rg = d?.perf?.regime;
-  return <div className="agd-box agd-edge" data-testid="agd-edge"><b>🎯 CALIBRATION · does a stronger read win more?</b>
+  return <div className="agd-box agd-edge" data-testid="agd-edge"><b><Ic3 e="🎯" /> CALIBRATION · does a stronger read win more?</b>
     {Object.keys(cal).length ? <ul className="agd-bars">{Object.entries(cal).map(([b, v]) => <li key={b}><span>lean {b}</span><DivBar v={v.med} /><em className={tone(v.med)}>{pct(v.med)}</em><small>{v.won}% up · n {v.n}</small></li>)}</ul> : <small className="m-dim">no ENTER judged yet</small>}
-    <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · 🔥 {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
+    <small className="m-dim">🌡 trench {rg ? `${rg.word}${rg.green != null ? ` (${rg.green}% green over 5 min)` : ''} → Trigger's bar ${rg.adj > 0 ? '+' : ''}${rg.adj}` : '—'} · <Ic3 e="🔥" /> {d?.burned || 0} coin{d?.burned === 1 ? '' : 's'} burned (6h) · 🕸 {Object.keys(d?.cut || {}).length ? `budget cut: ${Object.keys(d.cut).join(', ')}` : 'no source cut yet'}</small></div>;
 }
 
 // ⏱ THE PASS CLOCK — one pass a minute: how old the last one is, a bar filling to the next, and a re-read the moment it is due.
@@ -177,7 +178,7 @@ function CoinRow({ x, sel, open, toggle }) {
     <button type="button" className="agd-trh" aria-expanded={open} onClick={toggle} data-testid={`agd-open-${x.symbol}`}>
       <span className="agd-sym">${x.symbol}</span>
       <em className={`agd-d5 ${tone(x.nums?.d5)}`} key={String(x.nums?.d5)}>{pct(x.nums?.d5)}</em>
-      <span className="agd-pips">{pipsOf(x).map(([kk, ic, s, tip]) => <i key={kk} className={`is-${s} ${sel === kk ? 'is-sel' : ''}`} data-tip={tip}>{ic}</i>)}</span>
+      <span className="agd-pips">{pipsOf(x).map(([kk, ic, s, tip]) => <i key={kk} className={`is-${s} ${sel === kk ? 'is-sel' : ''}`} data-tip={tip}><Ic3 e={ic} /></i>)}</span>
       <span className="agd-lean" data-tip={`The kernel's rank ${Math.round(rank)} · the mark is the READY line (${READY_MIN})`}><i className={rank >= READY_MIN ? 'is-up' : 'is-dn'} style={{ transform: `scaleX(${rankFill(rank)})` }} /><u /></span>
       <span className={`agd-verdict is-${st}`} data-testid={`verdict-${x.symbol}`}>{VERD[st]}</span>
       <span className="agd-whyline">{x.li?.phase && <b className={`agd-ph is-${x.li.healthy === false ? 'bad' : PH_TONE[x.li.phase] || 'flat'}`} data-testid={`ph-${x.symbol}`}>{x.li.phase}</b>}{rowWhy(x)}</span>
@@ -185,19 +186,19 @@ function CoinRow({ x, sel, open, toggle }) {
     </button>
     {open && <div className="agd-trb m-pop">
       <div className="agd-says">
-        <div className="is-tally"><small>📊 Tally · the numbers</small><span className="agd-nums"><em className={tone(x.nums?.d5)}>{pct(x.nums?.d5)} 5m</em>{x.nums?.pace != null ? ` · pace ${x.nums.pace}×` : ''}{x.nums?.buy != null ? ` · ${Math.round(x.nums.buy)}% buys` : ''}</span></div>
-        <div className="is-sherlock"><small>🔍 Sherlock · evidence</small><span>{(k.unknown || []).length ? <>researching <b>{k.unknown.join(', ')}</b> — unknown is not a rejection</> : k.status ? 'holders · early wallets · site / X known' : 'not judged this pass'}</span></div>
-        <div className="is-trigger"><small>⏱ Trigger · when</small><span><b className={`agd-call ${k.trigger === 'ENTER' ? 'is-go' : k.trigger === 'NO' ? 'is-no' : 'is-wait'}`}>{k.trigger || '—'}</b> {k.narrative || ''}{k.why ? ` — ${k.why}` : ''}</span></div>
+        <div className="is-tally"><small><Ic3 e="📊" /> Tally · the numbers</small><span className="agd-nums"><em className={tone(x.nums?.d5)}>{pct(x.nums?.d5)} 5m</em>{x.nums?.pace != null ? ` · pace ${x.nums.pace}×` : ''}{x.nums?.buy != null ? ` · ${Math.round(x.nums.buy)}% buys` : ''}</span></div>
+        <div className="is-sherlock"><small><Ic3 e="🔍" /> Sherlock · evidence</small><span>{(k.unknown || []).length ? <>researching <b>{k.unknown.join(', ')}</b> — unknown is not a rejection</> : k.status ? 'holders · early wallets · site / X known' : 'not judged this pass'}</span></div>
+        <div className="is-trigger"><small><Ic3 e="⏱" /> Trigger · when</small><span><b className={`agd-call ${k.trigger === 'ENTER' ? 'is-go' : k.trigger === 'NO' ? 'is-no' : 'is-wait'}`}>{k.trigger || '—'}</b> {k.narrative || ''}{k.why ? ` — ${k.why}` : ''}</span></div>
         <div className="is-devil"><small>⚖ Devil · challenges</small><span data-testid={`devil-${x.symbol}`}><b className={`agd-call ${dv.verdict === 'veto' ? 'is-no' : dv.verdict === 'warn' ? 'is-wait' : 'is-go'}`}>{dv.word}</b> {dv.objections.slice(0, 3).map(o => o.evidence).join(' · ')}{k.size != null && k.size < 1 ? ` · Warden would size ×${k.size}` : ''}</span></div>
       </div>
-      {pr && <p className="agd-brief" data-testid={`practice-${x.symbol}`}><i>📝 practice desk (paper, graded — no live authority)</i>{pr.call}{pr.why ? ` — ${pr.why}` : ''}{pr.devil ? ` · ${pr.devil}${pr.devilWhy ? `: ${pr.devilWhy}` : ''}` : ''} · lean {pr.lean.toFixed(1)}{pr.drivers.length ? ` (${pr.drivers.slice(0, 3).map(dd => dd[2]).join(', ')})` : ''}</p>}
+      {pr && <p className="agd-brief" data-testid={`practice-${x.symbol}`}><i><Ic3 e="📝" /> practice desk (paper, graded — no live authority)</i>{pr.call}{pr.why ? ` — ${pr.why}` : ''}{pr.devil ? ` · ${pr.devil}${pr.devilWhy ? `: ${pr.devilWhy}` : ''}` : ''} · lean {pr.lean.toFixed(1)}{pr.drivers.length ? ` (${pr.drivers.slice(0, 3).map(dd => dd[2]).join(', ')})` : ''}</p>}
       {x.vitals && <span className="agd-vit" data-testid={`vit-${x.symbol}`}>{vitalCells(x.vitals).map(([k, val, bad]) => <i key={k} className={bad ? 'is-bad' : ''}><small>{k}</small>{val}</i>)}</span>}
       {x.li && <div className="agd-li" data-testid={`li-${x.symbol}`}><small>🕵 LAUNCH INTEL · public on-chain behaviour, never a claim about a person</small>
         <span>{liCells(x.li).map(([k, val, t, tip]) => <i key={k} className={t ? `is-${t}` : ''} data-tip={tip}><small>{k}</small>{val}</i>)}</span></div>}
-      {x.opinion && <p className="agd-op" data-testid={`op-${x.symbol}`}>📝 practice opinion · {x.opinion}{(x.strats || []).map(t => <i key={t}>🎯 {t}</i>)}</p>}
+      {x.opinion && <p className="agd-op" data-testid={`op-${x.symbol}`}><Ic3 e="📝" /> practice opinion · {x.opinion}{(x.strats || []).map(t => <i key={t}><Ic3 e="🎯" /> {t}</i>)}</p>}
       {x.analysis?.text && <p className="agd-brief">{x.mind?.narr && <i>{x.mind.narr}{x.mind.hot ? ' 🔥' : ''}</i>}{x.mind?.swarm && <i className="is-bad">🤖 swarm</i>}{x.mind?.bots >= 40 && <i className="is-bad">🤖 botted</i>}{x.mind?.tug && <i>🪝 tuggers</i>}{x.analysis.text}</p>}
-      <div className="agd-acts"><button type="button" className="m-btn m-go" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid={`agd-coin-${x.symbol}`}>🪙 Open coin</button>
-        {x.pair && <button type="button" className="m-btn" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.mint, symbol: x.symbol } })} data-testid={`agd-chart-${x.symbol}`}>📈 Chart</button>}
+      <div className="agd-acts"><button type="button" className="m-btn m-go" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid={`agd-coin-${x.symbol}`}><Ic3 e="🪙" /> Open coin</button>
+        {x.pair && <button type="button" className="m-btn" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.mint, symbol: x.symbol } })} data-testid={`agd-chart-${x.symbol}`}><Ic3 e="📈" /> Chart</button>}
         <button type="button" className="m-btn" onClick={() => copyCa(x.mint)}>⧉ Copy CA</button></div>
     </div>}
   </div>;
@@ -229,7 +230,7 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
         <div className="agd-tools"><div className="m-seg" role="group" aria-label="Filter the board">{BOARD.map(([k, l]) => <button key={k} type="button" className={f === k ? 'active' : ''} onClick={() => setF(k)} data-testid={`board-${k}`}>{l} <small>{counts[k]}</small></button>)}</div>
           <input className="m-input agd-q" value={q} onChange={e => setQ(e.target.value)} placeholder="🔎 $ticker" aria-label="Find a coin on the board" data-testid="board-q" />
           <select className="m-input agd-sort" value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort the board" data-testid="board-sort">{SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-        <div className="agd-th" aria-hidden><span>coin</span><span>5 min</span><span>📊 🔍 ⏱ ⚖</span><span>rank</span><span>kernel</span><span>what decided it</span><span /></div>
+        <div className="agd-th" aria-hidden><span>coin</span><span>5 min</span><span><Ic3 e="📊" /> <Ic3 e="🔍" /> <Ic3 e="⏱" /> ⚖</span><span>rank</span><span>kernel</span><span>what decided it</span><span /></div>
         {rows.map(x => <div key={x.mint} data-mint={x.mint}><CoinRow x={x} sel={sel} open={open === x.mint} toggle={() => setOpen(open === x.mint ? null : x.mint)} /></div>)}
         {!rows.length && <small className="m-dim agd-none">{(d.table || []).length ? <>No coin matches — <button type="button" className="agd-link" onClick={() => { setF('all'); setQ(''); }} data-testid="board-reset">show all {(d.table || []).length}</button></> : 'The first pass runs within a minute of the backend starting.'}</small>}
       </div>
@@ -258,9 +259,9 @@ export function AgentDesk({ call, isOwner = true }) {
     {show('missed') && <div className="agd-grid" data-testid="lens-missed-pane"><div className="agd-wide"><MissedWinners review={d.office?.review} onCoin={it => it.mint && openCoin({ mint: it.mint, symbol: it.sym })} /></div><div className="agd-wide"><LaunchRecord launch={d.office?.launch} /></div></div>}
     {show('board') && <OfficeBoard o={d.office} />}
     {show('learn') && <div className="agd-grid" data-testid="lens-learn-pane">
-      <div className="agd-wide"><small className="m-dim" data-testid="practice-note">📝 THE PRACTICE DESK — graded paper calls on the same sensed coins (5 / 15 / 60 min). Evidence only: no fill, switch, exit, size or generation reads it.</small>
+      <div className="agd-wide"><small className="m-dim" data-testid="practice-note"><Ic3 e="📝" /> THE PRACTICE DESK — graded paper calls on the same sensed coins (5 / 15 / 60 min). Evidence only: no fill, switch, exit, size or generation reads it.</small>
         <CourtBand judge={d.judge} proof={d.proof} desk={d.desk} onCourt={() => setZoom('judge')} /></div>
-      <div className="agd-box" data-testid="agd-drivers"><b>🔍 WHAT SHERLOCK LEARNED · each reason's own 5-min record</b>{(d.drivers || []).length ? <ul className="agd-bars">{d.drivers.slice(0, 9).map(x => <li key={x.key}><span>{x.words}</span><DivBar v={x.med} /><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
+      <div className="agd-box" data-testid="agd-drivers"><b><Ic3 e="🔍" /> WHAT SHERLOCK LEARNED · each reason's own 5-min record</b>{(d.drivers || []).length ? <ul className="agd-bars">{d.drivers.slice(0, 9).map(x => <li key={x.key}><span>{x.words}</span><DivBar v={x.med} /><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
       <Edge d={d} /><MindBox m={d.mind} />
       <div className="agd-wide"><IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} /></div></div>}
     {show('life') && <div className="agd-grid" data-testid="lens-life-pane">
@@ -268,7 +269,7 @@ export function AgentDesk({ call, isOwner = true }) {
       <div className="agd-wide"><RugWall list={d.autopsies} signs={d.rugSigns} /></div><div className="agd-wide"><CreedFold creed={d.creed} /></div></div>}
     {show('ctl') && <div className="agd-grid is-ctl" data-testid="lens-ctl-pane">
       <div className="agd-wide"><RoadMeter road={d.road} /></div>
-      {d.desk && <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
+      {d.desk && <div className="agd-box" data-testid="agd-desk"><b><Ic3 e="📜" /> TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
         <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>}
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}

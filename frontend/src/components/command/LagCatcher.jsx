@@ -5,6 +5,7 @@ import { liteMode, setLite } from '../../lib/perfWatch';
 import { CodeHealth } from './CodeHealth';
 import '../../styles/lagAdvice.css';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const PERF = shaped({ reports: 0, fixes: [], pages: [], routes: [] });
 
 const AREA = { machine: '🖥', server: '⏳', storage: '💾', api: '🌐', page: '🎞' };
@@ -17,7 +18,7 @@ export function LagAdvice({ a }) {
   if (!a) return null;
   if (!a.length) return <p className="lga-ok" data-testid="lag-advice">🟢 Nothing to fix — the loop, the machine and the browsers all read healthy.</p>;
   return <ol className="lga" data-testid="lag-advice">{a.map((x, i) => <li key={i} className={`t-${x.level}`} style={{ '--i': i }}>
-    <i className="lga-ic">{AREA[x.area] || '•'}</i><div><b>{x.what}</b><small>{x.why}</small><p>🛠 {x.fix}</p></div></li>)}</ol>;
+    <i className="lga-ic">{AREA[x.area] || '•'}</i><div><b>{x.what}</b><small>{x.why}</small><p><Ic3 e="🛠" /> {x.fix}</p></div></li>)}</ol>;
 }
 
 // HQ › Lag catcher: what real visitors feel (slow routes, janky pages, fps) + the fix for each.

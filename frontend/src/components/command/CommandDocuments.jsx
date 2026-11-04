@@ -5,7 +5,8 @@ import { liteMode, isAutoLite, setLite } from '../../lib/perfWatch';
 import { ecoDevice, fullFx, setFullFx } from '../../lib/eco';
 import '../../styles/settings.css';
 import { Link } from 'react-router-dom';
-import { Download, FileText, ArrowUpRight, Activity, Wallet, ShieldCheck } from 'lucide-react';
+import { Download, ArrowUpRight } from 'lucide-react';
+import { FileText, Activity, Wallet, ShieldCheck } from '../../lib/lucide3d';
 import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace, CONTEXTS } from '../../hooks/useWorkspace';
 import { useWallet } from '../../hooks/useWallet';
@@ -19,6 +20,7 @@ import { FeelessUniverse } from './FeelessUniverse';
 import { WhitepaperChapters } from './WhitepaperChapters';
 import { UpdatesLog } from './UpdatesLog';
 import { CHART_INTERVAL_VALUES, normalizeAutoRefresh, normalizeChartInterval, normalizeCompact, normalizeDefaultEcosystem, normalizeFontScale, normalizeReducedMotion } from '../terminal/LocalTools';
+import { Ic3 } from '../../lib/icon3d';
 
 const WhitepaperContents = () => {
   const { data, error } = useMarket('/api/docs/whitepaper', 0);
@@ -79,7 +81,7 @@ function SiteLook() {
         <i aria-hidden="true">{[0.7, 0.4, 0.9, 0.55, 0.8].map((h, j) => <s key={j} style={{ background: j % 2 ? c.down : c.up, transform: `scaleY(${h})` }} />)}</i><b>{t.name}</b></button>; })}</span>
     <small className="m-dim">Now: <b style={{ color: up }}>▲ up</b> · <b style={{ color: down }}>▼ down</b></small>
     <label className="m-toggle"><input type="checkbox" checked={lite} onChange={e => { setLiteOn(e.target.checked); setLite(e.target.checked ? 'on' : ''); }} data-testid="settings-lite" />Lite effects · saves battery</label>
-    {ecoDevice() && !full ? <span className="m-chip ok" data-testid="settings-eco" data-tip="Eco keeps every animation but drops blur, draws the globe only while you touch it, uses 1× canvas pixels and reads prices every 6s — so this phone stays cool">🔋 ECO ON · this phone stays cool</span> : null}
+    {ecoDevice() && !full ? <span className="m-chip ok" data-testid="settings-eco" data-tip="Eco keeps every animation but drops blur, draws the globe only while you touch it, uses 1× canvas pixels and reads prices every 6s — so this phone stays cool"><Ic3 e="🔋" /> ECO ON · this phone stays cool</span> : null}
     {ecoDevice() ? <label className="m-toggle" data-tip="Phones start in eco so they stay cool: every animation stays, but no blur, the globe draws only while you touch it, prices poll every 6s. Full effects = the desktop rendering (warmer phone, more battery)."><input type="checkbox" checked={full} onChange={e => { setFull(e.target.checked); setFullFx(e.target.checked); }} data-testid="settings-fullfx" />Full effects on this phone · runs warmer</label> : null}
   </div>;
 }

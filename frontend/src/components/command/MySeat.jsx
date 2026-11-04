@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { sharedJson, markFresh } from '../../lib/sharedJson';
 import NumInput from '../NumInput';
 import '../../styles/mySeat.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 👤 YOUR COIN IN A SEAT (owner, 2026-10-15: "still no way to add my own coins into seats — they track my every move and study during that seat,
 // AI also suggests"). Paste a contract address → it takes an EMPTY seat (fillSeat) or swaps out the seat you choose (pickSwap, now). It goes
@@ -95,7 +96,7 @@ export function AddMyCoin({ call, tpl, seats, reload }) {
       onPaste={e => { const ca = caOf(e.clipboardData?.getData('text')); if (ca && !Number(lim)) { e.preventDefault(); setText(ca); go(ca); } }}
       onKeyDown={e => { if (e.key === 'Enter') go(); }} data-testid="my-seat-ca" aria-label="Coin contract address" />
     <button type="button" className="m-btn m-go" disabled={busy || !mint || !target} onClick={() => go()} data-testid="my-seat-go">{busy ? 'Adding…' : Number(lim) > 0 ? '🎯 Set limit' : '⚡ Add'}</button>
-    <button type="button" className={`m-btn mys-opt ${opts ? 'is-on' : ''}`} onClick={() => setOpts(o => !o)} aria-expanded={opts} data-testid="my-seat-opts" data-tip="Which seat, or a buy limit price">⚙</button>
+    <button type="button" className={`m-btn mys-opt ${opts ? 'is-on' : ''}`} onClick={() => setOpts(o => !o)} aria-expanded={opts} data-testid="my-seat-opts" data-tip="Which seat, or a buy limit price"><Ic3 e="⚙" /></button>
     {opts ? <span className="mys-opts">
       <select className="m-input mys-to" value={target || ''} onChange={e => setTo(e.target.value)} data-testid="my-seat-to" aria-label="Which seat">
         {targets.map(t => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
@@ -144,13 +145,13 @@ function SellBox({ s, valueUsd, busy, onSell }) {
   const pct = sellPct(mode, n, valueUsd);
   const go = p => { if (p) { onSell(p); setN(''); } };
   return <span className="mys-sell" role="group" aria-label={`Sell part of $${s.symbol}`}>
-    {[25, 50].map(p => <button key={p} type="button" className="m-btn mys-chip is-cut" disabled={!!busy} onClick={() => go(p)} data-testid={`seat-cut-${s.symbol}-${p}`} data-tip={`Sell ${p}% of $${s.symbol} now — the rest stays on its seat`}>✂ {p}%</button>)}
+    {[25, 50].map(p => <button key={p} type="button" className="m-btn mys-chip is-cut" disabled={!!busy} onClick={() => go(p)} data-testid={`seat-cut-${s.symbol}-${p}`} data-tip={`Sell ${p}% of $${s.symbol} now — the rest stays on its seat`}><Ic3 e="✂" /> {p}%</button>)}
     <NumInput className="m-input mys-sellin" value={n} onChange={e => setN(e.target.value)} placeholder={mode === '$' ? '$ amt' : '% amt'} aria-label={`Amount of $${s.symbol} to sell`}
       onKeyDown={e => { if (e.key === 'Enter') go(pct); }} data-testid={`seat-sell-in-${s.symbol}`} />
     <button type="button" className="m-btn mys-chip mys-unit" onClick={() => setMode(m => (m === '%' ? '$' : '%'))} data-testid={`seat-sell-unit-${s.symbol}`}
       data-tip={valueUsd > 0 ? `Switch % ⇄ $ — this coin is worth $${valueUsd.toFixed(2)} now` : 'Switch % ⇄ $'}>{mode}</button>
     <button type="button" className="m-btn mys-chip is-cut" disabled={!!busy || !pct} onClick={() => go(pct)} data-testid={`seat-sell-go-${s.symbol}`}
-      data-tip={pct ? `Sell ${pct}% of $${s.symbol}${valueUsd > 0 ? ` (≈ $${(valueUsd * pct / 100).toFixed(2)})` : ''} — the agents study it as your move` : 'Type an amount'}>✂ Sell{pct ? ` ${pct}%` : ''}</button>
+      data-tip={pct ? `Sell ${pct}% of $${s.symbol}${valueUsd > 0 ? ` (≈ $${(valueUsd * pct / 100).toFixed(2)})` : ''} — the agents study it as your move` : 'Type an amount'}><Ic3 e="✂" /> Sell{pct ? ` ${pct}%` : ''}</button>
   </span>;
 }
 
@@ -177,10 +178,10 @@ export function SeatControls({ call, tpl, seats, reload }) {
         data-testid={`seat-lim-${s.symbol}-${m}`} data-tip={m > 0 ? `Sell ${m < 100 ? 50 : 100}% when the live price is ${m}% above now` : `Sell all if it falls ${-m}% from now`}>{m > 0 ? `💰 +${m}%` : `🛑 ${m}%`}</button>)}</span>
       <button type="button" className={`m-btn mys-cert ${legs[s.pair]?.certified ? 'is-on' : ''}`} disabled={!!busy} aria-pressed={!!legs[s.pair]?.certified}
         onClick={() => send(`cert-${s.pair}`, { leg: { tpl, pairAddress: s.pair, certified: !legs[s.pair]?.certified } }, legs[s.pair]?.certified ? `🛡 $${s.symbol} un-certified — the agents may advise again` : `🛡 $${s.symbol} certified — you hold it: only your stop, your Gstop, a pulled pool and −45% act`)}
-        data-testid={`seat-cert-${s.symbol}`} data-tip="Certified = you hold it. No agent advice, no soft exit; only your own stop, your Gstop, a pulled pool and the −45% floor act.">🛡 {legs[s.pair]?.certified ? 'Certified' : 'Certify'}</button>
+        data-testid={`seat-cert-${s.symbol}`} data-tip="Certified = you hold it. No agent advice, no soft exit; only your own stop, your Gstop, a pulled pool and the −45% floor act."><Ic3 e="🛡" /> {legs[s.pair]?.certified ? 'Certified' : 'Certify'}</button>
       <button type="button" className={`m-btn mys-cert mys-lock ${legs[s.pair]?.pickLock ? 'is-on' : ''}`} disabled={!!busy} aria-pressed={!!legs[s.pair]?.pickLock}
         onClick={() => send(`lock-${s.pair}`, { leg: { tpl, pairAddress: s.pair, pickLock: !legs[s.pair]?.pickLock } }, legs[s.pair]?.pickLock ? `🔒 half-lock off on $${s.symbol} — your own stops and skims only` : `🔒 half-lock on $${s.symbol}: once +10%, half is banked if it gives back half its peak`)}
-        data-testid={`seat-lock-${s.symbol}`} data-tip="OFF by default — your own stops and skims rule. ON: once this coin has been +10% and falls under half its peak, half of it is banked once; the rest rides your stop.">🔒 {legs[s.pair]?.pickLock ? 'Half-lock on' : 'Half-lock'}</button>
+        data-testid={`seat-lock-${s.symbol}`} data-tip="OFF by default — your own stops and skims rule. ON: once this coin has been +10% and falls under half its peak, half of it is banked once; the rest rides your stop."><Ic3 e="🔒" /> {legs[s.pair]?.pickLock ? 'Half-lock on' : 'Half-lock'}</button>
       <span className="m-seg mys-gstop" role="group" aria-label={`Germ stop for $${s.symbol}`}>{GSTOPS.map(([v, w]) => <button key={v} type="button" disabled={!!busy} className={(legs[s.pair]?.gstop || 'off') === v ? 'active' : ''}
         onClick={() => send(`g-${s.pair}-${v}`, { leg: { tpl, pairAddress: s.pair, gstop: v } }, v === 'off' ? `🦠 Gstop off on $${s.symbol}` : `🦠 Gstop ${w} on $${s.symbol}: sold when it loses its germ floor, bought back on a new one`)}
         data-testid={`seat-gstop-${s.symbol}-${v}`} data-tip={v === 'off' ? 'No germ stop' : `Sell when the price loses its ${w} germ floor; bought back when a NEW germ floor is confirmed (inside your germ line)`}>{v === 'off' ? '🦠 off' : w}</button>)}</span>

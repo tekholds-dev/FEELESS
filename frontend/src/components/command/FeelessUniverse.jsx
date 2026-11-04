@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../../styles/feelessUniverse.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🌌 THE FEELESS UNIVERSE (owner, 2026-10-20: "roadmap / whitepaper 80% 3D and live animation — how big and different FEELESS is, every feature,
 // how users use them like a tutorial, and FEELESS / FeeCat / rFEE as flagship coins for the bigger secure coins later"). One live scene on top
@@ -25,7 +26,7 @@ export const FLAGSHIPS = [
 function Planet({ p, i, on, onPick }) {   // one system as a card: what it is, in one line, and a door to it
   const [k, ic, name, path, line] = p;
   return <button type="button" className={`fu-planet${on ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => onPick(k)} data-testid={`fu-planet-${k}`} aria-pressed={on}>
-    <i>{ic}</i><span><b>{name}</b><small>{line}</small></span><em>{on ? 'HOW IT WORKS ▸' : 'TAP FOR THE WALK-THROUGH'}</em></button>;
+    <i><Ic3 e={ic} /></i><span><b>{name}</b><small>{line}</small></span><em>{on ? 'HOW IT WORKS ▸' : 'TAP FOR THE WALK-THROUGH'}</em></button>;
 }
 
 export function FeelessUniverse({ mode = 'road' }) {

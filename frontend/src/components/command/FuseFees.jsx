@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { BundlePricing, RoundsPricing, CrewsPricing } from './FuseAdminSettings';
 import { usd, txUrl } from '../FuseMoney';
 import '../../styles/fuseMoney.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › Fuse › 💲 Fees: the full Fuse fee layout in one place — what a trader pays (first buy per coin · round packs · card
 // swaps / sells per coin), a live $ receipt, and every fee actually paid (clickable: type filter → row → its transaction).
@@ -15,7 +16,7 @@ function PrepayPricing({ call, initial }) {
   const set = (k, v) => setP(x => ({ ...x, [k]: v }));
   const total = (Number(p.perSwapUsd) || 0) * (Number(p.swapsPerRound) || 0) * (Number(p.rounds) || 0);
   const save = () => call('/admin/fees/prepay', { method: 'POST', body: JSON.stringify(p) }).then(x => { setP(x.prepay); toast.success('Prepaid swaps saved'); }).catch(e => toast.error(e.message));
-  return <div className="cc-block fee-bundle" data-testid="prepay-pricing"><h4>8 · 💳 Prepaid swaps (paid with the first buy)</h4>
+  return <div className="cc-block fee-bundle" data-testid="prepay-pricing"><h4>8 · <Ic3 e="💳" /> Prepaid swaps (paid with the first buy)</h4>
     <label className="cc-check"><input type="checkbox" checked={!!p.on} onChange={e => set('on', e.target.checked)} />Add the first rounds' swap fees to a new card's first buy (HQ / creator wallets never pay it)</label>
     <div className="cc-mini-grid">
       <label>$ per swap<NumInput type="number" step="0.01" min="0" max="1" value={p.perSwapUsd} onChange={e => set('perSwapUsd', Number(e.target.value))} data-testid="prepay-per" /></label>
@@ -38,7 +39,7 @@ export function FuseFees({ call }) {
   const rows = (d.rows || []).filter(r => kind === 'all' || r.kind === kind);
   const ex = d.example;
   return <section className="fw" data-testid="fuse-fees">
-    <div className="m-card m-live fw"><header className="m-row"><span className="m-label">💲 FUSE FEES · WHAT TRADERS PAY</span><small className="m-dim">HQ + creator wallets: $0 FEELESS fee on every card action (network only)</small></header>
+    <div className="m-card m-live fw"><header className="m-row"><span className="m-label"><Ic3 e="💲" /> FUSE FEES · WHAT TRADERS PAY</span><small className="m-dim">HQ + creator wallets: $0 FEELESS fee on every card action (network only)</small></header>
       {ex && <div className="fw-kpis" data-testid="fee-example">
         <span data-tip="A $20 card with 3 coins"><small>FIRST BUY · $20 · 3 COINS</small><b className="m-num">{usd(ex.buyUsd)}</b><em>{((ex.buyUsd / 20) * 100).toFixed(2)}% of the card</em></span>
         <span><small>EACH ROTATION</small><b className="m-num">{usd(ex.swapUsd)}</b><em>sell + buy, out of the swap</em></span>

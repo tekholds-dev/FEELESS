@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import '../styles/realtor.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🏷 THE REALTOR (owner P1 #3: "space for users to buy without clutter — a for-sale district per city, plot tiers"): every FREE plot, city by
 // city, sorted into tiers by its borough (PRIME · UPTOWN · MIDTOWN · BACKSTREET), each a drawn lot sign with its MP price for YOUR family,
@@ -37,9 +38,9 @@ export function Realtor({ v, act, busy, onFly }) {
       <p className="rlt-tlabel"><b>{label}</b><small>{plots.length} plot{plots.length === 1 ? '' : 's'} · from {plots[0].mp != null ? `${mp(plots[0].mp)} MP` : '—'}</small></p>
       <ol className="rlt-lots">{plots.slice(0, 12).map((p, i) => <li key={p.id} className={`rlt-lot ${p.ok ? 'is-ok' : ''}`} style={{ '--i': i }} data-testid={`rl-lot-${p.id}`}>
         <span className="rlt-sign" aria-hidden="true"><i /><b>SALE</b></span>
-        <span className="rlt-id"><b>{p.id}</b><small>{p.icon} {p.name} · ×{p.tierMul}</small></span>
+        <span className="rlt-id"><b>{p.id}</b><small><Ic3 e={p.icon} /> {p.name} · ×{p.tierMul}</small></span>
         <strong className="m-num">{p.mp != null ? `${mp(p.mp)} MP` : '—'}</strong>
-        <span className="rlt-acts">{onFly ? <button type="button" className="m-btn" onClick={() => onFly(p.id)} data-tip="Fly the city camera to this plot" aria-label={`Fly to ${p.id}`}>📍</button> : null}
+        <span className="rlt-acts">{onFly ? <button type="button" className="m-btn" onClick={() => onFly(p.id)} data-tip="Fly the city camera to this plot" aria-label={`Fly to ${p.id}`}><Ic3 e="📍" /></button> : null}
           <button type="button" className="m-btn m-go" disabled={busy || !me || !p.ok || full} onClick={() => act({ act: 'buy', block: p.id }, `Bought ${p.id}`)}
             data-tip={!me ? 'Join a family first' : !p.ok ? `Needs ${mp((p.mp || 0) - (me.bank || 0))} more MP in the bank` : `Buy ${p.id} for ${mp(p.mp)} MP (Don / Underboss)`} data-testid={`rl-buy-${p.id}`}>Buy</button></span></li>)}</ol>
       {plots.length > 12 ? <p className="rlt-note">+{plots.length - 12} more in this tier — the cheapest are listed first.</p> : null}

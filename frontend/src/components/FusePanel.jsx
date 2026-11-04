@@ -7,6 +7,7 @@ import { useWallet } from '../hooks/useWallet';
 import { QuickTrade } from './terminal/QuickTrade';
 import { FuseLab } from './FuseLab';
 import { FuseSide } from './FuseSide';
+import { Ic3 } from '../lib/icon3d';
 
 // ⚛️ FUSE: fused pools. Each card is a basket of live pools with weights — one grade, one index, combined depth.
 // "Fuse in" splits your SOL by weight; each leg is a normal Quick trade your wallet signs. Confirmed legs are
@@ -42,14 +43,14 @@ export function FuseCard({ f }) {
   const [going, setGoing] = useState(false);
   const parts = splitSol(amount, f.legs);
   return <article className={`m-card fz-card grade-${f.score.grade}`} data-testid={`fuse-${f.id}`}>
-    <header className="fz-head"><span className="fz-emoji">{f.emoji}</span><div><b>{f.name}</b><small>{f.tagline || `${f.legs.length} pools fused`}</small></div>
+    <header className="fz-head"><span className="fz-emoji"><Ic3 e={f.emoji} /></span><div><b>{f.name}</b><small>{f.tagline || `${f.legs.length} pools fused`}</small></div>
       <span className="fz-grade" title={f.score.parts.map(p => `${p.part}: ${p.why}`).join('\n')}>{f.score.grade}</span></header>
     <div className="fz-bar">{f.legs.map(l => <i key={l.pairAddress} style={{ flexGrow: l.weight }} title={`${l.symbol} ${l.weight}%`}><span>{l.symbol} {Math.round(l.weight)}%</span></i>)}</div>
     <div className="m-row fz-kpis"><div className="m-stat"><small>INDEX</small><b className={`m-num sm ${f.index >= 100 ? 'm-pos' : 'm-neg'}`}>{f.index.toFixed(1)}</b></div>
       <div className="m-stat"><small>DEPTH</small><b className="m-num sm">{usd(f.tvlUsd)}</b></div><div className="m-stat"><small>VOL 24H</small><b className="m-num sm">{usd(f.volume24h)}</b></div>
       <div className="m-stat"><small>FEE APR EST.</small><b className="m-num sm">{f.aprEst}%</b></div></div>
     <ul className="fz-legs">{f.legs.map(l => <li key={l.pairAddress}><b>{l.symbol}/{l.quote}</b><span>{usd(l.liquidityUsd)} liq</span><span>{l.turnover}× turnover</span><span className={l.change24h >= 0 ? 'm-pos' : 'm-neg'}>{l.change24h >= 0 ? '+' : ''}{(l.change24h || 0).toFixed(1)}%</span></li>)}</ul>
-    {!going ? <button type="button" className="m-btn primary m-go wide" onClick={() => setGoing(true)} data-testid={`fuse-in-${f.id}`}>⚡ Fuse in</button>
+    {!going ? <button type="button" className="m-btn primary m-go wide" onClick={() => setGoing(true)} data-testid={`fuse-in-${f.id}`}><Ic3 e="⚡" /> Fuse in</button>
       : <div className="fz-in"><label className="m-field"><span>SOL to fuse</span><NumInput className="m-input" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.5" /></label>
         {parts.map(p => <div key={p.pairAddress} className="fz-split"><span>{p.symbol} · {p.weight}%</span><FuseLeg leg={p} sol={p.sol} fuseId={f.id} /></div>)}
         <small className="m-dim">Each leg is its own swap you sign · normal FEELESS fees · {f.creatorBps ? `${f.creatorBps / 100}% of the fee goes to the Fuse's creator` : 'no creator cut'}</small></div>}

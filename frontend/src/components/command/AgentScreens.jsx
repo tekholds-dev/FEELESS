@@ -4,6 +4,7 @@ import { openCoin } from '../CoinDrawer';
 import { openWarRoom } from '../WarRoomHost';
 import { pct, tone, VERD, rowState, rowWhy, pipsOf, rankFill, devilOf, kOf, READY_MIN } from '../../lib/agentRead';
 import '../../styles/agentScreens.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🖥 THE AGENTS' SCREENS (owner, 2026-10-10: "degen complex but simple — click to zoom to see their screens, click through lists, not so
 // much reading, more meta visuals, realtime data"). Each agent has ONE screen that IS its work this pass, drawn — not written:
@@ -80,7 +81,7 @@ export function Dossier({ x, idx, n, step }) {
       <span className="ags-dsym"><b>${x.symbol}</b><small>{idx + 1} / {n}</small></span>
       <button type="button" className="ags-step" onClick={() => step(1)} aria-label="Next coin" data-testid="ags-next">›</button></div>
     <div className="ags-dhead"><em className={`ags-d5 ${tone(d5)}`} key={String(d5)}>{pct(d5)}<small>5 MIN</small></em><span className={`agd-verdict is-${st}`}>{VERD[st]}</span></div>
-    <div className="ags-chain">{pipsOf(x).map(([k, ic, s, tip], i) => <React.Fragment key={k}>{i > 0 && <span className={`ags-link is-${s === 'idle' ? 'idle' : 'on'}`} />}<i className={`is-${s} is-${k}`} data-tip={tip}>{ic}</i></React.Fragment>)}</div>
+    <div className="ags-chain">{pipsOf(x).map(([k, ic, s, tip], i) => <React.Fragment key={k}>{i > 0 && <span className={`ags-link is-${s === 'idle' ? 'idle' : 'on'}`} />}<i className={`is-${s} is-${k}`} data-tip={tip}><Ic3 e={ic} /></i></React.Fragment>)}</div>
     <p className="ags-fact">{rowWhy(x)}</p>
     <div className="ags-meters">
       <Meter label="RANK" val={Math.round(rank)} fill={rankFill(rank)} mark={0.5} cls={rank >= READY_MIN ? 'is-up' : ''} />
@@ -90,8 +91,8 @@ export function Dossier({ x, idx, n, step }) {
       {v.rug != null && <Meter label="RUG" val={Math.round(v.rug)} fill={num(v.rug) / 100} cls={v.rug >= 50 ? 'is-dn' : 'is-up'} />}
       {v.organic != null && <Meter label="ORGANIC" val={`${Math.round(v.organic)}%`} fill={num(v.organic) / 40} cls={v.organic < 5 ? 'is-dn' : 'is-up'} />}
     </div>
-    <div className="ags-dacts"><button type="button" className="m-btn m-go" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid="ags-coin">🪙 Coin</button>
-      {x.pair && <button type="button" className="m-btn" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.mint, symbol: x.symbol } })}>📈 Chart</button>}</div>
+    <div className="ags-dacts"><button type="button" className="m-btn m-go" onClick={() => openCoin({ mint: x.mint, pairAddress: x.pair, symbol: x.symbol })} data-testid="ags-coin"><Ic3 e="🪙" /> Coin</button>
+      {x.pair && <button type="button" className="m-btn" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.mint, symbol: x.symbol } })}><Ic3 e="📈" /> Chart</button>}</div>
   </div>;
 }
 
@@ -104,7 +105,7 @@ export function ZoomScreen({ d, agent, setAgent, close }) {
   const step = n => list.length && setCur(list[(idx + n + list.length) % list.length]); const [n, l] = stat(agent, d);
   return createPortal(<div className="ags-shade" onClick={e => e.target === e.currentTarget && close()} role="dialog" aria-label={`${NAMES[agent][1]}'s screen`} data-testid="ags-zoom">
     <div className={`ags-zoom is-${agent}`}>
-      <div className="ags-ztop"><div className="m-seg" role="tablist" aria-label="Whose screen">{Object.entries(NAMES).map(([k, [ic, name]]) => <button key={k} type="button" role="tab" aria-selected={agent === k} className={agent === k ? 'active' : ''} onClick={() => { setAgent(k); setReason(null); }} data-testid={`zoom-${k}`}>{ic} {name}</button>)}</div>
+      <div className="ags-ztop"><div className="m-seg" role="tablist" aria-label="Whose screen">{Object.entries(NAMES).map(([k, [ic, name]]) => <button key={k} type="button" role="tab" aria-selected={agent === k} className={agent === k ? 'active' : ''} onClick={() => { setAgent(k); setReason(null); }} data-testid={`zoom-${k}`}><Ic3 e={ic} /> {name}</button>)}</div>
         <span className="ags-ztitle"><b>{NAMES[agent][2]}</b><em>{n}</em> {l}{d?.tasks?.[agent] ? <small data-tip={d.tasks[agent]}>ⓘ</small> : null}</span>
         <button type="button" className="ags-x" onClick={close} aria-label="Close" data-testid="ags-close">✕</button></div>
       <div className="ags-zbody"><div className="ags-big" key={agent}>
@@ -142,17 +143,17 @@ export function CourtBand({ judge, proof, desk, onPick, onCourt }) {
   const j = judge || {}; const pr = proof || {}; const heat = desk?.heat || 'even';
   return <div className="ags-court" data-testid="ags-court">
     <div className="ags-judge"><button type="button" className="ags-jhead" onClick={onCourt} data-tip="Open the court: every ruling and each bot's score" data-testid="ags-judge"><span className="ags-gavel" key={j.n || 0}>👨‍⚖️</span><b>JUDGE</b><em><i className="m-pos">{j.wins ?? 0}W</i> <i className="m-neg">{j.losses ?? 0}L</i></em></button>
-      <span className="ags-sent">{j.trial ? <i className="is-trial" data-tip={`Worst net over the last rulings — plays under a handicap until it recovers: ${j.handicap}`} data-testid="ags-trial">🔨 {BOT[j.trial]} ON TRIAL · {j.handicap}</i> : <i className="is-clear">no bot on trial</i>}
+      <span className="ags-sent">{j.trial ? <i className="is-trial" data-tip={`Worst net over the last rulings — plays under a handicap until it recovers: ${j.handicap}`} data-testid="ags-trial"><Ic3 e="🔨" /> {BOT[j.trial]} ON TRIAL · {j.handicap}</i> : <i className="is-clear">no bot on trial</i>}
  {j.missed > 0 && <i className="is-miss" data-tip={`Coins Trigger said WAIT on that ran 10%+ in 5 min — what kept it out: ${(j.missWhy || []).map(m => `${m.n}× ${m.why} (typical +${m.med}%)`).join(' · ') || 'reasons land with the next calls'}`} data-testid="ags-missed">😴 {j.missed} missed{j.missWhy?.[0] ? ` · top reason: ${j.missWhy[0].why.slice(0, 40)}` : ''}</i>}
-        {j.real && (j.real.wins + j.real.losses) > 0 && <i className="is-real" data-tip="The agents' own seats on your real card, ruled on the card's ledger — each counts double" data-testid="ags-real">💵 real {j.real.wins}W · {j.real.losses}L</i>}
-        {j.mvp && <i className="is-mvp" data-tip="Best net over the last rulings" data-testid="ags-mvp">👑 {BOT[j.mvp]}</i>}</span>
+        {j.real && (j.real.wins + j.real.losses) > 0 && <i className="is-real" data-tip="The agents' own seats on your real card, ruled on the card's ledger — each counts double" data-testid="ags-real"><Ic3 e="💵" /> real {j.real.wins}W · {j.real.losses}L</i>}
+        {j.mvp && <i className="is-mvp" data-tip="Best net over the last rulings" data-testid="ags-mvp"><Ic3 e="👑" /> {BOT[j.mvp]}</i>}</span>
       <span className="ags-tape">{(j.rulings || []).slice(0, 10).map((r, i) => <button type="button" key={`${r.mint}-${r.at}`} className={`ags-rule is-${r.verdict}`} style={{ '--i': Math.min(i, 8) }} onClick={() => onPick && onPick(r.sym)}
         data-tip={`${r.kind === 'real' ? '💵 real seat' : r.kind === 'go' ? 'GO' : r.kind === 'objected' ? 'paper refused' : 'waited — it ran'} · ${r.credit ? `${BOT[r.credit]} called it` : ''}${r.credit && r.blame ? ' · ' : ''}${r.blame ? `${BOT[r.blame]} takes the L` : ''}`} data-testid={`rule-${r.sym}`}>
         {r.verdict === 'win' ? '🏆' : r.verdict === 'miss' ? '😴' : '🔨'} ${r.sym} <em>{pct(r.pct)}</em><u>{BOT[r.verdict === 'win' ? r.credit : r.blame] || ''}</u></button>)}
         {!(j.rulings || []).length && <small>first ruling lands 5 min after their first final call</small>}</span></div>
     <div className="ags-proof" data-testid="ags-proof">
-      <span className="ags-prow" data-tip="Every GO the team made on paper, judged 5 minutes later — newest first"><b>📜 PAPER</b><em><i className="m-pos">{pr.paper?.w ?? 0}</i>–<i className="m-neg">{pr.paper?.l ?? 0}</i></em><Pips last={pr.paper?.last} syms={pr.paper?.syms} /></span>
-      <span className="ags-prow" data-tip="Every coin that left a real seat you allowed, on the card's own ledger — newest first"><b>💵 CARD</b><em><i className="m-pos">{pr.card?.w ?? 0}</i>–<i className="m-neg">{pr.card?.l ?? 0}</i></em><Pips last={pr.card?.last} /></span>
+      <span className="ags-prow" data-tip="Every GO the team made on paper, judged 5 minutes later — newest first"><b><Ic3 e="📜" /> PAPER</b><em><i className="m-pos">{pr.paper?.w ?? 0}</i>–<i className="m-neg">{pr.paper?.l ?? 0}</i></em><Pips last={pr.paper?.last} syms={pr.paper?.syms} /></span>
+      <span className="ags-prow" data-tip="Every coin that left a real seat you allowed, on the card's own ledger — newest first"><b><Ic3 e="💵" /> CARD</b><em><i className="m-pos">{pr.card?.w ?? 0}</i>–<i className="m-neg">{pr.card?.l ?? 0}</i></em><Pips last={pr.card?.last} /></span>
       <span className={`ags-heat2 is-${heat}`} data-tip="Paper desk only: the next GO's stake follows the streak — 25% even · 35% after 2 wins · 45% after 3+ · 15% right after a loss" data-testid="ags-stake">{heat === 'heater' ? '🔥' : heat === 'cold' ? '🧊' : '▪'} next stake {desk?.stake ?? 25}%</span></div></div>;
 }
 // the court, zoomed: every ruling as a card + each bot's credit / blame
@@ -177,16 +178,16 @@ export function MissionBar({ mission, scalp, desk }) {
   const fmt = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v}%`);
   return <div className="ags-mission" data-testid="ags-mission">
     <div className={`ags-goal ${be ? 'is-now' : 'is-done'}`} data-tip="Your real card's value against everything you put in. The agents work one seat of it; this is a distance, not a forecast." data-testid="goal-breakeven">
-      <b>1 · 💵 BREAKEVEN{be ? ' · NOW' : ' ✓'}</b><em>{m.putIn ? <>${Number(m.value).toFixed(2)} <small>of ${Number(m.putIn).toFixed(2)}{be ? ` · needs ${m.needX}×` : ''}</small></> : <small>no real card funded</small>}</em>
+      <b>1 · <Ic3 e="💵" /> BREAKEVEN{be ? ' · NOW' : ' ✓'}</b><em>{m.putIn ? <>${Number(m.value).toFixed(2)} <small>of ${Number(m.putIn).toFixed(2)}{be ? ` · needs ${m.needX}×` : ''}</small></> : <small>no real card funded</small>}</em>
       <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, be ? (m.pct || 0) / 100 : m.putIn ? 1 : 0))})` }} /></u></div>
     <div className={`ags-goal ${dbl ? 'is-now' : be ? '' : 'is-done'}`} data-tip="Breakeven is milestone 1, not graduation: the REAL card must reach 2× everything you put in before the next stage can unlock. A distance, not a forecast." data-testid="goal-double">
       <b>2 · 🎓 2× PUT-IN{dbl ? ' · NOW' : be ? '' : ' ✓'}</b><em>{m.double ? <>${Number(m.double).toFixed(2)} <small>real equity{dbl && m.needX ? ` · needs ${m.needX}×` : ''}</small></> : <small>—</small>}</em>
       <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, dbl ? (m.pct || 0) / 100 : be ? 0 : 1))})` }} /></u></div>
     <div className={`ags-goal ${be || dbl ? '' : 'is-now'}`} data-tip="The paper desk must 10× in one run (25% a GO, pressed on a streak). Paper alone never unlocks a real-money stage." data-testid="goal-tenx">
-      <b>3 · 📜 10× PAPER{be || dbl ? '' : ' · NOW'}</b><em>{x.toFixed(2)}× <small>of 10×</small></em><u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, x))))})` }} /></u></div>
+      <b>3 · <Ic3 e="📜" /> 10× PAPER{be || dbl ? '' : ' · NOW'}</b><em>{x.toFixed(2)}× <small>of 10×</small></em><u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, x))))})` }} /></u></div>
     <div className={`ags-scalp ${live ? 'is-live' : ''}`} data-testid="ags-scalp" data-tip={live ? 'Learned from their own 5-minute paths and played only on calls made after it was adopted. On your card an agent seat banks at this take line; no stop is added.' : 'Every ENTER keeps its 5-minute path. A plan is adopted only when it beats holding on 20+ of their own paths.'}>
-      <b>⚡ SCALP{live ? ' · LIVE' : ' · LEARNING'}</b>
+      <b><Ic3 e="⚡" /> SCALP{live ? ' · LIVE' : ' · LEARNING'}</b>
       {live ? <em>TP +{live.tp}% <small>· {live.sl ? `SL −${live.sl}%` : 'no stop'}</small></em> : <em>{sp.n ?? 0}<small> / {sp.needN ?? 20} paths</small></em>}
-      {sp.best && sp.n ? <span className="ags-vs"><i className={sp.best.avg > 0 ? 'm-pos' : 'm-neg'}>⚡ {fmt(sp.best.avg)}</i><small>vs hold</small><i className={(sp.flat?.avg ?? 0) > 0 ? 'm-pos' : 'm-neg'}>{fmt(sp.flat?.avg)}</i>{sp.peak != null && <small>· peak {fmt(sp.peak)}</small>}</span>
+      {sp.best && sp.n ? <span className="ags-vs"><i className={sp.best.avg > 0 ? 'm-pos' : 'm-neg'}><Ic3 e="⚡" /> {fmt(sp.best.avg)}</i><small>vs hold</small><i className={(sp.flat?.avg ?? 0) > 0 ? 'm-pos' : 'm-neg'}>{fmt(sp.flat?.avg)}</i>{sp.peak != null && <small>· peak {fmt(sp.peak)}</small>}</span>
         : <u><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (sp.n || 0) / (sp.needN || 20)))})` }} /></u>}</div></div>;
 }

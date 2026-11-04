@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, HelpCircle, Shield, UserCheck, Trophy, Skull, BookOpen, Ruler } from 'lucide-react';
+import { HelpCircle, UserCheck, Skull, Ruler } from 'lucide-react';
+import { Search, Shield, Trophy, BookOpen } from '../../lib/lucide3d';
 import '../../styles/repHero.css';
 import { BADGE_LABEL } from '../../lib/reputation';
 import { useGlide } from '../../lib/useGlide';

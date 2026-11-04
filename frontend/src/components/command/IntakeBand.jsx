@@ -6,6 +6,7 @@ import { aiOf, scoutChips } from '../../lib/cockpitControls';
 import { devilOf } from '../../lib/agentRead';
 import { LiveTank } from '../LiveTank';
 import '../../styles/intakeBand.css';
+import { Ic3 } from '../../lib/icon3d';
 
 const ACTIONS = [['arm', '⚡ ARM', 'owner priority: the agents take it the moment it is READY and passes every execution check'],
   ['track', '📌 TRACK', 'keep it on your list — judged every pass'], ['review', '🔎 REVIEW', 'send it through the normal agent review'],
@@ -37,8 +38,8 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
   const m = (o?.kernel || {}).metrics || {};
   const extra = t => <AgentOrders d={byMint.get(t.mint)} t={t} ai={aiOf(ai?.notes, t.mint)?.advice} busy={busy} isOwner={isOwner} act={act} />;
   return <section className="ib" data-testid="intake-band">
-    <header className="ib-head"><b>🛰 INTAKE</b><small>one tank · every feed · the agents pick only from here</small>
-      {(imp || []).length ? <span className="ib-imp" data-testid="ib-imp" data-tip={`🎭 dropped before the agents read them — a launch wearing a real coin's ticker:\n${imp.slice(0, 8).map(x => `$${x.symbol}: ${x.why}`).join('\n')}`}>🎭 {imp.length} fake{imp.length === 1 ? '' : 's'} dropped</span> : null}
+    <header className="ib-head"><b><Ic3 e="🛰" /> INTAKE</b><small>one tank · every feed · the agents pick only from here</small>
+      {(imp || []).length ? <span className="ib-imp" data-testid="ib-imp" data-tip={`🎭 dropped before the agents read them — a launch wearing a real coin's ticker:\n${imp.slice(0, 8).map(x => `$${x.symbol}: ${x.why}`).join('\n')}`}><Ic3 e="🎭" /> {imp.length} fake{imp.length === 1 ? '' : 's'} dropped</span> : null}
       <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span>
       {o?.survival ? <span className="ib-surv" data-testid="ib-surv" data-tip="⏱ NSFA survival watch: of the last hour's coins, the share still alive 1, 5 and 15 min after the desk first saw them (never −50 %) · their typical move">
         {[['m1', '1M'], ['m5', '5M'], ['m15', '15M']].map(([k, l], i) => { const c = o.survival[k] || {}; return <i key={k} style={{ '--i': i }} className={c.pct == null ? 'is-wait' : c.pct >= 70 ? 'is-ok' : c.pct >= 45 ? 'is-mid' : 'is-bad'}>
@@ -69,7 +70,7 @@ export function PickStrip({ edge, picks, isOwner, call, onPick }) {
   return <div className={`ib-pick${edge.on ? '' : ' is-off'}`} data-testid="ib-pick">
     <button type="button" className={`ib-pk-sw${edge.on ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.on} disabled={!isOwner || busy} onClick={flip} data-testid="ib-pick-switch"
       data-tip={'🧪 PICKS: a coin matching a proven rule + its own 1 / 5-min survival + on its germ floor is READY on its own. Every wall, the Warden\'s sizing and your stops stay.' + (isOwner ? '' : ' (creator only)')}>
-      <i aria-hidden="true" /><b>🧪 PICKS</b><small>{edge.on ? 'ON' : 'OFF'}</small></button>
+      <i aria-hidden="true" /><b><Ic3 e="🧪" /> PICKS</b><small>{edge.on ? 'ON' : 'OFF'}</small></button>
     {edge.minAgeMin > 5 ? <button type="button" className={`ib-pk-sw is-young${edge.young ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.young} disabled={!isOwner || busy} onClick={young} data-testid="ib-pick-young"
       data-tip={`🐣 PICKS FROM 5 MIN (your youngest-coin line is ${edge.minAgeMin} min). The audit, last 800 coins after a 3% round trip: rule-matched coins first seen under 15 min +5.1% typical, 53% up — seen at 15 min+ −8.2%, 24% up. On: a pick that survived its own 5-min watch may enter under your line at HALF size; every other wall stays. Off: your line stands for picks too.`}>
       <i aria-hidden="true" /><b>🐣 FROM 5 MIN</b><small>{edge.young ? 'ON' : 'OFF'}</small></button> : null}
@@ -91,9 +92,9 @@ function AgentOrders({ d, t, ai, busy, isOwner, act }) {
   return <div className={`ib-orders is-${d?.stage || 'none'}`} data-testid="ib-orders">
     <p className="ib-stage">{d ? <><em className={`is-${d.stage}`}>{STAGE_WORD[d.stage] || 'IN THE DESK'}</em><small>agents · rank {Math.round(d.rank)}{c.trigger ? ` · Trigger ${c.trigger}` : ''}</small></>
       : <small>not on the agents' desk yet — they read it on a coming pass</small>}</p>
-    {c.pick ? <p className="ib-pk-why" data-testid="ib-pick-why"><em>🧪 PICK</em><b>{c.pick.rule}</b><small>{Number(c.pick.med) >= 0 ? '+' : ''}{c.pick.med}% typical · {c.pick.n} unseen coins · {c.pick.entry}</small></p> : null}
+    {c.pick ? <p className="ib-pk-why" data-testid="ib-pick-why"><em><Ic3 e="🧪" /> PICK</em><b>{c.pick.rule}</b><small>{Number(c.pick.med) >= 0 ? '+' : ''}{c.pick.med}% typical · {c.pick.n} unseen coins · {c.pick.entry}</small></p> : null}
     {dvWhy || c.kwhy || c.why ? <p className="ib-why">{dvWhy ? `⚖ ${dvWhy}` : `🧠 ${c.kwhy || c.why}`}</p> : null}
-    {ai?.summary || chips.length ? <p className="ib-ai">{ai?.summary ? <span>🧠 {ai.summary}</span> : null}{chips.map(([k, l, cls]) => <i key={k} className={`avt-sc ${cls}`}>{l}</i>)}</p> : null}
+    {ai?.summary || chips.length ? <p className="ib-ai">{ai?.summary ? <span><Ic3 e="🧠" /> {ai.summary}</span> : null}{chips.map(([k, l, cls]) => <i key={k} className={`avt-sc ${cls}`}>{l}</i>)}</p> : null}
     <div className="ib-acts">{ACTIONS.map(([a, l, tip]) => <button key={a} type="button" className={`m-btn ib-act is-${a}`} disabled={!isOwner || !!busy} aria-busy={busy === a} onClick={() => act(a, t.mint, t.sym)} data-tip={tip} data-testid={`ib-act-${a}`}>{l}</button>)}</div>
   </div>;
 }

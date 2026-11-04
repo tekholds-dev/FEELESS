@@ -58,7 +58,7 @@ function FastDial({ d, busy, onApply }) {
   return <div className={`fch-dial ${on ? 'is-on' : ''}`} data-testid="fch-dial">
     <button type="button" className="fch-dialbtn" disabled={busy || !d.fastTrench} onClick={() => onApply(vals)} data-testid="fch-fast" aria-pressed={on}
       data-tip="One tap: her rules = the agents' own live limits (MC band floor, youngest age, pool floor, 1h volume, take / stop, 4 seats), clamped to her safety bounds. Tune below after.">
-      <i aria-hidden="true" /><b>⚡ FAST TRENCH</b><small>{on ? 'ON — copied from the agents' : 'tap: copy the agents\' configs'}</small></button>
+      <i aria-hidden="true" /><b><Ic3 e="⚡" /> FAST TRENCH</b><small>{on ? 'ON — copied from the agents' : 'tap: copy the agents\' configs'}</small></button>
     <p className="fch-dialchips">{chips.map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p>
   </div>;
 }
@@ -132,8 +132,8 @@ export function AgentSlots({ call }) {
   const take = x => { if (Number.isFinite(x?.open) && Number.isFinite(x?.taken) && Number.isFinite(x?.max)) setS(x); else setErr('The agent service did not answer with slots.'); };
   useEffect(() => { call('/admin/agent-slots').then(take).catch(e => setErr(e.message)); }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
   const open = async n => { setBusy(true); setErr(''); try { take(await call('/admin/agent-slots', { method: 'POST', body: JSON.stringify({ open: n }) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  if (!s) return <article className="fch-card" data-testid="fch-slots"><h4>🎟 AGENT SLOTS</h4><p className="fch-nil">{err || 'reading…'}</p></article>;
-  return <article className="fch-card fch-slots" data-testid="fch-slots"><h4>🎟 AGENT SLOTS<small>{s.taken} of {s.open} open taken · max {s.max.toLocaleString()}</small></h4>
+  if (!s) return <article className="fch-card" data-testid="fch-slots"><h4><Ic3 e="🎟" /> AGENT SLOTS</h4><p className="fch-nil">{err || 'reading…'}</p></article>;
+  return <article className="fch-card fch-slots" data-testid="fch-slots"><h4><Ic3 e="🎟" /> AGENT SLOTS<small>{s.taken} of {s.open} open taken · max {s.max.toLocaleString()}</small></h4>
     <p className="fch-flow"><span><b className="m-num" key={s.taken}>{s.taken}</b><small>bought</small></span><i aria-hidden>/</i><span className={s.left ? 'is-good' : 'is-bad'}><b className="m-num">{s.left}</b><small>left for new buyers</small></span><i aria-hidden>/</i><span><b className="m-num">{s.open}</b><small>open</small></span></p>
     <ul className="fch-bars"><li><span>open of {s.max.toLocaleString()}</span><i><u style={{ transform: `scaleX(${Math.max(0.02, s.open / s.max)})` }} /></i><b>{Math.round((100 * s.open) / s.max)}%</b></li>
       <li><span>taken of open</span><i><u style={{ transform: `scaleX(${Math.max(0.02, s.open ? s.taken / s.open : 1)})` }} /></i><b>{s.open ? Math.round((100 * s.taken) / s.open) : 100}%</b></li></ul>
@@ -169,7 +169,7 @@ export function FeeCatDesk({ call }) {
       <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;
         return <fieldset key={g} className="fch-group"><legend>{g}</legend>{ks.map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
           <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset>; })}
-        <fieldset className="fch-group"><legend>💵 SIZE</legend><label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label>
+        <fieldset className="fch-group"><legend><Ic3 e="💵" /> SIZE</legend><label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label>
           {Object.keys(d.bounds || {}).filter(k => !RULE_GROUPS.some(([, ks]) => ks.includes(k))).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
             <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
       <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
@@ -185,7 +185,7 @@ export function FeeCatDesk({ call }) {
       <span className="fch-kpi fch-ring" style={{ '--k': (n(disc.lives) ?? 9) / (n(disc.maxLives) || 9) }} data-tip="Her 9 lives: a loss takes one, a win in 24h gives one back, 0 = she naps"><small>LIVES</small><b data-testid="fch-lives">{disc.lives ?? '—'}</b></span>
       <span className="fch-kpi"><small>OPEN</small><b>{pos.length}</b><i>{disc.why && disc.why !== 'normal size' ? disc.why : 'discipline normal'}</i></span>
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
-        <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
+        <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run"><Ic3 e="⚡" /> Run a cycle</button></span>
     </header>
     <nav ref={root} className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
       className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}><Ic3Text text={l} /></button>)}</nav>
@@ -201,7 +201,7 @@ export function FeeCatDesk({ call }) {
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
     ]} /> : null}
     {tab === 'overview' ? <div className="fch-grid">
-      <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
+      <article className="fch-card" data-testid="fch-funnel"><h4><Ic3 e="🔎" /> WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
         {f.reasons.length ? <ul className="fch-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }}><span>{r.k}</span><i><u style={{ transform: `scaleX(${Math.max(0.04, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="fch-nil">nothing stopped — every coin read passed</p>}
         <p className="fch-lanes">{LANES.map(([k, l, t]) => <span key={k} data-tip={t}>{l}</span>)}</p>
@@ -216,7 +216,7 @@ export function FeeCatDesk({ call }) {
         <small className="fch-note">she acts only on what BOTH models agree on — it can only make her trade less or bank sooner</small>
       </article>
 
-      <article className="fch-card fch-wide" data-testid="fch-open"><h4>📂 OPEN TRADES<small>{pos.length} of {d.rules?.maxPositions ?? 5}</small></h4>
+      <article className="fch-card fch-wide" data-testid="fch-open"><h4><Ic3 e="📂" /> OPEN TRADES<small>{pos.length} of {d.rules?.maxPositions ?? 5}</small></h4>
         {pos.length ? <ul className="fch-pos">{pos.map(p => { const ch = n(p.currentChange) || 0; return <li key={p.pairAddress} className={ch >= 0 ? 'is-up' : 'is-dn'}>
           <b>${p.symbol}</b><span className="fch-pbar"><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 60)})` }} /></span><em>{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em><small>{sol(p.costSol)} · {Math.round((Date.now() / 1000 - (n(p.openedAt) || 0)) / 60)}m</small><i className="fcl-tags">{readWords({ setups: p.setups, read: p.read, duo: p.duoAtEntry }).slice(0, 3).join(' · ')}</i></li>; })}</ul>
           : <p className="fch-nil">flat — waiting for a coin that passes</p>}

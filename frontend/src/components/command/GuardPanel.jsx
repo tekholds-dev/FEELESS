@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/tips.css';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const GUARD = shaped({ rules: { writesPerMin: 0 }, blocks: [], busiest: [], cooling: [], log: [], suspects: [] });
 
 // HQ › Security › 🛡 Guard: floods get a breather and HQ brute force cools down AUTOMATICALLY — but nobody is
@@ -23,7 +24,7 @@ export function GuardPanel({ call }) {
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const r = g.rules;
   return <section className="m-card gd" data-testid="guard-panel">
-    <div className="m-row"><span className="m-label">🛡 GUARD · BRUTE PROTECTION · NO AUTO-BLOCKS</span><small className="m-dim">every block is your approval</small></div>
+    <div className="m-row"><span className="m-label"><Ic3 e="🛡" /> GUARD · BRUTE PROTECTION · NO AUTO-BLOCKS</span><small className="m-dim">every block is your approval</small></div>
     <div className="gd-rules">
       <span data-tip="Writes per IP per minute before a short breather (reads never limited)"><small>WRITES / MIN</small><b className="m-num">{r.writesPerMin}</b></span>
       <span data-tip={`${r.adminFails} failed HQ signatures in ${r.adminWindowMin} min → that IP's admin requests cool down`}><small>SIGN-IN FAILS</small><b className="m-num">{r.adminFails}/{r.adminWindowMin}m</b></span>
@@ -31,7 +32,7 @@ export function GuardPanel({ call }) {
       <span><small>COOLING NOW</small><b className={`m-num ${g.cooling.length ? 'm-neg' : ''}`}>{g.cooling.length}</b></span>
     </div>
     <div className="gd-cols">
-      <div className="gd-box"><header><b>⏳ Waiting for your call</b><small className="m-dim">{g.suspects.length} suspect{g.suspects.length === 1 ? '' : 's'}</small></header>
+      <div className="gd-box"><header><b><Ic3 e="⏳" /> Waiting for your call</b><small className="m-dim">{g.suspects.length} suspect{g.suspects.length === 1 ? '' : 's'}</small></header>
         {!g.suspects.length ? <p className="m-dim">Nobody flagged. Floods only got a breather.</p> : g.suspects.map((s, i) => <article key={s.ip} className="gd-sus" style={{ '--i': i }}>
           <div className="m-row"><code>{s.ip}</code><small className="m-dim">last {ago(s.last)} ago</small></div>
           <ul>{s.evidence.slice(-3).map((e, k) => <li key={k}><i>{e.rule}</i>{e.claim}</li>)}</ul>
@@ -40,7 +41,7 @@ export function GuardPanel({ call }) {
       <div className="gd-box"><header><b>⛔ Blocked by staff</b><small className="m-dim">writes refused · reads still load</small></header>
         {!g.blocks.length ? <p className="m-dim">No blocks.</p> : g.blocks.map(b => <div key={b.ip} className="gd-row"><code>{b.ip}</code><small className="m-dim">{b.by?.slice(0, 4)}… · {ago(b.at)} ago{b.note ? ` · ${b.note}` : ''}</small>
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => act(b.ip, 'unblock')}>Lift</button></div>)}
-        {g.busiest.length > 0 && <><header><b>📈 Busiest right now</b><small className="m-dim">writes in the last minute</small></header>
+        {g.busiest.length > 0 && <><header><b><Ic3 e="📈" /> Busiest right now</b><small className="m-dim">writes in the last minute</small></header>
           {g.busiest.map(x => <div key={x.ip} className="gd-row"><code>{x.ip}</code><b className="m-num">{x.writes1m}</b></div>)}</>}</div>
     </div>
     {g.log.length > 0 && <small className="m-dim">Last decisions: {g.log.slice(0, 4).map(l => `${l.action} ${l.ip} (${ago(l.at)})`).join(' · ')}</small>}

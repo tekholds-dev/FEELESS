@@ -2,6 +2,7 @@ import React, { useState, useEffect, useId, useRef } from 'react';
 import { apiUrl } from '../../lib/api';
 import '../../styles/auras.css';
 import '../../styles/cardDesigns.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // A FEELESS card: front = art, back = lore + money. Drag to turn it in 3D, click (or Enter) to flip.
 // Motion is transform-only and written straight to the element in rAF (no re-render per frame);
@@ -155,7 +156,7 @@ export function Aura({ id }) {
 }
 export function AuraPicker({ value, onChange }) {
   return <div className="aura-pick" role="radiogroup" aria-label="Card aura">{[['', 'None', '◻'], ...CARD_AURAS].map(([k, l, ic]) => <button key={k || 'none'} type="button" role="radio" aria-checked={(value || '') === k}
-    className={(value || '') === k ? 'active' : ''} onClick={() => onChange(k)} data-testid={`aura-pick-${k || 'none'}`}><b>{ic}</b>{l}</button>)}</div>;
+    className={(value || '') === k ? 'active' : ''} onClick={() => onChange(k)} data-testid={`aura-pick-${k || 'none'}`}><b><Ic3 e={ic} /></b>{l}</button>)}</div>;
 }
 
 export const CARD_DESIGNS = [['holo', 'Holo foil'], ['circuit', 'Circuit'], ['obsidian', 'Obsidian'], ['aurora', 'Aurora'], ['glitch', 'Glitch'], ['ember', 'Emberforge'],

@@ -6,6 +6,7 @@ import { sharedJson } from '../../lib/sharedJson';
 import { CoinVital, TrenchVital } from '../CoinVital';
 import '../../styles/chartVitals.css';
 import '../../styles/quickPulse.css';   // 🌊 the tape chip (sp-tape)
+import { Ic3 } from '../../lib/icon3d';
 
 const big = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(n >= 1e5 ? 0 : 1)}K` : `$${n.toFixed(0)}`; };
 const ageOf = ms => { if (!ms) return '—'; const h = (Date.now() - ms) / 36e5; return h < 1 ? `${Math.max(1, Math.round(h * 60))}m` : h < 48 ? `${h.toFixed(h < 10 ? 1 : 0)}h` : `${Math.round(h / 24)}d`; };
@@ -67,8 +68,8 @@ export function ChartVitals({ pair }) {
   return <div className="cv" data-testid="chart-vitals">
     <div className="cv-row cv-top">
       {pump?.mint && <span className={`m-chip ${pump.graduated ? 'is-grad' : 'is-curve'}`} data-tip={pump.graduated ? 'Bonded: it left Pump\'s launch curve' : 'Still on Pump\'s launch curve'}>{pump.graduated ? '🎓 graduated' : '📈 on the curve'}</span>}
-      {edge?.snipersOut && <span className="m-chip is-grad" data-tip="Every flagged sniper has sold out">🎯 snipers out</span>}
-      {edge?.verify && ['gold', 'verified'].includes(edge.verify.level) && <span className="m-chip is-grad" data-tip="FEELESS verified">✔ verified</span>}
+      {edge?.snipersOut && <span className="m-chip is-grad" data-tip="Every flagged sniper has sold out"><Ic3 e="🎯" /> snipers out</span>}
+      {edge?.verify && ['gold', 'verified'].includes(edge.verify.level) && <span className="m-chip is-grad" data-tip="FEELESS verified"><Ic3 e="✔" /> verified</span>}
       {run && run.passing === false && <span className="m-chip is-bad" data-tip={(run.gates || []).join(' · ')}>⚠ fails {run.gates?.[0] ? run.gates[0].split(' ').slice(0, 3).join(' ') : 'a gate'}</span>}
       {off != null && <span className={`m-chip ${off <= -50 ? 'is-bad' : ''}`} data-tip="Market cap against its all-time high on Pump">{move(off)} from ATH</span>}
       {read?.tape?.read && read.tape.read !== 'calm' && <span className={`m-chip sp-tape is-${read.tape.read}`} data-testid="cv-tape"

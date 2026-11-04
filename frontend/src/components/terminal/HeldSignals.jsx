@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useHeldList } from '../../lib/myHoldings';
 import { formatUSD, formatPct } from '../../lib/dexscreener';
 import { DipRipTool } from './DipRipTool';
+import { Ic3 } from '../../lib/icon3d';
 
 // Radar › Signals, first section: the coins YOU hold, biggest move first, each with a one-tap Dip/Rip alert.
 // One batched DexScreener request for all of them (deepest pool per coin), refreshed every minute while visible.
@@ -35,7 +36,7 @@ export function HeldSignals() {
     {rows.map(({ h, p }) => { const [tone, label] = signalOf(p); return <div key={h.mint} className={`hs-row tone-${tone}`}>
       <b>${p.baseToken?.symbol}</b><span className={`m-chip ${tone === 'pump' ? 'ok' : tone === 'dump' ? 'bad' : ''}`}>{label}</span>
       <span className="m-num sm">{formatPct(p.priceChange?.h1)} 1h</span><span className="m-dim">{formatUSD(Number(h.holding) * Number(p.priceUsd || 0))} held</span>
-      <button type="button" className="m-btn" aria-expanded={open === h.mint} data-testid={`held-alert-${h.mint}`} onClick={() => setOpen(o => (o === h.mint ? null : h.mint))}>🎯 Dip/Rip alert</button>
+      <button type="button" className="m-btn" aria-expanded={open === h.mint} data-testid={`held-alert-${h.mint}`} onClick={() => setOpen(o => (o === h.mint ? null : h.mint))}><Ic3 e="🎯" /> Dip/Rip alert</button>
       {open === h.mint && <div className="hs-tool"><DipRipTool pair={p} /></div>}</div>; })}
   </section>;
 }

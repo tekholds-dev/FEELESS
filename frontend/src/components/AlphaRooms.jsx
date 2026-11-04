@@ -1,6 +1,6 @@
 import { ReserveProgress } from './ReserveProgress';
 import React, { useEffect, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock } from '../lib/lucide3d';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';

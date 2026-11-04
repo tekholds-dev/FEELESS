@@ -7,6 +7,7 @@ import { perkText } from '../QuestBoard';
 import { AuraPicker } from '../cards/MetaCard';
 import { QuestBadgeCard } from '../QuestBadgeCard';
 import { shaped } from '../../lib/shape';
+import { Ic3 } from '../../lib/icon3d';
 const QUESTS = shaped({ badges: [], daily: [], weekly: [], tiers: [], stats: {}, metrics: {}, season: {} });
 
 // HQ › Badges › Quest engine: every badge editable (name, tier, on/off, tasks + targets), live holder
@@ -32,7 +33,7 @@ export function QuestEngineAdmin({ call }) {
       <input className="m-input" defaultValue={season.name} onBlur={e => e.target.value !== season.name && seasonCall({ name: e.target.value })} aria-label="Season name" />
       <span className={`m-chip ${season.paused ? 'warn' : 'ok'}`}>{season.paused ? '⏸ paused (pre-launch)' : `live since ${season.start ? new Date(season.start * 1000).toLocaleDateString() : '—'}`}</span>
       <button type="button" className="m-btn" onClick={() => seasonCall({ paused: !season.paused })}>{season.paused ? '▶ Start season (launch day)' : '⏸ Pause season'}</button>
-      <button type="button" className="m-btn" disabled={season.paused} onClick={() => seasonCall({ awardWeek: true })} title="Gives this week's top 3 a trophy (once per week)">🏆 Award week's top 3</button></div>
+      <button type="button" className="m-btn" disabled={season.paused} onClick={() => seasonCall({ awardWeek: true })} title="Gives this week's top 3 a trophy (once per week)"><Ic3 e="🏆" /> Award week's top 3</button></div>
     <div className="m-seg" role="tablist">{[['feeless', 'FEELESS'], ['frsv', 'FEE RESERVE']].map(([id, l]) => <button key={id} type="button" className={set === id ? 'active' : ''} onClick={() => setSet(id)}>{l}</button>)}</div>
     <div className="qe-list">{d.badges.filter(b => b.set === set).map(b => <div key={b.id} className={`qe-row ${b.enabled === false ? 'is-off' : ''}`}>
       <BadgeArt art={b.art} name={b.name} size="sm" /><div><b>{b.name}</b> <span className={`m-chip tier-${b.tier}`}>{b.tier}</span> <small className="m-dim">{st.holders?.[b.id] || 0} hold · {st.pct?.[b.id] || 0}%</small>

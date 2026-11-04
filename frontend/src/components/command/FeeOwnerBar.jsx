@@ -8,6 +8,7 @@ import { useAdmin } from '../../lib/adminCall';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import '../../styles/feeOwner.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 👑 THE CREATOR'S FEE (owner, 2026-10-23: "creator controls Fee — coat / gear / eyes / name" · "I can't find where to link / fund Fee's
 // wallet"): two lit pills, shown ONLY to a FEELESS owner wallet (the server re-checks the signed wallet on every write — fee_owner_real):
@@ -78,12 +79,12 @@ export function FeeOwnerBar({ cat: cat0, devOwner = false, devAddress = '' }) {
   const v = realView(cat);
   const act = async (action, extra = {}) => setCat(await post(action, extra));
   return <div className="fob" data-testid="fee-owner-bar">
-    <span className="fob-crown" aria-hidden="true">👑</span><small className="fob-h">CREATOR</small>
-    <button type="button" className="fob-pill is-style" onClick={() => setOpen('style')} data-testid="fob-style" data-tip="Dress Fee — coat, pattern, gear, eyes, aura, her name. Every viewer sees it">🎨 STYLE FEE</button>
+    <span className="fob-crown" aria-hidden="true"><Ic3 e="👑" /></span><small className="fob-h">CREATOR</small>
+    <button type="button" className="fob-pill is-style" onClick={() => setOpen('style')} data-testid="fob-style" data-tip="Dress Fee — coat, pattern, gear, eyes, aura, her name. Every viewer sees it"><Ic3 e="🎨" /> STYLE FEE</button>
     <button type="button" className={`fob-pill is-wallet ${v.real ? 'is-real' : ''}`} onClick={() => setOpen('wallet')} data-testid="fob-wallet"
       data-tip="Fee's wallet: assign one you already have or give her a fresh one, fund it once — she trades from it on her own (you never sign each trade)">
-      <i className="fob-dot" aria-hidden="true" />👛 FEE'S WALLET <b>{walletWord(cat)}</b>{v.pending ? <u className="fob-ping" aria-hidden="true" /> : null}</button>
-    <button type="button" className="fob-pill is-style" onClick={() => window.dispatchEvent(new Event('fee:owner'))} data-tip="Her owner desktop: colony, honeypot, PoW folders, slots, lane, brain, prompts" data-testid="fob-owner">🗂 OWNER DESKTOP</button>
+      <i className="fob-dot" aria-hidden="true" /><Ic3 e="👛" /> FEE'S WALLET <b>{walletWord(cat)}</b>{v.pending ? <u className="fob-ping" aria-hidden="true" /> : null}</button>
+    <button type="button" className="fob-pill is-style" onClick={() => window.dispatchEvent(new Event('fee:owner'))} data-tip="Her owner desktop: colony, honeypot, PoW folders, slots, lane, brain, prompts" data-testid="fob-owner"><Ic3 e="🗂" /> OWNER DESKTOP</button>
     {open === 'style' ? <Pop k="style" title="🎨 STYLE FEE — every viewer sees her" onClose={() => setOpen(null)}><Studio cat={cat} onSaved={setCat} devAddress={devAddress} /></Pop> : null}
     {open === 'wallet' ? <Pop k="wallet" title="👛 FEE'S WALLET — fund it once, she trades from it" onClose={() => setOpen(null)}><CatReal cat={cat} onAct={act} devAddress={devAddress} /></Pop> : null}
   </div>;

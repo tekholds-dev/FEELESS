@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { apiUrl } from '../lib/api';
 import { PAIRED_KEY, SESSION_KEY } from '../lib/hqPaired';
 import '../styles/hqLink.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 📱 SCAN TO SIGN IN TO HQ (owner, 2026-10-21: "create a scan to sign in real quick, like Trust Wallet, so I can connect my Phantom").
 // ONE page, two sides. On the COMPUTER (/hq-link) it shows a one-time QR and waits. The QR is a PHANTOM DEEPLINK (the in-app browser froze on
@@ -36,12 +37,12 @@ function Desk() {
     return () => clearInterval(t);
   }, [st.phase, st.code]);   // eslint-disable-line react-hooks/exhaustive-deps
   return <section className="hql" data-testid="hq-link">
-    <header><b>📱 SCAN TO OPEN HQ</b><small>Phantom on your phone signs once — a message, never a transaction. Same Wi-Fi as this computer.</small></header>
+    <header><b><Ic3 e="📱" /> SCAN TO OPEN HQ</b><small>Phantom on your phone signs once — a message, never a transaction. Same Wi-Fi as this computer.</small></header>
     {st.phase === 'wait' ? <div className="hql-qr"><div className="hql-code" role="img" aria-label="QR code to sign in with Phantom" dangerouslySetInnerHTML={{ __html: st.svg }} />   {/* the SVG is drawn here by the qrcode library, never from the network */}<i className="hql-scan" aria-hidden="true" /></div> : null}
     {st.phase === 'wait' ? <ol className="hql-steps"><li>Point your phone's camera here (same Wi-Fi).</li><li>Phantom opens: tap <b>Connect</b>, then <b>Sign</b> the HQ message.</li><li>This page opens HQ by itself.</li></ol> : null}
     {st.phase === 'make' ? <p className="hql-note">Making a one-time code…</p> : null}
     {st.phase === 'err' ? <p className="hql-note is-bad">{st.why} <button type="button" className="m-btn" onClick={make}>Try again</button></p> : null}
-    {st.phase === 'done' ? <div className="hql-done" data-testid="hq-link-done"><b>✅ HQ unlocked for {st.address.slice(0, 4)}…{st.address.slice(-4)}</b><small>~24h on this computer · trades still ask your phone wallet</small>
+    {st.phase === 'done' ? <div className="hql-done" data-testid="hq-link-done"><b><Ic3 e="✅" /> HQ unlocked for {st.address.slice(0, 4)}…{st.address.slice(-4)}</b><small>~24h on this computer · trades still ask your phone wallet</small>
       <a className="m-btn m-go" href="/terminal">Open FEELESS → HQ</a></div> : null}
   </section>;
 }
@@ -60,8 +61,8 @@ function Phone({ code }) {
       .catch(e => setSt({ phase: 'err', why: e.message }));
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   return <section className="hql is-phone" data-testid="hq-link-phone">
-    <header><b>👑 FEELESS HQ</b><small>One HQ message to sign in Phantom — no transaction, no funds move.</small></header>
-    {st.phase === 'done' ? <div className="hql-done" data-testid="hq-link-ok"><b>✅ Signed — look at your computer</b><small>You can close this.</small></div> : null}
+    <header><b><Ic3 e="👑" /> FEELESS HQ</b><small>One HQ message to sign in Phantom — no transaction, no funds move.</small></header>
+    {st.phase === 'done' ? <div className="hql-done" data-testid="hq-link-ok"><b><Ic3 e="✅" /> Signed — look at your computer</b><small>You can close this.</small></div> : null}
     {st.phase === 'busy' ? <p className="hql-note" data-testid="hq-link-busy">{step === 'connect' ? 'Connected — opening Phantom to sign…' : 'Checking the signature…'}</p> : null}
     {st.phase === 'scan' ? <p className="hql-note">Scan the QR on your computer with this phone's camera — Phantom opens by itself.</p> : null}
     {st.phase === 'err' ? <p className="hql-note is-bad" data-testid="hq-link-err">{st.why} Scan a fresh QR on the computer.</p> : null}

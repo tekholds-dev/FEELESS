@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { cleanShots } from './SnapStack';
 import '../../styles/poiFolder.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🧬 THE PoI FOLDER (SI21): one child folder in every PoW. It shows how THIS PoW used Proof of Intelligence: the route each mind took and why,
 // what it verified, what was unavailable, and what the mind's DNA looks like. Every number comes from the folder or the owner's PoI view;
@@ -83,7 +84,7 @@ export function PoiFolder({ f, poi, onShot }) {
   const stateCount = s => all.filter(n => n.state === s).length;
   const openNode = pick ? (coins.find(c => c.mint === pick.mint) && nodesOf(f, coins.find(c => c.mint === pick.mint)).find(n => n.h === pick.h)) : null;
   return <section className="pf" data-testid="poi-folder" aria-label="Proof of Intelligence for this PoW">
-    <header className="pf-head m-glass"><b>🧬 PROOF OF INTELLIGENCE</b><small>{String(f.name || '').split(' · ')[0]} · owner only · sealed facts stay sealed</small></header>
+    <header className="pf-head m-glass"><b><Ic3 e="🧬" /> PROOF OF INTELLIGENCE</b><small>{String(f.name || '').split(' · ')[0]} · owner only · sealed facts stay sealed</small></header>
     {!traced ? <p className="pf-gap" role="note" data-testid="pf-not-recorded">Not recorded: this PoW ran before PoI tracing, so route reasons and its DNA generation were not kept. Below is only what the folder saved.</p> : null}
     <div className="pf-vitals">
       <Ring value={sites.size ? useful.size / sites.size : null} label="SOURCE YIELD" sub={`${useful.size} of ${sites.size} sites gave facts`} tip="Sites that gave at least one fact, out of the sites opened for this PoW" />

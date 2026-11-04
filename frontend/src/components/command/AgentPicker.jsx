@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/agentPicker.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // 🤖 NEW AGENT (owner, 2026-10-23: "TWO KINDS OF AI CAT — user's own wallet, real money, NO paper"): ONE door, two AI cats that both end at
 // pick models → its own wallet → REAL (DECISIONS #2: your wallet signs ONE funding, then it trades inside the caps; FEELESS never sees your keys):
@@ -43,9 +44,9 @@ export function AgentPicker({ count = 0, onPick, staff = false, max = AGENT_MAX 
       <span className="agp-tag">{k.tag}</span><b>{k.title}</b><p>{k.pitch}</p>
       <span className="agp-meters">{k.meters.map(([w, v, s], j) => <span key={w} style={{ '--j': j }}><em>{w}</em><i><u style={{ transform: `scaleX(${v})` }} /></i><small>{s}</small></span>)}</span>
       {live === false ? <span className="agp-off">model calls off — rules until they're on</span> : null}
-      <span className="agp-flow" aria-hidden="true"><i>🧠 models</i><u /><i>👛 your wallet</i><u /><i className="is-real">💵 REAL</i></span>
+      <span className="agp-flow" aria-hidden="true"><i><Ic3 e="🧠" /> models</i><u /><i><Ic3 e="👛" /> your wallet</i><u /><i className="is-real"><Ic3 e="💵" /> REAL</i></span>
       <span className="agp-go">Start a {k.title.toLowerCase()} →</span></button>)}</div>
     {staff ? <button type="button" className="agp-test" disabled={full} onClick={() => onPick('create')} data-testid="agent-create"
-      data-tip="The free rule trader on paper — the Leader's engine on live prices with your name, look and limits. Staff-only test, no wallet">🧪 Test first on paper — free rule trader · STAFF →</button> : null}
+      data-tip="The free rule trader on paper — the Leader's engine on live prices with your name, look and limits. Staff-only test, no wallet"><Ic3 e="🧪" /> Test first on paper — free rule trader · STAFF →</button> : null}
   </section>;
 }

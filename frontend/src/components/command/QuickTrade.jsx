@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Zap } from 'lucide-react';
+import { Zap } from '../../lib/lucide3d';
 import { useFloatPop } from '../../lib/floatPop';
 import { sharedJson, markFresh } from '../../lib/sharedJson';
 import { sellPct } from './MySeat';
 import NumInput from '../NumInput';
 import '../../styles/quickTrade.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // ⚡ QUICK TRADE on every seat card (owner, 2026-10-21: "every trade card needs a quick-trade dropdown — adjust SL, sell X or type a sell amount,
 // quick buy — with realtime processing"): one tap opens it on the card. Every button is the card's own existing path (/admin/arena/prime:
@@ -50,10 +51,10 @@ export function QuickTrade({ s, call, tpl }) {
     <button type="button" ref={fp.ref} className={`qtr-btn ${st && st.i >= 0 && st.i < 3 ? 'is-busy' : ''}`} aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(!open); }}
       data-testid={`qtr-${s.symbol}`} aria-label={`Quick trade $${s.symbol}`}><Zap size={13} /></button>
     {open && createPortal(<div ref={fp.popRef} style={fp.style} className="qtr-pop" role="dialog" aria-label={`Quick trade $${s.symbol}`} data-testid="qtr-pop">
-      <header><b>⚡ ${s.symbol}</b><span className={s.pct >= 0 ? 'up' : 'dn'}>{s.pct != null ? `${s.pct >= 0 ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</span><small>{value != null ? `worth $${value.toFixed(2)}` : 'reading…'}</small></header>
+      <header><b><Ic3 e="⚡" /> ${s.symbol}</b><span className={s.pct >= 0 ? 'up' : 'dn'}>{s.pct != null ? `${s.pct >= 0 ? '+' : ''}${s.pct.toFixed(1)}%` : '—'}</span><small>{value != null ? `worth $${value.toFixed(2)}` : 'reading…'}</small></header>
       <section><em>🛑 STOP</em><div className="qtr-row">{STOPS.map(v => <button key={v} type="button" className={leg?.sl === v ? 'active' : ''} onClick={() => send('line', { leg: { tpl, pairAddress: s.pair, sl: v } }, `🛑 stop at −${v}%`)} data-testid={`qtr-sl-${v}`}>−{v}%</button>)}</div></section>
-      <section><em>🎯 TAKE</em><div className="qtr-row">{TAKES.map(v => <button key={v} type="button" className={leg?.tp === v ? 'active' : ''} onClick={() => send('line', { leg: { tpl, pairAddress: s.pair, tp: v } }, `🎯 take at +${v}%`)} data-testid={`qtr-tp-${v}`}>+{v}%</button>)}</div></section>
-      <section><em>✂ SELL</em><div className="qtr-row">{[25, 50, 100].map(v => <button key={v} type="button" className="is-sell" onClick={() => send('sell', { manualSell: { tpl, pairAddress: s.pair, pct: v, ack: true } }, `✂ ${v}%`)} data-testid={`qtr-sell-${v}`}>{v === 100 ? 'ALL' : `${v}%`}</button>)}</div>
+      <section><em><Ic3 e="🎯" /> TAKE</em><div className="qtr-row">{TAKES.map(v => <button key={v} type="button" className={leg?.tp === v ? 'active' : ''} onClick={() => send('line', { leg: { tpl, pairAddress: s.pair, tp: v } }, `🎯 take at +${v}%`)} data-testid={`qtr-tp-${v}`}>+{v}%</button>)}</div></section>
+      <section><em><Ic3 e="✂" /> SELL</em><div className="qtr-row">{[25, 50, 100].map(v => <button key={v} type="button" className="is-sell" onClick={() => send('sell', { manualSell: { tpl, pairAddress: s.pair, pct: v, ack: true } }, `✂ ${v}%`)} data-testid={`qtr-sell-${v}`}>{v === 100 ? 'ALL' : `${v}%`}</button>)}</div>
         <div className="qtr-amt"><NumInput className="m-input" value={n} onChange={e => setN(e.target.value)} placeholder={mode === '$' ? '$ amount' : '% amount'} aria-label="Sell amount" data-testid="qtr-amt" />
           <button type="button" onClick={() => setMode(m => (m === '%' ? '$' : '%'))} aria-label="Switch % or $">{mode}</button>
           <button type="button" className="is-sell" disabled={!pct} onClick={() => pct && send('sell', { manualSell: { tpl, pairAddress: s.pair, pct, ack: true } }, `✂ ${pct}%`)} data-testid="qtr-amt-go">Sell{pct ? ` ${pct}%` : ''}</button></div></section>

@@ -7,6 +7,7 @@ import { useWallet } from '../hooks/useWallet';
 import '../styles/dailyCall.css';
 
 import { tiny } from '../lib/num';
+import { Ic3 } from '../lib/icon3d';
 // ⚡ FREE CALL (Radar › Signals, top): every hour the engine's doors put a coin each on a ballot — pick the one that leads the next hour. Free, points only:
 // +10 season points for a right call, a streak adds more; feeds the daily / weekly quests. Judged on recorded prices. GET /predict · POST /predict/pick.
 export const fmtLeft = s => { const t = Math.max(0, Math.floor(s)); return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; };
@@ -34,16 +35,16 @@ export function DailyCall() {
     try { await post('/api/reputation/predict/pick', { address: addr, session: s, round: r.id, mint: c.mint }); toast.success(`⚡ Called $${c.symbol} — result at the bell`); sharedJson.freshAt = Date.now(); await load(true); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   return <section className="dcl m-card m-live" data-testid="daily-call">
-    <header><span className="m-label">⚡ FREE CALL</span><b className={`dcl-clock m-num ${locked ? 'is-locked' : ''}`} data-tip="Time to the bell. Picks close 2 minutes before it.">{fmtLeft(left)}</b>
+    <header><span className="m-label"><Ic3 e="⚡" /> FREE CALL</span><b className={`dcl-clock m-num ${locked ? 'is-locked' : ''}`} data-tip="Time to the bell. Picks close 2 minutes before it.">{fmtLeft(left)}</b>
       <small>{r.players} caller{r.players === 1 ? '' : 's'} this hour</small>
-      {d.me?.streak > 0 && <span className="m-chip dcl-streak" data-tip="Right calls in a row — each adds bonus points">🔥 {d.me.streak} in a row</span>}</header>
+      {d.me?.streak > 0 && <span className="m-chip dcl-streak" data-tip="Right calls in a row — each adds bonus points"><Ic3 e="🔥" /> {d.me.streak} in a row</span>}</header>
     <p className="dcl-q">Which leads the next hour?</p>
     <div className="dcl-cands" role="group" aria-label="This hour's ballot">{r.cands.map((c, i) => <button key={c.mint} type="button" style={{ '--i': i }} className={`dcl-c ${r.mine === c.mint ? 'is-mine' : ''}`} disabled={busy || locked || !!r.mine}
       onClick={() => pick(c)} data-testid={`dcl-${c.symbol}`} data-tip={`${c.doorLabel}. In at ${c.px0 >= 1 ? c.px0.toFixed(2) : tiny(c.px0, 3)} — the biggest move since this hour opened wins.`}>
       <b>${c.symbol}</b><small>{c.doorLabel}</small><em className={`m-num ${c.pct == null ? '' : c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pctText(c.pct)}</em>{r.mine === c.mint && <i>locked in ✓</i>}</button>)}</div>
     <footer><small className="dcl-last">{lastLine(d.last)}</small>
-      <details className="dcl-board"><summary data-tip={d.rule}>🏆 this week{d.me ? ` · you ${d.me.wins || 0}/${d.me.picks || 0}` : ''}</summary>
-        {(d.board || []).length ? <ol>{d.board.map(b => <li key={b.address}><a href={`/terminal/profile/${b.address}`}>{b.name}</a><em>{b.wins}/{b.picks}</em>{b.streak > 1 ? <i>🔥{b.streak}</i> : null}</li>)}</ol> : <small className="m-dim">No calls this week yet — be first.</small>}
+      <details className="dcl-board"><summary data-tip={d.rule}><Ic3 e="🏆" /> this week{d.me ? ` · you ${d.me.wins || 0}/${d.me.picks || 0}` : ''}</summary>
+        {(d.board || []).length ? <ol>{d.board.map(b => <li key={b.address}><a href={`/terminal/profile/${b.address}`}>{b.name}</a><em>{b.wins}/{b.picks}</em>{b.streak > 1 ? <i><Ic3 e="🔥" />{b.streak}</i> : null}</li>)}</ol> : <small className="m-dim">No calls this week yet — be first.</small>}
         <small className="m-dim">{d.rule}</small></details></footer>
   </section>;
 }

@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { useSolPrice } from '../../lib/solPrice';
 import '../../styles/fusePage.css';
+import { Ic3 } from '../../lib/icon3d';
 
 // HQ › ⚛️ Fuse › 🏦 FUSE Vault designer. One vault = up to 3 SOLANA yield pools (v2 constant-product / v3
 // concentrated) in one contract: SOL in → shares → spread by auto-scaled weights, capped per pool, fees to the vault fee
@@ -73,17 +74,17 @@ export function VaultDesigner({ call }) {
   const apr = draft.pools.reduce((a, p) => a + Math.min(APR_CAP, Number(p.meta?.aprEst) || 0) * (Number(p.weight) || 0) / wsum, 0);
   const yieldSol = dep * apr / 100; const mgmtSol = dep * draft.mgmtBps / 10000; const perfSol = yieldSol * draft.perfBps / 10000;
   return <div className="vd" data-testid="vault-designer">
-    <div className="m-note warn vd-status"><b>🏦 DESIGN · LOCALNET ONLY · NOT DEPLOYED</b><span>No money can go in yet. Fees would go to {d?.feeWallet ? <code>{d.feeWallet.slice(0, 4)}…{d.feeWallet.slice(-4)}</code> : 'the vault fee wallet (set it in Trading & fees)'}. Deploy = adapters → devnet → audit → your keys.</span></div>
+    <div className="m-note warn vd-status"><b><Ic3 e="🏦" /> DESIGN · LOCALNET ONLY · NOT DEPLOYED</b><span>No money can go in yet. Fees would go to {d?.feeWallet ? <code>{d.feeWallet.slice(0, 4)}…{d.feeWallet.slice(-4)}</code> : 'the vault fee wallet (set it in Trading & fees)'}. Deploy = adapters → devnet → audit → your keys.</span></div>
     <ol className="vd-flow">{STEPS.map(([t, why], i) => <li key={t} style={{ '--i': i }} data-tip={why}><b>{t}</b><small>{why}</small></li>)}</ol>
 
     <section className="vd-pre" aria-label="Prebuilt vaults">{VAULT_PRESETS.map((v, i) => <button key={v.id} type="button" className={`vd-pcard tier-${v.tier}`} style={{ '--i': i }} onClick={() => loadPreset(v)} data-testid={`vd-preset-${v.id}`}
       data-tip={`${v.why}. Fees: ${v.mgmtBps / 100}%/yr + ${v.perfBps / 100}% of yield · cap ${v.capPct}% of each pool${v.rangePct ? ` · v3 range ±${v.rangePct}%` : ''}`}>
-      <i className="vd-pcrest">{v.emoji}</i><b>{v.name}</b><small>{v.why}</small><em>{v.mgmtBps / 100}%/yr · {v.perfBps / 100}% of yield</em><span className="vd-pgo">Load →</span></button>)}</section>
-    <section className="m-card vd-sim-box"><div className="m-row"><span className="m-label">🧮 SIMULATE A DEPOSIT</span>
+      <i className="vd-pcrest"><Ic3 e={v.emoji} /></i><b>{v.name}</b><small>{v.why}</small><em>{v.mgmtBps / 100}%/yr · {v.perfBps / 100}% of yield</em><span className="vd-pgo">Load →</span></button>)}</section>
+    <section className="m-card vd-sim-box"><div className="m-row"><span className="m-label"><Ic3 e="🧮" /> SIMULATE A DEPOSIT</span>
       <label className="vd-dep"><NumInput className="m-input" inputMode="decimal" value={deposit} onChange={e => setDeposit(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="Deposit in SOL" /><span>SOL</span><em className="m-dim">{$(dep)}</em></label></div>
       {!(d?.vaults || []).length ? <p className="m-dim">No vault designed yet — build one below and its money math shows here.</p>
         : (d.vaults).map(v => <article key={v.id} className="vd-vault">
-          <header className="m-row"><span className="fz-emoji">{v.emoji}</span><b>{v.name}</b><span className="m-chip">{v.status}</span>
+          <header className="m-row"><span className="fz-emoji"><Ic3 e={v.emoji} /></span><b>{v.name}</b><span className="m-chip">{v.status}</span>
             <small className="m-dim">{v.mgmtBps / 100}%/yr mgmt · {v.perfBps / 100}% of yield</small><span className="vd-sp" />
             <button type="button" className="m-btn" onClick={() => setDraft({ id: v.id, name: v.name, emoji: v.emoji, tagline: v.tagline || '', mgmtBps: v.mgmtBps, perfBps: v.perfBps, pools: v.pools.map(p => ({ ...p, meta: p })) })}>Edit</button>
             <button type="button" className="m-btn danger" onClick={() => window.confirm(`Delete ${v.name}?`) && save({ id: v.id, delete: true })}>Delete</button></header>

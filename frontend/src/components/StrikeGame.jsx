@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import { gunStats, rayBody, damageAt, spreadNow, botBrain, BOT_DIFF, MATCH } from '../lib/strikeGame';
 import { tgHaptic, tgApp } from '../lib/telegram';
 import '../styles/strikeZone.css';
+import { Ic3 } from '../lib/icon3d';
 
 // 🎯 STRIKE ZONE — the match (owner 2026-10-27: "the realest third-person shooter, full screen, vs bots or online — don't start from scratch").
 // Built on three.js's own open-source pieces: the FPS example's Octree + Capsule physics (examples/jsm/math), GLTFLoader + SkeletonUtils, and
@@ -285,7 +286,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
       <span className="szg-hp"><em>HP</em><u><s style={{ transform: `scaleX(${hud.hp / 100})` }} className={hud.hp < 35 ? 'is-low' : ''} /></u><b className="m-num">{Math.ceil(hud.hp)}</b></span>
       <span className="szg-ammo"><b className="m-num">{hud.reload ? '…' : hud.ammo}</b><small className="m-num">/ {hud.mag}</small><em>{g.name}{hud.reload ? ' · RELOADING' : ''}</em></span>
       <i className={`szg-cross ${hud.hit ? 'is-hit' : ''}`} style={{ '--sp': `${Math.min(60, 8 + hud.spread * 900)}px` }} aria-hidden="true"><s /><s /><s /><s /></i>
-      {mode === 'online' ? <span className="szg-online">🌐 {room} · {hud.peers} other{hud.peers === 1 ? '' : 's'} here</span> : null}
+      {mode === 'online' ? <span className="szg-online"><Ic3 e="🌐" /> {room} · {hud.peers} other{hud.peers === 1 ? '' : 's'} here</span> : null}
       {!touch && !locked && phase === 'play' ? <p className="szg-click">Click to aim · WASD move · Shift sprint · Space jump · right-click ADS · R reload · Esc frees the mouse</p> : null}
     </div>
     {hud.dead ? <div className="szg-dead"><b>DOWN</b><small>back in {Math.ceil(hud.dead)}…</small></div> : null}

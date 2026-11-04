@@ -2,7 +2,8 @@ import { CROP } from '../lib/cropImage';
 import NumInput from './NumInput';
 import React, { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ImagePlus, Sparkles } from 'lucide-react';
+import { ImagePlus } from 'lucide-react';
+import { Sparkles } from '../lib/lucide3d';
 import { uploadImage } from '../lib/adminCall';
 
 export const BG_FX = [['money', '💸 Money rain'], ['fire', '🔥 Embers'], ['snow', '❄️ Snow'], ['leaves', '🍂 Falling leaves'], ['stars', '✨ Starfield'], ['none', 'None']];
