@@ -2176,6 +2176,7 @@ def _site_proof_start(cat, cat_id, site, kind):
 
 _SCAN_BUSY: dict = {}   # 🔎 cat_id → the site it is scanning
 _SCAN_DONE: list = []   # finished scans, filed by the engine pass (the store's one writer)
+_SCAN_FILED: set = set()   # filed this pass: "still scanning" ends on the NEXT pass, once the manual is saved, or the page stops looking too early
 
 
 async def _site_scan_run(cat_id, url, site, kind, ctx):
@@ -2229,8 +2230,10 @@ async def _watch_pass(store):
 async def _site_pass(store):
     """🔎 File what finished: its snapshot on disk, its manual, one small model call to reword it when it has budget. The site's own sentences stay underneath."""
     await _watch_pass(store)
+    for cid_ in list(_SCAN_FILED):
+        _SCAN_BUSY.pop(cid_, None); _SCAN_FILED.discard(cid_)
     while _SCAN_DONE:
-        o = _SCAN_DONE.pop(0); cat = store['cats'].get(o['cat']); _SCAN_BUSY.pop(o['cat'], None)
+        o = _SCAN_DONE.pop(0); cat = store['cats'].get(o['cat']); _SCAN_FILED.add(o['cat']); _POW_WAKE.set()
         if not cat:
             continue
         now = time.time(); name_ = None

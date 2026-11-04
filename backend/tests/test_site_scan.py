@@ -116,7 +116,7 @@ def test_note_says_read_only_and_passes_rules_as_data():
 @pytest.fixture
 def fs(monkeypatch):
     import feecat_service as fs
-    fs._WORK.clear(); fs._POW_WANT.clear(); fs._POP_WANT.clear(); fs._POB_WANT.clear(); fs._SCAN_DONE.clear(); fs._SCAN_BUSY.clear()
+    fs._WORK.clear(); fs._POW_WANT.clear(); fs._POP_WANT.clear(); fs._POB_WANT.clear(); fs._SCAN_DONE.clear(); fs._SCAN_BUSY.clear(); fs._SCAN_FILED.clear()
     return fs
 
 
@@ -140,7 +140,10 @@ def test_a_finished_scan_is_filed_with_its_snapshot_and_no_model_when_no_credit(
     asyncio.run(fs._site_pass(store))
     m = cat['siteManuals']['a.io']
     assert m['kinds'] == ['pob'] and m['shot'] == 'a.io.jpg' and (tmp_path / 'sitec1' / 'a.io.jpg').read_bytes() == b'x' and not m['model']
-    assert 'c1' not in fs._SCAN_BUSY and 'scanned' in cat['chat'][-1]['text']
+    assert 'scanned' in cat['chat'][-1]['text']
+    assert fs._SCAN_BUSY['c1'] == 'a.io'   # still "scanning" until this pass has saved the manual
+    asyncio.run(fs._site_pass(store))
+    assert 'c1' not in fs._SCAN_BUSY
 
 
 def test_public_cat_view_never_carries_manuals(fs):
