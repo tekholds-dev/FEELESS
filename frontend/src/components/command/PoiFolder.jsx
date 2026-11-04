@@ -64,6 +64,13 @@ export function PoiMinds({ poi, f }) {
         {ev.length ? <ul className="pf-events">{ev.map(e => <li key={`${e.site}${e.generation}`} className={`is-${e.state}`}>{e.site} {e.state} · gen {e.generation}</li>)}</ul> : <small>No promotion, retirement or rollback yet</small>}</div></article>; })}</div>;
 }
 
+// The hard limits this desk runs under: read-only, the same numbers the engine enforces.
+export function KernelCard({ kernel }) {
+  if (!kernel) return null;
+  return <details className="pf-kernel m-glass" data-testid="pf-kernel"><summary><b>🧱 KERNEL {kernel.v}</b><small className="m-num">{kernel.hash}</small></summary>
+    <div>{kernel.groups.map(g => <section key={g.name}><em>{g.name}</em>{g.rows.map(([k, v]) => <span key={k}><small>{k}</small><b className="m-num">{Array.isArray(v) ? v.join(' – ') : v === false ? 'never' : String(v)}</b></span>)}</section>)}</div></details>;
+}
+
 export function PoiFolder({ f, poi, onShot }) {
   const [pick, setPick] = useState(null);
   const coins = (f.coins || []).filter(c => f.vitals?.[c.mint] || f.poiTrace?.[c.mint] || (f.shots || []).some(s => s.mint === c.mint));
@@ -91,6 +98,7 @@ export function PoiFolder({ f, poi, onShot }) {
     {openNode ? <div className="pf-claims m-glass" data-testid="pf-claims"><b>{openNode.h}</b><small>{STATE[openNode.state]} · {openNode.why}{openNode.dna ? ` · DNA: ${openNode.dna}` : ''}</small>
       {openNode.facts.length ? <ul>{openNode.facts.map((x, k) => <li key={`${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.verified ? 'verified' : 'candidate'}{x.at ? ` · ${new Date(x.at * 1000).toLocaleTimeString()}` : ''}</small></li>)}</ul> : <p className="pf-none">No facts came from this source in this PoW.</p>}
       {openNode.shots.length ? <span className="pf-shots">{openNode.shots.map(s => <button key={s.file} type="button" className="m-btn" onClick={() => onShot?.(s)} data-tip="Open the snapshot this came from">Snapshot {s.n}</button>)}</span> : null}</div> : null}
+    {(f.shadow || []).length ? <div className="pf-shadow m-glass" data-testid="pf-shadow"><b>🌘 COINS NOT BOUGHT</b><small>Price only, no fills or fees assumed.</small><ul>{f.shadow.map(r => <li key={r.mint} className={r.priceMovePct > 0 ? 'is-up' : r.priceMovePct < 0 ? 'is-dn' : ''}><em>${r.sym}</em><b className="m-num">{r.priceMovePct == null ? 'no price' : `${r.priceMovePct >= 0 ? '+' : ''}${r.priceMovePct}%`}</b></li>)}</ul></div> : f.shadowDueAt ? <p className="pf-gap">Coins not bought are read again at {new Date(f.shadowDueAt * 1000).toLocaleTimeString()}.</p> : null}
     <PoiMinds poi={poi} f={f} />
   </section>;
 }

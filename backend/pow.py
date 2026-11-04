@@ -85,7 +85,7 @@ HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag'
 RECENT_FOLDERS = 2      # its last 2 folders' sites are skipped next time (owner 2026-11-01: "they can't check the same sites from the last researches")
 
 
-def ranked_sources(recent, book, coverage, now=None, inherited=()):
+def ranked_sources(recent, book, coverage, now=None, inherited=(), retired=()):
     """Observed access and useful facts lead; unread sources get a novelty lift. Recent routes remain excluded."""
     now = time.time() if now is None else now
     recent = set(recent or ())
@@ -98,7 +98,7 @@ def ranked_sources(recent, book, coverage, now=None, inherited=()):
         age = now - float(c.get('last') or 0)
         freshness = min(1, max(0, age) / 86400) if c.get('last') else 1
         inherited_bonus = 1 if h in inherited else 0  # another mind validated useful evidence; this mind still verifies independently
-        return -(availability * 4 + useful * 3 + novelty + freshness + inherited_bonus), h
+        return (h in retired), -(availability * 4 + useful * 3 + novelty + freshness + inherited_bonus), h   # a retired source goes last, still reachable: that is how it can roll back
     return sorted((h for h in HOSTS if h not in recent), key=key)
 
 
@@ -340,6 +340,7 @@ def pick(coins, done_mints, min_liq=5000):
 # Hard stops so it never loops forever: −25 % / +60 % / 60 min / 6 rounds sell without asking. A won folder goes to the colony with its share.
 WATCH_S = 180
 RESEARCH_S = 150
+SHADOW_S = 3600                   # 🌘 a proposal's coins are read again an hour on: price only, never P/L
 ROUNDS_MAX = 6
 HOLD_MAX_S = 3600
 STOP_PCT, TAKE_PCT = -25.0, 60.0
@@ -717,7 +718,7 @@ def shadow_compare(f, exit_prices, at):
     rows = []
     for coin in f.get('coins') or []:
         mint = coin.get('mint')
-        if not mint or mint == f.get('mint') or not coin.get('safe', True):
+        if not mint or (mint == f.get('mint') and not f.get('propose')) or not coin.get('safe', True):
             continue
         start = first.get(mint) or {}
         entry, exit_ = _f(start.get('px')), _f((exit_prices or {}).get(mint))

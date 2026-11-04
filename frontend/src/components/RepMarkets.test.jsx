@@ -6,5 +6,5 @@ test('clock words and the spark path', () => {
   expect(clock(3 * 3600 + 120)).toBe('3h 2m');
   expect(sparkPath([1])).toBe('');
   expect(sparkPath([1, 1.2, 0.9]).startsWith('M0.0,')).toBe(true);
-  expect(Object.keys(KIND_WORD)).toEqual(['up', 'double', 'rug']);
+  expect(Object.keys(KIND_WORD)).toEqual(['up', 'double', 'rug', 'agent']);
 });

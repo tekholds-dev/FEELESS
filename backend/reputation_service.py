@@ -12178,14 +12178,21 @@ async def _rm_tick(now):
         st = _json_load(REP_MARKETS_PATH, {}) or {}
         opn = [m for m in st.get('markets') or [] if m['state'] == 'open']
         if opn:
-            px = await _jup_prices(sorted({m['mint'] for m in opn}), judge=True)
+            px = await _jup_prices(sorted({m['mint'] for m in opn if m.get('mint')}), judge=True)
             for m in opn:
-                if (px or {}).get(m['mint']):
+                if m.get('mint') and (px or {}).get(m['mint']):
                     _repm.mark(m, px[m['mint']], now)
+        try:   # 🤖 live PoWs and PoPs open bid markets; their real results settle them
+            async with httpx.AsyncClient(timeout=5) as http_:
+                _repm.sync_agents(st, (await http_.get('http://127.0.0.1:5088/api/cats/bids/feed')).json().get('rows'), now)
+        except (httpx.HTTPError, ValueError) as e:
+            print(f'[rep-markets] agent feed: {str(e)[:100]}')
         done = _repm.settle(st, now)
         for m in done:
             for s_ in m['stakes']:
                 b_ = _repm.bank(st, s_['w'], now); pts_ = _repm.season_pts(b_)
+                if str(s_['w']).startswith('agent:'):   # an agent's chips never earn season points
+                    continue
                 if pts_ > b_.get('pts', 0):
                     season_award(s_['w'], pts_ - b_.get('pts', 0), 'rep-market'); b_['pts'] = pts_
         hr = int(now // 3600)

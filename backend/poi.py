@@ -124,6 +124,9 @@ def append(data_dir, cat_id, mind, folder, mint, at, pulls, metrics, steps=(), v
             fcntl.flock(fh, fcntl.LOCK_UN)
 
 
+PROMOTE_AFTER, RETIRE_AFTER, ROLLBACK_AFTER = 4, 6, 2   # visits; the Evolution Kernel reads these
+
+
 def fingerprint(rows, mind):
     """Evidence yield per source for one mind; trade P/L and model identity are irrelevant."""
     mine = [r for r in rows or [] if r.get('mind') == mind and r.get('v') == VERSION]
@@ -161,18 +164,23 @@ def evolution(rows):
             past = histories.setdefault(host, [])
             past.append((useful, gap))
             status = states.get(host, 'candidate')
-            if status == 'candidate' and len(past) >= 4:
+            if status == 'candidate' and len(past) >= PROMOTE_AFTER:
                 train, validation = past[-4:-2], past[-2:]
                 train_yield = sum(x[0] for x in train) / 2
                 validation_yield = sum(x[0] for x in validation) / 2
                 if validation_yield >= max(1, train_yield * .75) and not any(x[1] for x in validation):
                     states[host] = 'promoted'
                     events.append({'generation': generation, 'site': host, 'state': 'promoted'})
-            elif status == 'promoted' and len(past) >= 6:
+            elif status == 'promoted' and len(past) >= RETIRE_AFTER:
                 latest = past[-2:]
                 if sum(x[0] for x in latest) == 0 or all(x[1] for x in latest):
                     states[host] = 'retired'
                     events.append({'generation': generation, 'site': host, 'state': 'retired'})
+                    histories[host] = []   # only what it does after retirement can bring it back
+            elif status == 'retired' and len(past) >= ROLLBACK_AFTER and all(x[0] > 0 and not x[1] for x in past[-ROLLBACK_AFTER:]):
+                states[host] = 'candidate'   # useful again: back to candidate, earning promotion from the start
+                events.append({'generation': generation, 'site': host, 'state': 'rollback'})
+                histories[host] = []
     return {'states': states, 'events': events}
 
 

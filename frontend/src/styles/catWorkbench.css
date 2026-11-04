@@ -445,10 +445,10 @@ body.fx-lite .dsk-coin { animation: none; } @media (prefers-reduced-motion: redu
 .dsk-ico { display: grid; justify-items: center; gap: 4px; width: 84px; padding: 8px 4px; border: 1px solid transparent; border-radius: 10px; background: none; cursor: pointer; color: #fff; transition: background .15s, border-color .15s, transform .12s; }
 .dsk-ico svg { width: 46px; height: 38px; filter: drop-shadow(0 4px 8px #0008); } .dsk-ico span { font: 600 11px var(--f-ui); text-shadow: 0 1px 2px #000; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsk-ico:hover { background: #ffffff12; border-color: #ffffff22; } .dsk-ico:active { transform: scale(.96); } .dsk-ico:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
-.dsk-win { position: absolute; top: 0; left: 0; z-index: 2; display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1180px, calc(100vw - 140px)); height: min(760px, calc(100dvh - 80px));
+.dsk-win { position: absolute; top: 0; left: 0; z-index: 2; display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(1180px, max(320px, calc(100vw - var(--wx, 140px) - 16px))); height: min(760px, max(280px, calc(100dvh - var(--wy, 40px) - 60px)));
   border-radius: 12px; overflow: hidden; border: 1px solid #ffffff1f; background: #0b0a12; box-shadow: 0 30px 80px #000c, inset 0 1px 0 #ffffff14; animation: dskWin .2s ease both; }
 .dsk-win.is-top { z-index: 3; border-color: #45e48655; } .dsk-win.is-max { inset: 0 0 46px 0; width: auto; height: auto; border-radius: 0; transform: none; }
-.dsk-win[data-testid="dsk-win-vault"] { width: min(880px, calc(100vw - 32px)); height: min(620px, calc(100dvh - 90px)); }
+.dsk-win[data-testid="dsk-win-vault"] { width: min(880px, max(320px, calc(100vw - var(--wx, 16px) - 16px))); height: min(620px, max(280px, calc(100dvh - var(--wy, 30px) - 60px))); }
 .dsk-title { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; cursor: grab; user-select: none; touch-action: none; background: linear-gradient(90deg, #b388ff1c, #15d16a12); border-bottom: 1px solid #ffffff10; }
 .dsk-title:active { cursor: grabbing; } .dsk-title > b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #fff; font: 700 12px var(--f-ui); }
 .dsk-dots { display: flex; gap: 7px; flex: none; } .dsk-dots button { width: 13px; height: 13px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; background: #ffffff2a; transition: transform .12s, filter .12s; position: relative; }
@@ -677,3 +677,12 @@ body.theme-day .dsk-evidence-meter, body.theme-day .dsk-evidence-summary { backg
 .dsk-rep-shadow{margin-top:12px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--gold,#d6ae5a) 28%,transparent);border-radius:10px;display:grid;gap:5px;background:color-mix(in srgb,var(--gold,#d6ae5a) 5%,transparent)}
 .dsk-rep-shadow>b{font-size:10px;letter-spacing:.11em}.dsk-rep-shadow>small{opacity:.65}.dsk-rep-shadow ul{list-style:none;padding:0;margin:3px 0 0;display:flex;flex-wrap:wrap;gap:6px}.dsk-rep-shadow li{display:flex;gap:8px;padding:5px 8px;border-radius:6px;background:color-mix(in srgb,currentColor 5%,transparent);font-size:11px}
 body.theme-day .dsk-honey-top em { color: #7a5600; } body.theme-day .dsk-honey-top b { color: #1c1230; }
+/* 📥 one dock for everything at the foot of a live window (owner 2026-11-04: three things overlapped while it pulled info): the tray of grabs, then its status line */
+.cwb-dock { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-height: 46%; overflow: hidden; pointer-events: none; } .cwb-dock.at-right { align-items: flex-end; }
+.cwb-dock .cwb-tray, .cwb-dock .cwb-say { position: static; left: auto; right: auto; bottom: auto; max-width: 100%; } .cwb-dock .cwb-tray li:nth-last-child(n+4) { display: none; }
+.dsk-src-health { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: #ffffff0a; font: 600 11px var(--f-ui); color: #d8cff0; } .dsk-src-health b { font: 800 16px var(--f-mono); color: #45e486; } .dsk-src-health em { font: 600 10px var(--f-mono); font-style: normal; color: #ff8fa3; }
+body.theme-day .dsk-src-health { background: #0000000a; color: #3a2a5a; } body.theme-day .dsk-src-health b { color: #0a7a44; } body.theme-day .dsk-src-health em { color: #b0243f; }
+.cwb-stored { top: 56px; bottom: auto; }
+/* a tall row never squeezes under the next one inside a scrolling window */
+.dsk-pow, .dsk-honey { grid-auto-rows: max-content; } .dsk-body > .rpm, .dsk-body > * > .rpm { grid-auto-rows: max-content; align-content: start; min-height: 100%; }
+.dsk-win, .dsk-body { grid-template-columns: minmax(0, 1fr); } .dsk-body > * { min-width: 0; }

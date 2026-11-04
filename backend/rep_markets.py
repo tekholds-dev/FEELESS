@@ -22,6 +22,9 @@ CHIPS_PER_PT = 10
 SPLIT_PTS = 15
 LOCK_SEC = 120
 KINDS = {'up': ('📈', 3600), 'double': ('🚀', 4 * 3600), 'rug': ('☠', 3600)}
+AGENT_BID_S = 900            # 🤖 an agent market takes chips for its first 15 minutes, so nobody bids on a trade that has already played out
+AGENT_VOID_S = 48 * 3600     # no result by then: everyone's chips go home
+AGENT_STAKE = 100            # the agent backs its own trade: skin in the game, in free chips
 MARKETS_KEPT = 160
 GONE_SEC = 900
 HOUSE = 'house'
@@ -125,8 +128,32 @@ def mark(m, px, now):
             m['path'] = (m['path'] + [[round(now), round(px / m['px0'], 4)]])[-90:]
 
 
+def sync_agents(st, feed, now):
+    """🤖 BIDS ON AGENTS (owner 2026-11-04): a live PoW or PoP opens a YES / NO market, its real result settles it. Still free chips only, never money. → markets opened."""
+    have = {m.get('src'): m for m in st.get('markets') or [] if m.get('kind') == 'agent'}; made = 0
+    for r in feed or []:
+        src = f"agent:{r.get('id')}"; m = have.get(src)
+        if m:
+            if not r.get('open') and m['state'] == 'open':
+                m['verdict'] = 'yes' if r.get('won') else 'no'
+            continue
+        if not r.get('open'):
+            continue
+        q = f"{r.get('agent')}: {r.get('label')} ends in profit?"
+        m = {'id': uuid.uuid4().hex[:10], 'kind': 'agent', 'icon': '🤖', 'mint': None, 'sym': str(r.get('label') or '')[:24], 'q': q, 'src': src, 'px0': 0.0, 'peak': 0.0, 'low': 0.0, 'lastPxAt': now, 'opensAt': now,
+             'closesAt': now + AGENT_BID_S + LOCK_SEC, 'state': 'open', 'stakes': [{'w': HOUSE, 'side': sd, 'chips': HOUSE_SEED, 'at': now, 'rep': 0} for sd in ('yes', 'no')], 'path': [[round(now), 1.0]]}
+        st.setdefault('markets', []).append(m); have[src] = m; made += 1
+        try:
+            stake(st, f"agent:{r.get('cat')}", m['id'], 'yes', AGENT_STAKE, now, 50)
+        except ValueError:
+            pass   # out of chips this week: the market still opens
+    return made
+
+
 def outcome(m, now):
     """YES / NO once the market can be decided (early for DOUBLE / RUG the moment it happens), else None."""
+    if m['kind'] == 'agent':
+        return m.get('verdict') or ('void' if now >= m['opensAt'] + AGENT_VOID_S else None)
     p0 = m['px0']
     if m['kind'] == 'double' and m['peak'] >= 2 * p0:
         return 'yes'

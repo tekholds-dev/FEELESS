@@ -6,7 +6,7 @@ import '../styles/repMarkets.css';
 
 // 🛡 Rep markets: YES / NO on what FEELESS measures. Free weekly chips (never bought, sent or cashed out) — net gain becomes season points.
 // The twist: two prices per market — the crowd's chips, and the same chips weighted by each wallet's verified trust score.
-export const KIND_WORD = { up: 'UP 1H', double: '2× IN 4H', rug: 'RUG WATCH' };
+export const KIND_WORD = { up: 'UP 1H', double: '2× IN 4H', rug: 'RUG WATCH', agent: 'AGENT PROOF' };
 export function clock(sec) {
   if (!(sec > 0)) return 'closed';
   const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = Math.floor(sec % 60);
@@ -56,7 +56,7 @@ function Market({ m, now, onStake, busy }) {
   );
 }
 
-export default function RepMarkets() {
+export default function RepMarkets({ only } = {}) {
   const { wallet, signMessage, connect } = useWallet() || {};
   const address = wallet?.address;
   const [d, setD] = useState(null);
@@ -79,14 +79,14 @@ export default function RepMarkets() {
     } catch (e) { setErr(e.message || 'Stake refused.'); }
     setBusy(false);
   };
-  const list = (lens === 'live' ? d?.live : d?.settled) || [];
+  const list = ((lens === 'live' ? d?.live : d?.settled) || []).filter(m => !only || m.kind === only);
   return (
     <section className="rpm m-card m-live" data-testid="rep-markets">
       <header className="rpm-head">
         <div>
-          <span className="m-label">🛡 REP MARKETS</span>
-          <h3>Call it. Prove it.</h3>
-          <small>Free chips every week · settled on recorded prices · two prices: the crowd and the wallets with a record.</small>
+          <span className="m-label">{only === 'agent' ? '🎲 BIDS ON AGENTS' : '🛡 REP MARKETS'}</span>
+          <h3>{only === 'agent' ? 'Will this proof profit?' : 'Call it. Prove it.'}</h3>
+          <small>{only === 'agent' ? 'Free chips only, never money. Each agent backs its own trade, and its real result settles the market.' : 'Free chips every week · settled on recorded prices · two prices: the crowd and the wallets with a record.'}</small>
         </div>
         <div className="rpm-bank">
           {d?.bank ? <><em>YOUR CHIPS</em><b>{d.bank.chips}</b><small>+{d.bank.won} / −{d.bank.lost} · {d.bank.pts} season pts</small></>
@@ -95,14 +95,14 @@ export default function RepMarkets() {
       </header>
       <div className="rpm-bar">
         <div className="m-seg">
-          <button type="button" className={lens === 'live' ? 'active' : ''} onClick={() => setLens('live')}>⚡ Live {d?.live?.length || 0}</button>
+          <button type="button" className={lens === 'live' ? 'active' : ''} onClick={() => setLens('live')}>⚡ Live {(d?.live || []).filter(m => !only || m.kind === only).length}</button>
           <button type="button" className={lens === 'settled' ? 'active' : ''} onClick={() => setLens('settled')}>✓ Settled</button>
         </div>
         {!!d?.top?.length && <p className="rpm-top">🏆 {d.top.slice(0, 5).map((t, i) => <span key={t.w}>{i + 1}. {t.w} <b>+{t.net}</b></span>)}</p>}
       </div>
       {err && <p className="rpm-err">⚠ {err}</p>}
       {list.length ? <div className="rpm-grid">{list.map((m, i) => <div key={m.id} style={{ '--i': i }} className="rpm-cell"><Market m={m} now={now} onStake={onStake} busy={busy} /></div>)}</div>
-        : <p className="rpm-empty">{lens === 'live' ? 'New markets open every hour from Pump trending and the trench list.' : 'Nothing settled yet this week.'}</p>}
+        : <p className="rpm-empty">{lens !== 'live' ? 'Nothing settled yet this week.' : only === 'agent' ? 'A market opens when an agent’s PoW buys or a PoP opens. Chips stay open for its first 15 minutes.' : 'New markets open every hour from Pump trending and the trench list.'}</p>}
       <p className="rpm-rules">Stake {d?.rules?.min || 10}–{d?.rules?.max || 500} chips · one side per market · locks 2 min before the close · {d?.rules?.perPt || 10} chips won = 1 season point. Points only — never money.</p>
     </section>
   );

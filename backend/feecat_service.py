@@ -51,6 +51,8 @@ import agent_ipfs as _ipfs   # ⛓ a file kept on IPFS, paid in SOL by the agent
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
 import chain_rpc as _crpc
+import pop as _pop
+import pow_kernel as _kernel
 import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
@@ -1397,7 +1399,7 @@ def _pow_ver(cat):
     """Cheap owner desk version; a DNA or memory append updates PoI without full-folder polling."""
     fs_ = cat.get('powFolders') or []
     base = f"{len(fs_)}:{(fs_[-1] if fs_ else {}).get('id', '')}:{sum(1 for x in fs_ if x.get('kept'))}:{sum(len(x.get('hidden') or []) for x in fs_)}"
-    return f"{base}:{_poi.version(DATA_DIR, cat['id'])}"
+    return f"{base}:{_poi.version(DATA_DIR, cat['id'])}:{len(cat.get('popFolders') or [])}"
 
 
 def _pow2_on(cat):
@@ -1479,10 +1481,11 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
         rp['dna'] = {'generations': fp_.get('generations'), 'states': _poi.evolution(own_dna_)['states']}
         other_dna_ = _poi.load(DATA_DIR, cat['id'], 1 - mind_i)
         inherited_ = {h for h, state in _poi.evolution(other_dna_)['states'].items() if state == 'promoted'}
+        retired_ = {h for h, state in rp['dna']['states'].items() if state == 'retired'}
     except (OSError, ValueError) as e:
-        print(f'[poi] Research DNA unavailable: {e}'); fp_, inherited_ = {'coverage': {}}, set()
+        print(f'[poi] Research DNA unavailable: {e}'); fp_, inherited_, retired_ = {'coverage': {}}, set(), set()
     excluded_ = recent_ | blocked_sites_ | set(rp['reusedSites']) | set(avoid) | {h for v in (f.get('usedBy') or {}).values() for h in v or []}
-    ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now, inherited_)
+    ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now, inherited_, retired_)
     # A source visited for another coin is still a required verification target
     # for this mint. If rotation exhausts the catalog, reuse the least spent
     # available sites rather than filing a coin with no browser investigation.
@@ -1490,7 +1493,7 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
         if host in required_fresh_ and host in _pow.HOSTS and host not in ranked_:
             ranked_.insert(0, host)
     if len(ranked_) < 3:
-        fallback_ = _pow.ranked_sources(blocked_sites_ | set(rp['reusedSites']), _src_book(), fp_.get('coverage'), now, inherited_)
+        fallback_ = _pow.ranked_sources(blocked_sites_ | set(rp['reusedSites']), _src_book(), fp_.get('coverage'), now, inherited_, retired_)
         ranked_ += [host for host in fallback_ if host not in ranked_][:3 - len(ranked_)]
     rp['inherited'] = sorted(inherited_ & set(ranked_))
     rp['order'] = [h for h in rp['required'] if h in ranked_] + [h for h in ranked_ if h not in rp['required']]
@@ -1581,7 +1584,7 @@ def _pow2_collect(f, t_, who, now):
             print(f'[poi] Research DNA not filed: {e}')
     f.setdefault('poiTrace', {})[m_] = {'mind': pw_.get('mind'), 'at': round(now), 'order': list(pw_.get('order') or [])[:12], 'required': list(pw_.get('required') or []), 'reused': list(pw_.get('reusedSites') or []),
                                         'inherited': list(pw_.get('inherited') or []), 'visited': sorted((pw_.get('sites') or {}).keys()), 'walled': list(pw_.get('walled') or []),
-                                        'generation': (dna_row_ or {}).get('generation'), 'states': (pw_.get('dna') or {}).get('states') or {}}   # 🧬 how PoI shaped this round: the PoI child folder reads it (owner only, folder_public drops it)
+                                        'kernel': _kernel.fingerprint(), 'generation': (dna_row_ or {}).get('generation'), 'states': (pw_.get('dna') or {}).get('states') or {}}   # 🧬 how PoI shaped this round: the PoI child folder reads it (owner only, folder_public drops it)
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -1615,7 +1618,7 @@ def _pow2_running(cat, f):
 
 def _any_hot():
     try:
-        return any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in _load()['cats'].values())
+        return any(c.get('popRun') or ((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in _load()['cats'].values())
     except Exception:   # noqa: BLE001
         return False
 
@@ -1897,6 +1900,10 @@ async def _pow2_tick(http, store, cat, now):
         _pow2_say(f, 'engine', f"they set the trade: {tr_['sol']:g} SOL · take profit +{tr_['tp']:g}% · stop −{tr_['sl']:g}%")
         if f.get('propose'):   # 💡 a proposal: the agreed coin is filed as the card — nothing bought
             _pow2_say(f, 'engine', f"proposal: ${c['sym']} ({_pow.SRC_LABEL[c['src']]}) — nothing bought")
+            try:   # 🌘 what it would have done: every coin read now and an hour on (price only, never P/L)
+                _pow2_shadow_entry(f, await _pair_prices(http, [x['pair'] for x in f.get('coins') or [] if x.get('pair')]), now); f['shadowDueAt'] = round(now + _pow.SHADOW_S)
+            except (httpx.HTTPError, ValueError) as e:
+                print(f'[pow2] shadow not started: {str(e)[:100]}')
             _pow2_close(cat, f, f"💡 proposes ${c['sym']} — {f.get('why0') or 'both minds agreed'}", now)
         return
     if f['phase'] == 'buy':
@@ -2073,7 +2080,77 @@ async def _pow2_tick(http, store, cat, now):
         f.update(phase='sell', sellWhy=f'they agreed: {say[:90]}')
 
 
+async def _pow2_shadow_due(store, now):
+    """🌘 Grade proposals whose shadow hour is up. One network read, only when one is due."""
+    due = [f for c in store['cats'].values() for f in (c.get('powFolders') or [])[-3:] if f.get('shadowDueAt') and f.get('shadow') is None and now >= f['shadowDueAt']]
+    if due:
+        async with httpx.AsyncClient(timeout=20) as http:
+            for f in due:
+                await _pow2_shadow_exit(http, f, now)
+
+
+_POP_WANT: dict = {}   # 💬 'file a PoP' / 'stop PoP', read by the engine pass (the store's one writer)
+POP_FEED = 'https://api.exchange.coinbase.com/products'
+
+
+async def _pop_read(http, market):
+    s_, t_ = await asyncio.gather(http.get(f'{POP_FEED}/{market}-USD/stats'), http.get(f'{POP_FEED}/{market}-USD/ticker'))
+    return _pop.read_market(market, s_.json() if s_.status_code == 200 else None, t_.json() if t_.status_code == 200 else None)
+
+
+def _pop_file(cat, rec, line):
+    cat['popFolders'] = (list(cat.get('popFolders') or []) + [rec])[-_pop.FILED_MAX:]; cat.pop('popRun', None)
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': time.time()}])[-200:]
+
+
+async def _pop_tick(http, cat, now):
+    want = _POP_WANT.pop(cat['id'], None); run = cat.get('popRun')
+    if run:
+        px = _num(((await http.get(f"{POP_FEED}/{run['market']}-USD/ticker")).json() or {}).get('price'))
+        why = 'stopped by you' if want == 'stop' else _pop.hard_exit(run, px, now)
+        if px > 0:
+            run.update(mark=px, roePct=_pop.roe_pct(run, px))
+        if why and px > 0:
+            rec = _pop.close(run, px, now, why)
+            _pop_file(cat, rec, f"📉 PoP closed ({why}): {rec['side']} {rec['market']} {rec['roePct']:+.2f}% on paper")
+        return
+    if want != 'start':
+        return
+    reads = [r for r in await asyncio.gather(*(_pop_read(http, m) for m in _pop.MARKETS)) if r]
+    brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; rid = f'pop{int(now)}'
+    if not reads or not brains:
+        _pop_file(cat, {'id': rid, 'at': round(now), 'status': 'closed', 'noTrade': True, 'why': 'no live price' if not reads else 'it needs a model first', 'calls': []}, '📉 PoP not filed: no live price or no model')
+        return
+    brief = '\n'.join(_pop.market_line(r) for r in reads)
+    names = [str(m).split('/')[-1][:24] for m in brains]
+    raw = await asyncio.gather(*(_pow2_ask(cat, i, _pop.SYS.format(name=names[i]), brief, 220) for i in range(len(brains))))
+    parsed = [_pop.parse_call(x) for x in raw]
+    calls = [{'mind': i, 'name': names[i], **(c or {'why': str(raw[i] or '')[:160]})} for i, c in enumerate(parsed)]
+    trade, why = _pop.agree(parsed)
+    base = {'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True}
+    if not trade:
+        _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'📉 PoP filed with no trade: {why}')
+        return
+    px = next(r['px'] for r in reads if r['market'] == trade['market'])
+    cat['popRun'] = {**base, **trade, 'status': 'open', 'entry': px, 'mark': px, 'roePct': 0.0, 'openedAt': round(now), 'liqPct': _pop.liq_move_pct(trade['lev'])}
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"📉 PoP open on paper: {trade['side']} {trade['market']} {trade['lev']}× at ${px:,.2f}", 'at': now}])[-200:]
+
+
+async def _pop_pass(store):
+    cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('id') in _POP_WANT]
+    if not cats:
+        return
+    async with httpx.AsyncClient(timeout=10) as http:
+        for cat in cats:
+            try:
+                await _pop_tick(http, cat, time.time())
+            except Exception as e:   # noqa: BLE001 — a missed read tries again next tick; hard exits are checked on every pass
+                print(f"[pop] {cat.get('id')}: {str(e)[:160]}")
+
+
 async def _pow2_pass(store):
+    await _pow2_shadow_due(store, time.time())
+    await _pop_pass(store)
     cats = sorted((c for c in store['cats'].values() if _pow2_on(c)), key=lambda c: (c.get('id') not in _POW_WANT, not bool((c.get('powRun') or {}).get('folder', {}).get('asked'))))
     if not cats:
         return
@@ -3616,6 +3693,28 @@ async def _colony_reconcile(cat, shares, now):
             'ledgerOutSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift') and x.get('state') != 'transferred'), 9)}
 
 
+@app.get('/api/cats/bids/feed')
+async def bids_feed():
+    """🎲 What the free-chip bid board can open markets on: live PoW buys and PoPs, and how recent ones ended. Public facts only; incognito agents are left out."""
+    now = time.time(); rows = []
+    for c in _load()['cats'].values():
+        if c.get('incognito') or c.get('revoked'):
+            continue
+        nm = str(c.get('name') or 'agent')[:24]; f = (c.get('powRun') or {}).get('folder') or {}
+        if f.get('boughtAt') and not f.get('soldAt'):
+            rows.append({'id': f['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pow', 'label': f"${f.get('sym')} PoW", 'open': True, 'at': f['boughtAt']})
+        r = c.get('popRun')
+        if r:
+            rows.append({'id': r['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pop', 'label': f"{r['side']} {r['market']} PoP", 'open': True, 'at': r['openedAt']})
+        for x in (c.get('powFolders') or [])[-5:]:
+            if x.get('boughtAt') and x.get('pnlPct') is not None and now - float(x.get('soldAt') or 0) < 172800:
+                rows.append({'id': x['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pow', 'open': False, 'won': x['pnlPct'] > 0})
+        for x in (c.get('popFolders') or [])[-5:]:
+            if not x.get('noTrade') and now - float(x.get('closedAt') or 0) < 172800:
+                rows.append({'id': x['id'], 'cat': c['id'], 'agent': nm, 'kind': 'pop', 'open': False, 'won': bool(x.get('won'))})
+    return _pub({'rows': rows})
+
+
 @app.get('/api/cats/colony/flow')
 async def colony_flow(limit: int = 40):
     """💸 THE COLONY'S MONEY, LIVE (owner 2026-11-02: crawlnet's treasury --flow, FEELESS's own): PoW trades in → profit / loss → the shares
@@ -3932,6 +4031,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['incognito'] = bool(p.on)
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
+    if p.op == 'pop':   # 📉 the PoP desk's buttons: the engine pass does the work
+        if p.job not in ('start', 'stop'):
+            raise HTTPException(400, 'Start or stop.')
+        _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
+        return {'ok': True}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'check': await _colony_reconcile(cat, shares_, time.time())}}
@@ -4230,6 +4334,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
         research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
+        pop_cmd_ = _pop.command(p.text)
+        if pop_cmd_:
+            _POP_WANT[cat_id] = pop_cmd_; _POW_WAKE.set()
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': '📉 Filing a PoP: both minds read SOL, ETH and BTC. Paper only.' if pop_cmd_ == 'start' else '📉 Stopping the PoP at the live price.', 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         cmd_ = _pow.command(p.text)
         if cmd_:   # ⛏ "file a PoW" / "PoW" / "/pow" / "A: file a PoW" / "stop PoW" — the engine starts (or ends) a folder on its next tick
             f_ = (cat.get('powRun') or {}).get('folder')
@@ -4306,6 +4416,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'popFolder': cat.get('popRun'),
+            'popFolders': list(reversed(cat.get('popFolders') or []))[:20] if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
