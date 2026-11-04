@@ -16,6 +16,7 @@ import { HoneyTanks } from './HoneyTanks';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
+import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
@@ -998,7 +999,7 @@ function WalletApp({ cat }) {
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['manual', '📖', 'Manual'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot
 export function placeIcons(saved, height) {
@@ -1024,12 +1025,12 @@ function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null }) {
 function PopFolderArt() {
   return <svg className="dsk-pop-art" viewBox="0 0 40 26"><g>{[[5, 12, 8, 1], [13, 8, 10, 0], [21, 10, 9, 1], [29, 4, 14, 1]].map(([x, y, h, up], i) => <g key={x} className="dsk-pop-c" style={{ '--i': i }}><line x1={x + 2} x2={x + 2} y1={y - 3} y2={y + h + 2} className="dsk-pop-w" /><rect x={x} y={y} width="4" height={h} rx="1" className={up ? 'is-up' : 'is-dn'} /></g>)}</g><rect className="dsk-pop-sweep" x="-14" y="0" width="10" height="26" /></svg>;
 }
-const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
+const ICON_TIP = { manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null }) {
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
+    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
@@ -1065,7 +1066,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}
