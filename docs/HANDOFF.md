@@ -179,7 +179,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 
 | ID | Status | Specific remaining work / done when |
 |---|---|---|
-| M01 | OWNER | Real device check on Safari and the Duo. Automated 2026-11-04: 20 pages at 360, 466, 678, 890, 1440 px: no sideways scroll, no crash, no dead route; modals not swept. |
+| M01 | OWNER | Real device check on Safari and the Duo. Automated 2026-11-04: 20 pages at 360, 466, 678, 890, 1440 px: no sideways scroll, no crash, no dead route. Popups: 16 pages at 360 and 466 px, first 22 buttons each, writes blocked; fixed the shared dialog (taller than a phone) and the desk picker (clipped). |
 | F01 | VERIFY | FEEd v5 shipped 2026-10-29 (`FeedX.jsx`, `feed.css`, `feedPro.css`): 600px column, sticky glass header (For you/Following/Calls/Heat/Graveyard + 🔖, sliding underline), swipe source chips, composer with live CA coin card, ↑N new pill, post cards with live coin chip (→ Trenches floor) + call receipt, threads on a connector line, rail (search · pulse · trending · callers · who to follow · sites), mini-nav ≥1250, phone ✎ sheet + folding header, Duo split. Browser-checked desktop/360/Duo-wide/day/pop-out. Remaining: owner look on real phone/Duo; coin chips/receipts only seen via the composer (no coin posts in the live feed today). |
 | G01 | OPEN | Strike Zone: real CC0 gun models and camo/PBR assets; replace placeholders, preserve gameplay. |
 | T01 | OPEN | HQ Telegram center: bot rooms, alerts/trading/community/security, Mini App setup; FeeCat-art idle RPG and slot game hub. |
