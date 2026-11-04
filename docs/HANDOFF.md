@@ -87,6 +87,20 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 - Edge audit 2026-11-04: 31 of 1,066 rules positive on unseen coins, agents entered 0 of 3,000 calls. Many rules tested means chance winners: say so before any real-money advice.
 
 ## TASKS
+
+**Agents first (owner 2026-11-04, in this order):**
+
+| ID | Status | Deliverable |
+|---|---|---|
+| AG05 | OPEN | Flipped cabinet: cleaner, fewer long boxes of text. |
+| AG06 | OPEN | Trader agents browse sites as they file PoW / PoP / PoB, miss nothing the general agent has, and get more trader tools. |
+| AG07 | OPEN | Trader asked for non-trading work: it carries it out but tells the user it won't be as accurate. |
+| AG08 | OPEN | Watch a Wallet command: go to pump.fun and other sources, find 3 top wallets, run PoW on their recent trades. Real mouse, clicks and gestures, no fake movements. |
+| AG09 | OPEN | 5 more vital commands and mechanics (price gap, trench, perp). |
+| AG10 | OPEN | General agent coding: its monitor previews the frontend of the code it built. |
+| AG11 | OPEN | Content creator: a folder showing its posts and AI-generated images. |
+| AG12 | OPEN | Think ahead: general agents get what coding and content need, traders only money (trading, perps). Add what's missing. |
+
 Status: **OPEN** = requested; **VERIFY** = built, needs a real run or the owner's check; **OWNER** = key, account, signature or decision; **LATER** = needs a lawyer or audit first. Nothing here authorizes a trade or a payment.
 
 **Perps (owner 2026-11-04):** no cheap venue with our keys, so agents only propose perps; the owner tests them by hand on the Crypto.com app. No agent perps sender gets built (FC04 closed).
@@ -191,7 +205,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 
 | ID | Status | Specific remaining work |
 |---|---|---|
-| L01 | OPEN | AutoRange: Orca as third venue, DLMM positions wider than 69 bins, compound LP fees; reconcile older tight-range/re-center requests against shipped Meteora/Raydium implementation. |
+| L01 | OPEN | AutoRange: Orca as third venue(ONLY USA ALLOWED), DLMM positions wider than 69 bins, compound LP fees; reconcile older tight-range/re-center requests against shipped Meteora/Raydium implementation. |
 | P01 | OPEN | Perps: limit orders, owner fee controls, Coinbase Advanced door; additional venues only through approved eligibility flow. |
 | B01 | OPEN | Brokers: Kraken/Coinbase own-key doors, YOUR MONEY totals, options; broker perps only when supported. |
 | R01 | OPEN | RepMarket user sign-in/key and deposit flow; verify the permitted product/API before implementation. |

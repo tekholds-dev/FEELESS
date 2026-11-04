@@ -31,8 +31,10 @@ def test_a_signed_sharing_agent_owes_the_colony_on_wins_only_from_its_own_wallet
     import feecat_service as fs
     monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json')
     cat = {'id': 'k1', 'ownerWallet': 'W1', 'colonyShare': {'on': True, 'pct': 20}, 'agentWallet': {'address': 'AW'}}
-    fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig'); fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig')
-    fs._colony_share(cat, {'symbol': 'RUG'}, -0.2, 'loss-sig')
+    P_ = {'kind': 'PoW', 'id': 'pow1', 'name': 'PoW #1', 'sym': 'HUSS'}
+    fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig', P_); fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig', P_)
+    fs._colony_share(cat, {'symbol': 'RUG'}, -0.2, 'loss-sig', P_)
+    fs._colony_share(cat, {'symbol': 'NOPE'}, 0.5, 'no-proof')   # 🍯 no proof, no honey
     fs._colony_share({**cat, 'agentWallet': None}, {'symbol': 'X'}, 1.0)   # paper winnings are not money
     assert [(x['owner'], x['sol'], x['sent']) for x in fs._shares()] == [('W1', 0.1, False)]
 
@@ -266,3 +268,31 @@ def test_a_finished_request_is_filed_as_its_log_tree_and_a_thumbs_up_or_down_bec
     fs._job_memory(cat)
     assert cat['jobs'][0]['rate'] == 'up' and all('APPROVED' in cat['brainsCfg']['minds'][m][-1]['text'] for m in ('x/a', 'x/b'))
     n = len(cat['brainsCfg']['cloud']); fs._job_memory(cat); assert len(cat['brainsCfg']['cloud']) == n   # filed once
+
+
+def test_honey_travels_with_its_record():
+    import colony as co
+    cat = {'id': 'c1', 'powFolders': [{'id': 'p1', 'name': 'PoW #1', 'sym': 'A', 'status': 'closed', 'at': 1}, {'id': 'open', 'status': 'open'}], 'popFolders': [{'id': 'q1', 'n': 1, 'market': 'BTC', 'at': 2}, {'id': 'q2', 'n': 2, 'noTrade': True}]}
+    assert [r['id'] for r in co.proofs_of(cat, [])] == ['q1', 'p1']                                  # filed trades only, newest first
+    assert co.attach_of(cat, [], 'p1', None)['proof']['name'] == 'PoW #1'
+    assert co.attach_of(cat, [], '', '  thanks  to the  colony ') == {'reason': 'thanks to the colony'}
+    for bad in (('', ''), ('other', None), ('open', 'x')):
+        with pytest.raises(ValueError):
+            co.attach_of(cat, [], *bad)                                                          # nothing attached, or not its own filed proof
+    sent = [{'cat': 'c1', 'proof': {'id': 'p1'}}]
+    assert next(r for r in co.proofs_of(cat, sent) if r['id'] == 'p1')['used']
+    with pytest.raises(ValueError) as e:
+        co.attach_of(cat, sent, 'p1', None)                                                      # one proof, one send
+    assert 'already went' in str(e.value)
+    assert not co.proofs_of(cat, [{'cat': 'c2', 'proof': {'id': 'p1'}}])[1]['used']               # another agent's record doesn't count
+
+
+def test_the_colony_tree_is_true_data():
+    import colony as co
+    cats = [{'id': 'a', 'name': 'Happy', 'brainsCfg': {'kind': 'general'}, 'colonyShare': {'on': True, 'pct': 10},
+             'powFolders': [{'id': 'w', 'name': 'PoW #1', 'sym': 'WIN', 'real': True, 'entry': 1, 'pnlSol': 0.01, 'pnlPct': 5, 'at': 2}, {'id': 'l', 'sym': 'LOSS', 'real': True, 'entry': 1, 'pnlSol': -0.02, 'at': 1}, {'id': 'x', 'sym': 'FAKE', 'pnlSol': 9, 'at': 3}]}]
+    shares = [{'cat': 'a', 'sol': 0.001, 'sent': False, 'proof': {'id': 'w'}}, {'cat': 'b', 'sol': 5, 'sent': True}]
+    t = co.tree(cats, shares, [{'cat': 'a', 'honey': 4, 'right': 3, 'graded': 4}])
+    a = t['agents'][0]
+    assert (a['honey'], a['right'], a['trades'], a['won'], a['pnlSol'], a['owedSol'], a['sentSol'], a['sharePct']) == (4, 3, 2, 1, -0.01, 0.001, 0, 10)
+    assert [w['sym'] for w in t['wins']] == ['WIN'] and t['wins'][0]['state'] == 'owed' and t['wins'][0]['honeySol'] == 0.001   # paper never counts as a win

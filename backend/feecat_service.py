@@ -1240,18 +1240,18 @@ def _share_append(row, key):
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
-def _colony_share(cat, pos, pnl_sol, ref=None):
+def _colony_share(cat, pos, pnl_sol, ref=None, proof=None):
     """🤝 a sharing agent's WINNING exit owes pct % of its profit to the colony. Only an agent trading from its OWN wallet (paper winnings are
     not money); never blocks the sale."""
     try:
         sh_ = cat.get('colonyShare') or {}
-        if not ref or not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):
+        if not ref or not proof or not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):   # 🍯 no proof, no honey: an agent never sends without its record
             return
         owed = _colony.share_cut(pnl_sol, sh_.get('pct'))
         if owed <= 0:
             return
         _share_append({'cat': cat['id'], 'owner': owner_wallet(cat), 'sol': owed, 'pct': sh_.get('pct'), 'sym': pos.get('symbol'),
-                       'at': time.time(), 'sent': False, 'state': 'owed', 'ref': ref, 'netPnlSol': round(float(pnl_sol), 9)}, (ref, cat['id']))
+                       'at': time.time(), 'sent': False, 'state': 'owed', 'ref': ref, 'proof': proof, 'netPnlSol': round(float(pnl_sol), 9)}, (ref, cat['id']))
     except Exception as e:   # noqa: BLE001
         print(f'[colony] share skipped: {e}')
 
@@ -1686,7 +1686,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     elif f.get('pnlEstimateSol') is not None:
         f['pnlSol'], f['pnlPct'] = f['pnlEstimateSol'], f['pnlEstimatePct']
     if f.get('real') and f.get('settlementVerified') and (f.get('netPnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
-        _colony_share(cat, {'symbol': f.get('sym')}, f['netPnlSol'], f.get('sellSig'))
+        _colony_share(cat, {'symbol': f.get('sym')}, f['netPnlSol'], f.get('sellSig'), {'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym')})
         f['shared'] = (cat.get('colonyShare') or {}).get('pct')
     b_ = cat.setdefault('brainsCfg', {})
     f['grade'] = None if f.get('pnlPct') is None else ('good' if f['pnlPct'] > 0 else 'bad')
@@ -3849,7 +3849,7 @@ async def colony_flow(limit: int = 40):
             if f_:
                 r.update(sol=round(_num(f_.get('sol')) + _num(f_.get('pnlSol')), 6), memo=r['memo'] + ' · ≈ pool price')
     rows += [{'at': int(x.get('at') or 0), 'kind': 'share', 'agent': names.get(x.get('cat'), 'agent'), 'sym': x.get('sym'), 'sol': _num(x.get('sol')), 'sig': x.get('sig'),
-              'memo': 'sent to the pot' if x.get('gift') else f"{x.get('pct')}% of a win to the pot" + ('' if x.get('sent') else ' · owed')} for x in shares if x.get('cat') in names]
+              'proof': x.get('proof'), 'reason': x.get('reason'), 'memo': 'sent to the pot' if x.get('gift') else f"{x.get('pct')}% of a win to the pot" + ('' if x.get('sent') else ' · owed')} for x in shares if x.get('cat') in names]
     rows.sort(key=lambda r: -r['at'])
     ep = _hv.epoch_of(now); board = _hv.board(_hive_cells(), ep)
     return _pub({'pow': {'folders': len(folders), 'trades': len(real), 'inSol': in_sol, 'won': sum(1 for f in real if _num(f.get('pnlSol')) > 0)},
@@ -3857,7 +3857,7 @@ async def colony_flow(limit: int = 40):
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
                  'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
-                 'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'ledger': rows[:max(1, min(100, int(limit)))]})
+                 'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _colony.tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
 
 
 @app.get('/api/cats/supply')
@@ -4154,7 +4154,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'ok': True}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
-        return {'honey': {**_colony_money(cat, shares_), 'check': await _colony_reconcile(cat, shares_, time.time())}}
+        return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
     if p.op == 'share':   # 🤝 opportunity 2: its owner SIGNS to let it send pct % of each winning trade's profit to the colony wallet → the colony airdrops back
         if p.on:
             pct_ = _colony.share_pct(p.cap)
@@ -4359,6 +4359,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if cat_id in _SWAP_BUSY:
             raise HTTPException(409, 'A send is already on its way.')
         sol_ = round(float(p.cap or 0), 6)
+        try:
+            attach_ = _colony.attach_of(cat, _shares(), p.job, p.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
         async with httpx.AsyncClient(timeout=30) as http:
             _usdc, bal_ = await _agent_usdc(http, addr_)
             if sol_ < POT_SEND_MIN or sol_ > bal_ - _at.GAS_SOL + 1e-9:
@@ -4376,7 +4380,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not rec_.get('sig'):
             raise HTTPException(503, 'Transfer submitted, but its on-chain signature is not confirmed yet.')
         _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None,
-                       'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig')}, (rec_.get('sig'), cat_id))
+                       'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig'), **attach_}, (rec_.get('sig'), cat_id))
         return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:

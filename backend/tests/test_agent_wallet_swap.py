@@ -71,7 +71,7 @@ def test_send_to_the_pot_goes_only_to_the_colony_wallet_keeps_gas_and_lands_on_t
     async def circle(http, c, rec):
         signed.append(rec['tx']); rec['sig'] = 'POTSIG'
     monkeypatch.setattr(fs, '_agent_usdc', usdc); monkeypatch.setattr(fs._crpc, '_rpc', rpc); monkeypatch.setattr(fs._at, '_circle_post', circle)
-    send = lambda sol: asyncio.run(fs.cat_work('w1', fs.WorkPayload(op='pot_send', cap=sol, session='s')))   # noqa: E731
+    send = lambda sol: asyncio.run(fs.cat_work('w1', fs.WorkPayload(op='pot_send', cap=sol, session='s', text='test reason')))   # noqa: E731
     with pytest.raises(fs.HTTPException) as e:
         send(0.02)                                                                            # 0.0272 − 0.01 gas = 0.0172 max
     assert e.value.status_code == 400 and 'keeps 0.01 SOL for gas' in e.value.detail and signed == []
@@ -79,4 +79,4 @@ def test_send_to_the_pot_goes_only_to_the_colony_wallet_keeps_gas_and_lands_on_t
     assert out == {'sol': 0.005, 'to': '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ', 'sig': 'POTSIG'} and len(signed) == 1
     tx = Transaction.from_bytes(base64.b64decode(signed[0])); keys = [str(k) for k in tx.message.account_keys]
     assert keys[0] == '2CkRAi2Hb3k4EAUNxTWhwSnY54qasQB7JKRLM1hcczQ7' and '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ' in keys and len(tx.message.instructions) == 1   # the ONE transfer, to the pot
-    last = fs._shares()[-1]; assert last['gift'] and last['sent'] and last['sol'] == 0.005 and last['sig'] == 'POTSIG'
+    last = fs._shares()[-1]; assert last['gift'] and last['sent'] and last['sol'] == 0.005 and last['sig'] == 'POTSIG' and last['reason'] == 'test reason'

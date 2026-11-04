@@ -7,7 +7,8 @@ import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
-import { ColonyPot, PowEngine } from './HiveBoard';
+import { ColonyFlow, ColonyPot, PowEngine } from './HiveBoard';
+import { apiUrl } from '../../lib/api';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -92,8 +93,19 @@ export function feeFunnel(scan) {
 
 // 🐱 the creator's Fee desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
 // her header always, then ONE pane at a time — what she's doing · 👑 your platform tools · her agents lane · her brain + rules · her wallet + style
-export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['owner', '👑 OWNER', 'Platform tools only you have: the colony pot, agent slots, the browsers'],
-  ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['prompts', '🎭 PROMPTS', 'Her record, the habits it shows and four mindsets written from it — you approve each'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
+export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['owner', '👑 OWNER', 'Her owner desktop: every control you have, in folders']];
+// 👑 Her owner desktop (owner 2026-11-04): one folder per control, a live number on the ones that have one, one open at a time.
+const OWNER_FOLDERS = [['colony', '🐝', 'Colony', 'The tree: the pot, every agent, every winning proof'], ['pot', '🏺', 'Honeypot', 'The colony wallet, its guards and the airdrop'], ['pow', '⛏', 'PoW folders', "Every agent's proofs"], ['slots', '🎟', 'Agent slots', 'Who can make agents and how many'],
+  ['lane', '🎚', 'Lane', 'The agents lane she follows and what the duo learned'], ['brain', '🧠', 'Brain', 'Her style, her rules and what she learned'], ['prompts', '🎭', 'Prompts', 'Her record and the mindsets written from it'], ['wallet', '👛', 'Wallet + style', 'Her wallet and her look']];
+const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
+function OwnerDesk({ open, setOpen, children }) {
+  const [flow, setFlow] = useState(null);
+  useEffect(() => { fetch(apiUrl('/api/cats/colony/flow?limit=1')).then(r => r.json()).then(setFlow).catch(() => {}); }, []);
+  const vital = { colony: flow ? `${flow.agents} agents` : '', pot: flow?.pot?.sol != null ? `${Number(flow.pot.sol).toFixed(4)} SOL` : '', pow: flow ? `${flow.pow?.folders || 0} filed` : '' };
+  const now = OWNER_FOLDERS.find(x => x[0] === open);
+  if (now) return <div className="fod-open" data-testid="fod-open"><button type="button" className="m-btn fod-back" onClick={() => setOpen(null)} data-tip="Back to her folders" data-testid="fod-back">‹ Owner</button><b className="fod-title">{now[1]} {now[2]}</b>{children}</div>;
+  return <ul className="fod" data-testid="fch-owner">{OWNER_FOLDERS.map(([k, ic, l, tip], i) => <li key={k} style={{ '--i': i }}><button type="button" className="fod-f" onClick={() => setOpen(k)} data-tip={tip} data-testid={`fod-${k}`}><i className="fod-art" aria-hidden="true"><u />{ic}</i><b>{l}</b>{vital[k] ? <small className="m-num">{vital[k]}</small> : null}</button></li>)}</ul>;
+}
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
 // 🎟 AGENT SLOTS (owner 2026-10-31): at most 1,000 agents bought across every user — you open slots for new buyers here (staff agents never count)
@@ -115,7 +127,9 @@ export function AgentSlots({ call }) {
 
 export function FeeCatDesk({ call }) {
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
-  const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
+  const [folder, setFolder] = useState(null); const root = React.useRef(null);
+  useEffect(() => { const go = () => { setTab('owner'); setFolder(null); requestAnimationFrame(() => root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })); }; window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
+  const pickTab = k => { setTab(k); setFolder(null); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
@@ -143,13 +157,17 @@ export function FeeCatDesk({ call }) {
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
     </header>
-    <nav className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
+    <nav ref={root} className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
       className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}>{l}</button>)}</nav>
-    {tab === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
-    {tab === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
-    {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
-
-    {tab === 'owner' ? <div className="fch-grid" data-testid="fch-owner"><PowEngine /><ColonyPot call={call} /><AgentSlots call={call} /></div> : null}
+    {tab === 'owner' ? <OwnerDesk open={folder} setOpen={setFolder}>
+      {folder === 'colony' ? <ColonyFlow api={flowApi} /> : null}
+      {folder === 'pot' ? <ColonyPot call={call} /> : null}
+      {folder === 'pow' ? <PowEngine /> : null}
+      {folder === 'slots' ? <AgentSlots call={call} /> : null}
+      {folder === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
+      {folder === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
+      {folder === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
+    </OwnerDesk> : null}
     {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
@@ -175,7 +193,7 @@ export function FeeCatDesk({ call }) {
       <FeeTape events={d.events} />
     </div> : null}
 
-    {tab === 'brain' ? <div className="fch-fold fch-brain" data-testid="fch-brain">
+    {tab === 'owner' && folder === 'brain' ? <div className="fch-fold fch-brain" data-testid="fch-brain">
       <FeeModels />
       <FeeBrain />
       <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />

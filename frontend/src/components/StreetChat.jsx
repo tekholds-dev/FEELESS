@@ -173,6 +173,7 @@ export default function StreetChat({ city, name, addr, sess }) {
   useEffect(() => { if ([...fresh].some(id => lines.find(l => l.id === id)?.atMe)) toast(`📣 You got called out on ${name}`); }, [fresh]);   // eslint-disable-line react-hooks/exhaustive-deps
   const need = () => { if (addr && sess) return true; toast.error('Connect your wallet + sign in to chat once (one signature, 7 days).'); return false; };
   const send = async e => {
+    stick.current = true;   // your own post always brings you to the newest line
     e?.preventDefault(); const v = t.trim(); if (!v || busy || !need()) return;
     setBusy(true);
     try { const r = await fetch(apiUrl('/api/reputation/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' },

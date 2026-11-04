@@ -194,6 +194,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
   }, [room, wallet?.address, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (stick.current && scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [messages, pump?.visible?.length]);
   const send = async e => {
+    stick.current = true;   // your own post always brings you to the newest line
     e.preventDefault(); let text = input.trim(); let boost = boostNext;
     if (!text || sending) return;
     // Trade from chat: /buy $TICKER [amount] or /sell <CA> — resolves the coin and opens the trade

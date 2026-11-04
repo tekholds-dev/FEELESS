@@ -843,12 +843,20 @@ const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {
   const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [ok, setOk] = useState(null);
+  const [proofs, setProofs] = useState([]); const [way, setWay] = useState('proof'); const [pick, setPick] = useState(''); const [why, setWhy] = useState('');
+  const loadProofs = () => Promise.resolve().then(() => work(cat.id, { op: 'honey' })).then(j => setProofs(j?.honey?.proofs || [])).catch(() => {});
+  useEffect(() => { loadProofs(); }, [cat.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const free = proofs.filter(p => !p.used); const ready = way === 'proof' ? !!pick : !!why.trim();
   const send = async () => { setBusy(true); setMsg(''); setOk(null);
-    try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt) }); setOk(j.sent); setAmt(''); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
+    try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt), ...(way === 'proof' ? { job: pick } : { text: why.trim() }) }); setOk(j.sent); setAmt(''); setPick(''); setWhy(''); loadProofs(); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
   return <form className="dsk-potsend" onSubmit={e => { e.preventDefault(); send(); }} data-testid="dsk-potsend">
-    <span><b>🏺 SEND TO THE COLONY POT</b><small>From its own wallet, straight to the colony wallet — it always keeps its gas. Lands on the ledger with its tx.</small></span>
+    <span><b>🏺 SEND TO THE COLONY POT</b><small>Honey travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
+    <div className="m-seg" role="tablist" aria-label="What goes with this honey">{[['proof', '🧾 A proof'], ['why', '✍ A reason']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={way === k} className={way === k ? 'on' : ''} onClick={() => setWay(k)} data-testid={`dsk-pot-${k}`}>{l}</button>)}</div>
+    {way === 'proof' ? (free.length ? <select className="m-input" value={pick} onChange={e => setPick(e.target.value)} aria-label="Proof to send with this honey" data-tip="Each proof can go to the pot once" data-testid="dsk-pot-proof"><option value="">Pick a proof…</option>{free.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.sym || '—'}{p.pnlPct != null ? ` · ${p.pnlPct >= 0 ? '+' : ''}${Number(p.pnlPct).toFixed(1)}%` : ''}</option>)}</select>
+      : <small className="m-dim" data-testid="dsk-pot-none">{proofs.length ? 'Every proof it has already went to the pot.' : 'It has no filed proof yet.'} Give a reason instead.</small>)
+      : <input className="m-input" maxLength={80} placeholder="Why are you sending this?" value={why} onChange={e => setWhy(e.target.value)} aria-label="Reason for sending" data-testid="dsk-pot-why" />}
     <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder="SOL to send" value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL to send to the colony pot" />
-      <button type="submit" className="m-btn m-go" disabled={busy || !(Number(amt) > 0)} data-tip="Its wallet signs one transfer to the colony pot" data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
+      <button type="submit" className="m-btn m-go" disabled={busy || !ready || !(Number(amt) > 0)} data-tip={ready ? 'Its wallet signs one transfer to the colony pot' : 'Attach a proof or a reason first'} data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
     {ok ? <small className="dsk-wal-msg" role="status">✓ {ok.sol} SOL sent to the pot · <a href={`https://solscan.io/tx/${ok.sig}`} target="_blank" rel="noopener noreferrer">tx ↗</a></small> : null}
     {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</form>;
 }
@@ -1256,7 +1264,7 @@ function WorkbenchLive({ cat }) {
   const go = !!d?.go; const queue = d?.queue || [];   // 🏇 let it go (owner Q1): long tasks, asks queue up and run one after another until a human is needed
   const way = d?.workMode || 'plan';
   const send = e => { e?.preventDefault?.(); if (busy) return;
-    const t = text.trim(); if (!t) return; setText(''); const ids = files.map(f => f.id); setFiles([]); act('ask', { text: t, to, ...(ids.length ? { files: ids } : {}) }); };
+    const t = text.trim(); if (!t) return; setText(''); const ids = files.map(f => f.id); setFiles([]); toBottom(); act('ask', { text: t, to, ...(ids.length ? { files: ids } : {}) }); };
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const brains_ = cat.brainsCfg?.brains || ['', ''];
   const wins = useMemo(() => {   // 🖥 both monitors always (owner 2026-11-01): each of its models in its own slot — one asked alone, the other shows its desktop

@@ -101,3 +101,50 @@ def trade_cell(cat, side, pos, px_usd, now):
     return {'id': f"{cat['id']}-{word}-{pos['pairAddress'][:10]}-{int(now)}", 'cat': cat['id'], 'name': cat.get('name'), 'pair': pos['pairAddress'],
             'mint': pos.get('mint'), 'sym': str(pos.get('symbol') or '?')[:16], 'call': 'BUY' if side == 'buy' else 'AVOID', 'kind': word,
             'why': f"its {word} at ${px:.6g}", 'price': px, 'at': now, 'honey': None}
+
+
+# 🍯 owner 2026-11-04: honey travels with its record. An agent sends only with its proof; a manual send names a proof or a reason; one proof, one send.
+def proofs_of(cat, shares):
+    """Its filed PoW + PoP folders, newest first, each marked if honey already went with it."""
+    used = {(x.get('proof') or {}).get('id') for x in shares if x.get('cat') == cat.get('id')}
+    pow_ = [{'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym'), 'pnlPct': f.get('pnlPct'), 'at': f.get('at')} for f in cat.get('powFolders') or [] if f.get('status') == 'closed' and f.get('id')]
+    pop_ = [{'kind': 'PoP', 'id': f.get('id'), 'name': f"PoP #{f.get('n')}", 'sym': f.get('market'), 'pnlPct': f.get('roePct'), 'at': f.get('at')} for f in cat.get('popFolders') or [] if f.get('id') and not f.get('noTrade') and not f.get('proposal')]
+    rows = [{**r, 'used': r['id'] in used} for r in pow_ + pop_]
+    return sorted(rows, key=lambda r: -float(r.get('at') or 0))
+
+
+def attach_of(cat, shares, proof_id, reason):
+    """What a manual send carries. → {'proof': {...}} or {'reason': text}. ValueError when it has neither, the proof is not its own, or the proof already went."""
+    pid, why = str(proof_id or '').strip(), ' '.join(str(reason or '').split())[:80]
+    if pid:
+        row = next((r for r in proofs_of(cat, shares) if r['id'] == pid), None)
+        if not row:
+            raise ValueError('Pick one of its own filed proofs.')
+        if row['used']:
+            raise ValueError(f"{row['name']} already went to the pot with honey. Pick another.")
+        return {'proof': {k: row[k] for k in ('kind', 'id', 'name', 'sym')}}
+    if not why:
+        raise ValueError('Pick a proof or say why you are sending it.')
+    return {'reason': why}
+
+
+def tree(cats, shares, board, limit=24):
+    """🌳 The Colony page's true data: each agent's vitals, and every winning proof with what it owes or sent. Public fields only."""
+    rows = {r.get('cat'): r for r in board or []}; agents = []; wins = []
+    for c in cats:
+        mine = [x for x in shares if x.get('cat') == c.get('id')]; fs = c.get('powFolders') or []; ps = c.get('popFolders') or []
+        real = [f for f in fs if f.get('real') and f.get('entry')]; r = rows.get(c.get('id')) or {}
+        sh = c.get('colonyShare') or {}
+        agents.append({'id': c.get('id'), 'name': str(c.get('name') or 'agent')[:24], 'kind': (c.get('brainsCfg') or {}).get('kind') or 'trading', 'honey': int(r.get('honey') or 0),
+                       'right': int(r.get('right') or 0), 'graded': int(r.get('graded') or 0), 'proofs': len(fs) + len(ps), 'trades': len(real), 'won': sum(1 for f in real if (f.get('pnlSol') or 0) > 0),
+                       'pnlSol': round(sum(float(f.get('pnlSol') or 0) for f in real), 6), 'sharePct': sh.get('pct') if sh.get('on') else None,
+                       'owedSol': round(sum(float(x.get('sol') or 0) for x in mine if not x.get('sent')), 9), 'sentSol': round(sum(float(x.get('sol') or 0) for x in mine if x.get('sent')), 9)})
+        sent = {(x.get('proof') or {}).get('id'): x for x in mine if x.get('proof')}
+        for f in fs:
+            if (f.get('pnlSol') or 0) > 0 and f.get('real'):
+                x = sent.get(f.get('id')) or next((y for y in mine if not y.get('proof') and not y.get('gift') and y.get('sym') == f.get('sym')), {})   # a share from before proofs were recorded
+                wins.append({'agent': agents[-1]['name'], 'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym'), 'pnlPct': f.get('pnlPct'), 'pnlSol': f.get('pnlSol'), 'at': f.get('at'),
+                             'honeySol': float(x.get('sol') or 0), 'state': 'none' if not x else ('sent' if x.get('sent') else 'owed'), 'sig': x.get('sig')})
+    agents.sort(key=lambda a: (-a['honey'], -a['pnlSol']))
+    return {'agents': agents, 'wins': sorted(wins, key=lambda w: -float(w.get('at') or 0))[:limit]}
+

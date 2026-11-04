@@ -9,18 +9,18 @@ jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: moc
 const HIVE = { epoch: 20755, left: 3600 * 5, filed: 3, graded: 2, board: [{ cat: 'h1', name: 'Happy', honey: 3, cells: 2, graded: 2, right: 2 }],
   cells: [{ id: 'c1', name: 'Happy', sym: 'HUSS', call: 'BUY', why: 'volume 3x', honey: 2, move: 25 }, { id: 'c2', name: 'Happy', sym: 'RUG', call: 'AVOID', why: 'pool thin', honey: 1, move: -8 }, { id: 'c3', name: 'Happy', sym: 'NEW', call: 'WATCH', why: 'no edge', honey: null }] };
 
-test('💸 colony --flow: real money boxes (PoW in → P/L → shares → pot → airdrop), packets only where money moved, and the live ledger with every tx', async () => {
-  const el = document.createElement('div'); document.body.appendChild(el);
+test('🌳 the colony tree: the pot on top, true vessels, the comb, winning proofs with what they owe, and the ledger', async () => {
+  const opened = []; const el = document.createElement('div'); document.body.appendChild(el);
   const FLOW = { pow: { folders: 8, trades: 3, inSol: 0.018, won: 1 }, pnlSol: -0.0021, shares: { owedSol: 0, count: 0, sharing: 0 }, pot: { address: '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ', sol: 0.05 },
-    epoch: { n: 1, left: 3600, honey: 3, agents: 2 }, airdrop: { next: Date.now() / 1000 + 7200, cadence: 'daily', paidSol: 0 }, agents: 5, colonized: 2,
+    epoch: { n: 1, left: 3600, honey: 3, agents: 2 }, airdrop: { next: Date.now() / 1000 + 7200, cadence: 'daily', paidSol: 0 }, agents: 5, colonized: 2, tree: { agents: [{ id: 'a1', name: 'Happy', kind: 'general', honey: 4, right: 3, graded: 4, proofs: 15, trades: 7, won: 2, pnlSol: -0.004, owedSol: 0.0001, sentSol: 0, sharePct: 10 }], wins: [{ agent: 'Happy', kind: 'PoW', id: 'p1', name: 'PoW #10', sym: 'ANSEM', pnlPct: 0.24, honeySol: 0.0001, state: 'owed' }, { agent: 'Happy', kind: 'PoW', id: 'p2', name: 'PoW #9', sym: 'SIS', pnlPct: 5, honeySol: 0.01, state: 'sent', sig: 'TX1' }] },
     ledger: [{ at: 1793521620, kind: 'sell', agent: 'Happy', sym: 'SIS', sol: 0.0051, sig: '5DMYabcd', memo: 'PoW sell' }, { at: 1793521000, kind: 'buy', agent: 'Happy', sym: 'SIS', sol: 0.006, sig: '3xYzefgh', memo: 'PoW buy' }] };
-  await act(async () => { createRoot(el).render(<ColonyFlow api={async u => (u.includes('/flow') ? FLOW : HIVE)} meta={{ colonized: 2, total: 5 }} />); });
-  const t = el.querySelector('[data-testid="colony-flow"]').textContent;
-  expect(t).toContain('colony --flow'); expect(t).toContain('0.0180 SOL'); expect(t).toContain('−0.0021 SOL'); expect(t).toContain('0.0500 SOL'); expect(t).toContain('+3 honey');
-  expect(el.querySelector('.cmf-box.is-pnl b').className).toContain('is-dn'); expect(el.querySelectorAll('.cmf-pipe.is-on').length).toBeGreaterThan(0);
-  expect(el.querySelector('.cmf-box.is-share').className).not.toContain('is-hot');   // nothing shared → no packets into the pot
+  await act(async () => { createRoot(el).render(<ColonyFlow api={async u => (u.includes('/flow') ? FLOW : HIVE)} onOpen={o => opened.push(o.id)} />); });
+  expect(el.querySelector('[data-testid="ctr-pot"]').textContent).toContain('0.0500 SOL');
+  expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('3/4'); expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('owes 0.0001 SOL');
+  await act(async () => { el.querySelector('[data-testid="ctr-agent-a1"]').click(); }); expect(opened).toEqual(['a1']);
+  const w = el.querySelector('[data-testid="ctr-wins"]'); expect(w.textContent).toContain('⏳ owes 0.0001 SOL'); expect(w.querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/TX1');
   const rows = el.querySelectorAll('.cmf-tr:not(.is-head)'); expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('PoW sell'); expect(rows[1].textContent).toContain('−0.0060');
-  expect(rows[0].querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/5DMYabcd'); expect(el.querySelector('.cmf-box.is-pot a').getAttribute('href')).toContain('solscan.io/account/7poJ');
+  expect(rows[0].querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/5DMYabcd');
 });
 
 
@@ -79,7 +79,7 @@ test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each p
   global.fetch = async () => ({ ok: true, json: async () => ({ ...POW, folders: [{ cat: 'h1', name: 'Happy', live: true, folder: { id: 'pow1', name: 'PoW #1 · Nov 01', phase: 'watch', status: 'open', coins: [{ mint: 'M1', sym: 'SIS', src: 'dex', liq: 64000 }], pick: { mint: 'M1' }, shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'r0_rugcheck.xyz_1.jpg' }] } }] }) });
   const el2 = document.createElement('div'); document.body.appendChild(el2);
   await act(async () => { createRoot(el2).render(<PowEngine />); });
-  expect(el2.querySelector('[data-testid="pow-db"]').textContent).toContain('● LIVE');   // 🗄 every agent's folders, live + filed
+  expect(el2.querySelector('[data-testid="pow-db"]').textContent).toContain('● live');   // 🗄 every agent's folders, live + filed
   expect(el2.querySelector('[data-testid="dsk-fold-live"]').textContent).toContain('$SIS');
 });
 

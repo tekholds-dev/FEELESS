@@ -12,9 +12,9 @@
 /* 🐝 HOW COLONIZING WORKS: eight honeycomb stations in one loop, bees run every lane (left → right, down, right → left, up) */
 .cfl { --hv: #f5c542; position: relative; display: grid; gap: 4px; padding: 16px 18px 18px; border-radius: 20px; border: 1px solid #f5c54233; overflow: hidden;
   background: radial-gradient(70% 90% at 0% 0%, #f5c54214, transparent 60%), radial-gradient(60% 80% at 100% 100%, #b388ff12, transparent 60%), #0b0716; box-shadow: inset 0 1px 0 #ffffff10; }
-body.fx-lite .hv-sw i, body.fx-lite .cmf-pipe i, body.fx-lite .cmf-tr, body.fx-lite .cmf-live i { animation: none; } body.fx-lite .cmf-pipe i + i { display: none; }
-@media (prefers-reduced-motion: reduce) { .hv-sw i, .cmf-pipe i, .cmf-tr, .cmf-live i { animation: none !important; } }
-body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border-color: #c8930033; } body.theme-day .cmf-box, body.theme-day .cmf-ledger { background: #fff; } body.theme-day .cmf-box b, body.theme-day .cmf-tr { color: #1b1233; } body.theme-day .cmf-h b { color: #0f2a1b; }
+body.fx-lite .hv-sw i, body.fx-lite .cmf-tr { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hv-sw i, .cmf-tr { animation: none !important; } }
+body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border-color: #c8930033; } body.theme-day .cmf-ledger { background: #fff; } body.theme-day .cmf-tr { color: #1b1233; }
 @media (max-width: 640px) { .cfl { padding: 12px 8px; } }
 /* 🏺 the colony pot (command center › 👑 OWNER): a vault bar — the locked floor, the growth above it, the part that may leave */
 .hv-pow { --hv: #f5c542; display: grid; gap: 12px; }
@@ -156,25 +156,9 @@ body.theme-day .cl-carry { color: #5b4a2a; }
 /* 💸 colony --flow (2026-11-02, after crawlnet's treasury --flow — FEELESS's own): terminal header, real money boxes joined by pipes whose packets
    move only where money moved, and the live ledger of real txs; FEELESS royal green for money in, gold for the colony, rose for money out */
 .cmf { gap: 10px; font-family: var(--f-mono); }
-.cmf-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; } .cmf-h b { color: #45e486; font: 700 14px var(--f-mono); } .cmf-h b i { color: #6f6590; font-style: normal; margin: 0 4px; }
-.cmf-h small { color: #8f84ad; font: 500 11px var(--f-mono); } .cmf-live { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: #45e486; font: 700 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; }
-.cmf-live i, .cmf-cap i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: cmfBlink 1.6s ease-in-out infinite; display: inline-block; }
-.cmf-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; }
-.cmf-flow, .cmf-ledger { position: relative; display: grid; align-content: start; gap: 8px; padding: 30px 12px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #05080699; }
+.cmf-cap i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: cmfBlink 1.6s ease-in-out infinite; display: inline-block; }
+.cmf-ledger { position: relative; display: grid; align-content: start; gap: 8px; padding: 30px 12px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #05080699; }
 .cmf-cap { position: absolute; top: 9px; left: 12px; display: inline-flex; align-items: center; gap: 6px; color: #c8bde6; font: 600 11px var(--f-mono); }
-.cmf-row { display: flex; align-items: center; } .cmf-row.is-back { flex-direction: row-reverse; }
-.cmf-box { position: relative; flex: 1 1 0; min-width: 0; display: grid; gap: 2px; padding: 16px 10px 9px; border: 1px solid #ffffff2a; border-radius: 4px; background: #070b09; }
-.cmf-box-t { position: absolute; top: -9px; left: 8px; padding: 0 6px; background: #070b09; color: #d9d1f2; font: 600 11px var(--f-mono); white-space: nowrap; }
-.cmf-box b { color: #fff; font: 700 14px var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cmf-box small { color: #8f9f97; font: 500 10.5px var(--f-mono); }
-.cmf-box a { color: #45e486; font: 600 10.5px var(--f-mono); text-decoration: underline; text-underline-offset: 2px; } .cmf-box a:hover { color: #fff; } .cmf-box a:focus-visible { outline: 2px solid #45e486; }
-.cmf-box.is-hot { border-color: #45e48688; box-shadow: 0 0 18px -10px #45e486, inset 0 1px #ffffff10; } .cmf-box.is-pot.is-hot, .cmf-box.is-share.is-hot, .cmf-box.is-air.is-hot { border-color: #f5c54288; box-shadow: 0 0 18px -10px #f5c542; }
-.cmf-box b.is-up { color: #45e486; text-shadow: 0 0 10px #45e48666; } .cmf-box b.is-dn { color: #ff8fa3; }
-.cmf-pipe { position: relative; flex: 0 0 34px; height: 14px; overflow: hidden; } .cmf-pipe u { position: absolute; left: 0; right: 0; top: 6px; height: 2px; background: repeating-linear-gradient(90deg, #ffffff30 0 4px, transparent 4px 7px); }
-.cmf-pipe.is-on u { background: #45e48666; } .cmf-pipe i { position: absolute; top: 4px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: cmfRun 1.8s linear infinite; }
-.cmf-pipe i + i { animation-delay: .9s; } .cmf-row.is-back .cmf-pipe i { animation-name: cmfRunL; }
-.cmf-pipe em { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); color: #f5c542; font: 600 8px var(--f-mono); white-space: nowrap; }
-.cmf-pipe.is-down { flex: none; justify-self: end; width: 14px; height: 26px; margin-right: 16%; } .cmf-pipe.is-down u { left: 6px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; background: repeating-linear-gradient(180deg, #ffffff30 0 4px, transparent 4px 7px); }
-.cmf-pipe.is-down.is-on u { background: #f5c54266; } .cmf-pipe.is-down i { left: 4px; top: 0; background: #f5c542; box-shadow: 0 0 8px #f5c542; animation-name: cmfDrop; }
 .cmf-table { display: grid; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #45e486 transparent; }
 .cmf-table::-webkit-scrollbar { width: 6px; } .cmf-table::-webkit-scrollbar-thumb { background: #45e486; border-radius: 3px; }
 .cmf-tr { display: grid; grid-template-columns: 62px minmax(0, .9fr) minmax(0, 1.1fr) 70px 82px; gap: 8px; align-items: center; padding: 5px 6px; border-bottom: 1px solid #ffffff0a; color: #c8d6ce; font: 500 10.5px var(--f-mono); animation: cmfIn .35s both; animation-delay: calc(var(--i, 0) * 30ms); }
@@ -183,9 +167,6 @@ body.theme-day .cl-carry { color: #5b4a2a; }
 .cmf-tr.is-new { background: #45e48618; } .cmf-tr:not(.is-head):hover { background: #ffffff08; } .cmf-empty { margin: 6px; color: #8f84ad; font: 500 11px var(--f-ui); }
 @keyframes cmfRun { from { transform: translateX(-8px); } to { transform: translateX(40px); } } @keyframes cmfRunL { from { transform: translateX(40px); } to { transform: translateX(-8px); } }
 @keyframes cmfDrop { from { transform: translateY(-8px); } to { transform: translateY(30px); } } @keyframes cmfIn { from { opacity: 0; transform: translateY(4px); } } @keyframes cmfBlink { 50% { opacity: .3; } }
-.cfl.fx-off .cmf-pipe i, .cfl.fx-off .cmf-live i, .cfl.fx-off .cmf-cap i { animation-play-state: paused; }
-@media (max-width: 900px) { .cmf-grid { grid-template-columns: 1fr; } }
-@media (max-width: 640px) { .cmf-row, .cmf-row.is-back { flex-direction: column; align-items: stretch; } .cmf-pipe { flex: 0 0 18px; width: 14px; height: 18px; align-self: center; }
-  .cmf-pipe u { left: 6px; right: auto; top: 0; bottom: 0; width: 2px; height: auto; } .cmf-pipe i { left: 4px; top: 0; animation-name: cmfDrop !important; } .cmf-pipe em { display: none; } .cmf-pipe.is-down { margin: 0; align-self: center; }
-  .cmf-tr { grid-template-columns: 56px minmax(0, 1fr) 62px 60px; } .cmf-tr > span:nth-child(3) { display: none; } .cmf-h small { display: none; } }
+.cfl.fx-off .cmf-cap i { animation-play-state: paused; }
+@media (max-width: 640px) { .cmf-tr { grid-template-columns: 56px minmax(0, 1fr) 62px 60px; } .cmf-tr > span:nth-child(3) { display: none; } }
 .cmf-tr .m-num { font: inherit; letter-spacing: 0; } .cmf-tr > span.m-num:nth-child(4) { font-weight: 700; text-align: right; }
