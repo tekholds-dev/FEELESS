@@ -218,7 +218,7 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | C06 | OPEN | Provider fee configuration for perps/LP/run/leverage/launch; no invented referral fields. Zora execution needs a supported venue. |
 | Q01 | OPEN | Measure city FPS, instancing/LOD and load tests; move remaining stores to a database and support multiple workers. |
 | Q02 | OPEN | Split `reputation_service` safely (the supervisor part shipped: `start-backend.sh` starts the watcher). |
-| Q03 | OPEN | Site-wide text-wall/visual pass, FeeCat stage/tabs and perf, lore/launch flows, 3D roadmap/whitepaper; faster model reads. |
+| Q03 | OPEN | Whitepaper is now sections with one line per chapter (height 9,855 → 2,603 px, every word kept); Familia's side wall trimmed. Measured signed-in pages: Familia and HQ only showed a loading shell, so they were not measured properly. Still to do: Trench report posts on FeeCat (about 480 chars each), FeeCat stage/tabs and perf, lore/launch flows, 3D roadmap, faster model reads. |
 | Q04 | OPEN | Fee-Back eligibility, valuation/reference timestamp, settlement, rounding/distribution policy and audited payouts. Treasury buy/burn executor. |
 | Q05 | VERIFY | Broader chain/indexer coverage, independent risk signals and moderation/identity claims from the old PRD; validate against newer implementation before rebuilding. |
 | Q06 | OPEN | Feature-level geo/KYC switches guided by the existing decisions and counsel. |

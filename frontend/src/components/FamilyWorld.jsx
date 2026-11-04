@@ -155,7 +155,7 @@ function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
   if (x?.mk) return <MarketPanel k={x.mk} mk={mk} />;
   if (x?.place) return <PlaceCard k={x.place} onOpen={onPlace} />;
   if (x?.lm) return <MarkPanel k={x.lm} v={v} />;
-  if (!x) return <aside className="fwd-side m-card"><b>Tap a building</b><p className="m-dim">Downtown is the stadium + the desk's money street; round it, eight money districts over the canals (DEX Row · Stake Heights · Lend Street · the Flats · Vault Row · CLMM Heights · FEELESS Avenue · TT) — tap any tower and put money to work from its pop-out. Family plots sit on the six keys off the shore: gold = yours · violet = families · red = CPU towns · green = cartels.</p></aside>;
+  if (!x) return <aside className="fwd-side m-card"><b>Tap a building</b><p className="m-dim">Tap any tower to put money to work.</p><span className="fwd-key" aria-label="Map key">{[['#e8c46a', 'Yours'], ['#b388ff', 'Families'], ['#ff5a6e', 'CPU towns'], ['#7dff9a', 'Cartels']].map(([c, l]) => <em key={l}><i style={{ background: c }} />{l}</em>)}</span></aside>;
   const me = v.me; const tone = blockTone(x); const price = me?.prices?.[x.id];
   const cpu = (v.cpu || []).find(c => c.id === x.owner); const cart = (v.cartels || []).find(c => c.id === x.owner);
   return <aside className={`fwd-side m-card t-${tone}`} data-testid="block-panel">

@@ -3,6 +3,7 @@
 .fwd { --fg: #d4af37; --fg2: #f1d27a; --ink: #efe6d2; --cpu: #ff5a6e; --cart: #7dff9a; --fam: #b48cff; display: grid; gap: 12px; color: var(--ink); }
 .fwd-load { padding: 18px; }
 .fwd-side { display: grid; gap: 8px; padding: 12px; position: sticky; top: 10px; }
+.fwd-key { display: flex; flex-wrap: wrap; gap: 6px 12px; } .fwd-key em { display: inline-flex; align-items: center; gap: 5px; font: 600 11px var(--f-ui); font-style: normal; } .fwd-key i { width: 9px; height: 9px; border-radius: 3px; }
 .fwd-side header { display: grid; } .fwd-side header b { font: 700 14px 'Playfair Display', Georgia, serif; } .fwd-side p { margin: 0; font-size: 12px; line-height: 1.45; }
 .fwd-side.t-cpu { border-color: rgba(255, 90, 110, .5); } .fwd-side.t-cartel { border-color: rgba(125, 255, 154, .4); } .fwd-side.t-mine { border-color: rgba(212, 175, 55, .6); }
 .fwd-acts { display: flex; flex-wrap: wrap; gap: 6px; }
