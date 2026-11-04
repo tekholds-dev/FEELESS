@@ -2163,6 +2163,75 @@ def _read_check(cat, rd, now):
 
 
 _POB_WANT: dict = {}   # 💬 'file a bid', read by the engine pass
+_MADE_BUSY: set = set()     # 🎨 agents making a picture or page right now: one at a time
+_MADE_DONE: list = []       # finished makes, filed by the engine pass (the store's one writer)
+IMAGE_EST_USD = 0.06        # it must hold this much before a picture starts; the provider's real cost is what gets charged
+PAGE_EST_USD = 0.02
+PAGE_TOKENS = 6000
+
+
+def _made_refusal(cat, job):
+    """Why it can't make this now, or '' when it can. A picture goes on FEELESS's image key and is charged to its own model budget, so an own key does not cover it."""
+    b_ = cat.get('brainsCfg') or {}; left_ = float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE; own_ = job['kind'] == 'page' and _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    why_ = _ca.refusal(job['prompt'])
+    if why_:
+        return f'🛑 {why_}'
+    if not _work_live():
+        return '⏸ Model calls are off on this server.'
+    if cat['id'] in _MADE_BUSY:
+        return '🎨 It is still making the last one.'
+    if not b_.get('brains'):
+        return '🎨 It needs a model first.'
+    if not own_ and left_ < (IMAGE_EST_USD if job['kind'] == 'image' else PAGE_EST_USD):
+        return f"🎨 Its model budget is too low: this needs about ${IMAGE_EST_USD if job['kind'] == 'image' else PAGE_EST_USD:.2f}."
+    left_day = day_left(cat)
+    if left_day is not None and left_day <= 0:
+        return "🎨 It reached today's $ limit."
+    return ''
+
+
+async def _made_job(cat_id, job, cat):
+    """One picture or page. Its result waits for the engine pass; nothing here writes the store."""
+    out = {'cat': cat_id, 'job': job, 'usd': 0.0, 'why': '', 'own': False}
+    try:
+        if job['kind'] == 'image':
+            async with httpx.AsyncClient(timeout=110) as http:
+                r = await http.post(f'{_ct.REP}/api/reputation/internal/agent-image', headers=_at._internal_headers(), json={'prompt': job['prompt']})
+            j = r.json() or {}
+            out.update(usd=float(j.get('usd') or 0) or IMAGE_EST_USD if j.get('url') else 0.0, url=j.get('url'), why='' if j.get('url') else str(j.get('detail') or j.get('why') or 'no picture came back')[:160])
+        else:
+            own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+            reply_, usd_, _via = await _think(cat, cat['brainsCfg']['brains'][0], [{'role': 'system', 'content': _ac.PAGE_SYS}, {'role': 'user', 'content': job['prompt']}], own_, None, PAGE_TOKENS)
+            html_ = _ac.page_in(reply_)
+            out.update(usd=float(usd_ or 0), own=bool(own_), html=html_, why='' if html_ else 'the model did not finish a whole page')
+    except Exception as e:   # noqa: BLE001 — it says so in the chat
+        out['why'] = f'{type(e).__name__}'
+    _MADE_DONE.append(out); _MADE_BUSY.discard(cat_id); _POW_WAKE.set()
+
+
+def _made_pass(store):
+    """🎨 File what finished: charge what it really cost, keep the file, say so in the chat."""
+    while _MADE_DONE:
+        o = _MADE_DONE.pop(0); cat = store['cats'].get(o['cat'])
+        if not cat or not cat.get('brainsCfg'):
+            continue
+        job = o['job']; b_ = cat['brainsCfg']; now = time.time(); line = {'by': 'cats', 'at': now, 'cost': o['usd']}
+        if o['usd'] and o['own']:
+            day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + o['usd'], 6)}
+        elif o['usd']:
+            _lc.charge(b_, o['usd'])
+        try:
+            if o['why']:
+                raise ValueError(o['why'])
+            row = _af.save(DATA_DIR, cat, o['url'], f"{job['prompt'][:40]}.png", now) if job['kind'] == 'image' else _af.save_page(DATA_DIR, cat, o['html'], job['prompt'][:40], now)
+            url = f"/api/cats/{cat['id']}/files/{row['id']}.{row['ext']}"
+            line.update(text=f"🎨 Here it is: {job['prompt'][:120]}", img=url) if job['kind'] == 'image' else line.update(text=f"🖥 Built: {job['prompt'][:120]}", page=url)
+            cat['feesDue'] = (list(cat.get('feesDue') or []) + [{'key': f"task-{row['id'][:10]}"}])[-20:]
+        except ValueError as e:
+            line['text'] = f'🎨 Not made: {str(e)[:160]}'
+        cat['chat'] = (list(cat.get('chat') or []) + [line])[-200:]
+
+
 _POP_WANT: dict = {}   # 💬 'file a PoP' / 'stop PoP', read by the engine pass (the store's one writer)
 POP_FEED = 'https://api.exchange.coinbase.com/products'
 
@@ -2417,6 +2486,7 @@ async def _pob_pass(store):
 
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
+    _made_pass(store)
     await _pob_pass(store)
     if not cats:
         return
@@ -4650,6 +4720,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
+        made_ = _ac.make_job(p.text)
+        if made_:   # 🎨 one model call, off the engine: the reply files through the engine pass
+            if _ac.off_lane(b.get('kind'), p.text):
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': _ac.TRADER_NOTE, 'at': time.time()}])[-200:]
+            why_ = _made_refusal(cat, made_)
+            say_ = why_ or ('🎨 Making the picture. It lands here and in Creations.' if made_['kind'] == 'image' else '🖥 Building the page. It lands here and in Creations, with a preview.')
+            if not why_:
+                _MADE_BUSY.add(cat_id); asyncio.create_task(_made_job(cat_id, made_, cat))
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         q_ = _ac.quick(p.text)
         if q_:   # ⚡ a free command: FEELESS's own data, answered now, no model call
             say_ = await _quick_answer(q_)
@@ -4756,7 +4837,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'commands': _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ac.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
@@ -5140,7 +5221,9 @@ async def cat_file_get(cat_id: str, name: str):
     raw_ = _af.read(DATA_DIR, cat, fid) if cat else None
     if not raw_:
         raise HTTPException(404, 'No such file.')
-    return Response(content=raw_, media_type=_af.find(cat, fid)['mime'], headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
+    mime_ = _af.find(cat, fid)['mime']
+    locked_ = {'Content-Security-Policy': 'sandbox', 'Content-Disposition': 'attachment'} if mime_ == 'text/html' else {}   # 🖥 a page an agent built never runs on this origin
+    return Response(content=raw_, media_type=mime_, headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', **locked_})
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')

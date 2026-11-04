@@ -94,9 +94,9 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 |---|---|---|
 | AG06 | VERIFY | PoP now reads sites in each mind's own window before it calls (coinglass, hyperliquid and others), each mind sees only its own read, and the folder shows what it opened. New PoB: `file a bid` or Bids › File a bid. Minds read sites, call a market blind, agree, then 50 free chips go on it and the market's result grades the folder. Tested with a fake browser and fake minds only; not run live (paid model and browser calls). |
 | AG08 | VERIFY | `watch a wallet` is built: its browser gets the job to find 3 top wallets on pump.fun and another source and read their recent trades. Not run yet (paid model calls). Still to do: file the result as a PoW-style folder. |
-| AG10 | VERIFY | A web page an agent writes in chat gets ▶ Preview on its monitor: sandboxed, desktop or phone width (tests only). Still to do: a coding agent's real project files and a dev server. |
-| AG11 | VERIFY | New 🎨 Creations drawer: images from its storage, pages and posts it wrote (tests only). Still to do: agents have no make-an-image command yet, though `ai_router` can generate images. |
-| AG12 | OPEN | Think ahead: general agents get what coding and content need, traders only money (trading, perps). Add what's missing. |
+| AG10 | VERIFY | `build a page …` writes a whole page, files it and previews it sandboxed on its monitor. A real model call built a working page, and it ran in the same sandbox. The chat-to-file path is tested with fakes only. Still to do: a coding agent's real project files and a dev server, which needs a sandbox host. |
+| AG11 | OWNER | 🎨 Creations drawer works. `make an image of …` is built with fakes, but the one real call was refused: OpenRouter needs at least $1.00 in the account for image output. Top it up at openrouter.ai/credits, then it can be tested and added to the command list. |
+| AG12 | VERIFY | The command list now differs: a trader is offered proofs, watch a wallet and free reads; a General agent is offered image, page and post, and the free reads. Either still does what it is told. Word-matching tests only. |
 
 Status: **OPEN** = requested; **VERIFY** = built, needs a real run or the owner's check; **OWNER** = key, account, signature or decision; **LATER** = needs a lawyer or audit first. Nothing here authorizes a trade or a payment.
 

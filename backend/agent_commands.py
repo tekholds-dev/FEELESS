@@ -62,3 +62,40 @@ def verdict(guards_ok, guards_why, safe_ok, safe_why):
     if not safe_ok:
         return f"🛑 It would NOT buy this: {safe_why}"
     return f"✅ It passes the buy guards today ({safe_why}). That is not a call to buy."
+
+
+# 🎨 What a General agent makes (owner 2026-11-04). Exact command words, so a sentence that merely mentions a page or a picture stays a normal ask.
+IMAGE = re.compile(r'(?is)^\s*(?:/image\s+|(?:make|generate|create|draw)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|pic|drawing|logo)\s+(?:of\s+|for\s+|showing\s+)?)(.{3,})$')
+PAGE = re.compile(r'(?is)^\s*(?:/page\s+|(?:build|make|code|create)\s+(?:me\s+)?(?:an?\s+)?(?:web\s*page|web\s*site|landing\s*page|page|site)\s+(?:for\s+|of\s+|about\s+|that\s+|with\s+|showing\s+)?)(.{3,})$')
+PAGE_SYS = ('You build one web page. Reply with ONE complete HTML file in a single ```html block and nothing else: inline CSS and JS, no external files, fonts, images or network requests (it runs sandboxed with no network). '
+            'It must look finished and work at phone width.')
+_FENCE = re.compile(r'```(?:html)?\s*\n(.*?)```', re.S | re.I)
+# `make an image of` works as a typed command but is not offered yet: OpenRouter refuses image output under $1.00 account balance (real call 2026-11-04, HANDOFF AG11).
+MAKE_COMMANDS = [('build a page ', 'Writes a full web page, files it in Creations, and previews it on its monitor. Paid from its model budget'),
+                 ('write a post about ', 'Writes a post with sources. It lands in Creations › Posts')]
+FREE_READS = COMMANDS[:-1]
+
+
+def make_job(text):
+    """→ {'kind': 'image' | 'page', 'prompt'} for a make command, or None."""
+    t = str(text or '')
+    for rx, kind in ((IMAGE, 'image'), (PAGE, 'page')):
+        m = rx.match(t)
+        if m:
+            return {'kind': kind, 'prompt': m.group(1).strip()[:1200]}
+    return None
+
+
+def page_in(reply):
+    """The whole page in a model's reply, or None. A cut-off page, with no closing fence or tag, is never filed as finished."""
+    t = str(reply or '')
+    for m in _FENCE.finditer(t):
+        if re.search(r'(?i)<(?:!doctype|html|body)\b', m.group(1)) and re.search(r'(?i)</(?:html|body)>', m.group(1)):
+            return m.group(1).strip()
+    bare = re.search(r'(?is)(?:<!doctype html|<html).*</html>', t)
+    return bare.group(0).strip() if bare else None
+
+
+def commands_for(kind, proofs):
+    """A trader is offered money work. A General agent is offered making things, and the free reads. Either still does what it is told."""
+    return MAKE_COMMANDS + FREE_READS if kind == 'general' else list(proofs) + COMMANDS

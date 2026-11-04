@@ -12280,6 +12280,15 @@ async def rep_market_stake(p: RepStake):
     return _repm.board(st, now, me, _rep_of(ws))
 
 
+@app.post('/api/reputation/internal/agent-image')
+async def internal_agent_image(request: Request, body: dict):
+    """🎨 An agent's picture: the same image model and daily spend cap as the owner's. feecat charges that agent's own budget what it really cost."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    res = await _air.ROUTER.gen_image(_ai_http(), os.environ, _ai_cfg(), str(body.get('prompt') or '')[:1200])
+    return {'url': res['url'], 'usd': res.get('usd') or 0} if res.get('ok') else {'why': res.get('why') or 'no picture came back'}
+
+
 @app.post('/api/reputation/internal/agent-bid')
 async def internal_agent_bid(request: Request, body: dict):
     """🎲 A PoB's door to the board: free chips only, staked or read under the board's lock, as `agent:<id>`. Its chips never earn season points."""

@@ -38,3 +38,21 @@ test('its creations: images, pages and posts in one folder, only what it made', 
   await act(async () => { el.querySelector('[data-testid="ast-tab-posts"]').click(); });
   expect(el.querySelector('.ast-rows').textContent).toContain('A thread about SOL'); expect(el.querySelector('.ast-rows').textContent).not.toContain('engine note');
 });
+
+test('a page it built as a file previews by its link, and a gone file says so', async () => {
+  const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, text: async () => '<html><body><h1>Built</h1></body></html>' }));
+  const el = await mount(<PreviewButton text="🖥 Built: a page" url="/api/cats/c/files/a.html" />);
+  await act(async () => { el.querySelector('[data-testid="ast-preview"]').click(); });
+  expect(document.querySelector('[data-testid="ast-frame"]').getAttribute('srcdoc')).toContain('Built');
+  await act(async () => { document.querySelector('[data-testid="ast-close"]').click(); });
+  const list = await mount(<Creations files={[{ id: 'p', ext: 'html', name: 'shop.html', url: '/f/p.html' }]} chat={[]} />);
+  await act(async () => { list.querySelector('[data-testid="ast-tab-pages"]').click(); });
+  expect(list.querySelector('.ast-rows').textContent).toContain('shop');
+  await act(async () => { list.querySelector('[data-testid="ast-built-p"]').click(); });
+  expect(document.querySelector('[data-testid="ast-frame"]')).not.toBeNull();
+  await act(async () => { document.querySelector('[data-testid="ast-close"]').click(); });
+  global.fetch = jest.fn(() => Promise.resolve({ ok: false }));
+  const gone = await mount(<PreviewButton text="x" url="/api/cats/c/files/b.html" />);
+  await act(async () => { gone.querySelector('[data-testid="ast-preview"]').click(); });
+  expect(gone.textContent).toContain('expired'); global.fetch = f;
+});

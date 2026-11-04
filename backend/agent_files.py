@@ -76,6 +76,25 @@ def save(data_dir, cat, data_url, name='', now=None, env=None):
     return row
 
 
+def save_page(data_dir, cat, html, name='', now=None):
+    """A page it built → its public row. Same quota and limits as any file. The route serves it so it never runs on this site's origin."""
+    raw = str(html or '').encode('utf-8')
+    if not raw or len(raw) > MAX_STILL:
+        raise ValueError('That page is too big to keep.')
+    if used(cat) + len(raw) > QUOTA:
+        raise ValueError('100 MB of attachments at most — remove one first (keep files in your own cloud).')
+    if len(cat.get('files') or []) >= KEEP:
+        raise ValueError(f'It keeps {KEEP} files at most — delete one first.')
+    fid, now = uuid.uuid4().hex, now or time.time()
+    clean_name = re.sub(r'[^\w .()-]', '', str(name or ''))[:70].strip() or 'page'
+    row = {'id': fid, 'name': f'{clean_name}.html', 'mime': 'text/html', 'ext': 'html', 'size': len(raw), 'at': round(now), 'used': round(now)}
+    root = _root(data_dir, cat['id'])
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f'{fid}.html').write_bytes(raw)
+    cat['files'] = list(cat.get('files') or []) + [row]
+    return row
+
+
 def find(cat, fid):
     return next((f for f in cat.get('files') or [] if f.get('id') == fid), None) if ID_RE.match(str(fid or '')) else None
 

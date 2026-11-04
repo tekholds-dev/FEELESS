@@ -64,9 +64,9 @@ body.theme-day .bd-head b { color: #7a5a00; } body.theme-day .bd-head small { co
 
 /* 📈 the chart inside a live PoP folder + 🛰 each mind's measured sources */
 .pop-chart { position: relative; height: 300px; padding: 6px; overflow: hidden; --mg: #ff5dbb; } .pop-chart > * { height: 100%; }
-.pop-web { display: grid; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, .1); } .pop-web em { font: 700 11px var(--f-tech); font-style: normal; color: #fff; overflow-wrap: anywhere; } .pop-web small, .pop-web-why, .pob-why { font: 500 11px/1.4 var(--f-ui); color: #e8dfe6; overflow-wrap: anywhere; }
+.pop-web { display: grid; gap: 4px; } .pop-web:not(:last-child) { padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, .1); } .pop-web em { font: 700 11px var(--f-tech); font-style: normal; color: #fff; overflow-wrap: anywhere; } .pop-web small, .pop-web-why, .pob-why { font: 500 11px/1.4 var(--f-ui); color: #e8dfe6; overflow-wrap: anywhere; }
 .bd-head { justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; } .bd-file { min-height: 36px; white-space: nowrap; } .pob { display: grid; gap: 8px; }
-body.theme-day .pop-web { border-bottom-color: rgba(0, 0, 0, .12); } body.theme-day .pop-web em { color: #1c1c1c; } body.theme-day :is(.pop-web small, .pop-web-why, .pob-why) { color: #3a3a3a; }
+body.theme-day .pop-web:not(:last-child) { border-bottom-color: rgba(0, 0, 0, .12); } body.theme-day .pob .dsk-trade b { color: #0a7a3d; } body.theme-day .pob .dsk-trade.is-bad b { color: #b3263f; } body.theme-day .pop-web em { color: #1c1c1c; } body.theme-day :is(.pop-web small, .pop-web-why, .pob-why) { color: #3a3a3a; }
 .pop-srcs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .pop-src { display: grid; gap: 10px; padding: 12px 14px; align-content: start; --mg: #ff5dbb; } .pop-src.is-m1 { --mg: #b388ff; } .pop-src > b { font: 800 10px var(--f-mono); letter-spacing: .16em; color: #ffc2e4; }
 .pop-src-site { display: grid; gap: 5px; } .pop-src-site > span:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; } .pop-src-site em { font: 700 12px var(--f-tech); font-style: normal; color: #fff; } .pop-src-site small { font: 700 8.5px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: #d8b3c9; }
