@@ -57,6 +57,7 @@ import site_scan as _ss
 import agent_topup as _tu
 import agent_site_trade as _st
 import proof_loop as _pl
+import agent_setup as _as
 import agent_mail as _am
 import pop as _pop
 import pop_sources as _popsrc
@@ -171,7 +172,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead', 'mailbox', 'proofHosts', 'pobAsk', 'siteTrade', 'siteTrades', 'siteTradeAuto')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead', 'mailbox', 'proofHosts', 'pobAsk', 'siteTrade', 'siteTrades', 'siteTradeAuto', 'siteWallets', 'setup')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -1566,7 +1567,7 @@ def _pow_archive_rows():
         return []
 
 
-def _pow2_collect(f, t_, who, now):
+def _pow2_collect(f, t_, who, now, cat=None):
     """📁 A finished research round → that coin's folder: its vitals, its 2-per-site snapshots, the sites it used (the next round goes elsewhere)."""
     pw_ = t_['pow']; m_ = pw_.get('mint'); pub_ = _pow.public(pw_)
     if not pw_.get('costed'):   # 💲 the research round's own browsing cost
@@ -1580,7 +1581,7 @@ def _pow2_collect(f, t_, who, now):
     for sh_ in [x for x in (pw_.pop('_shots', None) or []) if x['site'] not in (pw_.get('walled') or [])]:   # 📸 its snapshots → the coin's folder, on disk
         name_ = f"{m_[:6].lower()}_r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
         try:
-            d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(sh_['jpg'])
+            d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(_ck.seal_bytes(sh_['jpg'], cat['id']) if cat and any(s_ in name_ for s_ in (cat.get('siteSessions') or {})) else sh_['jpg'])
             f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
@@ -2008,7 +2009,7 @@ async def _pow2_tick(http, store, cat, now):
                         _pow2_say(f, names[o_] if o_ < len(names) else 'mind', f"on ${c_.get('sym')}: {line_}")
                 for i_, pw_ in t_['pows'].items():
                     win_ = t_['windows'][i_]
-                    _pow2_collect(f, {**t_, 'pow': pw_, 'cost': win_.get('cost') or 0, 'windows': [win_]}, names[i_] if i_ < len(names) else 'mind', now)
+                    _pow2_collect(f, {**t_, 'pow': pw_, 'cost': win_.get('cost') or 0, 'windows': [win_]}, names[i_] if i_ < len(names) else 'mind', now, cat=cat)
                 await asyncio.gather(*(partner_(int(i), m) for i, m in f['rPair'].items()))
             f['scoutDone'] = (f.get('scoutDone') or []) + list(f.pop('rPair').values()); f.pop('rMint', None)
         elif f.get('rMint'):
@@ -2017,7 +2018,7 @@ async def _pow2_tick(http, store, cat, now):
             if running:
                 asyncio.create_task(_hard_stop(w_, 0)); return
             if mine_:
-                m_ = f.get('rMint'); _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now); f['rMint'] = m_
+                m_ = f.get('rMint'); _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now, cat=cat); f['rMint'] = m_
                 if f['minds'] > 1:   # 🗣 ONE line from the partner after that coin's 3-site research
                     o_ = 1 - int(f.get('rMind') or 0); c_ = next((c for c in f['coins'] if c['mint'] == m_), {})
                     vt_ = ' · '.join(f"{x['label']} {x['value']}" for x in (f.get('vitals') or {}).get(m_, [])[:6]) or 'no vitals'
@@ -2092,7 +2093,7 @@ async def _pow2_tick(http, store, cat, now):
         if running and now - float(f.get('researchAt') or now) >= _pow.RESEARCH_S:
             asyncio.create_task(_hard_stop(w_, 0)); running = False   # ⏱ a research round is 2.5 min
         if mine_ and not running:
-            _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now); f['rr'] = rr_ + 1
+            _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now, cat=cat); f['rr'] = rr_ + 1
         elif not mine_:
             f.pop('rMint', None); f['rr'] = rr_ + 1   # its window was taken (your ask): that round is skipped, never stuck
     elif now - float(f.get('researchAt') or 0) >= 20:   # the next round starts (a short breath between rounds)
@@ -2497,7 +2498,7 @@ async def _site_pass(store):
         if o.get('jpg'):
             try:
                 d_ = POWSHOTS_DIR / ('site' + re.sub(r'[^a-z0-9]', '', o['cat'].lower())[:40]); d_.mkdir(parents=True, exist_ok=True)
-                name_ = re.sub(r'[^a-z0-9.]', '', o['site']) + '.jpg'; (d_ / name_).write_bytes(o['jpg'])
+                name_ = re.sub(r'[^a-z0-9.]', '', o['site']) + '.jpg'; (d_ / name_).write_bytes(_ck.seal_bytes(o['jpg'], o['cat']))
             except OSError:
                 name_ = None
         m = _ss.build(o['site'], o['kind'], o['url'], o['pages'], now, name_, o['wall'])
@@ -2855,7 +2856,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     for w_ in t_.get('windows') or []:
         for n_, x_ in enumerate(w_.pop('_shots', None) or []):
             try:
-                d_.mkdir(parents=True, exist_ok=True); name_ = f"m{w_.get('i') or 0}_{n_}.jpg"; (d_ / name_).write_bytes(x_['jpg'])
+                d_.mkdir(parents=True, exist_ok=True); name_ = f"m{w_.get('i') or 0}_{n_}.jpg"; (d_ / name_).write_bytes(_ck.seal_bytes(x_['jpg'], cat['id']))
                 shots.append({'mind': w_.get('i') or 0, 'site': x_['site'], 'title': x_.get('title'), 'url': x_.get('url'), 'file': name_, 'at': x_.get('at')})
             except OSError:
                 continue
@@ -3659,7 +3660,8 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             for k_, pg in enumerate(pages):   # 🖼 the last page stays on its window after the task (owner 2026-10-31: "always show the last page they were on")
                 try:
                     jpg_ = await asyncio.wait_for(pg.shot(), 6) if getattr(pg, 'live', False) else None
-                    if jpg_:
+                    win_ = next((x for x in (w.get('task') or {}).get('windows') or [] if x.get('i') == k_), None) or {}
+                    if jpg_ and not (cat_now and _signed_host(cat_now, win_.get('url') or getattr(pg, 'url', '') or '')):   # 🔒 a signed-in page never becomes a public resting monitor
                         _SHOTS[(cat_id, k_)] = (time.time(), jpg_)
                         _last_put(cat_id, _slot_of(cat_now, models[k_] if k_ < len(models) else ''), jpg_)   # 🖼 its model's monitor idles on this page (kept on disk)
                 except Exception:   # noqa: BLE001 — a missing last frame never blocks closing the browser
@@ -4406,14 +4408,30 @@ async def cat_hive():
 COLONY_PAGE = 10   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
 
 
+def _signed_host(cat, url):
+    """True when this address is on a site the owner signed in to. Its window may show their account, so a visitor never sees it."""
+    try:
+        host = str(_cv.site_of(url or '')).lower()
+    except Exception:   # noqa: BLE001 — an address it can't read is treated as private
+        return True
+    return any(host == s or host.endswith('.' + s) or s.endswith('.' + host) for s in (cat.get('siteSessions') or {}))
+
+
+def _shot_private(cat, folder, name):
+    """🔒 A PoB's snapshots, and any page from a site the owner signed in to, are its owner's alone. So is everything while it is incognito."""
+    return bool(cat.get('incognito')) or str(folder).startswith('pob') or any(s in str(name) for s in (cat.get('siteSessions') or {}))
+
+
 @app.get('/api/cats/{cat_id}/powshot/{folder}/{name}')
-async def pow_snapshot(cat_id: str, folder: str, name: str):
-    """📸 One research snapshot of a PoW folder (public research pages; nothing while the agent is incognito)."""
-    cat = _load()['cats'].get(cat_id)
+async def pow_snapshot(cat_id: str, folder: str, name: str, ownerId: str = '', session: str = ''):
+    """📸 One research snapshot of a proof folder. Public research pages stay public; anything private asks for its owner's signed session."""
+    store = _load(); cat = store['cats'].get(cat_id)
     f_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', folder) / re.sub(r'[^a-z0-9._]', '', name)
-    if not cat or cat.get('incognito') or not (name.endswith('.jpg') or name == 'report.md') or not f_.exists():
+    if not cat or not (name.endswith('.jpg') or name == 'report.md') or not f_.exists():
         raise HTTPException(404, 'No snapshot.')
-    return Response(content=f_.read_bytes(), media_type='image/jpeg' if name.endswith('.jpg') else 'text/markdown; charset=utf-8', headers={'Cache-Control': 'max-age=3600'})
+    if _shot_private(cat, folder, name):
+        _owner_gate(store, cat, session, ownerId, 'see this snapshot')
+    return Response(content=_ck.unseal_bytes(f_.read_bytes(), cat_id), media_type='image/jpeg' if name.endswith('.jpg') else 'text/markdown; charset=utf-8', headers={'Cache-Control': 'private, max-age=3600'})
 
 
 @app.get('/api/cats/{cat_id}/sitesnap/{name}')
@@ -4908,6 +4926,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 return {'mail': await _am.inbox(http, box_['address'], _cv.reveal(cat, _am.SITE, box_['address'], data_dir=DATA_DIR))}
             except (ValueError, httpx.HTTPError) as e:
                 raise HTTPException(400, str(e)[:160] or 'mail.tm did not answer.')
+    if p.op == 'setup':   # 🚀 Priority Setup: an answer, or just how many are left
+        if p.job and p.job != 'view':
+            try:
+                _as.apply(cat, p.job, str(p.text or ''), time.time())
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            keep_owned(cat); _save(store)
+        return {'setup': _as.view(cat)}
     if p.op == 'site_trade':   # 🛒 the card's buttons: the same door as typing yes or no
         say_ = await _site_trade_chat(cat_id, None, {'yes': p.job == 'yes'})
         store = _load(); cat = store['cats'][cat_id]
@@ -5500,7 +5526,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'mailbox': cat.get('mailbox'), 'siteTrade': cat.get('siteTrade'), 'siteTrades': (cat.get('siteTrades') or [])[::-1], 'siteTradeAuto': bool(cat.get('siteTradeAuto')), 'warmSite': (_warm_for(cat_id) or {}).get('site'), 'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
+            'mailbox': cat.get('mailbox'), 'setup': _as.view(cat), 'siteTrade': cat.get('siteTrade'), 'siteTrades': (cat.get('siteTrades') or [])[::-1], 'siteTradeAuto': bool(cat.get('siteTradeAuto')), 'warmSite': (_warm_for(cat_id) or {}).get('site'), 'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
@@ -5685,7 +5711,7 @@ async def cat_screen(cat_id: str, i: int):
     wins = (w.get('task') or {}).get('windows') or []
     x = wins[i] if 0 <= i < len(wins) else None
     key = (cat_id, i); now = time.time(); got = _SHOTS.get(key)
-    if not cat or cat.get('incognito') or (x or {}).get('status') == 'human':
+    if not cat or cat.get('incognito') or (x or {}).get('status') == 'human' or (x and x.get('url') and _signed_host(cat, x['url'])):   # 🔒 a window on a site its owner signed in to may show their account
         raise HTTPException(404, 'No screen right now.')
     if not x or x.get('status') != 'working':   # 🖼 idle / done: the last page it was on, until it works again
         if not got:

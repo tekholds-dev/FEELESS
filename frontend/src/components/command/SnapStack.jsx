@@ -1,3 +1,4 @@
+import { agentAuthQuery } from '../../lib/chatSession';
 import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
@@ -15,7 +16,7 @@ export const cleanFolderShots = f => (f?.coins || []).flatMap(c => cleanShots(f,
 
 const STACKS = [['Contract risk', /mint|freeze|authority|\blp\b|lock|rug|honeypot|risk|tax|score|creator|\bdev\b|renounc/i], ['Holders', /holder|top ?\d|concentr|bundle|sniper|insider|wallet/i],
   ['Market', /price|cap|mcap|fdv|volume|\bvol\b|liquid|pool/i], ['Activity', /\btx|txn|trade|buy|sell|age|call|mention|post/i], ['Other', /./]];
-const shotSrc = (catId, f, file) => apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${file}`);
+const shotSrc = (catId, f, file) => apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${file}?${agentAuthQuery()}`);
 
 export function SnapStack({ f, shot, catId, onClose, onPick }) {
   const coin = (f.coins || []).find(c => c.mint === shot.mint); const rail = useMemo(() => cleanShots(f, shot.mint), [f, shot.mint]);

@@ -13,7 +13,8 @@ TEXT_MAX = 4000
 _CODE = re.compile(r'(?<![\w-])(\d{4,8}|[A-Z0-9]{5,8}(?=\s*(?:is your|code)))(?![\w-])')
 # The go-to list agents read: what works with no person, what needs one. A CAPTCHA, phone code or ID check is always the person's.
 SOURCES = ('GO-TO SOURCES, in this order. Email: your own mailbox first (action "feeless", tool "inbox" reads it; tool "mailbox" gives its address), it needs no CAPTCHA. Some sites refuse its domain; then try '
-           'Tuta or GMX in the browser, and hand over if they ask for a CAPTCHA or phone. Files: Catbox and Filebase before anything that needs a card. Code: GitHub. Social: Bluesky, Mastodon. '
+           'Tuta or GMX in the browser, and hand over if they ask for a CAPTCHA or phone. Files: Catbox and Filebase before anything that needs a card. Code: GitHub. Social, only if your job is content: Bluesky and Mastodon welcome bots through their open APIs; for X, LinkedIn and others use the official API or a posting service the owner connected (Postiz, Blotato, Zernio, Ayrshare), never a scripted login a site blocks. '
+           'Buying crypto with a card is the owner\'s: MoonPay, Onramper and Coinbase Onramp all need their identity check. '
            'Try each legitimate path yourself first. Never try to pass a CAPTCHA, phone code or ID check: those are always the person\'s.')
 
 

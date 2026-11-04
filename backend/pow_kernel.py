@@ -11,7 +11,7 @@ import poi as _poi
 import pop as _pop
 import pow as _pow
 
-VERSION = '2026.11.04.2'
+VERSION = '2026.11.04.3'
 
 
 def limits():

@@ -47,7 +47,7 @@ def test_a_market_read_needs_real_numbers():
 
 
 def test_the_kernel_is_pinned_so_a_limit_cannot_change_quietly():
-    assert pow_kernel.fingerprint() == 'efec14752ff3', 'A hard limit changed: if it was on purpose, bump pow_kernel.VERSION and this pin.'
+    assert pow_kernel.fingerprint() == 'a996982d9dc3', 'A hard limit changed: if it was on purpose, bump pow_kernel.VERSION and this pin.'
     v = pow_kernel.view()
     assert v['hash'] == pow_kernel.fingerprint() and dict(next(g for g in v['groups'] if g['name'] == 'Proof of Perps')['rows'])['Real orders'] is False
 

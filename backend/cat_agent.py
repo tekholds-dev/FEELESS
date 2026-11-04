@@ -17,6 +17,7 @@ import time
 from urllib.parse import quote_plus
 from agent_mail import SOURCES
 from cat_policy import RESEARCH_ACTIONS, RULES, check_url, refusal, research_ok
+from cat_policy import is_post as _is_post
 import pow as _pow
 
 STEP_MAX = 8
@@ -396,6 +397,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         need = {'open': 'browse', 'search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
         if need and not task.get('tools', {}).get(need, False):
             why = f'Refused: {need} tool is disabled for this job.'
+            task.setdefault('refusals', []).append(why)
+            _step(w, why, 'refused')
+            seen = why
+            continue
+        if act == 'click' and _is_post(a.get('text')) and not task.get('tools', {}).get('post', False):   # 📣 only a content agent posts, whatever a page or a model says
+            why = 'Refused: only an agent with the content job may post, reply or publish. Its owner can change its job.'
             task.setdefault('refusals', []).append(why)
             _step(w, why, 'refused')
             seen = why

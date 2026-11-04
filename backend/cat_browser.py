@@ -17,7 +17,7 @@ import json
 import re
 import time
 import uuid
-from cat_policy import public_url, check_url
+from cat_policy import public_url, check_url, secure_url
 
 STEEL = 'https://api.steel.dev/v1'
 BB = 'https://api.browserbase.com/v1'
@@ -583,6 +583,7 @@ class LivePage:
         return pressed
 
     async def goto(self, url):
+        url = secure_url(url)
         await public_url(url)
         await self._p.goto(str(url), wait_until='domcontentloaded', timeout=30000)
         try:

@@ -19,7 +19,8 @@ import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
 import { MailApp, SiteDoor, SignInFrame, SiteTradeCard, TopupCard, WatchFolders } from './SiteDoor';
 import { ProofsFolder } from './ProofsFolder';
-import { DeskExtras, DeskIcon, DeskTour, DeskWin, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
+import { SetupDeck, TermsFolder } from './SetupDeck';
+import { DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -66,7 +67,7 @@ const COLONY_STEPS = [['🔎', 'It reads the trenches on its own', 'One coin at 
   ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
   ['🍯', 'Honey is its proof', 'Graded calls earn or lose honey — it ranks your agent on the Colony. Nobody is paid for being right.'],
   ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the colony.']];
-const SHARE_PCTS = [5, 10, 20, 30];
+const SHARE_PCTS = [5, 10, 15, 20, 25];
 const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
 function useColonyShare(cat) {
@@ -144,6 +145,20 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
 const host = u => String(u || '').replace(/^https?:\/\//, '').split(/[/?#]/)[0];
 // ⛏ a research window whose round ended: its cloud browser is closed, so nothing may still say it works there
 const roundIsOver = (w, f) => /^PROOF OF WORK/.test(w?.goal || '') && !!f?.coins?.length && !['scout', 'research'].includes(f.phase);
+// ⛏ what this mind is doing right now, in its card: the proof it is on and its live step. Nothing running shows its last PoW, short. It never breaks out of the card.
+const PH_ORDER = ['propose', 'split', 'scout', 'choose', 'buy', 'watch', 'research', 'sell'];
+function MindNow({ d, w, p }) {
+  const f = d?.powFolder; const pop = d?.popFolder; const pob = d?.pobRun || d?.pobRead; const trade = d?.task?.siteTrade; const working = w?.status === 'working' || w?.status === 'human';
+  const kind = f ? 'PROOFING · PoW' : pop ? 'PROOFING · PoP' : pob ? 'PROOFING · PoB' : trade ? 'TRADING ON ITS ACCOUNT' : working ? 'WORKING' : null;
+  if (!kind) return <PowCard p={p} compact />;
+  const on = f ? (f.sym ? `$${f.sym}` : `${(f.coins || []).length} coins`) : pop ? `${pop.market || ''} ${pop.side || ''}`.trim() || 'Reading markets' : pob ? pob.topic || pob.q || 'Reading markets' : trade ? `$${trade.sym} on ${trade.site}` : (w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'Reading');
+  const phase = f ? (PH[f.phase] || f.phase) : pop ? `Paper trade ${Number(pop.roePct || 0) >= 0 ? '+' : ''}${Number(pop.roePct || 0).toFixed(1)}%` : '';
+  const at = f ? PH_ORDER.indexOf(f.phase) : -1;
+  return <div className="ck-now" data-testid="ck-now"><span className="ck-now-h"><i aria-hidden="true" />{kind}</span><b>{on}</b>
+    {at >= 0 ? <span className="ck-now-steps" role="img" aria-label={phase}>{PH_ORDER.map((x, n) => <u key={x} className={n < at ? 'is-done' : n === at ? 'is-at' : ''} />)}</span> : null}
+    {phase ? <em className="ck-v-row"><b className="m-num is-pow">{phase}</b></em> : null}
+    {w?.bubble ? <small data-testid="ck-now-step">{w.bubble}</small> : null}</div>;
+}
 function WinVitals({ w, f = null, i = 0, model = '' }) {   // ⛏ while a PoW folder runs, its role in it (owner: "it says IDLE while they work")
   if (f && (roundIsOver(w, f) || !(w?.status === 'working' || w?.status === 'human'))) {
     const me = String(i + (f.base || 0)); const name = String(model || '').split('/').pop().replace(':free', '');
@@ -618,7 +633,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
       {(x.claims || (x.support ? [x] : [])).length ? <details><summary>Evidence lineage</summary>{(x.claims || [x]).map((cl, j) => <p key={j}><b>{cl.value}</b> · {cl.site} {cl.at ? `· ${new Date(Number(cl.at) * 1000).toLocaleString()}` : ''}<small>{cl.support || 'No page excerpt saved'}</small></p>)}</details> : null}</li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
     {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site}: open the page with everything scraped from it`}>
-      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site}</small></button>)}</div>
+      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}?${agentAuthQuery()}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site}</small></button>)}</div>
       : <small className="dsk-coin-none">{(f.scout || []).includes(c.mint) ? 'snapshots land here as each site is researched' : 'not researched (failed the safety check) — its FEELESS read is kept'}</small>}
   </div>;
 }
@@ -704,7 +719,7 @@ function SourcesFolder({ cat, d, setD }) {
 }
 // ⛏ THE PoW EXPLORER (owner 2026-11-01: "truly folders and coin folders … the overall PoW folder should always give a final report"):
 // PoW › each dated folder › its coin folders (vitals + JPEG snapshots, the pick's 👍 good / 👎 bad trade) + 📋 FINAL REPORT + 💬 the discussion
-const shotUrl = (catId, f, file) => apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${file}`);
+const shotUrl = (catId, f, file) => apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${file}?${agentAuthQuery()}`);
 const gradeOf = f => (f.pnlPct == null ? null : f.pnlPct > 0 ? 'good' : 'bad');
 function Tile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid }) {
   return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
@@ -956,8 +971,8 @@ function PobTopic({ f, catId, onMark }) {
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
       {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
       <Browsed b={f.browsed?.[c.mind]} /></section>)}</div>
-    {(f.shots || []).length ? <div className="pbt-shots" data-testid="pbt-shots">{f.shots.map((x, i) => <button key={x.file} type="button" style={{ '--i': i }} onClick={() => setBig(x)} data-tip={`${x.site}: open it big`} data-testid={`pbt-shot-${i}`}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${x.file}`)} alt={`${x.site} when it read it`} loading="lazy" /><span><b>{x.site}</b><small>mind {x.mind === 0 ? 'A' : 'B'}</small></span></button>)}</div> : <p className="dsk-note">No snapshots were kept.</p>}
-    {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${big.file}`)} alt={big.site} /></div> : null}
+    {(f.shots || []).length ? <div className="pbt-shots" data-testid="pbt-shots">{f.shots.map((x, i) => <button key={x.file} type="button" style={{ '--i': i }} onClick={() => setBig(x)} data-tip={`${x.site}: open it big`} data-testid={`pbt-shot-${i}`}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${x.file}?${agentAuthQuery()}`)} alt={`${x.site} when it read it`} loading="lazy" /><span><b>{x.site}</b><small>mind {x.mind === 0 ? 'A' : 'B'}</small></span></button>)}</div> : <p className="dsk-note">No snapshots were kept.</p>}
+    {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${big.file}?${agentAuthQuery()}`)} alt={big.site} /></div> : null}
     <p className="dsk-note">It never bets. Any real bid is yours, on a site where it is legal for you.</p></div>;
 }
 function PobFolder({ f, catId, onMark }) {
@@ -1053,7 +1068,23 @@ function WalletApp({ cat }) {
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['manual', '📖', 'Manual'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+// 🧱 what each thin folder shows on its wall. Real counts from its state only; a tile with no action is just a number.
+const won = rows => rows.filter(f => Number(f.roePct ?? f.net) > 0 || f.graded === 'right').length; const lost = rows => rows.filter(f => Number(f.roePct ?? f.net) < 0 || f.graded === 'wrong').length;
+function wallFor(k, d, cat) {
+  const pop = (d?.popFolders || []).filter(f => !f.noTrade); const pob = d?.pobFolders || []; const jobs = d?.jobs || []; const files = d?.storage?.files || []; const logins = d?.logins || []; const signed = d?.signedIn || []; const manuals = Object.keys(d?.siteManuals || {});
+  const best = pop.length ? Math.max(...pop.map(f => Number(f.roePct) || 0)) : null; const shots = [...(d?.powFolders || []), ...pob].reduce((n, f) => n + (f.shots || []).length, 0); const rate = Object.values(d?.jobRates || {});
+  switch (k) {
+    case 'pop': return [{ ic: '📉', label: 'File a perp', value: pop.length, cmd: 'file a perp', tip: 'Paper proofs filed. Two small paid model calls for the next one' }, { ic: '✅', label: 'Won', value: won(pop), tone: 'up' }, { ic: '🛑', label: 'Lost', value: lost(pop), tone: 'dn' }, { ic: '🏅', label: 'Best, paper', value: best == null ? '—' : `${best > 0 ? '+' : ''}${best.toFixed(1)}%` }, { ic: '🪄', label: 'Next in the loop', value: `#${(d?.popFolders || []).length + 1}`, to: 'proofs', tip: 'It studies these before its next call' }];
+    case 'bids': return [{ ic: '🎲', label: 'File a pob', value: pob.length, cmd: 'file a pob best NFL picks', tip: 'Proofs filed. Researches a topic with snapshots. Paid model calls, nothing staked' }, { ic: '✅', label: 'Right', value: won(pob), tone: 'up' }, { ic: '🛑', label: 'Wrong', value: lost(pob), tone: 'dn' }, { ic: '📸', label: 'Snapshots', value: pob.reduce((n, f) => n + (f.shots || []).length, 0), to: 'proofs' }, { ic: '🪄', label: 'Next in the loop', value: `#${pob.length + 1}`, to: 'proofs' }];
+    case 'jobs': return [{ ic: '🗂', label: 'Jobs done', value: jobs.length }, { ic: '👍', label: 'Rated good', value: rate.filter(x => x === 'up').length, tone: 'up' }, { ic: '👎', label: 'Rated bad', value: rate.filter(x => x === 'down').length, tone: 'dn' }, { ic: '💬', label: 'Ask it something', value: 'Go', cmd: 'what can you do?' }];
+    case 'sources': return [{ ic: '🔓', label: 'Signed-in sites', value: signed.length, to: 'vault' }, { ic: '📖', label: 'Sites scanned', value: manuals.length, to: 'pow', tip: 'Open a proof folder and scan a site' }, { ic: '📸', label: 'Snapshots kept', value: shots, to: 'proofs' }, { ic: '🛒', label: 'Site trades', value: (d?.siteTrades || []).length }];
+    case 'mail': return [{ ic: '📧', label: 'Its email', value: d?.mailbox?.address ? 'Ready' : 'Not yet', tip: d?.mailbox?.address || 'Make it below' }, { ic: '🔐', label: 'Logins sealed', value: logins.length, to: 'vault' }, { ic: '🔓', label: 'Sites signed in', value: signed.length, to: 'vault' }];
+    case 'files': return [{ ic: '📁', label: 'Files kept', value: files.length }, { ic: '🎨', label: 'Creations', value: files.filter(f => f.made || f.kind === 'made').length }, { ic: '🔏', label: 'Sealed files', value: (d?.secrets || []).length, to: 'vault' }];
+    case 'cmds': return [{ ic: '⛏', label: 'file a PoW', value: 'PoW', cmd: 'file a PoW' }, { ic: '📉', label: 'file a perp', value: 'PoP', cmd: 'file a perp' }, { ic: '🎲', label: 'file a pob', value: 'PoB', cmd: 'file a pob best NFL picks' }, { ic: '🔎', label: 'watch a wallet', value: 'Watch', cmd: 'watch a wallet' }, { ic: '🧱', label: 'build a project', value: 'Build', cmd: 'build a project a tip calculator' }, { ic: '💸', label: 'top up pump', value: 'Top up', cmd: 'top up pump' }];
+    default: return null;
+  }
+}
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot
 export const placeIcons = (saved, height, extra = []) => placeFor([...ICONS.map(x => x[0]), ...extra], saved, height);
@@ -1064,7 +1095,7 @@ export function clearOfIcons(win, icons, width) {
 }
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 // 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
-const ICON_TIP = { proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
+const ICON_TIP = { terms: 'How this agent is locked down, and the terms you run it under', proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
@@ -1073,7 +1104,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
   useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
+    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, terms: { open: false, min: false, max: false, x: 170, y: 48 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight, extra.map(a => a.k)); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
@@ -1090,12 +1121,16 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     sites: <SignedSites cat={cat} d={d} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
     api: <ApiSlot cat={cat} /> }[tab];
   const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ...apps, ['perf', '📈', 'Performance']].filter(([k]) => w[k]?.open);
+  const setupKit = { useShare: useColonyShare, caps: CAPS, renderSites: (pick, done) => <SignedSites cat={cat} d={d} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); done?.(); }} /> };
+  const setupLeft = Number(d?.setup?.left || 0); const setupShown = useRef(false);
+  useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
+  useEffect(() => { if (setupLeft > 0 && !setupShown.current && !live && (!start || start === 'none')) { setupShown.current = true; openWin('manual'); setTop('manual'); } }, [setupLeft, live, start, set]);   // 🚀 its asks come first, until they are done
   const series = useMemo(() => perfSeries(d), [d]);
   const glass = useMemo(() => glassOf(series), [series]);
   return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     <ShaderWall mood={mood} /><div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div>
     <nav className="dsk-icons" aria-label="Desktop">
-      {apps.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} badge={k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
+      {apps.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} badge={k === 'manual' && setupLeft > 0 ? { lit: true, text: `${setupLeft}` } : k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
     </nav>
@@ -1112,8 +1147,8 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
-      w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+      w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
       <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
@@ -1129,7 +1164,8 @@ export function TraderCabinet({ cat, items }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   const [desk, setDesk] = useState(false);
-  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Private desktop</button>
+  useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
+  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Private desktop<SetupDot id={cat.id} left={d?.setup?.left ?? null} /></button>
     <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />{desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}</>;
 }
 // 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
@@ -1294,6 +1330,9 @@ function WorkbenchLive({ cat }) {
     setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, poi: x.poi ?? o?.poi, kernel: x.kernel ?? o?.kernel, popFolders: x.popFolders ?? o?.popFolders })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
   const live = !down && (LIVE_STATES.includes(status) || status === 'human' || !!d?.powFolder || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // a running PoW folder is live too — its chat lines arrive every 1.5 s   // the service down = never a stale "Working"
+  useEffect(() => { window.dispatchEvent(new CustomEvent('feeless:agent-live', { detail: { id: cat.id, live } })); }, [cat.id, live]);   // 💡 the lamp over its monitors
+  useEffect(() => () => window.dispatchEvent(new CustomEvent('feeless:agent-live', { detail: { id: cat.id, live: false } })), [cat.id]);
+  useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);
   const act = async (op, extra = {}) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op, ...extra }); setD(x => ({ ...x, ...r })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
@@ -1326,7 +1365,7 @@ function WorkbenchLive({ cat }) {
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
-      <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Desktop</button>
+      <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Desktop<SetupDot id={cat.id} left={d?.setup?.left ?? null} /></button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
@@ -1334,9 +1373,9 @@ function WorkbenchLive({ cat }) {
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
-      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
+      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
-        extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <PowCard p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
+        extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <MindNow d={d} w={wins[1]} p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),

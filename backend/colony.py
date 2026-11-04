@@ -24,7 +24,7 @@ POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily', 'dest'
 DESTS = ('wallet', 'pool')   # 🏺 where shared winnings land: the colony wallet itself, or the colony pool (agents always send to ONE wallet)
 POLICY_BOUNDS = {'epochCapPct': (5, 50), 'timelockH': (6, 72)}
 CADENCES = {'daily': 86400, 'weekly': 7 * 86400}   # 🪂 how often the airdrop pays (the owner picks)
-SHARE_PCTS = (5, 10, 20, 30)                         # 🤝 opportunity 2: the share of each winning trade's profit an owner lets its agent send
+SHARE_PCTS = (5, 10, 15, 20, 25)                         # 🤝 opportunity 2: the share of each winning trade's profit an owner lets its agent send
 FIXED_GUARDS = ('principalLock', 'allowlist', 'ownerSigns')   # always on — the owner can't turn these off
 
 
@@ -61,7 +61,7 @@ def share_pct(v):
         v = int(v)
     except (TypeError, ValueError):
         return 0
-    return v if v in SHARE_PCTS else 0
+    return min(v, SHARE_PCTS[-1]) if v == 30 else v if v in SHARE_PCTS else 0   # the old 30% choice pays the new 25% cap
 
 
 def share_cut(pnl_sol, pct):

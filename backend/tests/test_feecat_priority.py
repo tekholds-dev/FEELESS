@@ -25,7 +25,7 @@ def test_prohibited_jobs(text):
 
 
 def test_job_tools_cannot_be_elevated():
-    assert policy.toolkit('content', {'build': True, 'storage': False}) == {'browse': True, 'storage': False}
+    assert policy.toolkit('content', {'build': True, 'storage': False}) == {'browse': True, 'forms': True, 'storage': False, 'post': True}
     assert policy.toolkit('code')['build']
     with pytest.raises(ValueError):
         policy.toolkit('root')

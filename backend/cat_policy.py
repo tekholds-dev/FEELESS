@@ -5,7 +5,7 @@ import re
 from urllib.parse import urlsplit
 
 TOOLS = {
-    'agent': ('browse', 'forms'), 'content': ('browse', 'storage'),
+    'agent': ('browse', 'forms'), 'content': ('browse', 'forms', 'storage', 'post'),
     'code': ('browse', 'build', 'storage'), 'detective': ('browse', 'notes'),
     'researcher': ('browse', 'notes'), 'trading': ('chart', 'wallet', 'research'),
 }
@@ -54,13 +54,27 @@ def toolkit(job, switches=None):
     return {k: bool((switches or {}).get(k, True)) for k in allowed}
 
 
+def secure_url(url):
+    """🔒 A plain http address is opened as https. A site with no https then fails, and is never read in the clear."""
+    u = str(url or '').strip()
+    return 'https://' + u[7:] if u.lower().startswith('http://') else u
+
+
+# 📣 Only an agent doing content may post (owner 2026-11-04). Everyone else answers its owner and nobody else.
+_POST_WORDS = re.compile(r'(?i)^\W*(?:post|tweet|repost|retweet|reply|comment|publish|share (?:post|now)|send (?:reply|post|tweet)|cast|toot|skeet)\b')
+
+
+def is_post(label):
+    return bool(_POST_WORDS.match(str(label or '')))
+
+
 def check_url(url):
     """Check every navigation, redirect and browser request, including our public API."""
     u = urlsplit(str(url))
     host = (u.hostname or '').rstrip('.').lower()
     own = {urlsplit(os.getenv(k, '')).hostname for k in ('PUBLIC_SITE_URL', 'FRONTEND_URL')}
-    if u.scheme not in ('http', 'https') or not host or u.username or u.password:
-        raise ValueError('Only public web addresses without credentials are allowed.')
+    if u.scheme != 'https' or not host or u.username or u.password:   # 🔒 secure sites only (owner 2026-11-04): nothing an agent reads or types ever goes over plain http
+        raise ValueError('Only secure (https) public web addresses without credentials are allowed.')
     if host in ('localhost', 'localhost.localdomain') or host.endswith(('.local', '.localhost', '.internal')):
         raise ValueError('Private and local networks are blocked.')
     feeless = host in own or any(p in ('feecat', 'feeless') or p.startswith('feecat-') for p in host.split('.'))

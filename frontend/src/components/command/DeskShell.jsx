@@ -9,8 +9,38 @@ import '../../styles/deskShell.css';
 export const DeskExtras = createContext([]);
 
 // 💡 A lamp over its monitors: our own take on a conic lamp, drawn in CSS. Two light cones and a bar, opacity and transform only, in its accent colour.
-export function Lamp() {
-  return <div className="lamp" aria-hidden="true"><i /><b className="lamp-bar" /></div>;
+// 💡 The lamp over its monitors (owner 2026-11-04): on while its agents work, out when they finish, and the tube catches static every 5, 23 and 45 seconds. Turning off is a last burst of static.
+export function Lamp({ active = false }) {
+  const [lit, setLit] = useState(active); const [zap, setZap] = useState(0);
+  useEffect(() => {
+    if (active) { setLit(true); setZap(n => n + 1); const t = [5000, 23000, 45000].map(ms => setInterval(() => { if (!document.hidden) setZap(n => n + 1); }, ms)); return () => t.forEach(clearInterval); }
+    setZap(n => n + 1); const t = setTimeout(() => setLit(false), 650); return () => clearTimeout(t);
+  }, [active]);
+  return <div className={`lamp${lit ? ' is-on' : ''}${active ? '' : ' is-dying'}`} aria-hidden="true" data-testid="kd-lamp" data-on={lit ? '1' : '0'}>
+    <div key={zap} className="lamp-zap"><div className="lamp-light"><i className="lamp-l" /><i className="lamp-r" /><u className="lamp-core" /><u className="lamp-hot" /></div><b className="lamp-bar" /></div></div>;
+}
+
+// 🧱 A folder's wall: big clickable vitals that fill whatever its list leaves empty, so no folder opens as a small box in a big window. Every number is the folder's own.
+export function VitalsWall({ tiles, onCommand, onOpen, children }) {
+  const [said, setSaid] = useState('');
+  const hit = async t => {
+    if (t.to) { onOpen?.(t.to); return; }
+    if (!t.cmd) return;
+    if (onCommand) { onCommand(t.cmd); setSaid(`“${t.cmd}” is in its chat box`); return; }
+    try { await navigator.clipboard.writeText(t.cmd); setSaid(`Copied “${t.cmd}”. Paste it in its chat`); } catch { setSaid(`Type “${t.cmd}” in its chat`); }
+  };
+  return <div className="dfw" data-testid="dsk-wall"><div className="dfw-wall">{tiles.map((t, i) => { const can = t.to || t.cmd; const Tag = can ? 'button' : 'div'; return <Tag key={t.label} {...(can ? { type: 'button', onClick: () => hit(t) } : {})} className={`dfw-tile${can ? ' is-go' : ''}${t.tone ? ` is-${t.tone}` : ''}`} style={{ '--i': i }} data-tip={t.tip} data-testid={`dfw-${String(t.label).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}>
+      <i aria-hidden="true"><Ic3 e={t.ic} size="100%" /></i><b className="m-num">{t.value}</b><small>{t.label}</small>{can ? <em>{t.to ? 'Open' : 'Put in chat'}</em> : null}</Tag>; })}</div>
+    {said ? <small className="dfw-said" role="status">{said}</small> : null}
+    {children ? <div className="dfw-in">{children}</div> : null}</div>;
+}
+
+// 🚀 The dot on every Desktop button: how many setup asks are left. Lit until they are done. Only its owner gets a number from the server.
+export function SetupDot({ id, left = null }) {
+  const [n, setN] = useState(left);
+  useEffect(() => { setN(left); }, [left]);
+  useEffect(() => { const on = e => { if (e.detail?.id === id) setN(e.detail.left); }; window.addEventListener('feeless:setup-left', on); return () => window.removeEventListener('feeless:setup-left', on); }, [id]);
+  return n > 0 ? <b className="dsk-lit m-num" data-tip={`${n} setup ask${n === 1 ? '' : 's'} left in its Manual folder`} data-testid="setup-dot">{n}</b> : null;
 }
 
 // 🎓 First time on a desktop: 12 steps that point at the real icons. Never opens an app or moves anything.
@@ -121,7 +151,7 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
   const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) onMove(k, { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={() => { g.current = null; }}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
-    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : <em><Ic3 e={ic} size="30px" /></em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
+    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : <em><Ic3 e={ic} size="30px" /></em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];

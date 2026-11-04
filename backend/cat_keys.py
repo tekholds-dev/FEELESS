@@ -79,6 +79,19 @@ def unseal(token, cat_id, env=None, data_dir=None):
     return _fernet(env, data_dir).decrypt(t.encode()).decode()   # an older seal, until reseal_cat runs
 
 
+# 🖼 A snapshot of a signed-in page is sealed on disk too, with the same per-agent key.
+_SHOT_MARK = b'FS2:'
+
+
+def seal_bytes(raw, cat_id, env=None):
+    return _SHOT_MARK + _agent_fernet(cat_id, env).encrypt(bytes(raw))
+
+
+def unseal_bytes(raw, cat_id, env=None):
+    """An older snapshot was never sealed, and comes back as it is."""
+    return _agent_fernet(cat_id, env).decrypt(raw[len(_SHOT_MARK):]) if raw.startswith(_SHOT_MARK) else raw
+
+
 def reseal_cat(cat, env=None, data_dir=None):
     """Startup heal: every older seal on this agent → its own v2 key. → how many changed."""
     n, cid = 0, cat.get('id')

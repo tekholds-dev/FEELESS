@@ -166,6 +166,6 @@ def test_a_topic_pob_reads_keeps_snapshots_calls_blind_and_stakes_nothing(fs, mo
     asyncio.run(fs._pob_topic_file(cat, {'topic': 'best nfl picks', 'sites': ['espn.com'], 'who': ''}, 100.0, notes, ''))
     f = cat['pobFolders'][-1]
     assert f['topic'] == 'best nfl picks' and f['agreed'] == ['Chiefs -3'] and f['status'] == 'closed' and 'chips' not in f and 'proofHosts' not in cat
-    assert f['shots'][0]['site'] == 'espn.com' and (tmp_path / 'pob100' / 'm0_0.jpg').read_bytes() == b'J'
+    assert f['shots'][0]['site'] == 'espn.com' and fs._ck.unseal_bytes((tmp_path / 'pob100' / 'm0_0.jpg').read_bytes(), 'c1') == b'J'
     assert 'Chiefs -3 on covers' not in asks[0][1] and 'Chiefs -3 on espn' not in asks[1][1]   # blind
     json.dumps(f)

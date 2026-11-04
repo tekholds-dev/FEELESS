@@ -139,7 +139,7 @@ def test_a_finished_scan_is_filed_with_its_snapshot_and_no_model_when_no_credit(
     fs._SCAN_DONE.append({'cat': 'c1', 'site': 'a.io', 'url': 'https://a.io', 'kind': 'pob', 'jpg': b'x', 'wall': '', 'pages': [{'kind': 'terms', 'url': 'https://a.io/t', 'title': '', 'text': TERMS, 'ok': True}]})
     asyncio.run(fs._site_pass(store))
     m = cat['siteManuals']['a.io']
-    assert m['kinds'] == ['pob'] and m['shot'] == 'a.io.jpg' and (tmp_path / 'sitec1' / 'a.io.jpg').read_bytes() == b'x' and not m['model']
+    assert m['kinds'] == ['pob'] and m['shot'] == 'a.io.jpg' and fs._ck.unseal_bytes((tmp_path / 'sitec1' / 'a.io.jpg').read_bytes(), 'c1') == b'x' and not m['model']
     assert 'scanned' in cat['chat'][-1]['text']
     assert fs._SCAN_BUSY['c1'] == 'a.io'   # still "scanning" until this pass has saved the manual
     asyncio.run(fs._site_pass(store))

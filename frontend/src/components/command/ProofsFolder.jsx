@@ -1,3 +1,4 @@
+import { agentAuthQuery } from '../../lib/chatSession';
 import React, { useMemo, useState } from 'react';
 import '../../styles/proofsFolder.css';
 import { apiUrl } from '../../lib/api';
@@ -16,7 +17,7 @@ export function reasonOf(v) {
   return m ? m[1] : '';
 }
 const mind = i => `Mind ${'AB'[Number(i)] || Number(i) + 1}`;
-const shotsOf = (f, kind) => (f.shots || []).map(s => ({ ...s, src: apiUrl(`/api/cats/{cat}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${s.file}`), kind }));
+const shotsOf = (f, kind) => (f.shots || []).map(s => ({ ...s, src: apiUrl(`/api/cats/{cat}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${s.file}?${agentAuthQuery()}`), kind }));
 const toneOf = v => (v == null ? 'none' : v > 0 ? 'win' : v < 0 ? 'loss' : 'none');
 
 function powRow(f) {

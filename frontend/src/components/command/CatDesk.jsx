@@ -18,7 +18,7 @@ import '../../styles/catDesk.css';
 import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared with Fee's models
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentDesktop } from './CatWorkbench';
-import { DeskExtras, Lamp, ShaderWall } from './DeskShell';
+import { DeskExtras, Lamp, SetupDot, ShaderWall } from './DeskShell';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -224,6 +224,9 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       </aside> : null;
   // 🖥 owner 2026-11-04: its wallet and limits live on its desktop, so the desk stays the monitors and the chat
   const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin">{tiles}{mainPane}</div> }, ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
+  const [workLive, setWorkLive] = useState(false);   // 💡 its windows tell the lamp when they work
+  useEffect(() => { const on = e => { if (e.detail?.id === cat.id) setWorkLive(!!e.detail.live); }; window.addEventListener('feeless:agent-live', on); return () => window.removeEventListener('feeless:agent-live', on); }, [cat.id]);
+  const lampOn = workLive || (cat.brainsCfg?.kind !== 'general' && !cat.revoked && ['hunting', 'running'].includes(String(cat.status || '').toLowerCase()));
   return <DeskExtras.Provider value={deskApps}><section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />{skin.bg === 'night' ? <div className="kd-wall" aria-hidden="true"><ShaderWall mood={cat.isLeader ? 'fee' : 'agent'} /></div> : null}
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     {visitor ? null : <>   {/* 👀 a visitor sees only the monitors + its proofs (owner 2026-10-31: "nothing on screen but the monitors") */}
@@ -249,11 +252,11 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       </header>
     </>}
     {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '🐝 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
-      <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" onClick={() => setDeskAt('none')} data-tip="Its wallet, limits, proofs, mail and everything else" data-testid="kd-open-desktop"><Ic3 e="🖥" /> DESKTOP</button></nav> : null}
+      <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" onClick={() => setDeskAt('none')} data-tip="Its wallet, limits, proofs, mail and everything else" data-testid="kd-open-desktop"><Ic3 e="🖥" /> DESKTOP<SetupDot id={cat.id} /></button></nav> : null}
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {tabbed ? null : tiles}
-    {!on('desk') ? null : <div className="kd-lit"><Lamp />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
+    {!on('desk') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
     {visitor || tabbed ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
     {Tools}
