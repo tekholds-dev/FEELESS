@@ -3,6 +3,7 @@ import { createChart, CandlestickSeries, HistogramSeries, LineSeries, ColorType,
 import { ema, vwap, bollinger, rsi } from '../../lib/indicators';
 import { fetchBars, foldTrade, onTrade, GRAN } from '../../lib/cbFeed';
 import { chartColors, useChartTheme } from '../../lib/chartTheme';
+import '../../styles/perpsDash.css';   // its own sizing lives there: used outside the desk (a PoP folder) it collapsed to a line
 
 // 📈 the perps desk's chart: TRUE candles (Coinbase Exchange — a US-regulated venue; the live candle folds every trade as it prints) + volume,
 // and YOUR levels on it: entry / mark, ☠ liquidation, TP + SL. TP and SL DRAG straight on the chart before the trade (and on a live

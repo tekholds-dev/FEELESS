@@ -1004,8 +1004,9 @@ const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉'
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot
 export function placeIcons(saved, height) {
-  const rows = Math.max(3, Math.floor((height - 110) / 96)); const taken = new Set(Object.values(saved).map(p => `${p.x},${p.y}`)); let n = 0;
-  const free = () => { for (;;) { const p = { x: Math.floor(n / rows) * 96, y: (n % rows) * 96 }; n += 1; if (!taken.has(`${p.x},${p.y}`)) return p; } };
+  const rows = Math.max(3, Math.floor((height - 110) / 96)); const taken = Object.values(saved); let n = 0;
+  const hits = p => taken.some(q => Math.abs(q.x - p.x) < 84 && Math.abs(q.y - p.y) < 84);   // a dragged icon sits off the grid: anything touching it counts as taken
+  const free = () => { for (;;) { const p = { x: Math.floor(n / rows) * 96, y: (n % rows) * 96 }; n += 1; if (!hits(p)) { taken.push(p); return p; } } };
   return Object.fromEntries(ICONS.map(([k]) => [k, saved[k] || free()]));
 }
 // 🪟 a window opens beside the icons on a roomy screen, so none sits behind it; a dragged window stays where you put it

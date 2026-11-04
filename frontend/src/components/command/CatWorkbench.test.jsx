@@ -543,3 +543,9 @@ test('🎲 the Bids folder opens on a dash, and the USA sites are links that nev
   await act(async () => { q('bs-lens-api').click(); }); expect(q('bs-fanduel')).toBeNull(); expect(q('bs-polymarket')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
 });
+
+test('a new icon never lands on one dragged off the grid', () => {
+  const { placeIcons } = require('./CatWorkbench');
+  const pos = placeIcons({ wallet: { x: 96, y: 92 } }, 800); const all = Object.entries(pos);
+  all.forEach(([a, p]) => all.forEach(([b, q]) => { if (a !== b) expect(Math.abs(p.x - q.x) < 84 && Math.abs(p.y - q.y) < 84).toBe(false); }));
+});
