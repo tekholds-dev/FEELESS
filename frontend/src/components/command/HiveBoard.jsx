@@ -40,12 +40,31 @@ function Box({ k, title, children, hot, tip }) {
 function Pipe({ on, label, down = false }) {
   return <span className={`cmf-pipe${on ? ' is-on' : ''}${down ? ' is-down' : ''}`} aria-hidden="true"><u />{on ? <><i /><i /></> : null}{label ? <em>{label}</em> : null}</span>;
 }
-export function ColonyFlow({ api, meta }) {
-  const [d, setD] = useState(null); const px = useSolPrice(); const [fresh, setFresh] = useState(new Set()); const seen = useRef(null); const [, tick] = useState(0);
+function useColonyFlow(api) {
+  const [d, setD] = useState(null); const [fresh, setFresh] = useState(new Set()); const seen = useRef(null);
   useEffect(() => { let on = true; const go = first => { if (document.hidden && first !== true) return;
     api('/api/cats/colony/flow').then(x => { if (!on || !x) return; const keys = (x.ledger || []).map(r => `${r.at}${r.sig}${r.kind}`);
       if (seen.current) setFresh(new Set(keys.filter(k => !seen.current.has(k)))); seen.current = new Set(keys); setD(x); }).catch(() => {}); };
-    go(true); const t = setInterval(go, 20000); const c = setInterval(() => tick(n => n + 1), 1000); return () => { on = false; clearInterval(t); clearInterval(c); }; }, [api]);
+    go(true); const t = setInterval(go, 20000); return () => { on = false; clearInterval(t); }; }, [api]);
+  return { d, fresh };
+}
+function ColonyLedger({ rows, fresh, ready }) {
+  return <div className="cmf-ledger" aria-label="Ledger"><span className="cmf-cap">ledger <i aria-hidden="true" /> live</span>
+    <div className="cmf-table" role="table"><div className="cmf-tr is-head" role="row"><span>utc</span><span>kind</span><span>agent · coin</span><span>SOL</span><span>tx</span></div>
+      {rows.length ? rows.map((r, i) => { const k = `${r.at}${r.sig}${r.kind}`;
+        return <div key={k} role="row" className={`cmf-tr is-${r.kind}${fresh.has(k) ? ' is-new' : ''}`} style={{ '--i': i % 20 }} data-tip={r.memo}><span className="m-num">{utc(r.at)}</span><span>{r.memo}</span>
+          <span>{r.agent}{r.sym ? ` · $${r.sym}` : ''}</span><span className={`m-num ${r.kind === 'sell' || r.kind === 'share' ? 'is-up' : 'is-dn'}`}>{r.sol ? `${r.kind === 'buy' ? '−' : '+'}${Number(r.sol).toFixed(4)}` : '—'}</span>
+          <span>{r.sig ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">{r.sig.slice(0, 4)}…{r.sig.slice(-4)} ↗</a> : '—'}</span></div>; })
+        : <p className="cmf-empty">{ready ? 'No real trades yet — the first PoW buy from an agent’s own wallet lands here with its tx.' : 'reading the chain…'}</p>}</div></div>;
+}
+// 🍯 one agent's own lines of the colony ledger (the Honey pot's tanks show the totals)
+export function AgentLedger({ api, agent }) {
+  const { d, fresh } = useColonyFlow(api); const key = String(agent || '').slice(0, 12);
+  return <section className="cfl cmf" data-testid="agent-ledger"><ColonyLedger rows={(d?.ledger || []).filter(r => String(r.agent || '').startsWith(key))} fresh={fresh} ready={!!d} /></section>;
+}
+export function ColonyFlow({ api, meta }) {
+  const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0);
+  useEffect(() => { const c = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(c); }, []);
   const pw = d?.pow || {}; const pnl = d?.pnlSol ?? null; const sh = d?.shares || {}; const pot = d?.pot || {}; const ep = d?.epoch || {}; const ad = d?.airdrop || {};
   const left = ad.next ? Math.max(0, ad.next - Date.now() / 1000) : null; const rows = d?.ledger || [];
   return <section className="cfl cmf" data-testid="colony-flow" aria-label="The colony's money, live">
@@ -71,13 +90,7 @@ export function ColonyFlow({ api, meta }) {
           <Box k="hive" title="🐝 this epoch" hot={ep.agents > 0} tip="The honey every graded call earned this epoch — it ranks the colony"><b className={`m-num ${ep.honey > 0 ? 'is-up' : ep.honey < 0 ? 'is-dn' : ''}`}>{d ? `${ep.honey > 0 ? '+' : ''}${ep.honey || 0} honey` : '…'}</b><small>{d?.colonized ?? meta?.colonized ?? 0} of {d?.agents ?? meta?.total ?? 0} colonized</small><small>closes in {ep.left != null ? `${Math.floor(ep.left / 3600)}h ${String(Math.floor(ep.left / 60) % 60).padStart(2, '0')}m` : '—'}</small></Box>
         </div>
       </div>
-      <div className="cmf-ledger" aria-label="Ledger"><span className="cmf-cap">ledger <i aria-hidden="true" /> live</span>
-        <div className="cmf-table" role="table"><div className="cmf-tr is-head" role="row"><span>utc</span><span>kind</span><span>agent · coin</span><span>SOL</span><span>tx</span></div>
-          {rows.length ? rows.map((r, i) => { const k = `${r.at}${r.sig}${r.kind}`;
-            return <div key={k} role="row" className={`cmf-tr is-${r.kind}${fresh.has(k) ? ' is-new' : ''}`} style={{ '--i': i % 20 }} data-tip={r.memo}><span className="m-num">{utc(r.at)}</span><span>{r.memo}</span>
-              <span>{r.agent}{r.sym ? ` · $${r.sym}` : ''}</span><span className={`m-num ${r.kind === 'sell' || r.kind === 'share' ? 'is-up' : 'is-dn'}`}>{r.sol ? `${r.kind === 'buy' ? '−' : '+'}${Number(r.sol).toFixed(4)}` : '—'}</span>
-              <span>{r.sig ? <a href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer">{r.sig.slice(0, 4)}…{r.sig.slice(-4)} ↗</a> : '—'}</span></div>; })
-            : <p className="cmf-empty">{d ? 'No real trades yet — the first PoW buy from an agent’s own wallet lands here with its tx.' : 'reading the chain…'}</p>}</div></div>
+      <ColonyLedger rows={rows} fresh={fresh} ready={!!d} />
     </div>
   </section>;
 }

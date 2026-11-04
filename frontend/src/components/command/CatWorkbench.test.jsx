@@ -353,7 +353,7 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
-  expect(q('dsk-poi').textContent).toContain('solscan.io promoted');
+  expect(q('dsk-poi').textContent).toContain('solscan.io promoted'); expect(q('dsk-poi').querySelectorAll('.pf-print').length).toBe(2);   // one mind view, no second diagram
   await act(async () => { q('dsk-memory-1').click(); }); expect(q('dsk-memory-1').textContent).toContain('Tap again');
   await act(async () => { q('dsk-memory-1').click(); }); expect(memoryOps).toContain('memory_restore');
   await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
@@ -398,8 +398,7 @@ test('🐝 its Colony tab: every PoW folder a connected dot (👍 up / 👎 down
   await act(async () => { root.render(<ColonyTab cat={{ id: 'h1', colonyShare: { on: true, pct: 10 } }} />); });
   const q = s => document.querySelector(s);
   expect(document.querySelectorAll('.col-dot').length).toBe(3); expect(q('.col-dot.is-good')).not.toBeNull(); expect(q('.col-dot.is-bad')).not.toBeNull(); expect(q('.col-dot.is-live')).not.toBeNull();
-  expect(q('[data-testid="col-tab"]').textContent).toContain('+0.0002 SOL'); expect(q('[data-testid="col-flow"]').className).toContain('is-hot');
-  expect(q('[data-testid="col-flow"]').textContent).toContain('10% of wins'); expect(q('[data-testid="col-flow"]').textContent).toContain('0.0179 SOL');
+  expect(q('[data-testid="col-tab"]').textContent).toContain('+0.0002 SOL'); expect(q('[data-testid="col-tab"]').textContent).toContain('10% of wins'); expect(q('[data-testid="col-tab"]').textContent).toContain('0.0179 SOL');
   await act(async () => { q('.col-dot.is-bad').dispatchEvent(new MouseEvent('click', { bubbles: true })); }); expect(q('[data-testid="col-pick"]').textContent).toContain('PoW #2');
   expect(q('[data-testid="cwb-earn"]')).not.toBeNull();
   act(() => root.unmount());

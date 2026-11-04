@@ -587,17 +587,9 @@ def trade_record(rows, cat_id):
             x = sites.setdefault(h, {'w': 0, 'n': 0, 'last': 0}); x['n'] += 1; x['w'] += won; x['last'] = max(x['last'], int(o.get('at') or 0) if won else x['last'])
         for v in {x.get('label') for x in r.get('vitals') or [] if x.get('label')}:
             y = vit.setdefault(v, {'w': 0, 'n': 0}); y['n'] += 1; y['w'] += won
-    tracks = [r for r in mine if r.get('kind') == 'research']
     rank = sorted(sites, key=lambda h: (-(sites[h]['w'] / sites[h]['n']), -sites[h]['w'], -sites[h]['last']))
-    coverage = {h: {'reads': 0, 'last': 0, 'wins': sites.get(h, {}).get('w', 0)} for h in HOSTS}
-    for r in tracks:
-        for h in set(r.get('sites') or []) & set(HOSTS):
-            coverage[h]['reads'] += 1
-            coverage[h]['last'] = max(coverage[h]['last'], int(r.get('at') or 0))
-            coverage[h]['verified'] = coverage[h].get('verified', 0) + sum(1 for x in r.get('vitals') or [] if x.get('site') == h and x.get('verified'))
-    return {'sites': sites, 'coverage': coverage, 'vitals': vit, 'trades': len(out_), 'won': sum(1 for o in out_.values() if float(o.get('pnlPct') or 0) > 0),
-            'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3],
-            'tracks': len(tracks), 'recentTracks': [{'at': r.get('at'), 'sym': r.get('sym'), 'sites': [h for h in r.get('sites') or [] if h in HOSTS], 'steps': len(r.get('steps') or [])} for r in tracks[-2:]]}
+    return {'sites': sites, 'vitals': vit, 'trades': len(out_), 'won': sum(1 for o in out_.values() if float(o.get('pnlPct') or 0) > 0),
+            'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3]}
 
 
 def trade_record_line(fp):

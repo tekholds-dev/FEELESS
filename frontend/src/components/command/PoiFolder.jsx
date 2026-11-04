@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { cleanShots } from './SnapStack';
 import '../../styles/poiFolder.css';
 
 // 🧬 THE PoI FOLDER (SI21): one child folder in every PoW. It shows how THIS PoW used Proof of Intelligence: the route each mind took and why,
@@ -30,7 +31,7 @@ function Fingerprint({ coverage, states, mind }) {
 }
 
 function nodesOf(f, c) {
-  const m = c.mint; const t = f.poiTrace?.[m]; const facts = f.vitals?.[m] || []; const shots = (f.shots || []).filter(s => s.mint === m);
+  const m = c.mint; const t = f.poiTrace?.[m]; const facts = f.vitals?.[m] || []; const shots = cleanShots(f, m);
   const gaps = new Set([...(f.evidenceMetrics?.[m]?.gaps || []), ...(t?.walled || [])]); const first = {};
   shots.forEach(s => { first[s.site] = Math.min(first[s.site] ?? Infinity, s.at || Infinity); });
   const all = new Set([...(t?.visited || []), ...(f.usedBy?.[m] || []), ...shots.map(s => s.site), ...facts.map(x => x.site), ...gaps, ...(t?.required || [])]);
@@ -51,6 +52,16 @@ function Lane({ f, c, on, onPick, nodeKey, onNode }) {
       {nodes.map(n => <li key={n.h} style={{ '--i': n.i }}><button type="button" className={`pf-node is-${n.state}${nodeKey === `${c.mint}|${n.h}` ? ' is-open' : ''}`} onClick={() => onNode(c, n)} data-tip={`${n.h}: ${STATE[n.state]} · ${n.why}`} data-testid={`pf-node-${n.h}`}>
         <i aria-hidden="true" /><span>{n.h}</span><small className="m-num">{n.ok ? `${n.ok} ✓` : n.facts.length || '0'}</small></button></li>)}
       {!nodes.length ? <li className="pf-none">No browser route was kept for this coin</li> : null}</ol></div>;
+}
+
+// Each mind's fingerprint and DNA: the one mind view, used in every PoI folder and at the top of the PoW desk.
+export function PoiMinds({ poi, f }) {
+  return <div className="pf-minds">{[0, 1].map(i => { const m = (poi?.minds || []).find(x => x.mind === i); const gens = m?.generations || 0; const ev = (m?.events || []).slice(-3).reverse(); const here = f ? Object.values(f.poiTrace || {}).filter(t => t.mind === i) : null;
+    return <article key={i} className={`pf-mind m-glass is-m${i}`} data-testid={`pf-mind-${i}`}><Fingerprint coverage={m?.coverage} states={m?.states} mind={i} />
+      <div><b>MIND {i ? 'B' : 'A'}</b><small>{m ? `${gens} generations · ${m.verified} verified facts · ${m.uniqueRoutes} routes` : 'No Research DNA read'}</small>
+        {here ? <small>{here.length ? `This PoW added ${here.length} generation${here.length === 1 ? '' : 's'}` : 'This PoW added no recorded generation'}</small> : null}
+        {gens < PROMOTE_AFTER ? <span className="pf-need" data-tip="A source needs four visits before it can be promoted"><u><s style={{ transform: `scaleX(${gens / PROMOTE_AFTER})` }} /></u><small>Insufficient samples: {gens} of {PROMOTE_AFTER}</small></span> : null}
+        {ev.length ? <ul className="pf-events">{ev.map(e => <li key={`${e.site}${e.generation}`} className={`is-${e.state}`}>{e.site} {e.state} · gen {e.generation}</li>)}</ul> : <small>No promotion, retirement or rollback yet</small>}</div></article>; })}</div>;
 }
 
 export function PoiFolder({ f, poi, onShot }) {
@@ -79,11 +90,6 @@ export function PoiFolder({ f, poi, onShot }) {
     {openNode ? <div className="pf-claims m-glass" data-testid="pf-claims"><b>{openNode.h}</b><small>{STATE[openNode.state]} · {openNode.why}{openNode.dna ? ` · DNA: ${openNode.dna}` : ''}</small>
       {openNode.facts.length ? <ul>{openNode.facts.map((x, k) => <li key={`${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.verified ? 'verified' : 'candidate'}{x.at ? ` · ${new Date(x.at * 1000).toLocaleTimeString()}` : ''}</small></li>)}</ul> : <p className="pf-none">No facts came from this source in this PoW.</p>}
       {openNode.shots.length ? <span className="pf-shots">{openNode.shots.map(s => <button key={s.file} type="button" className="m-btn" onClick={() => onShot?.(s)} data-tip="Open the snapshot this came from">Snapshot {s.n}</button>)}</span> : null}</div> : null}
-    <div className="pf-minds">{[0, 1].map(i => { const m = (poi?.minds || []).find(x => x.mind === i); const gens = m?.generations || 0; const ev = (m?.events || []).slice(-3).reverse(); const here = Object.values(f.poiTrace || {}).filter(t => t.mind === i);
-      return <article key={i} className={`pf-mind m-glass is-m${i}`} data-testid={`pf-mind-${i}`}><Fingerprint coverage={m?.coverage} states={m?.states} mind={i} />
-        <div><b>MIND {i ? 'B' : 'A'}</b><small>{m ? `${gens} generations · ${m.verified} verified facts · ${m.uniqueRoutes} routes` : 'No Research DNA read'}</small>
-          <small>{here.length ? `This PoW added ${here.length} generation${here.length === 1 ? '' : 's'}` : 'This PoW added no recorded generation'}</small>
-          {gens < PROMOTE_AFTER ? <span className="pf-need" data-tip="A source needs four visits before it can be promoted"><u><s style={{ transform: `scaleX(${gens / PROMOTE_AFTER})` }} /></u><small>Insufficient samples: {gens} of {PROMOTE_AFTER}</small></span> : null}
-          {ev.length ? <ul className="pf-events">{ev.map(e => <li key={`${e.site}${e.generation}`} className={`is-${e.state}`}>{e.site} {e.state} · gen {e.generation}</li>)}</ul> : <small>No promotion, retirement or rollback yet</small>}</div></article>; })}</div>
+    <PoiMinds poi={poi} f={f} />
   </section>;
 }

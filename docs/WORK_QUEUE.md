@@ -56,6 +56,15 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | SI30 | VERIFY | `PoiFolder.jsx`: one PoI child folder per PoW with evidence paths, source vitals, two drawn fingerprints, DNA events. `poiTrace` filed per round, owner only (`folder_public` drops it). Folders from before tracing say not recorded. Fixtures only; no real PoW has written a trace yet. |
 | SI31 | OPEN, OWNER OK | One paid PoW for the after numbers and a live check of SI01–SI20. Today's commits have never run on a real PoW. |
 
+**Owner cleanup 2026-11-03 (no duplicate designs; snapshots):**
+
+| ID | Status | Deliverable |
+|---|---|---|
+| SI32 | VERIFY | Honey pot: `ColonyFlow` diagram removed, tanks then this agent's own ledger (`AgentLedger`). `ColonyFlow` remains once, on the whole-colony board. Colony tab connector diagram removed, its numbers moved to the head row. |
+| SI33 | VERIFY | PoW desk: `FingerPanel` and the old PoI panel removed; one mind view (`PoiMinds`) in the desk and every PoI folder, sealed-memory restore kept. `fingerprint` dropped from the owner state reply, so the trade record is no longer rebuilt for it. |
+| SI34 | VERIFY | Snapshots: one a site, of the page the facts came from, never a bot check or sign-in wall (`_pow_snap`). Source stays the research browser already open, so no extra service or cost. Filed folders read through `cleanShots`, which drops repeats and walled sites; an older bot-check image on a site not marked walled cannot be told apart. New capture rules not run on a real PoW. |
+| SI35 | VERIFY | `SnapStack.jsx` is the one snapshot viewer: page beside stacks of every fact scraped from it (risk, holders, market, activity), rail of the coin's other sites, Esc and arrow keys. Checked on real PoW #13 snapshots. |
+
 **Still open from the full request:** persistent shadow proposals beyond completed trade intervals; out-of-sample method comparison/combination and rollback; model-assisted memory migration and strategy comparison; unified kernel resource limits; real browser duration, evidence completeness, FPS and challenge-recovery baselines; authorized cross-worker sessions; transferred/distributed Colony reconciliation; versioned contracts and safe legacy encryption migration; responsive command-center redesign. The plaintext legacy agent store is restricted to owner-only file permissions; full encryption requires updating its many cross-service readers safely. Do not mark these complete from synthetic tests or visual labels alone.
 
 **Security audit finding:** new per-agent PoW archive entries and saved site session contexts use the existing per-agent Fernet seal. Legacy archive entries and the main agent state file remain plaintext on disk; a careful, versioned migration with backups is still required before claiming full at-rest encryption. Public archive replies now omit private plans, browser steps and exact page excerpts. No claim of complete encryption is made for this pass.

@@ -430,7 +430,7 @@ def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
     assert pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]}) == []   # all used → stop; no cycle
 
 
-def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
+def test_each_researched_site_files_one_snapshot_of_the_page_its_facts_came_from():
     coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
 
     class LivePage(Page):
@@ -443,8 +443,8 @@ def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
     t = ca.new_task('ts', pw.goal(coin), ['m/a'], 1.0, pw.STEPS_MAX, 'jobs'); t.update(pow=coin, research=True, tools={'browse': True, 'forms': True})
     asyncio.run(ca.run(t, scripted({'m/a': moves}), [LivePage()], None))
     shots = coin['_shots']
-    assert [(s['site'], s['n']) for s in shots][:2] == [('rugcheck.xyz', 1), ('rugcheck.xyz', 2)] and shots[0]['jpg'].startswith(b'JPG:')
-    assert all(sum(1 for x in shots if x['site'] == h) <= 2 for h in {x['site'] for x in shots})   # 2 a site, never more
+    assert [(s['site'], s['n'], s['saved']) for s in shots][:1] == [('rugcheck.xyz', 1, True)] and shots[0]['jpg'].startswith(b'JPG:')
+    assert all(sum(1 for x in shots if x['site'] == h) == 1 for h in {x['site'] for x in shots})   # one a site, never more
 
 
 def test_a_refused_buy_moves_to_the_folders_next_safe_coin_never_a_dead_end(monkeypatch, tmp_path):
@@ -789,10 +789,6 @@ def test_archived_tracks_block_last_two_sites_and_exact_previous_steps():
     p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 1), 'used': used, 'order': pw.ranked_sources(used, {}, {})}
     assert not used & {pw.host_of(u) for u in pw.links(p)}
     assert pw.links({**p, 'used': list(pw.HOSTS)}) == []
-    fp = pw.trade_record(rows, 'agent')
-    assert fp['tracks'] == 3 and len(fp['recentTracks']) == 2 and fp['recentTracks'][-1]['sites'] == ['birdeye.so']
-    assert fp['coverage']['birdeye.so']['reads'] == 1
-    assert fp['coverage']['pump.fun']['reads'] == 0
 
 
 def test_wallet_model_payment_writes_a_safe_per_call_receipt(monkeypatch, tmp_path):
@@ -898,3 +894,18 @@ def test_colony_money_keeps_earned_owed_transferred_and_distributed_apart():
     cat = {'id': 'c1', 'powFolders': [{'real': True, 'pnlSol': 0.5}, {'real': True, 'pnlSol': -0.2}, {'real': False, 'pnlSol': 9}]}
     rows = [{'cat': 'c1', 'sol': 0.05, 'sent': False}, {'cat': 'c1', 'sol': 0.01, 'sent': True, 'gift': True, 'state': 'transferred'}, {'cat': 'c1', 'sol': 0.02, 'sent': True}, {'cat': 'other', 'sol': 7, 'sent': False}]
     assert fs._colony_money(cat, rows) == {'earnedSol': 0.5, 'owedSol': 0.05, 'owedCount': 1, 'transferredSol': 0.01, 'distributedSol': 0.02}
+
+
+def test_a_bot_check_page_is_never_kept_as_a_snapshot():
+    class LivePage(Page):
+        live = True
+        async def shot(self):
+            return b'JPG'
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 1); page = LivePage(); page.url = 'https://gmgn.ai/sol/token/M'
+    asyncio.run(ca._pow_snap(p, page, 'Please verify you are human to continue'))
+    assert not p.get('_shots')
+    asyncio.run(ca._pow_snap(p, page, 'holders 2,850'))
+    asyncio.run(ca._pow_snap(p, page, 'holders 2,850'))
+    assert len(p['_shots']) == 1 and p['_shots'][0]['saved'] is False
+    asyncio.run(ca._pow_snap(p, page, 'holders 2,850', True))
+    assert len(p['_shots']) == 1 and p['_shots'][0]['saved'] is True

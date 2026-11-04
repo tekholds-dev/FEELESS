@@ -355,7 +355,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if act == 'snapshot':
             got_ = _pow.snapshot(pw, w.get('url') or page.url, w.get('_page') or seen, a.get('facts')) if pw else {'saved': 0, 'why': 'snapshot is for PoW research'}
             if got_['saved']:
-                await _pow_snap(pw, page)
+                await _pow_snap(pw, page, w.get('_page') or seen, True)
                 task.setdefault('filed', []).extend({'site': x['site'], 'text': f"{x['label']} {x['value']}"[:120]}
                     for x in _pow.pulls(pw)[-got_['saved']:])
             _step(w, thought or got_['why'], 'snapshot' if got_['saved'] else 'refused', got_['why'])
@@ -364,7 +364,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if act == 'pull':   # ⛏ one vital fact read on this page — the PoW rules decide if it is kept
             ok_, why_p = _pow.pull(pw, w.get('url') or page.url, a.get('label'), a.get('value')) if pw else (False, 'pull is for a Proof-of-Work run — use note')
             if ok_:
-                await _pow_snap(pw, page)   # 📸 the page the vital came from
+                await _pow_snap(pw, page, w.get('_page') or seen, True)   # 📸 the page the vital came from
             if ok_:   # 📥 filed to the owner's cabinet the moment it is read
                 task.setdefault('filed', []).append({'site': _pow.host_of(w.get('url') or page.url), 'text': f"{_pow.vital(a.get('label'))} {a.get('value')}"[:120]})
             _step(w, thought or why_p, 'pull' if ok_ else 'refused', why_p)
@@ -504,7 +504,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if pw and act == 'open':
                 seen = await _pow_find(w, pw, page) or seen   # a site the model opened itself (CoinMarketCap…): its search gets the CA
             if pw and act in ('open', 'click'):
-                await _pow_snap(pw, page)
+                await _pow_snap(pw, page, w.get('_page') or seen)
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
             if act in ('open', 'search', 'click', 'scroll') and seen and not str(seen).startswith('('):
@@ -553,22 +553,30 @@ async def _divert(task, w, page, wait_human=None):
     return f'DIVERTED — you repeated yourself, so the engine opened a NEW page ({_pow.host_of(u)}). Read it and act on it.\n' + str(got)[:READ_MAX]
 
 
-SNAPS_PER_SITE = 2
+SNAPS_PER_SITE = 1
 
 
-async def _pow_snap(pw, page):
-    """📸 Two snapshots per researched site (owner 2026-11-01): on arrival, then when it saves a vital there. Kept in memory until the round ends."""
+async def _pow_snap(pw, page, seen='', saved=False):
+    """📸 One snapshot a site, of the page the facts came from (owner 2026-11-03: no same sites, no bot checks): an arrival shot is replaced once when a vital is saved there;
+    a bot check or sign-in wall is never kept. It costs nothing: the research browser is already open."""
     if not pw or not getattr(page, 'live', False):
         return
+    from cat_browser import needs_human   # the same wall check the research route uses
     h = _pow.host_of(page.url)
-    if not h or h.endswith('duckduckgo.com') or sum(1 for x in pw.get('_shots') or [] if x['site'] == h) >= SNAPS_PER_SITE:
+    if not h or h.endswith('duckduckgo.com') or h in (pw.get('walled') or []) or needs_human(page.url, seen):
+        return
+    had = next((x for x in pw.get('_shots') or [] if x['site'] == h), None)
+    if had and (had.get('saved') or not saved):
         return
     try:
         jpg = await asyncio.wait_for(page.shot(), 6)
     except Exception:   # noqa: BLE001 — a missed snapshot never stops the research
         jpg = None
     if jpg:
-        pw.setdefault('_shots', []).append({'site': h, 'n': 1 + sum(1 for x in pw.get('_shots') or [] if x['site'] == h), 'jpg': jpg, 'at': round(time.time())})
+        if had:
+            had.update(jpg=jpg, at=round(time.time()), saved=True)
+        else:
+            pw.setdefault('_shots', []).append({'site': h, 'n': 1, 'jpg': jpg, 'at': round(time.time()), 'saved': saved})
 
 
 async def _pow_find(w, pw, page):
@@ -614,7 +622,7 @@ async def _pow_advance(w, pw, page, wait_human=None):
         got = await _pow_find(w, pw, page) or got
         w['_page'] = str(got)
         _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
-        await _pow_snap(pw, page)
+        await _pow_snap(pw, page, got)
         return f'NOW ON {_pow.host_of(nxt)} — save every visible vital in one verified snapshot, then it moves on.\n' + str(got)
 
 

@@ -56,11 +56,11 @@ if (REALPOW) { try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pow.jso
 export default function CatHarness() {
   const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
-  const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);
+  const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'circle', circleAcct: 'agent' } : null);
   if (demo) return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><AgentDemo kind={['plan', 'jobs'].includes(demo) ? 'general' : 'trading'} mode={demo} models={[{ name: 'GPT-6 Astra' }, { name: 'Claude Opus 5.5' }]} /></div>;
   const cat0 = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
   const cat = { ...cat0, ...(aw ? { agentWallet: aw } : {}), ...(REALPOW ? { id: REALPOW } : {}) };
-  const act = async (a, x = {}) => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); if (a === 'agent_wallet') setAw({ address: AGT, mode: 'approve', provider: 'crossmint' }); if (a === 'agent_mode') setAw(w => ({ ...w, mode: x.mode })); };
+  const act = async (a, x = {}) => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); if (a === 'agent_wallet') setAw({ address: AGT, mode: 'approve', provider: 'circle', circleAcct: 'agent' }); if (a === 'agent_mode') setAw(w => ({ ...w, mode: x.mode })); };
   // 🧭 ?general = a General AI cat: its brain panel with YOUR ORDERS (one proposed, one filled on paper, one stopped by a guard)
   const gen = window.location.search.includes('general');
   const brainy = window.location.search.includes('brains');   // ?brains — a two-brain TRADER (Fee's kind of desk)

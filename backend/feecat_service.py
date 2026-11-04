@@ -1562,7 +1562,7 @@ def _pow2_collect(f, t_, who, now):
         f['research'] = _pow.merge_vitals(f.get('research'), pub_['pulls'])
     f.setdefault('moves', {}).setdefault(m_, {}).update(pub_.get('moves') or {})   # 🎲 each site's random moves, kept
     ub_ = f.setdefault('usedBy', {}); ub_[m_] = sorted(set(ub_.get(m_) or []) | set((pw_.get('sites') or {}).keys()) | set(pw_.get('walled') or []))
-    for sh_ in pw_.pop('_shots', None) or []:   # 📸 its snapshots → the coin's folder, on disk
+    for sh_ in [x for x in (pw_.pop('_shots', None) or []) if x['site'] not in (pw_.get('walled') or [])]:   # 📸 its snapshots → the coin's folder, on disk
         name_ = f"{m_[:6].lower()}_r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
         try:
             d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(sh_['jpg'])
@@ -4265,7 +4265,6 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
-            'fingerprint': _pow.trade_record(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}

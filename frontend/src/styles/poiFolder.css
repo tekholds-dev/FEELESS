@@ -43,3 +43,4 @@ body.theme-day .pf-head small, body.theme-day .pf-ring small, body.theme-day .pf
 body.theme-day .pf-ring em, body.theme-day .pf-stat em { color: #5a3fc0; } body.theme-day .pf-head b, body.theme-day .pf-claims > b { color: #0a7a5c; } body.theme-day .pf-gap { color: #7a5600; }
 body.theme-day .pf-node { background: color-mix(in srgb, var(--pf-s) 16%, #fff); color: #1c1230; } body.theme-day .pf-node.is-open { background: var(--pf-s); } body.theme-day .pf-claims li { background: #0000000a; } body.theme-day .pf-ring-bg { stroke: #0000001a; } body.theme-day .pf-events li { color: #3a2a5a; }
 .pf-legend .m-chip b { font: 800 11px var(--f-mono); }
+.pf-root { gap: 8px; } .pf-mem { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; } .pf-mem b { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #c9b8f5; } body.theme-day .pf-mem b { color: #5a3fc0; }

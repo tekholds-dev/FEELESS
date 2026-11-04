@@ -13,7 +13,8 @@ import { svgPngBlob } from '../../lib/svgPng';
 import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice } from '../../lib/solPrice';
 import { HoneyTanks } from './HoneyTanks';
-import { PoiFolder } from './PoiFolder';
+import { PoiFolder, PoiMinds } from './PoiFolder';
+import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 
@@ -315,7 +316,6 @@ export function EarnCard({ cat }) {
 // 🐝 ITS COLONY TAB (owner 2026-10-31 [c]: "the agent's Earn tab → its COLONY tab: PoW vitals as connected dots + a connected TREASURY with an
 // unbroken real-money flow animated by activity"): every folder a dot (height = its P/L, 👍 green / 👎 red / ● live), joined in order; under it
 // one drawn pipe WALLET → PoW → P/L → COLONY → TREASURY whose particles run faster the busier it is; Earn Mode below. All numbers are live.
-const FLOW = [['wallet', '👛', 'WALLET'], ['pow', '⛏', 'PoW'], ['pnl', '📈', 'P/L'], ['colony', '🐝', 'COLONY'], ['treasury', '🏦', 'TREASURY']];
 export function PowDots({ folders, onPick, pick }) {
   const fs = folders.filter(f => f.pnlPct != null || f.live).slice(-24); const span = Math.max(5, ...fs.map(f => Math.abs(Number(f.pnlPct) || 0)));
   if (!fs.length) return <p className="col-empty">No PoW trades yet — type “file a PoW” in its chat; each folder lands here as a dot.</p>;
@@ -334,18 +334,13 @@ export function ColonyTab({ cat }) {
     load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, [cat.id]);
   const folders = [...[...(d?.powFolders || [])].reverse(), ...(d?.powFolder ? [{ ...d.powFolder, live: true }] : [])];
   const done = folders.filter(f => f.pnlPct != null); const pnl = done.reduce((a, f) => a + (Number(f.pnlSol) || 0), 0); const won = done.filter(f => f.pnlPct > 0).length;
-  const share = cat.colonyShare || {}; const live = !!d?.powFolder; const f = folders.find(x => x.id === pick);
-  const val = { wallet: w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…', pow: live ? `● ${d.powFolder.phase}` : `${folders.length} filed`, pnl: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)} SOL`,
-    colony: share.on ? `${share.pct}% of wins` : 'not sharing', treasury: cat.treasury?.mint ? 'its coin set' : 'no coin yet' };
-  const hot = { wallet: true, pow: folders.length > 0, pnl: done.length > 0, colony: !!share.on, treasury: !!cat.treasury?.mint };
+  const share = cat.colonyShare || {}; const f = folders.find(x => x.id === pick);
+  const pnlText = `${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)} SOL`;
   return <section className="col-tab" data-testid="col-tab">
-    <div className="col-head"><b>🐝 ITS COLONY</b>{[['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', val.pnl], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
+    <div className="col-head"><b>🐝 ITS COLONY</b>{[['WALLET', w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…'], ['SHARING', share.on ? `${share.pct}% of wins` : 'off'], ['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', pnlText], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className={`m-num${k === 'P/L' ? (pnl >= 0 ? ' is-up' : ' is-dn') : ''}`}>{v}</b></span>)}</div>
     <div className="col-dots-wrap" data-tip="Each dot is one PoW folder — up = it made money, down = it lost; tap one"><PowDots folders={folders} onPick={setPick} pick={pick} /></div>
     {f ? <p className="col-pick" data-testid="col-pick"><b>{f.name}</b>{f.sym ? ` · $${f.sym}` : ''} · {f.live ? `live — ${f.phase}` : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`} — {f.why || ''}</p> : null}
-    <div className={`col-flow${live ? ' is-hot' : ''}`} role="img" aria-label="Where its money goes: wallet, PoW, profit and loss, colony, treasury" data-testid="col-flow">
-      {FLOW.map(([k, ic, l], i) => <React.Fragment key={k}>{i ? <span className={`col-pipe${hot[k] && hot[FLOW[i - 1][0]] ? ' is-on' : ''}`} aria-hidden="true"><i /><i /><i /></span> : null}
-        <span className={`col-node${hot[k] ? ' is-on' : ''}`} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><em>{l}</em><b className="m-num">{val[k]}</b></span></React.Fragment>)}</div>
     <EarnCard cat={cat} />
   </section>;
 }
@@ -609,7 +604,7 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
 const PHASES = [['propose', 'PROPOSE'], ['split', 'SPLIT'], ['scout', 'RESEARCH'], ['choose', 'DECIDE'], ['buy', 'BUY'], ['watch', 'HOLD'], ['done', 'FILED']];
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
 function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
-  const shots = (f.shots || []).filter(x => x.mint === c.mint); const mv = (f.moves || {})[c.mint] || {};
+  const shots = cleanShots(f, c.mint); const mv = (f.moves || {})[c.mint] || {};
   const met = (f.evidenceMetrics || {})[c.mint];
   const raw = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
   const vit = Object.values(raw.reduce((a, x) => ({ ...a, [x.label]: { ...x, sites: [...new Set([...(a[x.label]?.sites || []), ...(x.sites || [x.site])])] } }), {}));   // one row a fact (older folders too)
@@ -620,8 +615,8 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
     {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.label}${k}`} className={x.contradiction ? 'is-disputed' : ''}><em>{x.label}{x.contradiction ? ' · CONFLICT' : ''}</em><b className="m-num">{x.value}</b><small>{(x.sites || [x.site]).join(' · ')} · {x.verified ? 'page verified' : 'reported'}</small>
       {(x.claims || (x.support ? [x] : [])).length ? <details><summary>Evidence lineage</summary>{(x.claims || [x]).map((cl, j) => <p key={j}><b>{cl.value}</b> · {cl.site} {cl.at ? `· ${new Date(Number(cl.at) * 1000).toLocaleString()}` : ''}<small>{cl.support || 'No page excerpt saved'}</small></p>)}</details> : null}</li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
-    {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
-      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site} · {x.n}</small></button>)}</div>
+    {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site}: open the page with everything scraped from it`}>
+      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site}</small></button>)}</div>
       : <small className="dsk-coin-none">{(f.scout || []).includes(c.mint) ? 'snapshots land here as each site is researched' : 'not researched (failed the safety check) — its FEELESS read is kept'}</small>}
   </div>;
 }
@@ -633,10 +628,9 @@ export function FolderView({ f, live, catId }) {
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
     <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={`${f.pick?.mint === c.mint ? 'is-pick' : ''}${open === c.mint ? ' is-open' : ''}`}>
       <button type="button" onClick={() => setOpen(o => (o === c.mint ? null : c.mint))} aria-expanded={open === c.mint} data-tip="Open this coin's folder — its vitals and snapshots">
-        <em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool · {(f.shots || []).filter(x => x.mint === c.mint).length} 📸</small></button></li>)}</ul>
+        <em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool · {cleanShots(f, c.mint).length} 📸</small></button></li>)}</ul>
     {open ? <CoinFolder f={f} c={(f.coins || []).find(c => c.mint === open)} catId={catId} onShot={setBig} /> : null}
-    {big ? <button type="button" className="dsk-shot-big" onClick={() => setBig(null)} aria-label="Close the snapshot" data-testid="dsk-shot-big">
-      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${big.file}`)} alt={`${big.site} snapshot`} /><small>{big.site} · snapshot {big.n} — tap to close</small></button> : null}
+    {big ? <SnapStack f={f} shot={big} catId={catId} onClose={() => setBig(null)} onPick={setBig} /> : null}
     {(f.talk || []).length ? <ul className="dsk-fold-talk">{f.talk.slice(-5).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : null}
     {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}
   </div>;
@@ -751,33 +745,16 @@ function PowShare({ cat }) {
 }
 // 🧬 ITS FINGERPRINT (owner 2026-11-02): the sources it read and the facts it filed before each trade, scored by how that trade went — its own,
 // built over time from the forever archive; its best proven source leads the next research (one at a time, the rest keep rotating)
-function FingerPanel({ fp }) {
-  if (!fp) return <p className="dsk-note">Reading its source coverage…</p>;
-  const rows = Object.entries(fp.sites || {}).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n || b[1].w - a[1].w).slice(0, 8);
-  const vit = Object.entries(fp.vitals || {}).sort((a, b) => b[1].w - a[1].w).slice(0, 6);
-  return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.tracks || 0} research tracks · {fp.won}/{fp.trades} trades won · last two routes avoided</small></span>
-    <div className="dsk-coverage" data-testid="dsk-source-coverage"><b>Source coverage · {(Object.values(fp.coverage || {}).filter(x => x.reads).length)}/{Object.keys(fp.coverage || {}).length} sites read</b>
-      <div className="dsk-coverage-grid">{Object.entries(fp.coverage || {}).map(([host, x]) => <span key={host} className={x.reads ? 'is-read' : ''} title={`${host}: ${x.reads} research tracks${x.last ? ` · last read ${ago(x.last)} ago` : ''}`}><i aria-hidden="true" />{host}<small>{x.reads} reads · {x.verified || 0} verified</small></span>)}</div></div>
-    {(fp.recentTracks || []).length ? <p className="dsk-fp-vit" data-testid="dsk-fp-tracks">{(fp.recentTracks || []).map((t, i) => <span key={`${t.at}-${i}`} className="m-chip" data-tip={`${t.steps} unique browser actions recorded as hashes`}>#{i + 1} ${t.sym || '?'} · {(t.sites || []).join(' → ') || 'FEELESS'} · {t.steps} steps</span>)}</p> : null}
-    <ul className="dsk-fp-sites">{rows.map(([h, x], i) => <li key={h} style={{ '--i': i }} className={(fp.best || []).includes(h) ? 'is-best' : ''} data-tip={`${h}: read before ${x.n} of its trades, ${x.w} won${x.last ? ` · last win ${ago(x.last)} ago` : ''}`}>
-      <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
-    {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
-}
 function PoiPanel({ poi, catId, onRestore }) {
   const [confirm, setConfirm] = useState(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   if (!poi) return null;
-  if (poi.error) return <div className="dsk-poi" role="alert"><b>🧬 Research DNA needs repair</b><small>{poi.error}</small></div>;
+  if (poi.error) return <p className="pf-gap" role="alert">🧬 Research DNA needs repair: {poi.error}</p>;
   const restore = async generation => { if (confirm !== generation) { setConfirm(generation); return; }
     setBusy(true); setError(''); try { const x = await work(catId, { op: 'memory_restore', i: generation }); onRestore?.(x.poi); setConfirm(null); }
     catch (e) { setError(e.message); } finally { setBusy(false); } };
-  return <section className="dsk-poi" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
-    <b>🧬 PROOF OF INTELLIGENCE</b><small>Private verified research · version {poi.v} · {poi.memoryVersions || 0} sealed model memory versions</small>
-    <div className="dsk-poi-minds">{(poi.minds || []).map(m => <article key={m.mind}><strong>Mind {m.mind ? 'B' : 'A'}</strong>
-      <span>{m.generations} generations · {m.verified} verified facts · {m.uniqueRoutes} routes</span>
-      <small>{Object.entries(m.states || {}).filter(([, state]) => state === 'promoted').map(([host]) => host).join(' · ') || 'No source promoted yet'}</small>
-      {(m.events || []).length ? <em>{m.events.at(-1).site} {m.events.at(-1).state} at generation {m.events.at(-1).generation}</em> : null}
-    </article>)}</div>
-    {(poi.versions || []).length ? <div className="dsk-poi-versions"><b>SEALED MODEL MEMORY</b>{poi.versions.slice().reverse().map(v => <button key={v.generation} type="button" className="m-btn" disabled={busy} onClick={() => restore(v.generation)} data-testid={`dsk-memory-${v.generation}`}>{confirm === v.generation ? 'Restore this version? Tap again' : `Version ${v.generation} · ${new Date(v.at * 1000).toLocaleDateString()}`}</button>)}</div> : null}
+  return <section className="pf pf-root" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
+    <PoiMinds poi={poi} />
+    {(poi.versions || []).length ? <div className="pf-mem m-glass"><b>SEALED MODEL MEMORY</b>{poi.versions.slice().reverse().map(v => <button key={v.generation} type="button" className="m-btn" disabled={busy} onClick={() => restore(v.generation)} data-testid={`dsk-memory-${v.generation}`}>{confirm === v.generation ? 'Restore this version? Tap again' : `Version ${v.generation} · ${new Date(v.at * 1000).toLocaleDateString()}`}</button>)}</div> : null}
     {error ? <small role="alert">{error}</small> : null}
   </section>;
 }
@@ -785,7 +762,7 @@ function PowReplay({ f, catId, onShot }) {
   const [step, setStep] = useState(0);
   const events = [...(f.talk || []).map(t => ({ at: t.at, kind: t.by || 'Discussion', text: t.text })),
     ...Object.entries(f.evidenceMetrics || {}).map(([mint, m]) => ({ at: (f.shots || []).filter(s => s.mint === mint).at(-1)?.at || f.at, kind: 'Evidence', text: `${m.verified} verified facts · ${m.visits} browser visits · ${m.durationSec}s · ${m.gaps?.length || 0} source gaps` })),
-    ...(f.shots || []).map(s => ({ at: s.at, kind: 'Snapshot', text: `${s.site || 'Source'} · ${s.sym || ''}`, shot: s })),
+    ...cleanFolderShots(f).map(s => ({ at: s.at, kind: 'Snapshot', text: `${s.site || 'Source'} · ${(f.coins || []).find(c => c.mint === s.mint)?.sym || ''}`, shot: s })),
     ...(f.boughtAt ? [{ at: f.boughtAt, kind: 'Buy', text: `${f.sym || 'Coin'} · ${f.sol || '—'} SOL` }] : []),
     ...(f.soldAt ? [{ at: f.soldAt, kind: 'Sell', text: `${f.pnlPct == null ? 'closed' : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`}` }] : [])]
     .filter(x => Number(x.at) > 0).sort((a, b) => a.at - b.at);
@@ -810,7 +787,6 @@ function PowExplorer({ cat, d, setD }) {
   if (path[0] === 'old') body = rows?.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />;
   else if (!f) body = <>
     <PowShare cat={cat} />
-    <FingerPanel fp={d?.fingerprint} />
     <PoiPanel poi={d?.poi} catId={cat.id} onRestore={poi => setD?.(x => ({ ...x, poi }))} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
@@ -839,7 +815,7 @@ function PowExplorer({ cat, d, setD }) {
       <div className="dsk-xgrid"><Tile kind="file" tone={gradeOf(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : "when it closes"} onOpen={() => setPath([f.id, 'report'])} tip="What this folder found, the trade, its grade and cost" testid="dsk-x-report" />
         {(f.coins || []).filter(x => !(f.hidden || []).includes(x.mint)).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
           return <Tile key={x.mint} i={i + 1} tone={g || (pk ? 'live' : x.safe === false ? 'bad-coin' : 'coin')} ic={g === 'good' ? '👍' : g === 'bad' ? '👎' : pk ? '⭐' : x.safe === false ? '⛔' : '🪙'} label={`$${x.sym}`}
-            sub={`${SRC[x.src] || x.src} · ${(f.shots || []).filter(s => s.mint === x.mint).length} 📸`} onOpen={() => setPath([f.id, x.mint])} tip={`$${x.sym}'s folder — its vitals and snapshots`} testid={`dsk-x-coin-${x.mint}`} />; })}
+            sub={`${SRC[x.src] || x.src} · ${cleanShots(f, x.mint).length} 📸`} onOpen={() => setPath([f.id, x.mint])} tip={`$${x.sym}'s folder — its vitals and snapshots`} testid={`dsk-x-coin-${x.mint}`} />; })}
         <Tile kind="dir" i={5} tone="live" ic="🧬" label="PoI" sub={f.poiTrace ? `${Object.keys(f.poiTrace).length} traced` : 'not recorded'} onOpen={() => setPath([f.id, 'poi'])} tip="How this PoW used Proof of Intelligence: routes, evidence and each mind's DNA" testid="dsk-x-poi" />
         <Tile kind="file" i={6} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every line the minds and the engine said" testid="dsk-x-talk" /></div>
       {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
@@ -848,13 +824,12 @@ function PowExplorer({ cat, d, setD }) {
       {crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
     <div key={path.join('/')} className="dsk-pull">{body}</div>
-    {big ? <button type="button" className="dsk-shot-big" onClick={() => setBig(null)} aria-label="Close the snapshot" data-testid="dsk-shot-big">
-      <img src={shotUrl(cat.id, f, big.file)} alt={`${big.site} snapshot`} /><small>{big.site} · snapshot {big.n}{big.trade ? ` · ${big.trade === 'good' ? '👍 good' : '👎 bad'} trade` : ''} — tap to close</small></button> : null}
+    {big && f ? <SnapStack f={f} shot={big} catId={cat.id} onClose={() => setBig(null)} onPick={setBig} /> : null}
   </div>;
 }
 // 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
 // field), the gas reserve always stays, Circle signs one transfer; it lands on the colony ledger with its tx
-const ColonyFlowLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.ColonyFlow })));
+const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.AgentLedger })));
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {
   const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [ok, setOk] = useState(null);
@@ -877,7 +852,6 @@ function HoneyPot({ cat }) {
     load(); const t = setInterval(load, 30000); return () => { on = false; clearInterval(t); }; }, [cat.id]);
   const share = cat.colonyShare || {};
   return <div className="dsk-honey" data-testid="dsk-honey">
-    <Suspense fallback={<p className="dsk-note">reading the colony…</p>}><ColonyFlowLazy api={flowApi} meta={{ colonized: m?.colonized, total: m?.total }} /></Suspense>
     <div className="dsk-honey-top">
       <span data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
       <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b></span>
@@ -887,6 +861,7 @@ function HoneyPot({ cat }) {
     <div className="dsk-honey-ways"><b>WAYS INTO THE COLONY</b><small>Opportunity 1 · stake into the colony pool — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the colony airdrops back by what you shared.</small>
       <HiveSwitch cat={cat} /></div>
     <PotSend cat={cat} />
+    <Suspense fallback={<p className="dsk-note">reading the ledger…</p>}><AgentLedgerLazy api={flowApi} agent={cat.name} /></Suspense>
   </div>;
 }
 // 👛 the agent's WALLET app (owner 2026-11-01: "desktop agent wallet swapping"): its live SOL + USDC, and YOUR swap inside its own wallet —
@@ -1149,7 +1124,7 @@ function WorkbenchLive({ cat }) {
   const [down, setDown] = useState(false);
   const verRef = useRef(null);   // ⚡ the filed PoW folders (~90 KB) come only when they changed (measured: 126 KB every 1.5 s was the lag)
   const load = useCallback(() => work(cat.id, { op: 'state', ver: verRef.current }).then(x => { if (x.powVer) verRef.current = x.powVer;
-    setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, fingerprint: x.fingerprint ?? o?.fingerprint, poi: x.poi ?? o?.poi })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
+    setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, poi: x.poi ?? o?.poi })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
   const live = !down && (LIVE_STATES.includes(status) || status === 'human' || !!d?.powFolder || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // a running PoW folder is live too — its chat lines arrive every 1.5 s   // the service down = never a stale "Working"
   useEffect(() => { load(); }, [load]);
