@@ -55,6 +55,7 @@ import chain_rpc as _crpc
 import pob as _pob
 import site_scan as _ss
 import agent_topup as _tu
+import agent_mail as _am
 import pop as _pop
 import pop_sources as _popsrc
 import pow_kernel as _kernel
@@ -168,7 +169,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead', 'mailbox')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -2175,6 +2176,19 @@ def _site_proof_start(cat, cat_id, site, kind):
     return ok_, say_
 
 
+async def _mail_tool(http, cat, tool):
+    """📧 The agent's read of ITS OWN box. Its owner makes the box from the desktop."""
+    box_ = cat.get('mailbox') or {}
+    if not box_.get('address'):
+        return 'It has no mailbox yet. Ask its owner to press Make its email in the Mail folder.'
+    if tool == 'mailbox':
+        return f"Its email: {box_['address']}"
+    try:
+        return _am.for_model(await _am.inbox(http, box_['address'], _cv.reveal(cat, _am.SITE, box_['address'], data_dir=DATA_DIR)))
+    except ValueError as e:
+        return str(e)
+
+
 # 💸 TOP-UPS (agent_topup.py): one card a time. Only the owner's own words reach these: the chat door and the card's buttons.
 async def _sol_usd(http):
     r = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2', timeout=8)
@@ -3482,6 +3496,8 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     _challenge_note(cat_id, _src.host_of(h_.get('url') or win_.get('url')), 'manualPass')
                 return went_
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
+                if tool in ('inbox', 'mailbox'):
+                    return await _mail_tool(http, _load()['cats'].get(cat_id) or {}, tool)
                 return await _ct.run_tool(http, tool, q)
             await _ca.run(w['task'], ask, pages, wait_human, names, feeless)
         finally:
@@ -4692,6 +4708,24 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat.pop('proofSite', None)
         _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
         return {'ok': True}
+    if p.op in ('mail_make', 'mail_read'):   # 📧 its own mailbox, from the desktop
+        box_ = cat.get('mailbox') or {}
+        async with httpx.AsyncClient(timeout=20) as http:
+            try:
+                if p.op == 'mail_make':
+                    if box_.get('address'):
+                        raise ValueError(f"It already has {box_['address']}.")
+                    made_ = await _am.make(http, cat_id)
+                    fresh_ = _load(); now_ = fresh_['cats'][cat_id]
+                    _cv.put_login(now_, _am.SITE, made_['address'], made_['password'], data_dir=DATA_DIR)
+                    now_['mailbox'] = {'address': made_['address'], 'at': round(time.time())}
+                    vault_log(now_, 'made its mailbox', _am.SITE); keep_owned(now_); _save(fresh_)
+                    return {'mailbox': now_['mailbox'], 'logins': _cv.public_logins(now_), 'mail': []}
+                if not box_.get('address'):
+                    raise ValueError('It has no mailbox yet.')
+                return {'mail': await _am.inbox(http, box_['address'], _cv.reveal(cat, _am.SITE, box_['address'], data_dir=DATA_DIR))}
+            except (ValueError, httpx.HTTPError) as e:
+                raise HTTPException(400, str(e)[:160] or 'mail.tm did not answer.')
     if p.op == 'topup':   # 💸 the card's buttons: the owner's own words, the same door as typing them
         if p.job == 'no':
             cat.pop('topup', None); keep_owned(cat); _save(store)
@@ -5214,7 +5248,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
+            'mailbox': cat.get('mailbox'), 'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,

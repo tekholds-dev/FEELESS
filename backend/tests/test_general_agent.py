@@ -439,7 +439,7 @@ def test_a_new_model_sorts_the_old_cloud_and_a_bad_answer_never_loses_memory(tmp
 def test_house_rules_are_hardcoded_in_every_step_not_the_editable_brief():
     s = ca.ACT_SYS
     assert 'Never launch a coin or pool or create an agent ON FEELESS' in s
-    assert 'its own email at a free provider' in s and 'ONLY for the user\'s OWN accounts' in s
+    assert 'use your own mailbox' in s and 'ONLY for the user\'s OWN accounts' in s
 
 
 def test_an_agents_own_wallet_can_never_make_an_agent_or_launch_a_coin_on_feeless(monkeypatch):

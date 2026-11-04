@@ -110,6 +110,27 @@
 .tpc-loaded b{font-size:15px;color:#6ff0a5}
 .tpc-loaded small{font-size:10px;color:#8fb5a1}
 .tpc-loaded .m-btn{min-height:32px;flex:none}
+.mbx{display:grid;gap:9px;padding:4px;align-content:start;min-width:0}
+.mbx-top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 12px;border-radius:12px}
+.mbx-top span{display:grid;min-width:0}
+.mbx-top b{font:600 13px var(--f-mono);color:#f2fff7;overflow-wrap:anywhere}
+.mbx-top small{font:11px var(--f-ui);color:#a9c9b7}
+.mbx-top .m-btn{min-height:32px}
+.mbx-list{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.mbx-list li{animation:sdRow .22s ease both;animation-delay:calc(var(--i,0)*50ms)}
+.mbx-list button{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;width:100%;min-height:44px;padding:7px 10px;border-radius:9px;border:1px solid rgba(21,209,106,.16);background:rgba(4,14,9,.55);color:#e6f5ec;text-align:left;cursor:pointer;transition:transform .14s,border-color .14s}
+.mbx-list button:hover{transform:translateY(-1px);border-color:#45e486}
+.mbx-list button:active{transform:scale(.99)}
+.mbx-list button:focus-visible{outline:2px solid #45e486;outline-offset:2px}
+.mbx-list b{font:600 12px var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbx-list small{grid-row:2;font:10px var(--f-mono);color:#8fb5a1}
+.mbx-list code,.mbx-open code{grid-row:1/3;grid-column:2;align-self:center;padding:3px 7px;border-radius:5px;background:rgba(21,209,106,.14);color:#45e486;font-size:12px;user-select:all}
+.mbx-open{display:grid;gap:5px;justify-items:start}
+.mbx-open .m-btn{min-height:32px}
+.mbx-open b{font:600 14px var(--f-ui);color:#f2fff7}
+.mbx-open small{font:10px var(--f-mono);color:#8fb5a1}
+.mbx-open code{font-size:15px}
+.mbx-open p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.45 var(--f-ui);color:#e6f5ec}
 @keyframes sdIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 @keyframes sdRow{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}
 @keyframes sdPop{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
@@ -118,13 +139,17 @@
 @keyframes sdSweep{0%,55%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
 @keyframes sdTravel{0%{transform:translateY(0);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateY(90px);opacity:0}}
 body.fx-lite .sd-sweep,body.fx-lite .sd-steps-pulse,body.fx-lite .sd-scanning i{animation:none;opacity:0}
-body.fx-lite .tpc,body.fx-lite .tpc-loaded,body.fx-lite .sd-rule,body.fx-lite .sd-rule>i,body.fx-lite .sd-steps li,body.fx-lite .sd-pages li,body.fx-lite .sd-pages li>i,body.fx-lite .sd-meter,body.fx-lite .sd-meter u i,body.fx-lite .sd-manual,body.fx-lite .sd-sites li{animation:none}
-@media (prefers-reduced-motion:reduce){.tpc,.tpc-loaded{animation:none}.sd-sweep,.sd-steps-pulse,.sd-scanning i{animation:none;opacity:0}.sd-rule,.sd-rule>i,.sd-steps li,.sd-pages li,.sd-pages li>i,.sd-meter,.sd-meter u i,.sd-manual,.sd-sites li{animation:none}}
+body.fx-lite .mbx-list li,body.fx-lite .tpc,body.fx-lite .tpc-loaded,body.fx-lite .sd-rule,body.fx-lite .sd-rule>i,body.fx-lite .sd-steps li,body.fx-lite .sd-pages li,body.fx-lite .sd-pages li>i,body.fx-lite .sd-meter,body.fx-lite .sd-meter u i,body.fx-lite .sd-manual,body.fx-lite .sd-sites li{animation:none}
+@media (prefers-reduced-motion:reduce){.mbx-list li,.tpc,.tpc-loaded{animation:none}.sd-sweep,.sd-steps-pulse,.sd-scanning i{animation:none;opacity:0}.sd-rule,.sd-rule>i,.sd-steps li,.sd-pages li,.sd-pages li>i,.sd-meter,.sd-meter u i,.sd-manual,.sd-sites li{animation:none}}
 body.theme-day .tpc b,body.theme-day .tpc-addr{color:#0d2a1b}
 body.theme-day .tpc small,body.theme-day .tpc-loaded em,body.theme-day .tpc-loaded small{color:#44655a}
 body.theme-day .tpc-addr{background:rgba(10,120,62,.08)}
 body.theme-day .tpc-usd{color:#0a6d38}
 body.theme-day .tpc-loaded b{color:#0a6d38}
+body.theme-day .mbx-top b,body.theme-day .mbx-open b,body.theme-day .mbx-open p,body.theme-day .mbx-list button{color:#0d2a1b}
+body.theme-day .mbx-top small,body.theme-day .mbx-list small,body.theme-day .mbx-open small{color:#44655a}
+body.theme-day .mbx-list button{background:rgba(255,255,255,.72)}
+body.theme-day .mbx-list code,body.theme-day .mbx-open code{color:#0a6d38}
 body.theme-day .sd,body.theme-day .wf{border-color:rgba(10,120,62,.25)}
 body.theme-day .wf-head b,body.theme-day .wf-row small{color:#0d2a1b}
 body.theme-day .wf-head small,body.theme-day .wf-sites{color:#44655a}

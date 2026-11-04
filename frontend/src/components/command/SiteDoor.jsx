@@ -106,6 +106,21 @@ export function TopupCard({ cat, d, setD, work }) {
       <button type="button" className="m-btn" disabled={busy} onClick={() => go({ job: 'no' })} data-testid="topup-no">No</button></div> : <div className="tpc-row"><button type="button" className="m-btn" disabled={busy} onClick={() => go({ job: 'no' })} data-testid="topup-no">Cancel</button></div>}
     {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</section>;
 }
+// 📧 Its own mailbox: make it once, read its mail as plain text, copy a code.
+export function MailApp({ cat, d, setD, work }) {
+  const box = d?.mailbox; const [rows, setRows] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [open, setOpen] = useState(null);
+  const read = useCallback(async () => { setBusy('read'); setErr(''); try { setRows((await work(cat.id, { op: 'mail_read' })).mail || []); } catch (e) { setErr(e.message); } finally { setBusy(''); } }, [cat.id, work]);
+  useEffect(() => { if (!box?.address) return undefined; read(); const t = setInterval(() => { if (!document.hidden) read(); }, 30000); return () => clearInterval(t); }, [box?.address, read]);
+  const make = async () => { setBusy('make'); setErr(''); try { const j = await work(cat.id, { op: 'mail_make' }); setD?.(x => ({ ...x, mailbox: j.mailbox, logins: j.logins ?? x?.logins })); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
+  const m = rows?.find(x => x.id === open);
+  return <div className="mbx" data-testid="dsk-mail">
+    {box?.address ? <header className="mbx-top m-glass"><Ic3 e="📧" size="30px" /><span><b data-testid="mail-address">{box.address}</b><small>Its password is sealed in the Vault. Some sites refuse free mailboxes.</small></span><button type="button" className="m-btn" disabled={!!busy} onClick={read} data-tip="Read its mail now" data-testid="mail-refresh">{busy === 'read' ? 'Reading…' : '↻'}</button></header>
+      : <header className="mbx-top m-glass"><Ic3 e="📧" size="30px" /><span><b>Give it its own email</b><small>A free mail.tm mailbox, no CAPTCHA, so it can sign up and read its own codes.</small></span><button type="button" className="m-btn m-go" disabled={!!busy} onClick={make} data-tip="Makes one mailbox on mail.tm and seals its password" data-testid="mail-make">{busy === 'make' ? 'Making…' : 'Make its email'}</button></header>}
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    {m ? <article className="mbx-open" data-testid="mail-open"><button type="button" className="m-btn" onClick={() => setOpen(null)} aria-label="Back to its inbox" data-tip="Back">↑</button><b>{m.subject || '(no subject)'}</b><small>{m.from}</small>{m.code ? <code className="m-num" data-testid="mail-code">{m.code}</code> : null}<p>{m.text}</p></article>
+      : box?.address ? (rows && !rows.length ? <p className="dsk-note">Its inbox is empty.</p> : <ul className="mbx-list">{(rows || []).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" onClick={() => setOpen(x.id)} data-tip="Read it" data-testid={`mail-${x.id}`}><b>{x.subject || '(no subject)'}</b><small>{x.from}</small>{x.code ? <code className="m-num">{x.code}</code> : null}</button></li>)}</ul>) : null}
+  </div>;
+}
 // What landed: its balance on the chain before and after each send.
 function Loaded({ rows, site }) {
   const r = (rows || []).filter(x => x.site === site); if (!r.length) return null; const last = r[0];
