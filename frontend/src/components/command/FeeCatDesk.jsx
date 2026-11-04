@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FeeOwnerBar } from './FeeOwnerBar';
 import { realView } from './CatReal';
 import { toast } from 'sonner';
@@ -8,7 +8,11 @@ import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, ColonyPot, PowEngine } from './HiveBoard';
+import { AgentDesktop } from './CatWorkbench';
+import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
+import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { apiUrl } from '../../lib/api';
+import '../../styles/catWorkbench.css';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -94,17 +98,31 @@ export function feeFunnel(scan) {
 // 🐱 the creator's Fee desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
 // her header always, then ONE pane at a time — what she's doing · 👑 your platform tools · her agents lane · her brain + rules · her wallet + style
 export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['owner', '👑 OWNER', 'Her owner desktop: every control you have, in folders']];
-// 👑 Her owner desktop (owner 2026-11-04): one folder per control, a live number on the ones that have one, one open at a time.
-const OWNER_FOLDERS = [['colony', '🐝', 'Colony', 'The tree: the pot, every agent, every winning proof'], ['pot', '🏺', 'Honeypot', 'The colony wallet, its guards and the airdrop'], ['pow', '⛏', 'PoW folders', "Every agent's proofs"], ['slots', '🎟', 'Agent slots', 'Who can make agents and how many'],
-  ['lane', '🎚', 'Lane', 'The agents lane she follows and what the duo learned'], ['brain', '🧠', 'Brain', 'Her style, her rules and what she learned'], ['prompts', '🎭', 'Prompts', 'Her record and the mindsets written from it'], ['wallet', '👛', 'Wallet + style', 'Her wallet and her look']];
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
-function OwnerDesk({ open, setOpen, children }) {
+function useFlow() {
   const [flow, setFlow] = useState(null);
-  useEffect(() => { fetch(apiUrl('/api/cats/colony/flow?limit=1')).then(r => r.json()).then(setFlow).catch(() => {}); }, []);
-  const vital = { colony: flow ? `${flow.agents} agents` : '', pot: flow?.pot?.sol != null ? `${Number(flow.pot.sol).toFixed(4)} SOL` : '', pow: flow ? `${flow.pow?.folders || 0} filed` : '' };
-  const now = OWNER_FOLDERS.find(x => x[0] === open);
-  if (now) return <div className="fod-open" data-testid="fod-open"><button type="button" className="m-btn fod-back" onClick={() => setOpen(null)} data-tip="Back to her folders" data-testid="fod-back">‹ Owner</button><b className="fod-title">{now[1]} {now[2]}</b>{children}</div>;
-  return <ul className="fod" data-testid="fch-owner">{OWNER_FOLDERS.map(([k, ic, l, tip], i) => <li key={k} style={{ '--i': i }}><button type="button" className="fod-f" onClick={() => setOpen(k)} data-tip={tip} data-testid={`fod-${k}`}><i className="fod-art" aria-hidden="true"><u />{ic}</i><b>{l}</b>{vital[k] ? <small className="m-num">{vital[k]}</small> : null}</button></li>)}</ul>;
+  useEffect(() => { let on = true; const load = () => { if (!document.hidden) fetch(apiUrl('/api/cats/colony/flow?limit=1')).then(r => r.json()).then(x => on && setFlow(x)).catch(() => {}); }; load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, []);
+  return flow;
+}
+const agentsGlass = flow => { const n = Number(flow?.pnlSol) || 0; const trades = flow?.pow?.trades || 0; const rows = flow?.tree?.agents || []; let sum = 0;
+  return { title: 'ALL AGENTS', value: flow ? `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(4)} SOL` : 'Reading…', sub: flow ? `${flow.pow?.won || 0} of ${trades} won · ${flow.agents} agents` : '', tone: !flow ? '' : n >= 0 ? 'up' : 'dn', vals: rows.map(a => { sum += Number(a.pnlSol) || 0; return sum; }) }; };
+// 👑 THE OWNER'S TWO DESKTOPS (owner 2026-11-04): the same desktop a general agent gets. One is Fee's, one runs the whole agent system.
+function OwnerDesk({ cat, trades, feeApps, agentApps }) {
+  const flow = useFlow(); const [open, setOpen] = useState('');
+  const feeGlass = useMemo(() => { const v = Number(cat?.realizedPnlSol) || 0; return { title: realView(cat).real ? 'FEE · REAL' : 'FEE · PAPER', value: `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(3)} SOL`, sub: `${trades} trades`, tone: v >= 0 ? 'up' : 'dn', vals: [] }; }, [cat?.realizedPnlSol, trades]);
+  const close = useCallback(() => setOpen(''), []);
+  const monitor = (k, mood, name, sub, ics, glass) => <button type="button" className="own-m" onClick={() => setOpen(k)} data-tip={`Open the ${name} desktop`} data-testid={`own-${k}`}>
+    <ShaderWall mood={mood} /><i className="own-sheen" aria-hidden="true" />
+    <span className="own-ics" aria-hidden="true">{ics.map((e, n) => <i key={e} style={{ '--i': n }}><i className="dsk-ico-art"><em><Ic3 e={e} size="30px" /></em></i></i>)}</span>
+    <span className="own-go" aria-hidden="true">OPEN</span>
+    <span className="own-name"><b>{name}</b><small>{sub}</small></span>
+    <PerfGlass {...glass} testid={`own-glass-${k}`} /></button>;
+  return <><div className="own" data-testid="fch-owner">
+    {monitor('fee', 'fee', 'FEE', 'her desktop', ['🧠', '🎭', '🎚', '👛', '⛏', '📉', '🎲', '🔐'], feeGlass)}
+    {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['🐝', '🏺', '⛏', '🎟'], { ...agentsGlass(flow) })}
+  </div>
+    {open === 'fee' ? <AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /> : null}
+    {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...agentApps, { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
 }
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
@@ -127,9 +145,9 @@ export function AgentSlots({ call }) {
 
 export function FeeCatDesk({ call }) {
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
-  const [folder, setFolder] = useState(null); const root = React.useRef(null);
-  useEffect(() => { const go = () => { setTab('owner'); setFolder(null); requestAnimationFrame(() => root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })); }; window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
-  const pickTab = k => { setTab(k); setFolder(null); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
+  const root = React.useRef(null);
+  useEffect(() => { const go = () => { setTab('owner'); requestAnimationFrame(() => root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })); }; window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
+  const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
@@ -144,6 +162,18 @@ export function FeeCatDesk({ call }) {
   const equity = bal + inTrades; const roi = ((equity / start) - 1) * 100;
   const f = feeFunnel(d.scan); const duo = d.duo || {}; const disc = d.discipline || {}; const wr = n(c.winRate);
   const trades = (n(c.wins) || 0) + (n(c.losses) || 0);
+  const brainPane = () => <div className="fch-fold fch-brain" data-testid="fch-brain">
+      <FeeModels />
+      <FeeBrain />
+      <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />
+      <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;
+        return <fieldset key={g} className="fch-group"><legend>{g}</legend>{ks.map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
+          <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset>; })}
+        <fieldset className="fch-group"><legend>💵 SIZE</legend><label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label>
+          {Object.keys(d.bounds || {}).filter(k => !RULE_GROUPS.some(([, ks]) => ks.includes(k))).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
+            <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
+      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
+    </div>;
   return <section className="fch" data-testid="feecat-desk">
     <header className="fch-hero m-card m-live">
       <span className={`fch-orb ${running ? 'is-on' : ''}`} aria-hidden>🐱</span>
@@ -158,16 +188,18 @@ export function FeeCatDesk({ call }) {
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
     </header>
     <nav ref={root} className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
-      className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}>{l}</button>)}</nav>
-    {tab === 'owner' ? <OwnerDesk open={folder} setOpen={setFolder}>
-      {folder === 'colony' ? <ColonyFlow api={flowApi} /> : null}
-      {folder === 'pot' ? <ColonyPot call={call} /> : null}
-      {folder === 'pow' ? <PowEngine /> : null}
-      {folder === 'slots' ? <AgentSlots call={call} /> : null}
-      {folder === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
-      {folder === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
-      {folder === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
-    </OwnerDesk> : null}
+      className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}><Ic3Text text={l} /></button>)}</nav>
+    {tab === 'owner' ? <OwnerDesk cat={c} trades={trades} feeApps={[
+      { k: 'lane', ic: '🎚', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
+      { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },
+      { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
+      { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
+    ]} agentApps={[
+      { k: 'colony', ic: '🐝', label: 'Colony', tip: 'The tree: the pot, every agent, every winning proof', body: <ColonyFlow api={flowApi} /> },
+      { k: 'pot', ic: '🏺', label: 'Honeypot', tip: 'The colony wallet, its guards and the airdrop', body: <ColonyPot call={call} /> },
+      { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
+      { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
+    ]} /> : null}
     {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
@@ -193,17 +225,5 @@ export function FeeCatDesk({ call }) {
       <FeeTape events={d.events} />
     </div> : null}
 
-    {tab === 'owner' && folder === 'brain' ? <div className="fch-fold fch-brain" data-testid="fch-brain">
-      <FeeModels />
-      <FeeBrain />
-      <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />
-      <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;
-        return <fieldset key={g} className="fch-group"><legend>{g}</legend>{ks.map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
-          <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset>; })}
-        <fieldset className="fch-group"><legend>💵 SIZE</legend><label><span>Max SOL per trade<em>0.1–10</em></span><NumInput value={size} onChange={e => setSize(e.target.value)} /></label>
-          {Object.keys(d.bounds || {}).filter(k => !RULE_GROUPS.some(([, ks]) => ks.includes(k))).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
-            <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
-      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
-    </div> : null}
   </section>;
 }

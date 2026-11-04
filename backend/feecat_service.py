@@ -54,6 +54,7 @@ import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + s
 import chain_rpc as _crpc
 import pob as _pob
 import site_scan as _ss
+import agent_topup as _tu
 import pop as _pop
 import pop_sources as _popsrc
 import pow_kernel as _kernel
@@ -167,7 +168,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -2174,6 +2175,141 @@ def _site_proof_start(cat, cat_id, site, kind):
     return ok_, say_
 
 
+# 💸 TOP-UPS (agent_topup.py): one card a time. Only the owner's own words reach these: the chat door and the card's buttons.
+async def _sol_usd(http):
+    r = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2', timeout=8)
+    return _num(((r.json().get('pairs') or [{}])[0]).get('priceUsd'))
+
+
+async def _lamports_sol(http, addr):
+    """The SOL on an address, read on-chain, or None. It is what the chain says, not the site's own balance figure."""
+    try:
+        got = await _crpc._rpc(http, 'getBalance', [addr, {'commitment': 'confirmed'}])
+        return round(_num((got or {}).get('value')) / 1e9, 6)
+    except Exception:   # noqa: BLE001 — unread stays unread
+        return None
+
+
+async def _topup_send(cat, cat_id, usd, typed):
+    """→ (ok, what to say). One transfer from its own wallet to the card's address. The card goes first, so no second yes can send it again."""
+    c_ = cat.get('topup'); now = time.time(); addr_ = (cat.get('agentWallet') or {}).get('address')
+    if _tu.expired(c_, now) or not c_.get('address'):
+        return False, '💸 Nothing is waiting to be topped up. Say "top up pump".'
+    why_ = _tu.amount_why(usd)
+    if why_:
+        return False, f'💸 {why_}'
+    if not addr_ or not _pays_itself(cat):
+        return False, '💸 Only its own Circle wallet can send a top-up.'
+    if not _tu.valid_address(c_['address']) and not str(c_['address']) == addr_:
+        return False, '💸 That is not a Solana address, so nothing moved.'
+    if c_['address'] == addr_:
+        return False, '💸 That is its own wallet, so nothing moved.'
+    if not _tu.check_ok(c_, typed):
+        return False, f"💸 It read that address from the page, so type its last 4 characters first. Nothing moved."
+    if cat_id in _SWAP_BUSY:
+        return False, '💸 A send is already on its way.'
+    _SWAP_BUSY.add(cat_id)
+    try:
+        async with httpx.AsyncClient(timeout=30) as http:
+            px_ = await _sol_usd(http)
+            if not px_:
+                return False, '💸 No SOL price right now, so nothing moved.'
+            lam_ = _tu.to_lamports(usd, px_); sol_ = round(lam_ / 1e9, 6)
+            _usdc, bal_ = await _agent_usdc(http, addr_)
+            if sol_ > bal_ - _at.GAS_SOL + 1e-9:
+                return False, f'💸 It holds {bal_:.4f} SOL and keeps {_at.GAS_SOL} for gas, so ${usd:.2f} ({sol_} SOL) will not fit. Nothing moved.'
+            before_ = await _lamports_sol(http, c_['address'])
+            cat.pop('topup', None)   # one yes, one send
+            bh_ = ((await _crpc._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            rec_ = {'key': f"feeless-{cat_id}-topup-{c_['id']}", 'tx': pot_transfer_tx(addr_, c_['address'], lam_, bh_)}
+            try:
+                await _at._circle_post(http, cat, rec_)
+            except ValueError as e:
+                return False, f'💸 {str(e)[:120]}. Nothing moved.'
+    finally:
+        _SWAP_BUSY.discard(cat_id)
+    if not rec_.get('sig'):
+        return False, '💸 Sent to the signer, but no signature came back yet. Check its wallet before asking again.'
+    cat['topups'] = (list(cat.get('topups') or []) + [{'site': c_['site'], 'address': c_['address'], 'usd': usd, 'sol': sol_, 'sig': rec_['sig'], 'at': round(now), 'before': before_, 'after': None}])[-_tu.LEDGER_MAX:]
+    return True, f"💸 Sent ${usd:.2f} ({sol_} SOL) to your {c_['site']} account. tx {rec_['sig']}"
+
+
+def _topup_answer(cat, ans):
+    """What a chat answer does to the card, with no money moved here. → {'say'} or, for a yes that can send, {'send': usd}. {'ask': True} means it still needs an amount."""
+    c_ = cat.get('topup')
+    if ans.get('address'):
+        if not _tu.valid_address(ans['address']):
+            return {'say': '💸 That is not a Solana address.'}
+        c_.update(address=ans['address'], source='owner', state='ask')
+        return {'say': _tu.question(c_)}
+    if not ans.get('yes'):
+        cat.pop('topup', None)
+        return {'say': '💸 Okay, no top-up. Nothing moved.'}
+    if not c_.get('address'):
+        return {'say': f"💸 I need your {c_['site']} deposit address first. Paste it here."}
+    usd_ = ans.get('usd') or c_.get('usd')
+    if not usd_:
+        return {'say': '💸 How much? Say "yes, top up $1.50".', 'ask': True}
+    c_['usd'] = usd_
+    return {'send': usd_}
+
+
+def _topup_start(cat, got):
+    """The chat's "top up pump". → what to say. Finding the address is a browser read on its budget; a pasted address skips it."""
+    now = time.time(); manuals_ = cat.get('siteManuals') or {}; site_ = _tu.site_for(got['word'], manuals_)
+    if not site_:
+        return f"💸 I have no manual for {got['word']} yet. Open a proof folder, type the site and hit Scan. Then ask again."
+    if site_ not in (cat.get('siteSessions') or {}):
+        return f'💸 {site_} is not signed in. Open it from its manual, sign in and save first.'
+    if not _pays_itself(cat):
+        return '💸 Only its own Circle wallet can send a top-up. This agent has none.'
+    if got.get('address') and not _tu.valid_address(got['address']):
+        return '💸 That is not a Solana address.'
+    m_ = manuals_[site_]; c_ = _tu.card(site_, m_.get('url'), got.get('usd'), got.get('address'), 'owner', now)
+    known_ = next((r['address'] for r in reversed(cat.get('topups') or []) if r.get('site') == site_), None)
+    if not c_['address'] and known_:   # you already checked this one on a past send
+        c_.update(address=known_, source='owner', state='ask')
+    cat['topup'] = c_
+    if c_['address']:
+        return _tu.question(c_)
+    cat['proofSite'] = {'site': site_, 'kind': 'topup', 'at': now}
+    why_ = _read_start(cat, _tu.GOAL.format(site=site_, url=m_.get('url')), None, '')
+    if why_:
+        cat.pop('proofSite', None)
+        return f"💸 I could not look for it ({why_}). Paste your {site_} deposit address here."
+    cat['topupRead'] = {'at': round(now), 'tid': _WORK[cat['id']]['task']['id']}
+    c_['state'] = 'reading'
+    return f"💸 Looking for your {site_} deposit address in its window, signed in. Nothing will be sent until you say yes."
+
+
+async def _topup_pass(store):
+    now = time.time()
+    for cat in store['cats'].values():
+        rd_ = cat.get('topupRead')
+        if rd_:
+            done_, notes_, why_ = _read_check(cat, rd_, now)
+            if done_:
+                cat.pop('topupRead', None); cat.pop('proofSite', None); c_ = cat.get('topup')
+                if c_ and not c_.get('address'):
+                    a_ = _tu.address_in(notes_)
+                    if a_:
+                        c_.update(address=a_, source='read', state='ask')
+                        line_ = _tu.question(c_) + ' It read this from the page, so type its last 4 characters in the card.'
+                    else:
+                        c_['state'] = 'needs_address'
+                        line_ = f"💸 I could not find one address on {c_['site']}{' (' + why_ + ')' if why_ else ''}. Paste it here, and check it on the site."
+                    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line_, 'at': now}])[-200:]
+        if cat.get('topup') and _tu.expired(cat['topup'], now):
+            cat.pop('topup', None)
+        rows_ = [r for r in cat.get('topups') or [] if r.get('after') is None and now - float(r.get('at') or 0) >= 20]
+        if rows_:   # "loaded": the same address, read again after the send
+            async with httpx.AsyncClient(timeout=10) as http:
+                for r in rows_:
+                    r['after'] = await _lamports_sol(http, r['address'])
+                    if r['after'] is None and now - float(r.get('at') or 0) > 600:
+                        r['after'] = -1   # stop asking; the row keeps its tx
+
+
 _SCAN_BUSY: dict = {}   # 🔎 cat_id → the site it is scanning
 _SCAN_DONE: list = []   # finished scans, filed by the engine pass (the store's one writer)
 _SCAN_FILED: set = set()   # filed this pass: "still scanning" ends on the NEXT pass, once the manual is saved, or the page stops looking too early
@@ -2230,6 +2366,7 @@ async def _watch_pass(store):
 async def _site_pass(store):
     """🔎 File what finished: its snapshot on disk, its manual, one small model call to reword it when it has budget. The site's own sentences stay underneath."""
     await _watch_pass(store)
+    await _topup_pass(store)
     for cid_ in list(_SCAN_FILED):
         _SCAN_BUSY.pop(cid_, None); _SCAN_FILED.discard(cid_)
     while _SCAN_DONE:
@@ -4555,6 +4692,32 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat.pop('proofSite', None)
         _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
         return {'ok': True}
+    if p.op == 'topup':   # 💸 the card's buttons: the owner's own words, the same door as typing them
+        if p.job == 'no':
+            cat.pop('topup', None); keep_owned(cat); _save(store)
+            return {'topup': None, 'say': '💸 Okay, no top-up. Nothing moved.'}
+        if p.job == 'address':
+            if not cat.get('topup'):
+                raise HTTPException(400, 'Nothing is waiting to be topped up.')
+            out_ = _topup_answer(cat, {'address': (p.text or '').strip()}); keep_owned(cat); _save(store)
+            return {'topup': cat.get('topup'), 'say': out_['say']}
+        try:
+            usd_ = float(p.cap)
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'Say how much.')
+        ok_, say_ = await _topup_send(cat, cat_id, round(usd_, 2), p.text)
+        fresh_ = _load(); now_cat_ = fresh_['cats'].get(cat_id)
+        if now_cat_ is not None:
+            now_cat_['topups'] = cat.get('topups') or []
+            if 'topup' in cat:
+                now_cat_['topup'] = cat['topup']
+            else:
+                now_cat_.pop('topup', None)
+            now_cat_['chat'] = (list(now_cat_.get('chat') or []) + [{'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
+            keep_owned(now_cat_); _save(fresh_)
+        if not ok_:
+            raise HTTPException(400, say_)
+        return {'topup': None, 'say': say_, 'topups': (now_cat_ or cat).get('topups')}
     if p.op == 'site_scan':   # 🔎 the proof folder's Scan: one at a time, filed by the engine pass
         try:
             url_ = _ss.clean_url(p.text); site_ = _ss.site_of(url_)
@@ -4926,6 +5089,28 @@ async def cat_work(cat_id: str, p: WorkPayload):
         p.text = _ac.watch_goal(p.text) or p.text   # 👁 Watch a Wallet: its own browser does the finding
         if _ac.off_lane(b.get('kind'), p.text):   # 🧭 it still does the work, and says so first
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': _ac.TRADER_NOTE, 'at': time.time()}])[-200:]
+        tu_ask_ = _tu.ask(p.text, cat.get('siteManuals')); tu_ans_ = _tu.reply(p.text) if cat.get('topup') else None
+        if tu_ask_ or tu_ans_:   # 💸 only the owner's typed words reach here, never a model or a page
+            who_ = {'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}
+            out_ = {'say': _topup_start(cat, tu_ask_)} if tu_ask_ else _topup_answer(cat, tu_ans_)
+            if out_.get('send'):
+                if (cat['topup'].get('source') == 'read'):
+                    say_ = '💸 It read that address from the page, so type its last 4 characters in the card, then press Yes. Nothing moved.'
+                else:
+                    ok_, say_ = await _topup_send(cat, cat_id, round(out_['send'], 2), '')
+                    fresh_ = _load(); moved_ = fresh_['cats'].get(cat_id)
+                    if moved_ is not None:   # the send took seconds: the engine saved meanwhile, so write onto the newest store
+                        moved_['topups'] = cat.get('topups') or []
+                        if 'topup' in cat:
+                            moved_['topup'] = cat['topup']
+                        else:
+                            moved_.pop('topup', None)
+                        store, cat = fresh_, moved_
+            else:
+                say_ = out_['say']
+            cat['chat'] = (list(cat.get('chat') or []) + [who_, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         site_cmd_ = _ss.command(p.text, cat.get('siteManuals'), set(cat.get('siteSessions') or {}))
         if site_cmd_:   # 🔎 "file a pump pow": only after the owner scanned and signed in there
             say_ = site_cmd_.get('why') or _site_proof_start(cat, cat_id, site_cmd_['site'], site_cmd_['kind'])[1]
@@ -5029,7 +5214,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
+            'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,

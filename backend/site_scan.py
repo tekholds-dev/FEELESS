@@ -13,7 +13,7 @@ import cat_browser as _cb
 import cat_policy as _cp
 
 KINDS = ('pow', 'pop', 'pob')
-KIND_WORD = {'pow': 'PoW', 'pop': 'PoP', 'pob': 'bid'}
+KIND_WORD = {'pow': 'PoW', 'pop': 'PoP', 'pob': 'bid', 'topup': 'top-up'}
 KIND_RX = {'pow': 'pow|proof of work', 'pop': 'pop|perp|proof of perps', 'pob': 'pob|bid|proof of bid'}
 PAGE_MAX = 8            # pages one scan reads
 TEXT_MAX = 60000        # characters kept from one page
@@ -221,6 +221,7 @@ def commands(manuals, signed):
             continue
         for kind in m.get('kinds') or []:
             out.append((f"file a {m.get('slug')} {KIND_WORD[kind].lower()}", f"Files a {KIND_WORD[kind]} with its windows going to {site} first, signed in. It reads there and never trades, deposits or withdraws on that site"))
+        out.append((f"top up {m.get('slug')}", f"Asks before sending anything: it finds your {site} deposit address, then you say yes, no or an amount. From its own wallet"))
     return out
 
 

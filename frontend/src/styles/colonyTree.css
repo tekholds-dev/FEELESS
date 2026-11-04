@@ -1,7 +1,7 @@
 /* 🌳 The Colony tree: the pot on top, vessels under it, the comb, the winning proofs. Honey on a night sky. */
 .ctr { --ctr-a: #ffc83d; --ctr-b: #f59e0b; position: relative; display: grid; gap: 14px; padding: 22px 16px; border-radius: 20px; overflow: hidden; border: 1px solid #f5c54240; background: radial-gradient(70% 45% at 50% 0%, #4a300a 0%, #1a1006 55%, #0b0703 100%); box-shadow: inset 0 1px 0 #ffffff14; contain: paint; }
 .ctr-sky { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(1.5px 1.5px at 12% 22%, #ffd76a, transparent), radial-gradient(1.5px 1.5px at 78% 14%, #ffd76a, transparent), radial-gradient(1px 1px at 40% 34%, #fff2c2, transparent), radial-gradient(1.5px 1.5px at 62% 48%, #ffd76a, transparent), radial-gradient(1px 1px at 90% 40%, #fff2c2, transparent), radial-gradient(1px 1px at 22% 60%, #ffd76a, transparent); animation: ctrDrift 14s ease-in-out infinite alternate; }
-.ctr > :not(.ctr-sky) { position: relative; }
+.ctr > :not(.ctr-sky, .ctr-live) { position: relative; }
 .ctr-crown { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 320px) minmax(0, 1fr); gap: 16px; align-items: center; width: min(100%, 860px); margin: 0 auto; }
 .ctr-crown .ht-vessel { max-width: 150px; } .ctr-crown .ht-tank { padding: 16px 12px 12px; border-color: #ffc83d66; box-shadow: 0 0 60px -18px #ffc83d; } .ctr-crown .ht-tank b { font-size: 18px; color: #ffe39a; text-shadow: 0 0 16px #ffc83d88; }
 .ctr-side { display: grid; gap: 10px; } .ctr-side > span { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff08; }

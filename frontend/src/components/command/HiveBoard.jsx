@@ -6,6 +6,7 @@ import { PowCard } from './CatCockpit';
 import '../../styles/hive.css';
 import '../../styles/colonyTree.css';
 import { HoneyTank } from './HoneyTanks';
+import { ShaderWall } from './DeskShell';
 
 // 🐝 THE HIVE (owner 2026-10-31: "a FEELESS twist on Crawl — they browse forever until turned off and compound"): proof of insight. Agents with the
 // Hive on read the trenches on their own and file CELLS (BUY / WATCH / AVOID + why); an hour on every cell is graded on what the coin really did —
@@ -60,6 +61,8 @@ export function AgentLedger({ api, agent }) {
   return <section className="cfl cmf" data-testid="agent-ledger"><ColonyLedger rows={(d?.ledger || []).filter(r => String(r.agent || '').startsWith(key))} fresh={fresh} ready={!!d} /></section>;
 }
 // 🌳 THE COLONY TREE (owner 2026-11-04): the pot at the top of the chain, what flows into it, every agent in the comb, every winning proof and what it owes.
+const BEES = [['6%', '12%', '19s', '0s'], ['62%', '30%', '24s', '-7s'], ['28%', '62%', '21s', '-13s']];
+const DRIPS = [['18%', '9s', '0s'], ['46%', '12s', '-4s'], ['77%', '10s', '-7s']];
 export function ColonyFlow({ api, onOpen }) {
   const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0);
   useEffect(() => { const c = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(c); }, []);
@@ -69,6 +72,7 @@ export function ColonyFlow({ api, onOpen }) {
   const lvl = v => (most > 0 ? v / most : 0); const usdOf = v => usd2(v, px) || 'nothing yet'; const topHoney = Math.max(1, ...agents.map(a => Math.abs(a.honey)));
   return <section className="ctr" data-testid="colony-flow" aria-label="The colony tree">
     <i className="ctr-sky" aria-hidden="true" />
+    <div className="ctr-live" aria-hidden="true"><ShaderWall mood="colony" />{BEES.map(([x, y, d, w]) => <svg key={x} className="ctr-bee" style={{ '--x': x, '--y': y, '--d': d, '--w': w }} viewBox="0 0 26 20"><g className="w"><ellipse cx="10" cy="5" rx="5" ry="3.4" fill="#ffffffa8" /><ellipse cx="16" cy="5" rx="5" ry="3.4" fill="#ffffff80" /></g><ellipse cx="13" cy="12" rx="8" ry="5.6" fill="#ffc533" /><path d="M10 7v10M15 7v10" stroke="#2a1604" strokeWidth="2.4" /><circle cx="20" cy="11" r="2.8" fill="#2a1604" /></svg>)}{DRIPS.map(([x, d, w]) => <i key={x} className="ctr-drip" style={{ '--x': x, '--d': d, '--w': w }} />)}</div>
     <div className="ctr-crown">
       <div className="ctr-side">
         <span className="ctr-clock" data-tip="The next airdrop to owners who shared, each waiting for approval"><em>🪂 NEXT AIRDROP</em><b className="m-num">{left == null ? '—' : `${Math.floor(left / 3600)}h ${String(Math.floor(left / 60) % 60).padStart(2, '0')}m`}</b><u><s style={{ transform: `scaleX(${left == null ? 0 : Math.min(1, left / cycle)})` }} /></u></span>

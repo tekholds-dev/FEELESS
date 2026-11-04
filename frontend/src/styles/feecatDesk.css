@@ -50,20 +50,10 @@ body.fx-lite .fch-orb.is-on::after, body.fx-lite .fch-bars li{ animation: none; 
 body.theme-day .fch-card { background: rgba(236, 246, 240, .85); } body.theme-day .fch-fold { background: rgba(236, 246, 240, .6); }
 body.theme-day .fch-who small.is-on, body.theme-day .fch-lanes span, body.theme-day .fch-top span, body.theme-day .fch-pos .is-up em{ color: #0d7a41; }
 body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fch-pos .is-dn em{ color: #b42346; }
-.fod { list-style: none; margin: 0; padding: 18px 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 14px; }
-.fod > li { animation: fodIn .3s calc(var(--i) * 45ms) both; } @keyframes fodIn { from { opacity: 0; transform: translateY(6px); } }
-.fod-f { width: 100%; min-height: 104px; display: grid; justify-items: center; gap: 5px; padding: 10px 6px; border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; cursor: pointer; transition: transform .14s, background .14s, border-color .14s; }
-.fod-f:hover { transform: translateY(-2px); background: #ffffff0a; border-color: #b388ff44; } .fod-f:active { transform: scale(.97); } .fod-f:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
-.fod-f b { font: 800 11px var(--f-tech, sans-serif); letter-spacing: .05em; color: #efe6ff; } .fod-f small { font: 700 10px var(--f-mono); color: #ffd76a; }
-.fod-art { position: relative; display: grid; place-items: center; width: 68px; height: 50px; margin-top: 8px; border-radius: 4px 8px 8px 8px; font-size: 21px; font-style: normal; background: linear-gradient(170deg, #ffd76a, #d98a1f); box-shadow: 0 8px 18px -8px #d98a1f, inset 0 1px 0 #fff5; }
-.fod-art u { position: absolute; left: 0; top: -7px; width: 28px; height: 8px; border-radius: 4px 6px 0 0; background: #e8a93c; }
-.fod-open { display: grid; gap: 10px; } .fod-back { justify-self: start; min-height: 32px; } .fod-title { font: 800 12px var(--f-tech, sans-serif); letter-spacing: .08em; color: #efe6ff; }
 .hv-pow-shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .hv-pow-shelf button { width: 100%; min-height: 56px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; padding: 8px 10px; text-align: left; border-radius: 10px; border: 1px solid #ffffff14; background: #ffffff08; color: inherit; cursor: pointer; transition: border-color .14s, background .14s; }
 .hv-pow-shelf button:hover { background: #ffffff10; border-color: #b388ff55; } .hv-pow-shelf button:active { transform: scale(.98); } .hv-pow-shelf button:focus-visible { outline: 2px solid #b388ff; outline-offset: 1px; } .hv-pow-shelf button.on { border-color: #b388ff; background: #b388ff1c; } .hv-pow-shelf button.is-live { border-color: #45e48688; }
 .hv-pow-shelf b { font: 700 12px var(--f-tech, sans-serif); color: #f3ecff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .hv-pow-shelf small { grid-row: 2; font: 500 9.5px var(--f-mono); color: #a99ccb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .hv-pow-shelf em { grid-row: 1 / 3; grid-column: 2; font: 800 11px var(--f-mono); font-style: normal; color: #c8bde6; } .hv-pow-shelf em.is-up { color: #45e486; } .hv-pow-shelf em.is-dn { color: #ff8fa3; }
-body.fx-lite .fod > li { animation: none; } @media (prefers-reduced-motion: reduce) { .fod > li { animation: none; } .fod-f { transition: none; } }
-body.theme-day :is(.fod-f b, .fod-title) { color: #2a1650; } body.theme-day .fod-f small { color: #8a5a00; } body.theme-day .hv-pow-shelf button { background: #fff; border-color: #7c4dff26; } body.theme-day .hv-pow-shelf b { color: #2a1650; } body.theme-day .hv-pow-shelf small { color: #5a4a7a; } body.theme-day .hv-pow-shelf em.is-up { color: #0a7a44; }
 @media (max-width: 640px) { .fch-grid { grid-template-columns: 1fr; } .fch-acts { margin-left: 0; } .fch-pos li { grid-template-columns: minmax(60px, 1fr) 54px; } .fch-pos .fch-pbar, .fch-pos small { display: none; } }
 
 /* ⚡ the one dial + grouped tuning */

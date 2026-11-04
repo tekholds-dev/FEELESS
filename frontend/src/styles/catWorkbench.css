@@ -361,7 +361,6 @@ body.theme-day .cwb-msg header b { color: #2a1650; } body.theme-day .cwb-msg p {
 /* 🖥 YOUR PRIVATE DESKTOP — a desktop over the page: app windows (move · minimize · maximize), the Vault folder, a taskbar */
 .dsk { position: fixed; inset: 0; z-index: 2600; overflow: hidden; background: radial-gradient(120% 90% at 20% 0%, #15d16a22, transparent 55%), radial-gradient(90% 80% at 100% 100%, #7c4dff2e, transparent 60%), #05070a; animation: dskIn .22s ease both; }
 .dsk-wall { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 6px; pointer-events: none; }
-.dsk-wall i { position: absolute; width: 60vmin; height: 60vmin; border-radius: 50%; background: radial-gradient(#15d16a26, transparent 65%); animation: dskGlow 9s ease-in-out infinite; }
 .dsk-wall b { font: 900 clamp(34px, 7vw, 84px) var(--f-display); letter-spacing: .2em; color: #ffffff0d; } .dsk-wall small { font: 700 11px var(--f-mono); letter-spacing: .2em; color: #ffffff2e; text-transform: uppercase; }
 .dsk-icons { position: absolute; top: 16px; left: 16px; z-index: 1; } .dsk-icons .dsk-ico { position: absolute; top: 0; left: 0; touch-action: none; }
 .dsk-ico-art { --f: #f5c542; --f2: #b9861a; position: relative; display: grid; place-items: center; width: 50px; height: 40px; margin-top: 4px; border-radius: 4px 6px 6px 6px; background: linear-gradient(170deg, var(--f), var(--f2)); box-shadow: 0 6px 12px #0009, inset 0 1px 0 #ffffff55; }

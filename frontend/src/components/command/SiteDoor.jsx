@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { Ic3 } from '../../lib/icon3d';
 import { agentAuthQuery } from '../../lib/chatSession';
 import '../../styles/siteDoor.css';
 
@@ -43,7 +44,7 @@ function Withdraw({ rows, ordered }) {
     <em className="m-num">{i + 1}</em><span>{r.t}</span><a className="sd-src" href={safeHref(r.src)} target="_blank" rel="noopener noreferrer" data-tip={r.src}>{r.page}</a></li>)}</ol>;
 }
 
-function Manual({ m, cat, kind, signed, busy, onScan, onOpen, onDrop, onClose, onFile, said }) {
+function Manual({ m, cat, kind, signed, busy, onScan, onOpen, onDrop, onClose, onFile, onTopup, topups, said }) {
   const first = m.state === 'unread' ? 'pages' : m.dont?.length ? 'dont' : 'do';
   const [tab, setTab] = useState(first);
   const [label, stateTip] = STATE[m.state] || STATE.unread;
@@ -78,11 +79,38 @@ function Manual({ m, cat, kind, signed, busy, onScan, onOpen, onDrop, onClose, o
           : tab === 'withdraw' ? <Withdraw rows={rows} ordered={!!m.model} />
             : <ul className="sd-rules" data-testid={`sd-rows-${tab}`}>{rows.map((r, i) => <Rule key={r.q} r={r} i={i} tone={tab === 'do' ? 'do' : tab === 'dont' || tab === 'bots' ? 'dont' : 'info'} />)}</ul>}
     </div>
+    <Loaded rows={topups} site={m.site} />
     <footer className="sd-cmd" data-testid="sd-cmd">{m.state === 'unread' ? null : signed
       ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => onFile(cmd)} data-tip={`Its windows go to ${m.site} first, signed in, and only read there`} data-testid="sd-file">“{cmd}”</button>
       : <><button type="button" className="m-btn" disabled={!!busy} onClick={() => onOpen(m.url)} data-tip="Sign in by hand to unlock its command" data-testid="sd-unlock">Sign in to unlock</button><code>{cmd}</code></>}
-      {said ? <small role="status">{said}</small> : <small>From its own pages, not legal advice.</small>}</footer>
+      {said ? <small role="status">{said}</small> : <small>From its own pages, not legal advice.</small>}
+      {m.state !== 'unread' && signed ? <button type="button" className="m-btn" disabled={!!busy} onClick={onTopup} data-tip={`Asks first: finds your ${m.site} deposit address, then you say yes, no or an amount`} data-testid="sd-topup">Top up…</button> : null}</footer>
   </article>;
+}
+
+// 💸 "Top up your pump account?" Yes, no, or an amount. A send happens only from this card or your typed yes, and the chain's balance shows what landed.
+export function TopupCard({ cat, d, setD, work }) {
+  const c = d?.topup; const [usd, setUsd] = useState(''); const [four, setFour] = useState(''); const [addr, setAddr] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  useEffect(() => { setUsd(c?.usd ? String(c.usd) : ''); setFour(''); setMsg(''); }, [c?.id, c?.usd]);
+  if (!c) return null;
+  const merge = j => setD?.(x => ({ ...x, topup: j.topup, topups: j.topups ?? x?.topups }));
+  const go = async body => { setBusy(true); setMsg(''); try { merge(await work(cat.id, { op: 'topup', ...body })); } catch (e) { setMsg(e.message); } finally { setBusy(false); } };
+  const needFour = c.source === 'read' && c.address; const ready = c.address && Number(usd) > 0 && (!needFour || four.trim().length === 4);
+  return <section className="tpc m-glass" aria-label={`Top up ${c.site}`} data-testid="topup-card"><header><Ic3 e="💸" size="26px" /><span><b>Top up your {c.site} account</b><small>{c.address ? 'From its own wallet, one transfer in SOL. Only on your yes.' : c.state === 'reading' ? 'Its window is looking for your deposit address.' : 'Paste your deposit address from the site.'}</small></span></header>
+    {c.state === 'reading' ? <p className="sd-scanning" role="status" data-testid="topup-reading"><i aria-hidden="true" /><span>Reading <b>{c.site}</b>…</span></p> : null}
+    {c.address ? <code className="tpc-addr m-num" data-testid="topup-address" data-tip={c.source === 'read' ? 'It read this from the page. Compare it on the site before you answer' : 'The address you gave it'}>{c.address}</code>
+      : c.state !== 'reading' ? <form className="tpc-row" onSubmit={e => { e.preventDefault(); if (addr.trim()) go({ job: 'address', text: addr.trim() }); }}><input className="m-input" value={addr} onChange={e => setAddr(e.target.value)} placeholder="Its Solana deposit address" aria-label="Deposit address" spellCheck="false" data-testid="topup-paste" /><button type="submit" className="m-btn" disabled={!addr.trim() || busy} data-testid="topup-paste-go">Use it</button></form> : null}
+    {c.address ? <div className="tpc-row"><label className="tpc-usd"><span aria-hidden="true">$</span><input className="m-input" inputMode="decimal" value={usd} onChange={e => setUsd(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="1.50" aria-label="Dollars to send" data-tip="$0.50 to $25 a send" data-testid="topup-usd" /></label>
+      {needFour ? <input className="m-input tpc-four m-num" value={four} maxLength={4} onChange={e => setFour(e.target.value)} placeholder="Last 4" aria-label="Last 4 characters of the address" data-tip="A page could show the wrong address. Type its last 4 after checking it on the site" data-testid="topup-four" /> : null}
+      <button type="button" className="m-btn m-go" disabled={!ready || busy} onClick={() => go({ job: 'yes', cap: Number(usd), text: four.trim() })} data-tip="Its wallet signs one transfer to this address" data-testid="topup-yes">{busy ? 'Sending…' : `Yes, send${Number(usd) > 0 ? ` $${Number(usd).toFixed(2)}` : ''}`}</button>
+      <button type="button" className="m-btn" disabled={busy} onClick={() => go({ job: 'no' })} data-testid="topup-no">No</button></div> : <div className="tpc-row"><button type="button" className="m-btn" disabled={busy} onClick={() => go({ job: 'no' })} data-testid="topup-no">Cancel</button></div>}
+    {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</section>;
+}
+// What landed: its balance on the chain before and after each send.
+function Loaded({ rows, site }) {
+  const r = (rows || []).filter(x => x.site === site); if (!r.length) return null; const last = r[0];
+  return <div className="tpc-loaded" data-testid="topup-loaded"><span><em>LOADED ON {site.toUpperCase()}</em><b className="m-num" key={last.after}>{last.after > 0 ? `${last.after} SOL` : last.after === -1 ? 'Not read' : 'Reading…'}</b><small className="m-num">{last.before != null ? `was ${last.before} SOL · ` : ''}sent ${Number(last.usd).toFixed(2)} {agoOf(last.at)}. On-chain balance of its deposit address, not the site's own figure.</small></span>
+    <a className="m-btn" href={`https://solscan.io/tx/${encodeURIComponent(last.sig)}`} target="_blank" rel="noopener noreferrer" data-tip="See the transfer on-chain">tx ↗</a></div>;
 }
 
 export function SiteDoor({ kind, cat, d, setD, work }) {
@@ -107,11 +135,12 @@ export function SiteDoor({ kind, cat, d, setD, work }) {
       <button type="button" className="m-btn" disabled={!go || !!busy} onClick={() => openSite(go)} data-tip="Opens it in a live window. Only you click there, and Save keeps the sign-in sealed for its windows" data-testid={`sd-open-${kind}`}>{busy === 'signin_open' ? 'Opening…' : 'Open + sign in'}</button>
       <button type="submit" className="m-btn m-go" disabled={!go || !!busy || !!scanning} data-tip="Reads its terms, fees and help pages and files a manual" data-testid={`sd-scan-${kind}`}>{busy === 'site_scan' ? 'Starting…' : 'Scan'}</button></form>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    <TopupCard cat={cat} d={d} setD={setD} work={work} />
     {scanning ? <p className="sd-scanning" role="status" data-testid="sd-scanning"><i aria-hidden="true" /><span>Reading <b>{scanning}</b>: terms, fees, help, snapshot…</span></p> : null}
     {live ? <div className="cwb-signed-live sd-live" data-testid="sd-live"><span><em>LIVE · sign in to {live.site} yourself</em>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => setLive(null)} data-tip="Close without saving">Cancel</button>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Keeps this sign-in sealed for its windows, then scans the site" data-testid="sd-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in, save + scan'}</button></span><SignInFrame live={live} /></div> : null}
-    {manual ? <Manual key={`${manual.site}${manual.at}`} m={manual} cat={cat} kind={kind} signed={signed.has(manual.site)} busy={busy || scanning} onScan={scan} onOpen={openSite} onDrop={drop} onClose={() => { setOpen(''); setSaid(''); }} onFile={file} said={said} />
+    {manual ? <Manual key={`${manual.site}${manual.at}`} m={manual} cat={cat} kind={kind} signed={signed.has(manual.site)} busy={busy || scanning} onScan={scan} onOpen={openSite} onDrop={drop} onClose={() => { setOpen(''); setSaid(''); }} onFile={file} onTopup={() => run('ask', { text: `top up ${manual.slug}` }, () => work(cat.id, { op: 'state' }).then(j => setD?.(x => ({ ...x, topup: j.topup, chat: j.chat ?? x?.chat }))))} topups={d?.topups} said={said} />
       : rows.length ? <ul className="sd-sites" data-testid={`sd-sites-${kind}`}>{rows.map((m, i) => <li key={m.site} style={{ '--i': i }}><button type="button" onClick={() => setOpen(m.site)} data-tip={`Open the ${m.site} manual: ${(STATE[m.state] || STATE.unread)[1]}`} data-testid={`sd-site-${m.site}`}><i className={`sd-dot is-${m.state}`} aria-hidden="true" /><b>{m.site}</b><small>{(STATE[m.state] || STATE.unread)[0]}{signed.has(m.site) ? ' · SIGNED IN' : ''}</small></button></li>)}</ul> : null}
   </section>;
 }
