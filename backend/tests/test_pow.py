@@ -888,4 +888,13 @@ def test_a_scout_tick_starts_both_minds_then_files_each_coin_to_its_own_folder_w
     assert f['scoutDone'] == ['A', 'C'] and set(f['evidenceMetrics']) == {'A', 'C'}           # both filed, each under its own coin
     assert f['spend'] == {'0': 0.01, '1': 0.02}                                               # each mind paid for its own research
     assert f['rPair'] == {'0': 'B', '1': 'D'}                                                 # the next pair starts straight away
+    assert f['poiTrace']['A']['mind'] == 0 and f['poiTrace']['C']['mind'] == 1 and 'solscan.io' in f['poiTrace']['A']['required']   # 🧬 the PoI folder's trace
+    assert 'poiTrace' not in pw.folder_public(f) and pw.folder_public(f)['rPair'] == f['rPair']   # never on the public record
     fs._WORK.pop('scoutt', None)
+
+
+def test_colony_money_keeps_earned_owed_transferred_and_distributed_apart():
+    import feecat_service as fs
+    cat = {'id': 'c1', 'powFolders': [{'real': True, 'pnlSol': 0.5}, {'real': True, 'pnlSol': -0.2}, {'real': False, 'pnlSol': 9}]}
+    rows = [{'cat': 'c1', 'sol': 0.05, 'sent': False}, {'cat': 'c1', 'sol': 0.01, 'sent': True, 'gift': True, 'state': 'transferred'}, {'cat': 'c1', 'sol': 0.02, 'sent': True}, {'cat': 'other', 'sol': 7, 'sent': False}]
+    assert fs._colony_money(cat, rows) == {'earnedSol': 0.5, 'owedSol': 0.05, 'owedCount': 1, 'transferredSol': 0.01, 'distributedSol': 0.02}

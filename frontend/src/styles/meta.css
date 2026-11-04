@@ -18,7 +18,11 @@ body.theme-day {
 }
 
 /* surfaces */
-.m-card { position: relative; background: linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); border: 1px solid var(--m-line); border-radius: var(--m-r); padding: 14px; color: var(--m-text); }
+.m-glass, .kd :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-chat, .ck-log, .agd, .cwb, .lct-brains, .paper-panel, .fcv-card, .fcp, .cr-agent, .cr-wallet, .cr-safe, .cr-strip > span, .col-head) { --mg-c: var(--mg, var(--kd-acc, var(--m-accent)));
+  background: radial-gradient(110% 85% at 100% 0, color-mix(in srgb, var(--mg-c) 20%, transparent), transparent 58%), linear-gradient(155deg, rgba(255, 255, 255, .11), rgba(255, 255, 255, .025) 36%, rgba(0, 0, 0, .2)), rgba(11, 9, 20, .86);
+  border: 1px solid color-mix(in srgb, var(--mg-c) 30%, rgba(255, 255, 255, .15)); border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), inset 0 -1px 0 rgba(0, 0, 0, .35), 0 14px 34px -24px color-mix(in srgb, var(--mg-c) 55%, #000); }
+body.theme-day .m-glass, body.theme-day .kd :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-chat, .ck-log, .agd, .cwb, .cr-agent, .cr-wallet, .cr-safe, .cr-strip > span, .col-head) { background: radial-gradient(110% 85% at 100% 0, color-mix(in srgb, var(--mg-c, #15d16a) 14%, transparent), transparent 58%), linear-gradient(155deg, #fff, #f6f3ff); border-color: color-mix(in srgb, var(--mg-c, #15d16a) 28%, rgba(40, 20, 90, .16)); box-shadow: inset 0 1px 0 #fff, 0 12px 28px -22px rgba(40, 20, 90, .5); }
+.m-card { position: relative; background: linear-gradient(155deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .015) 36%, rgba(0, 0, 0, .14)), linear-gradient(180deg, var(--m-surface-2), var(--m-surface)); border: 1px solid var(--m-line); border-radius: var(--m-r); padding: 14px; color: var(--m-text); }
 .m-card.is-hot { border-color: color-mix(in srgb, var(--m-accent) 45%, var(--m-line)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 12%, transparent) inset; }
 .m-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .m-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -1254,6 +1254,15 @@ def _colony_share(cat, pos, pnl_sol, ref=None):
         print(f'[colony] share skipped: {e}')
 
 
+def _colony_money(cat, shares):
+    """🍯 One agent's colony money, four separate numbers: earned (closed real trades) · owed (accrued, not sent) · transferred (its wallet really sent it) · distributed (paid back)."""
+    mine = [x for x in shares if x.get('cat') == cat.get('id')]
+    return {'earnedSol': round(sum(max(0.0, _num(f.get('pnlSol'))) for f in cat.get('powFolders') or [] if f.get('real')), 9),
+            'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 9), 'owedCount': sum(1 for x in mine if not x.get('sent')),
+            'transferredSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent') and (x.get('gift') or x.get('state') == 'transferred')), 9),
+            'distributedSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent') and not x.get('gift') and x.get('state') != 'transferred'), 9)}
+
+
 def _colony_cfg():
     """The owner's colony record (reputation writes data/colony.json): the pool and the airdrop cadence — public parts only."""
     try:
@@ -1467,6 +1476,7 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
     try:
         own_dna_ = _poi.load(DATA_DIR, cat['id'], mind_i)
         fp_ = _poi.fingerprint(own_dna_, mind_i)
+        rp['dna'] = {'generations': fp_.get('generations'), 'states': _poi.evolution(own_dna_)['states']}
         other_dna_ = _poi.load(DATA_DIR, cat['id'], 1 - mind_i)
         inherited_ = {h for h, state in _poi.evolution(other_dna_)['states'].items() if state == 'promoted'}
     except (OSError, ValueError) as e:
@@ -1562,12 +1572,16 @@ def _pow2_collect(f, t_, who, now):
     steps_ = list(dict.fromkeys(_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []))
     _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
                                       vitals=pub_['pulls'], metrics=f['evidenceMetrics'][m_], sites=sorted((pw_.get('sites') or {}).keys()), steps=steps_, walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
+    dna_row_ = None
     if pw_.get('cat'):
         try:
-            _poi.append(DATA_DIR, pw_['cat'], int(pw_['mind']), f"{f['id']}:r{f.get('rounds') or 0}", m_, now,
+            dna_row_ = _poi.append(DATA_DIR, pw_['cat'], int(pw_['mind']), f"{f['id']}:r{f.get('rounds') or 0}", m_, now,
                         pub_['pulls'], f['evidenceMetrics'][m_], steps_, (pw_.get('sites') or {}).keys())
         except (OSError, ValueError) as e:
             print(f'[poi] Research DNA not filed: {e}')
+    f.setdefault('poiTrace', {})[m_] = {'mind': pw_.get('mind'), 'at': round(now), 'order': list(pw_.get('order') or [])[:12], 'required': list(pw_.get('required') or []), 'reused': list(pw_.get('reusedSites') or []),
+                                        'inherited': list(pw_.get('inherited') or []), 'visited': sorted((pw_.get('sites') or {}).keys()), 'walled': list(pw_.get('walled') or []),
+                                        'generation': (dna_row_ or {}).get('generation'), 'states': (pw_.get('dna') or {}).get('states') or {}}   # 🧬 how PoI shaped this round: the PoI child folder reads it (owner only, folder_public drops it)
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -3879,6 +3893,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['incognito'] = bool(p.on)
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
+    if p.op == 'honey':   # 🍯 the owner's four honey tanks
+        return {'honey': _colony_money(cat, _shares())}
     if p.op == 'share':   # 🤝 opportunity 2: its owner SIGNS to let it send pct % of each winning trade's profit to the colony wallet → the colony airdrops back
         if p.on:
             pct_ = _colony.share_pct(p.cap)
@@ -4255,7 +4271,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
-            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None,
+            'powFolder': ({**_pow.folder_public((cat.get('powRun') or {}).get('folder') or {}), 'poiTrace': ((cat.get('powRun') or {}).get('folder') or {}).get('poiTrace'), 'owner': ((cat.get('powRun') or {}).get('folder') or {}).get('owner'), 'usedBy': ((cat.get('powRun') or {}).get('folder') or {}).get('usedBy')} if (cat.get('powRun') or {}).get('folder') else None),
             **({} if p.ver and p.ver == _pow_ver(cat) else {'powVer': _pow_ver(cat), 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:40]]}),   # ⛏ the filed folders (~90 KB) only when they changed — the desk polls every 1.5 s
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 

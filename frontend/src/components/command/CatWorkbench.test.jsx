@@ -246,7 +246,7 @@ test('🖥 the private desktop: the live window minimizes to the taskbar, the Va
   await act(async () => { q('safe-yes').click(); }); expect(q('dsk-win-vault').textContent).toContain('proton.me');
   await act(async () => { q('dsk-tab-sealed').click(); }); expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('dsk-tab-sealed').textContent).toContain('1');
   await act(async () => { q('dsk-ico-pow').click(); }); expect(q('dsk-win-pow')).not.toBeNull();             // ⛏ its proofs folder
-  await act(async () => { q('dsk-ico-honey').click(); }); expect(q('dsk-honey').textContent).toContain('HONEY'); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
+  await act(async () => { q('dsk-ico-honey').click(); }); expect(q('dsk-honey').textContent).toContain('HONEY'); expect(q('honey-tanks')).not.toBeNull(); expect(q('ht-owed').textContent).toContain('OWED'); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
   await act(async () => { q('cwb-pop-close').click(); }); expect(closed).toEqual([1]);
   act(() => root.unmount());
   const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);
@@ -358,6 +358,8 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   await act(async () => { q('dsk-memory-1').click(); }); expect(memoryOps).toContain('memory_restore');
   await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
   expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
+  await act(async () => { q('dsk-x-poi').click(); }); expect(q('poi-folder')).not.toBeNull(); expect(q('pf-mind-0')).not.toBeNull();   // 🧬 exactly one PoI child folder
+  await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); });
   expect(q('dsk-pow-replay').textContent).toContain('buy AAA');
   await act(async () => { q('dsk-x-coin-M1').click(); }); expect(q('dsk-pow').textContent).toContain('BAD TRADE'); expect(document.querySelector('.dsk-tl')).not.toBeNull();
   expect(q('dsk-evidence-meter').textContent).toContain('solscan.io'); expect(q('dsk-coin-M1').textContent).toContain('CONFLICT');

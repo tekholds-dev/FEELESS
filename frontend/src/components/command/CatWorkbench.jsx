@@ -12,6 +12,8 @@ import { agentAuth, agentAuthQuery, revealMessage, shareMessage, getChatSession 
 import { svgPngBlob } from '../../lib/svgPng';
 import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice } from '../../lib/solPrice';
+import { HoneyTanks } from './HoneyTanks';
+import { PoiFolder } from './PoiFolder';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 
@@ -325,8 +327,9 @@ export function PowDots({ folders, onPick, pick }) {
 }
 export function ColonyTab({ cat }) {
   const [d, setD] = useState(null); const [w, setW] = useState(null); const [pick, setPick] = useState(null);
+  const verRef = useRef(null);   // ⚡ the filed folders only come when they changed, as on the desk
   useEffect(() => { let on = true; const load = () => { if (document.hidden) return;
-    work(cat.id, { op: 'state' }).then(j => on && setD(j)).catch(() => on && setD(x => x || {}));
+    work(cat.id, { op: 'state', ver: verRef.current }).then(j => { if (!on) return; if (j.powVer) verRef.current = j.powVer; setD(o => ({ ...j, powFolders: j.powFolders ?? o?.powFolders })); }).catch(() => on && setD(x => x || {}));
     work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(() => on && setW(x => x || {})); };
     load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, [cat.id]);
   const folders = [...[...(d?.powFolders || [])].reverse(), ...(d?.powFolder ? [{ ...d.powFolder, live: true }] : [])];
@@ -802,7 +805,7 @@ function PowExplorer({ cat, d, setD }) {
   const all = [...(d?.powFolder ? [{ ...d.powFolder, live: true }] : []), ...(d?.powFolders || [])]   // the server sends the newest first;
   const f = path[0] && path[0] !== 'old' ? all.find(x => x.id === path[0]) : null; const c = f && path[1] ? (f.coins || []).find(x => x.mint === path[1]) : null;
   const done = all.filter(x => x.pnlPct != null); const won = done.filter(x => x.pnlPct > 0).length;
-  const crumbs = [['PoW', []], ...(path[0] === 'old' ? [['Older proofs', ['old']]] : []), ...(f ? [[f.name, [f.id]]] : []), ...(c ? [[`$${c.sym}`, path]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : [])];
+  const crumbs = [['PoW', []], ...(path[0] === 'old' ? [['Older proofs', ['old']]] : []), ...(f ? [[f.name, [f.id]]] : []), ...(c ? [[`$${c.sym}`, path]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'poi' ? [['PoI', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : [])];
   let body;
   if (path[0] === 'old') body = rows?.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />;
   else if (!f) body = <>
@@ -817,6 +820,7 @@ function PowExplorer({ cat, d, setD }) {
       {rows?.length ? <Tile i={all.length} tone="none" ic="🗃" label="Older proofs" sub={`${rows.length}`} onOpen={() => setPath(['old'])} tip="The single-coin proofs filed before PoW folders" testid="dsk-x-old" /> : null}</div>
     {!all.length ? <p className="dsk-note">No PoW folders yet — type “file a PoW” in its chat.</p> : null}</>;
   else if (path[1] === 'report') body = <ReportFile f={f} catId={cat.id} />;
+  else if (path[1] === 'poi') body = <PoiFolder f={f} poi={d?.poi} onShot={setBig} />;
   else if (path[1] === 'talk') body = <ul className="dsk-fold-talk">{(f.talk || []).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul>;
   else if (c) { const g = f.pick?.mint === c.mint ? gradeOf(f) : null;
     body = <>{!f.live ? <span className="dsk-fold-acts"><button type="button" className={`m-btn${sure === c.mint ? ' is-danger' : ''}`} onClick={() => (sure === c.mint ? act('delete_coin', { text: f.id, secret: c.mint }) : setSure(c.mint))}
@@ -836,6 +840,7 @@ function PowExplorer({ cat, d, setD }) {
         {(f.coins || []).filter(x => !(f.hidden || []).includes(x.mint)).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
           return <Tile key={x.mint} i={i + 1} tone={g || (pk ? 'live' : x.safe === false ? 'bad-coin' : 'coin')} ic={g === 'good' ? '👍' : g === 'bad' ? '👎' : pk ? '⭐' : x.safe === false ? '⛔' : '🪙'} label={`$${x.sym}`}
             sub={`${SRC[x.src] || x.src} · ${(f.shots || []).filter(s => s.mint === x.mint).length} 📸`} onOpen={() => setPath([f.id, x.mint])} tip={`$${x.sym}'s folder — its vitals and snapshots`} testid={`dsk-x-coin-${x.mint}`} />; })}
+        <Tile kind="dir" i={5} tone="live" ic="🧬" label="PoI" sub={f.poiTrace ? `${Object.keys(f.poiTrace).length} traced` : 'not recorded'} onOpen={() => setPath([f.id, 'poi'])} tip="How this PoW used Proof of Intelligence: routes, evidence and each mind's DNA" testid="dsk-x-poi" />
         <Tile kind="file" i={6} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every line the minds and the engine said" testid="dsk-x-talk" /></div>
       {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
   return <div className="dsk-pow" data-testid="dsk-pow">
@@ -864,22 +869,21 @@ function PotSend({ cat }) {
 }
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function HoneyPot({ cat }) {
-  const [v, setV] = useState(null); const [m, setM] = useState(null);
-  useEffect(() => { let on = true;
+  const [v, setV] = useState(null); const [m, setM] = useState(null); const [ledger, setLedger] = useState(null); const px = useSolPrice();
+  useEffect(() => { let on = true; const load = () => { if (document.hidden) return;
     Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setV(x || {})).catch(() => on && setV({}));
     Promise.resolve().then(() => fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setM(x || {})).catch(() => on && setM({}));
-    return () => { on = false; }; }, [cat.id]);
-  const share = cat.colonyShare || {}; const left = m?.nextAirdrop ? Math.max(0, m.nextAirdrop * 1000 - Date.now()) : null;
-  const rate = v?.graded ? Math.round(100 * (v.right || 0) / v.graded) : null;
+    Promise.resolve().then(() => work(cat.id, { op: 'honey' })).then(j => on && setLedger(j?.honey || {})).catch(() => on && setLedger({})); };
+    load(); const t = setInterval(load, 30000); return () => { on = false; clearInterval(t); }; }, [cat.id]);
+  const share = cat.colonyShare || {};
   return <div className="dsk-honey" data-testid="dsk-honey">
     <Suspense fallback={<p className="dsk-note">reading the colony…</p>}><ColonyFlowLazy api={flowApi} meta={{ colonized: m?.colonized, total: m?.total }} /></Suspense>
-    <div className="dsk-honey-vitals">
-      <span className="dsk-honey-big" data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b><small>{v?.colonized ? '🐝 colonized' : 'not colonized'}</small></span>
-      <span data-tip="Graded calls it got right this epoch"><em>RIGHT</em><b className="m-num">{rate == null ? '—' : `${rate}%`}</b><u><s style={{ transform: `scaleX(${(rate || 0) / 100})` }} /></u><small>{v ? `${v.right || 0} of ${v.graded || 0}` : ''}</small></span>
-      <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b><small>of each win</small></span>
-      <span data-tip="When the colony next pays the owners who shared"><em>NEXT AIRDROP</em><b className="m-num">{left == null ? '—' : `${Math.floor(left / 3600000)}h ${String(Math.floor(left / 60000) % 60).padStart(2, '0')}m`}</b><small>{m?.cadence === 'weekly' ? 'weekly' : 'every 24 h'}</small></span>
-      <span data-tip="The colony pool (Meteora) the colony wallet opens — stake into it once it is open"><em>COLONY POOL</em><b className="m-num">{m?.pool?.address ? 'OPEN' : 'not open'}</b><small>{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'the owner opens it'}</small></span>
+    <div className="dsk-honey-top">
+      <span data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b></span>
+      <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b></span>
+      <span data-tip="The colony pool (Meteora) the colony wallet opens: stake into it once it is open"><em>COLONY POOL</em><b className="m-num">{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'not open'}</b></span>
     </div>
+    <HoneyTanks ledger={ledger} live={v} colony={m} px={px} />
     <div className="dsk-honey-ways"><b>WAYS INTO THE COLONY</b><small>Opportunity 1 · stake into the colony pool — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the colony airdrops back by what you shared.</small>
       <HiveSwitch cat={cat} /></div>
     <PotSend cat={cat} />
@@ -940,7 +944,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   useEffect(() => { if (start) openWin(start); else if (!live) openVault(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), live?.at ? 1000 : 30000); return () => clearInterval(t); }, [live?.at]);   // ⚡ one tick a second only while a live window counts down
   useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask]);
   const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
