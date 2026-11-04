@@ -62,7 +62,7 @@ def _svc(tmp_path, monkeypatch, pair):
     async def op(http, coin):
         return pair if coin.lstrip('$').upper() == 'BONK' else None
 
-    async def safe(http, p):
+    async def safe(http, p, cat=None):
         return (p.get('_rug') is None, p.get('_rug') or 'holders spread', 1.0)
 
     async def prices(http, pas):

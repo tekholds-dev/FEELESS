@@ -243,8 +243,8 @@ async def _jup_audit(http, mint):
             'authority': a.get('mintAuthorityDisabled') is False or a.get('freezeAuthorityDisabled') is False}
 
 
-async def _safety(http, p):
-    """Rug/insider gate from FEELESS on-chain intel. Returns (ok, why, conviction 0.5–1.5)."""
+async def _safety(http, p, cat=None):
+    """Rug/insider gate from FEELESS on-chain intel. Returns (ok, why, conviction 0.5–1.5). Fee's learned limits count only when `cat` is Fee."""
     mint = (p.get('baseToken') or {}).get('address')
     if not mint:
         return False, 'no mint', 0
@@ -268,7 +268,7 @@ async def _safety(http, p):
         _intel_cache[mint] = (time.time(), d)
     if not d or d.get('top10Pct') is None:
         return False, 'no holder intel yet', 0
-    R = {**RULES, **_ENTRY_TUNE}
+    R = {**RULES, **_ENTRY_TUNE} if (cat or {}).get('id') == LEADER_ID else RULES   # owner 2026-11-04: Fee's tuning stays with Fee
     snip, bund = len(d.get('sniperWallets') or []), len(d.get('bundledWallets') or [])
     checks = [(_num(d.get('top10Pct')) <= R['maxTop10Pct'], f"top 10 wallets hold {_num(d.get('top10Pct')):.0f}%"),
               (_num(d.get('insidersHoldingPct')) <= R['maxInsiderPct'], f"insiders hold {_num(d.get('insidersHoldingPct')):.0f}%"),
@@ -2453,7 +2453,7 @@ async def run_engine(store, cats):
                 break
             safety_checks += 1
             async with httpx.AsyncClient(timeout=30) as http2:
-                safe, safe_why, conviction = await _safety(http2, p)
+                safe, safe_why, conviction = await _safety(http2, p, cat)
             if not safe:
                 store.setdefault('scan', {}).setdefault('safetyRejects', []).append({'symbol': sym, 'why': safe_why})
                 store['scan']['safetyRejects'] = store['scan']['safetyRejects'][-10:]
@@ -5069,7 +5069,7 @@ async def _run_order(store, cat, text, http):
     if not ok:
         return _co.note(cat, text, order, 'refused', why, now, order['coin'])
     sym = (p.get('baseToken') or {}).get('symbol') or order['coin']
-    safe, swhy, _conv = await _safety(http, p)
+    safe, swhy, _conv = await _safety(http, p, cat)
     if not safe:
         return _co.note(cat, text, order, 'refused', f'🛡 {swhy}', now, sym)
     real = _real.is_real(cat)

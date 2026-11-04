@@ -22,6 +22,23 @@ class Http:
         return R({})
 
 
+def test_fees_learned_limits_stay_with_fee(monkeypatch):
+    monkeypatch.setitem(fs._ENTRY_TUNE, 'maxTop10Pct', 24)
+    audit = {'topHoldersPercentage': 30, 'devBalancePercentage': 1, 'mintAuthorityDisabled': True, 'freezeAuthorityDisabled': True}
+    pair = {'baseToken': {'address': 'M1'}}
+    fs._intel_cache.clear()
+    ok, why, _ = asyncio.run(fs._safety(Http(audit), pair, {'id': fs.LEADER_ID}))
+    assert not ok and 'top 10' in why                                   # Fee's own tightened limit
+    fs._intel_cache.clear()
+    assert asyncio.run(fs._safety(Http(audit), pair, {'id': 'happy'}))[0]   # another agent: the base 35%
+    fs._intel_cache.clear()
+    assert asyncio.run(fs._safety(Http(audit), pair))[0]                 # the PoW vet names no agent: the base 35%
+    fs._intel_cache.clear()
+    audit['topHoldersPercentage'] = 40
+    assert not asyncio.run(fs._safety(Http(audit), pair, {'id': 'happy'}))[0]   # the base limit still refuses
+    fs._intel_cache.clear()
+
+
 def test_fee_falls_back_to_jupiters_holder_audit_at_a_smaller_size():
     fs._intel_cache.clear()
     ok, why, conv = asyncio.run(fs._safety(Http({'topHoldersPercentage': 18, 'devBalancePercentage': 1, 'mintAuthorityDisabled': True, 'freezeAuthorityDisabled': True}), {'baseToken': {'address': 'M1'}}))
