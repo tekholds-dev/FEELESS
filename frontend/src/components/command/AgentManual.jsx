@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { KernelCard, PoiMinds } from './PoiFolder';
 import '../../styles/agentManual.css';
-import { Ic3 } from '../../lib/icon3d';
+import { Ic3, Ic3Text } from '../../lib/icon3d';
 
 // 📖 THE MANUAL (owner 2026-11-04: "eye candy, never just hella text"): drawn flows, a step-through tutorial, a trader vs general board, live limits, live fingerprints and a code map.
 // Words stay labels. Each claim here matches the engine: change the code, change this file.
@@ -29,10 +29,23 @@ const CODE = [
   ['What they remember', [['poi.py', 'Sealed fingerprints'], ['colony.py', 'Colony + honey'], ['hive.py', 'Graded calls']]],
   ['What moves money', [['agent_trade.py', 'Guards, one in flight'], ['cat_real.py', 'Proposals'], ['agent_wallet.py', 'Its own wallet']]],
 ];
-const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
+const POB_FLOW = [['💬', 'ASK', 'Any topic'], ['🌐', 'READ', 'Major sites'], ['📸', 'SNAPSHOT', 'One per site'], ['🕶', 'BLIND CALL', 'Each mind alone'], ['🤝', 'AGREE', 'Same picks only'], ['📁', 'FILE', 'You mark it right or wrong']];
+const SITE_FLOW = [['🌐', 'TYPE', 'Any site, in a folder'], ['🔓', 'SIGN IN', 'You, by hand'], ['🔎', 'SCAN', 'Terms, fees, help'], ['📖', 'MANUAL', "Its own sentences"], ['⌘', 'COMMAND', 'file a pump pow']];
+const FUND_FLOW = [['👛', 'YOUR WALLET', 'Fund the site yourself'], ['💡', 'CHEAPEST', 'One transfer, one fee'], ['📈', 'AGENTS READ', 'Signed in, read only'], ['🛒', 'THEY BUY', 'Through FEELESS']];
+const MAIL_FLOW = [['📧', 'MAKE IT', 'Mail folder, one click'], ['🔐', 'SEALED', 'Password in the Vault'], ['✍', 'SIGN UP', 'With its own email'], ['🔑', 'READ THE CODE', 'Plain text only']];
+const FACTS = {
+  sites: [['🛡', 'It never passes a bot check', 'A wall stays a wall, and the manual says NOT READ'], ['📃', 'Every line has a source', 'A model may reword a line, never add one'], ['🖼', 'Snapshots are yours', 'Signed-in pages stay private to you']],
+  fund: [['💸', 'Or ask: top up pump $1.50', 'It asks first. Yes, no, or an amount'], ['🧮', '$0.50 to $25 a send', 'From its own wallet, SOL only'], ['🔎', 'Addresses get checked', 'One read from a page needs its last 4 typed']],
+  pob: [['🏈', 'file a pob best NFL picks', 'ESPN, NFL, CBS, Action Network, Covers, Kalshi, Polymarket'], ['🎲', 'file a bid', 'Free chips on our own board, graded by its result'], ['⚖', 'It never bets for you', 'Any real bid is yours, where it is legal for you']],
+  mail: [['🧩', 'Some sites refuse free mailboxes', 'It tries Tuta or GMX, then asks you'], ['✋', 'Human checks stay human', 'CAPTCHA, phone and ID are always yours']],
+};
+const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['pob', '🎲 PoB'], ['sites', '🌐 Sites'], ['fund', '💸 Funding'], ['mail', '📧 Mail'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
 
 function Flow({ steps, tone = 'pow' }) {
   return <ol className={`am-flow is-${tone}`} data-testid={`am-flow-${tone}`}>{steps.map(([ic, l, s], i) => <li key={l} style={{ '--i': i }} data-tip={s}><i aria-hidden="true"><em><Ic3 e={ic} /></em></i><b>{l}</b><small>{s}</small>{i < steps.length - 1 ? <u aria-hidden="true"><s /></u> : null}</li>)}</ol>;
+}
+function Facts({ k }) {
+  return <ul className="am-facts" data-testid={`am-facts-${k}`}>{FACTS[k].map(([ic, t, x], i) => <li key={t} className="m-glass" style={{ '--i': i }}><Ic3 e={ic} size="44px" /><b>{t}</b><small>{x}</small></li>)}</ul>;
 }
 function Tutorial({ onCommand }) {
   const [at, setAt] = useState(0); const s = STEPS[at];
@@ -61,12 +74,16 @@ function CodeMap() {
 export function AgentManual({ d, onCommand }) {
   const [tab, setTab] = useState('tutorial');
   return <div className="am" data-testid="dsk-manual">
-    <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}>{l}</button>)}</div>
+    <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}</div>
     <div key={tab} className="am-pane">
-      {tab === 'tutorial' ? <Tutorial onCommand={onCommand} /> : null}
+      {tab === 'tutorial' ? <><button type="button" className="m-btn m-go am-replay" onClick={() => window.dispatchEvent(new Event('feeless:desk-tour'))} data-tip="Walks through the real folders on this desktop, 12 steps" data-testid="am-tour"><Ic3 e="🎓" /> Play the desktop tour</button><Tutorial onCommand={onCommand} /></> : null}
       {tab === 'kinds' ? <Kinds /> : null}
       {tab === 'pow' ? <Flow steps={POW_FLOW} /> : null}
       {tab === 'pop' ? <Flow steps={POP_FLOW} tone="pop" /> : null}
+      {tab === 'pob' ? <><Flow steps={POB_FLOW} tone="pop" /><Facts k="pob" /></> : null}
+      {tab === 'sites' ? <><Flow steps={SITE_FLOW} /><Facts k="sites" /></> : null}
+      {tab === 'fund' ? <><Flow steps={FUND_FLOW} tone="print" /><Facts k="fund" /></> : null}
+      {tab === 'mail' ? <><Flow steps={MAIL_FLOW} /><Facts k="mail" /></> : null}
       {tab === 'print' ? <><Flow steps={FP_FLOW} tone="print" /><div className="am-prints"><section><b><Ic3 e="⛏" /> PoW</b>{d?.poi?.minds ? <PoiMinds poi={d.poi} /> : <div className="am-empty">No fingerprint read.</div>}</section><section><b><Ic3 e="📉" /> PoP</b>{d?.popPoi?.minds ? <PoiMinds poi={d.popPoi} /> : <div className="am-empty">Files on its first proof.</div>}</section></div></> : null}
       {tab === 'limits' ? <LiveLimits kernel={d?.kernel} /> : null}
       {tab === 'code' ? <CodeMap /> : null}

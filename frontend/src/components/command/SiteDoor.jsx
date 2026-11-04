@@ -79,6 +79,7 @@ function Manual({ m, cat, kind, signed, busy, onScan, onOpen, onDrop, onClose, o
           : tab === 'withdraw' ? <Withdraw rows={rows} ordered={!!m.model} />
             : <ul className="sd-rules" data-testid={`sd-rows-${tab}`}>{rows.map((r, i) => <Rule key={r.q} r={r} i={i} tone={tab === 'do' ? 'do' : tab === 'dont' || tab === 'bots' ? 'dont' : 'info'} />)}</ul>}
     </div>
+    {m.state !== 'unread' ? <p className="sd-tip" data-testid="sd-fund-tip"><Ic3 e="💡" size="18px" /><span><b>Funding {m.site}:</b> it is easier and cheaper to fund your account there yourself. Its agents read it signed in and buy through FEELESS from their own wallet.</span></p> : null}
     <Loaded rows={topups} site={m.site} />
     <footer className="sd-cmd" data-testid="sd-cmd">{m.state === 'unread' ? null : signed
       ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => onFile(cmd)} data-tip={`Its windows go to ${m.site} first, signed in, and only read there`} data-testid="sd-file">“{cmd}”</button>
@@ -97,6 +98,7 @@ export function TopupCard({ cat, d, setD, work }) {
   const go = async body => { setBusy(true); setMsg(''); try { merge(await work(cat.id, { op: 'topup', ...body })); } catch (e) { setMsg(e.message); } finally { setBusy(false); } };
   const needFour = c.source === 'read' && c.address; const ready = c.address && Number(usd) > 0 && (!needFour || four.trim().length === 4);
   return <section className="tpc m-glass" aria-label={`Top up ${c.site}`} data-testid="topup-card"><header><Ic3 e="💸" size="26px" /><span><b>Top up your {c.site} account</b><small>{c.address ? 'From its own wallet, one transfer in SOL. Only on your yes.' : c.state === 'reading' ? 'Its window is looking for your deposit address.' : 'Paste your deposit address from the site.'}</small></span></header>
+    <p className="sd-tip" data-testid="topup-tip"><Ic3 e="💡" size="18px" /><span><b>Easier and cheaper:</b> fund your {c.site} wallet yourself from your own wallet. An agent send adds a second transfer and a second network fee.</span></p>
     {c.state === 'reading' ? <p className="sd-scanning" role="status" data-testid="topup-reading"><i aria-hidden="true" /><span>Reading <b>{c.site}</b>…</span></p> : null}
     {c.address ? <code className="tpc-addr m-num" data-testid="topup-address" data-tip={c.source === 'read' ? 'It read this from the page. Compare it on the site before you answer' : 'The address you gave it'}>{c.address}</code>
       : c.state !== 'reading' ? <form className="tpc-row" onSubmit={e => { e.preventDefault(); if (addr.trim()) go({ job: 'address', text: addr.trim() }); }}><input className="m-input" value={addr} onChange={e => setAddr(e.target.value)} placeholder="Its Solana deposit address" aria-label="Deposit address" spellCheck="false" data-testid="topup-paste" /><button type="submit" className="m-btn" disabled={!addr.trim() || busy} data-testid="topup-paste-go">Use it</button></form> : null}

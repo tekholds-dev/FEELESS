@@ -1,9 +1,54 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import '../../styles/deskShell.css';
 
 // 🖥 ONE DESKTOP SHELL (owner 2026-11-04: "the same as the general agent gets"): every agent's desktop and the owner's two are built from these pieces.
+
+// Apps an agent's page hands to whichever desktop opens from it (its wallet, its limits).
+export const DeskExtras = createContext([]);
+
+// 💡 A lamp over its monitors: our own take on a conic lamp, drawn in CSS. Two light cones and a bar, opacity and transform only, in its accent colour.
+export function Lamp() {
+  return <div className="lamp" aria-hidden="true"><i /><b className="lamp-bar" /></div>;
+}
+
+// 🎓 First time on a desktop: 12 steps that point at the real icons. Never opens an app or moves anything.
+const TOUR_KEY = 'feeless.dsk.tour.v1';
+export const TOUR = [
+  { t: 'Its own computer', x: 'Every tool it has is a folder here. Drag them anywhere.', e: '🖥' },
+  { at: 'perf-glass', t: 'Results at a glance', x: 'Tap this glass for the full chart of its proofs.', e: '📈' },
+  { at: 'dsk-vault', t: 'The Vault', x: 'Logins, sign-ins and recovery files, sealed for this agent.', e: '🔐' },
+  { at: 'dsk-ico-wallet', t: 'Fund it', x: 'Add SOL here. Keep site accounts funded from your own wallet: it is easier and costs less.', e: '👛' },
+  { at: 'dsk-ico-limits', t: 'Your limits', x: 'What it may spend and trade. It can only ever trade less.', e: '🎚' },
+  { at: 'dsk-ico-pow', t: 'PoW', x: 'Real research, a small real buy, a hold, a filed folder. Type a site at the top to use it first.', e: '⛏' },
+  { at: 'dsk-ico-pop', t: 'PoP', x: 'Both minds call perps blind. It runs on paper at true prices.', e: '📉' },
+  { at: 'dsk-ico-bids', t: 'PoB', x: 'Ask anything: "file a pob best NFL picks". It reads ESPN and others and keeps snapshots.', e: '🎲' },
+  { at: 'dsk-ico-sources', t: 'Sources', x: 'Every site it has used, what each was good for, and where you can sign it in.', e: '🌐' },
+  { at: 'dsk-ico-mail', t: 'Its email', x: 'Its own mailbox, so it can sign up and read its codes.', e: '📧' },
+  { at: 'dsk-ico-cmds', t: 'Commands', x: 'Everything it understands. New ones appear as you scan and sign in to sites.', e: '⌘' },
+  { at: 'dsk-ico-manual', t: 'The Manual', x: 'How each part works, with this tour one click away.', e: '📖' },
+];
+export const tourSeen = () => { try { return !!localStorage.getItem(TOUR_KEY); } catch { return true; } };
+export function DeskTour({ onDone }) {
+  const [at, setAt] = useState(0); const [box, setBox] = useState(null); const s = TOUR[at];
+  const done = useCallback(() => { try { localStorage.setItem(TOUR_KEY, '1'); } catch { /* private window */ } onDone(); }, [onDone]);
+  useEffect(() => {
+    const place = () => { const el = s.at ? document.querySelector(`[data-testid="${s.at}"]`) : null; const r = el?.getBoundingClientRect(); setBox(r && r.width ? { x: r.left - 6, y: r.top - 6, w: r.width + 12, h: r.height + 12 } : null); };
+    place(); window.addEventListener('resize', place); return () => window.removeEventListener('resize', place);
+  }, [s.at]);
+  useEffect(() => { const k = e => { if (e.key === 'Escape') { e.stopPropagation(); done(); } else if (e.key === 'ArrowRight') setAt(n => Math.min(TOUR.length - 1, n + 1)); else if (e.key === 'ArrowLeft') setAt(n => Math.max(0, n - 1)); }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [done]);
+  const W = 300; const vw = typeof window !== 'undefined' ? window.innerWidth : 1200; const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const card = box ? { left: Math.max(10, Math.min(vw - W - 10, box.x + box.w + 18 + W > vw ? box.x - W - 18 : box.x + box.w + 18)), top: Math.max(10, Math.min(vh - 250, box.y)) } : { left: Math.max(10, vw / 2 - W / 2), top: Math.max(10, vh / 2 - 120) };
+  const last = at === TOUR.length - 1;
+  return <div className="dtr" role="dialog" aria-modal="true" aria-label="Desktop tour" data-testid="desk-tour">
+    {box ? <i className="dtr-ring" style={{ width: box.w, height: box.h, transform: `translate(${box.x}px, ${box.y}px)` }} aria-hidden="true" /> : <i className="dtr-veil" aria-hidden="true" />}
+    <section key={at} className="dtr-card" style={{ ...card, width: Math.min(W, vw - 20) }}>
+      <Ic3 e={s.e} size="54px" className="dtr-ic" /><em className="m-num">{at + 1} OF {TOUR.length}</em><b>{s.t}</b><p>{s.x}</p>
+      <u className="dtr-bar" aria-hidden="true"><i style={{ transform: `scaleX(${(at + 1) / TOUR.length})` }} /></u>
+      <span className="dtr-nav"><button type="button" className="m-btn" onClick={done} data-testid="tour-skip">Skip</button><span><button type="button" className="m-btn" disabled={!at} onClick={() => setAt(at - 1)} aria-label="Back" data-testid="tour-back">←</button>
+        <button type="button" className="m-btn m-go" onClick={() => (last ? done() : setAt(at + 1))} data-testid="tour-next">{last ? 'Done' : 'Next'}</button></span></span></section></div>;
+}
 
 // 🌌 A live wall: one small shader, drawn at a third of the screen's size and 24 fps. It stops when hidden or off-screen and holds one frame under fx-lite or reduced motion.
 const MOODS = {
@@ -79,6 +124,7 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
     <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : <em><Ic3 e={ic} size="30px" /></em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
 }
 
+const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
 export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
   const drag = useRef(null);
   const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a')) return; drag.current = { x: e.clientX - s.x, y: e.clientY - s.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
@@ -89,6 +135,7 @@ export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children
         <button type="button" className="is-min" onClick={() => set(k, { min: true })} aria-label={`Minimize ${title}`} data-tip="Minimize — it waits in the taskbar" data-testid={`dsk-min-${k}`} />
         <button type="button" className="is-max" onClick={() => set(k, { max: !s.max })} aria-label={s.max ? 'Restore' : 'Maximize'} data-tip={s.max ? 'Restore' : 'Maximize'} /></span>
       <b><Ic3Text text={title} /></b><span className="dsk-tools">{tools}</span></header>
+    <i className="dsk-water" aria-hidden="true"><Ic3 e={leadOf(title)} size="100%" /></i>
     <div className="dsk-body">{children}</div></section>;
 }
 

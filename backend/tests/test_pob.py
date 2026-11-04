@@ -68,3 +68,27 @@ def test_the_board_stake_never_earns_points_and_stays_chips():
     repm.stake(st, 'agent:c', m['id'], 'yes', pob.STAKE, now, 50)
     assert repm.bank(st, 'agent:c', now)['chips'] == repm.CHIPS_WEEK - pob.STAKE
     assert repm.view(m, now, 'agent:c')['mine']['chips'] == pob.STAKE
+
+
+
+def test_topic_words():
+    from pob import topic_of, sites_for
+    assert topic_of('file a pob best choices for nfl bidding') == 'best choices for nfl bidding'
+    assert topic_of('file a nfl bid') == 'nfl'
+    assert topic_of('file a bid on who wins the election?') == 'who wins the election'
+    assert topic_of('file a bid') is None and topic_of('file a pob') is None and topic_of('what is a bid') is None
+    assert 'espn.com' in sites_for('nfl') and 'kalshi.com' in sites_for('nfl') and 'apnews.com' in sites_for('election') and 'reuters.com' in sites_for('weather')
+
+
+def test_picks_are_parsed_and_only_real_overlap_counts():
+    from pob import parse_picks, agreed
+    a = parse_picks('{"picks":[{"pick":"Chiefs -3","confidence":70,"why":"espn"},{"pick":"Over 44","confidence":250,"why":"x"}]}')
+    b = parse_picks('{"picks":[{"pick":"chiefs -3","confidence":60,"why":"covers"}]}')
+    assert a['picks'][1]['confidence'] == 100 and agreed([a, b]) == ['Chiefs -3'] and agreed([a]) == []
+    assert parse_picks('no json') == {'picks': [], 'pass': 'no usable answer'}
+
+
+def test_a_topic_report_says_nothing_was_staked_and_the_owner_marks_it():
+    from pob import report
+    r = report({'status': 'closed', 'topic': 'nfl', 'agreed': ['a']})
+    assert r['grade'] == 'RESEARCH' and 'No chips staked' in r['lesson'] and report({'status': 'closed', 'topic': 'nfl', 'graded': 'right'})['grade'] == 'GOOD CALL'

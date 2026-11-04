@@ -515,6 +515,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
+            if task.get('keepShots') and act in ('open', 'click'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
+                h_ = _pow.host_of(page.url); rows_ = w.setdefault('_shots', [])
+                if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_):
+                    jpg_ = await page.shot()
+                    if jpg_:
+                        rows_.append({'site': h_, 'url': str(page.url)[:200], 'title': str(page.title or '')[:90], 'jpg': jpg_, 'at': round(time.time())})
             if pw and act == 'open':
                 seen = await _pow_find(w, pw, page) or seen   # a site the model opened itself (CoinMarketCap…): its search gets the CA
             if pw and act in ('open', 'click'):

@@ -6868,3 +6868,4 @@ NOTE: merging into main LOCALLY never restarts the backend — after a backend p
 | Q26 | OPEN | Pools one stop: AutoRange + price gaps; Night Vault moves into Pools for Family and Launch. | CLOSED: Launch › Pools has AutoRange, Night Vault and Price gaps in one place (LaunchModes).
 - 2026-11-04 · Site door + manuals in PoW/PoP/Bids (`site_scan.py`, `SiteDoor.jsx`), `file a <site> pow|pop|bid`, Wallet watch folders with a chain check, `build a project` (static files, .zip, sandboxed preview), Trench report cut to short rows.
 - 2026-11-04 · Owner's two desktops (`DeskShell.jsx`, `ShaderWall`), performance glass and chart, live Colony wall with bees, top-ups that ask first (`agent_topup.py`), 3dicons site-wide (`lib/icon3d.jsx`, `lib/lucide3d.jsx`, folder shapes kept).
+- 2026-11-04 · Wallet + Limits on the desktop, 12-step tour, lamp, live backdrops, Manual sections, PoB by topic with snapshots (`pob.py`, `keepShots`), self-funding advice.

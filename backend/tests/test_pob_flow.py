@@ -146,3 +146,26 @@ def test_pop_reads_sites_then_each_mind_gets_its_own_note(fs, monkeypatch):
         assert 'saw +4%' in seen[0] and 'saw +5%' not in seen[0] and 'popRead' not in cat
         assert cat['popRun']['browsed']['1']['note'] == 'saw +5%' and cat['popRun']['paper'] is True
     asyncio.run(run_())
+
+
+
+def test_a_topic_pob_reads_keeps_snapshots_calls_blind_and_stakes_nothing(fs, monkeypatch, tmp_path):
+    monkeypatch.setattr(fs, 'POWSHOTS_DIR', tmp_path)
+    asks = []
+
+    async def ask(cat, i, sys_, user_, n, box):
+        asks.append((i, user_)); box['cost'] += 0.001
+        return '{"picks":[{"pick":"Chiefs -3","confidence":70,"why":"espn 3.5"}]}'
+
+    async def stake(*a, **k):
+        raise AssertionError('a topic PoB never stakes')
+    monkeypatch.setattr(fs, '_pow2_ask', ask); monkeypatch.setattr(fs, '_pob_rep', stake)
+    cat = {'id': 'c1', 'chat': [], 'proofHosts': ['espn.com'], 'brainsCfg': {'brains': ['m/a', 'm/b']}}
+    fs._WORK['c1'] = {'task': {'windows': [{'i': 0, '_shots': [{'site': 'espn.com', 'url': 'u', 'title': 't', 'jpg': b'J', 'at': 1}]}, {'i': 1}]}}
+    notes = {'0': {'sites': ['espn.com'], 'note': 'Chiefs -3 on espn', 'cost': 0.01}, '1': {'sites': ['covers.com'], 'note': 'Chiefs -3 on covers', 'cost': 0.01}}
+    asyncio.run(fs._pob_topic_file(cat, {'topic': 'best nfl picks', 'sites': ['espn.com'], 'who': ''}, 100.0, notes, ''))
+    f = cat['pobFolders'][-1]
+    assert f['topic'] == 'best nfl picks' and f['agreed'] == ['Chiefs -3'] and f['status'] == 'closed' and 'chips' not in f and 'proofHosts' not in cat
+    assert f['shots'][0]['site'] == 'espn.com' and (tmp_path / 'pob100' / 'm0_0.jpg').read_bytes() == b'J'
+    assert 'Chiefs -3 on covers' not in asks[0][1] and 'Chiefs -3 on espn' not in asks[1][1]   # blind
+    json.dumps(f)

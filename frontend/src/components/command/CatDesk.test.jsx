@@ -27,14 +27,16 @@ test('🤖 the desk renders an agent HOLDING coins (the old page crashed on a de
   expect(el.querySelector('[data-testid="kd-dl"]').getAttribute('aria-label')).toContain(CAT.name);   // ⬇ its picture as a PNG
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('kd-state').textContent).toContain('HOLDING 2'); expect(el.textContent).toContain('$MOON'); expect(el.textContent).toContain('+12.5%'); expect(el.textContent).toContain('-20.0%');
-  act(() => q('kd-tab-wallet').click());   // every owner desk is tabbed: its numbers live under 👛 WALLET
-  expect(el.textContent).toContain('0.400 / 0.5 SOL'); expect(q('feed')).not.toBeNull();
+  const dq = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('kd-open-desktop').click(); });   // its wallet + limits live on its desktop
+  await act(async () => { dq('dsk-ico-wallet').click(); });
+  expect(dq('dsk-win-wallet').textContent).toContain('0.400 / 0.5 SOL'); expect(dq('feed')).not.toBeNull();
   expect(el.querySelector('.g-crown')).not.toBeNull();                                                   // its built look, drawn
-  act(() => q('kd-pos-0').click()); expect(room.mock.calls[0][0].detail).toMatchObject({ pairAddress: 'P1', baseToken: { symbol: 'MOON' } });
+  act(() => dq('kd-pos-0').click()); expect(room.mock.calls[0][0].detail).toMatchObject({ pairAddress: 'P1', baseToken: { symbol: 'MOON' } });
   act(() => q('kd-stop').click()); expect(onAct).toHaveBeenLastCalledWith('stop');
   act(() => q('kd-run').click()); expect(onAct).toHaveBeenLastCalledWith('run');
-  act(() => q('kd-tab-limits').click());
-  act(() => q('kd-save').click()); expect(onAct.mock.calls.at(-1)[0]).toBe('controls'); expect(onAct.mock.calls.at(-1)[1]).toMatchObject({ maxPositionSol: 0.25, blocklist: 'SCAM' });
+  await act(async () => { dq('dsk-ico-limits').click(); });
+  act(() => dq('kd-save').click()); expect(onAct.mock.calls.at(-1)[0]).toBe('controls'); expect(onAct.mock.calls.at(-1)[1]).toMatchObject({ maxPositionSol: 0.25, blocklist: 'SCAM' });
   await act(async () => { root.render(<CatDesk cat={{ ...CAT, status: 'stopped', positions: [] }} onBack={() => {}} onAct={onAct} />); });
   expect(q('kd-state').textContent).toContain('STOPPED'); act(() => q('kd-start').click()); expect(onAct).toHaveBeenLastCalledWith('start');
   window.removeEventListener('feeless:war-room', room); act(() => root.unmount());
@@ -60,9 +62,11 @@ test('💵 a general agent with a wallet shows its real wallet, credit and coins
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('kd-real-tiles')).toBeNull(); expect(q('kd-tab-desk').getAttribute('aria-selected')).toBe('true');   // 🖥 the Desk tab is one screen: windows + chat
-  await act(async () => { q('kd-tab-wallet').click(); });
-  expect(q('kd-real-tiles').textContent).toContain('0.0266 SOL'); expect(q('kd-real-tiles').textContent).toContain('$12.50');
-  expect(q('kd-real-holds').textContent).toContain('$JUP'); expect(q('kd-wallet').textContent).toContain('ITS WALLET'); expect(q('kd-curve')).toBeNull(); expect(el.textContent).not.toContain('PAPER WALLET');
+  const dq = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('kd-open-desktop').click(); });
+  await act(async () => { dq('dsk-ico-wallet').click(); });
+  expect(dq('kd-real-tiles').textContent).toContain('0.0266 SOL'); expect(dq('kd-real-tiles').textContent).toContain('$12.50');
+  expect(dq('kd-real-holds').textContent).toContain('$JUP'); expect(q('kd-wallet').textContent).toContain('ITS WALLET'); expect(dq('kd-curve')).toBeNull(); expect(el.textContent).not.toContain('PAPER WALLET');
   act(() => root.unmount());
 });
 

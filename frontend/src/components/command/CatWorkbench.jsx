@@ -18,7 +18,7 @@ import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
 import { MailApp, SiteDoor, SignInFrame, TopupCard, WatchFolders } from './SiteDoor';
-import { DeskIcon, DeskWin, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor } from './DeskShell';
+import { DeskExtras, DeskIcon, DeskTour, DeskWin, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -945,7 +945,22 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
 // 🎲 THE BIDS FOLDER (owner 2026-11-04): a starting dash like PoW, then the free-chip board and the USA real-money links, each its own folder.
 // 🎲 THE PoB FOLDERS: each mind's call and what it read in its own browser, graded by the market's recorded result
 const pobTone = x => (x.status !== 'closed' ? 'live' : x.won ? 'good' : x.won === false ? 'bad' : 'none');
-function PobFolder({ f }) {
+function PobTopic({ f, catId, onMark }) {
+  const r = f.report; const [big, setBig] = useState(null); const agreed = new Set((f.agreed || []).map(x => x.toLowerCase()));
+  return <div className="pob pbt" data-testid="pob-topic">
+    <header className="pbt-head m-glass m-live"><Ic3 e="🎲" size="38px" /><span><em className="m-num">{r?.grade || 'RESEARCH'}</em><b>{f.topic}</b><small>{(f.shots || []).length} snapshots · {(f.sites || []).length} sites{f.cost ? ` · $${Number(f.cost).toFixed(4)}` : ''}</small></span>
+      {f.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={f.graded === k ? 'active' : ''} aria-pressed={f.graded === k} onClick={() => onMark(f.id, f.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}</header>
+    {r ? <p className="dsk-note">{r.lesson}</p> : null}{f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}
+    {(f.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{f.agreed.map((x, i) => <li key={x} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{x}</b><small>both minds, blind</small></li>)}</ul> : null}
+    <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
+      {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
+      <Browsed b={f.browsed?.[c.mind]} /></section>)}</div>
+    {(f.shots || []).length ? <div className="pbt-shots" data-testid="pbt-shots">{f.shots.map((x, i) => <button key={x.file} type="button" style={{ '--i': i }} onClick={() => setBig(x)} data-tip={`${x.site}: open it big`} data-testid={`pbt-shot-${i}`}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${x.file}`)} alt={`${x.site} when it read it`} loading="lazy" /><span><b>{x.site}</b><small>mind {x.mind === 0 ? 'A' : 'B'}</small></span></button>)}</div> : <p className="dsk-note">No snapshots were kept.</p>}
+    {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={apiUrl(`/api/cats/${catId}/powshot/${f.id}/${big.file}`)} alt={big.site} /></div> : null}
+    <p className="dsk-note">It never bets. Any real bid is yours, on a site where it is legal for you.</p></div>;
+}
+function PobFolder({ f, catId, onMark }) {
+  if (f.topic) return <PobTopic f={f} catId={catId} onMark={onMark} />;
   const r = f.report; const tone = pobTone(f);
   return <div className="pob" data-testid="pob-folder">
     <div className={`dsk-trade is-${tone === 'live' ? 'open' : tone}`}><b>{r?.grade || '● OPEN'}{f.side ? ` · ${String(f.side).toUpperCase()}` : ''}</b><small className="m-num">{f.q || f.why || ''}{f.chips ? ` · ${f.chips} free chips` : ''}</small></div>
@@ -953,26 +968,29 @@ function PobFolder({ f }) {
     {f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'} · {c.side ? String(c.side).toUpperCase() : 'NO BID'}</b><small className="pob-why">{c.why || 'No reason given.'}</small><Browsed b={f.browsed?.[c.mind]} /></section>)}</div></div>;
 }
-function PobShelf({ d, open, setOpen }) {
+function PobShelf({ d, open, setOpen, catId, onMark }) {
   const rows = [...(d?.pobRun ? [d.pobRun] : []), ...(d?.pobFolders || [])]; const f = rows.find(x => x.id === open);
-  if (f) return <PobFolder f={f} />;
+  if (f) return <PobFolder f={f} catId={catId} onMark={onMark} />;
   if (!rows.length) return <p className="dsk-note">No PoB filed yet. Press File a bid.</p>;
-  return <div className="dsk-xgrid" data-testid="pob-shelf">{rows.map((x, i) => <Tile key={x.id} i={i} tone={pobTone(x)} ic="🎲" label={`PoB #${x.n || i + 1}`} sub={x.report?.grade || 'open'} onOpen={() => setOpen(x.id)} tip={x.q || x.why || 'Open this proof'} testid={`pob-${x.id}`} />)}</div>;
+  return <div className="dsk-xgrid" data-testid="pob-shelf">{rows.map((x, i) => <Tile key={x.id} i={i} tone={pobTone(x)} ic="🎲" label={`PoB #${x.n || i + 1}`} sub={x.topic ? String(x.topic).slice(0, 20) : x.report?.grade || 'open'} onOpen={() => setOpen(x.id)} tip={x.topic || x.q || x.why || 'Open this proof'} testid={`pob-${x.id}`} />)}</div>;
 }
 function BidsApp({ cat, d, setD }) {
   const { wallet } = useWallet() || {}; const address = wallet?.address; const [path, setPath] = useState(''); const [m, setM] = useState(null); const [open, setOpen] = useState(''); const [err, setErr] = useState('');
   useEffect(() => { let on = true; const load = () => { if (!document.hidden) work(cat.id, { op: 'state' }).then(j => on && setD?.(x => ({ ...x, pobRead: j.pobRead, pobRun: j.pobRun, pobFolders: j.pobFolders }))).catch(() => {}); };
     load(); const t = setInterval(load, 5000); return () => { on = false; clearInterval(t); }; }, [cat.id, setD]);
   const busy = !!d?.pobRead || !!d?.pobRun;
-  const file = () => { setErr(''); work(cat.id, { op: 'pob' }).then(() => setD?.(x => ({ ...x, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
+  const [ask, setAsk] = useState('');
+  const mark = (id, job) => work(cat.id, { op: 'pob_folder', text: id, job }).then(j => setD?.(x => ({ ...x, pobFolders: j.pobFolders }))).catch(e => setErr(e.message));
+  const file = () => { setErr(''); const text = ask.trim(); work(cat.id, { op: 'pob', ...(text ? { text } : {}) }).then(() => setAsk('')).then(() => setD?.(x => ({ ...x, pobRead: { at: Date.now() / 1000 } }))).catch(e => setErr(e.message)); };
   useEffect(() => { let on = true; const load = () => { if (!document.hidden && !path) Promise.resolve().then(() => fetch(apiUrl(`/api/reputation/rep-markets${address ? `?address=${address}` : ''}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setM(x)).catch(() => {}); };
     load(); const t = setInterval(load, 15000); return () => { on = false; clearInterval(t); }; }, [address, path]);
   const live = (m?.live || []).filter(x => x.kind === 'agent'); const settled = (m?.settled || []).filter(x => x.kind === 'agent');
   const label = { live: 'Live board', settled: 'Settled', sites: 'Real money · USA', pob: 'Its proofs' }[path];
   return <div className="dsk-pow bd" data-testid="dsk-bids">
     {path ? <p className="dsk-path dsk-xpath"><button type="button" className="m-btn" onClick={() => (open && path === 'pob' ? setOpen('') : setPath(''))} aria-label="Up one folder" data-tip="Up one folder">↑</button><span><button type="button" onClick={() => setPath('')}>Bids</button></span><span><i>›</i><button type="button" disabled>{label}</button></span></p> : null}
-    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
-      <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : 'Each mind reads sites in its own browser, then calls a market. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
+    <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path === 'pob' ? <PobShelf d={d} open={open} setOpen={setOpen} catId={cat.id} onMark={mark} /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
+      <header className="bd-head m-glass m-live"><span><b><Ic3 e="🎲" /> BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : ask.trim() ? 'Each mind reads major sites, keeps snapshots and calls it blind. Nothing is staked' : 'Each mind reads sites, then calls a market on our board. If they agree, it bids 50 free chips'} data-testid="pob-file"><Ic3 e="🎲" /> File a bid</button></header>
+      <input className="m-input pbt-ask" value={ask} onChange={e => setAsk(e.target.value)} placeholder="What to research: best NFL picks this week, or leave empty for our free-chip board" aria-label="What to research" data-tip="Paid model calls" data-testid="pob-topic-input" />
       {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
       {err ? <p className="dsk-note" role="alert">{err}</p> : null}
       <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
@@ -1048,8 +1066,11 @@ export function clearOfIcons(win, icons, width) {
 const ICON_TIP = { mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
-export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra = [], mood = 'agent', glassOver = null }) {
-  const apps = [...ICONS, ...extra.map(a => [a.k, a.ic, a.label])];
+export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
+  const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
+  const extra = [...pageApps.filter(a => a.k !== 'wallet'), ...extraProp]; const apps = [...ICONS, ...extra.map(a => [a.k, a.ic, a.label])];
+  const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
+  useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
     pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight, extra.map(a => a.k)); });
@@ -1059,9 +1080,9 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  useEffect(() => { if (start) openWin(start); else if (!live) openVault(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (start && start !== 'none') openWin(start); else if (!live && !start && !tour) openVault(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), live?.at ? 1000 : 30000); return () => clearInterval(t); }, [live?.at]);   // ⚡ one tick a second only while a live window counts down
-  useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask]);
+  useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour]);
   const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
     sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
@@ -1090,12 +1111,13 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
       <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
+    {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
   </div>, document.body);
 }

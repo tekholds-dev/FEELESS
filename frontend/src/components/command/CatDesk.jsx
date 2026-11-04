@@ -16,7 +16,9 @@ import { catByName } from './catCoats';
 import { openWarRoom } from '../WarRoomHost';
 import '../../styles/catDesk.css';
 import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared with Fee's models
-import { Ic3 } from '../../lib/icon3d';
+import { Ic3, Ic3Text } from '../../lib/icon3d';
+import { AgentDesktop } from './CatWorkbench';
+import { DeskExtras, Lamp, ShaderWall } from './DeskShell';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -162,10 +164,67 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
   const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
   // 🖥 EVERY owner desk is tabbed (owner 2026-10-31: "Fee's desk is all scroll, not organized like Happy's")
-  const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk');   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
+  const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk'); const [deskAt, setDeskAt] = useState(null);   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
   const on = k => !tabbed || tab === k;
   const theater = useRef(null); useTheater(theater, visitor);
-  return <section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
+  const tiles = gen && !visitor ? <div className="kd-tiles" data-testid="kd-real-tiles">
+      <Tile k={0} label="IN ITS WALLET" value={`${bal.sol == null ? '…' : Number(bal.sol).toFixed(4)} SOL`} sub={`${bal.usdc == null ? '…' : Number(bal.usdc).toFixed(2)} USDC`} tip={aw ? 'Live from the chain, every 20 seconds' : 'Make its wallet to fund it'} />
+      <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
+      <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
+      <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
+      <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub={cat.rentSweep?.backSol ? `♻ +${cat.rentSweep.backSol.toFixed(4)} SOL rent back` : 'in its wallet'} tip="Coins it really bought and still holds. Rent back: SOL returned when it closed the empty accounts of coins it sold" />
+    </div> : gen ? null : <div className="kd-tiles">
+      <Tile k={0} label="BALANCE" value={`${v.bal.toFixed(3)} SOL`} fill={v.bal / (v.start * 1.5)} sub={`started ${v.start} SOL`} tip="Its paper balance against what it started with" />
+      <Tile k={1} label="REALIZED" value={`${sol(v.real)} SOL`} tone={v.real > 0 ? 'up' : v.real < 0 ? 'dn' : ''} sub="price moves · fees apart" tip="Closed trades only — P&L never includes fees" />
+      <div className="kd-tile kd-ring" style={{ '--i': 2 }} data-tip={`${cat.wins || 0} won · ${cat.losses || 0} lost`}><svg viewBox="0 0 56 56" aria-hidden="true"><circle className="t" cx="28" cy="28" r="24" />
+        <circle className="a" cx="28" cy="28" r="24" strokeDasharray={`${(((v.wr || 0) / 100) * RC).toFixed(1)} ${RC.toFixed(1)}`} /></svg><span><em>WIN RATE</em><b className="m-num">{v.wr == null ? '—' : `${v.wr}%`}</b><small>{v.closed} closed</small></span></div>
+      <Tile k={3} label="SLOTS" value={`${v.open}/${v.slots}`} tip="Open paper positions out of the most it may hold"><span className="kd-slots">{Array.from({ length: v.slots }, (_, i) => <i key={i} className={i < v.open ? 'on' : ''} />)}</span></Tile>
+      <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
+        sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
+    </div>;
+  const mainPane = <div className="kd-main">
+        {Real}
+        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b><Ic3 e="📈" /> P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
+            <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
+          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>}
+        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
+          {realCoins.length ? <ul className="kd-pos">{realCoins.map(([mint, c], i) => <li key={mint} style={{ '--i': i }}><button type="button" onClick={() => c.pair && openWarRoom({ chainId: 'solana', pairAddress: c.pair, baseToken: { address: mint, symbol: c.symbol } })} data-tip="Open its war room"><b>${c.symbol}</b><small>in its wallet</small></button></li>)}</ul>
+            : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
+          {v.open ? <ul className="kd-pos">{cat.positions.map((p, i) => { const ch = Number(p.currentChange) || 0; const held = p.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - p.openedAt) / 60)) : null;
+            return <li key={p.pairAddress || p.mint || i} style={{ '--i': i }}><button type="button" onClick={() => p.pairAddress && openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress, baseToken: { address: p.mint, symbol: p.symbol } })}
+              data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
+              <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
+            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
+        {canEdit && !gen && !cat.isLeader && !tabbed ? <EarnCard cat={cat} /> : null}
+        {Brains}
+        {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b><Ic3 e="📚" /> WHAT IT LEARNED</b><small>from its own exits</small></header>
+          <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>
+          {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
+        {Activity}
+      </div>;
+  const sidePane = runs ? <aside className="kd-side">
+        {cat.brainsCfg?.kind === 'general' ? <SpendLimits cat={cat} busy={busy} onAct={onAct} /> : null}
+        <section className="kd-card kd-limits"><header><b><Ic3 e="🎚" /> {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
+          <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
+            {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <LimitRow key={k} k={k} label={l} lo={lo} hi={hi} st={st} unit="SOL" value={lim[k]} set={x => setLim(o => ({ ...o, [k]: x }))}
+              note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance`} />)}
+            <label className="kd-list"><em>ONLY THESE COINS</em><input className="m-input" value={lim.allowlist} onChange={e => setLim(x => ({ ...x, allowlist: e.target.value }))} placeholder="any coin when empty" /></label>
+            <label className="kd-list"><em>NEVER THESE</em><input className="m-input" value={lim.blocklist} onChange={e => setLim(x => ({ ...x, blocklist: e.target.value }))} placeholder="none blocked" /></label>
+            <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-save">Save limits</button></form></section>
+        {cat.agentWallet ? null : <section className="kd-card kd-wd"><header><b>⏏ WITHDRAW</b><small>paper ledger only</small></header>
+          <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
+            <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>}
+        <section className="kd-card kd-revoke"><header><b><Ic3 e="🔒" /> RETIRE IT</b><small>stops it for good · frees a slot</small></header>
+          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
+          {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
+        {cat.brainsCfg ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}
+        <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
+          {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
+      </aside> : null;
+  // 🖥 owner 2026-11-04: its wallet and limits live on its desktop, so the desk stays the monitors and the chat
+  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin">{tiles}{mainPane}</div> }, ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
+  return <DeskExtras.Provider value={deskApps}><section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />{skin.bg === 'night' ? <div className="kd-wall" aria-hidden="true"><ShaderWall mood={cat.isLeader ? 'fee' : 'agent'} /></div> : null}
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     {visitor ? null : <>   {/* 👀 a visitor sees only the monitors + its proofs (owner 2026-10-31: "nothing on screen but the monitors") */}
       <header className="kd-hero">
@@ -189,68 +248,14 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         </div>
       </header>
     </>}
-    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['colony', '🐝 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
-      <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}>{l}</button>)}</nav> : null}
+    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '🐝 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
+      <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" onClick={() => setDeskAt('none')} data-tip="Its wallet, limits, proofs, mail and everything else" data-testid="kd-open-desktop"><Ic3 e="🖥" /> DESKTOP</button></nav> : null}
+    {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
-    {gen && !visitor && on('wallet') ? <div className="kd-tiles" data-testid="kd-real-tiles">
-      <Tile k={0} label="IN ITS WALLET" value={`${bal.sol == null ? '…' : Number(bal.sol).toFixed(4)} SOL`} sub={`${bal.usdc == null ? '…' : Number(bal.usdc).toFixed(2)} USDC`} tip={aw ? 'Live from the chain, every 20 seconds' : 'Make its wallet to fund it'} />
-      <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
-      <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
-      <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
-      <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub={cat.rentSweep?.backSol ? `♻ +${cat.rentSweep.backSol.toFixed(4)} SOL rent back` : 'in its wallet'} tip="Coins it really bought and still holds. Rent back: SOL returned when it closed the empty accounts of coins it sold" />
-    </div> : gen || !on('wallet') ? null : <div className="kd-tiles">
-      <Tile k={0} label="BALANCE" value={`${v.bal.toFixed(3)} SOL`} fill={v.bal / (v.start * 1.5)} sub={`started ${v.start} SOL`} tip="Its paper balance against what it started with" />
-      <Tile k={1} label="REALIZED" value={`${sol(v.real)} SOL`} tone={v.real > 0 ? 'up' : v.real < 0 ? 'dn' : ''} sub="price moves · fees apart" tip="Closed trades only — P&L never includes fees" />
-      <div className="kd-tile kd-ring" style={{ '--i': 2 }} data-tip={`${cat.wins || 0} won · ${cat.losses || 0} lost`}><svg viewBox="0 0 56 56" aria-hidden="true"><circle className="t" cx="28" cy="28" r="24" />
-        <circle className="a" cx="28" cy="28" r="24" strokeDasharray={`${(((v.wr || 0) / 100) * RC).toFixed(1)} ${RC.toFixed(1)}`} /></svg><span><em>WIN RATE</em><b className="m-num">{v.wr == null ? '—' : `${v.wr}%`}</b><small>{v.closed} closed</small></span></div>
-      <Tile k={3} label="SLOTS" value={`${v.open}/${v.slots}`} tip="Open paper positions out of the most it may hold"><span className="kd-slots">{Array.from({ length: v.slots }, (_, i) => <i key={i} className={i < v.open ? 'on' : ''} />)}</span></Tile>
-      <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
-        sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
-    </div>}
-    {!on('desk') ? null : cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}
+    {tabbed ? null : tiles}
+    {!on('desk') ? null : <div className="kd-lit"><Lamp />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
-    {visitor || (tabbed && (tab === 'desk' || tab === 'colony')) ? null : <div className={`kd-grid${runs && !tabbed ? '' : ' is-solo'}`}>
-      {on('wallet') ? <div className="kd-main">
-        {Real}
-        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b><Ic3 e="📈" /> P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
-            <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
-          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>}
-        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
-          {realCoins.length ? <ul className="kd-pos">{realCoins.map(([mint, c], i) => <li key={mint} style={{ '--i': i }}><button type="button" onClick={() => c.pair && openWarRoom({ chainId: 'solana', pairAddress: c.pair, baseToken: { address: mint, symbol: c.symbol } })} data-tip="Open its war room"><b>${c.symbol}</b><small>in its wallet</small></button></li>)}</ul>
-            : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
-          {v.open ? <ul className="kd-pos">{cat.positions.map((p, i) => { const ch = Number(p.currentChange) || 0; const held = p.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - p.openedAt) / 60)) : null;
-            return <li key={p.pairAddress || p.mint || i} style={{ '--i': i }}><button type="button" onClick={() => p.pairAddress && openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress, baseToken: { address: p.mint, symbol: p.symbol } })}
-              data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
-              <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
-            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
-        {canEdit && !gen && !cat.isLeader && !tabbed ? <EarnCard cat={cat} /> : null}
-        {Brains}
-        {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b><Ic3 e="📚" /> WHAT IT LEARNED</b><small>from its own exits</small></header>
-          <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>
-          {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
-        {Activity}
-      </div> : null}
-      {runs && on('limits') ? <aside className="kd-side">
-        {cat.brainsCfg?.kind === 'general' ? <SpendLimits cat={cat} busy={busy} onAct={onAct} /> : null}
-        <section className="kd-card kd-limits"><header><b><Ic3 e="🎚" /> {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
-          <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
-            {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <LimitRow key={k} k={k} label={l} lo={lo} hi={hi} st={st} unit="SOL" value={lim[k]} set={x => setLim(o => ({ ...o, [k]: x }))}
-              note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance`} />)}
-            <label className="kd-list"><em>ONLY THESE COINS</em><input className="m-input" value={lim.allowlist} onChange={e => setLim(x => ({ ...x, allowlist: e.target.value }))} placeholder="any coin when empty" /></label>
-            <label className="kd-list"><em>NEVER THESE</em><input className="m-input" value={lim.blocklist} onChange={e => setLim(x => ({ ...x, blocklist: e.target.value }))} placeholder="none blocked" /></label>
-            <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-save">Save limits</button></form></section>
-        {cat.agentWallet ? null : <section className="kd-card kd-wd"><header><b>⏏ WITHDRAW</b><small>paper ledger only</small></header>
-          <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
-            <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>}
-        <section className="kd-card kd-revoke"><header><b><Ic3 e="🔒" /> RETIRE IT</b><small>stops it for good · frees a slot</small></header>
-          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
-          {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
-        {cat.brainsCfg ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}
-        <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
-          {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
-      </aside> : null}
-    </div>}
+    {visitor || tabbed ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
     {Tools}
-  </section>;
+  </section></DeskExtras.Provider>;
 }

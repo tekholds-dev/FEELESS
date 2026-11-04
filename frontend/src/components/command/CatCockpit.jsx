@@ -1,3 +1,4 @@
+import { ShaderWall } from './DeskShell';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStickToBottom } from '../../lib/useStickToBottom';
 import { createPortal } from 'react-dom';
@@ -10,7 +11,7 @@ import { Ic3 } from '../../lib/icon3d';
 // with folders… bg options that are clean + calming, pick the card colour instead of purple"). Under the two live windows:
 //   [ MIND A vitals ] [ the chat: bubbles, A left · B right · you ] [ MIND B vitals ]  →  📁 the log, one folder per kind of thing it did.
 // Desk skins = the owner's real nature clips (Earth · creek · forest) or plain Night; they stop under fx-lite / reduced motion.
-export const SCENES = [['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
+export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '🐝', 'Live hive'], ['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
 export const ACCENTS = ['#b388ff', '#9dffcf', '#45e486', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
@@ -46,9 +47,11 @@ function SceneVideo({ bg, onFail }) {
   }, [bg]);
   return <video ref={ref} className="ckb-video" src={`/backdrops/${bg}.mp4`} muted loop playsInline preload="metadata" onError={onFail} aria-hidden="true" data-testid="desk-video" />;
 }
+const LIVE_WALLS = { aurora: 'agent', violet: 'fee', hive: 'colony' };   // 🌌 the desktop's own live walls, as desk backdrops
 export function DeskBackdrop({ bg }) {
   const [fail, setFail] = useState(false);
   useEffect(() => setFail(false), [bg]);
+  if (LIVE_WALLS[bg]) return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><ShaderWall mood={LIVE_WALLS[bg]} /></div></div>;
   if (!VIDEO[bg] || fail) return <i className="ckb ckb-night" aria-hidden="true" />;
   return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div></div>;
 }
