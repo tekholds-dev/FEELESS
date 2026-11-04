@@ -71,7 +71,8 @@ def links(p):
     fresh = [u for u in every if host_of(u) not in used]
     if len(fresh) < 3:   # 🎲 owner 2026-11-02 ("not just rug checker"): top up from the OTHER unused sites, never a used one while any is left
         rest = [u for u in _all_links(p) if host_of(u) not in used and u not in fresh]; random.shuffle(rest); fresh += rest
-    return fresh   # all 11 used: stop this route; never silently cycle back
+    own = p.get('ownerSite')   # 🔎 "file a pump pow": the owner's scanned, signed-in site opens first
+    return ([own] if own and host_of(own) not in used else []) + fresh   # all 11 used: stop this route; never silently cycle back
 
 
 def _all_links(p):

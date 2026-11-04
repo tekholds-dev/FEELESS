@@ -1,0 +1,137 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { apiUrl } from '../../lib/api';
+import { agentAuthQuery } from '../../lib/chatSession';
+import '../../styles/siteDoor.css';
+
+// 🌐 THE SITE DOOR (owner 2026-11-04): every proof folder has an address bar. Type a site, sign in by hand in its live window, hit Scan.
+// The scan files a manual from the site's own pages, and a site that is both read and signed in earns its own command ("file a pump pow").
+const WORD = { pow: 'PoW', pop: 'PoP', pob: 'bid' };
+const HINT = { pow: 'pump.fun, axiom.trade', pop: 'hyperliquid.xyz, coinglass.com', pob: 'polymarket.com, kalshi.com' };
+const STATE = {
+  read: ['READ', 'Its terms were read. No bot ban or region rule stood out'],
+  caution: ['CAUTION', 'Its own terms ban bots or limit regions. Read those tabs first'],
+  thin: ['NO TERMS FOUND', 'It read some pages but found no terms page'],
+  unread: ['NOT READ', 'No page could be read. Usually a human check'],
+};
+const BOTS = { banned: ['BOTS BANNED', 0.12], mentioned: ['BOTS MENTIONED', 0.55], silent: ['NOT STATED', 0.35] };
+const TABS = [['do', 'Do'], ['dont', "Don't"], ['withdraw', 'Withdraw'], ['fees', 'Fees'], ['bots', 'Bots'], ['regions', 'Regions'], ['risk', 'Risk'], ['pages', 'Pages']];
+const EMPTY = {
+  do: 'Its pages list nothing you must do.', dont: 'Its pages list no ban.', fees: 'Its pages state no fee numbers. Check before you trade.',
+  withdraw: "Its pages don't say how money comes out. Find that out before you deposit.", bots: 'Its pages say nothing about bots.', regions: 'Its pages name no region limit.', risk: 'Its pages state no risk warning.',
+};
+const safeHref = u => (/^https?:\/\//i.test(String(u || '')) ? u : undefined);
+const agoOf = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 90 ? 'just now' : s < 5400 ? `${Math.round(s / 60)}m ago` : s < 129600 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`; };
+const IconTick = () => <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+const IconCross = () => <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>;
+const IconDot = () => <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor" /></svg>;
+
+// One sign-in window everywhere: the Vault's Signed-in sites and each proof folder's door.
+export function SignInFrame({ live }) {
+  return <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" />;
+}
+
+function Rule({ r, i, tone }) {
+  return <li className={`sd-rule is-${tone}`} style={{ '--i': i }} data-tip={r.q}>
+    <i aria-hidden="true">{tone === 'do' ? <IconTick /> : tone === 'dont' ? <IconCross /> : <IconDot />}</i>
+    <span>{r.t}</span>
+    <a className="sd-src" href={safeHref(r.src)} target="_blank" rel="noopener noreferrer" data-tip={`Read it on ${r.page}: ${r.src}`}>{r.page}</a></li>;
+}
+
+function Withdraw({ rows, ordered }) {
+  if (!ordered) return <ul className="sd-rules" data-testid="sd-withdraw">{rows.map((r, i) => <Rule key={r.q} r={r} i={i} tone="info" />)}</ul>;
+  return <ol className="sd-steps" data-testid="sd-withdraw"><b aria-hidden="true" className="sd-steps-pulse" />{rows.map((r, i) => <li key={r.q} style={{ '--i': i }} data-tip={r.q}>
+    <em className="m-num">{i + 1}</em><span>{r.t}</span><a className="sd-src" href={safeHref(r.src)} target="_blank" rel="noopener noreferrer" data-tip={r.src}>{r.page}</a></li>)}</ol>;
+}
+
+function Manual({ m, cat, kind, signed, busy, onScan, onOpen, onDrop, onClose, onFile, said }) {
+  const first = m.state === 'unread' ? 'pages' : m.dont?.length ? 'dont' : 'do';
+  const [tab, setTab] = useState(first);
+  const [label, stateTip] = STATE[m.state] || STATE.unread;
+  const [botLabel, botV] = BOTS[m.botSay] || BOTS.silent;
+  const rows = tab === 'pages' ? [] : m[tab] || [];
+  const read = (m.pages || []).filter(p => p.ok);
+  const meters = [
+    ['PAGES READ', `${read.length}/${(m.pages || []).length}`, (m.pages || []).length ? read.length / m.pages.length : 0, 'Pages the scan got through out of those it tried'],
+    ['RULES FOUND', `${(m.do?.length || 0) + (m.dont?.length || 0)}`, Math.min(1, ((m.do?.length || 0) + (m.dont?.length || 0)) / 12), "Do and don't lines from its own pages"],
+    ['MONEY OUT', m.withdraw?.length ? 'STATED' : 'NOT FOUND', m.withdraw?.length ? 1 : 0.06, 'Whether its pages say how a withdrawal works'],
+    ['AUTOMATION', botLabel, botV, 'What its own pages say about bots'],
+  ];
+  const cmd = `file a ${m.slug} ${WORD[kind].toLowerCase()}`;
+  return <article className={`sd-manual is-${m.state}`} data-testid={`sd-manual-${m.site}`}>
+    <header className="sd-mhead">
+      <span className="sd-mtitle"><b>{m.site}</b><small>{agoOf(m.at)} · {m.model ? `worded by ${m.model}` : 'its own words'}{m.cost ? ` · $${Number(m.cost).toFixed(4)}` : ''}</small></span>
+      <em className={`sd-state is-${m.state}`} data-tip={stateTip} data-testid="sd-state">{label}</em>
+      <span className="sd-macts">
+        <button type="button" className="m-btn" disabled={!!busy} onClick={() => onScan(m.url)} data-tip="Read its pages again" data-testid="sd-rescan">↻ Rescan</button>
+        <button type="button" className="m-btn" onClick={() => onDrop(m.site)} data-tip="Delete this manual. A saved sign-in stays" data-testid="sd-drop">Delete</button>
+        <button type="button" className="m-btn" onClick={onClose} aria-label="Close the manual" data-tip="Back to the sites" data-testid="sd-close">✕</button></span></header>
+    {m.state === 'unread' ? <p className="sd-wall" role="status" data-testid="sd-wall"><b>{m.wall || 'No page answered.'}</b><span>Open it, clear the check by hand and save. Its next scan reads it with your sign-in.</span>
+      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => onOpen(m.url)} data-tip="Opens it in a live window. Only you click there" data-testid="sd-wall-open">Open + sign in</button></p> : null}
+    <div className="sd-mtop">
+      <figure className={`sd-snap${m.shot ? '' : ' is-none'}`}>{m.shot ? <img src={apiUrl(`/api/cats/${cat.id}/sitesnap/${m.shot}?${agentAuthQuery()}`)} alt={`${m.site} when it was scanned`} loading="lazy" onError={e => { e.currentTarget.hidden = true; }} data-testid="sd-shot" /> : <figcaption>{m.browserWhy ? `No snapshot: ${m.browserWhy}` : 'No snapshot'}</figcaption>}<i className="sd-sweep" aria-hidden="true" /></figure>
+      <div className="sd-meters">{meters.map(([k, v, f, tip], i) => <span key={k} className="sd-meter" style={{ '--i': i, '--v': f }} data-tip={tip}><em>{k}</em><b className="m-num">{v}</b><u aria-hidden="true"><i /></u></span>)}</div></div>
+    <div className="m-seg sd-tabs" role="tablist" aria-label={`${m.site} manual`}>{TABS.map(([k, l]) => { const n = k === 'pages' ? (m.pages || []).length : (m[k] || []).length;
+      return <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={`${n} from its pages`} data-testid={`sd-tab-${k}`}>{l}{n ? <small className="m-num">{n}</small> : null}</button>; })}</div>
+    <div key={tab} className="sd-pane" role="tabpanel">
+      {tab === 'pages' ? <ul className="sd-pages" data-testid="sd-pages">{(m.pages || []).map((p, i) => <li key={`${p.url}${i}`} className={p.ok ? 'is-ok' : 'is-no'} style={{ '--i': i }}><i aria-hidden="true">{p.ok ? <IconTick /> : <IconCross />}</i><b>{p.kind}</b><a href={safeHref(p.url)} target="_blank" rel="noopener noreferrer" data-tip={p.url}>{p.title || p.url}</a><small className="m-num">{p.ok ? `${Math.round(p.chars / 1000)}K · ${p.via}` : 'not read'}</small></li>)}</ul>
+        : !rows.length ? <p className="sd-empty">{EMPTY[tab]}</p>
+          : tab === 'withdraw' ? <Withdraw rows={rows} ordered={!!m.model} />
+            : <ul className="sd-rules" data-testid={`sd-rows-${tab}`}>{rows.map((r, i) => <Rule key={r.q} r={r} i={i} tone={tab === 'do' ? 'do' : tab === 'dont' || tab === 'bots' ? 'dont' : 'info'} />)}</ul>}
+    </div>
+    <footer className="sd-cmd" data-testid="sd-cmd">{m.state === 'unread' ? null : signed
+      ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => onFile(cmd)} data-tip={`Its windows go to ${m.site} first, signed in, and only read there`} data-testid="sd-file">“{cmd}”</button>
+      : <><button type="button" className="m-btn" disabled={!!busy} onClick={() => onOpen(m.url)} data-tip="Sign in by hand to unlock its command" data-testid="sd-unlock">Sign in to unlock</button><code>{cmd}</code></>}
+      {said ? <small role="status">{said}</small> : <small>From its own pages, not legal advice.</small>}</footer>
+  </article>;
+}
+
+export function SiteDoor({ kind, cat, d, setD, work }) {
+  const [text, setText] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [open, setOpen] = useState(''); const [said, setSaid] = useState('');
+  const scanning = d?.siteScan; const signed = new Set((d?.signedIn || []).map(r => r.site));
+  const rows = Object.values(d?.siteManuals || {}).filter(m => (m.kinds || []).includes(kind)).sort((a, b) => (b.at || 0) - (a.at || 0));
+  const manual = rows.find(m => m.site === open);
+  const merge = useCallback(j => setD?.(x => ({ ...x, siteManuals: j.siteManuals ?? x?.siteManuals, siteScan: j.siteScan, signedIn: j.signedIn ?? x?.signedIn, commands: j.commands ?? x?.commands })), [setD]);
+  useEffect(() => { if (!scanning) return undefined; const t = setInterval(() => { if (!document.hidden) work(cat.id, { op: 'state' }).then(merge).catch(() => {}); }, 3000); return () => clearInterval(t); }, [scanning, cat.id, work, merge]);
+  const run = async (op, body, then) => { setBusy(op); setErr('');
+    try { const j = await work(cat.id, { op, ...body }); then?.(j); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(''); } };
+  const scan = async u => { const j = await run('site_scan', { text: u, job: kind }); if (j) { setD?.(x => ({ ...x, siteScan: j.siteScan })); setOpen(j.siteScan); setText(''); } };
+  const openSite = u => run('signin_open', { text: u }, j => setLive({ ...j, url: u, at: Date.now() }));
+  const save = async () => { const j = await run('signin_save', {}); if (!j) return; merge(j); const u = live?.url; setLive(null); if (u) scan(u); };
+  const drop = site => run('site_drop', { text: site }, j => { merge(j); setOpen(''); });
+  const file = c => run('site_file', { text: c }, j => setSaid(j.say));
+  const go = text.trim();
+  return <section className="sd m-glass" aria-label={`Sites for its ${WORD[kind]}`} data-testid={`site-door-${kind}`}>
+    <form className="sd-bar" onSubmit={e => { e.preventDefault(); if (go && !scanning) scan(go); }}>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" strokeWidth="1.4" /><path d="M2 8h12M8 1.8c2 2 2.6 4 2.6 6.2S10 12.2 8 14.2C6 12.2 5.4 10.2 5.4 8S6 3.8 8 1.8z" fill="none" stroke="currentColor" strokeWidth="1.1" /></svg>
+      <input className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={`Its ${WORD[kind]} site, e.g. ${HINT[kind]}`} aria-label={`Site for its ${WORD[kind]}`} autoCapitalize="none" autoCorrect="off" spellCheck="false" data-tip="Any public site. You sign in yourself, and it never sees your password" data-testid={`sd-input-${kind}`} />
+      <button type="button" className="m-btn" disabled={!go || !!busy} onClick={() => openSite(go)} data-tip="Opens it in a live window. Only you click there, and Save keeps the sign-in sealed for its windows" data-testid={`sd-open-${kind}`}>{busy === 'signin_open' ? 'Opening…' : 'Open + sign in'}</button>
+      <button type="submit" className="m-btn m-go" disabled={!go || !!busy || !!scanning} data-tip="Reads its terms, fees and help pages and files a manual" data-testid={`sd-scan-${kind}`}>{busy === 'site_scan' ? 'Starting…' : 'Scan'}</button></form>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    {scanning ? <p className="sd-scanning" role="status" data-testid="sd-scanning"><i aria-hidden="true" /><span>Reading <b>{scanning}</b>: terms, fees, help, snapshot…</span></p> : null}
+    {live ? <div className="cwb-signed-live sd-live" data-testid="sd-live"><span><em>LIVE · sign in to {live.site} yourself</em>
+      <button type="button" className="m-btn" disabled={!!busy} onClick={() => setLive(null)} data-tip="Close without saving">Cancel</button>
+      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Keeps this sign-in sealed for its windows, then scans the site" data-testid="sd-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in, save + scan'}</button></span><SignInFrame live={live} /></div> : null}
+    {manual ? <Manual key={`${manual.site}${manual.at}`} m={manual} cat={cat} kind={kind} signed={signed.has(manual.site)} busy={busy || scanning} onScan={scan} onOpen={openSite} onDrop={drop} onClose={() => { setOpen(''); setSaid(''); }} onFile={file} said={said} />
+      : rows.length ? <ul className="sd-sites" data-testid={`sd-sites-${kind}`}>{rows.map((m, i) => <li key={m.site} style={{ '--i': i }}><button type="button" onClick={() => setOpen(m.site)} data-tip={`Open the ${m.site} manual: ${(STATE[m.state] || STATE.unread)[1]}`} data-testid={`sd-site-${m.site}`}><i className={`sd-dot is-${m.state}`} aria-hidden="true" /><b>{m.site}</b><small>{(STATE[m.state] || STATE.unread)[0]}{signed.has(m.site) ? ' · SIGNED IN' : ''}</small></button></li>)}</ul> : null}
+  </section>;
+}
+
+// 👁 WATCH A WALLET's folders (owner 2026-11-04): each address its browser reported, the lines about it, and one check on the chain. A model can name an address that was never a trader.
+const short = a => `${a.slice(0, 5)}…${a.slice(-5)}`;
+function ChainTag({ w, checked }) {
+  if (!checked) return <em className="wf-tag">CHECKING…</em>;
+  if (w.txs == null) return <em className="wf-tag is-warn" data-tip="The chain check did not answer. Open it on Solscan">NOT CHECKED</em>;
+  if (!w.txs) return <em className="wf-tag is-bad" data-tip="This address has no history on the chain. The model may have misread it">NO HISTORY</em>;
+  return <em className="wf-tag is-good" data-tip={`${w.txs}${w.txs >= 20 ? '+' : ''} recent transactions on the chain`}>ON CHAIN {w.txs}{w.txs >= 20 ? '+' : ''}{w.lastAt ? ` · ${agoOf(w.lastAt)}` : ''}</em>;
+}
+export function WatchFolders({ rows = [] }) {
+  const [open, setOpen] = useState(''); const f = rows.find(x => x.id === open);
+  if (!rows.length) return null;
+  return <section className="wf m-glass" aria-label="Wallet watches" data-testid="watch-folders"><header className="wf-head"><b>👁 WALLET WATCHES</b><small className="m-num">{rows.length}</small>{f ? <button type="button" className="m-btn" onClick={() => setOpen('')} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}</header>
+    {!f ? <ul className="sd-sites">{rows.map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" onClick={() => setOpen(x.id)} data-tip={`Open Watch #${x.n}`} data-testid={`watch-${x.id}`}><i className={`sd-dot is-${x.wallets?.length ? 'read' : 'unread'}`} aria-hidden="true" /><b>Watch #{x.n}</b><small>{x.wallets?.length || 0} WALLETS · {agoOf(x.at)}</small></button></li>)}</ul>
+      : <div className="wf-body sd-manual" data-testid="watch-folder">
+        {f.sites?.length ? <p className="wf-sites">Opened {f.sites.join(' · ')}{f.cost ? ` · $${Number(f.cost).toFixed(4)}` : ''}</p> : <p className="wf-sites">It opened no site{f.why ? `: ${f.why}` : ''}.</p>}
+        {f.wallets?.length ? <ul className="wf-rows">{f.wallets.map((w, i) => <li key={w.address} style={{ '--i': i }} className="sd-rule is-info"><div className="wf-row"><span className="wf-addr"><a className="m-num" href={`https://solscan.io/account/${encodeURIComponent(w.address)}`} target="_blank" rel="noopener noreferrer" data-tip={`Open ${w.address} on Solscan`}>{short(w.address)} ↗</a><ChainTag w={w} checked={f.checked} /></span>{(w.lines || []).map((l, k) => <small key={`${k}${l}`}>{l}</small>)}</div></li>)}</ul>
+          : <p className="sd-empty">No wallet address came back, so nothing was filed as a result.{f.answer ? ` It said: ${f.answer.slice(0, 200)}` : ''}</p>}</div>}
+  </section>;
+}

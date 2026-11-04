@@ -561,6 +561,21 @@ class LivePage:
         snap = await self.snapshot()
         return seen + (f'\n\nPAGE SNAPSHOT (the whole page once, so you need not scroll to read it — scroll only to look):\n{snap}' if snap else '')
 
+    async def full_text(self, limit=60000):
+        """🔎 a scan's read: all of this page's text, longer than the snapshot a mind gets."""
+        try:
+            return re.sub(r'\s+', ' ', await self._p.inner_text('body', timeout=8000))[:limit]
+        except Exception:
+            return ''
+
+    async def links(self):
+        """🔎 a scan's read: every link on this page, as (address, words)."""
+        try:
+            rows = await self._p.evaluate("() => [...document.links].slice(0, 400).map(a => [a.href, (a.innerText || '').trim().slice(0, 80)])")
+        except Exception:
+            return []
+        return [(str(a), str(b)) for a, b in rows or []]
+
     async def snapshot(self):
         """📸 one throwaway read of the WHOLE page (owner 2026-10-31: "agents read a snapshot of the page first, then the screen") — trimmed."""
         try:

@@ -95,6 +95,28 @@ def save_page(data_dir, cat, html, name='', now=None):
     return row
 
 
+def save_project(data_dir, cat, files, preview, name='', now=None):
+    """🧱 A project → its runnable preview and a .zip of its real files. Same quota as any file. → the preview's row"""
+    import io
+    import zipfile
+    now = now or time.time(); clean_name = re.sub(r'[^\w .()-]', '', str(name or ''))[:70].strip() or 'project'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for path, text in sorted(files.items()):
+            z.writestr(f'{clean_name}/{path}', text)
+    raw = buf.getvalue()
+    if len(cat.get('files') or []) + 2 > KEEP:
+        raise ValueError(f'It keeps {KEEP} files at most — delete two first.')
+    if used(cat) + len(raw) + len(str(preview).encode('utf-8')) > QUOTA:
+        raise ValueError('100 MB of attachments at most — remove one first (keep files in your own cloud).')
+    row = save_page(data_dir, cat, preview, clean_name, now)
+    zid = uuid.uuid4().hex
+    (_root(data_dir, cat['id']) / f'{zid}.zip').write_bytes(raw)
+    cat['files'] = list(cat.get('files') or []) + [{'id': zid, 'name': f'{clean_name}.zip', 'mime': 'application/zip', 'ext': 'zip', 'size': len(raw), 'at': round(now), 'used': round(now)}]
+    row.update(project=[{'path': k, 'size': len(v.encode())} for k, v in sorted(files.items())], zip=zid)
+    return row
+
+
 def find(cat, fid):
     return next((f for f in cat.get('files') or [] if f.get('id') == fid), None) if ID_RE.match(str(fid or '')) else None
 

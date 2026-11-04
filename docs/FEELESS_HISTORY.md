@@ -6866,3 +6866,4 @@ NOTE: merging into main LOCALLY never restarts the backend — after a backend p
 - 2026-11-04 night: Perps `kd-*` collision fixed (Fee's giant text), file/propose a perp, PoP sources + fingerprint, Manual folder, shorter pages.
 
 | Q26 | OPEN | Pools one stop: AutoRange + price gaps; Night Vault moves into Pools for Family and Launch. | CLOSED: Launch › Pools has AutoRange, Night Vault and Price gaps in one place (LaunchModes).
+- 2026-11-04 · Site door + manuals in PoW/PoP/Bids (`site_scan.py`, `SiteDoor.jsx`), `file a <site> pow|pop|bid`, Wallet watch folders with a chain check, `build a project` (static files, .zip, sandboxed preview), Trench report cut to short rows.

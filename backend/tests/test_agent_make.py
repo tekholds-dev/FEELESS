@@ -72,3 +72,43 @@ def test_a_built_page_is_served_so_it_cannot_run_here(monkeypatch):
     monkeypatch.setattr(fs, '_load', lambda: store)
     r = asyncio.run(fs.cat_file_get('c1', f'{fid}.html'))
     assert r.headers['content-security-policy'] == 'sandbox' and r.headers['content-disposition'] == 'attachment' and b'hi' in r.body
+
+
+PROJECT_REPLY = """=== FILE: index.html ===
+<!doctype html><html><head><link rel="stylesheet" href="css/style.css"></head><body><button id=b>0</button><script src="./js/app.js"></script></body></html>
+=== FILE: css/style.css ===
+button{color:red}
+=== FILE: js/app.js ===
+b.onclick=()=>b.textContent=+b.textContent+1;var x="</script>";
+=== END ===
+"""
+
+
+def test_project_words_and_its_files():
+    assert ac.make_job('build a project counter app')['kind'] == 'project' and ac.make_job('build a page counter')['kind'] == 'page'
+    assert ac.make_job('what is a project')is None
+    files = ac.project_in(PROJECT_REPLY)
+    assert sorted(files) == ['css/style.css', 'index.html', 'js/app.js']
+    html = ac.project_preview(files)
+    assert 'button{color:red}' in html and 'b.onclick' in html and 'href="css' not in html and 'src=' not in html
+    assert html.count('</script>') == 1   # a script's own closing text cannot end the block early
+
+
+def test_a_cut_off_or_climbing_project_is_never_filed():
+    assert ac.project_in(PROJECT_REPLY.replace('=== END ===', '')) is None
+    assert ac.project_in(PROJECT_REPLY.replace('css/style.css', '../../secrets.css')) is None
+    assert ac.project_in(PROJECT_REPLY.replace('js/app.js', 'run.sh')) is None
+    assert ac.project_in('=== FILE: a.css ===\nx\n=== END ===') is None
+    assert ac.project_in('nothing') is None
+
+
+def test_project_saves_a_preview_and_a_real_zip(tmp_path):
+    import io
+    import zipfile
+    import agent_files as af
+    cat = {'id': 'c1', 'files': []}; files = ac.project_in(PROJECT_REPLY)
+    row = af.save_project(tmp_path, cat, files, ac.project_preview(files), 'My counter', 5.0)
+    assert row['ext'] == 'html' and [x['path'] for x in row['project']] == sorted(files)
+    z = af.find(cat, row['zip']); assert z['ext'] == 'zip'
+    names = zipfile.ZipFile(io.BytesIO(af.read(tmp_path, cat, z['id']))).namelist()
+    assert 'My counter/js/app.js' in names and len(names) == 3

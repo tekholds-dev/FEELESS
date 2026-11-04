@@ -62,7 +62,7 @@ def test_pob_reads_first_then_bids_only_on_agreement(fs, monkeypatch):
         seen.append(user_)
         return json.dumps({'market': 'm1', 'side': 'yes', 'why': 'up'})
     monkeypatch.setattr(fs, '_pow2_ask', ask)
-    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who: fs._WORK.__setitem__(cat['id'], _task()) or '')
+    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who, kind='': fs._WORK.__setitem__(cat['id'], _task()) or '')
 
     async def run_():
         cat = _cat(); fs._POB_WANT['c1'] = 'start'
@@ -86,7 +86,7 @@ def test_pob_files_no_bid_when_the_minds_split(fs, monkeypatch):
     async def ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
         return json.dumps({'market': 'm1', 'side': next(sides), 'why': 'x'})
     monkeypatch.setattr(fs, '_pow2_ask', ask)
-    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who: 'its windows were busy')
+    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who, kind='': 'its windows were busy')
 
     async def run_():
         cat = _cat(); fs._POB_WANT['c1'] = 'start'
@@ -132,7 +132,7 @@ def test_pop_reads_sites_then_each_mind_gets_its_own_note(fs, monkeypatch):
         seen.append(user_)
         return '{"market":"SOL","side":"long","lev":2,"tp_pct":2,"sl_pct":1,"why":"x"}'
     monkeypatch.setattr(fs, '_pop_read', read); monkeypatch.setattr(fs, '_pop_chart', chart); monkeypatch.setattr(fs, '_pop_gather', gather_); monkeypatch.setattr(fs, '_pow2_ask', ask)
-    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who: fs._WORK.__setitem__(cat['id'], _task()) or '')
+    monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who, kind='': fs._WORK.__setitem__(cat['id'], _task()) or '')
 
     async def run_():
         cat = _cat(); fs._POP_WANT['c1'] = 'start'

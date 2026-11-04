@@ -17,6 +17,7 @@ import { HoneyTanks } from './HoneyTanks';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
+import { SiteDoor, SignInFrame, WatchFolders } from './SiteDoor';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
@@ -801,6 +802,8 @@ function PowExplorer({ cat, d, setD }) {
     <PowShare cat={cat} />
     <PoiPanel poi={d?.poi} catId={cat.id} onRestore={poi => setD?.(x => ({ ...x, poi }))} />
     <KernelCard kernel={d?.kernel} />
+    <SiteDoor kind="pow" cat={cat} d={d} setD={setD} work={work} />
+    <WatchFolders rows={d?.watchFolders} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
@@ -926,7 +929,7 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
   const reads = f?.reads || []; const markets = f ? [...new Set([...reads.map(r => r.market), ...(f.calls || []).map(c => c.market), f.market].filter(Boolean))] : [];
   const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] === 'src' ? [['Sources', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
   let body;
-  if (!path[0] || !f) body = children(<>{d?.popPoi ? <section className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
+  if (!path[0] || !f) body = children(<><SiteDoor kind="pop" cat={cat} d={d} setD={setD} work={work} />{d?.popPoi ? <section className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
     return <Tile key={x.id} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} />; })}</div>
     : <p className="dsk-note">No proofs yet. Type “file a perp” or “propose a perp” in its chat, or tap a button.</p>}</>);
   else if (path[1] === 'report') body = <PopReport f={f} />;
@@ -982,6 +985,7 @@ function BidsApp({ cat, d, setD }) {
       <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span><button type="button" className="m-btn m-go bd-file" disabled={busy} onClick={file} data-tip={busy ? 'A PoB is already running' : 'Each mind reads sites in its own browser, then calls a market. If they agree, it bids 50 free chips'} data-testid="pob-file">🎲 File a bid</button></header>
       {d?.pobRead ? <p className="pop-asking m-glass" role="status" data-testid="pob-reading"><i aria-hidden="true" />Each mind is reading sites in its own window. Watch its monitors…</p> : null}
       {err ? <p className="dsk-note" role="alert">{err}</p> : null}
+      <SiteDoor kind="pob" cat={cat} d={d} setD={setD} work={work} />
       <div className="hv-pow-stats" data-testid="bd-stats">{[['LIVE', m ? live.length : '…'], ['SETTLED', m ? settled.length : '…'], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—'], ['ITS PROOFS', (d?.pobFolders || []).length + (d?.pobRun ? 1 : 0)]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
       <div className="dsk-xgrid"><Tile tone="live" ic="⚡" label="Live board" sub={`${live.length} open`} onOpen={() => setPath('live')} tip="Bid free chips on proofs running now" testid="bd-live" />
         <Tile i={1} tone="none" ic="✓" label="Settled" sub={`${settled.length} closed`} onOpen={() => setPath('settled')} tip="How finished proofs ended" testid="bd-settled" />
@@ -1182,7 +1186,7 @@ export function SignedSites({ cat, rows = [], onSaved, nested = false, start = n
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
       {big ? <AgentDesktop cat={cat} live={live} onClose={() => setBig(false)} onReopen={() => run('signin_open', live.site)}
         actions={<button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows (and seal anything you downloaded)" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button>} />
-        : <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" />}</div>
+        : <SignInFrame live={live} />}</div>
       : <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
         <span className="m-seg">{SIGNIN_PICKS.map(([h, l]) => <button key={h} type="button" className={site === h ? 'active' : ''} onClick={() => setSite(h)} data-tip={`Sign its windows in to ${h}`}>{l}</button>)}</span>
         <input className="m-input" value={site} onChange={e => setSite(e.target.value)} placeholder="any site, e.g. x.com" aria-label="Site to sign in to" data-testid="cwb-signed-site" />

@@ -15,7 +15,7 @@ import json
 import re
 import time
 from urllib.parse import quote_plus
-from cat_policy import RESEARCH_ACTIONS, RULES, refusal, research_ok
+from cat_policy import RESEARCH_ACTIONS, RULES, check_url, refusal, research_ok
 import pow as _pow
 
 STEP_MAX = 8
@@ -203,6 +203,17 @@ def same_page(at, url):
 BROWSE_FOR = re.compile(r'(?i)\b(?:for|about|around|spend)\s+(?:about\s+)?(\d{1,2})(?:\s*(?:-|to)\s*\d{1,2})?\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)\b')
 
 
+def _on_list(task, url, login=False):
+    """The research list, plus the one site the owner scanned, signed in to and named for this proof."""
+    if research_ok(url, login):
+        return True
+    try:
+        host = check_url(url)
+    except ValueError:
+        return False
+    return any(host == h or host.endswith('.' + h) for h in task.get('alsoHosts') or [])
+
+
 def browse_secs(goal):
     """⏱ "browse pump.fun for 1-2 minutes" → 60 (the lower bound, ≤ 10 min) — the window keeps browsing that long before it may answer (owner 2026-10-31:
     it answered from the first page in 27 s and never clicked)."""
@@ -263,7 +274,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     if pw and task.get('powPlan'):   # 🗺 a folder's research round follows the folder's ONE joint plan — no second plan of its own
         w['plan'] = list(task['powPlan'])[:3]
     site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(search_terms(w['goal'])))   # 🔎 a blank window starts on a search
-    if site and (research_ok(site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
+    if site and (_on_list(task, site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
         try:
             seen = w['_page'] = await page.goto(site)
             w['url'], w['title'] = page.url, page.title
@@ -346,7 +357,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = (f'(research only: "{act}" is not allowed — read coin data, crypto news or X, then answer)' if act else
                     '(your reply had no "action" — answer ONLY the JSON object, one action)') + '\n' + str(w.get('_page') or '')[:READ_MAX // 2]
             continue
-        if task.get('research') and act in ('open', 'ask_login') and not research_ok(a.get('url') or '', act == 'ask_login'):
+        if task.get('research') and act in ('open', 'ask_login') and not _on_list(task, a.get('url') or '', act == 'ask_login'):
             _step(w, thought or 'stays on research sites', 'blocked', str(a.get('url') or '')[:120])
             seen = '(research only: that site is not on the research list — use FEELESS, coin data sites, crypto news or X)'
             continue
@@ -485,7 +496,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = await page.search(str(a.get('q') or w['goal']))
                 elif act == 'click':
                     seen = await page.click(str(a.get('text') or ''))
-                    if task.get('research') and page.url and not research_ok(page.url):   # a link off the research list → straight back
+                    if task.get('research') and page.url and not _on_list(task, page.url):   # a link off the research list → straight back
                         seen = '(research only: that link left the research sites — you are back)\n' + await page.goto(w['url'] if str(w.get('url') or '').startswith('http') else 'https://html.duckduckgo.com/html/?q=bitcoin')
                 elif act == 'upload':   # ☁ a file the owner attached (its storage) onto this page's file field
                     f_ = next((f for f in task.get('files') or [] if f['name'] == str(a.get('value') or '')), None) or ((task.get('files') or [None])[0] if len(task.get('files') or []) == 1 else None)
@@ -545,7 +556,7 @@ async def _divert(task, w, page, wait_human=None):
         w['powNext'] = True
         return await _pow_advance(w, pw, page, wait_human)
     been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
-    pool = [u for u in list(task.get('alts') or []) + list(DIVERT) if _pow.host_of(u) not in been and (research_ok(u) if task.get('research') else True)]
+    pool = [u for u in list(task.get('alts') or []) + list(DIVERT) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]
     u = pool[0] if pool else SEARCH_URL + quote_plus(f"{str(w.get('goal') or '')[:70]} {len(w.get('steps') or [])}")
     try:
         got = await page.goto(u)

@@ -53,6 +53,7 @@ import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
 import chain_rpc as _crpc
 import pob as _pob
+import site_scan as _ss
 import pop as _pop
 import pop_sources as _popsrc
 import pow_kernel as _kernel
@@ -166,7 +167,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -1469,6 +1470,9 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
     if reused_:
         f.setdefault('vitals', {})[coin['mint']] = _pow.merge_vitals((f.get('vitals') or {}).get(coin['mint']), reused_)
     rp['known'] = sorted(set(rp['known']) | {x['label'] for x in reused_})
+    own_site_ = _proof_site(cat, 'pow')
+    if own_site_:   # 🔎 "file a pump pow": the owner's scanned, signed-in site goes first
+        rp.update(ownerSite=own_site_['url'], plan=f"{rp.get('plan') or ''}{_ss.note_for(own_site_, 'pow')}".strip())
     rp['reusedSites'] = sorted({x['site'] for x in reused_})
     rp['required'] = ['solscan.io'] + (['pump.fun'] if coin.get('src') == 'pump' else [])
     same_coin_sites_ = {h for row in prior_ for h in row.get('sites') or []}
@@ -2123,7 +2127,138 @@ POP_READ_GOAL = ("PROOF OF PERPS read, for SOL, ETH and BTC. Open coinglass.com 
                  "Then answer in at most 4 lines, each number with the site you read it on. Do not sign in or trade.")
 
 
-def _read_start(cat, goal, who):
+PROOF_SITE_S = 7200   # how long a "file a pump pow" keeps steering its proof
+
+
+def _proof_site(cat, kind):
+    """The manual of the site the owner named for this proof, or None. A saved sign-in was dropped: it no longer goes there."""
+    ps = cat.get('proofSite') or {}
+    if not kind or ps.get('kind') != kind or time.time() - float(ps.get('at') or 0) > PROOF_SITE_S or ps.get('site') not in (cat.get('siteSessions') or {}):
+        return None
+    return (cat.get('siteManuals') or {}).get(ps.get('site'))
+
+
+def _site_note(cat, kind):
+    m = _proof_site(cat, kind)
+    return _ss.note_for(m, kind) if m else ''
+
+
+def _proof_hosts(cat, kind):
+    m = _proof_site(cat, kind)
+    return [m['site']] if m else []
+
+
+def _site_proof_start(cat, cat_id, site, kind):
+    """🔎 One door for the chat's "file a pump pow" and the manual's button: the same proof, with its windows going to that site first. → (ok, what to say)"""
+    if kind == 'pow':
+        f_ = (cat.get('powRun') or {}).get('folder')
+        if f_:
+            return False, f"⛏ {f_.get('name')} is still open ({f_.get('phase')}). Say \"stop PoW\" to end it first."
+        if not (cat.get('brainsCfg') or {}).get('brains'):
+            return False, '⛏ It needs a model first.'
+        cat['proofSite'] = {'site': site, 'kind': kind, 'at': time.time()}
+        _POW_WANT[cat_id] = {'do': 'start', 'mind': None}; _POW_WAKE.set()
+        return True, f'⛏ Filing a PoW with {site} first, signed in. It reads there and buys only through FEELESS, by the usual guards.'
+    if kind == 'pop':
+        ok_, say_ = _pop.reply('start', cat.get('popRun'), cat.get('popCard'))
+        if ok_:
+            cat['proofSite'] = {'site': site, 'kind': kind, 'at': time.time()}
+            _POP_WANT[cat_id] = 'start'; _POW_WAKE.set()
+            say_ = f'📉 Filing a PoP with {site} read first, signed in. The trade stays on paper.'
+        return ok_, say_
+    ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
+    if ok_:
+        cat['proofSite'] = {'site': site, 'kind': kind, 'at': time.time()}
+        _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
+        say_ = f'🎲 Filing a PoB with {site} read first, signed in. Free chips on the FEELESS board only, nothing on {site}.'
+    return ok_, say_
+
+
+_SCAN_BUSY: dict = {}   # 🔎 cat_id → the site it is scanning
+_SCAN_DONE: list = []   # finished scans, filed by the engine pass (the store's one writer)
+
+
+async def _site_scan_run(cat_id, url, site, kind, ctx):
+    """🔎 A plain fetch first (free). A wall or no terms goes to its browser, with the owner's saved sign-in only if the site needs it. No check is ever passed for them."""
+    out = {'cat': cat_id, 'site': site, 'url': url, 'kind': kind, 'pages': [], 'jpg': None, 'wall': ''}
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            out['pages'] = await _ss.read_fetch(http, url, site)
+            want_all = _ss.needs_browser(out['pages'])
+            s_ = None; page_ = None
+            try:
+                s_, _ = await _cb.open_session(http, os.environ, ctx if want_all else None)
+                if s_.get('connect'):
+                    page_ = await _cb.LivePage(s_['connect'], cookies=s_.get('cookies')).start()
+                    rows, out['jpg'] = await asyncio.wait_for(_ss.read_browser(page_, url, site, snapshot_only=not want_all), SCAN_BROWSER_S)
+                    if want_all:   # the browser read wins where the fetch was walled
+                        got_ = {r['kind'] for r in rows if r.get('ok')}
+                        out['pages'] = rows + [r for r in out['pages'] if r.get('ok') and r['kind'] not in got_]
+            except Exception as e:   # noqa: BLE001 — the fetch read still files; the manual says no snapshot
+                out['browserWhy'] = str(e)[:80] or 'its browser did not open'
+            finally:
+                if page_:
+                    try:
+                        await page_.close()
+                    except Exception:
+                        pass
+                if s_ and s_.get('connect'):
+                    try:
+                        await _cb.close_session(http, os.environ, s_)
+                    except Exception:
+                        pass
+    except Exception as e:   # noqa: BLE001 — a scan that fails says why in its manual
+        out['wall'] = str(e)[:120] or 'the scan failed'
+    out['wall'] = out['wall'] or _ss.wall_of(out['pages'])
+    _SCAN_DONE.append(out); _POW_WAKE.set()
+
+
+async def _watch_pass(store):
+    """👁 Each wallet in a new Watch a Wallet folder gets one chain check: does this address have real history. A model can name an address that was never a trader."""
+    url_ = os.environ.get('HELIUS_RPC_URL') or os.environ.get('SOLANA_RPC_URL') or 'https://api.mainnet-beta.solana.com'
+    rows_ = [(c, f) for c in store['cats'].values() for f in c.get('watchFolders') or [] if not f.get('checked')]
+    if not rows_:
+        return
+    async with httpx.AsyncClient(timeout=12) as http:
+        for _, f_ in rows_:
+            for w_, got_ in zip(f_['wallets'], await asyncio.gather(*(_ac.chain_check(http, url_, w_['address']) for w_ in f_['wallets']))):
+                w_.update(got_)
+            f_['checked'] = True
+
+
+async def _site_pass(store):
+    """🔎 File what finished: its snapshot on disk, its manual, one small model call to reword it when it has budget. The site's own sentences stay underneath."""
+    await _watch_pass(store)
+    while _SCAN_DONE:
+        o = _SCAN_DONE.pop(0); cat = store['cats'].get(o['cat']); _SCAN_BUSY.pop(o['cat'], None)
+        if not cat:
+            continue
+        now = time.time(); name_ = None
+        if o.get('jpg'):
+            try:
+                d_ = POWSHOTS_DIR / ('site' + re.sub(r'[^a-z0-9]', '', o['cat'].lower())[:40]); d_.mkdir(parents=True, exist_ok=True)
+                name_ = re.sub(r'[^a-z0-9.]', '', o['site']) + '.jpg'; (d_ / name_).write_bytes(o['jpg'])
+            except OSError:
+                name_ = None
+        m = _ss.build(o['site'], o['kind'], o['url'], o['pages'], now, name_, o['wall'])
+        if o.get('browserWhy'):
+            m['browserWhy'] = o['browserWhy']
+        b_ = cat.get('brainsCfg') or {}
+        if m['state'] != 'unread' and b_.get('brains') and (float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE > 0.005 or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)):
+            lines_, index_ = _ss.polish_prompt(m)
+            if lines_:
+                box_ = {'cost': 0}
+                try:
+                    reply_ = await asyncio.wait_for(_pow2_ask(cat, 0, _ss.POLISH_SYS, lines_, 500, box_), 30)
+                except asyncio.TimeoutError:
+                    reply_ = ''
+                m = _ss.apply_polish(m, reply_, index_, str(b_['brains'][0]).split('/')[-1]); m['cost'] = box_.get('cost', 0)
+        rows_ = dict(cat.get('siteManuals') or {}); rows_[o['site']] = _ss.merge(rows_.get(o['site']), m); cat['siteManuals'] = _ss.trim(rows_)
+        say_ = {'unread': f"🔎 Could not read {o['site']}: {m['wall'] or 'no page answered'}. Open it, clear the check, save, then scan again.", 'thin': f"🔎 Read {o['site']}, but found no terms page. Its manual says what it did find."}.get(m['state']) or f"🔎 {o['site']} is scanned. Its manual is in the folder."
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': say_, 'at': now, 'open': {'pop': 'pop', 'pob': 'bids'}.get(o['kind'], 'pow')}])[-200:]
+
+
+def _read_start(cat, goal, who, kind=''):
     """🌐 (owner 2026-11-04: "trader agent browses sites as it files pow, pop, pob"). Its minds open real windows, on the research list only. → '' when started, else why it could not."""
     w_ = _WORK.get(cat['id']); b_ = cat.get('brainsCfg') or {}
     if w_ and not w_.get('done'):
@@ -2133,7 +2268,7 @@ def _read_start(cat, goal, who):
     if not b_.get('brains') or (float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE <= 0.005 and not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)):
         return 'no model credit left for browsing'
     try:
-        _work_start(cat['id'], cat, goal, who if who in ('0', '1') else None, None, read_=True)
+        _work_start(cat['id'], cat, goal + _site_note(cat, kind), who if who in ('0', '1') else None, None, read_=True)
     except HTTPException as e:
         return str(e.detail)[:80]
     return ''
@@ -2162,12 +2297,15 @@ def _read_check(cat, rd, now):
     return True, _read_notes(t_), 'time ran out on the read'
 
 
+SCAN_BROWSER_S = 90   # its browser's part of one scan
 _POB_WANT: dict = {}   # 💬 'file a bid', read by the engine pass
 _MADE_BUSY: set = set()     # 🎨 agents making a picture or page right now: one at a time
 _MADE_DONE: list = []       # finished makes, filed by the engine pass (the store's one writer)
 IMAGE_EST_USD = 0.06        # it must hold this much before a picture starts; the provider's real cost is what gets charged
 PAGE_EST_USD = 0.02
 PAGE_TOKENS = 6000
+PROJECT_EST_USD = 0.05
+PROJECT_TOKENS = 12000
 
 
 def _made_refusal(cat, job):
@@ -2182,8 +2320,9 @@ def _made_refusal(cat, job):
         return '🎨 It is still making the last one.'
     if not b_.get('brains'):
         return '🎨 It needs a model first.'
-    if not own_ and left_ < (IMAGE_EST_USD if job['kind'] == 'image' else PAGE_EST_USD):
-        return f"🎨 Its model budget is too low: this needs about ${IMAGE_EST_USD if job['kind'] == 'image' else PAGE_EST_USD:.2f}."
+    est_ = {'image': IMAGE_EST_USD, 'project': PROJECT_EST_USD}.get(job['kind'], PAGE_EST_USD)
+    if not own_ and left_ < est_:
+        return f"🎨 Its model budget is too low: this needs about ${est_:.2f}."
     left_day = day_left(cat)
     if left_day is not None and left_day <= 0:
         return "🎨 It reached today's $ limit."
@@ -2199,6 +2338,11 @@ async def _made_job(cat_id, job, cat):
                 r = await http.post(f'{_ct.REP}/api/reputation/internal/agent-image', headers=_at._internal_headers(), json={'prompt': job['prompt']})
             j = r.json() or {}
             out.update(usd=float(j.get('usd') or 0) or IMAGE_EST_USD if j.get('url') else 0.0, url=j.get('url'), why='' if j.get('url') else str(j.get('detail') or j.get('why') or 'no picture came back')[:160])
+        elif job['kind'] == 'project':
+            own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+            reply_, usd_, _via = await _think(cat, cat['brainsCfg']['brains'][0], [{'role': 'system', 'content': _ac.PROJECT_SYS}, {'role': 'user', 'content': job['prompt']}], own_, None, PROJECT_TOKENS)
+            files_ = _ac.project_in(reply_)
+            out.update(usd=float(usd_ or 0), own=bool(own_), files=files_, why='' if files_ else 'the model did not finish a whole project')
         else:
             own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
             reply_, usd_, _via = await _think(cat, cat['brainsCfg']['brains'][0], [{'role': 'system', 'content': _ac.PAGE_SYS}, {'role': 'user', 'content': job['prompt']}], own_, None, PAGE_TOKENS)
@@ -2223,9 +2367,9 @@ def _made_pass(store):
         try:
             if o['why']:
                 raise ValueError(o['why'])
-            row = _af.save(DATA_DIR, cat, o['url'], f"{job['prompt'][:40]}.png", now) if job['kind'] == 'image' else _af.save_page(DATA_DIR, cat, o['html'], job['prompt'][:40], now)
+            row = _af.save(DATA_DIR, cat, o['url'], f"{job['prompt'][:40]}.png", now) if job['kind'] == 'image' else _af.save_project(DATA_DIR, cat, o['files'], _ac.project_preview(o['files']), job['prompt'][:40], now) if job['kind'] == 'project' else _af.save_page(DATA_DIR, cat, o['html'], job['prompt'][:40], now)
             url = f"/api/cats/{cat['id']}/files/{row['id']}.{row['ext']}"
-            line.update(text=f"🎨 Here it is: {job['prompt'][:120]}", img=url) if job['kind'] == 'image' else line.update(text=f"🖥 Built: {job['prompt'][:120]}", page=url)
+            line.update(text=f"🎨 Here it is: {job['prompt'][:120]}", img=url) if job['kind'] == 'image' else line.update(text=f"🖥 Built{' a project of ' + str(len(o['files'])) + ' files' if job['kind'] == 'project' else ''}: {job['prompt'][:120]}", page=url)
             cat['feesDue'] = (list(cat.get('feesDue') or []) + [{'key': f"task-{row['id'][:10]}"}])[-20:]
         except ValueError as e:
             line['text'] = f'🎨 Not made: {str(e)[:160]}'
@@ -2360,7 +2504,7 @@ async def _pop_begin(http, cat, do, who, now):
     """🌐 The minds read sites first. No window free: the proof still files on its free sources, and its folder says it did not browse."""
     if cat.get('popRead'):
         return
-    why = _read_start(cat, POP_READ_GOAL, who)
+    why = _read_start(cat, POP_READ_GOAL, who, 'pop')
     if why:
         await _pop_open(http, cat, do, who, now, None, why)
         return
@@ -2464,7 +2608,7 @@ async def _pob_tick(http, cat, now):
         if not rows:
             _pob_file(cat, {'id': f'pob{int(now)}', 'at': round(now), 'kind': 'PoB', 'status': 'closed', 'noTrade': True, 'why': 'no open market to bid on', 'calls': []}, '🎲 PoB not filed: no open market to bid on')
             return
-        why = _read_start(cat, _pob.goal(rows), who)
+        why = _read_start(cat, _pob.goal(rows), who, 'pob')
         if why:
             await _pob_call(http, cat, {'who': who}, now, None, why)
             return
@@ -2487,6 +2631,7 @@ async def _pob_pass(store):
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
     _made_pass(store)
+    await _site_pass(store)
     await _pob_pass(store)
     if not cats:
         return
@@ -2918,24 +3063,15 @@ async def _meta_post(store):
     green = sum(1 for m in moves if m > 0) / max(1, len(moves))
     weather = ('☀️ scorching' if green >= 0.7 and median >= 20 else '🌤️ mostly green' if green >= 0.55
                else '⛅ crab weather' if green >= 0.4 else '🌧️ red rain')
-    lines = [f"🐱 Trench report — {weather}: {green:.0%} of the board is green, median {_pct(median)} on the hour."]
-    if sol:
-        lines.append(f"SOL {_fmt_usd(sol.get('priceUsd'))} ({_pct((sol.get('priceChange') or {}).get('h24'))} 24h) — the tide every meme swims in.")
-    lines.append('\nBangers on my radar:')
-    for p in board[:3]:
-        why = ', '.join(r for r in (p.get('quality') or {}).get('reasons') or [] if not r.endswith(' 1h') or 'vol' in r) or 'steady two-sided flow'
-        lines.append(f"• ${(p.get('baseToken') or {}).get('symbol')} — MC {_fmt_usd(p.get('marketCap'))}, {_pct((p.get('priceChange') or {}).get('h1'))} 1h ({why})")
+    lines = [f"🐱 {weather} · {green:.0%} green · median {_pct(median)} 1h" + (f" · SOL {_fmt_usd(sol.get('priceUsd'))} {_pct((sol.get('priceChange') or {}).get('h24'))}" if sol else '')]
+    lines += [f"• ${(p.get('baseToken') or {}).get('symbol')} {_pct((p.get('priceChange') or {}).get('h1'))} · {_fmt_usd(p.get('marketCap'))}" for p in board[:3]]   # its coin cards below carry the rest (owner Q03: no text walls)
     if fresh:
         f = fresh[0]
-        lines.append(f"\nFresh one with real traction: ${(f.get('baseToken') or {}).get('symbol')} at {_fmt_usd(f.get('marketCap'))} — early, so size small.")
+        lines.append(f"🌱 ${(f.get('baseToken') or {}).get('symbol')} at {_fmt_usd(f.get('marketCap'))}, early: size small")
     leader = store['cats'].get(LEADER_ID) or {}
     pos = leader.get('positions') or []
-    if pos:
-        book = ', '.join(f"${x['symbol']} {_pct(x.get('currentChange'))}" for x in pos[:4])
-        lines.append(f"\nMy book: {book}. Thesis intact = I hold; a healthy dip with buyers still there = I add.")
-    else:
-        lines.append("\nMy book is flat — waiting for a setup that passes every rule. Cash is a position too.")
-    lines.append('Meta, not advice. Paper trades on live prices.')
+    lines.append('📒 ' + (', '.join(f"${x['symbol']} {_pct(x.get('currentChange'))}" for x in pos[:4]) if pos else 'Flat, waiting for a setup that passes every rule'))
+    lines.append('Paper trades on live prices. Not advice.')
     # Coin cards (with each coin's Pump cover image) for the three picks.
     cards = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'pair': p, 'fetched_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
              for p in board[:3] if p.get('pairAddress')]
@@ -3061,7 +3197,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     if read_:   # 🌐 each mind reads for itself, blind to its partner
         _WORK[cat_id]['task'].update(proofRead=True, jobs=[str(text)] * len(models))
     if pow_ or read_ or (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows (and every PoW): read + click on the research list only (cat_policy.RESEARCH_*)
-        _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True})
+        _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True}, alsoHosts=_proof_hosts(cat, 'pow' if pow_ else (cat.get('proofSite') or {}).get('kind')))
     else:
         _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
     _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
@@ -3289,6 +3425,8 @@ def _work_settle(store):
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
                 _lc.charge(cat['brainsCfg'], max(0.0, t.get('cost') or 0))   # every paid call consumes its bought model budget, including SingIt paid from its wallet
+            if t.get('watch'):   # 👁 Watch a Wallet: its answer files as a folder too
+                cat['watchFolders'] = (list(cat.get('watchFolders') or []) + [_ac.watch_folder(t, time.time(), int(((cat.get('watchFolders') or [{}])[-1]).get('n') or 0) + 1)])[-_ac.WATCH_KEEP:]
             if t.get('pow'):   # ⛏ a Colony PoW: filed (cell + cabinet), no flat fee, never a chat line you did not type
                 _pow_settle(cat, t, time.time())
             elif t.get('status') == 'done' and not t.get('proofRead'):   # 🤖 the flat fee for anything that is not a trade
@@ -3962,6 +4100,19 @@ async def pow_snapshot(cat_id: str, folder: str, name: str):
     return Response(content=f_.read_bytes(), media_type='image/jpeg' if name.endswith('.jpg') else 'text/markdown; charset=utf-8', headers={'Cache-Control': 'max-age=3600'})
 
 
+@app.get('/api/cats/{cat_id}/sitesnap/{name}')
+async def site_snapshot(cat_id: str, name: str, ownerId: str = '', session: str = ''):
+    """🔎 A scanned site's snapshot. It may show the owner's signed-in page, so only they get it."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'No snapshot.')
+    _owner_gate(store, cat, session, ownerId, 'see its site snapshots')
+    f_ = POWSHOTS_DIR / ('site' + re.sub(r'[^a-z0-9]', '', cat_id.lower())[:40]) / re.sub(r'[^a-z0-9.]', '', name)
+    if not name.endswith('.jpg') or not f_.exists():
+        raise HTTPException(404, 'No snapshot.')
+    return Response(content=f_.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
+
+
 @app.get('/api/cats/pow/archive')
 async def pow_archive(q: str = '', limit: int = 20):
     """Public coin facts only; private agent plans, step fingerprints and page excerpts stay sealed."""
@@ -4398,12 +4549,42 @@ async def cat_work(cat_id: str, p: WorkPayload):
         ok_, say_ = _pop.reply(p.job, cat.get('popRun'), cat.get('popCard'))
         if not ok_:
             raise HTTPException(409, say_)
+        cat.pop('proofSite', None)
         _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
         return {'ok': True}
+    if p.op == 'site_scan':   # 🔎 the proof folder's Scan: one at a time, filed by the engine pass
+        try:
+            url_ = _ss.clean_url(p.text); site_ = _ss.site_of(url_)
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:120])
+        if p.job not in _ss.KINDS:
+            raise HTTPException(400, 'Scan from a PoW, PoP or Bids folder.')
+        if _SCAN_BUSY.get(cat_id):
+            raise HTTPException(409, f'It is still scanning {_SCAN_BUSY[cat_id]}.')
+        _SCAN_BUSY[cat_id] = site_
+        asyncio.create_task(_site_scan_run(cat_id, url_, site_, p.job, _site_ctx(cat)))
+        return {'ok': True, 'siteScan': site_}
+    if p.op == 'site_drop':
+        rows_ = dict(cat.get('siteManuals') or {}); m_ = rows_.pop(_ss.site_of(p.text or ''), None)
+        if m_ and m_.get('shot'):
+            (POWSHOTS_DIR / ('site' + re.sub(r'[^a-z0-9]', '', cat_id.lower())[:40]) / m_['shot']).unlink(missing_ok=True)
+        cat['siteManuals'] = rows_; keep_owned(cat); _save(store)
+        return {'siteManuals': rows_}
+    if p.op == 'site_file':   # 🔎 the manual's command button: the same door as typing it
+        got_ = _ss.command(p.text, cat.get('siteManuals'), set(cat.get('siteSessions') or {}))
+        if not got_ or got_.get('why'):
+            raise HTTPException(400, (got_ or {}).get('why') or 'Not a site command.')
+        ok_, say_ = _site_proof_start(cat, cat_id, got_['site'], got_['kind'])
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': say_, 'at': time.time(), 'open': {'pop': 'pop', 'pob': 'bids'}.get(got_['kind'], 'pow')}])[-200:]
+        keep_owned(cat); _save(store)
+        if not ok_:
+            raise HTTPException(409, say_)
+        return {'ok': True, 'say': say_}
     if p.op == 'pob':   # 🎲 the Bids desk's button: the engine pass does the work
         ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
         if not ok_:
             raise HTTPException(409, say_)
+        cat.pop('proofSite', None)
         _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
         return {'ok': True}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
@@ -4725,7 +4906,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             if _ac.off_lane(b.get('kind'), p.text):
                 cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': _ac.TRADER_NOTE, 'at': time.time()}])[-200:]
             why_ = _made_refusal(cat, made_)
-            say_ = why_ or ('🎨 Making the picture. It lands here and in Creations.' if made_['kind'] == 'image' else '🖥 Building the page. It lands here and in Creations, with a preview.')
+            say_ = why_ or ('🎨 Making the picture. It lands here and in Creations.' if made_['kind'] == 'image' else '🧱 Building the project. It lands here and in Creations, with a preview and a .zip.' if made_['kind'] == 'project' else '🖥 Building the page. It lands here and in Creations, with a preview.')
             if not why_:
                 _MADE_BUSY.add(cat_id); asyncio.create_task(_made_job(cat_id, made_, cat))
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
@@ -4738,12 +4919,20 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        watching_ = bool(_ac.watch_goal(p.text))
         p.text = _ac.watch_goal(p.text) or p.text   # 👁 Watch a Wallet: its own browser does the finding
         if _ac.off_lane(b.get('kind'), p.text):   # 🧭 it still does the work, and says so first
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': _ac.TRADER_NOTE, 'at': time.time()}])[-200:]
+        site_cmd_ = _ss.command(p.text, cat.get('siteManuals'), set(cat.get('siteSessions') or {}))
+        if site_cmd_:   # 🔎 "file a pump pow": only after the owner scanned and signed in there
+            say_ = site_cmd_.get('why') or _site_proof_start(cat, cat_id, site_cmd_['site'], site_cmd_['kind'])[1]
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': {'pop': 'pop', 'pob': 'bids'}.get(site_cmd_['kind'], 'pow')}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         if _pob.command(p.text):
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
+                cat.pop('proofSite', None)
                 _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'bids'}])[-200:]
             keep_owned(cat); _save(store)
@@ -4752,6 +4941,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if pop_cmd_:
             ok_, say_ = _pop.reply(pop_cmd_.split(':')[0], cat.get('popRun'), cat.get('popCard'))
             if ok_:
+                cat.pop('proofSite', None)
                 _POP_WANT[cat_id] = pop_cmd_; _POW_WAKE.set()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'pop'}])[-200:]
             keep_owned(cat); _save(store)
@@ -4766,6 +4956,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             elif cmd_['do'] == 'start' and not (cat.get('brainsCfg') or {}).get('brains'):
                 why_ = '⛏ It needs a model first.'
             else:
+                cat.pop('proofSite', None)
                 _POW_WANT[cat_id] = cmd_
                 _POW_WAKE.set()
                 who_ = {0: 'mind A', 1: 'mind B'}.get(cmd_.get('mind'), 'both minds')
@@ -4820,6 +5011,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['workQueue'] = q_ + [{'text': text_[:2600], 'to': p.to, 'at': time.time(), 'files': files_}]; keep_owned(cat); _save(store)
         else:
             _work_start(cat_id, cat, text_, p.to, files_)
+            if watching_:
+                _WORK[cat_id]['task']['watch'] = True   # 👁 files as its own folder when it finishes
             keep_owned(cat); _save(store)
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
@@ -4833,11 +5026,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
-            'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS),   # 💬 what it understands in the chat (cabinet + desktop list)
+            'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
