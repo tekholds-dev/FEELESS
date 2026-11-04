@@ -93,7 +93,7 @@ export function computeEdge(pair, rep, intel, feeRead) {
   f.push(['Activity', 10, t1 ? clamp(Math.log10(t1 + 1) * 32) : null, t1 ? `${t1.toLocaleString()} trades in the last hour` : 'no trade count this hour']);
   if (rep && rep.score != null) f.push(['Creator trust', 20, rep.badge === 'flagged' ? 0 : rep.score, `${rep.badge} creator · ${rep.tokenCount} launches${rep.dumpedCount ? ` · ${rep.dumpedCount} dumped` : ''}`]);
   else f.push(['Creator trust', 20, null, 'finding creator…']);
-  if (intel) {
+  if (intel && Array.isArray(intel.sniperWallets)) {   // an error reply is no data, never a clean 100
     let v = 100; const why = [];
     if (intel.bundledWallets?.length >= 3) { v -= 30; why.push(`${intel.bundledWallets.length} bundled`); }
     if (intel.sniperWallets?.length >= 5) { v -= 20; why.push(`${intel.sniperWallets.length} snipers`); }

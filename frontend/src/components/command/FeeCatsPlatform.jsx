@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ArrowLeft, Cat, ChevronRight, Play, Plus, X } from 'lucide-react';
-import { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
+import { CAT_VARIATIONS, CatAvatar } from './catCoats';
 import '../../styles/feecatPage.css';
 import '../../styles/catForge.css';
 

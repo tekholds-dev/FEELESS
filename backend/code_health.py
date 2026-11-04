@@ -240,7 +240,6 @@ def dead_files(src, back, script_dirs=()):
     py = {p: p.read_text(errors='ignore') for p in _walk(back, ('.py',))}
     scripts = '\n'.join(q.read_text(errors='ignore') for d in script_dirs if Path(d).exists() for q in Path(d).rglob('*') if q.is_file() and q.suffix in ('.py', '.sh', ''))
     mods = {p.stem: p for p in py if not _is_test(p) and p.parent == Path(back)}
-    blob = '\n'.join(t for p, t in py.items() if not _is_test(p))
     tests = '\n'.join(t for p, t in py.items() if _is_test(p))
     for m, p in mods.items():
         if m in BE_KEEP:

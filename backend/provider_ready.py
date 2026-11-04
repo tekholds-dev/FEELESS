@@ -19,6 +19,7 @@ PROVIDERS = [
     ('LaunchLab', 'LaunchLab launches', ('LAUNCHLAB_API_URL',), 'all', 'raydium.io'),
     ('X sign-in', 'Sign in with X', ('X_CLIENT_ID', 'X_CLIENT_SECRET'), 'all', 'developer.x.com'),
     ('Telegram', 'Bots, group posts, Mini App', ('TELEGRAM_BOT_TOKEN', 'TELEGRAM_GROUP_ID', 'TELEGRAM_APP_URL'), 'all', 'BotFather'),
+    ('Pump callouts', 'Pump callouts in the chart rail', ('PUMP_CALLOUT_TOKEN',), 'all', 'pump.fun'),
     ('Crypto.com', 'Crypto.com Exchange door', ('CRYPTO_COM_API_KEY', 'CRYPTO_COM_API_SECRET'), 'all', 'crypto.com/exchange'),
 ]
 

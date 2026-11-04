@@ -3,6 +3,7 @@
    hit area grows (min sizes / padding), the look stays. Imported by TerminalShell (the shared chrome). */
 @media (pointer: coarse) and (max-width: 900px) {
   [data-testid="terminal-search-submit"] { min-width: 34px; min-height: 34px; }
+  .mobile-close, .chart-meta-btn, .qp-s-site, .qp-s-x, .ccp-pin { min-width: 32px; min-height: 32px; }
   .season-banner { min-height: 32px; display: flex; align-items: center; }
   [data-testid="workspace-globe-link"] { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; }
   .fp-tabs > button { min-height: 34px; }

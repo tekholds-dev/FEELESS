@@ -2,7 +2,7 @@
 levels, and the engine files the trade only when they agree on the market and the side, taking the safer of both numbers. It then runs on true prices
 with hard exits: take profit, stop, liquidation, time.
 
-PAPER ONLY. Nothing is signed, sent or held. Real orders wait for their own guards and the owner's approval (WORK_QUEUE FC04, DECISIONS #1 and #8).
+PAPER ONLY. Nothing is signed, sent or held. Real orders wait for their own guards and the owner's approval (HANDOFF FC04, DECISIONS #1 and #8).
 P/L here never includes fees. Pure and tested: the service holds the store, the clock and the network.
 """
 import json

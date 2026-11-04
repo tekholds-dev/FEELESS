@@ -68,12 +68,6 @@ export const WORK_WAYS = [
     ['✍', 'You give two jobs', 'A: … B: …'], ['⚡', 'Both run at once', 'own window, own tools'], ['📦', 'Two results', 'each under its job, the best kept']]],
 ];
 // 🧭 how a General cat's two minds work (cat_agent.py — change both): shown as step 2 instead of the trading modes
-export const GENERAL_FLOW = [
-  ['⚡', 'You ask', 'mind A answers from memory when it can — one call, no browsing'],
-  ['🧠🧠', 'They split it', 'each mind works its half in its own cloud browser — you watch both live'],
-  ['✋', 'You step in', 'a sign-in or CAPTCHA pauses that window for you — it never types a password'],
-  ['🔗', 'One answer', 'mind A merges both halves with sources — it stops at your $ cap per task'],
-];
 // 📈 a trading cat trades on FEELESS rails ONLY (owner 2026-10-29) — mirrors cat_keys.VENUES / VENUES_LIVE (change both)
 export const VENUES = [['trench', '🫧 Trench', 'Solana coins on the FEELESS swap — its wallet sends, inside your caps', true],
   ['perps', '📉 Perps', 'the FEELESS perps desk — it proposes, the agent sender for perps is the next build', false]];

@@ -19,12 +19,6 @@ export function chartTargets(positions, top) {
 }
 
 // pure: HQ-only pins on her chart — the agents' verdict on the coin + OSSY / G4 / Reaper lines on it (users see only Fee's own calls)
-export function deskPins(p, mint) {
-  if (!p) return [];
-  const a = p.agents; const out = chartCalls(p.duo, mint, a?.cap);
-  if (a && Number(a.cap) > 0) out.unshift({ id: `ag-${mint}`, at: a.at, cap: Number(a.cap), who: 'Agents', kind: 'agent', action: a.status, text: `${a.status} · rank ${a.rank} — ${a.why}`, img: avatarOf('trigger') });
-  return out;
-}
 
 // pure: her read of one coin in plain words (setup · germ · structure · the models)
 export function readWords(t) {

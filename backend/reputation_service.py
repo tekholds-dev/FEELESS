@@ -19823,7 +19823,6 @@ async def admin_ai_rig_set(request: Request):
     import ai_rig as _rg
     body = await request.json()
     body = body if isinstance(body, dict) else {}
-    prev_ = _rg.clean({}, _json_load(AI_RIG_PATH, {}))
     new_ = _rg.clean(body, _json_load(AI_RIG_PATH, {}))
     _json_save(AI_RIG_PATH, new_)
     _rig_apply()

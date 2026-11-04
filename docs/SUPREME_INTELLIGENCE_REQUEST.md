@@ -165,7 +165,7 @@ Deliver working, measurable improvements—not cosmetic changes, unnecessary fea
 
 ---
 CORRECTIONS (2026-11-03, after code review; the request above stays as written, these decide where it conflicts)
-* Branch: tested pushes to main replace the dev-branch line (owner's later approval, see WORK_QUEUE); 51367 runs from main. Paid runs, trades and treasury moves still need the owner's OK each time.
+* Branch: tested pushes to main replace the dev-branch line (owner's later approval, see HANDOFF); 51367 runs from main. Paid runs, trades and treasury moves still need the owner's OK each time.
 * 30 FPS: the live window embeds the browser provider's viewer (`cat_browser.py` `debugUrl`/`sessionViewerUrl`). Measure real frame rate first; set the target from that number.
 * Build order: data and mechanics first; the FEE CAT Command Center last, so it shows real telemetry.
 * PoI folders on PoWs filed before PoI existed show "not recorded"; nothing is backfilled or inferred.

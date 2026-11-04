@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { MessageCircle, Send, Gift } from 'lucide-react';
+import { MessageCircle, Gift } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { getChatSession, readChatSession } from '../lib/chatSession';
 import { Hint } from './Hint';

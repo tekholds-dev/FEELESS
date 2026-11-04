@@ -10,10 +10,3 @@ export async function lifiFeeConfig() {
 }
 
 // FEELESS's share of a LI.FI quote, as LI.FI itemises it in estimate.feeCosts.
-export const lifiFeelessFee = quote => {
-  const bps = Number(quote?.feeless?.feeBps || 0);
-  if (!bps) return null;
-  const total = (quote?.estimate?.feeCosts || []).reduce((a, f) => a + Number(f.amountUSD || 0), 0);
-  const totalPct = (quote?.estimate?.feeCosts || []).reduce((a, f) => a + Number(f.percentage || 0), 0);
-  return { percentage: bps / 10000, amountUSD: totalPct ? total * (bps / 10000) / totalPct : 0 };
-};

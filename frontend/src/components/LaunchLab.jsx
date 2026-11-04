@@ -83,7 +83,6 @@ function Demo({ kind }) {
 
 // 🚀 LAUNCH PAD hero (owner, 2026-10-21: "Launch degen styling never got done"): a drawn rocket on its tower at amber dusk, a T-minus countdown that
 // loops, exhaust smoke, and the rocket blasts off every time you pick another launch type (the pad re-keys on the type). Pure CSS / SVG.
-export const tMinus = (ms, every = 12000) => Math.max(0, 10 - Math.floor((ms % every) / 1000));
 // 🟢 THE LIVE LAUNCH FLOOR (owner 2026-10-26: "no thought, not real" → real): every pump.fun launch as it happens (PumpPortal stream via
 // /api/pump/pulse): launches per minute over 15 min as bars, graduations, and the newest coins sliding in with their age, market cap, dev buy and
 // how far up the bonding curve they are. Nothing drawn that the stream does not report.

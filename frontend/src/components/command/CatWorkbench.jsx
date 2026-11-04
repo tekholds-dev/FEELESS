@@ -924,7 +924,7 @@ function BidsApp() {
     <div key={path} className="dsk-pull">{path === 'sites' ? <BidSites /> : path ? <Suspense fallback={<p className="dsk-note">reading the board…</p>}><BidsLazy only="agent" start={path} /></Suspense> : <>
       <header className="bd-head m-glass m-live"><span><b>🎲 BIDS</b><small>Free chips on your agents, and links to the USA real-money sites. Nothing here bets real money.</small></span></header>
       <div className="hv-pow-stats" data-testid="bd-stats">{[['LIVE', m ? live.length : '…'], ['SETTLED', m ? settled.length : '…'], ['YOUR CHIPS', m?.bank ? m.bank.chips : '—'], ['SITES', BID_SITES.length]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
-      <div className="dsk-xgrid"><Tile tone="live" ic="⚡" label="Live board" sub={`${live.length} open · free chips`} onOpen={() => setPath('live')} tip="Bid free chips on proofs running now" testid="bd-live" />
+      <div className="dsk-xgrid"><Tile tone="live" ic="⚡" label="Live board" sub={`${live.length} open`} onOpen={() => setPath('live')} tip="Bid free chips on proofs running now" testid="bd-live" />
         <Tile i={1} tone="none" ic="✓" label="Settled" sub={`${settled.length} closed`} onOpen={() => setPath('settled')} tip="How finished proofs ended" testid="bd-settled" />
         <Tile i={2} tone="good" ic="🇺🇸" label="Real money" sub={`${BID_SITES.length} USA sites`} onOpen={() => setPath('sites')} tip="Links to USA real-money sites, with what each says about automation" testid="bd-sites" /></div>
       {live.length ? <ul className="bd-live">{live.slice(0, 5).map((x, i) => <li key={x.id} style={{ '--i': i }}><button type="button" className="m-glass" onClick={() => setPath('live')} data-tip="Open it on the live board"><i aria-hidden="true" /><span>{x.q}</span></button></li>)}</ul> : <p className="dsk-note">A free-chip market opens when one of your agents’ PoW buys or a PoP opens.</p>}</>}</div></div>;
@@ -988,6 +988,11 @@ export function placeIcons(saved, height) {
   const free = () => { for (;;) { const p = { x: Math.floor(n / rows) * 96, y: (n % rows) * 96 }; n += 1; if (!taken.has(`${p.x},${p.y}`)) return p; } };
   return Object.fromEntries(ICONS.map(([k]) => [k, saved[k] || free()]));
 }
+// 🪟 a window opens beside the icons on a roomy screen, so none sits behind it; a dragged window stays where you put it
+export function clearOfIcons(win, icons, width) {
+  if (width < 900 || win.open) return {};
+  return { x: Math.max(win.x, Math.min(300, Math.max(0, ...Object.values(icons).map(p => p.x)) + 112)) };
+}
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null }) {
   const g = useRef(null); const dragged = useRef(false);
@@ -1009,7 +1014,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
-  const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false }); setTop(k); };
+  const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
   const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false); const [now, setNow] = useState(Date.now());
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);

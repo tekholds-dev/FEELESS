@@ -4,7 +4,6 @@
 const SDK = 'https://telegram.org/js/telegram-web-app.js';
 export const tgApp = () => (typeof window !== 'undefined' ? window.Telegram?.WebApp || null : null);
 export const tgInitData = () => tgApp()?.initData || '';
-export const inTelegram = () => !!tgInitData() || (typeof window !== 'undefined' && /tgWebAppData=/.test(window.location.hash || ''));
 
 let loading = null;
 export function initTelegram() {

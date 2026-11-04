@@ -21,7 +21,6 @@
 // the shore. `moneyShare` proves the ~80 %.
 export const CELL = 5;        // a family plot
 export const MCELL = 8;       // a market tower (and every downtown / district cell)
-export const TCELL = 9;       // (kept for old callers — the TT island now stands on MCELL cells)
 export const LAND = 6;        // the open land ring around every island grid
 const GAP = 22;               // open water: the gates out, and the family keys off the shore
 const CANAL = 12;             // 🌊 the canals between the metro's districts — one city cut by water

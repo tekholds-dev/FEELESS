@@ -1014,6 +1014,12 @@ def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
                 lamports = abs(post[k] - pre[k] + (meta.get('fee') or 0 if k == 0 else 0))
         wsol = abs(bal(post_t, WSOL, who) - bal(pre_t, WSOL, who))
         usd = ((lamports / 1e9 if lamports > 100_000 else 0) + wsol) * sol_usd  # < 0.0001 SOL = fees, not a leg
+    # 🕯 The true fill is what the POOL's balances did. The trader's SOL change also holds their gas, tips and rent: on a $0.90 sell that read 18% over the market and drew a false spike.
+    pool_base = abs(bal(post_t, base, pool) - bal(pre_t, base, pool)) if pool else 0
+    pool_quote = (sum(abs(bal(post_t, m, pool) - bal(pre_t, m, pool)) for m in USD_MINTS) + abs(bal(post_t, WSOL, pool) - bal(pre_t, WSOL, pool)) * (sol_usd or 0)) if pool else 0
+    pool_priced = bool(pool_base and pool_quote)
+    if pool_priced:
+        usd, amt = pool_quote, pool_base
     priced = bool(usd) and not (price_usd and not (0.5 < (usd / amt) / price_usd < 1.5))   # 🕯 the fill price is the swap's own (a chart tick may use it)
     if not priced:
         usd = amt * price_usd  # routed through accounts we can't see: value it at the live price
@@ -1021,7 +1027,7 @@ def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
         return None  # dust transfer / bot spam, not a swap
     sig = ((tx.get('transaction') or {}).get('signatures') or [None])[0]
     return {'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(tx.get('blockTime') or time.time())), 'kind': 'buy' if delta > 0 else 'sell',
-            'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig, 'priced': priced, 'at': tx.get('blockTime')}
+            'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig, 'priced': priced, 'poolPriced': pool_priced and priced, 'at': tx.get('blockTime')}
 
 
 _tape_rows: dict = {}   # signature -> parsed row (None = not a swap): a transaction is read ONCE, later refreshes fetch only new ones
@@ -1115,6 +1121,15 @@ def px_rest_sec(retry_after):
         return PX_REST_SEC
 
 
+_px_dex: dict = {}   # mint -> when DexScreener last answered for it: one pool, rounded to 4 digits
+
+
+def quote_flips(mint, st, now):
+    """🕯 While Jupiter rests after a 429, DexScreener's rounded single-pool quote answers, and the forming candle jumped between the two ($0.01103, $0.01096, $0.01103). A viewer already
+    on a real price keeps it: that backup quote only draws when the chart has nothing else. Pure."""
+    return bool(st.get('price')) and now - _px_dex.get(mint, 0) < 6
+
+
 async def _px_fetch(mints):
     """ONE read for many coins: Jupiter on the READ key (never the keeper's), then the public lane, then DexScreener for what is left."""
     got = {}
@@ -1149,6 +1164,7 @@ async def _px_fetch(mints):
                     if m in todo and float(p.get('priceUsd') or 0) > 0 and liq >= best.get(m, (-1, 0))[0]:
                         best[m] = (liq, float(p['priceUsd']))
                 got.update({m: v for m, (_l, v) in best.items()})
+                _px_dex.update({m: time.time() for m in best})
             except Exception:
                 pass
     now = time.time()
@@ -1233,6 +1249,9 @@ def swap_sig(msg):
     return v.get('signature') if v.get('signature') and not v.get('err') else None
 
 
+WALLET_TICK_MIN_USD = 25.0
+
+
 def swap_ticks(rows, last_px):
     """Parsed swaps (oldest first) → the chart ticks they make: only prices from the swap's own leg, never a 20× jump from the last price. Pure."""
     out, ref = [], last_px
@@ -1240,8 +1259,33 @@ def swap_ticks(rows, last_px):
         px = (r or {}).get('price')
         if not r or not r.get('priced') or not px or px <= 0 or (ref and not (ref / 20 < px < ref * 20)):
             continue
+        if not r.get('poolPriced') and (r.get('usd') or 0) < WALLET_TICK_MIN_USD:   # no pool balance to read (a bonding curve): only a trade big enough that gas can't bend its price
+            continue
         out.append({'p': px, 't': r.get('at') or time.time(), 'k': r.get('kind'), 'u': r.get('usd'), 'x': r.get('tx'), 'w': r.get('wallet')}); ref = px   # x / w: the tape adds the fill at once
     return out
+
+
+PUBLIC_STREAM_WS = 'wss://api.mainnet-beta.solana.com'
+SLOW_LANE_RIPE_S = 1.5
+STREAM_RETRY_S = 900   # on the backup lane, try the paid stream again this often
+
+
+def stream_lanes(primary, alchemy_key):
+    """🛣 Where a live trade feed can come from, best first: (logs websocket, fill reader, seconds between reads, fills a read). A paid key out of quota answers 429, so the public stream
+    carries the logs and Alchemy reads one fill a second. That is real fills on a budget, and it never spends the keeper's RPC quota. Pure."""
+    lanes = [(primary, _rpc_http(primary), SWAP_TX_GAP, SWAP_TX_BATCH)] if primary else []
+    if alchemy_key:
+        lanes.append((PUBLIC_STREAM_WS, f'https://solana-mainnet.g.alchemy.com/v2/{alchemy_key}', 1.0, 1))
+    return lanes
+
+
+def ripe_sigs(sigs, seen, batch, now):
+    """→ (what to read now, what stays pending). A fast lane reads the newest at once and retries. The one-a-second lane waits until a swap is confirmed (about 1.5 s after its log):
+    always taking the very newest would read only swaps the chain has not confirmed yet, and show none. Older swaps a busy coin outran are skipped. Pure."""
+    if batch > 1:
+        return sigs[-batch:], []
+    ripe = [x for x in sigs if now - seen.get(x, 0) >= SLOW_LANE_RIPE_S]
+    return ripe[-batch:], [x for x in sigs if x not in ripe]
 
 
 def _rpc_http(ws_url):
@@ -1249,18 +1293,17 @@ def _rpc_http(ws_url):
     return ws_url.replace('wss://', 'https://', 1).replace('ws://', 'http://', 1) if ws_url else ''
 
 
-async def _swap_worker(key, chain, pair, mint, http_url):
+async def _swap_worker(key, chain, pair, mint):
     """Drains the pool's pending swap signatures: newest first, a few per tick, each read once; pushes their fill prices in time order."""
-    st = _streams.get(key)
-    if not st or not http_url:
-        return
     async with httpx.AsyncClient(timeout=6) as http:
         while key in _streams:
-            await asyncio.sleep(SWAP_TX_GAP)
-            st = _streams.get(key)
-            if not st or not st['sigs']:
+            st = _streams.get(key); _, http_url, gap_, batch_ = (st or {}).get('lane') or ('', '', SWAP_TX_GAP, SWAP_TX_BATCH)
+            await asyncio.sleep(gap_)
+            if not st or not st['sigs'] or not http_url:
                 continue
-            take = st['sigs'][-SWAP_TX_BATCH:]; st['sigs'] = []   # newest swaps; older ones a busy coin outran are skipped (the chart wants the latest)
+            take, st['sigs'] = ripe_sigs(st['sigs'], st.get('sigAt') or {}, batch_, time.time())
+            if not take:
+                continue   # newest swaps; older ones a busy coin outran are skipped (the chart wants the latest)
             try:
                 batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]}
                          for i, x in enumerate(take)]
@@ -1299,6 +1342,8 @@ async def _push_price(key, chain, pair, mint, fresh=False):
     prev = st['price']
     if px and prev and not (prev / 20 < px < prev * 20):
         return
+    if quote_flips(mint, st, time.time()):
+        return
     if px and px != st['price']:
         st['price'] = px
         await _broadcast(key, _json.dumps({'p': px, 't': time.time()}))
@@ -1316,18 +1361,21 @@ async def _upstream(key, chain, pair):
     mint = await _pair_base_token(chain, pair) or pair  # bonding-curve coins are addressed by mint
     if mint == 'So11111111111111111111111111111111111111112':
         return  # unknown base token: clients keep their polling path rather than risk a wrong price
-    url = os.environ.get('PRICE_STREAM_WS_URL', '').strip()
+    lanes = stream_lanes(os.environ.get('PRICE_STREAM_WS_URL', '').strip(), os.environ.get('ALCHEMY_API_KEY', '').strip())
     await _push_price(key, chain, pair, mint)
-    worker = asyncio.create_task(_swap_worker(key, chain, pair, mint, _rpc_http(url))) if url else None
-    backoff = 1
+    worker = asyncio.create_task(_swap_worker(key, chain, pair, mint)) if lanes else None
+    backoff = 1; lane_i = 0
     while key in _streams:
         try:
-            if not url:
+            if not lanes:
                 raise RuntimeError('no stream url')
-            async with websockets.connect(url, ping_interval=20) as ws:
+            lane = lanes[lane_i % len(lanes)]; since_ = time.time()
+            if key in _streams:
+                _streams[key]['lane'] = lane
+            async with websockets.connect(lane[0], ping_interval=20) as ws:
                 await ws.send(_json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'logsSubscribe', 'params': [{'mentions': [mint]}, {'commitment': 'processed'}]}))
                 backoff = 1
-                while key in _streams:
+                while key in _streams and not (lane_i % len(lanes) and time.time() - since_ > STREAM_RETRY_S):
                     swap_ = False
                     try:
                         raw_ = await asyncio.wait_for(ws.recv(), timeout=1)
@@ -1335,11 +1383,15 @@ async def _upstream(key, chain, pair):
                         sig_ = swap_sig(_json.loads(raw_)) if isinstance(raw_, (str, bytes)) else None
                         st_ = _streams.get(key)
                         if sig_ and st_ is not None:
-                            st_['sigs'] = (st_['sigs'] + [sig_])[-SWAP_PENDING_MAX:]
+                            st_['sigs'] = (st_['sigs'] + [sig_])[-SWAP_PENDING_MAX:]; st_.setdefault('sigAt', {})[sig_] = time.time()
+                            if len(st_['sigAt']) > 4 * SWAP_PENDING_MAX:
+                                st_['sigAt'] = {x: st_['sigAt'].get(x, 0) for x in st_['sigs']}
                     except asyncio.TimeoutError:
                         pass   # no swap event this second: refresh anyway (≤1s freshness guaranteed)
                     await _push_price(key, chain, pair, mint, fresh=swap_)
+                lane_i += 1   # time to try the better lane again
         except Exception:
+            lane_i += 1   # this lane refused (429, 402, down): the next one, after the same polling
             # Stream down: keep viewers live by polling every second until it reconnects.
             until = time.time() + min(30, backoff); backoff *= 2
             while key in _streams and time.time() < until:

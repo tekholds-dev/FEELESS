@@ -6,7 +6,7 @@ import { PoolHub, usePools } from './PoolHub';
 import { PLACES, HALLS, usd, roomsOf, POOL_KIND } from '../lib/cityPlan';
 import { familiaTrade } from './FamiliaTrade';
 import { FamilyHQ } from './FamilyHQ';
-import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
+import { CityRail, RankLadder } from './FamiliaHud';
 import StreetChat from './StreetChat';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
@@ -30,7 +30,6 @@ import { familiaRoom, ROOM_PATH } from '../lib/familiaRoom';
 // playing cards for hitters and workers, points with real rewards"). Every number is the server's (family_world.py). Points only — the FEECAT
 // redeem is a claim the owner pays by hand.
 export const STORE_ICON = { pizza: '🍕', gas: '⛽', laundry: '🧺', pharma: '💊', mart: '🏪', lounge: '🍸', docks: '⚓', lab: '🧪', casino: '🎰', bank: '🏦', tower: '🏢', park: '🌳' };
-export const WORLD_LENSES = [['map', '🗺 City'], ['ranked', '🎖 Ranked'], ['raids', '⚔ Raids'], ['jobs', '🧰 Errands'], ['rc', '🎖 Challenges'], ['deck', '🃏 Crew deck'], ['shop', '🎁 Rewards'], ['cartels', '🕳 Cartels']];
 const SUIT = { hitter: ['♠', 'Hitter'], guard: ['♣', 'Guard'], earner: ['♥', 'Earner'], spy: ['♦', 'Spy'] };
 const FACE = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 // pure: a recruit as a playing card — level 1 = Ace … 10 = 10; level 10 hitters are the Kings of the street

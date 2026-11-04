@@ -1,6 +1,6 @@
 # FEELESS — working rules (lean). The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
 
-> 🧭 New session? Read `docs/HANDOFF.md` (map, commands, state) → `## CURRENT TASKS` below → only the history lines your task touches.
+> 🧭 New session? Read `docs/HANDOFF.md` (map, commands, state, and `## TASKS`, the only task list) → only the history lines your task touches.
 > 🧨 Fuse / the real card? Read `docs/DEGEN_PLAYBOOK.md` first.
 
 Degen trading terminal (Solana-first). Every feature ships **one and done**: styled, animated, fast, tested, pushed.
@@ -157,8 +157,8 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 ## Current work — single source of truth
 
-Read [docs/WORK_QUEUE.md](docs/WORK_QUEUE.md) for every open request, priorities, owner prerequisites, conflicts and the archived exact request ledger. Do not recreate a competing task list here.
+Read [docs/HANDOFF.md](docs/HANDOFF.md) `## TASKS` for every open request, priorities, owner prerequisites, conflicts and the archived exact request ledger. Do not recreate a competing task list here.
 
 Read [docs/MOBILE_LAYOUT.md](docs/MOBILE_LAYOUT.md) before any phone/Duo change. Owner reference: folded 466×678, rotated 678×466, unfolded 890×626 / 626×890 CSS px, DPR 3; these are supplied viewport references, not universal hardware specs. Every mobile browser must fit its actual usable viewport, preserve controls and rotation state, and account for Safari chrome/safe areas/keyboard.
 
-Conserve usage: read the selected task and relevant code, finish that scope, verify, update WORK_QUEUE and HANDOFF, stop. Existing unrelated edits must not be committed with your change.
+Conserve usage: read the selected task and relevant code, finish that scope, verify, update HANDOFF and HANDOFF, stop. Existing unrelated edits must not be committed with your change.

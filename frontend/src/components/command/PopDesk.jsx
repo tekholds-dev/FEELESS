@@ -40,7 +40,7 @@ export function ProposalCard({ c, send, busy }) {
     <div className="pop-nums"><span><em>ENTRY</em><b className="m-num">${Number(c.entry).toLocaleString()}</b></span><span><em>MARK</em><b className="m-num">${Number(c.mark).toLocaleString()}</b></span><span><em>☠ LIQ AT</em><b className="m-num">−{c.liqPct}%</b></span></div>
     <Calls calls={c.calls} />
     {c.refused ? <p className="kd-err" role="alert" data-testid="pop-refused">⚠ {c.refused}</p> : null}
-    {open ? <div className="pop-acts"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('adopt')} data-tip="Opens a paper PoP at the live price with these numbers. No real order is sent" data-testid="pop-run">▶ Run on paper</button><button type="button" className="m-btn" disabled={busy} onClick={() => send('pass')} data-tip="Skips it. Its ghost still shows what would have happened" data-testid="pop-pass">Pass</button></div> : null}
+    {open ? <div className="pop-acts"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('adopt')} data-tip="Opens a paper PoP at the live price with these numbers. No real order is sent" data-testid="pop-run">▶ Run on paper</button><button type="button" className="m-btn" disabled={busy} onClick={() => send('pass')} data-tip="Skips it. Its ghost still shows what would have happened" data-testid="pop-pass">Pass</button><a className="m-btn" href="https://crypto.com/app" target="_blank" rel="noopener noreferrer" data-tip="Agents only propose perps. To trade this for real, place it yourself on Crypto.com. FEELESS sends nothing" data-testid="pop-cdc">Try it on Crypto.com ↗</a></div> : null}
   </article>;
 }
 

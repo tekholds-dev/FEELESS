@@ -1059,7 +1059,6 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     fallback; users default to OpenRouter, my caller is theirs"). → (text, $, via). Fee / staff: SingIt from its own wallet → OpenRouter →
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
-    mine = bool(cat.get('isLeader') or cat.get('ownerStaff'))
     wallet = _pays_itself(cat) and not own_key
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
@@ -2667,7 +2666,7 @@ async def _meta_post(store):
 _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
-WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
+HANDOFF_MAX = 10   # 🏇 let it go: asks waiting their turn
 SOURCES_PATH = DATA_DIR / 'agent_sources.json'
 BLOCK_PIVOT_S = 45   # a visible manual challenge window; then the mind records the gap and moves on
 
@@ -3039,7 +3038,7 @@ def _work_settle(store):
         if cat and cat.get('brainsCfg'):
             _job_memory(cat)
         if cat and t.get('parked'):   # ⏸ filed to come back to when you are back (desk: Resume / Drop)
-            cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-WORK_QUEUE_MAX:]
+            cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-HANDOFF_MAX:]
         w['settled'] = True
         # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason; a parked one does not)
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
@@ -4015,7 +4014,7 @@ def file_interrupted(cat, now=None):
         return False
     if any(m.get('by') == 'cats' and float(m.get('at') or 0) > float(n_.get('at') or 0) for m in cat.get('chat') or []):   # it already answered — nothing was cut off
         return False
-    cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': now or time.time(), 'text': n_['text'], 'why': 'the agent service restarted while it worked — press ▶ to run it again'}])[-WORK_QUEUE_MAX:]
+    cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': now or time.time(), 'text': n_['text'], 'why': 'the agent service restarted while it worked — press ▶ to run it again'}])[-HANDOFF_MAX:]
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '⏸ The agent service restarted while I worked on this — it is filed under ⏸; press ▶ to run it again.', 'at': now or time.time()}])[-40:]
     return True
 
@@ -4491,8 +4490,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {**_work_view(cat_id, owner=True), 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
         if busy:   # 🏇 let it go: it takes the next ask the moment this one ends
             q_ = list(cat.get('workQueue') or [])
-            if len(q_) >= WORK_QUEUE_MAX:
-                raise HTTPException(400, f'Its queue is full ({WORK_QUEUE_MAX}) — let it work through some first.')
+            if len(q_) >= HANDOFF_MAX:
+                raise HTTPException(400, f'Its queue is full ({HANDOFF_MAX}) — let it work through some first.')
             cat['workQueue'] = q_ + [{'text': text_[:2600], 'to': p.to, 'at': time.time(), 'files': files_}]; keep_owned(cat); _save(store)
         else:
             _work_start(cat_id, cat, text_, p.to, files_)

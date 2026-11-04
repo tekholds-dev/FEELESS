@@ -1,7 +1,7 @@
 import { CatWorkbench, ColonyTab, DeskFlip, EarnCard, TraderCabinet } from './CatWorkbench';
 import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
-import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
+import { AgentLive, HeadCloud, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord, ModelPop } from './LaunchCat';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
