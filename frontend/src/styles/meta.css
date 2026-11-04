@@ -460,7 +460,7 @@ body.theme-day .m-live::before { opacity: .55; }
 .m-go { background: linear-gradient(135deg, #0bd97f, #15d16a 55%, #6bffc0) !important; color: var(--m-accent-ink) !important; box-shadow: 0 8px 24px -12px rgba(21, 209, 106, .8), 0 0 0 1px rgba(255, 255, 255, .12) inset; transition: transform .12s var(--m-ease), box-shadow .15s, filter .15s; }
 .m-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 12px 30px -10px rgba(21, 209, 106, .95), 0 0 0 1px rgba(255, 255, 255, .2) inset; }
 .m-go:active:not(:disabled) { transform: translateY(0) scale(.98); } .m-go:focus-visible { outline: 2px solid #b8ffe0; outline-offset: 2px; }
-body.theme-day .m-go { background: linear-gradient(135deg, #056b45, #07895a) !important; color: #fff !important; box-shadow: 0 8px 20px -12px rgba(7, 120, 79, .7); }
+body.theme-day .m-go, body.theme-day .terminal-main a.m-go { background: linear-gradient(135deg, #056b45, #07895a) !important; color: #fff !important; box-shadow: 0 8px 20px -12px rgba(7, 120, 79, .7); }
 .trench-chart { display: contents; } .trench-chart .chart-toolbar { flex-wrap: wrap; row-gap: 6px; }
 .np-lens { margin: 6px 10px 8px; } .np-why { display: block; margin-top: 2px; font-family: var(--m-mono); font-size: 9px; letter-spacing: .06em; text-transform: uppercase; color: var(--m-mute); }
 .tape-row.is-whale { box-shadow: inset 3px 0 0 var(--m-warn); } .tape-row.is-whale b::after { content: ' 🐋'; }

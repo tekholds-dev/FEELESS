@@ -2267,7 +2267,7 @@ body.theme-day .ambient-background{background:radial-gradient(55% 45% at 10% 10%
 body.theme-day .ambient-background .ambient-grid{opacity:.35}
 body.theme-day .ambient-background::after{background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%),radial-gradient(28% 24% at 60% 25%,rgba(255,190,110,.18),transparent 70%)!important;background-size:420px 420px,380px 380px,300px 300px,460px 460px,340px 340px,100% 100%!important;animation:none;opacity:.9!important}
 
-body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.notif-pop,.search-drop,.pa-pop,.slash-menu,.legal-consent,.cc-shell,.market-table-wrap){background:var(--day-surface)!important}
+body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.notif-pop,.search-drop,.pa-pop,.slash-menu,.cc-shell,.market-table-wrap){background:var(--day-surface)!important}
 body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker){background:rgba(236,244,239,.97)!important}
 body.theme-day :is(input,select,textarea):not([type=range]):not([type=checkbox]){background:var(--day-surface-2)!important}
 body.theme-day .chart-area,body.theme-day .candle-canvas{background:#eaf3ee}

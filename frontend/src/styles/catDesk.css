@@ -104,7 +104,7 @@ body.fx-lite :is(.kd-hero, .kd-spot, .kd-floor, .kd-tile, .kd-card, .kd-pos li, 
 @media (prefers-reduced-motion: reduce) { :is(.kd-hero, .kd-spot, .kd-floor, .kd-tile, .kd-tile b, .kd-card, .kd-pos li, .kd-state i, .kd-move u, .kd-xp u s, .kd-tile u s, .kd-lim u s) { animation: none; }
   .kd-back, .kd-acts button, .kd-pos button, .kd-wallet { transition: none; } }
 body.theme-day .kd-hero { background: radial-gradient(80% 120% at 0% 50%, #ece2ff 0%, #f7f2ff 60%, #fff 100%); border-color: #7c4dff33; }
-body.theme-day .kd-id h1 { color: #2a1650; text-shadow: none; } body.theme-day .kd-line, body.theme-day .kd-tile small, body.theme-day .kd-lim small, body.theme-day .kd-lessons { color: #5a4a7a; }
+body.theme-day .kd-xp b { color: #a81a72; } body.theme-day .kd-id h1 { color: #2a1650; text-shadow: none; } body.theme-day .kd-line, body.theme-day .kd-tile small, body.theme-day .kd-lim small, body.theme-day .kd-lessons { color: #5a4a7a; }
 body.theme-day :is(.kd-tile, .kd-card) { background: linear-gradient(165deg, #fff, #f6f0ff); border-color: #7c4dff24; } body.theme-day .kd-card > header b { color: #2a1650; }
 body.theme-day :is(.kd-tile b, .kd-lim b, .kd-learn b, .kd-pos b) { color: #2a1650; } body.theme-day :is(.kd-pos button, .kd-learn span, .kd-acts, .kd-state) { background: #fff; color: #2a1650; }
 body.theme-day .kd-acts button { color: #2a1650; } body.theme-day .kd-back, body.theme-day .kd-wallet { color: #2a1650; }

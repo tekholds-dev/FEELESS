@@ -119,6 +119,7 @@ body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-sh
 /* 🗄 a real drawer: the open one slides out of the cabinet with a shadow under its lip, then settles (ckPull) */
 .ck-cabinet .ck-pull { position: relative; transform-origin: left center; animation: ckPull .34s cubic-bezier(.2, .9, .25, 1.15) both; box-shadow: inset 0 1px 0 #ffffff14, 0 14px 26px -16px #000; border-radius: 12px; }
 @keyframes ckPull { 0% { opacity: 0; transform: translateX(-26px) scaleX(.94); } 70% { opacity: 1; transform: translateX(3px) scaleX(1.005); } 100% { transform: none; } }
+body.theme-day .ck-skin summary { background: #fff; color: #2a1650; border-color: #7c4dff33; } body.theme-day .ck-skin summary:hover { background: #f3eefc; }
 body.theme-day .ck-log .ck-folders { background: #f3eefc; } body.theme-day .ck-log .ck-folders button { background: #fff; color: #2a1650; }
 body.theme-day .ck-log .ck-folders button.is-on { background: #efe6ff; color: #2a1650; }
 body.fx-lite .ck-log .ck-folders button, body.fx-lite .ck-cabinet .ck-pull { animation: none; }
