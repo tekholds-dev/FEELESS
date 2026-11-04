@@ -1,3 +1,4 @@
+import pytest
 """📉 Proof of Perps: both minds must agree, the safer numbers win, hard exits on true prices, and nothing real is ever sent. 🤖 Free-chip bids settle on the real result."""
 import pop
 import poi
@@ -263,3 +264,9 @@ def test_kept_folders_survive_the_trim_numbers_never_repeat_and_the_line_is_samp
     t = {}
     pop.sample(t, 100, 1000); pop.sample(t, 101, 1010); pop.sample(t, 102, 1030); pop.sample(t, 0, 1090)
     assert t['line'] == [100.0, 102.0]
+
+
+def test_the_folder_says_the_size_the_wallet_really_sends():
+    fs = pytest.importorskip('feecat_service')
+    cat = {'proposals': [{'id': 'a', 'sol': 0.008}, {'id': 'b'}]}
+    assert fs._pow2_real_sol(cat, 'a', 0.01) == 0.008 and fs._pow2_real_sol(cat, 'b', 0.01) == 0.01 and fs._pow2_real_sol(cat, 'gone', 0.01) == 0.01

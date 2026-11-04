@@ -32,7 +32,7 @@ const watchPayload = watchlist => watchlist.map(p => ({
   rules: p.alerts || {},
 }));
 
-export async function enablePush(watchlist, prefs) {
+export async function enablePush(watchlist, prefs, session) {
   if (!pushSupported()) throw new Error('This browser does not support push notifications.');
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Notifications are blocked for this site.');
@@ -40,14 +40,14 @@ export async function enablePush(watchlist, prefs) {
   await navigator.serviceWorker.ready;
   const { publicKey } = await (await fetch(apiUrl('/api/reputation/push/vapid'))).json();
   const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(publicKey) });
-  return syncPush(watchlist, prefs, sub);
+  return syncPush(watchlist, prefs, sub, session);
 }
 
-export async function syncPush(watchlist, prefs, sub) {
+export async function syncPush(watchlist, prefs, sub, session) {
   const subscription = sub || await currentSubscription();
   if (!subscription) return null;
   const res = await fetch(apiUrl('/api/reputation/push/subscribe'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ subscription: subscription.toJSON(), watch: watchPayload(watchlist), prefs }) });
+    body: JSON.stringify({ subscription: subscription.toJSON(), watch: watchPayload(watchlist), prefs, session }) });
   if (!res.ok) throw new Error('Could not register alerts with the server.');
   return res.json();
 }

@@ -1427,6 +1427,17 @@ class PushSubscribe(BaseModel):
     subscription: dict
     watch: list = []
     prefs: dict = {}
+    session: str = ''
+
+
+def _push_prefs(prefs, prev, session):
+    """🔒 A phone only gets a wallet's alerts if it proved that wallet (its signed session) or this same phone already held it. A claim without proof keeps the watchlist alerts and drops the wallet."""
+    out = dict(prefs or {}); claim = str(out.get('address') or '')
+    if claim and claim != (prev or {}).get('address'):
+        owner = session_address(session) if session else None
+        if not owner or primary_of(owner) != primary_of(claim):
+            out.pop('address', None)
+    return out
 
 
 @app.get('/api/reputation/push/vapid')
@@ -1452,10 +1463,10 @@ async def push_subscribe(payload: PushSubscribe):
             watch.append({'chainId': w['chainId'], 'pairAddress': w['pairAddress'], 'mint': w.get('mint'), 'symbol': w.get('symbol'),
                           'watchedPrice': w.get('watchedPrice'), 'watchedLiq': w.get('watchedLiq') or old.get('watchedLiq'),
                           'rules': {**DEFAULT_RULES, **(w.get('rules') or {})}, 'state': old.get('state', {})})
-        d['subs'][sid] = {'subscription': sub, 'watch': watch, 'prefs': {**DEFAULT_PREFS, **(payload.prefs or {})},
+        d['subs'][sid] = {'subscription': sub, 'watch': watch, 'prefs': {**DEFAULT_PREFS, **_push_prefs(payload.prefs, prev.get('prefs'), payload.session)},
                           'createdAt': prev.get('createdAt', time.time()), 'updatedAt': time.time(), 'sent': prev.get('sent', [])[-50:]}
         _push_save(d)
-    return {'ok': True, 'id': sid, 'watching': len(watch)}
+    return {'ok': True, 'id': sid, 'watching': len(watch), 'walletLinked': bool(d['subs'][sid]['prefs'].get('address'))}
 
 
 class PushUnsubscribe(BaseModel):

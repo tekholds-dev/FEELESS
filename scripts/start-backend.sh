@@ -32,3 +32,6 @@ if [[ -d "$root/circle/node_modules" ]] && grep -q '^CIRCLE_API_KEY=.' "$root/ba
   (cd "$root/circle" && nohup node server.mjs > /tmp/feeless-circle.log 2>&1 &)
   echo "started circle on :5111"
 fi
+
+# 🫀 One supervisor: the watcher is what brings a stopped service back. Found missing 2026-11-04, when a routine restart left candles down. Start it here if it is not running.
+pgrep -f "scripts/keep-alive.sh" >/dev/null 2>&1 || /usr/bin/python3 -c 'import os,sys; os.setsid(); os.execvp("bash", ["bash", sys.argv[1], "start"])' "$root/scripts/background.sh" </dev/null >/tmp/feeless-watcher-start.log 2>&1 &

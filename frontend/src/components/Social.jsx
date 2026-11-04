@@ -26,7 +26,7 @@ export function NotificationBell() {
   }, [wallet?.address, session]);
   const signIn = async () => { try { await getChatSession(wallet.address, signMessage); setD({ unread: 0, items: [] }); } catch (e) { toast.error(e.message); } };
   const markRead = () => { if (d?.unread) fetch('/api/reputation/notifications/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session }) }).then(() => setD(x => ({ ...x, unread: 0, items: x.items.map(n => ({ ...n, read: true })) }))); };
-  const phone = async () => { try { const prefs = { ...readPushPrefs(), address: wallet.address }; let wl = []; try { wl = JSON.parse(localStorage.getItem('feeless-watchlist') || '[]'); } catch { /* ignore */ } if (await currentSubscription()) await syncPush(wl, prefs); else await enablePush(wl, prefs); savePushPrefs(prefs); toast.success('📱 Phone alerts on for messages, wall posts and mentions.'); } catch (e) { toast.error(e.message); } };
+  const phone = async () => { try { const session = await getChatSession(wallet.address, signMessage); const prefs = { ...readPushPrefs(), address: wallet.address }; let wl = []; try { wl = JSON.parse(localStorage.getItem('feeless-watchlist') || '[]'); } catch { /* ignore */ } if (await currentSubscription()) await syncPush(wl, prefs, undefined, session); else await enablePush(wl, prefs, session); savePushPrefs(prefs); toast.success('📱 Phone alerts on for messages, wall posts and mentions.'); } catch (e) { toast.error(e.message); } };
   const wrap = useRef(null);
   useEffect(() => {
     if (!open) return undefined;

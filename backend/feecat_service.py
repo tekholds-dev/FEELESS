@@ -1935,6 +1935,7 @@ async def _pow2_tick(http, store, cat, now):
             f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym']); return
         if row.get('state') == 'proposed':   # 💵 its OWN wallet buys — no signature from you (owner 2026-11-01); the server guards still run (budget · day cap · gas · one at a time)
             _pow2_approve(cat, row.get('pid'))
+            sol = _pow2_real_sol(cat, row.get('pid'), sol)
             f.update(sol=sol, real=True, pid=row.get('pid'), phaseAt=round(now))
             _pow2_say(f, 'engine', f"its wallet is buying {sol:g} SOL of ${f['sym']} on FEELESS")
             return
@@ -2091,6 +2092,11 @@ async def _pow2_shadow_due(store, now):
 
 _POP_WANT: dict = {}   # 💬 'file a PoP' / 'stop PoP', read by the engine pass (the store's one writer)
 POP_FEED = 'https://api.exchange.coinbase.com/products'
+
+
+def _pow2_real_sol(cat, pid, asked):
+    """The size the wallet will really send: its budget can cap what the minds agreed, and the chat and folder must say the capped number."""
+    return _num(next((x.get('sol') for x in cat.get('proposals') or [] if x.get('id') == pid), 0)) or asked
 
 
 async def _pop_read(http, market):
