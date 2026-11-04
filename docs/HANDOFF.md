@@ -134,8 +134,8 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | ID | Status | Deliverable |
 |---|---|---|
 | PP01 | VERIFY | `file a perp` / `propose a perp`. Each mind reads 2 of 8 free sources, never its partner's or its own last ones, measured against the Coinbase chart (`pop_sources.py`), with its own sealed fingerprint (`{cat}:pop`). Real proposal: Deribit + Bitstamp vs dYdX + Coinpaprika, $0.008, one mind passed so nothing opened. Real chart, sources and fingerprint seen in the owner's browser. A trade or card has not appeared live yet. Sources are API reads, not browser windows. |
-| MN01 | VERIFY | Desktop Manual folder (`AgentManual.jsx`): step-through tutorial, trader vs general board, drawn PoW / PoP / fingerprint flows, live limits, code map. Fixtures at 1280 px; phone and day not looked at. |
-| SI50 | OWNER | The one allowed real PoW has not bought: 5 tries, 0–1 of 20 coins passed the buy guards (top 10 share, known snipers, no holder data). No trade, no funds moved, guards not loosened. Happy: type `file a PoW` again when coins are cleaner, or decide whether the guards are too tight. |
+| MN01 | VERIFY | Desktop Manual folder (`AgentManual.jsx`): step-through tutorial, trader vs general board, drawn PoW / PoP / fingerprint flows, live limits, code map. Tutorial and board checked at 360 px day on fixtures, flows at 1280 px; the rest by tests. |
+| SI50 | OWNER | The one allowed real PoW has not bought: 6 tries, 0–1 of 20 coins passed the buy guards (needs 1 intake + 1 Pump coin). Cause: Fee's learned tuning (`_ENTRY_TUNE`, `feecat_service.py:466`) tightens one shared limit for every agent: top 10 holders from 35% to about 29%. No trade, no funds moved, nothing loosened. Your call: keep Fee's tuning off agents' PoW, or leave it. Then type `file a PoW` on Happy. |
 
 ### Owner batch 2026-11-04, second pass (charts, cleanup)
 
