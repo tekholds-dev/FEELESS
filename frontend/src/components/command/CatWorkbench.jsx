@@ -889,6 +889,7 @@ function PopMarket({ f, read, m }) {
   const pos = read && read.high > read.low ? Math.max(0, Math.min(1, (read.px - read.low) / (read.high - read.low))) : null; const minds = (f.calls || []).filter(c => c.market === m);
   return <div className="pop-mk" data-testid="pop-market">
     {f.market === m && f.entry ? <div className={`dsk-trade is-${popResult(f) || 'open'}`}><b>{popResult(f) === 'good' ? '👍 GOOD' : popResult(f) === 'bad' ? '👎 BAD' : '● THE PICK'} · {f.side} {m}-PERP</b><small className="m-num">{f.lev}× · TP +{f.tp}% · SL −{f.sl}% · {popPct(f.roePct)}</small><TradeLine f={{ ...f, sym: m, pnlPct: f.status === 'closed' ? f.roePct : null }} /></div> : null}
+    <PopChart f={f.market === m ? f : { market: m }} />
     {read ? <div className="pop-read m-glass"><span><em>PRICE WHEN THEY READ IT</em><b className="m-num">${Number(read.px).toLocaleString()}</b></span><span><em>24H</em><b className={`m-num ${read.chgPct >= 0 ? 'is-up' : 'is-dn'}`}>{popPct(read.chgPct)}</b></span>
       {pos != null ? <span className="pop-range" data-tip="Where the price sat inside its 24 hour range"><u><i style={{ left: `${pos * 100}%` }} /></u><small className="m-num">${Number(read.low).toLocaleString()}</small><small className="m-num">${Number(read.high).toLocaleString()}</small></span> : null}</div> : <p className="dsk-note">This folder is from before market reads were filed.</p>}
     {minds.length ? <Calls calls={minds} /> : <p className="dsk-note">Neither mind called {m}.</p>}</div>;

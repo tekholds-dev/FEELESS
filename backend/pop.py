@@ -134,6 +134,18 @@ def close(trade, px, now, why):
     return {**trade, 'status': 'closed', 'exit': _f(px), 'closedAt': round(_f(now)), 'why': why, 'roePct': roe, 'pnlUsd': round(COLLATERAL_USD * roe / 100, 2), 'won': roe > 0}
 
 
+def no_trade_why(why, calls):
+    """Who passed and on what, so a no-trade folder reads as a decision. A reply that was not clean JSON still shows its reason."""
+    if why != 'a mind called no trade':
+        return why
+    out = []
+    for c in calls or []:
+        if not c.get('side'):
+            m = re.search(r'"why"\s*:\s*"([^"]+)', str(c.get('why') or ''))
+            out.append(f"{c.get('name') or 'a mind'} passed: {(m.group(1) if m else str(c.get('why') or 'no reason given'))[:110]}")
+    return '; '.join(out) or why
+
+
 def chart_line(market, candles):
     """What the chart did: newest 12 five-minute candles from Coinbase ([time, low, high, open, close, volume], newest first) as the model reads them. Empty when the chart gave none."""
     rows = [c for c in (candles or []) if isinstance(c, (list, tuple)) and len(c) >= 5][:12]

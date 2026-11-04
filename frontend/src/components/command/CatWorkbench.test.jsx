@@ -1,3 +1,4 @@
+jest.mock('../perps/PerpsChart', () => ({ PerpsChart: () => null }));
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CatWorkbench, CommandList, Window, placeIcons } from './CatWorkbench';

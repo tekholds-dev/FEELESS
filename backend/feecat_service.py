@@ -1783,7 +1783,7 @@ async def _pow2_tick(http, store, cat, now):
             if want and int(want.get('tries') or 0) < 1:
                 _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
             elif want:
-                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"⛏ No PoW yet: only {len(coins)} coins passed every buy guard; the FEELESS + Pump pair was unavailable. Try again when fresh coins arrive.", 'at': time.time(), 'open': 'pow'}])[-40:]
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"⛏ No PoW yet: only {len(coins)} of {len(candidates)} coins passed every buy guard. Most common reason: {_pow.top_reason(dropped)}. Nothing was bought.", 'at': time.time(), 'open': 'pow'}])[-40:]
             return
         for c in coins:
             try:
@@ -2180,6 +2180,7 @@ async def _pop_open(http, cat, do, who, now):
         trade, why = _pop.agree(second); conviction = 'argued'
     base = {**flag, 'id': rid, 'at': round(now), 'calls': calls, 'kernel': _kernel.fingerprint(), 'paper': True, 'cost': box.get('cost', 0), 'spend': box.get('spend'), 'reads': reads, 'sources': sources}
     if not trade:
+        why = _pop.no_trade_why(why, calls)
         _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
         return
     px = next(r['px'] for r in reads if r['market'] == trade['market'])

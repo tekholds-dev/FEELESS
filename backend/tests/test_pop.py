@@ -303,3 +303,11 @@ def test_each_parser_reads_its_sources_real_shape():
     h = ps._hyper([{'universe': [{'name': 'BTC'}, {'name': 'SOL'}]}, [{}, {'markPx': '93.2', 'funding': '0.0000125', 'openInterest': '5'}]], 'SOL')
     assert h['px'] == 93.2 and abs(h['funding'] - 0.01) < 1e-9 and h['oi'] == 5.0
     assert pop.chart_line('SOL', [[3, 1.0, 5.0, 2.0, 4.0, 9], [2, 2.0, 4.0, 2.0, 3.0, 9]]).startswith('SOL chart, last 2 5m closes: 3.00, 4.00') and pop.chart_line('SOL', []) == ''
+
+
+def test_a_no_trade_folder_says_who_passed_and_why_and_a_missed_pow_says_what_dropped_the_coins():
+    calls = [{'name': 'a', 'side': 'long'}, {'name': 'glm', 'why': '{"market": "SOL", "side": "none", "why": "pinned near the top"'}]
+    assert pop.no_trade_why('a mind called no trade', calls) == 'glm passed: pinned near the top'
+    assert pop.no_trade_why('long SOL vs long BTC', calls) == 'long SOL vs long BTC'
+    import pow as pw
+    assert 'top 10' in pw.top_reason([{'risk': 'top 10 wallets hold 36%'}, {'risk': 'top 10 wallets hold 41%'}, {'risk': 'no pool'}]) and pw.top_reason([]) == 'no coin could be read'

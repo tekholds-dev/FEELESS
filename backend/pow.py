@@ -781,6 +781,13 @@ CMD_ANY = re.compile(r'(?i)\b(?:file|propose|provide|make|do|start|run|create|op
 CMD_ASK = re.compile(r'(?i)^\s*(?:what|how|why|explain|is|does|can)\b|\?\s*$')
 
 
+def top_reason(dropped):
+    """The commonest reason coins were dropped, in words for the chat."""
+    words = [str(d.get('risk') or 'no read') for d in dropped or []]
+    keys = [re.sub(r'[\d$%+.,]+', '', w) for w in words]
+    return words[keys.index(max(set(keys), key=keys.count))][:90] if words else 'no coin could be read'
+
+
 def command(text):
     """'file a PoW' / 'PoW' / '/pow' / 'A: file a PoW' / 'propose PoW for 3 coins' → {'do': 'start', 'mind': 0|1|None}; 'stop PoW' → stop; a question → None."""
     t = str(text or '')
