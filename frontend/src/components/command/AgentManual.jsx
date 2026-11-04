@@ -8,15 +8,31 @@ import { Ic3, Ic3Text } from '../../lib/icon3d';
 const POW_FLOW = [['🗺', 'PLAN', '3 turns in chat'], ['🔎', 'SCOUT', 'Sites + snapshots'], ['⚖', 'CHOOSE', 'Safer numbers win'], ['🛒', 'BUY', 'Its own wallet'], ['👁', 'HOLD', 'Hard exits always'], ['📁', 'FILE', 'Report + 👍 / 👎']];
 const POP_FLOW = [['📈', 'CHART', 'Coinbase candles'], ['🛰', 'SOURCES', 'Its own, measured'], ['🕶', 'BLIND CALL', 'No peeking'], ['🤝', 'AGREE', 'Same market + side'], ['📄', 'PAPER', 'True prices'], ['📁', 'FILE', 'Folder + fingerprint']];
 const FP_FLOW = [['🌐', 'READ', 'A source'], ['📏', 'MEASURE', 'Against the chart'], ['🔒', 'SEAL', 'Per mind, encrypted'], ['⬆', 'PROMOTE', 'After 4 useful'], ['⬇', 'RETIRE', 'When it stops helping'], ['🔁', 'ROTATE', 'New sources next']];
-const STEPS = [
-  { t: 'Open its desktop', sub: 'Every tool is a folder', hot: 'vault', tip: 'Press Private desktop on its desk' },
-  { t: 'Fund its wallet', sub: 'It trades from its own', hot: 'wallet', tip: 'Add SOL on its desk. Open Wallet to see it' },
-  { t: 'File a PoW', sub: 'Research → buy → hold → file', hot: 'pow', cmd: 'file a PoW', tip: 'Spends real SOL from its wallet, inside its limits' },
-  { t: 'File a perp', sub: 'A paper trade on true prices', hot: 'pop', cmd: 'file a perp', tip: 'Two small paid model calls. No real order is sent' },
-  { t: 'Propose a perp', sub: 'A card: you Run or Pass', hot: 'pop', cmd: 'propose a perp', tip: 'Nothing opens until you press Run. To trade for real, place it yourself on Crypto.com' },
-  { t: 'Read the folder', sub: 'Report · sources · fingerprint', hot: 'pop', tip: 'Every proof files a dated folder you can keep or delete' },
+const num = v => (v == null ? '' : String(v));
+const SYSTEM = [
+  { lane: 'YOU', tone: 'you', nodes: [
+    { k: 'chat', ic: '💬', t: 'Chat', sub: 'Ask anything', say: 'Type in plain words. Your words show at once and the answer lands under them.', cmd: 'what can you do?' },
+    { k: 'limits', ic: '🎚', t: 'Limits', sub: 'What it may spend', say: 'The most a task, a trade and a day may spend. A hard exit always runs.', live: d => d?.cap != null && `$${d.cap} a task` },
+    { k: 'wallet', ic: '👛', t: 'Wallet', sub: 'Its own money', say: 'Its own wallet pays for its buys and model calls. You can withdraw from the Wallet folder.', live: d => d?.credit != null && `$${Number(d.credit).toFixed(2)} credit` },
+  ] },
+  { lane: 'ITS WORK', tone: 'minds', nodes: [
+    { k: 'minds', ic: '🧠', t: 'Two minds', sub: 'Think apart', say: 'Each mind works alone in its own browser, then they compare. A trade needs both to agree.' },
+    { k: 'mail', ic: '📧', t: 'Mail', sub: 'Its own email', say: 'Make its mailbox once. It signs up with it and reads its own codes.', live: d => d?.mailbox?.address && 'Made' },
+    { k: 'sites', ic: '🌐', t: 'Sites', sub: 'You sign in once', say: 'Type a site in a proof folder, sign in by hand, save. It scans there and writes a manual. Then it can trade on that account.', cmd: 'buy $1 of $BONK on pump', live: d => (d?.signedIn || []).length ? `${d.signedIn.length} signed in` : '' },
+  ] },
+  { lane: 'PROOFS', tone: 'proofs', nodes: [
+    { k: 'pow', ic: '⛏', t: 'PoW', sub: 'Research + real buy', say: 'It researches coins, buys inside its limits, holds with hard exits, then files a folder. Real SOL from its wallet.', cmd: 'file a PoW', live: d => (d?.powFolders || []).length && `${d.powFolders.length} filed` },
+    { k: 'pop', ic: '📉', t: 'PoP', sub: 'Paper perps', say: 'Both minds call a market blind. A paper trade runs on true prices. No real order is sent.', cmd: 'file a perp', live: d => (d?.popFolders || []).length && `${d.popFolders.length} filed` },
+    { k: 'pob', ic: '🎲', t: 'PoB', sub: 'Any topic, or chips', say: 'Name a topic. Each mind reads major sites with snapshots and calls it blind. Nothing is staked.', cmd: 'file a pob best NFL picks', live: d => (d?.pobFolders || []).length && `${d.pobFolders.length} filed` },
+  ] },
+  { lane: 'WHAT IT KEEPS', tone: 'keep', nodes: [
+    { k: 'proofs', ic: '🏆', t: 'Proofs folder', sub: 'Everything it filed', say: 'One timeline of every proof, with the decisions and snapshots from that moment.' },
+    { k: 'loop', ic: '🪄', t: 'Proof Loop', sub: 'Studies itself first', say: 'Before a new proof it reads its old ones. A coin shaped like a past loss is skipped, and a topic you repeat continues one series.', cmd: 'file a pob lakers parlays' },
+    { k: 'fp', ic: '🧬', t: 'Fingerprint', sub: 'What really works', say: 'Sources are measured against results. The useful ones rise, the others retire, sealed per mind.' },
+  ] },
 ];
-const MINI = [['vault', 'Vault'], ['pow', 'PoW'], ['pop', 'PoP'], ['wallet', 'Wallet']];
+const START = [['wallet', 'Fund it'], ['mail', 'Make its email'], ['sites', 'Sign in a site'], ['pow', 'File a proof'], ['proofs', 'Read the result']];
+const ALL_NODES = SYSTEM.flatMap(l => l.nodes.map(n => ({ ...n, tone: l.tone })));
 const KINDS = [ // [what, trader, general] : 2 = on its own, 1 = when you ask, 0 = no
   ['Private desktop + folders', 2, 2], ['Vault + signed-in sites', 2, 2], ['Own wallet', 2, 2], ['Two minds + commands', 2, 2],
   ['PoW research + buy', 2, 1], ['PoP paper perps', 1, 1], ['Buys inside its limits', 2, 1], ['Hard exits on its trades', 2, 2],
@@ -31,10 +47,10 @@ const CODE = [
 ];
 const POB_FLOW = [['💬', 'ASK', 'Any topic'], ['🌐', 'READ', 'Major sites'], ['📸', 'SNAPSHOT', 'One per site'], ['🕶', 'BLIND CALL', 'Each mind alone'], ['🤝', 'AGREE', 'Same picks only'], ['📁', 'FILE', 'You mark it right or wrong']];
 const SITE_FLOW = [['🌐', 'TYPE', 'Any site, in a folder'], ['🔓', 'SIGN IN', 'You, by hand'], ['🔎', 'SCAN', 'Terms, fees, help'], ['📖', 'MANUAL', "Its own sentences"], ['⌘', 'COMMAND', 'file a pump pow']];
-const FUND_FLOW = [['👛', 'YOUR WALLET', 'Fund the site yourself'], ['💡', 'CHEAPEST', 'One transfer, one fee'], ['📈', 'AGENTS READ', 'Signed in, read only'], ['🛒', 'THEY BUY', 'Through FEELESS']];
+const FUND_FLOW = [['👛', 'YOUR WALLET', 'Fund the site yourself'], ['💡', 'CHEAPEST', 'One transfer, one fee'], ['📈', 'AGENTS READ', 'Signed in, in its window'], ['🛒', 'THEY TRADE', 'buy $1 of $BONK on pump']];
 const MAIL_FLOW = [['📧', 'MAKE IT', 'Mail folder, one click'], ['🔐', 'SEALED', 'Password in the Vault'], ['✍', 'SIGN UP', 'With its own email'], ['🔑', 'READ THE CODE', 'Plain text only']];
 const FACTS = {
-  sites: [['🛡', 'It never passes a bot check', 'A wall stays a wall, and the manual says NOT READ'], ['📃', 'Every line has a source', 'A model may reword a line, never add one'], ['🖼', 'Snapshots are yours', 'Signed-in pages stay private to you']],
+  sites: [['🛡', 'A bot check goes to you', 'Clear it once and it scans in that same window. A wall it cannot read says NOT READ'], ['📃', 'Every line has a source', 'A model may reword a line, never add one'], ['🖼', 'Snapshots are yours', 'Signed-in pages stay private to you']],
   fund: [['💸', 'Or ask: top up pump $1.50', 'It asks first. Yes, no, or an amount'], ['🧮', '$0.50 to $25 a send', 'From its own wallet, SOL only'], ['🔎', 'Addresses get checked', 'One read from a page needs its last 4 typed']],
   pob: [['🏈', 'file a pob best NFL picks', 'ESPN, NFL, CBS, Action Network, Covers, Kalshi, Polymarket'], ['🎲', 'file a bid', 'Free chips on our own board, graded by its result'], ['⚖', 'It never bets for you', 'Any real bid is yours, where it is legal for you']],
   mail: [['🧩', 'Some sites refuse free mailboxes', 'It tries Tuta or GMX, then asks you'], ['✋', 'Human checks stay human', 'CAPTCHA, phone and ID are always yours']],
@@ -47,14 +63,17 @@ function Flow({ steps, tone = 'pow' }) {
 function Facts({ k }) {
   return <ul className="am-facts" data-testid={`am-facts-${k}`}>{FACTS[k].map(([ic, t, x], i) => <li key={t} className="m-glass" style={{ '--i': i }}><Ic3 e={ic} size="44px" /><b>{t}</b><small>{x}</small></li>)}</ul>;
 }
-function Tutorial({ onCommand }) {
-  const [at, setAt] = useState(0); const s = STEPS[at];
-  return <section className="am-tut" data-testid="am-tutorial">
-    <div className="am-mini m-glass" aria-hidden="true"><span className="am-mini-wall">FEELESS</span>{MINI.map(([k, l]) => <span key={k} className={`am-mini-f is-${k}${s.hot === k ? ' is-hot' : ''}`}><i /><small>{l}</small></span>)}<span className="am-mini-bar"><i />{s.cmd ? <code key={s.cmd}>{s.cmd}<u /></code> : null}</span></div>
-    <div className="am-step" key={at}><em className="m-num">{at + 1}/{STEPS.length}</em><b>{s.t}</b><small>{s.sub}</small>
-      {s.cmd && onCommand ? <button type="button" className="m-btn m-go" onClick={() => onCommand(s.cmd)} data-tip={`${s.tip}. Puts it in the chat box; you press send`} data-testid="am-try">Put “{s.cmd}” in chat</button> : <small className="am-hint">{s.tip}</small>}</div>
-    <div className="am-dots" role="group" aria-label="Tutorial step">{STEPS.map((x, i) => <button key={x.t} type="button" className={i === at ? 'is-on' : i < at ? 'is-done' : ''} aria-label={`Step ${i + 1}: ${x.t}`} aria-current={i === at} onClick={() => setAt(i)} data-tip={x.t} />)}</div>
-    <div className="am-nav"><button type="button" className="m-btn" disabled={!at} onClick={() => setAt(at - 1)} data-tip="Previous step">← Back</button><button type="button" className="m-btn" disabled={at === STEPS.length - 1} onClick={() => setAt(at + 1)} data-tip="Next step" data-testid="am-next">Next →</button></div>
+function Tutorial({ d, onCommand }) {
+  const [at, setAt] = useState('chat'); const n = ALL_NODES.find(x => x.k === at);
+  return <section className="am-sys" data-testid="am-tutorial">
+    <div className="am-map" role="group" aria-label="How the whole agent system fits together">
+      {SYSTEM.map((l, li) => <div key={l.lane} className={`am-lane is-${l.tone}`} style={{ '--i': li }}><h4>{l.lane}</h4>
+        {l.nodes.map(x => { const v = x.live?.(d); return <button key={x.k} type="button" className={`am-node${at === x.k ? ' is-on' : ''}`} aria-pressed={at === x.k} onClick={() => setAt(x.k)} data-tip={x.sub} data-testid={`am-node-${x.k}`}><Ic3 e={x.ic} size="42px" /><span><b>{x.t}</b><small>{num(v) && v ? v : x.sub}</small></span></button>; })}
+        {li < SYSTEM.length - 1 ? <u className="am-wire" aria-hidden="true"><s /></u> : null}</div>)}
+      <div className="am-back" aria-hidden="true"><s /><span><Ic3 e="🪄" size="20px" /> Every proof feeds the next one</span></div></div>
+    <aside className={`am-detail is-${n.tone}`} key={n.k} data-testid="am-detail"><i className="am-detail-art"><Ic3 e={n.ic} size="96px" /></i><b>{n.t}</b><em>{n.sub}</em><span className="am-say">{n.say}</span>
+      {n.cmd && onCommand ? <button type="button" className="m-btn m-go" onClick={() => onCommand(n.cmd)} data-tip="Puts it in the chat box. You press send" data-testid="am-try">Put “{n.cmd}” in chat</button> : n.cmd ? <code>{n.cmd}</code> : null}</aside>
+    <ol className="am-start" aria-label="Where to start">{START.map(([k, l], i) => <li key={k} style={{ '--i': i }}><button type="button" className={at === k ? 'is-on' : ''} onClick={() => setAt(k)} data-testid={`am-start-${k}`}><em className="m-num">{i + 1}</em>{l}</button></li>)}</ol>
   </section>;
 }
 function Kinds() {
@@ -76,7 +95,7 @@ export function AgentManual({ d, onCommand }) {
   return <div className="am" data-testid="dsk-manual">
     <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}</div>
     <div key={tab} className="am-pane">
-      {tab === 'tutorial' ? <><button type="button" className="m-btn m-go am-replay" onClick={() => window.dispatchEvent(new Event('feeless:desk-tour'))} data-tip="Walks through the real folders on this desktop, 12 steps" data-testid="am-tour"><Ic3 e="🎓" /> Play the desktop tour</button><Tutorial onCommand={onCommand} /></> : null}
+      {tab === 'tutorial' ? <><button type="button" className="m-btn m-go am-replay" onClick={() => window.dispatchEvent(new Event('feeless:desk-tour'))} data-tip="Walks through the real folders on this desktop, 12 steps" data-testid="am-tour"><Ic3 e="🎓" /> Play the desktop tour</button><Tutorial d={d} onCommand={onCommand} /></> : null}
       {tab === 'kinds' ? <Kinds /> : null}
       {tab === 'pow' ? <Flow steps={POW_FLOW} /> : null}
       {tab === 'pop' ? <Flow steps={POP_FLOW} tone="pop" /> : null}

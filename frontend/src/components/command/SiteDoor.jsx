@@ -27,8 +27,46 @@ const IconCross = () => <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 
 const IconDot = () => <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" fill="currentColor" /></svg>;
 
 // One sign-in window everywhere: the Vault's Signed-in sites and each proof folder's door.
-export function SignInFrame({ live }) {
-  return <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" />;
+// ⌨ Typing inside a cloud window is slow and paste often fails, so this box sends your words straight into whichever box you selected in the window. Never stored, never sent to a model.
+function TypeBar({ cat, work, d }) {
+  const [text, setText] = useState(''); const [hide, setHide] = useState(false); const [busy, setBusy] = useState(''); const [note, setNote] = useState(''); const email = d?.mailbox?.address;
+  const send = async (body, label = 'send') => { setBusy(label); setNote(''); try { await work(cat.id, { op: 'signin_type', ...body }); if (body.text) setNote('Sent into the selected box.'); return true; } catch (e) { setNote(e.message); return false; } finally { setBusy(''); } };
+  const paste = async () => { try { const t = await navigator.clipboard.readText(); if (t) setText(t.trim()); else setNote('Nothing is copied.'); } catch { setNote('Your browser blocked it. Press ⌘V or Ctrl+V in this box.'); } };
+  const code = async () => { setBusy('code'); setNote(''); try { const j = await work(cat.id, { op: 'mail_read' }); const c = (j.mail || []).find(m => m.code)?.code; if (c) await send({ text: String(c) }, 'code'); else setNote('No code in its mail yet. Wait a moment, then try again.'); } catch (e) { setNote(e.message); } finally { setBusy(''); } };
+  return <form className="sd-type" onSubmit={async e => { e.preventDefault(); if (text && await send({ text })) setText(''); }} data-testid="sd-type">
+    <small><b>1</b> Click a box in the window. <b>2</b> Type or paste here. <b>3</b> Send.</small>
+    <div className="sd-type-row"><input className="m-input" type={hide ? 'password' : 'text'} value={text} onChange={e => setText(e.target.value)} placeholder="Type or paste here" autoComplete="off" spellCheck="false" aria-label="Words to send into the window" data-testid="sd-type-text" />
+      <button type="button" className="m-btn" onClick={() => setHide(h => !h)} aria-pressed={hide} data-tip="Hide what you type, for a password">{hide ? 'Show' : 'Hide'}</button>
+      <button type="button" className="m-btn" onClick={paste} data-tip="Paste what you copied" data-testid="sd-type-paste">Paste</button>
+      <button type="submit" className="m-btn m-go" disabled={!text || !!busy} data-tip="Sends it into the box you selected in the window" data-testid="sd-type-send">{busy === 'send' ? 'Sending…' : 'Send'}</button></div>
+    <div className="sd-type-row is-keys">{[['Tab', 'Next box'], ['Enter', 'Enter'], ['Backspace', '⌫ Delete']].map(([k, l]) => <button key={k} type="button" className="m-btn" disabled={!!busy} onClick={() => send({ job: k }, k)} data-tip={`Presses ${k} in the window`} data-testid={`sd-key-${k}`}>{l}</button>)}
+      {email ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => send({ text: email }, 'email')} data-tip={`Sends ${email} into the selected box`} data-testid="sd-type-email"><Ic3 e="📧" size="18px" /> Its email</button> : null}
+      {email ? <button type="button" className="m-btn" disabled={!!busy} onClick={code} data-tip="Reads its mail and sends the newest code into the selected box" data-testid="sd-type-code"><Ic3 e="🔑" size="18px" /> {busy === 'code' ? 'Reading…' : 'Newest code'}</button> : null}
+      {note ? <small role="status" className="sd-type-note">{note}</small> : null}</div></form>;
+}
+export function SignInFrame({ live, cat, work, d }) {
+  return <>{cat && work ? <TypeBar cat={cat} work={work} d={d} /> : null}<iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-signed-frame" /></>;
+}
+
+// 🛒 "buy $1 of $BONK on pump": the question on a card, the same door as typing yes or no.
+export function SiteTradeCard({ cat, d, setD, work }) {
+  const c = d?.siteTrade; const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  if (!c) return null;
+  const go = async job => { setBusy(true); setMsg(''); try { const j = await work(cat.id, { op: 'site_trade', job }); setD?.(x => ({ ...x, ...j })); } catch (e) { setMsg(e.message); } finally { setBusy(false); } };
+  return <section className="tpc stc m-glass" aria-label={`Order on ${c.site}`} data-testid="site-trade-card"><header><Ic3 e="🛒" size="26px" /><span><b>{c.side === 'buy' ? `Buy $${Number(c.usd).toFixed(2)} of $${c.sym}` : `Sell ${c.pct}% of $${c.sym}`} on {c.site}</b><small>From its account there. Its window presses the site's own button once.</small></span></header>
+    {c.side === 'buy' ? <p className="stc-facts m-num"><span>Pool ${Number(c.pool).toLocaleString()}</span><span>{Math.round((c.ageS || 0) / 3600)} h old</span><span>{Number(c.run1h || 0).toFixed(0)}% in 1 h</span></p> : null}
+    <div className="tpc-row"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => go('yes')} data-tip="Starts its window on this one order" data-testid="site-trade-yes">{busy ? 'Starting…' : 'Yes, place it'}</button><button type="button" className="m-btn" disabled={busy} onClick={() => go('no')} data-testid="site-trade-no">No</button></div>
+    {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</section>;
+}
+const TRADE_STATE = { confirmed: ['CONFIRMED', 'The chain shows the balance moved'], checking: ['CHECKING', 'Reading the chain'], unverified: ['UNVERIFIED', 'Its window says so. Its wallet on this site is not known yet, so the chain was not checked'], failed: ['NOT DONE', 'The chain shows no change'] };
+function SiteTrades({ cat, d, setD, work, m, signed }) {
+  const rows = (d?.siteTrades || []).filter(r => r.site === m.site).slice(0, 5); const auto = !!d?.siteTradeAuto; const [err, setErr] = useState('');
+  if (!signed) return null;
+  const flip = async on => { setErr(''); try { const j = await work(cat.id, { op: 'site_trade_auto', on }); setD?.(x => ({ ...x, ...j })); } catch (e) { setErr(e.message); } };
+  return <section className="sd-trades m-glass" data-testid="sd-trades"><header><Ic3 e="🛒" size="26px" /><span><b>It can trade on its {m.site} account</b><small>Say <code>buy $1 of $BONK on {m.slug}</code> or <code>sell all $BONK on {m.slug}</code>. Buys: $0.50 to $25, pool, age and already-ran guards, $50 a day.</small></span>
+    <div className="m-seg" role="radiogroup" aria-label="When it may place an order"><button type="button" role="radio" aria-checked={!auto} className={auto ? '' : 'active'} onClick={() => flip(false)} data-tip="It asks yes or no on every order" data-testid="sd-trade-ask">Asks first</button><button type="button" role="radio" aria-checked={auto} className={auto ? 'active' : ''} onClick={() => flip(true)} data-tip="Your typed orders run with no question. Every guard and cap stays" data-testid="sd-trade-auto">No question</button></div></header>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    {rows.length ? <ul>{rows.map(r => <li key={r.id}><b>{r.side === 'buy' ? `Buy $${Number(r.usd).toFixed(2)}` : `Sell ${r.pct}%`} ${r.sym}</b><small>{r.said}</small><em className={`is-${r.state}`} data-tip={TRADE_STATE[r.state]?.[1]}>{TRADE_STATE[r.state]?.[0]}</em></li>)}</ul> : null}</section>;
 }
 
 function Rule({ r, i, tone }) {
@@ -156,7 +194,8 @@ export function SiteDoor({ kind, cat, d, setD, work }) {
     {scanning ? <p className="sd-scanning" role="status" data-testid="sd-scanning"><i aria-hidden="true" /><span>Reading <b>{scanning}</b>: terms, fees, help, snapshot…</span></p> : null}
     {live ? <div className="cwb-signed-live sd-live" data-testid="sd-live"><span><em>LIVE · sign in to {live.site} yourself</em>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => setLive(null)} data-tip="Close without saving">Cancel</button>
-      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Keeps this sign-in sealed for its windows, then scans the site" data-testid="sd-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in, save + scan'}</button></span><SignInFrame live={live} /></div> : null}
+      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={save} data-tip="Keeps this sign-in sealed for its windows, then scans the site" data-testid="sd-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in, save + scan'}</button></span><SignInFrame live={live} cat={cat} work={work} d={d} /></div> : null}
+    {manual ? <SiteTrades cat={cat} d={d} setD={setD} work={work} m={manual} signed={signed.has(manual.site)} /> : null}
     {manual ? <Manual key={`${manual.site}${manual.at}`} m={manual} cat={cat} kind={kind} signed={signed.has(manual.site)} busy={busy || scanning} onScan={scan} onOpen={openSite} onDrop={drop} onClose={() => { setOpen(''); setSaid(''); }} onFile={file} onTopup={() => run('ask', { text: `top up ${manual.slug}` }, () => work(cat.id, { op: 'state' }).then(j => setD?.(x => ({ ...x, topup: j.topup, chat: j.chat ?? x?.chat }))))} topups={d?.topups} said={said} />
       : rows.length ? <ul className="sd-sites" data-testid={`sd-sites-${kind}`}>{rows.map((m, i) => <li key={m.site} style={{ '--i': i }}><button type="button" onClick={() => setOpen(m.site)} data-tip={`Open the ${m.site} manual: ${(STATE[m.state] || STATE.unread)[1]}`} data-testid={`sd-site-${m.site}`}><i className={`sd-dot is-${m.state}`} aria-hidden="true" /><b>{m.site}</b><small>{(STATE[m.state] || STATE.unread)[0]}{signed.has(m.site) ? ' · SIGNED IN' : ''}</small></button></li>)}</ul> : null}
   </section>;

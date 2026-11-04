@@ -96,12 +96,12 @@ def test_signed_in_sites_the_owner_signs_in_by_hand_the_cookies_are_sealed_and_e
     r = c.post('/api/cats/g/work', json={'op': 'signin_open', 'session': 'tok', 'text': 'x.com'})
     assert r.status_code == 200 and r.json() == {'live': 'https://steel/live?interactive=true', 'site': 'x.com'} and opened == [None]
     r = c.post('/api/cats/g/work', json={'op': 'signin_save', 'session': 'tok'})
-    assert r.status_code == 200 and r.json()['signedIn'][0]['site'] == 'x.com' and 'SECRET-COOKIE' not in r.text and closed == ['sid1']
+    assert r.status_code == 200 and r.json()['signedIn'][0]['site'] == 'x.com' and 'SECRET-COOKIE' not in r.text and closed == [] and fs._WARM['g']['sid'] == 'sid1'   # 🔥 the window it cleared stays up for its scan
     assert 'SECRET-COOKIE' not in str(cat['siteSessions'])                                       # sealed at rest
     assert 'SECRET-COOKIE' not in c.get('/api/cats/g?session=tok').text                          # never on a page, even the owner's
     assert fs._site_ctx(cat)['cookies'][0]['value'] == 'SECRET-COOKIE'                          # …but its next window starts signed in
     r = c.post('/api/cats/g/work', json={'op': 'signin_drop', 'session': 'tok', 'text': 'https://x.com/home'})
-    assert r.json()['signedIn'] == [] and fs._site_ctx(cat) is None
+    assert r.json()['signedIn'] == [] and fs._site_ctx(cat) is None and closed == ['sid1'] and 'g' not in fs._WARM
 
 
 def test_download_listing_failure_does_not_erase_a_saved_sign_in(monkeypatch):

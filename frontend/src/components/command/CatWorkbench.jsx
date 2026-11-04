@@ -17,7 +17,8 @@ import { HoneyTanks } from './HoneyTanks';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
-import { MailApp, SiteDoor, SignInFrame, TopupCard, WatchFolders } from './SiteDoor';
+import { MailApp, SiteDoor, SignInFrame, SiteTradeCard, TopupCard, WatchFolders } from './SiteDoor';
+import { ProofsFolder } from './ProofsFolder';
 import { DeskExtras, DeskIcon, DeskTour, DeskWin, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
@@ -694,7 +695,7 @@ function SourcesFolder({ cat, d, setD }) {
   return <div className="dsk-src" data-testid="dsk-sources">
     <p className="dsk-src-health" data-testid="dsk-health" data-tip="From real browser visits: pages it read against pages that stopped it"><b className="m-num">{tried.length ? `${tried.length - blockedNow.length} of ${tried.length}` : '—'}</b><span>{tried.length ? 'sources reachable' : 'no browser visits recorded yet'}</span>{blockedNow.length ? <em>Often blocked: {blockedNow.slice(0, 4).map(r => r.host).join(' · ')}</em> : null}</p>
     <input className="m-input" placeholder="Find a site…" value={q} onChange={e => setQ(e.target.value)} aria-label="Find a source" />
-    {pick ? <SignedSites cat={cat} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); setPick(null); }} /> : null}
+    {pick ? <SignedSites cat={cat} d={d} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); setPick(null); }} /> : null}
     <ul>{rows.map((r, i) => <li key={r.host} style={{ '--i': i % 20 }} className={r.last === 'blocked' ? 'is-blocked' : r.ok ? 'is-ok' : ''}>
       <span><b>{r.host}</b><small>{r.what}</small></span>
       <em className="m-num" data-tip="Source access · your agent's manual challenge results">{r.ok || 0} ✓ · {r.blocked || 0} <Ic3 e="🛡" />{d?.challengeStats?.[r.host] ? ` · ${d.challengeStats[r.host].manualPass || 0} recovered / ${d.challengeStats[r.host].timedOut || 0} timed out` : ''}</em>
@@ -1052,7 +1053,7 @@ function WalletApp({ cat }) {
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['manual', '📖', 'Manual'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['manual', '📖', 'Manual'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot
 export const placeIcons = (saved, height, extra = []) => placeFor([...ICONS.map(x => x[0]), ...extra], saved, height);
@@ -1063,7 +1064,7 @@ export function clearOfIcons(win, icons, width) {
 }
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 // 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
-const ICON_TIP = { mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
+const ICON_TIP = { proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
@@ -1072,7 +1073,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
   useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
+    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight, extra.map(a => a.k)); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
@@ -1086,7 +1087,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
     sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
-    sites: <SignedSites cat={cat} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
+    sites: <SignedSites cat={cat} d={d} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
     api: <ApiSlot cat={cat} /> }[tab];
   const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ...apps, ['perf', '📈', 'Performance']].filter(([k]) => w[k]?.open);
   const series = useMemo(() => perfSeries(d), [d]);
@@ -1111,7 +1112,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['manual', '📖 Manual', <AgentManual d={d} onCommand={onCommand} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
@@ -1135,7 +1136,7 @@ export function TraderCabinet({ cat, items }) {
 function keyDrawers(cat, d, setD, ask = null) {
   return [['creds', '🔐', 'Credentials', (d?.logins || []).length + (d?.signedIn || []).length + (d?.secrets || []).length, <><Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={ask} onSaved={logins => setD(x => ({ ...x, logins }))} />
       <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />
-      <SignedSites cat={cat} rows={d?.signedIn} onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} /></>, { guard: true }],
+      <SignedSites cat={cat} d={d} rows={d?.signedIn} onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} /></>, { guard: true }],
     ['api', '🔑', 'API keys', (cat?.apiDrawer || []).filter(r => r.saved).length, <ApiSlot cat={cat} />]];
 }
 
@@ -1173,7 +1174,7 @@ function SealedVault({ cat, rows = [], onSaved }) {
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
 const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['accounts.google.com', '📧 Google'], ['discord.com', '💬 Discord'], ['web.telegram.org', '✈ Telegram'],
   ['github.com', '🐙 GitHub'], ['dexscreener.com', '📈 DexScreener'], ['coingecko.com', '🦎 CoinGecko'], ['solscan.io', '🔎 Solscan'], ['pump.fun', '💊 Pump'], ['tradingview.com', '📊 TradingView'], ['reddit.com', '👽 Reddit']];
-export function SignedSites({ cat, rows = [], onSaved, nested = false, start = null }) {
+export function SignedSites({ cat, d = null, rows = [], onSaved, nested = false, start = null }) {
   const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   useEffect(() => { if (start) run('signin_open', start); }, [start]);   // eslint-disable-line react-hooks/exhaustive-deps
   const run = async (op, text) => { setBusy(op); setErr('');
@@ -1186,7 +1187,7 @@ export function SignedSites({ cat, rows = [], onSaved, nested = false, start = n
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
       {big ? <AgentDesktop cat={cat} live={live} onClose={() => setBig(false)} onReopen={() => run('signin_open', live.site)}
         actions={<button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows (and seal anything you downloaded)" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button>} />
-        : <SignInFrame live={live} />}</div>
+        : <SignInFrame live={live} cat={cat} work={work} d={d} />}</div>
       : <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
         <span className="m-seg">{SIGNIN_PICKS.map(([h, l]) => <button key={h} type="button" className={site === h ? 'active' : ''} onClick={() => setSite(h)} data-tip={`Sign its windows in to ${h}`}>{l}</button>)}</span>
         <input className="m-input" value={site} onChange={e => setSite(e.target.value)} placeholder="any site, e.g. x.com" aria-label="Site to sign in to" data-testid="cwb-signed-site" />
@@ -1363,6 +1364,7 @@ function WorkbenchLive({ cat }) {
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b><Ic3 e="💸" /> Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
     <TopupCard cat={cat} d={d} setD={setD} work={work} />
+    <SiteTradeCard cat={cat} d={d} setD={setD} work={work} />
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
       <button type="button" onClick={() => act('unqueue', { i })} aria-label="Drop this ask" data-tip="Drop it from the queue" data-testid={`cwb-unq-${i}`}>✕</button></li>)}</ol> : null}
     {(d?.parked || []).length ? <ol className="cwb-queue is-parked" aria-label="Filed to come back to" data-testid="cwb-parked">{d.parked.map((q, i) => <li key={`${q.at}-${i}`} style={{ '--i': i }}><b className="m-num">⏸</b><span data-tip={`Nobody answered for 5 min, so it moved on: ${q.why}`}>{q.text}</span>

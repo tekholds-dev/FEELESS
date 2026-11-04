@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { clearAllChatSessions } from '../lib/chatSession';
-const WalletContext = createContext(null);
+export const WalletContext = createContext(null);
 const solanaProvider = () => window.phantom?.solana || window.trustwallet?.solana || window.solflare || window.backpack?.solana || window.solana;
 const evmProvider = () => window.trustwallet?.ethereum || window.ethereum || window.phantom?.ethereum;
 // EIP-6963: every EVM wallet announces itself (MetaMask, Rabby, Crypto.com Onchain, OKX…), even when another

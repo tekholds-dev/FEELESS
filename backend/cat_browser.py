@@ -478,12 +478,42 @@ async def collect_downloads(http, env, session_id, names=None):
     return out
 
 
+TYPE_KEYS = ('Enter', 'Tab', 'Backspace', 'Escape')
+
+
+async def type_into(connect, text=None, key=None):
+    """⌨ The owner's words → whatever box they have selected in the window they are using. One short attach, then it lets go. Nothing is stored or logged."""
+    from playwright.async_api import async_playwright
+    if key and key not in TYPE_KEYS:
+        raise ValueError('That key is not allowed.')
+    pw = await async_playwright().start()
+    try:
+        b = await pw.chromium.connect_over_cdp(connect, timeout=15000)
+        pages = [x for c in b.contexts for x in c.pages]
+        if not pages:
+            raise ValueError('The window has no page.')
+        page = pages[-1]
+        for x in pages:
+            try:
+                if await x.evaluate('document.visibilityState === "visible" && document.hasFocus()'):
+                    page = x
+            except Exception:
+                continue
+        if text:
+            await page.keyboard.insert_text(str(text))
+        if key:
+            await page.keyboard.press(key)
+    finally:
+        await pw.stop()
+
+
 class LivePage:
     """A hosted browser (Steel / Browserbase) driven over CDP with Playwright — the window the user watches."""
     live = True
 
-    def __init__(self, connect, cookies=None):
+    def __init__(self, connect, cookies=None, plain=False):
         self.connect, self.url, self.title, self._pw, self._b, self._p = connect, None, None, None, None, None
+        self.plain = plain   # 🔓 the window a person just cleared: no request routing, since routed requests make Cloudflare check it again. goto + _sync still refuse a private address
         self.cookies = [c for c in (cookies or []) if isinstance(c, dict) and c.get('name') and c.get('domain')]   # 🔓 a saved sign-in, on a browser that takes no context
 
     async def start(self):
@@ -500,7 +530,8 @@ class LivePage:
                 await route.abort('blockedbyclient')
             else:
                 await route.continue_()
-        await ctx.route('**/*', guard)
+        if not self.plain:
+            await ctx.route('**/*', guard)
         if self.cookies:
             try:
                 await ctx.add_cookies([{k: v for k, v in c.items() if k in ('name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite')} for c in self.cookies])
@@ -508,8 +539,9 @@ class LivePage:
                 pass
             self.cookies = []
         # Wallet extensions and persistent worker contexts are not shared with cats.
-        await ctx.clear_permissions()
-        if hasattr(ctx, 'route_web_socket'):
+        if not self.plain:
+            await ctx.clear_permissions()
+        if not self.plain and hasattr(ctx, 'route_web_socket'):
             await ctx.route_web_socket('**/*', lambda ws: ws.close())
         self._p = ctx.pages[0] if ctx.pages else await ctx.new_page()
         return self

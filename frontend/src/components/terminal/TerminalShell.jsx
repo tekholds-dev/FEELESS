@@ -23,7 +23,7 @@ import { FlashValue } from './FlashValue';
 const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['fuse', 'Fuse 🧬', Atom], ['pump', 'Pump radar', Flame], ['launch', 'Launch 🚀', Rocket],
   ['watchlist', 'Radar', Star], ['chat', 'The Trenches', MessageCircle], ['feed', 'FEEd', Rss],
-  ['fee', '$FEE & Fee-Back', Activity], ['feecat', 'FeeCat', Cat], ['leaderboard', 'MOB & Rewards', Trophy], ['familia', 'La Familia 🌹', Crown],
+  ['fee', '$FEE & Fee-Back', Activity], ['feecat', 'FeeCat', Cat], ['rewards', 'MOB & Rewards', Trophy], ['familia', 'La Familia 🌹', Crown],
   ['whitepaper', 'Docs & roadmap', FileText], ['settings', 'Settings', Settings],
 ];
 
