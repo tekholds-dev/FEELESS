@@ -34234,6 +34234,28 @@ async def internal_agent_circle_send(request: Request, body: dict):
     return {'signature': sig_}
 
 
+@app.post('/api/reputation/internal/agent-close-empty')
+async def internal_agent_close_empty(request: Request, body: dict):
+    """♻ An agent's wallet closes its EMPTY coin accounts, the same CloseAccount-only tx the Fuse sweep sends: the rent returns to that wallet. The send route above checks it is this cat's wallet."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    addr_ = str(body.get('address') or '')
+    if not addr_:
+        raise HTTPException(400, 'address is required.')
+    async with httpx.AsyncClient(timeout=15) as http_:
+        res_ = await asyncio.gather(*[_krpc(http_, 'getTokenAccountsByOwner', [addr_, {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
+        rows_ = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'), 'info': _parsed_info(a.get('account'))} for pg, r in zip(_FW_TOKEN_PROGRAMS, res_) for a in (r or {}).get('value') or []]
+        empty_ = _fw.empty_accounts(rows_, body.get('keep') or [])
+        if not empty_:
+            return {'closed': 0}
+        bh_ = ((await _krpc(http_, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
+    if not bh_:
+        raise HTTPException(502, 'No blockhash.')
+    sent_ = await internal_agent_circle_send(request, {**body, 'tx': _fw.close_tx(addr_, empty_, bh_), 'key': f'close-{addr_[:12]}-{bh_[:16]}'})
+    closing_ = {e['pubkey'] for e in empty_}
+    return {'closed': len(empty_), 'sol': round(sum(_fuse._f(r.get('lamports')) for r in rows_ if r['pubkey'] in closing_) / 1e9, 9), 'signature': sent_['signature']}
+
+
 async def _agent_send_loop(signed, sig, seconds=75):
     """📡 The keeper's rule on an agent's send too: one send through one busy node is why trades expire. The same signed bytes go to every node until the
     chain has them or the blockhash is dead. Same signature: it can only ever land once."""

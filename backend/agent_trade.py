@@ -229,6 +229,48 @@ async def poll(http, cm_key, cat, now):
     return n
 
 
+USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+SWEEP_S = 600          # ♻ look for empty coin accounts this often
+SWEEP_FAILED_S = 3600  # a close that failed on-chain waits longer: one bad account fails the whole tx
+
+
+def keep_mints(cat):
+    """Coins an account must stay open for: held, on the book, or on a live order."""
+    keep = set(cat.get('realHeld') or {}) | {p.get('mint') for p in cat.get('positions') or []}
+    keep |= {p.get('mint') for p in cat.get('proposals') or [] if p.get('status') == 'pending'}
+    keep |= {t.get('mint') for t in cat.get('agentTx') or [] if t.get('status') in LIVE}
+    keep.add(USDC)   # it pays for research in USDC: an empty one stays open for the next top-up
+    keep.discard(None)
+    return sorted(keep)
+
+
+async def sweep_rent(http, cat, now):
+    """♻ An agent's OWN wallet closes its empty coin accounts, so the rent comes back (about 0.0015 SOL per coin it ever traded). Never with a trade in flight.
+    It counts as back only once the chain confirms it. → an event line, or None."""
+    w = cat.get('agentWallet') or {}
+    if w.get('provider') != 'circle' or w.get('circleAcct') != 'agent' or in_flight(cat):   # only its own account: an assigned wallet may be shared
+        return None
+    s = cat.get('rentSweep') or {}
+    if s.get('status') == 'sent':
+        st = await _circle_status(http, s.get('sig'))
+        if st == 'success':
+            cat['rentSweep'] = {**s, 'status': 'done', 'backSol': round(_f(s.get('backSol')) + _f(s.get('sol')), 9), 'closedN': int(s.get('closedN') or 0) + int(s.get('n') or 0)}
+            return f"♻ closed {s.get('n')} empty coin accounts: {_f(s.get('sol')):.6f} SOL rent back in its wallet ({str(s.get('sig'))[:8]}…)"
+        if st == 'failed' or (st == 'unseen' and now - _f(s.get('at')) >= NEVER_LANDED_S):
+            cat['rentSweep'] = {**s, 'status': 'failed'}
+            return f"⚠ closing {s.get('n')} empty coin accounts {'failed on-chain' if st == 'failed' else 'never landed'}; no rent moved, it tries again in an hour"
+        return None
+    if now - _f(s.get('at')) < (SWEEP_FAILED_S if s.get('status') == 'failed' else SWEEP_S):
+        return None
+    cat['rentSweep'] = {**s, 'at': round(now)}   # written first: a silent signer is asked once per wait, never every pass
+    r = await http.post(f'{REP}/internal/agent-close-empty', headers=_internal_headers(), timeout=40,
+                        json={'catId': cat.get('id'), 'acct': w.get('circleAcct'), 'walletId': w.get('circleId'), 'address': w.get('address'), 'keep': keep_mints(cat)})
+    j = (r.json() or {}) if r.status_code == 200 else {}
+    if j.get('closed') and j.get('signature'):
+        cat['rentSweep'] = {**cat['rentSweep'], 'status': 'sent', 'sig': j['signature'], 'n': j['closed'], 'sol': _f(j.get('sol'))}
+    return None
+
+
 async def run(http, cm_key, cat, now):
     """ONE cat's agent pass (the engine calls it): settle what is in flight, then send the next proposal it wants. A guard that stops a
     proposal writes its reason on it (`agentWhy`) and waits RETRY_SEC. → list of event words for the cat's log."""
@@ -253,4 +295,5 @@ async def run(http, cm_key, cat, now):
         except ValueError as e:
             p['agentWhy'], p['agentTry'] = str(e)[:160], now
         break   # one trade at a time
-    return words
+    swept = await sweep_rent(http, cat, now)
+    return words + [swept] if swept else words

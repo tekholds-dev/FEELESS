@@ -115,3 +115,71 @@ def test_ask_me_waits_for_the_owner_and_a_success_after_the_clock_ran_out_still_
     c3 = cat(); p3 = prop(); c3['proposals'] = [p3]
     at.settle(c3, {'pid': 'p1', 'side': 'buy', 'status': 'pending'}, {'status': 'failed', 'error': 'slippage'}, NOW)
     assert p3['status'] == 'failed' and p3['why2'] == 'slippage' and M not in c3['realHeld']
+
+
+# ---- ♻ rent back: an agent closes its empty coin accounts (network faked; nothing is sent) ----
+class SweepNet:
+    def __init__(self, reply=(200, {'closed': 2, 'sol': 0.003, 'signature': 'SIG'}), status='success'):
+        self.reply, self.status, self.asked = reply, status, []
+
+    async def post(self, url, json=None, headers=None, timeout=None):
+        if url.endswith('/internal/agent-close-empty'):
+            self.asked.append(json)
+            return R(*self.reply)
+        if url.endswith('/rpc'):
+            v = {'unseen': None, 'failed': {'err': 'x', 'confirmationStatus': 'confirmed'}, 'success': {'err': None, 'confirmationStatus': 'confirmed'}}[self.status]
+            return R(200, {'result': {'value': [v]}})
+        raise AssertionError(url)
+
+
+def own(**k):
+    c = cat(**k)
+    c['agentWallet'].update(provider='circle', circleAcct='agent', circleId='w1')
+    return c
+
+
+def test_rent_comes_back_only_once_the_chain_confirms_it():
+    c, net = own(), SweepNet()
+    assert asyncio.run(at.sweep_rent(net, c, NOW)) is None
+    assert c['rentSweep']['status'] == 'sent' and not c['rentSweep'].get('backSol')
+    word = asyncio.run(at.sweep_rent(net, c, NOW + 20))
+    assert '0.003000 SOL rent back' in word and c['rentSweep']['backSol'] == 0.003 and c['rentSweep']['closedN'] == 2
+    assert asyncio.run(at.sweep_rent(net, c, NOW + 40)) is None and len(net.asked) == 1     # waits its 10 minutes
+    asyncio.run(at.sweep_rent(net, c, NOW + at.SWEEP_S + 1))
+    assert len(net.asked) == 2
+
+
+def test_rent_sweep_keeps_every_coin_in_use_and_waits_for_a_live_trade():
+    c = own(realHeld={'HELD': {}}, proposals=[{'status': 'pending', 'mint': 'ASKED'}, {'status': 'done', 'mint': 'OLD'}], positions=[{'mint': 'BOOK'}], agentTx=[{'status': 'success', 'mint': 'SOLD'}])
+    net = SweepNet()
+    asyncio.run(at.sweep_rent(net, c, NOW))
+    assert net.asked[0]['keep'] == sorted(['ASKED', 'BOOK', 'HELD', at.USDC])
+    busy, net2 = own(agentTx=[{'status': 'pending', 'mint': 'X'}]), SweepNet()
+    assert asyncio.run(at.sweep_rent(net2, busy, NOW)) is None and not net2.asked
+
+
+def test_rent_sweep_never_touches_a_wallet_that_is_not_the_agents_own():
+    fee = own()
+    fee['agentWallet']['circleAcct'] = None     # Fee's assigned wallet
+    net = SweepNet()
+    assert asyncio.run(at.sweep_rent(net, fee, NOW)) is None and not net.asked
+    assert asyncio.run(at.sweep_rent(net, cat(), NOW)) is None and not net.asked  # Crossmint
+
+
+def test_a_failed_close_claims_no_rent_and_backs_off():
+    for status, later in (('failed', 20), ('unseen', at.NEVER_LANDED_S + 1)):
+        c, net = own(), SweepNet(status=status)
+        asyncio.run(at.sweep_rent(net, c, NOW))
+        assert 'no rent moved' in asyncio.run(at.sweep_rent(net, c, NOW + later))
+        assert c['rentSweep']['status'] == 'failed' and not c['rentSweep'].get('backSol')
+        asyncio.run(at.sweep_rent(net, c, NOW + at.SWEEP_S + later))
+        assert len(net.asked) == 1                                               # an hour, not 10 minutes
+        asyncio.run(at.sweep_rent(net, c, NOW + at.SWEEP_FAILED_S + 1 + later))
+        assert len(net.asked) == 2
+
+
+def test_nothing_empty_or_a_silent_service_sends_nothing():
+    for reply in ((200, {'closed': 0}), (502, {'detail': 'x'})):
+        c = own()
+        assert asyncio.run(at.sweep_rent(SweepNet(reply=reply), c, NOW)) is None
+        assert c['rentSweep'].get('status') is None and c['rentSweep']['at'] == round(NOW)

@@ -196,7 +196,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
       <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
       <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
-      <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub="in its wallet" tip="Coins it really bought and still holds" />
+      <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub={cat.rentSweep?.backSol ? `♻ +${cat.rentSweep.backSol.toFixed(4)} SOL rent back` : 'in its wallet'} tip="Coins it really bought and still holds. Rent back: SOL returned when it closed the empty accounts of coins it sold" />
     </div> : gen || !on('wallet') ? null : <div className="kd-tiles">
       <Tile k={0} label="BALANCE" value={`${v.bal.toFixed(3)} SOL`} fill={v.bal / (v.start * 1.5)} sub={`started ${v.start} SOL`} tip="Its paper balance against what it started with" />
       <Tile k={1} label="REALIZED" value={`${sol(v.real)} SOL`} tone={v.real > 0 ? 'up' : v.real < 0 ? 'dn' : ''} sub="price moves · fees apart" tip="Closed trades only — P&L never includes fees" />
