@@ -18,7 +18,7 @@ export function usePoolRules(given) {
   useEffect(() => { if (given) { setR(given); return undefined; } let on = true; Promise.resolve().then(() => fetch(apiUrl('/api/cats/pool/rules'))).then(x => (x?.ok ? x.json() : null)).then(j => on && j?.rules && setR(j.rules)).catch(() => {}); return () => { on = false; }; }, [given]);
   return r;
 }
-export function PlanPicker(props) { return props.rules?.deal === 'quarterly' ? null : <OldPlanPicker {...props} />; }
+export function PlanPicker(props) { return props.rules?.deal === 'bank' ? null : <OldPlanPicker {...props} />; }
 function OldPlanPicker({ rules, send, plan, setPlan, boost = 0, testid = 'plan-picker' }) {
   const [sure, setSure] = useState(false);
   const pick = k => { if (k === 'vault' && !sure) { setSure(true); return; } setSure(false); setPlan(k); };
@@ -27,7 +27,7 @@ function OldPlanPicker({ rules, send, plan, setPlan, boost = 0, testid = 'plan-p
 }
 const GrowthLinesLazy = lazy(() => import('./MoneyCharts').then(m => ({ default: m.GrowthLines })));
 // 🌱 The owner's question: why send, if less comes back? Because the send buys a share of everyone's fees. This shows when that beats the gap, on the real pool code.
-export function GrowthCalc(props) { const r = usePoolRules(); if (!r) return null; return r.deal === 'quarterly' ? <RewardCalc rules={{ ...r, ...(props.cfg || {}) }} testid={props.testid || 'reward-calc'} /> : <OldGrowthCalc {...props} />; }
+export function GrowthCalc(props) { const r = usePoolRules(); if (!r) return null; return r.deal === 'bank' ? <RewardCalc rules={{ ...r, ...(props.cfg || {}) }} testid={props.testid || 'reward-calc'} /> : <OldGrowthCalc {...props} />; }
 function OldGrowthCalc({ cfg = null, testid = 'growth-calc' }) {
   const [plan, setPlan] = useState('month'); const [vol, setVol] = useState(100); const [pct, setPct] = useState(100); const [g, setG] = useState(null); const [err, setErr] = useState(false); const key = cfg ? JSON.stringify(cfg) : '';
   useEffect(() => { let on = true; const t = setTimeout(() => { Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pool/growth?plan=${plan}&volume=${vol}&senders=${pct}${key ? `&cfg=${encodeURIComponent(key)}` : ''}`))).then(r => (r?.ok ? r.json() : Promise.reject())).then(j => { if (on) { setG(j); setErr(false); } }).catch(() => { if (on) setErr(true); }); }, 200); return () => { on = false; clearTimeout(t); }; }, [plan, vol, pct, key]);
@@ -58,7 +58,7 @@ export function ProfitCalc({ send, plan, boost, rules, testid }) {
 }
 export const FLOW_COLORS = { Sent: '#ffc24d', Locked: '#c58bff', 'Back to the agent': '#3ee58a', 'Collective, right away': '#57c7ff', 'Collective, as it comes back': '#2f7fd6', Vault: '#c58bff', 'Trade fees': '#ffc24d', 'Swap fees': '#ffc24d', 'Fee pot': '#ff8bd8', Members: '#3ee58a', Collective: '#57c7ff', FEELESS: '#8fa3cc', 'Deposit fees': '#ffc24d' };
 export const sendRows = s => (s.vault ? [['Sent', 'Collective, right away', s.kept], ['Sent', 'Vault', s.locked]] : [['Sent', 'Collective, right away', s.kept], ['Sent', 'Locked', s.locked], ['Locked', 'Back to the agent', s.back], ['Locked', 'Collective, as it comes back', s.house]]);
-export function SplitFlow(props) { const r = usePoolRules(props.rules); if (r?.deal === 'quarterly') return <><KeepDeal rules={r} sendUsd={props.sendUsd} testid={props.testid || 'keep-deal'} /><RankLadder rules={r} rank={props.rank} /></>; return r ? <OldSplitFlow {...props} rules={r} /> : null; }
+export function SplitFlow(props) { const r = usePoolRules(props.rules); if (r?.deal === 'bank') return <><KeepDeal rules={r} sendUsd={props.sendUsd} testid={props.testid || 'keep-deal'} /><RankLadder rules={r} rank={props.rank} /></>; return r ? <OldSplitFlow {...props} rules={r} /> : null; }
 function OldSplitFlow({ rules: given, sendUsd = null, plan: fixedPlan = null, onPlan = null, testid = 'split-flow' }) {
   const rules = usePoolRules(given?.plans ? given : null); const [win, setWin] = useState(100); const [pct, setPct] = useState(10); const [boostOn, setBoostOn] = useState(false); const [own, setOwn] = useState('month');
   if (!rules) return null;
