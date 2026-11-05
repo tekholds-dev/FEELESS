@@ -171,6 +171,11 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 - 2026-11-05 Collective HQ door: green HQ button › Collective HQ (shortcut, and Core tab); same `CollectiveOwner` as Fee's desk. Owner Desktop button now lands on the owner tab even while the desk loads. Harness tested only; no real owner wallet session.
 - 2026-11-05 Browser folder (`BrowserApp`, agent desktop): its email + newest code + signed-in count, sign up or sign in (`SignedSites`), send it to browse (writes the job into chat). Type bar gains Your email, kept on the device only. Steel real call passed (201, released). No real sign-up run yet. Sealed Vault passwords are not one-click: a reveal needs a fresh wallet signature.
 
+- 2026-11-05 Fixes on the owner's report: owner monitors opened behind HQ (z 2600 vs 4000), now over it. Collective settings rebuilt on Motion (`CollectiveSetup.jsx`): presets, tabs, real charts; sliders no longer one wall. Pool builder: pick the pair (FEE, SOL, USDC or any coin; FEECAT not needed), fee, lock; server `POOL_QUOTES`. Simulation with the real builder not run yet: needs the owner signed in; no pool was created.
+- 2026-11-05 Bids: photos cycle from Wikimedia (links only, nothing stored, off-screen cards hold no image, one shared clock). Click any game: stats window (`GameWindow`). Chain: ESPN, ESPN second host, NHL/MLB official standings, TheSportsDB. Real run with ESPN cut off passed for NHL, MLB, NBA. NBA's own CDN refused us (403), left out.
+- 2026-11-05 Source files per job (`agent_refs.py`; `agent_sources.py` is the older sources book, keep both): in each agent's prompt and its Sources folder. Sites that refused a plain read were left out.
+- OPEN, owner's call: throwaway prepaid/debit card with Apple Pay for agents. Needs a card issuer account with identity checks and a lawyer look; not built, nothing promised on screen.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

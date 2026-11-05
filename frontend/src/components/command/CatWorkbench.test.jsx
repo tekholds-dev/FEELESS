@@ -564,21 +564,22 @@ test('a new icon never lands on one dragged off the grid', () => {
   all.forEach(([a, p]) => all.forEach(([b, q]) => { if (a !== b) expect(Math.abs(p.x - q.x) < 84 && Math.abs(p.y - q.y) < 84).toBe(false); }));
 });
 
-test('🧭 Browser folder: makes its email, shows its newest code, and writes the browse job into chat', async () => {
-  const { BrowserApp } = require('./CatWorkbench');
+test('🧭 Browser window: tools box docks left or right, makes its email, shows its code, warns on a money site, saves the sign-in, writes the browse job', async () => {
+  const { BrowserWin } = require('./CatWorkbench');
   const calls = []; const realFetch = global.fetch;
-  global.fetch = jest.fn(async (_, o) => { const b = JSON.parse(o?.body || '{}'); calls.push(b.op); return { ok: true, json: async () => (b.op === 'mail_read' ? { mail: [{ id: 'm', code: '482911' }] } : { mailbox: { address: 'a@b.co' } }) }; });
+  global.fetch = jest.fn(async (_, o) => { const b = JSON.parse(o?.body || '{}'); calls.push(b.op); const j = b.op === 'mail_read' ? { mail: [{ id: 'm', code: '482911' }] } : b.op === 'mail_make' ? { mailbox: { address: 'a@b.co' } } : b.op === 'signin_open' ? { site: b.text, live: 'https://x.test' } : b.op === 'signin_save' ? { signedIn: [{ site: 'pump.fun', at: 1, n: 2 }] } : {}; return { ok: true, json: async () => j }; });
   const said = []; const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  function Box() { const [d, setD] = React.useState({ signedIn: [{ site: 'pump.fun', at: 1, n: 2 }] }); return <BrowserApp cat={{ id: 'g1' }} d={d} setD={setD} onCommand={t => said.push(t)} />; }
+  function Box() { const [d, setD] = React.useState({ signedIn: [] }); const [s, setS] = React.useState({ open: true, x: 100, y: 10 }); return <BrowserWin cat={{ id: 'g1' }} d={d} setD={setD} onCommand={t => said.push(t)} s={s} top set={(_, p) => setS(x => ({ ...x, ...p }))} onTop={() => {}} onClose={() => {}} />; }
   await act(async () => { root.render(<Box />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const q = id => el.querySelector(`[data-testid="${id}"]`); const type = async (n, v) => { await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  expect(q('bwr-dock').className).toContain('is-right'); await act(async () => { q('bwr-dock-left').click(); }); expect(q('bwr-dock').className).toContain('is-left'); expect(q('dsk-win-browser').style.transform).toContain('316px');
   expect(q('bwr-code').textContent).toBe('Needs its email');
-  await act(async () => { q('bwr-email-make').click(); });
-  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  expect(q('bwr-email').textContent).toBe('a@b.co'); expect(q('bwr-code').textContent).toBe('482911'); expect(calls).toEqual(expect.arrayContaining(['mail_make', 'mail_read']));
-  await act(async () => { q('bwr-tab-go').click(); });
-  await act(async () => { q('bwr-pick-pump.fun').click(); q('bwr-min-5').click(); });
-  await act(async () => { q('bwr-send').click(); });
-  expect(said).toEqual(['browse pump.fun for 5 minutes']);
+  await act(async () => { q('bwr-email-make').click(); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('bwr-email').textContent).toBe('a@b.co'); expect(q('bwr-code').textContent).toBe('482911');
+  expect(q('bwr-money')).toBeNull(); await type(q('bwr-addr'), 'pump.fun'); expect(q('bwr-money')).toBeTruthy();
+  await act(async () => { q('bwr-min-5').click(); }); await act(async () => { q('bwr-send').click(); }); expect(said).toEqual(['browse pump.fun for 5 minutes']);
+  expect(q('bwr-save')).toBeNull(); await act(async () => { q('bwr-open').click(); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('cwb-signed-frame')).toBeTruthy(); expect(q('sd-type')).toBeTruthy(); await act(async () => { q('bwr-save').click(); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('bwr-saved').textContent).toContain('pump.fun'); expect(q('bwr-reopen-pump.fun')).toBeTruthy(); expect(calls).toEqual(expect.arrayContaining(['mail_make', 'mail_read', 'signin_open', 'signin_save']));
   await act(async () => root.unmount()); el.remove(); global.fetch = realFetch;
 });

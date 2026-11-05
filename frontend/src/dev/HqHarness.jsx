@@ -63,7 +63,7 @@ if (DECK) {
   const COLONY = { wallet: { address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', at: 1793480000 }, value: { sol: 6.2, usdc: 410, feecatUsd: 380, usd: 1985.4 }, principalUsd: 1500, growthUsd: 485.4, payableUsd: 97.08,
     policy: { epochCapPct: 20, timelockH: 24, cadence: 'daily' }, bounds: { epochCapPct: [5, 50], timelockH: [6, 72] }, guards: ['principalLock', 'allowlist', 'ownerSigns'], stakeMinUsd: 25, colonized: 7, trades: 31, epoch: 20757, left: 3400,
     airdrop: [{ owner: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', sol: 0.42, pct: 58.3, usd: 56.6 }, { owner: 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH', sol: 0.3, pct: 41.7, usd: 40.48 }],
-    nextAirdrop: Date.now() / 1000 + 5 * 3600, sharers: 2, sharedSol: 0.72, pool: null,
+    nextAirdrop: Date.now() / 1000 + 5 * 3600, sharers: 2, sharedSol: 0.72, pool: null, poolTokens: [{ k: 'SOL', mint: 'So11111111111111111111111111111111111111112' }, { k: 'USDC', mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' }, { k: 'FEE', mint: 'FeeDev11111111111111111111111111111111111111' }, { k: 'FEECAT', mint: 'CatDev11111111111111111111111111111111111111' }],
     board: [], browsers: ['kernel', 'steel', 'browserless', 'reader'], log: [] };
   window.fetch = (u, o = {}) => {
     const url = String(u?.url || u); const m = url.match(/\/api\/reputation(\/admin\/[^?]*|\/admin)/);
@@ -75,6 +75,7 @@ if (DECK) {
     if (path === '/admin/agents') return answer(live());
     if (path === '/admin/rpc') return answer(RPC);
     if (path === '/admin/agent-slots') return answer({ open: 250, taken: 173, left: 77, max: 1000 });   // 🎟 the slots card on a fixture
+    if (path === '/admin/collective') return real('/dev-collective.json');   // 💎 the live rules, generated from collective_pool (gitignored)
     if (path === '/admin/colony') return answer(COLONY);   // 🏺 the colony pot on a fixture (the live one needs the owner's session)
     if (SNAP && (path === '/admin/feecat' || path === '/admin/ai/prompts')) return real(`/dev-${path === '/admin/feecat' ? 'feecat' : 'prompts'}.json`);   // 📸 ?snap: Fee's live desk + studio (gitignored copies)
     return answer({});

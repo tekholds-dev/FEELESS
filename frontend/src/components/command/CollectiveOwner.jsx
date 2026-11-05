@@ -4,6 +4,8 @@ import { SplitFlow, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import { StashWeb } from './StashWeb';
+import { motion } from 'motion/react';
+import { BackCurves, DollarBars, Fx, Presets, Slide, Tabs } from './CollectiveSetup';
 import '../../styles/boosts.css';
 
 // 👑 THE OWNER'S COLLECTIVE FOLDER (owner 2026-11-04: "all the configs and hover to explain, cause the math kills me"): where the money stands, and every setting, each with its effect drawn live beside it. Server-gated to the owner.
@@ -68,17 +70,32 @@ function Flow({ d, save, busy }) {
     <section className="cof-why"><h4><Ic3 e="🛡" /> WHY IT IS NOT A PONZI</h4><ul>{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><b>✓</b> {h}</li>)}</ul></section>
     {d.agents?.length ? <section className="cof-top"><h4><Ic3 e="🤖" /> AGENTS</h4><ol>{d.agents.map(a => <li key={a.id}><b>{a.name || a.id}</b><small data-tip="Sent · locked · earned">{money(a.sentUsd)} · {money(a.lockedUsd)} · {money(a.owedUsd)}</small><em className="m-num" data-tip="Its fee pot boost right now">{a.levers?.weightX}x</em></li>)}</ol></section> : null}</div>;
 }
+// Which settings sit on which tab, so it is never one long wall of sliders.
+const SET_TABS = [['quick', 'Quick setup', 'A starting point, the 3 numbers that matter most, and what they do'], ['plans', 'Plans', 'Each plan side by side'], ['pot', 'Fee pot', 'What members earn from'], ['points', 'Boost points', 'What a send earns and how it fades'], ['fees', 'Agent fees', 'What agents pay'], ['rules', 'Rules', 'What a boost does, and withdrawals']];
+const allRows = GROUPS.flatMap(g => g[1]); const rowOf = k => allRows.find(r => r[0] === k);
+const QUICK = ['skimPct', 'potPct', 'sitePct'];
+const PLAN_CARDS = [['1 week', 'week'], ['30 days', 'month'], ['90 days', 'quarter'], ['The Vault', 'vault']];
+const groupRows = name => (GROUPS.find(g => g[0] === name) || [null, []])[1];
 function Settings({ d, save, busy }) {
-  const [c, setC] = useState(d.cfg); const [hot, setHot] = useState(null);
+  const [c, setC] = useState(d.cfg); const [hot, setHot] = useState(null); const [tab, setTab] = useState('quick');
   useEffect(() => setC(d.cfg), [d.cfg]);
   const dirty = Object.keys(c).filter(k => c[k] !== d.cfg[k]); const rules = { ...c, plans: ['week', 'month', 'quarter'].map(n => ({ plan: n, days: c[`${n}Days`], backPct: c[`${n}Back`], weightX: c[`${n}Weight`], roomX: c[`${n}Room`] })).concat({ plan: 'vault', days: null, backPct: 0, weightX: c.vaultWeight, roomX: c.vaultRoom }) };
-  return <div className="cof-set"><div className="cof-rows">{GROUPS.map(([h, rows]) => <section key={h}><h4>{h}</h4>{rows.map(([k, l, u, step, node, tip]) => { const [lo, hi] = d.bounds[k]; const v = c[k]; const moved = v !== d.defaults[k];
-      return <label key={k} className={`cof-row${moved ? ' is-moved' : ''}`} data-tip={tip} onMouseEnter={() => setHot(node)} onMouseLeave={() => setHot(null)} onFocus={() => setHot(node)} onBlur={() => setHot(null)} data-testid={`cof-${k}`}><span>{l}<i className="cof-q" aria-hidden="true">?</i></span><input type="range" min={lo} max={hi} step={step} value={v} aria-label={l} onChange={e => setC(x => ({ ...x, [k]: Number(e.target.value) }))} /><b className="m-num">{u === '$' ? `$${v}` : `${v}${u}`}</b></label>; })}</section>)}
-    <section><h4>What a boost does</h4><div className="cof-row" data-tip="Bigger payouts: boosts move the split, the speed and the fee pot weight. Rank only: boosts order the stage and change no money."><span>Boost mode<i className="cof-q" aria-hidden="true">?</i></span><span className="m-seg" role="group" aria-label="What a boost does">{[['payout', 'Bigger payouts'], ['rank', 'Rank only']].map(([k, l]) => <button key={k} type="button" className={c.boostMode === k ? 'active' : ''} aria-pressed={c.boostMode === k} onClick={() => setC(x => ({ ...x, boostMode: k }))} data-testid={`cof-mode-${k}`}>{l}</button>)}</span></div>
-      <div className="cof-row is-locked" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up." data-testid="cof-withdrawals"><span>User withdrawals<i className="cof-q" aria-hidden="true">?</i></span><b className="cof-lock">OFF</b></div></section></div>
+  const row = (r, label) => { const [k, l, u, step, node, tip] = r; const b = d.bounds[k]; if (!b) return null; return <Slide key={k} k={k} label={label || l} u={u} step={step} lo={b[0]} hi={b[1]} v={c[k]} start={d.defaults[k]} tip={tip} onChange={v => setC(x => ({ ...x, [k]: v }))} onHot={off => setHot(off ? null : node)} />; };
+  const card = (h, rows) => <section className="cs-card" key={h}><h5>{h}</h5>{rows}</section>;
+  return <Fx><div className="cof-set"><div className="cs">
+    <Tabs id="cof-set" rows={SET_TABS} at={tab} onPick={setTab} />
+    <motion.div key={tab} className="cs-pane" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }}>
+      {tab === 'quick' ? <><Presets c={c} d={d} onPick={t => setC(x => ({ ...x, ...t, boostMode: x.boostMode }))} />{card('THE 3 THAT MATTER MOST', QUICK.map(k => row(rowOf(k))))}<div className="cs-charts"><BackCurves c={c} /><DollarBars c={c} /></div></> : null}
+      {tab === 'plans' ? <><div className="cs-plans">{PLAN_CARDS.map(([h, n]) => card(h, (n === 'vault' ? [['vaultWeight', 'Fee pot weight'], ['vaultRoom', 'Earn limit']] : [[`${n}Days`, 'Days'], [`${n}Back`, 'Comes back'], [`${n}Weight`, 'Fee pot weight'], [`${n}Room`, 'Earn limit']]).map(([k, l]) => row(rowOf(k), l))))}</div><BackCurves c={c} /></> : null}
+      {tab === 'pot' ? card('THE FEE POT', [...groupRows('The fee pot'), ...groupRows('From outside the members')].map(r => row(r))) : null}
+      {tab === 'points' ? card('BOOST POINTS', groupRows('Boost points').map(r => row(r))) : null}
+      {tab === 'fees' ? card('AGENT FEES', groupRows('Agent fees').map(r => row(r))) : null}
+      {tab === 'rules' ? <section className="cs-card"><h5>RULES</h5><div className="cof-row" data-tip="Bigger payouts: boosts move the split, the speed and the fee pot weight. Rank only: boosts order the stage and change no money."><span>Boost mode<i className="cof-q" aria-hidden="true">?</i></span><span className="m-seg" role="group" aria-label="What a boost does">{[['payout', 'Bigger payouts'], ['rank', 'Rank only']].map(([k, l]) => <button key={k} type="button" className={c.boostMode === k ? 'active' : ''} aria-pressed={c.boostMode === k} onClick={() => setC(x => ({ ...x, boostMode: k }))} data-testid={`cof-mode-${k}`}>{l}</button>)}</span></div>
+        <div className="cof-row is-locked" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up." data-testid="cof-withdrawals"><span>User withdrawals<i className="cof-q" aria-hidden="true">?</i></span><b className="cof-lock">OFF</b></div></section> : null}
+    </motion.div></div>
     <aside className="cof-side"><small>LIVE PREVIEW OF YOUR SETTINGS</small><SplitFlow rules={rules} hot={hot} testid="cof-preview" />
       <div className="cof-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => setC({ ...d.defaults })} data-tip="Put every slider back to the starting numbers. Nothing changes until you save." data-testid="cof-defaults">Starting numbers</button><button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={() => save(c)} data-tip="New money and the next minute use these. Nothing already earned shrinks." data-testid="cof-save">{busy ? 'Saving…' : dirty.length ? `Save ${dirty.length} change${dirty.length > 1 ? 's' : ''}` : 'Saved'}</button></div>
-      {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}</aside></div>;
+      {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}</aside></div></Fx>;
 }
 export function CollectiveOwner({ call }) {
   const [d, setD] = useState(null); const [tab, setTab] = useState('flow'); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);

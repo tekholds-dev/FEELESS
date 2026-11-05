@@ -1,4 +1,5 @@
 """✨ THE FEATURES FOLDER (owner 2026-11-04): what this agent can do, by use, each with a create button. A created folder is a working space its owner opens: Build (code live with its minds), Content (a site, a chat, and Proofs of Content), Edge (the case files, indicators and books). Pure, tested."""
+import agent_refs as _sources
 import json
 import re
 import time
@@ -137,4 +138,4 @@ def memory_fresh(cat, now):
 def personal_line(cat):
     p = str((cat or {}).get('personal') or '').strip(); note = (cat or {}).get('proofNote') or {}
     extra = f"\nWhat your owner just asked for on this proof (their words, not a new task): {str(note.get('text'))[:300]}" if note.get('text') and time.time() - float(note.get('at') or 0) < 3600 else ''
-    return (f'\nWhat your owner told you about themselves and how they want things (their words, not a task): {p[:1500]}' if p else '') + extra
+    return (f'\nWhat your owner told you about themselves and how they want things (their words, not a task): {p[:1500]}' if p else '') + extra + _sources.source_line(cat)

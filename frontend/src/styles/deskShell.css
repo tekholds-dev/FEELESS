@@ -161,11 +161,8 @@ body.fx-lite :is(.lamp-core, .lamp-hot) { filter: none; opacity: .18; }
 body.theme-day .lamp-bar { background: #00000024; }
 
 /* a setup step waiting: stays lit until its asks are done */
-.dsk-lit { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: #f2c14e; color: #1a1205; font: 800 11px var(--f-mono); box-shadow: 0 0 12px #f2c14ecc; animation: dskLit 1.8s ease-in-out infinite; }
-.dsk-pop-roe.is-lit { background: #f2c14e !important; color: #1a1205 !important; box-shadow: 0 0 14px #f2c14ecc; animation: dskLit 1.8s ease-in-out infinite; }
-@keyframes dskLit { 50% { transform: scale(1.14); } }
-body.fx-lite :is(.dsk-lit, .dsk-pop-roe.is-lit) { animation: none; }
-@media (prefers-reduced-motion: reduce) { :is(.dsk-lit, .dsk-pop-roe.is-lit) { animation: none; } }
+.dsk-lit { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: #0a1410; color: #eafff3; border: 1px solid #45e48680; font: 800 11px var(--f-mono); }
+.dsk-pop-roe.is-lit { min-width: 15px; padding: 1px 4px; border-radius: 8px; text-align: center; background: #0a1410 !important; color: #eafff3 !important; border: 1px solid #45e48680; box-shadow: 0 2px 6px #0007; }
 
 /* what a mind is doing now: it never breaks out of its card */
 .cwb-deck .ck-vitals { position: relative; top: 0; max-height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
@@ -180,11 +177,12 @@ body.theme-day .ck-now { background: #e9f7ef; border-color: #0a7a3e44; } body.th
 .dsk-body { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; grid-template-rows: minmax(100%, auto); }
 
 /* the folder wall: tiles grow to fill the window; a long list below them scrolls with the window */
-.dfw { display: grid; grid-template-rows: minmax(150px, 1fr) auto auto; gap: 12px; min-height: 100%; padding: 14px; min-width: 0; }
-.dfw-wall { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); grid-auto-rows: minmax(130px, 1fr); gap: 10px; min-width: 0; }
+.dfw { display: grid; grid-template-rows: auto auto auto; align-content: start; gap: 10px; min-height: 100%; padding: 12px; min-width: 0; }
+.dfw-wall { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
 .dfw-tile { position: relative; display: grid; align-content: center; justify-items: center; gap: 3px; padding: 12px 8px; overflow: hidden; border-radius: 18px; border: 1px solid #ffffff21; background: radial-gradient(90% 80% at 50% 0%, color-mix(in srgb, var(--kd-acc, #45e486) 22%, transparent), transparent), linear-gradient(170deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff2b; color: inherit; font: inherit; text-align: center; animation: dfwIn .35s ease-out calc(var(--i) * 50ms) both; transition: transform .16s, border-color .16s; }
 .dfw-tile.is-go { cursor: pointer; } .dfw-tile.is-go:hover { transform: translateY(-3px); border-color: var(--kd-acc, #45e486); } .dfw-tile.is-go:active { transform: scale(.98); } .dfw-tile.is-go:focus-visible { outline: 2px solid var(--kd-acc, #45e486); outline-offset: 2px; }
 .dfw-tile i { width: clamp(46px, 7vw, 76px); aspect-ratio: 1; animation: dfwFloat 6s ease-in-out calc(var(--i) * -700ms) infinite; } .dfw-tile b { max-width: 100%; font-size: clamp(18px, 2.4vw, 30px); font-weight: 800; color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .dfw-tile small { font: 700 11px var(--f-ui); color: #c9d2d9; } .dfw-tile em { font: 800 9px var(--f-mono); letter-spacing: .1em; font-style: normal; color: var(--kd-acc, #45e486); text-transform: uppercase; } .dfw-tile.is-up b { color: #45e486; } .dfw-tile.is-dn b { color: #ff8fa3; }
+.dfw-tile { grid-template-columns: 30px minmax(0, 1fr); justify-items: start; column-gap: 9px; row-gap: 0; align-items: center; padding: 7px 10px; min-height: 52px; border-radius: 12px; text-align: left; } .dfw-tile i { grid-row: 1 / span 3; width: 28px; animation: none; } .dfw-tile b { font-size: 15px; line-height: 1.2; } .dfw-tile small { font-size: 10.5px; line-height: 1.25; } .dfw-tile em { font-size: 9.5px; line-height: 1.2; }
 .dfw-said { font: 600 12px var(--f-ui); color: #cfe9db; } .dfw-in { min-width: 0; } .dfw-in > * { min-height: 0 !important; height: auto !important; max-height: none; overflow: visible; }
 @keyframes dfwIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes dfwFloat { 50% { transform: translateY(-5px); } }

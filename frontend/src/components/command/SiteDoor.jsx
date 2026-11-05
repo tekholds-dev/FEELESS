@@ -28,7 +28,7 @@ const IconDot = () => <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8"
 
 // One sign-in window everywhere: the Vault's Signed-in sites and each proof folder's door.
 // ⌨ Typing inside a cloud window is slow and paste often fails, so this box sends your words straight into whichever box you selected in the window. Never stored, never sent to a model.
-function TypeBar({ cat, work, d }) {
+export function TypeBar({ cat, work, d }) {
   const [text, setText] = useState(''); const [hide, setHide] = useState(false); const [busy, setBusy] = useState(''); const [note, setNote] = useState(''); const email = d?.mailbox?.address;
   const [mine, setMine] = useState(() => { try { return localStorage.getItem('feeless.my.email') || ''; } catch { return ''; } });
   const keepMine = v => { setMine(v); try { if (v) localStorage.setItem('feeless.my.email', v); else localStorage.removeItem('feeless.my.email'); } catch { /* private window */ } };
@@ -50,7 +50,10 @@ function TypeBar({ cat, work, d }) {
       {note ? <small role="status" className="sd-type-note">{note}</small> : null}</div></form>;
 }
 export function SignInFrame({ live, cat, work, d }) {
-  return <>{cat && work ? <TypeBar cat={cat} work={work} d={d} /> : null}<iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-signed-frame" /></>;
+  return <>{cat && work ? <TypeBar cat={cat} work={work} d={d} /> : null}<SignInView live={live} /></>;
+}
+export function SignInView({ live }) {
+  return <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-signed-frame" />;
 }
 
 // 🛒 "buy $1 of $BONK on pump": the question on a card, the same door as typing yes or no.

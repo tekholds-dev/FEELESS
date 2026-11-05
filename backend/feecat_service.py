@@ -5118,7 +5118,24 @@ async def cat_tool_image(q: str = '', must: str = ''):
     if not q.strip():
         return {'image': None}
     async with httpx.AsyncClient(timeout=8, follow_redirects=True) as http:
-        return {'image': await _tools.free_image(http, q[:90], [w for w in must.split(',') if w][:6])}
+        imgs = await _tools.free_images(http, q[:90], [w for w in must.split(',') if w][:6])
+        return {'image': imgs[0] if imgs else None, 'images': imgs}
+
+
+@app.get('/api/cats/tools/sourcefile')
+async def cat_tool_sourcefile():
+    """📚 The best free references per job. Every agent's prompt carries its own."""
+    return _feat._sources.view()
+
+
+@app.get('/api/cats/tools/game/{sport}/{gid}')
+async def cat_tool_game(sport: str, gid: str, a: str = '', b: str = ''):
+    """🏟 One game: records, how often each side wins, form, team stats, top players, injuries, the win chance over the game. Free: ESPN first, with fallbacks."""
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as http:
+        got = await _tools.game_detail(http, sport, gid, (a, b))
+    if not got:
+        raise HTTPException(404, 'This game could not be read.')
+    return got
 
 
 @app.get('/api/cats/tools/{kind}')

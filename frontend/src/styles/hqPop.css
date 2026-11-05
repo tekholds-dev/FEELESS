@@ -46,6 +46,7 @@
 .hqp-body::-webkit-scrollbar { width: 6px; } .hqp-body::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
 .hqp-body .cc-shell > .cc-head .cc-close { display: none; }   /* the pop-out's own ✕ closes it */
 .hqp-load { height: 60vh; display: grid; place-content: center; justify-items: center; gap: 14px; font: 700 11px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .12em; text-transform: uppercase; color: rgba(234, 255, 243, .6); }
+body.hqp-open :is(.dsk, .ck-safe, .paper-modal-backdrop) { z-index: 4100; }   /* a desktop or dialog opened from inside HQ sits over HQ, never hidden behind it */
 body.hqp-open { overflow: hidden; } body.hqp-open .terminal-main { visibility: hidden; }   /* the page under an opaque pop-out paints nothing */
 
 body.fx-lite .hqp, body.fx-lite .hqp-fx > i, body.fx-lite .hqp-mark > i, body.fx-lite .hqp-fab > i, body.fx-lite .hqp-mood b { animation: none; } body.fx-lite .hqp-fx { display: none; }

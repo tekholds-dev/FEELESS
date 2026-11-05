@@ -116,3 +116,4 @@ frontend/public/dev-agents.json
 frontend/public/dev-feecat.json
 frontend/public/dev-prompts.json
 frontend/public/dev-pow.json
+frontend/public/dev-collective.json

@@ -216,7 +216,7 @@ def test_the_colony_pool_needs_a_clean_preview_of_the_same_amounts_before_circle
     async def view(): return {'ok': True}
     monkeypatch.setattr(rs, '_colony_view', view)
     sims = iter([{'ok': True, 'pool': 'POOL1', 'price': 5e-7, 'tx': 'TX', 'sim': {'err': None}}] * 3)
-    async def build(d, body): return ({'amountA': float(body['feecat']), 'amountB': float(body['sol']), 'feeBps': 100, 'compoundingBps': 5000, 'lock': True}, next(sims))
+    async def build(d, body): return ({'mintA': 'MINT', 'mintB': rs.POOL_QUOTES['SOL'][0], 'amountA': float(body['feecat']), 'amountB': float(body['sol']), 'feeBps': 100, 'compoundingBps': 5000, 'lock': False}, next(sims))
     monkeypatch.setattr(rs, '_colony_pool_build', build)
     signed = []
     async def circle(m, path, body=None, agent=False): signed.append((path, body['walletId'], agent)); return {'signedTransaction': 'SIGNED', 'signature': 'SIG'}
@@ -291,3 +291,17 @@ def test_the_colony_tree_is_true_data():
     a = t['agents'][0]
     assert (a['honey'], a['right'], a['trades'], a['won'], a['pnlSol'], a['owedSol'], a['sentSol'], a['sharePct']) == (4, 3, 2, 1, -0.01, 0.001, 0, 10)
     assert [w['sym'] for w in t['wins']] == ['WIN'] and t['wins'][0]['state'] == 'owed' and t['wins'][0]['honeySol'] == 0.001   # paper never counts as a win
+
+
+def test_the_pool_takes_any_pair_with_sol_or_usdc_and_refuses_the_rest():
+    import asyncio
+    import pytest
+    from fastapi import HTTPException
+    import reputation_service as rs
+    d = {'wallet': {'address': 'W'}}
+    for body in ({'mintA': 'So11111111111111111111111111111111111111112', 'quote': 'SOL', 'amountA': 1, 'amountB': 1},   # the same token twice
+                 {'mintA': 'So11111111111111111111111111111111111111112', 'quote': 'BTC', 'amountA': 1, 'amountB': 1},   # not a quote we take
+                 {'mintA': 'not a mint!', 'quote': 'SOL', 'amountA': 1, 'amountB': 1},
+                 {'mintA': 'So11111111111111111111111111111111111111112', 'quote': 'USDC', 'amountA': 1, 'amountB': 0.5}):   # under the USDC floor
+        with pytest.raises(HTTPException):
+            asyncio.run(rs._colony_pool_build(d, body))

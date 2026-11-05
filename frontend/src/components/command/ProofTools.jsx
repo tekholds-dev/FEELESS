@@ -1,4 +1,5 @@
-import React, { useEffect, useState , useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import '../../styles/proofTools.css';
@@ -13,16 +14,68 @@ function Sources({ rows }) {
 }
 function Bar({ v, tone }) { return <span className={`ptl-bar ${tone || ''}`} aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, v || 0))})` }} /></span>; }
 
-// 🖼 A real, freely licensed photo with its credit, or none. A team's logo is a trademark, so nothing is drawn in its place: the card just shows the teams.
+// 🖼 Real, freely licensed photos with their credit, or none. A team's logo is a trademark, so nothing is drawn in its place. The photos stay on Wikimedia: nothing is saved anywhere, a card off screen holds no image at all, and one shared clock turns them, one card at a time, only once the next photo has loaded.
+const cycling = new Set();
+let cycleClock = null;
+const cycleTurn = () => { if (!document.hidden) cycling.forEach(f => f()); };
+const joinCycle = f => { cycling.add(f); if (!cycleClock) cycleClock = setInterval(cycleTurn, 7000); return () => { cycling.delete(f); if (!cycling.size) { clearInterval(cycleClock); cycleClock = null; } }; };
 function FreePhoto({ q, must }) {
-  const [img, setImg] = useState(undefined); const box = useRef(null);
-  useEffect(() => { let on = true; const load = () => fetch(apiUrl(`/api/cats/tools/image?q=${encodeURIComponent(q)}&must=${encodeURIComponent(must.join(','))}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on) setImg(j?.image || null); }).catch(() => on && setImg(null)); if (typeof IntersectionObserver === 'undefined') { load(); return () => { on = false; }; } const io = new IntersectionObserver(es => { if (es[0].isIntersecting) { io.disconnect(); load(); } }, { rootMargin: '120px' }); if (box.current) io.observe(box.current); return () => { on = false; io.disconnect(); }; }, [q]);   // eslint-disable-line react-hooks/exhaustive-deps
-  return <span className="ptl-photo" ref={box}>{img ? <><img src={img.url} alt={img.title} loading="lazy" /><a href={img.page} target="_blank" rel="noopener noreferrer" data-tip={`${img.title}: ${img.license}`}>{img.by} · {img.license}</a></> : null}</span>;
+  const [imgs, setImgs] = useState(null); const [at, setAt] = useState(0); const [seen, setSeen] = useState(typeof IntersectionObserver === 'undefined'); const box = useRef(null);
+  useEffect(() => { if (typeof IntersectionObserver === 'undefined' || !box.current) return undefined; const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting), { rootMargin: '120px' }); io.observe(box.current); return () => io.disconnect(); }, []);
+  useEffect(() => { if (!seen || imgs) return undefined; let on = true; fetch(apiUrl(`/api/cats/tools/image?q=${encodeURIComponent(q)}&must=${encodeURIComponent(must.join(','))}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on) setImgs(j?.images || (j?.image ? [j.image] : [])); }).catch(() => on && setImgs([])); return () => { on = false; }; }, [seen, imgs, q, must]);
+  useEffect(() => { if (!seen || !imgs || imgs.length < 2) return undefined; return joinCycle(() => { const n = (at + 1) % imgs.length; const next = new Image(); next.onload = () => setAt(n); next.src = imgs[n].url; }); }, [seen, imgs, at]);
+  const img = seen && imgs?.length ? imgs[at % imgs.length] : null;
+  return <span className={`ptl-photo${imgs?.length ? ' has-img' : ''}`} ref={box}>{img ? <><img key={img.url} src={img.url} alt={img.title} decoding="async" /><a href={img.page} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} data-tip={`${img.title}: ${img.license}`}>{img.by} · {img.license}</a></> : null}</span>;
+}
+// ⚖ Two sides of one number, mirrored from the middle. Each bar is scaled to the bigger side of its own row.
+function Versus({ label, a, b, tip, pctRow }) {
+  const na = parseFloat(a); const nb = parseFloat(b); const top = Math.max(Math.abs(na) || 0, Math.abs(nb) || 0) || 1; const fa = pctRow ? na : (Math.abs(na) || 0) / top; const fb = pctRow ? nb : (Math.abs(nb) || 0) / top;
+  const show = v => (pctRow ? (Number.isFinite(v) ? `${Math.round(v * 100)}%` : '—') : (v ?? '—'));
+  return <li className="pgw-vs" data-tip={tip}><b className="m-num">{show(pctRow ? na : a)}</b><span className="pgw-vbar is-a" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, fa || 0))})` }} /></span><small>{label}</small><span className="pgw-vbar is-b" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, fb || 0))})` }} /></span><b className="m-num">{show(pctRow ? nb : b)}</b></li>;
+}
+// 📈 The chance the home side wins, through the game. One line, one axis, hover reads any moment.
+function WinLine({ wp, home }) {
+  const [at, setAt] = useState(null); const n = wp.length; const X = i => (i / (n - 1)) * 600; const Y = v => 110 - v * 100; const d = wp.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
+  const hover = e => { const r = e.currentTarget.getBoundingClientRect(); setAt(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - r.left) / r.width) * (n - 1))))); };
+  const v = at == null ? wp[n - 1] : wp[at];
+  return <figure className="pgw-line" data-testid="pgw-line"><figcaption><span>{home} WIN CHANCE</span><b className="m-num">{Math.round(v * 100)}%</b></figcaption><svg viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label={`${home} win chance through the game`} onMouseMove={hover} onMouseLeave={() => setAt(null)}><line x1="0" x2="600" y1="60" y2="60" className="pgw-mid" /><path d={d} className="pgw-path" vectorEffect="non-scaling-stroke" />{at != null ? <line x1={X(at)} x2={X(at)} y1="8" y2="112" className="pgw-cross" vectorEffect="non-scaling-stroke" /> : null}</svg><small className="pgw-axis"><span>Start</span><span>50% line</span><span>{at == null ? 'Now' : `Moment ${at + 1} of ${n}`}</span></small></figure>;
+}
+const Form = ({ rows }) => (rows?.length ? <span className="pgw-form" aria-label={`Last ${rows.length} games: ${rows.join(' ')}`}>{rows.map((r, i) => <i key={i} className={r === 'W' ? 'is-w' : r === 'L' ? 'is-l' : ''}>{r}</i>)}</span> : null);
+function GameWindow({ g, onClose, onCommand }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState(false); const [a, b] = g.teams; const live = (d?.state || g.state) === 'in'; const done = (d?.state || g.state) === 'post';
+  const load = useCallback(() => fetch(apiUrl(`/api/cats/tools/game/${g.sport}/${g.id}?a=${encodeURIComponent(a.name || '')}&b=${encodeURIComponent(b.name || '')}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { setD(j); setErr(false); }).catch(() => setErr(true)), [g.sport, g.id, a.name, b.name]);
+  useEffect(() => { load(); if (g.state !== 'in') return undefined; const t = setInterval(() => { if (!document.hidden) load(); }, 60000); return () => clearInterval(t); }, [load, g.state]);
+  useEffect(() => { const k = e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [onClose]);
+  const ta = d?.teams?.[0] || {}; const tb = d?.teams?.[1] || {};
+  return createPortal(<div className="pgw-back" onClick={onClose} data-testid="pgw"><section className="pgw m-card" role="dialog" aria-modal="true" aria-label={`${a.name} and ${b.name}`} onClick={e => e.stopPropagation()}>
+    <header className="pgw-h"><span className="pgw-t"><small>{ta.side === 'home' ? 'HOME' : 'AWAY'}</small><b>{ta.name || a.name}</b><Form rows={ta.form} /></span>
+      <span className="pgw-score">{g.state === 'pre' && !done && !live ? <em>{until(g.at)}</em> : <b className="m-num">{ta.score ?? a.score} <i>–</i> {tb.score ?? b.score}</b>}<small className={live ? 'is-live' : ''}>{live ? '● ' : ''}{d?.status || g.status}</small></span>
+      <span className="pgw-t is-r"><small>{tb.side === 'home' ? 'HOME' : 'AWAY'}</small><b>{tb.name || b.name}</b><Form rows={tb.form} /></span>
+      <button type="button" className="pgw-x" onClick={onClose} aria-label="Close" data-tip="Close (Esc)" data-testid="pgw-close">✕</button></header>
+    {err && !d ? <p className="ptl-none" role="alert">None of the free stat sources answered for this game. It tries again when you reopen it.</p> : !d ? <div className="pgw-load" aria-label="Reading the game"><i /><i /><i /></div> : <div className="pgw-b">
+      <div className="pgw-col">
+        <section><h5>HOW OFTEN IT WINS</h5><ul className="pgw-vss">
+          {ta.winRate != null || tb.winRate != null ? <Versus pctRow label={`Season ${ta.record || '—'} · ${tb.record || '—'}`} a={ta.winRate} b={tb.winRate} tip="Share of this season's games each side has won" /> : null}
+          {ta.sideRate != null || tb.sideRate != null ? <Versus pctRow label={`${ta.side === 'home' ? 'Home' : 'Road'} ${ta.sideRecord || '—'} · ${tb.side === 'home' ? 'Home' : 'Road'} ${tb.sideRecord || '—'}`} a={ta.sideRate} b={tb.sideRate} tip="Share won in the same spot as tonight: at home or on the road" /> : null}
+          {a.chance != null || b.chance != null ? <Versus pctRow label="Polymarket" a={a.chance} b={b.chance} tip="What traders price right now. Market odds, not a promise" /> : null}
+          {a.kalshi != null || b.kalshi != null ? <Versus pctRow label="Kalshi" a={a.kalshi} b={b.kalshi} tip="A second market's price. Market odds, not a promise" /> : null}
+        </ul>{d.series ? <small className="pgw-note">{d.series}</small> : null}</section>
+        {d.wp?.length > 1 ? <WinLine wp={d.wp} home={(tb.side === 'home' ? tb.abbr : ta.abbr) || 'HOME'} /> : null}
+        {d.stats?.length ? <section><h5>TEAM STATS</h5><ul className="pgw-vss">{d.stats.slice(0, 7).map(x => <Versus key={x.label} label={x.label} a={x.a} b={x.b} />)}</ul></section> : null}
+      </div>
+      <div className="pgw-col">
+        {ta.leaders?.length || tb.leaders?.length ? <section><h5>TOP PLAYERS</h5><div className="pgw-two">{[ta, tb].map(t => <ol key={t.id || t.name} className="pgw-pl"><li className="pgw-pl-h">{t.abbr}</li>{(t.leaders || []).map(l => <li key={l.stat}><span><b>{l.name}</b><small>{l.stat}</small></span><em className="m-num">{l.value}</em></li>)}</ol>)}</div></section> : null}
+        {ta.injuries?.length || tb.injuries?.length ? <section><h5>INJURIES</h5><div className="pgw-two">{[ta, tb].map(t => <ol key={t.id || t.name} className="pgw-pl"><li className="pgw-pl-h">{t.abbr}</li>{(t.injuries || []).length ? t.injuries.map(l => <li key={l.name}><span><b>{l.name}</b></span><small>{l.status}</small></li>) : <li><small>None listed</small></li>}</ol>)}</div></section> : null}
+        <dl className="pgw-kv">{d.line ? <div><dt>Line</dt><dd className="m-num">{d.line}</dd></div> : null}{d.total ? <div><dt>Total</dt><dd className="m-num">{d.total}</dd></div> : null}{d.venue ? <div><dt>Venue</dt><dd>{d.venue}</dd></div> : null}</dl>
+        {!(ta.leaders?.length || tb.leaders?.length || d.stats?.length || d.wp?.length > 1) ? <p className="ptl-none">Player and team stats appear once ESPN posts them, usually close to the start.</p> : null}
+      </div></div>}
+    <footer className="pgw-f"><small data-testid="pgw-source">{d?.source && d.source !== 'ESPN' ? `ESPN did not answer. Records from ${d.source}; player stats are not available right now.` : 'Stats from ESPN.'} Prices from Polymarket and Kalshi: market odds, not a promise.</small>{done ? null : <button type="button" className="m-btn m-go" onClick={() => { onCommand?.(`file a pob ${a.short} vs ${b.short}`); onClose(); }} disabled={!onCommand} data-tip="Puts it in the chat box. You press send" data-testid="pgw-file">File a pick</button>}</footer>
+  </section></div>, document.body);
 }
 const until = at => { const s = (new Date(at).getTime() - Date.now()) / 1000; if (!Number.isFinite(s)) return ''; if (s < 0) return 'now'; if (s < 3600) return `${Math.ceil(s / 60)}m`; if (s < 86400) return `${Math.round(s / 3600)}h`; return `${Math.round(s / 86400)}d`; };
 function GameCard({ g, onCommand }) {
-  const [a, b] = g.teams; const live = g.state === 'in'; const done = g.state === 'post';
-  return <li className={`ptl-gcard is-${g.state}`} data-testid={`ptl-game-${g.id}`}><FreePhoto q={`${a.name} ${b.name}`} must={[a.short, b.short, a.name, b.name].filter(Boolean)} /><div className="ptl-g-b"><span className="ptl-g-tag">{live ? <em className="ptl-live" data-tip="Happening now">LIVE</em> : done ? <em>FINAL</em> : <em data-tip="Starts in">{until(g.at)}</em>}<small>{g.status}</small></span>{g.teams.map(t => <span key={t.name} className={`ptl-g-t${t.winner ? ' is-win' : ''}`}><b>{t.short || t.name}</b>{g.state !== 'pre' ? <i key={t.score} className="m-num">{t.score}</i> : <i className="m-num" data-tip="What the market prices">{t.chance ? pct(t.chance) : ''}</i>}</span>)}{done ? null : <button type="button" className="m-btn" onClick={() => onCommand?.(`file a pob ${a.short} vs ${b.short}`)} data-tip="Puts it in the chat box. You press send" data-testid={`ptl-file-${g.id}`}>File a pick</button>}</div></li>;
+  const [a, b] = g.teams; const live = g.state === 'in'; const done = g.state === 'post'; const [open, setOpen] = useState(false); const must = useRef([a.short, b.short, a.name, b.name].filter(Boolean)).current;
+  return <li className={`ptl-gcard is-${g.state}`} role="button" tabIndex={0} onClick={() => setOpen(true)} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpen(true); } }} data-tip="Team stats, players, and how often each side wins" data-testid={`ptl-game-${g.id}`}>{open ? <GameWindow g={g} onCommand={onCommand} onClose={() => setOpen(false)} /> : null}<FreePhoto q={`${a.name} ${b.name}`} must={must} /><div className="ptl-g-b"><span className="ptl-g-tag">{live ? <em className="ptl-live" data-tip="Happening now">LIVE</em> : done ? <em>FINAL</em> : <em data-tip="Starts in">{until(g.at)}</em>}<small>{g.status}</small></span>{g.teams.map(t => <span key={t.name} className={`ptl-g-t${t.winner ? ' is-win' : ''}`}><b>{t.short || t.name}</b>{g.state !== 'pre' ? <i key={t.score} className="m-num">{t.score}</i> : <i className="m-num" data-tip="What the market prices">{t.chance ? pct(t.chance) : ''}</i>}</span>)}{done ? null : <button type="button" className="m-btn" onClick={e => { e.stopPropagation(); onCommand?.(`file a pob ${a.short} vs ${b.short}`); }} data-tip="Puts it in the chat box. You press send" data-testid={`ptl-file-${g.id}`}>File a pick</button>}</div></li>;
 }
 function BidsDash({ d, sport, setSport, team, setTeam, onCommand }) {
   const [mkt, setMkt] = useState('All'); const rows = d.markets || []; const cats = ['All', ...new Set(rows.map(m => m.cat))]; const shownM = (mkt === 'All' ? rows : rows.filter(m => m.cat === mkt)).slice(0, 12);

@@ -57,8 +57,9 @@ test('the owner folder saves a slider and explains every row', async () => {
   expect(el.querySelector('[data-testid="cof-tank-keep"]').textContent).toContain('$7.00'); expect(el.querySelector('[data-testid="cof-site"]').textContent).toContain('$15.00');
   await click(el.querySelector('[data-testid="cof-clear-h1"]')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
   await click(el.querySelector('[data-testid="cof-tab-set"]'));
+  expect(el.querySelector('[data-testid="cs-curves"]')).toBeTruthy(); expect(el.querySelector('[data-testid="cs-bars"]')).toBeTruthy();
+  for (const t of ['plans', 'pot', 'points', 'fees', 'rules']) { await click(el.querySelector(`[data-testid="cof-set-${t}"]`)); expect(el.querySelectorAll('.cof-row').length).toBeGreaterThan(0); [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy()); }
   expect(el.querySelector('[data-testid="cof-withdrawals"]').textContent).toContain('OFF');
-  [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy());
   expect(el.querySelector('[data-testid="cof-save"]').disabled).toBe(true);
   await click(el.querySelector('[data-testid="cof-mode-rank"]'));
   expect(el.querySelector('[data-testid="cof-preview"]')).toBeTruthy();

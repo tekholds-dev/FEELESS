@@ -19711,7 +19711,7 @@ async def _colony_view():
             'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
             'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS),
             'sharers': len(live.get('sharers') or []),
-            'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'poolDraft': d.get('poolDraft'), 'board': (live.get('board') or [])[:10],
+            'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'poolTokens': _pool_tokens(), 'poolDraft': d.get('poolDraft'), 'board': (live.get('board') or [])[:10],
             'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),
             'browsers': live.get('browsers') or [], 'log': (d.get('log') or [])[-8:]}
 
@@ -19719,19 +19719,33 @@ async def _colony_view():
 COLONY_POOL_JS = Path(__file__).resolve().parent.parent / 'circle' / 'colony-pool.mjs'
 
 
+POOL_QUOTES = {'SOL': ('So11111111111111111111111111111111111111112', 0.01, 1000), 'USDC': ('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 1, 100000)}
+def _pool_tokens():
+    """What the Pool can open a pool with. No token is required: the owner picks the pair (owner 2026-11-05: "we not paying in feecat")."""
+    m = ecosystem_mints()
+    return [{'k': 'SOL', 'mint': POOL_QUOTES['SOL'][0]}, {'k': 'USDC', 'mint': POOL_QUOTES['USDC'][0]}, {'k': 'FEE', 'mint': m.get('fee')}, {'k': 'FEECAT', 'mint': m.get('feecat')}]
+
+
 async def _colony_pool_build(d, body):
-    """🌊 Meteora DAMM v2 FEECAT/SOL with the colony wallet as payer (circle/colony-pool.mjs, Meteora's own SDK): the transaction + a FREE
+    """🌊 Meteora DAMM v2 for any pair the owner picks, with the colony wallet as payer (circle/colony-pool.mjs, Meteora's own SDK): the transaction + a FREE
     on-chain simulation. Nothing is signed by the colony wallet here, nothing is sent."""
     w = d.get('wallet') or {}
     if not w.get('address'):
         raise HTTPException(400, 'Create the pot wallet first.')
     try:
-        fc, sol = float(body.get('feecat')), float(body.get('sol'))
+        fc, sol = float(body.get('amountA', body.get('feecat'))), float(body.get('amountB', body.get('sol')))
     except (TypeError, ValueError):
-        raise HTTPException(400, 'Give the FEECAT and SOL amounts.')
-    if not (fc > 0 and 0.01 <= sol <= 1000):
-        raise HTTPException(400, 'FEECAT > 0 and 0.01–1,000 SOL.')
-    args = {'payer': w['address'], 'mintA': ecosystem_mints()['feecat'], 'amountA': fc, 'amountB': sol, 'feeBps': int(body.get('feeBps') or 100),
+        raise HTTPException(400, 'Give both amounts.')
+    quote = str(body.get('quote') or 'SOL').upper()
+    if quote not in POOL_QUOTES:
+        raise HTTPException(400, 'The second token must be SOL or USDC.')
+    mint_b, lo_, hi_ = POOL_QUOTES[quote]
+    mint_a = str(body.get('mintA') or ecosystem_mints()['feecat']).strip()
+    if not _re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', mint_a) or mint_a == mint_b:
+        raise HTTPException(400, 'Pick two different tokens.')
+    if not (fc > 0 and lo_ <= sol <= hi_):
+        raise HTTPException(400, f'The first amount must be above 0, and {quote} between {lo_:g} and {hi_:,}.')
+    args = {'payer': w['address'], 'mintA': mint_a, 'mintB': mint_b, 'amountA': fc, 'amountB': sol, 'feeBps': int(body.get('feeBps') or 100),
             'compoundingBps': int(body.get('compoundingBps') or 5000), 'lock': body.get('lock') is True}   # owner 2026-10-31: unlocked by default (the pool is partly disbursed)
     for _ in range(3):   # an RPC out of quota → the next one
         rpc = _next_rpc_endpoint()
@@ -19782,11 +19796,11 @@ async def admin_colony_set(request: Request):
         d['policy'] = _col.clean_policy({**(d.get('policy') or {}), **(body.get('policy') or {})})
     elif act == 'pool_preview':   # 🌊 build + simulate the Meteora pool (free) — remembered so 'pool_create' may follow with the SAME amounts
         args_, r_ = await _colony_pool_build(d, body)
-        d['poolDraft'] = {k: args_[k] for k in ('amountA', 'amountB', 'feeBps', 'compoundingBps', 'lock')} | {'at': now, 'ok': bool(r_.get('ok')) and r_.get('sim', {}).get('err') is None,
+        d['poolDraft'] = {k: args_[k] for k in ('mintA', 'mintB', 'amountA', 'amountB', 'feeBps', 'compoundingBps', 'lock')} | {'at': now, 'ok': bool(r_.get('ok')) and r_.get('sim', {}).get('err') is None,
                           'pool': r_.get('pool'), 'price': r_.get('price'), 'err': r_.get('error') or (r_.get('sim') or {}).get('err'), 'logs': (r_.get('sim') or {}).get('logs')}
     elif act == 'pool_create':   # 🌊 the real thing: only after a clean preview of the same amounts in the last 10 min — Circle signs as the colony wallet, we broadcast
         dr_ = d.get('poolDraft') or {}
-        same_ = dr_.get('amountA') == float(body.get('feecat') or 0) and dr_.get('amountB') == float(body.get('sol') or 0)
+        same_ = dr_.get('amountA') == float(body.get('amountA', body.get('feecat')) or 0) and dr_.get('amountB') == float(body.get('amountB', body.get('sol')) or 0) and dr_.get('mintA') == str(body.get('mintA') or dr_.get('mintA')) and dr_.get('mintB') == POOL_QUOTES.get(str(body.get('quote') or 'SOL').upper(), ('',))[0] and dr_.get('feeBps') == int(body.get('feeBps') or 100) and dr_.get('lock') == (body.get('lock') is True)
         if not (dr_.get('ok') and same_ and now - int(dr_.get('at') or 0) < 600):
             raise HTTPException(400, 'Preview these exact amounts first (the simulation must pass) — then create within 10 minutes.')
         if (d.get('pool') or {}).get('address'):
@@ -19800,7 +19814,7 @@ async def admin_colony_set(request: Request):
         async with httpx.AsyncClient(timeout=20) as http_:
             took_ = await _rpc_broadcast(http_, sg_['signedTransaction'])
         d['pool'] = {'address': r_['pool'], 'platform': 'Meteora DAMM v2', 'at': now, 'sig': sg_.get('signature') or sg_.get('txHash'), 'nodes': took_,
-                     'feecat': args_['amountA'], 'sol': args_['amountB'], 'lock': args_['lock']}
+                     'mintA': args_['mintA'], 'mintB': args_['mintB'], 'amountA': args_['amountA'], 'amountB': args_['amountB'], 'feeBps': args_['feeBps'], 'lock': args_['lock']}
         d.pop('poolDraft', None)
     else:
         raise HTTPException(400, 'Unknown colony action.')

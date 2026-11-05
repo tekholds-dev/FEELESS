@@ -178,7 +178,7 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
-export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
+export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, children }) {
   const drag = useRef(null);
   const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a')) return; drag.current = { x: e.clientX - s.x, y: e.clientY - s.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { if (drag.current) set(k, { x: e.clientX - drag.current.x, y: Math.max(0, e.clientY - drag.current.y) }); };
@@ -189,7 +189,7 @@ export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children
         <button type="button" className="is-max" onClick={() => set(k, { max: !s.max })} aria-label={s.max ? 'Restore' : 'Maximize'} data-tip={s.max ? 'Restore' : 'Maximize'} /></span>
       <b><Ic3Text text={title} /></b><span className="dsk-tools">{tools}</span></header>
     <i className="dsk-water" aria-hidden="true"><Ic3 e={leadOf(title)} size="100%" /></i>
-    <div className="dsk-body">{children}</div></section>;
+    <div className="dsk-body">{children}</div>{dock}</section>;
 }
 
 // 📈 What an agent's filed proofs did. Each proof kind keeps its own unit and is never added to another: real SOL, paper %, free chips.

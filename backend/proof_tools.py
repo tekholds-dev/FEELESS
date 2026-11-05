@@ -258,32 +258,192 @@ FREE_LICENSES = ('public domain', 'cc0', 'cc by', 'cc-by', 'pd')
 _img_cache = {}
 
 
-def parse_image(data, must):
-    """The first freely licensed picture whose name really mentions the subject, with its credit, or None. No match means no picture: nothing is faked. Pure."""
-    words = [w.lower() for w in must if len(w) > 2]
+def parse_images(data, must, n=5):
+    """Freely licensed pictures whose name really mentions the subject, each with its credit. No match means no picture: nothing is faked. Pure."""
+    words = [w.lower() for w in must if len(w) > 2]; out = []
     for p in ((data or {}).get('query') or {}).get('pages', {}).values():
         i = (p.get('imageinfo') or [{}])[0]; meta = i.get('extmetadata') or {}; lic = str((meta.get('LicenseShortName') or {}).get('value') or ''); title = str(p.get('title') or '')
         if not i.get('thumburl') or not lic.lower().startswith(FREE_LICENSES) or (words and not any(w in title.lower() for w in words)) or 'logo' in title.lower() or title.lower().endswith(('.pdf', '.svg', '.ogv', '.webm', '.tif', '.djvu')):
             continue
-        return {'url': i['thumburl'], 'page': i.get('descriptionurl'), 'license': lic, 'by': re.sub(r'<[^>]+>', '', str((meta.get('Artist') or {}).get('value') or 'Wikimedia Commons'))[:60].strip(), 'title': title.replace('File:', '')[:70]}
-    return None
+        out.append({'url': i['thumburl'], 'page': i.get('descriptionurl'), 'license': lic, 'by': re.sub(r'<[^>]+>', '', str((meta.get('Artist') or {}).get('value') or 'Wikimedia Commons'))[:60].strip(), 'title': title.replace('File:', '')[:70]})
+        if len(out) >= n:
+            break
+    return out
 
 
-async def free_image(http, q, must=()):
-    """A real, freely licensed photo from Wikimedia Commons, cached for a day. Team logos stay out: they are trademarks."""
+def parse_image(data, must):
+    got = parse_images(data, must, 1)
+    return got[0] if got else None
+
+
+async def free_images(http, q, must=()):
+    """Real, freely licensed photos from Wikimedia Commons. Only their links are held, in memory for a day, and the browser loads them from Wikimedia: nothing is ever stored here. Team logos stay out: they are trademarks."""
     key = f'{q}|{",".join(must)}'.lower(); got = _img_cache.get(key)
     if got and time.time() - got[0] < 86400:
         return got[1]
-    img = None
+    imgs = []
     for query in dict.fromkeys([q, *[w for w in must if len(w) > 3][:2]]):   # the matchup first, then either side
         data = await _get(http, 'https://commons.wikimedia.org/w/api.php', headers={'User-Agent': 'FEELESS/1.0 (https://github.com/tekholds-dev/FEELESS)'}, params={'action': 'query', 'format': 'json', 'generator': 'search', 'gsrnamespace': 6, 'gsrsearch': query, 'gsrlimit': 12, 'prop': 'imageinfo', 'iiprop': 'url|extmetadata', 'iiurlwidth': 480, 'iiextmetadatafilter': 'LicenseShortName|Artist'})
-        img = parse_image(data, list(must) or q.split())
-        if img:
+        seen = {x['url'] for x in imgs}
+        imgs += [x for x in parse_images(data, list(must) or q.split()) if x['url'] not in seen]
+        if len(imgs) >= 5:
             break
-    _img_cache[key] = (time.time(), img)
+    imgs = imgs[:5]
+    _img_cache[key] = (time.time(), imgs)
     if len(_img_cache) > 2000:
         _img_cache.pop(next(iter(_img_cache)))
-    return img
+    return imgs
+
+
+async def free_image(http, q, must=()):
+    got = await free_images(http, q, must)
+    return got[0] if got else None
+
+
+def _rec(text):
+    """'8-1' or '6-2-1' → how often it wins, or None. Pure."""
+    p = [int(x) for x in re.findall(r'\d+', str(text or ''))]
+    return round(p[0] / sum(p), 3) if len(p) >= 2 and sum(p) else None
+
+
+def parse_summary(data):
+    """ESPN's game summary → what the game window shows: records and how often each side wins, recent form, team stats side by side, top players, injuries, the win chance over the game. Only what ESPN sent; a missing part stays missing. Pure."""
+    data = data or {}
+    comp = ((data.get('header') or {}).get('competitions') or [{}])[0]
+    st = ((comp.get('status') or {}).get('type') or {})
+    teams = []
+    for c in sorted(comp.get('competitors') or [], key=lambda x: x.get('homeAway') != 'away'):
+        t = c.get('team') or c.get('athlete') or {}; recs = {r.get('type'): r.get('summary') or r.get('displayValue') for r in c.get('record') or []}
+        side = 'home' if c.get('homeAway') == 'home' else 'road'
+        teams.append({'id': str(t.get('id') or ''), 'abbr': t.get('abbreviation'), 'name': t.get('displayName'), 'side': c.get('homeAway'), 'score': c.get('score'), 'winner': bool(c.get('winner')),
+                      'record': recs.get('total') or recs.get('overall') or recs.get('ytd'), 'sideRecord': recs.get(side) or recs.get('away' if side == 'road' else side), 'winRate': _rec(recs.get('total') or recs.get('overall') or recs.get('ytd')), 'sideRate': _rec(recs.get(side) or recs.get('away' if side == 'road' else side)),
+                      'form': [], 'leaders': [], 'injuries': []})
+    by = {t['id']: t for t in teams}; by_abbr = {t['abbr']: t for t in teams}
+    def find(x):
+        tt = (x or {}).get('team') or {}
+        return by.get(str(tt.get('id') or '')) or by_abbr.get(tt.get('abbreviation'))
+    for row in data.get('lastFiveGames') or []:
+        t = find(row)
+        if t:
+            t['form'] = [str(e.get('gameResult') or '')[:1] for e in row.get('events') or [] if e.get('gameResult')][:5]
+    for row in data.get('leaders') or []:
+        t = find(row)
+        if t:
+            for cat in (row.get('leaders') or [])[:3]:
+                top = (cat.get('leaders') or [{}])[0]; who = (top.get('athlete') or {}).get('displayName')
+                if who:
+                    t['leaders'].append({'stat': cat.get('displayName'), 'name': who, 'value': top.get('displayValue')})
+    for row in data.get('injuries') or []:
+        t = find(row)
+        if t:
+            t['injuries'] = [{'name': (i.get('athlete') or {}).get('displayName'), 'status': i.get('status')} for i in (row.get('injuries') or [])[:6] if (i.get('athlete') or {}).get('displayName')]
+    stats = []; box = (data.get('boxscore') or {}).get('teams') or []
+    if len(box) == 2 and teams:
+        a, b = (box if find(box[0]) is teams[0] else box[::-1]); bm = {x.get('label'): x.get('displayValue') for x in b.get('statistics') or []}
+        for x in (a.get('statistics') or [])[:14]:
+            if x.get('label') in bm and '-' not in str(x.get('displayValue')):
+                stats.append({'label': x.get('label'), 'a': x.get('displayValue'), 'b': bm[x['label']]})
+    wp = [round(_f(w.get('homeWinPercentage')), 3) for w in data.get('winprobability') or [] if w.get('homeWinPercentage') is not None]
+    if len(wp) > 60:
+        wp = [wp[int(i * (len(wp) - 1) / 59)] for i in range(60)]
+    pick = (data.get('pickcenter') or [{}])[0] or {}; series = (data.get('seasonseries') or [{}])[0] or {}; venue = ((data.get('gameInfo') or {}).get('venue') or {})
+    return {'state': st.get('state'), 'status': st.get('shortDetail') or st.get('description'), 'teams': teams, 'stats': stats, 'wp': wp, 'series': series.get('summary'), 'line': pick.get('details'), 'total': pick.get('overUnder'), 'venue': venue.get('fullName'), 'source': 'ESPN'}
+
+
+ESPN_HOSTS = ('site.api.espn.com', 'site.web.api.espn.com')
+
+
+def _name_hit(name, row):
+    w = _word(name).split()
+    return bool(w) and w[-1] in _word(row)
+
+
+def _ratio(w, l, o=0):
+    t = (w or 0) + (l or 0) + (o or 0)
+    return round((w or 0) / t, 3) if t else None
+
+
+def _fallback_team(name, side, source, record=None, side_record=None, win=None, side_win=None, form=None):
+    return {'id': '', 'abbr': name.split()[-1][:3].upper() if name else '', 'name': name, 'side': side, 'score': None, 'winner': False, 'record': record, 'sideRecord': side_record, 'winRate': win, 'sideRate': side_win, 'form': form or [], 'leaders': [], 'injuries': []}
+
+
+def parse_nhl(data, names):
+    """The NHL's own standings → each side's record. Pure."""
+    out = []
+    for name, side in zip(names, ('away', 'home')):
+        r = next((x for x in (data or {}).get('standings') or [] if _name_hit(name, ((x.get('teamName') or {}).get('default') or ''))), None)
+        if not r:
+            return None
+        pre = 'home' if side == 'home' else 'road'; w, l, o = r.get(f'{pre}Wins'), r.get(f'{pre}Losses'), r.get(f'{pre}OtLosses')
+        out.append(_fallback_team(name, side, 'NHL', f"{r.get('wins')}-{r.get('losses')}-{r.get('otLosses')}", f'{w}-{l}-{o}', _ratio(r.get('wins'), r.get('losses'), r.get('otLosses')), _ratio(w, l, o)))
+    return out
+
+
+def parse_mlb(data, names):
+    """MLB's own standings → each side's record. Pure."""
+    rows = [t for rec in (data or {}).get('records') or [] for t in rec.get('teamRecords') or []]; out = []
+    for name, side in zip(names, ('away', 'home')):
+        r = next((x for x in rows if _name_hit(name, (x.get('team') or {}).get('name') or '')), None)
+        if not r:
+            return None
+        sp = next((x for x in (r.get('records') or {}).get('splitRecords') or [] if x.get('type') == ('home' if side == 'home' else 'away')), {})
+        out.append(_fallback_team(name, side, 'MLB', f"{r.get('wins')}-{r.get('losses')}", f"{sp.get('wins')}-{sp.get('losses')}" if sp else None, _ratio(r.get('wins'), r.get('losses')), _ratio(sp.get('wins'), sp.get('losses')) if sp else None))
+    return out
+
+
+def parse_tsdb_form(events, name):
+    """TheSportsDB's last games for one team → W / L / D, newest first. Pure."""
+    out = []
+    for e in events or []:
+        try:
+            hs, aw = int(e.get('intHomeScore')), int(e.get('intAwayScore'))
+        except (TypeError, ValueError):
+            continue
+        home = _name_hit(name, e.get('strHomeTeam') or ''); mine, them = (hs, aw) if home else (aw, hs)
+        out.append('W' if mine > them else 'L' if mine < them else 'D')
+    return out[:5]
+
+
+async def _tsdb_team(http, name, side):
+    got = await _get(http, 'https://www.thesportsdb.com/api/v1/json/123/searchteams.php', params={'t': name}); tid = ((got or {}).get('teams') or [{}])[0].get('idTeam')
+    if not tid:
+        return None
+    ev = await _get(http, 'https://www.thesportsdb.com/api/v1/json/123/eventslast.php', params={'id': tid}); form = parse_tsdb_form((ev or {}).get('results'), name)
+    if not form:
+        return None
+    return _fallback_team(name, side, 'TheSportsDB', f"{form.count('W')}-{form.count('L')} last {len(form)}", None, _ratio(form.count('W'), form.count('L'), form.count('D')), None, form)
+
+
+async def _fallback_read(http, sport, names):
+    """ESPN did not answer: the league's own numbers, then TheSportsDB. Records and form only; player stats need ESPN, and the window says which source answered."""
+    teams = None; source = None
+    if sport == 'nhl':
+        teams = parse_nhl(await _get(http, 'https://api-web.nhle.com/v1/standings/now'), names); source = 'NHL'
+    elif sport == 'mlb':
+        teams = parse_mlb(await _get(http, 'https://statsapi.mlb.com/api/v1/standings', params={'leagueId': '103,104'}), names); source = 'MLB'
+    if not teams:
+        got = await asyncio.gather(*[_tsdb_team(http, n, s) for n, s in zip(names, ('away', 'home'))])
+        if all(got):
+            teams = list(got); source = 'TheSportsDB'
+    if not teams:
+        return None
+    return {'state': None, 'status': None, 'teams': teams, 'stats': [], 'wp': [], 'series': None, 'line': None, 'total': None, 'venue': None, 'source': source}
+
+
+async def game_detail(http, sport, gid, names=()):
+    """🏟 One game's window, held for a minute. ESPN, ESPN's second host, the league's own numbers, then TheSportsDB: the first that answers."""
+    if sport not in SPORTS or not re.fullmatch(r'[0-9]{1,14}', str(gid or '')):
+        return None
+    return await _cached(f'game:{sport}:{gid}', lambda: _game_read(http, sport, gid, [str(n)[:60] for n in names if n][:2]))
+
+
+async def _game_read(http, sport, gid, names=()):
+    for host in ESPN_HOSTS:
+        data = await _get(http, f'https://{host}/apis/site/v2/sports/{SPORTS[sport][1]}/summary', params={'event': gid})
+        got = parse_summary(data) if data else None
+        if got and got.get('teams'):
+            return got
+    return await _fallback_read(http, sport, names) if len(names) == 2 else None
 
 
 async def bids(http, sport='all', team=''):
