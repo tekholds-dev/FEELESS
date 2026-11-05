@@ -1,7 +1,7 @@
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
-import { fitBox, identityOf, inkOf, ridge } from '../../lib/proofprint';
+import { fitBox, identityOf, inkOf, ridge, segment } from '../../lib/proofprint';
 import '../../styles/proofKit.css';
 
 // 🧰 THREE TOOLS IN EVERY PROOF FOLDER (owner 2026-11-05). Each one reads the agent's own filed proofs, so a number here is always something that really happened. Too few proofs says so; nothing is ever filled in.
@@ -54,21 +54,35 @@ export function posTools(folders = []) {
     { ic: '🥊', t: 'Who builds better', say: 'Which mind finished each page', rows: bars(count(folders, f => f.by)), need: 'Shows after its first page', ask: 'Which of your minds builds better pages? Show why.' },
     { ic: '📅', t: 'Its pace', say: 'Pages filed by day', rows: bars(weeks), need: 'Shows after its first page', ask: 'Build me a page. Suggest the idea first.' }];
 }
-const MAKE = { pow: powTools, pop: popTools, pob: pobTools, poc: pocTools, pos: posTools };
+const MAKE = { pow: powTools, pop: popTools, pob: pobTools, poc: pocTools, pos: posTools, poe: (x => poeTools(x)) };
+export function poeTools(folders = []) {
+  const done = folders.filter(f => f.income != null); const net = done.reduce((n, f) => n + Number(f.net || 0), 0); const income = done.reduce((n, f) => n + Number(f.income || 0), 0); const costs = done.reduce((n, f) => n + Number(f.costs || 0), 0); const m = {}; done.forEach(f => (f.cats || []).forEach(c => { m[c.cat] = (m[c.cat] || 0) + c.usd; })); const top = Object.entries(m).sort((a, b) => b[1] - a[1]); const most = Math.max(1, top[0]?.[1] || 0); const money = v => `$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(0)}`;
+  return [{ ic: '📊', t: 'All its books', say: `${done.length} filed`, rows: done.length ? [{ l: 'Income', v: money(income), part: 1, tone: 'up' }, { l: 'Costs', v: money(costs), part: income ? Math.min(1, costs / income) : 1, tone: 'dn' }, { l: 'Net', v: `${net < 0 ? '−' : ''}${money(net)}`, part: income ? Math.min(1, Math.abs(net) / income) : 0, tone: net >= 0 ? 'up' : 'dn' }] : [], need: 'Shows after its first books', ask: 'How is my business doing across my PoEco books?' },
+    { ic: '🧾', t: 'Where it goes', say: 'Biggest costs, all books', rows: top.slice(0, 5).map(([l, v]) => ({ l, v: money(v), part: v / most })), need: 'Shows after its first books', ask: 'Which of my costs should I cut first?' },
+    { ic: '✅', t: 'Your marks', say: 'Books you checked', rows: done.length ? [{ l: 'Correct', v: `${done.filter(f => f.graded === 'right').length}`, part: done.filter(f => f.graded === 'right').length / done.length, tone: 'up' }, { l: 'Off', v: `${done.filter(f => f.graded === 'wrong').length}`, part: done.filter(f => f.graded === 'wrong').length / done.length, tone: 'dn' }] : [], need: 'Mark a filed book to draw its line', ask: 'What should I check in my books before I send a proof?' }];
+}
 export function ProofKit({ kind, folders, onCommand }) {
   const tools = MAKE[kind](folders || []);
   return <section className="pkt" aria-label="Its tools" data-testid={`pkt-${kind}`}>{tools.map((t, i) => <article key={t.t} className="pkt-card" style={{ '--i': i }} data-testid={`pkt-${kind}-${i}`}><header><Ic3 e={t.ic} size="26px" /><span><b>{t.t}</b><small>{t.say}</small></span></header>
     {t.rows.length ? <ul>{t.rows.map(r => <li key={r.l} className={r.tone ? `is-${r.tone}` : ''}><span>{r.l}</span><b className="m-num">{r.v}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, r.part || 0)})` }} /></i></li>)}</ul> : <p className="pkt-none">{t.need}</p>}
     {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(t.ask)} data-tip="Puts this in its chat box. You press send" data-testid={`pkt-${kind}-ask-${i}`}>Ask it</button> : null}</article>)}</section>;
 }
-const KIND_FULL = { pow: 'PROOF OF WORK', pop: 'PROOF OF PERPS', pob: 'PROOF OF BIDS', poc: 'PROOF OF CONTENT', pos: 'PROOF OF CODE' };
-const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' };
+const KIND_FULL = { pow: 'PROOF OF WORK', pop: 'PROOF OF PERPS', pob: 'PROOF OF BIDS', poc: 'PROOF OF CONTENT', pos: 'PROOF OF CODE', poe: 'PROOF OF ECONOMY' };
+const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic', poe: 'PoEco' };
 const FingerprintLazy = lazy(() => import('./Proofprint').then(m => ({ default: m.ProofFingerprint })));
 // 🖊 One folder's own ridge, coloured by its real result: green strong, gold medium, red weak, grey for no result yet.
 export const PrintSeed = createContext('agent');
+export const PrintLines = createContext({});
 export function FolderRidge({ fid, score = null, size = 26 }) {
-  const seed = useContext(PrintSeed); const id = useMemo(() => identityOf(seed), [seed]); const d = useMemo(() => { let h = 7; for (const c of String(fid)) h = (h * 31 + c.charCodeAt(0)) % 9973; return ridge(id, 2 + (h % 14), 40); }, [id, fid]);
+  const seed = useContext(PrintSeed); const line = useContext(PrintLines)[fid]; const id = useMemo(() => identityOf(seed), [seed]); const d = useMemo(() => { let h = 7; for (const c of String(fid)) h = (h * 31 + c.charCodeAt(0)) % 9973; return ridge(id, 2 + (h % 14), 40); }, [id, fid]);
+  if (line) return <svg className="prg is-line" viewBox={fitBox(line.i * 2 + 4, id)} width={size} height={size} aria-hidden="true" data-ring={line.i}><path d={ridge(id, line.i * 2 + 2, 40)} fill="none" strokeWidth="5" stroke="#8a93a666" /><path d={segment(id, line.i, line.a, line.b)} fill="none" strokeWidth="14" strokeLinecap="round" stroke={inkOf(line.score)} /></svg>;
   return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true"><path d={d} fill="none" strokeWidth="9" stroke={score == null ? '#8a93a6' : inkOf(score)} /></svg>;
+}
+// 📁 One proof folder's face, in every proof: the folder, and its own print hovering on its corner.
+export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null }) {
+  return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
+    {kind === 'dir' ? <i className="dsk-ico-art" aria-hidden="true"><em><Ic3 e={ic} size="30px" /></em></i> : <i className="dsk-file" aria-hidden="true"><em><Ic3 e={ic} size="22px" /></em></i>}
+    {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}</button>;
 }
 // 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.
 const STEPS = {
@@ -76,6 +90,7 @@ const STEPS = {
   pop: { steps: ['Reads live prices', 'Both call blind', 'They argue once', 'Proposes to you', 'Paper trade', 'Stops or takes', 'Graded'], loop: 'On paper, on true prices. Nothing real opens.', needs: 'On paper, on true prices. Nothing real opens.' },
   pob: { steps: ['Reads the games', 'Both pick blind', 'Builds the legs', 'Proposes to you', 'Waits for the game', 'Live scores in chat', 'Graded at the final'], loop: 'Picks are filed on paper.', needs: 'Proposes until its Polymarket address is on file.' },
   poc: { steps: ['Reads what is trending', 'Both pitch blind', 'You pick one', 'You post it', 'You report the result', 'Marked'], loop: 'It never posts on its own.', needs: 'Proposes. You post it and report what it earned.' },
+  poe: { steps: ['Paste your books', 'Python does the math', 'Entries sealed', 'You mark it', 'Send a receipt'], loop: 'No model reads your entries.', needs: 'No model reads your entries.' },
   pos: { steps: ['You ask', 'It researches', 'It suggests', 'You approve', 'It builds', 'Second mind reviews', 'You say if it works'], loop: 'Filed once you say it works.', needs: 'Proposes. Publishing needs a host you sign in to.' },
 };
 const stepNow = (kind, d) => { if (kind === 'pow') { const p = d?.powFolder?.phase; return !p ? -1 : /scan|read|intake/.test(p) ? 0 : /propose|split/.test(p) ? 1 : /choose/.test(p) ? 2 : /buy/.test(p) ? 3 : /hold|watch|run/.test(p) ? 4 : /sell/.test(p) ? 5 : 4; } if (kind === 'pop') return d?.popRead ? 0 : d?.popCard ? 3 : d?.popFolder ? 4 : -1; if (kind === 'pob') { const open = (d?.pobFolders || []).find(f => f.games?.length && !f.graded); const live = open?.games?.some(g => g.state === 'in'); return d?.pobRead ? 0 : live ? 5 : open ? 4 : -1; } return -1; };

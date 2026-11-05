@@ -13,6 +13,7 @@ test('📖 the manual maps the whole system, puts a command in chat, and has no 
   await act(async () => { q('am-try').click(); }); expect(sent).toEqual(['file a perp']);
   await act(async () => { q('am-start-mail').click(); }); expect(q('am-detail').textContent).toContain('Make its mailbox');
   for (const k of ['kinds', 'pow', 'pop', 'print', 'limits', 'code', 'tutorial']) {
+    if (!q(`am-tab-${k}`)) await act(async () => { q('am-more').click(); });
     await act(async () => { q(`am-tab-${k}`).click(); });
     expect(el.querySelector('p')).toBeNull();
     [...el.querySelectorAll('small')].forEach(s => expect(s.textContent.split(' ').length).toBeLessThan(26));

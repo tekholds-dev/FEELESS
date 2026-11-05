@@ -151,7 +151,7 @@ export function PromptStudio({ call, only }) {
   const w = windowOf(m); const r = m.record || {};
   const won = r.wonPct;
   return <div className="pst m-card m-live" data-testid="pst">
-    <header className="pst-head"><span><b className="m-label"><Ic3 e="🎭" /> PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
+    <header className="pst-head"><span><b className="m-label"><Ic3 e="🎭" /> PROMPT STUDIO</b><small>what each model reads · how it works · the mindset you give it</small></span>
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>
         {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small className={x.active.seen?.ok ? 'is-live' : ''}>{x.active.seen?.ok ? '✓ ' : ''}{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>

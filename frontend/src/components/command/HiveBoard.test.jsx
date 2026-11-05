@@ -43,11 +43,12 @@ expect(document.body.querySelector('[data-testid="colony-opp-stake"]').textConte
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('did not answer');
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
-  expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('AUTO-COLLECT ON');
+  expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('IN THE COLLECTIVE');
   const sel = el.querySelector('[data-testid="hive-pace"]');
   await act(async () => { sel.value = '3600'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 3600 });
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="colonize-leave"]').click(); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: false });
 });
 

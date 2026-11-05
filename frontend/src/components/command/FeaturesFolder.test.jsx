@@ -67,7 +67,7 @@ test('every filed PoC has its own opening folder and recorded cost', async () =>
   const work = jest.fn(async () => ({ workspaces: [{ id: 'w1', kind: 'content', name: 'Ideas' }], pocFolders: filed, psFolders: [] }));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} />); });
-  expect(el.querySelectorAll('.pdk-file-card')).toHaveLength(2);
+  expect(el.querySelectorAll('[data-testid^="poc-file-"]')).toHaveLength(2);
   await act(async () => { el.querySelector('[data-testid="poc-file-pc2"]').click(); });
   expect(el.querySelector('[data-testid="poc-folder-pc2"]').textContent).toContain('$0.0246');
   expect(el.querySelector('[data-testid="poc-folder-pc2"]').textContent).toContain('Post 2');

@@ -18362,6 +18362,8 @@ async def _g4_tick(now, env, cfg):
     mode_ = _oe.clean_policy(_prime_real_cfg(pr_))['agentAiSeat']
     if mode_ == 'off':
         return
+    if _prime.clean_cfg(pr_.get('realCfg') or {}).get('deskBuysOff') and not any(l.get('aiSeat') and not l.get('placeholder') for c_ in (pr_.get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or []):
+        return   # 🧠 desk buys are off and the seat holds nothing: no model call. A held seat is still watched until it sells
     _g4['busy'], _g4['at'] = True, now
     _duo_push()   # 🧠 "is thinking" shows live
     try:
@@ -18851,6 +18853,34 @@ def _g4_view():
     mode_ = _oe.clean_policy(_prime_real_cfg())['agentAiSeat']
     return {'mode': mode_, 'paper': _seat.record((st_['book'] or {}).get('closed')), 'byModel': _seat.by_model((st_['book'] or {}).get('closed')), 'real': _g4_real_record(), 'open': (st_['book'] or {}).get('open'),
             'want': _g4.get('want'), 'busy': _g4['busy'], 'log': st_['log'][-60:][::-1]}
+
+
+@app.post('/api/reputation/internal/sicario-want')
+async def internal_sicario_want(request: Request):
+    """🎩 Sicario's PoW agreed on a coin: it asks for the card's one model seat. It is the same `want` a model files, so every seat guard still decides (fresh, seat on, night guard, gun line, desk picks only, refused coins, keeper precheck). Desk buys off stops it here. Internal key only; nothing is bought in this call."""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    b = await request.json(); mint = str(b.get('mint') or ''); now = time.time()
+    if not mint or not b.get('pair'):
+        return {'ok': False, 'why': 'no coin to send'}
+    card = _real_card({}) or {}; cfg = _prime.clean_cfg(((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('realCfg') or {})
+    if cfg.get('deskBuysOff'):
+        return {'ok': False, 'why': 'desk buys are off on the card'}
+    if any(l.get('aiSeat') and not l.get('placeholder') for l in card.get('legs') or []):
+        return {'ok': False, 'why': 'the model seat is already holding a coin'}
+    _g4['want'] = {'action': 'BUY', 'mint': mint, 'pair': b.get('pair'), 'symbol': b.get('symbol'), 'why': str(b.get('why') or '')[:110], 'by': 'local', 'model': "Sicario's PoW", 'tp': b.get('tp'), 'sl': b.get('sl'), 'at': now}
+    return {'ok': True}
+
+
+@app.get('/api/reputation/internal/sicario-want')
+async def internal_sicario_fate(request: Request, mint: str = ''):
+    """🎩 What the card did with that coin, in its own words."""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    f_ = _g4.get('fate') or {}
+    return {'fate': f_.get('why') if f_.get('mint') == mint else None}
 
 
 @app.post('/api/reputation/admin/ai/seat')

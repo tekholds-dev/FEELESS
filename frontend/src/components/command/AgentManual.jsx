@@ -124,12 +124,13 @@ function CodeMap() {
   return <div className="am-code" data-testid="am-code">{CODE.map(([layer, files], n) => <section key={layer} className={`m-glass is-l${n}`} style={{ '--i': n }}><b>{layer}</b>{files.map(([f, w]) => <span key={f} data-tip={w}><code>{f}</code><small>{w}</small></span>)}</section>)}</div>;
 }
 
+const LATER = new Set(['words', 'kinds', 'fund', 'mail', 'limits', 'code']);
 export function AgentManual({ d, onCommand, cat, setD, work, onOpen, kit }) {
-  const [tab, setTab] = useState(() => (d?.setup?.left > 0 ? 'setup' : 'tutorial'));
+  const [tab, setTab] = useState(() => (d?.setup?.left > 0 ? 'setup' : 'tutorial')); const [more, setMore] = useState(false);
   const setupLeft = Number(d?.setup?.left || 0); const tabs = d?.setup && cat ? [['setup', setupLeft ? `🚀 Setup · ${setupLeft}` : '🚀 Setup'], ...TABS] : TABS;
   useEffect(() => { if (setupLeft > 0 && cat) setTab(t => (t === 'tutorial' ? 'setup' : t)); }, [cat, setupLeft > 0]);   // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="am" data-testid="dsk-manual">
-    <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}</div>
+    <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{(more ? tabs : tabs.filter(([k]) => !LATER.has(k) || k === tab)).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" aria-pressed={more} onClick={() => setMore(x => !x)} data-testid="am-more">{more ? 'Less' : 'More'}</button></div>
     <div key={tab} className="am-pane">
       {tab === 'setup' ? <SetupDeck cat={cat} d={d} setD={setD} work={work} onOpen={onOpen} kit={kit} /> : null}
       {tab === 'words' ? <ProofTerms /> : null}

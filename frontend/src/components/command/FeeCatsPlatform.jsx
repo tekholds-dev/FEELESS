@@ -229,9 +229,9 @@ export default function FeeCatsPlatform() {
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap an agent to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
         <ColonyGrid api={api} ids={cats.filter(c => !(isAdmin && c.isLeader)).map(c => c.id).join(',')} onOpen={a => { const cat = cats.find(x => x.id === a.id); if (cat) openCat(cat); }}
           extra={a => { const cat = cats.find(x => x.id === a.id); if (!cat) return null; const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;   // 🐱 your agents = the same Collective cells (Crawl-size windows) + your own buttons
-            return <span className="cl-acts" data-testid={`cw-${cat.id}`}><button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
+            return <span className="cl-acts" data-testid={`cw-${cat.id}`}>{cat.handle === 'sicarios' ? <span className="cw-go is-real" data-tip="It works from the Fuse card in HQ, so it has no wallet of its own" data-testid="cw-card-seat"><i aria-hidden="true" />{cat.brainsCfg?.cardSeat ? 'FUSE CARD SEAT · ON' : 'FUSE CARD SEAT · OFF'}</span> : <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this agent to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
-              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>
+              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>}
             <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}><Ic3 e="🗑" /></button></span>; }} /></>}</section>}
   </div>;
 }

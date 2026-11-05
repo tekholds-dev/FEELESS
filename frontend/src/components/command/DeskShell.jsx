@@ -92,21 +92,69 @@ const MOODS = {
   rose: { a: [0.07, 0.015, 0.05], b: [0.4, 0.08, 0.28], c: [1, 0.45, 0.72], hex: 0 },
 };
 export const WALLS = [['agent', 'Green', '#15d16a'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
-export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true };
+export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, autoFit: false, snap: false, hidden: [], winOpen: 'beside', clock: '24' };
 const prefKey = id => `feeless.deskPrefs.${id}`;
 export function useDeskPrefs(id) {
   const [p, setP] = useState(() => { try { return { ...DESK_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey(id)) || '{}') }; } catch { return DESK_DEFAULTS; } });
   const set = patch => setP(x => { const n = { ...x, ...patch }; try { localStorage.setItem(prefKey(id), JSON.stringify(n)); } catch { /* it still works for this visit */ } return n; });
   return [p, set];
 }
+// 🗂 Folders by what they are for. Each group starts its own column or row when you fit the desktop.
+export const ICON_GROUPS = [['Proofs', ['pow', 'pop', 'bids', 'poc', 'postatic', 'poe', 'proofs', 'print']], ['Money', ['vault', 'wallet', 'boost', 'honey', 'limits']], ['Work', ['features', 'character', 'browser', 'sources', 'jobs', 'files', 'github', 'mail', 'minds', 'cmds']], ['Help', ['manual', 'terms', 'deskset']]];
+const groupOf = k => { const i = ICON_GROUPS.findIndex(g => g[1].includes(k)); return i < 0 ? ICON_GROUPS.length : i; };
+export const ICON_CELL = { s: 80, m: 96, l: 118 };
+// 🧭 Every folder in its place, on this screen. Never overlaps, never runs off the edge: a full column or row wraps to the next one.
+export function fitIcons(apps, o = {}, vw = 1280, vh = 800) {
+  const cell = ICON_CELL[o.iconSize] || 96; const rows = o.iconFlow === 'rows'; const right = o.iconSide === 'right';
+  const top = right && !rows ? 150 : 0; const maxMain = Math.max(2, Math.floor(((rows ? vw - 32 : vh - 110 - top)) / cell));   // the right side starts under its results glass
+  const list = [...apps]; const label = a => String(a[2] || a[0]).toLowerCase();
+  if (o.iconSort === 'az') list.sort((a, b) => label(a).localeCompare(label(b)));
+  else if (o.iconSort !== 'keep') list.sort((a, b) => groupOf(a[0]) - groupOf(b[0]));
+  const out = {}; let main = 0; let line = 0; let was = null;
+  list.forEach(a => {
+    const g = groupOf(a[0]); if (o.iconSort === 'groups' && was !== null && g !== was && main) { main = 0; line += 1; } was = g;
+    if (main >= maxMain) { main = 0; line += 1; }
+    const x = rows ? main * cell : line * cell; const y = rows ? line * cell : main * cell;
+    out[a[0]] = { x: right ? Math.max(0, vw - 32 - cell - x) : x, y: y + top }; main += 1;
+  });
+  return out;
+}
+const snapTo = (p, cell) => ({ x: Math.round(p.x / cell) * cell, y: Math.round(p.y / cell) * cell });
+// 🖥 Where its folders sit: yours where you dragged them, or fitted to this screen. Saved on this device only.
+export function useDeskIcons(id, apps, prefs) {
+  const shown = apps.filter(a => !(prefs.hidden || []).includes(a[0])); const names = shown.map(a => a[0]).join();
+  const key = `feeless.dsk.icons.${id}`; const save = n => { try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* private window */ } };
+  const [pos, setPos] = useState(() => { let s = {}; try { s = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { /* private window */ } return prefs.autoFit ? fitIcons(shown, prefs, window.innerWidth, window.innerHeight) : placeFor(apps.map(a => a[0]), s, window.innerHeight); });
+  const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: prefs.snap ? snapTo(p, ICON_CELL[prefs.iconSize] || 96) : p }; save(n); return n; });
+  const fit = useCallback(o => { const n = fitIcons(shown, o || prefs, window.innerWidth, window.innerHeight); setPos(x => { const m = { ...x, ...n }; save(m); return m; }); }, [names, prefs.iconSort, prefs.iconFlow, prefs.iconSide, prefs.iconSize]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!prefs.autoFit) return undefined; fit(); let t = 0; const on = () => { clearTimeout(t); t = setTimeout(() => fit(), 150); }; window.addEventListener('resize', on); return () => { clearTimeout(t); window.removeEventListener('resize', on); }; }, [prefs.autoFit, fit]);
+  return { pos, moveIcon, fit, shown };
+}
+// ⚡ A desktop covers the whole page, so the page under it stops painting. It comes back where you left it.
+let deskCount = 0;
+export function useDeskOverPage() {
+  useEffect(() => { const y = window.scrollY; deskCount += 1; document.body.classList.add('dsk-open'); return () => { deskCount -= 1; if (!deskCount) { document.body.classList.remove('dsk-open'); requestAnimationFrame(() => window.scrollTo(0, y)); } }; }, []);
+}
+const PRESETS = [['Proofs first', { iconSort: 'groups', iconFlow: 'columns', iconSide: 'left' }, 'Each kind of folder gets its own column, proofs first'], ['Right side', { iconSort: 'groups', iconFlow: 'columns', iconSide: 'right' }, 'Folders on the right, the left stays clear for windows'], ['Top rows', { iconSort: 'groups', iconFlow: 'rows', iconSide: 'left' }, 'Rows across the top'], ['A to Z', { iconSort: 'az', iconFlow: 'columns', iconSide: 'left' }, 'One list in name order']];
+const Seg = ({ label, k, rows, prefs, set }) => <section><h4>{label}</h4><span className="m-seg" role="group" aria-label={label}>{rows.map(([v, l, tip]) => <button key={v} type="button" className={prefs[k] === v ? 'active' : ''} aria-pressed={prefs[k] === v} onClick={() => set({ [k]: v })} data-tip={tip} data-testid={`dset-${k}-${v}`}>{l}</button>)}</span></section>;
 // ⚙ How its desktop looks. A look only: it is saved in this browser, and nothing here touches the agent.
-export function DeskSettings({ prefs, set, mood }) {
-  const wall = prefs.wall || mood;
+export function DeskSettings({ prefs, set, mood, apps = [], onFit }) {
+  const wall = prefs.wall || mood; const shown = apps.filter(a => !(prefs.hidden || []).includes(a[0])); const vw = typeof window !== 'undefined' ? window.innerWidth : 1280; const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const map = useMemo(() => fitIcons(shown, prefs, vw, vh), [shown.length, prefs.iconSort, prefs.iconFlow, prefs.iconSide, prefs.iconSize, vw, vh]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const look = patch => { set(patch); onFit?.({ ...prefs, ...patch }); };
   return <div className="dset" data-testid="dsk-settings"><h3>Its desktop</h3>
+    {apps.length ? <><section className="dset-fit" data-testid="dset-fit"><h4>Folders</h4><div className="dset-map" role="img" aria-label="Where its folders will sit" style={{ aspectRatio: `${vw} / ${vh}` }}>{shown.map(a => <i key={a[0]} className={`is-g${groupOf(a[0])}`} data-tip={a[2]} style={{ left: `${((map[a[0]]?.x || 0) / vw) * 100}%`, top: `${((map[a[0]]?.y || 0) / vh) * 100}%` }} />)}</div>
+      <span className="dset-presets">{PRESETS.map(([l, o, tip]) => <button key={l} type="button" className="m-btn" onClick={() => look(o)} data-tip={tip} data-testid={`dset-preset-${l.toLowerCase().replace(/\W+/g, '-')}`}>{l}</button>)}</span>
+      <button type="button" className="m-btn m-go" onClick={() => onFit?.(prefs)} data-tip="Puts every folder in its place on this screen" data-testid="dset-fit-now">Fit to screen</button></section>
+      <Seg label="Folder size" k="iconSize" rows={[['s', 'Small', 'Fits the most'], ['m', 'Medium', 'The usual size'], ['l', 'Large', 'Easier to hit']]} prefs={prefs} set={o => look(o)} />
+      <section>{[['autoFit', 'Keep it fitted', 'Folders refit themselves when the window changes size'], ['snap', 'Snap to a grid', 'A dragged folder lands square with the others'], ['iconLabels', 'Folder names', 'The name under each folder']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
+      <details className="dset-hide"><summary data-testid="dset-hide">Hide folders{prefs.hidden?.length ? ` · ${prefs.hidden.length} hidden` : ''}</summary><div>{apps.filter(a => a[0] !== 'deskset').map(a => <label key={a[0]} className="dset-row"><span>{a[2]}</span><input type="checkbox" checked={!(prefs.hidden || []).includes(a[0])} onChange={e => set({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== a[0]) : [...(prefs.hidden || []), a[0]] })} data-testid={`dset-show-${a[0]}`} /></label>)}</div></details>
+      <Seg label="New windows open" k="winOpen" rows={[['beside', 'Beside folders', 'Keeps its folders in view'], ['center', 'Centered', 'In the middle of the screen'], ['max', 'Full screen', 'Fills the desktop']]} prefs={prefs} set={set} /></> : null}
     <section><h4>Background color</h4><div className="dset-walls" role="radiogroup" aria-label="Background color">{WALLS.map(([k, l, c]) => <button key={k} type="button" role="radio" aria-checked={wall === k} className={wall === k ? 'is-on' : ''} style={{ '--c': c }} onClick={() => set({ wall: k })} data-tip={`A ${l.toLowerCase()} desktop`} data-testid={`dset-wall-${k}`}><i aria-hidden="true" /><span>{l}</span></button>)}</div></section>
     <section><h4>Background animation</h4><span className="m-seg" role="group" aria-label="Background animation">{[['full', 'Alive'], ['still', 'Still'], ['off', 'Off']].map(([k, l]) => <button key={k} type="button" className={prefs.motion === k ? 'active' : ''} aria-pressed={prefs.motion === k} onClick={() => set({ motion: k })} data-tip={k === 'full' ? 'It moves' : k === 'still' ? 'One frozen frame, lightest on the machine' : 'A plain dark wall'} data-testid={`dset-motion-${k}`}>{l}</button>)}</span></section>
     <section><label className="dset-row" data-tip="How bright the background is"><span>Brightness</span><input type="range" min="30" max="130" step="5" value={prefs.light} aria-label="Brightness" onChange={e => set({ light: Number(e.target.value) })} data-testid="dset-light" /><b className="m-num">{prefs.light}%</b></label></section>
-    <section><h4>On the wall</h4>{[['print', 'Its Proofprint', 'The big fingerprint behind the icons'], ['title', 'Its name', 'The name written on the wall']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
+    <section><h4>On the wall</h4>{[['print', 'Its Proofprint', 'The big fingerprint behind the icons'], ['title', 'Its name', 'The name written on the wall'], ['glass', 'Its results', 'The small results glass in the corner']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
+    <Seg label="Clock" k="clock" rows={[['24', '24 hour', '15:30'], ['12', '12 hour', '3:30 PM']]} prefs={prefs} set={set} />
     <button type="button" className="m-btn" onClick={() => set({ ...DESK_DEFAULTS })} data-testid="dset-reset">Back to how it started</button></div>;
 }
 const VERT = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
@@ -171,20 +219,22 @@ export function BoostCoin({ earning = false }) {
 }
 export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, testid, earn = false, earning = false }) {
   const g = useRef(null); const dragged = useRef(false);
-  const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) onMove(k, { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) }); };
-  return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={() => { g.current = null; }}
+  const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y, px: at.x, py: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { d.px = Math.max(0, d.ox + dx); d.py = Math.max(0, d.oy + dy); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };
+  const up = () => { const d = g.current; g.current = null; if (d && dragged.current) onMove(k, { x: d.px, y: d.py }); };
+  return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
     <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : k === 'boost' ? <BoostCoin /> : <em><Ic3 e={ic} size="30px" /></em>}{earn ? <u className="bst-earn"><BoostCoin earning={earning} /></u> : null}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
 export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, children }) {
-  const drag = useRef(null);
+  const drag = useRef(null); const box = useRef(null);
   const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a')) return; drag.current = { x: e.clientX - s.x, y: e.clientY - s.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { if (drag.current) set(k, { x: e.clientX - drag.current.x, y: Math.max(0, e.clientY - drag.current.y) }); };
-  return <section className={`dsk-win${s.max ? ' is-max' : ''}${top ? ' is-top' : ''}`} style={s.max ? undefined : { transform: `translate(${s.x}px, ${s.y}px)`, '--wx': `${s.x}px`, '--wy': `${s.y}px` }} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
-    <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={() => { drag.current = null; }} onDoubleClick={() => set(k, { max: !s.max })}>
+  const move = e => { const g = drag.current; if (!g) return; g.px = e.clientX - g.x; g.py = Math.max(0, e.clientY - g.y); if (box.current) box.current.style.transform = `translate(${g.px}px, ${g.py}px)`; };   // only this window moves; nothing re-renders until the drop
+  const up = () => { const g = drag.current; drag.current = null; if (g && g.px != null) set(k, { x: g.px, y: g.py }); };
+  return <section ref={box} className={`dsk-win${s.max ? ' is-max' : ''}${top ? ' is-top' : ''}`} style={s.max ? undefined : { transform: `translate(${s.x}px, ${s.y}px)`, '--wx': `${s.x}px`, '--wy': `${s.y}px` }} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
+    <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={() => set(k, { max: !s.max })}>
       <span className="dsk-dots"><button type="button" className="is-x" onClick={onClose} aria-label={`Close ${title}`} data-tip="Close" />
         <button type="button" className="is-min" onClick={() => set(k, { min: true })} aria-label={`Minimize ${title}`} data-tip="Minimize — it waits in the taskbar" data-testid={`dsk-min-${k}`} />
         <button type="button" className="is-max" onClick={() => set(k, { max: !s.max })} aria-label={s.max ? 'Restore' : 'Maximize'} data-tip={s.max ? 'Restore' : 'Maximize'} /></span>
@@ -256,12 +306,13 @@ export function AgentsDiagram({ agents = [] }) {
 }
 
 // 🖥 A desktop from a list of apps. Used by the owner's Agents desktop; AgentDesktop adds its Vault and live window around the same pieces.
-export function AppDesktop({ id, title, sub, mood = 'agent', apps, glass, onClose }) {
-  const keys = apps.map(a => a.k);
+export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass, onClose }) {
+  useDeskOverPage(); const [prefs, setPrefs] = useDeskPrefs(id); const appsRef = useRef(null); const fitRef = useRef(null);
+  const apps = useMemo(() => [...appsIn, { k: 'deskset', ic: '⚙', label: 'Desktop settings', tip: 'Fit its folders, sizes and how it looks', body: <DeskSettings prefs={prefs} set={setPrefs} mood={mood} apps={appsRef.current || []} onFit={o => fitRef.current?.(o)} /> }], [appsIn, prefs, mood]);   // eslint-disable-line react-hooks/exhaustive-deps
+  appsRef.current = apps.map(a => [a.k, a.ic, a.label]); const icons = useDeskIcons(id, appsRef.current, prefs); fitRef.current = icons.fit;
   const [w, setW] = useState(() => Object.fromEntries(apps.map((a, i) => [a.k, { open: false, min: false, max: false, x: 140 + i * 16, y: 34 + i * 12 }])));
   const [top, setTop] = useState(''); const [now, setNow] = useState(Date.now());
-  const [pos, setPos] = useState(() => { let s = {}; try { s = JSON.parse(localStorage.getItem(`feeless.dsk.icons.${id}`) || '{}') || {}; } catch { /* private window */ } return placeFor(keys, s, window.innerHeight); });
-  const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(`feeless.dsk.icons.${id}`, JSON.stringify(n)); } catch { /* private window */ } return n; });
+  const { pos, moveIcon } = icons;
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const open = k => { set(k, { open: true, min: false }); setTop(k); };
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
@@ -270,12 +321,12 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps, glass, onClos
   return createPortal(<div className="dsk dsk-app" role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
     <ShaderWall mood={mood} />
     <div className="dsk-wall" aria-hidden="true"><b>{title}</b><small>{sub}</small></div>
-    <nav className="dsk-icons" aria-label="Desktop">{apps.map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
+    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}>{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
     {glass ? <PerfGlass {...glass} onOpen={() => open(glass.app)} /> : null}
     {apps.map(a => (w[a.k]?.open && !w[a.k].min ? <DeskWin key={a.k} k={a.k} title={`${a.ic} ${a.label}`} s={w[a.k]} top={top === a.k} set={set} onTop={() => setTop(a.k)} onClose={() => set(a.k, { open: false })}>{a.body}</DeskWin> : null))}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(a => <button key={a.k} type="button" className={`dsk-task${!w[a.k].min && top === a.k ? ' is-on' : ''}`} onClick={() => { if (w[a.k].min || top !== a.k) { set(a.k, { min: false }); setTop(a.k); } else set(a.k, { min: true }); }} data-testid={`dsk-task-${a.k}`}><Ic3 e={a.ic} /> {a.label}</button>)}
-      <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
+      <time className="m-num">{prefs.clock === '12' ? new Date(now).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : new Date(now).toTimeString().slice(0, 5)}</time>
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back (Esc)" data-testid="dsk-app-close">Exit desktop</button></footer>
   </div>, document.body);
 }

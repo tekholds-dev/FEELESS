@@ -2,7 +2,7 @@
 // Every finished proof is one segment of a ridge, bright when it did well, dim when it did badly. A ridge fills every 12 proofs and the print grows outward.
 const FAMILIES = ['Whorl', 'Spiral', 'Left Loop', 'Right Loop', 'Tented Arch', 'Double Loop'];
 const VARIANTS = ['Prime', 'Drift', 'Ember', 'Tide', 'Forge'];
-const NAMES = { pow: ['Trades', 'PoW'], pop: ['Perps', 'PoP'], pob: ['Bids', 'PoB'], poc: ['Content', 'PoC'], pos: ['Code', 'PoStatic'] };
+const NAMES = { pow: ['Trades', 'PoW'], pop: ['Perps', 'PoP'], pob: ['Bids', 'PoB'], poc: ['Content', 'PoC'], pos: ['Code', 'PoStatic'], poe: ['Books', 'PoEco'] };
 const PER_RING = 12; const MAX_RINGS = 9;
 export const PATTERNS = FAMILIES.flatMap(f => VARIANTS.map(v => `${f} ${v}`));
 const hashStr = s => { let h = 2166136261; const t = String(s || 'feeless'); for (let i = 0; i < t.length; i += 1) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
@@ -55,6 +55,8 @@ export function printOf(rows) {
   rings.sort((a, b) => a.firstAt - b.firstAt);
   return { rings: rings.slice(-MAX_RINGS), total: Object.values(by).reduce((n, l) => n + l.length, 0), kinds: Object.keys(by) };
 }
+/** {proof id: its exact line on the agent's print}. A folder draws this same line, so its print and the desktop's are one thing. */
+export function linesOf(print) { const m = {}; (print?.rings || []).forEach((r, i) => { const sp = spans(r.checkpoints); r.checkpoints.forEach((c, k) => { m[c.id] = { i, a: sp[k][0], b: sp[k][1], score: c.score }; }); }); return m; }
 export function statsOf(rows) {
   const scored = (rows || []).map(r => ({ ...r, score: scoreOf(r) })).filter(r => r.score != null).sort((a, b) => (a.at || 0) - (b.at || 0)); let run = 0; let best = 0; let now = 0;
   scored.forEach(r => { if (r.score >= 55) { run += 1; best = Math.max(best, run); } else run = 0; }); for (let i = scored.length - 1; i >= 0 && scored[i].score >= 55; i -= 1) now += 1;

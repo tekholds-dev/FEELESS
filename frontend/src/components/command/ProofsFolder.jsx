@@ -10,7 +10,7 @@ import { scoreOf } from '../../lib/proofprint';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
-const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'], pos: ['💻', 'PoStatic'] };
+const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'], pos: ['💻', 'PoStatic'], poe: ['📊', 'PoEco'] };
 const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids', poc: 'features' };
 
 // A mind's reason is sometimes its raw JSON reply, cut short: show its sentence, not the JSON.
@@ -64,6 +64,10 @@ function ProofLoop({ cat, d, work }) {
   const flip = async (k, on) => { setErr(''); try { const j = await work(cat.id, { op: 'proof_cfg', text: k, on }); setAuto(j.proofCfg.auto); } catch (e) { setErr(e.message || 'Not saved'); } };
   return <details className="pfx-loop" data-testid="pfx-loop"><summary data-tip="Every proof runs the same loop, with its own steps. Set which ones ask you first.">How each proof runs, and when it asks you</summary><div className="pfx-loop-b"><div className="pfx-loop-h" aria-hidden="true">{['Clarify', 'Research', 'Decide', 'File', 'Grade'].map(x => <b key={x}>{x}</b>)}</div>{LOOP_ROWS.map(([k, code, what, steps, fb]) => { const on = !!cfg[k]; return <div key={k} className="pfx-loop-r" data-testid={`pfx-loop-${k}`}><header><strong>{code}</strong><small>{what}</small></header><div className="pfx-loop-steps"><button type="button" className={`m-chip${on ? ' is-on' : ''}`} aria-pressed={on} disabled={k === 'pos'} onClick={() => flip(k, !on)} data-tip={k === 'pos' ? 'A page always waits for your plan OK. Change it in its Build folder' : on ? 'It just files. Tap to have it ask first' : 'It asks one question in chat first. Tap to let it just file'} data-testid={`pfx-auto-${k}`}>{on ? 'Just does it' : 'Asks first'}</button>{steps.map(x => <span key={x}>{x}</span>)}</div><em>{fb}</em></div>; })}{err ? <small className="lct-err" role="alert">⚠ {err}</small> : null}</div></details>;
 }
+function poeRow(f) {
+  const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
+  return { kind: 'poe', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoEco #${f.n}` : 'PoEco', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'correct' : 'off', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: [['Net', `$${f.net}`], ['Its hash', String(f.hash || '').slice(0, 16)]] };
+}
 function posRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
   return { kind: 'pos', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoStatic #${f.n}` : 'PoStatic', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'works' : 'broken', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: [...(f.plan ? [['Its plan', f.plan]] : []), ...(f.refs?.length ? [['It read', f.refs.map(r => r.title).join(', ')]] : []), ...(f.by ? [[f.by, `Built page ${f.version || ''} in ${f.topic || 'its Build folder'}`]] : [])] };
@@ -74,7 +78,7 @@ export function visitorProofs(cat) {
 }
 export function proofRows(d) {
   const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null });
-  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f))), ...(d?.psFolders || []).map(f => add(f, posRow(f))),].sort((a, b) => b.at - a.at);
+  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f))), ...(d?.psFolders || []).map(f => add(f, posRow(f))), ...(d?.poeFolders || []).map(f => add(f, poeRow(f))),].sort((a, b) => b.at - a.at);
 }
 
 function Ring({ rows }) {

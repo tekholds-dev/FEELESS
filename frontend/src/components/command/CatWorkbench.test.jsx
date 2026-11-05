@@ -442,14 +442,14 @@ test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% 
   const { AgentDesktop } = require('./CatWorkbench');
   sessionStorage.clear(); document.body.innerHTML = ''; const posts = []; const before = signed.length;
   global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; if (b.op) posts.push(b);
-    return { ok: true, json: async () => (b.op === 'share' ? { colonyShare: { on: !!b.on, pct: b.cap || 20 } } : { powFolders: [], rows: [] }) }; };
+    return { ok: true, json: async () => (b.op === 'share' ? { colonyShare: { on: !!b.on, auto: !!b.on, pct: b.cap || 20 } } : { powFolders: [], rows: [] }) }; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'h1', name: 'Happy', colonyShare: { on: false, pct: 10 } }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-share').textContent).toContain('stay in its wallet');
   await act(async () => { q('dsk-share-20').click(); });
   expect(signed.at(-1)).toMatch(/^FEELESS auto-collect\nSend this % of each winning proof of \+50% or more to the Pool\nagent:h1\npct:20\nts:\d+$/); expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
-  expect(q('dsk-share').textContent).toContain('20% of each winning PoW');
+  expect(q('dsk-share').textContent).toContain('20% of each PoW win');
   const n = signed.length; await act(async () => { q('dsk-share-0').click(); });
   expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);
   act(() => root.unmount());
@@ -540,7 +540,7 @@ test('🎲 PoB: files from the Bids desk, and a folder shows what each mind read
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = t2 => document.querySelector(`[data-testid="${t2}"]`);
   await act(async () => { q('pob-file').click(); }); expect(sent.some(b => b.op === 'pob')).toBe(true); expect(q('pob-reading')).not.toBeNull();
-  await act(async () => { q('bd-pob').click(); }); await act(async () => { q('pob-b1').click(); });
+  await act(async () => { q('pob-b1').click(); });
   expect(q('pob-folder').textContent).toContain('GOOD BID'); expect(q('pop-browsed').textContent).toContain('dexscreener.com');
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;
 });
@@ -549,6 +549,7 @@ test('🎲 the Bids folder opens on a dash, and the USA sites are links that nev
   const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: async () => ({ live: [{ id: 'm', kind: 'agent', q: 'Happy: long SOL PoP ends in profit?' }, { id: 'x', kind: 'double', q: 'not an agent' }], settled: [], bank: { chips: 777 } }) }));
   const { AgentDesktop } = require('./CatWorkbench'); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = t => document.querySelector(`[data-testid="${t}"]`);
   expect(q('bd-stats').textContent).toContain('777'); expect(q('bd-live').textContent).toContain('1 open'); expect(q('dsk-bids').textContent).not.toContain('not an agent');
   await act(async () => { q('bd-sites').click(); });

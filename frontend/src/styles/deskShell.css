@@ -10,7 +10,7 @@
 /* every folder window: dark glass over the live wall, its own 3D icon floating large behind the content */
 .dsk-win { background: linear-gradient(155deg, #0b1410fa, #05080bfd 62%) !important; border-color: #ffffff24 !important; box-shadow: inset 0 1px 0 #ffffff24, 0 28px 60px #000a !important; }
 .dsk-title { background: linear-gradient(90deg, color-mix(in srgb, var(--kd-acc, #45e486) 18%, transparent), #ffffff08) !important; }
-.dsk-water { position: absolute; right: -26px; bottom: -26px; z-index: 0; width: 270px; height: 270px; opacity: .1; pointer-events: none; animation: dswFloat 9s ease-in-out infinite; }
+.dsk-water { position: absolute; right: -26px; bottom: -26px; z-index: 0; width: 270px; height: 270px; opacity: .1; pointer-events: none; }
 .dsk-body { position: relative; z-index: 1; background: transparent !important; }
 .dsk-body .hv-pow-stats > span { background: linear-gradient(150deg, #ffffff12, #ffffff05) !important; border: 1px solid #ffffff1c; border-radius: 12px; box-shadow: inset 0 1px 0 #ffffff1f; }
 .dsk-body .dsk-xgrid { gap: 14px 10px; }
@@ -190,4 +190,26 @@ body.theme-day .dfw-tile { background: #ffffffc4; border-color: #0000001f; box-s
 .ck-panel { max-height: 380px; overflow-y: auto; scrollbar-width: thin; min-width: 0; } .ck-rows { max-height: 280px; }
 .dsk-walstack { display: grid; gap: 12px; align-content: start; min-width: 0; overflow-y: auto; scrollbar-width: thin; } .kd-walwin { padding-bottom: 0; }
 .fee-asuser > header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; } .fee-asuser > header small { flex: 1; font: 800 9.5px var(--f-mono); letter-spacing: .16em; opacity: .75; } .fee-asuser > header .m-btn { min-height: 36px; }
+/* ⚡ Measured on the real PoW folder: 26 fps scrolling, 60 with this block. The page under a desktop stops painting, a window behind stops animating, and no filter repaints while a list scrolls. */
+body.dsk-open .app-content > :not(section), body.dsk-open #root > :not(.app-content) { content-visibility: hidden; }
+.dsk-win { contain: layout style; } .dsk-body { contain: paint; }
+.dsk-win:not(.is-top) * { animation-play-state: paused !important; }
+.dsk-body :is(.dsk-ico-art em, .dsk-file em, .prg) { filter: none; }
+.dsk-body .dsk-ico-art { box-shadow: inset 0 1px 0 #ffffff40; }
+/* 🗂 Fitting its folders */
+.dsk-icons[data-size="s"] .dsk-ico > * { zoom: .84; } .dsk-icons[data-size="l"] .dsk-ico > * { zoom: 1.22; } .dsk-icons[data-labels="off"] .dsk-ico > span { display: none; }
+.dset-map { position: relative; width: min(100%, 300px); border: 1px solid #ffffff24; border-radius: 10px; background: linear-gradient(155deg, #ffffff10, #ffffff04); overflow: hidden; }
+.dset-map i { position: absolute; width: 5%; aspect-ratio: 5 / 4; margin: 2% 0 0 2%; border-radius: 2px; background: #f5c542; transition: left .18s ease, top .18s ease; }
+.dset-map i.is-g0 { background: #45e486; } .dset-map i.is-g1 { background: #6b8cff; } .dset-map i.is-g2 { background: #f5c542; } .dset-map i.is-g3 { background: #ff8fd8; }
+.dset-fit { display: grid; gap: 8px; } .dset-presets { display: flex; flex-wrap: wrap; gap: 6px; } .dset-hide summary { min-height: 32px; display: flex; align-items: center; cursor: pointer; font: 700 12px var(--f-ui); } .dset-hide summary:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .dset-hide > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 12px; }
+.pdk-tiles { align-content: start; } .pdk-tile { position: relative; display: grid; } .pdk-tile .fea-x { position: absolute; top: 2px; left: 2px; opacity: 0; transition: opacity .14s; } .pdk-tile:hover .fea-x, .pdk-tile .fea-x:focus-visible { opacity: 1; }
+.pdk-filed li .m-btn { min-height: 28px; padding-inline: 10px; }
+@media (prefers-reduced-motion: reduce) { .dset-map i { transition: none; } }
+body.theme-day .dset-map { background: #0d2a1b0d; border-color: #0d2a1b2e; }
+.dset { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px 28px; } .dset > h3, .dset > .dset-reset, .dset > :has(.dset-walls) { grid-column: 1 / -1; } .dset-fit { grid-row: span 3; } .dset-fit .m-go { justify-self: start; }
+/* 📜 Every folder shows all it has: a clipped child grows with its content, so the window's own scrollbar reaches the end. Studios that fill the window keep their height. */
+.dsk-body :is(.fch-card, .pst, .m-card):not(.m-card .m-card):not(.fch-card .m-card) { max-height: none; }
+.dsk-body > :is(.fch-card, .pst, .m-card), .dsk-body > * > :is(.fch-card, .pst, .m-card):only-child { height: auto; overflow: visible; align-self: start; }
 
+.dsk-body .pst-set { max-height: none; height: auto; }
+.dsk-body .pst-text { max-height: none; }

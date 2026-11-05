@@ -1,27 +1,23 @@
-import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
-import { Ic3 } from '../../lib/icon3d';
 import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
-import { AgentDesktop } from './CatWorkbench';
+import { CatWorkbench } from './CatWorkbench';
 import '../../styles/collectiveSetup.css';
 
-// 🎩 SICARIO'S (owner 2026-11-05): one agent with OSSY and G4 as its two minds, on its own desktop and proof loop, private to the owner. Paper only: no wallet is ever attached here, so a filed PoW cannot buy with real money.
+// 🎩 SICARIO'S (owner 2026-11-05): one agent with OSSY and G4 as its two minds, on the owner's own models, private to the owner. It gets the same full desk as every agent. Its one difference: with its Fuse seat on, an agreed PoW goes to the real card's one model seat, through every guard that seat already has. It holds no wallet.
 export const DESK_AGENT = "Sicario's";
-const ColonyGrid = lazy(() => import('./HiveBoard').then(m => ({ default: m.ColonyGrid })));
-const colonyApi = async u => { const r = await fetch(apiUrl(u.startsWith('/api') ? u : `/api/cats${u}`)); if (!r.ok) throw new Error('Could not read the monitors.'); return r.json(); };
 const call = async (path, opts) => { const r = await fetch(apiUrl(path), { headers: { 'Content-Type': 'application/json' }, ...opts }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `Request failed (${r.status})`); return j; };
 export function DeskAgents() {
-  const [cats, setCats] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [said, setSaid] = useState(''); const [open, setOpen] = useState(false);
+  const [cats, setCats] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const load = useCallback(() => call(`/api/cats?${agentAuthQuery()}`).then(j => setCats(j.cats || [])).catch(e => { setErr(e.message); setCats([]); }), []);
   useEffect(() => { load(); }, [load]);
-  const file = async c => { setBusy(true); setErr(''); setSaid(''); try { const body = text => ({ method: 'POST', body: JSON.stringify({ ...agentAuth(), op: 'ask', text }) }); await call(`/api/cats/${c.id}/work`, body('file a pow')); await call(`/api/cats/${c.id}/work`, body('go')); setSaid('It started a PoW, on paper. Watch it on the monitors.'); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   if (!cats) return null;
   const c = cats.find(x => x.name === DESK_AGENT && !x.revoked); if (!c) return null;
-  const loop = !!c.brainsCfg?.endless; const toggleLoop = async () => { setBusy(true); setErr(''); try { await call(`/api/cats/${c.id}/work`, { method: 'POST', body: JSON.stringify({ ...agentAuth(), op: 'desk_loop', on: !loop }) }); await load(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  const proofs = (c.powFolders?.length || 0) + (c.popFolders?.length || 0) + (c.pobFolders?.length || 0); const credit = Number(c.brainsCfg?.credit) || 0;
-  return <section className="dag" data-testid="desk-agents"><header><span className="dag-n"><span><em>RESEARCH DESK · ONLY YOU SEE THIS</em><b>{DESK_AGENT}</b><small>OSSY and G4 research here on your own models, with {proofs} proofs filed. Real trades run from the Fuse card, never from here.</small></span></span>
-      <span className="dag-a"><button type="button" className={`m-btn dag-loop${loop ? ' is-on' : ''}`} aria-pressed={loop} disabled={busy} onClick={toggleLoop} data-tip={loop ? 'It keeps filing proofs, one at a time. Tap to stop' : 'Keep filing proofs on paper, one at a time, on your own models'} data-testid="desk-loop"><i aria-hidden="true" />{loop ? 'Endless: on' : 'Endless: off'}</button><button type="button" className="m-btn" onClick={() => setOpen(true)} data-tip="Open its desktop" data-testid="desk-open">Open desktop</button><button type="button" className="m-btn m-go" disabled={busy || c.agentWallet?.address || credit <= 0} onClick={() => file(c)} data-tip={credit <= 0 ? 'It needs model credit first' : 'Asks both minds to file a PoW, on paper'} data-testid="desk-file">{busy ? 'Asking…' : 'File a PoW'}</button></span></header>
-    <Suspense fallback={null}><ColonyGrid api={colonyApi} ids={c.id} onOpen={() => setOpen(true)} /></Suspense>
-    {said ? <small className="pvr-msg" role="status">{said}</small> : null}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    {open ? <AgentDesktop cat={c} onClose={() => { setOpen(false); load(); }} /> : null}</section>;
+  const flip = async (op, on) => { setBusy(true); setErr(''); try { await call(`/api/cats/${c.id}/work`, { method: 'POST', body: JSON.stringify({ ...agentAuth(), op, on }) }); await load(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const loop = !!c.brainsCfg?.endless; const seat = !!c.brainsCfg?.cardSeat; const proofs = ['powFolders', 'popFolders', 'pobFolders', 'pocFolders', 'psFolders'].reduce((n, k) => n + (c[k]?.length || 0), 0);
+  return <section className="dag" data-testid="desk-agents"><header><span className="dag-n"><span><em>ONLY YOU SEE THIS · OSSY + G4 ON YOUR OWN MODELS</em><b>{DESK_AGENT}</b><small>{proofs} proofs filed. {seat ? 'An agreed PoW goes to the Fuse card seat. The card can still refuse it.' : 'PoWs stay on paper until you turn on its Fuse seat.'}</small></span></span>
+      <span className="dag-a"><button type="button" className={`m-btn dag-loop${seat ? ' is-on' : ''}`} aria-pressed={seat} disabled={busy} onClick={() => flip('desk_seat', !seat)} data-tip={seat ? 'Agreed PoWs go to the card. Tap to stop' : "Sends each agreed PoW to the real card's one model seat. Card rules, desk buys off and its cash still apply"} data-testid="desk-seat"><i aria-hidden="true" />{seat ? 'Fuse seat: on' : 'Fuse seat: off'}</button>
+        <button type="button" className={`m-btn dag-loop${loop ? ' is-on' : ''}`} aria-pressed={loop} disabled={busy} onClick={() => flip('desk_loop', !loop)} data-tip={loop ? 'It keeps filing proofs, one at a time. Tap to stop' : 'Keep filing proofs, one at a time, on your own models'} data-testid="desk-loop"><i aria-hidden="true" />{loop ? 'Endless: on' : 'Endless: off'}</button></span></header>
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    <CatWorkbench cat={c} /></section>;
 }

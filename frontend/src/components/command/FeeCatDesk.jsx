@@ -15,8 +15,9 @@ import '../../styles/collectiveSetup.css';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StashWeb } from './StashWeb';
 import { ProviderReady } from './ProviderReady';
-import { AgentDesktop } from './CatWorkbench';
+import { AgentDesktop, work } from './CatWorkbench';
 import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
+import { GitFolder } from './GitFolder';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { apiUrl } from '../../lib/api';
 import '../../styles/catWorkbench.css';
@@ -214,6 +215,7 @@ export function FeeCatDesk({ call }) {
       { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
     ]} agentApps={[
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy /></React.Suspense><ColonyFlow api={flowApi} /></div> },
+      { k: 'gitrepo', ic: '🗃', label: 'Collective repo', tip: 'Owner only: your private GitHub repo with every kept proof and source file, sorted, and what agents read from it', body: <GitFolder cat={{ id: 'leader', handle: 'fee' }} work={work} scope="collective" /> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },

@@ -16,6 +16,7 @@ import time
 
 # provider → (label, what it does for the cat, wired now?, shape check)
 PROVIDERS = {
+    'github': ('GitHub', 'its own repo for its filed proofs', False, r'^(ghp_|gho_|ghu_|github_pat_)[A-Za-z0-9_]{20,255}$'),
     'openrouter': ('OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', True, r'^sk-or-[A-Za-z0-9_-]{20,}$'),
     'birdeye': ('Birdeye', 'holder + price reads for its scans', False, r'^[A-Za-z0-9]{16,64}$'),
     'helius': ('Helius', 'its own Solana RPC — faster wallet + tape reads', False, r'^[A-Za-z0-9-]{20,64}$'),
