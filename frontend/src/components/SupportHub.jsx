@@ -1,3 +1,4 @@
+import { AllianceBoard } from './AllianceBoard';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -11,7 +12,7 @@ import { Ic3 } from '../lib/icon3d';
 // 🛟 SUPPORT HUB (owner, 2026-10-20: "support with a visual live animated grid of bugs / reports auto-sorted by importance, community polls —
 // enough votes climb the ladder of approval — a support button in vital areas that leads to roadmap + whitepaper, and its own huge section").
 // One page, three lenses: 🐞 Reports (live grid, importance-sorted, +1 "me too") · 🗳 Polls (propose, vote, the ladder) · 📝 Report it.
-export const LENSES = [['reports', '🐞 Reports'], ['ideas', '💡 Ideas'], ['polls', '🗳 Polls'], ['send', '📝 Report it']];
+export const LENSES = [['reports', '🐞 Reports'], ['ideas', '💡 Ideas'], ['polls', '🗳 Polls'], ['allies', '🤝 Alliances'], ['send', '📝 Report it']];
 const STATUS = { open: ['🟠', 'OPEN'], fixing: ['🔨', 'FIXING'], fixed: ['✅', 'FIXED'], wontfix: ['✕', "WON'T FIX"] };
 const KIND = { bug: '🐞', idea: '💡', security: '🔒' };
 export const heat = i => (i >= 70 ? 'hot' : i >= 40 ? 'warm' : 'cool');
@@ -42,7 +43,7 @@ function CardActs({ id, d, act, busy }) {
 
 export function SupportHub() {
   const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
-  const [lens, setLens] = useState('reports'); const [d, setD] = useState(null); const [kind, setKind] = useState('all'); const [busy, setBusy] = useState('');
+  const [lens, setLens] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'allies' ? 'allies' : 'reports')); const allyName = new URLSearchParams(window.location.search).get('with') || ''; const [d, setD] = useState(null); const [kind, setKind] = useState('all'); const [busy, setBusy] = useState('');
   const [q, setQ] = useState(''); const [opts, setOpts] = useState(['', '']); const [idea, setIdea] = useState('');
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/support${me ? `?wallet=${me}` : ''}`)).then(r => r.json()).then(setD).catch(() => {}), [me]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
@@ -100,6 +101,7 @@ export function SupportHub() {
         <b className="sup-title">{x.text}</b><CardActs id={x.id} d={d} act={act} busy={busy} /></article>; })}
         {!(d?.ideas || []).length ? <p className="sup-empty">No ideas yet — pitch the first one.</p> : null}</div>
     </> : null}
+    {lens === 'allies' ? <AllianceBoard start={allyName ? `${allyName} crew`.slice(0, 32) : ''} /> : null}
     {lens === 'send' ? <div className="sup-send m-card"><p>Bugs, ideas and security reports go straight to the FEELESS team. The same crash on the same page is merged into one card with a count.</p><ReportBug address={me} /></div> : null}
   </section>;
 }

@@ -187,6 +187,8 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 
 - 2026-11-05 MB02: fold split in the locked shell (`markFoldSplit`): on an unfolded fold each tab's blocks sit either side of the crease; seen on real touch emulation at 890×626, not on the device. AG20: OSSY and G4 are real paper agents with full desktops (`DeskAgents.jsx`, AGENTS › OSSY + G4). OSSY's first PoW proposed real coins; its browser windows stopped on the empty OpenRouter key (W05). Assigning them to users' agents still to build.
 
+- 2026-11-05 K01: one key vault in the family HQ (`FamilyKeys.jsx`, HQ › Key vault), names and last 4 only. C12: Alliances (`alliances.py`, `AllianceBoard.jsx`, Support › Alliances, chat reply › 🤝 Alliance): 10 members, one per wallet, Union after the owner's days (default 30, set on the board). Route read live; creating one with a signed wallet not clicked.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

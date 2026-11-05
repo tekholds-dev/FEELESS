@@ -5,6 +5,7 @@ import { FamilyBadge } from './FamilyBadge';
 import '../styles/familyHQ.css';
 const PoolsPop = lazy(() => import('./PoolHub').then(m => ({ default: () => { const pools = m.usePools(); return pools ? <m.PoolHub pools={pools} /> : <p className="m-dim">Reading the pools…</p>; } })));
 const NightVault = lazy(() => import('./NightVault').then(m => ({ default: m.NightVault })));
+const FamilyKeys = lazy(() => import('./FamilyKeys').then(m => ({ default: m.FamilyKeys })));
 const AvenueRoom = lazy(() => import('./CityAvenue').then(m => ({ default: m.AvenueRoom })));
 const FusePnl = lazy(() => import('./FuseHQ').then(m => ({ default: m.FusePnl })));
 
@@ -34,7 +35,7 @@ function Dots({ label, have, of }) {
 export const TOOLS = [['table', 'Table', Armchair], ['wire', 'Wire', Radio], ['card', 'Card', IdCard], ['invite', 'Invite', Mail], ['badge', 'Badge', Flower2], ['board', 'Board', MessagesSquare],
   ['bounty', 'Bounties', Crosshair], ['launch', 'Launch', Rocket], ['members', 'Seats', UserPlus], ['code', 'Code', KeyRound],
   // 🏠 THE ONE-STOP SHOP (owner P1 #4: "pools, Fuse, trading, launch, wallet — without leaving Familia"): each pops out the real tool right here
-  ['books', 'Books', BookOpen], ['pools', 'Pools', Waves], ['vault', 'Night Vault', Moon], ['trade', 'Trade', Zap], ['fee', '$FEE', Coins], ['fuse', 'My Fuse', Dna]];
+  ['books', 'Books', BookOpen], ['pools', 'Pools', Waves], ['vault', 'Night Vault', Moon], ['trade', 'Trade', Zap], ['fee', '$FEE', Coins], ['fuse', 'My Fuse', Dna], ['keys', 'Key vault', KeyRound]];
 const n2 = v => `${v < 0 ? '−' : '+'}$${Math.abs(Number(v) || 0).toFixed(2)}`;
 // pure: the Books' totals + per-member result (biggest first)
 export function bookSum(book) {
@@ -60,7 +61,7 @@ export function FamilyBooks({ book }) {
   </div>;
 }
 const OWN = { books: m => <FamilyBooks book={m.book} />, pools: () => <PoolsPop />, vault: () => <NightVault />, trade: () => <AvenueRoom lens="pumpradar" />,
-  fee: () => <AvenueRoom lens="feebank" />, fuse: () => <FusePnl /> };
+  fee: () => <AvenueRoom lens="feebank" />, fuse: () => <FusePnl />, keys: () => <FamilyKeys /> };
 
 // pure: the turf a family can expand into next — the cheapest free blocks it can afford first
 export function nextTurf(me, n_ = 4) {

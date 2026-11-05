@@ -17560,6 +17560,63 @@ async def admin_providers(request: Request):
     return _pr.status(os.environ)
 
 
+ALLIANCES_PATH = DATA_DIR / 'alliances.json'
+_alliance_lock = asyncio.Lock()
+
+
+def _alliance_view(wallet=''):
+    import alliances as _al
+    st = _json_load(ALLIANCES_PATH, {}) or {}; days = int(st.get('days') or _al.DEFAULT_DAYS); now = time.time()
+    return {'days': days, 'rows': [_al.public(a, days, now, wallet) for a in sorted(st.get('rows') or [], key=lambda x: -len(x['members']))]}
+
+
+@app.get('/api/reputation/alliances')
+async def alliances_list(wallet: str = ''):
+    """🤝 Every alliance and union: names, sizes, short wallets."""
+    return _alliance_view(wallet)
+
+
+@app.post('/api/reputation/alliances')
+async def alliances_act(request: Request):
+    """🤝 create · join · leave · union, as the signed wallet."""
+    import alliances as _al
+    b = await request.json(); wallet = _session_or_401(str(b.get('wallet') or ''), str(b.get('session') or ''))
+    async with _alliance_lock:
+        st = _json_load(ALLIANCES_PATH, {}) or {}; rows = st.setdefault('rows', []); days = int(st.get('days') or _al.DEFAULT_DAYS); now = time.time()
+        try:
+            op = b.get('op')
+            if op == 'create':
+                _al.create(rows, wallet, b.get('name'), now, b.get('reply'))
+            elif op == 'join':
+                _al.join(rows, wallet, str(b.get('id') or ''))
+            elif op == 'leave':
+                _al.leave(rows, wallet)
+            elif op == 'union':
+                _al.found_union(rows, wallet, b.get('name'), days, now)
+            else:
+                raise ValueError('Unknown action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(ALLIANCES_PATH, st)
+    return _alliance_view(wallet)
+
+
+@app.post('/api/reputation/admin/alliance-days')
+async def admin_alliance_days(request: Request):
+    """🤝 Owner only: how many days an alliance waits before it can found a Union."""
+    me = _require_owner(request); b = await request.json()
+    try:
+        days = int(b.get('days'))
+    except (TypeError, ValueError):
+        raise HTTPException(400, 'Give a number of days.')
+    if not 0 <= days <= 3650:
+        raise HTTPException(400, '0 to 3,650 days.')
+    async with _alliance_lock:
+        st = _json_load(ALLIANCES_PATH, {}) or {}; st['days'] = days; _json_save(ALLIANCES_PATH, st)
+    ad = _admin_load(); _audit(ad, me, 'alliance-days', str(days)); _admin_save(ad)
+    return _alliance_view()
+
+
 COLLECTIVE_THEMES = ('NEBULA', 'TOXIC', 'INFERNO', 'GLACIER', 'VOID', 'SOLAR', 'MATRIX', 'ULTRA')
 @app.post('/api/reputation/admin/collective-look')
 async def admin_collective_look(request: Request):
