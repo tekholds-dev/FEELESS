@@ -5136,6 +5136,15 @@ async def cat_tool_image(q: str = '', must: str = ''):
         return {'image': imgs[0] if imgs else None, 'images': imgs}
 
 
+@app.get('/api/cats/collective/look')
+async def collective_look():
+    """🎨 The colors the owner picked for the Collective."""
+    try:
+        return json.loads((DATA_DIR / 'collective_look.json').read_text())
+    except (OSError, ValueError):
+        return {'theme': 'NEBULA', 'glow': 70}
+
+
 @app.get('/api/cats/tools/sourcefile')
 async def cat_tool_sourcefile():
     """📚 The best free references per job. Every agent's prompt carries its own."""

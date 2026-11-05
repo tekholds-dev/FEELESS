@@ -180,6 +180,8 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 
 - 2026-11-05 Collective HQ is one page, no tabs (`CollectiveOwner.jsx`, `CollectiveSetup.jsx`): shadcn table/chart (`components/ui`), Recharts Sankey `MoneyCharts.jsx` shows how pay moves; users' `SplitFlow` uses the same flow. Rule: libraries first, never hand-drawn. Game window is the look to match. Other money folders not yet moved: Proofprint, StashWeb, Boosts tiles.
 
+- 2026-11-05 Collective front page (`CollectiveLanding.jsx`, from the owner's lab file): the living print is one pre-drawn bitmap plus only the real proofs, so 12,000 cells ran at 60 fps here; real proofs light up with a wired card. React Flow proof diagram on live rules, owner colours saved for everyone (`/admin/collective-look`). Stash is a sigma.js bubble map (`StashMap.jsx`). Providers: click a row to enter a key (`/admin/provider-key`, listed names only; agent service needs a restart to read a new key). PoW folder = proof cards with a print and vitals, click to pop. Agent slots lists every agent. Coin thinner. Not tried with the owner's wallet: saving a colour or key.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

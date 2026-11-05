@@ -78,12 +78,13 @@ test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each p
   const cards = el.querySelectorAll('[data-testid="ck-pow"]'); expect(cards).toHaveLength(2);
   expect(cards[0].className).toContain('is-dn'); expect(cards[0].textContent).toContain('revoked'); expect(cards[0].textContent).toContain('💧 +2');
   expect(cards[1].textContent).toContain('⏳ grading');
-  expect(el.querySelector('.hv-pow-stats').textContent).toContain('100%');   // 1 graded, 1 right
   global.fetch = async () => ({ ok: true, json: async () => ({ ...POW, folders: [{ cat: 'h1', name: 'Happy', live: true, folder: { id: 'pow1', name: 'PoW #1 · Nov 01', phase: 'watch', status: 'open', coins: [{ mint: 'M1', sym: 'SIS', src: 'dex', liq: 64000 }], pick: { mint: 'M1' }, shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'r0_rugcheck.xyz_1.jpg' }] } }] }) });
   const el2 = document.createElement('div'); document.body.appendChild(el2);
   await act(async () => { createRoot(el2).render(<PowEngine />); });
-  expect(el2.querySelector('[data-testid="pow-db"]').textContent).toContain('● live');   // 🗄 every agent's folders, live + filed
-  expect(el2.querySelector('[data-testid="dsk-fold-live"]').textContent).toContain('$SIS');
+  expect(el2.querySelector('[data-testid="pow-cards"]').textContent).toContain('working now');   // one card per proof, with its print and vitals
+  await act(async () => { el2.querySelector('[data-testid="pow-card-pow1"]').click(); });
+  expect(document.querySelector('[data-testid="dsk-fold-live"]').textContent).toContain('$SIS');
+  await act(async () => { document.querySelector('[data-testid="pow-pop-close"]').click(); }); expect(document.querySelector('[data-testid="pow-pop"]')).toBeNull();
 });
 
 test('📖 the PoW manual: pool · propose 3 each · split 2 each · research · decide · file forever, and the commands — details open on a tap', async () => {

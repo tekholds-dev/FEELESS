@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 SEAL_ID = 'collective-stash'
 CATEGORY = {'powFolders': 'Trades', 'popFolders': 'Perps', 'pobFolders': 'Picks', 'pocFolders': 'Content', 'psFolders': 'Code', 'shot': 'Snapshots'}
-MAX_SOURCES = 60
+MAX_SOURCES = 2000
 
 
 def _db(root):

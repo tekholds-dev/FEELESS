@@ -17560,6 +17560,37 @@ async def admin_providers(request: Request):
     return _pr.status(os.environ)
 
 
+COLLECTIVE_THEMES = ('NEBULA', 'TOXIC', 'INFERNO', 'GLACIER', 'VOID', 'SOLAR', 'MATRIX', 'ULTRA')
+@app.post('/api/reputation/admin/collective-look')
+async def admin_collective_look(request: Request):
+    """🎨 Owner only: the Collective's colors and glow, for everyone who opens it."""
+    me = _require_owner(request); b = await request.json()
+    if b.get('theme') not in COLLECTIVE_THEMES:
+        raise HTTPException(400, 'Pick one of the themes.')
+    look = {'theme': b['theme'], 'glow': max(0, min(100, int(b.get('glow') if isinstance(b.get('glow'), (int, float)) else 70)))}
+    _json_save(DATA_DIR / 'collective_look.json', look)
+    ad = _admin_load(); _audit(ad, me, 'collective-look', look['theme']); _admin_save(ad)
+    return look
+
+
+@app.post('/api/reputation/admin/provider-key')
+async def admin_provider_key(request: Request):
+    """🔑 Owner only: save one provider key to backend/.env and this process. The value is never returned, logged or audited: only its name."""
+    me = _require_owner(request)
+    import provider_ready as _pr
+    body = await request.json()
+    try:
+        name, value = _pr.clean_key(body.get('name'), body.get('value'))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    env = Path(__file__).parent / '.env'
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        env.write_text(_chain.env_with_key(env.read_text() if env.exists() else '', name, value))
+    os.environ[name] = value
+    ad = _admin_load(); _audit(ad, me, 'provider-key', name); _admin_save(ad)
+    return _pr.status(os.environ)
+
+
 @app.get('/api/reputation/admin/ai-key')
 async def admin_ai_key_status(request: Request):
     """🔑 Owner only: which AI providers have a key — provider, set, the last 4 characters. Never a key."""

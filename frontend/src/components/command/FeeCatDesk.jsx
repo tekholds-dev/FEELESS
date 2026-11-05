@@ -10,6 +10,8 @@ import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, PowEngine } from './HiveBoard';
 import { CollectiveOwner } from './CollectiveOwner';
 import { AgentDesk } from './AgentDesk';
+import '../../styles/collectiveSetup.css';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StashWeb } from './StashWeb';
 import { ProviderReady } from './ProviderReady';
 import { AgentDesktop } from './CatWorkbench';
@@ -144,7 +146,16 @@ export function AgentSlots({ call }) {
     <div className="m-seg" role="group" aria-label="Open more agent slots">{[50, 100, 250].map(n => <button key={n} type="button" disabled={busy || s.open >= s.max} onClick={() => open(s.open + n)} data-tip={`Open ${n} more slots for new buyers`} data-testid={`fch-slots-${n}`}>+{n}</button>)}
       <button type="button" disabled={busy || s.open >= s.max} onClick={() => open(s.max)} data-tip="Open every slot up to the 1,000 cap" data-testid="fch-slots-all">All {s.max.toLocaleString()}</button>
       <button type="button" disabled={busy || s.open <= s.taken} onClick={() => open(s.taken)} data-tip="Close sales: no new agents until you open more (nobody loses an agent)" data-testid="fch-slots-close">Pause sales</button></div>
-    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</article>;
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    <SlotAgents /></article>;
+}
+// Every agent that holds a slot: what it is, what it has filed, how it did.
+function SlotAgents() {
+  const flow = useFlow(); const [q, setQ] = useState(''); const [by, setBy] = useState('proofs'); const all = flow?.tree?.agents || [];
+  const rows = [...all].filter(a => !q || String(a.name).toLowerCase().includes(q.toLowerCase())).sort((a, b) => (by === 'pnl' ? (Number(b.pnlSol) || 0) - (Number(a.pnlSol) || 0) : by === 'won' ? (b.won || 0) - (a.won || 0) : (b.proofs || 0) - (a.proofs || 0)));
+  const sort = (k, l, tip) => <button type="button" className={by === k ? 'active' : ''} aria-pressed={by === k} onClick={() => setBy(k)} data-tip={tip} data-testid={`slots-sort-${k}`}>{l}</button>;
+  return <section className="fch-slot-agents" data-testid="slots-agents"><header><b>EVERY AGENT <em className="m-num">{all.length}</em></b><input className="m-input" value={q} onChange={e => setQ(e.target.value)} placeholder="Find an agent" aria-label="Find an agent" data-testid="slots-find" /><span className="m-seg" role="group" aria-label="Sort by">{sort('proofs', 'Proofs', 'Most proofs first')}{sort('won', 'Won', 'Most wins first')}{sort('pnl', 'Result', 'Best result first')}</span></header>
+    {rows.length ? <Table className="cs-t fch-slot-t"><TableHeader><TableRow><TableHead>Agent</TableHead><TableHead>Kind</TableHead><TableHead>Proofs</TableHead><TableHead>Won</TableHead><TableHead>Result</TableHead></TableRow></TableHeader><TableBody>{rows.map(a => { const v = Number(a.pnlSol) || 0; return <TableRow key={a.id}><TableCell>{a.name}</TableCell><TableCell>{a.kind === 'general' ? 'General' : 'Trader'}</TableCell><TableCell className="m-num">{a.proofs || 0}</TableCell><TableCell className="m-num">{a.won || 0} of {a.trades || 0}</TableCell><TableCell className={`m-num ${v > 0 ? 'is-up' : v < 0 ? 'is-dn' : ''}`}>{v ? `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(4)} SOL` : 'No result yet'}</TableCell></TableRow>; })}</TableBody></Table> : <p className="fch-nil">{flow ? 'No agent matches.' : 'Reading agents…'}</p>}</section>;
 }
 
 export function FeeCatDesk({ call }) {

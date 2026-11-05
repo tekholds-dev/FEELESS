@@ -22,7 +22,7 @@ const mind = i => `Mind ${'AB'[Number(i)] || Number(i) + 1}`;
 const shotsOf = (f, kind) => (f.shots || []).map(s => ({ ...s, src: apiUrl(`/api/cats/{cat}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${s.file}?${agentAuthQuery()}`), kind }));
 const toneOf = v => (v == null ? 'none' : v > 0 ? 'win' : v < 0 ? 'loss' : 'none');
 
-function powRow(f) {
+export function powRow(f) {
   const v = f.pnlPct != null ? Number(f.pnlPct) : null;
   return { kind: 'pow', id: f.id, at: Number(f.soldAt || f.at) || 0, name: f.name || `PoW #${f.n || ''}`, sub: f.sym ? `$${f.sym}` : '', value: v, shown: v == null ? (f.status === 'closed' ? 'no trade' : 'open') : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`,
     state: f.status !== 'closed' ? 'open' : toneOf(f.pnlSol ?? v), loop: f.loop, shots: shotsOf(f, 'pow'), sent: f.sent, review: f.review,

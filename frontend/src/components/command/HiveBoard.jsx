@@ -1,10 +1,13 @@
 import { PoolBuilder } from './CollectiveSetup';
 import { useSolPrice } from '../../lib/solPrice';
-import { collectivePrint } from '../../lib/proofprint';
+import { collectivePrint, printOf } from '../../lib/proofprint';
 import { CollectivePrint, MiniPrint } from './Proofprint';
 import { BoostCoin } from './DeskShell';
 import { StashWeb } from './StashWeb';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { powRow } from './ProofsFolder';
+import '../../styles/proofTools.css';
 import { apiUrl } from '../../lib/api';
 import { AiCursor, FolderView, readCursor } from './CatWorkbench';
 import { PowCard } from './CatCockpit';
@@ -123,7 +126,7 @@ export function ColonyFlow({ api, onOpen }) {
   const toggle = id => setPick(p => (p === id ? null : id));
   const root = useRef(null); const freshNames = (d?.ledger || []).filter(r => fresh.has(`${r.at}${r.sig}${r.kind}`)).map(r => r.agent);
   const { zaps, hit } = useZaps(root, agents, freshNames);
-  return <><CollectiveTop d={d} /><section ref={root} className="clx" data-testid="colony-flow" aria-label="The Collective">
+  return <div className="clx-wrap"><CollectiveTop d={d} /><section ref={root} className="clx" data-testid="colony-flow" aria-label="The Collective">
     <svg className="clx-zaps" aria-hidden="true">{zaps.map(z => <g key={z.key}><path className="is-glow" d={z.d} /><path d={z.d} /></g>)}</svg>
     <svg className="clx-sky" viewBox="0 0 1600 500" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="clxArc" x1="0" x2="1"><stop offset="0" stopColor="#1f7dff" stopOpacity="0" /><stop offset=".22" stopColor="#3ea8ff" /><stop offset=".5" stopColor="#7fd0ff" /><stop offset=".78" stopColor="#8a4dff" /><stop offset="1" stopColor="#8a4dff" stopOpacity="0" /></linearGradient></defs><path className="clx-arc-glow" d="M0 170C340 -30 1260 -30 1600 170" /><path className="clx-arc" d="M0 170C340 -30 1260 -30 1600 170" /></svg>
     {['l', 'r'].map(s => <svg key={s} className={`clx-city is-${s}`} viewBox="0 0 220 180" aria-hidden="true"><path fill="#141a3a" d="M0 180V132l18-8 8-30 5 30 10-52 7-30 7 30 6 44 9-22 7 22 10 18 8-34 6 34 16 22 36 20 40 8v0H0Z" /><path fill="#090c22" d="M0 180v-30l40-8 22 6 30-10 40 14 88 28Z" />{[[24, 112], [47, 84], [50, 110], [71, 118], [92, 136]].map(([x, y]) => <rect key={x} className="clx-lit" x={x} y={y} width="2" height="3" />)}</svg>)}
@@ -142,7 +145,7 @@ export function ColonyFlow({ api, onOpen }) {
     <CollectivePrint feed={d?.proofs} />
     <Convos rows={d?.convos} />
     <details className="clx-more"><summary><Ic3 e="📒" /> MONEY TRAIL</summary><ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} /></details>
-  </section></>;
+  </section></div>;
 }
 
 // 🏺 THE COLONY POT (owner 2026-10-31: "the smartest, next-level way of safe growth — I create a Circle wallet for it and pick how it's secured"):
@@ -155,23 +158,29 @@ const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locke
 // pipeline a colonized agent runs, the live numbers (filed · graded · right · strength) and the newest proofs. Reads the public /api/cats/pow.
 const POW_STAGES = [['📥', 'INTAKE', 'one coin from the FEELESS intake'], ['🔎', 'SEARCH', 'DuckDuckGo first, DexScreener when walled'], ['🌐', 'SITES', '≤ {sites} sites · ≤ {steps} moves each'],
   ['🧪', 'VITALS', '≤ {pulls} vitals a site, numbers only'], ['⚖', 'CALL', 'BUY · WATCH · AVOID + why'], ['💧', 'GRADED', 'an hour on, on what it really did']];
+// 🧾 One card per proof: the agent's own print, its vitals, click for the wired window. Replaces the old list.
+function ProofCards({ folders = [] }) {
+  const [open, setOpen] = useState(null);
+  const prints = useMemo(() => { const by = {}; folders.forEach(x => { (by[x.cat] = by[x.cat] || []).push(powRow(x.folder)); }); return Object.fromEntries(Object.entries(by).map(([k, v]) => [k, printOf(v)])); }, [folders]);
+  useEffect(() => { if (!open) return undefined; const k = e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(null); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [open]);
+  if (!folders.length) return null;
+  const vit = f => [['RESULT', f.pnlPct != null ? `${f.pnlPct >= 0 ? '+' : ''}${Number(f.pnlPct).toFixed(1)}%` : 'Open'], ['SNAPS', (f.shots || []).length], ['SIDE', f.real ? 'Real' : 'Paper']];
+  return <><ul className="hv-cards" data-testid="pow-cards">{folders.map((x, i) => { const f = x.folder || {}; const k = `${x.cat}-${f.id}`; const up = Number(f.pnlPct) >= 0; return <li key={k} style={{ '--i': i }}><button type="button" className={`hv-card${x.live ? ' is-live' : ''}`} onClick={() => setOpen(x)} data-tip="Open this proof" data-testid={`pow-card-${f.id}`}><MiniPrint print={prints[x.cat]} seed={x.cat} /><span className="hv-card-n"><b>{f.sym ? `$${f.sym}` : f.name}</b><small>{x.name}{x.live ? ' · working now' : ''}</small></span><dl>{vit(f).map(([a, v], n) => <div key={a}><dt>{a}</dt><dd className={`m-num${n === 0 && f.pnlPct != null ? (up ? ' is-up' : ' is-dn') : ''}`}>{v}</dd></div>)}</dl></button></li>; })}</ul>
+    {open ? createPortal(<div className="pgw-back" onClick={() => setOpen(null)} data-testid="pow-pop"><section className="pgw m-card hv-pop" role="dialog" aria-modal="true" aria-label={open.folder?.name} onClick={e => e.stopPropagation()}><header className="hv-pop-h"><MiniPrint print={prints[open.cat]} seed={open.cat} /><span><small>{open.name}</small><b>{open.folder?.sym ? `$${open.folder.sym}` : open.folder?.name}</b></span><dl>{vit(open.folder || {}).map(([a, v]) => <div key={a}><dt>{a}</dt><dd className="m-num">{v}</dd></div>)}</dl><button type="button" className="pgw-x" onClick={() => setOpen(null)} aria-label="Close" data-tip="Close (Esc)" data-testid="pow-pop-close">✕</button></header><div className="hv-pop-b"><FolderView f={open.folder} live={open.live} catId={open.cat} /></div></section></div>, document.body) : null}</>;
+}
 export function PowEngine({ limit = 12 }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [seen, setSeen] = useState(null);
+  const [d, setD] = useState(null); const [err, setErr] = useState('');
   useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) fetch(apiUrl(`/api/cats/pow?limit=${limit}`)).then(r => r.json()).then(x => { if (on) { setD(x); setErr(''); } }).catch(e => on && setErr(e.message)); };
     go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [limit]);
-  const liveF = (d?.folders || []).find(x => x.live); const shown = seen ?? (liveF ? `${liveF.cat}-${liveF.folder?.id}` : '');   // a live folder is open until you pick another
-  const rows = d?.rows || []; const r = d?.rules || {}; const graded = rows.filter(x => x.graded); const right = graded.filter(x => x.honey > 0).length;
+  const rows = d?.rows || []; const r = d?.rules || {}; const folders = d?.folders || []; const filedN = folders.length; const won = folders.filter(x => Number(x.folder?.pnlPct) > 0).length;
   const avg = rows.length ? Math.round(rows.reduce((a, x) => a + (Number(x.strength) || 0), 0) / rows.length) : 0;
   const fill = t => t.replace('{sites}', r.sites ?? 4).replace('{steps}', r.steps ?? 5).replace('{pulls}', r.pulls ?? 3);
   return <article className="fch-card fch-wide hv-pow m-live" data-testid="pow-engine">
     <h4><Ic3 e="⛏" /> PROOF OF WORK ENGINE<small>every Collective agent · one intake coin per {r.everyMin ?? 30} min · rules are code, the same for every model</small></h4>
     <ol className="hv-pow-flow" aria-label="The PoW pipeline">{POW_STAGES.map(([ic, k, t], i) => <li key={k} style={{ '--i': i }} data-tip={fill(t)}><b aria-hidden="true"><Ic3 e={ic} /></b><em>{k}</em><small>{fill(t)}</small></li>)}</ol>
-    <div className="hv-pow-stats">{[['FILED', rows.length, 'Proofs in this list'], ['GRADED', graded.length, 'Judged an hour after the call'], ['RIGHT', graded.length ? `${Math.round(100 * right / graded.length)}%` : '—', 'Graded calls that earned honey'],
-      ['STRENGTH', avg, 'Average work behind a call: sites with vitals, distinct vitals, safety vitals, a vital confirmed twice']].map(([k, v, tip]) =>
+    <div className="hv-pow-stats">{[['FILED', filedN, 'Proofs filed by every agent'], ['WON', won, 'Proofs that ended up'], ['LOST', filedN - won, 'Proofs that ended down'], ['STRENGTH', avg, 'Average work behind a call: sites with vitals, distinct vitals, safety vitals, a vital confirmed twice']].map(([k, v, tip]) =>
       <span key={k} data-tip={tip}><em>{k}</em><b className="m-num" key={v}>{v}</b></span>)}</div>
-    {(d?.folders || []).length ? <div className="hv-pow-db" data-testid="pow-db"><b className="hv-pow-db-h">🗄 EVERY AGENT'S PoW FOLDERS · tap one to open it</b>
-      <ul className="hv-pow-shelf">{d.folders.map(x => { const k = `${x.cat}-${x.folder?.id}`; const p = x.folder?.pnlPct; return <li key={k}><button type="button" className={`${shown === k ? 'on' : ''}${x.live ? ' is-live' : ''}`} aria-expanded={shown === k} onClick={() => setSeen(shown === k ? '' : k)} data-tip={x.folder?.why || x.folder?.name} data-testid={`pow-shelf-${x.folder?.id}`}><b>{x.folder?.sym ? `$${x.folder.sym}` : x.folder?.name}</b><small>{x.name}{x.live ? ' · ● live' : ''}</small><em className={`m-num ${p > 0 ? 'is-up' : p < 0 ? 'is-dn' : ''}`}>{p == null ? (x.live ? 'live' : '—') : `${p >= 0 ? '+' : ''}${p}%`}</em></button></li>; })}</ul>
-      {(() => { const x = d.folders.find(y => `${y.cat}-${y.folder?.id}` === shown); return x ? <div className="hv-pow-db-row"><FolderView f={x.folder} live={x.live} catId={x.cat} /></div> : null; })()}</div> : null}
+    <ProofCards folders={d?.folders} />
     {rows.length ? <div className="hv-pow-grid">{rows.map((x, i) => <div key={x.id} className="hv-pow-cell" style={{ '--i': i }}><small className="hv-pow-by">{x.name}</small><PowCard p={x} compact /></div>)}</div>
       : (d?.folders || []).length ? null : <p className="fch-nil">{err || 'No proof filed yet — add an agent to the Collective (💎 Join on its desk) and its next free moment researches an intake coin.'}</p>}
   </article>;

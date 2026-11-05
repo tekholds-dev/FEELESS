@@ -92,3 +92,13 @@ def test_first_list_puts_the_owners_sites_on_top_and_says_what_needs_them():
     assert by['espn.com']['state'] == 'soon' and by['thesportsdb.com']['state'] == 'good' and by['docs.kalshi.com']['state'] == 'open' and by['sports-reference.com']['state'] == 'new'
     assert sum(1 for r in rows if r['site'] == 'espn.com') == 1   # its own list does not repeat a site you added
     assert agent_refs.first_rows({'refsMine': ['polymarket.com']}, {}, jar, now)[0]['state'] == 'expired'
+
+
+def test_only_listed_provider_keys_can_be_saved():
+    import pytest
+    import provider_ready as pr
+    assert pr.clean_key('GROQ_API_KEY', '  abc  ') == ('GROQ_API_KEY', 'abc')
+    for name, value in (('PATH', 'x'), ('GROQ_API_KEY', ''), ('GROQ_API_KEY', 'a\nEVIL=1'), ('GROQ_API_KEY', 'x' * 5000)):
+        with pytest.raises(ValueError):
+            pr.clean_key(name, value)
+    assert all(r['keys'] for r in pr.status({})['rows'])

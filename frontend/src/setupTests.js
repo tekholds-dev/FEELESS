@@ -5,3 +5,6 @@ afterEach(() => { try { require('./lib/agentHub').hubReset(); } catch (e) { /* t
 
 // jsdom has no ResizeObserver; Recharts needs one to mount in tests.
 if (!globalThis.ResizeObserver) globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
+// jsdom has no WebGL; sigma.js reads these names when it loads.
+if (!globalThis.WebGL2RenderingContext) globalThis.WebGL2RenderingContext = class {};
+if (!globalThis.WebGLRenderingContext) globalThis.WebGLRenderingContext = class {};

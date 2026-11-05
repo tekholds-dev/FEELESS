@@ -30,6 +30,19 @@ def status(env):
     for name, unlocks, keys, rule, where in PROVIDERS:
         have = [k for k in keys if env.get(k)]
         ready = bool(have) if rule == 'any' else len(have) == len(keys)
-        rows.append({'name': name, 'unlocks': unlocks, 'ready': ready, 'missing': [] if ready else [k for k in keys if not env.get(k)], 'where': where})
+        rows.append({'name': name, 'unlocks': unlocks, 'ready': ready, 'keys': list(keys), 'missing': [] if ready else [k for k in keys if not env.get(k)], 'where': where})
     rows.sort(key=lambda r: r['ready'])
     return {'rows': rows, 'ready': sum(r['ready'] for r in rows), 'total': len(rows)}
+
+
+KEYS = {k for _, _, keys, _, _ in PROVIDERS for k in keys}
+
+
+def clean_key(name, value):
+    """A key the owner typed → (name, value), or ValueError. Only names on the list above, one line, no spaces at the edges. Pure."""
+    name = str(name or ''); value = str(value or '').strip()
+    if name not in KEYS:
+        raise ValueError('That is not a provider key.')
+    if not value or len(value) > 4096 or any(c in value for c in '\r\n\0'):
+        raise ValueError('That value does not look right.')
+    return name, value
