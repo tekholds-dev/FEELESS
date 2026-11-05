@@ -1,14 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { Suspense, lazy, useMemo, useState } from 'react';
 import { growthExample } from '../../lib/proofprint';
 import { PLAN_NAMES, money, usePoolRules } from './SplitFlow';
 import '../../styles/boosts.css';
 
 // 🌊 HOW IT GROWS AND HOW MEMBERS EARN (owner 2026-11-05): the same rules as the ledger, played over a year on numbers you pick, with every plan side by side. No new people join in this example, on purpose: it shows nothing here needs them.
 const K = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : money(v));
+const YearLines = lazy(() => import('./MoneyCharts').then(m => ({ default: m.YearLines })));
 function Chart({ rows, at, series, label }) {
-  const top = Math.max(1e-9, ...rows.flatMap(r => series.map(([k]) => r[k]))); const X = i => (i / (rows.length - 1)) * 600; const Y = v => 158 - (v / top) * 148; const i = Math.round(at / 10);
-  return <figure className="ge-chart"><figcaption>{label}</figcaption><svg viewBox="0 0 600 164" preserveAspectRatio="none" role="img" aria-label={label}><line className="is-base" x1="0" x2="600" y1="158" y2="158" />{series.map(([k, , c]) => <path key={k} d={rows.map((r, n) => `${n ? 'L' : 'M'}${X(n).toFixed(1)} ${Y(r[k]).toFixed(1)}`).join(' ')} stroke={c} />)}<line className="is-now" x1={X(i)} x2={X(i)} y1="4" y2="160" /></svg>
-    <ul className="ge-legend">{series.map(([k, l, c]) => <li key={k}><i style={{ background: c }} />{l} <b className="m-num">{K(rows[i][k])}</b></li>)}</ul></figure>;
+  const i = Math.round(at / 10);
+  return <figure className="ge-chart"><figcaption>{label}</figcaption><Suspense fallback={<div className="spf-wait" />}><YearLines rows={rows} series={series} at={at} label={label} /></Suspense><ul className="ge-legend">{series.map(([k, l, c]) => <li key={k}><i style={{ background: c }} />{l} <b className="m-num">{K(rows[i][k])}</b></li>)}</ul></figure>;
 }
 const Seg = ({ label, value, set, opts, fmt, tip, testid }) => <label className="ge-seg" data-tip={tip}><small>{label}</small><span className="m-seg" role="group" aria-label={label}>{opts.map(v => <button key={v} type="button" className={value === v ? 'active' : ''} aria-pressed={value === v} onClick={() => set(v)} data-testid={`${testid}-${v}`}>{fmt(v)}</button>)}</span></label>;
 export const NOT_PONZI = [['Only real fees feed members', 'Part of every trade and task fee, plus a share of FEELESS swap fees from regular traders, fills the fee pot. Nothing a member deposits or sends can reach another member.'], ['Five agents check every proof', 'Tally, Sherlock, Devil, Archivist and the Judge read the record itself. A proof that fails earns nothing until the owner clears it.'], ['Nobody gets paid for bringing people', 'There is no referral money, and joining early earns no bigger share.'], ['No rate is promised', 'The count follows real fees. If trading slows, the count slows.'], ['Its own money comes back on its date', 'What a plan returns never depends on anyone else joining.'], ['Every dollar is on a sealed chain', 'Each dollar in is one link of a keyed hash chain, checked against the real wallet every 5 minutes. An edited ledger refuses to load.']];

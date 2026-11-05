@@ -170,6 +170,7 @@ webpackConfig.jest = {
     testTimeout: 30000,
     moduleNameMapper: {
       ...(jestConfig.moduleNameMapper || {}),
+      '^@/(.*)$': '<rootDir>/src/$1',
       '^@metaplex-foundation/umi/serializers$': '<rootDir>/node_modules/@metaplex-foundation/umi/dist/cjs/serializers.cjs',
     },
   }),

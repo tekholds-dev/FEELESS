@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { SplitFlow, splitOf } from './SplitFlow';
+import { SplitFlow, sendRows, splitOf } from './SplitFlow';
 import { BoostFolder } from './BoostFolder';
 import { CollectiveOwner } from './CollectiveOwner';
 
@@ -19,14 +19,13 @@ test('the picture follows the plan, and the Vault asks twice', async () => {
   expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$6.80'); expect(el.querySelector('[data-testid="spf-meter"]').textContent).toContain('not promised');
   await click(el.querySelector('[data-testid="plan-week"]')); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$5.60');
   await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="plan-vault"]').textContent).toContain('Tap again'); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$5.60');
-  await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$0.00'); expect(el.querySelector('[data-testid="spf-meter"]').textContent).toContain('stays in the Collective');
-  await click(el.querySelector('[data-testid="spf-view-year"]')); expect(el.querySelector('[data-testid="ge-plans"]').textContent).toContain('Vault');
+  await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="spf-meter"]').textContent).toContain('stays in the Collective');
   await act(async () => root.unmount());
 });
 test('a rule the server changes moves the picture', async () => {
-  const { el, root } = await mount(<SplitFlow rules={{ ...RULES, skimPct: 30 }} />);
-  expect(el.querySelector('[data-testid="spf-kept"]').textContent).toContain('$3.00');
-  await act(async () => root.unmount());
+  const rows = sendRows(splitOf({ ...RULES, skimPct: 30 }, 10, 'month'));
+  expect(rows[0]).toEqual(['Sent', 'Collective, right away', 3]); expect(rows.map(r => r[1])).toContain('Back to the agent');
+  const vault = sendRows(splitOf(RULES, 10, 'vault')); expect(vault.map(r => r[1])).toEqual(['Collective, right away', 'Vault']);
 });
 test('the boost folder counts up, shows each date and spends points', async () => {
   const stream = { id: 's1', plan: 'month', name: 'PoW 1', sym: 'BONK', sentUsd: 10, backUsd: 6.8, soFarUsd: 1, start: Date.now() / 1000 - 86400, at: Date.now() / 1000 - 86400, end: Date.now() / 1000 + 86400 * 29, sig: 'abc' };
@@ -56,13 +55,12 @@ test('the owner folder saves a slider and explains every row', async () => {
   expect(el.querySelector('[data-testid="cof-cover"]').textContent).toContain('FULLY COVERED');
   expect(el.querySelector('[data-testid="cof-tank-keep"]').textContent).toContain('$7.00'); expect(el.querySelector('[data-testid="cof-site"]').textContent).toContain('$15.00');
   await click(el.querySelector('[data-testid="cof-clear-h1"]')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
-  await click(el.querySelector('[data-testid="cof-tab-set"]'));
-  expect(el.querySelector('[data-testid="cs-curves"]')).toBeTruthy(); expect(el.querySelector('[data-testid="cs-bars"]')).toBeTruthy();
-  for (const t of ['plans', 'pot', 'points', 'fees', 'rules']) { await click(el.querySelector(`[data-testid="cof-set-${t}"]`)); expect(el.querySelectorAll('.cof-row').length).toBeGreaterThan(0); [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy()); }
+  expect(el.querySelector('[role="tablist"]')).toBeNull();   // one page, no tabs
+  expect(el.querySelectorAll('.cof-row').length).toBeGreaterThan(20); [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy());
+  for (const t of ['year', 'wallet', 'stash']) expect(el.querySelector(`[data-testid="cof-more-${t}"]`)).toBeTruthy();
   expect(el.querySelector('[data-testid="cof-withdrawals"]').textContent).toContain('OFF');
   expect(el.querySelector('[data-testid="cof-save"]').disabled).toBe(true);
   await click(el.querySelector('[data-testid="cof-mode-rank"]'));
-  expect(el.querySelector('[data-testid="cof-preview"]')).toBeTruthy();
   await click(el.querySelector('[data-testid="cof-save"]'));
   expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body).cfg.boostMode).toBe('rank');
   await act(async () => root.unmount());

@@ -178,6 +178,8 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 
 - 2026-11-05 `ProChart.jsx` = one result chart for the whole site (TradingView Lightweight Charts, free, zoom off). Agent monitors never zoom, owner included. Trade bar (`PowPnl`) on a monitor takes turns with its notices (`Turns`); toasts too. AGENTS desktop gains Sicario's, Prompts, Stash, Providers. Features › First sources (`first_rows`, `refsMine`): owner's sites on top; states come from real visits and sealed cookies, nothing is opened to check. Trade bar seen in tests only; no agent was in a live trade.
 
+- 2026-11-05 Collective HQ is one page, no tabs (`CollectiveOwner.jsx`, `CollectiveSetup.jsx`): shadcn table/chart (`components/ui`), Recharts Sankey `MoneyCharts.jsx` shows how pay moves; users' `SplitFlow` uses the same flow. Rule: libraries first, never hand-drawn. Game window is the look to match. Other money folders not yet moved: Proofprint, StashWeb, Boosts tiles.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

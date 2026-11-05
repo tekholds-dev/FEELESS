@@ -1,0 +1,6 @@
+/* 📊 Text and tooltip for the money charts. The charts themselves are Recharts through shadcn/ui. */
+.mch-flow { width: 100%; min-width: 0; }
+.mch-n { font: 600 11px var(--f-ui); fill: #dbe6ff; } .mch-v { font: 700 11px var(--f-mono); fill: #fff; }
+.mch-tip { display: grid; gap: 1px; padding: 6px 9px; border-radius: 8px; border: 1px solid #ffffff24; background: #0a1020f2; color: #e9f1ff; } .mch-tip b { font: 600 11.5px var(--f-ui); } .mch-tip em { font-style: normal; font-size: 12px; font-weight: 700; }
+.mch-tn { margin-right: 10px; color: #a7b7d0; } .mch-none { font: 500 12px var(--f-ui); color: #a7b7d0; }
+body.theme-day .mch-n { fill: #3a4a68; } body.theme-day .mch-v { fill: #101a44; } body.theme-day .mch-tip { background: #fff; color: #101a44; border-color: #00000022; } body.theme-day .mch-tn { color: #3a4a68; }
