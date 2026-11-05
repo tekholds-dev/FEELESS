@@ -419,8 +419,8 @@ export function FeedPopHost() {
 // 📱 phone: the header folds away while you scroll down and comes back on the way up (transform only, one passive listener)
 function useFoldOnScroll() {
   const [hid, setHid] = useState(false);
-  useEffect(() => { let last = window.scrollY; let raf = 0;
-    const on = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; const y = window.scrollY; if (Math.abs(y - last) > 8) { setHid(y > last && y > 160); last = y; } }); };
+  useEffect(() => { const sy = () => (document.body.classList.contains('phone-lock') ? document.querySelector('.terminal-main')?.scrollTop || 0 : window.scrollY); let last = sy(); let raf = 0;
+    const on = () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; const y = sy(); if (Math.abs(y - last) > 8) { setHid(y > last && y > 160); last = y; } }); };
     window.addEventListener('scroll', on, { passive: true }); return () => { window.removeEventListener('scroll', on); if (raf) cancelAnimationFrame(raf); }; }, []);
   return hid;
 }

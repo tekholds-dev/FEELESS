@@ -66,6 +66,7 @@ import ai_play as _aip
 import collective as _cl
 import collective_pool as _cpool
 import proof_plan as _plan
+import proof_validators as _val
 import collective_stash as _stash
 import free_browser as _fb
 import evidence_marks as _marks
@@ -1426,10 +1427,13 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
     RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
     _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
     px = await _pool_px(http); usd_ = got / 1e9 * px; str_ = _print.strength(cat, now); pol_ = _cpool.load(POOL_PATH)['cfg']   # ⚡ points scale with its dollars and its print's strength
-    _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name')} paid the Pool")
+    seen_ = {x.get('sig') for x in _shares() if x.get('sig') and x.get('verified') and (x.get('proof') or {}).get('id') != folder.get('id')}
+    rev_ = _val.review(folder, sig, got / 1e9, _cl.send_block(folder, cat, _load()['cats']), seen_, now); folder['review'] = rev_   # ⚖ five agents check it, from the record alone
+    if rev_['ok']:
+        _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name')} paid the Pool")
 
     def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig}, (cat.get('colonyShare') or {}).get('plan'))
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r

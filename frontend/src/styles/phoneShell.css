@@ -1,0 +1,19 @@
+/* 📱 Every tab locked to the screen. The page never scrolls: only .terminal-main does, inside it. Uses the real usable height from lib/phoneShell.js, with dvh as the fallback. */
+body.phone-lock { overflow: clip; height: var(--app-vh, 100dvh); overscroll-behavior: none; position: fixed; inset: var(--app-top, 0) 0 auto 0; width: 100%; }
+html:has(body.phone-lock) { overflow: clip; height: 100%; overscroll-behavior: none; }
+body.phone-lock #root, body.phone-lock .App, body.phone-lock .app-content { height: var(--app-vh, 100dvh); min-height: 0; overflow: clip; }
+body.phone-lock .terminal-app { height: var(--app-vh, 100dvh); min-height: 0; display: flex; flex-direction: column; overflow: clip; }
+body.phone-lock .terminal-app > * { flex: none; } body.phone-lock .terminal-body { flex: 1 1 0; min-height: 0; display: flex; overflow: clip; }
+body.phone-lock .terminal-main { flex: 1 1 0; min-width: 0; min-height: 0; height: auto; overflow-y: auto; overflow-x: clip; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: calc(var(--tabbar-h, 0px) + env(safe-area-inset-bottom)); }
+/* the keyboard is up: the tab bar steps aside so what you type stays visible */
+body.phone-kb :is(.mobile-tabbar, .m-tabbar, .feecat-widget) { display: none !important; }
+/* iPhone zooms any input under 16px on focus */
+@media (pointer: coarse) { body.phone-lock :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select) { font-size: 16px !important; } }
+/* wide folds: use the extra width instead of stretching one column */
+@media (min-width: 600px) and (max-width: 1024px) and (orientation: landscape) { body.phone-lock .terminal-main { padding-inline: 10px; } }
+/* the screen belongs to the tab: on a phone the top bar stays one tight row, and the workspace line goes */
+body.phone-lock .terminal-main > .workspace-topline { display: none; }
+body.phone-lock .context-bar { min-height: 0; padding-block: 3px; }
+body.phone-lock .context-indicator, body.phone-lock .context-clock { display: none; }
+/* short and wide (a phone or fold turned sideways): every pixel of height counts */
+@media (max-height: 520px) { body.phone-lock .context-bar { display: none; } body.phone-lock .mobile-tabbar { min-height: 44px; } }

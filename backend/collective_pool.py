@@ -18,14 +18,15 @@ TICK_S = 60
 BOOST_POINTS_FULL = 100
 
 PLANS = ('week', 'month', 'quarter', 'vault')
-DEFAULTS = {'skimPct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+DEFAULTS = {'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
             'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.5, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
-BOUNDS = {'skimPct': (0, 50), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
+BOUNDS = {'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
           'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
-POT_KINDS = ('txn', 'task')   # the only money that may ever reach members: fees on real activity
+POT_KINDS = ('txn', 'task')   # member fees on real activity: part of each reaches the pot
+OUTSIDE_KINDS = ('site',)     # money from outside the members: all of it goes to the pot. This is what lets the average member come out ahead
 SEAL_ID = 'collective-pool'
 GENESIS = '0' * 64
 
@@ -102,7 +103,7 @@ def _once(state, key):
 
 def _take_in(state, token, units, kind):
     b = state['books'][token]; units = int(units)
-    pot = int(units * state['cfg']['potPct'] / 100) if kind in POT_KINDS else 0
+    pot = units if kind in OUTSIDE_KINDS else int(units * state['cfg']['potPct'] / 100) if kind in POT_KINDS else 0
     b['pot'] += pot; b['keep'] += units - pot
     b['in'][kind] = int(b['in'].get(kind) or 0) + units
 
@@ -135,6 +136,20 @@ def plan_of(cfg, name, boost=0.0):
 def points_for(cfg, usd, strength=50.0):
     """Points for one verified send: they scale with its dollars, up to a limit, and a stronger print earns more from the same send (0.5x to 1.5x)."""
     return round(min(cfg['ptsMaxSend'], cfg['ptsBase'] + _f(usd) * cfg['ptsPerUsd']) * (0.5 + min(100.0, max(0.0, _f(strength))) / 100), 1)
+
+
+def site_owed(cfg, site_fees_usd, moved_usd):
+    """The Collective's share of FEELESS's swap fees from regular traders, less what has really reached its wallet. Pure."""
+    return round(max(0.0, _f(site_fees_usd) * cfg['sitePct'] / 100 - _f(moved_usd)), 6)
+
+
+def clear_review(state, cat, stream_id):
+    """The owner clears a held proof. → True when it changed."""
+    row = next((r for r in (state['agents'].get(cat) or {}).get('streams') or [] if r.get('id') == stream_id), None)
+    if not row or not row.get('held'):
+        return False
+    row['held'] = False; row['clearedAt'] = round(_f(state.get('at')))
+    return True
 
 
 def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None, plan=None):
@@ -196,6 +211,8 @@ def _working_usd(a, sol_usd, now):
     """What is working for an agent: its unreleased money and its Vault claim, each × its plan's weight. A Vault claim fades by half every 45 days, so it pays those still sending good proofs, not those who simply got here first."""
     w = 0.0
     for r in a.get('streams') or []:
+        if r.get('held'):   # the validators held it: no fee share until it is cleared
+            continue
         amt = r.get('vault') or (r.get('locked') if (r.get('left') or 0) > 0 else 0) or 0   # a send earns on its whole amount until its date
         if amt:
             age = max(0.0, now - _f(r.get('at')))
@@ -296,7 +313,7 @@ def pays_for_itself(usd, back_usd, weight_x, pot_day_usd, total_weight):
 
 def stream_view(r, sol_usd):
     t = r['token']; back = r.get('back') or 0; out = r.get('out') or 0
-    return {k: r.get(k) for k in ('id', 'at', 'plan', 'token', 'end', 'name', 'sym', 'pct', 'sig', 'backPct', 'start')} | {'sent': r['sent'] / UNITS[t], 'kept': r['kept'] / UNITS[t], 'locked': r['locked'] / UNITS[t], 'backTotal': back / UNITS[t], 'backSoFar': out / UNITS[t], 'backUsd': round(_usd(back, t, sol_usd), 4), 'soFarUsd': round(_usd(out, t, sol_usd), 4), 'sentUsd': round(_usd(r['sent'], t, sol_usd), 4), 'vaultUsd': round(_usd(r.get('vault') or 0, t, sol_usd), 4), 'done': not r.get('vault') and (r.get('left') or 0) <= 0}
+    return {k: r.get(k) for k in ('id', 'at', 'plan', 'token', 'end', 'name', 'sym', 'pct', 'sig', 'backPct', 'start', 'held', 'review')} | {'sent': r['sent'] / UNITS[t], 'kept': r['kept'] / UNITS[t], 'locked': r['locked'] / UNITS[t], 'backTotal': back / UNITS[t], 'backSoFar': out / UNITS[t], 'backUsd': round(_usd(back, t, sol_usd), 4), 'soFarUsd': round(_usd(out, t, sol_usd), 4), 'sentUsd': round(_usd(r['sent'], t, sol_usd), 4), 'vaultUsd': round(_usd(r.get('vault') or 0, t, sol_usd), 4), 'done': not r.get('vault') and (r.get('left') or 0) <= 0}
 
 
 def view(state, cat, now, sol_usd):
@@ -358,7 +375,7 @@ def totals(state, sol_usd):
 
 def rules(cfg):
     """What a user's picture draws, straight from the live settings."""
-    keep = ('skimPct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
+    keep = ('skimPct', 'sitePct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
     return {**{k: cfg[k] for k in keep}, 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
 
 

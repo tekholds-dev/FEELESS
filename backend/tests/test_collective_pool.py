@@ -383,3 +383,34 @@ def test_boost_dollars_are_what_the_boost_really_added():
     run(s, 1, 31, 86400)
     x, y = cp.view(s, 'x', 31 * D, SOL), cp.view(s, 'y', 31 * D, SOL)
     assert x['boostUsd'] == 0 and abs(y['boostUsd'] - 4) < 0.01 and y['owedUsd'] - x['owedUsd'] == pytest.approx(4, abs=0.01)     # 5% of $80
+
+
+def test_outside_money_all_reaches_the_pot_and_member_money_cannot():
+    s = cp.new_state()
+    cp.income(s, 'a', 'USDC', 100 * USDC, 'site'); assert s['books']['USDC']['pot'] == 100 * USDC
+    assert cp.site_owed(cp.clean_cfg(None), 100, 5) == 15 and cp.site_owed(cp.clean_cfg(None), 100, 50) == 0
+
+
+def test_a_held_proof_earns_nothing_until_the_owner_clears_it():
+    s = cp.new_state(); s['at'] = 1
+    r = cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1, 0, {'held': True}, 'month')
+    cp.send(s, 'k2', 'b', 'p', 'USDC', 10 * USDC, 10, 1, 0, None, 'month')
+    assert 'a' not in cp.shares(s, SOL) and 'b' in cp.shares(s, SOL)
+    assert cp.clear_review(s, 'a', r['id']) is True and 'a' in cp.shares(s, SOL) and cp.clear_review(s, 'a', r['id']) is False
+
+
+def test_five_validators_catch_what_each_one_is_for():
+    import proof_validators as v
+    f = {'real': True, 'status': 'closed', 'sol': 1.0, 'pnlSol': 0.8, 'pnlPct': 80, 'at': 10, 'boughtAt': 100, 'soldAt': 4000, 'shots': [{'found': ['x']}]}
+    r = v.review(f, 'S', 0.1, '', (), 5000)
+    assert r['ok'] and [x['name'] for x in r['seats']] == ['Tally', 'Sherlock', 'Devil', 'Archivist', 'Judge'] and all(x['ok'] for x in r['seats'])
+    def says(**kw):
+        out = v.review({**f, **{k: w for k, w in kw.items() if k not in ('sent', 'block', 'seen')}}, 'S', kw.get('sent', 0.1), kw.get('block', ''), kw.get('seen', ()), 5000)
+        return out['ok'], [x['name'] for x in out['seats'] if not x['ok']]
+    assert says(pnlPct=500) == (False, ['Tally', 'Judge'])                 # numbers that do not add up
+    assert says(sent=0.5) == (False, ['Tally', 'Judge'])                   # sent more than 25% of its profit
+    assert says(shots=[]) == (False, ['Sherlock', 'Judge'])                # nothing to show
+    assert says(soldAt=130) == (False, ['Devil', 'Judge'])                 # a 30 second flip
+    assert says(block='thin pool') == (False, ['Devil', 'Judge'])
+    assert says(seen=('S',)) == (False, ['Archivist', 'Judge'])            # the same transaction twice
+    assert says(real=False) == (False, ['Archivist', 'Judge'])

@@ -27252,6 +27252,29 @@ async def admin_collective_set(request: Request):
     """🪙 Owner: change the settings, inside their limits. New money and the next tick use them; nothing already owed shrinks."""
     me_ = _require_owner(request)
     body = await request.json() or {}
+    if body.get('clear'):   # ⚖ the owner clears a held proof
+        ok_ = _cpool.update(POOL_PATH, lambda st: _cpool.clear_review(st, str(body['clear'].get('cat')), str(body['clear'].get('id'))))
+        if not ok_:
+            raise HTTPException(404, 'No held proof like that.')
+        return await _collective_view()
+    if body.get('siteSig'):   # 🌍 the owner moved the site's share to the Collective wallet: it counts only once the chain shows it landed
+        sig_ = str(body['siteSig']).strip(); pot_ = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
+        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', sig_) or not pot_:
+            raise HTTPException(400, 'That is not a transaction.')
+        async with httpx.AsyncClient(timeout=15) as http:
+            tx_ = await _rpc(http, 'getTransaction', [sig_, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+        got_ = _site_landed(tx_, pot_)
+        if not got_:
+            raise HTTPException(400, 'That transaction did not put SOL or USDC into the Collective wallet.')
+        px_ = float(await _sol_usd() or 0); st_tok, units_ = got_
+        def go_site(st):
+            if _cpool.income(st, f'site:{sig_}', st_tok, units_, 'site'):
+                st['siteMovedUsd'] = round(float(st.get('siteMovedUsd') or 0) + units_ / _cpool.UNITS[st_tok] * (px_ if st_tok == 'SOL' else 1), 6)
+                return True
+            return False
+        if not _cpool.update(POOL_PATH, go_site):
+            raise HTTPException(409, 'That transaction was already counted.')
+        return await _collective_view()
     if not isinstance(body.get('cfg'), dict):
         raise HTTPException(400, 'cfg is required.')
 
@@ -27265,6 +27288,26 @@ async def admin_collective_set(request: Request):
     return await _collective_view()
 
 
+def _site_landed(tx, pot):
+    """(token, units) a successful transaction really added to the Collective wallet, or None."""
+    meta = (tx or {}).get('meta') or {}
+    if not tx or meta.get('err') is not None:
+        return None
+    keys = [str(k.get('pubkey') if isinstance(k, dict) else k) for k in ((tx.get('transaction') or {}).get('message') or {}).get('accountKeys') or []]
+    if pot in keys:
+        i = keys.index(pot); gain = int((meta.get('postBalances') or [0] * (i + 1))[i]) - int((meta.get('preBalances') or [0] * (i + 1))[i])
+        if gain > 0:
+            return 'SOL', gain
+    bal = lambda rows: sum(int((r.get('uiTokenAmount') or {}).get('amount') or 0) for r in rows or [] if r.get('owner') == pot and r.get('mint') == USDC_MINT)
+    gain = bal(meta.get('postTokenBalances')) - bal(meta.get('preTokenBalances'))
+    return ('USDC', gain) if gain > 0 else None
+
+
+def _site_fees_total():
+    """Every swap fee FEELESS has really taken from regular traders, from its own ledger."""
+    return sum(float(r.get('feeUsd') or 0) for v in (_json_load(FEE_LEDGER_PATH, {}) or {}).values() for r in (v or []) if isinstance(r, dict))
+
+
 async def _collective_view():
     try:
         st = _cpool.load(POOL_PATH)
@@ -27273,7 +27316,7 @@ async def _collective_view():
     px = float(await _sol_usd() or 0)
     rows = sorted(((_cpool._locked_usd(a, px) + sum(_cpool._usd(a['owed'][t], t, px) for t in _cpool.TOKENS), c, a) for c, a in st['agents'].items()), key=lambda r: -r[0])[:12]
     return {'cfg': st['cfg'], 'defaults': _cpool.DEFAULTS, 'bounds': _cpool.BOUNDS, 'totals': _cpool.totals(st, px), 'chain': st.get('chain'), 'solUsd': px, 'wallet': ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address'),
-            'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False, 'hist': (st.get('hist') or [])[-180:], 'audit': st.get('auditNow'), 'head': st.get('head'), 'links': st.get('links') or 0, 'potKinds': list(_cpool.POT_KINDS)}
+            'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False, 'site': {'feesUsd': round(_site_fees_total(), 4), 'movedUsd': round(float(st.get('siteMovedUsd') or 0), 4), 'owedUsd': _cpool.site_owed(st['cfg'], _site_fees_total(), st.get('siteMovedUsd'))}, 'held': [{'cat': c, 'name': a.get('name'), **{k: r.get(k) for k in ('id', 'sym', 'at', 'review', 'sig')}} for c, a in st['agents'].items() for r in a.get('streams') or [] if r.get('held')][:30], 'reviewed': sum(1 for a in st['agents'].values() for r in a.get('streams') or [] if r.get('review')), 'hist': (st.get('hist') or [])[-180:], 'audit': st.get('auditNow'), 'head': st.get('head'), 'links': st.get('links') or 0, 'potKinds': list(_cpool.POT_KINDS)}
 
 
 @app.get('/api/reputation/fees/pricing')

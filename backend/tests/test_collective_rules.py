@@ -138,12 +138,12 @@ def test_auto_collect_sends_once_verifies_and_boosts(monkeypatch, tmp_path):
     monkeypatch.setattr(fs._at, '_circle_post', post)
     async def rpc(http, m, a): return {'value': {'blockhash': 'B'}} if m == 'getLatestBlockhash' else {**_tx('A', 'POT', 0, int(.1 * 1e9)), 'slot': 5, 'blockTime': 1000}
     monkeypatch.setattr(fs._crpc, '_rpc', rpc)
-    f = {**_win(pnl=1.0), 'mint': 'M', 'coins': [{'mint': 'M', 'liq': 50000}]}; cat = {'id': 'k', 'name': 'H', 'colonyShare': {'on': True, 'auto': True, 'pct': 10}, 'agentWallet': {'address': 'A'}, 'powFolders': [f]}; store = {'cats': {'k': cat}}
+    f = {**_win(pnl=1.0), 'mint': 'M', 'coins': [{'mint': 'M', 'liq': 50000}], 'sol': 1.0, 'pnlSol': 1.0, 'pnlPct': 100, 'at': 10, 'boughtAt': 100, 'soldAt': 900, 'vitals': {'M': [1]}}; cat = {'id': 'k', 'name': 'H', 'colonyShare': {'on': True, 'auto': True, 'pct': 10}, 'agentWallet': {'address': 'A'}, 'powFolders': [f]}; store = {'cats': {'k': cat}}
     fs._colony_share(cat, {'symbol': 'X'}, 1.0, 'r1', {'id': 'f1', 'pnlPct': 80})
     asyncio.run(fs._collect_pass(None, store, 2000)); asyncio.run(fs._collect_pass(None, store, 2001))
     row = fs._shares()[0]
     pool = fs._cpool.load(tmp_path / 'pool.json')   # 0.1 SOL verified: 20% kept, 80% locked, counted once
-    assert pool['agents']['k']['locked']['SOL'] == 80_000_000 and pool['agents']['k']['sent']['SOL'] == 100_000_000 and pool['books']['SOL']['in'] == {'proofs': 20_000_000} and pool['books']['SOL']['pot'] == 0 and pool['agents']['k']['streams'][0]['sig'] == 'SIG1' and pool['agents']['k']['streams'][0]['plan'] == 'month'
+    assert pool['agents']['k']['locked']['SOL'] == 80_000_000 and pool['agents']['k']['sent']['SOL'] == 100_000_000 and pool['books']['SOL']['in'] == {'proofs': 20_000_000} and pool['books']['SOL']['pot'] == 0 and pool['agents']['k']['streams'][0]['sig'] == 'SIG1' and pool['agents']['k']['streams'][0]['plan'] == 'month' and pool['agents']['k']['streams'][0]['held'] is False and f['review']['ok']
     assert f['sent']['keptSol'] == 0.02 and f['sent']['lockedSol'] == 0.08
     assert len(sent) == 1 and row['sent'] and row['sig'] == 'SIG1' and row['verified'] and cat['boosts'][0]['pts'] > 0 and len(cat['boosts']) == 1
     assert f['sent']['link'].endswith('SIG1') and fs._receipt_path('SIG1').exists()

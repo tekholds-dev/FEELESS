@@ -49,12 +49,13 @@ test('an agent with nothing sent says so and shows the split', async () => {
   await act(async () => root.unmount());
 });
 test('the owner folder saves a slider and explains every row', async () => {
-  const cfg = { ...RULES, capPct: 3, weekDays: 7, weekBack: 70, weekWeight: 1, weekRoom: 1, monthDays: 30, monthBack: 85, monthWeight: 2, monthRoom: 2, quarterDays: 90, quarterBack: 95, quarterWeight: 3, quarterRoom: 3, vaultWeight: 6, vaultRoom: 6 }; const bounds = Object.fromEntries(Object.keys(cfg).map(k => [k, [0, 1000]]));
-  const view = { cfg, defaults: cfg, bounds, totals: { usd: { keep: 7, pot: 3, locked: 8, owed: 1 }, in: { deposit: 5, proofs: 2 }, agents: 1, ratePerSecUsd: 0 }, chain: { short: [], tokens: { SOL: { chain: 1e9, need: 1e8 }, USDC: { chain: 0, need: 0 } } }, agents: [{ id: 'a', name: 'Happy', sentUsd: 10, lockedUsd: 8, owedUsd: 1, levers: { weightX: 1 } }], log: [] };
+  const cfg = { ...RULES, sitePct: 20, capPct: 3, weekDays: 7, weekBack: 70, weekWeight: 1, weekRoom: 1, monthDays: 30, monthBack: 85, monthWeight: 2, monthRoom: 2, quarterDays: 90, quarterBack: 95, quarterWeight: 3, quarterRoom: 3, vaultWeight: 6, vaultRoom: 6 }; const bounds = Object.fromEntries(Object.keys(cfg).map(k => [k, [0, 1000]]));
+  const view = { cfg, defaults: cfg, bounds, totals: { usd: { keep: 7, pot: 3, locked: 8, owed: 1 }, in: { deposit: 5, proofs: 2 }, agents: 1, ratePerSecUsd: 0 }, chain: { short: [], tokens: { SOL: { chain: 1e9, need: 1e8 }, USDC: { chain: 0, need: 0 } } }, site: { feesUsd: 100, movedUsd: 5, owedUsd: 15 }, held: [{ cat: 'c', id: 'h1', name: 'Happy', sym: 'X', review: { seats: [{ k: 'devil', ok: false, name: 'Devil', why: 'short' }] } }], reviewed: 3, agents: [{ id: 'a', name: 'Happy', sentUsd: 10, lockedUsd: 8, owedUsd: 1, levers: { weightX: 1 } }], log: [] };
   const call = jest.fn(async (u, o) => (o ? { ...view, cfg: { ...cfg, ...JSON.parse(o.body).cfg } } : view));
   const { el, root } = await mount(<CollectiveOwner call={call} />);
   expect(el.querySelector('[data-testid="cof-cover"]').textContent).toContain('FULLY COVERED');
-  expect(el.querySelector('[data-testid="cof-tank-keep"]').textContent).toContain('$7.00');
+  expect(el.querySelector('[data-testid="cof-tank-keep"]').textContent).toContain('$7.00'); expect(el.querySelector('[data-testid="cof-site"]').textContent).toContain('$15.00');
+  await click(el.querySelector('[data-testid="cof-clear-h1"]')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
   await click(el.querySelector('[data-testid="cof-tab-set"]'));
   expect(el.querySelector('[data-testid="cof-withdrawals"]').textContent).toContain('OFF');
   [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy());

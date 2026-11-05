@@ -9,6 +9,8 @@ import { installTipLayer } from "@/lib/tipLayer";
 import { installDeadClick } from "@/lib/deadClick";
 import { installClipboard, installNoFocusZoom } from "@/lib/clipboard";
 import { installDuo } from "@/lib/duo";
+import { installPhoneShell } from "@/lib/phoneShell";
+import "@/styles/phoneShell.css";
 import { initTelegram } from "@/lib/telegram";
 import "@/styles/duo.css";
 
@@ -20,6 +22,7 @@ installDeadClick();
 installClipboard();
 installNoFocusZoom();
 installDuo();
+installPhoneShell();
 
 // Any link that leaves FEELESS opens in a new tab, even if a component forgot target=_blank.
 document.addEventListener('click', event => {
