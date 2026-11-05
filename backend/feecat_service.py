@@ -8,6 +8,7 @@ Only the money is simulated — never the prices.
 
 File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
+import logging
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
@@ -129,7 +130,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -2827,13 +2828,25 @@ def _read_start(cat, goal, who, kind=''):
     return ''
 
 
+def read_note(w):
+    """A window's summary; when it ran out of budget before writing one, the text of the pages it really read. Nothing else is ever handed to the minds. Pure."""
+    said = str(w.get('answer') or '').strip()
+    if len(said) > 80 and not said.startswith(('⏹', '(error)')):
+        return said[:600]
+    pages = ' | '.join(f"{site}: {text}" for site, text in list((w.get('_read') or {}).items())[:4])
+    return f'{said} {pages}'.strip()[:2000]
+
+
 def _read_notes(t):
     """What each window actually opened and answered. A site it never reached is not listed. → {mind: {'sites', 'note'}}."""
     out = {}
     for w in t.get('windows') or []:
         sites = sorted({_pow.host_of(s.get('detail')) for s in w.get('steps') or [] if s.get('action') == 'open' and str(s.get('detail') or '').startswith('http')} - {'', None})
         if w.get('goal'):
-            out[str(w.get('i'))] = {'sites': sites, 'note': str(w.get('answer') or '')[:600], 'cost': round(float(w.get('cost') or 0), 5)}
+            out[str(w.get('i'))] = {'sites': sites, 'note': read_note(w), 'cost': round(float(w.get('cost') or 0), 5)}
+            for site_ in {_pow.host_of(k) for k in (w.get('_read') or {})} - {'', None}:   # 📖 a page it really read counts as a visit, so its first-sources list is true
+                _src_note(site_, True)
+            print(f"[read] mind {w.get('i')}: {len(w.get('steps') or [])} steps, {len(sites)} sites, status {w.get('status')}, ${float(w.get('cost') or 0):.4f}, answer: {str(w.get('answer') or '')[:90]!r}")
     return out
 
 
@@ -3159,11 +3172,19 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     if not any(len(str((notes or {}).get(str(i), {}).get('note') or '')) > 80 for i in idx):   # 🛟 too little read: the free scores and market odds, and it says so
         try:
             async with httpx.AsyncClient(timeout=12) as http_f:
-                t_ = await _tools.best_topic(http_f)
+                t_ = await _tools.best_topic(http_f, rd['topic'])
             if t_:
                 notes = {**(notes or {}), **{str(i): {'note': f'Your windows read too little, so this came from free scores and market odds: {t_}'} for i in idx}}; base['fallback'] = 'free scores and market odds'; base['browsed'] = notes
         except Exception as e:   # noqa: BLE001
             print(f'[pob] fallback: {str(e)[:100]}')
+    elif not base.get('fallback'):   # 🗳 both minds also get the same free scores and market odds for this sport, so they have the same numbers to compare
+        try:
+            async with httpx.AsyncClient(timeout=12) as http_f:
+                odds_ = await _tools.best_topic(http_f, rd['topic'])
+            if odds_:
+                notes = {k: {**v, 'note': f"{v.get('note') or ''}\nFree market odds: {odds_}".strip()} for k, v in (notes or {}).items()}; base['browsed'] = notes
+        except Exception as e:   # noqa: BLE001 — the pages it read still stand
+            print(f'[pob] odds: {str(e)[:100]}')
     if not any((notes or {}).get(str(i), {}).get('note') for i in idx):
         _pob_file(cat, {**base, 'noTrade': True, 'why': why or 'its windows read nothing', 'calls': []}, f"🎲 PoB on {rd['topic']}: nothing was read, so no picks. {why or ''}".strip())
         return
@@ -3248,6 +3269,7 @@ async def _pob_pass(store):
 
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
+    _ws_pass(store)
     _made_pass(store)
     await _site_pass(store)
     await _pob_pass(store)
@@ -3801,7 +3823,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if pow_ or read_:   # ⛏ a PoW folder (or a PoP / PoB's site read) runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
-        cap = min(_pow.ROUND_USD * len(pows or [0]), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
+        cap = min(_pow.ROUND_USD * (len(pows) if pows else max(1, len(b.get('brains') or [])) if read_ else 1), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
     elif left_ is not None:
         if left_ <= 0:
             raise HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
@@ -3819,7 +3841,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
         steps = _pow.budget(pow_)
     elif read_:
         steps = READ_STEPS
-    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ or read_ else cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ or read_ else cat.get('workMode') or 'plan', [cap / len(models)] * len(models) if read_ and len(models) > 1 else lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['alts'] = ['https://' + h for h in _src.best(_src_book(), n=6)]   # 🔀 where a repeating mind is moved
     _WORK[cat_id]['task']['knowhow'] = _pow.README + '\n' + _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if pow_:
@@ -4956,6 +4978,35 @@ async def _ws_ask(cat, model, sys_, user_, tokens):
     return str(text_ or ''), float(usd_ or 0), bool(own_)
 
 
+_WS_DONE: list = []   # 💻 finished builds, filed by the engine pass (the store's one writer) so a save running at the same moment cannot lose them
+
+
+def _ws_pass(store):
+    while _WS_DONE:
+        o = _WS_DONE.pop(0); c_ = store['cats'].get(o['cat'])
+        if not c_:
+            continue
+        if o['cost'] and not o['own'] and c_.get('brainsCfg'):
+            _lc.charge(c_['brainsCfg'], o['cost'])
+        if o['doc']:   # 💻 the page it built is filed as a PoStatic
+            _feat.file_static(c_, o['doc'], (o['doc']['versions'][-1] or {}).get('by') or 'Mind', time.time())
+
+
+async def _ws_page(cat, model, sys_, user_, tokens):
+    """One whole page. The wallet's provider stops a reply at about 1,500 tokens whatever is asked (receipts, 2026-11-05), so an unfinished page is continued from where it stopped, up to 3 more calls."""
+    raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
+    for _ in range(3):
+        html = _aip.html_of(raw)
+        if not html or _feat.page_complete(html):
+            break
+        more, u_, own = await _ws_ask(cat, model, sys_, f"{user_[:6000]}\n\nYour page stopped partway. It ended with:\n{raw[-1200:]}\n\nContinue from exactly the next character. Send only the rest of the document: no repeat, no code fences, no comment.", tokens)
+        usd += u_
+        if not more.strip():
+            break
+        raw += re.sub(r'```(?:html)?', '', more)
+    return raw, usd, own
+
+
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
@@ -4986,9 +5037,11 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
-                raw, usd, own = await _ws_ask(cat, brains[i], _feat.REVIEW_SYS if k else _feat.BUILD_SYS, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 4000)
+                raw, usd, own = await _ws_page(cat, brains[i], _feat.REVIEW_SYS if k else _feat.BUILD_SYS, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000)
                 cost += usd; paid_own = own; html = _aip.html_of(raw)
-                if html:
+                if html and not _feat.page_complete(html):
+                    _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
+                elif html:
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
@@ -5006,12 +5059,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _ws_save(cat_id, doc)
     built = kind == 'build' and len(doc.get('versions') or []) > start_versions
     if built or (cost and not paid_own):
-        store = _load(); c_ = store['cats'].get(cat_id)
-        if c_ and cost and not paid_own and c_.get('brainsCfg'):
-            _lc.charge(c_['brainsCfg'], cost)
-        if c_ and built:   # 💻 the page it built is filed as a PoStatic
-            _feat.file_static(c_, doc, (doc['versions'][-1] or {}).get('by') or 'Mind', time.time())
-        _save(store)
+        _WS_DONE.append({'cat': cat_id, 'cost': cost, 'own': paid_own, 'doc': json.loads(json.dumps(doc)) if built else None}); _POW_WAKE.set()
 
 
 def _poc_view(cat):
@@ -5134,6 +5182,20 @@ async def cat_tool_image(q: str = '', must: str = ''):
     async with httpx.AsyncClient(timeout=8, follow_redirects=True) as http:
         imgs = await _tools.free_images(http, q[:90], [w for w in must.split(',') if w][:6])
         return {'image': imgs[0] if imgs else None, 'images': imgs}
+
+
+class _NoTokensInLog(logging.Filter):
+    """🔐 The access log never keeps a session or owner id from a URL."""
+    def filter(self, record):
+        try:
+            if isinstance(record.args, tuple) and len(record.args) >= 3:
+                record.args = (*record.args[:2], re.sub(r'((?:session|ownerId|sig|token)=)[^&\s]+', r'\1***', str(record.args[2])), *record.args[3:])
+        except Exception:   # noqa: BLE001 — a log line is never worth a crash
+            pass
+        return True
+
+
+logging.getLogger('uvicorn.access').addFilter(_NoTokensInLog())
 
 
 @app.get('/api/cats/collective/look')
@@ -5720,11 +5782,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
             row_ = _feat.new_folder(cat, kind_, p.job, time.time())
         except ValueError as e:
             raise HTTPException(409, str(e))
-        _ws_save(cat_id, _feat.new_doc(row_)); _save(store)
+        _ws_save(cat_id, _feat.new_doc(row_)); keep_owned(cat); _save(store)
         return {'folder': row_, 'workspaces': cat['workspaces']}
     if p.op == 'feature_delete':
         cat['workspaces'] = [w_ for w_ in cat.get('workspaces') or [] if w_.get('id') != p.text]
-        _ws_file(cat_id, p.text).unlink(missing_ok=True); _save(store)
+        _ws_file(cat_id, p.text).unlink(missing_ok=True); keep_owned(cat); _save(store)
         return {'workspaces': cat['workspaces']}
     if p.op == 'ws_open':
         return {'doc': _ws_view(cat_id, p.text)}
@@ -5786,7 +5848,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             asyncio.create_task(_sort_cloud(cat_id, brains_[0]))
         else:
             raise HTTPException(400, 'Fresh, clean or personal.')
-        _save(store)
+        keep_owned(cat); _save(store)
         return {'memory': _feat.memory_view(cat)}
     if p.op == 'poc':   # 📣 a Proof of Content: both minds read what is trending, blind, then it files
         if not (cat.get('brainsCfg') or {}).get('brains'):

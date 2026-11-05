@@ -42,7 +42,7 @@ def test_a_proof_read_is_capped_silent_and_owes_no_flat_fee(fs, monkeypatch):
         await asyncio.sleep(0)
         t = fs._WORK['c1']['task']
         assert t['proofRead'] and t['research'] and t['mode'] == 'jobs' and t['jobs'] == ['read sites', 'read sites']
-        assert ran[0][3] == 'read sites' and ran[0][4] <= fs._pow.ROUND_USD   # its own small ceiling
+        assert ran[0][3] == 'read sites' and ran[0][4] <= fs._pow.ROUND_USD * 2   # its own small ceiling, per mind
         assert 'workNow' not in cat   # a restart never re-runs it as a chat ask
         fs._WORK['c1']['done'] = True; t['status'] = 'done'; t['cost'] = 0.01
         store = {'cats': {'c1': cat}}; fs._work_settle(store)
@@ -169,3 +169,11 @@ def test_a_topic_pob_reads_keeps_snapshots_calls_blind_and_stakes_nothing(fs, mo
     assert f['shots'][0]['site'] == 'espn.com' and fs._ck.unseal_bytes((tmp_path / 'pob100' / 'm0_0.jpg').read_bytes(), 'c1') == b'J'
     assert 'Chiefs -3 on covers' not in asks[0][1] and 'Chiefs -3 on espn' not in asks[1][1]   # blind
     json.dumps(f)
+
+
+def test_a_new_build_folder_survives_the_save(fs):
+    """Real 500 found 2026-11-05: the save put back an old copy of the owner's fields, so a first folder vanished and the reply crashed."""
+    store = fs._load(); cat = {'id': 'ws1', 'name': 'W', 'status': 'stopped', 'workspaces': []}; store.setdefault('cats', {})['ws1'] = cat; fs.keep_owned(cat); fs._save(store)
+    cat = fs._load()['cats']['ws1']; store = fs._load(); cat = store['cats']['ws1']
+    row = fs._feat.new_folder(cat, 'build', 'x', 1); fs.keep_owned(cat); fs._save(store)
+    assert cat['workspaces'][-1]['id'] == row['id'] and fs._load()['cats']['ws1']['workspaces'][-1]['id'] == row['id']

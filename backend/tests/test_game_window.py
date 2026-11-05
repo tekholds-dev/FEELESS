@@ -102,3 +102,31 @@ def test_only_listed_provider_keys_can_be_saved():
         with pytest.raises(ValueError):
             pr.clean_key(name, value)
     assert all(r['keys'] for r in pr.status({})['rows'])
+
+
+def test_a_named_sport_only_gets_that_sport(monkeypatch):
+    async def fake(http, sport='all', team=''):
+        return {'legs': [{'pick': f'{sport} a'}, {'pick': f'{sport} b'}]} if sport == 'nfl' else {'legs': []}
+    monkeypatch.setattr(t, 'bids', fake)
+    assert asyncio.run(t.best_topic(None, 'best NBA picks tonight')) == ''
+    assert 'nfl a' in asyncio.run(t.best_topic(None, 'best NFL picks')) and 'nfl a' in asyncio.run(t.best_topic(None))
+    assert t.sport_named('banff') is None and t.sport_named('best nba picks') == 'nba'
+
+
+def test_go_is_an_answer_not_part_of_the_topic():
+    import proof_plan as pl
+    assert pl.answer({'kind': 'pob', 'text': 'file a pob best picks', 'at': 100}, 'NBA, just 2 picks, go', 101)[1] == 'file a pob best picks NBA, just 2 picks'
+
+
+def test_a_window_out_of_budget_still_hands_over_what_it_read():
+    import feecat_service as fs
+    assert fs.read_note({'answer': 'x' * 100}) == 'x' * 100
+    got = fs.read_note({'answer': None, '_read': {'espn.com': 'Lakers 110 Celtics 100'}})
+    assert 'espn.com' in got and 'Lakers 110' in got
+    assert fs.read_note({'answer': None}) == ''   # read nothing: says nothing, so nothing gets invented
+
+
+def test_a_page_cut_off_mid_css_is_not_a_finished_page():
+    import agent_features as f
+    assert not f.page_complete('<!doctype html><html><head><style>button { font-weight:')
+    assert f.page_complete('<html><body><p>Tip</p></body></html>')

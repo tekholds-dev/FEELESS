@@ -555,9 +555,19 @@ async def pop_tool(http):
     return {'kind': 'pop', **d, 'sources': [{'name': n, 'use': u, 'on': bool((d.get('read') or {}).get(n))} for n, u, _ in SOURCES['pop']]}
 
 
-async def best_topic(http):
-    """🏈 "file a pob" with no topic: the strongest 2 or 3 sides of the first sport with games coming up. → the topic, or '' when no sport has any."""
-    for sport, (label, _) in SPORTS.items():
+def sport_named(text):
+    """The sport a question names, or None. Whole words only. Pure."""
+    t = f' {_word(text)} '
+    for k, (label, _) in SPORTS.items():
+        if f' {k} ' in t or f' {_word(label)} ' in t:
+            return k
+    return None
+
+
+async def best_topic(http, ask=''):
+    """🏈 The strongest 2 or 3 sides, from free scores and market odds. A question that names a sport only ever gets that sport: an NBA question never gets NFL picks. → the topic, or '' when there are none."""
+    named = sport_named(ask)
+    for sport, (label, _) in ([(named, SPORTS[named])] if named else SPORTS.items()):
         try:
             legs = (await bids(http, sport)).get('legs') or []
         except Exception:   # noqa: BLE001 — try the next sport

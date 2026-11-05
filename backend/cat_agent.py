@@ -537,6 +537,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
             if act in ('open', 'search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
+                h_read = _pow.host_of(page.url)   # 📖 what it really read, per site: survives a window that runs out of budget before it writes its answer
+                if h_read:
+                    w.setdefault('_read', {})[h_read] = str(seen)[:700]
             from cat_browser import needs_human
             why = needs_human(page.url, seen)
             if why:

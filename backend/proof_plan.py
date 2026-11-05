@@ -65,7 +65,7 @@ def answer(pending, text, now):
     if _GO.match(t) or re.match(r'(?i)^go,?\s+(best games now|whatever fits me)$', t):
         return 'go', base, ''
     if pending.get('kind') in ('pob', 'poc'):   # its answer sharpens the topic itself
-        joined = f'{base} {t}'.strip()
+        joined = f"{base} {re.sub(r'(?i)[,.;\s]*go[.!]?$', '', t)}".strip()   # "NBA, just 2 picks, go": the go is an answer, not part of the topic
         return 'go', joined[:200], ''
     return 'go', base, t[:300]   # a trade or a perp keeps the line, and its answer goes to both minds as a note
 
