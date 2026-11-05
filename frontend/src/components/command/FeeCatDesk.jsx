@@ -10,6 +10,7 @@ import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, PowEngine } from './HiveBoard';
 import { CollectiveOwner } from './CollectiveOwner';
 import { AgentDesk } from './AgentDesk';
+import { DeskAgents } from './DeskAgents';
 import '../../styles/collectiveSetup.css';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StashWeb } from './StashWeb';
@@ -215,6 +216,7 @@ export function FeeCatDesk({ call }) {
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The tree: the Pool, every agent, every winning proof', body: <ColonyFlow api={flowApi} /> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
+      { k: 'deskagents', ic: '🖥', label: 'OSSY + G4', tip: 'OSSY and G4 on their own desktops, filing proofs on paper', body: <DeskAgents /> },
       { k: 'desk', ic: '🎩', label: "Sicario's", tip: 'OSSY, G4 and the desk: every switch, seat and rule', body: <AgentDesk call={call} isOwner /> },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
       { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },

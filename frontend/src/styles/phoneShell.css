@@ -17,3 +17,7 @@ body.phone-lock .context-bar { min-height: 0; padding-block: 3px; }
 body.phone-lock .context-indicator, body.phone-lock .context-clock { display: none; }
 /* short and wide (a phone or fold turned sideways): every pixel of height counts */
 @media (max-height: 520px) { body.phone-lock .context-bar { display: none; } body.phone-lock .mobile-tabbar { min-height: 44px; } }
+/* 🪟 Unfolded fold: blocks either side of the crease. Headers and tab rows keep the full width. */
+.fold-split { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; row-gap: 12px; align-items: start; align-content: start; grid-auto-flow: dense; }
+.fold-split > * { min-width: 0; max-width: 100%; }
+.fold-split > :is(header, nav, footer, [role=tablist], .m-seg) { grid-column: 1 / -1; }
