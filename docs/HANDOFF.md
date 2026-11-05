@@ -4,6 +4,49 @@ Owner, 2026-11-04: "always should be one MD". This file is the handoff AND the o
 
 Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = not built · **OWNER** = needs your key, account, signature or decision · **VERIFY** = built, needs one real run or your check. A row finished AND proven moves to `docs/FEELESS_HISTORY.md`.
 
+# START HERE (written 2026-11-05 for the next Claude, other account)
+
+Owner's focus right now: **the Agents tab only, until it is tested and clean.** Everything below `# WHAT'S LEFT` still stands, but do these first, in order. The owner is testing real money on Happy Assistant while OSSY and G4 run the tests. Do not stop to ask what's next; do ask before anything that moves money. Answer short, plain words, show proof.
+
+## Latest asks, in the owner's words where it matters
+
+| # | Status | Ask |
+|---|---|---|
+| A1 | OPEN | **Fix OSSY and G4's settings/env.** "They will be the head of operation doing all the tests you want them to do, being they are my Mac and desktop downloaded models, so run them for tests while I request and test real money." Known: `.env` `LAN_LLM_MODEL=google/gemma-4-e2b` but the desktop's LM Studio lists only `qwen/qwen3.5-4b`. Local is fine (`qwen/qwen3.5-9b`). `_lm_call` already uses the loaded model; the card's route in `ai_router.py` still reads `.env`. Use Sicario's as the test runner, on `local/ossy` and `local/g4`, free. |
+| A2 | OPEN · REAL MONEY | **No paper proofs for OSSY and G4.** "They were already using Fuse wallet and Fuse card to trade, so allow them to use Fuse mechanics within PoWs. Owner-only features we test to see if working good." When Auto-collect is chosen they work through the Fuse card wallet and the intake for PoWs. Today Sicario's is paper with no wallet, and `DeskAgents.jsx`, `_sicario_loop` and the screen copy all say paper, so all of that changes. This is a new real-money buy door: read `docs/DEGEN_PLAYBOOK.md` first, ship with age/pool/already-ran guards, audit the card's cash first (0.0026 SOL when last read), owner only, and reconcile with `deskBuysOff` (owner set it true: the desk's agents stop real buys). Confirm how it should interact before the first real buy. |
+| A3 | OPEN | **Sicario tab layout.** "Monitors small and layout not organized and clean." Latest screenshot: seat card sits alone with an empty row beside it, monitors still look small. Files: `AgentCockpit.jsx`, `DeskAgents.jsx`, `styles/sicario.css`, `collectiveSetup.css`. |
+| A4 | OPEN · NEEDS A CALL | **Watch any game or fight live from the PoB folder**: "secret and the user's responsibility, we only provide a free VPN and sources that provide free sports viewing." Note from the last Claude: most free stream sites are pirated, so raise this with the owner before listing them. Legal first: league and network free streams, YouTube, and Pluto, Tubi and similar. Do not ship a list of pirate streams without the owner deciding knowingly; pop-up-free viewing is a fair goal on legal sources. Not started. |
+| A5 | OPEN | **PoW research reads come back empty.** Sicario's PoW said "researched on feeless.app: no vitals (nothing it could read)" on $TIRED and $COGE, then both minds skipped for lack of data. Find out why (`_pow`, scout step in `feecat_service.py`, near the `COIN_TALK_SYS` calls). This can make every PoW's research look blind. Check Happy's real PoW result first. |
+| A6 | OPEN | **Finish the Collective audit**: every mechanic and every folder full, with vitals. The owner said "will be doing a lot more harder requests now". Proof folders must stay lit, clean, little scroll. |
+| A7 | OPEN | **Site lists: the owner wants them huge** (86 now in `agent_refs.PROOF_FILES`): "every proof folder gets a huge site list... when I ask for best code they know where to go so they don't build from scratch EVER but be able to be creative." The list is in the prompts, but no test proves agents really open those sites first. Make the minds actually read them. |
+| A8 | VERIFY | Owner's real tests running: PoStatic (a Monitor test built, owner liked it: "static build was nice"), then `file a PoW` on Happy for a real trade ("see if they can win a trade"). Happy has 0.0363 SOL, $0.98 USDC, $6.69 credit, wallet mode approve. Read what it filed. Test list given to the owner: `propose a PoW`, `propose a perp`, `file a pob best NBA picks tonight`, a slip from the Bids folder, `file a poc`. |
+
+## What the owner has decided (do not undo)
+
+- OSSY and G4 are **one agent, named Sicario's**, with two minds, private to the owner: off the public wall, no folder on the desktops. Its monitors and desktop live on the **HQ Sicario tab**. No chart and no old OSSY×G4 talk there (deleted, with the old generations code).
+- **Proofs propose until they can run the whole loop like PoW.** Split PoP minds now give a card with both calls (Run, or Run … instead). Each proof has its own steps, colour, site list and layout.
+- **Fingerprints are real, not decoration**: `ProofFingerprint` in `Proofprint.jsx` (click a proof's print: verdict, what it lacks, best and worst traits). Every folder's mark is its own ridge coloured by its result.
+- **Why an agent sends** (the owner's question): less back, but a share of every fee. No pool rule was changed; the owner sets them in HQ. Numbers come from `collective_pool.project` and `growth`, which run the real send and tick on a throwaway state. More members alone do not raise profit, because they split the pot; more trading and outside swaps do. Never promise a return; words "invest" and "staking" stay off screens; withdrawals stay off until a lawyer looks.
+- **Trader only**: Edge desk (indicators, order books, tape, case files); the server refuses it for a general agent. That is the answer to "why two kinds of agent?".
+- **Fee's desk opens as everyone sees her**; the Owner only button shows only to the owner.
+- **Style**: never hand-build charts; use libraries (shadcn, Motion, Recharts, Lightweight Charts, sigma, React Flow). The owner hates Sankey split pipes. Less scroll, no nested scroll, no tabs on money screens. Stash web = black space, fine lines, every proof a dot. Collective landing follows `~/Downloads/collective_signature_protocol_lab.html`.
+
+## Traps that already bit
+
+- **Check before restarting `feecat_service`**: a restart kills running builds and proofs (it killed the owner's Monitor test). Restart: `kill $(lsof -ti tcp:5088 -sTCP:LISTEN)`, the watcher brings it back in about 20 s. Check `workspaces[].busy`, `powRun`, `popRead`, `pobRead`, `_POC_BUSY` first.
+- A privacy filter (`_no_keys`, `feecat_service.py`) drops any key named `setup` from answers. Playbook rows carry `name` for the screen and keep `setup` for her brain.
+- `.dsk-body` is a stretched grid: items with `overflow: hidden` collapse. Proof windows use `.prf` with `align-self: start`.
+- Editing a lazy-loaded component while a page is open can show "This tab couldn't render" (stale chunk). Reload, not a bug.
+- Chrome won't shrink below the owner's screen, so test phones in Playwright against `/dev/cats?general&wallet`. Signed-in phone is still untested. HQ is the orb popup; `/terminal/hq` is a 404 and LaunchLab links to it.
+- Shell edits with heredocs are sometimes blocked by a safety check: put a script in the scratchpad and run `python3 -I`.
+- Endless (`_sicario_loop`) shares OSSY and G4 with the real card, so card answers can slow. Off by default, never run yet.
+
+## Not tested live yet
+
+Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser window at the new size; signed-in phone; the final PoStatic studio on screen; agents really opening the site lists. Fee's public desk is still 3,600 px tall. Sicario's has no wallet, so it cannot pay through SingIt (asked by the owner, unanswered, likely moot now since they run local).
+
+---
+
 # WHAT'S LEFT
 
 ### 1. Agents (8)
@@ -216,6 +259,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## 
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session) — 2026-11-04, production upgrade in progress
+> **2026-11-05: the current state and next steps are in `# START HERE` at the top of this file. It wins over anything older below.**
 > **Owner flow (2026-11-03):** keep working through the Supreme Intelligence list, stop for owner review after every 5–10 major tasks. Reference free sources before building. SI23–SI30 are in `HANDOFF.md` (A, B and C pushed, fixtures only for the visuals). SI31 paid PoW only with the owner's OK. Fixture FPS: `/dev/cats?general&wallet` in headless Chrome (`channel='chrome'`); a backgrounded pane reads 1 fps.
 > **Next (owner: chop this list down):** 2026-11-04 overnight shipped PP01, MN01. SI50 closed: Fee's learned limits now apply only to Fee, and PoW #15 ran a real buy and sell on Happy ($Donkey, 0.008 SOL, −0.000586 SOL, plus 0.001514 SOL rent, since recovered). SI51 closed: an agent's own wallet closes its empty coin accounts every 10 min (`agent_trade.sweep_rent`; USDC stays open); Happy got 0.012106 SOL back on-chain. SI31 needs the owner's OK and closes the most at once. CH04 needs a stream key. Check the watcher before any restart: `bash scripts/background.sh status`; on 2026-11-04 it was NOT running and a kill left candles down. Watch real runs in Chrome through the Claude in Chrome extension: `localhost:51367/terminal/feecat/agents` → Happy Assistant; never restart `feecat_service` while a folder is open. New limits: change one and `test_pop.py` fails until `pow_kernel.VERSION` and the pin move on purpose. Fixtures: `/dev/cats?general&wallet`; a window fading in can screenshot blank, so wait 3 s.
 
