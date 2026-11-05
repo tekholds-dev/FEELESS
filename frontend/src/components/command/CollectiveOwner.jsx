@@ -3,6 +3,7 @@ import { Ic3 } from '../../lib/icon3d';
 import { SplitFlow, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
+import { StashWeb } from './StashWeb';
 import '../../styles/boosts.css';
 
 // 👑 THE OWNER'S COLLECTIVE FOLDER (owner 2026-11-04: "all the configs and hover to explain, cause the math kills me"): where the money stands, and every setting, each with its effect drawn live beside it. Server-gated to the owner.
@@ -69,7 +70,7 @@ export function CollectiveOwner({ call }) {
   const [d, setD] = useState(null); const [tab, setTab] = useState('flow'); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) call('/admin/collective').then(x => on && setD(x)).catch(e => on && setErr(e.message)); }; go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
   const save = async cfg => { setBusy(true); setErr(''); try { setD(await call('/admin/collective', { method: 'POST', body: JSON.stringify({ cfg }) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  return <div className="cof" data-testid="cof"><header className="cof-h"><span><small>OWNER ONLY</small><h3>The Collective</h3></span><span className="m-seg" role="tablist" aria-label="Collective folder">{[['flow', 'Money'], ['year', 'A year'], ['set', 'Settings'], ['wallet', 'Wallet + LP']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`cof-tab-${k}`}>{l}</button>)}</span></header>
+  return <div className="cof" data-testid="cof"><header className="cof-h"><span><small>OWNER ONLY</small><h3>The Collective</h3></span><span className="m-seg" role="tablist" aria-label="Collective folder">{[['flow', 'Money'], ['year', 'A year'], ['stash', 'Stash'], ['set', 'Settings'], ['wallet', 'Wallet + LP']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`cof-tab-${k}`}>{l}</button>)}</span></header>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    {tab === 'wallet' ? <ColonyPot call={call} /> : tab === 'year' && d ? <GrowthExample rules={{ ...d.cfg, plans: ['week', 'month', 'quarter'].map(n => ({ plan: n, days: d.cfg[`${n}Days`], backPct: d.cfg[`${n}Back`], weightX: d.cfg[`${n}Weight`], roomX: d.cfg[`${n}Room`] })).concat({ plan: 'vault', days: null, backPct: 0, weightX: d.cfg.vaultWeight, roomX: d.cfg.vaultRoom }) }} /> : !d ? <p className="fch-nil">reading the ledger…</p> : tab === 'flow' ? <Flow d={d} /> : <Settings d={d} save={save} busy={busy} />}</div>;
+    {tab === 'wallet' ? <ColonyPot call={call} /> : tab === 'stash' ? <StashWeb call={call} testid="cof-stash" /> : tab === 'year' && d ? <GrowthExample rules={{ ...d.cfg, plans: ['week', 'month', 'quarter'].map(n => ({ plan: n, days: d.cfg[`${n}Days`], backPct: d.cfg[`${n}Back`], weightX: d.cfg[`${n}Weight`], roomX: d.cfg[`${n}Room`] })).concat({ plan: 'vault', days: null, backPct: 0, weightX: d.cfg.vaultWeight, roomX: d.cfg.vaultRoom }) }} /> : !d ? <p className="fch-nil">reading the ledger…</p> : tab === 'flow' ? <Flow d={d} /> : <Settings d={d} save={save} busy={busy} />}</div>;
 }

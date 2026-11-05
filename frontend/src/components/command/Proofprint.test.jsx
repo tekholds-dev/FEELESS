@@ -55,3 +55,18 @@ test('the wired card opens on the line and any click lets go, and nothing picks 
   expect(el.textContent).toContain('Nothing sent yet');
   await act(async () => root.unmount());
 });
+
+test('the Stash web draws only what the server counted', async () => {
+  const { layoutWeb } = require('./StashWeb');
+  const { nodes, edges } = layoutWeb({ categories: [{ id: 'Trades', n: 9 }], sources: [{ id: 'dex.com', n: 5, at: 1 }], links: [{ from: 'Trades', to: 'dex.com', n: 5 }] });
+  expect(nodes.map(n => n.label)).toEqual(['The Stash', 'Trades', 'dex.com']); expect(edges).toHaveLength(2); expect(nodes[0].n).toBe(9);
+  expect(layoutWeb({}).nodes).toHaveLength(1);
+});
+test('desktop settings save and change the look', async () => {
+  const { DeskSettings } = require('./DeskShell'); const set = jest.fn();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<DeskSettings prefs={{ wall: null, motion: 'full', light: 100, print: true, title: true }} set={set} mood="agent" />); });
+  await act(async () => { el.querySelector('[data-testid="dset-wall-ember"]').click(); }); expect(set).toHaveBeenCalledWith({ wall: 'ember' });
+  await act(async () => { el.querySelector('[data-testid="dset-motion-off"]').click(); }); expect(set).toHaveBeenCalledWith({ motion: 'off' });
+  await act(async () => root.unmount());
+});

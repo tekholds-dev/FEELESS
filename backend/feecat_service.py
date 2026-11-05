@@ -65,6 +65,9 @@ import edge_files as _edge
 import ai_play as _aip
 import collective as _cl
 import collective_pool as _cpool
+import collective_stash as _stash
+import free_browser as _fb
+import evidence_marks as _marks
 import proof_stamp as _stamp
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -1301,6 +1304,7 @@ def _pot_address():
 
 RECEIPTS_DIR = DATA_DIR / 'receipts'
 POOL_PATH = DATA_DIR / 'collective_pool.json'
+STASH_DIR = DATA_DIR / 'stash'
 _POOL_PX = {'at': 0.0, 'usd': 0.0}
 _POOL_CHAIN_S = 300
 
@@ -1360,17 +1364,54 @@ async def _pool_pass(http, store, now):
         _cpool.update(POOL_PATH, lambda s: s.update(auditNow={**result, 'at': round(now)}))
         if not result['ok']:
             print(f"[pool] AUDIT FAILED: {result['why']}")
-    if now - float(store.get('shotsCleanAt') or 0) >= 3600:   # 🧹 snapshots stay free: a proof closed for 14 days keeps its best two
+    if now - float(store.get('shotsCleanAt') or 0) >= 3600:   # 🧊 every hour: the Stash keeps everything first, then a proof closed for 14 days keeps its best two snapshots in its own folder
         store['shotsCleanAt'] = now
+        await asyncio.to_thread(_stash_all, store)
         for c in store['cats'].values():
-            for key in ('powFolders', 'pobFolders'):
+            if not _setup_ok_for_stash(c):
+                continue
+            for key in ('powFolders', 'pobFolders', 'pocFolders'):
                 for f in c.get(key) or []:
                     for sh in _print.clean_shots(f, now):
                         (POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', str(f.get('id')).lower()) / re.sub(r'[^a-z0-9._]', '', sh.get('file') or 'x')).unlink(missing_ok=True)
 
 
+def _setup_ok_for_stash(cat):
+    """Its owner agreed to the terms that say the Stash keeps a private-data-free copy, or it is FEELESS's own."""
+    return bool(cat.get('isLeader')) or _as._done(cat, 'terms', cat.get('setup') or {})
+
+
+def _stash_read_shot(folder, shot):
+    """A snapshot's bytes for the Stash, or None. A picture sealed for its owner came from a signed-in site, and it never leaves its folder."""
+    try:
+        raw = (POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', str(folder.get('id')).lower()) / re.sub(r'[^a-z0-9._]', '', shot.get('file') or 'x')).read_bytes()
+    except OSError:
+        return None
+    return raw if raw[:3] == b'\xff\xd8\xff' else None
+
+
+def _stash_all(store):
+    n = 0
+    for c in store['cats'].values():
+        if _setup_ok_for_stash(c):
+            try:
+                n += _stash.ingest_cat(STASH_DIR, c, _vv.public_folder, _stash_read_shot)
+            except Exception as e:   # noqa: BLE001 — one agent never stops the rest
+                print(f"[stash] {c.get('id')}: {str(e)[:120]}")
+    if n:
+        print(f'[stash] kept {n} new items')
+
+
+
 def _receipt_path(sig):
     return RECEIPTS_DIR / (re.sub(r'[^A-Za-z0-9]', '', str(sig))[:90] + '.jpg')
+
+
+async def _tx_shot(sig, sol):
+    """The send on Solana's own explorer, with its signature and result boxed. Solscan walls automated browsers, so its link stays beside this."""
+    rows = await _fb.shots([f'https://explorer.solana.com/tx/{sig}'], ['success', 'finalized', str(sig).lower()[:44], f'{sol:.6f}'.rstrip('0')], time.time(), None, 6000, 45)
+    if rows:
+        RECEIPTS_DIR.mkdir(parents=True, exist_ok=True); (RECEIPTS_DIR / f"{re.sub(r'[^A-Za-z0-9]', '', str(sig))[:90]}.tx.jpg").write_bytes(rows[0]['jpg'])
 
 
 async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
@@ -1392,6 +1433,7 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
     split_ = _cpool.update(POOL_PATH, book)
+    asyncio.create_task(_tx_shot(sig, got / 1e9))   # 🖼 the real transaction page, with what proves it boxed
     folder['sent'] = {'sig': sig, 'sol': got / 1e9, 'link': _cl.SOLSCAN + sig, 'receipt': f'/api/cats/receipt/{sig}', 'at': round(now), **({'keptSol': split_['keptUnits'] / 1e9, 'lockedSol': split_['lockedUnits'] / 1e9} if split_ else {})}
     return True
 
@@ -1819,7 +1861,7 @@ def _pow2_collect(f, t_, who, now, cat=None):
         name_ = f"{m_[:6].lower()}_r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
         try:
             d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(_ck.seal_bytes(sh_['jpg'], cat['id']) if cat and any(s_ in name_ for s_ in (cat.get('siteSessions') or {})) else sh_['jpg'])
-            f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
+            f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0, **({'found': sh_['found'], 'sha': sh_.get('sha')} if sh_.get('found') else {})}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
     steps_ = list(dict.fromkeys(_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []))
@@ -3103,7 +3145,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
         for n_, x_ in enumerate(w_.pop('_shots', None) or []):
             try:
                 d_.mkdir(parents=True, exist_ok=True); name_ = f"m{w_.get('i') or 0}_{n_}.jpg"; (d_ / name_).write_bytes(_ck.seal_bytes(x_['jpg'], cat['id']))
-                shots.append({'mind': w_.get('i') or 0, 'site': x_['site'], 'title': x_.get('title'), 'url': x_.get('url'), 'file': name_, 'at': x_.get('at')})
+                shots.append({'mind': w_.get('i') or 0, 'site': x_['site'], 'title': x_.get('title'), 'url': x_.get('url'), 'file': name_, 'at': x_.get('at'), 'found': x_.get('found') or [], 'sha': x_.get('sha')})
             except OSError:
                 continue
     brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}; who = rd.get('who')
@@ -4963,10 +5005,18 @@ async def _poc_file(cat_id, topic):
             except (AttributeError, ValueError):
                 d_ = {'post': raw[:240]}
             calls.append({'mind': i, 'name': str(brains[i]).split('/')[-1][:24], **{k: str(d_.get(k) or '')[:300] for k in ('angle', 'post', 'why', 'trend')}})
+        pid_ = f'poc{int(time.time())}'; shots_ = []
+        words_ = _marks.words_of([x for v in tr.values() for x in (v or [])[:3]] + [topic or ''])
+        for n_, r_ in enumerate(await _fb.shots(['https://news.ycombinator.com/', 'https://news.google.com/', 'https://en.wikipedia.org/wiki/Main_Page'], words_, time.time())):   # 🖍 what it found, snapshotted free, with what it read boxed
+            try:
+                d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', pid_); d_.mkdir(parents=True, exist_ok=True); name_ = f"{re.sub(r'[^a-z0-9]', '', r_['site'])[:30]}_{n_}.jpg"; (d_ / name_).write_bytes(r_['jpg'])
+                shots_.append({'site': r_['site'], 'url': r_['url'], 'title': r_['title'], 'file': name_, 'at': round(time.time()), 'found': list(r_['found'])[:12], 'missing': r_['missing'][:12], 'sha': r_['sha']})
+            except OSError as e:
+                print(f'[poc] snapshot not kept: {e}')
         store = _load(); c_ = store['cats'].get(cat_id)
         if c_:
             rows = list(c_.get('pocFolders') or [])
-            rows.append({'id': f'poc{int(time.time())}', 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
+            rows.append({'id': pid_, 'shots': shots_, 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
             c_['pocFolders'] = rows[-60:]
             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows)} is filed: {len(calls)} ideas from what is trending. Nothing was posted.", 'at': time.time(), 'open': 'features'}])[-200:]
             if cost and not paid_own and c_.get('brainsCfg'):
@@ -5018,6 +5068,22 @@ async def collective_mine(session: str = ''):
 
 def _convos_public(store):
     return [{k: c.get(k) for k in ('id', 'aName', 'bName', 'a', 'b', 'at', 'lines', 'brought', 'joint', 'entry', 'dueAt', 'stamp')} for c in (store.get('convos') or [])[-20:]][::-1]
+
+
+@app.get('/api/cats/receipt/{sig}/explorer')
+async def cat_receipt_explorer(sig: str):
+    """🖼 The picture of the send on Solana's explorer, with what proves it boxed. Public: the transaction is public too."""
+    f_ = RECEIPTS_DIR / f"{re.sub(r'[^A-Za-z0-9]', '', str(sig))[:90]}.tx.jpg"
+    if not f_.exists():
+        raise HTTPException(404, 'No picture yet.')
+    return Response(f_.read_bytes(), media_type='image/jpeg')
+
+
+@app.get('/api/cats/stash/web')
+async def stash_web():
+    """🧊 Public: what the Collective Stash really holds, as counts and site names. Never its contents."""
+    st_, w_ = await asyncio.gather(asyncio.to_thread(_stash.stats, STASH_DIR), asyncio.to_thread(_stash.web, STASH_DIR))
+    return {'stats': {k: st_[k] for k in ('items', 'categories', 'outcomes', 'agents', 'sources', 'lastDay')}, 'web': w_}
 
 
 @app.get('/api/cats/receipt/{sig}')

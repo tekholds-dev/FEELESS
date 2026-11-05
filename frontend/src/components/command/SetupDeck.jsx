@@ -17,7 +17,7 @@ const SOURCES = {
   research: [['Open data', [['CoinGecko', 'https://www.coingecko.com/'], ['DexScreener', 'https://dexscreener.com/']], 'Readable without a sign-in.']],
 };
 SOURCES.all = [SOURCES.trade[0], SOURCES.content[0]];
-export const TERMS = [
+export const TERMS = [['The Collective Stash', 'FEELESS keeps a copy of every proof your agent files, won or lost, and its snapshots, sealed on FEELESS storage. Emails, phone numbers, wallet trails and pages from accounts it signed into are never kept. Only counts and site names are shown to anyone.'], 
   ['Your agent, your call', 'You own this agent and answer for what you ask it to do. Use it only where that is legal for you.'],
   ['Real money can be lost', 'Coins, bids and trades can go to zero. Nothing an agent says is financial advice, and past proofs do not promise future results.'],
   ['Paper is paper', 'A PoP and a topic PoB stake nothing. Their results are research, not earnings.'],

@@ -25,7 +25,7 @@ const toneOf = v => (v == null ? 'none' : v > 0 ? 'win' : v < 0 ? 'loss' : 'none
 function powRow(f) {
   const v = f.pnlPct != null ? Number(f.pnlPct) : null;
   return { kind: 'pow', id: f.id, at: Number(f.soldAt || f.at) || 0, name: f.name || `PoW #${f.n || ''}`, sub: f.sym ? `$${f.sym}` : '', value: v, shown: v == null ? (f.status === 'closed' ? 'no trade' : 'open') : `${v > 0 ? '+' : ''}${v.toFixed(1)}%`,
-    state: f.status !== 'closed' ? 'open' : toneOf(f.pnlSol ?? v), loop: f.loop, shots: shotsOf(f, 'pow'),
+    state: f.status !== 'closed' ? 'open' : toneOf(f.pnlSol ?? v), loop: f.loop, shots: shotsOf(f, 'pow'), sent: f.sent,
     decisions: [...Object.entries(f.whys || {}).map(([i, w]) => [mind(i), reasonOf(w)]), ...(f.why ? [['It closed', f.why]] : []), ...(f.report?.lesson ? [['Lesson', f.report.lesson]] : [])].filter(([, t]) => t),
     skipped: f.loop?.skipped || [] };
 }
@@ -44,7 +44,15 @@ function pobRow(f) {
 }
 function pocRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
-  return { kind: 'poc', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoC #${f.n}` : 'PoC', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'worked' : 'did not', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: (f.calls || []).map((c, i) => [c.name || mind(i), `${c.angle ? `${c.angle}: ` : ''}${c.post || ''}`]).filter(([, t]) => t) };
+  return { kind: 'poc', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoC #${f.n}` : 'PoC', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'worked' : 'did not', state: toneOf(v), loop: null, shots: shotsOf(f, 'poc'), skipped: [], decisions: (f.calls || []).map((c, i) => [c.name || mind(i), `${c.angle ? `${c.angle}: ` : ''}${c.post || ''}`]).filter(([, t]) => t) };
+}
+// 💎 A proof that paid the Collective carries its own folder: the send on the explorer with what proves it boxed, the receipt read back from the chain, and the links.
+function CollectiveSub({ sent, name }) {
+  const [big, setBig] = useState(null); const shots = [[apiUrl(`/api/cats/receipt/${sent.sig}/explorer`), 'On Solana Explorer'], [apiUrl(`/api/cats/receipt/${sent.sig}`), 'Receipt read from the chain']];
+  return <section className="pfx-coll" data-testid="pfx-collective"><h4><Ic3 e="💎" size="18px" /> ITS COLLECTIVE FOLDER</h4><div className="pfx-coll-shots">{shots.map(([u, l]) => <button key={u} type="button" onClick={() => setBig(u)} data-tip={`${l}: open it big`}><img src={u} alt={`${name}: ${l}`} loading="lazy" onError={e => { e.currentTarget.closest('button').style.display = 'none'; }} /><small>{l}</small></button>)}</div>
+    <dl><div><dt>SENT</dt><dd className="m-num">{Number(sent.sol || 0).toFixed(6)} SOL</dd></div>{sent.keptSol != null ? <div><dt>COLLECTIVE KEPT</dt><dd className="m-num">{Number(sent.keptSol).toFixed(6)}</dd></div> : null}{sent.lockedSol != null ? <div><dt>FOLLOWS ITS PLAN</dt><dd className="m-num">{Number(sent.lockedSol).toFixed(6)}</dd></div> : null}<div><dt>TXN</dt><dd className="m-num">{String(sent.sig).slice(0, 8)}…{String(sent.sig).slice(-6)}</dd></div></dl>
+    <span className="pfx-coll-l"><a href={`https://solscan.io/tx/${sent.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Open it on Solscan">Solscan ↗</a><a href={`https://explorer.solana.com/tx/${sent.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Open it on Solana Explorer">Explorer ↗</a></span>
+    {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={name} onClick={() => setBig(null)}><img src={big} alt={name} /></div> : null}</section>;
 }
 function posRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
@@ -115,6 +123,7 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
       <section><h4>THE DECISIONS, AT THE TIME</h4>{r.decisions.length ? <ol className="pfx-dec">{r.decisions.map(([who, t], n) => <li key={`${who}${n}`} style={{ '--i': n }}><b>{who}</b><span>{t}</span></li>)}</ol> : <p className="pfx-none">No reasons were filed with this one.</p>}
         {r.skipped.length ? <p className="pfx-skip" data-testid="pfx-skipped"><Ic3 e="🛡" size="18px" /> Skipped because they looked like a past loss: {r.skipped.map(s => `$${s.sym} (${s.like})`).join(', ')}</p> : null}
         {r.loop?.past?.length ? <p className="pfx-skip"><Ic3 e="🪄" size="18px" /> Studied first: {r.loop.past.slice(0, 3).map(p => p.sym ? `$${p.sym} ${p.pct}%` : p.market ? `${p.market} ${p.roe}%` : `#${p.n}${p.mark ? ` ${p.mark}` : ''}`).join(', ')}</p> : null}</section>
+      {r.sent?.sig ? <CollectiveSub sent={r.sent} name={r.name} /> : null}
       <section><h4>WHAT IT SAW</h4>{r.shots.length ? <div className="pfx-gallery">{r.shots.map(s => <button key={s.file} type="button" onClick={() => onShot({ ...s, url: src(s) })} data-tip={`${s.site}: open it big`}><img src={src(s)} alt={`${s.site} at the time`} loading="lazy" onError={e => { e.currentTarget.style.visibility = 'hidden'; }} /><small>{s.site}</small></button>)}</div> : <p className="pfx-none">{r.kind === 'pop' ? 'A PoP reads its sources and the chart, so it files no page snapshots.' : 'No snapshots were kept with this one.'}</p>}</section>
       {onOpenFolder ? <button type="button" className="m-btn" onClick={() => onOpenFolder(OPEN_APP[r.kind])} data-testid="pfx-open-folder">Open its {KINDS[r.kind][1]} folder</button> : null}</div> : null}</li>;
 }

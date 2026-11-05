@@ -86,7 +86,28 @@ const MOODS = {
   agent: { a: [0.012, 0.05, 0.03], b: [0.03, 0.27, 0.155], c: [0.08, 0.82, 0.42], hex: 0 },
   fee: { a: [0.035, 0.018, 0.085], b: [0.2, 0.09, 0.5], c: [0.7, 0.53, 1], hex: 0 },
   colony: { a: [0.012, 0.02, 0.07], b: [0.07, 0.13, 0.42], c: [0.42, 0.55, 1], hex: 0 },
+  ember: { a: [0.07, 0.02, 0.012], b: [0.42, 0.12, 0.05], c: [1, 0.55, 0.2], hex: 0 },
+  mono: { a: [0.03, 0.03, 0.035], b: [0.16, 0.16, 0.18], c: [0.72, 0.74, 0.8], hex: 0 },
+  rose: { a: [0.07, 0.015, 0.05], b: [0.4, 0.08, 0.28], c: [1, 0.45, 0.72], hex: 0 },
 };
+export const WALLS = [['agent', 'Green', '#15d16a'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
+export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true };
+const prefKey = id => `feeless.deskPrefs.${id}`;
+export function useDeskPrefs(id) {
+  const [p, setP] = useState(() => { try { return { ...DESK_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey(id)) || '{}') }; } catch { return DESK_DEFAULTS; } });
+  const set = patch => setP(x => { const n = { ...x, ...patch }; try { localStorage.setItem(prefKey(id), JSON.stringify(n)); } catch { /* it still works for this visit */ } return n; });
+  return [p, set];
+}
+// ⚙ How its desktop looks. A look only: it is saved in this browser, and nothing here touches the agent.
+export function DeskSettings({ prefs, set, mood }) {
+  const wall = prefs.wall || mood;
+  return <div className="dset" data-testid="dsk-settings"><h3>Its desktop</h3>
+    <section><h4>Background color</h4><div className="dset-walls" role="radiogroup" aria-label="Background color">{WALLS.map(([k, l, c]) => <button key={k} type="button" role="radio" aria-checked={wall === k} className={wall === k ? 'is-on' : ''} style={{ '--c': c }} onClick={() => set({ wall: k })} data-tip={`A ${l.toLowerCase()} desktop`} data-testid={`dset-wall-${k}`}><i aria-hidden="true" /><span>{l}</span></button>)}</div></section>
+    <section><h4>Background animation</h4><span className="m-seg" role="group" aria-label="Background animation">{[['full', 'Alive'], ['still', 'Still'], ['off', 'Off']].map(([k, l]) => <button key={k} type="button" className={prefs.motion === k ? 'active' : ''} aria-pressed={prefs.motion === k} onClick={() => set({ motion: k })} data-tip={k === 'full' ? 'It moves' : k === 'still' ? 'One frozen frame, lightest on the machine' : 'A plain dark wall'} data-testid={`dset-motion-${k}`}>{l}</button>)}</span></section>
+    <section><label className="dset-row" data-tip="How bright the background is"><span>Brightness</span><input type="range" min="30" max="130" step="5" value={prefs.light} aria-label="Brightness" onChange={e => set({ light: Number(e.target.value) })} data-testid="dset-light" /><b className="m-num">{prefs.light}%</b></label></section>
+    <section><h4>On the wall</h4>{[['print', 'Its Proofprint', 'The big fingerprint behind the icons'], ['title', 'Its name', 'The name written on the wall']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
+    <button type="button" className="m-btn" onClick={() => set({ ...DESK_DEFAULTS })} data-testid="dset-reset">Back to how it started</button></div>;
+}
 const VERT = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}';
 const FRAG = `precision mediump float;uniform float t;uniform vec2 r;uniform vec3 a,b,c;uniform float h;
 void main(){vec2 u=gl_FragCoord.xy/r;vec2 p=u*vec2(r.x/r.y,1.)*2.4;
@@ -104,7 +125,7 @@ function still() {
   return document.body.classList.contains('fx-lite') || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 }
 
-export function ShaderWall({ mood = 'agent', className = '' }) {
+export function ShaderWall({ mood = 'agent', className = '', frozen = false, style }) {
   const ref = useRef(null);
   useEffect(() => {
     const cv = ref.current; const gl = cv?.getContext?.('webgl', { antialias: false, alpha: false, powerPreference: 'low-power' });
@@ -119,15 +140,15 @@ export function ShaderWall({ mood = 'agent', className = '' }) {
     const uT = U('t'); const uR = U('r'); let raf = 0; let last = 0; let seen = true;
     const size = () => { const w = Math.max(64, Math.round(cv.clientWidth / 3)); const h = Math.max(64, Math.round(cv.clientHeight / 3)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } gl.viewport(0, 0, w, h); gl.uniform2f(uR, w, h); };   // set every frame: a second run on the same canvas has a new program with no size yet
     const draw = now => { size(); gl.uniform1f(uT, now / 1000 + 40); gl.drawArrays(gl.TRIANGLES, 0, 3); };
-    const tick = now => { raf = 0; if (document.hidden || !seen) return; if (now - last >= 41) { last = now; draw(now); } if (!still()) raf = requestAnimationFrame(tick); };
+    const tick = now => { raf = 0; if (document.hidden || !seen) return; if (now - last >= 41) { last = now; draw(now); } if (!still() && !frozen) raf = requestAnimationFrame(tick); };
     const go = () => { if (!raf && !document.hidden && seen) raf = requestAnimationFrame(tick); };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(es => { seen = es[0].isIntersecting; go(); }) : null; io?.observe(cv);
     const lost = () => { cv.style.opacity = '0'; };   // the browser took the context back: the gradient under it stays
     cv.addEventListener('webglcontextlost', lost);
     cv.style.opacity = '1'; draw(0); go(); document.addEventListener('visibilitychange', go);
     return () => { cancelAnimationFrame(raf); io?.disconnect(); document.removeEventListener('visibilitychange', go); cv.removeEventListener('webglcontextlost', lost); };
-  }, [mood]);
-  return <canvas ref={ref} className={`dsw ${className}`.trim()} aria-hidden="true" data-mood={mood} />;
+  }, [mood, frozen]);
+  return <canvas ref={ref} className={`dsw ${className}`.trim()} style={style} aria-hidden="true" data-mood={mood} />;
 }
 
 // 🧭 an icon nobody has moved takes the first free slot, a new column once the screen is full: a saved layout from before a new icon existed can never stack two on one spot

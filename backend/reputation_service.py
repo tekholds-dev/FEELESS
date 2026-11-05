@@ -16,6 +16,7 @@ import investigate
 import name_lock as _name_lock
 import agent_deposit as _deposit
 import collective_pool as _cpool
+import collective_stash as _stash
 import reserve_pool
 import perf
 import verify
@@ -27230,6 +27231,14 @@ async def internal_agent_fee(request: Request, body: dict):
         await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
     _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'fee:{key_}', token, units, 'txn' if body['kind'] == 'trade' else 'task'))
     return {'signature': sig_, 'usd': usd_, 'token': token}
+
+
+@app.get('/api/reputation/admin/stash')
+async def admin_stash(request: Request):
+    """🧊 Owner: what the Collective Stash holds, how much room is left and its web."""
+    _require_owner(request)
+    root = DATA_DIR / 'stash'
+    return {'stats': await asyncio.to_thread(_stash.stats, root), 'web': await asyncio.to_thread(_stash.web, root), 'mirror': bool(os.environ.get('STASH_R2_BUCKET'))}
 
 
 @app.get('/api/reputation/admin/collective')

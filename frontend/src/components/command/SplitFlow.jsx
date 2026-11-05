@@ -50,9 +50,9 @@ export function SplitFlow({ rules: given, sendUsd = null, hot = null, plan: fixe
       {given$ ? null : <Pipe d="M272 42 H326" w={W((win - send) * 0.2)} tone="dim" flow={false} />}
       <Pipe d="M196 68 C196 96 80 92 80 122" w={W(s.kept)} tone="blue" hot={hot === 'kept'} delay={0.2} />
       <Pipe d="M222 68 V150" w={W(s.locked)} tone="violet" hot={hot === 'locked'} delay={0.3} />
-      <Pipe d="M392 136 C392 176 310 168 196 296" w={4} tone="pot" dash hot={hot === 'pot'} delay={0.5} />
-      {s.vault ? null : <Pipe d="M196 236 C196 268 112 262 112 296" w={W(s.back)} tone="green" hot={hot === 'back'} delay={0.6} />}
-      {s.house > 0 ? <Pipe d="M236 236 C236 268 320 262 320 296" w={W(s.house)} tone="blue" hot={hot === 'house'} delay={0.7} /> : null}
+      <Pipe d="M388 136 C388 200 366 250 340 296" w={4} tone="pot" dash hot={hot === 'pot'} delay={0.5} />
+      {s.vault ? null : <Pipe d="M236 236 C236 268 310 262 310 296" w={W(s.back)} tone="green" hot={hot === 'back'} delay={0.6} />}
+      {s.house > 0 ? <Pipe d="M196 236 C196 268 100 262 100 296" w={W(s.house)} tone="blue" hot={hot === 'house'} delay={0.7} /> : null}
       {given$ ? <Node x={72} y={42} w={104} tone="gold" label="PROOF" value="+50% win" tip="Only a real proof that made +50% or more can send. Its transaction, link and snapshot go with it." /> : <Node x={72} y={42} w={104} tone="gold" label="IT WINS" value={money(win)} tip="A proof closes at +50% or more. Smaller wins and losses send nothing." />}
       <Node x={210} y={42} w={124} tone="gold" label={given$ ? 'IT SENDS' : `SENDS ${pct}%`} value={money(s.send)} sub="in SOL, on-chain" tip="Its own wallet sends this to the Collective wallet. It is read back from the chain before it counts." testid="spf-send" />
       {given$ ? null : <Node x={366} y={42} w={92} h={46} tone="dim" label="IT KEEPS" value={money(win - send)} tip="The rest of the win never leaves its wallet." />}
@@ -63,8 +63,8 @@ export function SplitFlow({ rules: given, sendUsd = null, hot = null, plan: fixe
         <text className="is-label" x="210" y="172">{s.vault ? 'VAULT' : 'LOCKED'}</text><text className="is-value" x="210" y="196" key={s.locked}>{money(s.locked)}</text><text className="is-sub" x="210" y="214">{s.vault ? 'for good' : `until ${dateIn(s.days)}`}</text>
         <rect className="is-rim" x="162" y="150" width="96" height="86" rx="16" /></g>
       <Node x={366} y={112} w={96} h={48} tone="pot" label="FEE POT" value={`${s.weightX}x share`} tip={`${rules.potPct}% of every trade and task fee fills this pot, and nothing a member deposits or sends. While its money works, it earns a part of the pot, right into its earnings. It rises and falls with trading, so it is never promised.`} hot={hot === 'pot'} testid="spf-pot" />
-      <Node x={112} y={324} w={150} h={58} tone="green" label={s.vault ? 'NOTHING BACK' : `BACK TO THE AGENT ${s.backPct}%`} value={money(s.back)} sub={s.vault ? 'earns from the fee pot' : `by ${dateIn(s.days)}`} hot={hot === 'back'} tip={backTip} testid="spf-back" />
-      <Node x={320} y={324} w={136} h={58} tone="blue" label={s.vault ? 'COLLECTIVE VAULT' : `COLLECTIVE ${Math.round((100 - s.backPct) * 10) / 10}%`} value={money(s.house)} sub={s.vault ? 'for good' : 'as it comes back'} hot={hot === 'house'} tip="The Collective's part. It stays in the Collective." testid="spf-house" />
+      <Node x={320} y={324} w={158} h={58} tone="green" label={s.vault ? 'NOTHING BACK' : `BACK TO THE AGENT ${s.backPct}%`} value={money(s.back)} sub={s.vault ? 'earns from the fee pot' : `by ${dateIn(s.days)}`} hot={hot === 'back'} tip={backTip} testid="spf-back" />
+      <Node x={84} y={324} w={136} h={58} tone="blue" label={s.vault ? 'COLLECTIVE VAULT' : `COLLECTIVE ${Math.round((100 - s.backPct) * 10) / 10}%`} value={money(s.house)} sub={s.vault ? 'for good' : 'as it comes back'} hot={hot === 'house'} tip="The Collective's part. It stays in the Collective." testid="spf-house" />
     </svg>
     <div className="spf-meter" data-tip="Of each $1 sent: what is sure to come back to the agent, and what stays in the Collective" data-testid="spf-meter"><span className="spf-bar" aria-hidden="true"><i className="is-green" style={{ flexGrow: s.floor }} /><i className="is-blue" style={{ flexGrow: 1 - s.floor }} /></span>
       <small>{s.vault ? <><b className="m-num">{money(s.send)}</b> stays in the Collective. It earns the biggest part of the fee pot while it keeps sending.</> : <><b className="m-num">{money(s.back)}</b> comes back by {dateIn(s.days)}, plus a part of the fee pot on top.</>} <em>The fee part rises and falls with trading. It is not promised.</em></small></div></>}

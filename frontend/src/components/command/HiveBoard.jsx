@@ -2,6 +2,7 @@ import { useSolPrice } from '../../lib/solPrice';
 import { collectivePrint } from '../../lib/proofprint';
 import { CollectivePrint, MiniPrint } from './Proofprint';
 import { BoostCoin } from './DeskShell';
+import { StashWeb } from './StashWeb';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { AiCursor, FolderView, readCursor } from './CatWorkbench';
@@ -110,7 +111,8 @@ function useZaps(root, agents, freshNames) {
   return { zaps, hit };
 }
 export function ColonyFlow({ api, onOpen }) {
-  const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0); const [pick, setPick] = useState(null);
+  const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0); const [pick, setPick] = useState(null); const [webOpen, setWebOpen] = useState(false);
+  useEffect(() => { if (!webOpen) return undefined; const k = e => e.key === 'Escape' && setWebOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [webOpen]);
   useEffect(() => { const c = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(c); }, []);
   const sh = d?.shares || {}; const pot = d?.pot || {}; const ep = d?.epoch || {}; const ad = d?.airdrop || {}; const t = d?.tree || {}; const agents = t.agents || []; const wins = t.wins || [];
     const owed = sh.owedSol || 0; const sent = d?.sentSol || 0; const paid = ad.paidSol || 0; const potSol = pot.sol || 0; const most = Math.max(potSol, owed, sent, paid, 0.000001);
@@ -127,13 +129,14 @@ export function ColonyFlow({ api, onOpen }) {
     <i className="clx-rail is-l" aria-hidden="true" /><i className="clx-rail is-r" aria-hidden="true" />
     <div className="clx-crown">
       <div className="clx-pill" data-tip="The Pool: what the agents' shares built" data-testid="ctr-pot"><svg className="clx-pill-ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6 40 14 24 22 8 14Z" /><path d="M8 22l16 8 16-8M8 30l16 8 16-8" /></svg><div><em>THE POOL</em><b className="m-num" key={potSol}>{d ? solT(potSol) : '…'}</b><PoolBar level={potSol / most} /><small>{usdOf(potSol)} · owed {solT(owed)} · sent {solT(sent)}</small></div></div>
-      <div className="clx-gemwrap"><i className="clx-orbit" aria-hidden="true"><u /><u /><u /></i><i key={hit} className={`clx-flash${hit ? ' is-on' : ''}`} aria-hidden="true" /><Crystal /><i className="clx-stand" aria-hidden="true"><u /><u /><u /></i></div>
+      <div className="clx-gemwrap"><i className="clx-orbit" aria-hidden="true"><u /><u /><u /></i><i key={hit} className={`clx-flash${hit ? ' is-on' : ''}`} aria-hidden="true" /><button type="button" className="clx-gem-btn" onClick={() => setWebOpen(true)} data-tip="The Collective Stash: everything it holds, and where it came from" data-testid="clx-stash-open" aria-label="Open the Collective Stash"><Crystal /></button><i className="clx-stand" aria-hidden="true"><u /><u /><u /></i></div>
       <div className="clx-pill is-right" data-tip="Part of every agent fee fills this pot. It pays out, a part at a time, to agents with proofs locked in the Pool" data-testid="clx-feepot"><span className="clx-pill-coin"><BoostCoin earning={!!d?.poolNow?.ratePerSecUsd} /></span><div><em>FEE POT</em><b className="m-num">{d?.poolNow ? `$${Number(d.poolNow.usd?.pot || 0).toFixed(2)}` : '…'}</b><PoolBar level={Number(d?.poolNow?.usd?.pot || 0) / Math.max(1e-9, Number(d?.poolNow?.usd?.pot || 0) + Number(d?.poolNow?.usd?.locked || 0))} /><small>{d?.poolNow?.agents ? `${d.poolNow.agents} agents earning` : 'Starts with the first proof sent'}</small></div></div>
     </div>
     <div className="clx-stage"><i className="clx-disc" aria-hidden="true" /><div className="clx-cards" data-testid="ctr-comb">{top.map((a, k) => <Seat key={a?.id || k} a={a} kind="card" tone={['blue', 'violet', 'green'][k]} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div></div>
     <div className="clx-row">{row.map((a, k) => <Seat key={a?.id || `o${k}`} a={a} kind="hex" tone={k % 2 ? 'blue' : 'violet'} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div>
     {open ? <Vitals a={open} feed={d?.proofs} seed={d?.poolNow?.seeds?.[open.id]} onOpen={onOpen} onClose={() => setPick(null)} /> : null}
     {!agents.length ? <p className="clx-none">{d ? 'No agents yet.' : 'Reading the Collective…'}</p> : null}
+    {webOpen ? <div className="stw-shade" role="dialog" aria-modal="true" aria-label="The Collective Stash" onClick={e => e.target === e.currentTarget && setWebOpen(false)}><StashWeb onClose={() => setWebOpen(false)} /></div> : null}
     <ProofsList rows={d?.proofs} />
     <CollectivePrint feed={d?.proofs} />
     <Convos rows={d?.convos} />

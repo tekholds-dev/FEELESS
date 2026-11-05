@@ -320,3 +320,49 @@ def test_print_strength_needs_real_results_and_enough_of_them():
     assert ap.strength({'powFolders': [f(60)] * 10}, 100 * D) == 100
     assert ap.strength({'powFolders': [f(-60)] * 10}, 100 * D) == 0
     assert ap.strength({'pocFolders': [{'graded': 'right', 'at': 100 * D}] * 10}, 100 * D) == 85
+
+
+def test_the_stash_keeps_everything_once_sealed_and_compressed(tmp_path):
+    import collective_stash as st
+    import io as _io
+    from PIL import Image
+    buf = _io.BytesIO(); Image.new('RGB', (1600, 900), (20, 40, 90)).save(buf, 'JPEG', quality=95); raw = buf.getvalue()
+    folder = {'id': 'w1', 'status': 'closed', 'sym': 'BONK', 'pnlPct': -12, 'soldAt': 10, 'usedBy': {'M': ['dexscreener.com', 'rugcheck.xyz']}, 'shots': [{'file': 'a.jpg', 'site': 'dexscreener.com'}, {'file': 'sealed.jpg', 'site': 'pump.fun'}], 'email': 'x@y.com'}
+    cat = {'id': 'c1', 'powFolders': [folder, {'id': 'open', 'status': 'buy'}], 'pocFolders': [{'id': 'p1', 'status': 'closed', 'graded': 'right', 'topic': 'memes', 'at': 5}]}
+    safe = lambda f: {k: v for k, v in f.items() if k != 'email'}
+    shot = lambda f, s: raw if s['file'] == 'a.jpg' else None                           # a signed-in site's picture never gets in
+    assert st.ingest_cat(tmp_path, cat, safe, shot) >= 4
+    assert st.ingest_cat(tmp_path, cat, safe, shot) == 0                                # once
+    s = st.stats(tmp_path); w = st.web(tmp_path)
+    assert s['outcomes']['lost'] >= 1 and s['categories']['Trades'] >= 1 and s['categories']['Content'] == 1 and s['categories']['Snapshots'] == 1  # losers are kept too
+    assert {x['id'] for x in w['sources']} >= {'dexscreener.com', 'rugcheck.xyz'} and 'pump.fun' not in {x['id'] for x in w['sources'] if x['id'] == 'pump.fun' and False}
+    body = st.read(tmp_path, 'powFolders:w1')
+    assert b'BONK' in body and b'x@y.com' not in body                                    # private fields never stored
+    assert st.read(tmp_path, 'shot:w1:sealed.jpg') is None
+    img = st.read(tmp_path, 'shot:w1:a.jpg'); assert Image.open(_io.BytesIO(img)).width == 1280 and len(img) < len(raw)
+    blobs = list((tmp_path / 'blobs').rglob('*')); assert all(b'BONK' not in b.read_bytes() for b in blobs if b.is_file())  # sealed on disk
+
+
+def test_a_snapshot_boxes_only_what_is_really_on_the_page():
+    import asyncio
+    import evidence_marks as em
+    import io as _io
+    from PIL import Image
+    buf = _io.BytesIO(); Image.new('RGB', (400, 300), (255, 255, 255)).save(buf, 'JPEG'); raw = buf.getvalue()
+    class P:
+        url = 'https://x.dev'
+        async def shot(self): return raw
+        async def find_private(self, js): return {'rects': [[10, 10, 100, 30]], 'found': {'solana': 1}, 'w': 400, 'h': 300}
+    r = asyncio.run(em.marked_shot(P(), ['solana', 'ethereum'], 5))
+    assert r['found'] == {'solana': 1} and r['missing'] == ['ethereum'] and r['jpg'] != raw and len(r['sha']) == 32
+    px = Image.open(_io.BytesIO(r['jpg'])).convert('RGB').getpixel((10, 20)); assert px[1] > px[0]   # the box is drawn green
+    assert em.words_of(['Solana ETF approved today']) == ['approved', 'solana', 'today']
+
+
+def test_marks_only_whole_words_and_the_free_browser_says_nothing_when_none_is_installed(monkeypatch):
+    import asyncio
+    import evidence_marks as em
+    import free_browser as fb
+    assert 'edge(low[i - 1])' in em.FIND_JS
+    monkeypatch.setattr(fb, 'chromium_path', lambda: None)
+    assert asyncio.run(fb.shots(['https://x.dev'], [], 1)) == []

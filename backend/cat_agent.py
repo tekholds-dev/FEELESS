@@ -10,6 +10,7 @@ answer. Tested with fakes (tests/test_cat_agent.py).
   merge  model A combines both halves (with their sources) into one answer
 BUDGET: every call's cost is added; a task stops at its cap ($ per task, the user's setting) with what it has. Real money moves only on the user's
 signal (the wallet / their auto-sign settings) — nothing here can spend from a wallet."""
+import evidence_marks as _marks
 import asyncio
 import json
 import re
@@ -525,9 +526,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if task.get('keepShots') and act in ('open', 'click'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
                 h_ = _pow.host_of(page.url); rows_ = w.setdefault('_shots', [])
                 if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_):
-                    jpg_ = await page.shot()
-                    if jpg_:
-                        rows_.append({'site': h_, 'url': str(page.url)[:200], 'title': str(page.title or '')[:90], 'jpg': jpg_, 'at': round(time.time())})
+                    m_ = await _marks.marked_shot(page, _marks.words_of([task.get('topic') or task.get('text') or '']), time.time())   # 🖍 what it read is boxed on the picture
+                    if m_:
+                        rows_.append({'site': h_, 'url': str(page.url)[:200], 'title': str(page.title or '')[:90], 'jpg': m_['jpg'], 'at': round(time.time()), 'found': list(m_['found'])[:12], 'sha': m_['sha']})
             if pw and act == 'open':
                 seen = await _pow_find(w, pw, page) or seen   # a site the model opened itself (CoinMarketCap…): its search gets the CA
             if pw and act in ('open', 'click'):
@@ -596,7 +597,8 @@ async def _pow_snap(pw, page, seen='', saved=False):
     if had and (had.get('saved') or not saved):
         return
     try:
-        jpg = await asyncio.wait_for(page.shot(), 6)
+        marked_ = await asyncio.wait_for(_marks.marked_shot(page, [], time.time()), 8)   # 🖍 the numbers on the page are boxed on the picture
+        jpg = (marked_ or {}).get('jpg')
     except Exception:   # noqa: BLE001 — a missed snapshot never stops the research
         jpg = None
     if jpg:

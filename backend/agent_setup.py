@@ -4,7 +4,7 @@ What it is used for decides which sites come first. A step is done by the real t
 Pure and tested. The service stores `cat['setup']`.
 """
 USES = ('trade', 'bids', 'content', 'code', 'research', 'all')
-TERMS_V = 2
+TERMS_V = 3
 STEPS = ('use', 'face', 'email', 'sites', 'fund', 'limits', 'colony', 'post', 'trades', 'security', 'terms')
 # step → the uses that need it. A step that is not listed is for everyone.
 ONLY = {'post': ('content', 'all'), 'trades': ('trade', 'bids', 'all')}
