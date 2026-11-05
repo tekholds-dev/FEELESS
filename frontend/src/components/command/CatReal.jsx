@@ -7,7 +7,7 @@ import { apiUrl } from '../../lib/api';
 import '../../styles/catReal.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 💵 REAL MODE (docs/DECISIONS.md #2 — option A, the owner's go 2026-10-23): your cat keeps hunting on its paper ledger and every buy it makes
+// 💵 REAL MODE (docs/DECISIONS.md #2 — option A, the owner's go 2026-10-23): your agent keeps hunting on its paper ledger and every buy it makes
 // (and every exit of a coin you really bought through it) arrives here as a PROPOSAL — coin, size (never above your per-buy budget), its reason
 // and its own paper record. ✍ Sign it opens the swap with the coins + amount set (you press Get quote; your wallet signs, normal swap fee);
 // Skip lets it pass; after 15 min it expires (prices moved). FEELESS never holds your SOL or a key. The same proposal reaches your inbox.
@@ -28,8 +28,8 @@ export function realView(cat, now = Date.now() / 1000) {
 const recLine = r => (r && r.trades ? `its paper record: ${r.trades} trades · ${r.wonPct ?? '—'}% won · ${r.pnlSol >= 0 ? '+' : '−'}${Math.abs(r.pnlSol).toFixed(3)} SOL` : 'no closed paper trades yet — no record to lean on');
 
 // 👛 THE WALLET CARD (owner 2026-10-29: "the real money button doesn't open my FeeCat wallet — show balance, vitals, copy so I can load it"):
-// the wallet this cat trades through (its linked wallet, else the one connected) — address + ⧉ copy (load it from anywhere), its live SOL
-// balance, and the cat's vitals. Option A: FEELESS holds no key — loading the cat = sending SOL to this wallet (your own).
+// the wallet this agent trades through (its linked wallet, else the one connected) — address + ⧉ copy (load it from anywhere), its live SOL
+// balance, and the agent's vitals. Option A: FEELESS holds no key — loading the agent = sending SOL to this wallet (your own).
 export function useSolBalance(addr, every = 20000) {
   const [sol, setSol] = useState(null);
   useEffect(() => { if (!addr) { setSol(null); return undefined; } let on = true;
@@ -44,7 +44,7 @@ function WalletCard({ cat, addr, v }) {
   if (!w) return null;
   return <div className="cr-wallet" data-testid="cr-wallet">
     <div className="cr-wid"><i className={`cr-wdot ${v.real ? 'is-on' : ''}`} aria-hidden="true" /><span><em>{v.real ? 'TRADES THROUGH' : 'YOUR WALLET'}</em><b className="m-num">{short(w)}</b></span>
-      <button type="button" className={`m-btn cr-copy ${copied ? 'is-ok' : ''}`} onClick={copy} data-testid="cr-copy" data-tip="Copy the address — send SOL here to load your cat (it is your own wallet; FEELESS never holds a key)">{copied ? '✓ copied' : '⧉ Copy'}</button></div>
+      <button type="button" className={`m-btn cr-copy ${copied ? 'is-ok' : ''}`} onClick={copy} data-testid="cr-copy" data-tip="Copy the address — send SOL here to load your agent (it is your own wallet; FEELESS never holds a key)">{copied ? '✓ copied' : '⧉ Copy'}</button></div>
     <div className="cr-strip is-vitals">
       <span style={{ '--i': 0 }} data-tip="Live SOL in this wallet (re-read every 20s)"><em>BALANCE</em><b className="m-num" key={sol}>{sol == null ? '…' : `${sol.toFixed(sol >= 10 ? 2 : 4)} SOL`}</b></span>
       <span style={{ '--i': 1 }} data-tip="Its paper record: trades closed and the share won"><em>RECORD</em><b className="m-num">{trades ? `${trades} · ${cat?.winRate ?? '—'}%` : '—'}</b></span>
@@ -244,7 +244,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign, err }) {
     {!w ? <div className="cr-ag-off"><b><Ic3 e="👛" /> ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Circle holds the key, never a browser. FEELESS signs only inside your limits.</small>
       {cat?.isLeader || cat?.id === 'leader' ? null : <FundPick cat={cat} />}
       <div className="cr-ag-steps"><button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
-        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>{busy ? 'Making its wallet…' : '① 👛 Make its wallet'}</button>
+        data-tip={addr ? 'One signature (no transaction) proves you own this agent — then Crossmint makes its wallet' : 'Connect your wallet first'}>{busy ? 'Making its wallet…' : '① 👛 Make its wallet'}</button>
         {cat?.isLeader || cat?.id === 'leader' ? null : <button type="button" className="m-btn" disabled data-testid="cr-agent-fund-next" data-tip="Make its wallet first, then this opens your receipt to sign">② <Ic3 e="💵" /> Fund and sign</button>}</div>
       {!addr ? <p className="kd-err" role="status">⚠ Connect your wallet first.</p> : null}{err ? <p className="kd-err" role="alert" data-testid="cr-agent-err">⚠ {err}</p> : null}
       {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
@@ -271,7 +271,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign, err }) {
   </div>;
 }
 
-// the drawn flow: the cat reads → proposes → your wallet signs (a beam charges along it)
+// the drawn flow: the agent reads → proposes → your wallet signs (a beam charges along it)
 const Flow = () => <div className="cr-flow" aria-hidden="true"><i className="cr-beam" />
   {[['READS', <><circle cx="12" cy="12" r="4" /><path d="M2 12 C6 5 18 5 22 12 C18 19 6 19 2 12 Z" /></>], ['PROPOSES', <><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 9 H16 M8 13 H14 M8 17 H12" /></>],
     ['YOU SIGN', <><circle cx="8" cy="12" r="4.5" /><path d="M12.5 12 H22 M18 12 V16 M21 12 V15" /></>]].map(([l, d], i) =>
@@ -301,7 +301,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
     window.addEventListener('feeless:trade-confirmed', on); return () => window.removeEventListener('feeless:trade-confirmed', on);
   }, [signing]);
   const sign = p => {
-    const title = `🐱 ${String(cat.name || 'YOUR AGENT').toUpperCase()} PROPOSES`; const where = 'your cat proposed it';
+    const title = `🐱 ${String(cat.name || 'YOUR AGENT').toUpperCase()} PROPOSES`; const where = 'your agent proposed it';
     if (p.side === 'buy') familiaSwap({ from: SOL, to: p.mint, amount: p.sol, title, where, sub: `BUY $${p.symbol} with ${p.sol} SOL — press Get quote; your wallet signs` });
     else familiaSwap({ from: p.mint, to: SOL, pct: p.fraction, title, where, sub: `SELL ${Math.round(p.fraction * 100)}% of your $${p.symbol} — press Get quote; your wallet signs` });
     setSigning(p);
@@ -318,10 +318,10 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
       <Flow />
       <div className="cr-budget"><em>MOST A BUY</em><div className="m-seg" role="group" aria-label="The most it may propose for one buy">
         {BUDGETS.map(b => <button key={b} type="button" aria-pressed={budget === b} className={budget === b ? 'active' : ''} onClick={() => setBudget(b)} data-tip={`It never proposes a buy above ${b} SOL`} data-testid={`cr-b-${b}`}>{b} SOL</button>)}</div></div>
-      <p className="cr-rec" data-tip="Every proposal carries this record — no cat has a proven edge on unseen coins yet">{recLine({ trades: (cat.wins || 0) + (cat.losses || 0), wonPct: cat.winRate, pnlSol: Number(cat.realizedPnlSol) || 0 })}</p>
+      <p className="cr-rec" data-tip="Every proposal carries this record — no agent has a proven edge on unseen coins yet">{recLine({ trades: (cat.wins || 0) + (cat.losses || 0), wonPct: cat.winRate, pnlSol: Number(cat.realizedPnlSol) || 0 })}</p>
       {addr ? <button type="button" className="m-btn m-go cr-go" disabled={busy || cat.revoked} onClick={() => send.current('real', { budgetSol: budget })} data-testid="cr-go"
         data-tip="One signature (no transaction) proves this wallet is yours — then each trade it proposes waits for your wallet"><Ic3 e="🔑" /> Sign in · go real</button>
-        : <button type="button" className="m-btn m-go cr-go" onClick={() => connect?.('solana')} data-testid="cr-connect" data-tip="Connect the Solana wallet your cat will propose trades to">Connect wallet</button>}
+        : <button type="button" className="m-btn m-go cr-go" onClick={() => connect?.('solana')} data-testid="cr-connect" data-tip="Connect the Solana wallet your agent will propose trades to">Connect wallet</button>}
     </div> : <>
       <div className="cr-strip">
         <span style={{ '--i': 0 }} data-tip="The most it proposes for one buy"><em>A BUY ≤</em><b className="m-num">{v.budget} SOL</b></span>
@@ -329,7 +329,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
         <span style={{ '--i': 2 }} data-tip={v.held.length ? v.held.map(h => `$${h.symbol}`).join(' · ') : 'Coins you bought through its proposals'}><em>REAL COINS</em><b className="m-num">{v.held.length}</b></span>
         <button type="button" className="m-btn cr-paper" disabled={busy} onClick={() => send.current('paper')} data-testid="cr-paper" data-tip="Back to paper — waiting proposals are cancelled">⏸ Paper</button>
       </div>
-      {wrong ? <p className="m-note" role="alert">This cat proposes to {short(v.wallet)} — connect that wallet to sign its trades.</p> : null}
+      {wrong ? <p className="m-note" role="alert">This agent proposes to {short(v.wallet)} — connect that wallet to sign its trades.</p> : null}
       {v.list.length ? <ul className="cr-list">{v.list.map((p, i) => { const st = STATUS[p.status];
         return <li key={p.id} className={`cr-p is-${p.side} st-${p.status}`} style={{ '--i': i }} data-testid={`cr-p-${p.id}`}>
           <span className="cr-side">{p.side === 'buy' ? 'BUY' : 'SELL'}</span>

@@ -587,7 +587,7 @@ def _notify_real(cat, p):
         key = (DATA_DIR / 'internal.key').read_text().strip()
         verb = f"BUY ${p['symbol']} with {p['sol']} SOL" if p['side'] == 'buy' else f"SELL {round(p['fraction'] * 100)}% of your ${p['symbol']}"
         httpx.post('http://127.0.0.1:5077/api/reputation/internal/notify', headers={'x-feeless-internal': key}, timeout=2,
-                   json={'address': cat['realWallet'], 'kind': 'cat', 'text': f"🐱 {cat.get('name') or 'Your cat'} " + (f"is doing it from its own wallet: {verb} — {p['why'][:80]}." if (cat.get('agentWallet') or {}).get('mode') == 'auto'
+                   json={'address': cat['realWallet'], 'kind': 'cat', 'text': f"🐱 {cat.get('name') or 'Your agent'} " + (f"is doing it from its own wallet: {verb} — {p['why'][:80]}." if (cat.get('agentWallet') or {}).get('mode') == 'auto'
                          else f"wants to {verb} — {p['why'][:80]}. " + ('Approve within 15 min — its wallet sends it.' if cat.get('agentWallet') else 'Approve within 15 min; your wallet signs.')),
                          'url': '/terminal/feecat/agents', 'once': f"cat-prop-{p['id']}"})
     except Exception:
@@ -6022,6 +6022,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         pob_topic_ = _pob.topic_of(p.text) if not (site_cmd_ and not site_cmd_.get('why')) else None
+        if not pob_topic_ and not site_cmd_ and re.match(r'^\s*(?:file|make|start)\s+a\s+pob\s*$', str(p.text or ''), re.I):   # no topic: it loops the best games on the board right now
+            async with httpx.AsyncClient(timeout=20) as http_b:
+                pob_topic_ = await _tools.best_topic(http_b) or None
         if pob_topic_:   # 🏈 "file a pob best nfl picks": researched like a PoW, filed in Bids
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
@@ -7125,7 +7128,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'TRADE', f"{cat['name']}: you approved {p_['side'].upper()} ${p_.get('symbol')} — its wallet sends it now.")
     elif payload.action == 'proposal':
         if signed != cat.get('realWallet'):
-            raise HTTPException(403, "Only the cat's real wallet answers its proposals.")
+            raise HTTPException(403, "Only the agent's real wallet answers its proposals.")
         try:
             _real.resolve(cat, payload.proposal, payload.result, time.time(), payload.sig)
         except ValueError as e:
@@ -7144,7 +7147,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(400, str(e))
     elif payload.action == 'chime':   # 🚀 the owner's advice — the brain reads it, it never trades on it
         if not cat.get('brainsCfg'):
-            raise HTTPException(400, 'This Cat has no AI brain.')
+            raise HTTPException(400, 'This Agent has no AI brain.')
         try:
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
@@ -7177,11 +7180,11 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'STARTED', f'{cat["name"]} topped up.')
     elif payload.action == 'start':
         if cat.get('needsTopup'):
-            raise HTTPException(400, 'Funds were pulled — top up before starting this Cat again.')
+            raise HTTPException(400, 'Funds were pulled — top up before starting this Agent again.')
         if cat.get('brainsCfg') and not _lc.can_ask(cat['brainsCfg']) and cat['brainsCfg'].get('billing') == 'payg':
             raise HTTPException(400, 'Model credit is used up — top up to start again.')
         if cat['revoked']:
-            raise HTTPException(400, 'This Cat has been revoked and cannot restart.')
+            raise HTTPException(400, 'This Agent has been revoked and cannot restart.')
         cat['status'] = 'running'
         cat['lastTick'] = time.time()
         _log_event(store, cat, 'STARTED', f'{cat["name"]} started paper trading.')
@@ -7269,7 +7272,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         if left > 0 and not cat.get('isLeader'):
             raise HTTPException(400, f'Its models can change 24 h after you got it — {left / 3600:.1f} h to go.')
         if not cat.get('brainsCfg') and not cat.get('isLeader'):
-            raise HTTPException(400, 'This cat has no AI models.')
+            raise HTTPException(400, 'This agent has no AI models.')
         cat_ = await _or_models()
         prev_ = cat.get('brainsCfg') or {'kind': 'trading', 'billing': 'payg'}
         try:   # the brief and credit carry over; the old model context is sealed before a fresh or sorted copy replaces it

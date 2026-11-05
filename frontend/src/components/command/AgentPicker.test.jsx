@@ -42,18 +42,18 @@ test('🤖 the agents page: no agents → the brain picker right there; staff: t
   await act(async () => { q(el, 'fc-tab-new').click(); });
   await act(async () => { q(el, 'agent-create').click(); });
   expect(document.body.querySelector('#create-cat-title')?.textContent).toBe('Create a paper agent');
-  expect(document.body.querySelector('[data-testid="cat-name"]').value).toBe('Specter');   // 🎨 the agent starts from the cat you built
+  expect(document.body.querySelector('[data-testid="cat-name"]').value).toBe('Specter');   // 🎨 the agent starts from the agent you built
   expect(document.body.querySelector('[data-testid="cat-look-avatar"]').getAttribute('data-gear')).toBe('crown');
   act(() => root.unmount()); localStorage.removeItem('feeless.myCat'); document.body.innerHTML = '';
 });
 
-test('🎨 Build a cat › "Give it a job" (?create=1) lands on the brain pick — never the paper wizard; a General cat launches with brainKind general', async () => {
+test('🎨 Build an agent › "Give it a job" (?create=1) lands on the brain pick — never the paper wizard; a General cat launches with brainKind general', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   window.history.pushState({}, '', '/terminal/feecat/agents?create=1&avatar=2');
   await act(async () => { root.render(<FeeCatsPlatform />); });
   expect(q(el, 'agent-picker')).not.toBeNull(); expect(document.body.querySelector('#create-cat-title')).toBeNull();
   await act(async () => { q(el, 'agent-general').click(); });
-  expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · ITS OWN WALLET');
+  expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI AGENT · ITS OWN WALLET');
   expect(q(el, 'lct-step-3').textContent).toContain('its wallet');
   act(() => root.unmount()); window.history.pushState({}, '', '/'); document.body.innerHTML = '';
 });

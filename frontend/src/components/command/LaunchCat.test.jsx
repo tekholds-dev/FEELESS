@@ -32,7 +32,7 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   await act(async () => { el.querySelector('[data-testid="lct-launch"]').click(); });
   expect(el.querySelector('[data-testid="lct-next-real"]').textContent).toContain('💵 fund it once');   // the launch says what comes next: its own wallet → one signed funding → it trades inside the caps
   expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo', maxPositionSol: '0.5', maxDailyLossSol: '0.5', dailyBuyLimitSol: '2', brainKind: 'trading' });
-  expect(posted[1]).toEqual({ action: 'start' });                          // starts trading at once, like Create a Cat
+  expect(posted[1]).toEqual({ action: 'start' });                          // starts trading at once, like Create an Agent
   expect(onCreated).toHaveBeenCalled();
   act(() => root.unmount());
 });
@@ -50,7 +50,7 @@ test('the brain panel shows credit and decisions and sends a chime', async () =>
   act(() => root.unmount());
 });
 
-test('Launch a Cat asks the SAME identity + look + risk fields as Create a Cat when they are handed in', async () => {
+test('Launch an Agent asks the SAME identity + look + risk fields as Create an Agent when they are handed in', async () => {
   const api = jest.fn(() => Promise.resolve(CAT));
   const Fields = ({ form, update }) => <input data-testid="shared-handle" value={form.handle} onChange={e => update('handle', e.target.value)} />;
   const el = document.createElement('div'); const root = createRoot(el);
@@ -70,7 +70,7 @@ test('🧠 the brain socket: YOUR built cat sits in it, each picked brain is a l
   const el = document.createElement('div'); document.body.appendChild(el); const root = cr(el);
   await a(async () => { root.render(<BrainSocket picked={[]} />); });
   expect(el.querySelectorAll('.lct-node.on')).toHaveLength(0); expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(0);
-  expect(el.querySelector('.g-halo')).not.toBeNull();                                     // your cat, wearing what you built
+  expect(el.querySelector('.g-halo')).not.toBeNull();                                     // your agent, wearing what you built
   await a(async () => { root.render(<BrainSocket picked={[{ id: 'a', name: 'OpenAI: GPT-5', tag: 'G4' }, { id: 'b', name: 'Qwen3 4B' }]} />); });
   expect([...el.querySelectorAll('.lct-node.on')].map(n => n.querySelector('.lct-orb b').textContent + n.querySelector(':scope > u').textContent)).toEqual(['OPA', 'QWB']);   // the maker's monogram + its A / B badge (never a name cut to 4 letters)
   expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(2);

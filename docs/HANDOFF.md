@@ -3,7 +3,7 @@
 Owner, 2026-11-04: "always should be one MD". This file is the handoff AND the only task list (`## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**
 → one line in `docs/FEELESS_HISTORY.md` (archive: grep, never load). Never start a second list.
 
-Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## TASKS` below (open rows) → `docs/DECISIONS.md` (before any money / custody work) → only the history lines your task touches
+Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## TASKS` below (left first, built after) → `docs/DECISIONS.md` (before any money / custody work) → only the history lines your task touches
 (`grep -n "<topic>" docs/FEELESS_HISTORY.md`).
 
 > ⚡ EVERY SESSION (owner, 2026-10-15 — repeat in anything you hand off):
@@ -19,6 +19,8 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## 
 
 > **Owner 2026-11-04, latest:** finish the whole MD without asking what's next, FeeCat and agent rows first, Familia last. Folder shapes stay; use the 3dicons packs inside them, never with a white background. New look = glass, live walls (`ShaderWall`), no huge text. Next rows: OSSY01, A04, FC11, FC03 (needs keys), Q03's FeeCat stage and lore, then the backlog by priority. OpenRouter credit (W05) blocks long paid agent calls.
 
+> **Owner 2026-11-04, Collective:** all agent fees go to the Collective wallet. Withdrawals stay OFF until a lawyer has looked (FC14). Then Familia and city, in that order. `## TASKS` shows what's left first.
+
 **Verify in this order, one at a time, with the owner:**
 | # | Task | Status |
 | --- | --- | --- |
@@ -26,7 +28,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `## 
 | 2 | Add about $3 SOL (split 100% wallet), send `buy 0.01 SOL of $JUP`, approve it | Built. Never run live |
 | 3 | Send `sell all $JUP` | Built. Never run live |
 | 4 | Withdraw to the owner's wallet | Built. Never run live |
-| 5 | First non-staff agent: confirm flat fees land in the fee wallet; open HQ › Fees › Agents on screen | Fakes only, UI not viewed |
+| 5 | First non-staff agent: confirm its deposit and trade fees land in the Collective wallet and show in Fee's desk › Collective HQ | Fakes only, UI seen on fixtures |
 | 6 | Venice fallback (W06): needs the $5 top-up flow | Not built. Login tested live |
 | 7 | Model share of the split arrives as USDC (today the agent swaps its own SOL) | Not built |
 | 8 | Agents-tab fps recheck with the pane in view | Measured once at 41 fps |

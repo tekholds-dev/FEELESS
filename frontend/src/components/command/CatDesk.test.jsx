@@ -47,10 +47,10 @@ test('🐱 Fee on her desk: the creator gets her tools, never a button the serve
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   const q = id => el.querySelector(`[data-testid="${id}"]`); const fee = { ...CAT, id: 'leader', name: 'Fee', isLeader: true };
   await act(async () => { root.render(<CatDesk cat={fee} canEdit onBack={() => {}} onAct={() => {}} Tools={<p data-testid="tools">tools</p>} />); });
-  expect(q('tools')).not.toBeNull(); expect(q('fee-live')).not.toBeNull(); expect(el.textContent).toContain('YOUR CAT');
+  expect(q('tools')).not.toBeNull(); expect(q('fee-live')).not.toBeNull(); expect(el.textContent).toContain('YOUR AGENT');
   ['kd-stop', 'kd-run', 'kd-save', 'kd-withdraw', 'kd-revoke'].forEach(id => expect(q(id)).toBeNull());
   await act(async () => { root.render(<CatDesk cat={fee} canEdit={false} onBack={() => {}} onAct={() => {}} />); });
-  expect(el.textContent).toContain('VIEWING'); expect(el.textContent).not.toContain('YOUR CAT');
+  expect(el.textContent).toContain('VIEWING'); expect(el.textContent).not.toContain('YOUR AGENT');
   act(() => root.unmount());
 });
 

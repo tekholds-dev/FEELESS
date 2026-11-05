@@ -1,3 +1,4 @@
+import { SplitFlow } from './SplitFlow';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KernelCard, PoiMinds } from './PoiFolder';
 import '../../styles/agentManual.css';
@@ -48,6 +49,7 @@ const CODE = [
   ['What they remember', [['poi.py', 'Sealed fingerprints'], ['colony.py', 'Collective + honey'], ['hive.py', 'Graded calls']]],
   ['What moves money', [['agent_trade.py', 'Guards, one in flight'], ['cat_real.py', 'Proposals'], ['agent_wallet.py', 'Its own wallet']]],
 ];
+const POOL_FLOW = [['🏆', 'A +50% WIN', 'Real, with its proof'], ['💎', 'IT SENDS', 'On-chain, read back'], ['🔒', 'LOCKED', 'Releases over time'], ['🪙', 'THE COUNT', 'In Boosts, every second'], ['⚡', 'BOOST', 'Better split, faster, more fee pot']];
 const POB_FLOW = [['💬', 'ASK', 'Any topic'], ['🌐', 'READ', 'Major sites'], ['📸', 'SNAPSHOT', 'One per site'], ['🕶', 'BLIND CALL', 'Each mind alone'], ['🤝', 'AGREE', 'Same picks only'], ['📁', 'FILE', 'You mark it right or wrong']];
 const SITE_FLOW = [['🌐', 'TYPE', 'Any site, in a folder'], ['🔓', 'SIGN IN', 'You, by hand'], ['🔎', 'SCAN', 'Terms, fees, help'], ['📖', 'MANUAL', "Its own sentences"], ['⌘', 'COMMAND', 'file a pump pow']];
 const FUND_FLOW = [['👛', 'YOUR WALLET', 'Fund the site yourself'], ['💡', 'CHEAPEST', 'One transfer, one fee'], ['📈', 'AGENTS READ', 'Signed in, in its window'], ['🛒', 'THEY TRADE', 'buy $1 of $BONK on pump']];
@@ -58,7 +60,7 @@ const FACTS = {
   pob: [['🏈', 'file a pob best NFL picks', 'ESPN, NFL, CBS, Action Network, Covers, Kalshi, Polymarket'], ['🎲', 'file a bid', 'Free chips on our own board, graded by its result'], ['⚖', 'It never bets for you', 'Any real bid is yours, where it is legal for you']],
   mail: [['🧩', 'Some sites refuse free mailboxes', 'It tries Tuta or GMX, then asks you'], ['✋', 'Human checks stay human', 'CAPTCHA, phone and ID are always yours']],
 };
-const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['pob', '🎲 PoB'], ['sites', '🌐 Sites'], ['fund', '💸 Funding'], ['mail', '📧 Mail'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
+const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['pob', '🎲 PoB'], ['pool', '🪙 Boosts'], ['sites', '🌐 Sites'], ['fund', '💸 Funding'], ['mail', '📧 Mail'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
 
 function Flow({ steps, tone = 'pow' }) {
   return <ol className={`am-flow is-${tone}`} data-testid={`am-flow-${tone}`}>{steps.map(([ic, l, s], i) => <li key={l} style={{ '--i': i }} data-tip={s}><i aria-hidden="true"><em><Ic3 e={ic} /></em></i><b>{l}</b><small>{s}</small>{i < steps.length - 1 ? <u aria-hidden="true"><s /></u> : null}</li>)}</ol>;
@@ -133,6 +135,7 @@ export function AgentManual({ d, onCommand, cat, setD, work, onOpen, kit }) {
       {tab === 'kinds' ? <Two tab="kinds" d={d}><Kinds /></Two> : null}
       {tab === 'pow' ? <Two tab="pow" d={d}><Flow steps={POW_FLOW} /></Two> : null}
       {tab === 'pop' ? <Two tab="pop" d={d}><Flow steps={POP_FLOW} tone="pop" /></Two> : null}
+      {tab === 'pool' ? <Two tab="pool" d={d}><><Flow steps={POOL_FLOW} tone="pop" /><SplitFlow testid="am-split" /></></Two> : null}
       {tab === 'pob' ? <Two tab="pob" d={d}><><Flow steps={POB_FLOW} tone="pop" /><Facts k="pob" /></></Two> : null}
       {tab === 'sites' ? <Two tab="sites" d={d}><><Flow steps={SITE_FLOW} /><Facts k="sites" /></></Two> : null}
       {tab === 'fund' ? <Two tab="fund" d={d}><><Flow steps={FUND_FLOW} tone="print" /><Facts k="fund" /></></Two> : null}

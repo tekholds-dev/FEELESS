@@ -14,17 +14,17 @@ import { FeeCatMark } from '../FeeCatMark';
 import '../../styles/launchCat.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
+// 🚀 LAUNCH An AGENT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
 // only on a ±10% move — so credit pays for decisions, never a chat loop. You can chime in (advice); you never trade for it. Paper cats.
 export const SORTS = [['smart', '♟ Smartest'], ['cheap', '💸 Cheapest'], ['ctx', '📚 Biggest memory'], ['new', '🆕 Newest']];
 export const STEPS = ['🧠 Brains', '🤝 How they work', '🐱 Identity + risk + brief', '🚀 Launch → 💵 go real'];
 const GEN_STEPS = ['🧠 Its minds', '🧭 How they work', '🎯 Its job + brief', '🚀 Launch → 👛 its wallet'];
 // 📈 TRADING hunts coins on its own · 🧭 GENERAL does what you order (owner, 2026-10-23) — both end on the wallet switch (link → budget → REAL)
-export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
+export const KIND = { trading: { eyebrow: '📈 TRADING AI AGENT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
   pitch: 'Pick 1–2 trading models. They decide once before a buy and up to 3 times while a coin is live — only on a ±10% move.',
   next: ['🚀 launch', '🔑 save its recovery PIN', '👛 its own wallet', '💵 fund it once', '🤖 it trades inside your limits'] },
-  general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
+  general: { eyebrow: '🧭 GENERAL AI AGENT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
   pitch: 'Pick 1–2 all-round models — its two minds. Ask in plain words: it answers from memory, or each mind researches half in its own cloud browser while you watch, then they merge. Coin orders go from its own wallet — you OK each one until you switch it to auto.',
   next: ['🚀 launch', '🔑 save its recovery PIN', '👛 its own wallet', '💵 fund it once', '✅ it checks with you · or 🤖 auto'] } };
 // 🧾 THE PROMPT GENERATOR (owner 2026-10-30: "robust prompts for both kinds — specific, so both models work properly together"): the job's brief +
@@ -73,7 +73,7 @@ export const WORK_WAYS = [
 // 📈 a trading cat trades on FEELESS rails ONLY (owner 2026-10-29) — mirrors cat_keys.VENUES / VENUES_LIVE (change both)
 export const VENUES = [['trench', '🫧 Trench', 'Solana coins on the FEELESS swap — its wallet sends, inside your caps', true],
   ['perps', '📉 Perps', 'the FEELESS perps desk — it proposes, the agent sender for perps is the next build', false]];
-// 🔐 the API drawer (cat_keys.PROVIDERS mirror): your own keys for the cat's tools, sealed on the server, only the last 4 ever come back
+// 🔐 the API drawer (cat_keys.PROVIDERS mirror): your own keys for the agent's tools, sealed on the server, only the last 4 ever come back
 export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', true, 'sk-or-v1-…'],
   ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
   ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
@@ -82,7 +82,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start })
   const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
   return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
-    <summary data-tip="Add your own API keys for this cat's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true"><Ic3 e="🔐" /></i><b>API DRAWER</b>
+    <summary data-tip="Add your own API keys for this agent's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true"><Ic3 e="🔐" /></i><b>API DRAWER</b>
       <small>{saved ? `${saved} key${saved > 1 ? 's' : ''} in` : 'your keys · optional'}</small><span className="akd-pips" aria-hidden="true">{API_PROVIDERS.map(([k]) => <u key={k} className={(rows || []).some(r => r.provider === k && r.saved) || draft?.[k] ? 'on' : ''} />)}</span></summary>
     <ul className="akd-list">{API_PROVIDERS.map(([k, label, use, wired, ph], i) => { const row = (rows || []).find(r => r.provider === k);
       return <li key={k} style={{ '--i': i }} className={row?.saved ? 'is-saved' : ''}>
@@ -92,7 +92,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start })
             onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}
         {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !draft?.[k]} onClick={() => onSave(k, draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
       </li>; })}</ul>
-    <p className="akd-note"><Ic3 e="🔒" /> Sealed at rest, never sent back. A key never opens another exchange — the cat trades on FEELESS rails only.</p>
+    <p className="akd-note"><Ic3 e="🔒" /> Sealed at rest, never sent back. A key never opens another exchange — the agent trades on FEELESS rails only.</p>
   </details>;
 }
 export function VenuePick({ value, onChange }) {
@@ -172,7 +172,7 @@ function MindGlass({ m, k, gen, onPick }) {
 }
 
 // 🧠 THE BRAIN SOCKET (FeeCat redo, 2026-10-23): YOUR built cat with the picked brains drawn as lit orbs, each wired into its head — the wire
-// pulses toward the cat; two brains = two wires; none = an empty socket waiting.
+// pulses toward the agent; two brains = two wires; none = an empty socket waiting.
 // its body in the general setup: the character you picked in Build an agent
 function BodyPreview() {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
@@ -220,7 +220,7 @@ function Duo({ mode, picked, kind }) {
 const plainForm = () => ({ name: '', handle: '', avatar: 0, startingBalanceSol: '10', maxPositionSol: '0.5', dailyBuyLimitSol: '2', maxDailyLossSol: '0.5' });
 const plainOk = f => f.name.trim().length > 1;
 
-// 🧭 THE MODEL BROWSER — one smart list for every place a model is picked (the wizard's step 1 · Fee's model pop-out · a cat's model switch):
+// 🧭 THE MODEL BROWSER — one smart list for every place a model is picked (the wizard's step 1 · Fee's model pop-out · an agent's model switch):
 // its job (general), search, sort, a $ range, categories that combine, and the tiles — tap to pick, tap again to drop
 export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
   const gen = kind === 'general';
@@ -288,13 +288,13 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
       try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); localStorage.setItem(`feeless.fundToken.${r.cat.id}`, fundToken); } catch { /* private window */ }   // its funding step opens on this $
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
-      const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
+      const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create an Agent: it starts trading at once
       onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
   return <section className={`lct is-${kind}`} data-testid="launch-cat">
     <header className="lct-head"><BrainSocket kind={kind} picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
-      <div><span className="eyebrow" data-testid="lct-kind">{K.eyebrow} · ITS OWN WALLET</span><h2>Give your cat <em>{picked.length === 2 ? (gen ? 'two minds' : 'two brains') : (gen ? 'a mind' : 'a brain')}</em>.</h2>
+      <div><span className="eyebrow" data-testid="lct-kind">{K.eyebrow} · ITS OWN WALLET</span><h2>Give your agent <em>{picked.length === 2 ? (gen ? 'two minds' : 'two brains') : (gen ? 'a mind' : 'a brain')}</em>.</h2>
         <p>{K.pitch.replace(/1–2/g, `1–${d?.maxModels || 2}`)}</p><small>{picked.length} / {d?.maxModels || 2} models</small></div></header>
     <nav className="lct-steps" style={{ '--p': step / (steps.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{steps.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
@@ -349,7 +349,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       : plan ? <div className="lct-meter"><span><small>A DECISION</small><b>{fmtUsd(plan.perDecision)}</b></span><span><small>A TRADE (worst case)</small><b>{fmtUsd(plan.perTrade)}</b></span>
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
-      <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — at $0 its minds pause until you add more from its wallet panel, in SOL or USDC. Your funding never pays for model calls: it goes to its own wallet.</p>
+      <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your agent and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — at $0 its minds pause until you add more from its wallet panel, in SOL or USDC. Your funding never pays for model calls: it goes to its own wallet.</p>
       {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} />}
       <SafetyCard gen={gen} />
       <FundReceipt general={gen} />
@@ -360,14 +360,14 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <small className="lct-fund-note">{fundToken === 'USDC' ? 'paid in USDC · keep a little SOL in your wallet for the network fee' : 'paid in SOL at the live price'} · nothing is charged until you sign the receipt after launch</small></div>
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
       {slots ? <span className={`m-chip ${slots.left ? 'ok' : 'warn'} lct-slots`} data-tip="Agents are limited across every buyer — new slots open over time" data-testid="lct-slots"><Ic3 e="🎟" /> {slots.left ? `${slots.left.toLocaleString()} of ${slots.open.toLocaleString()} slots left` : 'every slot is taken — new slots open soon'}</span> : null}
-      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean) || (slots && !slots.left)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
+      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean) || (slots && !slots.left)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the agent'} → go real`}</button>
     </div> : null}
     <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? (gen ? ` · ≈ ${fmtUsd(plan.perTask)} a task` : ` · ${fmtUsd(plan.perDecision)} a decision`) : ''}</span>
       <span>{onCancel ? <button type="button" className="m-btn" onClick={onCancel}>Cancel</button> : null}{step < 3 ? <button type="button" className="m-btn m-go" disabled={!ready[step]} onClick={() => setStep(s => s + 1)} data-testid="lct-next">Next ›</button> : null}</span></footer>
   </section>;
 }
 
-// 🧭 A GENERAL cat's orders (owner, 2026-10-23): you order in plain words → the cat checks the coin (pool · age · already-ran · rug / holders) →
+// 🧭 A GENERAL cat's orders (owner, 2026-10-23): you order in plain words → the agent checks the coin (pool · age · already-ran · rug / holders) →
 // REAL = its own wallet (approve: one tap · auto: it sends) or, linked to yours, a proposal your wallet signs · paper = a paper fill. Each order shows what it understood and what happened.
 export const ORDER_STATE = { proposed: ['✍', 'waiting for your signature', 'is-prop'], filled: ['📄', 'filled on paper', 'is-fill'], refused: ['🛡', 'stopped by a guard', 'is-stop'], unclear: ['🤔', 'not understood', 'is-unclear'] };
 export const ORDER_EXAMPLES = ['buy 0.05 SOL of $JUP', 'sell half of $WIF', 'sell all $BONK'];
@@ -431,9 +431,9 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
     {noTalk ? null : <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn"><Ic3 e="💬" /> Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}
-    <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The cat stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
+    <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The agent stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
       {cat.agentWallet || cat.brainsCfg?.kind === 'general' ? <small className="lct-note">Add model credit from its wallet panel, in SOL or USDC.</small> : <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button>}</div>
-    {cat.needsTopup ? <p className="lct-note"><Ic3 e="🔒" /> Funds pulled — top up to start this cat again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
+    {cat.needsTopup ? <p className="lct-note"><Ic3 e="🔒" /> Funds pulled — top up to start this agent again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
     {err ? <p className="lct-err">⚠ {err}</p> : null}
   </section>;
 }

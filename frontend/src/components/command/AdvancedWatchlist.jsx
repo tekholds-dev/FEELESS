@@ -94,7 +94,7 @@ export function AdvancedWatchlist() {
     const symbols = watchlist.filter(p => p.chainId === 'solana').map(p => p.baseToken?.symbol).filter(Boolean).join(', ');
     if (!symbols) { toast.error('Cats trade Solana pairs — star a Solana coin first.'); return; }
     const res = await fetch(`/api/cats/${catId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'controls', allowlist: symbols, ...agentAuth() }) });
-    toast[res.ok ? 'success' : 'error'](res.ok ? 'Your Cat now trades only your watchlist (paper).' : 'Could not update that Cat.');
+    toast[res.ok ? 'success' : 'error'](res.ok ? 'Your Agent now trades only your watchlist (paper).' : 'Could not update that Agent.');
   };
   const toggleNotify = async pair => {
     const on = !pair.alerts?.notify;
@@ -104,7 +104,7 @@ export function AdvancedWatchlist() {
   if (!watchlist.length) return <section className="adv-watch-empty" data-testid="advanced-watchlist"><Star size={24} /><h2>Star coins to track them here.</h2><p>Open any coin — from the globe, Discover, or Pump Radar — and hit the star. Starred coins keep live prices, alerts, and Fee's read even after they drop off the globe.</p></section>;
   return <section className="adv-watch" data-testid="advanced-watchlist">
     <div className="adv-watch-head"><div><span className="eyebrow"><Star size={13} /> YOUR WATCHLIST · LIVE</span><h2>{watchlist.length} coin{watchlist.length === 1 ? '' : 's'} on watch</h2></div>
-      <div className="adv-watch-cat"><Cat size={15} /><span>Let a Cat paper-trade only these coins</span>{cats.length ? <select defaultValue="" onChange={e => e.target.value && assignCat(e.target.value)}><option value="" disabled>Choose your Cat…</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> : <button type="button" className="btn-outline" onClick={() => navigate('/terminal/feecat/agents?create=1')}>Create a Cat</button>}</div></div>
+      <div className="adv-watch-cat"><Cat size={15} /><span>Let an Agent paper-trade only these coins</span>{cats.length ? <select defaultValue="" onChange={e => e.target.value && assignCat(e.target.value)}><option value="" disabled>Choose your Agent…</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> : <button type="button" className="btn-outline" onClick={() => navigate('/terminal/feecat/agents?create=1')}>Create an Agent</button>}</div></div>
     <PushPanel watchlist={watchlist} />
     <div className="adv-watch-table" role="table">
       <div className="adv-watch-row adv-watch-labels" role="row"><span>Coin</span><span>Live price</span><span>Since starred</span><span>Fee's read</span><span>Alert rules</span><span /></div>

@@ -284,3 +284,15 @@ async def pop_tool(http):
         return {'markets': rows[:12], 'hotFunding': sorted(rows[:40], key=lambda r: -abs(r['fundingPct']))[:5], 'mood': ((fng or {}).get('data') or [{}])[0].get('value_classification'), 'moodValue': ((fng or {}).get('data') or [{}])[0].get('value'), 'btcDom': (((glob or {}).get('data') or {}).get('market_cap_percentage') or {}).get('btc'), 'btcSpot': _f((spot or {}).get('price')), 'perpVol24h': (llama or {}).get('total24h'), 'read': {'Hyperliquid': bool(rows), 'Coinbase': bool(spot), 'Fear & Greed': bool(fng), 'CoinGecko': bool(glob), 'DefiLlama': bool(llama)}}
     d = await _cached('pop', go) or {}
     return {'kind': 'pop', **d, 'sources': [{'name': n, 'use': u, 'on': bool((d.get('read') or {}).get(n))} for n, u, _ in SOURCES['pop']]}
+
+
+async def best_topic(http):
+    """🏈 "file a pob" with no topic: the strongest 2 or 3 sides of the first sport with games coming up. → the topic, or '' when no sport has any."""
+    for sport, (label, _) in SPORTS.items():
+        try:
+            legs = (await bids(http, sport)).get('legs') or []
+        except Exception:   # noqa: BLE001 — try the next sport
+            continue
+        if len(legs) >= 2:
+            return f"best {label} picks: {', '.join(x['pick'] for x in legs[:3])}"[:120]
+    return ''

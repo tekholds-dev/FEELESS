@@ -10,13 +10,13 @@ import { Ic3 } from '../../lib/icon3d';
 
 // 🐱 THE FEECAT APP SHELL (owner, 2026-10-23: "all terminal FeeCat pages / tabs clean cut, unneeded out — a full redo, not half"): every FeeCat
 // page sits in ONE violet-night shell with ONE nav — LIVE DESK · HER BRAIN · LORE (Fee, the leader) · AGENTS (create a trading cat) · BUILD A
-// CAT (the look) — so "Create a cat" (an agent that trades) and "Build a cat" (coat, gear, eyes, aura) are two different doors, side by side.
+// CAT (the look) — so "Create an agent" (an agent that trades) and "Build an agent" (coat, gear, eyes, aura) are two different doors, side by side.
 // The bar carries Fee live (hunting / napping, ROI, nine lives) and YOUR built cat. Before: three pages with three different headers, Fee's
-// numbers shown three times, a "Fee live" tab inside the agents page and a "Build your cat" tab that jumped away.
+// numbers shown three times, a "Fee live" tab inside the agents page and a "Build your agent" tab that jumped away.
 export const FC_NAV = [
   ['desk', '/terminal/feecat', '🐱', 'LIVE DESK', "Fee's scan · chart · calls"],
   ['lore', '/terminal/feecat?view=lore', '📜', 'LORE', 'her legend · her brain · Fee-Back'],
-  ['agents', '/terminal/feecat/agents', '🤖', 'AGENTS', 'create a cat that trades'],
+  ['agents', '/terminal/feecat/agents', '🤖', 'AGENTS', 'create an agent that trades'],
   ['build', '/terminal/feecat/cats', '🎨', 'BUILD AN AGENT', 'real people · anime · robots'],
 ];
 // in-app navigation without a router dependency (react-router's history listens to popstate)

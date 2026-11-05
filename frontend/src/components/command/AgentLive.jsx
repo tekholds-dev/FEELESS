@@ -4,7 +4,7 @@ import { useLiveTokenMarkets } from '../../lib/liveTokens';
 import { Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 
-// 🛸 AGENT LIVE (owner, 2026-10-30: "this same ui/layout from the demo in live — when a cat is bought, when I enter My agent, and Fee's live
+// 🛸 AGENT LIVE (owner, 2026-10-30: "this same ui/layout from the demo in live — when an agent is bought, when I enter My agent, and Fee's live
 // desk: 2 charts with thoughts"). The demo's frame, fed REAL data: each mind a live bubble whose thoughts are its own latest words, two REAL
 // coin charts (what it holds, then what it reads next), and its real activity riding over both windows. A window with no coin yet shows the
 // drawn ghost, labelled as a preview. Pure helpers are exported for tests.

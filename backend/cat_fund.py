@@ -95,7 +95,7 @@ def _send_usdc(payer, to, units):
 
 
 def build(owner, cat_wallet, fee_wallet, p, blockhash, colony_wallet=None):
-    """→ base64 of the UNSIGNED v0 transaction: owner pays the fee transfer (if any) and the cat's share. Raises ValueError on a bad key."""
+    """→ base64 of the UNSIGNED v0 transaction: owner pays the fee transfer (if any) and the agent's share. Raises ValueError on a bad key."""
     try:
         payer, cat, fee = Pubkey.from_string(owner), Pubkey.from_string(cat_wallet), Pubkey.from_string(fee_wallet) if p['feeLamports'] else None
         bh = Hash.from_string(blockhash)
@@ -105,7 +105,7 @@ def build(owner, cat_wallet, fee_wallet, p, blockhash, colony_wallet=None):
     if p.get('colonyLamports') and not col:
         raise ValueError('The Pool wallet is not open.')
     if payer == cat or (fee and fee in (payer, cat)) or (col and col in (payer, cat, fee)):
-        raise ValueError('The cat wallet, the fee wallet and yours must all differ.')
+        raise ValueError('The agent wallet, the fee wallet and yours must all differ.')
     legs = ([(fee, p['feeLamports'])] if fee else []) + ([(col, p['colonyLamports'])] if col else []) + ([(cat, p['catLamports'])] if p['catLamports'] else [])
     if p.get('token') == 'USDC':
         ixs = [i for to, n in legs for i in (_open_usdc(payer, to), _send_usdc(payer, to, n))]
@@ -150,5 +150,5 @@ def verify(signed_b64, built_b64, owner):
             print(f"[cat fund] refused a signed copy: lookups {bool(getattr(a, 'address_table_lookups', None))} · payer same {a.account_keys[0] == b.account_keys[0]} · programs {sorted({str(a.account_keys[i.program_id_index])[:8] for i in a.instructions})}")
             raise ValueError('The signed transaction is not the one FEELESS built — nothing was sent.')
     if str(signed.message.account_keys[0]) != owner or not all(signed.verify_with_results()):
-        raise ValueError("It is not signed by the cat's owner wallet — nothing was sent.")
+        raise ValueError("It is not signed by the agent's owner wallet — nothing was sent.")
     return str(signed.signatures[0])

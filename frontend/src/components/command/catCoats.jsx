@@ -2,7 +2,7 @@ import React from 'react';
 import { FeeCatMark } from '../FeeCatMark';
 
 // 🎨 THE COATS (FeeCat redo, 2026-10-23): 25 real coats — fur + accent + the pattern drawn on the head (stripes / spots / patch). The old list
-// padded itself to 50 with "<name> Spots" copies of the same 25 colours; a cat saved under one of those names still resolves (`catByName`).
+// padded itself to 50 with "<name> Spots" copies of the same 25 colours; an agent saved under one of those names still resolves (`catByName`).
 export const CAT_VARIATIONS = [
   ['Mint Mackerel', '#b9f4d7', '#087a58', 'stripes'], ['Midnight Patch', '#1c2930', '#f7d36b', 'patch'], ['Solaris', '#ffbf69', '#d94e41', 'spots'],
   ['Cloud Nine', '#f5f0e8', '#a9b9c8', 'patch'], ['Berry Socks', '#e78aa8', '#5b2b55', 'spots'], ['Lime Sprout', '#c9ee68', '#3e8e52', 'stripes'],

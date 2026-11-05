@@ -8,9 +8,9 @@ import { Ic3 } from '../../lib/icon3d';
 // The free rule trader stays as a 🧪 paper TEST toggle under the two — STAFF ONLY (owner 2026-10-30, D1; the server refuses a brainless cat to anyone else). A user runs at most AGENT_MAX agents.
 export const AGENT_MAX = 2;
 export const AGENT_KINDS = [
-  { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the cat\'s own wallet — you fund it once, then it trades inside the caps you set.',
+  { key: 'trading', glyph: 'brain', title: 'Trading AI agent', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the agent\'s own wallet — you fund it once, then it trades inside the caps you set.',
     meters: [['WHAT IT DOES', 0.9, 'hunts + trades'], ['YOUR CONTROL', 0.85, 'caps + stop'], ['TALK TO IT', 0.95, 'its brain panel']] },
-  { key: 'general', glyph: 'orbit', title: 'General AI cat', tag: 'REAL · YOU OK EACH MOVE', pitch: '1–2 all-round models — its two minds answer, research in their own cloud browsers while you watch, and run your coin orders from its own wallet: you OK each move (one tap) until you switch it to auto.',
+  { key: 'general', glyph: 'orbit', title: 'General AI agent', tag: 'REAL · YOU OK EACH MOVE', pitch: '1–2 all-round models — its two minds answer, research in their own cloud browsers while you watch, and run your coin orders from its own wallet: you OK each move (one tap) until you switch it to auto.',
     meters: [['WHAT IT DOES', 0.95, 'research + orders'], ['YOUR CONTROL', 0.95, 'you OK each'], ['TALK TO IT', 1, 'both minds or one']] },
 ];
 
@@ -35,7 +35,7 @@ export function AgentPicker({ count = 0, onPick, staff = false, max = AGENT_MAX 
   useEffect(() => { let on = true; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => { if (on && d) setLive(!!d.live); }).catch(() => {}); return () => { on = false; }; }, []);
   const full = count >= max;
   return <section className="agp" data-testid="agent-picker">
-    <header className="agp-head"><div><span className="eyebrow">NEW AGENT · {count}/{max} RUNNING</span><h2>Pick the brain your cat trades with.</h2></div>
+    <header className="agp-head"><div><span className="eyebrow">NEW AGENT · {count}/{max} RUNNING</span><h2>Pick the brain your agent trades with.</h2></div>
       <span className="agp-slots" aria-label={`${count} of ${max} agent slots used`}>{Array.from({ length: max }, (_, i) => <i key={i} className={i < count ? 'is-used' : ''} />)}</span></header>
     {full ? <p className="agp-full" data-testid="agent-full">You run {max} agents — retire one in 🤖 My agents to start another.</p> : null}
     <div className="agp-grid">{AGENT_KINDS.map((k, i) => <button key={k.key} type="button" className={`agp-card k-${k.glyph}`} style={{ '--i': i }} disabled={full} onClick={() => onPick(k.key)} data-testid={`agent-${k.key}`}

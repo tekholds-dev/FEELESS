@@ -79,7 +79,7 @@ test('👛 its own wallet: make it (signed), then live SOL / USDC + copy; a gene
   await act(async () => { root.unmount(); });
 });
 
-test('🏇 a cat with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it), auto shows it sending, and the day bar counts its buys', async () => {
+test('🏇 an agent with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it), auto shows it sending, and the day bar counts its buys', async () => {
   global.fetch = async () => ({ ok: true, json: async () => ({ balance: { sol: 1, usdc: 0 } }) });
   const onAct = jest.fn(async () => {});
   const p = { id: 'q1', side: 'buy', mint: 'M2', symbol: 'NEXT', at: NOW - 30, until: NOW + 870, status: 'pending', sol: 0.05, record: rec };

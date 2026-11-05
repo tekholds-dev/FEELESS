@@ -3,7 +3,7 @@ import { CatAvatar } from './catCoats';
 import '../../styles/createCat.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 🐆 Make the cat yours: a gear piece, an aura, eyes and a name tag on top of its coat. Pure look — the engine never reads it.
+// 🐆 Make the agent yours: a gear piece, an aura, eyes and a name tag on top of its coat. Pure look — the engine never reads it.
 // Mirrors feecat_service.LOOK_OPTIONS (change both).
 export const LOOK = {
   gear: [['none', 'None', ''], ['crown', 'Crown', '👑'], ['shades', 'Shades', '🕶'], ['chain', 'Gold chain', '⛓'], ['headset', 'Headset', '🎧'],

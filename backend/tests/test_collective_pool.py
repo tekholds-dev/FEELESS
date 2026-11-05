@@ -206,3 +206,16 @@ def test_a_closed_proof_keeps_its_best_two_snapshots_after_14_days():
     assert ap.clean_shots({**f, 'status': 'open'}, 99 * D) == []                          # an open proof is never touched
     gone = ap.clean_shots(f, 15 * D)
     assert [s['file'] for s in f['shots']] == ['4.jpg', '2.jpg'] and len(gone) == 3       # the picked coin, two different sites
+
+
+def test_a_pob_with_no_topic_picks_the_strongest_games_of_the_first_sport_that_has_any(monkeypatch):
+    import asyncio
+    import proof_tools as pt
+    async def bids(http, sport):
+        return {'legs': [{'pick': 'KC to beat DEN'}, {'pick': 'BUF to beat NYJ'}, {'pick': 'SF to beat SEA'}, {'pick': 'x'}]} if sport == 'nba' else {'legs': []}
+    monkeypatch.setattr(pt, 'bids', bids)
+    assert asyncio.run(pt.best_topic(None)) == 'best NBA picks: KC to beat DEN, BUF to beat NYJ, SF to beat SEA'
+    async def none(http, sport):
+        return {'legs': []}
+    monkeypatch.setattr(pt, 'bids', none)
+    assert asyncio.run(pt.best_topic(None)) == ''

@@ -22,7 +22,7 @@ import { AgentDesktop } from './CatWorkbench';
 import { DeskExtras, Lamp, SetupDot, ShaderWall } from './DeskShell';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
-// sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
+// sidebar, a thin sparkline, a disclosure paragraph). Now: the agent on its own violet stage (it purrs while it hunts, pounces while it holds,
 // sleeps when stopped), live vitals as meters (balance vs start, realized, a win ring, slots, TODAY'S LOSS against its daily cap), the P/L curve
 // drawn big, each open position as a lit row with a diverging move bar (tap = its war room), what it learned, its brains, and its limits as
 // meters you drag. The desk itself never signs or moves SOL; `Real` (CatReal.jsx) turns its buys into proposals YOUR wallet signs.
@@ -32,7 +32,7 @@ const short = v => (v ? `${v.slice(0, 5)}…${v.slice(-4)}` : '—');
 const RC = 2 * Math.PI * 24;
 export const MAX_SLOTS = 5;   // feecat_service.RULES.maxPositions
 
-// pure: the desk's numbers from a cat (one place, so every tile agrees)
+// pure: the desk's numbers from an agent (one place, so every tile agrees)
 export function deskVitals(cat, today = new Date().toISOString().slice(0, 10)) {
   const c = cat || {}; const r = c.risk || {};
   const start = Number(c.startingBalanceSol) || Number(c.pnlHistory?.[0]?.balance) || 10; const bal = Number(c.balanceSol) || 0;
@@ -246,7 +246,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
           {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
             : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
-  </> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below"><Ic3 e="👑" /> YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+  </> : canEdit ? <span className="kd-visitor" data-tip="Your agent — her engine runs from her Fee desk below"><Ic3 e="👑" /> YOUR AGENT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
           {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
           {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
         </div>

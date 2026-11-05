@@ -11080,9 +11080,9 @@ class CatFundIn(BaseModel):
 
 
 async def _cat_for_fund(cat_id, me):
-    """The cat (from the cat service) + its own wallet, owned by `me`. Raises HTTPException."""
+    """The agent (from the agent service) + its own wallet, owned by `me`. Raises HTTPException."""
     if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cat_id or ''):
-        raise HTTPException(400, 'Not a cat id.')
+        raise HTTPException(400, 'Not an agent id.')
     r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', headers={'x-feeless-internal': _internal_key()}, timeout=8)   # the full record (its wallet) — the public view hides it
     if r.status_code != 200:
         raise HTTPException(404, 'Cat not found.')
@@ -11091,7 +11091,7 @@ async def _cat_for_fund(cat_id, me):
     if not w.get('address'):
         raise HTTPException(400, 'Give it its own wallet first.')
     if w.get('owner') != me:
-        raise HTTPException(403, "Only the wallet that made this cat's wallet can fund it.")
+        raise HTTPException(403, "Only the wallet that made this agent's wallet can fund it.")
     if w.get('provider', 'crossmint') not in ('crossmint', 'circle'):
         raise HTTPException(400, "That wallet is watch-only (its key isn't held by Crossmint) — fund it straight from your own wallet; FEELESS can't trade from it.")
     return cat, w
@@ -34298,7 +34298,7 @@ async def internal_agent_circle_wallet(request: Request, body: dict):
         raise HTTPException(403, 'Internal only.')
     cid_ = str(body.get('catId') or '')
     if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cid_):
-        raise HTTPException(400, 'Not a cat id.')
+        raise HTTPException(400, 'Not an agent id.')
     import uuid as _uuid
     return await _circle('POST', '/wallets', {'blockchain': 'SOL', 'name': f'agent {cid_[:30]}', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, f'feeless-cat-{cid_}'))}, agent=True)
 
@@ -34316,7 +34316,7 @@ async def internal_agent_circle_send(request: Request, body: dict):
     acct_ = body.get('acct') == 'agent'   # 🟦 an agent's own wallet lives on the separate account; Fee's assigned wallet on the FEELESS one
     w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet') if acct_ else next((w for w in (await _circle_wallets_live()) or [] if w.get('id') == wid_), None)
     if not w_ or w_.get('address') != addr_:
-        raise HTTPException(403, 'That Circle wallet is not this cat\'s assigned wallet.')
+        raise HTTPException(403, 'That Circle wallet is not this agent\'s assigned wallet.')
     signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx_, 'memo': f"FEELESS agent {str(body.get('catId') or '')[:20]}"}, agent=acct_)
     sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
     if not signed_.get('signedTransaction') or not sig_:

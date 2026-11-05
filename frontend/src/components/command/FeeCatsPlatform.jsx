@@ -24,9 +24,9 @@ import { ColonyGrid } from './HiveBoard';
 import { FeeOwnerBar } from './FeeOwnerBar';
 import { Ic3 } from '../../lib/icon3d';
 const api = async (path, options = {}) => {
-  // 🔒 every cat action carries the signed-in wallet's session (the service refuses anyone else's cat, and anyone signed out)
+  // 🔒 every agent action carries the signed-in wallet's session (the service refuses anyone else's cat, and anyone signed out)
   if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...agentAuth(), ...JSON.parse(options.body) }) };
-  if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?${agentAuthQuery()}`;   // one cat → the server answers `mine` (never sends the owner id)
+  if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?${agentAuthQuery()}`;   // one agent → the server answers `mine` (never sends the owner id)
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.error || 'Agent request failed.');
@@ -39,11 +39,11 @@ function PaperBadge() {   // 💵 the AI cats are real-first (its own wallet: yo
 }
 
 function AvatarPicker({ value, onChange }) {
-  return <div className="paper-avatar-picker" role="group" aria-label="Choose a Cat avatar">{CAT_VARIATIONS.slice(0, 10).map((cat, index) => <button type="button" key={cat[0]} className={value === index ? 'selected' : ''} aria-label={`Choose ${cat[0]}`} onClick={() => onChange(index)}><CatAvatar cat={cat} /></button>)}</div>;
+  return <div className="paper-avatar-picker" role="group" aria-label="Choose an Agent avatar">{CAT_VARIATIONS.slice(0, 10).map((cat, index) => <button type="button" key={cat[0]} className={value === index ? 'selected' : ''} aria-label={`Choose ${cat[0]}`} onClick={() => onChange(index)}><CatAvatar cat={cat} /></button>)}</div>;
 }
 
-// 🐱 ONE set of cat fields (name · handle · coat · look · risk) for Create a Cat AND Launch a Cat (owner: "they must ask the same data");
-// the name + look start from the cat you built in 🎨 Build a cat (lib/myCat)
+// 🐱 ONE set of cat fields (name · handle · coat · look · risk) for Create an Agent AND Launch an Agent (owner: "they must ask the same data");
+// the name + look start from the agent you built in 🎨 Build an agent (lib/myCat)
 export const catForm = (presetAvatar = 0, preset, mine = readMyCat()) => ({ name: mine?.name || '', handle: '', avatar: presetAvatar, brain: 'rules', strategy: 'trend', instructions: '', look: mine?.look || DEFAULT_LOOK, startingBalanceSol: '10', maxPositionSol: preset?.maxPositionSol || '0.5', dailyBuyLimitSol: '2', maxDailyLossSol: '0.5', thinkEvery: '15 min', bio: '', xHandle: '', allowlist: '', blocklist: '', walletMode: 'paper', coinPlan: 'later' });
 export const catOk = f => f.name.trim().length >= 2 && /^[a-z0-9_-]{3,20}$/.test(f.handle);
 export function CatFields({ form, update }) {
@@ -68,7 +68,7 @@ export function CatFields({ form, update }) {
 export function CatPreview({ form }) {
   return <>
           <span className="cct-stage"><LookAvatar cat={CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0]} look={form.look} large /></span>
-          <b className="cct-name">{form.name || 'Your Cat'}</b><small className="cct-handle">@{form.handle || 'handle'}</small>
+          <b className="cct-name">{form.name || 'Your Agent'}</b><small className="cct-handle">@{form.handle || 'handle'}</small>
           <div className="cct-meters">
             {[['Risk / trade', Number(form.maxPositionSol) / Math.max(0.1, Number(form.startingBalanceSol))], ['Daily loss cap', Number(form.maxDailyLossSol) / Math.max(0.1, Number(form.startingBalanceSol))], ['Daily buys', Number(form.dailyBuyLimitSol) / Math.max(0.1, Number(form.startingBalanceSol))]].map(([k, v]) =>
               <span key={k}><small>{k}</small><i><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, v || 0))})` }} /></i><b>{Math.round((v || 0) * 100)}%</b></span>)}
@@ -108,13 +108,13 @@ function CreateCatWizard({ form, update, step, setStep, onCancel, submit, error,
     <div className="paper-wizard-visual"><div className="paper-wizard-cat-strip">{CAT_VARIATIONS.slice(1, 4).map(cat => <span key={cat[0]}><CatAvatar cat={cat} /></span>)}</div><button className="icon-btn" type="button" onClick={onCancel} aria-label="Close Create Cat"><X size={18} /></button></div>
     {step === 2 && <div className="paper-wizard-body cct-body">
       <div className="cct-head"><StepRail at={1} /><h2 id="create-cat-title">Create a paper agent</h2>
-        <p className="paper-helper">Your Cat runs the Leader's engine on live prices: −10% stop, +22% take-profit, trailing stop, 4h max hold, 1% fee a side. You pick the name, the look and the limits.</p></div>
+        <p className="paper-helper">Your Agent runs the Leader's engine on live prices: −10% stop, +22% take-profit, trailing stop, 4h max hold, 1% fee a side. You pick the name, the look and the limits.</p></div>
       <div className="cct-split">
         <CatFields form={form} update={update} />
         <aside className="cct-preview m-live" data-testid="cat-preview"><CatPreview form={form} /></aside>
       </div>
       <div className="paper-wizard-bottom"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary m-go" type="button" disabled={!catOk(form)} onClick={() => setStep(3)} data-testid="cat-continue">Continue <ChevronRight size={16} /></button></div></div>}
-    {step === 3 && <form onSubmit={submit} className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(2)}><ArrowLeft size={14} /> Back</button><StepRail at={2} /><div className="cct-confirm-head"><LookAvatar cat={CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0]} look={form.look} /><h2>Start {form.name || 'your Cat'}</h2></div><div className="paper-confirm-list"><div><small>Starting paper balance</small><b>{form.startingBalanceSol} SOL</b></div><div><small>Max per position</small><b>{form.maxPositionSol} SOL</b></div><div><small>Daily loss limit</small><b>{form.maxDailyLossSol} SOL</b></div><div><small>Prices</small><b>Live DexScreener, SOL-native</b></div></div><p className="paper-wizard-disclosure"><AlertTriangle size={14} /> Paper mode: the money is simulated, the prices are real. Nothing is signed or broadcast.</p><FundReceipt />{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary" type="submit" disabled={saving}><Play size={15} />{saving ? 'Starting…' : 'Create & start trading'}</button></div></form>}
+    {step === 3 && <form onSubmit={submit} className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(2)}><ArrowLeft size={14} /> Back</button><StepRail at={2} /><div className="cct-confirm-head"><LookAvatar cat={CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0]} look={form.look} /><h2>Start {form.name || 'your Agent'}</h2></div><div className="paper-confirm-list"><div><small>Starting paper balance</small><b>{form.startingBalanceSol} SOL</b></div><div><small>Max per position</small><b>{form.maxPositionSol} SOL</b></div><div><small>Daily loss limit</small><b>{form.maxDailyLossSol} SOL</b></div><div><small>Prices</small><b>Live DexScreener, SOL-native</b></div></div><p className="paper-wizard-disclosure"><AlertTriangle size={14} /> Paper mode: the money is simulated, the prices are real. Nothing is signed or broadcast.</p><FundReceipt />{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary" type="submit" disabled={saving}><Play size={15} />{saving ? 'Starting…' : 'Create & start trading'}</button></div></form>}
   </section></div>, document.body);
 }
 
@@ -131,7 +131,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   const mine = cat.isLeader ? isAdmin : !!cat.mine;   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view (the server answers `mine`; the owner id never leaves it)
-  // 🐱 ONE FEE (owner 2026-10-30: "my cat looks different than from the leaderboard — I should look into my cat and have all tools"): every door opens
+  // 🐱 ONE FEE (owner 2026-10-30: "my agent looks different than from the leaderboard — I should look into my agent and have all tools"): every door opens
   // this desk — the creator's bar, her book, and for the creator her Fee desk + the visitors' view under it
   const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-fee" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
   if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={null} Real={null} Brains={null} Activity={null} Tools={null} /></>;
@@ -174,12 +174,12 @@ export function FeeDesk({ onBack }) {
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore
-// live in the FeeCat shell's other tabs (this page used to repeat them: a "Fee live" tab, the Leader panel, a "Build your cat" jump).
+// live in the FeeCat shell's other tabs (this page used to repeat them: a "Fee live" tab, the Leader panel, a "Build your agent" jump).
 export default function FeeCatsPlatform() {
   const launchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const mine = readMyCat(); const pa = Number(launchParams.get('avatar'));
   const presetAvatar = Number.isInteger(pa) && pa >= 0 && launchParams.get('avatar') !== null ? pa : (mine ? mine.coat : 0);
-  const [view, setView] = useState(launchParams.get('create') === '1' ? 'new' : 'cats');   // 🎨 Build a cat › "Give it a job" lands on the brain pick (it used to skip to the paper wizard)
+  const [view, setView] = useState(launchParams.get('create') === '1' ? 'new' : 'cats');   // 🎨 Build an agent › "Give it a job" lands on the brain pick (it used to skip to the paper wizard)
   const [kind, setKind] = useState('trading');
   const { isAdmin, isStaff } = useAdmin();   // 🧪 the paper test door is staff-only (owner 2026-10-30, D1) · 🪟 N14/N16: the creator's own Fee sits first in My agents — not one of the 2 agent slots
   const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else if (k !== 'create' || isStaff) setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
@@ -204,13 +204,13 @@ export default function FeeCatsPlatform() {
       setCats(c => c.filter(x => x.id !== cat.id));
     } catch (e) { setError(e.message); loadCats(); }
   };
-  const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
+  const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new agent lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A trading agent or a general agent: models, your wallet, then real. Up to 2 agents'],
     ['colony', <><Ic3 e="💎" /> The Collective</>, 'Every agent working, two windows each — Collective agents file graded calls and their trades are graded; score splits the Pool']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
-  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS THAT WORK FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
+  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS THAT WORK FOR YOU</span><h1>Give your agent a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}
@@ -222,12 +222,12 @@ export default function FeeCatsPlatform() {
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
-    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{agentMax}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} max={agentMax} /></>
-      : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
+    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{agentMax}</span><h2>No agents on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} max={agentMax} /></>
+      : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap an agent to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
         <ColonyGrid api={api} ids={cats.filter(c => !(isAdmin && c.isLeader)).map(c => c.id).join(',')} onOpen={a => { const cat = cats.find(x => x.id === a.id); if (cat) openCat(cat); }}
           extra={a => { const cat = cats.find(x => x.id === a.id); if (!cat) return null; const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;   // 🐱 your agents = the same Collective cells (Crawl-size windows) + your own buttons
             return <span className="cl-acts" data-testid={`cw-${cat.id}`}><button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
-              data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
+              data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this agent to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
               <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>
             <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}><Ic3 e="🗑" /></button></span>; }} /></>}</section>}
   </div>;

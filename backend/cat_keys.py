@@ -110,7 +110,7 @@ def venues(raw):
     v = [str(x).lower() for x in (raw or ['trench'])]
     bad = [x for x in v if x not in VENUES]
     if bad:
-        raise ValueError(f"A cat trades on FEELESS rails only — {', '.join(bad)} isn't one.")
+        raise ValueError(f"An agent trades on FEELESS rails only — {', '.join(bad)} isn't one.")
     return sorted(set(v)) or ['trench']
 
 

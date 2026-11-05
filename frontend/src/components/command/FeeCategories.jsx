@@ -6,7 +6,7 @@ import { Ic3 } from '../../lib/icon3d';
 
 // 💲 HQ › Core › FEES BY CATEGORY (owner, 2026-10-30: "the fees tab needs categories for the different things we charge for — agents, families,
 // trading…"). One segmented bar, one panel per product: 💱 Trading (the swap fee editor + money flows + the fee book) · 🤖 Agents (FEELESS's
-// one-time cut from a cat's first funding; agent swaps pay the trading fee; staff-owned agents pay none) · 🧬 Fuse (every Fuse fee) ·
+// one-time cut from an agent's first funding; agent swaps pay the trading fee; staff-owned agents pay none) · 🧬 Fuse (every Fuse fee) ·
 // 👨‍👩‍👧 Families (start a family, +5 seats, what they've paid). Each panel reads the live config and saves through the same admin routes.
 export const FEE_CATS = [['trading', '💱 Trading', 'Every swap: the FEELESS fee, tiers, promo, engine, the fee book'], ['agents', '🤖 Agents', 'FeeCat agents: the one-time funding cut and how their swaps are charged'],
   ['fuse', '🧬 Fuse', 'Fuse cards: first buys, card swaps / sells, round packs'], ['families', '👨‍👩‍👧 Families', 'Familia: start a family, add seats, what families paid']];
@@ -31,7 +31,7 @@ export function AgentFees({ call }) {
     catch (e) { toast.error(e.message); }
   };
   return <section className="m-card m-live fct-panel" data-testid="fee-cat-agents">
-    <header className="m-row"><span className="m-label">🤖 AGENTS · WHAT A CAT PAYS</span><small className="m-dim">fee rules apply to its own wallet</small></header>
+    <header className="m-row"><span className="m-label">🤖 AGENTS · WHAT An AGENT PAYS</span><small className="m-dim">fee rules apply to its own wallet</small></header>
     <div className="fct-meters">
       <span className="fct-meter"><em>EVERYTHING ELSE</em><b className="m-num">${Number(f.agentOtherFeeUsd ?? 0.1).toFixed(2)}</b><i><u style={{ transform: `scaleX(${Math.min(1, Number(f.agentOtherFeeUsd ?? 0.1))})` }} /></i><small>flat, per finished task</small></span>
       <span className="fct-meter is-free"><em>STAFF-OWNED</em><b className="m-num">0%</b><i><u style={{ transform: 'scaleX(1)' }} /></i><small>agents your wallets own trade free</small></span>
@@ -39,7 +39,7 @@ export function AgentFees({ call }) {
     <label className="fct-edit">
       <span>Everything else · $</span><NumInput className="m-input" type="number" min="0" max="10" step="0.01" value={otherFee} onChange={e => setOtherFee(e.target.value)} aria-label="Agent fee per task in dollars" data-testid="fct-agent-other" />
       <button type="button" className="m-btn m-go" onClick={save} disabled={Number(otherFee) === Number(f.agentOtherFeeUsd ?? 0.1)} data-testid="fct-cat-save" data-tip="Applies to the next charge">Save</button></label>
-    <p className="m-note">Model calls are separate: a cat runs on its FEELESS model credit, or on its owner's own OpenRouter key from its <Ic3 e="🔐" /> API drawer (they pay OpenRouter; no FEELESS credit). Deposit, top-up and trade fees live in Fee's desk › Collective HQ, and every agent fee goes to the Collective wallet.</p>
+    <p className="m-note">Model calls are separate: an agent runs on its FEELESS model credit, or on its owner's own OpenRouter key from its <Ic3 e="🔐" /> API drawer (they pay OpenRouter; no FEELESS credit). Deposit, top-up and trade fees live in Fee's desk › Collective HQ, and every agent fee goes to the Collective wallet.</p>
   </section>;
 }
 

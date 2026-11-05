@@ -5,11 +5,11 @@ import { useLeaderProfile } from '../../lib/feeLeader';
 import { useAdmin } from '../../lib/adminCall';
 import '../../styles/profileFeeCat.css';
 
-// 🐆 N14 (owner 2026-10-29: "nexa public AS FEECAT — only I see NEXA and users see FeeCat; I get the cat dashboard users get when they
+// 🐆 N14 (owner 2026-10-29: "nexa public AS FEECAT — only I see NEXA and users see FeeCat; I get the agent dashboard users get when they
 // purchase; they can't see my NEXA dash, only FeeCat and her trades / decisions"). On the CREATOR's profile:
 //   · a visitor sees FEECAT — Fee's hero + live desk, read-only (FeeCatStage + FeeLiveTab: one component per job, no copy; the owner bar
 //     renders only for an admin viewer; no chat) + one way in: build your own cat. The word NEXA never reaches them.
-//   · the creator, signed in on their own profile, sees 🪟 NEXA — the cat dashboard a buyer gets (FeeCatDesk, the same as HQ › Agents › NEXA)
+//   · the creator, signed in on their own profile, sees 🪟 NEXA — the agent dashboard a buyer gets (FeeCatDesk, the same as HQ › Agents › NEXA)
 //     — with a 👁 switch to check exactly what visitors see.
 // `ProfileFeeBanner` = the small live card on the profile's front that opens the tab.
 const FeeCatStage = lazy(() => import('./FeeCatStage').then(m => ({ default: m.FeeCatStage })));
@@ -23,9 +23,9 @@ export function ProfileFeeBanner({ onOpen, mine }) {
   const real = Number(c.realizedPnlSol) || 0; const open = (c.positions || []).length;
   const nap = (d?.discipline || {}).pause || c.status === 'paused';   // the same rule as her hero (FeeCatStage): out of lives / a tilt pause = napping
   const win = st.winRate != null ? st.winRate : c.winRate;
-  return <button type="button" className="pfc-banner" onClick={onOpen} data-testid="profile-fee-banner" data-tip={mine ? 'Your cat — her full desk, every tool (visitors see FeeCat)' : "FeeCat — Fee's live trades and decisions"}>
+  return <button type="button" className="pfc-banner" onClick={onOpen} data-testid="profile-fee-banner" data-tip={mine ? 'Your agent — her full desk, every tool (visitors see FeeCat)' : "FeeCat — Fee's live trades and decisions"}>
     <span className="pfc-cat" aria-hidden="true"><Panther size={44} crop="head" label="Fee" /></span>
-    <span className="pfc-who"><em>{mine ? '🐱 FEE · YOUR CAT' : '🐱 FEECAT · LIVE'}</em><b>{c.name || 'Fee'}</b><small>{nap ? 'napping' : 'hunting live'} · {open} open</small></span>
+    <span className="pfc-who"><em>{mine ? '🐱 FEE · YOUR AGENT' : '🐱 FEECAT · LIVE'}</em><b>{c.name || 'Fee'}</b><small>{nap ? 'napping' : 'hunting live'} · {open} open</small></span>
     <span className={`pfc-num ${real > 0 ? 'is-up' : real < 0 ? 'is-dn' : ''}`}><em>REALIZED</em><b className="m-num">{d ? sol(real) : '…'}</b></span>
     <span className="pfc-num"><em>WIN RATE</em><b className="m-num">{win != null ? `${Math.round(win)}%` : '—'}</b></span>
     <span className="pfc-go" aria-hidden="true">{mine ? 'OPEN →' : 'WATCH →'}</span>
@@ -44,7 +44,7 @@ export function ProfileFeeCat({ mine }) {
   if (!(mine && isAdmin)) return <section className="pfc" data-testid="profile-feecat"><PublicFee cta={!mine} /></section>;
   return <section className="pfc is-owner" data-testid="profile-feecat">
     <div className="m-seg pfc-seg" role="radiogroup" aria-label="Which view">
-      {[['desk', '🐱 FEE DESK', 'Your cat — the dashboard a buyer gets'], ['public', '👁 WHAT VISITORS SEE', 'Exactly what anyone opening your profile sees: FeeCat, read-only']].map(([k, l, tip]) =>
+      {[['desk', '🐱 FEE DESK', 'Your agent — the dashboard a buyer gets'], ['public', '👁 WHAT VISITORS SEE', 'Exactly what anyone opening your profile sees: FeeCat, read-only']].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-tip={tip} data-testid={`profile-fee-${k}`}>{l}</button>)}</div>
     {view === 'desk' ? <Suspense fallback={<p className="paper-muted">🐱 opening Fee…</p>}><FeeCatDesk call={call} /></Suspense> : <PublicFee cta={false} />}
   </section>;

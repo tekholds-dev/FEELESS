@@ -29,7 +29,7 @@ def env_of(key):
 
 def owner_of(kind, ref):
     if kind not in KINDS or not _REF.match(str(ref or '')):
-        raise ValueError('Not a cat / family id.')
+        raise ValueError('Not an agent / family id.')
     return f'userId:feeless-{kind}-{ref}'
 
 

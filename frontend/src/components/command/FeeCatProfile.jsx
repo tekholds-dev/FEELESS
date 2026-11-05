@@ -15,7 +15,7 @@ const feeCard = t => {
   const up = t.type === 'BUY' || (t.pnlSol ?? 0) >= 0;
   const sym = (t.detail.match(/\b(?:of|Sold(?: \d+% of)?)\s+\$?([A-Z0-9]{2,12})\b/) || [])[1] || 'the trenches';
   return { mascot: 'feecat', tone: up ? 'up' : 'down', kicker: `FEECAT ${t.type === 'BUY' ? 'BUYS' : 'SELLS'} · PAPER · LIVE PRICES`, title: `$${sym}`,
-    big: t.pnlSol != null ? `${t.pnlSol >= 0 ? '+' : ''}${t.pnlSol.toFixed(3)} SOL` : t.type === 'BUY' ? 'ENTERED' : 'EXITED', lines: [t.detail.slice(0, 64), t.detail.slice(64, 128)].filter(Boolean), footer: 'feeless · fee the cat trades out loud' };
+    big: t.pnlSol != null ? `${t.pnlSol >= 0 ? '+' : ''}${t.pnlSol.toFixed(3)} SOL` : t.type === 'BUY' ? 'ENTERED' : 'EXITED', lines: [t.detail.slice(0, 64), t.detail.slice(64, 128)].filter(Boolean), footer: 'feeless · fee the agent trades out loud' };
 };
 const exitCard = e => ({ mascot: 'feecat', tone: e.peakAfter >= 40 ? 'down' : 'up', kicker: 'FEECAT · AFTER THE SELL', title: `$${e.symbol}`,
   big: `${e.changeAtExit >= 0 ? '+' : ''}${e.changeAtExit}%`, lines: [`Sold: ${e.why}`.slice(0, 60), `After: best +${e.peakAfter}% · low ${e.lowAfter}%`, e.peakAfter >= 40 ? '🧠 Lesson learned: give runners room' : '✅ The exit held up'], footer: 'feeless · she learns from every sell' });
@@ -104,7 +104,7 @@ export function AfterBook({ exits = [] }) {
 }
 
 // 🐱 Fee's book under the live desk (2026-10-23 redo: her name / balance / win-rate header lived here AND in the stage — the stage keeps them;
-// the panther picker moved to 🎨 Build a cat; her learning moved to 🧠 Her brain): open trades, her wall, every trade, what happened after each sell.
+// the panther picker moved to 🎨 Build an agent; her learning moved to 🧠 Her brain): open trades, her wall, every trade, what happened after each sell.
 export function FeeCatProfile({ catId = 'leader' }) {
   const shared = useLeaderProfile(catId === 'leader');
   const [own, setOwn] = useState(null);

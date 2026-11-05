@@ -4,10 +4,10 @@ import { useWallet } from '../../hooks/useWallet';
 import '../../styles/createCat.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 💵 THE FUNDING RECEIPT at the end of BOTH cat flows (Create a cat · Launch an agent) — owner 2026-10-29: "create a cat doesn't show top up X amount at the end".
-// DECISIONS #2 (W01 agent wallets): going real, the cat gets ITS OWN wallet; your wallet signs ONE funding transaction — the one-time FEELESS fee
-// (HQ › Fees, none for a creator wallet) + the rest into the cat's wallet; then it trades inside the server caps. The live rules come from
-// /cats/fund-rules (the same the funding card uses); the buy picker shows what the cat's wallet needs per buy (the buy + swap fee + network / rent).
+// 💵 THE FUNDING RECEIPT at the end of BOTH cat flows (Create an agent · Launch an agent) — owner 2026-10-29: "create an agent doesn't show top up X amount at the end".
+// DECISIONS #2 (W01 agent wallets): going real, the agent gets ITS OWN wallet; your wallet signs ONE funding transaction — the one-time FEELESS fee
+// (HQ › Fees, none for a creator wallet) + the rest into the agent's wallet; then it trades inside the server caps. The live rules come from
+// /cats/fund-rules (the same the funding card uses); the buy picker shows what the agent's wallet needs per buy (the buy + swap fee + network / rent).
 const BUYS = [0.02, 0.05, 0.1, 0.25];
 const GAS_SOL = 0.003;   // network fee + a new coin account's rent, per first buy of a coin
 export const fundPlan = (buySol, bps) => { const fee = buySol * (Number(bps) || 0) / 10000; return { fee, need: buySol + fee + GAS_SOL }; };
@@ -26,6 +26,6 @@ export function FundReceipt({ general = false }) {
     {general ? <p className="cct-fund-note">The minimum applies once. Money it spends on your tasks comes from its own wallet, and the swap fee applies only when it trades a coin.</p> : <><div className="m-seg" role="radiogroup" aria-label="One buy">{BUYS.map(b => <button key={b} type="button" role="radio" aria-checked={buy === b} className={buy === b ? 'active' : ''} onClick={() => setBuy(b)} data-tip={`What its wallet needs for one ${b} SOL buy`} data-testid={`cat-fund-${b}`}>{b} SOL</button>)}</div>
     <div className="cct-fund-rows"><span className="is-need" data-tip="Its wallet needs at least this for one buy of that size: the buy + the swap fee + network fee and a new coin account"><small>ONE {buy} SOL BUY NEEDS</small><b className="m-num">≥ {p.need.toFixed(3)} SOL</b></span>
       <span data-tip="Server caps on every move from its wallet"><small>CAPS</small><b className="m-num">≤ 0.5 SOL a buy · daily cap</b></span></div>
-    <p className="cct-fund-note">After launch, give it <b>its own wallet</b> from the cat's <Ic3 e="💵" /> panel: your wallet signs <b>one</b> funding transaction, then it trades inside the caps — a general cat asks you (one tap) before each move until you switch it to auto. FEELESS never sees your wallet's keys.</p></>}
+    <p className="cct-fund-note">After launch, give it <b>its own wallet</b> from the agent's <Ic3 e="💵" /> panel: your wallet signs <b>one</b> funding transaction, then it trades inside the caps — a general cat asks you (one tap) before each move until you switch it to auto. FEELESS never sees your wallet's keys.</p></>}
   </div>;
 }

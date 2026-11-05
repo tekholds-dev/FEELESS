@@ -96,7 +96,7 @@ def b58_tx(b64):
 
 
 async def send(http, cm_key, cat, p, now):
-    """Quote for the cat's wallet → Crossmint signs + sends. → the tx record (also on cat['agentTx'] and p['agentTx']). Raises ValueError."""
+    """Quote for the agent's wallet → Crossmint signs + sends. → the tx record (also on cat['agentTx'] and p['agentTx']). Raises ValueError."""
     w = cat.get('agentWallet') or {}; addr = w.get('address'); circle = w.get('provider') == 'circle'
     env = _aw.env_of(cm_key)
     if not addr or not (env or circle):
@@ -273,7 +273,7 @@ async def sweep_rent(http, cat, now):
 
 async def run(http, cm_key, cat, now):
     """ONE cat's agent pass (the engine calls it): settle what is in flight, then send the next proposal it wants. A guard that stops a
-    proposal writes its reason on it (`agentWhy`) and waits RETRY_SEC. → list of event words for the cat's log."""
+    proposal writes its reason on it (`agentWhy`) and waits RETRY_SEC. → list of event words for the agent's log."""
     words = []
     w = cat.get('agentWallet') or {}
     if not w.get('address') or w.get('provider', 'crossmint') not in SIGNERS or (w.get('provider', 'crossmint') == 'crossmint' and not _aw.env_of(cm_key)):

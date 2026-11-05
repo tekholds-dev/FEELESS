@@ -16,7 +16,7 @@ import { apiUrl } from '../../lib/api';
 import '../../styles/catWorkbench.css';
 import '../../styles/feecatDesk.css';
 
-// 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
+// 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the agent isn't trading"): one live board from ONE request
 // (`GET /admin/feecat`, re-read every 15s) — who she is right now, WHY she is or isn't trading (her own last scan: scanned → passed →
 // bought, the rules that stopped the rest, the lanes she can buy through), the duo AI read, her open trades and her latest moves. Her
 // brain (style + rules + what she learned) sits in a fold. Paper money: she never signs or moves real SOL.

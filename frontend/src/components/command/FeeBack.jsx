@@ -46,7 +46,7 @@ export const FeeBackCenter = ({ feeCat }) => {
 
 export { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
 
-// 🎨 /terminal/feecat/cats = BUILD A CAT (the old collection grid is gone — see CatBuilder.jsx)
+// 🎨 /terminal/feecat/cats = BUILD An AGENT (the old collection grid is gone — see CatBuilder.jsx)
 export const FeelessCats = () => <FeeCatShell tab="build"><CatBuilder /></FeeCatShell>;
 
 // 🐱 /terminal/feecat = Fee, the leader, in the FeeCat shell: LIVE DESK (stage + her scan · chart · calls + her book) · HER BRAIN · LORE.
