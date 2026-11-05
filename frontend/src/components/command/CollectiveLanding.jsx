@@ -3,7 +3,8 @@ import { Background, ReactFlow, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
-import { GrowthCalc, usePoolRules, money, splitOf } from './SplitFlow';
+import { GrowthCalc, usePoolRules, money } from './SplitFlow';
+import { KeepDeal, RankLadder, pointsFor } from './KeepDeal';
 import { StashWeb } from './StashWeb';
 import { Roll } from './CollectiveSetup';
 import '../../styles/collectiveLanding.css';
@@ -55,8 +56,9 @@ function LivePrint({ proofs, colors, glow }) {
     {!cells.length ? <p className="cll-empty">No proof has been sent yet. The first one lights up here.</p> : !sel ? <p className="cll-hint">Tap a bright cell for its proof</p> : null}
     {sel ? <><svg className="cll-wire" aria-hidden="true"><path ref={path} /><circle ref={dot} r="5" /></svg><article ref={wire} className="cll-card" data-testid="cll-card" onPointerDown={e => e.stopPropagation()}><header><small>REAL PROOF</small><button type="button" onClick={close} aria-label="Close" data-tip="Close" data-testid="cll-card-close">✕</button></header><h4>{sel.label || 'Proof'}</h4><dl>{[['CLASS', CLASS[sel.kind] || 'Proof'], ['AGENT', sel.agent || '—'], ['RESULT', sel.pct != null ? `${sel.pct >= 0 ? '+' : ''}${Number(sel.pct).toFixed(1)}%` : '—'], ['WHEN', sel.at ? new Date(sel.at * 1000).toLocaleDateString() : '—']].map(([k, val]) => <div key={k}><dt>{k}</dt><dd className="m-num">{val}</dd></div>)}</dl>{sel.sent?.link ? <a href={sel.sent.link} target="_blank" rel="noopener noreferrer" data-tip="See what it sent on-chain">Transaction ↗</a> : null}</article></> : null}</div>;
 }
-const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'Kept the moment the proof is sent.'], ['lock', 'Locked', 'The rest locks on its plan, with an end date.'], ['back', 'Back to the agent', 'It comes back over the plan. Taking it out stays off for now.']];
-function flowOf(sc, r, profit, share) { const eligible = sc === 'win'; const send = eligible ? profit * share / 100 : 0; const kept = send * (r?.skimPct ?? 20) / 100; const locked = send - kept; const plan = (r?.plans || []).find(p => p.plan === 'month'); const back = locked * (plan?.backPct ?? 85) / 100; return { send, kept, locked, back }; }
+const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'All of it stays in the overall holdings, kept on a sealed record.'], ['lock', 'Points', 'Its dollars x its boost at that send. Each one counts once.'], ['back', 'Each quarter', 'Part of the fee pot is shared by points, and can be nothing. Taking it out stays off for now.']];
+function flowOf(sc, r, profit, share) { const send = sc === 'win' ? profit * share / 100 : 0; return { send, kept: send, low: pointsFor(r, send, 0), high: pointsFor(r, send, 1) }; }
+const pts = v => Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
 const POS = [[0, 80], [210, 0], [420, 80], [630, 0], [630, 170], [420, 250]];
 function Signal() {
   const r = usePoolRules(); const [sc, setSc] = useState('win'); const [profit, setProfit] = useState(200); const [share, setShare] = useState(10); const [pick, setPick] = useState('trade'); const f = flowOf(sc, r, profit, share);
@@ -70,7 +72,7 @@ function Signal() {
     <div className="cll-ctls">{seg('WHAT HAPPENED', sc, setSc, ['win', 'loss', 'swap'], o => ({ win: 'A winning trade', loss: 'A losing trade', swap: 'A swap by anyone' }[o]), 'sc')}{live ? seg('THE WIN', profit, setProfit, [50, 200, 1000], o => `$${o}`, 'win') : null}{live ? seg('IT SENDS', share, setShare, [5, 10, 25], o => `${o}%`, 'share') : null}</div>
     <div className="cll-flowwrap"><div className="cll-flow" ref={flowBox}><ReactFlow nodes={nodes} edges={edges} onNodeClick={(_, n) => setPick(n.id)} onInit={i => { flowApi.current = i; refit(); }} fitView fitViewOptions={{ padding: 0.1 }} nodesDraggable={false} nodesConnectable={false} panOnDrag={false} zoomOnScroll={false} zoomOnPinch={false} zoomOnDoubleClick={false} preventScrolling={false} proOptions={{ hideAttribution: false }}><Background gap={28} size={1} color="#ffffff14" /></ReactFlow></div>
       <aside className="cll-side"><small>THIS STEP</small><h4>{on?.[1]}</h4><p>{sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p></aside></div>
-    <dl className="cll-nums">{[['IT SENDS', f.send], ['COLLECTIVE KEEPS', f.kept], ['LOCKED', f.locked], ['BACK ON THE 30 DAY PLAN', f.back]].map(([k, v]) => <div key={k}><dt>{k}</dt><dd><Roll v={v} fmt={money} /></dd></div>)}</dl></section>;
+    <dl className="cll-nums">{[['IT SENDS', f.send, money], ['COLLECTIVE KEEPS', f.kept, money], ['POINTS, NO BOOST', f.low, pts], ['POINTS, FULL BOOST', f.high, pts]].map(([k, v, fmt]) => <div key={k}><dt>{k}</dt><dd><Roll v={v} fmt={fmt} /></dd></div>)}</dl></section>;
 }
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
 function ThemePicker({ look, setLook, call }) {
@@ -78,11 +80,10 @@ function ThemePicker({ look, setLook, call }) {
   const save = async next => { setLook(next); setErr(''); try { await call('/admin/collective-look', { method: 'POST', body: JSON.stringify(next) }); } catch (e) { setErr(e.message); } };
   return <div className="cll-theme"><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="Owner only: the Collective's colors, for everyone" data-testid="cll-colors">◈ Colors</button>{open ? <div className="cll-pal" data-testid="cll-palette"><div className="cll-swatches">{THEMES.map(([name, cols]) => <button key={name} type="button" className={look.theme === name ? 'is-on' : ''} style={{ background: `linear-gradient(135deg, ${cols.join(',')})` }} onClick={() => save({ ...look, theme: name })} aria-label={name} data-tip={name} data-testid={`cll-theme-${name}`} />)}</div><label><small>GLOW {look.glow}%</small><input type="range" min="0" max="100" value={look.glow} onChange={e => setLook({ ...look, glow: Number(e.target.value) })} onPointerUp={() => save(look)} onKeyUp={() => save(look)} aria-label="Glow" data-testid="cll-glow" /></label>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div> : null}</div>;
 }
-// 💡 Why would an agent send, if less comes back? Said plainly, from the live rules.
+// 💡 Why an agent sends, said plainly, from the live rules.
 function WhySend() {
-  const r = usePoolRules(); if (!r) return null; const s = splitOf(r, 20, 'month'); const gap = s.send - s.back;
-  const cards = [['1', 'Most of it comes back', `Send ${money(s.send)} on the 30 day plan and ${money(s.back)} returns by a fixed date, a little every second.`], ['2', 'The rest buys a share of the fees', `${money(gap)} stays. In return it earns from the fee pot every day: ${r.potPct}% of every member trade fee and ${r.sitePct}% of FEELESS swap fees from everyone else.`], ['3', 'It comes out ahead when fees beat the gap', `Once its part of the pot passes ${money(gap)}, the send has paid for itself. More trading fills the pot. More senders split it.`]];
-  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>Less back. A share of every fee.</h3></header><ol className="cll-why">{cards.map(([n, t, x], i) => <li key={n} style={{ '--i': i }}><small>{n}</small><b>{t}</b><p>{x}</p></li>)}</ol><GrowthCalc testid="cll-growth" /></section>;
+  const r = usePoolRules(); if (!r) return null;
+  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>A rank and a share of the fees.</h3></header><KeepDeal rules={r} testid="cll-deal" /><RankLadder rules={r} /><GrowthCalc testid="cll-growth" /></section>;
 }
 export function CollectiveLanding() {
   const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 });

@@ -1,11 +1,11 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { GrowthCalc, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import { StashWeb } from './StashWeb';
 import { ProChart } from './ProChart';
-import { Fx, NumCell, Presets, Roll } from './CollectiveSetup';
+import { Fx, NumCell, Roll } from './CollectiveSetup';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import '../../styles/boosts.css';
 
@@ -73,37 +73,31 @@ function Flow({ d, save, busy, part }) {
     {d.agents?.length ? <section className="cof-top"><h4><Ic3 e="🤖" /> AGENTS</h4><ol>{d.agents.map(a => <li key={a.id}><b>{a.name || a.id}</b><small data-tip="Sent · locked · earned">{money(a.sentUsd)} · {money(a.lockedUsd)} · {money(a.owedUsd)}</small><em className="m-num" data-tip="Its fee pot boost right now">{a.levers?.weightX}x</em></li>)}</ol></section> : null}</div>;
 }
 const allRows = GROUPS.flatMap(g => g[1]); const rowOf = k => allRows.find(r => r[0] === k);
-const BackLines = lazy(() => import('./MoneyCharts').then(m => ({ default: m.BackLines })));
-const PLAN_COLS = [['1 week', 'week'], ['30 days', 'month'], ['90 days', 'quarter'], ['Vault', 'vault']];
-const PLAN_ROWS_T = [['Days', 'Days', 'How long this plan takes to come back.'], ['Back', 'Comes back', 'Of what locks, what comes back to the agent. The rest stays with the Collective.'], ['Weight', 'Fee pot weight', 'How big a part of the fee pot this plan earns.'], ['Room', 'Earn limit', 'It can earn from the pot up to this many times what it sent, fading over time.']];
+const REWARD_ROWS = [['rewardDays', 'Days between rewards', 'd', 1, 'pot', 'How often the pot is shared by points.'], ['rewardPayPct', 'Part of the pot each time', '%', 5, 'pot', 'What each quarter pays. The rest stays for the next.'], ['carryPct', 'Points that carry over', '%', 5, 'pot', 'What points keep after a quarter. Lower favors new sends, higher favors long records.'], ['capPct', 'Most one owner gets', '%', 1, 'pot', 'Of a quarter. The rest stays in the pot.'], ['weightMaxX', 'Points at a full boost', 'x', 0.5, 'pot', 'Each dollar sent at a full boost earns this many points.']];
 const SETTING_GROUPS = [['THE FEE POT', [...GROUPS.find(g => g[0] === 'The fee pot')[1], rowOf('sitePct')]], ['BOOST POINTS', GROUPS.find(g => g[0] === 'Boost points')[1]], ['AGENT FEES', GROUPS.find(g => g[0] === 'Agent fees')[1]]];
 // How pay works, on one chart, from the settings as they stand: $100 of each kind of money, and where it ends up.
 // 💵 Where each $100 goes, in words and numbers, one row per kind of money.
 const SPLIT_COLORS = { 'Back to the agent': '#3ee58a', 'The Collective': '#57c7ff', 'Fee pot, to members': '#ff8bd8', FEELESS: '#8fa3cc' };
 function SplitBars({ c }) {
-  const kept = c.skimPct; const lock = 100 - kept; const back = lock * c.monthBack / 100;
-  const rows = [['A proof sent', [['Back to the agent', back], ['The Collective', 100 - back]]], ['A member trade fee', [['Fee pot, to members', c.potPct], ['The Collective', 100 - c.potPct]]], ['An outside swap fee', [['Fee pot, to members', c.sitePct], ['FEELESS', 100 - c.sitePct]]]];
+  const rows = [['A proof sent', [['The Collective', 100]]], ['A member trade fee', [['Fee pot, to members', c.potPct], ['The Collective', 100 - c.potPct]]], ['An outside swap fee', [['Fee pot, to members', c.sitePct], ['FEELESS', 100 - c.sitePct]]]];
   return <ul className="cof-bars" data-testid="cof-bars">{rows.map(([t, parts]) => <li key={t}><b>{t}</b><span className="cof-bar">{parts.map(([k, v]) => <i key={k} style={{ width: `${v}%`, background: SPLIT_COLORS[k] }} data-tip={`${k}: $${v.toFixed(2)}`} />)}</span><small>{parts.map(([k, v]) => <span key={k}><u style={{ background: SPLIT_COLORS[k] }} />{k} <em className="m-num">${v.toFixed(2)}</em></span>)}</small></li>)}</ul>;
 }
 function Settings({ d, save, busy }) {
   const [c, setC] = useState(d.cfg); useEffect(() => setC(d.cfg), [d.cfg]);
   const dirty = Object.keys(c).filter(k => c[k] !== d.cfg[k]);
   const cell = (r, label, compact) => { if (!r || !d.bounds[r[0]]) return <em className="cs-na">—</em>; const [k, l, u, step, , tip] = r; const b = d.bounds[k]; return <NumCell k={k} label={label || l} u={u} step={step} lo={b[0]} hi={b[1]} v={c[k]} start={d.defaults[k]} tip={tip} compact={compact} onChange={v => setC(x => ({ ...x, [k]: v }))} />; };
-  const wait = <div className="spf-wait" />;
   return <Fx><div className="cof-one">
     <div className="cof-col">
-      <section className="cs-sec"><h5>WHERE AN AGENT COMES OUT <small>with these numbers, as FEELESS grows</small></h5><GrowthCalc cfg={c} testid="cof-growth" /></section>
-      <section className="cs-sec"><h5>WHERE EACH $100 GOES <small>on the 30 day plan</small></h5><SplitBars c={c} /></section>
-      <section className="cs-sec"><h5>WHEN IT COMES BACK</h5><Suspense fallback={wait}><BackLines c={c} /></Suspense></section>
-    </div>
+      <section className="cs-sec"><h5>WHAT A QUARTER PAYS <small>with these numbers</small></h5><GrowthCalc cfg={c} testid="cof-growth" /></section>
+      <section className="cs-sec"><h5>WHERE EACH $100 GOES</h5><SplitBars c={c} /></section>
+          </div>
     <div className="cof-col">
-      <section className="cs-sec"><h5>START FROM</h5><Presets c={c} d={d} onPick={t => setC(x => ({ ...x, ...t, boostMode: x.boostMode }))} /></section>
+      <section className="cs-sec"><h5>THE DEAL</h5><Table className="cs-t"><TableBody>{REWARD_ROWS.map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>
       <section className="cs-sec"><h5>RULES</h5><Table className="cs-t"><TableBody>
-        <TableRow className="cof-row" data-tip="Collective keeps: taken the moment a proof is sent."><TableCell>Collective keeps</TableCell><TableCell>{cell(rowOf('skimPct'))}</TableCell></TableRow>
+        <TableRow className="cof-row" data-tip="The Collective keeps all of every send."><TableCell>Collective keeps</TableCell><TableCell><b className="cof-lock">100%</b></TableCell></TableRow>
         <TableRow className="cof-row" data-tip="Bigger payouts: boosts move the split, the speed and the fee pot weight. Rank only: boosts order the stage and change no money."><TableCell>Boost mode</TableCell><TableCell><span className="m-seg" role="group" aria-label="What a boost does">{[['payout', 'Bigger payouts'], ['rank', 'Rank only']].map(([k, l]) => <button key={k} type="button" className={c.boostMode === k ? 'active' : ''} aria-pressed={c.boostMode === k} onClick={() => setC(x => ({ ...x, boostMode: k }))} data-testid={`cof-mode-${k}`}>{l}</button>)}</span></TableCell></TableRow>
         <TableRow className="cof-row" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up." data-testid="cof-withdrawals"><TableCell>User withdrawals</TableCell><TableCell><b className="cof-lock">OFF</b></TableCell></TableRow></TableBody></Table></section>
-      <details className="cs-more" data-testid="cof-every"><summary data-tip="Plans, the fee pot, boost points and agent fees. The presets above already set all of them">Every number</summary><section className="cs-sec"><h5>PLANS</h5><Table className="cs-t cs-plans-t"><TableHeader><TableRow><TableHead />{PLAN_COLS.map(([l]) => <TableHead key={l}>{l}</TableHead>)}</TableRow></TableHeader><TableBody>{PLAN_ROWS_T.map(([suffix, label, tip]) => <TableRow key={suffix} className="cof-row" data-tip={tip}><TableCell>{label}</TableCell>{PLAN_COLS.map(([l, n]) => <TableCell key={n}>{cell(rowOf(`${n}${suffix}`), `${l}: ${label}`, true)}</TableCell>)}</TableRow>)}</TableBody></Table></section>
-      {SETTING_GROUPS.map(([h, rows]) => <section className="cs-sec" key={h}><h5>{h}</h5><Table className="cs-t"><TableBody>{rows.filter(Boolean).map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>)}
+      <details className="cs-more" data-testid="cof-every"><summary data-tip="The fee pot, boost points and agent fees">Every number</summary>{SETTING_GROUPS.map(([h, rows]) => <section className="cs-sec" key={h}><h5>{h}</h5><Table className="cs-t"><TableBody>{rows.filter(r => r && !['weightMaxX', 'capPct', 'skimPct', 'potPayDayPct'].includes(r[0])).map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>)}
       </details>
       <div className="cof-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => setC({ ...d.defaults })} data-tip="Put every number back to the start. Nothing changes until you save." data-testid="cof-defaults">Starting numbers</button><button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={() => save(c)} data-tip="New money and the next minute use these. Nothing already earned shrinks." data-testid="cof-save">{busy ? 'Saving…' : dirty.length ? `Save ${dirty.length} change${dirty.length > 1 ? 's' : ''}` : 'Saved'}</button></div>
       {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}

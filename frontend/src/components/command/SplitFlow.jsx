@@ -1,11 +1,12 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { KeepDeal, RankLadder, RewardCalc } from './KeepDeal';
 import '../../styles/boosts.css';
 import '../../styles/moneyCharts.css';
 
 // 🪙 WHERE A PROOF'S MONEY GOES (owner 2026-11-05: less confusing, more addicting). Pick a plan and see exactly how much comes back and by when, Every number is the live rule from the server.
 export const money = v => { const n = Number(v) || 0; return n >= 1000 ? `$${Math.round(n).toLocaleString()}` : n >= 100 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`; };
-export const PLAN_NAMES = { week: ['1 week', 'Fast'], month: ['30 days', 'Balanced'], quarter: ['90 days', 'Most back'], vault: ['Vault', 'Never comes back'] };
+export const PLAN_NAMES = { week: ['1 week', 'Fast'], month: ['30 days', 'Balanced'], quarter: ['90 days', 'Most back'], vault: ['Vault', 'Never comes back'], keep: ['Kept', 'Stays with the Collective'] };
 export const dateIn = days => new Date(Date.now() + days * 86400000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 export function splitOf(rules, send, plan = 'month', boost = 0) {
   const p = (rules.plans || []).find(x => x.plan === plan) || { backPct: 0, days: null, weightX: 1 }; const b = rules.boostMode === 'rank' || plan === 'vault' ? 0 : boost; const backPct = Math.min(100, p.backPct + (rules.boostBackPts || 0) * b);
@@ -17,7 +18,8 @@ export function usePoolRules(given) {
   useEffect(() => { if (given) { setR(given); return undefined; } let on = true; Promise.resolve().then(() => fetch(apiUrl('/api/cats/pool/rules'))).then(x => (x?.ok ? x.json() : null)).then(j => on && j?.rules && setR(j.rules)).catch(() => {}); return () => { on = false; }; }, [given]);
   return r;
 }
-export function PlanPicker({ rules, send, plan, setPlan, boost = 0, testid = 'plan-picker' }) {
+export function PlanPicker(props) { return props.rules?.deal === 'quarterly' ? null : <OldPlanPicker {...props} />; }
+function OldPlanPicker({ rules, send, plan, setPlan, boost = 0, testid = 'plan-picker' }) {
   const [sure, setSure] = useState(false);
   const pick = k => { if (k === 'vault' && !sure) { setSure(true); return; } setSure(false); setPlan(k); };
   return <div className="spf-plans" role="radiogroup" aria-label="Plan" data-testid={testid}>{(rules.plans || []).map(p => { const s = splitOf(rules, send, p.plan, boost); const [t, tag] = PLAN_NAMES[p.plan] || [p.plan, '']; const v = p.plan === 'vault';
@@ -25,7 +27,8 @@ export function PlanPicker({ rules, send, plan, setPlan, boost = 0, testid = 'pl
 }
 const GrowthLinesLazy = lazy(() => import('./MoneyCharts').then(m => ({ default: m.GrowthLines })));
 // 🌱 The owner's question: why send, if less comes back? Because the send buys a share of everyone's fees. This shows when that beats the gap, on the real pool code.
-export function GrowthCalc({ cfg = null, testid = 'growth-calc' }) {
+export function GrowthCalc(props) { const r = usePoolRules(); if (!r) return null; return r.deal === 'quarterly' ? <RewardCalc rules={{ ...r, ...(props.cfg || {}) }} testid={props.testid || 'reward-calc'} /> : <OldGrowthCalc {...props} />; }
+function OldGrowthCalc({ cfg = null, testid = 'growth-calc' }) {
   const [plan, setPlan] = useState('month'); const [vol, setVol] = useState(100); const [pct, setPct] = useState(100); const [g, setG] = useState(null); const [err, setErr] = useState(false); const key = cfg ? JSON.stringify(cfg) : '';
   useEffect(() => { let on = true; const t = setTimeout(() => { Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pool/growth?plan=${plan}&volume=${vol}&senders=${pct}${key ? `&cfg=${encodeURIComponent(key)}` : ''}`))).then(r => (r?.ok ? r.json() : Promise.reject())).then(j => { if (on) { setG(j); setErr(false); } }).catch(() => { if (on) setErr(true); }); }, 200); return () => { on = false; clearTimeout(t); }; }, [plan, vol, pct, key]);
   const seg = (label, opts, val, set, tip, k) => <div className="spf-knob"><small>{label}</small><span className="m-seg" role="group" aria-label={label}>{opts.map(([v, l]) => <button key={v} type="button" className={val === v ? 'active' : ''} aria-pressed={val === v} onClick={() => set(v)} data-tip={tip} data-testid={`grw-${k}-${v}`}>{l}</button>)}</span></div>;
@@ -55,7 +58,8 @@ export function ProfitCalc({ send, plan, boost, rules, testid }) {
 }
 export const FLOW_COLORS = { Sent: '#ffc24d', Locked: '#c58bff', 'Back to the agent': '#3ee58a', 'Collective, right away': '#57c7ff', 'Collective, as it comes back': '#2f7fd6', Vault: '#c58bff', 'Trade fees': '#ffc24d', 'Swap fees': '#ffc24d', 'Fee pot': '#ff8bd8', Members: '#3ee58a', Collective: '#57c7ff', FEELESS: '#8fa3cc', 'Deposit fees': '#ffc24d' };
 export const sendRows = s => (s.vault ? [['Sent', 'Collective, right away', s.kept], ['Sent', 'Vault', s.locked]] : [['Sent', 'Collective, right away', s.kept], ['Sent', 'Locked', s.locked], ['Locked', 'Back to the agent', s.back], ['Locked', 'Collective, as it comes back', s.house]]);
-export function SplitFlow({ rules: given, sendUsd = null, plan: fixedPlan = null, onPlan = null, testid = 'split-flow' }) {
+export function SplitFlow(props) { const r = usePoolRules(props.rules); if (r?.deal === 'quarterly') return <><KeepDeal rules={r} sendUsd={props.sendUsd} testid={props.testid || 'keep-deal'} /><RankLadder rules={r} rank={props.rank} /></>; return r ? <OldSplitFlow {...props} rules={r} /> : null; }
+function OldSplitFlow({ rules: given, sendUsd = null, plan: fixedPlan = null, onPlan = null, testid = 'split-flow' }) {
   const rules = usePoolRules(given?.plans ? given : null); const [win, setWin] = useState(100); const [pct, setPct] = useState(10); const [boostOn, setBoostOn] = useState(false); const [own, setOwn] = useState('month');
   if (!rules) return null;
   const plan = fixedPlan || own; const setPlan = onPlan || setOwn; const given$ = sendUsd != null; const send = given$ ? sendUsd : win * pct / 100; const s = splitOf(rules, send, plan, boostOn ? 1 : 0);

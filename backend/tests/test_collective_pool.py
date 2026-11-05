@@ -1,3 +1,6 @@
+import pytest
+import collective_pool as _pool_mod
+_POOL_DEFAULTS = _pool_mod.DEFAULTS
 """🪙 The Pool ledger: the owner's worked example, and the rule that it can never owe more than is really there."""
 import random
 import sys
@@ -24,6 +27,11 @@ def run(s, start, days, step=3600):
         t += step
         cp.tick(s, t, SOL)
     return t
+
+
+@pytest.fixture(autouse=True)
+def _old_plans(monkeypatch):
+    monkeypatch.setitem(_POOL_DEFAULTS, 'deal', 'plans')
 
 
 def test_one_key_moves_money_once():

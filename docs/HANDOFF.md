@@ -14,11 +14,17 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 **Still lagging:** 35 to 48 fps scrolling (Bids 35), and Proofprint and Features take 220 to 240 ms to open (dev build). Production was not measured.
 **Data notes:** Monitor test's folder was deleted before this fix, so its 4 filed pages show "its folder was deleted" and cannot open. A filed folder's page is now kept on delete. My test also dragged Happy's Desktop settings icon and pressed Fit on Happy's desktop, replacing the owner's arrangement.
 
+**The deal (owner decided 2026-11-05, replaces the plans):** cfg `deal='quarterly'`. The Collective keeps 100% of a send. The sealed ledger keeps total sent and points (dollars x boost at that send). Every `rewardDays` (90), `rewardPayPct` (50) of the fee pot is shared by points, capped by `capPct` per owner; points carry at `carryPct` (50). Sends never reach the pot, so nobody is paid from someone else's send. Rewards land in earnings; withdrawals stay off until a lawyer looks. Ranks (`RANKS`) come from lifetime points and change no money. Screens: `KeepDeal.jsx` (warning, flow, `RankLadder`, `RewardCalc`). Old plans stay as `deal='plans'` code only; the live ledger had no agents, so nothing migrated. Tests: `test_collective_deal.py`.
+
+**OSSY and G4, found by real calls:** `_lm_call` got empty text because both models spent every token on hidden thinking; fixed with `reasoning_effort: none`. The budget guard treated `local/` models as infinite cost, so Sicario's chat always stopped; fixed. `.env` LAN_LLM_MODEL now names the loaded model. Sicario's chat answered through the real service at $0.00. G4 answered in trading JSON to a plain question with 1,323 prompt tokens: LM Studio on the desktop has a system prompt set there; the owner should clear it for general work. A real PoW request ended "only 3 of 20 coins passed every buy guard", so no full PoW has run since these fixes, and the "no vitals" research reads (A5) are not retested.
+
+**Seat wiring as it stands:** seat door answers and refuses ("desk buys are off"), rejects a missing key. Card `agentSeats` 4, but a model holds only ONE (`aiSeat`), and the door refuses when that seat is full. Filling all 4 is not built and is a trading rule change.
+
 **Owner decisions waiting:**
-1. Send deal. Today $20 on the 30 day plan returns $13.60, and the owner says nobody sends for that. Proposed: skim 0, plans back 100% (veCRV style, everything returns, fee share is the reward), so the Collective earns only from its fee share. Rule change, so it is the owner's call. Not changed.
-2. `deskBuysOff` is on, so Sicario's seat refuses every coin even when switched on. The card also has 0.002565 SOL. Owner must fund it and decide. The endpoint also needs a card-to-Pool send before Auto-collect can pay.
-3. Owner pastes a GitHub token in Agents desktop > Collective repo to link the repo (Claude may not enter tokens).
-4. PoB streams (A4) still needs the owner's call on sources.
+1. `deskBuysOff` is on and the card has 0.002565 SOL, so Sicario's seat cannot buy. Owner decides on desk buys, funding, and whether its PoWs may fill all 4 seats. Card wins still cannot pay the Pool: `_collect_pass` sends from an agent wallet and Sicario's has none.
+2. Collective repo token needs Contents read and write on GitHub (the owner's token had 0 permissions), then Make the repo.
+3. PoB streams (A4) still needs the owner's call on sources.
+4. Lawyer: rewards shared by amount sent may read as a security. Withdrawals stay off until then.
 
 ---
 

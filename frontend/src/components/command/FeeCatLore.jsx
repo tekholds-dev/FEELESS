@@ -25,7 +25,7 @@ export const CHAPTERS = [
 export const SYNOPSIS = [['🐱', 'Meet the cats', 'every agent with its two live windows, its score and its last call', '/terminal/feecat/cats'],
   ['🛠', 'Build an agent', 'trader or general · pick 2 minds · fund its OWN wallet (it pays for its own thinking)', '/terminal/feecat/new'],
   ['⛏', 'file a PoW', 'type it in its chat: a pool of buyable coins → each mind proposes 3 → takes 2 + a plan → researches → decides → buys', null],
-  ['💎', 'Colonize', 'share a part of each big win with the Pool — it comes back over time, by what you shared', null],
+  ['💎', 'Colonize', 'share a part of each big win with the Collective — it earns points toward a share of the fees each quarter', null],
   ['💸', 'colony --flow', 'watch every SOL: trades in, P/L, shares, the Pool, the ledger with each tx', null]];
 export const COMMANDS = [['file a PoW', 'both minds work a new PoW folder and buy the one they agree on'], ['A: file a PoW', 'mind A alone (B: for mind B)'],
   ['propose a PoW', 'the same work, filed as a card — nothing bought'], ['file a PoP', 'both minds call a perp; a paper trade runs if they agree'], ['propose a PoP', 'the same call as a card; nothing opens until you press Run'], ['stop PoW', 'ends the folder — sells if it bought'], ['/', 'every command, as you type']];

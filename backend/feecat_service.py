@@ -1162,7 +1162,7 @@ async def _lm_call(model, messages, max_tokens):
             if not name or time.time() - _LM_SEEN[which]['at'] > 300:
                 ids = [m.get('id') for m in (await h.get(f'{base}/models', headers=auth, timeout=8)).json().get('data') or [] if 'embed' not in str(m.get('id'))]
                 want = os.environ.get(f'{which}_LLM_MODEL'); name = want if want in ids else (ids[0] if ids else want); _LM_SEEN[which] = {'id': name, 'at': time.time()}
-            r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 2400), 'temperature': 0.4, 'stream': False})
+            r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 2400), 'temperature': 0.4, 'stream': False, 'reasoning_effort': 'none'})
         if r.status_code != 200:
             _OR_LAST['err'] = f'LM Studio answered {r.status_code}.'
             return '', 0.0
@@ -4167,6 +4167,8 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 return text_, usd_
 
             def cost_bound(model, messages):
+                if str(model).startswith('local/'):   # 🖥 the owner's own LM Studio is free
+                    return 0.0
                 row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
                 if row is None:
                     return float('inf')

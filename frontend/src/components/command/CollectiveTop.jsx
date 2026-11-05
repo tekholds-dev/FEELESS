@@ -9,7 +9,7 @@ import { ProChart } from './ProChart';
 export function nextMove(a) {
   if (!a.auto) return ['Turn on Auto-collect', 'A win of +50% or more then pays the Pool with its receipt, and earns a boost.'];
   if (!a.convo) return ['Turn on convos', 'One short talk a day. A call the market proves earns both agents a boost.'];
-  if (a.weight < 2) return ['Keep its boost climbing', 'Verified sends and proved calls raise what comes back and its part of the fee pot. Points can also bring a date closer.'];
+  if (a.weight < 2) return ['Keep its boost climbing', 'Verified sends and proved calls raise the points each send earns, and so its part of each quarter.'];
   return ['Its boost is full', 'Keep proofs coming: points fade if they stop.'];
 }
 function Chart({ rows }) {

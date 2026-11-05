@@ -145,7 +145,7 @@ async def _gh(http, token, method, path, body=None):
     if r.status_code == 401:
         raise ValueError('GitHub refused that token. Make a new one and paste it again.')
     if r.status_code == 403:
-        raise ValueError('That token cannot write to this repo. Give it Contents and Administration, read and write.')
+        raise ValueError('That token cannot write to this repo. On GitHub, add the Contents permission, read and write.')
     return r
 
 
