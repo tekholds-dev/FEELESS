@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FeaturesFolder, FEATURES } from './FeaturesFolder';
+import { FeaturesFolder, FEATURES, ProofDesk } from './FeaturesFolder';
 import { nextMove } from './CollectiveTop';
 
 jest.mock('../terminal/TradeTape', () => ({ TradeTape: () => <i data-testid="tape" /> }));
@@ -43,6 +43,20 @@ test('its mind: start fresh asks first, clean and about you go through the owner
 });
 test('the next move follows what is off', () => {
   expect(nextMove({ auto: false })[0]).toContain('Auto-collect'); expect(nextMove({ auto: true, convo: false })[0]).toContain('convos'); expect(nextMove({ auto: true, convo: true, weight: 1.4 })[0]).toContain('boost'); expect(nextMove({ auto: true, convo: true, weight: 2 })[0]).toContain('full');
+});
+
+test('a filed PoC keeps its response verdict visible and updates its print when marked', async () => {
+  const f = { id: 'pc1', n: 1, topic: 'Memecoin narratives', calls: [{ mind: 0, post: 'Three narratives to watch' }] };
+  const work = jest.fn(async (_, b) => b.op === 'poc_mark' ? { pocFolders: [{ ...f, graded: b.text }] } : b.op === 'ws_open' ? { doc: { messages: [] } } : { workspaces: [{ id: 'w1', kind: 'content', name: 'Ideas' }], pocFolders: [f], psFolders: [] });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} />); });
+  await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
+  expect(el.querySelector('[data-testid="poc-mark-pc1"]').textContent).toContain('Did you like this response?');
+  await act(async () => { el.querySelector('[data-testid="poc-right-pc1"]').click(); });
+  expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'poc_mark', job: 'pc1', text: 'right' }));
+  expect(el.querySelector('[data-testid="poc-right-pc1"]').getAttribute('aria-pressed')).toBe('true');
+  expect(el.querySelector('[data-testid="poc-mark-pc1"] .prg path').getAttribute('stroke')).toBe('#4dea8f');
+  await act(async () => root.unmount());
 });
 
 test('a PoStatic shows its steps, waits on its plan, and approval is what builds it', async () => {

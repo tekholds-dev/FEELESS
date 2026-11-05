@@ -5,6 +5,8 @@ import '../../styles/proofsFolder.css';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { ProofStamp } from './ProofStamp';
+import { FolderRidge } from './ProofKit';
+import { scoreOf } from '../../lib/proofprint';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
@@ -122,7 +124,7 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
   return <li className={`pfx-e is-${r.state}${open ? ' is-open' : ''}`} style={{ '--i': i }} data-testid={`pfx-entry-${r.id}`}>
     <i className="pfx-node" aria-hidden="true" />
     <button type="button" className="pfx-e-h" onClick={onToggle} aria-expanded={open} data-tip="What it decided at the time, and what it was looking at">
-      <Ic3 e={KINDS[r.kind][0]} size="26px" /><span><b>{r.name}</b><small>{r.sub}</small></span>
+      <span className="pfx-e-print" data-tip={scoreOf(r) == null ? 'Awaiting a result; not yet on the living proofprint' : `This proof scores ${scoreOf(r)}/100 on the living proofprint`}><FolderRidge fid={r.id} score={scoreOf(r)} size={36} /></span><Ic3 e={KINDS[r.kind][0]} size="26px" /><span><b>{r.name}</b><small>{r.sub}</small></span>
       {r.loop?.n > 1 ? <em className="pfx-chip" data-tip={`Loop ${r.loop.n}: it studied ${r.loop.past?.length || 0} past proofs first`}>Loop {r.loop.n}</em> : null}
       {r.shots.length ? <em className="pfx-chip is-dim">{r.shots.length} snapshots</em> : null}
       <time className="m-num">{clock(r.at)}</time><ProofStamp s={r.stamp} /><strong className={`m-num is-${r.state}`}>{r.shown}</strong></button>

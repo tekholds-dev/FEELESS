@@ -1141,6 +1141,20 @@ export function DeskCountLive({ cat, onOpen }) {
   return <DeskCount d={d} onOpen={onOpen} inline />;
 }
 const EARNS = new Set(['boost', 'print', 'pow', 'pop', 'bids', 'honey']);   // 🪙 the folders whose proofs can earn carry the coin
+function DesktopClock() {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
+  return <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>;
+}
+function LiveDeskWin({ live, s, top, set, onTop, onClose, onReopen, actions }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 1000); return () => clearInterval(t); }, []);
+  const left = live.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
+  return <DeskWin k="live" title={`🌐 ${live.title || `sign in to ${live.site || 'the site'} yourself`}`} s={s} top={top} set={set} onTop={onTop} onClose={onClose}
+    tools={<>{left != null ? <em className={`dsk-left${left < 120000 ? ' is-hot' : ''}`} data-tip="A cloud window lives 15 minutes — save before it closes">{left ? `closes in ${mmss(left)}` : 'closed'}</em> : null}{actions}<a className="m-btn" href={live.live} target="_blank" rel="noopener noreferrer" data-tip="Open this live window in its own browser tab">↗ Tab</a></>}>
+    {left === 0 ? <div className="dsk-gone" data-testid="dsk-gone"><b>This cloud window closed</b><span>It lives 15 minutes. Whatever you saved is kept; open it again to carry on.</span>{onReopen ? <button type="button" className="m-btn m-go" onClick={onReopen} data-testid="dsk-reopen">Open it again</button> : null}</div> : <iframe title={live.title || 'Live window'} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-pop-frame" />}
+  </DeskWin>;
+}
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
   const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
   const pool = useAgentPool(cat, work, 60000); const [prefs, setPrefs] = useDeskPrefs(cat.id); const [proofStart, setProofStart] = useState({}); const browseSite = h => { setBrowseTo({ site: h, at: Date.now() }); openWin('browser'); };
@@ -1153,14 +1167,12 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const [browseTo, setBrowseTo] = useState(null);
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
-  const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false); const [now, setNow] = useState(Date.now());
+  const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false);
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   useEffect(() => { if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), live?.at ? 1000 : 30000); return () => clearInterval(t); }, [live?.at]);   // ⚡ one tick a second only while a live window counts down
   useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour]);
-  const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
     sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
     sites: <SignedSites cat={cat} d={d} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
@@ -1171,8 +1183,9 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
   const series = useMemo(() => perfSeries(d), [d]);
   const glass = useMemo(() => glassOf(series), [series]);
+  const foregroundOpen = Object.values(w).some(x => x?.open && !x.min);
   return createPortal(<PrintSeed.Provider value={pool?.printSeed || cat.id}><div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
-    {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still'} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
+    {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     <DeskCount d={pool} onOpen={() => openWin('boost')} />
     <nav className="dsk-icons" aria-label="Desktop">
@@ -1181,13 +1194,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
     </nav>
     <PerfGlass {...(glassOver || glass)} onOpen={() => { set('perf', { open: true, min: false }); setTop('perf'); }} />
-    {live && w.live.open && !w.live.min ? <DeskWin k="live" title={`🌐 ${live.title || `sign in to ${live.site || 'the site'} yourself`}`} s={w.live} top={top === 'live'} set={set} onTop={() => setTop('live')} onClose={onClose}
-      tools={<>{left != null ? <em className={`dsk-left${left < 120000 ? ' is-hot' : ''}`} data-tip="A cloud window lives 15 minutes — save before it closes">{left ? `closes in ${mmss(left)}` : 'closed'}</em> : null}{actions}
-        <a className="m-btn" href={live.live} target="_blank" rel="noopener noreferrer" data-tip="Open this live window in its own browser tab">↗ Tab</a></>}>
-      {left === 0 ? <div className="dsk-gone" data-testid="dsk-gone"><b>This cloud window closed</b><span>It lives 15 minutes. Whatever you saved is kept; open it again to carry on.</span>
-        {onReopen ? <button type="button" className="m-btn m-go" onClick={onReopen} data-testid="dsk-reopen">Open it again</button> : null}</div>
-        : <iframe title={live.title || 'Live window'} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-pop-frame" />}
-    </DeskWin> : null}
+    {live && w.live.open && !w.live.min ? <LiveDeskWin live={live} s={w.live} top={top === 'live'} set={set} onTop={() => setTop('live')} onClose={onClose} onReopen={onReopen} actions={actions} /> : null}
     {w.vault.open && !w.vault.min ? <DeskWin k="vault" title={`📁 Vault — ${cat.name || 'your agent'}`} s={w.vault} top={top === 'vault'} set={set} onTop={() => setTop('vault')} onClose={() => set('vault', { open: false })}>
       <div className="dsk-explorer"><aside className="dsk-side" aria-label="Vault folders">{VAULT_TABS.map(([k, ic, l, n]) => <button key={k} type="button" className={tab === k ? 'active' : ''} aria-pressed={tab === k} onClick={() => setTab(k)} data-testid={`dsk-tab-${k}`}>
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
@@ -1198,7 +1205,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
-      <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
+      <DesktopClock />
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
