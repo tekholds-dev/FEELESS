@@ -241,6 +241,7 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
 }
 
 export const LENSES = [['live', '🟢 Live'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['limits', '🎛 Limits'], ['learn', '📝 Paper'], ['life', '🧬 Gens'], ['ctl', '⚙ Control']];
+const DeskAgentsLazy = React.lazy(() => import('./DeskAgents').then(m => ({ default: m.DeskAgents })));
 export function AgentDesk({ call, isOwner = true }) {
   const cc = useAgentHub(call); const d = cc.d;   // 🛰 ONE agent hub store: the snapshot + the shared live prices (positions + seats move every 3s)
   const [busy, setBusy] = useState(false); const [sel] = useState('tally'); const [who, setWho] = useState('all'); const [jump, setJump] = useState(null); const [zoom, setZoom] = useState(null);
@@ -282,6 +283,7 @@ export function AgentDesk({ call, isOwner = true }) {
     ['gens', '🧬 Gens', atRisk || null, lensBody('life'), null, 'generations, autopsies, the creed', true],
   ];
   return <AgentHubProvider value={cc}><section className={`agd m-live is-dial-${dial}`} data-testid="agent-desk">
+    {isOwner ? <React.Suspense fallback={null}><DeskAgentsLazy /></React.Suspense> : null}
     <AgentCockpit call={call} isOwner={isOwner} extra={extra} limits={lensBody('limits')} head={<header className="agd-head"><div className="agd-title"><b data-tip="The ten-agent kernel on the real Fuse card: every number below is the card's own. Every call is checked 5 minutes later.">🤖 AGENTS</b><PassClock at={p.at} onDue={load} /><small className="agd-ticker" data-testid="agd-stream" data-tip="The page loads the office once, then applies the kernel's live deltas (candidates · hunters · positions · agents · generations · execution · metrics). Without a stream it re-reads the snapshot every 20s.">{cc.live ? '📡 live deltas' : 'snapshot · 20s'}</small>{d.office && !d.office.cold ? <small className="agd-ticker" data-testid="agd-ticker">{ticker(d.office)}</small> : null}
 </div>
       <div className="agd-stage" data-testid="agd-stage" data-tip={st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}>{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}

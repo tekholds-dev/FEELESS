@@ -13,6 +13,7 @@ export function layoutWeb(web) {
   cats.forEach(c => { const node = { id: c.id, kind: 'cat', n: c.n, label: c.id, color: CAT_COLOR[c.id] || '#9fb0d6' }; nodes.push(node); at[c.id] = node; });
   srcs.forEach(s => { const home = links.filter(l => l.to === s.id).sort((a, b) => b.n - a.n)[0]; const node = { id: `src:${s.id}`, kind: 'src', n: s.n, label: s.id, color: at[home?.from]?.color || '#9fb0d6', at: s.at }; nodes.push(node); at[`src:${s.id}`] = node; });
   const edges = [...cats.map(c => [nodes[0], at[c.id]]), ...links.filter(l => at[l.from] && at[`src:${l.to}`]).map(l => [at[l.from], at[`src:${l.to}`]])];
+  (web?.dots || []).forEach(([cat, src, out], i) => { const home = at[`src:${src}`] || at[cat]; if (!home) return; const node = { id: `dot:${i}`, kind: 'dot', n: 1, label: '', color: out === 'won' ? '#3df08f' : out === 'lost' ? '#ff6f8e' : '#9dbcff' }; nodes.push(node); edges.push([home, node]); });
   return { nodes, edges };
 }
 export function StashWeb({ call = null, onClose = null, testid = 'stash-web' }) {

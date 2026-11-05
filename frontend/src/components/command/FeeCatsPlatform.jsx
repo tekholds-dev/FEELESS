@@ -134,10 +134,12 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const mine = cat.isLeader ? isAdmin : !!cat.mine;   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view (the server answers `mine`; the owner id never leaves it)
   // 🐱 ONE FEE (owner 2026-10-30: "my agent looks different than from the leaderboard — I should look into my agent and have all tools"): every door opens
   // this desk — the creator's bar, her book, and for the creator her Fee desk + the visitors' view under it
-  const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-fee" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
+  const [ownerView, setOwnerView] = useState(false); const asOwner = mine && ownerView;
+  const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-fee" data-testid="fee-tools">{asOwner ? <ProfileFeeCat mine /> : <FeeCatProfile />}</div></Suspense>;
+  if (cat.isLeader && mine && !ownerView) return <div className="fee-asuser" data-testid="fee-as-user"><header><small>WHAT EVERYONE SEES</small><button type="button" className="m-btn m-go" onClick={() => setOwnerView(true)} data-tip="Her controls and money. Only you can see this button" data-testid="fee-owner-btn"><Ic3 e="👑" /> Owner only</button></header><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={null} Real={null} Brains={null} Activity={null} Tools={Tools} /></div>;
   if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={null} Real={null} Brains={null} Activity={null} Tools={null} /></>;
-  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={cat.isLeader ? <FeeOwnerBar cat={cat} /> : null} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
-    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
+  return <>{cat.isLeader && asOwner ? <div className="fee-asuser"><header><small>OWNER ONLY</small><button type="button" className="m-btn" onClick={() => setOwnerView(false)} data-tip="See her as everyone does" data-testid="fee-user-btn">What everyone sees</button></header></div> : null}<CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={cat.isLeader ? <FeeOwnerBar cat={cat} /> : null} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
+    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} /></>;
 }
 
 // 🔒 signed out ⇒ your agents stay locked: one signature (no transaction) opens their controls again

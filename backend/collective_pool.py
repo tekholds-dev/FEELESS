@@ -305,6 +305,33 @@ def _usd(units, t, sol_usd):
     return units / UNITS[t] * (sol_usd if t == 'SOL' else 1)
 
 
+def project(cfg, usd, plan='month', boost=0.0, fees_day=0.0, others_usd=0.0, owners=20):
+    """What one send does, day by day, by running the real send() and tick() on a throwaway state: the same code that moves real money, with the fees and other members the viewer picks. An example, never a promise. Pure, touches nothing saved."""
+    usd = max(0.01, min(100000.0, _f(usd))); fees_day = max(0.0, min(1000000.0, _f(fees_day))); others_usd = max(0.0, min(1000000000.0, _f(others_usd))); plan = plan if plan in PLANS else 'month'
+    st = new_state(); st['cfg'] = clean_cfg(cfg); cfg_ = st['cfg']; t0 = 1000000.0; st['at'] = t0; u = UNITS['USDC']; pl = plan_of(cfg_, plan, boost); span = int(min(120, max(30, pl['days'] or 90)))
+    def others(day):
+        if others_usd > 0:
+            each = others_usd / 3 / owners
+            for i in range(owners):
+                send(st, f'o{i}:{day}', f'o{i}', f'o{i}', 'USDC', int(each * u), each, t0 + day * 86400, plan='month')
+    others(0); send(st, 'me', 'me', 'me', 'USDC', int(usd * u), usd, t0, boost=boost, plan=plan)
+    me = st['agents']['me']; out = [{'day': 0, 'back': 0.0, 'pot': 0.0}]; even = None; capped = False
+    for d in range(1, span + 1):
+        now = t0 + d * 86400
+        if d % 10 == 0:
+            others(d)
+        if fees_day > 0:
+            income(st, f'f{d}', 'USDC', int(fees_day * u), 'txn')
+        tick(st, now, 1.0)
+        pot = me['earned']['USDC'] / u; back = max(0.0, me['owed']['USDC'] / u - pot)
+        out.append({'day': d, 'back': round(back, 4), 'pot': round(pot, 4)})
+        if even is None and back + pot >= usd:
+            even = d
+        capped = capped or (me.get('room') or 0) <= 0.0001
+    end = out[-1]
+    return {'sent': round(usd, 4), 'kept': round(usd * cfg_['skimPct'] / 100, 4), 'plan': pl['plan'], 'days': span, 'series': out, 'back': end['back'], 'pot': end['pot'], 'profit': round(end['back'] + end['pot'] - usd, 4), 'breakEven': even, 'capped': capped, 'capPct': cfg_['capPct']}
+
+
 def pays_for_itself(usd, back_usd, weight_x, pot_day_usd, total_weight):
     """At today's fee pot, about how many days until a send has returned what it sent, or None when the pot pays nothing yet. An estimate, never a promise. Pure."""
     gap = max(0.0, _f(usd) - _f(back_usd)); w = _f(usd) * _f(weight_x); per_day = _f(pot_day_usd) * (w / max(1e-9, _f(total_weight) + w))

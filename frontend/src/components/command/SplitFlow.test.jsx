@@ -14,12 +14,15 @@ test('a plan says how much comes back, and the Vault says nothing does', () => {
   expect(splitOf(RULES, 10, 'month')).toMatchObject({ kept: 2, locked: 8, days: 30, backPct: 85 }); expect(splitOf(RULES, 10, 'month').back).toBeCloseTo(6.8); expect(splitOf(RULES, 10, 'month', 1).back).toBeCloseTo(7.2);
   expect(splitOf(RULES, 10, 'vault', 1)).toMatchObject({ back: 0, vault: true, house: 8 }); expect(splitOf({ ...RULES, boostMode: 'rank' }, 10, 'month', 1).backPct).toBe(85);
 });
-test('the picture follows the plan, and the Vault asks twice', async () => {
-  const { el, root } = await mount(<SplitFlow rules={RULES} />);
-  expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$6.80'); expect(el.querySelector('[data-testid="spf-meter"]').textContent).toContain('not promised');
-  await click(el.querySelector('[data-testid="plan-week"]')); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$5.60');
-  await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="plan-vault"]').textContent).toContain('Tap again'); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('$5.60');
-  await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="spf-meter"]').textContent).toContain('stays in the Collective');
+test('the calculator follows the plan and the fees, says short or ahead, and the Vault asks twice', async () => {
+  const asked = []; globalThis.fetch = jest.fn(async u => { asked.push(String(u)); const plan = /plan=(\w+)/.exec(u)[1]; const rich = /feesDay=10000/.test(u); return { ok: true, json: async () => ({ sent: 10, plan, days: 30, back: 6.8, pot: rich ? 9 : 1.2, profit: rich ? 5.8 : -2, breakEven: rich ? 14 : null, capped: false, series: [{ day: 0, back: 0, pot: 0 }, { day: 30, back: 6.8, pot: rich ? 9 : 1.2 }] }) }; });
+  const settle = () => act(async () => { await new Promise(r => setTimeout(r, 150)); });
+  const { el, root } = await mount(<SplitFlow rules={RULES} />); await settle();
+  expect(asked.at(-1)).toContain('usd=10&plan=month'); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('not a promise'); expect(el.querySelector('[data-testid="split-flow-sum"]').textContent).toContain('SHORT BY');
+  await click(el.querySelector('[data-testid="spf-fees-10000"]')); await settle(); expect(el.querySelector('[data-testid="split-flow-sum"]').textContent).toContain('AHEAD BY'); expect(el.querySelector('[data-testid="spf-back"]').textContent).toContain('day 14');
+  await click(el.querySelector('[data-testid="plan-week"]')); await settle(); expect(asked.at(-1)).toContain('plan=week');
+  await click(el.querySelector('[data-testid="plan-vault"]')); expect(el.querySelector('[data-testid="plan-vault"]').textContent).toContain('Tap again');
+  await click(el.querySelector('[data-testid="plan-vault"]')); await settle(); expect(asked.at(-1)).toContain('plan=vault');
   await act(async () => root.unmount());
 });
 test('a rule the server changes moves the picture', async () => {

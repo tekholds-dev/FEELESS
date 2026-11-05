@@ -151,6 +151,7 @@ def web(root):
     c = _db(root)
     try:
         rows = c.execute('SELECT category, source, COUNT(*), MAX(at) FROM items GROUP BY category, source ORDER BY COUNT(*) DESC LIMIT ?', (MAX_SOURCES * 4,)).fetchall()
+        dots = c.execute('SELECT category, source, outcome FROM items ORDER BY at DESC LIMIT 2500').fetchall()
     finally:
         c.close()
     cats = {}; srcs = {}; links = []
@@ -159,7 +160,7 @@ def web(root):
         srcs[src] = {'n': srcs.get(src, {}).get('n', 0) + n, 'at': max(srcs.get(src, {}).get('at', 0), at or 0)}
         links.append({'from': cat, 'to': src, 'n': n})
     keep = sorted(srcs, key=lambda s: -srcs[s]['n'])[:MAX_SOURCES]
-    return {'categories': [{'id': k, 'n': v} for k, v in sorted(cats.items(), key=lambda x: -x[1])], 'sources': [{'id': k, **srcs[k]} for k in keep], 'links': [x for x in links if x['to'] in keep]}
+    return {'categories': [{'id': k, 'n': v} for k, v in sorted(cats.items(), key=lambda x: -x[1])], 'sources': [{'id': k, **srcs[k]} for k in keep], 'links': [x for x in links if x['to'] in keep], 'dots': [[a, b, d] for a, b, d in dots]}
 
 
 def read(root, key):

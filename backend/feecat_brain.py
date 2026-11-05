@@ -84,7 +84,7 @@ def setup_edge(setup: dict, table: dict) -> dict:
 def playbook(table: dict, top: int = 5) -> dict:
     """What she has learned, for humans: best and worst setups with enough samples."""
     rows = sorted(((k, v) for k, v in table.items() if v['n'] >= MIN_N), key=lambda kv: -kv[1]['edge'])
-    fmt = lambda kv: {'setup': kv[0], **kv[1]}
+    fmt = lambda kv: {'name': kv[0], **kv[1]}   # not 'setup': the service's privacy filter drops that key from every answer
     return {'best': [fmt(r) for r in rows[:top] if r[1]['edge'] > 0], 'worst': [fmt(r) for r in rows[::-1][:top] if r[1]['edge'] < 0]}
 
 

@@ -30,7 +30,8 @@ test('🤖 the desk renders an agent HOLDING coins (the old page crashed on a de
   const dq = id => document.querySelector(`[data-testid="${id}"]`);
   await act(async () => { q('kd-open-desktop').click(); });   // its wallet + limits live on its desktop
   await act(async () => { dq('dsk-ico-wallet').click(); });
-  expect(dq('dsk-win-wallet').textContent).toContain('0.400 / 0.5 SOL'); expect(dq('feed')).not.toBeNull();
+  expect(dq('dsk-win-wallet').textContent).toContain('0.400 / 0.5 SOL');
+  await act(async () => { dq('dsk-ico-log').click(); }); expect(dq('dsk-win-log').querySelector('[data-testid="feed"]')).not.toBeNull();   // its log has its own folder, the wallet is only money
   expect(el.querySelector('.g-crown')).not.toBeNull();                                                   // its built look, drawn
   act(() => dq('kd-pos-0').click()); expect(room.mock.calls[0][0].detail).toMatchObject({ pairAddress: 'P1', baseToken: { symbol: 'MOON' } });
   act(() => q('kd-stop').click()); expect(onAct).toHaveBeenLastCalledWith('stop');

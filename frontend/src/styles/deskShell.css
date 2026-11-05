@@ -182,9 +182,12 @@ body.fx-lite :is(.dfw-tile, .dfw-tile i) { animation: none; }
 body.theme-day .dfw-tile { background: #ffffffc4; border-color: #0000001f; box-shadow: none; } body.theme-day .dfw-tile b { color: #12261b; } body.theme-day .dfw-tile small, body.theme-day .dfw-said { color: #3f5247; } body.theme-day .dfw-tile em { color: #0a7a3e; } body.theme-day .dfw-tile.is-up b { color: #0a7a3e; } body.theme-day .dfw-tile.is-dn b { color: #b42e4a; }
 
 /* boxes compact themselves: a long card scrolls inside itself, the window never turns into a long page */
-.kd-inwin .kd-main > *, .kd-inwin .kd-side > * { max-height: 360px; overflow-y: auto; scrollbar-width: thin; min-width: 0; }
+.kd-inwin .kd-main > *, .kd-inwin .kd-side > * { min-width: 0; }
 .kd-inwin .kd-main { grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); }
 
 /* the file cabinet: drawers in a neat grid, one open drawer at a time, contained */
 .ck-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; } .ck-fold { display: flex; min-width: 0; } .ck-folders .ck-fold > button:last-child { flex: 1; justify-content: flex-start; min-width: 0; } .ck-folders .ck-fold span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .ck-folders b { margin-left: auto; }
 .ck-panel { max-height: 380px; overflow-y: auto; scrollbar-width: thin; min-width: 0; } .ck-rows { max-height: 280px; }
+.dsk-walstack { display: grid; gap: 12px; align-content: start; min-width: 0; overflow-y: auto; scrollbar-width: thin; } .kd-walwin { padding-bottom: 0; }
+.fee-asuser > header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; } .fee-asuser > header small { flex: 1; font: 800 9.5px var(--f-mono); letter-spacing: .16em; opacity: .75; } .fee-asuser > header .m-btn { min-height: 36px; }
+

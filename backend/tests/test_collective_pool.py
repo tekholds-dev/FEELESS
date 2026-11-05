@@ -427,3 +427,17 @@ def test_every_door_the_desk_buys_through_checks_the_switch():
     assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                                # a switch into a new coin
     assert "g4_seat_ = not cfg_t.get('deskBuysOff') and" in src                                                                       # OSSY and G4's seat
     assert "if cfg_t.get('deskBuysOff'):   # ⚖ the last door" in src                                                                  # the seat fills
+
+
+def test_the_calculator_is_the_real_pool_code():
+    """🧮 What a viewer sees is the real send() and tick(), run forward on a throwaway state. Sent money never reads as profit without real fees."""
+    import collective_pool as cp
+    cfg = cp.clean_cfg(None)
+    none = cp.project(cfg, 10, 'month')
+    assert none['pot'] == 0 and none['back'] == 6.8 and none['profit'] == -3.2 and none['breakEven'] is None
+    some = cp.project(cfg, 10, 'month', fees_day=100, others_usd=10000); more = cp.project(cfg, 10, 'quarter', fees_day=1000, others_usd=10000)
+    assert 0 < some['pot'] < more['pot'] and more['profit'] > 0 and more['breakEven'] and more['series'][more['breakEven']]['back'] + more['series'][more['breakEven']]['pot'] >= 10
+    crowded = cp.project(cfg, 10, 'month', fees_day=100, others_usd=1000000)
+    assert crowded['pot'] < some['pot']   # more people sharing, a smaller part
+    vault = cp.project(cfg, 10, 'vault', fees_day=0)
+    assert vault['back'] == 0 and vault['profit'] == -10

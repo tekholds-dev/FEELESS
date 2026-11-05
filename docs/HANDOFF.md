@@ -11,14 +11,14 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 |---|---|---|
 | W02 | OPEN · FIRST | ✅ 2026-10-30 part: a real RECOVERY PIN (`backend/cat_recovery.py`) rebinds an agent to a new browser, hash only, never moves money. A user-held signer below is still open. OWNER 2026-10-30: "FEELESS provides a TRUE SECURE encrypted generated key for each user (I keep the root key safe)". Today an agent wallet = Crossmint smart wallet, admin signer = our API key → NO user-held key exists (the old random 'recoveryKey' was fake and is removed; SafeKeeping tells the truth). Build: per-user signer the USER holds — options: Crossmint delegated / passkey signer on the smart wallet (no custody change), or Turnkey / Privy embedded wallets with export (user can export their key). Avoid FEELESS generating + storing raw private keys (custody, DECISIONS #2 counsel). Wire: create → user signer → export screen ("save it, only chance") + confirm box (built: SafeKeeping) → withdraw signed by it. |
 | A01 | OPEN | Fix-agent: Lag catcher + Support issue → investigation → branch fix → before/after visual preview → owner review. |
-| K01 | OPEN | One user key vault in Familia. (The owner card shipped: HQ › Fees › Needs a human.) |
+| K01 | VERIFY | One user key vault in Familia (FamilyHQ keys tab). Owner card shipped earlier. |
 | A02 | OPEN | NSFA: at most five learning agents, ledger-based sizing/generation vitals; user Fuse dashboard with two charts, up to three agents and intake levels. Reconcile existing work first. |
 | A04 | OPEN | Cat learning/accept-loop parity with NEXA; G4 Models layout; trench theory only after shadow testing; launch-a-cat violet visual pass. |
 | Q23 | OPEN | Price-gap engine: a live drawn view before buying, then the buyer's own running engine. Ships with buy guards. |
 | OR01 | VERIFY | Folder ⚙ has Shorten long chats (context-compression) and Repair broken plans (response-healing), both off by default, OpenRouter calls only. Real calls on a free model: answered, $0. Not proven: a paid model and its cost (W05, no credit); a SingIt call does not use them. `web` is deprecated by OpenRouter and file-parser has no PDF input here, so neither is offered. |
 | ST02 | OPEN · OWNER | Stash cloud mirror. Free tiers are small: Cloudflare R2 and Backblaze B2 10 GB, Storj 25 GB (third-party comparisons, check before relying). Needs your account and key. Local disk holds it until then. |
-| AG20 | OPEN | OSSY and G4 on the 2-monitor desk, filing PoWs like Fee's agents, later assignable to users' agents. Not built. Owner decided 2026-11-05: the desk's agents stop real buys (DB01). |
-| MB02 | OPEN | Every terminal tab fitted to its half on a fold (crease split, half-fold portrait), the way Trenches and HQ Agents are. Only the locked shell is done. |
+| AG20 | VERIFY | OSSY and G4 are ONE agent, Sicario's (minds OSSY + G4; `_sicario_merge`), paper, no wallet, private: off the public wall, monitors and desktop on HQ's Sicario tab, no folder (owner 2026-11-05). Filed PoW #1 $LEEROY −11.3%. Assigning to users' agents later. |
+| MB02 | VERIFY | `markFoldSplit` splits every terminal tab at the crease on an unfolded fold; 128 page views clean at 4 sizes, signed out. |
 | LG01 | OPEN | Move the Pool ledger from one sealed file to a database before about 10,000 members. Measured at 100,000 members: a tick takes 0.39 s, but each fee rewrites a 46 MB file (0.51 s). Safe, too slow at that volume. |
 | BD02 | OPEN | Bids and browser wins sending to the Pool. Only a real PoW can send today, since it is the only one the chain proves. Needs the agent's Polymarket or site address on file and one real read of its public record before a bid can send. Perps stay paper (owner). |
 
@@ -38,10 +38,10 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 ### 3. Familia, city and games (7): the owner's "after" batch
 | ID | Status | What |
 |---|---|---|
-| C12 | OPEN | Alliances: create from a reply, ≤ 10 members; after X days (owner to set X) an alliance can found a FEELESS Union; all alliance + union info lives in Support. |
-| G01 | OPEN | Strike Zone: real CC0 gun models and camo/PBR assets; replace placeholders, preserve gameplay. |
+| C12 | VERIFY | Alliances live in Support, from a chat reply; owner sets the days. Signed create not clicked live; reads and tests pass. |
+| G01 | VERIFY | Real CC0 guns (Kenney), played signed in, no console error. Camo/PBR extras not added. |
 | T01 | OPEN | HQ Telegram center: bot rooms, alerts/trading/community/security, Mini App setup; FeeCat-art idle RPG and slot game hub. |
-| C01 | OPEN | Familia desktop/mobile pass using shared room, vitals, panel and sheet templates. Every building opens a real function with live vitals. |
+| C01 | VERIFY | All 28 Familia buildings clicked signed in, each opens real content. |
 | C02 | OPEN | Familia: live building P&L, real-money/MP errands, rank/badge pools, custom backdrops; drag within 3D block, new islands/bridges/lots/kiosks and saved family layout. |
 | C03 | OPEN | Block readers: Meteora DLMM, marginfi, Save, PumpSwap LP, Phoenix; construction state when funds removed; opt-in member positions. Verify each against an actual account. |
 | C04 | OPEN | Night Vault: DCA/limit orders, compound LP fees, retire old MP drag-errands/catalog; outer-city markets, held/launched coin buildings, in-city raids, MP buildings/ladders, MOBhouse and for-sale island. |
@@ -190,6 +190,9 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 - 2026-11-05 K01: one key vault in the family HQ (`FamilyKeys.jsx`, HQ › Key vault), names and last 4 only. C12: Alliances (`alliances.py`, `AllianceBoard.jsx`, Support › Alliances, chat reply › 🤝 Alliance): 10 members, one per wallet, Union after the owner's days (default 30, set on the board). Route read live; creating one with a signed wallet not clicked.
 
 - 2026-11-05 G01: Strike Zone guns are real CC0 models (Kenney Blaster Kit, licence in `public/models/guns/`), one per gun with scope, silencer and clip; stats unchanged, drawn gun stays as fallback; played signed in, no console error. C01: all 28 Familia directory buildings clicked signed in, each opens real content. AG20 proven: OSSY filed a full paper PoW ($LEEROY −11.3%, stop). Audit: 128 views on every real page at 4 sizes, 0 problems (not-found now counts as a failure).
+
+- 2026-11-05 Agents pass (owner: "focus on agents until tested"). Fixed: PoW/PoP/Bids folders squashed to a 28 px row by a stretched grid; Fee's Brain folder crashed the whole desktop (privacy filter strips `setup`, playbook rows now use `name`); Browser page stuck in an auto row; wallet clipped at 360 px and mixed with brief/log. New: PoC + PoStatic desk folders (a created folder files there with thumbnails), Features starters, Collective landing per the lab file inside both Collective folders, Colors for the owner, stash as black space with every proof a dot, `collective_pool.project` + `/api/cats/pool/project` (real send/tick on a throwaway state) behind the Boost calculator, ProofKit (3 tools per proof folder from real folders), Fee opens as everyone sees her with an Owner only button.
+- OPEN FINDINGS: (1) PoP: 4 of 4 Happy rounds filed no trade, because both minds must pick the same market and side ("long SOL vs long BTC"). So PoP tools stay thin. Owner's call: paper-trade each mind's call separately? (2) OSSY/G4 use OpenRouter/free, not SingIt: SingIt pays from an agent's own USDC wallet and Sicario's has none by design. (3) `/terminal/hq` is a 404 and LaunchLab links to it. (4) Fee's public desk is still 3,600 px tall. Not tested: a real cloud Browser window at the new size; signed-in phone (Chrome would not shrink, harness at 466 wide was clean).
 
 # NOTES
 

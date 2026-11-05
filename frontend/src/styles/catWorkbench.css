@@ -685,3 +685,6 @@ body.theme-day .dsk-src-health { background: #0000000a; color: #3a2a5a; } body.t
 .cwb-human > .cwb-alts { grid-column: 1 / -1; grid-row: auto; justify-content: flex-start; flex-wrap: wrap; }
 /* its small chart: the how-it-is-drawn note collides with the pills, and the agent's chart is view-only */
 .cwb-view .metric-derived-note { display: none; }
+/* A proof window is its live tools, then its folders. The folders must never be squeezed by a stretched grid row. */
+.dsk-body:has(> .ptl) { grid-template-rows: none; grid-auto-rows: max-content; align-content: start; }
+

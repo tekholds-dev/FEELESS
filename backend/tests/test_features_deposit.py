@@ -268,3 +268,12 @@ def test_a_cut_off_saved_page_says_so(monkeypatch):
         monkeypatch.setattr(fs, '_ws_load', lambda c, w, html=html: {'id': w, 'kind': 'build', 'versions': [{'html': html}]})
         assert fs._ws_view('c', 'w')['cut'] is want
 
+
+
+def test_playbook_rows_keep_a_name_past_the_privacy_filter():
+    """The filter drops any key called setup; a nameless row crashed Fee's Brain folder."""
+    import feecat_brain as fb
+    import feecat_service as fs
+    table = {'phase=early': {'n': 12, 'wins': 8, 'winRate': 66, 'avgRet': 4.0, 'edge': 0.3}}
+    row = fs._no_keys(fb.playbook(table))['best'][0]
+    assert row['name'] == 'phase=early'

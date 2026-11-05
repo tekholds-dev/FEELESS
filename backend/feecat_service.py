@@ -2928,6 +2928,16 @@ async def _made_job(cat_id, job, cat):
     _MADE_DONE.append(out); _MADE_BUSY.discard(cat_id); _POW_WAKE.set()
 
 
+def _sicario_merge(store):
+    """🎩 OSSY and G4 are one agent, Sicario's, with those two as its minds (owner 2026-11-05). Paper only, no wallet. Runs until both rows are settled."""
+    for c in store['cats'].values():
+        if c.get('handle') == 'ossy-desk' and c.get('name') == 'OSSY' and not c.get('agentWallet'):
+            c['name'] = "Sicario's"; c['handle'] = 'sicarios'; b_ = c.setdefault('brainsCfg', {}); b_['mindNames'] = ['OSSY', 'G4']
+            b_['prompt'] = 'You are the Sicario desk, two minds on one seat. OSSY reads a coin the way a careful trader does: pool, holders, age, who bought, then a call you can defend. G4 challenges every call: what would make it wrong, who is exiting, what the chart hides. File proofs that survive both.'
+        elif c.get('handle') == 'g4-desk' and c.get('name') == 'G4' and not c.get('revoked') and not c.get('agentWallet') and not any(c.get(k) for k in ('powFolders', 'popFolders', 'pobFolders')):
+            c['revoked'] = True
+
+
 def _made_pass(store):
     """🎨 File what finished: charge what it really cost, keep the file, say so in the chat."""
     while _MADE_DONE:
@@ -3278,6 +3288,7 @@ async def _pob_pass(store):
 
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
+    _sicario_merge(store)
     _ws_pass(store)
     _made_pass(store)
     await _site_pass(store)
@@ -4864,8 +4875,8 @@ async def cat_colony(page: int = 0, ids: str = ''):
     cats = [c for c in store['cats'].values() if c.get('brainsCfg') and not c.get('revoked')]
     cats.sort(key=lambda c: (not _hive_on(c), -int((rows.get(c['id']) or {}).get('honey') or 0), -float((_WORK.get(c['id']) or {}).get('at') or 0)))
     want = [x for x in str(ids or '').split(',') if x][:10]   # 🐱 My agents: the same cells, just yours (public fields only — ids are already on your cards)
-    if want:
-        cats = [c for c in cats if c['id'] in want]
+    # 🎩 Sicario's is the owner's own: only a request naming its id sees it, never the public wall
+    cats = [c for c in cats if c['id'] in want] if want else [c for c in cats if c.get('handle') != 'sicarios']
     page = max(0, int(page)); part = cats[page * COLONY_PAGE:(page + 1) * COLONY_PAGE]
     out = []
     for c in part:
@@ -5135,6 +5146,13 @@ async def pool_rules():
     st = _cpool.load(POOL_PATH); t = _cpool.totals(st, await _pool_px())
     px_ = await _pool_px(); wt_ = sum(_cpool._working_usd(a_, px_, time.time()) * _cpool.levers(st['cfg'], a_.get('boost'))['weightX'] for a_ in st['agents'].values())
     return {'rules': {**_cpool.rules(st['cfg']), 'live': {'potDayUsd': round(t['usd']['pot'] * st['cfg']['potPayDayPct'] / 100, 4), 'weight': round(wt_, 4)}}, 'potUsd': t['usd']['pot'], 'lockedUsd': t['usd']['locked'], 'agents': t['agents'], 'ratePerSecUsd': t['ratePerSecUsd'], 'withdrawals': False}
+
+
+@app.get('/api/cats/pool/project')
+async def pool_project(usd: float = 10.0, plan: str = 'month', boost: float = 0.0, feesDay: float = 0.0, othersUsd: float = 0.0):
+    """🧮 What one send does, day by day, at the fees and members the viewer picks. Runs the real pool code on a throwaway state; saves nothing."""
+    st = _cpool.load(POOL_PATH)
+    return await asyncio.to_thread(_cpool.project, st['cfg'], usd, plan, boost, feesDay, othersUsd)
 
 
 @app.get('/api/cats/collective/mine')
@@ -5787,7 +5805,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
     if p.op == 'features':   # ✨ its Features folder: folders it has, memory, its fingerprint
-        return {'firstList': _first_list(cat), 'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'pocFolders': _poc_view(cat)}
+        return {'firstList': _first_list(cat), 'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'psFolders': cat.get('psFolders') or [], 'pocFolders': _poc_view(cat)}
     if p.op == 'feature_create':
         kind_ = _feat.clean_kind(p.text)
         if not kind_:

@@ -183,25 +183,28 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>;
-  const mainPane = <div className="kd-main">
-        {Real}
-        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b><Ic3 e="📈" /> P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
+  const Curve = gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b><Ic3 e="📈" /> P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
             <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
-          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>}
-        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
+          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>;
+  const Holds = gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
           {realCoins.length ? <ul className="kd-pos">{realCoins.map(([mint, c], i) => <li key={mint} style={{ '--i': i }}><button type="button" onClick={() => c.pair && openWarRoom({ chainId: 'solana', pairAddress: c.pair, baseToken: { address: mint, symbol: c.symbol } })} data-tip="Open its war room"><b>${c.symbol}</b><small>in its wallet</small></button></li>)}</ul>
             : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b><Ic3 e="🎯" /> WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
           {v.open ? <ul className="kd-pos">{cat.positions.map((p, i) => { const ch = Number(p.currentChange) || 0; const held = p.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - p.openedAt) / 60)) : null;
             return <li key={p.pairAddress || p.mint || i} style={{ '--i': i }}><button type="button" onClick={() => p.pairAddress && openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress, baseToken: { address: p.mint, symbol: p.symbol } })}
               data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
               <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
-            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
+            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>;
+  const Learned = Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b><Ic3 e="📚" /> WHAT IT LEARNED</b><small>from its own exits</small></header>
+          <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>
+          {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null;
+  const mainPane = <div className="kd-main">
+        {Real}
+        {Curve}
+        {Holds}
         {canEdit && !gen && !cat.isLeader && !tabbed ? <EarnCard cat={cat} /> : null}
         {Brains}
-        {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b><Ic3 e="📚" /> WHAT IT LEARNED</b><small>from its own exits</small></header>
-          <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>
-          {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
+        {Learned}
         {Activity}
       </div>;
   const sidePane = runs ? <aside className="kd-side">
@@ -224,7 +227,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside> : null;
   // 🖥 owner 2026-11-04: its wallet and limits live on its desktop, so the desk stays the monitors and the chat
-  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin">{tiles}{mainPane}</div> }, ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
+  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin kd-walwin">{tiles}{Real}{Holds}</div> }, ...(Brains ? [{ k: 'minds', ic: '🧠', label: 'Minds', tip: 'Its brief, and what it learned from its own exits', body: <div className="kd-inwin"><div className="kd-main">{Brains}{Learned}</div></div> }] : []), ...(Activity || !gen ? [{ k: 'log', ic: '📜', label: 'Activity', tip: 'Its results and everything it did', body: <div className="kd-inwin"><div className="kd-main">{Curve}{Activity}</div></div> }] : []), ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
   const [workLive, setWorkLive] = useState(false);   // 💡 its windows tell the lamp when they work
   useEffect(() => { const on = e => { if (e.detail?.id === cat.id) setWorkLive(!!e.detail.live); }; window.addEventListener('feeless:agent-live', on); return () => window.removeEventListener('feeless:agent-live', on); }, [cat.id]);
   const lampOn = workLive || (cat.brainsCfg?.kind !== 'general' && !cat.revoked && ['hunting', 'running'].includes(String(cat.status || '').toLowerCase()));
