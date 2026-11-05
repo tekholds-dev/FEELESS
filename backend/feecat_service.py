@@ -1332,9 +1332,14 @@ async def _pool_pass(http, store, now):
         return
     bal = None
     if now - float((st.get('chain') or {}).get('at') or 0) >= _POOL_CHAIN_S and _pot_address():
-        usdc, sol = await _agent_usdc(http, _pot_address())
-        if usdc or sol:   # a failed read says 0: that is not a shortfall
-            bal = {'SOL': int(sol * _cpool.UNITS['SOL']), 'USDC': int(usdc * _cpool.UNITS['USDC'])}
+        try:   # a failed read skips the check: it is not a shortfall
+            lam = ((await _crpc._rpc(http, 'getBalance', [_pot_address(), {'commitment': 'confirmed'}])) or {}).get('value')
+            h_ = await http.get(f'{_at.TRADE}/holdings/{_pot_address()}', timeout=15)
+            if lam is not None and h_.status_code == 200:
+                usdc = next((float(t.get('amount') or 0) for t in (h_.json() or {}).get('tokens') or [] if t.get('mint') == _cf_usdc), 0.0)
+                bal = {'SOL': int(lam), 'USDC': int(usdc * _cpool.UNITS['USDC'])}
+        except Exception as e:   # noqa: BLE001
+            print(f'[pool] chain read: {str(e)[:100]}')
 
     def go(s):
         _cpool.tick(s, now, px)
@@ -1345,6 +1350,13 @@ async def _pool_pass(http, store, now):
         if bal:
             _cpool.check_chain(s, bal, now)
     _cpool.update(POOL_PATH, go)
+    if now - float(store.get('shotsCleanAt') or 0) >= 3600:   # 🧹 snapshots stay free: a proof closed for 14 days keeps its best two
+        store['shotsCleanAt'] = now
+        for c in store['cats'].values():
+            for key in ('powFolders', 'pobFolders'):
+                for f in c.get(key) or []:
+                    for sh in _print.clean_shots(f, now):
+                        (POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', str(f.get('id')).lower()) / re.sub(r'[^a-z0-9._]', '', sh.get('file') or 'x')).unlink(missing_ok=True)
 
 
 def _receipt_path(sig):
@@ -5487,9 +5499,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['pobAsk'] = str(p.text).strip()[:160]; keep_owned(cat); _save(store)
         _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
         return {'ok': True}
+    if p.op == 'print_style':   # 🧬 how its Proofprint looks: a look only, no engine reads it
+        shape_, ink_ = str(p.text or ''), str(p.job or '')
+        if shape_ not in ('whorl', 'left', 'right', 'arch', 'double') or ink_ not in ('proof', 'blue', 'gold'):
+            raise HTTPException(400, 'Pick a shape and an ink.')
+        cat['printStyle'] = {'shape': shape_, 'ink': ink_}; _save(store)
+        return {'printStyle': cat['printStyle']}
     if p.op == 'pool':   # 🪙 its live count, what is locked and what its boost is doing now
         now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_)
-        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False}
+        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'printStyle': cat.get('printStyle') or {}}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}

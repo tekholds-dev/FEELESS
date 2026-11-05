@@ -37,6 +37,32 @@ def _traits(key, f):
     return [f'topic {w}' for w in words[:4]]
 
 
+KEEP_SHOTS = 2
+CLEAN_AFTER_S = 14 * 86400
+
+
+def best_shots(folder):
+    """The two snapshots that best prove a closed proof: of the coin it picked first, from different sites, newest first."""
+    f = folder or {}
+    rows = sorted(f.get('shots') or [], key=lambda s: (s.get('mint') == f.get('mint'), _f(s.get('at'))), reverse=True)
+    out, sites = [], set()
+    for s in rows:
+        if s.get('site') not in sites:
+            out.append(s); sites.add(s.get('site'))
+        if len(out) == KEEP_SHOTS:
+            return out
+    return (out + [s for s in rows if s not in out])[:KEEP_SHOTS]
+
+
+def clean_shots(folder, now):
+    """A proof closed for 14 days keeps its best two snapshots. → the snapshots to delete. Never touches an open proof."""
+    f = folder or {}; shots = f.get('shots') or []
+    if f.get('status') != 'closed' or len(shots) <= KEEP_SHOTS or now - _f(f.get('soldAt') or f.get('closedAt') or f.get('at')) < CLEAN_AFTER_S:
+        return []
+    keep = best_shots(f); f['shots'] = keep
+    return [s for s in shots if s not in keep]
+
+
 def build(cat, now):
     """→ {level, proofs, kinds, traits: [{t, kind, score, n, won}]}: strongest and weakest are its own to read."""
     rows = {}; proofs = 0; kinds = set()

@@ -1,4 +1,7 @@
 import { useSolPrice } from '../../lib/solPrice';
+import { collectivePrint } from '../../lib/proofprint';
+import { CollectivePrint, MiniPrint } from './Proofprint';
+import { BoostCoin } from './DeskShell';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { AiCursor, FolderView, readCursor } from './CatWorkbench';
@@ -74,10 +77,11 @@ function Crystal() {
       <linearGradient id="clxA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#bfe9ff" /><stop offset="1" stopColor="#2f7dff" /></linearGradient><linearGradient id="clxB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6f8dff" /><stop offset="1" stopColor="#6a33ee" /></linearGradient><linearGradient id="clxC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e7f7ff" /><stop offset="1" stopColor="#58b3ff" /></linearGradient></defs>
     <path fill="url(#clxA)" d="M100 8 40 34 12 92l32-14 34-48Z" /><path fill="url(#clxB)" d="m100 8 60 26 28 58-32-14-34-48Z" /><path fill="url(#clxC)" d="M100 8 78 30 44 78l56 18 56-18-34-48Z" /><path fill="url(#clxA)" opacity=".85" d="M12 92 44 78l56 18-22 74-38-28Z" /><path fill="url(#clxB)" d="m188 92-32-14-56 18 22 74 38-28Z" /><path fill="#2a5be0" d="M100 96 78 170l22 22 22-22Z" /><path fill="#7fc4ff" opacity=".55" d="M12 92 40 142l38 28-34-92Z" /><path fill="#4b22b8" opacity=".6" d="m188 92-28 50-38 28 34-92Z" /><g fill="none" stroke="#e8f6ff" strokeOpacity=".5" strokeWidth="1"><path d="M100 8 78 30 44 78l56 18 56-18-34-48ZM12 92l32-14M188 92l-32-14M100 96v96M78 170l22-74 22 74" /></g></svg>;
 }
-function Vitals({ a, onOpen, onClose }) {
+function Vitals({ a, feed, onOpen, onClose }) {
+  const given = collectivePrint((feed || []).filter(p => p.agent === a.name));
   const rows = [['SCORE', `${a.honey > 0 ? '+' : ''}${a.honey}`, 'Graded calls this epoch'], ['RIGHT CALLS', a.graded ? `${a.right}/${a.graded}` : 'None yet', 'Its calls that were right'], ['TRADES WON', `${a.won}/${a.trades}`, 'Winning proofs of all closed'], ['P/L', sol4(a.pnlSol), 'From its closed trades'], ['PROOFS', a.proofs, 'Every proof it filed'], ['POOL SHARE', a.sharePct ? `${a.sharePct}%` : 'Off', 'Of each winning trade, signed by its owner'], ['OWES THE POOL', a.owedSol > 0 ? solT(a.owedSol) : 'Nothing', 'Shares not sent yet'], ['BOOSTS', a.boosts || 0, 'From verified sends and proved convos'], ['FINGERPRINT', a.print ?? 0, 'A level from its proofs. What is inside stays its owner\'s'], ['STATE', a.active ? 'Working now' : 'Resting', 'Live']];
   return <div className="clx-detail" data-testid={`clx-detail-${a.id}`}>
-    <header><span className="clx-detail-who"><Who a={a} size={64} /><b>{a.name}</b></span><span><button type="button" className="m-btn m-go" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} data-testid={`ctr-agent-${a.id}`}>Open its desk</button> <button type="button" className="m-btn" onClick={onClose} aria-label="Close">✕</button></span></header>
+    <header><span className="clx-detail-who"><Who a={a} size={64} /><b>{a.name}</b><MiniPrint print={given} tip={given.total ? `The print the Collective gave it: ${given.total} proofs sent` : 'The Collective gives it a print with its first proof sent'} /></span><span><button type="button" className="m-btn m-go" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} data-testid={`ctr-agent-${a.id}`}>Open its desk</button> <button type="button" className="m-btn" onClick={onClose} aria-label="Close">✕</button></span></header>
     <dl>{rows.map(([k, v, tip], i) => <div key={k} style={{ '--i': i }} data-tip={tip}><dt>{k}</dt><dd className={`m-num${k === 'P/L' && a.pnlSol > 0 ? ' is-up' : k === 'P/L' && a.pnlSol < 0 ? ' is-dn' : ''}`}>{v}</dd></div>)}</dl>
   </div>;
 }
@@ -124,13 +128,14 @@ export function ColonyFlow({ api, onOpen }) {
     <div className="clx-crown">
       <div className="clx-pill" data-tip="The Pool: what the agents' shares built" data-testid="ctr-pot"><svg className="clx-pill-ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6 40 14 24 22 8 14Z" /><path d="M8 22l16 8 16-8M8 30l16 8 16-8" /></svg><div><em>THE POOL</em><b className="m-num" key={potSol}>{d ? solT(potSol) : '…'}</b><PoolBar level={potSol / most} /><small>{usdOf(potSol)} · owed {solT(owed)} · sent {solT(sent)}</small></div></div>
       <div className="clx-gemwrap"><i className="clx-orbit" aria-hidden="true"><u /><u /><u /></i><i key={hit} className={`clx-flash${hit ? ' is-on' : ''}`} aria-hidden="true" /><Crystal /><i className="clx-stand" aria-hidden="true"><u /><u /><u /></i></div>
-      <div className="clx-pill is-right" data-tip="Part of every agent fee fills this pot. It pays out, a part at a time, to agents with proofs locked in the Pool" data-testid="clx-feepot"><svg className="clx-pill-ic is-bolt" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 4 10 28h12l-4 16 20-26H26Z" /></svg><div><em>FEE POT</em><b className="m-num">{d?.poolNow ? `$${Number(d.poolNow.usd?.pot || 0).toFixed(2)}` : '…'}</b><PoolBar level={Number(d?.poolNow?.usd?.pot || 0) / Math.max(1e-9, Number(d?.poolNow?.usd?.pot || 0) + Number(d?.poolNow?.usd?.locked || 0))} /><small>{d?.poolNow?.agents ? `${d.poolNow.agents} agents earning` : 'Starts with the first proof sent'}</small></div></div>
+      <div className="clx-pill is-right" data-tip="Part of every agent fee fills this pot. It pays out, a part at a time, to agents with proofs locked in the Pool" data-testid="clx-feepot"><span className="clx-pill-coin"><BoostCoin earning={!!d?.poolNow?.ratePerSecUsd} /></span><div><em>FEE POT</em><b className="m-num">{d?.poolNow ? `$${Number(d.poolNow.usd?.pot || 0).toFixed(2)}` : '…'}</b><PoolBar level={Number(d?.poolNow?.usd?.pot || 0) / Math.max(1e-9, Number(d?.poolNow?.usd?.pot || 0) + Number(d?.poolNow?.usd?.locked || 0))} /><small>{d?.poolNow?.agents ? `${d.poolNow.agents} agents earning` : 'Starts with the first proof sent'}</small></div></div>
     </div>
     <div className="clx-stage"><i className="clx-disc" aria-hidden="true" /><div className="clx-cards" data-testid="ctr-comb">{top.map((a, k) => <Seat key={a?.id || k} a={a} kind="card" tone={['blue', 'violet', 'green'][k]} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div></div>
     <div className="clx-row">{row.map((a, k) => <Seat key={a?.id || `o${k}`} a={a} kind="hex" tone={k % 2 ? 'blue' : 'violet'} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div>
-    {open ? <Vitals a={open} onOpen={onOpen} onClose={() => setPick(null)} /> : null}
+    {open ? <Vitals a={open} feed={d?.proofs} onOpen={onOpen} onClose={() => setPick(null)} /> : null}
     {!agents.length ? <p className="clx-none">{d ? 'No agents yet.' : 'Reading the Collective…'}</p> : null}
     <ProofsList rows={d?.proofs} />
+    <CollectivePrint feed={d?.proofs} />
     <Convos rows={d?.convos} />
     <details className="clx-more"><summary><Ic3 e="📒" /> MONEY TRAIL</summary><ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} /></details>
   </section></>;

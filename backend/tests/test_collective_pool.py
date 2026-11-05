@@ -196,3 +196,13 @@ def test_file_update_is_atomic_and_a_failed_change_writes_nothing(tmp_path):
     except ValueError:
         pass
     assert cp.load(p)['books']['USDC']['keep'] == 70
+
+
+def test_a_closed_proof_keeps_its_best_two_snapshots_after_14_days():
+    import agent_print as ap
+    shots = [{'file': f'{i}.jpg', 'site': 'dex' if i < 3 else 'rug', 'mint': 'M' if i else 'X', 'at': i} for i in range(5)]
+    f = {'status': 'closed', 'mint': 'M', 'soldAt': 0, 'shots': list(shots)}
+    assert ap.clean_shots(f, 13 * D) == [] and len(f['shots']) == 5                       # too soon
+    assert ap.clean_shots({**f, 'status': 'open'}, 99 * D) == []                          # an open proof is never touched
+    gone = ap.clean_shots(f, 15 * D)
+    assert [s['file'] for s in f['shots']] == ['4.jpg', '2.jpg'] and len(gone) == 3       # the picked coin, two different sites

@@ -1,8 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { SplitFlow, money } from './SplitFlow';
 import { BoostCoin } from './DeskShell';
 import '../../styles/boosts.css';
+
+const Coin3D = lazy(() => import('./Coin3D'));
 
 // 🪙 THE BOOST FOLDER (owner 2026-11-04): the live count of what its proofs have earned, what is locked, and what its boost is doing right now. The number comes from the server's ledger: the page only ticks it between reads.
 export function useAgentPool(cat, work, every = 30000) {
@@ -25,7 +27,7 @@ export function BoostFolder({ cat, work }) {
   const p = d.pool || {}; const r = d.rules || {}; const lv = p.levers || {}; const b = Number(d.boostNow) || 0; const rank = r.boostMode === 'rank'; const empty = p.empty || !(p.lockedUsd || p.owedUsd);
   const days = r.halfLifeDays + (r.halfLifeMinDays - r.halfLifeDays) * (rank ? 0 : b); const split = r.splitPct + (r.splitMaxPct - r.splitPct) * (rank ? 0 : b); const weight = 1 + (r.weightMaxX - 1) * (rank ? 0 : b);
   return <div className="bst" data-testid="bst-folder">
-    <header className="bst-hero"><span className="bst-coin-big"><BoostCoin /></span>
+    <header className="bst-hero"><span className="bst-coin-big"><Suspense fallback={<BoostCoin />}><Coin3D energy={p.ratePerSecUsd ? 1 : 0.45} size={132} /></Suspense></span>
       <div><small>EARNED FROM PROOFS SENT</small><LiveCount pool={p} readAt={d.readAt} />
         <p>{empty ? 'Its count starts with its first proof sent to the Collective.' : `Counting up from ${money(p.lockedUsd)} locked.`}</p></div>
       <span className="bst-off" data-tip="Its earnings keep counting. Taking them out is switched off for now, and nothing here can be spent yet." data-testid="bst-withdraw-off">WITHDRAWALS OFF</span></header>
