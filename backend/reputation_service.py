@@ -15,6 +15,7 @@ import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
 import name_lock as _name_lock
 import agent_deposit as _deposit
+import collective_pool as _cpool
 import reserve_pool
 import perf
 import verify
@@ -11101,7 +11102,8 @@ def _cat_fund_rules(me=None):
     first funding may be. A staff / creator wallet pays NO fee and may start from $1 ("I'm the owner — it shouldn't charge me the fee")."""
     c_ = _fee_cfg()
     staff_ = bool(me) and _is_staff(me)
-    return {'feeUsd': 0.0, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else _deposit.FIRST_MIN_USD, 'topupMinUsd': _cfund.TOPUP_MIN_USD, 'bigUsd': _deposit.BIG_USD, 'rateBig': _deposit.RATE_BIG, 'rateSmall': _deposit.RATE_SMALL, 'everyThird': _deposit.EVERY_THIRD,
+    pool_ = _cpool.load(POOL_PATH)['cfg']
+    return {'feeUsd': 0.0, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else pool_['firstMinUsd'], 'topupMinUsd': _cfund.TOPUP_MIN_USD, 'depositPct': pool_['depositPct'],
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
@@ -11182,7 +11184,7 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     free_credit = bool(rules_.get('staff')) and (cat.get('brainsCfg') or {}).get('kind') != 'general'   # 🧭 a general agent's credit is always real money (owner 2026-10-31)
     first = _deposit.is_first(cat)
     try:
-        dq = _deposit.quote(p.usd, first, _deposit.small_count(cat.get('deposits')), bool(rules_.get('staff')))   # 💵 10%, 5%, every 3rd: half FEELESS, half the Pool
+        dq = _deposit.quote(p.usd, first, bool(rules_.get('staff')), rules_.get('depositPct', _deposit.RATE_PCT), rules_.get('minUsd', _deposit.FIRST_MIN_USD))   # 💵 all of it to the Collective wallet
     except ValueError as e:
         raise HTTPException(400, str(e))
     need_fee = dq['ratePct'] > 0
@@ -11190,9 +11192,6 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     if need_fee and not colony_w:
         raise HTTPException(503, 'The Pool wallet is not open yet, so deposits are paused. Nothing was charged.')
     async with httpx.AsyncClient(timeout=10) as http:
-        fee_w = ((_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '')) if need_fee else ''
-        if need_fee and not fee_w:
-            raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
         try:
             pl = _deposit.apply(_cfund.plan(p.usd, await _sol_usd(), False, fee_usd=0, min_usd=_cfund.TOPUP_MIN_USD, token=p.token, credit_usd=p.creditUsd, free_credit=free_credit, credit_to_wallet=True), dq)
             if not pl['totalLamports']:   # a creator's credit alone: nothing to pay or sign
@@ -11200,14 +11199,14 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
                                       json={'action': 'agent_funded', 'sig': f'creator-{uuid.uuid4().hex[:16]}', 'result': 'confirmed', 'amount': {'token': pl['token'], 'usd': pl['usd'], 'creditUsd': pl['creditUsd'], 'feeUsd': 0, 'catLamports': 0, 'feeLamports': 0, 'solUsd': pl['solUsd']}})
                 return {'plan': pl, 'granted': True}
             bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-            tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh, colony_w)
+            tx = _cfund.build(me, w['address'], w['address'], pl, bh, colony_w)
         except ValueError as e:
             raise HTTPException(400, str(e))
     now = time.time()
     for k_ in [k_ for k_, v_ in _cfund_plans.items() if now - v_['at'] > _cfund.PLAN_SEC]:
         _cfund_plans.pop(k_, None)
-    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'feeWallet': fee_w, 'colonyWallet': colony_w}
-    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'feeWallet': fee_w, 'colonyWallet': colony_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
+    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'colonyWallet': colony_w, 'first': first}
+    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'colonyWallet': colony_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
 
 
 class CatWithdrawIn(BaseModel):
@@ -11309,6 +11308,11 @@ async def cat_fund_send(cat_id: str, p: CatFundIn):
         raise HTTPException(400, f'It failed on-chain — nothing moved ({sig[:10]}…).')
     pl = rec['plan']
     if ok is True:   # only a confirmed on-chain transfer buys model credit or pays the first fee
+        if pl.get('colonyLamports'):   # 🪙 it landed: the Pool ledger counts it, once
+            try:
+                _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'deposit:{sig}', pl.get('token') or 'SOL', pl['colonyLamports'], 'deposit' if rec.get('first') else 'topup'))
+            except Exception as e:
+                print(f'[pool] deposit {sig[:10]}: {e}')
         try:
             await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
                                   json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'creditUsd': pl.get('creditUsd'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'deposit': pl.get('deposit'), 'colonyLamports': pl.get('colonyLamports'), 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
@@ -19661,6 +19665,7 @@ async def admin_agent_slots_set(request: Request):
 
 
 COLONY_PATH = DATA_DIR / 'colony.json'
+POOL_PATH = DATA_DIR / 'collective_pool.json'
 
 
 async def _colony_value(addr):
@@ -19689,8 +19694,7 @@ async def _colony_view():
     return {'wallet': {k: w.get(k) for k in ('address', 'at')} if w else None, 'value': val, 'principalUsd': round(principal, 2),
             'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
             'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS),
-            'airdrop': _col.airdrop(live.get('sentShares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']], live.get('boosts'), policy.get('boostMode')),
-            'nextAirdrop': _col.period_of(time.time(), policy['cadence'])[1], 'sharers': len(live.get('sharers') or []),
+            'sharers': len(live.get('sharers') or []),
             'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'poolDraft': d.get('poolDraft'), 'board': (live.get('board') or [])[:10],
             'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),
             'browsers': live.get('browsers') or [], 'log': (d.get('log') or [])[-8:]}
@@ -27187,7 +27191,7 @@ AGENT_FEES_SENT = DATA_DIR / 'agent_fees_sent.json'
 
 @app.post('/api/reputation/internal/agent-fee')
 async def internal_agent_fee(request: Request, body: dict):
-    """🤖 One flat agent fee from HQ › Fees, from its own wallet to the FEELESS fee wallet and nowhere else. One key = one charge, ever. Staff-owned agents pay nothing."""
+    """🤖 One agent fee, from its own wallet to the Collective wallet and nowhere else: a % of a trade by its size, or the flat task fee. One key = one charge, ever. Staff-owned agents pay nothing."""
     if not _internal_ok(request):
         raise HTTPException(403, 'Internal only.')
     key_, wid_, addr_, owner_ = str(body.get('key') or ''), str(body.get('walletId') or ''), str(body.get('address') or ''), str(body.get('owner') or '')
@@ -27196,16 +27200,16 @@ async def internal_agent_fee(request: Request, body: dict):
     book_ = _json_load(AGENT_FEES_SENT, {})
     if book_.get(key_):
         return {'signature': book_[key_], 'again': True}
-    cfg = _fee_cfg(); usd_ = max(0.0, _fuse._f(cfg.get('agentTradeFeeUsd' if body['kind'] == 'trade' else 'agentOtherFeeUsd')))
+    cfg = _fee_cfg(); usd_ = _cpool.txn_fee_usd(_cpool.load(POOL_PATH)['cfg'], body.get('usd'))[0] if body['kind'] == 'trade' else max(0.0, _fuse._f(cfg.get('agentOtherFeeUsd')))
     if usd_ <= 0 or (owner_ and _is_staff(owner_)):
         return {'skipped': True}
     w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet')
     if not w_ or w_.get('address') != addr_:
         raise HTTPException(403, "That is not this agent's wallet.")
     async with httpx.AsyncClient(timeout=15) as http:
-        fee_w = (cfg.get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, cfg)) or '')
+        fee_w = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
         if not fee_w:
-            raise HTTPException(503, 'The FEELESS fee wallet is not set.')
+            raise HTTPException(503, 'The Collective wallet is not open.')
         try:
             usdc = int((((await _rpc(http, 'getTokenAccountBalance', [str(_cfund.ata(addr_)), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
         except Exception:
@@ -27224,7 +27228,40 @@ async def internal_agent_fee(request: Request, body: dict):
             raise HTTPException(502, 'Circle did not sign it.')
         _json_save(AGENT_FEES_SENT, {**book_, key_: sig_})   # written BEFORE the send: never a second charge
         await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+    _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'fee:{key_}', token, units, 'txn' if body['kind'] == 'trade' else 'task'))
     return {'signature': sig_, 'usd': usd_, 'token': token}
+
+
+@app.get('/api/reputation/admin/collective')
+async def admin_collective(request: Request):
+    """🪙 Owner: the Pool ledger, every setting and where the money stands."""
+    _require_owner(request)
+    return await _collective_view()
+
+
+@app.post('/api/reputation/admin/collective')
+async def admin_collective_set(request: Request):
+    """🪙 Owner: change the settings, inside their limits. New money and the next tick use them; nothing already owed shrinks."""
+    me_ = _require_owner(request)
+    body = await request.json() or {}
+    if not isinstance(body.get('cfg'), dict):
+        raise HTTPException(400, 'cfg is required.')
+
+    def go(st):
+        before = st['cfg']; after = _cpool.clean_cfg({**before, **{k: v for k, v in body['cfg'].items() if k in _cpool.DEFAULTS}})
+        changed = {k: [before[k], after[k]] for k in after if before[k] != after[k]}
+        st['cfg'] = after
+        if changed:
+            st['cfgLog'] = (st.get('cfgLog') or [])[-19:] + [{'at': round(time.time()), 'by': me_[:6], 'changed': changed}]
+    _cpool.update(POOL_PATH, go)
+    return await _collective_view()
+
+
+async def _collective_view():
+    st = _cpool.load(POOL_PATH); px = float(await _sol_usd() or 0)
+    rows = sorted(((_cpool._locked_usd(a, px) + sum(_cpool._usd(a['owed'][t], t, px) for t in _cpool.TOKENS), c, a) for c, a in st['agents'].items()), key=lambda r: -r[0])[:12]
+    return {'cfg': st['cfg'], 'defaults': _cpool.DEFAULTS, 'bounds': _cpool.BOUNDS, 'totals': _cpool.totals(st, px), 'chain': st.get('chain'), 'solUsd': px, 'wallet': ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address'),
+            'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False}
 
 
 @app.get('/api/reputation/fees/pricing')
@@ -31426,7 +31463,7 @@ def _pass_site():
 
 
 async def _agent_pass_rules():
-    cfg = _fee_cfg(); fee_w = cfg.get('vaultFeeWallet') or ''
+    cfg = _fee_cfg(); fee_w = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address') or ''   # 🪙 an agent's fee goes to the Collective
     try:
         async with httpx.AsyncClient(timeout=8) as http:
             rent = int(await _rpc(http, 'getMinimumBalanceForRentExemption', [_apass.ASSET_BYTES]) or 0)
@@ -31435,7 +31472,7 @@ async def _agent_pass_rules():
     prov = _apass.provider_lamports(rent) if rent else 0
     fee = _apass.fee_lamports(prov, cfg.get('agentPassFeeLamports') or 0) if prov else int(cfg.get('agentPassFeeLamports') or 0)
     why = '' if _pass_site() else 'Minting opens when FEELESS has its public domain (PUBLIC_SITE_URL, https) — a Pass\'s picture link is permanent.'
-    why = why or ('' if fee_w else 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.') or ('' if prov else 'Solana did not answer — try again in a minute.')
+    why = why or ('' if fee_w else 'The Collective wallet is not open yet.') or ('' if prov else 'Solana did not answer — try again in a minute.')
     return {'ready': not why, 'why': why, 'feeWallet': fee_w, 'providerLamports': prov, 'feeLamports': fee, 'royaltyBps': _apass.ROYALTY_BPS, 'auto': not (cfg.get('agentPassFeeLamports') or 0)}
 
 
@@ -31497,6 +31534,7 @@ async def agent_pass_confirm(cat_id: str, p: AgentPassIn):
     why = _apass.check_mint(tx, p.address, rules['feeWallet'], rules['feeLamports'], p.asset)
     if why:
         raise HTTPException(400, why)
+    _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'pass:{p.signature}', 'SOL', rules['feeLamports'], 'pass'))
     num = ((_json_load(APASS_FILE, {}) or {}).get('byCat') or {}).get(cat_id, {}).get('number')
     r = await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
                               json={'action': 'pass_minted', 'passInfo': {'number': num, 'asset': p.asset, 'sig': p.signature, 'owner': p.address}})

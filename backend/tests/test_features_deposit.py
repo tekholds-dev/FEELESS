@@ -12,63 +12,62 @@ import proof_tools as pt
 A, B, C, D = (str(x) for x in ('11111111111111111111111111111112', '4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T', 'So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'))
 
 
-@pytest.mark.parametrize('usd,first,small,rate,third', [(50, True, 0, 10, False), (500, True, 0, 10, False), (50, False, 0, 10, False), (49.99, False, 0, 5, False), (10, False, 1, 5, False), (10, False, 2, 10, True), (10, False, 3, 5, False), (10, False, 5, 10, True), (100, False, 2, 10, False)])
-def test_the_rate(usd, first, small, rate, third):
-    q = dep.quote(usd, first, small)
-    assert q['ratePct'] == rate and q['third'] is third and q['feelessUsd'] == q['collectiveUsd'] and abs(q['feelessUsd'] + q['collectiveUsd'] + q['restUsd'] - usd) < 0.011
+@pytest.mark.parametrize('usd,first', [(50, True), (500, True), (50, False), (49.99, False), (10, False)])
+def test_every_deposit_pays_10_percent_and_all_of_it_goes_to_the_collective(usd, first):
+    q = dep.quote(usd, first)
+    assert q['ratePct'] == 10 and 'feelessUsd' not in q and abs(q['collectiveUsd'] + q['restUsd'] - usd) < 0.011
 
 
 def test_a_first_deposit_starts_at_50_and_staff_pay_nothing():
     with pytest.raises(ValueError):
-        dep.quote(49.99, True, 0)
-    q = dep.quote(1, True, 0, staff=True)
+        dep.quote(49.99, True)
+    q = dep.quote(1, True, staff=True)
     assert q['ratePct'] == 0 and q['restUsd'] == 1
-
-
-def test_splitting_a_big_deposit_still_pays_more_often():
-    """Three $20 top-ups: 5%, 5%, then 10%."""
-    rates = [dep.quote(20, False, n)['ratePct'] for n in range(3)]
-    assert rates == [5, 5, 10] and dep.quote(20, False, 1)['nextIsThird'] is True
-
-
-def test_only_small_top_ups_after_the_first_count():
-    assert dep.small_count([{'usd': 50}, {'usd': 10}, {'usd': 60}, {'usd': 5}]) == 2 and dep.small_count([{'usd': 10}]) == 0
     assert dep.is_first({}) and not dep.is_first({'agentFunded': [{}]}) and not dep.is_first({'creditPaid': [{}]})
+
+
+def test_the_owner_folder_sets_the_rate_and_the_minimum():
+    assert dep.quote(100, False, False, 7)['collectiveUsd'] == 7
+    assert dep.quote(20, True, False, 10, 20)['restUsd'] == 18
 
 
 def test_the_plan_moves_each_cut_and_the_amounts_add_up():
     pl = cf.plan(100, 200, False, fee_usd=0, min_usd=1, credit_usd=20, credit_to_wallet=True)
-    out = dep.apply(pl, dep.quote(100, True, 0))
-    assert out['feeLamports'] == 25_000_000 and out['colonyLamports'] == 25_000_000 and out['feeLamports'] + out['colonyLamports'] + out['catLamports'] == pl['totalLamports'] and out['catUsd'] == 90
+    out = dep.apply(pl, dep.quote(100, True))
+    assert out['feeLamports'] == 0 and out['colonyLamports'] == 50_000_000 and out['colonyLamports'] + out['catLamports'] == pl['totalLamports'] and out['catUsd'] == 90
 
 
 def test_model_credit_cannot_eat_the_fee():
     pl = cf.plan(50, 200, False, fee_usd=0, min_usd=1, credit_usd=50, credit_to_wallet=True)
     with pytest.raises(ValueError):
-        dep.apply(pl, dep.quote(50, True, 0))
+        dep.apply(pl, dep.quote(50, True))
 
 
-def test_one_transaction_has_all_three_legs():
+def test_one_transaction_pays_the_collective_and_the_agent_and_no_feeless_wallet():
     from solders.transaction import VersionedTransaction
     import base64
-    pl = dep.apply(cf.plan(100, 200, False, fee_usd=0, min_usd=1, credit_to_wallet=True), dep.quote(100, True, 0))
+    pl = dep.apply(cf.plan(100, 200, False, fee_usd=0, min_usd=1, credit_to_wallet=True), dep.quote(100, True))
     bh = '11111111111111111111111111111111'
     tx = VersionedTransaction.from_bytes(base64.b64decode(cf.build(A, B, C, pl, bh, D)))
     keys = [str(k) for k in tx.message.account_keys]
-    assert all(k in keys for k in (A, B, C, D)) and len([i for i in tx.message.instructions if str(tx.message.account_keys[i.program_id_index]) == '11111111111111111111111111111111']) == 3
+    assert all(k in keys for k in (A, B, D)) and C not in keys and len([i for i in tx.message.instructions if str(tx.message.account_keys[i.program_id_index]) == '11111111111111111111111111111111']) == 2
     with pytest.raises(ValueError):
         cf.build(A, B, C, pl, bh, None)
     with pytest.raises(ValueError):
-        cf.build(A, B, C, pl, bh, C)
+        cf.build(A, B, C, pl, bh, B)
 
 
-def test_a_boost_takes_a_bigger_part_but_the_pot_pays_the_same():
-    shares = [{'at': 10, 'owner': 'a', 'sent': True, 'sig': 's', 'sol': 1}, {'at': 10, 'owner': 'b', 'sent': True, 'sig': 't', 'sol': 1}]
-    r = {x['owner']: x for x in colony.airdrop(shares, {'a', 'b'}, 300, 0, {'a': 100})}
-    assert r['a']['usd'] == 200 and r['b']['usd'] == 100 and r['a']['boost'] == 2.0
-    r = {x['owner']: x for x in colony.airdrop(shares, {'a', 'b'}, 300, 0, {'a': 100}, 'rank')}
-    assert r['a']['usd'] == 150 and r['b']['usd'] == 150
-    assert colony.boost_weight(100000) == 2.0 and colony.clean_policy({'boostMode': 'rank'})['boostMode'] == 'rank' and colony.clean_policy({'boostMode': 'x'})['boostMode'] == 'payout'
+def test_a_win_on_a_thin_pool_or_traded_by_two_of_ones_agents_cannot_go_to_the_pool():
+    import collective as cl
+    f = {'mint': 'M', 'at': 100, 'soldAt': 200, 'coins': [{'mint': 'M', 'liq': 20000}]}
+    me = {'id': 'a', 'ownerWallet': 'o'}
+    assert cl.send_block(f, me, {'a': me}) == ''
+    assert 'under' in cl.send_block({**f, 'coins': [{'mint': 'M', 'liq': 900}]}, me, {'a': me})
+    assert 'under' in cl.send_block({**f, 'coins': []}, me, {'a': me})
+    twin = {'id': 'b', 'ownerWallet': 'o', 'powFolders': [{'real': True, 'mint': 'M', 'at': 150, 'soldAt': 400}]}
+    assert 'Another of your agents' in cl.send_block(f, me, {'a': me, 'b': twin})
+    assert cl.send_block(f, me, {'a': me, 'b': {**twin, 'ownerWallet': 'x'}}) == ''
+    assert cl.send_block(f, me, {'a': me, 'b': {**twin, 'powFolders': [{'real': True, 'mint': 'M', 'at': 500, 'soldAt': 600}]}}) == ''
 
 
 def test_folder_limits_and_clean_names():

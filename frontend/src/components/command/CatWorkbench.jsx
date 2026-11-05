@@ -23,7 +23,9 @@ import { MailApp, SiteDoor, SignInFrame, SiteTradeCard, TopupCard, WatchFolders 
 import { ProofsFolder, visitorProofs } from './ProofsFolder';
 import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
-import { DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
+import { LiveCount, useAgentPool } from './BoostFolder';
+import { SplitFlow } from './SplitFlow';
+import { BoostCoin, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -71,7 +73,6 @@ const COLONY_STEPS = [['🔎', 'It works in the Collective', 'One coin at a time
   ['⚡', 'Boosts come two ways', 'A winning proof of +50% or more sent to the Pool with its transaction, or a convo call the market later proves. Nothing else earns one.'],
   ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only the % you sign below ever goes to the Pool.']];
 const SHARE_PCTS = [5, 10, 15, 20, 25];
-const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
 function useColonyShare(cat) {
   const { signMessage } = useWallet() || {}; const [share, setShare] = useState(cat?.colonyShare || { on: false, pct: 10 });
@@ -106,7 +107,8 @@ export function HiveSwitch({ cat }) {
             <small>The pool lives on its own platform and pays on its own epochs.</small>
             <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the Pool wallet'}</em></span></article>
           <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Auto-collect: send a % of big wins</strong>
-            <small>Sign once: each real proof that wins +50% or more sends the % you pick of its profit to the Pool, with its transaction, link and receipt in the folder. The Collective airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
+            <small>Sign once: each real proof that wins +50% or more sends the % you pick of its profit to the Pool, with its transaction, link and receipt in the folder. Losses send nothing.</small>
+            <SplitFlow testid="colony-split" />
             {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
                 <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> Sign to share</button></span>}</span></article></div>
@@ -857,11 +859,13 @@ function PowExplorer({ cat, d, setD }) {
 // 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
 // field), the gas reserve always stays, Circle signs one transfer; it lands on the colony ledger with its tx
 const BidsLazy = lazy(() => import('../RepMarkets'));
+const BoostLazy = lazy(() => import('./BoostFolder').then(m => ({ default: m.BoostFolder })));
 const FeaturesLazy = lazy(() => import('./FeaturesFolder').then(m => ({ default: m.FeaturesFolder })));
 const CharacterLazy = lazy(() => import('./CharacterFolder').then(m => ({ default: m.CharacterFolder })));
 const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.AgentLedger })));
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {
+  const px = useSolPrice();
   const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [ok, setOk] = useState(null);
   const [proofs, setProofs] = useState([]); const [way, setWay] = useState('proof'); const [pick, setPick] = useState(''); const [why, setWhy] = useState('');
   const loadProofs = () => Promise.resolve().then(() => work(cat.id, { op: 'honey' })).then(j => setProofs(j?.honey?.proofs || [])).catch(() => {});
@@ -870,11 +874,12 @@ function PotSend({ cat }) {
   const send = async () => { setBusy(true); setMsg(''); setOk(null);
     try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt), ...(way === 'proof' ? { job: pick } : { text: why.trim() }) }); setOk(j.sent); setAmt(''); setPick(''); setWhy(''); loadProofs(); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
   return <form className="dsk-potsend" onSubmit={e => { e.preventDefault(); send(); }} data-testid="dsk-potsend">
-    <span><b><Ic3 e="💎" /> SEND TO THE POOL</b><small>A share travels with its record: attach a proof or say why. It always keeps its gas.</small></span>
+    <span><b><Ic3 e="💎" /> SEND TO THE POOL</b><small>A proof travels with its record. It always keeps its gas.</small></span>
     <div className="m-seg" role="tablist" aria-label="What goes with this honey">{[['proof', '🧾 A proof'], ['why', '✍ A reason']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={way === k} className={way === k ? 'on' : ''} onClick={() => setWay(k)} data-testid={`dsk-pot-${k}`}>{l}</button>)}</div>
     {way === 'proof' ? (free.length ? <select className="m-input" value={pick} onChange={e => setPick(e.target.value)} aria-label="Proof to send with this honey" data-tip="Each proof can go to the Pool once" data-testid="dsk-pot-proof"><option value="">Pick a proof…</option>{free.map(p => <option key={p.id} value={p.id}>{p.name} · ${p.sym || '—'}{p.pnlPct != null ? ` · ${p.pnlPct >= 0 ? '+' : ''}${Number(p.pnlPct).toFixed(1)}%` : ''}</option>)}</select>
       : <small className="m-dim" data-testid="dsk-pot-none">{proofs.length ? 'Every proof it has already went to the Pool.' : 'It has no filed proof yet.'} Give a reason instead.</small>)
       : <input className="m-input" maxLength={80} placeholder="Why are you sending this?" value={why} onChange={e => setWhy(e.target.value)} aria-label="Reason for sending" data-testid="dsk-pot-why" />}
+    {way === 'proof' ? <SplitFlow sendUsd={(Number(amt) || 0) * (px || 0)} testid="dsk-pot-split" /> : <small className="m-dim" data-testid="dsk-pot-gift">A send with a reason is a gift to the Collective. Only a proof earns a count.</small>}
     <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder="SOL to send" value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL to send to the Pool" />
       <button type="submit" className="m-btn m-go" disabled={busy || !ready || !(Number(amt) > 0)} data-tip={ready ? 'Its wallet signs one transfer to the Pool' : 'Attach a proof or a reason first'} data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
     {ok ? <small className="dsk-wal-msg" role="status">✓ {ok.sol} SOL sent to the Pool · <a href={`https://solscan.io/tx/${ok.sig}`} target="_blank" rel="noopener noreferrer">tx ↗</a></small> : null}
@@ -1039,7 +1044,7 @@ function HoneyPot({ cat }) {
       <span data-tip="The Collective LP (Meteora) the Pool wallet opens: stake into it once it is open"><em>COLLECTIVE LP</em><b className="m-num">{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'not open'}</b></span>
     </div>
     <HoneyTanks ledger={ledger} live={v} colony={m} px={px} />
-    <div className="dsk-honey-ways"><b>WAYS INTO THE COLLECTIVE</b><small>Opportunity 1 · stake into the Collective LP — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the Collective airdrops back by what you shared.</small>
+    <div className="dsk-honey-ways"><b>WAYS INTO THE COLLECTIVE</b><small>Opportunity 1 · stake into the Collective LP — opens when the pool is live. Opportunity 2 · sign once to send a part of each win of +50% or more; it comes back over time, in its Boosts folder.</small>
       <HiveSwitch cat={cat} /></div>
     <PotSend cat={cat} />
     <Suspense fallback={<p className="dsk-note">reading the ledger…</p>}><AgentLedgerLazy api={flowApi} agent={cat.name} /></Suspense>
@@ -1075,7 +1080,7 @@ function WalletApp({ cat }) {
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['features', '✨', 'Features'], ['character', '🎭', 'Character'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '💧', 'The Pool'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['proofs', '🏆', 'Proofs'], ['boost', '🪙', 'Boosts'], ['features', '✨', 'Features'], ['character', '🎭', 'Character'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '💧', 'The Pool'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 // 🧱 what each thin folder shows on its wall. Real counts from its state only; a tile with no action is just a number.
 const won = rows => rows.filter(f => Number(f.roePct ?? f.net) > 0 || f.graded === 'right').length; const lost = rows => rows.filter(f => Number(f.roePct ?? f.net) < 0 || f.graded === 'wrong').length;
 function wallFor(k, d, cat) {
@@ -1102,16 +1107,22 @@ export function clearOfIcons(win, icons, width) {
 }
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 // 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
-const ICON_TIP = { terms: 'How this agent is locked down, and the terms you run it under', proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
+const ICON_TIP = { boost: 'Its live count: what its sent proofs have earned, what is locked, and what its boost is doing', terms: 'How this agent is locked down, and the terms you run it under', proofs: 'Every proof it filed: results, the Proof Loop, and a timeline with the snapshots and decisions at the time', mail: 'Its own email: make it once, read its mail and codes', manual: 'How it all works: tutorial, trader vs general, PoW, PoP, fingerprints, limits, code map', vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the Collective', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
+// 🪙 the live count on the desktop itself: hidden until it has sent a proof, and to anyone but its owner (the server refuses them)
+function DeskCount({ cat, onOpen }) {
+  const d = useAgentPool(cat, work, 60000); const p = d?.pool;
+  if (!p || p.empty || !(p.owedUsd || p.lockedUsd)) return null;
+  return <button type="button" className="bst-chip" onClick={onOpen} data-tip="What its sent proofs have earned, counting live. Opens its Boosts folder" data-testid="bst-chip"><BoostCoin /><LiveCount pool={p} readAt={d.readAt} testid="bst-chip-count" /></button>;
+}
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
   const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
   const extra = [...pageApps.filter(a => a.k !== 'wallet'), ...extraProp]; const apps = [...ICONS, ...extra.map(a => [a.k, a.ic, a.label])];
   const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
   useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, character: { open: false, min: false, max: false, x: 130, y: 30 }, features: { open: false, min: false, max: false, x: 110, y: 24 }, terms: { open: false, min: false, max: false, x: 170, y: 48 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
+    pop: { open: false, min: false, max: false, x: 160, y: 50 }, bids: { open: false, min: false, max: false, x: 175, y: 60 }, proofs: { open: false, min: false, max: false, x: 150, y: 40 }, character: { open: false, min: false, max: false, x: 130, y: 30 }, features: { open: false, min: false, max: false, x: 110, y: 24 }, boost: { open: false, min: false, max: false, x: 120, y: 28 }, terms: { open: false, min: false, max: false, x: 170, y: 48 }, manual: { open: false, min: false, max: false, x: 165, y: 45 }, pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 }, perf: { open: false, min: false, max: false, x: 230, y: 50 }, mail: { open: false, min: false, max: false, x: 215, y: 70 }, ...Object.fromEntries(extra.map((a, i) => [a.k, { open: false, min: false, max: false, x: 150 + i * 18, y: 36 + i * 12 }])) }));
   const [pos, setPos] = useState(() => { let saved = {}; try { saved = JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') || {}; } catch { /* private window */ } return placeIcons(saved, window.innerHeight, extra.map(a => a.k)); });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...clearOfIcons(w[k], pos, window.innerWidth) }); setTop(k); };
@@ -1136,6 +1147,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const glass = useMemo(() => glassOf(series), [series]);
   return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     <ShaderWall mood={mood} /><div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div>
+    <DeskCount cat={cat} onOpen={() => openWin('boost')} />
     <nav className="dsk-icons" aria-label="Desktop">
       {apps.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} badge={k === 'manual' && setupLeft > 0 ? { lit: true, text: `${setupLeft}` } : k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
@@ -1154,7 +1166,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <><ProofTools kind="pow" onCommand={onCommand} /><PowExplorer cat={cat} d={d} setD={setD} /></>], ['pop', '📉 Proof of Perps', <><ProofTools kind="pop" onCommand={onCommand} /><PopApp cat={cat} d={d} setD={setD} /></>], ['bids', '🎲 Bids', <><ProofTools kind="bids" onCommand={onCommand} /><BidsApp cat={cat} d={d} setD={setD} /></>], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['features', '✨ Features', <FeaturesLazy cat={cat} d={d} work={work} onCommand={onCommand} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} d={d} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💧 The Pool', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <><ProofTools kind="pow" onCommand={onCommand} /><PowExplorer cat={cat} d={d} setD={setD} /></>], ['pop', '📉 Proof of Perps', <><ProofTools kind="pop" onCommand={onCommand} /><PopApp cat={cat} d={d} setD={setD} /></>], ['bids', '🎲 Bids', <><ProofTools kind="bids" onCommand={onCommand} /><BidsApp cat={cat} d={d} setD={setD} /></>], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['boost', '🪙 Boosts', <BoostLazy cat={cat} work={work} />], ['features', '✨ Features', <FeaturesLazy cat={cat} d={d} work={work} onCommand={onCommand} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} d={d} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💧 The Pool', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}

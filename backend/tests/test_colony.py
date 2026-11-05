@@ -12,17 +12,12 @@ def test_the_pot_only_pays_growth_under_the_epoch_cap_and_the_floor_only_rises()
     assert col.payable(1200, 1000, {'epochCapPct': 20}) == 40                     # 20 % of the growth leaves this epoch
     assert col.payable(1200, 1000, {'epochCapPct': 99}) == 100                     # the cap is clamped to 50 %
     assert col.raise_floor(1000, 1200) == 1200 and col.raise_floor(1200, 900) == 1200   # lock gains in; it never goes down
-    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6, 'cadence': 'daily', 'dest': 'wallet', 'boostMode': 'payout'}
+    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6, 'cadence': 'daily', 'dest': 'wallet'}
     assert col.clean_policy({'dest': 'pool'})['dest'] == 'pool' and col.clean_policy({'dest': 'elsewhere'})['dest'] == 'wallet'   # shares land in the wallet or the pool, nowhere else
     assert set(col.FIXED_GUARDS) == {'principalLock', 'allowlist', 'ownerSigns'}
 
 
-def test_airdrops_follow_what_each_owner_shared_never_who_was_right():
-    sh = [{'owner': 'A', 'sol': 0.1, 'at': 100, 'sent': True, 'sig': 'a'}, {'owner': 'B', 'sol': 0.3, 'at': 150, 'sent': True, 'sig': 'b'},
-          {'owner': 'C', 'sol': 1.0, 'at': 150, 'sent': True, 'sig': 'c'}, {'owner': 'A', 'sol': 9, 'at': 10, 'sent': True, 'sig': 'old'},
-          {'owner': 'A', 'sol': 100, 'at': 150, 'sent': False}]
-    out = col.airdrop(sh, {'A', 'B'}, 40, since=50)   # C never signed; A's old share is from the last period
-    assert [(r['owner'], r['usd'], r['pct']) for r in out] == [('B', 30.0, 75.0), ('A', 10.0, 25.0)]
+def test_only_the_offered_share_of_a_win_is_owed():
     assert col.share_cut(0.5, 10) == 0.05 and col.share_cut(-2, 10) == 0 and col.share_cut(1, 7) == 0   # only the offered %s, nothing on a loss
     assert col.period_of(86400 * 3 + 5, 'daily') == (3, 86400 * 4) and col.clean_policy({'cadence': 'weekly'})['cadence'] == 'weekly'
 

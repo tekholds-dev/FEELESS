@@ -1,12 +1,6 @@
 /* 🐝 THE HIVE (the 🐝 switch + HOW COLONIZING WORKS): honey-gold on the FeeCat violet night — a drawn honeycomb, the epoch ring, the honey board */
-.hv-nil, .hv-empty { color: #9d8fbf; font: 600 12px var(--f-ui); list-style: none; }
+.hv-nil { color: #9d8fbf; font: 600 12px var(--f-ui); list-style: none; }
 /* the airdrop list (colony pot) */
-.hv-board { list-style: none; margin: 0; padding: 10px; display: grid; gap: 6px; align-content: start; border-radius: 14px; border: 1px solid #f5c54222; background: #0b0614cc; }
-.hv-board-h { font: 800 9.5px var(--f-mono); letter-spacing: .14em; color: var(--hv); }
-.hv-board li:not(.hv-board-h):not(.hv-empty) { display: grid; grid-template-columns: 18px minmax(0, 1fr) 54px 32px; grid-template-rows: auto auto; align-items: center; gap: 2px 8px; animation: hvIn .3s ease-out both; animation-delay: calc(var(--i) * 45ms); }
-.hv-board span { color: #fff; font: 600 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .hv-board i { height: 5px; border-radius: 3px; background: #ffffff10; overflow: hidden; }
-.hv-board u { display: block; height: 100%; background: var(--hv); transform-origin: left; } .hv-board u.is-dn { background: #ff8fa3; }
-.hv-board em { font-style: normal; text-align: right; } .hv-board .is-up { color: var(--hv-hot); } .hv-board .is-dn { color: #ff8fa3; } .hv-board small { grid-column: 2 / -1; color: #9d8fbf; font: 600 10px var(--f-mono); }
 /* 🐝 the switch in every owner desk's chat header */
 @keyframes hvIn { from { opacity: 0; transform: translateY(6px); } } @keyframes hvTick { from { opacity: .4; transform: translateY(-3px); } } @keyframes hvBuzz { 50% { transform: rotate(-12deg) scale(1.15); } }
 /* 🐝 HOW COLONIZING WORKS: eight honeycomb stations in one loop, bees run every lane (left → right, down, right → left, up) */
@@ -56,7 +50,6 @@ body.fx-lite .hv-pow-db-row { animation: none; } @media (prefers-reduced-motion:
 .hv-pot-set { display: grid; gap: 8px; } .hv-pot-set label { display: grid; gap: 4px; } .hv-pot-set label span { display: flex; align-items: baseline; gap: 6px; font: 700 10px var(--f-mono); color: #c9b27a; }
 .hv-pot-set label b { color: #ffd76a; font-size: 13px; } .hv-pot-set label small { color: #9d8fbf; font: 600 9px var(--f-mono); }
 .hv-pot-set input[type=range] { width: 100%; min-height: 32px; accent-color: #f5c542; cursor: pointer; } .hv-pot-set input:focus-visible { outline: 2px solid #f5c542; outline-offset: 2px; }
-.hv-split { background: #0b0614aa; } .hv-split li:not(.hv-board-h):not(.hv-empty) { grid-template-columns: 18px minmax(0, 1fr) minmax(48px, 1.2fr) auto; }
 .hv-pot-net { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .hv-pot-net small { font: 800 8.5px var(--f-mono); letter-spacing: .14em; color: #9d8fbf; }
 .hv-pot-net span { padding: 3px 8px; border-radius: 999px; border: 1px solid #45e48644; color: #45e486; font: 700 9.5px var(--f-tech); } .hv-pot-net span.is-off { border-color: #ffffff22; color: #9d8fbf; }
 @media (prefers-reduced-motion: reduce) { .hv-pot-vault > i { transition: none; } }

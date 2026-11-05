@@ -97,24 +97,24 @@ test('🏇 a cat with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it),
   await act(async () => { root.unmount(); });
 });
 
-test('💵 FUND IT: any amount → a receipt (you pay · FEELESS one-time · into its wallet) → your wallet signs that exact tx → sent', async () => {
+test('💵 FUND IT: any amount → a receipt (you pay · the Collective · into its wallet) → your wallet signs that exact tx → sent', async () => {
   const { FundCat } = require('./CatReal');
   const calls = []; localStorage.setItem('feeless.recoverySaved.' + 'c1', '1');   // 🔐 the owner already confirmed the recovery phrase
   global.fetch = async (u, o = {}) => { calls.push([String(u), o.body ? JSON.parse(o.body) : null]);
-    if (String(u).endsWith('/fund')) return { ok: true, json: async () => ({ plan: { usd: 50, feeUsd: 0, catUsd: 45, solUsd: 200, totalLamports: 250e6, feeLamports: 12.5e6, colonyLamports: 12.5e6, catLamports: 225e6, deposit: { ratePct: 10, feelessUsd: 2.5, collectiveUsd: 2.5, restUsd: 45 } }, transaction: 'TXB64', expiresIn: 90 }) };
+    if (String(u).endsWith('/fund')) return { ok: true, json: async () => ({ plan: { usd: 50, feeUsd: 0, catUsd: 45, solUsd: 200, totalLamports: 250e6, feeLamports: 0, colonyLamports: 25e6, catLamports: 225e6, deposit: { ratePct: 10, collectiveUsd: 5, restUsd: 45 } }, transaction: 'TXB64', expiresIn: 90 }) };
     return { ok: true, json: async () => ({ state: 'confirmed', signature: 'SIG12345678' }) }; };
   const sign = jest.fn(async b => `signed:${b}`); const session = jest.fn(async () => 'sess');
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<FundCat cat={{ id: 'c1' }} addr={DEV} session={session} sign={sign} />); });
   expect([...el.querySelectorAll('[data-testid^="cr-fund-"][role="radio"]')].map(b => b.textContent)).toEqual(['$50', '$100']);   // a first deposit: $50+
-  expect(el.querySelector('[data-testid="cr-deposit"]').textContent).toContain('THE COLLECTIVE'); expect(el.querySelector('[data-testid="cr-deposit"]').textContent).toContain('$2.50');
+  expect(el.querySelector('[data-testid="cr-deposit"]').textContent).toContain('THE COLLECTIVE'); expect(el.querySelector('[data-testid="cr-deposit"]').textContent).toContain('$5.00'); expect(el.querySelector('[data-testid="cr-deposit"]').textContent).not.toContain('FEELESS');
   await act(async () => { el.querySelector('[data-testid="cr-fund-50"]').click(); });
   await act(async () => { el.querySelector('[data-testid="cr-fund-quote"]').click(); });
   const posts = () => calls.filter(c => c[1]);
   expect(calls[0][0]).toContain('/cats/fund-rules?address=');                                                      // the rules come first
   expect(posts()[0][1]).toEqual({ address: DEV, session: 'sess', usd: 50, creditUsd: 0, token: 'SOL' });
   const r = el.querySelector('[data-testid="cr-receipt"]').textContent;
-  expect(r).toContain('$50.00'); expect(r).toContain('$2.50'); expect(r).toContain('THE COLLECTIVE'); expect(r).toContain('$45.00'); expect(r).toContain('0.2250 SOL');
+  expect(r).toContain('$50.00'); expect(r).toContain('$5.00'); expect(r).toContain('THE COLLECTIVE'); expect(r).not.toContain('FEELESS'); expect(r).toContain('$45.00'); expect(r).toContain('0.2250 SOL');
   await act(async () => { el.querySelector('[data-testid="cr-fund-sign"]').click(); });
   expect(sign).toHaveBeenCalledWith('TXB64'); expect(posts()[1][0]).toContain('/cats/c1/fund/send'); expect(posts()[1][1]).toEqual({ address: DEV, session: 'sess', signed: 'signed:TXB64' });
   expect(el.querySelector('[data-testid="cr-fund-done"]').textContent).toContain('✓ funded');

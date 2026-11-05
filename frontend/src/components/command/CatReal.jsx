@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
-import { depositQuote, smallCount } from '../../lib/depositQuote';
+import { depositQuote } from '../../lib/depositQuote';
 import { getChatSession, agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
 import { apiUrl } from '../../lib/api';
@@ -81,13 +81,13 @@ export function fundWarn(usd, rules, first) {
   if (u < min) return `${first ? 'A first deposit' : 'A top-up'} starts at $${min}.`;
   return null;
 }
-// 💵 Where this deposit goes, before you sign: FEELESS, the Collective and the rest, drawn to scale.
+// 💵 Where this deposit goes, before you sign: the Collective and the rest, drawn to scale.
 export function DepositSplit({ q, wallet, credit }) {
   if (!q || !(q.restUsd >= 0)) return null;
-  const total = q.feelessUsd + q.collectiveUsd + q.restUsd || 1; const seg = (k, v) => <i className={`cr-dep-${k}`} style={{ flexGrow: Math.max(v / total, v ? 0.015 : 0) }} />;
-  return <div className="cr-dep" data-testid="cr-deposit"><span className="cr-dep-bar" aria-hidden="true">{seg('fee', q.feelessUsd)}{seg('col', q.collectiveUsd)}{seg('rest', q.restUsd)}</span>
-    <ul><li><i className="cr-dep-fee" /><small>FEELESS</small><b className="m-num">${q.feelessUsd.toFixed(2)}</b></li><li><i className="cr-dep-col" /><small>THE COLLECTIVE</small><b className="m-num">${q.collectiveUsd.toFixed(2)}</b></li><li><i className="cr-dep-rest" /><small>{credit > 0 ? 'ITS WALLET + MODELS' : 'ITS WALLET'}</small><b className="m-num">${q.restUsd.toFixed(2)}</b></li></ul>
-    <small className="cr-dep-note" data-testid="cr-dep-note">{q.staff ? 'Creator wallet: no fee.' : q.third ? `Every 3rd top-up under $50 is ${q.ratePct}%, and this is one.` : `${q.ratePct}% fee, half to FEELESS and half to the Pool.${q.nextIsThird ? ' Your next top-up under $50 is 10%.' : ''}`}</small></div>;
+  const total = q.collectiveUsd + q.restUsd || 1; const seg = (k, v) => <i className={`cr-dep-${k}`} style={{ flexGrow: Math.max(v / total, v ? 0.015 : 0) }} />;
+  return <div className="cr-dep" data-testid="cr-deposit"><span className="cr-dep-bar" aria-hidden="true">{seg('col', q.collectiveUsd)}{seg('rest', q.restUsd)}</span>
+    <ul><li><i className="cr-dep-col" /><small>THE COLLECTIVE</small><b className="m-num">${q.collectiveUsd.toFixed(2)}</b></li><li><i className="cr-dep-rest" /><small>{credit > 0 ? 'ITS WALLET + MODELS' : 'ITS WALLET'}</small><b className="m-num">${q.restUsd.toFixed(2)}</b></li></ul>
+    <small className="cr-dep-note" data-testid="cr-dep-note">{q.staff ? 'Creator wallet: no fee.' : `${q.ratePct}% fee, all of it to the Collective wallet.`}</small></div>;
 }
 const sol4 = l => (Number(l) / 1e9).toFixed(4);
 const SAVED_KEY = id => `feeless.recoverySaved.${id}`;
@@ -173,8 +173,8 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const [left, setLeft] = useState(0); const [paidFirst, setPaidFirst] = useState(false);   // 🔐 the one-time safe-keeping box shows right after the first funding
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
   const firstDep = !(cat?.deposits || []).length && !(cat?.agentFunded || []).length && !(cat?.creditPaid || []).length;
-  const q = depositQuote(total, firstDep, smallCount(cat?.deposits), !!rules?.staff);
   const min = firstDep ? Number(rules?.minUsd) || 50 : Number(rules?.topupMinUsd) || 1;
+  const q = depositQuote(total, firstDep, !!rules?.staff, rules?.depositPct ?? 10, min);
   const warn = total > 0 && total < min ? `${firstDep ? 'A first deposit' : 'A top-up'} starts at $${min}.` : cr > q.restUsd + 0.001 ? `After the fee $${q.restUsd.toFixed(2)} is left, so model credit can be at most that.` : null;
   const canPay = total >= min && cr <= q.restUsd + 0.001;
   const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -193,7 +193,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   return <div className="cr-fund" data-testid="cr-fund">
     <div className="m-seg cr-fund-what" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={token === t} className={token === t ? 'active' : ''} onClick={() => { setToken(t); reset(); }} data-tip={t === 'USDC' ? 'Pay in USDC; keep a little SOL for the network fee' : 'Pay in SOL at the live price'} data-testid={`cr-pay-${t}`}>{t}</button>)}</div>
     {!saved && (paidFirst || (cat?.agentFunded || []).length === 1) ? <SafeKeeping cat={cat} addr={addr} saved={saved} onSaved={setSaved} /> : null}
-    <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `Creator wallet: no fee, from $${min}` : firstDep ? `First deposit starts at $${min}.` : `Top-up from $${min}. Under $50 is 5%, $50 or more is 10%.`}</p>
+    <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `Creator wallet: no fee, from $${min}` : firstDep ? `First deposit starts at $${min}.` : `Top-up from $${min}. ${rules?.depositPct ?? 10}% goes to the Collective.`}</p>
     <DepositSplit q={q} credit={cr} />
     <div className="cr-fund-pick"><em>{fresh ? 'HOW MUCH IN TOTAL' : 'ADD HOW MUCH'}</em>
       <div className="m-seg" role="radiogroup" aria-label="How much">{FUND_AMTS.filter(a => a >= min).map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(a); setRcpt(null); setStage('pick'); }} data-testid={`cr-fund-${a}`}>${a}</button>)}</div>
@@ -210,8 +210,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
     {warn ? <p className="cr-fund-warn" role="status" data-testid="cr-fund-warn">⚠ {warn}</p> : null}
     {p ? <ol className="cr-rcpt" data-testid="cr-receipt">
       <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${(p.payUsd ?? p.usd).toFixed(2)}</b><i>{amt(p.totalLamports)}</i></li>
-      <li style={{ '--i': 1 }} className={p.deposit?.feelessUsd ? 'is-fee' : 'is-free'} data-testid="cr-rc-feeless"><small>FEELESS · {(p.deposit?.ratePct || 0) / 2}%</small><b className="m-num">${(p.deposit?.feelessUsd || 0).toFixed(2)}</b><i>{p.feeUsd ? amt(p.feeLamports) : 'no fee'}</i></li>
-      {p.deposit?.collectiveUsd ? <li style={{ '--i': 1 }} className="is-fee" data-testid="cr-rc-collective"><small>THE COLLECTIVE · {p.deposit.ratePct / 2}%</small><b className="m-num">${p.deposit.collectiveUsd.toFixed(2)}</b><i>{amt(p.colonyLamports)}</i></li> : null}
+      {p.deposit?.collectiveUsd ? <li style={{ '--i': 1 }} className="is-fee" data-testid="cr-rc-collective"><small>THE COLLECTIVE · {p.deposit.ratePct}%</small><b className="m-num">${p.deposit.collectiveUsd.toFixed(2)}</b><i>{amt(p.colonyLamports)}</i></li> : null}
       <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET {p.creditUsd ? `· $${p.creditUsd.toFixed(2)} for models` : ''}</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{amt(p.catLamports)}</i></li>
       <li style={{ '--i': 3 }}><small>{usdc ? 'NETWORK' : 'PRICE · NETWORK'}</small><b className="m-num">{usdc ? 'SOL' : `$${p.solUsd}`}</b><i>{usdc ? `tiny fee, token account, ${p.gasLamports ? `${(p.gasLamports / 1e9).toFixed(3)} SOL gas for its wallet` : 'no gas leg'}` : '/SOL · ~0.000005 SOL fee'}</i></li>
     </ol> : null}

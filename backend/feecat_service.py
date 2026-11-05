@@ -64,6 +64,7 @@ import agent_print as _print
 import edge_files as _edge
 import ai_play as _aip
 import collective as _cl
+import collective_pool as _cpool
 import proof_stamp as _stamp
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -1299,6 +1300,51 @@ def _pot_address():
 
 
 RECEIPTS_DIR = DATA_DIR / 'receipts'
+POOL_PATH = DATA_DIR / 'collective_pool.json'
+_POOL_PX = {'at': 0.0, 'usd': 0.0}
+_POOL_CHAIN_S = 300
+
+
+async def _pool_px(http=None):
+    """SOL in dollars, read at most every 30 s for every desk open at once."""
+    if time.time() - _POOL_PX['at'] < 30 and _POOL_PX['usd'] > 0:
+        return _POOL_PX['usd']
+    try:
+        if http is None:
+            async with httpx.AsyncClient(timeout=8) as own:
+                px = await _sol_usd(own)
+        else:
+            px = await _sol_usd(http)
+    except Exception:   # noqa: BLE001 — the last good price stands
+        return _POOL_PX['usd']
+    if px > 0:
+        _POOL_PX.update(at=time.time(), usd=px)
+    return _POOL_PX['usd']
+
+
+async def _pool_pass(http, store, now):
+    """🪙 Move the Pool ledger forward, refresh each agent's boost, and compare it with the real wallet every 5 minutes."""
+    st = _cpool.load(POOL_PATH)
+    if st.get('at') and now - st['at'] < _cpool.TICK_S:
+        return
+    px = await _pool_px(http)
+    if px <= 0:
+        return
+    bal = None
+    if now - float((st.get('chain') or {}).get('at') or 0) >= _POOL_CHAIN_S and _pot_address():
+        usdc, sol = await _agent_usdc(http, _pot_address())
+        if usdc or sol:   # a failed read says 0: that is not a shortfall
+            bal = {'SOL': int(sol * _cpool.UNITS['SOL']), 'USDC': int(usdc * _cpool.UNITS['USDC'])}
+
+    def go(s):
+        _cpool.tick(s, now, px)
+        for cid, a in s['agents'].items():
+            c = store['cats'].get(cid)
+            if c:
+                a['boost'] = _cpool.boost_of(c.get('boosts'), _print.build(c, now)['level'], now, s['cfg']['boostFadeDays'])
+        if bal:
+            _cpool.check_chain(s, bal, now)
+    _cpool.update(POOL_PATH, go)
 
 
 def _receipt_path(sig):
@@ -1316,7 +1362,15 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
     RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
     _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
     _cl.add_boost(cat, 'auto', f'sig:{sig}', _cl.BOOST_SENT, now, f"{folder.get('name')} paid the Pool")
-    folder['sent'] = {'sig': sig, 'sol': got / 1e9, 'link': _cl.SOLSCAN + sig, 'receipt': f'/api/cats/receipt/{sig}', 'at': round(now)}
+    px = await _pool_px(http)
+
+    def book(st):   # 🪙 the send is real: its part locks and starts to release. The signature means it counts once.
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, got / 1e9 * px, now, _cpool.boost_of(cat.get('boosts'), _print.build(cat, now)['level'], now, st['cfg']['boostFadeDays']))
+        if r:
+            st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
+        return r
+    split_ = _cpool.update(POOL_PATH, book)
+    folder['sent'] = {'sig': sig, 'sol': got / 1e9, 'link': _cl.SOLSCAN + sig, 'receipt': f'/api/cats/receipt/{sig}', 'at': round(now), **({'keptSol': split_['keptUnits'] / 1e9, 'lockedSol': split_['lockedUnits'] / 1e9} if split_ else {})}
     return True
 
 
@@ -1331,6 +1385,11 @@ async def _collect_pass(http, store, now):
             continue
         folder = next((f for f in cat.get('powFolders') or [] if f.get('id') == pid), None); addr = (cat.get('agentWallet') or {}).get('address')
         if not folder or not addr or not _cl.qualifies(folder):
+            continue
+        blocked = _cl.send_block(folder, cat, store['cats'])
+        if blocked:
+            if x.get('blocked') != blocked:
+                _share_update(x['cat'], x.get('ref'), {'blocked': blocked})
             continue
         if any((s.get('proof') or {}).get('id') == pid and s.get('sig') for s in _shares() if s.get('cat') == x['cat']):
             continue
@@ -3984,16 +4043,27 @@ async def _agent_pass(store):
                 print('agent pass', c.get('id'), exc)
 
 
+def _trade_usd(cat, row, px):
+    """A trade's size in dollars. A sell is sized by what the coins cost, since the fill comes back later."""
+    if row.get('side') == 'buy':
+        return _num(row.get('sol')) * px
+    cost = next((_num(t.get('sol')) for t in cat.get('agentTx') or [] if t.get('side') == 'buy' and t.get('mint') == row.get('mint') and t.get('status') == 'success'), 0)
+    return cost * min(1.0, _num(row.get('fraction')) or 1.0) * px
+
+
 async def _agent_fees(http, cat, now):
-    """🤖 HQ › Fees flat fees: one per trade that landed, one per finished task. A wallet that can't pay yet is asked again later; the key means never twice."""
+    """🤖 Agent fees to the Collective: a % per trade that landed, one flat per finished task. A wallet that can't pay yet is asked again later; the key means never twice."""
     w_ = cat.get('agentWallet') or {}
     if w_.get('circleAcct') != 'agent' or now - float(cat.get('feeTry') or 0) < 120:
         return
     due = [('trade', t.get('key') or t.get('id'), t) for t in cat.get('agentTx') or [] if t.get('status') == 'success' and not t.get('feeDone')]
+    px = await _pool_px(http)
+    if not px:
+        return
     due += [('other', x['key'], x) for x in cat.get('feesDue') or []]
     for kind, key, row in due[:3]:
         r = await http.post('http://127.0.0.1:5077/api/reputation/internal/agent-fee', headers=_internal_headers(), timeout=30,
-                            json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'owner': w_.get('owner'), 'kind': kind, 'key': f'fee-{key}'})
+                            json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'owner': w_.get('owner'), 'kind': kind, 'key': f'fee-{key}', 'usd': _trade_usd(cat, row, px) if kind == 'trade' else 0})
         if r.status_code != 200:
             cat['feeTry'] = now
             return
@@ -4022,7 +4092,7 @@ async def _engine_loop():
             await _pow2_pass(store)   # ⛏ the Colony PoW loop of every trader agent (the engine is the store's one writer)
             try:
                 async with httpx.AsyncClient(timeout=15) as http_c:
-                    await _collect_pass(http_c, store, time.time()); await _convo_pass(http_c, store, time.time()); await _pob_grade_pass(http_c, store, time.time())
+                    await _pool_pass(http_c, store, time.time()); await _collect_pass(http_c, store, time.time()); await _convo_pass(http_c, store, time.time()); await _pob_grade_pass(http_c, store, time.time())
             except Exception as e:   # noqa: BLE001 — the Collective never stops the engine
                 print(f'[collective] {str(e)[:160]}')
             _work_settle(store)
@@ -4868,13 +4938,20 @@ async def cat_indicator(ind: str):
     return Response(content=row[1], media_type='text/plain; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="feeless-{ind}.pine"', 'X-Content-Type-Options': 'nosniff'})
 
 
+@app.get('/api/cats/pool/rules')
+async def pool_rules():
+    """🪙 Public: the live split rules a user sees before sending, and the Pool's totals. Never a wallet or an owner."""
+    st = _cpool.load(POOL_PATH); t = _cpool.totals(st, await _pool_px())
+    return {'rules': _cpool.rules(st['cfg']), 'potUsd': t['usd']['pot'], 'lockedUsd': t['usd']['locked'], 'agents': t['agents'], 'ratePerSecUsd': t['ratePerSecUsd'], 'withdrawals': False}
+
+
 @app.get('/api/cats/collective/mine')
 async def collective_mine(session: str = ''):
     """👑 The owner's side of the Collective: its agents' running result, boosts, what it put in and how much a boost is worth now. Only its own."""
     me = _fresh_session_wallet(session)
     if not me:
         raise HTTPException(401, 'Sign in with your wallet.')
-    store = _load(); now = time.time(); shares = _shares(); cfg = _colony_cfg(); mode = (cfg.get('policy') or {}).get('boostMode', 'payout') if isinstance(cfg.get('policy'), dict) else 'payout'
+    store = _load(); now = time.time(); shares = _shares(); pst = _cpool.load(POOL_PATH); mode = pst['cfg']['boostMode']; px = await _pool_px()
     out = []
     for c in store['cats'].values():
         if owner_wallet(c) != me or c.get('isLeader'):
@@ -4885,7 +4962,7 @@ async def collective_mine(session: str = ''):
             run = round(run + _num(f.get('pnlSol')), 6); series.append({'at': round(_num(f.get('soldAt') or f.get('at'))), 'v': run, 'sym': f.get('sym'), 'pct': f.get('pnlPct')})
         mine = [x for x in shares if x.get('cat') == c['id']]; pts = _cl.boost_total(c); pr = _print.build(c, now)
         hits = [_cl.qualifies(f) for f in real]
-        out.append({'id': c['id'], 'name': c.get('name'), 'face': c.get('face'), 'series': series, 'boosts': pts, 'weight': _colony.boost_weight(pts, mode), 'boostLog': (c.get('boosts') or [])[-8:][::-1], 'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 6), 'sentSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent')), 6),
+        out.append({'id': c['id'], 'name': c.get('name'), 'face': c.get('face'), 'series': series, 'boosts': pts, 'weight': _cpool.levers(pst['cfg'], _cpool.boost_of(c.get('boosts'), pr['level'], now, pst['cfg']['boostFadeDays']))['weightX'], 'pool': _cpool.view(pst, c['id'], now, px), 'boostLog': (c.get('boosts') or [])[-8:][::-1], 'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 6), 'sentSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent')), 6),
                     'bigWins': sum(hits), 'trades': len(real), 'auto': bool((c.get('colonyShare') or {}).get('auto') and (c.get('colonyShare') or {}).get('on')), 'pct': (c.get('colonyShare') or {}).get('pct'), 'convo': bool((c.get('convo') or {}).get('on')), 'print': _print.public(pr), 'strongest': [t['t'] for t in pr['traits'] if t['score'] > 0][:3], 'weakest': [t['t'] for t in pr['traits'][::-1] if t['score'] < 0][:3]})
     return {'agents': out, 'mode': mode}
 
@@ -4965,6 +5042,7 @@ async def colony_flow(limit: int = 40):
                  'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
                  'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
+                 'poolNow': _cpool.totals(_cpool.load(POOL_PATH), await _pool_px()),
                  'proofs': _cl.proof_feed(cats, shares, now, 20), 'convos': _convos_public(store),
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
                  'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _flow_tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
@@ -5409,6 +5487,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['pobAsk'] = str(p.text).strip()[:160]; keep_owned(cat); _save(store)
         _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
         return {'ok': True}
+    if p.op == 'pool':   # 🪙 its live count, what is locked and what its boost is doing now
+        now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_)
+        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
@@ -5744,6 +5825,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     raise ValueError('Only a real proof that won +50% or more can go to the Pool.')
                 if sol_ < _cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5):
                     raise ValueError(f"Send at least {_cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5)} SOL: its share of this proof.")
+                if sol_ > _cl.cut_sol(f_, 25) + 1e-9:
+                    raise ValueError(f"Send at most {_cl.cut_sol(f_, 25)} SOL: 25% of what this proof really made.")
+                blocked_ = _cl.send_block(f_, cat, store['cats'])
+                if blocked_:
+                    raise ValueError(blocked_)
         except ValueError as e:
             raise HTTPException(400, str(e))
         async with httpx.AsyncClient(timeout=30) as http:
@@ -5770,6 +5856,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     verified_ = await _collect_verify(http_v, cat, f_, rec_['sig'], pot_, sol_, (cat.get('colonyShare') or {}).get('pct'), time.time())
                 except Exception as e:   # noqa: BLE001 — the engine reads it again
                     print(f'[collect] verify later: {str(e)[:100]}')
+        if not attach_.get('proof'):   # sent with a reason: a gift to the Collective, it earns no count
+            _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f"gift:{rec_['sig']}", 'SOL', int(sol_ * 1e9), 'gift'))
         _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None, 'ref': rec_.get('sig'),
                        'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig'), **attach_, **({'verified': verified_} if attach_.get('proof') else {})}, (rec_.get('sig'), cat_id))
         return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}

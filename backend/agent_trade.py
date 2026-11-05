@@ -112,7 +112,7 @@ async def send(http, cm_key, cat, p, now):
     qj = q.json() or {}
     if qj.get('input_mint') != i or qj.get('output_mint') != o or not (qj.get('quote') or {}).get('transaction'):
         raise ValueError('the quote did not match the coins asked for — nothing sent')
-    rec = {'pid': p['id'], 'side': p['side'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'sol': _f(p.get('sol')) if p['side'] == 'buy' else 0.0,
+    rec = {'pid': p['id'], 'side': p['side'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'sol': _f(p.get('sol')) if p['side'] == 'buy' else 0.0, 'fraction': _f(p.get('fraction'), 1.0),
            'amount': amount, 'orderId': qj.get('order_id'), 'status': 'sending', 'at': round(now), 'key': f"feeless-{cat.get('id')}-{p['id']}",
            'tx': qj['quote']['transaction'] if circle else b58_tx(qj['quote']['transaction'])}   # kept until the signer answers: a lost reply is re-asked with the SAME idempotency key (never a 2nd trade)
     cat['agentTx'] = ([rec] + list(cat.get('agentTx') or []))[:KEEP]   # written BEFORE the send: a trade that may have gone out is never forgotten

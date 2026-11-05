@@ -5,7 +5,7 @@ import { FeeCategories } from './FeeCategories';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 
-test('💲 fees by category: trading / agents / fuse / families, the agent cut saves through the admin fee route', async () => {
+test('💲 fees by category: trading / agents / fuse / families, the agent task fee saves through the admin fee route', async () => {
   const posted = [];
   const call = jest.fn((path, o) => {
     if (o) { posted.push([path, JSON.parse(o.body)]); return Promise.resolve({}); }
@@ -19,10 +19,10 @@ test('💲 fees by category: trading / agents / fuse / families, the agent cut s
   const $ = s => el.querySelector(s); const click = s => act(async () => { $(s).click(); });
   expect($('[data-testid="trading-x"]')).not.toBeNull();
   await click('[data-testid="fct-agents"]');
-  expect(el.textContent).toContain('$2.00'); expect(el.textContent).toContain('$0.05'); expect(el.textContent).toContain('$0.10'); expect(el.textContent).toContain('STAFF-OWNED');
-  await act(async () => { const i = $('[data-testid="fct-cat-cut"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, '3'); i.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(el.textContent).toContain('$0.10'); expect(el.textContent).toContain('Collective HQ'); expect(el.textContent).toContain('STAFF-OWNED');
+  await act(async () => { const i = $('[data-testid="fct-agent-other"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, '3'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   await click('[data-testid="fct-cat-save"]');
-  expect(posted[0]).toEqual(['/admin/fees', expect.objectContaining({ catFeeUsd: 3, platformFeeBps: 1500 })]);
+  expect(posted[0]).toEqual(['/admin/fees', expect.objectContaining({ agentOtherFeeUsd: 3, platformFeeBps: 1500 })]);
   await click('[data-testid="fct-families"]'); expect(el.textContent).toContain('$75.00'); expect(el.textContent).toContain('$25.00');
   await click('[data-testid="fct-fuse"]'); expect($('[data-testid="fuse-x"]')).not.toBeNull();
 });

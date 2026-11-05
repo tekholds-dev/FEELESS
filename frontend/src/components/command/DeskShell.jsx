@@ -1,3 +1,4 @@
+import '../../styles/boosts.css';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
@@ -142,13 +143,17 @@ function PopFolderArt() {
   return <svg className="dsk-pop-art" viewBox="0 0 40 26"><g>{[[5, 12, 8, 1], [13, 8, 10, 0], [21, 10, 9, 1], [29, 4, 14, 1]].map(([x, y, h, up], i) => <g key={x} className="dsk-pop-c" style={{ '--i': i }}><line x1={x + 2} x2={x + 2} y1={y - 3} y2={y + h + 2} className="dsk-pop-w" /><rect x={x} y={y} width="4" height={h} rx="1" className={up ? 'is-up' : 'is-dn'} /></g>)}</g><rect className="dsk-pop-sweep" x="-14" y="0" width="10" height="26" /></svg>;
 }
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
+export function BoostCoin() {
+  return <span className="bst-coinart" aria-hidden="true"><svg viewBox="0 0 64 64"><defs><radialGradient id="bstGold" cx="35%" cy="30%" r="75%"><stop offset="0" stopColor="#fff3c4" /><stop offset=".45" stopColor="#ffc24d" /><stop offset="1" stopColor="#b86a10" /></radialGradient><linearGradient id="bstRim" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stopColor="#fff0b8" /><stop offset="1" stopColor="#8a4a08" /></linearGradient></defs>
+    <circle cx="32" cy="32" r="29" fill="url(#bstRim)" /><circle cx="32" cy="32" r="24.5" fill="url(#bstGold)" stroke="#8a4a0855" strokeWidth="1.5" />{Array.from({ length: 24 }, (_, i) => <rect key={i} x="31.2" y="4.2" width="1.6" height="3.4" rx=".8" fill="#7a410888" transform={`rotate(${i * 15} 32 32)`} />)}<path d="M36 13 21 35h10l-3 16 16-23H33Z" fill="#6b3604" opacity=".35" transform="translate(1.4 1.4)" /><path d="M36 13 21 35h10l-3 16 16-23H33Z" fill="#fff8df" stroke="#a65d0c" strokeWidth="1.2" strokeLinejoin="round" /></svg></span>;
+}
 export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, testid }) {
   const g = useRef(null); const dragged = useRef(false);
   const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) onMove(k, { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={() => { g.current = null; }}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
-    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : <em><Ic3 e={ic} size="30px" /></em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
+    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : k === 'boost' ? <BoostCoin /> : <em><Ic3 e={ic} size="30px" /></em>}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];

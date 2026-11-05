@@ -2,6 +2,10 @@ import React from 'react';
 import '../index.css';
 import '../styles/meta.css';
 import { ColonyGrid } from '../components/command/HiveBoard';
+import { BoostFolder } from '../components/command/BoostFolder';
+import { CollectiveOwner } from '../components/command/CollectiveOwner';
+import { SplitFlow } from '../components/command/SplitFlow';
+import { BoostCoin } from '../components/command/DeskShell';
 
 // 🧪 The Colony on fixtures: every number here is made up for the design check.
 const agent = (id, name, honey, right, graded, won, trades, pnlSol, extra = {}) => ({ id, name, honey, right, graded, won, trades, pnlSol, proofs: trades, kind: 'trading', owedSol: 0, sharePct: 10, ...extra });
@@ -15,6 +19,17 @@ const FLOW = {
 };
 const COLONY = { agents: FLOW.tree.agents.slice(0, 2).map(a => ({ ...a, colonized: true, status: 'working', windows: [] })), total: 6, colonized: 3, page: 0, more: false };
 const api = async url => (url.includes('/flow') ? FLOW : COLONY);
+const RULES = { skimPct: 20, splitPct: 75, splitMaxPct: 78, halfLifeDays: 30, halfLifeMinDays: 15, potPct: 30, potHalfLifeDays: 30, weightMaxX: 2, capPct: 3, earnRoomX: 1, boostFadeDays: 60, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout' };
+const BOUNDS = { skimPct: [0, 50], splitPct: [50, 100], splitMaxPct: [50, 100], halfLifeDays: [7, 180], halfLifeMinDays: [3, 180], potPct: [0, 100], potHalfLifeDays: [7, 180], weightMaxX: [1, 5], capPct: [1, 100], earnRoomX: [0, 5], boostFadeDays: [7, 365], depositPct: [0, 20], firstMinUsd: [0, 500], txnSmallPct: [0, 5], txnMidPct: [0, 5], txnBigPct: [0, 5], txnSmallUsd: [1, 1000], txnBigUsd: [1, 100000] };
+const OWNER = { cfg: RULES, defaults: RULES, bounds: BOUNDS, totals: { usd: { keep: 412.5, pot: 96.4, locked: 180.2, owed: 38.7 }, in: { deposit: 300, topup: 90, txn: 64, proofs: 48, release: 22, task: 6 }, agents: 7, ratePerSecUsd: 0.00004 }, chain: { short: [], tokens: { SOL: { chain: 3.2e9, need: 1.4e9 }, USDC: { chain: 120e6, need: 40e6 } } }, agents: [{ id: 'a', name: 'Happy', sentUsd: 54, lockedUsd: 31, owedUsd: 9.1, levers: { splitPct: 76.5 } }, { id: 'b', name: 'Nova', sentUsd: 30, lockedUsd: 18, owedUsd: 4.2, levers: { splitPct: 75 } }], log: [] };
+const POOL = { pool: { owedUsd: 9.1234, ratePerSecUsd: 0.0000213, lockedUsd: 31, sentUsd: 54, earnedUsd: 3.4, levers: { splitPct: 76.5 } }, rules: RULES, points: 45, printLevel: 34, boostNow: 0.3, boostLog: [{ ref: 'a', pts: 10, why: 'Proof BONK paid the Pool' }, { ref: 'b', pts: 5, why: 'Convo call on WIF proved' }] };
+const ownerCall = async (u, o) => (o ? { ...OWNER, cfg: { ...RULES, ...JSON.parse(o.body).cfg } } : OWNER);
+const poolWork = async () => POOL;
+function BoostHarness() {
+  return <div style={{ background: '#050714', minHeight: '100vh', padding: 12, display: 'grid', gap: 16, maxWidth: 1180, margin: '0 auto' }}><div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><button type="button" className="dsk-ico is-boost" style={{ position: 'static' }}><i className="dsk-ico-art"><BoostCoin /></i><span>Boosts</span></button></div>
+    <div style={{ maxWidth: 520 }}><SplitFlow rules={RULES} /></div><BoostFolder cat={{ id: 'x' }} work={poolWork} /><CollectiveOwner call={ownerCall} /></div>;
+}
 export default function ColonyHarness() {
+  if (window.location.search.includes('boost')) return <BoostHarness />;
   return <div style={{ background: '#050403', minHeight: '100vh', padding: 12 }}><ColonyGrid api={api} /></div>;
 }

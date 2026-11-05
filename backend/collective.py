@@ -33,6 +33,25 @@ def qualifies(folder):
     return bool(f.get('real')) and f.get('status') == 'closed' and not f.get('propose') and _f(f.get('netPnlSol', f.get('pnlSol'))) > 0 and _f(f.get('pnlPct')) >= MIN_WIN_PCT
 
 
+MIN_SEND_LIQ = 5000.0
+
+
+def send_block(folder, cat, cats):
+    """Why a +50% win may not go to the Pool, or ''. A thin pool can be pushed up by its own trader, and two agents of one owner trading one coin can trade with each other, so neither earns anything from the Pool."""
+    f = folder or {}
+    coin = next((c for c in f.get('coins') or [] if c.get('mint') == f.get('mint')), None)
+    if not coin or _f(coin.get('liq')) < MIN_SEND_LIQ:
+        return f'Its pool was under ${MIN_SEND_LIQ:,.0f} when it bought, so this win cannot go to the Pool.'
+    owner = owner_of(cat); start = _f(f.get('at')); end = _f(f.get('soldAt')) or start
+    for other in (cats or {}).values():
+        if other.get('id') == (cat or {}).get('id') or not owner or owner_of(other) != owner:
+            continue
+        for g in other.get('powFolders') or []:
+            if g.get('real') and g.get('mint') == f.get('mint') and _f(g.get('at')) <= end and (_f(g.get('soldAt')) or end) >= start:
+                return 'Another of your agents traded this coin at the same time, so this win cannot go to the Pool.'
+    return ''
+
+
 def cut_sol(folder, pct):
     return round(max(0.0, _f(folder.get('netPnlSol', folder.get('pnlSol')))) * max(0, min(25, int(pct or 0))) / 100, 6)
 

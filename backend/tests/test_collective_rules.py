@@ -112,9 +112,24 @@ def test_a_share_below_50_never_accrues(monkeypatch, tmp_path):
     assert len(fs._shares()) == 1
 
 
+def test_a_thin_pool_win_never_sends_and_says_why(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json'); monkeypatch.setattr(fs, '_pot_address', lambda: 'POT')
+    sent = []
+    async def post(http, cat, rec): sent.append(rec)
+    monkeypatch.setattr(fs._at, '_circle_post', post)
+    f = {**_win(pnl=1.0), 'mint': 'M', 'coins': [{'mint': 'M', 'liq': 900}]}; cat = {'id': 'k', 'colonyShare': {'on': True, 'auto': True, 'pct': 10}, 'agentWallet': {'address': 'A'}, 'powFolders': [f]}
+    fs._colony_share(cat, {'symbol': 'X'}, 1.0, 'r1', {'id': 'f1', 'pnlPct': 80})
+    asyncio.run(fs._collect_pass(None, {'cats': {'k': cat}}, 2000))
+    assert not sent and 'under' in fs._shares()[0]['blocked']
+
+
 def test_auto_collect_sends_once_verifies_and_boosts(monkeypatch, tmp_path):
     import feecat_service as fs
     monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json'); monkeypatch.setattr(fs, 'RECEIPTS_DIR', tmp_path / 'r')
+    monkeypatch.setattr(fs, 'POOL_PATH', tmp_path / 'pool.json')
+    async def px(http=None): return 100.0
+    monkeypatch.setattr(fs, '_pool_px', px)
     monkeypatch.setattr(fs, '_pot_address', lambda: 'POT'); monkeypatch.setattr(fs, 'pot_transfer_tx', lambda *a: 'TX')
     async def bal(h, a): return (0, 5.0)
     monkeypatch.setattr(fs, '_agent_usdc', bal)
@@ -123,10 +138,13 @@ def test_auto_collect_sends_once_verifies_and_boosts(monkeypatch, tmp_path):
     monkeypatch.setattr(fs._at, '_circle_post', post)
     async def rpc(http, m, a): return {'value': {'blockhash': 'B'}} if m == 'getLatestBlockhash' else {**_tx('A', 'POT', 0, int(.1 * 1e9)), 'slot': 5, 'blockTime': 1000}
     monkeypatch.setattr(fs._crpc, '_rpc', rpc)
-    f = _win(pnl=1.0); cat = {'id': 'k', 'name': 'H', 'colonyShare': {'on': True, 'auto': True, 'pct': 10}, 'agentWallet': {'address': 'A'}, 'powFolders': [f]}; store = {'cats': {'k': cat}}
+    f = {**_win(pnl=1.0), 'mint': 'M', 'coins': [{'mint': 'M', 'liq': 50000}]}; cat = {'id': 'k', 'name': 'H', 'colonyShare': {'on': True, 'auto': True, 'pct': 10}, 'agentWallet': {'address': 'A'}, 'powFolders': [f]}; store = {'cats': {'k': cat}}
     fs._colony_share(cat, {'symbol': 'X'}, 1.0, 'r1', {'id': 'f1', 'pnlPct': 80})
     asyncio.run(fs._collect_pass(None, store, 2000)); asyncio.run(fs._collect_pass(None, store, 2001))
     row = fs._shares()[0]
+    pool = fs._cpool.load(tmp_path / 'pool.json')   # 0.1 SOL verified: 20% kept, 80% locked, counted once
+    assert pool['agents']['k']['locked']['SOL'] == 80_000_000 and pool['agents']['k']['sent']['SOL'] == 100_000_000 and pool['books']['SOL']['in'] == {'proofs': 20_000_000}
+    assert f['sent']['keptSol'] == 0.02 and f['sent']['lockedSol'] == 0.08
     assert len(sent) == 1 and row['sent'] and row['sig'] == 'SIG1' and row['verified'] and cat['boosts'][0]['pts'] == cl.BOOST_SENT and len(cat['boosts']) == 1
     assert f['sent']['link'].endswith('SIG1') and fs._receipt_path('SIG1').exists()
 
