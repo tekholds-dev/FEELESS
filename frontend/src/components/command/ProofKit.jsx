@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import '../../styles/proofKit.css';
 
@@ -58,4 +59,35 @@ export function ProofKit({ kind, folders, onCommand }) {
   return <section className="pkt" aria-label="Its tools" data-testid={`pkt-${kind}`}>{tools.map((t, i) => <article key={t.t} className="pkt-card" style={{ '--i': i }} data-testid={`pkt-${kind}-${i}`}><header><Ic3 e={t.ic} size="26px" /><span><b>{t.t}</b><small>{t.say}</small></span></header>
     {t.rows.length ? <ul>{t.rows.map(r => <li key={r.l} className={r.tone ? `is-${r.tone}` : ''}><span>{r.l}</span><b className="m-num">{r.v}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, r.part || 0)})` }} /></i></li>)}</ul> : <p className="pkt-none">{t.need}</p>}
     {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(t.ask)} data-tip="Puts this in its chat box. You press send" data-testid={`pkt-${kind}-ask-${i}`}>Ask it</button> : null}</article>)}</section>;
+}
+// 🧬 Each proof's own print: its ridges grow with what it has filed and bend with how it did. Together they make the desktop's fingerprint.
+const KIND_FULL = { pow: 'PROOF OF WORK', pop: 'PROOF OF PERPS', pob: 'PROOF OF BIDS', poc: 'PROOF OF CONTENT', pos: 'PROOF OF CODE' };
+const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' }; const KIND_INK = { pow: '#3ee58a', pop: '#c58bff', pob: '#ffc24d', poc: '#ff8bd8', pos: '#57c7ff' }; const KIND_SEED = { pow: 3, pop: 5, pob: 7, poc: 11, pos: 13 };
+export const printRings = (kind, n) => Math.min(9, 2 + Math.ceil(Math.sqrt(Math.max(0, n)) * 1.6));
+const hashId = s => { let h = 7; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 9973; return h; };
+export function ProofPrint({ kind, folders = [], size = 54, seedId = '' }) {   // seedId: one folder's own print, so no two proofs share one
+  const n = folders.length; const rings = printRings(kind, n); const seed = seedId ? 3 + (hashId(seedId) % 9) : KIND_SEED[kind]; const bend = seedId ? (hashId(`${seedId}b`) % 628) / 100 : 0; const ink = KIND_INK[kind]; const won = folders.filter(f => (f.pnlPct != null && f.pnlPct > 0) || f.graded === 'right' || f.roePct > 0).length;
+  const paths = useMemo(() => Array.from({ length: rings }, (_, r) => { const R = 5 + r * (40 / Math.max(1, rings)); const pts = Array.from({ length: 41 }, (_x, i) => { const a = (i / 40) * Math.PI * 2; const w = Math.sin(a * seed + r * 0.6 + bend) * (1.2 + r * 0.25) + Math.sin(a * 2 + r + bend) * 1.2; return `${(50 + Math.cos(a) * (R * 0.86 + w)).toFixed(1)} ${(50 + Math.sin(a) * (R + w)).toFixed(1)}`; }); return `M${pts.join('L')}Z`; }), [rings, seed, bend]);
+  return <svg className="ppm" viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`${KIND_NAME[kind]} print: ${n} filed, ${won} won`}>{paths.map((d, i) => <path key={d} d={d} fill="none" stroke={ink} strokeWidth={i % 3 === 0 ? 1.6 : 0.8} opacity={n ? 0.45 + (0.55 * (i + 1)) / rings : 0.28} />)}</svg>;
+}
+// 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.
+const STEPS = {
+  pow: { steps: ['Reads 4 coins', 'Both minds propose', 'They agree on 1', 'Buys it', 'Holds and watches', 'Sells', 'Files it'], loop: 'Runs the whole loop with its own wallet.', needs: 'Proposes until its wallet is funded.' },
+  pop: { steps: ['Reads live prices', 'Both call blind', 'They argue once', 'Proposes to you', 'Paper trade', 'Stops or takes', 'Graded'], loop: 'On paper, on true prices. Nothing real opens.', needs: 'On paper, on true prices. Nothing real opens.' },
+  pob: { steps: ['Reads the games', 'Both pick blind', 'Builds the legs', 'Proposes to you', 'Waits for the game', 'Live scores in chat', 'Graded at the final'], loop: 'Picks are filed on paper.', needs: 'Proposes until its Polymarket address is on file.' },
+  poc: { steps: ['Reads what is trending', 'Both pitch blind', 'You pick one', 'You post it', 'You report the result', 'Marked'], loop: 'It never posts on its own.', needs: 'Proposes. You post it and report what it earned.' },
+  pos: { steps: ['You ask', 'It researches', 'It suggests', 'You approve', 'It builds', 'Second mind reviews', 'You say if it works'], loop: 'Filed once you say it works.', needs: 'Proposes. Publishing needs a host you sign in to.' },
+};
+const stepNow = (kind, d) => { if (kind === 'pow') { const p = d?.powFolder?.phase; return !p ? -1 : /scan|read|intake/.test(p) ? 0 : /propose|split/.test(p) ? 1 : /choose/.test(p) ? 2 : /buy/.test(p) ? 3 : /hold|watch|run/.test(p) ? 4 : /sell/.test(p) ? 5 : 4; } if (kind === 'pop') return d?.popRead ? 0 : d?.popCard ? 3 : d?.popFolder ? 4 : -1; if (kind === 'pob') { const open = (d?.pobFolders || []).find(f => f.games?.length && !f.graded); const live = open?.games?.some(g => g.state === 'in'); return d?.pobRead ? 0 : live ? 5 : open ? 4 : -1; } return -1; };
+export function ProofHead({ kind, folders, d, onBrowse }) {
+  const [src, setSrc] = useState(null); const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address);
+  useEffect(() => { if (!open || src) return; fetch(apiUrl('/api/cats/tools/sourcefile')).then(r => (r.ok ? r.json() : null)).then(j => setSrc(j?.proofs?.[kind] || [])).catch(() => setSrc([])); }, [open, src, kind]);
+  return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print" data-tip={`${KIND_NAME[kind]}'s part of its fingerprint. It grows with each proof filed`}><ProofPrint kind={kind} folders={folders || []} size={84} /></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small></span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof" data-testid={`phd-src-${kind}`}>Its sources</button></div>
+    <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
+    {open ? <ul className="phd-src" data-testid={`phd-srcs-${kind}`}>{!src ? <li>Reading…</li> : src.map(r => <li key={r.host}><a href={`https://${r.host}`} target="_blank" rel="noopener noreferrer"><b>{r.name}</b><small>{r.what}</small></a>{onBrowse ? <button type="button" className="m-btn" onClick={() => onBrowse(r.host.split('/')[0])} data-tip="Opens it in its Browser" data-testid={`phd-open-${r.host}`}>Open</button> : null}</li>)}</ul> : null}</section>;
+}
+// 🧬 The desktop's fingerprint, made of its five proofs.
+export function PrintParts({ d, extra = {} }) {
+  const parts = [['pow', d?.powFolders], ['pop', d?.popFolders], ['pob', d?.pobFolders], ['poc', d?.pocFolders || extra.poc], ['pos', d?.psFolders || extra.pos]].map(([k, f]) => [k, f || []]); const total = parts.reduce((a, [, f]) => a + f.length, 0);
+  return <section className="ppp" aria-label="What makes its print" data-testid="print-parts">{parts.map(([k, f]) => <span key={k} data-tip={`${f.length} ${KIND_NAME[k]} filed`}><ProofPrint kind={k} folders={f} size={64} /><b>{KIND_NAME[k]}</b><small className="m-num">{total ? `${Math.round((100 * f.length) / total)}%` : '0%'}</small></span>)}</section>;
 }

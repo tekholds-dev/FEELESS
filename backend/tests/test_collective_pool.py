@@ -441,3 +441,15 @@ def test_the_calculator_is_the_real_pool_code():
     assert crowded['pot'] < some['pot']   # more people sharing, a smaller part
     vault = cp.project(cfg, 10, 'vault', fees_day=0)
     assert vault['back'] == 0 and vault['profit'] == -10
+
+
+def test_growth_shows_more_trading_helps_and_more_senders_split_it():
+    """🌱 The picture the owner asked for, on the real pool code: swaps fill the pot, senders split it, and no fees means short."""
+    import collective_pool as cp
+    cfg = cp.clean_cfg(None)
+    g = cp.growth(cfg, send=20, plan='month', volume_day=0, sender_pct=100)
+    first, last = g['rows'][0], g['rows'][-1]
+    assert first['s1000'] == -6.4   # nothing but the plan: $13.60 back on $20
+    assert last['s1000'] > first['s1000'] and g['rows'][2]['s100'] >= g['rows'][2]['s10000']   # more swaps help; more senders split them
+    assert g['roomX'] == cfg['monthRoom']
+

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
-import { FLOW_COLORS, money } from './SplitFlow';
+import { GrowthCalc, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import { StashWeb } from './StashWeb';
@@ -73,13 +73,18 @@ function Flow({ d, save, busy, part }) {
     {d.agents?.length ? <section className="cof-top"><h4><Ic3 e="🤖" /> AGENTS</h4><ol>{d.agents.map(a => <li key={a.id}><b>{a.name || a.id}</b><small data-tip="Sent · locked · earned">{money(a.sentUsd)} · {money(a.lockedUsd)} · {money(a.owedUsd)}</small><em className="m-num" data-tip="Its fee pot boost right now">{a.levers?.weightX}x</em></li>)}</ol></section> : null}</div>;
 }
 const allRows = GROUPS.flatMap(g => g[1]); const rowOf = k => allRows.find(r => r[0] === k);
-const MoneyFlow = lazy(() => import('./MoneyCharts').then(m => ({ default: m.MoneyFlow }))); const BackLines = lazy(() => import('./MoneyCharts').then(m => ({ default: m.BackLines }))); const PlanBars = lazy(() => import('./MoneyCharts').then(m => ({ default: m.PlanBars })));
+const BackLines = lazy(() => import('./MoneyCharts').then(m => ({ default: m.BackLines })));
 const PLAN_COLS = [['1 week', 'week'], ['30 days', 'month'], ['90 days', 'quarter'], ['Vault', 'vault']];
 const PLAN_ROWS_T = [['Days', 'Days', 'How long this plan takes to come back.'], ['Back', 'Comes back', 'Of what locks, what comes back to the agent. The rest stays with the Collective.'], ['Weight', 'Fee pot weight', 'How big a part of the fee pot this plan earns.'], ['Room', 'Earn limit', 'It can earn from the pot up to this many times what it sent, fading over time.']];
 const SETTING_GROUPS = [['THE FEE POT', [...GROUPS.find(g => g[0] === 'The fee pot')[1], rowOf('sitePct')]], ['BOOST POINTS', GROUPS.find(g => g[0] === 'Boost points')[1]], ['AGENT FEES', GROUPS.find(g => g[0] === 'Agent fees')[1]]];
 // How pay works, on one chart, from the settings as they stand: $100 of each kind of money, and where it ends up.
-const payRows = c => { const S = 100; const kept = S * c.skimPct / 100; const lock = S - kept; const back = lock * c.monthBack / 100; const T = 100; const toPot = T * c.potPct / 100; const W = 100; const wPot = W * c.sitePct / 100;
-  return [['Sent', 'Collective', kept], ['Sent', 'Locked', lock], ['Locked', 'Back to the agent', back], ['Locked', 'Collective', lock - back], ['Trade fees', 'Fee pot', toPot], ['Trade fees', 'Collective', T - toPot], ['Swap fees', 'Fee pot', wPot], ['Swap fees', 'FEELESS', W - wPot], ['Fee pot', 'Members', toPot + wPot]]; };
+// 💵 Where each $100 goes, in words and numbers, one row per kind of money.
+const SPLIT_COLORS = { 'Back to the agent': '#3ee58a', 'The Collective': '#57c7ff', 'Fee pot, to members': '#ff8bd8', FEELESS: '#8fa3cc' };
+function SplitBars({ c }) {
+  const kept = c.skimPct; const lock = 100 - kept; const back = lock * c.monthBack / 100;
+  const rows = [['A proof sent', [['Back to the agent', back], ['The Collective', 100 - back]]], ['A member trade fee', [['Fee pot, to members', c.potPct], ['The Collective', 100 - c.potPct]]], ['An outside swap fee', [['Fee pot, to members', c.sitePct], ['FEELESS', 100 - c.sitePct]]]];
+  return <ul className="cof-bars" data-testid="cof-bars">{rows.map(([t, parts]) => <li key={t}><b>{t}</b><span className="cof-bar">{parts.map(([k, v]) => <i key={k} style={{ width: `${v}%`, background: SPLIT_COLORS[k] }} data-tip={`${k}: $${v.toFixed(2)}`} />)}</span><small>{parts.map(([k, v]) => <span key={k}><u style={{ background: SPLIT_COLORS[k] }} />{k} <em className="m-num">${v.toFixed(2)}</em></span>)}</small></li>)}</ul>;
+}
 function Settings({ d, save, busy }) {
   const [c, setC] = useState(d.cfg); useEffect(() => setC(d.cfg), [d.cfg]);
   const dirty = Object.keys(c).filter(k => c[k] !== d.cfg[k]);
@@ -87,9 +92,9 @@ function Settings({ d, save, busy }) {
   const wait = <div className="spf-wait" />;
   return <Fx><div className="cof-one">
     <div className="cof-col">
-      <section className="cs-sec"><h5>HOW THE MONEY MOVES <small>$100 of each, on the 30 day plan, with these numbers</small></h5><Suspense fallback={wait}><MoneyFlow rows={payRows(c)} colors={FLOW_COLORS} height={340} testid="cof-preview" label="How the money moves" /></Suspense></section>
+      <section className="cs-sec"><h5>WHERE AN AGENT COMES OUT <small>with these numbers, as FEELESS grows</small></h5><GrowthCalc cfg={c} testid="cof-growth" /></section>
+      <section className="cs-sec"><h5>WHERE EACH $100 GOES <small>on the 30 day plan</small></h5><SplitBars c={c} /></section>
       <section className="cs-sec"><h5>WHEN IT COMES BACK</h5><Suspense fallback={wait}><BackLines c={c} /></Suspense></section>
-      <section className="cs-sec"><h5>WHERE $100 GOES, BY PLAN</h5><Suspense fallback={wait}><PlanBars c={c} /></Suspense></section>
     </div>
     <div className="cof-col">
       <section className="cs-sec"><h5>START FROM</h5><Presets c={c} d={d} onPick={t => setC(x => ({ ...x, ...t, boostMode: x.boostMode }))} /></section>

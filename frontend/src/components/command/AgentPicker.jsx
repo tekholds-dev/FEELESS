@@ -37,6 +37,7 @@ export function AgentPicker({ count = 0, onPick, staff = false, max = AGENT_MAX 
   return <section className="agp" data-testid="agent-picker">
     <header className="agp-head"><div><span className="eyebrow">NEW AGENT · {count}/{max} RUNNING</span><h2>Pick the brain your agent trades with.</h2></div>
       <span className="agp-slots" aria-label={`${count} of ${max} agent slots used`}>{Array.from({ length: max }, (_, i) => <i key={i} className={i < count ? 'is-used' : ''} />)}</span></header>
+    <p className="agp-why" data-testid="agp-why"><b>Why two kinds?</b> A trader gets indicators, order books, the live tape and every case file, so it stays focused on trading and keeps improving, whichever model you pick. A general agent gets the browser, proofs and content, without them.</p>
     {full ? <p className="agp-full" data-testid="agent-full">You run {max} agents — retire one in 🤖 My agents to start another.</p> : null}
     <div className="agp-grid">{AGENT_KINDS.map((k, i) => <button key={k.key} type="button" className={`agp-card k-${k.glyph}`} style={{ '--i': i }} disabled={full} onClick={() => onPick(k.key)} data-testid={`agent-${k.key}`}
       data-tip={live === false ? 'Model calls are switched off right now — it runs on the rule engine until they are on' : k.pitch}>

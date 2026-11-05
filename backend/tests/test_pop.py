@@ -103,7 +103,7 @@ def _fake_http(prices):
     return H()
 
 
-def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disagreement_files_no_trade(monkeypatch):
+def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disagreement_proposes_both(monkeypatch):
     import asyncio
     import feecat_service as fs
     answers = {0: '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"up on the day"}', 1: '{"market":"SOL","side":"long","lev":2,"tp_pct":3,"sl_pct":2,"why":"volume"}'}
@@ -124,7 +124,7 @@ def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disag
     answers[1] = '{"market":"BTC","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"topping"}'
     fs._POP_WANT['c9'] = 'start'
     asyncio.run(fs._pop_tick(_fake_http({'SOL': 100, 'ETH': 10, 'BTC': 1000}), cat, 2000.0))
-    assert 'popRun' not in cat and cat['popFolders'][-1]['noTrade'] and 'long SOL vs short BTC' in cat['popFolders'][-1]['why']
+    assert 'popRun' not in cat and cat['popCard']['market'] == 'SOL' and cat['popCard']['alt']['market'] == 'BTC' and cat['popCard']['conviction'] == 'split'   # 💡 owner 2026-11-05: split minds propose, you pick
 
 
 def _ppop_fakes(monkeypatch, answers):
@@ -176,14 +176,14 @@ def test_split_minds_read_each_other_once_and_the_result_is_marked_argued_or_sta
     fs, seen = _ppop_fakes(monkeypatch, {0: [LONG, LONG], 1: [SHORT, SHORT]})
     cat = {'id': 'c6', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
     _tick(fs, cat, _P, 1000.0, 'propose')
-    assert not cat.get('popCard') and cat['popFolders'][-1]['noTrade'] and cat['popFolders'][-1]['proposal'] and len(seen) == 4   # never a third round
+    assert cat['popCard']['side'] != cat['popCard']['alt']['side'] and cat['popCard']['proposal'] and len(seen) == 4   # never a third round; still split = you pick
 
 
 def test_a_plain_pop_stays_blind_and_gets_no_second_round(monkeypatch):
     fs, seen = _ppop_fakes(monkeypatch, {0: [LONG], 1: [SHORT]})
     cat = {'id': 'c5', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
     _tick(fs, cat, _P, 1000.0, 'start')
-    assert len(seen) == 2 and cat['popFolders'][-1]['noTrade'] and not cat['popFolders'][-1].get('proposal')
+    assert len(seen) == 2 and cat['popCard'].get('alt')   # no second round, and still a choice rather than a dead end
 
 
 def test_a_lone_mind_proposes_alone_and_is_labelled_so(monkeypatch):

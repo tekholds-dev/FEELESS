@@ -1,3 +1,4 @@
+import { PrintParts } from './ProofKit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { band, collectivePrint, faintCount, fitBox, identityOf, inkOf, pickTwo, printOf, ridge, ringPoint, segment, spans, statsOf } from '../../lib/proofprint';
@@ -85,6 +86,7 @@ export function ProofprintFolder({ cat, d, pool }) {
   useEffect(() => { if (!playing) return undefined; const t = setInterval(() => setAt(x => { const next = (x ?? 0) + 1; if (next >= sorted.length) { setPlaying(false); return null; } return next; }), 240); return () => clearInterval(t); }, [playing, sorted.length]);
   const level = pool?.printLevel ?? 0; const p = pool?.pool || {}; const list = [...sorted].reverse().slice(0, 40); const most = Math.max(1, st.strong, st.medium, st.weak);
   return <div className="pp" data-testid="pp-folder">
+    <PrintParts d={d} />
     <header className="pp-head"><span className="pp-id" style={{ '--h': id.hue, '--h2': id.hue2 }} data-tip="This print is its identity: picked and sealed by the server from a keyed seed, for this agent only. Nobody can choose or copy one." data-testid="pp-id"><b className="m-num">{id.code}</b><small>{id.patternName} · Ink {id.inkN}</small></span>
       <div className="pp-head-c"><BoostCoin earning={!!p.ratePerSecUsd} /><div><small>EARNED FROM PROOFS SENT</small>{pool ? <LiveCount pool={p} readAt={pool.readAt} testid="pp-count" /> : <b className="bst-num">…</b>}</div></div>
       <span className="pp-level" data-tip="Graded from real results, recent ones most. A stronger print earns more points from the same send. Level says how much it has filed and learned."><small>STRENGTH · LEVEL</small><b className="m-num">{pool?.strength ?? 0} · {level}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, (pool?.strength ?? 0) / 100)})` }} /></i></span></header>

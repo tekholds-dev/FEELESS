@@ -130,3 +130,17 @@ def test_a_page_cut_off_mid_css_is_not_a_finished_page():
     import agent_features as f
     assert not f.page_complete('<!doctype html><html><head><style>button { font-weight:')
     assert f.page_complete('<html><body><p>Tip</p></body></html>')
+
+
+def test_team_and_player_sheets_read_espn_shapes():
+    """🏟 Every player's averages, and one player's last 5."""
+    import proof_tools as t
+    team = {'results': {'stats': {'categories': [{'stats': [{'name': 'avgPoints', 'displayName': 'Points Per Game', 'abbreviation': 'PTS', 'displayValue': '114.2'}, {'name': 'wins', 'displayName': 'Wins', 'displayValue': '4'}]}]}}}
+    assert t.parse_team_stats(team)[0]['value'] == '114.2'
+    pl = {'results': [{'leaders': [{'athlete': {'id': '1', 'displayName': 'A Player', 'position': {'abbreviation': 'F'}}, 'statistics': [{'stats': [{'name': 'avgPoints', 'abbreviation': 'PTS', 'displayValue': '27.0'}, {'name': 'avgRebounds', 'abbreviation': 'REB', 'displayValue': '6.0'}]}]}]}]}
+    players, cols = t.parse_players(pl, 'basketball')
+    assert players[0]['vals']['PTS'] == '27.0' and cols[:2] == ['PTS', 'REB']
+    ov = {'statistics': {'labels': ['GP', 'PTS'], 'splits': [{'displayName': 'Regular Season', 'stats': ['7', '27.0']}, {'displayName': 'Career', 'stats': ['608', '23.6']}]}, 'gameLog': {'statistics': [{'labels': ['PTS'], 'events': [{'stats': ['30']}, {'stats': ['20']}]}]}}
+    a = t.parse_athlete(ov)
+    assert a['season'][1] == '27.0' and a['career'][0] == '608' and a['last5']['PTS'] == 25.0
+

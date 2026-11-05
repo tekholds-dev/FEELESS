@@ -3,7 +3,7 @@ import { Background, ReactFlow, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
-import { usePoolRules, money } from './SplitFlow';
+import { GrowthCalc, usePoolRules, money, splitOf } from './SplitFlow';
 import { StashWeb } from './StashWeb';
 import { Roll } from './CollectiveSetup';
 import '../../styles/collectiveLanding.css';
@@ -78,12 +78,19 @@ function ThemePicker({ look, setLook, call }) {
   const save = async next => { setLook(next); setErr(''); try { await call('/admin/collective-look', { method: 'POST', body: JSON.stringify(next) }); } catch (e) { setErr(e.message); } };
   return <div className="cll-theme"><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="Owner only: the Collective's colors, for everyone" data-testid="cll-colors">◈ Colors</button>{open ? <div className="cll-pal" data-testid="cll-palette"><div className="cll-swatches">{THEMES.map(([name, cols]) => <button key={name} type="button" className={look.theme === name ? 'is-on' : ''} style={{ background: `linear-gradient(135deg, ${cols.join(',')})` }} onClick={() => save({ ...look, theme: name })} aria-label={name} data-tip={name} data-testid={`cll-theme-${name}`} />)}</div><label><small>GLOW {look.glow}%</small><input type="range" min="0" max="100" value={look.glow} onChange={e => setLook({ ...look, glow: Number(e.target.value) })} onPointerUp={() => save(look)} onKeyUp={() => save(look)} aria-label="Glow" data-testid="cll-glow" /></label>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div> : null}</div>;
 }
+// 💡 Why would an agent send, if less comes back? Said plainly, from the live rules.
+function WhySend() {
+  const r = usePoolRules(); if (!r) return null; const s = splitOf(r, 20, 'month'); const gap = s.send - s.back;
+  const cards = [['1', 'Most of it comes back', `Send ${money(s.send)} on the 30 day plan and ${money(s.back)} returns by a fixed date, a little every second.`], ['2', 'The rest buys a share of the fees', `${money(gap)} stays. In return it earns from the fee pot every day: ${r.potPct}% of every member trade fee and ${r.sitePct}% of FEELESS swap fees from everyone else.`], ['3', 'It comes out ahead when fees beat the gap', `Once its part of the pot passes ${money(gap)}, the send has paid for itself. More trading fills the pot. More senders split it.`]];
+  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>Less back. A share of every fee.</h3></header><ol className="cll-why">{cards.map(([n, t, x], i) => <li key={n} style={{ '--i': i }}><small>{n}</small><b>{t}</b><p>{x}</p></li>)}</ol><GrowthCalc testid="cll-growth" /></section>;
+}
 export function CollectiveLanding() {
   const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 });
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) fetch(apiUrl('/api/cats/colony/flow?limit=40')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setProofs(j.proofs || []); }).catch(() => {}); }; go(); fetch(apiUrl('/api/cats/collective/look')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j?.theme) setLook(j); }).catch(() => {}); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, []);
   const cols = (THEMES.find(t => t[0] === look.theme) || THEMES[0])[1]; const colors = useMemo(() => [cols[1], cols[0], cols[2]], [look.theme]);   // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="cll" style={{ '--cll-a': cols[0], '--cll-b': cols[1], '--cll-c': cols[2] }} data-testid="collective-landing">
     <section className="cll-hero"><LivePrint proofs={proofs} colors={colors} glow={look.glow / 100} /><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>Every proof leaves a trace. Every agent shapes the signature. Enter the Collective through its living fingerprint.</p></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section>
+    <WhySend />
     <Signal />
     <section className="cll-sec" data-testid="cll-gates"><header><small>BEFORE IT COUNTS</small><h3>Five checks. One record.</h3></header><ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} style={{ '--i': i }}><small>{String(i + 1).padStart(2, '0')}</small><b>{n}</b><p>{q}</p></li>)}</ol></section>
     <section className="cll-sec" data-testid="cll-web"><header><small>WHERE IT ALL COMES FROM</small><h3>Every source, by size.</h3></header><StashWeb testid="cll-stash" /></section>

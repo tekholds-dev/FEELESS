@@ -157,7 +157,7 @@ def grade_games(rows, games):
         if not g:
             out.append(r); continue
         tm = next((t for t in g['teams'] if t.get('name') == r.get('side')), None)
-        out.append({**r, 'final': bool(g.get('final')), 'status': g.get('status'), 'score': ' - '.join(str(t.get('score') or 0) for t in g['teams']), 'won': bool(tm and tm.get('winner')) if g.get('final') else None})
+        out.append({**r, 'final': bool(g.get('final')), 'state': g.get('state'), 'status': g.get('status'), 'score': ' - '.join(str(t.get('score') or 0) for t in g['teams']), 'won': bool(tm and tm.get('winner')) if g.get('final') else None})
     if not out or not all(r.get('final') for r in out):
         return out, None
     return out, 'right' if all(r.get('won') for r in out) else 'wrong'
@@ -444,6 +444,84 @@ async def _game_read(http, sport, gid, names=()):
         if got and got.get('teams'):
             return got
     return await _fallback_read(http, sport, names) if len(names) == 2 else None
+
+
+PLAYER_COLS = {'basketball': ('PTS', 'REB', 'AST', '3PM', 'STL', 'BLK', 'MIN'), 'hockey': ('G', 'A', 'PTS', 'SOG', '+/-', 'TOI/G'), 'football': ('YDS', 'TD', 'INT', 'REC', 'CAR', 'SACK'), 'baseball': ('AVG', 'HR', 'RBI', 'R', 'H', 'ERA')}
+
+
+def parse_team_stats(data):
+    """A team's season numbers: the per-game ones first. Pure."""
+    cats = (((data or {}).get('results') or {}).get('stats') or {}).get('categories') or []
+    rows = [{'label': x.get('displayName'), 'abbr': x.get('abbreviation'), 'value': x.get('displayValue'), 'avg': str(x.get('name') or '').startswith('avg') or 'Per Game' in str(x.get('displayName'))} for c in cats for x in c.get('stats') or [] if x.get('displayName') and x.get('displayValue') not in (None, '')]
+    seen = set(); out = []
+    first = ('PTS', 'G', 'YDS', 'R', 'AVG', 'REB', 'AST', 'FG%', '3P%', 'TO', 'GA', 'SOG', 'HR', 'ERA', 'STL', 'BLK')
+    rank = lambda r: (first.index(r['abbr']) if r['abbr'] in first else 99, not r['avg'])
+    for r in sorted((r for r in rows if str(r['value']) not in ('0', '0.0')), key=rank):
+        if r['label'] not in seen:
+            seen.add(r['label']); out.append(r)
+    return out[:12]
+
+
+def parse_players(data, kind):
+    """Every player on a team with their season averages, biggest role first. Pure."""
+    want = PLAYER_COLS.get(kind) or (); out = []
+    for g in ((data or {}).get('results') or [])[:1]:
+        for l in g.get('leaders') or []:
+            at = l.get('athlete') or {}; vals = {}
+            for c in l.get('statistics') or []:
+                for x in c.get('stats') or []:
+                    ab = x.get('abbreviation')
+                    if ab and ab not in vals and (str(x.get('name') or '').startswith('avg') or ab in ('GP', 'AVG', 'ERA', '+/-', 'TOI/G')):
+                        vals[ab] = x.get('displayValue')
+                    elif ab and ab not in vals and ab in want and kind != 'basketball':
+                        vals[ab] = x.get('displayValue')
+            if at.get('id') and at.get('displayName'):
+                out.append({'id': str(at['id']), 'name': at['displayName'], 'pos': (at.get('position') or {}).get('abbreviation'), 'vals': vals, 'lead': l.get('displayValue')})
+    cols = [c for c in want if any(c in p['vals'] for p in out)] or list(dict.fromkeys(k for p in out for k in p['vals']))[:6]
+    return out[:30], cols
+
+
+def parse_athlete(data):
+    """One player: this season, their career, and the average of their last 5 games. Pure."""
+    st = (data or {}).get('statistics') or {}; labels = st.get('labels') or []; sp = st.get('splits') or []
+    pick = lambda w: next((x.get('stats') for x in sp if w in str(x.get('displayName'))), None)
+    gl = (data or {}).get('gameLog') or {}; g0 = (gl.get('statistics') or [{}])[0]; ll = g0.get('labels') or []; games = [e.get('stats') or [] for e in (g0.get('events') or [])[:5]]; last = {}
+    if games and ll:
+        for i, lab in enumerate(ll):
+            vals = []
+            for row in games:
+                try:
+                    vals.append(float(str(row[i]).replace(',', '')))
+                except (ValueError, IndexError, TypeError):
+                    pass
+            if vals:
+                last[lab] = round(sum(vals) / len(vals), 1)
+    return {'labels': labels, 'season': pick('Regular'), 'career': pick('Career'), 'last5': last, 'games': len(games)}
+
+
+async def team_sheet(http, sport, tid):
+    """A team's season averages and every player's. Free, from ESPN; None when it does not answer."""
+    if sport not in SPORTS or not str(tid).isdigit():
+        return None
+    path = SPORTS[sport][1]; kind = path.split('/')[0]
+
+    async def go():
+        stats, pl = await asyncio.gather(_get(http, f'https://site.api.espn.com/apis/site/v2/sports/{path}/teams/{tid}/statistics'), _get(http, f'https://site.web.api.espn.com/apis/site/v2/sports/{path}/teams/{tid}/athletes/statistics'))
+        players, cols = parse_players(pl, kind)
+        return {'stats': parse_team_stats(stats), 'players': players, 'cols': cols} if players or stats else None
+    return await _cached(f'team:{sport}:{tid}', go)
+
+
+async def athlete_sheet(http, sport, aid):
+    """One player's averages. Free, from ESPN; None when it does not answer."""
+    if sport not in SPORTS or not str(aid).isdigit():
+        return None
+    path = SPORTS[sport][1]
+
+    async def go():
+        d = await _get(http, f'https://site.web.api.espn.com/apis/common/v3/sports/{path}/athletes/{aid}/overview')
+        return parse_athlete(d) if d else None
+    return await _cached(f'athlete:{sport}:{aid}', go)
 
 
 async def bids(http, sport='all', team=''):

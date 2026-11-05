@@ -305,7 +305,7 @@ def _usd(units, t, sol_usd):
     return units / UNITS[t] * (sol_usd if t == 'SOL' else 1)
 
 
-def project(cfg, usd, plan='month', boost=0.0, fees_day=0.0, others_usd=0.0, owners=20):
+def project(cfg, usd, plan='month', boost=0.0, fees_day=0.0, others_usd=0.0, owners=20, outside_day=0.0):
     """What one send does, day by day, by running the real send() and tick() on a throwaway state: the same code that moves real money, with the fees and other members the viewer picks. An example, never a promise. Pure, touches nothing saved."""
     usd = max(0.01, min(100000.0, _f(usd))); fees_day = max(0.0, min(1000000.0, _f(fees_day))); others_usd = max(0.0, min(1000000000.0, _f(others_usd))); plan = plan if plan in PLANS else 'month'
     st = new_state(); st['cfg'] = clean_cfg(cfg); cfg_ = st['cfg']; t0 = 1000000.0; st['at'] = t0; u = UNITS['USDC']; pl = plan_of(cfg_, plan, boost); span = int(min(120, max(30, pl['days'] or 90)))
@@ -322,6 +322,8 @@ def project(cfg, usd, plan='month', boost=0.0, fees_day=0.0, others_usd=0.0, own
             others(d)
         if fees_day > 0:
             income(st, f'f{d}', 'USDC', int(fees_day * u), 'txn')
+        if outside_day > 0:
+            income(st, f's{d}', 'USDC', int(outside_day * u), 'site')
         tick(st, now, 1.0)
         pot = me['earned']['USDC'] / u; back = max(0.0, me['owed']['USDC'] / u - pot)
         out.append({'day': d, 'back': round(back, 4), 'pot': round(pot, 4)})
@@ -330,6 +332,23 @@ def project(cfg, usd, plan='month', boost=0.0, fees_day=0.0, others_usd=0.0, own
         capped = capped or (me.get('room') or 0) <= 0.0001
     end = out[-1]
     return {'sent': round(usd, 4), 'kept': round(usd * cfg_['skimPct'] / 100, 4), 'plan': pl['plan'], 'days': span, 'series': out, 'back': end['back'], 'pot': end['pot'], 'profit': round(end['back'] + end['pot'] - usd, 4), 'breakEven': even, 'capped': capped, 'capPct': cfg_['capPct']}
+
+
+GROW_SENDERS = (100, 1000, 10000)
+GROW_SWAPS = (0.0, 100000.0, 1000000.0, 10000000.0, 100000000.0)
+
+
+def growth(cfg, send=20.0, plan='month', volume_day=100.0, sender_pct=100.0, swap_fee_pct=0.5):
+    """Where an agent comes out as FEELESS grows: the result of one send, for each number of senders against how much everyone else swaps. More senders split the pot; more trading fills it. Each point is project(), the real pool code. Pure."""
+    cfg_ = clean_cfg(cfg); send = max(1.0, min(10000.0, _f(send))); volume_day = max(0.0, min(1000000.0, _f(volume_day))); sender_pct = max(1.0, min(100.0, _f(sender_pct)))
+    fee_each = txn_fee_usd(cfg_, volume_day)[0]; rows = []
+    for swaps in GROW_SWAPS:
+        row = {'swaps': swaps}
+        for n in GROW_SENDERS:
+            p = project(cfg_, send, plan, fees_day=fee_each * n / (sender_pct / 100), others_usd=n * send, outside_day=swaps * swap_fee_pct / 100 * cfg_['sitePct'] / 100)
+            row[f's{n}'] = p['profit']; row[f'b{n}'] = p['back']; row[f'p{n}'] = p['pot']
+        rows.append(row)
+    return {'rows': rows, 'send': send, 'plan': plan, 'senders': list(GROW_SENDERS), 'feeEach': round(fee_each, 4), 'swapFeePct': swap_fee_pct, 'sitePct': cfg_['sitePct'], 'potPct': cfg_['potPct'], 'skimPct': cfg_['skimPct'], 'days': plan_of(cfg_, plan)['days'] or 90, 'capPct': cfg_['capPct'], 'roomX': plan_of(cfg_, plan)['roomX']}
 
 
 def pays_for_itself(usd, back_usd, weight_x, pot_day_usd, total_weight):
