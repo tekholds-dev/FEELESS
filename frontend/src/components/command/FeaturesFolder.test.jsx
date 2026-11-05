@@ -62,6 +62,36 @@ test('a filed PoC keeps its response verdict visible and updates its print when 
   await act(async () => root.unmount());
 });
 
+test('every filed PoC has its own opening folder and recorded cost', async () => {
+  const filed = [1, 2].map(n => ({ id: `pc${n}`, n, topic: `Topic ${n}`, cost: 0.0123 * n, calls: [{ mind: 0, post: `Post ${n}` }] }));
+  const work = jest.fn(async () => ({ workspaces: [{ id: 'w1', kind: 'content', name: 'Ideas' }], pocFolders: filed, psFolders: [] }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} />); });
+  expect(el.querySelectorAll('.pdk-file-card')).toHaveLength(2);
+  await act(async () => { el.querySelector('[data-testid="poc-file-pc2"]').click(); });
+  expect(el.querySelector('[data-testid="poc-folder-pc2"]').textContent).toContain('$0.0246');
+  expect(el.querySelector('[data-testid="poc-folder-pc2"]').textContent).toContain('Post 2');
+  await act(async () => root.unmount()); el.remove();
+});
+
+test('PoStatic approval grows its progress and can complete the proof', async () => {
+  const row = { id: 'w1', kind: 'build', name: 'Site' }; const f = { id: 'ps1', n: 1, ws: 'w1' };
+  const doc = { ...row, versions: 1, code: '<p>new</p>', previousCode: '<p>old</p>', preview: '<p>new</p>', messages: [], busy: null, cost: 0.0032 };
+  const work = jest.fn(async (_, b) => b.op === 'features' ? { workspaces: [row], psFolders: [f] } : b.op === 'state' ? { psFolders: [f] } : b.op === 'ws_open' ? { doc } : b.op === 'ps_mark' ? { psFolders: [{ ...f, graded: b.text }] } : b.op === 'ws_complete' ? { doc: { ...doc, complete: true } } : {});
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="build" work={work} d={{}} />); });
+  await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
+  expect(el.querySelector('[data-testid="ws-cost"]').textContent).toContain('$0.0032');
+  await act(async () => { el.querySelector('[data-testid="ws-view-code"]').click(); });
+  expect(el.querySelector('[data-testid="ws-code"]').textContent).toContain('+1 added');
+  await act(async () => { el.querySelector('[data-testid="ws-pos-yes"]').click(); });
+  expect(el.querySelector('[role="progressbar"]').getAttribute('aria-valuenow')).toBe('1');
+  await act(async () => { el.querySelector('[data-testid="ws-complete"]').click(); });
+  expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_complete', job: 'w1' }));
+  expect(el.querySelector('[data-testid="ws-complete"]').textContent).toContain('✓');
+  await act(async () => root.unmount()); el.remove();
+});
+
 test('a PoStatic shows its steps, waits on its plan, and approval is what builds it', async () => {
   const { act } = require('react-dom/test-utils'); const { createRoot } = require('react-dom/client');
   const doc = { id: 'w1', kind: 'build', name: 'B', messages: [{ by: 'you', text: 'x' }], stage: 'approve', busy: null, versions: 0, cfg: { research: true, suggest: true, review: true, depth: 'quick' }, plan: { by: 'Mind A', approved: false, allRefs: [{ title: 'a/b', url: 'https://a', source: 'GitHub', score: 9, open: true }, { title: 'c', url: 'https://c', source: 'Hacker News', score: 1, open: false }], plan: { summary: 'A desk', steps: ['one'], borrow: 'layout', refs: [], risks: 'none' } } };

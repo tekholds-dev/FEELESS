@@ -5055,7 +5055,7 @@ def _ws_view(cat_id, ws_id):
     if d_.get('busy') and time.time() - float(d_['busy'].get('at') or 0) > 240:   # a run that died never locks the folder, and says so
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed. Send it again to start over.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
 
 
 async def _ws_ask(cat, model, sys_, user_, tokens):
@@ -5075,7 +5075,8 @@ def _ws_pass(store):
         if o['cost'] and not o['own'] and c_.get('brainsCfg'):
             _lc.charge(c_['brainsCfg'], o['cost'])
         if o['doc']:   # 💻 the page it built is filed as a PoStatic
-            _feat.file_static(c_, o['doc'], (o['doc']['versions'][-1] or {}).get('by') or 'Mind', time.time())
+            filed_ = _feat.file_static(c_, o['doc'], (o['doc']['versions'][-1] or {}).get('by') or 'Mind', time.time())
+            filed_['cost'] = round(float(o['cost'] or 0), 6)
 
 
 async def _ws_page(cat, model, sys_, user_, tokens):
@@ -5116,7 +5117,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd_; paid_own = own_; doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
                 if cfg_['suggest']:
                     doc['stage'] = 'approve'; _feat.add_msg(doc, name(order[0]), 'I read the current best builds and wrote a plan. Approve it or tell me what to change.', time.time())
-                    doc['busy'] = None; _ws_save(cat_id, doc)
+                    doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); _ws_save(cat_id, doc)
                     if cost and not paid_own:
                         store = _load(); c_ = store['cats'].get(cat_id)
                         if c_ and c_.get('brainsCfg'):
@@ -5130,12 +5131,17 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
                 raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos'), user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000)
                 cost += usd; paid_own = own; html = _aip.html_of(raw)
+                if (not html or not _feat.page_complete(html)) and cur:
+                    patch_raw, patch_usd, patch_own = await _ws_ask(cat, brains[i], 'Return JSON only: {"find":"exact old HTML substring","replace":"new HTML substring"}. Make one concrete change that fulfills the owner request. The find text must occur exactly once. Keep the rest of the page. No explanation.', f'Owner request: {text[:1200]}\nCurrent page:\n{cur[:18000]}', 1300)
+                    cost += patch_usd; paid_own = patch_own
+                    html = _feat.apply_page_patch(cur, patch_raw)
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
                 elif html:
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
+                _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
         else:
             sys_ = _feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS
             past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1])
@@ -5144,17 +5150,19 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
-    doc['busy'] = None
+    doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6)
     if kind == 'build' and len(doc.get('versions') or []) > start_versions:
         doc['stage'] = 'filed'
     _ws_save(cat_id, doc)
     built = kind == 'build' and len(doc.get('versions') or []) > start_versions
+    if built:
+        doc['pending'] = False; _ws_save(cat_id, doc)
     if built or (cost and not paid_own):
         _WS_DONE.append({'cat': cat_id, 'cost': cost, 'own': paid_own, 'doc': json.loads(json.dumps(doc)) if built else None}); _POW_WAKE.set()
 
 
 def _poc_view(cat):
-    return [{**f, 'stamp': _stamp.of('PoB', f, time.time())} for f in (cat.get('pocFolders') or [])[::-1]]
+    return [{**f, 'stamp': _stamp.of('PoC', f, time.time())} for f in (cat.get('pocFolders') or [])[::-1]]
 
 
 async def _poc_file(cat_id, topic):
@@ -5944,7 +5952,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         _ws_file(cat_id, p.text).unlink(missing_ok=True); keep_owned(cat); _save(store)
         return {'workspaces': cat['workspaces']}
     if p.op == 'ws_open':
-        return {'doc': _ws_view(cat_id, p.text)}
+        view_ = _ws_view(cat_id, p.text)
+        if p.ver is not None and p.ver == str(view_['versions']):
+            for large_ in ('code', 'previousCode', 'preview'):
+                view_.pop(large_, None)
+        return {'doc': view_}
     if p.op == 'ws_cfg':   # ⚙ a Build folder's own steps
         doc_ = _ws_load(cat_id, p.job)
         if not doc_ or not isinstance(p.tools, dict):
@@ -5985,7 +5997,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         b_ = cat.get('brainsCfg') or {}
         if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
             raise HTTPException(402, 'It needs model credit to do this.')
-        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
+        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
         _ws_save(cat_id, doc_)
         asyncio.create_task(_ws_run(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None))
         return {'doc': _ws_view(cat_id, p.job)}
@@ -6026,6 +6038,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Mark one of its PoStatics.')
         f_['graded'] = p.text; _save(store)
         return {'psFolders': (cat.get('psFolders') or [])[::-1]}
+    if p.op == 'ws_complete':
+        doc_ = _ws_load(cat_id, p.job)
+        filed_ = [f for f in cat.get('psFolders') or [] if f.get('ws') == p.job]
+        if not doc_ or doc_.get('kind') != 'build' or doc_.get('busy') or doc_.get('pending') or not filed_ or filed_[-1].get('graded') != 'right' or any(not f.get('graded') for f in filed_):
+            raise HTTPException(400, 'Mark every filed page, and mark the latest one working before completing this proof.')
+        doc_['complete'] = True; _ws_save(cat_id, doc_)
+        return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'poc_mark':   # ✅ its owner says how it did: only they know, once it is out
         f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == p.job), None)
         if not f_ or p.text not in ('right', 'wrong'):

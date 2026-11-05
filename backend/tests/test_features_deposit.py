@@ -269,6 +269,24 @@ def test_a_cut_off_saved_page_says_so(monkeypatch):
         assert fs._ws_view('c', 'w')['cut'] is want
 
 
+def test_workspace_view_exposes_saved_code_change_and_actual_model_cost(monkeypatch):
+    import feecat_service as fs
+    doc = {'id': 'w', 'kind': 'build', 'cost': 0.01234, 'complete': True, 'pending': False,
+           'versions': [{'html': '<html><body>old</body></html>', 'by': 'Mind A'}, {'html': '<html><body>new</body></html>', 'by': 'Mind B'}]}
+    monkeypatch.setattr(fs, '_ws_load', lambda c, w: doc)
+    view = fs._ws_view('c', 'w')
+    assert view['previousCode'] == doc['versions'][0]['html']
+    assert view['code'] == doc['versions'][1]['html']
+    assert view['cost'] == 0.01234 and view['complete'] is True and view['pending'] is False
+
+
+def test_page_patch_requires_one_exact_match_and_a_complete_page():
+    page = '<html><body><h1>Old</h1></body></html>'
+    assert feat.apply_page_patch(page, '{"find":"<h1>Old</h1>","replace":"<h1>New</h1>"}') == '<html><body><h1>New</h1></body></html>'
+    assert feat.apply_page_patch(page, '{"find":"not here","replace":"new"}') is None
+    assert feat.apply_page_patch(page, '{"find":"</html>","replace":""}') is None
+
+
 
 def test_playbook_rows_keep_a_name_past_the_privacy_filter():
     """The filter drops any key called setup; a nameless row crashed Fee's Brain folder."""

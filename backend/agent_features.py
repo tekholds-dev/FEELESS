@@ -96,6 +96,19 @@ def build_prompt(text, plan):
     return '\n'.join(lines)
 
 
+def apply_page_patch(current, raw):
+    """Apply one exact, unique find/replace from a small model reply; never execute model code here."""
+    try:
+        patch = json.loads(re.search(r'\{.*\}', str(raw or ''), re.S).group(0))
+    except (AttributeError, ValueError):
+        return None
+    find, replace = patch.get('find'), patch.get('replace')
+    if not isinstance(find, str) or not isinstance(replace, str) or not find or find == replace or current.count(find) != 1:
+        return None
+    candidate = current.replace(find, replace, 1)
+    return candidate if page_complete(candidate) and (not re.search(r'</html\s*>', current, re.I) or re.search(r'</html\s*>', candidate, re.I)) else None
+
+
 def new_doc(row):
     return {**row, 'messages': [], 'versions': [], 'busy': None}
 

@@ -51,3 +51,5 @@ body.theme-day .ppf-pop { background: #fff; color: #10141c; } body.theme-day .pp
 .ppp-h { margin: 0 0 6px; font: 800 9.5px var(--f-mono); letter-spacing: .14em; opacity: .75; }
 
 .dsk-body > .prf, .dsk-body > .pdk { align-self: start; height: auto; min-height: 0; } .prf > .phd, .pdk > .phd { min-height: max-content; } .prf-main .hv-pow-stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } .prf-main .dsk-xpath:not(:has(button:not(:disabled))) { display: none; }
+.prf-bids { grid-template-columns: minmax(0, 1fr); } .prf-bids > .prf-main { grid-column: 1; } .prf-bids > .prf-rail { grid-column: 1; position: static; }
+.phd-cost { display: block; color: #8df2b2; }
