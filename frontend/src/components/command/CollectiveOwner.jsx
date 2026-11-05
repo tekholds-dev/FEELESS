@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { SplitFlow, money } from './SplitFlow';
+import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import '../../styles/boosts.css';
 
@@ -16,7 +17,7 @@ const GROUPS = [
     ['halfLifeMinDays', 'With a full boost', 'd', 1, 'locked', 'The fastest release a boost can reach.'],
   ]],
   ['The fee pot', [
-    ['potPct', 'Income to the pot', '%', 1, 'pot', 'Of ALL Collective income, what goes to the pot users earn from. The rest is the Collective\'s to keep. Higher pays users more and keeps less.'],
+    ['potPct', 'Income to the pot', '%', 1, 'pot', 'Of real trade and task fees only, what goes to the pot members earn from. The rest is the Collective\'s to keep. Deposits and sends can never reach it, which is what keeps this from being a Ponzi.'],
     ['potHalfLifeDays', 'Pot pays half in', 'd', 1, 'pot', 'How quickly the pot pays out. It only ever pays a part of what is there, so it can\'t run dry or go negative.'],
     ['weightMaxX', 'Full boost weight', 'x', 0.1, 'pot', 'How much bigger a part of the pot a full boost takes. The pot still pays the same total.'],
     ['capPct', 'Most one owner gets', '%', 1, 'pot', 'A whale limit: the biggest part of the pot one owner can take, counting all its agents, once there are enough owners.'],
@@ -36,13 +37,21 @@ const GROUPS = [
   ]],
 ];
 const IN = { deposit: 'First deposits', topup: 'Top-ups', txn: 'Trade fees', task: 'Task fees', proofs: 'Kept from proofs', release: 'From releases', pass: 'Agent Pass', gift: 'Gifts' };
+function Trend({ hist }) {
+  const rows = hist || []; if (rows.length < 2) return <p className="fch-nil">The Collective's growth chart starts after its second day.</p>;
+  const S = [['keep', 'Keeps', '#4fb8ff'], ['pot', 'Fee pot', '#ff8bd8'], ['locked', 'Locked', '#a06bff'], ['owed', 'Agents earned', '#3ee58a']]; const top = Math.max(1e-9, ...rows.flatMap(r => S.map(([k]) => r[k] || 0))); const X = i => (i / (rows.length - 1)) * 600; const Y = v => 118 - ((v || 0) / top) * 110;
+  return <figure className="ge-chart" data-testid="cof-trend"><figcaption>THE COLLECTIVE, DAY BY DAY</figcaption><svg viewBox="0 0 600 124" preserveAspectRatio="none" role="img" aria-label="The Collective day by day">{S.map(([k, , c]) => <path key={k} d={rows.map((r, n) => `${n ? 'L' : 'M'}${X(n).toFixed(1)} ${Y(r[k]).toFixed(1)}`).join(' ')} stroke={c} />)}</svg><ul className="ge-legend">{S.map(([k, l, c]) => <li key={k}><i style={{ background: c }} />{l} <b className="m-num">{money(rows[rows.length - 1][k])}</b></li>)}</ul></figure>;
+}
 function Flow({ d }) {
   const t = d.totals || {}; const u = t.usd || {}; const rows = Object.entries(t.in || {}).sort((a, b) => b[1] - a[1]); const most = Math.max(1e-9, ...rows.map(r => r[1])); const tanks = [['keep', 'THE COLLECTIVE KEEPS', u.keep, 'Yours: everything not promised to anyone.'], ['pot', 'FEE POT', u.pot, 'Paying out to agents with money locked, a part at a time.'], ['locked', 'LOCKED', u.locked, 'Sent by agents and still releasing.'], ['owed', 'AGENTS EARNED', u.owed, 'Released to agents. This must always be in the wallet.']]; const top = Math.max(1e-9, ...tanks.map(x => x[2] || 0));
   const chain = d.chain; const short = chain?.short?.length;
   return <div className="cof-flow"><div className="cof-tanks">{tanks.map(([k, l, v, tip]) => <span key={k} className={`cof-tank is-${k}`} data-tip={tip} data-testid={`cof-tank-${k}`}><i aria-hidden="true"><u style={{ transform: `scaleY(${Math.max(0.03, (v || 0) / top)})` }} /></i><small>{l}</small><b className="m-num">{money(v)}</b></span>)}</div>
     <div className={`cof-cover${short ? ' is-short' : chain ? ' is-ok' : ''}`} data-testid="cof-cover" data-tip="Every 5 minutes the real wallet is read and compared with what it must hold: fee pot + locked + earned."><b>{!chain ? 'NOT READ YET' : short ? `SHORT IN ${chain.short.join(' + ')}` : 'FULLY COVERED'}</b><small>{chain ? Object.entries(chain.tokens).map(([k, v]) => `${k}: holds ${(v.chain / (k === 'SOL' ? 1e9 : 1e6)).toFixed(k === 'SOL' ? 4 : 2)}, must hold ${(v.need / (k === 'SOL' ? 1e9 : 1e6)).toFixed(k === 'SOL' ? 4 : 2)}`).join(' · ') : 'The first read comes within 5 minutes.'}</small></div>
+    <div className={`cof-cover${d.audit?.ok ? ' is-ok' : d.audit ? ' is-short' : ''}`} data-testid="cof-audit" data-tip="Every 5 minutes the whole chain is walked from the first dollar. It must equal what the ledger holds to the unit. An edited ledger refuses to load."><b>{!d.audit ? 'CHAIN NOT WALKED YET' : d.audit.ok ? `CHAIN UNBROKEN · ${d.links} LINKS` : 'CHAIN BROKEN'}</b><small>{d.audit && !d.audit.ok ? d.audit.why : `Head ${String(d.head || '').slice(0, 20)}…`}</small></div>
+    <Trend hist={d.hist} />
     <section className="cof-in"><h4><Ic3 e="💸" /> MONEY IN<small>{t.agents || 0} agents have sent proofs · paying {money((t.ratePerSecUsd || 0) * 86400)} a day back</small></h4>
       {rows.length ? <ul>{rows.map(([k, v], i) => <li key={k} style={{ '--i': i }}><small>{IN[k] || k}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, v / most)})` }} /></i><b className="m-num">{money(v)}</b></li>)}</ul> : <p className="fch-nil">No money counted yet. The ledger starts with the next deposit, fee or proof sent.</p>}</section>
+    <section className="cof-why"><h4><Ic3 e="🛡" /> WHY IT IS NOT A PONZI</h4><ul>{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><b>✓</b> {h}</li>)}</ul></section>
     {d.agents?.length ? <section className="cof-top"><h4><Ic3 e="🤖" /> AGENTS</h4><ol>{d.agents.map(a => <li key={a.id}><b>{a.name || a.id}</b><small data-tip="Sent · locked · earned">{money(a.sentUsd)} · {money(a.lockedUsd)} · {money(a.owedUsd)}</small><em className="m-num" data-tip="Its split with its boost right now">{a.levers?.splitPct}/{Math.round((100 - (a.levers?.splitPct || 0)) * 10) / 10}</em></li>)}</ol></section> : null}</div>;
 }
 function Settings({ d, save, busy }) {
@@ -61,7 +70,7 @@ export function CollectiveOwner({ call }) {
   const [d, setD] = useState(null); const [tab, setTab] = useState('flow'); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) call('/admin/collective').then(x => on && setD(x)).catch(e => on && setErr(e.message)); }; go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
   const save = async cfg => { setBusy(true); setErr(''); try { setD(await call('/admin/collective', { method: 'POST', body: JSON.stringify({ cfg }) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  return <div className="cof" data-testid="cof"><header className="cof-h"><span><small>OWNER ONLY</small><h3>The Collective</h3></span><span className="m-seg" role="tablist" aria-label="Collective folder">{[['flow', 'Money'], ['set', 'Settings'], ['wallet', 'Wallet + LP']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`cof-tab-${k}`}>{l}</button>)}</span></header>
+  return <div className="cof" data-testid="cof"><header className="cof-h"><span><small>OWNER ONLY</small><h3>The Collective</h3></span><span className="m-seg" role="tablist" aria-label="Collective folder">{[['flow', 'Money'], ['year', 'A year'], ['set', 'Settings'], ['wallet', 'Wallet + LP']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`cof-tab-${k}`}>{l}</button>)}</span></header>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    {tab === 'wallet' ? <ColonyPot call={call} /> : !d ? <p className="fch-nil">reading the ledger…</p> : tab === 'flow' ? <Flow d={d} /> : <Settings d={d} save={save} busy={busy} />}</div>;
+    {tab === 'wallet' ? <ColonyPot call={call} /> : tab === 'year' && d ? <GrowthExample rules={d.cfg} /> : !d ? <p className="fch-nil">reading the ledger…</p> : tab === 'flow' ? <Flow d={d} /> : <Settings d={d} save={save} busy={busy} />}</div>;
 }

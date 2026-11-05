@@ -247,7 +247,7 @@ test('🖥 the private desktop: the live window minimizes to the taskbar, the Va
   await act(async () => { q('safe-yes').click(); }); expect(q('dsk-win-vault').textContent).toContain('proton.me');
   await act(async () => { q('dsk-tab-sealed').click(); }); expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('dsk-tab-sealed').textContent).toContain('1');
   await act(async () => { q('dsk-ico-pow').click(); }); expect(q('dsk-win-pow')).not.toBeNull();             // ⛏ its proofs folder
-  await act(async () => { q('dsk-ico-honey').click(); }); expect(q('dsk-honey').textContent).toContain('HONEY'); expect(q('honey-tanks')).not.toBeNull(); await act(async () => { q('dsk-ico-pop').click(); }); expect(q('pop-desk')).not.toBeNull(); expect(q('pop-start')).not.toBeNull(); expect(q('ht-owed').textContent).toContain('OWED'); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
+  await act(async () => { q('dsk-ico-honey').click(); }); expect(q('dsk-honey').textContent).toContain('SCORE'); expect(q('honey-tanks')).not.toBeNull(); await act(async () => { q('dsk-ico-pop').click(); }); expect(q('pop-desk')).not.toBeNull(); expect(q('pop-start')).not.toBeNull(); expect(q('ht-owed').textContent).toContain('OWED'); expect(q('dsk-task-honey')).not.toBeNull();   // 🍯 colony vitals + the ways in
   await act(async () => { q('cwb-pop-close').click(); }); expect(closed).toEqual([1]);
   act(() => root.unmount());
   const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);

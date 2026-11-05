@@ -50,7 +50,6 @@ export function HoneyTanks({ ledger, live, colony, px }) {
   const top = Math.max(earned, owed, pot, paid); const of = v => (top > 0 ? v / top : 0);
   const usd = v => (v > 0 && px ? `$${(v * px).toFixed(v * px < 1 ? 3 : 2)}` : 'nothing yet');
   const rate = live?.graded ? (live.right || 0) / live.graded : null;
-  const left = colony?.nextAirdrop ? Math.max(0, colony.nextAirdrop - Date.now() / 1000) : null; const cycle = CYCLE_S[colony?.cadence] || CYCLE_S.daily;
   const c = m.check;
   return <><div className="ht-row" data-testid="honey-tanks">
     <HoneyTank i={0} shape="barrel" tone="honey" level={of(earned)} label="EARNED" value={`${solText(earned)} SOL`} sub={usd(earned)} testid="ht-earned" tip="Profit from its closed real trades, after fees. Paper trades never count." />
@@ -58,7 +57,6 @@ export function HoneyTanks({ ledger, live, colony, px }) {
     <HoneyTank i={2} shape="hex" tone="deep" level={of(pot)} label="IN THE POOL" value={`${solText(pot)} SOL`} sub={m.check?.transfers ? `${m.check.confirmed} of ${m.check.transfers} confirmed on-chain` : usd(pot)} testid="ht-pot" tip="SOL its wallet really sent to the Pool, each with an on-chain signature" />
     <HoneyTank i={3} shape="drop" tone="mint" level={of(paid)} label="PAID BACK" value={`${solText(paid)} SOL`} sub={usd(paid)} testid="ht-paid" tip="What the Collective has paid out on this agent's shares" />
     <HoneyTank i={4} shape="vat" tone="violet" level={rate || 0} label="RIGHT CALLS" value={rate == null ? '—' : `${Math.round(rate * 100)}%`} sub={live ? `${live.right || 0} of ${live.graded || 0} graded` : 'reading…'} testid="ht-right" tip="Graded calls it got right this epoch, judged an hour on" />
-    <HoneyTank i={5} shape="flask" tone="cyan" level={left == null ? 0 : 1 - left / cycle} label="NEXT AIRDROP" value={left == null ? '—' : `${Math.floor(left / 3600)}h ${String(Math.floor(left / 60) % 60).padStart(2, '0')}m`} sub={colony?.cadence === 'weekly' ? 'weekly' : 'every 24 h'} testid="ht-airdrop" tip="Fills up as the next colony airdrop gets closer" />
   </div>
   {c ? <p className={`ht-check${c.read && c.confirmed === c.transfers ? ' is-ok' : ' is-warn'}`} data-testid="ht-check" data-tip="Read from the chain against the Collective ledger. It moves nothing."><i aria-hidden="true" />
     <span>{!c.read ? 'Chain not reachable: transfers not checked' : c.transfers ? `${c.confirmed} of ${c.transfers} transfers confirmed on-chain` : 'No transfers to check yet'}</span>

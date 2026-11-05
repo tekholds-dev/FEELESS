@@ -27258,10 +27258,14 @@ async def admin_collective_set(request: Request):
 
 
 async def _collective_view():
-    st = _cpool.load(POOL_PATH); px = float(await _sol_usd() or 0)
+    try:
+        st = _cpool.load(POOL_PATH)
+    except _cpool.Tampered as e:
+        raise HTTPException(503, f'The ledger failed its seal and is locked: {e}')
+    px = float(await _sol_usd() or 0)
     rows = sorted(((_cpool._locked_usd(a, px) + sum(_cpool._usd(a['owed'][t], t, px) for t in _cpool.TOKENS), c, a) for c, a in st['agents'].items()), key=lambda r: -r[0])[:12]
     return {'cfg': st['cfg'], 'defaults': _cpool.DEFAULTS, 'bounds': _cpool.BOUNDS, 'totals': _cpool.totals(st, px), 'chain': st.get('chain'), 'solUsd': px, 'wallet': ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address'),
-            'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False}
+            'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False, 'hist': (st.get('hist') or [])[-180:], 'audit': st.get('auditNow'), 'head': st.get('head'), 'links': st.get('links') or 0, 'potKinds': list(_cpool.POT_KINDS)}
 
 
 @app.get('/api/reputation/fees/pricing')

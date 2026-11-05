@@ -143,7 +143,7 @@ def test_auto_collect_sends_once_verifies_and_boosts(monkeypatch, tmp_path):
     asyncio.run(fs._collect_pass(None, store, 2000)); asyncio.run(fs._collect_pass(None, store, 2001))
     row = fs._shares()[0]
     pool = fs._cpool.load(tmp_path / 'pool.json')   # 0.1 SOL verified: 20% kept, 80% locked, counted once
-    assert pool['agents']['k']['locked']['SOL'] == 80_000_000 and pool['agents']['k']['sent']['SOL'] == 100_000_000 and pool['books']['SOL']['in'] == {'proofs': 20_000_000}
+    assert pool['agents']['k']['locked']['SOL'] == 80_000_000 and pool['agents']['k']['sent']['SOL'] == 100_000_000 and pool['books']['SOL']['in'] == {'proofs': 20_000_000} and pool['books']['SOL']['pot'] == 0 and pool['agents']['k']['sends'][0]['sig'] == 'SIG1'
     assert f['sent']['keptSol'] == 0.02 and f['sent']['lockedSol'] == 0.08
     assert len(sent) == 1 and row['sent'] and row['sig'] == 'SIG1' and row['verified'] and cat['boosts'][0]['pts'] == cl.BOOST_SENT and len(cat['boosts']) == 1
     assert f['sent']['link'].endswith('SIG1') and fs._receipt_path('SIG1').exists()

@@ -3,6 +3,8 @@ import random
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import collective_pool as cp
 
@@ -66,7 +68,7 @@ def test_one_key_moves_money_once():
 def test_fee_share_compounds_into_locked_and_is_paid_from_real_money_only():
     s = cp.new_state(); s['at'] = 1
     cp.send(s, 'sig', 'a', 'o', 'USDC', 100 * USDC, 100, 1)
-    cp.income(s, 'fee', 'USDC', 100 * USDC, 'deposit')
+    cp.income(s, 'fee', 'USDC', 100 * USDC, 'txn')
     pot0 = s['books']['USDC']['pot']
     run(s, 1, 1)
     a = s['agents']['a']
@@ -77,7 +79,7 @@ def test_fee_share_compounds_into_locked_and_is_paid_from_real_money_only():
 
 def test_nobody_locked_means_the_pot_just_waits():
     s = cp.new_state(); s['at'] = 1
-    cp.income(s, 'fee', 'USDC', 100 * USDC, 'deposit')
+    cp.income(s, 'fee', 'USDC', 100 * USDC, 'txn')
     pot0 = s['books']['USDC']['pot']
     run(s, 1, 10)
     assert s['books']['USDC']['pot'] == pot0
@@ -86,7 +88,7 @@ def test_nobody_locked_means_the_pot_just_waits():
 def test_earn_room_stops_a_small_sender_draining_a_rich_pot():
     s = cp.new_state(); s['at'] = 1
     cp.send(s, 'sig', 'a', 'o', 'USDC', 10 * USDC, 10, 1)
-    cp.income(s, 'fee', 'USDC', 100000 * USDC, 'deposit')
+    cp.income(s, 'fee', 'USDC', 100000 * USDC, 'txn')
     run(s, 1, 90)
     assert s['agents']['a']['earned']['USDC'] <= 10 * USDC + 1
 
@@ -121,7 +123,7 @@ def test_a_boost_fades_and_the_print_grades_it():
 
 def test_config_is_bounded_and_keeps_its_order():
     c = cp.clean_cfg({'skimPct': 900, 'splitPct': 80, 'splitMaxPct': 60, 'halfLifeDays': 10, 'halfLifeMinDays': 40, 'boostMode': 'x', 'potPct': 'nope'})
-    assert c['skimPct'] == 50 and c['splitMaxPct'] == 80 and c['halfLifeMinDays'] == 10 and c['boostMode'] == 'payout' and c['potPct'] == 30
+    assert c['skimPct'] == 50 and c['splitMaxPct'] == 80 and c['halfLifeMinDays'] == 10 and c['boostMode'] == 'payout' and c['potPct'] == 50
 
 
 def test_trade_fee_slides_from_5_to_1_percent():
@@ -155,7 +157,7 @@ def test_fuzz_money_in_always_equals_money_held_and_nothing_goes_negative():
         roll = rng.random(); tok = rng.choice(cp.TOKENS)
         if roll < 0.3:
             u = rng.randint(1, 5 * cp.UNITS[tok])
-            if cp.income(s, f'f{i}', tok, u, 'deposit'):
+            if cp.income(s, f'f{i}', tok, u, rng.choice(('deposit', 'topup', 'txn', 'task', 'gift'))):
                 put[tok] += u
         elif roll < 0.5:
             u = rng.randint(1, 3 * cp.UNITS[tok]); ag = rng.randint(0, 40)
@@ -175,7 +177,7 @@ def test_no_new_money_means_the_count_slows_but_stays_covered():
     s = cp.new_state(); s['at'] = 1
     for i in range(50):
         cp.send(s, f'k{i}', f'a{i}', f'o{i}', 'USDC', 20 * USDC, 20, 1)
-    cp.income(s, 'fees', 'USDC', 1000 * USDC, 'deposit')
+    cp.income(s, 'fees', 'USDC', 1000 * USDC, 'txn')
     t = run(s, 1, 5, 86400)
     r1 = cp.totals(s, SOL)['ratePerSecUsd']
     run(s, t, 200, 86400)
@@ -185,17 +187,17 @@ def test_no_new_money_means_the_count_slows_but_stays_covered():
 
 def test_file_update_is_atomic_and_a_failed_change_writes_nothing(tmp_path):
     p = tmp_path / 'pool.json'
-    cp.update(p, lambda s: cp.income(s, 'a', 'USDC', 100, 'deposit'))
-    assert cp.load(p)['books']['USDC']['keep'] == 70
+    cp.update(p, lambda s: cp.income(s, 'a', 'USDC', 100, 'txn'))
+    assert cp.load(p)['books']['USDC']['keep'] == 50
 
     def boom(s):
-        cp.income(s, 'b', 'USDC', 100, 'deposit')
+        cp.income(s, 'b', 'USDC', 100, 'txn')
         raise ValueError('no')
     try:
         cp.update(p, boom)
     except ValueError:
         pass
-    assert cp.load(p)['books']['USDC']['keep'] == 70
+    assert cp.load(p)['books']['USDC']['keep'] == 50
 
 
 def test_a_closed_proof_keeps_its_best_two_snapshots_after_14_days():
@@ -219,3 +221,67 @@ def test_a_pob_with_no_topic_picks_the_strongest_games_of_the_first_sport_that_h
         return {'legs': []}
     monkeypatch.setattr(pt, 'bids', none)
     assert asyncio.run(pt.best_topic(None)) == ''
+
+
+def test_not_a_ponzi_no_members_money_can_ever_reach_the_pot():
+    """Deposits, top-ups, sends, what a send keeps and what releases all stay out of the pot. Only fees on real activity go in."""
+    s = cp.new_state(); s['at'] = 1
+    for i, k in enumerate(('deposit', 'topup', 'proofs', 'release', 'gift', 'pass')):
+        cp.income(s, f'k{i}', 'USDC', 100 * USDC, k)
+    cp.send(s, 'send', 'a', 'o', 'USDC', 100 * USDC, 100, 1)
+    run(s, 1, 100)                                                            # its release goes round too
+    assert s['books']['USDC']['pot'] == 0 and s['agents']['a']['earned']['USDC'] == 0
+    cp.income(s, 'real', 'USDC', 100 * USDC, 'txn')
+    assert s['books']['USDC']['pot'] == 50 * USDC
+
+
+def test_with_new_people_stopped_members_still_earn_while_members_trade():
+    s = cp.new_state(); s['at'] = 1
+    for i in range(10):
+        cp.send(s, f's{i}', f'a{i}', f'o{i}', 'USDC', 20 * USDC, 20, 1)
+    t = 1
+    for d in range(60):
+        cp.income(s, f'day{d}', 'USDC', 5 * USDC, 'txn')
+        t = run(s, t, 1)
+    assert s['agents']['a0']['earned']['USDC'] > 0
+    assert held(s, 'USDC') == 200 * USDC + 300 * USDC
+
+
+def test_an_edited_ledger_refuses_to_load_and_never_resets(tmp_path):
+    p = tmp_path / 'pool.json'
+    cp.update(p, lambda s: cp.income(s, 'a', 'USDC', 100, 'txn'))
+    assert p.read_bytes().startswith(b'FP1:') and b'keep' not in p.read_bytes()    # sealed, nothing readable
+    raw = bytearray(p.read_bytes()); raw[20] ^= 1; p.write_bytes(bytes(raw))
+    with pytest.raises(cp.Tampered):
+        cp.load(p)
+    with pytest.raises(cp.Tampered):
+        cp.update(p, lambda s: None)
+
+
+def test_the_chain_counts_every_dollar_and_catches_a_cut_link(tmp_path):
+    p = tmp_path / 'pool.json'
+    cp.update(p, lambda s: cp.income(s, 'a', 'USDC', 100, 'txn'))
+    cp.update(p, lambda s: cp.send(s, 'b', 'x', 'o', 'USDC', 50 * USDC, 50, 1))
+    cp.update(p, lambda s: cp.income(s, 'c', 'SOL', 7, 'deposit'))
+    cp.update(p, lambda s: (s.update(at=1), cp.tick(s, 90 * D, SOL)))
+    r = cp.audit(p)
+    assert r['ok'] and r['links'] == 3
+    trail = p.with_suffix('.trail'); rows = trail.read_bytes().splitlines()
+    trail.write_bytes(b'\n'.join(rows[:1] + rows[2:]) + b'\n')                   # someone removes a dollar
+    r = cp.audit(p)
+    assert not r['ok'] and 'match' in r['why']
+
+
+def test_a_print_seed_is_stable_unique_and_cannot_be_chosen():
+    a, b = cp.print_seed('agent1'), cp.print_seed('agent2')
+    assert a == cp.print_seed('agent1') and a != b and len(a) == 32
+
+
+def test_a_key_stays_spent_forever_even_after_a_hundred_thousand_more():
+    s = cp.new_state()
+    assert cp.income(s, 'first', 'USDC', 5, 'txn')
+    for i in range(100_000):
+        s['seen'][f'x{i}'] = 1
+    assert cp.income(s, 'first', 'USDC', 5, 'txn') is False
+    legacy = {**cp.new_state(), 'seen': ['old']}
+    assert cp.income(legacy, 'old', 'USDC', 5, 'txn') is False and cp.income(legacy, 'new', 'USDC', 5, 'txn') is True

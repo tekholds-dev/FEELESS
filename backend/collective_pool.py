@@ -1,11 +1,15 @@
 """🪙 THE POOL LEDGER (owner 2026-11-04). Every agent fee and every proof sent lands in the one Collective wallet; this file says whose part of it is whose.
 A send: the Collective keeps skimPct, the rest locks. Locked money releases by half every halfLife days: splitPct to the agent as earnings, the rest to the Collective.
-The fee pot: potPct of all Collective income. Half of it pays out every potHalfLife days to agents with money locked, by weight, and lands in their locked balance, so it compounds.
+The fee pot: potPct of real trading and task fees ONLY. Half of it pays out every potHalfLife days to agents with money locked, by weight, and lands in their locked balance, so it compounds.
+NOT A PONZI, by construction: another member's deposit, send or release can never reach the pot, so nobody's return is paid from somebody else's money coming in. No reward for bringing people, no promised rate. Members earn only while members really trade.
 Boosts move three things only: the split, the release speed and the weight in the fee pot.
 
 Why it cannot break: amounts are whole units per token, every move takes from one bucket what it gives another, and payouts are a part of what is really there, so nothing is ever owed that does not exist.
+Sealed: the ledger is encrypted and signed at rest, so an edited file refuses to load instead of resetting. Every dollar in is one link of a keyed hash chain; audit() walks the chain from the start and it must equal what the ledger holds to the unit.
 No rate is promised anywhere. No new fees means the count slows; own money still releases. Pure apart from the locked file helpers."""
 import fcntl
+import hashlib
+import hmac
 import json
 import os
 import uuid
@@ -14,13 +18,29 @@ TOKENS = ('SOL', 'USDC')
 UNITS = {'SOL': 1_000_000_000, 'USDC': 1_000_000}
 TICK_S = 60
 BOOST_POINTS_FULL = 100
-KEEP_SEEN = 20000
 
-DEFAULTS = {'skimPct': 20.0, 'splitPct': 75.0, 'splitMaxPct': 78.0, 'halfLifeDays': 30.0, 'halfLifeMinDays': 15.0, 'potPct': 30.0, 'potHalfLifeDays': 30.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'earnRoomX': 1.0, 'boostFadeDays': 60.0,
+DEFAULTS = {'skimPct': 20.0, 'splitPct': 75.0, 'splitMaxPct': 78.0, 'halfLifeDays': 30.0, 'halfLifeMinDays': 15.0, 'potPct': 50.0, 'potHalfLifeDays': 30.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'earnRoomX': 1.0, 'boostFadeDays': 60.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
 BOUNDS = {'skimPct': (0, 50), 'splitPct': (50, 100), 'splitMaxPct': (50, 100), 'halfLifeDays': (7, 180), 'halfLifeMinDays': (3, 180), 'potPct': (0, 100), 'potHalfLifeDays': (7, 180), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'earnRoomX': (0, 5), 'boostFadeDays': (7, 365),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
+POT_KINDS = ('txn', 'task')   # the only money that may ever reach members: fees on real activity
+SEAL_ID = 'collective-pool'
+GENESIS = '0' * 64
+
+
+class Tampered(Exception):
+    """The ledger file is not what we wrote. Nothing may read or pay from it."""
+
+
+def _key():
+    import cat_keys
+    return hashlib.sha256(f'pool-chain:{cat_keys._master()}'.encode()).digest()
+
+
+def print_seed(cat_id):
+    """An agent's fingerprint seed: keyed, so nobody can pick or copy one. Safe to show: it says nothing about the agent."""
+    return hmac.new(_key(), f'print:{cat_id}'.encode(), hashlib.sha256).hexdigest()[:32]
 
 
 def _f(v):
@@ -47,7 +67,15 @@ def clean_cfg(c):
 
 
 def new_state():
-    return {'v': 1, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': [], 'chain': None}
+    return {'v': 2, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': {}, 'chain': None, 'head': GENESIS, 'links': 0, 'moved': {t: 0 for t in TOKENS}, 'hist': [], 'trailNew': []}
+
+
+def _link(state, key, token, units, kind):
+    """One dollar-in event, chained to the one before it. Change any past link and every later one stops matching."""
+    ev = {'n': int(state.get('links') or 0) + 1, 'key': str(key), 'token': token, 'units': int(units), 'kind': kind}
+    head = hmac.new(_key(), f"{state.get('head') or GENESIS}|{json.dumps(ev, sort_keys=True)}".encode(), hashlib.sha256).hexdigest()
+    state['head'] = head; state['links'] = ev['n']; state.setdefault('moved', {t: 0 for t in TOKENS})[token] = int(state['moved'].get(token) or 0) + int(units)
+    state.setdefault('trailNew', []).append({**ev, 'head': head})
 
 
 def _agent(state, cat, owner='', now=0):
@@ -60,17 +88,22 @@ def _agent(state, cat, owner='', now=0):
 
 
 def _once(state, key):
-    """One key moves money once, ever. → True the first time."""
-    if not key or key in state['seen']:
+    """One key moves money once, ever, with no limit on how many keys there are. → True the first time."""
+    if not key:
         return False
-    state['seen'].append(key)
-    del state['seen'][:-KEEP_SEEN]
+    seen = state.get('seen')
+    if isinstance(seen, list):   # the first version kept a capped list
+        seen = state['seen'] = {hashlib.sha256(str(k).encode()).hexdigest()[:20]: 1 for k in seen}
+    h = hashlib.sha256(str(key).encode()).hexdigest()[:20]
+    if h in seen:
+        return False
+    seen[h] = 1
     return True
 
 
 def _take_in(state, token, units, kind):
     b = state['books'][token]; units = int(units)
-    pot = int(units * state['cfg']['potPct'] / 100)
+    pot = int(units * state['cfg']['potPct'] / 100) if kind in POT_KINDS else 0
     b['pot'] += pot; b['keep'] += units - pot
     b['in'][kind] = int(b['in'].get(kind) or 0) + units
 
@@ -79,6 +112,7 @@ def income(state, key, token, units, kind):
     """A fee or a kept part has really landed. → True when it counted."""
     if token not in TOKENS or int(units) <= 0 or not _once(state, key):
         return False
+    _link(state, key, token, units, kind)
     _take_in(state, token, units, kind)
     return True
 
@@ -90,15 +124,17 @@ def _room(a, now, cfg):
     return a['room']
 
 
-def send(state, key, cat, owner, token, units, usd, now, boost=0.0):
+def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None):
     """A verified proof send. → {keptUnits, lockedUnits} or None if it already counted."""
     units = int(units)
     if token not in TOKENS or units <= 0 or not _once(state, key):
         return None
     cfg = state['cfg']; a = _agent(state, cat, owner, now)
     kept = int(units * cfg['skimPct'] / 100); locked = units - kept
+    _link(state, key, token, units, 'send')
     if kept:
         _take_in(state, token, kept, 'proofs')
+    a['sends'] = (list(a.get('sends') or []) + [{'at': round(now), 'token': token, 'sent': units / UNITS[token], 'kept': kept / UNITS[token], 'locked': locked / UNITS[token], 'usd': round(_f(usd), 4), **(meta or {})}])[-40:]
     a['locked'][token] += locked; a['sent'][token] += units; a['boost'] = max(0.0, min(1.0, _f(boost)))
     _room(a, now, cfg); a['room'] += max(0.0, _f(usd)) * cfg['earnRoomX']
     return {'keptUnits': kept, 'lockedUnits': locked}
@@ -200,9 +236,21 @@ def view(state, cat, now, sol_usd):
         return {'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'at': round(now), 'solUsd': sol_usd, 'empty': True}
     dt = max(0.0, now - _f(state.get('at')))   # the ticks are a minute apart: the count stays smooth between them
     rate = sum(_usd(_rate(a, t, cfg), t, sol_usd) for t in TOKENS)
-    return {'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6),
+    share = shares(state, sol_usd).get(cat, 0.0); pot_day = sum(_usd(state['books'][t]['pot'], t, sol_usd) for t in TOKENS) * (1 - 0.5 ** (1 / cfg['potHalfLifeDays']))
+    return {'potShare': round(share, 6), 'feeShareDayUsd': round(pot_day * share, 6), 'sends': (a.get('sends') or [])[::-1], 'hist': (a.get('hist') or [])[-120:], 'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6),
             'sentUsd': round(sum(_usd(a['sent'][t], t, sol_usd) for t in TOKENS), 6), 'earnedUsd': round(sum(_usd(a['earned'][t], t, sol_usd) for t in TOKENS), 6),
             'owed': {t: a['owed'][t] / UNITS[t] for t in TOKENS}, 'locked': {t: a['locked'][t] / UNITS[t] for t in TOKENS}, 'boost': a.get('boost') or 0, 'levers': levers(cfg, a.get('boost')), 'at': round(now), 'solUsd': sol_usd}
+
+
+def snapshot(state, now, sol_usd):
+    """One row a day for the growth charts, the Collective's and each agent's."""
+    day = int(now // 86400)
+    if (state.get('hist') or [{}])[-1].get('d') == day:
+        return
+    t = totals(state, sol_usd)['usd']
+    state['hist'] = (list(state.get('hist') or []) + [{'d': day, **t}])[-400:]
+    for a in state['agents'].values():
+        a['hist'] = (list(a.get('hist') or []) + [{'d': day, 'owed': round(sum(_usd(a['owed'][k], k, sol_usd) for k in TOKENS), 6), 'locked': round(_locked_usd(a, sol_usd), 6), 'earned': round(sum(_usd(a['earned'][k], k, sol_usd) for k in TOKENS), 6), 'sent': round(sum(_usd(a['sent'][k], k, sol_usd) for k in TOKENS), 6)}])[-180:]
 
 
 def backed(state, t):
@@ -235,7 +283,7 @@ def totals(state, sol_usd):
 def rules(cfg):
     """What a user's split picture draws, straight from the live settings."""
     keep = ('skimPct', 'splitPct', 'splitMaxPct', 'halfLifeDays', 'halfLifeMinDays', 'potPct', 'weightMaxX', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode')
-    return {k: cfg[k] for k in keep}
+    return {**{k: cfg[k] for k in keep}, 'potKinds': list(POT_KINDS)}
 
 
 def txn_fee_usd(cfg, usd):
@@ -245,13 +293,64 @@ def txn_fee_usd(cfg, usd):
     return round(usd * pct / 100, 6), pct
 
 
+def _seal(raw):
+    import cat_keys
+    return b'FP1:' + cat_keys.seal_bytes(raw, SEAL_ID)
+
+
+def _unseal(raw):
+    import cat_keys
+    return cat_keys.unseal_bytes(raw[4:], SEAL_ID)
+
+
+def _trail_path(path):
+    return path.with_suffix('.trail')
+
+
 def load(path):
+    """No file yet: a new ledger. A file that fails its seal raises Tampered: it never quietly starts again from zero."""
     try:
-        d = json.loads(path.read_text())
-    except (OSError, ValueError):
+        raw = path.read_bytes()
+    except OSError:
         return new_state()
     base = new_state()
-    return {**base, **d, 'cfg': clean_cfg(d.get('cfg'))} if isinstance(d, dict) else base
+    if not raw.startswith(b'FP1:'):   # the first plain version, sealed on its next write
+        try:
+            d = json.loads(raw)
+        except ValueError as e:
+            raise Tampered(str(e))
+    else:
+        try:
+            d = json.loads(_unseal(raw))
+        except Exception as e:   # noqa: BLE001 — any failed seal is the same answer
+            raise Tampered(str(e)[:120])
+    return {**base, **d, 'cfg': clean_cfg(d.get('cfg')), 'trailNew': []}
+
+
+def audit(path):
+    """Walk the whole chain from the first dollar. It must end on the ledger's head, and the money it counted must equal what the ledger holds. → {ok, links, head, why}"""
+    st = load(path); head = GENESIS; n = 0; moved = {t: 0 for t in TOKENS}
+    try:
+        rows = _trail_path(path).read_bytes().splitlines()
+    except OSError:
+        rows = []
+    for row in rows:
+        try:
+            ev = json.loads(_unseal(row))
+        except Exception:   # noqa: BLE001
+            return {'ok': False, 'links': n, 'head': head, 'why': f'link {n + 1} failed its seal'}
+        claim = ev.pop('head', '')
+        head = hmac.new(_key(), f"{head}|{json.dumps(ev, sort_keys=True)}".encode(), hashlib.sha256).hexdigest(); n += 1
+        if not hmac.compare_digest(head, claim) or ev.get('n') != n:
+            return {'ok': False, 'links': n, 'head': head, 'why': f'link {n} does not match'}
+        moved[ev['token']] += int(ev['units'])
+    if head != (st.get('head') or GENESIS) or n != int(st.get('links') or 0):
+        return {'ok': False, 'links': n, 'head': head, 'why': 'the chain does not end where the ledger says'}
+    for t in TOKENS:
+        holds = st['books'][t]['keep'] + st['books'][t]['paidOut'] + backed(st, t)
+        if holds != moved[t]:
+            return {'ok': False, 'links': n, 'head': head, 'why': f'{t}: the ledger holds {holds}, the chain counted {moved[t]}'}
+    return {'ok': True, 'links': n, 'head': head, 'why': ''}
 
 
 def update(path, fn):
@@ -259,11 +358,16 @@ def update(path, fn):
     with path.with_suffix('.lock').open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
-            state = load(path); out = fn(state)
+            state = load(path); out = fn(state); fresh = state.pop('trailNew', [])
+            if fresh:   # the trail first: a crash here leaves a link the ledger never counted, which audit() reports
+                with _trail_path(path).open('ab') as fh:
+                    for ev in fresh:
+                        fh.write(_seal(json.dumps(ev, sort_keys=True).encode()) + b'\n')
+                    fh.flush(); os.fsync(fh.fileno())
             tmp = path.with_name(f'{path.name}.{uuid.uuid4().hex}.tmp')
             try:
-                with tmp.open('w') as fh:
-                    json.dump(state, fh, separators=(',', ':'))
+                with tmp.open('wb') as fh:
+                    fh.write(_seal(json.dumps(state, separators=(',', ':')).encode()))
                     fh.flush(); os.fsync(fh.fileno())
                 os.replace(tmp, path)
             finally:

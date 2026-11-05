@@ -1324,7 +1324,11 @@ async def _pool_px(http=None):
 
 async def _pool_pass(http, store, now):
     """🪙 Move the Pool ledger forward, refresh each agent's boost, and compare it with the real wallet every 5 minutes."""
-    st = _cpool.load(POOL_PATH)
+    try:
+        st = _cpool.load(POOL_PATH)
+    except _cpool.Tampered as e:   # nothing moves, nothing pays
+        print(f'[pool] LEDGER REFUSED: {e}')
+        return
     if st.get('at') and now - st['at'] < _cpool.TICK_S:
         return
     px = await _pool_px(http)
@@ -1343,6 +1347,7 @@ async def _pool_pass(http, store, now):
 
     def go(s):
         _cpool.tick(s, now, px)
+        _cpool.snapshot(s, now, px)
         for cid, a in s['agents'].items():
             c = store['cats'].get(cid)
             if c:
@@ -1350,6 +1355,11 @@ async def _pool_pass(http, store, now):
         if bal:
             _cpool.check_chain(s, bal, now)
     _cpool.update(POOL_PATH, go)
+    if bal:   # 🔗 the same 5 minutes: walk the whole chain and keep the answer where HQ can read it
+        result = _cpool.audit(POOL_PATH)
+        _cpool.update(POOL_PATH, lambda s: s.update(auditNow={**result, 'at': round(now)}))
+        if not result['ok']:
+            print(f"[pool] AUDIT FAILED: {result['why']}")
     if now - float(store.get('shotsCleanAt') or 0) >= 3600:   # 🧹 snapshots stay free: a proof closed for 14 days keeps its best two
         store['shotsCleanAt'] = now
         for c in store['cats'].values():
@@ -1377,7 +1387,7 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
     px = await _pool_px(http)
 
     def book(st):   # 🪙 the send is real: its part locks and starts to release. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, got / 1e9 * px, now, _cpool.boost_of(cat.get('boosts'), _print.build(cat, now)['level'], now, st['cfg']['boostFadeDays']))
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, got / 1e9 * px, now, _cpool.boost_of(cat.get('boosts'), _print.build(cat, now)['level'], now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig})
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -5054,7 +5064,7 @@ async def colony_flow(limit: int = 40):
                  'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
                  'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
-                 'poolNow': _cpool.totals(_cpool.load(POOL_PATH), await _pool_px()),
+                 'poolNow': {**_cpool.totals(_cpool.load(POOL_PATH), await _pool_px()), 'head': _cpool.load(POOL_PATH).get('head'), 'links': _cpool.load(POOL_PATH).get('links'), 'seeds': {c['id']: _cpool.print_seed(c['id']) for c in cats[:400]}},
                  'proofs': _cl.proof_feed(cats, shares, now, 20), 'convos': _convos_public(store),
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
                  'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _flow_tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
@@ -5499,15 +5509,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['pobAsk'] = str(p.text).strip()[:160]; keep_owned(cat); _save(store)
         _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
         return {'ok': True}
-    if p.op == 'print_style':   # 🧬 how its Proofprint looks: a look only, no engine reads it
-        shape_, ink_ = str(p.text or ''), str(p.job or '')
-        if shape_ not in ('whorl', 'left', 'right', 'arch', 'double') or ink_ not in ('proof', 'blue', 'gold'):
-            raise HTTPException(400, 'Pick a shape and an ink.')
-        cat['printStyle'] = {'shape': shape_, 'ink': ink_}; _save(store)
-        return {'printStyle': cat['printStyle']}
     if p.op == 'pool':   # 🪙 its live count, what is locked and what its boost is doing now
         now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_)
-        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'printStyle': cat.get('printStyle') or {}}
+        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}

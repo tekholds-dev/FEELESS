@@ -6,7 +6,7 @@ import { BoostFolder } from './BoostFolder';
 import { CollectiveOwner } from './CollectiveOwner';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const RULES = { skimPct: 20, splitPct: 75, splitMaxPct: 78, halfLifeDays: 30, halfLifeMinDays: 15, potPct: 30, weightMaxX: 2, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout' };
+const RULES = { skimPct: 20, splitPct: 75, splitMaxPct: 78, halfLifeDays: 30, halfLifeMinDays: 15, potPct: 50, weightMaxX: 2, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout' };
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); await act(async () => { root.render(node); }); return { el, root }; };
 const click = async n => act(async () => { n.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 
