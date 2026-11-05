@@ -156,7 +156,7 @@ def test_postatic_proves_first_keywords_references_plan_and_only_real_references
     assert plan['refs'] == [refs[1]] and plan['steps'] == ['one']              # a made-up reference number is dropped
     assert feat.parse_plan('no json', refs)['summary'] == 'no json'
     assert 'do not copy' in feat.build_prompt('make it', plan) and feat.build_prompt('make it', None) == 'make it'
-    assert feat.build_cfg({}) == {'research': True, 'suggest': True, 'review': True, 'depth': 'quick'} and feat.build_cfg({'cfg': {'suggest': False, 'depth': 'deep'}})['suggest'] is False
+    assert feat.build_cfg({}) == {'research': True, 'suggest': True, 'review': True, 'repair': False, 'compress': False, 'depth': 'quick'} and feat.build_cfg({'cfg': {'suggest': False, 'depth': 'deep'}})['suggest'] is False
     class R:
         def __init__(self, c, h=None): self.status_code = c; self.headers = h or {}
     class H:
@@ -219,3 +219,52 @@ def test_pays_for_itself_is_an_estimate_from_the_real_pot():
     assert cp.pays_for_itself(10, 6.8, 2, 0, 100) is None
     assert cp.pays_for_itself(10, 6.8, 2, 10, 0) == 0.3
     assert cp.pays_for_itself(10, 10, 2, 10, 100) == 0
+
+
+def test_folder_plugins_reach_the_call_and_a_refusal_still_answers(monkeypatch):
+    """🔌 OR01: a folder's plugins ride its OpenRouter call; a model that refuses them still answers without them."""
+    import asyncio
+    import feecat_service as fs
+    feat = fs._feat
+    assert feat.or_plugins({}) == [] and feat.or_plugins({'repair': True}) == []   # repair needs a reply that must be JSON
+    assert feat.or_plugins({'repair': True, 'compress': True}, json_reply=True) == [{'id': 'context-compression'}, {'id': 'response-healing'}]
+    sent = []
+
+    class R:
+        def __init__(self, code):
+            self.status_code = code
+        def json(self):
+            return {'choices': [{'message': {'content': 'ok'}}], 'usage': {'cost': 0}}
+
+    class H:
+        def __init__(self, *a, **k):
+            pass
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *a):
+            return False
+        async def post(self, url, headers=None, json=None):
+            sent.append(json)
+            return R(400 if refuse and 'plugins' in json else 200)
+
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', H)
+    tok = fs._OR_PLUGINS.set(({'id': 'response-healing'},))
+    try:
+        refuse = False
+        assert asyncio.run(fs._or_call('m', [{'role': 'user', 'content': 'x'}], key='k'))[0] == 'ok'
+        assert sent[0]['plugins'] == [{'id': 'response-healing'}] and sent[0]['response_format'] == {'type': 'json_object'}
+        sent.clear(); refuse = True
+        assert asyncio.run(fs._or_call('m', [{'role': 'user', 'content': 'x'}], key='k'))[0] == 'ok'
+        assert len(sent) == 2 and 'plugins' in sent[0] and 'plugins' not in sent[1] and 'response_format' not in sent[1]
+    finally:
+        fs._OR_PLUGINS.reset(tok)
+
+
+def test_a_cut_off_saved_page_says_so(monkeypatch):
+    """A page cut off mid-build opens blank; the folder has to say that, never 'Done'."""
+    import feecat_service as fs
+    whole = '<!doctype html><html><body><p>hi</p></body></html>'; cut = '<!doctype html><html><head><style>.a { color: red;'
+    for html, want in ((whole, False), (cut, True)):
+        monkeypatch.setattr(fs, '_ws_load', lambda c, w, html=html: {'id': w, 'kind': 'build', 'versions': [{'html': html}]})
+        assert fs._ws_view('c', 'w')['cut'] is want
+

@@ -15,7 +15,7 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 | A02 | OPEN | NSFA: at most five learning agents, ledger-based sizing/generation vitals; user Fuse dashboard with two charts, up to three agents and intake levels. Reconcile existing work first. |
 | A04 | OPEN | Cat learning/accept-loop parity with NEXA; G4 Models layout; trench theory only after shadow testing; launch-a-cat violet visual pass. |
 | Q23 | OPEN | Price-gap engine: a live drawn view before buying, then the buyer's own running engine. Ships with buy guards. |
-| OR01 | OPEN | OpenRouter plugins (web, file-parser, response-healing, context-compression per its docs) as folder settings. Needs one real paid call to prove them and their cost; SingIt support unknown. |
+| OR01 | VERIFY | Folder ⚙ has Shorten long chats (context-compression) and Repair broken plans (response-healing), both off by default, OpenRouter calls only. Real calls on a free model: answered, $0. Not proven: a paid model and its cost (W05, no credit); a SingIt call does not use them. `web` is deprecated by OpenRouter and file-parser has no PDF input here, so neither is offered. |
 | ST02 | OPEN · OWNER | Stash cloud mirror. Free tiers are small: Cloudflare R2 and Backblaze B2 10 GB, Storj 25 GB (third-party comparisons, check before relying). Needs your account and key. Local disk holds it until then. |
 | AG20 | OPEN | OSSY and G4 on the 2-monitor desk, filing PoWs like Fee's agents, later assignable to users' agents. Not built. Owner decided 2026-11-05: the desk's agents stop real buys (DB01). |
 | MB02 | OPEN | Every terminal tab fitted to its half on a fold (crease split, half-fold portrait), the way Trenches and HQ Agents are. Only the locked shell is done. |
@@ -50,9 +50,9 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 | ID | Status | What |
 |---|---|---|
 | Browser | open the pane only to look, then close it. A hidden pane reads 1 fps: never trust that number |
-| OSSY01 | OPEN | OSSY prompt cost (NEXA retired) (~300 tokens a call): trim the system prompt + case text, cache static parts, measure tokens before/after. |
+| OSSY01 | OWNER REVIEW | Measured 2026-11-05: the seat prompt is about 1,900 tokens (SYSTEM 1,750 + persona 150), not 300. It is static and sent first, so it already caches. All of it is real-money trading rules, so any trim rewrites those rules: not touched without the owner's word. |
 | FC11 | OPEN | Hive crawl engine (owner said GO 2026-10-31). OWNER: save X once in an agent's signed-in sites so traders can read X searches. |
-| Q01 | OPEN | Measure city FPS, instancing/LOD and load tests; move remaining stores to a database and support multiple workers. |
+| Q01 | OPEN | City FPS measured 2026-11-05 (dev build, signed out, real M3 GPU, load 5): plain control page 60, /familia 59–60 at 1440 and 466 wide, 0 long tasks. So instancing/LOD is not needed yet. Still open: signed-in city (the owner's Chrome window was throttled, 15 fps on the control too, so that reading is void), load tests, database and multiple workers. |
 | Q02 | OPEN | Split `reputation_service` safely (the supervisor part shipped: `start-backend.sh` starts the watcher). |
 | Q03 | OPEN | Whitepaper done (9,855 → 2,603 px). Familia side wall trimmed. Trench report posts cut to a one-line header plus short rows (code only, not seen live; the next post shows it). Still to do: FeeCat stage/tabs and perf, lore/launch flows, 3D roadmap, faster model reads. HQ and Familia still need a signed-in measure. |
 

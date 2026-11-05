@@ -17,6 +17,7 @@ import cat_agent as _ca
 import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
 import asyncio
+import contextvars
 import hashlib
 import json
 import re
@@ -1140,14 +1141,22 @@ async def _groq_backup(messages, max_tokens=None):
     return ''
 
 
+_OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None, backup=False):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
+    plugins = list(_OR_PLUGINS.get())
     try:
         async with httpx.AsyncClient(timeout=40) as h:
-            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"},
-                             json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}})
+            body = {'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}}
+            extra = {'plugins': plugins, **({'response_format': {'type': 'json_object'}} if any(x['id'] == 'response-healing' for x in plugins) else {})} if plugins else {}
+            auth = {'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"}
+            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, **extra})
+            if extra and r.status_code == 400:   # a model that refuses a plugin still answers without it
+                r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json=body)
         if r.status_code != 200:   # a refused call costs nothing and says why (it used to read as 'no answer' and bill the estimate)
             _OR_LAST['err'] = 'The AI provider account is out of credit. Add credit at OpenRouter, then ask again. Nothing was charged.' if r.status_code == 402 else f'The AI provider refused the call ({r.status_code}). Nothing was charged.'
             if r.status_code == 402:   # the owner hears it (once a day) and credit sales pause
@@ -4969,7 +4978,7 @@ def _ws_view(cat_id, ws_id):
     if d_.get('busy') and time.time() - float(d_['busy'].get('at') or 0) > 240:   # a run that died never locks the folder
         d_['busy'] = None; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
 
 
 async def _ws_ask(cat, model, sys_, user_, tokens):
@@ -5012,6 +5021,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
     brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind'); start_versions = len(doc.get('versions') or [])
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
+    _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     try:
         if kind == 'build':
             cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
@@ -5021,7 +5031,11 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     refs_ = await _tools.build_refs(http_r, text, cfg_['depth'] == 'deep') if cfg_['research'] else []
                 doc['stage'] = 'suggest'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': 'suggest'}}); open_ = [r for r in refs_ if r.get('open')]
                 menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
-                raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS, f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                plan_ = _OR_PLUGINS.set(tuple(_feat.or_plugins(cfg_, json_reply=True)))
+                try:
+                    raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS, f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                finally:
+                    _OR_PLUGINS.reset(plan_)
                 cost += usd_; paid_own = own_; doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
                 if cfg_['suggest']:
                     doc['stage'] = 'approve'; _feat.add_msg(doc, name(order[0]), 'I read the current best builds and wrote a plan. Approve it or tell me what to change.', time.time())

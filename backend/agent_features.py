@@ -56,7 +56,13 @@ PLAN_SYS = ('You plan one web page before anyone builds it. The references below
 def build_cfg(doc):
     """A Build folder's own steps: research, suggest first and review are on unless its owner turned them off."""
     c = (doc or {}).get('cfg') or {}
-    return {'research': c.get('research', True) is not False, 'suggest': c.get('suggest', True) is not False, 'review': c.get('review', True) is not False, 'depth': 'deep' if c.get('depth') == 'deep' else 'quick'}
+    return {'research': c.get('research', True) is not False, 'suggest': c.get('suggest', True) is not False, 'review': c.get('review', True) is not False, 'repair': c.get('repair') is True, 'compress': c.get('compress') is True, 'depth': 'deep' if c.get('depth') == 'deep' else 'quick'}
+
+
+def or_plugins(cfg, json_reply=False):
+    """The OpenRouter plugins this folder turned on. Repair only works on a reply that must be JSON, so only those calls ask for it."""
+    c = cfg or {}
+    return ([{'id': 'context-compression'}] if c.get('compress') else []) + ([{'id': 'response-healing'}] if c.get('repair') and json_reply else [])
 
 
 def parse_plan(raw, refs):
