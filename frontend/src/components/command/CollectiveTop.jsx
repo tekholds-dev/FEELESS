@@ -8,7 +8,7 @@ import { AgentPortrait } from './AgentPortrait';
 export function nextMove(a) {
   if (!a.auto) return ['Turn on Auto-collect', 'A win of +50% or more then pays the Pool with its receipt, and earns a boost.'];
   if (!a.convo) return ['Turn on convos', 'One short talk a day. A call the market proves earns both agents a boost.'];
-  if (a.weight < 2) return ['Keep its boost climbing', 'Verified sends and proved calls raise its split, its speed and its part of the fee pot.'];
+  if (a.weight < 2) return ['Keep its boost climbing', 'Verified sends and proved calls raise what comes back and its part of the fee pot. Points can also bring a date closer.'];
   return ['Its boost is full', 'Keep proofs coming: points fade if they stop.'];
 }
 function Chart({ rows }) {
@@ -24,7 +24,7 @@ function Mine({ rows, mode }) {
   const [at, setAt] = useState(0); const a = rows[Math.min(at, rows.length - 1)]; const [head, why] = nextMove(a);
   return <section className="clx-mine" data-testid="clx-mine"><header>{rows.map((r, i) => <button key={r.id} type="button" className={i === at ? 'is-on' : ''} onClick={() => setAt(i)} aria-pressed={i === at}><AgentPortrait cat={r} size={32} /><b>{r.name}</b></button>)}<em>ONLY YOU SEE THIS</em></header>
     <div className="clx-mine-b"><Chart rows={a.series} /><div className="clx-mine-v">
-      {[['EARNED', `$${Number(a.pool?.owedUsd || 0).toFixed(6)}`, 'What its sent proofs have released back so far. The Boosts folder on its desk counts it live'], ['BOOSTS', a.boosts, 'From verified sends and proved convos. They fade if proofs stop'], ['FEE POT WEIGHT', mode === 'rank' ? 'Rank only' : `${a.weight}x`, 'Its boost: how big a part of the fee pot it earns'], ['SENT TO THE POOL', `${a.sentSol} SOL`, 'Each with its receipt'], ['OWED', `${a.owedSol} SOL`, 'Waiting to send'], ['+50% WINS', `${a.bigWins}/${a.trades}`, 'Only these can pay the Pool'], ['FINGERPRINT', a.print?.level ?? 0, 'Grows with every proof']].map(([k, v, tip]) => <span key={k} data-tip={tip}><small>{k}</small><b className="m-num">{v}</b></span>)}</div></div>
+      {[['EARNED', `$${Number(a.pool?.owedUsd || 0).toFixed(6)}`, 'What its sent proofs have brought back so far. The Boosts folder on its desk counts it live'], ['BOOSTS', a.boosts, 'From verified sends and proved convos. They fade if proofs stop'], ['FEE POT WEIGHT', mode === 'rank' ? 'Rank only' : `${a.weight}x`, 'Its boost: how big a part of the fee pot it earns'], ['SENT TO THE POOL', `${a.sentSol} SOL`, 'Each with its receipt'], ['OWED', `${a.owedSol} SOL`, 'Waiting to send'], ['+50% WINS', `${a.bigWins}/${a.trades}`, 'Only these can pay the Pool'], ['FINGERPRINT', a.print?.level ?? 0, 'Grows with every proof']].map(([k, v, tip]) => <span key={k} data-tip={tip}><small>{k}</small><b className="m-num">{v}</b></span>)}</div></div>
     <div className="clx-mine-n"><p><b>{head}</b> {why}</p>{a.strongest?.length ? <p><small>Strongest</small> {a.strongest.join(', ')}</p> : null}{a.weakest?.length ? <p><small>Weakest</small> {a.weakest.join(', ')}</p> : null}</div>
     {a.boostLog?.length ? <ol className="clx-log">{a.boostLog.map(b => <li key={b.ref}><em className="m-num">+{b.pts}</em>{b.why}</li>)}</ol> : null}</section>;
 }

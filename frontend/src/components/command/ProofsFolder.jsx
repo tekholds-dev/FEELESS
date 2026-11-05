@@ -48,7 +48,7 @@ function pocRow(f) {
 }
 function posRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
-  return { kind: 'pos', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoStatic #${f.n}` : 'PoStatic', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'works' : 'broken', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: f.by ? [[f.by, `Built page ${f.version || ''} in ${f.topic || 'its Build folder'}`]] : [] };
+  return { kind: 'pos', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoStatic #${f.n}` : 'PoStatic', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'works' : 'broken', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: [...(f.plan ? [['Its plan', f.plan]] : []), ...(f.refs?.length ? [['It read', f.refs.map(r => r.title).join(', ')]] : []), ...(f.by ? [[f.by, `Built page ${f.version || ''} in ${f.topic || 'its Build folder'}`]] : [])] };
 }
 // 👀 A visitor's one list: the newest 5 proofs of any kind, from the public copy (no emails, no phones, no wallet trail).
 export function visitorProofs(cat) {

@@ -26,35 +26,6 @@ def run(s, start, days, step=3600):
     return t
 
 
-def test_owners_ten_dollar_example_splits_exactly():
-    s = cp.new_state(); s['at'] = 1; s['cfg']['potPct'] = 0
-    r = cp.send(s, 'sig1', 'a', 'o', 'USDC', 10 * USDC, 10, 1)
-    assert r == {'keptUnits': 2 * USDC, 'lockedUnits': 8 * USDC}
-    run(s, 1, 1000, 86400)
-    a = s['agents']['a']
-    assert a['locked']['USDC'] < 1000
-    assert abs(a['owed']['USDC'] - 6 * USDC) < 0.01 * USDC   # $6 back, $4 to the Collective
-    assert held(s, 'USDC') == 10 * USDC
-
-
-def test_half_releases_in_thirty_days_and_full_boost_in_fifteen():
-    for boost, days in ((0, 30), (1, 15)):
-        s = cp.new_state(); s['at'] = 1; s['cfg']['potPct'] = 0
-        cp.send(s, 'k', 'a', 'o', 'USDC', 100 * USDC, 100, 1, boost)
-        run(s, 1, days)
-        assert abs(s['agents']['a']['locked']['USDC'] / (80 * USDC) - 0.5) < 0.01
-
-
-def test_boost_moves_the_split_to_78():
-    assert cp.levers(cp.clean_cfg(None), 0) == {'splitPct': 75.0, 'halfLifeDays': 30.0, 'weightX': 1.0}
-    assert cp.levers(cp.clean_cfg(None), 1) == {'splitPct': 78.0, 'halfLifeDays': 15.0, 'weightX': 2.0}
-
-
-def test_rank_only_turns_every_lever_off():
-    cfg = {**cp.clean_cfg(None), 'boostMode': 'rank'}
-    assert cp.levers(cfg, 1) == {'splitPct': 75.0, 'halfLifeDays': 30.0, 'weightX': 1.0}
-
-
 def test_one_key_moves_money_once():
     s = cp.new_state()
     assert cp.income(s, 'dep1', 'USDC', 5 * USDC, 'deposit') is True
@@ -65,32 +36,12 @@ def test_one_key_moves_money_once():
     assert s['agents']['a']['sent']['SOL'] == 10**9
 
 
-def test_fee_share_compounds_into_locked_and_is_paid_from_real_money_only():
-    s = cp.new_state(); s['at'] = 1
-    cp.send(s, 'sig', 'a', 'o', 'USDC', 100 * USDC, 100, 1)
-    cp.income(s, 'fee', 'USDC', 100 * USDC, 'txn')
-    pot0 = s['books']['USDC']['pot']
-    run(s, 1, 1)
-    a = s['agents']['a']
-    assert a['earned']['USDC'] > 0
-    assert a['earned']['USDC'] <= pot0
-    assert held(s, 'USDC') == 200 * USDC
-
-
 def test_nobody_locked_means_the_pot_just_waits():
     s = cp.new_state(); s['at'] = 1
     cp.income(s, 'fee', 'USDC', 100 * USDC, 'txn')
     pot0 = s['books']['USDC']['pot']
     run(s, 1, 10)
     assert s['books']['USDC']['pot'] == pot0
-
-
-def test_earn_room_stops_a_small_sender_draining_a_rich_pot():
-    s = cp.new_state(); s['at'] = 1
-    cp.send(s, 'sig', 'a', 'o', 'USDC', 10 * USDC, 10, 1)
-    cp.income(s, 'fee', 'USDC', 100000 * USDC, 'txn')
-    run(s, 1, 90)
-    assert s['agents']['a']['earned']['USDC'] <= 10 * USDC + 1
 
 
 def test_owner_cap_holds_once_there_are_enough_owners():
@@ -113,17 +64,9 @@ def test_two_agents_of_one_owner_count_as_one():
     assert part['x1'] + part['x2'] <= 0.031
 
 
-def test_a_boost_fades_and_the_print_grades_it():
-    now = 100 * D
-    assert cp.boost_of([{'pts': 100, 'at': now}], 100, now) == 1.0
-    assert cp.boost_of([{'pts': 100, 'at': now}], 0, now) == 0.5
-    assert abs(cp.boost_of([{'pts': 100, 'at': now - 60 * D}], 100, now) - 0.5) < 0.001
-    assert cp.boost_of([{'pts': 9000, 'at': now}], 100, now) == 1.0
-
-
 def test_config_is_bounded_and_keeps_its_order():
-    c = cp.clean_cfg({'skimPct': 900, 'splitPct': 80, 'splitMaxPct': 60, 'halfLifeDays': 10, 'halfLifeMinDays': 40, 'boostMode': 'x', 'potPct': 'nope'})
-    assert c['skimPct'] == 50 and c['splitMaxPct'] == 80 and c['halfLifeMinDays'] == 10 and c['boostMode'] == 'payout' and c['potPct'] == 50
+    c = cp.clean_cfg({'skimPct': 900, 'boostMode': 'x', 'potPct': 'nope', 'monthDays': 1})
+    assert c['skimPct'] == 50 and c['monthDays'] == 14 and c['boostMode'] == 'payout' and c['potPct'] == 50
 
 
 def test_trade_fee_slides_from_5_to_1_percent():
@@ -140,15 +83,6 @@ def test_chain_shortfall_is_caught():
     assert cp.check_chain(s, {'USDC': 10 * USDC, 'SOL': 0}, 2)['short'] == ['USDC']
 
 
-def test_a_view_counts_up_between_ticks():
-    s = cp.new_state(); s['at'] = 1000
-    cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1000)
-    a, b = cp.view(s, 'a', 1000, SOL), cp.view(s, 'a', 1030, SOL)
-    assert 0.0000015 < a['ratePerSecUsd'] < 0.0000017
-    assert b['owedUsd'] > a['owedUsd']
-    assert cp.view(s, 'nobody', 1000, SOL)['empty'] is True
-
-
 def test_fuzz_money_in_always_equals_money_held_and_nothing_goes_negative():
     """Thousands of random fees, sends, hours and price swings. Not one unit may appear or vanish."""
     rng = random.Random(7)
@@ -161,16 +95,16 @@ def test_fuzz_money_in_always_equals_money_held_and_nothing_goes_negative():
                 put[tok] += u
         elif roll < 0.5:
             u = rng.randint(1, 3 * cp.UNITS[tok]); ag = rng.randint(0, 40)
-            if cp.send(s, f's{i}', f'a{ag}', f'o{ag % 25}', tok, u, u / cp.UNITS[tok] * 100, t, rng.random()):
+            if cp.send(s, f's{i}', f'a{ag}', f'o{ag % 25}', tok, u, u / cp.UNITS[tok] * 100, t, rng.random(), None, rng.choice(cp.PLANS)):
                 put[tok] += u
         else:
             t += rng.randint(60, 7200); cp.tick(s, t, rng.uniform(1, 500))
         if i % 97 == 0:
-            s['cfg'] = cp.clean_cfg({**s['cfg'], 'potPct': rng.randint(0, 100), 'splitPct': rng.randint(50, 90), 'skimPct': rng.randint(0, 50)})
+            s['cfg'] = cp.clean_cfg({**s['cfg'], 'potPct': rng.randint(0, 100), 'monthBack': rng.randint(50, 100), 'skimPct': rng.randint(0, 50)})
         for tk in cp.TOKENS:
             assert held(s, tk) == put[tk]
             assert s['books'][tk]['pot'] >= 0 and s['books'][tk]['keep'] >= 0
-        assert all(v >= 0 for a in s['agents'].values() for b in ('locked', 'owed') for v in a[b].values())
+        assert all(v >= 0 for a in s['agents'].values() for b in ('locked', 'owed', 'vault') for v in a[b].values())
 
 
 def test_no_new_money_means_the_count_slows_but_stays_covered():
@@ -229,7 +163,7 @@ def test_not_a_ponzi_no_members_money_can_ever_reach_the_pot():
     for i, k in enumerate(('deposit', 'topup', 'proofs', 'release', 'gift', 'pass')):
         cp.income(s, f'k{i}', 'USDC', 100 * USDC, k)
     cp.send(s, 'send', 'a', 'o', 'USDC', 100 * USDC, 100, 1)
-    run(s, 1, 100)                                                            # its release goes round too
+    run(s, 1, 100)                                                            # what it does not get back goes round too
     assert s['books']['USDC']['pot'] == 0 and s['agents']['a']['earned']['USDC'] == 0
     cp.income(s, 'real', 'USDC', 100 * USDC, 'txn')
     assert s['books']['USDC']['pot'] == 50 * USDC
@@ -285,3 +219,104 @@ def test_a_key_stays_spent_forever_even_after_a_hundred_thousand_more():
     assert cp.income(s, 'first', 'USDC', 5, 'txn') is False
     legacy = {**cp.new_state(), 'seen': ['old']}
     assert cp.income(legacy, 'old', 'USDC', 5, 'txn') is False and cp.income(legacy, 'new', 'USDC', 5, 'txn') is True
+
+
+def test_a_plan_says_exactly_how_much_comes_back_and_by_when():
+    s = cp.new_state(); s['at'] = 1; s['cfg']['potPct'] = 0
+    r = cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1, 0, None, 'month')
+    assert r['keptUnits'] == 2 * USDC and r['lockedUnits'] == 8 * USDC and r['backUnits'] == int(6.8 * USDC) and r['end'] == 1 + 30 * D
+    run(s, 1, 15)
+    a = s['agents']['a']
+    assert abs(a['owed']['USDC'] / (6.8 * USDC) - 0.5) < 0.01                     # halfway, half back
+    run(s, 1 + 15 * D, 16)
+    assert a['owed']['USDC'] == int(6.8 * USDC) and a['locked']['USDC'] == 0      # to the unit, on its date
+    assert held(s, 'USDC') == 10 * USDC
+
+
+def test_each_plan_trades_money_back_for_a_bigger_part_of_the_pot():
+    c = cp.clean_cfg(None); pl = {n: cp.plan_of(c, n) for n in cp.PLANS}
+    assert [pl[n]['backPct'] for n in cp.PLANS] == [70, 85, 95, 0] and [pl[n]['weightX'] for n in cp.PLANS] == [1, 2, 3, 6]
+    assert cp.plan_of(c, 'month', 1)['backPct'] == 90 and cp.plan_of(c, 'vault', 1)['backPct'] == 0 and cp.plan_of({**c, 'boostMode': 'rank'}, 'month', 1)['backPct'] == 85
+
+
+def test_the_vault_never_comes_back_and_never_counts_as_owed():
+    s = cp.new_state(); s['at'] = 1; s['cfg']['potPct'] = 0
+    cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1, 0, None, 'vault')
+    run(s, 1, 400, 86400)
+    a = s['agents']['a']
+    assert a['owed']['USDC'] == 0 and a['locked']['USDC'] == 0 and a['vault']['USDC'] == 8 * USDC and s['books']['USDC']['keep'] == 10 * USDC and cp.backed(s, 'USDC') == 0
+
+
+def test_a_vault_claim_fades_so_getting_here_first_is_not_the_edge():
+    s = cp.new_state(); s['at'] = 1
+    cp.send(s, 'old', 'old', 'o1', 'USDC', 10 * USDC, 10, 1, 0, None, 'vault')
+    s['at'] = 180 * D
+    cp.send(s, 'new', 'new', 'o2', 'USDC', 10 * USDC, 10, 180 * D, 0, None, 'vault')
+    part = cp.shares(s, SOL)
+    assert part['new'] > part['old'] * 3
+
+
+def test_fee_share_is_paid_into_earnings_from_real_money_only():
+    s = cp.new_state(); s['at'] = 1
+    cp.send(s, 'sig', 'a', 'o', 'USDC', 100 * USDC, 100, 1)
+    cp.income(s, 'fee', 'USDC', 100 * USDC, 'txn')
+    pot0 = s['books']['USDC']['pot']
+    run(s, 1, 1)
+    a = s['agents']['a']
+    assert 0 < a['earned']['USDC'] <= pot0 and a['owed']['USDC'] >= a['earned']['USDC'] and held(s, 'USDC') == 200 * USDC
+
+
+def test_the_earn_limit_stops_a_small_sender_draining_a_rich_pot():
+    s = cp.new_state(); s['at'] = 1
+    cp.send(s, 'sig', 'a', 'o', 'USDC', 10 * USDC, 10, 1)
+    cp.income(s, 'fee', 'USDC', 100000 * USDC, 'txn')
+    run(s, 1, 90)
+    assert s['agents']['a']['earned']['USDC'] <= 2 * 10 * USDC + 1
+
+
+def test_points_scale_with_dollars_and_the_prints_strength():
+    c = cp.clean_cfg(None)
+    assert cp.points_for(c, 10, 50) == 25 and cp.points_for(c, 10, 100) == 37.5 and cp.points_for(c, 10, 0) == 12.5
+    assert cp.points_for(c, 10000, 50) == 60                                       # a limit per send: big money cannot buy the top
+
+
+def test_a_boost_fades_and_real_strength_grades_it():
+    now = 100 * D
+    assert cp.boost_of([{'pts': 100, 'at': now}], 100, now) == 1.0 and cp.boost_of([{'pts': 100, 'at': now}], 0, now) == 0.5
+    assert abs(cp.boost_of([{'pts': 100, 'at': now - 60 * D}], 100, now) - 0.5) < 0.001
+    assert cp.levers(cp.clean_cfg(None), 1) == {'backPlus': 5.0, 'weightX': 2.0} and cp.levers({**cp.clean_cfg(None), 'boostMode': 'rank'}, 1) == {'backPlus': 0.0, 'weightX': 1.0}
+
+
+def test_points_bring_a_date_closer_and_only_points_it_has():
+    s = cp.new_state(); s['at'] = 1
+    r = cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1, 0, None, 'month')
+    end0 = r['end']
+    out = cp.spend_points(s, 'a', r['id'], 20, 25, 1)                               # 10 points = a day
+    assert out['days'] == 2 and out['end'] == end0 - 2 * D and s['agents']['a']['spent'] == 20
+    with pytest.raises(ValueError):
+        cp.spend_points(s, 'a', r['id'], 20, 25, 1)                                 # only 5 left
+    cp.spend_points(s, 'a', r['id'], 5000, 9999, 1)
+    row = s['agents']['a']['streams'][0]
+    assert row['end'] >= 1 + 10 * D - 1                                             # never under a third of the plan
+    v = cp.send(s, 'v', 'a', 'o', 'USDC', 10 * USDC, 10, 1, 0, None, 'vault')
+    with pytest.raises(ValueError):
+        cp.spend_points(s, 'a', v['id'], 1, 9999, 1)
+
+
+def test_a_view_shows_the_date_the_amount_and_counts_up():
+    s = cp.new_state(); s['at'] = 1000
+    cp.send(s, 'k', 'a', 'o', 'USDC', 10 * USDC, 10, 1000, 0, {'name': 'PoW 1'}, 'month')
+    a, b = cp.view(s, 'a', 1000, SOL), cp.view(s, 'a', 1030, SOL)
+    assert 2.5e-6 < a['ratePerSecUsd'] < 2.7e-6 and b['owedUsd'] > a['owedUsd']
+    assert a['streams'][0]['backUsd'] == 6.8 and a['streams'][0]['end'] == 1000 + 30 * D and a['nextEnd'] == 1000 + 30 * D and a['backLeftUsd'] == 6.8
+    assert cp.view(s, 'nobody', 1000, SOL)['empty'] is True
+
+
+def test_print_strength_needs_real_results_and_enough_of_them():
+    import agent_print as ap
+    f = lambda v: {'status': 'closed', 'pnlPct': v, 'soldAt': 100 * D}
+    assert ap.strength({}, 100 * D) == 0
+    assert ap.strength({'powFolders': [f(60)]}, 100 * D) == 10                        # one big win proves little
+    assert ap.strength({'powFolders': [f(60)] * 10}, 100 * D) == 100
+    assert ap.strength({'powFolders': [f(-60)] * 10}, 100 * D) == 0
+    assert ap.strength({'pocFolders': [{'graded': 'right', 'at': 100 * D}] * 10}, 100 * D) == 85

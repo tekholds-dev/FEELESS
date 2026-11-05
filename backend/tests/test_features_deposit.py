@@ -143,3 +143,32 @@ def test_a_page_it_built_is_filed_as_a_postatic_and_counts_in_its_print():
     row = feat.file_static(cat, doc, 'Mind A', 100)
     assert row['kind'] == 'PoStatic' and row['ws'] == 'w1' and row['n'] == 1 and cat['psFolders'] == [row]
     assert ap.build(cat, 100)['kinds'] == ['code']
+
+
+def test_postatic_proves_first_keywords_references_plan_and_only_real_references():
+    import asyncio
+    import agent_features as feat
+    import proof_tools as pt
+    assert pt.keywords('Please make me a live trading dashboard with charts') == ['live', 'trading', 'dashboard', 'charts']
+    refs = pt.parse_refs({'items': [{'full_name': 'a/b', 'html_url': 'https://github.com/a/b', 'description': 'd', 'stargazers_count': 9}]}, {'hits': [{'title': 'Show HN: X', 'url': 'https://x.dev', 'points': 3}, {'title': 'No url'}]})
+    assert [r['title'] for r in refs] == ['a/b', 'X'] and refs[0]['score'] == 9
+    plan = feat.parse_plan('ok {"summary": "s", "refs": [2, 9, "x"], "steps": ["one"], "borrow": "b"}', refs)
+    assert plan['refs'] == [refs[1]] and plan['steps'] == ['one']              # a made-up reference number is dropped
+    assert feat.parse_plan('no json', refs)['summary'] == 'no json'
+    assert 'do not copy' in feat.build_prompt('make it', plan) and feat.build_prompt('make it', None) == 'make it'
+    assert feat.build_cfg({}) == {'research': True, 'suggest': True, 'review': True, 'depth': 'quick'} and feat.build_cfg({'cfg': {'suggest': False, 'depth': 'deep'}})['suggest'] is False
+    class R:
+        def __init__(self, c, h=None): self.status_code = c; self.headers = h or {}
+    class H:
+        async def get(self, url, **k):
+            return R(403) if 'walled' in url else R(200, {'cf-mitigated': 'challenge'}) if 'cf' in url else R(200)
+    async def go():
+        return [(await pt._reach(H(), {'url': u}))['open'] for u in ('https://ok.dev', 'https://walled.dev', 'https://cf.dev')]
+    assert asyncio.run(go()) == [True, False, False]
+
+
+def test_a_plan_is_carried_onto_the_filed_postatic():
+    import agent_features as feat
+    cat = {}; doc = {'id': 'w', 'name': 'n', 'versions': [{}], 'plan': {'plan': {'summary': 'S', 'steps': ['a'], 'refs': [{'title': 'T', 'url': 'https://t', 'source': 'GitHub', 'score': 3}]}}}
+    row = feat.file_static(cat, doc, 'Mind A', 1)
+    assert row['plan'] == 'S' and row['refs'] == [{'title': 'T', 'url': 'https://t', 'source': 'GitHub'}] and row['steps'] == ['a']

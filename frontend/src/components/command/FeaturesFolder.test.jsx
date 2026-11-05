@@ -44,3 +44,20 @@ test('its mind: start fresh asks first, clean and about you go through the owner
 test('the next move follows what is off', () => {
   expect(nextMove({ auto: false })[0]).toContain('Auto-collect'); expect(nextMove({ auto: true, convo: false })[0]).toContain('convos'); expect(nextMove({ auto: true, convo: true, weight: 1.4 })[0]).toContain('boost'); expect(nextMove({ auto: true, convo: true, weight: 2 })[0]).toContain('full');
 });
+
+test('a PoStatic shows its steps, waits on its plan, and approval is what builds it', async () => {
+  const { act } = require('react-dom/test-utils'); const { createRoot } = require('react-dom/client');
+  const doc = { id: 'w1', kind: 'build', name: 'B', messages: [{ by: 'you', text: 'x' }], stage: 'approve', busy: null, versions: 0, cfg: { research: true, suggest: true, review: true, depth: 'quick' }, plan: { by: 'Mind A', approved: false, allRefs: [{ title: 'a/b', url: 'https://a', source: 'GitHub', score: 9, open: true }, { title: 'c', url: 'https://c', source: 'Hacker News', score: 1, open: false }], plan: { summary: 'A desk', steps: ['one'], borrow: 'layout', refs: [], risks: 'none' } } };
+  const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_approve' ? { doc: { ...doc, busy: { stage: 'build' }, stage: 'build', plan: { ...doc.plan, approved: true } } } : b.op === 'ws_cfg' ? { doc: { ...doc, cfg: { ...doc.cfg, ...b.tools } } } : {}));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const { FeaturesFolder } = require('./FeaturesFolder');
+  await act(async () => { root.render(<FeaturesFolder cat={{ id: 'c' }} d={{}} work={work} />); });
+  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your folders')).click(); });
+  await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
+  expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('You approve');
+  expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('A desk'); expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('Blocked');
+  await act(async () => { el.querySelector('[data-testid="ws-settings"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="ws-depth-deep"]').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_cfg', tools: expect.objectContaining({ depth: 'deep' }) }));
+  await act(async () => { el.querySelector('[data-testid="ws-approve"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'ws_approve', job: 'w1', text: '' });
+  expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('It builds');
+  await act(async () => root.unmount());
+});

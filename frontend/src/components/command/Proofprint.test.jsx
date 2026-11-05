@@ -32,11 +32,12 @@ test('every agent has its own print: 30 patterns, 30 inks, and no two curves ali
   expect(new Set(ids.map(x => part(x, 6, 0, 3))).size).toBe(400);
   expect(identityOf('seed-1').code).toBe(identityOf('seed-1').code); expect(identityOf('seed-1').code).toMatch(/^FP-[0-9A-F]{4}-[0-9A-F]{4}$/);
 });
-const RULES = { skimPct: 20, splitPct: 75, splitMaxPct: 78, halfLifeDays: 30, halfLifeMinDays: 15, potPct: 50, potHalfLifeDays: 30, weightMaxX: 2, earnRoomX: 1, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout' };
+const RULES = { skimPct: 20, potPct: 50, potPayDayPct: 5, boostBackPts: 5, ptsBase: 5, ptsPerUsd: 2, ptsMaxSend: 60, boostFadeDays: 60, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout', plans: [{ plan: 'week', days: 7, backPct: 70, weightX: 1, roomX: 1 }, { plan: 'month', days: 30, backPct: 85, weightX: 2, roomX: 2 }, { plan: 'vault', days: null, backPct: 0, weightX: 6, roomX: 6 }] };
 test('the year example: no trading means only its own money back, and trading adds the fee share', () => {
-  const none = growthExample(RULES, { tradeDay: 0, sendWeek: 10 }).pop(); expect(none.fee).toBe(0); expect(none.own / none.sent).toBeLessThan(0.6);
-  const some = growthExample(RULES, { tradeDay: 50, sendWeek: 10 }).pop(); expect(some.fee).toBeGreaterThan(0); expect(some.keep).toBeGreaterThan(none.keep);
-  const full = growthExample(RULES, { tradeDay: 50, sendWeek: 10, boost: 1 }).pop(); expect(full.own).toBeGreaterThan(some.own);
+  const none = growthExample(RULES, { tradeDay: 0, sendWeek: 10 }).rows.pop(); expect(none.fee).toBe(0); expect((none.own + none.coming) / none.sent).toBeLessThan(0.76);
+  const some = growthExample(RULES, { tradeDay: 50, sendWeek: 10 }); const last = some.rows[some.rows.length - 1]; expect(last.fee).toBeGreaterThan(0); expect(last.keep).toBeGreaterThan(none.keep); expect(some.even).not.toBeNull();
+  const vault = growthExample(RULES, { tradeDay: 0, sendWeek: 10, plan: 'vault' }).rows.pop(); expect(vault.own).toBe(0); expect(vault.coming).toBe(0);
+  expect(growthExample(RULES, { tradeDay: 50, strength: 90 }).rows.pop().points).toBeGreaterThan(growthExample(RULES, { tradeDay: 50, strength: 20 }).rows.pop().points);
 });
 test('the wired card opens on the line and any click lets go, and nothing picks a look', async () => {
   const d = { powFolders: [{ id: 'w1', at: 100, soldAt: 100, name: 'PoW #1', status: 'closed', pnlPct: 60, pnlSol: 0.5 }] };

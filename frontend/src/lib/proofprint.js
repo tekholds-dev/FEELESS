@@ -67,16 +67,18 @@ export function collectivePrint(feed, split = 'agent') {
   const rings = Object.entries(by).slice(0, MAX_RINGS).map(([k, cps]) => ({ id: k, kind: 'sent', name: k, code: 'SENT', firstAt: 0, checkpoints: cps.slice(0, PER_RING) }));
   return { rings, total: rings.reduce((n, r) => n + r.checkpoints.length, 0) };
 }
-/** 🌊 THE EXAMPLE: the same rules as collective_pool.py, day by day, for members who stay. No new people join: this shows it needs none. */
-export function growthExample(rules, { members = 500, sendWeek = 10, tradeDay = 50, boost = 0, days = 360 } = {}) {
-  const b = rules.boostMode === 'rank' ? 0 : boost; const split = (rules.splitPct + (rules.splitMaxPct - rules.splitPct) * b) / 100; const hl = rules.halfLifeDays + (rules.halfLifeMinDays - rules.halfLifeDays) * b; const others = (rules.halfLifeDays + 0) || 30; const skim = rules.skimPct / 100; const potPct = rules.potPct / 100; const fee = (tradeDay < rules.txnSmallUsd ? rules.txnSmallPct : tradeDay < rules.txnBigUsd ? rules.txnMidPct : rules.txnBigPct) / 100; const potHl = rules.potHalfLifeDays || 30; const roomX = rules.earnRoomX ?? 1; const weight = 1 + ((rules.weightMaxX || 2) - 1) * b;
-  let you = { lockOwn: 0, lockFee: 0, own: 0, fee: 0, sent: 0, room: 0 }; let net = { lock: 0, pot: 0, keep: 0, sent: 0 }; let feesIn = 0; const rows = [];
+/** 🌊 THE EXAMPLE: the same rules as collective_pool.py, day by day, for members who stay, one row per plan. No new people join: this shows it needs none. */
+export function growthExample(rules, { members = 500, sendWeek = 10, tradeDay = 50, plan = 'month', strength = 50, days = 360 } = {}) {
+  const plans = rules.plans || []; const p = plans.find(x => x.plan === plan) || plans[1] || { backPct: 85, days: 30, weightX: 2, roomX: 2 }; const fee = (tradeDay < rules.txnSmallUsd ? rules.txnSmallPct : tradeDay < rules.txnBigUsd ? rules.txnMidPct : rules.txnBigPct) / 100; const skim = rules.skimPct / 100; const potPct = rules.potPct / 100; const payDay = (rules.potPayDayPct || 5) / 100;
+  const ptsWeek = Math.min(rules.ptsMaxSend ?? 60, (rules.ptsBase ?? 5) + sendWeek * (rules.ptsPerUsd ?? 2)) * (0.5 + strength / 100); const fade = 0.5 ** (1 / (rules.boostFadeDays || 60)); let pts = 0; let you = { lock: [], sent: 0, own: 0, fee: 0, room: 0, vault: 0 }; let net = { pot: 0, keep: 0, lock: 0 }; let feesIn = 0; const rows = []; let even = null;
   for (let d = 0; d <= days; d += 1) {
-    const dayFees = members * tradeDay * fee; feesIn += dayFees; net.pot += dayFees * potPct; net.keep += dayFees * (1 - potPct);
-    if (d && d % 7 === 0) { const all = members * sendWeek; net.sent += all; net.keep += all * skim; net.lock += all * (1 - skim); you.sent += sendWeek; you.lockOwn += sendWeek * (1 - skim); you.room += sendWeek * roomX; }
-    const pay = net.pot * (1 - 0.5 ** (1 / potHl)); const mine = Math.min(you.room, (pay / Math.max(1, members - 1 + weight)) * weight); const everyone = Math.min(pay, mine * members); net.pot -= everyone; net.lock += everyone; you.lockFee += mine; you.room = Math.max(0, you.room - mine) * 0.5 ** (1 / 30);
-    const g1 = 1 - 0.5 ** (1 / hl); const g2 = 1 - 0.5 ** (1 / others); const oOwn = you.lockOwn * g1; const oFee = you.lockFee * g1; you.lockOwn -= oOwn; you.lockFee -= oFee; you.own += oOwn * split; you.fee += oFee * split; const out = net.lock * g2; net.lock -= out; net.keep += out * (1 - rules.splitPct / 100);
-    if (d % 10 === 0) rows.push({ d, sent: you.sent, own: you.own, fee: you.fee, back: you.own + you.fee, locked: you.lockOwn + you.lockFee, keep: net.keep, pot: net.pot, feesIn, lock: net.lock });
+    const dayFees = members * tradeDay * fee; feesIn += dayFees; net.pot += dayFees * potPct; net.keep += dayFees * (1 - potPct); pts *= fade;
+    const boost = rules.boostMode === 'rank' ? 0 : Math.min(1, pts / 100) * (0.5 + strength / 200);
+    if (d && d % 7 === 0) { pts += ptsWeek; const lockIt = sendWeek * (1 - skim); net.keep += members * sendWeek * skim; you.sent += sendWeek; you.room += sendWeek * (p.roomX ?? p.weightX); if (plan === 'vault') { you.vault += lockIt; net.keep += members * lockIt; } else { const back = lockIt * Math.min(100, p.backPct + (rules.boostBackPts || 0) * boost) / 100; you.lock.push({ left: lockIt, back, each: lockIt / p.days, days: p.days }); net.lock += members * lockIt; net.keep += members * (lockIt - back); net.lock -= members * (lockIt - back); } }
+    const pay = net.pot * payDay; const mine = Math.min(you.room, pay / Math.max(1, members)); net.pot -= mine * members; you.fee += mine; you.room = Math.max(0, you.room - mine) * 0.5 ** (1 / 30);
+    you.lock.forEach(l => { if (l.left <= 0) return; const out = Math.min(l.left, l.each); const got = out * (l.back / (l.each * l.days)); l.left -= out; you.own += got; net.lock -= members * got; });
+    const coming = you.lock.reduce((a, l) => a + l.left * (l.back / (l.each * l.days)), 0); const back = you.own + you.fee; if (even == null && you.sent > 0 && back >= you.sent) even = d;
+    if (d % 10 === 0) rows.push({ d, sent: you.sent, own: you.own, fee: you.fee, back, coming, keep: net.keep, pot: net.pot, lock: net.lock, feesIn, points: pts, boost });
   }
-  return rows;
+  return { rows, even };
 }

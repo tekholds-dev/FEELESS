@@ -1351,7 +1351,7 @@ async def _pool_pass(http, store, now):
         for cid, a in s['agents'].items():
             c = store['cats'].get(cid)
             if c:
-                a['boost'] = _cpool.boost_of(c.get('boosts'), _print.build(c, now)['level'], now, s['cfg']['boostFadeDays'])
+                a['boost'] = _cpool.boost_of(c.get('boosts'), _print.strength(c, now), now, s['cfg']['boostFadeDays'])
         if bal:
             _cpool.check_chain(s, bal, now)
     _cpool.update(POOL_PATH, go)
@@ -1383,11 +1383,11 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
         return False
     RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
     _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
-    _cl.add_boost(cat, 'auto', f'sig:{sig}', _cl.BOOST_SENT, now, f"{folder.get('name')} paid the Pool")
-    px = await _pool_px(http)
+    px = await _pool_px(http); usd_ = got / 1e9 * px; str_ = _print.strength(cat, now); pol_ = _cpool.load(POOL_PATH)['cfg']   # ⚡ points scale with its dollars and its print's strength
+    _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name')} paid the Pool")
 
-    def book(st):   # 🪙 the send is real: its part locks and starts to release. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, got / 1e9 * px, now, _cpool.boost_of(cat.get('boosts'), _print.build(cat, now)['level'], now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig})
+    def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -4875,7 +4875,7 @@ def _ws_view(cat_id, ws_id):
     if d_.get('busy') and time.time() - float(d_['busy'].get('at') or 0) > 240:   # a run that died never locks the folder
         d_['busy'] = None; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy')}, 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'by': v_[-1].get('by') if v_ else None}
 
 
 async def _ws_ask(cat, model, sys_, user_, tokens):
@@ -4891,9 +4891,29 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     try:
         if kind == 'build':
-            cur = (doc.get('versions') or [{}])[-1].get('html') or ''
-            user = f'{text}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
+            if not cur and not region and not pl_.get('approved') and (cfg_['research'] or cfg_['suggest']):   # 🔎 a proof proves first: read the best current builds, then suggest, before anything is built
+                doc['stage'] = 'research'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': 'research'}})
+                async with httpx.AsyncClient(timeout=12) as http_r:
+                    refs_ = await _tools.build_refs(http_r, text, cfg_['depth'] == 'deep') if cfg_['research'] else []
+                doc['stage'] = 'suggest'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': 'suggest'}}); open_ = [r for r in refs_ if r.get('open')]
+                menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
+                raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS, f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                cost += usd_; paid_own = own_; doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
+                if cfg_['suggest']:
+                    doc['stage'] = 'approve'; _feat.add_msg(doc, name(order[0]), 'I read the current best builds and wrote a plan. Approve it or tell me what to change.', time.time())
+                    doc['busy'] = None; _ws_save(cat_id, doc)
+                    if cost and not paid_own:
+                        store = _load(); c_ = store['cats'].get(cat_id)
+                        if c_ and c_.get('brainsCfg'):
+                            _lc.charge(c_['brainsCfg'], cost); _save(store)
+                    return
+            if not cfg_['review']:
+                order = order[:1]
+            doc['stage'] = 'build'; ask_ = _feat.build_prompt(text, ((doc.get('plan') or {}).get('plan') if not cur else None))
+            user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             for k, i in enumerate(order):
+                doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
                 raw, usd, own = await _ws_ask(cat, brains[i], _feat.REVIEW_SYS if k else _feat.BUILD_SYS, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 4000)
                 cost += usd; paid_own = own; html = _aip.html_of(raw)
                 if html:
@@ -4908,7 +4928,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
-    doc['busy'] = None; _ws_save(cat_id, doc)
+    doc['busy'] = None
+    if kind == 'build' and len(doc.get('versions') or []) > start_versions:
+        doc['stage'] = 'filed'
+    _ws_save(cat_id, doc)
     built = kind == 'build' and len(doc.get('versions') or []) > start_versions
     if built or (cost and not paid_own):
         store = _load(); c_ = store['cats'].get(cat_id)
@@ -4988,7 +5011,7 @@ async def collective_mine(session: str = ''):
             run = round(run + _num(f.get('pnlSol')), 6); series.append({'at': round(_num(f.get('soldAt') or f.get('at'))), 'v': run, 'sym': f.get('sym'), 'pct': f.get('pnlPct')})
         mine = [x for x in shares if x.get('cat') == c['id']]; pts = _cl.boost_total(c); pr = _print.build(c, now)
         hits = [_cl.qualifies(f) for f in real]
-        out.append({'id': c['id'], 'name': c.get('name'), 'face': c.get('face'), 'series': series, 'boosts': pts, 'weight': _cpool.levers(pst['cfg'], _cpool.boost_of(c.get('boosts'), pr['level'], now, pst['cfg']['boostFadeDays']))['weightX'], 'pool': _cpool.view(pst, c['id'], now, px), 'boostLog': (c.get('boosts') or [])[-8:][::-1], 'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 6), 'sentSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent')), 6),
+        out.append({'id': c['id'], 'name': c.get('name'), 'face': c.get('face'), 'series': series, 'boosts': pts, 'weight': _cpool.levers(pst['cfg'], _cpool.boost_of(c.get('boosts'), _print.strength(c, now), now, pst['cfg']['boostFadeDays']))['weightX'], 'strength': _print.strength(c, now), 'pool': _cpool.view(pst, c['id'], now, px), 'boostLog': (c.get('boosts') or [])[-8:][::-1], 'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 6), 'sentSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent')), 6),
                     'bigWins': sum(hits), 'trades': len(real), 'auto': bool((c.get('colonyShare') or {}).get('auto') and (c.get('colonyShare') or {}).get('on')), 'pct': (c.get('colonyShare') or {}).get('pct'), 'convo': bool((c.get('convo') or {}).get('on')), 'print': _print.public(pr), 'strongest': [t['t'] for t in pr['traits'] if t['score'] > 0][:3], 'weakest': [t['t'] for t in pr['traits'][::-1] if t['score'] < 0][:3]})
     return {'agents': out, 'mode': mode}
 
@@ -5513,9 +5536,23 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['pobAsk'] = str(p.text).strip()[:160]; keep_owned(cat); _save(store)
         _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
         return {'ok': True}
-    if p.op == 'pool':   # 🪙 its live count, what is locked and what its boost is doing now
-        now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_)
-        return {'pool': _cpool.view(st_, cat_id, now_, await _pool_px()), 'rules': _cpool.rules(st_['cfg']), 'points': _cl.boost_total(cat), 'printLevel': pr_['level'], 'boostNow': _cpool.boost_of(cat.get('boosts'), pr_['level'], now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+    if p.op == 'pool':   # 🪙 its live count, its dated returns, what its boost does and the points it can spend
+        now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_); str_ = _print.strength(cat, now_); pts_ = _cl.boost_total(cat); pv_ = _cpool.view(st_, cat_id, now_, await _pool_px())
+        return {'pool': pv_, 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+    if p.op == 'pool_plan':   # 🪙 which plan its next sends follow. Sends already made keep theirs.
+        if p.text not in _cpool.PLANS:
+            raise HTTPException(400, 'Pick one of the plans.')
+        if p.text == 'vault' and not p.on:
+            raise HTTPException(400, 'The Vault never comes back: confirm it first.')
+        cat['colonyShare'] = {**(cat.get('colonyShare') or {}), 'plan': p.text}; keep_owned(cat); _save(store)
+        return {'plan': p.text}
+    if p.op == 'pool_spend':   # ⚡ spend points to bring one send's date closer
+        try:
+            out_ = _cpool.update(POOL_PATH, lambda st: _cpool.spend_points(st, cat_id, p.job, p.cap, _cl.boost_total(cat), time.time()))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        st_ = _cpool.load(POOL_PATH)
+        return {**out_, 'pool': _cpool.view(st_, cat_id, time.time(), await _pool_px()), 'pointsLeft': round(max(0.0, _cl.boost_total(cat) - _num(st_['agents'][cat_id].get('spent'))), 1)}
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
@@ -5537,6 +5574,36 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'workspaces': cat['workspaces']}
     if p.op == 'ws_open':
         return {'doc': _ws_view(cat_id, p.text)}
+    if p.op == 'ws_cfg':   # ⚙ a Build folder's own steps
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or not isinstance(p.tools, dict):
+            raise HTTPException(400, 'Pick a folder and its settings.')
+        doc_['cfg'] = _feat.build_cfg({'cfg': p.tools}); _ws_save(cat_id, doc_)
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'ws_approve':   # ✅ its owner approves the plan, or changes it, and only then is anything built
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or not (doc_.get('plan') or {}).get('plan') or doc_.get('busy'):
+            raise HTTPException(400, 'There is no plan waiting.')
+        b_ = cat.get('brainsCfg') or {}
+        if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
+            raise HTTPException(402, 'It needs model credit to do this.')
+        note_ = str(p.text or '').strip()[:600]; pl_ = doc_['plan']; pl_['approved'] = True; ask_ = pl_.get('ask') or ''; go_ = f'{ask_}\nThe owner adds: {note_}' if note_ else ask_
+        _feat.add_msg(doc_, 'you', note_ or 'Approved. Build it.', time.time()); doc_['busy'] = {'at': round(time.time()), 'to': pl_.get('to') or 'both', 'stage': 'build'}; doc_['stage'] = 'build'; _ws_save(cat_id, doc_)
+        asyncio.create_task(_ws_run(cat_id, p.job, str(pl_.get('to') or 'both'), go_, None))
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'poc_result':   # 💰 what a post really did, as its owner reports it
+        f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == p.job), None)
+        if not f_:
+            raise HTTPException(400, 'Mark one of its PoCs.')
+        link_ = str(p.text or '').strip()[:300]
+        if link_ and not re.match(r'^https://', link_):
+            raise HTTPException(400, 'A link starts with https://.')
+        earned_ = max(0.0, min(1e7, _num(p.cap)))
+        f_['result'] = {'link': link_, 'earnedUsd': round(earned_, 2), 'at': round(time.time()), 'by': 'owner'}
+        if earned_ > 0:
+            f_['graded'] = 'right'
+        _save(store)
+        return {'pocFolders': _poc_view(cat)}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)
         text_ = str(p.text or '').strip()[:3000]
@@ -5547,7 +5614,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         b_ = cat.get('brainsCfg') or {}
         if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
             raise HTTPException(402, 'It needs model credit to do this.')
-        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both')}
+        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
         _ws_save(cat_id, doc_)
         asyncio.create_task(_ws_run(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None))
         return {'doc': _ws_view(cat_id, p.job)}

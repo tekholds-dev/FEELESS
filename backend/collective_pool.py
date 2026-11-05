@@ -1,12 +1,10 @@
-"""🪙 THE POOL LEDGER (owner 2026-11-04). Every agent fee and every proof sent lands in the one Collective wallet; this file says whose part of it is whose.
-A send: the Collective keeps skimPct, the rest locks. Locked money releases by half every halfLife days: splitPct to the agent as earnings, the rest to the Collective.
-The fee pot: potPct of real trading and task fees ONLY. Half of it pays out every potHalfLife days to agents with money locked, by weight, and lands in their locked balance, so it compounds.
+"""🪙 THE POOL LEDGER (owner 2026-11-05). Every agent fee and every proof sent lands in the one Collective wallet; this file says whose part of it is whose.
+A send: the Collective keeps skimPct. The rest follows the PLAN its owner picked: it comes back at a steady rate to a fixed date, up to the plan's part, and the remainder stays with the Collective. The Vault plan never comes back: it becomes a permanent claim on the fee pot instead, at the highest weight.
+The fee pot: potPct of real trading and task fees ONLY. It pays a part of what is there every day to agents by weight: what they have working × their plan × their boost. It lands in their earnings directly.
+Boost = points that scale with dollars sent, fading, graded by the print's real strength. Points can also be SPENT to bring a date closer.
 NOT A PONZI, by construction: another member's deposit, send or release can never reach the pot, so nobody's return is paid from somebody else's money coming in. No reward for bringing people, no promised rate. Members earn only while members really trade.
-Boosts move three things only: the split, the release speed and the weight in the fee pot.
-
 Why it cannot break: amounts are whole units per token, every move takes from one bucket what it gives another, and payouts are a part of what is really there, so nothing is ever owed that does not exist.
-Sealed: the ledger is encrypted and signed at rest, so an edited file refuses to load instead of resetting. Every dollar in is one link of a keyed hash chain; audit() walks the chain from the start and it must equal what the ledger holds to the unit.
-No rate is promised anywhere. No new fees means the count slows; own money still releases. Pure apart from the locked file helpers."""
+Sealed: the ledger is encrypted and signed at rest, so an edited file refuses to load instead of resetting. Every dollar in is one link of a keyed hash chain; audit() walks the chain from the start and it must equal what the ledger holds to the unit. Pure apart from the locked file helpers."""
 import fcntl
 import hashlib
 import hmac
@@ -19,9 +17,12 @@ UNITS = {'SOL': 1_000_000_000, 'USDC': 1_000_000}
 TICK_S = 60
 BOOST_POINTS_FULL = 100
 
-DEFAULTS = {'skimPct': 20.0, 'splitPct': 75.0, 'splitMaxPct': 78.0, 'halfLifeDays': 30.0, 'halfLifeMinDays': 15.0, 'potPct': 50.0, 'potHalfLifeDays': 30.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'earnRoomX': 1.0, 'boostFadeDays': 60.0,
+PLANS = ('week', 'month', 'quarter', 'vault')
+DEFAULTS = {'skimPct': 20.0, 'potPct': 50.0, 'potPayDayPct': 5.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+            'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.0, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
-BOUNDS = {'skimPct': (0, 50), 'splitPct': (50, 100), 'splitMaxPct': (50, 100), 'halfLifeDays': (7, 180), 'halfLifeMinDays': (3, 180), 'potPct': (0, 100), 'potHalfLifeDays': (7, 180), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'earnRoomX': (0, 5), 'boostFadeDays': (7, 365),
+BOUNDS = {'skimPct': (0, 50), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
+          'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
 POT_KINDS = ('txn', 'task')   # the only money that may ever reach members: fees on real activity
@@ -60,14 +61,12 @@ def clean_cfg(c):
             lo, hi = BOUNDS[k]
             v = c.get(k, d)
             out[k] = round(min(hi, max(lo, _f(v))), 2) if isinstance(v, (int, float)) and not isinstance(v, bool) else d
-    out['splitMaxPct'] = max(out['splitPct'], out['splitMaxPct'])
-    out['halfLifeMinDays'] = min(out['halfLifeDays'], out['halfLifeMinDays'])
     out['txnBigUsd'] = max(out['txnSmallUsd'], out['txnBigUsd'])
     return out
 
 
 def new_state():
-    return {'v': 2, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': {}, 'chain': None, 'head': GENESIS, 'links': 0, 'moved': {t: 0 for t in TOKENS}, 'hist': [], 'trailNew': []}
+    return {'v': 3, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': {}, 'chain': None, 'head': GENESIS, 'links': 0, 'moved': {t: 0 for t in TOKENS}, 'hist': [], 'trailNew': []}
 
 
 def _link(state, key, token, units, kind):
@@ -81,7 +80,7 @@ def _link(state, key, token, units, kind):
 def _agent(state, cat, owner='', now=0):
     a = state['agents'].get(cat)
     if not a:
-        a = state['agents'][cat] = {'owner': str(owner or ''), 'locked': {t: 0 for t in TOKENS}, 'owed': {t: 0 for t in TOKENS}, 'sent': {t: 0 for t in TOKENS}, 'earned': {t: 0 for t in TOKENS}, 'paid': {t: 0 for t in TOKENS}, 'room': 0.0, 'roomAt': now, 'boost': 0.0, 'first': now}
+        a = state['agents'][cat] = {'owner': str(owner or ''), 'locked': {t: 0 for t in TOKENS}, 'owed': {t: 0 for t in TOKENS}, 'sent': {t: 0 for t in TOKENS}, 'earned': {t: 0 for t in TOKENS}, 'paid': {t: 0 for t in TOKENS}, 'vault': {t: 0 for t in TOKENS}, 'streams': [], 'room': 0.0, 'roomAt': now, 'boost': 0.0, 'first': now, 'plan': 'month', 'spent': 0}
     if owner:
         a['owner'] = str(owner)
     return a
@@ -124,32 +123,82 @@ def _room(a, now, cfg):
     return a['room']
 
 
-def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None):
-    """A verified proof send. → {keptUnits, lockedUnits} or None if it already counted."""
+def plan_of(cfg, name, boost=0.0):
+    """One plan's numbers. A boost adds up to boostBackPts to what comes back, never past 100%, and never to the Vault."""
+    n = name if name in PLANS else 'month'
+    if n == 'vault':
+        return {'plan': n, 'days': None, 'backPct': 0.0, 'weightX': cfg['vaultWeight'], 'roomX': cfg['vaultRoom']}
+    b = 0.0 if cfg.get('boostMode') == 'rank' else max(0.0, min(1.0, _f(boost)))
+    return {'plan': n, 'days': cfg[f'{n}Days'], 'backPct': round(min(100.0, cfg[f'{n}Back'] + cfg['boostBackPts'] * b), 2), 'weightX': cfg[f'{n}Weight'], 'roomX': cfg[f'{n}Room']}
+
+
+def points_for(cfg, usd, strength=50.0):
+    """Points for one verified send: they scale with its dollars, up to a limit, and a stronger print earns more from the same send (0.5x to 1.5x)."""
+    return round(min(cfg['ptsMaxSend'], cfg['ptsBase'] + _f(usd) * cfg['ptsPerUsd']) * (0.5 + min(100.0, max(0.0, _f(strength))) / 100), 1)
+
+
+def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None, plan=None):
+    """A verified proof send. → {keptUnits, lockedUnits, plan, end, backUnits} or None if it already counted."""
     units = int(units)
     if token not in TOKENS or units <= 0 or not _once(state, key):
         return None
-    cfg = state['cfg']; a = _agent(state, cat, owner, now)
-    kept = int(units * cfg['skimPct'] / 100); locked = units - kept
+    cfg = state['cfg']; a = _agent(state, cat, owner, now); a['boost'] = max(0.0, min(1.0, _f(boost))); pl = plan_of(cfg, plan or a.get('plan'), a['boost'])
+    kept = int(units * cfg['skimPct'] / 100); locked = units - kept; usd = max(0.0, _f(usd)); rate = (usd / units) if units else 0.0
     _link(state, key, token, units, 'send')
     if kept:
         _take_in(state, token, kept, 'proofs')
-    a['sends'] = (list(a.get('sends') or []) + [{'at': round(now), 'token': token, 'sent': units / UNITS[token], 'kept': kept / UNITS[token], 'locked': locked / UNITS[token], 'usd': round(_f(usd), 4), **(meta or {})}])[-40:]
-    a['locked'][token] += locked; a['sent'][token] += units; a['boost'] = max(0.0, min(1.0, _f(boost)))
-    _room(a, now, cfg); a['room'] += max(0.0, _f(usd)) * cfg['earnRoomX']
-    return {'keptUnits': kept, 'lockedUnits': locked}
+    _room(a, now, cfg); a['room'] += usd * pl['roomX']; a['sent'][token] += units
+    row = {'id': uuid.uuid4().hex[:10], 'at': round(now), 'token': token, 'plan': pl['plan'], 'sent': units, 'kept': kept, 'usd': round(usd, 4), 'unitUsd': rate, 'weightX': pl['weightX'], **(meta or {})}
+    if pl['plan'] == 'vault':   # it never comes back: the Collective holds it, and the agent holds a claim on the pot
+        _take_in(state, token, locked, 'vault')
+        a.setdefault('vault', {t: 0 for t in TOKENS})[token] += locked
+        row.update(locked=locked, left=0, back=0, end=None, start=now, last=now, vault=locked)
+    else:
+        row.update(locked=locked, left=locked, back=int(locked * pl['backPct'] / 100), out=0, start=now, last=now, end=now + pl['days'] * 86400, span=pl['days'] * 86400, backPct=pl['backPct'])
+        a['locked'][token] += locked
+    a['streams'] = (list(a.get('streams') or []) + [row])[-400:]
+    return {'keptUnits': kept, 'lockedUnits': locked, 'plan': pl['plan'], 'end': row['end'], 'backUnits': row['back'], 'id': row['id']}
 
 
-def boost_of(rows, level, now, fade_days=60.0):
-    """0 to 1. Points fade, then the proofprint grades them: a level 0 print earns half of what a level 100 print earns from the same points."""
+def boost_of(rows, strength, now, fade_days=60.0):
+    """0 to 1. Points fade, then the print's real strength grades them: a 0 print earns half of what a 100 print earns from the same points."""
     pts = sum(_f(r.get('pts')) * 0.5 ** (max(0.0, now - _f(r.get('at'))) / (max(1.0, fade_days) * 86400)) for r in rows or [])
-    return round(min(1.0, pts / BOOST_POINTS_FULL) * (0.5 + 0.5 * min(100.0, max(0.0, _f(level))) / 100), 4)
+    return round(min(1.0, pts / BOOST_POINTS_FULL) * (0.5 + 0.5 * min(100.0, max(0.0, _f(strength))) / 100), 4)
 
 
 def levers(cfg, boost):
     """What a boost changes right now. Rank-only mode: nothing."""
     b = 0.0 if cfg.get('boostMode') == 'rank' else max(0.0, min(1.0, _f(boost)))
-    return {'splitPct': round(cfg['splitPct'] + (cfg['splitMaxPct'] - cfg['splitPct']) * b, 2), 'halfLifeDays': round(cfg['halfLifeDays'] + (cfg['halfLifeMinDays'] - cfg['halfLifeDays']) * b, 2), 'weightX': round(1 + (cfg['weightMaxX'] - 1) * b, 3)}
+    return {'backPlus': round(cfg['boostBackPts'] * b, 2), 'weightX': round(1 + (cfg['weightMaxX'] - 1) * b, 3)}
+
+
+def spend_points(state, cat, stream_id, pts, available, now):
+    """Spend points to bring one send's date closer. ptsPerDay points = one day. A date can move to no less than a third of its plan from its start. → {days, spent, end}. Raises ValueError."""
+    a = state['agents'].get(cat); pts = _f(pts)
+    row = next((r for r in (a or {}).get('streams') or [] if r.get('id') == stream_id), None)
+    if not row or not row.get('end') or row.get('left', 0) <= 0:
+        raise ValueError('That send has no date to move.')
+    if pts <= 0 or pts > _f(available) - _f(a.get('spent')) + 1e-9:
+        raise ValueError('It does not have that many points to spend.')
+    cfg = state['cfg']; floor = row['start'] + _f(row.get('span')) / 3; end = max(floor, now + 3600, row['end'] - pts / cfg['ptsPerDay'] * 86400)
+    if end >= row['end']:
+        raise ValueError('That date cannot move any closer.')
+    used = (row['end'] - end) / 86400 * cfg['ptsPerDay']; row['end'] = end; a['spent'] = round(_f(a.get('spent')) + used, 2)
+    return {'days': round(used / cfg['ptsPerDay'], 2), 'spent': round(used, 2), 'end': round(end)}
+
+
+VAULT_FADE_DAYS = 45.0
+
+
+def _working_usd(a, sol_usd, now):
+    """What is working for an agent: its unreleased money and its Vault claim, each × its plan's weight. A Vault claim fades by half every 45 days, so it pays those still sending good proofs, not those who simply got here first."""
+    w = 0.0
+    for r in a.get('streams') or []:
+        amt = r.get('vault') or r.get('left') or 0
+        if amt:
+            fade = 0.5 ** (max(0.0, now - _f(r.get('at'))) / (VAULT_FADE_DAYS * 86400)) if r.get('vault') else 1.0
+            w += amt * (r.get('unitUsd') or (sol_usd / UNITS['SOL'] if r.get('token') == 'SOL' else 1 / UNITS['USDC'])) * _f(r.get('weightX')) * fade
+    return w
 
 
 def _locked_usd(a, sol_usd):
@@ -157,10 +206,10 @@ def _locked_usd(a, sol_usd):
 
 
 def shares(state, sol_usd):
-    """{cat: part of the pot, 0 to 1}. Weight = locked money x boost. Every wallet of one owner counts together, capped so nobody takes more than capPct once there are enough owners to share."""
+    """{cat: part of the pot, 0 to 1}. Weight = money working × plan × boost. Every wallet of one owner counts together, capped so nobody takes more than capPct once there are enough owners to share."""
     cfg = state['cfg']; per = {}; by_owner = {}
     for cat, a in state['agents'].items():
-        w = _locked_usd(a, sol_usd) * levers(cfg, a.get('boost'))['weightX']
+        w = _working_usd(a, sol_usd, _f(state.get('at'))) * levers(cfg, a.get('boost'))['weightX']
         if w > 0:
             per[cat] = w; o = a.get('owner') or cat; by_owner[o] = by_owner.get(o, 0.0) + w
     if not per:
@@ -182,7 +231,7 @@ def shares(state, sol_usd):
 
 
 def tick(state, now, sol_usd):
-    """Move time forward: the pot pays by weight, then every locked balance releases. Only whole units move, and each comes out of the bucket it goes into another from."""
+    """Move time forward: the pot pays by weight into earnings, then every send releases along its line to its date. Only whole units move, and each comes out of the bucket it goes into another from."""
     last = _f(state.get('at'))
     if not last:
         state['at'] = now
@@ -191,7 +240,7 @@ def tick(state, now, sol_usd):
     if dt < TICK_S:
         return False
     state['at'] = now; cfg = state['cfg']; part = shares(state, sol_usd)
-    pot_part = 1 - 0.5 ** (dt / (cfg['potHalfLifeDays'] * 86400))
+    pot_part = 1 - (1 - cfg['potPayDayPct'] / 100) ** (dt / 86400)
     for t in TOKENS:
         b = state['books'][t]; pay = int(b['pot'] * pot_part); usd_each = (sol_usd / UNITS['SOL']) if t == 'SOL' else (1 / UNITS['USDC'])
         for cat, p in part.items():
@@ -199,45 +248,58 @@ def tick(state, now, sol_usd):
             if want <= 0:
                 continue
             room = _room(a, now, cfg)
-            if usd_each > 0:
-                want = min(want, int(room / usd_each))   # past its room, it stays in the pot
-            elif t == 'SOL':
-                want = 0
+            want = min(want, int(room / usd_each)) if usd_each > 0 else 0   # past its limit, it stays in the pot
             if want <= 0:
                 continue
-            b['pot'] -= want; a['locked'][t] += want; a['earned'][t] += want
+            b['pot'] -= want; a['owed'][t] += want; a['earned'][t] += want
             a['room'] = max(0.0, room - want * usd_each)
     for a in state['agents'].values():
-        lv = levers(cfg, a.get('boost')); gone = 1 - 0.5 ** (dt / (lv['halfLifeDays'] * 86400))
-        for t in TOKENS:
-            out = int(a['locked'][t] * gone)
+        for r in a.get('streams') or []:
+            left = int(r.get('left') or 0)
+            if left <= 0:
+                continue
+            t = r['token']; span = max(1.0, _f(r['end']) - _f(r['last']))
+            out = left if now >= r['end'] else int(left * min(1.0, (now - _f(r['last'])) / span))
             if out <= 0:
                 continue
-            mine = int(out * lv['splitPct'] / 100)
-            a['locked'][t] -= out; a['owed'][t] += mine
+            r['left'] = left - out; r['last'] = now; a['locked'][t] -= out
+            mine = min(out, r['back'] - int(r.get('out') or 0)) if r['left'] == 0 else int(out * r['back'] / r['locked'])
+            mine = max(0, min(mine, r['back'] - int(r.get('out') or 0)))
+            r['out'] = int(r.get('out') or 0) + mine; a['owed'][t] += mine
             if out - mine:
                 _take_in(state, t, out - mine, 'release')
     return True
 
 
-def _rate(a, t, cfg):
-    lv = levers(cfg, a.get('boost'))
-    return a['locked'][t] * (0.6931471805599453 / (lv['halfLifeDays'] * 86400)) * lv['splitPct'] / 100
+def _rate(a, t, cfg, now=None):
+    r_ = 0.0
+    for r in a.get('streams') or []:
+        if r.get('token') == t and (r.get('left') or 0) > 0 and r.get('locked'):
+            r_ += (r['left'] / max(1.0, _f(r['end']) - _f(r['last']))) * (r['back'] / r['locked'])
+    return r_
 
 
 def _usd(units, t, sol_usd):
     return units / UNITS[t] * (sol_usd if t == 'SOL' else 1)
 
 
+def stream_view(r, sol_usd):
+    t = r['token']; back = r.get('back') or 0; out = r.get('out') or 0
+    return {k: r.get(k) for k in ('id', 'at', 'plan', 'token', 'end', 'name', 'sym', 'pct', 'sig', 'backPct', 'start')} | {'sent': r['sent'] / UNITS[t], 'kept': r['kept'] / UNITS[t], 'locked': r['locked'] / UNITS[t], 'backTotal': back / UNITS[t], 'backSoFar': out / UNITS[t], 'backUsd': round(_usd(back, t, sol_usd), 4), 'soFarUsd': round(_usd(out, t, sol_usd), 4), 'sentUsd': round(_usd(r['sent'], t, sol_usd), 4), 'vaultUsd': round(_usd(r.get('vault') or 0, t, sol_usd), 4), 'done': not r.get('vault') and (r.get('left') or 0) <= 0}
+
+
 def view(state, cat, now, sol_usd):
     """One agent's numbers for its owner. owedUsd + ratePerSecUsd x seconds is the live count."""
     cfg = state['cfg']; a = state['agents'].get(cat)
     if not a:
-        return {'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'at': round(now), 'solUsd': sol_usd, 'empty': True}
-    dt = max(0.0, now - _f(state.get('at')))   # the ticks are a minute apart: the count stays smooth between them
+        return {'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'vaultUsd': 0, 'backLeftUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'plan': 'month', 'spent': 0, 'streams': [], 'at': round(now), 'solUsd': sol_usd, 'empty': True}
+    dt = max(0.0, now - _f(state.get('at')))
     rate = sum(_usd(_rate(a, t, cfg), t, sol_usd) for t in TOKENS)
-    share = shares(state, sol_usd).get(cat, 0.0); pot_day = sum(_usd(state['books'][t]['pot'], t, sol_usd) for t in TOKENS) * (1 - 0.5 ** (1 / cfg['potHalfLifeDays']))
-    return {'potShare': round(share, 6), 'feeShareDayUsd': round(pot_day * share, 6), 'sends': (a.get('sends') or [])[::-1], 'hist': (a.get('hist') or [])[-120:], 'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6),
+    part = shares(state, sol_usd).get(cat, 0.0); pot_day = sum(_usd(state['books'][t]['pot'], t, sol_usd) for t in TOKENS) * (cfg['potPayDayPct'] / 100)
+    rows = a.get('streams') or []
+    return {'potShare': round(part, 6), 'feeShareDayUsd': round(pot_day * part, 6), 'streams': [stream_view(r, sol_usd) for r in rows[::-1][:60]], 'hist': (a.get('hist') or [])[-120:], 'plan': a.get('plan') or 'month', 'spent': _f(a.get('spent')),
+            'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6), 'vaultUsd': round(sum(_usd((a.get('vault') or {}).get(t) or 0, t, sol_usd) for t in TOKENS), 6),
+            'backLeftUsd': round(sum(_usd((r.get('back') or 0) - (r.get('out') or 0), r['token'], sol_usd) for r in rows), 6), 'nextEnd': min((r['end'] for r in rows if (r.get('left') or 0) > 0), default=None),
             'sentUsd': round(sum(_usd(a['sent'][t], t, sol_usd) for t in TOKENS), 6), 'earnedUsd': round(sum(_usd(a['earned'][t], t, sol_usd) for t in TOKENS), 6),
             'owed': {t: a['owed'][t] / UNITS[t] for t in TOKENS}, 'locked': {t: a['locked'][t] / UNITS[t] for t in TOKENS}, 'boost': a.get('boost') or 0, 'levers': levers(cfg, a.get('boost')), 'at': round(now), 'solUsd': sol_usd}
 
@@ -250,7 +312,7 @@ def snapshot(state, now, sol_usd):
     t = totals(state, sol_usd)['usd']
     state['hist'] = (list(state.get('hist') or []) + [{'d': day, **t}])[-400:]
     for a in state['agents'].values():
-        a['hist'] = (list(a.get('hist') or []) + [{'d': day, 'owed': round(sum(_usd(a['owed'][k], k, sol_usd) for k in TOKENS), 6), 'locked': round(_locked_usd(a, sol_usd), 6), 'earned': round(sum(_usd(a['earned'][k], k, sol_usd) for k in TOKENS), 6), 'sent': round(sum(_usd(a['sent'][k], k, sol_usd) for k in TOKENS), 6)}])[-180:]
+        a['hist'] = (list(a.get('hist') or []) + [{'d': day, 'back': round(sum(_usd((r.get('back') or 0) - (r.get('out') or 0), r['token'], sol_usd) for r in a.get('streams') or []), 6), 'owed': round(sum(_usd(a['owed'][k], k, sol_usd) for k in TOKENS), 6), 'locked': round(_locked_usd(a, sol_usd), 6), 'earned': round(sum(_usd(a['earned'][k], k, sol_usd) for k in TOKENS), 6), 'sent': round(sum(_usd(a['sent'][k], k, sol_usd) for k in TOKENS), 6)}])[-180:]
 
 
 def backed(state, t):
@@ -274,6 +336,7 @@ def totals(state, sol_usd):
             out['in'][k] = out['in'].get(k, 0.0) + _usd(int(v), t, sol_usd)
         for a in state['agents'].values():
             out['usd']['locked'] += _usd(a['locked'][t], t, sol_usd); out['usd']['owed'] += _usd(a['owed'][t], t, sol_usd)
+            out['usd']['vault'] = out['usd'].get('vault', 0.0) + _usd((a.get('vault') or {}).get(t) or 0, t, sol_usd)
             out['ratePerSecUsd'] += _usd(_rate(a, t, cfg), t, sol_usd)
     out['agents'] = sum(1 for a in state['agents'].values() if any(a['sent'].values()))
     out['usd'] = {k: round(v, 6) for k, v in out['usd'].items()}; out['in'] = {k: round(v, 6) for k, v in out['in'].items()}; out['ratePerSecUsd'] = round(out['ratePerSecUsd'], 12)
@@ -281,9 +344,9 @@ def totals(state, sol_usd):
 
 
 def rules(cfg):
-    """What a user's split picture draws, straight from the live settings."""
-    keep = ('skimPct', 'splitPct', 'splitMaxPct', 'halfLifeDays', 'halfLifeMinDays', 'potPct', 'weightMaxX', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode')
-    return {**{k: cfg[k] for k in keep}, 'potKinds': list(POT_KINDS)}
+    """What a user's picture draws, straight from the live settings."""
+    keep = ('skimPct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
+    return {**{k: cfg[k] for k in keep}, 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
 
 
 def txn_fee_usd(cfg, usd):
@@ -324,8 +387,8 @@ def load(path):
             d = json.loads(_unseal(raw))
         except Exception as e:   # noqa: BLE001 — any failed seal is the same answer
             raise Tampered(str(e)[:120])
-    if int(d.get('v') or 1) < 2 and not d.get('cfgLog'):   # first version's pot rule: nobody had moved it
-        d['cfg'] = {**(d.get('cfg') or {}), 'potPct': DEFAULTS['potPct']}; d['v'] = 2
+    if int(d.get('v') or 1) < 3:   # the first plans: nothing was ever sent under the older rules
+        d['cfg'] = {}; d['v'] = 3
     return {**base, **d, 'cfg': clean_cfg(d.get('cfg')), 'trailNew': []}
 
 

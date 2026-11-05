@@ -37,6 +37,29 @@ def _traits(key, f):
     return [f'topic {w}' for w in words[:4]]
 
 
+def proof_score(key, f):
+    """A proof's real result, 0 to 100, or None. +50% or better is 100, flat is 50. A right call 85, a wrong one 25."""
+    if key == 'powFolders':
+        return None if f.get('status') != 'closed' or f.get('pnlPct') is None else max(0.0, min(100.0, 50 + _f(f.get('pnlPct'))))
+    if key == 'popFolders':
+        return None if f.get('status') != 'closed' or f.get('roePct') is None or f.get('noTrade') else max(0.0, min(100.0, 50 + _f(f.get('roePct'))))
+    return {'right': 85.0, 'wrong': 25.0}.get(f.get('graded'))
+
+
+def strength(cat, now):
+    """The print's strength, 0 to 100, from real results only. Recent proofs count most, and it takes about 10 of them to reach its full reading, so a lucky first win or a pile of old ones proves little."""
+    tot = w_tot = n = 0.0
+    for key in KIND:
+        for f in (cat or {}).get(key) or []:
+            v = proof_score(key, f)
+            if v is None:
+                continue
+            w = 0.5 ** (max(0.0, now - _f(f.get('soldAt') or f.get('closedAt') or f.get('at'))) / HALF_LIFE_S); tot += v * w; w_tot += w; n += w
+    if not w_tot:
+        return 0.0
+    return round((tot / w_tot) * min(1.0, n / 10), 1)
+
+
 KEEP_SHOTS = 2
 CLEAN_AFTER_S = 14 * 86400
 

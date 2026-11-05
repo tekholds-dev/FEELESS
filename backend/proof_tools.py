@@ -296,3 +296,50 @@ async def best_topic(http):
         if len(legs) >= 2:
             return f"best {label} picks: {', '.join(x['pick'] for x in legs[:3])}"[:120]
     return ''
+
+
+_STOP_WORDS = {'make', 'build', 'create', 'me', 'a', 'an', 'the', 'with', 'and', 'for', 'that', 'this', 'please', 'want', 'need', 'page', 'site', 'website', 'app', 'of', 'to', 'in', 'on', 'my', 'i', 'it', 'some', 'like', 'can', 'you', 'so', 'is'}
+
+
+def keywords(ask, n=4):
+    """The words worth searching for. Pure."""
+    seen = []
+    for w in re.findall(r'[a-z0-9][a-z0-9+#.-]+', str(ask or '').lower()):
+        if w not in _STOP_WORDS and w not in seen:
+            seen.append(w)
+    return seen[:n]
+
+
+def parse_refs(gh, hn):
+    """Real references from two free public sources: repos by stars, Show HN by points. Pure."""
+    out = []
+    for r in (gh or {}).get('items') or []:
+        out.append({'title': str(r.get('full_name') or '')[:80], 'url': str(r.get('html_url') or ''), 'why': str(r.get('description') or '')[:160], 'source': 'GitHub', 'score': int(r.get('stargazers_count') or 0)})
+    for h in (hn or {}).get('hits') or []:
+        if h.get('url'):
+            out.append({'title': str(h.get('title') or '').replace('Show HN: ', '')[:80], 'url': str(h.get('url'))[:300], 'why': '', 'source': 'Hacker News', 'score': int(h.get('points') or 0)})
+    return out
+
+
+async def _reach(http, ref):
+    """Can a plain visitor open it? A wall or an error marks it blocked, so the plan never leans on a site nobody can read."""
+    try:
+        r = await http.get(ref['url'], timeout=6, follow_redirects=True, headers={'User-Agent': 'Mozilla/5.0 FEELESS-agent'})
+        return {**ref, 'open': r.status_code < 400 and not r.headers.get('cf-mitigated')}
+    except Exception:   # noqa: BLE001
+        return {**ref, 'open': False}
+
+
+async def build_refs(http, ask, deep=False):
+    """🔎 The best current builds for a request, from free sources, each checked as reachable. → [{title, url, why, source, score, open}]"""
+    words = keywords(ask)
+    if not words:
+        return []
+    q = ' '.join(words); n = 8 if deep else 4
+    gh, hn = await asyncio.gather(_get(http, 'https://api.github.com/search/repositories', params={'q': f'{q} stars:>20', 'sort': 'stars', 'per_page': n}), _get(http, 'https://hn.algolia.com/api/v1/search', params={'query': q, 'tags': 'show_hn', 'hitsPerPage': n}))
+    refs = parse_refs(gh, hn)
+    if not refs and len(words) > 2:   # a long ask can match nothing: widen once
+        q = ' '.join(words[:2])
+        gh, hn = await asyncio.gather(_get(http, 'https://api.github.com/search/repositories', params={'q': f'{q} stars:>20', 'sort': 'stars', 'per_page': n}), _get(http, 'https://hn.algolia.com/api/v1/search', params={'query': q, 'tags': 'show_hn', 'hitsPerPage': n}))
+        refs = parse_refs(gh, hn)
+    return sorted(await asyncio.gather(*(_reach(http, r) for r in refs[:n * 2])), key=lambda r: (not r['open'], -r['score']))
