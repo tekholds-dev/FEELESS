@@ -25,6 +25,7 @@ import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { LiveCount, useAgentPool } from './BoostFolder';
 import { SplitFlow, money } from './SplitFlow';
+import { AgentStage, ChatStylePicker, chatClass, useChatStyle } from './ChatStyles';
 import { DeskPrint } from './Proofprint';
 import { BoostCoin, DeskSettings, useDeskPrefs, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
@@ -1374,6 +1375,7 @@ function WorkbenchLive({ cat }) {
     return at ? shown.reverse() : shown;
   }, [d?.windows, brains_.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
+  const [chatLook, setChatLook] = useChatStyle(cat.id);
   const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [flip, setFlip] = useState(false); const [desk, setDesk] = useState(false); const [old, setOld] = useState(false);
   useEffect(() => { if (!gear && !flip) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setFlip(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, flip]);
   useEffect(() => { if (signIn) setFlip(true); }, [signIn]);   // a window asked for a login → the chat flips to the cabinet, on Credentials
@@ -1414,14 +1416,14 @@ function WorkbenchLive({ cat }) {
       {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
       </div>]] : [])]} /></>}>
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
-    <ol ref={chatRef} className="cwb-chat" aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
+    {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
         <span className="cwb-sugg">{SUGGEST.map(t => <button key={t} type="button" onClick={() => setText(t)}>{t}</button>)}</span></li> : null}
-    </ol>
+    </ol>}
     {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest message" data-testid="cwb-newmsg">↓ {unseen} new</button> : null}
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b><Ic3 e="💸" /> Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
@@ -1434,6 +1436,7 @@ function WorkbenchLive({ cat }) {
       <button type="button" onClick={() => act('unpark', { i })} aria-label="Drop it" data-tip="Drop it" data-testid={`cwb-unpark-${i}`}>✕</button></li>)}</ol> : null}
     <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
     <div className={`cwb-pop${gear ? ' is-open' : ''}`} id="cwb-settings" role="dialog" aria-label="Chat settings" data-testid="cwb-settings" aria-hidden={!gear}>
+      <ChatStylePicker value={chatLook} set={setChatLook} />
       {live ? <small className="m-note" data-testid="cwb-locked"><Ic3 e="🔒" /> Locked while it works — press ■ Stop to change these</small> : null}
       <em>HOW ITS MINDS WORK</em>
     <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}

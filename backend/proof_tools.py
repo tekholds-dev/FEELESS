@@ -6,7 +6,7 @@ import re
 import time
 from urllib.parse import quote
 
-SPORTS = {'nfl': ('NFL', 'football/nfl'), 'nba': ('NBA', 'basketball/nba'), 'mlb': ('MLB', 'baseball/mlb'), 'nhl': ('NHL', 'hockey/nhl'), 'cfb': ('College football', 'football/college-football'), 'cbb': ('College basketball', 'basketball/mens-college-basketball'), 'epl': ('Soccer', 'soccer/eng.1')}
+SPORTS = {'nfl': ('NFL', 'football/nfl'), 'nba': ('NBA', 'basketball/nba'), 'mlb': ('MLB', 'baseball/mlb'), 'nhl': ('NHL', 'hockey/nhl'), 'cfb': ('College football', 'football/college-football'), 'cbb': ('College basketball', 'basketball/mens-college-basketball'), 'epl': ('Premier League', 'soccer/eng.1'), 'mls': ('MLS', 'soccer/usa.1'), 'ucl': ('Champions League', 'soccer/uefa.champions'), 'laliga': ('La Liga', 'soccer/esp.1'), 'wnba': ('WNBA', 'basketball/wnba'), 'ufc': ('UFC', 'mma/ufc')}
 KALSHI = {'nfl': 'KXNFLGAME', 'nba': 'KXNBAGAME', 'mlb': 'KXMLBGAME', 'nhl': 'KXNHLGAME', 'cfb': 'KXNCAAFGAME', 'cbb': 'KXNCAAMBGAME', 'epl': 'KXEPLGAME'}
 POLY_TAG = {'nfl': 'nfl', 'nba': 'nba', 'mlb': 'mlb', 'nhl': 'nhl', 'cfb': 'cfb', 'cbb': 'cbb', 'epl': 'epl'}
 SOURCES = {'bids': [('ESPN', 'Games, scores, teams', True), ('Polymarket', 'Market odds on each game', True), ('Kalshi', 'US regulated markets', True), ('TheSportsDB', 'Team records', True), ('The Odds API', 'Sportsbook lines: needs your key', False)],
@@ -49,8 +49,8 @@ def parse_espn(data):
         teams = sorted(c.get('competitors') or [], key=lambda t: t.get('homeAway') != 'away')
         if len(teams) != 2:
             continue
-        row = [{'name': (t.get('team') or {}).get('displayName'), 'short': (t.get('team') or {}).get('shortDisplayName') or (t.get('team') or {}).get('name'), 'abbr': (t.get('team') or {}).get('abbreviation'), 'score': t.get('score'), 'winner': t.get('winner')} for t in teams]
-        odds = (c.get('odds') or [{}])[0]
+        row = [{'name': (t.get('team') or t.get('athlete') or {}).get('displayName'), 'short': (t.get('team') or t.get('athlete') or {}).get('shortDisplayName') or (t.get('team') or t.get('athlete') or {}).get('name'), 'abbr': (t.get('team') or t.get('athlete') or {}).get('abbreviation'), 'score': t.get('score'), 'winner': t.get('winner')} for t in teams]
+        odds = (c.get('odds') or [{}])[0] or {}
         out.append({'id': e.get('id'), 'at': e.get('date'), 'state': st.get('state'), 'final': bool(st.get('completed')), 'status': st.get('shortDetail') or st.get('description'), 'teams': row, 'line': odds.get('details'), 'total': odds.get('overUnder')})
     return out
 
@@ -168,8 +168,8 @@ async def sport_board(http, sport):
         sport = 'nfl'
 
     async def go():
-        espn, poly, kal = await asyncio.gather(_get(http, f'https://site.api.espn.com/apis/site/v2/sports/{SPORTS[sport][1]}/scoreboard'), _get(http, 'https://gamma-api.polymarket.com/events', params={'active': 'true', 'closed': 'false', 'limit': 60, 'tag_slug': POLY_TAG[sport], 'order': 'volume24hr', 'ascending': 'false'}),
-                                               _get(http, 'https://api.elections.kalshi.com/trade-api/v2/events', params={'series_ticker': KALSHI[sport], 'status': 'open', 'limit': 60, 'with_nested_markets': 'true'}))
+        espn, poly, kal = await asyncio.gather(_get(http, f'https://site.api.espn.com/apis/site/v2/sports/{SPORTS[sport][1]}/scoreboard'), _get(http, 'https://gamma-api.polymarket.com/events', params={'active': 'true', 'closed': 'false', 'limit': 60, 'tag_slug': POLY_TAG.get(sport, sport), 'order': 'volume24hr', 'ascending': 'false'}),
+                                               _get(http, 'https://api.elections.kalshi.com/trade-api/v2/events', params={'series_ticker': KALSHI.get(sport, 'NONE'), 'status': 'open', 'limit': 60, 'with_nested_markets': 'true'}))
         games = parse_espn(espn)
         for g in games:
             g['sport'] = sport
@@ -177,14 +177,123 @@ async def sport_board(http, sport):
     return await _cached(f'sport:{sport}', go) or {'games': [], 'espn': False, 'poly': False}
 
 
-async def bids(http, sport='nfl', team=''):
-    b = await sport_board(http, sport); games = b.get('games') or []; legs = best_legs(games, team); card = None
+ORDER = {'in': 0, 'pre': 1, 'post': 2}
+
+
+def order_games(games):
+    """Live first, then what starts soonest, then what just finished. Pure."""
+    return sorted(games or [], key=lambda g: (ORDER.get(g.get('state'), 3), str(g.get('at') or '')))
+
+
+async def board_all(http):
+    """Every sport's board at once, each cached on its own. A sport that is down just shows nothing."""
+    rows = await asyncio.gather(*(sport_board(http, k) for k in SPORTS))
+    return {'games': order_games([g for r in rows for g in (r.get('games') or [])]), 'espn': any(r.get('espn') for r in rows), 'poly': any(r.get('poly') for r in rows), 'kalshi': any(r.get('kalshi') for r in rows)}
+
+
+MARKET_CATS = (('Politics', ('politics', 'elections', 'us election', 'geopolitics', 'world')), ('Crypto', ('crypto', 'bitcoin', 'ethereum', 'solana')), ('Sports', ('sports', 'nba', 'nfl', 'soccer', 'games')), ('Pop culture', ('pop culture', 'culture', 'movies', 'music', 'awards')), ('Tech', ('tech', 'ai', 'science')), ('Business', ('business', 'economy', 'finance', 'fed')))
+
+
+def parse_markets(events):
+    """The biggest open prediction markets, each with its category, its leading side and when it ends. Pure."""
+    out = []
+    for e in events or []:
+        tags = [str(t.get('label') or '').lower() for t in e.get('tags') or []]
+        cat = next((c for c, keys in MARKET_CATS if any(k in tags for k in keys)), 'Other')
+        best = None
+        for m in (e.get('markets') or [])[:12]:
+            try:
+                names = json.loads(m.get('outcomes') or '[]'); prices = [float(x) for x in json.loads(m.get('outcomePrices') or '[]')]
+            except (TypeError, ValueError):
+                continue
+            if names[:1] == ['Yes'] and prices:   # a Yes market: only Yes is the side to show
+                if not 0.01 < prices[0] < 0.995:
+                    continue
+                side = {'name': str(m.get('groupItemTitle') or m.get('question') or 'Yes')[:60], 'chance': round(prices[0], 3)}
+            elif names and prices:
+                k = prices.index(max(prices)); side = {'name': str(names[k])[:60], 'chance': round(prices[k], 3)}
+            else:
+                continue
+            if not best or side['chance'] > best['chance']:
+                best = side
+        if best:
+            out.append({'id': str(e.get('id')), 'title': str(e.get('title'))[:110], 'cat': cat, 'end': e.get('endDate'), 'lead': best, 'volume': _f(e.get('volume24hr')), 'slug': e.get('slug')})
+    return out
+
+
+async def markets(http):
+    async def go():
+        return parse_markets(await _get(http, 'https://gamma-api.polymarket.com/events', params={'active': 'true', 'closed': 'false', 'limit': 60, 'order': 'volume24hr', 'ascending': 'false'}))
+    return await _cached('markets', go) or []
+
+
+def poly_for(words, rows):
+    """The open market a bid is about, if any: most of its title's words are in the ask. Pure."""
+    ask = {w.lower() for w in re.findall(r'[A-Za-z0-9]{3,}', ' '.join(words) if isinstance(words, (list, tuple)) else str(words or ''))}; best = None; top = 0.0
+    for m in rows or []:
+        t = {w.lower() for w in re.findall(r'[A-Za-z0-9]{3,}', m.get('title') or '')}
+        hit = len(t & ask) / max(1, len(t))
+        if hit > top and hit >= 0.6:
+            best, top = m, hit
+    return {k: best.get(k) for k in ('id', 'title', 'end', 'slug')} if best else None
+
+
+def poly_winner(event):
+    """The side that won a settled market, or None while it is open. Pure."""
+    ms = (event or {}).get('markets') or []
+    if not ms or not all(m.get('closed') for m in ms):
+        return None
+    for m in ms:
+        try:
+            names = json.loads(m.get('outcomes') or '[]'); prices = [float(x) for x in json.loads(m.get('outcomePrices') or '[]')]
+        except (TypeError, ValueError):
+            continue
+        if prices and max(prices) >= 0.99:
+            k = prices.index(max(prices))
+            return str(m.get('groupItemTitle')) if names[k] == 'Yes' and m.get('groupItemTitle') else str(names[k])
+    return None
+
+
+FREE_LICENSES = ('public domain', 'cc0', 'cc by', 'cc-by', 'pd')
+_img_cache = {}
+
+
+def parse_image(data, must):
+    """The first freely licensed picture whose name really mentions the subject, with its credit, or None. No match means no picture: nothing is faked. Pure."""
+    words = [w.lower() for w in must if len(w) > 2]
+    for p in ((data or {}).get('query') or {}).get('pages', {}).values():
+        i = (p.get('imageinfo') or [{}])[0]; meta = i.get('extmetadata') or {}; lic = str((meta.get('LicenseShortName') or {}).get('value') or ''); title = str(p.get('title') or '')
+        if not i.get('thumburl') or not lic.lower().startswith(FREE_LICENSES) or (words and not any(w in title.lower() for w in words)) or 'logo' in title.lower() or title.lower().endswith(('.pdf', '.svg', '.ogv', '.webm', '.tif', '.djvu')):
+            continue
+        return {'url': i['thumburl'], 'page': i.get('descriptionurl'), 'license': lic, 'by': re.sub(r'<[^>]+>', '', str((meta.get('Artist') or {}).get('value') or 'Wikimedia Commons'))[:60].strip(), 'title': title.replace('File:', '')[:70]}
+    return None
+
+
+async def free_image(http, q, must=()):
+    """A real, freely licensed photo from Wikimedia Commons, cached for a day. Team logos stay out: they are trademarks."""
+    key = f'{q}|{",".join(must)}'.lower(); got = _img_cache.get(key)
+    if got and time.time() - got[0] < 86400:
+        return got[1]
+    img = None
+    for query in dict.fromkeys([q, *[w for w in must if len(w) > 3][:2]]):   # the matchup first, then either side
+        data = await _get(http, 'https://commons.wikimedia.org/w/api.php', headers={'User-Agent': 'FEELESS/1.0 (https://github.com/tekholds-dev/FEELESS)'}, params={'action': 'query', 'format': 'json', 'generator': 'search', 'gsrnamespace': 6, 'gsrsearch': query, 'gsrlimit': 12, 'prop': 'imageinfo', 'iiprop': 'url|extmetadata', 'iiurlwidth': 480, 'iiextmetadatafilter': 'LicenseShortName|Artist'})
+        img = parse_image(data, list(must) or q.split())
+        if img:
+            break
+    _img_cache[key] = (time.time(), img)
+    if len(_img_cache) > 2000:
+        _img_cache.pop(next(iter(_img_cache)))
+    return img
+
+
+async def bids(http, sport='all', team=''):
+    b = await (board_all(http) if sport == 'all' else sport_board(http, sport)); games = order_games(b.get('games') or []); legs = best_legs(games, team); card = None
     if team:
         got = await _get(http, 'https://www.thesportsdb.com/api/v1/json/123/searchteams.php', params={'t': team})
         t0 = ((got or {}).get('teams') or [None])[0]
         card = {'name': t0.get('strTeam'), 'league': t0.get('strLeague'), 'stadium': t0.get('strStadium'), 'formed': t0.get('intFormedYear')} if t0 else None
     shown = [g for g in games if not team or any(_word(team) in _word(t.get('name')) for t in g['teams'])]
-    return {'kind': 'bids', 'sports': [[k, v[0]] for k, v in SPORTS.items()], 'sport': sport, 'teams': team_list(games), 'games': shown[:24], 'legs': legs[:8], 'parlays': parlays(legs), 'team': card,
+    return {'kind': 'bids', 'sports': [['all', 'Everything'], *[[k, v[0]] for k, v in SPORTS.items()]], 'sport': sport, 'teams': team_list(games), 'games': shown[:40], 'live': sum(1 for g in games if g.get('state') == 'in'), 'markets': await markets(http), 'legs': legs[:8], 'parlays': parlays(legs), 'team': card,
             'sources': [{'name': n, 'use': u, 'on': {'ESPN': b.get('espn'), 'Polymarket': b.get('poly'), 'Kalshi': b.get('kalshi'), 'TheSportsDB': bool(card)}.get(n, False)} for n, u, _ in SOURCES['bids']]}
 
 

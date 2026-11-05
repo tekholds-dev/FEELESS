@@ -262,3 +262,5 @@ body.theme-day .dset h3 { color: #101a44; } body.theme-day .dset h4 { color: #27
 .cwb-cursor.is-rest::before { opacity: .35; animation: none; }
 body.fx-lite .cwb-cursor::before { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-cursor::before { animation: none; } }
 @media (max-width: 640px) { .pfx-loop-h { display: none; } .pfx-loop-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pfx-loop-r { grid-template-columns: minmax(0, 1fr); } .pfx-loop-r em { grid-column: 1; } }
+
+.spf-even { font: 700 9.6px var(--f-ui); color: #ffe19a; } .spf-even.is-none { color: #7d8db5; font-weight: 500; }

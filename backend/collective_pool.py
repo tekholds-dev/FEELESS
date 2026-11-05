@@ -18,8 +18,8 @@ TICK_S = 60
 BOOST_POINTS_FULL = 100
 
 PLANS = ('week', 'month', 'quarter', 'vault')
-DEFAULTS = {'skimPct': 20.0, 'potPct': 50.0, 'potPayDayPct': 5.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
-            'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.0, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
+DEFAULTS = {'skimPct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+            'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.5, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
 BOUNDS = {'skimPct': (0, 50), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
           'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
@@ -188,16 +188,20 @@ def spend_points(state, cat, stream_id, pts, available, now):
 
 
 VAULT_FADE_DAYS = 45.0
+FRESH_X = 2.0
+FRESH_DAYS = 7.0
 
 
 def _working_usd(a, sol_usd, now):
     """What is working for an agent: its unreleased money and its Vault claim, each × its plan's weight. A Vault claim fades by half every 45 days, so it pays those still sending good proofs, not those who simply got here first."""
     w = 0.0
     for r in a.get('streams') or []:
-        amt = r.get('vault') or r.get('left') or 0
+        amt = r.get('vault') or (r.get('locked') if (r.get('left') or 0) > 0 else 0) or 0   # a send earns on its whole amount until its date
         if amt:
-            fade = 0.5 ** (max(0.0, now - _f(r.get('at'))) / (VAULT_FADE_DAYS * 86400)) if r.get('vault') else 1.0
-            w += amt * (r.get('unitUsd') or (sol_usd / UNITS['SOL'] if r.get('token') == 'SOL' else 1 / UNITS['USDC'])) * _f(r.get('weightX')) * fade
+            age = max(0.0, now - _f(r.get('at')))
+            fade = 0.5 ** (age / (VAULT_FADE_DAYS * 86400)) if r.get('vault') else 1.0
+            fresh = 1 + FRESH_X * 0.5 ** (age / (FRESH_DAYS * 86400))   # a fresh proof earns the most, so proving often is what pays
+            w += amt * (r.get('unitUsd') or (sol_usd / UNITS['SOL'] if r.get('token') == 'SOL' else 1 / UNITS['USDC'])) * _f(r.get('weightX')) * fade * fresh
     return w
 
 
@@ -282,6 +286,12 @@ def _rate(a, t, cfg, now=None):
 
 def _usd(units, t, sol_usd):
     return units / UNITS[t] * (sol_usd if t == 'SOL' else 1)
+
+
+def pays_for_itself(usd, back_usd, weight_x, pot_day_usd, total_weight):
+    """At today's fee pot, about how many days until a send has returned what it sent, or None when the pot pays nothing yet. An estimate, never a promise. Pure."""
+    gap = max(0.0, _f(usd) - _f(back_usd)); w = _f(usd) * _f(weight_x); per_day = _f(pot_day_usd) * (w / max(1e-9, _f(total_weight) + w))
+    return None if per_day <= 0 else round(gap / per_day, 1)
 
 
 def stream_view(r, sol_usd):

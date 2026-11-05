@@ -12,7 +12,6 @@ import proof_stamp as _st
 from visitor_view import _font
 
 MIN_WIN_PCT = 50.0
-BOOST_SENT = 10
 BOOST_PROVED = 5
 CONVO_EVERY_S = 86400
 CONVO_MAX_PROOFS = 3

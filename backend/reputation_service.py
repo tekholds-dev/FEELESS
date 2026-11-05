@@ -11101,7 +11101,6 @@ async def _cat_for_fund(cat_id, me):
 def _cat_fund_rules(me=None):
     """💵 What funding a cat costs, from HQ › Fees (owner 2026-10-29: "I wanna set how much per cat in cmd"): the one-time fee + the least a
     first funding may be. A staff / creator wallet pays NO fee and may start from $1 ("I'm the owner — it shouldn't charge me the fee")."""
-    c_ = _fee_cfg()
     staff_ = bool(me) and _is_staff(me)
     pool_ = _cpool.load(POOL_PATH)['cfg']
     return {'feeUsd': 0.0, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else pool_['firstMinUsd'], 'topupMinUsd': _cfund.TOPUP_MIN_USD, 'depositPct': pool_['depositPct'],

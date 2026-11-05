@@ -70,3 +70,15 @@ test('desktop settings save and change the look', async () => {
   await act(async () => { el.querySelector('[data-testid="dset-motion-off"]').click(); }); expect(set).toHaveBeenCalledWith({ motion: 'off' });
   await act(async () => root.unmount());
 });
+
+test('a chat look is one chat restyled, and just the agent shows its words in bubbles', async () => {
+  const { AgentStage, ChatStylePicker, chatClass } = require('./ChatStyles'); const set = jest.fn();
+  expect(chatClass({ style: 'clean', theme: 'day', motion: false })).toBe('chs-clean chs-t-day chs-still');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ChatStylePicker value={{ style: 'classic', theme: 'auto', motion: true }} set={set} />); });
+  await act(async () => { el.querySelector('[data-testid="chs-agent"]').click(); }); expect(set).toHaveBeenCalledWith({ style: 'agent' });
+  await act(async () => { el.querySelector('[data-testid="chs-theme-day"]').click(); }); expect(set).toHaveBeenCalledWith({ theme: 'day' });
+  await act(async () => { root.render(<AgentStage cat={{}} msgs={[{ by: 'you', text: 'hi' }, { by: 'cats', text: 'hello there' }]} working />); });
+  expect(el.textContent).toContain('hello there'); expect(el.querySelector('[data-testid="chs-think"]')).toBeTruthy(); expect(el.querySelector('[data-testid="chs-character"]')).toBeTruthy();
+  await act(async () => root.unmount());
+});

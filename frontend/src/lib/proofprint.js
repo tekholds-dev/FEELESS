@@ -78,7 +78,7 @@ export function growthExample(rules, { members = 500, sendWeek = 10, tradeDay = 
     const pay = net.pot * payDay; const mine = Math.min(you.room, pay / Math.max(1, members)); net.pot -= mine * members; you.fee += mine; you.room = Math.max(0, you.room - mine) * 0.5 ** (1 / 30);
     you.lock.forEach(l => { if (l.left <= 0) return; const out = Math.min(l.left, l.each); const got = out * (l.back / (l.each * l.days)); l.left -= out; you.own += got; net.lock -= members * got; });
     const coming = you.lock.reduce((a, l) => a + l.left * (l.back / (l.each * l.days)), 0); const back = you.own + you.fee; if (even == null && you.sent > 0 && back >= you.sent) even = d;
-    if (d % 10 === 0) rows.push({ d, sent: you.sent, own: you.own, fee: you.fee, back, coming, keep: net.keep, pot: net.pot, lock: net.lock, feesIn, points: pts, boost });
+    if (d % 10 === 0) rows.push({ d, feesPaid: tradeDay * fee * d, sent: you.sent, own: you.own, fee: you.fee, back, coming, keep: net.keep, pot: net.pot, lock: net.lock, feesIn, points: pts, boost });
   }
   return { rows, even };
 }

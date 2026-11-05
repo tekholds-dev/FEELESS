@@ -3177,6 +3177,9 @@ async def _pob_topic_file(cat, rd, now, notes, why):
             boards_ = await asyncio.gather(*(_tools.sport_board(http_g, s) for s in _tools.SPORTS))
         words_ = ' '.join([rd['topic']] + [str(p.get('pick') if isinstance(p, dict) else p) for p in both])
         base['games'] = _tools.games_for(words_, [g for b_ in boards_ for g in b_.get('games') or []])
+        async with httpx.AsyncClient(timeout=8) as http_m:
+            base['poly'] = _tools.poly_for(rd['topic'], await _tools.markets(http_m))   # 🗳 a bid on an open market settles when the market does
+        base['settleAt'] = (base.get('poly') or {}).get('end') or max([g.get('at') or '' for g in base.get('games') or []] or [''])
     except Exception as e:   # noqa: BLE001 — a proof still files without its scoreboard
         print(f'[pob] no scoreboard: {str(e)[:80]}')
     cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
@@ -4937,7 +4940,7 @@ async def _ws_ask(cat, model, sys_, user_, tokens):
 
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
-    now = time.time(); doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
+    doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
     brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind'); start_versions = len(doc.get('versions') or [])
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     try:
@@ -5050,7 +5053,8 @@ async def cat_indicator(ind: str):
 async def pool_rules():
     """🪙 Public: the live split rules a user sees before sending, and the Pool's totals. Never a wallet or an owner."""
     st = _cpool.load(POOL_PATH); t = _cpool.totals(st, await _pool_px())
-    return {'rules': _cpool.rules(st['cfg']), 'potUsd': t['usd']['pot'], 'lockedUsd': t['usd']['locked'], 'agents': t['agents'], 'ratePerSecUsd': t['ratePerSecUsd'], 'withdrawals': False}
+    px_ = await _pool_px(); wt_ = sum(_cpool._working_usd(a_, px_, time.time()) * _cpool.levers(st['cfg'], a_.get('boost'))['weightX'] for a_ in st['agents'].values())
+    return {'rules': {**_cpool.rules(st['cfg']), 'live': {'potDayUsd': round(t['usd']['pot'] * st['cfg']['potPayDayPct'] / 100, 4), 'weight': round(wt_, 4)}}, 'potUsd': t['usd']['pot'], 'lockedUsd': t['usd']['locked'], 'agents': t['agents'], 'ratePerSecUsd': t['ratePerSecUsd'], 'withdrawals': False}
 
 
 @app.get('/api/cats/collective/mine')
@@ -5104,8 +5108,17 @@ async def cat_receipt(sig: str):
     return Response(content=f_.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
 
 
+@app.get('/api/cats/tools/image')
+async def cat_tool_image(q: str = '', must: str = ''):
+    """🖼 A real, freely licensed photo for a game or event, with its credit. None when nothing fits: nothing is faked."""
+    if not q.strip():
+        return {'image': None}
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as http:
+        return {'image': await _tools.free_image(http, q[:90], [w for w in must.split(',') if w][:6])}
+
+
 @app.get('/api/cats/tools/{kind}')
-async def cat_tools(kind: str, sport: str = 'nfl', team: str = ''):
+async def cat_tools(kind: str, sport: str = 'all', team: str = ''):
     """🧰 A proof folder's dash: live rows from its top 5 free sources. Read-only and public: nothing here is anyone's."""
     async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
         if kind == 'bids':
@@ -5136,6 +5149,14 @@ async def _pob_grade_pass(http, store, now):
                 f['games'], grade = _tools.grade_games(f['games'], board)
                 if grade:
                     f['graded'], f['gradedBy'] = grade, 'scoreboard'
+    for f in [x for c in store['cats'].values() for x in (c.get('pobFolders') or [])[-20:] if x.get('poly') and not x.get('graded')]:   # 🗳 graded when the market itself settles
+        ev = await _tools._get(http, f"https://gamma-api.polymarket.com/events/{f['poly'].get('id')}")
+        won = _tools.poly_winner(ev)
+        if won:
+            picks = ' '.join(str(p.get('pick') if isinstance(p, dict) else p) for c_ in f.get('calls') or [] for p in c_.get('picks') or []).lower()
+            f['poly']['winner'] = won
+            if picks:
+                f['graded'], f['gradedBy'] = ('right' if won.lower() in picks else 'wrong'), 'polymarket'
 
 
 @app.get('/api/cats/colony/flow')

@@ -197,3 +197,25 @@ def test_a_note_reaches_both_minds_and_expires():
     import agent_features as feat
     assert 'safer' in feat.personal_line({'proofNote': {'text': 'safer', 'at': time.time()}})
     assert feat.personal_line({'proofNote': {'text': 'safer', 'at': time.time() - 7200}}) == ''
+
+
+def test_pob_shows_live_first_real_markets_and_only_free_pictures_of_the_real_subject():
+    import proof_tools as pt
+    assert [g['state'] for g in pt.order_games([{'state': 'post', 'at': '1'}, {'state': 'pre', 'at': '2'}, {'state': 'in', 'at': '9'}, {'state': 'pre', 'at': '1'}])] == ['in', 'pre', 'pre', 'post']
+    ok = {'title': 'File:Lakers at Suns.jpg', 'imageinfo': [{'thumburl': 'https://x/a.jpg', 'descriptionurl': 'd', 'extmetadata': {'LicenseShortName': {'value': 'CC BY-SA 4.0'}, 'Artist': {'value': '<a>Jo</a>'}}}]}
+    closed = {'title': 'File:Lakers game.jpg', 'imageinfo': [{'thumburl': 'https://x/b.jpg', 'extmetadata': {'LicenseShortName': {'value': 'Fair use'}}}]}
+    off = {'title': 'File:Cat.jpg', 'imageinfo': [{'thumburl': 'https://x/c.jpg', 'extmetadata': {'LicenseShortName': {'value': 'CC0'}}}]}
+    assert pt.parse_image({'query': {'pages': {'1': closed, '2': off, '3': ok}}}, ['lakers'])['by'] == 'Jo'
+    assert pt.parse_image({'query': {'pages': {'1': closed, '2': off}}}, ['lakers']) is None                     # nothing fits: no picture, never a fake
+    ev = {'id': 1, 'title': 'Fed decision in June', 'endDate': 'E', 'tags': [{'label': 'Economy'}], 'volume24hr': '5', 'markets': [{'outcomes': '["Yes","No"]', 'outcomePrices': '["0.7","0.3"]', 'groupItemTitle': 'Cut'}]}
+    row = pt.parse_markets([ev])[0]; assert row['cat'] == 'Business' and row['lead'] == {'name': 'Cut', 'chance': 0.7}
+    assert pt.poly_for('will the fed decision in june', [row])['id'] == '1' and pt.poly_for('lakers', [row]) is None
+    assert pt.poly_winner({'markets': [{'closed': False}]}) is None
+    assert pt.poly_winner({'markets': [{'closed': True, 'outcomes': '["Yes","No"]', 'outcomePrices': '["1","0"]', 'groupItemTitle': 'Cut'}]}) == 'Cut'
+
+
+def test_pays_for_itself_is_an_estimate_from_the_real_pot():
+    import collective_pool as cp
+    assert cp.pays_for_itself(10, 6.8, 2, 0, 100) is None
+    assert cp.pays_for_itself(10, 6.8, 2, 10, 0) == 0.3
+    assert cp.pays_for_itself(10, 10, 2, 10, 100) == 0
