@@ -4,6 +4,24 @@ Owner, 2026-11-04: "always should be one MD". This file is the handoff AND the o
 
 Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = not built · **OWNER** = needs your key, account, signature or decision · **VERIFY** = built, needs one real run or your check. A row finished AND proven moves to `docs/FEELESS_HISTORY.md`.
 
+# LATEST (2026-11-05, evening). Read this first; it updates START HERE below.
+
+**Shipped in be01a187:** desktop lag (page under a desktop stops painting, windows behind pause, drags touch the DOM only; PoW scroll 26 to 45 fps in the dev build). Fit to screen and new settings (`fitIcons`, `useDeskIcons`). All 5 proof folders plus PoEco use `ProofTile`, and `PrintLines` makes a folder's print its exact line on the desktop print. PoStatic lists every filed page and a failed read retries instead of saying "blank". PoEco (`agent_eco.py`, `EcoFolder.jsx`): Python math, sealed entries, receipt with hash, no model reads it. GitHub folder for every agent (`GitFolder.jsx`, `collective_git.py`, token sealed via `cat_keys`). Sicario's HQ tab is the full `CatWorkbench` plus Fuse seat and Endless switches. Fuse seat: `op desk_seat`, `/api/reputation/internal/sicario-want`, off by default. OSSY and G4 make no LM call while desk buys are off and the seat holds nothing. Web cannot zoom out past fit. Collective HQ numbers sit behind "Every number".
+
+**Works live:** private repo `tekholds-dev/feeless-collective` made and pushed with a real call (154 files, second push 0, anonymous read 404, secret scan 0), done from a script, not the folder's button. PoEco filed on Sicario's through the real server (one "Example books" folder is there, made by my test). Sicario tab and web zoom looked at on screen.
+**Fakes only:** GitHub folder's buttons (`test_collective_git.py`), Fuse seat send, hourly auto push, `sources/good.json` and `bad.json` (their code ran in no real push yet).
+**Not built:** a card seat win does not close its PoW folder with real P/L and cannot pay the Pool, because `_collect_pass` sends from an agent wallet and Sicario's has none. Prompt Studio is still mostly trading (only its header line changed). The Brain chat on the Sicario tab is untouched. py agents are not retired; the sorter is `collective_git`. Manual only moved 6 tabs behind More: lessons are not rewritten yet. A full audit of every page was not done: scroll was audited on the Agents desktop only, and "wired properly and encrypted" is unproven beyond PoEco entries and tokens. Auto-updating outside source repo: no external one found or wired. Proof pages (`source/pages`) were not in the real push.
+**Still lagging:** 35 to 48 fps scrolling (Bids 35), and Proofprint and Features take 220 to 240 ms to open (dev build). Production was not measured.
+**Data notes:** Monitor test's folder was deleted before this fix, so its 4 filed pages show "its folder was deleted" and cannot open. A filed folder's page is now kept on delete. My test also dragged Happy's Desktop settings icon and pressed Fit on Happy's desktop, replacing the owner's arrangement.
+
+**Owner decisions waiting:**
+1. Send deal. Today $20 on the 30 day plan returns $13.60, and the owner says nobody sends for that. Proposed: skim 0, plans back 100% (veCRV style, everything returns, fee share is the reward), so the Collective earns only from its fee share. Rule change, so it is the owner's call. Not changed.
+2. `deskBuysOff` is on, so Sicario's seat refuses every coin even when switched on. The card also has 0.002565 SOL. Owner must fund it and decide. The endpoint also needs a card-to-Pool send before Auto-collect can pay.
+3. Owner pastes a GitHub token in Agents desktop > Collective repo to link the repo (Claude may not enter tokens).
+4. PoB streams (A4) still needs the owner's call on sources.
+
+---
+
 # START HERE (written 2026-11-05 for the next Claude, other account)
 
 Owner's focus right now: **the Agents tab only, until it is tested and clean.** Everything below `# WHAT'S LEFT` still stands, but do these first, in order. The owner is testing real money on Happy Assistant while OSSY and G4 run the tests. Do not stop to ask what's next; do ask before anything that moves money. Answer short, plain words, show proof.
