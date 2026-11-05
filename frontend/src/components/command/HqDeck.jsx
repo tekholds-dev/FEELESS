@@ -47,6 +47,7 @@ import { CoinVerifyPanel } from './CoinVerifyPanel';
 import { TreasuryPulse } from './TreasuryPulse';
 import { TAB_INFO } from './ccTabInfo';
 import { FeeCatDesk } from './FeeCatDesk';
+import { CollectiveOwner } from './CollectiveOwner';
 import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
@@ -168,7 +169,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   // 🗂 six short groups (owner, 2026-10-21: "clean up HQ so I can get to stuff quicker"): ≤ 7 tools each, one line that says what lives there.
-  const TAB_GROUPS = [['Core', ['agents', 'money', 'fees', 'latency'], '⚡', 'the real card, the treasury, every fee, lag'],
+  const TAB_GROUPS = [['Core', ['agents', 'collective', 'money', 'fees', 'latency'], '⚡', 'the real card, the Collective, the treasury, every fee, lag'],
     ['Build', ['launch', 'fuse', 'familia', 'feecat', 'pools', 'verify'], '🧬', 'launches, Fuse, Familia, FeeCat, pools, coin checks'],
     ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'ads', 'ideas'], '📈', 'who comes, from where, what they do'],
     ['Holders', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, invites, broadcasts'],
@@ -177,7 +178,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
-  const TABS = [['agents', "🎩 Sicario's", Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   return <div className="cc-shell" data-testid="hq-shell"><HqBusyBar />
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
@@ -189,6 +190,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
 
     <TabGuard key={tab} tab={TAB_INFO[tab]?.[0] || tab}>
     {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
+    {tab === 'collective' && <CollectiveOwner call={call} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
     {tab === 'verify' && <CoinVerifyPanel call={call} />}
     {tab === 'latency' && <>{isOwner ? <RpcKey call={call} /> : null}<LagCatcher call={call} /><LatencyPanel call={call} /></>}

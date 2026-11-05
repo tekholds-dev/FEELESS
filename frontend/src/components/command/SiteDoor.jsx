@@ -30,6 +30,8 @@ const IconDot = () => <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8"
 // ⌨ Typing inside a cloud window is slow and paste often fails, so this box sends your words straight into whichever box you selected in the window. Never stored, never sent to a model.
 function TypeBar({ cat, work, d }) {
   const [text, setText] = useState(''); const [hide, setHide] = useState(false); const [busy, setBusy] = useState(''); const [note, setNote] = useState(''); const email = d?.mailbox?.address;
+  const [mine, setMine] = useState(() => { try { return localStorage.getItem('feeless.my.email') || ''; } catch { return ''; } });
+  const keepMine = v => { setMine(v); try { if (v) localStorage.setItem('feeless.my.email', v); else localStorage.removeItem('feeless.my.email'); } catch { /* private window */ } };
   const send = async (body, label = 'send') => { setBusy(label); setNote(''); try { await work(cat.id, { op: 'signin_type', ...body }); if (body.text) setNote('Sent into the selected box.'); return true; } catch (e) { setNote(e.message); return false; } finally { setBusy(''); } };
   const paste = async () => { try { const t = await navigator.clipboard.readText(); if (t) setText(t.trim()); else setNote('Nothing is copied.'); } catch { setNote('Your browser blocked it. Press ⌘V or Ctrl+V in this box.'); } };
   const code = async () => { setBusy('code'); setNote(''); try { const j = await work(cat.id, { op: 'mail_read' }); const c = (j.mail || []).find(m => m.code)?.code; if (c) await send({ text: String(c) }, 'code'); else setNote('No code in its mail yet. Wait a moment, then try again.'); } catch (e) { setNote(e.message); } finally { setBusy(''); } };
@@ -42,6 +44,9 @@ function TypeBar({ cat, work, d }) {
     <div className="sd-type-row is-keys">{[['Tab', 'Next box'], ['Enter', 'Enter'], ['Backspace', '⌫ Delete']].map(([k, l]) => <button key={k} type="button" className="m-btn" disabled={!!busy} onClick={() => send({ job: k }, k)} data-tip={`Presses ${k} in the window`} data-testid={`sd-key-${k}`}>{l}</button>)}
       {email ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => send({ text: email }, 'email')} data-tip={`Sends ${email} into the selected box`} data-testid="sd-type-email"><Ic3 e="📧" size="18px" /> Its email</button> : null}
       {email ? <button type="button" className="m-btn" disabled={!!busy} onClick={code} data-tip="Reads its mail and sends the newest code into the selected box" data-testid="sd-type-code"><Ic3 e="🔑" size="18px" /> {busy === 'code' ? 'Reading…' : 'Newest code'}</button> : null}
+      {mine ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => send({ text: mine }, 'mine')} data-tip={`Sends ${mine} into the selected box. Kept on this device only`} data-testid="sd-type-mine"><Ic3 e="✉️" size="18px" /> Your email</button> : null}
+      {mine ? <button type="button" className="m-btn" onClick={() => keepMine('')} aria-label="Forget your email on this device" data-tip="Forget your email on this device" data-testid="sd-type-forget">✕</button> : null}
+      {!mine && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim()) ? <button type="button" className="m-btn" onClick={() => keepMine(text.trim())} data-tip="Keeps this address on this device for one-click use. Never on our server" data-testid="sd-type-keep">Keep as your email</button> : null}
       {note ? <small role="status" className="sd-type-note">{note}</small> : null}</div></form>;
 }
 export function SignInFrame({ live, cat, work, d }) {

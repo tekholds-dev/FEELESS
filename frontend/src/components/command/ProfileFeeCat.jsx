@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Panther } from '../Panther';
 import { useLeaderProfile } from '../../lib/feeLeader';
@@ -41,6 +41,7 @@ const PublicFee = ({ cta }) => <>
 export function ProfileFeeCat({ mine }) {
   const { isAdmin, call } = useAdmin();
   const [view, setView] = useState('desk');
+  useEffect(() => { const go = () => setView('desk'); window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
   if (!(mine && isAdmin)) return <section className="pfc" data-testid="profile-feecat"><PublicFee cta={!mine} /></section>;
   return <section className="pfc is-owner" data-testid="profile-feecat">
     <div className="m-seg pfc-seg" role="radiogroup" aria-label="Which view">

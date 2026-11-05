@@ -168,6 +168,9 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 ### 7. Done and proven
 Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it whole).
 
+- 2026-11-05 Collective HQ door: green HQ button › Collective HQ (shortcut, and Core tab); same `CollectiveOwner` as Fee's desk. Owner Desktop button now lands on the owner tab even while the desk loads. Harness tested only; no real owner wallet session.
+- 2026-11-05 Browser folder (`BrowserApp`, agent desktop): its email + newest code + signed-in count, sign up or sign in (`SignedSites`), send it to browse (writes the job into chat). Type bar gains Your email, kept on the device only. Steel real call passed (201, released). No real sign-up run yet. Sealed Vault passwords are not one-click: a reveal needs a fresh wallet signature.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

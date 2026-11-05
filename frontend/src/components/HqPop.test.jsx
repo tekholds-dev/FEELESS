@@ -40,5 +40,5 @@ test('the header says what HQ is really doing', () => {
   expect(hqMood({ n: 0 })).toMatchObject({ key: 'idle', word: 'LOCKED IN' });
   expect(hqMood({ n: 1, label: '💵 Top up' })).toMatchObject({ key: 'work', word: 'SENDING IT', line: '💵 Top up' });
   expect(hqMood({ n: 2, slow: true, label: 'Top up' }).key).toBe('slow');
-  expect(HQ_JUMPS.map(j => j[0])).toEqual(['agents', 'wallet', 'fuse', 'money', 'lag', 'fees']);
+  expect(HQ_JUMPS.map(j => j[0])).toEqual(['agents', 'wallet', 'fuse', 'money', 'lag', 'fees', 'collective']);
 });

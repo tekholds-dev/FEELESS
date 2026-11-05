@@ -563,3 +563,22 @@ test('a new icon never lands on one dragged off the grid', () => {
   const pos = placeIcons({ wallet: { x: 96, y: 92 } }, 800); const all = Object.entries(pos);
   all.forEach(([a, p]) => all.forEach(([b, q]) => { if (a !== b) expect(Math.abs(p.x - q.x) < 84 && Math.abs(p.y - q.y) < 84).toBe(false); }));
 });
+
+test('🧭 Browser folder: makes its email, shows its newest code, and writes the browse job into chat', async () => {
+  const { BrowserApp } = require('./CatWorkbench');
+  const calls = []; const realFetch = global.fetch;
+  global.fetch = jest.fn(async (_, o) => { const b = JSON.parse(o?.body || '{}'); calls.push(b.op); return { ok: true, json: async () => (b.op === 'mail_read' ? { mail: [{ id: 'm', code: '482911' }] } : { mailbox: { address: 'a@b.co' } }) }; });
+  const said = []; const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  function Box() { const [d, setD] = React.useState({ signedIn: [{ site: 'pump.fun', at: 1, n: 2 }] }); return <BrowserApp cat={{ id: 'g1' }} d={d} setD={setD} onCommand={t => said.push(t)} />; }
+  await act(async () => { root.render(<Box />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('bwr-code').textContent).toBe('Needs its email');
+  await act(async () => { q('bwr-email-make').click(); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('bwr-email').textContent).toBe('a@b.co'); expect(q('bwr-code').textContent).toBe('482911'); expect(calls).toEqual(expect.arrayContaining(['mail_make', 'mail_read']));
+  await act(async () => { q('bwr-tab-go').click(); });
+  await act(async () => { q('bwr-pick-pump.fun').click(); q('bwr-min-5').click(); });
+  await act(async () => { q('bwr-send').click(); });
+  expect(said).toEqual(['browse pump.fun for 5 minutes']);
+  await act(async () => root.unmount()); el.remove(); global.fetch = realFetch;
+});

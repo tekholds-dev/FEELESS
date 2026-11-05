@@ -147,9 +147,11 @@ export function AgentSlots({ call }) {
 export function FeeCatDesk({ call }) {
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
   const root = React.useRef(null);
-  useEffect(() => { const go = () => { setTab('owner'); requestAnimationFrame(() => root.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })); }; window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
+  const [wantOwner, setWantOwner] = useState(false);
+  useEffect(() => { const go = () => { setTab('owner'); setWantOwner(true); }; window.addEventListener('fee:owner', go); return () => window.removeEventListener('fee:owner', go); }, []);
   const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => { if (wantOwner && d && root.current) { root.current.scrollIntoView({ behavior: 'smooth', block: 'start' }); setWantOwner(false); } }, [wantOwner, d]);
   const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
     .catch(e => setErr(e.message || 'Fee service did not answer')), [call]);
