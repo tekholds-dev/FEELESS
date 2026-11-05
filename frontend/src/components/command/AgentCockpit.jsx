@@ -52,7 +52,6 @@ import { Ic3 } from '../../lib/icon3d';
 // AGENT DECISION PANEL (live decision · inputs · seats · review · trace) · the ten-agent MATRIX · the REVIEW QUEUE with the owner's coin
 // review · OPERATOR CONTROLS. One store (the agent hub), one request; every number is the payload's or the shared live-price poller's.
 // MC / % / $ glide between two REAL reads at ≤ 30fps (display only — `useEasedNumber`); an agent pulses only when ITS tape id moves.
-const PriceChartLazy = lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 const money = v => (v == null ? '—' : cash(v));
 // market cap / volume in the reference's compact words: $14.2K · $1.21M (the cent-level `usd` is for a seat's dollars)
 export const mcWord = v => (v == null || !Number.isFinite(v) ? '—' : Math.abs(v) >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : Math.abs(v) >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
