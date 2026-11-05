@@ -366,3 +366,20 @@ def test_marks_only_whole_words_and_the_free_browser_says_nothing_when_none_is_i
     assert 'edge(low[i - 1])' in em.FIND_JS
     monkeypatch.setattr(fb, 'chromium_path', lambda: None)
     assert asyncio.run(fb.shots(['https://x.dev'], [], 1)) == []
+
+
+def test_the_stash_opens_safely_from_many_threads_at_once(tmp_path):
+    import collective_stash as st
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as ex:
+        rows = list(ex.map(lambda _: st.stats(tmp_path)['items'], range(24)))
+    assert rows == [0] * 24
+
+
+def test_boost_dollars_are_what_the_boost_really_added():
+    s = cp.new_state(); s['at'] = 1; s['cfg']['potPct'] = 0
+    cp.send(s, 'a', 'x', 'o', 'USDC', 100 * USDC, 100, 1, 0, None, 'month')
+    cp.send(s, 'b', 'y', 'p', 'USDC', 100 * USDC, 100, 1, 1, None, 'month')
+    run(s, 1, 31, 86400)
+    x, y = cp.view(s, 'x', 31 * D, SOL), cp.view(s, 'y', 31 * D, SOL)
+    assert x['boostUsd'] == 0 and abs(y['boostUsd'] - 4) < 0.01 and y['owedUsd'] - x['owedUsd'] == pytest.approx(4, abs=0.01)     # 5% of $80

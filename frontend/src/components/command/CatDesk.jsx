@@ -1,4 +1,4 @@
-import { CatWorkbench, ColonyTab, DeskFlip, EarnCard, TraderCabinet } from './CatWorkbench';
+import { CatWorkbench, ColonyTab, DeskCountLive, DeskFlip, EarnCard, TraderCabinet } from './CatWorkbench';
 import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, catMinds, catCoins } from './AgentLive';
@@ -247,6 +247,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
             : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
   </> : canEdit ? <span className="kd-visitor" data-tip="Your agent — her engine runs from her Fee desk below"><Ic3 e="👑" /> YOUR AGENT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+          {canEdit ? <DeskCountLive cat={cat} onOpen={() => setDeskAt('boost')} /> : null}
           {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
           {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
         </div>

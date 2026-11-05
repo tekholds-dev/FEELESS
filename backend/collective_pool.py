@@ -154,7 +154,7 @@ def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None, p
         a.setdefault('vault', {t: 0 for t in TOKENS})[token] += locked
         row.update(locked=locked, left=0, back=0, end=None, start=now, last=now, vault=locked)
     else:
-        row.update(locked=locked, left=locked, back=int(locked * pl['backPct'] / 100), out=0, start=now, last=now, end=now + pl['days'] * 86400, span=pl['days'] * 86400, backPct=pl['backPct'])
+        base_ = plan_of({**cfg, 'boostBackPts': 0}, pl['plan'])['backPct']; row.update(locked=locked, left=locked, back=int(locked * pl['backPct'] / 100), baseBack=int(locked * base_ / 100), out=0, start=now, last=now, end=now + pl['days'] * 86400, span=pl['days'] * 86400, backPct=pl['backPct'])
         a['locked'][token] += locked
     a['streams'] = (list(a.get('streams') or []) + [row])[-400:]
     return {'keptUnits': kept, 'lockedUnits': locked, 'plan': pl['plan'], 'end': row['end'], 'backUnits': row['back'], 'id': row['id']}
@@ -252,6 +252,7 @@ def tick(state, now, sol_usd):
             if want <= 0:
                 continue
             b['pot'] -= want; a['owed'][t] += want; a['earned'][t] += want
+            bp = a.setdefault('boostPot', {x: 0 for x in TOKENS}); bp[t] = int(bp.get(t) or 0) + int(want * (1 - 1 / max(1.0, levers(cfg, a.get('boost'))['weightX'])))
             a['room'] = max(0.0, room - want * usd_each)
     for a in state['agents'].values():
         for r in a.get('streams') or []:
@@ -292,12 +293,14 @@ def view(state, cat, now, sol_usd):
     """One agent's numbers for its owner. owedUsd + ratePerSecUsd x seconds is the live count."""
     cfg = state['cfg']; a = state['agents'].get(cat)
     if not a:
-        return {'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'vaultUsd': 0, 'backLeftUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'plan': 'month', 'spent': 0, 'streams': [], 'at': round(now), 'solUsd': sol_usd, 'empty': True}
+        return {'boostUsd': 0, 'boostRateUsd': 0, 'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'vaultUsd': 0, 'backLeftUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'plan': 'month', 'spent': 0, 'streams': [], 'at': round(now), 'solUsd': sol_usd, 'empty': True}
     dt = max(0.0, now - _f(state.get('at')))
     rate = sum(_usd(_rate(a, t, cfg), t, sol_usd) for t in TOKENS)
     part = shares(state, sol_usd).get(cat, 0.0); pot_day = sum(_usd(state['books'][t]['pot'], t, sol_usd) for t in TOKENS) * (cfg['potPayDayPct'] / 100)
     rows = a.get('streams') or []
-    return {'potShare': round(part, 6), 'feeShareDayUsd': round(pot_day * part, 6), 'streams': [stream_view(r, sol_usd) for r in rows[::-1][:60]], 'hist': (a.get('hist') or [])[-120:], 'plan': a.get('plan') or 'month', 'spent': _f(a.get('spent')),
+    extra = sum(_usd(int((r.get('out') or 0) * max(0, (r.get('back') or 0) - (r.get('baseBack') or r.get('back') or 0)) / max(1, r.get('back') or 1)), r['token'], sol_usd) for r in rows) + sum(_usd(int((a.get('boostPot') or {}).get(t) or 0), t, sol_usd) for t in TOKENS)
+    extra_rate = sum(_usd(((r['left'] / max(1.0, _f(r['end']) - _f(r['last']))) * max(0, (r.get('back') or 0) - (r.get('baseBack') or r.get('back') or 0)) / r['locked']), r['token'], sol_usd) for r in rows if (r.get('left') or 0) > 0 and r.get('locked'))
+    return {'boostUsd': round(extra + extra_rate * dt, 9), 'boostRateUsd': round(extra_rate, 12), 'potShare': round(part, 6), 'feeShareDayUsd': round(pot_day * part, 6), 'streams': [stream_view(r, sol_usd) for r in rows[::-1][:60]], 'hist': (a.get('hist') or [])[-120:], 'plan': a.get('plan') or 'month', 'spent': _f(a.get('spent')),
             'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6), 'vaultUsd': round(sum(_usd((a.get('vault') or {}).get(t) or 0, t, sol_usd) for t in TOKENS), 6),
             'backLeftUsd': round(sum(_usd((r.get('back') or 0) - (r.get('out') or 0), r['token'], sol_usd) for r in rows), 6), 'nextEnd': min((r['end'] for r in rows if (r.get('left') or 0) > 0), default=None),
             'sentUsd': round(sum(_usd(a['sent'][t], t, sol_usd) for t in TOKENS), 6), 'earnedUsd': round(sum(_usd(a['earned'][t], t, sol_usd) for t in TOKENS), 6),

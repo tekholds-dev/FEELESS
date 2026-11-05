@@ -15,8 +15,13 @@ MAX_SOURCES = 60
 
 def _db(root):
     root.mkdir(parents=True, exist_ok=True)
-    c = sqlite3.connect(root / 'index.db', timeout=15)
-    c.execute('PRAGMA journal_mode=WAL')
+    c = sqlite3.connect(root / 'index.db', timeout=30)
+    c.execute('PRAGMA busy_timeout=30000')
+    if c.execute('PRAGMA journal_mode').fetchone()[0].lower() != 'wal':   # only the first open switches it: two at once used to lock each other out
+        try:
+            c.execute('PRAGMA journal_mode=WAL')
+        except sqlite3.OperationalError:
+            pass
     c.execute('CREATE TABLE IF NOT EXISTS items (key TEXT PRIMARY KEY, at REAL, category TEXT, source TEXT, agent TEXT, outcome TEXT, title TEXT, sha TEXT, raw INTEGER, stored INTEGER)')
     c.execute('CREATE INDEX IF NOT EXISTS i_cat ON items(category)')
     c.execute('CREATE INDEX IF NOT EXISTS i_src ON items(source)')

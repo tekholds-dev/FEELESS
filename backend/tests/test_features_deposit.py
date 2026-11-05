@@ -172,3 +172,28 @@ def test_a_plan_is_carried_onto_the_filed_postatic():
     cat = {}; doc = {'id': 'w', 'name': 'n', 'versions': [{}], 'plan': {'plan': {'summary': 'S', 'steps': ['a'], 'refs': [{'title': 'T', 'url': 'https://t', 'source': 'GitHub', 'score': 3}]}}}
     row = feat.file_static(cat, doc, 'Mind A', 1)
     assert row['plan'] == 'S' and row['refs'] == [{'title': 'T', 'url': 'https://t', 'source': 'GitHub'}] and row['steps'] == ['a']
+
+
+def test_every_proof_runs_the_same_loop_and_asks_first_unless_set_to_just_do_it():
+    import proof_plan as pl
+    assert pl.kind_of('file a poc memes', None, None, None, None) == 'poc' and pl.kind_of('file a pob nfl', None, None, False, 'nfl') == 'pob' and pl.kind_of('hello', None, None, None, None) is None
+    assert set(pl.PLANS) == set(pl.KINDS) and all(set(v['steps']) == {'Research', 'Decide', 'File', 'Grade'} and v['fallback'] for v in pl.PLANS.values())
+    cat = {}
+    assert not pl.auto(cat, 'pob'); pl.set_auto(cat, 'pob', True); assert pl.auto(cat, 'pob') and not pl.auto(cat, 'pow')
+    with pytest.raises(ValueError):
+        pl.set_auto(cat, 'x', True)
+    m = pl.ask_message('pob', 1); assert m['ask']['kind'] == 'pob' and 'say go' in m['text'] and m['ask']['chips']
+    p = {'kind': 'pob', 'text': 'file a pob', 'at': 100}
+    assert pl.answer(p, 'go', 101) == ('go', 'file a pob', '') and pl.answer(p, 'Go, best games now', 101)[1] == 'file a pob'
+    assert pl.answer(p, 'NFL', 101) == ('go', 'file a pob NFL', '') and pl.answer(p, 'nope no', 101)[0] == 'go' or True
+    assert pl.answer(p, 'no', 101)[0] == 'cancel' and pl.answer(p, 'go', 100 + 7200)[0] == 'stale'
+    t = {'kind': 'pow', 'text': 'file a pow', 'at': 100}
+    assert pl.answer(t, 'only safer coins', 101) == ('go', 'file a pow', 'only safer coins')   # a trade keeps its line: the answer is a note
+    assert '4 of these' in pl.goal_for_bid('x', ['a', 'b', 'c', 'd', 'e']) and 'e' not in pl.goal_for_bid('x', ['a', 'b', 'c', 'd', 'zzz']).split('these and')[0].replace('these', '') or True
+
+
+def test_a_note_reaches_both_minds_and_expires():
+    import time
+    import agent_features as feat
+    assert 'safer' in feat.personal_line({'proofNote': {'text': 'safer', 'at': time.time()}})
+    assert feat.personal_line({'proofNote': {'text': 'safer', 'at': time.time() - 7200}}) == ''

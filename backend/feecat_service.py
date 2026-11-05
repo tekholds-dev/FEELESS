@@ -65,6 +65,7 @@ import edge_files as _edge
 import ai_play as _aip
 import collective as _cl
 import collective_pool as _cpool
+import proof_plan as _plan
 import collective_stash as _stash
 import free_browser as _fb
 import evidence_marks as _marks
@@ -1089,7 +1090,7 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
     wallet = _pays_itself(cat) and not own_key
-    if cat.get('personal') and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
+    if (cat.get('personal') or cat.get('proofNote')) and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
@@ -1378,7 +1379,7 @@ async def _pool_pass(http, store, now):
 
 def _setup_ok_for_stash(cat):
     """Its owner agreed to the terms that say the Stash keeps a private-data-free copy, or it is FEELESS's own."""
-    return bool(cat.get('isLeader')) or _as._done(cat, 'terms', cat.get('setup') or {})
+    return bool(cat.get('isLeader')) or owner_wallet(cat) in owner_wallets() or _as._done(cat, 'terms', cat.get('setup') or {})
 
 
 def _stash_read_shot(folder, shot):
@@ -3151,6 +3152,14 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}; who = rd.get('who')
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
     base = {'id': rid, 'at': round(now), 'closedAt': round(now), 'kind': 'PoB', 'paper': True, 'status': 'closed', 'topic': rd['topic'], 'sites': rd.get('sites') or [], 'browsed': notes or {}, 'browseWhy': why, 'shots': shots}
+    if not any(len(str((notes or {}).get(str(i), {}).get('note') or '')) > 80 for i in idx):   # 🛟 too little read: the free scores and market odds, and it says so
+        try:
+            async with httpx.AsyncClient(timeout=12) as http_f:
+                t_ = await _tools.best_topic(http_f)
+            if t_:
+                notes = {**(notes or {}), **{str(i): {'note': f'Your windows read too little, so this came from free scores and market odds: {t_}'} for i in idx}}; base['fallback'] = 'free scores and market odds'; base['browsed'] = notes
+        except Exception as e:   # noqa: BLE001
+            print(f'[pob] fallback: {str(e)[:100]}')
     if not any((notes or {}).get(str(i), {}).get('note') for i in idx):
         _pob_file(cat, {**base, 'noTrade': True, 'why': why or 'its windows read nothing', 'calls': []}, f"🎲 PoB on {rd['topic']}: nothing was read, so no picks. {why or ''}".strip())
         return
@@ -3194,7 +3203,7 @@ async def _pob_tick(http, cat, now):
                 return
             await _pob_call(http, cat, rd, now, notes, why)
     elif do == 'start' and cat.get('pobAsk'):
-        topic = cat.pop('pobAsk'); sites = _pob.sites_for(topic); cat['proofHosts'] = sites
+        topic = cat.pop('pobAsk'); sites = _pob.sites_for(topic)[:4]; cat['proofHosts'] = sites
         why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
         if why:
             cat.pop('proofHosts', None)
@@ -5082,7 +5091,7 @@ async def cat_receipt_explorer(sig: str):
 @app.get('/api/cats/stash/web')
 async def stash_web():
     """🧊 Public: what the Collective Stash really holds, as counts and site names. Never its contents."""
-    st_, w_ = await asyncio.gather(asyncio.to_thread(_stash.stats, STASH_DIR), asyncio.to_thread(_stash.web, STASH_DIR))
+    st_ = await asyncio.to_thread(_stash.stats, STASH_DIR); w_ = await asyncio.to_thread(_stash.web, STASH_DIR)
     return {'stats': {k: st_[k] for k in ('items', 'categories', 'outcomes', 'agents', 'sources', 'lastDay')}, 'web': w_}
 
 
@@ -5708,6 +5717,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
         topic_ = str(p.text or '').strip()[:120]
         _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_))
         return {'ok': True, 'pocFolders': _poc_view(cat)}
+    if p.op == 'proof_cfg':   # 🔁 ask first, or just do it, per kind of proof
+        try:
+            cfg_ = _plan.set_auto(cat, p.text, bool(p.on))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        keep_owned(cat); _save(store)
+        return {'proofCfg': cfg_}
     if p.op == 'ps_mark':   # ✅ only its owner knows if the page works
         f_ = next((x for x in cat.get('psFolders') or [] if x.get('id') == p.job), None)
         if not f_ or p.text not in ('right', 'wrong'):
@@ -6161,6 +6177,23 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        pend_ = cat.get('proofAsk'); asked_go_ = False
+        if pend_:   # 🔁 its answer to the question it asked before filing
+            how_, line_, note_ = _plan.answer(pend_, p.text, time.time()); cat.pop('proofAsk', None)
+            if how_ == 'cancel':
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': 'Okay, nothing filed.', 'at': time.time()}])[-200:]
+                keep_owned(cat); _save(store)
+                return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+            if how_ == 'go':
+                asked_go_ = True; p.text = line_
+                if note_:
+                    cat['proofNote'] = {'text': note_, 'at': time.time()}
+        kind_ask_ = None if asked_go_ else _plan.kind_of(p.text, _pow.command(p.text), _pop.command(p.text), _pob.command(p.text), _pob.topic_of(p.text))
+        if kind_ask_ and not _plan.auto(cat, kind_ask_) and (cat.get('brainsCfg') or {}).get('brains'):   # 🔁 it clarifies its plan first, unless this kind is set to just do it
+            cat['proofAsk'] = {'kind': kind_ask_, 'text': str(p.text)[:200], 'at': time.time()}
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, _plan.ask_message(kind_ask_, time.time())])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         site_cmd_ = _ss.command(p.text, cat.get('siteManuals'), set(cat.get('siteSessions') or {}))
         poc_ = re.match(r'^\s*(?:file|make|start)\s+a\s+poc\b\s*(.*)$', str(p.text or ''), re.I)
         if poc_ and (cat.get('brainsCfg') or {}).get('brains') and cat_id not in _POC_BUSY:   # 📣 "file a poc lakers memes"
@@ -6290,7 +6323,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'stamps': {f_.get('id'): _stamp.of(k_, f_, time.time()) for k_, key_ in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')) for f_ in (cat.get(key_) or [])[-30:] if f_.get('id')},
-            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': _poc_view(cat), 'psFolders': (cat.get('psFolders') or [])[::-1],
+            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': _poc_view(cat), 'psFolders': (cat.get('psFolders') or [])[::-1], 'proofCfg': cat.get('proofCfg') or {},
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}

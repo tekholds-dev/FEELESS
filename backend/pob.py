@@ -72,8 +72,8 @@ def sites_for(topic):
 
 
 def topic_goal(topic, sites):
-    return (f"PROOF OF BID research. The owner asks: {topic}. Open at least 3 of these and read them: {', '.join(sites)}. Look for today's lines, odds, injuries, form and what the market prices. "
-            "Then answer in at most 6 lines, each number with the site you read it on. Do not sign in, bet or buy anything.")
+    import proof_plan
+    return proof_plan.goal_for_bid(topic, sites)
 
 
 def parse_picks(raw):

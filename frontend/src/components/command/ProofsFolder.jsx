@@ -54,6 +54,13 @@ function CollectiveSub({ sent, name }) {
     <span className="pfx-coll-l"><a href={`https://solscan.io/tx/${sent.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Open it on Solscan">Solscan ↗</a><a href={`https://explorer.solana.com/tx/${sent.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Open it on Solana Explorer">Explorer ↗</a></span>
     {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={name} onClick={() => setBig(null)}><img src={big} alt={name} /></div> : null}</section>;
 }
+// 🔁 One loop for every proof, its own steps per kind, and whether it asks you first.
+const LOOP_ROWS = [['pow', 'PoW', 'Trade', ['Scout coins', '3 turns pick one', 'Buy and watch', 'Real result'], 'If coins look bad: no trade'], ['pop', 'PoP', 'Perp', ['2 free sources each', 'Blind calls', 'Practice trade', 'Practice result'], 'If sources say nothing: no trade'], ['pob', 'PoB', 'Pick', ['1 search, 4 sites, 3-6 steps each', 'Blind picks', 'Nothing staked', 'Real result'], 'If it reads too little: free scores and odds'], ['poc', 'PoC', 'Post idea', ['5 trend sources + snapshots', 'Blind pitches', 'Nothing posted', 'Your mark and earnings'], 'If trends are thin: your notes'], ['pos', 'PoStatic', 'Page', ['Best current builds', 'A plan you approve', 'Built, then reviewed', 'Your mark'], 'If no references: its own judgment']];
+function ProofLoop({ cat, d, work }) {
+  const [auto, setAuto] = useState(null); const [err, setErr] = useState(''); const cfg = auto || d?.proofCfg?.auto || {};
+  const flip = async (k, on) => { setErr(''); try { const j = await work(cat.id, { op: 'proof_cfg', text: k, on }); setAuto(j.proofCfg.auto); } catch (e) { setErr(e.message || 'Not saved'); } };
+  return <details className="pfx-loop" data-testid="pfx-loop"><summary data-tip="Every proof runs the same loop, with its own steps. Set which ones ask you first.">How each proof runs, and when it asks you</summary><div className="pfx-loop-b"><div className="pfx-loop-h" aria-hidden="true">{['Clarify', 'Research', 'Decide', 'File', 'Grade'].map(x => <b key={x}>{x}</b>)}</div>{LOOP_ROWS.map(([k, code, what, steps, fb]) => { const on = !!cfg[k]; return <div key={k} className="pfx-loop-r" data-testid={`pfx-loop-${k}`}><header><strong>{code}</strong><small>{what}</small></header><div className="pfx-loop-steps"><button type="button" className={`m-chip${on ? ' is-on' : ''}`} aria-pressed={on} disabled={k === 'pos'} onClick={() => flip(k, !on)} data-tip={k === 'pos' ? 'A page always waits for your plan OK. Change it in its Build folder' : on ? 'It just files. Tap to have it ask first' : 'It asks one question in chat first. Tap to let it just file'} data-testid={`pfx-auto-${k}`}>{on ? 'Just does it' : 'Asks first'}</button>{steps.map(x => <span key={x}>{x}</span>)}</div><em>{fb}</em></div>; })}{err ? <small className="lct-err" role="alert">⚠ {err}</small> : null}</div></details>;
+}
 function posRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
   return { kind: 'pos', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoStatic #${f.n}` : 'PoStatic', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'works' : 'broken', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: [...(f.plan ? [['Its plan', f.plan]] : []), ...(f.refs?.length ? [['It read', f.refs.map(r => r.title).join(', ')]] : []), ...(f.by ? [[f.by, `Built page ${f.version || ''} in ${f.topic || 'its Build folder'}`]] : [])] };
@@ -128,11 +135,12 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
       {onOpenFolder ? <button type="button" className="m-btn" onClick={() => onOpenFolder(OPEN_APP[r.kind])} data-testid="pfx-open-folder">Open its {KINDS[r.kind][1]} folder</button> : null}</div> : null}</li>;
 }
 
-export function ProofsFolder({ cat, d, onOpenFolder }) {
+export function ProofsFolder({ cat, d, onOpenFolder, work }) {
   const all = useMemo(() => proofRows(d), [d]); const [lens, setLens] = useState('all'); const [open, setOpen] = useState(''); const [big, setBig] = useState(null);
   const rows = lens === 'all' ? all : all.filter(r => r.kind === lens);
   const days = useMemo(() => rows.reduce((out, r) => { const k = day(r.at); const last = out[out.length - 1]; if (last?.k === k) last.rows.push(r); else out.push({ k, rows: [r] }); return out; }, []), [rows]);
   return <div className="pfx" data-testid="dsk-proofs">
+    {work ? <ProofLoop cat={cat} d={d} work={work} /> : null}
     <details className="pfx-what"><summary data-tip="PoW, PoP, PoB and the rest, in plain words">What do these words mean?</summary><ProofTerms compact /></details>
     <div className="pfx-parts"><Ring rows={rows} /><Chart3d rows={rows} /><LoopOrbit rows={all} /></div>
     <MindBoard board={cat?.mindBoard} />

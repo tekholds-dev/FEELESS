@@ -479,7 +479,7 @@ function useTypeIn(text, on) {
     raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [text, on]);
   return text.slice(0, n);
 }
-function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
+function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip }) {
   const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]); const tags = parts.tags;
   const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
@@ -489,6 +489,7 @@ function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
         <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} /></button>)}{rate ? <em>in memory · <Ic3 e="🗂" /> Jobs</em> : null}</span> : null}
       {m.img ? <img className="ast-chat-img" src={apiUrl(m.img)} alt={text} loading="lazy" data-testid="cwb-img" /> : null}
       {you ? null : <PreviewButton text={m.text} url={m.page} />}
+      {m.ask?.chips?.length && fresh && onChip ? <span className="cwb-chips" data-testid="chat-chips">{m.ask.chips.map(c => <button key={c} type="button" className="m-chip" onClick={() => onChip(c)} data-tip="Answers its question" data-testid={`chat-chip-${c}`}>{c}</button>)}</span> : null}
       {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow"><Ic3 e="⛏" /> Open the PoW folder</button> : null}
       {m.open === 'bids' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('bids')} data-tip="Its Bids desk on the Desktop, with its PoB folders" data-testid="cwb-open-bids"><Ic3 e="🎲" /> Open the Bids desk</button> : null}
       {m.open === 'pop' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pop')} data-tip="Its Proof of Perps desk on the Desktop" data-testid="cwb-open-pop"><Ic3 e="📉" /> Open the PoP desk</button> : null}</div></li>;
@@ -1108,10 +1109,14 @@ const ICON_TIP = { deskset: 'How this desktop looks: background color, animation
   pop: 'Proof of Perps: both minds call a side and a paper trade runs on true prices', bids: 'Free chips on its live trades, and links to USA real-money sites', honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the Collective', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 // 🪙 the live count on the desktop itself: hidden until it has sent a proof, and to anyone but its owner (the server refuses them)
-function DeskCount({ d, onOpen }) {
+export function DeskCount({ d, onOpen, inline = false }) {
   const p = d?.pool;
-  if (!p || p.empty || !(p.owedUsd || p.lockedUsd)) return null;
-  return <button type="button" className="bst-chip" onClick={onOpen} data-tip="What its sent proofs have earned, counting live. Opens its Boosts folder" data-testid="bst-chip"><BoostCoin earning={!!p.ratePerSecUsd} /><LiveCount pool={p} readAt={d.readAt} testid="bst-chip-count" /></button>;
+  if (!p || p.empty || !(p.owedUsd || p.lockedUsd || p.vaultUsd)) return null;
+  return <button type="button" className={`bst-chip${inline ? ' is-inline' : ''}`} onClick={onOpen} data-tip="What its sent proofs have earned, counting live, and how much of it came from its boost. Opens its Boosts folder" data-testid="bst-chip"><BoostCoin earning={!!p.ratePerSecUsd} /><LiveCount pool={p} readAt={d.readAt} testid="bst-chip-count" /><span className="bst-chip-boost"><small>⚡ BOOST</small><LiveCount pool={{ owedUsd: p.boostUsd, ratePerSecUsd: p.boostRateUsd }} readAt={d.readAt} testid="bst-chip-boost" /></span></button>;
+}
+export function DeskCountLive({ cat, onOpen }) {
+  const d = useAgentPool(cat, work, 60000);
+  return <DeskCount d={d} onOpen={onOpen} inline />;
 }
 const EARNS = new Set(['boost', 'print', 'pow', 'pop', 'bids', 'honey']);   // 🪙 the folders whose proofs can earn carry the coin
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
@@ -1129,7 +1134,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  useEffect(() => { if (start && start !== 'none') openWin(start); else if (!live && !start && !tour) openVault(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), live?.at ? 1000 : 30000); return () => clearInterval(t); }, [live?.at]);   // ⚡ one tick a second only while a live window counts down
   useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour]);
   const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
@@ -1139,9 +1144,8 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     api: <ApiSlot cat={cat} /> }[tab];
   const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ...apps, ['perf', '📈', 'Performance']].filter(([k]) => w[k]?.open);
   const setupKit = { useShare: useColonyShare, caps: CAPS, renderSites: (pick, done) => <SignedSites cat={cat} d={d} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); done?.(); }} /> };
-  const setupLeft = Number(d?.setup?.left || 0); const setupShown = useRef(false);
+  const setupLeft = Number(d?.setup?.left || 0);
   useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
-  useEffect(() => { if (setupLeft > 0 && !setupShown.current && !live && (!start || start === 'none')) { setupShown.current = true; openWin('manual'); setTop('manual'); } }, [setupLeft, live, start, set]);   // 🚀 its asks come first, until they are done
   const series = useMemo(() => perfSeries(d), [d]);
   const glass = useMemo(() => glassOf(series), [series]);
   return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
@@ -1166,7 +1170,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <><ProofTools kind="pow" onCommand={onCommand} /><PowExplorer cat={cat} d={d} setD={setD} /></>], ['pop', '📉 Proof of Perps', <><ProofTools kind="pop" onCommand={onCommand} /><PopApp cat={cat} d={d} setD={setD} /></>], ['bids', '🎲 Bids', <><ProofTools kind="bids" onCommand={onCommand} /><BidsApp cat={cat} d={d} setD={setD} /></>], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['deskset', '⚙ Desktop settings', <DeskSettings prefs={prefs} set={setPrefs} mood={mood} />], ['boost', '🪙 Boosts', <BoostLazy cat={cat} work={work} />], ['print', '🧬 Proofprint', <PrintLazy cat={cat} d={d} pool={pool} />], ['features', '✨ Features', <FeaturesLazy cat={cat} d={d} work={work} onCommand={onCommand} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} d={d} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💎 The Collective', <HoneyPot cat={cat} pool={pool} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <><ProofTools kind="pow" onCommand={onCommand} /><PowExplorer cat={cat} d={d} setD={setD} /></>], ['pop', '📉 Proof of Perps', <><ProofTools kind="pop" onCommand={onCommand} /><PopApp cat={cat} d={d} setD={setD} /></>], ['bids', '🎲 Bids', <><ProofTools kind="bids" onCommand={onCommand} /><BidsApp cat={cat} d={d} setD={setD} /></>], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} work={work} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['deskset', '⚙ Desktop settings', <DeskSettings prefs={prefs} set={setPrefs} mood={mood} />], ['boost', '🪙 Boosts', <BoostLazy cat={cat} work={work} />], ['print', '🧬 Proofprint', <PrintLazy cat={cat} d={d} pool={pool} />], ['features', '✨ Features', <FeaturesLazy cat={cat} d={d} work={work} onCommand={onCommand} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} d={d} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💎 The Collective', <HoneyPot cat={cat} pool={pool} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
@@ -1412,7 +1416,7 @@ function WorkbenchLive({ cat }) {
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol ref={chatRef} className="cwb-chat" aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
-      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} />)}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
