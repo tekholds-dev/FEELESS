@@ -9,6 +9,7 @@ import { Ic3 } from '../../lib/icon3d';
 import { agentAuthQuery } from '../../lib/chatSession';
 import { AgentPortrait } from './AgentPortrait';
 import { ProofStamp, ProofsList } from './ProofStamp';
+import { CollectiveTop } from './CollectiveTop';
 
 // 🐝 THE HIVE (owner 2026-10-31: "a FEELESS twist on Crawl — they browse forever until turned off and compound"): proof of insight. Agents with the
 // Hive on read the trenches on their own and file CELLS (BUY / WATCH / AVOID + why); an hour on every cell is graded on what the coin really did —
@@ -74,7 +75,7 @@ function Crystal() {
     <path fill="url(#clxA)" d="M100 8 40 34 12 92l32-14 34-48Z" /><path fill="url(#clxB)" d="m100 8 60 26 28 58-32-14-34-48Z" /><path fill="url(#clxC)" d="M100 8 78 30 44 78l56 18 56-18-34-48Z" /><path fill="url(#clxA)" opacity=".85" d="M12 92 44 78l56 18-22 74-38-28Z" /><path fill="url(#clxB)" d="m188 92-32-14-56 18 22 74 38-28Z" /><path fill="#2a5be0" d="M100 96 78 170l22 22 22-22Z" /><path fill="#7fc4ff" opacity=".55" d="M12 92 40 142l38 28-34-92Z" /><path fill="#4b22b8" opacity=".6" d="m188 92-28 50-38 28 34-92Z" /><g fill="none" stroke="#e8f6ff" strokeOpacity=".5" strokeWidth="1"><path d="M100 8 78 30 44 78l56 18 56-18-34-48ZM12 92l32-14M188 92l-32-14M100 96v96M78 170l22-74 22 74" /></g></svg>;
 }
 function Vitals({ a, onOpen, onClose }) {
-  const rows = [['SCORE', `${a.honey > 0 ? '+' : ''}${a.honey}`, 'Graded calls this epoch'], ['RIGHT CALLS', a.graded ? `${a.right}/${a.graded}` : 'None yet', 'Its calls that were right'], ['TRADES WON', `${a.won}/${a.trades}`, 'Winning proofs of all closed'], ['P/L', sol4(a.pnlSol), 'From its closed trades'], ['PROOFS', a.proofs, 'Every proof it filed'], ['POOL SHARE', a.sharePct ? `${a.sharePct}%` : 'Off', 'Of each winning trade, signed by its owner'], ['OWES THE POOL', a.owedSol > 0 ? solT(a.owedSol) : 'Nothing', 'Shares not sent yet'], ['BOOSTS', a.boosts || 0, 'From verified sends and proved convos'], ['STATE', a.active ? 'Working now' : 'Resting', 'Live']];
+  const rows = [['SCORE', `${a.honey > 0 ? '+' : ''}${a.honey}`, 'Graded calls this epoch'], ['RIGHT CALLS', a.graded ? `${a.right}/${a.graded}` : 'None yet', 'Its calls that were right'], ['TRADES WON', `${a.won}/${a.trades}`, 'Winning proofs of all closed'], ['P/L', sol4(a.pnlSol), 'From its closed trades'], ['PROOFS', a.proofs, 'Every proof it filed'], ['POOL SHARE', a.sharePct ? `${a.sharePct}%` : 'Off', 'Of each winning trade, signed by its owner'], ['OWES THE POOL', a.owedSol > 0 ? solT(a.owedSol) : 'Nothing', 'Shares not sent yet'], ['BOOSTS', a.boosts || 0, 'From verified sends and proved convos'], ['FINGERPRINT', a.print ?? 0, 'A level from its proofs. What is inside stays its owner\'s'], ['STATE', a.active ? 'Working now' : 'Resting', 'Live']];
   return <div className="clx-detail" data-testid={`clx-detail-${a.id}`}>
     <header><span className="clx-detail-who"><Who a={a} size={64} /><b>{a.name}</b></span><span><button type="button" className="m-btn m-go" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} data-testid={`ctr-agent-${a.id}`}>Open its desk</button> <button type="button" className="m-btn" onClick={onClose} aria-label="Close">✕</button></span></header>
     <dl>{rows.map(([k, v, tip], i) => <div key={k} style={{ '--i': i }} data-tip={tip}><dt>{k}</dt><dd className={`m-num${k === 'P/L' && a.pnlSol > 0 ? ' is-up' : k === 'P/L' && a.pnlSol < 0 ? ' is-dn' : ''}`}>{v}</dd></div>)}</dl>
@@ -116,7 +117,7 @@ export function ColonyFlow({ api, onOpen }) {
   const toggle = id => setPick(p => (p === id ? null : id));
   const root = useRef(null); const freshNames = (d?.ledger || []).filter(r => fresh.has(`${r.at}${r.sig}${r.kind}`)).map(r => r.agent);
   const { zaps, hit } = useZaps(root, agents, freshNames);
-  return <section ref={root} className="clx" data-testid="colony-flow" aria-label="The Collective">
+  return <><CollectiveTop d={d} /><section ref={root} className="clx" data-testid="colony-flow" aria-label="The Collective">
     <svg className="clx-zaps" aria-hidden="true">{zaps.map(z => <g key={z.key}><path className="is-glow" d={z.d} /><path d={z.d} /></g>)}</svg>
     <svg className="clx-sky" viewBox="0 0 1600 500" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="clxArc" x1="0" x2="1"><stop offset="0" stopColor="#1f7dff" stopOpacity="0" /><stop offset=".22" stopColor="#3ea8ff" /><stop offset=".5" stopColor="#7fd0ff" /><stop offset=".78" stopColor="#8a4dff" /><stop offset="1" stopColor="#8a4dff" stopOpacity="0" /></linearGradient></defs><path className="clx-arc-glow" d="M0 170C340 -30 1260 -30 1600 170" /><path className="clx-arc" d="M0 170C340 -30 1260 -30 1600 170" /></svg>
     {['l', 'r'].map(s => <svg key={s} className={`clx-city is-${s}`} viewBox="0 0 220 180" aria-hidden="true"><path fill="#141a3a" d="M0 180V132l18-8 8-30 5 30 10-52 7-30 7 30 6 44 9-22 7 22 10 18 8-34 6 34 16 22 36 20 40 8v0H0Z" /><path fill="#090c22" d="M0 180v-30l40-8 22 6 30-10 40 14 88 28Z" />{[[24, 112], [47, 84], [50, 110], [71, 118], [92, 136]].map(([x, y]) => <rect key={x} className="clx-lit" x={x} y={y} width="2" height="3" />)}</svg>)}
@@ -133,7 +134,7 @@ export function ColonyFlow({ api, onOpen }) {
     <ProofsList rows={d?.proofs} />
     <Convos rows={d?.convos} />
     <details className="clx-more"><summary><Ic3 e="📒" /> MONEY TRAIL</summary><ColonyLedger rows={d?.ledger || []} fresh={fresh} ready={!!d} /></details>
-  </section>;
+  </section></>;
 }
 
 // 🏺 THE COLONY POT (owner 2026-10-31: "the smartest, next-level way of safe growth — I create a Circle wallet for it and pick how it's secured"):
@@ -212,6 +213,7 @@ export function ColonyPot({ call }) {
           <div className="hv-pot-set"><label><span><Ic3 e="🪂" /> AIRDROP<b className="m-num">{d.sharers}</b><small>signed sharers · {d.sharedSol} SOL shared, unsent</small></span>
             <span className="m-seg" role="group" aria-label="How often the airdrop pays">{[['daily', 'Every 24 h'], ['weekly', 'Weekly']].map(([k, l]) => <button key={k} type="button" className={d.policy.cadence === k ? 'active' : ''} aria-pressed={d.policy.cadence === k} disabled={!!busy} onClick={() => act('policy', { policy: { cadence: k } })} data-testid={`colony-cadence-${k}`}>{l}</button>)}</span></label>
             <label data-tip="Agents only ever send to ONE place — the Pool wallet. This picks where those shares end up: kept in the wallet, or added to the Collective LP (once it is open)"><span>🤝 SHARES LAND IN<small>{d.policy.dest === 'pool' ? (d.pool ? 'the Collective LP' : 'the pool — not open yet, they wait in the wallet') : 'the Pool wallet'}</small></span>
+              <span className="m-seg" role="group" aria-label="What a boost does" data-tip="Only you set this. Bigger payouts: 100 boosts double an owner's part of each payout. Rank only: boosts order the stage and pay nothing">{[['payout', 'Bigger payouts'], ['rank', 'Rank only']].map(([k, l]) => <button key={k} type="button" className={(d.policy.boostMode || 'payout') === k ? 'active' : ''} disabled={!!busy} onClick={() => act('policy', { policy: { ...d.policy, boostMode: k } })} data-testid={`pot-boost-${k}`}>{l}</button>)}</span>
               <span className="m-seg" role="group" aria-label="Where shared winnings land">{[['wallet', '💎 Pool wallet'], ['pool', '🌊 Collective LP']].map(([k, l]) => <button key={k} type="button" className={(d.policy.dest || 'wallet') === k ? 'active' : ''} aria-pressed={(d.policy.dest || 'wallet') === k} disabled={!!busy} onClick={() => act('policy', { policy: { dest: k } })} data-testid={`colony-dest-${k}`}>{l}</button>)}</span></label></div>
         </div>
         <ol className="hv-board hv-split" aria-label="The next airdrop" data-testid="colony-airdrop"><li className="hv-board-h"><Ic3 e="🪂" /> NEXT AIRDROP · {usd(d.payableUsd)} BY WHAT EACH SHARED</li>

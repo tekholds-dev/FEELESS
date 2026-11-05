@@ -7,8 +7,8 @@ import { ProofStamp } from './ProofStamp';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
-const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'] };
-const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids' };
+const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'] };
+const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids', poc: 'features' };
 
 // A mind's reason is sometimes its raw JSON reply, cut short: show its sentence, not the JSON.
 export function reasonOf(v) {
@@ -41,13 +41,17 @@ function pobRow(f) {
     state: f.status && f.status !== 'closed' ? 'open' : toneOf(v), loop: f.loop, shots: shotsOf(f, 'pob'),
     decisions: [...(f.calls || []).map((c, i) => [c.name || mind(c.mind ?? i), (c.picks || []).map(pick).filter(Boolean).join(' · ') || reasonOf(c.why)]), ...(f.agreed?.length ? [['Both agree', f.agreed.map(pick).join(' · ')]] : []), ...(f.why ? [['Result', f.why]] : [])].filter(([, t]) => t), skipped: [] };
 }
+function pocRow(f) {
+  const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
+  return { kind: 'poc', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoC #${f.n}` : 'PoC', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'worked' : 'did not', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: (f.calls || []).map((c, i) => [c.name || mind(i), `${c.angle ? `${c.angle}: ` : ''}${c.post || ''}`]).filter(([, t]) => t) };
+}
 // 👀 A visitor's one list: the newest 5 proofs of any kind, from the public copy (no emails, no phones, no wallet trail).
 export function visitorProofs(cat) {
   return proofRows(cat).slice(0, 20).map(r => ({ id: r.id, kind: KINDS[r.kind][1], label: r.sub || r.name, pct: r.kind === 'pob' ? null : r.value, stamp: r.stamp, games: r.games }));
 }
 export function proofRows(d) {
   const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null });
-  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f)))].sort((a, b) => b.at - a.at);
+  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f)))].sort((a, b) => b.at - a.at);
 }
 
 function Ring({ rows }) {

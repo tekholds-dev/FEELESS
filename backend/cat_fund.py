@@ -94,16 +94,19 @@ def _send_usdc(payer, to, units):
                        [AccountMeta(ata(payer), False, True), AccountMeta(Pubkey.from_string(USDC_MINT), False, False), AccountMeta(ata(to), False, True), AccountMeta(payer, True, False)])
 
 
-def build(owner, cat_wallet, fee_wallet, p, blockhash):
+def build(owner, cat_wallet, fee_wallet, p, blockhash, colony_wallet=None):
     """→ base64 of the UNSIGNED v0 transaction: owner pays the fee transfer (if any) and the cat's share. Raises ValueError on a bad key."""
     try:
         payer, cat, fee = Pubkey.from_string(owner), Pubkey.from_string(cat_wallet), Pubkey.from_string(fee_wallet) if p['feeLamports'] else None
         bh = Hash.from_string(blockhash)
+        col = Pubkey.from_string(colony_wallet) if p.get('colonyLamports') else None
     except Exception:
         raise ValueError('A wallet address is not valid.')
-    if payer == cat or (fee and fee in (payer, cat)):
+    if p.get('colonyLamports') and not col:
+        raise ValueError('The Pool wallet is not open.')
+    if payer == cat or (fee and fee in (payer, cat)) or (col and col in (payer, cat, fee)):
         raise ValueError('The cat wallet, the fee wallet and yours must all differ.')
-    legs = ([(fee, p['feeLamports'])] if fee else []) + ([(cat, p['catLamports'])] if p['catLamports'] else [])
+    legs = ([(fee, p['feeLamports'])] if fee else []) + ([(col, p['colonyLamports'])] if col else []) + ([(cat, p['catLamports'])] if p['catLamports'] else [])
     if p.get('token') == 'USDC':
         ixs = [i for to, n in legs for i in (_open_usdc(payer, to), _send_usdc(payer, to, n))]
         if p.get('gasLamports'):

@@ -282,8 +282,9 @@ def test_a_user_can_fund_singit_wallet_when_openrouter_is_empty(monkeypatch):
     async def rpc(_h, _m, _p):
         return {'value': {'blockhash': HASH}}
     monkeypatch.setenv('GROQ_API_KEY', '')
+    monkeypatch.setattr(rs, '_json_load', lambda p, d=None: {'wallet': {'address': str(Keypair().pubkey())}} if 'colony' in str(p) else (d if d is not None else {}))
     monkeypatch.setattr(rs, 'session_address', lambda _s: me); monkeypatch.setattr(rs, '_cat_for_fund', cat_for); monkeypatch.setattr(rs, '_openrouter_left', low)
-    monkeypatch.setattr(rs, '_sol_usd', px); monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_cat_fund_rules', lambda _m: {'feeUsd': 0.0, 'minUsd': 1.0, 'staff': False})
+    monkeypatch.setattr(rs, '_sol_usd', px); monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_cat_fund_rules', lambda _m: {'feeUsd': 0.0, 'minUsd': 1.0, 'staff': True})   # a creator wallet: no deposit fee
     funded = asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10, creditUsd=5)))
     assert funded['plan']['creditUsd'] == 5 and funded['plan']['feeLamports'] == 0
     assert funded['plan']['catUsd'] == 10   # models and trades are funded in its own wallet

@@ -19,7 +19,7 @@ def _result(kind, f):
         if f.get('status') != 'closed' or f.get('roePct') is None:
             return None
         return _f(f.get('roePct')) > 0
-    if f.get('graded') in ('right', 'wrong'):
+    if f.get('graded') in ('right', 'wrong'):   # PoB and PoC: an owner's mark, or the scoreboard
         return f.get('graded') == 'right'
     if f.get('net') is not None:
         return _f(f.get('net')) > 0

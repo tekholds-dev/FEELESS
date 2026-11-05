@@ -20,7 +20,8 @@ KNOWHOW = ('THE COLLECTIVE (FEELESS): agents in the Collective read the Solana t
            'PoW = a 4-coin PoW FOLDER (see the PoW README).')
 COLONIZED = 'YOU ARE IN THE COLLECTIVE: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
 
-POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily', 'dest': 'wallet'}
+BOOST_MODES = ('payout', 'rank')
+POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily', 'dest': 'wallet', 'boostMode': 'payout'}
 DESTS = ('wallet', 'pool')   # 🏺 where shared winnings land: the colony wallet itself, or the colony pool (agents always send to ONE wallet)
 POLICY_BOUNDS = {'epochCapPct': (5, 50), 'timelockH': (6, 72)}
 CADENCES = {'daily': 86400, 'weekly': 7 * 86400}   # 🪂 how often the airdrop pays (the owner picks)
@@ -34,6 +35,8 @@ def clean_policy(p):
         out['cadence'] = p['cadence']
     if (p or {}).get('dest') in DESTS:
         out['dest'] = p['dest']
+    if (p or {}).get('boostMode') in BOOST_MODES:
+        out['boostMode'] = p['boostMode']
     for k, (lo, hi) in POLICY_BOUNDS.items():
         try:
             out[k] = int(max(lo, min(hi, float((p or {}).get(k, out[k])))))
@@ -76,15 +79,24 @@ def period_of(t, cadence):
     return k, (k + 1) * n
 
 
-def airdrop(shares, owners_ok, amount, since):
+BOOST_CAP = 100   # 100 boost points doubles an owner's weight in a payout. It never goes higher.
+
+
+def boost_weight(pts, mode='payout'):
+    """⚡ What boosts do to a payout: up to double, or nothing in rank-only mode (the FEELESS owner's switch)."""
+    return 1.0 if mode == 'rank' else round(1 + min(max(0, float(pts or 0)), BOOST_CAP) / BOOST_CAP, 3)
+
+
+def airdrop(shares, owners_ok, amount, since, boosts=None, mode='payout'):
     """🪂 Opportunity 2: the next airdrop. Every owner whose agent shared since `since` gets `amount` × their share of what was shared —
     proportional to what they put in, never to who was 'right'. Only wallets that signed (owners_ok) are paid. → [{owner, sol, pct, usd}]"""
     tot = {}
     for x in shares or []:
         if float(x.get('at') or 0) >= since and x.get('owner') in (owners_ok or set()) and x.get('sent') and x.get('sig'):
             tot[x['owner']] = tot.get(x['owner'], 0.0) + float(x.get('sol') or 0)
-    s = sum(tot.values())
-    return sorted(({'owner': o, 'sol': round(v, 6), 'pct': round(100 * v / s, 1) if s else 0, 'usd': round(float(amount or 0) * v / s, 2) if s else 0}
+    wt = {o: v * boost_weight((boosts or {}).get(o), mode) for o, v in tot.items()}   # the pot still pays out exactly `amount`: a boost takes a bigger part of it
+    s = sum(wt.values())
+    return sorted(({'owner': o, 'sol': round(v, 6), 'boost': boost_weight((boosts or {}).get(o), mode), 'pct': round(100 * wt[o] / s, 1) if s else 0, 'usd': round(float(amount or 0) * wt[o] / s, 2) if s else 0}
                    for o, v in tot.items()), key=lambda r: -r['sol'])
 
 

@@ -322,7 +322,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = await _pow_advance(w, pw, page, wait_human)
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i'] and h.get('only', w['i']) == w['i']][-4:]   # 📦 what its partner handed over
-        extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
+        extra = str(task.get('personal') or '') + (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if w.get('plan'):   # 🗺 its own 3-step plan rides every step (owner 2026-11-01: "plan in 3 steps, then execute")
             extra += '\nYOUR 3-STEP PLAN: ' + ' → '.join(f'{k + 1}) {x}' for k, x in enumerate(w['plan']))
         partner_ = next((x.get('plan') for x in task.get('windows') or [] if x is not w and x.get('plan')), None)

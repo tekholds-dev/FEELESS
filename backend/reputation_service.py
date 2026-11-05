@@ -14,6 +14,7 @@ no provider API keys) so it can run standalone.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import investigate
 import name_lock as _name_lock
+import agent_deposit as _deposit
 import reserve_pool
 import perf
 import verify
@@ -11099,9 +11100,8 @@ def _cat_fund_rules(me=None):
     """💵 What funding a cat costs, from HQ › Fees (owner 2026-10-29: "I wanna set how much per cat in cmd"): the one-time fee + the least a
     first funding may be. A staff / creator wallet pays NO fee and may start from $1 ("I'm the owner — it shouldn't charge me the fee")."""
     c_ = _fee_cfg()
-    fee_, min_ = max(0.0, _fuse._f(c_.get('catFeeUsd', _cfund.FEE_USD))), max(1.0, _fuse._f(c_.get('catMinUsd', _cfund.MIN_USD)))
     staff_ = bool(me) and _is_staff(me)
-    return {'feeUsd': 0.0 if staff_ else fee_, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else max(min_, fee_ + 1), 'topupMinUsd': _cfund.TOPUP_MIN_USD,
+    return {'feeUsd': 0.0, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else _deposit.FIRST_MIN_USD, 'topupMinUsd': _cfund.TOPUP_MIN_USD, 'bigUsd': _deposit.BIG_USD, 'rateBig': _deposit.RATE_BIG, 'rateSmall': _deposit.RATE_SMALL, 'everyThird': _deposit.EVERY_THIRD,
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
@@ -11180,28 +11180,34 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
         raise HTTPException(400, 'This agent runs no paid models.')
     rules_ = _cat_fund_rules(me)
     free_credit = bool(rules_.get('staff')) and (cat.get('brainsCfg') or {}).get('kind') != 'general'   # 🧭 a general agent's credit is always real money (owner 2026-10-31)
-    start_ = (cat.get('brainsCfg') or {}).get('kind') == 'general' and not rules_.get('staff') and not cat.get('agentFunded') and not cat.get('creditPaid')   # 🧠 a user's first: $5 credit + $2 fee
-    first = not cat.get('agentFunded') and (p.usd > p.creditUsd or start_)
-    need_fee = first and rules_['feeUsd'] > 0
+    first = _deposit.is_first(cat)
+    try:
+        dq = _deposit.quote(p.usd, first, _deposit.small_count(cat.get('deposits')), bool(rules_.get('staff')))   # 💵 10%, 5%, every 3rd: half FEELESS, half the Pool
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    need_fee = dq['ratePct'] > 0
+    colony_w = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address') if need_fee else ''
+    if need_fee and not colony_w:
+        raise HTTPException(503, 'The Pool wallet is not open yet, so deposits are paused. Nothing was charged.')
     async with httpx.AsyncClient(timeout=10) as http:
         fee_w = ((_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '')) if need_fee else ''
         if need_fee and not fee_w:
             raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
         try:
-            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'], token=p.token, credit_usd=p.creditUsd, free_credit=free_credit, start_credit=_cfund.START_CREDIT_USD if start_ else 0.0, credit_to_wallet=True)
+            pl = _deposit.apply(_cfund.plan(p.usd, await _sol_usd(), False, fee_usd=0, min_usd=_cfund.TOPUP_MIN_USD, token=p.token, credit_usd=p.creditUsd, free_credit=free_credit, credit_to_wallet=True), dq)
             if not pl['totalLamports']:   # a creator's credit alone: nothing to pay or sign
                 await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
                                       json={'action': 'agent_funded', 'sig': f'creator-{uuid.uuid4().hex[:16]}', 'result': 'confirmed', 'amount': {'token': pl['token'], 'usd': pl['usd'], 'creditUsd': pl['creditUsd'], 'feeUsd': 0, 'catLamports': 0, 'feeLamports': 0, 'solUsd': pl['solUsd']}})
                 return {'plan': pl, 'granted': True}
             bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-            tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh)
+            tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh, colony_w)
         except ValueError as e:
             raise HTTPException(400, str(e))
     now = time.time()
     for k_ in [k_ for k_, v_ in _cfund_plans.items() if now - v_['at'] > _cfund.PLAN_SEC]:
         _cfund_plans.pop(k_, None)
-    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'feeWallet': fee_w}
-    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'feeWallet': fee_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
+    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'feeWallet': fee_w, 'colonyWallet': colony_w}
+    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'feeWallet': fee_w, 'colonyWallet': colony_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
 
 
 class CatWithdrawIn(BaseModel):
@@ -11305,7 +11311,7 @@ async def cat_fund_send(cat_id: str, p: CatFundIn):
     if ok is True:   # only a confirmed on-chain transfer buys model credit or pays the first fee
         try:
             await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
-                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'creditUsd': pl.get('creditUsd'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
+                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'creditUsd': pl.get('creditUsd'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'deposit': pl.get('deposit'), 'colonyLamports': pl.get('colonyLamports'), 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
         except Exception as e:
             print(f'[cat fund] record {cat_id}: {e}')
     return {'state': 'confirmed' if ok else 'submitted', 'signature': sig, 'plan': pl}
@@ -19683,7 +19689,7 @@ async def _colony_view():
     return {'wallet': {k: w.get(k) for k in ('address', 'at')} if w else None, 'value': val, 'principalUsd': round(principal, 2),
             'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
             'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS),
-            'airdrop': _col.airdrop(live.get('shares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']]),
+            'airdrop': _col.airdrop(live.get('sentShares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']], live.get('boosts'), policy.get('boostMode')),
             'nextAirdrop': _col.period_of(time.time(), policy['cadence'])[1], 'sharers': len(live.get('sharers') or []),
             'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'poolDraft': d.get('poolDraft'), 'board': (live.get('board') or [])[:10],
             'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),

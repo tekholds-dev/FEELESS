@@ -59,6 +59,10 @@ import agent_topup as _tu
 import agent_site_trade as _st
 import proof_loop as _pl
 import agent_face as _face
+import agent_features as _feat
+import agent_print as _print
+import edge_files as _edge
+import ai_play as _aip
 import collective as _cl
 import proof_stamp as _stamp
 import proof_tools as _tools
@@ -119,7 +123,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -1081,6 +1085,8 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
     wallet = _pays_itself(cat) and not own_key
+    if cat.get('personal') and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
+        messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
     async def router():
@@ -1626,6 +1632,8 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
     own_site_ = _proof_site(cat, 'pow')
     if _pl.pow_note(cat.get('powFolders')):   # 🔁 the Proof Loop: it studies its last proofs before this one
         rp['plan'] = f"{rp.get('plan') or ''}{_pl.pow_note(cat.get('powFolders'))}".strip()
+    extra_ = _print.note(_print.build(cat, now)) + ' ' + _edge.checklist()   # 🧬 its own record + 📚 the case files. It studies them; every guard stays
+    rp['plan'] = f"{rp.get('plan') or ''} {extra_}".strip()
     if own_site_:   # 🔎 "file a pump pow": the owner's scanned, signed-in site goes first
         rp.update(ownerSite=own_site_['url'], plan=f"{rp.get('plan') or ''}{_ss.note_for(own_site_, 'pow')}".strip())
     rp['reusedSites'] = sorted({x['site'] for x in reused_})
@@ -3672,6 +3680,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     else:
         _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
     _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
+    _WORK[cat_id]['task']['personal'] = _feat.personal_line(cat)   # 🧠 what its owner told it
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
@@ -4741,8 +4750,144 @@ def _flow_tree(cats, shares, board):
     t = _colony.tree(cats, shares, board)
     for a in t['agents']:   # ⚡ working right now: this is what zaps the crystal
         c = next((x for x in cats if x.get('id') == a['id']), {})
+        a['print'] = _print.public(_print.build(c, time.time()))['level']
         a['active'] = bool((c.get('powRun') or {}).get('folder')) or any(w.get('status') == 'working' for w in ((_WORK.get(a['id']) or {}).get('task') or {}).get('windows') or [])
     return t
+
+
+WS_DIR = DATA_DIR / 'agent_workspaces'
+_POC_BUSY: set = set()
+
+
+def _ws_file(cat_id, ws_id):
+    return WS_DIR / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / (re.sub(r'[^a-z0-9]', '', str(ws_id).lower())[:24] + '.seal')
+
+
+def _ws_save(cat_id, doc):
+    f_ = _ws_file(cat_id, doc.get('id')); f_.parent.mkdir(parents=True, exist_ok=True)
+    f_.write_bytes(_ck.seal_bytes(json.dumps(doc).encode(), cat_id))   # 🔒 its owner's work, sealed with this agent's key
+
+
+def _ws_load(cat_id, ws_id):
+    f_ = _ws_file(cat_id, ws_id)
+    try:
+        return json.loads(_ck.unseal_bytes(f_.read_bytes(), cat_id))
+    except (OSError, ValueError):
+        return None
+
+
+def _ws_view(cat_id, ws_id):
+    d_ = _ws_load(cat_id, ws_id)
+    if not d_:
+        raise HTTPException(404, 'No such folder.')
+    if d_.get('busy') and time.time() - float(d_['busy'].get('at') or 0) > 240:   # a run that died never locks the folder
+        d_['busy'] = None; _ws_save(cat_id, d_)
+    v_ = d_.get('versions') or []
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy')}, 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'by': v_[-1].get('by') if v_ else None}
+
+
+async def _ws_ask(cat, model, sys_, user_, tokens):
+    own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    text_, usd_, _via = await _think(cat, model, [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
+    return str(text_ or ''), float(usd_ or 0), bool(own_)
+
+
+async def _ws_run(cat_id, ws_id, to, text, region):
+    """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
+    now = time.time(); doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
+    brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind')
+    order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
+    try:
+        if kind == 'build':
+            cur = (doc.get('versions') or [{}])[-1].get('html') or ''
+            user = f'{text}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            for k, i in enumerate(order):
+                raw, usd, own = await _ws_ask(cat, brains[i], _feat.REVIEW_SYS if k else _feat.BUILD_SYS, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 4000)
+                cost += usd; paid_own = own; html = _aip.html_of(raw)
+                if html:
+                    cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
+                else:
+                    _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
+        else:
+            sys_ = _feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS
+            past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1])
+            for i in order:
+                raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
+                cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
+    except Exception as e:   # noqa: BLE001 — it says so in the folder
+        _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
+    doc['busy'] = None; _ws_save(cat_id, doc)
+    if cost and not paid_own:
+        store = _load(); c_ = store['cats'].get(cat_id)
+        if c_ and c_.get('brainsCfg'):
+            _lc.charge(c_['brainsCfg'], cost); _save(store)
+
+
+def _poc_view(cat):
+    return [{**f, 'stamp': _stamp.of('PoB', f, time.time())} for f in (cat.get('pocFolders') or [])[::-1]]
+
+
+async def _poc_file(cat_id, topic):
+    """📣 PROOF OF CONTENT: its PoI is what was trending when it decided. Each mind proposes blind; the owner marks how it did. Nothing is posted by this."""
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
+            tr = (await _tools.trending(http)).get('trends') or {}
+        cat = _load()['cats'].get(cat_id) or {}; brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; cost = 0.0; paid_own = False; calls = []
+        lines = '\n'.join(f'{k}: ' + '; '.join(v[:5]) for k, v in tr.items() if v)
+        notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
+        async def one(i, m):
+            return i, await _ws_ask(cat, m, _feat.POC_SYS.format(name='Mind ' + 'AB'[i]), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
+        for i, (raw, usd, own) in await asyncio.gather(*(one(i, m) for i, m in enumerate(brains))):
+            cost += usd; paid_own = own
+            try:
+                d_ = json.loads(re.search(r'\{.*\}', raw, re.S).group(0))
+            except (AttributeError, ValueError):
+                d_ = {'post': raw[:240]}
+            calls.append({'mind': i, 'name': str(brains[i]).split('/')[-1][:24], **{k: str(d_.get(k) or '')[:300] for k in ('angle', 'post', 'why', 'trend')}})
+        store = _load(); c_ = store['cats'].get(cat_id)
+        if c_:
+            rows = list(c_.get('pocFolders') or [])
+            rows.append({'id': f'poc{int(time.time())}', 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
+            c_['pocFolders'] = rows[-60:]
+            c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows)} is filed: {len(calls)} ideas from what is trending. Nothing was posted.", 'at': time.time(), 'open': 'features'}])[-200:]
+            if cost and not paid_own and c_.get('brainsCfg'):
+                _lc.charge(c_['brainsCfg'], cost)
+            _save(store)
+    except Exception as e:   # noqa: BLE001
+        print(f'[poc] {cat_id}: {str(e)[:140]}')
+    finally:
+        _POC_BUSY.discard(cat_id)
+
+
+@app.get('/api/cats/tools/indicator/{ind}')
+async def cat_indicator(ind: str):
+    """📈 One of our own indicators as a file. Plain Pine v5, written by FEELESS, free to use."""
+    row = _edge.INDICATORS.get(ind)
+    if not row:
+        raise HTTPException(404, 'No such indicator.')
+    return Response(content=row[1], media_type='text/plain; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="feeless-{ind}.pine"', 'X-Content-Type-Options': 'nosniff'})
+
+
+@app.get('/api/cats/collective/mine')
+async def collective_mine(session: str = ''):
+    """👑 The owner's side of the Collective: its agents' running result, boosts, what it put in and how much a boost is worth now. Only its own."""
+    me = _fresh_session_wallet(session)
+    if not me:
+        raise HTTPException(401, 'Sign in with your wallet.')
+    store = _load(); now = time.time(); shares = _shares(); cfg = _colony_cfg(); mode = (cfg.get('policy') or {}).get('boostMode', 'payout') if isinstance(cfg.get('policy'), dict) else 'payout'
+    out = []
+    for c in store['cats'].values():
+        if owner_wallet(c) != me or c.get('isLeader'):
+            continue
+        real = sorted([f for f in c.get('powFolders') or [] if f.get('real') and f.get('pnlSol') is not None], key=lambda f: _num(f.get('soldAt') or f.get('at')))
+        run, series = 0.0, []
+        for f in real[-60:]:
+            run = round(run + _num(f.get('pnlSol')), 6); series.append({'at': round(_num(f.get('soldAt') or f.get('at'))), 'v': run, 'sym': f.get('sym'), 'pct': f.get('pnlPct')})
+        mine = [x for x in shares if x.get('cat') == c['id']]; pts = _cl.boost_total(c); pr = _print.build(c, now)
+        hits = [_cl.qualifies(f) for f in real]
+        out.append({'id': c['id'], 'name': c.get('name'), 'face': c.get('face'), 'series': series, 'boosts': pts, 'weight': _colony.boost_weight(pts, mode), 'boostLog': (c.get('boosts') or [])[-8:][::-1], 'owedSol': round(sum(_num(x.get('sol')) for x in mine if not x.get('sent')), 6), 'sentSol': round(sum(_num(x.get('sol')) for x in mine if x.get('sent')), 6),
+                    'bigWins': sum(hits), 'trades': len(real), 'auto': bool((c.get('colonyShare') or {}).get('auto') and (c.get('colonyShare') or {}).get('on')), 'pct': (c.get('colonyShare') or {}).get('pct'), 'convo': bool((c.get('convo') or {}).get('on')), 'print': _print.public(pr), 'strongest': [t['t'] for t in pr['traits'] if t['score'] > 0][:3], 'weakest': [t['t'] for t in pr['traits'][::-1] if t['score'] < 0][:3]})
+    return {'agents': out, 'mode': mode}
 
 
 def _convos_public(store):
@@ -4768,6 +4913,12 @@ async def cat_tools(kind: str, sport: str = 'nfl', team: str = ''):
             return await _tools.pow_tool(http)
         if kind == 'pop':
             return await _tools.pop_tool(http)
+        if kind == 'content':
+            return await _tools.trending(http)
+        if kind == 'book':
+            return await _tools.book(http, sport)
+        if kind == 'indicators':
+            return await _tools.indicators(http, team)
     raise HTTPException(404, 'No such dash.')
 
 
@@ -4825,6 +4976,15 @@ async def cat_supply():
     return supply_state(_load())
 
 
+def _owner_boosts(store):
+    out = {}
+    for c in store['cats'].values():
+        w_ = owner_wallet(c)
+        if w_:
+            out[w_] = out.get(w_, 0) + _cl.boost_total(c)
+    return out
+
+
 @app.get('/api/cats/internal/colony')
 async def cat_colony_internal(request: Request):
     """🐝 For the owner's colony pot (reputation, internal key): the epoch board, who owns each colonized agent (the payout allowlist),
@@ -4838,7 +4998,8 @@ async def cat_colony_internal(request: Request):
             'owners': {c['id']: owner_wallet(c) for c in on_ if owner_wallet(c) and not c.get('ownerStaff') and not c.get('isLeader')},
             'trades': sum(1 for c in cells if c.get('kind') and _hv.epoch_of(c.get('at') or 0) == ep), 'browsers': _cb.chain(os.environ),
             'sharers': sorted({owner_wallet(c) for c in store['cats'].values() if (c.get('colonyShare') or {}).get('on') and owner_wallet(c)}),
-            'shares': [x for x in _shares() if not x.get('sent')][-2000:]}
+            'shares': [x for x in _shares() if not x.get('sent')][-2000:], 'sentShares': [x for x in _shares() if x.get('sent')][-2000:],
+            'boosts': _owner_boosts(store)}
 
 
 @app.post('/api/cats/internal/supply')
@@ -5251,6 +5412,68 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
+    if p.op == 'features':   # ✨ its Features folder: folders it has, memory, its fingerprint
+        return {'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'pocFolders': _poc_view(cat)}
+    if p.op == 'feature_create':
+        kind_ = _feat.clean_kind(p.text)
+        if not kind_:
+            raise HTTPException(400, 'Pick a feature.')
+        try:
+            row_ = _feat.new_folder(cat, kind_, p.job, time.time())
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        _ws_save(cat_id, _feat.new_doc(row_)); _save(store)
+        return {'folder': row_, 'workspaces': cat['workspaces']}
+    if p.op == 'feature_delete':
+        cat['workspaces'] = [w_ for w_ in cat.get('workspaces') or [] if w_.get('id') != p.text]
+        _ws_file(cat_id, p.text).unlink(missing_ok=True); _save(store)
+        return {'workspaces': cat['workspaces']}
+    if p.op == 'ws_open':
+        return {'doc': _ws_view(cat_id, p.text)}
+    if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
+        doc_ = _ws_load(cat_id, p.job)
+        text_ = str(p.text or '').strip()[:3000]
+        if not doc_ or not text_:
+            raise HTTPException(400, 'Say what to make.')
+        if doc_.get('busy'):
+            raise HTTPException(409, 'It is still working on the last one.')
+        b_ = cat.get('brainsCfg') or {}
+        if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
+            raise HTTPException(402, 'It needs model credit to do this.')
+        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both')}
+        _ws_save(cat_id, doc_)
+        asyncio.create_task(_ws_run(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None))
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'memory':   # 🧠 start fresh, let its lead mind clean it, or tell it about you
+        how_ = str(p.job or '')
+        if how_ == 'fresh':
+            _feat.memory_fresh(cat, time.time())
+        elif how_ == 'personal':
+            cat['personal'] = str(p.text or '').strip()[:1500]
+        elif how_ == 'clean':
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_:
+                raise HTTPException(400, 'It has no mind to clean with.')
+            cat['memoryCleanedAt'] = round(time.time())
+            asyncio.create_task(_sort_cloud(cat_id, brains_[0]))
+        else:
+            raise HTTPException(400, 'Fresh, clean or personal.')
+        _save(store)
+        return {'memory': _feat.memory_view(cat)}
+    if p.op == 'poc':   # 📣 a Proof of Content: both minds read what is trending, blind, then it files
+        if not (cat.get('brainsCfg') or {}).get('brains'):
+            raise HTTPException(400, 'It needs a mind first.')
+        if cat_id in _POC_BUSY:
+            raise HTTPException(409, 'A PoC is already being filed.')
+        topic_ = str(p.text or '').strip()[:120]
+        _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_))
+        return {'ok': True, 'pocFolders': _poc_view(cat)}
+    if p.op == 'poc_mark':   # ✅ its owner says how it did: only they know, once it is out
+        f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == p.job), None)
+        if not f_ or p.text not in ('right', 'wrong'):
+            raise HTTPException(400, 'Mark one of its PoCs.')
+        f_['graded'] = p.text; _save(store)
+        return {'pocFolders': _poc_view(cat)}
     if p.op == 'convo':   # 💬 Collective convos: on or off, its owner's call
         cat['convo'] = {**(cat.get('convo') or {}), 'on': bool(p.on)}
         _save(store)
@@ -5686,6 +5909,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         site_cmd_ = _ss.command(p.text, cat.get('siteManuals'), set(cat.get('siteSessions') or {}))
+        poc_ = re.match(r'^\s*(?:file|make|start)\s+a\s+poc\b\s*(.*)$', str(p.text or ''), re.I)
+        if poc_ and (cat.get('brainsCfg') or {}).get('brains') and cat_id not in _POC_BUSY:   # 📣 "file a poc lakers memes"
+            _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, poc_.group(1).strip()[:120]))
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': '📣 Filing a PoC. Both minds read what is trending now and propose blind. Paid model calls. Nothing is posted.', 'at': time.time(), 'open': 'features'}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         pob_topic_ = _pob.topic_of(p.text) if not (site_cmd_ and not site_cmd_.get('why')) else None
         if pob_topic_:   # 🏈 "file a pob best nfl picks": researched like a PoW, filed in Bids
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
@@ -5805,7 +6034,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'stamps': {f_.get('id'): _stamp.of(k_, f_, time.time()) for k_, key_ in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')) for f_ in (cat.get(key_) or [])[-30:] if f_.get('id')},
-            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [],
+            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': _poc_view(cat),
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
@@ -6368,11 +6597,13 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
             out['cat'].pop(k_, None)
     out['cat']['mine'] = mine
     out['cat']['live'] = _al.public_row(_LIVE.get(cat_id))
+    out['cat']['printPublic'] = _print.public(_print.build(cat, time.time()))   # 🧬 a level: never what is in it
     if mine:   # 🧠 the record each mind has by topic is its owner's
         out['cat']['mindBoard'] = _pl.mind_board(cat)
         out['cat']['liveKeys'] = _al.owner_view(cat.get('liveKeys'))   # 🔴 whether each channel is set, never the key
         out['cat']['nameLeftS'] = _nl.left_s(cat.get('nameLock'))
         out['cat']['recoveryView'] = _rkit.view(cat.get('recoveryKit'))
+        out['cat']['print'] = _print.build(cat, time.time())
         out['cat']['recoveryHold'] = _rkit.on_hold(cat, time.time())
     return out
 
@@ -6394,9 +6625,9 @@ def public_cat(cat):
     if cat.get('agentWallet'):
         out['hasWallet'] = True   # 👛 a real wallet exists — its address stays its owner's (S2 lock)
     if not cat.get('incognito'):   # 👀 its proofs show to visitors, with every email and phone number taken out
-        for k_ in ('powFolders', 'popFolders', 'pobFolders'):
+        for k_ in ('powFolders', 'popFolders', 'pobFolders', 'pocFolders'):
             if cat.get(k_):
-                out[k_] = [{**_vv.public_folder(f_), 'stamp': _stamp.of({'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB'}[k_], f_, time.time())} for f_ in (cat.get(k_) or [])[-30:]]
+                out[k_] = [{**_vv.public_folder(f_), 'stamp': _stamp.of({'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB', 'pocFolders': 'PoB'}[k_], f_, time.time())} for f_ in (cat.get(k_) or [])[-30:]]
     return out
 
 
@@ -6721,6 +6952,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
         if payload.result != 'confirmed':
             raise HTTPException(400, 'Funding must be confirmed on-chain before credit is recorded.')
+        if isinstance(a_.get('deposit'), dict):   # 💵 what this deposit paid, and what counts toward the every-3rd rule
+            cat['deposits'] = (list(cat.get('deposits') or []) + [{'sig': str(payload.sig)[:100], 'usd': _num(a_.get('usd')), 'at': round(time.time()), **{k: a_['deposit'].get(k) for k in ('ratePct', 'feelessUsd', 'collectiveUsd', 'third')}}])[-200:]
         cr_ = max(0.0, _num(a_.get('creditUsd')) or 0.0)
         if cr_:   # 🧠 the model-credit share of this payment
             cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': cr_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]

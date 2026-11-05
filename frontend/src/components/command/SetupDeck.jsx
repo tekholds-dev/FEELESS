@@ -7,7 +7,7 @@ import '../../styles/character.css';
 
 // 🚀 PRIORITY SETUP (owner 2026-11-04): a new agent starts with its asks, one slide each. The desktop stays lit with how many are left. Its answers live on the server (agent_setup.py):
 // a step is done by the real thing (a mailbox, a signed colony share) or by the owner saying later. Nothing here moves money.
-const USES = [['trade', '📈', 'Trade coins', 'Research, buy and hold on its own wallet or your site account'], ['bids', '🎲', 'Bids + predictions', 'Sports and markets, researched with snapshots'], ['content', '🎨', 'Make content', 'The only job allowed to post'], ['research', '🔎', 'Research', 'Reads the web and reports back'], ['all', '🧬', 'All of it', 'Every folder, every first step']];
+const USES = [['code', '💻', 'Code + build', 'Builds pages live with its minds. Can sign up to GitHub with its email when you ask'], ['trade', '📈', 'Trade coins', 'Research, buy and hold on its own wallet or your site account'], ['bids', '🎲', 'Bids + predictions', 'Sports and markets, researched with snapshots'], ['content', '🎨', 'Make content', 'The only job allowed to post'], ['research', '🔎', 'Research', 'Reads the web and reports back'], ['all', '🧬', 'All of it', 'Every folder, every first step']];
 const SHARES = [0, 5, 10, 15, 20, 25];
 // Where a person does the part only a person can do. Found in searches on 2026-11-04, none of them connected to FEELESS yet: these are links, nothing runs through them.
 const SOURCES = {

@@ -27,6 +27,7 @@ const SYSTEM = [
     { k: 'pob', ic: '🎲', t: 'PoB', sub: 'Any topic, or chips', say: 'Name a topic. Each mind reads major sites with snapshots and calls it blind. Nothing is staked.', cmd: 'file a pob best NFL picks', live: d => (d?.pobFolders || []).length && `${d.pobFolders.length} filed` },
   ] },
   { lane: 'WHAT IT KEEPS', tone: 'keep', nodes: [
+    { k: 'features', ic: '✨', t: 'Features', sub: 'What it can do', say: 'A demo for each feature, and a button that makes the real folder: Build, Content, the Edge desk and Research. Its memory and fingerprint live there too.', open: 'features' },
     { k: 'character', ic: '🎭', t: 'Character', sub: 'Who it is', say: 'Pick who this agent is, or use your own picture. Turn on camera and voice if you want, and go live as it on your own channels.', open: 'character' },
     { k: 'proofs', ic: '🏆', t: 'Proofs folder', sub: 'Everything it filed', say: 'One timeline of every proof, with the decisions and snapshots from that moment.' },
     { k: 'loop', ic: '🪄', t: 'Proof Loop', sub: 'Studies itself first', say: 'Before a new proof it reads its old ones. A coin shaped like a past loss is skipped, and a topic you repeat continues one series.', cmd: 'file a pob lakers parlays' },

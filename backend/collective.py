@@ -172,7 +172,7 @@ def proof_feed(cats, shares, now, limit=20, names=None):
     rows = []
     for c in cats or []:
         nm = str(c.get('name') or 'agent')[:24]
-        for kind, key in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')):
+        for kind, key in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders'), ('PoC', 'pocFolders')):
             for f in (c.get(key) or [])[-12:]:
                 if f.get('noTrade') or not f.get('id'):
                     continue

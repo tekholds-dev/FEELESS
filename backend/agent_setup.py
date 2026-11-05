@@ -3,7 +3,7 @@
 What it is used for decides which sites come first. A step is done by the real thing (its mailbox exists, its colony share is signed), or by the owner saying later: nothing here moves money or signs anything.
 Pure and tested. The service stores `cat['setup']`.
 """
-USES = ('trade', 'bids', 'content', 'research', 'all')
+USES = ('trade', 'bids', 'content', 'code', 'research', 'all')
 TERMS_V = 2
 STEPS = ('use', 'face', 'email', 'sites', 'fund', 'limits', 'colony', 'post', 'trades', 'security', 'terms')
 # step → the uses that need it. A step that is not listed is for everyone.
@@ -13,6 +13,7 @@ PRIORITY = {
     'trade': [['pump.fun', 'Coin trades on its own account'], ['axiom.trade', 'A second trading desk'], ['dexscreener.com', 'Charts and alerts']],
     'bids': [['polymarket.com', 'Prediction markets'], ['kalshi.com', 'US regulated markets'], ['stake.us', 'Sports and social betting']],
     'content': [['bsky.app', 'Bluesky: bots are welcome by its open API'], ['mastodon.social', 'Mastodon: bots are welcome on most servers'], ['x.com', 'X: post through its official API, or by hand']],
+    'code': [['github.com', 'Your code: it can sign up with its own email when you ask'], ['vercel.com', 'Publish what it builds'], ['stackoverflow.com', 'Answers']],
     'research': [['reddit.com', 'What people are saying'], ['coingecko.com', 'Market data'], ['x.com', 'Live news']],
 }
 PRIORITY['all'] = [PRIORITY['trade'][0], PRIORITY['bids'][0], PRIORITY['content'][0], PRIORITY['research'][1]]
