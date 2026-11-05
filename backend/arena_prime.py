@@ -505,6 +505,7 @@ def clean_cfg(p):
     out['trenchRush'] = bool((p or {}).get('trenchRush', False))   # ⚡ RUSH: the trench drop takes the Rush board's coin, every `trenchEvery` min, and may take a losing un-frozen pick's seat
     out['trenchEvery'] = int(_f((p or {}).get('trenchEvery'))) if int(_f((p or {}).get('trenchEvery'))) in TRENCH_EVERY else 30
     out['agentFeed'] = bool((p or {}).get('agentFeed', False))
+    out['deskBuysOff'] = bool((p or {}).get('deskBuysOff', False))   # ⚖ the desk's agents validate proofs now: no new real buys of theirs. Their exits and the owner's own picks are untouched
     out['agentLearn'] = bool((p or {}).get('agentLearn', False))   # 🎓 ONE real seat for the agents to learn on BEFORE they are proven
     out['agentLearnPct'] = int(_f((p or {}).get('agentLearnPct'))) if int(_f((p or {}).get('agentLearnPct'))) in (5, 10, 15, 100) else 100   # 100 = a WHOLE seat (owner: "they run 1 whole seat")
     out['agentDial'] = (p or {}).get('agentDial') if (p or {}).get('agentDial') in ('chill', 'normal', 'crazy') else 'normal'   # 🎚 the creator's dial on Trigger's bar (agents.DIALS)

@@ -13787,6 +13787,19 @@ async def _agent_control_set(on, now):
         _json_save(FUSE_HQ_PATH, d)
 
 
+async def _desk_buys_fix_1105(now):
+    """⚖ Once (owner, 2026-11-05: "Yes, stop their buys"): the desk's agents validate proofs instead of trading. Their new real buys stop; their exits and the owner's own picks run as before. It can be switched back in HQ › Agents. Old value: data/realcfg_before_deskbuys1105.json."""
+    d = _json_load(FUSE_HQ_PATH, {}); pr = d.get('prime') or {}
+    if pr.get('deskBuysFix1105') or not pr.get('realCfg'):
+        return False
+    _json_save(DATA_DIR / 'realcfg_before_deskbuys1105.json', {'deskBuysOff': (pr.get('realCfg') or {}).get('deskBuysOff', False), 'at': now})
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'deskBuysOff': True}); pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {'deskBuysOff'}); pr['deskBuysFix1105'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _agent_control_fix_1010(now):
     """🎮 Once (owner, 2026-10-10 ~12:30 after a $1 top-up: "the agents should have control over my seats and switching coins … allow them
     real moves on my real money card — GO"): agent control ON. Said once before the switch: the edge audit reads 0 of 453 rules positive
@@ -14101,6 +14114,7 @@ async def _prime_tick_inner(now):
     await _curve_fix_1011(now)
     _trail_fix_1014(now)
     await _armed_fix_1013(now)
+    await _desk_buys_fix_1105(now)
     await _proof_clean_1013(now)
     await _minage_fix_1014(now)
     await _mcfloor_fix_1016(now)
@@ -14223,7 +14237,7 @@ async def _prime_tick_inner(now):
             if cfg_t.get('trenchBrain', True) and _brain_ready():
                 sendit_ = [x for x in _brain_rows()[:6] if x['brain']['est'] > 0 and x.get('safe') is True] + sendit_
             pro_ = _pc.pro_entries(_pump_calls.get('calls') or [], _pump_calls.get('callers') or {}, [_with_tv(x) for x in _open_board()], now * 1000) if cfg_t.get('proCallEntry') else []
-            if cfg_t.get('agentFeed') or cfg_t.get('agentLearn'):   # 🤖 the agents' GO calls first — proven, or ONE small 🎓 learning seat
+            if (cfg_t.get('agentFeed') or cfg_t.get('agentLearn')) and not cfg_t.get('deskBuysOff'):   # 🤖 the agents' GO calls first — proven, or ONE small 🎓 learning seat
                 sendit_ = _agents_go_rows((cur or {}).get('legs'), cfg_t.get('agentSeats'), cfg_t.get('agentLearn'), cfg_t.get('agentLearnPct'), cfg_t.get('agentTrust')) + sendit_
             if cfg_t.get('trenchRush'):   # ⚡ RUSH: the engine buys what the Rush board shows — trench + open-list coins that PASSED the scan, ranked by rush_score
                 sendit_ = _rush_rows() + sendit_
@@ -14694,7 +14708,7 @@ async def _prime_tick_inner(now):
             paper_ = bool(cfg_t.get('agentPaper'))
             for x in dec_:
                 try:
-                    if x['action'] == 'swap' and paper_:   # 📄 a switch-in is a real BUY: on paper it is only recorded (the shadow book)
+                    if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):   # 📄 a switch-in is a real BUY: on paper, or with desk buys off, it is only recorded (the shadow book)
                         _shadow_note(x.get('to'), 'switch', now, cur); continue
                     if x['action'] == 'swap' and ctl_ and _office_warden(cur, x['to'], _fuse._f(next((_fuse._f(l.get('units')) * (_fuse._f(px.get(l.get('pairAddress'))) or _fuse._f(l.get('entry'))) for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), 0.0)), cfg_t, now, 'swap')['veto']:
                         continue   # 🛡 a switch carries the old seat's money as it is: the Warden may only veto it
@@ -14748,7 +14762,7 @@ async def _prime_tick_inner(now):
             cfg_s = {**cfg_t, 'coins': pol_['seats']}
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])
             empty_n = max(0, pol_['seats'] - held_n)
-            g4_seat_ = pol_.get('aiSeat') == 'real' and not any(l.get('aiSeat') and not l.get('placeholder') for l in cur.get('legs') or [])
+            g4_seat_ = not cfg_t.get('deskBuysOff') and pol_.get('aiSeat') == 'real' and not any(l.get('aiSeat') and not l.get('placeholder') for l in cur.get('legs') or [])
             if g4_seat_ and empty_n:   # 🧠 one empty seat is G4's while its seat is on: the agents fill the rest
                 empty_n -= 1
             if empty_n and not cur.get('agentEmptyAt'):
@@ -14923,6 +14937,8 @@ async def _prime_tick_inner(now):
                     _g4_fate(w_, 'sent to the seat check', now)
                 elif not bad_ and w_:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
+            if cfg_t.get('deskBuysOff'):   # ⚖ the last door: nothing on the plan reaches the card
+                plan_, g4n_ = [], 0
             pre_ = await _seat_precheck(plan_[:empty_n + 3 + g4n_], cfg_t, now, seat_usd=_prime.agent_seat_usd(cur, px, cfg_s), need=empty_n + g4n_) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
             _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,
                               'refused': [{'symbol': t_.get('symbol'), 'why': _agent_refused[t_['mint']][1]} for t_ in plan_ if pre_ is not None and t_['mint'] in _agent_refused][:6]}
@@ -23808,7 +23824,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung', 'aiSeatPicksOnly') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'deskBuysOff', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung', 'aiSeatPicksOnly') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

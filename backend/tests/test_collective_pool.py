@@ -414,3 +414,16 @@ def test_five_validators_catch_what_each_one_is_for():
     assert says(block='thin pool') == (False, ['Devil', 'Judge'])
     assert says(seen=('S',)) == (False, ['Archivist', 'Judge'])            # the same transaction twice
     assert says(real=False) == (False, ['Archivist', 'Judge'])
+
+
+def test_desk_buys_off_is_kept_by_the_card_settings_and_defaults_off():
+    import arena_prime as ap
+    assert ap.clean_cfg({})['deskBuysOff'] is False and ap.clean_cfg({'deskBuysOff': True})['deskBuysOff'] is True
+
+
+def test_every_door_the_desk_buys_through_checks_the_switch():
+    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    assert "if (cfg_t.get('agentFeed') or cfg_t.get('agentLearn')) and not cfg_t.get('deskBuysOff'):" in src                         # GO rows into the engine
+    assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                                # a switch into a new coin
+    assert "g4_seat_ = not cfg_t.get('deskBuysOff') and" in src                                                                       # OSSY and G4's seat
+    assert "if cfg_t.get('deskBuysOff'):   # ⚖ the last door" in src                                                                  # the seat fills

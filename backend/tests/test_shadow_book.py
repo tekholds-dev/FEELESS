@@ -11,7 +11,7 @@ def test_paper_is_the_default_and_the_tick_never_buys_on_paper():
     assert ap.clean_cfg({})['agentPaper'] is True and ap.clean_cfg({'agentPaper': False})['agentPaper'] is False
     src = open(__import__('reputation_service').__file__).read()
     assert "if cfg_t.get('agentPaper'):" in src and 'plan_ = []' in src                     # seat fills → shadow book only
-    assert "if x['action'] == 'swap' and paper_:" in src                                     # switch-ins too (exits still act)
+    assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                     # switch-ins too (exits still act)
 
 
 def test_controls_are_from_the_same_moment_and_never_the_chosen_coin():
