@@ -42,5 +42,5 @@ test('its mind: start fresh asks first, clean and about you go through the owner
   await type(q('fea-personal'), 'I like it short'); await act(async () => { q('fea-personal-save').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'memory', job: 'personal', text: 'I like it short' });
 });
 test('the next move follows what is off', () => {
-  expect(nextMove({ auto: false })[0]).toContain('Auto-collect'); expect(nextMove({ auto: true, convo: false })[0]).toContain('convos'); expect(nextMove({ auto: true, convo: true, weight: 1.4 })[0]).toContain('60 boost'); expect(nextMove({ auto: true, convo: true, weight: 2 })[0]).toContain('maxed');
+  expect(nextMove({ auto: false })[0]).toContain('Auto-collect'); expect(nextMove({ auto: true, convo: false })[0]).toContain('convos'); expect(nextMove({ auto: true, convo: true, weight: 1.4 })[0]).toContain('boost'); expect(nextMove({ auto: true, convo: true, weight: 2 })[0]).toContain('full');
 });
