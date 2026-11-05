@@ -134,4 +134,4 @@ def test_an_indicator_search_links_to_its_page_and_never_carries_its_code():
     class H:
         async def get(self, *a, **k): return R()
     got = asyncio.run(pt.indicators(H(), 'rsi'))
-    assert got['rows'][0]['url'] == 'https://www.tradingview.com/script/abc123/' and 'SECRET' not in str(got)
+    assert got['rows'][0]['url'] == 'https://www.tradingview.com/scripts/search/RSI%20x/' and 'SECRET' not in str(got)

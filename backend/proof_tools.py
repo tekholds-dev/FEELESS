@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 import time
+from urllib.parse import quote
 
 SPORTS = {'nfl': ('NFL', 'football/nfl'), 'nba': ('NBA', 'basketball/nba'), 'mlb': ('MLB', 'baseball/mlb'), 'nhl': ('NHL', 'hockey/nhl'), 'cfb': ('College football', 'football/college-football'), 'cbb': ('College basketball', 'basketball/mens-college-basketball'), 'epl': ('Soccer', 'soccer/eng.1')}
 KALSHI = {'nfl': 'KXNFLGAME', 'nba': 'KXNBAGAME', 'mlb': 'KXMLBGAME', 'nhl': 'KXNHLGAME', 'cfb': 'KXNCAAFGAME', 'cbb': 'KXNCAAMBGAME', 'epl': 'KXEPLGAME'}
@@ -229,9 +230,8 @@ async def indicators(http, q):
     if not q:
         return {'rows': []}
     got = await _get(http, 'https://www.tradingview.com/pubscripts-suggest-json/', params={'search': q}, headers={'User-Agent': 'Mozilla/5.0'})
-    def link(x):
-        part = re.sub(r'[^\w-]', '', str(x.get('scriptIdPart') or ''))
-        return f'https://www.tradingview.com/script/{part}/' if part else f'https://www.tradingview.com/scripts/search/{q}/'
+    def link(x):   # a search by its name always lands: their ids do not map to a stable page address
+        return 'https://www.tradingview.com/scripts/search/' + quote(str(x.get('scriptName') or q)[:80], safe='') + '/'
     rows = [{'t': str(x.get('scriptName') or x.get('title') or '')[:80], 'by': (x.get('author') or {}).get('username') if isinstance(x.get('author'), dict) else None, 'url': link(x)} for x in (got or {}).get('results') or []][:12]
     return {'rows': rows, 'read': got is not None}
 
