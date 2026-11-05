@@ -583,3 +583,16 @@ test('🧭 Browser window: tools box docks left or right, makes its email, shows
   expect(q('bwr-saved').textContent).toContain('pump.fun'); expect(q('bwr-reopen-pump.fun')).toBeTruthy(); expect(calls).toEqual(expect.arrayContaining(['mail_make', 'mail_read', 'signin_open', 'signin_save']));
   await act(async () => root.unmount()); el.remove(); global.fetch = realFetch;
 });
+
+test('🔁 what wants one spot takes turns: one shows at a time and each stays until it is gone', async () => {
+  jest.useFakeTimers();
+  const { Turns } = require('./CatWorkbench');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<Turns items={[<b key="bar">bar</b>, null, <b key="note">note</b>]} />); });
+  const on = () => [...el.querySelectorAll('.cwb-turn.is-on')].map(n => n.textContent);
+  expect(el.querySelectorAll('.cwb-turn').length).toBe(2); expect(on()).toEqual(['bar']);
+  await act(async () => { jest.advanceTimersByTime(3600); }); expect(on()).toEqual(['note']);
+  await act(async () => { jest.advanceTimersByTime(3600); }); expect(on()).toEqual(['bar']);
+  await act(async () => { root.render(<Turns items={[<b key="bar">bar</b>]} />); }); expect(on()).toEqual(['bar']);
+  await act(async () => root.unmount()); el.remove(); jest.useRealTimers();
+});

@@ -176,6 +176,8 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 - 2026-11-05 Source files per job (`agent_refs.py`; `agent_sources.py` is the older sources book, keep both): in each agent's prompt and its Sources folder. Sites that refused a plain read were left out.
 - OPEN, owner's call: throwaway prepaid/debit card with Apple Pay for agents. Needs a card issuer account with identity checks and a lawyer look; not built, nothing promised on screen.
 
+- 2026-11-05 `ProChart.jsx` = one result chart for the whole site (TradingView Lightweight Charts, free, zoom off). Agent monitors never zoom, owner included. Trade bar (`PowPnl`) on a monitor takes turns with its notices (`Turns`); toasts too. AGENTS desktop gains Sicario's, Prompts, Stash, Providers. Features › First sources (`first_rows`, `refsMine`): owner's sites on top; states come from real visits and sealed cookies, nothing is opened to check. Trade bar seen in tests only; no agent was in a live trade.
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

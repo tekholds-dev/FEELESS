@@ -116,7 +116,7 @@ body.theme-day body.theme-day .cwb-artifact summary { color: #67309a; }
 .cwb-cloud b { color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .14em; }
 .cwb-cloud span { --i: 0; max-width: 100%; padding: 3px 9px; border-radius: 999px; background: #07040ecc; border: 1px solid #9dffcf2a; color: #e9fff4; font: 600 11px var(--f-ui, sans-serif);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: cwbIn .35s both; animation-delay: calc(var(--i) * 60ms); }
-.cwb-chart { position: absolute; inset: 0; overflow: hidden; } .cwb-chart > :first-child { height: 100%; max-height: 100%; pointer-events: none; }   /* 🔒 view-only: no zoom / drag on the agent's chart */   /* the FEELESS chart fits its window, never spills */
+.cwb-chart { position: absolute; inset: 0; overflow: hidden; } .cwb-chart > :first-child { height: 100%; max-height: 100%; } .cwb-chart, .cwb-chart * { pointer-events: none !important; }   /* 🔒 view-only: no zoom / drag on the agent's chart */   /* the FEELESS chart fits its window, never spills */
 .cwb-chart-load { display: grid; place-items: center; min-height: 220px; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; }
 .cwb-chat { max-width: 760px; margin-inline: auto; width: 100%; gap: 6px; }
 @keyframes cwbIn { from { opacity: 0; transform: translateY(4px); } }
@@ -446,7 +446,7 @@ body.fx-lite .dsk-coin { animation: none; } @media (prefers-reduced-motion: redu
 .dsk-dots button:hover { filter: brightness(1.2); transform: scale(1.12); } .dsk-dots button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .dsk-tools { display: flex; align-items: center; gap: 6px; flex: none; } .dsk-tools .m-btn { min-height: 32px; }
 .dsk-left { color: #9fe3b9; font: 700 10.5px var(--f-mono); font-style: normal; white-space: nowrap; } .dsk-left.is-hot { color: #ff8fa3; }
-.dsk-body { min-height: 0; display: grid; } .dsk-body > iframe { width: 100%; height: 100%; border: 0; background: #000; }
+.dsk-body { min-height: 0; display: grid; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; scrollbar-color: #45e48688 transparent; } .dsk-body::-webkit-scrollbar { width: 6px; } .dsk-body::-webkit-scrollbar-thumb { background: #45e48688; border-radius: 3px; } .dsk-body::-webkit-scrollbar-track { background: transparent; } .dsk-body > * { box-sizing: border-box; } .dsk-body > iframe { width: 100%; height: 100%; border: 0; background: #000; }
 .dsk-gone { display: grid; place-content: center; justify-items: center; gap: 10px; padding: 20px; text-align: center; background: radial-gradient(#ff8fa314, transparent 60%), #08060c; }
 .dsk-gone b { color: #ffd6de; font: 800 16px var(--f-display); } .dsk-gone span { color: #c9b8c6; font: 500 12.5px var(--f-ui); max-width: 380px; }
 .dsk-explorer { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 0; }
@@ -673,6 +673,7 @@ body.theme-day .dsk-evidence-meter, body.theme-day .dsk-evidence-summary { backg
 
 /* 📥 one dock for everything at the foot of a live window (owner 2026-11-04: three things overlapped while it pulled info): the tray of grabs, then its status line */
 .cwb-dock { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-height: 46%; overflow: hidden; pointer-events: none; } .cwb-dock.at-right { align-items: flex-end; }
+.cwb-turns { display: grid; width: 100%; } .cwb-turn { grid-area: 1 / 1; opacity: 0; transition: opacity .35s ease; display: flex; min-width: 0; align-items: flex-end; } .cwb-dock.at-right .cwb-turn { justify-content: flex-end; } .cwb-turn.is-on { opacity: 1; } .cwb-turn .cwb-powpnl { position: static; flex: 1 1 100%; min-width: 0; } body.fx-lite .cwb-turn { transition: none; } @media (prefers-reduced-motion: reduce) { .cwb-turn { transition: none; } }
 .cwb-dock .cwb-tray, .cwb-dock .cwb-say { position: static; left: auto; right: auto; bottom: auto; max-width: 100%; } .cwb-dock .cwb-tray li:nth-last-child(n+4) { display: none; }
 .dsk-src-health { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 8px; padding: 10px 12px; border-radius: 12px; background: #ffffff0a; font: 600 11px var(--f-ui); color: #d8cff0; } .dsk-src-health b { font: 800 16px var(--f-mono); color: #45e486; } .dsk-src-health em { font: 600 10px var(--f-mono); font-style: normal; color: #ff8fa3; }
 body.theme-day .dsk-src-health { background: #0000000a; color: #3a2a5a; } body.theme-day .dsk-src-health b { color: #0a7a44; } body.theme-day .dsk-src-health em { color: #b0243f; }

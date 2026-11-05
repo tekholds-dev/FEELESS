@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { ProChart } from './ProChart';
 import '../../styles/proofTools.css';
 
 // 🧰 THE PROOF FOLDER DASH (owner 2026-11-04): each folder opens on its top 5 free sources, live. PoB: pick a sport and a team, see the games and the parlays the market likes most, one tap files a proof on them. "Best" = the market's own odds, said so on screen.
@@ -33,12 +34,9 @@ function Versus({ label, a, b, tip, pctRow }) {
   const show = v => (pctRow ? (Number.isFinite(v) ? `${Math.round(v * 100)}%` : '—') : (v ?? '—'));
   return <li className="pgw-vs" data-tip={tip}><b className="m-num">{show(pctRow ? na : a)}</b><span className="pgw-vbar is-a" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, fa || 0))})` }} /></span><small>{label}</small><span className="pgw-vbar is-b" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, fb || 0))})` }} /></span><b className="m-num">{show(pctRow ? nb : b)}</b></li>;
 }
-// 📈 The chance the home side wins, through the game. One line, one axis, hover reads any moment.
+// 📈 The chance the home side wins, through the game.
 function WinLine({ wp, home }) {
-  const [at, setAt] = useState(null); const n = wp.length; const X = i => (i / (n - 1)) * 600; const Y = v => 110 - v * 100; const d = wp.map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(' ');
-  const hover = e => { const r = e.currentTarget.getBoundingClientRect(); setAt(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - r.left) / r.width) * (n - 1))))); };
-  const v = at == null ? wp[n - 1] : wp[at];
-  return <figure className="pgw-line" data-testid="pgw-line"><figcaption><span>{home} WIN CHANCE</span><b className="m-num">{Math.round(v * 100)}%</b></figcaption><svg viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label={`${home} win chance through the game`} onMouseMove={hover} onMouseLeave={() => setAt(null)}><line x1="0" x2="600" y1="60" y2="60" className="pgw-mid" /><path d={d} className="pgw-path" vectorEffect="non-scaling-stroke" />{at != null ? <line x1={X(at)} x2={X(at)} y1="8" y2="112" className="pgw-cross" vectorEffect="non-scaling-stroke" /> : null}</svg><small className="pgw-axis"><span>Start</span><span>50% line</span><span>{at == null ? 'Now' : `Moment ${at + 1} of ${n}`}</span></small></figure>;
+  return <section className="pgw-line" data-testid="pgw-line"><h5>{home} WIN CHANCE, THROUGH THE GAME</h5><ProChart rows={wp.map(v => ({ v, mark: false }))} base={0.5} height={130} testid="pgw-pro" label={`${home} win chance through the game`} fmt={v => `${Math.round(v * 100)}%`} /></section>;
 }
 const Form = ({ rows }) => (rows?.length ? <span className="pgw-form" aria-label={`Last ${rows.length} games: ${rows.join(' ')}`}>{rows.map((r, i) => <i key={i} className={r === 'W' ? 'is-w' : r === 'L' ? 'is-l' : ''}>{r}</i>)}</span> : null);
 function GameWindow({ g, onClose, onCommand }) {
@@ -110,7 +108,7 @@ function PopDash({ d, onCommand }) {
 }
 export function ProofTools({ kind, onCommand }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(false); const [sport, setSport] = useState('all'); const [team, setTeam] = useState(''); const [open, setOpen] = useState(true);
-  useEffect(() => { let on = true; const go = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/tools/${kind}?sport=${sport}&team=${encodeURIComponent(team)}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { if (on) { setD(j); setErr(false); } }).catch(() => on && setErr(true)); };
+  useEffect(() => { let on = true; let first = true; const go = () => { if (document.hidden && !first) return; first = false; fetch(apiUrl(`/api/cats/tools/${kind}?sport=${sport}&team=${encodeURIComponent(team)}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { if (on) { setD(j); setErr(false); } }).catch(() => on && setErr(true)); };
     go(); const t = setInterval(go, 60000); return () => { on = false; clearInterval(t); }; }, [kind, sport, team]);
   return <details className="ptl" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid={`ptl-${kind}`}><summary><b><Ic3 e="🧰" /> LIVE TOOLS</b><Sources rows={d?.sources} /></summary>
     {err && !d ? <p className="ptl-none" role="alert">These sources could not be read. It tries again in a minute.</p> : !d ? <p className="ptl-none">Reading its sources…</p>

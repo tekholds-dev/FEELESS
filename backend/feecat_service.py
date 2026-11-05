@@ -3708,6 +3708,20 @@ SOURCES_PATH = DATA_DIR / 'agent_sources.json'
 BLOCK_PIVOT_S = 45   # a visible manual challenge window; then the mind records the gap and moves on
 
 
+def _first_list(cat):
+    """Its first sources, each with its real state: real visits from the sources book, cookies read from its sealed sign-ins. Nothing is opened to work this out."""
+    now = time.time(); jar = {}
+    for site, r in (cat.get('siteSessions') or {}).items():
+        try:
+            ctx = json.loads(_ck.unseal(r.get('ctx'), cat['id'], data_dir=DATA_DIR))
+            clean, st = _cb.clean_context(ctx, site, now)
+            ends = [float(k.get('expires')) for k in (clean or {}).get('cookies') or [] if isinstance(k.get('expires'), (int, float)) and k.get('expires') > 0]
+            jar[site] = {'kept': st.get('kept', 0), 'soonest': min(ends) if ends else None}
+        except Exception:
+            jar[site] = {'kept': 0, 'soonest': None}
+    return _feat._sources.first_rows(cat, _src_book(), jar, now)
+
+
 def _src_book():
     try:
         return json.loads(SOURCES_PATH.read_text()) or {}
@@ -5673,8 +5687,22 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
+    if p.op in ('refs_add', 'refs_drop'):   # 📚 its owner's own sites sit on top of its first list
+        host_ = _src.host_of(p.text if str(p.text or '').startswith('http') else f'https://{str(p.text or "").strip()}')
+        if p.op == 'refs_add':
+            try:
+                _cp.check_url(f'https://{host_}')
+            except ValueError as e:
+                raise HTTPException(400, str(e)[:120])
+            if not host_ or '.' not in host_:
+                raise HTTPException(400, 'Type a site, like pump.fun.')
+            cat['refsMine'] = ([host_] + [x for x in cat.get('refsMine') or [] if x != host_])[:20]
+        else:
+            cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
+        keep_owned(cat); _save(store)
+        return {'firstList': _first_list(cat)}
     if p.op == 'features':   # ✨ its Features folder: folders it has, memory, its fingerprint
-        return {'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'pocFolders': _poc_view(cat)}
+        return {'firstList': _first_list(cat), 'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'pocFolders': _poc_view(cat)}
     if p.op == 'feature_create':
         kind_ = _feat.clean_kind(p.text)
         if not kind_:

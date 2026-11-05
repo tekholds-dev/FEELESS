@@ -9,6 +9,9 @@ import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, PowEngine } from './HiveBoard';
 import { CollectiveOwner } from './CollectiveOwner';
+import { AgentDesk } from './AgentDesk';
+import { StashWeb } from './StashWeb';
+import { ProviderReady } from './ProviderReady';
 import { AgentDesktop } from './CatWorkbench';
 import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
@@ -201,6 +204,10 @@ export function FeeCatDesk({ call }) {
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The tree: the Pool, every agent, every winning proof', body: <ColonyFlow api={flowApi} /> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
+      { k: 'desk', ic: '🎩', label: "Sicario's", tip: 'OSSY, G4 and the desk: every switch, seat and rule', body: <AgentDesk call={call} isOwner /> },
+      { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
+      { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
+      { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
     ]} /> : null}
     {tab === 'overview' ? <div className="fch-grid">

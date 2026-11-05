@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { agentAuth } from '../../lib/chatSession';
 import { goTo } from './FeeCatShell';
 import { AgentPortrait } from './AgentPortrait';
+import { ProChart } from './ProChart';
 
 // 👑 THE TOP OF THE COLLECTIVE (owner 2026-11-04): an owner opens on their own agents: a running result, what a boost is worth, what to do next. A visitor gets the pitch, with live numbers.
 export function nextMove(a) {
@@ -12,13 +13,8 @@ export function nextMove(a) {
   return ['Its boost is full', 'Keep proofs coming: points fade if they stop.'];
 }
 function Chart({ rows }) {
-  const [hover, setHover] = useState(null);
-  const { d, area, pts, zero } = useMemo(() => { const vs = (rows || []).map(r => r.v); const lo = Math.min(0, ...vs); const hi = Math.max(0, ...vs); const span = hi - lo || 1; const n = Math.max(1, vs.length - 1); const P = (rows || []).map((r, i) => ({ x: (i / n) * 600, y: 150 - ((r.v - lo) / span) * 140, r })); const line = P.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' '); const z = 150 - ((0 - lo) / span) * 140; return { d: line, area: P.length ? `${line} L600 ${z} L0 ${z}Z` : '', pts: P, zero: z }; }, [rows]);
   if (!rows?.length) return <p className="clx-none">Its chart starts with its first real proof.</p>;
-  const last = rows[rows.length - 1].v; const h = hover ?? pts[pts.length - 1];
-  return <div className="clx-chart" data-testid="clx-chart"><span className="clx-chart-tip"><b className={`m-num ${h.r.v >= 0 ? 'is-up' : 'is-dn'}`}>{h.r.v >= 0 ? '+' : ''}{h.r.v.toFixed(4)} SOL</b><small>{h.r.sym ? `after $${h.r.sym}` : ''}{h.r.pct != null ? ` ${Number(h.r.pct) >= 0 ? '+' : ''}${Number(h.r.pct).toFixed(1)}%` : ''}</small></span>
-    <svg viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label={`Running result, now ${last.toFixed(4)} SOL`} onMouseMove={e => { const r = e.currentTarget.getBoundingClientRect(); const i = Math.round(((e.clientX - r.left) / r.width) * (pts.length - 1)); setHover(pts[Math.max(0, Math.min(pts.length - 1, i))]); }} onMouseLeave={() => setHover(null)}>
-      <line x1="0" x2="600" y1={zero} y2={zero} className="is-zero" /><path d={area} className="is-area" /><path d={d} className={`is-line${last < 0 ? ' is-dn' : ''}`} /><circle cx={h.x} cy={h.y} r="4" /></svg></div>;
+  return <div className="clx-chart" data-testid="clx-chart"><ProChart rows={rows} height={230} testid="clx-pro" label="Running result in SOL" fmt={v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(4)}`} tip={r => `${r.sym ? `$${r.sym}` : ''}${r.pct != null ? ` ${Number(r.pct) >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : ''}`} /></div>;
 }
 function Mine({ rows, mode }) {
   const [at, setAt] = useState(0); const a = rows[Math.min(at, rows.length - 1)]; const [head, why] = nextMove(a);

@@ -1,3 +1,4 @@
+import { ProChart } from './ProChart';
 import '../../styles/boosts.css';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -226,25 +227,9 @@ export function glassOf(s) {
   return { title: `${u.label} RESULT`, value: rows.length ? `${u.fmt(end)} ${u.unit}` : 'No results yet', sub: rows.length ? `${won} of ${rows.length} won` : 'File a proof to start', tone: !rows.length ? '' : end >= 0 ? 'up' : 'dn', vals: rows.map(r => r.sum) };
 }
 
-const CW = 640; const CH = 210; const PAD = { l: 8, r: 8, t: 12, b: 20 };
 function when(at) { return at ? new Date(at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''; }
 function LineChart({ rows, u }) {
-  const [hover, setHover] = useState(null); const box = useRef(null);
-  const vals = rows.map(r => r.sum); const lo = Math.min(0, ...vals); const hi = Math.max(0, ...vals); const span = hi - lo || 1;
-  const X = i => PAD.l + (rows.length > 1 ? (i / (rows.length - 1)) * (CW - PAD.l - PAD.r) : (CW - PAD.l - PAD.r) / 2);
-  const Y = v => PAD.t + (1 - (v - lo) / span) * (CH - PAD.t - PAD.b);
-  const line = rows.map((r, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(r.sum).toFixed(1)}`).join(' ');
-  const onMove = e => { const b = box.current.getBoundingClientRect(); const fx = ((e.clientX - b.left) / b.width) * CW; const i = rows.length > 1 ? Math.round(((fx - PAD.l) / (CW - PAD.l - PAD.r)) * (rows.length - 1)) : 0; setHover(Math.max(0, Math.min(rows.length - 1, i))); };
-  const h = hover != null ? rows[hover] : null;
-  return <div className="pfd-plot" ref={box} onPointerMove={onMove} onPointerLeave={() => setHover(null)} data-testid="pfd-line">
-    <svg viewBox={`0 0 ${CW} ${CH}`} role="img" aria-label={`Running total, ${u.unit}`}>
-      <line x1={PAD.l} x2={CW - PAD.r} y1={Y(0)} y2={Y(0)} className="pfd-zero" />
-      <path className="pfd-line" d={line} pathLength="1" />
-      {h ? <><line x1={X(hover)} x2={X(hover)} y1={PAD.t} y2={CH - PAD.b} className="pfd-cross" /><circle cx={X(hover)} cy={Y(h.sum)} r="5" className="pfd-dot" /></> : null}
-      <text x={PAD.l} y={CH - 5} className="pfd-axis">{when(rows[0]?.at)}</text><text x={CW - PAD.r} y={CH - 5} textAnchor="end" className="pfd-axis">{when(rows[rows.length - 1]?.at)}</text>
-    </svg>
-    {h ? <div className="pfd-tip" style={{ left: `${Math.min(70, (X(hover) / CW) * 100)}%` }} role="status" data-testid="pfd-tip"><b>{h.name}</b>{h.sub ? <small>{h.sub}</small> : null}<span className="m-num">{u.fmt(h.v)} {u.unit}</span><em className="m-num">total {u.fmt(h.sum)}</em></div> : null}
-  </div>;
+  return <div className="pfd-plot" data-testid="pfd-line"><ProChart rows={rows.map(r => ({ ...r, v: r.sum }))} height={240} testid="pfd-pro" label={`Running total, ${u.unit}`} fmt={v => u.fmt(v)} tip={r => `${r.name}${r.sub ? ` ${r.sub}` : ''}`} /></div>;
 }
 export function PerfDiagram({ series }) {
   const firstKey = series.pow.length ? 'pow' : series.pop.length ? 'pop' : series.pob.length ? 'pob' : 'pow';

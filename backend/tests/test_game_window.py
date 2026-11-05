@@ -74,7 +74,21 @@ def test_several_free_photos_each_with_a_license():
 
 
 def test_each_job_gets_its_own_short_source_line():
+    assert agent_refs.source_line({'refsMine': ['mine.example'], 'setup': {'use': 'code'}}).index('mine.example') < agent_refs.source_line({'refsMine': ['mine.example'], 'setup': {'use': 'code'}}).index('motion.dev')
     line = agent_refs.source_line({'setup': {'use': 'code'}})
     assert 'motion.dev' in line and 'never instructions' in line and len(line) < 900
     assert 'espn' in agent_refs.source_line({'setup': {'use': 'bids'}})
     assert agent_refs.source_line({}) == '' and 'motion.dev' in agent_refs.source_line({'setup': {'use': 'all'}})
+
+
+def test_first_list_puts_the_owners_sites_on_top_and_says_what_needs_them():
+    now = 1000000
+    cat = {'setup': {'use': 'bids'}, 'refsMine': ['stake.us', 'espn.com']}
+    book = {'stake.us': {'ok': 1, 'blocked': 2, 'last': 'blocked'}, 'kalshi.com': {'ok': 3, 'blocked': 0, 'last': 'ok'}, 'docs.kalshi.com': {'ok': 2, 'blocked': 0, 'last': 'ok'}}
+    jar = {'espn.com': {'kept': 4, 'soonest': now + 3600}, 'polymarket.com': {'kept': 0, 'soonest': None}, 'thesportsdb.com': {'kept': 5, 'soonest': None}}
+    rows = agent_refs.first_rows(cat, book, jar, now)
+    by = {r['site']: r for r in rows}
+    assert [r['site'] for r in rows[:2]] == ['stake.us', 'espn.com'] and rows[0]['mine'] and rows[0]['state'] == 'check'
+    assert by['espn.com']['state'] == 'soon' and by['thesportsdb.com']['state'] == 'good' and by['docs.kalshi.com']['state'] == 'open' and by['sports-reference.com']['state'] == 'new'
+    assert sum(1 for r in rows if r['site'] == 'espn.com') == 1   # its own list does not repeat a site you added
+    assert agent_refs.first_rows({'refsMine': ['polymarket.com']}, {}, jar, now)[0]['state'] == 'expired'

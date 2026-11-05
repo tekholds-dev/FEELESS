@@ -197,7 +197,7 @@ body.theme-day .pp-list h4 { color: #27408f; } body.theme-day .pp-head, body.the
 body.theme-day .clx-folder, body.theme-day .ge { color: var(--bst-ink, #e8efff); }
 
 /* a folder's window is its one scroller: never clip inside it */
-.dsk-body > :is(.pp, .bst, .cof, .clx-folder) { overflow: visible; height: auto; min-height: 100%; }
+.dsk-body > :is(.pp, .bst, .cof, .clx-folder) { overflow: visible; height: auto; align-self: start; }
 
 /* the proof words */
 .trm { display: grid; gap: 10px; padding: 12px; color: #e8efff; } .trm-is { margin: 0; font: 500 13px/1.45 var(--f-ui); color: #cfe0ff; } .trm-is b { color: #fff; }

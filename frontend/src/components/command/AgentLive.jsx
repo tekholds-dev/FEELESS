@@ -30,7 +30,7 @@ const fin = v => v != null && Number.isFinite(Number(v));
 export function coinVitals(c) {
   if (!c) return [];
   const tone = v => (v > 0 ? 'up' : v < 0 ? 'dn' : '');
-  return (c.open ? [['SIZE', fin(c.sol) ? `${c.sol.toFixed(3)} SOL` : null], ['P&L', fin(c.pct) ? pctWord(c.pct) : null, tone(c.pct)], ['HELD', c.at ? ago(c.at) : null]]
+  return (c.open ? [['SIZE', fin(c.sol) ? `${c.sol.toFixed(3)} SOL` : null], ['ENTRY', fin(c.entry) ? `$${Number(c.entry).toPrecision(3)}` : null], ['P&L', fin(c.pct) ? pctWord(c.pct) : null, tone(c.pct)], ['SL', fin(c.sl) ? `−${c.sl}%` : null, 'dn'], ['TP', fin(c.tp) ? `+${c.tp}%` : null, 'up'], ['HELD', c.at ? ago(c.at) : null]]
     : [['EXIT', fin(c.pct) ? pctWord(c.pct) : null, tone(c.pct)], ['P&L', fin(c.pnl) ? `${c.pnl >= 0 ? '+' : ''}${c.pnl.toFixed(4)} SOL` : null, tone(c.pnl)], ['AFTER', fin(c.after) ? `peak ${pctWord(c.after)}` : null], ['SOLD', c.at ? `${ago(c.at)} ago` : null]])
     .filter(x => x[1]);
 }
@@ -85,7 +85,9 @@ export function FeedToasts({ feed = [] }) {
     const fresh = feed.filter(t => !prev.has(t)); if (fresh.length) setItems(x => [...x, ...fresh.map(t => ({ t, at: Date.now() }))].slice(-3)); }, [feed]);
   useEffect(() => { if (!items.length) return undefined; const t = setInterval(() => setItems(x => x.map(i => (Date.now() - i.at > TOAST_MS && !i.out ? { ...i, out: true } : i)).filter(i => !(i.out && Date.now() - i.at > TOAST_MS + 700))), 350);
     return () => clearInterval(t); }, [items.length]);
-  return <ol className="agd-feed agd-toasts" aria-live="polite" data-testid="agd-toasts">{items.map(i => <li key={`${i.at}-${i.t}`} className={i.out ? 'is-out' : ''}>{i.t}</li>)}</ol>;
+  const [turn, setTurn] = useState(0); const n = items.length;
+  useEffect(() => { if (n < 2) return undefined; const t = setInterval(() => setTurn(x => x + 1), 2200); return () => clearInterval(t); }, [n]);
+  return <ol className="agd-feed agd-toasts" aria-live="polite" data-testid="agd-toasts">{items.map((i, k) => <li key={`${i.at}-${i.t}`} className={`${i.out ? 'is-out' : ''}${k === turn % n ? ' is-turn' : ''}`}>{i.t}</li>)}</ol>;
 }
 export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], callouts, testId = 'agent-live', cloud, locked = false }) {   // locked: a visitor watches, never drives (no zoom / pan on its charts)
   return <section className={`agd agl is-trading${locked ? ' is-locked' : ''}`} data-testid={testId}>

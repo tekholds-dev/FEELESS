@@ -177,7 +177,7 @@ body.theme-day .agd-print { color: #5a4f78; } body.theme-day .agd-print li.is-no
 body.fx-lite .agd-print li { animation: none; } @media (prefers-reduced-motion: reduce) { .agd-print li { animation: none; } }
 
 /* 👀 a visitor watches an agent's charts — they are the agent's, never zoomed or panned by a viewer (owner 2026-10-31) */
-.agl.is-locked .agd-screen, .agl.is-locked .agd-win canvas { pointer-events: none; }
+.agl-plot, .agl-plot * { pointer-events: none !important; }   /* 🔒 owner 2026-11-05: nobody zooms or drags a chart on an agent's monitor, owner included */
 
 /* 🗂 decision toasts over the bottom of the windows: in, a few seconds, then down into the folder · 📈 live P&L dot */
 .agl .agd-toasts { position: absolute; left: auto; right: 16px; top: 12px; bottom: auto; width: min(62%, 720px); transform: none; z-index: 4; justify-items: end; display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; pointer-events: none; }
@@ -188,6 +188,7 @@ body.fx-lite .agd-print li { animation: none; } @media (prefers-reduced-motion: 
 .agl-vit.is-live dd { transition: color .2s; }
 @keyframes aglToastIn { from { opacity: 0; transform: translateY(10px) scale(.97); } }
 @keyframes aglToastOut { to { opacity: 0; transform: translate(40vw, 40px) scale(.3); } } @keyframes aglBlink { 50% { opacity: .3; } }
+.agl .agd-toasts li:not(.is-out) { animation: none; } .agl .agd-toasts li { grid-area: 1 / 1; opacity: 0; transition: opacity .3s ease; } .agl .agd-toasts li.is-turn { opacity: 1; }   /* one at a time, in the same spot */
 body.fx-lite .agl .agd-toasts li, body.fx-lite .agl-live-dot { animation: none; } body.fx-lite .agl .agd-toasts li.is-out { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .agl .agd-toasts li, .agl-live-dot { animation: none; } .agl .agd-toasts li.is-out { opacity: 0; } }
 body.theme-day .agl .agd-toasts li { background: rgba(255, 255, 255, .96); color: #24164a; }

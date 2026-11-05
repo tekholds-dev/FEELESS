@@ -4,6 +4,7 @@ import { SplitFlow, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import { StashWeb } from './StashWeb';
+import { ProChart } from './ProChart';
 import { motion } from 'motion/react';
 import { BackCurves, DollarBars, Fx, Presets, Slide, Tabs } from './CollectiveSetup';
 import '../../styles/boosts.css';
@@ -42,8 +43,8 @@ const GROUPS = [
 const IN = { vault: 'Vault', deposit: 'First deposits', topup: 'Top-ups', txn: 'Trade fees', task: 'Task fees', proofs: 'Kept from proofs', release: 'From releases', pass: 'Agent Pass', gift: 'Gifts' };
 function Trend({ hist }) {
   const rows = hist || []; if (rows.length < 2) return <p className="fch-nil">The Collective's growth chart starts after its second day.</p>;
-  const S = [['keep', 'Keeps', '#4fb8ff'], ['pot', 'Fee pot', '#ff8bd8'], ['locked', 'Locked', '#a06bff'], ['owed', 'Agents earned', '#3ee58a']]; const top = Math.max(1e-9, ...rows.flatMap(r => S.map(([k]) => r[k] || 0))); const X = i => (i / (rows.length - 1)) * 600; const Y = v => 118 - ((v || 0) / top) * 110;
-  return <figure className="ge-chart" data-testid="cof-trend"><figcaption>THE COLLECTIVE, DAY BY DAY</figcaption><svg viewBox="0 0 600 124" preserveAspectRatio="none" role="img" aria-label="The Collective day by day">{S.map(([k, , c]) => <path key={k} d={rows.map((r, n) => `${n ? 'L' : 'M'}${X(n).toFixed(1)} ${Y(r[k]).toFixed(1)}`).join(' ')} stroke={c} />)}</svg><ul className="ge-legend">{S.map(([k, l, c]) => <li key={k}><i style={{ background: c }} />{l} <b className="m-num">{money(rows[rows.length - 1][k])}</b></li>)}</ul></figure>;
+  const S = [['keep', 'Keeps', '#4fb8ff'], ['pot', 'Fee pot', '#ff8bd8'], ['locked', 'Locked', '#a06bff'], ['owed', 'Agents earned', '#3ee58a']];
+  return <figure className="ge-chart" data-testid="cof-trend"><figcaption>THE COLLECTIVE, DAY BY DAY</figcaption><ProChart height={190} testid="cof-trend-pro" label="The Collective day by day" fmt={money} stamps={false} lines={S.map(([k, name, color]) => ({ name, color, rows: rows.map(r => ({ at: r.at || r.t, v: r[k] || 0 })) }))} /><div className="cs-legend">{S.map(([k, l, c]) => <span key={k}><i style={{ background: c }} />{l}</span>)}</div></figure>;
 }
 // 🌍 Money from outside the members is what lets the average member come out ahead. Nothing moves by itself: you send it, and it counts once the chain shows it landed.
 function Outside({ d, save, busy }) {
