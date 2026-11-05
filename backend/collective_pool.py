@@ -324,6 +324,8 @@ def load(path):
             d = json.loads(_unseal(raw))
         except Exception as e:   # noqa: BLE001 — any failed seal is the same answer
             raise Tampered(str(e)[:120])
+    if int(d.get('v') or 1) < 2 and not d.get('cfgLog'):   # first version's pot rule: nobody had moved it
+        d['cfg'] = {**(d.get('cfg') or {}), 'potPct': DEFAULTS['potPct']}; d['v'] = 2
     return {**base, **d, 'cfg': clean_cfg(d.get('cfg')), 'trailNew': []}
 
 

@@ -3,7 +3,7 @@ import math
 import re
 
 HALF_LIFE_S = 30 * 86400
-KIND = {'powFolders': 'trade', 'popFolders': 'perp', 'pobFolders': 'bid', 'pocFolders': 'content'}
+KIND = {'powFolders': 'trade', 'popFolders': 'perp', 'pobFolders': 'bid', 'pocFolders': 'content', 'psFolders': 'code'}
 _STOP = {'best', 'top', 'the', 'and', 'for', 'picks', 'pick', 'good', 'this', 'next', 'week', 'today', 'tonight', 'with'}
 
 

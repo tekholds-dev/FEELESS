@@ -1,4 +1,5 @@
 import { agentAuthQuery } from '../../lib/chatSession';
+import { ProofTerms } from './ProofTerms';
 import React, { useMemo, useState } from 'react';
 import '../../styles/proofsFolder.css';
 import { apiUrl } from '../../lib/api';
@@ -7,7 +8,7 @@ import { ProofStamp } from './ProofStamp';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
-const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'] };
+const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'], pos: ['💻', 'PoStatic'] };
 const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids', poc: 'features' };
 
 // A mind's reason is sometimes its raw JSON reply, cut short: show its sentence, not the JSON.
@@ -45,13 +46,17 @@ function pocRow(f) {
   const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
   return { kind: 'poc', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoC #${f.n}` : 'PoC', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'worked' : 'did not', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: (f.calls || []).map((c, i) => [c.name || mind(i), `${c.angle ? `${c.angle}: ` : ''}${c.post || ''}`]).filter(([, t]) => t) };
 }
+function posRow(f) {
+  const v = f.graded === 'right' ? 1 : f.graded === 'wrong' ? -1 : null;
+  return { kind: 'pos', id: f.id, at: Number(f.at) || 0, name: f.n ? `PoStatic #${f.n}` : 'PoStatic', sub: f.topic || '', value: v, shown: v == null ? 'not marked' : v > 0 ? 'works' : 'broken', state: toneOf(v), loop: null, shots: [], skipped: [], decisions: f.by ? [[f.by, `Built page ${f.version || ''} in ${f.topic || 'its Build folder'}`]] : [] };
+}
 // 👀 A visitor's one list: the newest 5 proofs of any kind, from the public copy (no emails, no phones, no wallet trail).
 export function visitorProofs(cat) {
   return proofRows(cat).slice(0, 20).map(r => ({ id: r.id, kind: KINDS[r.kind][1], label: r.sub || r.name, pct: r.kind === 'pob' ? null : r.value, stamp: r.stamp, games: r.games }));
 }
 export function proofRows(d) {
   const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null });
-  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f)))].sort((a, b) => b.at - a.at);
+  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f))), ...(d?.psFolders || []).map(f => add(f, posRow(f))),].sort((a, b) => b.at - a.at);
 }
 
 function Ring({ rows }) {
@@ -119,6 +124,7 @@ export function ProofsFolder({ cat, d, onOpenFolder }) {
   const rows = lens === 'all' ? all : all.filter(r => r.kind === lens);
   const days = useMemo(() => rows.reduce((out, r) => { const k = day(r.at); const last = out[out.length - 1]; if (last?.k === k) last.rows.push(r); else out.push({ k, rows: [r] }); return out; }, []), [rows]);
   return <div className="pfx" data-testid="dsk-proofs">
+    <details className="pfx-what"><summary data-tip="PoW, PoP, PoB and the rest, in plain words">What do these words mean?</summary><ProofTerms compact /></details>
     <div className="pfx-parts"><Ring rows={rows} /><Chart3d rows={rows} /><LoopOrbit rows={all} /></div>
     <MindBoard board={cat?.mindBoard} />
     <header className="pfx-bar-h"><h3><Ic3 e="🕒" size="22px" /> PoI TIMELINE</h3>

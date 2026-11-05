@@ -1,4 +1,5 @@
 import { SplitFlow } from './SplitFlow';
+import { ProofTerms } from './ProofTerms';
 import React, { useEffect, useMemo, useState } from 'react';
 import { KernelCard, PoiMinds } from './PoiFolder';
 import '../../styles/agentManual.css';
@@ -60,7 +61,7 @@ const FACTS = {
   pob: [['🏈', 'file a pob best NFL picks', 'ESPN, NFL, CBS, Action Network, Covers, Kalshi, Polymarket'], ['🎲', 'file a bid', 'Free chips on our own board, graded by its result'], ['⚖', 'It never bets for you', 'Any real bid is yours, where it is legal for you']],
   mail: [['🧩', 'Some sites refuse free mailboxes', 'It tries Tuta or GMX, then asks you'], ['✋', 'Human checks stay human', 'CAPTCHA, phone and ID are always yours']],
 };
-const TABS = [['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['pob', '🎲 PoB'], ['pool', '🪙 Boosts'], ['sites', '🌐 Sites'], ['fund', '💸 Funding'], ['mail', '📧 Mail'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
+const TABS = [['words', '📖 What the words mean'], ['tutorial', '🎓 Tutorial'], ['kinds', '🧬 Trader vs General'], ['pow', '⛏ PoW'], ['pop', '📉 PoP'], ['pob', '🎲 PoB'], ['pool', '🪙 Boosts'], ['sites', '🌐 Sites'], ['fund', '💸 Funding'], ['mail', '📧 Mail'], ['print', '🖐 Fingerprint'], ['limits', '🧱 Limits'], ['code', '🧩 Code']];
 
 function Flow({ steps, tone = 'pow' }) {
   return <ol className={`am-flow is-${tone}`} data-testid={`am-flow-${tone}`}>{steps.map(([ic, l, s], i) => <li key={l} style={{ '--i': i }} data-tip={s}><i aria-hidden="true"><em><Ic3 e={ic} /></em></i><b>{l}</b><small>{s}</small>{i < steps.length - 1 ? <u aria-hidden="true"><s /></u> : null}</li>)}</ol>;
@@ -131,6 +132,7 @@ export function AgentManual({ d, onCommand, cat, setD, work, onOpen, kit }) {
     <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}</div>
     <div key={tab} className="am-pane">
       {tab === 'setup' ? <SetupDeck cat={cat} d={d} setD={setD} work={work} onOpen={onOpen} kit={kit} /> : null}
+      {tab === 'words' ? <ProofTerms /> : null}
       {tab === 'tutorial' ? <><button type="button" className="m-btn m-go am-replay" onClick={() => window.dispatchEvent(new Event('feeless:desk-tour'))} data-tip="Walks through the real folders on this desktop, 12 steps" data-testid="am-tour"><Ic3 e="🎓" /> Play the desktop tour</button><Tutorial d={d} onCommand={onCommand} /></> : null}
       {tab === 'kinds' ? <Two tab="kinds" d={d}><Kinds /></Two> : null}
       {tab === 'pow' ? <Two tab="pow" d={d}><Flow steps={POW_FLOW} /></Two> : null}

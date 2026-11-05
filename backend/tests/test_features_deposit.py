@@ -134,3 +134,12 @@ def test_an_indicator_search_links_to_its_page_and_never_carries_its_code():
         async def get(self, *a, **k): return R()
     got = asyncio.run(pt.indicators(H(), 'rsi'))
     assert got['rows'][0]['url'] == 'https://www.tradingview.com/scripts/search/RSI%20x/' and 'SECRET' not in str(got)
+
+
+def test_a_page_it_built_is_filed_as_a_postatic_and_counts_in_its_print():
+    import agent_features as feat
+    import agent_print as ap
+    cat = {}; doc = {'id': 'w1', 'name': 'Lakers page', 'versions': [{'html': 'x'}]}
+    row = feat.file_static(cat, doc, 'Mind A', 100)
+    assert row['kind'] == 'PoStatic' and row['ws'] == 'w1' and row['n'] == 1 and cat['psFolders'] == [row]
+    assert ap.build(cat, 100)['kinds'] == ['code']

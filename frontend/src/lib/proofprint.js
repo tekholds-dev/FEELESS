@@ -2,7 +2,7 @@
 // Every finished proof is one segment of a ridge, bright when it did well, dim when it did badly. A ridge fills every 12 proofs and the print grows outward.
 const FAMILIES = ['Whorl', 'Spiral', 'Left Loop', 'Right Loop', 'Tented Arch', 'Double Loop'];
 const VARIANTS = ['Prime', 'Drift', 'Ember', 'Tide', 'Forge'];
-const NAMES = { pow: ['Trades', 'PoW'], pop: ['Perps', 'PoP'], pob: ['Bids', 'PoB'], poc: ['Content', 'PoC'] };
+const NAMES = { pow: ['Trades', 'PoW'], pop: ['Perps', 'PoP'], pob: ['Bids', 'PoB'], poc: ['Content', 'PoC'], pos: ['Code', 'PoStatic'] };
 const PER_RING = 12; const MAX_RINGS = 9;
 export const PATTERNS = FAMILIES.flatMap(f => VARIANTS.map(v => `${f} ${v}`));
 const hashStr = s => { let h = 2166136261; const t = String(s || 'feeless'); for (let i = 0; i < t.length; i += 1) { h ^= t.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };

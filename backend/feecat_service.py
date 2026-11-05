@@ -4887,7 +4887,7 @@ async def _ws_ask(cat, model, sys_, user_, tokens):
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     now = time.time(); doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
-    brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind')
+    brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind'); start_versions = len(doc.get('versions') or [])
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     try:
         if kind == 'build':
@@ -4909,10 +4909,14 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
     doc['busy'] = None; _ws_save(cat_id, doc)
-    if cost and not paid_own:
+    built = kind == 'build' and len(doc.get('versions') or []) > start_versions
+    if built or (cost and not paid_own):
         store = _load(); c_ = store['cats'].get(cat_id)
-        if c_ and c_.get('brainsCfg'):
-            _lc.charge(c_['brainsCfg'], cost); _save(store)
+        if c_ and cost and not paid_own and c_.get('brainsCfg'):
+            _lc.charge(c_['brainsCfg'], cost)
+        if c_ and built:   # 💻 the page it built is filed as a PoStatic
+            _feat.file_static(c_, doc, (doc['versions'][-1] or {}).get('by') or 'Mind', time.time())
+        _save(store)
 
 
 def _poc_view(cat):
@@ -5571,6 +5575,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
         topic_ = str(p.text or '').strip()[:120]
         _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_))
         return {'ok': True, 'pocFolders': _poc_view(cat)}
+    if p.op == 'ps_mark':   # ✅ only its owner knows if the page works
+        f_ = next((x for x in cat.get('psFolders') or [] if x.get('id') == p.job), None)
+        if not f_ or p.text not in ('right', 'wrong'):
+            raise HTTPException(400, 'Mark one of its PoStatics.')
+        f_['graded'] = p.text; _save(store)
+        return {'psFolders': (cat.get('psFolders') or [])[::-1]}
     if p.op == 'poc_mark':   # ✅ its owner says how it did: only they know, once it is out
         f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == p.job), None)
         if not f_ or p.text not in ('right', 'wrong'):
@@ -6147,7 +6157,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'stamps': {f_.get('id'): _stamp.of(k_, f_, time.time()) for k_, key_ in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')) for f_ in (cat.get(key_) or [])[-30:] if f_.get('id')},
-            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': _poc_view(cat),
+            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [], 'pocFolders': _poc_view(cat), 'psFolders': (cat.get('psFolders') or [])[::-1],
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
@@ -6738,9 +6748,9 @@ def public_cat(cat):
     if cat.get('agentWallet'):
         out['hasWallet'] = True   # 👛 a real wallet exists — its address stays its owner's (S2 lock)
     if not cat.get('incognito'):   # 👀 its proofs show to visitors, with every email and phone number taken out
-        for k_ in ('powFolders', 'popFolders', 'pobFolders', 'pocFolders'):
+        for k_ in ('powFolders', 'popFolders', 'pobFolders', 'pocFolders', 'psFolders'):
             if cat.get(k_):
-                out[k_] = [{**_vv.public_folder(f_), 'stamp': _stamp.of({'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB', 'pocFolders': 'PoB'}[k_], f_, time.time())} for f_ in (cat.get(k_) or [])[-30:]]
+                out[k_] = [{**_vv.public_folder(f_), 'stamp': _stamp.of({'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB', 'pocFolders': 'PoB', 'psFolders': 'PoB'}[k_], f_, time.time())} for f_ in (cat.get(k_) or [])[-30:]]
     return out
 
 

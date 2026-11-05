@@ -71,7 +71,7 @@ export function CollectivePrint({ feed }) {
   const print = useMemo(() => collectivePrint(feed), [feed]); const id = useMemo(() => identityOf('the-collective'), []);
   return <PrintStage print={print} id={id} label="THE COLLECTIVE'S PRINT" height={340} empty="It starts with the first proof sent, a ridge for each agent." testid="pp-collective" />;
 }
-const LENS = [['all', 'All'], ['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC']];
+const LENS = [['all', 'All'], ['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic']];
 function Growth({ hist }) {
   const pts = (hist || []).filter(h => h.sent != null); if (pts.length < 2) return <p className="fch-nil">Its growth chart starts after its second day with a proof sent.</p>;
   const top = Math.max(1e-9, ...pts.flatMap(h => [h.sent, h.owed + h.locked])); const X = i => (i / (pts.length - 1)) * 600; const Y = v => 150 - (v / top) * 140; const line = k => pts.map((h, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(k(h)).toFixed(1)}`).join(' ');

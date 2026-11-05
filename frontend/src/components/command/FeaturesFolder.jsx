@@ -3,30 +3,43 @@ import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { ProofStamp } from './ProofStamp';
 import { ProofTools } from './ProofTools';
+import { BUILD_EXAMPLES } from '../../lib/buildExamples';
 import { TradeTape } from '../terminal/TradeTape';
 import '../../styles/features.css';
 
 // ✨ THE FEATURES FOLDER (owner 2026-11-04): a demo window per feature, what it is beside it, and a button that makes the real folder. Every demo is marked EXAMPLE. Its mind and its fingerprint live here too.
 export const FEATURES = {
-  build: { ic: '💻', t: 'Build', tag: 'Code it live', use: ['code', 'content', 'all'], cmd: 'Sign up to github.com with your email', points: [['Blank screen, a chat', 'Tell Mind A, Mind B or both what to make'], ['Code or Static', 'Flip between the code and the running page'], ['Drag to fix', 'Tap +, drag over what is wrong, say what to change'], ['Its own GitHub', 'Ask, and it signs up with its email. You clear any check']] },
-  content: { ic: '📣', t: 'Content', tag: 'Proof of Content', use: ['content', 'research', 'all'], cmd: 'file a poc', points: [['Trending now', 'Five free sources, read when it decides'], ['Both minds, blind', 'Each pitches an angle and a post'], ['A PoC folder', 'What it saw, what it said, and your mark'], ['You stay in charge', 'Filing posts nothing. Only the content job can post']] },
+  build: { ic: '💻', t: 'Build', tag: 'Code it live. Each page is filed as a PoStatic', use: ['code', 'content', 'all'], cmd: 'Sign up to github.com with your email', points: [['Blank screen, a chat', 'Tell Mind A, Mind B or both what to make'], ['Code or Static', 'Flip between the code and the running page'], ['Drag to fix', 'Tap +, drag over what is wrong, say what to change'], ['Its own GitHub', 'Ask, and it signs up with its email. You clear any check']] },
+  content: { ic: '📣', t: 'Content', tag: 'Each idea is filed as a PoC, a Proof of Content', use: ['content', 'research', 'all'], cmd: 'file a poc', points: [['Trending now', 'Five free sources, read when it decides'], ['Both minds, blind', 'Each pitches an angle and a post'], ['A PoC folder', 'What it saw, what it said, and your mark'], ['You stay in charge', 'Filing posts nothing. Only the content job can post']] },
   edge: { ic: '📚', t: 'Edge desk', tag: 'Every case on file', use: ['trade', 'bids', 'all'], cmd: 'file a PoW', points: [['Case files', 'Rugs, snipers, dips, funding: what to read and what stops it'], ['Indicators', 'Download ours, or search TradingView'], ['Order books', 'Any Hyperliquid market, live'], ['The tape', 'Any trench coin, with the whales marked']] },
   research: { ic: '🔎', t: 'Research', tag: 'Ask, get a brief', use: ['research', 'code', 'content', 'trade', 'bids', 'all'], cmd: 'research ', points: [['A running chat', 'Each question keeps the last ones in mind'], ['One mind or both', 'Two looks at the same question'], ['Sealed', 'Only you can open this folder']] },
 };
-const LINES = ['<main class="hero">', '  <h1>Lakers tracker</h1>', '  <button id="go">Refresh</button>', '  <ul id="games"></ul>', '</main>'];
-function Demo({ k }) {
+// 🖥 The same monitor as its minds' windows. Build runs real pages here, in the same locked sandbox a real build uses.
+const Bezel = ({ title, tag = 'EXAMPLE', children, side }) => <figure className="fea-mon is-screen" data-testid="fea-demo"><div className="fea-bezel"><span className="fea-mon-h"><i /><i /><i /><b>{title}</b>{side}<em>{tag}</em></span><div className="fea-mon-s">{children}</div></div><span className="fea-neck" aria-hidden="true" /><span className="fea-foot" aria-hidden="true" /></figure>;
+function BuildDemo() {
+  const [at, setAt] = useState(0); const [view, setView] = useState('static'); const [typed, setTyped] = useState(0); const ex = BUILD_EXAMPLES[at]; const src = ex.html;
+  useEffect(() => { if (view !== 'code') return undefined; setTyped(0); if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setTyped(src.length); return undefined; } const t = setInterval(() => setTyped(n => { if (n >= src.length) { clearInterval(t); return n; } return n + 34; }), 30); return () => clearInterval(t); }, [view, src]);
+  return <div className="fea-builddemo"><Bezel title={ex.t} side={<span className="m-seg fea-mini" role="tablist" aria-label="View">{[['static', 'Running'], ['code', 'Its code']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-testid={`fea-demo-${k}`}>{l}</button>)}</span>}>{view === 'static' ? <iframe key={ex.k} title={`${ex.t} example`} sandbox="allow-scripts" srcDoc={src} data-testid="fea-demo-frame" /> : <pre className="fea-typed" data-testid="fea-demo-code">{src.slice(0, typed)}<i className="fea-caret" /></pre>}</Bezel>
+    <div className="fea-picks" role="group" aria-label="Examples">{BUILD_EXAMPLES.map((x, i) => <button key={x.k} type="button" className={i === at ? 'is-on' : ''} aria-pressed={i === at} onClick={() => setAt(i)} data-tip={`Asked: "${x.ask}"`} data-testid={`fea-ex-${x.k}`}><b>{x.t}</b><small>{x.model}</small></button>)}</div></div>;
+}
+function BestModels({ cat }) {
+  const [rows, setRows] = useState(null); const mine = cat?.brainsCfg?.brains || [];
+  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl('/api/cats/models'))).then(r => (r?.ok ? r.json() : null)).then(j => { if (on && j) setRows((j.models || []).filter(m => (m.cats || []).includes('code')).sort((a, b) => (b.intel || 0) - (a.intel || 0)).slice(0, 5)); }).catch(() => {}); return () => { on = false; }; }, []);
+  if (!rows?.length) return null; const top = Math.max(...rows.map(m => m.intel || 0), 1);
+  return <section className="fea-models" data-testid="fea-models"><h4>Strongest at code right now</h4><ol>{rows.map(m => <li key={m.id} className={mine.includes(m.id) ? 'is-mine' : ''} data-tip={`$${m.inUsd} in, $${m.outUsd} out, per million tokens`}><span>{m.id.split('/')[1] || m.id}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${(m.intel || 0) / top})` }} /></i><b className="m-num">${m.outUsd}</b></li>)}</ol><small>Better pages come from a stronger mind, and cost more per page. Its minds: {mine.map(x => String(x).split('/')[1] || x).join(' + ') || 'none yet'}.</small></section>;
+}
+function Demo({ k, cat }) {
   const [at, setAt] = useState(0);
   useEffect(() => { setAt(0); if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setAt(3); return undefined; } const t = setInterval(() => { if (!document.hidden) setAt(n => (n + 1) % 4); }, 2600); return () => clearInterval(t); }, [k]);
+  if (k === 'build') return <div className="fea-demo-col"><BuildDemo /><BestModels cat={cat} /></div>;
   let body;
-  if (k === 'build') body = at < 2 ? <pre className="fea-code" key="c">{LINES.slice(0, at === 0 ? 3 : 5).map(l => <span key={l}>{l}</span>)}<i className="fea-caret" /></pre>
-    : <div className="fea-page" key="p"><b>Lakers tracker</b><button type="button" tabIndex={-1}>Refresh</button><ul><li>Lakers 54 - 48 Bulls</li><li>Heat 12 - 10 Nets</li></ul>{at === 3 ? <i className="fea-drag" /> : null}<small>Open it on the desktop to test</small></div>;
-  else if (k === 'content') body = <div className="fea-news" key={at}><span className="fea-url"><i />trends.example</span>{at === 0 ? ['Playoff race', 'New phone launch', 'Solana ETF'].map((t, i) => <em key={t} style={{ '--i': i }}><u style={{ transform: `scaleX(${1 - i * 0.25})` }} />{t}</em>) : at === 1 ? <p><b>Mind A</b> “Race tightens: 3 games that decide it.”</p> : at === 2 ? <p><b>Mind B</b> “Your team's path in one chart.”</p> : <p className="fea-stamp">PoC #4 filed. Nothing was posted.</p>}</div>;
+  if (k === 'content') body = <div className="fea-social" key={at}><span className="fea-url"><i />trending now</span><ul>{[['Playoff race', 1], ['New phone launch', 0.72], ['Solana ETF', 0.5]].map(([t, v], i) => <li key={t} style={{ '--i': i }} className={at === 0 && i === 0 ? 'is-hot' : ''}><span>{t}</span><u style={{ transform: `scaleX(${v})` }} /></li>)}</ul>{at > 0 ? <article className="fea-post"><header><i /><b>{at === 1 ? 'Mind A' : 'Mind B'}</b><small>{at === 1 ? 'angle: the stakes' : 'angle: the fan'}</small></header><p>{at === 1 ? 'Race tightens: the 3 games that decide it.' : "Your team's whole season comes down to this week."}</p></article> : null}{at === 3 ? <span className="fea-marked">✓ You marked it: worked</span> : null}</div>;
   else if (k === 'edge') body = at === 0 ? <div className="fea-case" key="a"><b>Snipers still holding</b><small>Read: early wallets, share still held</small><small>Do: wait for most to clear</small><em>Stop: over half still in</em></div>
     : at === 1 ? <div className="fea-book" key="b">{[0.9, 0.6, 0.4, 0.3].map((v, i) => <span key={v}><u className="is-ask" style={{ transform: `scaleX(${v})` }} /><u className="is-bid" style={{ transform: `scaleX(${1 - i * 0.2})` }} /></span>)}</div>
       : at === 2 ? <svg className="fea-spark" viewBox="0 0 200 80" key="s"><path d="M0 60 30 50 60 62 90 30 120 40 150 15 200 25" /><path className="is-b" d="M0 66 40 58 80 50 120 38 160 30 200 26" /></svg>
         : <ol className="fea-tape" key="t"><li>BUY $220</li><li className="is-big">🐋 BUY $4,120</li><li className="is-dn">SELL $310</li></ol>;
   else body = <div className="fea-news" key={at}><p><b>You</b> Who holds the most of this coin?</p>{at > 0 ? <p><b>Mind A</b> Top 10 hold 22%. Two look linked.</p> : null}{at > 1 ? <p><b>Mind B</b> I would watch those two first.</p> : null}</div>;
-  return <figure className="fea-mon" data-testid="fea-demo"><span className="fea-mon-h"><i /><i /><i /><b>{FEATURES[k].t}</b><em>EXAMPLE</em></span><div className="fea-mon-s">{body}</div></figure>;
+  return <Bezel title={FEATURES[k].t}>{body}</Bezel>;
 }
 function Fingerprint({ p }) {
   const lv = p?.level || 0; const c = 2 * Math.PI * 44;
@@ -62,6 +75,13 @@ function useDoc(cat, id, work) {
   const send = async (text, to, region) => { setErr(''); try { const j = await work(cat.id, { op: 'ws_build', job: id, text, to, tools: region ? { region } : undefined }); setDoc(j.doc); } catch (e) { setErr(e.message); } };
   return { doc, send, err };
 }
+// 💻 Its pages are filed as PoStatics; its owner says if each one works.
+function PosMark({ cat, row, work }) {
+  const [rows, setRows] = useState([]); const load = useCallback(() => work(cat.id, { op: 'state' }).then(j => setRows((j.psFolders || []).filter(f => f.ws === row.id))).catch(() => {}), [cat.id, row.id, work]);
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 10000); return () => clearInterval(t); }, [load]); const f = rows[0]; if (!f) return null;
+  const mark = async v => { const j = await work(cat.id, { op: 'ps_mark', job: f.id, text: v }); setRows((j.psFolders || []).filter(x => x.ws === row.id)); };
+  return <div className="fea-posmark" data-testid="ws-posmark"><b>PoStatic #{f.n}</b>{f.graded ? <em>{f.graded === 'right' ? '✓ You marked it working' : 'You marked it broken'}</em> : <><small>Did it work when you tried it?</small><button type="button" className="m-btn m-go" onClick={() => mark('right')} data-testid="ws-pos-yes">It works</button><button type="button" className="m-btn" onClick={() => mark('wrong')} data-testid="ws-pos-no">It doesn't</button></>}</div>;
+}
 function BuildSpace({ cat, row, work }) {
   const { doc, send, err } = useDoc(cat, row.id, work); const [view, setView] = useState('static'); const [drag, setDrag] = useState(false); const [box, setBox] = useState(null); const [mark, setMark] = useState(null); const [full, setFull] = useState(false); const frame = useRef(null); const over = useRef(null); const start = useRef(null); const was = useRef(0);
   const [noti, setNoti] = useState(false);
@@ -77,6 +97,7 @@ function BuildSpace({ cat, row, work }) {
     <div className="fea-view">{!doc?.preview ? <p className="fea-blank">A blank screen. Tell it what to make.</p> : view === 'code' ? <pre className="fea-src" data-testid="ws-code">{doc.code}</pre> : <><iframe ref={frame} title={`${row.name} preview`} sandbox="allow-scripts" srcDoc={doc.preview} data-testid="ws-frame" />
         {drag || box ? <div ref={over} className={`fea-over${drag ? ' is-drag' : ''}`} onPointerDown={drag ? down : undefined} onPointerMove={drag ? move : undefined} onPointerUp={drag ? up : undefined} data-testid="ws-over">{box ? <i style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} /> : null}</div> : null}</>}
       {noti && doc?.preview && !doc?.busy ? <button type="button" className="fea-noti" onClick={() => { setNoti(false); setView('static'); setFull(true); }} data-testid="ws-noti">Done. Open it to test</button> : null}</div></div>
+    {(doc?.versions || 0) > 0 ? <PosMark cat={cat} row={row} work={work} /> : null}
     <Chat doc={doc} send={go} busy={!!doc?.busy} chip={!!mark} clearChip={() => { setMark(null); setBox(null); }} />{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
 }
 function ContentSpace({ cat, row, work, onCommand, research }) {
@@ -115,7 +136,7 @@ export function FeaturesFolder({ cat, d, work, onCommand }) {
   const f = FEATURES[k]; const mine = data?.workspaces || [];
   return <div className="fea" data-testid="dsk-features"><div className="m-seg fea-tabs" role="tablist">{[['features', 'Features'], ['mine', `Your folders ${mine.length}`], ['mind', 'Its mind']].map(([t, l]) => <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)} data-testid={`fea-tab-${t}`}>{l}</button>)}</div>
     {tab === 'features' ? <div className="fea-main"><nav className="fea-rail" aria-label="Features">{order.map((x, i) => <button key={x} type="button" className={`fea-cat${k === x ? ' is-on' : ''}${FEATURES[x].use.includes(use) ? ' is-for' : ''}`} style={{ '--i': i }} onClick={() => setK(x)} data-testid={`fea-${x}`}><Ic3 e={FEATURES[x].ic} size="28px" /><b>{FEATURES[x].t}</b><small>{FEATURES[x].use.includes(use) ? 'For this agent' : FEATURES[x].tag}</small></button>)}</nav>
-      <Demo k={k} /><section className="fea-why" key={k}><h3>{f.t}</h3><p>{f.tag}</p><ol>{f.points.map(([a, b], i) => <li key={a} style={{ '--i': i }}><b>{a}</b><small>{b}</small></li>)}</ol>
+      <Demo k={k} cat={cat} /><section className="fea-why" key={k}><h3>{f.t}</h3><p>{f.tag}</p><ol>{f.points.map(([a, b], i) => <li key={a} style={{ '--i': i }}><b>{a}</b><small>{b}</small></li>)}</ol>
         <label className="fea-name"><span className="m-label">FOLDER NAME</span><input className="m-input" maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder={`New ${f.t.toLowerCase()}`} data-testid="fea-name" /></label><button type="button" className="m-btn m-go fea-create" onClick={() => make(k)} data-testid="fea-create">Create {f.t} folder</button>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</section></div> : null}
     {tab === 'mine' ? <div className="fea-folders">{mine.length ? mine.map((w, i) => <div key={w.id} className="fea-folder" style={{ '--i': i }}><button type="button" onClick={() => setOpen(w)} data-testid={`ws-${w.id}`}><Ic3 e={FEATURES[w.kind]?.ic} size="44px" /><b>{w.name}</b><small>{FEATURES[w.kind]?.t}</small></button><button type="button" className="fea-x" onClick={() => drop(w.id)} aria-label={`Delete ${w.name}`}>✕</button></div>) : <p className="fea-none">No folders yet. Pick a feature and create one.</p>}</div> : null}
     {tab === 'mind' ? <Mind cat={cat} memory={data?.memory} print={data?.print} work={work} onMem={m => setData(x => ({ ...x, memory: m }))} /> : null}</div>;
