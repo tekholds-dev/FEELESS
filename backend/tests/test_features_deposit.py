@@ -122,3 +122,16 @@ def test_book_and_news_parsing():
     b = pt.parse_book({'levels': [[{'px': '100', 'sz': '3'}], [{'px': '101', 'sz': '1'}]]})
     assert b['spread'] == 1 and b['tilt'] == 0.75 and pt.parse_book(None) is None
     assert pt.parse_rss('<rss><channel><item><title><![CDATA[Hello]]></title></item></channel></rss>') == ['Hello']
+
+
+def test_an_indicator_search_links_to_its_page_and_never_carries_its_code():
+    import asyncio
+
+    class R:
+        status_code = 200
+        def json(self): return {'results': [{'scriptName': 'RSI x', 'scriptIdPart': 'abc123', 'scriptSource': '//@version=2 SECRET CODE'}]}
+
+    class H:
+        async def get(self, *a, **k): return R()
+    got = asyncio.run(pt.indicators(H(), 'rsi'))
+    assert got['rows'][0]['url'] == 'https://www.tradingview.com/script/abc123/' and 'SECRET' not in str(got)

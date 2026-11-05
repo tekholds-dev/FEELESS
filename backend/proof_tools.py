@@ -229,9 +229,10 @@ async def indicators(http, q):
     if not q:
         return {'rows': []}
     got = await _get(http, 'https://www.tradingview.com/pubscripts-suggest-json/', params={'search': q}, headers={'User-Agent': 'Mozilla/5.0'})
-    rows = [{'t': str(x.get('scriptName') or x.get('title') or '')[:80], 'by': (x.get('author') or {}).get('username') if isinstance(x.get('author'), dict) else None, 'url': str(x.get('chartUrl') or x.get('scriptSource') or '')} for x in (got or {}).get('results') or []][:12]
-    for r in rows:
-        r['url'] = r['url'] if r['url'].startswith('http') else ('https://www.tradingview.com' + (r['url'] if r['url'].startswith('/') else f"/script/{r['url'].lstrip('/')}") if r['url'] else f'https://www.tradingview.com/scripts/search/{q}/')
+    def link(x):
+        part = re.sub(r'[^\w-]', '', str(x.get('scriptIdPart') or ''))
+        return f'https://www.tradingview.com/script/{part}/' if part else f'https://www.tradingview.com/scripts/search/{q}/'
+    rows = [{'t': str(x.get('scriptName') or x.get('title') or '')[:80], 'by': (x.get('author') or {}).get('username') if isinstance(x.get('author'), dict) else None, 'url': link(x)} for x in (got or {}).get('results') or []][:12]
     return {'rows': rows, 'read': got is not None}
 
 
