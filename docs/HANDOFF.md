@@ -189,6 +189,8 @@ Every finished row lives in `docs/FEELESS_HISTORY.md` (grep it, never load it wh
 
 - 2026-11-05 K01: one key vault in the family HQ (`FamilyKeys.jsx`, HQ › Key vault), names and last 4 only. C12: Alliances (`alliances.py`, `AllianceBoard.jsx`, Support › Alliances, chat reply › 🤝 Alliance): 10 members, one per wallet, Union after the owner's days (default 30, set on the board). Route read live; creating one with a signed wallet not clicked.
 
+- 2026-11-05 G01: Strike Zone guns are real CC0 models (Kenney Blaster Kit, licence in `public/models/guns/`), one per gun with scope, silencer and clip; stats unchanged, drawn gun stays as fallback; played signed in, no console error. C01: all 28 Familia directory buildings clicked signed in, each opens real content. AG20 proven: OSSY filed a full paper PoW ($LEEROY −11.3%, stop). Audit: 128 views on every real page at 4 sizes, 0 problems (not-found now counts as a failure).
+
 # NOTES
 
 ## TASKS`, at the end). **Rewrite 🔁 NOW in place every session; a finished row leaves the list**

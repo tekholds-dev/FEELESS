@@ -85,9 +85,20 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           let cur = 'Idle'; const set = n => { if (!mixer || !acts[n] || n === cur) return; acts[n].reset().fadeIn(0.18).play(); acts[cur]?.fadeOut(0.18); cur = n; };
           scene.add(root); return { root, mixer, set };
         };
+        // 🔫 Real gun models (Kenney Blaster Kit, CC0): one per gun, with its scope, silencer and clip. If one cannot load, the drawn gun below still plays the same.
+        const GUN_FILE = { rifle: 'blaster-f', smg: 'blaster-j', shotgun: 'blaster-o', sniper: 'blaster-p' }; const GUN_PARTS = ['scope-small', 'scope-large-a', 'silencer-small', 'clip-small', 'clip-large'];
+        const gunKit = {}; await Promise.all([...Object.values(GUN_FILE), ...GUN_PARTS].map(n => new GLTFLoader().loadAsync(`/models/guns/${n}.glb`).then(g => { gunKit[n] = g.scene; }).catch(() => {})));
+        const fitted = (scene, length) => { const m = scene.clone(true); const size = new THREE.Box3().setFromObject(m).getSize(new THREE.Vector3()); m.scale.setScalar(length / Math.max(size.x, size.y, size.z, 1e-6)); m.traverse(o => { if (o.isMesh) o.castShadow = true; }); return m; };
+        const modelGun = (lo, col) => { const base = gunKit[GUN_FILE[lo.gun] || GUN_FILE.rifle]; if (!base) return null; const big = lo.gun === 'sniper' ? 1.05 : lo.gun === 'smg' ? 0.62 : lo.gun === 'shotgun' ? 0.78 : 0.86; const grp = new THREE.Group(); const body = fitted(base, big); body.rotation.y = Math.PI; const tint = new THREE.Color(col);
+          body.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); o.material.color?.lerp(tint, 0.45); }); grp.add(body); const box = new THREE.Box3().setFromObject(body);
+          const part = (name, len, y, z) => { if (!gunKit[name]) return; const m = fitted(gunKit[name], len); m.rotation.y = Math.PI; m.position.set(0, y, z); grp.add(m); };
+          if (lo.optic === 'scope') part('scope-large-a', 0.28, box.max.y + 0.02, 0.02); else if (lo.optic === 'dot' || lo.optic === 'holo') part('scope-small', 0.14, box.max.y + 0.015, 0.04);
+          if (lo.barrel === 'supp') part('silencer-small', 0.16, 0, box.max.z + 0.07); part(lo.mag === 'ext' || lo.mag === 'drum' ? 'clip-large' : 'clip-small', lo.mag === 'ext' || lo.mag === 'drum' ? 0.18 : 0.13, box.min.y - 0.02, 0.02);
+          return grp; };
         const gunMesh = (lo, skin) => {   // the gun YOU built: body + barrel length + optic + magazine + stock, in your skin
           const col = { green: '#15d16a', carbon: '#2b2f33', pink: '#ff5dbb', ice: '#8fd3ff', gold: '#f5c451' }[skin] || '#15d16a';
           const body = new THREE.MeshStandardMaterial({ color: '#1c2024', metalness: 0.6, roughness: 0.4 }); const accent = new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.35, emissive: col, emissiveIntensity: 0.12 });
+          const model = modelGun(lo, col); if (model) { scene.add(model); return model; }
           const grp = new THREE.Group(); const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; grp.add(m); return m; };
           const len = lo.barrel === 'long' ? 0.55 : lo.barrel === 'short' ? 0.22 : lo.barrel === 'supp' ? 0.5 : 0.38; const big = lo.gun === 'sniper' ? 1.25 : lo.gun === 'smg' ? 0.8 : 1;
           add(new THREE.BoxGeometry(0.08, 0.12, 0.5 * big), accent, 0, 0, 0);
