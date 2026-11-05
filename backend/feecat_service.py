@@ -1098,7 +1098,7 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
     async def router():
-        if not own_key and not _brains_live():
+        if not own_key and not _brains_live() and not str(model).startswith('local/'):
             return '', 0.0
         return await _or_call(model, messages, max_tokens=max_tokens, effort=effort, key=own_key)
     for name, step in ((('openrouter', router),) if own_key else (('singit', paid), ('openrouter', router))):
@@ -1144,10 +1144,38 @@ async def _groq_backup(messages, max_tokens=None):
 _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
 
 
+_LM_SEEN: dict = {}
+
+
+async def _lm_call(model, messages, max_tokens):
+    """🖥 One answer from the owner's own LM Studio: local/ossy = this Mac, local/g4 = the desktop on the LAN. Free. → (text, 0.0); '' when it is off. The loaded model is asked for by name, so a stale setting cannot fail it."""
+    which = 'LAN' if str(model).endswith('g4') else 'LOCAL'; base = (os.environ.get(f'{which}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which == 'LOCAL' else '')).rstrip('/')
+    if not base:
+        _OR_LAST['err'] = f'{"G4" if which == "LAN" else "OSSY"} has no LM Studio address.'
+        return '', 0.0
+    auth = {'Authorization': f"Bearer {os.environ.get(f'{which}_LLM_API_KEY') or 'lm-studio'}"}
+    try:
+        async with httpx.AsyncClient(timeout=180) as h:
+            name = (_LM_SEEN.get(which) or {}).get('id')
+            if not name or time.time() - _LM_SEEN[which]['at'] > 300:
+                ids = [m.get('id') for m in (await h.get(f'{base}/models', headers=auth, timeout=8)).json().get('data') or [] if 'embed' not in str(m.get('id'))]
+                want = os.environ.get(f'{which}_LLM_MODEL'); name = want if want in ids else (ids[0] if ids else want); _LM_SEEN[which] = {'id': name, 'at': time.time()}
+            r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 2400), 'temperature': 0.4, 'stream': False})
+        if r.status_code != 200:
+            _OR_LAST['err'] = f'LM Studio answered {r.status_code}.'
+            return '', 0.0
+        return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '', 0.0
+    except Exception as e:
+        _OR_LAST['err'] = f'LM Studio did not answer ({type(e).__name__}).'
+        return '', 0.0
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None, backup=False):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
+    if str(model).startswith('local/'):
+        return await _lm_call(model, messages, max_tokens)
     plugins = list(_OR_PLUGINS.get())
     try:
         async with httpx.AsyncClient(timeout=40) as h:
@@ -2154,7 +2182,7 @@ async def _pow2_tick(http, store, cat, now):
                                  + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']) if k not in gone_)
             partner = '' if turn == 0 else f" YOUR PARTNER ALREADY PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])} (\"{prev_.get('why', '')}\") — those are taken: propose 3 OTHER coins from the list."
             fpl_ = _pow.trade_record_line(_pow.trade_record(rows_, cat['id']))   # 🧬 what its own wins were built on
-            raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), (fpl_ + '\n' if fpl_ else '') + listing, 400)
+            raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner) + _feat._sources.proof_line('pow'), (fpl_ + '\n' if fpl_ else '') + listing, 400)
             picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N + len(gone_))
             picks = [k for k in picks if k not in gone_][:_pow.PROPOSE_N]
             need_ = min(_pow.PROPOSE_N, n_ - len(gone_))
@@ -2928,9 +2956,37 @@ async def _made_job(cat_id, job, cat):
     _MADE_DONE.append(out); _MADE_BUSY.discard(cat_id); _POW_WAKE.set()
 
 
+SICARIO_GAP_S = 900   # 🎩 one proof at a time, then a rest: these models also answer for the real card
+SICARIO_QUESTS = ('pow', 'pop', 'pob', 'poc')
+
+
+def _sicario_loop(store, now):
+    """🎩 Endless: when its owner turns it on, Sicario's files the next proof as soon as it is idle and rested. Paper only: it has no wallet."""
+    for c in store['cats'].values():
+        b_ = c.get('brainsCfg') or {}; cid = c.get('id')
+        if c.get('handle') != 'sicarios' or not b_.get('endless') or c.get('agentWallet') or c.get('revoked'):
+            continue
+        if c.get('powRun') or c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('pobRead') or c.get('pobRun') or cid in _POC_BUSY or cid in _POW_WANT or cid in _POP_WANT or cid in _POB_WANT:
+            continue
+        if now - float(b_.get('loopAt') or 0) < SICARIO_GAP_S:
+            continue
+        i = int(b_.get('loopI') or 0); kind = SICARIO_QUESTS[i % len(SICARIO_QUESTS)]; b_['loopI'] = i + 1; b_['loopAt'] = now
+        if kind == 'pow':
+            _POW_WANT[cid] = {'do': 'start', 'mind': None}
+        elif kind == 'pop':
+            _POP_WANT[cid] = 'start'
+        elif kind == 'pob':
+            _POB_WANT[cid] = 'start'
+        else:
+            _POC_BUSY.add(cid); asyncio.create_task(_poc_file(cid, ''))
+        _POW_WAKE.set()
+
+
 def _sicario_merge(store):
     """🎩 OSSY and G4 are one agent, Sicario's, with those two as its minds (owner 2026-11-05). Paper only, no wallet. Runs until both rows are settled."""
     for c in store['cats'].values():
+        if c.get('handle') == 'sicarios' and not str((c.get('brainsCfg') or {}).get('brains', [''])[0]).startswith('local/'):
+            c['brainsCfg']['brains'] = ['local/ossy', 'local/g4']   # its own models, free
         if c.get('handle') == 'ossy-desk' and c.get('name') == 'OSSY' and not c.get('agentWallet'):
             c['name'] = "Sicario's"; c['handle'] = 'sicarios'; b_ = c.setdefault('brainsCfg', {}); b_['mindNames'] = ['OSSY', 'G4']
             b_['prompt'] = 'You are the Sicario desk, two minds on one seat. OSSY reads a coin the way a careful trader does: pool, holders, age, who bought, then a call you can defend. G4 challenges every call: what would make it wrong, who is exiting, what the chart hides. File proofs that survive both.'
@@ -3298,6 +3354,7 @@ async def _pob_pass(store):
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
     _sicario_merge(store)
+    _sicario_loop(store, time.time())
     _ws_pass(store)
     _made_pass(store)
     await _site_pass(store)
@@ -5053,7 +5110,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
                 plan_ = _OR_PLUGINS.set(tuple(_feat.or_plugins(cfg_, json_reply=True)))
                 try:
-                    raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS, f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                    raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS + _feat._sources.proof_line('pos'), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
                 finally:
                     _OR_PLUGINS.reset(plan_)
                 cost += usd_; paid_own = own_; doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
@@ -5071,7 +5128,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
-                raw, usd, own = await _ws_page(cat, brains[i], _feat.REVIEW_SYS if k else _feat.BUILD_SYS, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000)
+                raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos'), user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000)
                 cost += usd; paid_own = own; html = _aip.html_of(raw)
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
@@ -5109,7 +5166,7 @@ async def _poc_file(cat_id, topic):
         lines = '\n'.join(f'{k}: ' + '; '.join(v[:5]) for k, v in tr.items() if v)
         notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
         async def one(i, m):
-            return i, await _ws_ask(cat, m, _feat.POC_SYS.format(name='Mind ' + 'AB'[i]), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
+            return i, await _ws_ask(cat, m, _feat.POC_SYS.format(name='Mind ' + 'AB'[i]) + _feat._sources.proof_line('poc'), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
         for i, (raw, usd, own) in await asyncio.gather(*(one(i, m) for i, m in enumerate(brains))):
             cost += usd; paid_own = own
             try:
@@ -5258,6 +5315,12 @@ async def collective_look():
         return json.loads((DATA_DIR / 'collective_look.json').read_text())
     except (OSError, ValueError):
         return {'theme': 'NEBULA', 'glow': 70}
+
+
+@app.get('/api/cats/tools/sources/{kind}')
+async def cat_tool_proof_sources(kind: str):
+    """🗂 A proof's sites, best first: the Stash's real results move them once a site has 5 graded proofs."""
+    return {'rows': _feat._sources.ranked(kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR))}
 
 
 @app.get('/api/cats/tools/sourcefile')
@@ -5857,6 +5920,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op == 'desk_loop':   # 🎩 Sicario's only: keep filing proofs, or stop
+        if cat.get('handle') != 'sicarios':
+            raise HTTPException(400, 'Only the Sicario desk runs this.')
+        cat.setdefault('brainsCfg', {})['endless'] = bool(p.on); keep_owned(cat); _save(store)
+        return {'endless': bool(p.on)}
     if p.op == 'features':   # ✨ its Features folder: folders it has, memory, its fingerprint
         return {'firstList': _first_list(cat), 'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'psFolders': cat.get('psFolders') or [], 'pocFolders': _poc_view(cat)}
     if p.op == 'feature_create':

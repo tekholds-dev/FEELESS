@@ -12,7 +12,6 @@ import { ReadyStrip, SeatState, SwitchEval, CreatorLimits, ReviewQueue, MissedWi
 import { KernelBoard } from './SeatOps';
 import { AgentCockpit } from './AgentCockpit';
 import { AiChipBtn } from './AiProviders';
-import { GenPods, RugWall, CreedFold } from './LifeLens';
 import { Ic3 } from '../../lib/icon3d';
 export { rowState, rowWhy, pipsOf, rankFill };
 
@@ -240,8 +239,7 @@ export function LiveLens({ d, sel, who, setWho, jump }) {
   </div>;
 }
 
-export const LENSES = [['live', '🟢 Live'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['limits', '🎛 Limits'], ['learn', '📝 Paper'], ['life', '🧬 Gens'], ['ctl', '⚙ Control']];
-const DeskAgentsLazy = React.lazy(() => import('./DeskAgents').then(m => ({ default: m.DeskAgents })));
+export const LENSES = [['live', '🟢 Live'], ['review', '📝 Review'], ['missed', '🔎 Missed'], ['board', '📋 Board'], ['limits', '🎛 Limits'], ['learn', '📝 Paper'], ['ctl', '⚙ Control']];
 export function AgentDesk({ call, isOwner = true }) {
   const cc = useAgentHub(call); const d = cc.d;   // 🛰 ONE agent hub store: the snapshot + the shared live prices (positions + seats move every 3s)
   const [busy, setBusy] = useState(false); const [sel] = useState('tally'); const [who, setWho] = useState('all'); const [jump, setJump] = useState(null); const [zoom, setZoom] = useState(null);
@@ -266,9 +264,6 @@ export function AgentDesk({ call, isOwner = true }) {
       <div className="agd-box" data-testid="agd-drivers"><b><Ic3 e="🔍" /> WHAT SHERLOCK LEARNED · each reason's own 5-min record</b>{(d.drivers || []).length ? <ul className="agd-bars">{d.drivers.slice(0, 9).map(x => <li key={x.key}><span>{x.words}</span><DivBar v={x.med} /><em className={tone(x.med)}>{pct(x.med)}</em><small>n {x.n}</small></li>)}</ul> : <small className="m-dim">Nothing judged yet — every reason starts as a belief and becomes its own record as calls are judged.</small>}</div>
       <Edge d={d} /><MindBox m={d.mind} />
       <div className="agd-wide"><IdeaBox ideas={d.ideas} isOwner={isOwner} busy={busy} save={save} need={d.approveN || 15} /></div></div>}
-    {show('life') && <div className="agd-grid" data-testid="lens-life-pane">
-      <div className="agd-wide"><GenPods gens={gens} agents={d.office?.agents} /></div>
-      <div className="agd-wide"><RugWall list={d.autopsies} signs={d.rugSigns} /></div><div className="agd-wide"><CreedFold creed={d.creed} /></div></div>}
     {show('ctl') && <div className="agd-grid is-ctl" data-testid="lens-ctl-pane">
       <div className="agd-wide"><RoadMeter road={d.road} /></div>
       {d.desk && <div className="agd-box" data-testid="agd-desk"><b><Ic3 e="📜" /> TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
@@ -280,10 +275,8 @@ export function AgentDesk({ call, isOwner = true }) {
     ['office', '🗂 Office', reviewOpen || null, <><LiveLens d={d} sel={sel} who={who} setWho={setWho} jump={jump} />{lensBody('review')}<KernelBoard o={d.office} onCoin={sym => setJump({ sym, n: Date.now() })} /><JudgeCourt court={d.office?.court} />{lensBody('board')}</>, null, 'your limits, the review marks, the kernel board, the Judge and the office records', true],
     ['missed', '🔎 Missed', null, lensBody('missed'), null, 'coins that ran without us + the launch record', true],
     ['paper', '📝 Paper', newIdeas || null, <><MissionBar mission={d.mission} scalp={d.scalp} desk={d.desk} />{lensBody('learn')}{lensBody('ctl')}</>, null, 'the practice desk, what Sherlock learned, ideas, road to real money', true],
-    ['gens', '🧬 Gens', atRisk || null, lensBody('life'), null, 'generations, autopsies, the creed', true],
   ];
-  return <AgentHubProvider value={cc}><section className={`agd m-live is-dial-${dial}`} data-testid="agent-desk">
-    {isOwner ? <React.Suspense fallback={null}><DeskAgentsLazy /></React.Suspense> : null}
+  return <AgentHubProvider value={cc}><section className={`agd is-sic is-dial-${dial}`} data-testid="agent-desk">
     <AgentCockpit call={call} isOwner={isOwner} extra={extra} limits={lensBody('limits')} head={<header className="agd-head"><div className="agd-title"><b data-tip="The ten-agent kernel on the real Fuse card: every number below is the card's own. Every call is checked 5 minutes later.">🤖 AGENTS</b><PassClock at={p.at} onDue={load} /><small className="agd-ticker" data-testid="agd-stream" data-tip="The page loads the office once, then applies the kernel's live deltas (candidates · hunters · positions · agents · generations · execution · metrics). Without a stream it re-reads the snapshot every 20s.">{cc.live ? '📡 live deltas' : 'snapshot · 20s'}</small>{d.office && !d.office.cold ? <small className="agd-ticker" data-testid="agd-ticker">{ticker(d.office)}</small> : null}
 </div>
       <div className="agd-stage" data-testid="agd-stage" data-tip={st.team?.n ? `team ${st.team.n}/${st.needN} judged · ${pct(st.team.med)} · ${st.team.won}% won (needs ${st.needWin}%)` : `needs ${st.needN} judged GO calls, a positive median and ${st.needWin}% won`}>{[5, 15, 60].map(h => <span key={h} className={(st.conquered || []).includes(h) ? 'is-done' : st.h === h ? 'is-now' : ''}>{(st.conquered || []).includes(h) ? '✓' : st.h === h ? '⚔' : '🔒'} {h}m</span>)}

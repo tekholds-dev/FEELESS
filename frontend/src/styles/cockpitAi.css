@@ -111,7 +111,7 @@ body.theme-day .ack-ask { background: rgba(245, 196, 81, .14); } body.theme-day 
 .ack-seat.is-up::before { background: linear-gradient(90deg, var(--m-accent), transparent); } .ack-seat.is-dn::before { background: linear-gradient(90deg, var(--m-danger), transparent); }
 .ack-seat.is-open::before { background: repeating-linear-gradient(90deg, var(--m-warn) 0 6px, transparent 6px 12px); opacity: .5; }
 .ack-seat.is-on { background: linear-gradient(180deg, rgba(21, 209, 106, .12), rgba(21, 209, 106, .02) 70%); }
-.ack-ptabs button.active, .ack-iv button.active, .ack-mfilt button.active, .ack-buckets button.active, .cai .m-seg button.active { background: var(--m-accent); color: var(--m-accent-ink); box-shadow: 0 0 14px -4px var(--m-accent); }
+.ack-ptabs button.active, .ack-mfilt button.active, .ack-buckets button.active, .cai .m-seg button.active { background: var(--m-accent); color: var(--m-accent-ink); box-shadow: 0 0 14px -4px var(--m-accent); }
 .ack-panel { border-color: color-mix(in srgb, var(--m-accent) 28%, var(--m-line)); }
 .ack-agent { transition: transform .14s var(--m-ease), border-color .14s, box-shadow .14s; } .ack-agent.is-on { box-shadow: 0 0 0 1px var(--ag), 0 8px 22px -14px var(--ag); }
 .ack-tcard { border-top: 2px solid var(--ag); }
@@ -131,15 +131,15 @@ body.theme-day .cai-src, body.theme-day .cai-think { color: #5a3cc8; border-colo
 body.theme-day .cai-stance.is-good { background: #0d7a41; border-color: #0d7a41; color: #fff; } body.theme-day .cai-agree.is-good { color: #0d7a41; } body.theme-day .cai-stance.is-warn, body.theme-day .cai-agree.is-warn, body.theme-day .cai-ans.is-warn { color: #8a5a00; }
 body.theme-day .cai-ans { background: rgba(110, 80, 220, .08); border-left-color: #5a3cc8; } body.theme-day .cai-meter, body.theme-day .cai-delta { background: rgba(10, 60, 35, .1); }
 body.theme-day .ack-refused li { background: rgba(180, 35, 70, .07); } body.theme-day .ack-refused b { color: #b42346; }
-body.theme-day .ack-ptabs button.active, body.theme-day .ack-iv button.active, body.theme-day .ack-mfilt button.active, body.theme-day .ack-buckets button.active, body.theme-day .cai .m-seg button.active { background: #0d7a41; color: #fff; box-shadow: none; }
+body.theme-day .ack-ptabs button.active, body.theme-day .ack-mfilt button.active, body.theme-day .ack-buckets button.active, body.theme-day .cai .m-seg button.active { background: #0d7a41; color: #fff; box-shadow: none; }
 @media (max-width: 640px) { .cai-labrows li { grid-template-columns: 64px minmax(0, 1fr); grid-template-areas: 'st name' 'st when' 'st num'; } .cai-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cai-age { margin-left: 0; } .cai-roles button { font-size: 9.5px; } .pnt-auto { top: 40px !important; } }
 
 /* 🎓 the model's record (what the agents learn from) */
 .cai-learn { display: grid; gap: 5px; padding: 8px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: rgba(255, 255, 255, .02); }
-.cai-learn.is-in-use { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); background: rgba(21, 209, 106, .05); }
+
 .cai-lhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .cai-lhead b { font: 800 10px var(--m-mono); letter-spacing: .1em; color: var(--m-text); }
 .cai-lhead em { font: 800 9px var(--m-mono); font-style: normal; letter-spacing: .1em; padding: 1px 7px; border-radius: 5px; border: 1px solid currentColor; color: var(--m-warn); white-space: nowrap; }
-.cai-learn.is-in-use .cai-lhead em { color: #111413; background: var(--m-accent); border-color: var(--m-accent); } .cai-learn.is-no-edge-yet .cai-lhead em { color: var(--m-mute); }
+ 
 .cai-learn > small { font: 600 10px/1.4 var(--m-mono); color: var(--m-dim); }
 .cai-lrows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .cai-lrows li { display: grid; grid-template-columns: 64px 44px minmax(0, 1fr) auto; align-items: center; gap: 7px; font: 600 9.5px var(--m-mono); color: var(--m-mute); }
@@ -148,18 +148,18 @@ body.theme-day .ack-ptabs button.active, body.theme-day .ack-iv button.active, b
 
 /* 📈 the cockpit chart stays INSIDE its box (the terminal's own chart heights — clamp(380px, 50vh, 580px) !important — are taller than the
    plot and spilled out of the bottom of the panel) */
-.ack-plot { --ack-h: clamp(320px, 48vh, 500px); height: auto; display: grid; grid-template-rows: auto var(--ack-h); overflow: hidden; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: #090a0a; }
-.ack-plot > * { height: auto; min-height: 0; } .ack-plot > :last-child { grid-row: 2; height: var(--ack-h); }
-.ack-plot .chart-area { min-height: var(--ack-h) !important; height: var(--ack-h) !important; overflow: hidden; border: 0 !important; border-radius: 0 !important; }
-.ack-plot .candle-canvas { height: var(--ack-h) !important; flex: none; }
+
+ 
+
+
 /* 🟢 the live trade, on the chart's top edge */
 .ack-trade { grid-row: 1; container-type: inline-size; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 6px 10px; border-bottom: 1px solid var(--m-line); background: linear-gradient(90deg, rgba(21, 209, 106, .1), transparent 55%); }
 .ack-trade.is-dn { background: linear-gradient(90deg, rgba(255, 85, 119, .1), transparent 55%); }
-body.theme-day .ack-plot { background: #eaf3ee; border-color: rgba(10, 60, 35, .16); } body.theme-day .ack-trade { background: linear-gradient(90deg, rgba(13, 122, 65, .1), transparent 55%); border-bottom-color: rgba(10, 60, 35, .16); }
+ body.theme-day .ack-trade { background: linear-gradient(90deg, rgba(13, 122, 65, .1), transparent 55%); border-bottom-color: rgba(10, 60, 35, .16); }
 body.theme-day .ack-trade.is-dn { background: linear-gradient(90deg, rgba(180, 35, 70, .09), transparent 55%); }
-body.theme-day .cai-learn { background: rgba(255, 255, 255, .6); border-color: rgba(10, 60, 35, .16); } body.theme-day .cai-learn.is-in-use .cai-lhead em { background: #0d7a41; border-color: #0d7a41; color: #fff; }
+body.theme-day .cai-learn { background: rgba(255, 255, 255, .6); border-color: rgba(10, 60, 35, .16); } 
 body.theme-day .cai-lhead em { color: #8a5a00; } body.theme-day .cai-lrows li.is-up u { color: #0d7a41; } body.theme-day .cai-lrows li.is-dn u { color: #b42346; }
-@media (max-width: 640px) { .ack-plot { --ack-h: 300px; } .ack-trade { gap: 4px 10px; } .cai-lrows li { grid-template-columns: 58px 30px minmax(0, 1fr) auto; } }
+@media (max-width: 640px) {  .ack-trade { gap: 4px 10px; } .cai-lrows li { grid-template-columns: 58px 30px minmax(0, 1fr) auto; } }
 
 /* ⚡ the live pulse: the desk, second by second (one 1s clock; the bar is a transform) */
 .ack-pulse { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0; border: 1px solid var(--m-line); border-radius: var(--m-r); overflow: hidden; background: linear-gradient(180deg, rgba(16, 20, 18, .72), rgba(9, 11, 10, .82)); }

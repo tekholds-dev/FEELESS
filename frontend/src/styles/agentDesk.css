@@ -71,7 +71,7 @@
 .agd-tags.is-lingo i { border-color: rgba(127, 212, 255, .45); color: #a6e3ff; } .agd-tags i.is-bad { color: var(--m-danger); border-color: rgba(255, 143, 163, .5); }
 .agd-mind p { font-size: 11px; }
 .agd-edge > small { line-height: 1.5; }
-.agd-autopsy ul { font-size: 11px; } .agd-autopsy li small { color: var(--m-warn); }
+ 
 
 /* 🟢 live lens: board + feed */
 .agd-livegrid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(250px, 1fr); gap: 10px; align-items: start; animation: agdIn .2s ease-out both; }
@@ -173,9 +173,9 @@
 .agd-idea-do { display: flex; gap: 6px; } .agd-idea-do .m-btn { min-height: 28px; padding: 3px 12px; font-size: 11px; }
 
 /* 📜 creed · 🧪 tanks */
-.agd-creed summary { cursor: pointer; list-style: none; border-radius: 6px; } .agd-creed summary::-webkit-details-marker { display: none; } .agd-creed summary:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
-.agd-creed summary b { font: 800 10.5px var(--m-mono); letter-spacing: .12em; color: var(--m-warn); } .agd-creed summary small { color: var(--m-dim); font-size: 11px; }
-.agd-creed ol { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 11.5px; color: var(--m-text); }
+  
+ 
+
 
  
 

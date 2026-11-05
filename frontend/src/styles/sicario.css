@@ -1,0 +1,9 @@
+/* 🎩 The Sicario tab: noir gold, one clean column of what matters. Real trades run from the Fuse card; the desk above researches. */
+.agd.is-sic { --m-accent: #e7c36a; position: relative; border-color: #e7c36a44; background: radial-gradient(80% 40% at 50% 0%, #e7c36a14, transparent 70%), #060507; }
+.agd.is-sic .m-seg button.active, .agd.is-sic [role='tab'][aria-selected='true'] { background: #e7c36a; color: #120d03; }
+.ack-sicmain { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 12px; align-items: start; min-width: 0; } .ack-sicmain > * { min-width: 0; display: grid; gap: 8px; }
+.ack-opencoin { justify-self: start; min-height: 34px; border-color: #e7c36a66; }
+.ack-sicdesk { display: grid; align-content: start; overflow-y: auto; min-height: 0; padding: 8px; }
+.agd.is-sic :is(.ack-seatwrap > *, .ack-deckwrap) { border-color: #e7c36a2e; }
+body.theme-day .agd.is-sic { background: #fffaf3; border-color: #a9822a44; } body.theme-day .agd.is-sic .m-seg button.active { background: #8a6a1c; color: #fff; }
+@media (max-width: 900px) { .ack-sicmain { grid-template-columns: minmax(0, 1fr); } }

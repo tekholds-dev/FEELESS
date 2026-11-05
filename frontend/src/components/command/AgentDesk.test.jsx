@@ -1,7 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { GenPods } from './LifeLens';
 import { AgentDesk, RoadMeter, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 import { devilOf, VERD } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
@@ -58,12 +57,8 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
   expect(q('devil-RUN').textContent).toContain('⚠ DEVIL WARNS'); expect(q('devil-RUN').textContent).toContain('Warden would size ×0.75'); expect(q('agd-row-RUN').textContent).toContain('researching holders');
   expect(q('agd-floor').querySelectorAll('.agd-dot').length).toBe(3); expect(q('agd-floor').textContent).toContain('⌖ $GOOD');
   // 🧬 ONE lifecycle for all ten roles
-  await tab('gens'); expect(q('agd-gens').querySelectorAll('.lfl-pod').length).toBe(10); expect(q('gen-status-sherlock').textContent).toContain('PROBATION'); expect(q('gen-status-reaper').textContent).toContain('ACTIVE');
-  expect(q('gen-sherlock').textContent).toContain('gen 2'); expect(q('gen-sherlock').textContent).toContain('walletTrust 1.5'); expect(q('gen-sherlock').textContent).toContain('gen 1 SHADOW');
   expect(q('tank-tally')).toBeNull();   // the old tanks / lives / duty are gone
-  expect(q('ack-deck-gens').textContent).toContain('1'); expect(q('agd-kpis')).toBeNull();   // the KPI strip is gone: each pane's tab carries its count
   await tab('paper'); expect(q('practice-note').textContent).toContain('no fill, switch, exit, size or generation reads it');
-  await tab('gens'); expect(q('agd-creed').textContent).toContain('never sign');
   await tab('paper'); expect(q('idea-ok-young1').disabled).toBe(true);
   await act(async () => { q('idea-ok-abc123').click(); });
   expect(call).toHaveBeenCalledWith('/admin/agents', expect.objectContaining({ method: 'POST', body: JSON.stringify({ idea: { id: 'abc123', action: 'approve' } }) }));
@@ -84,7 +79,7 @@ test('the desk is interactive: the old lenses are panes in the cockpit nav, moun
   expect(q('agent-cockpit').firstElementChild.getAttribute('data-testid')).toBe('ack-money'); expect(q('agd-more')).toBeNull();   // no ▸ MORE fold any more
   expect(q('agd-stream').textContent).toContain('snapshot');
   expect(q('ack-deck-dlive')).toBeNull();   // the old agent-card screens are gone (owner, 2026-10-15: "not the current layout")
-  for (const k of ['office', 'missed', 'paper', 'gens']) expect(q(`ack-deck-${k}`)).not.toBeNull();
+  for (const k of ['office', 'missed', 'paper']) expect(q(`ack-deck-${k}`)).not.toBeNull();
   expect(q('lens-live-pane')).toBeNull(); expect(el.querySelectorAll('.ags-mini')).toHaveLength(0);   // closed panes mount nothing
   expect(call.mock.calls.filter(c => !c[1] && c[0] !== '/admin/ai/chat').map(c => c[0])).toEqual(['/admin/agents']);   // ONE request feeds the desk AND the office
   await tab('office');
@@ -100,7 +95,6 @@ test('the desk is interactive: the old lenses are panes in the cockpit nav, moun
   await tab('paper');
   expect(q('lens-learn-pane')).not.toBeNull(); expect(q('lens-live-pane')).toBeNull(); expect(q('agd-ideas')).not.toBeNull(); expect(q('ags-court')).not.toBeNull(); expect(q('ags-mission')).not.toBeNull();
   expect(q('agd-controls')).not.toBeNull(); expect(q('agd-road')).not.toBeNull();
-  await tab('gens'); expect(q('agd-gens')).not.toBeNull();
   await tab('office'); expect(q('kernel-board')).not.toBeNull(); expect(q('office-board')).not.toBeNull();
   await act(async () => { window.dispatchEvent(new CustomEvent('feeless:agents-lens', { detail: 'live' })); });   // an old lens name still lands on its pane
   expect(q('lens-live-pane')).not.toBeNull();
@@ -129,12 +123,6 @@ test('ONE meaning of a decision: the state, the fact that decided it, the pips, 
   expect(boardRows(t, { q: '$du' }).map(x => x.symbol)).toEqual(['DUMP']); expect(boardRows(t, { sort: 'd5' }).map(x => x.symbol)).toEqual(['RUN', 'GOOD', 'DUMP']);
   expect(boardRows(t, { sort: 'vol' })[0].symbol).toBe('GOOD');
   expect(passLeft(100, 130)).toEqual({ age: 30, left: 30, frac: 0.5 }); expect(passLeft(100, 400).left).toBe(0); expect(passLeft(0, 5)).toBeNull();
-});
-
-test('the generations lens says when the book has not arrived', async () => {
-  const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<GenPods gens={[]} agents={[]} />); });
-  expect(el.textContent).toContain('arrives with the first office pass');
 });
 
 test('🕵 launch intel cells: every field with its tone and evidence', () => {

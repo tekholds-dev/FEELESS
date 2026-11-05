@@ -12,17 +12,17 @@
 .ack .ack-panel .ack-ptabs button { padding: 6px 7px; font-size: 10px; flex: 1 1 auto; }
 
 /* ── the P&L strip over the chart: one line (P&L · rail · held / Reaper), details on hover ── */
-.ack-trade.thd { padding: 6px 10px; gap: 4px 14px; grid-template-columns: auto minmax(180px, 1fr) auto; }
-.ack-trade .thd-pnl > .ack-num { font-size: 17px; }
-.ack-trade .thd-legend { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; font-size: 8px; }
-.ack-trade .thd-legend > small { overflow: hidden; text-overflow: ellipsis; }
-.ack-trade .thd-kv { flex-wrap: nowrap; gap: 12px; }
+
+
+
+
+
 
 /* ── the chart header: MC · 5m vol · liq + tools; the decision chips: the six newest, one row ── */
 .ack-chead { row-gap: 4px !important; }
 .ack-mrail { flex-wrap: nowrap; overflow: hidden; margin-top: 4px; }
-.ack-mrail .ack-mlist { flex-wrap: nowrap; overflow: hidden; mask-image: linear-gradient(90deg, #000 85%, transparent); }
-.ack-mrail .ack-ml { white-space: nowrap; flex: none; } .ack-mrail .ack-mkey { flex-wrap: nowrap; flex: none; }
+
+ 
 
 /* ── the 🧠 AI log: short rows (one line said, the full read on the newest), the record in one drawer ── */
 .cai-row .cai-say { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -149,7 +149,7 @@ body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-d
 @media (max-width: 640px) {
   .ack-mrow { grid-template-columns: auto auto auto; } .ack .ack-money .ack-nav > button { padding: 4px 6px; flex: 0 0 auto; } .ack-mcell.is-open { grid-column: 1 / -1; order: 5; } .ack-mseats { overflow-x: auto; scrollbar-width: none; } .ack-mcell > .ack-num { font-size: 16px; } .ack-mcell.is-card > .ack-num { font-size: 18px; } .ack-deckwrap { scroll-margin-top: 150px; }
   .ack-decktabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { font-size: 9.5px; min-height: 30px; }
-  .ack-vpair { grid-template-columns: 1fr; } .ack-tw { display: none; } .ack .ack-decktabs .active .ack-tw { display: inline; } .ack-ain { display: none; } .ack-trade.thd { grid-template-columns: 1fr; } .ack-trade .thd-kv { flex-wrap: wrap; }
+  .ack-vpair { grid-template-columns: 1fr; } .ack-tw { display: none; } .ack .ack-decktabs .active .ack-tw { display: inline; } .ack-ain { display: none; }  
 }
 
 /* ⧉ copy CA (CopyCa.jsx) */

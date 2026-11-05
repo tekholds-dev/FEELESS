@@ -36,8 +36,8 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
-  expect(order).toEqual(['ack-money', 'ack-topseats', 'ack-main', 'ack-deckwrap']);   // 🪑 the seats across the top   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
-  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review']);   // 🧹 the four used most up front
+  expect(order).toEqual(['ack-money', 'ack-topseats', 'ack-sicmain', 'ack-deckwrap']);   // 🪑 the seats across the top   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
+  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-seats', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review']);   // 🧹 the four used most up front
   expect([...q('ack-morepop').querySelectorAll('[role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-you', 'ack-deck-controls', 'ack-deck-stats', 'ack-deck-fee']);   // the rest behind ⋯ MORE (🪟 NEXA = the creator's cat, owner only)
   expect(q('ack-morepop').hidden).toBe(true); await act(async () => { q('ack-nav-more').click(); }); expect(q('ack-morepop').hidden).toBe(false);
   await act(async () => { q('ack-deck-stats').click(); }); expect(q('ack-morepop').hidden).toBe(true); expect(q('ack-nav-more').textContent).toContain('Stats');   // MORE wears the open pane's name
@@ -52,16 +52,8 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   expect(q('ack-seat-pct-1').textContent).toBe('+17.4%'); expect(q('ack-seat-usd-1').textContent).toBe('+$0.06'); expect(q('ack-seat-last-1').textContent).toContain('Reaper · PROTECT');
   expect(q('ack-seat-now-1').textContent).toContain('R7 trail'); expect(q('ack-seat-mc-2').textContent).toBe('—');                    // unknown = —, never $0
   expect(q('ack-seat-bar-1')).not.toBeNull(); expect(q('ack-seat-bar-1').getAttribute('data-tip')).toContain('peak +20%');              // 💹 each seat: stop … now … peak … take
-  expect(q('ack-trade-peak').textContent).toContain('PEAK +20%'); expect(q('ack-trade-peak').textContent).toContain('gave back 2.7');   // the HUD on the chart
-  expect(q('ack-trade-usd')).not.toBeNull(); expect(q('ack-trade-held').textContent).toMatch(/\dm \d\ds|\d\.\dh/);
   expect(q('ack-seat-3').textContent).toContain('1 READY candidate');
   // 📊 market cap is the chart's language; real events lettered T D W B R X
-  const last = () => charts[charts.length - 1];
-  expect(q('price-chart').getAttribute('data-metric')).toBe('marketCap'); expect(last().pair.marketCap).toBeCloseTo(1_006_000);
-  expect(last().fuse.lines.map(l => l.title)).toEqual(['entry', 'take +50%', 'stop -15%', 'peak +20.1%']);
-  expect(last().markers).toHaveLength(1); expect(last().markers[0].shape).toBe('arrowUp'); expect(last().markers[0].text).toBe('');   // only the real fill, no letters expect(q('ack-chart-mc').textContent).toBe('$1.01M');
-  expect(q('ack-mrail').textContent).toContain('Trigger enter'); expect(q('ack-mk-3').getAttribute('data-tip')).toContain('Reaper · PROTECT');
-  expect(q('ack-iv-5m').parentElement.className).toContain('ack-iv');                                                              // the candle selector is one horizontal seg
   // ⚡ live decisions: newest first
   expect(q('ack-tape').querySelectorAll('.ack-tcard')).toHaveLength(4); expect(q('ack-tape').querySelector('.ack-tcard').textContent).toContain('HARD VETO');
   // 🧠 the panel: the agent controlling the seat (Reaper) by default
@@ -76,12 +68,10 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await act(async () => { q('ack-ptab-live').click(); });
   // a queue row → its chart + the desk standing in its way; the AI note is shown with its source, advisory only
   await act(async () => { q('ack-q-ZYN').click(); });
-  expect(q('ack-kernel-verdict').textContent).toBe('🟢 READY'); expect(last().pair.marketCap).toBe(400000); expect(last().fuse.lines).toEqual([]);
   expect(q('ack-qmc-ZYN').textContent).toBe('$400.0K'); expect(q('ack-qst-ZYN').textContent).toBe('READY');
   await act(async () => { pickSel(q('ack-agent-sel'), 'devil'); });
   expect(q('ack-ai-note').textContent).toContain('LOCAL AI'); expect(q('ack-ai-note').textContent).toContain('Identity warning');
   await act(async () => { q('ack-q-PLAIN').click(); });                                                                               // no supply → no price chart in its place
-  expect(q('ack-mc-unavailable')).not.toBeNull(); expect(q('price-chart')).toBeNull();
   // 🤖 ten agents: tap = panel focus + its tape lines; records only when real
   expect(q('ack-matrix').querySelectorAll('.ack-agent')).toHaveLength(10);
   expect(q('ack-rec-reaper').textContent).toBe('61% · 5W 2L'); expect(q('ack-rec-tally').textContent).toBe('no real record yet');
@@ -130,7 +120,7 @@ test('⚡ an agent pulses ONLY when a new real tape event of its own arrives —
   const d2 = { ...data, office: { ...data.office, tape: [...data.office.tape, { id: 9, at: 1100, agent: 'warden', action: 'SIZE $0.20', why: 'tier B', mint: 'MINTZYN', symbol: 'ZYN' }] } };
   await act(async () => { root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
   expect(q('ack-agent-warden').querySelector('.is-pulse')).not.toBeNull(); expect(q('ack-agent-devil').querySelector('.is-pulse')).toBeNull();
-  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge') && !String(u).includes('/api/reputation/chart-wallets/') && !String(u).includes('/api/reputation/familia/intake'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips), the chart's 🐋 wallet bubbles (one read per coin / 15s) and the ONE shared intake (useRead, 30s, every viewer) may ask
+  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge') && !String(u).includes('/api/reputation/chart-wallets/') && !String(u).includes('/api/reputation/familia/intake') && !String(u).includes('/api/cats'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips), the chart's 🐋 wallet bubbles (one read per coin / 15s) and the ONE shared intake (useRead, 30s, every viewer) may ask
   await act(async () => { root.unmount(); });
   localStorage.setItem('feeless.agentDeck', 'live');   // ⚡ the feed open: the new tape line is marked new
   const b = mount();
@@ -259,27 +249,12 @@ test('🖱 every tap opens its coin: a decision card on a coin off the lists, a 
   await flush();
   const card = [...document.querySelectorAll('[data-testid^="ack-tape-"]')].find(b => b.textContent.includes('$GONE'));
   await act(async () => { card.click(); }); await flush(); await flush();
-  expect(q('ack-chart').textContent).toContain('$GONE');                                  // the tap stuck (it used to fall back to the hot seat)
+  expect(q('ack-open-chart').textContent).toContain('GONE');                                  // the tap stuck (it used to fall back to the hot seat)
   expect(global.fetch.mock.calls.some(([u]) => String(u).includes('/api/market/pairs/solana/GONE'))).toBe(true);
   const open = q('ack-seat-3'); expect(open.getAttribute('role')).toBe('button');
   await act(async () => { open.click(); }); await flush();
-  expect(q('ack-chart').textContent).not.toContain('$GONE');                              // the hunting seat opened its READY coin
+  expect(q('ack-open-chart').textContent).not.toContain('GONE');                              // the hunting seat opened its READY coin
   global.fetch = realFetch; await act(async () => { root.unmount(); });
-});
-
-test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the right column to their conversation, 🧠 DECISION swaps back', async () => {
-  sessionStorage.clear();
-  const call = jest.fn(async () => ({ ok: true }));
-  const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
-  const { root, q } = mount();
-  await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
-  await flush();
-  expect(q('ack-talk')).toBeNull(); expect(q('ack-panel')).not.toBeNull();
-  await act(async () => { q('ack-talk-open').click(); });
-  expect(q('ack-talk')).not.toBeNull(); expect(q('ack-panel')).toBeNull();
-  await act(async () => { q('ack-talk-close').click(); });
-  expect(q('ack-talk')).toBeNull(); expect(q('ack-panel')).not.toBeNull();
-  act(() => root.unmount()); sessionStorage.clear();
 });
 
 

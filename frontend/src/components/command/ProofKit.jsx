@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { fitBox, identityOf, inkOf, ridge } from '../../lib/proofprint';
 import '../../styles/proofKit.css';
 
 // 🧰 THREE TOOLS IN EVERY PROOF FOLDER (owner 2026-11-05). Each one reads the agent's own filed proofs, so a number here is always something that really happened. Too few proofs says so; nothing is ever filled in.
@@ -60,15 +61,14 @@ export function ProofKit({ kind, folders, onCommand }) {
     {t.rows.length ? <ul>{t.rows.map(r => <li key={r.l} className={r.tone ? `is-${r.tone}` : ''}><span>{r.l}</span><b className="m-num">{r.v}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, r.part || 0)})` }} /></i></li>)}</ul> : <p className="pkt-none">{t.need}</p>}
     {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(t.ask)} data-tip="Puts this in its chat box. You press send" data-testid={`pkt-${kind}-ask-${i}`}>Ask it</button> : null}</article>)}</section>;
 }
-// 🧬 Each proof's own print: its ridges grow with what it has filed and bend with how it did. Together they make the desktop's fingerprint.
 const KIND_FULL = { pow: 'PROOF OF WORK', pop: 'PROOF OF PERPS', pob: 'PROOF OF BIDS', poc: 'PROOF OF CONTENT', pos: 'PROOF OF CODE' };
-const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' }; const KIND_INK = { pow: '#3ee58a', pop: '#c58bff', pob: '#ffc24d', poc: '#ff8bd8', pos: '#57c7ff' }; const KIND_SEED = { pow: 3, pop: 5, pob: 7, poc: 11, pos: 13 };
-export const printRings = (kind, n) => Math.min(9, 2 + Math.ceil(Math.sqrt(Math.max(0, n)) * 1.6));
-const hashId = s => { let h = 7; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 9973; return h; };
-export function ProofPrint({ kind, folders = [], size = 54, seedId = '' }) {   // seedId: one folder's own print, so no two proofs share one
-  const n = folders.length; const rings = printRings(kind, n); const seed = seedId ? 3 + (hashId(seedId) % 9) : KIND_SEED[kind]; const bend = seedId ? (hashId(`${seedId}b`) % 628) / 100 : 0; const ink = KIND_INK[kind]; const won = folders.filter(f => (f.pnlPct != null && f.pnlPct > 0) || f.graded === 'right' || f.roePct > 0).length;
-  const paths = useMemo(() => Array.from({ length: rings }, (_, r) => { const R = 5 + r * (40 / Math.max(1, rings)); const pts = Array.from({ length: 41 }, (_x, i) => { const a = (i / 40) * Math.PI * 2; const w = Math.sin(a * seed + r * 0.6 + bend) * (1.2 + r * 0.25) + Math.sin(a * 2 + r + bend) * 1.2; return `${(50 + Math.cos(a) * (R * 0.86 + w)).toFixed(1)} ${(50 + Math.sin(a) * (R + w)).toFixed(1)}`; }); return `M${pts.join('L')}Z`; }), [rings, seed, bend]);
-  return <svg className="ppm" viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`${KIND_NAME[kind]} print: ${n} filed, ${won} won`}>{paths.map((d, i) => <path key={d} d={d} fill="none" stroke={ink} strokeWidth={i % 3 === 0 ? 1.6 : 0.8} opacity={n ? 0.45 + (0.55 * (i + 1)) / rings : 0.28} />)}</svg>;
+const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' };
+const FingerprintLazy = lazy(() => import('./Proofprint').then(m => ({ default: m.ProofFingerprint })));
+// 🖊 One folder's own ridge, coloured by its real result: green strong, gold medium, red weak, grey for no result yet.
+export const PrintSeed = createContext('agent');
+export function FolderRidge({ fid, score = null, size = 26 }) {
+  const seed = useContext(PrintSeed); const id = useMemo(() => identityOf(seed), [seed]); const d = useMemo(() => { let h = 7; for (const c of String(fid)) h = (h * 31 + c.charCodeAt(0)) % 9973; return ridge(id, 2 + (h % 14), 40); }, [id, fid]);
+  return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true"><path d={d} fill="none" strokeWidth="9" stroke={score == null ? '#8a93a6' : inkOf(score)} /></svg>;
 }
 // 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.
 const STEPS = {
@@ -79,15 +79,18 @@ const STEPS = {
   pos: { steps: ['You ask', 'It researches', 'It suggests', 'You approve', 'It builds', 'Second mind reviews', 'You say if it works'], loop: 'Filed once you say it works.', needs: 'Proposes. Publishing needs a host you sign in to.' },
 };
 const stepNow = (kind, d) => { if (kind === 'pow') { const p = d?.powFolder?.phase; return !p ? -1 : /scan|read|intake/.test(p) ? 0 : /propose|split/.test(p) ? 1 : /choose/.test(p) ? 2 : /buy/.test(p) ? 3 : /hold|watch|run/.test(p) ? 4 : /sell/.test(p) ? 5 : 4; } if (kind === 'pop') return d?.popRead ? 0 : d?.popCard ? 3 : d?.popFolder ? 4 : -1; if (kind === 'pob') { const open = (d?.pobFolders || []).find(f => f.games?.length && !f.graded); const live = open?.games?.some(g => g.state === 'in'); return d?.pobRead ? 0 : live ? 5 : open ? 4 : -1; } return -1; };
-export function ProofHead({ kind, folders, d, onBrowse }) {
-  const [src, setSrc] = useState(null); const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address);
-  useEffect(() => { if (!open || src) return; fetch(apiUrl('/api/cats/tools/sourcefile')).then(r => (r.ok ? r.json() : null)).then(j => setSrc(j?.proofs?.[kind] || [])).catch(() => setSrc([])); }, [open, src, kind]);
-  return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print" data-tip={`${KIND_NAME[kind]}'s part of its fingerprint. It grows with each proof filed`}><ProofPrint kind={kind} folders={folders || []} size={84} /></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small></span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof" data-testid={`phd-src-${kind}`}>Its sources</button></div>
-    <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
-    {open ? <ul className="phd-src" data-testid={`phd-srcs-${kind}`}>{!src ? <li>Reading…</li> : src.map(r => <li key={r.host}><a href={`https://${r.host}`} target="_blank" rel="noopener noreferrer"><b>{r.name}</b><small>{r.what}</small></a>{onBrowse ? <button type="button" className="m-btn" onClick={() => onBrowse(r.host.split('/')[0])} data-tip="Opens it in its Browser" data-testid={`phd-open-${r.host}`}>Open</button> : null}</li>)}</ul> : null}</section>;
+function SiteFile({ kind, cat, work, onBrowse }) {
+  const [rows, setRows] = useState(null); const [q, setQ] = useState(''); const [add, setAdd] = useState(''); const [said, setSaid] = useState('');
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/tools/sources/${kind}`)).then(r => (r.ok ? r.json() : null)).then(j => on && setRows(j?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [kind]);
+  const plug = async e => { e.preventDefault(); if (!add.trim() || !work) return; setSaid(''); try { await work(cat.id, { op: 'refs_add', text: add.trim() }); setSaid(`It reads ${add.trim()} first now.`); setAdd(''); } catch (er) { setSaid(er.message); } };
+  const shown = (rows || []).filter(r => !q.trim() || `${r.name} ${r.what} ${r.group}`.toLowerCase().includes(q.trim().toLowerCase())); const groups = [...new Set(shown.map(r => r.group))];
+  return <div className="psf" data-testid={`psf-${kind}`}><div className="psf-top"><input className="m-input" value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${rows?.length || ''} places`} aria-label="Search its sites" data-testid={`psf-q-${kind}`} />{work ? <form onSubmit={plug}><input className="m-input" value={add} onChange={e => setAdd(e.target.value)} placeholder="Plug in your own site" aria-label="Plug in your own site" data-testid={`psf-add-${kind}`} /><button type="submit" className="m-btn m-go" disabled={!add.trim()} data-tip="It reads your sites before this list" data-testid={`psf-plug-${kind}`}>Plug in</button></form> : null}</div>{said ? <small className="psf-said" role="status">{said}</small> : null}
+    <p className="psf-note">It looks here before it makes anything, then makes its own version. Once the Stash has 5 graded proofs from a site, real results move it up or down.</p>
+    {!rows ? <small>Reading…</small> : groups.map(g => <section key={g}><h5>{g}</h5><ul className="phd-src">{shown.filter(r => r.group === g).map(r => <li key={r.host}><a href={`https://${r.host}`} target="_blank" rel="noopener noreferrer"><b>{r.name}</b><small>{r.what}</small></a>{r.trust != null ? <em className={`m-num ${r.trust >= 50 ? 'is-up' : 'is-dn'}`} data-tip={`${r.won} won, ${r.lost} lost, from the Stash`}>{r.trust}%</em> : r.reads ? <em className="m-num" data-tip="Times it was read, too few graded to trust yet">{r.reads}×</em> : null}{onBrowse ? <button type="button" className="m-btn" onClick={() => onBrowse(r.host.split('/')[0])} data-tip="Opens it in its Browser" data-testid={`phd-open-${r.host}`}>Open</button> : null}</li>)}</ul></section>)}</div>;
 }
-// 🧬 The desktop's fingerprint, made of its five proofs.
-export function PrintParts({ d, extra = {} }) {
-  const parts = [['pow', d?.powFolders], ['pop', d?.popFolders], ['pob', d?.pobFolders], ['poc', d?.pocFolders || extra.poc], ['pos', d?.psFolders || extra.pos]].map(([k, f]) => [k, f || []]); const total = parts.reduce((a, [, f]) => a + f.length, 0);
-  return <section className="ppp" aria-label="What makes its print" data-testid="print-parts">{parts.map(([k, f]) => <span key={k} data-tip={`${f.length} ${KIND_NAME[k]} filed`}><ProofPrint kind={k} folders={f} size={64} /><b>{KIND_NAME[k]}</b><small className="m-num">{total ? `${Math.round((100 * f.length) / total)}%` : '0%'}</small></span>)}</section>;
+export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse }) {
+  const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address || cat?.agentWallet?.address);
+  return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={84} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small></span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
+    <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
+    {open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}</section>;
 }

@@ -1,7 +1,7 @@
-import { PrintParts } from './ProofKit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Ic3 } from '../../lib/icon3d';
-import { band, collectivePrint, faintCount, fitBox, identityOf, inkOf, pickTwo, printOf, ridge, ringPoint, segment, spans, statsOf } from '../../lib/proofprint';
+import { scoreOf, band, collectivePrint, faintCount, fitBox, identityOf, inkOf, pickTwo, printOf, ridge, ringPoint, segment, spans, statsOf } from '../../lib/proofprint';
 import { proofRows } from './ProofsFolder';
 import { LiveCount } from './BoostFolder';
 import { BoostCoin } from './DeskShell';
@@ -86,7 +86,6 @@ export function ProofprintFolder({ cat, d, pool }) {
   useEffect(() => { if (!playing) return undefined; const t = setInterval(() => setAt(x => { const next = (x ?? 0) + 1; if (next >= sorted.length) { setPlaying(false); return null; } return next; }), 240); return () => clearInterval(t); }, [playing, sorted.length]);
   const level = pool?.printLevel ?? 0; const p = pool?.pool || {}; const list = [...sorted].reverse().slice(0, 40); const most = Math.max(1, st.strong, st.medium, st.weak);
   return <div className="pp" data-testid="pp-folder">
-    <PrintParts d={d} />
     <header className="pp-head"><span className="pp-id" style={{ '--h': id.hue, '--h2': id.hue2 }} data-tip="This print is its identity: picked and sealed by the server from a keyed seed, for this agent only. Nobody can choose or copy one." data-testid="pp-id"><b className="m-num">{id.code}</b><small>{id.patternName} · Ink {id.inkN}</small></span>
       <div className="pp-head-c"><BoostCoin earning={!!p.ratePerSecUsd} /><div><small>EARNED FROM PROOFS SENT</small>{pool ? <LiveCount pool={p} readAt={pool.readAt} testid="pp-count" /> : <b className="bst-num">…</b>}</div></div>
       <span className="pp-level" data-tip="Graded from real results, recent ones most. A stronger print earns more points from the same send. Level says how much it has filed and learned."><small>STRENGTH · LEVEL</small><b className="m-num">{pool?.strength ?? 0} · {level}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, (pool?.strength ?? 0) / 100)})` }} /></i></span></header>
@@ -100,6 +99,37 @@ export function ProofprintFolder({ cat, d, pool }) {
     {tab === 'read' ? <section className="pp-read" data-testid="pp-read">{[['Strongest', pool?.strongest, 'is-up'], ['Weakest', pool?.weakest, 'is-dn']].map(([h, list2, tone]) => <div key={h}><h4>{h}</h4>{list2?.length ? <ul>{list2.map(t => <li key={t.t} data-tip={`${t.won} won of ${t.n}. Recent proofs count more`}><span>{t.t}</span><i aria-hidden="true"><u className={tone} style={{ transform: `scaleX(${Math.min(1, Math.abs(t.score) / 5)})` }} /></i><b className="m-num">{t.score}</b></li>)}</ul> : <p className="fch-nil">Not enough results yet.</p>}</div>)}</section> : null}
     {tab === 'proofs' ? <section className="pp-list"><h4><Ic3 e="🧾" /> EVERY PROOF<small>Best 2 snapshots each. Saved sealed on FEELESS's own disk, free.</small></h4>
       {list.length ? <ol>{list.map(r => { const two = pickTwo(r.shots); return <li key={r.id}><span><b>{r.name}</b><small>{r.sub}</small></span><em className="m-num">{r.shown}</em>{two.length ? <span className="pp-shots">{two.map(s => <button key={s.file} type="button" onClick={() => setBig(s)} data-tip={s.site}><img src={s.src} alt={s.site} loading="lazy" /></button>)}</span> : null}{r.decisions?.[0] ? <p>{r.decisions[0][0]}: {String(r.decisions[0][1]).slice(0, 160)}</p> : null}</li>; })}</ol> : <p className="fch-nil">No finished proofs yet.</p>}</section> : null}
+    {tab === 'print' ? <section aria-label="What makes its print"><h4 className="ppp-h">EACH PROOF'S PART OF IT. TAP ONE TO SEE HOW IT IS DOING.</h4><div className="ppp" data-testid="print-parts">{PARTS.map(k => <ProofFingerprint key={k} kind={k} cat={cat} d={d} pool={pool} size={72} label />)}</div></section> : null}
     {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={big.src} alt={big.site} /></div> : null}
   </div>;
+}
+
+// 🧬 A proof's part of its real fingerprint: the same ridges, drawn from that proof's real scores. Click it to see how that proof is doing and what it lacks.
+const PARTS = ['pow', 'pop', 'pob', 'poc', 'pos']; const PART_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' }; const TRAIT = { pow: /^(source|pool|cap) /, pop: /^(market|side) /, pob: /^topic /, poc: /^topic /, pos: /^topic / }; const FULL_READ = 10;
+export function printHealth(rows) {
+  const st = statsOf(rows); const open = rows.length - st.total; const reading = Math.min(1, st.total / FULL_READ); const score = Math.round(st.avg * reading); const recent = [...rows].map(r => ({ ...r, score: scoreOf(r) })).filter(r => r.score != null).sort((a, b) => (a.at || 0) - (b.at || 0)).slice(-3); const lacks = [];
+  if (!rows.length) lacks.push('No proof filed yet, so there is nothing to read.');
+  if (st.total < FULL_READ && rows.length) lacks.push(`${FULL_READ - st.total} more finished proofs for a full reading.`);
+  if (open) lacks.push(`${open} filed with no result yet${st.total ? '' : ', so they do not count'}. A result is what draws a ridge.`);
+  if (st.total && st.avg < 55) lacks.push(`Its average result is ${st.avg} of 100, under the line of 55.`);
+  if (st.weak > st.strong && st.total >= 3) lacks.push(`More weak proofs (${st.weak}) than strong ones (${st.strong}).`);
+  if (recent.length === 3 && recent.every(r => r.score < 55)) lacks.push('Its last 3 were all weak.');
+  const verdict = !st.total ? 'NO READING' : st.total < 3 ? 'TOO EARLY' : st.avg >= 70 ? 'STRONG' : st.avg >= 55 ? 'HOLDING' : 'LACKING';
+  return { ...st, filed: rows.length, open, score, verdict, lacks, reading };
+}
+export function ProofFingerprint({ kind, cat, d, pool, size = 92, label = false }) {
+  const [open, setOpen] = useState(false); const id = useMemo(() => identityOf(pool?.printSeed || cat?.id || 'agent'), [pool?.printSeed, cat?.id]); const rows = useMemo(() => proofRows(d).filter(r => r.kind === kind).map(r => ({ ...r, shots: (r.shots || []).map(s => ({ ...s, src: String(s.src || '').replace('{cat}', cat?.id) })) })), [d, kind, cat?.id]);
+  const print = useMemo(() => printOf(rows), [rows]); const h = useMemo(() => printHealth(rows), [rows]); const rings = print.rings; const box = fitBox(Math.max(rings.length * 2 + 4, 8), id);
+  const traits = list => (list || []).filter(t => TRAIT[kind].test(t.t)).slice(0, 4);
+  useEffect(() => { if (!open) return undefined; const k = e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [open]);
+  return <><button type="button" className={`ppf is-${kind} is-${h.verdict.split(' ')[0].toLowerCase()}`} onClick={() => setOpen(true)} data-tip={`${PART_NAME[kind]}'s real print: ${h.verdict.toLowerCase()}. Click to see how it is doing`} data-testid={`ppf-${kind}`}><svg viewBox={box} width={size} height={size} role="img" aria-label={`${PART_NAME[kind]} print, ${h.verdict}`}><Ridges rings={rings} id={id} selected={-1} run={-1} onPick={() => {}} grow={6} /></svg>{label ? <><b>{PART_NAME[kind]}</b><small className="m-num">{h.total ? `${h.avg}/100` : 'none yet'}</small></> : null}</button>
+    {open ? createPortal(<div className="ppf-back" onClick={() => setOpen(false)} data-testid="ppf-pop"><section className={`ppf-pop m-card is-${kind}`} role="dialog" aria-modal="true" aria-label={`${PART_NAME[kind]} fingerprint`} onClick={e => e.stopPropagation()}>
+      <header><span><small>{PART_NAME[kind]} · ITS REAL FINGERPRINT</small><b>{h.verdict}</b></span><button type="button" className="pgw-x" onClick={() => setOpen(false)} aria-label="Close" data-tip="Close (Esc)" data-testid="ppf-close">✕</button></header>
+      <div className="ppf-grid"><PrintStage print={print} id={id} label={`${PART_NAME[kind]} RIDGES`} height={420} empty="Its first finished proof draws its first ridge." testid={`ppf-stage-${kind}`} />
+        <div className="ppf-read"><div className="ppf-nums">{[['AVERAGE', h.total ? h.avg : '—', 'Average result of its finished proofs, out of 100'], ['FILED', h.filed, 'Every proof of this kind'], ['FINISHED', h.total, 'Proofs with a real result'], ['BEST RUN', h.bestRun, 'Good results in a row']].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
+          <div className="ppf-bands">{[['STRONG', h.strong, '#4dea8f'], ['MEDIUM', h.medium, '#f5cf52'], ['WEAK', h.weak, '#f2697a']].map(([k, v, c]) => <span key={k}><small>{k}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${h.total ? v / h.total : 0})`, background: c }} /></i><b className="m-num">{v}</b></span>)}</div>
+          <h5>WHAT IT LACKS</h5>{h.lacks.length ? <ul className="ppf-lacks" data-testid="ppf-lacks">{h.lacks.map(x => <li key={x}>{x}</li>)}</ul> : <p className="ppf-ok">Nothing right now. Keep filing.</p>}
+          {traits(pool?.strongest).length ? <><h5>BEST AT</h5><ul className="ppf-tr">{traits(pool?.strongest).map(t => <li key={t.t}><span>{t.t}</span><b className="m-num">{t.won} of {t.n}</b></li>)}</ul></> : null}
+          {traits(pool?.weakest).length ? <><h5>WORST AT</h5><ul className="ppf-tr is-dn">{traits(pool?.weakest).map(t => <li key={t.t}><span>{t.t}</span><b className="m-num">{t.won} of {t.n}</b></li>)}</ul></> : null}
+        </div></div></section></div>, document.body) : null}</>;
 }

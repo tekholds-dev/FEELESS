@@ -163,6 +163,15 @@ def web(root):
     return {'categories': [{'id': k, 'n': v} for k, v in sorted(cats.items(), key=lambda x: -x[1])], 'sources': [{'id': k, **srcs[k]} for k in keep], 'links': [x for x in links if x['to'] in keep], 'dots': [[a, b, d] for a, b, d in dots]}
 
 
+def trust_rows(root):
+    """How each source has really done: (source, outcome, count). Safe to show anyone."""
+    c = _db(root)
+    try:
+        return c.execute('SELECT source, outcome, COUNT(*) FROM items GROUP BY source, outcome').fetchall()
+    finally:
+        c.close()
+
+
 def read(root, key):
     """Open one kept item, for its owner's tools. Sealed content fails closed."""
     c = _db(root)
