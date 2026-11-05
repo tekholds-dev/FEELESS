@@ -152,15 +152,15 @@ function SignInGate({ onIn }) {
     {err ? <span className="kd-err" role="alert">⚠ {err}</span> : null}</div>;
 }
 
-// 🔑 a new browser takes its agent back with the recovery PIN (it never moves money)
+// 🔑 a new wallet takes its agent back with its recovery key or 12 words (an older PIN still works). Its wallet can't pay out for 3 days after.
 function RecoverAgent({ onBack }) {
   const [handle, setHandle] = useState(''); const [pin, setPin] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const go = async e => { e.preventDefault(); setErr(''); setBusy(true);
     try { const r = await api('/api/cats/recover', { method: 'POST', body: JSON.stringify({ handle: handle.trim(), pin: pin.trim(), ...agentAuth() }) }); setHandle(''); setPin(''); onBack(r.cat); }
     catch (x) { setErr(x.message); } setBusy(false); };
-  return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost this browser? Bring your agent here with its recovery PIN"><Ic3 e="🔑" /> Recover an agent</summary>
+  return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost your wallet? Sign in with a new one and bring your agent here"><Ic3 e="🔑" /> Recover an agent</summary>
     <form onSubmit={go}><input className="m-input" value={handle} onChange={e => setHandle(e.target.value)} placeholder="its @handle" aria-label="Its handle" data-testid="fc-recover-handle" />
-      <input className="m-input" value={pin} onChange={e => setPin(e.target.value)} placeholder="XXXX-XXXX-XXXX" aria-label="Recovery PIN" autoComplete="off" data-testid="fc-recover-pin" />
+      <textarea className="m-input" rows={2} value={pin} onChange={e => setPin(e.target.value)} placeholder="Recovery key or your 12 words" aria-label="Recovery key or 12 words" autoComplete="off" spellCheck={false} data-testid="fc-recover-pin" />
       <button type="submit" className="m-btn m-go" disabled={busy || !handle.trim() || !pin.trim()} data-testid="fc-recover-go">{busy ? 'Checking…' : 'Recover'}</button></form>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</details>;
 }
@@ -207,10 +207,10 @@ export default function FeeCatsPlatform() {
   const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
-    ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
-    ['colony', <><Ic3 e="💎" /> Collective</>, 'Every agent working, two windows each — Collective agents file graded calls and their trades are graded; score splits the Pool']];
+    ['new', <><Plus size={14} /> New agent</>, 'A trading agent or a general agent: models, your wallet, then real. Up to 2 agents'],
+    ['colony', <><Ic3 e="💎" /> The Collective</>, 'Every agent working, two windows each — Collective agents file graded calls and their trades are graded; score splits the Pool']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
-  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
+  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS THAT WORK FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}

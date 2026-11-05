@@ -78,7 +78,7 @@ const FeeCatNav = ({ onClose }) => {
     </div>
     {expanded && <div className="sidebar-feecat-subnav" data-testid="feecat-subnav">
       <NavLink end to="/terminal/feecat" onClick={onClose} data-testid="nav-feecat-home">Cat home</NavLink>
-      <NavLink to="/terminal/feecat/agents" onClick={onClose} data-testid="nav-feecat-agents">Launch a cat <span>NEW</span></NavLink>
+      <NavLink to="/terminal/feecat/agents" onClick={onClose} data-testid="nav-feecat-agents">Launch an agent <span>NEW</span></NavLink>
     </div>}
   </div>;
 };

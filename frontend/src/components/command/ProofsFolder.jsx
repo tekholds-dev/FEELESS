@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import '../../styles/proofsFolder.css';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { ProofStamp } from './ProofStamp';
 
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
@@ -40,8 +41,13 @@ function pobRow(f) {
     state: f.status && f.status !== 'closed' ? 'open' : toneOf(v), loop: f.loop, shots: shotsOf(f, 'pob'),
     decisions: [...(f.calls || []).map((c, i) => [c.name || mind(c.mind ?? i), (c.picks || []).map(pick).filter(Boolean).join(' · ') || reasonOf(c.why)]), ...(f.agreed?.length ? [['Both agree', f.agreed.map(pick).join(' · ')]] : []), ...(f.why ? [['Result', f.why]] : [])].filter(([, t]) => t), skipped: [] };
 }
+// 👀 A visitor's one list: the newest 5 proofs of any kind, from the public copy (no emails, no phones, no wallet trail).
+export function visitorProofs(cat) {
+  return proofRows(cat).slice(0, 20).map(r => ({ id: r.id, kind: KINDS[r.kind][1], label: r.sub || r.name, pct: r.kind === 'pob' ? null : r.value, stamp: r.stamp, games: r.games }));
+}
 export function proofRows(d) {
-  return [...(d?.powFolders || []).map(powRow), ...(d?.popFolders || []).map(popRow), ...(d?.pobFolders || []).map(pobRow)].sort((a, b) => b.at - a.at);
+  const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null });
+  return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f)))].sort((a, b) => b.at - a.at);
 }
 
 function Ring({ rows }) {
@@ -94,7 +100,7 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
       <Ic3 e={KINDS[r.kind][0]} size="26px" /><span><b>{r.name}</b><small>{r.sub}</small></span>
       {r.loop?.n > 1 ? <em className="pfx-chip" data-tip={`Loop ${r.loop.n}: it studied ${r.loop.past?.length || 0} past proofs first`}>Loop {r.loop.n}</em> : null}
       {r.shots.length ? <em className="pfx-chip is-dim">{r.shots.length} snapshots</em> : null}
-      <time className="m-num">{clock(r.at)}</time><strong className={`m-num is-${r.state}`}>{r.shown}</strong></button>
+      <time className="m-num">{clock(r.at)}</time><ProofStamp s={r.stamp} /><strong className={`m-num is-${r.state}`}>{r.shown}</strong></button>
     {!open && r.shots.length ? <div className="pfx-thumbs" aria-hidden="true">{r.shots.slice(0, 4).map(s => <img key={s.file} src={src(s)} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />)}</div> : null}
     {open ? <div className="pfx-open">
       <section><h4>THE DECISIONS, AT THE TIME</h4>{r.decisions.length ? <ol className="pfx-dec">{r.decisions.map(([who, t], n) => <li key={`${who}${n}`} style={{ '--i': n }}><b>{who}</b><span>{t}</span></li>)}</ol> : <p className="pfx-none">No reasons were filed with this one.</p>}

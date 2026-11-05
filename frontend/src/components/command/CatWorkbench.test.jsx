@@ -448,7 +448,7 @@ test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% 
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-share').textContent).toContain('stay in its wallet');
   await act(async () => { q('dsk-share-20').click(); });
-  expect(signed.at(-1)).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
+  expect(signed.at(-1)).toMatch(/^FEELESS auto-collect\nSend this % of each winning proof of \+50% or more to the Pool\nagent:h1\npct:20\nts:\d+$/); expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
   expect(q('dsk-share').textContent).toContain('20% of each winning PoW');
   const n = signed.length; await act(async () => { q('dsk-share-0').click(); });
   expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);

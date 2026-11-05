@@ -260,8 +260,6 @@ body.fx-lite .cwb-earn-list li, body.fx-lite .cwb-earn-sw.is-on i { animation: n
 .cwb-pub-host { font: 800 clamp(18px, 2.4vw, 30px) var(--f-mono); color: #fff; letter-spacing: .02em; text-shadow: 0 0 22px #b388ff66; animation: cwbIn .3s ease both; overflow-wrap: anywhere; }
 .agd-win.w1 .cwb-pub-host { text-shadow: 0 0 22px #ff5dbb66; }
 .cwb-pub-note { color: #8f83ad; font: 600 10.5px var(--f-ui); }
-.cwb-powrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .cwb-powrow .ck-pow { align-content: start; }
-@media (max-width: 640px) { .cwb-powrow { grid-template-columns: minmax(0, 1fr); } }
 body.theme-day .cwb-pubscreen { background: #f7f3ff; } body.theme-day .cwb-pub-host { color: #1c1230; }
 body.fx-lite .cwb-pub-host { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-pub-host { animation: none; } }
 /* 🎫 the Agent Pass drawer: a ticket-gold header, its fee / cost / royalty as three cells, one mint button */

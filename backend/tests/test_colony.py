@@ -31,7 +31,7 @@ def test_a_signed_sharing_agent_owes_the_colony_on_wins_only_from_its_own_wallet
     import feecat_service as fs
     monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json')
     cat = {'id': 'k1', 'ownerWallet': 'W1', 'colonyShare': {'on': True, 'pct': 20}, 'agentWallet': {'address': 'AW'}}
-    P_ = {'kind': 'PoW', 'id': 'pow1', 'name': 'PoW #1', 'sym': 'HUSS'}
+    P_ = {'pnlPct': 80, 'kind': 'PoW', 'id': 'pow1', 'name': 'PoW #1', 'sym': 'HUSS'}
     fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig', P_); fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig', P_)
     fs._colony_share(cat, {'symbol': 'RUG'}, -0.2, 'loss-sig', P_)
     fs._colony_share(cat, {'symbol': 'NOPE'}, 0.5, 'no-proof')   # 🍯 no proof, no honey
@@ -65,15 +65,15 @@ def test_pow_colony_reconciles_confirmed_wallet_fills_before_accruing(monkeypatc
         return {'sig': args[0]}
     monkeypatch.setattr(fs._crpc, '_rpc', rpc)
     monkeypatch.setattr(fs._fills, 'raw_fill', lambda tx, wallet, mint: {'side': 'buy' if tx['sig'] == 'buy-sig' else 'sell',
-                                                                       'cashSol': .101 if tx['sig'] == 'buy-sig' else .11})
+                                                                       'cashSol': .101 if tx['sig'] == 'buy-sig' else .201})
     assert asyncio.run(fs._pow2_reconcile(None, cat, f))
-    assert f['settlementVerified'] and f['netPnlSol'] == .009
+    assert f['settlementVerified'] and f['netPnlSol'] == .1
     monkeypatch.setattr(fs, '_pow_archive_add', lambda row: None)
     monkeypatch.setattr(fs._pow, 'report', lambda folder: ({}, 'report'))
     monkeypatch.setattr(fs, 'POWSHOTS_DIR', tmp_path / 'shots')
     fs._pow2_close(cat, f, 'sold', 100, 1.1)
-    assert f['pnlSol'] == .009 and f['pnlPct'] == round(.009 / .101 * 100, 2)
-    assert fs._shares()[0]['sol'] == .0018 and fs._shares()[0]['ref'] == 'sell-sig'
+    assert f['pnlSol'] == .1 and f['pnlPct'] == round(.1 / .101 * 100, 2)
+    assert fs._shares()[0]['sol'] == .02 and fs._shares()[0]['ref'] == 'sell-sig'
     assert fs.share_ok('k1', 20, 1, 'sig', 'W1', now=500) is False   # a stale signature never counts
     src = open(fs.__file__).read(); i = src.index("if p.op == 'share':"); assert 'share_ok(cat_id, pct_, p.ts, p.sig' in src[i:i + 900]
 

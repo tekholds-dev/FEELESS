@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import '../../styles/setupDeck.css';
 import { Ic3 } from '../../lib/icon3d';
 import { PEOPLE, thumbOf } from '../../lib/wireface';
+import { RecoveryKit } from './RecoveryKit';
 import '../../styles/character.css';
 
 // 🚀 PRIORITY SETUP (owner 2026-11-04): a new agent starts with its asks, one slide each. The desktop stays lit with how many are left. Its answers live on the server (agent_setup.py):
@@ -102,6 +103,7 @@ export function TermsFolder({ cat, d, setD, work }) {
   const agree = async () => { setErr(''); try { const j = await work(cat.id, { op: 'setup', job: 'terms', text: '' }); setD?.(x => ({ ...x, setup: j.setup })); } catch (e) { setErr(e.message); } };
   return <div className="stp-folder" data-testid="dsk-terms">
     <section className="stp-secure"><h3><Ic3 e="🛡" size="26px" /> ITS SECURITY</h3><div className="stp-tiles is-big">{securityFacts(cat, d).map(([ic, t, v, x], i) => <details key={t} className="stp-tile" style={{ '--i': i }}><summary><Ic3 e={ic} size="40px" /><b>{t}</b><small>{v}</small></summary><span>{x}</span></details>)}</div></section>
+    <RecoveryKit cat={cat} view={d?.recoveryView} />
     <section className="stp-terms-pane"><h3><Ic3 e="📃" size="26px" /> THE TERMS</h3><div className="stp-terms">{TERMS.map(([t, x]) => <details key={t}><summary>{t}</summary><small>{x}</small></details>)}</div>
       {s?.termsAt ? <small className="stp-hint" data-testid="terms-agreed">You agreed on {new Date(s.termsAt * 1000).toLocaleDateString()}.</small> : <button type="button" className="m-btn m-go" onClick={agree} data-testid="terms-agree">I agree</button>}
       {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</section></div>;

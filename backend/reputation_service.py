@@ -11224,6 +11224,8 @@ async def cat_withdraw(cat_id: str, p: CatWithdrawIn):
     if p.token not in ('SOL', 'USDC') or p.amount < 0:
         raise HTTPException(400, 'Withdraw SOL or USDC.')
     cat, w = await _cat_for_fund(cat_id, me)
+    if time.time() < float(cat.get('recoveredAt') or 0) + 72 * 3600:   # 🔑 after a recovery its wallet cannot pay out for 3 days: a stolen phrase can't empty it at once
+        raise HTTPException(423, 'This agent was recovered in the last 3 days. Its wallet can pay out after that.')
     if w.get('provider') != 'circle' or w.get('circleAcct') != 'agent' or not w.get('circleId'):
         raise HTTPException(400, 'Withdrawals work on its Circle wallet.')
     if cat_id in _cat_out_busy:

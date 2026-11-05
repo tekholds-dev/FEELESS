@@ -14,11 +14,14 @@ import { svgPngBlob } from '../../lib/svgPng';
 import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice } from '../../lib/solPrice';
 import { HoneyTanks } from './HoneyTanks';
+import '../../styles/collective.css';
+import { ProofTools } from './ProofTools';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { BidSites, BID_SITES } from './BidSites';
 import { MailApp, SiteDoor, SignInFrame, SiteTradeCard, TopupCard, WatchFolders } from './SiteDoor';
-import { ProofsFolder } from './ProofsFolder';
+import { ProofsFolder, visitorProofs } from './ProofsFolder';
+import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
@@ -63,10 +66,10 @@ const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3"
 // 🐝 COLONIZE (owner 2026-10-31: "a popout explaining it; users must stake FEECAT to colonize"): on = it files a graded coin call every N minutes on its
 // own AND its trades are graded (entry, then an hour on; exit, then an hour on) — honey decides its share of the colony pot's growth. Off any time.
 const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
-const COLONY_STEPS = [['🔎', 'It reads the trenches on its own', 'One coin at a time, one small model call each, inside its $ limits — until you turn it off.'],
+const COLONY_STEPS = [['🔎', 'It works in the Collective', 'One coin at a time, one small model call each, inside its $ limits, until you turn it off.'],
   ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
-  ['💧', 'Honey is its proof', 'Graded calls earn or lose score — it ranks your agent on the Collective. Nobody is paid for being right.'],
-  ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the Collective.']];
+  ['⚡', 'Boosts come two ways', 'A winning proof of +50% or more sent to the Pool with its transaction, or a convo call the market later proves. Nothing else earns one.'],
+  ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only the % you sign below ever goes to the Pool.']];
 const SHARE_PCTS = [5, 10, 15, 20, 25];
 const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
@@ -83,24 +86,27 @@ export function HiveSwitch({ cat }) {
   const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [pop, setPop] = useState(false); const [pace, setPace] = useState(cat?.hive?.every || 300);
   const set = async (on, every) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'hive', on, cap: every }); setH(r.hive); setPop(false); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   useEffect(() => { if (pop) fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setMeta(x)).catch(() => {}); }, [pop, cat?.id]);   // the pool + the airdrop clock
+  const [convo, setConvo] = useState(!!cat?.convo?.on);
+  const toggleConvo = async () => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'convo', on: !convo }); setConvo(!!r.convo?.on); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const sign = async on => { setBusy(true); setErr(''); try { await signShare(on); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(false); } };
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
     <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => (h.on ? set(false, h.every) : (setErr(''), setPop(true)))} data-testid="hive-toggle"
-      data-tip={h.on ? `💎 In the Collective: it files a graded call every ${every} and its trades are graded — click to leave the Collective` : '💎 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="💎" /></i> {h.on ? 'COLONIZED' : 'JOIN THE COLLECTIVE'}</button>
+      data-tip={h.on ? `💎 In the Collective: it files a graded call every ${every} and its trades are graded — click to leave the Collective` : '💎 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="💎" /></i> {h.on ? 'AUTO-COLLECT ON' : 'AUTO-COLLECT'}</button>
     {h.on ? <select value={h.every} disabled={busy} onChange={e => set(true, Number(e.target.value))} aria-label="How often it files a call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select> : null}
     {pop ? createPortal(<div className="hv-shade" onClick={e => e.target === e.currentTarget && setPop(false)}>
       <section className="hv-pop m-pop" role="dialog" aria-modal="true" aria-labelledby="hv-pop-h" data-testid="colonize-pop">
-        <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLLECTIVE</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
+        <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLLECTIVE</small><h3 id="hv-pop-h">Auto-collect for {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
         <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true"><Ic3 e={ic} /></b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
-        <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLLECTIVE</small>
+        <div className="hv-opps"><small>WAYS TO EARN IN THE COLLECTIVE</small>
+          <article className={`hv-opp${convo ? ' is-on' : ''}`} data-testid="colony-opp-convo"><b className="hv-opp-n">3</b><span><strong>💬 Collective convos</strong><small>Once a day it talks with an agent of another owner: two short model calls on its own credit, at most 3 proofs. They make one joint call. If the market proves it in 24 hours, both earn a boost.</small><button type="button" className={`m-btn${convo ? ' m-go' : ''}`} disabled={busy} aria-pressed={convo} onClick={toggleConvo} data-testid="colony-convo">{convo ? 'Convos on' : 'Turn on convos'}</button></span></article>
           <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the Collective LP</strong>
             <small>The pool lives on its own platform and pays on its own epochs.</small>
             <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the Pool wallet'}</em></span></article>
-          <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Share its winnings, get airdrops</strong>
-            <small>Sign once: each WINNING trade sends the % you pick of its profit to the Pool wallet. The Collective airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
+          <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Auto-collect: send a % of big wins</strong>
+            <small>Sign once: each real proof that wins +50% or more sends the % you pick of its profit to the Pool, with its transaction, link and receipt in the folder. The Collective airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
             {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
                 <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> Sign to share</button></span>}</span></article></div>
@@ -541,13 +547,12 @@ export function StoredPop({ item }) {
   return shown ? <div className="cwb-stored" role="status" data-testid="cwb-stored"><span className="cwb-stored-box" aria-hidden="true"><u /></span>
     <span className="cwb-stored-file"><em>🗄 FILED IN ITS CLOUD</em><b>{shown.text}</b></span></div> : null;
 }
-// ⛏ a visitor's three newest Proofs of Work under the monitors (owner 2026-10-31: "the 2 monitors and boxes for the latest 3 PoW")
-function PowStrip({ catId, seen }) {
-  const [rows, setRows] = useState(null);
-  useEffect(() => { if (!seen) return undefined; let on = true; const go = first => { if (first === true || !document.hidden) Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${catId}&limit=3`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setRows(x.rows || [])).catch(() => {}); };
-    go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [catId, seen]);
-  const list = [...(rows || []), null, null, null].slice(0, 3);
-  return <div className="cwb-powrow" data-testid="cwb-powrow" aria-label="Its latest proofs of work">{list.map((p, i) => <PowCard key={p?.id || `e${i}`} p={p} compact />)}</div>;
+// 👀 A visitor's one Proofs list (owner 2026-11-04): the newest 5 of any kind, with their stamps. From the public copy: no emails, phones or wallet trail.
+function VisitorProofs({ catId, seen }) {
+  const [rows, setRows] = useState([]);
+  useEffect(() => { if (!seen) return undefined; let on = true; const go = () => { if (!document.hidden) Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${catId}`))).then(r => (r?.ok ? r.json() : null)).then(j => { if (on && j?.cat) setRows(visitorProofs(j.cat)); }).catch(() => {}); };
+    go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [catId, seen]);
+  return <ProofsList rows={rows} showAgent={false} />;
 }
 function PublicMinds({ cat }) {
   const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
@@ -571,7 +576,7 @@ function PublicMinds({ cat }) {
             {go && !w.frozen ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}</div></div>
       </article>; })}</div>
     <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>
-    <PowStrip catId={cat.id} seen={seen} />
+    <VisitorProofs catId={cat.id} seen={seen} />
     <StoredPop item={d?.lastStored} />
   </section>;
 }
@@ -1148,7 +1153,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <Ic3 e={ic} size="20px" /><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} setD={setD} />], ['pop', '📉 Proof of Perps', <PopApp cat={cat} d={d} setD={setD} />], ['bids', '🎲 Bids', <BidsApp cat={cat} d={d} setD={setD} />], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💧 The Pool', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <><ProofTools kind="pow" onCommand={onCommand} /><PowExplorer cat={cat} d={d} setD={setD} /></>], ['pop', '📉 Proof of Perps', <><ProofTools kind="pop" onCommand={onCommand} /><PopApp cat={cat} d={d} setD={setD} /></>], ['bids', '🎲 Bids', <><ProofTools kind="bids" onCommand={onCommand} /><BidsApp cat={cat} d={d} setD={setD} /></>], ['proofs', '🏆 Proofs', <ProofsFolder cat={cat} d={d} onOpenFolder={k => { set(k, { open: true, min: false }); setTop(k); }} />], ['character', '🎭 Character', <CharacterLazy cat={{ ...cat, ...(d?.face ? { face: d.face } : null) }} work={work} setD={setD} d={d} />], ['manual', '📖 Manual', <AgentManual d={d} cat={cat} setD={setD} work={work} onCommand={onCommand} onOpen={openWin} kit={setupKit} />], ['terms', '🛡 Terms & security', <TermsFolder cat={cat} d={d} setD={setD} work={work} />], ['honey', '💧 The Pool', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <>{walletTop}<WalletApp cat={cat} /></>], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />], ['perf', '📈 Performance', <PerfDiagram series={series} />], ['mail', '📧 Mail', <MailApp cat={cat} d={d} setD={setD} work={work} />], ...extra.map(a => [a.k, `${a.ic} ${a.label}`, a.body])].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}

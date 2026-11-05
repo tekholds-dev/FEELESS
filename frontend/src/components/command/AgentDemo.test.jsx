@@ -1,7 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AgentDemo, walk, DEMO_FEED } from './AgentDemo';
-import { AgentCritter, cleanAgent, MOVES } from './Critters';
 import { LaunchCat, ApiDrawer, VenuePick } from './LaunchCat';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -49,15 +48,6 @@ test('📈 venues keep at least one FEELESS rail; 🔐 the drawer shows last 4 o
   expect(d.querySelector('[data-testid="akd-birdeye"]').type).toBe('password');
 });
 
-test('🐜 the bodies: queen (wings + crown), fly (compound eyes), two worker ants; unknown keys fall back', async () => {
-  expect(cleanAgent({ species: 'dragon', ant: 'x', wing: 'nope' })).toEqual({ species: 'cat', ant: 'fire', fly: 'house', wing: 'clear', flutter: 'buzz' });
-  const q = await mount(<AgentCritter agent={{ species: 'queen', wing: 'gold' }} gesture="flutter" />);
-  expect(q.querySelectorAll('.crt-wing')).toHaveLength(4); expect(q.querySelector('.crt-crown')).not.toBeNull(); expect(q.querySelector('.do-flutter')).not.toBeNull();
-  expect(q.querySelectorAll('.crt-leg')).toHaveLength(6);
-  const f = await mount(<AgentCritter agent={{ species: 'fly' }} />); expect(f.querySelectorAll('.crt-wing')).toHaveLength(2);
-  const a = await mount(<AgentCritter agent={{ species: 'ants' }} gesture="carry" />); expect(a.querySelectorAll('svg')).toHaveLength(2); expect(a.querySelector('.crt-coin')).not.toBeNull();
-  expect(MOVES.fly).toContain('groom');
-});
 
 test('🛸 live view: each brain thinks its own latest calls; held coins chart first, then what it just sold', async () => {
   const { catMinds, catCoins, AgentLive, asModel } = require('./AgentLive');

@@ -13,14 +13,15 @@ test('🌳 the colony tree: the pot on top, true vessels, the comb, winning proo
   const opened = []; const el = document.createElement('div'); document.body.appendChild(el);
   const FLOW = { pow: { folders: 8, trades: 3, inSol: 0.018, won: 1 }, pnlSol: -0.0021, shares: { owedSol: 0, count: 0, sharing: 0 }, pot: { address: '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ', sol: 0.05 },
     epoch: { n: 1, left: 3600, honey: 3, agents: 2 }, airdrop: { next: Date.now() / 1000 + 7200, cadence: 'daily', paidSol: 0 }, agents: 5, colonized: 2, tree: { agents: [{ id: 'a1', name: 'Happy', kind: 'general', honey: 4, right: 3, graded: 4, proofs: 15, trades: 7, won: 2, pnlSol: -0.004, owedSol: 0.0001, sentSol: 0, sharePct: 10 }], wins: [{ agent: 'Happy', kind: 'PoW', id: 'p1', name: 'PoW #10', sym: 'ANSEM', pnlPct: 0.24, honeySol: 0.0001, state: 'owed' }, { agent: 'Happy', kind: 'PoW', id: 'p2', name: 'PoW #9', sym: 'SIS', pnlPct: 5, honeySol: 0.01, state: 'sent', sig: 'TX1' }] },
+    proofs: [{ id: 'p1', kind: 'PoW', label: '$X', agent: 'Happy', pct: 80, stamp: { state: 'proved' }, sent: { sol: 0.1, sig: 'TX1', link: 'https://solscan.io/tx/TX1', receipt: '/api/cats/receipt/TX1' } }],
     ledger: [{ at: 1793521620, kind: 'sell', agent: 'Happy', sym: 'SIS', sol: 0.0051, sig: '5DMYabcd', memo: 'PoW sell' }, { at: 1793521000, kind: 'buy', agent: 'Happy', sym: 'SIS', sol: 0.006, sig: '3xYzefgh', memo: 'PoW buy' }] };
   await act(async () => { createRoot(el).render(<ColonyFlow api={async u => (u.includes('/flow') ? FLOW : HIVE)} onOpen={o => opened.push(o.id)} />); });
   expect(el.querySelector('[data-testid="ctr-pot"]').textContent).toContain('0.0500 SOL');
   expect(el.querySelector('[data-testid="ctr-comb"]').textContent).toContain('3/4'); 
-  await act(async () => { el.querySelector('[data-testid="cv-seat-a1"]').click(); });   // a click raises it and shows every vital
-  expect(el.querySelector('[data-testid="cv-seat-a1"]').className).toContain('is-up-now'); expect(el.querySelector('[data-testid="cv-detail-a1"]').textContent).toContain('0.0001 SOL');
+  await act(async () => { el.querySelector('[data-testid="clx-seat-a1"]').click(); });   // a click raises it and shows every vital
+  expect(el.querySelector('[data-testid="clx-seat-a1"]').className).toContain('is-up-now'); expect(el.querySelector('[data-testid="clx-detail-a1"]').textContent).toContain('0.0001 SOL');
   await act(async () => { el.querySelector('[data-testid="ctr-agent-a1"]').click(); }); expect(opened).toEqual(['a1']);
-  const w = el.querySelector('[data-testid="ctr-wins"]'); expect(w.textContent).toContain('⏳ owes 0.0001 SOL'); expect(w.querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/TX1');
+  const w = el.querySelector('[data-testid="clx-proofs"]'); expect(w.textContent).toContain('PROOFS'); expect(w.querySelector('a[href*="solscan"]').getAttribute('href')).toBe('https://solscan.io/tx/TX1');
   const rows = el.querySelectorAll('.cmf-tr:not(.is-head)'); expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('PoW sell'); expect(rows[1].textContent).toContain('−0.0060');
   expect(rows[0].querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/5DMYabcd');
 });
@@ -33,16 +34,16 @@ test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms a
   await act(async () => { createRoot(el).render(<HiveSwitch cat={{ id: 'h1', name: 'Kit', hive: { on: false, every: 300 } }} />); });
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
   expect(sent).toHaveLength(0); const pop = document.body.querySelector('[data-testid="colonize-pop"]');
-  expect(pop.textContent).not.toContain('FEECAT in'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Colonize Kit');
+  expect(pop.textContent).not.toContain('FEECAT in'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Auto-collect for Kit');
 expect(document.body.querySelector('[data-testid="colony-opp-stake"]').textContent).toContain('NOT OPEN YET'); expect(document.body.querySelector('[data-testid="colony-share-sign"]')).not.toBeNull();
   await act(async () => { document.body.querySelector('[data-testid="colony-share-20"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colony-share-sign"]').click(); });   // 🤝 opportunity 2: one wallet signature, no transaction
-  expect(mockSign.mock.calls.at(-1)[0]).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(sent.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' }); sent.length = 0; refuse = true;
+  expect(mockSign.mock.calls.at(-1)[0]).toMatch(/^FEELESS auto-collect\nSend this % of each winning proof of \+50% or more to the Pool\nagent:h1\npct:20\nts:\d+$/); expect(sent.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' }); sent.length = 0; refuse = true;
   await act(async () => { document.body.querySelector('[data-testid="colonize-pace-900"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('did not answer');
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
-  expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('COLONIZED');
+  expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('AUTO-COLLECT ON');
   const sel = el.querySelector('[data-testid="hive-pace"]');
   await act(async () => { sel.value = '3600'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 3600 });

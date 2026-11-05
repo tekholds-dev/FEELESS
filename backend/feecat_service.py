@@ -59,6 +59,10 @@ import agent_topup as _tu
 import agent_site_trade as _st
 import proof_loop as _pl
 import agent_face as _face
+import collective as _cl
+import proof_stamp as _stamp
+import proof_tools as _tools
+import recovery_kit as _rkit
 import agent_live as _al
 import name_lock as _nl
 import visitor_view as _vv
@@ -184,6 +188,7 @@ def _no_keys(obj):
             out.pop('minds', None)
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
             out['apiDrawer'] = _ck.public(obj)
+        out.pop('recoveryKit', None)   # 🔑 a hash stays on the server too
         out.pop('liveKeys', None)   # 🔴 stream keys never leave the server, sealed or not
         out.pop('nameLock', None)
         if obj.get('logins'):   # 🔐 sealed passwords never leave the server — site · username · when only
@@ -1255,12 +1260,148 @@ def _share_append(row, key):
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
+def _share_update(cat_id, ref, patch):
+    """Mark one ledger row, under the same lock as an append."""
+    lock_path = SHARES_PATH.with_suffix('.lock')
+    with lock_path.open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            rows = _shares(); hit = False
+            for x in rows:
+                if x.get('cat') == cat_id and x.get('ref') == ref:
+                    x.update(patch); hit = True
+            if not hit:
+                return False
+            tmp = SHARES_PATH.with_name(f'{SHARES_PATH.name}.{uuid.uuid4().hex}.tmp')
+            try:
+                with tmp.open('w') as fh:
+                    json.dump({'v': 1, 'shares': rows}, fh, separators=(',', ':'))
+                    fh.flush(); os.fsync(fh.fileno())
+                os.replace(tmp, SHARES_PATH)
+            finally:
+                tmp.unlink(missing_ok=True)
+            return True
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _pot_address():
+    try:
+        return ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
+    except (OSError, ValueError):
+        return None
+
+
+RECEIPTS_DIR = DATA_DIR / 'receipts'
+
+
+def _receipt_path(sig):
+    return RECEIPTS_DIR / (re.sub(r'[^A-Za-z0-9]', '', str(sig))[:90] + '.jpg')
+
+
+async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
+    """💎 Read the send back from the chain. Only a real, successful send of at least its share earns the receipt and the boost. → True when it checked out."""
+    addr = (cat.get('agentWallet') or {}).get('address')
+    tx = await _crpc._rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+    ok, got, why = _cl.verify_tx(tx, addr, pot, int(float(sol) * 1e9) - 5)
+    if not ok:
+        print(f"[collect] {cat.get('id')}: not verified: {why}")
+        return False
+    RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
+    _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
+    _cl.add_boost(cat, 'auto', f'sig:{sig}', _cl.BOOST_SENT, now, f"{folder.get('name')} paid the Pool")
+    folder['sent'] = {'sig': sig, 'sol': got / 1e9, 'link': _cl.SOLSCAN + sig, 'receipt': f'/api/cats/receipt/{sig}', 'at': round(now)}
+    return True
+
+
+async def _collect_pass(http, store, now):
+    """💎 AUTO-COLLECT: each owed share of a win of +50% or more, from an agent whose owner signed for it, goes to the Pool with its proof. Guards: its signature, its own folder, the server-held Pool address, one proof once, gas always stays. A failed read or send retries; nothing is guessed."""
+    pot = _pot_address()
+    if not pot:
+        return
+    for x in _shares():
+        cat = store['cats'].get(x.get('cat')); pid = (x.get('proof') or {}).get('id')
+        if x.get('sent') or not pid or not cat or not (cat.get('colonyShare') or {}).get('on') or not (cat.get('colonyShare') or {}).get('auto') or cat.get('revoked') or x['cat'] in _SWAP_BUSY:
+            continue
+        folder = next((f for f in cat.get('powFolders') or [] if f.get('id') == pid), None); addr = (cat.get('agentWallet') or {}).get('address')
+        if not folder or not addr or not _cl.qualifies(folder):
+            continue
+        if any((s.get('proof') or {}).get('id') == pid and s.get('sig') for s in _shares() if s.get('cat') == x['cat']):
+            continue
+        sol = _cl.cut_sol(folder, x.get('pct'))
+        if sol < POT_SEND_MIN:
+            continue   # too small to be worth its fee: it stays owed
+        _usdc, bal = await _agent_usdc(http, addr)
+        if sol > bal - _at.GAS_SOL:
+            continue
+        _SWAP_BUSY.add(x['cat'])
+        try:
+            bh = ((await _crpc._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            rec = {'key': f"feeless-{x['cat']}-collect-{pid}", 'tx': pot_transfer_tx(addr, pot, int(sol * 1e9), bh)}   # the key is the proof: a retry cannot pay twice
+            await _at._circle_post(http, cat, rec)
+        except ValueError as e:
+            print(f"[collect] {x['cat']}: {str(e)[:120]}")
+            continue
+        finally:
+            _SWAP_BUSY.discard(x['cat'])
+        if rec.get('sig'):
+            verified = await _collect_verify(http, cat, folder, rec['sig'], pot, sol, x.get('pct'), now)
+            _share_update(x['cat'], x.get('ref'), {'sent': True, 'state': 'transferred', 'sig': rec['sig'], 'sol': sol, 'verified': verified, 'sentAt': now})
+    for x in _shares():   # a send the chain had not shown yet
+        cat = store['cats'].get(x.get('cat'))
+        if x.get('sig') and x.get('sent') and x.get('verified') is False and cat:
+            folder = next((f for f in cat.get('powFolders') or [] if f.get('id') == (x.get('proof') or {}).get('id')), None)
+            if folder and await _collect_verify(http, cat, folder, x['sig'], pot, x.get('sol'), x.get('pct'), now):
+                _share_update(x['cat'], x.get('ref'), {'verified': True})
+
+
+async def _convo_price(http, joint):
+    if joint.get('kind') == 'perp':
+        return await _pop_price(http, joint.get('market'))
+    px = await _pair_prices(http, [joint.get('pair')]) if joint.get('pair') else {}
+    return _num((px or {}).get(joint.get('pair')))
+
+
+async def _convo_pass(http, store, now):
+    """💬 COLLECTIVE CONVOS: two agents of different owners, once a day each: two short calls on their own credit, at most 3 proofs each. One joint call comes out, and 24 hours later the market decides if it earns a boost. Nothing they say can earn it."""
+    rows = store.setdefault('convos', [])
+    for c in rows:   # settle first: this costs no model call
+        j = c.get('joint')
+        if j and not c.get('stamp') and now >= float(c.get('dueAt') or 0):
+            res = _cl.settle(j, c.get('entry'), await _convo_price(http, j))
+            if res:
+                c['stamp'] = res; c['settledAt'] = round(now)
+                if res == 'proved':
+                    for cid in (c.get('a'), c.get('b')):
+                        if store['cats'].get(cid):
+                            _cl.add_boost(store['cats'][cid], 'convo', f"convo:{c.get('id')}", _cl.BOOST_PROVED, now, f"Convo call on {j.get('label')} proved")
+    if now - float(store.get('convoAt') or 0) < 600:
+        return
+    store['convoAt'] = now
+    for a, b in _cl.pair_up(store['cats'], now)[:2]:
+        ra, rb = _cl.proofs_for_convo(a), _cl.proofs_for_convo(b)
+        opts = _cl.options(ra, rb)
+        if not opts:
+            continue
+        for x in (a, b):
+            x['convo'] = {**(x.get('convo') or {}), 'lastAt': now}
+        box = {'cost': 0}; menu = ' '.join(f"{i + 1}. {o['label']}" for i, o in enumerate(opts))
+        said_a = (await _pow2_ask(a, 0, _cl.SYS_A.format(name=a.get('name')), f'Your proofs: {_cl.brief_lines(ra)}', 90, box) or '').strip()[:240]
+        said_b, joint = _cl.parse_joint(await _pow2_ask(b, 0, _cl.SYS_B.format(name=b.get('name')), f'Your proofs: {_cl.brief_lines(rb)}\nYour partner said: {said_a}\nOptions: {menu}', 110, box), opts)
+        entry = await _convo_price(http, joint) if joint else 0
+        rows.append({'id': uuid.uuid4().hex[:10], 'a': a['id'], 'b': b['id'], 'aName': str(a.get('name'))[:24], 'bName': str(b.get('name'))[:24], 'at': round(now), 'lines': [{'by': a.get('name'), 'text': _vv.scrub_text(said_a)}, {'by': b.get('name'), 'text': _vv.scrub_text(said_b)}],
+                     'brought': [r['label'] for r in ra + rb][:6], 'joint': joint if entry else None, 'entry': entry, 'dueAt': round(now + 86400), 'cost': box.get('cost')})
+    del rows[:-200]
+
+
 def _colony_share(cat, pos, pnl_sol, ref=None, proof=None):
     """🤝 a sharing agent's WINNING exit owes pct % of its profit to the colony. Only an agent trading from its OWN wallet (paper winnings are
     not money); never blocks the sale."""
     try:
         sh_ = cat.get('colonyShare') or {}
         if not ref or not proof or not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):   # 🍯 no proof, no honey: an agent never sends without its record
+            return
+        if _num((proof or {}).get('pnlPct')) < _cl.MIN_WIN_PCT:   # 💎 only a win of +50% or more ever goes to the Pool
             return
         owed = _colony.share_cut(pnl_sol, sh_.get('pct'))
         if owed <= 0:
@@ -1706,7 +1847,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     elif f.get('pnlEstimateSol') is not None:
         f['pnlSol'], f['pnlPct'] = f['pnlEstimateSol'], f['pnlEstimatePct']
     if f.get('real') and f.get('settlementVerified') and (f.get('netPnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
-        _colony_share(cat, {'symbol': f.get('sym')}, f['netPnlSol'], f.get('sellSig'), {'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym')})
+        _colony_share(cat, {'symbol': f.get('sym')}, f['netPnlSol'], f.get('sellSig'), {'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym'), 'pnlPct': f.get('pnlPct')})
         f['shared'] = (cat.get('colonyShare') or {}).get('pct')
     b_ = cat.setdefault('brainsCfg', {})
     f['grade'] = None if f.get('pnlPct') is None else ('good' if f['pnlPct'] > 0 else 'bad')
@@ -2890,7 +3031,15 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     except asyncio.TimeoutError:
         raw = [''] * len(idx)
     calls = [{'mind': i, 'name': names[i], **_pob.parse_picks(raw[k])} for k, i in enumerate(idx)]
-    both = _pob.agreed(calls); cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
+    both = _pob.agreed(calls)
+    try:   # 🏈 the real games it is about, so it can update live and be graded from the final score
+        async with httpx.AsyncClient(timeout=10) as http_g:
+            boards_ = await asyncio.gather(*(_tools.sport_board(http_g, s) for s in _tools.SPORTS))
+        words_ = ' '.join([rd['topic']] + [str(p.get('pick') if isinstance(p, dict) else p) for p in both])
+        base['games'] = _tools.games_for(words_, [g for b_ in boards_ for g in b_.get('games') or []])
+    except Exception as e:   # noqa: BLE001 — a proof still files without its scoreboard
+        print(f'[pob] no scoreboard: {str(e)[:80]}')
+    cost = round(float(box.get('cost') or 0) + sum(float(n.get('cost') or 0) for n in (notes or {}).values()), 5)
     _pob_file(cat, {**base, 'calls': calls, 'agreed': both, 'cost': cost}, f"🎲 PoB on {rd['topic']} is filed: {len(shots)} snapshots, {len(both)} pick{'s' if len(both) != 1 else ''} both minds agree on.")
 
 
@@ -3862,6 +4011,11 @@ async def _engine_loop():
                 await run_engine(store, running)
             await _agent_pass(store)
             await _pow2_pass(store)   # ⛏ the Colony PoW loop of every trader agent (the engine is the store's one writer)
+            try:
+                async with httpx.AsyncClient(timeout=15) as http_c:
+                    await _collect_pass(http_c, store, time.time()); await _convo_pass(http_c, store, time.time()); await _pob_grade_pass(http_c, store, time.time())
+            except Exception as e:   # noqa: BLE001 — the Collective never stops the engine
+                print(f'[collective] {str(e)[:160]}')
             _work_settle(store)
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
@@ -3997,6 +4151,7 @@ def clean_look(x):
 
 
 class CreatePayload(BaseModel):
+    face: Optional[str] = None
     ownerId: str
     session: Optional[str] = None
     name: str
@@ -4076,7 +4231,7 @@ def _fresh_session_wallet(session, now=None):
 
 def share_message(cat_id, pct, ts):
     """🤝 What the owner signs to let its agent send pct % of each winning trade's profit to the colony wallet (opportunity 2)."""
-    return f"FEELESS colony share\nagent:{cat_id}\npct:{int(pct or 0)}\nts:{int(ts or 0)}"
+    return f"FEELESS auto-collect\nSend this % of each winning proof of +50% or more to the Pool\nagent:{cat_id}\npct:{int(pct or 0)}\nts:{int(ts or 0)}"
 
 
 def share_ok(cat_id, pct, ts, sig, wallet, now=None):
@@ -4200,6 +4355,7 @@ async def create_cat(payload: CreatePayload):
     cat_id = uuid.uuid4().hex
     now = time.time()
     cat = {
+        **({'face': {'id': _face.clean_id(payload.face), 'at': round(time.time())}} if _face.clean_id(payload.face) else {}),
         'id': cat_id, 'ownerId': payload.ownerId, 'ownerWallet': signed_, 'ownerStaff': bool(staff_), 'name': payload.name, 'handle': payload.handle,
         'avatar': payload.avatar, 'brain': RULE_ENGINE['id'], 'brainLabel': RULE_ENGINE['label'],
         'brainProfile': {'provider': RULE_ENGINE['provider'], 'status': 'live', 'available': False, 'estimatedTokenCostUsd': 0},
@@ -4581,6 +4737,55 @@ async def bids_feed():
     return _pub({'rows': rows})
 
 
+def _flow_tree(cats, shares, board):
+    t = _colony.tree(cats, shares, board)
+    for a in t['agents']:   # ⚡ working right now: this is what zaps the crystal
+        c = next((x for x in cats if x.get('id') == a['id']), {})
+        a['active'] = bool((c.get('powRun') or {}).get('folder')) or any(w.get('status') == 'working' for w in ((_WORK.get(a['id']) or {}).get('task') or {}).get('windows') or [])
+    return t
+
+
+def _convos_public(store):
+    return [{k: c.get(k) for k in ('id', 'aName', 'bName', 'a', 'b', 'at', 'lines', 'brought', 'joint', 'entry', 'dueAt', 'stamp')} for c in (store.get('convos') or [])[-20:]][::-1]
+
+
+@app.get('/api/cats/receipt/{sig}')
+async def cat_receipt(sig: str):
+    """🧾 A send's snapshot, read back from the chain when it was verified. Public: the transaction is public too."""
+    f_ = _receipt_path(sig)
+    if not f_.exists():
+        raise HTTPException(404, 'No receipt.')
+    return Response(content=f_.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'public, max-age=86400'})
+
+
+@app.get('/api/cats/tools/{kind}')
+async def cat_tools(kind: str, sport: str = 'nfl', team: str = ''):
+    """🧰 A proof folder's dash: live rows from its top 5 free sources. Read-only and public: nothing here is anyone's."""
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
+        if kind == 'bids':
+            return await _tools.bids(http, sport, team[:40])
+        if kind == 'pow':
+            return await _tools.pow_tool(http)
+        if kind == 'pop':
+            return await _tools.pop_tool(http)
+    raise HTTPException(404, 'No such dash.')
+
+
+async def _pob_grade_pass(http, store, now):
+    """🏈 A PoB on real games stays live: its scores update, and when every game is final it is graded from the scoreboard. An owner's own mark is never overwritten."""
+    if now - float(store.get('pobGradeAt') or 0) < 300:
+        return
+    store['pobGradeAt'] = now
+    open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and not f.get('graded')]
+    for sport in {g.get('sport') for f in open_ for g in f['games'] if g.get('sport')}:
+        board = (await _tools.sport_board(http, sport)).get('games') or []
+        for f in open_:
+            if any(g.get('sport') == sport for g in f['games']):
+                f['games'], grade = _tools.grade_games(f['games'], board)
+                if grade:
+                    f['graded'], f['gradedBy'] = grade, 'scoreboard'
+
+
 @app.get('/api/cats/colony/flow')
 async def colony_flow(limit: int = 40):
     """💸 THE COLONY'S MONEY, LIVE (owner 2026-11-02: crawlnet's treasury --flow, FEELESS's own): PoW trades in → profit / loss → the shares
@@ -4609,8 +4814,9 @@ async def colony_flow(limit: int = 40):
                  'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
                  'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
+                 'proofs': _cl.proof_feed(cats, shares, now, 20), 'convos': _convos_public(store),
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
-                 'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _colony.tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
+                 'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _flow_tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
 
 
 @app.get('/api/cats/supply')
@@ -5045,6 +5251,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'honey':   # 🍯 the owner's four honey tanks
         shares_ = _shares()
         return {'honey': {**_colony_money(cat, shares_), 'proofs': _colony.proofs_of(cat, shares_)[:30], 'check': await _colony_reconcile(cat, shares_, time.time())}}
+    if p.op == 'convo':   # 💬 Collective convos: on or off, its owner's call
+        cat['convo'] = {**(cat.get('convo') or {}), 'on': bool(p.on)}
+        _save(store)
+        return {'ok': True, 'convo': cat['convo']}
     if p.op == 'face':   # 🎭 its character: a look only, no engine reads it
         id_ = _face.clean_id(p.text)
         if not id_:
@@ -5082,7 +5292,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(400, f'Pick a share: {", ".join(f"{x}%" for x in _colony.SHARE_PCTS)}.')
             if not share_ok(cat_id, pct_, p.ts, p.sig, owner_wallet(cat) or _session_wallet(p.session or '')):
                 raise HTTPException(401, 'Sign the share with your wallet (one signature, no transaction).')
-            cat['colonyShare'] = {'on': True, 'pct': pct_, 'at': time.time(), 'by': owner_wallet(cat) or _session_wallet(p.session or '')}
+            cat['colonyShare'] = {'on': True, 'auto': True, 'pct': pct_, 'at': time.time(), 'by': owner_wallet(cat) or _session_wallet(p.session or '')}
         else:
             cat['colonyShare'] = {**(cat.get('colonyShare') or {}), 'on': False, 'offAt': time.time()}   # turning it off needs no signature
         keep_owned(cat); _save(store)
@@ -5305,6 +5515,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
         sol_ = round(float(p.cap or 0), 6)
         try:
             attach_ = _colony.attach_of(cat, _shares(), p.job, p.text)
+            if attach_.get('proof'):   # 💎 a proof goes only if it won +50% or more, and with at least its share
+                f_ = next((x for x in cat.get('powFolders') or [] if x.get('id') == attach_['proof'].get('id')), None)
+                if not f_ or not _cl.qualifies(f_):
+                    raise ValueError('Only a real proof that won +50% or more can go to the Pool.')
+                if sol_ < _cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5):
+                    raise ValueError(f"Send at least {_cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5)} SOL: its share of this proof.")
         except ValueError as e:
             raise HTTPException(400, str(e))
         async with httpx.AsyncClient(timeout=30) as http:
@@ -5323,8 +5539,16 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 _SWAP_BUSY.discard(cat_id)
         if not rec_.get('sig'):
             raise HTTPException(503, 'Transfer submitted, but its on-chain signature is not confirmed yet.')
-        _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None,
-                       'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig'), **attach_}, (rec_.get('sig'), cat_id))
+        verified_ = False
+        if attach_.get('proof'):
+            async with httpx.AsyncClient(timeout=15) as http_v:
+                f_ = next(x for x in cat.get('powFolders') or [] if x.get('id') == attach_['proof'].get('id'))
+                try:
+                    verified_ = await _collect_verify(http_v, cat, f_, rec_['sig'], pot_, sol_, (cat.get('colonyShare') or {}).get('pct'), time.time())
+                except Exception as e:   # noqa: BLE001 — the engine reads it again
+                    print(f'[collect] verify later: {str(e)[:100]}')
+        _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None, 'ref': rec_.get('sig'),
+                       'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig'), **attach_, **({'verified': verified_} if attach_.get('proof') else {})}, (rec_.get('sig'), cat_id))
         return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:
@@ -5580,6 +5804,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'stamps': {f_.get('id'): _stamp.of(k_, f_, time.time()) for k_, key_ in (('PoW', 'powFolders'), ('PoP', 'popFolders'), ('PoB', 'pobFolders')) for f_ in (cat.get(key_) or [])[-30:] if f_.get('id')},
+            'recoveryView': _rkit.view(cat.get('recoveryKit')), 'boosts': cat.get('boosts') or [],
             'popFolders': _pop_view(cat) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
@@ -6146,13 +6372,15 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
         out['cat']['mindBoard'] = _pl.mind_board(cat)
         out['cat']['liveKeys'] = _al.owner_view(cat.get('liveKeys'))   # 🔴 whether each channel is set, never the key
         out['cat']['nameLeftS'] = _nl.left_s(cat.get('nameLock'))
+        out['cat']['recoveryView'] = _rkit.view(cat.get('recoveryKit'))
+        out['cat']['recoveryHold'] = _rkit.on_hold(cat, time.time())
     return out
 
 
 # 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
 LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
-PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'face', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
+PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'face', 'boosts', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
                    'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')
 
@@ -6168,7 +6396,7 @@ def public_cat(cat):
     if not cat.get('incognito'):   # 👀 its proofs show to visitors, with every email and phone number taken out
         for k_ in ('powFolders', 'popFolders', 'pobFolders'):
             if cat.get(k_):
-                out[k_] = [_vv.public_folder(f_) for f_ in (cat.get(k_) or [])[-30:]]
+                out[k_] = [{**_vv.public_folder(f_), 'stamp': _stamp.of({'powFolders': 'PoW', 'popFolders': 'PoP', 'pobFolders': 'PoB'}[k_], f_, time.time())} for f_ in (cat.get(k_) or [])[-30:]]
     return out
 
 
@@ -6383,6 +6611,19 @@ async def cat_recovery_pin(cat_id: str, payload: ActionPayload):
     return {'pin': pin}
 
 
+@app.post('/api/cats/{cat_id}/recovery-kit')
+async def cat_recovery_kit(cat_id: str, payload: ActionPayload):
+    """🔑 Make or rotate its recovery key or its 12 words. Shown once, only a slow one-way hash kept. Rotating kills the old one at once."""
+    store = _load(); cat = store['cats'].get(cat_id); kind = str(payload.text or '')
+    if not cat or cat.get('isLeader') or kind not in _rkit.KINDS:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, payload.session, payload.ownerId, 'make its recovery key or words')
+    secret = _rkit.new_key() if kind == 'key' else _rkit.new_phrase()
+    kit = cat.setdefault('recoveryKit', {}); kit[kind] = _rkit.seal(kind, secret, time.time())
+    keep_owned(cat); _save(store)
+    return {'kind': kind, 'secret': secret, 'kit': _rkit.view(kit)}
+
+
 @app.post('/api/cats/recover')
 async def cat_recover(payload: RecoverPayload):
     """🔑 A new browser takes its agent back with the PIN. The PIN is single-use and never moves money; the owner makes a fresh one after."""
@@ -6393,9 +6634,23 @@ async def cat_recover(payload: RecoverPayload):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
     store = _load()
     handle = payload.handle.strip().lstrip('@').lower()
-    cat = next((c for c in store['cats'].values() if not c.get('isLeader') and handle and str(c.get('handle') or '').lower() == handle and c.get('recovery')), None)
+    cat = next((c for c in store['cats'].values() if not c.get('isLeader') and handle and str(c.get('handle') or '').lower() == handle and (c.get('recovery') or c.get('recoveryKit'))), None)
     if not cat:
-        raise HTTPException(403, 'That handle and PIN do not match.')
+        raise HTTPException(403, 'That handle and recovery do not match.')
+    if cat.get('recoveryKit') and (cat['recoveryKit'].get('key') or cat['recoveryKit'].get('phrase')) and len(_rkit.clean('key', payload.pin)) != 12:   # 🔑 a key or 12 words (an older 12-character PIN still works below)
+        kit_ = cat['recoveryKit']; result_ = _rkit.check(kit_, payload.pin, time.time())
+        if result_ == 'typo':
+            raise HTTPException(400, 'One of those 12 words is mistyped. Nothing was counted.')
+        if result_ != 'ok':
+            _save(store)
+            raise HTTPException(429 if result_ == 'locked' else 403, 'Too many tries: locked for an hour.' if result_ == 'locked' else 'That handle and recovery do not match.')
+        cat['ownerId'], cat['ownerWallet'] = payload.ownerId, signed
+        cat.pop('recoveryKit'); cat.pop('recovery', None); cat['recoverySet'] = False; cat['recoveredAt'] = time.time()   # both are burned; its wallet cannot pay out for 3 days
+        _log_event(store, cat, 'STARTED', f"{cat['name']} was recovered on a new wallet.")
+        keep_owned(cat); _save(store)
+        return {'cat': {**_no_keys(cat), 'mine': True}}
+    if not cat.get('recovery'):
+        raise HTTPException(403, 'That handle and recovery do not match.')
     result = _recovery.check(cat['recovery'], payload.pin, time.time())
     if result != 'ok':
         _save(store)

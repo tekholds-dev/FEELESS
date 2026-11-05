@@ -4,7 +4,7 @@ import { useLeaderProfile, feeHeadline } from '../../lib/feeLeader';
 import { useMyCat } from '../../lib/myCat';
 import { CAT_VARIATIONS } from './catCoats';
 import { LookAvatar } from './CatLook';
-import { AgentCritter } from './Critters';
+import { thumbOf } from '../../lib/wireface';
 import '../../styles/feecatShell.css';
 import { Ic3 } from '../../lib/icon3d';
 
@@ -17,7 +17,7 @@ export const FC_NAV = [
   ['desk', '/terminal/feecat', '🐱', 'LIVE DESK', "Fee's scan · chart · calls"],
   ['lore', '/terminal/feecat?view=lore', '📜', 'LORE', 'her legend · her brain · Fee-Back'],
   ['agents', '/terminal/feecat/agents', '🤖', 'AGENTS', 'create a cat that trades'],
-  ['build', '/terminal/feecat/cats', '🎨', 'BUILD AN AGENT', 'cat · queen ant · fly · ants'],
+  ['build', '/terminal/feecat/cats', '🎨', 'BUILD AN AGENT', 'real people · anime · robots'],
 ];
 // in-app navigation without a router dependency (react-router's history listens to popstate)
 export function goTo(path) {
@@ -51,9 +51,9 @@ export function FeeCatShell({ tab, children }) {
         <span className="fcx-lives" data-tip={`${h.lives} of ${h.maxLives} lives — a loss blows one out, a win in 24 h lights one, 0 = she naps`} aria-label={`${h.lives} of ${h.maxLives} lives`}>
           {Array.from({ length: h.maxLives }, (_, i) => <i key={i} className={i < h.lives ? 'on' : ''} style={{ '--i': i }} />)}</span>
         <a className={`fcx-mine ${tab === 'build' ? 'active' : ''}`} href="/terminal/feecat/cats" onClick={e => { e.preventDefault(); goTo('/terminal/feecat/cats'); }}
-          data-tip={mine ? `${mine.name || 'Your cat'} — tap to rebuild it` : 'You have no cat yet — build one'} data-testid="fcx-mine">
-          {coat && mine.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={30} /> : coat ? <LookAvatar cat={[coat[0], coat[1], coat[2], mine.pattern]} look={mine.look} size={34} /> : <span className="fcx-plus" aria-hidden="true">+</span>}
-          <small>{mine ? (mine.name || 'YOUR CAT').toUpperCase() : 'BUILD YOURS'}</small></a>
+          data-tip={mine ? `${mine.name || 'Your agent'}: tap to rebuild it` : 'You have no agent yet. Build one'} data-testid="fcx-mine">
+          {mine?.face ? <img className="fcx-face" src={thumbOf(mine.face)} alt="" width="34" height="34" /> : coat ? <LookAvatar cat={[coat[0], coat[1], coat[2], mine.pattern]} look={mine.look} size={34} /> : <span className="fcx-plus" aria-hidden="true">+</span>}
+          <small>{mine ? (mine.name || 'YOUR AGENT').toUpperCase() : 'BUILD YOURS'}</small></a>
         <button type="button" className={`fcx-focus-btn${focus ? ' is-on' : ''}`} aria-pressed={focus} onClick={() => setFocus(f => !f)} data-testid="fcx-focus"
           data-tip={focus ? 'Bring back the FEELESS bars and the full FeeCat banner' : 'Focus: hide the FEELESS bars and slim this banner — more room for the agents'} aria-label={focus ? 'Show the top bars' : 'Hide the top bars'}>
           <svg viewBox="0 0 20 20" aria-hidden="true">{focus ? <path d="M5 8l5 5 5-5M5 4h10" /> : <path d="M5 12l5-5 5 5M5 16h10" />}</svg></button>

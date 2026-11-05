@@ -122,7 +122,7 @@ def attach_of(cat, shares, proof_id, reason):
         if not row:
             raise ValueError('Pick one of its own filed proofs.')
         if row['used']:
-            raise ValueError(f"{row['name']} already went to the pot with honey. Pick another.")
+            raise ValueError(f"{row['name']} already went to the Pool. Pick another.")
         return {'proof': {k: row[k] for k in ('kind', 'id', 'name', 'sym')}}
     if not why:
         raise ValueError('Pick a proof or say why you are sending it.')
@@ -139,6 +139,7 @@ def tree(cats, shares, board, limit=24):
         agents.append({'id': c.get('id'), 'name': str(c.get('name') or 'agent')[:24], 'kind': (c.get('brainsCfg') or {}).get('kind') or 'trading', 'honey': int(r.get('honey') or 0),
                        'right': int(r.get('right') or 0), 'graded': int(r.get('graded') or 0), 'proofs': len(fs) + len(ps), 'trades': len(real), 'won': sum(1 for f in real if (f.get('pnlSol') or 0) > 0),
                        'pnlSol': round(sum(float(f.get('pnlSol') or 0) for f in real), 6), 'sharePct': sh.get('pct') if sh.get('on') else None,
+                       'boosts': sum(int(b.get('pts') or 0) for b in c.get('boosts') or []), 'face': c.get('face'),
                        'owedSol': round(sum(float(x.get('sol') or 0) for x in mine if not x.get('sent')), 9), 'sentSol': round(sum(float(x.get('sol') or 0) for x in mine if x.get('sent')), 9)})
         sent = {(x.get('proof') or {}).get('id'): x for x in mine if x.get('proof')}
         for f in fs:
@@ -146,6 +147,6 @@ def tree(cats, shares, board, limit=24):
                 x = sent.get(f.get('id')) or next((y for y in mine if not y.get('proof') and not y.get('gift') and y.get('sym') == f.get('sym')), {})   # a share from before proofs were recorded
                 wins.append({'agent': agents[-1]['name'], 'kind': 'PoW', 'id': f.get('id'), 'name': f.get('name'), 'sym': f.get('sym'), 'pnlPct': f.get('pnlPct'), 'pnlSol': f.get('pnlSol'), 'at': f.get('at'),
                              'honeySol': float(x.get('sol') or 0), 'state': 'none' if not x else ('sent' if x.get('sent') else 'owed'), 'sig': x.get('sig')})
-    agents.sort(key=lambda a: (-a['honey'], -a['pnlSol']))
+    agents.sort(key=lambda a: (-a['boosts'], -a['honey'], -a['pnlSol']))
     return {'agents': agents, 'wins': sorted(wins, key=lambda w: -float(w.get('at') or 0))[:limit]}
 

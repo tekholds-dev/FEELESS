@@ -19,7 +19,7 @@ const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
 beforeEach(() => {
   face = { useCharacter: jest.fn().mockResolvedValue({}), express: jest.fn(), mood: jest.fn(), destroy: jest.fn(), listenTo: jest.fn(), view: { start: jest.fn(), stop: jest.fn(), setPointer: jest.fn() }, canvas: {} };
-  lib.load2d.mockResolvedValue({ createFace2d: () => face, defineExpression: jest.fn() });
+  lib.load2d.mockResolvedValue({ createFace2d: () => face, defineExpression: jest.fn(), loadCharacter: jest.fn().mockResolvedValue({ id: 'person' }) });
 });
 
 test('all 24 free characters are there, each with a picture, real people first', () => {

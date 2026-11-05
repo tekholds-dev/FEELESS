@@ -4,7 +4,7 @@ import { useWallet } from '../../hooks/useWallet';
 import '../../styles/createCat.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 💵 THE FUNDING RECEIPT at the end of BOTH cat flows (Create a cat · Launch a cat) — owner 2026-10-29: "create a cat doesn't show top up X amount at the end".
+// 💵 THE FUNDING RECEIPT at the end of BOTH cat flows (Create a cat · Launch an agent) — owner 2026-10-29: "create a cat doesn't show top up X amount at the end".
 // DECISIONS #2 (W01 agent wallets): going real, the cat gets ITS OWN wallet; your wallet signs ONE funding transaction — the one-time FEELESS fee
 // (HQ › Fees, none for a creator wallet) + the rest into the cat's wallet; then it trades inside the server caps. The live rules come from
 // /cats/fund-rules (the same the funding card uses); the buy picker shows what the cat's wallet needs per buy (the buy + swap fee + network / rent).

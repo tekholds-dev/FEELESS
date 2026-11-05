@@ -55,7 +55,7 @@ test('👀 a visitor sees the agent — never its controls', async () => {
   const el = await mount(<CatDesk cat={cat} canEdit={false} onAct={jest.fn()} />);
   expect(el.querySelector('[data-testid="kd-stop"]')).toBeNull(); expect(el.querySelector('.kd-side')).toBeNull();
   expect(el.querySelector('.kd-hero')).toBeNull(); expect(el.querySelector('[data-testid="cwb-public"]')).not.toBeNull();   // only the monitors (owner: "nothing on screen but the monitors")
-  expect(el.querySelectorAll('[data-testid="cwb-powrow"] [data-testid="ck-pow"]')).toHaveLength(3);                                      // + boxes for its latest 3 PoW
+  expect(el.querySelector('[data-testid="clx-proofs"]')).not.toBeNull();                                      // + boxes for its latest 3 PoW
 });
 
 test('🗄 a visitor watches it file things: the drawer pops for a NEW stored item (not the one already there), then shuts; rails show both minds', async () => {

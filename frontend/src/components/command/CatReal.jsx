@@ -292,7 +292,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
     window.addEventListener('feeless:trade-confirmed', on); return () => window.removeEventListener('feeless:trade-confirmed', on);
   }, [signing]);
   const sign = p => {
-    const title = `🐱 ${String(cat.name || 'YOUR CAT').toUpperCase()} PROPOSES`; const where = 'your cat proposed it';
+    const title = `🐱 ${String(cat.name || 'YOUR AGENT').toUpperCase()} PROPOSES`; const where = 'your cat proposed it';
     if (p.side === 'buy') familiaSwap({ from: SOL, to: p.mint, amount: p.sol, title, where, sub: `BUY $${p.symbol} with ${p.sol} SOL — press Get quote; your wallet signs` });
     else familiaSwap({ from: p.mint, to: SOL, pct: p.fraction, title, where, sub: `SELL ${Math.round(p.fraction * 100)}% of your $${p.symbol} — press Get quote; your wallet signs` });
     setSigning(p);

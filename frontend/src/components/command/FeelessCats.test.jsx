@@ -1,7 +1,8 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CatBuilder, surprise, LOOKS_TOTAL, PATTERNS } from './CatBuilder';
+import { CatBuilder, surprise, BACKDROPS } from './CatBuilder';
+import { ALL_CHARACTERS } from '../../lib/wireface';
 import { FeeCatShell, FC_NAV } from './FeeCatShell';
 import { CAT_VARIATIONS, catByName } from './catCoats';
 import { readMyCat } from '../../lib/myCat';
@@ -17,32 +18,22 @@ const mount = node => { const el = document.createElement('div'); document.body.
 test('🎨 the coats are 25 real ones (the 25 "… Spots" copies are gone) and an old saved name still resolves', () => {
   expect(CAT_VARIATIONS).toHaveLength(25); expect(new Set(CAT_VARIATIONS.map(c => c[1])).size).toBe(25);
   expect(catByName('Solaris')[0]).toBe('Solaris'); expect(catByName('Solaris Spots')).toEqual(['Solaris', '#ffbf69', '#d94e41', 'spots']); expect(catByName('???')).toBe(CAT_VARIATIONS[0]);
-  expect(LOOKS_TOTAL).toBe(25 * PATTERNS.length * 9 * 5 * 7);
 });
 
-test('🎨 Build a cat: every pick redraws the studio cat (drawn gear, not an emoji), "Make it my cat" really saves it, "Give it a job" opens Create-an-agent with it', () => {
-  const nav = jest.fn(); window.addEventListener('popstate', nav);
-  const { el, root, q } = mount(<CatBuilder />);
-  act(() => q('cbx-coat-2').click()); act(() => q('cbx-pat-spots').click()); act(() => q('cbx-gear-shades').click()); act(() => q('cbx-eyes-laser').click()); act(() => q('cbx-aura-nebula').click());
-  const cat = q('cbx-cat');
-  expect(cat.querySelector('[data-testid="cat-look-avatar"]').getAttribute('data-gear')).toBe('shades');
-  expect(cat.querySelector('.g-shades')).not.toBeNull(); expect(cat.querySelector('.pt-pat')).not.toBeNull(); expect(cat.querySelector('svg.pt-e-laser')).not.toBeNull();
-  expect(cat.textContent).not.toMatch(/🕶|👑/);                                             // drawn, never an emoji prop
-  expect(q('cbx-gear-crown').querySelector('.g-crown')).not.toBeNull();                       // each gear tile shows the panther wearing it
-  act(() => { const i = q('cbx-name-input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(i, 'Specter'); i.dispatchEvent(new Event('input', { bubbles: true })); });
-  expect(q('cbx-name').textContent).toBe('Specter');
-  expect(readMyCat()).toBeNull();
-  act(() => q('cbx-keep').click());
-  expect(readMyCat()).toMatchObject({ coat: 2, pattern: 'spots', name: 'Specter', look: { gear: 'shades', eyes: 'laser', aura: 'nebula' } });
-  expect(q('cbx-keep').textContent).toContain('YOUR CAT');
-  act(() => q('cbx-job').click());
-  expect(window.location.pathname).toBe('/terminal/feecat/agents'); expect(window.location.search).toBe('?create=1&avatar=2'); expect(nav).toHaveBeenCalled();
-  act(() => root.unmount()); window.removeEventListener('popstate', nav);
+test('🎭 Build an agent: no animal bodies, every character is there, and it saves and goes on to a job', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CatBuilder />); });
+  expect(el.querySelectorAll('.chr-tile')).toHaveLength(24); expect(el.textContent).not.toMatch(/Queen ant|Worker fly|Panther/);
+  await act(async () => { el.querySelector('[data-testid="abx-rex"]').click(); });
+  expect(el.querySelector('[data-testid="abx-rex"]').getAttribute('aria-pressed')).toBe('true');
+  await act(async () => { const n = el.querySelector('[data-testid="abx-name"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(n, 'Specter'); n.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('[data-testid="abx-keep"]').click(); });
+  expect(readMyCat()).toMatchObject({ face: 'rex', name: 'Specter' });
 });
 
-test('🎲 Surprise me builds a valid random cat', () => {
-  const r = surprise(() => 0.5);
-  expect(Number.isInteger(r.coat)).toBe(true); expect(PATTERNS.map(p => p[0])).toContain(r.pattern); expect(r.look).toMatchObject({ gear: expect.any(String), eyes: expect.any(String), aura: expect.any(String) });
+test('🎲 Surprise me picks a real character and backdrop', () => {
+  const s = surprise(() => 0.5);
+  expect(ALL_CHARACTERS.some(c => c[0] === s.face)).toBe(true); expect(BACKDROPS.some(b => b[0] === s.backdrop)).toBe(true);
 });
 
 test('🐱 the FeeCat shell: one nav for all five FeeCat pages (Create an agent ≠ Build a cat), Fee live in the bar, your built cat in the corner', async () => {

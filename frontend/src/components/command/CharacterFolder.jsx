@@ -3,6 +3,7 @@ import { apiUrl } from '../../lib/api';
 import { agentAuth } from '../../lib/chatSession';
 import { ALL_CHARACTERS, STYLES, load2d, loadCreate, mediapipePaths, peopleFile, pickRecorderType, startTracker, streamTracks, thumbOf } from '../../lib/wireface';
 import { Ic3 } from '../../lib/icon3d';
+import { DEFAULT_SCENE, createScene } from '../../lib/liveScene';
 import '../../styles/character.css';
 
 // 🎭 THE CHARACTER FOLDER (owner 2026-11-04): pick who this agent is, talk through it with camera and voice if you opt in, and go live as it on your own channels.
@@ -10,6 +11,7 @@ import '../../styles/character.css';
 const MOODS = [['happy', 'Happy'], ['surprised', 'Surprised'], ['thinking', 'Thinking'], ['sad', 'Sad'], ['frustrated', 'Mad'], ['calm', 'Calm']];
 const TABS = [['pick', '🎭', 'Character'], ['me', '📷', 'Camera + voice'], ['live', '🔴', 'Go live']];
 const clock = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+const NO_KEYS = { twitch: { label: 'Twitch', server: 'rtmps://live.twitch.tv/app', set: false, needsServer: false }, kick: { label: 'Kick', server: '', set: false, needsServer: true }, tiktok: { label: 'TikTok', server: '', set: false, needsServer: true } };
 const CAN_PIP = () => typeof window !== 'undefined' && 'documentPictureInPicture' in window;
 
 export function nameWait(s) {
@@ -61,9 +63,22 @@ function KeyRow({ k, row, cat, work, onSaved }) {
   </div>;
 }
 
-function LiveTab({ cat, keys, setKeys, work, live, secs, onLive, onPop, err }) {
+// What the stream shows, sorted before going live, and what a viewer will see is exactly this preview.
+function SceneSetup({ scene, opts, setOpts }) {
+  const host = useRef(null);
+  useEffect(() => { const el = host.current; if (el && scene?.canvas && !el.contains(scene.canvas)) { el.innerHTML = ''; el.append(scene.canvas); } }, [scene]);
+  const pick = p => { const n = { ...opts, ...p }; setOpts(n); scene?.set(n); };
+  const flag = (k, l, tip) => <button type="button" className={`chr-toggle${opts[k] ? ' is-on' : ''}`} aria-pressed={!!opts[k]} onClick={() => pick({ [k]: !opts[k] })} data-tip={tip} data-testid={`chr-scene-${k}`}>{l}</button>;
+  return <div className="chr-scene" data-testid="chr-scene"><div ref={host} className="chr-scene-view" />
+    <div className="chr-scene-row"><span>AGENT</span><div className="m-seg" role="group" aria-label="Where the agent sits">{[['left', 'Bottom left'], ['right', 'Bottom right'], ['off', 'Hidden']].map(([k, l]) => <button key={k} type="button" className={opts.corner === k ? 'active' : ''} onClick={() => pick({ corner: k })} data-testid={`chr-corner-${k}`}>{l}</button>)}</div>
+      <div className="m-seg" role="group" aria-label="Agent size">{[['s', 'S'], ['m', 'M'], ['l', 'L']].map(([k, l]) => <button key={k} type="button" className={opts.size === k ? 'active' : ''} onClick={() => pick({ size: k })}>{l}</button>)}</div></div>
+    <div className="chr-scene-row"><span>SHOW</span>{flag('monitors', 'Monitors', 'Its two windows, the same frames visitors get: a private page is blank')}{flag('minds', 'The 2 minds', 'What each mind said last')}{flag('chat', 'Chat', 'Your chat with it. Emails and phone numbers are taken out, but you choose if viewers see it')}</div></div>;
+}
+
+function LiveTab({ cat, keys, setKeys, work, live, secs, onLive, onPop, err, scene, opts, setOpts }) {
   const rows = Object.entries(keys || {}); const ready = rows.filter(([, v]) => v.set).map(([k]) => k);
   return <div className="chr-livebox">
+    <SceneSetup scene={scene} opts={opts} setOpts={setOpts} />
     <div className="chr-chs">{rows.map(([k, row]) => <KeyRow key={k} k={k} row={row} cat={cat} work={work} onSaved={setKeys} />)}</div>
     <button type="button" className={`chr-onair${live ? ' is-on' : ''}`} onClick={() => onLive(ready)} disabled={!live && !ready.length} data-testid="chr-go-live"><i aria-hidden="true" /><b>{live ? `LIVE ${clock(secs)} · End` : 'GO LIVE'}</b><small>{live ? 'Keep this tab open and in front' : ready.length ? `To ${ready.map(k => keys[k].label).join(' + ')}` : 'Seal a stream key first'}</small></button>
     {CAN_PIP() ? <button type="button" className="m-btn" onClick={onPop} data-testid="chr-pop">⧉ Pop out the dash</button> : null}
@@ -71,14 +86,17 @@ function LiveTab({ cat, keys, setKeys, work, live, secs, onLive, onPop, err }) {
   </div>;
 }
 
-export function CharacterFolder({ cat, work, setD }) {
+export function CharacterFolder({ cat, work, setD, d }) {
   const mine = cat?.mine !== false;
   const stage = useRef(null); const faceRef = useRef(null); const sdkRef = useRef(null); const audio = useRef(null); const videoRef = useRef(null); const camStop = useRef(null); const camStream = useRef(null); const mic = useRef(null); const micStop = useRef(null); const socket = useRef(null); const recorder = useRef(null); const trackStop = useRef(null);
   const [face, setFace] = useState(cat?.face?.id || null); const [tab, setTab] = useState('pick'); const [ready, setReady] = useState(false); const [fail, setFail] = useState('');
   const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [camOn, setCamOn] = useState(false); const [micOn, setMicOn] = useState(false); const [status, setStatus] = useState(''); const [mood, setMood] = useState(null);
-  const [keys, setKeys] = useState(cat?.liveKeys || {}); const [live, setLive] = useState(false); const [secs, setSecs] = useState(0); const [liveErr, setLiveErr] = useState('');
+  const [keys, setKeys] = useState(cat?.liveKeys || NO_KEYS); const [live, setLive] = useState(false); const [secs, setSecs] = useState(0); const [liveErr, setLiveErr] = useState('');
   const [pip, setPip] = useState(null); const [name, setName] = useState(cat?.name || ''); const [nameMsg, setNameMsg] = useState('');
   const faceId = face || 'sarah';
+  const [scene, setScene] = useState(null); const [opts, setOpts] = useState({ ...DEFAULT_SCENE });
+  useEffect(() => { if (tab !== 'live' && !live) return undefined; if (!stage.current) return undefined; const s = createScene({ face: stage.current, catId: cat.id, api: apiUrl }); s.set(opts); s.feed({ rows: d?.chat || d?.messages || [], name: cat.name }); s.start(); setScene(s); return () => { s.stop(); setScene(null); }; }, [tab === 'live' || live]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { scene?.feed({ rows: d?.chat || d?.messages || [] }); }, [scene, d]);
 
   const wear = useCallback(async id => {
     const f = faceRef.current; if (!f) return;
@@ -137,7 +155,7 @@ export function CharacterFolder({ cat, work, setD }) {
     if (live) { endLive(); return; }
     setLiveErr(''); const type = pickRecorderType();
     if (!type) { setLiveErr('This browser cannot stream. Use Chrome or Edge.'); return; }
-    const { tracks, stop } = streamTracks(stage.current, mic.current, ctx()); trackStop.current = stop;
+    const { tracks, stop } = streamTracks(scene?.canvas || stage.current, mic.current, ctx()); trackStop.current = stop;
     const url = new URL(apiUrl(`/api/cats/${cat.id}/stream`), window.location.href); url.protocol = url.protocol.replace('http', 'ws');
     const ws = new WebSocket(url); socket.current = ws;
     ws.onopen = () => ws.send(JSON.stringify({ session: agentAuth().session, platforms }));
@@ -146,7 +164,7 @@ export function CharacterFolder({ cat, work, setD }) {
     ws.onerror = () => endLive('The stream could not connect.');
     ws.onclose = e => { if (socket.current === ws) endLive(e.reason || (e.code === 1000 ? '' : 'The stream stopped.')); };
   };
-  const popOut = async () => { const w = await window.documentPictureInPicture.requestWindow({ width: 340, height: 420 }); [...document.styleSheets].forEach(s => { try { w.document.head.append(s.ownerNode.cloneNode(true)); } catch { /* one it can't copy */ } }); w.addEventListener('pagehide', () => setPip(null)); setPip(w); const v = w.document.createElement('video'); v.className = 'chr-pip-v'; v.muted = true; v.autoplay = true; v.srcObject = stage.current.captureStream(30); w.document.body.append(v); const end = w.document.createElement('button'); end.className = 'm-btn'; end.textContent = 'Close'; end.onclick = () => w.close(); w.document.body.append(end); };
+  const popOut = async () => { const w = await window.documentPictureInPicture.requestWindow({ width: 340, height: 420 }); [...document.styleSheets].forEach(s => { try { w.document.head.append(s.ownerNode.cloneNode(true)); } catch { /* one it can't copy */ } }); w.addEventListener('pagehide', () => setPip(null)); setPip(w); const v = w.document.createElement('video'); v.className = 'chr-pip-v'; v.muted = true; v.autoplay = true; v.srcObject = (scene?.canvas || stage.current).captureStream(30); w.document.body.append(v); const end = w.document.createElement('button'); end.className = 'm-btn'; end.textContent = 'Close'; end.onclick = () => w.close(); w.document.body.append(end); };
   useEffect(() => () => pip?.close?.(), [pip]);
   const saveName = async () => { setNameMsg(''); try { const j = await work(cat.id, { op: 'rename', text: name }); setD?.(x => (x ? { ...x, name: j.name } : x)); setNameMsg('Saved. It can change again in 7 days.'); } catch (e) { setNameMsg(e.message); } };
   const say = (m) => { setMood(m); faceRef.current?.express(m, 3); };
@@ -167,7 +185,7 @@ export function CharacterFolder({ cat, work, setD }) {
       {mine ? <div className="m-seg chr-tabs" role="tablist">{TABS.map(([k, ic, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`chr-tab-${k}`}><Ic3 e={ic} /> {l}</button>)}</div> : null}
       {tab === 'pick' || !mine ? <PickTab cat={cat} face={face} onPick={mine ? pick : (id => wear(id))} onPicture={picture} busy={busy} err={err} mine={mine} /> : null}
       {tab === 'me' && mine ? <MeTab camOn={camOn} micOn={micOn} onCam={toggleCam} onMic={toggleMic} status={status} err={err} /> : null}
-      {tab === 'live' && mine ? <LiveTab cat={cat} keys={keys} setKeys={setKeys} work={work} live={live} secs={secs} onLive={goLive} onPop={popOut} err={liveErr} /> : null}
+      {tab === 'live' && mine ? <LiveTab cat={cat} keys={keys} setKeys={setKeys} work={work} live={live} secs={secs} onLive={goLive} onPop={popOut} err={liveErr} scene={scene} opts={opts} setOpts={setOpts} /> : null}
     </section>
   </div>;
 }

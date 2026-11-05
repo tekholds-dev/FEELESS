@@ -8,7 +8,8 @@ import { CAT_VARIATIONS } from './catCoats';
 import { useMyCat } from '../../lib/myCat';
 import { FundReceipt } from './FundReceipt';
 import { AgentDemo } from './AgentDemo';
-import { AgentCritter } from './Critters';
+import { readMyCat } from '../../lib/myCat';
+import { thumbOf } from '../../lib/wireface';
 import { FeeCatMark } from '../FeeCatMark';
 import '../../styles/launchCat.css';
 import { Ic3 } from '../../lib/icon3d';
@@ -172,11 +173,11 @@ function MindGlass({ m, k, gen, onPick }) {
 
 // 🧠 THE BRAIN SOCKET (FeeCat redo, 2026-10-23): YOUR built cat with the picked brains drawn as lit orbs, each wired into its head — the wire
 // pulses toward the cat; two brains = two wires; none = an empty socket waiting.
-// its body in the general setup: the agent you built (cat / queen ant / fly / ants)
+// its body in the general setup: the character you picked in Build an agent
 function BodyPreview() {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
   if (!mine) return <FeeCatMark size={86} />;   // 🐱 (owner 2026-10-31) FeeCat stands in until you've built your own
-  return mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={86} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={86} />;
+  return mine?.face ? <img className="fcx-face" src={thumbOf(mine.face)} alt="" width="86" height="86" /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={86} />;
 }
 export function BrainSocket({ picked, mood, kind = 'trading' }) {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
@@ -184,7 +185,7 @@ export function BrainSocket({ picked, mood, kind = 'trading' }) {
   return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
     <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
     {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on has-bub' : ''}`}>{m ? <Bubble m={m} i={i} kind={kind} size={i > 1 ? 28 : 56} /> : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
-    <span className="lct-cat">{!mine ? <FeeCatMark size={86} /> : mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={78} gesture={mood === 'pounce' || mood === 'celebrate' ? 'march' : null} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
+    <span className="lct-cat">{!mine ? <FeeCatMark size={86} /> : mine?.face ? <img className="fcx-face" src={thumbOf(mine.face)} alt="" width="78" height="78" /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
   </div>;
 }
 
@@ -283,7 +284,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     setSaving(true); setErr('');
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
-      const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
+      const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, face: readMyCat()?.face, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
         brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
       try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); localStorage.setItem(`feeless.fundToken.${r.cat.id}`, fundToken); } catch { /* private window */ }   // its funding step opens on this $
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));

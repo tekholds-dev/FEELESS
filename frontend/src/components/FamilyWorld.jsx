@@ -232,7 +232,7 @@ export const MONEY_DOORS = [
   ['runners', '🏃', 'Ride the runners', 'FEELESS\'s live calls'], ['sleep', '💤', 'Night Vault', 'earn while you sleep · live APY'],
   ['pools', '🏦', 'Pool Hall', 'LP fees · what $1K earned in 24h'], ['feebank', '💵', '$FEE Bank', 'fee-free buys · holder perks'],
   ['trades', '📈', 'Trade Center', 'follow the desk\'s real trades'], ['fuse', '⚔', 'Family Fuse', 'battles + bids in the Arena'],
-  ['feecat', '🐱', 'Launch a cat', 'a trader / agent cat of your own'], ['jobs', '🧰', 'Errands', 'MP every few minutes'],
+  ['feecat', '🐱', 'Launch an agent', 'a trader or agent of your own'], ['jobs', '🧰', 'Errands', 'MP every few minutes'],
   ['shop', '🎁', 'Pawn & Gold', 'MP → FEECAT redeem'], ['repmk', '🎲', 'Rep market', 'call it right → season points'],
 ];
 function MoneyMenu({ lens, onGo }) {
