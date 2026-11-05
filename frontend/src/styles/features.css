@@ -89,6 +89,16 @@ body.fx-lite :is(.pdk-card, .pdk-filed li) { animation: none; } @media (prefers-
 body.theme-day .pdk-card > button:first-child { background: #fff; border-color: #00000018; } body.theme-day .pdk-filed h4, body.theme-day .pdk-filed em { color: #0a7a3e; } body.theme-day .pdk-filed li { border-color: #00000018; }
 @media (max-width: 640px) { .pdk-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .pdk-filed li { grid-template-columns: auto minmax(0, 1fr); } .pdk-filed small, .pdk-filed em { grid-column: 2; } }
 /* 🎬 The studio: rail on the left, the screen is the star. */
+/* Keep each studio region in its own grid cell; implicit placement put the monitor under the rail. */
+.fea-build { grid-template-areas: 'steps steps' 'rail screen'; grid-template-rows: auto minmax(0, 1fr); }
+.fea-build-top { grid-area: steps; }
+.fea-build .fea-side { grid-area: rail; order: 0; }
+.fea-build .fea-stage { grid-area: screen; min-height: 0; }
+.fea-build.is-full { grid-template-areas: 'steps' 'screen'; }
+@media (max-width: 900px) {
+  .fea-build, .fea-build.is-full { grid-template-areas: 'steps' 'screen' 'rail'; grid-template-rows: auto auto auto; }
+  .fea-build .fea-stage, .fea-build .fea-side { min-width: 0; }
+}
 .fea-side { order: -1; display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; } .fea-side .fea-chat { flex: 1; min-height: 260px; } .fea-side .fea-chat ol { max-height: none; min-height: 0; } .fea-side .fea-plan { flex: none; max-height: 46%; overflow-y: auto; scrollbar-width: thin; } .fea-side .fea-plan > summary { list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; min-height: 32px; } .fea-side .fea-plan > summary:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .fea-plan-steps { padding-left: 18px; }
 .fea-stage { border-radius: 16px; border: 1px solid var(--fea-line); background: #05070b; overflow: hidden; gap: 0; } .fea-stage .fea-view { border: 0; border-radius: 0; } .fea-tools { padding: 8px 10px; border-bottom: 1px solid #ffffff14; background: linear-gradient(180deg, #ffffff0d, #ffffff04); } .fea-bar { display: inline-flex; gap: 5px; } .fea-bar i { width: 10px; height: 10px; border-radius: 50%; background: #ffffff26; } .fea-url { flex: 1 1 140px; min-width: 0; padding: 5px 12px; border-radius: 999px; background: #ffffff0a; border: 1px solid #ffffff12; font: 500 11.5px var(--f-mono); opacity: .9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fea-url em { font-style: normal; opacity: .65; }
 .fea-tools .m-seg button, .fea-tools > .m-btn { min-height: 32px; } .fea-view.is-fold iframe { width: min(466px, 100%); justify-self: center; } .fea-view.is-phone iframe { width: min(390px, 100%); justify-self: center; } .fea-view:is(.is-fold, .is-phone) { background: radial-gradient(ellipse at 50% 30%, #ffffff0d, #05070b 70%); }
