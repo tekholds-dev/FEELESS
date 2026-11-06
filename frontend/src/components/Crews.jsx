@@ -68,7 +68,8 @@ function LaunchLive({ l }) {
 export const TABS = [['card', '🃏 Card'], ['invite', '✉ Invite'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '➕ Seats'], ['code', '🔐 Code']];
 
 function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows, inv, reload, tab: tabP, setTab: setTabP }) {
-  const [tabS, setTabS] = useState(mine.badge?.set ? 'board' : 'badge'); const tab = tabP || tabS; const setTab = setTabP || setTabS;   // controlled by the Family HQ's tool rail when it is given const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
+  const [tabS, setTabS] = useState(mine.badge?.set ? 'board' : 'badge'); const tab = tabP || tabS; const setTab = setTabP || setTabS;   // controlled by the Family HQ's tool rail when it is given
+  const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
   const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
   const link = mine.code ? inviteLink(window.location.origin, window.location.pathname, mine.code) : null;

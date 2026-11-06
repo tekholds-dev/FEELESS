@@ -33,6 +33,7 @@ else echo "no backend changes — skipped"; fi
 step "2/3 frontend tests"
 if [ "$front" = 0 ]; then echo "no frontend changes — tests + build skipped"; echo; echo "✅ GATE GREEN — safe to push"; exit 0; fi
 # ≤ 4 jest workers: with the dev servers up, 7 workers starved the heavy suites into timeouts (FuseMore / SwapWorkspace / FusePage flaked, 2026-10-22)
+( cd frontend && npx eslint -c eslint.undef.config.cjs --no-warn-ignored --no-inline-config "src/**/*.{js,jsx}" ) || { echo "✋ GATE RED: a name nobody defined would crash a page"; exit 1; }
 ( cd frontend && CI=true yarn test --watchAll=false --maxWorkers=4 > "$out/jest.txt" 2>&1 ) || { grep -E "^FAIL |✕|^Tests:" "$out/jest.txt" | head -40;   # failures first — "● Console" noise used to fill all 40 lines and hide the real FAIL
  echo "✋ GATE RED: frontend tests"; exit 1; }
 grep -E "^Tests:" "$out/jest.txt" || true

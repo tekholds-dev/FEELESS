@@ -1,0 +1,3 @@
+// Gate check: a name nobody defined crashes a whole page at runtime, and only on the screen that renders it (owner 2026-11-06).
+const react = require('eslint-plugin-react'); const globals = require('globals');
+module.exports = [{ files: ['src/**/*.{js,jsx}'], plugins: { react }, linterOptions: { reportUnusedDisableDirectives: false }, languageOptions: { ecmaVersion: 'latest', sourceType: 'module', parserOptions: { ecmaFeatures: { jsx: true } }, globals: { ...globals.browser, ...globals.node, ...globals.jest } }, rules: { 'no-undef': 'error', 'react/jsx-no-undef': 'error', 'react/jsx-uses-vars': 'error', 'react/jsx-uses-react': 'error' } }];
