@@ -96,3 +96,13 @@ def test_asked_only_is_a_switch_on_the_env():
     assert air.asked_only({'LM_ASKED_ONLY': 'true'}) and not air.asked_only({})
     src = open(air.__file__).read()
     assert 'if asked_only(env) and not own and not only:' in src
+
+
+def test_a_card_link_takes_only_a_real_address_never_a_card_number():
+    import pytest
+    import feecat_service as fs
+    cat = {}; good = 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'
+    assert fs.card_link(cat, 'solcard', good, 5.0) == {'provider': 'solcard', 'address': good, 'at': 5}
+    for provider, bad in (('solcard', '4111111111111111'), ('solcard', ''), ('nope', good)):
+        with pytest.raises(ValueError):
+            fs.card_link({}, provider, bad, 5.0)

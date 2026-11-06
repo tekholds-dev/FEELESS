@@ -70,6 +70,7 @@ import collective_pool as _cpool
 import proof_plan as _plan
 import proof_validators as _val
 import collective_stash as _stash
+import agent_topup as _topup
 import collective_git as _cg
 import agent_eco as _eco
 import free_browser as _fb
@@ -133,7 +134,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -1887,6 +1888,19 @@ def _pow_ver(cat):
 
 SICARIO_PAUSED = True   # ⏸ owner 2026-11-05: no requests to Sicario's until there is a better model for his Mac and desktop. Set False to bring it back
 SICARIO_PAUSE_OPS = ('ask', 'ws_build', 'ws_approve', 'poc', 'desk_loop', 'hive', 'desk_seat')
+
+
+CARD_PROVIDERS = ('solcard', 'phantom', 'fusecard', 'solflare', 'jupiter', 'greendot')
+
+
+def card_link(cat, provider, address, now):
+    """💳 The digital card its owner signed up for, and the card's own top-up address, as the owner pasted it. Never a card number or an ID. No money moves. → the link, or ValueError."""
+    if provider not in CARD_PROVIDERS:
+        raise ValueError('Pick one of the card providers.')
+    if not _topup.valid_address(str(address or '').strip()):
+        raise ValueError('That is not a Solana address. Paste the top-up address the card gave you, never a card number.')
+    cat['cardLink'] = {'provider': provider, 'address': str(address).strip(), 'at': round(now)}
+    return cat['cardLink']
 
 
 def _sicario_paused(cat):
@@ -6580,6 +6594,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op in ('card_link', 'card_drop'):   # 💳 no money moves here
+        try:
+            link_ = card_link(cat, str(p.text or ''), p.job, time.time()) if p.op == 'card_link' else cat.pop('cardLink', None) and None
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        keep_owned(cat); _save(store)
+        return {'cardLink': link_}
     if p.op in ('wallet', 'wallet_swap'):   # 👛 the desktop wallet app: its live balance + the owner's own swap inside its wallet (nothing leaves it)
         if p.op == 'wallet' and cat.get('handle') == 'sicarios' and not (cat.get('agentWallet') or {}).get('address'):   # 🎩 it trades from the Fuse wallet: that is the wallet its owner sees
             try:
@@ -6603,7 +6624,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                                 receipts_.append({k: row_.get(k) for k in ('id', 'at', 'provider', 'model', 'usd', 'tokens', 'status', 'funding')})
                 except (FileNotFoundError, ValueError):
                     pass
-                return {'address': addr_, 'sol': sol_, 'usdc': usdc_, 'gas': _at.GAS_SOL, 'canSwap': _pays_itself(cat), 'swaps': (cat.get('walletSwaps') or [])[-8:], 'modelReceipts': receipts_[-40:][::-1]}
+                return {'cardLink': cat.get('cardLink'), 'address': addr_, 'sol': sol_, 'usdc': usdc_, 'gas': _at.GAS_SOL, 'canSwap': _pays_itself(cat), 'swaps': (cat.get('walletSwaps') or [])[-8:], 'modelReceipts': receipts_[-40:][::-1]}
             if not _pays_itself(cat):
                 raise HTTPException(400, 'Only a wallet Circle signs for this agent can swap.')
             if cat_id in _SWAP_BUSY:
