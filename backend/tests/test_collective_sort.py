@@ -38,3 +38,10 @@ def test_saved_state_survives_and_counts(tmp_path):
     d = cs.load(tmp_path); assert d['on'] is True
     d['items']['a'] = {'status': 'good'}; d['items']['b'] = {'status': 'trash_ask'}; cs.save(tmp_path, d)
     x = cs.load(tmp_path); c = cs.counts(x['items'], 5); assert c['good'] == 1 and c['trash_ask'] == 1 and c['unsorted'] == 3
+
+
+def test_a_webp_snapshot_becomes_a_jpeg_the_local_models_accept():
+    import io
+    from PIL import Image
+    b = io.BytesIO(); Image.new('RGB', (2000, 1000), 'red').save(b, 'WEBP')
+    out = cs.to_jpeg(b.getvalue()); im = Image.open(io.BytesIO(out)); assert im.format == 'JPEG' and im.width == 1024

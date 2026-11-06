@@ -1,8 +1,11 @@
 """🗂 SORTING THE COLLECTIVE (owner 2026-11-06). The owner adds notes, settings and marks to any file in the Collective repo. When OSSY and G4 have nothing he asked for, they read files one at a time and vote good, bad or trash. Both must agree. Trash only waits for his approval, and an approved file is hidden from the lists, never deleted: the repo never loses data. Plain Python, no network, no money."""
+import io
 import json
 import re
 import time
 from pathlib import Path
+
+from PIL import Image
 
 VOTERS = ('ossy', 'g4')
 VERDICTS = ('good', 'bad', 'trash')
@@ -101,6 +104,14 @@ def prompt(path, item, items):
         bits.append('The owner marked what the agent missed: ' + '; '.join(m.get('label') or 'marked area' for m in item['marks']))
     bits.append(f'FILE: {path}')
     return '\n'.join(b for b in bits if b)
+
+
+def to_jpeg(raw, width=1024):
+    """LM Studio takes JPEG and PNG, not the store's WebP (it answers 400). Smaller is also faster on the owner's machines."""
+    with Image.open(io.BytesIO(raw)) as im:
+        im = im.convert('RGB'); im.thumbnail((width, width * 2))
+        out = io.BytesIO(); im.save(out, 'JPEG', quality=82)
+    return out.getvalue()
 
 
 def parse_vote(text):

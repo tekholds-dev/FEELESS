@@ -1590,10 +1590,10 @@ async def _sort_one():
         return False
     item = d['items'].get(path) or {}; raw = files[path]; words = _sort.prompt(path, item, d['items'])
     if path.endswith(tuple(GIT_IMAGE)):
-        content = [{'type': 'text', 'text': words}, {'type': 'image_url', 'image_url': {'url': f"data:{GIT_IMAGE[path[path.rfind('.'):]]};base64,{base64.b64encode(raw).decode()}"}}]
+        content = [{'type': 'text', 'text': words}, {'type': 'image_url', 'image_url': {'url': f"data:image/jpeg;base64,{base64.b64encode(await asyncio.to_thread(_sort.to_jpeg, raw)).decode()}"}}]
     else:
         content = f"{words}\n{raw[:_sort.EXCERPT].decode('utf-8', 'replace')}"
-    token = _SORT_CALL.set(True); got_any = False
+    token = _SORT_CALL.set(True); got_any = False; _OR_LAST.pop('err', None)
     try:
         for who, model in (('ossy', 'local/ossy'), ('g4', 'local/g4')):
             if who in (item.get('votes') or {}) or _LM_ASKED['at'] > time.time() - 5:
