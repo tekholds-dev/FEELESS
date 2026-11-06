@@ -50,3 +50,42 @@ def test_a_slow_page_build_is_not_called_dead_and_a_lost_one_is():
     assert fs._ws_dead('c', 'w', 0, fs.WS_ORPHAN_S + 1) and not fs._ws_dead('c', 'w', 0, 1)
     fs._WS_LIVE.clear()
     assert fs._ws_dead('c', 'w', 0, 100)
+
+
+def test_stop_ends_what_is_writing_and_what_is_queued_and_a_later_ask_still_runs():
+    import asyncio, time
+    import feecat_service as fs
+    calls = []
+    async def slow(model, messages, tokens):
+        calls.append(model); await asyncio.sleep(30); return 'late', 0.0
+    async def quick(model, messages, tokens):
+        return 'ok', 0.0
+    real = fs._lm_call_one
+    async def go():
+        fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0; fs._lm_call_one = slow
+        a = asyncio.create_task(fs._lm_call('local/ossy', [], 10)); await asyncio.sleep(0.01)
+        b = asyncio.create_task(fs._lm_call('local/ossy', [], 10)); await asyncio.sleep(0.01)
+        assert fs.lm_stop(time.time()) == 1
+        assert await a == ('', 0.0) and await b == ('', 0.0) and calls == ['local/ossy']
+        fs._lm_call_one = quick; await asyncio.sleep(0.01)
+        fs._LM_STOP['at'] = 0.0
+        assert await fs._lm_call('local/ossy', [], 10) == ('ok', 0.0)
+    try:
+        asyncio.run(go())
+    finally:
+        fs._lm_call_one = real; fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0
+
+
+def test_a_page_never_goes_to_a_local_model():
+    import asyncio
+    import feecat_service as fs
+    seen = []
+    async def ask(cat, model, sys_, user_, tokens):
+        seen.append(model); return '', 0.0, False
+    real = fs._ws_ask; fs._ws_ask = ask
+    try:
+        asyncio.run(fs._ws_page({}, 'local/ossy', 's', 'u', 10))
+        asyncio.run(fs._ws_page({}, 'x/other', 's', 'u', 10))
+    finally:
+        fs._ws_ask = real
+    assert seen == [fs.WS_CODE_MODEL, 'x/other']

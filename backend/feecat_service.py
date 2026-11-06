@@ -1152,10 +1152,34 @@ _LM_SEEN: dict = {}
 _LM_GATE: dict = {}   # 🖥 one call at a time per machine: two at once on the owner's Mac made the whole PC lag (owner 2026-11-05). The others wait their turn
 
 
+_LM_LIVE: set = set()   # ⏹ the calls writing right now. Closing one makes LM Studio stop generating
+_LM_STOP = {'at': 0.0}
+
+
+def lm_stop(now):
+    """⏹ Stops what OSSY and G4 are writing, and everything queued behind it. A job asked after this still runs. → how many calls were writing."""
+    _LM_STOP['at'] = now; n = len(_LM_LIVE)
+    for t_ in list(_LM_LIVE):
+        t_.cancel()
+    return n
+
+
 async def _lm_call(model, messages, max_tokens):
-    which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'
+    which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'; asked = time.time()
     async with _LM_GATE.setdefault(which_, asyncio.Semaphore(1)):
-        return await _lm_call_one(model, messages, max_tokens)
+        if _LM_STOP['at'] >= asked:
+            _OR_LAST['err'] = 'You stopped it.'
+            return '', 0.0
+        t_ = asyncio.create_task(_lm_call_one(model, messages, max_tokens)); _LM_LIVE.add(t_)
+        try:
+            return await t_
+        except asyncio.CancelledError:
+            if not t_.cancelled():   # the job above was cancelled, not this call
+                t_.cancel(); raise
+            _OR_LAST['err'] = 'You stopped it.'
+            return '', 0.0
+        finally:
+            _LM_LIVE.discard(t_)
 
 
 async def _lm_call_one(model, messages, max_tokens):
@@ -5298,7 +5322,11 @@ def _ws_pass(store):
             filed_['cost'] = round(float(o['cost'] or 0), 6)
 
 
+WS_CODE_MODEL = 'z-ai/glm-5.3-flash'   # 💻 owner 2026-11-05: OSSY and G4 never write a page (18 tokens a second on his Mac). A cheap cloud model does, on its model credit
+
+
 async def _ws_page(cat, model, sys_, user_, tokens):
+    model = WS_CODE_MODEL if str(model).startswith('local/') else model
     """One whole page. The wallet's provider stops a reply at about 1,500 tokens whatever is asked (receipts, 2026-11-05), so an unfinished page is continued from where it stopped, up to 3 more calls."""
     raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
     for _ in range(3):
@@ -6242,6 +6270,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'seats': r_.json().get('seats') if r_.status_code == 200 else None}
         except (httpx.HTTPError, ValueError):
             return {'seats': None}
+    if p.op == 'desk_stop':   # ⏹ stop what OSSY and G4 are writing right now
+        if cat.get('handle') != 'sicarios':
+            raise HTTPException(400, "Only Sicario's has local minds.")
+        return {'stopped': lm_stop(time.time())}
     if p.op == 'desk_loop':   # 🎩 Sicario's only: keep filing proofs, or stop
         if cat.get('handle') != 'sicarios':
             raise HTTPException(400, 'Only the Sicario desk runs this.')
