@@ -7,6 +7,7 @@ import { capX, capOf } from './cockpitControls';
 export const LANES = [['in', 'IN', 'every coin the intake brought in'], ['contending', 'CONTENDING', 'passes the wall — ranked, not ready'],
   ['ready', 'READY', 'the kernel would seat it now'], ['picked', 'PICKED', 'a seat is buying / holding it']];
 const LANE_OF = { DISCOVERED: 'in', TRACKING: 'in', CONTENDING: 'contending', READY: 'ready', ORDER_PENDING: 'picked', HELD: 'picked', EXIT_PENDING: 'picked' };
+export const laneOfStatus = status => LANE_OF[status] || 'in';
 export const MAX_DOTS = 140;
 
 /** cands (kernel candidates) + held mints → dots {mint, sym, x 0–1, lane 0–3, stage, inside, rank, c}; picked + ready first, newest coins after. */

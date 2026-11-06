@@ -73,10 +73,10 @@ def test_the_folder_lists_crashes_is_owner_only_and_approve_needs_a_passed_fix(m
     from fastapi.testclient import TestClient
     c = TestClient(rs.app, raise_server_exceptions=False)
     assert c.get('/api/reputation/admin/fix').status_code in (401, 403) and c.post('/api/reputation/admin/fix', json={'id': 'x', 'seat': 'lan'}).status_code in (401, 403)
-    monkeypatch.setattr(rs, '_require_owner', lambda r: 'owner'); monkeypatch.setattr(rs, 'BUGS_PATH', tmp_path / 'b.json'); monkeypatch.setattr(rs, 'FIX_RUNS_PATH', tmp_path / 'r.json'); monkeypatch.setattr(rs, 'BUILD_QUEUE_PATH', tmp_path / 'q.json')
+    monkeypatch.setattr(rs, '_require_owner', lambda r: 'owner'); monkeypatch.setattr(rs, 'BUGS_PATH', tmp_path / 'b.json'); import rep_tools as rt; monkeypatch.setattr(rt, 'FIX_RUNS_PATH', tmp_path / 'r.json'); monkeypatch.setattr(rs, 'BUILD_QUEUE_PATH', tmp_path / 'q.json')
     (tmp_path / 'b.json').write_text('{"bugs":[{"text":"[panel crash] This page: cat is not defined · in <FeeCatDesk>","at":5}]}')
     got = c.get('/api/reputation/admin/fix').json(); cid = got['cases'][0]['id']; assert got['cases'][0]['run'] is None
     assert c.post('/api/reputation/admin/fix', json={'id': cid, 'approve': True}).status_code == 400
-    rs._fix_store({'id': cid, 'stage': 'review', 'branch': 'fix/a-1', 'file': 'frontend/src/A.jsx', 'cause': 'wrong name', 'at': 1})
+    rt._fix_store({'id': cid, 'stage': 'review', 'branch': 'fix/a-1', 'file': 'frontend/src/A.jsx', 'cause': 'wrong name', 'at': 1})
     r = c.post('/api/reputation/admin/fix', json={'id': cid, 'approve': True}); assert r.status_code == 200, r.text
     assert 'fix/a-1' in (tmp_path / 'q.json').read_text() and c.get('/api/reputation/admin/fix').json()['cases'][0]['run']['stage'] == 'approved'

@@ -66,9 +66,9 @@ export function FuseFx() {
     {Array.from({ length: 14 }, (_, i) => <b key={i} className="fz-spark" style={{ '--i': i }} />)}</div>;
 }
 
-export const FUSE_TABS = [['home', '⚡ Fuse'], ['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['cards', '🃏 My cards']];   // every ?tab= that routes
-// What the header shows: FOUR tabs, each with what it is for. Runners is step 1 of Build (same picks), not its own tab.
-export const TOP_TABS = [['home', '⚡ Start', 'what a Fuse is'], ['lab', '🧪 Build', 'pick coins · make a card'], ['arena', '🏟 Arena', 'cards fighting live'], ['cards', '🃏 My cards', 'yours, live']];
+export const FUSE_TABS = [['home', '⚡ Fuse'], ['lab', '🧪 Lab'], ['runners', '🏃 Runners'], ['arena', '🏟 Arena'], ['agents', '🤖 Agents'], ['cards', '🃏 My cards']];   // every ?tab= that routes
+// What the header shows: FIVE tabs, each with what it is for. Runners is step 1 of Build (same picks), not its own tab.
+export const TOP_TABS = [['home', '⚡ Start', 'what a Fuse is'], ['lab', '🧪 Build', 'pick coins · make a card'], ['arena', '🏟 Arena', 'cards fighting live'], ['agents', '🤖 Agents', 'how they really did'], ['cards', '🃏 My cards', 'yours, live']];
 const topOf = t => (t === 'runners' ? 'lab' : t);
 const m$ = v => `${v < 0 ? '−' : ''}$${Math.abs(v || 0) >= 1e3 ? `${(Math.abs(v) / 1e3).toFixed(1)}K` : Math.abs(v || 0).toFixed(2)}`;
 const pc = v => `${v >= 0 ? '+' : ''}${(v || 0).toFixed(1)}%`;
@@ -115,6 +115,7 @@ export function FusePage() {
       {tab === 'arena' && <ArenaBest />}
       {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={(legs, from) => { const run = legs.filter(l => l.runner); if (run.length) setRunnerPicks(run.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: l.lane || 'runner' })));
         setIncoming({ legs: legs.filter(l => !l.runner).sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now(), ...(from || {}) }); go('lab'); }} />}
+      {tab === 'agents' && <Suspense fallback={<p className="fag-none">Reading the agents…</p>}><FuseAgents /></Suspense>}
       {tab === 'cards' && <MyCards addr={addr} />}
     </div>
   </section>;
@@ -189,6 +190,7 @@ export function RunnerCardFull({ picks, onDone }) {
 }
 
 const EcosystemChat = lazy(() => import('./EcosystemChat'));
+const FuseAgents = lazy(() => import('./FuseAgents').then(m => ({ default: m.FuseAgents })));
 
 // Compound streak badge: ♻ Compounder ≥1 · ❄ Snowball ≥3 · 💎 Diamond loop ≥5 compounds, only while the card still wins.
 export function CompoundBadge({ s }) {
