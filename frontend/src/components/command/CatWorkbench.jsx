@@ -1366,7 +1366,7 @@ export async function addFile(catId, file) {
   if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
   return j;
 }
-function AttachChips({ files, store, onDrop }) {
+export function AttachChips({ files, store, onDrop }) {
   if (!files.length) return null;
   const pct = store ? Math.min(1, store.used / store.quota) : 0;
   return <div className="cwb-files" data-testid="cwb-files">{files.map((f, i) => <span key={f.id} className="cwb-file" style={{ '--i': i }} data-tip={`${f.name} · ${fileMb(f.size)} — goes with your next ask`}>

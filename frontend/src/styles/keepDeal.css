@@ -1,6 +1,6 @@
 /* 🪙 The deal: bank, points, rewards, ranks. Built from m-* tokens */
 .kpd{ display: grid; gap: 12px; min-width: 0; }
-.kpd-warn { margin: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: color-mix(in srgb, var(--gold, #f5c451) 9%, transparent); font: 500 13px/1.45 var(--f-ui); } .kpd-warn b { color: var(--gold, #f5c451); } .kpd-seg { display: grid; gap: 4px; } .kpd-seg small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; }
+.kpd-warn { margin: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: color-mix(in srgb, var(--gold, #f5c451) 9%, transparent); font: 500 13px/1.45 var(--f-ui); } .kpd-warn b { color: var(--gold, #f5c451); }
 .kpd-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; } .kpd-flow li { display: grid; gap: 3px; padding: 12px; border-radius: 12px; border: 1px solid #ffffff1c; background: linear-gradient(150deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff14; animation: kpdIn .25s calc(var(--i) * 50ms) ease-out backwards; } .kpd-flow small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; } .kpd-flow b { font-size: 19px; color: #fff; } .kpd-flow span { font: 500 12px/1.35 var(--f-ui); opacity: .72; }
   
   

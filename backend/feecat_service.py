@@ -1785,7 +1785,7 @@ async def _git_op(cat, p):
                 doc_ = _ws_load(cat['id'], str(p.job or ''))
                 if not doc_ or not doc_.get('code') or not cat.get('projectRepo'):
                     raise ValueError('Build a page and link a project first.')
-                sent_ = await _cg.project_send(h, token, cat['projectRepo'], doc_.get('name') or p.job, {f"feeless/{_cg.slug(doc_.get('name') or p.job)}/index.html": str(doc_['code']).encode()}, f"FEELESS: {str(doc_.get('name') or p.job)[:60]}")
+                sent_ = await _cg.project_send(h, token, cat['projectRepo'], doc_.get('name') or p.job, {f"feeless/{_cg.slug(doc_.get('name') or p.job)}/index.html": str(_ws_placed(cat['id'], doc_['code'])).encode()}, f"FEELESS: {str(doc_.get('name') or p.job)[:60]}")
                 return {'sent': sent_}
         if p.op == 'git_connect':
             if p.text:
@@ -5600,7 +5600,7 @@ def _ws_view(cat_id, ws_id):
     if d_.get('busy') and _ws_dead(cat_id, ws_id, float(d_['busy'].get('at') or 0), time.time()):   # a run that died never locks the folder, and says so
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed. Send it again to start over.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
 
 
 def _general_mind(cat):
@@ -5611,6 +5611,18 @@ def _general_mind(cat):
     except Exception:   # noqa: BLE001 — a bad read never stops the job
         text_ = None
     return _ps.general_block(text_, _ps.general_record(cat))
+
+
+def _ws_placed(cat_id, html):
+    """A page with its uploaded pictures in place. Only for showing it or sending it on: what is saved stays small."""
+    if 'feeless-file:' not in str(html or ''):
+        return html
+    cat = (_load().get('cats') or {}).get(cat_id) or {}
+
+    def read(fid):
+        row = _af.find(cat, fid); raw = _af.read(DATA_DIR, cat, fid) if row else None
+        return f"data:{row.get('mime') or 'image/png'};base64,{base64.b64encode(raw).decode()}" if raw else None
+    return _feat.place_files(html, read)
 
 
 async def _ws_ask(cat, model, sys_, user_, tokens):
@@ -5694,7 +5706,14 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             if not cfg_['review']:
                 order = order[:1]
             doc['stage'] = 'build'; ask_ = _feat.build_prompt(text, ((doc.get('plan') or {}).get('plan') if not cur else None))
-            user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            from_repo_ = ''
+            if doc.get('source') and cat.get('projectRepo'):   # 📂 the files its owner picked, read live and kept nowhere
+                try:
+                    async with httpx.AsyncClient(timeout=20) as http_src:
+                        from_repo_ = _cg.source_block(await _cg.project_read(http_src, _ck.key_for(cat, 'github_project', data_dir=DATA_DIR), cat['projectRepo'], doc['source']))
+                except httpx.HTTPError:
+                    from_repo_ = ''
+            user = f'{ask_}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             cfg_kits_ = cat.get('brainsCfg') or {}; picks_ = _kits.auto_picks(KITS_DIR, 'pos', text) if cfg_kits_.get('kitMode', 'mine' if cfg_kits_.get('kits') else 'auto') == 'auto' else cfg_kits_.get('kits') or []
             kits_ = _kits.use_line(picks_) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
@@ -6696,6 +6715,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             f_['graded'] = 'right'
         _save(store)
         return {'pocFolders': _poc_view(cat)}
+    if p.op == 'ws_source':   # 📂 which files of its owner's own repo this build continues from. They are read live at each build
+        doc_ = _ws_load(cat_id, p.job); link_ = cat.get('projectRepo') or {}
+        if not doc_:
+            raise HTTPException(404, 'No such folder.')
+        allowed_ = link_.get('paths') or []
+        if isinstance(p.tools, dict) and isinstance(p.tools.get('paths'), list):
+            doc_['source'] = [x for x in p.tools['paths'] if x in allowed_][:_cg.PROJECT_READ_FILES]; _ws_save(cat_id, doc_)
+        return {'source': doc_.get('source') or [], 'paths': allowed_, 'full': link_.get('full'), 'most': _cg.PROJECT_READ_FILES}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)
         text_ = str(p.text or '').strip()[:3000]
@@ -6706,6 +6733,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
         b_ = cat.get('brainsCfg') or {}
         if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
             raise HTTPException(402, 'It needs model credit to do this.')
+        files_ = [_af.find(cat, i) for i in ((p.tools or {}).get('files') or [])[:_feat.ATTACH_MAX]] if isinstance(p.tools, dict) else []
+        if any(files_):
+            doc_['attached'] = [{'id': f['id'], 'name': f.get('name')} for f in files_ if f]
         _feat.add_msg(doc_, 'you', text_, time.time()); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
         _ws_save(cat_id, doc_)
         _ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)

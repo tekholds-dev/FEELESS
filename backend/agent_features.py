@@ -216,6 +216,26 @@ def region_note(region):
     return '\nThe owner marked these areas to fix, change every one of them:' + ''.join(f'\n{i + 1}. {one(r)}' for i, r in enumerate(rows))
 
 
+FILE_MARK = re.compile(r'feeless-file:([a-f0-9]{8,64})')
+ATTACH_MAX = 4
+
+
+def attach_note(rows):
+    """Its uploaded pictures, for the model. It writes a short token and the bytes are placed for it, so a page never carries megabytes through a model."""
+    rows = [r for r in rows or [] if r.get('id')][:ATTACH_MAX]
+    if not rows:
+        return ''
+    return '\nThe owner uploaded these pictures. Use each one with exactly this as its src, and nothing else: ' + ', '.join(f"feeless-file:{r['id']} ({str(r.get('name') or 'picture')[:60]})" for r in rows)
+
+
+def place_files(html, read):
+    """Puts the uploaded pictures into a page where its tokens stand. A token it can't read stays a broken picture, never an error."""
+    def one(m):
+        got = read(m.group(1))
+        return got or m.group(0)
+    return FILE_MARK.sub(one, str(html or ''))
+
+
 def memory_view(cat):
     b = (cat or {}).get('brainsCfg') or {}
     cloud = b.get('cloud') or []; minds = b.get('minds') or {}

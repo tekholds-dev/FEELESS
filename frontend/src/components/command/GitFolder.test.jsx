@@ -111,3 +111,13 @@ test('the Trash has two clear piles, counts down, brings back, and asks before a
   await act(async () => { q(el, `trash-move-${A}`).click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_trash', job: A, on: true });
   el.remove();
 });
+
+test('the token tutorial walks three steps and connects for real', async () => {
+  const { GitTour } = require('./GitFolder'); const onLink = jest.fn(async () => {}); const onClose = jest.fn(); const el = document.createElement('div'); document.body.append(el); const root = createRoot(el);
+  await act(async () => { root.render(<GitTour onClose={onClose} onLink={onLink} />); });
+  const q = t => document.body.querySelector(`[data-testid="${t}"]`);
+  expect(q('gtt-open').getAttribute('href')).toContain('contents=write'); await act(async () => { q('gtt-next').click(); }); expect(document.body.textContent).toContain('Only select repositories'); await act(async () => { q('gtt-next').click(); });
+  const type = (n, v) => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); };
+  await act(async () => { type(q('gtt-repo'), 'me/app'); }); await act(async () => { type(q('gtt-token'), 't0ken'); }); expect(q('gtt-link').disabled).toBe(false); await act(async () => { q('gtt-link').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(onLink).toHaveBeenCalledWith('me/app', 't0ken'); expect(onClose).toHaveBeenCalled(); await act(async () => { root.unmount(); });
+});
