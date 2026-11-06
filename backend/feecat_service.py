@@ -70,6 +70,7 @@ import collective_pool as _cpool
 import proof_plan as _plan
 import proof_validators as _val
 import collective_stash as _stash
+import collective_kits as _kits
 import agent_topup as _topup
 import collective_git as _cg
 import agent_eco as _eco
@@ -1472,6 +1473,9 @@ GIT_DIR = DATA_DIR / 'git_manifests'
 _GIT_BUSY = set()
 
 
+KITS_DIR = DATA_DIR / 'kits'   # 🧰 the owner's kit library. Only he adds or edits; every agent reads
+
+
 def _git_memory():
     """🐙 What the Collective proved, in one line per proof. Every agent's next proof reads it, on any model."""
     try:
@@ -1492,6 +1496,7 @@ def _git_files(cat, collective):
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
+    files.update(_kits.tree(KITS_DIR))
     vault = {}
     for c in store['cats'].values():   # 🔐 owner 2026-11-05: its private data lives sealed in the Collective's private repo, so nobody pays for storage
         if c.get('revoked') or c.get('id') == 'leader':
@@ -3216,10 +3221,13 @@ def _sicario_loop(store, now, free=None):
         _POW_WAKE.set()
 
 
+RECALL_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc', 'Code': 'pos'}
+
+
 def _recall(cat, category, text):
-    """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches. Never stops a proof."""
+    """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches, and gets the kits for its kind of proof, the owner's picks first. Never stops a proof."""
     try:
-        return _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _kits.line(KITS_DIR, RECALL_KIND.get(category, ''), (cat.get('brainsCfg') or {}).get('kits') or []) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -6594,6 +6602,27 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first
+        b_ = cat.setdefault('brainsCfg', {})
+        if p.op == 'kit_pick':
+            have_ = {k['id'] for k in _kits.rows(KITS_DIR)}; b_['kits'] = [x for x in str(p.text or '').split(',') if x in have_][:6]; keep_owned(cat); _save(store)
+        return {'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'picks': b_.get('kits') or []}
+    if p.op in ('kit_catalog', 'kit_add', 'kit_drop', 'kit_read', 'kit_edit'):   # 🧰 the library: the owner only, on Fee
+        if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
+            raise HTTPException(403, 'Only the owner changes the kit library.')
+        try:
+            if p.op == 'kit_add':
+                async with httpx.AsyncClient() as h_:
+                    await _kits.add(h_, KITS_DIR, str(p.text or ''))
+            elif p.op == 'kit_drop':
+                _kits.drop(KITS_DIR, str(p.text or ''))
+            elif p.op == 'kit_edit':
+                _kits.edit(KITS_DIR, str(p.job or ''), text=p.text)
+            elif p.op == 'kit_read':
+                return {'text': (_kits.load(KITS_DIR, str(p.text or '')) or {}).get('text') or ''}
+        except (ValueError, httpx.HTTPError) as e:
+            raise HTTPException(400, str(e)[:160])
+        return {'catalog': _kits.CATALOG, 'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)]}
     if p.op in ('card_link', 'card_drop'):   # 💳 no money moves here
         try:
             link_ = card_link(cat, str(p.text or ''), p.job, time.time()) if p.op == 'card_link' else cat.pop('cardLink', None) and None

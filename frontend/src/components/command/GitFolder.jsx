@@ -1,11 +1,29 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
+import { fitBox, identityOf } from '../../lib/proofprint';
+import { statRidges } from '../../lib/gamePrint';
 import '../../styles/gitFolder.css';
 
 // 🐙 ITS GITHUB FOLDER (owner 2026-11-05): filed proofs go to its owner's own repo, private or public. With scope="collective", the owner's private repo holds the whole Collective, sorted.
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 const ago = at => { if (!at) return 'never'; const s = Math.max(0, Date.now() / 1000 - at); return s < 60 ? 'just now' : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : `${Math.round(s / 86400)} d ago`; };
 const size = n => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+// 🧬 The repo's own fingerprint: one ridge per folder, longer the more it holds.
+function RepoPrint({ name, tree }) {
+  const top = Math.max(1, ...(tree || []).map(r => r.files)); const rows = (tree || []).slice(0, 12).map(r => ({ abbr: r.path, now: r.files, last: null, score: 45 + 50 * (r.files / top) })); const lines = statRidges(`repo:${name}`, rows); const id = identityOf(`repo:${name}`); const [on, setOn] = useState(null);
+  return <figure className="git-print" data-testid="git-print"><svg viewBox={fitBox((lines[lines.length - 1]?.j || 8) + 2, id)} role="img" aria-label={`Fingerprint of ${name}, ${lines.length} folders`} onMouseLeave={() => setOn(null)}>{lines.map((l, i) => <g key={l.abbr}><path d={l.now} stroke={l.ink} className={on === i ? 'is-on' : ''} /><path d={l.now} className="is-hit" onMouseEnter={() => setOn(i)} /></g>)}</svg><figcaption className="m-num">{on != null ? `${rows[on].abbr}: ${rows[on].now} files` : `${rows.length} folders`}</figcaption></figure>;
+}
+// 🧰 The kit library. Add a free kit's guide, read it, edit it, take it out. It goes to the private repo on the next push and every agent's proofs read it.
+function KitShelf({ cat, work }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(''); const [edit, setEdit] = useState(null);
+  const run = useCallback(async (body, key) => { setBusy(key); setErr(''); try { const j = await work(cat.id, body); if (j.catalog) setD(j); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(''); } }, [cat.id, work]);
+  useEffect(() => { run({ op: 'kit_catalog' }, 'load'); }, [run]);
+  const have = id => d?.kits?.find(k => k.id === id);
+  return <section className="git-kits m-card" data-testid="git-kits"><h4><Ic3 e="🧰" /> KITS FOR EVERY AGENT <small>their makers' own AI guides. Text only, read as reference</small></h4>{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    <ul>{Object.entries(d?.catalog || {}).map(([id, c]) => <li key={id} className={have(id) ? 'is-on' : ''} data-testid={`kit-${id}`}><span><b>{c.name}</b><small>{c.what} · {c.license}{have(id) ? ` · ${Math.round(have(id).bytes / 1024)} KB` : ''}</small></span><a className="m-btn" href={c.site} target="_blank" rel="noopener noreferrer" data-tip={`Opens ${c.name}'s own previews in a new tab`}>Preview ↗</a>
+      {have(id) ? <><button type="button" className="m-btn" disabled={!!busy} onClick={async () => { const j = await run({ op: 'kit_read', text: id }, id); if (j) setEdit({ id, text: j.text }); }} data-testid={`kit-edit-${id}`}>Edit</button><button type="button" className="m-btn" disabled={!!busy} onClick={() => run({ op: 'kit_drop', text: id }, id)} aria-label={`Take out ${c.name}`} data-tip="Takes it out of what agents read. The repo keeps old files">✕</button></> : <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run({ op: 'kit_add', text: id }, id)} data-testid={`kit-add-${id}`}>{busy === id ? 'Adding…' : 'Add to git'}</button>}</li>)}</ul>
+    {edit ? <form className="git-kit-edit" onSubmit={async e => { e.preventDefault(); if (await run({ op: 'kit_edit', job: edit.id, text: edit.text }, 'save')) setEdit(null); }}><textarea className="m-input" rows={10} value={edit.text} onChange={e => setEdit(x => ({ ...x, text: e.target.value }))} aria-label="Kit text" data-testid="kit-text" /><span><button type="submit" className="m-btn m-go" disabled={!!busy} data-testid="kit-save">Save</button><button type="button" className="m-btn" onClick={() => setEdit(null)}>Cancel</button></span></form> : null}</section>;
+}
 export function GitFolder({ cat, work, scope = '' }) {
   const collective = scope === 'collective'; const [s, setS] = useState(null); const [token, setToken] = useState(''); const [repo, setRepo] = useState(collective ? 'feeless-collective' : `${String(cat?.handle || 'agent').replace(/[^a-z0-9-]/gi, '')}-proofs`); const [priv, setPriv] = useState(true); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
   const ask = useCallback(body => work(cat.id, { ...body, to: scope || undefined }), [cat.id, work, scope]);
@@ -26,6 +44,7 @@ export function GitFolder({ cat, work, scope = '' }) {
         <div className="git-acts"><button type="button" className="m-btn m-go" disabled={!!busy || !s?.waiting} onClick={() => run('push', { op: 'git_push' }, j => `Pushed ${j.pushed} files${j.left ? `, ${j.left} left for the next push` : ''}.`)} data-tip={s?.waiting ? 'One commit with what changed' : 'Nothing new to push'} data-testid="git-push">{busy === 'push' ? 'Pushing…' : 'Push now'}</button>
           <button type="button" className={`m-btn${l.auto ? ' is-on' : ''}`} aria-pressed={!!l.auto} disabled={!!busy} onClick={() => run('auto', { op: 'git_auto', on: !l.auto })} data-tip="Pushes what changed once an hour" data-testid="git-auto">{l.auto ? 'Hourly push: on' : 'Hourly push: off'}</button>
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('drop', { op: 'git_drop' })} data-tip="Forgets the repo and token here. The repo stays on GitHub" data-testid="git-drop">Disconnect</button></div></section>}
+    {collective && on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}{collective ? <KitShelf cat={cat} work={work} /> : null}
     {said ? <small className="git-said" role="status" data-testid="git-said">{said}</small> : null}{err || l.err ? <p className="lct-err" role="alert" data-testid="git-err">⚠ {err || l.err}</p> : null}
     {s?.tree?.length ? <section className="git-tree" aria-label="How it is sorted" data-testid="git-tree"><h4><Ic3 e="🗂" /> HOW IT IS SORTED</h4><ul>{s.tree.map((r, i) => <li key={r.path} style={{ '--i': i % 14 }}><code>{r.path}</code><i aria-hidden="true"><u style={{ transform: `scaleX(${r.files / top})` }} /></i><b className="m-num">{r.files}</b><small className="m-num">{size(r.bytes)}</small></li>)}</ul></section> : s ? <p className="git-note">Nothing is filed yet. Its first closed proof lands here.</p> : <p className="git-note">Reading its proofs…</p>}
     {collective && s?.memory ? <p className="git-note" data-testid="git-memory">{s.memory.length ? `Every agent's next ${s.memory.map(k => ({ pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' }[k])).join(', ')} reads the Collective's record for that proof, on any model.` : 'Agents start reading the record once a proof kind has 3 graded results.'}</p> : null}
