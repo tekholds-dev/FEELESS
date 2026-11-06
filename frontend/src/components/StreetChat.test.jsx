@@ -40,7 +40,7 @@ test('the street: crest plates, receipts, @you, block + pulse; react, post and a
   expect(q('st-line-l3').textContent).toContain('↩ kid');                                  // a reply names its line
   await act(async () => { q('st-thread-l1').click(); });
   expect(q('st-thread-list-l1').textContent).toContain('WIF still cooking?');              // 💬 the call's own thread
-  await act(async () => { const inp = q('st-input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'gm'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { const inp = q('st-input'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; set.call(inp, 'gm'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   expect(calls.some(([u, o]) => u.includes('/familia/street/fee/typing') && JSON.parse(o.body).session === 's')).toBe(true);
   await act(async () => { q('st-tool-slow').click(); });
   await act(async () => { q('st-slow-10').click(); });

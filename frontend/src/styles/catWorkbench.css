@@ -472,9 +472,9 @@ body.theme-day .dsk-win { background: #fff; border-color: #00000018; } body.them
 /* a trader's chat inside the same card: no box in a box, its calls scroll, the chime box sits where the composer sits */
 .cwb-talk .ck-chat, .kd.is-glass .cwb-talk .ck-chat { display: flex; flex-direction: column; padding: 0; border: 0; background: none !important; box-shadow: none !important; }
 .cwb-talk .ck-msgs { flex: 1 1 auto; min-height: 0; max-height: none; align-content: end; }
-.cwb-talk .ck-say { padding: 8px; border-radius: 16px; border: 1px solid #b388ff33; background: #0b0614cc; }
+
 @media (max-width: 1100px) { .cwb-flip-in { height: auto; } .cwb-deck { height: auto; } .cwb-deck .cwb-mid { grid-template-rows: auto auto; } .cwb-deck .cwb-talk { height: clamp(440px, 62dvh, 600px); } .cwb-back { max-height: 82dvh; } }
-body.theme-day .cwb-talk .ck-say { background: #fff; border-color: #7c4dff33; }
+
 .cwb-talk-h { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 2px 8px; border-bottom: 1px solid #ffffff10; }
 .cwb-talk-h > b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f2ecff; font: 700 13.5px var(--f-ui); }
 .cwb-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; background: #ffffff0a; color: #a99fc8; font: 700 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }

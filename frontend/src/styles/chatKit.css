@@ -1,10 +1,9 @@
 /* 💬 ChatKit (ckit-*): the one chat composer, on HeroUI's tokens. A chat sets --ckit-acc to its page's accent. */
-.ckit-composer { --ckit-acc: var(--kd-acc, var(--accent)); display: block; min-width: 0; }
-form.ckit-composer.ckit-composer { padding: 0; margin: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
-.ckit-box { display: grid; gap: 4px; padding: 10px 10px 8px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: color-mix(in srgb, var(--foreground) 5%, transparent); box-shadow: inset 0 1px 0 #ffffff0d; transition: border-color .15s, box-shadow .15s; }
-.ckit-box:focus-within { border-color: color-mix(in srgb, var(--ckit-acc) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ckit-acc) 16%, transparent), inset 0 1px 0 #ffffff0d; }
+.ckit-composer { position: relative; z-index: 3; --ckit-a: var(--ckit-acc, var(--kd-acc, var(--accent))); display: grid; gap: 6px; min-width: 0; }
+.ckit-box { display: grid; gap: 4px; padding: 10px 10px 8px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: inset 0 1px 0 #ffffff0d; transition: border-color .15s, box-shadow .15s; }
+.ckit-box:focus-within { border-color: color-mix(in srgb, var(--ckit-a) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ckit-a) 16%, transparent), inset 0 1px 0 #ffffff0d; }
 .ckit-field { position: relative; min-width: 0; }
-.ckit-in.ckit-in { display: block; width: 100%; min-height: 30px; max-height: 168px; padding: 3px 6px; resize: none; field-sizing: content; overflow-y: auto; border: 0; outline: 0; border-radius: 8px; background: transparent; box-shadow: none; color: var(--foreground); font: 400 14px/1.5 var(--f-ui); scrollbar-width: thin; }
+.ckit-in.ckit-in { display: block; width: 100%; min-height: 30px; max-height: 168px; padding: 3px 6px; resize: none; field-sizing: content; overflow-y: auto; overflow-wrap: anywhere; white-space: pre-wrap; border: 0; outline: 0; border-radius: 8px; background: transparent; box-shadow: none; color: var(--foreground); font: 400 14px/1.5 var(--f-ui); scrollbar-width: thin; }
 .ckit-in.ckit-in:focus, .ckit-in.ckit-in:focus-visible, .ckit-in.ckit-in:hover { background: transparent; box-shadow: none; outline: 0; }
 .ckit-in::placeholder { color: var(--field-placeholder); }
 .ckit-bar .m-seg { margin-left: 4px; }
@@ -12,10 +11,11 @@ form.ckit-composer.ckit-composer { padding: 0; margin: 0; border: 0; border-radi
 .ckit-grow { flex: 1 1 auto; min-width: 0; }
 .ckit-tool.ckit-tool { width: 32px; height: 32px; min-width: 32px; border-radius: 10px; color: var(--muted); }
 .ckit-tool.ckit-tool:hover { color: var(--foreground); background: var(--default); }
-.ckit-tool.is-on.is-on { color: var(--ckit-acc, var(--accent)); background: color-mix(in srgb, var(--kd-acc, var(--accent)) 16%, transparent); }
+.ckit-tool.is-on.is-on { color: var(--ckit-acc, var(--kd-acc, var(--accent))); background: color-mix(in srgb, var(--ckit-acc, var(--kd-acc, var(--accent))) 16%, transparent); }
 .ckit-tool.is-busy svg { animation: ckitSpin 1s linear infinite; }
 .ckit-send.ckit-send, .ckit-stop.ckit-stop { width: 34px; height: 34px; min-width: 34px; border-radius: 50%; }
-.ckit-send.ckit-send { background: var(--ckit-acc); color: #07110b; box-shadow: 0 6px 16px -8px var(--ckit-acc); }
+.ckit-send.ckit-send { background: var(--ckit-a); color: #07110b; box-shadow: 0 6px 16px -8px var(--ckit-a); }
+.ckit-send.has-text { width: auto; padding: 0 14px; border-radius: 17px; font: 700 11px var(--f-mono); }
 .ckit-stop.ckit-stop { background: var(--foreground); color: var(--background); }
 .ckit-send.ckit-send:hover { transform: translateY(-1px); }
 .ckit-send.ckit-send:active { transform: scale(.94); }

@@ -3232,7 +3232,8 @@ RECALL_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc'
 def _recall(cat, category, text):
     """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches, and gets the kits for its kind of proof, the owner's picks first. Never stops a proof."""
     try:
-        return _kits.line(KITS_DIR, RECALL_KIND.get(category, ''), (cat.get('brainsCfg') or {}).get('kits') or []) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); auto_ = cfg_.get('kitMode', 'mine' if cfg_.get('kits') else 'auto') == 'auto'
+        return _kits.line(KITS_DIR, kind_, _kits.auto_picks(KITS_DIR, kind_, text) if auto_ else cfg_.get('kits') or [], open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -6607,11 +6608,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
-    if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first
+    if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_pick':
-            have_ = {k['id'] for k in _kits.rows(KITS_DIR)}; b_['kits'] = [x for x in str(p.text or '').split(',') if x in have_][:_kits.MAX_PICKS]; keep_owned(cat); _save(store)
-        return {'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'picks': b_.get('kits') or []}
+            want_ = [x for x in str(p.text or '').split(',') if x in _kits.CATALOG][:_kits.MAX_PICKS]; have_ = {k['id'] for k in _kits.rows(KITS_DIR)}
+            for kid_ in [x for x in want_ if x not in have_]:   # only the catalog's fixed addresses, the guide is text
+                try:
+                    async with httpx.AsyncClient() as h_:
+                        await _kits.add(h_, KITS_DIR, kid_)
+                except (ValueError, httpx.HTTPError) as e:
+                    raise HTTPException(400, str(e)[:160])
+            b_['kits'] = want_; b_['kitMode'] = 'auto' if p.job == 'auto' else 'mine'; keep_owned(cat); _save(store)
+        return {'kits': _kits.catalog_view(KITS_DIR), 'picks': b_.get('kits') or [], 'mode': b_.get('kitMode', 'mine' if b_.get('kits') else 'auto'), 'max': _kits.MAX_PICKS}
     if p.op in ('kit_catalog', 'kit_add', 'kit_drop', 'kit_read', 'kit_edit'):   # 🧰 the library: the owner only, on Fee
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner changes the kit library.')

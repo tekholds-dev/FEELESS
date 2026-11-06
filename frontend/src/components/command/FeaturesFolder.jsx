@@ -1,3 +1,5 @@
+import { Button, Popover } from '@heroui/react';
+import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
@@ -76,8 +78,10 @@ function Chat({ doc, send, busy, chip, clearChip, draft = '' }) {
   const go = e => { e.preventDefault(); if (!text.trim() || busy) return; send(text.trim(), to); setText(''); };
   return <div className="fea-chat">{doc?.cost != null ? <small className="fea-cost m-num" data-testid="ws-cost">Model calls for this folder: ${Number(doc.cost).toFixed(4)}</small> : null}<ol ref={box} data-testid="ws-messages">{(doc?.messages || []).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : ''}><b>{m.by === 'you' ? 'You' : m.by}</b><span>{m.text}</span></li>)}{busy ? <li className="is-busy"><b>Working</b><span className="fea-dots"><i /><i /><i /></span></li> : null}{!(doc?.messages || []).length && !busy ? <li className="fea-none">Say what you want. Paid model calls.</li> : null}</ol>
     {chip ? <span className="fea-chip">Marked area <button type="button" onClick={clearChip} aria-label="Clear the marked area">✕</button></span> : null}
-    <form onSubmit={go}><div className="m-seg" role="group" aria-label="Who works on it">{[['a', 'Mind A'], ['b', 'Mind B'], ['both', 'Both']].map(([k, l]) => <button key={k} type="button" className={to === k ? 'active' : ''} onClick={() => setTo(k)} data-testid={`ws-to-${k}`}>{l}</button>)}</div>
-      <input className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={chip ? 'What should change here?' : 'What should it do?'} aria-label="Message" data-testid="ws-input" /><button type="submit" className="m-btn m-go" disabled={busy || !text.trim()} data-testid="ws-send">Send</button></form></div>;
+    <ChatComposer onSubmit={go}
+      field={<ChatInput value={text} onChange={e => setText(e.target.value)} placeholder={chip ? 'What should change here?' : 'What should it do?'} aria-label="Message" data-testid="ws-input" />}
+      tools={<div className="m-seg" role="group" aria-label="Who works on it">{[['a', 'A'], ['b', 'B'], ['both', 'Both']].map(([k, l]) => <button key={k} type="button" className={to === k ? 'active' : ''} onClick={() => setTo(k)} data-tip={k === 'both' ? 'Both minds work on it' : `Only Mind ${l}`} data-testid={`ws-to-${k}`}>{l}</button>)}</div>}
+      action={<ChatSend isDisabled={busy || !text.trim()} data-testid="ws-send" />} /></div>;
 }
 function useDoc(cat, id, work) {
   const [doc, setDoc] = useState(null); const [err, setErr] = useState('');
@@ -123,12 +127,40 @@ function CodeChanges({ code = '', previous = '', busy }) {
   const removed = previous ? before.slice(start, before.length - end) : []; const added = after.slice(start, after.length - end);
   return <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>+{added.length} added</b><em>−{removed.length} removed</em>{busy ? <span>Mind is coding… latest completed version shown</span> : null}</div><pre className="fea-src">{after.slice(0, start).join('\n')}{start ? '\n' : ''}{removed.length ? <span className="fea-removed">{removed.map(x => `− ${x}`).join('\n')}{'\n'}</span> : null}{added.length ? <span className="fea-added">{added.map(x => `+ ${x}`).join('\n')}{'\n'}</span> : null}{after.slice(after.length - end).join('\n')}</pre></div>;
 }
-// 🧰 Which kits this agent reads first when it builds. The rest fill the gaps.
-function KitPick({ cat, work }) {
-  const [d, setD] = useState(null);
+// 🧰 Which kits this agent reads first when it builds: up to 3 from Discover, or it chooses for each request.
+export function KitPick({ cat, work }) {
+  const [d, setD] = useState(null); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
   useEffect(() => { let on = true; work(cat.id, { op: 'kit_list' }).then(j => on && setD(j)).catch(() => {}); return () => { on = false; }; }, [cat.id, work]);
-  if (!d?.kits?.length) return null; const flip = id => { const next = d.picks.includes(id) ? d.picks.filter(x => x !== id) : [...d.picks, id].slice(-2); work(cat.id, { op: 'kit_pick', text: next.join(',') }).then(setD).catch(() => {}); };
-  return <div className="chr-chips" role="group" aria-label="Kits it reads first" data-testid="kit-pick"><small>READS FIRST · UP TO 2</small>{d.kits.map(k => <span key={k.id}><button type="button" className={`m-chip${d.picks.includes(k.id) ? ' is-on' : ''}`} aria-pressed={d.picks.includes(k.id)} onClick={() => flip(k.id)} data-tip={`${k.what}. ${k.vitals?.items || 0} listed: ${(k.vitals?.sample || []).slice(0, 8).join(', ')}`} data-testid={`kit-pick-${k.id}`}>{d.picks.includes(k.id) ? `${d.picks.indexOf(k.id) + 1}. ` : ''}{k.name}</button> <a href={k.site} target="_blank" rel="noopener noreferrer" aria-label={`Preview ${k.name}`} data-tip="Its previews, in a new tab">↗</a></span>)}</div>;
+  if (!d?.kits?.length) return null;
+  const save = async (picks, job, id = '') => { setBusy(id || job); setErr(''); try { setD(await work(cat.id, { op: 'kit_pick', text: picks.join(','), job })); } catch (x) { setErr(x.message); } setBusy(''); };
+  const max = d.max || 3; const auto = d.mode === 'auto'; const named = id => d.kits.find(k => k.id === id)?.name || id;
+  const flip = id => save(!auto && d.picks.includes(id) ? d.picks.filter(x => x !== id) : [...(auto ? [] : d.picks), id], 'mine', id);
+  return <div className="kit-row" role="group" aria-label="Kits it reads first" data-testid="kit-pick">
+    <small className="kit-l">READS FIRST</small>
+    {auto ? <span className="kit-chip is-auto" data-testid="kit-auto"><i aria-hidden="true" />Agent picks per request</span> : d.picks.map((id, i) => <span key={id} className="kit-chip" data-testid={`kit-on-${id}`}><b className="m-num">{i + 1}</b>{named(id)}</span>)}
+    <Popover isOpen={open} onOpenChange={setOpen}>
+      <Button size="sm" variant="secondary" className="kit-open" data-tip="Choose up to 3 kits, or let the agent choose for each request" data-testid="kit-discover">Discover</Button>
+      <Popover.Content placement="bottom start" offset={8} className="ckit-pop kit-pop">
+        <Popover.Dialog aria-label="Discover kits" className="ckit-pop-in" data-testid="kit-panel">
+          <header className="kit-head"><b>Discover kits</b><small className="m-num">{auto ? 'Agent chooses' : `${d.picks.length} of ${max} picked`}</small></header>
+          <div className="m-seg kit-mode" role="radiogroup" aria-label="Who chooses the kits">
+            <button type="button" role="radio" aria-checked={auto} className={auto ? 'active' : ''} disabled={!!busy} onClick={() => save(d.picks, 'auto')} data-tip="It reads your request, picks what fits from these, and may use another free kit if it says which" data-testid="kit-mode-auto">Agent picks</button>
+            <button type="button" role="radio" aria-checked={!auto} className={!auto ? 'active' : ''} disabled={!!busy} onClick={() => save(d.picks, 'mine')} data-tip="It reads your picks first, in this order" data-testid="kit-mode-mine">I pick</button>
+          </div>
+          <ul className="kit-list">{d.kits.map((k, i) => { const on = !auto && d.picks.includes(k.id); const full = !auto && !on && d.picks.length >= max;
+            return <li key={k.id} style={{ '--i': i }} className={on ? 'is-on' : ''}>
+              <button type="button" role="checkbox" aria-checked={on} disabled={!!busy || full} onClick={() => flip(k.id)} data-tip={full ? `Up to ${max}. Remove one first` : on ? 'Remove it' : k.added ? 'Read it first' : 'Downloads its guide, then reads it first'} data-testid={`kit-pick-${k.id}`}>
+                <i className="kit-box" aria-hidden="true">{on ? d.picks.indexOf(k.id) + 1 : ''}</i>
+                <span><b>{k.name}</b><small>{k.what}</small></span>
+                <em className="m-num">{busy === k.id ? 'Getting…' : k.added ? `${k.vitals?.items || 0} listed` : 'Not added'}</em>
+              </button>
+              <a href={k.site} target="_blank" rel="noopener noreferrer" aria-label={`Open ${k.name}'s site`} data-tip={`${k.license} · opens its site in a new tab`}>↗</a>
+            </li>; })}</ul>
+          {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+        </Popover.Dialog>
+      </Popover.Content>
+    </Popover>
+  </div>;
 }
 function BuildSpace({ cat, row, work, draft, onFiled }) {
   const { doc, send, err, setDoc } = useDoc(cat, row.id, work); const [view, setView] = useState('static'); const [drag, setDrag] = useState(false); const [box, setBox] = useState(null); const [mark, setMark] = useState(null); const [full, setFull] = useState(false); const frame = useRef(null); const over = useRef(null); const start = useRef(null); const was = useRef(0);

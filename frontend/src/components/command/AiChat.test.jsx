@@ -8,7 +8,7 @@ jest.mock('../../lib/agentHub', () => ({ hubApply: (...a) => mockHub.hubApply(..
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
-const type = async (el, v) => { const i = q(el, 'cch-input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; await act(async () => { set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); }); };
+const type = async (el, v) => { const i = q(el, 'cch-input'); const set = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set; await act(async () => { set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); }); };
 const P = { id: 'p1', agent: 'trigger', kind: 'cfg', key: 'chartWait', old: false, new: true, reason: 'WAIT charts lost 13%', effect: 'fewer bad entries', rollback: 'flip the same switch back', status: 'pending' };
 
 test('💬 chat: three modes, a normal-language answer with provider · model · latency · tokens, Clear — and only this panel is patched', async () => {

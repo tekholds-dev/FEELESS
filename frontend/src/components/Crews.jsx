@@ -1,3 +1,4 @@
+import { ChatComposer, ChatInput, ChatSend } from './chat/ChatKit';
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
@@ -77,7 +78,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows,
       {tab === 'card' && <CardStudio mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} preview={d => { const r = rows.find(x => x.id === mine.id) || { id: mine.id, name: mine.name, tag: mine.tag, members: mine.members.length, seats: mine.seats, active: mine.vitals?.active || 0, pct: null, badge: mine.badge }; return <CrewCard3D r={{ ...r, card: d }} place={1} />; }} />}
       {tab === 'badge' && <CrestForge mine={mine} owner={owner} addr={addr} sess={sess} costWord={costText(q, 'badge')} act={act} busy={busy} />}
       {tab === 'board' && <>
-        <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
+        <ChatComposer onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }} field={<ChatInput placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" />} action={<ChatSend aria-label="Post" isDisabled={!txt.trim() || !!busy} />} />
         {!roots.length && <p className="m-dim crw-hint">The board is quiet. Drop a play, a lesson or a call — members only.</p>}
         <ul className="crw-posts">{roots.map((p, i) => <li key={p.id} style={{ '--i': i }}><b>{p.name}</b><small>{new Date(p.at * 1000).toLocaleString()}</small><p>{p.text}</p>
           {kids(p.id).map(k => <div key={k.id} className="crw-reply"><b>{k.name}</b> {k.text}</div>)}

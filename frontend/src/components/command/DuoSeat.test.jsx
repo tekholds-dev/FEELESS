@@ -125,9 +125,9 @@ test('💬 a coin on the card has its own room, and its chime-in names that coin
   act(() => { el.querySelector('[data-testid="duo-coin-ELON"]').click(); });
   expect(el.textContent).toMatch(/ELON buyers strong/);
   const inp = el.querySelector('[data-testid="duo-say"]');
-  const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
   act(() => { set.call(inp, 'hold elon'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
-  act(() => { el.querySelector('.dso-say').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  act(() => { el.querySelector('.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(sent[0]).toEqual({ comment: 'hold elon', mint: 'eM' });
   act(() => root.unmount());
 });

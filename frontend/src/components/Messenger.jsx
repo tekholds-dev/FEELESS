@@ -1,7 +1,7 @@
 import { ChatBubble } from './ChatBubble';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Send } from 'lucide-react';
+import { ChatComposer, ChatInput, ChatSend, ChatSettings } from './chat/ChatKit';
 import { MessageCircle, Settings2 } from '../lib/lucide3d';
 import { toast } from 'sonner';
 import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './ChatFx';
@@ -76,10 +76,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
       <span className="msx-title"><b>{title}</b><small>{withPeer ? 'private · end to end between two wallets' : `${(threads || []).length} conversations`}</small></span>
       {withPeer ? <button type="button" className={`msx-ic ${(look.pinned || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('pinned', withPeer)} aria-label="Pin this chat" data-tip="Pin to the top"><Ic3 e="📌" /></button> : null}
       {withPeer ? <button type="button" className={`msx-ic ${(look.muted || []).includes(withPeer) ? 'on' : ''}`} onClick={() => toggle('muted', withPeer)} aria-label="Mute this chat" data-tip="Mute (moves to Muted)"><Ic3 e="🔕" /></button> : null}
-      <button type="button" className={`msx-ic ${gear ? 'on' : ''}`} onClick={() => setGear(g => !g)} aria-label="Inbox settings" aria-expanded={gear} data-testid="dm-gear"><Settings2 size={15} /></button>
-      <button type="button" className="msx-x" onClick={onClose} aria-label="Close" data-testid="dm-close">×</button>
-    </header>
-    {gear ? <div className="msx-gear" data-testid="dm-settings">
+      <ChatSettings open={gear} onOpen={setGear} testid="dm-gear" panelTestid="dm-settings" label="Inbox settings" placement="bottom end" icon={<Settings2 size={15} />}>
       <div className="msx-gr"><span>THEME</span><div className="msx-seg">{DM_THEMES.map(([k, l]) => <button key={k} type="button" className={look.theme === k ? 'on' : ''} onClick={() => setLook({ theme: k })} data-testid={`dm-theme-${k}`}><i className={`msx-sw msx-t-${k}`} />{l}</button>)}</div></div>
       <div className="msx-gr"><span>BUBBLES</span><div className="msx-seg">{DM_BUBBLES.map(([k, l]) => <button key={k} type="button" className={look.bubble === k ? 'on' : ''} onClick={() => setLook({ bubble: k })}>{l}</button>)}</div>
         <span>TEXT</span><div className="msx-seg">{DM_SIZES.map(([k, l]) => <button key={k} type="button" className={look.size === k ? 'on' : ''} onClick={() => setLook({ size: k })}>{l}</button>)}</div></div>
@@ -88,7 +85,9 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
       {policy ? <div className="msx-gr"><span>WHO CAN MESSAGE ME</span><div className="msx-seg">{[['everyone', 'Everyone'], ['requests', 'Requests first'], ['nobody', 'Nobody']].map(([k, l]) => <button key={k} type="button" className={policy === k ? 'on' : ''} onClick={() => prefs({ policy: k })}>{l}</button>)}</div></div> : null}
       <div className="msx-gr msx-motion"><span>MOTION · behind your chats</span><ChatThemePicker prefs={cprefs} setPrefs={setCprefs} room="inbox" feeUsd={feeUsd} unlocked={perkBgs} /></div>
       <small className="msx-gnote">Looks and filters live in this browser. Your messages stay between the two wallets.</small>
-    </div> : null}
+      </ChatSettings>
+      <button type="button" className="msx-x" onClick={onClose} aria-label="Close" data-testid="dm-close">×</button>
+    </header>
     {!wallet || !session ? <div className="msx-gate"><MessageCircle size={28} /><p>{wallet ? 'Sign once to chat privately (free, 7 days).' : 'Connect a wallet to chat.'}</p>
       <button type="button" className="m-btn m-go" onClick={start}>{wallet ? 'Sign in' : 'Connect'}</button></div>
       : <div className="msx-body">
@@ -109,11 +108,9 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
           {pending ? <div className="msx-request"><span>@{peer?.handle} wants to message you.</span><button type="button" className="m-btn m-go"
             onClick={() => prefs({ accept: withPeer }).then(() => setThreads(ts => ts.map(t => (t.peer === withPeer ? { ...t, request: false } : t))))}>Accept</button></div> : null}
           <div className="msx-quick">{QUICK.map(w => <button key={w} type="button" onClick={() => quick(w)}>{w}</button>)}</div>
-          <form className="msx-compose" onSubmit={submit}>
-            <textarea ref={box} rows={1} value={text} maxLength={1000} onChange={e => setText(e.target.value)} placeholder="Aa" aria-label="Message"
-              onKeyDown={e => { if (look.enter && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }} data-testid="dm-input" />
-            <button type="submit" className="msx-send" disabled={!text.trim()} aria-label="Send" data-testid="dm-send"><Send size={17} /></button>
-          </form>
+          <ChatComposer className="msx-compose" onSubmit={submit}
+            field={<ChatInput ref={box} value={text} maxLength={1000} onChange={e => setText(e.target.value)} enterSends={!!look.enter} placeholder="Aa" aria-label="Message" data-testid="dm-input" />}
+            action={<ChatSend isDisabled={!text.trim()} data-testid="dm-send" />} />
         </div> : mine ? <div className="msx-pick"><MessageCircle size={34} /><p>Pick a chat on the left.</p></div> : null}
       </div>}
   </section>, document.body);

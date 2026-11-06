@@ -2,6 +2,7 @@
 // Agents, the creator's mini cat (🧠 Brain tab) and a full-window pop-out (⤢). Its own state: an answer patches THIS panel only — never the
 // agent hub, the chart, the stream or the P&L. It LEARNS on the owner's tap (🧠 Remember → a lesson every model case reads) and FIXES
 // agents only on the owner's call (🛠 proposals → ✅ Approve). Modes: 💬 Chat · 🔎 Case review · 🛠 Fix agents.
+import { ChatComposer, ChatInput, ChatSend, ChatTool } from '../chat/ChatKit';
 import { AiPlayground } from './AiPlayground';
 import BrainCards from './BrainCards';
 import { AiActivity } from './AiActivity';
@@ -150,14 +151,14 @@ const Composer = memo(forwardRef(function Composer({ mode, busy, upl, isOwner, f
   const [txt, setTxt] = useState(''); const fileRef = useRef(null);
   useImperativeHandle(ref, () => ({ set: setTxt, get: () => txt }), [txt]);
   const send = e => { e?.preventDefault(); const v = txt; if (busy || (!String(v).trim() && mode !== 'case')) return; setTxt(''); onSend(v); };
-  return <form className="cch-form" onSubmit={send} autoComplete="off">
-    <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { onAttach(e.target.files?.[0]); e.target.value = ''; }} data-testid="cch-file" />
-    <button type="button" className="cch-ico cch-clip" onClick={() => fileRef.current?.click()} disabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</button>
-    <button type="button" className="cch-ico cch-clip" onClick={() => { const v = String(txt).trim(); if (v.length < 3) { toast.error('Describe the picture in the box first'); return; } setTxt(''); onDraw(v); }} disabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw"><Ic3 e="🎨" /></button>
-    <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
-      placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain… or set a model: “ossy context 16k, temp 0.6”'} />
-    <button type="button" className="cch-ico cch-qt" onClick={onQ} aria-pressed={qOn} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt"><Ic3 e="⚡" /></button>
-    <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>;
+  return <ChatComposer onSubmit={send} autoComplete="off"
+    field={<ChatInput value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
+      placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain… or set a model: “ossy context 16k, temp 0.6”'} />}
+    tools={<><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={e => { onAttach(e.target.files?.[0]); e.target.value = ''; }} data-testid="cch-file" />
+      <ChatTool onPress={() => fileRef.current?.click()} isDisabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</ChatTool>
+      <ChatTool onPress={() => { const v = String(txt).trim(); if (v.length < 3) { toast.error('Describe the picture in the box first'); return; } setTxt(''); onDraw(v); }} isDisabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw"><Ic3 e="🎨" /></ChatTool>
+      <ChatTool className={qOn ? 'is-on' : ''} onPress={onQ} aria-pressed={qOn} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt"><Ic3 e="⚡" /></ChatTool></>}
+    action={<ChatSend isDisabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send" />} />;
 }));
 
 export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full', extras = [], onClose = null, lockProvider = null, title = null }) {

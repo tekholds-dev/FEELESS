@@ -22,7 +22,7 @@
 .ck-msg.is-you { justify-self: end; border-radius: 16px 16px 5px 16px; background: linear-gradient(160deg, #0f4a35, #0a2a20); border-color: #45e48655; }
 .ck-msg-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; } .ck-msg-h b { color: #fff; font: 800 11px var(--f-ui); } .ck-msg-h em { font: 800 10px var(--f-mono); font-style: normal; }
 .ck-msg-h small { margin-left: auto; color: #8f84ad; font: 600 9.5px var(--f-mono); } .ck-msg p { margin: 3px 0 0; color: #ece4ff; font: 500 12.5px/1.45 var(--f-ui); overflow-wrap: anywhere; }
-.ck-say { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .ck-say .m-input, .ck-say .m-btn { min-height: 40px; }
+
 .ck-empty { color: #a99bc8; font-size: 12px; padding: 10px; text-align: center; list-style: none; }
 /* 📁 the log */
 .ck-log { display: grid; gap: 8px; max-width: 1110px; width: 100%; margin-inline: auto; padding: 12px; border-radius: 18px; border: 1px solid #ffffff12; background: #0a0614cc; }

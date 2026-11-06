@@ -1,3 +1,4 @@
+import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import { ShaderWall } from './DeskShell';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStickToBottom } from '../../lib/useStickToBottom';
@@ -124,9 +125,9 @@ export function TradeChat({ cat, onSend, busy }) {
       <span className="ck-msg-h"><b>{r.who}</b>{r.word ? <em className={`is-${WORD_TONE[r.word] || 'mute'}`}>{r.word}{r.sym ? ` $${r.sym}` : ''}</em> : null}<small>{r.at ? `${ago(r.at)}` : ''}</small></span>
       {r.text ? <p>{r.text}</p> : null}</li>) : <li className="ck-empty">Its first call lands here — both brains talk in bubbles, you chime in below.</li>}</ol>
     {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest call" data-testid="ck-newmsg">↓ {unseen} new</button> : null}
-    {onSend ? <form className="ck-say" onSubmit={async e => { e.preventDefault(); if (t.trim()) { toBottom(); if (await onSend?.(t.trim())) setT(''); } }}>
-      <input className="m-input" maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder="Chime in — advice both brains read, never an order" data-testid="ck-chime" />
-      <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()}>Send</button></form> : null}
+    {onSend ? <ChatComposer onSubmit={async e => { e.preventDefault(); if (t.trim()) { toBottom(); if (await onSend?.(t.trim())) setT(''); } }}
+      field={<ChatInput maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder="Chime in — advice both brains read, never an order" data-testid="ck-chime" />}
+      action={<ChatSend isDisabled={busy || !t.trim()} />} /> : null}
   </div>;
 }
 

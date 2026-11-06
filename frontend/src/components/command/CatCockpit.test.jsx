@@ -30,7 +30,7 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   const el = await mount(<><MindVitals cat={CAT} model="a/ossy" i={0} live /><TradeChat cat={CAT} onSend={send} /></>);
   expect(el.textContent).toContain('BRAIN A'); expect(el.querySelectorAll('.ck-msg')).toHaveLength(3);
   await act(async () => { const i = el.querySelector('[data-testid="ck-chime"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'hold longer'); i.dispatchEvent(new Event('input', { bubbles: true })); });
-  await act(async () => { el.querySelector('.ck-say').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  await act(async () => { el.querySelector('.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(send).toHaveBeenCalledWith('hold longer');
   localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'globe', acc: '#b388ff' });
 });

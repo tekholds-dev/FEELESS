@@ -178,7 +178,7 @@ body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-
 .dsb-v:focus-visible { outline: 2px solid #45e486; } .dsb-v.on { background: rgba(21, 209, 106, .22); border-color: #15d16a; color: #eafff2; } .dsb-v.is-dn.on { background: rgba(255, 143, 163, .2); border-color: #ff8fa3; }
 .dsb-by { font-style: normal; opacity: .8; } .dsb-ck { font-style: normal; padding: 0 4px; border-radius: 6px; border: 1px dashed rgba(255, 255, 255, .15); }
 .dsb-ck.is-ok { border: 1px solid #15d16a; color: #45e486; } .dsb-ck.is-bad { border: 1px solid #ff8fa3; color: #ff8fa3; } .dsb-ck.is-draw { border-style: solid; }
-.dso-say { display: flex; gap: 6px; } .dso-say .m-input { flex: 1; min-width: 0; min-height: 30px; font: 500 11px var(--m-sans, system-ui); } .dso-say .m-btn { min-height: 30px; }
+
 @media (prefers-reduced-motion: reduce) { .dsb { animation: none; } } body.fx-lite .dsb { animation: none; }
 body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dsb-msg { color: #1d2321; }
 @media (max-width: 640px) { .dsb { max-width: 92%; } }

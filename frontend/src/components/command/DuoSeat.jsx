@@ -1,6 +1,7 @@
 // 🔁 OSSY ⚔ G4 — the tag-team seat (owner, 2026-10-16): the two models take turns deciding ONE seat, a call a minute; when neither
 // answers, the agents decide (🤝 backup). Drawn from the Agents payload's `duo` block (no fetch of its own). Every number on the board is
 // from their real calls: answered vs missed, buys, latency, confidence, the open seat, each one's own closed-trade record.
+import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
 import { hubApply } from '../../lib/agentHub';
@@ -212,9 +213,9 @@ function TradeRoom({ duo, call }) {
     {past || between || coin ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
-    {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim(), ...(coin ? { mint: coin.mint } : {}) }); setTxt(''); } }}>
-      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute · say “sell” = sold now · “sell half” · tp 80 · sl 15` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
-      <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
+    {call && !roomM ? <ChatComposer onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim(), ...(coin ? { mint: coin.mint } : {}) }); setTxt(''); } }}
+      field={<ChatInput value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute · say “sell” = sold now · “sell half” · tp 80 · sl 15` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />}
+      action={<ChatSend isDisabled={busy || !txt.trim()} />} /> : null}</>}</div>;
 }
 
 // 🔁 STRICT TURNS (owner, 2026-10-23: "ossy and g4 not taking turns?"): off = one real trade each, always; on = the streak brake (3 straight

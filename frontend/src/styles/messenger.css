@@ -37,11 +37,11 @@
 .msx-quick { flex: none; display: flex; gap: 6px; padding: 6px 12px 0; overflow-x: auto; scrollbar-width: none; } .msx-quick::-webkit-scrollbar { display: none; }
 .msx-quick button { flex: none; padding: 4px 11px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .3); background: rgba(21, 209, 106, .06); color: #c9f3dc; font-size: 12px; cursor: pointer; transition: background .15s, transform .15s; }
 .msx-quick button:hover, .msx-quick button:focus-visible { background: rgba(21, 209, 106, .18); outline: none; } .msx-quick button:active { transform: scale(.95); }
-.msx-compose { flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 8px 12px 12px; }
-.msx-compose textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; border-radius: 20px; border: 1px solid transparent; background: rgba(255, 255, 255, .07); color: #f2fff7; padding: 9px 14px; font: 14px/1.35 var(--m-sans, system-ui); }
-.msx-compose textarea:focus { outline: none; border-color: #15d16a; }
-.msx-send { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; display: grid; place-items: center; background: #15d16a; color: #0a0d0c; cursor: pointer; transition: transform .15s, opacity .15s; }
-.msx-send:hover:not(:disabled) { transform: scale(1.06); } .msx-send:active:not(:disabled) { transform: scale(.94); } .msx-send:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .msx-send:disabled { opacity: .35; cursor: default; }
+
+
+
+
+
 .msx-pick, .msx-gate { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #89928e; padding: 20px; text-align: center; }
 .msx-empty { margin: 10px; text-align: center; color: #89928e; font-size: 12.5px; }
 @keyframes msxIn { from { opacity: 0; transform: translateY(14px) scale(.98); } }
@@ -50,7 +50,7 @@ body.fx-lite .msx, body.fx-lite .msx-grp { animation: none; }
 @media (prefers-reduced-motion: reduce) { .msx, .msx-grp { animation: none; } }
 body.theme-day .msx { background: #f4faf6; border-color: rgba(10, 138, 69, .3); } body.theme-day .msx-head { background: #eaf5ee; }
 body.theme-day .msx-title b, body.theme-day .msx-rowtx b { color: #181d1b; } body.theme-day .msx-bub { background: #e4efe8; color: #181d1b; }
-body.theme-day .msx-compose textarea, body.theme-day .msx-search { background: #e4efe8; color: #181d1b; }
+body.theme-day .msx-search { background: #e4efe8; color: #181d1b; }
 @media (max-width: 760px) {
   .msx { right: 8px; left: 8px; bottom: 8px; width: auto; height: calc(100vh - 80px); }
   .msx.has-list .msx-body { grid-template-columns: minmax(0, 1fr); }
@@ -61,7 +61,7 @@ body.theme-day .msx-compose textarea, body.theme-day .msx-search { background: #
 .msx-ic { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .1); background: #121715; color: #cfeedd; cursor: pointer; font-size: 13px; transition: transform .12s, border-color .15s, background .15s; }
 .msx-ic:hover { border-color: #45e486; transform: translateY(-1px); } .msx-ic:active { transform: scale(.94); } .msx-ic:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
 .msx-ic.on { background: #15d16a; color: #0b0d0c; border-color: #15d16a; }
-.msx-gear { display: grid; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); background: #0d100f; animation: msxGear .18s ease both; }
+
 .msx-gr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .msx-gr > span { font: 700 9.5px 'JetBrains Mono', monospace; letter-spacing: 1.2px; color: #89928e; min-width: 64px; }
 .msx-seg { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -91,7 +91,8 @@ body.theme-day .msx-compose textarea, body.theme-day .msx-search { background: #
 .msx-b-glass .msx-grp .msx-bub { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); color: #eafff3; }
 .msx-b-glass .msx-grp.me .msx-bub { background: rgba(21, 209, 106, .22); }
 .msx-s-s .msx-bub { font-size: 12.5px; } .msx-s-l .msx-bub { font-size: 16px; }
-@keyframes msxGear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .msx-gear { animation: none; } .msx-seg button, .msx-ic { transition: none; } }
-body.theme-day .msx-gear { background: #f1f7f3; } body.theme-day .msx-seg button, body.theme-day .msx-ic { background: #fff; color: #1d4a30; border-color: #cfe3d6; }
+@media (prefers-reduced-motion: reduce) { .msx-seg button, .msx-ic { transition: none; } }
+ body.theme-day .msx-seg button, body.theme-day .msx-ic { background: #fff; color: #1d4a30; border-color: #cfe3d6; }
 body.theme-day .msx-tg { color: #1d4a30; }
+
+.msx-compose { flex: none; padding: 8px 12px 12px; --ckit-acc: #15d16a; }

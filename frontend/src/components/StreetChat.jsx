@@ -1,3 +1,4 @@
+import { ChatComposer, ChatInput, ChatSend } from './chat/ChatKit';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
@@ -235,7 +236,8 @@ export default function StreetChat({ city, name, addr, sess }) {
         onReact={react} onReply={x => { setReply(x); input.current?.focus(); }} onMod={mod} onAt={at} />)}
       {!lines.length ? <li className="st-nil">{d ? <>Dead quiet on {name}. Break the silence — your family crest rides with you.<span className="st-starters">{STARTERS.map((x, i) => <button key={x} type="button" style={{ '--i': i }} onClick={() => put(x)} data-testid={`st-starter-${i}`}>{x}</button>)}</span></> : 'Walking onto the block…'}</li> : null}
     </ol>
-    <form className="st-form" onSubmit={send}>
+    <ChatComposer className="st-form" onSubmit={send}
+      above={<>
       {(d?.typing || []).length ? <p className="st-typing" data-testid="st-typing"><i /><i /><i /><span>{d.typing.slice(0, 3).join(', ')}{d.typing.length > 3 ? ` +${d.typing.length - 3}` : ''} typing…</span></p> : null}
       {reply ? <p className="st-reply"><span>↩ replying to <b>{reply.name}</b>: {String(reply.text).slice(0, 60)}</span><button type="button" onClick={() => setReply(null)} aria-label="Cancel the reply">✕</button></p> : null}
       <div className="st-tools m-seg" role="group" aria-label="Street tools">
@@ -248,9 +250,8 @@ export default function StreetChat({ city, name, addr, sess }) {
         onClick={() => slowSet(s2)} data-tip={s2 ? `One line every ${s2}s per wallet` : 'Lift slow mode'} data-testid={`st-slow-${s2}`}>{s2 ? `${s2}s` : 'Off'}</button>)}</div> : null}
       {tool === 'at' ? <div className="st-atpick">{(d?.here || []).length ? d.here.slice(0, 12).map(h => <button key={h.address} type="button" onClick={() => { at(h.name); setTool(null); }}>{h.fam ? `[${h.fam.tag}] ` : ''}{h.name}</button>) : <small>No one else on the block right now.</small>}</div> : null}
       {tool === 'call' ? <p className="st-hint">Paste the coin's contract after 📞 CALL — FEELESS pins its price now and keeps the receipt.</p> : null}
-      <div className="st-send"><input ref={input} className="m-input" value={t} maxLength={280} onChange={e => typed(e.target.value)} placeholder={`Talk on ${name}…`} aria-label={`Chat on ${name}`} data-testid="st-input" />
-        <button type="submit" className={`m-btn m-go st-go ${coolLeft ? 'is-cool' : ''}`} disabled={busy || !t.trim() || coolLeft > 0} data-tip={coolLeft ? `🐢 Slow mode — your next line in ${coolLeft}s` : 'Post to this street'} data-testid="st-send">
-          {coolLeft ? <><span className="st-cool" style={{ '--s': `${coolDur.current || coolLeft}s` }} key={cool} />🐢 {coolLeft}s</> : busy ? '…' : 'SEND'}</button></div>
-    </form>
+      </>}
+      field={<ChatInput ref={input} value={t} maxLength={280} onChange={e => typed(e.target.value)} placeholder={`Talk on ${name}…`} aria-label={`Chat on ${name}`} data-testid="st-input" />}
+      action={coolLeft ? <button type="submit" className={`m-btn m-go st-go ${coolLeft ? 'is-cool' : ''}`} disabled={busy || !t.trim() || coolLeft > 0} data-tip={coolLeft ? `🐢 Slow mode — your next line in ${coolLeft}s` : 'Post to this street'} data-testid="st-send">{coolLeft ? <><span className="st-cool" style={{ '--s': `${coolDur.current || coolLeft}s` }} key={cool} />🐢 {coolLeft}s</> : busy ? '…' : 'SEND'}</button> : <ChatSend isDisabled={busy || !t.trim()} data-tip="Post to this street" data-testid="st-send" />} />
   </section>;
 }

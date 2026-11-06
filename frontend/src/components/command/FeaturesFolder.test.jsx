@@ -108,3 +108,23 @@ test('a PoStatic shows its steps, waits on its plan, and approval is what builds
   expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('It builds');
   await act(async () => root.unmount());
 });
+
+test('Discover keeps the kit on screen, caps picks at 3, and lets the agent choose', async () => {
+  const { KitPick } = require('./FeaturesFolder');
+  const kits = ['heroui', 'shadcn', 'magicui', 'motion'].map(id => ({ id, name: id, what: 'x', site: 'https://x.y', license: 'MIT', added: id === 'heroui', vitals: { items: 2 } }));
+  const state = { kits, picks: [], mode: 'auto', max: 3 }; const calls = [];
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'kit_pick') { state.picks = b.text ? b.text.split(',') : []; state.mode = b.job; } return { ...state }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<KitPick cat={{ id: 'c' }} work={fake} />); });
+  expect(el.querySelector('[data-testid="kit-auto"]')).not.toBeNull();
+  await act(async () => { el.querySelector('[data-testid="kit-discover"]').click(); });
+  for (const id of ['heroui', 'shadcn', 'magicui']) { await act(async () => { el.querySelector(`[data-testid="kit-pick-${id}"]`).click(); }); }
+  expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'heroui,shadcn,magicui', job: 'mine' });
+  expect(el.querySelector('[data-testid="kit-on-heroui"]')).not.toBeNull();
+  expect(el.querySelector('[data-testid="kit-pick-motion"]').disabled).toBe(true);
+  await act(async () => { el.querySelector('[data-testid="kit-pick-heroui"]').click(); });
+  expect(el.querySelector('[data-testid="kit-pick"]')).not.toBeNull(); expect(el.querySelector('[data-testid="kit-on-heroui"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="kit-mode-auto"]').click(); });
+  expect(calls.at(-1)).toMatchObject({ job: 'auto' }); expect(el.querySelector('[data-testid="kit-auto"]')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});
