@@ -163,6 +163,20 @@ export function PyAgentsFolder({ call }) {
   </div></Fx>;
 }
 
+// 🗂 One folder holding several jobs: a tab each, and only the open one runs.
+export function FolderTabs({ tabs, at, setAt, id }) {
+  const [own, setOwn] = useState(tabs[0]?.[0]); const now = at ?? own; const pick = setAt || setOwn; const open = tabs.find(t => t[0] === now) || tabs[0];
+  return <div className="ofd-tabbed" data-testid={`ftabs-${id}`}><div className="m-seg ofd-tabs" role="tablist" aria-label={id}>{tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={open[0] === k} className={open[0] === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ftab-${id}-${k}`}>{l}</button>)}</div><div key={open[0]} role="tabpanel">{open[2]}</div></div>;
+}
+// 🧹 The AGENTS desktop, by job (owner 2026-11-06: "some folders could be put in other folders smartly"). Nothing is gone: each old folder is a tab of the one it belongs with.
+export function groupApps(agentApps = [], ownerApps = []) {
+  const by = Object.fromEntries([...agentApps, ...ownerApps].map(a => [a.k, a])); const used = new Set();
+  const folder = (k, ic, label, tip, parts) => { const tabs = parts.filter(([key]) => by[key]).map(([key, word]) => { used.add(key); return [key, word, by[key].body]; }); return tabs.length ? { k, ic, label, tip, body: <FolderTabs tabs={tabs} id={k} /> } : null; };
+  const out = [by['own-grow'], folder('own-collective', '💎', 'Collective', 'Where it stands, what members see, and its limits', [['collective', 'HQ'], ['colony', 'What members see'], ['own-safety', 'Safety']]), folder('own-proofs', '🏆', 'Proofs', "Every agent's proofs, the sealed record, and the five that check them", [['pow', 'PoW folders'], ['stash', 'Stash'], ['own-py', 'Py agents']]), folder('own-setup', '⚙', 'Setup', 'Prompts, keys and who can buy an agent', [['prompts', 'Prompts'], ['ready', 'Providers'], ['slots', 'Agent slots']])];
+  used.add('own-grow');
+  return [...out.filter(Boolean), ...[...agentApps, ...ownerApps].filter(a => !used.has(a.k))];
+}
+
 // One ledger read for every owner folder. Adding a pool makes its folder on the next read.
 export function useOwnerFolders(call, on = true) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [c, setC] = useState(null);
@@ -170,12 +184,10 @@ export function useOwnerFolders(call, on = true) {
   useEffect(() => { if (d?.cfg) setC(d.cfg); }, [d?.cfg]);
   const save = useCallback(async (cfg, extra) => { setBusy(true); setErr(''); try { setD(await call('/admin/collective', { method: 'POST', body: JSON.stringify(cfg ? { cfg } : extra) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } }, [call]);
   const wrap = body => <>{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}{d && c ? body : <p className="fch-nil">reading the ledger…</p>}</>;
-  const openPay = useCallback(() => window.dispatchEvent(new CustomEvent('feeless:open-win', { detail: 'own-pay' })), []);
+  const [moneyTab, setMoneyTab] = useState('money'); const openPay = useCallback(() => setMoneyTab('pay'), []);
   if (!on) return [];
   return [
-    { k: 'own-grow', ic: '💰', label: 'Money', tip: 'Owner only: what is really here, every way it could work, and what the same dollars would have done', body: wrap(d ? <GrowFolder d={d} save={save} busy={busy} call={call} extra={<div className="ofd"><ColonyPot call={call} /><Pools d={d} save={save} busy={busy} /></div>} /> : null) },
-    { k: 'own-pay', ic: '💸', label: 'Pay + reward', tip: 'Owner only: pay agents sooner, or give a bonus', body: wrap(d ? <PayFolder d={d} save={save} busy={busy} /> : null) },
-    { k: 'own-fallback', ic: '🛟', label: 'Fallbacks', tip: 'Owner only: what can pay agents when pools do not', body: wrap(d ? <FallbackFolder d={d} onPay={openPay} /> : null) },
+    { k: 'own-grow', ic: '💰', label: 'Money', tip: 'Owner only: what is really here, every way it could work, what the same dollars did, and how agents get paid', body: <FolderTabs id="own-grow" at={moneyTab} setAt={setMoneyTab} tabs={[['money', 'Money', wrap(d ? <GrowFolder d={d} save={save} busy={busy} call={call} extra={<div className="ofd"><ColonyPot call={call} /><Pools d={d} save={save} busy={busy} /></div>} /> : null)], ['pay', 'Pay + reward', wrap(d ? <PayFolder d={d} save={save} busy={busy} /> : null)], ['fallback', 'Fallbacks', wrap(d ? <FallbackFolder d={d} onPay={openPay} /> : null)]]} /> },
     { k: 'own-safety', ic: '🛡', label: 'Safety', tip: 'Owner only: stop payouts, the limits, and what is not built yet', body: wrap(d && c ? <SafetyFolder d={d} save={save} busy={busy} c={c} setC={setC} /> : null) },
     { k: 'own-py', ic: '🐍', label: 'Py agents', tip: 'Owner only: the five validators, their real record, and what OSSY and G4 propose', body: <PyAgentsFolder call={call} /> },
   ];

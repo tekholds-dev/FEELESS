@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, GrowFolder, SafetyFolder, curveOf, payOf, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
+import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, FolderTabs, GrowFolder, SafetyFolder, groupApps, curveOf, payOf, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./HiveBoard', () => ({ ColonyPot: () => <div data-testid="pot" /> }));
@@ -62,7 +62,7 @@ test('the folders appear only when asked, and each listed pool adds one', async 
   let apps = null; const call = jest.fn(async () => D); const T = ({ on }) => { apps = useOwnerFolders(call, on); return null; };
   const { root } = await mount(<T on={false} />); expect(apps).toEqual([]); expect(call).not.toHaveBeenCalled();
   await act(async () => { root.render(<T on />); }); await act(async () => {});
-  expect(apps.map(a => a.k)).toEqual(['own-grow', 'own-pay', 'own-fallback', 'own-safety', 'own-py']);
+  expect(apps.map(a => a.k)).toEqual(['own-grow', 'own-safety', 'own-py']);
   await act(async () => root.unmount());
 });
 
@@ -84,4 +84,14 @@ test('the py agents folder shows real records and a proposal changes nothing but
   expect(q('ofd-seat-tally').textContent).toContain('3 of 4 real sends passed'); await click(q('ofd-py-ossy')); await act(async () => {});
   expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ who: 'ossy' }); expect(q('ofd-py-run').textContent).toContain('Do this');
   await act(async () => root.unmount());
+});
+
+test('the agents desktop is four folders by job, every old folder a tab, and only the open tab runs', async () => {
+  const app = k => ({ k, ic: 'x', label: k, body: <p data-testid={`body-${k}`}>{k}</p> });
+  const out = groupApps(['colony', 'collective', 'pow', 'prompts', 'stash', 'ready', 'slots'].map(app), ['own-grow', 'own-safety', 'own-py', 'own-pool-x'].map(app));
+  expect(out.map(a => a.k)).toEqual(['own-grow', 'own-collective', 'own-proofs', 'own-setup', 'own-pool-x']);
+  const { q, root } = await mount(out[2].body);
+  expect(q('body-pow')).not.toBeNull(); expect(q('body-stash')).toBeNull(); await click(q('ftab-own-proofs-own-py')); expect(q('body-own-py')).not.toBeNull(); expect(q('body-pow')).toBeNull();
+  await act(async () => root.unmount());
+  expect(groupApps([app('pow')], []).map(a => a.k)).toEqual(['own-proofs']);   // before the owner's folders load, what is there still shows
 });

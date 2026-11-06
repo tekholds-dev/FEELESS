@@ -10,7 +10,7 @@ import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, PowEngine } from './HiveBoard';
 const CollectiveLandingLazy = React.lazy(() => import('./CollectiveLanding').then(m => ({ default: m.CollectiveLanding })));
 import { CollectiveOwner } from './CollectiveOwner';
-import { useOwnerFolders } from './OwnerFolders';
+import { groupApps, useOwnerFolders } from './OwnerFolders';
 import { Tabs } from '@heroui/react';
 import { AgentDesk } from './AgentDesk';
 import '../../styles/collectiveSetup.css';
@@ -131,7 +131,7 @@ function OwnerDesk({ cat, trades, feeApps, agentApps, call }) {
     {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['💎', '🏊', '💸', '🛟'], { ...agentsGlass(flow) })}
   </div>
     {open === 'fee' ? <AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /> : null}
-    {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...agentApps, ...ownerApps, { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
+    {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...groupApps(agentApps, ownerApps), { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
 }
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
