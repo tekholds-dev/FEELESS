@@ -1566,9 +1566,14 @@ async def _git_op(cat, p):
     if collective and (cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or ''))):
         raise HTTPException(403, 'Only the owner runs the Collective repo.')
     try:
+        if p.op == 'git_read':   # 📄 one file of its repo, to read. A sealed or picture file says so
+            files_, _c = await asyncio.to_thread(_git_files, cat, collective); raw_ = files_.get(str(p.job or ''))
+            if raw_ is None:
+                raise ValueError('No such file.')
+            return {'path': p.job, 'bytes': len(raw_), 'text': None if str(p.job).endswith(('.seal', '.webp', '.jpg', '.png')) else raw_[:60000].decode('utf-8', 'replace')}
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
-            return {'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in files.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None}
+            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in files.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None}
         if p.op == 'git_connect':
             if p.text:
                 _ck.put(cat, 'github', p.text, data_dir=DATA_DIR)
@@ -6283,9 +6288,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Pick one of its PoEco books.')
         f_['sent'] = round(time.time()); keep_owned(cat); _save(store)
         return {'receipt': _eco.receipt(f_), 'poeFolders': cat['poeFolders'][::-1]}
-    if p.op in ('git_state', 'git_connect', 'git_push', 'git_auto', 'git_drop'):
+    if p.op in ('git_state', 'git_read', 'git_connect', 'git_push', 'git_auto', 'git_drop'):
         out_ = await _git_op(cat, p)
-        if p.op != 'git_state':
+        if p.op not in ('git_state', 'git_read'):
             keep_owned(cat); _save(store)
         return out_
     if p.op == 'desk_seat':   # 🎩 Sicario's only, its owner only: an agreed PoW goes to the real card's model seat
@@ -6605,7 +6610,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_pick':
-            have_ = {k['id'] for k in _kits.rows(KITS_DIR)}; b_['kits'] = [x for x in str(p.text or '').split(',') if x in have_][:6]; keep_owned(cat); _save(store)
+            have_ = {k['id'] for k in _kits.rows(KITS_DIR)}; b_['kits'] = [x for x in str(p.text or '').split(',') if x in have_][:_kits.MAX_PICKS]; keep_owned(cat); _save(store)
         return {'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'picks': b_.get('kits') or []}
     if p.op in ('kit_catalog', 'kit_add', 'kit_drop', 'kit_read', 'kit_edit'):   # 🧰 the library: the owner only, on Fee
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):

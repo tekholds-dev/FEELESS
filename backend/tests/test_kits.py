@@ -32,3 +32,9 @@ def test_picks_come_first_the_rest_fill_and_the_prompt_stays_small(tmp_path):
     t = ck.line(tmp_path, 'pos', ['c'])
     assert t.index('[C]') < t.index('[A]') and 'Use C first' in t and len(t) < ck.PROMPT_CHARS + 400
     assert ck.line(tmp_path, 'pow') == ''
+
+
+def test_vitals_come_from_the_guide_itself():
+    v = ck.vitals('# Docs\n## Buttons\n- [Button](u): x\n- [Card](u)\n- [Button](u)\n')
+    assert v['items'] == 3 and v['sections'] == ['Docs', 'Buttons'] and v['sample'] == ['Button', 'Card']
+    assert ck.vitals('')['items'] == 0 and ck.MAX_PICKS == 2

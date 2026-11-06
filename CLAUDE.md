@@ -24,6 +24,7 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 7. Day theme, 360 px phone, fx-lite, reduced motion — every new surface.
 
 ## How to work (save usage)
+- 🧩 New component UI: look at HeroUI first (owner 2026-11-05, heroui.com/llms.txt), then the existing m-* presets. Every coding agent gets it the same way through the kit library.
 - 🏆 The owner's asks are BASIC on purpose (owner 2026-10-30): build the corporate-level version. Before any UI, look at how the best real products do it
   (chat boxes, settings popovers, drawers, dashboards) and match that pattern with our existing m-* presets and sheets — never invent from no reference.
   Think one step ahead (e.g. settings go behind a ⚙ popover in the chat bar, not a loose panel). No new code or CSS lines unless truly needed.

@@ -7,14 +7,15 @@ import time
 from pathlib import Path
 
 CATALOG = {
+    'heroui': {'name': 'HeroUI', 'what': 'Polished React components', 'url': 'https://www.heroui.com/llms.txt', 'site': 'https://www.heroui.com', 'license': 'MIT', 'kinds': ['pos']},
     'shadcn': {'name': 'shadcn/ui', 'what': 'Components you copy in', 'url': 'https://ui.shadcn.com/llms.txt', 'site': 'https://ui.shadcn.com', 'license': 'MIT', 'kinds': ['pos']},
     'magicui': {'name': 'Magic UI', 'what': 'Animated landing page components', 'url': 'https://magicui.design/llms.txt', 'site': 'https://magicui.design', 'license': 'MIT', 'kinds': ['pos', 'poc']},
     'motion': {'name': 'Motion', 'what': 'Animation for React', 'url': 'https://motion.dev/llms.txt', 'site': 'https://motion.dev', 'license': 'MIT', 'kinds': ['pos']},
     'daisyui': {'name': 'daisyUI', 'what': 'Tailwind themes and components', 'url': 'https://daisyui.com/llms.txt', 'site': 'https://daisyui.com', 'license': 'MIT', 'kinds': ['pos']},
-    'heroui': {'name': 'HeroUI', 'what': 'Polished React components', 'url': 'https://www.heroui.com/llms.txt', 'site': 'https://www.heroui.com', 'license': 'MIT', 'kinds': ['pos']},
 }
 KINDS = ('pow', 'pop', 'pob', 'poc', 'pos')
 MAX_BYTES = 90_000
+MAX_PICKS = 2   # owner 2026-11-05: an agent reads up to 2 kits first
 PROMPT_CHARS = 5_000   # what one build can carry of all its kits: a local or cheap model cannot read a whole guide
 SECRET = re.compile(r'sk-or-[A-Za-z0-9_-]{20}|ghp_[A-Za-z0-9]{20}|github_pat_[A-Za-z0-9_]{20}|BEGIN (RSA|EC|PRIVATE)')
 
@@ -81,8 +82,14 @@ def drop(root, kid):
     _path(root, kid).unlink(missing_ok=True)
 
 
+def vitals(text):
+    """What a kit really holds, read from its own guide: its sections and what is listed in them. Pure."""
+    text = str(text or ''); links = re.findall(r'^\s*[-*]\s*\[([^\]]{1,60})\]\(', text, re.M); heads = [h.strip() for h in re.findall(r'^#{1,3}\s+(.{1,50})$', text, re.M)]
+    return {'items': len(links), 'sections': heads[:14], 'sample': list(dict.fromkeys(links))[:40], 'lines': text.count('\n') + 1}
+
+
 def view(k):
-    return {x: k.get(x) for x in ('id', 'name', 'what', 'site', 'license', 'kinds', 'at', 'edited')} | {'bytes': len(k.get('text') or '')}
+    return {x: k.get(x) for x in ('id', 'name', 'what', 'site', 'license', 'kinds', 'at', 'edited')} | {'bytes': len(k.get('text') or ''), 'vitals': vitals(k.get('text'))}
 
 
 def tree(root):
