@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { FallbackFolder, PayFolder, PoolDesk, SafetyFolder, SpotsFolder, useOwnerFolders } from './OwnerFolders';
+import { FallbackFolder, PayFolder, PoolDesk, SafetyFolder, SpotsFolder, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./HiveBoard', () => ({ ColonyPot: () => <div data-testid="pot" /> }));
@@ -29,8 +29,9 @@ test('fallbacks show what each can afford today and lead to paying', async () =>
 test('spots show real numbers, add a pool without moving money, and say it is not advice', async () => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [{ pool: 'New1', name: 'A-B', venue: 'orca', feePct: 1, tvl: 500000, vol24: 90000, rate: 0.001 }, { pool: 'Addr1', name: 'SOL-USDC', venue: 'meteora', feePct: 0.1, tvl: 900000, vol24: 90000, rate: 0.002 }] }) }));
   const save = jest.fn(); const { el, q, root } = await mount(<SpotsFolder d={D} save={save} busy={false} />); await act(async () => {});
-  expect(el.textContent).toContain('not advice'); expect(q('ofd-spot-New1').textContent).toContain('37%'); expect(q('ofd-spot-add-Addr1').disabled).toBe(true);
-  await click(q('ofd-spot-add-New1')); expect(save.mock.calls[0][1].poolAdd).toEqual({ platform: 'other', pair: 'A-B', address: 'New1' });
+  expect(el.textContent).toContain('not advice'); expect(q('ofd-spot-New1').textContent).toContain('37%'); expect(q('ofd-spot-add-Addr1').disabled).toBe(true); expect(q('ofd-process').textContent).toContain('BY HAND');
+  expect(q('ofd-band-nums-New1').textContent).toContain('CONCENTRATION'); await click(q('ofd-band-New1-5')); expect(q('ofd-band-nums-New1').textContent).toContain('IF PRICE MOVES 5%');
+  await click(q('ofd-spot-add-New1')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'other', pair: 'A-B', address: 'New1' });
   await act(async () => root.unmount());
 });
 test('safety has the stop, warns past a stop, and lists what is not built', async () => {
@@ -39,6 +40,7 @@ test('safety has the stop, warns past a stop, and lists what is not built', asyn
   await act(async () => root.unmount());
 });
 test('a pool has its own folder, and its numbers save', async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [] }) }));
   const save = jest.fn(); const { q, root } = await mount(<PoolDesk p={D.pools[0]} d={D} save={save} busy={false} />);
   await click(q('ofd-pool-on')); expect(save).toHaveBeenCalledWith(null, { poolSet: { id: 'p1', on: false } });
   await type(q('ofd-pool-sig'), 'sig1'); await click(q('ofd-pool-sig-go'));
@@ -49,5 +51,17 @@ test('the folders appear only when asked, and each listed pool adds one', async 
   const { root } = await mount(<T on={false} />); expect(apps).toEqual([]); expect(call).not.toHaveBeenCalled();
   await act(async () => { root.render(<T on />); }); await act(async () => {});
   expect(apps.map(a => a.k)).toEqual(['own-pools', 'own-spots', 'own-pay', 'own-fallback', 'own-safety', 'own-pool-p1']);
+  await act(async () => root.unmount());
+});
+
+test('the band maths', () => {
+  expect(bandBoost(5)).toBeGreaterThan(bandBoost(40)); expect(bandBoost(40)).toBeGreaterThan(1);
+  expect(moveLoss(0)).toBeCloseTo(0); expect(moveLoss(100)).toBeCloseTo(-0.0572, 3);
+  expect(bandState(100, 90, 110)).toBe('in'); expect(bandState(91, 90, 110)).toBe('edge'); expect(bandState(120, 90, 110)).toBe('out'); expect(bandState(100, 0, 0)).toBeNull();
+});
+test('a pool folder reads its live price against its band', async () => {
+  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [{ pool: 'Addr1', price: 150, tvl: 1, vol24: 1, fees24: 1 }] }) }));
+  const { q, root } = await mount(<PoolDesk p={{ ...D.pools[0], bandLow: 100, bandHigh: 120 }} d={D} save={jest.fn()} busy={false} />); await act(async () => {});
+  expect(q('ofd-range-state').textContent).toContain('OUT OF RANGE');
   await act(async () => root.unmount());
 });

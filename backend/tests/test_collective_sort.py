@@ -25,7 +25,7 @@ def test_only_idle_and_only_evidence():
     paths = ['README.md', 'kits/a.md', 'proofs/x.json', 'snapshots/b.webp', 'snapshots/c.webp']
     assert cs.next_path(paths, {}) == 'snapshots/b.webp'
     assert cs.next_path(paths, {'snapshots/c.webp': {'note': 'look'}}) == 'snapshots/c.webp'
-    done = {p: {'votes': {'ossy': {}, 'g4': {}}} for p in paths}
+    done = {p: {'votes': {'ossy': {'marks': []}, 'g4': {'marks': []}}} for p in paths}
     assert cs.next_path(paths, done) is None
 
 
@@ -64,3 +64,34 @@ def test_his_word_on_many_at_once():
     items = {'a': {'status': 'bad', 'by': 'minds'}}
     assert cs.bulk(items, ['a', 'b'], 'trash') == 2 and items['a']['status'] == 'trash' and items['a']['by'] == 'owner'
     assert cs.bulk(items, ['a'], 'nope') == 0
+
+
+def test_marks_from_a_mind_are_cleaned_and_joined():
+    t = '{"verdict":"good","why":"x","marks":[{"x":0.1,"y":0.1,"w":0.2,"h":0.2,"label":"Cap","why":"read it","grade":80},{"x":2,"y":0,"w":-1,"h":0},{"text":"holders 412","label":"Holders","grade":"60"},"junk"]}'
+    m = cs.parse_marks(t); assert len(m) == 2 or len(m) == 3
+    assert cs.parse_marks('no json') == [] and cs.parse_marks('{"marks":"nope"}') == []
+    a = cs.vote({}, 'ossy', 'good', '', marks=[{'x': .1, 'y': .1, 'w': .2, 'h': .2, 'label': 'Cap', 'why': 'a', 'grade': 80}]); b = cs.vote(a, 'g4', 'good', '', marks=[{'x': .11, 'y': .1, 'w': .2, 'h': .2, 'label': 'Cap', 'why': 'b', 'grade': 60}, {'text': 'holders', 'label': 'H', 'grade': 50}])
+    rows = cs.proposed(b); assert len(rows) == 2 and rows[0]['by'] == ['ossy', 'g4'] and rows[0]['grade'] == 70
+
+
+def test_approving_keeps_only_what_he_ticked_and_the_original_is_safe(tmp_path):
+    import io
+    from PIL import Image
+    buf = io.BytesIO(); Image.new('RGB', (200, 100), (5, 5, 5)).save(buf, 'PNG'); raw = buf.getvalue()
+    b = cs.vote(cs.vote({}, 'ossy', 'bad', '', marks=[{'x': .1, 'y': .1, 'w': .3, 'h': .3, 'label': 'A', 'grade': 90}]), 'g4', 'bad', '', marks=[{'x': .6, 'y': .6, 'w': .3, 'h': .3, 'label': 'B', 'grade': 10}])
+    done = cs.approve(b, {1}); assert [m['label'] for m in done['marks']] == ['B'] and done['status'] == 'good' and done['by'] == 'owner'
+    burned = cs.burn(raw, cs.approve(b, None)['marks']); assert burned != raw and Image.open(io.BytesIO(burned)).size == (200, 100)
+    assert Image.open(io.BytesIO(burned)).convert('RGB').getpixel((20, 10)) != (5, 5, 5)
+    cs.save_marked(tmp_path, 'snapshots/a.png', burned); files = {'snapshots/a.png': raw, 'b.json': b'{}'}; out = cs.with_marked(tmp_path, files)
+    assert out['snapshots/a.png'] == burned and files['snapshots/a.png'] == raw and out['b.json'] == b'{}'
+
+
+def test_grades_and_many_at_once():
+    items = {}; assert cs.bulk(items, ['a', 'b'], patch={'grade': 150, 'use': ['pow']}) == 2 and items['a']['grade'] == 100 and items['b']['use'] == ['pow']
+    assert 'grade 100' in cs.lessons({'a': {**items['a'], 'status': 'good', 'by': 'owner'}})
+    assert cs.bulk(items, ['a']) == 0
+
+
+def test_a_file_voted_before_marks_gets_read_again_for_its_marks():
+    assert cs.next_path(['snapshots/a.webp'], {'snapshots/a.webp': {'votes': {'ossy': {'verdict': 'bad'}, 'g4': {'verdict': 'bad'}}}}) == 'snapshots/a.webp'
+    assert cs.next_path(['snapshots/a.webp'], {'snapshots/a.webp': {'votes': {'ossy': {'verdict': 'bad', 'marks': []}, 'g4': {'verdict': 'bad', 'marks': []}}}}) is None

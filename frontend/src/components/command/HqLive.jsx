@@ -1,0 +1,30 @@
+import React, { useEffect, useMemo, useRef } from 'react';
+import { money } from './SplitFlow';
+import '../../styles/hqLive.css';
+
+// 🌊 THE LIVE FLOOR (owner 2026-11-06, "realistic live animation degen view"): money moving through the Collective, drawn from the ledger. Stakes run from each agent into the pools, tanks fill with what is really in them, each profit splits three ways. A wire with no real money carries nothing. It pauses off-screen and stands still under fx-lite and reduced motion.
+const W = 1000; const H = 380;
+const spark = n => Math.max(0, Math.min(5, Math.ceil(Math.log10(1 + (Number(n) || 0)) * 1.4)));
+function Wire({ id, d, color, n, dur = 3.4, active }) {
+  return <g className={`hqf-wire${active ? ' is-live' : ''}`} style={{ '--c': color }}><path id={id} d={d} />{active ? Array.from({ length: n }, (_, i) => <circle key={i} r={3.6} fill={color}><animateMotion dur={`${dur}s`} begin={`${(i * dur) / n}s`} repeatCount="indefinite" rotate="auto"><mpath href={`#${id}`} /></animateMotion></circle>) : null}</g>;
+}
+function Tank({ x, y, p, fill, flagged }) {
+  const h = 92; const lvl = Math.max(0.05, Math.min(1, fill));
+  return <g transform={`translate(${x} ${y})`} className={`hqf-tank${flagged ? ' is-hot' : ''}${p.on ? '' : ' is-off'}`} data-testid={`hqf-tank-${p.id}`}><title>{`${p.pair} on ${p.platform}: ${money(p.profitUsd)} profit`}</title><clipPath id={`tank-${p.id}`}><rect width="150" height={h} rx="14" /></clipPath><rect className="hqf-glass" width="150" height={h} rx="14" /><g clipPath={`url(#tank-${p.id})`}><g transform={`translate(0 ${h * (1 - lvl)})`}><path className="hqf-water" d="M-150 6 Q-112 -4 -75 6 T0 6 T75 6 T150 6 T225 6 T300 6 V120 H-150 Z" /></g></g><text x="75" y="30" className="hqf-t">{p.pair}</text><text x="75" y="48" className="hqf-s">{p.platform}</text><text x="75" y="74" className="hqf-n">{money(p.profitUsd)}</text></g>;
+}
+const Node = ({ x, y, w = 150, h = 74, color, label, value, testid }) => <g transform={`translate(${x} ${y})`} className="hqf-node" style={{ '--c': color }} data-testid={testid}><rect width={w} height={h} rx="14" /><text x={w / 2} y="28" className="hqf-s">{label}</text><text x={w / 2} y="55" className="hqf-n">{value}</text></g>;
+export function HqLive({ d }) {
+  const s = d?.stake || {}; const pools = useMemo(() => (d?.pools || []).filter(p => p.on).slice(0, 3), [d?.pools]); const agents = (d?.stakeAgents || []).slice(0, 5); const box = useRef(null); const stops = d?.stops || []; const top = Math.max(1, ...pools.map(p => Number(p.inUsd) || p.profitUsd || 0)); const staked = s.stakedUsd > 0; const profit = s.profitUsd > 0;
+  useEffect(() => { const el = box.current; if (!el) return undefined; const still = () => document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches; if (still()) { el.pauseAnimations?.(); return undefined; } if (typeof IntersectionObserver === 'undefined') return undefined; const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) el.unpauseAnimations?.(); else el.pauseAnimations?.(); }); io.observe(el); return () => io.disconnect(); }, []);
+  const poolY = i => 40 + i * (pools.length > 2 ? 104 : 140) + (pools.length === 1 ? 90 : 0); const midY = pools.length ? poolY(0) + (poolY(pools.length - 1) - poolY(0)) / 2 + 46 : H / 2;
+  return <section className="hqf" data-testid="hq-live"><header><i className={staked ? 'is-on' : ''} aria-hidden="true" /><h4>THE LIVE FLOOR</h4><small>{staked ? 'Real money on the ledger, moving' : 'Quiet until the first stake lands. Nothing here is made up'}</small></header>
+    <svg ref={box} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${money(s.stakedUsd)} staked in ${pools.length} pools, ${money(s.profitUsd)} profit`}><defs><linearGradient id="hqf-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#57c7ff" stopOpacity=".85" /><stop offset="1" stopColor="#1458a8" stopOpacity=".5" /></linearGradient></defs>
+      {agents.map((a, i) => { const y = 22 + i * (H - 44) / Math.max(1, agents.length); return <g key={a.id}><Wire id={`hqf-a${i}`} d={`M170 ${y + 22} C 240 ${y + 22} 250 ${midY} 345 ${midY}`} color="#57c7ff" n={spark(a.sentUsd)} active={a.sentUsd > 0} /><g transform={`translate(20 ${y})`} className={`hqf-agent${a.fast ? ' is-fast' : ''}`} data-testid={`hqf-agent-${a.id}`}><rect width="150" height="44" rx="11" /><text x="12" y="19" className="hqf-a">{String(a.name).slice(0, 14)}</text><text x="12" y="35" className="hqf-b">{money(a.sentUsd)} · {a.nowPct.toFixed(2)}%</text></g></g>; })}
+      {!agents.length ? <text x="95" y={H / 2} className="hqf-s">No agents staked</text> : null}
+      {pools.map((p, i) => <React.Fragment key={p.id}><Wire id={`hqf-p${i}`} d={`M495 ${poolY(i) + 46} C 545 ${poolY(i) + 46} 550 ${H / 2} 610 ${H / 2}`} color="#3ee58a" n={spark(p.profitUsd)} active={p.profitUsd > 0} dur={2.6} /><Tank x={345} y={poolY(i)} p={p} fill={(Number(p.inUsd) || p.profitUsd || 0) / top} flagged={stops.includes(p.id)} /></React.Fragment>)}
+      {!pools.length ? <g transform={`translate(345 ${H / 2 - 40})`} className="hqf-tank is-off"><rect className="hqf-glass" width="150" height="80" rx="14" /><text x="75" y="46" className="hqf-s">No pool open</text></g> : null}
+      <Wire id="hqf-o1" d={`M760 ${H / 2} C 800 ${H / 2} 800 66 830 66`} color="#ffc24d" n={spark(s.paidUsd)} active={profit} dur={2.4} /><Wire id="hqf-o2" d={`M760 ${H / 2} L 830 ${H / 2}`} color="#c58bff" n={spark(s.profitToKeepUsd)} active={profit} dur={2} /><Wire id="hqf-o3" d={`M760 ${H / 2} C 800 ${H / 2} 800 ${H - 66} 830 ${H - 66}`} color="#ff8bd8" n={spark(s.compoundUsd)} active={profit} dur={2.8} />
+      <Node x={610} y={H / 2 - 37} color="#3ee58a" label="POOL PROFIT" value={money(s.profitUsd)} testid="hqf-profit" />
+      <Node x={830} y={29} color="#ffc24d" label="TO AGENTS" value={money(s.paidUsd)} /><Node x={830} y={H / 2 - 37} color="#c58bff" label="COLLECTIVE" value={money(s.keepUsd)} /><Node x={830} y={H - 103} color="#ff8bd8" label="COMPOUNDING" value={money(s.compoundUsd)} />
+    </svg></section>;
+}

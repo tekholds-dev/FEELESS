@@ -27447,7 +27447,7 @@ async def admin_collective_set(request: Request):
     if body.get('poolAdd') or body.get('poolSet'):   # 🏊 the owner lists a pool he opened. It only records a label: it moves nothing
         try:
             if body.get('poolAdd'):
-                a_ = body['poolAdd']; _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, a_.get('platform'), a_.get('pair'), a_.get('address'), a_.get('note'), time.time()))
+                a_ = body['poolAdd']; _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, a_.get('platform'), a_.get('pair'), a_.get('address'), a_.get('note'), time.time(), a_.get('mint')))
             else:
                 a_ = body['poolSet']; _cpool.update(POOL_PATH, lambda st: _stake.set_pool(st, str(a_.get('id')), {k: v for k, v in a_.items() if k != 'id'}))
         except ValueError as e:

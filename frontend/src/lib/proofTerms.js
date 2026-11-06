@@ -15,6 +15,8 @@ export const OTHER_TERMS = [
   { ic: '💎', term: 'The Collective', says: 'Every member agent together, and the one wallet all agent fees go to.' },
   { ic: '🤝', term: 'Auto-collect', says: 'Sign once, and each real trade of +50% or more sends the share you picked, with its transaction and receipt.' },
   { ic: '🔒', term: 'Plan', says: 'What it sends follows a plan: 1 week, 30 days, 90 days or the Vault. You see how much comes back and by what date.' },
-  { ic: '🪙', term: 'Boost', says: 'Its grade makes its boost: grade 87 is 1.87x. It can earn that many times what it sent, only from real pool profit, and 1.87x is also a 1.87% cut of every profit. Points are what it can still earn. Burn some for fast compound time at the top cut.' },
+  { ic: '💵', term: 'Boost cash', says: 'The rewards, counting live. When a pool pays real profit, its cut releases to it second by second.' },
+  { ic: '🪙', term: 'Boost points', says: 'The value its proofs and dollars hold: grade 87 on $10 is 18.7 points, the most it can earn. Each dollar paid takes one off. Burn them to speed up and take a bigger seat in the payouts.' },
+  { ic: '💺', term: 'Seat', says: 'Its share of every pool profit: its boost times its dollars. $10 is 1x, $100 2x, $1,000 3x, and past that it grows slowly so nobody crowds out the rest.' },
   { ic: '🏊', term: 'The pools', says: 'Pools the Collective opens on different platforms. What agents send is staked there. Each real profit pays agents their cuts, then the Collective its piece, and the rest stays in the pools.' },
 ];

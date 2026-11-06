@@ -21,10 +21,10 @@ TICK_S = 60
 BOOST_POINTS_FULL = 100
 
 PLANS = ('week', 'month', 'quarter', 'vault')
-DEFAULTS = {'deal': 'stake', 'reservePct': 20.0, 'spotMaxPct': 50.0, 'minStakeUsd': 1.0, 'collectivePoolPct': 20.0, 'cutPerX': 1.0, 'fastPtsPerDay': 5.0, 'fastMaxDays': 30.0, 'maxBackX': 1.08, 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+DEFAULTS = {'deal': 'stake', 'kneeUsd': 1000.0, 'sizeAbovePct': 50.0, 'walletCapPct': 10.0, 'dripDays': 7.0, 'reservePct': 20.0, 'spotMaxPct': 50.0, 'minStakeUsd': 1.0, 'collectivePoolPct': 20.0, 'cutPerX': 1.0, 'fastPtsPerDay': 5.0, 'fastMaxDays': 30.0, 'maxBackX': 1.08, 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
             'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.5, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
-BOUNDS = {'reservePct': (0, 90), 'spotMaxPct': (5, 100), 'minStakeUsd': (0, 1000), 'collectivePoolPct': (5, 80), 'cutPerX': (0.25, 10), 'fastPtsPerDay': (0.25, 100), 'fastMaxDays': (1, 90), 'maxBackX': (1, 5), 'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
+BOUNDS = {'kneeUsd': (100, 100000), 'sizeAbovePct': (0, 100), 'walletCapPct': (1, 50), 'dripDays': (0.04, 90), 'reservePct': (0, 90), 'spotMaxPct': (5, 100), 'minStakeUsd': (0, 1000), 'collectivePoolPct': (5, 80), 'cutPerX': (0.25, 10), 'fastPtsPerDay': (0.25, 100), 'fastMaxDays': (1, 90), 'maxBackX': (1, 5), 'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
           'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
@@ -376,6 +376,8 @@ def tick(state, now, sol_usd):
     state['at'] = now; cfg = state['cfg']; part = shares(state, sol_usd)
     pot_part = 0.0 if cfg.get('deal') in ('bank', 'stake') else 1 - (1 - cfg['potPayDayPct'] / 100) ** (dt / 86400)
     if cfg.get('deal') == 'stake':
+        import collective_stake as _stake
+        _stake.release(state, now)
         return True
     if cfg.get('deal') == 'bank':
         if now >= _f(state.get('monthEnd')):
@@ -487,7 +489,8 @@ def view(state, cat, now, sol_usd):
     if not a:
         return {'boostUsd': 0, 'boostRateUsd': 0, 'owedUsd': 0, 'ratePerSecUsd': 0, 'lockedUsd': 0, 'sentUsd': 0, 'earnedUsd': 0, 'vaultUsd': 0, 'backLeftUsd': 0, 'owed': {'SOL': 0, 'USDC': 0}, 'locked': {'SOL': 0, 'USDC': 0}, 'boost': 0, 'levers': levers(cfg, 0), 'plan': 'month', 'spent': 0, 'streams': [], 'at': round(now), 'solUsd': sol_usd, 'empty': True}
     dt = max(0.0, now - _f(state.get('at')))
-    rate = sum(_usd(_rate(a, t, cfg), t, sol_usd) for t in TOKENS)
+    import collective_stake as _stake
+    rate = sum(_usd(_rate(a, t, cfg) + _stake.drip_rate(state, a, t), t, sol_usd) for t in TOKENS)
     part = shares(state, sol_usd).get(cat, 0.0); pot_day = sum(_usd(state['books'][t]['pot'], t, sol_usd) for t in TOKENS) * (cfg['potPayDayPct'] / 100)
     rows = a.get('streams') or []
     rp_ = reward_shares(state).get(cat, 0.0); rk_ = rank_of(a.get('lifetimePts')); cy_ = cycle_days(cfg, rk_['i'], a.get('boost')); deal_ = {'deal': cfg.get('deal'), 'rewardPts': round(_f(a.get('rewardPts')), 2), 'rank': rk_, 'rewardShare': round(rp_, 6), 'cycleDays': cy_, 'rewardEnd': round(_f(a.get('nextPay'))) or None, 'rewardNextUsd': round(sum(_usd(int(int((state.get('budgetFull') or {}).get(t) or 0) * rp_ * min(1.0, cy_ / 30)), t, sol_usd) for t in TOKENS), 6)}
@@ -514,7 +517,8 @@ def snapshot(state, now, sol_usd):
 
 def backed(state, t):
     """What the wallet must always hold of this token."""
-    return state['books'][t]['pot'] + sum(a['locked'][t] + a['owed'][t] for a in state['agents'].values())
+    import collective_stake as _stake
+    return state['books'][t]['pot'] + sum(a['locked'][t] + a['owed'][t] + _stake.drip_left(a, t) for a in state['agents'].values())
 
 
 def check_chain(state, balances, now):
@@ -543,7 +547,7 @@ def totals(state, sol_usd):
 def rules(cfg):
     """What a user's picture draws, straight from the live settings."""
     keep = ('skimPct', 'sitePct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
-    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('collectivePoolPct', 'cutPerX', 'fastPtsPerDay', 'fastMaxDays')}, **{k: cfg[k] for k in ('maxBackX', 'rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
+    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('collectivePoolPct', 'cutPerX', 'fastPtsPerDay', 'fastMaxDays', 'kneeUsd', 'sizeAbovePct', 'dripDays')}, **{k: cfg[k] for k in ('maxBackX', 'rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
 
 
 def txn_fee_usd(cfg, usd):

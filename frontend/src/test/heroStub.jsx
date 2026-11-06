@@ -13,7 +13,7 @@ Popover.Content = function Content({ children, placement, offset, ...p }) { retu
 Popover.Dialog = function Dialog(p) { return <div role="dialog" {...p} />; };
 export const ProgressCircle = ({ children, value, ...p }) => <div role="progressbar" aria-valuenow={value} {...p}>{children}</div>;
 ProgressCircle.Track = ({ children }) => <svg>{children}</svg>; ProgressCircle.TrackCircle = () => <circle />; ProgressCircle.FillCircle = () => <circle />;
-export const Slider = ({ children, value, onChange, minValue, maxValue, step, ...p }) => <div {...p}><input type="range" aria-label={p['aria-label']} min={minValue} max={maxValue} step={step} value={value} onChange={e => onChange?.(Number(e.target.value))} />{children}</div>;
+export const Slider = ({ children, value, onChange, onChangeEnd, minValue, maxValue, step, ...p }) => <div {...p}><input type="range" aria-label={p['aria-label']} min={minValue} max={maxValue} step={step} value={value} onChange={e => { onChange?.(Number(e.target.value)); onChangeEnd?.(Number(e.target.value)); }} />{children}</div>;
 Slider.Track = ({ children }) => <div>{children}</div>; Slider.Fill = () => null; Slider.Thumb = () => null;
 export const Chip = ({ children, color, variant, size, ...p }) => <span {...p}>{children}</span>;
 const AccCtx = React.createContext(null);

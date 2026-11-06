@@ -30,7 +30,7 @@ test('a rule the server changes moves the picture', async () => {
   expect(rows[0]).toEqual(['Sent', 'Collective, right away', 3]); expect(rows.map(r => r[1])).toContain('Back to the agent');
   const vault = sendRows(splitOf(RULES, 10, 'vault')); expect(vault.map(r => r[1])).toEqual(['Collective, right away', 'Vault']);
 });
-const OWNER_VIEW = { cfg: { ...RULES, collectivePoolPct: 20, cutPerX: 1, capPct: 3, fastPtsPerDay: 5, fastMaxDays: 30, depositPct: 10 }, defaults: { collectivePoolPct: 20, cutPerX: 1, capPct: 3, fastPtsPerDay: 5, fastMaxDays: 30 }, bounds: { collectivePoolPct: [5, 80], cutPerX: [0.25, 10], capPct: [1, 100], fastPtsPerDay: [0.25, 100], fastMaxDays: [1, 90] }, stake: { stakedUsd: 200, profitUsd: 50, paidUsd: 2, keepUsd: 17, compoundUsd: 31 }, pools: [{ id: 'p1', platform: 'meteora', pair: 'SOL-USDC', address: 'Addr11112222', on: true, profitUsd: 50 }], stakeAgents: [{ id: 'a', name: 'Happy', sentUsd: 200, x: 1.87, cutPct: 1.87, nowPct: 1.87, paidUsd: 2, pointsLeft: 372, fast: true }], totals: { usd: {}, in: { txn: 5, proofs: 200 }, agents: 1 }, chain: { short: [], tokens: {} }, site: { feesUsd: 75, movedUsd: 0, owedUsd: 15 }, held: [{ cat: 'c', id: 'h1', name: 'Nova', sym: 'WIF', review: { seats: [] } }], reviewed: 3 };
+const OWNER_VIEW = { cfg: { ...RULES, collectivePoolPct: 20, cutPerX: 1, walletCapPct: 10, fastPtsPerDay: 5, fastMaxDays: 30, depositPct: 10 }, defaults: { collectivePoolPct: 20, cutPerX: 1, walletCapPct: 10, fastPtsPerDay: 5, fastMaxDays: 30 }, bounds: { collectivePoolPct: [5, 80], cutPerX: [0.25, 10], walletCapPct: [1, 50], fastPtsPerDay: [0.25, 100], fastMaxDays: [1, 90] }, stake: { stakedUsd: 200, profitUsd: 50, paidUsd: 2, keepUsd: 17, compoundUsd: 31 }, pools: [{ id: 'p1', platform: 'meteora', pair: 'SOL-USDC', address: 'Addr11112222', on: true, profitUsd: 50 }], stakeAgents: [{ id: 'a', name: 'Happy', sentUsd: 200, x: 1.87, cutPct: 1.87, nowPct: 1.87, paidUsd: 2, pointsLeft: 372, fast: true }], totals: { usd: {}, in: { txn: 5, proofs: 200 }, agents: 1 }, chain: { short: [], tokens: {} }, site: { feesUsd: 75, movedUsd: 0, owedUsd: 15 }, held: [{ cat: 'c', id: 'h1', name: 'Nova', sym: 'WIF', review: { seats: [] } }], reviewed: 3 };
 test('HQ shows the money, the pools and each cut, saves a dial, and profit needs a transaction', async () => {
   const call = jest.fn(async (u, o) => (o ? OWNER_VIEW : OWNER_VIEW));
   const { el, root } = await mount(<CollectiveOwner call={call} />);
@@ -38,7 +38,7 @@ test('HQ shows the money, the pools and each cut, saves a dial, and profit needs
   expect(q('cof-cover').textContent).toContain('FULLY COVERED'); expect(q('cof-withdrawals').textContent).toContain('OFF');
   expect(q('hq-kpi-stakedUsd').textContent).toContain('$200'); expect(q('hq-kpi-keepUsd').textContent).toContain('$17');
   expect(q('hq-pool-p1').textContent).toContain('SOL-USDC'); expect(q('hq-agent-a').textContent).toContain('1.87%'); expect(q('hq-agent-a').textContent).toContain('FAST');
-  expect(q('hq-range-note').textContent).toContain('not wired');
+  expect(q('hq-range-note').textContent).toContain('not wired'); expect(q('hq-live').textContent).toContain('THE LIVE FLOOR'); expect(q('hqf-agent-a')).toBeTruthy(); expect(q('hqf-tank-p1')).toBeTruthy();
   await click(q('hq-open-checks')); await click(q('cof-clear-h1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
   expect(q('cof-save').disabled).toBe(true);
   await click(q('hq-pool-on-p1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ poolSet: { id: 'p1', on: false } });
@@ -51,7 +51,7 @@ test('the boost folder shows the deal in live numbers, and burning points asks t
   const q = t => el.querySelector(`[data-testid="${t}"]`);
   expect(work).toHaveBeenCalledWith('c', { op: 'pool' }); expect(q('bof-x').textContent).toBe('1.87x'); expect(q('bof-cut').textContent).toBe('1.87%'); expect(q('bof-points').textContent).toContain('16.7');
   expect(q('bof-pool-p1')).toBeTruthy(); expect(q('bof-pool-p2')).toBeNull(); expect(q('bst-withdraw-off')).toBeTruthy();
-  expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
+  expect(q('bst-count').textContent).toContain('$'); expect(q('bof-two').textContent).toContain('Boost cash'); expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
   expect(q('send-warning').textContent).toContain('Only stake what you can lose');
   await click(q('bof-burn')); expect(work).toHaveBeenCalledWith('c', { op: 'pool_fast', cap: 1 }); expect(q('bof-fast-left').textContent).toContain('left');
   await act(async () => root.unmount());

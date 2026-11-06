@@ -39,6 +39,7 @@ test('the owner rules on what the minds want gone, adds notes and marks, and not
   const fake = async (_, b) => { calls.push(b); if (b.op === 'git_state') return SORTED; if (b.op === 'git_read') return READ[b.job]; if (b.op === 'sort_set') return { item: { ...SORTED.sort.items['snapshots/rugcheck/a1.webp'], ...b.tools } }; if (b.op === 'sort_trash') return { item: { status: b.on ? 'trash' : 'bad', by: 'owner' } }; return { kits: [], picks: [], mode: 'auto' }; };
   const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<GitFolder cat={{ id: 'leader' }} work={fake} scope="collective" />); });
   await act(async () => { q(el, 'sort-tab-trash').click(); }); await act(async () => { q(el, 'git-dir-snapshots').click(); }); await act(async () => { q(el, 'git-dir-rugcheck').click(); }); await act(async () => { q(el, 'git-file-a1.webp').click(); });
+  await act(async () => { q(el, 'sort-more').click(); });
   expect(q(el, 'sort-vote-ossy').textContent).toContain('bot check'); expect(q(el, 'sort-ask')).not.toBeNull();
   await act(async () => { q(el, 'sort-use-pow').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_set', job: 'snapshots/rugcheck/a1.webp', tools: { use: ['pow'] }, to: 'collective' });
   await act(async () => { q(el, 'sort-approve').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_trash', on: true });
@@ -70,5 +71,20 @@ test('a user can hook up their own project, and the token never shows again', as
   await act(async () => { q('git-project-go').click(); }); await act(async () => {});
   expect(work.mock.calls.find(c => c[1].op === 'project_link')[1]).toMatchObject({ job: 'me/app', text: 'github_pat_xxx' });
   expect(q('git-project').textContent).toContain('me/app'); expect(el.innerHTML).not.toContain('github_pat_xxx');
+  await act(async () => root.unmount());
+});
+
+test('the minds mark a picture: each mark has its window, ticks choose, approve reads the file again', async () => {
+  const files = [['snapshots/x/a.webp', 100], ['snapshots/x/b.webp', 100]]; const items = { 'snapshots/x/a.webp': { status: 'bad', by: 'minds' } };
+  const work = jest.fn(async (id, b) => { if (b.op === 'git_state') return { files, link: { full: 'o/r' }, sealed: true, sort: { on: true, items, counts: {} }, tree: [] }; if (b.op === 'git_read') return { path: b.job, kind: 'image', image: 'data:image/png;base64,AA', proposed: [{ id: 0, x: 0.1, y: 0.1, w: 0.2, h: 0.2, label: 'Cap', why: 'Read the cap', grade: 80, by: ['ossy', 'g4'] }, { id: 1, x: 0.5, y: 0.5, w: 0.2, h: 0.2, label: 'Noise', grade: 10, by: ['g4'] }] }; if (b.op === 'sort_bulk') return { changed: 2, items: { 'snapshots/x/a.webp': { status: 'trash', by: 'owner' } } }; return { item: { status: 'good', by: 'owner' } }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<GitFolder cat={{ id: 'leader' }} work={work} scope="collective" />); }); await act(async () => {});
+  const q = t => el.querySelector(`[data-testid="${t}"]`); const click = n => act(async () => { n.click(); });
+  await click(q('git-dir-snapshots')); await click(q('git-dir-x')); await click(q('git-file-a.webp')); await act(async () => {});
+  expect(q('mark-win-p0').textContent).toContain('OSSY + G4'); expect(q('mark-win-p0').textContent).toContain('Read the cap'); expect(q('mark-approve').textContent).toContain('2');
+  await click(q('mark-tick-1')); expect(q('mark-approve').textContent).toContain('1');
+  await click(q('mark-approve')); expect(work.mock.calls.find(c => c[1].op === 'sort_approve')[1]).toMatchObject({ job: 'snapshots/x/a.webp', tools: { keep: [0] } }); await act(async () => {});
+  await click(q('sort-select')); await click(q('sort-pick-all')); expect(q('sort-bulkbar').textContent).toContain('2'); await click(q('sort-picked-trash'));
+  expect(work.mock.calls.find(c => c[1].op === 'sort_bulk')[1].tools).toEqual({ paths: ['snapshots/x/a.webp', 'snapshots/x/b.webp'], patch: { status: 'trash' } });
   await act(async () => root.unmount());
 });
