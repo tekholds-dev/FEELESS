@@ -89,3 +89,10 @@ def test_a_page_never_goes_to_a_local_model():
     finally:
         fs._ws_ask = real
     assert seen == [fs.WS_CODE_MODEL, 'x/other']
+
+
+def test_asked_only_is_a_switch_on_the_env():
+    import ai_router as air
+    assert air.asked_only({'LM_ASKED_ONLY': 'true'}) and not air.asked_only({})
+    src = open(air.__file__).read()
+    assert 'if asked_only(env) and not own and not only:' in src

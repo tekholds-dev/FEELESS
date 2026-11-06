@@ -155,6 +155,10 @@ def _truthy(v, default=True):
 
 
 # ── configuration (env + the saved order / on-off) ───────────────────────────────────────────────────────────────────────────────────
+def asked_only(env):
+    return _truthy((env or {}).get('LM_ASKED_ONLY'), default=False)
+
+
 def local_ok(env, role=None, urgency='normal'):
     """💻 THE LOCAL MODEL IS THE OWNER'S, NOT THE BACKGROUND'S (owner, 2026-10-13: "bad lag in this tab — has to be LM Studio"): a 7B model
     on this Mac took ~13s an answer and ran about half the time on the SAME GPU + memory the browser draws the page with. Background jobs
@@ -1223,6 +1227,8 @@ class Router:
         t_all = time.perf_counter()
         order = route_order(only, order_of(env, cfg))
         own = local_ok(env, role, urgency) or bool(only and 'local' in only)   # `only=('local',)` = the local model's OWN lane (the service paces it)
+        if asked_only(env) and not own and not only:   # 🖥 owner 2026-11-05: OSSY and G4 answer only when he asks. A background case never reaches them, not even as a last resort
+            order = [k for k in order if k not in LM]
         if not own and 'local' in order:   # a background case asks the cloud FIRST; the local model is its last resort (see local_last_resort)
             order = [k for k in order if k != 'local'] + ['local']
         cloud_ok = False

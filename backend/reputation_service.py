@@ -18199,6 +18199,8 @@ def _feecat_packet():
 
 
 async def _feecat_duo(now, env, cfg):
+    if _air.asked_only(env):   # 🖥 owner 2026-11-05: this timer asked OSSY and G4 about FeeCat's trades all day. They answer only when he asks
+        return
     """🐱🤝 ONE duo read per FEECAT_DUO_SEC: the lead model (Gemma) answers, the second (Qwen) reads the same packet + that answer and gives
     its own list. FeeCat acts ONLY on what BOTH named (`GET /cats-ai`): an `avoid` coin is not bought (she may only ever trade LESS by it),
     an `exit` trade in profit is banked. A split is shown, never acted on."""
