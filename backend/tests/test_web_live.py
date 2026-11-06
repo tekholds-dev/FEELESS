@@ -37,3 +37,16 @@ def test_a_proof_recalls_wins_first_titles_only_and_no_match_says_nothing(tmp_pa
     line = ar.recall_line(rows, st.agent_tag('tagA'))
     assert 'the Collective: WON "Lakers at home"' in line and 'your own: LOST "Lakers parlay"' in line
     assert st.related(tmp_path, ['nothing'], 'Picks') == [] and ar.recall_line([]) == ''
+
+
+def test_a_slow_page_build_is_not_called_dead_and_a_lost_one_is():
+    import feecat_service as fs
+    class T:
+        def __init__(self, d): self.d = d
+        def done(self): return self.d
+    fs._WS_LIVE[('c', 'w')] = T(False)
+    assert not fs._ws_dead('c', 'w', 0, 1000) and fs._ws_dead('c', 'w', 0, fs.WS_MAX_S + 1)
+    fs._WS_LIVE[('c', 'w')] = T(True)
+    assert fs._ws_dead('c', 'w', 0, fs.WS_ORPHAN_S + 1) and not fs._ws_dead('c', 'w', 0, 1)
+    fs._WS_LIVE.clear()
+    assert fs._ws_dead('c', 'w', 0, 100)

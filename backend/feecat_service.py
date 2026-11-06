@@ -5240,11 +5240,29 @@ def _ws_load(cat_id, ws_id):
         return None
 
 
+WS_MAX_S = 2400   # 💻 local models write slowly. A run is dead when its task is gone, not because it is slow; this is only the last stop
+WS_ORPHAN_S = 20   # the moment between saving "busy" and the task starting
+_WS_LIVE: dict = {}
+
+
+def _ws_start(cat_id, ws_id, *args):
+    t_ = asyncio.create_task(_ws_run(cat_id, ws_id, *args)); _WS_LIVE[(cat_id, ws_id)] = t_
+    return t_
+
+
+def _ws_dead(cat_id, ws_id, at, now):
+    """A folder's run is dead if its task ended or a restart lost it, or after WS_MAX_S. A slow model is not dead (owner 2026-11-05: OSSY and G4 kept "stopping" at the old 240 seconds while still writing). Pure on its inputs."""
+    t_ = _WS_LIVE.get((cat_id, ws_id))
+    if t_ is not None and not t_.done():
+        return now - at > WS_MAX_S
+    return now - at > WS_ORPHAN_S
+
+
 def _ws_view(cat_id, ws_id):
     d_ = _ws_load(cat_id, ws_id)
     if not d_:
         raise HTTPException(404, 'No such folder.')
-    if d_.get('busy') and time.time() - float(d_['busy'].get('at') or 0) > 240:   # a run that died never locks the folder, and says so
+    if d_.get('busy') and _ws_dead(cat_id, ws_id, float(d_['busy'].get('at') or 0), time.time()):   # a run that died never locks the folder, and says so
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed. Send it again to start over.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
     return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
@@ -6260,7 +6278,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(402, 'It needs model credit to do this.')
         note_ = str(p.text or '').strip()[:600]; pl_ = doc_['plan']; pl_['approved'] = True; ask_ = pl_.get('ask') or ''; go_ = f'{ask_}\nThe owner adds: {note_}' if note_ else ask_
         _feat.add_msg(doc_, 'you', note_ or 'Approved. Build it.', time.time()); doc_['busy'] = {'at': round(time.time()), 'to': pl_.get('to') or 'both', 'stage': 'build'}; doc_['stage'] = 'build'; _ws_save(cat_id, doc_)
-        asyncio.create_task(_ws_run(cat_id, p.job, str(pl_.get('to') or 'both'), go_, None))
+        _ws_start(cat_id, p.job, str(pl_.get('to') or 'both'), go_, None)
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'poc_result':   # 💰 what a post really did, as its owner reports it
         f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == p.job), None)
@@ -6287,7 +6305,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(402, 'It needs model credit to do this.')
         _feat.add_msg(doc_, 'you', text_, time.time()); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
         _ws_save(cat_id, doc_)
-        asyncio.create_task(_ws_run(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None))
+        _ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'memory':   # 🧠 start fresh, let its lead mind clean it, or tell it about you
         how_ = str(p.job or '')
