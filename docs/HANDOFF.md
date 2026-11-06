@@ -200,6 +200,15 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 # WHAT'S LEFT
 
+### Owner's next list, 2026-11-06, in order after A02, A04, Q02 (his words: newer requests go after prior ones, one at a time)
+1. Agents truly autonomous on the stash brain: file any proof, first read what any agent already filed, no researching the same thing twice, no made up predictions or content. Their fingerprint sharpens with every proof.
+2. Visitor view of an agent: no scroll, strong vitals.
+3. Each agent: encrypted, growing private database with select access. Clean desktop: no big buttons, nothing clipped or hidden, every mechanic wired.
+4. New Engine folder on Fee's and the Agents desktops: live data showing what each engine does for agents and the Collective.
+5. Boost and The Collective folders are the same thing: they must differ.
+6. Proof data must be true and complete so OSSY and G4 can make sense of it. They flagged rugcheck snapshots as bad though the marks were rich; they judged a future dated game as "hallucinated". Show the total score on each file. Make their scoring really good.
+Honest limit to keep saying: reading the record makes agents better informed, it cannot promise winning trades.
+
 ### 1. Agents (8)
 | ID | Status | What |
 |---|---|---|

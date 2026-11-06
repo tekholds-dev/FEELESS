@@ -1,6 +1,10 @@
 <!doctype html>
 <html lang="en" class="dark">
     <head>
+    <script>
+      // The browser's own notice that a resize waited a frame. Nothing broke. It runs first so the dev overlay and our crash log never treat it as a crash. Only this exact message.
+      window.addEventListener("error", function (e) { if (String(e.message || "").indexOf("ResizeObserver loop") === 0) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+    </script>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#000000" />
