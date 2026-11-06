@@ -1885,8 +1885,18 @@ def _pow_ver(cat):
     return f"{base}:{_poi.version(DATA_DIR, cat['id'])}:{len(pf_)}:{(pf_[-1] if pf_ else {}).get('id', '')}:{sum(1 for x in pf_ if x.get('kept'))}"
 
 
+SICARIO_PAUSED = True   # ⏸ owner 2026-11-05: no requests to Sicario's until there is a better model for his Mac and desktop. Set False to bring it back
+SICARIO_PAUSE_OPS = ('ask', 'ws_build', 'ws_approve', 'poc', 'desk_loop', 'hive', 'desk_seat')
+
+
+def _sicario_paused(cat):
+    return SICARIO_PAUSED and cat.get('handle') == 'sicarios'
+
+
 def _pow2_on(cat):
     b = cat.get('brainsCfg') or {}
+    if _sicario_paused(cat):
+        return False
     if cat.get('id') in _POW_WANT or (cat.get('powRun') or {}).get('folder', {}).get('asked'):   # you asked: any agent kind, once
         return bool(b.get('brains')) and not cat.get('isLeader') and not cat.get('revoked')
     return (b.get('kind') or 'trading') == 'trading' and bool(b.get('brains')) and not cat.get('isLeader') and not cat.get('revoked') and not cat.get('needsTopup') \
@@ -3168,6 +3178,8 @@ def _sicario_loop(store, now, free=None):
     """🎩 Two ways it keeps working. Auto-collect (its hive on): PoWs until the card's seats are full, each one sent to a free seat. Endless: the next proof of any kind as soon as it is idle and rested. It has no wallet."""
     for c in store['cats'].values():
         b_ = c.get('brainsCfg') or {}; cid = c.get('id')
+        if _sicario_paused(c):
+            continue
         fill = bool((c.get('hive') or {}).get('on')) and int(free or 0) > 0
         if c.get('handle') != 'sicarios' or not (b_.get('endless') or fill) or c.get('agentWallet') or c.get('revoked'):
             continue
@@ -6043,6 +6055,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if not cat:
         raise HTTPException(404, 'Cat not found.')
     _owner_gate(store, cat, p.session, p.ownerId)
+    if _sicario_paused(cat) and p.op in SICARIO_PAUSE_OPS and p.on is not False:
+        raise HTTPException(409, "Sicario's is paused until there is a better model for your machines.")
     b = cat.get('brainsCfg') or {}
     w = _WORK.get(cat_id)
     if p.op == 'tools':

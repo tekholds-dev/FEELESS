@@ -1,5 +1,12 @@
 """🎩 All 4 seats for Sicario's PoWs, Auto-collect until full, and desk buys off still stops everything else. No network, no card."""
 import ai_seat as seat
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _awake(monkeypatch):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SICARIO_PAUSED', False)
 
 
 def legs(*ai, placeholder=0):
@@ -59,3 +66,12 @@ def test_a_rested_run_from_the_last_proof_does_not_block_the_next():
     c['powRun']['folder'] = {'id': 'f'}; c['brainsCfg']['loopAt'] = 0
     fs._sicario_loop({'cats': {'s': c}}, 2000.0, 1)
     assert 's' not in fs._POW_WANT
+
+
+def test_paused_it_files_nothing_and_takes_no_proof_loop(monkeypatch):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SICARIO_PAUSED', True); fs._POW_WANT.clear()
+    c = {'id': 's', 'handle': 'sicarios', 'hive': {'on': True}, 'brainsCfg': {'endless': True, 'brains': ['local/ossy'], 'kind': 'trading'}, 'status': 'running'}
+    fs._sicario_loop({'cats': {'s': c}}, 9000.0, 4)
+    assert 's' not in fs._POW_WANT and fs._pow2_on(c) is False
+    assert fs._sicario_paused({'handle': 'other'}) is False
