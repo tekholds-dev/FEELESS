@@ -75,3 +75,18 @@ test('🐱 Fee in HQ: her studio only, no auto switch — a stronger AUTO-TUNED 
   await act(async () => { q('pst-approve-go').click(); }); expect(posts).toEqual([{ key: 'fee', set: 'tuned' }]);
   act(() => root.unmount());
 });
+
+test('🧠 the general mind shows its real record and saves apart from the trading mindsets', async () => {
+  const posts = []; const fee = { ...STUDIO.models.find(x => x.key === 'fee'), general: { text: 'Read first.', edited: true, max: 900, line: 'Your real record: PoS 3 filed, 1 right, 2 wrong.' } };
+  const state = { ...STUDIO, models: [fee] };
+  const call = jest.fn(async (path, o) => { if (o?.method === 'POST') posts.push(JSON.parse(o.body)); return state; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PromptStudio call={call} only={['fee']} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('pst-general-record').textContent).toContain('PoS 3 filed'); expect(q('pst-general-save').disabled).toBe(true);
+  const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+  await act(async () => { set.call(q('pst-general-text'), 'Read twice.'); q('pst-general-text').dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { q('pst-general-save').click(); }); expect(posts[0]).toEqual({ key: 'fee', general: 'Read twice.' });
+  await act(async () => { q('pst-general-reset').click(); }); expect(posts[1]).toEqual({ key: 'fee', general: '' });
+  act(() => root.unmount());
+});

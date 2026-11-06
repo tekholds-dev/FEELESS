@@ -4,12 +4,18 @@ import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { fitBox, identityOf, inkOf, ridge, segment, kindIdentity, kindOfFolder } from '../../lib/proofprint';
 import '../../styles/proofKit.css';
+import '../../styles/kitGallery.css';
 
 // 🧰 THREE TOOLS IN EVERY PROOF FOLDER (owner 2026-11-05). Each one reads the agent's own filed proofs, so a number here is always something that really happened. Too few proofs says so; nothing is ever filled in.
 const pct = v => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`;
 const avg = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
 const count = (list, key) => { const m = {}; list.forEach(x => { const k = key(x); if (k) m[k] = (m[k] || 0) + 1; }); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
 const bars = (rows, unit = '') => { const top = Math.max(1, ...rows.map(r => r[1])); return rows.slice(0, 5).map(([l, n]) => ({ l, v: `${n}${unit}`, part: n / top })); };
+
+// 📖 The listed sites really opened before the minds answered, and the ones that walled us.
+export function SitesRead({ rows }) {
+  return rows?.length ? <span className="kit-used" data-testid="sites-read">{rows.map(r => <em key={r.host} className={r.ok ? 'is-on' : ''} data-tip={r.ok ? `Read ${r.host} before answering` : `${r.host} blocked a plain read, so it moved on`}>{r.ok ? '✓' : '✕'} {r.name}</em>)}</span> : null;
+}
 
 export function powTools(folders = []) {
   const done = folders.filter(f => f.pnlPct != null);

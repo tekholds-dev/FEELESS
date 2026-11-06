@@ -137,6 +137,20 @@ function Ladder({ m }) {
   </section>;
 }
 
+// 🧠 The way every agent works on pages, content and plans, with its real record per proof. It never rides a buy or sell call.
+function GeneralMind({ g, busy, onSave }) {
+  const [txt, setTxt] = useState(g.text);
+  useEffect(() => { setTxt(g.text); }, [g.text]);
+  const changed = txt.trim() && txt.trim() !== g.text;
+  return <section className="pst-set k-elite" data-testid="pst-general">
+    <p className="pst-h"><b>GENERAL MIND · ANY JOB</b><small>every agent's pages, content and plans · never a buy or sell call</small></p>
+    <p className="pst-why" data-testid="pst-general-record">{g.line || 'No proofs filed yet, so no record goes with it.'}</p>
+    <label className="pst-edit"><textarea className="m-input" value={txt} maxLength={g.max} rows={5} onChange={e => setTxt(e.target.value)} data-testid="pst-general-text" /><small className={txt.length > g.max * 0.9 ? 'is-hot' : ''}>{txt.length} / {g.max}</small></label>
+    <footer><button type="button" className="m-btn m-go" disabled={busy || !changed} onClick={() => onSave(txt.trim())} data-tip="Every agent's next general job carries this" data-testid="pst-general-save">Save</button>
+      {g.edited ? <button type="button" className="m-btn" disabled={busy} onClick={() => onSave('')} data-tip="Back to the text it shipped with" data-testid="pst-general-reset">Reset</button> : null}</footer>
+  </section>;
+}
+
 export function PromptStudio({ call, only }) {
   const [d, setD] = useState(null); const [key, setKey] = useState(only?.[0] || 'lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
   const load = useCallback(async () => { try { setD(await call('/admin/ai/prompts')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
@@ -182,8 +196,9 @@ export function PromptStudio({ call, only }) {
           : <p className="pst-ok">✓ {r.n || r.yesN ? 'no losing habit shows in the record' : 'no closed record yet — the sets still use the trench theory'}</p>}
       </section>
     </div>
+    {m.general ? <GeneralMind g={m.general} busy={busy} onSave={general => post({ key: m.key, general }, general ? '🧠 Saved. Every agent\'s next general job carries it' : '🧠 Back to the first text')} /> : null}
     <Ladder m={m} />
-    <p className="pst-h pst-seth"><b>FOUR MINDSETS FOR {m.name}</b><small>written from its record · apply one, revert any time · the desk's rules and money checks never change</small></p>
+    <p className="pst-h pst-seth"><b>{m.general ? 'TRADING MINDSETS' : 'FOUR MINDSETS'} FOR {m.name}</b><small>written from its record · apply one, revert any time · the desk's rules and money checks never change</small></p>
     <div className="pst-sets">{(m.sets || []).map((s, i) => <SetCard key={`${m.key}-${s.set}`} s={s} m={m} i={i} busy={busy} dials={d.dials}
       active={m.active && m.active.set === s.set ? m.active : null}
       onApply={(set, text) => post({ key: m.key, set, ...(text ? { text } : {}) }, `🎭 ${s.label} applied to ${m.name} — from its next call`)}

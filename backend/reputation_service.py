@@ -19995,7 +19995,7 @@ async def admin_ai_prompts_set(request: Request):
     body = body if isinstance(body, dict) else {}
     k_ = body.get('key')
     if k_ == 'fee':   # 🐱 her versions live with her (feecat_service) — the owner approves each, no auto switch
-        await _studio_fee({**{x_: body[x_] for x_ in ('set', 'text', 'revert') if x_ in body}, 'by': str(me_)[:44]})
+        await _studio_fee({**{x_: body[x_] for x_ in ('set', 'text', 'revert', 'general') if x_ in body}, 'by': str(me_)[:44]})
         return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
     if k_ not in _pstu.KEYS:
         raise HTTPException(400, 'unknown model')

@@ -19,7 +19,7 @@ import { ProofTools } from './ProofTools';
 import { KernelCard, PoiFolder, PoiMinds } from './PoiFolder';
 import { PopDesk, Calls, Live, ProposalCard } from './PopDesk';
 import { CardSites, BidSites, BID_SITES } from './BidSites';
-import { CostTicket, FolderRidge, PrintLines, PrintSeed, ProofHead, ProofKit, ProofTile as Tile, shortCost } from './ProofKit';
+import { CostTicket, FolderRidge, PrintLines, PrintSeed, ProofHead, ProofKit, ProofTile as Tile, SitesRead, shortCost } from './ProofKit';
 import { GitFolder } from './GitFolder';
 import { EcoFolder } from './EcoFolder';
 import { linesOf, printOf } from '../../lib/proofprint';
@@ -668,6 +668,7 @@ export function FolderView({ f, live, catId }) {
   const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', sell_wait: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
     <span className="dsk-fold-h"><b><Ic3 e="📁" /> {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the Collective</small> : null}</span>
+    <SitesRead rows={f.sitesRead} />
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
     <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={`${f.pick?.mint === c.mint ? 'is-pick' : ''}${open === c.mint ? ' is-open' : ''}`}>
       <button type="button" onClick={() => setOpen(o => (o === c.mint ? null : c.mint))} aria-expanded={open === c.mint} data-tip="Open this coin's folder — its vitals and snapshots">
@@ -952,9 +953,9 @@ function Browsed({ b }) {
 function PopSources({ f }) {
   const minds = Object.entries(f.sources || {});
   if (!minds.length) return <p className="dsk-note">This folder is from before sources were filed.</p>;
-  return <div className="pop-srcs" data-testid="pop-sources">{minds.map(([mind, rows]) => { const sites = [...new Set(rows.map(r => r.site))];
+  return <><SitesRead rows={f.sitesRead} /><div className="pop-srcs" data-testid="pop-sources">{minds.map(([mind, rows]) => { const sites = [...new Set(rows.map(r => r.site))];
     return <section key={mind} className={`pop-src m-glass is-m${mind}`}><b>MIND {mind === '0' ? 'A' : 'B'}</b><Browsed b={f.browsed?.[mind]} />{f.browseWhy ? <small className="pop-web-why">Browsing: {f.browseWhy}</small> : null}{sites.map(site => { const these = rows.filter(r => r.site === site);
-      return <div key={site} className="pop-src-site"><span><em>{site}</em><small>{these[0]?.kind}</small></span>{these.map(r => <span key={r.market} className={`pop-dev${!r.ok ? ' is-none' : r.off ? ' is-off' : ''}`} data-tip={r.ok ? `${r.market} read $${Number(r.px).toLocaleString()}, ${r.devBps} bps from the chart${r.funding != null ? ` · funding ${r.funding}% per 8h` : ''}` : `${r.market}: no read, recorded as a gap`}><i>{r.market}</i><u><s style={{ transform: `scaleX(${r.ok ? Math.min(1, Math.abs(r.devBps) / 25) : 0})` }} /></u><small className="m-num">{r.ok ? `${r.devBps > 0 ? '+' : ''}${r.devBps} bps` : 'gap'}</small></span>)}</div>; })}</section>; })}</div>;
+      return <div key={site} className="pop-src-site"><span><em>{site}</em><small>{these[0]?.kind}</small></span>{these.map(r => <span key={r.market} className={`pop-dev${!r.ok ? ' is-none' : r.off ? ' is-off' : ''}`} data-tip={r.ok ? `${r.market} read $${Number(r.px).toLocaleString()}, ${r.devBps} bps from the chart${r.funding != null ? ` · funding ${r.funding}% per 8h` : ''}` : `${r.market}: no read, recorded as a gap`}><i>{r.market}</i><u><s style={{ transform: `scaleX(${r.ok ? Math.min(1, Math.abs(r.devBps) / 25) : 0})` }} /></u><small className="m-num">{r.ok ? `${r.devBps > 0 ? '+' : ''}${r.devBps} bps` : 'gap'}</small></span>)}</div>; })}</section>; })}</div></>;
 }
 function PopMarket({ f, read, m }) {
   const pos = read && read.high > read.low ? Math.max(0, Math.min(1, (read.px - read.low) / (read.high - read.low))) : null; const minds = (f.calls || []).filter(c => c.market === m);
@@ -1011,7 +1012,7 @@ function PobTopic({ f, catId, onMark }) {
   return <div className="pob pbt" data-testid="pob-topic">
     <header className="pbt-head m-glass m-live"><Ic3 e="🎲" size="38px" /><span><em className="m-num">{r?.grade || 'RESEARCH'}</em><b>{f.topic}</b><small>{(f.shots || []).length} snapshots · {(f.sites || []).length} sites{f.cost ? ` · $${Number(f.cost).toFixed(4)}` : ''}</small></span>
       {f.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={f.graded === k ? 'active' : ''} aria-pressed={f.graded === k} onClick={() => onMark(f.id, f.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}</header>
-    {r ? <p className="dsk-note">{r.lesson}</p> : null}{f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}
+    {r ? <p className="dsk-note">{r.lesson}</p> : null}{f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}<SitesRead rows={f.sitesRead} />
     {(f.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{f.agreed.map((x, i) => <li key={x} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{x}</b><small>both minds, blind</small></li>)}</ul> : null}
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
       {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
@@ -1026,7 +1027,7 @@ function PobFolder({ f, catId, onMark }) {
   return <div className="pob" data-testid="pob-folder">
     <div className={`dsk-trade is-${tone === 'live' ? 'open' : tone}`}><b>{r?.grade || '● OPEN'}{f.side ? ` · ${String(f.side).toUpperCase()}` : ''}</b><small className="m-num">{f.q || f.why || ''}{f.chips ? ` · ${f.chips} free chips` : ''}</small></div>
     {r ? <p className="dsk-note">{r.lesson}</p> : <p className="dsk-note">The market's own result files this.</p>}
-    {f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}
+    {f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}<SitesRead rows={f.sitesRead} />
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'} · {c.side ? String(c.side).toUpperCase() : 'NO BID'}</b><small className="pob-why">{c.why || 'No reason given.'}</small><Browsed b={f.browsed?.[c.mind]} /></section>)}</div></div>;
 }
 function PobShelf({ d, open, setOpen, catId, onMark }) {
