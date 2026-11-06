@@ -1149,7 +1149,16 @@ _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this fol
 _LM_SEEN: dict = {}
 
 
+_LM_GATE: dict = {}   # 🖥 one call at a time per machine: two at once on the owner's Mac made the whole PC lag (owner 2026-11-05). The others wait their turn
+
+
 async def _lm_call(model, messages, max_tokens):
+    which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'
+    async with _LM_GATE.setdefault(which_, asyncio.Semaphore(1)):
+        return await _lm_call_one(model, messages, max_tokens)
+
+
+async def _lm_call_one(model, messages, max_tokens):
     """🖥 One answer from the owner's own LM Studio: local/ossy = this Mac, local/g4 = the desktop on the LAN. Free. → (text, 0.0); '' when it is off. The loaded model is asked for by name, so a stale setting cannot fail it."""
     which = 'LAN' if str(model).endswith('g4') else 'LOCAL'; base = (os.environ.get(f'{which}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which == 'LOCAL' else '')).rstrip('/')
     if not base:
@@ -1157,12 +1166,12 @@ async def _lm_call(model, messages, max_tokens):
         return '', 0.0
     auth = {'Authorization': f"Bearer {os.environ.get(f'{which}_LLM_API_KEY') or 'lm-studio'}"}
     try:
-        async with httpx.AsyncClient(timeout=180) as h:
+        async with httpx.AsyncClient(timeout=600) as h:   # 💻 a whole page on a local model takes minutes
             name = (_LM_SEEN.get(which) or {}).get('id')
             if not name or time.time() - _LM_SEEN[which]['at'] > 300:
                 ids = [m.get('id') for m in (await h.get(f'{base}/models', headers=auth, timeout=8)).json().get('data') or [] if 'embed' not in str(m.get('id'))]
                 want = os.environ.get(f'{which}_LLM_MODEL'); name = want if want in ids else (ids[0] if ids else want); _LM_SEEN[which] = {'id': name, 'at': time.time()}
-            r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 2400), 'temperature': 0.4, 'stream': False, 'reasoning_effort': 'none'})
+            r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 8000), 'temperature': 0.4, 'stream': False, 'reasoning_effort': 'none'})
         if r.status_code != 200:
             _OR_LAST['err'] = f'LM Studio answered {r.status_code}.'
             return '', 0.0
@@ -5300,7 +5309,8 @@ async def _ws_page(cat, model, sys_, user_, tokens):
         usd += u_
         if not more.strip():
             break
-        raw += re.sub(r'```(?:html)?', '', more)
+        more = re.sub(r'```(?:html)?', '', more)
+        raw = more if re.match(r'\s*<(!doctype|html)', more, re.I) else raw + more   # a model that starts the page over replaces it, or the two would never parse as one
     return raw, usd, own
 
 
