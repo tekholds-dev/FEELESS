@@ -13,3 +13,5 @@ body.fx-lite .kgl-show img { display: none; } @media (prefers-reduced-motion: re
 body.theme-day .kgl { background: #fff; color: #16211b; } body.theme-day .kgl-grid > li { background: #f4f7f5; border-color: #0000001a; }
 
 .kit-used { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; } .kit-used em { padding: 3px 7px; border-radius: 99px; border: 1px solid #ff8fa355; color: #ff8fa3; font: 700 10px var(--f-mono); font-style: normal; } .kit-used em.is-on { border-color: #45e48666; color: #7cf0ab; }
+.kgl-shelf { justify-self: start; margin: 0 0 10px; } .kgl-none { margin: 20px 0; font-size: 13px; opacity: .75; text-align: center; } .kgl-said { margin: 0 0 8px; font-size: 12px; color: #45e486; }
+.kgl-builds > li { gap: 8px; padding: 8px; } .kgl-builds .kgl-show { display: grid; place-items: center; height: 170px; overflow: hidden; border-radius: 10px; background: #05080a; } .kgl-builds iframe { width: 100%; height: 100%; border: 0; background: #fff; } .kgl-build { display: grid; gap: 2px; min-width: 0; } .kgl-build b { font: 700 13px var(--f-ui); overflow-wrap: anywhere; } .kgl-build small { font-size: 10.5px; opacity: .72; }

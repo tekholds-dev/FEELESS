@@ -9,6 +9,7 @@ import { Ic3 } from '../../lib/icon3d';
 // what it reads (the context window, layer by layer), how it is doing (its real record + what the record says is wrong), and four sets written
 // from that record. Apply = every call that model gets carries the set (LM Studio / llamafile); the desk's rules and money checks never change.
 const SET_ART = {
+  supreme: <svg viewBox="0 0 48 48" aria-hidden="true"><defs><radialGradient id="pstS"><stop offset="0" stopColor="#fff" /><stop offset=".55" stopColor="#ff8bd8" /><stop offset="1" stopColor="#6a2bd9" /></radialGradient></defs><circle cx="24" cy="24" r="10" fill="url(#pstS)" /><g fill="none" stroke="#c9a0ff" strokeWidth="2"><ellipse cx="24" cy="24" rx="20" ry="7" /><ellipse cx="24" cy="24" rx="20" ry="7" transform="rotate(60 24 24)" /><ellipse cx="24" cy="24" rx="20" ry="7" transform="rotate(120 24 24)" /></g></svg>,
   elite: <svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="pstG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#ffe08a" /><stop offset="1" stopColor="#c8901e" /></linearGradient></defs>
     <path d="M8 34 L6 14 L17 23 L24 9 L31 23 L42 14 L40 34 Z" fill="url(#pstG)" stroke="#fff3c4" strokeWidth="1.2" /><rect x="8" y="35" width="32" height="5" rx="2" fill="#c8901e" />
     <circle cx="24" cy="27" r="3" fill="#15d16a" /><circle cx="15" cy="29" r="2" fill="#ff8fa3" /><circle cx="33" cy="29" r="2" fill="#5fd4ff" /></svg>,
@@ -151,6 +152,18 @@ function GeneralMind({ g, busy, onSave }) {
   </section>;
 }
 
+// 🧪 One exam per proof on a free LM Studio model. Code grades it, so the score is the same whoever looks.
+export function LimitTest({ call, models }) {
+  const [d, setD] = useState(null); const [setName, setSetName] = useState('supreme'); const [err, setErr] = useState('');
+  const load = useCallback(() => call('/admin/ai/limits').then(setD).catch(e => setErr(String(e?.message || e))), [call]);
+  useEffect(() => { load(); }, [load]); useEffect(() => { if (!d?.busy) return undefined; const t = setInterval(load, 4000); return () => clearInterval(t); }, [d?.busy, load]);
+  const run = async key => { setErr(''); try { await call('/admin/ai/limits', { method: 'POST', body: JSON.stringify({ key, set: setName === 'none' ? '' : setName }) }); await load(); } catch (e) { setErr(String(e?.message || e)); } };
+  const seats = d?.seats || []; const sets = (models || []).find(m => m.sets?.length)?.sets || [];
+  return <section className="pst-lim" data-testid="pst-limits"><header><b>TEST LIMITS</b><small>Free. One exam per proof on your own LM Studio models, graded by code. No paid model and no money.</small></header>
+    <div className="pst-lim-go"><span className="m-seg" role="group" aria-label="Which prompt">{[['none', 'No prompt'], ...sets.map(x => [x.set, x.label])].map(([k, l]) => <button key={k} type="button" className={setName === k ? 'active' : ''} aria-pressed={setName === k} onClick={() => setSetName(k)} data-testid={`pst-lim-set-${k}`}>{l}</button>)}</span>{seats.map(x => <button key={x.key} type="button" className="m-btn m-go" disabled={!!d?.busy} onClick={() => run(x.key)} data-tip={`Runs all 5 exams on ${x.name}, one at a time`} data-testid={`pst-lim-run-${x.key}`}>Test {x.name}</button>)}{d?.busy ? <em className="m-num" role="status" data-testid="pst-lim-busy"><i className="pst-lim-dot" aria-hidden="true" />{d.busy.name} is taking the exams</em> : null}</div>
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    {(d?.results || []).length ? <ul className="pst-lim-list">{d.results.slice(0, 8).map(r => <li key={`${r.seat}-${r.prompt}`} data-testid={`pst-lim-${r.seat}-${r.prompt}`}><span className="pst-lim-score" style={{ '--p': `${r.score}%` }}><b className="m-num">{r.score}</b></span><span className="pst-lim-who"><b>{r.seat}</b><small>{r.prompt}{r.model ? ` · ${String(r.model).split('/').pop()}` : ''}</small></span><ol>{(r.rows || []).map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={`${x.why}. ${x.secs}s${x.tps ? `, ${x.tps} tokens a second` : ''}`}><i aria-hidden="true">{x.ok ? '✓' : '✕'}</i><small>{x.name}</small></li>)}</ol><small className="m-num">{r.err || `${r.seconds}s`}</small></li>)}</ul> : <p className="pst-lim-none">No test yet. Pick a prompt and test a model.</p>}</section>;
+}
 export function PromptStudio({ call, only }) {
   const [d, setD] = useState(null); const [key, setKey] = useState(only?.[0] || 'lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
   const load = useCallback(async () => { try { setD(await call('/admin/ai/prompts')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
@@ -198,7 +211,8 @@ export function PromptStudio({ call, only }) {
     </div>
     {m.general ? <GeneralMind g={m.general} busy={busy} onSave={general => post({ key: m.key, general }, general ? '🧠 Saved. Every agent\'s next general job carries it' : '🧠 Back to the first text')} /> : null}
     <Ladder m={m} />
-    <p className="pst-h pst-seth"><b>{m.general ? 'TRADING MINDSETS' : 'FOUR MINDSETS'} FOR {m.name}</b><small>written from its record · apply one, revert any time · the desk's rules and money checks never change</small></p>
+    <LimitTest call={call} models={d.models} />
+    <p className="pst-h pst-seth"><b>{m.general ? 'TRADING MINDSETS' : 'MINDSETS'} FOR {m.name}</b><small>written from its record · apply one, revert any time · the desk's rules and money checks never change</small></p>
     <div className="pst-sets">{(m.sets || []).map((s, i) => <SetCard key={`${m.key}-${s.set}`} s={s} m={m} i={i} busy={busy} dials={d.dials}
       active={m.active && m.active.set === s.set ? m.active : null}
       onApply={(set, text) => post({ key: m.key, set, ...(text ? { text } : {}) }, `🎭 ${s.label} applied to ${m.name} — from its next call`)}

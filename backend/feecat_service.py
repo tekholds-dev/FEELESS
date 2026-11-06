@@ -5613,6 +5613,21 @@ def _general_mind(cat):
     return _ps.general_block(text_, _ps.general_record(cat))
 
 
+def _popular_builds(store, raw=False):
+    """Only pages their owner chose to send to the Collective, the ones marked working first. The owner's name never leaves here."""
+    rows = []
+    for cid, c in (store.get('cats') or {}).items():
+        for f in c.get('psFolders') or []:
+            if not f.get('sent') or not f.get('ws') or f.get('graded') == 'wrong':
+                continue
+            doc = _ws_load(cid, f['ws'])
+            if not (doc or {}).get('versions'):
+                continue
+            rows.append({'id': hashlib.sha256(f"{cid}:{f['ws']}".encode()).hexdigest()[:16], 'cat': cid, 'ws': f['ws'], 'name': str(doc.get('name') or 'A build')[:60], 'kits': [k.get('name') for k in doc.get('kitsUsed') or [] if k.get('used')][:4], 'cost': round(float(doc.get('cost') or 0), 4), 'pages': len(doc['versions']), 'works': f.get('graded') == 'right', 'at': round(float(f.get('at') or 0))})
+    rows.sort(key=lambda r: (not r['works'], -r['at']))
+    return rows[:24] if raw else [{k: v for k, v in r.items() if k not in ('cat', 'ws')} for r in rows[:24]]
+
+
 def _ws_placed(cat_id, html):
     """A page with its uploaded pictures in place. Only for showing it or sending it on: what is saved stays small."""
     if 'feeless-file:' not in str(html or ''):
@@ -5647,7 +5662,7 @@ def _ws_pass(store):
 
 
 WS_DRAFT_CHARS = 60000   # what the Code tab shows of a page still being written
-WS_CODE_MODEL = 'z-ai/glm-5.3-flash'   # 💻 owner 2026-11-05: OSSY and G4 never write a page (18 tokens a second on his Mac). A cheap cloud model does, on its model credit
+WS_CODE_MODEL = 'deepseek/deepseek-v4-pro-0813'   # 💻 owner 2026-11-05: OSSY and G4 never write a page (18 tokens a second on his Mac). Owner 2026-11-06: the smarter writer by default. It built his Narrative finder for 2 cents with GLM 5.3 Flash as its second mind
 
 
 async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
@@ -6966,6 +6981,24 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op == 'build_list':   # 🏆 builds their owners sent to the Collective, newest first, no owner shown
+        return {'builds': _popular_builds(store)}
+    if p.op == 'build_open':   # one of those, to look at. A locked page in a sandbox
+        got_ = next((x for x in _popular_builds(store, raw=True) if x['id'] == str(p.job)), None)
+        if not got_:
+            raise HTTPException(404, 'That build is not shared.')
+        doc_ = _ws_load(got_['cat'], got_['ws']); v_ = (doc_ or {}).get('versions') or []
+        return {'preview': _feat.preview(_ws_placed(got_['cat'], v_[-1]['html'])) if v_ else ''}
+    if p.op == 'build_use':   # a new folder of its own, starting from that page
+        got_ = next((x for x in _popular_builds(store, raw=True) if x['id'] == str(p.job)), None); doc_ = _ws_load(got_['cat'], got_['ws']) if got_ else None; v_ = (doc_ or {}).get('versions') or []
+        if not v_:
+            raise HTTPException(404, 'That build is not shared.')
+        try:
+            row_ = _feat.new_folder(cat, 'build', f"From {got_['name']}"[:60], time.time())
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        new_ = _feat.new_doc(row_); new_['versions'] = [{'html': _ws_placed(got_['cat'], v_[-1]['html']), 'by': 'Popular build', 'at': round(time.time())}]; _ws_save(cat_id, new_); keep_owned(cat); _save(store)
+        return {'folder': row_, 'workspaces': cat['workspaces']}
     if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_pick':

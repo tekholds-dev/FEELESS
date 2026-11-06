@@ -19987,6 +19987,63 @@ async def admin_colony_set(request: Request):
     return await _colony_view()
 
 
+_LIMITS = {'busy': None, 'results': {}}
+MODEL_LIMITS_PATH = DATA_DIR / 'model_limits.json'
+
+
+def _limit_seats():
+    """The free LM Studio seats this server can reach. Never a paid model."""
+    out = {}
+    for k_, name_, base_, key_, model_ in (('lan', 'G4', 'LAN_LLM_BASE_URL', 'LAN_LLM_API_KEY', 'LAN_LLM_MODEL'), ('local', 'OSSY', 'LOCAL_LLM_BASE_URL', 'LOCAL_LLM_API_KEY', 'LOCAL_LLM_MODEL')):
+        b_ = str(os.environ.get(base_) or '').strip()
+        if b_:
+            out[k_] = {'name': name_, 'base': b_, 'key': os.environ.get(key_) or '', 'model': os.environ.get(model_) or ''}
+    return out
+
+
+async def _limits_run(k_, seat_, overlay_, label_):
+    import model_limits as _ml
+    try:
+        async with httpx.AsyncClient() as h_:
+            model_ = seat_['model']
+            if not model_:
+                ids_ = [m_['id'] for m_ in (await h_.get(seat_['base'].rstrip('/') + '/models', headers={'Authorization': f"Bearer {seat_['key'] or 'lm-studio'}"}, timeout=8)).json().get('data') or [] if 'embed' not in m_['id']]
+                model_ = ids_[0] if ids_ else ''
+            got_ = await _ml.run_one(h_, seat_['base'], seat_['key'], model_, overlay_)
+        got_.update(seat=seat_['name'], prompt=label_)
+        kept_ = dict(_json_load(MODEL_LIMITS_PATH, {}) or {}); kept_[f'{k_}:{label_}'] = got_; _json_save(MODEL_LIMITS_PATH, kept_)
+    except (httpx.HTTPError, ValueError, KeyError) as e_:
+        kept_ = dict(_json_load(MODEL_LIMITS_PATH, {}) or {}); kept_[f'{k_}:{label_}'] = {'seat': seat_['name'], 'prompt': label_, 'err': str(e_)[:120] or 'It did not answer', 'rows': [], 'score': 0, 'at': round(time.time())}; _json_save(MODEL_LIMITS_PATH, kept_)
+    finally:
+        _LIMITS['busy'] = None
+
+
+@app.get('/api/reputation/admin/ai/limits')
+async def admin_ai_limits(request: Request):
+    """🧪 Owner: the last free limit test on each LM Studio model."""
+    _require_owner(request)
+    return {'busy': _LIMITS['busy'], 'seats': [{'key': k_, 'name': v_['name']} for k_, v_ in _limit_seats().items()], 'results': sorted((_json_load(MODEL_LIMITS_PATH, {}) or {}).values(), key=lambda r_: -(r_.get('at') or 0))}
+
+
+@app.post('/api/reputation/admin/ai/limits')
+async def admin_ai_limits_run(request: Request):
+    """🧪 Owner: one exam per proof on a free local model, with its live prompt or a set from the studio. No paid model and no money."""
+    _require_owner(request)
+    body = await request.json(); body = body if isinstance(body, dict) else {}; k_ = body.get('key'); seat_ = _limit_seats().get(k_)
+    if not seat_:
+        raise HTTPException(400, 'That model is not connected.')
+    if _LIMITS['busy']:
+        raise HTTPException(409, 'A test is still running.')
+    set_ = str(body.get('set') or ''); text_ = ''
+    if set_:
+        text_ = next((x_['text'] for m_ in (await _studio_view())['models'] if m_['key'] == k_ for x_ in m_['sets'] if x_['set'] == set_), '')
+        if not text_:
+            raise HTTPException(400, 'unknown prompt set')
+    _LIMITS['busy'] = {'key': k_, 'name': seat_['name'], 'set': set_ or 'none', 'at': round(time.time())}
+    asyncio.create_task(_limits_run(k_, seat_, text_, _pstu.LABEL.get(set_, 'No overlay')))
+    return {'busy': _LIMITS['busy']}
+
+
 @app.get('/api/reputation/admin/ai/prompts')
 async def admin_ai_prompts(request: Request):
     """🎭 Owner: every model's live context (the layers it reads + its window), record, diagnosis and four prompt sets."""

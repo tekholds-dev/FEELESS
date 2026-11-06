@@ -29,7 +29,7 @@ def test_four_sets_per_model_written_from_its_record_and_inside_the_budget():
     s = ps.stats(GIVEBACK)
     fx = ps.diagnose(s)
     g4 = ps.sets('lan', s, fx)
-    assert [x['set'] for x in g4] == ['elite', 'degen', 'progressive', 'tuned']
+    assert [x['set'] for x in g4] == ['elite', 'degen', 'progressive', 'tuned', 'supreme']
     assert all(len(x['text']) <= ps.MAX_CHARS['lan'] for x in g4) and all(set(x['dials']) == set(ps.DIAL_KEYS) for x in g4)
     assert '10 trades, 40 % won' in g4[0]['text'] and 'G4' in g4[0]['text'] and 'germ floor' in g4[1]['text']
     assert 'quick in, patient in profit' in g4[2]['text'] and 'break-even' in g4[3]['text'] and '3 habits' in g4[3]['tag']
@@ -69,7 +69,7 @@ def test_the_studio_view_and_apply(monkeypatch):
                                                    [{'mint': 'M', 'at': 100, 'state': 'sold', 'result': {'pct': -9.0, 'peak': 12, 'heldMin': 8}}]))
     v = asyncio.run(rs._studio_view())
     g4 = next(m for m in v['models'] if m['key'] == 'lan')
-    assert g4['ctx'] == 8704 and g4['record']['n'] == 1 and len(g4['sets']) == 4 and g4['layers'][0]['k'] == 'job' and g4['layers'][0]['tok'] > 50
+    assert g4['ctx'] == 8704 and g4['record']['n'] == 1 and len(g4['sets']) == 5 and g4['layers'][0]['k'] == 'job' and g4['layers'][0]['tok'] > 50
     assert g4['active'] is None and [m['key'] for m in v['models']] == ['lan', 'local']
     rs._json_save(rs.PROMPT_STUDIO_PATH, {'lan': {'set': 'progressive', 'text': 'rush in, ride green', 'at': 50}})
     v2 = asyncio.run(rs._studio_view())
@@ -110,7 +110,7 @@ def test_the_ladder_credits_each_trade_to_the_mindset_active_when_it_opened():
     by = {r['set']: r for r in lad}
     assert by['plain']['n'] == 7 and by['progressive']['n'] == 7 and by['elite']['n'] == 0 and by['degen']['n'] == 0   # OSSY's history is not G4's
     assert lad[0]['set'] == 'progressive' and lad[0]['avgPct'] > 0 and lad[0]['active'] and lad[1]['set'] == 'plain'
-    assert by['progressive']['usd'] == 0.22 and [r['set'] for r in lad[-3:]] == ['elite', 'degen', 'tuned']
+    assert by['progressive']['usd'] == 0.22 and [r['set'] for r in lad[-3:]] == ['degen', 'tuned', 'supreme']
     assert ps.periods(None, 'lan', 100, {'set': 'elite', 'at': 50}) == [('plain', 0.0, 50.0), ('elite', 50.0, 101.0)]
     assert ps.ladder(trades, [], 'lan', 3000)[0]['set'] == 'plain'                                       # nothing applied yet: all plain
 

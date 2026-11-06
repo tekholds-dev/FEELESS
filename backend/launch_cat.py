@@ -36,6 +36,8 @@ CATS = {
 GENERAL_CATS = ('agent', 'content', 'code')
 TASK_CALLS, TASK_IN, TASK_OUT = 18, 3200, 260   # 🧭 a general task: plan + ≤ 8 steps in each of 2 windows + the merge (cat_agent.STEP_MAX)
 REC = [   # FEELESS's own three, as they exist on OpenRouter — PUBLIC tags (users never see NEXA / OSSY / G4: owner, 2026-10-23)
+    ('deepseek/deepseek-v4-pro-0813', 'BUILDS BEST', 'writes whole pages, the first of two minds for any build'),
+    ('z-ai/glm-5.3-flash', 'BUILDS FAST', 'quick and cheap, the second mind that reviews what the first one wrote'),
     ('openai/gpt-oss-20b', 'FEELESS PICK', 'the chart-reading model behind FeeCat AI — laid back, sharp on charts, very cheap'),
     ('qwen/qwen3.5-4b', 'FEELESS PICK', 'the tiny, quick trench reader on our desk'),
     ('qwen/qwen3-4b-2507', 'FEELESS PICK', 'the tiny, quick trench reader on our desk'),
