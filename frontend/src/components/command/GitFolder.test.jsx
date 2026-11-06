@@ -113,7 +113,7 @@ test('the Trash has two clear piles, counts down, brings back, and asks before a
 });
 
 test('the token tutorial walks three steps and connects for real', async () => {
-  const { GitTour } = require('./GitFolder'); const onLink = jest.fn(async () => {}); const onClose = jest.fn(); const el = document.createElement('div'); document.body.append(el); const root = createRoot(el);
+  document.body.innerHTML = ''; const { GitTour } = require('./GitFolder'); const onLink = jest.fn(async () => {}); const onClose = jest.fn(); const el = document.createElement('div'); document.body.append(el); const root = createRoot(el);
   await act(async () => { root.render(<GitTour onClose={onClose} onLink={onLink} />); });
   const q = t => document.body.querySelector(`[data-testid="${t}"]`);
   expect(q('gtt-open').getAttribute('href')).toContain('contents=write'); await act(async () => { q('gtt-next').click(); }); expect(document.body.textContent).toContain('Only select repositories'); await act(async () => { q('gtt-next').click(); });
