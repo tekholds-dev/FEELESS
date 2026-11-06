@@ -116,6 +116,19 @@ export function PoolDesk({ p, d, save, busy }) {
   </div></Fx>;
 }
 
+// 🐍 The five py agents: how each really did, and what OSSY or G4 proposes after reading their code. Words only: it changes no code, and you decide.
+export function PyAgentsFolder({ call }) {
+  const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
+  useEffect(() => { let on = true; call('/admin/py-agents').then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [call]);
+  const ask = async who => { setBusy(who); setErr(''); try { setD(await call('/admin/py-agents', { method: 'POST', body: JSON.stringify({ who }) })); } catch (e) { setErr(e.message); } setBusy(''); };
+  return <Fx><div className="ofd" data-testid="ofd-py"><Head icon={ShieldCheck} title="Py agents" line="The five that check every proof. OSSY and G4 read their code and record, and propose. Nothing changes until you decide." />
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    <ol className="ofd-seats">{(d?.seats || []).map((r, i) => <motion.li key={r.k} {...rise(i)} data-testid={`ofd-seat-${r.k}`}><b>{r.name}</b><small>{r.does}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${r.checked ? r.passed / r.checked : 0})` }} /></i><em className="m-num">{r.checked ? `${r.passed} of ${r.checked} passed` : 'No proofs yet'}</em>{r.lastNo ? <q>{r.lastNo}</q> : null}</motion.li>)}</ol>
+    <div className="ofd-row">{[['ossy', 'Ask OSSY'], ['g4', 'Ask G4']].map(([k, l]) => <button key={k} type="button" className="m-btn m-go" disabled={!!busy} onClick={() => ask(k)} data-tip="Free, on your own machine. It can take a few minutes" data-testid={`ofd-py-${k}`}>{busy === k ? 'Reading their code…' : l}</button>)}</div>
+    {(d?.runs || []).map(run => <section key={run.at} className="hq-card" data-testid="ofd-py-run"><h4>{run.by.toUpperCase()} PROPOSES<small>{new Date(run.at * 1000).toLocaleString()}</small></h4><ul className="ofd-missing">{run.proposals.map((p, i) => <li key={i}><b>{p.seat} · {p.risk} risk</b><small>{p.weak}</small><small>Fix: {p.fix}</small></li>)}</ul></section>)}
+  </div></Fx>;
+}
+
 // One ledger read for every owner folder. Adding a pool makes its folder on the next read.
 export function useOwnerFolders(call, on = true) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [c, setC] = useState(null);
@@ -131,6 +144,7 @@ export function useOwnerFolders(call, on = true) {
     { k: 'own-pay', ic: '💸', label: 'Pay + reward', tip: 'Owner only: pay agents sooner, or give a bonus', body: wrap(d ? <PayFolder d={d} save={save} busy={busy} /> : null) },
     { k: 'own-fallback', ic: '🛟', label: 'Fallbacks', tip: 'Owner only: what can pay agents when pools do not', body: wrap(d ? <FallbackFolder d={d} onPay={openPay} /> : null) },
     { k: 'own-safety', ic: '🛡', label: 'Safety', tip: 'Owner only: stop payouts, the limits, and what is not built yet', body: wrap(d && c ? <SafetyFolder d={d} save={save} busy={busy} c={c} setC={setC} /> : null) },
+    { k: 'own-py', ic: '🐍', label: 'Py agents', tip: 'Owner only: the five validators, their real record, and what OSSY and G4 propose', body: <PyAgentsFolder call={call} /> },
     ...(d?.pools || []).map(p => ({ k: `own-pool-${p.id}`, ic: '🌊', label: p.pair, tip: `${p.pair} on ${p.platform}: its numbers, its stop and its profit`, body: <PoolDesk p={p} d={d} save={save} busy={busy} /> })),
   ];
 }

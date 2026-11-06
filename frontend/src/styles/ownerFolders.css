@@ -29,3 +29,6 @@ body.theme-day .ofd { color: #14202c; } body.theme-day .ofd-h h3 { color: #14202
 .ofd-row small { font: 800 9.5px var(--f-mono); letter-spacing: .08em; opacity: .7; } .ofd-row a.m-btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) { .ofd-card { transition: none; } }
 body.theme-day .ofd-card { background: #ffffffb8; border-color: #0f1f3a22; } body.theme-day .ofd-band { background: #0f1f3a0a; } body.theme-day .ofd-steps li { background: #0f1f3a0a; }
+
+.ofd-seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; } .ofd-seats li { display: grid; gap: 4px; padding: 11px; border-radius: 12px; border: 1px solid #ffffff1a; background: linear-gradient(150deg, #ffffff0e, #ffffff04); } .ofd-seats b { font: 700 14px var(--f-tech); } .ofd-seats small { font: 500 11.5px var(--f-ui); opacity: .72; } .ofd-seats i { display: block; height: 6px; border-radius: 99px; background: #ffffff12; overflow: hidden; } .ofd-seats u { display: block; height: 100%; background: #45e486; transform-origin: left; } .ofd-seats em { font-style: normal; font-size: 11.5px; } .ofd-seats q { font: 500 11px/1.3 var(--f-ui); color: #ff8fa3; }
+body.theme-day .ofd-seats li { background: #ffffffb8; border-color: #0f1f3a22; }

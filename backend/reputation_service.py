@@ -27427,6 +27427,35 @@ async def admin_stash(request: Request):
     return {'stats': await asyncio.to_thread(_stash.stats, root), 'web': await asyncio.to_thread(_stash.web, root), 'mirror': bool(os.environ.get('STASH_R2_BUCKET'))}
 
 
+@app.get('/api/reputation/admin/py-agents')
+async def admin_py_agents(request: Request):
+    """🐍 Owner: the five validators, their real record and what the local minds propose. It changes no code."""
+    _require_owner(request)
+    import py_agents as _pa
+    return {'seats': _pa.record(_cpool.load(POOL_PATH)), **_pa.load(DATA_DIR)}
+
+
+@app.post('/api/reputation/admin/py-agents')
+async def admin_py_agents_ask(request: Request):
+    """🐍 Owner: one local mind reads the validators' code and record, and proposes. Free, on his own machines. Saved for him to read; nothing is applied."""
+    _require_owner(request)
+    import py_agents as _pa
+    body = await request.json() or {}; who_ = 'g4' if body.get('who') == 'g4' else 'ossy'; which_ = 'LAN' if who_ == 'g4' else 'LOCAL'; base_ = (os.environ.get(f'{which_}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which_ == 'LOCAL' else '')).rstrip('/')
+    if not base_:
+        raise HTTPException(400, f'{who_.upper()} has no address set.')
+    auth_ = {'Authorization': f"Bearer {os.environ.get(f'{which_}_LLM_API_KEY') or 'lm-studio'}"}
+    try:
+        async with httpx.AsyncClient(timeout=600) as http:
+            ids_ = [m_.get('id') for m_ in (await http.get(f'{base_}/models', headers=auth_, timeout=8)).json().get('data') or [] if 'embed' not in str(m_.get('id'))]
+            r_ = await http.post(f'{base_}/chat/completions', headers=auth_, json={'model': ids_[0], 'messages': [{'role': 'system', 'content': _pa.SYS}, {'role': 'user', 'content': _pa.prompt(_pa.record(_cpool.load(POOL_PATH)))}], 'max_tokens': 1200, 'temperature': 0.3, 'reasoning_effort': 'none'})
+        rows_ = _pa.parse(r_.json()['choices'][0]['message']['content'])
+    except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
+        raise HTTPException(502, f'{who_.upper()} did not answer: {str(e)[:100]}')
+    if not rows_:
+        raise HTTPException(502, f'{who_.upper()} answered with no usable proposal. Try again.')
+    return {'seats': _pa.record(_cpool.load(POOL_PATH)), **_pa.add(DATA_DIR, who_, rows_, time.time())}
+
+
 @app.get('/api/reputation/admin/collective')
 async def admin_collective(request: Request):
     """🪙 Owner: the Pool ledger, every setting and where the money stands."""

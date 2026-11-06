@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { FallbackFolder, PayFolder, PoolDesk, SafetyFolder, SpotsFolder, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
+import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, SafetyFolder, SpotsFolder, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./HiveBoard', () => ({ ColonyPot: () => <div data-testid="pot" /> }));
@@ -50,7 +50,7 @@ test('the folders appear only when asked, and each listed pool adds one', async 
   let apps = null; const call = jest.fn(async () => D); const T = ({ on }) => { apps = useOwnerFolders(call, on); return null; };
   const { root } = await mount(<T on={false} />); expect(apps).toEqual([]); expect(call).not.toHaveBeenCalled();
   await act(async () => { root.render(<T on />); }); await act(async () => {});
-  expect(apps.map(a => a.k)).toEqual(['own-pools', 'own-spots', 'own-pay', 'own-fallback', 'own-safety', 'own-pool-p1']);
+  expect(apps.map(a => a.k)).toEqual(['own-pools', 'own-spots', 'own-pay', 'own-fallback', 'own-safety', 'own-py', 'own-pool-p1']);
   await act(async () => root.unmount());
 });
 
@@ -63,5 +63,13 @@ test('a pool folder reads its live price against its band', async () => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [{ pool: 'Addr1', price: 150, tvl: 1, vol24: 1, fees24: 1 }] }) }));
   const { q, root } = await mount(<PoolDesk p={{ ...D.pools[0], bandLow: 100, bandHigh: 120 }} d={D} save={jest.fn()} busy={false} />); await act(async () => {});
   expect(q('ofd-range-state').textContent).toContain('OUT OF RANGE');
+  await act(async () => root.unmount());
+});
+
+test('the py agents folder shows real records and a proposal changes nothing but the page', async () => {
+  const seats = [{ k: 'tally', name: 'Tally', does: 'Numbers', checked: 4, passed: 3, lastNo: 'No real profit' }]; const call = jest.fn(async (u, o) => (o ? { seats, runs: [{ by: 'ossy', at: 1790000000, proposals: [{ seat: 'tally', risk: 'low', weak: 'Weak here', fix: 'Do this' }] }] } : { seats, runs: [] }));
+  const { q, root } = await mount(<PyAgentsFolder call={call} />); await act(async () => {});
+  expect(q('ofd-seat-tally').textContent).toContain('3 of 4 passed'); await click(q('ofd-py-ossy')); await act(async () => {});
+  expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ who: 'ossy' }); expect(q('ofd-py-run').textContent).toContain('Do this');
   await act(async () => root.unmount());
 });
