@@ -11712,7 +11712,8 @@ async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str 
         a_, b_ = await asyncio.gather(
             _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 100, 'page': 1}, ray_),
             _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 100, 'sort_by': 'volume_24h:desc'}, met_))
-        return {'pools': _rp.busiest(a_ + b_ + extra_, 30), 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
+        seen_ = _rp.busiest(a_ + b_ + extra_, 30); deep_ = sorted(a_ + b_ + extra_, key=lambda r_: -r_['tvl'])[:15] if reads else []   # the lists that only read also get the deepest, not just the busiest
+        return {'pools': seen_ + [r_ for r_ in deep_ if r_ not in seen_], 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
     if not 32 <= len(mint) <= 44:
         raise HTTPException(400, 'A token mint, or top=1.')
     a_, b_ = await asyncio.gather(
@@ -27433,12 +27434,82 @@ async def admin_stash(request: Request):
     return {'stats': await asyncio.to_thread(_stash.stats, root), 'web': await asyncio.to_thread(_stash.web, root), 'mirror': bool(os.environ.get('STASH_R2_BUCKET'))}
 
 
+_GROW = {'at': 0.0, 'rows': [], 'detail': {}}
+GROW_SOL_POOL = 'Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE'   # Orca's deepest SOL-USDC, for SOL's real price
+
+
+async def _grow_rows():
+    """💰 Every option, read from each venue's own numbers, at most every 5 minutes. A venue that fails only shrinks the list."""
+    import grow_board as _gb
+    if _GROW['rows'] and time.time() - _GROW['at'] < 300:
+        return _GROW['rows']
+
+    async def llama():
+        r_ = await _fmk_http_get().get('https://yields.llama.fi/pools', timeout=25)
+        return _gb.lend_rows((await asyncio.to_thread(json.loads, r_.content)).get('data') if r_.status_code == 200 else [])
+
+    async def stocks():
+        r_ = await _fmk_http_get().get('https://api.dexscreener.com/latest/dex/search', params={'q': 'xStock'}, timeout=12)
+        return _gb.stock_rows(r_.json().get('pairs') if r_.status_code == 200 else [])
+
+    async def planned():
+        out_ = []; state_ = _cpool.load(POOL_PATH)
+        for p_ in (state_.get('pools') or [])[:12]:
+            if p_.get('address') and p_.get('mint'):
+                out_ += [x_ for x_ in (await familia_pools_ranges(mint=p_['mint'], quote='', top=0, reads=1))['pools'] if x_['pool'] == p_['address']]
+        return out_
+    top_, lends_, stocks_, plan_ = await asyncio.gather(familia_pools_ranges(mint='', quote='', top=1, reads=1), llama(), stocks(), planned(), return_exceptions=True)
+    ok_ = lambda v_: [] if isinstance(v_, BaseException) else v_
+    rows_ = _gb.board(ok_(plan_) + (ok_(top_) or {}).get('pools', [] if not isinstance(top_, BaseException) else []) if not isinstance(top_, BaseException) else ok_(plan_), ok_(lends_), ok_(stocks_))
+    _GROW.update(at=time.time(), rows=rows_, detail={})
+    return rows_
+
+
+@app.get('/api/reputation/admin/grow')
+async def admin_grow(request: Request):
+    """💰 Owner: the money board. It reads and measures. It never picks and never moves money."""
+    _require_owner(request)
+    import grow_board as _gb
+    return {'rows': [_gb.view(r_) for r_ in await _grow_rows()], 'at': round(_GROW['at'])}
+
+
+@app.get('/api/reputation/admin/grow/detail')
+async def admin_grow_detail(request: Request, id: str = Query('', max_length=128)):
+    """💰 Owner: one option's hourly points. Only a row the board itself read, so the fee and depth are the venue's, never the page's."""
+    _require_owner(request)
+    import grow_board as _gb
+    row_ = next((r_ for r_ in await _grow_rows() if r_['id'] == id), None)
+    if not row_:
+        raise HTTPException(404, 'That option is not on the board any more.')
+    hit_ = _GROW['detail'].get(id)
+    if hit_:
+        return hit_
+
+    async def bars(pair_):
+        r_ = await _fmk_http_get().get(f'http://127.0.0.1:5099/api/candles/solana/{pair_}', params={'interval': '1h'}, timeout=20)
+        return r_.json().get('candles') or [] if r_.status_code == 200 else []
+    try:
+        if row_['kind'] == 'pool':
+            own_, sol_ = await asyncio.gather(bars(row_['id']), bars(GROW_SOL_POOL))
+            pts_, why_ = _gb.pool_points(row_, own_, sol_)
+        elif row_['kind'] == 'stock':
+            pts_, why_ = _gb.stock_points(await bars(row_['pair']))
+        else:
+            r_, sol_ = await asyncio.gather(_fmk_http_get().get(f"https://yields.llama.fi/chart/{row_['llama']}", timeout=20), bars(GROW_SOL_POOL) if row_['kind'] == 'stake' else asyncio.sleep(0, []))
+            pts_, why_ = _gb.lend_points(row_, (r_.json().get('data') or []) if r_.status_code == 200 else [], sol_, time.time())
+    except (httpx.HTTPError, ValueError) as e:
+        raise HTTPException(502, f'Its history could not be read: {str(e)[:80]}')
+    out_ = {'id': id, 'points': pts_, 'single': row_['kind'] != 'pool', 'why': why_}
+    _GROW['detail'][id] = out_
+    return out_
+
+
 @app.get('/api/reputation/admin/py-agents')
 async def admin_py_agents(request: Request):
     """🐍 Owner: the five validators, their real record and what the local minds propose. It changes no code."""
     _require_owner(request)
     import py_agents as _pa
-    return {'seats': _pa.record(_cpool.load(POOL_PATH)), **_pa.load(DATA_DIR)}
+    return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), **_pa.load(DATA_DIR)}
 
 
 @app.post('/api/reputation/admin/py-agents')

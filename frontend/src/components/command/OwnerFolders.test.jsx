@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, SafetyFolder, SpotsFolder, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
+import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, GrowFolder, SafetyFolder, curveOf, payOf, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./HiveBoard', () => ({ ColonyPot: () => <div data-testid="pot" /> }));
@@ -26,13 +26,25 @@ test('fallbacks show what each can afford today and lead to paying', async () =>
   await click(q('ofd-plan-go-keep')); expect(onPay).toHaveBeenCalled();
   await act(async () => root.unmount());
 });
-test('spots show real numbers, add a pool without moving money, and say it is not advice', async () => {
-  global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ pools: [{ pool: 'New1', name: 'A-B', venue: 'orca', feePct: 1, tvl: 500000, vol24: 90000, rate: 0.001 }, { pool: 'Addr1', name: 'SOL-USDC', venue: 'meteora', feePct: 0.1, tvl: 900000, vol24: 90000, rate: 0.002 }] }) }));
-  const save = jest.fn(); const { el, q, root } = await mount(<SpotsFolder d={D} save={save} busy={false} />); await act(async () => {});
-  expect(el.textContent).toContain('not advice'); expect(q('ofd-spot-New1').textContent).toContain('37%'); expect(q('ofd-spot-add-Addr1').disabled).toBe(true); expect(q('ofd-process').textContent).toContain('BY HAND');
-  expect(q('ofd-band-nums-New1').textContent).toContain('CONCENTRATION'); await click(q('ofd-band-New1-5')); expect(q('ofd-band-nums-New1').textContent).toContain('IF PRICE MOVES 5%');
-  await click(q('ofd-spot-add-New1')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'orca', pair: 'A-B', address: 'New1' });
+test('the money folder compares real options, shows what they did after price moves, and adds to the plan without moving money', async () => {
+  const row = { pool: 'New1', name: 'A-B', venue: 'orca', feePct: 1, tvl: 500000, vol24: 90000, rate: 0.001, price: 1, step: 4, readOnly: true };
+  const rows = [{ id: 'New1', kind: 'pool', name: 'A-B', venue: 'orca', tvl: 500000, yearPct: 36.5, per1k24: 1, risk: 'half', readOnly: true, pool: row }, { id: 'llama:u', kind: 'lend', name: 'USDC on kamino', venue: 'kamino-lend', tvl: 9e6, yearPct: 6, per1k24: 0.16, risk: 'none', llama: 'u' }, { id: 'stock:s', kind: 'stock', name: 'SPYx', venue: 'raydium', tvl: 2e6, yearPct: 0, per1k24: 0, risk: 'coin', pair: 's' }];
+  const pts = n => Array.from({ length: n }, (_, i) => ({ t: 1000 + i * 3600, a: 1 - i * 0.001, b: 1, fee: 0.0005 }));
+  const call = jest.fn(async u => (u === '/admin/grow' ? { rows } : { id: 'x', points: pts(30), single: u.includes('llama') || u.includes('stock'), why: '' }));
+  const save = jest.fn(); const { el, q, root } = await mount(<GrowFolder d={D} save={save} busy={false} call={call} />); await act(async () => {}); await act(async () => {});
+  expect(el.textContent).toContain('not advice'); expect(q('grow-result-New1').textContent).toContain('EARNED'); expect(q('grow-result-llama:u')).not.toBeNull(); expect(q('grow-result-stock:s').textContent).toContain('NET');
+  expect(q('grow-row-stock:s').textContent).toContain('MOVES WITH THE COIN'); expect(q('grow-row-New1').textContent).toContain('read only');
+  await click(q('grow-tick-stock:s')); expect(q('grow-result-stock:s')).toBeNull();
+  await click(q('grow-add-llama:u')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'other', pair: 'USDC on kamino' });
+  await click(q('grow-band-New1')); expect(q('ofd-band-nums-New1').textContent).toContain('CONCENTRATION'); await click(q('ofd-spot-add-New1')); expect(save.mock.calls[1][1].poolAdd).toMatchObject({ platform: 'orca', pair: 'A-B', address: 'New1' });
   await act(async () => root.unmount());
+});
+test('the same maths for every option: a pool feels price moves by the square root, a single coin in full, and only earnings ever pay', () => {
+  const pts = [{ t: 0, a: 100, b: 1, fee: 0 }, { t: 3600, a: 81, b: 1, fee: 0.01 }];
+  const lp = curveOf({ points: pts, single: false }, 24, 1000); expect(lp.moved).toBeCloseTo(-100); expect(lp.earned).toBeCloseTo(10); expect(lp.net).toBeCloseTo(-90);
+  const one = curveOf({ points: pts, single: true }, 24, 1000); expect(one.moved).toBeCloseTo(-190);
+  expect(curveOf({ points: [pts[0]] }, 24, 1000)).toBeNull(); expect(payOf(0, 24, 10, 20)).toBeNull();
+  const pay = payOf(10, 24, 10, 20); expect(pay.month).toBeCloseTo(300); expect(pay.piece).toBeCloseTo(60); expect(pay.agents).toBeCloseTo(30); expect(pay.back).toBeCloseTo(210);
 });
 test('safety has the stop, warns past a stop, and lists what is not built', async () => {
   const { q, el, root } = await mount(<SafetyFolder d={D} save={jest.fn()} busy={false} c={D.cfg} setC={jest.fn()} />);
@@ -50,7 +62,7 @@ test('the folders appear only when asked, and each listed pool adds one', async 
   let apps = null; const call = jest.fn(async () => D); const T = ({ on }) => { apps = useOwnerFolders(call, on); return null; };
   const { root } = await mount(<T on={false} />); expect(apps).toEqual([]); expect(call).not.toHaveBeenCalled();
   await act(async () => { root.render(<T on />); }); await act(async () => {});
-  expect(apps.map(a => a.k)).toEqual(['own-pools', 'own-spots', 'own-pay', 'own-fallback', 'own-safety', 'own-py', 'own-pool-p1']);
+  expect(apps.map(a => a.k)).toEqual(['own-grow', 'own-pay', 'own-fallback', 'own-safety', 'own-py']);
   await act(async () => root.unmount());
 });
 
@@ -69,7 +81,7 @@ test('a pool folder reads its live price against its band', async () => {
 test('the py agents folder shows real records and a proposal changes nothing but the page', async () => {
   const seats = [{ k: 'tally', name: 'Tally', does: 'Numbers', checked: 4, passed: 3, lastNo: 'No real profit' }]; const call = jest.fn(async (u, o) => (o ? { seats, runs: [{ by: 'ossy', at: 1790000000, proposals: [{ seat: 'tally', risk: 'low', weak: 'Weak here', fix: 'Do this' }] }] } : { seats, runs: [] }));
   const { q, root } = await mount(<PyAgentsFolder call={call} />); await act(async () => {});
-  expect(q('ofd-seat-tally').textContent).toContain('3 of 4 passed'); await click(q('ofd-py-ossy')); await act(async () => {});
+  expect(q('ofd-seat-tally').textContent).toContain('3 of 4 real sends passed'); await click(q('ofd-py-ossy')); await act(async () => {});
   expect(JSON.parse(call.mock.calls.at(-1)[1].body)).toEqual({ who: 'ossy' }); expect(q('ofd-py-run').textContent).toContain('Do this');
   await act(async () => root.unmount());
 });

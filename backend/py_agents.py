@@ -14,7 +14,27 @@ SYS = ('You review five small Python checkers that grade proofs before they earn
        'Reply with JSON only: {"proposals":[{"seat":"tally|sherlock|devil|archivist|judge","weak":"under 25 words","fix":"under 30 words","risk":"low|medium|high"}]}')
 
 
-def record(state):
+def filed(store):
+    """Every closed proof agents really filed, across all of them. → folders"""
+    return [f for c in ((store or {}).get('cats') or {}).values() for k in ('powFolders', 'popFolders', 'pobFolders') for f in c.get(k) or [] if isinstance(f, dict) and f.get('status') == 'closed']
+
+
+def practice(rows, folders):
+    """Runs the two seats that need no send over every filed proof. A practice run: nothing is paid and nothing is written. The others wait for a real send. → rows"""
+    by = {r['k']: r for r in rows}
+    for k, fn in (('sherlock', val.sherlock), ('devil', val.devil)):
+        for f in folders or []:
+            try:
+                ok, why = fn(f)
+            except (TypeError, ValueError, AttributeError, KeyError):
+                continue
+            by[k]['tried'] = by[k].get('tried', 0) + 1; by[k]['triedOk'] = by[k].get('triedOk', 0) + (1 if ok else 0)
+            if not ok:
+                by[k]['triedNo'] = str(why)[:160]
+    return rows
+
+
+def record(state, folders=None):
     """How each seat really did, from every proof the ledger holds. → rows with checked, passed and its latest reason for saying no."""
     rows = {k: {'k': k, 'name': n, 'does': d, 'checked': 0, 'passed': 0, 'lastNo': ''} for k, (n, d) in val.SEATS.items()}
     for a in (state.get('agents') or {}).values():
@@ -25,7 +45,7 @@ def record(state):
                     row['checked'] += 1; row['passed'] += 1 if s.get('ok') else 0
                     if not s.get('ok'):
                         row['lastNo'] = str(s.get('why') or '')[:160]
-    return list(rows.values())
+    return practice(list(rows.values()), folders)
 
 
 def prompt(rows):

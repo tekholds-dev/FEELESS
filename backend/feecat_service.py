@@ -1510,6 +1510,30 @@ def _git_files(cat, collective, marked=True):
     return (_sort.with_marked(GIT_DIR, clean) if marked else clean), counts
 
 
+def _copy_files(cat, files, paths):
+    """What leaves for his own repo: each file, and for a built page's proof the page itself, so a test build he wants to keep goes over as a real page. → {path: bytes}"""
+    out = {}; cats = None
+    for p in paths:
+        raw = files.get(p)
+        if raw is None:
+            continue
+        out[f'feeless/{p}'] = raw
+        if p.endswith('.json'):
+            try:
+                ws = (json.loads(raw) or {}).get('ws')
+            except (ValueError, AttributeError):
+                ws = None
+            if ws:
+                cats = cats if cats is not None else _load()['cats'].values()
+                for c in cats:
+                    if any(f.get('ws') == ws for f in c.get('psFolders') or []):
+                        html, _s = _git_page(c['id'], ws)
+                        if html:
+                            out[f'feeless/{p[:-5]}.html'] = html.encode()
+                        break
+    return _cg.without_leaks(out)[0]
+
+
 def _git_outbound(cat, collective):
     """(files, counts) as they leave for GitHub. An agent's own repo gets its readable files, its owner chose that repo. The Collective's gets only sealed blobs with hashed names, its own and each agent's under that agent's key."""
     plain, counts = _git_files(cat, collective)
@@ -1736,9 +1760,7 @@ async def _git_op(cat, p):
                 d_['items'][path_] = _sort.owner_set(d_['items'].get(path_), p.tools or {})
             _sort.save(GIT_DIR, d_)
             return {'on': d_['on'], 'item': d_['items'].get(path_)}
-        if p.op in ('project_link', 'project_send', 'project_drop'):   # 📂 the user's own project: their agent reads it and sends work to a branch of its own
-            if collective:
-                raise ValueError('The Collective repo has no project.')
+        if p.op in ('project_link', 'project_send', 'project_drop', 'project_copy'):   # 📂 the user's own project: their agent reads it and sends work to a branch of its own
             if p.op == 'project_drop':
                 cat.pop('projectRepo', None); _ck.drop(cat, 'github_project')
                 return {'project': None}
@@ -1751,6 +1773,14 @@ async def _git_op(cat, p):
                 if p.op == 'project_link':
                     cat['projectRepo'] = {**await _cg.project_link(h, token, p.job or (cat.get('projectRepo') or {}).get('full')), 'at': round(time.time())}
                     return {'project': _project_view(cat)}
+                if p.op == 'project_copy':   # 📤 any file in this git folder, to a branch of his own repo. Never his main, and what holds a secret never reaches here
+                    if not cat.get('projectRepo'):
+                        raise ValueError('Hook up your repo first, under Your own project.')
+                    files_, _c = await asyncio.to_thread(_git_files, cat, collective); paths_ = [str(x) for x in ((p.tools or {}).get('paths') or [p.job])][:50]; out_ = await asyncio.to_thread(_copy_files, cat, files_, paths_)
+                    if not out_:
+                        raise ValueError('Nothing to copy: that file is not in this folder.')
+                    name_ = (paths_[0].rsplit('/', 1)[-1].rsplit('.', 1)[0] if len(paths_) == 1 else f'{len(paths_)}-files')
+                    return {'sent': await _cg.project_send(h, token, cat['projectRepo'], name_, out_, f'FEELESS: {name_[:60]}')}
                 doc_ = _ws_load(cat['id'], str(p.job or ''))
                 if not doc_ or not doc_.get('code') or not cat.get('projectRepo'):
                     raise ValueError('Build a page and link a project first.')
@@ -6546,7 +6576,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['deskIcons'] = {str(k)[:24]: {'x': max(0, min(20000, int(v['x']))), 'y': max(0, min(20000, int(v['y'])))} for k, v in list(p.tools['pos'].items())[:80] if isinstance(v, dict) and isinstance(v.get('x'), (int, float)) and isinstance(v.get('y'), (int, float))}
             keep_owned(cat); _save(store)
         return {'pos': cat.get('deskIcons') or {}}
-    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop'):
+    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
         out_ = await _git_op(cat, p)
         if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete'):
             keep_owned(cat); _save(store)

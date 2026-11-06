@@ -168,7 +168,7 @@ export function ColonyPot({ call }) {
   if (!d) return <article className="fch-card hv-pot" data-testid="colony-pot"><h4><Ic3 e="💎" /> THE POOL</h4><p className="fch-nil">{err || 'reading the Pool…'}</p></article>;
   const v = d.value?.usd ?? 0; const top = Math.max(v, d.principalUsd, 1);
   return <article className="fch-card fch-wide hv-pot" data-testid="colony-pot">
-    <h4><Ic3 e="💎" /> THE POOL<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} in the Collective · next airdrop in {Math.max(0, Math.round((d.nextAirdrop * 1000 - Date.now()) / 3600000))}h</small></h4>
+    <h4><Ic3 e="💎" /> THE POOL<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} in the Collective · {d.nextAirdrop ? `next airdrop in ${Math.max(0, Math.round((d.nextAirdrop * 1000 - Date.now()) / 3600000))}h` : 'no airdrop set'}</small></h4>
     {!d.wallet ? <p className="hv-pot-new"><span>The Pool is ONE Circle wallet. Your users' money is never pooled — each agent trades from its own wallet; the Pool only ever pays out what it GREW.</span>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('create')} data-tip="Makes the Pool's Solana wallet on the agent Circle account (one, ever — a second click returns the same wallet)" data-testid="colony-create">{busy === 'create' ? 'Making…' : '💎 Create the Pool wallet'}</button></p>
       : <>

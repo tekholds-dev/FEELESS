@@ -6,7 +6,7 @@ def test_both_minds_must_agree_and_trash_waits_for_the_owner():
     assert cs.vote(i, 'g4', 'good', 'ok', 2)['status'] == 'good'
     assert cs.vote(i, 'g4', 'bad', 'no', 2)['status'] == 'disputed'
     t = cs.vote(cs.vote({}, 'ossy', 'trash', '', 1), 'g4', 'trash', '', 2); assert t['status'] == 'trash_ask'
-    assert cs.rule_trash(t, True)['status'] == 'trash' and cs.rule_trash(t, False)['status'] == 'bad'
+    assert cs.rule_trash(t, True)['status'] == 'trash' and 'status' not in cs.rule_trash(t, False) and cs.rule_trash(t, False)['by'] == 'owner'
 
 
 def test_the_owner_always_outranks_the_minds():

@@ -267,8 +267,12 @@ def vote(item, who, verdict, why, now=None, marks=None):
 
 
 def rule_trash(item, approve, now=None):
-    """The owner answers a trash request. Yes hides it and keeps its bytes. No keeps it as bad."""
-    item = dict(item or {}); item['status'] = 'trash' if approve else 'bad'; item['by'] = 'owner'; item['at'] = round(now or time.time())
+    """The owner answers the minds. Yes moves it to the Trash. No keeps it, unflagged, and it is his call so they do not ask again."""
+    item = dict(item or {}); item['by'] = 'owner'; item['at'] = round(now or time.time())
+    if approve:
+        item['status'] = 'trash'
+    else:
+        item.pop('status', None)
     return _trash_clock(item, now)
 
 
