@@ -1,6 +1,9 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { WhitepaperChapters, shelfOf, splitChapter } from './WhitepaperChapters';
+import { WhitepaperChapters, poolLoss, shelfOf, splitChapter } from './WhitepaperChapters';
+
+jest.mock('../../hooks/useMarket', () => ({ useMarket: () => ({ data: null }) }));
+jest.mock('motion/react', () => { const R = require('react'); const passthrough = new Proxy({}, { get: (_, tag) => ({ initial, animate, whileInView, viewport, transition, onViewportEnter, ...p }) => R.createElement(tag, p) }); return { motion: passthrough, useInView: () => false, useScroll: () => ({ scrollYProgress: 0 }), useSpring: v => v, AnimatePresence: ({ children }) => children }; });
 
 jest.mock('./FeeBack', () => ({ FeeBackFlow: () => null }));
 jest.mock('./FeeCommand', () => ({ Tokenomics: () => null }));
@@ -20,14 +23,12 @@ test('a chapter nobody placed still shows', () => {
   expect(shelfOf('Risk Factors')).toBe('risk');
 });
 
-test('shelves show their chapters, the risk line is on every shelf, and risks are never folded', async () => {
+test('every chapter is open with every word, and the risks are always there', async () => {
   const el = await mount(); const q = t => el.querySelector(`[data-testid="${t}"]`);
-  expect(q('whitepaper-chapter-1').textContent).toContain('It costs $60 in fees.');
-  expect(q('whitepaper-chapter-4')).not.toBeNull(); expect(q('whitepaper-chapter-2')).toBeNull();
-  expect(q('wpc-risk-line').textContent).toContain('lose all its value');
-  await act(async () => { q('wpc-shelf-product').click(); });
-  expect(q('whitepaper-chapter-2').tagName).toBe('DETAILS'); expect(q('wpc-risk-line')).not.toBeNull();
-  await act(async () => { q('wpc-risk-line').querySelector('button').click(); });
-  expect(q('whitepaper-chapter-3').tagName).toBe('SECTION'); expect(q('whitepaper-chapter-3').textContent).toContain('Markets fail.');
-  expect(q('wpc-shelf-risk').getAttribute('aria-checked')).toBe('true');
+  expect(q('whitepaper-chapter-1').textContent).toContain('It costs $60 in fees.'); expect(q('whitepaper-chapter-2').tagName).toBe('SECTION'); expect(q('whitepaper-chapter-3').textContent.length).toBeGreaterThan(5);
+  expect(q('wpc-risk-line').textContent).toContain('lose all its value'); expect(el.querySelector('details')).toBeNull();
+});
+
+test('a pool position loses by the real maths', () => {
+  expect(poolLoss(0)).toBeCloseTo(0); expect(poolLoss(-50)).toBeCloseTo(-0.0572, 3); expect(poolLoss(100)).toBeCloseTo(-0.0572, 3);
 });

@@ -6,7 +6,8 @@ import Sigma from 'sigma';
 // 🌌 THE STASH AS SPACE (owner 2026-11-05: black, fine lines and dots): sigma.js + graphology (both MIT), drawn on the GPU so it stays smooth from a dozen bubbles to many thousands. A bubble's size is what the server counted. Hover lights its links; click reads it. Wheel zooms, drag moves.
 const size = (n, kind) => (kind === 'dot' ? 1.5 : kind === 'root' ? 8 : kind === 'cat' ? 5.5 : Math.min(5, 1.8 + Math.sqrt(Math.max(0, n)) * 0.42));
 // 🔥 `live`: [{ node, label, tone }]. The node lights up and the agent's name rides on it, moving with the camera. It never redraws the map.
-export default function StashMap({ nodes, edges, onPick, live = [], testid = 'stw-sigma', allLabels = false }) {
+export default function StashMap({ nodes, edges, onPick, onHover = null, live = [], testid = 'stw-sigma', allLabels = false }) {
+  const hoverRef = useRef(onHover); hoverRef.current = onHover;
   const box = useRef(null); const sig = useRef(null); const liveRef = useRef(live); liveRef.current = live; const tags = useRef({}); const [fail, setFail] = useState(false); const pickRef = useRef(onPick); pickRef.current = onPick;
   const key = JSON.stringify([nodes.map(n => [n.id, n.n]), edges.length]);
   useEffect(() => {
@@ -20,8 +21,8 @@ export default function StashMap({ nodes, edges, onPick, live = [], testid = 'st
       let hover = null;
       sigma = new Sigma(g, box.current, { allowInvalidContainer: true, maxCameraRatio: 1, minCameraRatio: 0.08, minEdgeThickness: 0.45, labelColor: { color: day ? '#101a44' : '#aeb9d4' }, labelFont: 'JetBrains Mono, monospace', labelSize: 10, labelWeight: '500', labelDensity: allLabels ? 3 : 0.6, labelGridCellSize: allLabels ? 40 : 110, labelRenderedSizeThreshold: 3, defaultDrawNodeHover: (ctx, d, s) => { const label = d.label || ''; ctx.font = '600 12px Sora, sans-serif'; const w = ctx.measureText(label).width + 14; ctx.fillStyle = day ? '#ffffff' : '#0a1020'; ctx.strokeStyle = d.color; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(d.x + d.size + 4, d.y - 11, w, 22, 6); ctx.fill(); ctx.stroke(); ctx.fillStyle = day ? '#101a44' : '#fff'; ctx.textBaseline = 'middle'; ctx.fillText(label, d.x + d.size + 11, d.y, s.labelSize ? undefined : undefined); },
         nodeReducer: (id, a) => (liveRef.current.some(l => l.node === id) ? { ...a, size: a.size * 1.9, color: '#ffffff', zIndex: 2 } : hover && id !== hover && !g.areNeighbors(id, hover) ? { ...a, color: day ? '#d4dbe8' : '#22304f', label: '' } : a), edgeReducer: (id, a) => (hover && !g.hasExtremity(id, hover) ? { ...a, hidden: true } : hover ? { ...a, color: g.getNodeAttribute(hover, 'color'), size: 1.5 } : a) });
-      sigma.on('enterNode', ({ node }) => { hover = node; box.current.style.cursor = 'pointer'; sigma.refresh({ skipIndexation: true }); });
-      sigma.on('leaveNode', () => { hover = null; box.current.style.cursor = ''; sigma.refresh({ skipIndexation: true }); });
+      sigma.on('enterNode', ({ node }) => { hover = node; hoverRef.current?.(node); box.current.style.cursor = 'pointer'; sigma.refresh({ skipIndexation: true }); });
+      sigma.on('leaveNode', () => { hover = null; hoverRef.current?.(null); box.current.style.cursor = ''; sigma.refresh({ skipIndexation: true }); });
       sig.current = sigma; const place = () => { Object.entries(tags.current).forEach(([k, el]) => { if (!el) return; const a = g.hasNode(k) ? sigma.getNodeDisplayData(k) : null; if (!a) { el.style.opacity = 0; return; } const v = sigma.framedGraphToViewport(a); el.style.opacity = 1; el.style.transform = `translate(${v.x}px, ${v.y}px)`; }); }; sigma.on('afterRender', place); sig.current.__place = place;
       sigma.on('clickNode', ({ node }) => pickRef.current?.(node));
       sigma.on('clickStage', () => pickRef.current?.(null));

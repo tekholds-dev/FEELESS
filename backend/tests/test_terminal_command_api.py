@@ -167,12 +167,12 @@ def test_scan_contract_case_sensitivity_solana(api_client, base_url):
     assert len(lower_pairs) <= len(exact_pairs)
 
 
-def test_whitepaper_web_has_25_chapters_and_targets(api_client, base_url):
+def test_whitepaper_web_has_29_chapters_and_targets(api_client, base_url):
     res = api_client.get(f"{base_url}/api/docs/whitepaper", timeout=20)
     assert res.status_code == 200
     data = res.json()
     chapters = data.get("chapters", [])
-    assert len(chapters) == 25
+    assert len(chapters) == 29
     all_text = " ".join(c.get("text", "") for c in chapters)
     assert "Q2 2027" in all_text
     assert "70% Liquidity & Ecosystem" in all_text

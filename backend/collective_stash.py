@@ -190,6 +190,12 @@ def web(root):
     return {'categories': [{'id': k, 'n': v} for k, v in sorted(cats.items(), key=lambda x: -x[1])], 'sources': [{'id': k, **srcs[k]} for k in keep], 'links': [x for x in links if x['to'] in keep], 'dots': [[a, b, d] for a, b, d in dots]}
 
 
+def web_public(root):
+    """What anyone may see of the private record: how much there is and where it routes. No site names: each source is only a numbered dot under its kind."""
+    w = web(root); names = {s['id']: f'n{i}' for i, s in enumerate(w.get('sources') or [])}
+    return {**{k: v for k, v in w.items() if k not in ('sources', 'links')}, 'sources': [{'id': names[s['id']], 'n': s['n']} for s in w.get('sources') or []], 'links': [{'from': l['from'], 'to': names[l['to']], 'n': l['n']} for l in w.get('links') or [] if l['to'] in names], 'dots': [[a, names.get(b, ''), d] for a, b, d in w.get('dots') or []]}
+
+
 def trust_rows(root, category=None):
     """How each source has really done: (source, outcome, count), for one kind of proof when given. Safe to show anyone."""
     c = _db(root)

@@ -5931,8 +5931,8 @@ async def cat_receipt_explorer(sig: str):
 
 @app.get('/api/cats/stash/web')
 async def stash_web():
-    """🧊 Public: what the Collective Stash really holds, as counts and site names. Never its contents."""
-    st_ = await asyncio.to_thread(_stash.stats, STASH_DIR); w_ = await asyncio.to_thread(_stash.web, STASH_DIR)
+    """🧊 Public: how much the Collective's private record holds and where it routes. Counts only: no site names and never its contents. The owner's own map has the names."""
+    st_ = await asyncio.to_thread(_stash.stats, STASH_DIR); w_ = await asyncio.to_thread(_stash.web_public, STASH_DIR)
     return {'stats': {k: st_[k] for k in ('items', 'categories', 'outcomes', 'agents', 'sources', 'lastDay')}, 'web': w_}
 
 

@@ -27,7 +27,7 @@ export function storyOf(rules, usdIn, grade) {
   const x = boostX(grade); const limit = pointsFor(usdIn, grade); const seat = seatX(grade) * sizeOf(rules, usdIn) * (rules?.cutPerX ?? 1); const perDay = seat / 100 * STORY_PROFIT;
   return { x, limit, seat, perDay, days: perDay > 0 ? Math.ceil(limit / perDay) : null };
 }
-function StakeStory({ rules, onTry, testid }) {
+export function StakeStory({ rules = null, onTry = null, testid }) {
   const [at, setAt] = useState(0); const [, u, g, tag] = STORIES[at]; const st = storyOf(rules, u, g); const calm = typeof document !== 'undefined' && document.body.classList.contains('fx-lite');
   const beats = [['🧾', 'It sends', usd(u), 'A proof and its dollars go in the pools'], ['⚖', 'It grades', `${g} / ${GRADE_MAX}`, 'Five checks and its fingerprint'], ['🚀', 'That is a boost of', `${Math.round(st.x)}x`, `The most it can ever earn is ${usd(st.limit)}`], ['🪑', 'Its seat', `${st.seat.toFixed(2)}%`, 'Small on purpose, so nobody crowds out the rest'], ['📈', `If the pools make ${usd(STORY_PROFIT)} a day`, `${usd(st.perDay)} a day`, st.days > 3650 ? 'It would take more than ten years' : `Reaches its limit around day ${st.days.toLocaleString()}`]];
   return <section className="kst" data-testid={testid}><header><small>WHAT A GRADE MEANS</small><span className="m-seg" role="group" aria-label="Pick a story">{STORIES.map(([n], i) => <button key={n} type="button" className={at === i ? 'active' : ''} aria-pressed={at === i} onClick={() => { setAt(i); onTry?.(STORIES[i][1], STORIES[i][2]); }} data-testid={`${testid}-${i}`}>{n}</button>)}</span></header>

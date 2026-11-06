@@ -62,7 +62,7 @@ test('the folders appear only when asked, and each listed pool adds one', async 
   let apps = null; const call = jest.fn(async () => D); const T = ({ on }) => { apps = useOwnerFolders(call, on); return null; };
   const { root } = await mount(<T on={false} />); expect(apps).toEqual([]); expect(call).not.toHaveBeenCalled();
   await act(async () => { root.render(<T on />); }); await act(async () => {});
-  expect(apps.map(a => a.k)).toEqual(['own-grow', 'own-safety', 'own-py']);
+  expect(apps.map(a => a.k)).toEqual(['own-grow', 'own-safety', 'own-fix', 'own-py']);
   await act(async () => root.unmount());
 });
 

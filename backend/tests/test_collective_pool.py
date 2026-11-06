@@ -461,3 +461,12 @@ def test_growth_shows_more_trading_helps_and_more_senders_split_it():
     assert last['s1000'] > first['s1000'] and g['rows'][2]['s100'] >= g['rows'][2]['s10000']   # more swaps help; more senders split them
     assert g['roomX'] == cfg['monthRoom']
 
+
+def test_the_public_web_shows_routes_and_never_a_site_name(tmp_path):
+    """Owner 2026-11-06: the web still shows where things route, but it stands for the Collective's private git."""
+    import collective_stash as st
+    st.put(tmp_path, 'k1', 'Trades', 'secretsite.com', 'a', 'won', 'One', b'x'); st.put(tmp_path, 'k2', 'Perps', 'other.io', 'a', 'lost', 'Two', b'y')
+    full = st.web(tmp_path); pub = st.web_public(tmp_path)
+    assert {c['id'] for c in pub['categories']} == {'Trades', 'Perps'} and len(pub['sources']) == len(full['sources']) == 2 and len(pub['links']) == 2
+    text = str(pub); assert 'secretsite' not in text and 'other.io' not in text and 'secretsite' in str(full)
+    assert {l['to'] for l in pub['links']} == {s['id'] for s in pub['sources']}
