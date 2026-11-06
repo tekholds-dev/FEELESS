@@ -27,3 +27,14 @@ def test_the_preview_reports_a_crash_to_its_panel_only():
     import ai_play as ap
     out = af.preview(ap.lock_html(BROKEN)); csp = out.index('Content-Security-Policy'); err = out.index('feeless-page-error')
     assert csp < err < out.index('</head>') and "'*'" in af.PAGE_ERR
+
+
+def test_many_marks_reach_the_model_with_their_notes():
+    """Owner 2026-11-06: mark as many areas as it takes."""
+    import agent_features as af
+    one = af.region_note({'x': .1, 'y': .2, 'w': .3, 'h': .4})
+    assert 'marked this area' in one and '30% wide' in one
+    many = af.region_note([{'x': 0, 'y': 0, 'w': .5, 'h': .5, 'note': 'bigger chart', 'html': '<div>a</div>'}, {'x': .5, 'y': .5, 'w': .1, 'h': .1}])
+    assert '1. 50% wide' in many and 'bigger chart' in many and '2. 10% wide' in many and '<div>a</div>' in many
+    assert af.region_note(None) == '' and af.region_note([]) == '' and many.count('owner says') == 1
+    assert af.region_note([{'x': 0, 'y': 0, 'w': 1, 'h': 1}] * 50).count('100% wide') == af.REGION_MAX

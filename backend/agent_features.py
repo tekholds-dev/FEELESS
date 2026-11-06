@@ -194,17 +194,26 @@ def preview(html):
     return h.replace('</body>', PICKER + '</body>', 1) if '</body>' in h else h + PICKER
 
 
+REGION_MAX = 12
+
+
 def region_note(region):
-    """A dragged box as words for the model, from numbers and a capped snippet. The snippet is data from the page."""
-    if not isinstance(region, dict):
+    """Every dragged box as words for the model, from numbers and a capped snippet. A note is the owner's. The snippet is data from the page."""
+    rows = [r for r in (region if isinstance(region, list) else [region]) if isinstance(r, dict)][:REGION_MAX]
+
+    def one(r):
+        def pct(k):
+            try:
+                return round(max(0.0, min(1.0, float(r.get(k)))) * 100)
+            except (TypeError, ValueError):
+                return 0
+        snippet = str(r.get('html') or '')[:600]; said = str(r.get('note') or '').strip()[:200]
+        return f"{pct('w')}% wide, {pct('h')}% tall, starting {pct('x')}% across and {pct('y')}% down." + (f' The owner says: {said}' if said else '') + (f' It holds: {snippet}' if snippet else '')
+    if not rows:
         return ''
-    def pct(k):
-        try:
-            return round(max(0.0, min(1.0, float(region.get(k)))) * 100)
-        except (TypeError, ValueError):
-            return 0
-    snippet = str(region.get('html') or '')[:600]
-    return f"\nThe owner marked this area to fix: {pct('w')}% wide, {pct('h')}% tall, starting {pct('x')}% across and {pct('y')}% down." + (f' It holds: {snippet}' if snippet else '')
+    if len(rows) == 1:
+        return f'\nThe owner marked this area to fix: {one(rows[0])}'
+    return '\nThe owner marked these areas to fix, change every one of them:' + ''.join(f'\n{i + 1}. {one(r)}' for i, r in enumerate(rows))
 
 
 def memory_view(cat):

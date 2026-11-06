@@ -13,6 +13,7 @@ import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
 import agent_commands as _ac
+import proof_commands as _pc
 import cat_agent as _ca
 import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
@@ -4367,6 +4368,13 @@ def _work_live():
 
 
 def _work_view(cat_id, owner=False):
+    view = _work_task_view(cat_id, owner)
+    if owner:   # 💬 the proof its chat is talking about
+        view['deskProof'] = ((_load().get('cats') or {}).get(cat_id) or {}).get('deskProof')
+    return view
+
+
+def _work_task_view(cat_id, owner=False):
     w = _WORK.get(cat_id) or {}
     t = w.get('task')
     if not t:
@@ -7251,7 +7259,47 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time()}])[-200:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
-        pend_ = cat.get('proofAsk'); asked_go_ = False
+        made_ = _pc.parse(p.text)   # 💬 "create a PoB named Lakers v Suns 10/12", and it stays the one this chat talks about
+        desk_ = cat.get('deskProof')
+        if desk_ and not made_ and _pc.leaving(p.text):
+            cat.pop('deskProof', None); cat.pop('proofNote', None)
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"Back at the desk. {desk_['name']} keeps its folder.", 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        if made_ and made_['kind'] == 'pos':
+            try:
+                row_ = _feat.new_folder(cat, 'build', made_['name'] or 'New build', time.time())
+            except ValueError as e:
+                raise HTTPException(409, str(e))
+            _ws_save(cat_id, _feat.new_doc(row_)); cat['deskProof'] = desk_ = _pc.focus({**made_, 'name': row_.get('name') or made_['name']}, time.time(), row_['id'])
+            if not made_['ask']:
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🧱 {desk_['name']} is open. Tell me what to build, here or in its folder.", 'at': time.time(), 'open': 'features'}])[-200:]
+                keep_owned(cat); _save(store)
+                return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        elif made_:
+            cat['deskProof'] = _pc.focus(made_, time.time()); cat.pop('proofNote', None); p.text = _pc.line_for(made_)
+        if desk_ and desk_.get('kind') == 'pos' and (not made_ or made_['kind'] == 'pos'):   # 🧱 words here build in its folder, the same as typing there
+            said_ = made_['ask'] if made_ else str(p.text or '').strip()[:3000]; doc_ = _ws_load(cat_id, desk_['ws'])
+            if not doc_:
+                cat.pop('deskProof', None)
+            else:
+                if doc_.get('busy'):
+                    raise HTTPException(409, 'It is still working on the last one.')
+                b_ = cat.get('brainsCfg') or {}
+                if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
+                    raise HTTPException(402, 'It needs model credit to do this.')
+                _feat.add_msg(doc_, 'you', said_, time.time()); doc_['complete'] = False; doc_['pending'] = True; doc_['busy'] = {'at': round(time.time()), 'to': 'both', 'stage': 'build' if doc_.get('versions') else 'research'}
+                _ws_save(cat_id, doc_); _ws_start(cat_id, desk_['ws'], 'both', said_, None)
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': said_[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🧱 Working on {desk_['name']}. Watch it in its folder.", 'at': time.time(), 'open': 'features'}])[-200:]
+                keep_owned(cat); _save(store)
+                return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        elif desk_ and not made_ and not cat.get('proofAsk'):   # 🎯 a follow up on a PoB, PoC, PoW or PoP: its minds hear it on every call from now on
+            cat['proofNote'] = {'text': _pc.note_for(desk_, p.text), 'at': time.time()}
+            if (desk_['kind'] == 'pob' and (cat.get('pobRun') or cat.get('pobRead'))) or (desk_['kind'] == 'pop' and cat.get('popRun')) or (desk_['kind'] == 'pow' and cat.get('powRun')) or (desk_['kind'] == 'poc' and cat_id in _POC_BUSY):
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🎯 Told the minds working on {desk_['name']}. They use it from their next step.", 'at': time.time(), 'open': desk_['open']}])[-200:]
+                keep_owned(cat); _save(store)
+                return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        pend_ = cat.get('proofAsk'); asked_go_ = bool(made_ and made_.get('name'))   # a proof named by its owner has been told what to do: no question first
         if pend_:   # 🔁 its answer to the question it asked before filing
             how_, line_, note_ = _plan.answer(pend_, p.text, time.time()); cat.pop('proofAsk', None)
             if how_ == 'cancel':

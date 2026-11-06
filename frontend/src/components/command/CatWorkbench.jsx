@@ -1470,6 +1470,7 @@ function WorkbenchLive({ cat }) {
       <button type="button" disabled={busy || live} onClick={async () => { await act('unpark', { i }); act('ask', { text: q.text, to: 'both' }); }} aria-label="Resume it now" data-tip={live ? 'Resume once the current task is done' : 'Ask it again now — you are here to help this time'} data-testid={`cwb-resume-${i}`}>▶</button>
       <button type="button" onClick={() => act('unpark', { i })} aria-label="Drop it" data-tip="Drop it" data-testid={`cwb-unpark-${i}`}>✕</button></li>)}</ol> : null}
     <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
+    {d?.deskProof ? <div className="cwb-focus" data-testid="cwb-focus"><Ic3 e="🎯" size="18px" /><span><small className="m-num">{d.deskProof.label}</small><b>{d.deskProof.name}</b></span><em>Your words go to it</em><button type="button" className="m-btn" disabled={busy} onClick={() => act('ask', { text: 'back to the desk', to: 'both' })} data-tip="Stops talking to this proof. It keeps its folder" data-testid="cwb-focus-x">Back to the desk</button></div> : null}
     <ChatComposer onSubmit={send}
       field={<>
         <CmdPop text={text} rows={d?.commands} anchor={inRef} onPick={c => { setText(c); requestAnimationFrame(() => { const el = inRef.current; if (el) { el.focus(); el.setSelectionRange(c.length, c.length); } }); }} />

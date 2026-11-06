@@ -107,7 +107,8 @@ def page_in(reply):
 
 def commands_for(kind, proofs):
     """A trader is offered money work. A General agent is offered making things, and the free reads. Either still does what it is told."""
-    return MAKE_COMMANDS + FREE_READS if kind == 'general' else list(proofs) + COMMANDS
+    import proof_commands as _pc
+    return _pc.COMMANDS + (MAKE_COMMANDS + FREE_READS if kind == 'general' else list(proofs) + COMMANDS)
 
 
 # 👁 A Watch a Wallet run files as a folder (owner 2026-11-04): each address the browser really reported, with the lines about it. The chain check is what proves the address is real.

@@ -1,7 +1,6 @@
 /* 🪙 The deal: bank, points, rewards, ranks. Built from m-* tokens */
 .kpd{ display: grid; gap: 12px; min-width: 0; }
-.kpd-warn { margin: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: color-mix(in srgb, var(--gold, #f5c451) 9%, transparent); font: 500 13px/1.45 var(--f-ui); } .kpd-warn b { color: var(--gold, #f5c451); }
-.kpd-ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; } .kpd-seg { display: grid; gap: 4px; } .kpd-seg small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; }
+.kpd-warn { margin: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: color-mix(in srgb, var(--gold, #f5c451) 9%, transparent); font: 500 13px/1.45 var(--f-ui); } .kpd-warn b { color: var(--gold, #f5c451); } .kpd-seg { display: grid; gap: 4px; } .kpd-seg small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; }
 .kpd-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; } .kpd-flow li { display: grid; gap: 3px; padding: 12px; border-radius: 12px; border: 1px solid #ffffff1c; background: linear-gradient(150deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff14; animation: kpdIn .25s calc(var(--i) * 50ms) ease-out backwards; } .kpd-flow small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; } .kpd-flow b { font-size: 19px; color: #fff; } .kpd-flow span { font: 500 12px/1.35 var(--f-ui); opacity: .72; }
   
   
@@ -10,12 +9,7 @@
   
 @keyframes kpdIn { from { opacity: 0; transform: translateY(5px); } }
 
-body.theme-day .kpd-flow li{ background: #fff; border-color: #0d2a1b24; } body.theme-day .kpd-flow b { color: #10241a; } body.theme-day .kpd-warn b { color: #8a6a14; }
-
-.kpd-bars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: end; padding: 12px; border-radius: 13px; border: 1px solid #ffffff1a; background: #ffffff06; } .kpd-bars button { display: grid; gap: 5px; justify-items: center; padding: 6px 4px; border: 1px solid transparent; border-radius: 10px; background: none; color: inherit; cursor: pointer; min-height: 32px; transition: background .15s ease, border-color .15s ease; } .kpd-bars button:hover { background: #ffffff0c; } .kpd-bars button:active { background: #ffffff14; } .kpd-bars button:focus-visible { outline: 2px solid #ffb454; outline-offset: 2px; } .kpd-bars button.is-on { border-color: #ffb45488; background: #ffb45414; }
-.kpd-bars i { display: block; width: 100%; max-width: 54px; height: 92px; border-radius: 8px; background: #ffffff0d; overflow: hidden; display: flex; align-items: flex-end; } .kpd-bars u { display: block; width: 100%; height: 100%; background: linear-gradient(180deg, #ffd27a, #ff8a3d); transform-origin: bottom; transition: transform .28s ease; } .kpd-bars em { font-style: normal; font-size: 12.5px; } .kpd-bars small { font-size: 10.5px; opacity: .7; }
-body.fx-lite .kpd-bars u { transition: none; } @media (prefers-reduced-motion: reduce) { .kpd-bars u, .kpd-bars button { transition: none; } }
-body.theme-day .kpd-bars { background: #fff; border-color: #0f1f3a22; } body.theme-day .kpd-bars i { background: #0f1f3a12; }
+body.theme-day .kpd-flow li{ background: #fff; border-color: #0d2a1b24; } body.theme-day .kpd-flow b { color: #10241a; } body.theme-day .kpd-warn b { color: #8a6a14; } @media (prefers-reduced-motion: reduce) { }
 .kpd-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; } .kpd-slide { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff08; } .kpd-slide small { font: 800 10px var(--f-mono); letter-spacing: .12em; opacity: .75; } .kpd-slide b { font-size: 20px; } .kpd-slide > :last-child { grid-column: 1 / -1; }
 body.theme-day .kpd-slide { border-color: #0f1f3a22; background: #fff; }
 .kpd-slide [data-slot="slider-track"] { background: #ffffff1a; } .kpd-slide [data-slot="slider-fill"] { background: linear-gradient(90deg, #ffc24d, #15d16a); }

@@ -674,3 +674,5 @@ body.theme-day .dsk-src-health { background: #0000000a; color: #3a2a5a; } body.t
 
 .dsk-fold-tabs { max-width: 52vw; overflow-x: auto; scrollbar-width: none; font-size: 11px; } .dsk-fold-tabs button { min-height: 28px; white-space: nowrap; }
 @media (max-width: 640px) { .dsk-fold-tabs { max-width: 62vw; } }
+.cwb-focus { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; padding: 6px 10px; border-radius: 11px; border: 1px solid #b58cff66; background: linear-gradient(120deg, #b58cff24, #ffffff06); animation: cwbFocus .2s ease-out both; } .cwb-focus span { display: grid; min-width: 0; } .cwb-focus small { font-size: 9px; letter-spacing: .1em; opacity: .7; } .cwb-focus b { font: 700 12.5px var(--f-tech); } .cwb-focus em { margin-right: auto; font-size: 11px; font-style: normal; opacity: .7; } .cwb-focus .m-btn { min-height: 32px; font-size: 11px; }
+@keyframes cwbFocus { from { opacity: 0; transform: translateY(5px); } } body.fx-lite .cwb-focus { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-focus { animation: none; } } body.theme-day .cwb-focus { background: #f3edff; border-color: #7c52d066; }

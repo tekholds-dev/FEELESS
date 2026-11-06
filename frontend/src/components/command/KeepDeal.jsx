@@ -16,7 +16,6 @@ export const sizeOf = (rules, usd) => { const n = Number(usd) || 0; if (n <= 0) 
 export function SendWarning({ rules }) {
   return <p className="kpd-warn" role="note" data-testid="send-warning"><b>Only stake what you can lose.</b> It stays in the pools. It earns only from real pool profit, and pools can lose money. Taking rewards out is off for now. {rules?.collectivePoolPct != null ? `The Collective takes ${Math.round(rules.collectivePoolPct)}% of each profit.` : ''}</p>;
 }
-const Seg = ({ label, value, set, opts, fmt, id }) => <span className="kpd-seg"><small>{label}</small><span className="m-seg" role="group" aria-label={label}>{opts.map(o => <button key={o} type="button" className={value === o ? 'active' : ''} aria-pressed={value === o} onClick={() => set(o)} data-testid={`${id}-${o}`}>{fmt(o)}</button>)}</span></span>;
 // A dollar slider that feels even from $1 to $100,000.
 const toUsd = v => { const n = 10 ** (v / 20); return n >= 1000 ? Math.round(n / 100) * 100 : n >= 100 ? Math.round(n / 10) * 10 : Math.max(1, Math.round(n)); };
 const toSlide = u => Math.log10(Math.max(1, u)) * 20;
