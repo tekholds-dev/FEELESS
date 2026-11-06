@@ -108,3 +108,10 @@ def test_a_mark_snaps_to_its_real_words_and_a_made_up_one_is_dropped():
 def test_no_text_reader_means_no_boxes_never_a_crash(tmp_path, monkeypatch):
     monkeypatch.setattr(cs, 'OCR_SRC', tmp_path / 'missing.swift')
     assert cs.ocr_boxes(b'x', tmp_path / 'bin') == []
+
+
+def test_a_vote_with_marks_inside_it_still_counts():
+    t = '{"verdict":"good","why":"Complete","marks":[{"text":"$1","label":"Price","why":"clear","grade":95},{"text":"$2","label":"Cap","grade":90}]}'
+    assert cs.parse_vote(t) == ('good', 'Complete') and len(cs.parse_marks(t)) == 2
+    assert cs.parse_vote('```json\n' + t + '\n```') == ('good', 'Complete')
+    assert cs.parse_vote('{"marks":[{"text":"a"}]}') is None

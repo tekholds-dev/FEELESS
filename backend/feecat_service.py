@@ -1576,6 +1576,7 @@ async def _git_push(cat, collective):
 
 
 SORT_TICK_S = 45
+_SORT_SKIP = {}
 SORT_BACKOFF_S = 600
 
 
@@ -1587,7 +1588,7 @@ async def _sort_one():
     leader = _load()['cats'].get('leader')
     if not leader:
         return False
-    files, _c = await asyncio.to_thread(_git_files, leader, True); path = _sort.next_path(sorted(files), d['items'])
+    files, _c = await asyncio.to_thread(_git_files, leader, True); path = _sort.next_path(sorted(files), d['items'], {k for k, at in _SORT_SKIP.items() if time.time() - at < 6 * 3600})
     if not path:
         return False
     item = d['items'].get(path) or {}; raw = files[path]; words = _sort.prompt(path, item, d['items'])
@@ -1609,6 +1610,9 @@ async def _sort_one():
             fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1], marks=_sort.snap(_sort.parse_marks(text), boxes) if boxes is not None else _sort.parse_marks(text)); _sort.save(GIT_DIR, fresh); got_any = True
     finally:
         _SORT_CALL.reset(token)
+    done_ = (_sort.load(GIT_DIR)['items'].get(path) or {}).get('votes') or {}
+    if not all('marks' in (done_.get(w_) or {}) for w_ in _sort.VOTERS):
+        _SORT_SKIP[path] = time.time()   # one file a mind cannot answer never stops the rest. It comes round again in 6 hours
     return got_any
 
 

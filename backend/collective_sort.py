@@ -283,12 +283,15 @@ def to_jpeg(raw, width=1024):
 
 def parse_vote(text):
     """→ (verdict, why) or None. A vague reply is no vote, so the file waits."""
-    m = re.search(r'\{[^{}]*\}', str(text or ''), re.S)
-    if not m:
-        return None
-    try:
-        j = json.loads(m.group(0))
-    except ValueError:
+    t = str(text or ''); j = None
+    for m in (re.search(r'\{.*\}', t, re.S), re.search(r'\{[^{}]*\}', t, re.S)):   # the whole answer first: marks put braces inside it
+        try:
+            j = json.loads(m.group(0)) if m else None
+        except ValueError:
+            j = None
+        if isinstance(j, dict) and j.get('verdict'):
+            break
+    if not isinstance(j, dict):
         return None
     v = str(j.get('verdict') or '').strip().lower()
     return (v, str(j.get('why') or '')[:200]) if v in VERDICTS else None
