@@ -45,7 +45,7 @@ test('the owner rules on what the minds want gone, adds notes and marks, and not
   await act(async () => { q(el, 'sort-approve').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_trash', on: true });
   await act(async () => { q(el, 'sort-tab-all').click(); }); expect(q(el, 'git-file-a1.webp')).toBeNull();   // approved: gone from the lists
   await act(async () => { q(el, 'sort-tab-trash').click(); }); expect(q(el, 'git-dir-snapshots')).not.toBeNull();   // still there
-  expect(q(el, 'sort-mark')).not.toBeNull(); expect(calls.some(c => /delete|drop/.test(c.op))).toBe(false);
+  expect(q(el, 'trash-desk')).not.toBeNull(); for (const d of ['snapshots', 'rugcheck']) { if (!q(el, `git-dir-${d === 'snapshots' ? 'rugcheck' : 'never'}`)) await act(async () => { q(el, `git-dir-${d}`).click(); }); } await act(async () => { q(el, 'git-file-a1.webp').click(); }); expect(q(el, 'sort-mark')).not.toBeNull(); expect(calls.some(c => /delete|drop/.test(c.op))).toBe(false);
 });
 
 test('the minds said bad: one tap trashes it, and a folder has its own options with bulk approve', async () => {
@@ -96,4 +96,18 @@ test('a PoStatic proof, whose plan is one sentence, opens instead of crashing th
   expect(el.textContent).toContain('Make it fast'); expect(el.textContent).toContain('Build');
   await act(async () => { root.render(<FileView doc={{ kind: 'data', path: 'x.json', data: { plan: { nested: true } } }} shots={[]} />); }); expect(el.querySelector('[data-testid="git-proof"]')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
+});
+
+test('the Trash has two clear piles, counts down, brings back, and asks before a delete', async () => {
+  const now = Date.now() / 1000; const A = 'snapshots/x/a.webp'; const B = 'snapshots/x/b.webp'; const C = 'snapshots/x/c.webp';
+  const state = { files: [[A, 10], [B, 10], [C, 10]], tree: {}, sort: { on: false, items: { [A]: { status: 'trash_ask' }, [B]: { status: 'trash', by: 'owner', trashedAt: now - 2 * 86400 }, [C]: { status: 'trash', by: 'owner', trashedAt: now - 3600 } } }, vault: {}, link: null, waiting: 0, total: 3, counts: {} };
+  const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'git_state') return state; if (b.op === 'sort_delete') return { deleted: b.tools.paths, items: { [A]: state.sort.items[A], [C]: state.sort.items[C] } }; if (b.op === 'sort_set') return { item: {} }; if (b.op === 'sort_trash') return { item: { status: b.on ? 'trash' : 'bad', by: 'owner', trashedAt: now } }; return {}; };
+  const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<GitFolder cat={{ id: 'leader' }} work={fake} scope="collective" />); });
+  await act(async () => { q(el, 'sort-tab-trash').click(); });
+  expect(q(el, 'trash-asked').textContent).toContain('Nothing happens'); expect(q(el, `trash-left-${B}`).textContent).toBe('5d left'); expect(q(el, `trash-left-${C}`).textContent).toBe('7d left');
+  await act(async () => { q(el, `trash-delete-${B}`).click(); }); expect(calls.some(c => c.op === 'sort_delete')).toBe(false); expect(q(el, `trash-delete-${B}`).textContent).toBe('Delete for good?');
+  await act(async () => { q(el, `trash-delete-${B}`).click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_delete', tools: { paths: [B] } }); expect(q(el, `trash-left-${B}`)).toBeNull();
+  await act(async () => { q(el, `trash-restore-${C}`).click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_set', job: C, tools: { status: 'none' } });
+  await act(async () => { q(el, `trash-move-${A}`).click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_trash', job: A, on: true });
+  el.remove();
 });

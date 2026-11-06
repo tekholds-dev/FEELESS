@@ -5,7 +5,7 @@ export const LAUNCHPADS = [
   { id: 'raydium', name: 'LaunchLab', symbol: 'R', chainId: 'solana', color: '#84a5ff', lat: 46, lng: 25, url: 'https://raydium.io/launchpad/', logoUrl: 'https://raydium.io/logo.png', description: 'Raydium launch infrastructure with a clear route to CPMM or CLMM liquidity.', tag: 'RAYDIUM', dexIds: ['raydium-launchlab'], launchProviderKey: 'raydium' },
   { id: 'meteora', name: 'Meteora', symbol: 'M', chainId: 'solana', color: '#ed8a60', lat: -30, lng: 22, url: 'https://launch.meteora.ag/', logoUrl: 'https://www.google.com/s2/favicons?domain=meteora.ag&sz=128', description: 'Launch infrastructure built around dynamic liquidity and managed market depth.', tag: 'LIQUIDITY', dexIds: ['meteora', 'meteora-dlmm', 'meteora-dbc', 'meteora-damm-v2'] },
   { id: 'moonit', name: 'Moonit', symbol: '☾', chainId: 'solana', color: '#e6ef9f', lat: 4, lng: 152, url: 'https://moon.it/', logoUrl: 'https://icons.duckduckgo.com/ip3/moon.it.ico', description: 'Fair-launch tooling for community tokens moving from idea to orbit.', tag: 'FAIR LAUNCH', dexIds: ['moonit'] },
-  { id: 'four', name: 'Four.meme', symbol: '4', chainId: 'bsc', color: '#efce5c', lat: 48, lng: 93, url: 'https://four.meme/en', logoUrl: 'https://www.google.com/s2/favicons?domain=four.meme&sz=128', description: 'BNB Chain memecoin discovery with a focused launch flow.', tag: 'BNB CHAIN', dexIds: ['four-meme', 'four_meme'] },
+  { id: 'four', name: 'Four.meme', symbol: '4', chainId: 'bsc', color: '#efce5c', lat: 48, lng: 93, url: 'https://four.meme/en', description: 'BNB Chain memecoin discovery with a focused launch flow.', tag: 'BNB CHAIN', dexIds: ['four-meme', 'four_meme'] },
 ];
 
 export const META_LAUNCH_STEPS = [

@@ -23,6 +23,7 @@ def _db(root):
         except sqlite3.OperationalError:
             pass
     c.execute('CREATE TABLE IF NOT EXISTS items (key TEXT PRIMARY KEY, at REAL, category TEXT, source TEXT, agent TEXT, outcome TEXT, title TEXT, sha TEXT, raw INTEGER, stored INTEGER)')
+    c.execute('CREATE TABLE IF NOT EXISTS gone (key TEXT PRIMARY KEY, at REAL)')
     c.execute('CREATE INDEX IF NOT EXISTS i_cat ON items(category)')
     c.execute('CREATE INDEX IF NOT EXISTS i_src ON items(source)')
     return c
@@ -72,10 +73,10 @@ def agent_tag(cat_id):
 
 
 def put(root, key, category, source, agent, outcome, title, raw, kind='json', at=None):
-    """Keep one thing, once. → True when it was new. It only ever adds: nothing here deletes."""
+    """Keep one thing, once. → True when it was new. Only the owner's own delete (`drop`) ever removes, and a dropped key never comes back."""
     c = _db(root)
     try:
-        if c.execute('SELECT 1 FROM items WHERE key=?', (key,)).fetchone():
+        if c.execute('SELECT 1 FROM items WHERE key=?', (key,)).fetchone() or c.execute('SELECT 1 FROM gone WHERE key=?', (key,)).fetchone():
             return False
         packed = compress_image(raw) if kind == 'image' else zlib.compress(raw, 9)
         sha, stored = _blob(root, packed)
@@ -196,6 +197,26 @@ def trust_rows(root):
         return c.execute('SELECT source, outcome, COUNT(*) FROM items GROUP BY source, outcome').fetchall()
     finally:
         c.close()
+
+
+def drop(root, key, now=None):
+    """The owner's Trash ran out or he said delete now: this copy goes for good, and its bytes too unless another item shares them. An agent's own proof folders and the money ledger live elsewhere and are not touched. → True when it was here."""
+    c = _db(root)
+    try:
+        row = c.execute('SELECT sha FROM items WHERE key=?', (key,)).fetchone()
+        c.execute('INSERT OR REPLACE INTO gone VALUES (?,?)', (key, now or time.time()))
+        if row:
+            c.execute('DELETE FROM items WHERE key=?', (key,))
+        c.commit()
+        shared = row and c.execute('SELECT 1 FROM items WHERE sha=? LIMIT 1', (row[0],)).fetchone()
+    finally:
+        c.close()
+    if row and not shared:
+        try:
+            (root / 'blobs' / row[0][:2] / row[0]).unlink()
+        except OSError:
+            pass
+    return bool(row)
 
 
 def read(root, key):

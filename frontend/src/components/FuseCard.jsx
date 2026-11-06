@@ -130,8 +130,8 @@ export function LiveFuseCard({ r: r0, aura = '', look = null, label = null, serv
   const paid = r.realizedUsd || 0;
   const back = <div className="fcd-back fcd-live">
     <div className="mc-top"><span>{r.closed ? 'WITHDRAWN' : label || 'LIVE · YOUR MONEY'}</span><span>{m$(r.valueUsd)}</span></div>
-    <ul className="fcd-legs">{legs.map(l => { const m5 = live.get(l.pairAddress)?.m5; const st = legState(l, m5);
-      return <li key={l.pairAddress + (l.sig || '')} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''} ${st}`}
+    <ul className="fcd-legs">{legs.map((l, legN) => { const m5 = live.get(l.pairAddress)?.m5; const st = legState(l, m5);
+      return <li key={`${l.pairAddress}${l.sig || ''}-${legN}`} className={`fcd-leg ${l.soldUsd != null ? 'is-out' : ''} ${st}`}
       data-tip={`${l.symbol}: in ${m$(l.usd)} → now ${m$(l.valueUsd)}${l.priceNow ? ` · price $${fmtPx(l.priceNow)}` : ''}${l.soldUsd != null ? ' · sold' : (l.realizedUsd || 0) > 0 ? ` · took ${m$(l.realizedUsd)}` : ''}${!l.priced && l.soldUsd == null ? ' · no live price' : ''}`}>
       <b><LegLogo l={l} />{l.role === 'runner' ? '🏃 ' : l.role === 'anchor' ? '⚓ ' : ''}{l.symbol}{STATE_ICON[st] && <i className="fcl-st">{STATE_ICON[st]}</i>}</b>
       <em key={l.open ? 'o' : l.buying ? 'b' : l.pnlPct.toFixed(1)} className={`fcl-flip ${l.open ? 'fcd-open' : l.buying ? 'fcd-buying' : l.pnlPct >= 0 ? 'up' : 'down'}`}>{l.open ? '○ seat open' : l.buying ? '⏳ buying…' : l.soldUsd != null ? 'sold' : `${l.pnlPct >= 0 ? '+' : ''}${l.pnlPct.toFixed(1)}% · ${l.pnlUsd >= 0 ? '+' : '−'}${m$(Math.abs(l.pnlUsd || 0)).replace('−', '')}`}</em>

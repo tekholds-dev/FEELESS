@@ -135,6 +135,17 @@ def collective_rows(root):
         c.close()
 
 
+def stash_keys(root, paths):
+    """Repo paths → their stash keys, by the id in each file name. → {path: key}, only the ones that came from the stash."""
+    by_id = {hashlib.sha1(r['key'].encode()).hexdigest()[:10]: r['key'] for r in collective_rows(root) if ':src:' not in r['key']}
+    out = {}
+    for p in paths:
+        stem = str(p).rsplit('/', 1)[-1].rsplit('.', 1)[0][-10:]
+        if str(p).startswith(('proofs/', 'snapshots/')) and stem in by_id:
+            out[p] = by_id[stem]
+    return out
+
+
 def collective_tree(root, read_page=None, pages=()):
     """{path: bytes} for the owner's private repo: every kept proof, sorted, with the pages behind PoStatic wins. Agents appear by tag, never by wallet."""
     out = {}; index = []; counts = {}

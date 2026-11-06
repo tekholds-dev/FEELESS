@@ -1506,7 +1506,7 @@ def _git_files(cat, collective, marked=True):
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
     files.update(_kits.tree(KITS_DIR)); files.update(_kits.feeless_tree())   # 🧩 only the Collective's own folder, read from the running code
-    clean = _cg.without_leaks(files)[0]
+    clean = _sort.without_gone(GIT_DIR, _cg.without_leaks(files)[0])
     return (_sort.with_marked(GIT_DIR, clean) if marked else clean), counts
 
 
@@ -1515,6 +1515,7 @@ def _git_outbound(cat, collective):
     plain, counts = _git_files(cat, collective)
     if not collective:
         return plain, counts
+    trash_ = _sort.load(GIT_DIR)['items']; plain = {k: v for k, v in plain.items() if (trash_.get(k) or {}).get('status') != 'trash'}   # 🗑 what is in the Trash no longer leaves for GitHub
     files, _stats = _cg.sealed_tree(plain, lambda raw: _ck.seal_bytes(raw, cat['id']), GIT_DIR / 'vault')
     store = _load(); vault = {}
     for c in store['cats'].values():   # 🔐 owner 2026-11-05: its private data lives sealed in the Collective's private repo, so nobody pays for storage
@@ -1616,10 +1617,36 @@ async def _sort_one():
     return got_any
 
 
+def _sort_delete(paths, now):
+    """🗑 Deletes files from the Collective's record for good: the stash copy, its marked picture, its sort record. Agents' own proof folders and the money ledger are not touched. → how many"""
+    d = _sort.load(GIT_DIR); keys = _cg.stash_keys(STASH_DIR, paths)
+    for p in paths:
+        if p in keys:
+            _stash.drop(STASH_DIR, keys[p], now)
+        _sort.drop_marked(GIT_DIR, p)
+    _sort.forget(d, paths, now); _sort.save(GIT_DIR, d)
+    return d
+
+
+_SORT_PURGE_AT = [0.0]
+
+
+def _sort_purge(now):
+    """Once an hour, whether or not the sorter is on: what has sat 7 days in the Trash is deleted."""
+    if now - _SORT_PURGE_AT[0] < 3600:
+        return
+    _SORT_PURGE_AT[0] = now; d = _sort.load(GIT_DIR); before = sum(1 for it in d['items'].values() if it.get('trashedAt')); due = _sort.trash_due(d['items'], now)
+    if sum(1 for it in d['items'].values() if it.get('trashedAt')) != before:
+        _sort.save(GIT_DIR, d)
+    if due:
+        _sort_delete(due, now); print(f'[sort] deleted {len(due)} after 7 days in the Trash')
+
+
 async def _sort_loop():
     while True:
         await asyncio.sleep(SORT_TICK_S)
         try:
+            await asyncio.to_thread(_sort_purge, time.time())
             if not await _sort_one() and _sort.load(GIT_DIR)['on']:
                 await asyncio.sleep(SORT_BACKOFF_S if _OR_LAST.get('err') else 0)
         except Exception as e:   # noqa: BLE001 — sorting never takes the service down
@@ -1683,7 +1710,7 @@ async def _git_op(cat, p):
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
             return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'project': None if collective else _project_view(cat), **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
-        if p.op in ('sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve'):   # 🗂 the owner's word on a file. Nothing is ever deleted
+        if p.op in ('sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete'):   # 🗂 the owner's word on a file. Only the Trash ever deletes
             if not collective:
                 raise ValueError('Only the Collective repo is sorted.')
             d_ = _sort.load(GIT_DIR); path_ = str(p.job or '')
@@ -1694,6 +1721,10 @@ async def _git_op(cat, p):
                     if raw_:
                         await asyncio.to_thread(_sort.save_marked, GIT_DIR, path_, await asyncio.to_thread(_sort.burn, raw_, item_.get('marks')))
                 return {'on': d_['on'], 'item': item_}
+            if p.op == 'sort_delete':   # 🗑 delete now: only what he already moved to the Trash
+                paths_ = [str(x) for x in (p.tools or {}).get('paths') or []][:2000]; ok_ = [x for x in paths_ if (d_['items'].get(x) or {}).get('status') == 'trash' and not x.endswith('/')]
+                d2_ = await asyncio.to_thread(_sort_delete, ok_, time.time())
+                return {'deleted': ok_, 'items': d2_['items']}
             if p.op == 'sort_bulk':
                 n_ = _sort.bulk(d_['items'], (p.tools or {}).get('paths'), (p.tools or {}).get('status'), patch=(p.tools or {}).get('patch')); _sort.save(GIT_DIR, d_)
                 return {'changed': n_, 'items': d_['items']}
@@ -6515,9 +6546,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['deskIcons'] = {str(k)[:24]: {'x': max(0, min(20000, int(v['x']))), 'y': max(0, min(20000, int(v['y'])))} for k, v in list(p.tools['pos'].items())[:80] if isinstance(v, dict) and isinstance(v.get('x'), (int, float)) and isinstance(v.get('y'), (int, float))}
             keep_owned(cat); _save(store)
         return {'pos': cat.get('deskIcons') or {}}
-    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop'):
+    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop'):
         out_ = await _git_op(cat, p)
-        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve'):
+        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'sort_approve', 'sort_delete'):
             keep_owned(cat); _save(store)
         return out_
     if p.op == 'desk_seat':   # 🎩 Sicario's only, its owner only: an agreed PoW goes to the real card's model seat

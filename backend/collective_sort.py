@@ -31,7 +31,7 @@ def load(root):
         d = json.loads(path_of(root).read_text())
     except (OSError, ValueError):
         d = {}
-    return {'on': d.get('on', True), 'items': d.get('items') or {}}
+    return {'on': d.get('on', True), 'items': d.get('items') or {}, 'gone': d.get('gone') or {}}
 
 
 def save(root, d):
@@ -41,6 +41,47 @@ def save(root, d):
 
 def _num01(v):
     return round(min(1.0, max(0.0, float(v))), 4)
+
+
+TRASH_DAYS = 7
+NEVER_DELETE = ('README.md', 'index.json', 'sources/good.json', 'sources/bad.json')   # built fresh from the record, so there is nothing of the owner's to delete
+
+
+def _trash_clock(item, now=None):
+    """Into the Trash starts its 7 days, once. Out of the Trash stops them. → item"""
+    if item.get('status') == 'trash':
+        item.setdefault('trashedAt', round(now or time.time()))
+    else:
+        item.pop('trashedAt', None)
+    return item
+
+
+def trash_due(items, now):
+    """What is ready to delete for good. Only a file the owner moved to the Trash, never one the minds only asked about, never a folder's own note. Old trash with no clock gets its full 7 days from now, so nothing goes without warning. → paths"""
+    due = []
+    for path, it in items.items():
+        if it.get('status') != 'trash' or path.endswith('/'):
+            continue
+        if not it.get('trashedAt'):
+            it['trashedAt'] = round(now)
+        elif now - it['trashedAt'] >= TRASH_DAYS * 86400:
+            due.append(path)
+    return due
+
+
+def forget(d, paths, now):
+    """Their sort records go and the paths are remembered as gone, so they never come back or leave for GitHub. → the paths really forgotten"""
+    out = [p for p in paths if p not in NEVER_DELETE]
+    for p in paths:
+        d['items'].pop(p, None)
+    for p in out:
+        d['gone'][p] = round(now)
+    return out
+
+
+def without_gone(root, files):
+    gone = load(root)['gone']
+    return {k: v for k, v in files.items() if k not in gone} if gone else files
 
 
 def owner_set(item, patch, now=None):
@@ -73,7 +114,7 @@ def owner_set(item, patch, now=None):
         else:
             item['status'] = s; item['by'] = 'owner'
     item['at'] = round(now or time.time())
-    return item
+    return _trash_clock(item, now)
 
 
 def parse_marks(text):
@@ -194,6 +235,13 @@ def save_marked(root, path, raw):
     p = marked_path(root, path); p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(raw)
 
 
+def drop_marked(root, path):
+    try:
+        marked_path(root, path).unlink()
+    except OSError:
+        pass
+
+
 def with_marked(root, files):
     """An approved picture shows, and leaves, as its marked copy. Its original stays in the store. → files"""
     d = Path(root) / 'marked'
@@ -221,7 +269,7 @@ def vote(item, who, verdict, why, now=None, marks=None):
 def rule_trash(item, approve, now=None):
     """The owner answers a trash request. Yes hides it and keeps its bytes. No keeps it as bad."""
     item = dict(item or {}); item['status'] = 'trash' if approve else 'bad'; item['by'] = 'owner'; item['at'] = round(now or time.time())
-    return item
+    return _trash_clock(item, now)
 
 
 def folder_of(path, items):
@@ -235,7 +283,7 @@ def folder_of(path, items):
 
 
 def bulk(items, paths, status=None, now=None, patch=None):
-    """The owner's word on many files at once: a call, a grade, a use, a note. His word stands, and nothing is deleted. → how many changed."""
+    """The owner's word on many files at once: a call, a grade, a use, a note. His word stands. Moving to the Trash only starts its 7 days. → how many changed."""
     patch = {**(patch or {}), **({'status': status} if status else {})}
     if patch.get('status') and patch['status'] not in VERDICTS:
         return 0
