@@ -106,3 +106,18 @@ def test_a_card_link_takes_only_a_real_address_never_a_card_number():
     for provider, bad in (('solcard', '4111111111111111'), ('solcard', ''), ('nope', good)):
         with pytest.raises(ValueError):
             fs.card_link({}, provider, bad, 5.0)
+
+
+def test_a_page_in_progress_shows_its_parts_and_cost():
+    import asyncio
+    import feecat_service as fs
+    parts = iter([('<!doctype html><html><body>half', 0.01, False), ('rest</body></html>', 0.02, False)])
+    async def ask(*a, **k):
+        return next(parts)
+    seen = []; real = fs._ws_ask; fs._ws_ask = ask
+    try:
+        raw, usd, _ = asyncio.run(fs._ws_page({}, 'x/m', 's', 'u', 10, on_part=lambda r, u: seen.append((r, u))))
+    finally:
+        fs._ws_ask = real
+    assert seen[0][0].endswith('half') and seen[0][1] == 0.01
+    assert seen[-1][0] == raw and raw.endswith('</html>') and abs(seen[-1][1] - 0.03) < 1e-9 and abs(usd - 0.03) < 1e-9

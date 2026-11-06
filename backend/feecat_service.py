@@ -5338,7 +5338,7 @@ def _ws_view(cat_id, ws_id):
     if d_.get('busy') and _ws_dead(cat_id, ws_id, float(d_['busy'].get('at') or 0), time.time()):   # a run that died never locks the folder, and says so
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed. Send it again to start over.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(v_[-1]['html']) if v_ else '', 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
 
 
 async def _ws_ask(cat, model, sys_, user_, tokens):
@@ -5362,13 +5362,16 @@ def _ws_pass(store):
             filed_['cost'] = round(float(o['cost'] or 0), 6)
 
 
+WS_DRAFT_CHARS = 60000   # what the Code tab shows of a page still being written
 WS_CODE_MODEL = 'z-ai/glm-5.3-flash'   # 💻 owner 2026-11-05: OSSY and G4 never write a page (18 tokens a second on his Mac). A cheap cloud model does, on its model credit
 
 
-async def _ws_page(cat, model, sys_, user_, tokens):
+async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
     model = WS_CODE_MODEL if str(model).startswith('local/') else model
     """One whole page. The wallet's provider stops a reply at about 1,500 tokens whatever is asked (receipts, 2026-11-05), so an unfinished page is continued from where it stopped, up to 3 more calls."""
     raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
+    if on_part:   # 👀 the Code tab shows each part as it lands, and the chat's cost moves with it
+        on_part(raw, usd)
     for _ in range(3):
         html = _aip.html_of(raw)
         if not html or _feat.page_complete(html):
@@ -5379,6 +5382,8 @@ async def _ws_page(cat, model, sys_, user_, tokens):
             break
         more = re.sub(r'```(?:html)?', '', more)
         raw = more if re.match(r'\s*<(!doctype|html)', more, re.I) else raw + more   # a model that starts the page over replaces it, or the two would never parse as one
+        if on_part:
+            on_part(raw, usd)
     return raw, usd, own
 
 
@@ -5402,7 +5407,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS + _feat._sources.proof_line('pos') + _recall(cat, 'Code', text), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
                 finally:
                     _OR_PLUGINS.reset(plan_)
-                cost += usd_; paid_own = own_; doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
+                cost += usd_; paid_own = own_; doc['lastCost'] = round(cost, 6); doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
                 if cfg_['suggest']:
                     doc['stage'] = 'approve'; _feat.add_msg(doc, name(order[0]), 'I read the current best builds and wrote a plan. Approve it or tell me what to change.', time.time())
                     doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); _ws_save(cat_id, doc)
@@ -5415,9 +5420,12 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 order = order[:1]
             doc['stage'] = 'build'; ask_ = _feat.build_prompt(text, ((doc.get('plan') or {}).get('plan') if not cur else None))
             user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            kits_ = _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
-                doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
-                raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos'), user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000)
+                doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
+                def part_(raw_, usd_, by_=name(i)):
+                    _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost + usd_, 6), 'by': by_, 'draft': re.sub(r'```(?:html)?', '', raw_)[:WS_DRAFT_CHARS]}})
+                raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
                 cost += usd; paid_own = own; html = _aip.html_of(raw)
                 if (not html or not _feat.page_complete(html)) and cur:
                     patch_raw, patch_usd, patch_own = await _ws_ask(cat, brains[i], 'Return JSON only: {"find":"exact old HTML substring","replace":"new HTML substring"}. Make one concrete change that fulfills the owner request. The find text must occur exactly once. Keep the rest of the page. No explanation.', f'Owner request: {text[:1200]}\nCurrent page:\n{cur[:18000]}', 1300)
@@ -5429,7 +5437,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
-                _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage']}})
+                _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
         else:
             sys_ = _feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS
             past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1])
@@ -5438,7 +5446,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
-    doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6)
+    doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); doc['lastCost'] = round(cost, 6)
     if kind == 'build' and len(doc.get('versions') or []) > start_versions:
         doc['stage'] = 'filed'
     _ws_save(cat_id, doc)

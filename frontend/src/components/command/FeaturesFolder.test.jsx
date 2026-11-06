@@ -128,3 +128,17 @@ test('Discover keeps the kit on screen, caps picks at 3, and lets the agent choo
   expect(calls.at(-1)).toMatchObject({ job: 'auto' }); expect(el.querySelector('[data-testid="kit-auto"]')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('a folder chat shows this chat and the folder, and the cost moves while it builds', async () => {
+  const { ChatCost, LiveCode } = require('./FeaturesFolder');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ChatCost doc={{ cost: 0.01, lastCost: 0.004 }} />); });
+  expect(el.querySelector('[data-testid="ws-cost-chat"]').textContent).toBe('$0.0040'); expect(el.querySelector('[data-testid="ws-cost-folder"]').textContent).toBe('$0.0100');
+  await act(async () => { root.render(<ChatCost doc={{ cost: 0.01, lastCost: 0.004, busy: { spent: 0.002 } }} />); });
+  expect(el.querySelector('[data-testid="ws-cost-chat"]').textContent).toBe('$0.0020'); expect(el.querySelector('[data-testid="ws-cost-folder"]').textContent).toBe('$0.0120');
+  document.body.classList.add('fx-lite');
+  await act(async () => { root.render(<LiveCode draft={'<html>\n<body>'} by="Mind A" stage="build" />); });
+  expect(el.querySelector('[data-testid="ws-live-code"]').textContent).toContain('Mind A is writing'); expect(el.querySelector('pre').textContent).toContain('<body>');
+  document.body.classList.remove('fx-lite');
+  await act(async () => { root.unmount(); }); el.remove();
+});
