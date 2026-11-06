@@ -46,6 +46,7 @@ export const TerminalHeader = ({ onWallet, onProfile, onMenu, query = '' }) => {
   useEffect(() => {
     document.body.classList.toggle('theme-day', dayMode);
     document.documentElement.setAttribute('data-theme', dayMode ? 'light' : 'dark');
+    document.documentElement.classList.toggle('light', dayMode); document.documentElement.classList.toggle('dark', !dayMode);   // HeroUI's tokens (styles/heroTheme.css)
     document.documentElement.style.colorScheme = dayMode ? 'light' : 'dark';
     document.documentElement.style.backgroundColor = dayMode ? '#ffffff' : '';
     let meta = document.querySelector('meta[name="color-scheme"]');

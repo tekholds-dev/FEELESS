@@ -163,6 +163,8 @@ webpackConfig.devServer = (devServerConfig) =>
   makeDevServerV5Compatible(configureDevServer(devServerConfig));
 
 // Jest's resolver doesn't follow package.json "exports" subpaths (webpack does): map the one Metaplex needs.
+webpackConfig.style = { postcss: { mode: 'file' } };
+
 webpackConfig.jest = {
   configure: (jestConfig) => ({
     ...jestConfig,
@@ -171,6 +173,7 @@ webpackConfig.jest = {
     moduleNameMapper: {
       ...(jestConfig.moduleNameMapper || {}),
       '^@/(.*)$': '<rootDir>/src/$1',
+      '^@heroui/react$': '<rootDir>/src/test/heroStub.jsx',
       '^@metaplex-foundation/umi/serializers$': '<rootDir>/node_modules/@metaplex-foundation/umi/dist/cjs/serializers.cjs',
     },
   }),

@@ -6,7 +6,7 @@ import '../../styles/chatStyles.css';
 
 // 💬 HOW ITS CHAT LOOKS (owner 2026-11-05): the patterns people already know, plus just the agent, sitting there blinking, answering in bubbles. A look only: saved in this browser.
 export const CHAT_STYLES = [['classic', 'Classic', 'Avatars and names, the way it started'], ['clean', 'Clean', 'Plain answers down the middle, like an AI chat'], ['bubbles', 'Bubbles', 'Colored bubbles, like a messenger'], ['feed', 'Feed', 'One post after another, like a timeline'], ['agent', 'Just the agent', 'Its character and thought bubbles, nothing else']];
-const DEFAULTS = { style: 'classic', theme: 'auto', motion: true };
+const DEFAULTS = { style: 'clean', theme: 'auto', motion: true };
 const key = id => `feeless.chatStyle.${id}`;
 export function useChatStyle(id) {
   const [p, setP] = useState(() => { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(key(id)) || '{}') }; } catch { return DEFAULTS; } });

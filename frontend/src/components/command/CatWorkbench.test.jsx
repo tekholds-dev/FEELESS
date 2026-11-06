@@ -24,6 +24,7 @@ test('🧠🧠 two windows with their provider + bubble; a sign-in pauses one wi
   await act(async () => { el.querySelector('[data-testid="cwb-continue"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'continue', i: 1 });
   expect(el.querySelector('[data-testid="cwb-answer"]')).toBeNull();   // a finished answer lives in the chat — no duplicate card over it (it hid the chat)
+  await act(async () => { el.querySelector('[data-testid="cwb-gear"]').click(); });
   await act(async () => { el.querySelector('[data-testid="cwb-cap-0.25"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'cap', cap: 0.25 });
   const inp = el.querySelector('[data-testid="cwb-input"]');
@@ -301,7 +302,8 @@ test('🖱 the browser stays in view (the FEELESS chart is a tab), the mind not 
   expect(el.querySelector('[data-testid="cwb-tab-chart"]').textContent).toContain('$HUSS');
   const cur = el.querySelector('[data-testid="cwb-cursor"]'); expect(cur.style.transform).toBe('translate(25cqw, 50cqh)'); expect(cur.className).toContain('c-arrow');
   expect(el.querySelector('[data-testid="cwb-notasked"]').textContent).toContain('not asked');
-  expect(el.querySelectorAll('[data-testid="cwb-input"]')).toHaveLength(1); expect(el.querySelector('.cwb-bar [data-testid="cwb-to-both"]')).not.toBeNull();   // ONE box, the A · B · Both pick in its bar
+  expect(el.querySelectorAll('[data-testid="cwb-input"]')).toHaveLength(1); expect(el.querySelector('.ckit-bar [data-testid="cwb-to-both"]')).not.toBeNull();   // ONE box, the A · B · Both pick in its bar
+  await act(async () => { el.querySelector('[data-testid="cwb-gear"]').click(); });
   await act(async () => { el.querySelector('[data-testid="cwb-cur-paw"]').click(); });
   expect(el.querySelector('[data-testid="cwb-cursor"]').className).toContain('c-paw'); expect(localStorage.getItem('feeless:ai-cursor')).toBe('paw');
 });

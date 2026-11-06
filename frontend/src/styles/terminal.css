@@ -2269,7 +2269,7 @@ body.theme-day .ambient-background::after{background-image:radial-gradient(2px 2
 
 body.theme-day :is(.wp-card,.meta-panel,.cc-block,.cp-card,.coin-profile,.fcp,.live-intel,.token-focus,.community-chat,.eco-chart,.shop-item,.war-f,.rw-item,.notif-pop,.search-drop,.pa-pop,.slash-menu,.cc-shell,.market-table-wrap){background:var(--day-surface)!important}
 body.theme-day :is(.terminal-header,.terminal-sidebar,.market-ticker){background:rgba(236,244,239,.97)!important}
-body.theme-day :is(input,select,textarea):not([type=range]):not([type=checkbox]){background:var(--day-surface-2)!important}
+body.theme-day :is(input,select,textarea):not(.textarea):not(.input):not([type=range]):not([type=checkbox]){background:var(--day-surface-2)!important}
 body.theme-day .chart-area,body.theme-day .candle-canvas{background:#eaf3ee}
 .wallet-profile-page>.wp-music{margin-top:4px;background:linear-gradient(120deg,color-mix(in srgb,var(--wp-accent,#15d16a) 14%,transparent),transparent 60%),rgba(0,0,0,.3)!important}
 .wallet-profile-page>.wp-music .pm-player{grid-template-columns:minmax(220px,1fr) auto;align-items:center}.wallet-profile-page>.wp-music .pm-list,.wallet-profile-page>.wp-music .pm-frame{grid-column:1/-1}
