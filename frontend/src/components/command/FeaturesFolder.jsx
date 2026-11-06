@@ -1,4 +1,4 @@
-import { Button, Popover } from '@heroui/react';
+import { KitPick } from './KitPick';
 import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
@@ -74,6 +74,7 @@ function Mind({ cat, memory, work, onMem, print }) {
 }
 // 💵 What this chat has cost so far, next to the whole folder. It moves after each model call while a build runs.
 const usd4 = n => `$${(Number(n) || 0).toFixed(4)}`;
+export { KitPick };
 export function ChatCost({ doc }) {
   const now = doc?.busy ? Number(doc.busy.spent) || 0 : Number(doc?.lastCost) || 0; const folder = (Number(doc?.cost) || 0) + (doc?.busy ? Number(doc.busy.spent) || 0 : 0);
   return <div className={`fea-cost${doc?.busy ? ' is-live' : ''}`} data-testid="ws-cost">
@@ -149,40 +150,11 @@ function CodeChanges({ code = '', previous = '', busy }) {
   const removed = previous ? before.slice(start, before.length - end) : []; const added = after.slice(start, after.length - end);
   return <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>+{added.length} added</b><em>−{removed.length} removed</em>{busy ? <span>Mind is coding… latest completed version shown</span> : null}</div><pre className="fea-src">{after.slice(0, start).join('\n')}{start ? '\n' : ''}{removed.length ? <span className="fea-removed">{removed.map(x => `− ${x}`).join('\n')}{'\n'}</span> : null}{added.length ? <span className="fea-added">{added.map(x => `+ ${x}`).join('\n')}{'\n'}</span> : null}{after.slice(after.length - end).join('\n')}</pre></div>;
 }
-// 🧰 Which kits this agent reads first when it builds: up to 3 from Discover, or it chooses for each request.
-export function KitPick({ cat, work }) {
-  const [d, setD] = useState(null); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; work(cat.id, { op: 'kit_list' }).then(j => on && setD(j)).catch(() => {}); return () => { on = false; }; }, [cat.id, work]);
-  if (!d?.kits?.length) return null;
-  const save = async (picks, job, id = '') => { setBusy(id || job); setErr(''); try { setD(await work(cat.id, { op: 'kit_pick', text: picks.join(','), job })); } catch (x) { setErr(x.message); } setBusy(''); };
-  const max = d.max || 3; const auto = d.mode === 'auto'; const named = id => d.kits.find(k => k.id === id)?.name || id;
-  const flip = id => save(!auto && d.picks.includes(id) ? d.picks.filter(x => x !== id) : [...(auto ? [] : d.picks), id], 'mine', id);
-  return <div className="kit-row" role="group" aria-label="Kits it reads first" data-testid="kit-pick">
-    <small className="kit-l">READS FIRST</small>
-    {auto ? <span className="kit-chip is-auto" data-testid="kit-auto"><i aria-hidden="true" />Agent picks per request</span> : d.picks.map((id, i) => <span key={id} className="kit-chip" data-testid={`kit-on-${id}`}><b className="m-num">{i + 1}</b>{named(id)}</span>)}
-    <Popover isOpen={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="secondary" className="kit-open" data-tip="Choose up to 3 kits, or let the agent choose for each request" data-testid="kit-discover">Discover</Button>
-      <Popover.Content placement="bottom start" offset={8} className="ckit-pop kit-pop">
-        <Popover.Dialog aria-label="Discover kits" className="ckit-pop-in" data-testid="kit-panel">
-          <header className="kit-head"><b>Discover kits</b><small className="m-num">{auto ? 'Agent chooses' : `${d.picks.length} of ${max} picked`}</small></header>
-          <div className="m-seg kit-mode" role="radiogroup" aria-label="Who chooses the kits">
-            <button type="button" role="radio" aria-checked={auto} className={auto ? 'active' : ''} disabled={!!busy} onClick={() => save(d.picks, 'auto')} data-tip="It reads your request, picks what fits from these, and may use another free kit if it says which" data-testid="kit-mode-auto">Agent picks</button>
-            <button type="button" role="radio" aria-checked={!auto} className={!auto ? 'active' : ''} disabled={!!busy} onClick={() => save(d.picks, 'mine')} data-tip="It reads your picks first, in this order" data-testid="kit-mode-mine">I pick</button>
-          </div>
-          <ul className="kit-list">{d.kits.map((k, i) => { const on = !auto && d.picks.includes(k.id); const full = !auto && !on && d.picks.length >= max;
-            return <li key={k.id} style={{ '--i': i }} className={on ? 'is-on' : ''}>
-              <button type="button" role="checkbox" aria-checked={on} disabled={!!busy || full} onClick={() => flip(k.id)} data-tip={full ? `Up to ${max}. Remove one first` : on ? 'Remove it' : k.added ? 'Read it first' : 'Downloads its guide, then reads it first'} data-testid={`kit-pick-${k.id}`}>
-                <i className="kit-box" aria-hidden="true">{on ? d.picks.indexOf(k.id) + 1 : ''}</i>
-                <span><b>{k.name}</b><small>{k.what}</small></span>
-                <em className="m-num">{busy === k.id ? 'Getting…' : k.added ? `${k.vitals?.items || 0} listed` : 'Not added'}</em>
-              </button>
-              <a href={k.site} target="_blank" rel="noopener noreferrer" aria-label={`Open ${k.name}'s site`} data-tip={`${k.license} · opens its site in a new tab`}>↗</a>
-            </li>; })}</ul>
-          {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
-        </Popover.Dialog>
-      </Popover.Content>
-    </Popover>
-  </div>;
+// 💾 Keeps this page in its own folder. Sealed under its key in the Collective's store, in its own repo if one is linked. Only its owner opens it.
+export function SaveToRepo({ cat, row, doc, work, setDoc }) {
+  const [busy, setBusy] = useState(false); const on = !!doc?.savedToRepo;
+  const flip = async () => { setBusy(true); try { const j = await work(cat.id, { op: 'ws_repo', text: row.id, on: !on }); setDoc?.(x => ({ ...x, savedToRepo: j.saved })); } catch { /* the button stays as it was */ } setBusy(false); };
+  return <button type="button" className={`m-btn fea-save${on ? ' is-on' : ''}`} disabled={!doc?.preview || busy} aria-pressed={on} onClick={flip} data-tip={on ? 'Kept in its GitHub folder, only you can open it. Tap to take it out' : 'Keep this page in its GitHub folder, only you can open it'} data-testid="ws-save-repo">{on ? 'Saved' : 'Save'}</button>;
 }
 function BuildSpace({ cat, row, work, draft, onFiled }) {
   const { doc, send, err, setDoc } = useDoc(cat, row.id, work); const [view, setView] = useState('static'); const [drag, setDrag] = useState(false); const [box, setBox] = useState(null); const [mark, setMark] = useState(null); const [full, setFull] = useState(false); const frame = useRef(null); const over = useRef(null); const start = useRef(null); const was = useRef(0);
@@ -196,7 +168,7 @@ function BuildSpace({ cat, row, work, draft, onFiled }) {
   const up = () => { if (!start.current) return; start.current = null; setDrag(false); if (box && box.w > 0.01 && box.h > 0.01) { setMark(box); frame.current?.contentWindow?.postMessage({ t: 'feeless-pick', r: box }, '*'); } else setBox(null); };
   const go = (text, to) => { send(text, to, mark || undefined); setMark(null); setBox(null); };
   return <div className={`fea-build${full ? ' is-full' : ''}`} data-testid="ws-build"><div className="fea-build-top"><StepRail doc={doc} />{doc ? <FolderSettings doc={doc} work={work} cat={cat} setDoc={setDoc} /> : null}</div><div className="fea-stage"><span className="fea-tools"><span className="fea-bar" aria-hidden="true"><i /><i /><i /></span><span className="fea-url" data-tip="This page runs in a locked sandbox, here only">{String(row.name || 'page').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.static{doc?.versions ? <em className="m-num"> v{doc.versions} · {doc.by}</em> : null}</span><div className="m-seg" role="tablist" aria-label="View">{[['code', 'Code'], ['static', 'Static']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-tip={k === 'code' && doc?.busy ? 'Watch the code as it is written' : undefined} data-testid={`ws-view-${k}`}>{k === 'code' && doc?.busy?.draft ? <i className="fea-livedot" aria-hidden="true" /> : null}{l}</button>)}</div>
-      <button type="button" className={`m-btn fea-plus${drag ? ' is-on' : ''}`} disabled={!doc?.preview || view !== 'static'} onClick={() => setDrag(d => !d)} data-tip="Then drag over the part to fix" data-testid="ws-mark">+ Mark</button><button type="button" className="m-btn" onClick={() => setFull(f => !f)} disabled={!doc?.preview} data-tip="Test it at full size" data-testid="ws-full">{full ? 'Back' : 'Test full'}</button><div className="m-seg fea-dev" role="group" aria-label="Screen size">{DEVICES.map(([k, l, tip]) => <button key={k} type="button" className={dev === k ? 'active' : ''} aria-pressed={dev === k} onClick={() => setDev(k)} disabled={view !== 'static' || !doc?.preview} data-tip={tip} data-testid={`ws-dev-${k}`}>{l}</button>)}</div></span>
+      <button type="button" className={`m-btn fea-plus${drag ? ' is-on' : ''}`} disabled={!doc?.preview || view !== 'static'} onClick={() => setDrag(d => !d)} data-tip="Then drag over the part to fix" data-testid="ws-mark">+ Mark</button><button type="button" className="m-btn" onClick={() => setFull(f => !f)} disabled={!doc?.preview} data-tip="Test it at full size" data-testid="ws-full">{full ? 'Back' : 'Test full'}</button><SaveToRepo cat={cat} row={row} doc={doc} work={work} setDoc={setDoc} /><div className="m-seg fea-dev" role="group" aria-label="Screen size">{DEVICES.map(([k, l, tip]) => <button key={k} type="button" className={dev === k ? 'active' : ''} aria-pressed={dev === k} onClick={() => setDev(k)} disabled={view !== 'static' || !doc?.preview} data-tip={tip} data-testid={`ws-dev-${k}`}>{l}</button>)}</div></span>
     <div className={`fea-view is-${dev}`}>{view === 'code' && doc?.busy?.draft ? <LiveCode draft={doc.busy.draft} by={doc.busy.by} stage={doc.busy.stage} /> : !doc?.preview ? <div className="fea-idle"><span className="fea-idle-print"><FolderRidge fid={row.id} size={170} /></span>{doc?.busy ? <i className="fea-scan" aria-hidden="true" /> : null}<p className="fea-blank" data-testid="ws-idle">{!doc ? (err ? 'Could not read this folder. Nothing was lost.' : 'Reading this folder…') : doc.busy ? 'Building its page. It lands here when it is done.' : 'A blank screen. Tell it what to make.'}</p></div> : doc.cut && view !== 'code' ? <p className="fea-blank" data-testid="ws-cut">This page was cut off before it finished, so it cannot open. Ask for it again.</p> : view === 'code' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy} /> : <><iframe ref={frame} title={`${row.name} preview`} sandbox="allow-scripts" srcDoc={doc.preview} data-testid="ws-frame" />
         {drag || box ? <div ref={over} className={`fea-over${drag ? ' is-drag' : ''}`} onPointerDown={drag ? down : undefined} onPointerMove={drag ? move : undefined} onPointerUp={drag ? up : undefined} data-testid="ws-over">{box ? <i style={{ left: `${box.x * 100}%`, top: `${box.y * 100}%`, width: `${box.w * 100}%`, height: `${box.h * 100}%` }} /> : null}</div> : null}</>}
       {noti && doc?.preview && !doc?.cut && !doc?.busy ? <button type="button" className="fea-noti" onClick={() => { setNoti(false); setView('static'); setFull(true); }} data-testid="ws-noti">Done. Open it to test</button> : null}</div></div>

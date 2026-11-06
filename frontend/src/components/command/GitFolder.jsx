@@ -1,4 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, FileCode2, FileImage, FileJson, FileText, Folder, FolderOpen, Lock } from 'lucide-react';
+import { apiUrl } from '../../lib/api';
+import { agentAuthQuery } from '../../lib/chatSession';
+import { KitPick } from './KitPick';
 import { Ic3 } from '../../lib/icon3d';
 import { fitBox, identityOf } from '../../lib/proofprint';
 import { statRidges } from '../../lib/gamePrint';
@@ -13,20 +17,59 @@ function RepoPrint({ name, tree }) {
   const top = Math.max(1, ...(tree || []).map(r => r.files)); const rows = (tree || []).slice(0, 12).map(r => ({ abbr: r.path, now: r.files, last: null, score: 45 + 50 * (r.files / top) })); const lines = statRidges(`repo:${name}`, rows); const id = identityOf(`repo:${name}`); const [on, setOn] = useState(null);
   return <figure className="git-print" data-testid="git-print"><svg viewBox={fitBox((lines[lines.length - 1]?.j || 8) + 2, id)} role="img" aria-label={`Fingerprint of ${name}, ${lines.length} folders`} onMouseLeave={() => setOn(null)}>{lines.map((l, i) => <g key={l.abbr}><path d={l.now} stroke={l.ink} className={on === i ? 'is-on' : ''} /><path d={l.now} className="is-hit" onMouseEnter={() => setOn(i)} /></g>)}</svg><figcaption className="m-num">{on != null ? `${rows[on].abbr}: ${rows[on].now} files` : `${rows.length} folders`}</figcaption></figure>;
 }
-// 🗂 The repo as folders that open. A file opens to read. A kit's file is edited on the Kits tab; the rest is written by FEELESS, so an edit here would be overwritten.
-const treeOf = files => { const root = { dirs: {}, files: [], n: 0, b: 0 }; (files || []).forEach(([path, size]) => { const parts = path.split('/'); let at = root; at.n += 1; at.b += size; parts.slice(0, -1).forEach(p => { at.dirs[p] = at.dirs[p] || { dirs: {}, files: [], n: 0, b: 0 }; at = at.dirs[p]; at.n += 1; at.b += size; }); at.files.push([parts[parts.length - 1], size, path]); }); return root; };
-function TreeDir({ name, node, top, depth, onFile }) {
-  const [open, setOpen] = useState(false);
-  return <li className="git-node"><button type="button" aria-expanded={open} onClick={() => setOpen(x => !x)} style={{ paddingLeft: depth * 16 + 6 }} data-testid={`git-dir-${name}`}><em aria-hidden="true">{open ? '▾' : '▸'}</em><code>{name}</code><i aria-hidden="true"><u style={{ transform: `scaleX(${node.n / top})` }} /></i><b className="m-num">{node.n}</b><small className="m-num">{size(node.b)}</small></button>
-    {open ? <ul><TreeRows node={node} top={top} depth={depth + 1} onFile={onFile} /></ul> : null}</li>;
+// 🗂 The repo as a real folder tree on the left, the open file on the right. Files open as what they are: a page, a picture, or its data on a static page.
+const treeOf = files => { const root = { dirs: {}, files: [], n: 0, b: 0 }; (files || []).forEach(([path, sz]) => { const parts = path.split('/'); let at = root; at.n += 1; at.b += sz; parts.slice(0, -1).forEach(p => { at.dirs[p] = at.dirs[p] || { dirs: {}, files: [], n: 0, b: 0 }; at = at.dirs[p]; at.n += 1; at.b += sz; }); at.files.push([parts[parts.length - 1], sz, path]); }); return root; };
+const fileIcon = n => (/\.(webp|jpe?g|png)$/i.test(n) ? FileImage : /\.html$/i.test(n) ? FileCode2 : /\.json$/i.test(n) ? FileJson : FileText);
+const prettyName = n => n.replace(/-[0-9a-f]{6,10}(?=\.\w+$)/i, '');
+function TreeDir({ name, node, depth, sel, onFile, start }) {
+  const [open, setOpen] = useState(start); const F = open ? FolderOpen : Folder;
+  useEffect(() => { if (sel && sel.startsWith(`${node.path}/`)) setOpen(true); }, [sel, node.path]);
+  const keys = e => { if (e.key === 'ArrowRight' && !open) { e.preventDefault(); setOpen(true); } if (e.key === 'ArrowLeft' && open) { e.preventDefault(); setOpen(false); } };
+  return <li role="treeitem" aria-expanded={open} aria-selected={false} className="gtr-item"><button type="button" className="gtr-row" style={{ '--d': depth }} onClick={() => setOpen(x => !x)} onKeyDown={keys} data-tip={`${node.n} file${node.n === 1 ? '' : 's'}, ${size(node.b)}`} data-testid={`git-dir-${name}`}>{open ? <ChevronDown className="gtr-chev" size={14} aria-hidden="true" /> : <ChevronRight className="gtr-chev" size={14} aria-hidden="true" />}<F className="gtr-folder" size={16} aria-hidden="true" /><span>{name}</span><small className="m-num">{node.n}</small></button>
+    {open ? <ul role="group" className="gtr-kids" style={{ '--d': depth }}><TreeRows node={node} depth={depth + 1} sel={sel} onFile={onFile} /></ul> : null}</li>;
 }
-function TreeRows({ node, top, depth, onFile }) {
-  return <>{Object.entries(node.dirs).map(([k, v]) => <TreeDir key={k} name={k} node={v} top={top} depth={depth} onFile={onFile} />)}{node.files.map(([n, sz, path]) => <li key={path} className="git-node is-file"><button type="button" onClick={() => onFile(path)} style={{ paddingLeft: depth * 16 + 20 }} data-testid={`git-file-${n}`}><code>{n}</code><small className="m-num">{size(sz)}</small></button></li>)}</>;
+function TreeRows({ node, depth, sel, onFile }) {
+  return <>{Object.entries(node.dirs).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => <TreeDir key={k} name={k} node={{ ...v, path: node.path ? `${node.path}/${k}` : k }} depth={depth} sel={sel} onFile={onFile} start={false} />)}{node.files.map(([n, sz, path]) => { const I = fileIcon(n); return <li key={path} role="treeitem" aria-selected={sel === path} className="gtr-item"><button type="button" className={`gtr-row is-file${sel === path ? ' is-sel' : ''}`} style={{ '--d': depth }} onClick={() => onFile(path)} data-tip={`${n}, ${size(sz)}`} data-testid={`git-file-${n}`}><i className="gtr-chev" aria-hidden="true" /><I className="gtr-file" size={15} aria-hidden="true" /><span>{prettyName(n)}</span><small className="m-num">{size(sz)}</small></button></li>; })}</>;
 }
-function RepoTree({ files, ask }) {
-  const root = treeOf(files); const top = Math.max(1, ...Object.values(root.dirs).map(d => d.n)); const [doc, setDoc] = useState(null);
-  const open = path => { setDoc({ path, text: 'Reading…' }); ask({ op: 'git_read', job: path }).then(j => setDoc({ path, text: j.text == null ? 'This file is sealed or a picture, so it has no text to show.' : j.text })).catch(e => setDoc({ path, text: e.message })); };
-  return <section className="git-tree" aria-label="Its repo" data-testid="git-tree"><h4><Ic3 e="🗂" /> ITS FOLDERS <small>{root.n} files. Tap a folder to open it</small></h4><ul className="git-root"><TreeRows node={root} top={top} depth={0} onFile={open} /></ul>{doc ? <div className="git-doc" data-testid="git-doc"><header><code>{doc.path}</code><button type="button" className="m-btn" onClick={() => setDoc(null)} aria-label="Close the file">✕</button></header><pre>{doc.text}</pre></div> : null}</section>;
+const KIND_WORD = { PoW: 'Proof of Work', PoP: 'Proof of Perps', PoB: 'Proof of Bids', PoC: 'Proof of Content', PoStatic: 'PoStatic' };
+const num = (v, d = 2) => (Number(v) || 0).toLocaleString(undefined, { maximumFractionDigits: d });
+const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
+// A proof as a page, from its real fields. Fields it does not have simply do not show.
+function ProofStatic({ path, d, shots }) {
+  const parts = path.split('/'); const kind = parts[1]; const res = parts[2]; const pnl = d.pnlPct ?? d.roePct; const title = d.sym ? `$${d.sym}` : d.topic || d.market || d.name || 'Proof';
+  const tiles = [['RESULT', pnl != null ? `${pnl > 0 ? '+' : ''}${num(pnl, 1)}%` : String(res || 'open').toUpperCase(), pnl > 0 ? 'up' : pnl < 0 ? 'dn' : ''], ['P/L', d.pnlSol != null ? `${d.pnlSol > 0 ? '+' : ''}${num(d.pnlSol, 4)} SOL` : null, d.pnlSol > 0 ? 'up' : d.pnlSol < 0 ? 'dn' : ''], ['IN', d.sol != null ? `${num(d.sol, 4)} SOL` : null], ['ENTRY', d.entryUsd != null ? `$${d.entryUsd}` : d.entry != null ? String(d.entry) : null], ['EXIT', d.exit != null ? String(d.exit) : null], ['COST', d.cost != null ? `$${num(d.cost, 4)}` : null], ['VERSION', d.version ?? null]].filter(t => t[1] != null);
+  const coins = (d.coins || []).filter(c => c && c.sym); const topLiq = Math.max(1, ...coins.map(c => Number(c.liq) || 0)); const why = d.why || d.report || d.line; const talk = (d.talk || []).filter(t => t && (t.text || t.say)).slice(-6); const steps = (d.plan || []).filter(x => typeof x === 'string').slice(0, 6);
+  return <article className={`gst is-${res || 'open'}`} data-testid="git-proof">
+    <header className="gst-hero"><span className="gst-kind">{KIND_WORD[kind] || kind || 'Proof'}</span><h3>{title}</h3><em className={`gst-res is-${res || 'open'}`}>{String(res || 'open').toUpperCase()}</em></header>
+    <div className="gst-tiles">{tiles.map(([k, v, tone], i) => <div key={k} style={{ '--i': i }}><small>{k}</small><b className={`m-num ${tone || ''}`}>{v}</b></div>)}</div>
+    {typeof why === 'string' && why ? <blockquote className="gst-why">{why.slice(0, 600)}</blockquote> : null}
+    {coins.length ? <section className="gst-sec"><h4>COINS IT READ</h4><ul className="gst-coins">{coins.slice(0, 8).map((c, i) => <li key={`${c.sym}${i}`} style={{ '--i': i }}><b>${c.sym}</b><span className="gst-bar" data-tip={`Pool ${big(c.liq)}`}><u style={{ transform: `scaleX(${(Number(c.liq) || 0) / topLiq})` }} /></span><small className="m-num">cap {big(c.mc)}</small><em className={`m-num ${c.ch > 0 ? 'up' : 'dn'}`}>{c.ch > 0 ? '+' : ''}{num(c.ch, 1)}%</em></li>)}</ul></section> : null}
+    {shots?.length ? <section className="gst-sec"><h4>SNAPSHOTS</h4><div className="gst-shots">{shots.map(s => <img key={s} src={s} alt="Snapshot from this proof" loading="lazy" />)}</div></section> : null}
+    {steps.length ? <section className="gst-sec"><h4>THE PLAN</h4><ol className="gst-plan">{steps.map((x, i) => <li key={i}>{x.slice(0, 200)}</li>)}</ol></section> : null}
+    {talk.length ? <section className="gst-sec"><h4>THE TALK</h4><ul className="gst-talk">{talk.map((t, i) => <li key={i}><b>{t.by || t.who || 'Mind'}</b> {String(t.text || t.say).slice(0, 240)}</li>)}</ul></section> : null}
+  </article>;
+}
+function ListStatic({ rows }) {
+  const cols = [...new Set(rows.slice(0, 20).flatMap(r => Object.keys(r)))].filter(k => !/^(path|at|mint|pair|url)$/.test(k) && rows.some(r => typeof r[k] !== 'object')).slice(0, 5);
+  return <div className="gst-table" data-testid="git-list"><div className="gst-tr is-head" style={{ '--c': cols.length }}>{cols.map(k => <small key={k}>{k.toUpperCase()}</small>)}</div>{rows.slice(0, 80).map((r, i) => <div key={i} className="gst-tr" style={{ '--c': cols.length }}>{cols.map(k => <span key={k}>{typeof r[k] === 'object' ? '' : String(r[k] ?? '')}</span>)}</div>)}</div>;
+}
+function FileView({ doc, shots }) {
+  if (doc.busy) return <p className="gtr-empty">Opening…</p>;
+  if (doc.error) return <p className="lct-err" role="alert">⚠ {doc.error}</p>;
+  if (doc.kind === 'image') return <img className="gtr-img" src={doc.image} alt={doc.path} data-testid="git-image" />;
+  if (doc.kind === 'page') return <iframe className="gtr-frame" title={doc.path} sandbox="allow-scripts" srcDoc={doc.preview} referrerPolicy="no-referrer" data-testid="git-page" />;
+  if (doc.kind === 'sealed') return <div className="gtr-sealed" data-testid="git-sealed"><Lock size={28} aria-hidden="true" /><b>Sealed</b><small>Encrypted under its own key. Only FEELESS can open it for its owner.</small></div>;
+  if (doc.kind === 'data') return Array.isArray(doc.data) ? (doc.data.length && typeof doc.data[0] === 'object' ? <ListStatic rows={doc.data} /> : <p className="gtr-empty">{doc.data.length ? doc.data.join(', ') : 'Nothing here yet.'}</p>) : <ProofStatic path={doc.path} d={doc.data || {}} shots={shots} />;
+  return <pre className="gtr-text" data-testid="git-text">{doc.text}</pre>;
+}
+function RepoTree({ files, ask, shotsFor }) {
+  const root = treeOf(files); const [doc, setDoc] = useState(null); const seq = useRef(0);
+  const open = path => { const n = seq.current + 1; seq.current = n; setDoc({ path, busy: true }); ask({ op: 'git_read', job: path }).then(j => { if (seq.current === n) setDoc(j); }).catch(e => { if (seq.current === n) setDoc({ path, error: e.message }); }); };
+  const crumbs = doc ? doc.path.split('/') : [];
+  return <section className="gtr" aria-label="Its repo" data-testid="git-tree">
+    <nav className="gtr-nav"><h4><Ic3 e="🗂" /> ITS FOLDERS <small className="m-num">{root.n} files</small></h4><ul role="tree" aria-label="Its folders" className="gtr-root"><TreeRows node={root} depth={0} sel={doc?.path} onFile={open} /></ul></nav>
+    <div className="gtr-pane" data-testid="git-doc">{doc ? <><header className="gtr-path"><span>{crumbs.map((c, i) => <React.Fragment key={i}>{i ? <ChevronRight size={12} aria-hidden="true" /> : null}<b className={i === crumbs.length - 1 ? 'is-last' : ''}>{prettyName(c)}</b></React.Fragment>)}</span><button type="button" className="m-btn" onClick={() => setDoc(null)} aria-label="Close the file" data-tip="Close it">✕</button></header><div className="gtr-view"><FileView doc={doc} shots={doc.kind === 'data' ? shotsFor?.(doc.path, doc.data) : null} /></div></> : <div className="gtr-pick"><FolderOpen size={38} aria-hidden="true" /><b>Pick a file</b><small>Proofs open as a page of their data, pictures as pictures, and built pages run in a locked sandbox.</small></div>}</div>
+  </section>;
 }
 // 🧰 The kit library. Add a free kit's guide, read it, edit it, take it out. It goes to the private repo on the next push and every agent's proofs read it.
 function KitShelf({ cat, work }) {
@@ -46,25 +89,28 @@ export function GitFolder({ cat, work, scope = '' }) {
   const load = useCallback(() => ask({ op: 'git_state' }).then(setS).catch(e => setErr(e.message)), [ask]);
   useEffect(() => { load(); }, [load]);
   const run = async (name, body, done) => { setBusy(name); setErr(''); setSaid(''); try { const j = await ask(body); setToken(''); if (done) setSaid(done(j)); await load(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
-  const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full; const top = Math.max(1, ...(s?.tree || []).map(r => r.files));
+  const shotsFor = useCallback((path, data) => { const files_ = data?.id ? (s?.powShots || {})[data.id] : null; return (files_ || []).map(f => apiUrl(`/api/cats/${cat.id}/powshot/${String(data.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${f}?${agentAuthQuery()}`)); }, [s, cat.id]);
+  const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full;
   return <div className={`git${collective ? ' is-collective' : ''}`} data-testid={collective ? 'git-collective' : 'git-folder'}>
+    <div className="git-kitrow"><KitPick cat={cat} work={work} /></div>
     {collective ? <div className="m-seg" role="tablist" aria-label="GitHub">{[['repo', 'The repo'], ['kits', 'Kits for every agent']].map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div> : null}
     {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : <>
     {collective && on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
     <header className="git-h m-live"><span><em>{collective ? 'THE COLLECTIVE · ONLY YOU' : 'ITS GITHUB'}</em><b>{on ? l.full : collective ? 'The Collective repo' : 'Keep its proofs in your repo'}</b><small>{collective ? 'Every kept proof sorted by kind, result and month, with snapshots and the pages behind PoStatic.' : 'Its filed proofs and pages, sorted by kind, result and month. Keys and sign-ins never go in.'}</small></span>{on ? <a className="m-btn" href={l.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub" data-testid="git-open">Open on GitHub</a> : null}</header>
     {!collective && s?.vault?.on ? <section className="git-vault m-card" data-testid="git-vault"><i aria-hidden="true"><Ic3 e="🔐" /></i><span><b>{s.vault.files ? `${s.vault.files} files kept safe, ${size(s.vault.bytes || 0)}` : 'Kept safe on the next hourly pass'}</b><small>Free. Its filed proofs and pages are sealed under its own key in the Collective's private store, with hashed names. Your own repo below is optional.{s.vault.left ? ` ${s.vault.left} files are over its 20 MB share and wait.` : ''}</small></span><em className="m-num">{s.vault.at ? ago(s.vault.at) : 'waiting'}</em></section> : null}
-    {!on ? <form className="git-setup m-card" onSubmit={e => { e.preventDefault(); run('connect', { op: 'git_connect', text: token.trim() || undefined, job: repo, on: priv }, () => 'Connected.'); }}>
+    {s?.sealed ? <p className="git-seal" data-testid="git-sealed-note"><Lock size={13} aria-hidden="true" /> On GitHub every file is encrypted with a hashed name. You read them here.</p> : null}
+    {s?.files?.length ? <RepoTree files={s.files} ask={ask} shotsFor={shotsFor} /> : null}
+    {!on ? <details className="git-link" open={collective || !s?.files?.length} data-testid="git-link"><summary>{collective ? 'Connect the Collective repo' : 'Also copy it to my own GitHub (optional)'}</summary><form className="git-setup m-card" onSubmit={e => { e.preventDefault(); run('connect', { op: 'git_connect', text: token.trim() || undefined, job: repo, on: priv }, () => 'Connected.'); }}>
       <label><span>Repo name</span><input className="m-input" value={repo} onChange={e => setRepo(e.target.value)} aria-label="Repo name" data-testid="git-repo" /></label>
       {collective ? <p className="git-note">This one is always private.</p> : <div className="m-seg" role="group" aria-label="Who can see it">{[[true, 'Private', 'Only you can see it'], [false, 'Public', 'Anyone can read its filed proofs']].map(([v, t, tip]) => <button key={t} type="button" className={priv === v ? 'active' : ''} aria-pressed={priv === v} onClick={() => setPriv(v)} data-tip={tip} data-testid={`git-${t.toLowerCase()}`}>{t}</button>)}</div>}
       <label><span>GitHub token{l.token ? ` · saved, ends ${l.token}` : ''}</span><input className="m-input" type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={l.token ? 'Keep the saved one' : 'github_pat_…'} aria-label="GitHub token" data-testid="git-token" /></label>
       <p className="git-note">Make one at <a href={TOKEN_URL} target="_blank" rel="noopener noreferrer">GitHub › Fine-grained tokens</a> with Contents set to read and write, and this repo selected. To make a new repo, add Administration too. It is sealed here and never shown again.</p>
-      <button type="submit" className="m-btn m-go" disabled={!!busy || !repo.trim() || (!token.trim() && !l.token)} data-testid="git-connect">{busy === 'connect' ? 'Connecting…' : 'Make the repo'}</button></form>
+      <button type="submit" className="m-btn m-go" disabled={!!busy || !repo.trim() || (!token.trim() && !l.token)} data-testid="git-connect">{busy === 'connect' ? 'Connecting…' : 'Make the repo'}</button></form></details>
       : <section className="git-live m-card"><div className="git-nums">{[['IN THE REPO', l.files ?? 0, 'Files pushed so far'], ['WAITING', s?.waiting ?? '…', 'New or changed files the next push will send'], ['LAST PUSH', ago(l.lastAt), l.lastCommit ? `Commit ${l.lastCommit.slice(0, 7)}` : 'Nothing pushed yet'], ['SEEN BY', l.private ? 'Only you' : 'Anyone', l.private ? 'A private repo' : 'A public repo']].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
         <div className="git-acts"><button type="button" className="m-btn m-go" disabled={!!busy || !s?.waiting} onClick={() => run('push', { op: 'git_push' }, j => `Pushed ${j.pushed} files${j.left ? `, ${j.left} left for the next push` : ''}.`)} data-tip={s?.waiting ? 'One commit with what changed' : 'Nothing new to push'} data-testid="git-push">{busy === 'push' ? 'Pushing…' : 'Push now'}</button>
           <button type="button" className={`m-btn${l.auto ? ' is-on' : ''}`} aria-pressed={!!l.auto} disabled={!!busy} onClick={() => run('auto', { op: 'git_auto', on: !l.auto })} data-tip="Pushes what changed once an hour" data-testid="git-auto">{l.auto ? 'Hourly push: on' : 'Hourly push: off'}</button>
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('drop', { op: 'git_drop' })} data-tip="Forgets the repo and token here. The repo stays on GitHub" data-testid="git-drop">Disconnect</button></div></section>}
     {said ? <small className="git-said" role="status" data-testid="git-said">{said}</small> : null}{err || l.err ? <p className="lct-err" role="alert" data-testid="git-err">⚠ {err || l.err}</p> : null}
-    {s?.files?.length ? <RepoTree files={s.files} ask={ask} /> : null}
     {collective && s?.memory ? <p className="git-note" data-testid="git-memory">{s.memory.length ? `Every agent's next ${s.memory.map(k => ({ pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' }[k])).join(', ')} reads the Collective's record for that proof, on any model.` : 'Agents start reading the record once a proof kind has 3 graded results.'}</p> : null}</>}
   </div>;
 }

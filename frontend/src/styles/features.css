@@ -145,3 +145,5 @@ body.theme-day .kit-chip { color: #0b5c31; border-color: #0f9d5055; background: 
 .fea-caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 1px; vertical-align: text-bottom; background: #45e486; animation: kitPulse 1.2s ease-in-out infinite; }
 body.fx-lite :is(.fea-livedot, .fea-caret) { animation: none; } @media (prefers-reduced-motion: reduce) { :is(.fea-livedot, .fea-caret) { animation: none; } }
 body.theme-day .fea-cost > span { background: #0000000a; border-color: #00000014; } body.theme-day .fea-cost b { color: #0b7a3e; } body.theme-day .fea-cost small { color: #4e6358; }
+.fea-save.is-on { border-color: #45e486; color: #45e486; }
+.kit-new { margin-left: 6px; padding: 1px 5px; border-radius: 5px; background: #ffb454; color: #1d1203; font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .06em; vertical-align: middle; } .kit-more { min-height: 34px; }

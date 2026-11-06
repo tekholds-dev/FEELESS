@@ -5,9 +5,11 @@ import EcosystemChat from '../components/EcosystemChat';
 import { HoneyTanks } from '../components/command/HoneyTanks';
 import { SplitBars } from '../components/command/CollectiveOwner';
 import { Signal } from '../components/command/CollectiveLanding';
+import { GitFolder } from '../components/command/GitFolder';
 
 // 🧪 DEV ONLY (`/dev/chats`): the shared composer in a real room plus the kit picker, on a fake kit list. Nothing is saved.
 const KITS = [['heroui', 'HeroUI', 'Polished React components', true], ['shadcn', 'shadcn/ui', 'Components you copy in', false], ['magicui', 'Magic UI', 'Animated landing page components', false], ['motion', 'Motion', 'Animation for React', false], ['daisyui', 'daisyUI', 'Tailwind themes and components', false]].map(([id, name, what, added]) => ({ id, name, what, added, site: 'https://example.com', license: 'MIT', vitals: { items: 148 } }));
+KITS.push({ id: 'new-base-ui', name: '@base-ui/react', what: 'Unstyled UI components', added: false, found: true, site: 'https://base-ui.com', license: 'MIT', kinds: ['pos'] });
 let state = { kits: KITS, picks: [], mode: 'auto', max: 3 };
 const work = async (_, b) => { if (b.op === 'kit_pick') state = { ...state, picks: b.text ? b.text.split(',') : [], mode: b.job, kits: state.kits.map(k => (b.text.includes(k.id) ? { ...k, added: true } : k)) }; return state; };
 const PAGE = Array.from({ length: 60 }, (_, i) => `<section class="row-${i}"><h2>Rapid compound rewards ${i}</h2></section>`).join('\n');
@@ -16,7 +18,15 @@ const Money = () => <div className="cll" style={{ minHeight: '100vh', padding: 1
     <SplitBars c={{ potPct: 40, sitePct: 20 }} />
     <Signal />
   </div>;
+function Git() {   // ?git: this machine's real files from public/dev-git.json (gitignored). Nothing leaves the page
+  const [d, setD] = useState(null);
+  useEffect(() => { fetch('/dev-git.json').then(r => r.json()).then(setD); }, []);
+  if (!d) return null;
+  const fake = async (_, b) => (b.op === 'git_state' ? { files: d.files, link: {}, tree: [], vault: { on: true, files: d.files.length, bytes: 1e6 } } : b.op === 'git_read' ? d.read[b.job] : b.op === 'kit_list' || b.op === 'kit_pick' ? work(_, b) : {});
+  return <div style={{ minHeight: '100vh', padding: 12, background: '#060b08' }}><GitFolder cat={{ id: 'dev', handle: 'dev' }} work={fake} /></div>;
+}
 export default function ChatsHarness() {
+  if (window.location.search.includes('git')) return <Git />;
   return window.location.search.includes('money') ? <Money /> : <Chats />;
 }
 function Chats() {

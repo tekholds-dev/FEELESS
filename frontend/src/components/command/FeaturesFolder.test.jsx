@@ -142,3 +142,16 @@ test('a folder chat shows this chat and the folder, and the cost moves while it 
   document.body.classList.remove('fx-lite');
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('Save keeps a page in its own folder and can take it out again', async () => {
+  const { SaveToRepo } = require('./FeaturesFolder');
+  const calls = []; let doc = { preview: '<html/>', savedToRepo: false };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const draw = () => root.render(<SaveToRepo cat={{ id: 'c' }} row={{ id: 'w1' }} doc={doc} work={async (_, b) => { calls.push(b); return { saved: b.on }; }} setDoc={f => { doc = f(doc); }} />);
+  await act(async () => { draw(); });
+  await act(async () => { el.querySelector('[data-testid="ws-save-repo"]').click(); });
+  expect(calls[0]).toEqual({ op: 'ws_repo', text: 'w1', on: true }); expect(doc.savedToRepo).toBe(true);
+  await act(async () => { draw(); }); expect(el.querySelector('[data-testid="ws-save-repo"]').textContent).toBe('Saved');
+  await act(async () => { el.querySelector('[data-testid="ws-save-repo"]').click(); }); expect(calls[1].on).toBe(false);
+  await act(async () => { root.unmount(); }); el.remove();
+});

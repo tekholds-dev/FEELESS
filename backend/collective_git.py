@@ -45,8 +45,30 @@ def result_of(key, f):
     return o if o in ('won', 'lost') else 'open'
 
 
+LEAK = re.compile(rb'sk-or-[A-Za-z0-9_-]{20}|sk-ant-[A-Za-z0-9_-]{20}|sk-[A-Za-z0-9]{32}|ghp_[A-Za-z0-9]{20}|gho_[A-Za-z0-9]{20}|github_pat_[A-Za-z0-9_]{20}|xox[bap]-[A-Za-z0-9-]{20}|AIza[0-9A-Za-z_-]{30}|BEGIN [A-Z ]*PRIVATE KEY|"(?:mnemonic|secretKey|privateKey|seedPhrase|recoveryPhrase)"\s*:\s*"[^"]')
+TEXT_ONLY = ('.json', '.md', '.html', '.txt')
+
+
+def without_leaks(files):
+    """🔒 The last check before a file is shown or leaves: anything holding a key, a token or a seed phrase is held back, whatever put it there. → (files, held-back paths)"""
+    clean = {}; held = []
+    for path, raw in files.items():
+        if path.endswith(TEXT_ONLY) and LEAK.search(raw):
+            held.append(path)
+        else:
+            clean[path] = raw
+    return clean, held
+
+
+def sealed_tree(files, seal, cache, cap=200 * 1024 * 1024):
+    """🔐 The whole Collective for GitHub: every name hashed, every byte sealed. GitHub only ever holds blobs. A short plain README says what they are. → (files, stats)"""
+    out, stats = vault_tree('collective', files, seal, cache, cap)
+    out['README.md'] = b'# Sealed by FEELESS\n\nEvery file here is encrypted and its name is a hash. They can only be opened by FEELESS with the key that sealed them.\n'
+    return out, stats
+
+
 def agent_tree(cat, public_folder, read_page=None, kinds=None):
-    """{path: bytes} for one agent's own repo. Its filed proofs, won or lost, and the pages it built."""
+    """{path: bytes} for one agent's own repo. Its filed proofs, won or lost, the pages it built, and any page its owner saved."""
     out = {}; rows = []
     for key, word in FOLDERS.items():
         if kinds is not None and word not in kinds:
@@ -59,7 +81,7 @@ def agent_tree(cat, public_folder, read_page=None, kinds=None):
             out[path] = json.dumps(public_folder(f), separators=(',', ':'), default=str, sort_keys=True).encode()
             rows.append({'kind': word, 'result': res, 'title': str(title)[:80], 'at': at, 'path': path})
     if read_page and (kinds is None or 'PoStatic' in kinds):
-        for ws in {f.get('ws') for f in (cat or {}).get('psFolders') or [] if f.get('ws')}:
+        for ws in {f.get('ws') for f in (cat or {}).get('psFolders') or [] if f.get('ws')} | set((cat or {}).get('savedPages') or []):
             html, name = read_page(ws)
             if html:
                 out[f"pages/{slug(name)}-{str(ws)[-6:]}.html"] = html.encode()

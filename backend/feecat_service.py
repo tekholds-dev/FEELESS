@@ -1471,6 +1471,7 @@ def _stash_read_shot(folder, shot):
 
 GIT_DIR = DATA_DIR / 'git_manifests'
 _GIT_BUSY = set()
+_KITS_AT = [0.0]
 
 
 KITS_DIR = DATA_DIR / 'kits'   # 🧰 the owner's kit library. Only he adds or edits; every agent reads
@@ -1490,21 +1491,52 @@ def _git_page(cat_id, ws):
 
 
 def _git_files(cat, collective):
-    """(files, counts) for its repo. Built off the event loop: the Collective can be large."""
+    """(files, counts) as its owner reads them here. Built off the event loop: the Collective can be large. Anything holding a key or a token is held back."""
     if not collective:
-        return _cg.agent_tree(cat, _vv.public_folder, lambda ws: _git_page(cat['id'], ws)), None
+        return _cg.without_leaks(_cg.agent_tree(cat, _vv.public_folder, lambda ws: _git_page(cat['id'], ws)))[0], None
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
     files.update(_kits.tree(KITS_DIR))
-    vault = {}
+    return _cg.without_leaks(files)[0], counts
+
+
+def _git_outbound(cat, collective):
+    """(files, counts) as they leave for GitHub. An agent's own repo gets its readable files, its owner chose that repo. The Collective's gets only sealed blobs with hashed names, its own and each agent's under that agent's key."""
+    plain, counts = _git_files(cat, collective)
+    if not collective:
+        return plain, counts
+    files, _stats = _cg.sealed_tree(plain, lambda raw: _ck.seal_bytes(raw, cat['id']), GIT_DIR / 'vault')
+    store = _load(); vault = {}
     for c in store['cats'].values():   # 🔐 owner 2026-11-05: its private data lives sealed in the Collective's private repo, so nobody pays for storage
         if c.get('revoked') or c.get('id') == 'leader':
             continue
-        cid = c['id']; got, stats = _cg.vault_tree(_stash.agent_tag(cid), _cg.agent_tree(c, _vv.public_folder, lambda ws, i=cid: _git_page(i, ws)), lambda raw, i=cid: _ck.seal_bytes(raw, i), GIT_DIR / 'vault')
+        cid = c['id']; got, stats = _cg.vault_tree(_stash.agent_tag(cid), _cg.without_leaks(_cg.agent_tree(c, _vv.public_folder, lambda ws, i=cid: _git_page(i, ws)))[0], lambda raw, i=cid: _ck.seal_bytes(raw, i), GIT_DIR / 'vault')
         files.update(got); vault[_stash.agent_tag(cid)] = stats
     (GIT_DIR / 'vault.json').write_text(json.dumps(vault)) if vault else None
     return files, counts
+
+
+GIT_IMAGE = {'.webp': 'image/webp', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png'}
+GIT_IMAGE_MAX = 6 * 1024 * 1024
+
+
+def _git_view_file(path, raw):
+    """📄 One file, ready to look at: a page in its sandbox, a picture, or data as data. Never raw code unless it is only text."""
+    path = str(path); ext = path[path.rfind('.'):].lower() if '.' in path else ''; out = {'path': path, 'bytes': len(raw)}
+    if ext == '.seal':
+        return {**out, 'kind': 'sealed'}
+    if ext in GIT_IMAGE:
+        return {**out, 'kind': 'image', 'image': f"data:{GIT_IMAGE[ext]};base64,{base64.b64encode(raw).decode()}"} if len(raw) <= GIT_IMAGE_MAX else {**out, 'kind': 'text', 'text': 'This picture is too large to show here.'}
+    text = raw[:400000].decode('utf-8', 'replace')
+    if ext == '.html':
+        return {**out, 'kind': 'page', 'preview': _feat.preview(text), 'text': text[:60000]}
+    if ext == '.json':
+        try:
+            return {**out, 'kind': 'data', 'data': json.loads(text)}
+        except ValueError:
+            pass
+    return {**out, 'kind': 'text', 'text': text[:60000]}
 
 
 def _git_manifest_path(cat_id, collective):
@@ -1520,7 +1552,7 @@ async def _git_push(cat, collective):
         raise ValueError('It is already pushing.')
     _GIT_BUSY.add(key + cat['id'])
     try:
-        files, counts = await asyncio.to_thread(_git_files, cat, collective); path = _git_manifest_path(cat['id'], collective)
+        files, counts = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective)
         manifest = json.loads(path.read_text()) if path.exists() else {}
         async with httpx.AsyncClient() as h:
             r = await _cg.push(h, token, link['full'], link.get('branch') or 'main', files, manifest, f"{len(files)} files sorted by FEELESS")
@@ -1535,7 +1567,14 @@ async def _git_push(cat, collective):
 
 
 async def _git_pass(store, now):
-    """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee."""
+    """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
+    if now - _KITS_AT[0] > 86400:
+        _KITS_AT[0] = now
+        try:
+            async with httpx.AsyncClient() as h_:
+                await _kits.discover(h_, KITS_DIR, now)
+        except Exception as e:   # noqa: BLE001 — Discover keeps yesterday's list
+            print(f'[kits] discover: {str(e)[:120]}')
     for c in store['cats'].values():
         for collective, key in ((False, 'gitLink'), (True, 'collectiveGit')):
             if (c.get(key) or {}).get('auto') and not c.get('revoked'):
@@ -1570,10 +1609,10 @@ async def _git_op(cat, p):
             files_, _c = await asyncio.to_thread(_git_files, cat, collective); raw_ = files_.get(str(p.job or ''))
             if raw_ is None:
                 raise ValueError('No such file.')
-            return {'path': p.job, 'bytes': len(raw_), 'text': None if str(p.job).endswith(('.seal', '.webp', '.jpg', '.png')) else raw_[:60000].decode('utf-8', 'replace')}
+            return _git_view_file(p.job, raw_)
         if p.op == 'git_state':
-            files, counts = await asyncio.to_thread(_git_files, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
-            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in files.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None}
+            files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
+            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
         if p.op == 'git_connect':
             if p.text:
                 _ck.put(cat, 'github', p.text, data_dir=DATA_DIR)
@@ -6349,8 +6388,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
             _ws_file(cat_id, p.text).unlink(missing_ok=True)
         keep_owned(cat); _save(store)
         return {'workspaces': cat['workspaces']}
+    if p.op == 'ws_repo':   # 💾 a page its owner keeps: it joins this agent's own folder, sealed under its key in the Collective's store, and its own repo if one is linked. Only its owner reads it here
+        if not _ws_load(cat_id, str(p.text or '')):
+            raise HTTPException(404, 'No such folder.')
+        saved_ = [x for x in cat.get('savedPages') or [] if x != p.text]
+        cat['savedPages'] = ([str(p.text)] + saved_)[:50] if p.on is not False else saved_
+        keep_owned(cat); _save(store)
+        return {'saved': p.on is not False}
     if p.op == 'ws_open':
-        view_ = _ws_view(cat_id, p.text)
+        view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or [])
         if p.ver is not None and p.ver == str(view_['versions']):
             for large_ in ('code', 'previousCode', 'preview'):
                 view_.pop(large_, None)
@@ -6619,7 +6665,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_pick':
-            want_ = [x for x in str(p.text or '').split(',') if x in _kits.CATALOG][:_kits.MAX_PICKS]; have_ = {k['id'] for k in _kits.rows(KITS_DIR)}
+            known_ = set(_kits.CATALOG) | {x['id'] for x in _kits.found_rows(KITS_DIR)}; want_ = [x for x in str(p.text or '').split(',') if x in known_][:_kits.MAX_PICKS]; have_ = {k['id'] for k in _kits.rows(KITS_DIR)}
             for kid_ in [x for x in want_ if x not in have_]:   # only the catalog's fixed addresses, the guide is text
                 try:
                     async with httpx.AsyncClient() as h_:
