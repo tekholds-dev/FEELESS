@@ -90,6 +90,7 @@ import pow_kernel as _kernel
 import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
+import collective_sort as _sort
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 import trade_fills as _fills   # ⛓ exact on-chain wallet deltas; Colony never accrues a quote-only profit
 
@@ -1166,8 +1167,14 @@ def lm_stop(now):
     return n
 
 
+_LM_ASKED = {'at': 0.0}   # 🗂 the last call someone asked for. The sorter stays out of its way
+_SORT_CALL: contextvars.ContextVar = contextvars.ContextVar('sort_call', default=False)
+
+
 async def _lm_call(model, messages, max_tokens):
     which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'; asked = time.time()
+    if not _SORT_CALL.get():
+        _LM_ASKED['at'] = asked
     async with _LM_GATE.setdefault(which_, asyncio.Semaphore(1)):
         if _LM_STOP['at'] >= asked:
             _OR_LAST['err'] = 'You stopped it.'
@@ -1566,6 +1573,52 @@ async def _git_push(cat, collective):
         _GIT_BUSY.discard(key + cat['id'])
 
 
+SORT_TICK_S = 45
+SORT_BACKOFF_S = 600
+
+
+async def _sort_one():
+    """🗂 One file, read by both minds, only while nobody needs them. Never writes to the file itself."""
+    d = _sort.load(GIT_DIR)
+    if not d['on'] or not _sort.idle(os.getloadavg()[0], bool(_LM_LIVE) or any(g.locked() for g in _LM_GATE.values()), _LM_ASKED['at'], time.time()):
+        return False
+    leader = _load()['cats'].get('leader')
+    if not leader:
+        return False
+    files, _c = await asyncio.to_thread(_git_files, leader, True); path = _sort.next_path(sorted(files), d['items'])
+    if not path:
+        return False
+    item = d['items'].get(path) or {}; raw = files[path]; words = _sort.prompt(path, item, d['items'])
+    if path.endswith(tuple(GIT_IMAGE)):
+        content = [{'type': 'text', 'text': words}, {'type': 'image_url', 'image_url': {'url': f"data:{GIT_IMAGE[path[path.rfind('.'):]]};base64,{base64.b64encode(raw).decode()}"}}]
+    else:
+        content = f"{words}\n{raw[:_sort.EXCERPT].decode('utf-8', 'replace')}"
+    token = _SORT_CALL.set(True); got_any = False
+    try:
+        for who, model in (('ossy', 'local/ossy'), ('g4', 'local/g4')):
+            if who in (item.get('votes') or {}) or _LM_ASKED['at'] > time.time() - 5:
+                continue
+            text, _usd = await _lm_call(model, [{'role': 'system', 'content': _sort.SYS}, {'role': 'user', 'content': content}], 120)
+            v = _sort.parse_vote(text)
+            if not v:
+                continue
+            fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1]); _sort.save(GIT_DIR, fresh); got_any = True
+    finally:
+        _SORT_CALL.reset(token)
+    return got_any
+
+
+async def _sort_loop():
+    while True:
+        await asyncio.sleep(SORT_TICK_S)
+        try:
+            if not await _sort_one() and _sort.load(GIT_DIR)['on']:
+                await asyncio.sleep(SORT_BACKOFF_S if _OR_LAST.get('err') else 0)
+        except Exception as e:   # noqa: BLE001 — sorting never takes the service down
+            print(f'[sort] {str(e)[:120]}')
+            await asyncio.sleep(SORT_BACKOFF_S)
+
+
 async def _git_pass(store, now):
     """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
     if now - _KITS_AT[0] > 86400:
@@ -1612,7 +1665,19 @@ async def _git_op(cat, p):
             return _git_view_file(p.job, raw_)
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
-            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
+            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
+        if p.op in ('sort_set', 'sort_on', 'sort_trash'):   # 🗂 the owner's word on a file. Nothing is ever deleted
+            if not collective:
+                raise ValueError('Only the Collective repo is sorted.')
+            d_ = _sort.load(GIT_DIR); path_ = str(p.job or '')
+            if p.op == 'sort_on':
+                d_['on'] = bool(p.on)
+            elif p.op == 'sort_trash':
+                d_['items'][path_] = _sort.rule_trash(d_['items'].get(path_), p.on is not False)
+            else:
+                d_['items'][path_] = _sort.owner_set(d_['items'].get(path_), p.tools or {})
+            _sort.save(GIT_DIR, d_)
+            return {'on': d_['on'], 'item': d_['items'].get(path_)}
         if p.op == 'git_connect':
             if p.text:
                 _ck.put(cat, 'github', p.text, data_dir=DATA_DIR)
@@ -4674,6 +4739,12 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 
 
 @app.on_event('startup')
+async def _start_sort():
+    if os.environ.get('FEELESS_SORT', '1') != '0':
+        asyncio.create_task(_sort_loop())
+
+
+@app.on_event('startup')
 async def _start_hive():
     if os.environ.get('FEELESS_HIVE', '1') != '0':
         asyncio.create_task(_hive_loop())
@@ -6336,9 +6407,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Pick one of its PoEco books.')
         f_['sent'] = round(time.time()); keep_owned(cat); _save(store)
         return {'receipt': _eco.receipt(f_), 'poeFolders': cat['poeFolders'][::-1]}
-    if p.op in ('git_state', 'git_read', 'git_connect', 'git_push', 'git_auto', 'git_drop'):
+    if p.op == 'desk_layout':   # 🖥 where its folders sit, kept with the agent so a refresh, a full browser or another screen never loses it
+        if isinstance(p.tools, dict) and isinstance(p.tools.get('pos'), dict):
+            cat['deskIcons'] = {str(k)[:24]: {'x': max(0, min(20000, int(v['x']))), 'y': max(0, min(20000, int(v['y'])))} for k, v in list(p.tools['pos'].items())[:80] if isinstance(v, dict) and isinstance(v.get('x'), (int, float)) and isinstance(v.get('y'), (int, float))}
+            keep_owned(cat); _save(store)
+        return {'pos': cat.get('deskIcons') or {}}
+    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'git_connect', 'git_push', 'git_auto', 'git_drop'):
         out_ = await _git_op(cat, p)
-        if p.op not in ('git_state', 'git_read'):
+        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash'):
             keep_owned(cat); _save(store)
         return out_
     if p.op == 'desk_seat':   # 🎩 Sicario's only, its owner only: an agreed PoW goes to the real card's model seat

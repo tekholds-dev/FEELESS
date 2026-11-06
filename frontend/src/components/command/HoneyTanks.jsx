@@ -2,9 +2,9 @@ import React, { Suspense, lazy } from 'react';
 import { ProgressCircle } from '@heroui/react';
 import '../../styles/honeyTanks.css';
 
-const LedgerBars = lazy(() => import('./MoneyCharts').then(m => ({ default: m.LedgerBars })));
+export const LedgerBars = lazy(() => import('./MoneyCharts').then(m => ({ default: m.LedgerBars })));
 const solText = v => (v >= 0.01 ? v.toFixed(4) : v > 0 ? Number(v.toPrecision(2)).toString() : '0');
-const Tile = ({ label, value, sub, tip, testid, color }) => <article className="ht-tile" style={{ '--c': color }} data-tip={tip} data-testid={testid}><small>{label}</small><b className="m-num" key={value}>{value}</b><em>{sub}</em></article>;
+export const Tile = ({ label, value, sub, tip, testid, color }) => <article className="ht-tile" style={{ '--c': color }} data-tip={tip} data-testid={testid}><small>{label}</small><b className="m-num" key={value}>{value}</b><em>{sub}</em></article>;
 
 // Where its winnings are, on one real chart: earned, owed, in the pool, paid back. Plus how right its calls are, and how close the airdrop is.
 export function HoneyTanks({ ledger, live, colony, px }) {

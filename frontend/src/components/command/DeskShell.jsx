@@ -92,7 +92,7 @@ const MOODS = {
   rose: { a: [0.07, 0.015, 0.05], b: [0.4, 0.08, 0.28], c: [1, 0.45, 0.72], hex: 0 },
 };
 export const WALLS = [['agent', 'Green', '#15d16a'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
-export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, autoFit: false, snap: false, hidden: [], winOpen: 'beside', clock: '24' };
+export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, autoFit: false, hidden: [], winOpen: 'beside', clock: '24' };
 const prefKey = id => `feeless.deskPrefs.${id}`;
 export function useDeskPrefs(id) {
   const [p, setP] = useState(() => { try { return { ...DESK_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey(id)) || '{}') }; } catch { return DESK_DEFAULTS; } });
@@ -119,13 +119,28 @@ export function fitIcons(apps, o = {}, vw = 1280, vh = 800) {
   });
   return out;
 }
-const snapTo = (p, cell) => ({ x: Math.round(p.x / cell) * cell, y: Math.round(p.y / cell) * cell });
-// 🖥 Where its folders sit: yours where you dragged them, or fitted to this screen. Saved on this device only.
-export function useDeskIcons(id, apps, prefs) {
-  const shown = apps.filter(a => !(prefs.hidden || []).includes(a[0])); const names = shown.map(a => a[0]).join();
-  const key = `feeless.dsk.icons.${id}`; const save = n => { try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* private window */ } };
-  const [pos, setPos] = useState(() => { let s = {}; try { s = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { /* private window */ } return prefs.autoFit ? fitIcons(shown, prefs, window.innerWidth, window.innerHeight) : placeFor(apps.map(a => a[0]), s, window.innerHeight); });
-  const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: prefs.snap ? snapTo(p, ICON_CELL[prefs.iconSize] || 96) : p }; save(n); return n; });
+const snapTo = (p, cell) => ({ x: Math.max(0, Math.round(p.x / cell)) * cell, y: Math.max(0, Math.round(p.y / cell)) * cell });
+// ▦ A true grid: every folder in one cell, never two in the same cell. Saved spots stay where they are; anything new takes the next free cell.
+export function toGrid(keys, saved, height, cell = 96) {
+  const rows = Math.max(3, Math.floor((height - 110) / cell)); const used = new Set(); const out = {}; const id = p => `${p.x},${p.y}`;
+  keys.filter(k => saved?.[k]).forEach(k => { const p = snapTo(saved[k], cell); if (!used.has(id(p))) { used.add(id(p)); out[k] = p; } });
+  let n = 0; keys.filter(k => !out[k]).forEach(k => { let p; do { p = { x: Math.floor(n / rows) * cell, y: (n % rows) * cell }; n += 1; } while (used.has(id(p))); used.add(id(p)); out[k] = p; });
+  return out;
+}
+// A folder dropped on another swaps places with it.
+export function dropOnGrid(pos, k, p, cell = 96) {
+  const to = snapTo(p, cell); const from = pos[k]; const other = Object.keys(pos).find(x => x !== k && pos[x].x === to.x && pos[x].y === to.y);
+  return { ...pos, [k]: to, ...(other && from ? { [other]: from } : {}) };
+}
+// 🖥 Where its folders sit: on a grid, yours where you dragged them, or fitted to this screen. Kept on this device and, for an agent, with the agent, so a refresh or a full browser never loses it.
+export function useDeskIcons(id, apps, prefs, { load, store, onDrag } = {}) {
+  const shown = apps.filter(a => !(prefs.hidden || []).includes(a[0])); const names = shown.map(a => a[0]).join(); const cell = ICON_CELL[prefs.iconSize] || 96; const allKeys = apps.map(a => a[0]).join();
+  const key = `feeless.dsk.icons.${id}`; const pushT = useRef(0);
+  const save = n => { try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* full or private: the agent's copy still holds it */ } if (store) { clearTimeout(pushT.current); pushT.current = setTimeout(() => store(n), 400); } };
+  const [pos, setPos] = useState(() => { let s = {}; try { s = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch { /* private window */ } return prefs.autoFit ? fitIcons(shown, prefs, window.innerWidth, window.innerHeight) : toGrid(apps.map(a => a[0]), s, window.innerHeight, cell); });
+  useEffect(() => { if (!load || prefs.autoFit) return undefined; let on = true; load().then(j => { if (!on) return; const got = j?.pos || {}; if (Object.keys(got).length) { const n = toGrid(allKeys.split(','), got, window.innerHeight, cell); setPos(n); try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* full */ } } else { let had = null; try { had = localStorage.getItem(key); } catch { /* private */ } if (had) store?.(JSON.parse(had)); } }).catch(() => {}); return () => { on = false; }; }, [id]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPos(x => { const missing = allKeys.split(',').some(k => !x[k]); return missing ? toGrid(allKeys.split(','), x, window.innerHeight, cell) : x; }); }, [allKeys, cell]);
+  const moveIcon = (k, p) => { if (prefs.autoFit) onDrag?.(); setPos(x => { const n = dropOnGrid(x, k, p, cell); save(n); return n; }); };
   const fit = useCallback(o => { const n = fitIcons(shown, o || prefs, window.innerWidth, window.innerHeight); setPos(x => { const m = { ...x, ...n }; save(m); return m; }); }, [names, prefs.iconSort, prefs.iconFlow, prefs.iconSide, prefs.iconSize]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!prefs.autoFit) return undefined; fit(); let t = 0; const on = () => { clearTimeout(t); t = setTimeout(() => fit(), 150); }; window.addEventListener('resize', on); return () => { clearTimeout(t); window.removeEventListener('resize', on); }; }, [prefs.autoFit, fit]);
   return { pos, moveIcon, fit, shown };
@@ -147,7 +162,7 @@ export function DeskSettings({ prefs, set, mood, apps = [], onFit }) {
       <span className="dset-presets">{PRESETS.map(([l, o, tip]) => <button key={l} type="button" className="m-btn" onClick={() => look(o)} data-tip={tip} data-testid={`dset-preset-${l.toLowerCase().replace(/\W+/g, '-')}`}>{l}</button>)}</span>
       <button type="button" className="m-btn m-go" onClick={() => onFit?.(prefs)} data-tip="Puts every folder in its place on this screen" data-testid="dset-fit-now">Fit to screen</button></section>
       <Seg label="Folder size" k="iconSize" rows={[['s', 'Small', 'Fits the most'], ['m', 'Medium', 'The usual size'], ['l', 'Large', 'Easier to hit']]} prefs={prefs} set={o => look(o)} />
-      <section>{[['autoFit', 'Keep it fitted', 'Folders refit themselves when the window changes size'], ['snap', 'Snap to a grid', 'A dragged folder lands square with the others'], ['iconLabels', 'Folder names', 'The name under each folder']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
+      <section>{[['autoFit', 'Keep it fitted', 'Folders refit themselves when the window changes size'], ['iconLabels', 'Folder names', 'The name under each folder']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
       <details className="dset-hide"><summary data-testid="dset-hide">Hide folders{prefs.hidden?.length ? ` · ${prefs.hidden.length} hidden` : ''}</summary><div>{apps.filter(a => a[0] !== 'deskset').map(a => <label key={a[0]} className="dset-row"><span>{a[2]}</span><input type="checkbox" checked={!(prefs.hidden || []).includes(a[0])} onChange={e => set({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== a[0]) : [...(prefs.hidden || []), a[0]] })} data-testid={`dset-show-${a[0]}`} /></label>)}</div></details>
       <Seg label="New windows open" k="winOpen" rows={[['beside', 'Beside folders', 'Keeps its folders in view'], ['center', 'Centered', 'In the middle of the screen'], ['max', 'Full screen', 'Fills the desktop']]} prefs={prefs} set={set} /></> : null}
     <section><h4>Background color</h4><div className="dset-walls" role="radiogroup" aria-label="Background color">{WALLS.map(([k, l, c]) => <button key={k} type="button" role="radio" aria-checked={wall === k} className={wall === k ? 'is-on' : ''} style={{ '--c': c }} onClick={() => set({ wall: k })} data-tip={`A ${l.toLowerCase()} desktop`} data-testid={`dset-wall-${k}`}><i aria-hidden="true" /><span>{l}</span></button>)}</div></section>

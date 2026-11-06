@@ -22,8 +22,9 @@ function Git() {   // ?git: this machine's real files from public/dev-git.json (
   const [d, setD] = useState(null);
   useEffect(() => { fetch('/dev-git.json').then(r => r.json()).then(setD); }, []);
   if (!d) return null;
-  const fake = async (_, b) => (b.op === 'git_state' ? { files: d.files, link: {}, tree: [], vault: { on: true, files: d.files.length, bytes: 1e6 } } : b.op === 'git_read' ? d.read[b.job] : b.op === 'kit_list' || b.op === 'kit_pick' ? work(_, b) : {});
-  return <div style={{ minHeight: '100vh', padding: 12, background: '#060b08' }}><GitFolder cat={{ id: 'dev', handle: 'dev' }} work={fake} /></div>;
+  const shot = 'snapshots/rugcheck/sample.jpg';
+  const fake = async (_, b) => (b.op === 'git_state' ? { files: d.files, link: {}, tree: [], sealed: true, sort: { on: true, counts: { good: 12, bad: 3, disputed: 1, trash_ask: 1, unsorted: 28 }, items: { [shot]: { status: 'trash_ask', votes: { ossy: { verdict: 'trash', why: 'A bot check, nothing readable' }, g4: { verdict: 'trash', why: 'Blank page behind a check' } } } } } } : b.op === 'git_read' ? d.read[b.job] : b.op === 'sort_set' ? { item: b.tools } : b.op === 'sort_trash' ? { item: { status: b.on ? 'trash' : 'bad', by: 'owner' } } : b.op === 'kit_list' || b.op === 'kit_pick' ? work(_, b) : {});
+  return <div style={{ minHeight: '100vh', padding: 12, background: '#060b08' }}><GitFolder cat={{ id: 'dev', handle: 'dev' }} work={fake} scope="collective" /></div>;
 }
 export default function ChatsHarness() {
   if (window.location.search.includes('git')) return <Git />;

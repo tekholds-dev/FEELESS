@@ -598,3 +598,12 @@ test('🔁 what wants one spot takes turns: one shows at a time and each stays u
   await act(async () => { root.render(<Turns items={[<b key="bar">bar</b>]} />); }); expect(on()).toEqual(['bar']);
   await act(async () => root.unmount()); el.remove(); jest.useRealTimers();
 });
+
+test('the desktop is a true grid: one folder per cell, a drop swaps, saved spots survive a restart', () => {
+  const { toGrid, dropOnGrid } = require('./DeskShell');
+  const keys = ['pow', 'pop', 'bids', 'vault'];
+  const at = toGrid(keys, { pow: { x: 300, y: 298 }, pop: { x: 290, y: 290 } }, 800);
+  expect(at.pow).toEqual({ x: 288, y: 288 }); const cells = Object.values(at).map(p => `${p.x},${p.y}`); expect(new Set(cells).size).toBe(4); Object.values(at).forEach(p => { expect(p.x % 96).toBe(0); expect(p.y % 96).toBe(0); });
+  const swapped = dropOnGrid({ pow: { x: 0, y: 0 }, pop: { x: 96, y: 0 } }, 'pow', { x: 100, y: 5 }); expect(swapped).toEqual({ pow: { x: 96, y: 0 }, pop: { x: 0, y: 0 } });
+  expect(toGrid(keys, swapped, 800).pow).toEqual({ x: 96, y: 0 });
+});

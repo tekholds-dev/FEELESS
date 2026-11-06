@@ -1,4 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ProgressCircle } from '@heroui/react';
+import { LedgerBars, Tile } from './HoneyTanks';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
 import { GrowthCalc, usePoolRules, money } from './SplitFlow';
@@ -64,8 +66,12 @@ export function Signal() {
   return <section className="cll-sec" data-testid="cll-signal"><header><small>HOW IT WORKS</small><h3>Follow the proof.</h3><p>Pick what happened. These are the live rules, on your numbers. An example, not a promise.</p></header>
     <div className="cll-ctls">{seg('WHAT HAPPENED', sc, setSc, ['win', 'loss', 'swap'], o => ({ win: 'A winning trade', loss: 'A losing trade', swap: 'A swap by anyone' }[o]), 'sc')}{live ? seg('THE WIN', profit, setProfit, [50, 200, 1000], o => `$${o}`, 'win') : null}{live ? seg('IT SENDS', share, setShare, [5, 10, 25], o => `${o}%`, 'share') : null}</div>
     <ol className="cll-steps" data-testid="cll-steps">{STAGES.map(([id, label], i) => <li key={id} style={{ '--i': i }}><button type="button" className={`cll-step${pick === id ? ' is-on' : ''}${!live && i > 0 ? ' is-off' : ''}`} aria-pressed={pick === id} onClick={() => setPick(id)} data-tip="Tap to read this step" data-testid={`cll-step-${id}`}><small className="m-num">{String(i + 1).padStart(2, '0')}</small><b>{label}</b></button></li>)}</ol>
-    <p className="cll-now" data-testid="cll-now"><b>{on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p>
-    <dl className="cll-nums">{[['IT SENDS', f.send, money], ['COLLECTIVE KEEPS', f.kept, money], ['POINTS, NO BOOST', f.low, pts], ['POINTS, FULL BOOST', f.high, pts]].map(([k, v, fmt]) => <div key={k}><dt>{k}</dt><dd><Roll v={v} fmt={fmt} /></dd></div>)}</dl></section>;
+    <p className="cll-now" data-testid="cll-now"><b>{sc === 'loss' ? 'A losing trade' : sc === 'swap' ? 'A swap by anyone' : on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p>
+    <div className="ht-row" data-testid="cll-nums">
+      <section className="ht-chart"><Suspense fallback={<div className="ht-wait" />}><LedgerBars rows={[['The win', live ? profit : 0, '#57c7ff'], ['It sends', f.send, '#ffb454'], ['Collective keeps', f.kept, '#3ee58a']]} fmt={money} unit="" testid="cll-bars" /></Suspense></section>
+      <section className="ht-ring" data-tip="The part of the win this proof sends"><ProgressCircle aria-label="Part of the win it sends" value={live ? share : 0} className="ht-circle"><ProgressCircle.Track><ProgressCircle.TrackCircle /><ProgressCircle.FillCircle /></ProgressCircle.Track></ProgressCircle><div><small>OF THE WIN</small><b className="m-num">{live ? `${share}%` : '—'}</b><em>{live ? 'goes in the proof' : 'nothing sent'}</em></div></section>
+      <div className="ht-tiles"><Tile label="IT SENDS" color="#ffb454" value={money(f.send)} sub="in the proof" tip="What its wallet sends" /><Tile label="COLLECTIVE KEEPS" color="#3ee58a" value={money(f.kept)} sub="banked for good" tip="All of it. A send never pays a reward" /><Tile label="POINTS, NO BOOST" color="#57c7ff" value={pts(f.low)} sub="at this send" tip="Its dollars with no boost" /><Tile label="POINTS, FULL BOOST" color="#c58bff" value={pts(f.high)} sub="at this send" tip="Its dollars with a full boost" /></div>
+    </div></section>;
 }
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
 function ThemePicker({ look, setLook, call }) {

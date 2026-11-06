@@ -32,3 +32,17 @@ test('a proof opens as a page of its data, a snapshot as a picture, a built page
   await act(async () => { q(el, 'git-dir-pages').click(); }); await act(async () => { q(el, 'git-file-launch-abc123.html').click(); });
   const f = q(el, 'git-page'); expect(f.getAttribute('sandbox')).toBe('allow-scripts');
 });
+
+const SORTED = { ...STATE, sealed: true, sort: { on: true, counts: { good: 0, bad: 0, disputed: 0, trash_ask: 1, unsorted: 3 }, items: { 'snapshots/rugcheck/a1.webp': { status: 'trash_ask', votes: { ossy: { verdict: 'trash', why: 'bot check' }, g4: { verdict: 'trash', why: 'blank' } } } } } };
+test('the owner rules on what the minds want gone, adds notes and marks, and nothing is deleted', async () => {
+  const calls = [];
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'git_state') return SORTED; if (b.op === 'git_read') return READ[b.job]; if (b.op === 'sort_set') return { item: { ...SORTED.sort.items['snapshots/rugcheck/a1.webp'], ...b.tools } }; if (b.op === 'sort_trash') return { item: { status: b.on ? 'trash' : 'bad', by: 'owner' } }; return { kits: [], picks: [], mode: 'auto' }; };
+  const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<GitFolder cat={{ id: 'leader' }} work={fake} scope="collective" />); });
+  await act(async () => { q(el, 'sort-tab-trash').click(); }); await act(async () => { q(el, 'git-dir-snapshots').click(); }); await act(async () => { q(el, 'git-dir-rugcheck').click(); }); await act(async () => { q(el, 'git-file-a1.webp').click(); });
+  expect(q(el, 'sort-vote-ossy').textContent).toContain('bot check'); expect(q(el, 'sort-ask')).not.toBeNull();
+  await act(async () => { q(el, 'sort-use-pow').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_set', job: 'snapshots/rugcheck/a1.webp', tools: { use: ['pow'] }, to: 'collective' });
+  await act(async () => { q(el, 'sort-approve').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'sort_trash', on: true });
+  await act(async () => { q(el, 'sort-tab-all').click(); }); expect(q(el, 'git-file-a1.webp')).toBeNull();   // approved: gone from the lists
+  await act(async () => { q(el, 'sort-tab-trash').click(); }); expect(q(el, 'git-dir-snapshots')).not.toBeNull();   // still there
+  expect(q(el, 'sort-mark')).not.toBeNull(); expect(calls.some(c => /delete|drop/.test(c.op))).toBe(false);
+});
