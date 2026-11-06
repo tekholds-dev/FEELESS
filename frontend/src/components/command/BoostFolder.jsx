@@ -24,7 +24,7 @@ export function LiveCount({ pool, readAt, testid = 'bst-count' }) {
 }
 const pct = v => `${(Number(v) || 0).toFixed(2)}%`;
 const pts = v => (Number(v) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-const xOf = v => `${Math.round(Number(v) || 0)}x`;
+const xOf = v => `${+(Number(v) || 0).toFixed(2)}x`;
 const left = until => { const s = Math.max(0, until - Date.now() / 1000); return s >= 86400 ? `${(s / 86400).toFixed(1)} days` : `${Math.max(1, Math.round(s / 3600))} h`; };
 const rise = i => ({ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { delay: i * 0.05, duration: 0.24 } });
 const Ring = ({ part, label, children }) => <ProgressCircle aria-label={label} value={Math.round(Math.max(0, Math.min(1, part)) * 100)} className="bof-ring"><ProgressCircle.Track><ProgressCircle.TrackCircle /><ProgressCircle.FillCircle /></ProgressCircle.Track>{children}</ProgressCircle>;
@@ -37,7 +37,9 @@ function FastCompound({ s, r, busy, onBuy, focus }) {
       <div className="bof-fast-row"><span><b className="m-num">{d} day{d === 1 ? '' : 's'}</b><small>for {cost.toLocaleString(undefined, { maximumFractionDigits: 2 })} boost points. It can then earn {money(cost)} less in all, and reach the rest sooner</small></span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onBuy(d)} data-tip="Burns these points. The extra comes only from room nobody holds, so no other agent's cut shrinks" data-testid="bof-burn">{busy ? 'Burning…' : 'Burn points'}</button></div></>
       : <p className="bof-note" data-testid="bof-fast-why">{!s.pointsLeft ? 'It has no points. A graded proof brings points.' : lift <= 0 ? 'It already holds the top cut.' : `It needs ${(price / 4).toLocaleString(undefined, { maximumFractionDigits: 2 })} points for the shortest burn.`}</p>}</section>;
 }
-const SEND_WORD = (x, rate) => (x.held ? 'Held by the five checks. No points until cleared' : x.grade == null ? 'Sent before grading, counts as 1x' : `Grade ${Math.round(x.grade)} · ${rate}`);
+const SEND_WORD = (x, rate) => (x.held ? 'Held by the five checks. No points until cleared' : x.grade == null ? 'Sent before scoring, counts as 1x' : `Score ${Math.round(x.grade)} · ${rate}`);
+// 🧾 Its receipt: what it sent, and everyone who scored it, in order.
+function Receipt({ x }) { const rows = x.scored || []; return rows.length ? <ol className="bof-receipt" data-testid={`bof-receipt-${x.id}`}>{rows.map((r, i) => <li key={i}><b className="m-num">{Math.round(r.score)}</b><span><small>{r.by}{r.was != null ? ` · was ${Math.round(r.was)}` : ''}</small>{r.why ? <em>{r.why}</em> : null}</span></li>)}</ol> : <small className="bof-receipt-wait">Waiting for OSSY and G4 to read it. Its score can change until they have.</small>; }
 // 🚀 THE WAY TO USE IT. Pick a filed proof, send $1 or more with it, and the five checks grade it. That is what makes a boost.
 const KIND_ICON = { PoW: '⛏', PoP: '🎯', PoB: '🏟', PoC: '💡', PoS: '🧱' };
 const KIND_LIST = [['PoW', 'powFolders'], ['PoP', 'popFolders'], ['PoB', 'pobFolders'], ['PoC', 'pocFolders'], ['PoS', 'psFolders']];
@@ -53,7 +55,7 @@ function BoostIt({ cat, work }) {
 export function BoostFolder({ cat, work }) {
   const d0 = useAgentPool(cat, work); const [over, setOver] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [focus, setFocus] = useState(false); const fastAt = useRef(null);
   if (!d0) return <p className="dsk-note">reading its boost…</p>;
-  const r = d0.rules || {}; const s = { ...(d0.stake || {}), ...(over || {}) }; const pools = d0.pools || []; const sends = d0.sends || []; const cap = s.capUsd || 0; const live = pools.filter(p => p.on);
+  const r = d0.rules || {}; const d0Top = d0.score?.top; const s = { ...(d0.stake || {}), ...(over || {}) }; const pools = d0.pools || []; const sends = d0.sends || []; const cap = s.capUsd || 0; const live = pools.filter(p => p.on);
   const buy = async days => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'pool_fast', cap: days }); setOver(j.stake); } catch (e) { setErr(e.message || 'Not saved'); } setBusy(false); };
   const hitCoin = () => { setFocus(true); fastAt.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); setTimeout(() => setFocus(false), 1200); };
   return <Fx><div className="bof" data-testid="bof">
@@ -66,7 +68,7 @@ export function BoostFolder({ cat, work }) {
       <motion.section className="bof-pools" {...rise(2)} data-testid="bof-pools"><header><Layers3 size={16} aria-hidden="true" /><h4>WHERE THE STAKE WORKS</h4><small className="m-num">{live.length} open</small></header>
         {live.length ? <ul>{live.map(p => <li key={p.id} data-testid={`bof-pool-${p.id}`}><b>{p.pair}</b><small>{p.platform}</small><em className="m-num" data-tip="Profit this pool has really paid">{money(p.profitUsd)}</em>{p.address ? <a href={`https://solscan.io/account/${p.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the pool on Solscan">↗</a> : null}</li>)}</ul> : <p className="bof-note" data-testid="bof-no-pools">No pool is open yet. Until one is, there is no profit, and nothing pays.</p>}</motion.section></div></div>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    <motion.div {...rise(4)}><header className="bof-deal-h"><h4>WHAT A BOOST DOES</h4><small>Try any size and grade. The numbers run on the real rules</small></header><KeepDeal rules={r} start={s.sentUsd ? { usd: s.sentUsd, grade: s.grade } : null} testid="bof-deal" /></motion.div>
-    {sends.length ? <motion.section className="bof-sends" {...rise(5)} data-testid="bof-sends"><header><h4>ITS PROOFS</h4></header><ol>{sends.map(x => <li key={x.id} className={x.held ? 'is-held' : ''} data-testid={`bof-send-${x.id}`}><Ring part={(x.grade || 0) / 300} label={`Grade ${Math.round(x.grade || 0)}`} /><span><b>{x.name || 'Proof'}{x.sym ? ` · $${x.sym}` : ''}</b><small>{SEND_WORD(x, xOf(x.x))}</small></span><em className="m-num" data-tip="What it sent, and the points that gave">{money(x.usd)} → {x.held ? '0' : money((x.usd || 0) * (x.x || 1))}</em>{x.sig ? <a href={`https://solscan.io/tx/${x.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Its transaction on Solscan">Tx ↗</a> : null}</li>)}</ol></motion.section> : null}
+    <motion.div {...rise(4)}><header className="bof-deal-h"><h4>WHAT A BOOST DOES</h4><small>Try any size and score. The numbers run on the real rules</small></header><KeepDeal rules={r} score={d0.score} start={s.sentUsd ? { usd: s.sentUsd, grade: s.grade } : null} testid="bof-deal" /></motion.div>
+    {sends.length ? <motion.section className="bof-sends" {...rise(5)} data-testid="bof-sends"><header><h4>RECEIPTS</h4><small>What it sent, what it scored, and who scored it</small></header><ol>{sends.map(x => <li key={x.id} className={x.held ? 'is-held' : ''} data-testid={`bof-send-${x.id}`}><Ring part={(x.grade || 0) / (d0Top || 300)} label={`Grade ${Math.round(x.grade || 0)}`} /><span><b>{x.name || 'Proof'}{x.sym ? ` · $${x.sym}` : ''}</b><small>{SEND_WORD(x, xOf(x.x))}</small><Receipt x={x} /></span><em className="m-num" data-tip="What it sent, and the points that gave">{money(x.usd)} → {x.held ? '0' : money((x.usd || 0) * (x.x || 1))}</em>{x.sig ? <a href={`https://solscan.io/tx/${x.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Its transaction on Solscan">Tx ↗</a> : null}</li>)}</ol></motion.section> : null}
   </div></Fx>;
 }

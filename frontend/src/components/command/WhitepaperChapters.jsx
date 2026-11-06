@@ -77,7 +77,7 @@ function RiskSlider() {
     <label><small>THE COIN MOVES</small><input type="range" min={-90} max={130} value={move} onChange={e => setMove(Number(e.target.value))} aria-label="How far the price moves" data-testid="wps-risk-move" /><b className="m-num">{move > 0 ? '+' : ''}{move}%</b></label>
     <div className="wps-try-n"><span><small>JUST HOLDING</small><b className={`m-num ${held < 0 ? 'is-dn' : 'is-up'}`}>{held > 0 ? '+' : ''}{held.toFixed(0)}%</b></span><span><small>EXTRA LOST IN A POOL</small><b className="m-num is-dn" data-testid="wps-risk-loss">{loss.toFixed(1)}%</b></span></div></div></Frame>;
 }
-const Stake = () => <div className="wps-stack"><StakeStory testid="wps-story" /><Suspense fallback={null}><StakeFlow usd={2} grade={200} x={200} points={400} seat={0.5} testid="wps-map" /></Suspense></div>;
+const Stake = () => <div className="wps-stack"><StakeStory testid="wps-story" /><Suspense fallback={null}><StakeFlow usd={5} grade={300} x={3} points={15} seat={2.1} testid="wps-map" /></Suspense></div>;
 const Visual = ({ node, tag }) => <Frame tag={tag}>{node}</Frame>;
 const DEMO = {
   'Executive Summary': () => <LiveTape />, 'What FEELESS Is': () => <LiveTape />, 'What FEELESS Is NOT': () => <Crossed />, Conclusion: () => <PrintDraw seed="feeless" />,

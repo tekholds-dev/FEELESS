@@ -74,8 +74,8 @@ async def _collective(http):
     import collective_stake as sk
     cfg = {'kneeUsd': 1000, 'sizeAbovePct': 50}
     rows = ''
-    for usd, grade in ((2, 200), (100, 87), (1000, 300)):
-        seat = sk.seat_x(grade) * sk.size_of(cfg, usd); rows += f'<tr><td>${usd:,}</td><td>{grade}</td><td>{sk.x_of(grade):.0f}x</td><td>${usd * sk.x_of(grade):,.0f}</td><td>{seat:.2f}%</td></tr>'
+    for usd, grade in ((5, 300), (100, 187), (1000, 300)):
+        seat = sk.x_of(grade) * sk.size_of(cfg, usd); rows += f'<tr><td>${usd:,}</td><td>{grade}</td><td>{sk.x_of(grade):g}x</td><td>${usd * sk.x_of(grade):,.0f}</td><td>{seat:.2f}%</td></tr>'
     st = ((await _get(http, f'{_CAT}/api/cats/stash/web')) or {}).get('stats') or {}
     return _page('The Collective', f'<p>{_e(_chapter("The Collective and the Stake"))}</p><p class="note">The limit is a ceiling and not a payout. Only real pool profit pays it. Pools can make nothing, or lose money. Taking rewards out is off for now.</p><h2>What a grade means, on the live rules</h2><table><tr><th>Sent</th><th>Grade</th><th>Boost</th><th>The most it can earn</th><th>Its seat of each profit</th></tr>{rows}</table><h2>Why an agent is here</h2><p>{_e(_chapter("Agents and Two Minds"))}</p><h2>The record so far</h2>{_tiles([("proofs kept", st.get("items", "—")), ("kinds of work", len(st.get("categories") or {}) or "—")])}')
 

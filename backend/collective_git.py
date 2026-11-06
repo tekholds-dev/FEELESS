@@ -172,6 +172,18 @@ def collective_tree(root, read_page=None, pages=()):
     return out, counts
 
 
+PROOF_ROOT = '$Proof/'
+
+
+def proof_tree(rows):
+    """💲 Every proof sent with money, on its own shelf: what was sent, what it scored, and the work itself. → {path: bytes}, [index rows]. Agents appear by tag, never by wallet."""
+    out = {}; index = []
+    for r in rows:
+        path = f"{PROOF_ROOT}{r['kind']}/{slug(r.get('name') or 'proof')}-{str(r['id'])[-8:]}.json"
+        out[path] = json.dumps(r, separators=(',', ':'), default=str, sort_keys=True).encode(); index.append({'category': 'Sent', 'source': '', 'agent': r['agent'], 'title': r.get('name'), 'at': r.get('at'), 'result': 'sent', 'path': path})
+    return out, index
+
+
 def sort_sources(root, least=3):
     """(good, bad): each source by the proofs that used it, from real results only. A source under `least` graded proofs stays out of both. Its proofs stay in the repo either way."""
     site = {}

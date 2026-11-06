@@ -49,7 +49,7 @@ test('the boost folder shows the deal in live numbers, and burning points asks t
   const work = jest.fn(async (id, b) => (b.op === 'pool' ? { pool: { streams: [] }, stake, pools: [{ id: 'p1', pair: 'SOL-USDC', platform: 'orca', on: true, profitUsd: 4 }, { id: 'p2', pair: 'X-Y', platform: 'orca', on: false }], sends: [{ id: 's1', name: 'PoW 1', sym: 'BONK', grade: 87, x: 1.87, usd: 10, sig: 'abc' }, { id: 's2', held: true, name: 'PoW 2', usd: 5, x: 1 }], rules: { collectivePoolPct: 20, cutPerX: 1, fastPtsPerDay: 5, fastMaxDays: 30 } } : { stake: { ...stake, burned: 5, pointsLeft: 11.7, nowPct: 2, fastUntil: Date.now() / 1000 + 86400 } }));
   const { el, root } = await mount(<BoostFolder cat={{ id: 'c' }} work={work} />);
   const q = t => el.querySelector(`[data-testid="${t}"]`);
-  expect(work).toHaveBeenCalledWith('c', { op: 'pool' }); expect(q('bof-x').textContent).toBe('2x'); expect(q('bof-cut').textContent).toBe('1.87%'); expect(q('bof-points').textContent).toContain('16.7');
+  expect(work).toHaveBeenCalledWith('c', { op: 'pool' }); expect(q('bof-x').textContent).toBe('1.87x'); expect(q('bof-cut').textContent).toBe('1.87%'); expect(q('bof-points').textContent).toContain('16.7');
   expect(q('bof-pool-p1')).toBeTruthy(); expect(q('bof-pool-p2')).toBeNull(); expect(q('bst-withdraw-off')).toBeTruthy();
   expect(q('bst-count').textContent).toContain('$'); expect(q('bof-it')).toBeTruthy(); expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
   expect(q('send-warning').textContent).toContain('Only stake what you can lose');

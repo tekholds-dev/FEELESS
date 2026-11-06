@@ -29,7 +29,7 @@ def brief():
     rows = sorted(_wp.CHAPTERS, key=lambda c: -COLLECTIVE.get(c[0], 0)); parts = []
     for title, text in rows:
         parts.append(f'{title}: {_lead(text, COLLECTIVE.get(title, 1))}')
-    live = f'The live stake rule: a proof grades 0 to {int(_stake.GRADE_MAX)} and its boost is its grade, so the most it can ever earn is its dollars times its grade, paid only from real pool profit.'
+    live = f'The live stake rule: the base top score is {int(_stake.GRADE_BASE)}, for a flawless proof only. Boost is score over 100, so $5 at 300 is 3x and the most it can ever earn is $15, paid only from real pool profit. The top score can grow to {int(_stake.GRADE_MAX)} as the pot grows, and a bigger pot pays out faster.'
     body = (f'{live} ' + ' '.join(parts))[:BRIEF_MAX]
     return f'\n\nWHAT YOU KNOW ABOUT FEELESS, the product you work inside. {NAME_CLASH}\n{FLOOR}\n{body}\n{RULES}\n'
 

@@ -3,7 +3,7 @@ import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, MarkLineComponent, MarkPointComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { seatX, sizeOf, usd as money } from './KeepDeal';
+import { boostX, seatOf, usd as money } from './KeepDeal';
 import { isCalm } from '../../lib/fxPause';
 import '../../styles/stakeFlow.css';
 
@@ -25,11 +25,11 @@ const tip = c => ({ trigger: 'axis', backgroundColor: c.tip, borderColor: c.soft
 
 // How big the seat gets for any send. Tap the chart to try a size. The bend is where dollars stop lifting it as fast.
 export function SeatCurve({ rules, usd, grade, onPick, testid = 'stake-seat' }) {
-  const c = inks(); const perX = rules?.cutPerX ?? 1; const seat = (g, u) => seatX(g) * sizeOf(rules, u) * perX; const knee = rules?.kneeUsd ?? 1000; const pick = useRef(onPick); pick.current = onPick; const line = (g, on) => ({ name: on ? `Grade ${Math.round(g)}` : `Grade ${g}`, type: 'line', showSymbol: false, smooth: false, z: on ? 3 : 1, lineStyle: { width: 2, color: on ? c.line : c.soft }, itemStyle: { color: on ? c.line : c.soft }, data: X_STOPS.map(u => [u, +seat(g, u).toFixed(3)]), endLabel: { show: !on, formatter: `G${g}`, color: c.text, fontSize: 10 } });
+  const c = inks(); const seat = (g, u) => seatOf(rules, boostX(g), u); const knee = rules?.kneeUsd ?? 1000; const pick = useRef(onPick); pick.current = onPick; const line = (g, on) => ({ name: on ? `Score ${Math.round(g)}` : `Score ${g}`, type: 'line', showSymbol: false, smooth: false, z: on ? 3 : 1, lineStyle: { width: 2, color: on ? c.line : c.soft }, itemStyle: { color: on ? c.line : c.soft }, data: X_STOPS.map(u => [u, +seat(g, u).toFixed(3)]), endLabel: { show: !on, formatter: `${g}`, color: c.text, fontSize: 10 } });
   const option = { grid: { left: 40, right: 34, top: 14, bottom: 26 }, tooltip: { ...tip(c), formatter: ps => `<b>${money(ps[0].value[0])}</b><br/>${ps.map(p => `${p.seriesName}: ${p.value[1].toFixed(2)}%`).join('<br/>')}` }, xAxis: { type: 'log', logBase: 10, min: 1, max: 100000, axisLabel: { color: c.text, fontSize: 10, formatter: usdShort }, axisLine: { lineStyle: { color: c.soft } }, splitLine: { show: false } }, yAxis: { type: 'value', axisLabel: { color: c.text, fontSize: 10, formatter: '{value}%' }, splitLine: { lineStyle: { color: c.grid } } },
-    series: [line(0), line(300), { ...line(grade, true), markPoint: { symbol: 'circle', symbolSize: 12, itemStyle: { color: c.line, borderColor: c.tip, borderWidth: 2 }, label: { show: true, position: 'top', color: c.tipText, fontSize: 11, fontWeight: 700, formatter: `${seat(grade, usd).toFixed(2)}%` }, data: [{ coord: [Math.max(1, usd), seat(grade, usd)] }] }, markLine: { silent: true, symbol: 'none', lineStyle: { color: c.soft, type: 'dashed', width: 1 }, label: { color: c.text, fontSize: 10, formatter: `${usdShort(knee)}: slows here`, position: 'insideEndTop' }, data: [{ xAxis: knee }] } }] };
+    series: [line(100), line(300), { ...line(grade, true), markPoint: { symbol: 'circle', symbolSize: 12, itemStyle: { color: c.line, borderColor: c.tip, borderWidth: 2 }, label: { show: true, position: 'top', color: c.tipText, fontSize: 11, fontWeight: 700, formatter: `${seat(grade, usd).toFixed(2)}%` }, data: [{ coord: [Math.max(1, usd), seat(grade, usd)] }] }, markLine: { silent: true, symbol: 'none', lineStyle: { color: c.soft, type: 'dashed', width: 1 }, label: { color: c.text, fontSize: 10, formatter: `${usdShort(knee)}: slows here`, position: 'insideEndTop' }, data: [{ xAxis: knee }] } }] };
   const ready = chart => chart.getZr().on('click', e => { if (!chart.containPixel('grid', [e.offsetX, e.offsetY])) return; const u = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX); if (u >= 1) pick.current?.(u); });
-  return <Plot option={option} testid={testid} label={`Seat for each size of send at grade ${Math.round(grade)}. Now ${seat(grade, usd).toFixed(2)}% at ${money(usd)}`} onReady={ready} />;
+  return <Plot option={option} testid={testid} label={`Seat for each size of send at score ${Math.round(grade)}. Now ${seat(grade, usd).toFixed(2)}% at ${money(usd)}`} onReady={ready} />;
 }
 
 // What it would earn if the pools made this much: its seat of each day's profit, until its points run out. An example on the viewer's own number.

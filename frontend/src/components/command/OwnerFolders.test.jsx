@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
-import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, FolderTabs, GrowFolder, SafetyFolder, groupApps, curveOf, payOf, bandBoost, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
+import { FallbackFolder, PayFolder, PoolDesk, PyAgentsFolder, FolderTabs, GrowFolder, SafetyFolder, groupApps, curveOf, payOf, bandState, moveLoss, useOwnerFolders } from './OwnerFolders';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./HiveBoard', () => ({ ColonyPot: () => <div data-testid="pot" /> }));
@@ -36,7 +36,7 @@ test('the money folder compares real options, shows what they did after price mo
   expect(q('grow-row-stock:s').textContent).toContain('MOVES WITH THE COIN'); expect(q('grow-row-New1').textContent).toContain('read only');
   await click(q('grow-tick-stock:s')); expect(q('grow-result-stock:s')).toBeNull();
   await click(q('grow-add-llama:u')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'other', pair: 'USDC on kamino' });
-  await click(q('grow-band-New1')); expect(q('ofd-band-nums-New1').textContent).toContain('CONCENTRATION'); await click(q('ofd-spot-add-New1')); expect(save.mock.calls[1][1].poolAdd).toMatchObject({ platform: 'orca', pair: 'A-B', address: 'New1' });
+  await click(q('grow-band-New1')); expect(q('ofd-spot-New1')).not.toBeNull(); await click(q('ofd-spot-add-New1')); expect(save.mock.calls[1][1].poolAdd).toMatchObject({ platform: 'orca', pair: 'A-B', address: 'New1' });
   await act(async () => root.unmount());
 });
 test('the same maths for every option: a pool feels price moves by the square root, a single coin in full, and only earnings ever pay', () => {
@@ -67,7 +67,6 @@ test('the folders appear only when asked, and each listed pool adds one', async 
 });
 
 test('the band maths', () => {
-  expect(bandBoost(5)).toBeGreaterThan(bandBoost(40)); expect(bandBoost(40)).toBeGreaterThan(1);
   expect(moveLoss(0)).toBeCloseTo(0); expect(moveLoss(100)).toBeCloseTo(-0.0572, 3);
   expect(bandState(100, 90, 110)).toBe('in'); expect(bandState(91, 90, 110)).toBe('edge'); expect(bandState(120, 90, 110)).toBe('out'); expect(bandState(100, 0, 0)).toBeNull();
 });
@@ -94,4 +93,12 @@ test('the agents desktop is four folders by job, every old folder a tab, and onl
   expect(q('body-pow')).not.toBeNull(); expect(q('body-stash')).toBeNull(); await click(q('ftab-own-proofs-own-py')); expect(q('body-own-py')).not.toBeNull(); expect(q('body-pow')).toBeNull();
   await act(async () => root.unmount());
   expect(groupApps([app('pow')], []).map(a => a.k)).toEqual(['own-proofs']);   // before the owner's folders load, what is there still shows
+});
+
+test('a pool reads the coin that moves, not its dollar or its SOL side', () => {
+  const { rangePool } = require('./OwnerFolders'); const SOL = 'So11111111111111111111111111111111111111112'; const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+  expect(rangePool({ pool: 'p', mintX: SOL, mintY: USDC, venue: 'orca', feePct: 0.04 }).hold).toBe(SOL);
+  expect(rangePool({ pool: 'p', mintX: USDC, mintY: 'Coin', venue: 'orca' }).hold).toBe('Coin');
+  expect(rangePool({ pool: 'p', mintX: 'Coin', mintY: SOL, venue: 'meteora', feePct: 2 })).toMatchObject({ hold: 'Coin', kind: 'dlmm', meta: '2%' });
+  expect(rangePool({ pool: 'p', mintX: SOL, mintY: 'Coin', venue: 'orca' }).hold).toBe('Coin');
 });

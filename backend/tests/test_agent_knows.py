@@ -13,7 +13,7 @@ def test_it_knows_when_it_is_being_asked_about_itself():
 def test_the_brief_holds_the_whole_operation_and_warns_about_namesakes():
     b = ak.for_ask('write about the feeless collective')
     assert len(b) <= ak.BRIEF_MAX + len(ak.NAME_CLASH) + len(ak.FLOOR) + len(ak.RULES) + 100
-    for word in ('feeless.family', 'Never research FEELESS on the web', 'PoStatic', 'grades 0 to 300', 'Two Minds', 'Fingerprint', 'Never invent', 'Never promise profit', 'visit.feeless', 'FUSE', 'Fee-Back'):
+    for word in ('feeless.family', 'Never research FEELESS on the web', 'PoStatic', 'base top score is 300', 'Two Minds', 'Fingerprint', 'Never invent', 'Never promise profit', 'visit.feeless', 'FUSE', 'Fee-Back'):
         assert word in b, word
 
 

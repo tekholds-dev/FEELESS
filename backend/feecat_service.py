@@ -1507,9 +1507,26 @@ def _git_files(cat, collective, marked=True):
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
+    proof_files_, proof_index_ = _cg.proof_tree(_sent_rows(store)); files.update(proof_files_)
+    if proof_index_:
+        files['index.json'] = json.dumps(json.loads(files.get('index.json') or b'[]') + proof_index_, separators=(',', ':'), default=str).encode()
     files.update(_kits.tree(KITS_DIR)); files.update(_kits.feeless_tree())   # 🧩 only the Collective's own folder, read from the running code
     clean = _sort.without_gone(GIT_DIR, _cg.without_leaks(files)[0])
     return (_sort.with_marked(GIT_DIR, clean) if marked else clean), counts
+
+
+def _sent_rows(store):
+    """💲 Each proof sent with money, with its live score and what scored it, from the ledger. A page's code rides with it so the minds can read the real work."""
+    st = _cpool.load(POOL_PATH); out = []
+    for cid, a in (st.get('agents') or {}).items():
+        cat = (store.get('cats') or {}).get(cid) or {}
+        for r in a.get('streams') or []:
+            if not r.get('proofId'):
+                continue
+            kind, f = _proof_folder(cat, r['proofId'])
+            html = (_git_page(cid, f.get('ws')) or ('', ''))[0] if f and f.get('ws') else ''
+            out.append({'id': r['id'], 'cat': cid, 'agent': _stash.agent_tag(cid), 'kind': r.get('kind') or kind or 'Proof', 'name': r.get('name') or (f or {}).get('name') or (f or {}).get('topic') or 'Proof', 'at': r.get('at'), 'usd': r.get('usd'), 'sig': r.get('sig'), 'score': r.get('grade'), 'boost': _stake.x_of(r.get('grade')), 'mostItCanEarn': round(float(r.get('usd') or 0) * _stake.x_of(r.get('grade')), 2), 'held': bool(r.get('held')), 'ownerScored': bool(r.get('ownerScored')), 'scored': r.get('scored') or [], 'review': r.get('review'), 'work': _vv.public_folder(f) if f else None, 'page': html[:20000] if html else None})
+    return out
 
 
 def _copy_files(cat, files, paths):
@@ -1625,18 +1642,27 @@ async def _sort_one():
         content = [{'type': 'text', 'text': f"{words}\nTEXT ON THE PICTURE: {_sort.ocr_lines(boxes)}"}, {'type': 'image_url', 'image_url': {'url': f"data:image/jpeg;base64,{base64.b64encode(jpeg_).decode()}"}}]
     else:
         content = f"{words}\n{raw[:_sort.EXCERPT].decode('utf-8', 'replace')}"
+    deep = path.startswith(_cg.PROOF_ROOT); sys_ = _sort.SYS; top_ = 300.0
+    if deep:   # 💲 someone paid to send this: the whole file, and a real score
+        top_ = float(_stake.rung(_cpool.load(POOL_PATH), await _pool_px())['top']); sys_ = _sort.DEEP_SYS; content = f"TOP SCORE TODAY: {top_:g}\n{words}\n{_sort.deep_excerpt(raw)}"
     token = _SORT_CALL.set(True); got_any = False; _OR_LAST.pop('err', None)
     try:
         for who, model in (('ossy', 'local/ossy'), ('g4', 'local/g4')):
             if 'marks' in ((item.get('votes') or {}).get(who) or {}) or _LM_ASKED['at'] > time.time() - 5:
                 continue
-            text, _usd = await _lm_call(model, [{'role': 'system', 'content': _sort.SYS}, {'role': 'user', 'content': content}], 700)
+            text, _usd = await _lm_call(model, [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': content}], 1100 if deep else 700)
             v = _sort.parse_vote(text)
-            if not v:
+            if not v or (deep and _sort.parse_score(text, top_) is None):
                 continue
-            fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1], marks=_sort.snap(_sort.parse_marks(text), boxes) if boxes is not None else _sort.parse_marks(text)); _sort.save(GIT_DIR, fresh); got_any = True
+            fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1], marks=_sort.snap(_sort.parse_marks(text), boxes) if boxes is not None else _sort.parse_marks(text))
+            if deep:
+                item['votes'][who]['score'] = _sort.parse_score(text, top_)
+            _sort.save(GIT_DIR, fresh); got_any = True
     finally:
         _SORT_CALL.reset(token)
+    if deep and _sort.scores_done(item):   # 💲 both read it: their average is its score, until the owner says otherwise
+        ref_ = json.loads(raw); scores_ = _sort.scores_done(item); px_ = await _pool_px(); why_ = ' / '.join(str((item['votes'][w].get('why') or ''))[:110] for w in _sort.VOTERS)
+        _cpool.update(POOL_PATH, lambda st: _stake.set_score(st, ref_['cat'], ref_['id'], sum(scores_) / len(scores_), 'OSSY + G4', why_, time.time(), px_))
     done_ = (_sort.load(GIT_DIR)['items'].get(path) or {}).get('votes') or {}
     if not all('marks' in (done_.get(w_) or {}) for w_ in _sort.VOTERS):
         _SORT_SKIP[path] = time.time()   # one file a mind cannot answer never stops the rest. It comes round again in 6 hours
@@ -1766,6 +1792,17 @@ async def _git_op(cat, p):
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
             return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'project': None if collective else _project_view(cat), 'clean': None if collective else _sort.clean_view(cat), 'notice': None if collective else cat.get('gitNotice'), **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
+        if p.op == 'proof_score':   # 💲 the owner's word on a sent proof: it moves no money, only how much it may earn
+            if not collective:
+                raise ValueError('Only the Collective repo scores proofs.')
+            files_s_, _c = await asyncio.to_thread(_git_files, cat, True, False); raw_s_ = files_s_.get(str(p.job or ''))
+            if raw_s_ is None or not str(p.job).startswith(_cg.PROOF_ROOT):
+                raise ValueError('Open a sent proof first.')
+            ref_ = json.loads(raw_s_); px_ = await _pool_px(); want_ = (p.tools or {}).get('score'); why_ = (p.tools or {}).get('why')
+            got_ = _cpool.update(POOL_PATH, lambda st: _stake.set_score(st, ref_['cat'], ref_['id'], want_, 'The owner', why_, time.time(), px_, owner=True))
+            if not got_:
+                raise ValueError('That send is not in the ledger.')
+            return {'score': got_['grade'], 'boost': _stake.x_of(got_['grade']), 'scored': got_['scored']}
         if p.op in ('sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'sort_bulk', 'sort_approve', 'sort_delete'):   # 🗂 the owner's word on a file. Only the Trash ever deletes
             if not collective:
                 raise ValueError('Only the Collective repo is sorted.')
@@ -1906,7 +1943,8 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
         _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name') or folder.get('topic')} paid the Pool")
 
     def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_)}, (cat.get('colonyShare') or {}).get('plan'))
+        st['solUsd'] = px   # what its SOL is worth, for the pot's size between sends
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_, _stake.rung(st, px)['top']), 'proofId': folder.get('id'), 'kind': kind_}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -6614,7 +6652,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'ok': True}
     if p.op == 'pool':   # 🪙 its live count, its dated returns, what its boost does and the points it can spend
         now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_); str_ = _print.strength(cat, now_); pts_ = _cl.boost_total(cat); pv_ = _cpool.view(st_, cat_id, now_, await _pool_px())
-        return {'pool': pv_, 'stake': _stake.view(st_, cat_id, now_), 'pools': _stake.public_pools(st_), 'sends': [{**r, 'grade': x_.get('grade'), 'usd': x_.get('usd'), 'x': _stake.x_of(x_.get('grade'))} for r, x_ in zip(pv_['streams'], ((st_['agents'].get(cat_id) or {}).get('streams') or [])[::-1])], 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+        return {'pool': pv_, 'stake': _stake.view(st_, cat_id, now_), 'pools': _stake.public_pools(st_), 'score': _stake.rung(st_, await _pool_px()), 'sends': [{**r, 'grade': x_.get('grade'), 'usd': x_.get('usd'), 'x': _stake.x_of(x_.get('grade')), 'scored': x_.get('scored') or [], 'kind': x_.get('kind')} for r, x_ in zip(pv_['streams'], ((st_['agents'].get(cat_id) or {}).get('streams') or [])[::-1])], 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
     if p.op == 'pool_fast':   # ⚡ burn points for time at the top cut. It lowers what it can ever earn, and takes nothing from anyone else
         try:
             out_ = _cpool.update(POOL_PATH, lambda st: _stake.buy_fast(st, cat_id, p.cap, time.time()))
@@ -6694,9 +6732,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
-    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
+    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
         out_ = await _git_op(cat, p)
-        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'sort_bulk', 'sort_approve', 'sort_delete'):
+        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete'):
             keep_owned(cat); _save(store)
         return out_
     if p.op == 'desk_seat':   # 🎩 Sicario's only, its owner only: an agreed PoW goes to the real card's model seat
@@ -7204,15 +7242,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
             kind_, f_ = _proof_folder(cat, attach_['proof'].get('id'))
             if not f_:
                 raise ValueError('Pick one of its filed proofs.')
-            floor_ = float(_cpool.load(POOL_PATH)['cfg'].get('minStakeUsd') or 1)
+            floor_ = 0.0 if cat.get('ownerStaff') else float(_cpool.load(POOL_PATH)['cfg'].get('minStakeUsd') or 1)   # 🧪 owner 2026-11-06: the owner's own agents may send any amount, to test
             if sol_ * await _pool_px() < floor_:
                 raise ValueError(f'Send at least ${floor_:g} with a proof.')
             if kind_ == 'PoW':   # 💎 a real trade keeps its rule: only a win of +50% or more, with at least its share
                 if not _cl.qualifies(f_):
                     raise ValueError('A PoW goes to the Pool only if it won +50% or more.')
-                if sol_ < _cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5):
+                if not cat.get('ownerStaff') and sol_ < _cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5):
                     raise ValueError(f"Send at least {_cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5)} SOL: its share of this proof.")
-                if sol_ > _cl.cut_sol(f_, 25) + 1e-9:
+                if not cat.get('ownerStaff') and sol_ > _cl.cut_sol(f_, 25) + 1e-9:
                     raise ValueError(f"Send at most {_cl.cut_sol(f_, 25)} SOL: 25% of what this proof really made.")
                 blocked_ = _cl.send_block(f_, cat, store['cats'])
                 if blocked_:

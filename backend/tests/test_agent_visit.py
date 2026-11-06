@@ -63,7 +63,7 @@ def test_a_wallet_or_an_email_never_shows_and_data_cannot_inject():
 
 def test_the_collective_page_shows_the_real_rule():
     body = page('https://visit.feeless/collective')[1]
-    assert '200x' in body and '$400' in body and 'ceiling' in body
+    assert '3x' in body and '$15' in body and 'ceiling' in body
 
 
 def test_research_tasks_may_visit_and_the_brief_sends_them_there():

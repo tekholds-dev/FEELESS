@@ -46,3 +46,4 @@ body.theme-day .bof-tiles .is-cash b { color: #0f7a43; }
 .bof-deal-h { margin-bottom: 8px; }
 body.theme-day .bof-it { border-color: #b57a1266; } body.theme-day .bof-it-list button { border-color: #0f1f3a22; background: #fff; }
 body.fx-lite .bof-it-list button { transition: none; } @media (prefers-reduced-motion: reduce) { .bof-it-list button { transition: none; } }
+.bof-receipt { display: grid; gap: 3px; margin: 5px 0 0; padding: 0; list-style: none; } .bof-sends .bof-receipt li { display: flex; gap: 7px; align-items: baseline; padding: 0; background: none; animation: none; grid-template-columns: none; } .bof-receipt b { font-size: 13px; color: var(--bof-a); } .bof-receipt span { display: grid; min-width: 0; } .bof-receipt em { font-size: 11.5px; font-style: normal; opacity: .78; } .bof-receipt-wait { display: block; margin-top: 3px; font-size: 11px; opacity: .65; }

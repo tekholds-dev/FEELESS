@@ -1,7 +1,8 @@
 """🪙 THE STAKE DEAL (owner 2026-11-06, replaces the bank deal; cfg deal='stake').
 The Collective earns from the jump: every agent wallet fee and top-up is its own. A proof send is not income: it is a stake in the owner's auto-ranged yield pools.
-A send is graded 0 to 300 (owner 2026-11-06). Its boost is its grade: $2 at grade 200 is 200x, so it may earn up to $400 back, paid ONLY from real pool profit, never from what anyone staked. A grade under 1 still counts as 1x.
-The boost sets how much it can ever earn. The seat sets how fast. A seat stays small on purpose, or one great $2 proof would crowd out everyone: its grade lifts it from 1x to 2x (1 + grade/300), times its size (owner 2026-11-06, "weigh by dollars, but the % gets smaller after 1k so their rank don't eat up the others"): $10 is 1x, $100 2x, $1,000 3x. Past kneeUsd each 10x adds only sizeAbovePct of a step: $10,000 3.5x, $100,000 4x. So $2 at grade 200 holds 0.50%: if the pools make $1,000 a day it earns about $5 a day and reaches its $400 around day 80.
+A send is scored by the Collective (owner 2026-11-06). The base top score is 300, and only a flawless proof reaches it. Its boost is its score over 100: $5 at 300 is 3x, so it may earn up to $15 back, paid ONLY from real pool profit, never from what anyone staked. A score under 100 still counts as 1x.
+The top score grows with the pot: 500 when the pot reaches tier500Usd, 750 at tier750Usd, 1000 at tier1000Usd. A bigger pot can afford more, so payouts also get faster: a profit releases over dripDays at 300, half that at 500, a quarter at 750, and at 1000 it lands at once.
+Its cut is its boost times its size (owner 2026-11-06, "weigh by dollars, but the % gets smaller after 1k so their rank don't eat up the others"): $10 is 1x, $100 2x, $1,000 3x. Past kneeUsd each 10x adds only sizeAbovePct of a step: $10,000 3.5x, $100,000 4x.
 BOOST POINTS = the value its proofs and dollars hold: what they may still earn, less what was paid, less what was burned. Burn them to run at a bigger seat. BOOST CASH = the rewards counting live: a real profit, once it lands, releases to the agent second by second over dripDays, so the count is money that already exists.
 Fast compound: burn points to run at the highest cut anyone holds for a while. The extra comes only from room nobody else holds, so no other agent's cut ever shrinks.
 Every profit splits three ways: agents' cuts, the Collective's piece, and the rest stays compounding in the pools. Agents can never take the Collective's piece.
@@ -9,8 +10,9 @@ Pure: every function takes the ledger state. Real money only enters through a ch
 import math
 import uuid
 
-GRADE_MAX = 300.0
-GRADE_SEATS_PTS = 180.0   # all five validators passing is worth this much of the 300; the rest is its print's real strength
+GRADE_BASE = 300.0     # the top score until the pot grows. Flawless only
+GRADE_MAX = 1000.0
+SEATS_PART = 0.6       # all five checks passing are this much of the top score; the rest is its print's real strength
 PLATFORMS = ('raydium', 'meteora', 'orca', 'other')
 MAX_POOLS = 40
 
@@ -22,21 +24,44 @@ def _f(v):
         return 0.0
 
 
-def grade_of(review, strength):
-    """0 to 300, from the record: how many of the five validators passed, plus its print's real strength. A held proof grades 0 until the owner clears it."""
+def grade_of(review, strength, top=GRADE_BASE):
+    """0 to today's top score, from the record: how many of the five checks passed, plus its print's real strength. Only all five and a full print reach the top. A held proof grades 0 until the owner clears it."""
     seats = (review or {}).get('seats') or []
     passed = sum(1 for s in seats if s.get('ok')) / max(1, len(seats))
-    return round(min(GRADE_MAX, max(0.0, passed * GRADE_SEATS_PTS + min(100.0, max(0.0, _f(strength))) * (GRADE_MAX - GRADE_SEATS_PTS) / 100)), 1)
+    return round(min(top, max(0.0, (passed * SEATS_PART + min(100.0, max(0.0, _f(strength))) / 100 * (1 - SEATS_PART)) * top)), 1)
 
 
 def x_of(grade):
-    """Grade 200 → 200x: the most it can ever earn, as a multiple of what it sent. A send with no grade counts as 1x."""
-    return round(max(1.0, min(GRADE_MAX, _f(grade))), 4)
+    """Score 300 → 3x: the most it can ever earn, as a multiple of what it sent. Under 100, or no score, counts as 1x."""
+    return round(max(1.0, min(GRADE_MAX, _f(grade)) / 100), 4)
 
 
-def seat_x(grade):
-    """Grade lifts its seat from 1x to 2x. The seat is how fast it earns, so a huge boost never crowds others out."""
-    return round(1 + max(0.0, min(GRADE_MAX, _f(grade))) / GRADE_MAX, 4)
+def ladder(cfg):
+    """The score range as the pot grows. → [{pot, top, drip}], where drip is the days a profit takes to release, and 0 is at once."""
+    days = _f(cfg.get('dripDays')) or 7.0
+    return [{'pot': 0.0, 'top': 300, 'drip': days}, {'pot': _f(cfg.get('tier500Usd')) or 10000.0, 'top': 500, 'drip': round(days / 2, 2)}, {'pot': _f(cfg.get('tier750Usd')) or 100000.0, 'top': 750, 'drip': round(days / 4, 2)}, {'pot': _f(cfg.get('tier1000Usd')) or 1000000.0, 'top': 1000, 'drip': 0.0}]
+
+
+def rung(state, sol_usd=0.0):
+    """Where the Collective stands today. The pot is what it really holds: stakes, what it kept, and what is compounding."""
+    t = totals(state, sol_usd); pot = t['stakedUsd'] + t['keepUsd'] + t['compoundUsd']; rows = ladder(state['cfg']); now = rows[0]
+    for r in rows:
+        if pot >= r['pot']:
+            now = r
+    return {'potUsd': round(pot, 2), 'top': now['top'], 'drip': now['drip'], 'ladder': rows}
+
+
+def set_score(state, cat, stream_id, score, by, why, now, sol_usd=0.0, owner=False):
+    """The minds' deep read, or the owner's word. It moves no money, only how much a proof may earn. The minds never overrule the owner. → the stream, or None."""
+    row = next((r for r in ((state['agents'].get(cat) or {}).get('streams') or []) if r.get('id') == stream_id), None)
+    if not row or (row.get('ownerScored') and not owner):
+        return None
+    top = rung(state, sol_usd)['top']; val = round(max(0.0, min(float(top), _f(score))), 1)
+    row['scored'] = (list(row.get('scored') or []) + [{'by': str(by)[:24], 'score': val, 'was': row.get('grade'), 'why': str(why or '')[:240], 'at': round(now), 'top': top}])[-20:]
+    row['grade'] = val
+    if owner:
+        row['ownerScored'] = True
+    return row
 
 
 def size_of(cfg, usd):
@@ -57,7 +82,7 @@ def of(agent, least=0.0):
             g = _f(r.get('grade')); cap += usd * x_of(g); weighted += usd * g
     counted = sum(_f(r.get('usd')) for r in a.get('streams') or [] if not r.get('held'))
     paid = _f(a.get('paidUsd')); burned = _f(a.get('burned'))
-    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'x': round(cap / counted, 4) if counted else 0.0, 'seatX': seat_x(weighted / counted) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
+    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'x': round(cap / counted, 4) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
 
 
 def cuts(state, now):
@@ -66,7 +91,7 @@ def cuts(state, now):
     for c, a in state['agents'].items():
         s = of(a)
         if s['pointsLeft'] > 0:
-            base[c] = s['seatX'] * size_of(cfg, s['countedUsd']) * cfg['cutPerX'] / 100; owners.setdefault(a.get('owner') or c, []).append(c)
+            base[c] = s['x'] * size_of(cfg, s['countedUsd']) * cfg['cutPerX'] / 100; owners.setdefault(a.get('owner') or c, []).append(c)
     cap = cfg['walletCapPct'] / 100
     for rows in owners.values():
         total = sum(base[c] for c in rows)
@@ -82,14 +107,16 @@ def cuts(state, now):
 
 def _pay_cuts(state, token, units, unit_usd, table, now=0, drip=False):
     """Each agent's cut of units, up to its points. Paying takes its points now. A profit then releases second by second; paying early lands at once. → whole units paid."""
-    paid = 0
+    paid = 0; drip_days = _f(state['cfg'].get('dripDays'))
+    if drip:   # a bigger pot pays faster, and at the top it lands at once
+        drip_days = rung(state, state.get('solUsd') or 0.0)['drip']; drip = drip_days > 0
     for c, part in table.items():
         a = state['agents'][c]; want = min(int(units * part), int(of(a)['pointsLeft'] / unit_usd))
         if want > 0:
             a['paidUsd'] = round(_f(a.get('paidUsd')) + want * unit_usd, 6); paid += want
             if drip:
                 release(state, now, c)
-                row = a.setdefault('drip', {}).setdefault(token, {'left': 0, 'rate': 0.0, 'at': now}); row['left'] += want; row['rate'] = row['left'] / max(1.0, state['cfg']['dripDays'] * 86400)
+                row = a.setdefault('drip', {}).setdefault(token, {'left': 0, 'rate': 0.0, 'at': now}); row['left'] += want; row['rate'] = row['left'] / max(1.0, drip_days * 86400)
             else:
                 a['owed'][token] += want; a['earned'][token] += want
     return paid
