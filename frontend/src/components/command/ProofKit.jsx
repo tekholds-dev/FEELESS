@@ -1,5 +1,6 @@
 import { KitPick } from './KitPick';
 import { useSolPrice } from '../../lib/solPrice';
+import { ChatSettings } from '../chat/ChatKit';
 import { boostX, sizeOf } from './KeepDeal';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
@@ -16,19 +17,19 @@ const bars = (rows, unit = '') => { const top = Math.max(1, ...rows.map(r => r[1
 
 const Coin3DLazy = lazy(() => import('./Coin3D'));
 const SEND_CHIPS = [1, 5, 25, 100];
-// 💎 Every proof can go to the Collective with real dollars, $1 or more. Its own wallet signs one transfer, read back from the chain, and the five checks grade it. Stays one tap from a real send: the second tap sends.
+// 💎 Every proof can go to the Collective with real dollars, $1 or more. Its own wallet signs one transfer, read back from the chain, and the five checks grade it. One small button, so it never crowds a chat: the card opens in a popover, and its second tap sends.
 export function ProofSubmit({ cat, work, f, kind }) {
-  const px = useSolPrice(); const [usd, setUsd] = useState(5); const [sure, setSure] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [done, setDone] = useState(null);
+  const px = useSolPrice(); const [usd, setUsd] = useState(5); const [sure, setSure] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [done, setDone] = useState(null); const [open, setOpen] = useState(false);
   const sent = done || f?.sent; const n = Number(usd) || 0; const low = boostX(0) * n; const top = boostX(100) * n; const seat = boostX(87) * sizeOf(null, n);
   const blocked = kind === 'PoW' && !(Number(f?.pnlPct) >= 50) ? 'A PoW goes only if it won +50% or more' : '';
   const go = async () => { if (!sure) { setSure(true); return; } setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'pot_send', job: f.id, cap: Number((n / px).toFixed(6)) }); setDone({ ...j.sent, link: `https://solscan.io/tx/${j.sent.sig}`, review: j.review, usd: n }); } catch (e) { setErr(e.message || 'Not sent. Nothing moved.'); } setBusy(false); setSure(false); };
   if (!f?.id || f.live) return null;
-  if (sent) return <section className="psub is-sent" data-testid="proof-submit-sent"><span className="psub-coin" aria-hidden="true"><Suspense fallback={null}><Coin3DLazy energy={1} size={64} /></Suspense></span><span className="psub-said"><b>SENT TO THE COLLECTIVE</b>{sent.usd ? <em className="m-num">${sent.usd}</em> : <em className="m-num">{Number(sent.sol).toFixed(4)} SOL</em>}</span>{(sent.review || f.review)?.seats ? <ul className="psub-seats" aria-label="The five checks">{(sent.review || f.review).seats.map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.why}>{x.name}</li>)}</ul> : null}{sent.link ? <a className="m-btn" href={sent.link} target="_blank" rel="noopener noreferrer">Tx ↗</a> : null}</section>;
-  return <section className="psub" data-testid="proof-submit"><span className="psub-coin" aria-hidden="true"><Suspense fallback={null}><Coin3DLazy energy={sure ? 1 : 0.6} size={64} /></Suspense></span>
+  if (sent) return <section className="psub is-sent" data-testid="proof-submit-sent"><span className="psub-said"><b>SENT TO THE COLLECTIVE</b>{sent.usd ? <em className="m-num">${sent.usd}</em> : <em className="m-num">{Number(sent.sol).toFixed(4)} SOL</em>}</span>{(sent.review || f.review)?.seats ? <ul className="psub-seats" aria-label="The five checks">{(sent.review || f.review).seats.map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.why}>{x.name}</li>)}</ul> : null}{sent.link ? <a className="m-btn" href={sent.link} target="_blank" rel="noopener noreferrer">Tx ↗</a> : null}</section>;
+  return <span className="psub-open" data-testid="proof-submit"><ChatSettings open={open} onOpen={setOpen} label="Send this proof to the Collective" tip="Send this proof to the Collective with $1 or more" testid="proof-open" panelTestid="proof-panel" placement="bottom start" icon={<Ic3 e="🪙" size="22px" />}><section className="psub"><span className="psub-coin" aria-hidden="true">{open ? <Suspense fallback={null}><Coin3DLazy energy={sure ? 1 : 0.6} size={64} /></Suspense> : null}</span>
     <span className="psub-body"><b>SEND THIS PROOF TO THE COLLECTIVE</b><span className="m-seg" role="group" aria-label="Dollars to send">{SEND_CHIPS.map(v => <button key={v} type="button" className={usd === v ? 'active' : ''} aria-pressed={usd === v} onClick={() => { setUsd(v); setSure(false); }} data-testid={`proof-usd-${v}`}>${v}</button>)}</span><input className="m-input m-num" type="number" min="1" step="any" value={usd} onChange={e => { setUsd(e.target.value === '' ? '' : Number(e.target.value)); setSure(false); }} aria-label="Dollars to send" data-testid="proof-usd" /></span>
     <span className="psub-meter" data-tip="The most it can earn depends on its grade: 1x to 2x what it sends, only from real pool profit. A stake can lose money" data-testid="proof-meter"><small>MOST IT CAN EARN</small><i aria-hidden="true"><u /></i><em className="m-num">${low.toFixed(2)} to ${top.toFixed(2)}</em><small className="m-num">Seat about {seat.toFixed(2)}% at grade 87</small></span>
     <button type="button" className={`m-btn m-go${sure ? ' is-sure' : ''}`} disabled={busy || !px || n < 1 || !!blocked} onClick={go} data-tip={blocked || "Its own wallet signs one transfer. It can't be undone, and a stake can lose money"} data-testid="proof-send">{busy ? 'Sending…' : sure ? `Yes, send $${n}` : blocked ? 'Not a +50% win' : n < 1 ? '$1 minimum' : `Send $${n}`}</button>
-    {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}</section>;
+    {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}</section></ChatSettings><small>Send to the Collective</small></span>;
 }
 // 📖 The listed sites really opened before the minds answered, and the ones that walled us.
 export function SitesRead({ rows }) {

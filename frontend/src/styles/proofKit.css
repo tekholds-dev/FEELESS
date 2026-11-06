@@ -73,3 +73,4 @@ body.theme-day .ppf-pop { background: #fff; color: #10141c; } body.theme-day .pp
 .psub .m-go.is-sure { background: #ff8fa3; color: #111; } .psub .kd-err { flex: 1 1 100%; } .psub-seats { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; } .psub-seats li { padding: 2px 7px; border-radius: 99px; font: 700 10px var(--f-mono); border: 1px solid currentColor; } .psub-seats .is-ok { color: #45e486; } .psub-seats .is-no { color: #ff8fa3; }
 @media (max-width: 640px) { .psub { padding: 10px; } .psub .m-go { flex: 1 1 100%; } }
 body.theme-day .psub { background: #fff7e8; border-color: #c8901e66; } body.theme-day .psub.is-sent { background: #eafaf0; } body.theme-day .psub-meter em { color: #8a5a00; } body.theme-day .psub-said em { color: #0a7a3d; }
+.psub-open { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; } .psub-open > small { font: 600 11px var(--f-ui); opacity: .8; white-space: nowrap; }

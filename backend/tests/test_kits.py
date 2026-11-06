@@ -1,3 +1,4 @@
+import re
 """🧰 The kit library. No network."""
 import asyncio
 import pytest
@@ -135,3 +136,30 @@ def test_only_exact_known_kit_tags_are_ever_added():
     for k in ck.KIT_USE.values():
         for t in k['tags']:
             assert 'https://cdn.' in t or 'https://unpkg.com/' in t
+
+
+def test_only_the_picked_kits_may_load_and_a_stray_keyframe_is_not_aceternity():
+    import collective_kits as ck
+    html = '<html><head><script src="https://cdn.tailwindcss.com"></script><script src="https://evil.example/x.js"></script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=A"></head><body><style>@keyframes a{}</style></body></html>'
+    assert ck.outside_files(html, ['aceternity']) == ['https://evil.example/x.js', 'https://fonts.googleapis.com/css2?family=A']
+    assert ck.outside_files(html.replace('cdn.tailwindcss.com', 'x.example'), ['aceternity'])[0] == 'https://evil.example/x.js'
+    assert ck.kit_report(html, ['aceternity'])[0]['used'] is False
+    assert ck.kit_report('<div class="hero aurora">', ['aceternity'])[0]['used'] is True
+
+
+def test_a_locked_page_may_load_only_its_own_kit_files():
+    import ai_play as ap
+    import collective_kits as ck
+    import agent_features as af
+    page = ap.lock_html('<html><head><title>x</title></head><body>hi</body></html>')
+    out = ck.open_for_kits(ck.with_kit_tags(page, ['motion', 'heroui', 'aceternity']), ['motion', 'heroui', 'aceternity'])
+    rule = re.search(r'Content-Security-Policy" content="([^"]+)"', out).group(1)
+    assert "script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js https://cdn.tailwindcss.com" in rule and "style-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css" in rule
+    assert out.count('Content-Security-Policy') == 1 and "default-src 'none'" in rule and 'connect' not in rule
+    # a file the model added on its own stays blocked, and a kit it was not given does not open
+    evil = page.replace('</head>', '<script src="https://evil.example/x.js"></script></head>')
+    assert 'evil.example' not in ck.open_for_kits(evil.replace('<title>', '<title>') , ['motion']).split('<script')[0]
+    both = ck.open_for_kits(ck.with_kit_tags(page, ['motion', 'd3']), ['motion'])
+    assert 'd3@7' not in re.search(r'content="([^"]+)"', both).group(1)
+    assert ck.open_for_kits(page, ['motion']) == page   # no kit in it: it stays fully shut
+    assert 'motion.js' in re.search(r'content="([^"]+)"', af.preview(ck.with_kit_tags(page, ['motion']))).group(1)   # pages already built open too

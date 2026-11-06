@@ -82,3 +82,13 @@ def test_a_found_site_on_a_private_address_is_never_opened(monkeypatch):
     text, _ = asyncio.run(ar._read_one(http, 'localhost.evil.dev', 1.0, found=True))
     assert text == '' and http.asked == []
     assert ar.learned('pos', [('127.0.0.1', 'won', 9), ('localhost', 'won', 9), ('169.254.169.254', 'won', 9)])[0] == []
+
+
+def test_a_site_only_counts_for_the_kind_of_proof_it_was_used_in(tmp_path):
+    import collective_stash as st
+    for i in range(3):
+        st.put(tmp_path, f't{i}', 'Trades', 'https://birdeye.so', 'x', 'won', 'T', b'x')
+        st.put(tmp_path, f'c{i}', 'Code', 'https://newkit.dev', 'x', 'won', 'C', b'y')
+    hosts = [r['host'] for r in ar.read_order('pos', st.trust_rows(tmp_path, ar.STASH_CAT['pos']))]
+    assert 'newkit.dev' in hosts and 'birdeye.so' not in hosts
+    assert 'birdeye.so' in [r['host'] for r in ar.read_order('pos', st.trust_rows(tmp_path))]   # what happened before the fix

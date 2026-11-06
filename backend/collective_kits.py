@@ -205,7 +205,7 @@ KIT_USE = {
     'heroui': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css">'], 'how': 'Use its class names on plain HTML: button button--primary, card, card__header, chip, input, tabs. Wrap the page in class="dark" for dark mode.', 'sign': r'class="[^"]*\b(button--|card\b|card__|chip\b|tabs\b)'},
     'shadcn': {'tags': [TW], 'how': 'Rebuild its look with Tailwind classes: rounded-lg border bg-card, muted text, tight spacing, its cards, badges and buttons.', 'sign': r'class="[^"]*\b(rounded-|border|bg-)'},
     'magicui': {'tags': [TW], 'how': 'Rebuild its effects with Tailwind and your own keyframes: marquee, shimmer button, animated beam, number ticker, border beam.', 'sign': r'@keyframes|animate-'},
-    'aceternity': {'tags': [TW], 'how': 'Rebuild its effects with Tailwind and your own keyframes: spotlight, aurora background, 3D tilt cards, beams, bento grid.', 'sign': r'@keyframes|animate-|perspective'},
+    'aceternity': {'tags': [TW], 'how': 'Rebuild its effects with Tailwind and your own keyframes: spotlight, aurora background, 3D tilt cards, beams, bento grid. Name each effect in its class, like class="aurora" or class="spotlight".', 'sign': r'(?i)class="[^"]*\b(?:spotlight|aurora|beams?|bento|tilt|meteors?|sparkles?)\b'},
     'motion': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js"></script>'], 'how': 'Animate with the global: Motion.animate(el, {...}, {type:"spring"}), Motion.stagger, Motion.scroll, Motion.inView. Every entrance and hover goes through it.', 'sign': r'Motion\.\w+'},
     'daisyui': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css">', TW], 'how': 'Use its classes: btn btn-primary, card, badge, hero, stats, and set data-theme on html.', 'sign': r'class="[^"]*\b(btn|badge|hero|stats)\b'},
     'mantine': {'tags': [TW], 'how': 'Mantine needs React, so match its look with Tailwind: its spacing, cards and inputs.', 'sign': r'class="[^"]*\b(rounded-|border|bg-)'},
@@ -243,6 +243,30 @@ def with_kit_tags(html, picks):
     add = '\n'.join(want)
     m = re.search(r'</head>', html, re.I)
     return f'{html[:m.start()]}{add}\n{html[m.start():]}' if m else f'{add}\n{html}'
+
+
+def _kit_urls(picks=None):
+    rows = picked_of(picks) if picks is not None else list(KIT_USE)
+    return {u for p in rows for tag in KIT_USE[p]['tags'] for u in re.findall(r'(?:src|href)="([^"]+)"', tag)}
+
+
+def open_for_kits(html, picks=None):
+    """Every built page is locked so it can load nothing (`ai_play.lock_html`), which also blocked its own kits: pages came out unstyled with their scripts dead. This lets through only the exact kit files the page really carries, and only of the picked kits when picks are given. Everything else stays blocked by the browser. Pure. → html"""
+    h = str(html or ''); on = sorted(u for u in _kit_urls(picks) if u in h)
+    if not on:
+        return h
+    sheets = [u for u in on if u.endswith('.css')]; code = [u for u in on if not u.endswith('.css')]
+    rule = f"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' {' '.join(sheets)}; script-src 'unsafe-inline' {' '.join(code)}; font-src data:"
+    tag = f'<meta http-equiv="Content-Security-Policy" content="{" ".join(rule.split())}">'
+    swapped, n = re.subn(r'<meta[^>]+http-equiv=["\']?content-security-policy[^>]*>', lambda _: tag, h, count=1, flags=re.I)
+    return swapped if n else h
+
+
+def outside_files(html, picks):
+    """Any outside script or sheet the page loads that its owner's picks did not bring. Pure. → [url]"""
+    allowed = {u for p in picked_of(picks) for tag in KIT_USE[p]['tags'] for u in re.findall(r'(?:src|href)="([^"]+)"', tag)}
+    found = re.findall(r'<script[^>]+src=["\']([^"\']+)|<link[^>]+href=["\'](https?:[^"\']+)', html or '', re.I)
+    return sorted({a or b for a, b in found if (a or b).startswith(('http', '//')) and (a or b) not in allowed})[:12]
 
 
 def kit_report(html, picks):

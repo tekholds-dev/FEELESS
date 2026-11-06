@@ -83,6 +83,7 @@ _READ_CACHE = {}      # {host: (at, text or '')}
 
 
 _HOST_OK = re.compile(r'^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/[\w./-]*)?$')
+STASH_CAT = {'pow': 'Trades', 'pop': 'Perps', 'pob': 'Picks', 'poc': 'Content', 'pos': 'Code'}   # a site's record only counts for the kind of proof it was used in: a trading site never joins a page build
 LEARN_MIN = 3   # graded proofs before a source's record changes where it goes, the same line the repo's good and bad lists use
 
 

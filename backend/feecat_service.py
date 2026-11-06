@@ -4326,7 +4326,7 @@ async def _site_reads(kind):
     """📖 A7: the best listed sites for this proof, really opened by us before the minds answer, and each visit goes in the sources book. Never stops a proof."""
     try:
         async with httpx.AsyncClient() as http:
-            line_, sites_ = await _feat._sources.read_first(http, kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR))
+            line_, sites_ = await _feat._sources.read_first(http, kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR, _feat._sources.STASH_CAT.get(kind)))
         for r_ in sites_:
             _src_note(r_['host'], r_['ok'])
         return line_, sites_
@@ -5640,7 +5640,7 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
         html = _aip.html_of(raw)
         if not html or _feat.page_complete(html):
             break
-        more, u_, own = await _ws_ask(cat, model, sys_, f"{user_[:6000]}\n\nYour page stopped partway. It ended with:\n{raw[-1200:]}\n\nContinue from exactly the next character. Send only the rest of the document: no repeat, no code fences, no comment.", tokens)
+        more, u_, own = await _ws_ask(cat, model, sys_, f"{user_[:6000]}\n\nYour page stopped partway. It ended with:\n{raw[-1200:]}\n\nContinue from exactly the next character.{_feat.cut_hint(raw)} Send only the rest of the document: no repeat, no code fences, no comment.", tokens)
         usd += u_
         if not more.strip():
             break
@@ -5702,7 +5702,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
                 elif html:
-                    html = _kits.with_kit_tags(html, picks_); doc['kitsUsed'] = _kits.kit_report(html, picks_)
+                    faults_ = _feat.page_faults(html)
+                    if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
+                        css_, fix_usd_, paid_own = await _ws_ask(cat, brains[i], _feat.REPAIR_SYS, _feat.repair_prompt(html, faults_), 3000); cost += fix_usd_; html = _feat.add_css(html, css_)
+                    html = _kits.open_for_kits(_kits.with_kit_tags(html, picks_), picks_); doc['kitsUsed'] = _kits.kit_report(html, picks_); doc['kitsOutside'] = _kits.outside_files(html, picks_)
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
@@ -5944,7 +5947,7 @@ async def collective_look():
 @app.get('/api/cats/tools/sources/{kind}')
 async def cat_tool_proof_sources(kind: str):
     """🗂 A proof's sites, best first: the Stash's real results move them once a site has 5 graded proofs."""
-    return {'rows': _feat._sources.ranked(kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR))}
+    return {'rows': _feat._sources.ranked(kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR, _feat._sources.STASH_CAT.get(kind)))}
 
 
 @app.get('/api/cats/tools/sourcefile')

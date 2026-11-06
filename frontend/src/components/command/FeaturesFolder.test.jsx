@@ -165,8 +165,16 @@ test('a folder opens with its own proof only, can file its answer, and any proof
   await act(async () => { q('ws-w1').click(); });
   expect(q('poc-pa')).not.toBeNull(); expect(q('poc-pb')).toBeNull(); expect(q('poc-mark-pa')).not.toBeNull(); expect(q('poc-mark-pb')).toBeNull();
   await act(async () => { q('poc-file-answer').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'poc_answer', job: 'w1' }));
+  expect(q('proof-usd-5')).toBeNull(); await act(async () => { q('proof-open').click(); });   // one small button until asked
   await act(async () => { q('proof-usd-5').click(); }); await act(async () => { q('proof-send').click(); });
   expect(work.mock.calls.some(c => c[1].op === 'pot_send')).toBe(false); expect(q('proof-send').textContent).toBe('Yes, send $5');
   await act(async () => { q('proof-send').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'pot_send', job: 'pa', cap: 0.05 })); expect(q('proof-submit-sent').textContent).toContain('$5');
   await act(async () => { root.unmount(); }); el.remove();
+});
+
+test('the thin bar moves on real steps and real text, and never fakes a number', () => {
+  const { buildPart } = require('./FeaturesFolder');
+  expect(buildPart({ stage: 'research' })).toBeCloseTo(0.3 / 4); expect(buildPart({ stage: 'build', draft: '' })).toBe(0.5);
+  expect(buildPart({ stage: 'build', draft: 'x'.repeat(12500) })).toBeCloseTo(0.625); expect(buildPart({ stage: 'review', draft: 'x'.repeat(99999) }, 25000)).toBeLessThan(0.98);
+  expect(buildPart({})).toBeNull(); expect(buildPart({ stage: 'content' })).toBeNull();
 });

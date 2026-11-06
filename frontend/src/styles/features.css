@@ -147,3 +147,12 @@ body.fx-lite :is(.fea-livedot, .fea-caret) { animation: none; } @media (prefers-
 body.theme-day .fea-cost > span { background: #0000000a; border-color: #00000014; } body.theme-day .fea-cost b { color: #0b7a3e; } body.theme-day .fea-cost small { color: #4e6358; }
 .fea-save.is-on { border-color: #45e486; color: #45e486; }
 .kit-new { margin-left: 6px; padding: 1px 5px; border-radius: 5px; background: #ffb454; color: #1d1203; font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .06em; vertical-align: middle; } .kit-more { min-height: 34px; }
+
+/* ⏳ real progress, thin */
+.fea-bar { display: grid; gap: 5px; min-width: 200px; } .fea-bar span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; } .fea-bar b { font: 700 11px var(--f-mono); } .fea-bar small { font: 500 11px var(--f-ui); opacity: .75; } .fea-bar i { display: block; height: 3px; border-radius: 99px; background: #ffffff14; overflow: hidden; } .fea-bar u { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #15d16a, #45e486); transform-origin: left; transition: transform .5s ease; } .fea-bar.is-open u { width: 30%; animation: feaBarGo 1.4s ease-in-out infinite; }
+@keyframes feaBarGo { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+body.fx-lite .fea-bar.is-open u { animation: none; width: 100%; opacity: .5; } @media (prefers-reduced-motion: reduce) { .fea-bar.is-open u { animation: none; width: 100%; opacity: .5; } .fea-bar u { transition: none; } }
+body.theme-day .fea-bar i { background: #0f1f3a18; }
+.fea-posmark { flex-wrap: nowrap; } .fea-posmark .fea-progress { flex: 0 1 56px; min-width: 30px; } .fea-posmark .m-btn { white-space: nowrap; min-height: 32px; padding-inline: 10px; } .fea-posmark .psub-open > small { display: none; }
+.fea-crash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 11px; border: 1px solid #ff8fa366; background: #ff8fa314; } .fea-crash b { font: 700 12px var(--f-ui); color: #ff8fa3; } .fea-crash small { flex: 1 1 180px; min-width: 0; font: 500 11px var(--f-mono); opacity: .85; overflow-wrap: anywhere; }
+body.theme-day .fea-crash { background: #fff0f2; } body.theme-day .fea-crash b { color: #c02f4b; }
