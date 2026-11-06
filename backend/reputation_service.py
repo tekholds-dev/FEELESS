@@ -20018,6 +20018,89 @@ async def _limits_run(k_, seat_, overlay_, label_):
         _LIMITS['busy'] = None
 
 
+FIX_RUNS_PATH = DATA_DIR / 'fix_runs.json'
+_FIX = {'busy': None}
+
+
+def _fix_seats():
+    """Who may investigate. The LM Studio minds are free; the cloud one spends a fraction of a cent of the owner's OpenRouter credit."""
+    out = {k_: {**v_, 'free': True} for k_, v_ in _limit_seats().items()}
+    key_ = os.environ.get('OPENROUTER_API_KEY', '').strip()
+    if key_:
+        out['cloud'] = {'name': 'Cloud mind', 'base': 'https://openrouter.ai/api/v1', 'key': key_, 'model': 'deepseek/deepseek-v4-pro-0813', 'free': False}
+    return out
+
+
+def _fix_store(row_):
+    runs_ = dict(_json_load(FIX_RUNS_PATH, {}) or {}); runs_[row_['id']] = row_
+    _json_save(FIX_RUNS_PATH, dict(sorted(runs_.items(), key=lambda kv_: -(kv_[1].get('at') or 0))[:40]))
+
+
+async def _fix_run(case_, seat_, name_):
+    import fix_agent as _fa
+    row_ = {'id': case_['id'], 'text': case_['text'], 'by': name_, 'at': round(time.time()), 'stage': 'reading'}; _fix_store(row_)
+    try:
+        async with httpx.AsyncClient() as h_:
+            model_ = seat_['model']
+            if not model_:
+                ids_ = [m_['id'] for m_ in (await h_.get(seat_['base'].rstrip('/') + '/models', headers={'Authorization': f"Bearer {seat_['key'] or 'lm-studio'}"}, timeout=8)).json().get('data') or [] if 'embed' not in m_['id']]
+                model_ = ids_[0] if ids_ else ''
+            got_ = await _fa.investigate(h_, seat_['base'], seat_['key'], model_, case_['text'])
+        row_.update({k_: got_.get(k_) for k_ in ('cause', 'file', 'sure', 'why')}, model=model_, diff=_fa.diff_rows(got_.get('old') or '', got_.get('new') or ''))
+        if got_.get('old'):
+            row_['stage'] = 'testing'; _fix_store(row_)
+            tried_ = await asyncio.to_thread(_fa.try_fix, case_['id'], got_['file'], got_['old'], got_['new'])
+            row_.update({k_: tried_.get(k_) for k_ in ('ok', 'branch', 'tree', 'checks')}, why=tried_.get('why') or '')
+            row_['stage'] = 'review' if tried_.get('ok') else 'failed'
+            if tried_.get('branch') and not tried_.get('ok'):   # a fix that failed its own checks is not kept
+                await asyncio.to_thread(_fa.drop, tried_['branch'], tried_['tree']); row_.pop('branch', None); row_.pop('tree', None)
+        else:
+            row_['stage'] = 'failed'
+    except (httpx.HTTPError, ValueError, KeyError, OSError) as e_:
+        row_.update(stage='failed', why=str(e_)[:160] or 'It did not answer.')
+    finally:
+        _fix_store(row_); _FIX['busy'] = None
+
+
+@app.get('/api/reputation/admin/fix')
+async def admin_fix(request: Request):
+    """🛠 Owner: logged crashes, and each one's try: its cause, its change, its checks."""
+    import fix_agent as _fa
+    _require_owner(request)
+    runs_ = _json_load(FIX_RUNS_PATH, {}) or {}
+    return {'busy': _FIX['busy'], 'seats': [{'key': k_, 'name': v_['name'], 'free': v_['free']} for k_, v_ in _fix_seats().items()], 'cases': [{**c_, 'run': {k_: v_ for k_, v_ in (runs_.get(c_['id']) or {}).items() if k_ != 'tree'} or None} for c_ in _fa.cases_from((_json_load(BUGS_PATH, {'bugs': []}) or {}).get('bugs') or [])]}
+
+
+@app.post('/api/reputation/admin/fix')
+async def admin_fix_act(request: Request):
+    """🛠 Owner: {id, seat} investigates. {id, approve} queues its branch for the engineer. {id, drop} forgets the try. Nothing merges or pushes here."""
+    import fix_agent as _fa
+    _require_owner(request)
+    body = await request.json(); body = body if isinstance(body, dict) else {}; id_ = str(body.get('id') or '')
+    runs_ = dict(_json_load(FIX_RUNS_PATH, {}) or {}); run_ = runs_.get(id_)
+    if body.get('drop'):
+        if run_ and run_.get('branch'):
+            await asyncio.to_thread(_fa.drop, run_['branch'], run_.get('tree'))
+        runs_.pop(id_, None); _json_save(FIX_RUNS_PATH, runs_)
+        return {'ok': True}
+    if body.get('approve'):
+        if not run_ or run_.get('stage') != 'review':
+            raise HTTPException(400, 'That fix has not passed its checks.')
+        _chat['build'], it_ = _aic.build_add(_build_state(), f"Fix agent: {run_.get('file')}"[:80], f"Merge branch {run_['branch']}: {run_.get('cause')}", 'fix agent · owner approved', time.time())
+        _json_save(BUILD_QUEUE_PATH, _chat['build']); run_['stage'] = 'approved'; run_['build'] = it_['id']; _fix_store(run_)
+        return {'ok': True, 'build': it_['id']}
+    case_ = next((c_ for c_ in _fa.cases_from((_json_load(BUGS_PATH, {'bugs': []}) or {}).get('bugs') or []) if c_['id'] == id_), None); seat_ = _fix_seats().get(body.get('seat'))
+    if not case_ or not seat_:
+        raise HTTPException(400, 'Pick a crash and a mind.')
+    if _FIX['busy']:
+        raise HTTPException(409, 'It is still working on one.')
+    if run_ and run_.get('branch'):
+        await asyncio.to_thread(_fa.drop, run_['branch'], run_.get('tree'))
+    _FIX['busy'] = {'id': id_, 'by': seat_['name'], 'at': round(time.time())}
+    asyncio.create_task(_fix_run(case_, seat_, seat_['name']))
+    return {'busy': _FIX['busy']}
+
+
 @app.get('/api/reputation/admin/ai/limits')
 async def admin_ai_limits(request: Request):
     """🧪 Owner: the last free limit test on each LM Studio model."""

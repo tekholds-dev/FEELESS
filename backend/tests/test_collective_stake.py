@@ -16,8 +16,8 @@ def send(st, key, cat, usd, grade, owner=None, held=False):
 
 def test_the_owners_example_10_dollars_grade_87():
     st = state(); send(st, 'k', 'a', 10.0, 87); s = sk.of(st['agents']['a'])
-    assert (s['x'], s['capUsd'], s['pointsLeft']) == (1.87, 18.7, 18.7)
-    assert sk.view(st, 'a', NOW)['cutPct'] == pytest.approx(1.87)
+    assert (s['x'], s['capUsd'], s['pointsLeft']) == (87, 870, 870)
+    assert sk.view(st, 'a', NOW)['cutPct'] == pytest.approx(1.29)
 
 
 def test_a_send_is_a_stake_and_pays_nobody():
@@ -35,26 +35,26 @@ def test_fees_are_the_collectives_from_the_jump():
 def test_profit_splits_three_ways_and_every_unit_lands():
     st = state(collectivePoolPct=20); send(st, 'k', 'a', 10.0, 87)
     r = sk.pay_profit(st, 'p', 'USDC', 100_000_000, 1e-6, NOW)
-    assert r == {'paidUnits': 1_870_000, 'collectiveUnits': 20_000_000, 'compoundUnits': 78_130_000, 'agents': 1}
-    assert sk.drip_left(st['agents']['a'], 'USDC') == 1_870_000 and st['agents']['a']['owed']['USDC'] == 0
-    assert st['books']['USDC']['keep'] == 20_000_000 and st['books']['USDC']['compound'] == 78_130_000
+    assert r == {'paidUnits': 1_290_000, 'collectiveUnits': 20_000_000, 'compoundUnits': 78_710_000, 'agents': 1}
+    assert sk.drip_left(st['agents']['a'], 'USDC') == 1_290_000 and st['agents']['a']['owed']['USDC'] == 0
+    assert st['books']['USDC']['keep'] == 20_000_000 and st['books']['USDC']['compound'] == 78_710_000
     assert sk.pay_profit(st, 'p', 'USDC', 100_000_000, 1e-6, NOW) is None   # one transaction, once
 
 
 def test_points_cap_what_it_can_ever_earn_and_show_what_was_paid():
     st = state(); send(st, 'k', 'a', 10.0, 87)
-    for i in range(40):
+    for i in range(80):
         sk.pay_profit(st, f'p{i}', 'USDC', 1_000_000_000, 1e-6, NOW)
     s = sk.of(st['agents']['a'])
-    assert s['paidUsd'] == pytest.approx(18.7, abs=1e-5) and s['pointsLeft'] == pytest.approx(0, abs=1e-5)
+    assert s['paidUsd'] == pytest.approx(870, abs=1e-5) and s['pointsLeft'] == pytest.approx(0, abs=1e-5)
     before = st['books']['USDC']['compound']; sk.pay_profit(st, 'after', 'USDC', 1_000_000_000, 1e-6, NOW)
-    sk.release(st, NOW + 8 * 86400); assert st['agents']['a']['earned']['USDC'] == 18_700_000 and st['books']['USDC']['compound'] > before
+    sk.release(st, NOW + 8 * 86400); assert st['agents']['a']['earned']['USDC'] == 870_000_000 and st['books']['USDC']['compound'] > before
 
 
 def test_a_held_proof_earns_nothing_until_cleared():
     st = state(); r = send(st, 'k', 'a', 10.0, 87, held=True)
     assert sk.of(st['agents']['a'])['pointsLeft'] == 0 and sk.cuts(st, NOW) == {}
-    assert cp.clear_review(st, 'a', r['id']) and sk.of(st['agents']['a'])['pointsLeft'] == 18.7
+    assert cp.clear_review(st, 'a', r['id']) and sk.of(st['agents']['a'])['pointsLeft'] == 870
 
 
 def test_fast_reaches_the_top_cut_and_no_other_cut_shrinks():
@@ -62,7 +62,7 @@ def test_fast_reaches_the_top_cut_and_no_other_cut_shrinks():
     before = sk.cuts(st, NOW)
     r = sk.buy_fast(st, 'a', 1, NOW); assert r['burned'] == 5.0 and sk.of(st['agents']['a'])['burned'] == 5.0
     after = sk.cuts(st, NOW)
-    assert after['b']['total'] == before['b']['total'] and after['a']['total'] == pytest.approx(0.019)
+    assert after['b']['total'] == before['b']['total'] and after['a']['total'] == pytest.approx(0.013)
     assert sk.cuts(st, NOW + 3 * 86400)['a']['total'] == before['a']['total']   # the time runs out
 
 
@@ -77,7 +77,7 @@ def test_fast_needs_points_and_stops_at_the_limit():
     st = state(fastMaxDays=10); send(st, 'k', 'a', 10.0, 87)
     with pytest.raises(ValueError):
         sk.buy_fast(st, 'nobody', 1, NOW)
-    st2 = state(fastMaxDays=90); send(st2, 'k', 'a', 10.0, 87)
+    st2 = state(fastMaxDays=90); send(st2, 'k', 'a', 10.0, 1)
     with pytest.raises(ValueError):
         sk.buy_fast(st2, 'a', 60, NOW)   # 300 points it does not have
     r = sk.buy_fast(st, 'a', 3, NOW); assert r['days'] == 3
@@ -99,8 +99,8 @@ def test_a_loss_comes_off_compound_then_stake_and_never_off_points():
 
 def test_grade_comes_from_the_record():
     seats = [{'ok': True}] * 5
-    assert sk.grade_of({'seats': seats}, 100) == 100 and sk.grade_of({'seats': seats}, 67.5) == 87
-    assert sk.grade_of({'seats': [{'ok': False}] * 5}, 0) == 0 and sk.x_of(None) == 1
+    assert sk.grade_of({'seats': seats}, 100) == 300 and sk.grade_of({'seats': seats}, 67.5) == 261
+    assert sk.grade_of({'seats': [{'ok': False}] * 5}, 0) == 0 and sk.x_of(None) == 1 and sk.x_of(200) == 200 and sk.x_of(900) == 300 and sk.seat_x(0) == 1 and sk.seat_x(300) == 2
 
 
 def test_pools_are_labels_that_move_nothing():
@@ -143,7 +143,7 @@ def test_a_bonus_is_only_what_the_collective_earned_and_takes_no_points():
         sk.bonus(st, 'b', 'a', 'USDC', 1_000_000, 1e-6, 'x', NOW)   # the stake is not the Collective's to give
     cp.income(st, 'f', 'USDC', 5_000_000, 'txn')
     assert sk.bonus(st, 'b', 'a', 'USDC', 2_000_000, 1e-6, 'great proof', NOW)['paidUnits'] == 2_000_000
-    assert st['agents']['a']['owed']['USDC'] == 2_000_000 and sk.of(st['agents']['a'])['pointsLeft'] == 18.7 and st['books']['USDC']['keep'] == 3_000_000
+    assert st['agents']['a']['owed']['USDC'] == 2_000_000 and sk.of(st['agents']['a'])['pointsLeft'] == 870 and st['books']['USDC']['keep'] == 3_000_000
     assert st['payLog'][-1]['why'] == 'great proof'
 
 
@@ -166,8 +166,8 @@ def test_targets_stay_inside_the_limits_and_a_stop_warns():
 
 def test_a_dust_send_earns_no_points_and_changing_the_dial_later_shrinks_nothing():
     st = state(minStakeUsd=5); send(st, 'k', 'a', 1.0, 100); send(st, 'k2', 'a', 10.0, 100)
-    assert sk.of(st['agents']['a'])['capUsd'] == 20.0
-    st['cfg']['minStakeUsd'] = 50.0; assert sk.of(st['agents']['a'])['capUsd'] == 20.0
+    assert sk.of(st['agents']['a'])['capUsd'] == 1000.0
+    st['cfg']['minStakeUsd'] = 50.0; assert sk.of(st['agents']['a'])['capUsd'] == 1000.0
 
 
 def test_the_owner_endpoint_runs_the_whole_deal(monkeypatch, tmp_path):
@@ -197,7 +197,7 @@ def test_the_owner_endpoint_runs_the_whole_deal(monkeypatch, tmp_path):
     assert post({'bonus': {'cat': 'a', 'usd': 5000, 'token': 'USDC', 'nonce': 'n2'}}).status_code == 400
     assert post({'payEarly': {'source': 'stake', 'usd': 5, 'token': 'USDC', 'nonce': 'n3'}}).status_code == 400   # never a stake
     v = post({'payEarly': {'source': 'keep', 'usd': 10, 'token': 'USDC', 'nonce': 'n4'}}).json()
-    assert v['stake']['keepUsd'] == 35 and v['stake']['paidUsd'] == 10 and v['stakeAgents'][0]['pointsLeft'] == pytest.approx(177)
+    assert v['stake']['keepUsd'] == 35 and v['stake']['paidUsd'] == 10 and v['stakeAgents'][0]['pointsLeft'] == pytest.approx(8690)
     assert post({'payPaused': True}).json()['payPaused'] is True
     assert post({'profitSig': 'nope'}).status_code == 400
     asyncio.run(asyncio.sleep(0))
@@ -208,22 +208,31 @@ def test_dollars_lift_the_cut_and_slow_after_1k():
     assert [sk.size_of(cfg, u) for u in (10, 100, 1000, 10000, 100000)] == [1, 2, 3, 3.5, 4]
     assert sk.size_of(cfg, 1) == 0.25 and sk.size_of(cfg, 0) == 0
     st = state(); send(st, 'k', 'small', 10.0, 87); send(st, 'k2', 'big', 1000.0, 87); send(st, 'k3', 'whale', 100000.0, 87); c = sk.cuts(st, NOW)
-    assert c['small']['total'] == pytest.approx(0.0187) and c['big']['total'] == pytest.approx(0.0561) and c['whale']['total'] == pytest.approx(0.0748)
+    assert c['small']['total'] == pytest.approx(0.0129) and c['big']['total'] == pytest.approx(0.0387) and c['whale']['total'] == pytest.approx(0.0516)
     assert c['whale']['total'] < c['big']['total'] * 1.34   # 100x the money, not even 1.34x the cut
 
 
 def test_boost_cash_counts_real_profit_second_by_second():
     st = state(dripDays=10); send(st, 'k', 'a', 100.0, 100); a = st['agents']['a']
     sk.pay_profit(st, 'p', 'USDC', 1_000_000_000, 1e-6, NOW); paid = sk.drip_left(a, 'USDC')
-    assert paid == 40_000_000 and sk.of(a)['paidUsd'] == 40.0   # its points are taken now
+    assert paid == 26_666_000 and sk.of(a)['paidUsd'] == 26.666   # its points are taken now
     assert sk.drip_rate(st, a, 'USDC') == pytest.approx(paid / (10 * 86400))
     view = cp.view(st, 'a', NOW, 100.0); assert view['ratePerSecUsd'] > 0
-    sk.release(st, NOW + 86400); assert a['owed']['USDC'] == pytest.approx(4_000_000, abs=2)
-    assert cp.backed(st, 'USDC') == 40_000_000   # the wallet must hold what has not released yet
-    sk.release(st, NOW + 11 * 86400); assert a['owed']['USDC'] == 40_000_000 and sk.drip_left(a, 'USDC') == 0
+    sk.release(st, NOW + 86400); assert a['owed']['USDC'] == pytest.approx(2_666_600, abs=2)
+    assert cp.backed(st, 'USDC') == 26_666_000   # the wallet must hold what has not released yet
+    sk.release(st, NOW + 11 * 86400); assert a['owed']['USDC'] == 26_666_000 and sk.drip_left(a, 'USDC') == 0
 
 
 def test_the_stop_freezes_boost_cash():
     st = state(); send(st, 'k', 'a', 100.0, 100); sk.pay_profit(st, 'p', 'USDC', 100_000_000, 1e-6, NOW); a = st['agents']['a']; st['payPaused'] = True
     sk.release(st, NOW + 86400); assert a['owed']['USDC'] == 0 and sk.drip_rate(st, a, 'USDC') == 0
     st['payPaused'] = False; sk.release(st, NOW + 86400); assert a['owed']['USDC'] == 0   # stopped time does not pay later
+
+
+def test_the_owners_2_dollar_proof_at_grade_200():
+    """Owner 2026-11-06: grades go to 300 for 300x. $2 at 200 can earn up to $400, slowly, and only from real pool profit."""
+    st = state(); send(st, 'k', 'a', 2.0, 200); s = sk.of(st['agents']['a'])
+    assert (s['x'], s['capUsd']) == (200, 400)
+    seat = sk.cuts(st, NOW)['a']['total']; assert seat == pytest.approx(0.00502, abs=1e-4)   # a huge limit, a small seat
+    assert st['agents']['a']['earned']['USDC'] == 0 and st['books']['USDC']['stake'] == 2_000_000   # sending pays nobody
+    assert sk.pay_profit(st, 'p', 'USDC', 1_000_000_000, 1e-6, NOW)['paidUnits'] == pytest.approx(5_020_000, abs=20_000)   # $1,000 of real profit pays about $5

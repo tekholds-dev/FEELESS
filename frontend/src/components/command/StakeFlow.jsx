@@ -25,8 +25,8 @@ export default function StakeFlow({ usd, grade, x, points, seat, collectivePct =
   const money = v => (v >= 1000 ? `$${Math.round(v).toLocaleString()}` : `$${Number(v).toFixed(2)}`);
   const nodes = useMemo(() => { const at = vertical ? TALL : WIDE; return [
     ['proof', '🧾', 'PROOF + $', money(usd), 'gold', 'Every send goes with a proof, $1 or more', null],
-    ['checks', '⚖', 'FIVE CHECKS', `Grade ${Math.round(grade)}`, 'gold', 'Five agents and its fingerprint read the proof, out of 100', grade / 100],
-    ['boost', '🚀', 'ITS BOOST', `${x.toFixed(2)}x`, 'gold', `1 + ${Math.round(grade)}/100`, x - 1],
+    ['checks', '⚖', 'FIVE CHECKS', `Grade ${Math.round(grade)}`, 'gold', 'Five agents and its fingerprint read the proof, out of 300', grade / 300],
+    ['boost', '🚀', 'ITS BOOST', `${Math.round(x)}x`, 'gold', 'The most it can ever earn, as a multiple of what it sent', x / 300],
     ['points', '🪙', 'BOOST POINTS', points.toLocaleString(undefined, { maximumFractionDigits: 2 }), 'gold', 'The most this proof can ever earn. Each dollar paid takes one off', null],
     ['seat', '🪑', 'ITS SEAT', `${seat.toFixed(2)}%`, 'green', 'Its share of every real pool profit', Math.min(1, seat / 10)],
     ['cash', '💵', 'BOOST CASH', 'Up to the limit', 'green', 'Releases second by second. Taking it out is off for now', null],

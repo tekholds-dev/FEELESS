@@ -1,7 +1,7 @@
 import { KitPick } from './KitPick';
 import { useSolPrice } from '../../lib/solPrice';
 import { ChatSettings } from '../chat/ChatKit';
-import { boostX, sizeOf } from './KeepDeal';
+import { boostX, GRADE_MAX, seatX, sizeOf } from './KeepDeal';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
@@ -23,13 +23,13 @@ const SentCard = ({ sent, f }) => <section className="psub is-sent" data-testid=
 // 🪙 The send itself: the amount, what it can earn, and a second tap to confirm. The proof's popover and the Boost folder both use it.
 export function ProofSendForm({ cat, work, f, kind, coin = true, onSent = null }) {
   const px = useSolPrice(); const [usd, setUsd] = useState(5); const [sure, setSure] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [done, setDone] = useState(null);
-  const n = Number(usd) || 0; const low = boostX(0) * n; const top = boostX(100) * n; const seat = boostX(87) * sizeOf(null, n);
+  const n = Number(usd) || 0; const low = boostX(0) * n; const top = boostX(GRADE_MAX) * n; const seat = seatX(100) * sizeOf(null, n);
   const blocked = kind === 'PoW' && !(Number(f?.pnlPct) >= 50) ? 'A PoW goes only if it won +50% or more' : '';
   const go = async () => { if (!sure) { setSure(true); return; } setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'pot_send', job: f.id, cap: Number((n / px).toFixed(6)) }); const sent = { ...j.sent, link: `https://solscan.io/tx/${j.sent.sig}`, review: j.review, usd: n }; setDone(sent); onSent?.(sent); } catch (e) { setErr(e.message || 'Not sent. Nothing moved.'); } setBusy(false); setSure(false); };
   if (done) return <SentCard sent={done} f={f} />;
   return <section className="psub">{coin ? <span className="psub-coin" aria-hidden="true"><Suspense fallback={null}><Coin3DLazy energy={sure ? 1 : 0.6} size={64} /></Suspense></span> : null}
     <span className="psub-body"><b>SEND THIS PROOF TO THE COLLECTIVE</b><span className="m-seg" role="group" aria-label="Dollars to send">{SEND_CHIPS.map(v => <button key={v} type="button" className={usd === v ? 'active' : ''} aria-pressed={usd === v} onClick={() => { setUsd(v); setSure(false); }} data-testid={`proof-usd-${v}`}>${v}</button>)}</span><input className="m-input m-num" type="number" min="1" step="any" value={usd} onChange={e => { setUsd(e.target.value === '' ? '' : Number(e.target.value)); setSure(false); }} aria-label="Dollars to send" data-testid="proof-usd" /></span>
-    <span className="psub-meter" data-tip="The most it can earn depends on its grade: 1x to 2x what it sends, only from real pool profit. A stake can lose money" data-testid="proof-meter"><small>MOST IT CAN EARN</small><i aria-hidden="true"><u /></i><em className="m-num">${low.toFixed(2)} to ${top.toFixed(2)}</em><small className="m-num">Seat about {seat.toFixed(2)}% at grade 87</small></span>
+    <span className="psub-meter" data-tip="The most it can earn depends on its grade: 1x to 300x what it sends, only from real pool profit. It can also earn nothing, and a stake can lose money" data-testid="proof-meter"><small>MOST IT CAN EARN</small><i aria-hidden="true"><u /></i><em className="m-num">${low.toFixed(2)} to ${top.toFixed(2)}</em><small className="m-num">Seat about {seat.toFixed(2)}% at grade 100</small></span>
     <button type="button" className={`m-btn m-go${sure ? ' is-sure' : ''}`} disabled={busy || !px || n < 1 || !!blocked} onClick={go} data-tip={blocked || "Its own wallet signs one transfer. It can't be undone, and a stake can lose money"} data-testid="proof-send">{busy ? 'Sending…' : sure ? `Yes, send $${n}` : blocked ? 'Not a +50% win' : n < 1 ? '$1 minimum' : `Send $${n}`}</button>
     {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}</section>;
 }

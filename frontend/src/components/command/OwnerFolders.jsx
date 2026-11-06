@@ -165,6 +165,24 @@ export function PyAgentsFolder({ call }) {
 }
 
 // 🗂 One folder holding several jobs: a tab each, and only the open one runs.
+// 🛠 A crash → the real file → an exact fix on its own branch, tested → your word. It never touches main or anything near money.
+const FIX_STEPS = [['reading', 'Reads the file'], ['testing', 'Tests its fix'], ['review', 'Your review'], ['approved', 'Queued']];
+export function FixFolder({ call }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [seat, setSeat] = useState('');
+  const load = useCallback(() => call('/admin/fix').then(j => { setD(j); setSeat(x => x || j.seats?.[0]?.key || ''); }).catch(e => setErr(e.message)), [call]);
+  useEffect(() => { load(); }, [load]); useEffect(() => { if (!d?.busy) return undefined; const t = setInterval(load, 3000); return () => clearInterval(t); }, [d?.busy, load]);
+  const act = async body => { setErr(''); try { await call('/admin/fix', { method: 'POST', body: JSON.stringify(body) }); await load(); } catch (e) { setErr(e.message); } };
+  if (!d) return <p className="fch-nil">{err || 'reading the crash log…'}</p>;
+  return <div className="ofd" data-testid="fix-folder"><Head icon={LifeBuoy} title="Fix agent" line="A crash goes to the real file, a mind proposes one exact change on its own branch, and its checks run. Main and anything near money are never touched. You decide." />
+    <div className="ofd-row"><span className="m-seg" role="group" aria-label="Which mind investigates">{(d.seats || []).map(x => <button key={x.key} type="button" className={seat === x.key ? 'active' : ''} aria-pressed={seat === x.key} onClick={() => setSeat(x.key)} data-tip={x.free ? 'Free, on your own LM Studio' : 'Spends a fraction of a cent of your OpenRouter credit. Smarter than the small local minds'} data-testid={`fix-seat-${x.key}`}>{x.name}{x.free ? '' : ' · paid'}</button>)}</span>{d.busy ? <em className="fix-busy m-num" role="status" data-testid="fix-busy">{d.busy.by} is working</em> : null}</div>
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    {d.cases?.length ? <ul className="fix-list">{d.cases.map(c => { const r = c.run; const now = FIX_STEPS.findIndex(x => x[0] === r?.stage); return <li key={c.id} className={r?.stage ? `is-${r.stage}` : ''} data-testid={`fix-${c.id}`}><header><span><b>{c.text.replace(/^\[[a-z ]+\]\s*(This page:\s*)?/i, '')}</b><small className="m-num">{c.times} time{c.times === 1 ? '' : 's'} · {c.page || 'a page'}</small></span>{!r || r.stage === 'failed' ? <button type="button" className="m-btn m-go" disabled={!!d.busy || !seat} onClick={() => act({ id: c.id, seat })} data-testid={`fix-go-${c.id}`}>{r ? 'Try again' : 'Investigate'}</button> : null}</header>
+      {r ? <><ol className="fix-rail" aria-label="Where it is">{FIX_STEPS.map(([k, l], i) => <li key={k} className={i < now || r.stage === 'approved' ? 'is-done' : i === now ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
+        {r.cause ? <p className="fix-cause"><b>{r.by}:</b> {r.cause}{r.sure != null ? <em className="m-num"> · {r.sure}% sure</em> : null}</p> : null}{r.why ? <p className="fix-why" data-testid={`fix-why-${c.id}`}>{r.why}</p> : null}
+        {r.diff?.removed ? <pre className="fix-diff" data-testid={`fix-diff-${c.id}`}><span className="is-old">− {r.diff.removed}</span>{'\n'}<span className="is-new">+ {r.diff.added}</span></pre> : null}
+        {r.checks?.length ? <ul className="fix-checks">{r.checks.map(x => <li key={x.name} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.out || undefined}>{x.ok ? '✓' : '✕'} {x.name}</li>)}</ul> : null}
+        {r.stage === 'review' ? <div className="ofd-row"><button type="button" className="m-btn m-go" onClick={() => act({ id: c.id, approve: true })} data-tip="Queues its branch for the engineer to merge. Nothing merges by itself" data-testid={`fix-approve-${c.id}`}>Approve</button><button type="button" className="m-btn" onClick={() => act({ id: c.id, drop: true })} data-testid={`fix-drop-${c.id}`}>Drop it</button><small className="m-num">{r.branch}</small></div> : r.stage === 'approved' ? <small className="m-num">Queued as {r.build}. {r.branch}</small> : null}</> : null}</li>; })}</ul> : <p className="fch-nil" data-testid="fix-none">No crash logged. Nothing to fix.</p>}</div>;
+}
 export function FolderTabs({ tabs, at, setAt, id }) {
   const [own, setOwn] = useState(tabs[0]?.[0]); const now = at ?? own; const pick = setAt || setOwn; const open = tabs.find(t => t[0] === now) || tabs[0];
   return <div className="ofd-tabbed" data-testid={`ftabs-${id}`}><div className="m-seg ofd-tabs" role="tablist" aria-label={id}>{tabs.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={open[0] === k} className={open[0] === k ? 'active' : ''} onClick={() => pick(k)} data-testid={`ftab-${id}-${k}`}>{l}</button>)}</div><div key={open[0]} role="tabpanel">{open[2]}</div></div>;
@@ -173,7 +191,7 @@ export function FolderTabs({ tabs, at, setAt, id }) {
 export function groupApps(agentApps = [], ownerApps = []) {
   const by = Object.fromEntries([...agentApps, ...ownerApps].map(a => [a.k, a])); const used = new Set();
   const folder = (k, ic, label, tip, parts) => { const tabs = parts.filter(([key]) => by[key]).map(([key, word]) => { used.add(key); return [key, word, by[key].body]; }); return tabs.length ? { k, ic, label, tip, body: <FolderTabs tabs={tabs} id={k} /> } : null; };
-  const out = [by['own-grow'], folder('own-collective', '💎', 'Collective', 'Where it stands, what members see, and its limits', [['collective', 'HQ'], ['colony', 'What members see'], ['own-safety', 'Safety']]), folder('own-proofs', '🏆', 'Proofs', "Every agent's proofs, the sealed record, and the five that check them", [['pow', 'PoW folders'], ['stash', 'Stash'], ['own-py', 'Py agents']]), folder('own-setup', '⚙', 'Setup', 'Prompts, keys and who can buy an agent', [['prompts', 'Prompts'], ['ready', 'Providers'], ['slots', 'Agent slots']])];
+  const out = [by['own-grow'], folder('own-collective', '💎', 'Collective', 'Where it stands, what members see, and its limits', [['collective', 'HQ'], ['colony', 'What members see'], ['own-safety', 'Safety']]), folder('own-proofs', '🏆', 'Proofs', "Every agent's proofs, the sealed record, and the five that check them", [['pow', 'PoW folders'], ['stash', 'Stash'], ['own-py', 'Py agents']]), folder('own-setup', '⚙', 'Setup', 'Prompts, keys and who can buy an agent', [['prompts', 'Prompts'], ['own-fix', 'Fix agent'], ['ready', 'Providers'], ['slots', 'Agent slots']])];
   used.add('own-grow');
   return [...out.filter(Boolean), ...[...agentApps, ...ownerApps].filter(a => !used.has(a.k))];
 }
@@ -190,6 +208,7 @@ export function useOwnerFolders(call, on = true) {
   return [
     { k: 'own-grow', ic: '💰', label: 'Money', tip: 'Owner only: what is really here, every way it could work, what the same dollars did, and how agents get paid', body: <FolderTabs id="own-grow" at={moneyTab} setAt={setMoneyTab} tabs={[['money', 'Money', wrap(d ? <GrowFolder d={d} save={save} busy={busy} call={call} extra={<div className="ofd"><ColonyPot call={call} /><Pools d={d} save={save} busy={busy} /></div>} /> : null)], ['pay', 'Pay + reward', wrap(d ? <PayFolder d={d} save={save} busy={busy} /> : null)], ['fallback', 'Fallbacks', wrap(d ? <FallbackFolder d={d} onPay={openPay} /> : null)]]} /> },
     { k: 'own-safety', ic: '🛡', label: 'Safety', tip: 'Owner only: stop payouts, the limits, and what is not built yet', body: wrap(d && c ? <SafetyFolder d={d} save={save} busy={busy} c={c} setC={setC} /> : null) },
+    { k: 'own-fix', ic: '🛠', label: 'Fix agent', tip: 'Owner only: logged crashes, and a tested fix for each on its own branch', body: <FixFolder call={call} /> },
     { k: 'own-py', ic: '🐍', label: 'Py agents', tip: 'Owner only: the five validators, their real record, and what OSSY and G4 propose', body: <PyAgentsFolder call={call} /> },
   ];
 }

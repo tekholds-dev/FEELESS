@@ -1,7 +1,7 @@
 """🪙 THE STAKE DEAL (owner 2026-11-06, replaces the bank deal; cfg deal='stake').
 The Collective earns from the jump: every agent wallet fee and top-up is its own. A proof send is not income: it is a stake in the owner's auto-ranged yield pools.
-A send is graded 0 to 100. Its boost is 1 + grade/100, so $10 at grade 87 is 1.87x: it may earn up to $18.70 back, paid ONLY from real pool profit, never from what anyone staked.
-Its cut is its boost times its size (owner 2026-11-06, "weigh by dollars, but the % gets smaller after 1k so their rank don't eat up the others"): $10 is 1x, $100 2x, $1,000 3x. Past kneeUsd each 10x adds only sizeAbovePct of a step: $10,000 3.5x, $100,000 4x. So $10 at grade 87 holds 1.87%, and $1,000 at grade 87 holds 5.61%.
+A send is graded 0 to 300 (owner 2026-11-06). Its boost is its grade: $2 at grade 200 is 200x, so it may earn up to $400 back, paid ONLY from real pool profit, never from what anyone staked. A grade under 1 still counts as 1x.
+The boost sets how much it can ever earn. The seat sets how fast. A seat stays small on purpose, or one great $2 proof would crowd out everyone: its grade lifts it from 1x to 2x (1 + grade/300), times its size (owner 2026-11-06, "weigh by dollars, but the % gets smaller after 1k so their rank don't eat up the others"): $10 is 1x, $100 2x, $1,000 3x. Past kneeUsd each 10x adds only sizeAbovePct of a step: $10,000 3.5x, $100,000 4x. So $2 at grade 200 holds 0.50%: if the pools make $1,000 a day it earns about $5 a day and reaches its $400 around day 80.
 BOOST POINTS = the value its proofs and dollars hold: what they may still earn, less what was paid, less what was burned. Burn them to run at a bigger seat. BOOST CASH = the rewards counting live: a real profit, once it lands, releases to the agent second by second over dripDays, so the count is money that already exists.
 Fast compound: burn points to run at the highest cut anyone holds for a while. The extra comes only from room nobody else holds, so no other agent's cut ever shrinks.
 Every profit splits three ways: agents' cuts, the Collective's piece, and the rest stays compounding in the pools. Agents can never take the Collective's piece.
@@ -9,7 +9,8 @@ Pure: every function takes the ledger state. Real money only enters through a ch
 import math
 import uuid
 
-GRADE_SEATS_PTS = 60.0   # all five validators passing is worth this much of the 100
+GRADE_MAX = 300.0
+GRADE_SEATS_PTS = 180.0   # all five validators passing is worth this much of the 300; the rest is its print's real strength
 PLATFORMS = ('raydium', 'meteora', 'orca', 'other')
 MAX_POOLS = 40
 
@@ -22,15 +23,20 @@ def _f(v):
 
 
 def grade_of(review, strength):
-    """0 to 100, from the record: how many of the five validators passed, plus its print's real strength. A held proof grades 0 until the owner clears it."""
+    """0 to 300, from the record: how many of the five validators passed, plus its print's real strength. A held proof grades 0 until the owner clears it."""
     seats = (review or {}).get('seats') or []
     passed = sum(1 for s in seats if s.get('ok')) / max(1, len(seats))
-    return round(min(100.0, max(0.0, passed * GRADE_SEATS_PTS + min(100.0, max(0.0, _f(strength))) * (100 - GRADE_SEATS_PTS) / 100)), 1)
+    return round(min(GRADE_MAX, max(0.0, passed * GRADE_SEATS_PTS + min(100.0, max(0.0, _f(strength))) * (GRADE_MAX - GRADE_SEATS_PTS) / 100)), 1)
 
 
 def x_of(grade):
-    """Grade 87 → 1.87x. An older send with no grade counts as 1x."""
-    return round(1 + min(100.0, max(0.0, _f(grade))) / 100, 4)
+    """Grade 200 → 200x: the most it can ever earn, as a multiple of what it sent. A send with no grade counts as 1x."""
+    return round(max(1.0, min(GRADE_MAX, _f(grade))), 4)
+
+
+def seat_x(grade):
+    """Grade lifts its seat from 1x to 2x. The seat is how fast it earns, so a huge boost never crowds others out."""
+    return round(1 + max(0.0, min(GRADE_MAX, _f(grade))) / GRADE_MAX, 4)
 
 
 def size_of(cfg, usd):
@@ -51,7 +57,7 @@ def of(agent, least=0.0):
             g = _f(r.get('grade')); cap += usd * x_of(g); weighted += usd * g
     counted = sum(_f(r.get('usd')) for r in a.get('streams') or [] if not r.get('held'))
     paid = _f(a.get('paidUsd')); burned = _f(a.get('burned'))
-    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'x': round(cap / counted, 4) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
+    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'x': round(cap / counted, 4) if counted else 0.0, 'seatX': seat_x(weighted / counted) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
 
 
 def cuts(state, now):
@@ -60,7 +66,7 @@ def cuts(state, now):
     for c, a in state['agents'].items():
         s = of(a)
         if s['pointsLeft'] > 0:
-            base[c] = s['x'] * size_of(cfg, s['countedUsd']) * cfg['cutPerX'] / 100; owners.setdefault(a.get('owner') or c, []).append(c)
+            base[c] = s['seatX'] * size_of(cfg, s['countedUsd']) * cfg['cutPerX'] / 100; owners.setdefault(a.get('owner') or c, []).append(c)
     cap = cfg['walletCapPct'] / 100
     for rows in owners.values():
         total = sum(base[c] for c in rows)

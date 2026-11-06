@@ -45,7 +45,22 @@ def test_the_hourly_pass_deletes_what_is_due_and_a_bad_file_stays(monkeypatch, t
     paths = sorted(p for p in cg.collective_tree(tmp_path / 'st')[0] if p.startswith('proofs/')); now = 100 * DAY
     keys = cg.stash_keys(tmp_path / 'st', paths); old = next(p for p in paths if keys[p] == 'k'); keep = next(p for p in paths if keys[p] == 'k2')
     d = cs.load(tmp_path / 'git'); d['items'] = {old: {'status': 'trash', 'trashedAt': now - 8 * DAY}, keep: {'status': 'bad'}}; cs.save(tmp_path / 'git', d)
+    monkeypatch.setattr(fs, '_git_own_tags', lambda store: {st.agent_tag('x')})
     fs._sort_purge(now)
     assert st.read(tmp_path / 'st', 'k') is None and st.read(tmp_path / 'st', 'k2') == b'y'
     after = cs.load(tmp_path / 'git'); assert old in after['gone'] and old not in after['items'] and keep in after['items']
     fs._sort_purge(now + 60)   # once an hour
+
+
+def test_another_members_file_in_the_trash_goes_back_and_they_are_told(monkeypatch, tmp_path):
+    """Owner 2026-11-06: nobody cleans someone else's folder. It leaves the Trash and its owner hears."""
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'GIT_DIR', tmp_path / 'git'); monkeypatch.setattr(fs, 'STASH_DIR', tmp_path / 'st'); fs._SORT_PURGE_AT[0] = 0.0
+    store = {'cats': {'leader': {'id': 'leader'}, 'them': {'id': 'them'}}, 'events': []}; monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    st.put(tmp_path / 'st', 'k', 'Trades', 'a.com', 'them', 'won', 'One', b'x'); now = 100 * DAY
+    path = next(p for p in cg.collective_tree(tmp_path / 'st')[0] if p.startswith('proofs/'))
+    d = cs.load(tmp_path / 'git'); d['items'] = {path: {'status': 'trash', 'trashedAt': now - 8 * DAY}}; cs.save(tmp_path / 'git', d)
+    fs._sort_purge(now)
+    assert st.read(tmp_path / 'st', 'k') == b'x'
+    item = cs.load(tmp_path / 'git')['items'][path]; assert item['status'] == 'alert' and 'trashedAt' not in item
+    cat = store['cats']['them']; assert cat['gitNotice']['paths'] == [path] and 'Clean them in Git' in cat['chat'][-1]['text']

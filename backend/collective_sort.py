@@ -98,7 +98,7 @@ def owner_set(item, patch, now=None):
                 if m.get('text'):   # any words, line, tile or row it picked, or a plain note of what is missing
                     marks.append({'kind': str(m.get('kind') or 'text')[:12], 'text': str(m['text'])[:300], 'label': str(m.get('label') or '')[:120]})
                 else:
-                    marks.append({'x': _num01(m['x']), 'y': _num01(m['y']), 'w': _num01(m['w']), 'h': _num01(m['h']), 'label': str(m.get('label') or '')[:120]})
+                    marks.append({'x': _num01(m['x']), 'y': _num01(m['y']), 'w': _num01(m['w']), 'h': _num01(m['h']), 'label': str(m.get('label') or '')[:120], **({'sy': max(0.0, min(1e6, float(m['sy'])))} if m.get('sy') else {})})
             except (KeyError, TypeError, ValueError, AttributeError):
                 continue
         item['marks'] = marks
@@ -274,6 +274,40 @@ def rule_trash(item, approve, now=None):
     else:
         item.pop('status', None)
     return _trash_clock(item, now)
+
+
+def owners(files):
+    """{path: agent tag} for every file in the record that belongs to one agent. Read from the record's own index, so a path can never be talked into a different owner."""
+    try:
+        rows = json.loads((files or {}).get('index.json') or b'[]')
+    except (ValueError, TypeError):
+        rows = []
+    return {r['path']: r['agent'] for r in rows if isinstance(r, dict) and r.get('path') and r.get('agent')}
+
+
+def theirs(paths, who, own_tags):
+    """The files here that belong to another member. Nobody else may clean those: not the minds, not the owner. They get told."""
+    return [p for p in paths if who.get(p) and who[p] not in own_tags]
+
+
+def flagged(items, who, tag):
+    """One member's files the minds or the owner want gone, oldest touched first, so the least used go first."""
+    rows = [p for p, it in (items or {}).items() if who.get(p) == tag and it.get('status') in ('trash', 'trash_ask', 'alert', 'bad') and not it.get('kept')]
+    return sorted(rows, key=lambda p: (items[p].get('at') or 0))
+
+
+CLEAN_DAYS = 30
+
+
+def clean_view(cat):
+    c = (cat or {}).get('gitClean') or {}
+    return {'auto': c.get('auto', True), 'days': int(c.get('days') or CLEAN_DAYS)}
+
+
+def clean_due(cat, now):
+    """True once its notice has waited out the days it chose, and it left the cleanup on."""
+    n = (cat or {}).get('gitNotice'); c = clean_view(cat)
+    return bool(n and c['auto'] and now - float(n.get('at') or 0) >= c['days'] * 86400)
 
 
 def folder_of(path, items):
