@@ -525,8 +525,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['url'], w['title'] = page.url, page.title
             if task.get('keepShots') and act in ('open', 'click'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
                 h_ = _pow.host_of(page.url); rows_ = w.setdefault('_shots', [])
-                if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_):
-                    m_ = await _marks.marked_shot(page, _marks.words_of([task.get('topic') or task.get('text') or '']), time.time())   # 🖍 what it read is boxed on the picture
+                if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_) and not needs_human(page.url, seen):   # 🚫 never a snapshot of a bot check
+                    m_ = await _marks.marked_shot(page, _marks.words_of([task.get('topic') or task.get('text') or '']), time.time())   # 🖍 the words of its topic are boxed where they are on the page
                     if m_:
                         rows_.append({'site': h_, 'url': str(page.url)[:200], 'title': str(page.title or '')[:90], 'jpg': m_['jpg'], 'at': round(time.time()), 'found': list(m_['found'])[:12], 'sha': m_['sha']})
             if pw and act == 'open':
@@ -600,15 +600,16 @@ async def _pow_snap(pw, page, seen='', saved=False):
     if had and (had.get('saved') or not saved):
         return
     try:
-        marked_ = await asyncio.wait_for(_marks.marked_shot(page, [], time.time()), 8)   # 🖍 the numbers on the page are boxed on the picture
+        read_ = _marks.value_words([x.get('value') for x in _pow.pulls(pw) if x.get('site') == h])
+        marked_ = await asyncio.wait_for(_marks.marked_shot(page, read_, time.time(), read=True), 8)   # 🖍 only the facts this mind filed from this site are boxed. A page it only opened has no boxes
         jpg = (marked_ or {}).get('jpg')
     except Exception:   # noqa: BLE001 — a missed snapshot never stops the research
         jpg = None
     if jpg:
         if had:
-            had.update(jpg=jpg, at=round(time.time()), saved=True)
+            had.update(jpg=jpg, at=round(time.time()), saved=True, found=list((marked_ or {}).get('found') or [])[:12], missing=(marked_ or {}).get('missing', [])[:12])
         else:
-            pw.setdefault('_shots', []).append({'site': h, 'n': 1, 'jpg': jpg, 'at': round(time.time()), 'saved': saved})
+            pw.setdefault('_shots', []).append({'site': h, 'n': 1, 'jpg': jpg, 'at': round(time.time()), 'saved': saved, 'found': list((marked_ or {}).get('found') or [])[:12], 'missing': (marked_ or {}).get('missing', [])[:12]})
 
 
 async def _pow_find(w, pw, page):

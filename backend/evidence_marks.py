@@ -8,9 +8,9 @@ MAX_BOXES = 30
 _DEFAULT = r"\$\s?\d[\d,.]*\s?[KMBkmb]?|\b\d[\d,.]*\s?%|\b\d{1,3}(?:,\d{3})+\b"
 
 FIND_JS = r"""(args) => {
-  const words = (args.words || []).map(w => String(w).toLowerCase()).filter(w => w.length > 2);
+  const words = (args.words || []).map(w => String(w).toLowerCase()).filter(w => w.length > 0);
   const re = args.pattern ? new RegExp(args.pattern, 'g') : null;
-  const found = {}, rects = [];
+  const found = {}, rects = []; let off = null;
   const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let n, seen = 0;
   while ((n = walk.nextNode()) && seen < 8000 && rects.length < args.max) {
@@ -26,13 +26,46 @@ FIND_JS = r"""(args) => {
     if (re) { re.lastIndex = 0; let m; while ((m = re.exec(t)) && hits.length < 6) hits.push([m.index, m.index + m[0].length, m[0]]); }
     for (const [a, b, w] of hits) {
       const r = document.createRange(); r.setStart(n, a); r.setEnd(n, b);
+      if (args.scroll && !off && el.getClientRects().length) { const c0 = r.getClientRects()[0]; if (c0 && (c0.bottom < 0 || c0.top > innerHeight)) off = el; }
       for (const c of r.getClientRects()) {
         if (c.width > 1 && c.height > 1 && c.bottom > 0 && c.right > 0 && c.top < innerHeight && c.left < innerWidth) { rects.push([c.left, c.top, c.right, c.bottom]); found[w] = (found[w] || 0) + 1; break; }
       }
     }
   }
+  if (args.scroll && off && !rects.length) { off.scrollIntoView({ block: 'center' }); return { moved: true, rects, found, w: innerWidth, h: innerHeight }; }
   return { rects, found, w: innerWidth, h: innerHeight };
 }"""
+
+
+def value_words(values):
+    """The ways a value the brain read can look on a page: '$12,345', '12345', '12,345', '45%', '45'. A bare one or two digit number alone is left out: it would box half a page. Pure."""
+    out = []
+    for v in values or []:
+        t = str(v or '').strip()
+        if not t:
+            continue
+        forms = [t, t.lstrip('$'), t.replace(',', ''), t.lstrip('$').replace(',', '')]
+        m = re.fullmatch(r'\$?(\d+)(\.\d+)?', t.replace(',', ''))
+        if m:
+            forms.append(f"{int(m.group(1)):,}{m.group(2) or ''}")
+        for f in forms:
+            f = f.strip().lower()
+            if f and f not in out and not re.fullmatch(r'\d{1,2}', f):
+                out.append(f)
+    return out
+
+
+DEAD_SPREAD = 6.0
+
+
+def is_dead(jpg):
+    """A blank or nearly one-colour picture is no evidence of anything. Pure."""
+    from PIL import Image, ImageStat
+    try:
+        im = Image.open(io.BytesIO(jpg)).convert('L').resize((64, 64))
+        return ImageStat.Stat(im).stddev[0] < DEAD_SPREAD
+    except Exception:   # noqa: BLE001 — bytes it cannot judge are kept, not thrown away
+        return False
 
 
 def words_of(texts, n=14):
@@ -64,16 +97,20 @@ def fingerprint(jpg, url, at, found):
     return hashlib.sha256(jpg + json.dumps([str(url), int(at), sorted((found or {}).keys())]).encode()).hexdigest()[:32]
 
 
-async def marked_shot(page, words=None, now=0, pattern=_DEFAULT):
-    """A snapshot with what it read boxed on it. → {jpg, found, missing, sha} or None. A failed mark still keeps a plain picture, and says it has none."""
-    jpg = await page.shot()
-    if not jpg:
-        return None
-    words = list(words or [])
+async def marked_shot(page, words=None, now=0, pattern=None, read=False):
+    """A snapshot with what it read boxed on it. → {jpg, found, missing, read, sha} or None. Boxes come only from `words`, the things the brain really read: nothing is boxed for a page it merely opened, unless a caller asks for a pattern. It scrolls to a value that sits off screen, and it takes the picture right after finding the boxes, so they line up. A blank page returns None. A failed mark keeps a plain picture, and says it has none."""
+    words = list(words or []); found = {}; marks = {}
     try:
-        marks = await page.find_private(f'() => ({FIND_JS})({json.dumps({"words": words, "pattern": pattern, "max": MAX_BOXES})})') or {}
-        found = marks.get('found') or {}
-        jpg = draw(jpg, marks, f"FEELESS read: {', '.join(list(found)[:8])}" if found else '')
+        if words or pattern:
+            args = {'words': words, 'pattern': pattern, 'max': MAX_BOXES, 'scroll': True}; marks = await page.find_private(f'() => ({FIND_JS})({json.dumps(args)})') or {}
+            if marks.get('moved'):
+                marks = await page.find_private(f'() => ({FIND_JS})({json.dumps({**args, "scroll": False})})') or {}
+            found = marks.get('found') or {}
     except Exception:   # noqa: BLE001 — a picture without boxes is still evidence, and it says so
-        found = {}
-    return {'jpg': jpg, 'found': found, 'missing': [w for w in words if w not in found], 'sha': fingerprint(jpg, getattr(page, 'url', ''), now, found)}
+        marks = {}; found = {}
+    jpg = await page.shot()
+    if not jpg or is_dead(jpg):
+        return None
+    if marks.get('rects'):
+        jpg = draw(jpg, marks, f"FEELESS read: {', '.join(list(found)[:8])}")
+    return {'jpg': jpg, 'found': found, 'missing': [w for w in words if w not in found], 'read': bool(read and found), 'sha': fingerprint(jpg, getattr(page, 'url', ''), now, found)}

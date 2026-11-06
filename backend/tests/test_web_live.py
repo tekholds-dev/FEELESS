@@ -25,3 +25,15 @@ def test_a_mind_on_a_known_site_lands_on_its_feature_and_a_stranger_site_is_neve
     rows = fs._web_live_rows(store, 0.0)
     fs._WORK.pop('h')
     assert len(rows) == 2 and rows[0]['feature'].startswith('Trades/') and rows[1]['host'] is None and rows[1]['feature'] is None
+
+
+def test_a_proof_recalls_wins_first_titles_only_and_no_match_says_nothing(tmp_path):
+    import collective_stash as st
+    st.put(tmp_path, 'k1', 'Picks', 'espn.com', 'tagA', 'lost', 'Lakers parlay', b'{"secret":"inside"}', 'json', 100.0)
+    st.put(tmp_path, 'k2', 'Picks', 'espn.com', 'tagB', 'won', 'Lakers at home', b'{"secret":"inside"}', 'json', 200.0)
+    st.put(tmp_path, 'k3', 'Trades', 'x.com', 'tagB', 'won', 'Lakers coin', b'{}', 'json', 300.0)
+    rows = st.related(tmp_path, ['lakers'], 'Picks')
+    assert [r['outcome'] for r in rows] == ['won', 'lost'] and 'secret' not in str(rows)
+    line = ar.recall_line(rows, st.agent_tag('tagA'))
+    assert 'the Collective: WON "Lakers at home"' in line and 'your own: LOST "Lakers parlay"' in line
+    assert st.related(tmp_path, ['nothing'], 'Picks') == [] and ar.recall_line([]) == ''

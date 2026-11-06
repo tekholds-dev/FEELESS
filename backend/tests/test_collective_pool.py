@@ -356,7 +356,7 @@ def test_a_snapshot_boxes_only_what_is_really_on_the_page():
     import evidence_marks as em
     import io as _io
     from PIL import Image
-    buf = _io.BytesIO(); Image.new('RGB', (400, 300), (255, 255, 255)).save(buf, 'JPEG'); raw = buf.getvalue()
+    pic = Image.new('RGB', (400, 300), (255, 255, 255)); pic.paste((0, 0, 0), (0, 150, 400, 300)); buf = _io.BytesIO(); pic.save(buf, 'JPEG'); raw = buf.getvalue()
     class P:
         url = 'https://x.dev'
         async def shot(self): return raw

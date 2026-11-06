@@ -146,6 +146,22 @@ def stats(root):
     return {'items': n, 'rawBytes': raw, 'storedBytes': stored, 'categories': by, 'outcomes': out, 'agents': agents, 'sources': srcs, 'lastDay': day, 'freeBytes': free, 'where': 'this machine'}
 
 
+def related(root, words, category=None, limit=6):
+    """🔎 What is already kept on this: titles and results only, won first. The agents read the Collective this way, from this server: no agent ever holds the repo's token or reaches the repo."""
+    words = [w for w in {str(x).lower().strip('$') for x in words or []} if len(w) >= 3][:8]
+    if not words:
+        return []
+    c = _db(root)
+    try:
+        where = ' OR '.join('LOWER(title) LIKE ?' for _ in words); args = [f'%{w}%' for w in words]
+        if category:
+            where = f'({where}) AND category = ?'; args.append(category)
+        rows = c.execute(f"SELECT title, outcome, category, agent, MAX(at) FROM items WHERE {where} GROUP BY title, outcome ORDER BY (outcome = 'won') DESC, MAX(at) DESC LIMIT ?", (*args, limit)).fetchall()
+    finally:
+        c.close()
+    return [{'title': t, 'outcome': o, 'category': k, 'agent': a, 'at': round(at or 0)} for t, o, k, a, at in rows]
+
+
 def recent(root, since, limit=12):
     """🔥 What it took in lately: which agent, what kind of thing, from where. Never the content."""
     c = _db(root)

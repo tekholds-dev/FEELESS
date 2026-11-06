@@ -67,7 +67,7 @@ function Court({ plays }) {
 }
 
 // 📣 The play by play, newest first: what happened, when, the score, and the win chance when it moved.
-const headOf = p => (p.pts ? `+${p.pts} Point${p.pts === 1 ? '' : 's'}` : `${p.shot && !p.made ? 'Missed ' : ''}${String(p.type || '').replace(/([a-z])([A-Z])/g, '$1 $2')}`);
+const headOf = p => (p.pts ? `+${p.pts} Point${p.pts === 1 ? '' : 's'}` : `${p.shot && !p.made ? 'Missed ' : ''}${String(p.type || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(p.shot && !p.made ? /^Made /i : /^$/, '')}`);
 function Plays({ d, stage, calls, seed }) {
   const plays = d.plays || []; const ta = d.teams[0]; const tb = d.teams[1]; const by = { a: ta, b: tb }; const rows = plays.filter(p => p.text != null).slice().reverse(); const top = rows[0]; const home = tb?.abbr || 'HOME';
   const scoreLine = plays.length ? `${ta?.abbr} ${plays[plays.length - 1].a} – ${plays[plays.length - 1].b} ${tb?.abbr}` : null;

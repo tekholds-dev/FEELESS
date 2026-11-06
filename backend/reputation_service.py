@@ -18875,6 +18875,19 @@ async def internal_sicario_want(request: Request):
     return {'ok': True}
 
 
+@app.get('/api/reputation/internal/sicario-wallet')
+async def internal_sicario_wallet(request: Request):
+    """🎩 The Fuse wallet Sicario's trades from, read only: its address and what the card's own books say. Never a key."""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    cards = ((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}; tid = next((k for k, c in cards.items() if (c or {}).get('real')), None)
+    if not tid:
+        return {'address': None}
+    v = _fw_public(tid); r = v.get('reconciliation') or {}
+    return {'address': v.get('wallet'), 'cardSol': r.get('cardCashSol'), 'walletSol': r.get('walletSol'), 'reserveSol': r.get('gasReserveSol'), 'outsideSol': r.get('outsideCardSol')}
+
+
 @app.get('/api/reputation/internal/sicario-want')
 async def internal_sicario_fate(request: Request, mint: str = ''):
     """🎩 What the card did with that coin, in its own words."""
