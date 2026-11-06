@@ -58,7 +58,7 @@ test('a filed PoC keeps its response verdict visible and updates its print when 
   expect(setD).toHaveBeenCalled();
   expect(setD.mock.calls.at(-1)[0]({}).pocFolders[0].graded).toBe('right');
   expect(el.querySelector('[data-testid="poc-right-pc1"]').getAttribute('aria-pressed')).toBe('true');
-  expect(el.querySelector('[data-testid="poc-mark-pc1"] .prg path').getAttribute('stroke')).toBe('#4dea8f');
+  expect(el.querySelector('[data-testid="poc-mark-pc1"] .prg path:last-child').getAttribute('stroke')).toBe('#4dea8f');
   await act(async () => root.unmount());
 });
 

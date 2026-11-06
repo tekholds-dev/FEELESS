@@ -61,6 +61,30 @@ def clean(text):
     return text
 
 
+# 🧩 THE FEELESS KIT (owner 2026-11-06): our own new majors, read from the code that runs, so anything on main is in it at once. The owner sees its files in Fee's private folder. A user can pick it, and sees only its name.
+SRC = Path(__file__).resolve().parent.parent / 'frontend' / 'src'
+FEELESS_ID = 'feeless'
+FEELESS_FILES = ('styles/heroTheme.css', 'styles/chatKit.css', 'styles/meta.css', 'components/chat/ChatKit.jsx', 'components/command/KitPick.jsx', 'components/command/MoneyCharts.jsx', 'lib/proofprint.js')
+FEELESS_GUIDE_FILES = ('styles/heroTheme.css', 'styles/chatKit.css')
+FEELESS_VIEW = {'id': FEELESS_ID, 'name': 'Feeless Kit', 'what': "FEELESS's own look and parts, always current", 'license': 'Private', 'kinds': list(KINDS), 'added': True, 'private': True}
+
+
+def feeless_tree(src=SRC):
+    """{path: bytes} for the owner's private folder only. Read fresh from the running code. A missing file is skipped."""
+    out = {'feeless-kit/README.md': b'# Feeless Kit\n\nThe new majors, read live from main. Users can pick this kit; only you see its files.\n'}
+    for rel in FEELESS_FILES:
+        p = Path(src) / rel
+        if p.exists():
+            out[f'feeless-kit/{rel}'] = p.read_bytes()
+    return out
+
+
+def feeless_row(src=SRC):
+    """The kit as a proof reads it: our palette, fonts and component rules. The minds get this as reference. The user's folder never does."""
+    text = '\n'.join((Path(src) / f).read_text() for f in FEELESS_GUIDE_FILES if (Path(src) / f).exists())
+    return {'id': FEELESS_ID, 'name': 'Feeless Kit', 'what': FEELESS_VIEW['what'], 'kinds': list(KINDS), 'text': 'Black and very dark green surfaces, royal green #15d16a accent, JetBrains Mono for numbers, Unbounded for heroes, Sora for body. Glass panels with an inner highlight, live numbers, meters over paragraphs. Never copy the brand name onto another product.\n' + text}
+
+
 FOUND_FILE = 'found.dat'   # not *.json: rows() reads every .json here as a kit
 FOUND_MAX = 12
 FOUND_MIN_WEEKLY = 500
@@ -170,7 +194,7 @@ def catalog_view(root):
     have = {k['id']: k for k in rows(root)}
     listed = [{**view(have[kid]), 'added': True} if kid in have else {'id': kid, **{k: c[k] for k in ('name', 'what', 'site', 'license', 'kinds')}, 'added': False} for kid, c in CATALOG.items()]
     new = [{**view(have[x['id']]), 'added': True, 'found': True} if x['id'] in have else {k: x[k] for k in ('id', 'name', 'what', 'site', 'license', 'kinds', 'found', 'weekly')} | {'added': False} for x in found_rows(root)]
-    return listed + new
+    return [dict(FEELESS_VIEW)] + listed + new
 
 
 def auto_picks(root, kind, text, n=MAX_PICKS):
@@ -180,7 +204,8 @@ def auto_picks(root, kind, text, n=MAX_PICKS):
         hay = ' '.join([str(k.get('name')), str(k.get('what')), ' '.join(vitals(k.get('text'))['sample'])]).lower()
         return (sum(1 for w in words if w in hay), 1 if kind in (k.get('kinds') or []) else 0)
     ranked = sorted(rows(root), key=score, reverse=True)
-    return [k['id'] for k in ranked if score(k) != (0, 0) and (not k.get('found') or kind == 'pos')][:n]
+    chosen = [k['id'] for k in ranked if score(k) != (0, 0) and (not k.get('found') or kind == 'pos')]
+    return ([FEELESS_ID] + chosen)[:n] if kind == 'pos' else chosen[:n]
 
 
 OPEN_LINE = '\nYou chose these kits for this request. If a free, open-source kit (MIT or Apache) not listed here fits better, you may use it instead. Name it and its license.'
@@ -189,7 +214,8 @@ OPEN_LINE = '\nYou chose these kits for this request. If a free, open-source kit
 def line(root, kind, picks=(), open_kits=False):
     """What a proof carries: the picks first, then the other kits for this kind of proof, sharing one small budget. Empty when no kit fits."""
     picks = [p for p in picks or []]
-    fit = [k for k in rows(root) if kind in (k.get('kinds') or []) or (k['id'] in picks and not k.get('found'))]   # a kit from the daily search only ever reaches a sandboxed PoStatic build
+    extra = [feeless_row()] if FEELESS_ID in picks else []
+    fit = extra + [k for k in rows(root) if kind in (k.get('kinds') or []) or (k['id'] in picks and not k.get('found'))]   # a kit from the daily search only ever reaches a sandboxed PoStatic build
     if not fit:
         return OPEN_LINE if open_kits else ''
     fit.sort(key=lambda k: picks.index(k['id']) if k['id'] in picks else len(picks))

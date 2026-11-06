@@ -16,6 +16,10 @@ export function identityOf(seed) {
     gaps: Array.from({ length: 18 }, () => (r() < 0.62 ? [r() * 6.28, 0.05 + r() * 0.14] : null)) };
   memo.set(key, id); return id;
 }
+// 🧬 Each kind of proof draws its own way: its own pattern family and ink. The seed makes each agent's and each folder's print its own.
+export const KIND_PRINT = { pow: { family: 0, ink: '#3ee58a' }, pop: { family: 4, ink: '#ff5dbb' }, pob: { family: 3, ink: '#ffb454' }, poc: { family: 1, ink: '#c58bff' }, pos: { family: 5, ink: '#57c7ff' }, poe: { family: 2, ink: '#f2c14e' } };
+export const kindOfFolder = fid => { const f = String(fid || '').toLowerCase(); return f.startsWith('ps') ? 'pos' : f.startsWith('pob') ? 'pob' : f.startsWith('poc') || f.startsWith('pc') ? 'poc' : f.startsWith('pop') ? 'pop' : f.startsWith('pe') || f.startsWith('poe') ? 'poe' : 'pow'; };
+export function kindIdentity(seed, kind, fid = '') { const k = KIND_PRINT[kind] ? kind : 'pow'; return { ...identityOf(`${seed}:${k}${fid ? `:${fid}` : ''}`), family: KIND_PRINT[k].family, kind: k, ink: KIND_PRINT[k].ink }; }
 export const ringRy = (j, id) => (24 + j * 10.3) * (id?.sy || 1);
 export function geom(id, j, t) {
   const rx = (20 + j * 8.2) * id.sx; const ry = (24 + j * 10.3) * id.sy; const turn = id.family === 1 ? (t / 6.2832) * 9 : 0; let x = Math.cos(t) * (rx + turn); let y = Math.sin(t) * (ry + turn);

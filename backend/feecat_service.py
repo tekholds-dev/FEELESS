@@ -1504,7 +1504,7 @@ def _git_files(cat, collective):
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
-    files.update(_kits.tree(KITS_DIR))
+    files.update(_kits.tree(KITS_DIR)); files.update(_kits.feeless_tree())   # 🧩 only the Collective's own folder, read from the running code
     return _cg.without_leaks(files)[0], counts
 
 
@@ -6741,8 +6741,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_pick':
-            known_ = set(_kits.CATALOG) | {x['id'] for x in _kits.found_rows(KITS_DIR)}; want_ = [x for x in str(p.text or '').split(',') if x in known_][:_kits.MAX_PICKS]; have_ = {k['id'] for k in _kits.rows(KITS_DIR)}
-            for kid_ in [x for x in want_ if x not in have_]:   # only the catalog's fixed addresses, the guide is text
+            known_ = set(_kits.CATALOG) | {x['id'] for x in _kits.found_rows(KITS_DIR)} | {_kits.FEELESS_ID}; want_ = [x for x in str(p.text or '').split(',') if x in known_][:_kits.MAX_PICKS]; have_ = {k['id'] for k in _kits.rows(KITS_DIR)}
+            for kid_ in [x for x in want_ if x not in have_ and x != _kits.FEELESS_ID]:   # only the catalog's fixed addresses, the guide is text
                 try:
                     async with httpx.AsyncClient() as h_:
                         await _kits.add(h_, KITS_DIR, kid_)

@@ -27,9 +27,9 @@ export function KitPick({ cat, work }) {
               <button type="button" role="checkbox" aria-checked={on} disabled={!!busy || full} onClick={() => flip(k.id)} data-tip={full ? `Up to ${max}. Remove one first` : on ? 'Remove it' : k.added ? 'Read it first' : 'Downloads its guide, then reads it first'} data-testid={`kit-pick-${k.id}`}>
                 <i className="kit-box" aria-hidden="true">{on ? d.picks.indexOf(k.id) + 1 : ''}</i>
                 <span><b>{k.name}{k.found ? <i className="kit-new">NEW</i> : null}</b><small>{k.what}</small></span>
-                <em className="m-num">{busy === k.id ? 'Getting…' : k.added ? `${k.vitals?.items || 0} listed` : 'Not added'}</em>
+                <em className="m-num">{busy === k.id ? 'Getting…' : k.private ? 'FEELESS' : k.added ? `${k.vitals?.items || 0} listed` : 'Not added'}</em>
               </button>
-              <a href={k.site} target="_blank" rel="noopener noreferrer" aria-label={`Open ${k.name}'s site`} data-tip={`${k.license} · opens its site in a new tab`}>↗</a>
+              {k.private ? null : <a href={k.site} target="_blank" rel="noopener noreferrer" aria-label={`Open ${k.name}'s site`} data-tip={`${k.license} · opens its site in a new tab`}>↗</a>}
             </li>; })}</ul>
           {fresh ? <button type="button" className="m-btn kit-more" aria-expanded={showNew} onClick={() => setShowNew(x => !x)} data-tip="Popular free kits found this week, with an AI guide on their own site. They only reach PoStatic builds" data-testid="kit-new">{showNew ? 'Hide new kits' : `${fresh} new to try`}</button> : null}
           {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}

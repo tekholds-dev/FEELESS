@@ -1,7 +1,7 @@
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
-import { fitBox, identityOf, inkOf, ridge, segment } from '../../lib/proofprint';
+import { fitBox, identityOf, inkOf, ridge, segment, kindIdentity, kindOfFolder } from '../../lib/proofprint';
 import '../../styles/proofKit.css';
 
 // 🧰 THREE TOOLS IN EVERY PROOF FOLDER (owner 2026-11-05). Each one reads the agent's own filed proofs, so a number here is always something that really happened. Too few proofs says so; nothing is ever filled in.
@@ -73,10 +73,12 @@ const FingerprintLazy = lazy(() => import('./Proofprint').then(m => ({ default: 
 // 🖊 One folder's own ridge, coloured by its real result: green strong, gold medium, red weak, grey for no result yet.
 export const PrintSeed = createContext('agent');
 export const PrintLines = createContext({});
-export function FolderRidge({ fid, score = null, size = 26 }) {
-  const seed = useContext(PrintSeed); const line = useContext(PrintLines)[fid]; const id = useMemo(() => identityOf(seed), [seed]); const d = useMemo(() => { let h = 7; for (const c of String(fid)) h = (h * 31 + c.charCodeAt(0)) % 9973; return ridge(id, 2 + (h % 14), 40); }, [id, fid]);
-  if (line) return <svg className="prg is-line" viewBox={fitBox(line.i * 2 + 4, id)} width={size} height={size} aria-hidden="true" data-ring={line.i}><path d={ridge(id, line.i * 2 + 2, 40)} fill="none" strokeWidth="5" stroke="#8a93a666" /><path d={segment(id, line.i, line.a, line.b)} fill="none" strokeWidth="14" strokeLinecap="round" stroke={inkOf(line.score)} /></svg>;
-  return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true"><path d={d} fill="none" strokeWidth="9" stroke={score == null ? '#8a93a6' : inkOf(score)} /></svg>;
+const FACE_RINGS = [3, 7, 11, 15];
+export function folderFace(seed, kind, fid) { const id = kindIdentity(seed, kind || kindOfFolder(fid), fid); return { id, rings: FACE_RINGS.map(j => ridge(id, j, 40)) }; }
+export function FolderRidge({ fid, score = null, size = 26, kind = null }) {
+  const seed = useContext(PrintSeed); const line = useContext(PrintLines)[fid]; const face = useMemo(() => folderFace(seed, kind, fid), [seed, kind, fid]); const { id } = face;
+  if (line) return <svg className="prg is-line" viewBox={fitBox(line.i * 2 + 4, id)} width={size} height={size} aria-hidden="true" data-ring={line.i}><path d={ridge(id, line.i * 2 + 2, 40)} fill="none" strokeWidth="5" stroke={`${id.ink}66`} /><path d={segment(id, line.i, line.a, line.b)} fill="none" strokeWidth="14" strokeLinecap="round" stroke={inkOf(line.score)} /></svg>;
+  return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true" data-kind={id.kind}>{face.rings.map((d, i) => <path key={i} d={d} fill="none" strokeWidth={i === face.rings.length - 1 ? 12 : 7} stroke={i === face.rings.length - 1 ? (score == null ? id.ink : inkOf(score)) : `${id.ink}88`} />)}</svg>;
 }
 // 🧾 What something cost, faint until you want it. Click for the receipt. Only real recorded costs: no cost recorded shows nothing.
 export const shortCost = v => { const n = Number(v) || 0; if (!n) return '$0'; if (n >= 1) return `$${n.toFixed(2)}`; const t = n.toFixed(n < 0.001 ? 5 : n < 0.01 ? 4 : 3).replace(/0+$/, ''); return `$${t.slice(1)}`; };
@@ -90,7 +92,7 @@ export function CostTicket({ usd, rows = null, title = 'Receipt' }) {
 export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null, cost = null }) {
   return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
     {kind === 'dir' ? <i className="dsk-ico-art" aria-hidden="true"><em><Ic3 e={ic} size="30px" /></em></i> : <i className="dsk-file" aria-hidden="true"><em><Ic3 e={ic} size="22px" /></em></i>}
-    {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}{cost != null ? <small className="dsk-xt-cost m-num">{shortCost(cost)}</small> : null}</button>;
+    {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} kind={print[2]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}{cost != null ? <small className="dsk-xt-cost m-num">{shortCost(cost)}</small> : null}</button>;
 }
 // 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.
 const STEPS = {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ic3 } from '../../lib/icon3d';
-import { scoreOf, band, collectivePrint, faintCount, fitBox, identityOf, inkOf, pickTwo, printOf, ridge, ringPoint, segment, spans, statsOf } from '../../lib/proofprint';
+import { scoreOf, band, collectivePrint, faintCount, fitBox, identityOf, inkOf, pickTwo, printOf, ridge, ringPoint, segment, spans, statsOf, kindIdentity } from '../../lib/proofprint';
 import { proofRows } from './ProofsFolder';
 import { LiveCount } from './BoostFolder';
 import { BoostCoin } from './DeskShell';
@@ -118,7 +118,7 @@ export function printHealth(rows) {
   return { ...st, filed: rows.length, open, score, verdict, lacks, reading };
 }
 export function ProofFingerprint({ kind, cat, d, pool, size = 92, label = false }) {
-  const [open, setOpen] = useState(false); const id = useMemo(() => identityOf(pool?.printSeed || cat?.id || 'agent'), [pool?.printSeed, cat?.id]); const rows = useMemo(() => proofRows(d).filter(r => r.kind === kind).map(r => ({ ...r, shots: (r.shots || []).map(s => ({ ...s, src: String(s.src || '').replace('{cat}', cat?.id) })) })), [d, kind, cat?.id]);
+  const [open, setOpen] = useState(false); const id = useMemo(() => kindIdentity(pool?.printSeed || cat?.id || 'agent', kind), [pool?.printSeed, cat?.id, kind]); const rows = useMemo(() => proofRows(d).filter(r => r.kind === kind).map(r => ({ ...r, shots: (r.shots || []).map(s => ({ ...s, src: String(s.src || '').replace('{cat}', cat?.id) })) })), [d, kind, cat?.id]);
   const print = useMemo(() => printOf(rows), [rows]); const h = useMemo(() => printHealth(rows), [rows]); const rings = print.rings; const box = fitBox(Math.max(rings.length * 2 + 4, 18), id); const ghost = useMemo(() => Array.from({ length: 8 }, (_, i) => ridge(id, 2 + i * 2, 40)), [id]);
   const traits = list => (list || []).filter(t => TRAIT[kind].test(t.t)).slice(0, 4);
   useEffect(() => { if (!open) return undefined; const k = e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }; window.addEventListener('keydown', k, true); return () => window.removeEventListener('keydown', k, true); }, [open]);

@@ -842,7 +842,7 @@ function PowExplorer({ cat, d, setD }) {
   else if (!f) body = <>
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
-    <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} print={[x.id, x.pnlPct != null ? Math.max(0, Math.min(100, 50 + Number(x.pnlPct))) : null]} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
+    <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} print={[x.id, x.pnlPct != null ? Math.max(0, Math.min(100, 50 + Number(x.pnlPct))) : null, 'pow']} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
       label={`${x.kept ? '📌 ' : ''}${String(x.name).split(' · ')[0]}`} sub={x.live ? `● ${x.phase}` : x.pnlPct != null ? `${x.pnlPct >= 0 ? '+' : ''}${x.pnlPct}%` : (x.name.split(' · ').slice(1).join(' ') || x.status)}
       onOpen={() => setPath([x.id])} tip={`${x.name} — ${x.why || x.phase}`} testid={`dsk-x-${x.id}`} />)}
       {rows?.length ? <Tile i={all.length} tone="none" ic="🗃" label="Older proofs" sub={`${rows.length}`} onOpen={() => setPath(['old'])} tip="The single-coin proofs filed before PoW folders" testid="dsk-x-old" /> : null}</div>
