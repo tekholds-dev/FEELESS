@@ -56,9 +56,9 @@ export const TOUR = [
   { at: 'dsk-ico-pow', t: 'PoW', x: 'Real research, a small real buy, a hold, a filed folder. Type a site at the top to use it first.', e: '⛏' },
   { at: 'dsk-ico-pop', t: 'PoP', x: 'Both minds call perps blind. It runs on paper at true prices.', e: '📉' },
   { at: 'dsk-ico-bids', t: 'PoB', x: 'Ask anything: "file a pob best NFL picks". It reads ESPN and others and keeps snapshots.', e: '🎲' },
-  { at: 'dsk-ico-sources', t: 'Sources', x: 'Every site it has used, what each was good for, and where you can sign it in.', e: '🌐' },
-  { at: 'dsk-ico-mail', t: 'Its email', x: 'Its own mailbox, so it can sign up and read its codes.', e: '📧' },
-  { at: 'dsk-ico-cmds', t: 'Commands', x: 'Everything it understands. New ones appear as you scan and sign in to sites.', e: '⌘' },
+  { at: 'dsk-ico-browser', t: 'Browser and Sources', x: 'Its browser. A tab inside shows every site it has used, and you can sign it in there.', e: '🌐' },
+  { at: 'dsk-ico-browser', t: 'Its email', x: 'Also a tab in Browser: its own mailbox, so it can sign up and read its codes.', e: '📧' },
+  { at: 'dsk-ico-manual', t: 'Commands', x: 'A tab in the Manual, with its terms and desktop settings: everything it understands.', e: '⌘' },
   { at: 'dsk-ico-manual', t: 'The Manual', x: 'How each part works, with this tour one click away.', e: '📖' },
 ];
 export const tourSeen = () => { try { return !!localStorage.getItem(TOUR_KEY); } catch { return true; } };

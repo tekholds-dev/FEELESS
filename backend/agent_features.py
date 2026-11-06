@@ -113,6 +113,16 @@ def new_doc(row):
     return {**row, 'messages': [], 'versions': [], 'busy': None}
 
 
+def answers_of(doc, owner_names=()):
+    """Each mind's newest written answer in a folder's chat, for filing as a proof. Pure."""
+    latest = {}
+    for m in doc.get('messages') or []:
+        by = str(m.get('by') or '')
+        if by and by not in owner_names and len(str(m.get('text') or '')) >= 40:
+            latest[by] = str(m['text'])
+    return [{'mind': i, 'name': by[:24], 'angle': by[:24], 'post': text[:4000]} for i, (by, text) in enumerate(latest.items())][:2]
+
+
 def add_msg(doc, by, text, now):
     doc['messages'] = (doc.get('messages') or []) + [{'by': by, 'text': str(text)[:4000], 'at': round(now)}]
     doc['messages'] = doc['messages'][-MAX_MSG:]

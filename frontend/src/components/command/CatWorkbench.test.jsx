@@ -561,3 +561,9 @@ test('a folder that arrives after the first paint has its place in that same ren
   expect(el.querySelectorAll('.dsk-ico').length).toBe(2);
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('a folded folder has one icon on the desktop and every sibling one tab away', () => {
+  const { FOLD_INTO, foldGroup } = require('./CatWorkbench');
+  expect(foldGroup('mail')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('browser')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('manual')).toEqual(['manual', 'terms', 'cmds', 'deskset']); expect(foldGroup('pow')).toBeNull();
+  Object.values(FOLD_INTO).forEach(home => expect(FOLD_INTO[home]).toBeUndefined());   // never a folder inside a folder inside a folder
+});

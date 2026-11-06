@@ -1832,6 +1832,18 @@ async def _tx_shot(sig, sol):
         RECEIPTS_DIR.mkdir(parents=True, exist_ok=True); (RECEIPTS_DIR / f"{re.sub(r'[^A-Za-z0-9]', '', str(sig))[:90]}.tx.jpg").write_bytes(rows[0]['jpg'])
 
 
+PROOF_LISTS = {'PoW': 'powFolders', 'PoP': 'popFolders', 'PoB': 'pobFolders', 'PoC': 'pocFolders', 'PoS': 'psFolders'}
+
+
+def _proof_folder(cat, pid):
+    """(kind, folder) for any of its filed proofs."""
+    for kind, key in PROOF_LISTS.items():
+        for f in cat.get(key) or []:
+            if f.get('id') == pid:
+                return kind, f
+    return None, None
+
+
 async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
     """💎 Read the send back from the chain. Only a real, successful send of at least its share earns the receipt and the boost. → True when it checked out."""
     addr = (cat.get('agentWallet') or {}).get('address')
@@ -1841,15 +1853,16 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
         print(f"[collect] {cat.get('id')}: not verified: {why}")
         return False
     RECEIPTS_DIR.mkdir(parents=True, exist_ok=True)
-    _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
+    _receipt_path(sig).write_bytes(_cl.receipt_jpg({'agent': cat.get('name'), 'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pnlPct': folder.get('pnlPct'), 'sol': got / 1e9, 'pct': pct, 'from': addr, 'to': pot, 'slot': (tx or {}).get('slot'), 'at': (tx or {}).get('blockTime') or now, 'sig': sig}))
     px = await _pool_px(http); usd_ = got / 1e9 * px; str_ = _print.strength(cat, now); pol_ = _cpool.load(POOL_PATH)['cfg']   # ⚡ points scale with its dollars and its print's strength
     seen_ = {x.get('sig') for x in _shares() if x.get('sig') and x.get('verified') and (x.get('proof') or {}).get('id') != folder.get('id')}
-    rev_ = _val.review(folder, sig, got / 1e9, _cl.send_block(folder, cat, _load()['cats']), seen_, now); folder['review'] = rev_   # ⚖ five agents check it, from the record alone
+    kind_ = _proof_folder(cat, folder.get('id'))[0] or 'PoW'
+    rev_ = _val.review(folder, sig, got / 1e9, _cl.send_block(folder, cat, _load()['cats']), seen_, now) if kind_ == 'PoW' else _val.review_work(folder, kind_, usd_, sig, seen_, now); folder['review'] = rev_   # ⚖ five agents check it, from the record alone
     if rev_['ok']:
-        _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name')} paid the Pool")
+        _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name') or folder.get('topic')} paid the Pool")
 
     def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_)}, (cat.get('colonyShare') or {}).get('plan'))
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_)}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -1901,6 +1914,7 @@ async def _collect_pass(http, store, now):
         cat = store['cats'].get(x.get('cat'))
         if x.get('sig') and x.get('sent') and x.get('verified') is False and cat:
             folder = next((f for f in cat.get('powFolders') or [] if f.get('id') == (x.get('proof') or {}).get('id')), None)
+            folder = folder or _proof_folder(cat, (x.get('proof') or {}).get('id'))[1]
             if folder and await _collect_verify(http, cat, folder, x['sig'], pot, x.get('sol'), x.get('pct'), now):
                 _share_update(x['cat'], x.get('ref'), {'verified': True})
 
@@ -5716,7 +5730,7 @@ def _poc_view(cat):
     return [{**f, 'stamp': _stamp.of('PoC', f, time.time())} for f in (cat.get('pocFolders') or [])[::-1]]
 
 
-async def _poc_file(cat_id, topic):
+async def _poc_file(cat_id, topic, ws=None):
     """📣 PROOF OF CONTENT: its PoI is what was trending when it decided. Each mind proposes blind; the owner marks how it did. Nothing is posted by this."""
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
@@ -5745,7 +5759,7 @@ async def _poc_file(cat_id, topic):
         store = _load(); c_ = store['cats'].get(cat_id)
         if c_:
             rows = list(c_.get('pocFolders') or [])
-            rows.append({'id': pid_, 'shots': shots_, 'sitesRead': sites_read_, 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
+            rows.append({'id': pid_, **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
             c_['pocFolders'] = rows[-60:]
             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows)} is filed: {len(calls)} ideas from what is trending. Nothing was posted.", 'at': time.time(), 'open': 'features'}])[-200:]
             if cost and not paid_own and c_.get('brainsCfg'):
@@ -6707,8 +6721,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if cat_id in _POC_BUSY:
             raise HTTPException(409, 'A PoC is already being filed.')
         topic_ = str(p.text or '').strip()[:120]
-        _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_))
+        _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_, str(p.job or '') or None))
         return {'ok': True, 'pocFolders': _poc_view(cat)}
+    if p.op == 'poc_answer':   # 🧾 what the minds wrote in this folder's chat becomes its filed proof, so it can be marked and sent
+        doc_ = _ws_load(cat['id'], str(p.job or ''))
+        calls_ = _feat.answers_of(doc_ or {}, owner_names=('You', 'you', 'owner'))
+        if not calls_:
+            raise HTTPException(400, 'No answer from its minds in this folder yet.')
+        rows_ = list(cat.get('pocFolders') or [])
+        rows_.append({'id': f'poc{int(time.time())}', 'ws': doc_.get('id'), 'n': len(rows_) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True})
+        cat['pocFolders'] = rows_[-60:]; keep_owned(cat); _save(store)
+        return {'pocFolders': _poc_view(cat)}
     if p.op == 'proof_cfg':   # 🔁 ask first, or just do it, per kind of proof
         try:
             cfg_ = _plan.set_auto(cat, p.text, bool(p.on))
@@ -7042,11 +7065,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(409, 'A send is already on its way.')
         sol_ = round(float(p.cap or 0), 6)
         try:
-            attach_ = _colony.attach_of(cat, _shares(), p.job, p.text)
-            if attach_.get('proof'):   # 💎 a proof goes only if it won +50% or more, and with at least its share
-                f_ = next((x for x in cat.get('powFolders') or [] if x.get('id') == attach_['proof'].get('id')), None)
-                if not f_ or not _cl.qualifies(f_):
-                    raise ValueError('Only a real proof that won +50% or more can go to the Pool.')
+            if not p.job:
+                raise ValueError('Every send goes with a proof. Pick one of its filed proofs.')   # 🧾 owner 2026-11-06: every send must come with a proof
+            attach_ = _colony.attach_of(cat, _shares(), p.job, '')
+            kind_, f_ = _proof_folder(cat, attach_['proof'].get('id'))
+            if not f_:
+                raise ValueError('Pick one of its filed proofs.')
+            floor_ = float(_cpool.load(POOL_PATH)['cfg'].get('minStakeUsd') or 1)
+            if sol_ * await _pool_px() < floor_:
+                raise ValueError(f'Send at least ${floor_:g} with a proof.')
+            if kind_ == 'PoW':   # 💎 a real trade keeps its rule: only a win of +50% or more, with at least its share
+                if not _cl.qualifies(f_):
+                    raise ValueError('A PoW goes to the Pool only if it won +50% or more.')
                 if sol_ < _cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5):
                     raise ValueError(f"Send at least {_cl.cut_sol(f_, (cat.get('colonyShare') or {}).get('pct') or 5)} SOL: its share of this proof.")
                 if sol_ > _cl.cut_sol(f_, 25) + 1e-9:
@@ -7075,16 +7105,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         verified_ = False
         if attach_.get('proof'):
             async with httpx.AsyncClient(timeout=15) as http_v:
-                f_ = next(x for x in cat.get('powFolders') or [] if x.get('id') == attach_['proof'].get('id'))
                 try:
                     verified_ = await _collect_verify(http_v, cat, f_, rec_['sig'], pot_, sol_, (cat.get('colonyShare') or {}).get('pct'), time.time())
                 except Exception as e:   # noqa: BLE001 — the engine reads it again
                     print(f'[collect] verify later: {str(e)[:100]}')
-        if not attach_.get('proof'):   # sent with a reason: a gift to the Collective, it earns no count
-            _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f"gift:{rec_['sig']}", 'SOL', int(sol_ * 1e9), 'gift'))
         _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None, 'ref': rec_.get('sig'),
                        'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig'), **attach_, **({'verified': verified_} if attach_.get('proof') else {})}, (rec_.get('sig'), cat_id))
-        return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}
+        keep_owned(cat); _save(store)   # its folder now holds the send and the five checks
+        return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}, 'verified': verified_, 'review': f_.get('review')}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:
             out_ = _cv.put_secret(cat, p.job or 'sealed note', text=p.secret or '', site=p.text or '', data_dir=DATA_DIR)

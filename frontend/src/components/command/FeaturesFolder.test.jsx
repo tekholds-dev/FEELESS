@@ -46,7 +46,7 @@ test('the next move follows what is off', () => {
 });
 
 test('a filed PoC keeps its response verdict visible and updates its print when marked', async () => {
-  const f = { id: 'pc1', n: 1, topic: 'Memecoin narratives', calls: [{ mind: 0, post: 'Three narratives to watch' }] };
+  const f = { id: 'pc1', n: 1, ws: 'w1', topic: 'Memecoin narratives', calls: [{ mind: 0, post: 'Three narratives to watch' }] };
   const work = jest.fn(async (_, b) => b.op === 'poc_mark' ? { pocFolders: [{ ...f, graded: b.text }] } : b.op === 'ws_open' ? { doc: { messages: [] } } : { workspaces: [{ id: 'w1', kind: 'content', name: 'Ideas' }], pocFolders: [f], psFolders: [] });
   const setD = jest.fn();
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
@@ -153,5 +153,20 @@ test('Save keeps a page in its own folder and can take it out again', async () =
   expect(calls[0]).toEqual({ op: 'ws_repo', text: 'w1', on: true }); expect(doc.savedToRepo).toBe(true);
   await act(async () => { draw(); }); expect(el.querySelector('[data-testid="ws-save-repo"]').textContent).toBe('Saved');
   await act(async () => { el.querySelector('[data-testid="ws-save-repo"]').click(); }); expect(calls[1].on).toBe(false);
+  await act(async () => { root.unmount(); }); el.remove();
+});
+
+test('a folder opens with its own proof only, can file its answer, and any proof sends only on the second tap', async () => {
+  const mine = { id: 'pa', n: 2, ws: 'w1', topic: 'Narrative Finder', calls: [{ mind: 0, post: 'A real thesis' }] }; const other = { id: 'pb', n: 1, topic: 'Memecoin trends', calls: [{ mind: 0, post: 'Some other proof' }] };
+  const work = jest.fn(async (_, b) => (b.op === 'ws_open' ? { doc: { id: 'w1', messages: [{ by: 'Mind A', text: 'x'.repeat(50) }] } } : b.op === 'poc_answer' ? { pocFolders: [mine, other] } : b.op === 'pot_send' ? { sent: { sol: 0.05, sig: 'SIG' }, review: { seats: [{ k: 'tally', name: 'Tally', ok: true, why: 'ok' }] } } : { workspaces: [{ id: 'w1', kind: 'content', name: 'Narrative Finder' }], pocFolders: [mine, other], psFolders: [] }));
+  jest.spyOn(require('../../lib/solPrice'), 'useSolPrice').mockReturnValue(100);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = t => el.querySelector(`[data-testid="${t}"]`);
+  await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} setD={() => {}} />); });
+  await act(async () => { q('ws-w1').click(); });
+  expect(q('poc-pa')).not.toBeNull(); expect(q('poc-pb')).toBeNull(); expect(q('poc-mark-pa')).not.toBeNull(); expect(q('poc-mark-pb')).toBeNull();
+  await act(async () => { q('poc-file-answer').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'poc_answer', job: 'w1' }));
+  await act(async () => { q('proof-usd-5').click(); }); await act(async () => { q('proof-send').click(); });
+  expect(work.mock.calls.some(c => c[1].op === 'pot_send')).toBe(false); expect(q('proof-send').textContent).toBe('Yes, send $5');
+  await act(async () => { q('proof-send').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'pot_send', job: 'pa', cap: 0.05 })); expect(q('proof-submit-sent').textContent).toContain('$5');
   await act(async () => { root.unmount(); }); el.remove();
 });

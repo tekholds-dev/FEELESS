@@ -50,6 +50,27 @@ def archivist(f, sig, seen_sigs=()):
     return True, 'Closed, real, in order, and sent once.'
 
 
+WORK_FLOOR_USD = 1.0
+
+
+def _work_evidence(f):
+    """Real work on file: a mind's written answer, a built page, snapshots, or readings."""
+    said = sum(len(str(c.get('post') or c.get('why') or '')) for c in f.get('calls') or [] if isinstance(c, dict))
+    return said >= 40 or bool(f.get('ws') or f.get('version')) or bool(f.get('shots')) or bool(f.get('reads') or f.get('sources'))
+
+
+def review_work(f, kind, usd, sig, seen_sigs=(), now=0):
+    """A proof of work that is not a real trade: content, a page, a paper call. There is no profit to add up, so Tally reads the dollars, Sherlock the work on file, Devil its own mark and result, Archivist the record. Same shape as `review`, and a held proof earns nothing until the owner clears it."""
+    lost = f.get('graded') == 'wrong' or f.get('won') is False
+    rows = {'tally': (float(usd or 0) >= WORK_FLOOR_USD, f'${float(usd or 0):.2f} sent with it.' if float(usd or 0) >= WORK_FLOOR_USD else 'Under the $1 minimum.'),
+            'sherlock': (_work_evidence(f), f'Its {kind} work is on file.' if _work_evidence(f) else 'Nothing on file shows the work.'),
+            'devil': (not lost, 'Its record does not say it failed.' if not lost else 'Its own record says it did not work.'),
+            'archivist': (bool(f.get('id')) and sig not in (seen_sigs or ()), 'Filed, and sent once.' if sig not in (seen_sigs or ()) else 'This transaction has been used before.')}
+    fails = [SEATS[k][0] for k, (ok, _) in rows.items() if not ok]
+    rows['judge'] = (not fails, 'All four agree.' if not fails else f"Held: {', '.join(fails)} said no.")
+    return {'ok': not fails, 'at': round(now), 'seats': [{'k': k, 'name': SEATS[k][0], 'does': SEATS[k][1], 'ok': v[0], 'why': v[1]} for k, v in rows.items()]}
+
+
 def review(f, sig, sent_sol, block_why='', seen_sigs=(), now=0):
     """→ {ok, at, seats: [{k, name, does, ok, why}]}. The Judge passes only when the others all do."""
     rows = {'tally': tally(f, sent_sol), 'sherlock': sherlock(f), 'devil': devil(f, block_why), 'archivist': archivist(f, sig, seen_sigs)}
