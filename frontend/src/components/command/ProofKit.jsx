@@ -1,3 +1,4 @@
+import { KitPick } from './KitPick';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
@@ -113,10 +114,11 @@ function SiteFile({ kind, cat, work, onBrowse }) {
     <p className="psf-note">It looks here before it makes anything, then makes its own version. Once the Stash has 5 graded proofs from a site, real results move it up or down.</p>
     {!rows ? <small>Reading…</small> : groups.map(g => <section key={g}><h5>{g}</h5><ul className="phd-src">{shown.filter(r => r.group === g).map(r => <li key={r.host}><a href={`https://${r.host}`} target="_blank" rel="noopener noreferrer"><b>{r.name}</b><small>{r.what}</small></a>{r.trust != null ? <em className={`m-num ${r.trust >= 50 ? 'is-up' : 'is-dn'}`} data-tip={`${r.won} won, ${r.lost} lost, from the Stash`}>{r.trust}%</em> : r.reads ? <em className="m-num" data-tip="Times it was read, too few graded to trust yet">{r.reads}×</em> : null}{onBrowse ? <button type="button" className="m-btn" onClick={() => onBrowse(r.host.split('/')[0])} data-tip="Opens it in its Browser" data-testid={`phd-open-${r.host}`}>Open</button> : null}</li>)}</ul></section>)}</div>;
 }
+const KIT_KIND = { pow: 'pow', pop: 'pop', bids: 'pob', poc: 'poc', postatic: 'pos' };
 export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse }) {
   const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address || cat?.agentWallet?.address);
   const costOf = rows => (rows || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0); const spent = costOf(folders); const known = (folders || []).some(f => f.cost != null || f.costUsd != null); const allKinds = [['PoW', d?.powFolders], ['PoP', d?.popFolders], ['PoB', d?.pobFolders], ['PoC', d?.pocFolders], ['PoStatic', d?.psFolders], ['Jobs', d?.jobs]]; const everything = allKinds.reduce((sum, [, r]) => sum + costOf(r), 0);
   return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={84} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small>{known ? <small className="phd-cost m-num" data-testid={`phd-cost-${kind}`}>{shortCost(spent)} on these. <CostTicket usd={everything} title="All its model calls" rows={allKinds.map(([k, r]) => [k, shortCost(costOf(r))])} /> on every proof and job</small> : null}</span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
     <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
-    {open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}</section>;
+    {work && cat?.id ? <KitPick cat={cat} work={work} kind={KIT_KIND[kind] || 'all'} /> : null}{open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}</section>;
 }

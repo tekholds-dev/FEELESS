@@ -11645,12 +11645,30 @@ async def familia_autorange_arm(request: Request):
     return {'ok': True, 'bands': len(rows_)}
 
 
+async def _collective_band_pass():
+    """🏊 Each Collective pool with a band, against its live price: a ping to the owner when it sits out of range. It moves nothing."""
+    import range_pools as _rp
+    rows_ = [p_ for p_ in (_cpool.load(POOL_PATH).get('pools') or []) if p_.get('on') and p_.get('mint') and p_.get('bandLow') and p_.get('bandHigh')]
+    for p_ in rows_:
+        got_ = await familia_pools_ranges(mint=p_['mint'], quote='', top=0); px_ = next((x_['price'] for x_ in got_.get('pools') or [] if x_['pool'] == p_['address']), None)
+        band_, msg_ = _rp.watch_step({**(p_.get('watch') or {}), 'lo': p_['bandLow'], 'hi': p_['bandHigh'], 'sym': p_['pair']}, px_, time.time())
+        def keep(st, id_=p_['id'], b_=band_):
+            r_ = next((x_ for x_ in st.get('pools') or [] if x_['id'] == id_), None)
+            if r_:
+                r_['watch'] = {k_: b_[k_] for k_ in ('outSince', 'alertedAt') if b_.get(k_)}
+        _cpool.update(POOL_PATH, keep)
+        if msg_:
+            for w_ in list(_admin_wallets())[:3]:
+                notify(w_, 'autorange', msg_.replace('(your wallet signs)', '(by hand, on the venue)'), url='/terminal', meta={'claim': 'autorange', 'source': 'collective'})
+
+
 async def _autorange_watch():
     """Every minute: each armed band vs its pool's own live price (the venue API, cached 2 min) → a phone ping when a move is due."""
     import range_pools as _rp
     while True:
         await asyncio.sleep(60)
         try:
+            await _collective_band_pass()
             st_ = _json_load(AUTORANGE_PATH, {}) or {}
             if not st_:
                 continue

@@ -11,6 +11,7 @@ import { ColonyFlow, PowEngine } from './HiveBoard';
 const CollectiveLandingLazy = React.lazy(() => import('./CollectiveLanding').then(m => ({ default: m.CollectiveLanding })));
 import { CollectiveOwner } from './CollectiveOwner';
 import { useOwnerFolders } from './OwnerFolders';
+import { Tabs } from '@heroui/react';
 import { AgentDesk } from './AgentDesk';
 import '../../styles/collectiveSetup.css';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -206,8 +207,7 @@ export function FeeCatDesk({ call }) {
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run"><Ic3 e="⚡" /> Run a cycle</button></span>
     </header>
-    <nav ref={root} className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
-      className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}><Ic3Text text={l} /></button>)}</nav>
+    <div ref={root}><Tabs selectedKey={tab} onSelectionChange={k => pickTab(String(k))} className="fch-tabs" aria-label="Fee's desk"><Tabs.ListContainer><Tabs.List aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <Tabs.Tab key={k} id={k} data-tip={tip} data-testid={`fch-tab-${k}`}><Ic3Text text={l} /><Tabs.Indicator /></Tabs.Tab>)}</Tabs.List></Tabs.ListContainer></Tabs></div>
     {tab === 'owner' ? <OwnerDesk cat={c} trades={trades} feeApps={[
       { k: 'lane', ic: '🎚', label: 'Lane', tip: 'The agents lane she follows and what the duo learned', body: <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> },
       { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },

@@ -1591,8 +1591,10 @@ async def _sort_one():
     if not path:
         return False
     item = d['items'].get(path) or {}; raw = files[path]; words = _sort.prompt(path, item, d['items'])
+    boxes = None
     if path.endswith(tuple(GIT_IMAGE)):
-        content = [{'type': 'text', 'text': words}, {'type': 'image_url', 'image_url': {'url': f"data:image/jpeg;base64,{base64.b64encode(await asyncio.to_thread(_sort.to_jpeg, raw)).decode()}"}}]
+        jpeg_ = await asyncio.to_thread(_sort.to_jpeg, raw); boxes = await asyncio.to_thread(_sort.ocr_boxes, jpeg_, GIT_DIR / 'bin')
+        content = [{'type': 'text', 'text': f"{words}\nTEXT ON THE PICTURE: {_sort.ocr_lines(boxes)}"}, {'type': 'image_url', 'image_url': {'url': f"data:image/jpeg;base64,{base64.b64encode(jpeg_).decode()}"}}]
     else:
         content = f"{words}\n{raw[:_sort.EXCERPT].decode('utf-8', 'replace')}"
     token = _SORT_CALL.set(True); got_any = False; _OR_LAST.pop('err', None)
@@ -1604,7 +1606,7 @@ async def _sort_one():
             v = _sort.parse_vote(text)
             if not v:
                 continue
-            fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1], marks=_sort.parse_marks(text)); _sort.save(GIT_DIR, fresh); got_any = True
+            fresh = _sort.load(GIT_DIR); fresh['items'][path] = item = _sort.vote(fresh['items'].get(path), who, v[0], v[1], marks=_sort.snap(_sort.parse_marks(text), boxes) if boxes is not None else _sort.parse_marks(text)); _sort.save(GIT_DIR, fresh); got_any = True
     finally:
         _SORT_CALL.reset(token)
     return got_any

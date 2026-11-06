@@ -16,6 +16,17 @@ CATALOG = {
     'motion': {'name': 'Motion', 'what': 'Animation for React', 'url': 'https://motion.dev/llms.txt', 'site': 'https://motion.dev', 'license': 'MIT', 'kinds': ['pos']},
     'daisyui': {'name': 'daisyUI', 'what': 'Tailwind themes and components', 'url': 'https://daisyui.com/llms.txt', 'site': 'https://daisyui.com', 'license': 'MIT', 'kinds': ['pos']},
     'aceternity': {'name': 'Aceternity UI', 'what': 'Animated hero and landing sections', 'url': 'https://ui.aceternity.com/llms.txt', 'site': 'https://ui.aceternity.com', 'license': 'MIT', 'kinds': ['pos']},
+    'lucide': {'name': 'Lucide', 'what': 'Clean open icons', 'cat': 'Icons', 'url': 'https://lucide.dev/llms.txt', 'site': 'https://lucide.dev', 'license': 'ISC', 'kinds': ['pos', 'poc']},
+    'tanstack': {'name': 'TanStack', 'what': 'Tables, queries and routing', 'cat': 'Data', 'url': 'https://tanstack.com/llms.txt', 'site': 'https://tanstack.com', 'license': 'MIT', 'kinds': ['pos', 'pow', 'pop', 'pob']},
+    'recharts': {'name': 'Recharts', 'what': 'React charts', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/recharts/recharts/master/README.md', 'site': 'https://recharts.org', 'license': 'MIT', 'kinds': ['pos', 'pow', 'pop', 'pob']},
+    'lwcharts': {'name': 'Lightweight Charts', 'what': 'Fast trading charts', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/tradingview/lightweight-charts/master/README.md', 'site': 'https://www.tradingview.com/lightweight-charts/', 'license': 'Apache-2.0', 'kinds': ['pos', 'pow', 'pop']},
+    'echarts': {'name': 'Apache ECharts', 'what': 'Big interactive charts', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/apache/echarts/master/README.md', 'site': 'https://echarts.apache.org', 'license': 'Apache-2.0', 'kinds': ['pos', 'pow', 'pop', 'pob']},
+    'd3': {'name': 'D3', 'what': 'Any data picture you can think of', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/d3/d3/main/README.md', 'site': 'https://d3js.org', 'license': 'ISC', 'kinds': ['pos', 'pob', 'poc']},
+    'dndkit': {'name': 'dnd kit', 'what': 'Drag and drop', 'cat': 'Components', 'url': 'https://raw.githubusercontent.com/clauderic/dnd-kit/master/README.md', 'site': 'https://dndkit.com', 'license': 'MIT', 'kinds': ['pos']},
+    'r3f': {'name': 'React Three Fiber', 'what': '3D scenes in React', 'cat': '3D', 'url': 'https://raw.githubusercontent.com/pmndrs/react-three-fiber/master/readme.md', 'site': 'https://r3f.docs.pmnd.rs', 'license': 'MIT', 'kinds': ['pos', 'poc']},
+    'remotion': {'name': 'Remotion', 'what': 'Videos made with code', 'cat': 'Video', 'url': 'https://raw.githubusercontent.com/remotion-dev/remotion/main/README.md', 'site': 'https://www.remotion.dev', 'license': 'Free for small teams', 'kinds': ['poc']},
+    'assistantui': {'name': 'assistant-ui', 'what': 'Chat interfaces', 'cat': 'Chat', 'url': 'https://raw.githubusercontent.com/assistant-ui/assistant-ui/main/README.md', 'site': 'https://www.assistant-ui.com', 'license': 'MIT', 'kinds': ['pos']},
+    'ccxt': {'name': 'CCXT', 'what': 'One API for 100+ exchanges', 'cat': 'Data', 'url': 'https://raw.githubusercontent.com/ccxt/ccxt/master/README.md', 'site': 'https://docs.ccxt.com', 'license': 'MIT', 'kinds': ['pow', 'pop']},
     'mantine': {'name': 'Mantine', 'what': 'Full React component library', 'url': 'https://mantine.dev/llms.txt', 'site': 'https://mantine.dev', 'license': 'MIT', 'kinds': ['pos']},
 }
 KINDS = ('pow', 'pop', 'pob', 'poc', 'pos')
@@ -189,10 +200,17 @@ def tree(root):
     return {f"kits/{k['id']}.md": f"# {k['name']} ({k.get('license')})\n{k.get('site')}\nFor: {', '.join(k.get('kinds') or [])}\n\n{k['text']}".encode() for k in rows(root)}
 
 
+CATS = {'heroui': 'Components', 'shadcn': 'Components', 'daisyui': 'Components', 'mantine': 'Components', 'magicui': 'Animation', 'motion': 'Animation', 'aceternity': 'Animation'}
+
+
+def _cat_of(kid):
+    return (CATALOG.get(kid) or {}).get('cat') or CATS.get(kid) or 'Components'
+
+
 def catalog_view(root):
     """Every kit a user can pick: added ones with their vitals, the rest download when picked. Pure read."""
     have = {k['id']: k for k in rows(root)}
-    listed = [{**view(have[kid]), 'added': True} if kid in have else {'id': kid, **{k: c[k] for k in ('name', 'what', 'site', 'license', 'kinds')}, 'added': False} for kid, c in CATALOG.items()]
+    listed = [{**view(have[kid]), 'added': True, 'cat': _cat_of(kid), 'kinds': CATALOG[kid]['kinds']} if kid in have else {'id': kid, **{k: c[k] for k in ('name', 'what', 'site', 'license', 'kinds')}, 'cat': _cat_of(kid), 'added': False} for kid, c in CATALOG.items()]
     new = [{**view(have[x['id']]), 'added': True, 'found': True} if x['id'] in have else {k: x[k] for k in ('id', 'name', 'what', 'site', 'license', 'kinds', 'found', 'weekly')} | {'added': False} for x in found_rows(root)]
     return [dict(FEELESS_VIEW)] + listed + new
 

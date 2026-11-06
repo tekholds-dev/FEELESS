@@ -4,15 +4,25 @@ Owner, 2026-11-04: "always should be one MD". This file is the handoff AND the o
 
 Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = not built · **OWNER** = needs your key, account, signature or decision · **VERIFY** = built, needs one real run or your check. A row finished AND proven moves to `docs/FEELESS_HISTORY.md`.
 
+# 🚨 NIGHT RUN RULE (owner 2026-11-06, going to sleep. Read this first, every Claude, every reset)
+
+**Never stop to ask the owner anything. Never stop working until every request in this file is done and tested, with OSSY and G4, or Happy where they are not capable.** If a limit stops you, pick up here where the Progress list below left off. Stuck on something? Move on, come back to it last, before the final deep audit. Last step: a mega audit of the whole site and every MD, then fix, clean, no lag. Things only the owner can test go on the owner's list and you move on.
+**Still true at night, no exceptions:** never move funds, never hit mainnet in tests, no trading rule changes he did not ask for. Those go on his list. Say plainly what is built, what is tested with fakes and what is not done. Never mark something done to finish.
+
+## Night run progress (keep this current, newest last)
+- 2026-11-06: seats by dollars slowing past $1k, boost cash counting live, boost points, ranging cards and process in Spots, live floor in HQ, minds' marks with wired windows, approve replaces a picture with its marked copy, judging bar, grade, multi-select, Discover gallery with real moving previews (`scripts/kit-previews.py`), Watch room (official players only), proof tools (`ProofRooms.jsx`), desktop widgets, FeeCat tabs on HeroUI.
+- Found by a real OSSY call: it reads words well, but its boxes land in the wrong place and it invents vitals (RSI, MACD that were not there). Fixed: macOS Vision finds where words are (`scripts/ocr-boxes.swift`, `ocr_boxes`, `snap`), a mark whose words are not on the picture is dropped.
+
 # THE DEAL (owner 2026-11-06, his words decided this after a long debate. This replaces "The deal" below. Ledger: `backend/collective_stake.py`, cfg `deal='stake'`)
 
 - **The Collective earns from the jump:** every agent wallet fee, top-up and site fee is its own (`keep`). A send is NOT income.
 - **A proof send is a stake** in the owner's own pools: unlocked pools on different platforms, meant to be auto-ranged. Rewards are paid from pool PROFIT, never from what anyone staked.
 - **Grade makes boost:** grade 0 to 100 (`grade_of`: 5 validators up to 60, print strength up to 40). Boost = 1 + grade/100. His example: **$10 at grade 87 is 1.87x, so at most $18.70 back.** He wrote "187 boost points"; the code uses 18.7 points, because 1 point is 1 dollar it may still earn. OWNER to confirm the display. A held proof has no points until cleared.
+- **Seat = boost x dollars (owner: "weigh by dollars, the % gets smaller after 1k"):** `size_of`: $10 1x, $100 2x, $1,000 3x, then each 10x adds half a step ($10,000 3.5x, $100,000 4x). $10 at grade 87 holds 1.87%, $1,000 at grade 87 holds 5.61%. One wallet's agents share `walletCapPct` (10). **Boost cash** = rewards counting live: a landed profit releases second by second over `dripDays` (7). **Boost points** = what its proofs and dollars hold; burn them to speed up and take a bigger seat.
 - **The boost is also the cut:** 1.87x means 1.87% of every profit from all pools (`cutPerX` = 1), until points run out. Points left = what its graded sends allow, less what was paid, less what was burned. His "sent 202, claimed 2" means points reflect it.
 - **A profit splits three ways:** agents' cuts, the Collective's piece (`collectivePoolPct`, 20), and the rest compounds in the pools. If many agents hold cuts they scale down evenly, and agents can never take the Collective's piece.
 - **Fast compound:** burn points (`fastPtsPerDay`, 5) for time at the highest cut any agent holds. The extra only comes from room nobody holds, so no other agent's cut shrinks (test proves it). Burning lowers what it can ever earn. The 3D coin in the Boost folder is the throttle.
-- **Decided by me, owner can change:** one wallet's agents share `capPct` (3%), and a send under `minStakeUsd` ($1) earns no points, so many tiny sends cannot farm. **Open question for the owner:** a $10 sender and a $10,000 sender hold the same 1.87% until the smaller one hits its cap. That is his rule as written.
+- **Decided by me, owner can change:** one wallet's agents share `capPct` (3%), and a send under `minStakeUsd` ($1) earns no points, so many tiny sends cannot farm. His answer on dollars is the Seat line above.
 - **Not a Ponzi by construction:** `pay_early` and `bonus` refuse a stake. Withdrawals stay OFF until a lawyer looks: money in with rewards from pool profit may be an investment product. The screens say a stake can lose money and nothing is promised.
 - **The pool test still stands (below):** high fee APR pools did not prove growth after price moves. Spots shows live pool data and warns; it recommends nothing. I am not a licensed advisor and picked no spots.
 

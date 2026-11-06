@@ -100,7 +100,7 @@ function MarkWires({ rows, root, ticked, setTicked, onApprove, onTrash, pending,
       {rows.map((r, i) => <motion.article key={r.key} data-win={r.key} className={`gtr-win${hot === r.key ? ' is-hot' : ''}`} initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08, duration: 0.22 }} onMouseEnter={() => setHot(r.key)} onMouseLeave={() => setHot(null)} data-testid={`mark-win-${r.key}`}>
         <header>{r.pending ? <input type="checkbox" checked={ticked.has(r.id)} onChange={() => setTicked(x => { const n = new Set(x); if (n.has(r.id)) n.delete(r.id); else n.add(r.id); return n; })} aria-label={`Approve ${r.label || 'this mark'}`} data-testid={`mark-tick-${r.id}`} /> : <em className="gtr-win-n m-num">{i + 1}</em>}<b>{r.label || r.text || 'Marked'}</b>{r.grade != null ? <span className="gtr-win-g m-num" data-tip="How it graded this vital" style={{ '--g': `${r.grade}%` }}>{r.grade}</span> : null}</header>
         <small className="gtr-win-by">{(r.by || ['you']).map(k => MIND_NAME[k] || k).join(' + ')}</small>
-        {r.why ? <p>{r.why}</p> : null}{r.why2 ? <p>{r.why2}</p> : null}{r.text && r.label ? <q>{r.text}</q> : null}</motion.article>)}</aside></>;
+        {r.why ? <p>{r.why}</p> : null}{r.why2 ? <p>{r.why2}</p> : null}{(r.read || r.text) && r.label ? <q>{r.read || r.text}</q> : null}</motion.article>)}</aside></>;
 }
 // 🗂 The owner's word on one file or folder. The call, the grade and Next are always on screen. Everything else opens under More.
 function JudgeBar({ path, item, onSet, onTrash, canDraw, canPick, drawing, setDrawing, label, setLabel, onAddMark, folder, onBulk, onNext }) {

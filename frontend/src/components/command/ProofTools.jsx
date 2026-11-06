@@ -1,3 +1,4 @@
+import { ProofCalc, WatchRoom } from './ProofRooms';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
@@ -57,12 +58,13 @@ function PopDash({ d, onCommand }) {
     <div className="ptl-grid"><section><h4>Biggest markets</h4><ol className="ptl-list">{(d.markets || []).slice(0, 6).map(m => <li key={m.market}><button type="button" className="ptl-link" onClick={() => onCommand?.('file a perp')} data-tip="Puts “file a perp” in the chat box"><b>{m.market}</b> ${m.price.toLocaleString('en-US')}</button><small>OI {big(m.oiUsd)}</small></li>)}</ol></section>
       <section><h4>Hottest funding</h4><ol className="ptl-list">{(d.hotFunding || []).map(m => <li key={m.market}><b>{m.market}</b><em className={`m-num ${m.fundingPct >= 0 ? 'is-up' : 'is-dn'}`}>{m.fundingPct > 0 ? '+' : ''}{m.fundingPct}%/h</em></li>)}</ol></section></div></>;
 }
-export function ProofTools({ kind, onCommand, loadCalls = null, startOpen = true }) {
+export function ProofTools({ kind, onCommand, loadCalls = null, startOpen = true, onBrowse = null }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(false); const [sport, setSport] = useState('all'); const [team, setTeam] = useState(''); const [open, setOpen] = useState(startOpen);
   useEffect(() => { let on = true; let first = true; const go = () => { if (document.hidden && !first) return; first = false; fetch(apiUrl(`/api/cats/tools/${kind}?sport=${sport}&team=${encodeURIComponent(team)}`)).then(r => (r.ok ? r.json() : Promise.reject())).then(j => { if (on) { setD(j); setErr(false); } }).catch(() => on && setErr(true)); };
     go(); const t = setInterval(go, 60000); return () => { on = false; clearInterval(t); }; }, [kind, sport, team]);
   return <details className="ptl" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid={`ptl-${kind}`}><summary><b><Ic3 e="🧰" /> LIVE TOOLS</b><Sources rows={d?.sources} /></summary>
     {err && !d ? <p className="ptl-none" role="alert">These sources could not be read. It tries again in a minute.</p> : !d ? <p className="ptl-none">Reading its sources…</p>
       : kind === 'bids' ? <BidsDash d={d} sport={sport} setSport={setSport} team={team} setTeam={setTeam} onCommand={onCommand} loadCalls={loadCalls} /> : kind === 'pop' ? <PopDash d={d} onCommand={onCommand} /> : kind === 'content' ? <ContentDash d={d} /> : <PowDash d={d} onCommand={onCommand} />}
+    <div className="prm-rail">{kind === 'bids' ? <WatchRoom onBrowse={onBrowse} /> : <ProofCalc kind={kind} />}</div>
   </details>;
 }

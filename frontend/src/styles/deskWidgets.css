@@ -1,0 +1,10 @@
+/* 🧩 Desktop widgets: glass on the wall, behind every window */
+.dwg { position: absolute; top: 148px; right: 14px; z-index: 1; display: grid; gap: 8px; width: 190px; }
+.dwg-card { display: grid; gap: 4px; width: 100%; padding: 9px 11px; border-radius: 13px; border: 1px solid #ffffff22; background: linear-gradient(150deg, #0b1b1dd9, #060c0fd9); color: #e9f5ee; text-align: left; cursor: pointer; box-shadow: inset 0 1px 0 #ffffff14; transition: border-color .14s ease, transform .14s ease; } .dwg-card:hover { transform: translateX(-2px); border-color: #45e48688; } .dwg-card:active { transform: scale(.985); } .dwg-card:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.dwg-card header { display: flex; align-items: center; gap: 6px; color: #45e486; } .dwg-card header b { font: 800 9.5px var(--f-mono); letter-spacing: .12em; }
+.dwg-row { display: flex; justify-content: space-between; gap: 8px; } .dwg-row small { font: 500 11px var(--f-ui); opacity: .72; } .dwg-row em { font-style: normal; font-size: 11.5px; }
+.dwg-bar { display: block; height: 5px; border-radius: 99px; background: #ff8fa344; overflow: hidden; } .dwg-bar u { display: block; height: 100%; background: #45e486; transform-origin: left; }
+.dwg-cash { display: grid; } .dwg-cash small { font: 800 8.5px var(--f-mono); letter-spacing: .1em; opacity: .7; } .dwg-cash b { font-size: 14px; color: #7cf0ab; }
+@media (max-width: 1000px), (max-height: 620px) { .dwg { display: none; } }
+@media (prefers-reduced-motion: reduce) { .dwg-card { transition: none; } }
+body.theme-day .dwg-card { background: #ffffffdd; color: #14202c; border-color: #0f1f3a22; } body.theme-day .dwg-card header { color: #0f7a43; } body.theme-day .dwg-cash b { color: #0f7a43; }

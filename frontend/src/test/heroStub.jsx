@@ -26,3 +26,7 @@ Accordion.Panel = function Panel({ children }) { const c = React.useContext(AccC
 Accordion.Body = ({ children }) => <div>{children}</div>;
 export const Switch = ({ children, isSelected, onChange, isDisabled, ...p }) => <label {...p}><input type="checkbox" checked={!!isSelected} disabled={isDisabled} onChange={e => onChange?.(e.target.checked)} />{children}</label>;
 Switch.Control = ({ children }) => <span>{children}</span>; Switch.Thumb = () => null;
+const TabCtx = React.createContext(null);
+export const Tabs = ({ children, selectedKey, onSelectionChange, ...p }) => <TabCtx.Provider value={{ selectedKey, onSelectionChange }}><div {...p}>{children}</div></TabCtx.Provider>;
+Tabs.ListContainer = ({ children }) => <div>{children}</div>; Tabs.List = ({ children, ...p }) => <div role="tablist" {...p}>{children}</div>; Tabs.Indicator = () => null;
+Tabs.Tab = function Tab({ children, id, ...p }) { const c = React.useContext(TabCtx); return <button type="button" role="tab" aria-selected={c.selectedKey === id} onClick={() => c.onSelectionChange?.(id)} {...p}>{children}</button>; };

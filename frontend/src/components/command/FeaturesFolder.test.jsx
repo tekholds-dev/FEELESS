@@ -118,13 +118,13 @@ test('Discover keeps the kit on screen, caps picks at 3, and lets the agent choo
   await act(async () => { root.render(<KitPick cat={{ id: 'c' }} work={fake} />); });
   expect(el.querySelector('[data-testid="kit-auto"]')).not.toBeNull();
   await act(async () => { el.querySelector('[data-testid="kit-discover"]').click(); });
-  for (const id of ['heroui', 'shadcn', 'magicui']) { await act(async () => { el.querySelector(`[data-testid="kit-pick-${id}"]`).click(); }); }
+  for (const id of ['heroui', 'shadcn', 'magicui']) { await act(async () => { document.querySelector(`[data-testid="kit-pick-${id}"]`).click(); }); }
   expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'heroui,shadcn,magicui', job: 'mine' });
   expect(el.querySelector('[data-testid="kit-on-heroui"]')).not.toBeNull();
-  expect(el.querySelector('[data-testid="kit-pick-motion"]').disabled).toBe(true);
-  await act(async () => { el.querySelector('[data-testid="kit-pick-heroui"]').click(); });
+  expect(document.querySelector('[data-testid="kit-pick-motion"]').disabled).toBe(true);
+  await act(async () => { document.querySelector('[data-testid="kit-pick-heroui"]').click(); });
   expect(el.querySelector('[data-testid="kit-pick"]')).not.toBeNull(); expect(el.querySelector('[data-testid="kit-on-heroui"]')).toBeNull();
-  await act(async () => { el.querySelector('[data-testid="kit-mode-auto"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="kit-mode-auto"]').click(); });
   expect(calls.at(-1)).toMatchObject({ job: 'auto' }); expect(el.querySelector('[data-testid="kit-auto"]')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
 });

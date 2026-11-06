@@ -68,7 +68,7 @@ def test_his_word_on_many_at_once():
 
 def test_marks_from_a_mind_are_cleaned_and_joined():
     t = '{"verdict":"good","why":"x","marks":[{"x":0.1,"y":0.1,"w":0.2,"h":0.2,"label":"Cap","why":"read it","grade":80},{"x":2,"y":0,"w":-1,"h":0},{"text":"holders 412","label":"Holders","grade":"60"},"junk"]}'
-    m = cs.parse_marks(t); assert len(m) == 2 or len(m) == 3
+    m = cs.parse_marks(t); assert [x.get('label') for x in m] == ['Cap', 'Holders'] and m[1]['grade'] == 60
     assert cs.parse_marks('no json') == [] and cs.parse_marks('{"marks":"nope"}') == []
     a = cs.vote({}, 'ossy', 'good', '', marks=[{'x': .1, 'y': .1, 'w': .2, 'h': .2, 'label': 'Cap', 'why': 'a', 'grade': 80}]); b = cs.vote(a, 'g4', 'good', '', marks=[{'x': .11, 'y': .1, 'w': .2, 'h': .2, 'label': 'Cap', 'why': 'b', 'grade': 60}, {'text': 'holders', 'label': 'H', 'grade': 50}])
     rows = cs.proposed(b); assert len(rows) == 2 and rows[0]['by'] == ['ossy', 'g4'] and rows[0]['grade'] == 70
@@ -95,3 +95,16 @@ def test_grades_and_many_at_once():
 def test_a_file_voted_before_marks_gets_read_again_for_its_marks():
     assert cs.next_path(['snapshots/a.webp'], {'snapshots/a.webp': {'votes': {'ossy': {'verdict': 'bad'}, 'g4': {'verdict': 'bad'}}}}) == 'snapshots/a.webp'
     assert cs.next_path(['snapshots/a.webp'], {'snapshots/a.webp': {'votes': {'ossy': {'verdict': 'bad', 'marks': []}, 'g4': {'verdict': 'bad', 'marks': []}}}}) is None
+
+
+def test_a_mark_snaps_to_its_real_words_and_a_made_up_one_is_dropped():
+    boxes = [{'text': 'Price USD $0.008194', 'x': 0.8, 'y': 0.2, 'w': 0.19, 'h': 0.02}, {'text': 'LIQUIDITY', 'x': 0.8, 'y': 0.3, 'w': 0.05, 'h': 0.02}]
+    out = cs.snap([{'text': '$0.008194', 'label': 'Price', 'why': 'read', 'grade': 90}, {'read': 'liquidity', 'label': 'Liq', 'x': 0.1, 'y': 0.1, 'w': 0.5, 'h': 0.5}, {'text': 'RSI 62.59', 'label': 'RSI'}, {'text': 'x', 'label': 'too short'}], boxes)
+    assert [m['label'] for m in out] == ['Price', 'Liq'] and out[0]['read'] == '$0.008194' and 'text' not in out[0]
+    assert 0.85 < out[0]['x'] < 0.92 and abs(out[1]['x'] - 0.796) < 0.01 and out[1]['w'] < 0.07   # the mind's own box is ignored
+    assert cs.ocr_lines(boxes) == 'Price USD $0.008194 | LIQUIDITY' and cs.snap(None, boxes) == []
+
+
+def test_no_text_reader_means_no_boxes_never_a_crash(tmp_path, monkeypatch):
+    monkeypatch.setattr(cs, 'OCR_SRC', tmp_path / 'missing.swift')
+    assert cs.ocr_boxes(b'x', tmp_path / 'bin') == []
