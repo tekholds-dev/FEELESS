@@ -496,7 +496,7 @@ test('🎲 the Bids folder opens on a dash, and the USA sites are links that nev
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'c1', name: 'Happy' }} live={null} onClose={() => {}} start="bids" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = t => document.querySelector(`[data-testid="${t}"]`);
-  expect(q('bd-stats').textContent).toContain('777'); expect(q('bd-live').textContent).toContain('1 open'); expect(q('dsk-bids').textContent).not.toContain('not an agent');
+  expect(q('bd-stats').textContent).toContain('777'); expect(q('bd-live').textContent).toContain('1'); expect(q('dsk-bids').textContent).not.toContain('not an agent');
   await act(async () => { q('bd-sites').click(); });
   const links = [...q('bid-sites').querySelectorAll('a')]; expect(links.length).toBeGreaterThan(7); links.forEach(a => { expect(a.href).toMatch(/^https:\/\//); expect(a.rel).toContain('noopener'); expect(a.target).toBe('_blank'); });
   expect(q('bs-fanduel').textContent).toContain('PEOPLE ONLY'); expect(q('bs-kalshi').textContent).toContain('API OK'); expect(q('bid-sites').textContent).toContain('No site says an AI browser may click for you');

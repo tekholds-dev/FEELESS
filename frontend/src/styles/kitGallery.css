@@ -11,3 +11,5 @@
 body.fx-lite .kgl-show img { display: none; } @media (prefers-reduced-motion: reduce) { .kgl-show img { display: none; } .kgl-shade, .kgl, .kgl-grid > li { animation: none; transition: none; } } body.fx-lite :is(.kgl-shade, .kgl, .kgl-grid > li) { animation: none; }
 @media (max-width: 640px) { .kgl-shade { padding: 0; } .kgl { max-height: 100vh; height: 100vh; border-radius: 0; } .kgl-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } }
 body.theme-day .kgl { background: #fff; color: #16211b; } body.theme-day .kgl-grid > li { background: #f4f7f5; border-color: #0000001a; }
+
+.kit-used { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; } .kit-used em { padding: 3px 7px; border-radius: 99px; border: 1px solid #ff8fa355; color: #ff8fa3; font: 700 10px var(--f-mono); font-style: normal; } .kit-used em.is-on { border-color: #45e48666; color: #7cf0ab; }

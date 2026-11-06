@@ -200,6 +200,56 @@ def tree(root):
     return {f"kits/{k['id']}.md": f"# {k['name']} ({k.get('license')})\n{k.get('site')}\nFor: {', '.join(k.get('kinds') or [])}\n\n{k['text']}".encode() for k in rows(root)}
 
 
+TW = '<script src="https://cdn.tailwindcss.com"></script>'
+KIT_USE = {
+    'heroui': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@heroui/styles@3.2.7/dist/heroui.min.css">'], 'how': 'Use its class names on plain HTML: button button--primary, card, card__header, chip, input, tabs. Wrap the page in class="dark" for dark mode.', 'sign': r'class="[^"]*\b(button--|card\b|card__|chip\b|tabs\b)'},
+    'shadcn': {'tags': [TW], 'how': 'Rebuild its look with Tailwind classes: rounded-lg border bg-card, muted text, tight spacing, its cards, badges and buttons.', 'sign': r'class="[^"]*\b(rounded-|border|bg-)'},
+    'magicui': {'tags': [TW], 'how': 'Rebuild its effects with Tailwind and your own keyframes: marquee, shimmer button, animated beam, number ticker, border beam.', 'sign': r'@keyframes|animate-'},
+    'aceternity': {'tags': [TW], 'how': 'Rebuild its effects with Tailwind and your own keyframes: spotlight, aurora background, 3D tilt cards, beams, bento grid.', 'sign': r'@keyframes|animate-|perspective'},
+    'motion': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/motion@12/dist/motion.js"></script>'], 'how': 'Animate with the global: Motion.animate(el, {...}, {type:"spring"}), Motion.stagger, Motion.scroll, Motion.inView. Every entrance and hover goes through it.', 'sign': r'Motion\.\w+'},
+    'daisyui': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css">', TW], 'how': 'Use its classes: btn btn-primary, card, badge, hero, stats, and set data-theme on html.', 'sign': r'class="[^"]*\b(btn|badge|hero|stats)\b'},
+    'mantine': {'tags': [TW], 'how': 'Mantine needs React, so match its look with Tailwind: its spacing, cards and inputs.', 'sign': r'class="[^"]*\b(rounded-|border|bg-)'},
+    'lucide': {'tags': ['<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>'], 'how': 'Write <i data-lucide="name"></i> and call lucide.createIcons() once. Use no emoji as icons.', 'sign': r'data-lucide='},
+    'echarts': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>'], 'how': 'Draw every chart with echarts.init(el).setOption(...).', 'sign': r'echarts\.init'},
+    'd3': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>'], 'how': 'Draw data pictures with the global d3.', 'sign': r'd3\.\w+'},
+    'lwcharts': {'tags': ['<script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>'], 'how': 'Draw price charts with LightweightCharts.createChart(el).', 'sign': r'LightweightCharts\.'},
+    'r3f': {'tags': ['<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>'], 'how': 'R3F needs React, so write the 3D scene with three directly in <script type="module">: import * as THREE from "three".', 'sign': r'THREE\.'},
+}
+
+
+def picked_of(picks):
+    return [p for p in picks or [] if p in KIT_USE]
+
+
+def use_line(picks):
+    """What a build must do with the kits its owner picked. Without this a one-file page cannot use them: the rule used to say no outside files. → text"""
+    rows = picked_of(picks)
+    if not rows:
+        return ''
+    return '\nTHE OWNER PICKED THESE KITS. THE PAGE MUST VISIBLY USE EVERY ONE OF THEM, in this order of weight. Their tags go in <head> exactly as written, and they are the only outside files allowed.\n' + '\n'.join(f"- {CATALOG[p]['name']}: {' '.join(KIT_USE[p]['tags'])} {KIT_USE[p]['how']}" for p in rows) + '\n'
+
+
+def with_kit_tags(html, picks):
+    """Puts any picked kit's tags in the page if the model left them out. → html"""
+    want = []
+    for p in picked_of(picks):
+        for tag in KIT_USE[p]['tags']:
+            if tag not in html and tag not in want:
+                src = re.search(r'(?:src|href)="([^"]+)"', tag)
+                if not (src and src.group(1) in html):
+                    want.append(tag)
+    if not want:
+        return html
+    add = '\n'.join(want)
+    m = re.search(r'</head>', html, re.I)
+    return f'{html[:m.start()]}{add}\n{html[m.start():]}' if m else f'{add}\n{html}'
+
+
+def kit_report(html, picks):
+    """Which picked kits the page really uses, read from its code, so the folder can say so. → [{id, name, used}]"""
+    return [{'id': p, 'name': CATALOG[p]['name'], 'used': bool(re.search(KIT_USE[p]['sign'], html or ''))} for p in picked_of(picks)]
+
+
 CATS = {'heroui': 'Components', 'shadcn': 'Components', 'daisyui': 'Components', 'mantine': 'Components', 'magicui': 'Animation', 'motion': 'Animation', 'aceternity': 'Animation'}
 
 

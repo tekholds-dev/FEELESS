@@ -115,3 +115,23 @@ def test_feeless_kit_is_live_and_its_contents_stay_private(tmp_path):
 def test_a_users_folder_never_holds_the_feeless_kit():
     import collective_git as cg
     assert not any('feeless-kit' in p for p in cg.agent_tree({'name': 'A'}, lambda f: f))
+
+
+def test_picked_kits_must_reach_the_page_and_the_folder_says_which_are_used():
+    import collective_kits as ck
+    line = ck.use_line(['motion', 'heroui', 'nope'])
+    assert 'MUST VISIBLY USE' in line and 'motion@12/dist/motion.js' in line and 'heroui.min.css' in line and 'nope' not in line and ck.use_line([]) == ''
+    page = '<html><head><title>x</title></head><body><button class="button button--primary">go</button></body></html>'
+    out = ck.with_kit_tags(page, ['motion', 'heroui'])
+    assert out.index('motion.js') < out.index('</head>') and 'heroui.min.css' in out and ck.with_kit_tags(out, ['motion', 'heroui']) == out
+    assert ck.with_kit_tags('<p>no head</p>', ['motion']).startswith('<script')
+    assert {r['id']: r['used'] for r in ck.kit_report(out, ['motion', 'heroui'])} == {'motion': False, 'heroui': True}
+    assert ck.kit_report('Motion.animate(el)', ['motion'])[0]['used']
+
+
+def test_only_exact_known_kit_tags_are_ever_added():
+    import collective_kits as ck
+    assert ck.with_kit_tags('<head></head>', ['<script src=evil>']) == '<head></head>'
+    for k in ck.KIT_USE.values():
+        for t in k['tags']:
+            assert 'https://cdn.' in t or 'https://unpkg.com/' in t

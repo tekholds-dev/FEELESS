@@ -5573,7 +5573,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 order = order[:1]
             doc['stage'] = 'build'; ask_ = _feat.build_prompt(text, ((doc.get('plan') or {}).get('plan') if not cur else None))
             user = f'{ask_}{_feat.region_note(region)}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
-            kits_ = _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            cfg_kits_ = cat.get('brainsCfg') or {}; picks_ = _kits.auto_picks(KITS_DIR, 'pos', text) if cfg_kits_.get('kitMode', 'mine' if cfg_kits_.get('kits') else 'auto') == 'auto' else cfg_kits_.get('kits') or []
+            kits_ = _kits.use_line(picks_) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -5587,6 +5588,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
                 elif html:
+                    html = _kits.with_kit_tags(html, picks_); doc['kitsUsed'] = _kits.kit_report(html, picks_)
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
