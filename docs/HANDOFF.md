@@ -24,7 +24,7 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 - Manual rewritten: 13 tabs down to Start, Proofs, Boosts, Sites and More (`Picks`), PoC and PoS added with their own flows and monitors, Boosts now follows THE DEAL with the loss warning, honey words gone. Looked at on `/dev/colony?manual`, not day or phone.
 - Source list keeps itself current (`agent_refs.learned`): a site agents found with 3+ graded proofs and an even or better record joins the first reads, a listed site losing more than winning goes last. Found sites must resolve to a public address and may not redirect. Tests only: the real ledger has too few results to move anything yet.
 - "Where the money goes" empty: the panel it meant was replaced by the HQ redo (`DealFlow`), which always draws from the dials. Not reproduced, closed.
-- **Not started tonight, safe to do next:** A3 Sicario layout, Q02 split, T01, C02 to C04 Familia, L01 Orca read side, P01, B01, R01, LA01, A01 fix-agent, A02, A04, Q23, final whole-site audit. **The MD is NOT all done.**
+- **Not started tonight, safe to do next:** A3 Sicario layout, Q02 split, T01, C02 to C04 Familia, P01, B01, R01, LA01, A01 fix-agent, A02, A04, Q23, final whole-site audit. **The MD is NOT all done.**
 
 # THE DEAL (owner 2026-11-06, his words decided this after a long debate. This replaces "The deal" below. Ledger: `backend/collective_stake.py`, cfg `deal='stake'`)
 
@@ -189,7 +189,7 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 ### 2. Trading and money (9): needs real money, a provider's rules or a lawyer before it can be proven
 | ID | Status | What |
 |---|---|---|
-| L01 | OPEN | AutoRange: Orca as third venue(ONLY USA ALLOWED), DLMM positions wider than 69 bins, compound LP fees; reconcile older tight-range/re-center requests against shipped Meteora/Raydium implementation. |
+| L01 | PART (Orca read side live in Spots via `reads=1`, real Orca API; AutoRange cannot open there and its picker never sees those rows. OWNER: is Orca allowed for US users? Not checked. Opening, wider bins and compounding move money, so parked) | AutoRange: Orca as third venue(ONLY USA ALLOWED), DLMM positions wider than 69 bins, compound LP fees; reconcile older tight-range/re-center requests against shipped Meteora/Raydium implementation. |
 | P01 | OPEN | Perps: limit orders, owner fee controls, Coinbase Advanced door; additional venues only through approved eligibility flow. |
 | B01 | OPEN | Brokers: Kraken/Coinbase own-key doors, YOUR MONEY totals, options; broker perps only when supported. |
 | R01 | OPEN | RepMarket user sign-in/key and deposit flow; verify the permitted product/API before implementation. |

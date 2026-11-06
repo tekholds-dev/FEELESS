@@ -11696,23 +11696,29 @@ async def _autorange_boot():
 
 
 @app.get('/api/reputation/familia-pools/ranges')
-async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str = Query('', max_length=64), top: int = 0):
+async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str = Query('', max_length=64), top: int = 0, reads: int = 0):
     """🤖 The concentrated pools AutoRange can really open in — Raydium CLMM + Meteora DLMM, read from each venue's own API (fees ÷ TVL over 24h,
     fee tier, tick spacing / bin step). `mint` = the pools holding that token (deepest first); `top=1` = the busiest fee payers right now."""
     import range_pools as _rp
     ray_ = lambda d_: _rp.raydium(((d_ or {}).get('data') or {}).get('data') or [])
     met_ = lambda d_: _rp.meteora((d_ or {}).get('data') or [])
+    orc_ = lambda d_: _rp.orca((d_ or {}).get('data') or [])
+    if reads:   # 🐋 reads=1: the pool lists that only read also show Orca. AutoRange's own picker never asks for it, because it cannot open there
+        q_ = {'size': 50, 'sortBy': 'volume24h', 'sortDirection': 'desc'} if top else {'size': 10, 'token': mint, 'sortBy': 'tvl', 'sortDirection': 'desc'}
+        extra_ = await _rng_get('orca:top' if top else f'orca:{mint}', 'https://api.orca.so/v2/solana/pools', q_, orc_) if top or 32 <= len(mint) <= 44 else []
+    else:
+        extra_ = []
     if top:
         a_, b_ = await asyncio.gather(
             _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 100, 'page': 1}, ray_),
             _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 100, 'sort_by': 'volume_24h:desc'}, met_))
-        return {'pools': _rp.busiest(a_ + b_, 30), 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
+        return {'pools': _rp.busiest(a_ + b_ + extra_, 30), 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
     if not 32 <= len(mint) <= 44:
         raise HTTPException(400, 'A token mint, or top=1.')
     a_, b_ = await asyncio.gather(
         _rng_get(f'ray:{mint}', 'https://api-v3.raydium.io/pools/info/mint', {'mint1': mint, 'poolType': 'concentrated', 'poolSortField': 'liquidity', 'sortType': 'desc', 'pageSize': 10, 'page': 1}, ray_),
         _rng_get(f'met:{mint}', 'https://dlmm.datapi.meteora.ag/pools', {'query': mint, 'page_size': 10}, met_))
-    return {'pools': _rp.for_token(a_ + b_, mint, quote or None)[:8], 'at': round(time.time())}
+    return {'pools': _rp.for_token(a_ + b_ + extra_, mint, quote or None)[:8], 'at': round(time.time())}
 
 
 @app.get('/api/reputation/familia-pools/run')

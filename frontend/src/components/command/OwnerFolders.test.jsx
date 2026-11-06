@@ -31,7 +31,7 @@ test('spots show real numbers, add a pool without moving money, and say it is no
   const save = jest.fn(); const { el, q, root } = await mount(<SpotsFolder d={D} save={save} busy={false} />); await act(async () => {});
   expect(el.textContent).toContain('not advice'); expect(q('ofd-spot-New1').textContent).toContain('37%'); expect(q('ofd-spot-add-Addr1').disabled).toBe(true); expect(q('ofd-process').textContent).toContain('BY HAND');
   expect(q('ofd-band-nums-New1').textContent).toContain('CONCENTRATION'); await click(q('ofd-band-New1-5')); expect(q('ofd-band-nums-New1').textContent).toContain('IF PRICE MOVES 5%');
-  await click(q('ofd-spot-add-New1')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'other', pair: 'A-B', address: 'New1' });
+  await click(q('ofd-spot-add-New1')); expect(save.mock.calls[0][1].poolAdd).toMatchObject({ platform: 'orca', pair: 'A-B', address: 'New1' });
   await act(async () => root.unmount());
 });
 test('safety has the stop, warns past a stop, and lists what is not built', async () => {

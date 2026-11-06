@@ -47,6 +47,23 @@ def meteora(rows):
     return out
 
 
+def orca(rows):
+    """Orca Whirlpools, to READ only (`readOnly`): AutoRange cannot open here yet, so the desk's venue picker never gets these rows. feeRate is in millionths."""
+    out = []
+    for r in rows or []:
+        if not isinstance(r, dict) or r.get('hasWarning') or str(r.get('poolType') or 'whirlpool') != 'whirlpool':
+            continue
+        a_, b_, day = r.get('tokenA') or {}, r.get('tokenB') or {}, (r.get('stats') or {}).get('24h') or {}
+        tvl, fees = _f(r.get('tvlUsdc')), _f(day.get('fees'))
+        if tvl < MIN_TVL or not r.get('address'):
+            continue
+        out.append({'venue': 'orca', 'readOnly': True, 'pool': r['address'], 'name': f"{a_.get('symbol')}-{b_.get('symbol')}",
+                    'mintX': a_.get('address'), 'mintY': b_.get('address'), 'symX': a_.get('symbol'), 'symY': b_.get('symbol'),
+                    'decX': a_.get('decimals'), 'decY': b_.get('decimals'), 'feePct': round(_f(r.get('feeRate')) / 10000, 4), 'step': r.get('tickSpacing'),
+                    'tvl': round(tvl, 2), 'vol24': round(_f(day.get('volume')), 2), 'fees24': round(fees, 2), 'rate': fees / tvl if tvl > 0 else 0.0, 'price': _f(r.get('price'))})
+    return out
+
+
 def for_token(rows, mint, quote=None):
     """The rangeable pools holding `mint` (optionally paired with `quote`), deepest first."""
     hit = [r for r in rows if mint in (r.get('mintX'), r.get('mintY')) and (not quote or quote in (r.get('mintX'), r.get('mintY')))]

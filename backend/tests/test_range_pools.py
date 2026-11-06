@@ -1,3 +1,4 @@
+import asyncio
 import range_pools as rp
 
 RAY = [{'type': 'Concentrated', 'id': 'RAYPOOL', 'programId': 'CAMM', 'mintA': {'address': 'JUP', 'symbol': 'JUP', 'decimals': 6}, 'mintB': {'address': rp.SOL, 'symbol': 'WSOL', 'decimals': 9},
@@ -55,3 +56,23 @@ def test_support_ideas_reacts_and_comments(monkeypatch):
             run(**bad); assert False, bad
         except rs.HTTPException:
             pass
+
+
+ORCA = [{'address': 'ORC', 'poolType': 'whirlpool', 'tokenA': {'address': rp.SOL, 'symbol': 'SOL', 'decimals': 9}, 'tokenB': {'address': rp.USDC, 'symbol': 'USDC', 'decimals': 6}, 'feeRate': 400, 'tickSpacing': 4, 'tvlUsdc': '25000000', 'price': '89.8', 'stats': {'24h': {'volume': '128000000', 'fees': '51000'}}},
+        {'address': 'WARN', 'hasWarning': True, 'tvlUsdc': '9000000'}, {'address': 'TINY', 'tvlUsdc': '5'}]
+
+
+def test_orca_reads_with_its_real_fee_units_and_is_marked_read_only():
+    out = rp.orca(ORCA)
+    assert [x['pool'] for x in out] == ['ORC'] and out[0]['feePct'] == 0.04 and out[0]['readOnly'] is True and out[0]['rate'] == 51000 / 25000000 and out[0]['price'] == 89.8
+
+
+def test_autorange_never_gets_an_orca_row_it_cannot_open(monkeypatch):
+    import reputation_service as rs
+    asked = []
+
+    async def fake(key, url, params, shape):
+        asked.append(url); return []
+    monkeypatch.setattr(rs, '_rng_get', fake)
+    asyncio.run(rs.familia_pools_ranges(mint='', quote='', top=1, reads=0)); assert not any('orca' in u for u in asked)
+    asyncio.run(rs.familia_pools_ranges(mint='', quote='', top=1, reads=1)); assert any('orca' in u for u in asked)
