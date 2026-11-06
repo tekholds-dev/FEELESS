@@ -144,3 +144,18 @@ def test_team_and_player_sheets_read_espn_shapes():
     a = t.parse_athlete(ov)
     assert a['season'][1] == '27.0' and a['career'][0] == '608' and a['last5']['PTS'] == 25.0
 
+
+def test_football_lists_everyone_with_their_own_yards():
+    """Owner 2026-11-06: only quarterbacks showed, because only the first group was read. A back's yards are rushing yards."""
+    from proof_tools import parse_players
+    def stat(name, **v):
+        return {'name': name, 'stats': [{'abbreviation': k, 'name': k.lower(), 'displayValue': str(x)} for k, x in v.items()]}
+    henry = {'athlete': {'id': '2', 'displayName': 'Back', 'position': {'abbreviation': 'RB'}}, 'statistics': [stat('passing', YDS=-3, TD=0)]}
+    henry2 = {'athlete': henry['athlete'], 'statistics': [stat('rushing', YDS=800, TD=9, CAR=175)]}
+    qb = {'athlete': {'id': '1', 'displayName': 'Passer', 'position': {'abbreviation': 'QB'}}, 'statistics': [stat('passing', YDS=967, TD=6), stat('rushing', YDS=50, TD=1, CAR=19)]}
+    lb = {'athlete': {'id': '3', 'displayName': 'Backer', 'position': {'abbreviation': 'LB'}}, 'statistics': [stat('passing', YDS=0), stat('defensive', TOT=40, SACK=3)]}
+    players, cols = parse_players({'results': [{'leaders': [qb, henry]}, {'leaders': [henry2, lb]}]}, 'football')
+    by = {p['name']: p for p in players}
+    assert sorted(by) == ['Back', 'Backer', 'Passer'] and len(players) == 3
+    assert by['Back']['vals']['YDS'] == '800' and by['Passer']['vals']['YDS'] == '967' and by['Backer']['vals']['TOT'] == '40'
+    assert 'TOT' in cols

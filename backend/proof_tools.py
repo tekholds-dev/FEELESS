@@ -513,7 +513,7 @@ async def _game_read(http, sport, gid, names=()):
     return await _fallback_read(http, sport, names) if len(names) == 2 else None
 
 
-PLAYER_COLS = {'basketball': ('PTS', 'REB', 'AST', '3PM', 'STL', 'BLK', 'MIN'), 'hockey': ('G', 'A', 'PTS', 'SOG', '+/-', 'TOI/G'), 'football': ('YDS', 'TD', 'INT', 'REC', 'CAR', 'SACK'), 'baseball': ('AVG', 'HR', 'RBI', 'R', 'H', 'ERA')}
+PLAYER_COLS = {'basketball': ('PTS', 'REB', 'AST', '3PM', 'STL', 'BLK', 'MIN'), 'hockey': ('G', 'A', 'PTS', 'SOG', '+/-', 'TOI/G'), 'football': ('YDS', 'TD', 'INT', 'REC', 'CAR', 'TOT', 'SACK'), 'baseball': ('AVG', 'HR', 'RBI', 'R', 'H', 'ERA')}
 
 
 def parse_team_stats(data):
@@ -531,21 +531,24 @@ def parse_team_stats(data):
 
 def parse_players(data, kind):
     """Every player on a team with their season averages, biggest role first. Pure."""
-    want = PLAYER_COLS.get(kind) or (); out = []
-    for g in ((data or {}).get('results') or [])[:1]:
+    want = PLAYER_COLS.get(kind) or (); out = []; seen = {}
+    for g in (data or {}).get('results') or []:   # football files passers, rushers, receivers and defenders under separate groups: one person, one row, all of them
         for l in g.get('leaders') or []:
-            at = l.get('athlete') or {}; vals = {}
+            at = l.get('athlete') or {}; vals = seen[str(at.get('id'))]['vals'] if str(at.get('id')) in seen else {}
+            # A football player has a row per group, and YDS means something different in each. A back's yards are his rushing yards, not his one passing play.
+            main = {'QB': 'passing', 'RB': 'rushing', 'FB': 'rushing', 'WR': 'receiving', 'TE': 'receiving', 'PK': 'kicking', 'P': 'punting'}.get((at.get('position') or {}).get('abbreviation'), 'defensive') if kind == 'football' else None
             for c in l.get('statistics') or []:
+                wins = main is not None and c.get('name') == main
                 for x in c.get('stats') or []:
                     ab = x.get('abbreviation')
-                    if ab and ab not in vals and (str(x.get('name') or '').startswith('avg') or ab in ('GP', 'AVG', 'ERA', '+/-', 'TOI/G')):
+                    if ab and (ab not in vals or wins) and (str(x.get('name') or '').startswith('avg') or ab in ('GP', 'AVG', 'ERA', '+/-', 'TOI/G')):
                         vals[ab] = x.get('displayValue')
-                    elif ab and ab not in vals and ab in want and kind != 'basketball':
+                    elif ab and (ab not in vals or wins) and ab in want and kind != 'basketball':
                         vals[ab] = x.get('displayValue')
-            if at.get('id') and at.get('displayName'):
-                out.append({'id': str(at['id']), 'name': at['displayName'], 'pos': (at.get('position') or {}).get('abbreviation'), 'vals': vals, 'lead': l.get('displayValue')})
+            if at.get('id') and at.get('displayName') and str(at['id']) not in seen:
+                seen[str(at['id'])] = {'id': str(at['id']), 'name': at['displayName'], 'pos': (at.get('position') or {}).get('abbreviation'), 'vals': vals, 'lead': l.get('displayValue')}; out.append(seen[str(at['id'])])
     cols = [c for c in want if any(c in p['vals'] for p in out)] or list(dict.fromkeys(k for p in out for k in p['vals']))[:6]
-    return out[:30], cols
+    return out[:60], cols
 
 
 def parse_athlete(data):

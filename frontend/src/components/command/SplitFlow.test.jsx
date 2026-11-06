@@ -51,7 +51,7 @@ test('the boost folder shows the deal in live numbers, and burning points asks t
   const q = t => el.querySelector(`[data-testid="${t}"]`);
   expect(work).toHaveBeenCalledWith('c', { op: 'pool' }); expect(q('bof-x').textContent).toBe('1.87x'); expect(q('bof-cut').textContent).toBe('1.87%'); expect(q('bof-points').textContent).toContain('16.7');
   expect(q('bof-pool-p1')).toBeTruthy(); expect(q('bof-pool-p2')).toBeNull(); expect(q('bst-withdraw-off')).toBeTruthy();
-  expect(q('bst-count').textContent).toContain('$'); expect(q('bof-rail').textContent).toContain('BOOST CASH'); expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
+  expect(q('bst-count').textContent).toContain('$'); expect(q('bof-it')).toBeTruthy(); expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
   expect(q('send-warning').textContent).toContain('Only stake what you can lose');
   await click(q('bof-burn')); expect(work).toHaveBeenCalledWith('c', { op: 'pool_fast', cap: 1 }); expect(q('bof-fast-left').textContent).toContain('left');
   await act(async () => root.unmount());

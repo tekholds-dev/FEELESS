@@ -1,8 +1,9 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { ProgressCircle, Slider } from '@heroui/react';
 import { motion } from 'motion/react';
 import { Layers3, Zap } from 'lucide-react';
 import { KeepDeal } from './KeepDeal';
+import { ProofSendForm, proofTitle } from './ProofKit';
 import { Ic3 } from '../../lib/icon3d';
 import { money } from './SplitFlow';
 import { Fx, Roll } from './CollectiveSetup';
@@ -37,6 +38,18 @@ function FastCompound({ s, r, busy, onBuy, focus }) {
       : <p className="bof-note" data-testid="bof-fast-why">{!s.pointsLeft ? 'It has no points. A graded proof brings points.' : lift <= 0 ? 'It already holds the top cut.' : `It needs ${(price / 4).toLocaleString(undefined, { maximumFractionDigits: 2 })} points for the shortest burn.`}</p>}</section>;
 }
 const SEND_WORD = (x, rate) => (x.held ? 'Held by the five checks. No points until cleared' : x.grade == null ? 'Sent before grading, counts as 1x' : `Grade ${Math.round(x.grade)} · ${rate}`);
+// 🚀 THE WAY TO USE IT. Pick a filed proof, send $1 or more with it, and the five checks grade it. That is what makes a boost.
+const KIND_ICON = { PoW: '⛏', PoP: '🎯', PoB: '🏟', PoC: '💡', PoS: '🧱' };
+const KIND_LIST = [['PoW', 'powFolders'], ['PoP', 'popFolders'], ['PoB', 'pobFolders'], ['PoC', 'pocFolders'], ['PoS', 'psFolders']];
+export const sendableProofs = d => KIND_LIST.flatMap(([kind, key]) => (d?.[key] || []).filter(f => f.id && !f.live).map(f => ({ kind, f }))).sort((a, b) => (Number(b.f.at) || 0) - (Number(a.f.at) || 0));
+function BoostIt({ cat, work }) {
+  const [d, setD] = useState(null); const [on, setOn] = useState(null); const [sent, setSent] = useState({});
+  useEffect(() => { let live = true; Promise.resolve().then(() => work(cat.id, { op: 'state' })).then(j => { if (live) setD(j || {}); }).catch(() => { if (live) setD({}); }); return () => { live = false; }; }, [cat?.id, work]);
+  const rows = useMemo(() => sendableProofs(d), [d]); const open = rows.filter(x => !x.f.sent && !sent[x.f.id]); const pick = rows.find(x => x.f.id === on) || open[0] || null;
+  return <section className="bof-it" data-testid="bof-it"><header><Ic3 e="🚀" size="24px" /><h4>BOOST IT</h4><small className="m-num">{open.length} ready</small></header>
+    {!d ? <p className="bof-note">Reading its proofs…</p> : !rows.length ? <p className="bof-note" data-testid="bof-it-none">No filed proof yet. Run any proof from its folder, and it shows up here ready to send.</p> : <><ul className="bof-it-list" data-testid="bof-it-list">{rows.slice(0, 24).map(({ kind, f }) => { const gone = f.sent || sent[f.id]; return <li key={f.id}><button type="button" className={`${pick?.f.id === f.id ? 'is-on' : ''}${gone ? ' is-sent' : ''}`} aria-pressed={pick?.f.id === f.id} disabled={!!gone} onClick={() => setOn(f.id)} data-tip={gone ? 'Already sent with this proof' : `Send with this ${kind}`} data-testid={`bof-it-${f.id}`}><Ic3 e={KIND_ICON[kind]} size="24px" /><span><b>{proofTitle(f)}</b><small className="m-num">{kind}{gone ? ' · sent' : ''}</small></span></button></li>; })}</ul>
+      {pick && !pick.f.sent && !sent[pick.f.id] ? <ProofSendForm key={pick.f.id} cat={cat} work={work} f={pick.f} kind={pick.kind} coin={false} onSent={x => setSent(y => ({ ...y, [pick.f.id]: x }))} /> : null}</>}</section>;
+}
 export function BoostFolder({ cat, work }) {
   const d0 = useAgentPool(cat, work); const [over, setOver] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [focus, setFocus] = useState(false); const fastAt = useRef(null);
   if (!d0) return <p className="dsk-note">reading its boost…</p>;
@@ -49,12 +62,11 @@ export function BoostFolder({ cat, work }) {
       <div className="bof-boost"><small className="m-chip" data-tip="Rewards count up here, but taking them out is off until a lawyer has looked" data-testid="bst-withdraw-off">WITHDRAWALS OFF</small><small>ITS BOOST</small><Roll v={s.x || 0} fmt={xOf} className="bof-x m-num" testid="bof-x" /><em>{s.grade ? `Average grade ${Math.round(s.grade)}, and ${(s.size || 0).toFixed(2)}x for its ${money(s.sentUsd)}` : 'Starts with its first graded proof'}</em></div>
       <div className="bof-tiles"><span className="is-cash" data-tip="The rewards, counting live. A real pool profit releases to it second by second, so this is money that already landed" data-testid="bof-cash-tile"><small>BOOST CASH</small><LiveCount pool={d0.pool} readAt={d0.readAt} testid="bst-count" /></span>{[['BOOST POINTS', <Roll key="p" v={s.pointsLeft || 0} fmt={pts} testid="bof-points" />, 'What its proofs and dollars hold. Each dollar of boost cash or each burn takes one off. Burn them to run at a bigger seat'], ['ITS SEAT', <Roll key="c" v={s.nowPct || 0} fmt={pct} testid="bof-cut" />, 'Its share of every pool profit right now'], ['STAKED', <Roll key="s" v={s.sentUsd || 0} fmt={money} testid="bof-staked" />, 'What its proofs have sent into the pools']].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small>{v}</span>)}</div>
     </motion.section>
-    <motion.ol className="bof-rail" {...rise(1)} aria-label="How a proof becomes money" data-testid="bof-rail">{[['🧾', 'PROOF + $', money(s.sentUsd), 'Every send goes with a proof, $1 or more. It stays staked in the pools', 0], ['⚖', 'GRADE', s.grade ? Math.round(s.grade) : '—', 'Five checks plus its fingerprint, out of 100', (s.grade || 0) / 100], ['🪙', 'BOOST', xOf(s.x), 'Grade 87 is 1.87x, so up to 1.87 times what it sent can come back', Math.min(1, Math.max(0, (s.x || 1) - 1))], ['🪑', 'SEAT', pct(s.nowPct), 'Its share of every real pool profit. Bigger with more boost and dollars, slower past $1,000', Math.min(1, (s.nowPct || 0) / Math.max(1, s.topPct || 1))], ['💵', 'BOOST CASH', money(d0.pool?.owedUsd), 'Real pool profit releasing to it, second by second. Pools can lose money, and no profit means no pay', (d0.pool?.owedUsd ? 1 : 0)]].map(([ic, l, v, t, part], i) => <li key={l} style={{ '--i': i, '--p': part }} data-tip={t}><i aria-hidden="true"><Ic3 e={ic} size="34px" /></i><small>{l}</small><b className="m-num">{v}</b><u aria-hidden="true"><s /></u></li>)}</motion.ol>
-    <div className="bof-mid"><motion.div ref={fastAt} {...rise(1)}><FastCompound s={s} r={r} busy={busy} onBuy={buy} focus={focus} /></motion.div>
+    <div className="bof-mid"><motion.div {...rise(1)}><BoostIt cat={cat} work={work} /></motion.div><div className="bof-side"><motion.div ref={fastAt} {...rise(2)}><FastCompound s={s} r={r} busy={busy} onBuy={buy} focus={focus} /></motion.div>
       <motion.section className="bof-pools" {...rise(2)} data-testid="bof-pools"><header><Layers3 size={16} aria-hidden="true" /><h4>WHERE THE STAKE WORKS</h4><small className="m-num">{live.length} open</small></header>
-        {live.length ? <ul>{live.map(p => <li key={p.id} data-testid={`bof-pool-${p.id}`}><b>{p.pair}</b><small>{p.platform}</small><em className="m-num" data-tip="Profit this pool has really paid">{money(p.profitUsd)}</em>{p.address ? <a href={`https://solscan.io/account/${p.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the pool on Solscan">↗</a> : null}</li>)}</ul> : <p className="bof-note" data-testid="bof-no-pools">No pool is open yet. Until one is, there is no profit, and nothing pays.</p>}</motion.section></div>
+        {live.length ? <ul>{live.map(p => <li key={p.id} data-testid={`bof-pool-${p.id}`}><b>{p.pair}</b><small>{p.platform}</small><em className="m-num" data-tip="Profit this pool has really paid">{money(p.profitUsd)}</em>{p.address ? <a href={`https://solscan.io/account/${p.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the pool on Solscan">↗</a> : null}</li>)}</ul> : <p className="bof-note" data-testid="bof-no-pools">No pool is open yet. Until one is, there is no profit, and nothing pays.</p>}</motion.section></div></div>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    <motion.div {...rise(4)}><KeepDeal rules={r} testid="bof-deal" /></motion.div>
+    <motion.div {...rise(4)}><header className="bof-deal-h"><h4>WHAT A BOOST DOES</h4><small>Try any size and grade. The numbers run on the real rules</small></header><KeepDeal rules={r} start={s.sentUsd ? { usd: s.sentUsd, grade: s.grade } : null} testid="bof-deal" /></motion.div>
     {sends.length ? <motion.section className="bof-sends" {...rise(5)} data-testid="bof-sends"><header><h4>ITS PROOFS</h4></header><ol>{sends.map(x => <li key={x.id} className={x.held ? 'is-held' : ''} data-testid={`bof-send-${x.id}`}><Ring part={(x.grade || 0) / 100} label={`Grade ${Math.round(x.grade || 0)}`} /><span><b>{x.name || 'Proof'}{x.sym ? ` · $${x.sym}` : ''}</b><small>{SEND_WORD(x, xOf(x.x))}</small></span><em className="m-num" data-tip="What it sent, and the points that gave">{money(x.usd)} → {x.held ? '0' : money((x.usd || 0) * (x.x || 1))}</em>{x.sig ? <a href={`https://solscan.io/tx/${x.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Its transaction on Solscan">Tx ↗</a> : null}</li>)}</ol></motion.section> : null}
   </div></Fx>;
 }

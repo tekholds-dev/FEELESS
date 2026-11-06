@@ -25,9 +25,11 @@
     "@solana/web3.js": "^1.99.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query": "5.56.2",
+    "@xyflow/react": "12.12.0",
     "bs58": "^6.0.0",
     "clsx": "2.1.1",
     "decimal.js": "10.6.0",
+    "echarts": "5.6.0",
     "ethers": "^6",
     "gifenc": "1.0.3",
     "graphology": "^0.26.0",
@@ -134,7 +136,9 @@
     "**/readdirp/picomatch": "2.3.2",
     "**/jest-util/picomatch": "2.3.2",
     "**/tinyglobby/picomatch": "4.0.4",
-    "http-proxy-middleware": "2.0.10"
+    "http-proxy-middleware": "2.0.10",
+    "d3-selection": "3.0.0",
+    "d3-interpolate": "3.0.1"
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }
