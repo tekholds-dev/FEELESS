@@ -3,7 +3,7 @@ import { Toaster } from 'sonner';
 import { ChatCost, KitPick, LiveCode } from '../components/command/FeaturesFolder';
 import EcosystemChat from '../components/EcosystemChat';
 import { HoneyTanks } from '../components/command/HoneyTanks';
-import { SplitBars } from '../components/command/CollectiveOwner';
+import { DealFlow } from '../components/command/CollectiveOwner';
 import { Signal } from '../components/command/CollectiveLanding';
 import { GitFolder } from '../components/command/GitFolder';
 import { FolderRidge } from '../components/command/ProofKit';
@@ -17,7 +17,7 @@ const PAGE = Array.from({ length: 60 }, (_, i) => `<section class="row-${i}"><h2
 const Money = () => <div className="cll" style={{ minHeight: '100vh', padding: 16, background: '#060914', color: '#e8efff', display: 'grid', gap: 16, alignContent: 'start' }}>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }} data-testid="dev-prints">{['pow', 'pop', 'pob', 'poc', 'pos', 'poe'].flatMap(k => [1, 2].map(n => <span key={k + n} style={{ display: 'grid', justifyItems: 'center', fontSize: 11 }}><FolderRidge fid={`${k}${n}a`} kind={k} size={84} />{k}</span>))}</div>
     <HoneyTanks ledger={{ earnedSol: 0.000074, owedSol: 0.000008, owedCount: 2, transferredSol: 0, distributedSol: 0 }} live={{ right: 3, graded: 4 }} px={92} />
-    <SplitBars c={{ potPct: 40, sitePct: 20 }} />
+    <DealFlow c={{ collectivePoolPct: 20 }} cutsPct={6} />
     <Signal />
   </div>;
 function Git() {   // ?git: this machine's real files from public/dev-git.json (gitignored). Nothing leaves the page

@@ -6,7 +6,7 @@ import { BoostFolder } from './BoostFolder';
 import { CollectiveOwner } from './CollectiveOwner';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-const RULES = { skimPct: 20, potPct: 50, potPayDayPct: 5, weightMaxX: 2, boostBackPts: 5, ptsBase: 5, ptsPerUsd: 2, ptsMaxSend: 60, ptsPerDay: 10, boostFadeDays: 60, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout', plans: [{ plan: 'week', days: 7, backPct: 70, weightX: 1, roomX: 1 }, { plan: 'month', days: 30, backPct: 85, weightX: 2, roomX: 2 }, { plan: 'quarter', days: 90, backPct: 95, weightX: 3, roomX: 3 }, { plan: 'vault', days: null, backPct: 0, weightX: 6, roomX: 6 }] };
+const RULES = { deal: 'plans', skimPct: 20, potPct: 50, potPayDayPct: 5, weightMaxX: 2, boostBackPts: 5, ptsBase: 5, ptsPerUsd: 2, ptsMaxSend: 60, ptsPerDay: 10, boostFadeDays: 60, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout', plans: [{ plan: 'week', days: 7, backPct: 70, weightX: 1, roomX: 1 }, { plan: 'month', days: 30, backPct: 85, weightX: 2, roomX: 2 }, { plan: 'quarter', days: 90, backPct: 95, weightX: 3, roomX: 3 }, { plan: 'vault', days: null, backPct: 0, weightX: 6, roomX: 6 }] };
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); await act(async () => { root.render(node); }); return { el, root }; };
 const click = async n => act(async () => { n.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
 
@@ -30,41 +30,34 @@ test('a rule the server changes moves the picture', async () => {
   expect(rows[0]).toEqual(['Sent', 'Collective, right away', 3]); expect(rows.map(r => r[1])).toContain('Back to the agent');
   const vault = sendRows(splitOf(RULES, 10, 'vault')); expect(vault.map(r => r[1])).toEqual(['Collective, right away', 'Vault']);
 });
-test('the boost folder counts up, shows each date and spends points', async () => {
-  const stream = { id: 's1', plan: 'month', name: 'PoW 1', sym: 'BONK', sentUsd: 10, backUsd: 6.8, soFarUsd: 1, start: Date.now() / 1000 - 86400, at: Date.now() / 1000 - 86400, end: Date.now() / 1000 + 86400 * 29, sig: 'abc' };
-  const work = jest.fn(async (id, b) => (b.op === 'pool' ? { pool: { owedUsd: 1.5, ratePerSecUsd: 0.5, lockedUsd: 8, sentUsd: 10, earnedUsd: 0.2, backLeftUsd: 5.8, nextEnd: stream.end, streams: [stream], levers: {} }, rules: RULES, points: 40, pointsLeft: 40, strength: 62, printLevel: 34, boostNow: 0.5, plan: 'month', boostLog: [{ ref: 'x', pts: 10, why: 'paid the Pool' }] } : { pointsLeft: 30, plan: b.text }));
-  const { el, root } = await mount(<BoostFolder cat={{ id: 'c' }} work={work} />);
-  expect(work).toHaveBeenCalledWith('c', { op: 'pool' });
-  const n = () => Number(el.querySelector('[data-testid="bst-count"]').textContent.slice(1));
-  const first = n(); expect(first).toBeGreaterThanOrEqual(1.5);
-  await act(async () => { await new Promise(r => setTimeout(r, 450)); });
-  expect(n()).toBeGreaterThan(first);
-  expect(el.querySelector('[data-testid="bst-withdraw-off"]')).toBeTruthy(); expect(el.querySelector('[data-testid="bst-stream-s1"]').textContent).toContain('$6.80'); expect(el.querySelector('[data-testid="bst-lever-PRINT STRENGTH"]').textContent).toContain('62/100');
-  await click(el.querySelector('[data-testid="bst-spend-s1"]')); expect(work).toHaveBeenCalledWith('c', { op: 'pool_spend', job: 's1', cap: 10 });
-  await click(el.querySelector('[data-testid="bst-plan"] [data-testid="plan-week"]')); expect(work).toHaveBeenCalledWith('c', { op: 'pool_plan', text: 'week', on: false });
-  await act(async () => root.unmount());
-});
-test('an agent with nothing sent says so and shows the split', async () => {
-  const { el, root } = await mount(<BoostFolder cat={{ id: 'c' }} work={async () => ({ pool: { empty: true, owedUsd: 0, lockedUsd: 0, levers: {}, streams: [] }, rules: RULES })} />);
-  expect(el.textContent).toContain('starts with its first proof');
-  expect(el.querySelector('details').open).toBe(true);
-  await act(async () => root.unmount());
-});
-test('the owner folder saves a slider and explains every row', async () => {
-  const cfg = { ...RULES, sitePct: 20, capPct: 3, weekDays: 7, weekBack: 70, weekWeight: 1, weekRoom: 1, monthDays: 30, monthBack: 85, monthWeight: 2, monthRoom: 2, quarterDays: 90, quarterBack: 95, quarterWeight: 3, quarterRoom: 3, vaultWeight: 6, vaultRoom: 6 }; const bounds = Object.fromEntries(Object.keys(cfg).map(k => [k, [0, 1000]]));
-  const view = { cfg, defaults: cfg, bounds, totals: { usd: { keep: 7, pot: 3, locked: 8, owed: 1 }, in: { deposit: 5, proofs: 2 }, agents: 1, ratePerSecUsd: 0 }, chain: { short: [], tokens: { SOL: { chain: 1e9, need: 1e8 }, USDC: { chain: 0, need: 0 } } }, site: { feesUsd: 100, movedUsd: 5, owedUsd: 15 }, held: [{ cat: 'c', id: 'h1', name: 'Happy', sym: 'X', review: { seats: [{ k: 'devil', ok: false, name: 'Devil', why: 'short' }] } }], reviewed: 3, agents: [{ id: 'a', name: 'Happy', sentUsd: 10, lockedUsd: 8, owedUsd: 1, levers: { weightX: 1 } }], log: [] };
-  const call = jest.fn(async (u, o) => (o ? { ...view, cfg: { ...cfg, ...JSON.parse(o.body).cfg } } : view));
+const OWNER_VIEW = { cfg: { ...RULES, collectivePoolPct: 20, cutPerX: 1, capPct: 3, fastPtsPerDay: 5, fastMaxDays: 30, depositPct: 10 }, defaults: { collectivePoolPct: 20, cutPerX: 1, capPct: 3, fastPtsPerDay: 5, fastMaxDays: 30 }, bounds: { collectivePoolPct: [5, 80], cutPerX: [0.25, 10], capPct: [1, 100], fastPtsPerDay: [0.25, 100], fastMaxDays: [1, 90] }, stake: { stakedUsd: 200, profitUsd: 50, paidUsd: 2, keepUsd: 17, compoundUsd: 31 }, pools: [{ id: 'p1', platform: 'meteora', pair: 'SOL-USDC', address: 'Addr11112222', on: true, profitUsd: 50 }], stakeAgents: [{ id: 'a', name: 'Happy', sentUsd: 200, x: 1.87, cutPct: 1.87, nowPct: 1.87, paidUsd: 2, pointsLeft: 372, fast: true }], totals: { usd: {}, in: { txn: 5, proofs: 200 }, agents: 1 }, chain: { short: [], tokens: {} }, site: { feesUsd: 75, movedUsd: 0, owedUsd: 15 }, held: [{ cat: 'c', id: 'h1', name: 'Nova', sym: 'WIF', review: { seats: [] } }], reviewed: 3 };
+test('HQ shows the money, the pools and each cut, saves a dial, and profit needs a transaction', async () => {
+  const call = jest.fn(async (u, o) => (o ? OWNER_VIEW : OWNER_VIEW));
   const { el, root } = await mount(<CollectiveOwner call={call} />);
-  expect(el.querySelector('[data-testid="cof-cover"]').textContent).toContain('FULLY COVERED');
-  expect(el.querySelector('[data-testid="cof-tank-keep"]').textContent).toContain('$7.00'); expect(el.querySelector('[data-testid="cof-site"]').textContent).toContain('$15.00');
-  await click(el.querySelector('[data-testid="cof-clear-h1"]')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
-  expect(el.querySelector('[role="tablist"]')).toBeNull();   // one page, no tabs
-  expect(el.querySelectorAll('.cof-row').length).toBeGreaterThan(20); [...el.querySelectorAll('.cof-row')].forEach(r => expect(r.getAttribute('data-tip')).toBeTruthy());
-  for (const t of ['year', 'wallet', 'stash']) expect(el.querySelector(`[data-testid="cof-more-${t}"]`)).toBeTruthy();
-  expect(el.querySelector('[data-testid="cof-withdrawals"]').textContent).toContain('OFF');
-  expect(el.querySelector('[data-testid="cof-save"]').disabled).toBe(true);
-  await click(el.querySelector('[data-testid="cof-mode-rank"]'));
-  await click(el.querySelector('[data-testid="cof-save"]'));
-  expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body).cfg.boostMode).toBe('rank');
+  const q = t => el.querySelector(`[data-testid="${t}"]`);
+  expect(q('cof-cover').textContent).toContain('FULLY COVERED'); expect(q('cof-withdrawals').textContent).toContain('OFF');
+  expect(q('hq-kpi-stakedUsd').textContent).toContain('$200'); expect(q('hq-kpi-keepUsd').textContent).toContain('$17');
+  expect(q('hq-pool-p1').textContent).toContain('SOL-USDC'); expect(q('hq-agent-a').textContent).toContain('1.87%'); expect(q('hq-agent-a').textContent).toContain('FAST');
+  expect(q('hq-range-note').textContent).toContain('not wired');
+  await click(q('hq-open-checks')); await click(q('cof-clear-h1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
+  expect(q('cof-save').disabled).toBe(true);
+  await click(q('hq-pool-on-p1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ poolSet: { id: 'p1', on: false } });
+  await act(async () => root.unmount());
+});
+test('the boost folder shows the deal in live numbers, and burning points asks the server', async () => {
+  const stake = { sentUsd: 10, capUsd: 18.7, x: 1.87, grade: 87, paidUsd: 2, burned: 0, pointsLeft: 16.7, cutPct: 1.87, fastPct: 0, nowPct: 1.87, topPct: 2, fastUntil: null };
+  const work = jest.fn(async (id, b) => (b.op === 'pool' ? { pool: { streams: [] }, stake, pools: [{ id: 'p1', pair: 'SOL-USDC', platform: 'orca', on: true, profitUsd: 4 }, { id: 'p2', pair: 'X-Y', platform: 'orca', on: false }], sends: [{ id: 's1', name: 'PoW 1', sym: 'BONK', grade: 87, x: 1.87, usd: 10, sig: 'abc' }, { id: 's2', held: true, name: 'PoW 2', usd: 5, x: 1 }], rules: { collectivePoolPct: 20, cutPerX: 1, fastPtsPerDay: 5, fastMaxDays: 30 } } : { stake: { ...stake, burned: 5, pointsLeft: 11.7, nowPct: 2, fastUntil: Date.now() / 1000 + 86400 } }));
+  const { el, root } = await mount(<BoostFolder cat={{ id: 'c' }} work={work} />);
+  const q = t => el.querySelector(`[data-testid="${t}"]`);
+  expect(work).toHaveBeenCalledWith('c', { op: 'pool' }); expect(q('bof-x').textContent).toBe('1.87x'); expect(q('bof-cut').textContent).toBe('1.87%'); expect(q('bof-points').textContent).toContain('16.7');
+  expect(q('bof-pool-p1')).toBeTruthy(); expect(q('bof-pool-p2')).toBeNull(); expect(q('bst-withdraw-off')).toBeTruthy();
+  expect(q('bof-send-s1').textContent).toContain('$18.70'); expect(q('bof-send-s2').textContent).toContain('Held');
+  expect(q('send-warning').textContent).toContain('Only stake what you can lose');
+  await click(q('bof-burn')); expect(work).toHaveBeenCalledWith('c', { op: 'pool_fast', cap: 1 }); expect(q('bof-fast-left').textContent).toContain('left');
+  await act(async () => root.unmount());
+});
+test('with nothing staked and no pools it says so and promises nothing', async () => {
+  const { el, root } = await mount(<BoostFolder cat={{ id: 'c' }} work={async () => ({ pool: { streams: [] }, stake: {}, pools: [], sends: [], rules: {} })} />);
+  expect(el.querySelector('[data-testid="bof-no-pools"]').textContent).toContain('nothing pays'); expect(el.querySelector('[data-testid="bof-fast-why"]').textContent).toContain('no points'); expect(el.querySelector('[data-testid="bof-burn"]')).toBeNull();
   await act(async () => root.unmount());
 });

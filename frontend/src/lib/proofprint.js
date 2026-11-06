@@ -73,6 +73,11 @@ export function collectivePrint(feed, split = 'agent') {
   const rings = Object.entries(by).slice(0, MAX_RINGS).map(([k, cps]) => ({ id: k, kind: 'sent', name: k, code: 'SENT', firstAt: 0, checkpoints: cps.slice(0, PER_RING) }));
   return { rings, total: rings.reduce((n, r) => n + r.checkpoints.length, 0) };
 }
+/** 🧬 What the Collective's sources really do. One ridge per kind of source, heaviest at the core. A result is a mark on its ridge. */
+export function sourcePrint(rows) {
+  const rings = (rows || []).slice(0, MAX_RINGS).map(r => ({ id: r.id, kind: 'sent', name: r.id.replace('/', ' · '), code: `${r.winPct}%`, firstAt: 0, checkpoints: (r.dots || []).slice(0, PER_RING).map((x, i) => ({ id: `${r.id}:${i}`, at: x.at, score: x.won ? 92 : 8, name: x.won ? 'A proof won' : 'A proof lost', sub: `${r.won} won, ${r.lost} lost, weight ${r.weight}`, shown: x.won ? 'WON' : 'LOST', shots: [] })) }));
+  return { rings, total: rings.reduce((n, r) => n + r.checkpoints.length, 0) };
+}
 /** 🌊 THE EXAMPLE: the same rules as collective_pool.py, day by day, for members who stay, one row per plan. No new people join: this shows it needs none. */
 export function growthExample(rules, { members = 500, sendWeek = 10, tradeDay = 50, plan = 'month', strength = 50, days = 360, outsideDay = 0 } = {}) {
   const plans = rules.plans || []; const p = plans.find(x => x.plan === plan) || plans[1] || { backPct: 85, days: 30, weightX: 2, roomX: 2 }; const fee = (tradeDay < rules.txnSmallUsd ? rules.txnSmallPct : tradeDay < rules.txnBigUsd ? rules.txnMidPct : rules.txnBigPct) / 100; const skim = rules.skimPct / 100; const potPct = rules.potPct / 100; const payDay = (rules.potPayDayPct || 5) / 100;

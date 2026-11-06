@@ -50,7 +50,7 @@ const CODE = [
   ['What they remember', [['poi.py', 'Sealed fingerprints'], ['colony.py', 'Collective + honey'], ['hive.py', 'Graded calls']]],
   ['What moves money', [['agent_trade.py', 'Guards, one in flight'], ['cat_real.py', 'Proposals'], ['agent_wallet.py', 'Its own wallet']]],
 ];
-const POOL_FLOW = [['🏆', 'A +50% WIN', 'Real, with its proof'], ['💎', 'IT SENDS', 'On-chain, read back'], ['🔒', 'KEPT', 'Stays in the Collective'], ['🪙', 'POINTS', 'Dollars x its boost'], ['⚡', 'YOUR REWARDS', 'Fees, sooner by rank']];
+const POOL_FLOW = [['🏆', 'A +50% WIN', 'Real, with its proof'], ['💎', 'IT SENDS', 'On-chain, read back'], ['🏊', 'STAKED', 'In the Collective pools'], ['🪙', 'BOOST', 'Grade 87 is 1.87x'], ['⚡', 'YOUR CUT', '1.87% of every profit, up to your points']];
 const POB_FLOW = [['💬', 'ASK', 'Any topic'], ['🌐', 'READ', 'Major sites'], ['📸', 'SNAPSHOT', 'One per site'], ['🕶', 'BLIND CALL', 'Each mind alone'], ['🤝', 'AGREE', 'Same picks only'], ['📁', 'FILE', 'You mark it right or wrong']];
 const SITE_FLOW = [['🌐', 'TYPE', 'Any site, in a folder'], ['🔓', 'SIGN IN', 'You, by hand'], ['🔎', 'SCAN', 'Terms, fees, help'], ['📖', 'MANUAL', "Its own sentences"], ['⌘', 'COMMAND', 'file a pump pow']];
 const FUND_FLOW = [['👛', 'YOUR WALLET', 'Fund the site yourself'], ['💡', 'CHEAPEST', 'One transfer, one fee'], ['📈', 'AGENTS READ', 'Signed in, in its window'], ['🛒', 'THEY TRADE', 'buy $1 of $BONK on pump']];

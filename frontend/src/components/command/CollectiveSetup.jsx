@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGroup, MotionConfig, animate, motion } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { MotionConfig, animate, motion } from 'motion/react';
 import { Ic3 } from '../../lib/icon3d';
 import { money } from './SplitFlow';
 import '../../styles/collectiveSetup.css';
@@ -23,19 +23,7 @@ export function NumCell({ k, label, u = '', step = 1, lo, hi, v, start, onChange
   return <span className={`cs-num${start != null && v !== start ? ' is-moved' : ''}${compact ? ' is-compact' : ''}`} data-tip={tip} data-testid={`cof-${k}`}><span className="cs-num-in">{u === '$' ? <i>$</i> : null}<input className="m-num" type="number" min={lo} max={hi} step={step} value={text} onChange={edit} onBlur={() => setText(String(v))} aria-label={label} />{u && u !== '$' ? <i>{u}</i> : null}</span>
     <span className="cs-rail" aria-hidden="true"><motion.u initial={false} animate={{ scaleX: part }} />{notch != null ? <em style={{ left: `${notch * 100}%` }} /> : null}</span></span>;
 }
-const clampTo = (b, v) => Math.max(b[0], Math.min(b[1], v));
 // Three starting points. Each only moves the numbers that matter, and nothing is saved until you press save.
-export const PRESETS = [
-  { k: 'collective', name: 'Grow the Collective', line: 'Keeps more now. Smaller returns for members.', move: { skimPct: 5, weekBack: -5, monthBack: -5, quarterBack: -3, potPct: -10 } },
-  { k: 'start', name: 'Balanced', line: 'The starting numbers.', move: {} },
-  { k: 'members', name: 'Pull in members', line: 'More comes back and more goes to the fee pot.', move: { skimPct: -5, weekBack: 5, monthBack: 5, quarterBack: 3, potPct: 10, sitePct: 5 } },
-];
-export function presetCfg(p, d) { const out = { ...d.defaults }; Object.entries(p.move).forEach(([k, m]) => { if (d.bounds[k]) out[k] = clampTo(d.bounds[k], d.defaults[k] + m); }); return out; }
-export function Presets({ c, d, onPick }) {
-  const keys = useMemo(() => [...new Set(PRESETS.flatMap(p => Object.keys(p.move)))], []); const on = PRESETS.find(p => { const t = presetCfg(p, d); return keys.every(k => t[k] === c[k]); })?.k;
-  return <LayoutGroup id="cs-presets"><div className="cs-presets" role="radiogroup" aria-label="Starting points">{PRESETS.map(p => { const t = presetCfg(p, d); const lock = 100 - t.skimPct; return <button key={p.k} type="button" role="radio" aria-checked={on === p.k} className={on === p.k ? 'is-on' : ''} onClick={() => onPick(t)} data-tip={`Sets the sliders to this. Nothing changes until you save. ${p.line}`} data-testid={`cs-preset-${p.k}`}>{on === p.k ? <motion.i layoutId="ring" aria-hidden="true" /> : null}<b>{p.name}</b><small>{p.line}</small>
-    <span className="cs-pre-n"><span><em className="m-num">{money(t.skimPct)}</em><small>Kept per $100</small></span><span><em className="m-num">{money(lock * t.monthBack / 100)}</em><small>Back in 30 days</small></span><span><em className="m-num">{t.potPct}%</em><small>Fees to the pot</small></span></span></button>; })}</div></LayoutGroup>;
-}
 const QUOTE_RULES = { SOL: 'SOL', USDC: 'USDC' };
 const RECIPES = [
   { k: 'fee-sol', a: 'FEE', q: 'SOL', name: 'FEE and SOL', line: 'The usual home for a coin. Buyers and sellers pay the pool on every trade.' },
@@ -48,12 +36,12 @@ const FEES = [[25, '0.25%'], [100, '1%'], [200, '2%'], [500, '5%']];
 export function PoolBuilder({ d, act, busy }) {
   const tokens = d.poolTokens || []; const mintOf = k => tokens.find(t => t.k === k)?.mint || '';
   const [rk, setRk] = useState('fee-sol'); const [other, setOther] = useState(''); const [quote, setQuote] = useState('SOL'); const [a, setA] = useState(''); const [b, setB] = useState(''); const [fee, setFee] = useState(100); const [lock, setLock] = useState(false); const [vol, setVol] = useState(5000);
-  const r = RECIPES.find(x => x.k === rk); const q = rk === 'other' ? quote : r.q; const symA = rk === 'other' ? 'Coin' : r.a; const mintA = rk === 'other' ? other.trim() : mintOf(r.a); const na = Number(a); const nb = Number(b); const dr = d.poolDraft;
-  const body = { mintA, quote: q, amountA: na, amountB: nb, feeBps: fee, lock }; const ready = mintA && na > 0 && nb > 0;
+  const [again, setAgain] = useState(false); const r = RECIPES.find(x => x.k === rk); const q = rk === 'other' ? quote : r.q; const symA = rk === 'other' ? 'Coin' : r.a; const mintA = rk === 'other' ? other.trim() : mintOf(r.a); const na = Number(a); const nb = Number(b); const dr = d.poolDraft;
+  const body = { mintA, quote: q, amountA: na, amountB: nb, feeBps: fee, lock, name: `${symA}-${q}` }; const ready = mintA && na > 0 && nb > 0;
   const clean = !!(dr?.ok && dr.mintA === mintA && dr.amountA === na && dr.amountB === nb && dr.feeBps === fee && dr.lock === lock && dr.mintB === mintOf(q));
   const simWord = e => (String(e).includes('AccountNotFound') ? 'The Pool wallet has no SOL yet. Fund it first.' : /insufficient/i.test(String(e)) ? 'The Pool wallet does not hold these amounts.' : String(e).slice(0, 110));
-  if (d.pool) return <section className="cs-pool" data-testid="colony-pool-open"><h5><Ic3 e="🌊" /> THE COLLECTIVE'S POOL <em>OPEN · {d.pool.platform}</em></h5><code>{d.pool.address}</code><small>{d.pool.amountA != null ? `${Number(d.pool.amountA).toLocaleString()} + ${d.pool.amountB}` : `${d.pool.feecat?.toLocaleString()} FEECAT + ${d.pool.sol} SOL`}{d.pool.lock ? ' · locked' : ' · unlocked'}</small></section>;
-  return <Fx><section className="cs-pool" data-testid="colony-pool"><h5><Ic3 e="🌊" /> OPEN A POOL <em>Meteora · not open</em></h5>
+  if (d.pool && !again) return <section className="cs-pool" data-testid="colony-pool-open"><h5><Ic3 e="🌊" /> THE COLLECTIVE'S POOL <em>OPEN · {d.pool.platform}</em></h5><code>{d.pool.address}</code><small>{d.pool.amountA != null ? `${Number(d.pool.amountA).toLocaleString()} + ${d.pool.amountB}` : `${d.pool.feecat?.toLocaleString()} FEECAT + ${d.pool.sol} SOL`}{d.pool.lock ? ' · locked' : ' · unlocked'}</small><button type="button" className="m-btn" onClick={() => setAgain(true)} data-tip="Build another with the same checks. Each one gets its own desktop folder" data-testid="colony-pool-again">Open another pool</button></section>;
+  return <Fx><section className="cs-pool" data-testid="colony-pool"><h5><Ic3 e="🌊" /> OPEN A POOL <em>Meteora · {d.pool ? 'another one' : 'not open'}</em></h5>
     <ol className="cs-steps">
       <li><h6>1 · What goes in</h6><div className="cs-recipes" role="radiogroup" aria-label="Pair">{RECIPES.map(x => <button key={x.k} type="button" role="radio" aria-checked={rk === x.k} className={rk === x.k ? 'is-on' : ''} onClick={() => setRk(x.k)} data-tip={x.line} data-testid={`colony-pair-${x.k}`}><b>{x.name}</b><small>{x.line}</small></button>)}</div>
         {rk === 'other' ? <div className="cs-other"><input className="m-input" value={other} onChange={e => setOther(e.target.value)} placeholder="Coin address" aria-label="Coin address" spellCheck="false" data-testid="colony-pool-mint" /><span className="m-seg" role="group" aria-label="Pair it with">{Object.keys(QUOTE_RULES).map(k => <button key={k} type="button" aria-pressed={quote === k} className={quote === k ? 'active' : ''} onClick={() => setQuote(k)} data-tip={`Pair it with ${k}`} data-testid={`colony-quote-${k}`}>{k}</button>)}</span></div> : null}</li>

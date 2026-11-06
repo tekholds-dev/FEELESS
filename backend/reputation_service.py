@@ -16,6 +16,7 @@ import investigate
 import name_lock as _name_lock
 import agent_deposit as _deposit
 import collective_pool as _cpool
+import collective_stake as _stake
 import collective_stash as _stash
 import reserve_pool
 import perf
@@ -19938,8 +19939,6 @@ async def admin_colony_set(request: Request):
         same_ = dr_.get('amountA') == float(body.get('amountA', body.get('feecat')) or 0) and dr_.get('amountB') == float(body.get('amountB', body.get('sol')) or 0) and dr_.get('mintA') == str(body.get('mintA') or dr_.get('mintA')) and dr_.get('mintB') == POOL_QUOTES.get(str(body.get('quote') or 'SOL').upper(), ('',))[0] and dr_.get('feeBps') == int(body.get('feeBps') or 100) and dr_.get('lock') == (body.get('lock') is True)
         if not (dr_.get('ok') and same_ and now - int(dr_.get('at') or 0) < 600):
             raise HTTPException(400, 'Preview these exact amounts first (the simulation must pass) — then create within 10 minutes.')
-        if (d.get('pool') or {}).get('address'):
-            raise HTTPException(400, 'The colony pool already exists.')
         args_, r_ = await _colony_pool_build(d, body)
         if not r_.get('ok') or (r_.get('sim') or {}).get('err') is not None:
             raise HTTPException(400, f"The fresh simulation failed — nothing was sent ({str(r_.get('error') or r_.get('sim', {}).get('err'))[:120]}).")
@@ -19948,8 +19947,13 @@ async def admin_colony_set(request: Request):
             raise HTTPException(502, 'Circle did not sign the pool — nothing was sent.')
         async with httpx.AsyncClient(timeout=20) as http_:
             took_ = await _rpc_broadcast(http_, sg_['signedTransaction'])
-        d['pool'] = {'address': r_['pool'], 'platform': 'Meteora DAMM v2', 'at': now, 'sig': sg_.get('signature') or sg_.get('txHash'), 'nodes': took_,
-                     'mintA': args_['mintA'], 'mintB': args_['mintB'], 'amountA': args_['amountA'], 'amountB': args_['amountB'], 'feeBps': args_['feeBps'], 'lock': args_['lock']}
+        made_ = {'address': r_['pool'], 'platform': 'Meteora DAMM v2', 'at': now, 'sig': sg_.get('signature') or sg_.get('txHash'), 'nodes': took_,
+                 'mintA': args_['mintA'], 'mintB': args_['mintB'], 'amountA': args_['amountA'], 'amountB': args_['amountB'], 'feeBps': args_['feeBps'], 'lock': args_['lock']}
+        if (d.get('pool') or {}).get('address'):   # the first stays the Collective's main pool
+            d['poolsMore'] = (d.get('poolsMore') or []) + [made_]
+        else:
+            d['pool'] = made_
+        _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, 'meteora', str(body.get('name') or 'New pool')[:32], r_['pool'], f"Opened {args_['amountA']} + {args_['amountB']}", time.time()))
         d.pop('poolDraft', None)
     else:
         raise HTTPException(400, 'Unknown colony action.')
@@ -27440,6 +27444,49 @@ async def admin_collective_set(request: Request):
         if not _cpool.update(POOL_PATH, go_site):
             raise HTTPException(409, 'That transaction was already counted.')
         return await _collective_view()
+    if body.get('poolAdd') or body.get('poolSet'):   # 🏊 the owner lists a pool he opened. It only records a label: it moves nothing
+        try:
+            if body.get('poolAdd'):
+                a_ = body['poolAdd']; _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, a_.get('platform'), a_.get('pair'), a_.get('address'), a_.get('note'), time.time()))
+            else:
+                a_ = body['poolSet']; _cpool.update(POOL_PATH, lambda st: _stake.set_pool(st, str(a_.get('id')), {k: v for k, v in a_.items() if k != 'id'}))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return await _collective_view()
+    if 'payPaused' in body:   # 🛑 the owner's stop: profit keeps compounding, and no cut is paid until he turns it back on
+        _cpool.update(POOL_PATH, lambda st: st.__setitem__('payPaused', bool(body['payPaused'])))
+        return await _collective_view()
+    if body.get('payEarly') or body.get('bonus'):   # 💸 ledger only: withdrawals stay off, so this moves no money on the chain. A stake can never be spent here
+        a_ = body.get('payEarly') or body.get('bonus'); tok_ = str(a_.get('token') or 'USDC'); px_ = float(await _sol_usd() or 0)
+        if tok_ not in _cpool.TOKENS or (tok_ == 'SOL' and px_ <= 0):
+            raise HTTPException(400, 'That token cannot be priced right now.')
+        try:
+            usd_ = float(a_.get('usd') or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'Pick an amount.')
+        rate_ = (px_ if tok_ == 'SOL' else 1) / _cpool.UNITS[tok_]; units_ = int(usd_ / rate_) if rate_ else 0; key_ = f"owner:{a_.get('nonce') or ''}"
+        if not a_.get('nonce'):
+            raise HTTPException(400, 'Missing nonce.')
+        try:
+            done_ = _cpool.update(POOL_PATH, (lambda st: _stake.pay_early(st, key_, str(a_.get('source')), tok_, units_, rate_, time.time())) if body.get('payEarly') else (lambda st: _stake.bonus(st, key_, str(a_.get('cat')), tok_, units_, rate_, a_.get('why'), time.time())))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if not done_:
+            raise HTTPException(409, 'That was already done.')
+        return await _collective_view()
+    if body.get('profitSig'):   # 💧 a real pool profit: it counts only when the chain shows it landed in the Collective wallet, and once
+        sig_ = str(body['profitSig']).strip(); pot_ = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
+        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', sig_) or not pot_:
+            raise HTTPException(400, 'That is not a transaction.')
+        async with httpx.AsyncClient(timeout=15) as http:
+            tx_ = await _rpc(http, 'getTransaction', [sig_, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+        got_ = _site_landed(tx_, pot_)
+        if not got_:
+            raise HTTPException(400, 'That transaction did not put SOL or USDC into the Collective wallet.')
+        px_ = float(await _sol_usd() or 0); tok_, units_ = got_; unit_ = (px_ if tok_ == 'SOL' else 1) / _cpool.UNITS[tok_]
+        if not _cpool.update(POOL_PATH, lambda st: _stake.pay_profit(st, f'profit:{sig_}', tok_, units_, unit_, time.time(), str(body.get('pool') or ''))):
+            raise HTTPException(409, 'That transaction was already counted.')
+        return await _collective_view()
     if not isinstance(body.get('cfg'), dict):
         raise HTTPException(400, 'cfg is required.')
 
@@ -27480,7 +27527,7 @@ async def _collective_view():
         raise HTTPException(503, f'The ledger failed its seal and is locked: {e}')
     px = float(await _sol_usd() or 0)
     rows = sorted(((_cpool._locked_usd(a, px) + sum(_cpool._usd(a['owed'][t], t, px) for t in _cpool.TOKENS), c, a) for c, a in st['agents'].items()), key=lambda r: -r[0])[:12]
-    return {'cfg': st['cfg'], 'defaults': _cpool.DEFAULTS, 'bounds': _cpool.BOUNDS, 'totals': _cpool.totals(st, px), 'chain': st.get('chain'), 'solUsd': px, 'wallet': ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address'),
+    return {**_stake.owner_view(st, px, time.time()), 'cfg': st['cfg'], 'defaults': _cpool.DEFAULTS, 'bounds': _cpool.BOUNDS, 'totals': _cpool.totals(st, px), 'chain': st.get('chain'), 'solUsd': px, 'wallet': ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address'),
             'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False, 'site': {'feesUsd': round(_site_fees_total(), 4), 'movedUsd': round(float(st.get('siteMovedUsd') or 0), 4), 'owedUsd': _cpool.site_owed(st['cfg'], _site_fees_total(), st.get('siteMovedUsd'))}, 'held': [{'cat': c, 'name': a.get('name'), **{k: r.get(k) for k in ('id', 'sym', 'at', 'review', 'sig')}} for c, a in st['agents'].items() for r in a.get('streams') or [] if r.get('held')][:30], 'reviewed': sum(1 for a in st['agents'].values() for r in a.get('streams') or [] if r.get('review')), 'hist': (st.get('hist') or [])[-180:], 'audit': st.get('auditNow'), 'head': st.get('head'), 'links': st.get('links') or 0, 'potKinds': list(_cpool.POT_KINDS)}
 
 

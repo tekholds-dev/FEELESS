@@ -80,3 +80,15 @@ body.theme-day .gst-hero, body.theme-day .gst.is-lost .gst-hero, body.theme-day 
 body.fx-lite .gtr-dot.is-ask { animation: none; } @media (prefers-reduced-motion: reduce) { .gtr-dot.is-ask { animation: none; } }
 body.theme-day :is(.git-sortbar, .gtr-votes > span) { background: #f4f7f5; border-color: #0000001a; } body.theme-day .git-sortnums b { color: #101a2c; } body.theme-day :is(.gtr-votes small, .gtr-votes em, .gtr-sort-row > small, .git-sortnums) { color: #55607a; }
 @media (max-width: 640px) { .gtr-votes { grid-template-columns: minmax(0, 1fr); } }
+/* Every option on a folder, the minds' word, and marking anything */
+.gtr-item { position: relative; } .gtr-fset { position: absolute; top: 4px; right: 40px; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: #0b1512; color: inherit; opacity: 0; cursor: pointer; transition: opacity .12s ease, border-color .12s ease; } .gtr-item:hover > .gtr-fset, .gtr-fset:focus-visible, .gtr-fset.is-sel { opacity: 1; } .gtr-fset:hover, .gtr-fset.is-sel { border-color: #ffb454; color: #ffb454; }
+.gtr-ask.is-bad { border-color: #ff8fa366; background: #ff8fa314; } .gtr-ask.is-good { border-color: #45e48666; background: #45e48612; } .gtr-ask span { display: flex; flex-wrap: wrap; gap: 6px; } .gtr-ask .m-btn { display: inline-flex; align-items: center; gap: 5px; }
+.gtr-fview { display: grid; justify-items: center; gap: 8px; padding: 26px 14px; } .gtr-fview svg { color: #ffb454; } .gtr-fview > b { font: 700 16px var(--f-ui); } .gtr-fview .gst-tiles { width: 100%; }
+.gtr-imgwrap.is-page { display: block; }
+.gtr-missed { display: flex; gap: 8px; } .gtr-missed .m-input { flex: 1 1 auto; min-width: 0; }
+.gtr-view.is-marking :is(.gst-tiles > div, .gst-coins li, .gst-why, .gst-plan li, .gst-talk li, .gst-tr, .gst-hero h3) { cursor: crosshair; outline: 1px dashed #ffb45455; outline-offset: 2px; transition: outline-color .12s ease, background .12s ease; } .gtr-view.is-marking :is(.gst-tiles > div, .gst-coins li, .gst-why, .gst-plan li, .gst-talk li, .gst-tr, .gst-hero h3):hover { outline-color: #ffb454; background: #ffb4541a; }
+.gtr-view .is-marked { outline: 2px solid #ffb454; outline-offset: 2px; box-shadow: 0 0 12px #ffb45444; }
+.gtr-marklist li.is-missed span { color: #ffb454; }
+.git-project { display: grid; gap: 9px; } .git-project h4 { display: flex; align-items: center; gap: 6px; margin: 0; font: 800 10.5px var(--f-mono); letter-spacing: .12em; } .git-project-on { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .git-project-on > span { display: grid; gap: 2px; flex: 1 1 240px; min-width: 0; } .git-project-on b { font: 700 13.5px var(--f-tech); overflow-wrap: anywhere; } .git-project small { font: 500 12px/1.4 var(--f-ui); opacity: .75; } .git-project-f { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .git-project-f small { flex: 1 1 100%; } .git-project-f .m-input { flex: 1 1 200px; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .gtr-fset { transition: none; } }
+body.theme-day .gtr-fset { background: #fff; }

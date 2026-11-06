@@ -1,4 +1,5 @@
 """🪙 THE POOL LEDGER (owner 2026-11-05). Every agent fee and every proof sent lands in the one Collective wallet; this file says whose part of it is whose.
+THE LIVE DEAL IS 'stake' (owner 2026-11-06): see collective_stake.py. 'bank' and 'plans' below stay only for tests and streams that already ran.
 THE DEAL NOW (owner 2026-11-05, cfg deal='bank'): the Collective banks all of every send, for good, and a send never pays a reward. The sealed record keeps each agent's total sent and its points: each send's dollars x its boost at that moment. Each month rewardPayPct of the fee pot becomes the month's budget. Each agent is paid its part on its own clock: rank and boost shorten the wait from rewardDays to minDays, and paying sooner only moves money sooner. floorPct of the budget is split evenly by owner, so every rank eats; the rest goes by points, up to capPct per owner. Reward payouts can never pass payoutCapPct of all fee money ever in. Points carry over each month at carryPct. Nothing is promised and a month can pay nothing. Lifetime points set a rank, which sets speed only.
 The older plans below (deal='plans') still finish any stream already running:
 A send: the Collective keeps skimPct. The rest follows the PLAN its owner picked: it comes back at a steady rate to a fixed date, up to the plan's part, and the remainder stays with the Collective. The Vault plan never comes back: it becomes a permanent claim on the fee pot instead, at the highest weight.
@@ -20,10 +21,10 @@ TICK_S = 60
 BOOST_POINTS_FULL = 100
 
 PLANS = ('week', 'month', 'quarter', 'vault')
-DEFAULTS = {'deal': 'bank', 'maxBackX': 1.08, 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+DEFAULTS = {'deal': 'stake', 'reservePct': 20.0, 'spotMaxPct': 50.0, 'minStakeUsd': 1.0, 'collectivePoolPct': 20.0, 'cutPerX': 1.0, 'fastPtsPerDay': 5.0, 'fastMaxDays': 30.0, 'maxBackX': 1.08, 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
             'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.5, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
-BOUNDS = {'maxBackX': (1, 5), 'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
+BOUNDS = {'reservePct': (0, 90), 'spotMaxPct': (5, 100), 'minStakeUsd': (0, 1000), 'collectivePoolPct': (5, 80), 'cutPerX': (0.25, 10), 'fastPtsPerDay': (0.25, 100), 'fastMaxDays': (1, 90), 'maxBackX': (1, 5), 'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
           'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
@@ -61,7 +62,7 @@ def clean_cfg(c):
         if k == 'boostMode':
             out[k] = c.get(k) if c.get(k) in MODES else d
         elif k == 'deal':
-            out[k] = 'plans' if c.get(k) == 'plans' else d
+            out[k] = c.get(k) if c.get(k) in ('plans', 'bank', 'stake') else d
         else:
             lo, hi = BOUNDS[k]
             v = c.get(k, d)
@@ -71,7 +72,7 @@ def clean_cfg(c):
 
 
 def new_state():
-    return {'v': 3, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': {}, 'chain': None, 'head': GENESIS, 'links': 0, 'moved': {t: 0 for t in TOKENS}, 'hist': [], 'trailNew': []}
+    return {'v': 4, 'cfg': clean_cfg(None), 'at': 0, 'books': {t: {'pot': 0, 'keep': 0, 'in': {}, 'paidOut': 0} for t in TOKENS}, 'agents': {}, 'seen': {}, 'chain': None, 'head': GENESIS, 'links': 0, 'moved': {t: 0 for t in TOKENS}, 'hist': [], 'trailNew': []}
 
 
 def _link(state, key, token, units, kind):
@@ -107,6 +108,9 @@ def _once(state, key):
 
 def _take_in(state, token, units, kind):
     b = state['books'][token]; units = int(units)
+    if state['cfg'].get('deal') == 'stake':   # the Collective earns every fee from the jump; a send is a stake in the pools
+        b['stake' if kind == 'proofs' else 'keep'] = int(b.get('stake' if kind == 'proofs' else 'keep') or 0) + units; b['in'][kind] = int(b['in'].get(kind) or 0) + units
+        return
     pot = units if kind in OUTSIDE_KINDS else int(units * state['cfg']['potPct'] / 100) if kind in POT_KINDS else 0
     b['pot'] += pot; b['keep'] += units - pot
     b['in'][kind] = int(b['in'].get(kind) or 0) + units
@@ -199,6 +203,7 @@ def _keep_send(state, key, cat, owner, token, units, usd, now, boost, meta):
     row = {'id': uuid.uuid4().hex[:10], 'at': round(now), 'token': token, 'plan': 'keep', 'sent': units, 'kept': units, 'locked': 0, 'left': 0, 'back': 0, 'out': 0, 'end': None, 'start': now, 'last': now, 'usd': round(usd, 4), 'unitUsd': (usd / units) if units else 0.0, 'weightX': levers(cfg, a['boost'])['weightX'], 'points': pts, **(meta or {})}
     if not row.get('held'):
         a['rewardPts'] = round(_f(a.get('rewardPts')) + pts, 4); a['lifetimePts'] = round(_f(a.get('lifetimePts')) + pts, 4)
+    row['least'] = cfg.get('minStakeUsd') or 0
     a['streams'] = (list(a.get('streams') or []) + [row])[-400:]
     return {'keptUnits': units, 'lockedUnits': 0, 'plan': 'keep', 'end': None, 'backUnits': 0, 'id': row['id'], 'points': pts}
 
@@ -263,7 +268,7 @@ def send(state, key, cat, owner, token, units, usd, now, boost=0.0, meta=None, p
     units = int(units)
     if token not in TOKENS or units <= 0 or not _once(state, key):
         return None
-    if state['cfg'].get('deal') == 'bank':
+    if state['cfg'].get('deal') in ('bank', 'stake'):
         return _keep_send(state, key, cat, owner, token, units, usd, now, boost, meta)
     cfg = state['cfg']; a = _agent(state, cat, owner, now); a['boost'] = max(0.0, min(1.0, _f(boost))); pl = plan_of(cfg, plan or a.get('plan'), a['boost'])
     kept = int(units * cfg['skimPct'] / 100); locked = units - kept; usd = max(0.0, _f(usd)); rate = (usd / units) if units else 0.0
@@ -369,7 +374,9 @@ def tick(state, now, sol_usd):
     if dt < TICK_S:
         return False
     state['at'] = now; cfg = state['cfg']; part = shares(state, sol_usd)
-    pot_part = 0.0 if cfg.get('deal') == 'bank' else 1 - (1 - cfg['potPayDayPct'] / 100) ** (dt / 86400)
+    pot_part = 0.0 if cfg.get('deal') in ('bank', 'stake') else 1 - (1 - cfg['potPayDayPct'] / 100) ** (dt / 86400)
+    if cfg.get('deal') == 'stake':
+        return True
     if cfg.get('deal') == 'bank':
         if now >= _f(state.get('monthEnd')):
             month_open(state, now)
@@ -536,7 +543,7 @@ def totals(state, sol_usd):
 def rules(cfg):
     """What a user's picture draws, straight from the live settings."""
     keep = ('skimPct', 'sitePct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
-    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('maxBackX', 'rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
+    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('collectivePoolPct', 'cutPerX', 'fastPtsPerDay', 'fastMaxDays')}, **{k: cfg[k] for k in ('maxBackX', 'rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
 
 
 def txn_fee_usd(cfg, usd):
@@ -579,6 +586,8 @@ def load(path):
             raise Tampered(str(e)[:120])
     if int(d.get('v') or 1) < 3:   # the first plans: nothing was ever sent under the older rules
         d['cfg'] = {}; d['v'] = 3
+    if int(d.get('v') or 1) < 4:   # owner 2026-11-06: the stake deal. The ledger had no sends when it changed
+        d['cfg'] = {**(d.get('cfg') or {}), 'deal': 'stake'}; d['v'] = 4
     return {**base, **d, 'cfg': clean_cfg(d.get('cfg')), 'trailNew': []}
 
 

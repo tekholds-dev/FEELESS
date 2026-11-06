@@ -17,6 +17,7 @@ import time
 # provider → (label, what it does for the cat, wired now?, shape check)
 PROVIDERS = {
     'github': ('GitHub', 'its own repo for its filed proofs', False, r'^(ghp_|gho_|ghu_|github_pat_)[A-Za-z0-9_]{20,255}$'),
+    'github_project': ('GitHub project', 'the project its agent works on', False, r'^(ghp_|gho_|ghu_|github_pat_)[A-Za-z0-9_]{20,255}$'),
     'openrouter': ('OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', True, r'^sk-or-[A-Za-z0-9_-]{20,}$'),
     'birdeye': ('Birdeye', 'holder + price reads for its scans', False, r'^[A-Za-z0-9]{16,64}$'),
     'helius': ('Helius', 'its own Solana RPC — faster wallet + tape reads', False, r'^[A-Za-z0-9-]{20,64}$'),
@@ -147,4 +148,4 @@ def public(cat):
     """What the page may see: every provider, whether one is saved (last 4 only), and whether the cat uses it yet."""
     drawer = cat.get('apiKeys') or {}
     return [{'provider': p, 'label': lab, 'use': use, 'wired': wired, 'saved': p in drawer, 'last4': (drawer.get(p) or {}).get('last4'),
-             'at': (drawer.get(p) or {}).get('at')} for p, (lab, use, wired, _) in PROVIDERS.items()]
+             'at': (drawer.get(p) or {}).get('at')} for p, (lab, use, wired, _) in PROVIDERS.items() if p != 'github_project']

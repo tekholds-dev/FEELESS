@@ -45,3 +45,22 @@ def test_a_webp_snapshot_becomes_a_jpeg_the_local_models_accept():
     from PIL import Image
     b = io.BytesIO(); Image.new('RGB', (2000, 1000), 'red').save(b, 'WEBP')
     out = cs.to_jpeg(b.getvalue()); im = Image.open(io.BytesIO(out)); assert im.format == 'JPEG' and im.width == 1024
+
+
+def test_a_mark_can_be_words_or_a_note_as_well_as_a_box():
+    it = cs.owner_set({}, {'marks': [{'text': 'holders 412', 'kind': 'item'}, {'x': .1, 'y': .1, 'w': .2, 'h': .2}, {'text': 'it missed the dev wallet', 'kind': 'missed'}, 'junk']})
+    assert [m.get('kind') for m in it['marks']] == ['item', None, 'missed']
+    assert 'it missed the dev wallet' in cs.prompt('a/b.json', it, {})
+
+
+def test_a_folder_rules_its_files_for_the_minds():
+    items = {'snapshots/x/': {'status': 'trash', 'note': 'all 404s', 'by': 'owner'}}
+    assert cs.folder_of('snapshots/x/a.webp', items)['note'] == 'all 404s' and cs.next_path(['snapshots/x/a.webp'], items) is None
+    assert 'all 404s' in cs.prompt('snapshots/x/a.webp', {}, items)
+    assert cs.counts(items, 3)['trash'] == 0
+
+
+def test_his_word_on_many_at_once():
+    items = {'a': {'status': 'bad', 'by': 'minds'}}
+    assert cs.bulk(items, ['a', 'b'], 'trash') == 2 and items['a']['status'] == 'trash' and items['a']['by'] == 'owner'
+    assert cs.bulk(items, ['a'], 'nope') == 0

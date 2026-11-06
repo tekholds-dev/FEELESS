@@ -13,3 +13,16 @@ Popover.Content = function Content({ children, placement, offset, ...p }) { retu
 Popover.Dialog = function Dialog(p) { return <div role="dialog" {...p} />; };
 export const ProgressCircle = ({ children, value, ...p }) => <div role="progressbar" aria-valuenow={value} {...p}>{children}</div>;
 ProgressCircle.Track = ({ children }) => <svg>{children}</svg>; ProgressCircle.TrackCircle = () => <circle />; ProgressCircle.FillCircle = () => <circle />;
+export const Slider = ({ children, value, onChange, minValue, maxValue, step, ...p }) => <div {...p}><input type="range" aria-label={p['aria-label']} min={minValue} max={maxValue} step={step} value={value} onChange={e => onChange?.(Number(e.target.value))} />{children}</div>;
+Slider.Track = ({ children }) => <div>{children}</div>; Slider.Fill = () => null; Slider.Thumb = () => null;
+export const Chip = ({ children, color, variant, size, ...p }) => <span {...p}>{children}</span>;
+const AccCtx = React.createContext(null);
+export const Accordion = ({ children, allowsMultipleExpanded, variant, ...p }) => <div {...p}>{children}</div>;
+Accordion.Item = function Item({ children, id, ...p }) { const [open, setOpen] = React.useState(false); return <AccCtx.Provider value={{ open, setOpen }}><div {...p}>{children}</div></AccCtx.Provider>; };
+Accordion.Heading = ({ children }) => <h3>{children}</h3>;
+Accordion.Trigger = function Trigger({ children, ...p }) { const c = React.useContext(AccCtx); return <button type="button" onClick={() => c.setOpen(!c.open)} {...p}>{children}</button>; };
+Accordion.Indicator = () => null;
+Accordion.Panel = function Panel({ children }) { const c = React.useContext(AccCtx); return c.open ? <div>{children}</div> : null; };
+Accordion.Body = ({ children }) => <div>{children}</div>;
+export const Switch = ({ children, isSelected, onChange, isDisabled, ...p }) => <label {...p}><input type="checkbox" checked={!!isSelected} disabled={isDisabled} onChange={e => onChange?.(e.target.checked)} />{children}</label>;
+Switch.Control = ({ children }) => <span>{children}</span>; Switch.Thumb = () => null;

@@ -69,6 +69,7 @@ import collective as _cl
 import collective_pool as _cpool
 import proof_plan as _plan
 import proof_validators as _val
+import collective_stake as _stake
 import collective_stash as _stash
 import collective_kits as _kits
 import agent_topup as _topup
@@ -1652,6 +1653,12 @@ def _vault_view(cat):
     return {**(v_ or {}), 'on': bool(fee.get('full') and fee.get('auto')), 'at': fee.get('lastAt')}
 
 
+def _project_view(cat):
+    """What the page shows of a linked project. Never the token."""
+    r = cat.get('projectRepo') or {}
+    return {k: r.get(k) for k in ('full', 'url', 'private', 'branch', 'files', 'at')} if r.get('full') else None
+
+
 async def _git_op(cat, p):
     """🐙 Its GitHub folder. A token is sealed on the way in and never comes back to a page."""
     collective = str(p.to or '') == 'collective'; key = 'collectiveGit' if collective else 'gitLink'
@@ -1665,11 +1672,14 @@ async def _git_op(cat, p):
             return _git_view_file(p.job, raw_)
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
-            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
-        if p.op in ('sort_set', 'sort_on', 'sort_trash'):   # 🗂 the owner's word on a file. Nothing is ever deleted
+            return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'project': None if collective else _project_view(cat), **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
+        if p.op in ('sort_set', 'sort_on', 'sort_trash', 'sort_bulk'):   # 🗂 the owner's word on a file. Nothing is ever deleted
             if not collective:
                 raise ValueError('Only the Collective repo is sorted.')
             d_ = _sort.load(GIT_DIR); path_ = str(p.job or '')
+            if p.op == 'sort_bulk':
+                n_ = _sort.bulk(d_['items'], (p.tools or {}).get('paths'), (p.tools or {}).get('status')); _sort.save(GIT_DIR, d_)
+                return {'changed': n_, 'items': d_['items']}
             if p.op == 'sort_on':
                 d_['on'] = bool(p.on)
             elif p.op == 'sort_trash':
@@ -1678,6 +1688,26 @@ async def _git_op(cat, p):
                 d_['items'][path_] = _sort.owner_set(d_['items'].get(path_), p.tools or {})
             _sort.save(GIT_DIR, d_)
             return {'on': d_['on'], 'item': d_['items'].get(path_)}
+        if p.op in ('project_link', 'project_send', 'project_drop'):   # 📂 the user's own project: their agent reads it and sends work to a branch of its own
+            if collective:
+                raise ValueError('The Collective repo has no project.')
+            if p.op == 'project_drop':
+                cat.pop('projectRepo', None); _ck.drop(cat, 'github_project')
+                return {'project': None}
+            if p.text and p.op == 'project_link':
+                _ck.put(cat, 'github_project', p.text, data_dir=DATA_DIR)
+            token = _ck.key_for(cat, 'github_project', data_dir=DATA_DIR)
+            if not token:
+                raise ValueError('Paste a GitHub token first.')
+            async with httpx.AsyncClient() as h:
+                if p.op == 'project_link':
+                    cat['projectRepo'] = {**await _cg.project_link(h, token, p.job or (cat.get('projectRepo') or {}).get('full')), 'at': round(time.time())}
+                    return {'project': _project_view(cat)}
+                doc_ = _ws_load(cat['id'], str(p.job or ''))
+                if not doc_ or not doc_.get('code') or not cat.get('projectRepo'):
+                    raise ValueError('Build a page and link a project first.')
+                sent_ = await _cg.project_send(h, token, cat['projectRepo'], doc_.get('name') or p.job, {f"feeless/{_cg.slug(doc_.get('name') or p.job)}/index.html": str(doc_['code']).encode()}, f"FEELESS: {str(doc_.get('name') or p.job)[:60]}")
+                return {'sent': sent_}
         if p.op == 'git_connect':
             if p.text:
                 _ck.put(cat, 'github', p.text, data_dir=DATA_DIR)
@@ -1741,7 +1771,7 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
         _cl.add_boost(cat, 'auto', f'sig:{sig}', _cpool.points_for(pol_, usd_, str_), now, f"{folder.get('name')} paid the Pool")
 
     def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_}, (cat.get('colonyShare') or {}).get('plan'))
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_)}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -3337,7 +3367,7 @@ def _recall(cat, category, text):
     """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches, and gets the kits for its kind of proof, the owner's picks first. Never stops a proof."""
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); auto_ = cfg_.get('kitMode', 'mine' if cfg_.get('kits') else 'auto') == 'auto'
-        return _kits.line(KITS_DIR, kind_, _kits.auto_picks(KITS_DIR, kind_, text) if auto_ else cfg_.get('kits') or [], open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, _kits.auto_picks(KITS_DIR, kind_, text) if auto_ else cfg_.get('kits') or [], open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -5721,6 +5751,17 @@ async def cat_web_live(session: str = ''):
     return {'live': _web_live_rows(store, now, private_ok), 'stored': [{**r, 'agent': names[r['agent']]} for r in fresh if r['agent'] in names]}
 
 
+_SOURCE_PRINT = {'at': 0, 'rows': []}
+
+
+@app.get('/api/cats/sources/print')
+async def cat_sources_print():
+    """🧬 Which kinds of source win, weighed, from real graded proofs. No site names, no titles. Public."""
+    if time.time() - _SOURCE_PRINT['at'] > 300:
+        _SOURCE_PRINT['rows'] = await asyncio.to_thread(_cg.source_print, STASH_DIR, _feat._sources.sources_web()['hostFeature']); _SOURCE_PRINT['at'] = time.time()
+    return {'rows': _SOURCE_PRINT['rows']}
+
+
 @app.get('/api/cats/sources/web')
 async def cat_sources_web():
     """🕸 What the Collective's sources offer, as folders and features. No site names."""
@@ -5901,7 +5942,7 @@ async def colony_flow(limit: int = 40):
                  'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
                  'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
-                 'poolNow': {**_cpool.totals(_cpool.load(POOL_PATH), await _pool_px()), 'head': _cpool.load(POOL_PATH).get('head'), 'links': _cpool.load(POOL_PATH).get('links'), 'seeds': {c['id']: _cpool.print_seed(c['id']) for c in cats[:400]}},
+                 'poolNow': {**_cpool.totals(_cpool.load(POOL_PATH), await _pool_px()), 'stakedUsd': _stake.totals(_cpool.load(POOL_PATH), await _pool_px())['stakedUsd'], 'head': _cpool.load(POOL_PATH).get('head'), 'links': _cpool.load(POOL_PATH).get('links'), 'seeds': {c['id']: _cpool.print_seed(c['id']) for c in cats[:400]}},
                  'proofs': _cl.proof_feed(cats, shares, now, 20), 'convos': _convos_public(store),
                  'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
                  'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'tree': _flow_tree(cats, shares, board), 'ledger': rows[:max(1, min(100, int(limit)))]})
@@ -6355,7 +6396,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'ok': True}
     if p.op == 'pool':   # 🪙 its live count, its dated returns, what its boost does and the points it can spend
         now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_); str_ = _print.strength(cat, now_); pts_ = _cl.boost_total(cat); pv_ = _cpool.view(st_, cat_id, now_, await _pool_px())
-        return {'pool': pv_, 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+        return {'pool': pv_, 'stake': _stake.view(st_, cat_id, now_), 'pools': _stake.public_pools(st_), 'sends': [{**r, 'grade': x_.get('grade'), 'usd': x_.get('usd'), 'x': _stake.x_of(x_.get('grade'))} for r, x_ in zip(pv_['streams'], ((st_['agents'].get(cat_id) or {}).get('streams') or [])[::-1])], 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+    if p.op == 'pool_fast':   # ⚡ burn points for time at the top cut. It lowers what it can ever earn, and takes nothing from anyone else
+        try:
+            out_ = _cpool.update(POOL_PATH, lambda st: _stake.buy_fast(st, cat_id, p.cap, time.time()))
+            st_ = _cpool.load(POOL_PATH)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        return {**out_, 'stake': _stake.view(st_, cat_id, time.time())}
     if p.op == 'pool_plan':   # 🪙 which plan its next sends follow. Sends already made keep theirs.
         if p.text not in _cpool.PLANS:
             raise HTTPException(400, 'Pick one of the plans.')
@@ -6412,9 +6460,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['deskIcons'] = {str(k)[:24]: {'x': max(0, min(20000, int(v['x']))), 'y': max(0, min(20000, int(v['y'])))} for k, v in list(p.tools['pos'].items())[:80] if isinstance(v, dict) and isinstance(v.get('x'), (int, float)) and isinstance(v.get('y'), (int, float))}
             keep_owned(cat); _save(store)
         return {'pos': cat.get('deskIcons') or {}}
-    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'git_connect', 'git_push', 'git_auto', 'git_drop'):
+    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop'):
         out_ = await _git_op(cat, p)
-        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash'):
+        if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_bulk'):
             keep_owned(cat); _save(store)
         return out_
     if p.op == 'desk_seat':   # 🎩 Sicario's only, its owner only: an agreed PoW goes to the real card's model seat
@@ -6472,7 +6520,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'saved': p.on is not False}
     if p.op == 'ws_open':
-        view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or [])
+        view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or []); view_['project'] = (cat.get('projectRepo') or {}).get('full')
         if p.ver is not None and p.ver == str(view_['versions']):
             for large_ in ('code', 'previousCode', 'preview'):
                 view_.pop(large_, None)

@@ -46,3 +46,29 @@ test('the owner rules on what the minds want gone, adds notes and marks, and not
   await act(async () => { q(el, 'sort-tab-trash').click(); }); expect(q(el, 'git-dir-snapshots')).not.toBeNull();   // still there
   expect(q(el, 'sort-mark')).not.toBeNull(); expect(calls.some(c => /delete|drop/.test(c.op))).toBe(false);
 });
+
+test('the minds said bad: one tap trashes it, and a folder has its own options with bulk approve', async () => {
+  const files = [['snapshots/x/a.webp', 100], ['snapshots/x/b.webp', 100], ['snapshots/x/c.webp', 100]];
+  const items = { 'snapshots/x/a.webp': { status: 'bad', by: 'minds', votes: { ossy: { verdict: 'bad', why: '404' }, g4: { verdict: 'bad', why: '404' } } }, 'snapshots/x/b.webp': { status: 'trash_ask', by: 'minds' } };
+  const work = jest.fn(async (id, b) => { if (b.op === 'git_state') return { files, link: { full: 'o/r' }, sealed: true, sort: { on: true, items, counts: {} }, tree: [] }; if (b.op === 'git_read') return { path: b.job, kind: 'text', text: 'hello world' }; if (b.op === 'sort_bulk') return { changed: 1, items: {} }; return { item: { status: b.tools?.status, by: 'owner', marks: b.tools?.marks } }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<GitFolder cat={{ id: 'leader' }} work={work} scope="collective" />); }); await act(async () => {});
+  const q = t => el.querySelector(`[data-testid="${t}"]`); const click = n => act(async () => { n.click(); });
+  await click(q('git-dir-snapshots')); await click(q('git-dir-x')); await click(q('git-file-a.webp')); await act(async () => {});
+  expect(q('sort-minds').textContent).toContain('The minds say bad');
+  await click(q('sort-minds-trash')); expect(work.mock.calls.at(-1)[1]).toMatchObject({ op: 'sort_set', job: 'snapshots/x/a.webp', tools: { status: 'trash' } });
+  await click(q('git-dirset-x')); expect(q('git-folder-view').textContent).toContain('3 files'); await click(q('sort-bulk-trash_ask'));
+  expect(work.mock.calls.at(-1)[1]).toMatchObject({ op: 'sort_bulk', tools: { paths: ['snapshots/x/b.webp'], status: 'trash' } });
+  await act(async () => root.unmount());
+});
+test('a user can hook up their own project, and the token never shows again', async () => {
+  const work = jest.fn(async (id, b) => { if (b.op === 'project_link') work.linked = true; return b.op === 'git_state' ? { files: [], link: {}, project: work.linked ? { full: 'me/app', files: 3, url: 'u', branch: 'main' } : null } : { project: {} }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<GitFolder cat={{ id: 'c' }} work={work} />); }); await act(async () => {});
+  const q = t => el.querySelector(`[data-testid="${t}"]`); const type = (n, v) => act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); });
+  await type(q('git-project-repo'), 'me/app'); await type(q('git-project-token'), 'github_pat_xxx');
+  await act(async () => { q('git-project-go').click(); }); await act(async () => {});
+  expect(work.mock.calls.find(c => c[1].op === 'project_link')[1]).toMatchObject({ job: 'me/app', text: 'github_pat_xxx' });
+  expect(q('git-project').textContent).toContain('me/app'); expect(el.innerHTML).not.toContain('github_pat_xxx');
+  await act(async () => root.unmount());
+});

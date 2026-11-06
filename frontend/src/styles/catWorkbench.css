@@ -152,18 +152,18 @@ body.theme-day .cwb-vault { background: #fffaf0; border-color: #e0b84a66; } body
 @media (max-width: 640px) { .cwb-cred-add { grid-template-columns: 1fr; } .cwb-cred-add > span { justify-content: stretch; } .cwb-cred-add > span > * { flex: 1; } }
 
 /* ☁ its cloud drawer: NEW chip, the space-left bar (cwb-meters), the 5 newest as a media strip, every file as a row, 3 bigger-storage sign-ups */
-.cwb-cloudd { border-color: #7fd3ff44; } .cwb-cloudd summary { color: #a8e4ff; display: flex; align-items: center; gap: 8px; } .cwb-cloudd > *:not(summary) { margin: 0 10px 10px; }
-.cwb-cloud-bar > span { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; } .cwb-cloud-bar u { grid-column: 1 / -1; }
+  
+ 
 .cwb-cloud-empty { color: #a99bc8; font: 600 11px var(--f-ui); }
-.cwb-cloud-files { list-style: none; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7fd3ff transparent; }
-.cwb-cloud-files li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 10px; background: #ffffff06; animation: cwbIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
-.cwb-cloud-files b { color: #fff; font: 700 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cwb-cloud-files .m-num { color: #a8e4ff; font-size: 11px; }
-body.theme-day .cwb-cloudd summary { color: #1f6f99; } body.theme-day .cwb-cloud-files li { background: #fff; } body.theme-day .cwb-cloud-files b { color: #2a1f45; }
-.cwb-cloud-pick { display: flex; flex-wrap: wrap; gap: 6px; } .cwb-cloud-pick .m-note { flex-basis: 100%; } .cwb-cloud-pick .m-btn { min-height: 34px; display: inline-flex; gap: 6px; align-items: center; } .cwb-cloud-pick small { opacity: .75; font: 600 10px var(--f-mono); }
+
+
+ 
+  
+   
 .cwb-vlog { list-style: none; margin: 0 10px 10px; padding: 8px 0 0; border-top: 1px solid #ffffff10; display: grid; gap: 3px; }
 .cwb-vlog li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; color: #c9bce6; font: 600 10.5px var(--f-mono); animation: cwbIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); } .cwb-vlog b { color: #fff; overflow: hidden; text-overflow: ellipsis; } .cwb-vlog time { color: #8f83ad; }
 body.theme-day .cwb-vlog li { color: #5a4f78; } body.theme-day .cwb-vlog b { color: #2a1f45; }
-body.fx-lite .cwb-cloud-files li, body.fx-lite .cwb-vlog li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-cloud-files li, .cwb-vlog li { animation: none; } }
+ body.fx-lite .cwb-vlog li { animation: none; } @media (prefers-reduced-motion: reduce) {  .cwb-vlog li { animation: none; } }
 
 /* ☁ + attach (owner 2026-10-31): a drawn plus in a violet ring, its chips (thumb · name · size · ✕) and the storage meter */
 .cwb-files { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 6px; }
@@ -586,20 +586,18 @@ body.theme-day .dsk-wal-bal span { background: #f2fbf6; } body.theme-day .dsk-wa
 @media (prefers-reduced-motion: reduce) { .col-dot i{ animation: none; } }
 body.theme-day .col-tab { background: #fffdf5; border-color: #b9861a33; } body.theme-day .col-head span { background: #0000000a; } body.theme-day .col-head span b, body.theme-day .col-pick b { color: #1b1233; } body.theme-day .col-pick { color: #3d3060; }
 /* ⛓ keep on IPFS: the price first, then Pay; the kept files glow as a chain list */
-.cwb-ipfs { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; } .cwb-ipfs .m-btn { min-height: 32px; } .cwb-ipfs em { color: #ffd76a; font: 800 10.5px var(--f-mono); font-style: normal; text-shadow: 0 0 10px #ffd76a55; }
-.cwb-ipfs-on { text-decoration: none; } .cwb-ipfs-on:hover { filter: brightness(1.2); } .cwb-ipfs-on:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
-.cwb-ipfs-list { list-style: none; margin: 0; padding: 8px; display: grid; gap: 4px; border-radius: 12px; border: 1px solid #45e48633; background: linear-gradient(160deg, #45e48612, transparent 70%); }
-.cwb-ipfs-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 8px; background: #ffffff07; animation: dskXIn .3s both; animation-delay: calc(var(--i, 0) * 50ms); }
-.cwb-ipfs-list a { color: #c8f5da; font: 600 11px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cwb-ipfs-list a:hover { color: #fff; } .cwb-ipfs-list a:focus-visible { outline: 2px solid #45e486; }
-.cwb-ipfs-list em { color: #45e486; font: 800 10px var(--f-mono); font-style: normal; } .cwb-ipfs-list small { color: #8fb3a0; font: 600 9.5px var(--f-mono); }
-body.fx-lite .cwb-ipfs-list li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-ipfs-list li { animation: none; } }
-body.theme-day .cwb-ipfs-list { background: #f2fbf6; } body.theme-day .cwb-ipfs-list a { color: #12301f; } body.theme-day .cwb-ipfs em { color: #8a5a00; text-shadow: none; }
-@media (max-width: 640px) { .cwb-ipfs-list li { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-ipfs-list small { display: none; } }
-@media (max-width: 640px) { .cwb-cloud-files li { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-cloud-files li .cwb-ipfs { grid-column: 1 / -1; justify-self: end; } }
-.cwb-ipfs-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #f5c54240; background: linear-gradient(160deg, #f5c54214, transparent 70%); }
-.cwb-ipfs-add > span { display: grid; gap: 2px; margin-right: auto; } .cwb-ipfs-add b { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .cwb-ipfs-add small { color: #c8bde6; font: 600 10.5px var(--f-ui); }
-.cwb-ipfs-add label { min-height: 34px; display: inline-flex; align-items: center; cursor: pointer; } .cwb-ipfs-add label:focus-within { outline: 2px solid #45e486; outline-offset: 2px; } .cwb-ipfs-add label.is-busy { opacity: .7; pointer-events: none; }
-body.theme-day .cwb-ipfs-add { background: #fffaf0; } body.theme-day .cwb-ipfs-add b { color: #8a5a00; } body.theme-day .cwb-ipfs-add small { color: #3d3060; }
+  
+  
+
+
+  
+ 
+
+  
+
+  
+  
+  
 
 /* 🤝 share PoW wins with the pot + 🎲 each site's random moves */
 .dsk-share { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #f5c54240; background: linear-gradient(160deg, #f5c54214, transparent 70%); }

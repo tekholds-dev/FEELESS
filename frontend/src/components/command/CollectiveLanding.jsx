@@ -3,8 +3,9 @@ import { LedgerBars, Tile } from './HoneyTanks';
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
+import { SourceWins } from './Proofprint';
 import { GrowthCalc, usePoolRules, money } from './SplitFlow';
-import { KeepDeal, RankLadder, pointsFor } from './KeepDeal';
+import { KeepDeal, pointsFor } from './KeepDeal';
 import { StashWeb } from './StashWeb';
 import { Roll } from './CollectiveSetup';
 import '../../styles/collectiveLanding.css';
@@ -56,8 +57,8 @@ function LivePrint({ proofs, colors, glow }) {
     {!cells.length ? <p className="cll-empty">No proof has been sent yet. The first one lights up here.</p> : !sel ? <p className="cll-hint">Tap a bright cell for its proof</p> : null}
     {sel ? <><svg className="cll-wire" aria-hidden="true"><path ref={path} /><circle ref={dot} r="5" /></svg><article ref={wire} className="cll-card" data-testid="cll-card" onPointerDown={e => e.stopPropagation()}><header><small>REAL PROOF</small><button type="button" onClick={close} aria-label="Close" data-tip="Close" data-testid="cll-card-close">✕</button></header><h4>{sel.label || 'Proof'}</h4><dl>{[['CLASS', CLASS[sel.kind] || 'Proof'], ['AGENT', sel.agent || '—'], ['RESULT', sel.pct != null ? `${sel.pct >= 0 ? '+' : ''}${Number(sel.pct).toFixed(1)}%` : '—'], ['WHEN', sel.at ? new Date(sel.at * 1000).toLocaleDateString() : '—']].map(([k, val]) => <div key={k}><dt>{k}</dt><dd className="m-num">{val}</dd></div>)}</dl>{sel.sent?.link ? <a href={sel.sent.link} target="_blank" rel="noopener noreferrer" data-tip="See what it sent on-chain">Transaction ↗</a> : null}</article></> : null}</div>;
 }
-const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'All of it is banked for good, on a sealed record. A send never pays a reward.'], ['lock', 'Points', 'Its dollars x its boost at that send. Each one counts once.'], ['back', 'Your rewards', 'Rewards come from real fees, sooner at a higher rank. A month can pay nothing. Taking them out stays off for now.']];
-function flowOf(sc, r, profit, share) { const send = sc === 'win' ? profit * share / 100 : 0; return { send, kept: send, low: pointsFor(r, send, 0), high: pointsFor(r, send, 1) }; }
+const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'All of it is staked in the pools, on a sealed record. A send never pays a reward.'], ['lock', 'Points', 'Its dollars x its boost at that send. Each one counts once.'], ['back', 'Your rewards', 'Rewards come from real fees, sooner at a higher rank. A month can pay nothing. Taking them out stays off for now.']];
+function flowOf(sc, r, profit, share) { const send = sc === 'win' ? profit * share / 100 : 0; return { send, kept: send, low: pointsFor(send, 0), high: pointsFor(send, 100) }; }
 const pts = v => Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
 export function Signal() {
   const r = usePoolRules(); const [sc, setSc] = useState('win'); const [profit, setProfit] = useState(200); const [share, setShare] = useState(10); const [pick, setPick] = useState('trade'); const f = flowOf(sc, r, profit, share);
@@ -66,11 +67,11 @@ export function Signal() {
   return <section className="cll-sec" data-testid="cll-signal"><header><small>HOW IT WORKS</small><h3>Follow the proof.</h3><p>Pick what happened. These are the live rules, on your numbers. An example, not a promise.</p></header>
     <div className="cll-ctls">{seg('WHAT HAPPENED', sc, setSc, ['win', 'loss', 'swap'], o => ({ win: 'A winning trade', loss: 'A losing trade', swap: 'A swap by anyone' }[o]), 'sc')}{live ? seg('THE WIN', profit, setProfit, [50, 200, 1000], o => `$${o}`, 'win') : null}{live ? seg('IT SENDS', share, setShare, [5, 10, 25], o => `${o}%`, 'share') : null}</div>
     <ol className="cll-steps" data-testid="cll-steps">{STAGES.map(([id, label], i) => <li key={id} style={{ '--i': i }}><button type="button" className={`cll-step${pick === id ? ' is-on' : ''}${!live && i > 0 ? ' is-off' : ''}`} aria-pressed={pick === id} onClick={() => setPick(id)} data-tip="Tap to read this step" data-testid={`cll-step-${id}`}><small className="m-num">{String(i + 1).padStart(2, '0')}</small><b>{label}</b></button></li>)}</ol>
-    <p className="cll-now" data-testid="cll-now"><b>{sc === 'loss' ? 'A losing trade' : sc === 'swap' ? 'A swap by anyone' : on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p>
+    <p className="cll-now" data-testid="cll-now"><b>{sc === 'loss' ? 'A losing trade' : sc === 'swap' ? 'A swap by anyone' : on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Agent fees are income for the Collective. It is a separate path: no proof, no points.' : on?.[2]}</p>
     <div className="ht-row" data-testid="cll-nums">
-      <section className="ht-chart"><Suspense fallback={<div className="ht-wait" />}><LedgerBars rows={[['The win', live ? profit : 0, '#57c7ff'], ['It sends', f.send, '#ffb454'], ['Collective keeps', f.kept, '#3ee58a']]} fmt={money} unit="" testid="cll-bars" /></Suspense></section>
+      <section className="ht-chart"><Suspense fallback={<div className="ht-wait" />}><LedgerBars rows={[['The win', live ? profit : 0, '#57c7ff'], ['It sends', f.send, '#ffb454'], ['Staked in the pools', f.kept, '#3ee58a']]} fmt={money} unit="" testid="cll-bars" /></Suspense></section>
       <section className="ht-ring" data-tip="The part of the win this proof sends"><ProgressCircle aria-label="Part of the win it sends" value={live ? share : 0} className="ht-circle"><ProgressCircle.Track><ProgressCircle.TrackCircle /><ProgressCircle.FillCircle /></ProgressCircle.Track></ProgressCircle><div><small>OF THE WIN</small><b className="m-num">{live ? `${share}%` : '—'}</b><em>{live ? 'goes in the proof' : 'nothing sent'}</em></div></section>
-      <div className="ht-tiles"><Tile label="IT SENDS" color="#ffb454" value={money(f.send)} sub="in the proof" tip="What its wallet sends" /><Tile label="COLLECTIVE KEEPS" color="#3ee58a" value={money(f.kept)} sub="banked for good" tip="All of it. A send never pays a reward" /><Tile label="POINTS, NO BOOST" color="#57c7ff" value={pts(f.low)} sub="at this send" tip="Its dollars with no boost" /><Tile label="POINTS, FULL BOOST" color="#c58bff" value={pts(f.high)} sub="at this send" tip="Its dollars with a full boost" /></div>
+      <div className="ht-tiles"><Tile label="IT SENDS" color="#ffb454" value={money(f.send)} sub="in the proof" tip="What its wallet sends" /><Tile label="IN THE POOLS" color="#3ee58a" value={money(f.kept)} sub="staked" tip="All of it works in the pools. A send never pays a reward" /><Tile label="POINTS, GRADE 0" color="#57c7ff" value={pts(f.low)} sub="1x" tip="The most it could earn at the lowest grade" /><Tile label="POINTS, GRADE 100" color="#c58bff" value={pts(f.high)} sub="2x" tip="The most it could earn at the top grade" /></div>
     </div></section>;
 }
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
@@ -82,7 +83,7 @@ function ThemePicker({ look, setLook, call }) {
 // 💡 Why an agent sends, said plainly, from the live rules.
 function WhySend() {
   const r = usePoolRules(); if (!r) return null;
-  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>A rank and a share of the fees.</h3></header><KeepDeal rules={r} testid="cll-deal" /><RankLadder rules={r} /><GrowthCalc testid="cll-growth" /></section>;
+  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>A graded stake and a cut of every pool.</h3></header><KeepDeal rules={r} testid="cll-deal" /></section>;
 }
 export function CollectiveLanding() {
   const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 });
@@ -93,6 +94,7 @@ export function CollectiveLanding() {
     <WhySend />
     <Signal />
     <section className="cll-sec" data-testid="cll-gates"><header><small>BEFORE IT COUNTS</small><h3>Five checks. One record.</h3></header><ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} style={{ '--i': i }}><small>{String(i + 1).padStart(2, '0')}</small><b>{n}</b><p>{q}</p></li>)}</ol></section>
+    <section className="cll-sec" data-testid="cll-wins"><header><small>WHAT WE PROVIDE</small><h3>The sources that win.</h3><p>Every ridge is a kind of source our agents use. Real graded proofs make it, and the more a source is tested, the more it weighs.</p></header><SourceWins /></section>
     <section className="cll-sec" data-testid="cll-web"><header><small>WHERE IT ALL COMES FROM</small><h3>Every source, by size.</h3></header><StashWeb testid="cll-stash" /></section>
     <section className="cll-sec cll-end"><small>WHAT STAYS PRIVATE</small><p>Visitors see a proof's reference, agent name, type and result. Its evidence stays with its owner. What comes back depends on real money in the wallet: nothing on this page creates a return.</p></section>
   </div>;

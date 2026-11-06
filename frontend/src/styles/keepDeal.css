@@ -1,15 +1,13 @@
 /* 🪙 The deal: bank, points, rewards, ranks. Built from m-* tokens */
-.kpd, .kpd-calc { display: grid; gap: 12px; min-width: 0; }
+.kpd{ display: grid; gap: 12px; min-width: 0; }
 .kpd-warn { margin: 0; padding: 11px 14px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--gold, #f5c451) 45%, transparent); background: color-mix(in srgb, var(--gold, #f5c451) 9%, transparent); font: 500 13px/1.45 var(--f-ui); } .kpd-warn b { color: var(--gold, #f5c451); }
 .kpd-ctl { display: flex; flex-wrap: wrap; gap: 10px 16px; } .kpd-seg { display: grid; gap: 4px; } .kpd-seg small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; }
 .kpd-flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; } .kpd-flow li { display: grid; gap: 3px; padding: 12px; border-radius: 12px; border: 1px solid #ffffff1c; background: linear-gradient(150deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff14; animation: kpdIn .25s calc(var(--i) * 50ms) ease-out backwards; } .kpd-flow small { font: 800 9.5px var(--f-mono); letter-spacing: .12em; opacity: .7; } .kpd-flow b { font-size: 19px; color: #fff; } .kpd-flow span { font: 500 12px/1.35 var(--f-ui); opacity: .72; }
-.kpd-res { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 0; } .kpd-res b { font-size: 26px; color: #45e486; } .kpd-res span { font: 500 12px var(--f-ui); opacity: .72; }
-.kpd-ranks { display: grid; gap: 8px; } .kpd-ranks h5 { margin: 0; font: 800 10px var(--f-mono); letter-spacing: .14em; } .kpd-ranks h5 small { margin-left: 6px; font: 500 11.5px var(--f-ui); letter-spacing: 0; opacity: .68; }
-.kpd-ranks ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; } .kpd-ranks li { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff05; transition: border-color .16s, transform .16s; animation: kpdIn .25s calc(var(--i) * 45ms) ease-out backwards; } .kpd-ranks li:hover { transform: translateY(-2px); border-color: #ffffff38; } .kpd-ranks b { font: 700 12px var(--f-display); } .kpd-ranks small { font-size: 10px; opacity: .62; } .kpd-ranks em { font: 700 13px var(--f-mono); font-style: normal; color: #45e486; }
-.kpd-ranks svg { width: 46px; height: 46px; fill: none; stroke: #8fa6ff; stroke-width: 1.2; opacity: .55; } .kpd-ranks li.is-past svg { opacity: .9; } .kpd-ranks li.is-now { border-color: #45e486; background: #15d16a1c; box-shadow: 0 0 18px #15d16a33; } .kpd-ranks li.is-now svg { stroke: #45e486; opacity: 1; }
-.kpd-next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin: 0; font-size: 11.5px; } .kpd-next i { height: 5px; border-radius: 3px; background: #ffffff14; overflow: hidden; } .kpd-next u { display: block; height: 100%; background: #45e486; transform-origin: left; }
+  
+  
+     
+   
+  
 @keyframes kpdIn { from { opacity: 0; transform: translateY(5px); } }
-body.fx-lite :is(.kpd-flow li, .kpd-ranks li) { animation: none; }
-@media (prefers-reduced-motion: reduce) { :is(.kpd-flow li, .kpd-ranks li) { animation: none; transition: none; } }
-body.theme-day .kpd-flow li, body.theme-day .kpd-ranks li { background: #fff; border-color: #0d2a1b24; } body.theme-day .kpd-flow b { color: #10241a; } body.theme-day .kpd-warn b { color: #8a6a14; }
-@media (max-width: 640px) { .kpd-ranks ol { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+body.theme-day .kpd-flow li{ background: #fff; border-color: #0d2a1b24; } body.theme-day .kpd-flow b { color: #10241a; } body.theme-day .kpd-warn b { color: #8a6a14; }

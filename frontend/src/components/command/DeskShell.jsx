@@ -100,7 +100,7 @@ export function useDeskPrefs(id) {
   return [p, set];
 }
 // 🗂 Folders by what they are for. Each group starts its own column or row when you fit the desktop.
-export const ICON_GROUPS = [['Proofs', ['pow', 'pop', 'bids', 'poc', 'postatic', 'poe', 'proofs', 'print']], ['Money', ['vault', 'wallet', 'boost', 'honey', 'limits']], ['Work', ['features', 'character', 'browser', 'sources', 'jobs', 'files', 'github', 'mail', 'minds', 'cmds']], ['Help', ['manual', 'terms', 'deskset']]];
+export const ICON_GROUPS = [['Proofs', ['pow', 'pop', 'bids', 'poc', 'postatic', 'poe', 'proofs', 'print']], ['Money', ['vault', 'wallet', 'boost', 'honey', 'limits']], ['Work', ['features', 'character', 'browser', 'sources', 'jobs', 'github', 'mail', 'minds', 'cmds']], ['Help', ['manual', 'terms', 'deskset']]];
 const groupOf = k => { const i = ICON_GROUPS.findIndex(g => g[1].includes(k)); return i < 0 ? ICON_GROUPS.length : i; };
 export const ICON_CELL = { s: 80, m: 96, l: 118 };
 // 🧭 Every folder in its place, on this screen. Never overlaps, never runs off the edge: a full column or row wraps to the next one.
@@ -328,8 +328,9 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   const [w, setW] = useState(() => Object.fromEntries(apps.map((a, i) => [a.k, { open: false, min: false, max: false, x: 140 + i * 16, y: 34 + i * 12 }])));
   const [top, setTop] = useState(''); const [now, setNow] = useState(Date.now());
   const { pos, moveIcon } = icons;
-  const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
+  const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { max: false, min: false, x: 150, y: 40, ...x[k], ...p } })), []);   // a folder may appear after this desktop opened
   const open = k => { set(k, { open: true, min: false }); setTop(k); };
+  useEffect(() => { const go = e => { set(e.detail, { open: true, min: false }); setTop(e.detail); }; window.addEventListener('feeless:open-win', go); return () => window.removeEventListener('feeless:open-win', go); }, [set]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const tasks = apps.filter(a => w[a.k]?.open);

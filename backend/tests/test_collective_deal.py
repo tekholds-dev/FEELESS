@@ -4,8 +4,12 @@ import agent_features as feat
 U = cp.UNITS['USDC']; DAY = 86400
 
 
+def _bank():
+    st = cp.new_state(); st['cfg']['deal'] = 'bank'; return st
+
+
 def fresh(**cfg):
-    st = cp.new_state(); st['cfg'] = cp.clean_cfg({'capPct': 100, 'floorPct': 0, **cfg}); return st
+    st = cp.new_state(); st['cfg'] = cp.clean_cfg({'deal': 'bank', 'capPct': 100, 'floorPct': 0, **cfg}); return st
 
 
 def test_the_collective_banks_all_of_a_send_and_it_never_reaches_a_reward():
@@ -89,7 +93,7 @@ def _run_months(st, months, start=1_000_000.0):
 
 
 def test_rewards_stop_at_the_ceiling_however_much_profit_comes_in():
-    st = cp.new_state(); cp.send(st, 'k1', 'a', 'o', 'USDC', 37_000_000, 37.0, 1_000_000.0)
+    st = _bank(); cp.send(st, 'k1', 'a', 'o', 'USDC', 37_000_000, 37.0, 1_000_000.0)
     cp.book_result(st, 'p1', 'USDC', 100_000_000_000)
     st['cfg']['capPct'] = 100.0
     _run_months(st, 60)
@@ -98,7 +102,7 @@ def test_rewards_stop_at_the_ceiling_however_much_profit_comes_in():
 
 
 def test_the_owner_raising_the_ceiling_opens_more_room():
-    st = cp.new_state(); cp.send(st, 'k1', 'a', 'o', 'USDC', 10_000_000, 10.0, 1_000_000.0)
+    st = _bank(); cp.send(st, 'k1', 'a', 'o', 'USDC', 10_000_000, 10.0, 1_000_000.0)
     assert cp.back_room(st, 'a', 'USDC') == 10_800_000
     st['cfg'] = cp.clean_cfg({**st['cfg'], 'maxBackX': 1.5})
     assert cp.back_room(st, 'a', 'USDC') == 15_000_000
@@ -106,20 +110,20 @@ def test_the_owner_raising_the_ceiling_opens_more_room():
 
 
 def test_sends_alone_never_pay_the_first_user_anything():
-    st = cp.new_state(); cp.send(st, 'k1', 'a', 'o', 'USDC', 37_000_000, 37.0, 1_000_000.0)
+    st = _bank(); cp.send(st, 'k1', 'a', 'o', 'USDC', 37_000_000, 37.0, 1_000_000.0)
     _run_months(st, 24)
     assert st['agents']['a']['earned']['USDC'] == 0 and st['books']['USDC']['keep'] == 37_000_000
 
 
 def test_paid_out_never_passes_half_of_the_profit_and_the_books_only_grow():
-    st = cp.new_state(); cp.send(st, 'k1', 'a', 'o', 'USDC', 1_000_000_000, 1000.0, 1_000_000.0); st['cfg']['capPct'] = 100.0
+    st = _bank(); cp.send(st, 'k1', 'a', 'o', 'USDC', 1_000_000_000, 1000.0, 1_000_000.0); st['cfg']['capPct'] = 100.0
     cp.book_result(st, 'p1', 'USDC', 10_000_000)
     _run_months(st, 36); b = st['books']['USDC']
     assert b['rewardPaid'] <= 5_000_000 and b['keep'] == 1_000_000_000 and b['pot'] + b['rewardPaid'] == 10_000_000
 
 
 def test_a_pool_loss_hits_the_pot_then_the_bank_and_counts_once():
-    st = cp.new_state(); cp.send(st, 'k1', 'a', 'o', 'USDC', 100_000_000, 100.0, 1_000_000.0); cp.book_result(st, 'p1', 'USDC', 5_000_000)
+    st = _bank(); cp.send(st, 'k1', 'a', 'o', 'USDC', 100_000_000, 100.0, 1_000_000.0); cp.book_result(st, 'p1', 'USDC', 5_000_000)
     assert cp.book_result(st, 'l1', 'USDC', -8_000_000) and not cp.book_result(st, 'l1', 'USDC', -8_000_000)
     b = st['books']['USDC']; assert b['pot'] == 0 and b['keep'] == 97_000_000
     assert cp._budget_left({**st, 'budget': {'USDC': 10 ** 9}}, 'USDC') == 0

@@ -1,55 +1,32 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { Accordion, Chip } from '@heroui/react';
+import { motion } from 'motion/react';
+import { Banknote, ChevronDown, Layers3, Link2, ShieldCheck, Users } from 'lucide-react';
 import { Ic3 } from '../../lib/icon3d';
-import { GrowthCalc, money } from './SplitFlow';
-import { GrowthExample, NOT_PONZI } from './GrowthExample';
+import { money } from './SplitFlow';
+import { NOT_PONZI } from './GrowthExample';
 import { ColonyPot } from './HiveBoard';
 import { StashWeb } from './StashWeb';
 import { ProChart } from './ProChart';
 import { Fx, NumCell, Roll } from './CollectiveSetup';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import '../../styles/boosts.css';
+import '../../styles/collectiveHq.css';
 
-// 👑 THE OWNER'S COLLECTIVE FOLDER (owner 2026-11-04: "all the configs and hover to explain, cause the math kills me"): where the money stands, and every setting, each with its effect drawn live beside it. Server-gated to the owner.
-const PLAN_ROWS = (n, l) => [[`${n}Days`, `${l}: days`, 'd', 1, 'locked', 'How long this plan takes to come back.'], [`${n}Back`, `${l}: comes back`, '%', 1, 'back', 'Of what locks, what comes back to the agent. The rest stays with the Collective.'], [`${n}Weight`, `${l}: fee pot weight`, 'x', 0.5, 'pot', 'How big a part of the fee pot this plan earns while its money works.'], [`${n}Room`, `${l}: earn limit`, 'x', 0.5, 'pot', 'It can earn from the pot up to this many times what it sent, fading by half every 30 days. It stops a late big send draining the pot.']];
-const GROUPS = [
-  ['From outside the members', [['sitePct', 'Swap fees to the pot', '%', 1, 'pot', 'Of FEELESS swap fees from regular traders, what you send to the fee pot. This is the only money that lets the average member come out ahead, and it comes out of FEELESS\'s own income.']]],
-  ['Where a proof goes', [['skimPct', 'Collective keeps', '%', 1, 'kept', 'Taken the moment a proof is sent. Higher grows the wallet faster, but makes sending worth less to users.']]],
-  ['1 week plan', PLAN_ROWS('week', '1 week')], ['30 day plan', PLAN_ROWS('month', '30 days')], ['90 day plan', PLAN_ROWS('quarter', '90 days')],
-  ['The Vault', [['vaultWeight', 'Fee pot weight', 'x', 0.5, 'pot', 'What it sends never comes back, so it earns the biggest part of the pot. The claim fades by half every 45 days unless it keeps sending.'], ['vaultRoom', 'Earn limit', 'x', 0.5, 'pot', 'It can earn up to this many times what it sent, fading by half every 30 days.']]],
-  ['The fee pot', [
-    ['potPct', 'Trade fees to the pot', '%', 1, 'pot', 'Of real trade and task fees only, what goes to the pot members earn from. The rest is the Collective\'s to keep. Deposits and sends can never reach it, which is what keeps this from being a Ponzi.'],
-    ['potPayDayPct', 'Pot pays per day', '%', 1, 'pot', 'How much of the pot pays out each day. It only ever pays a part of what is there, so it can\'t run dry or go negative.'],
-    ['weightMaxX', 'Full boost weight', 'x', 0.1, 'pot', 'How much bigger a part of the pot a full boost takes. The pot still pays the same total.'],
-    ['capPct', 'Most one owner gets', '%', 1, 'pot', 'A whale limit: the biggest part of the pot one owner can take, counting all its agents, once there are enough owners.'],
-  ]],
-  ['Boost points', [
-    ['ptsBase', 'Points per send', '', 1, null, 'Every verified send earns this much before dollars count.'],
-    ['ptsPerUsd', 'Points per dollar', '', 0.5, null, 'Added for each dollar sent, then graded by the print: 0.5x to 1.5x.'],
-    ['ptsMaxSend', 'Most from one send', '', 5, null, 'So big money alone cannot buy a full boost.'],
-    ['ptsPerDay', 'Points for 1 day sooner', '', 1, 'locked', 'What it costs to spend points on bringing a date closer. A date can never come closer than a third of its plan.'],
-    ['boostBackPts', 'Full boost adds back', '%', 1, 'back', 'How much more comes back at a full boost.'],
-    ['boostFadeDays', 'Points fade by half in', 'd', 1, null, 'Boost points lose half their worth in this many days, so an agent has to keep proving.'],
-  ]],
-  ['Agent fees', [
-    ['depositPct', 'Deposit + top-up fee', '%', 1, null, 'Taken from every deposit into an agent, in the same transaction, straight to the Collective wallet.'],
-    ['firstMinUsd', 'First deposit from', '$', 5, null, 'The least a new agent can start with.'],
-    ['txnSmallPct', 'Small trade fee', '%', 0.5, null, 'For a trade under the small size. Small trades pay the most.'],
-    ['txnSmallUsd', 'Small means under', '$', 1, null, 'The size where the small fee ends.'],
-    ['txnMidPct', 'Middle trade fee', '%', 0.5, null, 'For a trade between the two sizes.'],
-    ['txnBigUsd', 'Big means over', '$', 10, null, 'The size where the big fee starts.'],
-    ['txnBigPct', 'Big trade fee', '%', 0.5, null, 'For a trade over the big size.'],
-  ]],
-];
-const IN = { vault: 'Vault', deposit: 'First deposits', topup: 'Top-ups', txn: 'Trade fees', task: 'Task fees', proofs: 'Kept from proofs', release: 'From releases', pass: 'Agent Pass', gift: 'Gifts' };
+// 👑 COLLECTIVE HQ (owner 2026-11-06, a full redo on HeroUI + Motion + Recharts): the money, the pools, each agent's cut and the dials, on one page. Server-gated to the owner. Every number comes from the sealed ledger, and nothing here moves money: a profit counts only when the chain shows it landed.
+const DIALS = [['collectivePoolPct', 'Collective piece of each profit', '%', 1, 'What the Collective takes from every pool profit. Agents can never take this part.'], ['cutPerX', 'Cut per 1x of boost', '%', 0.25, 'At 1, a 1.87x boost is a 1.87% cut of every profit. Raise it to pay sooner: nobody earns more in all, because points cap them.'], ['capPct', 'Most one wallet can hold', '%', 1, 'Across all its agents, so splitting into many agents gains nothing.'], ['fastPtsPerDay', 'Points for 1 fast day', '', 0.25, 'What a day at the top cut costs. Burned points lower what the agent can ever earn.'], ['fastMaxDays', 'Most fast days ahead', 'd', 1, 'How far ahead fast time can stack.']];
+const FEES = [['depositPct', 'Deposit + top-up fee', '%', 1, 'Taken from every deposit into an agent, in the same transaction, straight to the Collective wallet.'], ['firstMinUsd', 'First deposit from', '$', 5, 'The least a new agent can start with.'], ['txnSmallPct', 'Small trade fee', '%', 0.5, 'For a trade under the small size. Small trades pay the most.'], ['txnSmallUsd', 'Small means under', '$', 1, 'The size where the small fee ends.'], ['txnMidPct', 'Middle trade fee', '%', 0.5, 'For a trade between the two sizes.'], ['txnBigUsd', 'Big means over', '$', 10, 'The size where the big fee starts.'], ['txnBigPct', 'Big trade fee', '%', 0.5, 'For a trade over the big size.'], ['sitePct', 'Share of site swap fees', '%', 1, "Of FEELESS swap fees from regular traders, the Collective's share."]];
+const IN = { deposit: 'First deposits', topup: 'Top-ups', txn: 'Trade fees', task: 'Task fees', proofs: 'Proofs staked', profit: 'Pool profit', loss: 'Pool losses', site: 'Site fees', pass: 'Agent Pass', gift: 'Gifts' };
+const rise = i => ({ initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { delay: i * 0.05, duration: 0.26 } });
 function Trend({ hist }) {
   const rows = hist || []; if (rows.length < 2) return <p className="fch-nil">The Collective's growth chart starts after its second day.</p>;
-  const S = [['keep', 'Keeps', '#4fb8ff'], ['pot', 'Fee pot', '#ff8bd8'], ['locked', 'Locked', '#a06bff'], ['owed', 'Agents earned', '#3ee58a']];
+  const S = [['keep', 'Collective', '#4fb8ff'], ['owed', 'Agents earned', '#3ee58a']];
   return <figure className="ge-chart" data-testid="cof-trend"><figcaption>THE COLLECTIVE, DAY BY DAY</figcaption><ProChart height={190} testid="cof-trend-pro" label="The Collective day by day" fmt={money} stamps={false} lines={S.map(([k, name, color]) => ({ name, color, rows: rows.map(r => ({ at: r.at || r.t, v: r[k] || 0 })) }))} /><div className="cs-legend">{S.map(([k, l, c]) => <span key={k}><i style={{ background: c }} />{l}</span>)}</div></figure>;
 }
-// 🌍 Money from outside the members is what lets the average member come out ahead. Nothing moves by itself: you send it, and it counts once the chain shows it landed.
+// 🌍 FEELESS's own swap fees. Nothing moves by itself: you send it, and it counts once the chain shows it landed.
 function Outside({ d, save, busy }) {
   const [sig, setSig] = useState(''); const site = d.site || {}; const pct = d.cfg?.sitePct ?? 20;
-  return <section className="cof-site" data-testid="cof-site"><h4><Ic3 e="🌍" /> FROM OUTSIDE THE MEMBERS<small>{pct}% of FEELESS swap fees from regular traders goes to the fee pot</small></h4><div className="cof-site-t">{[['SWAP FEES SO FAR', money(site.feesUsd), 'Every fee in FEELESS\'s own ledger'], ['THE POT\'S SHARE', money((site.feesUsd || 0) * pct / 100), `${pct}% of that. Change it in Settings`], ['MOVED', money(site.movedUsd), 'Sent to the Collective wallet and seen on the chain'], ['STILL TO MOVE', money(site.owedUsd), 'Send this from the FEELESS fee wallet to the Collective wallet']].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
+  return <section className="cof-site" data-testid="cof-site"><h4><Ic3 e="🌍" /> FROM SITE FEES<small>{pct}% of FEELESS swap fees from regular traders is the Collective's</small></h4><div className="cof-site-t">{[['SWAP FEES SO FAR', money(site.feesUsd), 'Every fee in FEELESS\'s own ledger'], ['ITS SHARE', money((site.feesUsd || 0) * pct / 100), `${pct}% of that. Change it in Settings`], ['MOVED', money(site.movedUsd), 'Sent to the Collective wallet and seen on the chain'], ['STILL TO MOVE', money(site.owedUsd), 'Send this from the FEELESS fee wallet to the Collective wallet']].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
     <form className="cof-site-f" onSubmit={e => { e.preventDefault(); if (sig.trim()) { save(null, { siteSig: sig.trim() }); setSig(''); } }}><input className="m-input" value={sig} onChange={e => setSig(e.target.value)} placeholder="Paste the transaction after you send it" aria-label="Transaction" data-testid="cof-site-sig" /><button type="submit" className="m-btn m-go" disabled={busy || !sig.trim()} data-tip="It is read from the chain before it counts" data-testid="cof-site-add">Count it</button></form></section>;
 }
 function Validators({ d, save, busy }) {
@@ -57,69 +34,57 @@ function Validators({ d, save, busy }) {
   return <section className="cof-val" data-testid="cof-validators"><h4><Ic3 e="⚖" /> THE FIVE VALIDATORS<small>{d.reviewed || 0} proofs checked · {held.length} held</small></h4><div className="cof-val-s">{[['Tally', 'The numbers add up'], ['Sherlock', 'The evidence is there'], ['Devil', 'It was not gamed'], ['Archivist', 'The record is in order'], ['Judge', 'The final call']].map(([n, t]) => <span key={n} data-tip={t}><b>{n}</b><small>{t}</small></span>)}</div>
     {held.length ? <ol className="cof-held">{held.map(h => <li key={h.id} data-testid={`cof-held-${h.id}`}><b>{h.name} · {h.sym ? `$${h.sym}` : 'Proof'}</b><small>{(h.review?.seats || []).filter(x => !x.ok && x.k !== 'judge').map(x => `${x.name}: ${x.why}`).join(' ')}</small><button type="button" className="m-btn" disabled={busy} onClick={() => save(null, { clear: { cat: h.cat, id: h.id } })} data-tip="You checked it yourself. It starts earning" data-testid={`cof-clear-${h.id}`}>Clear it</button></li>)}</ol> : <p className="fch-nil">Nothing held.</p>}</section>;
 }
-function Flow({ d, save, busy, part }) {
-  const t = d.totals || {}; const u = t.usd || {}; const rows = Object.entries(t.in || {}).sort((a, b) => b[1] - a[1]); const most = Math.max(1e-9, ...rows.map(r => r[1])); const tanks = [['keep', 'THE COLLECTIVE KEEPS', u.keep, 'Yours: everything not promised to anyone.'], ['pot', 'FEE POT', u.pot, 'Paying out to agents with money locked, a part at a time.'], ['locked', 'COMING BACK', u.locked, 'Sent by agents, on its way back on its date.'], ['owed', 'AGENTS EARNED', u.owed, 'Released to agents. This must always be in the wallet.']];
-  const chain = d.chain; const short = chain?.short?.length;
-  if (part === 'top') return <div className="cof-flow"><div className="cof-tanks">{tanks.map(([k, l, v, tip]) => <span key={k} className={`cof-tank is-${k}`} data-tip={tip} data-testid={`cof-tank-${k}`}><small>{l}</small><Roll v={v || 0} fmt={money} /></span>)}</div>
-    <div className={`cof-cover${short ? ' is-short' : chain ? ' is-ok' : ''}`} data-testid="cof-cover" data-tip="Every 5 minutes the real wallet is read and compared with what it must hold: fee pot + locked + earned."><b>{!chain ? 'NOT READ YET' : short ? `SHORT IN ${chain.short.join(' + ')}` : 'FULLY COVERED'}</b><small>{chain ? Object.entries(chain.tokens).map(([k, v]) => `${k}: holds ${(v.chain / (k === 'SOL' ? 1e9 : 1e6)).toFixed(k === 'SOL' ? 4 : 2)}, must hold ${(v.need / (k === 'SOL' ? 1e9 : 1e6)).toFixed(k === 'SOL' ? 4 : 2)}`).join(' · ') : 'The first read comes within 5 minutes.'}</small></div>
-    <div className={`cof-cover${d.audit?.ok ? ' is-ok' : d.audit ? ' is-short' : ''}`} data-testid="cof-audit" data-tip="Every 5 minutes the whole chain is walked from the first dollar. It must equal what the ledger holds to the unit. An edited ledger refuses to load."><b>{!d.audit ? 'CHAIN NOT WALKED YET' : d.audit.ok ? `CHAIN UNBROKEN · ${d.links} LINKS` : 'CHAIN BROKEN'}</b><small>{d.audit && !d.audit.ok ? d.audit.why : `Head ${String(d.head || '').slice(0, 20)}…`}</small></div></div>;
-  return <div className="cof-flow">
-    <Trend hist={d.hist} />
-    <Outside d={d} save={save} busy={busy} />
-    <Validators d={d} save={save} busy={busy} />
-    <section className="cof-in"><h4><Ic3 e="💸" /> MONEY IN<small>{t.agents || 0} agents have sent proofs · paying {money((t.ratePerSecUsd || 0) * 86400)} a day back</small></h4>
-      {rows.length ? <ul>{rows.map(([k, v], i) => <li key={k} style={{ '--i': i }}><small>{IN[k] || k}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, v / most)})` }} /></i><b className="m-num">{money(v)}</b></li>)}</ul> : <p className="fch-nil">No money counted yet. The ledger starts with the next deposit, fee or proof sent.</p>}</section>
-    <section className="cof-why"><h4><Ic3 e="🛡" /> WHY IT IS NOT A PONZI</h4><ul>{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><b>✓</b> {h}</li>)}</ul></section>
-    {d.agents?.length ? <section className="cof-top"><h4><Ic3 e="🤖" /> AGENTS</h4><ol>{d.agents.map(a => <li key={a.id}><b>{a.name || a.id}</b><small data-tip="Sent · locked · earned">{money(a.sentUsd)} · {money(a.lockedUsd)} · {money(a.owedUsd)}</small><em className="m-num" data-tip="Its fee pot boost right now">{a.levers?.weightX}x</em></li>)}</ol></section> : null}</div>;
+const KPI = [['stakedUsd', 'STAKED IN THE POOLS', 'What agents have sent, less pool losses. It works in the pools you open', '#57c7ff'], ['profitUsd', 'POOL PROFIT', 'Every profit the chain showed landing in the Collective wallet', '#3ee58a'], ['paidUsd', 'PAID TO AGENTS', 'Their cuts, up to their points', '#ffc24d'], ['keepUsd', 'THE COLLECTIVE EARNED', 'Agent wallet fees, top-ups, site fees and its piece of each profit', '#c58bff'], ['compoundUsd', 'COMPOUNDING', 'Profit nobody took. It goes back to work in the pools', '#ff8bd8']];
+function Kpis({ s }) {
+  return <div className="hq-kpis">{KPI.map(([k, l, tip, c], i) => <motion.article key={k} {...rise(i)} style={{ '--c': c }} data-tip={tip} data-testid={`hq-kpi-${k}`}><small>{l}</small><Roll v={s[k] || 0} fmt={money} /></motion.article>)}</div>;
 }
-const allRows = GROUPS.flatMap(g => g[1]); const rowOf = k => allRows.find(r => r[0] === k);
-const REWARD_ROWS = [['rewardDays', 'Wait at the first rank', 'd', 1, 'pot', 'Days between payments for a new agent with no boost.'], ['rankSpeedPct', 'Top rank shortens it by', '%', 5, 'pot', 'The wait falls step by step to this much shorter at the top rank.'], ['boostSpeedPct', 'Full boost shortens it by', '%', 5, 'pot', 'On top of its rank. It never goes under the fastest wait.'], ['rewardPayPct', 'Part of the pot each month', '%', 5, 'pot', 'The month\'s budget. The rest stays for later.'], ['payoutCapPct', 'Most ever paid of fee money', '%', 5, 'pot', 'The bank rule, at most 50%. Sends never count toward it and never pay a reward.'], ['floorPct', 'Split evenly so all ranks eat', '%', 5, 'pot', 'This part of each month goes evenly by owner. The rest goes by points.']];
-const MORE_REWARD_ROWS = [['minDays', 'Fastest wait', 'd', 1, 'pot', 'Nobody is paid more often than this.'], ['carryPct', 'Points kept each month', '%', 5, 'pot', 'Lower favors new sends, higher favors long records.'], ['capPct', 'Most one owner gets', '%', 1, 'pot', 'Of a month. The rest stays in the pot.'], ['weightMaxX', 'Points at a full boost', 'x', 0.5, 'pot', 'Each dollar sent at a full boost earns this many points.']];
-const SETTING_GROUPS = [['THE FEE POT', [...GROUPS.find(g => g[0] === 'The fee pot')[1], rowOf('sitePct')]], ['BOOST POINTS', GROUPS.find(g => g[0] === 'Boost points')[1]], ['AGENT FEES', GROUPS.find(g => g[0] === 'Agent fees')[1]]];
-// How pay works, on one chart, from the settings as they stand: $100 of each kind of money, and where it ends up.
-// 💵 Where each $100 goes, in words and numbers, one row per kind of money.
-const SPLIT_COLORS = { 'A proof sent': '#57c7ff', 'A member trade fee': '#ff8bd8', 'An outside swap fee': '#8fa3cc', 'The Collective': '#57c7ff', 'Fee pot, to members': '#ff8bd8', FEELESS: '#8fa3cc' };
 const MoneyFlow = lazy(() => import('./MoneyCharts').then(m => ({ default: m.MoneyFlow })));
-export function SplitBars({ c }) {
-  const rows = [['A proof sent', [['The Collective', 100]]], ['A member trade fee', [['Fee pot, to members', c.potPct], ['The Collective', 100 - c.potPct]]], ['An outside swap fee', [['Fee pot, to members', c.sitePct], ['FEELESS', 100 - c.sitePct]]]];
-  const flows = rows.flatMap(([t, parts]) => parts.map(([k, v]) => [t, k, v]));
-  return <div className="cof-split"><Suspense fallback={<div className="cof-split-wait" />}><MoneyFlow rows={flows} colors={SPLIT_COLORS} height={250} testid="cof-flow" label="Where each 100 dollars goes" /></Suspense>
-    <ul className="cof-tiles" data-testid="cof-bars">{rows.map(([t, parts]) => <li key={t}><b>{t}</b>{parts.map(([k, v]) => <span key={k} data-tip={`${k}: $${v.toFixed(2)} of each $100`}><i style={{ background: SPLIT_COLORS[k] }} aria-hidden="true" /><small>{k}</small><em className="m-num">${v.toFixed(0)}</em></span>)}</li>)}</ul></div>;
+const FLOW_COLORS = { 'Agent fees': '#ffc24d', 'A proof sent': '#57c7ff', 'The pools': '#57c7ff', 'Pool profit': '#3ee58a', Agents: '#ffc24d', 'The Collective': '#c58bff', 'Back in the pools': '#ff8bd8' };
+// Where each $100 goes, from the dials as they stand and the cuts agents hold right now.
+export function DealFlow({ c, cutsPct }) {
+  const piece = c.collectivePoolPct; const agents = Math.min(100 - piece, cutsPct); const rows = [['Agent fees', 'The Collective', 100], ['A proof sent', 'The pools', 100], ['The pools', 'Pool profit', 100], ['Pool profit', 'Agents', Math.max(agents, 0.5)], ['Pool profit', 'The Collective', piece], ['Pool profit', 'Back in the pools', Math.max(0, 100 - piece - agents)]];
+  return <div className="hq-flow" data-testid="hq-flow"><Suspense fallback={<div className="cof-split-wait" />}><MoneyFlow rows={rows} colors={FLOW_COLORS} height={270} testid="cof-flow" label="Where each 100 dollars goes" /></Suspense><ul className="hq-legend">{[['Agents', agents], ['The Collective', piece], ['Back in the pools', 100 - piece - agents]].map(([k, v]) => <li key={k} data-tip={`${k}: $${v.toFixed(2)} of each $100 of profit`}><i style={{ background: FLOW_COLORS[k] }} aria-hidden="true" /><small>{k}</small><em className="m-num">${v.toFixed(2)}</em></li>)}</ul></div>;
 }
-function Settings({ d, save, busy }) {
-  const [c, setC] = useState(d.cfg); useEffect(() => setC(d.cfg), [d.cfg]);
+export function Dials({ d, save, busy, c, setC, rows }) {
   const dirty = Object.keys(c).filter(k => c[k] !== d.cfg[k]);
-  const cell = (r, label, compact) => { if (!r || !d.bounds[r[0]]) return <em className="cs-na">—</em>; const [k, l, u, step, , tip] = r; const b = d.bounds[k]; return <NumCell k={k} label={label || l} u={u} step={step} lo={b[0]} hi={b[1]} v={c[k]} start={d.defaults[k]} tip={tip} compact={compact} onChange={v => setC(x => ({ ...x, [k]: v }))} />; };
-  return <Fx><div className="cof-one">
-    <div className="cof-col">
-      <section className="cs-sec"><h5>WHAT A MONTH PAYS <small>with these numbers</small></h5><GrowthCalc cfg={c} testid="cof-growth" /></section>
-      <section className="cs-sec"><h5>WHERE EACH $100 GOES</h5><SplitBars c={c} /></section>
-          </div>
-    <div className="cof-col">
-      <section className="cs-sec"><h5>THE DEAL</h5><Table className="cs-t"><TableBody>{REWARD_ROWS.map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>
-      <section className="cs-sec"><h5>RULES</h5><Table className="cs-t"><TableBody>
-        <TableRow className="cof-row" data-tip="The Collective banks all of every send. A send never pays a reward."><TableCell>Collective keeps</TableCell><TableCell><b className="cof-lock">100%</b></TableCell></TableRow>
-        <TableRow className="cof-row" data-tip="Bigger payouts: boosts move the split, the speed and the fee pot weight. Rank only: boosts order the stage and change no money."><TableCell>Boost mode</TableCell><TableCell><span className="m-seg" role="group" aria-label="What a boost does">{[['payout', 'Bigger payouts'], ['rank', 'Rank only']].map(([k, l]) => <button key={k} type="button" className={c.boostMode === k ? 'active' : ''} aria-pressed={c.boostMode === k} onClick={() => setC(x => ({ ...x, boostMode: k }))} data-testid={`cof-mode-${k}`}>{l}</button>)}</span></TableCell></TableRow>
-        <TableRow className="cof-row" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up." data-testid="cof-withdrawals"><TableCell>User withdrawals</TableCell><TableCell><b className="cof-lock">OFF</b></TableCell></TableRow></TableBody></Table></section>
-      <details className="cs-more" data-testid="cof-every"><summary data-tip="The fee pot, boost points and agent fees">Every number</summary><section className="cs-sec"><h5>REWARDS</h5><Table className="cs-t"><TableBody>{MORE_REWARD_ROWS.map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>{SETTING_GROUPS.map(([h, rows]) => <section className="cs-sec" key={h}><h5>{h}</h5><Table className="cs-t"><TableBody>{rows.filter(r => r && !['weightMaxX', 'capPct', 'skimPct', 'potPayDayPct'].includes(r[0])).map(r => <TableRow key={r[0]} className="cof-row" data-tip={r[5]}><TableCell>{r[1]}</TableCell><TableCell>{cell(r)}</TableCell></TableRow>)}</TableBody></Table></section>)}
-      </details>
-      <div className="cof-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => setC({ ...d.defaults })} data-tip="Put every number back to the start. Nothing changes until you save." data-testid="cof-defaults">Starting numbers</button><button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={() => save(c)} data-tip="New money and the next minute use these. Nothing already earned shrinks." data-testid="cof-save">{busy ? 'Saving…' : dirty.length ? `Save ${dirty.length} change${dirty.length > 1 ? 's' : ''}` : 'Saved'}</button></div>
-      {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}
-    </div></div></Fx>;
+  return <><div className="hq-dials">{rows.map(([k, l, u, step, tip]) => { const b = d.bounds[k]; return b ? <label key={k} className="hq-dial" data-tip={tip}><span>{l}</span><NumCell k={k} label={l} u={u} step={step} lo={b[0]} hi={b[1]} v={c[k]} start={d.defaults[k]} onChange={v => setC(x => ({ ...x, [k]: v }))} /></label> : null; })}</div>
+    <div className="cof-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => setC({ ...d.defaults })} data-tip="Put every number back to the start. Nothing changes until you save." data-testid="cof-defaults">Starting numbers</button><button type="button" className="m-btn m-go" disabled={busy || !dirty.length} onClick={() => save(c)} data-tip="New money uses these. Nothing already earned shrinks." data-testid="cof-save">{busy ? 'Saving…' : dirty.length ? `Save ${dirty.length} change${dirty.length > 1 ? 's' : ''}` : 'Saved'}</button></div></>;
+}
+// 🏊 The pools the owner opened. A row is a label: it moves nothing, and the AutoRange wiring is not on the Collective wallet yet, so the page says so.
+export function Pools({ d, save, busy }) {
+  const [f, setF] = useState({ platform: 'meteora', pair: '', address: '' }); const [sig, setSig] = useState(''); const [pool, setPool] = useState(''); const rows = d.pools || []; const top = Math.max(1e-9, ...rows.map(r => r.profitUsd || 0));
+  return <section className="hq-card hq-pools" data-testid="hq-pools"><h4><Layers3 size={15} aria-hidden="true" /> THE POOLS<small>{rows.filter(r => r.on).length} open</small></h4>
+    {rows.length ? <ul>{rows.map((r, i) => <motion.li key={r.id} {...rise(i)} className={r.on ? '' : 'is-off'} data-testid={`hq-pool-${r.id}`}><b>{r.pair}</b><small>{r.platform}{r.address ? ` · ${r.address.slice(0, 4)}…${r.address.slice(-4)}` : ''}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, (r.profitUsd || 0) / top)})` }} /></i><em className="m-num" data-tip="Profit it really paid">{money(r.profitUsd)}</em><button type="button" className="m-btn" disabled={busy} onClick={() => save(null, { poolSet: { id: r.id, on: !r.on } })} aria-pressed={r.on} data-tip={r.on ? 'Hide it from members' : 'Show it to members'} data-testid={`hq-pool-on-${r.id}`}>{r.on ? 'Open' : 'Closed'}</button></motion.li>)}</ul> : <p className="fch-nil">No pools listed. Until you open one, the stake earns nothing.</p>}
+    <form className="hq-pool-add" onSubmit={e => { e.preventDefault(); if (f.pair.trim()) { save(null, { poolAdd: f }); setF(x => ({ ...x, pair: '', address: '' })); } }}><span className="m-seg" role="group" aria-label="Platform">{['raydium', 'meteora', 'orca', 'other'].map(k => <button key={k} type="button" className={f.platform === k ? 'active' : ''} aria-pressed={f.platform === k} onClick={() => setF(x => ({ ...x, platform: k }))} data-testid={`hq-platform-${k}`}>{k}</button>)}</span><input className="m-input" value={f.pair} onChange={e => setF(x => ({ ...x, pair: e.target.value }))} maxLength={32} placeholder="Pair, like SOL-USDC" aria-label="Pair" data-testid="hq-pool-pair" /><input className="m-input" value={f.address} onChange={e => setF(x => ({ ...x, address: e.target.value }))} maxLength={64} placeholder="Pool address" aria-label="Pool address" data-testid="hq-pool-address" /><button type="submit" className="m-btn m-go" disabled={busy || !f.pair.trim()} data-tip="Lists it. It moves no money" data-testid="hq-pool-add">List it</button></form>
+    <form className="hq-profit" onSubmit={e => { e.preventDefault(); if (sig.trim()) { save(null, { profitSig: sig.trim(), pool }); setSig(''); } }}><Banknote size={15} aria-hidden="true" /><input className="m-input" value={sig} onChange={e => setSig(e.target.value)} placeholder="Paste the transaction that brought profit to the Collective wallet" aria-label="Profit transaction" data-testid="hq-profit-sig" />{rows.length ? <select className="m-input" value={pool} onChange={e => setPool(e.target.value)} aria-label="From which pool" data-testid="hq-profit-pool"><option value="">Any pool</option>{rows.map(r => <option key={r.id} value={r.id}>{r.pair}</option>)}</select> : null}<button type="submit" className="m-btn m-go" disabled={busy || !sig.trim()} data-tip="It counts once, and only if the chain shows SOL or USDC landing. Then cuts are paid" data-testid="hq-profit-go">Pay cuts</button></form>
+    <p className="hq-note" data-testid="hq-range-note"><Link2 size={13} aria-hidden="true" /> AutoRange is not wired to the Collective wallet yet. Open and range a pool by hand, then paste its profit here.</p></section>;
+}
+function Agents({ rows }) {
+  return <section className="hq-card" data-testid="hq-agents"><h4><Users size={15} aria-hidden="true" /> EACH AGENT'S CUT<small>{rows.length} staked</small></h4>{rows.length ? <Table className="cs-t"><TableHeader><TableRow><TableHead>Agent</TableHead><TableHead>Staked</TableHead><TableHead>Boost</TableHead><TableHead>Cut now</TableHead><TableHead>Paid</TableHead><TableHead>Points left</TableHead></TableRow></TableHeader><TableBody>{rows.map(a => <TableRow key={a.id} data-testid={`hq-agent-${a.id}`}><TableCell><b>{a.name}</b>{a.fast ? <Chip className="hq-fast" size="sm">FAST</Chip> : null}</TableCell><TableCell className="m-num">{money(a.sentUsd)}</TableCell><TableCell className="m-num">{a.x.toFixed(2)}x</TableCell><TableCell className="m-num">{a.nowPct.toFixed(2)}%</TableCell><TableCell className="m-num">{money(a.paidUsd)}</TableCell><TableCell className="m-num">{money(a.pointsLeft)}</TableCell></TableRow>)}</TableBody></Table> : <p className="fch-nil">No agent has staked yet.</p>}</section>;
+}
+function MoneyIn({ t }) {
+  const rows = Object.entries(t.in || {}).sort((a, b) => b[1] - a[1]); const most = Math.max(1e-9, ...rows.map(r => r[1]));
+  return <section className="cof-in">{rows.length ? <ul>{rows.map(([k, v], i) => <li key={k} style={{ '--i': i }}><small>{IN[k] || k}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, v / most)})` }} /></i><b className="m-num">{money(v)}</b></li>)}</ul> : <p className="fch-nil">No money counted yet. The ledger starts with the next deposit, fee or proof.</p>}</section>;
 }
 // Opens only when asked, so the heavy parts cost nothing until then.
-function More({ title, tip, testid, children }) {
-  const [open, setOpen] = useState(false);
-  return <details className="cs-more" onToggle={e => setOpen(e.currentTarget.open)} data-testid={testid}><summary data-tip={tip}>{title}</summary>{open ? children : null}</details>;
-}
+const MORE = (d, save, busy, call, c, setC) => [['in', 'Money in', 'Every kind of money the ledger counted', <MoneyIn key="i" t={d.totals || {}} />], ['grow', 'Day by day', 'The Collective over time', <Trend key="t" hist={d.hist} />], ['checks', `The five validators${d.held?.length ? ` · ${d.held.length} held` : ''}`, 'Proofs waiting on you', <Validators key="v" d={d} save={save} busy={busy} />], ['site', 'Site fees', 'Your share of swap fees', <Outside key="o" d={d} save={save} busy={busy} />], ['fees', 'Agent fees', 'What the Collective earns from the jump', <Dials key="f" d={d} save={save} busy={busy} c={c} setC={setC} rows={FEES} />], ['wallet', 'Wallet and pool', 'The Collective wallet', <ColonyPot key="w" call={call} />], ['stash', 'Stash', 'Every proof kept sealed, with its web of sources', <StashWeb key="s" call={call} testid="cof-stash" />], ['why', 'How rewards stay real', 'The rules that keep it honest', <ul key="n" className="hq-why">{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><ShieldCheck size={14} aria-hidden="true" /> {h}<small>{t}</small></li>)}</ul>]];
 export function CollectiveOwner({ call }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [c, setC] = useState(null);
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) call('/admin/collective').then(x => on && setD(x)).catch(e => on && setErr(e.message)); }; go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
+  useEffect(() => { if (d?.cfg) setC(d.cfg); }, [d?.cfg]);
   const save = async (cfg, extra) => { setBusy(true); setErr(''); try { setD(await call('/admin/collective', { method: 'POST', body: JSON.stringify(cfg ? { cfg } : extra) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  return <div className="cof" data-testid="cof"><header className="cof-h"><span><small>OWNER ONLY</small><h3>The Collective</h3></span></header>
+  const chain = d?.chain; const short = chain?.short?.length; const agents = d?.stakeAgents || []; const cutsPct = agents.reduce((n, a) => n + (a.nowPct || 0), 0);
+  return <Fx><div className="hq" data-testid="cof"><motion.header className="hq-top m-live" {...rise(0)}><span><small>OWNER ONLY</small><h3>Collective HQ</h3></span><div className="hq-chips">
+      <Chip className={`hq-chip${short ? ' is-bad' : chain ? ' is-ok' : ''}`} data-tip="Every 5 minutes the real wallet is read and compared with what it must hold" data-testid="cof-cover">{!chain ? 'WALLET NOT READ YET' : short ? `SHORT IN ${chain.short.join(' + ')}` : 'FULLY COVERED'}</Chip>
+      <Chip className={`hq-chip${d?.audit?.ok ? ' is-ok' : d?.audit ? ' is-bad' : ''}`} data-tip={d?.audit && !d.audit.ok ? d.audit.why : 'Every 5 minutes the whole chain is walked from the first dollar. An edited ledger refuses to load'} data-testid="cof-audit">{!d?.audit ? 'CHAIN NOT WALKED YET' : d.audit.ok ? `CHAIN UNBROKEN · ${d.links} LINKS` : 'CHAIN BROKEN'}</Chip>
+      <Chip className="hq-chip is-lock" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up" data-testid="cof-withdrawals">WITHDRAWALS OFF</Chip></div></motion.header>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    {!d ? <p className="fch-nil">reading the ledger…</p> : <><Flow d={d} save={save} busy={busy} part="top" /><Settings d={d} save={save} busy={busy} /><Flow d={d} save={save} busy={busy} part="rest" />
-      <More title="A year, on numbers you pick" tip="The same rules, played over a year" testid="cof-more-year"><GrowthExample rules={{ ...d.cfg, plans: ['week', 'month', 'quarter'].map(n => ({ plan: n, days: d.cfg[`${n}Days`], backPct: d.cfg[`${n}Back`], weightX: d.cfg[`${n}Weight`], roomX: d.cfg[`${n}Room`] })).concat({ plan: 'vault', days: null, backPct: 0, weightX: d.cfg.vaultWeight, roomX: d.cfg.vaultRoom }) }} /></More>
-      <More title="Wallet and pool" tip="The Pool wallet, and opening a pool" testid="cof-more-wallet"><ColonyPot call={call} /></More>
-      <More title="Stash" tip="Every proof kept sealed, with its web of sources" testid="cof-more-stash"><StashWeb call={call} testid="cof-stash" /></More></>}</div>;
+    {!d || !c ? <p className="fch-nil">reading the ledger…</p> : <>
+      <Kpis s={d.stake || {}} />
+      <div className="hq-grid"><motion.section className="hq-card" {...rise(1)}><h4>WHERE EACH $100 GOES</h4><DealFlow c={c} cutsPct={cutsPct} /></motion.section><motion.section className="hq-card" {...rise(2)} data-testid="hq-dials"><h4>THE DEAL</h4><Dials d={d} save={save} busy={busy} c={c} setC={setC} rows={DIALS} /></motion.section></div>
+      <Pools d={d} save={save} busy={busy} />
+      <Agents rows={agents} />
+      <Accordion className="hq-more" allowsMultipleExpanded data-testid="hq-more">{MORE(d, save, busy, call, c, setC).map(([k, t, tip, body]) => <Accordion.Item key={k} id={k} data-testid={`cof-more-${k}`}><Accordion.Heading><Accordion.Trigger className="hq-more-t" data-tip={tip} data-testid={`hq-open-${k}`}><span>{t}</span><Accordion.Indicator><ChevronDown size={15} aria-hidden="true" /></Accordion.Indicator></Accordion.Trigger></Accordion.Heading><Accordion.Panel><Accordion.Body>{body}</Accordion.Body></Accordion.Panel></Accordion.Item>)}</Accordion>
+      {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}
+    </>}</div></Fx>;
 }

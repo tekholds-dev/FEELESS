@@ -10,6 +10,7 @@ import { PromptStudio } from './PromptStudio';
 import { ColonyFlow, PowEngine } from './HiveBoard';
 const CollectiveLandingLazy = React.lazy(() => import('./CollectiveLanding').then(m => ({ default: m.CollectiveLanding })));
 import { CollectiveOwner } from './CollectiveOwner';
+import { useOwnerFolders } from './OwnerFolders';
 import { AgentDesk } from './AgentDesk';
 import '../../styles/collectiveSetup.css';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -114,8 +115,8 @@ function useFlow() {
 const agentsGlass = flow => { const n = Number(flow?.pnlSol) || 0; const trades = flow?.pow?.trades || 0; const rows = flow?.tree?.agents || []; let sum = 0;
   return { title: 'ALL AGENTS', value: flow ? `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(4)} SOL` : 'Reading…', sub: flow ? `${flow.pow?.won || 0} of ${trades} won · ${flow.agents} agents` : '', tone: !flow ? '' : n >= 0 ? 'up' : 'dn', vals: rows.map(a => { sum += Number(a.pnlSol) || 0; return sum; }) }; };
 // 👑 THE OWNER'S TWO DESKTOPS (owner 2026-11-04): the same desktop a general agent gets. One is Fee's, one runs the whole agent system.
-function OwnerDesk({ cat, trades, feeApps, agentApps }) {
-  const flow = useFlow(); const [open, setOpen] = useState('');
+function OwnerDesk({ cat, trades, feeApps, agentApps, call }) {
+  const flow = useFlow(); const [open, setOpen] = useState(''); const ownerApps = useOwnerFolders(call, open === 'agents');
   const feeGlass = useMemo(() => { const v = Number(cat?.realizedPnlSol) || 0; return { title: realView(cat).real ? 'FEE · REAL' : 'FEE · PAPER', value: `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(3)} SOL`, sub: `${trades} trades`, tone: v >= 0 ? 'up' : 'dn', vals: [] }; }, [cat?.realizedPnlSol, trades]);
   const close = useCallback(() => setOpen(''), []);
   const monitor = (k, mood, name, sub, ics, glass) => <button type="button" className="own-m" onClick={() => setOpen(k)} data-tip={`Open the ${name} desktop`} data-testid={`own-${k}`}>
@@ -126,10 +127,10 @@ function OwnerDesk({ cat, trades, feeApps, agentApps }) {
     <PerfGlass {...glass} testid={`own-glass-${k}`} /></button>;
   return <><div className="own" data-testid="fch-owner">
     {monitor('fee', 'fee', 'FEE', 'her desktop', ['🧠', '🎭', '🎚', '👛', '⛏', '📉', '🎲', '🔐'], feeGlass)}
-    {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['💎', '💎', '⛏', '🎟'], { ...agentsGlass(flow) })}
+    {monitor('agents', 'colony', 'AGENTS', 'the whole system', ['💎', '🏊', '💸', '🛟'], { ...agentsGlass(flow) })}
   </div>
     {open === 'fee' ? <AgentDesktop cat={cat} onClose={close} extra={feeApps} mood="fee" glassOver={feeGlass} /> : null}
-    {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...agentApps, { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
+    {open === 'agents' ? <AppDesktop id="owner-agents" title="AGENTS" sub="the whole system · only you see this" mood="colony" apps={[...agentApps, ...ownerApps, { k: 'perf', ic: '📈', label: 'Performance', tip: 'Every agent side by side', body: <AgentsDiagram agents={flow?.tree?.agents} /> }]} glass={{ ...agentsGlass(flow), app: 'perf' }} onClose={close} /> : null}</>;
 }
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
@@ -220,7 +221,7 @@ export function FeeCatDesk({ call }) {
       { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
       { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
-    ]} /> : null}
+    ]} call={call} /> : null}
     {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4><Ic3 e="🔎" /> WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>

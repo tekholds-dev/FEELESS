@@ -93,29 +93,6 @@ test('🔑 a window sign-in is a small card → the credentials drawer opens wit
   await act(async () => root.unmount()); el.remove();
 });
 
-test('☁ the cloud drawer: connect YOUR Drive / Dropbox (FEELESS funds none); then your space left, its 5 newest, and ☁ Keep for a 24 h attachment', async () => {
-  const { CloudDrawer } = await import('./CatWorkbench');
-  const posts = []; let linked = false; const assign = jest.fn();
-  delete window.location; window.location = { assign };
-  global.fetch = async (u, o) => { if (o?.method === 'POST') { posts.push([String(u), JSON.parse(o.body)]); if (String(u).endsWith('/cloud/connect')) return { ok: true, json: async () => ({ url: 'https://accounts.google.com/x' }) }; return { ok: true, json: async () => ({ kept: { id: 'k' } }) }; }
-    return { ok: true, json: async () => ({ providers: [{ key: 'gdrive', label: 'Google Drive', free: '15 GB free', ready: true }, { key: 'dropbox', label: 'Dropbox', free: '2 GB free', ready: false }],
-      link: linked ? { provider: 'gdrive', label: 'Google Drive' } : null, used: 5 * 1024 ** 3, total: 15 * 1024 ** 3, recent: linked ? [{ id: 'r1', name: 'coin.png', size: 72, link: 'https://drive/x' }] : [] }) }; };
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  const att = { files: [{ id: 'a'.repeat(32), name: 'logo.png', mime: 'image/png', size: 1024 }] };
-  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} attachments={att} />); });
-  expect(el.querySelector('[data-testid="cwb-cloud-pick"]').textContent).toContain('never sees that password');
-  expect(el.querySelector('[data-testid="cwb-cloud-dropbox"]').disabled).toBe(true);
-  await act(async () => { el.querySelector('[data-testid="cwb-cloud-gdrive"]').click(); });
-  expect(posts[0][1]).toMatchObject({ provider: 'gdrive' }); expect(assign).toHaveBeenCalledWith('https://accounts.google.com/x');
-  linked = true;
-  await act(async () => { root.render(<CloudDrawer key="2" cat={{ id: 'g1' }} attachments={att} />); });
-  expect(el.querySelector('[data-testid="cwb-cloud-left"]').textContent).toBe('10.0 GB left');
-  expect(el.querySelectorAll('[data-testid="cwb-cloud-latest"] a').length).toBe(1);
-  await act(async () => { el.querySelector(`[data-testid="cwb-keep-${'a'.repeat(32)}"]`).click(); });
-  expect(posts.at(-1)[0]).toContain(`/files/${'a'.repeat(32)}/keep`);
-  await act(async () => root.unmount()); el.remove();
-});
-
 test('⚡ Earn Mode: the switch, risk and $ save through the owner action; plays show $/day and open their Launch › Pools tab', async () => {
   const { EarnCard } = await import('./CatWorkbench');
   const posts = []; let earn = { on: false, risk: 'safe', budgetUsd: 25 };
@@ -407,39 +384,6 @@ test('🐝 its Colony tab: every PoW folder a connected dot (👍 up / 👎 down
   act(() => root.unmount());
 });
 
-test('⛓ keep on IPFS: ⛓ IPFS asks the price (nothing paid), Pay pays that quote, the file then links to IPFS and lands in the kept list', async () => {
-  const { CloudDrawer } = require('./CatWorkbench');
-  document.body.innerHTML = ''; const posts = []; const id = 'b'.repeat(32);
-  global.fetch = async (u, o) => { if (o?.method === 'POST' && String(u).includes('/ipfs')) { const b = JSON.parse(o.body); posts.push(b);
-      return { ok: true, json: async () => (b.pay ? { stored: { file: id, name: 'logo.png', cid: 'bafyX', url: 'https://gw/ipfs/bafyX/logo.png', sol: 0.001326, days: 30, expires: '2026-12-02' } } : { quote: { cid: 'bafyX', sol: 0.001326, days: 30, why: null } }) }; }
-    return { ok: true, json: async () => ({ providers: [], link: null }) }; };
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} attachments={{ files: [{ id, name: 'logo.png', mime: 'image/png', size: 1024 }] }} />); });
-  const q = s => el.querySelector(`[data-testid="${s}"]`);
-  await act(async () => { q(`cwb-ipfs-quote-${id}`).click(); }); expect(posts[0]).toMatchObject({ pay: false }); expect(q(`cwb-ipfs-${id}`).textContent).toContain('0.001326 SOL');
-  await act(async () => { q(`cwb-ipfs-pay-${id}`).click(); }); expect(posts[1]).toMatchObject({ pay: true });
-  expect(el.querySelector('.cwb-ipfs-on').getAttribute('href')).toBe('https://gw/ipfs/bafyX/logo.png'); expect(q('cwb-ipfs-list').textContent).toContain('until 2026-12-02');
-  act(() => root.unmount());
-});
-
-test('⛓ the IPFS picker is there with NO files: pick an image → it is added to its files and its IPFS price shows by itself', async () => {
-  const { CloudDrawer } = require('./CatWorkbench');
-  document.body.innerHTML = ''; const posts = []; const id = 'd'.repeat(32);
-  global.FileReader = class { readAsDataURL() { this.result = 'data:image/png;base64,AA=='; setTimeout(() => this.onload(), 0); } };
-  global.fetch = async (u, o) => { if (o?.method === 'POST') { posts.push([String(u), JSON.parse(o.body)]);
-      return { ok: true, json: async () => (String(u).endsWith('/files') ? { file: { id, name: 'logo.png', mime: 'image/png', size: 2048 } } : { quote: { cid: 'bafyY', sol: 0.001326, days: 30, why: null } }) }; }
-    return { ok: true, json: async () => ({ providers: [], link: null }) }; };
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} attachments={{ files: [] }} />); });
-  const inp = el.querySelector('[data-testid="cwb-ipfs-pick"]'); expect(el.querySelector('[data-testid="cwb-ipfs-add"]').textContent).toContain('KEEP ON IPFS');
-  Object.defineProperty(inp, 'files', { value: [new File(['x'], 'logo.png', { type: 'image/png' })] });
-  await act(async () => { inp.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r => setTimeout(r, 20)); });
-  expect(posts.some(([url]) => url.endsWith('/files'))).toBe(true);
-  expect(posts.find(([url]) => url.endsWith(`/files/${id}/ipfs`))?.[1]).toMatchObject({ pay: false });
-  expect(el.querySelector(`[data-testid="cwb-ipfs-${id}"]`).textContent).toContain('0.001326 SOL');
-  act(() => root.unmount());
-});
-
 test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% → one wallet signature → op share; OFF needs no signature', async () => {
   const { AgentDesktop } = require('./CatWorkbench');
   sessionStorage.clear(); document.body.innerHTML = ''; const posts = []; const before = signed.length;
@@ -511,7 +455,7 @@ describe('its window follows the real state of the round', () => {
   });
 });
 test('a new desktop icon never lands on a saved one, and a full column wraps', () => {
-  const saved = Object.fromEntries(['vault', 'pow', 'jobs', 'sources', 'honey', 'wallet', 'files', 'cmds'].map((k, i) => [k, { x: 0, y: i * 96 }]));
+  const saved = Object.fromEntries(['vault', 'pow', 'jobs', 'sources', 'honey', 'wallet', 'cmds'].map((k, i) => [k, { x: 0, y: i * 96 }]));
   const at = placeIcons(saved, 800); const spots = Object.values(at).map(p => `${p.x},${p.y}`);
   expect(new Set(spots).size).toBe(spots.length); expect(at.pop.x).toBe(96); expect(at.vault).toEqual({ x: 0, y: 0 });
 });

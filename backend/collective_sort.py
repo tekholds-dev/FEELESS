@@ -11,7 +11,7 @@ VOTERS = ('ossy', 'g4')
 VERDICTS = ('good', 'bad', 'trash')
 USES = ('pow', 'pop', 'pob', 'poc', 'pos')
 MAX_NOTE = 2000
-MAX_MARKS = 24
+MAX_MARKS = 60
 MAX_LOAD = 6.0   # the Mac stays usable: over this it waits
 QUIET_S = 120    # how long after the owner's last ask
 EXCERPT = 6000
@@ -52,8 +52,11 @@ def owner_set(item, patch, now=None):
         marks = []
         for m in (patch['marks'] or [])[:MAX_MARKS]:
             try:
-                marks.append({'x': _num01(m['x']), 'y': _num01(m['y']), 'w': _num01(m['w']), 'h': _num01(m['h']), 'label': str(m.get('label') or '')[:120]})
-            except (KeyError, TypeError, ValueError):
+                if m.get('text'):   # any words, line, tile or row it picked, or a plain note of what is missing
+                    marks.append({'kind': str(m.get('kind') or 'text')[:12], 'text': str(m['text'])[:300], 'label': str(m.get('label') or '')[:120]})
+                else:
+                    marks.append({'x': _num01(m['x']), 'y': _num01(m['y']), 'w': _num01(m['w']), 'h': _num01(m['h']), 'label': str(m.get('label') or '')[:120]})
+            except (KeyError, TypeError, ValueError, AttributeError):
                 continue
         item['marks'] = marks
     if patch.get('status') in VERDICTS or patch.get('status') == 'none':
@@ -83,10 +86,30 @@ def rule_trash(item, approve, now=None):
     return item
 
 
+def folder_of(path, items):
+    """The nearest folder the owner ruled on, or None. A folder's key ends with a slash."""
+    parts = str(path).split('/')[:-1]
+    for i in range(len(parts), 0, -1):
+        it = items.get('/'.join(parts[:i]) + '/')
+        if it:
+            return it
+    return None
+
+
+def bulk(items, paths, status, now=None):
+    """The owner's word on many files at once, for example everything the minds called bad. His word stands, and nothing is deleted. → how many changed."""
+    if status not in VERDICTS:
+        return 0
+    n = 0
+    for p in paths or []:
+        items[str(p)] = owner_set(items.get(str(p)), {'status': status}, now); n += 1
+    return n
+
+
 def next_path(paths, items, skip=()):
     """The next file neither finished reading, or None. Files the owner wrote on first, then pictures, then proofs. Kits, indexes and sealed files are not evidence."""
     def wanted(p):
-        return p.startswith(('snapshots/', 'proofs/')) and p not in skip and not all(v in ((items.get(p) or {}).get('votes') or {}) for v in VOTERS) and (items.get(p) or {}).get('by') != 'owner'
+        return p.startswith(('snapshots/', 'proofs/')) and p not in skip and (folder_of(p, items) or {}).get('status') != 'trash' and not all(v in ((items.get(p) or {}).get('votes') or {}) for v in VOTERS) and (items.get(p) or {}).get('by') != 'owner'
     rows = [p for p in paths if wanted(p)]
     rows.sort(key=lambda p: (0 if (items.get(p) or {}).get('note') or (items.get(p) or {}).get('marks') else 1, 0 if p.startswith('snapshots/') else 1, p))
     return rows[0] if rows else None
@@ -101,7 +124,10 @@ def lessons(items, n=6):
 def prompt(path, item, items):
     item = item or {}; bits = [f'Past decisions by the owner:\n{lessons(items)}' if lessons(items) else '', f"The owner's note on this file: {item['note']}" if item.get('note') else '']
     if item.get('marks'):
-        bits.append('The owner marked what the agent missed: ' + '; '.join(m.get('label') or 'marked area' for m in item['marks']))
+        bits.append('The owner marked what the agent missed: ' + '; '.join(m.get('label') or m.get('text') or 'marked area' for m in item['marks']))
+    up = folder_of(path, items)
+    if up and (up.get('note') or up.get('status')):
+        bits.append(f"The owner on this whole folder: {up.get('status') or ''} {up.get('note') or ''}".strip())
     bits.append(f'FILE: {path}')
     return '\n'.join(b for b in bits if b)
 
@@ -134,8 +160,8 @@ def idle(load_avg, busy, last_ask, now):
 
 def counts(items, total):
     c = {'good': 0, 'bad': 0, 'trash_ask': 0, 'trash': 0, 'disputed': 0}
-    for i in items.values():
-        if i.get('status') in c:
+    for k, i in items.items():
+        if not k.endswith('/') and i.get('status') in c:
             c[i['status']] += 1
     c['unsorted'] = max(0, total - sum(c.values()))
     return c
