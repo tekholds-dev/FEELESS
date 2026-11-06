@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, ReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Ic3 } from '../../lib/icon3d';
+import { usd as money } from './KeepDeal';
 import '../../styles/stakeFlow.css';
 
 // 🗺 WHERE A STAKE GOES, on the same numbers as the rules. Two roads meet at the seat: the grade sets how big it is, and only a real pool profit puts money through it.
@@ -19,10 +20,9 @@ const NODE_W = 186; const NODE_H = 70;
 const INK = { gold: '#ffc24d', blue: '#57c7ff', green: '#45e486' };
 export default function StakeFlow({ usd, grade, x, points, seat, collectivePct = 20, testid = 'stake-map' }) {
   const box = useRef(null); const [size, setSize] = useState({ w: 0, h: 0 }); const vertical = size.w > 0 && size.w < 640;
-  useEffect(() => { const el = box.current; if (!el || typeof ResizeObserver === 'undefined') return undefined; const ro = new ResizeObserver(() => setSize({ w: el.clientWidth, h: el.clientHeight })); ro.observe(el); return () => ro.disconnect(); }, []);
+  useEffect(() => { const el = box.current; if (!el || typeof ResizeObserver === 'undefined') return undefined; let raf = 0; const ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => setSize(old => (Math.abs(old.w - el.clientWidth) < 8 && Math.abs(old.h - el.clientHeight) < 8 ? old : { w: el.clientWidth, h: el.clientHeight }))); }); ro.observe(el); return () => { cancelAnimationFrame(raf); ro.disconnect(); }; }, []);   // measured a frame later, so a resize never loops, and a small nudge never redraws the map
   // The whole map always fits: the view is worked out from its own size and the box it sits in.
   const view = useMemo(() => { const at = Object.values(vertical ? TALL : WIDE); const W = Math.max(...at.map(p => p[0])) + NODE_W; const H = Math.max(...at.map(p => p[1])) + NODE_H; const zoom = size.w ? Math.min(1.25, (size.w - 16) / W, (size.h - 16) / H) : 1; return { x: (size.w - W * zoom) / 2, y: (size.h - H * zoom) / 2, zoom }; }, [size, vertical]);
-  const money = v => (v >= 1000 ? `$${Math.round(v).toLocaleString()}` : `$${Number(v).toFixed(2)}`);
   const nodes = useMemo(() => { const at = vertical ? TALL : WIDE; return [
     ['proof', '🧾', 'PROOF + $', money(usd), 'gold', 'Every send goes with a proof, $1 or more', null],
     ['checks', '⚖', 'FIVE CHECKS', `Grade ${Math.round(grade)}`, 'gold', 'Five agents and its fingerprint read the proof, out of 300', grade / 300],

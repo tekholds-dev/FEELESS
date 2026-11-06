@@ -70,7 +70,6 @@ def test_a_bad_or_off_limits_fix_leaves_nothing_behind(tmp_path):
 
 def test_the_folder_lists_crashes_is_owner_only_and_approve_needs_a_passed_fix(monkeypatch, tmp_path):
     rs = pytest.importorskip('reputation_service')
-    from fastapi import HTTPException
     from fastapi.testclient import TestClient
     c = TestClient(rs.app, raise_server_exceptions=False)
     assert c.get('/api/reputation/admin/fix').status_code in (401, 403) and c.post('/api/reputation/admin/fix', json={'id': 'x', 'seat': 'lan'}).status_code in (401, 403)

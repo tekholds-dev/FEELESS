@@ -14,6 +14,7 @@ import agent_wallet as _aw
 import agent_trade as _at
 import agent_commands as _ac
 import proof_commands as _pc
+import agent_knows as _know
 import cat_agent as _ca
 import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
@@ -5770,7 +5771,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                         from_repo_ = _cg.source_block(await _cg.project_read(http_src, _ck.key_for(cat, 'github_project', data_dir=DATA_DIR), cat['projectRepo'], doc['source']))
                 except httpx.HTTPError:
                     from_repo_ = ''
-            user = f'{ask_}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             cfg_kits_ = cat.get('brainsCfg') or {}; picks_ = _kits.auto_picks(KITS_DIR, 'pos', text) if cfg_kits_.get('kitMode', 'mine' if cfg_kits_.get('kits') else 'auto') == 'auto' else cfg_kits_.get('kits') or []
             kits_ = _kits.use_line(picks_) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
@@ -5827,7 +5828,7 @@ async def _poc_file(cat_id, topic, ws=None):
         notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
         read_, sites_read_ = await _site_reads('poc')
         async def one(i, m):
-            return i, await _ws_ask(cat, m, _feat.POC_SYS.format(name='Mind ' + 'AB'[i]) + _feat._sources.proof_line('poc') + read_ + _recall(cat, 'Content', topic), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
+            return i, await _ws_ask(cat, m, _feat.POC_SYS.format(name='Mind ' + 'AB'[i]) + _feat._sources.proof_line('poc') + read_ + _recall(cat, 'Content', topic) + _know.for_ask(topic), f'The owner wants: {topic or "whatever fits them best right now"}\nTheir notes: {notes}\nTrending now:\n{lines}', 260)
         for i, (raw, usd, own) in await asyncio.gather(*(one(i, m) for i, m in enumerate(brains))):
             cost += usd; paid_own = own
             try:
@@ -7529,7 +7530,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:], 'clarify': got_}
             text = got_
             files_ = [i for i in dict.fromkeys(kept_ + files_) if _af.find(cat, i)]
-        text_ = text + _af.task_note([_af.find(cat, i) for i in files_])
+        text_ = text + _af.task_note([_af.find(cat, i) for i in files_]) + _know.for_ask(text)   # 📚 asked about FEELESS, its minds read the facts, not a search for its name
         if _co.parse_order(text):   # 💵 "buy 0.05 SOL of $BONK" in the chat is an ORDER on its wallet, not research: guards, then your OK (or auto)
             async with httpx.AsyncClient(timeout=15) as http_o:
                 row_ = await _run_order(store, cat, text, http_o)
@@ -7543,6 +7544,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['workQueue'] = q_ + [{'text': text_[:2600], 'to': p.to, 'at': time.time(), 'files': files_}]; keep_owned(cat); _save(store)
         else:
             _work_start(cat_id, cat, text_, p.to, files_)
+            if (_WORK.get(cat_id) or {}).get('task') is not None and _know.asks_about(text):   # each mind's own steps carry it too, not only the plan
+                _WORK[cat_id]['task']['personal'] = str(_WORK[cat_id]['task'].get('personal') or '') + _know.brief()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': text[:400], 'at': time.time()}])[-200:]   # 💬 your words show the moment you send them, not when it finishes
             if (_WORK.get(cat_id) or {}).get('task') is not None:
                 _WORK[cat_id]['task']['youSaid'] = True

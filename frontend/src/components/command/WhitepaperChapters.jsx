@@ -5,6 +5,7 @@ import { Tokenomics } from './FeeCommand';
 import { StakeStory } from './KeepDeal';
 import { useMarket } from '../../hooks/useMarket';
 import { Ic3 } from '../../lib/icon3d';
+import { isCalm } from '../../lib/fxPause';
 import { identityOf, inkOf, part, fitBox } from '../../lib/proofprint';
 import '../../styles/whitepaper.css';
 
@@ -32,11 +33,10 @@ export function shelfOf(title) {
   return (SHELVES.find(s => s[2].includes(title)) || SHELVES[0])[0];
 }
 
-const calm = () => document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 // Steps through a list while it is on screen, and rests when it is not.
 function useBeat(n, every = 1400) {
   const box = useRef(null); const seen = useInView(box, { margin: '-10% 0px' }); const [at, setAt] = useState(0);
-  useEffect(() => { if (!seen || calm()) { if (calm()) setAt(n - 1); return undefined; } const t = setInterval(() => setAt(x => (x + 1) % (n + 1)), every); return () => clearInterval(t); }, [seen, n, every]);
+  useEffect(() => { if (!seen || isCalm()) { if (isCalm()) setAt(n - 1); return undefined; } const t = setInterval(() => setAt(x => (x + 1) % (n + 1)), every); return () => clearInterval(t); }, [seen, n, every]);
   return [box, Math.min(at, n - 1)];
 }
 const Frame = ({ tag, children, foot }) => <figure className="wps-demo"><figcaption><i className="wps-dot" aria-hidden="true" />{tag}</figcaption><div className="wps-demo-b">{children}</div>{foot ? <small className="wps-foot">{foot}</small> : null}</figure>;

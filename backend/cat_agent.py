@@ -205,9 +205,12 @@ def same_page(at, url):
 BROWSE_FOR = re.compile(r'(?i)\b(?:for|about|around|spend)\s+(?:about\s+)?(\d{1,2})(?:\s*(?:-|to)\s*\d{1,2})?\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)\b')
 
 
+import agent_visit as _visit
+
+
 def _on_list(task, url, login=False):
     """The research list, plus the one site the owner scanned, signed in to and named for this proof."""
-    if research_ok(url, login):
+    if research_ok(url, login) or _visit.is_visit(url):
         return True
     try:
         host = check_url(url)

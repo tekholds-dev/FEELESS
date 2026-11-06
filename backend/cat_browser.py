@@ -370,6 +370,9 @@ def pick_close(btns):
     return None
 
 
+import agent_visit as _visit
+
+
 class ReaderPage:
     """No live browser: the server fetches pages as text. It cannot type (a form needs a live window → the model is told so)."""
     live = False
@@ -381,6 +384,8 @@ class ReaderPage:
         if not str(url).startswith(('http://', 'https://')):
             return '(not a web address)'
         from urllib.parse import urljoin
+        if _visit.is_visit(url):   # 🏛 its own read-only FEELESS: answered here, never on a network
+            _status, self._html = await _visit.render(self.http, url); self.url = str(url); self.title, body = page_text(self._html); return body
         for _ in range(6):
             await public_url(url)
             r = await self.http.get(url, headers=UA, timeout=20, follow_redirects=False)
@@ -532,6 +537,7 @@ class LivePage:
                 await route.continue_()
         if not self.plain:
             await ctx.route('**/*', guard)
+        await _visit.install(ctx)   # 🏛 its own read-only FEELESS: answered here, never on a network
         if self.cookies:
             try:
                 await ctx.add_cookies([{k: v for k, v in c.items() if k in ('name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite')} for c in self.cookies])
@@ -584,7 +590,8 @@ class LivePage:
 
     async def goto(self, url):
         url = secure_url(url)
-        await public_url(url)
+        if not _visit.is_visit(url):
+            await public_url(url)
         await self._p.goto(str(url), wait_until='domcontentloaded', timeout=30000)
         try:
             await self._p.wait_for_function('() => document.body && document.body.innerText.trim().length > 80', timeout=3000)

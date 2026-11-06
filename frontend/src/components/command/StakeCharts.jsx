@@ -3,23 +3,22 @@ import * as echarts from 'echarts/core';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, MarkLineComponent, MarkPointComponent, TooltipComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
-import { seatX, sizeOf } from './KeepDeal';
+import { seatX, sizeOf, usd as money } from './KeepDeal';
+import { isCalm } from '../../lib/fxPause';
 import '../../styles/stakeFlow.css';
 
 echarts.use([LineChart, GridComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, CanvasRenderer]);
 
 // 📈 The stake's two pictures, on the same rules as the ledger: how big the seat gets, and how an example pool profit fills it up to its limit.
 const day = () => document.body.classList.contains('theme-day');
-const calm = () => document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 const inks = () => (day() ? { text: '#3b4a60', grid: '#0f1f3a18', line: '#b57a12', soft: '#0f1f3a40', tip: '#ffffff', tipText: '#101826' } : { text: '#aab6cc', grid: '#ffffff12', line: '#ffc24d', soft: '#ffffff40', tip: '#0b111c', tipText: '#eef3ff' });
 function Plot({ option, testid, label, onReady }) {
   const box = useRef(null); const chart = useRef(null);
-  useEffect(() => { const c = echarts.init(box.current, null, { renderer: 'canvas' }); chart.current = c; onReady?.(c); const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => c.resize()); ro?.observe(box.current); return () => { ro?.disconnect(); c.dispose(); }; }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { chart.current?.setOption({ animation: !calm(), animationDuration: 260, ...option }, true); }, [option]);
+  useEffect(() => { let raf = 0; const c = echarts.init(box.current, null, { renderer: 'canvas' }); chart.current = c; onReady?.(c); const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => c.resize()); }); ro?.observe(box.current); return () => { cancelAnimationFrame(raf); ro?.disconnect(); c.dispose(); }; }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { chart.current?.setOption({ animation: !isCalm(), animationDuration: 260, ...option }, true); }, [option]);
   return <div ref={box} className="skc-plot" role="img" aria-label={label} data-testid={testid} />;
 }
 const usdShort = v => (v >= 1000 ? `$${v / 1000}K` : `$${v}`);
-const money = v => (v >= 1000 ? `$${Math.round(v).toLocaleString()}` : `$${Number(v).toFixed(2)}`);
 const X_STOPS = [];
 for (let e = 0; e <= 5; e += 0.1) X_STOPS.push(10 ** e);
 const tip = c => ({ trigger: 'axis', backgroundColor: c.tip, borderColor: c.soft, textStyle: { color: c.tipText, fontSize: 12 }, confine: true });

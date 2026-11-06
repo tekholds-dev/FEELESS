@@ -32,6 +32,8 @@ export function startFxPause(root = document.body) {
 //     (≥ BIG_PX² of screen: sweeps, auroras, drifting backdrops — the ones that cost a frame) and leaves every small effect running.
 // It only ever resumes an animation it paused itself. Reads first, then writes: one layout per pass.
 export const BIG_PX = 150000;
+// Effects off, for lite mode or a viewer who asked for less motion. One rule, read everywhere.
+export const isCalm = () => document.body.classList.contains('fx-lite') || !!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
 const mine = new WeakSet();
 let pressure = 0; let holds = 0;   // `holds`: a surface doing heavy work for the user right now (the Brain while the model answers) asks the big layers to rest
 export const fxPressure = () => (pressure || holds ? 1 : 0);

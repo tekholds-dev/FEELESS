@@ -4,6 +4,7 @@ import { addFile, AttachChips } from './CatWorkbench';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { isCalm } from '../../lib/fxPause';
 import { ProofStamp } from './ProofStamp';
 import { ProofTools } from './ProofTools';
 import { SourcesWeb } from './StashWeb';
@@ -157,7 +158,7 @@ const DEVICES = [['desktop', 'Desktop', 'See it at full width'], ['fold', 'Fold'
 export function LiveCode({ draft = '', by, stage }) {
   const [n, setN] = useState(0); const box = useRef(null); const shown = useRef(0);
   useEffect(() => {
-    const calm = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    const calm = isCalm();
     if (calm) { shown.current = draft.length; setN(draft.length); return undefined; }
     const from = Math.min(shown.current, draft.length); let raf = 0; const t0 = performance.now();
     const step = t => { const k = Math.min(1, (t - t0) / 1400); const at = Math.ceil(from + (draft.length - from) * k); shown.current = at; setN(at); if (k < 1) raf = requestAnimationFrame(step); };
