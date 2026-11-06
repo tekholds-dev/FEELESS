@@ -465,10 +465,9 @@ test('🗂 Jobs is a folder tree: Jobs › a request (👍/👎 tinted) › MIND
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="jobs" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-job-j1').className).toContain('is-good'); await act(async () => { q('dsk-job-j1').click(); });
-  expect(q('dsk-job-mind-0').textContent).toContain('MIND A'); expect(q('dsk-job-mind-1')).not.toBeNull();
-  await act(async () => { q('dsk-job-mind-0').click(); }); expect(q('dsk-jobs').textContent).toContain('Pool Hub');
-  await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-job-answer').click(); });
-  expect(q('dsk-jobs').textContent).toContain('Meteora SOL/USDC'); expect(q('dsk-jobs').textContent).toContain('👍 you liked it');
+  expect(q('job-mind-0').textContent).toContain('MIND A'); expect(q('job-mind-1')).not.toBeNull(); expect(q('job-total')).not.toBeNull();
+  expect(q('job-mind-0').textContent).toContain('Pool Hub');
+  expect(q('job-tree').textContent).toContain('Meteora SOL/USDC'); expect(q('job-tree').textContent).toContain('YOU LIKED IT');
   act(() => root.unmount());
 });
 

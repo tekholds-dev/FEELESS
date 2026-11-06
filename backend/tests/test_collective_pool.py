@@ -433,8 +433,8 @@ def test_every_door_the_desk_buys_through_checks_the_switch():
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
     assert "if (cfg_t.get('agentFeed') or cfg_t.get('agentLearn')) and not cfg_t.get('deskBuysOff'):" in src                         # GO rows into the engine
     assert "if x['action'] == 'swap' and (paper_ or cfg_t.get('deskBuysOff')):" in src                                                # a switch into a new coin
-    assert "g4_seat_ = not cfg_t.get('deskBuysOff') and" in src                                                                       # OSSY and G4's seat
-    assert "if cfg_t.get('deskBuysOff'):   # ⚖ the last door" in src                                                                  # the seat fills
+    assert "g4_seat_ = pol_.get('aiSeat') == 'real' and ((not cfg_t.get('deskBuysOff') and" in src                                    # OSSY and G4's own seat stops; only a Sicario's PoW passes
+    assert "plan_ = _seat.desk_off_plan(plan_, sic_want_)" in src                                                                     # the seat fills
 
 
 def test_the_calculator_is_the_real_pool_code():

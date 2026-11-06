@@ -3,6 +3,7 @@
 This is the sorting job: plain Python files every proof by kind, result and month, so any agent on any model can use what the Collective proved. Nothing here trades or moves money. A proof reaches a repo only after the same public_folder strip the Stash uses, so keys and sign-ins never leave.
 """
 import base64
+import gzip
 import hashlib
 import json
 import re
@@ -67,6 +68,40 @@ def agent_tree(cat, public_folder, read_page=None, kinds=None):
     won = sum(r['result'] == 'won' for r in rows); lost = sum(r['result'] == 'lost' for r in rows)
     out['README.md'] = (f"# {(cat or {}).get('name') or 'Agent'}'s proofs\n\n{len(rows)} filed: {won} won, {lost} lost. Sorted by kind, result and month. Written by FEELESS from its filed proofs; a win here is what the proof recorded, not a promise of the next one.\n").encode()
     return out
+
+
+VAULT_CAP = 20 * 1024 * 1024   # 🔐 a fair share of one private repo, per agent. GitHub's own advice is to keep a repo small, so this is a backup of proofs, not a file drive
+
+
+def _vault_blob(cache, name, raw, seal):
+    """The same plain bytes always give the same sealed bytes, so an unchanged file is never pushed twice. A seal is random, so its result is kept next to the plain file's hash."""
+    want = hashlib.sha256(raw).hexdigest().encode(); path = cache / name
+    if path.exists():
+        got = path.read_bytes()
+        if got.startswith(want + b'\n'):
+            return got[len(want) + 1:]
+    sealed = seal(gzip.compress(raw, mtime=0))
+    cache.mkdir(parents=True, exist_ok=True); path.write_bytes(want + b'\n' + sealed)
+    return sealed
+
+
+def vault_tree(tag, files, seal, cache, cap=VAULT_CAP):
+    """🔐 {path: sealed bytes} for one agent's private folder in the Collective repo. Names are hashes and contents are sealed under the agent's own key, so the repo alone reveals nothing, not even a title. Compressed. Over the cap, the oldest paths stay and the rest wait, and `left` says how many. → (files, stats)"""
+    out = {}; index = {}; size = 0; left = 0
+    for path in sorted(files):
+        name = hashlib.sha256(path.encode()).hexdigest()[:24]; blob = _vault_blob(cache / tag, name, files[path], seal)
+        if size + len(blob) > cap:
+            left += 1
+            continue
+        out[f'vault/{tag}/{name}.seal'] = blob; index[name] = path; size += len(blob)
+    if index:
+        out[f'vault/{tag}/index.seal'] = _vault_blob(cache / tag, 'index', json.dumps(index, sort_keys=True).encode(), seal)
+    return out, {'files': len(index), 'bytes': size, 'left': left}
+
+
+def vault_open(blob, unseal):
+    """Back to the plain bytes: restoring is the point of a backup."""
+    return gzip.decompress(unseal(blob))
 
 
 def collective_rows(root):

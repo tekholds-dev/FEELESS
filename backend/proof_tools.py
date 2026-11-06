@@ -12,13 +12,16 @@ POLY_TAG = {'nfl': 'nfl', 'nba': 'nba', 'mlb': 'mlb', 'nhl': 'nhl', 'cfb': 'cfb'
 SOURCES = {'bids': [('ESPN', 'Games, scores, teams', True), ('Polymarket', 'Market odds on each game', True), ('Kalshi', 'US regulated markets', True), ('TheSportsDB', 'Team records', True), ('The Odds API', 'Sportsbook lines: needs your key', False)],
            'pow': [('FEELESS intake', 'New coins it already watches', True), ('DexScreener new', 'Fresh token profiles', True), ('DexScreener boosts', 'Boosted coins', True), ('RugCheck', 'Trending, safety', True), ('CoinGecko', 'Trending coins', True)],
            'pop': [('Hyperliquid', 'Funding, open interest, price', True), ('Coinbase', 'Spot price feed', True), ('Fear & Greed', 'Market mood', True), ('CoinGecko', 'Global market', True), ('DefiLlama', 'Perp volume', True)]}
+import game_edge as _ge
+
 TTL = 60
+LIVE_TTL = 15   # 🏟 a live game's window: the play by play and its fingerprint
 _cache = {}
 
 
-async def _cached(key, fn):
+async def _cached(key, fn, ttl=None):
     now = time.time(); got = _cache.get(key)
-    if got and now - got[0] < TTL:
+    if got and now - got[0] < (TTL if ttl is None else ttl if not callable(ttl) else ttl(got[1])):
         return got[1]
     val = await fn()
     if val:
@@ -41,6 +44,12 @@ def _f(v):
         return 0.0
 
 
+def _logo(t):
+    """The team's own logo as ESPN serves it, only from ESPN's image host. None for a side with no logo (tennis, fights): the screen draws its letters."""
+    url = t.get('logo') or ((t.get('logos') or [{}])[0] or {}).get('href') or ((t.get('flag') or {}).get('href') if isinstance(t.get('flag'), dict) else None)
+    return url if isinstance(url, str) and url.startswith('https://a.espncdn.com/') else None
+
+
 def parse_espn(data):
     """ESPN's scoreboard → games. Pure."""
     out = []
@@ -49,7 +58,7 @@ def parse_espn(data):
         teams = sorted(c.get('competitors') or [], key=lambda t: t.get('homeAway') != 'away')
         if len(teams) != 2:
             continue
-        row = [{'name': (t.get('team') or t.get('athlete') or {}).get('displayName'), 'short': (t.get('team') or t.get('athlete') or {}).get('shortDisplayName') or (t.get('team') or t.get('athlete') or {}).get('name'), 'abbr': (t.get('team') or t.get('athlete') or {}).get('abbreviation'), 'score': t.get('score'), 'winner': t.get('winner')} for t in teams]
+        row = [{'name': (t.get('team') or t.get('athlete') or {}).get('displayName'), 'short': (t.get('team') or t.get('athlete') or {}).get('shortDisplayName') or (t.get('team') or t.get('athlete') or {}).get('name'), 'abbr': (t.get('team') or t.get('athlete') or {}).get('abbreviation'), 'logo': _logo(t.get('team') or t.get('athlete') or {}), 'score': t.get('score'), 'winner': t.get('winner')} for t in teams]
         odds = (c.get('odds') or [{}])[0] or {}
         out.append({'id': e.get('id'), 'at': e.get('date'), 'state': st.get('state'), 'final': bool(st.get('completed')), 'status': st.get('shortDetail') or st.get('description'), 'teams': row, 'line': odds.get('details'), 'total': odds.get('overUnder')})
     return out
@@ -315,7 +324,7 @@ def parse_summary(data):
     for c in sorted(comp.get('competitors') or [], key=lambda x: x.get('homeAway') != 'away'):
         t = c.get('team') or c.get('athlete') or {}; recs = {r.get('type'): r.get('summary') or r.get('displayValue') for r in c.get('record') or []}
         side = 'home' if c.get('homeAway') == 'home' else 'road'
-        teams.append({'id': str(t.get('id') or ''), 'abbr': t.get('abbreviation'), 'name': t.get('displayName'), 'side': c.get('homeAway'), 'score': c.get('score'), 'winner': bool(c.get('winner')),
+        teams.append({'id': str(t.get('id') or ''), 'abbr': t.get('abbreviation'), 'name': t.get('displayName'), 'logo': _logo(t), 'side': c.get('homeAway'), 'score': c.get('score'), 'winner': bool(c.get('winner')),
                       'record': recs.get('total') or recs.get('overall') or recs.get('ytd'), 'sideRecord': recs.get(side) or recs.get('away' if side == 'road' else side), 'winRate': _rec(recs.get('total') or recs.get('overall') or recs.get('ytd')), 'sideRate': _rec(recs.get(side) or recs.get('away' if side == 'road' else side)),
                       'form': [], 'leaders': [], 'injuries': []})
     by = {t['id']: t for t in teams}; by_abbr = {t['abbr']: t for t in teams}
@@ -434,7 +443,65 @@ async def game_detail(http, sport, gid, names=()):
     """🏟 One game's window, held for a minute. ESPN, ESPN's second host, the league's own numbers, then TheSportsDB: the first that answers."""
     if sport not in SPORTS or not re.fullmatch(r'[0-9]{1,14}', str(gid or '')):
         return None
-    return await _cached(f'game:{sport}:{gid}', lambda: _game_read(http, sport, gid, [str(n)[:60] for n in names if n][:2]))
+    return await _cached(f'game:{sport}:{gid}', lambda: _game_read(http, sport, gid, [str(n)[:60] for n in names if n][:2]), ttl=lambda g: LIVE_TTL if (g or {}).get('state') == 'in' else TTL)
+
+
+async def _game_extras(http, sport, data, got):
+    """🏟 Logos, the play by play, the edge vitals and who is hot, on top of the summary. Any part ESPN lacks stays missing."""
+    teams = got['teams']; away_id = teams[0].get('id') if teams else ''
+    plays = _ge.plays_of(data, sport, away_id); got['plays'] = plays; got['sport'] = sport
+    got['edge'] = _ge.edge_of(data, sport, teams, plays); got['box'] = _ge.box_of(data, away_id) if got.get('state') in ('in', 'post') else {}
+    got['edge']['hot'] = await _hot_players(http, sport, teams, got['box'], got.get('state'))
+    got['reads'] = _ge.reads_of(got['edge'], teams)
+    return got
+
+
+async def _hot_players(http, sport, teams, box, state):
+    """🔥 Tonight's number when the game is on, or the last 5 games before it, against that player's own season. Only the three biggest roles per side, each read cached."""
+    sheets = await asyncio.gather(*[team_sheet(http, sport, t.get('id')) for t in teams])
+    rows = []; asks = []
+    for side, t, sheet in zip(('a', 'b'), teams, sheets):
+        cols = (sheet or {}).get('cols') or []; main = cols[0] if cols else None
+        for pl in ((sheet or {}).get('players') or [])[:3]:
+            season = pl['vals'].get(main) if main else None
+            if state in ('in', 'post'):
+                rows.append({'name': pl['name'], 'side': side, 'stat': main, 'season': season, 'recent': ((box.get(pl['id']) or {}).get('vals') or {}).get(main), 'how': 'tonight'})
+            else:
+                asks.append((side, pl, main, season))
+    if asks:
+        got = await asyncio.gather(*[athlete_sheet(http, sport, a[1]['id']) for a in asks])
+        for (side, pl, main, season), sh in zip(asks, got):
+            rows.append({'name': pl['name'], 'side': side, 'stat': main, 'season': season, 'recent': ((sh or {}).get('last5') or {}).get(main), 'how': 'last games'})
+    return _ge.hot_of(rows)
+
+
+async def team_print(http, sport, tid):
+    """🧬 A team's stats, this season against last, for its fingerprint. Free, from ESPN."""
+    if sport not in SPORTS or not str(tid).isdigit():
+        return None
+    path = SPORTS[sport][1]
+
+    async def go():
+        base = f'https://site.api.espn.com/apis/site/v2/sports/{path}/teams/{tid}/statistics'
+        now = await _get(http, base)
+        if not now:
+            return None
+        year = int(_ge._f((now.get('season') or {}).get('year')) or 0); last = await _get(http, base, params={'season': year - 1}) if year else None
+        return {'rows': _ge.team_rows(now, last), 'season': (now.get('season') or {}).get('displayName')}
+    return await _cached(f'tprint:{sport}:{tid}', go, ttl=3600)
+
+
+async def player_print(http, sport, aid):
+    """🧬 A player's stats, this season against last, for their fingerprint. Free, from ESPN."""
+    if sport not in SPORTS or not str(aid).isdigit():
+        return None
+    path = SPORTS[sport][1]
+
+    async def go():
+        d = await _get(http, f'https://site.web.api.espn.com/apis/common/v3/sports/{path}/athletes/{aid}/stats')
+        rows, season = _ge.player_rows(d)
+        return {'rows': rows, 'season': season} if rows else None
+    return await _cached(f'pprint:{sport}:{aid}', go, ttl=3600)
 
 
 async def _game_read(http, sport, gid, names=()):
@@ -442,7 +509,7 @@ async def _game_read(http, sport, gid, names=()):
         data = await _get(http, f'https://{host}/apis/site/v2/sports/{SPORTS[sport][1]}/summary', params={'event': gid})
         got = parse_summary(data) if data else None
         if got and got.get('teams'):
-            return got
+            return await _game_extras(http, sport, data, got)
     return await _fallback_read(http, sport, names) if len(names) == 2 else None
 
 

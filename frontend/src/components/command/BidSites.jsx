@@ -15,6 +15,20 @@ export const BID_SITES = [
 const STATUS = { api: ['API OK', 'The site offers its own API for trading. That is not the same as letting an AI browser click its pages'], people: ['PEOPLE ONLY', 'Its terms ban automated tools, so do not point an agent at it'], unread: ['NOT CLEAR', 'We could not find its rule on automation for these contracts. Treat it as people only'] };
 const LENS = [['all', 'All'], ['api', 'API OK'], ['people', 'People only']];
 
+// 💳 DIGITAL CARDS (owner 2026-11-05): links only. You sign up on their site with your own ID: FEELESS and its agents never fill these in, never see a card and never move money to one. Read on 2026-11-05 from search results and vendor pages, none of it from a card's full terms. Change a line only after reading that site.
+export const CARD_SITES = [
+  { k: 'solcard', name: 'SolCard', url: 'https://solcard.cc/crypto-debit-card-usa', status: 'us', what: 'SOL, USDC or USDT', line: 'Its own US page says a virtual card right after signup. A review says ID checks can apply for a physical card or Apple Pay.', where: 'US page, by the vendor' },
+  { k: 'phantom', name: 'Phantom Visa', url: 'https://phantom.com', status: 'wait', what: 'Phantom Cash', line: 'Prepaid Visa tied to Phantom Cash. US early access was through a waitlist when last reported, so not instant.', where: 'US, waitlist' },
+  { k: 'fusecard', name: 'Fuse Card', url: 'https://opencryptocards.pages.dev/cards/fuse-card', status: 'check', what: 'USDC on Solana', line: 'A virtual prepaid Visa from another company, nothing to do with the Fuse in FEELESS. One listing says no Alaska or New York.', where: 'US except some states, unconfirmed' },
+  { k: 'solflare', name: 'Solflare Card', url: 'https://solflare.com', status: 'check', what: 'USDC from your wallet', line: 'Self-custody Mastercard. We could not confirm it is open in the US.', where: 'US not confirmed' },
+  { k: 'jupiter', name: 'Jupiter Card', url: 'https://jup.ag', status: 'check', what: 'USDC on Solana', line: 'Visa debit backed by USDC. We could not confirm it is open in the US.', where: 'US not confirmed' },
+  { k: 'greendot', name: 'Green Dot', url: 'https://www.greendot.com', status: 'check', what: 'US dollars', line: 'A long-running US prepaid brand. We could not confirm its current instant virtual card from what we read.', where: 'US, check its own page' },
+];
+const CARD_STATUS = { us: ['SAYS US', 'Its own page says it is open to the US. That is the vendor talking'], wait: ['WAITLIST', 'Open by waitlist when last reported'], check: ['CHECK FIRST', 'We could not confirm the details. Read its own page first'] };
+export function CardSites() {
+  return <section className="bs" data-testid="card-sites"><header className="bs-head m-glass m-live"><span><b>💳 GET A DIGITAL CARD</b><small>Some of these may let you fund a bid site. Expect an ID check. You sign up on their site, and no agent does it for you. Links only: FEELESS has no deal with any of them.</small></span></header>
+    <ul className="bs-list">{CARD_SITES.map((s, i) => <li key={s.k} className={`m-glass is-${s.status === 'us' ? 'api' : 'unread'}`} style={{ '--i': i }} data-testid={`card-${s.k}`}><span className="bs-id"><b>{s.name}</b><small>{s.what}</small></span><em className="bs-status" data-tip={CARD_STATUS[s.status][1]}><i aria-hidden="true" />{CARD_STATUS[s.status][0]}</em><p>{s.line}</p><small className="bs-where">{s.where}</small><span className="bs-acts"><a className="m-btn m-go" href={s.url} target="_blank" rel="noopener noreferrer" data-tip={`Opens ${s.name} in a new tab. You sign up on their site`}>Open ↗</a></span></li>)}</ul></section>;
+}
 export function BidSites() {
   const [lens, setLens] = useState('all');
   const rows = BID_SITES.filter(s => lens === 'all' || (lens === 'api' ? s.status === 'api' : s.status !== 'api'));

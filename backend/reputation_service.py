@@ -14762,7 +14762,8 @@ async def _prime_tick_inner(now):
             cfg_s = {**cfg_t, 'coins': pol_['seats']}
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])
             empty_n = max(0, pol_['seats'] - held_n)
-            g4_seat_ = not cfg_t.get('deskBuysOff') and pol_.get('aiSeat') == 'real' and not any(l.get('aiSeat') and not l.get('placeholder') for l in cur.get('legs') or [])
+            sic_want_ = (_g4.get('want') or {}).get('source') == 'sicario'   # 🎩 owner 2026-11-05: all 4 seats are open to a Sicario's PoW, desk buys stay off for everything else
+            g4_seat_ = pol_.get('aiSeat') == 'real' and ((not cfg_t.get('deskBuysOff') and not any(l.get('aiSeat') and not l.get('placeholder') for l in cur.get('legs') or [])) or (sic_want_ and empty_n > 0))
             if g4_seat_ and empty_n:   # 🧠 one empty seat is G4's while its seat is on: the agents fill the rest
                 empty_n -= 1
             if empty_n and not cur.get('agentEmptyAt'):
@@ -14937,8 +14938,8 @@ async def _prime_tick_inner(now):
                     _g4_fate(w_, 'sent to the seat check', now)
                 elif not bad_ and w_:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
-            if cfg_t.get('deskBuysOff'):   # ⚖ the last door: nothing on the plan reaches the card
-                plan_, g4n_ = [], 0
+            if cfg_t.get('deskBuysOff'):   # ⚖ the last door: nothing on the plan reaches the card but the coin a Sicario's PoW asked for
+                plan_ = _seat.desk_off_plan(plan_, sic_want_); g4n_ = len(plan_)
             pre_ = await _seat_precheck(plan_[:empty_n + 3 + g4n_], cfg_t, now, seat_usd=_prime.agent_seat_usd(cur, px, cfg_s), need=empty_n + g4n_) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
             _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,
                               'refused': [{'symbol': t_.get('symbol'), 'why': _agent_refused[t_['mint']][1]} for t_ in plan_ if pre_ is not None and t_['mint'] in _agent_refused][:6]}
@@ -18370,7 +18371,7 @@ async def _g4_tick(now, env, cfg):
         card_ = next((c_ for c_ in (pr_.get('cards') or {}).values() if (c_ or {}).get('real')), None) or {}
         st_ = _g4_state()
         book_ = st_['book']
-        leg_ = next((l for l in card_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')), None) if mode_ == 'real' else None
+        leg_ = _seat.review_leg(card_.get('legs'), now) if mode_ == 'real' else None
         held_m = (leg_ or {}).get('mint') or ((book_.get('open') or {}).get('mint') if mode_ == 'paper' else None)
         on_ = {l.get('mint') for l in card_.get('legs') or []}
         cands_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=on_))][:_seat.CAND_N * 3]
@@ -18857,19 +18858,20 @@ def _g4_view():
 
 @app.post('/api/reputation/internal/sicario-want')
 async def internal_sicario_want(request: Request):
-    """🎩 Sicario's PoW agreed on a coin: it asks for the card's one model seat. It is the same `want` a model files, so every seat guard still decides (fresh, seat on, night guard, gun line, desk picks only, refused coins, keeper precheck). Desk buys off stops it here. Internal key only; nothing is bought in this call."""
+    """🎩 Sicario's PoW agreed on a coin: it asks for a free seat on the card, any of the 4. It is the same `want` a model files, so every seat guard still decides (fresh, seat on, night guard, gun line, desk picks only, refused coins, keeper precheck). Desk buys off stops it here. Internal key only; nothing is bought in this call."""
     import hmac
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal endpoint.')
     b = await request.json(); mint = str(b.get('mint') or ''); now = time.time()
     if not mint or not b.get('pair'):
         return {'ok': False, 'why': 'no coin to send'}
-    card = _real_card({}) or {}; cfg = _prime.clean_cfg(((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('realCfg') or {})
-    if cfg.get('deskBuysOff'):
-        return {'ok': False, 'why': 'desk buys are off on the card'}
-    if any(l.get('aiSeat') and not l.get('placeholder') for l in card.get('legs') or []):
-        return {'ok': False, 'why': 'the model seat is already holding a coin'}
-    _g4['want'] = {'action': 'BUY', 'mint': mint, 'pair': b.get('pair'), 'symbol': b.get('symbol'), 'why': str(b.get('why') or '')[:110], 'by': 'local', 'model': "Sicario's PoW", 'tp': b.get('tp'), 'sl': b.get('sl'), 'at': now}
+    card = _real_card({}) or {}; pol = _oe.policy(_prime.clean_cfg(((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('realCfg') or {}))
+    if pol.get('aiSeat') != 'real':
+        return {'ok': False, 'why': 'the model seats are off on the card'}
+    no_ = _seat.sicario_refusal(_g4.get('want'), card.get('legs'), pol['seats'], mint, now)
+    if no_:
+        return {'ok': False, 'why': no_}
+    _g4['want'] = {'action': 'BUY', 'source': 'sicario', 'mint': mint, 'pair': b.get('pair'), 'symbol': b.get('symbol'), 'why': str(b.get('why') or '')[:110], 'by': 'local', 'model': "Sicario's PoW", 'tp': b.get('tp'), 'sl': b.get('sl'), 'at': now}
     return {'ok': True}
 
 
@@ -18879,8 +18881,8 @@ async def internal_sicario_fate(request: Request, mint: str = ''):
     import hmac
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal endpoint.')
-    f_ = _g4.get('fate') or {}
-    return {'fate': f_.get('why') if f_.get('mint') == mint else None}
+    f_ = _g4.get('fate') or {}; card = _real_card({}) or {}; pol = _oe.policy(_prime.clean_cfg(((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('realCfg') or {}))
+    return {'fate': f_.get('why') if f_.get('mint') == mint else None, 'seats': _seat.card_seats(card.get('legs'), pol['seats']) if pol.get('aiSeat') == 'real' else None}
 
 
 @app.post('/api/reputation/admin/ai/seat')

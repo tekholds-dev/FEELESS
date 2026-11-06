@@ -1,4 +1,4 @@
-import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { fitBox, identityOf, inkOf, ridge, segment } from '../../lib/proofprint';
@@ -78,11 +78,19 @@ export function FolderRidge({ fid, score = null, size = 26 }) {
   if (line) return <svg className="prg is-line" viewBox={fitBox(line.i * 2 + 4, id)} width={size} height={size} aria-hidden="true" data-ring={line.i}><path d={ridge(id, line.i * 2 + 2, 40)} fill="none" strokeWidth="5" stroke="#8a93a666" /><path d={segment(id, line.i, line.a, line.b)} fill="none" strokeWidth="14" strokeLinecap="round" stroke={inkOf(line.score)} /></svg>;
   return <svg className="prg" viewBox={fitBox(18, id)} width={size} height={size} aria-hidden="true"><path d={d} fill="none" strokeWidth="9" stroke={score == null ? '#8a93a6' : inkOf(score)} /></svg>;
 }
+// 🧾 What something cost, faint until you want it. Click for the receipt. Only real recorded costs: no cost recorded shows nothing.
+export const shortCost = v => { const n = Number(v) || 0; if (!n) return '$0'; if (n >= 1) return `$${n.toFixed(2)}`; const t = n.toFixed(n < 0.001 ? 5 : n < 0.01 ? 4 : 3).replace(/0+$/, ''); return `$${t.slice(1)}`; };
+export function CostTicket({ usd, rows = null, title = 'Receipt' }) {
+  const [open, setOpen] = useState(false); const box = useRef(null);
+  useEffect(() => { if (!open) return undefined; const off = e => { if (!box.current?.contains(e.target)) setOpen(false); }; const esc = e => { if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); } }; document.addEventListener('pointerdown', off); window.addEventListener('keydown', esc, true); return () => { document.removeEventListener('pointerdown', off); window.removeEventListener('keydown', esc, true); }; }, [open]);
+  if (usd == null) return null;
+  return <span className={`cost-t${open ? ' is-open' : ''}`} ref={box}><button type="button" className="cost-t-b m-num" aria-expanded={open} onClick={e => { e.stopPropagation(); setOpen(x => !x); }} data-tip="What this cost. Click for the receipt" data-testid="cost-ticket">{shortCost(usd)}</button>{open ? <span className="cost-t-pop" role="dialog" aria-label={title} onClick={e => e.stopPropagation()}><b>{title.toUpperCase()}</b>{(rows || []).map(([k, v]) => <span key={k} className="cost-t-r"><small>{k}</small><em className="m-num">{v}</em></span>)}<span className="cost-t-r is-total"><small>TOTAL</small><em className="m-num">${(Number(usd) || 0).toFixed(5).replace(/0+$/, '').replace(/\.$/, '.00')}</em></span></span> : null}</span>;
+}
 // 📁 One proof folder's face, in every proof: the folder, and its own print hovering on its corner.
-export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null }) {
+export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null, cost = null }) {
   return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
     {kind === 'dir' ? <i className="dsk-ico-art" aria-hidden="true"><em><Ic3 e={ic} size="30px" /></em></i> : <i className="dsk-file" aria-hidden="true"><em><Ic3 e={ic} size="22px" /></em></i>}
-    {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}</button>;
+    {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}{cost != null ? <small className="dsk-xt-cost m-num">{shortCost(cost)}</small> : null}</button>;
 }
 // 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.
 const STEPS = {
@@ -105,8 +113,8 @@ function SiteFile({ kind, cat, work, onBrowse }) {
 }
 export function ProofHead({ kind, folders, d, cat, pool, work, onBrowse }) {
   const [open, setOpen] = useState(false); const s = STEPS[kind]; const now = stepNow(kind, d); const canLoop = kind === 'pow' && !!(d?.wallet?.address || d?.agentWallet?.address || cat?.agentWallet?.address);
-  const spent = (folders || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0); const known = (folders || []).some(f => f.cost != null || f.costUsd != null);
-  return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={84} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small>{known ? <small className="phd-cost m-num" data-testid={`phd-cost-${kind}`}>Model calls for filed proofs: ${spent.toFixed(4)}</small> : null}</span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
+  const costOf = rows => (rows || []).reduce((sum, f) => sum + Number(f.cost ?? f.costUsd ?? 0), 0); const spent = costOf(folders); const known = (folders || []).some(f => f.cost != null || f.costUsd != null); const allKinds = [['PoW', d?.powFolders], ['PoP', d?.popFolders], ['PoB', d?.pobFolders], ['PoC', d?.pocFolders], ['PoStatic', d?.psFolders], ['Jobs', d?.jobs]]; const everything = allKinds.reduce((sum, [, r]) => sum + costOf(r), 0);
+  return <section className={`phd m-live is-${kind}`} data-testid={`phd-${kind}`}><div className="phd-top"><span className="phd-print"><Suspense fallback={null}><FingerprintLazy kind={kind} cat={cat} d={d} pool={pool} size={84} /></Suspense></span><span className="phd-t"><em>{KIND_FULL[kind]}</em><b>{KIND_NAME[kind]}</b><small>{(folders || []).length} filed · {canLoop ? s.loop : s.needs}</small>{known ? <small className="phd-cost m-num" data-testid={`phd-cost-${kind}`}>{shortCost(spent)} on these. <CostTicket usd={everything} title="All its model calls" rows={allKinds.map(([k, r]) => [k, shortCost(costOf(r))])} /> on every proof and job</small> : null}</span><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="The best places to read for this proof, and your own" data-testid={`phd-src-${kind}`}>Its sites</button></div>
     <ol className="phd-steps">{s.steps.map((t, i) => <li key={t} className={i === now ? 'is-now' : i < now ? 'is-done' : ''}><i className="m-num">{i + 1}</i>{t}</li>)}</ol>
     {open ? <SiteFile kind={kind} cat={cat} work={work} onBrowse={onBrowse} /> : null}</section>;
 }

@@ -1457,7 +1457,15 @@ def _git_files(cat, collective):
         return _cg.agent_tree(cat, _vv.public_folder, lambda ws: _git_page(cat['id'], ws)), None
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
-    return _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
+    files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
+    vault = {}
+    for c in store['cats'].values():   # 🔐 owner 2026-11-05: its private data lives sealed in the Collective's private repo, so nobody pays for storage
+        if c.get('revoked') or c.get('id') == 'leader':
+            continue
+        cid = c['id']; got, stats = _cg.vault_tree(_stash.agent_tag(cid), _cg.agent_tree(c, _vv.public_folder, lambda ws, i=cid: _git_page(i, ws)), lambda raw, i=cid: _ck.seal_bytes(raw, i), GIT_DIR / 'vault')
+        files.update(got); vault[_stash.agent_tag(cid)] = stats
+    (GIT_DIR / 'vault.json').write_text(json.dumps(vault)) if vault else None
+    return files, counts
 
 
 def _git_manifest_path(cat_id, collective):
@@ -1503,6 +1511,16 @@ def _git_view(cat, key):
     return {**{k: l_.get(k) for k in ('full', 'url', 'private', 'branch', 'auto', 'lastAt', 'lastCommit', 'files', 'left', 'err', 'errAt', 'counts')}, 'token': (cat.get('apiKeys') or {}).get('github', {}).get('last4')}
 
 
+def _vault_view(cat):
+    """🔐 This agent's sealed folder as of the Collective's last hourly pass, and whether the Collective's repo holds it."""
+    try:
+        v_ = json.loads((GIT_DIR / 'vault.json').read_text()).get(_stash.agent_tag(cat['id']))
+    except (OSError, ValueError):
+        v_ = None
+    fee = (_load()['cats'].get('leader') or {}).get('collectiveGit') or {}
+    return {**(v_ or {}), 'on': bool(fee.get('full') and fee.get('auto')), 'at': fee.get('lastAt')}
+
+
 async def _git_op(cat, p):
     """🐙 Its GitHub folder. A token is sealed on the way in and never comes back to a page."""
     collective = str(p.to or '') == 'collective'; key = 'collectiveGit' if collective else 'gitLink'
@@ -1511,7 +1529,7 @@ async def _git_op(cat, p):
     try:
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
-            return {'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in files.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None}
+            return {'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in files.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None}
         if p.op == 'git_connect':
             if p.text:
                 _ck.put(cat, 'github', p.text, data_dir=DATA_DIR)
@@ -2372,7 +2390,7 @@ async def _pow2_tick(http, store, cat, now):
         tr_ = _pow.agree_trade(list((f.get('trades') or {}).values())) or tr_   # the final coin; the safer of their trades
         f.update(sol=tr_['sol'], tp=tr_['tp'], sl=tr_['sl'])
         _pow2_say(f, 'engine', f"they set the trade: {tr_['sol']:g} SOL · take profit +{tr_['tp']:g}% · stop −{tr_['sl']:g}%")
-        if cat.get('handle') == 'sicarios' and (cat.get('brainsCfg') or {}).get('cardSeat') and not f.get('propose'):   # 🎩 no wallet here: the agreed coin goes to the card's one model seat, and every guard of that seat decides
+        if cat.get('handle') == 'sicarios' and (cat.get('brainsCfg') or {}).get('cardSeat') and not f.get('propose'):   # 🎩 no wallet here: the agreed coin goes to a free seat on the card, and every guard of that seat decides
             sent_ = await _card_seat_send(http, f, c, tr_, now); f['cardSeat'] = sent_
             _pow2_say(f, 'engine', f"sent ${c['sym']} to the Fuse card seat" if sent_.get('ok') else f"the card refused ${c['sym']}: {sent_.get('why')}")
             _pow2_close(cat, f, f"🎩 ${c['sym']}: {'sent to the Fuse card seat' if sent_.get('ok') else 'the card refused it: ' + str(sent_.get('why'))}", now)
@@ -3066,6 +3084,9 @@ async def _made_job(cat_id, job, cat):
 
 
 SICARIO_GAP_S = 900   # 🎩 one proof at a time, then a rest: these models also answer for the real card
+SICARIO_PROMPT = 'You are Sicario\'s, one agent with two minds, working on any job its owner gives: code, research, content, sports, perps, coins, business. OSSY builds the best answer it can defend from what it actually read. G4 attacks that answer: what is wrong, what was missed, what would change the call. Say what you checked and what you did not. Never invent a number, a source or a result. Plain words.'
+SICARIO_OLD_PROMPT = 'You are the Sicario desk, two minds on one seat.'
+SICARIO_FILL_GAP_S = 240   # 🎩 Auto-collect on: the next PoW soon after the last, until the card's seats are full
 SICARIO_QUESTS = ('pow', 'pop', 'pob', 'poc')
 
 
@@ -3074,7 +3095,7 @@ def _internal_key_read():
 
 
 async def _card_seat_send(http, f, c, tr_, now):
-    """🎩 Asks the card to consider this coin for its model seat. The card's own guards decide; nothing is bought here. → {ok, why, at}"""
+    """🎩 Asks the card to consider this coin for a free seat. The card's own guards decide; nothing is bought here. → {ok, why, at}"""
     try:
         r = await http.post('http://127.0.0.1:5077/api/reputation/internal/sicario-want', headers={'x-feeless-internal': _internal_key_read()}, timeout=8, json={'mint': c.get('mint'), 'pair': c.get('pair'), 'symbol': c.get('sym'), 'tp': tr_.get('tp'), 'sl': tr_.get('sl'), 'why': str(f.get('why0') or 'both minds agreed')[:110], 'folder': f.get('id')})
         j = r.json() if r.status_code == 200 else {'ok': False, 'why': f'the card service answered {r.status_code}'}
@@ -3099,15 +3120,30 @@ async def _card_seat_fates(http, store, now):
                     pass
 
 
-def _sicario_loop(store, now):
-    """🎩 Endless: when its owner turns it on, Sicario's files the next proof as soon as it is idle and rested. It has no wallet: with its Fuse seat on, a PoW goes to the card's seat."""
+async def _sicario_free(http, store):
+    """🎩 Free seats on the card, asked only while Sicario's is in Auto-collect. None = no answer, so nothing is filed."""
+    if not any(c.get('handle') == 'sicarios' and (c.get('hive') or {}).get('on') and not c.get('revoked') for c in store['cats'].values()):
+        return None
+    try:
+        r = await http.get('http://127.0.0.1:5077/api/reputation/internal/sicario-want', headers={'x-feeless-internal': _internal_key_read()}, timeout=5)
+        return ((r.json().get('seats') or {}).get('free')) if r.status_code == 200 else None
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def _sicario_loop(store, now, free=None):
+    """🎩 Two ways it keeps working. Auto-collect (its hive on): PoWs until the card's seats are full, each one sent to a free seat. Endless: the next proof of any kind as soon as it is idle and rested. It has no wallet."""
     for c in store['cats'].values():
         b_ = c.get('brainsCfg') or {}; cid = c.get('id')
-        if c.get('handle') != 'sicarios' or not b_.get('endless') or c.get('agentWallet') or c.get('revoked'):
+        fill = bool((c.get('hive') or {}).get('on')) and int(free or 0) > 0
+        if c.get('handle') != 'sicarios' or not (b_.get('endless') or fill) or c.get('agentWallet') or c.get('revoked'):
             continue
-        if c.get('powRun') or c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('pobRead') or c.get('pobRun') or cid in _POC_BUSY or cid in _POW_WANT or cid in _POP_WANT or cid in _POB_WANT:
+        if (c.get('powRun') or {}).get('folder') or c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('pobRead') or c.get('pobRun') or cid in _POC_BUSY or cid in _POW_WANT or cid in _POP_WANT or cid in _POB_WANT:
             continue
-        if now - float(b_.get('loopAt') or 0) < SICARIO_GAP_S:
+        if now - float(b_.get('loopAt') or 0) < (SICARIO_FILL_GAP_S if fill else SICARIO_GAP_S):
+            continue
+        if fill:
+            b_['cardSeat'] = True; b_['loopAt'] = now; _POW_WANT[cid] = {'do': 'start', 'mind': None}; _POW_WAKE.set()
             continue
         i = int(b_.get('loopI') or 0); kind = SICARIO_QUESTS[i % len(SICARIO_QUESTS)]; b_['loopI'] = i + 1; b_['loopAt'] = now
         if kind == 'pow':
@@ -3126,9 +3162,11 @@ def _sicario_merge(store):
     for c in store['cats'].values():
         if c.get('handle') == 'sicarios' and not str((c.get('brainsCfg') or {}).get('brains', [''])[0]).startswith('local/'):
             c['brainsCfg']['brains'] = ['local/ossy', 'local/g4']   # its own models, free
+        if c.get('handle') == 'sicarios' and str((c.get('brainsCfg') or {}).get('prompt') or '').startswith(SICARIO_OLD_PROMPT):
+            c['brainsCfg']['prompt'] = SICARIO_PROMPT   # 🎩 owner 2026-11-05: not stuck on trading. Only the old default moves; a prompt the owner wrote stays
         if c.get('handle') == 'ossy-desk' and c.get('name') == 'OSSY' and not c.get('agentWallet'):
             c['name'] = "Sicario's"; c['handle'] = 'sicarios'; b_ = c.setdefault('brainsCfg', {}); b_['mindNames'] = ['OSSY', 'G4']
-            b_['prompt'] = 'You are the Sicario desk, two minds on one seat. OSSY reads a coin the way a careful trader does: pool, holders, age, who bought, then a call you can defend. G4 challenges every call: what would make it wrong, who is exiting, what the chart hides. File proofs that survive both.'
+            b_['prompt'] = SICARIO_PROMPT
         elif c.get('handle') == 'g4-desk' and c.get('name') == 'G4' and not c.get('revoked') and not c.get('agentWallet') and not any(c.get(k) for k in ('powFolders', 'popFolders', 'pobFolders')):
             c['revoked'] = True
 
@@ -3493,8 +3531,8 @@ async def _pob_pass(store):
 async def _pop_pass(store):
     cats = [c for c in store['cats'].values() if c.get('popRun') or c.get('popCard') or c.get('popRead') or c.get('id') in _POP_WANT]
     _sicario_merge(store)
-    _sicario_loop(store, time.time())
     async with httpx.AsyncClient() as http_s:
+        _sicario_loop(store, time.time(), await _sicario_free(http_s, store))
         await _card_seat_fates(http_s, store, time.time())
     _ws_pass(store)
     _made_pass(store)
@@ -4288,7 +4326,7 @@ def _job_tree(t):
     return {'id': t.get('id'), 'at': round(time.time()), 'request': str(t.get('text') or '')[:400], 'status': t.get('status'), 'cost': round(float(t.get('cost') or 0), 4),
             'answer': str(t.get('answer') or '')[:1200], 'minds': [{'model': str(w.get('model') or '').split('/')[-1][:30], 'job': _ca.job_label(w.get('goal')), 'plan': list(w.get('plan') or [])[:3],
             'steps': [{'a': x.get('action'), 't': str(x.get('thought') or '')[:90], 'd': str(x.get('detail') or '')[:90]} for x in (w.get('steps') or [])[-24:]],
-            'answer': str(w.get('answer') or '')[:400]} for w in t.get('windows') or [] if w.get('goal')]}
+            'answer': str(w.get('answer') or '')[:400], 'cost': round(float(w.get('cost') or 0), 5)} for w in t.get('windows') or [] if w.get('goal')]}
 
 
 def _job_memory(cat):
@@ -5426,6 +5464,45 @@ async def stash_web():
     return {'stats': {k: st_[k] for k in ('items', 'categories', 'outcomes', 'agents', 'sources', 'lastDay')}, 'web': w_}
 
 
+def _web_live_rows(store, now, private_ok=False):
+    """🔥 Who is working right now, and where on the webs it lands. Names an agent and a site's feature, never a page. A private or incognito agent shows only to the creator."""
+    rows = []; host_f = _feat._sources.sources_web()['hostFeature']
+    for c in store['cats'].values():
+        if c.get('revoked') or ((c.get('handle') == 'sicarios' or c.get('incognito')) and not private_ok):
+            continue
+        name = c.get('name') or 'An agent'
+        for w in ((_WORK.get(c.get('id')) or {}).get('task') or {}).get('windows') or []:
+            if w.get('status') == 'running':
+                h = _feat._sources._host(str(w.get('url') or '').split('://')[-1])
+                rows.append({'agent': name, 'mind': w.get('i'), 'does': str(w.get('bubble') or w.get('goal') or 'working')[:60], 'host': h if h in host_f else None, 'feature': host_f.get(h)})
+        for key, kind in (('powRun', 'pow'), ('popRun', 'pop'), ('pobRun', 'pob')):
+            run = c.get(key)
+            if run and (run.get('folder') if key == 'powRun' else True):   # a powRun stays on the agent between proofs; only one with a folder is working
+                rows.append({'agent': name, 'does': f'running a {kind[:2].capitalize()}{kind[2:].upper()}', 'folder': _feat._sources.KIND_FOLDER[kind]})
+        if c.get('id') in _POC_BUSY:
+            rows.append({'agent': name, 'does': 'filing a PoC', 'folder': 'Content'})
+        for w_ in c.get('workspaces') or []:
+            if w_.get('busy'):
+                rows.append({'agent': name, 'does': f"coding {str(w_.get('name') or '')[:30]}", 'folder': 'Code' if w_.get('kind') == 'build' else 'Content' if w_.get('kind') == 'content' else 'Research'})
+    return rows[:24]
+
+
+@app.get('/api/cats/web/live')
+async def cat_web_live(session: str = ''):
+    """🔥 The agents on the webs now, and what the Stash took in the last 15 minutes."""
+    store = _load(); now = time.time(); private_ok = bool(session) and await _is_creator(_session_wallet(session))
+    names = {_stash.agent_tag(c.get('id')): c.get('name') for c in store['cats'].values() if private_ok or not (c.get('handle') == 'sicarios' or c.get('incognito'))}
+    fresh = await asyncio.to_thread(_stash.recent, STASH_DIR, now - 900, 12)
+    return {'live': _web_live_rows(store, now, private_ok), 'stored': [{**r, 'agent': names[r['agent']]} for r in fresh if r['agent'] in names]}
+
+
+@app.get('/api/cats/sources/web')
+async def cat_sources_web():
+    """🕸 What the Collective's sources offer, as folders and features. No site names."""
+    w_ = _feat._sources.sources_web(); w_.pop('hostFeature')
+    return w_
+
+
 @app.get('/api/cats/receipt/{sig}')
 async def cat_receipt(sig: str):
     """🧾 A send's snapshot, read back from the chain when it was verified. Public: the transaction is public too."""
@@ -5498,6 +5575,18 @@ async def cat_tool_athlete(sport: str, aid: str):
     if not d:
         raise HTTPException(404, 'This player could not be read.')
     return d
+
+
+@app.get('/api/cats/tools/print/{what}/{sport}/{xid}')
+async def cat_tool_print(what: str, sport: str, xid: str):
+    """🧬 A team's or a player's stats, this season against last. Free, from ESPN. Its fingerprint draws from this."""
+    if what not in ('team', 'player'):
+        raise HTTPException(404, 'Teams and players only.')
+    async with httpx.AsyncClient(timeout=8, follow_redirects=True) as http:
+        got = await (_tools.team_print if what == 'team' else _tools.player_print)(http, sport, xid)
+    if not got:
+        raise HTTPException(404, 'ESPN has no stats for this yet.')
+    return got
 
 
 @app.get('/api/cats/tools/game/{sport}/{gid}')
@@ -6101,6 +6190,19 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(403, 'Only the owner runs the Sicario desk.')
         cat.setdefault('brainsCfg', {})['cardSeat'] = bool(p.on); keep_owned(cat); _save(store)
         return {'cardSeat': bool(p.on)}
+    if p.op == 'game_calls':   # 🏟 what this agent called on one game, and how each call graded. Its final fingerprint waits on these
+        gid_ = str(p.job or '')
+        rows_ = [{'folder': f.get('id'), 'n': f.get('n'), 'pick': g.get('side') or g.get('short'), 'won': g.get('won'), 'score': g.get('score')} for f in (cat.get('pobFolders') or [])[-40:] for g in (f.get('games') or []) if str(g.get('id')) == gid_]
+        return {'calls': rows_, 'agent': cat.get('name')}
+    if p.op == 'desk_seats':   # 🎩 the card's seats as they stand, for its owner's desk
+        if cat.get('handle') != 'sicarios':
+            raise HTTPException(400, "Only Sicario's sits on the card.")
+        try:
+            async with httpx.AsyncClient() as h_:
+                r_ = await h_.get('http://127.0.0.1:5077/api/reputation/internal/sicario-want', headers={'x-feeless-internal': _internal_key_read()}, timeout=5)
+            return {'seats': r_.json().get('seats') if r_.status_code == 200 else None}
+        except (httpx.HTTPError, ValueError):
+            return {'seats': None}
     if p.op == 'desk_loop':   # 🎩 Sicario's only: keep filing proofs, or stop
         if cat.get('handle') != 'sicarios':
             raise HTTPException(400, 'Only the Sicario desk runs this.')
@@ -6274,6 +6376,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'colonyShare': cat['colonyShare']}
     if p.op == 'hive':   # 🐝 COLONIZE on / off and its pace (least usage: one coin every N minutes)
         cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
+        if p.on and cat.get('handle') == 'sicarios':   # 🎩 Auto-collect on Sicario's: its PoWs go to the card's seats until they are full
+            cat.setdefault('brainsCfg', {})['cardSeat'] = True
         keep_owned(cat); _save(store)
         return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
     if p.op == 'rate':   # 👍 / 👎 a finished request — the engine files it into both minds' memory on its next pass

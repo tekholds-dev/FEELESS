@@ -18,3 +18,4 @@ body.fx-lite .git-tree li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .git-tree li { animation: none; } }
 body.theme-day .git { color: #10241a; } body.theme-day .git-h { background: #fff; border-color: #00000018; } body.theme-day .git-h b, body.theme-day .git-nums b { color: #10241a; } body.theme-day .git-nums span { background: #0d2a1b08; border-color: #0d2a1b1f; }
 @media (max-width: 640px) { .git-h { flex-wrap: wrap; } .git-tree li { grid-template-columns: minmax(0, 1fr) 36px 56px; } .git-tree i { display: none; } }
+.git-vault { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; border-color: #45e48655; } .git-vault span { display: grid; gap: 2px; } .git-vault b { font: 700 13px var(--f-ui); } .git-vault small { font: 500 11.5px/1.4 var(--f-ui); opacity: .75; } .git-vault em { font-size: 10.5px; font-style: normal; opacity: .7; }

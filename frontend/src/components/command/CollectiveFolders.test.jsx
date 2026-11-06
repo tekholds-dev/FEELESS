@@ -34,6 +34,7 @@ test('the PoB dash: sports, teams, and a parlay tap goes to the chat box only', 
   const DATA = { sports: [['nfl', 'NFL'], ['nba', 'NBA']], teams: ['Kansas City Chiefs'], games: [{ id: '1', state: 'pre', status: 'Sun', teams: [{ name: 'A', short: 'Ay', chance: 0.8 }, { name: 'B', short: 'Bee', chance: 0.2 }] }], legs: [{ game: '1', pick: 'Ay to beat Bee', chance: 0.8 }], parlays: [{ legs: ['Ay to beat Bee', 'Cee to beat Dee'], chance: 0.6, pays: 1.67 }], sources: [{ name: 'ESPN', use: 'Games', on: true }, { name: 'The Odds API', use: 'needs a key', on: false }] };
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => DATA })); const sent = [];
   const el = await mount(<ProofTools kind="bids" onCommand={c => sent.push(c)} />);
+  await act(async () => { el.querySelector('[data-testid="ptl-tab-parlays"]').click(); });
   expect(el.textContent).toContain('60%'); expect(el.textContent).toContain('not a promise');
   await act(async () => { el.querySelector('[data-testid="ptl-parlay"]').click(); }); expect(sent).toEqual(['file a pob Ay to beat Bee and Cee to beat Dee']);
   await act(async () => { el.querySelector('[data-testid="ptl-sport-nba"]').click(); }); expect(global.fetch.mock.calls.at(-1)[0]).toContain('sport=nba');

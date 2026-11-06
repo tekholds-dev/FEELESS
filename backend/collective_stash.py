@@ -146,6 +146,16 @@ def stats(root):
     return {'items': n, 'rawBytes': raw, 'storedBytes': stored, 'categories': by, 'outcomes': out, 'agents': agents, 'sources': srcs, 'lastDay': day, 'freeBytes': free, 'where': 'this machine'}
 
 
+def recent(root, since, limit=12):
+    """🔥 What it took in lately: which agent, what kind of thing, from where. Never the content."""
+    c = _db(root)
+    try:
+        rows = c.execute('SELECT agent, category, source, outcome, at FROM items WHERE at > ? ORDER BY at DESC LIMIT ?', (since, limit)).fetchall()
+    finally:
+        c.close()
+    return [{'agent': a, 'folder': k, 'source': s_, 'outcome': o, 'at': round(t or 0)} for a, k, s_, o, t in rows]
+
+
 def web(root):
     """The web of what it really holds: the Stash → each category → each source, by count. Counts and site names only, safe to show anyone."""
     c = _db(root)

@@ -54,4 +54,8 @@ body.theme-day .ppf-pop { background: #fff; color: #10141c; } body.theme-day .pp
 .prf-bids { grid-template-columns: minmax(0, 1fr); } .prf-bids > .prf-main { grid-column: 1; } .prf-bids > .prf-rail { grid-column: 1; position: static; }
 .phd-cost { display: block; color: #8df2b2; }
 .ppf-ghost path { stroke: color-mix(in srgb, var(--pk, #45e486) 42%, #ffffff30); stroke-width: 3; opacity: .55; }
-
+/* 🧾 The cost ticket */
+.cost-t { position: relative; display: inline-flex; } .cost-t-b { min-height: 20px; padding: 0 5px; border: 0; border-radius: 5px; background: none; color: inherit; font-size: 10px; opacity: .42; cursor: pointer; transition: opacity .15s, background .15s; } .cost-t-b:hover, .cost-t.is-open .cost-t-b { opacity: 1; background: #ffffff14; } .cost-t-b:focus-visible { outline: 1px solid #5bb8ff; opacity: 1; }
+.cost-t-pop { position: absolute; z-index: 40; top: calc(100% + 4px); right: 0; display: grid; gap: 3px; min-width: 190px; padding: 9px 10px; border-radius: 3px 3px 10px 10px; border: 1px dashed #ffffff33; background: #0b1016; box-shadow: 0 10px 28px #000a; animation: costIn .16s ease-out; } .cost-t-pop > b { font: 800 9px var(--f-mono); letter-spacing: .16em; opacity: .7; } .cost-t-r { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; } .cost-t-r small { opacity: .7; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .cost-t-r em { font-style: normal; white-space: nowrap; } .cost-t-r.is-total { margin-top: 3px; padding-top: 4px; border-top: 1px dashed #ffffff2b; font-weight: 700; }
+.dsk-xt-cost { opacity: .42; font-size: 9.5px; }
+@keyframes costIn { from { opacity: 0; transform: translateY(-3px); } } body.fx-lite .cost-t-pop { animation: none; } @media (prefers-reduced-motion: reduce) { .cost-t-pop { animation: none; } } body.theme-day .cost-t-pop { background: #fff; color: #10241a; border-color: #0003; }

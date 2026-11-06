@@ -707,6 +707,34 @@ def idle_parse(text, syms, spoke=False):
 ROTATE_SEC = 6 * 3600   # a coin either model bought sits out this long — the two models must rotate through DIFFERENT coins
 
 
+def card_seats(legs, seats):
+    """🎩 The card's seats as they stand. A placeholder leg sits in no seat. → {seats, held, ai, free}"""
+    real = [l for l in legs or [] if not l.get('placeholder')]
+    return {'seats': int(seats or 0), 'held': len(real), 'ai': sum(1 for l in real if l.get('aiSeat')), 'free': max(0, int(seats or 0) - len(real))}
+
+
+def sicario_refusal(want, legs, seats, mint, now):
+    """🎩 Why Sicario's PoW may not ask for a seat right now, or None. A pending sell is never overwritten; every other guard runs in the tier tick."""
+    if card_seats(legs, seats)['free'] < 1:
+        return 'every seat on the card is full'
+    if any(l.get('mint') == mint and not l.get('placeholder') for l in legs or []):
+        return 'this coin is already on the card'
+    if want and fresh(want, now):
+        return 'the card is still deciding on another order'
+    return None
+
+
+def desk_off_plan(plan, sicario):
+    """⚖ Desk buys off: the agents' own fills never reach the card. Only the coin a Sicario's PoW asked for may pass, and it still meets every seat check."""
+    return [t for t in plan or [] if sicario and t.get('g4')]
+
+
+def review_leg(legs, now):
+    """🧠 Several model seats: each minute's review takes the next one, so none goes unwatched."""
+    held = [l for l in legs or [] if l.get('aiSeat') and not l.get('placeholder')]
+    return held[int(_f(now) // 60) % len(held)] if held else None
+
+
 def recent_ai_buys(events, now, sec=ROTATE_SEC):
     """🔁 Mints OSSY / G4 put on the card in the last `sec` — read from the card's own fill events (they survive restarts and memory
     rewrites; the in-memory list once got wiped every minute and $1 was bought 3×)."""

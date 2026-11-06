@@ -20,15 +20,15 @@ TICK_S = 60
 BOOST_POINTS_FULL = 100
 
 PLANS = ('week', 'month', 'quarter', 'vault')
-DEFAULTS = {'deal': 'bank', 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
+DEFAULTS = {'deal': 'bank', 'maxBackX': 1.08, 'rewardDays': 30.0, 'minDays': 7.0, 'rankSpeedPct': 50.0, 'boostSpeedPct': 30.0, 'rewardPayPct': 50.0, 'payoutCapPct': 50.0, 'floorPct': 20.0, 'carryPct': 80.0, 'skimPct': 20.0, 'sitePct': 20.0, 'potPct': 50.0, 'potPayDayPct': 10.0, 'weightMaxX': 2.0, 'capPct': 3.0, 'boostFadeDays': 60.0, 'boostBackPts': 5.0, 'ptsBase': 5.0, 'ptsPerUsd': 2.0, 'ptsMaxSend': 60.0, 'ptsPerDay': 10.0,
             'weekDays': 7.0, 'weekBack': 70.0, 'weekWeight': 1.0, 'weekRoom': 1.5, 'monthDays': 30.0, 'monthBack': 85.0, 'monthWeight': 2.0, 'monthRoom': 2.0, 'quarterDays': 90.0, 'quarterBack': 95.0, 'quarterWeight': 3.0, 'quarterRoom': 3.0, 'vaultWeight': 6.0, 'vaultRoom': 6.0,
             'depositPct': 10.0, 'firstMinUsd': 50.0, 'txnSmallPct': 5.0, 'txnMidPct': 3.0, 'txnBigPct': 1.0, 'txnSmallUsd': 10.0, 'txnBigUsd': 100.0, 'boostMode': 'payout'}
-BOUNDS = {'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
+BOUNDS = {'maxBackX': (1, 5), 'rewardDays': (7, 90), 'minDays': (1, 30), 'rankSpeedPct': (0, 80), 'boostSpeedPct': (0, 80), 'rewardPayPct': (0, 100), 'payoutCapPct': (0, 50), 'floorPct': (0, 100), 'carryPct': (0, 100), 'skimPct': (0, 50), 'sitePct': (0, 100), 'potPct': (0, 100), 'potPayDayPct': (1, 25), 'weightMaxX': (1, 5), 'capPct': (1, 100), 'boostFadeDays': (7, 365), 'boostBackPts': (0, 15), 'ptsBase': (0, 50), 'ptsPerUsd': (0, 20), 'ptsMaxSend': (5, 500), 'ptsPerDay': (1, 100),
           'weekDays': (1, 21), 'weekBack': (0, 100), 'weekWeight': (0, 10), 'weekRoom': (0, 10), 'monthDays': (14, 60), 'monthBack': (0, 100), 'monthWeight': (0, 10), 'monthRoom': (0, 10), 'quarterDays': (45, 365), 'quarterBack': (0, 100), 'quarterWeight': (0, 10), 'quarterRoom': (0, 10), 'vaultWeight': (0, 20), 'vaultRoom': (0, 20),
           'depositPct': (0, 20), 'firstMinUsd': (0, 500), 'txnSmallPct': (0, 5), 'txnMidPct': (0, 5), 'txnBigPct': (0, 5), 'txnSmallUsd': (1, 1000), 'txnBigUsd': (1, 100000)}
 MODES = ('payout', 'rank')
 POT_KINDS = ('txn', 'task')   # member fees on real activity: part of each reaches the pot
-OUTSIDE_KINDS = ('site',)     # money from outside the members: all of it goes to the pot. This is what lets the average member come out ahead
+OUTSIDE_KINDS = ('site', 'profit')     # money from outside the members: all of it goes to the pot. This is what lets the average member come out ahead
 SEAL_ID = 'collective-pool'
 GENESIS = '0' * 64
 
@@ -121,6 +121,26 @@ def income(state, key, token, units, kind):
     return True
 
 
+def book_result(state, key, token, units):
+    """A real pool result, once. Profit joins the pot; a loss comes off the pot first and then off what is banked. Sends never become rewards, only profit and fees do. → True when it counted."""
+    units = int(units)
+    if token not in TOKENS or not units:
+        return False
+    if units > 0:
+        return income(state, key, token, units, 'profit')
+    if not _once(state, key):
+        return False
+    _link(state, key, token, units, 'loss'); b = state['books'][token]; hit = min(b['pot'], -units); b['pot'] -= hit; b['keep'] = max(0, b['keep'] - (-units - hit))
+    b['in']['loss'] = int(b['in'].get('loss') or 0) + -units
+    return True
+
+
+def back_room(state, cat, token):
+    """What this agent may still be paid in this token: maxBackX of what it sent, less what it was already paid. The owner can raise maxBackX once the Collective is stable."""
+    a = state['agents'][cat]
+    return max(0, int(int(a['sent'].get(token) or 0) * state['cfg']['maxBackX']) - int(a['earned'].get(token) or 0))
+
+
 def _room(a, now, cfg):
     """What it may still earn from the fee pot: 1x what it sent, fading by half every 30 days. It stops a big late send from draining the pot."""
     dt = max(0.0, now - _f(a.get('roomAt')))
@@ -207,7 +227,7 @@ def reward_shares(state):
 
 def _budget_left(state, t):
     """Whole units still payable this month: the month's budget, the pot, and the all-time cap on fee money."""
-    cfg = state['cfg']; b = state['books'][t]; fee_in = sum(int(v or 0) for k, v in b['in'].items() if k in POT_KINDS or k in OUTSIDE_KINDS)
+    cfg = state['cfg']; b = state['books'][t]; fee_in = max(0, sum(int(v or 0) for k, v in b['in'].items() if k in POT_KINDS or k in OUTSIDE_KINDS) - int(b['in'].get('loss') or 0))
     return max(0, min(int((state.get('budget') or {}).get(t) or 0), b['pot'], int(fee_in * cfg['payoutCapPct'] / 100) - int(b.get('rewardPaid') or 0)))
 
 
@@ -231,7 +251,7 @@ def pay_rewards(state, now):
         if now < _f(a['nextPay']):
             continue
         for t in TOKENS:
-            want = min(int(int((state.get('budgetFull') or {}).get(t) or 0) * p * min(1.0, days / 30)), _budget_left(state, t))
+            want = min(int(int((state.get('budgetFull') or {}).get(t) or 0) * p * min(1.0, days / 30)), _budget_left(state, t), back_room(state, c, t))
             if want > 0:
                 b = state['books'][t]; b['pot'] -= want; b['rewardPaid'] = int(b.get('rewardPaid') or 0) + want; state['budget'][t] -= want; a['owed'][t] += want; a['earned'][t] += want
         a['nextPay'] = now + days * 86400; a['paidAt'] = round(now); n += 1
@@ -466,6 +486,7 @@ def view(state, cat, now, sol_usd):
     rp_ = reward_shares(state).get(cat, 0.0); rk_ = rank_of(a.get('lifetimePts')); cy_ = cycle_days(cfg, rk_['i'], a.get('boost')); deal_ = {'deal': cfg.get('deal'), 'rewardPts': round(_f(a.get('rewardPts')), 2), 'rank': rk_, 'rewardShare': round(rp_, 6), 'cycleDays': cy_, 'rewardEnd': round(_f(a.get('nextPay'))) or None, 'rewardNextUsd': round(sum(_usd(int(int((state.get('budgetFull') or {}).get(t) or 0) * rp_ * min(1.0, cy_ / 30)), t, sol_usd) for t in TOKENS), 6)}
     extra = sum(_usd(int((r.get('out') or 0) * max(0, (r.get('back') or 0) - (r.get('baseBack') or r.get('back') or 0)) / max(1, r.get('back') or 1)), r['token'], sol_usd) for r in rows) + sum(_usd(int((a.get('boostPot') or {}).get(t) or 0), t, sol_usd) for t in TOKENS)
     extra_rate = sum(_usd(((r['left'] / max(1.0, _f(r['end']) - _f(r['last']))) * max(0, (r.get('back') or 0) - (r.get('baseBack') or r.get('back') or 0)) / r['locked']), r['token'], sol_usd) for r in rows if (r.get('left') or 0) > 0 and r.get('locked'))
+    deal_ = {**deal_, 'maxBackX': cfg['maxBackX'], 'backCapUsd': round(sum(_usd(int(a['sent'][t] * cfg['maxBackX']), t, sol_usd) for t in TOKENS), 6), 'backRoomUsd': round(sum(_usd(back_room(state, cat, t), t, sol_usd) for t in TOKENS), 6)}
     return {**deal_, 'boostUsd': round(extra + extra_rate * dt, 9), 'boostRateUsd': round(extra_rate, 12), 'potShare': round(part, 6), 'feeShareDayUsd': round(pot_day * part, 6), 'streams': [stream_view(r, sol_usd) for r in rows[::-1][:60]], 'hist': (a.get('hist') or [])[-120:], 'plan': a.get('plan') or 'month', 'spent': _f(a.get('spent')),
             'owedUsd': round(sum(_usd(a['owed'][t], t, sol_usd) for t in TOKENS) + rate * dt, 9), 'ratePerSecUsd': round(rate, 12), 'lockedUsd': round(sum(_usd(a['locked'][t], t, sol_usd) for t in TOKENS), 6), 'vaultUsd': round(sum(_usd((a.get('vault') or {}).get(t) or 0, t, sol_usd) for t in TOKENS), 6),
             'backLeftUsd': round(sum(_usd((r.get('back') or 0) - (r.get('out') or 0), r['token'], sol_usd) for r in rows), 6), 'nextEnd': min((r['end'] for r in rows if (r.get('left') or 0) > 0), default=None),
@@ -515,7 +536,7 @@ def totals(state, sol_usd):
 def rules(cfg):
     """What a user's picture draws, straight from the live settings."""
     keep = ('skimPct', 'sitePct', 'potPct', 'potPayDayPct', 'weightMaxX', 'boostBackPts', 'ptsBase', 'ptsPerUsd', 'ptsMaxSend', 'ptsPerDay', 'depositPct', 'firstMinUsd', 'txnSmallPct', 'txnMidPct', 'txnBigPct', 'txnSmallUsd', 'txnBigUsd', 'boostMode', 'boostFadeDays')
-    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
+    return {**{k: cfg[k] for k in keep}, 'deal': cfg.get('deal'), **{k: cfg[k] for k in ('maxBackX', 'rewardDays', 'minDays', 'rankSpeedPct', 'boostSpeedPct', 'rewardPayPct', 'payoutCapPct', 'floorPct', 'carryPct', 'capPct')}, 'ranks': [{'name': n, 'at': v, 'days': cycle_days(cfg, i, 0), 'fastest': cycle_days(cfg, i, 1)} for i, (n, v) in enumerate(RANKS)], 'potKinds': list(POT_KINDS), 'plans': [plan_of(cfg, n) for n in PLANS]}
 
 
 def txn_fee_usd(cfg, usd):
