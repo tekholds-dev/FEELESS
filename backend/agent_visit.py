@@ -5,7 +5,7 @@ Safe by construction: only these pages, only the public GET endpoints any visito
 import html
 import re
 
-import whitepaper as _wp
+import whitepaper_text as _wp
 
 HOST = 'visit.feeless'
 HOME = f'https://{HOST}/'

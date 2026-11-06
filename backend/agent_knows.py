@@ -4,7 +4,7 @@ Ask about FEELESS and the facts come from here, built from the whitepaper and th
 import re
 
 import collective_stake as _stake
-import whitepaper as _wp
+import whitepaper_text as _wp
 
 ABOUT = re.compile(r"(?i)\b(feeless|feecat|fee-?back|\$fee\b|the collective|our (?:site|platform|product|agents?|terminal|community)|proofs?\b|po(?:w|p|b|c|st|static)\b|boost points?|proofprint)")
 BRIEF_MAX = 6000

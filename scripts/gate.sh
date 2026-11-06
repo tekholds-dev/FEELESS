@@ -26,6 +26,7 @@ if [ "$front$back" = 00 ]; then echo "docs / config only — nothing to test"; e
 step "1/3 backend tests"
 if [ "$back" = 1 ]; then
 # 4 workers, one file per worker (conftest sandboxes per test; files keep their own order) — 2,373 tests in ~1.7 min under load
+( cd backend && for m in feecat_service reputation_service; do .venv/bin/python -c "import $m" || { echo "✋ GATE RED: $m does not start in its own Python"; exit 1; }; done ) || exit 1
 PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q -n 4 --dist loadfile -p no:cacheprovider > "$out/pytest.txt" 2>&1 || { tail -40 "$out/pytest.txt"; echo "✋ GATE RED: backend tests"; exit 1; }
 tail -1 "$out/pytest.txt"
 else echo "no backend changes — skipped"; fi
