@@ -551,3 +551,13 @@ test('the desktop is a true grid: one folder per cell, a drop swaps, saved spots
   const swapped = dropOnGrid({ pow: { x: 0, y: 0 }, pop: { x: 96, y: 0 } }, 'pow', { x: 100, y: 5 }); expect(swapped).toEqual({ pow: { x: 96, y: 0 }, pop: { x: 0, y: 0 } });
   expect(toGrid(keys, swapped, 800).pow).toEqual({ x: 96, y: 0 });
 });
+
+test('a folder that arrives after the first paint has its place in that same render', async () => {
+  const { useDeskIcons, DeskIcon } = require('./DeskShell');
+  function Desk({ apps }) { const { pos } = useDeskIcons('late', apps, { iconSize: 'md', hidden: [] }); return apps.map(a => <DeskIcon key={a[0]} k={a[0]} ic="📁" label={a[0]} at={pos[a[0]]} onMove={() => {}} onOpen={() => {}} />); }
+  const el = document.createElement('div'); document.body.appendChild(el); const root = require('react-dom/client').createRoot(el);
+  await act(async () => { root.render(<Desk apps={[['pow', 'PoW']]} />); });
+  await act(async () => { root.render(<Desk apps={[['pow', 'PoW'], ['own-py', 'Py']]} />); });
+  expect(el.querySelectorAll('.dsk-ico').length).toBe(2);
+  await act(async () => { root.unmount(); }); el.remove();
+});

@@ -44,7 +44,7 @@ const big = v => { const n = Number(v) || 0; return n >= 1e6 ? `$${(n / 1e6).toF
 function ProofStatic({ path, d, shots }) {
   const parts = path.split('/'); const kind = parts[1]; const res = parts[2]; const pnl = d.pnlPct ?? d.roePct; const title = d.sym ? `$${d.sym}` : d.topic || d.market || d.name || 'Proof';
   const tiles = [['RESULT', pnl != null ? `${pnl > 0 ? '+' : ''}${num(pnl, 1)}%` : String(res || 'open').toUpperCase(), pnl > 0 ? 'up' : pnl < 0 ? 'dn' : ''], ['P/L', d.pnlSol != null ? `${d.pnlSol > 0 ? '+' : ''}${num(d.pnlSol, 4)} SOL` : null, d.pnlSol > 0 ? 'up' : d.pnlSol < 0 ? 'dn' : ''], ['IN', d.sol != null ? `${num(d.sol, 4)} SOL` : null], ['ENTRY', d.entryUsd != null ? `$${d.entryUsd}` : d.entry != null ? String(d.entry) : null], ['EXIT', d.exit != null ? String(d.exit) : null], ['COST', d.cost != null ? `$${num(d.cost, 4)}` : null], ['VERSION', d.version ?? null]].filter(t => t[1] != null);
-  const coins = (d.coins || []).filter(c => c && c.sym); const topLiq = Math.max(1, ...coins.map(c => Number(c.liq) || 0)); const why = d.why || d.report || d.line; const talk = (d.talk || []).filter(t => t && (t.text || t.say)).slice(-6); const steps = (d.plan || []).filter(x => typeof x === 'string').slice(0, 6);
+  const coins = (d.coins || []).filter(c => c && c.sym); const topLiq = Math.max(1, ...coins.map(c => Number(c.liq) || 0)); const why = d.why || d.report || d.line || (typeof d.plan === 'string' ? d.plan : ''); const talk = (d.talk || []).filter(t => t && (t.text || t.say)).slice(-6); const steps = (Array.isArray(d.plan) ? d.plan : Array.isArray(d.steps) ? d.steps : []).filter(x => typeof x === 'string').slice(0, 6);   // a PoStatic's plan is one sentence, its steps are the list
   return <article className={`gst is-${res || 'open'}`} data-testid="git-proof">
     <header className="gst-hero"><span className="gst-kind">{KIND_WORD[kind] || kind || 'Proof'}</span><h3>{title}</h3><em className={`gst-res is-${res || 'open'}`}>{String(res || 'open').toUpperCase()}</em></header>
     <div className="gst-tiles">{tiles.map(([k, v, tone], i) => <div key={k} style={{ '--i': i }}><small>{k}</small><b className={`m-num ${tone || ''}`}>{v}</b></div>)}</div>
@@ -74,7 +74,7 @@ function FolderView({ doc, items }) {
 }
 const MARKABLE = '.gst-tiles > div, .gst-coins li, .gst-why, .gst-plan li, .gst-talk li, .gst-tr, .gst-hero h3';
 const clip = t => String(t || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-function FileView({ doc, shots, marks, drawing, onDraw, items, hot, setHot }) {
+export function FileView({ doc, shots, marks, drawing, onDraw, items, hot, setHot }) {
   if (doc.busy) return <p className="gtr-empty">Opening…</p>;
   if (doc.error) return <p className="lct-err" role="alert">⚠ {doc.error}</p>;
   if (doc.kind === 'image') return <div className="gtr-imgwrap"><img className="gtr-img" src={doc.image} alt={doc.path} data-testid="git-image" />{onDraw ? <MarkLayer marks={marks} drawing={drawing} onDraw={onDraw} hot={hot} setHot={setHot} /> : null}</div>;

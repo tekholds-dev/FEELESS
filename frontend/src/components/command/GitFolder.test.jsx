@@ -88,3 +88,12 @@ test('the minds mark a picture: each mark has its window, ticks choose, approve 
   expect(work.mock.calls.find(c => c[1].op === 'sort_bulk')[1].tools).toEqual({ paths: ['snapshots/x/a.webp', 'snapshots/x/b.webp'], patch: { status: 'trash' } });
   await act(async () => root.unmount());
 });
+
+test('a PoStatic proof, whose plan is one sentence, opens instead of crashing the page', async () => {
+  const { FileView } = require('./GitFolder');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = require('react-dom/client').createRoot(el);
+  await act(async () => { root.render(<FileView doc={{ kind: 'data', path: 'proofs/PoS/right/a.json', data: { topic: 'A page', plan: 'Make it fast', steps: ['Read', 'Build'] } }} shots={[]} />); });
+  expect(el.textContent).toContain('Make it fast'); expect(el.textContent).toContain('Build');
+  await act(async () => { root.render(<FileView doc={{ kind: 'data', path: 'x.json', data: { plan: { nested: true } } }} shots={[]} />); }); expect(el.querySelector('[data-testid="git-proof"]')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});
