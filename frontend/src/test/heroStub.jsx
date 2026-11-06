@@ -11,3 +11,5 @@ export const Popover = ({ isOpen, onOpenChange, children }) => {
 };
 Popover.Content = function Content({ children, placement, offset, ...p }) { return React.useContext(Ctx) ? <div {...p}>{children}</div> : null; };
 Popover.Dialog = function Dialog(p) { return <div role="dialog" {...p} />; };
+export const ProgressCircle = ({ children, value, ...p }) => <div role="progressbar" aria-valuenow={value} {...p}>{children}</div>;
+ProgressCircle.Track = ({ children }) => <svg>{children}</svg>; ProgressCircle.TrackCircle = () => <circle />; ProgressCircle.FillCircle = () => <circle />;

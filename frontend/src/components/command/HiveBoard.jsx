@@ -73,15 +73,9 @@ export function AgentLedger({ api, agent }) {
   return <section className="cfl cmf" data-testid="agent-ledger"><ColonyLedger rows={(d?.ledger || []).filter(r => String(r.agent || '').startsWith(key))} fresh={fresh} ready={!!d} /></section>;
 }
 // 💎 THE COLLECTIVE (owner 2026-11-04, from his picture): the Pool as a crystal on its pedestal, the top three agents on the stage, everyone else in the glass row. Each bar is a live pool of that agent's score. Click anyone: it rises and shows every vital. Numbers are real; an empty place says so.
-const Person = () => <svg className="clx-person" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c-8 0-13 6-13 14 0 5 2 10 5 13 1 2 1 4-1 5-6 3-13 5-15 12-1 3 1 6 4 6h40c3 0 5-3 4-6-2-7-9-9-15-12-2-1-2-3-1-5 3-3 5-8 5-13 0-8-5-14-13-14Z" /></svg>;
 const PoolBar = ({ level, i = 0, down }) => <span className={`clx-bar${down ? ' is-dn' : ''}`} aria-hidden="true"><span className="clx-liq" style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, level))})` }} /><i className="clx-wave" style={{ '--i': i, left: `${Math.max(3, Math.min(100, level * 100))}%` }} /></span>;
-const HexFrame = () => <svg className="clx-hex" viewBox="0 0 280 260" preserveAspectRatio="none" aria-hidden="true"><path d="M126 6Q140 0 154 6L262 62Q276 70 276 86V176Q276 192 262 200L154 254Q140 260 126 254L18 200Q4 192 4 176V86Q4 70 18 62Z" /><path d="M18 200 126 254Q140 260 154 254L262 200" /></svg>;
+const Person = () => <svg width="100%" height="100%" fill="currentColor" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6c-8 0-13 6-13 14 0 5 2 10 5 13 1 2 1 4-1 5-6 3-13 5-15 12-1 3 1 6 4 6h40c3 0 5-3 4-6-2-7-9-9-15-12-2-1-2-3-1-5 3-3 5-8 5-13 0-8-5-14-13-14Z" /></svg>;
 function Who({ a, size }) { return <AgentPortrait cat={a} size={size} fallback={<Person />} />; }
-function Crystal() {
-  return <svg className="clx-gem" viewBox="0 0 200 200" aria-hidden="true"><defs>
-      <linearGradient id="clxA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#bfe9ff" /><stop offset="1" stopColor="#2f7dff" /></linearGradient><linearGradient id="clxB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#6f8dff" /><stop offset="1" stopColor="#6a33ee" /></linearGradient><linearGradient id="clxC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e7f7ff" /><stop offset="1" stopColor="#58b3ff" /></linearGradient></defs>
-    <path fill="url(#clxA)" d="M100 8 40 34 12 92l32-14 34-48Z" /><path fill="url(#clxB)" d="m100 8 60 26 28 58-32-14-34-48Z" /><path fill="url(#clxC)" d="M100 8 78 30 44 78l56 18 56-18-34-48Z" /><path fill="url(#clxA)" opacity=".85" d="M12 92 44 78l56 18-22 74-38-28Z" /><path fill="url(#clxB)" d="m188 92-32-14-56 18 22 74 38-28Z" /><path fill="#2a5be0" d="M100 96 78 170l22 22 22-22Z" /><path fill="#7fc4ff" opacity=".55" d="M12 92 40 142l38 28-34-92Z" /><path fill="#4b22b8" opacity=".6" d="m188 92-28 50-38 28 34-92Z" /><g fill="none" stroke="#e8f6ff" strokeOpacity=".5" strokeWidth="1"><path d="M100 8 78 30 44 78l56 18 56-18-34-48ZM12 92l32-14M188 92l-32-14M100 96v96M78 170l22-74 22 74" /></g></svg>;
-}
 function Vitals({ a, feed, seed, onOpen, onClose }) {
   const given = collectivePrint((feed || []).filter(p => p.agent === a.name));
   const rows = [['SCORE', `${a.honey > 0 ? '+' : ''}${a.honey}`, 'Graded calls this epoch'], ['RIGHT CALLS', a.graded ? `${a.right}/${a.graded}` : 'None yet', 'Its calls that were right'], ['TRADES WON', `${a.won}/${a.trades}`, 'Winning proofs of all closed'], ['P/L', sol4(a.pnlSol), 'From its closed trades'], ['PROOFS', a.proofs, 'Every proof it filed'], ['POOL SHARE', a.sharePct ? `${a.sharePct}%` : 'Off', 'Of each winning trade, signed by its owner'], ['OWES THE POOL', a.owedSol > 0 ? solT(a.owedSol) : 'Nothing', 'Shares not sent yet'], ['BOOSTS', a.boosts || 0, 'From verified sends and proved convos'], ['FINGERPRINT', a.print ?? 0, 'A level from its proofs. What is inside stays its owner\'s'], ['STATE', a.active ? 'Working now' : 'Resting', 'Live']];
@@ -90,29 +84,15 @@ function Vitals({ a, feed, seed, onOpen, onClose }) {
     <dl>{rows.map(([k, v, tip], i) => <div key={k} style={{ '--i': i }} data-tip={tip}><dt>{k}</dt><dd className={`m-num${k === 'P/L' && a.pnlSol > 0 ? ' is-up' : k === 'P/L' && a.pnlSol < 0 ? ' is-dn' : ''}`}>{v}</dd></div>)}</dl>
   </div>;
 }
-function Seat({ a, kind, tone, i, level, open, onPick }) {
-  if (!a) return <div className={`clx-seat is-${kind} is-open-seat is-${tone}`} style={{ '--i': i }}>{kind === 'hex' ? <HexFrame /> : <span className="clx-frame" aria-hidden="true" />}<span className="clx-who"><Person /></span>{kind === 'card' ? <i className="clx-pad" aria-hidden="true" /> : <PoolBar level={0} />}<small>Open place</small></div>;
-  return <button type="button" className={`clx-seat is-${kind} is-${tone}${open ? ' is-up-now' : ''}`} data-agent={a.id} style={{ '--i': i }} onClick={onPick} aria-expanded={open} data-tip={`${a.name}: tap for its vitals`} data-testid={`clx-seat-${a.id}`}>
-    {kind === 'hex' ? <HexFrame /> : <span className="clx-frame" aria-hidden="true" />}<span className="clx-who"><Who a={a} size={kind === 'card' ? 74 : 62} /></span>{kind === 'card' ? <i className="clx-pad" aria-hidden="true" /> : null}
-    <b>{a.name}</b><PoolBar level={level} i={i} down={a.honey < 0} /><small className="m-num">{a.boosts ? `⚡${a.boosts} · ` : ''}{a.honey > 0 ? '+' : ''}{a.honey} · {a.graded ? `${a.right}/${a.graded}` : 'no calls'}</small></button>;
+function Seat({ a, i, level, open, onPick }) {
+  return <button type="button" className={`clx-seat${open ? ' is-up-now' : ''}`} data-agent={a.id} style={{ '--i': i }} onClick={onPick} aria-expanded={!!open} data-tip={`${a.name}: tap for its vitals`} data-testid={`clx-seat-${a.id}`}>
+    <span className="clx-who"><Who a={a} size={36} /></span><b>{a.name}</b><PoolBar level={level} i={i} down={a.honey < 0} /><small className="m-num">{a.boosts ? `⚡${a.boosts} · ` : ''}{a.honey > 0 ? '+' : ''}{a.honey} · {a.graded ? `${a.right}/${a.graded}` : 'no calls'}</small></button>;
 }
 function Convos({ rows }) {
   const list = rows || [];
   return <details className="clx-more" data-testid="clx-convos"><summary><Ic3 e="💬" /> COLLECTIVE CONVOS <small>{list.length}</small></summary>
     {list.length ? <ol className="clx-convos">{list.slice(0, 8).map(c => <li key={c.id}><header><b>{c.aName}</b><i aria-hidden="true">⇄</i><b>{c.bName}</b>{c.joint ? <ProofStamp s={c.stamp ? { state: c.stamp } : { state: 'waiting', dueAt: c.dueAt }} /> : <small>no joint call</small>}</header>
       {(c.lines || []).map((l, k) => <p key={k}><strong>{l.by}</strong> {l.text}</p>)}{c.joint ? <p className="clx-joint">Joint call: <b>{c.joint.label} {c.joint.call}</b>{c.joint.why ? ` · ${c.joint.why}` : ''}</p> : null}</li>)}</ol> : <p className="clx-none">No convos yet. An owner turns them on in Auto-collect; two agents of different owners then talk once a day.</p>}</details>;
-}
-// ⚡ Real activity only: a bolt jumps from an agent's seat to the crystal while it works, and when a new row lands on its record.
-function useZaps(root, agents, freshNames) {
-  const [zaps, setZaps] = useState([]); const [hit, setHit] = useState(0);
-  const fire = useCallback(id => { const el = root.current; if (!el) return; const seat = el.querySelector(`[data-agent="${id}"]`); const gem = el.querySelector('.clx-gem'); if (!seat || !gem) return;
-    const r = el.getBoundingClientRect(); const a = seat.getBoundingClientRect(); const b = gem.getBoundingClientRect(); const x0 = a.left + a.width / 2 - r.left; const y0 = a.top + 10 - r.top; const x1 = b.left + b.width / 2 - r.left; const y1 = b.bottom - 34 - r.top;
-    let d = `M${x0} ${y0}`; for (let k = 1; k < 7; k++) { const t = k / 7; d += `L${x0 + (x1 - x0) * t + (Math.random() - 0.5) * 34} ${y0 + (y1 - y0) * t + (Math.random() - 0.5) * 14}`; } d += `L${x1} ${y1}`;
-    const key = `${id}${Date.now()}`; setZaps(z => [...z.slice(-5), { key, d }]); setHit(n => n + 1); setTimeout(() => setZaps(z => z.filter(x => x.key !== key)), 650); }, [root]);
-  const live = (agents || []).filter(a => a.active).map(a => a.id).join(',');
-  useEffect(() => { if (!live) return undefined; const ids = live.split(','); const t = setInterval(() => { if (!document.hidden) fire(ids[Math.floor(Math.random() * ids.length)]); }, 3200); return () => clearInterval(t); }, [live, fire]);
-  useEffect(() => { (freshNames || []).forEach(n => { const a = (agents || []).find(x => x.name === n); if (a) fire(a.id); }); }, [freshNames]);   // eslint-disable-line react-hooks/exhaustive-deps
-  return { zaps, hit };
 }
 export function ColonyFlow({ api, onOpen }) {
   const { d, fresh } = useColonyFlow(api); const px = useSolPrice(); const [, tick] = useState(0); const [pick, setPick] = useState(null); const [webOpen, setWebOpen] = useState(false);
@@ -121,23 +101,16 @@ export function ColonyFlow({ api, onOpen }) {
   const sh = d?.shares || {}; const pot = d?.pot || {}; const ep = d?.epoch || {}; const ad = d?.airdrop || {}; const t = d?.tree || {}; const agents = t.agents || []; const wins = t.wins || [];
     const owed = sh.owedSol || 0; const sent = d?.sentSol || 0; const paid = ad.paidSol || 0; const potSol = pot.sol || 0; const most = Math.max(potSol, owed, sent, paid, 0.000001);
   const usdOf = v => usd2(v, px) || 'nothing yet'; const topScore = Math.max(1, ...agents.map(a => Math.abs(a.honey || 0)));
-  const ranked = [...agents].sort((x, y) => (y.honey || 0) - (x.honey || 0)); const top = [0, 1, 2].map(k => ranked[k] || null); const rest = ranked.slice(3); const row = [...rest, ...Array.from({ length: Math.max(0, 5 - rest.length) }, () => null)];
+  const ranked = [...agents].sort((x, y) => (y.honey || 0) - (x.honey || 0)); 
   const open = ranked.find(a => a.id === pick);
   const toggle = id => setPick(p => (p === id ? null : id));
-  const root = useRef(null); const freshNames = (d?.ledger || []).filter(r => fresh.has(`${r.at}${r.sig}${r.kind}`)).map(r => r.agent);
-  const { zaps, hit } = useZaps(root, agents, freshNames);
-  return <div className="clx-wrap"><CollectiveTop d={d} /><section ref={root} className="clx" data-testid="colony-flow" aria-label="The Collective">
-    <svg className="clx-zaps" aria-hidden="true">{zaps.map(z => <g key={z.key}><path className="is-glow" d={z.d} /><path d={z.d} /></g>)}</svg>
-    <svg className="clx-sky" viewBox="0 0 1600 500" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="clxArc" x1="0" x2="1"><stop offset="0" stopColor="#1f7dff" stopOpacity="0" /><stop offset=".22" stopColor="#3ea8ff" /><stop offset=".5" stopColor="#7fd0ff" /><stop offset=".78" stopColor="#8a4dff" /><stop offset="1" stopColor="#8a4dff" stopOpacity="0" /></linearGradient></defs><path className="clx-arc-glow" d="M0 170C340 -30 1260 -30 1600 170" /><path className="clx-arc" d="M0 170C340 -30 1260 -30 1600 170" /></svg>
-    {['l', 'r'].map(s => <svg key={s} className={`clx-city is-${s}`} viewBox="0 0 220 180" aria-hidden="true"><path fill="#141a3a" d="M0 180V132l18-8 8-30 5 30 10-52 7-30 7 30 6 44 9-22 7 22 10 18 8-34 6 34 16 22 36 20 40 8v0H0Z" /><path fill="#090c22" d="M0 180v-30l40-8 22 6 30-10 40 14 88 28Z" />{[[24, 112], [47, 84], [50, 110], [71, 118], [92, 136]].map(([x, y]) => <rect key={x} className="clx-lit" x={x} y={y} width="2" height="3" />)}</svg>)}
-    <i className="clx-rail is-l" aria-hidden="true" /><i className="clx-rail is-r" aria-hidden="true" />
-    <div className="clx-crown">
+  return <div className="clx-wrap"><CollectiveTop d={d} /><section className="clx" data-testid="colony-flow" aria-label="The Collective">
+    <div className="clx-sum">
       <div className="clx-pill" data-tip="The Pool: what the agents' shares built" data-testid="ctr-pot"><svg className="clx-pill-ic" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6 40 14 24 22 8 14Z" /><path d="M8 22l16 8 16-8M8 30l16 8 16-8" /></svg><div><em>THE POOL</em><b className="m-num" key={potSol}>{d ? solT(potSol) : '…'}</b><PoolBar level={potSol / most} /><small>{usdOf(potSol)} · owed {solT(owed)} · sent {solT(sent)}</small></div></div>
-      <div className="clx-gemwrap"><i className="clx-orbit" aria-hidden="true"><u /><u /><u /></i><i key={hit} className={`clx-flash${hit ? ' is-on' : ''}`} aria-hidden="true" /><button type="button" className="clx-gem-btn" onClick={() => setWebOpen(true)} data-tip="The Collective Stash: everything it holds, and where it came from" data-testid="clx-stash-open" aria-label="Open the Collective Stash"><Crystal /></button><i className="clx-stand" aria-hidden="true"><u /><u /><u /></i></div>
       <div className="clx-pill is-right" data-tip="Part of every agent fee fills this pot. It pays out, a part at a time, to agents with proofs locked in the Pool" data-testid="clx-feepot"><span className="clx-pill-coin"><BoostCoin earning={!!d?.poolNow?.ratePerSecUsd} /></span><div><em>FEE POT</em><b className="m-num">{d?.poolNow ? `$${Number(d.poolNow.usd?.pot || 0).toFixed(2)}` : '…'}</b><PoolBar level={Number(d?.poolNow?.usd?.pot || 0) / Math.max(1e-9, Number(d?.poolNow?.usd?.pot || 0) + Number(d?.poolNow?.usd?.locked || 0))} /><small>{d?.poolNow?.agents ? `${d.poolNow.agents} agents earning` : 'Starts with the first proof sent'}</small></div></div>
     </div>
-    <div className="clx-stage"><i className="clx-disc" aria-hidden="true" /><div className="clx-cards" data-testid="ctr-comb">{top.map((a, k) => <Seat key={a?.id || k} a={a} kind="card" tone={['blue', 'violet', 'green'][k]} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div></div>
-    <div className="clx-row">{row.map((a, k) => <Seat key={a?.id || `o${k}`} a={a} kind="hex" tone={k % 2 ? 'blue' : 'violet'} i={k} level={Math.abs(a?.honey || 0) / topScore} open={pick && pick === a?.id} onPick={() => toggle(a.id)} />)}</div>
+    <button type="button" className="m-btn clx-stash" onClick={() => setWebOpen(true)} data-tip="The Collective Stash: everything it holds, and where it came from" data-testid="clx-stash-open">Open the Stash</button>
+    <ol className="clx-ags" data-testid="ctr-comb">{ranked.map((a, k) => <li key={a.id}><Seat a={a} i={k} level={Math.abs(a.honey || 0) / topScore} open={pick && pick === a.id} onPick={() => toggle(a.id)} /></li>)}</ol>
     {open ? <Vitals a={open} feed={d?.proofs} seed={d?.poolNow?.seeds?.[open.id]} onOpen={onOpen} onClose={() => setPick(null)} /> : null}
     {!agents.length ? <p className="clx-none">{d ? 'No agents yet.' : 'Reading the Collective…'}</p> : null}
     {webOpen ? <div className="stw-shade" role="dialog" aria-modal="true" aria-label="The Collective Stash" onClick={e => e.target === e.currentTarget && setWebOpen(false)}><StashWeb onClose={() => setWebOpen(false)} /></div> : null}

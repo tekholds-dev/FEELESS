@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { GrowthCalc, money } from './SplitFlow';
 import { GrowthExample, NOT_PONZI } from './GrowthExample';
@@ -78,10 +78,13 @@ const MORE_REWARD_ROWS = [['minDays', 'Fastest wait', 'd', 1, 'pot', 'Nobody is 
 const SETTING_GROUPS = [['THE FEE POT', [...GROUPS.find(g => g[0] === 'The fee pot')[1], rowOf('sitePct')]], ['BOOST POINTS', GROUPS.find(g => g[0] === 'Boost points')[1]], ['AGENT FEES', GROUPS.find(g => g[0] === 'Agent fees')[1]]];
 // How pay works, on one chart, from the settings as they stand: $100 of each kind of money, and where it ends up.
 // 💵 Where each $100 goes, in words and numbers, one row per kind of money.
-const SPLIT_COLORS = { 'Back to the agent': '#3ee58a', 'The Collective': '#57c7ff', 'Fee pot, to members': '#ff8bd8', FEELESS: '#8fa3cc' };
-function SplitBars({ c }) {
+const SPLIT_COLORS = { 'A proof sent': '#57c7ff', 'A member trade fee': '#ff8bd8', 'An outside swap fee': '#8fa3cc', 'The Collective': '#57c7ff', 'Fee pot, to members': '#ff8bd8', FEELESS: '#8fa3cc' };
+const MoneyFlow = lazy(() => import('./MoneyCharts').then(m => ({ default: m.MoneyFlow })));
+export function SplitBars({ c }) {
   const rows = [['A proof sent', [['The Collective', 100]]], ['A member trade fee', [['Fee pot, to members', c.potPct], ['The Collective', 100 - c.potPct]]], ['An outside swap fee', [['Fee pot, to members', c.sitePct], ['FEELESS', 100 - c.sitePct]]]];
-  return <ul className="cof-bars" data-testid="cof-bars">{rows.map(([t, parts]) => <li key={t}><b>{t}</b><span className="cof-bar">{parts.map(([k, v]) => <i key={k} style={{ width: `${v}%`, background: SPLIT_COLORS[k] }} data-tip={`${k}: $${v.toFixed(2)}`} />)}</span><small>{parts.map(([k, v]) => <span key={k}><u style={{ background: SPLIT_COLORS[k] }} />{k} <em className="m-num">${v.toFixed(2)}</em></span>)}</small></li>)}</ul>;
+  const flows = rows.flatMap(([t, parts]) => parts.map(([k, v]) => [t, k, v]));
+  return <div className="cof-split"><Suspense fallback={<div className="cof-split-wait" />}><MoneyFlow rows={flows} colors={SPLIT_COLORS} height={250} testid="cof-flow" label="Where each 100 dollars goes" /></Suspense>
+    <ul className="cof-tiles" data-testid="cof-bars">{rows.map(([t, parts]) => <li key={t}><b>{t}</b>{parts.map(([k, v]) => <span key={k} data-tip={`${k}: $${v.toFixed(2)} of each $100`}><i style={{ background: SPLIT_COLORS[k] }} aria-hidden="true" /><small>{k}</small><em className="m-num">${v.toFixed(0)}</em></span>)}</li>)}</ul></div>;
 }
 function Settings({ d, save, busy }) {
   const [c, setC] = useState(d.cfg); useEffect(() => setC(d.cfg), [d.cfg]);

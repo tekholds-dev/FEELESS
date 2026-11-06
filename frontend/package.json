@@ -25,7 +25,6 @@
     "@solana/web3.js": "^1.99.0",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query": "5.56.2",
-    "@xyflow/react": "^12",
     "bs58": "^6.0.0",
     "clsx": "2.1.1",
     "decimal.js": "10.6.0",

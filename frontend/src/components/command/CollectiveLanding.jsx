@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Background, ReactFlow, Position } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
 import { GrowthCalc, usePoolRules, money } from './SplitFlow';
@@ -59,19 +57,14 @@ function LivePrint({ proofs, colors, glow }) {
 const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'All of it is banked for good, on a sealed record. A send never pays a reward.'], ['lock', 'Points', 'Its dollars x its boost at that send. Each one counts once.'], ['back', 'Your rewards', 'Rewards come from real fees, sooner at a higher rank. A month can pay nothing. Taking them out stays off for now.']];
 function flowOf(sc, r, profit, share) { const send = sc === 'win' ? profit * share / 100 : 0; return { send, kept: send, low: pointsFor(r, send, 0), high: pointsFor(r, send, 1) }; }
 const pts = v => Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
-const POS = [[0, 80], [210, 0], [420, 80], [630, 0], [630, 170], [420, 250]];
-function Signal() {
+export function Signal() {
   const r = usePoolRules(); const [sc, setSc] = useState('win'); const [profit, setProfit] = useState(200); const [share, setShare] = useState(10); const [pick, setPick] = useState('trade'); const f = flowOf(sc, r, profit, share);
-  const live = sc === 'win'; const nodes = useMemo(() => STAGES.map(([id, label], i) => ({ id, position: { x: POS[i][0], y: POS[i][1] }, data: { label: <span className="cll-n"><small>{String(i + 1).padStart(2, '0')}</small><b>{label}</b></span> }, sourcePosition: i >= 3 ? Position.Left : Position.Right, targetPosition: i === 4 ? Position.Top : i === 5 ? Position.Right : Position.Left, className: `cll-node${pick === id ? ' is-on' : ''}${!live && i > 0 ? ' is-off' : ''}`, draggable: false, connectable: false })), [pick, live]);
-  const edges = useMemo(() => [['trade', 'proof'], ['proof', 'checks'], ['checks', 'keep'], ['checks', 'lock'], ['lock', 'back']].map(([a, b]) => ({ id: `${a}-${b}`, source: a, target: b, animated: live, className: live ? 'cll-edge' : 'cll-edge is-off' })), [live]);
-  const on = STAGES.find(s => s[0] === pick);
-  const flowApi = useRef(null); const flowBox = useRef(null); const refit = useCallback(() => requestAnimationFrame(() => flowApi.current?.fitView({ padding: 0.1 })), []);
-  useEffect(() => { if (typeof ResizeObserver === 'undefined' || !flowBox.current) return undefined; const ro = new ResizeObserver(refit); ro.observe(flowBox.current); return () => ro.disconnect(); }, [refit]);
+  const live = sc === 'win'; const on = STAGES.find(x => x[0] === pick);
   const seg = (label, val, set, opts, fmt, id) => <span className="cll-seg"><small>{label}</small><span className="m-seg" role="group" aria-label={label}>{opts.map(o => <button key={o} type="button" className={val === o ? 'active' : ''} aria-pressed={val === o} onClick={() => set(o)} data-testid={`cll-${id}-${o}`}>{fmt(o)}</button>)}</span></span>;
   return <section className="cll-sec" data-testid="cll-signal"><header><small>HOW IT WORKS</small><h3>Follow the proof.</h3><p>Pick what happened. These are the live rules, on your numbers. An example, not a promise.</p></header>
     <div className="cll-ctls">{seg('WHAT HAPPENED', sc, setSc, ['win', 'loss', 'swap'], o => ({ win: 'A winning trade', loss: 'A losing trade', swap: 'A swap by anyone' }[o]), 'sc')}{live ? seg('THE WIN', profit, setProfit, [50, 200, 1000], o => `$${o}`, 'win') : null}{live ? seg('IT SENDS', share, setShare, [5, 10, 25], o => `${o}%`, 'share') : null}</div>
-    <div className="cll-flowwrap"><div className="cll-flow" ref={flowBox}><ReactFlow nodes={nodes} edges={edges} onNodeClick={(_, n) => setPick(n.id)} onInit={i => { flowApi.current = i; refit(); }} fitView fitViewOptions={{ padding: 0.1 }} nodesDraggable={false} nodesConnectable={false} panOnDrag={false} zoomOnScroll={false} zoomOnPinch={false} zoomOnDoubleClick={false} preventScrolling={false} proOptions={{ hideAttribution: false }}><Background gap={28} size={1} color="#ffffff14" /></ReactFlow></div>
-      <aside className="cll-side"><small>THIS STEP</small><h4>{on?.[1]}</h4><p>{sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p></aside></div>
+    <ol className="cll-steps" data-testid="cll-steps">{STAGES.map(([id, label], i) => <li key={id} style={{ '--i': i }}><button type="button" className={`cll-step${pick === id ? ' is-on' : ''}${!live && i > 0 ? ' is-off' : ''}`} aria-pressed={pick === id} onClick={() => setPick(id)} data-tip="Tap to read this step" data-testid={`cll-step-${id}`}><small className="m-num">{String(i + 1).padStart(2, '0')}</small><b>{label}</b></button></li>)}</ol>
+    <p className="cll-now" data-testid="cll-now"><b>{on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Part of FEELESS swap fees goes to the fee pot. It is a separate path: no proof, no lock.' : on?.[2]}</p>
     <dl className="cll-nums">{[['IT SENDS', f.send, money], ['COLLECTIVE KEEPS', f.kept, money], ['POINTS, NO BOOST', f.low, pts], ['POINTS, FULL BOOST', f.high, pts]].map(([k, v, fmt]) => <div key={k}><dt>{k}</dt><dd><Roll v={v} fmt={fmt} /></dd></div>)}</dl></section>;
 }
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
