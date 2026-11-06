@@ -65,3 +65,20 @@ def test_groups_come_first_and_a_site_that_keeps_winning_moves_up():
     last = ar.ranked('pow')[-1]
     moved = ar.read_order('pow', [(last['host'], 'won', 9)])
     assert moved[0]['host'] == last['host']
+
+
+def test_a_found_site_that_keeps_winning_joins_and_a_listed_loser_goes_last():
+    listed = ar.ranked('pos')[0]['host']; bare = listed.split('/')[0].replace('www.', '')
+    rows = [('newtool.dev', 'won', 3), ('newtool.dev', 'lost', 1), ('fresh.dev', 'won', 1), ('own read', 'won', 9), (bare, 'lost', 4), (bare, 'won', 1)]
+    order = ar.read_order('pos', rows); hosts = [r['host'] for r in order]
+    assert hosts[0] == 'newtool.dev' and order[0]['found'] is True
+    assert 'fresh.dev' not in hosts and 'own read' not in hosts   # too few results, and not a site
+    assert hosts[-1] == listed
+
+
+def test_a_found_site_on_a_private_address_is_never_opened(monkeypatch):
+    http = Fake({'localhost.evil.dev': (200, GOOD)}); ar._READ_CACHE.clear()
+    monkeypatch.setattr(ar, '_public', lambda h: False)
+    text, _ = asyncio.run(ar._read_one(http, 'localhost.evil.dev', 1.0, found=True))
+    assert text == '' and http.asked == []
+    assert ar.learned('pos', [('127.0.0.1', 'won', 9), ('localhost', 'won', 9), ('169.254.169.254', 'won', 9)])[0] == []

@@ -1,4 +1,5 @@
 import React from 'react';
+import { AgentManual } from '../components/command/AgentManual';
 import '../index.css';
 import '../styles/meta.css';
 import { ColonyGrid } from '../components/command/HiveBoard';
@@ -37,6 +38,7 @@ function BoostHarness() {
 }
 export default function ColonyHarness() {
   if (window.location.search.includes('owner')) return <div style={{ background: '#050714', minHeight: '100vh', padding: 12, display: 'grid', gap: 20, maxWidth: 1100, margin: '0 auto' }}><SourceWins /><PayFolder d={OWNER} save={() => {}} /><FallbackFolder d={OWNER} onPay={() => {}} /><SpotsFolder d={OWNER} save={() => {}} /><SafetyFolder d={OWNER} save={() => {}} c={OWNER.cfg} setC={() => {}} /><PoolDesk p={OWNER.pools[1]} d={OWNER} save={() => {}} /></div>;
+  if (window.location.search.includes('manual')) return <div style={{ background: '#050714', minHeight: '100vh', padding: 12, maxWidth: 1100, margin: '0 auto' }}><AgentManual d={{ pocFolders: [{ n: 2, topic: 'New wallets', calls: [{}, {}], graded: 'right' }], kernel: { v: '1', hash: 'abc', groups: [{ name: 'Budget', rows: [['Dollars a coin', 0.03]] }] } }} onCommand={() => {}} /></div>;
   if (window.location.search.includes('boost')) return <BoostHarness />;
   return <div style={{ background: '#050403', minHeight: '100vh', padding: 12 }}><ColonyGrid api={api} /></div>;
 }

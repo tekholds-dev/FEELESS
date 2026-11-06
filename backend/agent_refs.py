@@ -82,12 +82,49 @@ _READ_HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) 
 _READ_CACHE = {}      # {host: (at, text or '')}
 
 
+_HOST_OK = re.compile(r'^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(/[\w./-]*)?$')
+LEARN_MIN = 3   # graded proofs before a source's record changes where it goes, the same line the repo's good and bad lists use
+
+
+def learned(kind, stash_rows):
+    """The list keeps itself current: (sites agents found that keep winning, listed sites that keep losing), from real results only. Pure."""
+    score = {}
+    for src, out, n in stash_rows or ():
+        if out in ('won', 'lost') and src:
+            row = score.setdefault(str(src).lower().replace('www.', ''), {'won': 0, 'lost': 0}); row[out] += int(n or 0)
+    listed = {h.split('/')[0].replace('www.', '') for h, *_ in PROOF_FILES.get(kind) or []}; good = []; bad = set()
+    for src, row in score.items():
+        graded = row['won'] + row['lost']
+        if graded < LEARN_MIN:
+            continue
+        if src in listed:
+            if row['won'] < row['lost']:
+                bad.add(src)
+        elif row['won'] >= row['lost'] and _HOST_OK.match(src):
+            good.append({'host': src, 'name': src, 'what': 'Found by agents, and it keeps winning', 'group': 'Found by agents', 'reads': graded, 'won': row['won'], 'lost': row['lost'], 'trust': round(100 * row['won'] / graded), 'found': True})
+    good.sort(key=lambda r: (-r['trust'], -r['reads']))
+    return good, bad
+
+
 def read_order(kind, stash_rows=()):
-    """Who to open first: the best from each group, then the rest. Trust from real wins already moved them up in `ranked`. Pure."""
-    rows_ = ranked(kind, stash_rows); seen = set(); first = []; rest = []
+    """Who to open first: what agents found and keeps winning, the best from each group, the rest, and last what keeps losing. Pure."""
+    good, bad = learned(kind, stash_rows); rows_ = ranked(kind, stash_rows); seen = set(); first = []; rest = []; last = []
     for r in rows_:
+        if r['host'].split('/')[0].replace('www.', '') in bad:
+            last.append(r)
+            continue
         (rest if r['group'] in seen else first).append(r); seen.add(r['group'])
-    return first + rest
+    return good[:2] + first + rest + last
+
+
+def _public(host):
+    """A found site comes from agents' records, so it must be a real public address. Never localhost or the LAN."""
+    import ipaddress
+    import socket
+    try:
+        return all(ipaddress.ip_address(a[4][0]).is_global for a in socket.getaddrinfo(host.split('/')[0], 443))
+    except (OSError, ValueError):
+        return False
 
 
 def _readable(raw):
@@ -97,13 +134,16 @@ def _readable(raw):
     return '' if len(text) < 800 or _WALLED.search(text[:600]) else text
 
 
-async def _read_one(http, host, now):
+async def _read_one(http, host, now, found=False):
     hit = _READ_CACHE.get(host)
     if hit and now - hit[0] < (READ_TTL_S if hit[1] else WALL_TTL_S):
         return hit[1], True
     text = ''
+    if found and not await asyncio.to_thread(_public, host):
+        _READ_CACHE[host] = (now, '')
+        return '', False
     try:
-        async with http.stream('GET', f'https://{host}', headers=_READ_HEADERS, timeout=8, follow_redirects=True) as r:
+        async with http.stream('GET', f'https://{host}', headers=_READ_HEADERS, timeout=8, follow_redirects=not found) as r:   # a found site may not redirect us anywhere else
             buf = b''
             async for chunk in r.aiter_bytes():
                 buf += chunk
@@ -125,7 +165,7 @@ async def read_first(http, kind, stash_rows=(), now=None, n=READ_N):
         if len(got) >= n:
             break
         part = order[i:i + n]
-        for r, (text, _) in zip(part, await asyncio.gather(*(_read_one(http, r['host'], now) for r in part))):
+        for r, (text, _) in zip(part, await asyncio.gather(*(_read_one(http, r['host'], now, bool(r.get('found'))) for r in part))):
             sites.append({'host': r['host'], 'name': r['name'], 'ok': bool(text)})
             if text and len(got) < n:
                 got.append(f"--- {r['name']} ({r['host']}):\n{text[:READ_CHARS]}")
