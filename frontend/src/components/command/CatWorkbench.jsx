@@ -1080,6 +1080,7 @@ function HoneyPot({ cat, pool }) {
 // 👛 the agent's WALLET app (owner 2026-11-01: "desktop agent wallet swapping"): its live SOL + USDC, and YOUR swap inside its own wallet —
 // SOL ⇄ USDC only, nothing leaves it, the gas reserve always stays; the server signs only a quote that echoes exactly this swap
 function WalletApp({ cat, compact = false, onBrowse = null }) {
+  const [pane, setPane] = useState('wallet');
   const [w, setW] = useState(null); const [side, setSide] = useState('USDC>SOL'); const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
   useEffect(() => { let on = true; work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(e => on && setW({ err: e.message })); return () => { on = false; }; }, [cat.id]);
   if (!w) return <p className="dsk-note">reading its wallet…</p>;
@@ -1091,7 +1092,9 @@ function WalletApp({ cat, compact = false, onBrowse = null }) {
     catch (e) { setMsg(e.message || 'Not swapped — nothing moved.'); } finally { setBusy(false); } };
   if (w.fuse) return <div className="dsk-wal" data-testid="dsk-fuse-wallet"><div className="dsk-wal-bal">{[['ON THE CARD', w.cardSol, 'What it can trade with'], ['IN THE WALLET', w.walletSol, 'All SOL at this address'], ['GAS RESERVE', w.reserveSol, 'Kept for network fees'], ['NOT ON THE CARD', w.outsideSol, 'Not assigned to the card yet']].map(([k, v, sub]) => <span key={k} className="is-sol"><em>{k}</em><b className="m-num">{v == null ? '—' : `${Number(v).toFixed(4)} SOL`}</b><small>{sub}</small></span>)}</div>
     <p className="dsk-note">Sicario's trades from the Fuse wallet. To top up, send SOL to this address, then put it on the card in HQ › Fuse. Then ask it to file a PoW.</p>{w.address ? <code className="dsk-wal-addr" data-testid="dsk-fuse-address">{w.address}</code> : <p className="dsk-note" role="alert">The card service did not answer.</p>}</div>;
-  return <div className="dsk-wal" data-testid="dsk-wallet">
+  const tabs = <div className="m-seg" role="tablist" aria-label="Wallet">{[['wallet', 'Its wallet'], ['card', 'Get a card']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`wal-tab-${k}`}>{l}</button>)}</div>;
+  if (pane === 'card') return <div className="dsk-wal" data-testid="dsk-wallet-card">{tabs}<CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /></div>;
+  return <div className="dsk-wal" data-testid="dsk-wallet">{tabs}
     {compact ? null : <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
       <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>}
     <p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} remaining. Wallet balances above are live; SingIt charges the USDC here per call.</p>
@@ -1107,7 +1110,7 @@ function WalletApp({ cat, compact = false, onBrowse = null }) {
     </form> : <p className="dsk-note">Only a wallet Circle signs for this agent can swap.</p>}
     {msg ? <small className="dsk-wal-msg" role="status">{msg}</small> : null}
     {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
-  <CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /></div>;
+  </div>;
 }
 const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['poc', '📣', 'PoC'], ['postatic', '💻', 'PoStatic'], ['poe', '📊', 'PoEco'], ['proofs', '🏆', 'Proofs'], ['print', '🧬', 'Proofprint'], ['boost', '🪙', 'Boosts'], ['features', '✨', 'Features'], ['character', '🎭', 'Character'], ['manual', '📖', 'Manual'], ['terms', '🛡', 'Terms & security'], ['jobs', '🗂', 'Jobs'], ['browser', '🧭', 'Browser'], ['sources', '🌐', 'Sources'], ['honey', '💎', 'The Collective'], ['wallet', '👛', 'Wallet'], ['mail', '📧', 'Mail'], ['files', '☁', 'Files'], ['github', '🗃', 'GitHub'], ['cmds', '⌘', 'Commands'], ['deskset', '⚙', 'Desktop settings']];
 // 🧱 what each thin folder shows on its wall. Real counts from its state only; a tile with no action is just a number.
