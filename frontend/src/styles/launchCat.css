@@ -323,3 +323,6 @@ body.theme-day .lct-fund-note { color: #5a4a7a; }
 body.fx-lite .lct-safe-grid > span { animation: none; } @media (prefers-reduced-motion: reduce) { .lct-safe-grid > span { animation: none; } }
 body.theme-day .lct-safe { background: #f2fbf5; } body.theme-day .lct-safe-grid > span { background: #fff; } body.theme-day .lct-safe-grid b, body.theme-day .lct-safe-next { color: #2a1650; } body.theme-day .lct-safe-grid small { color: #5a4a7a; } body.theme-day .lct-safe-next b { color: #0a7a44; }
 @media (max-width: 640px) { .lct-safe-grid { grid-template-columns: 1fr 1fr; } }
+
+/* The model picker opens over an agent's desktop too */
+body.dsk-open .lct-pop { z-index: 2700; }

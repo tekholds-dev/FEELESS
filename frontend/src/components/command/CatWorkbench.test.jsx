@@ -473,7 +473,7 @@ test('📉 PoP is folders like PoW: dated folder → report, market folder, disc
   const q = t => document.querySelector(`[data-testid="${t}"]`);
   expect(q('pop-desk')).not.toBeNull(); expect(q('pop-x-p2').textContent).toContain('PoP #2'); expect(q('pop-x-p1').textContent).toContain('no trade');
   await act(async () => { q('pop-x-p2').click(); }); expect(q('pop-x-report').textContent).toContain('BAD TRADE'); expect(q('pop-x-m-BTC').textContent).toContain('-0.60%');
-  await act(async () => { q('pop-keep').click(); }); expect(asked.at(-1)).toMatchObject({ op: 'pop_folder', job: 'keep', text: 'p2', on: true }); expect(q('pop-keep').textContent).toContain('Kept');
+  await act(async () => { q('pop-keep').click(); }); expect(asked.filter(x => x.op === 'pop_folder').at(-1)).toMatchObject({ op: 'pop_folder', job: 'keep', text: 'p2', on: true }); expect(q('pop-keep').textContent).toContain('Kept');
   await act(async () => { q('pop-x-report').click(); }); expect(q('pop-report').textContent).toContain('short BTC closed at stop');
   await act(async () => { document.querySelector('[aria-label="Up one folder"]').click(); }); await act(async () => { q('pop-x-m-BTC').click(); }); expect(q('pop-market').textContent).toContain('below the midpoint');
   await act(async () => { root.unmount(); }); el.remove(); global.fetch = f;

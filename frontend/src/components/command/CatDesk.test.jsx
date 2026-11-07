@@ -36,7 +36,7 @@ test('🤖 the desk renders an agent HOLDING coins (the old page crashed on a de
   act(() => dq('kd-pos-0').click()); expect(room.mock.calls[0][0].detail).toMatchObject({ pairAddress: 'P1', baseToken: { symbol: 'MOON' } });
   act(() => q('kd-stop').click()); expect(onAct).toHaveBeenLastCalledWith('stop');
   act(() => q('kd-run').click()); expect(onAct).toHaveBeenLastCalledWith('run');
-  await act(async () => { dq('dsk-ico-limits').click(); });
+  await act(async () => { (dq('dsk-ico-brains') || dq('dsk-ico-limits')).click(); }); if (dq('dsk-tab-limits')) await act(async () => { dq('dsk-tab-limits').click(); });
   act(() => dq('kd-save').click()); expect(onAct.mock.calls.at(-1)[0]).toBe('controls'); expect(onAct.mock.calls.at(-1)[1]).toMatchObject({ maxPositionSol: 0.25, blocklist: 'SCAM' });
   await act(async () => { root.render(<CatDesk cat={{ ...CAT, status: 'stopped', positions: [] }} onBack={() => {}} onAct={onAct} />); });
   expect(q('kd-state').textContent).toContain('STOPPED'); act(() => q('kd-start').click()); expect(onAct).toHaveBeenLastCalledWith('start');

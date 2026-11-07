@@ -592,7 +592,8 @@ async def _divert(task, w, page, wait_human=None):
         w['powNext'] = True
         return await _pow_advance(w, pw, page, wait_human)
     been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
-    pool = [u for u in list(task.get('alts') or []) + list(DIVERT) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]
+    own = [f'https://{h}' for h in task.get('alsoHosts') or [] if '.' in str(h)]   # the job's own sources first: a game pick goes to another sports site, never a coin checker
+    pool = [u for u in list(task.get('alts') or []) + own + ([] if task.get('notCoins') else list(DIVERT)) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]
     u = pool[0] if pool else SEARCH_URL + quote_plus(f"{str(w.get('goal') or '')[:70]} {len(w.get('steps') or [])}")
     try:
         got = await page.goto(u)

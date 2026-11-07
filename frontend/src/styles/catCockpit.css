@@ -159,3 +159,12 @@ body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; }
 .ck-cabinet { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .ck-log .ck-folders { flex-direction: row; flex-wrap: wrap; } .ck-log .ck-folders button { width: auto; flex: 0 1 auto; min-height: 36px; } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-1px); } .ck-log .ck-folders button.is-on { transform: none; }
 .kd .cwb-hbtn { width: fit-content; justify-self: end; margin-inline-start: auto; min-height: 34px; }
+
+/* 🗄 A short cabinet: drawers in one strip, each row one line, which mind and what it did */
+.ck-log .ck-cabinet { grid-template-columns: minmax(0, 1fr); } .ck-log .ck-folders { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 5px; padding: 6px; max-height: none; overflow: visible; }
+.ck-log .ck-folders .ck-fold { width: auto; } .ck-log .ck-folders button { width: auto; min-height: 32px; padding: 4px 10px; } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-1px); } .ck-log .ck-folders button.is-on { transform: none; } .ck-log .ck-folders .ck-handle { display: none; }
+.ck-empties { color: #8f86a8; font: 600 10.5px var(--f-ui); padding-inline: 4px; }
+.ck-log .ck-rows { max-height: 340px; overflow-y: auto; scrollbar-width: thin; } .ck-log .ck-rows li { align-items: center; padding-block: 5px; }
+.ck-line { display: flex; align-items: center; gap: 7px; min-width: 0; } .ck-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-who { flex: none; padding: 1px 6px; border-radius: 6px; background: #b388ff26; color: #e6dcff; font: 700 10px var(--f-mono); text-transform: uppercase; } .ck-act { flex: none; padding: 1px 6px; border-radius: 6px; background: #ffffff10; color: #cfe6da; font: 700 10px var(--f-mono); font-style: normal; } .ck-act.is-refused { background: #ff8fa326; color: #ffc2cd; } .ck-act.is-site_search, .ck-act.is-search { background: #45e48626; color: #b9f5d1; } .ck-act.is-open, .ck-act.is-click { background: #5ec8ff22; color: #c5ecff; }
+body.theme-day .ck-who { background: #7143d01f; color: #3a2470; } body.theme-day .ck-act { background: #0000000d; color: #22392d; }

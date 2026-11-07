@@ -322,3 +322,18 @@ def test_a_page_can_carry_a_minds_own_code_and_only_the_kits_it_used():
     locked = ps.lock_site(html, ['gsap', 'nope']); assert 'gsap' in locked and 'nope' not in locked and locked.count('Content-Security-Policy') == 1
     assert 'gsap' not in ps.lock_site(html)
 
+
+def test_a_window_that_repeats_on_a_game_goes_to_another_sports_site_never_a_coin_checker():
+    import asyncio
+    import cat_agent as ca
+    class Page:
+        url = 'https://espn.com/nba'; title = 't'
+        async def goto(self, u):
+            self.url = u; return 'page'
+    w = {'i': 0, 'steps': [{'detail': 'https://espn.com/nba'}], 'goal': 'Rangers vs Kraken'}
+    asyncio.run(ca._divert({'research': True, 'notCoins': True, 'alsoHosts': ['espn.com', 'theathletic.com', 'oddsshark.com']}, w, Page()))
+    assert w['url'] == 'https://theathletic.com'
+    w2 = {'i': 0, 'steps': [{'detail': x} for x in ('https://espn.com', 'https://theathletic.com', 'https://oddsshark.com')], 'goal': 'g'}
+    asyncio.run(ca._divert({'research': True, 'notCoins': True, 'alsoHosts': ['espn.com', 'theathletic.com', 'oddsshark.com']}, w2, Page()))
+    assert 'rugcheck' not in w2['url'] and 'jup.ag' not in w2['url'] and 'dexscreener' not in w2['url']
+
