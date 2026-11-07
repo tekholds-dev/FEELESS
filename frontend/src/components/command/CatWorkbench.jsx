@@ -1265,10 +1265,8 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
 export function TraderCabinet({ cat, items }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  const [desk, setDesk] = useState(false);
   useEffect(() => { if (d?.setup) window.dispatchEvent(new CustomEvent('feeless:setup-left', { detail: { id: cat.id, left: d.setup.left } })); }, [cat.id, d?.setup]);
-  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Private desktop<SetupDot id={cat.id} left={d?.setup?.left ?? null} /></button>
-    <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />{desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}</>;
+  return <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />;   // the desk's DESKTOP tab opens the desktop: one door
 }
 // 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
 function keyDrawers(cat, d, setD, ask = null) {

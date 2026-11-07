@@ -114,7 +114,7 @@ def test_every_mood_and_template_is_real():
     for k, m in ps.MOODS.items():
         assert m['skies'] and m['font'] and m['set'] in ('place', 'studio', 'far')
     for t in ps.TEMPLATES:
-        assert t['brief']['mood'] in ps.MOODS and ps.template_scene(t['id'])['objects']
+        got = ps.template_scene(t['id']); assert t['brief']['mood'] in ps.MOODS and (got['objects'] or got.get('hero'))
     assert ps.template_scene('nope') is None and len(ps.menu()['moods']) == len(ps.MOODS)
     assert a.SAFE_URL.fullmatch('https://dl.polyhaven.org/file/a.hdr')
 
@@ -132,6 +132,16 @@ def test_a_game_brief_makes_a_real_game_page_with_no_model():
     made = ps.from_brief({'hero': 'tank'}, 'a survival arena game'); assert made['game'] == 'arena' and made['objects'][0]['role'] == 'player'
 
 
+def test_a_centerpiece_alone_is_a_whole_scene_and_a_checker_cannot_put_a_hoodie_on_it():
+    scene, _ = ps.parse_reply(json.dumps({'brief': {'mood': 'space', 'centerpiece': 'blackhole', 'tint': '#00ffff', 'page': {'headline': 'G'}}}))
+    assert scene['hero'] == 'blackhole' and scene['tint'] == '#00ffff' and scene['world'] == 'nebula'
+    assert ps._frame({**scene, 'camera': [0, 0, 0]})['camera'][2] > 5
+    more, _ = ps.parse_reply(json.dumps({'add': [{'find': 'black hole with glowing particles'}, {'find': 'chain'}]}), scene)
+    assert [o['name'] for o in more['objects']] == ['chain'] and more['hero'] == 'blackhole'
+    assert ps.from_brief({'hero': 'black hole'})['hero'] == 'blackhole'
+    assert ps.ensure_named({'mood': 'noir', 'objects': []}, 'a story about three monitors')['objects'] == []
+
+
 def test_the_library_will_not_call_a_cannon_a_barrel(tmp_path):
     import asset_packs as a
     a._save(tmp_path, a.INDEX, {'at': 9e12, 'rows': {'model': [{'id': 'cannon_01', 'name': 'cannon 01', 'tags': ['barrel', 'weapon'], 'pop': 99}, {'id': 'Barrel_01', 'name': 'Barrel 01', 'tags': ['wood'], 'pop': 1}]}})
@@ -144,3 +154,16 @@ def test_what_was_turned_down_cannot_come_back():
     assert 'vintage camera' in ps.rejected_line(was) and ps.rejected_line(None) == ''
     got = ps.drop_rejected({'objects': [{'name': 'cam', 'find': 'vintage camera', 'asset': {'id': 'Camera_01'}}, {'name': 'other', 'asset': {'id': 'Camera_01'}}, {'name': 'x', 'find': 'star map', 'asset': {'id': 'ox-1'}}]}, was)
     assert [o['name'] for o in got['objects']] == ['x'] and ps.drop_rejected({'objects': [{'name': 'y'}]}, None)['objects'] == [{'name': 'y'}]
+
+
+def test_the_plan_fits_the_work():
+    import agent_features as af
+    assert 'THIS IS A GAME' in af.plan_sys('make me a playable game') and 'THIS IS A SHOP' in af.plan_sys('a store with a checkout') and 'THIS IS A COIN PAGE' in af.plan_sys('landing page for my memecoin')
+    assert af.plan_sys('something odd') == af.PLAN_SYS and 'THE PLAN' in af.ANSWER_SHAPES['content'] and 'THE PLAN' in af.ANSWER_SHAPES['research']
+
+
+def test_users_read_the_collective_not_the_internal_minds():
+    import feecat_service as fs
+    got = fs._as_collective({'talk': [{'by': 'OSSY', 'text': 'g4 agrees with ossy'}], 'n': 3, 'ok': True, 'rows': ['fine']})
+    assert got == {'talk': [{'by': 'The Collective', 'text': 'The Collective agrees with The Collective'}], 'n': 3, 'ok': True, 'rows': ['fine']}
+

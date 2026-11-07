@@ -208,6 +208,17 @@ def public_words(text):
     return text.replace('her AI desk', 'FeeCat AI')
 
 
+def _as_collective(obj):
+    """🔒 Every proof and job an owner opens speaks as The Collective (owner 2026-11-07: "users shouldnt know about ossy and g4"). Only words change. Pure (tests)."""
+    if isinstance(obj, str):
+        return _INTERNAL.sub('The Collective', obj) if _INTERNAL.search(obj) else obj
+    if isinstance(obj, list):
+        return [_as_collective(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _as_collective(v) for k, v in obj.items()}
+    return obj
+
+
 def _no_keys(obj):
     """🔐 every cat on its way out: the sealed API keys stay on the server — the page gets the drawer (provider · last 4 · wired)."""
     if isinstance(obj, list):
@@ -6328,7 +6339,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if print_:
         scene = _play.apply_print(scene, print_); _play_save(cat_id, 'prints', ([*(_play_load(cat_id, 'prints') or []), print_])[-40:])
     scene = _play.lead_up(await resolve(scene))
-    if print_ and not any(o.get('asset') for o in scene['objects']):   # nothing named is in the library: a code-built centrepiece holds the set, and the message names what was missing
+    if print_ and not scene.get('hero') and not any(o.get('asset') for o in scene['objects']):   # nothing named is in the library: a code-built centrepiece holds the set, and the message names what was missing
         scene['hero'] = _play.HEROES[len(prompt) % len(_play.HEROES)]
     if not scene['objects'] and not scene.get('hero'):
         _feat.add_msg(doc, by, f"Nothing it asked for exists in the library: {', '.join(seen_missing[:6])}. Nothing changed. Try other words.", time.time())
@@ -6337,7 +6348,9 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     try:
         raw, usd, own2 = await _ws_ask(cat, checker, _play.CHECK_SYS, f'THE FULL PROMPT: {prompt}\nTHE BUILD: {_play.build_summary(scene)}', 1500); cost += usd; own = own or own2
         fixed, checked = _play.parse_reply(raw, scene, prompt); light_ = scene.get('hdri')
-        if fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
+        if fixed and scene.get('hero') and scene.get('mood'):   # a code-drawn centrepiece looks like an empty set to a checker: it put a literal button model under the black hole
+            fixed = {**scene, 'page': _play.keep_page(scene.get('page'), fixed.get('page'), text)}; scene = fixed; checked = checked or 'The words were checked'
+        elif fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
             checked = 'The check found nothing to add'
         elif fixed:
             fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); fixed, kept_ = _play.keep_monitors(fixed, scene, text, prompt); scene = await resolve(_play.ensure_named(fixed, kept_))   # the check fixes what is missing: the light the builder chose stands
@@ -6356,7 +6369,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
     html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {print_['layout']}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -6384,7 +6397,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 menu_ = '\n'.join(f"{i + 1}. {r['title']} ({r['source']}, {r['score']}): {r['why']}" for i, r in enumerate(open_)) or 'None found.'
                 plan_ = _OR_PLUGINS.set(tuple(_feat.or_plugins(cfg_, json_reply=True)))
                 try:
-                    raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.PLAN_SYS + _feat._sources.proof_line('pos') + read_ + _recall(cat, 'Code', text) + _foot.note('pos', cat.get('psFolders')), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
+                    raw_, usd_, own_ = await _ws_ask(cat, brains[order[0]], _feat.plan_sys(text) + _feat._sources.proof_line('pos') + read_ + _recall(cat, 'Code', text) + _foot.note('pos', cat.get('psFolders')), f'The owner wants: {text}\nReferences:\n{menu_}', 420)
                 finally:
                     _OR_PLUGINS.reset(plan_)
                 cost += usd_; paid_own = own_; doc['lastCost'] = round(cost, 6); doc['plan'] = {'ask': text, 'to': to, 'allRefs': refs_, 'plan': _feat.parse_plan(raw_, open_), 'by': name(order[0]), 'at': round(time.time()), 'approved': not cfg_['suggest']}
@@ -6445,7 +6458,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     _feat.add_msg(doc, name(i), f'{stop_why} Nothing changed, and the last page is safe.', time.time())
                 _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
         else:
-            sys_ = _feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS
+            sys_ = (_feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS) + ' ' + _feat.ANSWER_SHAPES.get(kind, '')
             past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1])
             for i in order:
                 raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
@@ -8585,7 +8598,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 row_ = await _run_order(store, cat, text, http_o)
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': text[:400], 'at': time.time()}, {'by': 'cats', 'text': row_['why'], 'at': time.time()}])[-40:]
             keep_owned(cat); _save(store)
-            return {**_work_view(cat_id, owner=True), 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
+            return {**_as_collective(_work_view(cat_id, owner=True)), 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
         if busy:   # 🏇 let it go: it takes the next ask the moment this one ends
             q_ = list(cat.get('workQueue') or [])
             if len(q_) >= HANDOFF_MAX:
@@ -8601,7 +8614,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             if watching_:
                 _WORK[cat_id]['task']['watch'] = True   # 👁 files as its own folder when it finishes
             keep_owned(cat); _save(store)
-    out = _work_view(cat_id, owner=True)
+    out = _as_collective(_work_view(cat_id, owner=True))
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),

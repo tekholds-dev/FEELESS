@@ -150,7 +150,7 @@ def _head(query):
     return _stem(words[-1]) if words else ''
 
 
-def best(root, query, kind, avoid=()):
+def best(root, query, kind, avoid=(), strict=False):
     """The one asset for a description, only if it really is that thing. A chair must be a chair, and a near miss counts as not found, so nothing is ever swapped for something else. What this agent already used comes last, so it stops repeating itself."""
     head = _head(query); rows = (_load(root, INDEX).get('rows') or {}).get(kind) or []; words = _words(query); fits = []
     if kind == 'model' and head:
@@ -165,6 +165,9 @@ def best(root, query, kind, avoid=()):
     named = [r for r in fits if head in {_stem(w) for w in _words(r['name'])}]   # a thing called a barrel beats one merely tagged with the word: a cannon is tagged barrel
     if kind == 'model' and head:
         fits = named or [r for r in fits if not r.get('lic')]   # a loose tag on an outside upload is not enough to call it that thing
+        if strict:   # a supporting thing has to match what was asked, or it is left out: "glass fragment" is not a wall fragment
+            asked = {_stem(w) for w in words}
+            fits = [r for r in fits if not r.get('lic') or len(asked & {_stem(w) for w in _words(r['name'])}) * 2 > len(asked) or len(asked) < 2]
         if not fits:
             return None
     return sorted(fits, key=lambda r: (r['id'] not in avoid, _score(r, words)), reverse=True)[0]
@@ -257,7 +260,7 @@ async def fill(http, root, scene, many=False, avoid=()):
     used = []; missing = []
     for o in scene.get('objects') or []:
         if o.get('find') and not o.get('asset'):
-            hit = None if _head(o['find']) in MATERIAL_WORDS or any(p[3].search(o['find']) for p in SET_PIECES) else best(root, o['find'], 'model', avoid); got = await resolve(http, root, hit['id'], 'model') if hit else None
+            hit = None if _head(o['find']) in MATERIAL_WORDS or any(p[3].search(o['find']) for p in SET_PIECES) else best(root, o['find'], 'model', avoid, strict=bool(scene.get('mood')) and (bool(scene.get('hero')) or bool(o['pos'][0] or o['pos'][2]))); got = await resolve(http, root, hit['id'], 'model') if hit else None
             if not got and _head(o['find']) in MATERIAL_WORDS:   # "polished marble" is a surface, not a thing to fetch
                 o['find'] = f"{o['find']} stage"
             if got:

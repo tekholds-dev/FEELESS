@@ -159,3 +159,20 @@ body.kd-theater-on .terminal-footer { visibility: hidden; }   /* the page footer
 @media (max-width: 900px) { body.kd-theater-on .terminal-footer { visibility: visible; } .kd.is-theater { position: relative; top: auto; left: auto; overflow: visible; padding: 0; } }
 body.theme-day .kd-limits .kd-lim { border-color: #2a165018; background: #ffffffa0; }
 @media (max-width: 640px) { .kd-limits form > .m-btn { width: 100%; } }
+
+/* 🧭 A clean desk (owner 2026-11-07): one tidy bar, its tabs attached, the work filling the page. The wallpaper stays quiet behind it. */
+.kd.is-tabbed:not(.is-theater) { gap: 8px; }
+.kd.is-tabbed .kd-wall { opacity: .3; }
+.kd.is-tabbed .kd-hero { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 0; padding: 8px 12px; border-radius: 14px 14px 0 0; border: 1px solid #ffffff17; border-bottom: 0; background: #090e0cf5; box-shadow: inset 0 1px 0 #ffffff14; }
+.kd.is-tabbed .kd-hero .kd-stage { width: 54px; height: 54px; overflow: hidden; border-radius: 12px; background: #ffffff0a; display: grid; place-items: center; } .kd.is-tabbed .kd-hero .kd-stage { position: relative; } .kd.is-tabbed .kd-hero .kd-stage > * { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.3); transform-origin: center; } .kd.is-tabbed .kd-hero .kd-spot, .kd.is-tabbed .kd-hero .kd-floor { display: none; }
+.kd.is-tabbed .kd-hero .kd-id { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; } .kd.is-tabbed .kd-hero h1 { order: -1; margin: 0; font-size: clamp(18px, 1.8vw, 22px); line-height: 1.1; } .kd.is-tabbed .kd-hero h1 small { margin-left: 6px; }
+.kd.is-tabbed .kd-hero .kd-xp { width: 130px; margin: 0; } .kd.is-tabbed .kd-hero .kd-line { flex-basis: 100%; order: 5; margin: 0; font-size: 11px; opacity: .72; } .kd.is-tabbed .kd-hero .kd-wallet { margin: 0; min-height: 28px; } .kd.is-tabbed .kd-hero .kd-dl { display: none; }
+.kd.is-tabbed > .kd-lit { padding-top: 0; } .kd.is-tabbed > .kd-lit > .lamp { display: none; } .kd.is-tabbed > .ckb, .kd.is-tabbed .kd-wall { opacity: .28; }
+.kd.is-tabbed .kd-hero .kd-xp { white-space: nowrap; flex-wrap: nowrap; }
+.kd.is-tabbed > .kd-tabs { display: flex; width: 100%; box-sizing: border-box; margin: -8px 0 0; padding: 0 10px; gap: 2px; border: 1px solid #ffffff17; border-top: 1px solid #ffffff0f; border-radius: 0 0 14px 14px; background: #090e0cf5; box-shadow: none; }
+.kd.is-tabbed > .kd-tabs button { min-height: 38px; padding-inline: 14px; border-radius: 0; background: none; color: #a7bcb0; border-bottom: 2px solid transparent; box-shadow: none; transition: color .14s ease, border-color .14s ease; }
+.kd.is-tabbed > .kd-tabs button:hover { color: #fff; } .kd.is-tabbed > .kd-tabs button:active { color: #45e486; } .kd.is-tabbed > .kd-tabs button:focus-visible { outline: 2px solid #45e486; outline-offset: -2px; } .kd.is-tabbed > .kd-tabs button.active { background: none; color: #fff; border-bottom-color: #15d16a; }
+.kd.is-tabbed > .kd-tabs button:last-child { margin-left: auto; color: #45e486; }
+body.theme-day .kd.is-tabbed .kd-hero, body.theme-day .kd.is-tabbed > .kd-tabs { background: #fff; border-color: #0000001a; } body.theme-day .kd.is-tabbed > .kd-tabs button { color: #30493c; } body.theme-day .kd.is-tabbed > .kd-tabs button.active, body.theme-day .kd.is-tabbed > .kd-tabs button:hover { color: #0d2a1b; }
+@media (max-width: 640px) { .kd.is-tabbed .kd-hero { grid-template-columns: 44px minmax(0, 1fr); } .kd.is-tabbed .kd-hero .kd-stage { width: 44px; height: 44px; } .kd.is-tabbed .kd-hero .kd-acts { grid-column: 1 / -1; } .kd.is-tabbed .kd-hero .kd-xp { display: none; } .kd.is-tabbed > .kd-tabs { padding: 0; } .kd.is-tabbed > .kd-tabs button { flex: 1; padding-inline: 6px; } }
+.kd.is-tabbed > .kd-lit > .ck-log { width: 100%; max-width: none; margin-inline: 0; box-sizing: border-box; }
