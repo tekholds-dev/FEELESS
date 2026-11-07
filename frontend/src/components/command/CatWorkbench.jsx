@@ -268,7 +268,18 @@ export function Turns({ items, every = 3500 }) {
   return <div className="cwb-turns" data-testid="cwb-turns">{shown.map((x, i) => <div key={x.key ?? i} className={`cwb-turn${i === at % n ? ' is-on' : ''}`}>{x}</div>)}</div>;
 }
 const HELD_PHASES = ['watch', 'research', 'decide', 'sell'];
-export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null }) {
+// 🙋 A window waiting on its owner: its time runs out only once they stop moving here. A click inside its browser counts, since moves there never reach this page.
+function useHereWhileWaiting(on, catId, i) {
+  useEffect(() => {
+    if (!on) return undefined;
+    let moved = Date.now(); const mark = () => { moved = Date.now(); };
+    const say = () => { if (!document.hidden && (Date.now() - moved < 30000 || document.activeElement?.tagName === 'IFRAME')) Promise.resolve().then(() => work(catId, { op: 'human_here', i })).catch(() => {}); };
+    document.addEventListener('pointermove', mark, { passive: true }); document.addEventListener('keydown', mark);
+    say(); const t = setInterval(say, 30000);
+    return () => { clearInterval(t); document.removeEventListener('pointermove', mark); document.removeEventListener('keydown', mark); };
+  }, [on, catId, i]);
+}
+export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null }) {
   const { drop, tray } = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
@@ -280,8 +291,10 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
   const notAsked = !w?.goal && /not asked/.test(w?.bubble || w?.note || '');
   const chart = tab === 'chart' && !browserOnly && !roundOver && w?.coin?.pair;
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
-  const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
+  const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false); const [fill, setFill] = useState(false);
   const i = w?.i ?? 0; const sl = w?.slot ?? i;
+  useHereWhileWaiting(!!human, catId, i);
+  const typeBar = fill && human && w?.hand ? <TypeBar cat={{ id: catId }} work={work} d={d} op="win_type" extra={{ i }} /> : null;
   const powHeld = folder && ['watch', 'research', 'decide', 'sell'].includes(folder.phase);   // ⛏ a PoW folder runs: this monitor is working, never 'idle'
   const rIdx = folder?.phase === 'scout' ? (folder.rMind ?? 0) : ((folder?.rounds || 0) % Math.max(1, folder?.minds || 1));   // 🔁 who researches this round
   const rPairM = folder?.rPair?.[sl - (folder?.base || 0)];   // 🏇 a pair round: this mind's own coin
@@ -316,6 +329,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
+      {typeBar ? createPortal(<div className="cwb-fill-float" data-testid="cwb-fill-float">{typeBar}</div>, document.body) : null}
       <div className={`cwb-dock at-${sl % 2 ? 'right' : 'left'}`}><Turns items={[folder?.entry && HELD_PHASES.includes(folder.phase) && !roundOver ? <PowPnl key="trade" f={folder} /> : null,
         tray.length ? <ul key="tray" className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true"><Ic3 e={t.icon} /></i>{t.label}</li>)}</ul> : null,
         w?.bubble && w?.status !== 'idle' && !human && !roundOver ? <p key="say" className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null]} /></div>
@@ -330,6 +344,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           {w.live ? <button type="button" className="m-btn" onClick={() => setBig(true)} data-testid="cwb-human-big" data-tip="Open its window big on your desktop to pass the check yourself">⤢ Open big</button> : null}
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
+      {human && w?.hand ? <div className="cwb-fill" data-testid="cwb-fill"><button type="button" className={`m-btn${fill ? ' is-on' : ''}`} aria-pressed={fill} onClick={() => setFill(f => !f)} data-tip="Send an email, a code or any words into the box you selected in its browser. Never stored, never sent to a model" data-testid="cwb-fill-open">⌨ Email and code</button>{w.human.kind === 'login' && w.live ? <button type="button" className="m-btn" onClick={() => setBig(true)} data-tip="Open its window big and sign in yourself" data-testid="cwb-login-big">⤢ Open big</button> : null}{w.human.kind === 'login' ? <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('continue', w.i)} data-tip="You signed in yourself: the agent goes on" data-testid="cwb-login-done">I did it</button> : null}<small>It waits while you move here, up to 30 min.</small></div> : null}
   </article>;
 }
 
@@ -1451,7 +1466,7 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
-    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}

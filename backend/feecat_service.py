@@ -4744,6 +4744,22 @@ def _src_note(host, ok):
 
 
 HUMAN_WAIT_S = 300   # ⏸ a window waits this long for you (sign-in / bot check), then the task is filed and the agent moves on
+HUMAN_ACTIVE_S = 90   # 🙋 moved on its watch screen this recently: the window keeps waiting past its time
+HUMAN_MAX_S = 1800    # however long you are active, a window never holds its task longer than this
+
+
+async def _human_wait(ev, base_s, seen_at):
+    """Wait for the owner's answer. The time runs out only once they have stopped moving on the watch screen. seen_at() → when they last moved."""
+    started = time.time(); limit = base_s
+    while True:
+        try:
+            await asyncio.wait_for(ev.wait(), max(0.01, limit - (time.time() - started)))
+            return
+        except asyncio.TimeoutError:
+            now = time.time(); last = float(seen_at() or 0)
+            if now - last >= HUMAN_ACTIVE_S or now - started >= HUMAN_MAX_S:
+                raise
+            limit = min(HUMAN_MAX_S, last + HUMAN_ACTIVE_S - started)
 CHAT_KEEP = 60
 
 
@@ -4960,7 +4976,8 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 try:
                     if pg_:
                         await pg_.release()   # 🙋 hands off: you are alone in the window (a routed browser loops Cloudflare's box)
-                    await asyncio.wait_for(ev.wait(), BLOCK_PIVOT_S if check_ else HUMAN_WAIT_S)
+                    w.setdefault('connects', {})[i] = (sessions[i] or {}).get('connect') if i < len(sessions) else None   # runtime only: never in the task, its file or a view
+                    await _human_wait(ev, BLOCK_PIVOT_S if check_ else HUMAN_WAIT_S, lambda: (w.get('seen') or {}).get(i))
                 except asyncio.TimeoutError:   # ⏸ nobody answered: a bot check → the best other source; anything else is filed to come back to
                     if check_:
                         _challenge_note(cat_id, _src.host_of(h_.get('url') or win_.get('url')), 'timedOut')
@@ -4974,6 +4991,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     w['task'].setdefault('parked', []).append({'why': why_, 'url': h_.get('url') or win_.get('url'), 'mind': i})
                     return False
                 finally:
+                    (w.get('connects') or {}).pop(i, None); (w.get('seen') or {}).pop(i, None)
                     if pg_:
                         try:
                             await _seal_downloads(cat_id, (sessions[i] or {}).get('id') if i < len(sessions) else None, pg_, h_.get('site') or '')   # 🔏 what you downloaded there
@@ -7750,6 +7768,21 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Open the site first.')
         try:
             await asyncio.wait_for(_cb.type_into(si_['connect'], (p.text or '')[:2000] or None, p.job or None), 20)
+        except (ValueError, asyncio.TimeoutError) as e:
+            raise HTTPException(400, str(e)[:120] or 'The window did not answer.')
+        except Exception:
+            raise HTTPException(502, 'The window did not answer. Click in it, then try again.')
+        return {'ok': True}
+    if p.op == 'human_here':   # 🙋 the owner is moving on this window's watch screen: its wait goes on
+        (w or {}).setdefault('seen', {})[int(p.i or 0)] = time.time()
+        return {'ok': True}
+    if p.op == 'win_type':   # ⌨ the same type bar, into the window of the agent that is waiting on them. The owner's words only; never stored, never logged, never sent to a model
+        i_ = int(p.i or 0); to_ = ((w or {}).get('connects') or {}).get(i_)
+        if not to_:
+            raise HTTPException(400, 'This window is not waiting for you, or it has no live browser.')
+        w.setdefault('seen', {})[i_] = time.time()
+        try:
+            await asyncio.wait_for(_cb.type_into(to_, (p.text or '')[:2000] or None, p.job or None), 20)
         except (ValueError, asyncio.TimeoutError) as e:
             raise HTTPException(400, str(e)[:120] or 'The window did not answer.')
         except Exception:

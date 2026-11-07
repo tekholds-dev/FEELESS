@@ -710,3 +710,27 @@ def test_agent_slots_cap_every_user_and_the_owner_opens_more(monkeypatch, tmp_pa
         assert c.post('/api/cats/internal/supply', json={'open': 5000}, headers=h_).json()['open'] == 1000   # never past 1,000
         assert mk(c, 'v').status_code == 200 and c.get('/api/cats/supply').json()['taken'] == 2
         assert c.post('/api/cats/internal/supply', json={'open': 'x'}, headers=h_).status_code == 400
+
+
+def test_a_window_keeps_waiting_while_its_owner_moves_and_stops_when_they_leave(monkeypatch):
+    import time
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HUMAN_ACTIVE_S', 0.2)
+    async def go():
+        ev = asyncio.Event(); seen = {'at': time.time()}; t0 = time.time()
+        with pytest.raises(asyncio.TimeoutError):   # nobody moved: the plain time runs out
+            await fs._human_wait(ev, 0.05, lambda: None)
+        assert time.time() - t0 < 0.15
+        async def mover():
+            for _ in range(6):
+                seen['at'] = time.time(); await asyncio.sleep(0.05)
+        t0 = time.time(); task = asyncio.create_task(mover())
+        with pytest.raises(asyncio.TimeoutError):   # moved 0.3 s, then left: it waits for that and the grace, far past its 0.05 s
+            await fs._human_wait(ev, 0.05, lambda: seen['at'])
+        assert time.time() - t0 >= 0.4; await task
+        monkeypatch.setattr(fs, 'HUMAN_MAX_S', 0.1); t0 = time.time()
+        with pytest.raises(asyncio.TimeoutError):   # never past the cap, however active
+            await fs._human_wait(ev, 0.05, time.time)
+        assert time.time() - t0 < 0.3
+        ev.set(); await fs._human_wait(ev, 5, lambda: None)   # an answer ends it at once
+    asyncio.run(go())

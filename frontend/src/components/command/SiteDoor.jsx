@@ -28,11 +28,11 @@ const IconDot = () => <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8"
 
 // One sign-in window everywhere: the Vault's Signed-in sites and each proof folder's door.
 // ⌨ Typing inside a cloud window is slow and paste often fails, so this box sends your words straight into whichever box you selected in the window. Never stored, never sent to a model.
-export function TypeBar({ cat, work, d }) {
+export function TypeBar({ cat, work, d, op = 'signin_type', extra = null }) {
   const [text, setText] = useState(''); const [hide, setHide] = useState(false); const [busy, setBusy] = useState(''); const [note, setNote] = useState(''); const email = d?.mailbox?.address;
   const [mine, setMine] = useState(() => { try { return localStorage.getItem('feeless.my.email') || ''; } catch { return ''; } });
   const keepMine = v => { setMine(v); try { if (v) localStorage.setItem('feeless.my.email', v); else localStorage.removeItem('feeless.my.email'); } catch { /* private window */ } };
-  const send = async (body, label = 'send') => { setBusy(label); setNote(''); try { await work(cat.id, { op: 'signin_type', ...body }); if (body.text) setNote('Sent into the selected box.'); return true; } catch (e) { setNote(e.message); return false; } finally { setBusy(''); } };
+  const send = async (body, label = 'send') => { setBusy(label); setNote(''); try { await work(cat.id, { op, ...extra, ...body }); if (body.text) setNote('Sent into the selected box.'); return true; } catch (e) { setNote(e.message); return false; } finally { setBusy(''); } };
   const paste = async () => { try { const t = await navigator.clipboard.readText(); if (t) setText(t.trim()); else setNote('Nothing is copied.'); } catch { setNote('Your browser blocked it. Press ⌘V or Ctrl+V in this box.'); } };
   const code = async () => { setBusy('code'); setNote(''); try { const j = await work(cat.id, { op: 'mail_read' }); const c = (j.mail || []).find(m => m.code)?.code; if (c) await send({ text: String(c) }, 'code'); else setNote('No code in its mail yet. Wait a moment, then try again.'); } catch (e) { setNote(e.message); } finally { setBusy(''); } };
   return <form className="sd-type" onSubmit={async e => { e.preventDefault(); if (text && await send({ text })) setText(''); }} data-testid="sd-type">

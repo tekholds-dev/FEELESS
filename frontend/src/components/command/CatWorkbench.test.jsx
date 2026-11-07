@@ -567,3 +567,15 @@ test('a folded folder has one icon on the desktop and every sibling one tab away
   expect(foldGroup('mail')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('browser')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('manual')).toEqual(['manual', 'terms', 'cmds', 'deskset']); expect(foldGroup('pow')).toBeNull();
   Object.values(FOLD_INTO).forEach(home => expect(FOLD_INTO[home]).toBeUndefined());   // never a folder inside a folder inside a folder
 });
+
+test('a waiting window takes an email or code on the watch screen and says it is still there', async () => {
+  const body = []; const fetchWas = global.fetch;
+  global.fetch = jest.fn(async (_, o) => { body.push(JSON.parse(o?.body || '{}')); return { ok: true, status: 200, json: async () => ({ ok: true }) }; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<Window w={{ i: 1, slot: 1, status: 'human', hand: 'https://live.test/h', live: 'https://live.test/v', human: { kind: 'login', site: 'x.com' } }} catId="c" tick={0} d={{ mailbox: { address: 'a@b.co' } }} onGo={() => {}} />); });
+  expect(body.some(b => b.op === 'human_here' && b.i === 1)).toBe(true);
+  await act(async () => { el.querySelector('[data-testid=cwb-fill-open]').click(); });
+  await act(async () => { document.querySelector('[data-testid=sd-type-email]').click(); });
+  expect(body.some(b => b.op === 'win_type' && b.i === 1 && b.text === 'a@b.co')).toBe(true);
+  global.fetch = fetchWas; el.remove();
+});
