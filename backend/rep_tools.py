@@ -156,3 +156,10 @@ async def admin_ai_limits_run(request: Request):
     _LIMITS['busy'] = {'key': k_, 'name': seat_['name'], 'set': set_ or 'none', 'at': round(time.time())}
     asyncio.create_task(_limits_run(k_, seat_, text_, _rs()._pstu.LABEL.get(set_, 'No overlay')))
     return {'busy': _LIMITS['busy']}
+
+
+@router.get('/api/reputation/pool-rates')
+async def pool_rates():
+    """🪙 Public: today's typical yearly rates, for examples of what a stake could earn. Read from the same board the owner sees, at most every 5 minutes. Rates only, no wallets."""
+    import grow_board as _gb
+    return _gb.rates(await _rs()._grow_rows())

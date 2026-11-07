@@ -134,3 +134,13 @@ def _ts(v):
 def view(row):
     """What the page gets for a row. The raw venue row stays only for pools, where its band card reads it."""
     return {k: v for k, v in row.items() if k != 'liq'}
+
+
+def rates(rows):
+    """Today's reference yields, % a year, from the live board: the middle lending rate, the middle deep pool, and a hot deep pool (top quarter). Reference numbers for an example, never a promise."""
+    def mid(v):
+        v = sorted(v)
+        return round(v[len(v) // 2], 2) if v else None
+    lend = [_f(r.get('yearPct')) for r in rows or [] if r.get('kind') == 'lend']
+    pool = sorted(_f(r.get('yearPct')) for r in rows or [] if r.get('kind') == 'pool' and _f(r.get('tvl')) >= 1_000_000 and _f(r.get('yearPct')) > 0)
+    return {'lendPct': mid(lend), 'poolPct': mid(pool), 'hotPct': round(pool[int(len(pool) * 0.75)], 2) if pool else None, 'pools': len(pool), 'lends': len(lend)}

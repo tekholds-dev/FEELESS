@@ -1,13 +1,10 @@
-import { ProgressCircle } from '@heroui/react';
-import { LedgerBars, Tile } from './HoneyTanks';
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
 import { SourceWins } from './Proofprint';
-import { GrowthCalc, usePoolRules, money } from './SplitFlow';
-import { KeepDeal, pointsFor } from './KeepDeal';
+import { usePoolRules } from './SplitFlow';
+import { KeepDeal } from './KeepDeal';
 import { StashWeb } from './StashWeb';
-import { Roll } from './CollectiveSetup';
 import '../../styles/collectiveLanding.css';
 
 // 🧬 THE COLLECTIVE'S FRONT PAGE (owner 2026-11-05, from their lab file). The living print is theirs; every bright cell here is a REAL proof from the server, the rest is the print's own texture. The diagram below is React Flow on the real rules. Nothing is invented.
@@ -57,45 +54,31 @@ function LivePrint({ proofs, colors, glow }) {
     {!cells.length ? <p className="cll-empty">No proof has been sent yet. The first one lights up here.</p> : !sel ? <p className="cll-hint">Tap a bright cell for its proof</p> : null}
     {sel ? <><svg className="cll-wire" aria-hidden="true"><path ref={path} /><circle ref={dot} r="5" /></svg><article ref={wire} className="cll-card" data-testid="cll-card" onPointerDown={e => e.stopPropagation()}><header><small>REAL PROOF</small><button type="button" onClick={close} aria-label="Close" data-tip="Close" data-testid="cll-card-close">✕</button></header><h4>{sel.label || 'Proof'}</h4><dl>{[['CLASS', CLASS[sel.kind] || 'Proof'], ['AGENT', sel.agent || '—'], ['RESULT', sel.pct != null ? `${sel.pct >= 0 ? '+' : ''}${Number(sel.pct).toFixed(1)}%` : '—'], ['WHEN', sel.at ? new Date(sel.at * 1000).toLocaleDateString() : '—']].map(([k, val]) => <div key={k}><dt>{k}</dt><dd className="m-num">{val}</dd></div>)}</dl>{sel.sent?.link ? <a href={sel.sent.link} target="_blank" rel="noopener noreferrer" data-tip="See what it sent on-chain">Transaction ↗</a> : null}</article></> : null}</div>;
 }
-const STAGES = [['trade', 'Agent trade', 'A trade closes. Only a win of +50% or more can send a proof.'], ['proof', 'Proof sent', 'Its own wallet sends a share of the win, with its receipt and snapshots.'], ['checks', 'Five checks', 'Tally, Sherlock, Devil, Archivist and the Judge each read the record.'], ['keep', 'Collective', 'All of it is staked in the pools, on a sealed record. A send never pays a reward.'], ['lock', 'Points', 'Its dollars x its boost at that send. Each one counts once.'], ['back', 'Your rewards', 'Rewards come from real fees, sooner at a higher rank. A month can pay nothing. Taking them out stays off for now.']];
-function flowOf(sc, r, profit, share) { const send = sc === 'win' ? profit * share / 100 : 0; return { send, kept: send, low: pointsFor(send, 0), high: pointsFor(send, 300) }; }
-const pts = v => Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
-export function Signal() {
-  const r = usePoolRules(); const [sc, setSc] = useState('win'); const [profit, setProfit] = useState(200); const [share, setShare] = useState(10); const [pick, setPick] = useState('trade'); const f = flowOf(sc, r, profit, share);
-  const live = sc === 'win'; const on = STAGES.find(x => x[0] === pick);
-  const seg = (label, val, set, opts, fmt, id) => <span className="cll-seg"><small>{label}</small><span className="m-seg" role="group" aria-label={label}>{opts.map(o => <button key={o} type="button" className={val === o ? 'active' : ''} aria-pressed={val === o} onClick={() => set(o)} data-testid={`cll-${id}-${o}`}>{fmt(o)}</button>)}</span></span>;
-  return <section className="cll-sec" data-testid="cll-signal"><header><small>HOW IT WORKS</small><h3>Follow the proof.</h3><p>Pick what happened. These are the live rules, on your numbers. An example, not a promise.</p></header>
-    <div className="cll-ctls">{seg('WHAT HAPPENED', sc, setSc, ['win', 'loss', 'swap'], o => ({ win: 'A winning trade', loss: 'A losing trade', swap: 'A swap by anyone' }[o]), 'sc')}{live ? seg('THE WIN', profit, setProfit, [50, 200, 1000], o => `$${o}`, 'win') : null}{live ? seg('IT SENDS', share, setShare, [5, 10, 25], o => `${o}%`, 'share') : null}</div>
-    <ol className="cll-steps" data-testid="cll-steps">{STAGES.map(([id, label], i) => <li key={id} style={{ '--i': i }}><button type="button" className={`cll-step${pick === id ? ' is-on' : ''}${!live && i > 0 ? ' is-off' : ''}`} aria-pressed={pick === id} onClick={() => setPick(id)} data-tip="Tap to read this step" data-testid={`cll-step-${id}`}><small className="m-num">{String(i + 1).padStart(2, '0')}</small><b>{label}</b></button></li>)}</ol>
-    <p className="cll-now" data-testid="cll-now"><b>{sc === 'loss' ? 'A losing trade' : sc === 'swap' ? 'A swap by anyone' : on?.[1]}</b> {sc === 'loss' ? 'A losing trade sends nothing, and nothing moves here.' : sc === 'swap' ? 'Agent fees are income for the Collective. It is a separate path: no proof, no points.' : on?.[2]}</p>
-    <div className="ht-row" data-testid="cll-nums">
-      <section className="ht-chart"><Suspense fallback={<div className="ht-wait" />}><LedgerBars rows={[['The win', live ? profit : 0, '#57c7ff'], ['It sends', f.send, '#ffb454'], ['Staked in the pools', f.kept, '#3ee58a']]} fmt={money} unit="" testid="cll-bars" /></Suspense></section>
-      <section className="ht-ring" data-tip="The part of the win this proof sends"><ProgressCircle aria-label="Part of the win it sends" value={live ? share : 0} className="ht-circle"><ProgressCircle.Track><ProgressCircle.TrackCircle /><ProgressCircle.FillCircle /></ProgressCircle.Track></ProgressCircle><div><small>OF THE WIN</small><b className="m-num">{live ? `${share}%` : '—'}</b><em>{live ? 'goes in the proof' : 'nothing sent'}</em></div></section>
-      <div className="ht-tiles"><Tile label="IT SENDS" color="#ffb454" value={money(f.send)} sub="in the proof" tip="What its wallet sends" /><Tile label="IN THE POOLS" color="#3ee58a" value={money(f.kept)} sub="staked" tip="All of it works in the pools. A send never pays a reward" /><Tile label="MOST IT CAN EARN, SCORE 100" color="#57c7ff" value={pts(f.low)} sub="1x" tip="The most it could earn at the lowest grade" /><Tile label="MOST IT CAN EARN, SCORE 300" color="#c58bff" value={pts(f.high)} sub="3x, if flawless" tip="The most it could earn at the top grade" /></div>
-    </div></section>;
-}
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
 function ThemePicker({ look, setLook, call }) {
   const [open, setOpen] = useState(false); const [err, setErr] = useState('');
   const save = async next => { setLook(next); setErr(''); try { await call('/admin/collective-look', { method: 'POST', body: JSON.stringify(next) }); } catch (e) { setErr(e.message); } };
   return <div className="cll-theme"><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="Owner only: the Collective's colors, for everyone" data-testid="cll-colors">◈ Colors</button>{open ? <div className="cll-pal" data-testid="cll-palette"><div className="cll-swatches">{THEMES.map(([name, cols]) => <button key={name} type="button" className={look.theme === name ? 'is-on' : ''} style={{ background: `linear-gradient(135deg, ${cols.join(',')})` }} onClick={() => save({ ...look, theme: name })} aria-label={name} data-tip={name} data-testid={`cll-theme-${name}`} />)}</div><label><small>GLOW {look.glow}%</small><input type="range" min="0" max="100" value={look.glow} onChange={e => setLook({ ...look, glow: Number(e.target.value) })} onPointerUp={() => save(look)} onKeyUp={() => save(look)} aria-label="Glow" data-testid="cll-glow" /></label>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div> : null}</div>;
 }
-// 💡 Why an agent sends, said plainly, from the live rules.
-function WhySend() {
-  const r = usePoolRules(); if (!r) return null;
-  return <section className="cll-sec" data-testid="cll-why"><header><small>WHY AN AGENT SENDS</small><h3>A graded stake and a cut of every pool.</h3></header><KeepDeal rules={r} testid="cll-deal" /></section>;
+// 🧮 What pays: real amounts on the live rules.
+function WhatPays() { const r = usePoolRules(); return r ? <KeepDeal rules={r} score={r.score} testid="cll-deal" /> : <p className="cll-hint is-static">Reading the live rules…</p>; }
+function TheRecord() {
+  return <div className="cll-record" data-testid="cll-record"><section data-testid="cll-gates"><small>BEFORE IT COUNTS</small><h3>Five checks. One record.</h3><ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} style={{ '--i': i }}><small>{String(i + 1).padStart(2, '0')}</small><b>{n}</b><p>{q}</p></li>)}</ol><p className="cll-end-line">Visitors see a proof's reference, agent name, type and result. Its evidence stays with its owner. What comes back depends on real money in the wallet: nothing here creates a return.</p></section><section data-testid="cll-wins"><small>WHAT WE PROVIDE</small><h3>The sources that win.</h3><SourceWins /></section></div>;
 }
-export function CollectiveLanding() {
-  const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 });
+const VIEWS = [['print', 'The print', 'The living print. Every bright cell is a real proof'], ['pays', 'What pays', 'Real amounts on the live rules, from $1 up'], ['record', 'The record', 'The five checks, and the sources that win'], ['stash', 'The stash', 'Every source the agents use, by size']];
+export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
+  const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 }); const [view, setView] = useState('print');
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) fetch(apiUrl('/api/cats/colony/flow?limit=40')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setProofs(j.proofs || []); }).catch(() => {}); }; go(); fetch(apiUrl('/api/cats/collective/look')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j?.theme) setLook(j); }).catch(() => {}); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, []);
   const cols = (THEMES.find(t => t[0] === look.theme) || THEMES[0])[1]; const colors = useMemo(() => [cols[1], cols[0], cols[2]], [look.theme]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const tabs = more ? [...VIEWS, ['more', moreLabel, 'Every agent and its proofs']] : VIEWS;
   return <div className="cll" style={{ '--cll-a': cols[0], '--cll-b': cols[1], '--cll-c': cols[2] }} data-testid="collective-landing">
-    <section className="cll-hero"><LivePrint proofs={proofs} colors={colors} glow={look.glow / 100} /><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>Every proof leaves a trace. Every agent shapes the signature. Enter the Collective through its living fingerprint.</p></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section>
-    <WhySend />
-    <Signal />
-    <section className="cll-sec" data-testid="cll-gates"><header><small>BEFORE IT COUNTS</small><h3>Five checks. One record.</h3></header><ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} style={{ '--i': i }}><small>{String(i + 1).padStart(2, '0')}</small><b>{n}</b><p>{q}</p></li>)}</ol></section>
-    <section className="cll-sec" data-testid="cll-wins"><header><small>WHAT WE PROVIDE</small><h3>The sources that win.</h3><p>Every ridge is a kind of source our agents use. Real graded proofs make it, and the more a source is tested, the more it weighs.</p></header><SourceWins /></section>
-    <section className="cll-sec" data-testid="cll-web"><header><small>WHERE IT ALL COMES FROM</small><h3>Every source, by size.</h3></header><StashWeb testid="cll-stash" /></section>
-    <section className="cll-sec cll-end"><small>WHAT STAYS PRIVATE</small><p>Visitors see a proof's reference, agent name, type and result. Its evidence stays with its owner. What comes back depends on real money in the wallet: nothing on this page creates a return.</p></section>
+    <nav className="cll-nav"><span className="m-seg" role="tablist" aria-label="The Collective">{tabs.map(([k, l, t]) => <button key={k} type="button" role="tab" className={view === k ? 'active' : ''} aria-selected={view === k} onClick={() => setView(k)} data-tip={t} data-testid={`cll-view-${k}`}>{l}</button>)}</span></nav>
+    <div className={`cll-view is-${view}`} key={view}>
+      {view === 'print' ? <section className="cll-hero"><LivePrint proofs={proofs} colors={colors} glow={look.glow / 100} /><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>Every proof leaves a trace. Every agent shapes the signature. Enter the Collective through its living fingerprint.</p></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
+      {view === 'pays' ? <WhatPays /> : null}
+      {view === 'record' ? <TheRecord /> : null}
+      {view === 'stash' ? <section className="cll-sec" data-testid="cll-web"><StashWeb testid="cll-stash" /></section> : null}
+      {view === 'more' ? more : null}
+    </div>
   </div>;
 }

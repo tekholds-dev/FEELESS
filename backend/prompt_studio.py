@@ -77,13 +77,13 @@ def diagnose(st):
                         f"A clean trade gets at least {QUICK_MIN:g} minutes. Only the chart breaking (a lower low, the germ floor lost) or your own stop ends it sooner.", {'patience': 20, 'speed': -10}))
     if n >= 8 and s.get('wonPct') is not None and s['wonPct'] < 30:
         out.append(_fix('cold', 'entries lose', f"{s['wonPct']} % won over {n} real trades",
-                        'Buy only the proven setup: graduated, cap under $30K, buyers leading, a higher low above the germ floor. Anything else is WAIT.', {'risk': -15, 'speed': -10, 'discipline': 10}))
+                        'Buy only when trend, buyers and pool depth all agree and a higher low holds above the germ floor. Anything else is WAIT.', {'risk': -15, 'speed': -10, 'discipline': 10}))
     if s.get('favorN', 0) >= 30 and s.get('favorMed') is not None and s['favorMed'] <= 0 and (s.get('favorUp') or 0) < 50:
         out.append(_fix('favor', 'its FAVOR calls lose', f"last {s['favorN']} FAVOR calls: median {s['favorMed']:+.1f} %, {s['favorUp']} % up",
                         'Say FAVOR only when three facts agree (trend, buyers, pool depth). One or two = NEUTRAL.', {'risk': -10, 'discipline': 10}))
     if s.get('yesN', 0) >= 10 and s.get('yesRight') is not None and s['yesRight'] < 50:
         out.append(_fix('yes', 'its YES calls lose', f"{s['yesN']} YES calls graded: {s['yesRight']} % right, typical {s.get('yesTypical') if s.get('yesTypical') is not None else '—'} %",
-                        'YES only when graduated, cap under $30K, buyers over 55 % and the pool over $10K. Everything else is NO.', {'risk': -15, 'discipline': 10}))
+                        'YES only when the coin is off the bonding curve, past 15 minutes old, buyers over 55 % and the pool over $10K. Everything else is NO.', {'risk': -15, 'discipline': 10}))
     if n >= MIN_N and s.get('leftN', 0) >= max(3, 0.25 * n):
         out.append(_fix('runners', 'sells runners', f"{s['leftN']} of {n} coins ran +{RUNNER_AFTER:g} % or more after the sale",
                         'Never sell the whole bag into strength: while it makes higher highs with buyers leading, trim a third and trail the rest.', {'patience': 15}))
@@ -140,7 +140,7 @@ def sets(key, st, fixes=None, best=None):
                       "Set TP / SL before the buy and size only what the pool can take back. Once set, only the chart breaks your lines. "
                       f"Pick the setups that paid and nothing else — {rec}. Calm, exact, numbers in every line."),
             'degen': (f"DEGEN TRENCH MINDSET — {nm}, born in the trenches, ruled by the laws: a coin under 15 min old loses, the bonding curve is the worst bucket, "
-                      "graduated under $30K is the one setup that pays, exits are set before entry (+50 / −30). The germ floor is the base before the pump: "
+                      "no setup has proven itself on unseen coins yet, so size small. Exits are set before entry (+50 / −30). The germ floor is the base before the pump: "
                       "above it with buyers over 55 % and a higher low, you send it. A fresh pump with sellers leading is exit liquidity — never yours. "
                       f"Jeets dump the first green; you hold the germ, not the candle. {rec[0].upper() + rec[1:]}."),
             'progressive': (f"PROGRESSIVE MINDSET — {nm}: quick in, patient in profit. RUSH the entry once the move is confirmed (buyers leading, a higher low, "

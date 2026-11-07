@@ -58,3 +58,11 @@ def test_py_agents_practise_on_filed_proofs_and_keep_the_others_waiting():
     folders = pa.filed(store); assert len(folders) == 2
     rows = {r['k']: r for r in pa.record({}, folders)}
     assert rows['sherlock']['tried'] == 2 and rows['sherlock']['triedOk'] == 1 and rows['sherlock']['triedNo'] and rows['devil']['tried'] == 2 and 'tried' not in rows['tally'] and rows['tally']['checked'] == 0
+
+
+def test_rates_are_the_middle_of_real_rows_and_ignore_thin_pools():
+    import grow_board as gb
+    rows = [{'kind': 'lend', 'yearPct': 4}, {'kind': 'lend', 'yearPct': 8}, {'kind': 'lend', 'yearPct': 6}, {'kind': 'pool', 'tvl': 500, 'yearPct': 9000}, {'kind': 'pool', 'tvl': 2e6, 'yearPct': 20}, {'kind': 'pool', 'tvl': 2e6, 'yearPct': 40}, {'kind': 'pool', 'tvl': 2e6, 'yearPct': 80}, {'kind': 'pool', 'tvl': 2e6, 'yearPct': 160}, {'kind': 'stock', 'tvl': 2e6, 'yearPct': 0}]
+    r = gb.rates(rows)
+    assert r['lendPct'] == 6 and r['poolPct'] == 80 and r['hotPct'] == 160 and r['pools'] == 4
+    assert gb.rates([]) == {'lendPct': None, 'poolPct': None, 'hotPct': None, 'pools': 0, 'lends': 0}

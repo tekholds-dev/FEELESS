@@ -201,12 +201,31 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 # WHAT'S LEFT
 
+### Owner's newest list, 2026-11-06 evening, in this order (one at a time)
+Done and pushed: the failed "graduated under $30K" rule left the theory, the DEGEN mindset and the AUTO-TUNED fixes. Boost is one-screen dashboard (`BoostFolder.jsx`): ledger strip, proofs, the proof's real loop from `proof_plan`, the send, burn, pools. Collective is one screen per view (`CollectiveLanding.jsx`): The print, What pays (`KeepDeal`: real inputs, table from $1, live rates from `/api/reputation/pool-rates`), The record, The stash, Agents. "Follow the proof" is gone. HQ's money flow takes real amounts.
+1. PoStatic desk: why the chat text is green, and a way to finish when both minds stop or answer "held no page" at step 6 (it sits there with no way forward).
+2. Owner asked why Fuse > Agents exists (A02, from his old NSFA row). Waiting on his word to keep or remove it.
+3. Scoring: true mechanical weights and ranks per proof kind, so proofs do not all get the same judgement. Py agents learn scoring from OSSY and G4. New prompts by use case, or one overall for all proofs and agents.
+4. Git folder: cleaner and quicker to move on while cleaning, and a chat inside it.
+5. Money folder more advanced. Find better kits, add them to the stash, use them. Anything useful to proofs goes in the stash.
+6. Collective HQ still scrolls (about 1,100 px past its window): tighten it.
+7. GPT's capability list, checked against the code on 2026-11-06, see below. Its Collective Mathematics Auditor goes first.
+
+### GPT's capability list, checked against the code (owner: "make sure we are truly where we need to be")
+- Mathematics Auditor: PARTLY. `collective_pool.audit` walks a hash chain and `check_chain` compares the wallet to what it must hold, every 5 minutes. No independent replay that recalculates every reward, and no stress test of 1,000 agents, zero profit, losses, rounding, stale prices. Build this first.
+- Kit composer: NOT BUILT. `collective_kits.py` is a list agents can read and a popular-builds count. Nothing picks kits for a job, tests them in isolation and remembers the result.
+- Proving ground: PARTLY. Paper desk, arena and `scripts/theory-shadow.py` exist. No permanent arena with manipulated volume, latency and failures that gates live permission.
+- Shared intelligence without groupthink: PARTLY. `proof_loop.mind_board` credits minds and PoB and PoP minds call blind. No confidence calibration or disagreement tracking across agents. Joins next-list item 1.
+- Trusted stash supply chain: PARTLY. Kits carry a license and source. No manifest of permissions, dependencies, version or tests. Kits are text agents read, so they grant no wallet or file access today; that must stay true.
+- Evolution tracking: PARTLY. The cats' records and `ai_learn` exist. No promotion gate on held-out data for a new strategy.
+- `contracts/fuse_vault`: not run or audited here.
+
 ### Owner's next list, 2026-11-06, in order after A02, A04, Q02 (his words: newer requests go after prior ones, one at a time)
 1. Agents truly autonomous on the stash brain: file any proof, first read what any agent already filed, no researching the same thing twice, no made up predictions or content. Their fingerprint sharpens with every proof.
 2. Visitor view of an agent: no scroll, strong vitals.
 3. Each agent: encrypted, growing private database with select access. Clean desktop: no big buttons, nothing clipped or hidden, every mechanic wired.
 4. New Engine folder on Fee's and the Agents desktops: live data showing what each engine does for agents and the Collective.
-5. Boost and The Collective folders are the same thing: they must differ.
+5. Boost and The Collective folders: DONE 2026-11-06, see the newest list.
 6. Proof data must be true and complete so OSSY and G4 can make sense of it. They flagged rugcheck snapshots as bad though the marks were rich; they judged a future dated game as "hallucinated". Show the total score on each file. Make their scoring really good.
 Honest limit to keep saying: reading the record makes agents better informed, it cannot promise winning trades.
 
