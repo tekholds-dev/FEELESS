@@ -71,9 +71,9 @@ def sites_for(topic):
     return ['reuters.com', 'apnews.com', 'espn.com'] + MARKETS
 
 
-def topic_goal(topic, sites):
+def topic_goal(topic, sites, angle=None):
     import proof_plan
-    return proof_plan.goal_for_bid(topic, sites)
+    return proof_plan.goal_for_bid(topic, sites, angle)
 
 
 def parse_picks(raw):

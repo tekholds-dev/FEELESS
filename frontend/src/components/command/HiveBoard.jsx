@@ -1,3 +1,4 @@
+import { WeightBars } from './ProofKit';
 import { PoolBuilder } from './CollectiveSetup';
 import { useSolPrice } from '../../lib/solPrice';
 import { collectivePrint, printOf } from '../../lib/proofprint';
@@ -260,3 +261,20 @@ export function ColonyGrid({ api, onOpen, ids, extra }) {
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>
   </section>;
 }
+
+// 🗂 ALL WORK (owner 2026-11-07): every agent's proofs and jobs in one place, on the agents' desktop. Filter by agent and kind, open one to see how it scored or what it answered.
+const WORK_KINDS = [['all', 'All'], ['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic']];
+const whenOf = at => (at ? new Date(at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '');
+export function AllWork({ cat, work }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [tab, setTab] = useState('proofs'); const [who, setWho] = useState('all'); const [kind, setKind] = useState('all'); const [open, setOpen] = useState(null);
+  useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'all_work' })).then(j => on && setD(j)).catch(e => on && setErr(e.message || 'Could not read them')); return () => { on = false; }; }, [cat?.id, work]);
+  if (err) return <p className="lct-err" role="alert">⚠ {err}</p>;
+  if (!d) return <p className="fch-nil">Reading every agent…</p>;
+  const agents = [...new Set([...d.proofs, ...d.jobs].map(x => x.agent))]; const proofs = d.proofs.filter(x => (who === 'all' || x.agent === who) && (kind === 'all' || x.kind === kind)); const jobs = d.jobs.filter(x => who === 'all' || x.agent === who); const rows = tab === 'proofs' ? proofs : jobs;
+  return <div className="awk" data-testid="all-work"><header className="awk-bar"><span className="m-seg" role="tablist" aria-label="Which work">{[['proofs', `All proofs ${d.proofs.length}`], ['jobs', `All jobs ${d.jobs.length}`]].map(([k, l]) => <button key={k} type="button" role="tab" className={tab === k ? 'active' : ''} aria-selected={tab === k} onClick={() => { setTab(k); setOpen(null); }} data-testid={`awk-${k}`}>{l}</button>)}</span>
+      <select className="m-input" value={who} onChange={e => setWho(e.target.value)} aria-label="Which agent" data-testid="awk-agent"><option value="all">Every agent</option>{agents.map(a => <option key={a} value={a}>{a}</option>)}</select>
+      {tab === 'proofs' ? <span className="m-seg" role="group" aria-label="Which kind">{WORK_KINDS.map(([k, l]) => <button key={k} type="button" className={kind === k ? 'active' : ''} aria-pressed={kind === k} onClick={() => setKind(k)} data-testid={`awk-kind-${k}`}>{l}</button>)}</span> : null}</header>
+    <ul className="awk-list" data-testid="awk-list">{rows.length ? rows.map(x => <li key={`${x.agent}-${x.id}`} className={open === x.id ? 'is-open' : ''}><button type="button" onClick={() => setOpen(o => (o === x.id ? null : x.id))} aria-expanded={open === x.id} data-testid={`awk-row-${x.id}`}>{tab === 'proofs' ? <b className={`pwb-rank is-${x.rank}`}>{x.rank || '–'}</b> : <b className="pwb-rank">{x.rate === 'up' ? '👍' : x.rate === 'down' ? '👎' : '·'}</b>}<span><strong>{tab === 'proofs' ? x.title : x.ask || 'A request'}</strong><small>{x.agent}{tab === 'proofs' ? ` · ${x.kind.toUpperCase()}${x.sent ? ' · sent' : ''}` : x.cost ? ` · $${Number(x.cost).toFixed(3)}` : ''} · {whenOf(x.at)}</small></span>{tab === 'proofs' ? <em className="m-num">{Math.round(x.score || 0)}<small>/{Math.round(x.top || 300)}</small></em> : null}</button>
+        {open === x.id ? (tab === 'proofs' ? <WeightBars v={{ parts: x.parts, rank: x.rank, score: x.score, top: x.top }} testid={`awk-weights-${x.id}`} /> : <p className="awk-answer">{x.answer || 'No answer was kept for this one.'}</p>) : null}</li>) : <li className="fch-nil">Nothing here yet.</li>}</ul></div>;
+}
+

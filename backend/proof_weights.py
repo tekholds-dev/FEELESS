@@ -6,6 +6,8 @@ The py agents learn from OSSY and G4: once enough proofs of a kind are scored, `
 import json
 from pathlib import Path
 
+import proof_footprint as fp
+
 STORE = 'proof_weights.json'
 LEARN_MIN = 12
 MINDS_LIFT = 0.15   # the minds may lift a proof at most this part of the top above what its record shows
@@ -154,20 +156,20 @@ def _pos_plan(f):
 
 def _pos_refs(f):
     n = sum(1 for r in f.get('refs') or [] if isinstance(r, dict) and r.get('open', True))
-    return _clip(n / 3), f'{n} builds studied'
+    return _clip(n / 3), f"{n} build{'' if n == 1 else 's'} studied"
 
 
 def _filed(f):
     return (1.0, 'Filed') if _closed(f) else (0.0, 'Not filed')
 
 
-# kind → [(part, what it is, weight, how to read it)]. Each kind's weights add up to 100.
+# kind → [(part, what it is, weight, how to read it)]. Each kind's weights add up to 100. Unique reads against the proofs before it.
 RUBRIC = {
-    'pow': [('result', 'Real result', 30, _pow_result), ('real', 'Real money', 20, _pow_real), ('hold', 'Hold time', 15, _pow_hold), ('evidence', 'Evidence', 15, _pow_evidence), ('exits', 'Exits set first', 10, _pow_exits), ('minds', 'Both minds', 10, _both)],
-    'pop': [('result', 'Practice result', 35, _pop_result), ('sources', 'Sources read', 20, _pop_sources), ('reads', 'True prices', 15, _pop_reads), ('plan', 'Exits on calls', 15, _pop_plan), ('blind', 'Blind calls', 15, _pob_blind)],
-    'pob': [('result', 'Real result', 30, _mark), ('evidence', 'What it read', 25, _pob_evidence), ('series', 'Its run', 15, _pob_series), ('odds', 'Games and odds', 15, _pob_odds), ('blind', 'Blind picks', 15, _pob_blind)],
-    'poc': [('mark', 'Your mark', 35, _mark), ('trends', 'Trends read', 20, _poc_trends), ('earned', 'What it earned', 15, _poc_earned), ('shots', 'Snapshots', 15, _shots3), ('pitch', 'Pitches', 15, _poc_pitch)],
-    'pos': [('mark', 'Your mark', 40, _mark), ('review', 'Second mind', 20, _pos_review), ('plan', 'Its plan', 15, _pos_plan), ('refs', 'Builds studied', 15, _pos_refs), ('filed', 'Filed', 10, _filed)],
+    'pow': [('result', 'Real result', 30, _pow_result), ('real', 'Real money', 15, _pow_real), ('hold', 'Hold time', 15, _pow_hold), ('unique', 'Unique', 15, None), ('evidence', 'Evidence', 10, _pow_evidence), ('exits', 'Exits set first', 10, _pow_exits), ('minds', 'Both minds', 5, _both)],
+    'pop': [('result', 'Practice result', 30, _pop_result), ('unique', 'Unique', 20, None), ('sources', 'Sources read', 15, _pop_sources), ('plan', 'Exits on calls', 15, _pop_plan), ('reads', 'True prices', 10, _pop_reads), ('blind', 'Blind calls', 10, _pob_blind)],
+    'pob': [('result', 'Real result', 25, _mark), ('evidence', 'What it read', 20, _pob_evidence), ('unique', 'Unique', 15, None), ('series', 'Its run', 15, _pob_series), ('odds', 'Games and odds', 15, _pob_odds), ('blind', 'Blind picks', 10, _pob_blind)],
+    'poc': [('mark', 'Your mark', 25, _mark), ('unique', 'Unique', 20, None), ('trends', 'Trends read', 15, _poc_trends), ('earned', 'What it earned', 15, _poc_earned), ('pitch', 'Pitches', 15, _poc_pitch), ('shots', 'Snapshots', 10, _shots3)],
+    'pos': [('mark', 'Your mark', 30, _mark), ('unique', 'Unique', 25, None), ('review', 'Second mind', 15, _pos_review), ('plan', 'Its plan', 10, _pos_plan), ('refs', 'Builds studied', 10, _pos_refs), ('filed', 'Filed', 10, _filed)],
 }
 
 
@@ -181,7 +183,7 @@ def rank_of(frac, all_known=True):
     return 'A' if got == 'S' and not all_known else got
 
 
-def view(kind, folder, top=300.0, weights=None):
+def view(kind, folder, top=300.0, weights=None, earlier=None):
     """→ {kind, frac, score, rank, known, parts:[{key,label,weight,value,note}]}, or None for a kind with no rubric. A part that is not known scores nothing."""
     k = kind_of(kind)
     if not k or not isinstance(folder, dict):
@@ -189,7 +191,11 @@ def view(kind, folder, top=300.0, weights=None):
     mine = (weights or {}).get(k) or {}; parts = []
     for key, label, w, read in RUBRIC[k]:
         try:
-            v, note = read(folder)
+            if key == 'unique':
+                u = fp.unique(k, folder, earlier) if earlier is not None else None
+                v, note = (None, 'Not compared yet') if u is None else (u['pct'] / 100, f"{u['pct']}% new" + (f", closest is #{u['nearest']}" if u.get('nearest') else ''))
+            else:
+                v, note = read(folder)
         except (TypeError, ValueError, AttributeError, KeyError):
             v, note = None, 'Could not be read'
         parts.append({'key': key, 'label': label, 'weight': round(_f(mine.get(key)) or w, 2), 'value': None if v is None else round(v, 3), 'note': note})

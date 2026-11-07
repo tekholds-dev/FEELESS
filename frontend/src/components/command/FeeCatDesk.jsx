@@ -7,7 +7,7 @@ import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
-import { ColonyFlow, PowEngine } from './HiveBoard';
+import { AllWork, ColonyFlow, PowEngine } from './HiveBoard';
 const CollectiveLandingLazy = React.lazy(() => import('./CollectiveLanding').then(m => ({ default: m.CollectiveLanding })));
 import { CollectiveOwner } from './CollectiveOwner';
 import { groupApps, useOwnerFolders } from './OwnerFolders';
@@ -218,6 +218,7 @@ export function FeeCatDesk({ call }) {
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
+      { k: 'allwork', ic: '🗂', label: 'All work', tip: 'Every proof and every job from every agent, with how each scored', body: <AllWork cat={c} work={work} /> },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
       { k: 'git', ic: '🐙', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
       { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },

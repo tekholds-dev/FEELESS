@@ -201,6 +201,15 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 # WHAT'S LEFT
 
+### Owner's list, 2026-11-07 evening, comes before everything below, in this order
+1. Proof looping: every proof plans from the last proofs' fingerprints, unique or best sources, minds never run the same searches at once. Jobs show Happy Assistant. Agents desktop gets folders for all proofs and all jobs.
+2. Grading much stricter: doing a simple request well is not a high score. Reward complexity, real builds, proof evolution. A selected agent automatically takes in safe knowledge of FEELESS and the stash so it knows what to do and where to go.
+3. Money folder: a dash with a chart on top that finds the best option from as low as $5, with animated ranges and price gaps to understand and scale.
+4. Ideas folder on the agents desktop: next level vitals, mechanics, money growth for the Collective and better agents.
+5. Proof of Range: the best auto range strategy or price gaps. Build it if really effective, otherwise a new "Proof of" that is.
+6. Wallet view cleaner: when to top up or send from the agent wallet for thinking; maybe auto pay when low, with SOL (he uses Sign in with Google style wallet). Money path: confirm with him before anything moves by itself.
+Then the list below, starting with Sicario's page.
+
 ### Owner's list, 2026-11-07, comes first, in this order
 1. Collective HQ full redo: a real dashboard to create anything for and with the Collective wallet and find the best earning options. Numbers and risks only, it never tells him what to buy, nothing moves money by itself.
 2. Sicario's HQ page: the new intake is in, this page is old. New look, keep what is needed, remove what is not.

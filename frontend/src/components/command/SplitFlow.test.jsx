@@ -66,3 +66,15 @@ test('with nothing staked and no pools it says so and promises nothing', async (
   expect(el.querySelector('[data-testid="bof-no-pools"]').textContent).toContain('nothing pays'); expect(el.querySelector('[data-testid="bof-fast-why"]').textContent).toContain('no points'); expect(el.querySelector('[data-testid="bof-burn"]')).toBeNull();
   await act(async () => root.unmount());
 });
+test('all work lists every agent\'s proofs and jobs, filters, and opens how one scored', async () => {
+  const { AllWork } = require('./HiveBoard');
+  const work = jest.fn(async () => ({ proofs: [{ id: 'p1', agent: 'Happy Assistant', kind: 'pob', title: 'Spurs vs Kings', at: 2, rank: 'B', score: 180, top: 300, parts: [{ key: 'unique', label: 'Unique', weight: 15, value: 0.4, note: '40% new' }] }, { id: 'p2', agent: 'Fee', kind: 'pow', title: 'BONK', at: 1, rank: 'D', score: 40, top: 300, parts: [] }], jobs: [{ id: 'j1', agent: 'Happy Assistant', ask: 'write a post', at: 3, cost: 0.01, answer: 'Done' }] }));
+  const { el, root } = await mount(<AllWork cat={{ id: 'leader' }} work={work} />);
+  const q = t => el.querySelector(`[data-testid="${t}"]`);
+  expect(work).toHaveBeenCalledWith('leader', { op: 'all_work' }); expect(q('awk-row-p1').textContent).toContain('Happy Assistant'); expect(q('awk-row-p2')).toBeTruthy();
+  await click(q('awk-kind-pob')); expect(q('awk-row-p2')).toBeNull();
+  await click(q('awk-row-p1')); expect(q('awk-weights-p1').textContent).toContain('40% new');
+  await click(q('awk-jobs')); expect(q('awk-row-j1').textContent).toContain('write a post'); await click(q('awk-row-j1')); expect(el.textContent).toContain('Done');
+  await act(async () => root.unmount());
+});
+

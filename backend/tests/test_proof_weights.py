@@ -5,9 +5,9 @@ LOST = {**WON, 'pnlPct': -19, 'real': False, 'soldAt': 1000 + 300, 'shots': [], 
 
 
 def test_two_proofs_from_one_agent_no_longer_score_the_same():
-    a, b = pw.view('PoW', WON), pw.view('PoW', LOST)
+    a, b = pw.view('PoW', WON, earlier=[]), pw.view('PoW', LOST, earlier=[WON])
     assert a['rank'] == 'S' and a['score'] == 300 and a['known']
-    assert b['rank'] == 'D' and b['score'] < 60 and b['frac'] < a['frac']
+    assert b['rank'] == 'D' and b['score'] < 90 and b['frac'] < a['frac']
 
 
 def test_every_kind_has_its_own_parts_and_weights_add_to_100():
@@ -21,7 +21,7 @@ def test_every_kind_has_its_own_parts_and_weights_add_to_100():
 def test_what_is_not_known_scores_nothing_and_cannot_top_the_board():
     f = {'status': 'closed', 'version': 5, 'plan': 'p', 'steps': [1, 2, 3], 'refs': [{'open': True}] * 3}   # a page nobody marked
     v = pw.view('PoStatic', f)
-    assert v['parts'][0]['value'] is None and v['frac'] == 0.6 and not v['known'] and v['rank'] == 'B'
+    assert v['parts'][0]['value'] is None and v['frac'] == 0.45 and not v['known'] and v['rank'] == 'C'
     assert pw.rank_of(0.95, False) == 'A' and pw.rank_of(0.95, True) == 'S'
 
 
@@ -40,7 +40,7 @@ def test_the_minds_can_correct_but_cannot_talk_up_an_empty_record():
 
 
 def test_the_minds_read_the_facts_with_todays_record():
-    line = pw.facts_line(pw.view('PoW', WON))
+    line = pw.facts_line(pw.view('PoW', WON, earlier=[]))
     assert 'FACTS CHECKED BY CODE' in line and 'Real result (weight 30): 100%' in line and 'rank S' in line and pw.facts_line(None) == ''
 
 
@@ -49,7 +49,7 @@ def _samples():
     rows = []
     for i in range(16):
         ev = (i % 4) / 3; res = ((i * 3) % 5) / 4
-        rows.append({'kind': 'pow', 'parts': {'result': res, 'real': 1.0, 'hold': 1.0, 'evidence': ev, 'exits': 1.0, 'minds': 1.0}, 'label': 0.3 + 0.6 * ev})
+        rows.append({'kind': 'pow', 'parts': {'result': res, 'real': 1.0, 'hold': 1.0, 'unique': 1.0, 'evidence': ev, 'exits': 1.0, 'minds': 1.0}, 'label': 0.3 + 0.6 * ev})
     return rows
 
 
@@ -58,12 +58,12 @@ def test_learning_waits_for_enough_and_only_counts_what_beats_unseen_proofs():
     assert not next(r for r in rows if r['kind'] == 'pow')['ready'] and next(r for r in rows if r['kind'] == 'pow')['weights'] is None
     got = next(r for r in pw.learn(_samples()) if r['kind'] == 'pow')
     assert got['n'] == 16 and got['ready'] and got['learnedMae'] < got['mae']
-    assert got['weights']['evidence'] > 15 and got['weights']['evidence'] <= 22.5   # moved toward the minds, inside its limit
+    assert got['weights']['evidence'] > 10 and got['weights']['evidence'] <= 15   # moved toward the minds, inside its limit
 
 
 def test_the_owners_apply_stays_inside_the_limits_and_changes_the_score(tmp_path):
-    d = pw.apply(tmp_path, 'pow', {'result': 999, 'real': 1, 'hold': 15, 'evidence': 22, 'exits': 10, 'minds': 10})
-    assert d['pow']['result'] == 45 and d['pow']['real'] == 10 and pw.load(tmp_path) == d
+    d = pw.apply(tmp_path, 'pow', {'result': 999, 'real': 1, 'hold': 15, 'unique': 15, 'evidence': 12, 'exits': 10, 'minds': 5})
+    assert d['pow']['result'] == 45 and d['pow']['real'] == 7.5 and pw.load(tmp_path) == d
     assert pw.view('PoW', LOST, weights=d)['parts'][0]['weight'] == 45
     try:
         pw.apply(tmp_path, 'nope', {})
@@ -74,7 +74,13 @@ def test_the_owners_apply_stays_inside_the_limits_and_changes_the_score(tmp_path
 
 def test_one_right_pick_is_not_flawless():
     f = {'graded': 'right', 'shots': [1, 2, 3, 4], 'browsed': {'a': 1, 'b': 2}, 'games': [1], 'calls': [{}, {}]}
-    first = pw.view('PoB', f); run = pw.view('PoB', {**f, 'loop': {'wins': 5, 'losses': 0}})
+    first = pw.view('PoB', f, earlier=[]); run = pw.view('PoB', {**f, 'loop': {'wins': 5, 'losses': 0}}, earlier=[])
     assert first['rank'] == 'A' and first['score'] == 255 and not first['known'] and run['rank'] == 'S' and run['score'] == 300
     assert pw.at_top(first, 500)['score'] == 425 and pw.at_top(None, 500) is None
+
+
+def test_doing_the_same_thing_again_costs_it():
+    f = {**WON, 'id': 'x', 'at': 2, 'sym': 'BONK', 'mint': 'M'}; again = {**f, 'id': 'y', 'at': 3}
+    assert pw.view('PoW', f, earlier=[])['score'] > pw.view('PoW', again, earlier=[f])['score']
+    assert pw.view('PoW', again)['parts'][3]['note'] == 'Not compared yet'
 
