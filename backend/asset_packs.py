@@ -15,7 +15,8 @@ INDEX = 'assets_index.dat'   # not *.json: the kit folder reads every .json as a
 FILES = 'assets_files.dat'
 MAX_AGE = 7 * 86400
 SAFE_URL = re.compile(r'https://dl\.polyhaven\.org/[\w./%-]+')
-WANTS_3D = re.compile(r'(?i)\b(3d|three\.?js|webgl|r3f|react three|glb|gltf|hdri|photoreal|product shot|render(?:ed)? scene|3d landing)\b')
+MANY = re.compile(r'(?i)\b(two|three|four|five|six|seven|eight|nine|ten|dual|triple|double|multiple|several|many|rows? of|\d+)\b')
+WANTS_3D = re.compile(r'(?i)\b(3d|three\.?js|webgl|r3f|react three|glb|gltf|hdri|photoreal|product shot|render(?:ed)? scene|3d landing|room with|whole room)\b')
 STOP = {'a', 'an', 'the', 'of', 'and', 'with', 'for', 'on', 'in', 'to'}
 MATERIAL_WORDS = {'marble', 'wood', 'wooden', 'velvet', 'metal', 'steel', 'concrete', 'stone', 'granite', 'brick', 'leather', 'fabric', 'glass', 'gold', 'chrome', 'plaster', 'tile', 'carpet'}
 LOOK_SKIP = {'dark', 'light', 'polished', 'old', 'new', 'rough', 'smooth', 'soft', 'shiny', 'matte', 'black', 'white', 'grey', 'gray', 'red', 'blue', 'green'}
@@ -148,12 +149,14 @@ def compose(scene):
         cx, cz = stage['pos'][0], stage['pos'][2]; reach = max((((o['pos'][0] - cx) ** 2 + (o['pos'][2] - cz) ** 2) ** 0.5 + (o.get('height') or 0.5) / 2 for o in things), default=1); size = round(max(1.4, reach * 2.3), 2); stage['scale'][0] = size; stage['scale'][2] = size
     top = stage['pos'][1] + stage['scale'][1] / 2 if stage else 0
     for o in things:
+        if o.get('rest') is False:   # it stands on a desk or a shelf, where the builder put it
+            continue
         on = stage and ((o['pos'][0] - stage['pos'][0]) ** 2 + (o['pos'][2] - stage['pos'][2]) ** 2) ** 0.5 <= stage['scale'][0] / 2
         o['pos'][1] = round(top if on else 0, 3)
     return scene
 
 
-async def fill(http, root, scene):
+async def fill(http, root, scene, many=False):
     """Turns what a model asked for by name into real files: a chair it described becomes a real chair. What cannot be found is left out and named. → (scene, what was used, what was not found)"""
     used = []; missing = []
     for o in scene.get('objects') or []:
@@ -177,11 +180,11 @@ async def fill(http, root, scene):
                 missing.append(o['look'])
     scene['objects'] = [o for o in scene.get('objects') or [] if o.get('shape') != 'model' or o.get('asset')]
     if any(o.get('asset') for o in scene['objects']):   # with real models on the set, a plain shape is only a stage, a wall or something built on purpose: a model's stand-in cubes would hide the real thing
-        scene['objects'] = [o for o in scene['objects'] if o.get('asset') or any(p[3].search(o.get('name') or '') or p[3].search(o.get('look') or '') for p in SET_PIECES) or o.get('glass') or o.get('metal', 0) > 0.5 or o.get('glow') or o.get('user')]
+        scene['objects'] = [o for o in scene['objects'] if o.get('asset') or any(p[3].search(o.get('name') or '') or p[3].search(o.get('look') or '') for p in SET_PIECES) or o.get('glass') or o.get('metal', 0) > 0.5 or o.get('glow') or o.get('built') or o.get('user')]
     seen = set(); keep = []
     for o in scene['objects']:   # a model repeated the hero around the set: one of each, unless it was told how many by the owner adding more by hand
         key = (o.get('asset') or {}).get('url')
-        if key and key in seen:
+        if key and key in seen and not many:
             continue
         seen.add(key); keep.append(o)
     scene['objects'] = keep

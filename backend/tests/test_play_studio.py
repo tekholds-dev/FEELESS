@@ -292,3 +292,88 @@ def test_real_things_never_float():
     s['objects'] = s['objects'][:3] + s['objects'][3:]; ap.compose(s); by = {o['name']: o for o in s['objects']}
     assert by['Cam']['pos'][1] == 0.12 and by['Chair']['pos'][1] == 0.12 and by['Far']['pos'][1] in (0, 0.12) and by['Stage']['scale'][1] == 0.12
 
+
+def test_a_whole_room_with_three_monitors_and_posters_is_one_short_reply(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    import collective_kits as ck
+    import ai_play as aip
+    reply = json.dumps({'say': 'Room', 'scene': {'objects': [{'prefab': 'room', 'look': 'concrete', 'w': 8, 'd': 6, 'h': 3}, {'find': 'camera', 'pos': [0, 0.8, -2], 'rest': False, 'height': 0.3}, {'find': 'camera', 'pos': [1, 0.8, -2], 'rest': False, 'height': 0.3}] + [{'prefab': 'monitor', 'pos': [x, 0.76, -2], 'size': 0.6, 'picture': f'chart {x}'} for x in (-0.6, 0, 0.6)] + [{'prefab': 'poster', 'pos': [-2, 1.8, -2.95], 'picture': 'neon arcade'}]}})
+    scene, _s = ps.parse_reply(reply); names = [o['name'] for o in scene['objects']]
+    assert names.count('Monitor screen') == 3 and names.count('Poster') == 1 and 'Back wall' in names
+    screen = next(o for o in scene['objects'] if o['name'] == 'Monitor screen'); assert screen['image'].startswith('https://image.pollinations.ai/prompt/chart') and screen['glow'] == 0.9
+    (tmp_path / ap.INDEX).write_text(json.dumps(ROWS)); (tmp_path / ap.FILES).write_text(json.dumps({'model:Camera_01:1k': {'id': 'Camera_01', 'name': 'Cam', 'kind': 'model', 'url': 'https://dl.polyhaven.org/m.gltf', 'files': {}}}))
+    class H:
+        async def get(self, *a, **k):
+            class R:
+                status_code = 200
+                json = staticmethod(lambda: FILES)
+            return R()
+    got, _u, _m = asyncio.run(ap.fill(H(), tmp_path, scene, many=True)); cams = [o for o in got['objects'] if o.get('asset')]
+    assert len(cams) == 2 and cams[0]['pos'][1] == 0.8 and sum(1 for o in got['objects'] if o['name'] == 'Monitor frame') == 3   # stays on the desk, and built pieces are kept
+    assert len([o for o in asyncio.run(ap.fill(H(), tmp_path, ps.clean_scene({'objects': cams}), many=False))[0]['objects']]) == 1   # not asked for two: one
+    rule = ck.open_for_kits(aip.lock_html(ps.to_html(got)), ['three']).split('content="')[1].split('">')[0]
+    assert 'image.pollinations.ai' in rule and ps.room_camera(got)[2] > 3
+    assert ps.clean_scene({'objects': [{'name': 'x', 'shape': 'plane', 'image': 'https://evil.example/a.png'}]})['objects'][0].get('image') is None
+    assert ap.MANY.search('triple monitors') and not ap.MANY.search('a chair') and ap.wants_3d('create a whole room')
+
+
+def test_what_the_prompt_names_is_built_even_when_the_model_forgets():
+    # the real OSSY reply: the room became a find, and the monitors and posters were lost
+    bad = ps.clean_scene({'objects': [{'find': 'dark gamer room', 'pos': [0, 0, 0], 'height': 2.4}, {'find': 'trader desk', 'pos': [0, 0, -2.5], 'height': 0.75}, {'find': 'crypto candlestick chart left'}, {'find': 'potted plant', 'pos': [2.8, 0, -2.6]}]})
+    got = ps.ensure_named(bad, 'Create a 3D whole room: a dark gamer room with a desk, triple monitors showing crypto charts, a chair, a plant, and posters on the walls.')
+    names = [o['name'] for o in got['objects']]
+    assert names.count('Monitor screen') == 3 and names.count('Poster') == 2 and 'Back wall' in names and 'dark gamer room' not in names and 'potted plant' in names and 'trader desk' in names
+    assert 'crypto charts' in next(o for o in got['objects'] if o['name'] == 'Monitor screen')['image'].replace('%20', ' ')
+    plain = ps.ensure_named(ps.clean_scene({'objects': [{'find': 'vintage camera', 'pos': [0, 0, 0]}]}), 'a 3D landing page with a vintage camera'); assert [o['find'] for o in plain['objects']] == ['vintage camera']
+    assert ps._count_of('five gaming monitors', r'monitors?', 1) == 5 and ps._count_of('12 posters', r'posters?', 2) == 12 and ps._count_of('a monitor', r'monitors?', 1) == 1
+    twice = ps.ensure_named(got, 'triple monitors and posters in a room'); assert [o['name'] for o in twice['objects']].count('Monitor screen') == 3 and [o['name'] for o in twice['objects']].count('Back wall') == 1   # never built twice
+
+
+def test_a_site_has_a_button_into_a_second_place_with_a_dash_and_no_cards():
+    first = {'page': {'headline': 'GLINT', 'cta': 'Enter the room'}, 'objects': [OBJ]}
+    room = {'page': {'headline': 'The room', 'dash': {'title': 'Live', 'note': 'Sample numbers', 'stats': [{'label': 'Price', 'value': '$1.20'}], 'points': [1, 2, 3]}}, 'objects': [{'prefab': 'x', **OBJ}]}
+    html = ps.to_html(first, 'GLINT', room)
+    assert 'data-go="1"' in html and 'data-page="1"' in html and 'Sample numbers' in html and '$1.20' in html and '<polyline' in html and 'Enter the room' in html
+    style = html.split('.stats{{')[0] if False else html; assert '.dash{' in style and 'background' not in style.split('.dash{')[1].split('}')[0]   # no card behind the dash
+    assert 'data-go="' not in ps.to_html(first) and 'href="#more0"' in ps.to_html(first)
+
+
+def test_pictures_go_inside_the_file_and_a_bad_address_never_does():
+    import asyncio
+    good = 'data:image/jpeg;base64,/9j/AAAA'
+    assert ps.clean_scene({'objects': [{**OBJ, 'image': good}]})['objects'][0]['image'] == good and 'image' not in ps.clean_scene({'objects': [{**OBJ, 'image': 'data:text/html;base64,AAAA'}]})['objects'][0]
+    class H:
+        async def get(self, url, **k):
+            class R:
+                status_code = 200; content = b'\xff\xd8img'; headers = {'content-type': 'image/jpeg'}
+            return R()
+    s = ps.clean_scene({'objects': [{**OBJ, 'picture': 'a poster'}]}); assert s['objects'][0]['image'].startswith(ps.FREE_IMAGE)
+    asyncio.run(ps.embed_pictures(H(), [s])); assert s['objects'][0]['image'].startswith('data:image/jpeg;base64,')
+    class No:
+        n = 0
+
+        async def get(self, url, **k):
+            No.n += 1
+            class R:
+                status_code = 429; content = b''; headers = {'content-type': 'text/plain'}
+            return R()
+    import pytest as _p
+    with _p.MonkeyPatch.context() as mp:
+        mp.setattr(ps, 'PICTURE_WAITS', (0, 0)); t = ps.clean_scene({'objects': [{**OBJ, 'picture': 'b'}]}); asyncio.run(ps.embed_pictures(No(), [t])); assert No.n == 2 and 'image' not in t['objects'][0]
+    room = ps.ensure_named(ps.clean_scene({'objects': []}), 'a whole room'); assert room['ground'] is False
+    locked = ps.lock_site(ps.to_html({'objects': [{**OBJ, 'image': 'data:image/jpeg;base64,' + 'A' * 70000}]})); assert 'three.module.js' in locked.split('content="')[1].split('">')[0] and 'A' * 70000 in locked and locked.rstrip().endswith('</html>')
+
+
+def test_asking_for_more_keeps_the_look_and_the_second_page(monkeypatch, tmp_path):
+    import asyncio
+    fs, _c, store = _server(monkeypatch, tmp_path); cat = store['cats']['g']; row = fs._feat.new_folder(cat, 'build', 'GLINT', 1.0); doc = fs._feat.new_doc(row)
+    doc['scene3d'] = ps.clean_scene({'page': {'headline': 'GLINT', 'cta': 'Enter the room'}, 'objects': [{'name': 'Stage', 'shape': 'cylinder', 'pos': [0, 0.05, 0], 'scale': [3, 0.1, 3]}]}); doc['scene3dNext'] = ps.clean_scene({'page': {'headline': 'Inside'}, 'objects': [{'name': 'Back wall', 'shape': 'box', 'pos': [0, 1, -3], 'scale': [8, 3, 0.1], 'built': True}]}); doc['versions'] = [{'html': 'x', 'by': 'y', 'at': 1}]; fs._ws_save('g', doc); seen = []
+    async def fake(cat_, model, sys_, user_, tokens):
+        seen.append(sys_)
+        return ('{"say":"Matches the prompt"}' if 'You check' in sys_ else json.dumps({'say': 'Added', 'page': {'headline': 'Inside', 'dash': {'title': 'Live', 'note': 'Sample', 'stats': [{'label': 'Price', 'value': '$1'}], 'points': [1, 2]}}})), 0, False
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    asyncio.run(fs._ws_run('g', row['id'], 'a', 'add a transparent chart to the room', None)); got = fs._ws_load('g', row['id'])
+    assert 'keeps' not in seen[0] and 'look its owner loves' in seen[0] and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['stats'][0]['value'] == '$1'
+    page = got['versions'][-1]['html']; assert 'Enter the room' in page and 'data-go="1"' in page and '$1' in page; fs._WS_DONE.clear()
+
