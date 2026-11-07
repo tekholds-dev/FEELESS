@@ -286,7 +286,8 @@ def open_for_kits(html, picks=None):
     if not on:
         return h
     sheets = [u for u in on if u.endswith('.css')]; code = [u for u in on if not u.endswith('.css')]
-    rule = f"default-src 'none'; img-src data: blob:; style-src 'unsafe-inline' {' '.join(sheets)}; script-src 'unsafe-inline' {' '.join(code)}; font-src data:"
+    assets = ' https://dl.polyhaven.org' if 'https://dl.polyhaven.org/' in h else ''   # 🎁 real CC0 models, light and textures: this one host, read only by what the page itself asks for
+    rule = f"default-src 'none'; img-src data: blob:{assets}; {f'connect-src blob: data:{assets}; ' if assets else ''}style-src 'unsafe-inline' {' '.join(sheets)}; script-src 'unsafe-inline' {' '.join(code)}; font-src data:"
     tag = f'<meta http-equiv="Content-Security-Policy" content="{" ".join(rule.split())}">'
     swapped, n = re.subn(r'<meta[^>]+http-equiv=["\']?content-security-policy[^>]*>', lambda _: tag, h, count=1, flags=re.I)
     return swapped if n else h

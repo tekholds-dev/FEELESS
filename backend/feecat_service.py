@@ -78,6 +78,7 @@ import proof_weights as _weights
 import proof_kits as _proof_kits
 import collective_debate as _debate
 import play_studio as _play
+import asset_packs as _assets
 import proof_footprint as _foot
 import collective_stash as _stash
 import collective_kits as _kits
@@ -5984,6 +5985,53 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
     return raw, usd, own
 
 
+async def _build_3d(cat, doc, text, brains, order, name, to):
+    """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
+    cat_id = cat.get('id'); cost = 0.0; own = False; now_scene = _play.clean_scene(doc.get('scene3d')); seen_used = []; seen_missing = []; prompt = str(text)[:3000]
+    if not brains:
+        _feat.add_msg(doc, 'FEELESS', 'Pick a model for this agent first. Nothing changed.', time.time())
+        return 0.0, 'This agent has no model.', False
+    def busy(stage):
+        doc['stage'] = stage; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': stage, 'spent': round(cost, 6)}})
+    async def resolve(scene):
+        async with httpx.AsyncClient(timeout=30) as h_:
+            await _assets.ensure(h_, KITS_DIR); scene, used, missing = await _assets.fill(h_, KITS_DIR, scene)
+        seen_used.extend(used); seen_missing.extend(missing)
+        return scene
+    busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
+    tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
+    for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
+        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
+        scene, say = _play.parse_reply(raw, now_scene)
+        if scene:
+            by = name(i_); break
+        print(f'[3d] unreadable reply from {brains[i_]}: {str(raw)[:160]!r} ... {str(raw)[-120:]!r}')
+    if not scene:
+        _feat.add_msg(doc, name(order[0]), 'It did not send a usable scene. Nothing changed, and the last page is safe. Try again.', time.time())
+        return cost, 'It did not send a usable scene.', own
+    scene = await resolve(scene)
+    if not scene['objects']:
+        _feat.add_msg(doc, by, f"Nothing it asked for exists in the library: {', '.join(seen_missing[:6])}. Nothing changed. Try other words.", time.time())
+        return cost, 'None of its assets were found.', own
+    busy('review'); checker = brains[order[-1]] if len(brains) > 1 else brains[order[0]]; checked = ''
+    try:
+        raw, usd, own2 = await _ws_ask(cat, checker, _play.CHECK_SYS, f'THE FULL PROMPT: {prompt}\nTHE BUILD: {_play.build_summary(scene)}', 1500); cost += usd; own = own or own2
+        fixed, checked = _play.parse_reply(raw, scene); light_ = scene.get('hdri')
+        if fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
+            checked = 'The check found nothing to add'
+        elif fixed:
+            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; scene = await resolve(fixed)   # the check fixes what is missing: the light the builder chose stands
+        elif not checked:
+            m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
+    except Exception as e:   # noqa: BLE001 — the build still stands without its check
+        checked = f'The check did not finish: {str(e)[:60]}'
+    scene['camera'] = [0, 0, 0]; scene = _play._frame(_assets.compose(scene))   # every build is framed by code on what really landed
+    html = _kits.open_for_kits(_aip.lock_html(_play.to_html(scene, doc.get('name'))), ['three'])
+    doc['scene3d'] = scene; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene})
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing else '') + (f' Check against your prompt: {checked}.' if checked else '') + ' Open 3D studio to change it by hand.', time.time())
+    return cost, '', own
+
+
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
@@ -5992,7 +6040,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build':
+        if kind == 'build' and (_assets.wants_3d(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
+            usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
+            cost += usd_
+        elif kind == 'build':
             cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
             read_ = ''
             if not cur:   # a new page learns from the best first. An edit already has its page
@@ -6070,6 +6121,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             for i in order:
                 raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
+            if kind == 'content' and _assets.wants_3d(text):
+                _feat.add_msg(doc, 'FEELESS', 'This is the idea in words. To build it for real, send the same prompt to a PoStatic folder: it builds in the 3D studio with real models, light and surfaces. For a video, use Video and image editor, then 3D.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
         stop_why = 'A model did not answer.'
@@ -6993,6 +7046,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if p.op == 'play3d_save':
             _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_})
             return {'ok': True}
+        if p.op == 'play3d_assets':   # 🎁 real CC0 assets. The list and the real file addresses come from Poly Haven's own API
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR)
+                if p.to:
+                    got_ = await _assets.resolve(h_, KITS_DIR, p.to, p.job or 'model')
+                    if not got_:
+                        raise HTTPException(502, 'That asset could not be read. Try another.')
+                    return {'asset': got_}
+            return {'rows': _assets.search(KITS_DIR, p.text, p.job if p.job in _assets.TYPES else 'model'), 'credit': _assets.CREDIT}
         if p.op == 'play3d_ask':
             brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
             if not brains_ or not str(p.text or '').strip():
@@ -7004,6 +7066,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
             scene_, say_ = _play.parse_reply(raw_, now_scene_)
             if not scene_:
                 raise HTTPException(502, 'The agent did not send a usable scene, and nothing changed. Try again, or ask for less.')
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR); scene_, used_, missing_ = await _assets.fill(h_, KITS_DIR, scene_)
+            if used_ or missing_:
+                say_ = f"{say_} Used: {', '.join(used_[:6]) or 'nothing real'}." + (f" Not found: {', '.join(missing_[:4])}." if missing_ else '')
             _play_save(cat_id, '3d', {'scene': scene_, 'mind': scene_})
             return {'scene': scene_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': note_}
         if p.op == 'play3d_file':
@@ -7016,8 +7082,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 row_ = _feat.new_folder(cat, 'build', str(p.job or '3D scene')[:40], time.time())
             except ValueError as e:
                 raise HTTPException(409, str(e))
-            doc_ = _feat.new_doc(row_); doc_['versions'] = [{'html': _play.to_html(now_scene_, row_['name']), 'by': '3D playground', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _ws_save(cat_id, doc_)
-            filed_ = _feat.file_static(cat, doc_, '3D playground', time.time()); keep_owned(cat); _save(store); _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_, 'mind': now_scene_})
+            doc_ = _feat.new_doc(row_); doc_['scene3d'] = now_scene_; doc_['versions'] = [{'html': _kits.open_for_kits(_aip.lock_html(_play.to_html(now_scene_, row_['name'])), ['three']), 'by': '3D studio', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _ws_save(cat_id, doc_)
+            filed_ = _feat.file_static(cat, doc_, '3D studio', time.time()); keep_owned(cat); _save(store); _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_, 'mind': now_scene_})
             return {'filed': filed_, 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': cat.get('workspaces') or []}
         raise HTTPException(400, 'No such step.')
     if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here

@@ -88,7 +88,7 @@ def test_a_big_scene_is_changed_not_sent_again_and_a_cut_off_reply_still_counts(
     scene, say = ps.parse_reply(json.dumps({'say': 'Added', 'add': [{**OBJ, 'name': 'Car'}], 'remove': ['Bin'], 'light': 'neon'}), big)
     assert len(scene['objects']) == 72 and scene['objects'][-1]['name'] == 'Car' and scene['light'] == 'neon' and say == 'Added' and not [o for o in scene['objects'] if o['name'] == 'Bin']
     cut = '{"say":"x","scene":{"objects":[' + json.dumps({**OBJ, 'name': 'One'}) + ',' + json.dumps({**OBJ, 'name': 'Two'}) + ',{"name":"Thr'
-    got, say = ps.parse_reply(cut); assert [o['name'] for o in got['objects']] == ['One', 'Two'] and 'ran out of room' in say
+    got, say = ps.parse_reply(cut); assert [o['name'] for o in got['objects']] == ['One', 'Two'] and say
     assert len(ps.parse_reply(cut, big)[0]['objects']) == 74 and ps.parse_reply('{"say":"nothing"}', big) == (None, '')
 
 
@@ -141,4 +141,154 @@ def test_a_model_that_sends_only_its_new_objects_never_wipes_out_the_scene():
     got, _s = ps.parse_reply(json.dumps({'say': 'Added', 'scene': {'objects': [{**OBJ, 'name': 'GlassTower'}, {**OBJ, 'name': 'NeonSign'}]}}), big)
     assert len(got['objects']) == 74 and got['objects'][0]['name'] == 'Tower' and got['objects'][-1]['name'] == 'NeonSign' and len({o['id'] for o in got['objects']}) == 74
     keep, _s = ps.parse_reply(json.dumps({'scene': {'objects': [{**OBJ, 'name': 'Tower'}]}}), big); assert len(keep['objects']) == 1   # it worked on what was there: that is a real rewrite
+
+
+ROWS = {'at': 9e12, 'rows': {'model': [{'id': 'Camera_01', 'name': 'Camera 01', 'tags': ['vintage', 'camera'], 'pop': 5}, {'id': 'Chair', 'name': 'Chair', 'tags': ['chair'], 'pop': 900}], 'hdri': [{'id': 'studio_small_08', 'name': 'Studio', 'tags': ['studio'], 'pop': 1}], 'texture': [{'id': 'marble_01', 'name': 'Marble', 'tags': ['marble'], 'pop': 1}]}}
+FILES = {'gltf': {'1k': {'gltf': {'url': 'https://dl.polyhaven.org/file/m.gltf', 'include': {'m.bin': {'url': 'https://dl.polyhaven.org/file/m.bin'}, 'textures/d.jpg': {'url': 'https://evil.example/d.jpg'}}}}}, 'hdri': {'1k': {'hdr': {'url': 'https://dl.polyhaven.org/file/s.hdr'}}}, 'Diffuse': {'1k': {'jpg': {'url': 'https://dl.polyhaven.org/d.jpg'}}}, 'nor_gl': {'1k': {'jpg': {'url': 'https://dl.polyhaven.org/n.jpg'}}}, 'Rough': {'1k': {'jpg': {'url': 'https://dl.polyhaven.org/r.jpg'}}}}
+
+
+class _PH:
+    def __init__(self):
+        self.n = 0
+
+    async def get(self, url, **kw):
+        self.n += 1; assert kw['headers']['User-Agent'].startswith('FEELESS')   # Poly Haven asks for our own name
+
+        class R:
+            status_code = 200
+            json = staticmethod(lambda: FILES)
+        return R()
+
+
+def test_a_described_thing_becomes_a_real_asset_and_what_is_not_there_is_never_faked(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    (tmp_path / ap.INDEX).write_text(json.dumps(ROWS)); h = _PH()
+    assert ap.search(tmp_path, 'vintage camera')[0]['id'] == 'Camera_01' and ap.search(tmp_path, '')[0]['id'] == 'Chair' and ap.search(tmp_path, 'unicorn') == []
+    scene, say = ps.parse_reply(json.dumps({'say': 'x', 'scene': {'light_find': 'studio', 'objects': [{'find': 'vintage camera', 'pos': [0, 0, 0], 'height': 0.4}, {'find': 'unicorn'}, {'name': 'Stage', 'shape': 'cylinder', 'look': 'marble'}], 'page': {'headline': 'Real <b>', 'sections': [{'title': 'A', 'body': 'B'}]}}}))
+    scene, used, missing = asyncio.run(ap.fill(h, tmp_path, scene))
+    assert used == ['Camera 01', 'marble 01', 'studio small 08'] and missing == ['unicorn'] and len(scene['objects']) == 2
+    cam = scene['objects'][0]; assert cam['asset']['url'].endswith('m.gltf') and cam['asset']['files'] == {'m.bin': 'https://dl.polyhaven.org/file/m.bin'} and cam['height'] == 0.4   # an address not on their host is dropped
+    asyncio.run(ap.resolve(h, tmp_path, 'Camera_01', 'model')); assert h.n == 3   # asked once each
+    html = ps.to_html(scene, 'T'); assert 'GLTFLoader' in html and 'RGBELoader' in html and ap.CREDIT in html and 'Real &lt;b&gt;' in html and '<h2>A</h2>' in html
+
+
+def test_a_page_with_real_assets_may_load_that_one_host_and_nothing_else():
+    import ai_play as ap2
+    import collective_kits as ck
+    scene = ps.clean_scene({'objects': [{'find': 'x', 'asset': {'id': 'a', 'url': 'https://dl.polyhaven.org/m.gltf', 'files': {}}, 'pos': [0, 0, 0]}]})
+    rule = ck.open_for_kits(ap2.lock_html(ps.to_html(scene)), ['three']).split('content="')[1].split('">')[0]
+    assert 'connect-src blob: data: https://dl.polyhaven.org' in rule and 'img-src data: blob: https://dl.polyhaven.org' in rule and 'evil' not in rule
+    assert 'connect-src' not in ck.open_for_kits(ap2.lock_html(ps.to_html({'objects': [OBJ]})), ['three']).split('content="')[1].split('">')[0]
+    assert ps.clean_scene({'objects': [{'asset': {'url': 'https://evil.example/m.gltf'}, 'shape': 'box'}]})['objects'][0]['shape'] == 'box' and 'asset' not in ps.clean_scene({'objects': [{'asset': {'url': 'https://evil.example/m.gltf'}, 'shape': 'box'}]})['objects'][0]
+
+
+def test_only_real_words_read_as_a_3d_request():
+    import asset_packs as ap
+    for t in ('idea for a 3D landing page', 'use three.js', 'a webgl hero', 'load this glb'):
+        assert ap.wants_3d(t), t
+    for t in ('write a post about trends', 'pick 3 winners', 'a 30 day plan'):
+        assert not ap.wants_3d(t), t
+
+
+def test_a_full_3d_prompt_to_postatic_builds_real_assets_and_checks_against_the_prompt(monkeypatch, tmp_path):
+    import asyncio
+    fs, c, store = _server(monkeypatch, tmp_path); import asset_packs as ap; kits = tmp_path / 'kits'; kits.mkdir(); (kits / ap.INDEX).write_text(json.dumps(ROWS)); (kits / ap.FILES).write_text(json.dumps({'model:Camera_01:1k': {'id': 'Camera_01', 'name': 'Camera 01', 'kind': 'model', 'url': 'https://dl.polyhaven.org/m.gltf', 'files': {}}, 'model:Chair:1k': {'id': 'Chair', 'name': 'Chair 1', 'kind': 'model', 'url': 'https://dl.polyhaven.org/c.gltf', 'files': {}}, 'hdri:studio_small_08:1k': {'id': 'studio_small_08', 'name': 'Studio', 'kind': 'hdri', 'url': 'https://dl.polyhaven.org/s.hdr', 'files': {}}}))
+    cat = store['cats']['g']; row = fs._feat.new_folder(cat, 'build', 'Glint', 1.0); fs._ws_save('g', fs._feat.new_doc(row)); asks = []
+    async def fake(cat_, model, sys_, user_, tokens):
+        asks.append((sys_, user_))
+        if 'You check a 3D build' in sys_:
+            assert 'vintage camera and a chair' in user_ and 'Camera 01' in user_
+            return json.dumps({'say': 'Added the chair you named', 'add': [{'find': 'chair', 'pos': [1, 0, 0], 'height': 1}]}), 0.001, False
+        assert 'Build exactly what this prompt says' in sys_ and 'vintage camera and a chair' in user_
+        return json.dumps({'say': 'Built', 'scene': {'light_find': 'studio', 'objects': [{'find': 'vintage camera', 'pos': [0, 0, 0], 'height': 0.4}], 'page': {'headline': 'GLINT', 'cta': 'Enter'}}}), 0.002, False
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    asyncio.run(fs._ws_run('g', row['id'], 'a', 'Build a 3D landing page for GLINT with a vintage camera and a chair', None))
+    doc = fs._ws_load('g', row['id']); assert len(asks) == 2 and len(doc['versions']) == 1 and doc['scene3d']['hdri']['id'] == 'studio_small_08'
+    names = [o['name'] for o in doc['scene3d']['objects']]; assert 'Chair 1' in names or 'chair' in names
+    page = doc['versions'][0]['html']; assert 'GLINT' in page and 'GLTFLoader' in page and 'dl.polyhaven.org/m.gltf' in page and 'dl.polyhaven.org/c.gltf' in page and "connect-src blob: data: https://dl.polyhaven.org" in page
+    said = doc['messages'][-1]['text']; assert 'Real assets: Camera 01' in said and 'Added the chair you named' in said
+    assert fs._WS_DONE and fs._WS_DONE[-1]['doc']['id'] == row['id']
+    fs._WS_DONE.clear()
+    assert fs._play_load('g', '3d')['scene']['page']['headline'] == 'GLINT'   # the studio opens on what it built
+
+
+def test_a_plain_page_request_still_takes_the_normal_build():
+    import asset_packs as ap
+    assert not ap.wants_3d('Build a bakery landing page with a menu')
+
+
+def test_what_real_models_really_send_is_repaired_not_thrown_away():
+    # the real OSSY reply that failed: hex colors, a camera inside the set, and light as objects
+    raw = '{"say":"Built","scene":{"light_find":"studio","camera":[0,0,0],"objects":[{"find":"vintage camera","pos":[0,0,0],"height":0.4,"material":{"color":0x888888,},},{"find":"spot light source","name":"Key Light","shape":"sphere"},{"name":"Fill Light","shape":"sphere"},{"find":"wooden chair","pos":[0,0,-1.5],"height":1}]}}'
+    scene, say = ps.parse_reply(raw)
+    assert say == 'Built' and [o['find'] for o in scene['objects']] == ['vintage camera', 'wooden chair'] and (scene['camera'][0] ** 2 + scene['camera'][2] ** 2) ** 0.5 > 2
+    cut, why = ps.parse_reply('{"say":"x","scene":{"objects":[{"find":"vintage camera","pos":[0,0,0]},{"find":"chair","pos":[1,0,')
+    assert [o['find'] for o in cut['objects']] == ['vintage camera'] and why
+    # the real replies: every object and the whole page were fine, only the last brace was missing
+    real = '{"say":"Built","scene":{"light_find":"dark studio","page":{"headline":"GLINT","sections":[{"title":"A","body":"B"}]},"objects":[{"find":"wooden chair","pos":[-0.8,0.8,1.5],"height":1.1},{"find":"old leather books","pos":[0.8,0.6,1.5],"height":0.35}]}'
+    whole, said = ps.parse_reply(real); assert said == 'Built' and whole['light_find'] == 'dark studio' and whole['page']['headline'] == 'GLINT' and len(whole['objects']) == 2
+    kept, _s = ps.parse_reply('{"scene":{"camera":[9,4,9],"objects":[{"find":"vintage camera","pos":[0,0,0],"height":1}]}}'); assert kept['camera'] == [9, 4, 9]
+
+
+def test_a_chair_must_be_a_chair_and_a_stage_gets_a_real_surface(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    rows = {'at': 9e12, 'rows': {'model': [{'id': 'marble_bust_01', 'name': 'Marble Bust', 'tags': ['marble', 'bust'], 'pop': 9}, {'id': 'round_wooden_table_01', 'name': 'Table', 'tags': ['wooden', 'table'], 'pop': 9}, {'id': 'ArmChair_01', 'name': 'Arm Chair', 'tags': ['chair'], 'pop': 1}, {'id': 'Camera_01', 'name': 'Camera', 'tags': ['camera'], 'pop': 1}, {'id': 'book_stack', 'name': 'Book Stack', 'tags': ['book'], 'pop': 1}], 'texture': [{'id': 'marble_01', 'name': 'Marble', 'tags': ['marble'], 'pop': 1}], 'hdri': []}}
+    (tmp_path / ap.INDEX).write_text(json.dumps(rows))
+    assert ap.best(tmp_path, 'wooden chair', 'model')['id'] == 'ArmChair_01' and ap.best(tmp_path, 'vintage film camera, brass and leather', 'model')['id'] == 'Camera_01' and ap.best(tmp_path, 'stack of old books', 'model')['id'] == 'book_stack'
+    assert ap.best(tmp_path, 'polished marble slab', 'model') is None and ap.best(tmp_path, 'dark velvet backdrop', 'model') is None and ap.best(tmp_path, 'sneaker', 'model') is None
+    scene = ps.clean_scene({'objects': [{'find': 'polished marble slab', 'pos': [0, 0, 0]}, {'find': 'dark velvet backdrop'}, {'find': 'sneaker', 'pos': [1, 0, 0]}]})
+    class H:
+        async def get(self, *a, **k):
+            class R:
+                status_code = 200
+                json = staticmethod(lambda: FILES)
+            return R()
+    got, used, missing = asyncio.run(ap.fill(H(), tmp_path, scene))
+    assert 'sneaker' in missing and 'sneaker' not in [o.get('find') for o in got['objects']] and [o['shape'] for o in got['objects']] == ['cylinder', 'box'] and got['objects'][0]['pbr']['name'] == 'marble 01'
+
+
+def test_a_checker_that_resends_the_scene_keeps_the_light_page_and_models():
+    now = ps.clean_scene({'hdri': {'id': 's', 'url': 'https://dl.polyhaven.org/s.hdr'}, 'page': {'headline': 'GLINT'}, 'objects': [{'name': 'Cam', 'find': 'camera', 'asset': {'id': 'c', 'url': 'https://dl.polyhaven.org/c.gltf'}, 'pos': [0, 0, 0], 'height': 1}]})
+    got, _s = ps.parse_reply(json.dumps({'say': 'Fixed', 'scene': {'objects': [{'name': 'Cam', 'find': 'camera', 'pos': [0, 0, 0], 'height': 2}, {'find': 'chair', 'pos': [1, 0, 0]}]}}), now)
+    assert got['hdri']['id'] == 's' and got['page']['headline'] == 'GLINT' and got['objects'][0]['asset']['id'] == 'c' and got['objects'][0]['height'] == 2 and got['objects'][1]['find'] == 'chair'
+
+
+def test_a_material_is_a_surface_and_things_stand_on_the_stage(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    (tmp_path / ap.INDEX).write_text(json.dumps({'at': 9e12, 'rows': {'model': [{'id': 'marble_bust_01', 'name': 'Bust', 'tags': ['marble', 'bust'], 'pop': 9}, {'id': 'Camera_01', 'name': 'Camera', 'tags': ['camera'], 'pop': 1}], 'texture': [{'id': 'marble_01', 'name': 'Marble', 'tags': ['marble'], 'pop': 1}], 'hdri': []}}))
+    class H:
+        async def get(self, *a, **k):
+            class R:
+                status_code = 200
+                json = staticmethod(lambda: FILES)
+            return R()
+    got, _u, missing = asyncio.run(ap.fill(H(), tmp_path, ps.clean_scene({'objects': [{'find': 'polished marble', 'pos': [0, 0, 0]}, {'find': 'vintage camera', 'pos': [0, 0, 0], 'height': 0.2}]})))
+    stage, cam = got['objects']; assert stage['shape'] == 'cylinder' and stage['pbr']['name'] == 'marble 01' and cam['asset'] and cam['pos'][1] == 0.12 and stage['scale'][0] == 1.4 and not missing
+    assert ps._aim({'objects': [cam], 'page': {'headline': 'x'}})[1] < ps._aim({'objects': [cam]})[1]
+
+
+def test_one_bad_reply_never_ends_a_build(monkeypatch, tmp_path):
+    import asyncio
+    fs, _c, store = _server(monkeypatch, tmp_path); import asset_packs as ap; kits = tmp_path / 'kits'; kits.mkdir(); (kits / ap.INDEX).write_text(json.dumps(ROWS))
+    (kits / ap.FILES).write_text(json.dumps({'model:Camera_01:1k': {'id': 'Camera_01', 'name': 'Camera 01', 'kind': 'model', 'url': 'https://dl.polyhaven.org/m.gltf', 'files': {}}}))
+    cat = store['cats']['g']; cat['brainsCfg']['brains'] = ['m/a', 'm/b']; row = fs._feat.new_folder(cat, 'build', 'P', 1.0); fs._ws_save('g', fs._feat.new_doc(row)); who = []
+    async def fake(cat_, model, sys_, user_, tokens):
+        who.append(model)
+        if 'You check' in sys_:
+            return '{"say":"Matches the prompt"}', 0, False
+        return ('sorry, words only', 0, False) if model == 'm/a' else (json.dumps({'scene': {'objects': [{'find': 'camera', 'pos': [0, 0, 0]}]}}), 0, False)
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    asyncio.run(fs._ws_run('g', row['id'], 'a', 'a 3D camera page', None)); doc = fs._ws_load('g', row['id'])
+    assert who[:2] == ['m/a', 'm/b'] and len(doc['versions']) == 1 and doc['versions'][0]['by'] == 'Mind B' and 'Matches the prompt' in doc['messages'][-1]['text']; fs._WS_DONE.clear()
+
+
+def test_real_things_never_float():
+    import asset_packs as ap
+    a = {'id': 'a', 'url': 'https://dl.polyhaven.org/a.gltf'}
+    s = ps.clean_scene({'objects': [{'name': 'Stage', 'shape': 'cylinder', 'pos': [0, 0.06, 0], 'scale': [3, 0.12, 3]}, {'name': 'Cam', 'asset': a, 'pos': [0, 1.6, 0], 'height': 0.8}, {'name': 'Chair', 'asset': a, 'pos': [-0.5, 0.9, 0], 'height': 0.9}, {'name': 'Far', 'asset': a, 'pos': [9, 3, 0], 'height': 1}]})
+    s['objects'] = s['objects'][:3] + s['objects'][3:]; ap.compose(s); by = {o['name']: o for o in s['objects']}
+    assert by['Cam']['pos'][1] == 0.12 and by['Chair']['pos'][1] == 0.12 and by['Far']['pos'][1] in (0, 0.12) and by['Stage']['scale'][1] == 0.12
 

@@ -292,16 +292,18 @@ test('🎬 the editor finds the right moment in a cut timeline, and the same wor
 });
 
 test('🧊 a device with no 3D still opens the playground, says so plainly, and can still ask', async () => {
-  jest.doMock('three/examples/jsm/controls/OrbitControls.js', () => ({ OrbitControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/controls/TransformControls.js', () => ({ TransformControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/environments/RoomEnvironment.js', () => ({ RoomEnvironment: class {} }), { virtual: true });
+  jest.doMock('three/examples/jsm/controls/OrbitControls.js', () => ({ OrbitControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/controls/TransformControls.js', () => ({ TransformControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/environments/RoomEnvironment.js', () => ({ RoomEnvironment: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/GLTFLoader.js', () => ({ GLTFLoader: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/RGBELoader.js', () => ({ RGBELoader: class {} }), { virtual: true });
   jest.doMock('three', () => ({ WebGLRenderer: class { constructor() { throw new Error('no WebGL'); } } }));
   const Playground3D = require('./Playground3D').default;
-  const calls = []; const fake = async (_, b) => { calls.push(b); return b.op === 'play3d_get' ? { scene: null, canAsk: true, notes: ['moved Tower'] } : { ok: true }; };
+  const calls = []; const asset = { id: 'Camera_01', name: 'Camera 01', url: 'https://dl.polyhaven.org/x.gltf', files: {} }; const fake = async (_, b) => { calls.push(b); if (b.op === 'play3d_get') return { scene: null, canAsk: true, notes: ['moved Tower'] }; if (b.op === 'play3d_assets') return b.to ? { asset } : { rows: [{ id: 'Camera_01', name: 'Camera 01', kind: 'model', thumb: 'https://cdn.polyhaven.com/x.png' }], credit: 'Assets from Poly Haven (CC0)' }; return { ok: true }; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<Playground3D cat={{ id: 'c' }} work={fake} onBack={() => {}} />); });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('p3d-nogl')).not.toBeNull(); expect(q('p3d-learned').textContent).toContain('moved Tower'); expect(q('p3d-shoot').disabled).toBe(true);
-  expect(q('p3d-list').querySelectorAll('li').length).toBeGreaterThan(0);
+  expect(q('p3d-list').querySelectorAll('li').length).toBe(0);   // it starts blank
+  await act(async () => { await new Promise(r => setTimeout(r, 300)); }); expect(q('p3d-credit').textContent).toContain('Poly Haven');
+  await act(async () => { q('p3d-asset-Camera_01').click(); await new Promise(r => setTimeout(r, 0)); }); expect(q('p3d-list').textContent).toContain('Camera 01'); expect(q('p3d-height')).not.toBeNull();
   await act(async () => { q('p3d-add-box').click(); }); expect(q('p3d-mats')).not.toBeNull(); expect(q('p3d-undo').disabled).toBe(false);
   await act(async () => { q('p3d-mat-Glass').click(); }); expect(q('p3d-glass').value).toBe('1');
   await act(async () => { root.unmount(); }); el.remove();
