@@ -9,6 +9,7 @@ from pathlib import Path
 API = 'https://api.polyhaven.com'
 UA = 'FEELESS-agent-studio/1.0'
 CREDIT = 'Assets from Poly Haven and the Open Source 3D Assets registry (CC0)'
+MORE = 'assets_more.dat'   # scripts/assets-objaverse.py: names and addresses of tens of thousands of models. A page fetches only what it uses
 HOST = 'https://dl.polyhaven.org/'
 TYPES = {'model': 'models', 'hdri': 'hdris', 'texture': 'textures'}
 INDEX = 'assets_index.dat'   # not *.json: the kit folder reads every .json as a kit
@@ -16,7 +17,7 @@ FILES = 'assets_files.dat'
 MAX_AGE = 7 * 86400
 REGISTRY = 'https://raw.githubusercontent.com/ToxSam/open-source-3D-assets/main/data'
 REGISTRY_HOST = 'https://raw.githubusercontent.com/ToxSam/'
-SAFE_URL = re.compile(r'(?:https://dl\.polyhaven\.org|https://raw\.githubusercontent\.com/ToxSam)/[\w./%-]+')
+SAFE_URL = re.compile(r'(?:https://dl\.polyhaven\.org|https://raw\.githubusercontent\.com/ToxSam|https://raw\.githubusercontent\.com/nasa|https://huggingface\.co/datasets/allenai/objaverse/resolve/main)/[\w./%-]+')
 MANY = re.compile(r'(?i)\b(two|three|four|five|six|seven|eight|nine|ten|dual|triple|double|multiple|several|many|rows? of|\d+)\b')
 WANTS_3D = re.compile(r'(?i)\b(3d|three\.?js|webgl|r3f|react three|glb|gltf|hdri|photoreal|product shot|render(?:ed)? scene|3d landing|room with|whole room)\b')
 STOP = {'a', 'an', 'the', 'of', 'and', 'with', 'for', 'on', 'in', 'to'}
@@ -43,17 +44,34 @@ def _save(root, name, d):
 async def refresh(http, root, now=None):
     """Keeps the names, tags and popularity of everything Poly Haven has. A failed read keeps the last one. → how many"""
     now = now or time.time(); old = _load(root, INDEX); rows = dict(old.get('rows') or {})
+    kept = [r for r in rows.get('model') or [] if r.get('url')]   # what the registries gave last time: a failed read must not lose them
     for kind, t in TYPES.items():
         r = await http.get(f'{API}/assets', params={'t': t}, headers={'User-Agent': UA}, timeout=30)
         if r.status_code != 200:
             continue
         rows[kind] = [{'id': k, 'name': str(v.get('name') or k)[:60], 'tags': [str(x).lower() for x in (v.get('tags') or []) + (v.get('categories') or [])][:24], 'pop': int(v.get('download_count') or 0)} for k, v in r.json().items() if isinstance(v, dict)]
-    more = await _registry(http)
-    if more:   # 🎁 the Open Source 3D Assets registry: CC0 packs as ready GLB files
-        rows['model'] = [r for r in rows.get('model') or [] if not r.get('url')] + more
+    more = await _registry(http) + await _nasa(http)
+    if rows.get('model') is not None:   # 🎁 the registries: CC0 packs and NASA as ready GLB files
+        rows['model'] = [r for r in rows.get('model') or [] if not r.get('url')] + list({r['id']: r for r in [*kept, *more]}.values())
     if rows:
         _save(root, INDEX, {'at': round(now), 'rows': rows})
     return sum(len(v) for v in rows.values())
+
+
+async def _nasa(http):
+    """NASA's own public 3D models: spacecraft, rovers, planets. A failed read leaves the rest."""
+    try:
+        r = await http.get('https://api.github.com/repos/nasa/NASA-3D-Resources/git/trees/master', params={'recursive': 1}, headers={'User-Agent': UA}, timeout=30)
+        tree = r.json().get('tree') if r.status_code == 200 else []
+    except Exception:   # noqa: BLE001, S110 — the rest still stands without it
+        return []
+    out = []
+    for x in tree or []:
+        path = str(x.get('path') or '')
+        if path.lower().endswith('.glb') and x.get('size', 0) < 40_000_000:
+            words = [w for w in re.findall(r'[a-z0-9]+', path.lower()) if len(w) > 2 and w not in ('glb', 'models', 'nasa')]
+            out.append({'id': 'nasa-' + re.sub(r'[^\w-]', '', path.rsplit('/', 1)[-1][:-4])[:50], 'name': re.sub(r'[_-]+', ' ', path.rsplit('/', 1)[-1][:-4])[:60], 'tags': list(dict.fromkeys(['space', 'nasa', *words]))[:24], 'pop': 0, 'url': 'https://raw.githubusercontent.com/nasa/NASA-3D-Resources/master/' + path.replace(' ', '%20')})
+    return out
 
 
 async def _registry(http):
@@ -93,6 +111,29 @@ def _words(text):
     return [w for w in re.findall(r'[a-z0-9]+', str(text or '').lower()) if w not in STOP]
 
 
+_MORE = {'mtime': 0.0, 'rows': [], 'by': {}}
+
+
+def _more(root):
+    """The big model index, read once per file version, with every row findable by each word it holds."""
+    p = Path(root) / MORE
+    try:
+        m = p.stat().st_mtime
+    except OSError:
+        return _MORE
+    if m != _MORE['mtime']:
+        rows = _load(root, MORE).get('rows') or []; by = {}
+        for r in rows:
+            for w in {_stem(x) for x in {*r['tags'], *_words(r['name'])} for x in re.findall(r'[a-z0-9]+', str(x).lower())}:
+                by.setdefault(w, []).append(r)
+        _MORE.update(mtime=m, rows=rows, by=by)
+    return _MORE
+
+
+def model_count(root):
+    return len((_load(root, INDEX).get('rows') or {}).get('model') or []) + len(_more(root)['rows'])
+
+
 def _score(row, words):
     """Whole tag and name matches count most. An empty search shows what people use most."""
     tags = set(row['tags']); name = set(_words(row['name'])); hits = sum(3 if w in tags else 2 if w in name else 1 if any(w in t for t in tags) else 0 for w in words)
@@ -109,26 +150,33 @@ def _head(query):
     return _stem(words[-1]) if words else ''
 
 
-def best(root, query, kind):
-    """The one asset for a description, only if it really is that thing. A chair must be a chair, and a near miss counts as not found, so nothing is ever swapped for something else."""
+def best(root, query, kind, avoid=()):
+    """The one asset for a description, only if it really is that thing. A chair must be a chair, and a near miss counts as not found, so nothing is ever swapped for something else. What this agent already used comes last, so it stops repeating itself."""
     head = _head(query); rows = (_load(root, INDEX).get('rows') or {}).get(kind) or []; words = _words(query); fits = []
+    if kind == 'model' and head:
+        fits += _more(root)['by'].get(head) or []
     for r in rows:
         have = {_stem(t) for t in r['tags']} | {_stem(w) for w in _words(r['name'])} | {_stem(w) for t in r['tags'] for w in _words(t)} | {_stem(w) for w in re.findall(r'[a-z]+', re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', r['id']).lower().replace('_', ' '))}
         if head and head in have:
             fits.append(r)
     if not fits:
         return None
-    return sorted(fits, key=lambda r: _score(r, words), reverse=True)[0]
+    avoid = set(avoid or ())
+    return sorted(fits, key=lambda r: (r['id'] not in avoid, _score(r, words)), reverse=True)[0]
 
 
 SET_PIECES = (('cylinder', [3.2, 0.12, 3.2], [0, 0.06, 0], re.compile(r'(?i)\b(stage|slab|platform|pedestal|plinth|podium|base)\b')), ('box', [14, 7, 0.2], [0, 3.5, -4], re.compile(r'(?i)\b(backdrop|wall|curtain|background)\b')), ('box', [14, 0.1, 14], [0, 0.05, 0], re.compile(r'(?i)\b(floor|carpet|rug)\b')))
 
 
 def search(root, query, kind='model', n=24):
-    words = _words(query); rows = (_load(root, INDEX).get('rows') or {}).get(kind) or []; ranked = sorted(rows, key=lambda r: _score(r, words), reverse=True)
+    words = _words(query); rows = list((_load(root, INDEX).get('rows') or {}).get(kind) or [])
+    if kind == 'model':
+        for w in words:
+            rows += (_more(root)['by'].get(_stem(w)) or [])[:200]
+    ranked = sorted({r['id']: r for r in rows}.values(), key=lambda r: _score(r, words), reverse=True)
     if words:
         ranked = [r for r in ranked if _score(r, words)[0] > 0]
-    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': r.get('thumb') or f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256"} for r in ranked[:n]]
+    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': r.get('thumb') or ('' if r.get('url') else f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256")} for r in ranked[:n]]
 
 
 def _url(v):
@@ -141,9 +189,9 @@ async def resolve(http, root, asset_id, kind, res='1k'):
     aid = re.sub(r'[^\w-]', '', str(asset_id or ''))[:60]; key = f'{kind}:{aid}:{res}'; cache = _load(root, FILES)
     if key in cache:
         return cache[key]
-    ready = next((r for r in (_load(root, INDEX).get('rows') or {}).get(kind) or [] if r.get('id') == aid and r.get('url')), None)
+    ready = next((r for r in (_load(root, INDEX).get('rows') or {}).get(kind) or [] if r.get('id') == aid and r.get('url')), None) or (next((r for r in _more(root)['rows'] if r['id'] == aid), None) if aid.startswith('ox-') else None)
     if ready:
-        return {'id': aid, 'name': ready['name'], 'kind': kind, 'url': ready['url'], 'files': {}}
+        return {'id': aid, 'name': ready['name'], 'kind': kind, 'url': ready['url'], 'files': {}, **({'by': ready['by'], 'lic': ready['lic']} if ready.get('lic') else {})}
     if kind not in TYPES or not aid:
         return None
     r = await http.get(f'{API}/files/{aid}', headers={'User-Agent': UA}, timeout=20)
@@ -170,7 +218,8 @@ def clean_asset(a):
     """An asset in a scene: only addresses on Poly Haven's host, anything else is dropped."""
     if not isinstance(a, dict) or not _url(a.get('url')):
         return None
-    return {'id': re.sub(r'[^\w-]', '', str(a.get('id') or ''))[:60], 'name': ' '.join(str(a.get('name') or '').split())[:60], 'url': a['url'], 'files': {re.sub(r'[^\w.-]', '', str(k))[:80]: v for k, v in (a.get('files') if isinstance(a.get('files'), dict) else {}).items() if _url(v)}}
+    credit = {'by': ' '.join(str(a.get('by') or '').split())[:40], 'lic': 'by'} if a.get('lic') == 'by' else {}
+    return {**credit, 'id': re.sub(r'[^\w-]', '', str(a.get('id') or ''))[:60], 'name': ' '.join(str(a.get('name') or '').split())[:60], 'url': a['url'], 'files': {re.sub(r'[^\w.-]', '', str(k))[:80]: v for k, v in (a.get('files') if isinstance(a.get('files'), dict) else {}).items() if _url(v)}}
 
 
 def compose(scene):
@@ -187,12 +236,23 @@ def compose(scene):
     return scene
 
 
-async def fill(http, root, scene, many=False):
+def credits(scenes):
+    """A CC-BY model's creator, named on the page that uses it. The licence asks for it."""
+    rows = []
+    for sc in scenes:
+        for o in sc.get('objects') or []:
+            a = o.get('asset') or {}
+            if a.get('lic') == 'by':
+                rows.append(f"{a.get('name')} by {a.get('by') or 'its creator'} (CC BY)")
+    return ' · '.join(dict.fromkeys(rows))[:400]
+
+
+async def fill(http, root, scene, many=False, avoid=()):
     """Turns what a model asked for by name into real files: a chair it described becomes a real chair. What cannot be found is left out and named. → (scene, what was used, what was not found)"""
     used = []; missing = []
     for o in scene.get('objects') or []:
         if o.get('find') and not o.get('asset'):
-            hit = None if _head(o['find']) in MATERIAL_WORDS or any(p[3].search(o['find']) for p in SET_PIECES) else best(root, o['find'], 'model'); got = await resolve(http, root, hit['id'], 'model') if hit else None
+            hit = None if _head(o['find']) in MATERIAL_WORDS or any(p[3].search(o['find']) for p in SET_PIECES) else best(root, o['find'], 'model', avoid); got = await resolve(http, root, hit['id'], 'model') if hit else None
             if not got and _head(o['find']) in MATERIAL_WORDS:   # "polished marble" is a surface, not a thing to fetch
                 o['find'] = f"{o['find']} stage"
             if got:

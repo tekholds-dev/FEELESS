@@ -6,10 +6,11 @@ import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { isCalm } from '../../lib/fxPause';
 import { ProofStamp } from './ProofStamp';
-import { ProofTools } from './ProofTools';
+import { ProofDoors } from './ProofDoors';
 import { SourcesWeb } from './StashWeb';
 import { BUILD_EXAMPLES } from '../../lib/buildExamples';
 import { ProofGallery } from './ProofGallery';
+import { ProofTools } from './ProofTools';
 import { FolderRidge, ProofHead, ProofKit, ProofSubmit, ProofTile, SitesRead } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
 import { TradeTape } from '../terminal/TradeTape';
@@ -291,7 +292,7 @@ function FirstList({ cat, rows, work, onRows, onBrowse }) {
 }
 export function FeaturesFolder({ cat, d, work, onCommand, onBrowse, onOpenIn }) {
   const use = d?.setup?.use || 'all'; const isGeneral = cat?.brainsCfg?.kind === 'general'; const order = Object.keys(FEATURES).filter(x => !(x === 'edge' && isGeneral)).sort((a, b) => FEATURES[b].use.includes(use) - FEATURES[a].use.includes(use));
-  const [tab, setTab] = useState('features'); const [k, setK] = useState(order[0]); const [data, setData] = useState(null); const [open, setOpen] = useState(null); const [name, setName] = useState(''); const [err, setErr] = useState(''); const [pick, setPick] = useState(null); const [draft, setDraft] = useState('');
+  const [tab, setTab] = useState('tools'); const [k, setK] = useState(order[0]); const [data, setData] = useState(null); const [open, setOpen] = useState(null); const [name, setName] = useState(''); const [err, setErr] = useState(''); const [pick, setPick] = useState(null); const [draft, setDraft] = useState('');
   const load = useCallback(() => work(cat.id, { op: 'features' }).then(setData).catch(e => setErr(e.message)), [cat.id, work]);
   useEffect(() => { load(); }, [load]);
   const openFolder = (w, ask = '') => { if (onOpenIn && PROOF_WIN[w.kind]) { onOpenIn(PROOF_WIN[w.kind], w, ask); return; } setDraft(ask); setOpen(w); };
@@ -300,10 +301,10 @@ export function FeaturesFolder({ cat, d, work, onCommand, onBrowse, onOpenIn }) 
   if (open) return <div className="fea" data-testid="dsk-features"><header className="fea-open-h"><button type="button" className="m-btn" onClick={() => setOpen(null)} data-testid="ws-back">← Features</button><b><Ic3 e={FEATURES[open.kind].ic} /> {open.name}</b></header>
     {open.kind === 'build' ? <BuildSpace cat={cat} row={open} work={work} draft={draft} /> : open.kind === 'edge' ? <EdgeSpace data={data} /> : <ContentSpace cat={cat} row={open} work={work} onCommand={onCommand} research={open.kind === 'research'} draft={draft} />}</div>;
   const f = FEATURES[k]; const mine = data?.workspaces || [];
-  return <div className="fea" data-testid="dsk-features"><div className="m-seg fea-tabs" role="tablist">{[['first', 'The web'], ['features', 'Features'], ['cases', 'Every use'], ['real', 'Your proofs'], ['mine', `Your folders ${mine.length}`], ['mind', 'Its mind']].map(([t, l]) => <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)} data-testid={`fea-tab-${t}`}>{l}</button>)}</div>
+  return <div className="fea" data-testid="dsk-features"><div className="m-seg fea-tabs" role="tablist">{[['tools', 'Proofs'], ['real', 'Your proofs'], ['cases', 'Every use'], ['mine', `Your folders ${mine.length}`], ['features', 'New folder'], ['first', 'The web'], ['mind', 'Its mind']].map(([t, l]) => <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)} data-testid={`fea-tab-${t}`}>{l}</button>)}</div>
     {tab === 'cases' ? <div className="fea-cases" data-testid="fea-cases">{order.filter(x => STARTERS[x]?.length).map((x, n) => <section key={x} style={{ '--i': n }}><h4><Ic3 e={FEATURES[x].ic} size="20px" /> {FEATURES[x].t}<small>{FEATURES[x].tag}</small></h4><ul>{STARTERS[x].map(row => <li key={row[1]}><button type="button" onClick={() => { setK(x); setPick(row); setTab('features'); }} data-tip={row[3]} data-testid={`fea-case-${x}-${row[1].split(' ')[0]}`}><Ic3 e={row[0]} size="24px" /><span><b>{row[1]}</b><small>{row[2]}</small></span></button></li>)}</ul></section>)}</div> : null}
+    {tab === 'tools' ? <ProofDoors cat={cat} d={d} work={work} onCommand={onCommand} onMake={x => { setPick(STARTERS[x]?.[0] || null); make(x); }} /> : null}
     {tab === 'real' ? <ProofGallery cat={cat} work={work} /> : null}
-    {tab === 'features' ? <div className="fea-assign" data-testid="fea-assign"><KitPick cat={cat} work={work} /></div> : null}
     {tab === 'features' ? <div className="fea-main"><nav className="fea-rail" aria-label="Features">{order.map((x, i) => <button key={x} type="button" className={`fea-cat${k === x ? ' is-on' : ''}${FEATURES[x].use.includes(use) ? ' is-for' : ''}`} style={{ '--i': i }} onClick={() => { setK(x); setPick(null); }} data-testid={`fea-${x}`}><Ic3 e={FEATURES[x].ic} size="28px" /><b>{FEATURES[x].t}</b><small>{mine.filter(w => w.kind === x).length ? `${mine.filter(w => w.kind === x).length} folders` : FEATURES[x].use.includes(use) ? 'For this agent' : `${STARTERS[x].length} starters`}</small></button>)}</nav>
       <Demo k={k} cat={cat} /><section className="fea-why" key={k}><h3>{f.t}</h3><p>{f.tag}</p>{k === 'edge' ? null : <section className="fea-starters" key={`s${k}`} aria-label="Ways to start"><h4>START FROM</h4><ul>{STARTERS[k].map(([ic, t, say, ask], i) => <li key={t} style={{ '--i': i }}><button type="button" className={pick?.[1] === t ? 'is-on' : ''} aria-pressed={pick?.[1] === t} onClick={() => setPick(pick?.[1] === t ? null : [ic, t, say, ask])} data-tip={ask} data-testid={`fea-start-${i}`}><Ic3 e={ic} size="30px" /><b>{t}</b><small>{say}</small></button></li>)}</ul></section>}
         <label className="fea-name"><span className="m-label">FOLDER NAME</span><input className="m-input" maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder={pick?.[1] || `New ${f.t.toLowerCase()}`} data-testid="fea-name" /></label><small className="fea-goes" data-testid="fea-goes">Files as {PROOF_WORD[k]}{pick ? `, with “${pick[1]}” in its chat box` : ''}.</small><button type="button" className="m-btn m-go fea-create" onClick={() => make(k)} data-testid="fea-create">Create {f.t} folder</button>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}<details className="fea-how" open={k === 'edge'}><summary>How it works</summary><ol>{f.points.map(([a, b], i) => <li key={a} style={{ '--i': i }}><b>{a}</b><small>{b}</small></li>)}</ol></details></section></div> : null}

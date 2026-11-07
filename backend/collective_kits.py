@@ -286,7 +286,7 @@ def open_for_kits(html, picks=None):
     if not on:
         return h
     sheets = [u for u in on if u.endswith('.css')]; code = [u for u in on if not u.endswith('.css')]
-    assets = (' https://dl.polyhaven.org' if 'https://dl.polyhaven.org/' in h else '') + (' https://image.pollinations.ai' if 'https://image.pollinations.ai/' in h else '') + (' https://raw.githubusercontent.com/ToxSam/' if 'https://raw.githubusercontent.com/ToxSam/' in h else '')   # 🎁 real CC0 models, light and textures: this one host, read only by what the page itself asks for
+    assets = (' https://dl.polyhaven.org' if 'https://dl.polyhaven.org/' in h else '') + (' https://image.pollinations.ai' if 'https://image.pollinations.ai/' in h else '') + (' https://raw.githubusercontent.com/ToxSam/' if 'https://raw.githubusercontent.com/ToxSam/' in h else '') + (' https://raw.githubusercontent.com/nasa/' if 'https://raw.githubusercontent.com/nasa/' in h else '') + (' https://huggingface.co https://*.hf.co https://*.huggingface.co' if 'https://huggingface.co/datasets/allenai/objaverse/' in h else '')   # 🎁 real CC0 models, light and textures: this one host, read only by what the page itself asks for
     rule = f"default-src 'none'; img-src data: blob:{assets}; {f'connect-src blob: data:{assets}; ' if assets else ''}style-src 'unsafe-inline' {' '.join(sheets)}; script-src 'unsafe-inline' {' '.join(code)}; font-src data:"
     tag = f'<meta http-equiv="Content-Security-Policy" content="{" ".join(rule.split())}">'
     swapped, n = re.subn(r'<meta[^>]+http-equiv=["\']?content-security-policy[^>]*>', lambda _: tag, h, count=1, flags=re.I)
@@ -422,6 +422,14 @@ def skills_line(cfg, names=None):
     """What the owner switched off, for every prompt that reads kits. Empty when nothing is off."""
     off = (cfg or {}).get('kitSkillsOff') or {}; bits = [f"{(names or {}).get(k, k)}: {', '.join(v)}" for k, v in off.items() if v]
     return ('\nYOUR OWNER SWITCHED THESE KIT SKILLS OFF, do not use them: ' + '; '.join(bits) + '.') if bits else ''
+
+
+def stash_line(root, kind, text, picks=()):
+    """The owner's picks come first. If they do not help this request, the agent reaches into the stash instead (owner 2026-11-07), and says which. → (words for the prompt, the kits offered)"""
+    picks = set(picks or []); rows = {k['id']: k for k in all_rows(root)}; ids = [i for i in auto_picks(root, kind, text, n=8) if i not in picks and i != FEELESS_ID][:4]; names = [str(rows[i].get('name') or i) for i in ids if i in rows]
+    if not names:
+        return '', []
+    return '\nIF THE PICKED KITS DO NOT HELP THIS REQUEST, use these from the stash instead, and say which you used: ' + '; '.join(f"{rows[i].get('name')}: {str(rows[i].get('what') or '')[:80]}" for i in ids if i in rows) + '.', names
 
 
 def line(root, kind, picks=(), open_kits=False):

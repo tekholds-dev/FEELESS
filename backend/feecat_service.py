@@ -6267,13 +6267,18 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         doc['stage'] = stage; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': stage, 'spent': round(cost, 6)}})
     async def resolve(scene):
         async with httpx.AsyncClient(timeout=30) as h_:
-            await _assets.ensure(h_, KITS_DIR); scene, used, missing = await _assets.fill(h_, KITS_DIR, scene, many=bool(_assets.MANY.search(prompt)))
+            await _assets.ensure(h_, KITS_DIR); scene, used, missing = await _assets.fill(h_, KITS_DIR, scene, many=bool(_assets.MANY.search(prompt)), avoid=_play_load(cat_id, 'usedAssets') or [])
         seen_used.extend(used); seen_missing.extend(missing)
         return scene
+    fresh_ = wrong_ or not now_scene['objects']; print_ = _play.creative_print(f'{doc.get("id")}{time.time()}{prompt[:80]}', _play_load(cat_id, 'prints') or []) if fresh_ and slot == 'scene3d' else None
+    if _play.wants_code(prompt) and print_:   # a design no library holds is what the code-built worlds are for
+        print_.update(hero='star', world='stars' if print_['world'] not in ('stars', 'nebula', 'void') else print_['world'])
+    mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = _kits.auto_picks(KITS_DIR, 'pos', prompt, record=_kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = _kits.stash_line(KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
+    kit_read_ = _kits.line(KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + _kits.skills_line(cat.get('brainsCfg')) + ('\n' + _play.print_line(print_) if print_ else '')
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
-        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or [], prompt) + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
+        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or [], prompt) + kit_read_ + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
         scene, say = _play.parse_reply(raw, now_scene)
         if scene:
             scene, kept_ = _play.keep_monitors(scene, now_scene, text, prompt); scene = {**_play.ensure_named(scene, kept_), 'page': _play.keep_page(now_scene.get('page'), scene.get('page'), text)}; by = name(i_); break
@@ -6298,6 +6303,9 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     except Exception as e:   # noqa: BLE001 — the build still stands without its check
         checked = f'The check did not finish: {str(e)[:60]}'
     scene = _play.ensure_asks(scene, text, doc.get('name'))
+    if print_:
+        scene = _play.apply_print(scene, print_); _play_save(cat_id, 'prints', ([*(_play_load(cat_id, 'prints') or []), print_])[-40:])
+    _play_save(cat_id, 'usedAssets', list(dict.fromkeys([*(_play_load(cat_id, 'usedAssets') or []), *[(o.get('asset') or {}).get('id') for o in scene.get('objects') or [] if o.get('asset')]]))[-400:])
     keep_cam = scene.get('camera') if any(o['name'] == 'Back wall' for o in scene['objects']) else None; scene['camera'] = [0, 0, 0]; scene = _play._frame(_assets.compose(scene)); scene['camera'] = _play.room_camera(scene) if keep_cam else scene['camera']   # every build is framed by code on what really landed
     async with httpx.AsyncClient(timeout=120) as h_:
         await _play.embed_pictures(h_, [scene])
@@ -6307,7 +6315,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
     html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {print_['world']} world, {print_['hero']} hero, words {print_['layout']}." if print_ else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -6319,15 +6327,11 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        first_said_ = next((m.get('text') for m in doc.get('messages') or [] if m.get('by') == 'you'), '')
-        redo_code_ = bool(_play.WRONG_BUILD.search(str(text))) and _play.wants_code(first_said_)
-        if redo_code_:   # what was asked needs real code, so it starts over from that ask with this correction on top
-            text = f'{text}\nTHE ORIGINAL ASK: {first_said_}'; doc.pop('scene3d', None); doc.pop('scene3dNext', None)
-        if kind == 'build' and not redo_code_ and not (_play.wants_code(text) and not doc.get('scene3d')) and (_assets.wants_3d(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
+        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
             cost += usd_
         elif kind == 'build':
-            cur = '' if redo_code_ else (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
+            cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
             read_ = ''
             if not cur:   # a new page learns from the best first. An edit already has its page
                 read_, doc['sitesRead'] = await _site_reads('pos')
@@ -6363,9 +6367,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     from_repo_ = ''
             user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
-            if _play.wants_code(text):   # the design needs three.js, whatever kits were picked
-                picks_ = list(dict.fromkeys(['three', *picks_]))
-            kits_ = _kits.use_line(picks_) + _kits.skills_line(cat.get('brainsCfg')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            stash_, doc['kitsStash'] = _kits.stash_line(KITS_DIR, 'pos', text, picks_)
+            kits_ = _kits.use_line(picks_) + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -7965,6 +7968,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op == 'tools_show':   # 🧰 real library counts for the Proofs tab
+        rows_ = _assets._load(KITS_DIR, _assets.INDEX).get('rows') or {}
+        return {'models': _assets.model_count(KITS_DIR), 'hdris': len(rows_.get('hdri') or []), 'textures': len(rows_.get('texture') or [])}
+    if p.op == 'tools_demo':   # 🌌 one real world from the 3D studio. No model, no assets
+        t_ = p.tools if isinstance(p.tools, dict) else {}; w_ = t_.get('world') if t_.get('world') in _play.WORLDS else 'nebula'; h_ = t_.get('hero') if t_.get('hero') in _play.HEROES else 'star'
+        return {'preview': _feat.preview(_play.lock_site(_play.to_html(_play.clean_scene({'world': w_, 'hero': h_, 'tint': '#ff8a3d', 'ground': False, 'layout': 'left', 'objects': [], 'camera': [0, 2, 8], 'page': {'headline': w_.upper(), 'sub': f'A real {w_} world around a {h_}, running in this page'}}), w_)))}
     if p.op == 'demo_gallery':   # 🖼 real proofs of every type, whitelisted, for the Features folder
         g_ = _demo_gallery(store, cat)
         return {'kinds': g_['kinds']}

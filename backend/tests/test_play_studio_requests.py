@@ -75,3 +75,14 @@ def test_moving_the_monitors_never_loses_them_and_they_sit_on_the_real_desk():
     assert ps.keep_monitors(one, three, 'only one monitor', 'p')[1] == 'p' and ps.keep_monitors(three, three, 'x', 'p')[1] == 'p'
     html = ps.to_html({'objects': [{'prefab': 'room'}], 'page': {'headline': 'G'}}, 'G', None)
     assert 'intersectObject(desk, true)' in html and 'userData.piece' in html and '/desk|table/i.test' in html and '\x08' not in html
+
+
+def test_every_request_gets_a_print_it_did_not_just_use():
+    used = []
+    for i in range(6):
+        pr = ps.creative_print(f'r{i}', used); assert pr not in used; used.append(pr)
+    assert all(a['world'] != b['world'] for a, b in zip(used, used[1:]))
+    sc = ps.apply_print({'objects': [{'name': 'Floor', 'shape': 'box'}, {'name': 'Back wall', 'shape': 'box'}, {'name': 'Cannon', 'shape': 'box'}], 'world': 'grid'}, {'world': 'stars', 'hero': 'star', 'layout': 'right', 'tint': '#ff8a3d'})
+    assert sc['world'] == 'grid' and sc['hero'] == 'star' and sc['layout'] == 'right' and not sc['ground'] and [o['name'] for o in sc['objects']] == ['Cannon']
+    assert 'makeWorld(S, here)' in ps.to_html(sc, 'N', None) and 'at-right' in ps.to_html(sc, 'N', None)
+    assert ps.WRONG_BUILD.search("USE DIFFERENT 3D ARTIFACTS AND CREATE A NEW 3D PLAYGROUND FOR THE BACKGROUND, DONT DO THE SAME THING")

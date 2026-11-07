@@ -6,7 +6,7 @@ import { nextMove } from './CollectiveTop';
 jest.mock('../terminal/TradeTape', () => ({ TradeTape: () => <i data-testid="tape" /> }));
 jest.mock('./FeeCatShell', () => ({ goTo: jest.fn() }));
 const DATA = { workspaces: [], memory: { notes: 3, mindNotes: 1, recent: ['a note'], personal: '' }, print: { level: 40, proofs: 6, traits: [{ t: 'source pump', score: 2, n: 3, won: 3 }] }, edge: [{ id: 'x', cat: 'safety', t: 'Mint on', read: 'r', means: 'm', do: 'd', stop: 's' }], edgeCats: { safety: 'Rugs' }, indicators: [{ id: 'rsi', t: 'RSI' }], pocFolders: [] };
-async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
+async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); await act(async () => { el.querySelector('[data-testid="fea-tab-features"]').click(); }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
 const type = async (n, v) => { await act(async () => { const set = Object.getOwnPropertyDescriptor(n.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set; set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); }); };
 
 test('this agent’s use comes first, every feature has a demo marked as an example and a create button', async () => {
@@ -357,4 +357,22 @@ test('a kit skill is a switch that tells the server, and what is off stays off',
   await act(async () => { box().click(); });
   expect(calls.at(-1)).toEqual({ op: 'kit_skill', text: 'fl-coin-vet', job: 'holders', on: false }); expect(box().checked).toBe(false);
   await act(async () => { root.unmount(); }); el.remove();
+});
+
+
+test('Proofs: a door per proof, its real tools, real numbers and a start that works', async () => {
+  const { ProofDoors } = require('./ProofDoors');
+  const calls = []; const kit = { id: 'fl-funding', name: 'Funding Reader', what: 'x', by: 'FEELESS', kinds: ['pop'], fresh: ['BTC funding 0.01%'], source: 'Hyperliquid', skills: ['funding'], quality: 'Untested' };
+  const work = async (_, b) => { calls.push(b); if (b.op === 'tools_show') return { models: 44000, hdris: 997, textures: 869 }; if (b.op === 'kit_list') return { kits: [kit], picks: [], mode: 'mine', max: 3, recs: {}, stacks: [], by: {} }; if (b.op === 'demo_gallery') return { kinds: [] }; if (b.op === 'tools_demo') return { preview: '<b>world</b>' }; return {}; };
+  const onCommand = jest.fn(); const onMake = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{ popFolders: [{}] }} work={work} onCommand={onCommand} onMake={onMake} />); });
+  await act(async () => { await Promise.resolve(); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('ptl-n-MODELS').textContent).toBe('44K'); expect(q('ptl-world-frame').getAttribute('sandbox')).toBe('allow-scripts');
+  await act(async () => { q('ptl-w-aurora').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_demo', tools: { world: 'aurora', hero: 'star' } });
+  await act(async () => { q('ptl-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
+  await act(async () => { q('ptl-pop').click(); });
+  expect(q('ptl-live').textContent).toContain('BTC funding 0.01%'); expect(q('ptl-no-proof').textContent).toContain('PoP'); expect(el.textContent).not.toContain('Research');
+  await act(async () => { q('ptl-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
+  el.remove();
 });

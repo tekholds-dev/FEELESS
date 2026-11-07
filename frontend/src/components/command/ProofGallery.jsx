@@ -4,7 +4,7 @@ import { FolderRidge } from './ProofKit';
 
 // 🖼 Real proofs (owner 2026-11-06: "examples for all proof folders"). Nothing is a mock-up, and only this owner's own agents show: each is a proof really filed, its best and its worst, with what scored it.
 const pct = v => (v == null ? '—' : `${Math.round(Number(v) * 100)}`);
-function Card({ c, i, work, cat }) {
+export function ProofCard({ c, i, work, cat }) {
   const score = useCountUp(Number(c.score) || 0); const [page, setPage] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const open = async () => { if (page) { setPage(null); return; } setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'demo_open', job: c.id }); setPage(j.preview || ''); if (!j.preview) setErr('This page has no saved version.'); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return <article className={`pgl-card is-${c.tone}${page ? ' is-page' : ''}`} style={{ '--i': i }} data-testid={`pgl-${c.id}`}>
@@ -25,6 +25,6 @@ export function ProofGallery({ cat, work }) {
   return <div className="pgl" data-testid="pgl">
     <header className="pgl-h"><span><b>Your real proofs</b><small>Filed by your agents. The best and the worst of each type, with what scored them. Other owners' proofs only reach you when they bring them to the Collective Debate.</small></span>
       <div className="m-seg" role="tablist" aria-label="Proof type">{[['all', 'All'], ...kinds.map(k => [k.kind, k.kind])].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={show === k} className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-tip={k === 'all' ? 'Every proof type' : `Only ${l}`} data-testid={`pgl-show-${k}`}>{l}</button>)}</div></header>
-    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : !data ? <p className="pgl-empty" role="status">Reading the real proofs…</p> : <div className="pgl-grid">{seen.map(k => <React.Fragment key={k.kind}><h4 className="pgl-kind">{k.kind}<small>{k.line}</small></h4>{k.cards.length ? k.cards.map(c => <Card key={c.id} c={c} i={n++} work={work} cat={cat} />) : <p className="pgl-empty">Your agents have not filed a {k.kind} yet.</p>}</React.Fragment>)}</div>}
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : !data ? <p className="pgl-empty" role="status">Reading the real proofs…</p> : <div className="pgl-grid">{seen.map(k => <React.Fragment key={k.kind}><h4 className="pgl-kind">{k.kind}<small>{k.line}</small></h4>{k.cards.length ? k.cards.map(c => <ProofCard key={c.id} c={c} i={n++} work={work} cat={cat} />) : <p className="pgl-empty">Your agents have not filed a {k.kind} yet.</p>}</React.Fragment>)}</div>}
   </div>;
 }
