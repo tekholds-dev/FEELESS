@@ -414,6 +414,9 @@ class ReaderPage:
                 return await self.goto(html.unescape(href))
         return f'(no link with the text "{text}")'
 
+    async def site_search(self, q):
+        return await self.search(q)   # the reader has no hands: a web search instead
+
     async def type(self, label, value):
         return '(the reader cannot type into forms — this needs a live browser window)'
 

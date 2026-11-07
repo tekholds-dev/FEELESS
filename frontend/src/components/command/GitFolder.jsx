@@ -1,11 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, FileCode2, FileImage, FileJson, FileText, Folder, FolderOpen, Lock, Settings2, Trash2 } from 'lucide-react';
 import { Slider } from '@heroui/react';
 import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
-import { KitPick } from './KitPick';
-const PrintLazy = lazy(() => import('./Proofprint').then(m => ({ default: m.ProofFingerprint })));
 import { WeightBars } from './ProofKit';
 import { createPortal } from 'react-dom';
 import { ZoomPane } from './ZoomPane';
@@ -260,14 +258,6 @@ function ProjectLink({ project, ask, reload }) {
     : <form className="git-project-f" onSubmit={e => { e.preventDefault(); go({ op: 'project_link', job: full.trim(), text: token.trim() || undefined }); }}><small>Hook up your repo to copy any build or proof over to it, on a branch of its own. Your main is never touched.</small><input className="m-input" value={full} onChange={e => setFull(e.target.value)} placeholder="owner/repo" aria-label="Your repo" data-testid="git-project-repo" /><input className="m-input" type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder="github_pat_… with Contents read and write on this repo" aria-label="GitHub token for your project" data-testid="git-project-token" /><button type="submit" className="m-btn m-go" disabled={busy || !full.trim() || !token.trim()} data-tip="Sealed here and never shown again" data-testid="git-project-go">{busy ? 'Reading…' : 'Hook it up'}</button></form>}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</section>;
 }
 // 🧬 Every proof type at a glance: a small print that opens, and what each kind got right and wrong. From the proofs themselves.
-const WIRES = [['powFolders', 'PoW', f => (f.pnlPct == null ? null : f.pnlPct > 0)], ['popFolders', 'PoP', f => (f.noTrade || f.roePct == null ? null : f.roePct > 0)], ['pobFolders', 'PoB', f => ({ right: true, wrong: false }[f.graded] ?? null)], ['pocFolders', 'PoC', f => ({ right: true, wrong: false }[f.graded] ?? null)], ['psFolders', 'PoStatic', f => ({ right: true, wrong: false }[f.graded] ?? null)]];
-export function wireRows(d) { return WIRES.map(([key, label, won]) => { const rows = (d?.[key] || []).filter(f => f?.status === 'closed'); const good = rows.filter(f => won(f) === true).length; const bad = rows.filter(f => won(f) === false).length; return { key, label, total: rows.length, good, bad, open: rows.length - good - bad }; }); }
-function ProofWires({ cat, work }) {
-  const [d, setD] = useState(null); const [big, setBig] = useState(false);
-  useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'state' })).then(j => on && setD(j)).catch(() => {}); return () => { on = false; }; }, [cat.id, work]);
-  if (!d) return null;
-  return <section className={`git-wires m-card${big ? ' is-big' : ''}`} data-testid="git-wires"><button type="button" className="git-wire-print" aria-expanded={big} onClick={() => setBig(x => !x)} data-tip={big ? 'Make the print small' : 'Open the print'} data-testid="git-wire-open"><Suspense fallback={null}><PrintLazy kind="pow" cat={cat} d={d} size={big ? 260 : 70} /></Suspense></button><ul>{wireRows(d).map(r => <li key={r.key} data-testid={`git-wire-${r.label}`}><b>{r.label}</b><i aria-hidden="true"><u className="is-good" style={{ flexGrow: r.good }} /><u className="is-open" style={{ flexGrow: r.open }} /><u className="is-bad" style={{ flexGrow: r.bad }} /></i><small className="m-num">{r.good} good · {r.bad} bad · {r.open} open</small></li>)}</ul></section>;
-}
 // 💬 Ask about this folder. Its agent reads file names and sizes, never what is inside, and changes nothing.
 const GIT_ASKS = ['What is in here?', 'What should I clean first?', 'What looks doubled?'];
 function GitChat({ ask }) {
@@ -290,14 +280,13 @@ export function GitFolder({ cat, work, scope = '' }) {
   const shotsFor = useCallback((path, data) => { const files_ = data?.id ? (s?.powShots || {})[data.id] : null; return (files_ || []).map(f => apiUrl(`/api/cats/${cat.id}/powshot/${String(data.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${f}?${agentAuthQuery()}`)); }, [s, cat.id]);
   const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full;
   return <div className={`git${collective ? ' is-collective' : ''}`} data-testid={collective ? 'git-collective' : 'git-folder'}>
-    <ProofWires cat={cat} work={work} /><div className="git-kitrow"><KitPick cat={cat} work={work} /></div>
     {collective ? <div className="m-seg" role="tablist" aria-label="GitHub">{[['repo', 'The repo'], ['kits', 'Kits for every agent']].map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div> : null}
     {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : <>
-    {collective && on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
     <header className="git-h m-live"><span><em>{collective ? 'THE COLLECTIVE · ONLY YOU' : 'ITS GITHUB'}</em><b>{on ? l.full : collective ? 'The Collective repo' : 'Keep its proofs in your repo'}</b><small>{collective ? 'Every kept proof sorted by kind, result and month, with snapshots and the pages behind PoStatic.' : 'Its filed proofs and pages, sorted by kind, result and month. Keys and sign-ins never go in.'}</small></span>{on ? <a className="m-btn" href={l.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub" data-testid="git-open">Open on GitHub</a> : null}</header>
+    {on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
     {!collective && s?.vault?.on ? <section className="git-vault m-card" data-testid="git-vault"><i aria-hidden="true"><Ic3 e="🔐" /></i><span><b>{s.vault.files ? `${s.vault.files} files kept safe, ${size(s.vault.bytes || 0)}` : 'Kept safe on the next hourly pass'}</b><small>Free. Its filed proofs and pages are sealed under its own key in the Collective's private store, with hashed names. Your own repo below is optional.{s.vault.left ? ` ${s.vault.left} files are over its 20 MB share and wait.` : ''}</small></span><em className="m-num">{s.vault.at ? ago(s.vault.at) : 'waiting'}</em></section> : null}
     {s?.sealed ? <p className="git-seal" data-testid="git-sealed-note"><Lock size={13} aria-hidden="true" /> On GitHub every file is encrypted with a hashed name. You read them here.</p> : null}
-    {s?.sort ? <div className="git-sortbar" data-testid="sort-bar"><label className="m-toggle" data-tip="Only when nothing you asked is running and the Mac has room. One file at a time"><input type="checkbox" checked={!!s.sort.on} onChange={e => { const on_ = e.target.checked; ask({ op: 'sort_on', on: on_ }).then(() => setS(x => ({ ...x, sort: { ...x.sort, on: on_ } }))); }} data-testid="sort-on" /><span>OSSY and G4 sort when idle</span></label><span className="git-sortnums m-num">{[['good', 'good'], ['bad', 'bad'], ['disputed', 'disputed'], ['trash_ask', 'want gone'], ['unsorted', 'unsorted']].map(([k, l]) => <span key={k} className={`is-${k}`}><b>{s.sort.counts?.[k] ?? 0}</b> {l}</span>)}</span></div> : null}
+    {s?.sort ? <div className="git-sortbar" data-testid="sort-bar"><label className="m-toggle" data-tip="Only when nothing you asked is running and the Mac has room. One file at a time"><input type="checkbox" checked={!!s.sort.on} onChange={e => { const on_ = e.target.checked; ask({ op: 'sort_on', on: on_ }).then(() => setS(x => ({ ...x, sort: { ...x.sort, on: on_ } }))); }} data-testid="sort-on" /><span>The Collective sort when idle</span></label><span className="git-sortnums m-num">{[['good', 'good'], ['bad', 'bad'], ['disputed', 'disputed'], ['trash_ask', 'want gone'], ['unsorted', 'unsorted']].map(([k, l]) => <span key={k} className={`is-${k}`}><b>{s.sort.counts?.[k] ?? 0}</b> {l}</span>)}</span></div> : null}
     {s ? <ProjectLink project={s.project} ask={ask} reload={load} /> : null}
     {s?.clean ? <CleanUp clean={s.clean} notice={s.notice} ask={ask} reload={load} /> : null}
     {s?.files?.length ? <GitChat ask={ask} /> : null}{s?.files?.length ? <RepoTree files={s.files} ask={ask} shotsFor={shotsFor} sort={s.sort} setSort={fn => setS(x => ({ ...x, sort: fn(x.sort) }))} /> : null}

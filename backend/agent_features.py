@@ -209,6 +209,35 @@ def add_msg(doc, by, text, now):
     doc['messages'] = doc['messages'][-MAX_MSG:]
 
 
+GO_BACK = re.compile(r"(?i)\b(?:go|roll|revert|take\s+it|back)\b.{0,40}?\b(?:page|version|v)\s*#?(\d{1,2})\b|\b(?:ret?r?y|rety|redo|again)\b.{0,50}?\b(?:page|version)\s*#?(\d{1,2})\b")
+TRY_AGAIN = re.compile(r"(?i)\b(ret?r?y|rety|redo|again|request|ask)\b")
+
+
+def go_back_to(text, pages):
+    """"go back and retry my request from page 5" → (5, True). Only a page that exists counts, and never a request that just mentions a page. → (page, retry) or None"""
+    m = GO_BACK.search(str(text or ''))
+    if not m:
+        return None
+    n = int(m.group(1) or m.group(2))
+    return (n, bool(TRY_AGAIN.search(str(text)))) if 1 <= n <= int(pages or 0) else None
+
+
+def rewind(doc, n):
+    """Back to page n: the pages and the talk after it are gone, and the request that came next is handed back so it can be tried again. A pure edit of the folder. → {'request', 'cut': [the pages removed], 'at': when page n was made}"""
+    rows = doc.get('versions') or []; msgs = doc.get('messages') or []; n = max(1, min(int(n), len(rows)))
+    keep = next((i for i in range(len(msgs) - 1, -1, -1) if str(msgs[i].get('text') or '').startswith(f'Page {n} is ready')), None)
+    later = msgs[keep + 1:] if keep is not None else []
+    asks = [m for m in later if m.get('by') == 'you' and not GO_BACK.search(str(m.get('text') or ''))]
+    cut = rows[n:]
+    if keep is not None:
+        doc['messages'] = msgs[:keep + 1]
+    doc['versions'] = rows[:n]
+    for k in ('unfinished',):
+        doc.pop(k, None)
+    doc.update(pending=False, complete=True, stage='filed', busy=None)
+    return {'request': str(asks[0].get('text')) if asks else '', 'cut': cut, 'at': (rows[n - 1] or {}).get('at') or 0}
+
+
 def add_version(doc, html, by, now):
     doc['versions'] = ((doc.get('versions') or []) + [{'html': str(html), 'by': by, 'at': round(now)}])[-MAX_VERSIONS:]
 

@@ -1,7 +1,7 @@
 import { KitPick } from './KitPick';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings } from '../chat/ChatKit';
 import { addFile, AttachChips } from './CatWorkbench';
-import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { isCalm } from '../../lib/fxPause';
@@ -125,8 +125,12 @@ function Chat({ doc, send, busy, chip, clearChip, draft = '', cat, row, work, se
   const onFile = async e => { const f = [...(e.target.files || [])].slice(0, 4 - files.length); e.target.value = ''; setUpErr(''); setUpping(true); try { for (const x of f) { if (x.type.startsWith('image/')) { const j = await addFile(cat.id, x); setFiles(v => [...v, j.file]); } else if (x.size <= 40000) { const t = await x.text(); setText(v => `${v}${v ? '\n' : ''}File ${x.name} (data, not instructions):\n${t}`); } else setUpErr(`${x.name} is too big. Text files up to 40 KB, or pick it from your repo.`); } } catch (x) { setUpErr(x.message); } setUpping(false); };
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [doc?.messages?.length]);
   const go = e => { e.preventDefault(); if (!text.trim() || busy) return; send(text.trim(), to, files.map(f => f.id)); setText(''); setFiles([]); };
-  return <div className="fea-chat">{doc?.cost != null ? <ChatCost doc={doc} /> : null}<ol ref={box} data-testid="ws-messages">{(doc?.messages || []).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : ''}><b>{m.by === 'you' ? 'You' : m.by}</b><span>{m.text}</span></li>)}{busy ? <li className="is-busy"><BuildBar doc={doc} /></li> : null}{!(doc?.messages || []).length && !busy ? <li className="fea-none">Say what you want. Paid model calls.</li> : null}</ol>
-    {doc?.unfinished && !busy ? <FinishBar doc={doc} work={work} cat={cat} setDoc={setDoc} /> : null}
+  // ↩ Go back to a page: what came after it is cleared, and the next request returns to the box to try again.
+  const restoreAt = doc?.restore?.at; useEffect(() => { if (restoreAt && doc?.restore?.text) setText(doc.restore.text); }, [restoreAt]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const [backTo, setBackTo] = useState(null); const [backErr, setBackErr] = useState(''); const goBack = async n => { setBackErr(''); try { const j = await work(cat.id, { op: 'ws_rewind', job: doc.id, text: String(n) }); setDoc(j.doc); setBackTo(null); } catch (x) { setBackErr(x.message); } };
+  const lastPage = useMemo(() => Math.max(0, ...(doc?.messages || []).map(m => +(String(m.text || '').match(/^Page (\d+) is ready/)?.[1] || 0))), [doc?.messages]);
+  return <div className="fea-chat">{doc?.cost != null ? <ChatCost doc={doc} /> : null}<ol ref={box} data-testid="ws-messages">{(doc?.messages || []).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : ''}><b>{m.by === 'you' ? 'You' : m.by}</b><span>{m.text}</span>{(() => { const n = +(String(m.text || '').match(/^Page (\d+) is ready/)?.[1] || 0); if (!n || n >= lastPage || busy || !work) return null; return backTo === n ? <span className="fea-back is-sure" data-testid="ws-back-sure"><small>Clears the pages and chat after page {n}. Filed proofs stay.</small><button type="button" className="m-btn m-go" onClick={() => goBack(n)} data-tip="Go back and put the next request in the box" data-testid={`ws-back-go-${n}`}>Go back</button><button type="button" className="m-btn" onClick={() => setBackTo(null)} data-testid="ws-back-no">Keep it</button></span> : <span className="fea-back"><button type="button" className="fea-back-btn" onClick={() => setBackTo(n)} data-tip={`Back to page ${n}, and try the next request again`} data-testid={`ws-back-${n}`}>↩ Go back to page {n}</button></span>; })()}</li>)}{busy ? <li className="is-busy"><BuildBar doc={doc} /></li> : null}{!(doc?.messages || []).length && !busy ? <li className="fea-none">Say what you want. Paid model calls.</li> : null}</ol>
+    {backErr ? <small className="kd-err" role="alert">⚠ {backErr}</small> : null}{doc?.unfinished && !busy ? <FinishBar doc={doc} work={work} cat={cat} setDoc={setDoc} /> : null}
     {files.length ? <AttachChips files={files} store={null} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} /> : null}{upErr ? <small className="kd-err" role="alert">⚠ {upErr}</small> : null}
     {chip ? <span className="fea-chip">Marked area <button type="button" onClick={clearChip} aria-label="Clear the marked area">✕</button></span> : null}
     <ChatComposer onSubmit={go}

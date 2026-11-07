@@ -31,9 +31,10 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. On your FIRST turn also add "plan": ["step 1", "step 2", "step 3"] — your 3-step plan (<= 8 words each), then follow it. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|snapshot|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
+           'Each turn pick ONE action. On your FIRST turn also add "plan": ["step 1", "step 2", "step 3"] — your 3-step plan (<= 8 words each), then follow it. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|site_search|scroll|click|type|snapshot|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "facts": [{{"label":"liquidity","value":"$35K","support":"exact short page excerpt containing $35K"}}], "say": "<your answer, when action is answer>"}}\n'
            'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
+           'USE THE SITE: once a site is open, find things the way a person does. Action "site_search" (q: your words) clicks that site\'s own search box, types and presses Enter. Then "click" the result you want by its text and "scroll" through it. Do not guess deep links, and do not stop at a home page. Action "search" is only for finding which site to open.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps|colony, q: the coin / ticker) '
            'BEFORE any outside website — FEELESS is where this user trades. Never launch a coin or pool or create an agent ON FEELESS (on any other site, do as the user asks); never create a FeeCat.\n'
            'ACCOUNTS — DO IT YOURSELF FIRST: when a task needs an account, use your own mailbox, then the site\'s sign-up with that email and "new_login". ' + SOURCES + ' Hand to the human ONLY for the user\'s OWN accounts (Polymarket, Kalshi, banks, '
@@ -336,7 +337,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             extra += '\n' + str(task['knowhow'])[:2600]
         if pw:
             extra += '\n' + _pow.RULES + "\nTHE COIN'S PAGES: " + ' · '.join(_pow.links(pw)) + f"\nPOW SO FAR: {_pow.public(pw)['pulls'] or 'no vitals pulled yet'}"
-        if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
+        if task.get('research') and not task.get('notCoins'):   # 📰 a trader on a coin: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
             extra += RESEARCH_HOW
         # the job + JSON format lead: a short-context model (the free backup keeps the first 4,000 chars) once lost both and answered in prose
         msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra + '\n' + RULES + '\nEnabled tools: ' + str(task.get('tools', {}))},
@@ -398,7 +399,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:600]   # short, always (owner: least usage)   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
             break
-        need = {'open': 'browse', 'search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
+        need = {'open': 'browse', 'search': 'browse', 'site_search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
         if need and not task.get('tools', {}).get(need, False):
             why = f'Refused: {need} tool is disabled for this job.'
             task.setdefault('refusals', []).append(why)
@@ -505,6 +506,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = await page.scroll(way_)
                 elif act == 'search':
                     seen = await page.search(str(a.get('q') or w['goal']))
+                elif act == 'site_search':
+                    q_ = str(a.get('q') or a.get('value') or '')[:120]
+                    seen = '(that looks like a secret, so it was not typed)' if blocked_value('search', q_) else (await page.site_search(q_) or '(this page has no search box, so use its links or scroll)\n' + str(await page.read())[:READ_MAX // 2])
                 elif act == 'click':
                     seen = await page.click(str(a.get('text') or ''))
                     if task.get('research') and page.url and not _on_list(task, page.url):   # a link off the research list → straight back
@@ -526,7 +530,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
-            if task.get('keepShots') and act in ('open', 'click'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
+            if task.get('keepShots') and act in ('open', 'click', 'site_search'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
                 h_ = _pow.host_of(page.url); rows_ = w.setdefault('_shots', [])
                 if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_) and not needs_human(page.url, seen):   # 🚫 never a snapshot of a bot check
                     m_ = await _marks.marked_shot(page, _marks.words_of([task.get('topic') or task.get('text') or '']), time.time())   # 🖍 the words of its topic are boxed where they are on the page
@@ -538,7 +542,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 await _pow_snap(pw, page, w.get('_page') or seen)
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
-            if act in ('open', 'search', 'click', 'scroll') and seen and not str(seen).startswith('('):
+            if act in ('open', 'search', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
                 h_read = _pow.host_of(page.url)   # 📖 what it really read, per site: survives a window that runs out of budget before it writes its answer
                 if h_read:

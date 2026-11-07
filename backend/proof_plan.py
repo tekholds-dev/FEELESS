@@ -72,5 +72,5 @@ def answer(pending, text, now):
 
 def goal_for_bid(topic, sites, angle=None):
     look = f"Your angle: {angle[0]}. Search for {topic} {angle[1]}. Another mind has the other angle and other sites, so never open its sites first or run its search. " if angle else "Do one good search first. Look for today's lines, odds, injuries, form and what the market prices. "
-    return (f"PROOF OF BID research. The owner asks: {topic}. {look}Then open these and read each in 3 to 6 steps, no more: {', '.join(sites[:4])}. "
+    return (f"PROOF OF BID research. The owner asks: {topic}. {look}Then open these and read each in 3 to 6 steps, no more: {', '.join(sites[:4])}. On each one use its own search box (action site_search) with the teams or the question, click the result, and scroll it. A home page is not a source. "
             "If a site has nothing, move on and say so. Then answer in at most 6 lines, each number with the site you read it on. Do not sign in, bet or buy anything.")

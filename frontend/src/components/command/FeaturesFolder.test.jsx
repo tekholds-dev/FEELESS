@@ -375,9 +375,14 @@ test('Proofs: finished work plays on one stage, each capability one tap away, a 
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('pdr-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
   await act(async () => { q('pdr-pop').click(); });
-  expect(q('pdr-agent')).toBeTruthy(); await act(async () => { q('pdr-cap-chart').click(); }); expect(q('pdr-perp')).toBeTruthy();
+  expect(q('pdr-perp-replay')).toBeTruthy(); expect(q('pdr-agent')).toBeNull(); await act(async () => { q('pdr-cap-chart').click(); }); expect(q('pdr-perp')).toBeTruthy();
   await act(async () => { q('pdr-cap-best').click(); }); expect(q('pdr-no-proof').textContent).toContain('PoP');
   await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
+  await act(async () => { q('pdr-pow').click(); }); expect(q('pdr-pow-replay')).toBeTruthy();
+  await act(async () => { q('pdr-pob').click(); }); expect(q('pdr-pick-replay')).toBeTruthy();
+  await act(async () => { q('pdr-poc').click(); }); expect(q('pdr-piece-frame') || q('pdr-stage')).toBeTruthy(); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
+  await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-story-replay')).toBeTruthy();
+  await act(async () => { q('pdr-cap-thumbs').click(); }); expect(q('pdr-thumbs')).toBeTruthy();
   el.remove();
 });
 

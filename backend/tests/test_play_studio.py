@@ -437,7 +437,7 @@ def test_a_3d_page_can_hold_its_own_code_and_a_broken_tag_cannot_escape():
 
 
 def test_every_agent_knows_the_builds_he_loves():
-    line = ps.references_line([{'name': 'Bar', 'prompt': 'a bar'}], 'like Bar and GLINT'); assert 'GLINT:' in line and 'Bar: a bar' in line and 'as data' in line
+    line = ps.references_line([{'name': 'Bar', 'prompt': 'a bar'}], 'like Bar and GLINT'); assert 'GLINT:' in line and 'Bar: a bar' in line and 'never imitate' in line
     rows = ps.add_reference([{'name': 'A', 'prompt': 'old'}], 'A', 'new', {'objects': [{'name': 'Cam', 'asset': {'id': 'c', 'url': 'https://dl.polyhaven.org/c.gltf'}, 'pos': [0, 0, 0]}]}); assert rows == [{'name': 'A', 'prompt': 'new', 'why': 'Real assets: Cam'}]
 
 
@@ -532,7 +532,7 @@ def _no_network(monkeypatch, fs):
 
 def test_every_studio_and_features_button_reaches_the_server_and_gets_a_real_page(monkeypatch, tmp_path):
     fs, c, _store = _server(monkeypatch, tmp_path); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw}); _no_network(monkeypatch, fs)
-    got = post('play3d_get').json(); assert len(got['moods']) == len(ps.MOODS) and {t['kind'] for t in got['templates']} == {'site', 'game'}
+    got = post('play3d_get').json(); assert len(got['moods']) == len(ps.MOODS) and {t['kind'] for t in got['templates']} == {'site', 'game', 'film'}
     for t in ps.TEMPLATES:
         r = post('play3d_template', job=t['id']); assert r.status_code == 200, r.text
         sc = r.json()['scene']; assert sc['mood'] == t['brief']['mood']; assert post('play3d_get').json()['scene']['mood'] == sc['mood']

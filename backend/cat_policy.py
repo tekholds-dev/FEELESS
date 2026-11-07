@@ -32,7 +32,7 @@ def refusal(text):
 RESEARCH_HOSTS = ('x.com', 'twitter.com', 'coindesk.com', 'decrypt.co', 'theblock.co', 'cointelegraph.com', 'blockworks.co', 'dlnews.com',
                   'coinmarketcap.com', 'coingecko.com', 'dexscreener.com', 'birdeye.so', 'solscan.io', 'explorer.solana.com', 'rugcheck.xyz',
                   'pump.fun', 'jup.ag', 'gmgn.ai', 'bubblemaps.io', 'defined.fi', 'solsniffer.com', 'defillama.com', 'coinglass.com', 'hyperliquid.xyz', 'polymarket.com', 'kalshi.com', 'reddit.com', 'duckduckgo.com', 'feeless.app')
-RESEARCH_ACTIONS = frozenset({'pull', 'snapshot', 'answer', 'feeless', 'handoff', 'note', 'open', 'search', 'click', 'scroll', 'human', 'ask_login'})
+RESEARCH_ACTIONS = frozenset({'pull', 'snapshot', 'answer', 'feeless', 'handoff', 'note', 'open', 'search', 'site_search', 'click', 'scroll', 'human', 'ask_login'})
 LOGIN_HOSTS = ('x.com', 'twitter.com')
 
 

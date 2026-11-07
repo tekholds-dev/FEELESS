@@ -3591,6 +3591,7 @@ def _read_start(cat, goal, who, kind=''):
         _work_start(cat['id'], cat, goal + _site_note(cat, kind), who if who in ('0', '1') else None, None, read_=True)
     except HTTPException as e:
         return str(e.detail)[:80]
+    _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
 
 
@@ -4351,7 +4352,7 @@ async def _pob_tick(http, cat, now):
                 return
             await _pob_call(http, cat, rd, now, notes, why)
     elif do == 'start' and cat.get('pobAsk'):
-        topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _pob.sites_for(topic), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = sites
+        topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _pob.sites_for(topic), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
         why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
         if why:
             cat.pop('proofHosts', None)
@@ -6290,6 +6291,23 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
 _SHOWCASE = {}
 
 
+def _ws_rewind(cat, cat_id, doc, n, now):
+    """↩ Back to page n. A later page that was filed as a proof keeps its own small copy, so the agent's record is never touched. Nothing else is stored: the scene comes back out of the page itself. → the request to try again"""
+    got = _feat.rewind(doc, n); start = len(doc.get('versions') or [])
+    for f in cat.get('psFolders') or []:
+        if isinstance(f, dict) and f.get('ws') == doc.get('id') and int(f.get('version') or 0) > start:
+            i = int(f['version']) - start - 1
+            if 0 <= i < len(got['cut']):
+                keep = _feat.new_doc({'id': 'w' + secrets.token_hex(5), 'kind': 'build', 'name': doc.get('name'), 'at': round(now)}); keep['versions'] = [got['cut'][i]]; keep['archived'] = True; _ws_save(cat_id, keep); f.update(ws=keep['id'], version=1)
+    first, second = _play.scene_from_html(((doc.get('versions') or [{}])[-1] or {}).get('html'))
+    if first:
+        doc['scene3d'] = _play.clean_scene(first); doc['scene3dNext'] = _play.clean_scene(second) if second else None; _play_save(cat_id, '3d', {'scene': doc['scene3d'], 'mind': doc['scene3d']})
+    talk = _play_load(cat_id, 'convo')
+    if isinstance(talk, list) and got['at']:
+        _play_save(cat_id, 'convo', [r for r in talk if not isinstance(r, dict) or float(r.get('at') or 0) <= got['at'] or r.get('kind') != 'pos'])
+    return got['request']
+
+
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
     room_ask = bool(doc.get('scene3dNext')) and _play.names_room(text); wrong_ = bool(_play.WRONG_BUILD.search(str(text)))   # a site of two places: the words say which one changes
@@ -6315,7 +6333,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
             await _assets.ensure(h_, KITS_DIR); scene, used, missing = await _assets.fill(h_, KITS_DIR, scene, many=bool(_assets.MANY.search(prompt)), avoid=_play_load(cat_id, 'usedAssets') or [])
         seen_used.extend(used); seen_missing.extend(missing)
         return scene
-    fresh_ = wrong_ or not now_scene['objects']; print_ = _play.creative_print(f'{doc.get("id")}{time.time()}{prompt[:80]}', _play_load(cat_id, 'prints') or [], text) if fresh_ and slot == 'scene3d' else None
+    fresh_ = wrong_ or not (now_scene['objects'] or now_scene.get('hero')); print_ = _play.creative_print(f'{doc.get("id")}{time.time()}{prompt[:80]}', _play_load(cat_id, 'prints') or [], text) if fresh_ and slot == 'scene3d' else None
     if _play.wants_code(prompt) and print_:   # a design no library holds is what the code-built worlds are for
         print_['mood'] = 'space'
     mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = _kits.auto_picks(KITS_DIR, 'pos', prompt, record=_kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = _kits.stash_line(KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
@@ -6344,20 +6362,22 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if not scene['objects'] and not scene.get('hero'):
         _feat.add_msg(doc, by, f"Nothing it asked for exists in the library: {', '.join(seen_missing[:6])}. Nothing changed. Try other words.", time.time())
         return cost, 'None of its assets were found.', own
-    busy('review'); checker = brains[order[-1]] if len(brains) > 1 else brains[order[0]]; checked = ''
-    try:
-        raw, usd, own2 = await _ws_ask(cat, checker, _play.CHECK_SYS, f'THE FULL PROMPT: {prompt}\nTHE BUILD: {_play.build_summary(scene)}', 1500); cost += usd; own = own or own2
-        fixed, checked = _play.parse_reply(raw, scene, prompt); light_ = scene.get('hdri')
-        if fixed and scene.get('hero') and scene.get('mood'):   # a code-drawn centrepiece looks like an empty set to a checker: it put a literal button model under the black hole
-            fixed = {**scene, 'page': _play.keep_page(scene.get('page'), fixed.get('page'), text)}; scene = fixed; checked = checked or 'The words were checked'
-        elif fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
-            checked = 'The check found nothing to add'
-        elif fixed:
-            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); fixed, kept_ = _play.keep_monitors(fixed, scene, text, prompt); scene = await resolve(_play.ensure_named(fixed, kept_))   # the check fixes what is missing: the light the builder chose stands
-        elif not checked:
-            m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
-    except Exception as e:   # noqa: BLE001 — the build still stands without its check
-        checked = f'The check did not finish: {str(e)[:60]}'
+    checked = ''; checker = brains[order[-1]] if len(brains) > 1 else brains[order[0]]
+    if fresh_:   # a check is against the whole prompt, so an edit skips it: it answered "the prompt has no page 5", and added things nobody asked for
+        busy('review')
+        try:
+            raw, usd, own2 = await _ws_ask(cat, checker, _play.CHECK_SYS, f'THE FULL PROMPT: {prompt}\nTHE BUILD: {_play.build_summary(scene)}', 1500); cost += usd; own = own or own2
+            fixed, checked = _play.parse_reply(raw, scene, prompt); light_ = scene.get('hdri')
+            if fixed and scene.get('hero') and scene.get('mood'):   # a code-drawn centrepiece looks like an empty set to a checker: it put a literal button model under the black hole
+                fixed = {**scene, 'page': _play.keep_page(scene.get('page'), fixed.get('page'), text)}; scene = fixed; checked = checked or 'The words were checked'
+            elif fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
+                checked = 'The check found nothing to add'
+            elif fixed:
+                fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); fixed, kept_ = _play.keep_monitors(fixed, scene, text, prompt); scene = await resolve(_play.ensure_named(fixed, kept_))   # the check fixes what is missing: the light the builder chose stands
+            elif not checked:
+                m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
+        except Exception as e:   # noqa: BLE001 — the build still stands without its check
+            checked = f'The check did not finish: {str(e)[:60]}'
     scene = _play.ensure_asks(_play.drop_rejected(scene, was_), text, doc.get('name'))
     _play_save(cat_id, 'usedAssets', list(dict.fromkeys([*(_play_load(cat_id, 'usedAssets') or []), *[(o.get('asset') or {}).get('id') for o in scene.get('objects') or [] if o.get('asset')]]))[-400:])
     keep_cam = scene.get('camera') if any(o['name'] == 'Back wall' for o in scene['objects']) else None; scene['camera'] = [0, 0, 0]; scene = _play._frame(_assets.compose(scene)); scene['camera'] = _play.room_camera(scene) if keep_cam else scene['camera']   # every build is framed by code on what really landed
@@ -7791,6 +7811,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Say what to make.')
         if doc_.get('busy'):
             raise HTTPException(409, 'It is still working on the last one.')
+        back_ = _feat.go_back_to(text_, len(doc_.get('versions') or [])) if doc_.get('kind') == 'build' else None
+        if back_:   # "go back and retry my request from page 5" is done by code, never handed to a model to guess at
+            asked_ = _ws_rewind(cat, cat_id, doc_, back_[0], time.time()); _ws_save(cat_id, doc_); keep_owned(cat); _save(store)
+            if not (back_[1] and asked_):
+                return {'doc': {**_ws_view(cat_id, p.job), 'restore': {'text': asked_, 'at': time.time()}}}
+            said_ = text_ = asked_
         b_ = cat.get('brainsCfg') or {}
         if not b_.get('brains') or not (_lc.can_ask(b_) or _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR) or _pays_itself(cat)):
             raise HTTPException(402, 'It needs model credit to do this.')
@@ -7801,6 +7827,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
         _ws_save(cat_id, doc_)
         _ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)
         return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'ws_rewind':   # ↩ a page chosen in the chat: its later work and talk are cleared, and the next request goes back in the box
+        doc_ = _ws_load(cat_id, str(p.job or ''))
+        if not doc_ or doc_.get('busy'):
+            raise HTTPException(409, 'It is still working on the last one.')
+        try:
+            n_ = int(p.text)
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'Pick a page.')
+        if not 1 <= n_ <= len(doc_.get('versions') or []):
+            raise HTTPException(400, 'That page is not there.')
+        asked_ = _ws_rewind(cat, cat_id, doc_, n_, time.time()); _ws_save(cat_id, doc_); keep_owned(cat); _save(store)
+        return {'doc': {**_ws_view(cat_id, p.job), 'restore': {'text': asked_, 'at': time.time()}}}
     if p.op == 'memory':   # 🧠 start fresh, let its lead mind clean it, or tell it about you
         how_ = str(p.job or '')
         if how_ == 'fresh':

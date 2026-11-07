@@ -105,7 +105,7 @@ def test_a_weak_model_cannot_stack_everything_on_the_hero():
     scene, _ = ps.parse_reply(json.dumps({'objects': [{'find': 'chair'}, {'find': 'table'}, {'find': 'lamp'}]}))
     assert len({tuple(o['pos']) for o in scene['objects']}) == 3
     now = ps.clean_scene({'objects': [{'find': 'chair', 'pos': [0, 0, 0]}]})
-    more, _ = ps.parse_reply(json.dumps({'add': ['old books'], 'mood': 'neon'}), now)
+    more, _ = ps.parse_reply(json.dumps({'add': ['old books'], 'mood': 'neon'}), now, 'make it neon and add old books')
     assert more['mood'] == 'neon' and [o['name'] for o in more['objects']] == ['chair', 'old books']
 
 
@@ -166,4 +166,65 @@ def test_users_read_the_collective_not_the_internal_minds():
     import feecat_service as fs
     got = fs._as_collective({'talk': [{'by': 'OSSY', 'text': 'g4 agrees with ossy'}], 'n': 3, 'ok': True, 'rows': ['fine']})
     assert got == {'talk': [{'by': 'The Collective', 'text': 'The Collective agrees with The Collective'}], 'n': 3, 'ok': True, 'rows': ['fine']}
+
+
+REAL_EDIT = 'find a kit that uses a good example of "the core"and put it under that section, and add some thing vital under "the descent"'
+PAGE = {'headline': 'GRAVEWELL', 'sub': 'Eats jeets', 'cta': 'Enter', 'sections': [{'title': 'The Descent', 'body': 'Down'}, {'title': 'The Core', 'body': '60% burned'}]}
+
+
+def test_the_owners_real_edit_changes_only_what_he_asked():
+    now = ps.clean_scene({'mood': 'space', 'hero': 'blackhole', 'world': 'nebula', 'tint': '#00e5ff', 'objects': [{'find': 'torn metal fragment', 'pos': [1, 0, 0]}], 'page': PAGE})
+    reply = {'say': 'x', 'brief': {'mood': 'noir', 'hero': 'torn metal fragment', 'props': ['old leather books', 'wooden crate'], 'page': {'headline': 'The Core', 'sub': 'One fragment', 'sections': [{'title': 'The Core', 'body': 'New', 'widget': 'donut', 'data': [['Burned', 60], ['Presale', 40]]}, {'title': 'The Descent', 'widget': 'steps', 'data': ['Find the mint', 'Check the pool']}]}}}
+    got, _ = ps.parse_reply(json.dumps(reply), now, REAL_EDIT)
+    assert got['mood'] == 'space' and got['hero'] == 'blackhole' and got['page']['headline'] == 'GRAVEWELL' and got['page']['sub'] == 'Eats jeets'
+    assert [o['name'] for o in got['objects']] == ['torn metal fragment']   # no crate, no books, no second fragment
+    rows = {x['title']: x for x in got['page']['sections']}; assert list(rows) == ['The Descent', 'The Core'] and rows['The Core']['widget'] == 'donut' and rows['The Descent']['widget'] == 'steps'
+    html = ps.to_html(got, 'G'); assert 'wg-donut' in html and 'wg-steps' in html and 'Find the mint' in html
+    assert not ps.ASKS_DASH.search(REAL_EDIT) and 'dash' not in got['page']   # "vital" is not a chart
+    assert '60%' in html or '60' in html
+
+
+def test_a_section_cannot_smuggle_a_script():
+    sc = ps.clean_scene({'objects': [{'name': 'a', 'shape': 'box'}], 'page': {'headline': 'H', 'sections': [{'title': 'A', 'body': 'b', 'html': '<script>x()</script>'}, {'title': 'B', 'body': 'b', 'html': '<img src=x onerror=y>'}, {'title': 'C', 'body': 'b', 'html': '<svg viewBox="0 0 1 1"></svg>'}]}})
+    assert [bool(x.get('html')) for x in sc['page']['sections']] == [False, False, True]
+
+
+def test_no_two_new_requests_get_the_same_print_and_the_model_cannot_pick_its_favourite():
+    used = []
+    for i in range(30):
+        pr = ps.creative_print(f's{i}', used, 'a landing page for my brand'); used.append(pr)
+    keys = [(p['mood'], tuple(p['font']), p['type'], p['cta'], p['layout']) for p in used]
+    assert len(set(keys)) == 30 and len({p['mood'] for p in used}) == len(ps.MOODS)
+    pr = {'mood': 'beach', 'layout': 'right', 'font': ['oswald', 700], 'type': 'outline', 'cta': 'line', 'mirror': True}
+    made = ps.apply_print(ps.clean_scene(ps.from_brief({'mood': 'noir', 'hero': 'chair'}, 'x')), pr)
+    assert made['mood'] == 'beach' and made['style']['font'] == ['oswald', 700]
+    html = ps.to_html(made, 'N'); assert 'ty-outline' in html and 'cta-line' in html and 'oswald' in html and 'dl.polyhaven' not in html.split('const SITE')[0]
+    keep = ps.apply_print(ps.clean_scene(ps.from_brief({'mood': 'space', 'centerpiece': 'blackhole'}, 'x')), pr); assert keep['mood'] == 'space'
+
+
+def test_going_back_clears_after_that_page_and_hands_the_request_back():
+    import agent_features as af
+    page = lambda n: {'html': ps.to_html(ps.clean_scene({'mood': 'neon', 'objects': [{'name': f'thing{n}', 'shape': 'box'}], 'page': {'headline': f'H{n}'}}), 'x'), 'by': 'A', 'at': n}
+    doc = {'versions': [page(1), page(2), page(3)], 'messages': [{'by': 'you', 'text': 'first'}, {'by': 'A', 'text': 'Page 1 is ready.'}, {'by': 'you', 'text': 'add a sword'}, {'by': 'A', 'text': 'Page 2 is ready.'}, {'by': 'you', 'text': 'go back and rety my request from page 1'}, {'by': 'A', 'text': 'Page 3 is ready.'}]}
+    assert af.go_back_to('go back and rety my request from page 5', 7) == (5, True) and af.go_back_to('go back to page 2', 7) == (2, False) and af.go_back_to('go back to page 9', 7) is None and af.go_back_to('add a page 2 with a form', 7) is None
+    got = af.rewind(doc, 1)
+    assert got['request'] == 'add a sword' and len(doc['versions']) == 1 and len(got['cut']) == 2 and [m['text'] for m in doc['messages']] == ['first', 'Page 1 is ready.'] and not doc['busy']
+    first, second = ps.scene_from_html(doc['versions'][0]['html']); assert ps.clean_scene(first)['objects'][0]['name'] == 'thing1' and second is None
+    game = ps.to_html(ps.clean_scene(ps.from_brief({'mood': 'neon', 'game': 'runner', 'player': 'robot'})), 'R'); assert ps.clean_scene(ps.scene_from_html(game)[0])['game'] == 'runner'
+
+
+def test_a_game_pick_is_never_sent_to_a_rug_checker_and_its_sites_change():
+    import cat_agent as ca, cat_policy as cp, pob, proof_footprint as pf, proof_plan as pl
+    assert 'site_search' in cp.RESEARCH_ACTIONS and 'site_search' in ca.ACT_SYS and 'rugcheck' not in pob.goal([{'sym': 'WIF'}]).lower()
+    assert 'site_search' in pl.goal_for_bid('Lakers vs Kings', ['espn.com'])
+    sites = pob.sites_for('nba lakers'); assert len(sites) >= 12 and 'rugcheck.xyz' not in sites
+    firsts = {pf.plan('pob', f'nba game {i}', sites, [{'id': str(k)} for k in range(i)])['sites'][0][0] for i in range(12)}; assert len(firsts) >= 4   # espn is not first every time
+
+
+def test_a_prompt_placeholder_never_lands_on_the_page_and_nothing_stands_inside_a_black_hole():
+    got = ps.keep_page(PAGE, {'sections': [{'title': 'The Core', 'body': 'One line', 'widget': 'donut'}]}, 'put it under the core')
+    assert next(x for x in got['sections'] if x['title'] == 'The Core')['body'] == '60% burned'
+    assert ps.clean_scene({'objects': [{'name': 'a', 'shape': 'box'}], 'page': {'headline': 'H', 'sections': [{'title': 'A', 'body': 'One line'}]}})['page']['sections'][0]['body'] == ''
+    sc = ps.lead_up({'mood': 'space', 'hero': 'blackhole', 'objects': [{'name': 'x', 'asset': {'id': 'x'}, 'pos': [0, 0, 0]}, {'name': 'y', 'asset': {'id': 'y'}, 'pos': [4, 0, -3]}]})
+    assert [o['name'] for o in sc['objects']] == ['y']
 

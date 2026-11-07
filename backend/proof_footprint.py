@@ -2,6 +2,7 @@
 
 A footprint is what a proof really touched: its topic, the sites it read, and what it called. Before a new proof the minds get the last footprints, their own sites and their own angle. After it, a proof is measured against everything before it of its kind, and that number counts in its score."""
 import re
+import zlib
 
 KEEP = 12
 _STOP = {'the', 'and', 'for', 'best', 'top', 'picks', 'pick', 'proof', 'file', 'tonight', 'today', 'this', 'that', 'with', 'from', 'what', 'who', 'will', 'vs', 'pob', 'pow', 'pop', 'poc', 'trends', 'week', 'page', 'make', 'new'}
@@ -112,7 +113,7 @@ def plan(kind, topic, sites, folders, minds=2):
     for f in _recent(folders, KEEP):
         for h in footprint(kind, f)['sites']:
             used[h] = used.get(h, 0) + 1
-    rows = [s for i, s in sorted(enumerate(sites or []), key=lambda x: (used.get(_host(x[1]), 0), x[0]))]
+    seed = f'{topic}{len(folders or [])}'; rows = [s for i, s in sorted(enumerate(sites or []), key=lambda x: (used.get(_host(x[1]), 0), zlib.crc32(f'{seed}{x[1]}'.encode()), x[0]))]   # among the least used, a different order each proof: fixed ties opened ESPN first every time
     angles = ANGLES.get(kind) or ANGLES['pos']
     return {'sites': [rows[i::minds] for i in range(minds)], 'angles': [angles[i % len(angles)] for i in range(minds)], 'used': used}
 
