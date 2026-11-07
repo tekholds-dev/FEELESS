@@ -297,19 +297,22 @@ def parse_reply(text, current=None):
         scene = clean_scene(d.get('scene') if isinstance(d.get('scene'), dict) else d)
         if not scene['objects']:
             return None, ''
-        have = {o['name'] for o in now['objects']}
-        if not now['objects'] or have & {o['name'] for o in scene['objects']}:
-            for key in ('hdri', 'page', 'light_find'):   # a checker that re-sends the scene keeps what it left out
-                if key in now and key not in scene:
-                    scene[key] = now[key]
-            for o in scene['objects']:
-                was = next((x for x in now['objects'] if x['name'] == o['name'] or (o.get('find') and x.get('find') == o['find'])), None)
-                if was and was.get('asset') and not o.get('asset') and (o.get('find') or '') in ('', was.get('find')):
-                    o.update(asset=was['asset'], shape='model')
+        if not now['objects']:
             return _frame(scene), say
-        for i, o in enumerate(scene['objects']):   # a real model said "added" and sent only the new objects as the whole scene: that must never wipe out the owner's work
-            o['id'] = f"a{secrets.token_hex(3)}{i}"
-        return {**now, **{k: scene[k] for k in ('light_find', 'hdri', 'page') if k in scene}, 'objects': (now['objects'] + scene['objects'])[:MAX_OBJECTS], 'light': scene['light'], 'bg': now['bg']}, say
+        # what is already built stays, whatever the model re-sent: a real reply of 9 objects wiped a room of 23. A named thing may move, and only what is new is added. Taking things away needs "remove".
+        names = [o['name'] for o in now['objects']]; merged = [dict(o) for o in now['objects']]; gone = {str(x) for x in d.get('remove') or []} if isinstance(d.get('remove'), list) else set()
+        for o in scene['objects']:
+            if o['name'] in names:
+                if names.count(o['name']) == 1:
+                    was = next(x for x in merged if x['name'] == o['name'])
+                    for key in ('pos', 'rot', 'height', 'scale', 'color', 'glass', 'metal', 'rough', 'coat', 'glow') if (d.get('scene') or {}).get('objects') else ():
+                        raw_o = next((r for r in box['objects'] if isinstance(r, dict) and r.get('name') == o['name']), {})
+                        if key in raw_o:
+                            was[key] = o[key]
+                continue
+            o['id'] = f"a{secrets.token_hex(3)}{len(merged)}"; merged.append(o)
+        new = clean_scene({**now, **({'page': {**now.get('page', {}), **scene['page']}} if scene.get('page') else {}), 'objects': [o for o in merged if o['name'] not in gone]})
+        return new, say
     gone = {str(x) for x in d.get('remove') or []} if isinstance(d.get('remove'), list) else set()
     add = clean_scene({'objects': d.get('add') if isinstance(d.get('add'), list) else []})['objects']
     if not add and not gone and d.get('light') not in LIGHTS and not d.get('light_find') and not (isinstance(d.get('page'), dict) and d['page'].get('headline')):

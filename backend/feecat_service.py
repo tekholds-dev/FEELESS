@@ -6006,7 +6006,7 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
     room_ask = bool(doc.get('scene3dNext')) and bool(re.search(r'(?i)\b(room|dash|chart|monitors?|posters?|second page)\b', str(text)))   # a site of two places: the words say which one changes
-    slot = 'scene3dNext' if room_ask else 'scene3d'; cat_id = cat.get('id'); cost = 0.0; own = False; now_scene = _play.clean_scene(doc.get(slot)); seen_used = []; seen_missing = []; prompt = str(text)[:3000]
+    slot = 'scene3dNext' if room_ask else 'scene3d'; cat_id = cat.get('id'); cost = 0.0; own = False; now_scene = _play.clean_scene(None if re.search(r'(?i)\b(start over|from scratch|replace everything|brand new scene)\b', str(text)) else doc.get(slot)); seen_used = []; seen_missing = []; prompt = str(text)[:3000]
     if not brains:
         _feat.add_msg(doc, 'FEELESS', 'Pick a model for this agent first. Nothing changed.', time.time())
         return 0.0, 'This agent has no model.', False

@@ -140,7 +140,7 @@ def test_a_model_that_sends_only_its_new_objects_never_wipes_out_the_scene():
     big = ps.clean_scene({'objects': [{**OBJ, 'id': f'k{i}', 'name': 'Tower'} for i in range(72)]})
     got, _s = ps.parse_reply(json.dumps({'say': 'Added', 'scene': {'objects': [{**OBJ, 'name': 'GlassTower'}, {**OBJ, 'name': 'NeonSign'}]}}), big)
     assert len(got['objects']) == 74 and got['objects'][0]['name'] == 'Tower' and got['objects'][-1]['name'] == 'NeonSign' and len({o['id'] for o in got['objects']}) == 74
-    keep, _s = ps.parse_reply(json.dumps({'scene': {'objects': [{**OBJ, 'name': 'Tower'}]}}), big); assert len(keep['objects']) == 1   # it worked on what was there: that is a real rewrite
+    keep, _s = ps.parse_reply(json.dumps({'scene': {'objects': [{**OBJ, 'name': 'Tower'}]}}), big); assert len(keep['objects']) == 72   # re-sending part of it never removes the rest
 
 
 ROWS = {'at': 9e12, 'rows': {'model': [{'id': 'Camera_01', 'name': 'Camera 01', 'tags': ['vintage', 'camera'], 'pop': 5}, {'id': 'Chair', 'name': 'Chair', 'tags': ['chair'], 'pop': 900}], 'hdri': [{'id': 'studio_small_08', 'name': 'Studio', 'tags': ['studio'], 'pop': 1}], 'texture': [{'id': 'marble_01', 'name': 'Marble', 'tags': ['marble'], 'pop': 1}]}}
@@ -402,4 +402,27 @@ def test_the_mac_model_waits_while_the_machine_is_overloaded(monkeypatch):
     monkeypatch.setattr(fs.asyncio, 'sleep', nap)
     assert asyncio.run(fs._mac_cool(5)) == 10 and slept == [5, 5]
     monkeypatch.setattr(fs.os, 'getloadavg', lambda: (99, 0, 0)); assert asyncio.run(fs._mac_cool(60)) == 180   # an asked job still runs in the end
+
+
+def test_a_partial_reply_can_never_shrink_what_is_built():
+    # the real reply: a room of 23 pieces came back as 9
+    room = ps.clean_scene({'page': {'headline': 'GLINT', 'dash': {'title': 'Live', 'stats': [{'label': 'P', 'value': '1'}], 'points': [1, 2]}}, 'hdri': {'id': 's', 'url': 'https://dl.polyhaven.org/s.hdr'}, 'objects': [{'name': n, 'shape': 'box', 'built': True, 'pos': [i, 1, 0]} for i, n in enumerate(['Floor', 'Back wall', 'Left wall', 'Right wall', 'Poster', 'Poster', 'Monitor screen', 'Monitor screen', 'Monitor screen'])]})
+    got, _s = ps.parse_reply(json.dumps({'say': 'Added', 'scene': {'objects': [{'name': 'Floor', 'shape': 'box', 'pos': [0, 0, 0]}, {'find': 'neon lamp', 'name': 'Lamp', 'pos': [1, 0, 1]}], 'page': {'headline': 'GLINT', 'sub': 'New line'}}}), room)
+    names = [o['name'] for o in got['objects']]; assert len(names) == 10 and names.count('Monitor screen') == 3 and names.count('Poster') == 2 and names[-1] == 'Lamp'
+    assert got['hdri']['id'] == 's' and got['page']['dash']['stats'][0]['value'] == '1' and got['page']['sub'] == 'New line'
+    gone, _s = ps.parse_reply(json.dumps({'scene': {'objects': [{'find': 'chair', 'name': 'Chair', 'pos': [0, 0, 0]}]}, 'remove': ['Floor']}), room); assert 'Floor' not in [o['name'] for o in gone['objects']] and 'Chair' in [o['name'] for o in gone['objects']]
+
+
+def test_a_floor_is_a_set_piece_never_a_wet_floor_sign(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    (tmp_path / ap.INDEX).write_text(json.dumps({'at': 9e12, 'rows': {'model': [{'id': 'WetFloorSign_01', 'name': 'Wet Floor Sign', 'tags': ['floor', 'sign'], 'pop': 9}], 'texture': [{'id': 'concrete_1', 'name': 'Concrete', 'tags': ['concrete'], 'pop': 1}], 'hdri': []}}))
+    class H:
+        async def get(self, *a, **k):
+            class R:
+                status_code = 200
+                json = staticmethod(lambda: FILES)
+            return R()
+    got, _u, _m = asyncio.run(ap.fill(H(), tmp_path, ps.clean_scene({'objects': [{'find': 'dark concrete floor', 'pos': [0, 0, 0]}]})))
+    assert got['objects'][0]['shape'] == 'box' and not got['objects'][0].get('asset') and got['objects'][0]['pbr']['name'] == 'marble 01'.replace('marble 01', 'concrete 1')
 

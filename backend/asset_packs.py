@@ -161,7 +161,7 @@ async def fill(http, root, scene, many=False):
     used = []; missing = []
     for o in scene.get('objects') or []:
         if o.get('find') and not o.get('asset'):
-            hit = None if _head(o['find']) in MATERIAL_WORDS else best(root, o['find'], 'model'); got = await resolve(http, root, hit['id'], 'model') if hit else None
+            hit = None if _head(o['find']) in MATERIAL_WORDS or any(p[3].search(o['find']) for p in SET_PIECES) else best(root, o['find'], 'model'); got = await resolve(http, root, hit['id'], 'model') if hit else None
             if not got and _head(o['find']) in MATERIAL_WORDS:   # "polished marble" is a surface, not a thing to fetch
                 o['find'] = f"{o['find']} stage"
             if got:
