@@ -286,3 +286,38 @@ def test_an_approved_kit_for_any_other_proof_reaches_it_without_a_pick(tmp_path)
     (tmp_path / ck.PROPOSED_FILE).write_text(ck.json.dumps([{'id': 'new-odds', 'name': 'OddsKit', 'what': 'x', 'site': 'https://www.npmjs.com/package/odds', 'license': 'MIT', 'weekly': 900, 'kinds': ['pob'], 'url': 'https://unpkg.com/odds/README.md', 'status': 'new'}]))
     asyncio.run(ck.approve(_Scout([]), tmp_path, 'new-odds'))
     assert 'OddsKit' in ck.line(tmp_path, 'pob', []) and not ck.load(tmp_path, 'new-odds').get('pickOnly')
+
+
+def test_each_kind_of_proof_keeps_its_own_three(monkeypatch, tmp_path):
+    cat = {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kits': ['heroui'], 'kitMode': 'mine'}}
+    fs, c, store = _server(monkeypatch, tmp_path, cat); body = {'ownerId': 'me', 'session': 'me', 'op': 'kit_pick', 'job': 'mine'}
+    assert ck.picks_of(cat['brainsCfg'], 'pop') == ('mine', ['heroui'])   # set up before this: nothing changes until its owner changes it
+    j = c.post('/api/cats/g/work', json={**body, 'text': 'fl-funding,fl-liq', 'to': 'pop'}).json()
+    assert j['picks'] == ['fl-funding', 'fl-liq'] and j['by']['pop']['picks'] == ['fl-funding', 'fl-liq'] and j['by']['pob']['picks'] == ['heroui']
+    assert c.post('/api/cats/g/work', json={**body, 'text': 'fl-value,fl-source-check', 'to': 'pob'}).json()['by']['pop']['picks'] == ['fl-funding', 'fl-liq']
+    j = c.post('/api/cats/g/work', json={**body, 'text': 'fl-trend,fl-publish,fl-source-check,fl-3d-stage', 'to': 'poc'}).json(); assert j['by']['poc']['picks'] == ['fl-trend', 'fl-publish', 'fl-source-check']
+    assert 'Funding Reader' in fs._recall(store['cats']['g'], 'Perps', 'x') and 'Value Scorer' in fs._recall(store['cats']['g'], 'Picks', 'x')
+    assert c.post('/api/cats/g/work', json={**body, 'op': 'kit_pick', 'job': 'auto', 'text': '', 'to': 'pop'}).json()['by']['pop']['mode'] == 'auto' and store['cats']['g']['brainsCfg']['kitsBy']['pob']['mode'] == 'mine'
+
+
+def test_a_3d_pages_own_three_js_is_let_through():
+    html = '<head><meta http-equiv="Content-Security-Policy" content="x"><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script></head>'
+    assert 'three.module.js' in ck.open_for_kits(html, ['three']).split('content="')[1].split('">')[0] and ck.outside_files(html, ['three']) == []
+
+
+def test_every_page_kit_address_is_pinned_and_every_new_kit_has_a_use():
+    for kid in ('gsap', 'three', 'pixi', 'konva', 'fabric', 'chartjs', 'mermaid'):
+        assert kid in ck.CATALOG and kid in ck.KIT_USE and kid in ck.USES
+        assert all('@' in t for t in ck.KIT_USE[kid]['tags'])
+    assert {'konva', 'fabric'} <= {k for k, c in ck.CATALOG.items() if 'poc' in c['kinds']}
+
+
+def test_a_minds_search_words_stay_plain_and_only_real_names_count(tmp_path):
+    n = ck.note_queries(tmp_path, 'Sure! {"queries":{"pop":["orderbook heatmap"],"pob":["$(rm -rf /)"],"poc":["video editor","a b c d e"],"pos":"webgl particles"}}')
+    assert n == 3 and ck.mind_queries(tmp_path) == {'pop': ['orderbook heatmap'], 'poc': ['video editor'], 'pos': ['webgl particles']}
+    assert ck.note_queries(tmp_path, 'no json at all') == 0 and ck.note_queries(tmp_path, '{"queries":{"pop":["orderbook heatmap"]}}') == 0
+    ck._save_proposed(tmp_path, [{'id': 'new-a', 'name': 'aaa', 'status': 'new'}, {'id': 'new-b', 'name': 'bbb', 'status': 'new'}, {'id': 'new-c', 'name': 'ccc', 'status': 'rejected'}])
+    assert ck.note_rating(tmp_path, 'OSSY', '{"use":["aaa","ccc","not on the list"],"why":"Useful"}') == 'Useful'
+    rows_ = {r['name']: r for r in ck.proposed_rows(tmp_path)}
+    assert rows_['aaa']['minds']['OSSY'] == {'use': True, 'why': 'Useful'} and rows_['bbb']['minds']['OSSY']['use'] is False and 'minds' not in rows_['ccc']
+

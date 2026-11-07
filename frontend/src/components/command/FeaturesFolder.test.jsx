@@ -243,3 +243,21 @@ test('🗂 PoEco asks 8 questions on first open, then the dash shows the server 
   await tap('eco-bill-paid-b1'); expect(calls.at(-1)).toMatchObject({ op: 'eco_d_bill_paid', text: 'b1' });
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🧰 each proof keeps its own 3 kits: the door picks which proof, and a pick is saved for that proof only', async () => {
+  const { KitPick } = require('./FeaturesFolder');
+  const rows = [{ id: 'a', name: 'A', what: 'x', kinds: ['pop'], added: true, site: 'https://a.example' }, { id: 'b', name: 'B', what: 'x', kinds: ['pob'], added: true, site: 'https://b.example' }];
+  const calls = []; let by = { pow: { mode: 'auto', picks: [] }, pop: { mode: 'auto', picks: [] }, pob: { mode: 'mine', picks: ['b'] }, poc: { mode: 'auto', picks: [] }, pos: { mode: 'auto', picks: [] } };
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'kit_pick') by = { ...by, [b.to]: { mode: b.job, picks: b.text ? b.text.split(',') : [] } }; return { kits: rows, by, max: 3 }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<KitPick cat={{ id: 'c' }} work={fake} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('kit-door-pob').click(); }); expect(q('kit-on-b')).not.toBeNull();
+  await act(async () => { q('kit-door-pop').click(); }); expect(q('kit-on-b')).toBeNull(); expect(q('kit-auto')).not.toBeNull();
+  await act(async () => { q('kit-discover').click(); });
+  await act(async () => { document.querySelector('[data-testid="kit-pick-a"]').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'a', job: 'mine', to: 'pop' }); expect(by.pob.picks).toEqual(['b']); expect(q('kit-on-a')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});
+
