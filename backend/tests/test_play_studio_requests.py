@@ -228,3 +228,31 @@ def test_a_prompt_placeholder_never_lands_on_the_page_and_nothing_stands_inside_
     sc = ps.lead_up({'mood': 'space', 'hero': 'blackhole', 'objects': [{'name': 'x', 'asset': {'id': 'x'}, 'pos': [0, 0, 0]}, {'name': 'y', 'asset': {'id': 'y'}, 'pos': [4, 0, -3]}]})
     assert [o['name'] for o in sc['objects']] == ['y']
 
+
+def test_a_matchup_goes_to_sports_sites_even_with_no_league_named():
+    import pob
+    for topic in ('Nets vs Hawks', 'Chiefs vs Bills', 'Yankees at Dodgers', 'Oilers vs Stars', 'Arsenal vs Chelsea'):
+        got = pob.sites_for(topic); assert 'wikipedia.org' not in got and 'npr.org' not in got and any(x in got for x in ('espn.com', 'covers.com')), topic
+    assert 'nba.com' in pob.sites_for('Nets vs Hawks') and 'nfl.com' in pob.sites_for('Chiefs vs Bills')
+    assert 'wikipedia.org' in pob.sites_for('who wins the oscar for best film')
+
+
+def test_what_a_mind_says_it_read_gets_a_box():
+    import asyncio
+    import cat_agent as ca
+    import evidence_marks as em
+    assert em.mark_words({'mark': ['Nets +4.5', 'x'], 'facts': [{'label': 'odds', 'value': '-110'}]}) == ['nets +4.5', '-110'] and em.mark_words({'mark': 'Hawks 112'}) == ['hawks 112'] and em.mark_words({}) == [] and em.mark_words(None) == []
+    assert '"mark"' in ca.ACT_SYS
+    drawn = []
+    class Live:
+        async def draw_marks(self, js):
+            drawn.append(js); return {'rects': [[1, 2, 3, 4]]} if 'createTreeWalker' in js else 1
+    class Reader:
+        pass
+    assert asyncio.run(em.live_marks(Live(), ['nets'])) == 1 and 'feeless-marks' in drawn[-1] and 'pointer-events:none' in drawn[-1]
+    assert asyncio.run(em.live_marks(Reader(), ['nets'])) == 0
+    class Broken:
+        async def draw_marks(self, js):
+            raise RuntimeError('page gone')
+    assert asyncio.run(em.live_marks(Broken(), ['nets'])) == 0   # a box never stops the work
+

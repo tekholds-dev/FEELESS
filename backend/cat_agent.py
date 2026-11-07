@@ -35,6 +35,7 @@ ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FE
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "facts": [{{"label":"liquidity","value":"$35K","support":"exact short page excerpt containing $35K"}}], "say": "<your answer, when action is answer>"}}\n'
            'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
            'USE THE SITE: once a site is open, find things the way a person does. Action "site_search" (q: your words) clicks that site\'s own search box, types and presses Enter. Then "click" the result you want by its text and "scroll" through it. Do not guess deep links, and do not stop at a home page. Action "search" is only for finding which site to open.\n'
+           'SHOW WHAT YOU READ: on every turn add "mark": ["exact words or numbers on the screen that you are using"], up to 6 short pieces, copied exactly. Each gets a lined box in your window so the owner sees what you read.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps|colony, q: the coin / ticker) '
            'BEFORE any outside website — FEELESS is where this user trades. Never launch a coin or pool or create an agent ON FEELESS (on any other site, do as the user asks); never create a FeeCat.\n'
            'ACCOUNTS — DO IT YOURSELF FIRST: when a task needs an account, use your own mailbox, then the site\'s sign-up with that email and "new_login". ' + SOURCES + ' Hand to the human ONLY for the user\'s OWN accounts (Polymarket, Kalshi, banks, '
@@ -358,6 +359,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if act in ('open', 'ask_login') and a.get('url'):
             a['url'] = full_url(a['url'])
         thought = str(a.get('thought') or '').strip()
+        said_marks = _marks.mark_words(a)
+        if said_marks and page:   # 🖍 what it read on the screen it is looking at gets a lined box before it moves on, so the owner sees it
+            if await _marks.live_marks(page, said_marks):
+                w.setdefault('_marked', []).extend(said_marks); await asyncio.sleep(0.9)
         if task.get('research') and act not in RESEARCH_ACTIONS and (act or a):   # 📰 a trader's window only reads coins + narrative (plain prose = its answer, below)
             _step(w, f'research only: no "{act}"' if act else 'no action in its reply', 'refused')
             seen = (f'(research only: "{act}" is not allowed — read coin data, crypto news or X, then answer)' if act else
@@ -533,7 +538,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if task.get('keepShots') and act in ('open', 'click', 'site_search'):   # 📸 a topic PoB keeps one snapshot of each site, up to 4 per mind
                 h_ = _pow.host_of(page.url); rows_ = w.setdefault('_shots', [])
                 if h_ and len(rows_) < 4 and not any(x['site'] == h_ for x in rows_) and not needs_human(page.url, seen):   # 🚫 never a snapshot of a bot check
-                    m_ = await _marks.marked_shot(page, _marks.words_of([task.get('topic') or task.get('text') or '']), time.time())   # 🖍 the words of its topic are boxed where they are on the page
+                    m_ = await _marks.marked_shot(page, [*_marks.words_of([task.get('topic') or task.get('text') or '']), *(w.get('_marked') or [])[-10:]], time.time())   # 🖍 the words of its topic are boxed where they are on the page
                     if m_:
                         rows_.append({'site': h_, 'url': str(page.url)[:200], 'title': str(page.title or '')[:90], 'jpg': m_['jpg'], 'at': round(time.time()), 'found': list(m_['found'])[:12], 'sha': m_['sha']})
             if pw and act == 'open':
@@ -542,6 +547,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 await _pow_snap(pw, page, w.get('_page') or seen)
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
+            if act in ('open', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('(') and task.get('keepShots'):   # a new screen: the words of its job are found on it
+                await _marks.live_marks(page, _marks.words_of([task.get('topic') or task.get('text') or ''], 6), _marks.HUNT)
             if act in ('open', 'search', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
                 h_read = _pow.host_of(page.url)   # 📖 what it really read, per site: survives a window that runs out of budget before it writes its answer

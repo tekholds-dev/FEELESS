@@ -97,6 +97,37 @@ def fingerprint(jpg, url, at, found):
     return hashlib.sha256(jpg + json.dumps([str(url), int(at), sorted((found or {}).keys())]).encode()).hexdigest()[:32]
 
 
+LIVE_MAX = 14
+LIVE_JS = r"""(args) => {
+  const old = document.getElementById('feeless-marks'); if (old) old.remove();
+  const rows = args.rects || []; if (!rows.length) return 0;
+  const box = document.createElement('div'); box.id = 'feeless-marks'; box.setAttribute('aria-hidden', 'true'); box.style.cssText = 'position:fixed;inset:0;z-index:2147483646;pointer-events:none;';
+  rows.forEach(r => { const m = document.createElement('i'); m.style.cssText = `position:fixed;left:${r[0] - 4}px;top:${r[1] - 3}px;width:${r[2] - r[0] + 8}px;height:${r[3] - r[1] + 6}px;box-sizing:border-box;border:2px solid ${args.color};border-radius:4px;background:${args.color}1f;box-shadow:0 0 10px ${args.color}80;`; box.appendChild(m); });
+  document.documentElement.appendChild(box); return rows.length;
+}"""
+SEEN = '#3ee58a'   # what the mind says it is reading
+HUNT = '#ffc24d'   # the words of the job, found on a page it just opened
+
+
+def mark_words(a):
+    """The words a mind says it read on this screen: its "mark" list, and the value of every fact it pulled. Pure. → [text]"""
+    a = a if isinstance(a, dict) else {}; rows = a.get('mark') if isinstance(a.get('mark'), list) else [a.get('mark')] if isinstance(a.get('mark'), str) else []
+    rows = [str(x).strip() for x in rows if str(x or '').strip()] + [str(f.get('value')).strip() for f in (a.get('facts') if isinstance(a.get('facts'), list) else []) if isinstance(f, dict) and f.get('value')]
+    return [w[:120].lower() for w in dict.fromkeys(rows) if len(w) > 1][:10]
+
+
+async def live_marks(page, words, color=SEEN):
+    """🖍 Lined boxes round what it is reading, in the window itself, so the owner watches them land. They sit on top and take no clicks, and the next set replaces them. Only text really on the screen gets one. Never stops the work. → how many"""
+    try:
+        draw_ = getattr(page, 'draw_marks', None)
+        if not draw_:
+            return 0
+        got = await draw_(f"() => ({FIND_JS})({json.dumps({'words': list(words or []), 'pattern': None, 'max': LIVE_MAX, 'scroll': False})})") if words else {}
+        return await draw_(f"() => ({LIVE_JS})({json.dumps({'rects': (got or {}).get('rects') or [], 'color': color})})") or 0
+    except Exception:   # noqa: BLE001 — a box is a nicety
+        return 0
+
+
 async def marked_shot(page, words=None, now=0, pattern=None, read=False):
     """A snapshot with what it read boxed on it. → {jpg, found, missing, read, sha} or None. Boxes come only from `words`, the things the brain really read: nothing is boxed for a page it merely opened, unless a caller asks for a pattern. It scrolls to a value that sits off screen, and it takes the picture right after finding the boxes, so they line up. A blank page returns None. A failed mark keeps a plain picture, and says it has none."""
     words = list(words or []); found = {}; marks = {}

@@ -758,6 +758,10 @@ class LivePage:
         await self._p.wait_for_timeout(400)
         return await self._sync()
 
+    async def draw_marks(self, js):
+        """🖍 Lined boxes over what the mind is reading (evidence_marks.live_marks). They take no clicks and hold no text."""
+        return await self._p.evaluate(js)
+
     async def find_private(self, js):
         """👀 Where emails, phone numbers and password fields sit on screen. A read of the page, nothing changes."""
         return await self._p.evaluate(js)

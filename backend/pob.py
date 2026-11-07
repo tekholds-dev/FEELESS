@@ -34,10 +34,10 @@ _TOPIC = re.compile(r'(?is)^\s*(?:/pob|(?:file|start|run|do|place)\s+(?:a\s+|the
 _TOPIC_BEFORE = re.compile(r'(?i)^\s*(?:file|start|run|do|place)\s+(?:a\s+|an\s+|the\s+)?([a-z0-9][\w .-]{1,60}?)\s+(?:pob|bid)\s*$')
 MARKETS = ['kalshi.com', 'polymarket.com']
 _SOURCES = (
-    (r'\b(nfl|football|super bowl|cfb|ncaa)\b', ['espn.com', 'nfl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
-    (r'\b(nba|basketball)\b', ['espn.com', 'nba.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
-    (r'\b(mlb|baseball)\b', ['espn.com', 'mlb.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
-    (r'\b(nhl|hockey)\b', ['espn.com', 'nhl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
+    (r'\b(nfl|football|super bowl|cfb|ncaa|bills|dolphins|patriots|jets|ravens|bengals|browns|steelers|texans|colts|jaguars|titans|broncos|chiefs|raiders|chargers|cowboys|giants|eagles|commanders|bears|lions|packers|vikings|falcons|panthers|saints|buccaneers|bucs|cardinals|rams|49ers|niners|seahawks)\b', ['espn.com', 'nfl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
+    (r'\b(nba|basketball|hawks|celtics|nets|hornets|bulls|cavaliers|cavs|mavericks|mavs|nuggets|pistons|warriors|rockets|pacers|clippers|lakers|grizzlies|heat|bucks|timberwolves|wolves|pelicans|knicks|thunder|magic|76ers|sixers|suns|trail blazers|blazers|kings|spurs|raptors|jazz|wizards)\b', ['espn.com', 'nba.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
+    (r'\b(mlb|baseball|yankees|red sox|blue jays|orioles|rays|guardians|white sox|tigers|royals|twins|astros|mariners|athletics|rangers|angels|braves|marlins|mets|phillies|nationals|brewers|cubs|reds|pirates|dodgers|padres|diamondbacks|rockies)\b', ['espn.com', 'mlb.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
+    (r'\b(nhl|hockey|bruins|sabres|red wings|canadiens|senators|maple leafs|hurricanes|blue jackets|devils|islanders|flyers|penguins|capitals|blackhawks|avalanche|stars|wild|predators|blues|ducks|flames|oilers|canucks|golden knights|sharks|kraken|lightning)\b', ['espn.com', 'nhl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
     (r'\b(soccer|premier league|champions league|mls|la liga)\b', ['espn.com', 'bbc.com', 'fbref.com', 'covers.com', 'whoscored.com', 'sofascore.com', 'theguardian.com', 'understat.com']),
     (r'\b(ufc|mma|boxing)\b', ['espn.com', 'ufc.com', 'cbssports.com', 'covers.com', 'tapology.com', 'sherdog.com', 'mmafighting.com', 'bestfightodds.com']),
     (r'\b(tennis|golf|pga|atp|wta)\b', ['espn.com', 'cbssports.com', 'covers.com', 'bbc.com', 'atptour.com', 'pgatour.com', 'tennisabstract.com', 'datagolf.com']),
@@ -85,6 +85,8 @@ def sites_for(topic):
     for rx, sites in _SOURCES:
         if re.search(rx, t):
             return list(sites) + MARKETS
+    if re.search(r'\b(vs?\.?|versus|game|match|spread|over|under|parlay|moneyline|playoffs?)\b', t):   # a matchup in any sport, not the news
+        return ['espn.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com'] + MARKETS
     return ['reuters.com', 'apnews.com', 'bbc.com', 'npr.org', 'theguardian.com', 'wikipedia.org'] + MARKETS
 
 
