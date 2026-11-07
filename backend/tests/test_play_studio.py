@@ -377,3 +377,29 @@ def test_asking_for_more_keeps_the_look_and_the_second_page(monkeypatch, tmp_pat
     assert 'keeps' not in seen[0] and 'look its owner loves' in seen[0] and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['stats'][0]['value'] == '$1'
     page = got['versions'][-1]['html']; assert 'Enter the room' in page and 'data-go="1"' in page and '$1' in page; fs._WS_DONE.clear()
 
+
+def test_sicarios_works_when_asked_and_what_loads_the_machines_stays_off(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); cat = store['cats']['g']; cat['handle'] = 'sicarios'; cat['brainsCfg']['brains'] = ['local/ossy', 'local/g4']; post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
+    for op in ('desk_loop', 'hive', 'desk_seat'):
+        r = post(op, on=True); assert r.status_code == 409 and 'only works when you ask' in r.text, op
+    assert all(op not in fs.SICARIO_PAUSE_OPS for op in ('ask', 'ws_build', 'ws_approve', 'poc'))
+    assert fs._pow2_on(cat) is False   # never by itself
+    fs._POW_WANT['g'] = 'start'
+    try:
+        assert fs._pow2_on(cat) is True   # when you ask
+    finally:
+        fs._POW_WANT.pop('g', None)
+    store['cats']['g']['brainsCfg']['endless'] = True; assert fs._sicario_paused(cat) and fs._sicario_loop(store, 9e9) in (None, [], 0)
+
+
+def test_the_mac_model_waits_while_the_machine_is_overloaded(monkeypatch):
+    import asyncio
+    import pytest
+    fs = pytest.importorskip('feecat_service'); loads = [99, 99, 0.5]; slept = []
+    monkeypatch.setattr(fs.os, 'getloadavg', lambda: (loads.pop(0) if loads else 0.5, 0, 0)); monkeypatch.setattr(fs.os, 'cpu_count', lambda: 8)
+    async def nap(s):
+        slept.append(s)
+    monkeypatch.setattr(fs.asyncio, 'sleep', nap)
+    assert asyncio.run(fs._mac_cool(5)) == 10 and slept == [5, 5]
+    monkeypatch.setattr(fs.os, 'getloadavg', lambda: (99, 0, 0)); assert asyncio.run(fs._mac_cool(60)) == 180   # an asked job still runs in the end
+

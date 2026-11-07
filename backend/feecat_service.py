@@ -1182,6 +1182,21 @@ _LM_ASKED = {'at': 0.0}   # 🗂 the last call someone asked for. The sorter sta
 _SORT_CALL: contextvars.ContextVar = contextvars.ContextVar('sort_call', default=False)
 
 
+MAC_LOAD_PER_CORE = 1.5   # 🌡 load 41 made the Mac lag and the health check kill the service. Past this a Mac model waits its turn
+MAC_WAIT_S = 180          # and never forever: an asked job still runs after this
+MAC_MAX_TOKENS = 4000     # a long answer holds the Mac's GPU for minutes
+
+
+async def _mac_cool(step=5.0):
+    """Waits for the Mac to calm down before its model starts. G4 on the desktop does not wait for it. → seconds waited"""
+    waited = 0.0; limit = (os.cpu_count() or 8) * MAC_LOAD_PER_CORE
+    while waited < MAC_WAIT_S and os.getloadavg()[0] > limit:
+        await asyncio.sleep(step); waited += step
+    if waited:
+        print(f'[lm] the Mac was busy: waited {waited:.0f}s')
+    return waited
+
+
 async def _lm_call(model, messages, max_tokens):
     which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'; asked = time.time()
     if not _SORT_CALL.get():
@@ -1190,6 +1205,8 @@ async def _lm_call(model, messages, max_tokens):
         if _LM_STOP['at'] >= asked:
             _OR_LAST['err'] = 'You stopped it.'
             return '', 0.0
+        if which_ == 'LOCAL':
+            await _mac_cool(); max_tokens = min(int(max_tokens or 1200), MAC_MAX_TOKENS)
         t_ = asyncio.create_task(_lm_call_one(model, messages, max_tokens)); _LM_LIVE.add(t_)
         try:
             return await t_
@@ -2273,8 +2290,8 @@ def _pow_ver(cat):
     return f"{base}:{_poi.version(DATA_DIR, cat['id'])}:{len(pf_)}:{(pf_[-1] if pf_ else {}).get('id', '')}:{sum(1 for x in pf_ if x.get('kept'))}"
 
 
-SICARIO_PAUSED = True   # ⏸ owner 2026-11-05: no requests to Sicario's until there is a better model for his Mac and desktop. Set False to bring it back
-SICARIO_PAUSE_OPS = ('ask', 'ws_build', 'ws_approve', 'poc', 'desk_loop', 'hive', 'desk_seat')
+SICARIO_PAUSED = True   # ⏸ owner 2026-11-07: Sicario's works when asked, on any proof. What lagged his machines stays off: its endless loop, Auto-collect and desk seats on the real card. One call per machine (`_LM_GATE`), and the Mac's model waits while the machine is overloaded (`_mac_cool`)
+SICARIO_PAUSE_OPS = ('desk_loop', 'hive', 'desk_seat')
 
 
 CARD_PROVIDERS = ('solcard', 'phantom', 'fusecard', 'solflare', 'jupiter', 'greendot')
@@ -2296,7 +2313,8 @@ def _sicario_paused(cat):
 
 def _pow2_on(cat):
     b = cat.get('brainsCfg') or {}
-    if _sicario_paused(cat):
+    asked_ = cat.get('id') in _POW_WANT or (cat.get('powRun') or {}).get('folder', {}).get('asked')
+    if _sicario_paused(cat) and not asked_:
         return False
     if cat.get('id') in _POW_WANT or (cat.get('powRun') or {}).get('folder', {}).get('asked'):   # you asked: any agent kind, once
         return bool(b.get('brains')) and not cat.get('isLeader') and not cat.get('revoked')
@@ -6791,7 +6809,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         raise HTTPException(404, 'Cat not found.')
     _owner_gate(store, cat, p.session, p.ownerId)
     if _sicario_paused(cat) and p.op in SICARIO_PAUSE_OPS and p.on is not False:
-        raise HTTPException(409, "Sicario's is paused until there is a better model for your machines.")
+        raise HTTPException(409, "Sicario's only works when you ask it, so it never loads your machines by itself. This one stays off.")
     b = cat.get('brainsCfg') or {}
     w = _WORK.get(cat_id)
     if p.op == 'tools':
