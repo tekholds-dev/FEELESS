@@ -295,3 +295,9 @@ def test_playbook_rows_keep_a_name_past_the_privacy_filter():
     table = {'phase=early': {'n': 12, 'wins': 8, 'winRate': 66, 'avgRet': 4.0, 'edge': 0.3}}
     row = fs._no_keys(fb.playbook(table))['best'][0]
     assert row['name'] == 'phase=early'
+
+
+def test_marks_tell_the_minds_where_on_the_page_and_the_page_scrolls_in_mark_mode():
+    note = feat.region_note([{'x': .1, 'y': .2, 'w': .2, 'h': .2, 'sy': 900, 'note': 'wrong colour'}, {'x': .1, 'y': .2, 'w': .2, 'h': .2, 'sy': 'bad'}])
+    assert 'scrolled 900px' in note and 'wrong colour' in note and note.count('scrolled') == 1
+    assert 'feeless-scrollby' in feat.PICKER and 'feeless-scrollto' in feat.PICKER
