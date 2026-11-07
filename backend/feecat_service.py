@@ -8,6 +8,7 @@ Only the money is simulated — never the prices.
 
 File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
+import functools
 import logging
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
@@ -1520,10 +1521,18 @@ def _git_files(cat, collective, marked=True):
 _PROOF_KEYS = {'pow': 'powFolders', 'pop': 'popFolders', 'pob': 'pobFolders', 'poc': 'pocFolders', 'pos': 'psFolders'}
 
 
+@functools.lru_cache(maxsize=512)
+def _page_stats(cat_id, ws, version):
+    """⚖ What one filed version of a page really holds. Numbers only, once per version, so scoring never reopens a sealed page."""
+    rows = (_ws_load(cat_id, ws) or {}).get('versions') or [] if cat_id and ws else []
+    i = int(version or len(rows)) - 1
+    return _weights.page_stats(rows[min(i, len(rows) - 1)].get('html')) if rows and i >= 0 else None
+
+
 def _proof_view(cat, kind, f, top=300.0, weights=None):
     """One proof's score on its own record, measured against the proofs before it of its kind."""
     k = _weights.kind_of(kind)
-    return _weights.view(k, f, top, _weights.load(DATA_DIR) if weights is None else weights, _foot.before((cat or {}).get(_PROOF_KEYS.get(k)), f or {})) if k else None
+    return _weights.view(k, f, top, _weights.load(DATA_DIR) if weights is None else weights, _foot.before((cat or {}).get(_PROOF_KEYS.get(k)), f or {}), lambda x: _page_stats((cat or {}).get('id'), x.get('ws'), x.get('version'))) if k else None
 
 
 def _all_work(store, top):
@@ -3584,11 +3593,28 @@ def _sicario_loop(store, now, free=None):
 RECALL_KIND = {'Trades': 'pow', 'Perps': 'pop', 'Picks': 'pob', 'Content': 'poc', 'Code': 'pos'}
 
 
+def _proof_brain(cat, kind):
+    """🧠 Owner 2026-11-07: a selected agent takes this in by itself. How this kind of proof scores and where its last one lost. Never on a PoW, whose picks can buy real coins: no trading rule or incentive moves."""
+    if not kind or kind == 'pow':
+        return ''
+    rows = [f for f in cat.get(_PROOF_KEYS.get(kind)) or [] if isinstance(f, dict)]
+    return _know.score_line(kind) + (_know.weak_line(_proof_view(cat, kind, rows[-1])) if rows else '')
+
+
+def _job_brain(cat, text):
+    """🧠 What a chat job starts with, whatever was asked: where it is, and what the Collective already proved on this. Titles and results only, read from this server. Never stops a job."""
+    try:
+        return '\n' + _know.WHERE + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], None, 4), _stash.agent_tag(cat.get('id')))
+    except Exception as e:   # noqa: BLE001
+        print(f'[brain] {str(e)[:100]}')
+        return ''
+
+
 def _recall(cat, category, text):
     """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches, and gets the kits for its kind of proof, the owner's picks first. Never stops a proof."""
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); auto_ = cfg_.get('kitMode', 'mine' if cfg_.get('kits') else 'auto') == 'auto'
-        return (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, _kits.auto_picks(KITS_DIR, kind_, text) if auto_ else cfg_.get('kits') or [], open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, _kits.auto_picks(KITS_DIR, kind_, text) if auto_ else cfg_.get('kits') or [], open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -4582,7 +4608,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     else:
         _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
     _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
-    _WORK[cat_id]['task']['personal'] = _feat.personal_line(cat)   # 🧠 what its owner told it
+    _WORK[cat_id]['task']['personal'] = _feat.personal_line(cat) + ('' if pow_ else _job_brain(cat, text))   # 🧠 what its owner told it, and what it knows by itself. A PoW's job stays as it was
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
@@ -5738,7 +5764,7 @@ def _general_mind(cat):
         text_ = ((_load()['cats'].get(LEADER_ID) or {}).get('studio') or {}).get('general')
     except Exception:   # noqa: BLE001 — a bad read never stops the job
         text_ = None
-    return _ps.general_block(text_, _ps.general_record(cat))
+    return _ps.general_block(text_, _ps.general_record(cat)) + _know.WHERE + '\n\n'
 
 
 def _popular_builds(store, raw=False):

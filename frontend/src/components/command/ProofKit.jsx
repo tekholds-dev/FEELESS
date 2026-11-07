@@ -21,7 +21,8 @@ const SEND_CHIPS = [1, 5, 25, 100];
 // ⚖ How this proof scores, part by part: each read from its own record by code, each with its weight. What is not known yet earns nothing.
 export function WeightBars({ v, testid = 'proof-weights' }) {
   if (!v?.parts) return null;
-  return <section className="pwb" data-testid={testid}><header><small>ON ITS RECORD</small><b className={`pwb-rank is-${v.rank}`} data-tip="S, A, B, C, D. S takes a near full record with every part known" data-testid={`${testid}-rank`}>{v.rank}</b><em className="m-num" data-testid={`${testid}-score`}>{Math.round(v.score)}<small>/{Math.round(v.top)}</small></em></header>
+  return <section className="pwb" data-testid={testid}><header><small>ON ITS RECORD</small><b className={`pwb-rank is-${v.rank}`} data-tip="S, A, B, C, D. S takes deep work, a near full record and every part known" data-testid={`${testid}-rank`}>{v.rank}</b><em className="m-num" data-testid={`${testid}-score`}>{Math.round(v.score)}<small>/{Math.round(v.top)}</small></em></header>
+    {v.held ? <p className="pwb-held" data-tip="Simple work, a failed proof or one with no result yet cannot rank high, however well the rest went" data-testid={`${testid}-held`}>{v.held}</p> : null}
     <ul>{v.parts.map(p => <li key={p.key} className={p.value == null ? 'is-unknown' : ''} data-tip={`Worth ${+p.weight.toFixed(1)} of 100`} data-testid={`${testid}-${p.key}`}><span>{p.label}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${p.value || 0})`, '--pwb-w': p.value == null ? 0 : p.value }} /></i><small className="m-num">{+p.weight.toFixed(1)}</small><em>{p.note}</em></li>)}</ul></section>;
 }
 const perpTitle = f => { const c = (Array.isArray(f?.calls) ? f.calls : []).find(x => x?.market); return c ? `${c.market} ${c.side || ''}`.trim() : ''; };

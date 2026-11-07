@@ -78,7 +78,6 @@
 .own-go { position: absolute; top: 20px; right: 20px; padding: 6px 11px; border-radius: 99px; border: 1px solid #ffffff33; font: 700 10px var(--f-mono); letter-spacing: .1em; background: #ffffff14; }
 
 /* the colony page */
-.ctr { position: relative; isolation: isolate; }
 
 /* the agent page's wall */
 .kd { position: relative; isolation: isolate; }

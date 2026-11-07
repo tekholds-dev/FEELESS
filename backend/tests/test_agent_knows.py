@@ -30,3 +30,33 @@ def test_an_ask_about_feeless_reaches_its_minds_and_your_words_stay_yours(monkey
     assert r.status_code == 200, r.text
     assert 'Never research FEELESS on the web' in seen[0] and seen[0].startswith('write a post')
     assert store['cats']['g']['chat'][-1]['text'] == 'write a post about the feeless collective'
+
+
+def test_the_brain_says_where_it_is_and_never_tells_it_to_move_money():
+    for word in ('visit.feeless', 'PoStatic', 'Nothing here tells you to trade, sign, send or spend'):
+        assert word in ak.WHERE, word
+    for word in ('api key', 'seed', 'private key', 'password', 'token'):
+        assert word not in ak.WHERE.lower(), word
+
+
+def test_score_words_come_from_the_rubric_in_use():
+    import proof_weights as pw
+    line = ak.score_line('PoStatic')
+    for _k, label, w, _r in pw.RUBRIC['pos']:
+        assert f'{label} {w}' in line
+    assert 'simple request well is not a high score' in line and ak.score_line('nope') == ''
+
+
+def test_it_is_told_where_its_last_proof_lost_the_most():
+    import proof_weights as pw
+    line = ak.weak_line(pw.view('PoStatic', {'status': 'closed', 'graded': 'right', 'ws': 'w', 'version': 1, 'at': 1}, earlier=[], page=lambda f: {'chars': 9000, 'fns': 4, 'handlers': 1, 'state': 0, 'visuals': 0, 'kits': 0}))
+    assert 'lost the most on Real build' in line and '9K page' in line and ak.weak_line(None) == ''
+
+
+def test_a_page_gets_the_brain_and_a_pow_never_does(tmp_path):
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    cat = {'id': 'g', 'psFolders': [{'id': 'p', 'at': 1, 'status': 'closed', 'topic': 'tool'}], 'powFolders': [{'id': 'w', 'at': 1, 'status': 'closed', 'pnlPct': -5}]}
+    assert 'HOW THIS PROOF IS SCORED' in fs._proof_brain(cat, 'pos') and 'YOUR LAST ONE' in fs._proof_brain(cat, 'pos')
+    assert fs._proof_brain(cat, 'pow') == '' and 'HOW THIS PROOF IS SCORED' not in fs._recall(cat, 'Trades', 'WIF') and 'HOW THIS PROOF IS SCORED' in fs._recall(cat, 'Code', 'a tool')
+    assert 'WHERE YOU ARE' in fs._job_brain(cat, 'anything') and 'WHERE YOU ARE' in fs._general_mind(cat)

@@ -10,7 +10,7 @@ body.fx-lite .hv-sw i, body.fx-lite .cmf-tr { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hv-sw i, .cmf-tr { animation: none !important; } }
 body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border-color: #c8930033; } body.theme-day .cmf-ledger { background: #fff; } body.theme-day .cmf-tr.is-head { background: #f3eefc; color: #5a4a7a; } body.theme-day .cmf-tr { color: #1b1233; }
 @media (max-width: 640px) { .cfl { padding: 12px 8px; } }
-/* 🏺 the colony pot (command center › 👑 OWNER): a vault bar — the locked floor, the growth above it, the part that may leave */
+/* 🏺 the colony pot (HQ › 👑 OWNER): a vault bar — the locked floor, the growth above it, the part that may leave */
 .hv-pow { --hv: #f5c542; display: grid; gap: 12px; }
 .hv-pow-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; position: relative; }
 .hv-pow-flow::before { content: ''; position: absolute; left: 6%; right: 6%; top: 22px; height: 2px; background: linear-gradient(90deg, #f5c54200, #f5c542aa, #45e486aa, #f5c54200); }

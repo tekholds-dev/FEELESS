@@ -203,12 +203,14 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 ### Owner's list, 2026-11-07 evening, comes before everything below, in this order
 1. Proof looping: DONE (`proof_footprint.py`, d00cfbab). Own sites and angle per mind, last footprints in every brief, Unique counts in the score, All work folder on the agents desktop. Not yet seen on a live new proof; PoW coin picks untouched on purpose.
-2. NEXT. Grading much stricter: doing a simple request well is not a high score. Reward complexity, real builds, proof evolution. A selected agent automatically takes in safe knowledge of FEELESS and the stash so it knows what to do and where to go.
+2. Grading + auto brain: DONE. `proof_weights.py`: Depth of work, Evolution, ceilings (simple work 30% plus depth, failed 40%, no result 60%), stricter ranks, minds lift 8%. Real proofs: Tip page 2 went 290 S to 157 C, no S left, a real build leads. Pages run with no network, so live data cannot count as a build. `_proof_brain`, `_job_brain`, `_general_mind`: every job but PoW gets where it is, how it scores, its last weak spot, the stash. Real OSSY answered from it. No paid send rescored. Held line not seen signed in.
 3. Money folder: a dash with a chart on top that finds the best option from as low as $5, with animated ranges and price gaps to understand and scale.
 4. Ideas folder on the agents desktop: next level vitals, mechanics, money growth for the Collective and better agents.
 5. Proof of Range: the best auto range strategy or price gaps. Build it if really effective, otherwise a new "Proof of" that is.
 6. Wallet view cleaner: when to top up or send from the agent wallet for thinking; maybe auto pay when low, with SOL (he uses Sign in with Google style wallet). Money path: confirm with him before anything moves by itself.
-Then the list below, starting with Sicario's page. Collective HQ (93e32037) is done. Still open from it: PoStatic marks sticking on scroll, login time and code entry, new prompts, PoB parlay legs and PoP real reasons. Grading note: `proof_weights.py` RUBRIC is where complexity, real builds and evolution go; a simple page still scores high because your mark counts 30.
+7. NEW 2026-11-06. PoEco as the one stop: accounting, CRM, bill handler and payer, life coach. Bill paying moves money: confirm the path with him first. A real dash on first open with a smooth "let's get started" window, 8 questions at most, real world options.
+8. NEW 2026-11-06. Features folder: show every use case folder and demo for all proofs, advanced real examples so users see how big their models can go, better look when viewing demos. Plugin style tools per use case for proof folders, like the "Build Web Data Visualization" card he showed (name, one line, Skills list with toggles).
+Then the list below, starting with Sicario's page. Collective HQ (93e32037) is done. Still open from it: PoStatic marks sticking on scroll, login time and code entry, new prompts, PoB parlay legs and PoP real reasons.
 
 ### Owner's list, 2026-11-07, comes first, in this order
 1. Collective HQ full redo: a real dashboard to create anything for and with the Collective wallet and find the best earning options. Numbers and risks only, it never tells him what to buy, nothing moves money by itself.

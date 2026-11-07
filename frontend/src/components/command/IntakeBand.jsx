@@ -12,7 +12,7 @@ const ACTIONS = [['arm', '⚡ ARM', 'owner priority: the agents take it the mome
   ['track', '📌 TRACK', 'keep it on your list — judged every pass'], ['review', '🔎 REVIEW', 'send it through the normal agent review'],
   ['ignore', '✕ IGNORE', 'off your list']];
 
-// 🛰 ONE INTAKE (owner, 2026-10-29: "agt cmd ctr should have one intake and that's the ALL intake, not the agents' intake — agents have to
+// 🛰 ONE INTAKE (owner, 2026-10-29: "agents HQ should have one intake and that's the ALL intake, not the agents' intake — agents have to
 // choose from the bigger intake only"). The tank IS the shared discovery snapshot the server hands the agents (`/familia/intake` = the same
 // rows `_agents_tick` screens). The agents' own progress is drawn ON it: a coin they are contending / ready on / holding wears a ring, the
 // funnel counts sit in the header, and tapping a coin gives the owner's orders (ARM · TRACK · REVIEW · IGNORE) beside CHART / TRADE.

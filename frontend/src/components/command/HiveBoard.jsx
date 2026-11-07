@@ -128,7 +128,7 @@ export function ColonyFlow({ api, onOpen }) {
 // Opportunity 1 = the colony pool the owner opens with this wallet (assigned here); opportunity 2 = the sharers' airdrop (daily / weekly).
 const usd = v => (v == null ? '—' : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: Number(v) >= 100 ? 0 : 2 })}`);
 const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locked in never pays out — only growth'], allowlist: ['📜 Allowlist', 'Airdrops go only to owners who signed to share'], ownerSigns: ['✍ You approve', 'Every payout batch waits for your approval'] };
-// ⛏ THE PoW ENGINE (owner 2026-10-31: "an official PoW engine in Fee's command center — Ultimate"): the hard rules every agent works under, the
+// ⛏ THE PoW ENGINE (owner 2026-10-31: "an official PoW engine in Fee's HQ — Ultimate"): the hard rules every agent works under, the
 // pipeline a colonized agent runs, the live numbers (filed · graded · right · strength) and the newest proofs. Reads the public /api/cats/pow.
 const POW_STAGES = [['📥', 'INTAKE', 'one coin from the FEELESS intake'], ['🔎', 'SEARCH', 'DuckDuckGo first, DexScreener when walled'], ['🌐', 'SITES', '≤ {sites} sites · ≤ {steps} moves each'],
   ['🧪', 'VITALS', '≤ {pulls} vitals a site, numbers only'], ['⚖', 'CALL', 'BUY · WATCH · AVOID + why'], ['💧', 'GRADED', 'an hour on, on what it really did']];

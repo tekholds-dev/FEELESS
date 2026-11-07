@@ -16,6 +16,7 @@ echo "node $(node -v)"
 
 # ⚡ only what the push touches (owner 2026-10-30: "the slow pushes"): docs-only → nothing to run; backend-only → no jest / build.
 # Frontend changes still run the backend suite (test_no_geckoterminal & co. scan frontend files). GATE_ALL=1 forces all three.
+unset $(git rev-parse --local-env-vars)   # a pre-push hook sets GIT_DIR: a test running `git init` in its own folder would then rewrite THIS repo (set core.bare=true, 2026-11-06)
 base="$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD~1)"
 changed="$( { git diff --name-only "$base"; git diff --name-only; } | sort -u)"
 front=0; back=0
