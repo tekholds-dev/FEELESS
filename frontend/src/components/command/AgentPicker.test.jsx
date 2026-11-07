@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
+jest.mock('./AtomPrint', () => ({ __esModule: true, default: () => null }));
 import FeeCatsPlatform from './FeeCatsPlatform';
 
 jest.mock('react-router-dom', () => ({ Link: ({ to, children, ...p }) => require('react').createElement('a', { href: to, ...p }, children) }), { virtual: true });   // v7 does not resolve under jest here (FeeCatLore.test does the same)
