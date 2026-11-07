@@ -137,3 +137,20 @@ test('the Git chat asks its agent and shows the answer, and a failed ask keeps t
   expect(el.textContent).toContain('No model'); expect(el.querySelector('[data-testid=git-chat-text]').value).toBe('why?');
   el.remove();
 });
+
+test('its sites per proof: the owner orders and switches off sites, and the guide teaches cleaning and GitHub', async () => {
+  const { SiteBook } = require('./GitFolder');
+  const sent = []; const rows = [{ host: 'dexscreener.com', on: true }, { host: 'rugcheck.xyz', on: true }, { host: 'solscan.io', on: true }];
+  const book = { pow: { rows, what: 'Coin research' }, pop: { rows, what: 'Perps' }, pob: { rows, what: 'Games' } };
+  const w = async (_, b) => { sent.push(b); return b.op === 'site_book' ? { book } : { kits: [] }; };
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<SiteBook cat={{ id: 'c' }} work={w} />); });
+  expect(el.querySelector('[data-testid="git-site-rugcheck.xyz"]')).toBeTruthy();
+  await act(async () => { el.querySelector('[data-testid="git-site-rugcheck.xyz"] input[type=checkbox]').click(); });
+  const save = sent.filter(b => b.op === 'site_book' && b.text).pop();
+  expect(save.to).toBe('pow'); expect(JSON.parse(save.text)).toEqual({ order: ['dexscreener.com', 'rugcheck.xyz', 'solscan.io'], off: ['rugcheck.xyz'] });
+  await act(async () => { el.querySelector('[aria-label="Move solscan.io up"]').click(); });
+  expect(JSON.parse(sent.filter(b => b.op === 'site_book' && b.text).pop().text).order).toEqual(['dexscreener.com', 'solscan.io', 'rugcheck.xyz']);
+  const g = await mount(); expect(g.querySelector('[data-testid="git-keep"]').textContent).toMatch(/cleaned/);
+  expect(g.querySelector('[data-testid="git-tab-book"]')).toBeTruthy();
+});

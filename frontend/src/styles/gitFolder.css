@@ -154,3 +154,29 @@ body.theme-day .git-chat-rows li { background: #f1f4f2; } body.theme-day .git-ch
 @media (max-width: 640px) { .git-chat-rows { max-height: 200px; } }
 /* One small print window under the folder */
 .git-print { justify-self: start; width: fit-content; padding: 6px 12px; } .git-print svg { width: 74px; }
+/* 📘 how its proofs are kept · 📚 sites & kits per proof (owner 2026-11-07) */
+.gh-mark { flex: none; vertical-align: -2px; }
+.git-keep { display: grid; gap: 10px; padding: 12px; }
+.git-keep-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.git-keep-steps li { animation: gitIn .3s ease-out both; animation-delay: calc(var(--i) * 55ms); }
+.git-keep-steps button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid #ffffff14; background: #ffffff08; color: #cfe3d8; font: 700 12px var(--f-ui); text-align: left; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+.git-keep-steps button:hover { background: #15d16a14; border-color: #15d16a55; } .git-keep-steps button:active { transform: scale(.98); } .git-keep-steps button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.git-keep-steps i { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 8px; background: #ffffff0f; color: #9fb4d8; }
+.git-keep-steps li.is-on button { background: #15d16a; border-color: #15d16a; color: #04110d; } .git-keep-steps li.is-on i { background: #04110d22; color: #04110d; }
+.git-keep-steps li.is-done i { color: #45e486; }
+.git-keep-say { margin: 0; color: #dfeee6; font: 500 13px/1.45 var(--f-ui); }
+.git-keep footer { display: flex; justify-content: flex-end; align-items: center; gap: 6px; } .git-keep footer .m-btn { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; }
+.git-keep-ok { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; color: #45e486; font: 700 12px var(--f-ui); }
+.git-keep-again { justify-self: start; min-height: 32px; font-size: 12px; }
+.git-book { display: grid; gap: 10px; } .git-book-kinds { justify-self: start; } .git-book-kinds button { min-height: 32px; }
+.git-book-sites { display: grid; gap: 8px; } .git-book-sites h4 { display: grid; gap: 3px; margin: 0; font: 800 10.5px var(--f-mono); letter-spacing: .12em; } .git-book-sites h4 small { font: 500 11.5px/1.4 var(--f-ui); letter-spacing: 0; opacity: .7; }
+.git-book-sites ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 340px; overflow-y: auto; scrollbar-width: thin; }
+.git-book-sites li { display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 4px 6px 4px 8px; border-radius: 9px; background: #ffffff07; border: 1px solid #ffffff0d; animation: gitIn .28s ease-out both; animation-delay: calc(var(--i) * 30ms); }
+.git-book-sites li em { width: 18px; color: #45e486; font: 800 11px var(--f-mono); text-align: center; } .git-book-sites li img { flex: none; border-radius: 4px; background: #fff; }
+.git-book-sites li b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 12.5px var(--f-tech); } .git-book-sites li small { padding: 1px 6px; border-radius: 5px; background: #15d16a22; color: #45e486; font: 700 9.5px var(--f-mono); }
+.git-book-sites li.is-off { opacity: .45; } .git-book-sites li.is-off img { filter: grayscale(1); }
+.git-book-do { display: flex; align-items: center; gap: 4px; margin-left: auto; } .git-book-do .m-btn { min-width: 32px; min-height: 32px; padding: 0; display: grid; place-items: center; }
+.git-book-add { display: flex; gap: 6px; } .git-book-add .m-input { flex: 1; min-width: 0; } .git-book-add .m-btn { min-height: 34px; display: inline-flex; align-items: center; gap: 4px; }
+body.fx-lite :is(.git-keep-steps li, .git-book-sites li) { animation: none; } @media (prefers-reduced-motion: reduce) { :is(.git-keep-steps li, .git-book-sites li) { animation: none; } .git-keep-steps button { transition: none; } }
+body.theme-day .git-keep-steps button { background: #f4f7f5; border-color: #0000001a; color: #16211b; } body.theme-day .git-keep-say { color: #16211b; } body.theme-day .git-book-sites li { background: #f4f7f5; border-color: #0000001a; } body.theme-day .git-keep-steps li.is-on button { color: #04110d; }
+@media (max-width: 640px) { .git-keep-steps { grid-template-columns: minmax(0, 1fr); } .git-book-kinds { justify-self: stretch; overflow-x: auto; } }

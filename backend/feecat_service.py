@@ -76,6 +76,7 @@ import proof_validators as _val
 import collective_stake as _stake
 import proof_weights as _weights
 import proof_kits as _proof_kits
+import proof_book as _book
 import collective_debate as _debate
 import play_studio as _play
 import asset_packs as _assets
@@ -151,7 +152,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('pocWatch', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('siteBook', 'pocWatch', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -224,7 +225,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('poeFolders', 'gitLink', 'collectiveGit', 'apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead', 'mailbox', 'proofHosts', 'pobAsk', 'siteTrade', 'siteTrades', 'siteTradeAuto', 'siteWallets', 'setup')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('poeFolders', 'gitLink', 'collectiveGit', 'apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions', 'siteManuals', 'siteBook', 'proofSite', 'watchFolders', 'topup', 'topups', 'topupRead', 'mailbox', 'proofHosts', 'pobAsk', 'siteTrade', 'siteTrades', 'siteTradeAuto', 'siteWallets', 'setup')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -2555,6 +2556,7 @@ def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
         ranked_ += [host for host in fallback_ if host not in ranked_][:3 - len(ranked_)]
     rp['inherited'] = sorted(inherited_ & set(ranked_))
     rp['order'] = [h for h in rp['required'] if h in ranked_] + [h for h in ranked_ if h not in rp['required']]
+    rp['order'] = _book.rank(cat.get('siteBook'), 'pow', rp['order'], keep=rp['required'])   # 📚 the owner's site book: their order first, off sites never
     return rp
 
 
@@ -3588,11 +3590,13 @@ def _read_start(cat, goal, who, kind=''):
     if not b_.get('brains') or (float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE <= 0.005 and not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)):
         return 'no model credit left for browsing'
     try:
-        _work_start(cat['id'], cat, goal + _site_note(cat, kind), who if who in ('0', '1') else None, None, read_=True)
+        _work_start(cat['id'], cat, goal + _site_note(cat, kind) + (_book.goal_line(cat.get('siteBook'), kind) if kind in _book.KINDS else ''), who if who in ('0', '1') else None, None, read_=True)
     except HTTPException as e:
         return str(e.detail)[:80]
     if kind in ('pob', 'poc', 'pos'):   # the sources book + the PoW guide list coin sites (Birdeye, Jupiter, RugCheck): GLM followed them on a Knicks pick (2026-11-07)
         _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
+    if kind in _book.KINDS and (cat.get('siteBook') or {}).get(kind):   # 📚 a repeating window moves to the owner's next site, never an off one
+        t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind])
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
 
@@ -4374,7 +4378,7 @@ async def _pob_tick(http, cat, now):
                 return
             await _pob_call(http, cat, rd, now, notes, why)
     elif do == 'start' and cat.get('pobAsk'):
-        topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _pob.sites_for(topic), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
+        topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _book.apply(cat.get('siteBook'), 'pob', _pob.sites_for(topic)), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
         why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
         if why:
             cat.pop('proofHosts', None)
@@ -8314,6 +8318,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(409, str(e))
         new_ = _feat.new_doc(row_); new_['versions'] = [{'html': _ws_placed(got_['cat'], v_[-1]['html']), 'by': 'Popular build', 'at': round(time.time())}]; _ws_save(cat_id, new_); keep_owned(cat); _save(store)
         return {'folder': row_, 'workspaces': cat['workspaces']}
+    if p.op == 'site_book':   # 📚 its sites per proof: the owner's order, on / off. No text = just read
+        if p.text:
+            try:
+                cat.setdefault('siteBook', {})[str(p.to)] = _book.clean(str(p.to), json.loads(p.text))
+            except (ValueError, TypeError) as e:
+                raise HTTPException(400, str(e)[:120])
+            keep_owned(cat); _save(store)
+        return {'book': {k: {'rows': _book.view(cat.get('siteBook'), k), 'what': _book.WHAT[k], 'mine': bool((cat.get('siteBook') or {}).get(k))} for k in _book.KINDS}}
     if p.op in ('kit_list', 'kit_pick', 'kit_skill'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
         if p.op == 'kit_skill':

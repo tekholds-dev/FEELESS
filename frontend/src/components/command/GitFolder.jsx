@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronRight, FileCode2, FileImage, FileJson, FileText, Folder, FolderOpen, Lock, Settings2, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, FileCode2, FileImage, FileJson, FileText, Folder, FolderOpen, Lock, Plus, Settings2, Trash2 } from 'lucide-react';
 import { Slider } from '@heroui/react';
 import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
@@ -11,25 +11,80 @@ import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import { Ic3 } from '../../lib/icon3d';
 import { fitBox, identityOf } from '../../lib/proofprint';
 import { statRidges } from '../../lib/gamePrint';
+import { KitPick } from './KitPick';
 import '../../styles/gitFolder.css';
 
 // 🐙 ITS GITHUB FOLDER (owner 2026-11-05): filed proofs go to its owner's own repo, private or public. With scope="collective", the owner's private repo holds the whole Collective, sorted.
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new';
 const TOKEN_FOR_REPO = `${TOKEN_URL}?name=FEELESS&description=${encodeURIComponent('FEELESS reads the files you pick and saves builds to a branch')}&expires_in=90&contents=write&metadata=read`;
 const SEEN_KEY = 'feeless.gittour.seen';
+// the official GitHub mark (Simple Icons, CC0)
+export const GhMark = ({ size = 16 }) => <svg className="gh-mark" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" /></svg>;
+const KEEP_KEY = 'feeless.gitkeep.seen';
+// 📘 How its proofs are kept (owner 2026-11-07: "a simple tutorial … we may clean or alert that some proofs may be cleaned, and it's always best to add their git")
+const KEEP_STEPS = [
+  [<Lock key="i" size={18} />, 'Every proof lands here', 'Each proof it files is saved in this folder, sealed. Only you open it.'],
+  [<Trash2 key="i" size={18} />, 'Unused files may be cleaned', 'Files nobody opens get flagged here first, with a notice. Nothing goes unless you switch on clean-up or empty the trash.'],
+  [<GhMark key="i" size={18} />, 'Add your GitHub to keep it all', 'Copy every proof to a repo you own. Even what gets cleaned here stays there, forever.'],
+];
+function KeepGuide({ onLink, linked }) {
+  const [open, setOpen] = useState(() => { try { return !localStorage.getItem(KEEP_KEY); } catch { return true; } });
+  const [at, setAt] = useState(0);
+  const close = () => { setOpen(false); try { localStorage.setItem(KEEP_KEY, '1'); } catch { /* it shows again next time */ } };
+  if (!open) return <button type="button" className="m-btn git-keep-again" onClick={() => { setAt(0); setOpen(true); }} data-tip="How its proofs are kept, cleaned and backed up" data-testid="git-keep-open">? How proofs are kept</button>;
+  return <section className="git-keep m-card m-live" data-testid="git-keep" aria-label="How its proofs are kept">
+    <ol className="git-keep-steps">{KEEP_STEPS.map(([ic, t, say], k) => <li key={t} className={k === at ? 'is-on' : k < at ? 'is-done' : ''} style={{ '--i': k }}>
+      <button type="button" onClick={() => setAt(k)} aria-current={k === at ? 'step' : undefined} data-tip={say} data-testid={`git-keep-${k}`}><i aria-hidden="true">{ic}</i><b>{t}</b></button></li>)}</ol>
+    <motion.p key={at} className="git-keep-say" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.16 }}>{KEEP_STEPS[at][2]}</motion.p>
+    <footer>{at < KEEP_STEPS.length - 1 ? <button type="button" className="m-btn" onClick={() => setAt(at + 1)} data-testid="git-keep-next">Next</button>
+      : linked ? <span className="git-keep-ok"><GhMark size={13} /> Your GitHub is connected</span>
+      : <button type="button" className="m-btn m-go" onClick={() => { close(); onLink(); }} data-testid="git-keep-link"><GhMark size={14} /> Add my GitHub</button>}
+      <button type="button" className="m-btn" onClick={close} data-testid="git-keep-close">Got it</button></footer>
+  </section>;
+}
+// 📚 Its sites and kits per proof (owner 2026-11-07: "a user can see and organize which sites / kits per proof go first, and the agent still chooses
+// if repeated steps"). Browsing proofs get an ordered site list; every proof gets its kits.
+const BOOK_KINDS = [['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic']];
+const icon = h => `https://www.google.com/s2/favicons?domain=${encodeURIComponent(h)}&sz=64`;
+export function SiteBook({ cat, work }) {
+  const [kind, setKind] = useState('pow'); const [d, setD] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [add, setAdd] = useState('');
+  const run = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'site_book', ...body }); setD(j.book); return true; } catch (e) { setErr(e.message); return false; } finally { setBusy(false); } }, [cat.id, work]);
+  useEffect(() => { run({}); }, [run]);
+  const k = d?.[kind]; const rows = k?.rows || [];
+  const save = list => run({ to: kind, text: JSON.stringify({ order: list.map(r => r.host), off: list.filter(r => !r.on).map(r => r.host) }) });
+  const move = (i, by) => { const n = [...rows]; const j = i + by; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; save(n); };
+  const on = rows.filter(r => r.on).length;
+  return <section className="git-book" data-testid="git-book">
+    <div className="m-seg git-book-kinds" role="tablist" aria-label="Which proof">{BOOK_KINDS.map(([v, t]) => <button key={v} type="button" role="tab" aria-selected={kind === v} className={kind === v ? 'active' : ''} onClick={() => setKind(v)} data-testid={`git-book-${v}`}>{t}</button>)}</div>
+    {d?.[kind] ? <div className="git-book-sites m-card">
+      <h4>SITES IT READS FIRST <small>{k.what}. Top goes first. Off is never opened. When a window repeats itself, it moves to the next site on.</small></h4>
+      <ol>{rows.map((r, i) => <li key={r.host} className={r.on ? '' : 'is-off'} style={{ '--i': Math.min(i, 10) }} data-testid={`git-site-${r.host}`}>
+        <em className="m-num">{r.on ? rows.slice(0, i + 1).filter(x => x.on).length : '—'}</em><img src={icon(r.host)} alt="" width="18" height="18" loading="lazy" /><b>{r.host}</b>{r.mine ? <small>yours</small> : null}
+        <span className="git-book-do"><button type="button" className="m-btn" disabled={busy || !i} onClick={() => move(i, -1)} aria-label={`Move ${r.host} up`} data-tip="Read it sooner"><ArrowUp size={14} /></button>
+          <button type="button" className="m-btn" disabled={busy || i === rows.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${r.host} down`} data-tip="Read it later"><ArrowDown size={14} /></button>
+          <label className="m-toggle" data-tip={r.on ? 'Switch off: it is never opened for this proof' : 'Switch on'}><input type="checkbox" checked={r.on} disabled={busy || (r.on && on <= 2)} onChange={() => save(rows.map(x => (x.host === r.host ? { ...x, on: !x.on } : x)))} aria-label={`${r.host} on`} /><span /></label></span></li>)}</ol>
+      {kind !== 'pow' ? <form className="git-book-add" onSubmit={async e => { e.preventDefault(); if (add.trim() && await save([{ host: add.trim(), on: true }, ...rows])) setAdd(''); }}>
+        <input className="m-input" value={add} onChange={e => setAdd(e.target.value)} placeholder="Add a site, like nba.com" aria-label="Add a site" data-testid="git-book-add" />
+        <button type="submit" className="m-btn" disabled={busy || !add.trim()} data-tip="It goes first"><Plus size={14} /> Add</button></form>
+        : <p className="git-note">A PoW opens each coin's own page on these sites, so its list is fixed. Order them, or switch any off.</p>}
+    </div> : kind === 'poc' || kind === 'pos' ? <p className="git-note">{kind === 'poc' ? 'PoC' : 'PoStatic'} builds rather than browses. Its kits below are what it works from.</p> : null}
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
+    <KitPick key={kind} cat={cat} work={work} kind={kind} />
+  </section>;
+}
 // 🎓 Connecting your repo, step by step. Each step shows what you will see, and the last one checks the token for real.
 export function GitTour({ onClose, onLink }) {
   const [at, setAt] = useState(0); const [full, setFull] = useState(''); const [token, setToken] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   useEffect(() => { const esc = e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }; window.addEventListener('keydown', esc, true); return () => window.removeEventListener('keydown', esc, true); }, [onClose]);
   const go = async e => { e.preventDefault(); setBusy(true); setErr(''); try { await onLink(full.trim(), token.trim()); onClose(); } catch (x) { setErr(x.message || 'GitHub said no.'); } setBusy(false); };
   const STEPS = [
-    ['🐙', 'Open GitHub', 'This opens the token page with FEELESS already filled in. Nothing is shared until you paste it here.', <a key="a" className="m-btn m-go" href={TOKEN_FOR_REPO} target="_blank" rel="noopener noreferrer" onClick={() => setAt(1)} data-testid="gtt-open">Open GitHub ↗</a>],
+    [<GhMark key="g" size={20} />, 'Open GitHub', 'This opens the token page with FEELESS already filled in. Nothing is shared until you paste it here.', <a key="a" className="m-btn m-go" href={TOKEN_FOR_REPO} target="_blank" rel="noopener noreferrer" onClick={() => setAt(1)} data-testid="gtt-open">Open GitHub ↗</a>],
     ['🎯', 'Pick only your repo', 'Under Repository access, choose Only select repositories, then the one repo. Under Permissions, set Contents to Read and write.', <div key="m" className="gtt-mock" aria-hidden="true"><span><i className="is-off" />All repositories</span><span className="is-on"><i />Only select repositories<b>your-repo</b></span><span className="is-row">Contents<em>Read and write</em></span><span className="is-row is-dim">Everything else<em>No access</em></span></div>],
     ['🔑', 'Paste it here', 'Generate the token, copy it, and paste it below. It is sealed under this agent\'s own key and never shown again. FEELESS reads the file names and README, and only the files you pick. It saves to a new branch and never touches your main.', <form key="f" className="gtt-form" onSubmit={go}><input className="m-input" value={full} onChange={e => setFull(e.target.value)} placeholder="owner/repo" aria-label="Your repo" data-testid="gtt-repo" /><input className="m-input" type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder="github_pat_…" aria-label="GitHub token" data-testid="gtt-token" /><button type="submit" className="m-btn m-go" disabled={busy || !full.trim() || !token.trim()} data-testid="gtt-link">{busy ? 'Checking with GitHub…' : 'Check it and connect'}</button>{err ? <small className="kd-err" role="alert" data-testid="gtt-err">⚠ {err}</small> : null}</form>],
   ];
   const [ic, title, say, body] = STEPS[at];
   return createPortal(<div className="gtt-veil" onClick={e => { if (e.target === e.currentTarget) onClose(); }}><motion.section className="gtt m-live" role="dialog" aria-modal="true" aria-label="Connect your GitHub" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.18 }} data-testid="git-tour"><button type="button" className="grm-sp-x gtt-x" onClick={onClose} aria-label="Close" data-testid="gtt-x">✕</button>
-    <ol className="gtt-rail" aria-label="Steps">{STEPS.map(([i, t], k) => <li key={t} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><button type="button" onClick={() => setAt(k)} aria-current={k === at ? 'step' : undefined} data-tip={t} data-testid={`gtt-step-${k}`}><Ic3 e={i} size="30px" /></button></li>)}</ol>
+    <ol className="gtt-rail" aria-label="Steps">{STEPS.map(([i, t], k) => <li key={t} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><button type="button" onClick={() => setAt(k)} aria-current={k === at ? 'step' : undefined} data-tip={t} data-testid={`gtt-step-${k}`}>{typeof i === "string" ? <Ic3 e={i} size="30px" /> : i}</button></li>)}</ol>
     <motion.div key={at} className="gtt-now" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.18 }}><small className="m-num">STEP {at + 1} OF {STEPS.length}</small><h4>{title}</h4><p>{say}</p>{body}</motion.div>
     <footer>{at ? <button type="button" className="m-btn" onClick={() => setAt(at - 1)} data-testid="gtt-back">Back</button> : <span />}{at < STEPS.length - 1 ? <button type="button" className="m-btn" onClick={() => setAt(at + 1)} data-testid="gtt-next">Next</button> : null}</footer>
   </motion.section></div>, document.body);
@@ -278,10 +333,11 @@ export function GitFolder({ cat, work, scope = '' }) {
   useEffect(() => { load(); }, [load]);
   const run = async (name, body, done) => { setBusy(name); setErr(''); setSaid(''); try { const j = await ask(body); setToken(''); if (done) setSaid(done(j)); await load(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   const shotsFor = useCallback((path, data) => { const files_ = data?.id ? (s?.powShots || {})[data.id] : null; return (files_ || []).map(f => apiUrl(`/api/cats/${cat.id}/powshot/${String(data.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${f}?${agentAuthQuery()}`)); }, [s, cat.id]);
-  const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full;
+  const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full; const linkRef = useRef(null);
   return <div className={`git${collective ? ' is-collective' : ''}`} data-testid={collective ? 'git-collective' : 'git-folder'}>
-    {collective ? <div className="m-seg" role="tablist" aria-label="GitHub">{[['repo', 'The repo'], ['kits', 'Kits for every agent']].map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div> : null}
-    {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : <>
+    {<div className="m-seg" role="tablist" aria-label="GitHub">{(collective ? [['repo', 'The repo'], ['kits', 'Kits for every agent']] : [['repo', 'Its proofs'], ['book', 'Sites & kits']]).map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div>}
+    {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : !collective && tab === 'book' ? <SiteBook cat={cat} work={work} /> : <>
+    {collective ? null : <KeepGuide linked={on} onLink={() => { const el = linkRef.current; if (el) { el.open = true; el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }} />}
     <header className="git-h m-live"><span><em>{collective ? 'THE COLLECTIVE · ONLY YOU' : 'ITS GITHUB'}</em><b>{on ? l.full : collective ? 'The Collective repo' : 'Keep its proofs in your repo'}</b><small>{collective ? 'Every kept proof sorted by kind, result and month, with snapshots and the pages behind PoStatic.' : 'Its filed proofs and pages, sorted by kind, result and month. Keys and sign-ins never go in.'}</small></span>{on ? <a className="m-btn" href={l.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub" data-testid="git-open">Open on GitHub</a> : null}</header>
     {on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
     {!collective && s?.vault?.on ? <section className="git-vault m-card" data-testid="git-vault"><i aria-hidden="true"><Ic3 e="🔐" /></i><span><b>{s.vault.files ? `${s.vault.files} files kept safe, ${size(s.vault.bytes || 0)}` : 'Kept safe on the next hourly pass'}</b><small>Free. Its filed proofs and pages are sealed under its own key in the Collective's private store, with hashed names. Your own repo below is optional.{s.vault.left ? ` ${s.vault.left} files are over its 20 MB share and wait.` : ''}</small></span><em className="m-num">{s.vault.at ? ago(s.vault.at) : 'waiting'}</em></section> : null}
@@ -290,7 +346,7 @@ export function GitFolder({ cat, work, scope = '' }) {
     {s ? <ProjectLink project={s.project} ask={ask} reload={load} /> : null}
     {s?.clean ? <CleanUp clean={s.clean} notice={s.notice} ask={ask} reload={load} /> : null}
     {s?.files?.length ? <GitChat ask={ask} /> : null}{s?.files?.length ? <RepoTree files={s.files} ask={ask} shotsFor={shotsFor} sort={s.sort} setSort={fn => setS(x => ({ ...x, sort: fn(x.sort) }))} /> : null}
-    {!on ? <details className="git-link" open={collective || !s?.files?.length} data-testid="git-link"><summary>{collective ? 'Connect the Collective repo' : 'Also copy it to my own GitHub (optional)'}</summary><form className="git-setup m-card" onSubmit={e => { e.preventDefault(); run('connect', { op: 'git_connect', text: token.trim() || undefined, job: repo, on: priv }, () => 'Connected.'); }}>
+    {!on ? <details ref={linkRef} className="git-link" open={collective || !s?.files?.length} data-testid="git-link"><summary>{collective ? 'Connect the Collective repo' : 'Also copy it to my own GitHub (optional)'}</summary><form className="git-setup m-card" onSubmit={e => { e.preventDefault(); run('connect', { op: 'git_connect', text: token.trim() || undefined, job: repo, on: priv }, () => 'Connected.'); }}>
       <label><span>Repo name</span><input className="m-input" value={repo} onChange={e => setRepo(e.target.value)} aria-label="Repo name" data-testid="git-repo" /></label>
       {collective ? <p className="git-note">This one is always private.</p> : <div className="m-seg" role="group" aria-label="Who can see it">{[[true, 'Private', 'Only you can see it'], [false, 'Public', 'Anyone can read its filed proofs']].map(([v, t, tip]) => <button key={t} type="button" className={priv === v ? 'active' : ''} aria-pressed={priv === v} onClick={() => setPriv(v)} data-tip={tip} data-testid={`git-${t.toLowerCase()}`}>{t}</button>)}</div>}
       <label><span>GitHub token{l.token ? ` · saved, ends ${l.token}` : ''}</span><input className="m-input" type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder={l.token ? 'Keep the saved one' : 'github_pat_…'} aria-label="GitHub token" data-testid="git-token" /></label>
