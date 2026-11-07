@@ -3,11 +3,11 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { Ic3 } from '../../lib/icon3d';
 import { ProofHead, ProofKit, ProofTile } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
+import { EcoDesk } from './EcoDesk';
 import '../../styles/ecoFolder.css';
 
 // 📊 PoEco (owner 2026-11-05): a business's books as a proof. Python does the math; the rows stay sealed; a receipt carries totals and a hash, never a row.
 const usd = v => (v == null ? '—' : `${v < 0 ? '−' : ''}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(2)}`);
-const EXAMPLE = 'date,description,amount\n2026-09-02,Invoice 41 client,6200\n2026-09-05,Office rent,-1400\n2026-09-12,Software subscriptions,-320\n2026-09-28,Payroll,-2600\n2026-10-03,Stripe sales,7450\n2026-10-05,Office rent,-1400\n2026-10-14,Google ads,-900\n2026-10-28,Payroll,-2600';
 const mark = g => scoreOf({ kind: 'poe', value: g === 'right' ? 1 : g === 'wrong' ? -1 : null });
 function Book({ f, work, cat, onRows, onBack, onCommand }) {
   const [said, setSaid] = useState(''); const [err, setErr] = useState('');
@@ -22,17 +22,20 @@ function Book({ f, work, cat, onRows, onBack, onCommand }) {
     {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(`Read these books and tell me the one thing to change: income ${usd(f.income)}, costs ${usd(f.costs)}, net ${usd(f.net)}, biggest costs ${(f.cats || []).slice(0, 3).map(c => `${c.cat} ${usd(c.usd)}`).join(', ')}.`)} data-tip="Puts the totals in its chat box. You press send" data-testid="eco-ask">Ask its minds</button> : null}
     {said ? <small className="git-said" role="status">{said}</small> : null}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</div>;
 }
-export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse }) {
-  const rows = useMemo(() => d?.poeFolders || [], [d?.poeFolders]); const [open, setOpen] = useState(null); const [name, setName] = useState(''); const [csv, setCsv] = useState(''); const [tax, setTax] = useState(25); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
-  const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
+// The folder opens on the desk. Its filed proofs and their print sit under Proofs: a proof is made from the books, so there is one set of entries, never two.
+function Proofs({ rows, cat, d, pool, work, onBrowse, onRows, onCommand, tool }) {
+  const [open, setOpen] = useState(null); const [name, setName] = useState(''); const [said, setSaid] = useState('');
   useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const file = async e => { e.preventDefault(); setBusy(true); setErr(''); setSaid(''); try { const j = await work(cat.id, { op: 'eco_file', job: name.trim() || 'Books', text: csv, cap: tax }); onRows(j.poeFolders); setCsv(''); setName(''); setSaid(j.skipped ? `Filed. Lines left out because they could not be read: ${j.skipped}.` : 'Filed.'); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
+  const prove = async e => { e.preventDefault(); const j = await tool.prove(name.trim() || 'All books'); if (j) { setName(''); setSaid('Filed. It holds totals and a hash, never an entry.'); } };
   return <div className="prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} /><div className="prf-main">
     {open ? <Book f={open} work={work} cat={cat} onRows={onRows} onBack={() => setOpen(null)} onCommand={onCommand} /> : <>
       {rows.length ? <div className="dsk-xgrid" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'none'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={usd(f.net)} tip={f.topic} onOpen={() => setOpen(f)} testid={`eco-${f.id}`} />)}</div> : null}
-      <form className="eco-new m-card" onSubmit={file}><h4><Ic3 e="📊" /> FILE YOUR BOOKS</h4><div className="eco-row"><input className="m-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name, like Q3 books" aria-label="Name of these books" data-testid="eco-name" /><span className="m-seg" role="group" aria-label="Set aside for tax">{[0, 15, 25, 35].map(t => <button key={t} type="button" className={tax === t ? 'active' : ''} aria-pressed={tax === t} onClick={() => setTax(t)} data-tip={`Sets aside ${t}% of profit`} data-testid={`eco-tax-${t}`}>{t ? `${t}% tax` : 'No tax'}</button>)}</span></div>
-        <textarea className="m-input eco-csv" rows={6} value={csv} onChange={e => setCsv(e.target.value)} placeholder={'date, description, amount\n2026-10-03, Stripe sales, 7450\n2026-10-05, Office rent, -1400'} aria-label="Your entries" data-testid="eco-csv" />
-        <div className="eco-row"><button type="submit" className="m-btn m-go" disabled={busy || !csv.trim()} data-testid="eco-file">{busy ? 'Filing…' : 'File it'}</button><button type="button" className="m-btn" onClick={() => { setCsv(EXAMPLE); setName('Example books'); }} data-tip="Fills in made-up entries so you can see it work" data-testid="eco-example">Use an example</button><small>Paste from any bank or spreadsheet export. Entries are sealed. No model reads them, and no model call is paid.</small></div>
-        {said ? <small className="git-said" role="status" data-testid="eco-said">{said}</small> : null}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</form></>}
+      <form className="eco-new m-card" onSubmit={prove}><h4><Ic3 e="📊" /> PROVE MY BOOKS</h4><div className="eco-row"><input className="m-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name, like Q3 books" aria-label="Name of this proof" data-testid="eco-name" /><button type="submit" className="m-btn m-go" disabled={tool.busy || !tool.count} data-tip={tool.count ? 'Files your real entries as a proof you can send' : 'Add real entries first. Made-up examples never count'} data-testid="eco-file">File {tool.count} entries</button><small>Python does the sums and the entries stay sealed. A proof holds totals and a hash you can send.</small></div>
+        {said ? <small className="git-said" role="status" data-testid="eco-proved">{said}</small> : null}</form></>}
   </div><aside className="prf-rail"><ProofKit kind="poe" folders={rows} onCommand={onCommand} /></aside></div>;
+}
+export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse }) {
+  const rows = useMemo(() => d?.poeFolders || [], [d?.poeFolders]);
+  const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
+  return <EcoDesk cat={cat} work={work} onCommand={onCommand} onRows={onRows} proofs={tool => <Proofs rows={rows} cat={cat} d={d} pool={pool} work={work} onBrowse={onBrowse} onRows={onRows} onCommand={onCommand} tool={tool} />} />;
 }

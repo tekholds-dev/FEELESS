@@ -215,3 +215,31 @@ test('🧰 a kit opens in full with why it is suggested, a ready set fills the p
   expect(el.querySelector('[data-testid="kit-on-fl-coin-vet"]')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🗂 PoEco asks 8 questions on first open, then the dash shows the server numbers and says it moves no money', async () => {
+  window.matchMedia = window.matchMedia || (() => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+  const { EcoFolder } = require('./EcoFolder');
+  const view = { cash: 4200, net: 900, overdue: 1, overdueUsd: 1400, dueSoon: 0, dueSoonUsd: 0, owed: 2600, owedLate: 0, runway: 2.1, taxPct: 25, taxSetAside: 225, months: [], cats: [], count: 3, coach: [{ tab: 'bills', level: 'bad', text: '1 past due, $1,400.' }], pipeline: [], goals: [], openUsd: 0, income: 0, costs: 0, hasSamples: true };
+  let desk = { setup: null, ledger: [], bills: [{ id: 'b1', name: 'Rent', amount: 1400, due: '2026-11-01', every: 'month', link: 'https://pay.example.com' }], people: [], invoices: [], goals: [] };
+  const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'eco_d_setup') desk = { ...desk, setup: { wants: b.tools.wants, tone: b.tools.tone, tax: 25 } }; return { desk, view, today: '2026-11-06', poeFolders: [] }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<EcoFolder cat={{ id: 'c' }} d={{}} setD={() => {}} work={fake} onCommand={() => {}} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`); const tap = async id => { await act(async () => { q(id).click(); await new Promise(r => setTimeout(r, 30)); }); };
+  expect(q('eco-step').textContent).toBe('1 of 8');
+  await tap('eco-q-who-freelance');
+  expect(q('eco-step').textContent).toBe('2 of 8');
+  await tap('eco-q-wants-coach');   // takes Coach off: the tab must go with it
+  await tap('eco-q-next'); await tap('eco-q-next'); await tap('eco-q-next'); await tap('eco-q-next');
+  expect(q('eco-step').textContent).toBe('6 of 8');
+  await tap('eco-q-tax-25'); await tap('eco-q-goal-organized'); await tap('eco-q-next'); await tap('eco-q-tone-hard');
+  expect(q('eco-step').textContent).toBe('8 of 8');
+  await tap('eco-q-done');
+  expect(calls.at(-1)).toMatchObject({ op: 'eco_d_setup', tools: { who: 'freelance', tone: 'hard', goal: 'organized' } }); expect(calls.at(-1).tools.wants).not.toContain('coach');
+  expect(q('eco-start')).toBeNull(); expect(q('eco-tab-coach')).toBeNull(); expect(q('eco-tab-money')).not.toBeNull();
+  expect(q('eco-cash').textContent).toBe('$4,200'); expect(q('eco-samples')).not.toBeNull();
+  await tap('eco-tab-bills');
+  expect(q('eco-bills-note').textContent).toContain('does not send the money'); expect(q('eco-pay-b1').getAttribute('href')).toBe('https://pay.example.com');
+  await tap('eco-bill-paid-b1'); expect(calls.at(-1)).toMatchObject({ op: 'eco_d_bill_paid', text: 'b1' });
+  await act(async () => { root.unmount(); }); el.remove();
+});

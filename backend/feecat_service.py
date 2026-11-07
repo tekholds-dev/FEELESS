@@ -5841,6 +5841,25 @@ def _ws_placed(cat_id, html):
     return _feat.place_files(html, read)
 
 
+def _eco_desk_path(cat_id):
+    return DATA_DIR / 'agent_eco' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / 'desk.seal'
+
+
+def _eco_desk_load(cat_id):
+    """🗂 Its owner's desk. A file that cannot be opened stops the request instead of looking empty, so a save can never wipe real books."""
+    f_ = _eco_desk_path(cat_id)
+    if not f_.exists():
+        return _eco.empty_desk()
+    try:
+        return {**_eco.empty_desk(), **json.loads(_ck.unseal_bytes(f_.read_bytes(), cat_id))}
+    except (OSError, ValueError) as e:
+        raise HTTPException(500, 'Your PoEco desk could not be opened, so nothing was changed.') from e
+
+
+def _eco_desk_save(cat_id, desk):
+    f_ = _eco_desk_path(cat_id); f_.parent.mkdir(parents=True, exist_ok=True); tmp_ = f_.with_suffix('.tmp'); tmp_.write_bytes(_ck.seal_bytes(json.dumps(desk).encode(), cat_id)); tmp_.replace(f_)
+
+
 async def _ws_ask(cat, model, sys_, user_, tokens):
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
     text_, usd_, _via = await _think(cat, model, [{'role': 'system', 'content': _general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
@@ -6830,6 +6849,44 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op.startswith('eco_d_'):   # 🗂 the PoEco desk: sealed, its owner's only, Python does every sum, and nothing here can move money
+        today_ = _eco.their_today(p.to, time.strftime('%Y-%m-%d', time.gmtime())); desk_ = _eco_desk_load(cat_id); said_ = None
+        try:
+            if p.op == 'eco_d_setup':
+                _eco.run_setup(desk_, p.tools, today_)
+            elif p.op == 'eco_d_tone':
+                _eco.set_tone(desk_, p.text)
+            elif p.op == 'eco_d_add':
+                _eco.add_row(desk_, str(p.job or ''), p.tools)
+            elif p.op == 'eco_d_edit':
+                _eco.edit_row(desk_, str(p.job or ''), str(p.text or ''), p.tools)
+            elif p.op == 'eco_d_drop':
+                _eco.drop_row(desk_, str(p.job or ''), str(p.text or ''))
+            elif p.op == 'eco_d_entry':
+                t_ = p.tools or {}; _eco.add_entry(desk_, t_.get('date') or today_, t_.get('desc'), _eco._money(t_.get('amount')), t_.get('cat'))
+            elif p.op == 'eco_d_bill_paid':
+                _eco.bill_paid(desk_, str(p.text or ''), today_)
+            elif p.op == 'eco_d_invoice_paid':
+                _eco.invoice_paid(desk_, str(p.text or ''), today_)
+            elif p.op == 'eco_d_import':
+                said_ = _eco.import_rows(desk_, p.text)
+            elif p.op == 'eco_d_check':
+                _eco.check_in(desk_, str(p.text or ''), today_)
+            elif p.op == 'eco_d_clear':
+                _eco.clear_samples(desk_)
+            elif p.op == 'eco_d_prove':   # the books as they stand become a filed proof, with the same hash and receipt as before
+                rows_ = sorted(({k: r[k] for k in ('date', 'desc', 'amount', 'cat')} for r in desk_['ledger'] if not r.get('sample') and (not p.text or r['date'].startswith(str(p.text)))), key=lambda r: r['date'])
+                if not rows_:
+                    raise ValueError('There are no real entries to prove yet. Made-up examples never count.')
+                list_ = cat.setdefault('poeFolders', []); f_ = _eco.new_folder(len(list_) + 1, p.job or p.text or 'All books', rows_, (desk_.get('setup') or {}).get('tax', 25), time.time()); list_.append(f_)
+                path_ = DATA_DIR / 'agent_eco' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40]; path_.mkdir(parents=True, exist_ok=True); (path_ / f"{f_['id']}.seal").write_bytes(_ck.seal_bytes(json.dumps(rows_).encode(), cat_id)); keep_owned(cat); _save(store)
+            elif p.op != 'eco_d_get':
+                raise ValueError('No such step.')
+        except (ValueError, TypeError) as e:
+            raise HTTPException(400, str(e)[:160])
+        if p.op != 'eco_d_get':
+            _eco_desk_save(cat_id, desk_)
+        return {'desk': desk_, 'view': _eco.view(desk_, today_), 'today': today_, 'said': said_, 'poeFolders': (cat.get('poeFolders') or [])[::-1]}
     if p.op == 'eco_file':   # 📊 PoEco: Python does the math, its entries are sealed, the folder keeps totals and a hash
         rows_, skipped_ = _eco.parse(p.text)
         if not rows_:
