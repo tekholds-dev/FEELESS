@@ -6276,7 +6276,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or [], prompt) + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
         scene, say = _play.parse_reply(raw, now_scene)
         if scene:
-            scene = {**_play.ensure_named(scene, prompt), 'page': _play.keep_page(now_scene.get('page'), scene.get('page'), text)}; by = name(i_); break
+            scene, kept_ = _play.keep_monitors(scene, now_scene, text, prompt); scene = {**_play.ensure_named(scene, kept_), 'page': _play.keep_page(now_scene.get('page'), scene.get('page'), text)}; by = name(i_); break
         print(f'[3d] unreadable reply from {brains[i_]}: {str(raw)[:160]!r} ... {str(raw)[-120:]!r}')
     if not scene:
         _feat.add_msg(doc, name(order[0]), 'It did not send a usable scene. Nothing changed, and the last page is safe. Try again.', time.time())
@@ -6292,7 +6292,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         if fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
             checked = 'The check found nothing to add'
         elif fixed:
-            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); scene = await resolve(_play.ensure_named(fixed, prompt))   # the check fixes what is missing: the light the builder chose stands
+            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); fixed, kept_ = _play.keep_monitors(fixed, scene, text, prompt); scene = await resolve(_play.ensure_named(fixed, kept_))   # the check fixes what is missing: the light the builder chose stands
         elif not checked:
             m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
     except Exception as e:   # noqa: BLE001 — the build still stands without its check

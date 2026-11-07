@@ -66,3 +66,12 @@ def test_a_chart_request_needs_no_model_and_a_thin_dash_gets_filled():
     assert not ps.chart_only('add a chart and a brass lamp on the desk', built) and not ps.chart_only('a chart', {'objects': []}) and not ps.chart_only('make it darker', built)
     thin = {'objects': [], 'page': {'headline': 'G', 'dash': {'stats': [{'label': 'Price', 'value': '$0.042'}], 'points': [1, 2]}}}
     d = ps.ensure_asks(thin, 'a chart')['page']['dash']; assert d['stats'][0]['value'] == '$0.042' and len(d['stats']) == 4 and len(d['points']) > 8
+
+
+def test_moving_the_monitors_never_loses_them_and_they_sit_on_the_real_desk():
+    three = {'objects': [{'name': 'Monitor screen'}, {'name': 'Monitor foot'}] * 3}; one = {'objects': [{'name': 'Monitor screen'}, {'name': 'Desk'}]}
+    got, said = ps.keep_monitors(one, three, 'the monitors need to sit on the table', 'p')
+    assert said == '3 monitors. p' and [o['name'] for o in got['objects']] == ['Desk'] and ps._count_of(said, r'(?:monitors?)', 1) == 3
+    assert ps.keep_monitors(one, three, 'only one monitor', 'p')[1] == 'p' and ps.keep_monitors(three, three, 'x', 'p')[1] == 'p'
+    html = ps.to_html({'objects': [{'prefab': 'room'}], 'page': {'headline': 'G'}}, 'G', None)
+    assert 'intersectObject(desk, true)' in html and 'userData.piece' in html and '/desk|table/i.test' in html and '\x08' not in html
