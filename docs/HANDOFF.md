@@ -54,7 +54,7 @@ Owner 2026-11-04: what's left comes first, what's built comes after. **OPEN** = 
 - Agents now know the product: `agent_knows.py` puts a brief built from the whitepaper and live rules into any ask about FEELESS, warns about namesakes like feeless.family, and forbids invented facts. `agent_visit.py` is the visitor floor: `https://visit.feeless/` is answered inside the service with public reads only, so it works before and after deploy, in a cloud browser or the reader. Opened in a real local browser with live coins and the real board. **Not run: a real agent walking it in its cloud browser.** A free G4 post from the brief still invented a detail before the rules got stricter; not re-run.
 - Lag, measured on the Boost page with the Mac at load near 7: 0 long tasks, p95 frame 16.8 ms while dragging. The ResizeObserver overlay did not reproduce in the harness before or after, so the fix (measure a frame later) is not proven against the owner's screen.
 - Money and plan folders now embed the real `AutoRangeDesk`, the same as Launch › Pools, through `rangePool`. Seen in a browser in the harness; live price there not confirmed. A pool marked read only can be planned, not opened.
-- A02 shipped: Fuse › Agents (`FuseAgents.jsx`): up to 3 of 5 agents, 2 charts, intake levels, each agent's real size and lives. Reads public numbers, moves nothing. Ledger sizing already existed in `feecat_brain.discipline`, so no trading rule changed.
+- A02 removed 2026-11-06: the owner did not want Fuse › Agents, so the tab and its files are gone. Ledger sizing stays in `feecat_brain.discipline`.
 - **Next:** the owner's next list above, then Q02's next slices, A3 Sicario layout, T01, C02 to C04 Familia, P01, B01, R01, LA01, Q23, final whole-site audit. **The MD is NOT all done.**
 
 # THE DEAL (owner 2026-11-06, his words decided this after a long debate. This replaces "The deal" below. Ledger: `backend/collective_stake.py`, cfg `deal='stake'`)
@@ -204,7 +204,7 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 ### Owner's newest list, 2026-11-06 evening, in this order (one at a time)
 Done and pushed: the failed "graduated under $30K" rule left the theory, the DEGEN mindset and the AUTO-TUNED fixes. Boost is one-screen dashboard (`BoostFolder.jsx`): ledger strip, proofs, the proof's real loop from `proof_plan`, the send, burn, pools. Collective is one screen per view (`CollectiveLanding.jsx`): The print, What pays (`KeepDeal`: real inputs, table from $1, live rates from `/api/reputation/pool-rates`), The record, The stash, Agents. "Follow the proof" is gone. HQ's money flow takes real amounts.
 1. PoStatic desk: why the chat text is green, and a way to finish when both minds stop or answer "held no page" at step 6 (it sits there with no way forward).
-2. Owner asked why Fuse > Agents exists (A02, from his old NSFA row). Waiting on his word to keep or remove it.
+2. Fuse > Agents: removed, owner's call.
 3. Scoring: true mechanical weights and ranks per proof kind, so proofs do not all get the same judgement. Py agents learn scoring from OSSY and G4. New prompts by use case, or one overall for all proofs and agents.
 4. Git folder: cleaner and quicker to move on while cleaning, and a chat inside it.
 5. Money folder more advanced. Find better kits, add them to the stash, use them. Anything useful to proofs goes in the stash.
