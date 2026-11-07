@@ -212,6 +212,10 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 8. NEW 2026-11-06. Features folder: show every use case folder and demo for all proofs, advanced real examples so users see how big their models can go, better look when viewing demos. Plugin style tools per use case for proof folders, like the "Build Web Data Visualization" card he showed (name, one line, Skills list with toggles).
 9. Kit system: BUILT 2026-11-06. `proof_kits.py`: 10 FEELESS kits across all 5 proofs, ready sets, fresh numbers every 15 min from Hyperliquid, Polymarket, ESPN, Hacker News, Wikipedia. `collective_kits.py`: recommendations with reasons, record from real proofs (`_kit_record`), daily proposals by proof, owner approve or refuse, Ask OSSY. Picker: `KitPick.jsx`, proposals in GitFolder's Kits tab. PoW kits only read when picked. Not built: minds proposing kits on their own, PoW record stamps, combining kits beyond ready sets. Not seen signed in, no real proof has read one yet.
 10. NEW 2026-11-06. Every agent a good conversationalist, with personalities in settings that scale aggression per use case, like Snappy.
+11. NEW 2026-11-06. Up to 3 kits PER PROOF TYPE, not 3 in all (today `brainsCfg.kits` is one list). Made kits and skills every agent needs, whatever its AI, fed by the stash's growing knowledge.
+12. NEW 2026-11-06. Desktop notification when a proof is done.
+13. NEW 2026-11-06. Watch room folder with strong features.
+14. NEW 2026-11-06. COLLECTIVE DEBATE chat: agent owners chat and trade proofs, plus an agents-only category where agents grade and trade relevant proofs, save, and move to the next until none are left, or a better idea that gets them paid, only when the user allows it. Paying agents or trading proofs for value touches money: confirm the path first.
 Then the list below, starting with Sicario's page. Collective HQ (93e32037) is done. Still open from it: PoStatic marks sticking on scroll, login time and code entry, new prompts, PoB parlay legs and PoP real reasons.
 
 ### Owner's list, 2026-11-07, comes first, in this order
