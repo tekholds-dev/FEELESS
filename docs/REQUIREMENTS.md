@@ -73,7 +73,7 @@ Meteora's own validator checks the curve before you can sign. The warnings flag 
   - The pool wallet always signs its own payout. The server records only SOL transfers verified on-chain, and never the same transaction twice.
 - **Networks.**
   - DexScreener boosts are the first source.
-  - Small chains (Cronos, zkSync, Zora…) are topped up from GeckoTerminal trending/new pools, so no network loads empty.
+  - Small chains (Cronos, zkSync, Zora…) are topped up by `chain_feed` from their own DEXes and hub-token pools (DexScreener), so no network loads empty. No GeckoTerminal, sitewide.
   - Chain logos come from DexScreener, which carries the current CRO mark.
 - **Treasury.** HQ › Treasury shows every wallet holding FEELESS money: the fee accounts (wSOL / USDC), the admin wallet, season reserves and badge pools.
   - **Split now** sends fees to the split-plan destinations. You sign from the wallet that owns the fee account.

@@ -243,7 +243,7 @@ export default function Terminal() {
       <Shortcuts />
       <HubTabs page={page} />
       {page === 'legal' && <LegalPage />}
-      {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[1]} pairAddress={page.split('/')[2]} />}
+      {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[2] ? page.split('/')[1] : 'solana'} pairAddress={page.split('/')[2] || page.split('/')[1]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'alpha' && <div className="command-page-title"><span className="eyebrow">HOLDER-ONLY · $FEE</span><h1>Fee Reserve <small>FRSV</small></h1><p>Hold $FEE to unlock private rooms. Access is checked on-chain every time you read or post.</p></div>}{page === 'alpha' && <AlphaRooms />}

@@ -48,6 +48,23 @@ TOPIC_SYS = ('You are {name}, one of two independent minds filing a PoB (Proof o
              'Reply JSON only: {{"picks": [{{"pick": "short name of the choice", "confidence": 0-100, "why": "one line citing a number you read and the site"}}], "pass": "why, if nothing you read justifies a pick"}}. '
              'At most 3 picks, best first. Never invent a number. The other mind does not see your answer.')
 TOPIC_PICKS = 3
+MAX_LEGS = 6
+PARLAY_LINE = ' This is a parlay of {n} legs: give exactly {n} picks from different games, say how they connect, and "pass" if you cannot back {n} legs from what you read. A parlay dies on one wrong leg, so a weak leg is a reason to pass.'
+
+
+def legs_of(topic):
+    """How many legs the owner asked for. 0 when it is not a parlay."""
+    t = str(topic or '')
+    if not re.search(r'(?i)\b(parlay|legs?)\b', t):
+        return 0
+    m = re.search(r'(?i)\b(\d|two|three|four|five|six)[ -]*(?:legs?|picks?|teams?)\b', t); words = {'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6}
+    n = (int(m.group(1)) if m.group(1).isdigit() else words[m.group(1).lower()]) if m else 3
+    return max(2, min(MAX_LEGS, n))
+
+
+def topic_sys(name, topic):
+    n = legs_of(topic)
+    return TOPIC_SYS.format(name=name) + (PARLAY_LINE.format(n=n) if n else '')
 
 
 def topic_of(text):
@@ -83,7 +100,7 @@ def parse_picks(raw):
     except (AttributeError, ValueError):
         return {'picks': [], 'pass': 'no usable answer'}
     rows = []
-    for x in (d.get('picks') or [])[:TOPIC_PICKS] if isinstance(d.get('picks'), list) else []:
+    for x in (d.get('picks') or [])[:MAX_LEGS] if isinstance(d.get('picks'), list) else []:
         if isinstance(x, dict) and str(x.get('pick') or '').strip():
             rows.append({'pick': str(x['pick']).strip()[:90], 'confidence': max(0, min(100, int(_f(x.get('confidence'))))), 'why': str(x.get('why') or '')[:200]})
     return {'picks': rows, 'pass': str(d.get('pass') or '')[:200]}

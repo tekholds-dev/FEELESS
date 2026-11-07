@@ -12,7 +12,7 @@ def call(side='long', market='SOL', lev=3, tp=4, sl=2):
 
 def test_a_reply_without_a_real_side_or_market_is_no_call_and_numbers_are_clamped():
     assert pop.parse_call('I would go long') is None and pop.parse_call('{"market":"DOGE","side":"long"}') is None and pop.parse_call('{"market":"SOL","side":"none"}') is None
-    c = pop.parse_call('sure {"market":"sol","side":"LONG","lev":100,"tp_pct":90,"sl_pct":0}')
+    c = pop.parse_call('sure {"market":"sol","side":"LONG","lev":100,"tp_pct":90,"sl_pct":0,"why":"SOL is 3 percent up on Coinbase today"}')
     assert c['market'] == 'SOL' and c['side'] == 'long' and c['lev'] == pop.LEV_MAX and c['tp'] == pop.TP_RANGE[1] and c['sl'] == pop.SL_RANGE[0]
 
 
@@ -106,7 +106,7 @@ def _fake_http(prices):
 def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disagreement_proposes_both(monkeypatch):
     import asyncio
     import feecat_service as fs
-    answers = {0: '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"up on the day"}', 1: '{"market":"SOL","side":"long","lev":2,"tp_pct":3,"sl_pct":2,"why":"volume"}'}
+    answers = {0: '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"SOL is 3 percent up on Coinbase today"}', 1: '{"market":"SOL","side":"long","lev":2,"tp_pct":3,"sl_pct":2,"why":"SOL is 3 percent up on Coinbase today"}'}
 
     async def ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
         assert 'SOL-PERP price' in user_
@@ -121,7 +121,7 @@ def test_the_engine_opens_on_agreement_runs_true_prices_and_files_it_and_a_disag
     assert cat['popRun']['roePct'] == 2.0 and cat['popRun']['mark'] == 101
     asyncio.run(fs._pop_tick(_fake_http({'SOL': 104}), cat, 1020.0))
     assert 'popRun' not in cat and cat['popFolders'][-1]['why'] == 'take profit' and cat['popFolders'][-1]['roePct'] == 8.0
-    answers[1] = '{"market":"BTC","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"topping"}'
+    answers[1] = '{"market":"BTC","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"SOL is 3 percent up on Coinbase today"}'
     fs._POP_WANT['c9'] = 'start'
     asyncio.run(fs._pop_tick(_fake_http({'SOL': 100, 'ETH': 10, 'BTC': 1000}), cat, 2000.0))
     assert 'popRun' not in cat and cat['popCard']['market'] == 'SOL' and cat['popCard']['alt']['market'] == 'BTC' and cat['popCard']['conviction'] == 'split'   # 💡 owner 2026-11-05: split minds propose, you pick
@@ -139,7 +139,7 @@ def _ppop_fakes(monkeypatch, answers):
     return fs, seen
 
 
-LONG, SHORT = '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"up"}', '{"market":"SOL","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"down"}'
+LONG, SHORT = '{"market":"SOL","side":"long","lev":4,"tp_pct":5,"sl_pct":2,"why":"SOL is 3 percent up on Coinbase today"}', '{"market":"SOL","side":"short","lev":2,"tp_pct":3,"sl_pct":2,"why":"SOL is 3 percent up on Coinbase today"}'
 _P = {'SOL': 100, 'ETH': 10, 'BTC': 1000}
 
 

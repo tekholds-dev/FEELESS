@@ -201,7 +201,7 @@ def depth(k, f, page=None):
     if k == 'pop':
         m = len({str(c.get('market')) for c in f.get('calls') or [] if isinstance(c, dict) and c.get('market') and c.get('side')})
         return round(0.4 * _clip(m / 3) + 0.3 * _clip(_sites(k, f) / 6) + 0.3 * _pop_sources(f)[0], 3), f"{m} markets called, {_sites(k, f)} sites"
-    legs = _legs(f); g = _n(f.get('games'))
+    legs = max(_legs(f), int(_f((f.get('parlay') or {}).get('agreed'))) if isinstance(f.get('parlay'), dict) else 0); g = _n(f.get('games'))
     return round(0.4 * _clip(legs / 3) + 0.2 * _clip(g / 3) + 0.4 * _clip(_sites(k, f) / 6), 3), f"{legs} picks agreed, {g} games, {_sites(k, f)} sites"
 
 

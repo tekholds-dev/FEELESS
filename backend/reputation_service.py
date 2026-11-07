@@ -32355,16 +32355,27 @@ async def token_logo(mint: str):
         if hit:
             return FileResponse(hit, headers=headers)
         async def _find():
-            cands = []
+            # Each source's picture is tried the moment it is known: DexScreener answers in 0.1 s, and waiting
+            # for the slower sources first ran out LOGO_BUDGET and answered 404 for coins that do have a logo.
             async with httpx.AsyncClient(headers={'User-Agent': 'Mozilla/5.0'}) as http:
+                async def _try(cands):
+                    for u in [x for x in cands if x]:
+                        got = await _fetch_first(http, _ipfs_variants(u))
+                        if got:
+                            return got
+                    return None
                 try:
                     d = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)).json()
-                    cands += [(p.get('info') or {}).get('imageUrl') for p in (d or [])[:3]]
+                    got = await _try([(p.get('info') or {}).get('imageUrl') for p in (d or [])[:3]])
+                    if got:
+                        return got
                 except Exception:
                     pass
                 try:
                     d = (await http.get(f'https://lite-api.jup.ag/tokens/v2/search?query={mint}', timeout=8)).json()
-                    cands += [x.get('icon') for x in d if x.get('id') == mint]
+                    got = await _try([x.get('icon') for x in d if x.get('id') == mint])
+                    if got:
+                        return got
                 except Exception:
                     pass
                 try:   # on-chain Metaplex metadata: works on any RPC (getAsset below is Helius-only)
@@ -32374,30 +32385,29 @@ async def token_logo(mint: str):
                         uri = coin_meta.parse_metadata(data).get('uri')
                         if uri:
                             meta = await _fetch_first(http, _ipfs_variants(uri), want_json=True)
-                            cands.append((meta or {}).get('image'))
+                            got = await _try([(meta or {}).get('image')])
+                            if got:
+                                return got
                 except Exception:
                     pass
                 if mint.endswith('pump'):
                     try:
                         d = (await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}', timeout=8)).json()
-                        cands.append((d or {}).get('image_uri'))
+                        got = await _try([(d or {}).get('image_uri')])
+                        if got:
+                            return got
                     except Exception:
                         pass
                 try:
                     a = await _rpc(http, 'getAsset', {'id': mint})
                     c = (a or {}).get('content') or {}
-                    cands += [f.get('cdn_uri') for f in c.get('files') or []] + [(c.get('links') or {}).get('image')]
+                    cands = [f.get('cdn_uri') for f in c.get('files') or []] + [(c.get('links') or {}).get('image')]
                     if c.get('json_uri'):
                         meta = await _fetch_first(http, _ipfs_variants(c['json_uri']), want_json=True)
                         cands.append((meta or {}).get('image'))
+                    return await _try(cands)
                 except Exception:
-                    pass
-                got = None
-                for u in [x for x in cands if x]:
-                    got = await _fetch_first(http, _ipfs_variants(u))
-                    if got:
-                        break
-            return got
+                    return None
 
         try:   # ⏱ every source together gets LOGO_BUDGET; a slow miss answers 404 at once (the page falls back to the next logo / glyph)
             got = await asyncio.wait_for(_find(), timeout=LOGO_BUDGET)
