@@ -3866,6 +3866,28 @@ _LOOK_AT = [0.0]
 _DEBATE_BUSY = [False]
 
 
+def _debate_bank(st):
+    """🥊 A finished room's points raise real boost ceilings, once, and only when both seats have a stake, so an empty account cannot farm them. No money moves: a ceiling is still paid only from real pool profit. → True when a room was settled here"""
+    rows = _debate.to_bank(st)
+    if not rows:
+        return False
+    now = time.time()
+    def run(state):
+        out = {}
+        for r in rows:
+            both = _stake.staked(state, r['a']['cat']) and _stake.staked(state, r['b']['cat'])
+            out[r['id']] = {side: _stake.add_debate(state, f"debate:{r['id']}", r[side]['cat'], (r.get('totals') or {}).get(side, 0), now) for side in 'ab'} if both else {}
+        return out
+    try:
+        got = _cpool.update(POOL_PATH, run)
+    except Exception as e:   # the ledger was busy or unreadable: the room keeps its record and is offered again on the next read
+        print(f'[debate] bank: {str(e)[:100]}')
+        return False
+    for r in rows:
+        r['banked'] = got.get(r['id']) or {}
+    return True
+
+
 async def _debate_pass(store):
     """⚔ Each agent whose owner allows it grades its next proof on the table, on its own AI, a few a day, and moves on until none are left. A bad reply is not saved and costs that proof nothing."""
     if _DEBATE_BUSY[0]:
@@ -7464,6 +7486,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except ValueError as e:
             raise HTTPException(400, str(e)[:160])
         moved_ = _debate.tick(st_)
+        moved_ = _debate_bank(st_) or moved_
         if moved_ or p.op not in ('debate_get', 'debate_allow'):
             _debate.save(DATA_DIR, st_)
         return {**_debate.view(st_, cat_id), 'room': _debate.rooms_view(st_, cat_id, owner_wallet(cat) or str(cat.get('ownerId') or cat_id)), 'allowed': bool(b_.get('debateOn')), 'canGrade': bool(b_.get('brains'))}

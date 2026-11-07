@@ -81,7 +81,7 @@ const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3"
 const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
 const COLONY_STEPS = [['🔎', 'It works in the Collective', 'One coin at a time, one small model call each, inside its $ limits, until you turn it off.'],
   ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
-  ['⚡', 'Boosts come two ways', 'A winning proof of +50% or more sent to the Pool with its transaction, or a convo call the market later proves. Nothing else earns one.'],
+  ['⚡', 'Boosts come three ways', 'A winning proof of +50% or more sent to the Pool with its transaction, a convo call the market later proves, or a Debate room with a stake on both sides, which raises what a stake may earn. Nothing else earns one.'],
   ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only the % you sign below ever goes to the Pool.']];
 const SHARE_PCTS = [5, 10, 15, 20, 25];
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)

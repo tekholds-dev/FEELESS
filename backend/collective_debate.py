@@ -153,7 +153,7 @@ def view(st, cat_id):
 
 
 # 🥊 THE ROOMS (owner 2026-11-07: "slots for 2 ppl to get in with proof ready to discuss"). Two owners, one filed proof each, three rounds of turns. The room reads both proofs' real scores side by side.
-# Points are a RECORD like the rest of this file. They never reach collective_stake's boost points, which are a claim on real pool profit: linking them is the owner's decision.
+# This file moves nothing. A finished room leaves its totals for the service, which raises real boost ceilings through collective_stake.add_debate when BOTH seats have a stake (owner 2026-11-07, "link them").
 ROOM_SLOTS = 6       # rooms waiting for a second person at once
 ROUNDS = ('Opening', 'Counter', 'Closer')
 TURN_S = 900         # a turn not taken in this long ends the room
@@ -162,6 +162,7 @@ VOTE_S = 1800        # how long the crowd votes after the closer
 ROOMS_A_DAY = 3      # rooms one owner may sit in per day, so points cannot be farmed
 PAIR_GAP_S = 86400   # the same two owners score together once a day
 SAY_MAX = 280
+PT_USD, MAX_PCT = 0.05, 25   # shown on screen; collective_stake holds the rule and a test keeps them equal
 PTS_FINISH, PTS_BETTER, PTS_POINT, PTS_CROWD, PTS_VOTER = 5, 5, 5, 10, 1
 CROWD_MIN = 3        # fewer votes than this decide nothing
 ROOMS_KEPT = 60
@@ -317,6 +318,11 @@ def _settle(st, room, now, gone=None):
     room.update(status='done', points=pts, totals=totals, winner=win, gone=gone, doneAt=round(now), turnEnds=None)
 
 
+def to_bank(st):
+    """Finished rooms whose points have not been offered to the Pool yet: those that scored, with a person in both seats."""
+    return [r for r in st['rooms'] if r['status'] == 'done' and r.get('scored', True) and r.get('b') and 'banked' not in r]
+
+
 def tick(st, now=None):
     """Runs out what has run out, on any read. → True when something changed."""
     now = now or time.time(); moved = False
@@ -345,8 +351,8 @@ def rooms_view(st, cat_id, owner='', now=None):
         side = _seat_of(r, cat_id); inside = bool(side); votes = [v['side'] for v in r['votes'].values()]
         out.append({'id': r['id'], 'status': r['status'], 'at': r['at'], 'a': _public_seat(st, r['a'], cat_id, inside), 'b': _public_seat(st, r.get('b'), cat_id, inside), 'side': side, 'said': r['said'], 'turn': turn_of(r), 'turnEnds': r.get('turnEnds'), 'voteEnds': r.get('voteEnds'), 'waitEnds': r.get('waitEnds'),
                     'round': ROUNDS[min(len(r['said']) // 2, len(ROUNDS) - 1)], 'votes': {'a': votes.count('a'), 'b': votes.count('b')}, 'voted': (r['votes'].get(owner) or {}).get('side') if owner else None, 'canVote': r['status'] == 'vote' and not inside and bool(r.get('b')) and owner not in (r['a']['owner'], (r.get('b') or {}).get('owner')),
-                    'points': r.get('points') or {}, 'totals': r.get('totals'), 'winner': r.get('winner'), 'gone': r.get('gone'), 'scored': r.get('scored', True)})
-    return {'rooms': out[:24], 'slots': ROOM_SLOTS, 'rounds': list(ROUNDS), 'crowdMin': CROWD_MIN, 'sayMax': SAY_MAX, 'perDay': ROOMS_A_DAY, 'satToday': _sat_today(st, owner, now) if owner else 0, 'pts': {'finish': PTS_FINISH, 'better': PTS_BETTER, 'point': PTS_POINT, 'crowd': PTS_CROWD}}
+                    'points': r.get('points') or {}, 'totals': r.get('totals'), 'winner': r.get('winner'), 'gone': r.get('gone'), 'scored': r.get('scored', True), 'banked': r.get('banked')})
+    return {'rooms': out[:24], 'ptUsd': PT_USD, 'maxPct': MAX_PCT, 'slots': ROOM_SLOTS, 'rounds': list(ROUNDS), 'crowdMin': CROWD_MIN, 'sayMax': SAY_MAX, 'perDay': ROOMS_A_DAY, 'satToday': _sat_today(st, owner, now) if owner else 0, 'pts': {'finish': PTS_FINISH, 'better': PTS_BETTER, 'point': PTS_POINT, 'crowd': PTS_CROWD}}
 
 
 def lessons(st, cat_id, kind, n=2):

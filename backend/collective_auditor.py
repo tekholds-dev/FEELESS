@@ -54,7 +54,7 @@ def _send(st, tape, key, cat, owner, token, usd, now, grade):
     return got
 
 
-def stress(n=1000, rounds=200, seed=7, sends=True, profit=True, losses=True, dust=False, stale=False):
+def stress(n=1000, rounds=200, seed=7, sends=True, profit=True, losses=True, dust=False, stale=False, debate=False):
     """Fake money through the real ledger functions, many ways. → {problems, sent, profit, paid, ...}"""
     st, r, tape = _new(n, seed); bad = []; now = 1_000_000.0; paid_total = 0; split_checks = 0
     cats = [(f'a{i}', f'o{i % max(1, n // 2)}') for i in range(n)]
@@ -63,6 +63,9 @@ def stress(n=1000, rounds=200, seed=7, sends=True, profit=True, losses=True, dus
             t = 'USDC' if r.random() < 0.7 else 'SOL'; usd = 0.000001 if dust else r.choice((1, 5, 10, 100, 1000, 10000)) * r.random() + 0.01
             _send(st, tape, f's{i}', c, o, t, usd, now, r.uniform(100, 300))
     for k in range(rounds):
+        if debate and k % 5 == 0:   # 🥊 rooms keep raising ceilings between profits
+            for c, _o in cats[:200]:
+                sk.add_debate(st, f'room{k}', c, r.randrange(0, 40), now)
         now += 3600; t = r.choice(cp.TOKENS); unit = UNITS_USD[t] * (r.uniform(0.2, 5) if stale else 1); roll = r.random()
         if profit and roll < 0.6:
             units = r.choice((1, 3, 999, 10 ** 6, 10 ** 9, r.randrange(1, 10 ** 10)))
@@ -99,4 +102,4 @@ def stress(n=1000, rounds=200, seed=7, sends=True, profit=True, losses=True, dus
 
 def suite(n=1000):
     """Every hard case named in the capability list."""
-    return {'1000 agents, mixed': stress(n), 'zero profit': stress(n, 60, 8, profit=False), 'only losses': stress(200, 200, 9, profit=False), 'no sends, only profit': stress(10, 100, 10, sends=False), 'dust amounts': stress(300, 100, 11, dust=True), 'stale prices': stress(300, 200, 12, stale=True), 'one agent': stress(1, 300, 13)}
+    return {'1000 agents, mixed': stress(n), 'debate points raising ceilings': stress(n, 120, 14, debate=True), 'zero profit': stress(n, 60, 8, profit=False), 'only losses': stress(200, 200, 9, profit=False), 'no sends, only profit': stress(10, 100, 10, sends=False), 'dust amounts': stress(300, 100, 11, dust=True), 'stale prices': stress(300, 200, 12, stale=True), 'one agent': stress(1, 300, 13)}

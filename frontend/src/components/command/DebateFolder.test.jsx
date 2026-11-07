@@ -30,3 +30,13 @@ test('rooms: take a slot, sit down, speak on your turn, vote from outside', asyn
   await act(async () => { el.querySelector('[data-testid=dbr-vitals]'); });
   el.remove();
 });
+
+test('a finished room says what it really banked, and says so when it banked nothing', async () => {
+  const { DebateRooms } = require('./DebateRooms');
+  const seat = n => ({ name: n, title: n, kind: 'pob', fid: n, mine: n === 'Me', vitals: { rank: 'B', score: 1, top: 300, parts: [] } });
+  const room = banked => ({ id: 'r', status: 'done', a: seat('Me'), b: seat('Bo'), side: 'a', said: [], votes: { a: 0, b: 0 }, scored: true, winner: 'a', totals: { a: 10, b: 5 }, points: { a: { finish: 5 }, b: { finish: 5 } }, banked });
+  const paint = async banked => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<DebateRooms v={{ room: { rooms: [room(banked)], slots: 6, perDay: 3, satToday: 1, ptUsd: 0.05, maxPct: 25, pts: {} } }} filed={[]} go={async () => null} busy={false} />); }); return el; };
+  expect((await paint({ a: 0.5, b: 0.25 })).querySelector('[data-testid=dbr-banked]').textContent).toContain('$0.50');
+  expect((await paint({})).querySelector('[data-testid=dbr-unbanked]').textContent).toContain('both of you need a stake');
+  expect((await paint({ a: 0, b: 0 })).querySelector('[data-testid=dbr-unbanked]').textContent).toContain('limit is full');
+});

@@ -201,7 +201,7 @@ def test_a_turn_not_taken_ends_the_room_and_the_one_who_left_gets_nothing():
     assert cd.tick(st, now=1002 + cd.TURN_S + 1) is True and room['gone'] == 'b' and room['winner'] == 'a' and room['totals'] == {'a': 5, 'b': 0}
 
 
-def test_debate_points_never_touch_the_money_ledger():
+def test_this_file_moves_nothing_itself():
     src = Path(cd.__file__).read_text()
     assert 'collective_stake' not in [n.name for x in ast.walk(ast.parse(src)) if isinstance(x, ast.Import) for n in x.names]
     assert 'pointsLeft' not in src and 'bonus(' not in src
@@ -218,3 +218,37 @@ def test_two_owners_get_in_a_room_on_the_real_route(monkeypatch, tmp_path):
     assert r.json()['room']['rooms'][0]['status'] == 'live' and r.json()['room']['rooms'][0]['turn'] == 'a'
     assert post('b', 'debate_room_say', tools={'room': rid, 'text': 'not my turn'}).status_code == 400
     assert post('a', 'debate_room_say', tools={'room': rid, 'text': 'my proof read the injury report'}).json()['room']['rooms'][0]['turn'] == 'b'
+
+
+def _ledger(**sends):
+    return {'cfg': {'cutPerX': 1, 'walletCapPct': 10, 'collectivePoolPct': 20, 'kneeUsd': 1000, 'sizeAbovePct': 50}, 'agents': {c: {'streams': [{'usd': usd, 'grade': 100}] if usd else [], 'owed': {}, 'earned': {}} for c, usd in sends.items()}}
+
+
+def test_debate_raises_the_ceiling_only_with_a_stake_and_never_the_cut():
+    import collective_stake as sk
+    assert (cd.PT_USD, cd.MAX_PCT) == (sk.DEBATE_PT_USD, sk.DEBATE_MAX_PCT)
+    st = _ledger(rich=100, empty=0); before = sk.of(st['agents']['rich'])
+    assert sk.add_debate(st, 'k1', 'empty', 20, 1) == 0.0 and sk.of(st['agents']['empty'])['pointsLeft'] == 0   # no stake, nothing
+    assert sk.add_debate(st, 'k1', 'ghost', 20, 1) == 0.0                                                       # not in the ledger
+    assert sk.add_debate(st, 'k1', 'rich', 20, 1) == 1.0 and sk.add_debate(st, 'k1', 'rich', 20, 2) == 0.0     # 20 x $0.05, one room once
+    after = sk.of(st['agents']['rich'])
+    assert after['capUsd'] == before['capUsd'] + 1.0 and after['x'] == before['x'] and after['sentUsd'] == before['sentUsd']
+    for i in range(5000):
+        sk.add_debate(st, f'r{i}', 'rich', 25, 1)
+    assert sk.of(st['agents']['rich'])['debateUsd'] == before['capUsd'] * .25                                   # farming stops at 25%
+    assert sk.add_debate(st, 'more', 'rich', 25, 1) == 0.0
+
+
+def test_a_room_banks_once_and_only_with_a_stake_on_both_sides(monkeypatch, tmp_path):
+    import collective_pool as cp
+    import collective_stake as sk
+    fs = pytest.importorskip('feecat_service')
+    path = tmp_path / 'pool.json'; monkeypatch.setattr(fs, 'POOL_PATH', path)
+    cp.update(path, lambda s: s['agents'].update({'a': {'streams': [{'usd': 100, 'grade': 100}], 'owed': {}, 'earned': {}}}))
+    st = _two_on_the_table(); room = _full_room(st); cd.say(st, room['id'], 'a', 'my opening', now=1002); cd.tick(st, now=1002 + cd.TURN_S + 1)
+    assert fs._debate_bank(st) and room['banked'] == {}   # the other seat has no stake: a record only
+    assert cp.load(path)['agents']['a'].get('debateUsd') is None and fs._debate_bank(st) is False
+    cp.update(path, lambda s: s['agents'].update({'b': {'streams': [{'usd': 50, 'grade': 100}], 'owed': {}, 'earned': {}}}))
+    st = _two_on_the_table(); room = _full_room(st); cd.say(st, room['id'], 'a', 'my opening', now=1002); cd.tick(st, now=1002 + cd.TURN_S + 1)
+    assert fs._debate_bank(st) and room['banked'] == {'a': .25, 'b': 0.0} and fs._debate_bank(st) is False      # +5 for finishing, only the seat that stayed
+    assert sk.of(cp.load(path)['agents']['a'])['debateUsd'] == .25 and 'debateUsd' not in cp.load(path)['agents']['b']

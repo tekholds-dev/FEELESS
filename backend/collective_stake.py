@@ -15,6 +15,8 @@ GRADE_MAX = 1000.0
 SEATS_PART = 0.6       # all five checks passing are this much of the top score; the rest is its print's real strength
 PLATFORMS = ('raydium', 'meteora', 'orca', 'other')
 MAX_POOLS = 40
+DEBATE_PT_USD = 0.05   # one debate point raises what its stake may earn by this much
+DEBATE_MAX_PCT = 25.0  # debate adds at most this share of what its sends already allow
 
 
 def _f(v):
@@ -83,8 +85,23 @@ def of(agent, least=0.0):
         if not r.get('held') and usd >= _f(r.get('least') or 0):
             g = _f(r.get('grade')); cap += usd * x_of(g); weighted += usd * g
     counted = sum(_f(r.get('usd')) for r in a.get('streams') or [] if not r.get('held'))
+    backed = cap; extra = min(_f(a.get('debateUsd')), backed * DEBATE_MAX_PCT / 100); cap = backed + extra   # 🥊 debate raises the ceiling only: its boost and its cut still come from its sends alone
     paid = _f(a.get('paidUsd')); burned = _f(a.get('burned'))
-    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'x': round(cap / counted, 4) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
+    return {'countedUsd': round(counted, 4), 'sentUsd': round(sent, 4), 'capUsd': round(cap, 4), 'debateUsd': round(extra, 4), 'x': round(backed / counted, 4) if counted else 0.0, 'grade': round(weighted / counted, 1) if counted else 0.0, 'paidUsd': round(paid, 6), 'burned': round(burned, 4), 'pointsLeft': round(max(0.0, cap - paid - burned), 4)}
+
+
+def staked(state, cat):
+    """Has real money counted in the pools. Debate cannot earn without it."""
+    return of((state.get('agents') or {}).get(cat))['countedUsd'] > 0
+
+
+def add_debate(state, key, cat, points, now):
+    """🥊 Debate points become boost points (owner 2026-11-07, "link them"). They raise what its stake may earn, never its cut, up to DEBATE_MAX_PCT of what its sends already allow. Still paid only from real pool profit. One room counts once. → dollars its ceiling really rose"""
+    a = (state.get('agents') or {}).get(cat)
+    if not a or not staked(state, cat) or _f(points) <= 0 or key in (a.get('debateRooms') or []):
+        return 0.0
+    before = of(a)['capUsd']; a['debateUsd'] = round(_f(a.get('debateUsd')) + _f(points) * DEBATE_PT_USD, 4); a['debateRooms'] = (list(a.get('debateRooms') or []) + [key])[-300:]; a['debateAt'] = round(now)
+    return round(of(a)['capUsd'] - before, 4)
 
 
 def cuts(state, now):
