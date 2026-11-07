@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { useCountUp } from '../../lib/useCountUp';
 import { FolderRidge } from './ProofKit';
+import { ProofSeal } from './ProofVisuals';
 
 // 🖼 Real proofs (owner 2026-11-06: "examples for all proof folders"). Nothing is a mock-up, and only this owner's own agents show: each is a proof really filed, its best and its worst, with what scored it.
-const pct = v => (v == null ? '—' : `${Math.round(Number(v) * 100)}`);
 export function ProofCard({ c, i, work, cat }) {
   const score = useCountUp(Number(c.score) || 0); const [page, setPage] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const open = async () => { if (page) { setPage(null); return; } setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'demo_open', job: c.id }); setPage(j.preview || ''); if (!j.preview) setErr('This page has no saved version.'); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return <article className={`pgl-card is-${c.tone}${page ? ' is-page' : ''}`} style={{ '--i': i }} data-testid={`pgl-${c.id}`}>
     <header className="pgl-top"><span className="pgl-print"><FolderRidge fid={c.print} kind={c.kind} size={42} /></span><span><b title={c.title}>{c.title}</b><span className="pgl-said">{c.said}</span></span>
-      <span className="pgl-rank" data-tip={c.held ? `Score held down: ${c.held}` : 'Its score, from its own record'}><b>{c.rank}</b><small className="m-num">{Math.round(score)}/{Math.round(Number(c.top) || 300)}</small></span></header>
+      <span className="pgl-rank" data-tip={c.held ? `Score held down: ${c.held}` : 'Its score, from its own record'}><small className="m-num">{Math.round(score)}/{Math.round(Number(c.top) || 300)}</small></span></header>
     {c.why ? <p className="pgl-why">{c.why}</p> : null}
-    <ul className="pgl-parts">{c.parts.map((p, n) => <li key={p.label} className={p.value == null ? 'is-unknown' : ''} data-tip={p.value == null ? `${p.label}: not known, scores nothing` : `${p.label}: weighs ${Math.round(p.weight)} of 100`}><span>{p.label}</span><s><i style={{ '--v': Number(p.value) || 0, '--n': n }} /></s><em>{pct(p.value)}</em></li>)}</ul>
-    <div className="pgl-facts">{c.facts.map(([k, v]) => <span key={k}>{k} <b>{v}</b></span>)}</div>
+    <div className="pgl-mid"><ProofSeal parts={c.parts} rank={c.rank} tone={c.tone} /><div className="pgl-facts">{c.facts.map(([k, v]) => <span key={k}>{k} <b>{v}</b></span>)}</div></div>
     {c.page ? <button type="button" className={`m-btn pgl-open${page ? ' is-on' : ''}`} disabled={busy} aria-expanded={!!page} onClick={open} data-tip="Runs the real page here, locked in a sandbox" data-testid={`pgl-open-${c.id}`}>{busy ? 'Opening…' : page ? 'Close the page' : 'Open the real page'}</button> : null}
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {page ? <iframe className="pgl-page" title={c.title} srcDoc={page} sandbox="allow-scripts" data-testid={`pgl-page-${c.id}`} /> : null}

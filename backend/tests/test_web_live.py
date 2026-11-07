@@ -60,9 +60,11 @@ def test_stop_ends_what_is_writing_and_what_is_queued_and_a_later_ask_still_runs
         calls.append(model); await asyncio.sleep(30); return 'late', 0.0
     async def quick(model, messages, tokens):
         return 'ok', 0.0
-    real = fs._lm_call_one
+    real = fs._lm_call_one; real_cool = fs._mac_cool
     async def go():
-        fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0; fs._lm_call_one = slow
+        async def cool(step=5.0):
+            return 0.0
+        fs._mac_cool = cool; fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0; fs._lm_call_one = slow
         a = asyncio.create_task(fs._lm_call('local/ossy', [], 10)); await asyncio.sleep(0.01)
         b = asyncio.create_task(fs._lm_call('local/ossy', [], 10)); await asyncio.sleep(0.01)
         assert fs.lm_stop(time.time()) == 1
@@ -73,7 +75,7 @@ def test_stop_ends_what_is_writing_and_what_is_queued_and_a_later_ask_still_runs
     try:
         asyncio.run(go())
     finally:
-        fs._lm_call_one = real; fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0
+        fs._lm_call_one = real; fs._mac_cool = real_cool; fs._LM_GATE.clear(); fs._LM_STOP['at'] = 0.0
 
 
 def test_a_page_never_goes_to_a_local_model():

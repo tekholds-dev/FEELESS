@@ -42,3 +42,14 @@ test('the widgets show only real numbers and open their folder', async () => {
   await act(async () => { q('dwg-money').click(); }); expect(open).toHaveBeenCalledWith('boost');
   await act(async () => root.unmount());
 });
+
+test('the Watch guide plays official channels and only opens free services in its browser', async () => {
+  const { WatchRoom, channelLive, channelLatest } = require('./ProofRooms');
+  expect(channelLive('UCabc')).toContain('youtube-nocookie.com/embed/live_stream?channel=UCabc'); expect(channelLatest('UCabc')).toContain('list=UUabc');
+  const onBrowse = jest.fn(); const { q } = await mount(<WatchRoom onBrowse={onBrowse} />);
+  await act(async () => { q('prm-ch-UCWJ2lWNubArHWmf3FIHbfcQ').click(); });
+  const frame = document.querySelector('.prm-screen iframe'); expect(frame.getAttribute('src')).toContain('UCWJ2lWNubArHWmf3FIHbfcQ');
+  await act(async () => { q('prm-mode-latest').click(); }); await act(async () => { q('prm-ch-UCWJ2lWNubArHWmf3FIHbfcQ').click(); });
+  expect(document.querySelector('.prm-screen iframe').getAttribute('src')).toContain('list=UUWJ2lWNubArHWmf3FIHbfcQ');
+  await act(async () => { q('prm-site-Tubi').click(); }); expect(onBrowse).toHaveBeenCalledWith('tubitv.com');
+});

@@ -194,6 +194,7 @@ export default function FeeCatsPlatform() {
   const { wallet } = useWallet() || {};
   useEffect(() => { loadCats(); }, [loadCats, wallet?.address]);   // 🔒 sign in / out / switch wallet ⇒ the list follows the signed wallet
   const openCat = cat => { setSelected(cat); setView('cat'); };
+  useEffect(() => { const go = e => { const c = cats.find(x => x.id === e.detail?.id); if (c) openCat(c); }; window.addEventListener('feeless:open-agent', go); return () => window.removeEventListener('feeless:open-agent', go); }, [cats]);   // eslint-disable-line react-hooks/exhaustive-deps
   const openById = async r => { try { const x = await api(`/api/cats/${r.id}`); if (x.cat) openCat(x.cat); } catch (e) { setError(e.message); } };   // a board row / activity card → that agent's full desk
   const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
   // 🗑 delete from the list (owner 2026-10-30: "I can't delete the test cat"): its name typed → retire (if still live) → delete; the server refuses while its wallet holds money

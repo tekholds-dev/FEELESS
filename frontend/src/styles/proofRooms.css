@@ -12,3 +12,7 @@
 body.fx-lite .prm-out li { animation: none; } @media (prefers-reduced-motion: reduce) { .prm-out li { animation: none; } .prm-services button { transition: none; } }
 body.theme-day .prm-card { border-color: #0000001a; background: #ffffffc4; } body.theme-day :is(.prm-out li, .prm-services button) { background: #0000000a; }
 .prm-wall { display: grid; gap: 8px; } .prm-wall-grid { display: grid; gap: 8px; } .prm-wall-grid.is-2, .prm-wall-grid.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } @media (max-width: 760px) { .prm-wall-grid.is-2, .prm-wall-grid.is-4 { grid-template-columns: minmax(0, 1fr); } }
+/* 📺 The free guide: official channels and free services */
+.prm-guide { display: grid; gap: 7px; } .prm-chs { display: flex; flex-wrap: wrap; gap: 6px; } .prm-ch { min-height: 32px; cursor: pointer; transition: transform .15s ease-out, border-color .15s ease-out; } .prm-ch:hover { transform: translateY(-1px); border-color: var(--m-accent, #15d16a); } .prm-ch:active { transform: translateY(0); } .prm-ch:focus-visible { outline: 2px solid var(--m-accent, #15d16a); } .prm-guide .m-seg { justify-self: start; }
+@media (prefers-reduced-motion: reduce) { .prm-ch { transition: none; } }
+

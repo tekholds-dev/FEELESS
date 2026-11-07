@@ -56,6 +56,19 @@ export function playerFor(link, parent = 'localhost') {
   return null;
 }
 const WATCH_KEY = 'feeless:watch';
+// 📺 Free and legal: official channels' own players, and free services that open in its browser. Every channel id was read from YouTube itself on 2026-11-07. Nothing unlicensed is ever listed or fetched.
+const FREE_SPORTS = [['NBA', 'UCWJ2lWNubArHWmf3FIHbfcQ'], ['NFL', 'UCDVYQ4Zhbm3S2dlz7P1GBDg'], ['MLB', 'UCoLrcjPV5PbUrUyXq5mjc_A'], ['NHL', 'UCRsrhXtzXmzYX_fiyNHHxbw'], ['WNBA', 'UCO9a_ryN_l7DIDS-VIt-zmw'], ['UFC', 'UCPQDDlGe7lbgmEJ0ge7a_JA'], ['ESPN', 'UCiio0ydw439X13KyZgMIcHw'], ['WWE', 'UCNSnSemXKDc9UEZ7m31wY9Q'], ['FIFA', 'UCpcTrCXblq78GZrTUTLWeBw'], ['Premier League', 'UCpryVRk_VDudG8SHXgWcG0w'], ['LaLiga', 'UCTv-XvfzLX3i4IGWAm4sbmA'], ['Olympics', 'UC_kdjhHnkUbSImMrezjRyDQ'], ['DAZN Boxing', 'UCQpbsCYqUl-KfJL_X_TDrHg'], ['Tennis Channel', 'UCVCymDWUpiGZm0yiY-ovNEg'], ['Red Bull', 'UC8VddvuHJzIj__Ud0rY2_ww']];
+const FREE_MORE = [['NASA', 'UC9SM7V7J1pAhPabOUST01fw'], ['Bloomberg', 'UCyxnPZfofoutjmyvaV0GGeQ'], ['ABC News', 'UCBi2mrWuNuyYy4gbM6fU18Q'], ['Tubi', 'UCNDsk0uhSlG1-br1Ex2Rgfg']];
+const FREE_SITES = [['Tubi', 'tubitv.com', 'Free movies and shows'], ['Pluto TV', 'pluto.tv/live-tv', 'Free live TV channels'], ['The Roku Channel', 'therokuchannel.roku.com', 'Free movies and live TV'], ['Plex', 'watch.plex.tv/live-tv', 'Free live TV']];
+export const channelLive = id => `https://www.youtube-nocookie.com/embed/live_stream?channel=${id}`;
+export const channelLatest = id => `https://www.youtube-nocookie.com/embed/videoseries?list=UU${id.slice(2)}`;
+function WatchGuide({ onPlay, onBrowse }) {
+  const [mode, setMode] = useState('live'); const src = id => (mode === 'live' ? channelLive(id) : channelLatest(id));
+  const row = rows => rows.map(([n, id]) => <button key={n} type="button" className="m-chip prm-ch" onClick={() => onPlay(src(id))} data-tip={`${n}'s official ${mode === 'live' ? 'live stream, when it has one on' : 'newest videos'}`} data-testid={`prm-ch-${id}`}>{n}</button>);
+  return <div className="prm-guide" data-testid="prm-guide"><span className="m-seg" role="radiogroup" aria-label="What to play">{[['live', 'Live now'], ['latest', 'Latest']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-tip={k === 'live' ? 'Their live stream. Says so if nothing is on' : 'Their newest videos'} data-testid={`prm-mode-${k}`}>{l}</button>)}</span>
+    <small className="m-label">SPORTS, OFFICIAL AND FREE</small><div className="prm-chs">{row(FREE_SPORTS)}</div><small className="m-label">NEWS AND SPACE</small><div className="prm-chs">{row(FREE_MORE)}</div>
+    {onBrowse ? <><small className="m-label">FREE MOVIES AND TV</small><div className="prm-chs">{FREE_SITES.map(([n, h, what]) => <button key={n} type="button" className="m-chip prm-ch" onClick={() => onBrowse(h)} data-tip={`${what}. Opens in its browser`} data-testid={`prm-site-${n.split(' ')[0]}`}>{n}</button>)}</div></> : null}</div>;
+}
 // 📺 The Watch folder: a wall of up to 4 official players, each its own game or stream, with the sound where you want it.
 export function WatchWall({ onBrowse }) {
   const [n, setN] = useState(() => { try { return Math.min(4, Math.max(1, +localStorage.getItem('feeless.watch.n') || 1)); } catch { return 1; } });
@@ -67,6 +80,7 @@ export function WatchRoom({ onBrowse }) {
   const play = l => { const src = playerFor(l, parent); if (!src) { setErr('Paste a YouTube or Twitch link. Other services open below, where you sign in.'); return; } setErr(''); setOn(src); const next = [l, ...saved.filter(x => x !== l)].slice(0, 8); setSaved(next); try { localStorage.setItem(WATCH_KEY, JSON.stringify(next)); } catch { /* private window */ } setLink(''); };
   return <section className="prm-card prm-watch" data-testid="prm-watch"><h5>WATCH ROOM<small>Official players and your own subscriptions</small></h5>
     {on ? <div className="prm-screen"><iframe title="Official player" src={on} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" referrerPolicy="strict-origin-when-cross-origin" data-testid="prm-player" /><button type="button" className="m-btn" onClick={() => setOn(null)} aria-label="Close the player" data-tip="Close the player">✕</button></div> : null}
+    <WatchGuide onPlay={src => { setErr(''); setOn(src); }} onBrowse={onBrowse} />
     <form className="prm-link" onSubmit={e => { e.preventDefault(); play(link); }}><input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="Paste a YouTube or Twitch link" aria-label="Video link" data-testid="prm-link" /><button type="submit" className="m-btn m-go" disabled={!link.trim()} data-testid="prm-play">Play</button></form>{err ? <small className="kd-err" role="alert">{err}</small> : null}
     {saved.length ? <div className="prm-saved">{saved.map(l => <button key={l} type="button" className="m-chip" onClick={() => play(l)} data-tip={l}>{l.replace(/^https?:\/\/(www\.)?/, '').slice(0, 28)}</button>)}</div> : null}
     <ul className="prm-services">{SERVICES.map(([h, n, w]) => <li key={h}><button type="button" onClick={() => onBrowse?.(h)} disabled={!onBrowse} data-tip="Opens in its browser here. You sign in yourself, and FEELESS never sees the password" data-testid={`prm-svc-${n}`}><b>{n}</b><small>{w}</small></button></li>)}</ul></section>;

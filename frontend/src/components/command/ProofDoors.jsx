@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { KitPick } from './KitPick';
 import { ProofCard } from './ProofGallery';
+import { ContentCut, FundingSea, ScoreBoard, TradeFlight } from './ProofVisuals';
 
 // 🧰 Proofs (owner 2026-11-07: "show our new and amazing tools per each proof in the demo"). One door per proof, its real tools, what is moving in them right now, its own best proof. Nothing here is a mock-up: every number comes from the server.
 const PROOFS = {
@@ -26,22 +27,18 @@ function WorldDemo({ cat, work, counts }) {
     <div className="ptl-picks"><span className="m-seg" role="group" aria-label="World">{WORLDS.map(w => <button key={w} type="button" className={world === w ? 'active' : ''} aria-pressed={world === w} onClick={() => setWorld(w)} data-tip={`Runs the real ${w} world`} data-testid={`ptl-w-${w}`}>{w}</button>)}</span><span className="m-seg" role="group" aria-label="Centerpiece">{HEROES.map(h => <button key={h} type="button" className={hero === h ? 'active' : ''} aria-pressed={hero === h} onClick={() => setHero(h)} data-tip={`Runs the real ${h}`} data-testid={`ptl-h-${h}`}>{h}</button>)}</span></div>
     <div className="ptl-nums">{[['MODELS', counts?.models], ['HDRI LIGHTS', counts?.hdris], ['TEXTURES', counts?.textures]].map(([l, n]) => <span key={l} data-tip="Free to use, counted live from the library"><b className="m-num" data-testid={`ptl-n-${l.split(' ')[0]}`}>{K(n)}</b><small>{l}</small></span>)}</div></div>;
 }
-function LiveDemo({ kits }) {
-  const lines = kits.flatMap(k => (k.fresh || []).map(x => [k.name, x, k.source])).slice(0, 8);
-  return <div className="ptl-demo" data-testid="ptl-live">{lines.length ? <><small className="m-label">MOVING RIGHT NOW · {[...new Set(lines.map(l => l[2]).filter(Boolean))].join(', ')}</small><ul className="ptl-live">{lines.map(([n, x], i) => <li key={x} style={{ '--i': i }}><em>{n}</em><b className="m-num">{x}</b></li>)}</ul></> : <p className="dbt-none">These kits read their numbers when a proof runs.</p>}</div>;
-}
 export function ProofDoors({ cat, d, work, onCommand, onMake, kindFirst = 'pos' }) {
-  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [gallery, setGallery] = useState([]); const p = PROOFS[k];
-  useEffect(() => { let on = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_gallery' }).catch(() => null)])).then(([a, b, c]) => { if (!on) return; setCounts(a); setKits(b?.kits || []); setGallery(c?.kinds || []); }); return () => { on = false; }; }, [cat.id, work]);
-  const mine = useMemo(() => kits.filter(x => x.by === 'FEELESS' && (x.kinds || []).includes(k)), [kits, k]); const best = (gallery.find(g => g.kind === p.gallery)?.cards || [])[0];
+  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [gallery, setGallery] = useState([]); const [trade, setTrade] = useState(null); const p = PROOFS[k];
+  useEffect(() => { let on = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_gallery' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null)])).then(([a, b, c, t]) => { if (!on) return; setCounts(a); setKits(b?.kits || []); setGallery(c?.kinds || []); setTrade(t?.trade || null); }); return () => { on = false; }; }, [cat.id, work]);
+  const mine = useMemo(() => kits.filter(x => x.by === 'FEELESS' && x.id !== 'feeless' && (x.kinds || []).includes(k)), [kits, k]); const liveOf = ids => kits.filter(x => ids.includes(x.id)); const best = (gallery.find(g => g.kind === p.gallery)?.cards || [])[0];
   return <div className={`ptl is-${k}`} data-testid="ptl">
     <nav className="ptl-doors" role="tablist" aria-label="Proof types">{Object.entries(PROOFS).map(([x, v]) => <button key={x} type="button" role="tab" aria-selected={k === x} className={k === x ? 'is-on' : ''} onClick={() => setK(x)} data-tip={v.full} data-testid={`ptl-${x}`}><Ic3 e={v.ic} size="26px" /><b>{v.t}</b><small className="m-num">{(d?.[v.folders] || []).length} filed</small></button>)}</nav>
     <section className="ptl-main" key={k}>
-      <div className="ptl-left">{k === 'pos' ? <WorldDemo cat={cat} work={work} counts={counts} /> : <LiveDemo kits={mine} />}
+      <div className="ptl-left">{k === 'pos' ? <WorldDemo cat={cat} work={work} counts={counts} /> : k === 'pow' ? <TradeFlight t={trade} catId={trade?.cat} /> : k === 'pop' ? <FundingSea kits={liveOf(['fl-funding', 'fl-liq'])} /> : k === 'pob' ? <ScoreBoard kits={liveOf(['fl-source-check', 'fl-value'])} /> : <ContentCut kits={liveOf(['fl-trend'])} />}
         {best ? <ProofCard c={best} i={0} work={work} cat={cat} /> : <p className="dbt-none ptl-none" data-testid="ptl-no-proof">Your agents have not filed a {p.t} yet. Your best one lands here.</p>}</div>
       <div className="ptl-right"><header><span><small className="m-label">{p.full.toUpperCase()}</small><h3>{p.t}</h3><p>{p.line}</p></span><button type="button" className="m-btn m-go ptl-go" onClick={() => (p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.make ? 'Makes its folder' : `Tells it: ${p.cmd}`} data-testid="ptl-go">{p.go}</button></header>
         <ul className="ptl-tools">{p.tools.map(([ic, t, say], i) => <li key={t} style={{ '--i': i }} data-tip={say}><Ic3 e={ic} size="26px" /><span><b>{t}</b><small>{say}</small></span></li>)}</ul>
-        {mine.length ? <div className="ptl-kits"><small className="m-label">{p.t} KITS</small><ul>{mine.map(x => <li key={x.id} data-tip={x.what}><b>{x.name}</b><small>{(x.skills || []).slice(0, 3).join(' · ')}</small><em className={`is-${x.quality}`}>{x.quality}</em></li>)}</ul></div> : null}
+        {mine.length ? <div className="ptl-kits"><small className="m-label">{p.t} KITS</small><ul>{mine.map(x => <li key={x.id} data-tip={x.what}><b>{x.name}</b><small>{(x.skills || []).slice(0, 3).join(' · ')}</small></li>)}</ul></div> : null}
         <KitPick cat={cat} work={work} kind={k} /></div>
     </section></div>;
 }

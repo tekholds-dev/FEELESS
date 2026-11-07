@@ -372,7 +372,25 @@ test('Proofs: a door per proof, its real tools, real numbers and a start that wo
   await act(async () => { q('ptl-w-aurora').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_demo', tools: { world: 'aurora', hero: 'star' } });
   await act(async () => { q('ptl-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
   await act(async () => { q('ptl-pop').click(); });
-  expect(q('ptl-live').textContent).toContain('BTC funding 0.01%'); expect(q('ptl-no-proof').textContent).toContain('PoP'); expect(el.textContent).not.toContain('Research');
+  expect(q('pvz-empty')).toBeTruthy(); expect(q('ptl-no-proof').textContent).toContain('PoP'); expect(el.textContent).not.toContain('Research');
   await act(async () => { q('ptl-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
   el.remove();
+});
+
+
+test('each proof has its own demo, drawn from its own real data', async () => {
+  const { ContentCut, FundingSea, ProofSeal, ScoreBoard, TradeFlight } = require('./ProofVisuals');
+  const paint = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
+  const sea = await paint(<FundingSea kits={[{ fresh: ['PUMP funding -0.0079%/h (-69%/yr pace), open interest $69.9M', 'BTC mark $75,713: 3x long $51,422 / short $100,004, 10x long $69,088 / short $82,338'] }]} />);
+  expect(sea.querySelector('.pvz-bubbles .is-short b').textContent).toBe('PUMP'); expect(sea.querySelector('.pvz-ladder .is-mark').textContent).toContain('BTC');
+  const board = await paint(<ScoreBoard kits={[{ fresh: ['NFL JAX 33 at BAL 10, Final', 'NBA DEN 0 at IND 0, 11/7 - 5:00 PM EST', 'not a game'] }]} />);
+  expect(board.querySelectorAll('article').length).toBe(2); expect(board.querySelector('.is-final').textContent).toContain('33'); expect(board.textContent).toContain('5:00 PM');
+  const cut = await paint(<ContentCut kits={[{ id: 'fl-trend', fresh: ['Hacker News: A new story', 'Wikipedia: Another'] }, { id: 'x', fresh: ['NBA DEN 0 at IND 0, 11/7'] }]} />);
+  expect(cut.textContent).toContain('A new story'); expect(cut.textContent).not.toContain('NBA');
+  await act(async () => { cut.querySelector('[data-testid=pvz-shot-1]').click(); }); expect(cut.querySelector('.pvz-reel b').textContent).toBe('Another');
+  const fly = await paint(<TradeFlight catId="c" t={{ id: 'p', sym: 'WIF', pnl: 12, entry: 1, tp: 20, sl: 6, line: [1, 1.1, 1.12], files: [{ file: 'a.jpg', site: 'x.com' }] }} />);
+  expect(fly.textContent).toContain('$WIF'); expect(fly.querySelector('.pvz-flight.is-won')).toBeTruthy(); expect(fly.querySelector('.pvz-film img').alt).toBe('x.com');
+  expect((await paint(<TradeFlight t={null} />)).querySelector('[data-testid=pvz-empty]')).toBeTruthy();
+  const seal = await paint(<ProofSeal rank="B" score={200} tone="good" parts={[{ label: 'Result', value: 1 }, { label: 'Depth', value: 0.5 }, { label: 'Earned', value: null }]} />);
+  expect(seal.querySelector('svg').getAttribute('aria-label')).toContain('Earned not known'); expect(seal.querySelectorAll('.pvz-dot').length).toBe(2);
 });

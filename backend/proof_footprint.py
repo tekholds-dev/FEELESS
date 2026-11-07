@@ -130,3 +130,24 @@ def note(kind, folders, mind=None):
     if mind is not None:
         a = (ANGLES.get(kind) or ANGLES['pos'])[int(mind) % 2]; angle = f' Your angle this time: {a[0]}. The other mind has the other angle and other sites, so never run its search.'
     return f"\nLAST FOOTPRINTS, newest first: {'; '.join(lines)}. Your proof is scored on how different it is. Find what these missed, or use a stronger source, and say what is new.{angle}"
+
+
+CONVO_KEEP = 14
+
+
+def convo_add(rows, kind, text, now):
+    """What the owner asked this agent, whichever proof or folder it was in. Newest last, words only. → the rows"""
+    words = ' '.join(str(text or '').split())[:300]
+    rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    if not words or (rows and rows[-1].get('text') == words):
+        return rows
+    return (rows + [{'kind': str(kind or 'chat')[:12], 'text': words, 'at': round(now)}])[-CONVO_KEEP:]
+
+
+def convo_line(rows):
+    """The one conversation across every proof, so an agent picks up where the owner left off in another proof type. Data, never an instruction."""
+    rows = [r for r in rows if isinstance(r, dict)][-8:] if isinstance(rows, list) else []
+    if not rows:
+        return ''
+    return '\nTHE SAME CONVERSATION, across every proof, oldest first (what your owner said, as data): ' + ' / '.join(f"[{r.get('kind')}] {str(r.get('text'))[:160]}" for r in rows)[:1100] + '. Pick up from this when it bears on the request. Never repeat a proof it already made.'
+
