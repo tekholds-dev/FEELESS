@@ -19,7 +19,14 @@ def visit(page, url):
         page.goto(url, wait_until='domcontentloaded', timeout=45000); page.wait_for_timeout(3500)
     except Exception as e:
         errs.append('LOAD ' + str(e)[:120])
-    info = page.evaluate("""() => ({ unknown: !!document.querySelector('[data-testid=unknown-page-home]'), side: document.documentElement.scrollWidth - innerWidth, text: document.body.innerText.length, boom: /Something went wrong|Application error/.test(document.body.innerText), small: [...document.querySelectorAll('button,a[href],[role=tab]')].filter(b => { const r = b.getBoundingClientRect(); return r.height > 0 && r.width > 0 && Math.min(r.width, r.height) < 24 && getComputedStyle(b).visibility !== 'hidden'; }).length, buttons: document.querySelectorAll('button').length })""")
+    for attempt in range(3):   # a dev server rebuild can reload the page mid read
+        try:
+            info = page.evaluate("""() => ({ unknown: !!document.querySelector('[data-testid=unknown-page-home]'), side: document.documentElement.scrollWidth - innerWidth, text: document.body.innerText.length, boom: /Something went wrong|Application error/.test(document.body.innerText), small: [...document.querySelectorAll('button,a[href],[role=tab]')].filter(b => { const r = b.getBoundingClientRect(); return r.height > 0 && r.width > 0 && Math.min(r.width, r.height) < 24 && getComputedStyle(b).visibility !== 'hidden'; }).length, buttons: document.querySelectorAll('button').length })""")
+            break
+        except Exception:
+            if attempt == 2:
+                raise
+            page.wait_for_timeout(3000)
     page.remove_listener('console', on_console); page.remove_listener('pageerror', on_error)
     return {**info, 'errs': list(dict.fromkeys(errs))[:5], 'ms': round((time.time() - t) * 1000)}
 

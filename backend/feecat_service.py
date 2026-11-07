@@ -6305,7 +6305,8 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if _play.wants_code(prompt) and print_:   # a design no library holds is what the code-built worlds are for
         print_.update(hero='star', world='stars' if print_['world'] not in ('stars', 'nebula', 'void') else print_['world'])
     mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = _kits.auto_picks(KITS_DIR, 'pos', prompt, record=_kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = _kits.stash_line(KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
-    kit_read_ = _kits.line(KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _convo(cat) + ('\n' + _play.print_line(print_) if print_ else '')
+    was_ = doc.get(slot) if wrong_ else None
+    kit_read_ = _play.rejected_line(was_) + _kits.line(KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _convo(cat) + ('\n' + _play.print_line(print_) if print_ else '')
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
@@ -6333,7 +6334,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
             m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
     except Exception as e:   # noqa: BLE001 — the build still stands without its check
         checked = f'The check did not finish: {str(e)[:60]}'
-    scene = _play.ensure_asks(scene, text, doc.get('name'))
+    scene = _play.ensure_asks(_play.drop_rejected(scene, was_), text, doc.get('name'))
     if print_:
         scene = _play.apply_print(scene, print_); _play_save(cat_id, 'prints', ([*(_play_load(cat_id, 'prints') or []), print_])[-40:])
     _play_save(cat_id, 'usedAssets', list(dict.fromkeys([*(_play_load(cat_id, 'usedAssets') or []), *[(o.get('asset') or {}).get('id') for o in scene.get('objects') or [] if o.get('asset')]]))[-400:])

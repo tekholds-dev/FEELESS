@@ -83,6 +83,13 @@ def test_every_request_gets_a_print_it_did_not_just_use():
         pr = ps.creative_print(f'r{i}', used); assert pr not in used; used.append(pr)
     assert all(a['world'] != b['world'] for a, b in zip(used, used[1:]))
     sc = ps.apply_print({'objects': [{'name': 'Floor', 'shape': 'box'}, {'name': 'Back wall', 'shape': 'box'}, {'name': 'Cannon', 'shape': 'box'}], 'world': 'grid'}, {'world': 'stars', 'hero': 'star', 'layout': 'right', 'tint': '#ff8a3d'})
-    assert sc['world'] == 'grid' and sc['hero'] == 'star' and sc['layout'] == 'right' and not sc['ground'] and [o['name'] for o in sc['objects']] == ['Cannon']
+    assert 'code' not in sc and sc['world'] == 'grid' and sc['hero'] == 'star' and sc['layout'] == 'right' and not sc['ground'] and [o['name'] for o in sc['objects']] == ['Cannon']
     assert 'makeWorld(S, here)' in ps.to_html(sc, 'N', None) and 'at-right' in ps.to_html(sc, 'N', None)
     assert ps.WRONG_BUILD.search("USE DIFFERENT 3D ARTIFACTS AND CREATE A NEW 3D PLAYGROUND FOR THE BACKGROUND, DONT DO THE SAME THING")
+
+
+def test_what_was_turned_down_cannot_come_back():
+    was = {'objects': [{'name': 'vintage camera', 'find': 'vintage camera', 'asset': {'id': 'Camera_01'}}, {'name': 'Stage', 'shape': 'box'}]}
+    assert 'vintage camera' in ps.rejected_line(was) and ps.rejected_line(None) == ''
+    got = ps.drop_rejected({'objects': [{'name': 'cam', 'find': 'vintage camera', 'asset': {'id': 'Camera_01'}}, {'name': 'other', 'asset': {'id': 'Camera_01'}}, {'name': 'x', 'find': 'star map', 'asset': {'id': 'ox-1'}}]}, was)
+    assert [o['name'] for o in got['objects']] == ['x'] and ps.drop_rejected({'objects': [{'name': 'y'}]}, None)['objects'] == [{'name': 'y'}]
