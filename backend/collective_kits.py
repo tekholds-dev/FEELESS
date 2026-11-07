@@ -206,7 +206,7 @@ def vitals(text):
 
 
 def view(k):
-    return {x: k.get(x) for x in ('id', 'name', 'what', 'site', 'license', 'kinds', 'at', 'edited', 'approved', 'weekly')} | {'bytes': len(k.get('text') or ''), 'vitals': vitals(k.get('text'))}
+    return {x: k.get(x) for x in ('id', 'name', 'what', 'site', 'license', 'kinds', 'at', 'edited', 'approved', 'weekly', 'pickOnly')} | {'bytes': len(k.get('text') or ''), 'vitals': vitals(k.get('text'))}
 
 
 def tree(root):
@@ -452,7 +452,7 @@ async def approve(http, root, kid, now=None):
     r = await http.get(row['url'], timeout=20, follow_redirects=True, headers={'User-Agent': 'FEELESS'})
     if r.status_code != 200 or 'html' in r.headers.get('content-type', ''):
         raise ValueError(f"{row['name']} did not send its guide ({r.status_code}).")
-    kit = save(root, {'id': kid, **{k: row[k] for k in ('name', 'what', 'site', 'license', 'kinds', 'weekly')}, 'approved': True, 'text': clean(r.text), 'at': round(now or time.time())})
+    kit = save(root, {'id': kid, **{k: row[k] for k in ('name', 'what', 'site', 'license', 'kinds', 'weekly')}, 'approved': True, **({'pickOnly': True} if 'pow' in row['kinds'] else {}), 'text': clean(r.text), 'at': round(now or time.time())})
     row['status'] = 'approved'; _save_proposed(root, rows_)
     return kit
 

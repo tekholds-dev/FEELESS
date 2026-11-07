@@ -230,7 +230,8 @@ def test_a_proposal_must_fit_and_reaches_nothing_until_approved(tmp_path):
     assert [r['name'] for r in rows_] == ['good-ta'] and rows_[0]['checked']['guide'] and not rows_[0]['checked']['secret']
     assert 'good-ta' not in ck.line(tmp_path, 'pow', ['new-good-ta']) and 'new-good-ta' not in ck.auto_picks(tmp_path, 'pow', 'indicators')
     asyncio.run(ck.approve(_Scout([]), tmp_path, 'new-good-ta'))
-    assert 'good-ta' in ck.line(tmp_path, 'pow', []) and next(r for r in ck.catalog_view(tmp_path) if r['id'] == 'new-good-ta')['added']
+    assert 'good-ta' not in ck.line(tmp_path, 'pow', []) and 'new-good-ta' not in ck.auto_picks(tmp_path, 'pow', 'indicators')   # approved, and still a PoW only reads it when its owner picks it
+    assert 'good-ta' in ck.line(tmp_path, 'pow', ['new-good-ta']) and next(r for r in ck.catalog_view(tmp_path) if r['id'] == 'new-good-ta')['added']
     assert 'new-good-ta' not in ck.KIT_USE   # a guide to read: a page may never load its files
 
 
@@ -278,3 +279,10 @@ def test_only_the_owner_can_approve_or_search(monkeypatch, tmp_path):
     _fs, c, _s = _server(monkeypatch, tmp_path, cat)
     for op in ('kit_scout', 'kit_approve', 'kit_reject', 'kit_ask'):
         assert c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': op, 'text': 'new-x'}).status_code == 403, op
+
+
+def test_an_approved_kit_for_any_other_proof_reaches_it_without_a_pick(tmp_path):
+    import asyncio
+    (tmp_path / ck.PROPOSED_FILE).write_text(ck.json.dumps([{'id': 'new-odds', 'name': 'OddsKit', 'what': 'x', 'site': 'https://www.npmjs.com/package/odds', 'license': 'MIT', 'weekly': 900, 'kinds': ['pob'], 'url': 'https://unpkg.com/odds/README.md', 'status': 'new'}]))
+    asyncio.run(ck.approve(_Scout([]), tmp_path, 'new-odds'))
+    assert 'OddsKit' in ck.line(tmp_path, 'pob', []) and not ck.load(tmp_path, 'new-odds').get('pickOnly')
