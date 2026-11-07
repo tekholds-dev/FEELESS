@@ -670,3 +670,18 @@ CLAUDE's former CURRENT TASKS is preserved below for exact wording and the detai
 
 **Lawyer first:** a perps partner API, on-chain cat or pot programs, do-anything agents, real volume (`docs/COUNSEL_BRIEF.md`).
 
+
+### 🔴 OWNER 2026-11-07 — FULL DESKTOP AUDIT (next session's ONLY task, in this order; build, test, push, then show him)
+Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fix what doesn't make sense, then show what does.
+1. Features › Start something: the start tiles (3D landing, 3D room, Launch, Arcade, Live desk, Calculator, Quiz, Link page, Playground, Countdown) don't work. Make each build something different and real. Add a clean white page with night/day and real animated charts. Stop the same game and the same 3D landing page coming back.
+2. Showcase › PoStatic previews: show a mix (dashboards, charts, tools, sites), not just games and repeated landing pages.
+3. Builds: clicking to another page really navigates. The Code tab shows each page or the code tree, and that tree can be saved.
+4. RPC from the cabinet (key drawer) usable by any proof (PoStatic, PoC), not just PoW, so builds show real live data.
+5. A real 3D playground (like GPT's), not just artifacts. Only ONE mind seems to work in builds: find out why. Redundant code.
+6. PoC answers are fun to read and fit the idea, plus a "Send to" button (PoStatic and others) so the answer is ready to build.
+7. Model discovery glitches while scrolling.
+8. The Collective: 5 tabs, 2 nearly the same with the same diagrams. Merge them.
+9. PoEco is useless. Rebuild it as a white dashboard with day/night and real charts that can add a card to order, pay bills, and more.
+10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.
+11. Earlier, still open: any folder opens PoB, can't delete proofs in some folders, PoC Live desk layout.
+Done 2026-11-07: Git › Sites & kits per proof (proof_book.py), the Git keep guide, no coin sites on PoB, NBA odds by team name. OSSY = qwen3.5-9b and G4 = qwen3.5-4b stay; they beat Gemma 4 12B on a decoy fact test (15, 14, 10 of 15). Gemma 4 12B MLX (9.8 GB) is still on the MacBook; the owner may delete it.
