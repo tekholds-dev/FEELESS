@@ -261,3 +261,25 @@ test('🧰 each proof keeps its own 3 kits: the door picks which proof, and a pi
   await act(async () => { root.unmount(); }); el.remove();
 });
 
+
+test('⚔ Collective Debate: a proof goes on the table, its grades show, contents stay locked until a trade, and the switch is off by default', async () => {
+  const { DebateFolder } = require('./DebateFolder');
+  const take = { by: 'Bo', verdict: 'weak', grade: 40, why: 'Only one source', better: 'Read two sites', me: false };
+  const theirs = { id: 'r2', by: 'Bo', kind: 'pob', title: 'Their pick', facts: '', mine: false, traded: false, excerpt: null, settled: null, seats: 3, takes: [] };
+  const mineRow = { id: 'r1', by: 'Me', kind: 'pob', title: 'NBA night', facts: '', mine: true, traded: false, excerpt: '{"x":1}', settled: { grade: 40 }, seats: 3, takes: [take] };
+  let v = { rows: [theirs], offers: [], board: [{ name: 'Bo', points: 6, takes: 1, me: false }], seat: { today: 0, perDay: 5 }, open: 1, settled: 0, allowed: false, canGrade: true };
+  const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'debate_put') v = { ...v, rows: [mineRow, theirs], settled: 1 }; if (b.op === 'debate_allow') v = { ...v, allowed: b.on }; return v; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<DebateFolder cat={{ id: 'c' }} d={{ pobFolders: [{ id: 'f1', status: 'closed', topic: 'NBA night' }, { id: 'f2', status: 'open', topic: 'Not filed' }] }} work={fake} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('dbt-allow').checked).toBe(false); expect(q('dbt-pick').textContent).toContain('NBA night'); expect(q('dbt-pick').textContent).not.toContain('Not filed');
+  await act(async () => { const s = q('dbt-pick'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'f1'); s.dispatchEvent(new Event('change', { bubbles: true })); });
+  await act(async () => { q('dbt-put').click(); await new Promise(r => setTimeout(r, 0)); });
+  expect(calls.at(-1)).toMatchObject({ op: 'debate_put', job: 'pob', text: 'f1' }); expect(q('dbt-final-r1').textContent).toBe('40');
+  await act(async () => { q('dbt-open-r1').click(); }); expect(q('dbt-row-r1').textContent).toContain('Read two sites');
+  await act(async () => { q('dbt-open-r2').click(); }); expect(q('dbt-locked-r2')).not.toBeNull(); expect(q('dbt-give-r2').textContent).toContain('NBA night');
+  await act(async () => { q('dbt-allow').click(); }); expect(calls.at(-1)).toMatchObject({ op: 'debate_allow', on: true });
+  expect(q('dbt-board').textContent).toContain('Bo');
+  await act(async () => { root.unmount(); }); el.remove();
+});

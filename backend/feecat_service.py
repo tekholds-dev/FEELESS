@@ -75,6 +75,7 @@ import proof_validators as _val
 import collective_stake as _stake
 import proof_weights as _weights
 import proof_kits as _proof_kits
+import collective_debate as _debate
 import proof_footprint as _foot
 import collective_stash as _stash
 import collective_kits as _kits
@@ -1793,6 +1794,8 @@ async def _sort_loop():
 
 async def _git_pass(store, now):
     """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
+    if now - _DEBATE_AT[0] > 300:
+        _DEBATE_AT[0] = now; asyncio.create_task(_debate_pass(store))
     if now - _KITS_LIVE_AT[0] > 900:   # 🧰 the kits' fresh numbers, from fixed public addresses
         _KITS_LIVE_AT[0] = now
         try:
@@ -3640,6 +3643,40 @@ def _kit_record(store=None):
     return out
 
 
+_DEBATE_AT = [0.0]
+_DEBATE_BUSY = [False]
+
+
+async def _debate_pass(store):
+    """⚔ Each agent whose owner allows it grades its next proof on the table, on its own AI, a few a day, and moves on until none are left. A bad reply is not saved and costs that proof nothing."""
+    if _DEBATE_BUSY[0]:
+        return 0
+    _DEBATE_BUSY[0] = True; done = 0
+    try:
+        for cat in list((store.get('cats') or {}).values()):
+            cfg = cat.get('brainsCfg') or {}; model = (cfg.get('brains') or [None])[0]
+            if not cfg.get('debateOn') or not model or cat.get('revoked'):
+                continue
+            st = _debate.load(DATA_DIR); kinds = [k for k, key in _PROOF_KEYS.items() if cat.get(key)]; row = _debate.next_for(st, cat['id'], kinds)
+            if not row or _debate.used_today(st, cat['id']) >= _debate.PER_DAY:
+                continue
+            try:
+                raw, _usd, _own = await _ws_ask(cat, model, _debate.SYSTEM, _debate.ask_text(row), 400)
+            except Exception as e:   # noqa: BLE001 — one agent's failure never stops the floor
+                print(f'[debate] {str(e)[:100]}')
+                continue
+            got = _debate.parse_take(raw)
+            if got:
+                st = _debate.load(DATA_DIR)   # read again: the model call gave others time to write
+                try:
+                    _debate.take(st, row['id'], cat['id'], cat.get('name'), got); _debate.save(DATA_DIR, st); done += 1
+                except ValueError:
+                    pass
+    finally:
+        _DEBATE_BUSY[0] = False
+    return done
+
+
 async def _kit_minds_pass():
     """🧠 OSSY and G4 ask for better tools in their own words, the search runs on those words, and each says what it would really use. Free. Nothing they say reaches a proof: the owner approves. → what they said"""
     said = []
@@ -3668,7 +3705,7 @@ def _proof_brain(cat, kind):
     if not kind or kind == 'pow':
         return ''
     rows = [f for f in cat.get(_PROOF_KEYS.get(kind)) or [] if isinstance(f, dict)]
-    return _know.score_line(kind) + (_know.weak_line(_proof_view(cat, kind, rows[-1])) if rows else '')
+    return _know.score_line(kind) + (_know.weak_line(_proof_view(cat, kind, rows[-1])) if rows else '') + _debate.lessons(_debate.load(DATA_DIR), cat.get('id'), kind)
 
 
 def _job_brain(cat, text):
@@ -6873,6 +6910,29 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here
+        b_ = cat.setdefault('brainsCfg', {}); st_ = _debate.load(DATA_DIR)
+        try:
+            if p.op == 'debate_put':
+                k_ = _weights.kind_of(p.job); f_ = next((x for x in cat.get(_PROOF_KEYS.get(k_) or '') or [] if isinstance(x, dict) and x.get('id') == p.text), None)
+                if not f_:
+                    raise ValueError('Pick one of its filed proofs.')
+                _debate.put(st_, cat_id, cat.get('name'), k_, f_, _weights.facts_line(_proof_view(cat, k_, f_)), json.dumps({x: v for x, v in _vv.public_folder(f_).items() if x not in ('talk', 'chat', 'shots', 'vitals')}, default=str))
+            elif p.op == 'debate_pull':
+                _debate.pull(st_, cat_id, str(p.text or ''))
+            elif p.op == 'debate_offer':
+                _debate.offer(st_, cat_id, str(p.text or ''), str(p.job or ''))
+            elif p.op == 'debate_answer':
+                _debate.answer(st_, cat_id, str(p.text or ''), bool(p.on))
+            elif p.op == 'debate_allow':
+                b_['debateOn'] = bool(p.on); keep_owned(cat); _save(store)
+            elif p.op != 'debate_get':
+                raise ValueError('No such step.')
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:160])
+        if p.op not in ('debate_get', 'debate_allow'):
+            _debate.save(DATA_DIR, st_)
+        return {**_debate.view(st_, cat_id), 'allowed': bool(b_.get('debateOn')), 'canGrade': bool(b_.get('brains'))}
     if p.op.startswith('eco_d_'):   # 🗂 the PoEco desk: sealed, its owner's only, Python does every sum, and nothing here can move money
         today_ = _eco.their_today(p.to, time.strftime('%Y-%m-%d', time.gmtime())); desk_ = _eco_desk_load(cat_id); said_ = None
         try:
