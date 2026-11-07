@@ -313,8 +313,8 @@ def test_every_page_kit_address_is_pinned_and_every_new_kit_has_a_use():
 
 
 def test_a_minds_search_words_stay_plain_and_only_real_names_count(tmp_path):
-    n = ck.note_queries(tmp_path, 'Sure! {"queries":{"pop":["orderbook heatmap"],"pob":["$(rm -rf /)"],"poc":["video editor","a b c d e"],"pos":"webgl particles"}}')
-    assert n == 3 and ck.mind_queries(tmp_path) == {'pop': ['orderbook heatmap'], 'poc': ['video editor'], 'pos': ['webgl particles']}
+    n = ck.note_queries(tmp_path, 'Sure! {"queries":{"pop":["orderbook heatmap"],"pob":["$(rm -rf /)"],"poc":["video montage","a b c d e"],"pos":"webgl particles"}}')
+    assert n == 3 and ck.mind_queries(tmp_path) == {'pop': ['orderbook heatmap'], 'poc': ['video montage'], 'pos': ['webgl particles']}
     assert ck.note_queries(tmp_path, 'no json at all') == 0 and ck.note_queries(tmp_path, '{"queries":{"pop":["orderbook heatmap"]}}') == 0
     ck._save_proposed(tmp_path, [{'id': 'new-a', 'name': 'aaa', 'status': 'new'}, {'id': 'new-b', 'name': 'bbb', 'status': 'new'}, {'id': 'new-c', 'name': 'ccc', 'status': 'rejected'}])
     assert ck.note_rating(tmp_path, 'OSSY', '{"use":["aaa","ccc","not on the list"],"why":"Useful"}') == 'Useful'

@@ -283,3 +283,26 @@ test('⚔ Collective Debate: a proof goes on the table, its grades show, content
   expect(q('dbt-board').textContent).toContain('Bo');
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🎬 the editor finds the right moment in a cut timeline, and the same words land where the render draws them', () => {
+  const { clipAt, clipLen, totalLen } = require('../../lib/videoRender');
+  const p = { clips: [{ id: 'a', in: 10, out: 12, speed: 1 }, { id: 'b', in: 0, out: 4, speed: 2 }] };
+  expect(clipLen(p.clips[1])).toBe(2); expect(totalLen(p)).toBe(4);
+  expect(clipAt(p, 1)).toMatchObject({ start: 0, src: 11 }); expect(clipAt(p, 3).clip.id).toBe('b'); expect(clipAt(p, 3).src).toBe(2); expect(clipAt(p, 4)).toBeNull();
+});
+
+test('🧊 a device with no 3D still opens the playground, says so plainly, and can still ask', async () => {
+  jest.doMock('three/examples/jsm/controls/OrbitControls.js', () => ({ OrbitControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/controls/TransformControls.js', () => ({ TransformControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/environments/RoomEnvironment.js', () => ({ RoomEnvironment: class {} }), { virtual: true });
+  jest.doMock('three', () => ({ WebGLRenderer: class { constructor() { throw new Error('no WebGL'); } } }));
+  const Playground3D = require('./Playground3D').default;
+  const calls = []; const fake = async (_, b) => { calls.push(b); return b.op === 'play3d_get' ? { scene: null, canAsk: true, notes: ['moved Tower'] } : { ok: true }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<Playground3D cat={{ id: 'c' }} work={fake} onBack={() => {}} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('p3d-nogl')).not.toBeNull(); expect(q('p3d-learned').textContent).toContain('moved Tower'); expect(q('p3d-shoot').disabled).toBe(true);
+  expect(q('p3d-list').querySelectorAll('li').length).toBeGreaterThan(0);
+  await act(async () => { q('p3d-add-box').click(); }); expect(q('p3d-mats')).not.toBeNull(); expect(q('p3d-undo').disabled).toBe(false);
+  await act(async () => { q('p3d-mat-Glass').click(); }); expect(q('p3d-glass').value).toBe('1');
+  await act(async () => { root.unmount(); }); el.remove();
+});

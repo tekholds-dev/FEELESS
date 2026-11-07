@@ -36,6 +36,7 @@ import httpx
 import http_ctx
 http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
 import base64
+import secrets
 from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -76,6 +77,7 @@ import collective_stake as _stake
 import proof_weights as _weights
 import proof_kits as _proof_kits
 import collective_debate as _debate
+import play_studio as _play
 import proof_footprint as _foot
 import collective_stash as _stash
 import collective_kits as _kits
@@ -144,7 +146,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -3705,7 +3707,7 @@ def _proof_brain(cat, kind):
     if not kind or kind == 'pow':
         return ''
     rows = [f for f in cat.get(_PROOF_KEYS.get(kind)) or [] if isinstance(f, dict)]
-    return _know.score_line(kind) + (_know.weak_line(_proof_view(cat, kind, rows[-1])) if rows else '') + _debate.lessons(_debate.load(DATA_DIR), cat.get('id'), kind)
+    return _know.score_line(kind) + (_know.weak_line(_proof_view(cat, kind, rows[-1])) if rows else '') + _debate.lessons(_debate.load(DATA_DIR), cat.get('id'), kind) + (_play.notes_line(cat, 'edit') if kind == 'poc' else _play.notes_line(cat, '3d') if kind == 'pos' else '')
 
 
 def _job_brain(cat, text):
@@ -5921,6 +5923,21 @@ def _eco_desk_save(cat_id, desk):
     f_ = _eco_desk_path(cat_id); f_.parent.mkdir(parents=True, exist_ok=True); tmp_ = f_.with_suffix('.tmp'); tmp_.write_bytes(_ck.seal_bytes(json.dumps(desk).encode(), cat_id)); tmp_.replace(f_)
 
 
+def _play_path(cat_id, name):
+    return DATA_DIR / 'agent_play' / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / f'{name}.seal'
+
+
+def _play_load(cat_id, name):
+    try:
+        return json.loads(_ck.unseal_bytes(_play_path(cat_id, name).read_bytes(), cat_id))
+    except (OSError, ValueError):
+        return None
+
+
+def _play_save(cat_id, name, data):
+    f_ = _play_path(cat_id, name); f_.parent.mkdir(parents=True, exist_ok=True); tmp_ = f_.with_suffix('.tmp'); tmp_.write_bytes(_ck.seal_bytes(json.dumps(data).encode(), cat_id)); tmp_.replace(f_)
+
+
 async def _ws_ask(cat, model, sys_, user_, tokens):
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
     text_, usd_, _via = await _think(cat, model, [{'role': 'system', 'content': _general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
@@ -6910,6 +6927,99 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op.startswith('playc_'):   # 🎬 the PoC editor: media stays in the owner's browser, the edit list comes here
+        saved_ = _play_load(cat_id, 'edit') or {}
+        if p.op == 'playc_get':
+            return {'project': saved_.get('project'), 'notes': ((cat.get('playNotes') or {}).get('edit') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'canPaid': bool(_ck.key_for(cat, 'openrouter', data_dir=DATA_DIR))}
+        if p.op == 'playc_gen':   # 🖼 free needs no key. Better uses the agent's own OpenRouter key and its own balance
+            prompt_ = ' '.join(str(p.text or '').split())
+            if not prompt_:
+                raise HTTPException(400, 'Say what to make.')
+            size_ = p.tools or {}
+            async with httpx.AsyncClient(timeout=120, follow_redirects=True) as h_:
+                if p.job == 'better':
+                    key_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+                    if not key_:
+                        raise HTTPException(400, 'Better images use your own OpenRouter key. Add it in this agent\'s keys, or use Free.')
+                    r_ = await h_.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f'Bearer {key_}'}, json={'model': _play.PAID_IMAGE_MODEL, 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': prompt_[:800] + _play.IMAGE_RULES}], 'usage': {'include': True}})
+                    if r_.status_code != 200:
+                        raise HTTPException(502, str((r_.json().get('error') or {}).get('message') if 'json' in r_.headers.get('content-type', '') else 'OpenRouter did not answer.')[:200])
+                    j_ = r_.json(); im_ = ((j_.get('choices') or [{}])[0].get('message') or {}).get('images') or []
+                    if not im_:
+                        raise HTTPException(502, 'That model sent no image. Try another prompt.')
+                    return {'image': im_[0]['image_url']['url'], 'usd': (j_.get('usage') or {}).get('cost'), 'by': _play.PAID_IMAGE_MODEL}
+                r_ = await h_.get(_play.free_image_url(prompt_, size_.get('w'), size_.get('h'), secrets.randbelow(999999)), headers={'User-Agent': 'FEELESS'})
+                if r_.status_code != 200 or not r_.headers.get('content-type', '').startswith('image/') or len(r_.content) > _play.MAX_IMAGE_BYTES:
+                    raise HTTPException(502, 'The free image service did not answer. Try again in a minute.')
+                return {'image': f"data:{r_.headers['content-type'].split(';')[0]};base64,{base64.b64encode(r_.content).decode()}", 'usd': 0, 'by': 'Pollinations (free)'}
+        project_ = _play.clean_project((p.tools or {}).get('project'))
+        if p.op == 'playc_save':
+            _play_save(cat_id, 'edit', {**saved_, 'project': project_})
+            return {'ok': True}
+        if p.op == 'playc_ask':
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_ or not str(p.text or '').strip():
+                raise HTTPException(400, 'Pick a model for this agent, and say what you want.')
+            if p.job == 'image':
+                raw_, usd_, _o = await _ws_ask(cat, brains_[0], _play.IMAGE_SYS + _play.notes_line(cat, 'edit'), f"BUILD THIS: {str(p.text)[:800]}", 900)
+                rows_, say_ = _play.parse_layers(raw_)
+                if not rows_:
+                    raise HTTPException(502, 'The agent did not send a usable design, and nothing changed. Try again.')
+                return {'layers': rows_, 'say': say_, 'usd': round(float(usd_ or 0), 5)}
+            mine_ = _play.style_note(_play.edit_stats(project_)) if saved_.get('mind') and project_ != saved_.get('mind') else ''
+            if mine_:
+                _play.add_note(cat, 'edit', mine_); keep_owned(cat); _save(store)
+            raw_, usd_, _o = await _ws_ask(cat, brains_[0], _play.EDIT_SYS + _play.notes_line(cat, 'edit') + _recall(cat, 'Content', str(p.text)), f"THE PROJECT NOW: {json.dumps(project_)[:7000]}\nREQUEST: {str(p.text)[:800]}", 1800)
+            plan_, say_ = _play.parse_edit(raw_, project_)
+            if not plan_:
+                raise HTTPException(502, 'The agent did not send a usable edit, and nothing changed. Try again.')
+            _play_save(cat_id, 'edit', {'project': plan_, 'mind': plan_})
+            return {'project': plan_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': mine_}
+        if p.op == 'playc_file':
+            stats_ = _play.edit_stats(project_) if (p.tools or {}).get('project') else {}
+            what_ = (p.tools or {}).get('image') if isinstance((p.tools or {}).get('image'), dict) else None
+            if not stats_.get('clips') and not what_:
+                raise HTTPException(400, 'Edit something first.')
+            _play.add_note(cat, 'edit', _play.style_note(stats_)); rows_ = list(cat.get('pocFolders') or [])
+            rows_.append({'id': f'poc{secrets.token_hex(5)}', 'n': len(rows_) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': ' '.join(str(p.job or 'An edit').split())[:60], 'calls': [], 'by': 'Editor', **({'edit': stats_} if stats_.get('clips') else {}), **({'design': {'layers': int(_play._num(what_.get('layers'), 0, 200, 0)), 'size': str(what_.get('size') or '')[:12]}} if what_ else {})})
+            cat['pocFolders'] = rows_[-60:]; keep_owned(cat); _save(store); _play_save(cat_id, 'edit', {**saved_, 'project': project_, 'mind': project_})
+            return {'filed': rows_[-1], 'pocFolders': _poc_view(cat)}
+        raise HTTPException(400, 'No such step.')
+    if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
+        f3_ = _play_path(cat_id, '3d'); saved_ = _play_load(cat_id, '3d') or {}
+        if p.op == 'play3d_get':
+            return {'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+        now_scene_ = _play.clean_scene((p.tools or {}).get('scene'))
+        if p.op == 'play3d_save':
+            _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_})
+            return {'ok': True}
+        if p.op == 'play3d_ask':
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_ or not str(p.text or '').strip():
+                raise HTTPException(400, 'Pick a model for this agent, and say what to build.')
+            note_ = _play.diff_scene(saved_.get('mind'), now_scene_) if saved_.get('mind') else ''
+            if note_:
+                _play.add_note(cat, '3d', note_); keep_owned(cat); _save(store)
+            raw_, usd_, _own = await _ws_ask(cat, brains_[0], _play.SCENE_SYS + _play.notes_line(cat, '3d') + _recall(cat, 'Code', str(p.text)), f"THE SCENE NOW: {_play.scene_brief(now_scene_)}\nBUILD THIS: {str(p.text)[:800]}", 3500)
+            scene_, say_ = _play.parse_reply(raw_, now_scene_)
+            if not scene_:
+                raise HTTPException(502, 'The agent did not send a usable scene, and nothing changed. Try again, or ask for less.')
+            _play_save(cat_id, '3d', {'scene': scene_, 'mind': scene_})
+            return {'scene': scene_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': note_}
+        if p.op == 'play3d_file':
+            if not now_scene_['objects']:
+                raise HTTPException(400, 'Add something to the scene first.')
+            note_ = _play.diff_scene(saved_.get('mind'), now_scene_) if saved_.get('mind') else ''
+            if note_:
+                _play.add_note(cat, '3d', note_)
+            try:
+                row_ = _feat.new_folder(cat, 'build', str(p.job or '3D scene')[:40], time.time())
+            except ValueError as e:
+                raise HTTPException(409, str(e))
+            doc_ = _feat.new_doc(row_); doc_['versions'] = [{'html': _play.to_html(now_scene_, row_['name']), 'by': '3D playground', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _ws_save(cat_id, doc_)
+            filed_ = _feat.file_static(cat, doc_, '3D playground', time.time()); keep_owned(cat); _save(store); _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_, 'mind': now_scene_})
+            return {'filed': filed_, 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': cat.get('workspaces') or []}
+        raise HTTPException(400, 'No such step.')
     if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here
         b_ = cat.setdefault('brainsCfg', {}); st_ = _debate.load(DATA_DIR)
         try:

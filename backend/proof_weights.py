@@ -190,6 +190,9 @@ def depth(k, f, page=None):
         st = page(f) if page else None
         return (None, 'Page not measured') if st is None else (round(_page_depth(st), 3), f"{st['chars'] // 1000}K page, {st['fns']} functions, {st['handlers']} inputs")
     if k == 'poc':
+        e = f.get('edit') if isinstance(f.get('edit'), dict) else None
+        if e:   # a real edit: how much was cut and built, from its edit list
+            return round(0.5 * _clip(_f(e.get('cuts')) / 15) + 0.2 * _clip(_f(e.get('texts')) / 5) + 0.15 * _clip((_f(e.get('fades')) + _f(e.get('speedChanges'))) / 4) + 0.15 * _clip(_f(e.get('music'))), 3), f"{int(_f(e.get('cuts')))} cuts, {int(_f(e.get('texts')))} text overlays, {_f(e.get('seconds')):.0f}s"
         st = page(f) if page and f.get('ws') else None; n = _n(f.get('calls'))
         return round(0.5 * (_page_depth(st) or 0.0) + 0.2 * _clip(n / 3) + 0.15 * _poc_trends(f)[0] + 0.15 * _clip(_sites(k, f) / 4), 3), f"{'a real build, ' if st else ''}{n} pitches, {_sites(k, f)} sites"
     if k == 'pow':

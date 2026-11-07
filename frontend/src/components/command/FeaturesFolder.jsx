@@ -1,7 +1,7 @@
 import { KitPick } from './KitPick';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings } from '../chat/ChatKit';
 import { addFile, AttachChips } from './CatWorkbench';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
 import { isCalm } from '../../lib/fxPause';
@@ -14,6 +14,8 @@ import { scoreOf } from '../../lib/proofprint';
 import { TradeTape } from '../terminal/TradeTape';
 import '../../styles/features.css';
 import '../../styles/kitGallery.css';
+const Playground3D = lazy(() => import('./Playground3D'));
+const PocEditor = lazy(() => import('./PocEditor'));
 
 // ✨ THE FEATURES FOLDER (owner 2026-11-04): a demo window per feature, what it is beside it, and a button that makes the real folder. Every demo is marked EXAMPLE. Its mind and its fingerprint live here too.
 export const FEATURES = {
@@ -294,7 +296,7 @@ export function FeaturesFolder({ cat, d, work, onCommand, onBrowse, onOpenIn }) 
 
 // 📂 A proof's own folder on the desk: every PoStatic or PoC folder lives here, and a new one is a new proof.
 export function ProofDesk({ cat, kind, work, onCommand, start = null, onBrowse, pool, d, setD }) {
-  const [rows, setRows] = useState(null); const [poc, setPoc] = useState([]); const [statics, setStatics] = useState([]); const [open, setOpen] = useState(null); const [filed, setFiled] = useState(null); const [draft, setDraft] = useState(''); const [name, setName] = useState(''); const [err, setErr] = useState('');
+  const [rows, setRows] = useState(null); const [poc, setPoc] = useState([]); const [statics, setStatics] = useState([]); const [open, setOpen] = useState(null); const [filed, setFiled] = useState(null); const [draft, setDraft] = useState(''); const [name, setName] = useState(''); const [err, setErr] = useState(''); const [play, setPlay] = useState(false);
   const load = useCallback(() => work(cat.id, { op: 'features' }).then(j => { setRows(j.workspaces || []); setPoc(j.pocFolders || []); setStatics(j.psFolders || []); }).catch(e => { setErr(e.message); setRows([]); }), [cat.id, work]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (start?.folder) { setOpen(start.folder); setDraft(start.draft || ''); load(); } }, [start?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -303,9 +305,10 @@ export function ProofDesk({ cat, kind, work, onCommand, start = null, onBrowse, 
   const drop = async id => { const j = await work(cat.id, { op: 'feature_delete', text: id }); setRows(j.workspaces); };
   const pk = kind === 'build' ? 'pos' : 'poc';
   if (filed) return <div className="fea pfx is-poc" data-testid="proofdesk-content"><header className="fea-open-h"><button type="button" className="m-btn" onClick={() => { setFiled(null); load(); }} data-testid="ws-back">← PoC</button><b>PoC #{filed.n}</b></header><PocFiled cat={cat} folder={filed} work={work} onFiled={(k, rows) => setD?.(x => ({ ...x, [k]: rows }))} /></div>;
+  if (play) return <Suspense fallback={<p className="fea-none">Opening the playground…</p>}>{kind === 'build' ? <Playground3D cat={cat} work={work} onBack={() => { setPlay(false); load(); }} /> : <PocEditor cat={cat} work={work} onBack={() => { setPlay(false); load(); }} />}</Suspense>;
   if (open) return <div className={`fea pfx is-${pk}`} data-testid={`proofdesk-${kind}`}><header className="fea-open-h"><button type="button" className="m-btn" onClick={() => { setOpen(null); load(); }} data-testid="ws-back">← {word}</button><span className="pfx-print" data-tip="This folder's own ridge on its fingerprint"><FolderRidge fid={open.id} size={34} /></span><b>{open.name}</b></header>
     {kind === 'build' ? <><KitPick cat={cat} work={work} kind="pos" /><BuildSpace key={open.id} cat={cat} row={open} work={work} draft={draft} onFiled={(k, rows) => setD?.(x => ({ ...x, [k]: rows }))} /></> : <ContentSpace key={open.id} cat={cat} row={open} work={work} onCommand={onCommand} draft={draft} onFiled={(k, rows) => setD?.(x => ({ ...x, [k]: rows }))} />}</div>;
-  return <div className={`fea pdk pfx is-${pk}`} data-testid={`proofdesk-${kind}`}><header className="pdk-h"><form onSubmit={make}><input className="m-input" maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder={`Name a new ${word}`} aria-label={`New ${word} name`} data-testid="pdk-name" /><button type="submit" className="m-btn m-go" data-tip={`Starts a new ${word} folder`} data-testid="pdk-new">New {word}</button></form></header>
+  return <div className={`fea pdk pfx is-${pk}`} data-testid={`proofdesk-${kind}`}><header className="pdk-h"><form onSubmit={make}><input className="m-input" maxLength={40} value={name} onChange={e => setName(e.target.value)} placeholder={`Name a new ${word}`} aria-label={`New ${word} name`} data-testid="pdk-name" /><button type="submit" className="m-btn m-go" data-tip={`Starts a new ${word} folder`} data-testid="pdk-new">New {word}</button></form>{kind === 'build' ? <button type="button" className="m-btn" onClick={() => setPlay(true)} data-tip="Build a 3D scene with your agent, then file it as a page" data-testid="pdk-play3d">3D playground</button> : <button type="button" className="m-btn" onClick={() => setPlay(true)} data-tip="Edit video and images with your agent, right here" data-testid="pdk-editor">Video and image editor</button>}</header>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
     <ProofHead kind={pk} folders={kind === 'build' ? statics : poc} d={{ ...d, pocFolders: poc, psFolders: statics }} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
     {rows && !mine.length && !(kind === 'content' && poc.length) ? <p className="fea-none">No {word} yet. Name one above, or pick a starter in Features.</p> : null}

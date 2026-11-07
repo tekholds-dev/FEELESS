@@ -237,7 +237,7 @@ KIT_USE = {
     'd3': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>'], 'how': 'Draw data pictures with the global d3.', 'sign': r'd3\.\w+'},
     'lwcharts': {'tags': ['<script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>'], 'how': 'Draw price charts with LightweightCharts.createChart(el).', 'sign': r'LightweightCharts\.'},
     'gsap': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>'], 'how': 'Animate with the global gsap: gsap.to, gsap.from, gsap.timeline.', 'sign': r'gsap\.\w+'},
-    'three': {'tags': ['<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>'], 'how': 'Write the scene in <script type="module">: import * as THREE from "three".', 'sign': r'THREE\.'},
+    'three': {'tags': ['<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>'], 'how': 'Write the scene in <script type="module">: import * as THREE from "three".', 'sign': r'THREE\.'},
     'pixi': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>'], 'how': 'Draw with the global PIXI: new PIXI.Application(), then await app.init(...).', 'sign': r'PIXI\.'},
     'konva': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/konva@9/konva.min.js"></script>'], 'how': 'Build layers with the global Konva: new Konva.Stage, Konva.Layer, Konva.Transformer.', 'sign': r'Konva\.'},
     'fabric': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/fabric@6/dist/index.min.js"></script>'], 'how': 'Build the editor with the global fabric: new fabric.Canvas, fabric.Textbox, fabric.FabricImage.', 'sign': r'fabric\.'},
@@ -428,7 +428,7 @@ def line(root, kind, picks=(), open_kits=False):
 PROPOSED_FILE = 'proposed.dat'
 PROPOSE_MIN_WEEKLY = 500
 PROPOSE_PER_KIND = 4
-SCOUT = {'pow': ['technical indicators', 'trading indicators', 'solana token'], 'pop': ['backtest trading', 'perpetual futures', 'funding rate'], 'pob': ['sports odds', 'kelly criterion', 'betting odds'], 'poc': ['rss parser', 'open graph image', 'markdown slides'], 'pos': ['threejs animation', 'scroll animation', 'react flow']}
+SCOUT = {'pow': ['technical indicators', 'trading indicators', 'solana token'], 'pop': ['backtest trading', 'perpetual futures', 'funding rate'], 'pob': ['sports odds', 'kelly criterion', 'betting odds'], 'poc': ['rss parser', 'open graph image', 'markdown slides', 'video editor', 'image filter'], 'pos': ['threejs animation', 'scroll animation', 'react flow', 'threejs material']}
 
 
 def proposed_rows(root):

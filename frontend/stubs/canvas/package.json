@@ -1,0 +1,1 @@
+{ "name": "canvas", "version": "0.0.0", "main": "index.js", "description": "Empty on purpose: Fabric lists canvas as optional for Node only, and the native one breaks jest. Browsers never use it." }
