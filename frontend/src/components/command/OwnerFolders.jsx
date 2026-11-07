@@ -153,14 +153,17 @@ export function PoolDesk({ p, d, save, busy }) {
 }
 
 // 🐍 The five py agents: how each really did, and what OSSY or G4 proposes after reading their code. Words only: it changes no code, and you decide.
+const PROOF_WORD = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic' };
 export function PyAgentsFolder({ call }) {
   const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
   useEffect(() => { let on = true; call('/admin/py-agents').then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [call]);
   const ask = async who => { setBusy(who); setErr(''); try { setD(await call('/admin/py-agents', { method: 'POST', body: JSON.stringify({ who }) })); } catch (e) { setErr(e.message); } setBusy(''); };
+  const apply = async kind => { setBusy(kind); setErr(''); try { setD(await call('/admin/py-agents', { method: 'POST', body: JSON.stringify({ apply: kind }) })); } catch (e) { setErr(e.message); } setBusy(''); };
   return <Fx><div className="ofd" data-testid="ofd-py"><Head icon={ShieldCheck} title="Py agents" line="The five that check every proof before it earns. OSSY and G4 read their code and record, and write what is weak. Nothing changes until you decide." />
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     <ol className="ofd-seats">{(d?.seats || []).map((r, i) => <motion.li key={r.k} {...rise(i)} data-testid={`ofd-seat-${r.k}`}><b>{r.name}</b><small>{r.does}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${r.checked ? r.passed / r.checked : r.tried ? r.triedOk / r.tried : 0})` }} /></i><em className="m-num">{r.checked ? `${r.passed} of ${r.checked} real sends passed` : r.tried ? `Practice: ${r.triedOk} of ${r.tried} filed proofs pass` : 'Runs on the first real send'}</em>{r.lastNo || r.triedNo ? <q>{r.lastNo || r.triedNo}</q> : null}</motion.li>)}</ol>
     <div className="ofd-row">{[['ossy', 'Ask OSSY'], ['g4', 'Ask G4']].map(([k, l]) => <button key={k} type="button" className="m-btn m-go" disabled={!!busy} onClick={() => ask(k)} data-tip="Free, on your own machine. It can take a few minutes" data-testid={`ofd-py-${k}`}>{busy === k ? 'Reading their code…' : l}</button>)}</div>
+    <section className="hq-card" data-testid="ofd-py-learn"><h4>WHAT THEY LEARN FROM OSSY AND G4<small>Each scored proof teaches them. New weights must beat proofs they never saw, and only you apply them</small></h4><ul className="ofd-learn">{(d?.learned || []).map(r => <li key={r.kind} data-testid={`ofd-learn-${r.kind}`}><b>{PROOF_WORD[r.kind] || r.kind}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.min(1, r.n / (r.need || 12))})` }} /></i><small className="m-num">{r.n} of {r.need} scored</small><em>{r.weights ? `Off by ${Math.round((r.mae || 0) * 100)}%, learned ${Math.round((r.learnedMae || 0) * 100)}%` : 'Learning'}</em>{r.ready ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => apply(r.kind)} data-tip="These weights did better on proofs they never saw. New scores use them" data-testid={`ofd-learn-apply-${r.kind}`}>Apply</button> : null}</li>)}</ul></section>
     {(d?.runs || []).map(run => <section key={run.at} className="hq-card" data-testid="ofd-py-run"><h4>{run.by.toUpperCase()} PROPOSES<small>{new Date(run.at * 1000).toLocaleString()}</small></h4><ul className="ofd-missing">{run.proposals.map((p, i) => <li key={i}><b>{p.seat} · {p.risk} risk</b><small>{p.weak}</small><small>Fix: {p.fix}</small></li>)}</ul></section>)}
   </div></Fx>;
 }

@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import proof_validators as val
+import proof_weights as pw
 
 SOURCE = Path(val.__file__)
 STORE = 'py_agents.json'
@@ -77,3 +78,21 @@ def add(root, by, proposals, now):
     d = load(root); d['runs'] = ([{'by': by, 'at': round(now), 'proposals': proposals}] + d['runs'])[:KEEP]
     p = Path(root) / STORE; p.parent.mkdir(parents=True, exist_ok=True); t = p.with_suffix('.tmp'); t.write_text(json.dumps(d)); t.replace(p)
     return d
+
+
+def _samples(sort_state):
+    return [i['learn'] for i in ((sort_state or {}).get('items') or {}).values() if isinstance(i, dict) and isinstance(i.get('learn'), dict)]
+
+
+def learned(root, sort_state):
+    """How close each kind's weights come to OSSY and G4, and what they would move to. → rows"""
+    return pw.learn(_samples(sort_state), pw.load(root))
+
+
+def apply_learned(root, sort_state, kind):
+    """Only weights that beat proofs they never saw. → whether it moved"""
+    row = next((r for r in learned(root, sort_state) if r['kind'] == pw.kind_of(kind)), None)
+    if not row or not row['ready']:
+        return False
+    pw.apply(root, kind, row['weights'])
+    return True

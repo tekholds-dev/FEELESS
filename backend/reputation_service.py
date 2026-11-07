@@ -27509,7 +27509,7 @@ async def admin_py_agents(request: Request):
     """🐍 Owner: the five validators, their real record and what the local minds propose. It changes no code."""
     _require_owner(request)
     import py_agents as _pa
-    return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), **_pa.load(DATA_DIR)}
+    return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), 'learned': _pa.learned(DATA_DIR, _json_load(DATA_DIR / 'git_manifests' / 'collective_sort.json', {})), **_pa.load(DATA_DIR)}
 
 
 @app.post('/api/reputation/admin/py-agents')
@@ -27517,7 +27517,13 @@ async def admin_py_agents_ask(request: Request):
     """🐍 Owner: one local mind reads the validators' code and record, and proposes. Free, on his own machines. Saved for him to read; nothing is applied."""
     _require_owner(request)
     import py_agents as _pa
-    body = await request.json() or {}; who_ = 'g4' if body.get('who') == 'g4' else 'ossy'; which_ = 'LAN' if who_ == 'g4' else 'LOCAL'; base_ = (os.environ.get(f'{which_}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which_ == 'LOCAL' else '')).rstrip('/')
+    body = await request.json() or {}
+    if body.get('apply'):   # ⚖ his word: a kind moves to the weights it learned from OSSY and G4, only if they beat proofs they never saw
+        sort_ = _json_load(DATA_DIR / 'git_manifests' / 'collective_sort.json', {})
+        if not _pa.apply_learned(DATA_DIR, sort_, str(body['apply'])):
+            raise HTTPException(400, 'Those weights are not ready.')
+        return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), 'learned': _pa.learned(DATA_DIR, sort_), **_pa.load(DATA_DIR)}
+    who_ = 'g4' if body.get('who') == 'g4' else 'ossy'; which_ = 'LAN' if who_ == 'g4' else 'LOCAL'; base_ = (os.environ.get(f'{which_}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which_ == 'LOCAL' else '')).rstrip('/')
     if not base_:
         raise HTTPException(400, f'{who_.upper()} has no address set.')
     auth_ = {'Authorization': f"Bearer {os.environ.get(f'{which_}_LLM_API_KEY') or 'lm-studio'}"}

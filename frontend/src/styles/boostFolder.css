@@ -58,3 +58,5 @@ body.theme-day .bof { color: #14202c; } body.theme-day .bof-bar { background: #0
 .bof-preview td.m-num { font-size: 12.5px; }
 .bof-after .psub-body { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; } .bof-after .psub-body > b { flex: 1 0 100%; } .bof-after .psub .m-input { width: 92px; height: 36px; min-height: 36px; }
 @media (min-width: 1041px) { .dsk-body:has(> .bof) { grid-auto-rows: minmax(0, 1fr); padding-bottom: 12px; overflow: hidden; } .dsk-body > .bof { height: 100%; min-height: 0; } }
+.bof-it-list .pwb-rank { margin-left: auto; flex: none; }
+.bof .pwb header > small { margin-left: 0; font: 800 10px var(--f-mono); letter-spacing: .13em; opacity: .8; }

@@ -18,6 +18,12 @@ const bars = (rows, unit = '') => { const top = Math.max(1, ...rows.map(r => r[1
 const Coin3DLazy = lazy(() => import('./Coin3D'));
 const SEND_CHIPS = [1, 5, 25, 100];
 // 💎 Every proof can go to the Collective with real dollars, $1 or more. Its own wallet signs one transfer, read back from the chain, and the five checks grade it. One small button, so it never crowds a chat: the card opens in a popover, and its second tap sends.
+// ⚖ How this proof scores, part by part: each read from its own record by code, each with its weight. What is not known yet earns nothing.
+export function WeightBars({ v, testid = 'proof-weights' }) {
+  if (!v?.parts) return null;
+  return <section className="pwb" data-testid={testid}><header><small>ON ITS RECORD</small><b className={`pwb-rank is-${v.rank}`} data-tip="S, A, B, C, D. S takes a near full record with every part known" data-testid={`${testid}-rank`}>{v.rank}</b><em className="m-num" data-testid={`${testid}-score`}>{Math.round(v.score)}<small>/{Math.round(v.top)}</small></em></header>
+    <ul>{v.parts.map(p => <li key={p.key} className={p.value == null ? 'is-unknown' : ''} data-tip={`Worth ${+p.weight.toFixed(1)} of 100`} data-testid={`${testid}-${p.key}`}><span>{p.label}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${p.value || 0})`, '--pwb-w': p.value == null ? 0 : p.value }} /></i><small className="m-num">{+p.weight.toFixed(1)}</small><em>{p.note}</em></li>)}</ul></section>;
+}
 export const proofTitle = f => f?.name || f?.topic || f?.title || f?.game || f?.sym || f?.id || 'Proof';
 const SentCard = ({ sent, f }) => <section className="psub is-sent" data-testid="proof-submit-sent"><span className="psub-said"><b>SENT TO THE COLLECTIVE</b>{sent.usd ? <em className="m-num">${sent.usd}</em> : <em className="m-num">{Number(sent.sol).toFixed(4)} SOL</em>}</span>{(sent.review || f?.review)?.seats ? <ul className="psub-seats" aria-label="The five checks">{(sent.review || f.review).seats.map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.why}>{x.name}</li>)}</ul> : null}{sent.link ? <a className="m-btn" href={sent.link} target="_blank" rel="noopener noreferrer">Tx ↗</a> : null}</section>;
 // 🪙 The send itself: the amount, what it can earn, and a second tap to confirm. The proof's popover and the Boost folder both use it.

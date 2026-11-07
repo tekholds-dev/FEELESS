@@ -72,6 +72,7 @@ import collective_pool as _cpool
 import proof_plan as _plan
 import proof_validators as _val
 import collective_stake as _stake
+import proof_weights as _weights
 import collective_stash as _stash
 import collective_kits as _kits
 import agent_topup as _topup
@@ -1525,7 +1526,7 @@ def _sent_rows(store):
                 continue
             kind, f = _proof_folder(cat, r['proofId'])
             html = (_git_page(cid, f.get('ws')) or ('', ''))[0] if f and f.get('ws') else ''
-            out.append({'id': r['id'], 'cat': cid, 'agent': _stash.agent_tag(cid), 'kind': r.get('kind') or kind or 'Proof', 'name': r.get('name') or (f or {}).get('name') or (f or {}).get('topic') or 'Proof', 'at': r.get('at'), 'usd': r.get('usd'), 'sig': r.get('sig'), 'score': r.get('grade'), 'boost': _stake.x_of(r.get('grade')), 'mostItCanEarn': round(float(r.get('usd') or 0) * _stake.x_of(r.get('grade')), 2), 'held': bool(r.get('held')), 'ownerScored': bool(r.get('ownerScored')), 'scored': r.get('scored') or [], 'review': r.get('review'), 'work': _vv.public_folder(f) if f else None, 'page': html[:20000] if html else None})
+            out.append({'id': r['id'], 'weights': _weights.view(r.get('kind') or kind, f or {}, weights=_weights.load(DATA_DIR)), 'cat': cid, 'agent': _stash.agent_tag(cid), 'kind': r.get('kind') or kind or 'Proof', 'name': r.get('name') or (f or {}).get('name') or (f or {}).get('topic') or 'Proof', 'at': r.get('at'), 'usd': r.get('usd'), 'sig': r.get('sig'), 'score': r.get('grade'), 'boost': _stake.x_of(r.get('grade')), 'mostItCanEarn': round(float(r.get('usd') or 0) * _stake.x_of(r.get('grade')), 2), 'held': bool(r.get('held')), 'ownerScored': bool(r.get('ownerScored')), 'scored': r.get('scored') or [], 'review': r.get('review'), 'work': _vv.public_folder(f) if f else None, 'page': html[:20000] if html else None})
     return out
 
 
@@ -1635,7 +1636,7 @@ async def _sort_one():
     files, _c = await asyncio.to_thread(_git_files, leader, True); path = _sort.next_path(sorted(files), d['items'], {k for k, at in _SORT_SKIP.items() if time.time() - at < 6 * 3600})
     if not path:
         return False
-    item = d['items'].get(path) or {}; raw = files[path]; words = _sort.prompt(path, item, d['items'])
+    item = d['items'].get(path) or {}; raw = files[path]; words = f"TODAY: {time.strftime('%Y-%m-%d', time.gmtime())}\n{_sort.prompt(path, item, d['items'])}"
     boxes = None
     if path.endswith(tuple(GIT_IMAGE)):
         jpeg_ = await asyncio.to_thread(_sort.to_jpeg, raw); boxes = await asyncio.to_thread(_sort.ocr_boxes, jpeg_, GIT_DIR / 'bin')
@@ -1643,8 +1644,14 @@ async def _sort_one():
     else:
         content = f"{words}\n{raw[:_sort.EXCERPT].decode('utf-8', 'replace')}"
     deep = path.startswith(_cg.PROOF_ROOT); sys_ = _sort.SYS; top_ = 300.0
+    facts_v = None
     if deep:   # 💲 someone paid to send this: the whole file, and a real score
-        top_ = float(_stake.rung(_cpool.load(POOL_PATH), await _pool_px())['top']); sys_ = _sort.DEEP_SYS; content = f"TOP SCORE TODAY: {top_:g}\n{words}\n{_sort.deep_excerpt(raw)}"
+        top_ = float(_stake.rung(_cpool.load(POOL_PATH), await _pool_px())['top']); sys_ = _sort.DEEP_SYS
+        try:
+            facts_v = _weights.at_top(json.loads(raw).get('weights'), top_)
+        except (ValueError, AttributeError):
+            facts_v = None
+        content = f"TOP SCORE TODAY: {top_:g}\n{_weights.facts_line(facts_v)}\n{words}\n{_sort.deep_excerpt(raw)}"
     token = _SORT_CALL.set(True); got_any = False; _OR_LAST.pop('err', None)
     try:
         for who, model in (('ossy', 'local/ossy'), ('g4', 'local/g4')):
@@ -1662,7 +1669,12 @@ async def _sort_one():
         _SORT_CALL.reset(token)
     if deep and _sort.scores_done(item):   # 💲 both read it: their average is its score, until the owner says otherwise
         ref_ = json.loads(raw); scores_ = _sort.scores_done(item); px_ = await _pool_px(); why_ = ' / '.join(str((item['votes'][w].get('why') or ''))[:110] for w in _sort.VOTERS)
-        _cpool.update(POOL_PATH, lambda st: _stake.set_score(st, ref_['cat'], ref_['id'], sum(scores_) / len(scores_), 'OSSY + G4', why_, time.time(), px_))
+        minds_ = sum(scores_) / len(scores_); final_ = _weights.blend(facts_v['frac'], minds_, top_, all((item['votes'][w].get('verdict') == 'trash') for w in _sort.VOTERS)) if facts_v else minds_   # 💲 what its record shows, then their read inside a limit. The py agents learn from how they really scored
+        if facts_v:
+            kept_ = _sort.load(GIT_DIR); row_ = kept_['items'].get(path)
+            if row_ is not None:
+                row_['learn'] = _weights.sample(facts_v, minds_, top_); _sort.save(GIT_DIR, kept_)
+        _cpool.update(POOL_PATH, lambda st: _stake.set_score(st, ref_['cat'], ref_['id'], final_, 'OSSY + G4', why_, time.time(), px_))
     done_ = (_sort.load(GIT_DIR)['items'].get(path) or {}).get('votes') or {}
     if not all('marks' in (done_.get(w_) or {}) for w_ in _sort.VOTERS):
         _SORT_SKIP[path] = time.time()   # one file a mind cannot answer never stops the rest. It comes round again in 6 hours
@@ -1944,7 +1956,7 @@ async def _collect_verify(http, cat, folder, sig, pot, sol, pct, now):
 
     def book(st):   # 🪙 the send is real: it follows its plan. The signature means it counts once.
         st['solUsd'] = px   # what its SOL is worth, for the pot's size between sends
-        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_, _stake.rung(st, px)['top']), 'proofId': folder.get('id'), 'kind': kind_}, (cat.get('colonyShare') or {}).get('plan'))
+        r = _cpool.send(st, f'send:{sig}', cat['id'], owner_wallet(cat), 'SOL', got, usd_, now, _cpool.boost_of(cat.get('boosts'), str_, now, st['cfg']['boostFadeDays']), {'name': folder.get('name') or folder.get('topic'), 'sym': folder.get('sym'), 'pct': folder.get('pnlPct'), 'sig': sig, 'held': not rev_['ok'], 'review': rev_, 'grade': _stake.grade_of(rev_, str_, _stake.rung(st, px)['top'], (_weights.view(kind_, folder, weights=_weights.load(DATA_DIR)) or {}).get('frac')), 'proofId': folder.get('id'), 'kind': kind_}, (cat.get('colonyShare') or {}).get('plan'))
         if r:
             st['agents'][cat['id']]['name'] = str(cat.get('name'))[:24]
         return r
@@ -6670,7 +6682,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'ok': True}
     if p.op == 'pool':   # 🪙 its live count, its dated returns, what its boost does and the points it can spend
         now_ = time.time(); st_ = _cpool.load(POOL_PATH); pr_ = _print.build(cat, now_); str_ = _print.strength(cat, now_); pts_ = _cl.boost_total(cat); pv_ = _cpool.view(st_, cat_id, now_, await _pool_px())
-        return {'pool': pv_, 'proofPlan': _plan.public(), 'stake': _stake.view(st_, cat_id, now_), 'pools': _stake.public_pools(st_), 'score': _stake.rung(st_, await _pool_px()), 'sends': [{**r, 'grade': x_.get('grade'), 'usd': x_.get('usd'), 'x': _stake.x_of(x_.get('grade')), 'scored': x_.get('scored') or [], 'kind': x_.get('kind')} for r, x_ in zip(pv_['streams'], ((st_['agents'].get(cat_id) or {}).get('streams') or [])[::-1])], 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
+        top_w_ = _stake.rung(st_, await _pool_px())['top']; saved_w_ = _weights.load(DATA_DIR)
+        return {'pool': pv_, 'proofPlan': _plan.public(), 'weights': {f_['id']: _weights.view(k_, f_, top_w_, saved_w_) for k_, key_ in (('pow', 'powFolders'), ('pop', 'popFolders'), ('pob', 'pobFolders'), ('poc', 'pocFolders'), ('pos', 'psFolders')) for f_ in (cat.get(key_) or []) if isinstance(f_, dict) and f_.get('id')}, 'stake': _stake.view(st_, cat_id, now_), 'pools': _stake.public_pools(st_), 'score': _stake.rung(st_, await _pool_px()), 'sends': [{**r, 'grade': x_.get('grade'), 'usd': x_.get('usd'), 'x': _stake.x_of(x_.get('grade')), 'scored': x_.get('scored') or [], 'kind': x_.get('kind')} for r, x_ in zip(pv_['streams'], ((st_['agents'].get(cat_id) or {}).get('streams') or [])[::-1])], 'rules': _cpool.rules(st_['cfg']), 'points': pts_, 'pointsLeft': round(max(0.0, pts_ - pv_['spent']), 1), 'printLevel': pr_['level'], 'strength': str_, 'boostNow': _cpool.boost_of(cat.get('boosts'), str_, now_, st_['cfg']['boostFadeDays']), 'boostLog': (cat.get('boosts') or [])[-8:][::-1], 'withdrawals': False, 'plan': (cat.get('colonyShare') or {}).get('plan') or 'month', 'printSeed': _cpool.print_seed(cat_id), 'strongest': [t for t in pr_['traits'] if t['score'] > 0][:6], 'weakest': [t for t in pr_['traits'][::-1] if t['score'] < 0][:6], 'pot': _cpool.totals(st_, await _pool_px())}
     if p.op == 'pool_fast':   # ⚡ burn points for time at the top cut. It lowers what it can ever earn, and takes nothing from anyone else
         try:
             out_ = _cpool.update(POOL_PATH, lambda st: _stake.buy_fast(st, cat_id, p.cap, time.time()))

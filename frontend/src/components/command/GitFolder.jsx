@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
 import { KitPick } from './KitPick';
+import { WeightBars } from './ProofKit';
 import { createPortal } from 'react-dom';
 import { ZoomPane } from './ZoomPane';
 import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
@@ -233,6 +234,7 @@ function ProofScore({ doc, ask, reload }) {
   const d = doc.data || {}; const [val, setVal] = useState(Number(d.score) || 0); const [why, setWhy] = useState(''); const [said, setSaid] = useState(null); const [err, setErr] = useState(''); const rows = said?.scored || d.scored || []; const now = said?.score ?? d.score; const usd = Number(d.usd) || 0; const x = Math.max(1, val / 100);
   const go = async () => { setErr(''); try { setSaid(await ask({ op: 'proof_score', job: doc.path, tools: { score: val, why: why.trim() } })); setWhy(''); reload?.(); } catch (e) { setErr(e.message); } };
   return <section className="gtr-score" data-testid="proof-score"><header><small>THE SCORE</small><b className="m-num" data-testid="proof-score-now">{now == null ? '—' : Math.round(now)}</b><span>${usd} sent · {Math.max(1, (now || 0) / 100).toFixed(2)}x · up to ${(usd * Math.max(1, (now || 0) / 100)).toFixed(2)}</span></header>
+    <WeightBars v={d.weights} testid="git-weights" />
     {rows.length ? <ol>{rows.map((r, i) => <li key={i}><b className="m-num">{Math.round(r.score)}</b><small>{r.by}</small>{r.why ? <em>{r.why}</em> : null}</li>)}</ol> : <small className="gtr-score-wait">OSSY and G4 read these first, as soon as they are idle.</small>}
     <div className="gtr-score-set"><Slider aria-label="Your score" minValue={0} maxValue={1000} step={5} value={val} onChange={v => setVal(Number(v))} className="gtr-grade-s" data-testid="proof-score-slide"><Slider.Track><Slider.Fill /><Slider.Thumb /></Slider.Track></Slider><b className="m-num">{val}</b><small className="m-num">{+x.toFixed(2)}x · up to ${(usd * x).toFixed(2)}</small><input className="m-input" value={why} onChange={e => setWhy(e.target.value)} maxLength={200} placeholder="Why, for its receipt" aria-label="Why this score" data-testid="proof-score-why" /><button type="button" className="m-btn m-go" onClick={go} data-tip="Today's top score still applies. This moves no money" data-testid="proof-score-set">Set the score</button></div>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</section>;
 }

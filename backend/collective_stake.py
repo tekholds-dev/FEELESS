@@ -24,11 +24,13 @@ def _f(v):
         return 0.0
 
 
-def grade_of(review, strength, top=GRADE_BASE):
-    """0 to today's top score, from the record: how many of the five checks passed, plus its print's real strength. Only all five and a full print reach the top. A held proof grades 0 until the owner clears it."""
+def grade_of(review, strength, top=GRADE_BASE, mech=None):
+    """0 to today's top score, from the record: how many of the five checks passed, then this proof's own weights (proof_weights), with its agent's print counting a little. Only all five, a full record and a full print reach the top. Without weights it falls back to the checks and the print."""
     seats = (review or {}).get('seats') or []
-    passed = sum(1 for s in seats if s.get('ok')) / max(1, len(seats))
-    return round(min(top, max(0.0, (passed * SEATS_PART + min(100.0, max(0.0, _f(strength))) / 100 * (1 - SEATS_PART)) * top)), 1)
+    passed = sum(1 for s in seats if s.get('ok')) / max(1, len(seats)); print_part = min(100.0, max(0.0, _f(strength))) / 100
+    if mech is not None:
+        return round(min(top, max(0.0, passed * (0.8 * max(0.0, min(1.0, _f(mech))) + 0.2 * print_part) * top)), 1)
+    return round(min(top, max(0.0, (passed * SEATS_PART + print_part * (1 - SEATS_PART)) * top)), 1)
 
 
 def x_of(grade):

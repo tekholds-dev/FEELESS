@@ -3,7 +3,7 @@ import { ProgressCircle, Slider } from '@heroui/react';
 import { motion } from 'motion/react';
 import { Check, CircleDashed, Layers3, ShieldCheck, Zap } from 'lucide-react';
 import { SendWarning, boostX, dayEarn, seatOf, tinyUsd, usePoolRates } from './KeepDeal';
-import { ProofSendForm, proofTitle } from './ProofKit';
+import { ProofSendForm, WeightBars, proofTitle } from './ProofKit';
 import { Ic3 } from '../../lib/icon3d';
 import { money } from './SplitFlow';
 import { Fx, Roll } from './CollectiveSetup';
@@ -43,7 +43,7 @@ const KIND_ICON = { PoW: '⛏', PoP: '🎯', PoB: '🏟', PoC: '💡', PoS: '�
 const KIND_LIST = [['PoW', 'powFolders', 'pow'], ['PoP', 'popFolders', 'pop'], ['PoB', 'pobFolders', 'pob'], ['PoC', 'pocFolders', 'poc'], ['PoS', 'psFolders', 'pos']];
 const PLAN_KEY = Object.fromEntries(KIND_LIST.map(k => [k[0], k[2]]));
 export const sendableProofs = d => KIND_LIST.flatMap(([kind, key]) => (d?.[key] || []).filter(f => f.id && !f.live).map(f => ({ kind, f }))).sort((a, b) => (Number(b.f.at) || 0) - (Number(a.f.at) || 0));
-const count = v => (Array.isArray(v) ? v.length : 0);
+const count = v => (Array.isArray(v) ? v.length : v && typeof v === 'object' ? Object.keys(v).length : 0);
 // What its own folder really holds for each step of the loop. Nothing here is a guess: no record, no number.
 const FOUND = {
   Research: f => { const shots = count(f.shots); const reads = count(f.reads) + count(f.sources); return shots || reads ? [shots ? `${shots} snapshot${shots === 1 ? '' : 's'}` : '', reads ? `${reads} source${reads === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') : ''; },
@@ -68,21 +68,21 @@ function SendPreview({ usd, rules, top, pot, testid = 'bof-preview' }) {
   const rates = usePoolRates(); const year = rates?.hotPct ?? null; const scores = [...new Set([100, Math.round(top * 0.6), top])];
   return <table className="bof-preview" data-testid={testid}><thead><tr><th>Score</th><th>Boost</th><th>Most it can earn</th><th>Seat</th><th data-tip={year == null ? 'Reading today\'s pool rate' : `Today's pot of ${money(pot)} at a hot deep pool's live rate of ${year}% a year. An example, not a promise`}>A day today</th></tr></thead><tbody>{scores.map(g => { const x = boostX(g); const seat = seatOf(rules, x, usd); return <tr key={g} data-testid={`${testid}-${g}`}><td className="m-num">{g}</td><td className="m-num">{+x.toFixed(2)}x</td><td className="m-num">{money(usd * x)}</td><td className="m-num">{seat.toFixed(2)}%</td><td className="m-num">{year == null ? '…' : tinyUsd(dayEarn(seat, pot, year))}</td></tr>; })}</tbody></table>;
 }
-function ProofDesk({ cat, work, pick, plans, send, rules, score, onSent }) {
+function ProofDesk({ cat, work, pick, plans, send, rules, score, weights, onSent }) {
   const [usd, setUsd] = useState(5); const top = score?.top || 300;
   if (!pick) return <section className="bof-card bof-desk" data-testid="bof-it"><p className="bof-note" data-testid="bof-it-none">No filed proof yet. Run any proof from its folder, and it shows up here ready to send.</p></section>;
   const { kind, f } = pick; const sent = f.sent || send; const plan = plans?.plans?.[PLAN_KEY[kind]];
   return <section className="bof-card bof-desk" data-testid="bof-it"><header className="bof-desk-h"><Ic3 e={KIND_ICON[kind]} size="26px" /><span><b>{proofTitle(f)}</b><small className="m-num">{plan?.code || kind}{plan?.what ? ` · ${plan.what}` : ''}</small></span>{send?.grade != null ? <em className="bof-score m-num" data-testid="bof-total-score" data-tip={`Its total score, out of ${top} today`}>{Math.round(send.grade)}<small>/{top}</small></em> : null}</header>
-    <div className="bof-desk-body"><ProofLoop kind={kind} f={f} plans={plans} />
+    <div className="bof-desk-body"><ProofLoop kind={kind} f={f} plans={plans} /><WeightBars v={weights?.[f.id]} testid="bof-weights" />
       {sent ? <div className="bof-after"><h4>SENT{send?.usd != null ? <span className="m-num"> {money(send.usd)} → {send.held ? '0' : money(send.usd * (send.x || 1))} limit</span> : null}{send?.sig ? <a href={`https://solscan.io/tx/${send.sig}`} target="_blank" rel="noopener noreferrer" data-tip="Its transaction on Solscan">Tx ↗</a> : null}</h4><Verdicts x={send || { id: f.id }} review={f.sent?.review || f.review} /></div>
         : <div className="bof-after"><h4>SEND IT</h4><ProofSendForm key={f.id} cat={cat} work={work} f={f} kind={kind} coin={false} rules={rules} onUsd={setUsd} onSent={onSent} /><SendPreview usd={Number(usd) || 0} rules={rules} top={top} pot={score?.potUsd || 0} /></div>}</div></section>;
 }
 const FILTERS = ['All', 'Ready', 'Sent'];
-function ProofRail({ rows, on, setOn, sendOf, sentNow }) {
+function ProofRail({ rows, on, setOn, sendOf, sentNow, weights }) {
   const [view, setView] = useState('All'); const isSent = x => !!(x.f.sent || sentNow[x.f.id] || sendOf(x)); const shown = rows.filter(x => view === 'All' || (view === 'Sent') === isSent(x));
   return <section className="bof-card bof-rail" data-testid="bof-rail"><header><h4>PROOFS</h4><small className="m-num">{rows.filter(x => !isSent(x)).length} ready</small></header>
     <span className="m-seg" role="group" aria-label="Which proofs">{FILTERS.map(k => <button key={k} type="button" className={view === k ? 'active' : ''} aria-pressed={view === k} onClick={() => setView(k)} data-testid={`bof-show-${k}`}>{k}</button>)}</span>
-    <ul className="bof-it-list" data-testid="bof-it-list">{shown.map(x => { const send = sendOf(x); return <li key={x.f.id}><button type="button" className={on === x.f.id ? 'is-on' : ''} aria-pressed={on === x.f.id} onClick={() => setOn(x.f.id)} data-tip={`Open this ${x.kind}`} data-testid={send?.id === x.f.id ? `bof-send-${send.id}` : `bof-it-${x.f.id}`}><Ic3 e={KIND_ICON[x.kind] || '🧾'} size="20px" /><span><b>{proofTitle(x.f)}</b><small className="m-num">{x.kind}{send ? ` · ${WORD(send)}${send.usd != null ? ` · ${money(send.usd)} → ${send.held ? '0' : money(send.usd * (send.x || 1))}` : ''}` : isSent(x) ? ' · Sent' : ''}</small></span></button></li>; })}{!shown.length ? <li className="bof-note">{rows.length ? `Nothing ${view.toLowerCase()} yet.` : 'No proofs yet.'}</li> : null}</ul></section>;
+    <ul className="bof-it-list" data-testid="bof-it-list">{shown.map(x => { const send = sendOf(x); return <li key={x.f.id}><button type="button" className={on === x.f.id ? 'is-on' : ''} aria-pressed={on === x.f.id} onClick={() => setOn(x.f.id)} data-tip={`Open this ${x.kind}`} data-testid={send?.id === x.f.id ? `bof-send-${send.id}` : `bof-it-${x.f.id}`}><Ic3 e={KIND_ICON[x.kind] || '🧾'} size="20px" /><span><b>{proofTitle(x.f)}</b><small className="m-num">{x.kind}{send ? ` · ${WORD(send)}${send.usd != null ? ` · ${money(send.usd)} → ${send.held ? '0' : money(send.usd * (send.x || 1))}` : ''}` : isSent(x) ? ' · Sent' : ''}</small></span>{weights?.[x.f.id] ? <b className={`pwb-rank is-${weights[x.f.id].rank}`} data-tip={`On its record: ${Math.round(weights[x.f.id].score)}`}>{weights[x.f.id].rank}</b> : null}</button></li>; })}{!shown.length ? <li className="bof-note">{rows.length ? `Nothing ${view.toLowerCase()} yet.` : 'No proofs yet.'}</li> : null}</ul></section>;
 }
 export function BoostFolder({ cat, work }) {
   const d0 = useAgentPool(cat, work); const [over, setOver] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [focus, setFocus] = useState(false); const [d, setD] = useState(null); const [on, setOn] = useState(null); const [sentNow, setSentNow] = useState({});
@@ -104,8 +104,8 @@ export function BoostFolder({ cat, work }) {
       <span className="bof-top" data-tip="How high a score can go today. A bigger pot raises it" data-testid="bof-top"><small>TOP SCORE</small><b className="m-num">{top}</b><em className="m-num">{next ? `${money(score?.potUsd || 0)} of ${money(next.pot)} for ${next.top}` : top >= 1000 ? 'At the top' : 'Reading the pot'}</em>{next ? <i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, (score?.potUsd || 0) / Math.max(1, next.pot)))})` }} /></i> : null}</span>
     </motion.section>
     <div className="bof-main">
-      <motion.div className="bof-col" {...rise(1)}><ProofRail rows={rows} on={pick?.f.id} setOn={setOn} sendOf={sendOf} sentNow={sentNow} /></motion.div>
-      <motion.div className="bof-col" {...rise(2)}><ProofDesk cat={cat} work={work} pick={pick} plans={d0.proofPlan} send={pick ? sendOf(pick) : null} rules={r} score={score} onSent={x => { if (pick) setSentNow(y => ({ ...y, [pick.f.id]: x })); }} /></motion.div>
+      <motion.div className="bof-col" {...rise(1)}><ProofRail rows={rows} on={pick?.f.id} setOn={setOn} sendOf={sendOf} sentNow={sentNow} weights={d0.weights} /></motion.div>
+      <motion.div className="bof-col" {...rise(2)}><ProofDesk cat={cat} work={work} pick={pick} plans={d0.proofPlan} send={pick ? sendOf(pick) : null} rules={r} score={score} weights={d0.weights} onSent={x => { if (pick) setSentNow(y => ({ ...y, [pick.f.id]: x })); }} /></motion.div>
       <motion.div className="bof-col bof-side" {...rise(3)}><FastCompound s={s} r={r} busy={busy} onBuy={buy} focus={focus} />
         <section className="bof-card bof-pools" data-testid="bof-pools"><header><Layers3 size={14} aria-hidden="true" /><h4>WHERE THE STAKE WORKS</h4><small className="m-num">{live.length} open</small></header>
           {live.length ? <ul>{live.map(p => <li key={p.id} data-testid={`bof-pool-${p.id}`}><b>{p.pair}</b><small>{p.platform}</small><em className="m-num" data-tip="Profit this pool has really paid">{money(p.profitUsd)}</em>{p.address ? <a href={`https://solscan.io/account/${p.address}`} target="_blank" rel="noopener noreferrer" data-tip="See the pool on Solscan">↗</a> : null}</li>)}</ul> : <p className="bof-note" data-testid="bof-no-pools">No pool is open yet. Until one is, there is no profit, and nothing pays.</p>}</section>
