@@ -3591,6 +3591,8 @@ def _read_start(cat, goal, who, kind=''):
         _work_start(cat['id'], cat, goal + _site_note(cat, kind), who if who in ('0', '1') else None, None, read_=True)
     except HTTPException as e:
         return str(e.detail)[:80]
+    if kind in ('pob', 'poc', 'pos'):   # the sources book + the PoW guide list coin sites (Birdeye, Jupiter, RugCheck): GLM followed them on a Knicks pick (2026-11-07)
+        _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
 
@@ -4415,6 +4417,7 @@ async def _pop_pass(store):
         _sicario_loop(store, time.time(), await _sicario_free(http_s, store))
         await _card_seat_fates(http_s, store, time.time())
     _ws_pass(store)
+    _talk_pass(store)
     _made_pass(store)
     await _site_pass(store)
     await _pob_pass(store)
@@ -5147,7 +5150,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     host_ = _src.host_of(h_.get('url') or win_.get('url'))
                     known_ = _src.walled_lately(_src_book(), host_)
                     _src_note(host_, False)
-                    h_['alts'] = _src.best(_src_book(), exclude=[host_]); win_['human'] = h_
+                    h_['alts'] = [h for h in w['task'].get('alsoHosts') or [] if h != host_][:6] if w['task'].get('notCoins') else _src.best(_src_book(), exclude=[host_]); win_['human'] = h_
                     if h_.get('kind') == 'challenge' and (known_ or host_ in (w['task'].get('wallWaits') or [])):   # 🚧 one 45 s window per wall: the other mind and later coins move on at once, and the gap is recorded
                         return False
                     w['task'].setdefault('wallWaits', []).append(host_)
@@ -6267,6 +6270,53 @@ async def _ws_ask(cat, model, sys_, user_, tokens):
 _WS_DONE: list = []   # 💻 finished builds, filed by the engine pass (the store's one writer) so a save running at the same moment cannot lose them
 
 
+TALK_KEEP = 24
+TALK_S = 90
+_TALK_RUN: set = set()   # held so a reply task is never garbage-collected mid-call
+_TALK_DONE: list = []   # 💬 replies are filed by the engine pass (the store's one writer)
+TALK_SYS = ("You are {name}, one of {cat}'s two trading minds on FEELESS, a Solana trading terminal. Your owner is talking with you in your chat. "
+            "Answer in your own voice, plainly, in at most 3 short sentences. Chat never places a trade: buys and sells only happen in your own calls. Your last calls: {calls}")
+
+
+def talk_targets(b, to):
+    """'0' / '1' / 'both' → the mind indexes that answer, only minds it really has. Pure."""
+    n = len(b.get('brains') or [])
+    want = [0, 1] if str(to or 'both') == 'both' else [int(to)] if str(to).isdigit() else []
+    return [i for i in want if i < n]
+
+
+def mind_name(b, i):
+    names = b.get('mindNames') or []
+    return str(names[i]) if i < len(names) and names[i] else str((b.get('brains') or [''] * (i + 1))[i]).split('/')[-1].split(':')[0][:20] or 'AB'[i]
+
+
+async def _talk_reply(cat, i, text):
+    b = cat.get('brainsCfg') or {}; model = b['brains'][i]; name = mind_name(b, i)
+    short = str(model).split('/')[-1].split(':')[0]
+    calls = '; '.join(f"{x.get('word')} ${x.get('sym')}" for x in (b.get('decisions') or []) if short in str(x.get('by') or ''))[-300:] or 'none yet'
+    own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    try:
+        out, usd, via = await asyncio.wait_for(_think(cat, model, [{'role': 'system', 'content': TALK_SYS.format(name=name, cat=cat.get('name') or 'its agent', calls=calls)},
+                                                               {'role': 'user', 'content': text}], own_, None, 260), TALK_S)
+    except Exception as e:   # noqa: BLE001 — a mind that does not answer says so in the chat
+        out, usd, via = '', 0.0, ''
+        print(f"[talk] {cat.get('id')} {name}: {str(e)[:100]}")
+    said = ' '.join(str(out or '').split())[:700]
+    _TALK_DONE.append({'cat': cat['id'], 'i': i, 'by': name, 'at': time.time(), 'usd': float(usd or 0) if not own_ and via == 'openrouter' else 0.0,
+                       'text': said or f"{name} did not answer — {'its machine looks off' if str(model).startswith('local/') else 'its model did not reply'}.", 'miss': not said})
+
+
+def _talk_pass(store):
+    while _TALK_DONE:
+        o = _TALK_DONE.pop(0); b_ = ((store['cats'].get(o['cat']) or {}).get('brainsCfg'))
+        if not b_:
+            continue
+        if o['usd']:
+            _lc.charge(b_, o['usd'])
+        b_['talk'] = ((b_.get('talk') or []) + [{k: o[k] for k in ('i', 'by', 'at', 'text', 'miss')}])[-TALK_KEEP:]
+        b_['talkWait'] = [x for x in b_.get('talkWait') or [] if x != o['i']]
+
+
 def _ws_pass(store):
     while _WS_DONE:
         o = _WS_DONE.pop(0); c_ = store['cats'].get(o['cat'])
@@ -6769,6 +6819,63 @@ def _atoms_public(store, pool_ids, now):
                     rank = None
                 rows.append({'id': hashlib.sha256(f"atom:{cid}:{f['id']}".encode()).hexdigest()[:14], 'kind': {'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'pos': 'PoStatic'}.get(_weights.kind_of(k) or str(k), 'Proof'), 'rank': rank, 'result': result, 'age': max(0, int((now - at) // 86400)) if at else 0, 'active': bool(working or f['id'] in pool_ids or (at and now - at < ATOM_ACTIVE_S))})
     return rows[-400:]
+
+
+def _short_model(m):
+    return str(m or '').split('/')[-1].split(':')[0].lower()
+
+
+def model_prints(store):
+    """🧬 Every model our agents really used, scored from its own record (owner 2026-11-07: "every ai model used gets a fingerprint score").
+    Work = proofs it called + trading calls; hit = graded right vs wrong (+1/+2 smoothing, so one lucky proof is not 100); breadth = kinds it has done.
+    A PoW / PoStatic names its seat, not its model: the seat's model is the agent's current one. → [{id, name, score, n, right, wrong, kinds}] best first. Pure."""
+    rows = {}; every = {_short_model(m): m for c in (store.get('cats') or {}).values() for m in (c.get('brainsCfg') or {}).get('brains') or []}
+    def add(full, kind, graded=None):
+        full = every.get(_short_model(full), full)
+        key = _short_model(full)
+        if not key:
+            return
+        r = rows.setdefault(key, {'id': full, 'name': key, 'n': 0, 'right': 0, 'wrong': 0, 'kinds': set()})
+        if '/' in str(full) and '/' not in str(r['id']):
+            r['id'] = full
+        r['n'] += 1; r['kinds'].add(kind); r['right'] += graded == 'right'; r['wrong'] += graded == 'wrong'
+    for c in (store.get('cats') or {}).values():
+        brains = list((c.get('brainsCfg') or {}).get('brains') or []); full = {_short_model(m): m for m in brains}
+        seat = lambda i: brains[i] if 0 <= i < len(brains) else None   # noqa: E731
+        for k, key in _PROOF_KEYS.items():
+            for f in c.get(key) or []:
+                if not isinstance(f, dict):
+                    continue
+                g = f.get('graded') or ('right' if _num(f.get('pnlPct') or 0) > 0 else 'wrong' if _num(f.get('pnlPct') or 0) < 0 else None)
+                if f.get('calls'):
+                    for x in f['calls']:
+                        if isinstance(x, dict) and x.get('name'):
+                            add(seat(int(x.get('mind') or 0)) if str(x['name']).startswith('Mind ') else full.get(_short_model(x['name']), x['name']), k, g)
+                elif k == 'pos' and str(f.get('by') or '').startswith('Mind'):
+                    add(seat('AB'.find(str(f['by'])[-1])), k, g)
+                elif k == 'pow':
+                    for i in (f.get('picks') or {}):
+                        add(seat(int(i)) if str(i).isdigit() else None, k, g)
+        for d in (c.get('brainsCfg') or {}).get('decisions') or []:
+            if isinstance(d, dict) and d.get('by') and d.get('word') not in ('RULES', None):
+                add(full.get(_short_model(d['by']), d['by']), 'trade')
+    out = []
+    for r in rows.values():
+        hit = (r['right'] + 1) / (r['right'] + r['wrong'] + 2)
+        out.append({**r, 'kinds': sorted(r['kinds']), 'score': round(100 * (0.45 * hit + 0.30 * min(1, r['n'] / 25) + 0.25 * len(r['kinds']) / 6))})
+    return sorted(out, key=lambda x: -x['score'])[:40]
+
+
+_PRINTS = {'at': 0.0, 'rows': []}
+
+
+@app.get('/api/cats/models/prints')
+async def cat_model_prints():
+    """🧬 The models our agents used, each with its fingerprint score. Only the model picker shows it."""
+    now = time.time()
+    if now - _PRINTS['at'] > ATOMS_FRESH_S:
+        _PRINTS['rows'] = await asyncio.to_thread(model_prints, _load()); _PRINTS['at'] = now
+    return {'models': _PRINTS['rows']}
 
 
 @app.get('/api/cats/collective/atoms')
@@ -9434,6 +9541,7 @@ class ActionPayload(BaseModel):
     allowlist: Optional[str] = None
     blocklist: Optional[str] = None
     text: Optional[str] = None
+    to: Any = None                     # 💬 talk: '0' · '1' · 'both' — which of its minds answers
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
     limits: Optional[dict] = None      # 🎚 controls: a general agent's spend limits (clean_limits)
     earn: Optional[dict] = None        # ⚡ Earn Mode: {on, risk, budgetUsd}
@@ -9752,6 +9860,23 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
             raise HTTPException(400, str(e))
+    elif payload.action == 'talk':   # 💬 the owner talks with one mind or both: each picked mind answers in its own bubble (owner 2026-11-07: "dont have option for which")
+        b_ = cat.get('brainsCfg')
+        if not b_:
+            raise HTTPException(400, 'This Agent has no AI brain.')
+        who_ = talk_targets(b_, payload.to)
+        if not who_:
+            raise HTTPException(400, 'Pick a mind it has.')
+        if b_.get('talkWait') and time.time() - float(b_.get('talkAt') or 0) < TALK_S + 30:   # a restart mid-reply never locks the chat
+            raise HTTPException(409, 'Still answering your last message.')
+        try:
+            _lc.chime(b_, payload.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        b_['chime'][-1]['to'] = 'both' if len(who_) > 1 else str(who_[0])
+        b_['talkWait'] = who_; b_['talkAt'] = time.time()
+        for i_ in who_:
+            t_ = asyncio.create_task(_talk_reply(json.loads(json.dumps(cat)), i_, b_['chime'][-1]['text'])); _TALK_RUN.add(t_); t_.add_done_callback(_TALK_RUN.discard)
     elif payload.action == 'look':   # 🎨 the creator restyles Fee (a signed owner wallet only — fee_owner_real; a user's cat look lives in Build a cat)
         if not cat.get('isLeader') or not fee_owner_real(cat, 'look', signed):
             raise HTTPException(403, "Only FEELESS's creator wallet styles Fee — sign in with it.")

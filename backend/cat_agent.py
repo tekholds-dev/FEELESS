@@ -593,7 +593,8 @@ async def _divert(task, w, page, wait_human=None):
         return await _pow_advance(w, pw, page, wait_human)
     been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
     own = [f'https://{h}' for h in task.get('alsoHosts') or [] if '.' in str(h)]   # the job's own sources first: a game pick goes to another sports site, never a coin checker
-    pool = [u for u in list(task.get('alts') or []) + own + ([] if task.get('notCoins') else list(DIVERT)) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]
+    # the general source book (alts) carries coin sites too (Birdeye moved a Knicks pick, 2026-11-07): a game / idea job uses its own list only
+    pool = [u for u in (own if task.get('notCoins') else list(task.get('alts') or []) + own + list(DIVERT)) if _pow.host_of(u) not in been and (_on_list(task, u) if task.get('research') else True)]
     u = pool[0] if pool else SEARCH_URL + quote_plus(f"{str(w.get('goal') or '')[:70]} {len(w.get('steps') or [])}")
     try:
         got = await page.goto(u)

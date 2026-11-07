@@ -77,10 +77,11 @@ export function mindStats(cat, model) {
     last: mine[mine.length - 1] || null, spark: mine.slice(-12).map(x => WORD_TONE[x.word] || 'mute') };
 }
 
-export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, hot }) {
+export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, hot, onOpen }) {
   const s = useMemo(() => mindStats(cat, model), [cat, model]); const m = asModel(model);
   const busy = hot ?? (!!live && !!s.last && Date.now() / 1000 - (s.last.at || 0) < 90);   // a trader thought in the last 90 s → its bubble spins hard
-  return <aside className={`ck-vitals m${i}${model ? '' : ' is-empty'}`} data-testid={`ck-vitals-${i}`}>
+  const open = onOpen ? { role: 'button', tabIndex: 0, onClick: onOpen, onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }, 'data-tip': 'Open its Brains folder: both minds, their stats, change a model' } : {};   // 🧠 owner 2026-11-07
+  return <aside className={`ck-vitals m${i}${model ? '' : ' is-empty'}${onOpen ? ' is-link' : ''}`} data-testid={`ck-vitals-${i}`} {...open}>
     <span className="ck-v-head"><Bubble m={m} i={i} kind={kind} thoughts={s.last ? [`${s.last.word} $${s.last.sym}`] : undefined} size={52} live={!!live && !!model} hot={busy} />
       <span><em>{kind === 'general' ? 'MIND' : 'BRAIN'} {'AB'[i]}</em><b>{m?.name || (i ? 'no second model' : 'its model')}</b></span></span>
     {extra || <>
@@ -109,25 +110,34 @@ export function PowCard({ p, compact = false }) {
   </div>;
 }
 
-// pure: a trading cat's conversation — each brain's calls as its own bubble (A left · B right), your chime-ins on the right
+// pure: a trading cat's conversation — each brain's calls and replies as its own bubble (A left · B right), you on the right
+export const talkWait = b => (Date.now() / 1000 - Number(b?.talkAt || 0) < 120 ? b?.talkWait || [] : []);   // a restart mid-reply never locks the chat
+export const mindNames = cat => { const b = cat?.brainsCfg || {}; return (b.brains || []).slice(0, 2).map((m, i) => (b.mindNames || [])[i] || String(m).split('/').pop().split(':')[0]); };
 export function tradeChat(cat) {
-  const b = cat?.brainsCfg || {}; const brains = (b.brains || []).map(x => String(x).split('/').pop().split(':')[0]);
+  const b = cat?.brainsCfg || {}; const brains = (b.brains || []).map(x => String(x).split('/').pop().split(':')[0]); const names = mindNames(cat);
   const calls = (b.decisions || []).slice(-24).map(x => ({ at: x.at, side: brains.findIndex(n => String(x.by || '').includes(n)) === 1 ? 'b' : 'a', who: x.by, word: x.word, sym: x.sym, text: x.why }));
-  const you = (b.chime || []).slice(-8).map(x => ({ at: x.at, side: 'you', who: 'You', text: x.text }));
-  return [...calls, ...you].sort((p, q) => (p.at || 0) - (q.at || 0)).slice(-24);
+  const said = (b.talk || []).map(x => ({ at: x.at, side: x.i === 1 ? 'b' : 'a', who: x.by, text: x.text, miss: x.miss }));
+  const you = (b.chime || []).slice(-8).map(x => ({ at: x.at, side: 'you', who: x.to == null ? 'You' : `You → ${x.to === 'both' ? 'both' : names[Number(x.to)] || 'AB'[Number(x.to)]}`, text: x.text }));
+  const wait = talkWait(b).map(i => ({ at: 0, side: i === 1 ? 'b' : 'a', who: names[i] || 'AB'[i], wait: true }));
+  return [...calls, ...said, ...you].sort((p, q) => (p.at || 0) - (q.at || 0)).slice(-24).concat(wait);
 }
 
 export function TradeChat({ cat, onSend, busy }) {
   const rows = useMemo(() => tradeChat(cat), [cat]); const [t, setT] = useState(''); const box = useRef(null);
-  const [unseen, toBottom] = useStickToBottom(box, Number(rows[rows.length - 1]?.at || 0) + rows.length);   // 💬 the newest call in view; scrolled up → the ↓ arrow counts what arrived
+  const names = mindNames(cat); const [to, setTo] = useState('both'); const waiting = talkWait(cat?.brainsCfg).length > 0;
+  const pick = names.length > 1 ? [['0', names[0]], ['both', 'Both'], ['1', names[1]]] : names.length ? [['0', names[0]]] : [];
+  const live = pick.some(([k]) => k === to) ? to : pick[0]?.[0];
+  const [unseen, toBottom] = useStickToBottom(box, Number(rows.filter(r => !r.wait).at(-1)?.at || 0) + rows.length);   // 💬 the newest call in view; scrolled up → the ↓ arrow counts what arrived
   return <div className="ck-chat" data-testid="ck-chat">
-    <ol ref={box} className="ck-msgs" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.at}-${i}`} className={`ck-msg is-${r.side}`} style={{ '--i': Math.min(i, 8) }}>
+    <ol ref={box} className="ck-msgs" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.at}-${r.side}-${i}`} className={`ck-msg is-${r.side}${r.wait ? ' is-typing' : ''}`} style={{ '--i': Math.min(i, 8) }}>
       <span className="ck-msg-h"><b>{r.who}</b>{r.word ? <em className={`is-${WORD_TONE[r.word] || 'mute'}`}>{r.word}{r.sym ? ` $${r.sym}` : ''}</em> : null}<small>{r.at ? `${ago(r.at)}` : ''}</small></span>
-      {r.text ? <p>{r.text}</p> : null}</li>) : <li className="ck-empty">Its first call lands here — both brains talk in bubbles, you chime in below.</li>}</ol>
+      {r.wait ? <p aria-label="thinking"><i /><i /><i /></p> : r.text ? <p className={r.miss ? 'is-miss' : undefined}>{r.text}</p> : null}</li>) : <li className="ck-empty">Talk to {names.join(' or ') || 'its minds'} below — each answers in its own bubble. Their calls land here too.</li>}</ol>
     {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest call" data-testid="ck-newmsg">↓ {unseen} new</button> : null}
-    {onSend ? <ChatComposer onSubmit={async e => { e.preventDefault(); if (t.trim()) { toBottom(); if (await onSend?.(t.trim())) setT(''); } }}
-      field={<ChatInput maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder="Chime in — advice both brains read, never an order" data-testid="ck-chime" />}
-      action={<ChatSend isDisabled={busy || !t.trim()} />} /> : null}
+    {onSend ? <>{pick.length > 1 ? <div className="m-seg ck-to" role="radiogroup" aria-label="Who answers">{pick.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={live === k} className={live === k ? 'is-on' : ''}
+        onClick={() => setTo(k)} data-tip={k === 'both' ? 'Both minds answer, each in its own bubble' : `Only ${l} answers`} data-testid={`ck-to-${k}`}>{l}</button>)}</div> : null}
+      <ChatComposer onSubmit={async e => { e.preventDefault(); if (t.trim()) { toBottom(); if (await onSend?.(t.trim(), live)) setT(''); } }}
+      field={<ChatInput maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder={`Talk to ${live === 'both' ? 'both minds' : names[Number(live)] || 'its mind'} — chat never places a trade`} data-testid="ck-chime" />}
+      action={<ChatSend isDisabled={busy || waiting || !t.trim()} />} /></> : null}
   </div>;
 }
 

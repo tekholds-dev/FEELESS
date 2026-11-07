@@ -111,6 +111,7 @@ def test_a_named_sport_only_gets_that_sport(monkeypatch):
     assert asyncio.run(t.best_topic(None, 'best NBA picks tonight')) == ''
     assert 'nfl a' in asyncio.run(t.best_topic(None, 'best NFL picks')) and 'nfl a' in asyncio.run(t.best_topic(None))
     assert t.sport_named('banff') is None and t.sport_named('best nba picks') == 'nba'
+    assert t.sport_named('Knicks vs Cavaliers') == 'nba' and t.sport_named('Rangers vs Kraken') == 'nhl' and t.sport_named('Chiefs vs Jets') == 'nfl'
 
 
 def test_go_is_an_answer_not_part_of_the_topic():

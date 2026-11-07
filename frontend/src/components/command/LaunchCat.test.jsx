@@ -163,3 +163,14 @@ test('🪟 the model pop-out shows the FULL smart list and hands back the picked
   expect(got).toEqual(['x/big']); expect(closed).toHaveBeenCalled();
   act(() => root.unmount()); el.remove();
 });
+
+
+test('🧬 the model picker shows each used model as a fingerprint with its score, and a tap picks it', async () => {
+  const { ModelPrints } = require('./LaunchCat'); const got = [];
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ models: [{ id: 'z-ai/glm-5.3-flash', name: 'glm-5.3-flash', n: 50, right: 18, wrong: 8, kinds: ['pob', 'pow'], score: 81 }] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ModelPrints onPick={m => got.push(m.id)} />); }); await act(async () => { await Promise.resolve(); });
+  const b = el.querySelector('[data-testid="model-print-0"]'); expect(b.textContent).toContain('81'); expect(b.textContent).toContain('69% right'); expect(b.querySelector('svg')).not.toBeNull();
+  await act(async () => { b.click(); }); expect(got).toEqual(['z-ai/glm-5.3-flash']);
+  await act(async () => { root.unmount(); }); el.remove();
+});

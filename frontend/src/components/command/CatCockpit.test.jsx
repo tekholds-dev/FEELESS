@@ -31,8 +31,21 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   expect(el.textContent).toContain('BRAIN A'); expect(el.querySelectorAll('.ck-msg')).toHaveLength(3);
   await act(async () => { const i = el.querySelector('[data-testid="ck-chime"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'hold longer'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
-  expect(send).toHaveBeenCalledWith('hold longer');
+  expect(send).toHaveBeenCalledWith('hold longer', 'both');
+  await act(async () => { el.querySelector('[data-testid="ck-to-1"]').click(); });   // 💬 talk to G4 only
+  await act(async () => { const i = el.querySelector('[data-testid="ck-chime"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'hold longer'); i.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(el.querySelector('[data-testid="ck-chime"]').placeholder).toContain('Talk to g4');
+  await act(async () => { el.querySelector('.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(send).toHaveBeenLastCalledWith('hold longer', '1');
   localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'globe', acc: '#b388ff' });
+});
+
+test('💬 what each mind said back shows on its own side, and its dots while it answers', async () => {
+  const cat = { brainsCfg: { brains: ['local/ossy', 'local/g4'], mindNames: ['OSSY', 'G4'], chime: [{ at: 1, text: 'wassup family?', to: '1' }], talk: [{ i: 1, by: 'G4', at: 2, text: 'Watching two coins.' }], talkWait: [0], talkAt: Date.now() / 1000 } };
+  const rows = tradeChat(cat); expect(rows.map(r => [r.side, r.who])).toEqual([['you', 'You → G4'], ['b', 'G4'], ['a', 'OSSY']]);
+  expect(tradeChat({ brainsCfg: { ...cat.brainsCfg, talkAt: 1 } }).some(r => r.wait)).toBe(false);   // a stale wait never locks the chat
+  const el = await mount(<TradeChat cat={cat} onSend={jest.fn()} />);
+  expect(el.querySelector('.ck-msg.is-typing').textContent).toContain('OSSY'); expect(el.querySelector('[data-testid="ck-to-0"]').textContent).toBe('OSSY');
 });
 
 test('🔐 the one-time safe-keeping box shows right AFTER the first funding lands (owner 2026-10-30) — funding itself is never blocked', async () => {

@@ -37,7 +37,7 @@ _SOURCES = (
     (r'\b(nfl|football|super bowl|cfb|ncaa|bills|dolphins|patriots|jets|ravens|bengals|browns|steelers|texans|colts|jaguars|titans|broncos|chiefs|raiders|chargers|cowboys|giants|eagles|commanders|bears|lions|packers|vikings|falcons|panthers|saints|buccaneers|bucs|cardinals|rams|49ers|niners|seahawks)\b', ['espn.com', 'nfl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
     (r'\b(nba|basketball|hawks|celtics|nets|hornets|bulls|cavaliers|cavs|mavericks|mavs|nuggets|pistons|warriors|rockets|pacers|clippers|lakers|grizzlies|heat|bucks|timberwolves|wolves|pelicans|knicks|thunder|magic|76ers|sixers|suns|trail blazers|blazers|kings|spurs|raptors|jazz|wizards)\b', ['espn.com', 'nba.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
     (r'\b(mlb|baseball|yankees|red sox|blue jays|orioles|rays|guardians|white sox|tigers|royals|twins|astros|mariners|athletics|rangers|angels|braves|marlins|mets|phillies|nationals|brewers|cubs|reds|pirates|dodgers|padres|diamondbacks|rockies)\b', ['espn.com', 'mlb.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
-    (r'\b(nhl|hockey|bruins|sabres|red wings|canadiens|senators|maple leafs|hurricanes|blue jackets|devils|islanders|flyers|penguins|capitals|blackhawks|avalanche|stars|wild|predators|blues|ducks|flames|oilers|canucks|golden knights|sharks|kraken|lightning)\b', ['espn.com', 'nhl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
+    (r'\b(nhl|hockey|bruins|sabres|red wings|canadiens|senators|maple leafs|hurricanes|blue jackets|devils|islanders|flyers|penguins|capitals|blackhawks|avalanche|stars|wild|predators|blues|ducks|flames|oilers|canucks|golden knights|sharks|kraken|lightning|rangers|panthers|jets|kings|utah|mammoth)\b', ['espn.com', 'nhl.com', 'cbssports.com', 'actionnetwork.com', 'covers.com', 'oddsshark.com', 'rotowire.com', 'vegasinsider.com', 'teamrankings.com', 'foxsports.com', 'sports.yahoo.com', 'bleacherreport.com', 'theathletic.com']),
     (r'\b(soccer|premier league|champions league|mls|la liga)\b', ['espn.com', 'bbc.com', 'fbref.com', 'covers.com', 'whoscored.com', 'sofascore.com', 'theguardian.com', 'understat.com']),
     (r'\b(ufc|mma|boxing)\b', ['espn.com', 'ufc.com', 'cbssports.com', 'covers.com', 'tapology.com', 'sherdog.com', 'mmafighting.com', 'bestfightodds.com']),
     (r'\b(tennis|golf|pga|atp|wta)\b', ['espn.com', 'cbssports.com', 'covers.com', 'bbc.com', 'atptour.com', 'pgatour.com', 'tennisabstract.com', 'datagolf.com']),
@@ -77,6 +77,17 @@ def topic_of(text):
     if m and m.group(1).lower() not in ('a', 'an', 'the', 'pob', 'bid', 'new', 'free', 'real'):
         return re.sub(r'\s+', ' ', m.group(1)).strip()
     return None
+
+
+LEAGUES = ('nfl', 'nba', 'mlb', 'nhl', 'epl')   # the first five _SOURCES rows, in order
+
+
+def league_of(topic):
+    """"Knicks vs Cavaliers" → 'nba': the league its team names belong to, or None. Pure."""
+    t = str(topic or '').lower()
+    hits = [(len(re.findall(rx, t)), -i, k) for i, ((rx, _), k) in enumerate(zip(_SOURCES, LEAGUES))]   # most team names wins: Rangers alone is MLB or NHL, Kraken settles it
+    n, _i, k = max(hits)
+    return k if n else None
 
 
 def sites_for(topic):

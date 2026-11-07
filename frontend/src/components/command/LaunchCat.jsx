@@ -13,6 +13,8 @@ import { thumbOf } from '../../lib/wireface';
 import { FeeCatMark } from '../FeeCatMark';
 import '../../styles/launchCat.css';
 import { Ic3 } from '../../lib/icon3d';
+import { apiUrl } from '../../lib/api';
+import { FolderRidge } from './ProofKit';
 
 // 🚀 LAUNCH An AGENT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
@@ -251,12 +253,27 @@ export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
 }
 
 // 🪟 the model list as a POP-OUT (owner 2026-10-30: "a popout of the full list, not a dropdown") — Fee's models and every agent's model switch
+// 🧬 every model our agents really used, as a fingerprint with its score — only here, where a model is changed (owner 2026-11-07)
+const KIND_WORD = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic', trade: 'Trades' };
+export function ModelPrints({ onPick, picked = [] }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl('/api/cats/models/prints')).then(r => (r.ok ? r.json() : null)).then(x => on && setRows(x?.models || [])).catch(() => on && setRows([])); return () => { on = false; }; }, []);
+  if (!rows?.length) return null;
+  return <section className="lct-prints" aria-label="How each model did for our agents" data-testid="model-prints"><small>OUR AGENTS' RECORD · score from proofs they really filed</small>
+    <div className="lct-prints-row">{rows.slice(0, 8).map((m, i) => { const on = picked.some(p => p.id === m.id); const graded = m.right + m.wrong;
+      return <button key={m.id} type="button" className={`lct-print${on ? ' is-on' : ''}`} style={{ '--i': i, '--s': m.score / 100 }} onClick={() => onPick?.(m)} data-testid={`model-print-${i}`}
+        data-tip={`${m.n} calls · ${graded ? `${m.right} right, ${m.wrong} wrong` : 'nothing graded yet'} · ${m.kinds.map(k => KIND_WORD[k] || k).join(', ')}. Tap to pick it`}>
+        <span className="lct-print-ring"><FolderRidge fid={`model:${m.id}`} size={46} /><b className="m-num">{m.score}</b></span>
+        <span className="lct-print-t"><b>{m.name}</b><em>{m.n} calls{graded ? ` · ${Math.round((100 * m.right) / graded)}% right` : ''}</em><i aria-hidden="true"><u /></i></span></button>; })}</div></section>;
+}
+
 export function ModelPop({ d, title, kind = 'trading', picked = [], onPick, onClose }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(<div className="lct-pop" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.target === e.currentTarget && onClose()} data-testid="model-pop">
     <section className={`lct is-${kind} lct-pop-card m-pop`}>
       <header className="lct-pop-head"><b>{title}</b><small>pick a smart, cheap one — sort by Cheapest or set a max $</small>
         <button type="button" className="m-btn" onClick={onClose} data-testid="model-pop-close" aria-label="Close the model list">✕</button></header>
+      <ModelPrints picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
       <ModelBrowser d={d} kind={kind} picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
     </section></div>, document.body);
 }

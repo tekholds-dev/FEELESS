@@ -230,12 +230,18 @@ export function useDrop(w) {
 
 // 🖍 What it boxed on the page runs down a wire to the bottom of its monitor, and what it got sits there for a few seconds (owner 2026-11-07).
 const FIND_MS = 7000;
+// the wire shows for 7 s with a slim tray on the monitor: the last 3 finds, newest bright (owner 2026-11-07: "smaller for if they grab multiple info")
+function useFinds(m) {
+  const [wire, setWire] = useState(null); const [list, setList] = useState([]);
+  useEffect(() => { if (!m?.at || !(m.pts || []).length) return undefined; setWire(m); setList(l => [m, ...l.filter(x => x.at !== m.at)].slice(0, 3));
+    const t = setTimeout(() => setWire(x => (x === m ? null : x)), FIND_MS); return () => clearTimeout(t); }, [m?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return [wire, list];
+}
 export function FindWires({ m }) {
-  const [on, setOn] = useState(null);
-  useEffect(() => { if (!m?.at || !(m.pts || []).length) return undefined; setOn(m); const t = setTimeout(() => setOn(x => (x === m ? null : x)), FIND_MS); return () => clearTimeout(t); }, [m?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const [on, list] = useFinds(m);
   if (!on) return null; const pts = on.pts.slice(0, 8); const slot = i => 8 + (84 * (i + 0.5)) / pts.length;
-  return <div className={`cwb-find${on.hunt ? ' is-hunt' : ''}`} key={on.at} data-testid="cwb-find" aria-live="off"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{pts.map(([x, y], i) => <path key={i} d={`M ${x * 100} ${y * 100} C ${x * 100} ${(y * 100 + 88) / 2}, ${slot(i)} ${(y * 100 + 88) / 2}, ${slot(i)} 88`} pathLength="1" style={{ '--i': i }} />)}</svg>
-    <div className="cwb-find-tray"><small>{on.hunt ? 'LOOKING FOR' : 'FOUND'} ON {String(on.site || 'THIS PAGE').toUpperCase()}</small><span>{(on.got || []).map((g, i) => <b key={`${g}${i}`} style={{ '--i': i }}>{g}</b>)}</span></div></div>;
+  return <div className={`cwb-find${on.hunt ? ' is-hunt' : ''}`} key={on.at} data-testid="cwb-find" aria-live="off"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{pts.map(([x, y], i) => <path key={i} d={`M ${x * 100} ${y * 100} C ${x * 100} ${(y * 100 + 88) / 2}, ${slot(i)} ${(y * 100 + 88) / 2}, ${slot(i)} 88`} pathLength="1" style={{ '--i': i }} />)}</svg><ul className="cwb-find-tray" aria-label="What it read on each page" data-testid="cwb-find-tray">{list.map((f, j) => <li key={f.at} className={`${f.hunt ? 'is-hunt' : ''}${j ? '' : ' is-new'}`} style={{ '--i': j }}>
+    <small>{f.hunt ? 'LOOKING' : 'FOUND'} · {String(f.site || 'page').replace(/^www\./, '')}</small><span>{(f.got || []).slice(0, 4).map((g, i) => <b key={`${g}${i}`} style={{ '--i': i }}>{g}</b>)}</span></li>)}</ul></div>;
 }
 
 // ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
@@ -315,6 +321,8 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
   const [lastBad, setLastBad] = useState(false); useEffect(() => setLastBad(false), [w?.status]);
   const coinSym = String(w?.coin?.symbol || '').slice(0, 12);   // a spam token's 'symbol' can be 60 joined tickers — it once blew the whole desk apart
+  // 🟢 what it is doing now sits UNDER its monitor, never over the page (owner 2026-11-07)
+  const say = w?.bubble && w?.status !== 'idle' && !(w?.status === 'human' && w?.human) && !roundOver ? <p className={`agd-done is-on cwb-say is-under at-${sl % 2 ? 'right' : 'left'}`} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null;
   return <article ref={ref} className={`agd-win cwb-win w${sl % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
     <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[sl] || sl + 1}</b>
       <small data-tip={roundOver ? undefined : w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal && !roundOver ? ` · ${w.goal}` : ''}</small>
@@ -343,8 +351,9 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
       {typeBar ? createPortal(<div className="cwb-fill-float" data-testid="cwb-fill-float">{typeBar}</div>, document.body) : null}
       <div className={`cwb-dock at-${sl % 2 ? 'right' : 'left'}`}><Turns items={[folder?.entry && HELD_PHASES.includes(folder.phase) && !roundOver ? <PowPnl key="trade" f={folder} /> : null,
         tray.length ? <ul key="tray" className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true"><Ic3 e={t.icon} /></i>{t.label}</li>)}</ul> : null,
-        w?.bubble && w?.status !== 'idle' && !human && !roundOver ? <p key="say" className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null]} /></div>
+        ]} /></div>
     </div></div>
+      {say}
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b><Ic3 e="🔑" /> {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
@@ -622,7 +631,8 @@ function PublicMinds({ cat }) {
             : <><span className="cwb-pub-host" key={w.host}>{w.frozen ? '🔒 paused' : d?.incognito ? '🕶 incognito' : w.host || (go ? 'thinking…' : 'idle')}</span>
               <small className="cwb-pub-note">{w.frozen ? 'its owner is signing in — this window is hidden until they finish' : d?.incognito ? 'its owner keeps these screens private' : go ? 'reading…' : "waiting for its owner's ask"}</small></>}
             {w.frozen || d?.incognito ? null : <AiCursor c={w.cursor} kind={readCursor()} />}
-            {go && !w.frozen ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}</div></div>
+</div></div>
+        {go && !w.frozen ? <p className={`agd-done is-on cwb-say is-under at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}
       </article>; })}</div>
     <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>
     <VisitorProofs catId={cat.id} seen={seen} />

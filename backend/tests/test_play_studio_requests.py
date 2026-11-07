@@ -331,9 +331,26 @@ def test_a_window_that_repeats_on_a_game_goes_to_another_sports_site_never_a_coi
         async def goto(self, u):
             self.url = u; return 'page'
     w = {'i': 0, 'steps': [{'detail': 'https://espn.com/nba'}], 'goal': 'Rangers vs Kraken'}
-    asyncio.run(ca._divert({'research': True, 'notCoins': True, 'alsoHosts': ['espn.com', 'theathletic.com', 'oddsshark.com']}, w, Page()))
-    assert w['url'] == 'https://theathletic.com'
+    asyncio.run(ca._divert({'research': True, 'notCoins': True, 'alts': ['https://birdeye.so'], 'alsoHosts': ['espn.com', 'theathletic.com', 'oddsshark.com']}, w, Page()))
+    assert w['url'] == 'https://theathletic.com'   # the general source book (Birdeye) never takes a game pick
     w2 = {'i': 0, 'steps': [{'detail': x} for x in ('https://espn.com', 'https://theathletic.com', 'https://oddsshark.com')], 'goal': 'g'}
     asyncio.run(ca._divert({'research': True, 'notCoins': True, 'alsoHosts': ['espn.com', 'theathletic.com', 'oddsshark.com']}, w2, Page()))
     assert 'rugcheck' not in w2['url'] and 'jup.ag' not in w2['url'] and 'dexscreener' not in w2['url']
 
+
+
+def test_every_model_used_gets_a_fingerprint_score_from_its_own_record():
+    import feecat_service as fs
+    store = {'cats': {'a': {'brainsCfg': {'brains': ['z-ai/glm-5.3-flash', 'openai/gpt-6.1-terra'], 'decisions': [{'by': 'glm-5.3-flash', 'word': 'BUY'}]},
+                            'pobFolders': [{'id': 'p1', 'graded': 'right', 'calls': [{'mind': 0, 'name': 'glm-5.3-flash'}, {'mind': 1, 'name': 'Mind B'}]}],
+                            'psFolders': [{'id': 's1', 'by': 'Mind A', 'graded': 'wrong'}]}}}
+    rows = {r['id']: r for r in fs.model_prints(store)}
+    assert set(rows) == {'z-ai/glm-5.3-flash', 'openai/gpt-6.1-terra'}   # "Mind B" is its seat's model, never a model of its own
+    g = rows['z-ai/glm-5.3-flash']; assert g['n'] == 3 and g['right'] == 1 and g['wrong'] == 1 and g['kinds'] == ['pob', 'pos', 'trade']
+    assert 0 < rows['openai/gpt-6.1-terra']['score'] < g['score'] <= 100
+
+
+def test_talking_picks_which_mind_answers():
+    import feecat_service as fs
+    b = {'brains': ['local/ossy', 'local/g4'], 'mindNames': ['OSSY', 'G4']}
+    assert fs.talk_targets(b, 'both') == [0, 1] and fs.talk_targets(b, '1') == [1] and fs.talk_targets({'brains': ['x']}, '1') == [] and fs.mind_name(b, 1) == 'G4'

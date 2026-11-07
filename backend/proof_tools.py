@@ -13,6 +13,7 @@ SOURCES = {'bids': [('ESPN', 'Games, scores, teams', True), ('Polymarket', 'Mark
            'pow': [('FEELESS intake', 'New coins it already watches', True), ('DexScreener new', 'Fresh token profiles', True), ('DexScreener boosts', 'Boosted coins', True), ('RugCheck', 'Trending, safety', True), ('CoinGecko', 'Trending coins', True)],
            'pop': [('Hyperliquid', 'Funding, open interest, price', True), ('Coinbase', 'Spot price feed', True), ('Fear & Greed', 'Market mood', True), ('CoinGecko', 'Global market', True), ('DefiLlama', 'Perp volume', True)]}
 import game_edge as _ge
+import pob as _pob
 
 TTL = 60
 LIVE_TTL = 15   # 🏟 a live game's window: the play by play and its fingerprint
@@ -709,7 +710,8 @@ def sport_named(text):
     for k, (label, _) in SPORTS.items():
         if f' {k} ' in t or f' {_word(label)} ' in t:
             return k
-    return None
+    k = _pob.league_of(text)   # 🏀 team names only ("Knicks vs Cavaliers" got NFL picks, 2026-11-07)
+    return k if k in SPORTS else None
 
 
 async def best_topic(http, ask=''):

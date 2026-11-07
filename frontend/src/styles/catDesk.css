@@ -101,6 +101,8 @@
 @keyframes kdPulse { 0%, 100% { opacity: .55; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.04); } }
 @keyframes kdBlink { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 body.fx-lite :is(.kd-hero, .kd-spot, .kd-floor, .kd-tile, .kd-card, .kd-pos li, .kd-state i) { animation: none; }
+.kd-minds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 12px; }   /* 🧠 both minds' bubbles + card stats, top of the Brains folder */
+@media (max-width: 640px) { .kd-minds { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { :is(.kd-hero, .kd-spot, .kd-floor, .kd-tile, .kd-tile b, .kd-card, .kd-pos li, .kd-state i, .kd-move u, .kd-xp u s, .kd-tile u s, .kd-lim u s) { animation: none; }
   .kd-back, .kd-acts button, .kd-pos button, .kd-wallet { transition: none; } }
 body.theme-day .kd-hero { background: radial-gradient(80% 120% at 0% 50%, #ece2ff 0%, #f7f2ff 60%, #fff 100%); border-color: #7c4dff33; }

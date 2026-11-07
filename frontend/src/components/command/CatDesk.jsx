@@ -117,17 +117,17 @@ function RuleWindows({ cat, canEdit = false }) {
 }
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
 // A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
-function LiveMinds({ cat, onAct, busy, canEdit = true }) {
+function LiveMinds({ cat, onAct, busy, canEdit = true, onBrains }) {
   const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
   const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running'; const ev = useCatEvents(gen ? null : cat.id);
   const log = useMemo(() => catLogItems(cat, ev), [cat, ev]);
   const [flip, setFlip] = useState(false);
   if (gen) return <CatWorkbench cat={cat} readOnly={!canEdit} />;
-  const chat = <TradeChat cat={cat} busy={busy} onSend={canEdit ? async t => { await onAct('chime', { text: t }); return true; } : null} />;
+  const chat = <TradeChat cat={cat} busy={busy} onSend={canEdit ? async (t, to) => { await onAct('talk', { text: t, to: to || 'both' }); return true; } : null} />;
   return <>
     <AgentLive locked={!canEdit} title={`LIVE · ${cat.name}'s two brains`} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />
     {canEdit ? <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={on} count={log.length} cloud={<HeadCloud items={x.cloud} />}
-      left={<MindVitals cat={cat} model={x.brains[0]} i={0} live={on} />} right={<MindVitals cat={cat} model={x.brains[1]} i={1} live={on} />}
+      left={<MindVitals cat={cat} model={x.brains[0]} i={0} live={on} onOpen={onBrains} />} right={<MindVitals cat={cat} model={x.brains[1]} i={1} live={on} onOpen={onBrains} />}
       back={<TraderCabinet cat={cat} items={log} />}>{chat}</DeskFlip>
       : <><div className="ck-cockpit" data-testid="kd-cockpit">
         <MindVitals cat={cat} model={x.brains[0]} i={0} live={on} />
@@ -227,7 +227,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside> : null;
   // 🖥 owner 2026-11-04: its wallet and limits live on its desktop, so the desk stays the monitors and the chat
-  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin kd-walwin">{tiles}{Real}{Holds}</div> }, ...(Brains || (cat.brainsCfg && runs) ? [{ k: 'brains', ic: '🧠', label: 'Brains', tip: 'Its models, its brief, and what it learned. Change a model here', body: <div className="kd-inwin"><div className="kd-main">{cat.brainsCfg && runs ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}{Brains}{Learned}</div></div> }] : []), ...(Activity || !gen ? [{ k: 'log', ic: '📜', label: 'Activity', tip: 'Its results and everything it did', body: <div className="kd-inwin"><div className="kd-main">{Curve}{Activity}</div></div> }] : []), ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
+  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin kd-walwin">{tiles}{Real}{Holds}</div> }, ...(Brains || (cat.brainsCfg && runs) ? [{ k: 'brains', ic: '🧠', label: 'Brains', tip: 'Its models, its brief, and what it learned. Change a model here', body: <div className="kd-inwin"><div className="kd-main">{cat.brainsCfg?.kind === 'trading' ? <div className="kd-minds" data-testid="kd-minds">{(cat.brainsCfg.brains || []).slice(0, 2).map((m, i) => <MindVitals key={m} cat={cat} model={m} i={i} live={cat.status === 'running'} />)}</div> : null}{cat.brainsCfg && runs ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}{Brains}{Learned}</div></div> }] : []), ...(Activity || !gen ? [{ k: 'log', ic: '📜', label: 'Activity', tip: 'Its results and everything it did', body: <div className="kd-inwin"><div className="kd-main">{Curve}{Activity}</div></div> }] : []), ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
   const [workLive, setWorkLive] = useState(false);   // 💡 its windows tell the lamp when they work
   useEffect(() => { const on = e => { if (e.detail?.id === cat.id) setWorkLive(!!e.detail.live); }; window.addEventListener('feeless:agent-live', on); return () => window.removeEventListener('feeless:agent-live', on); }, [cat.id]);
   const lampOn = workLive || (cat.brainsCfg?.kind !== 'general' && !cat.revoked && ['hunting', 'running'].includes(String(cat.status || '').toLowerCase()));
@@ -261,7 +261,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {tabbed ? null : tiles}
-    {!on('desk') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
+    {!on('desk') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
     {visitor || tabbed ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
     {Tools}
