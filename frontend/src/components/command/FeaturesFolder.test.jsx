@@ -11,10 +11,10 @@ const DATA = { workspaces: [], memory: { notes: 3, mindNotes: 1, recent: ['a not
 async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); await act(async () => { el.querySelector('[data-testid="fea-tab-features"]').click(); }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
 const type = async (n, v) => { await act(async () => { const set = Object.getOwnPropertyDescriptor(n.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set; set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); }); };
 
-test('this agent’s use comes first, every feature has a demo marked as an example and a create button', async () => {
+test('this agent’s use comes first and every feature has a create button', async () => {
   const { el, q } = await mount(jest.fn(async () => DATA));
-  expect(el.querySelector('.fea-cat b').textContent).toBe('Build'); expect(q('fea-demo').textContent).toContain('EXAMPLE');
-  for (const k of Object.keys(FEATURES)) { await act(async () => { q(`fea-${k}`).click(); }); expect(q('fea-create').textContent).toContain(FEATURES[k].t); expect(q('fea-demo')).not.toBeNull(); }
+  expect(el.querySelector('.fea-cat b').textContent).toBe('Build');
+  for (const k of Object.keys(FEATURES)) { await act(async () => { q(`fea-${k}`).click(); }); expect(q('fea-create').textContent).toContain(FEATURES[k].t); }
 });
 test('create makes a real folder and opens it: blank screen, a mind picker, send goes to the owner door', async () => {
   const doc = { id: 'w1', kind: 'build', name: 'Site', messages: [], versions: 0, code: '', preview: '', busy: null };
@@ -30,7 +30,7 @@ test('a built page runs only in a sandbox with no same-origin, and code and stat
   const doc = { id: 'w1', kind: 'build', name: 'Site', messages: [], versions: 1, by: 'Mind A', code: '<b>hi</b>', preview: '<b>hi</b>', busy: null };
   const work = jest.fn(async (_, b) => (b.op === 'ws_open' ? { doc } : { ...DATA, workspaces: [{ id: 'w1', kind: 'build', name: 'Site' }] }));
   const { q } = await mount(work);
-  await act(async () => { q('fea-tab-mine').click(); }); await act(async () => { q('ws-w1').click(); }); await act(async () => { await Promise.resolve(); });
+  await act(async () => { q('fea-tab-work').click(); }); await act(async () => { q('ws-w1').click(); }); await act(async () => { await Promise.resolve(); });
   expect(q('ws-frame').getAttribute('sandbox')).toBe('allow-scripts');
   await act(async () => { q('ws-view-code').click(); }); expect(q('ws-code').textContent).toContain('<b>hi</b>'); expect(q('ws-frame')).toBeNull();
 });
@@ -100,7 +100,7 @@ test('a PoStatic shows its steps, waits on its plan, and approval is what builds
   const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_approve' ? { doc: { ...doc, busy: { stage: 'build' }, stage: 'build', plan: { ...doc.plan, approved: true } } } : b.op === 'ws_cfg' ? { doc: { ...doc, cfg: { ...doc.cfg, ...b.tools } } } : {}));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const { FeaturesFolder } = require('./FeaturesFolder');
   await act(async () => { root.render(<FeaturesFolder cat={{ id: 'c' }} d={{}} work={work} />); });
-  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your folders')).click(); });
+  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your work')).click(); });
   await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
   expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('You approve');
   expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('A desk'); expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('Blocked');
@@ -186,7 +186,7 @@ test('a stopped PoStatic says why, Finish runs the same ask, and Keep stops at t
   const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_keep' ? { doc: { ...doc, unfinished: null, stage: 'filed', pending: false } } : b.op === 'ws_build' ? { doc: { ...doc, unfinished: null, busy: { stage: 'build', at: 1 } } } : {}));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<FeaturesFolder cat={{ id: 'c' }} d={{}} work={work} />); });
-  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your folders')).click(); });
+  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your work')).click(); });
   await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
   const q = t => el.querySelector(`[data-testid="${t}"]`);
   expect(q('ws-finish').textContent).toContain('did not match'); expect(q('ws-finish-keep').textContent).toContain('Keep page 5'); expect(el.querySelector('[data-testid="ws-steps"] .is-stopped').textContent).toContain('other mind');
@@ -336,7 +336,7 @@ test('Real proofs shows each type, says when one has none, and opens a real page
   const card = { id: 'x1', print: 'ps1', kind: 'PoStatic', title: 'Narrative finder', tone: 'good', said: 'Marked right', rank: 'S', score: 280, top: 300, parts: [{ label: 'Result', value: 1, weight: 40 }, { label: 'Depth', value: null, weight: 10 }], facts: [['Version', 3]], page: true };
   const work = jest.fn(async (_, b) => (b.op === 'demo_gallery' ? { kinds: [{ kind: 'PoStatic', line: 'A page', cards: [card] }, { kind: 'PoW', line: 'Traded', cards: [] }] } : b.op === 'demo_open' ? { preview: '<b>real</b>' } : DATA));
   const { el } = await mount(work);
-  await act(async () => { el.querySelector('[data-testid=fea-tab-real]').click(); });
+  await act(async () => { el.querySelector('[data-testid=fea-tab-work]').click(); }); await act(async () => { el.querySelector('[data-testid=fea-sub-proofs]').click(); });
   await act(async () => { await Promise.resolve(); });
   expect(el.textContent).toContain('Narrative finder'); expect(el.textContent).toContain('Your agents have not filed a PoW yet.');
   await act(async () => { el.querySelector('[data-testid=pgl-open-x1]').click(); });
@@ -362,27 +362,24 @@ test('a kit skill is a switch that tells the server, and what is off stays off',
 });
 
 
-test('Proofs: finished work plays on one stage, each capability one tap away, a start that works', async () => {
+test('Showcase: a reel. Nothing to operate, each capability plays how the agent does it, and each proof has its own', async () => {
   const { ProofDoors } = require('./ProofDoors');
-  const calls = []; const kit = { id: 'fl-funding', name: 'Funding Reader', what: 'x', by: 'FEELESS', kinds: ['pop'], fresh: ['BTC funding 0.01%'], source: 'Hyperliquid', skills: ['funding'], quality: 'Untested' };
-  const work = async (_, b) => { calls.push(b); if (b.op === 'tools_show') return { models: 44000, hdris: 997, textures: 869, templates: [{ id: 'night-run', kind: 'game', name: 'Night Run', what: 'x', thumb: '/t.png' }, { id: 'silver-hour', kind: 'site', name: 'Silver Hour', what: 'y', thumb: '/u.png' }] }; if (b.op === 'kit_list') return { kits: [kit], picks: [], mode: 'mine', max: 3, recs: {}, stacks: [], by: {} }; if (b.op === 'demo_gallery') return { kinds: [] }; if (b.op === 'tools_showcase') return { preview: `<b>${b.job}</b>` }; return {}; };
+  const calls = []; const work = async (_, b) => { calls.push(b); if (b.op === 'tools_show') return { models: 44000, hdris: 997, textures: 869, templates: [{ id: 'night-run', kind: 'game', name: 'Night Run', what: 'x', thumb: '/t.png', ask: 'A robot game', mood: 'Neon city', things: ['robot'] }, { id: 'silver-hour', kind: 'site', name: 'Silver Hour', what: 'y', thumb: '/u.png', ask: 'A camera page', mood: 'Noir', things: [] }, { id: 'long-road-film', kind: 'film', name: 'Film', what: 'z', thumb: '/v.png' }] }; if (b.op === 'kit_list') return { kits: [], picks: [], mode: 'mine', max: 3, recs: {}, stacks: [], by: {} }; if (b.op === 'tools_showcase') return { preview: `<b>${b.job}</b>` }; return {}; };
   const onCommand = jest.fn(); const onMake = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{ popFolders: [{}] }} work={work} onCommand={onCommand} onMake={onMake} />); });
-  await act(async () => { await Promise.resolve(); });
-  await act(async () => { await Promise.resolve(); });
+  await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{}} work={work} onCommand={onCommand} onMake={onMake} />); });
+  await act(async () => { await Promise.resolve(); }); await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('pdr-n-MODELS').textContent).toBe('44K'); expect(q('pdr-piece-frame').getAttribute('sandbox')).toBe('allow-scripts'); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'night-run' });
+  expect(q('pdr-count').textContent).toContain('44K'); expect(q('pdr-piece').textContent).toContain('A robot game'); expect(q('pdr-piece-frame').getAttribute('sandbox')).toBe('allow-scripts'); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'night-run' }); expect(q('pdr-cap-long-road-film')).toBeNull();
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('pdr-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
-  await act(async () => { q('pdr-pop').click(); });
-  expect(q('pdr-perp-replay')).toBeTruthy(); expect(q('pdr-agent')).toBeNull(); await act(async () => { q('pdr-cap-chart').click(); }); expect(q('pdr-perp')).toBeTruthy();
-  await act(async () => { q('pdr-cap-best').click(); }); expect(q('pdr-no-proof').textContent).toContain('PoP');
-  await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
-  await act(async () => { q('pdr-pow').click(); }); expect(q('pdr-pow-replay')).toBeTruthy();
-  await act(async () => { q('pdr-pob').click(); }); expect(q('pdr-pick-replay')).toBeTruthy();
-  await act(async () => { q('pdr-poc').click(); }); expect(q('pdr-piece-frame') || q('pdr-stage')).toBeTruthy(); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
-  await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-story-replay')).toBeTruthy();
-  await act(async () => { q('pdr-cap-thumbs').click(); }); expect(q('pdr-thumbs')).toBeTruthy();
+  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-perp-replay'], ['pob', 'pdr-pick-replay'], ['poc', 'pdr-video']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
+  expect(new Set(Object.values(seen)).size).toBe(4);   // no two proofs open on the same demo
+  expect(q('pdr-video').querySelector('video').getAttribute('src')).toContain('images-assets.nasa.gov');
+  for (const [cap, id] of [['image', 'pdr-image'], ['replay', 'pdr-story-replay']]) { await act(async () => { q(`pdr-cap-${cap}`).click(); }); expect(q(id)).toBeTruthy(); }
+  await act(async () => { q('pdr-cap-long-road-film').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
+  await act(async () => { q('pdr-pob').click(); }); await act(async () => { q('pdr-cap-parlay').click(); }); expect(q('pdr-parlay')).toBeTruthy();
+  await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
+  expect(el.querySelector('input, textarea, select')).toBeNull();   // nothing to fill in or operate
   el.remove();
 });
 

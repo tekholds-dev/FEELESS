@@ -8104,7 +8104,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not got_:
             async with httpx.AsyncClient(timeout=30) as h_:
                 await _assets.ensure(h_, KITS_DIR); sc_, _u, _m = await _assets.fill(h_, KITS_DIR, _play.template_scene(p.job))
-            sc_ = _play.lead_up(sc_); sc_['camera'] = [0, 0, 0]; sc_ = _play._frame(_assets.compose(sc_)); got_ = _SHOWCASE[p.job] = _feat.preview(_play.lock_site(_play.to_html(sc_, _play.TEMPLATE_BY[p.job]['name'])))
+            sc_ = _play.lead_up(sc_); sc_['camera'] = [0, 0, 0]; sc_ = _play._frame(_assets.compose(sc_)); got_ = _SHOWCASE[p.job] = _feat.preview(_play.lock_site(_play.to_html(sc_, _play.TEMPLATE_BY[p.job]['name'])).replace('</body>', _play.DEMO_PLAYER + '</body>', 1))
         return {'preview': got_}
     if p.op == 'demo_gallery':   # 🖼 real proofs of every type, whitelisted, for the Features folder
         g_ = _demo_gallery(store, cat)
