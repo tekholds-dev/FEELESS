@@ -8,13 +8,15 @@ from pathlib import Path
 
 API = 'https://api.polyhaven.com'
 UA = 'FEELESS-agent-studio/1.0'
-CREDIT = 'Assets from Poly Haven (CC0)'
+CREDIT = 'Assets from Poly Haven and the Open Source 3D Assets registry (CC0)'
 HOST = 'https://dl.polyhaven.org/'
 TYPES = {'model': 'models', 'hdri': 'hdris', 'texture': 'textures'}
 INDEX = 'assets_index.dat'   # not *.json: the kit folder reads every .json as a kit
 FILES = 'assets_files.dat'
 MAX_AGE = 7 * 86400
-SAFE_URL = re.compile(r'https://dl\.polyhaven\.org/[\w./%-]+')
+REGISTRY = 'https://raw.githubusercontent.com/ToxSam/open-source-3D-assets/main/data'
+REGISTRY_HOST = 'https://raw.githubusercontent.com/ToxSam/'
+SAFE_URL = re.compile(r'(?:https://dl\.polyhaven\.org|https://raw\.githubusercontent\.com/ToxSam)/[\w./%-]+')
 MANY = re.compile(r'(?i)\b(two|three|four|five|six|seven|eight|nine|ten|dual|triple|double|multiple|several|many|rows? of|\d+)\b')
 WANTS_3D = re.compile(r'(?i)\b(3d|three\.?js|webgl|r3f|react three|glb|gltf|hdri|photoreal|product shot|render(?:ed)? scene|3d landing|room with|whole room)\b')
 STOP = {'a', 'an', 'the', 'of', 'and', 'with', 'for', 'on', 'in', 'to'}
@@ -46,9 +48,35 @@ async def refresh(http, root, now=None):
         if r.status_code != 200:
             continue
         rows[kind] = [{'id': k, 'name': str(v.get('name') or k)[:60], 'tags': [str(x).lower() for x in (v.get('tags') or []) + (v.get('categories') or [])][:24], 'pop': int(v.get('download_count') or 0)} for k, v in r.json().items() if isinstance(v, dict)]
+    more = await _registry(http)
+    if more:   # 🎁 the Open Source 3D Assets registry: CC0 packs as ready GLB files
+        rows['model'] = [r for r in rows.get('model') or [] if not r.get('url')] + more
     if rows:
         _save(root, INDEX, {'at': round(now), 'rows': rows})
     return sum(len(v) for v in rows.values())
+
+
+async def _registry(http):
+    """Every CC0 pack the registry lists. A pack that fails is skipped, and one not marked CC0 is never taken."""
+    out = []
+    try:
+        r = await http.get(f'{REGISTRY}/projects.json', headers={'User-Agent': UA}, timeout=20)
+        packs = [p for p in r.json() if isinstance(p, dict) and p.get('license') == 'CC0' and p.get('is_public')] if r.status_code == 200 else []
+    except Exception:   # noqa: BLE001, S110 — Poly Haven still stands without it
+        return []
+    for p in packs[:60]:
+        try:
+            q = await http.get(f"{REGISTRY}/assets/{re.sub(r'[^a-z0-9-]', '', str(p.get('id')))}.json", headers={'User-Agent': UA}, timeout=20)
+            items = q.json() if q.status_code == 200 else []
+        except Exception:   # noqa: BLE001 — one pack never stops the others
+            continue
+        pack = _words(p.get('name'))
+        for a in items if isinstance(items, list) else []:
+            url = _url(a.get('model_file_url')) if isinstance(a, dict) and a.get('is_public') and not a.get('is_draft') else ''
+            if url and str(a.get('format') or '').upper() == 'GLB':
+                attrs = [str(x.get('value')).lower() for x in ((a.get('metadata') or {}).get('attributes') or []) if isinstance(x, dict)]
+                out.append({'id': 'cc0-' + re.sub(r'[^\w-]', '', str(a.get('id')))[:50], 'name': re.sub(r'[_-]+', ' ', str(a.get('name')))[:60], 'tags': [w for w in {*pack, *_words(a.get('name')), *attrs}][:24], 'pop': 0, 'url': url, 'thumb': _url(a.get('thumbnail_url'))})
+    return out
 
 
 def _ready(root, now=None):
@@ -100,7 +128,7 @@ def search(root, query, kind='model', n=24):
     words = _words(query); rows = (_load(root, INDEX).get('rows') or {}).get(kind) or []; ranked = sorted(rows, key=lambda r: _score(r, words), reverse=True)
     if words:
         ranked = [r for r in ranked if _score(r, words)[0] > 0]
-    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256"} for r in ranked[:n]]
+    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': r.get('thumb') or f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256"} for r in ranked[:n]]
 
 
 def _url(v):
@@ -113,6 +141,9 @@ async def resolve(http, root, asset_id, kind, res='1k'):
     aid = re.sub(r'[^\w-]', '', str(asset_id or ''))[:60]; key = f'{kind}:{aid}:{res}'; cache = _load(root, FILES)
     if key in cache:
         return cache[key]
+    ready = next((r for r in (_load(root, INDEX).get('rows') or {}).get(kind) or [] if r.get('id') == aid and r.get('url')), None)
+    if ready:
+        return {'id': aid, 'name': ready['name'], 'kind': kind, 'url': ready['url'], 'files': {}}
     if kind not in TYPES or not aid:
         return None
     r = await http.get(f'{API}/files/{aid}', headers={'User-Agent': UA}, timeout=20)

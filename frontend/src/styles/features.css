@@ -166,4 +166,6 @@ body.theme-day .fea-chat li > span { color: #10241a; } body.theme-day .pfx .fea-
 .fea-steps li.is-stopped { border-color: #ffc24d; color: #ffc24d; } .fea-steps li.is-stopped i { background: #ffc24d; color: #05070b; }
 body.fx-lite .fea-finish { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-finish { animation: none; } }
 body.theme-day .fea-finish { background: #fff8e8; border-color: #b57a1266; } body.theme-day .fea-finish b, body.theme-day .fea-steps li.is-stopped { color: #8a6a14; }
+.fea-persona { display: grid; gap: 8px; padding: 12px; } .fea-persona h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; font: 800 10px var(--f-mono); letter-spacing: .13em; } .fea-persona h4 small { font: 500 11px var(--f-ui); letter-spacing: 0; opacity: .72; } .fea-persona .m-seg { flex-wrap: wrap; } .fea-heat { display: grid; gap: 3px; font-size: 12px; } .fea-heat small { font: 700 9.5px var(--f-mono); letter-spacing: .1em; } .fea-heat input { width: 100%; min-height: 24px; accent-color: #15d16a; } .fea-heat em { font-style: normal; opacity: .78; }
 
+.fea-assign { margin-bottom: 8px; }

@@ -79,6 +79,7 @@ import proof_kits as _proof_kits
 import collective_debate as _debate
 import play_studio as _play
 import asset_packs as _assets
+import poc_watch as _pw
 import proof_footprint as _foot
 import collective_stash as _stash
 import collective_kits as _kits
@@ -147,7 +148,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('pocWatch', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -1184,6 +1185,7 @@ _SORT_CALL: contextvars.ContextVar = contextvars.ContextVar('sort_call', default
 
 MAC_LOAD_PER_CORE = 1.5   # 🌡 load 41 made the Mac lag and the health check kill the service. Past this a Mac model waits its turn
 MAC_WAIT_S = 180          # and never forever: an asked job still runs after this
+LOCAL_CALL_S = 480
 MAC_MAX_TOKENS = 4000     # a long answer holds the Mac's GPU for minutes
 
 
@@ -1227,7 +1229,7 @@ async def _lm_call_one(model, messages, max_tokens):
         return '', 0.0
     auth = {'Authorization': f"Bearer {os.environ.get(f'{which}_LLM_API_KEY') or 'lm-studio'}"}
     try:
-        async with httpx.AsyncClient(timeout=600) as h:   # 💻 a whole page on a local model takes minutes
+        async with httpx.AsyncClient(timeout=LOCAL_CALL_S) as h:   # 🕰 a local mind that cannot finish in time is timed out, and the folder says so
             name = (_LM_SEEN.get(which) or {}).get('id')
             if not name or time.time() - _LM_SEEN[which]['at'] > 300:
                 ids = [m.get('id') for m in (await h.get(f'{base}/models', headers=auth, timeout=8)).json().get('data') or [] if 'embed' not in str(m.get('id'))]
@@ -1238,7 +1240,7 @@ async def _lm_call_one(model, messages, max_tokens):
             return '', 0.0
         return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '', 0.0
     except Exception as e:
-        _OR_LAST['err'] = f'LM Studio did not answer ({type(e).__name__}).'
+        _OR_LAST['err'] = f'{"G4" if which == "LAN" else "OSSY"} timed out.' if isinstance(e, httpx.TimeoutException) else f'LM Studio did not answer ({type(e).__name__}).'
         return '', 0.0
 
 
@@ -1814,6 +1816,10 @@ async def _sort_loop():
 
 async def _git_pass(store, now):
     """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
+    if now - _LIVE_AT[0] > 1800:
+        _LIVE_AT[0] = now; asyncio.create_task(_live_pass(store))
+    if now - _ECO_CHECK_AT[0] > 3600:
+        _ECO_CHECK_AT[0] = now; asyncio.create_task(_eco_check_pass(store))
     if now - _DEBATE_AT[0] > 300:
         _DEBATE_AT[0] = now; asyncio.create_task(_debate_pass(store))
     if now - _KITS_LIVE_AT[0] > 900:   # 🧰 the kits' fresh numbers, from fixed public addresses
@@ -3662,6 +3668,78 @@ def _kit_record(store=None):
                         r['won' if won else 'lost'] += 1
     _KIT_RECORD.update(at=time.time(), rows=out)
     return out
+
+
+_ECO_CHECK_AT = [0.0]
+_LIVE_AT = [0.0]
+_LIVE_BUSY = [False]
+
+
+async def _live_read(cat, site, force=False, now=None):
+    """📡 One watched page: did it really change, and is it worth saying something? Reads the page only, no sign-in. → what happened, in words"""
+    now = now or time.time(); brains = (cat.get('brainsCfg') or {}).get('brains') or []
+    if not brains:
+        return 'Pick a model for this agent first.'
+    if not _kits._public_host(site.get('host') or ''):
+        return 'That page is not public.'
+    async with httpx.AsyncClient(timeout=20, follow_redirects=False) as h_:
+        r_ = await h_.get(site['url'], headers={'User-Agent': 'Mozilla/5.0 (FEELESS live desk)'})
+    site['readAt'] = round(now)
+    if r_.status_code != 200:
+        site['note'] = f'It would not open ({r_.status_code}).'
+        return site['note']
+    text_ = _pw.page_text(r_.text); had_ = _play_load(cat['id'], f"live{site['id']}") or {}; fresh_ = _pw.changes(had_.get('text'), text_) if had_.get('text') else text_[:_pw.MAX_TEXT]
+    _play_save(cat['id'], f"live{site['id']}", {'text': text_[:_pw.MAX_TEXT * 2]})
+    if had_.get('text') and not fresh_:
+        site['note'] = 'Nothing new.'
+        return site['note']
+    if not _pw.can_draft(site, now):
+        site['note'] = 'Changed, but it reached its 4 drafts for today.'
+        return site['note']
+    raw_, _u, _o = await _ws_ask(cat, brains[0], _pw.SYS + _play.notes_line(cat, 'live'), _pw.ask_text(site, fresh_ or text_[:_pw.MAX_TEXT]), 600); _pw.note_draft(site, now); row_, why_ = _pw.parse(raw_)
+    if row_:
+        row_.update(site=site['host'], url=site['url'], at=round(now)); cat['pocDrafts'] = (list(cat.get('pocDrafts') or []) + [row_])[-40:]; site['note'] = 'New draft.'
+        return f"New draft: {row_['happened']}"
+    site['note'] = f"Not worth a word: {why_}" if why_ else 'The agent sent nothing usable.'
+    return site['note']
+
+
+async def _live_pass(store):
+    """Every 30 minutes, each page that is on and an hour old. One at a time, so it never loads the machine."""
+    if _LIVE_BUSY[0]:
+        return
+    _LIVE_BUSY[0] = True
+    try:
+        for cat in list((store.get('cats') or {}).values()):
+            for site in cat.get('pocWatch') or []:
+                if site.get('on') and time.time() - float(site.get('readAt') or 0) > 3600 and not cat.get('revoked'):
+                    try:
+                        await _live_read(cat, site); keep_owned(cat)
+                    except Exception as e:   # noqa: BLE001 — one dead site never stops the rest
+                        site['note'] = f'It would not open ({type(e).__name__}).'; print(f'[live] {str(e)[:100]}')
+    finally:
+        _LIVE_BUSY[0] = False
+
+
+
+
+async def _eco_check_pass(store):
+    """🤖 One check a day for each agent whose owner turned its PoEco agent on, on its own model. A failed day is tried again in an hour. It only writes a note."""
+    today = time.strftime('%Y-%m-%d', time.gmtime()); done = 0
+    for cat in list((store.get('cats') or {}).values()):
+        brains = (cat.get('brainsCfg') or {}).get('brains') or []
+        if not cat.get('poeAi') or not brains or cat.get('revoked'):
+            continue
+        try:
+            desk = _eco_desk_load(cat['id'])
+            if not _eco.check_due(desk, today):
+                continue
+            raw, _u, _o = await _ws_ask(cat, brains[0], _eco.ECO_SYS, f'THE BOOKS: {_eco.ai_facts(desk, today)}\nOWNER: {_eco.CHECK_ASK}', 500); said, _r = _eco.parse_ai(raw)
+            if said:
+                desk = _eco_desk_load(cat['id']); _eco.add_check(desk, said, today); _eco_desk_save(cat['id'], desk); done += 1
+        except Exception as e:   # noqa: BLE001 — one agent's books never stop the others
+            print(f'[eco] check: {str(e)[:100]}')
+    return done
 
 
 _DEBATE_AT = [0.0]
@@ -5893,7 +5971,7 @@ def _general_mind(cat):
         text_ = ((_load()['cats'].get(LEADER_ID) or {}).get('studio') or {}).get('general')
     except Exception:   # noqa: BLE001 — a bad read never stops the job
         text_ = None
-    return _ps.general_block(text_, _ps.general_record(cat)) + _know.WHERE + '\n\n'
+    return _ps.general_block(text_, _ps.general_record(cat)) + _ps.persona_line((cat.get('brainsCfg') or {}).get('persona')) + _know.WHERE + '\n\n'
 
 
 def _popular_builds(store, raw=False):
@@ -5979,11 +6057,10 @@ def _ws_pass(store):
 
 
 WS_DRAFT_CHARS = 60000   # what the Code tab shows of a page still being written
-WS_CODE_MODEL = 'deepseek/deepseek-v4-pro-0813'   # 💻 owner 2026-11-05: OSSY and G4 never write a page (18 tokens a second on his Mac). Owner 2026-11-06: the smarter writer by default. It built his Narrative finder for 2 cents with GLM 5.3 Flash as its second mind
+LOCAL_PAGE_S = 480   # 🕰 owner 2026-11-07: "OSSY and G4 pull their own weight, if they can't they just get timed out". No paid stand-in writes for them
 
 
 async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
-    model = WS_CODE_MODEL if str(model).startswith('local/') else model
     """One whole page. The wallet's provider stops a reply at about 1,500 tokens whatever is asked (receipts, 2026-11-05), so an unfinished page is continued from where it stopped, up to 3 more calls."""
     raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
     if on_part:   # 👀 the Code tab shows each part as it lands, and the chat's cost moves with it
@@ -6020,7 +6097,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
-        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
+        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or []) + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
         scene, say = _play.parse_reply(raw, now_scene)
         if scene:
             scene = _play.ensure_named(scene, prompt); by = name(i_); break
@@ -6049,7 +6126,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         await _play.embed_pictures(h_, [scene])
     doc[slot] = scene; first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
     html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
-    doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene})
+    doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
     _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing else '') + (f' Check against your prompt: {checked}.' if checked else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
@@ -6114,7 +6191,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if (not html or not _feat.page_complete(html)) and cur:
                     html, landed_, said_ = cur, 0, ''
                     for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
-                        patch_raw, patch_usd, patch_own = await _ws_ask(cat, WS_CODE_MODEL if str(brains[i]).startswith('local/') else brains[i], _feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{_feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:_feat.PAGE_PROMPT_CHARS]}', 1300)
+                        patch_raw, patch_usd, patch_own = await _ws_ask(cat, brains[i], _feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{_feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:_feat.PAGE_PROMPT_CHARS]}', 1300)
                         cost += patch_usd; paid_own = patch_own
                         next_, n_, said_ = _feat.apply_page_edits(html, patch_raw)
                         if not next_:
@@ -7002,6 +7079,60 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op == 'persona':   # 🎭 how it talks, and how hard it pushes. Words only
+        import prompt_studio as _ps
+        b_ = cat.setdefault('brainsCfg', {})
+        if isinstance(p.tools, dict):
+            b_['persona'] = _ps.clean_persona(p.tools); keep_owned(cat); _save(store)
+        return {'persona': _ps.clean_persona(b_.get('persona')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT}
+    if p.op.startswith('live_'):   # 📡 the ongoing PoC desk: it watches, reads the room and drafts. It never posts
+        rows_ = cat.setdefault('pocWatch', []); drafts_ = cat.setdefault('pocDrafts', [])
+        try:
+            if p.op == 'live_add':
+                if len(rows_) >= _pw.MAX_SITES:
+                    raise ValueError('It can watch 8 pages. Remove one first.')
+                t_ = p.tools or {}; rows_.append(_pw.clean_site(t_.get('url'), t_.get('topic'), t_.get('mood'), t_.get('voice')))
+            elif p.op == 'live_drop':
+                cat['pocWatch'] = rows_ = [r for r in rows_ if r.get('id') != p.text]
+            elif p.op == 'live_mark':   # used or passed: its owner's word, and it is what the agent learns from
+                d_ = next((x for x in drafts_ if x.get('id') == p.text), None)
+                if not d_ or p.job not in ('used', 'passed'):
+                    raise ValueError('That draft is gone.')
+                d_['status'] = p.job
+                if isinstance(p.tools, dict) and str(p.tools.get('draft') or '').strip():
+                    edited_ = str(p.tools['draft'])[:900]
+                    if edited_ != d_['draft']:
+                        _play.add_note(cat, 'live', f"Rewrote a draft from: {d_['draft'][:120]} to: {edited_[:120]}")
+                    d_['draft'] = edited_
+                _play.add_note(cat, 'live', f"{p.job.capitalize()} a {d_.get('room') or ''} post: {d_['draft'][:100]}")
+            elif p.op == 'live_now':
+                site_ = next((r for r in rows_ if r.get('id') == p.text), None)
+                if not site_:
+                    raise ValueError('That page is gone.')
+                got_ = await _live_read(cat, site_, force=True); keep_owned(cat); _save(store)
+                return {'sites': rows_, 'drafts': (cat.get('pocDrafts') or [])[::-1], 'said': got_, 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+            elif p.op != 'live_get':
+                raise ValueError('No such step.')
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:160])
+        if p.op != 'live_get':
+            keep_owned(cat); _save(store)
+        return {'sites': rows_, 'drafts': drafts_[::-1], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+    if p.op == 'desk_apps':   # 📲 a build or a game kept as an app on its desktop
+        rows_ = [a for a in cat.get('deskApps') or [] if isinstance(a, dict)]
+        if p.text:
+            if p.on and not any(a['ws'] == p.text for a in rows_):
+                w_ = next((x for x in cat.get('workspaces') or [] if x.get('id') == p.text), None)
+                if not w_:
+                    raise HTTPException(400, 'Pick one of its folders.')
+                rows_ = (rows_ + [{'ws': w_['id'], 'name': str(w_.get('name') or 'App')[:24]}])[-12:]
+            elif not p.on:
+                rows_ = [a for a in rows_ if a['ws'] != p.text]
+            cat['deskApps'] = rows_; keep_owned(cat); _save(store)
+        if p.job == 'open':
+            v_ = (_ws_load(cat_id, p.to) or {}).get('versions') or []
+            return {'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else ''}
+        return {'apps': rows_}
     if p.op.startswith('playc_'):   # 🎬 the PoC editor: media stays in the owner's browser, the edit list comes here
         saved_ = _play_load(cat_id, 'edit') or {}
         if p.op == 'playc_get':
@@ -7140,6 +7271,26 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 _eco.run_setup(desk_, p.tools, today_)
             elif p.op == 'eco_d_tone':
                 _eco.set_tone(desk_, p.text)
+            elif p.op == 'eco_d_ai':   # 🤖 its owner's switch: what the agent may read
+                _eco.set_ai(desk_, str(p.text or '')); cat['poeAi'] = _eco.ai_level(desk_) != 'off'; keep_owned(cat); _save(store)
+            elif p.op in ('eco_d_chat', 'eco_d_check'):
+                facts_ = _eco.ai_facts(desk_, today_); brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+                if not facts_:
+                    raise ValueError('Turn your agent on first. It cannot read sealed books until you say so.')
+                if not brains_:
+                    raise ValueError('Pick a model for this agent first.')
+                ask_ = _eco.CHECK_ASK if p.op == 'eco_d_check' else str(p.text or '').strip()[:800]
+                if not ask_:
+                    raise ValueError('Say what you want to know.')
+                past_ = '\n'.join(f"{m['by']}: {m['text'][:300]}" for m in (desk_.get('chat') or [])[-6:]) if p.op == 'eco_d_chat' else ''
+                raw_, _usd, _own = await _ws_ask(cat, brains_[0], _eco.ECO_SYS, f'THE BOOKS: {facts_}\n{past_}\nOWNER: {ask_}', 700); said_, rows_ = _eco.parse_ai(raw_)
+                if not said_:
+                    raise ValueError('The agent did not answer. Nothing changed.')
+                if p.op == 'eco_d_check':
+                    _eco.add_check(desk_, said_, today_)
+                else:
+                    _eco.add_chat(desk_, 'you', ask_, at=round(time.time())); _eco.add_chat(desk_, 'agent', said_, rows_, round(time.time()))
+                said_ = None
             elif p.op == 'eco_d_add':
                 _eco.add_row(desk_, str(p.job or ''), p.tools)
             elif p.op == 'eco_d_edit':

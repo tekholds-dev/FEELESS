@@ -317,6 +317,26 @@ def general_line(rows):
     return f"Your real record: {say}." + (f" Your weakest work is {weak['kind']}: take more care there." if weak and weak['wrong'] > weak['right'] else '')
 
 
+# 🎭 owner 2026-11-06: "every agent a good conversationalist, with personalities that scale aggression, like snappy". Words only: it never touches a buy, a size or a rule.
+PERSONAS = {'warm': 'Warm and easy to talk to.', 'straight': 'Straight and clear, no fluff.', 'snappy': 'Snappy: fast, witty, few words, a little attitude.', 'hype': 'High energy, loves a big idea, still honest.', 'analyst': 'Calm analyst: numbers first, dry humor.'}
+HEAT = {1: 'Be gentle: suggest, never push.', 2: 'Be polite but say what you think.', 3: 'Be direct: disagree when you disagree.', 4: 'Be blunt: call out weak ideas and say what you would do instead.', 5: 'Be savage about ideas, never about the person. Lead with the hardest truth.'}
+TALK = 'Talk like a sharp person across the table: answer what was asked, remember what was said, ask one good question when it helps, and never lecture or pad.'
+
+
+def clean_persona(d):
+    d = d if isinstance(d, dict) else {}
+    try:
+        heat = max(1, min(5, int(d.get('heat') or 3)))
+    except (TypeError, ValueError):
+        heat = 3
+    return {'style': d.get('style') if d.get('style') in PERSONAS else 'straight', 'heat': heat}
+
+
+def persona_line(d):
+    p = clean_persona(d)
+    return f"{TALK} {PERSONAS[p['style']]} {HEAT[p['heat']]}\n\n"
+
+
 def general_block(text, rows):
     """What is put in front of a general job's system prompt. Pure."""
     t = ' '.join(str(text or GENERAL).split())[:MAX_CHARS['fee']]

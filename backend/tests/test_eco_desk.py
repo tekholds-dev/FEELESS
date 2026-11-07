@@ -134,3 +134,39 @@ def test_the_whole_journey_on_the_real_route_and_only_sealed_data_on_disk(monkey
 def test_a_desk_that_cannot_be_opened_is_never_overwritten(monkeypatch, tmp_path):
     _fs, c, _s = _server(monkeypatch, tmp_path); f = tmp_path / 'agent_eco' / 'g' / 'desk.seal'; f.parent.mkdir(parents=True); f.write_bytes(b'broken')
     assert c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'eco_d_add', 'job': 'people', 'tools': {'name': 'x'}}).status_code == 500 and f.read_bytes() == b'broken'
+
+
+def test_the_agent_reads_only_what_its_owner_allows():
+    d = desk(); e.import_rows(d, '2026-11-02,SECRET sale,1000'); e.add_row(d, 'people', {'name': 'SECRETPERSON', 'value': 50})
+    assert e.ai_level(d) == 'off' and e.ai_facts(d, TODAY) == '' and not e.check_due(d, TODAY)
+    e.set_ai(d, 'totals'); t = e.ai_facts(d, TODAY); assert '"cash": 2000' in t and 'SECRET' not in t and e.check_due(d, TODAY)
+    e.set_ai(d, 'all'); assert 'SECRET sale' in e.ai_facts(d, TODAY) and 'SECRETPERSON' in e.ai_facts(d, TODAY)
+    with pytest.raises(ValueError):
+        e.set_ai(d, 'sure')
+
+
+def test_a_suggestion_must_be_a_valid_row_and_a_plain_answer_still_counts():
+    said, rows = e.parse_ai('{"say":"Add rent","do":[{"list":"bills","row":{"name":"Rent","amount":"1,400","due":"2026-12-01"}},{"list":"bills","row":{}},{"list":"wallets","row":{"name":"x"}},{"list":"bills","row":{"name":"y","link":"javascript:x"}}]}')
+    assert said == 'Add rent' and [r['row']['name'] for r in rows] == ['Rent'] and rows[0]['row']['amount'] == 1400
+    assert e.parse_ai('plain words') == ('plain words', [])
+    d = desk(); e.add_check(d, 'a', TODAY); e.add_check(d, 'b', TODAY); assert [c['text'] for c in d['checks']] == ['b']
+    e.set_ai(d, 'totals'); assert not e.check_due(d, TODAY) and e.check_due(d, '2026-11-07')
+
+
+def test_chat_and_daily_check_on_the_real_route(monkeypatch, tmp_path):
+    import asyncio
+    fs, c, store = _server(monkeypatch, tmp_path); cat = store['cats']['g']; cat['brainsCfg']['brains'] = ['m/x']; post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': op, **kw}); seen = []
+    async def fake(cat_, model, sys_, user_, tokens):
+        seen.append(user_)
+        return json.dumps({'say': 'Chase Sam today.', 'do': [{'list': 'people', 'row': {'name': 'Sam', 'stage': 'Lead'}}]}), 0.001, False
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    post('eco_d_setup', tools={'cash': '500', 'tone': 'hard'})
+    r = post('eco_d_chat', text='hi'); assert r.status_code == 400 and 'Turn your agent on' in r.text and not seen   # off means no model call at all
+    assert post('eco_d_ai', text='totals').json()['desk']['ai']['level'] == 'totals' and cat['poeAi']
+    j = post('eco_d_chat', text='who first?').json(); assert j['desk']['chat'][-1]['text'] == 'Chase Sam today.' and j['desk']['chat'][-1]['do'][0]['row']['name'] == 'Sam' and '"cash": 500' in seen[-1]
+    assert post('eco_d_check').json()['desk']['checks'][-1]['text'] == 'Chase Sam today.'
+    fs._ECO_CHECK_AT[0] = 0; assert asyncio.run(fs._eco_check_pass(store)) == 0   # already checked today
+    d = fs._eco_desk_load('g'); d['checks'] = []; fs._eco_desk_save('g', d); assert asyncio.run(fs._eco_check_pass(store)) == 1 and len(fs._eco_desk_load('g')['checks']) == 1
+    post('eco_d_ai', text='off'); assert not cat['poeAi'] and asyncio.run(fs._eco_check_pass(store)) == 0
+    assert b'Chase' not in (tmp_path / 'agent_eco' / 'g' / 'desk.seal').read_bytes()
+

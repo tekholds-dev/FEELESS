@@ -308,3 +308,11 @@ test('🧊 a device with no 3D still opens the playground, says so plainly, and 
   await act(async () => { q('p3d-mat-Glass').click(); }); expect(q('p3d-glass').value).toBe('1');
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('🔔 only a newly filed proof raises an alert, and the first look only counts', () => {
+  const { proofsDone } = require('./CatWorkbench');
+  const d = { psFolders: [{ status: 'closed', topic: 'GLINT' }, { status: 'closed' }], powFolders: [{ status: 'open' }] };
+  expect(proofsDone(null, d)).toEqual([]); expect(proofsDone({ psFolders: 2, powFolders: 0 }, d)).toEqual([]);
+  expect(proofsDone({ psFolders: 1, powFolders: 0 }, d)).toEqual(['PoStatic: GLINT is done']);
+});
+

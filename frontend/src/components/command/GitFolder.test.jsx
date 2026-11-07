@@ -121,3 +121,10 @@ test('the token tutorial walks three steps and connects for real', async () => {
   await act(async () => { type(q('gtt-repo'), 'me/app'); }); await act(async () => { type(q('gtt-token'), 't0ken'); }); expect(q('gtt-link').disabled).toBe(false); await act(async () => { q('gtt-link').closest('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(onLink).toHaveBeenCalledWith('me/app', 't0ken'); expect(onClose).toHaveBeenCalled(); await act(async () => { root.unmount(); });
 });
+
+test('🧬 each proof type shows what it got right and wrong', () => {
+  const { wireRows } = require('./GitFolder');
+  const rows = wireRows({ powFolders: [{ status: 'closed', pnlPct: 3 }, { status: 'closed', pnlPct: -2 }, { status: 'open' }], psFolders: [{ status: 'closed', graded: 'right' }, { status: 'closed' }], popFolders: [{ status: 'closed', noTrade: true }] });
+  expect(rows[0]).toMatchObject({ label: 'PoW', total: 2, good: 1, bad: 1, open: 0 }); expect(rows[4]).toMatchObject({ label: 'PoStatic', good: 1, open: 1 }); expect(rows[1]).toMatchObject({ good: 0, bad: 0, open: 1 });
+});
+

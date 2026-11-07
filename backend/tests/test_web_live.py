@@ -88,7 +88,7 @@ def test_a_page_never_goes_to_a_local_model():
         asyncio.run(fs._ws_page({}, 'x/other', 's', 'u', 10))
     finally:
         fs._ws_ask = real
-    assert seen == [fs.WS_CODE_MODEL, 'x/other']
+    assert seen == ['local/ossy', 'x/other']   # owner 2026-11-07: OSSY and G4 write their own pages, no paid stand-in
 
 
 def test_asked_only_is_a_switch_on_the_env():

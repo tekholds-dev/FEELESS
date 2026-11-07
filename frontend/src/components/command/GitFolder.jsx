@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { ChevronDown, ChevronRight, FileCode2, FileImage, FileJson, FileText, Folder, FolderOpen, Lock, Settings2, Trash2 } from 'lucide-react';
 import { Slider } from '@heroui/react';
 import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
 import { KitPick } from './KitPick';
+const PrintLazy = lazy(() => import('./Proofprint').then(m => ({ default: m.ProofFingerprint })));
 import { WeightBars } from './ProofKit';
 import { createPortal } from 'react-dom';
 import { ZoomPane } from './ZoomPane';
@@ -258,6 +259,15 @@ function ProjectLink({ project, ask, reload }) {
   return <section className="git-project m-card" data-testid="git-project"><h4><FolderOpen size={15} aria-hidden="true" /> YOUR OWN PROJECT{project ? null : <button type="button" className="m-btn m-go git-tour-open" onClick={() => setTour(true)} data-tip="Three steps, with GitHub filled in for you" data-testid="git-tour-open">Show me how</button>}</h4>{tour ? <GitTour onClose={() => setTour(false)} onLink={async (repo, tok) => { await ask({ op: 'project_link', job: repo, text: tok }); await reload(); }} /> : null}{project ? <><div className="git-project-on"><span><b>{project.full}</b><small>{project.files} files read{project.private ? ', private' : ''}. Its PoStatic builds fit your stack, and Send on a page puts it on its own branch. It never writes to {project.branch}.</small></span><a className="m-btn" href={project.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub">Open ↗</a><button type="button" className="m-btn" disabled={busy} onClick={() => go({ op: 'project_link' })} data-tip="Read its files again" data-testid="git-project-read">Read again</button><button type="button" className="m-btn" disabled={busy} onClick={() => go({ op: 'project_drop' })} data-tip="Forgets the repo and token here. Your repo is untouched" data-testid="git-project-drop">Unhook</button></div></>
     : <form className="git-project-f" onSubmit={e => { e.preventDefault(); go({ op: 'project_link', job: full.trim(), text: token.trim() || undefined }); }}><small>Hook up your repo to copy any build or proof over to it, on a branch of its own. Your main is never touched.</small><input className="m-input" value={full} onChange={e => setFull(e.target.value)} placeholder="owner/repo" aria-label="Your repo" data-testid="git-project-repo" /><input className="m-input" type="password" autoComplete="off" value={token} onChange={e => setToken(e.target.value)} placeholder="github_pat_… with Contents read and write on this repo" aria-label="GitHub token for your project" data-testid="git-project-token" /><button type="submit" className="m-btn m-go" disabled={busy || !full.trim() || !token.trim()} data-tip="Sealed here and never shown again" data-testid="git-project-go">{busy ? 'Reading…' : 'Hook it up'}</button></form>}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</section>;
 }
+// 🧬 Every proof type at a glance: a small print that opens, and what each kind got right and wrong. From the proofs themselves.
+const WIRES = [['powFolders', 'PoW', f => (f.pnlPct == null ? null : f.pnlPct > 0)], ['popFolders', 'PoP', f => (f.noTrade || f.roePct == null ? null : f.roePct > 0)], ['pobFolders', 'PoB', f => ({ right: true, wrong: false }[f.graded] ?? null)], ['pocFolders', 'PoC', f => ({ right: true, wrong: false }[f.graded] ?? null)], ['psFolders', 'PoStatic', f => ({ right: true, wrong: false }[f.graded] ?? null)]];
+export function wireRows(d) { return WIRES.map(([key, label, won]) => { const rows = (d?.[key] || []).filter(f => f?.status === 'closed'); const good = rows.filter(f => won(f) === true).length; const bad = rows.filter(f => won(f) === false).length; return { key, label, total: rows.length, good, bad, open: rows.length - good - bad }; }); }
+function ProofWires({ cat, work }) {
+  const [d, setD] = useState(null); const [big, setBig] = useState(false);
+  useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'state' })).then(j => on && setD(j)).catch(() => {}); return () => { on = false; }; }, [cat.id, work]);
+  if (!d) return null;
+  return <section className={`git-wires m-card${big ? ' is-big' : ''}`} data-testid="git-wires"><button type="button" className="git-wire-print" aria-expanded={big} onClick={() => setBig(x => !x)} data-tip={big ? 'Make the print small' : 'Open the print'} data-testid="git-wire-open"><Suspense fallback={null}><PrintLazy kind="pow" cat={cat} d={d} size={big ? 260 : 70} /></Suspense></button><ul>{wireRows(d).map(r => <li key={r.key} data-testid={`git-wire-${r.label}`}><b>{r.label}</b><i aria-hidden="true"><u className="is-good" style={{ flexGrow: r.good }} /><u className="is-open" style={{ flexGrow: r.open }} /><u className="is-bad" style={{ flexGrow: r.bad }} /></i><small className="m-num">{r.good} good · {r.bad} bad · {r.open} open</small></li>)}</ul></section>;
+}
 export function GitFolder({ cat, work, scope = '' }) {
   const collective = scope === 'collective'; const [s, setS] = useState(null); const [token, setToken] = useState(''); const [repo, setRepo] = useState(collective ? 'feeless-collective' : `${String(cat?.handle || 'agent').replace(/[^a-z0-9-]/gi, '')}-proofs`); const [priv, setPriv] = useState(true); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
   const ask = useCallback(body => work(cat.id, { ...body, to: scope || undefined }), [cat.id, work, scope]);
@@ -267,7 +277,7 @@ export function GitFolder({ cat, work, scope = '' }) {
   const shotsFor = useCallback((path, data) => { const files_ = data?.id ? (s?.powShots || {})[data.id] : null; return (files_ || []).map(f => apiUrl(`/api/cats/${cat.id}/powshot/${String(data.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${f}?${agentAuthQuery()}`)); }, [s, cat.id]);
   const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full;
   return <div className={`git${collective ? ' is-collective' : ''}`} data-testid={collective ? 'git-collective' : 'git-folder'}>
-    <div className="git-kitrow"><KitPick cat={cat} work={work} /></div>
+    <ProofWires cat={cat} work={work} /><div className="git-kitrow"><KitPick cat={cat} work={work} /></div>
     {collective ? <div className="m-seg" role="tablist" aria-label="GitHub">{[['repo', 'The repo'], ['kits', 'Kits for every agent']].map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div> : null}
     {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : <>
     {collective && on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}

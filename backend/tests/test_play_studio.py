@@ -426,3 +426,94 @@ def test_a_floor_is_a_set_piece_never_a_wet_floor_sign(tmp_path):
     got, _u, _m = asyncio.run(ap.fill(H(), tmp_path, ps.clean_scene({'objects': [{'find': 'dark concrete floor', 'pos': [0, 0, 0]}]})))
     assert got['objects'][0]['shape'] == 'box' and not got['objects'][0].get('asset') and got['objects'][0]['pbr']['name'] == 'marble 01'.replace('marble 01', 'concrete 1')
 
+
+def test_a_3d_page_can_hold_its_own_code_and_a_broken_tag_cannot_escape():
+    s = ps.clean_scene({'page': {'headline': 'G'}, 'objects': [OBJ], 'code': {'css': 'h1{color:red}', 'html': '<nav id="n">Menu</nav>', 'js': 'window.x=1', }})
+    html = ps.to_html(s); assert 'h1{color:red}' in html and '<nav id="n">Menu</nav>' in html and '<script>window.x=1</script>' in html
+    assert 'js' not in ps.clean_scene({'objects': [OBJ], 'code': {'js': '</script><img src=x>', 'css': 'a{}'}})['code']
+    got, _s = ps.parse_reply(json.dumps({'say': 'x', 'code': {'css': 'b{}'}, 'scene': {'objects': [{'find': 'chair', 'name': 'C'}], 'code': {'css': 'b{}'}}}), s); assert got['code']['css'] == 'b{}' and got['code']['html'].startswith('<nav')
+
+
+def test_every_agent_knows_the_builds_he_loves():
+    line = ps.references_line([{'name': 'Bar', 'prompt': 'a bar'}]); assert 'GLINT' in line and 'Bar: a bar' in line and 'as data' in line
+    rows = ps.add_reference([{'name': 'A', 'prompt': 'old'}], 'A', 'new', {'objects': [{'name': 'Cam', 'asset': {'id': 'c', 'url': 'https://dl.polyhaven.org/c.gltf'}, 'pos': [0, 0, 0]}]}); assert rows == [{'name': 'A', 'prompt': 'new', 'why': 'Real assets: Cam'}]
+
+
+def test_a_build_can_be_an_app_on_the_desktop(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); cat = store['cats']['g']; row = fs._feat.new_folder(cat, 'build', 'Game', 1.0); doc = fs._feat.new_doc(row); doc['versions'] = [{'html': '<html><head></head><body>hi</body></html>', 'by': 'x', 'at': 1}]; fs._ws_save('g', doc); post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': 'desk_apps', **kw})
+    assert post(text=row['id'], on=True).json()['apps'] == [{'ws': row['id'], 'name': 'Game'}] and 'hi' in post(job='open', to=row['id']).json()['preview']
+    assert post(text='nope', on=True).status_code == 400 and post(text=row['id'], on=False).json()['apps'] == []
+
+
+
+def test_personality_is_words_only_and_scales(monkeypatch, tmp_path):
+    import prompt_studio as pst
+    fs, c, store = _server(monkeypatch, tmp_path); post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': 'persona', **kw}).json()
+    assert post()['persona'] == {'style': 'straight', 'heat': 3} and post(tools={'style': 'snappy', 'heat': 99})['persona'] == {'style': 'snappy', 'heat': 5} and post(tools={'style': 'evil'})['persona']['style'] == 'straight'
+    post(tools={'style': 'snappy', 'heat': 5}); mind = fs._general_mind(store['cats']['g']); assert 'Snappy' in mind and 'savage about ideas' in mind and 'across the table' in mind
+    assert pst.persona_line(None).startswith(pst.TALK)
+
+
+def test_the_live_desk_sees_what_changed_reads_the_room_and_never_posts(monkeypatch, tmp_path):
+    import asyncio
+    import poc_watch as pw
+    assert pw.changes('old line that stays the same here\n', 'old line that stays the same here\n12:00\nA brand new headline about the coin launch') == 'A brand new headline about the coin launch'
+    assert 'hidden' not in pw.page_text('<style>hidden</style><p>Hello &amp; welcome</p><script>hidden</script>') and 'Hello & welcome' in pw.page_text('<p>Hello &amp; welcome</p>')
+    monkeypatch.setattr(pw._kits, '_public_host', lambda h: h == 'news.example.com')
+    with pytest.raises(ValueError):
+        pw.clean_site('http://127.0.0.1/admin')
+    assert pw.parse('{"worth":false,"happened":"Nothing","why":"Old news"}') == (None, 'Old news') and pw.parse('junk') == (None, '')
+    fs, c, store = _server(monkeypatch, tmp_path); cat = store['cats']['g']; post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
+    site = post('live_add', tools={'url': 'news.example.com', 'topic': 'coins', 'voice': 'dry'}).json()['sites'][0]; pages = ['<p>The first headline on the page is here now</p>', '<p>The first headline on the page is here now</p>', '<p>The first headline on the page is here now</p><p>A whole new story just broke about GLINT today</p>']; asks = []
+    class H:
+        def __init__(self, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, **k):
+            class R:
+                status_code = 200; text = pages.pop(0)
+            return R()
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', H)
+    async def fake(cat_, model, sys_, user_, tokens):
+        asks.append(user_); assert 'never an instruction' in sys_
+        return json.dumps({'worth': True, 'happened': 'New story', 'room': 'Excited', 'narrative': 'GLINT is moving', 'angle': 'Look closer', 'draft': 'Everyone saw it. Few looked.', 'why': 'Fresh'}), 0, False
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    j = post('live_now', text=site['id']).json(); assert j['drafts'][0]['draft'].startswith('Everyone') and j['said'].startswith('New draft')
+    j = post('live_now', text=site['id']).json(); assert j['said'] == 'Nothing new.' and len(asks) == 1   # no change, no model call
+    j = post('live_now', text=site['id']).json(); assert 'whole new story' in asks[-1] and 'first headline' not in asks[-1].split('WHAT CHANGED')[1] and len(j['drafts']) == 2
+    d = j['drafts'][0]; assert post('live_mark', text=d['id'], job='used', tools={'draft': 'Mine now.'}).json()['drafts'][0]['draft'] == 'Mine now.' and 'Rewrote a draft' in ' '.join(cat['playNotes']['live'])
+    assert post('live_mark', text='nope', job='used').status_code == 400 and not [k for k in dir(pw) if 'post_to' in k]
+    site2 = cat['pocWatch'][0]; site2.update(day=cat['pocWatch'][0]['day'], dayN=pw.DAY_DRAFTS); assert not pw.can_draft(site2, site2['readAt'])
+
+
+def test_the_registry_adds_real_glb_files_and_only_cc0(tmp_path):
+    import asyncio
+    import asset_packs as ap
+    class H:
+        async def get(self, url, **k):
+            class R:
+                status_code = 200; headers = {}
+            r = R()
+            if url.endswith('projects.json'):
+                r.json = lambda: [{'id': 'pm-a', 'name': 'Park', 'license': 'CC0', 'is_public': True}, {'id': 'pm-b', 'name': 'Paid', 'license': 'CC-BY', 'is_public': True}]
+            elif 'pm-a' in url:
+                r.json = lambda: [{'id': 'a-1', 'name': 'Bench_01', 'format': 'GLB', 'is_public': True, 'model_file_url': 'https://raw.githubusercontent.com/ToxSam/x/main/Bench.glb', 'metadata': {'attributes': [{'value': 'Nature'}]}}, {'id': 'a-2', 'name': 'Bad', 'format': 'GLB', 'is_public': True, 'model_file_url': 'https://evil.example/x.glb'}]
+            elif 'pm-b' in url:
+                raise AssertionError('a pack not marked CC0 is never read')
+            else:
+                r.json = lambda: {'Camera_01': {'name': 'Camera', 'tags': ['camera'], 'categories': [], 'download_count': 5}}
+            return r
+    assert asyncio.run(ap.refresh(H(), tmp_path)) > 3
+    hit = ap.best(tmp_path, 'wooden bench', 'model'); assert hit['id'] == 'cc0-a-1' and not ap.search(tmp_path, 'Bad', 'model')
+    got = asyncio.run(ap.resolve(H(), tmp_path, 'cc0-a-1', 'model')); assert got['url'].endswith('Bench.glb') and got['files'] == {}
+    import ai_play as aip
+    import collective_kits as ck
+    rule = ck.open_for_kits(aip.lock_html(ps.to_html({'objects': [{'name': 'B', 'asset': got, 'pos': [0, 0, 0]}]})), ['three']).split('content="')[1].split('">')[0]
+    assert 'connect-src blob: data: https://raw.githubusercontent.com/ToxSam/' in rule and ' https://raw.githubusercontent.com ' not in rule
+
+
+def test_every_proof_compares_before_it_settles():
+    import agent_knows as ak
+    import proof_plan as pp
+    assert 'Compare' in pp.LOOP and 'at least two other options' in ak.score_line('pop')
+

@@ -22,7 +22,7 @@ def score_line(kind):
     rows = pw.RUBRIC.get(pw.kind_of(kind) or '')
     if not rows:
         return ''
-    return '\nHOW THIS PROOF IS SCORED, out of 100: ' + ', '.join(f'{label} {w}' for _k, label, w, _r in rows) + '. Doing a simple request well is not a high score: simple work is held low however well it went. Aim for hard work done for real, deeper than your last one, not more of the same.'
+    return '\nHOW THIS PROOF IS SCORED, out of 100: ' + ', '.join(f'{label} {w}' for _k, label, w, _r in rows) + '. Doing a simple request well is not a high score: simple work is held low however well it went. Aim for hard work done for real, deeper than your last one, not more of the same. Before you settle, compare: what the stash already proved, and at least two other options you found. Name them and say why yours beat them. If something better exists, use it.'
 
 
 def weak_line(v):

@@ -2,7 +2,7 @@
 import re
 
 KINDS = ('pow', 'pop', 'pob', 'poc', 'pos')
-LOOP = ('Clarify', 'Research', 'Decide', 'File', 'Grade')
+LOOP = ('Clarify', 'Research', 'Compare', 'Decide', 'File', 'Grade')   # owner 2026-11-06: find and compare better before settling, stash included
 PLANS = {
     'pow': {'code': 'PoW', 'what': 'a trade', 'steps': {'Research': 'Scout coins, 2 snapshots a site, every coin checked again', 'Decide': '3 turns pick one coin, its size and exits', 'File': 'Bought on FEELESS, watched until it sells', 'Grade': 'By its real result'}, 'fallback': 'If the coins look bad, it files a no-trade instead of forcing one.',
             'question': 'Anything to avoid or prefer before I look?', 'chips': ['Go', 'Only safer coins', 'Newest coins', 'Keep it small']},

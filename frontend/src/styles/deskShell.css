@@ -212,3 +212,7 @@ body.theme-day .dset-map { background: #0d2a1b0d; border-color: #0d2a1b2e; }
 
 .dsk-body .pst-set { max-height: none; height: auto; }
 .dsk-body .pst-text { max-height: none; }
+.dsk-app { width: 100%; height: 100%; min-height: 60vh; border: 0; background: #000; } .dsk-app-none { margin: 24px; font-size: 13px; text-align: center; opacity: .75; }
+.dsk-alerts { position: fixed; left: 14px; bottom: 14px; z-index: 40; display: inline-flex; gap: 6px; animation: dskAlertIn .2s ease-out; } @keyframes dskAlertIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .dsk-alerts { animation: none; } @media (prefers-reduced-motion: reduce) { .dsk-alerts { animation: none; } }
+
