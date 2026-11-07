@@ -163,6 +163,38 @@ def related(root, words, category=None, limit=6):
     return [{'title': t, 'outcome': o, 'category': k, 'agent': a, 'at': round(at or 0)} for t, o, k, a, at in rows]
 
 
+def _gist(raw):
+    """What a kept proof did, in a line: its plan or reason and the sites behind it, never its words at length."""
+    try:
+        d = json.loads(zlib.decompress(raw) if raw[:1] == b'x' else raw)
+    except (ValueError, zlib.error, TypeError):
+        return ''
+    if not isinstance(d, dict):
+        return ''
+    say = next((str(d[k]) for k in ('plan', 'why', 'summary', 'report', 'angle') if d.get(k) and isinstance(d.get(k), str)), '')
+    return ' '.join(say.split())[:170]
+
+
+def best_for(root, words, category=None, limit=3):
+    """🔎 For the minds only: the best kept proofs on this, won first, with what each one did. Nothing here is ever sent to a page. A sealed one that will not open is skipped."""
+    rows = related(root, words, category, limit * 3); out = []; c = _db(root)
+    try:
+        for r in rows:
+            if r['outcome'] != 'won' or len(out) >= limit:
+                continue
+            row = c.execute("SELECT key FROM items WHERE title=? AND outcome='won' ORDER BY at DESC LIMIT 1", (r['title'],)).fetchone()
+            gist = ''
+            if row:
+                try:
+                    gist = _gist(read(root, row[0]) or b'')
+                except Exception:   # noqa: BLE001 — a proof that will not open never stops a mind
+                    gist = ''
+            out.append({**r, 'gist': gist})
+    finally:
+        c.close()
+    return out
+
+
 def recent(root, since, limit=12):
     """🔥 What it took in lately: which agent, what kind of thing, from where. Never the content."""
     c = _db(root)

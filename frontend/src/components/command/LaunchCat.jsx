@@ -153,7 +153,7 @@ function ModelTile({ m, on, onPick, i, kind }) {
       <strong>{shortName(m)}</strong>
       <span className="lct-tile-nums"><span><small>IN · 1M</small>{fmtM(m.inUsd)}</span><span><small>OUT · 1M</small>{fmtM(m.outUsd)}</span>
         <span className="is-hot"><small>{gen ? 'TASK EST.' : 'A DECISION'}</small>{fmtUsd(gen ? m.perTask : m.perDecision)}</span><span><small>MEMORY</small>{fmtCtx(m.ctx)}</span></span>
-      <span className="lct-chips">{[m.tools && 'tools', m.vision && 'vision', m.cats.includes('code') && 'code', m.reasoning && 'reasoning'].filter(Boolean).map(c => <i key={c}>{c}</i>)}{m.cats.slice(0, 4).map(c => <i key={c} className={CHIP[c]}>{c}</i>)}</span></button>
+      <span className="lct-chips">{[m.tools && 'tools', m.vision && 'vision', m.cats.includes('code') && 'code', m.reasoning && 'reasoning'].filter(Boolean).map(c => <i key={c}>{c}</i>)}{m.masterOf?.length ? <i className="is-master" data-tip="It leads this on published scores, and not most others">master: {m.masterOf.join(', ')}</i> : null}{!m.vision ? <i className="is-blind" data-tip="It cannot see pictures, so it cannot look at its own pages or videos. It still works">cannot see its work</i> : null}{m.cats.slice(0, 4).map(c => <i key={c} className={CHIP[c]}>{c}</i>)}</span></button>
     {desc ? <details className="lct-desc"><summary data-tip="What this model is and what it is good at">ABOUT</summary><p>{desc}</p></details> : null}
   </div>;
 }

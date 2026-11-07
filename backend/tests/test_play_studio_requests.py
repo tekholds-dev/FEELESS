@@ -275,3 +275,50 @@ def test_the_public_print_shows_only_basic_facts_and_only_active_proofs_glow(mon
     assert [r['active'] for r in rows] == [False, False, True, True, True]   # running, filed today, and in the Pool. Old closed proofs do not glow
     assert [r['result'] for r in rows][:3] == ['won', 'lost', 'open'] and rows[0]['age'] == 5 and rows[0]['kind'] == 'PoW'
 
+
+def _row(i, **k):
+    return {'id': i, 'cats': [], 'free': False, 'vision': False, 'tools': True, 'json': True, 'ctx': 100000, 'intel': None, 'coding': None, 'agentic': None, **k}
+
+
+def test_model_discovery_finds_all_rounders_and_masters_from_real_scores_and_blanks_stay_unplaced():
+    import launch_cat as lc
+    rows = [_row(f'c{i}', coding=90 - i) for i in range(12)] + [_row('allround', intel=95, coding=99, agentic=95, vision=True), _row('nothing'), _row('agents', agentic=99, intel=10)]
+    lc.place_proofs(rows); by = {r['id']: r for r in rows}
+    assert 'any-proof' in by['allround']['cats'] and 'master' not in by['allround']['cats']
+    assert by['c0']['masterOf'] == ['pos'] and 'master' in by['c0']['cats'] and by['nothing']['cats'] == [] and 'masterOf' not in by['nothing']
+    assert lc.fit_score(by['nothing'], 'pos') is None and lc.fit_score({**by['c0'], 'vision': True}, 'pos') > lc.fit_score(by['c0'], 'pos')
+    assert set(lc.CATS) >= {'any-proof', 'master', 'best-pos', 'best-poc', 'best-pow', 'best-pop', 'best-pob'}
+
+
+def test_a_model_is_warned_about_never_blocked_and_one_mind_that_can_see_is_enough(monkeypatch):
+    import launch_cat as lc, feecat_service as fs
+    assert 'cannot see pictures' in lc.limits_of({'vision': False, 'ctx': 100000}, 'pos')[0] and lc.limits_of({'vision': True, 'ctx': 100000}, 'pos') == [] and lc.limits_of(None) == []
+    assert 'its reports' in lc.limits_of({'tools': False, 'json': False}, 'pob')[0]
+    monkeypatch.setitem(fs._MODELS, 'rows', {'models': [{'id': 'a/blind', 'vision': False, 'ctx': 100000}, {'id': 'b/sees', 'vision': True, 'ctx': 100000}]})
+    cat = lambda *b: {'brainsCfg': {'brains': list(b)}}
+    assert 'blind cannot see' in fs._fit_line(cat('a/blind'), 'pos') and fs._fit_line(cat('a/blind', 'b/sees'), 'pos') == '' and fs._fit_line(cat('unknown/model'), 'pos') == ''
+
+
+def test_a_mind_looking_at_its_page_can_only_make_small_safe_fixes():
+    sc = ps.clean_scene({'mood': 'noir', 'layout': 'left', 'camera': [2, 1, 5], 'tint': '#ffffff', 'objects': [{'name': 'Chair', 'asset': {'id': 'c', 'url': 'https://dl.polyhaven.org/c.gltf'}, 'pos': [0, 0, 0]}, {'name': 'Crate', 'asset': {'id': 'd', 'url': 'https://dl.polyhaven.org/d.gltf'}, 'pos': [1, 0, 0]}], 'page': {'headline': 'H'}})
+    got, say = ps.apply_look(sc, json.dumps({'say': 'The crate covers the words', 'layout': 'right', 'remove': ['Crate'], 'closer': True, 'headline': 'HACKED', 'mood': 'neon'}))
+    assert say.startswith('The crate') and got['layout'] == 'right' and [o['name'] for o in got['objects']] == ['Chair'] and got['camera'][2] < 5 and got['mood'] == 'noir' and got['page']['headline'] == 'H'
+    assert ps.apply_look(sc, json.dumps({'say': 'It looks right'})) == (None, 'It looks right') and ps.apply_look(sc, 'no json')[0] is None
+    only, _ = ps.apply_look(sc, json.dumps({'remove': ['Chair', 'Crate']})); assert only is None   # it may not empty its own set
+
+
+def test_the_collective_stash_reaches_minds_only_as_method(tmp_path):
+    import collective_stash as st, agent_refs as ar
+    st.put(tmp_path, 'k1', 'Code', 'x.com', 'cat-a', 'won', 'black hole landing page', json.dumps({'plan': 'One strong centerpiece, words low on the left'}).encode())
+    st.put(tmp_path, 'k2', 'Code', 'x.com', 'cat-b', 'lost', 'black hole bad page', json.dumps({'plan': 'crowded'}).encode())
+    rows = st.best_for(tmp_path, ['black', 'hole'])
+    assert len(rows) == 1 and rows[0]['gist'].startswith('One strong')
+    line = ar.best_line(rows, 'someone'); assert 'do not quote' in line and 'a winning proof' in line and 'cat-a' not in line and ar.best_line([]) == ''
+
+
+def test_a_page_can_carry_a_minds_own_code_and_only_the_kits_it_used():
+    html = ps.to_html(ps.clean_scene({'mood': 'noir', 'objects': [{'name': 'a', 'shape': 'box'}], 'code': {'js': 'addEventListener("feeless",e=>{})'}}), 'N')
+    assert "new CustomEvent('feeless'" in html and 'onFrame' in html
+    locked = ps.lock_site(html, ['gsap', 'nope']); assert 'gsap' in locked and 'nope' not in locked and locked.count('Content-Security-Policy') == 1
+    assert 'gsap' not in ps.lock_site(html)
+

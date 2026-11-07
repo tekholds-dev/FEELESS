@@ -22,6 +22,13 @@ KINDS = {'trading': ('📈 Trading AI cat', '1-2 trading models hunt coins for y
          'general': ('🧭 General AI cat', '1-2 all-round models: answers, research in their own cloud browsers, and coin orders you OK (or switch to auto)')}
 BILLING = {'profit': '💸 profit pays the fees (owed until a winning sale)', 'payg': '💳 pay as you go (pauses at $0 until you top up)'}
 CATS = {
+    'any-proof': ('🏆 Any proof', 'Strong at nearly every proof, on published scores'),
+    'master': ('🎯 Masters', 'Leads one or two proofs, not the rest'),
+    'best-pos': ('💻 Best for PoStatic', 'Writes real pages and games'),
+    'best-poc': ('📣 Best for PoC', 'Reasons about content, and can see pictures'),
+    'best-pow': ('⛏ Best for PoW', 'Works alone through sites and tools'),
+    'best-pop': ('📉 Best for PoP', 'Reasons on numbers before it calls'),
+    'best-pob': ('🎲 Best for PoB', 'Reads many sites and weighs them'),
     'degen': ('🔥 Degen', 'cheap + fast enough to fire on every alert'),
     'trading': ('📈 Trading', 'tool / JSON answers, a long context, sane price'),
     'thinking': ('🧠 Thinking', 'reasons step by step before it answers'),
@@ -98,7 +105,7 @@ def slim(m):
     pr = m.get('pricing') or {}
     arch = m.get('architecture') or {}
     sp = set(m.get('supported_parameters') or [])
-    intel = ((m.get('benchmarks') or {}).get('artificial_analysis') or {}).get('intelligence_index')
+    bench = (m.get('benchmarks') or {}).get('artificial_analysis') or {}; intel = bench.get('intelligence_index')
     row = {'id': str(m.get('id') or '')[:80], 'name': str(m.get('name') or m.get('id') or '')[:80],
            'provider': str(m.get('id') or '').split('/')[0][:30], 'ctx': int(_f(m.get('context_length'))),
            'inUsd': round(_f(pr.get('prompt')) * 1e6, 4), 'outUsd': round(_f(pr.get('completion')) * 1e6, 4),
@@ -106,6 +113,7 @@ def slim(m):
            'json': 'response_format' in sp or 'structured_outputs' in sp,
            'vision': 'image' in (arch.get('input_modalities') or []),
            'intel': round(_f(intel), 1) if intel is not None else None,
+           'coding': round(_f(bench.get('coding_index')), 1) if bench.get('coding_index') is not None else None, 'agentic': round(_f(bench.get('agentic_index')), 1) if bench.get('agentic_index') is not None else None,
            'desc': ' '.join(str(m.get('description') or '').split())[:700], 'created': int(_f(m.get('created')))}
     reason = m.get('reasoning') if isinstance(m.get('reasoning'), dict) else {}
     row['efforts'] = (reason.get('supported_efforts') or ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']) if 'supported_efforts' in reason else []
@@ -150,6 +158,52 @@ def cats_of(r):
     return c
 
 
+# 🏅 Model discovery by proof (owner 2026-11-07). The scores are Artificial Analysis's own, as OpenRouter publishes them. A model with none of them is not placed: a blank is not a low score.
+PROOFS = {'pos': ('💻 PoStatic', 'Writes real pages and games', ('coding', 3), ('agentic', 1)), 'poc': ('📣 PoC', 'Reasons about content, and can see pictures', ('intel', 3), ('coding', 0)), 'pow': ('⛏ PoW', 'Works alone through sites and tools', ('agentic', 3), ('intel', 2)), 'pop': ('📉 PoP', 'Reasons on numbers before it calls', ('intel', 3), ('agentic', 1)), 'pob': ('🎲 PoB', 'Reads many sites and weighs them', ('agentic', 2), ('intel', 2))}
+TOP_PER_PROOF = 12
+ANY_PROOF_AT = 4
+
+
+def fit_score(r, kind):
+    """How well the published scores fit one proof. → a number, or None when it has none of them. Pure."""
+    w = PROOFS[kind][2:]; got = [(r.get(k), n) for k, n in w if n and r.get(k) is not None]
+    if not got:
+        return None
+    base = sum(v * n for v, n in got) / sum(n for _, n in got)
+    return round(base + (6 if kind in ('pos', 'poc') and r.get('vision') else 0), 1)
+
+
+def place_proofs(rows):
+    """Marks each model: the best for each proof, those strong at nearly every proof, and those that lead only one or two: its masters. Works on published scores. Pure."""
+    tops = {}
+    for k in PROOFS:
+        ranked = sorted((r for r in rows if fit_score(r, k) is not None and not r.get('free')), key=lambda r: -fit_score(r, k))
+        tops[k] = {r['id'] for r in ranked[:TOP_PER_PROOF]}
+    for r in rows:
+        mine = [k for k in PROOFS if r['id'] in tops[k]]
+        for k in mine:
+            r['cats'].append(f'best-{k}')
+        if len(mine) >= ANY_PROOF_AT:
+            r['cats'].append('any-proof')
+        elif 1 <= len(mine) <= 2:
+            r['cats'].append('master'); r['masterOf'] = mine
+    return rows
+
+
+def limits_of(r, kind='pos'):
+    """What this model cannot do on this job, in plain words. It only warns: the owner's pick always runs. Pure. → [line]"""
+    out = []
+    if not r:
+        return out
+    if kind in ('pos', 'poc') and not r.get('vision'):
+        out.append('cannot see pictures, so it cannot look at its own work and fix what looks wrong')
+    if kind in ('pow', 'pop', 'pob') and not (r.get('tools') or r.get('json')):
+        out.append('has no tool or JSON mode, so its reports may fail to read')
+    if r.get('ctx') and r['ctx'] < 16000:
+        out.append(f"holds only {round(r['ctx'] / 1000)}K of context, so long requests get cut")
+    return out
+
+
 def decision_usd(r):
     return round((r['inUsd'] * IN_TOK + r['outUsd'] * OUT_TOK) / 1e6, 6)
 
@@ -161,6 +215,7 @@ def catalog(rows):
     for i, t, w in REC:   # one tile per desk seat (the newer Qwen first; the older only when the newer isn't listed)
         if i in by and w not in seen:
             seen.add(w); rec.append({**by[i], 'tag': t, 'why': w})
+    place_proofs(rows)
     counts = {k: sum(1 for r in rows if k in r['cats']) for k in CATS}
     return {'models': rows, 'rec': rec, 'personas': PERSONAS, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k], **({'general': True} if k in GENERAL_CATS else {})} for k, v in CATS.items()],
             'modes': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in MODES.items()],

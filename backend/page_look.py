@@ -69,6 +69,22 @@ def _n(v):
         return 0.0
 
 
+async def shot(html, chromium, w=1280, h=800, wait=7000):
+    """A picture of one page, so a mind can look at its own work. → jpeg bytes or None."""
+    from playwright.async_api import async_playwright
+    async with async_playwright() as pw:
+        b = await pw.chromium.launch(executable_path=chromium, args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
+        try:
+            ctx = await b.new_context(viewport={'width': w, 'height': h})
+            async def only_https(route):
+                await (route.continue_() if route.request.url.startswith(('https://', 'data:', 'blob:', 'about:')) and route.request.method == 'GET' else route.abort())
+            await ctx.route('**/*', only_https); pg = await ctx.new_page()
+            await pg.set_content(html, wait_until='domcontentloaded', timeout=15000); await pg.wait_for_timeout(wait)
+            return await pg.screenshot(type='jpeg', quality=60, timeout=60000)
+        finally:
+            await b.close()
+
+
 async def measure(html, chromium):
     """Opens one page at both sizes. → {size: measures}. Each size has its own context, so nothing carries over."""
     from playwright.async_api import async_playwright

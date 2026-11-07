@@ -3994,10 +3994,30 @@ def _proof_brain(cat, kind):
 def _job_brain(cat, text):
     """🧠 What a chat job starts with, whatever was asked: where it is, and what the Collective already proved on this. Titles and results only, read from this server. Never stops a job."""
     try:
-        return '\n' + _know.WHERE + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], None, 4), _stash.agent_tag(cat.get('id')))
+        words_ = re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10]; return '\n' + _know.WHERE + _feat._sources.recall_line(_stash.related(STASH_DIR, words_, None, 4), _stash.agent_tag(cat.get('id'))) + _feat._sources.best_line(_stash.best_for(STASH_DIR, words_, None, 2), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[brain] {str(e)[:100]}')
         return ''
+
+
+def _stash_best(cat, category, text):
+    """🔎 The best proofs the Collective holds on this, for its minds. The owner never gets this. Never stops a proof."""
+    try:
+        return _feat._sources.best_line(_stash.best_for(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], None, 2), _stash.agent_tag(cat.get('id')))
+    except Exception as e:   # noqa: BLE001
+        print(f'[stash] {str(e)[:100]}')
+        return ''
+
+
+def _fit_line(cat, kind):
+    """⚠ What the picked models cannot do on this job. It warns once and never stops the work: the owner's pick always runs. → a line or ''"""
+    rows = {r['id']: r for r in ((_MODELS.get('rows') or {}).get('models') or [])}; names = []; picked = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; found = [(m, rows.get(m)) for m in picked]
+    if kind in ('pos', 'poc') and any(r and r.get('vision') for _, r in found):   # one mind that can see is enough: it does the looking
+        return ''
+    for m, r in found:
+        for line in _lc.limits_of(r, kind):
+            names.append(f"{str(m).split('/')[-1]} {line}")
+    return ('Worth knowing: ' + '; '.join(names) + '. It still does the work, the result just may not be its best. Model discovery shows which models suit this proof.') if names else ''
 
 
 def _recall(cat, category, text):
@@ -4005,7 +4025,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -6326,6 +6346,9 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if not brains:
         _feat.add_msg(doc, 'FEELESS', 'Pick a model for this agent first. Nothing changed.', time.time())
         return 0.0, 'This agent has no model.', False
+    fit_ = _fit_line(cat, 'pos')
+    if fit_ and doc.get('fitSaid') != fit_:
+        _feat.add_msg(doc, 'FEELESS', fit_, time.time()); doc['fitSaid'] = fit_
     def busy(stage):
         doc['stage'] = stage; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': stage, 'spent': round(cost, 6)}})
     async def resolve(scene):
@@ -6387,9 +6410,25 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if slot == 'scene3d' and doc.get('scene3dNext') and re.search(r'(?i)\b(room|enter the room)\b', str(text)) and _play.ASKS_DASH.search(str(text)):   # one message about both places
         doc['scene3dNext'] = _play.ensure_asks(doc['scene3dNext'], text, doc.get('name'))
     first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
-    html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
+    usable_ = [p for p in (picks_k_ or []) if p in _kits.KIT_USE and p != 'three'] if (first_.get('code') or {}).get('js') or (first_.get('code') or {}).get('html') else []
+    html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_), usable_)
+    looked_ = ''
+    if fresh_ and not first_.get('game'):   # 👁 a mind that can see looks at its own page once, and may fix what is wrong
+        rows_ = {r['id']: r for r in ((_MODELS.get('rows') or {}).get('models') or [])}; eye_ = next((m for m in brains if (rows_.get(m) or {}).get('vision')), None)
+        if eye_:
+            busy('review')
+            try:
+                seen_ = await _look.shot(html, _fb.chromium_path())
+                if seen_:
+                    raw_, usd_ = '', 0.0
+                    raw_, usd_, _o = await _ws_ask(cat, eye_, _play.LOOK_SYS, [{'type': 'text', 'text': f"THE REQUEST: {prompt[:1500]}\nWHAT IS ON THE SET: {_play.scene_brief(first_)}"}, {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,' + base64.b64encode(seen_).decode()}}], 500); cost += usd_
+                    fixed_, looked_ = _play.apply_look(first_, raw_)
+                    if fixed_:
+                        first_ = fixed_; doc[slot if slot == 'scene3d' else 'scene3d'] = first_; html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_), usable_)
+            except Exception as e:   # noqa: BLE001 — a look that fails never costs the page
+                print(f'[look] {str(e)[:120]}')
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
