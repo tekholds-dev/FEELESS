@@ -1080,10 +1080,12 @@ function HoneyPot({ cat, pool }) {
 // SOL ⇄ USDC only, nothing leaves it, the gas reserve always stays; the server signs only a quote that echoes exactly this swap
 function WalletApp({ cat, compact = false, onBrowse = null }) {
   const [pane, setPane] = useState('wallet');
+  const [think, setThink] = useState(null); useEffect(() => { let on = true; work(cat.id, { op: 'wallet_think' }).then(j => on && setThink(j)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   const [w, setW] = useState(null); const [side, setSide] = useState('USDC>SOL'); const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
   useEffect(() => { let on = true; work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(e => on && setW({ err: e.message })); return () => { on = false; }; }, [cat.id]);
   if (!w) return <p className="dsk-note">reading its wallet…</p>;
   if (w.err) return <p className="dsk-note">{w.err}</p>;
+  const days = think?.perDay ? (w.usdc || 0) / think.perDay : null;
   const tok = side.split('>')[0]; const max = tok === 'SOL' ? Math.max(0, (w.sol || 0) - (w.gas || 0)) : (w.usdc || 0);
   const go = async () => { setBusy(true); setMsg('');
     try { const j = await work(cat.id, { op: 'wallet_swap', text: side, cap: Number(amt) || 0 }); setW(j); setAmt('');
@@ -1093,7 +1095,7 @@ function WalletApp({ cat, compact = false, onBrowse = null }) {
     <p className="dsk-note">Sicario's trades from the Fuse wallet. To top up, send SOL to this address, then put it on the card in HQ › Fuse. Then ask it to file a PoW.</p>{w.address ? <code className="dsk-wal-addr" data-testid="dsk-fuse-address">{w.address}</code> : <p className="dsk-note" role="alert">The card service did not answer.</p>}</div>;
   const tabs = <div className="m-seg" role="tablist" aria-label="Wallet">{[['wallet', 'Its wallet'], ['card', 'Get a card']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`wal-tab-${k}`}>{l}</button>)}</div>;
   if (pane === 'card') return <div className="dsk-wal" data-testid="dsk-wallet-card">{tabs}<CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /></div>;
-  return <div className="dsk-wal" data-testid="dsk-wallet">{tabs}
+  return <div className="dsk-wal" data-testid="dsk-wallet">{tabs}{think?.calls ? <p className={`dsk-think${days != null && days < 3 ? ' is-low' : ''}`} data-tip="From its own receipts over the last week. Nothing tops up by itself" data-testid="dsk-think"><b>Thinking costs about ${think.perDay.toFixed(2)} a day</b>{days != null ? <span>{days < 3 ? `Top up soon: about ${days.toFixed(1)} days of USDC left` : `About ${Math.round(days)} days of USDC left`}</span> : null}</p> : null}
     {compact ? null : <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
       <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>}
     <p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} remaining. Wallet balances above are live; SingIt charges the USDC here per call.</p>

@@ -27499,7 +27499,8 @@ async def admin_grow_detail(request: Request, id: str = Query('', max_length=128
             pts_, why_ = _gb.lend_points(row_, (r_.json().get('data') or []) if r_.status_code == 200 else [], sol_, time.time())
     except (httpx.HTTPError, ValueError) as e:
         raise HTTPException(502, f'Its history could not be read: {str(e)[:80]}')
-    out_ = {'id': id, 'points': pts_, 'single': row_['kind'] != 'pool', 'why': why_}
+    import range_sim as _rs
+    out_ = {'id': id, 'points': pts_, 'single': row_['kind'] != 'pool', 'why': why_, 'ranges': {'bands': [next(x_ for x_ in _rs.sweep(pts_, widths=(w_,)) if x_) for w_ in _rs.WIDTHS] if row_['kind'] == 'pool' and len(pts_) >= 30 else [], 'test': _rs.walk_forward(pts_) if row_['kind'] == 'pool' else None}}
     _GROW['detail'][id] = out_
     return out_
 

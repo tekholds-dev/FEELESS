@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FeeOwnerBar } from './FeeOwnerBar';
+import { IdeasFolder } from './IdeasFolder';
 import { realView } from './CatReal';
 import { toast } from 'sonner';
 import { FeeTape, DuoLearn, readWords } from './FeeCatLive';
@@ -220,6 +221,7 @@ export function FeeCatDesk({ call }) {
       { k: 'pow', ic: '⛏', label: 'PoW folders', tip: "Every agent's proofs", body: <PowEngine /> },
       { k: 'allwork', ic: '🗂', label: 'All work', tip: 'Every proof and every job from every agent, with how each scored', body: <AllWork cat={c} work={work} /> },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Every agent\'s record and the mindsets written from it', body: <PromptStudio call={call} /> },
+      { k: 'ideas', ic: '💡', label: 'Ideas', tip: 'OSSY and G4 pitch vitals, mechanics and money ideas from real counts. You mark them. Nothing changes until you say', body: <IdeasFolder cat={c} work={work} /> },
       { k: 'git', ic: '🐙', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
       { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
       { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },

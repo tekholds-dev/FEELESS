@@ -80,6 +80,7 @@ import collective_debate as _debate
 import play_studio as _play
 import asset_packs as _assets
 import poc_watch as _pw
+import idea_board as _ideas
 import proof_footprint as _foot
 import collective_stash as _stash
 import collective_kits as _kits
@@ -3670,6 +3671,30 @@ def _kit_record(store=None):
     return out
 
 
+def _wallet_think(cat_id, now=None, days=7):
+    """What its models really cost over the last week, read from the paid receipts. → {usd, perDay, calls, days}"""
+    now = now or time.time(); usd = 0.0; calls = 0; first = now
+    try:
+        with (DATA_DIR / 'model_receipts.jsonl').open() as f_:
+            for line_ in f_:
+                if cat_id not in line_:
+                    continue
+                r_ = json.loads(line_)
+                if r_.get('cat') == cat_id and now - float(r_.get('at') or 0) <= days * 86400:
+                    usd += float(r_.get('usd') or 0); calls += 1; first = min(first, float(r_['at']))
+    except (OSError, ValueError):
+        pass
+    span = max(1.0, (now - first) / 86400) if calls else 1.0
+    return {'usd': round(usd, 4), 'perDay': round(usd / span, 4), 'calls': calls, 'days': round(span, 1)}
+
+
+def _idea_facts(store):
+    """Real counts for the minds to pitch from. No names, wallets or keys."""
+    cats = [c for c in store['cats'].values() if not c.get('revoked')]; kinds = {k: [f for c in cats for f in c.get(key) or [] if isinstance(f, dict)] for k, key in _PROOF_KEYS.items()}
+    st_ = _debate.load(DATA_DIR)
+    return json.dumps({'agents': len(cats), 'proofs': {k: {'filed': len(v), 'right': sum(1 for f in v if _proof_won(k, f) is True), 'wrong': sum(1 for f in v if _proof_won(k, f) is False)} for k, v in kinds.items()}, 'debate': {'onTable': len(st_['table']), 'settled': sum(1 for r in st_['table'] if r.get('settled'))}, 'kitsUsedMost': sorted(((k, v['used']) for k, v in _kit_record(store).items()), key=lambda x: -x[1])[:5], 'assets': sum(len(v) for v in (_assets._load(KITS_DIR, _assets.INDEX).get('rows') or {}).values())})
+
+
 _ECO_CHECK_AT = [0.0]
 _LIVE_AT = [0.0]
 _LIVE_BUSY = [False]
@@ -7118,6 +7143,24 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if p.op != 'live_get':
             keep_owned(cat); _save(store)
         return {'sites': rows_, 'drafts': drafts_[::-1], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+    if p.op.startswith('ideas_'):   # 💡 owner only, on Fee: OSSY and G4 pitch from real counts. An idea changes nothing
+        if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
+            raise HTTPException(403, 'Only the owner reads the ideas.')
+        rows_ = _ideas.load(DATA_DIR); said_ = ''
+        try:
+            if p.op == 'ideas_mark':
+                _ideas.mark(rows_, str(p.text or ''), str(p.job or '')); _ideas.save(DATA_DIR, rows_)
+            elif p.op == 'ideas_ask':
+                facts_ = _idea_facts(store); added_ = 0
+                for mind_, name_ in (('local/ossy', 'OSSY'), ('local/g4', 'G4')):
+                    raw_, _u = await _lm_call(mind_, [{'role': 'system', 'content': _ideas.SYS + _ideas.memory(rows_)}, {'role': 'user', 'content': f"THE FACTS: {facts_}{(' ASKED FOR: ' + str(p.text)[:200]) if p.text else ''}"}], 900); new_ = _ideas.parse(raw_, rows_, name_, time.time())
+                    rows_ += new_; added_ += len(new_)
+                _ideas.save(DATA_DIR, rows_); said_ = f'{added_} new ideas.' if added_ else 'OSSY and G4 sent nothing new. They may be off.'
+            elif p.op != 'ideas_get':
+                raise ValueError('No such step.')
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:160])
+        return {'rows': rows_[::-1], 'said': said_}
     if p.op == 'desk_apps':   # 📲 a build or a game kept as an app on its desktop
         rows_ = [a for a in cat.get('deskApps') or [] if isinstance(a, dict)]
         if p.text:
@@ -7795,6 +7838,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'cardLink': link_}
     if p.op in ('wallet', 'wallet_swap'):   # 👛 the desktop wallet app: its live balance + the owner's own swap inside its wallet (nothing leaves it)
+        if p.op == 'wallet_think':   # 💭 what thinking costs this agent, from its own receipts. It reads and tells. Nothing is sent
+            return _wallet_think(cat_id)
         if p.op == 'wallet' and cat.get('handle') == 'sicarios' and not (cat.get('agentWallet') or {}).get('address'):   # 🎩 it trades from the Fuse wallet: that is the wallet its owner sees
             try:
                 async with httpx.AsyncClient() as h_:

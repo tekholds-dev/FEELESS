@@ -316,3 +316,15 @@ test('🔔 only a newly filed proof raises an alert, and the first look only cou
   expect(proofsDone({ psFolders: 1, powFolders: 0 }, d)).toEqual(['PoStatic: GLINT is done']);
 });
 
+
+test('💡 ideas are marked, and a refused one moves out of the new list', async () => {
+  const { IdeasFolder } = require('./IdeasFolder');
+  let rows = [{ id: 'a', topic: 'money', title: 'Stable floor', what: 'Keep it', why: 'Six of six', test: 'A week', by: 'OSSY', mark: 'new' }]; const calls = [];
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'ideas_mark') rows = rows.map(r => (r.id === b.text ? { ...r, mark: b.job } : r)); return { rows }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<IdeasFolder cat={{ id: 'leader' }} work={fake} />); await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`); expect(q('idea-a').textContent).toContain('Six of six');
+  await act(async () => { q('idea-bad-a').click(); await new Promise(r => setTimeout(r, 0)); }); expect(calls.at(-1)).toMatchObject({ op: 'ideas_mark', text: 'a', job: 'bad' }); expect(q('idea-a')).toBeNull();
+  await act(async () => { q('ideas-view-bad').click(); }); expect(q('idea-a')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});
