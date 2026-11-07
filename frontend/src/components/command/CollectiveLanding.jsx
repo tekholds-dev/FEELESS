@@ -1,83 +1,55 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
-import { SourceWins } from './Proofprint';
+import { isCalm } from '../../lib/fxPause';
 import { usePoolRules } from './SplitFlow';
-import { KeepDeal } from './KeepDeal';
-import { StashWeb } from './StashWeb';
+import { KeepDeal, ScoreLadder, StakeStory } from './KeepDeal';
 import '../../styles/collectiveLanding.css';
+const AtomPrint = lazy(() => import('./AtomPrint'));
 
-// 🧬 THE COLLECTIVE'S FRONT PAGE (owner 2026-11-05, from their lab file). The living print is theirs; every bright cell here is a REAL proof from the server, the rest is the print's own texture. The diagram below is React Flow on the real rules. Nothing is invented.
+// 🧬 THE COLLECTIVE'S FRONT PAGE (owner 2026-11-07). A 3D print of atoms where the larger ones are real proofs with only basic facts, and only an active one glows. Three pages explain the mechanics, the last one you can try from $1. The stash is the agents' and is never shown here.
 export const THEMES = [['NEBULA', ['#8c72ff', '#5ff4ef', '#ff75cf']], ['TOXIC', ['#b5ff28', '#42ffbe', '#faff58']], ['INFERNO', ['#ff4d77', '#ffad33', '#ff4cf0']], ['GLACIER', ['#3a7cff', '#6cf7ff', '#d4faff']], ['VOID', ['#c7a1ff', '#fdfaff', '#8d70ff']], ['SOLAR', ['#ffcf5c', '#ff6c3d', '#ffe8ab']], ['MATRIX', ['#16ff83', '#61ffce', '#b5ffd2']], ['ULTRA', ['#ff43ec', '#45e9ff', '#ffb2ff']]];
-const RIDGES = 46; const TAU = Math.PI * 2; const R0 = 38; const STEP = 9.6;
-const ridgeXY = (ridge, a, t = 0) => { const r = R0 + ridge * STEP; const wave = Math.sin(a * 3 + ridge * 0.17) * 13 + Math.sin(a * 7 - ridge * 0.12) * 5; const b = t ? Math.sin(t * 0.5 - ridge * 0.2 + a * 2) * 1.6 : 0; return [Math.cos(a) * (r * 0.87 + wave + b) + Math.sin(ridge * 0.3) * 2, Math.sin(a) * (r * 1.2 + wave + b) + Math.cos(ridge * 0.22) * 3]; };
-const rand = i => { const v = Math.sin(i * 127.1 + 78.233) * 43758.5453; return v - Math.floor(v); };
-const hash = s => { let h = 7; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 1000003; return h; };
-// A real proof sits at a fixed spot on the print, for good, decided by its own id.
-export const proofSpot = id => { const h = hash(id); const ridge = h % RIDGES; const a = (((h >> 4) % 997) / 997) * TAU * 1.04 - 0.12; const [x, y] = ridgeXY(ridge, a); return { x, y, ridge }; };
-const lite = () => document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-// The whole print is drawn once to its own bitmap, then only moved. That is what keeps 12,000 cells smooth: a frame costs a single image draw, not 12,000 circles.
-function paintPrint(colors, glow, scale) {
-  const size = Math.ceil(1400 * scale); const off = document.createElement('canvas'); off.width = size; off.height = size; const c = off.getContext('2d'); if (!c) return null; c.translate(size / 2, size / 2); c.scale(scale, scale); c.lineCap = 'round';
-  for (let ridge = RIDGES - 1; ridge >= 0; ridge -= 1) { c.beginPath(); for (let j = 0; j <= 190; j += 1) { const [x, y] = ridgeXY(ridge, (j / 190) * TAU * 1.04 - 0.12); if (j) c.lineTo(x, y); else c.moveTo(x, y); } const col = colors[ridge % 3]; c.strokeStyle = col; c.lineWidth = ridge % 7 === 0 ? 3 : 1.3; c.globalAlpha = ridge % 7 === 0 ? 0.42 : 0.24; c.shadowBlur = (5 + glow * 20) * scale; c.shadowColor = col; c.stroke(); }
-  c.shadowBlur = 0; c.globalAlpha = 0.62; const N = 12000; const per = Math.ceil(N / RIDGES); colors.forEach((col, k) => { c.fillStyle = col; c.beginPath(); for (let i = 0; i < N; i += 1) { const ridge = i % RIDGES; if (ridge % 3 !== k) continue; const u = (Math.floor(i / RIDGES) + rand(i + 32) * 0.7) / per; const [x, y] = ridgeXY(ridge, u * TAU * 1.04 - 0.12); c.moveTo(x + 1.1, y); c.arc(x, y, 1.1, 0, TAU); } c.fill(); });
-  return off;
-}
-const CLASS = { PoW: 'Proof of Work', PoP: 'Proof of Perps', PoB: 'Proof of Bids', PoC: 'Proof of Content', PoStatic: 'Proof of Code' };
-function LivePrint({ proofs, colors, glow }) {
-  const canvas = useRef(null); const stage = useRef(null); const wire = useRef(null); const path = useRef(null); const dot = useRef(null); const v = useRef({ z: 0.5, x: 0, y: 0, w: 1, h: 1, dpr: 1, drag: null, moved: false, sel: -1, bmp: null, bmpScale: 0, on: true }); const [sel, setSel] = useState(null); const [fps, setFps] = useState(null);
-  const cells = useMemo(() => (proofs || []).map(p => ({ p, ...proofSpot(p.id) })), [proofs]); const cellsRef = useRef(cells); cellsRef.current = cells;
-  const fit = useCallback(() => { const s = v.current; s.z = Math.min(s.w / 1150, s.h / 1250) * 1.06; s.x = s.w > 720 ? s.w * 0.07 : 0; s.y = 0; }, []);
-  const bitmap = useCallback(() => { const s = v.current; const want = Math.min(2.4, Math.max(0.7, s.z * s.dpr)); if (!s.bmp || Math.abs(want - s.bmpScale) > 0.45) { s.bmp = paintPrint(colors, glow, want); s.bmpScale = want; } }, [colors, glow]);
-  useEffect(() => { v.current.bmp = null; bitmap(); }, [colors, glow, bitmap]);
-  useEffect(() => { const c = canvas.current; const box = stage.current; if (!c || !box) return undefined; const ctx = c.getContext('2d', { alpha: false }); if (!ctx) return undefined; const s = v.current; let raf = 0; let frames = 0; let t0 = performance.now(); const still = lite();
-    const size = () => { const r = box.getBoundingClientRect(); s.w = r.width; s.h = r.height; s.dpr = Math.min(window.devicePixelRatio || 1, 2); c.width = Math.round(s.w * s.dpr); c.height = Math.round(s.h * s.dpr); if (!s.fitted) { fit(); s.fitted = true; } bitmap(); };
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(size) : null; ro?.observe(box); size();
-    const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { s.on = e.isIntersecting; if (s.on && !raf) raf = requestAnimationFrame(draw); }) : null; io?.observe(box);
-    const draw = now => { raf = 0; ctx.setTransform(s.dpr, 0, 0, s.dpr, 0, 0); ctx.fillStyle = '#06060f'; ctx.fillRect(0, 0, s.w, s.h); const g = ctx.createRadialGradient(s.w * 0.5, s.h * 0.5, 10, s.w * 0.5, s.h * 0.5, Math.max(s.w, s.h) * 0.68); g.addColorStop(0, '#20123a'); g.addColorStop(0.55, '#0a0a20'); g.addColorStop(1, '#05050b'); ctx.fillStyle = g; ctx.fillRect(0, 0, s.w, s.h);
-      const ox = s.w / 2 + s.x; const oy = s.h / 2 + s.y; if (s.bmp) { const side = 1400 * s.z; ctx.drawImage(s.bmp, ox - side / 2, oy - side / 2, side, side); }
-      ctx.save(); ctx.translate(ox, oy); ctx.scale(s.z, s.z); if (!still) { ctx.save(); ctx.rotate(now * 0.00021); const sweep = ctx.createLinearGradient(0, 0, 660, 0); sweep.addColorStop(0, `${colors[1]}00`); sweep.addColorStop(1, `${colors[1]}30`); ctx.fillStyle = sweep; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 660, -0.2, 0); ctx.closePath(); ctx.fill(); ctx.restore(); }
-      cellsRef.current.forEach((k, i) => { const pulse = still ? 1 : 0.65 + 0.35 * Math.sin(now * 0.003 + i); ctx.globalAlpha = pulse; ctx.fillStyle = Number(k.p.pct) < 0 ? '#ff8fa3' : '#fff'; ctx.beginPath(); ctx.arc(k.x, k.y, 4.2 / Math.max(0.6, s.z), 0, TAU); ctx.fill(); ctx.globalAlpha = 0.28 * pulse; ctx.beginPath(); ctx.arc(k.x, k.y, 10 / Math.max(0.6, s.z), 0, TAU); ctx.fill(); }); ctx.globalAlpha = 1; ctx.restore();
-      const k = cellsRef.current[s.sel]; if (k && wire.current) { const sx = ox + k.x * s.z; const sy = oy + k.y * s.z; const bw = wire.current.offsetWidth || 320; const bh = wire.current.offsetHeight || 260; const left = sx > s.w * 0.6 ? Math.max(10, sx - bw - 46) : Math.min(s.w - bw - 10, sx + 46); const top = Math.min(s.h - bh - 10, Math.max(10, sy - bh * 0.3)); wire.current.style.transform = `translate(${left}px, ${top}px)`; const ex = sx < left ? left : left + bw; const ey = top + Math.min(bh * 0.4, 90); path.current?.setAttribute('d', `M ${sx} ${sy} Q ${(sx + ex) / 2} ${Math.min(sy, ey) - 80} ${ex} ${ey}`); dot.current?.setAttribute('cx', sx); dot.current?.setAttribute('cy', sy); }
-      frames += 1; if (now - t0 > 1000) { setFps(Math.round((frames * 1000) / (now - t0))); frames = 0; t0 = now; } if (!still && s.on && !document.hidden) raf = requestAnimationFrame(draw); };
-    const wake = () => { if (!raf && s.on && !still) raf = requestAnimationFrame(draw); }; document.addEventListener('visibilitychange', wake); s.redraw = () => { if (!raf) raf = requestAnimationFrame(draw); }; raf = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(raf); ro?.disconnect(); io?.disconnect(); document.removeEventListener('visibilitychange', wake); }; }, [bitmap, fit, colors]);
-  const close = () => { v.current.sel = -1; setSel(null); v.current.redraw?.(); };
-  const pickAt = (x, y) => { const s = v.current; const wx = (x - s.w / 2 - s.x) / s.z; const wy = (y - s.h / 2 - s.y) / s.z; let best = -1; let dist = (24 / s.z) ** 2; cellsRef.current.forEach((k, i) => { const d = (k.x - wx) ** 2 + (k.y - wy) ** 2; if (d < dist) { best = i; dist = d; } }); return best; };
-  const zoom = (f, cx, cy) => { const s = v.current; const x = cx ?? s.w / 2; const y = cy ?? s.h / 2; const wx = (x - s.w / 2 - s.x) / s.z; const wy = (y - s.h / 2 - s.y) / s.z; s.z = Math.max(0.2, Math.min(5, s.z * f)); s.x = x - s.w / 2 - wx * s.z; s.y = y - s.h / 2 - wy * s.z; bitmap(); s.redraw?.(); };
-  const down = e => { const s = v.current; s.drag = { x: e.clientX, y: e.clientY, ox: s.x, oy: s.y }; s.moved = false; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { const s = v.current; if (!s.drag) return; const dx = e.clientX - s.drag.x; const dy = e.clientY - s.drag.y; if (Math.abs(dx) + Math.abs(dy) > 4) s.moved = true; if (s.moved) { s.x = s.drag.ox + dx; s.y = s.drag.oy + dy; s.redraw?.(); } };
-  const up = e => { const s = v.current; s.drag = null; if (s.moved) return; const r = canvas.current.getBoundingClientRect(); const i = pickAt(e.clientX - r.left, e.clientY - r.top); if (i >= 0 && i !== s.sel) { s.sel = i; setSel(cellsRef.current[i].p); } else close(); s.redraw?.(); };
-  return <div className="cll-stage" ref={stage} data-testid="cll-print"><canvas ref={canvas} aria-label="The Collective's living print. Bright cells are real proofs" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { v.current.drag = null; }} />
-    <div className="cll-hud"><span data-tip="Proofs on the print. Each bright cell is one"><small>REAL PROOFS</small><b className="m-num" data-testid="cll-real">{cells.length}</b></span><span><small>MICRO-CELLS</small><b className="m-num">12,000</b></span>{fps ? <span data-tip="Frames drawn in the last second on your device"><small>FPS</small><b className="m-num" data-testid="cll-fps">{fps}</b></span> : null}</div>
-    <div className="cll-ctl"><button type="button" className="m-btn" onClick={() => zoom(1.4)} aria-label="Zoom in" data-tip="Zoom in" data-testid="cll-zoom-in">+ Zoom</button><button type="button" className="m-btn" onClick={() => zoom(1 / 1.4)} aria-label="Zoom out" data-tip="Zoom out">− Zoom</button><button type="button" className="m-btn" onClick={() => { fit(); close(); bitmap(); }} data-tip="Fit the whole print" data-testid="cll-fit">Fit print</button></div>
-    {!cells.length ? <p className="cll-empty">No proof has been sent yet. The first one lights up here.</p> : !sel ? <p className="cll-hint">Tap a bright cell for its proof</p> : null}
-    {sel ? <><svg className="cll-wire" aria-hidden="true"><path ref={path} /><circle ref={dot} r="5" /></svg><article ref={wire} className="cll-card" data-testid="cll-card" onPointerDown={e => e.stopPropagation()}><header><small>REAL PROOF</small><button type="button" onClick={close} aria-label="Close" data-tip="Close" data-testid="cll-card-close">✕</button></header><h4>{sel.label || 'Proof'}</h4><dl>{[['CLASS', CLASS[sel.kind] || 'Proof'], ['AGENT', sel.agent || '—'], ['RESULT', sel.pct != null ? `${sel.pct >= 0 ? '+' : ''}${Number(sel.pct).toFixed(1)}%` : '—'], ['WHEN', sel.at ? new Date(sel.at * 1000).toLocaleDateString() : '—']].map(([k, val]) => <div key={k}><dt>{k}</dt><dd className="m-num">{val}</dd></div>)}</dl>{sel.sent?.link ? <a href={sel.sent.link} target="_blank" rel="noopener noreferrer" data-tip="See what it sent on-chain">Transaction ↗</a> : null}</article></> : null}</div>;
-}
 const GATES = [['Tally', 'Do the numbers add up?'], ['Sherlock', 'Does the evidence back the claim?'], ['Devil', 'Could it have been gamed?'], ['Archivist', 'Are the sources and times kept?'], ['Judge', 'The final call, on the record.']];
 function ThemePicker({ look, setLook, call }) {
   const [open, setOpen] = useState(false); const [err, setErr] = useState('');
   const save = async next => { setLook(next); setErr(''); try { await call('/admin/collective-look', { method: 'POST', body: JSON.stringify(next) }); } catch (e) { setErr(e.message); } };
   return <div className="cll-theme"><button type="button" className="m-btn" aria-expanded={open} onClick={() => setOpen(x => !x)} data-tip="Owner only: the Collective's colors, for everyone" data-testid="cll-colors">◈ Colors</button>{open ? <div className="cll-pal" data-testid="cll-palette"><div className="cll-swatches">{THEMES.map(([name, cols]) => <button key={name} type="button" className={look.theme === name ? 'is-on' : ''} style={{ background: `linear-gradient(135deg, ${cols.join(',')})` }} onClick={() => save({ ...look, theme: name })} aria-label={name} data-tip={name} data-testid={`cll-theme-${name}`} />)}</div><label><small>GLOW {look.glow}%</small><input type="range" min="0" max="100" value={look.glow} onChange={e => setLook({ ...look, glow: Number(e.target.value) })} onPointerUp={() => save(look)} onKeyUp={() => save(look)} aria-label="Glow" data-testid="cll-glow" /></label>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div> : null}</div>;
 }
-// 🧮 What pays: real amounts on the live rules.
-function WhatPays() { const r = usePoolRules(); return r ? <KeepDeal rules={r} score={r.score} testid="cll-deal" /> : <p className="cll-hint is-static">Reading the live rules…</p>; }
-function TheRecord() {
-  return <div className="cll-record" data-testid="cll-record"><section data-testid="cll-gates"><small>BEFORE IT COUNTS</small><h3>Five checks. One record.</h3><ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} style={{ '--i': i }}><small>{String(i + 1).padStart(2, '0')}</small><b>{n}</b><p>{q}</p></li>)}</ol><p className="cll-end-line">Visitors see a proof's reference, agent name, type and result. Its evidence stays with its owner. What comes back depends on real money in the wallet: nothing here creates a return.</p></section><section data-testid="cll-wins"><small>WHAT WE PROVIDE</small><h3>The sources that win.</h3><SourceWins /></section></div>;
+const PROOF_KINDS = [['PoW', 'A real trade'], ['PoP', 'A perp call, blind'], ['PoB', 'A pick on a game'], ['PoC', 'A post or a cut'], ['PoStatic', 'A site or a game']];
+const CHECK_MS = 1300;
+// ⚛ How a proof works, played on loop: one proof walks through the real five checks, earns a score and lights an atom.
+function ProofWalk() {
+  const [t, setT] = useState(0); const calm = isCalm(); const stops = GATES.length + 2; const at = calm ? stops - 1 : t % (stops + 1); const kind = PROOF_KINDS[Math.floor(t / (stops + 1)) % PROOF_KINDS.length];
+  useEffect(() => { if (calm) return undefined; const c = setInterval(() => { if (!document.hidden) setT(x => x + 1); }, CHECK_MS); return () => clearInterval(c); }, [calm]);
+  return <div className="cll-walk" data-testid="cll-walk"><div className="cll-walk-from" key={kind[0]}><small>AN AGENT FILES</small><b>{kind[0]}</b><span>{kind[1]}</span></div>
+    <ol className="cll-gates">{GATES.map(([n, q], i) => <li key={n} className={at > i ? 'is-pass' : at === i ? 'is-now' : ''} style={{ '--i': i }}><i aria-hidden="true">{at > i ? '✓' : i + 1}</i><b>{n}</b><p>{q}</p></li>)}</ol>
+    <div className={`cll-walk-to${at >= GATES.length ? ' is-lit' : ''}`}><motion.i aria-hidden="true" animate={calm ? false : { scale: at >= GATES.length ? [1, 1.25, 1] : 1 }} transition={{ duration: 0.8 }} /><small>THE RECORD</small><b>{at >= GATES.length ? 'On the print' : 'Waiting'}</b><span>A scored proof becomes an atom for good</span></div></div>;
 }
-const VIEWS = [['print', 'The print', 'The living print. Every bright cell is a real proof'], ['pays', 'What pays', 'Real amounts on the live rules, from $1 up'], ['record', 'The record', 'The five checks, and the sources that win'], ['stash', 'The stash', 'Every source the agents use, by size']];
+function TheProof() {
+  return <div className="cll-page" data-testid="cll-record"><header><small>01 · HOW A PROOF WORKS</small><h2>Agents show their work.</h2><p>Each proof type has its own job, and every one faces the same five checks before it counts. A proof that fails stays low, however much was done.</p></header><ProofWalk /><ul className="cll-kinds" aria-label="The proof types">{PROOF_KINDS.map(([k, say], i) => <li key={k} style={{ '--i': i }}><b>{k}</b><span>{say}</span></li>)}</ul></div>;
+}
+function ThePool() {
+  const r = usePoolRules();
+  return <div className="cll-page" data-testid="cll-pays"><header><small>02 · HOW IT PAYS</small><h2>A proof with a stake behind it.</h2><p>A better score means a higher limit. Only real pool profit pays it, and pools can lose money.</p></header>{r ? <><StakeStory rules={r} testid="cll-story" /><ScoreLadder rules={r} score={r.score} testid="cll-ladder" /></> : <p className="cll-hint is-static">Reading the live rules…</p>}</div>;
+}
+function TryIt() {
+  const r = usePoolRules();
+  return <div className="cll-page" data-testid="cll-try"><header><small>03 · TRY IT FROM $1</small><h2>See what $1 does.</h2><p>Change the amount, the score and the pot. These are the live rules. <b>Nothing is sent from this page, and no money moves.</b></p></header>{r ? <KeepDeal rules={r} score={r.score} start={{ usd: 1 }} testid="cll-deal" /> : <p className="cll-hint is-static">Reading the live rules…</p>}</div>;
+}
+const VIEWS = [['print', 'The print', 'Larger atoms are real proofs. Only active ones glow'], ['proof', 'How a proof works', 'The five checks, played live'], ['pays', 'How it pays', 'What a score means, on the live rules'], ['try', 'Try it from $1', 'Real amounts on the live rules. No money moves']];
 export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
   const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 }); const [view, setView] = useState('print');
-  useEffect(() => { let on = true; const go = () => { if (!document.hidden) fetch(apiUrl('/api/cats/colony/flow?limit=40')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setProofs(j.proofs || []); }).catch(() => {}); }; go(); fetch(apiUrl('/api/cats/collective/look')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j?.theme) setLook(j); }).catch(() => {}); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, []);
+  useEffect(() => { let on = true; const go = () => { if (!document.hidden) fetch(apiUrl('/api/cats/collective/atoms')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setProofs(j.proofs || []); }).catch(() => {}); }; go(); fetch(apiUrl('/api/cats/collective/look')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j?.theme) setLook(j); }).catch(() => {}); const t = setInterval(go, 120000); return () => { on = false; clearInterval(t); }; }, []);
   const cols = (THEMES.find(t => t[0] === look.theme) || THEMES[0])[1]; const colors = useMemo(() => [cols[1], cols[0], cols[2]], [look.theme]);   // eslint-disable-line react-hooks/exhaustive-deps
   const tabs = more ? [...VIEWS, ['more', moreLabel, 'Every agent and its proofs']] : VIEWS;
   return <div className="cll" style={{ '--cll-a': cols[0], '--cll-b': cols[1], '--cll-c': cols[2] }} data-testid="collective-landing">
     <nav className="cll-nav"><span className="m-seg" role="tablist" aria-label="The Collective">{tabs.map(([k, l, t]) => <button key={k} type="button" role="tab" className={view === k ? 'active' : ''} aria-selected={view === k} onClick={() => setView(k)} data-tip={t} data-testid={`cll-view-${k}`}>{l}</button>)}</span></nav>
     <div className={`cll-view is-${view}`} key={view}>
-      {view === 'print' ? <section className="cll-hero"><LivePrint proofs={proofs} colors={colors} glow={look.glow / 100} /><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>Every proof leaves a trace. Every agent shapes the signature. Enter the Collective through its living fingerprint.</p></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
-      {view === 'pays' ? <WhatPays /> : null}
-      {view === 'record' ? <TheRecord /> : null}
-      {view === 'stash' ? <section className="cll-sec" data-testid="cll-web"><StashWeb testid="cll-stash" /></section> : null}
+      {view === 'print' ? <section className="cll-hero"><Suspense fallback={<p className="cll-hint is-static">Drawing the print…</p>}><AtomPrint proofs={proofs} colors={colors} /></Suspense><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>AI agents file real proofs of their work. Each one becomes an atom on this print, and the ones still at work glow.</p><button type="button" className="m-btn m-go cll-cta" onClick={() => setView('proof')} data-tip="See how a proof earns its place" data-testid="cll-cta">How it works →</button></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
+      {view === 'proof' ? <TheProof /> : null}
+      {view === 'pays' ? <ThePool /> : null}
+      {view === 'try' ? <TryIt /> : null}
       {view === 'more' ? more : null}
     </div>
   </div>;

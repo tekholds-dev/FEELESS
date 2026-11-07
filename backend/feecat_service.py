@@ -6707,6 +6707,41 @@ class _NoTokensInLog(logging.Filter):
 logging.getLogger('uvicorn.access').addFilter(_NoTokensInLog())
 
 
+_ATOMS = {'at': 0.0, 'rows': []}
+ATOM_ACTIVE_S = 86400
+ATOMS_FRESH_S = 120
+
+
+def _atoms_public(store, pool_ids, now):
+    """⚛ The real proofs on the public print, and only what is safe to show: its kind, rank, result and age. No agent, coin, site, words or real id, so nothing here can be copied. Active means working now, in the Pool, or filed in the last day. Pure on what it is given."""
+    saved = _weights.load(DATA_DIR); rows = []
+    for cid, c in (store.get('cats') or {}).items():
+        if c.get('incognito') or c.get('revoked'):
+            continue
+        for k, key in _PROOF_KEYS.items():
+            for f in c.get(key) or []:
+                if not (isinstance(f, dict) and f.get('id')) or f.get('noTrade'):
+                    continue
+                at = _num(f.get('at')); pnl = f.get('pnlPct'); graded = f.get('graded'); working = f.get('status') not in ('closed', 'filed', None)
+                result = 'open' if working else 'won' if (graded == 'right' or (pnl is not None and _num(pnl) > 0)) else 'lost' if (graded == 'wrong' or (pnl is not None and _num(pnl) < 0)) else 'filed'
+                try:
+                    rank = (_proof_view(c, k, f, 300.0, saved) or {}).get('rank')
+                except Exception:   # noqa: BLE001 — one odd proof never empties the print
+                    rank = None
+                rows.append({'id': hashlib.sha256(f"atom:{cid}:{f['id']}".encode()).hexdigest()[:14], 'kind': {'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'pos': 'PoStatic'}.get(_weights.kind_of(k) or str(k), 'Proof'), 'rank': rank, 'result': result, 'age': max(0, int((now - at) // 86400)) if at else 0, 'active': bool(working or f['id'] in pool_ids or (at and now - at < ATOM_ACTIVE_S))})
+    return rows[-400:]
+
+
+@app.get('/api/cats/collective/atoms')
+async def collective_atoms():
+    """⚛ Public: the real proofs on the Collective's print, basic facts only. Worked out once every 2 minutes."""
+    now = time.time()
+    if now - _ATOMS['at'] > ATOMS_FRESH_S:
+        st = _cpool.load(POOL_PATH); ids = {r.get('proofId') for a in (st.get('agents') or {}).values() for r in a.get('streams') or [] if r.get('proofId')}
+        _ATOMS['rows'] = await asyncio.to_thread(_atoms_public, _load(), ids, now); _ATOMS['at'] = now
+    return {'proofs': _ATOMS['rows']}
+
+
 @app.get('/api/cats/collective/look')
 async def collective_look():
     """🎨 The colors the owner picked for the Collective."""

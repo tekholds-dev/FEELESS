@@ -1,6 +1,7 @@
 jest.mock('../perps/PerpsChart', () => ({ PerpsChart: () => null }));
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
+jest.mock('./AtomPrint', () => ({ __esModule: true, default: () => null }));
 import { CatWorkbench, CommandList, Window, placeIcons } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const signed = [];

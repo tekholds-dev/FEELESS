@@ -256,3 +256,22 @@ def test_what_a_mind_says_it_read_gets_a_box():
             raise RuntimeError('page gone')
     assert asyncio.run(em.live_marks(Broken(), ['nets'])) == 0   # a box never stops the work
 
+
+def test_the_public_print_shows_only_basic_facts_and_only_active_proofs_glow(monkeypatch, tmp_path):
+    import feecat_service as fs, json as _j
+    monkeypatch.setattr(fs, 'DATA_DIR', tmp_path); now = 1_800_000_000
+    store = {'cats': {'secretcat': {'id': 'secretcat', 'name': 'Secret Agent Name', 'powFolders': [
+        {'id': 'p1', 'at': now - 5 * 86400, 'status': 'closed', 'pnlPct': 40, 'sym': 'SECRETCOIN', 'mint': 'SECRETMINT', 'shots': [{'site': 'secret-site.com'}], 'talk': [{'text': 'secret reasoning'}]},
+        {'id': 'p2', 'at': now - 9 * 86400, 'status': 'closed', 'pnlPct': -3},
+        {'id': 'p3', 'at': now - 86400 * 9, 'status': 'open'},
+        {'id': 'p4', 'at': now - 3600, 'status': 'closed'},
+        {'id': 'p5', 'at': now - 86400 * 20, 'status': 'closed'},
+        {'id': 'x', 'at': now, 'status': 'closed', 'noTrade': True}]},
+        'hidden': {'id': 'hidden', 'incognito': True, 'powFolders': [{'id': 'h', 'at': now, 'status': 'closed'}]}}}
+    rows = fs._atoms_public(store, {'p5'}, now); text = _j.dumps(rows)
+    assert len(rows) == 5 and all(set(r) == {'id', 'kind', 'rank', 'result', 'age', 'active'} for r in rows)
+    for secret in ('Secret', 'SECRET', 'secret', 'p1'):
+        assert secret not in text
+    assert [r['active'] for r in rows] == [False, False, True, True, True]   # running, filed today, and in the Pool. Old closed proofs do not glow
+    assert [r['result'] for r in rows][:3] == ['won', 'lost', 'open'] and rows[0]['age'] == 5 and rows[0]['kind'] == 'PoW'
+

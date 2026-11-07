@@ -26,7 +26,7 @@ export default function StakeFlow({ usd, grade, x, points, seat, collectivePct =
   const view = useMemo(() => { const at = Object.values(vertical ? TALL : WIDE); const W = Math.max(...at.map(p => p[0])) + NODE_W; const H = Math.max(...at.map(p => p[1])) + NODE_H; const zoom = size.w ? Math.min(1.25, (size.w - 16) / W, (size.h - 16) / H) : 1; return { x: (size.w - W * zoom) / 2, y: (size.h - H * zoom) / 2, zoom }; }, [size, vertical]);
   const nodes = useMemo(() => { const at = vertical ? TALL : WIDE; return [
     ['proof', Receipt, 'PROOF + $', money(usd), 'gold', 'Every send goes with a proof, $1 or more', null],
-    ['checks', Gauge, 'THE SCORE', `Score ${Math.round(grade)}`, 'gold', 'Five checks, its print, then OSSY, G4 and the owner. 300 is the top today', grade / 1000],
+    ['checks', Gauge, 'THE SCORE', `Score ${Math.round(grade)}`, 'gold', 'Five checks, its print, then the reviewers. 300 is the top today', grade / 1000],
     ['boost', Rocket, 'ITS BOOST', `${+x.toFixed(2)}x`, 'gold', 'Score over 100. The most it can ever earn, as a multiple of what it sent', x / 10],
     ['points', Coins, 'BOOST POINTS', points.toLocaleString(undefined, { maximumFractionDigits: 2 }), 'gold', 'The most this proof can ever earn. Each dollar paid takes one off', null],
     ['seat', Armchair, 'ITS SEAT', `${seat.toFixed(2)}%`, 'green', 'Its share of every real pool profit', Math.min(1, seat / 10)],
