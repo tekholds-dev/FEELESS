@@ -406,6 +406,24 @@ def auto_picks(root, kind, text, n=MAX_PICKS, record=None):
 OPEN_LINE = '\nYou chose these kits for this request. If a free, open-source kit (MIT or Apache) not listed here fits better, you may use it instead. Name it and its license.'
 
 
+def set_skill(cfg, kit_id, skill, on, known):
+    """A plugin's skill switch: on by default. Only a skill the kit really has can be turned off, and it changes what the agent is told, nothing else."""
+    if skill not in (known or []):
+        raise ValueError('That kit has no such skill.')
+    off = cfg.setdefault('kitSkillsOff', {}); rows = [x for x in off.get(kit_id) or [] if x != skill] + ([] if on else [skill])
+    if rows:
+        off[kit_id] = rows
+    else:
+        off.pop(kit_id, None)
+    return off
+
+
+def skills_line(cfg, names=None):
+    """What the owner switched off, for every prompt that reads kits. Empty when nothing is off."""
+    off = (cfg or {}).get('kitSkillsOff') or {}; bits = [f"{(names or {}).get(k, k)}: {', '.join(v)}" for k, v in off.items() if v]
+    return ('\nYOUR OWNER SWITCHED THESE KIT SKILLS OFF, do not use them: ' + '; '.join(bits) + '.') if bits else ''
+
+
 def line(root, kind, picks=(), open_kits=False):
     """What a proof carries: the picks first, then the other kits for this kind of proof, sharing one small budget. Empty when no kit fits."""
     picks = [p for p in picks or []]

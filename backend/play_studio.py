@@ -29,12 +29,92 @@ SCENE_SYS = ('You build real 3D scenes for websites and videos. You start from n
 
 
 # 🌟 Builds the owner loves, so every agent understands what he is after, whatever its model.
-REFERENCE_BUILDS = [{'name': 'GLINT', 'prompt': 'A coin landing page: dark moody studio, a vintage camera on a marble stage, a chair and old books. A button enters a second page: a room with a desk, three monitors, posters and a huge dash with no cards.', 'why': 'Real photoscans on real marble, huge white words low on the left, one strong idea, near black everywhere else, nothing boxed. Numbers and charts float over the scene.'}]
+REFERENCE_BUILDS = [{'name': 'GLINT', 'prompt': 'A coin landing page: dark moody studio, a vintage camera on a marble stage, a chair and old books. A button enters a second page: a room with a desk, three monitors, posters and a huge dash with no cards.', 'why': 'Real photoscans, huge white words low on the left, one strong idea, near black everywhere else, nothing boxed. Numbers and charts float over the scene.'}]
 
 
-def references_line(rows):
-    seen = [*REFERENCE_BUILDS, *[r for r in rows if isinstance(r, dict)][-4:]]
-    return '\nBUILDS YOUR OWNER LOVES, as data: learn what he is after, never copy them: ' + ' / '.join(f"{r.get('name')}: {str(r.get('prompt'))[:220]}" + (f" Why it works: {r['why']}" if r.get('why') else '') for r in seen)
+def references_line(rows, prompt=''):
+    """What the owner likes in general, never a design to reuse. A build's objects and words only come along when this prompt names that build (owner 2026-11-07: a NOVA page came back as GLINT's camera and marble)."""
+    p = str(prompt or '').lower(); named = [r for r in [*REFERENCE_BUILDS, *[x for x in rows if isinstance(x, dict)][-4:]] if str(r.get('name') or '').lower() and re.search(rf"\b{re.escape(str(r.get('name')).lower())}\b", p)]
+    line = '\nWHAT YOUR OWNER LIKES, as data: ' + ' '.join(dict.fromkeys(str(r.get('why')) for r in REFERENCE_BUILDS if r.get('why'))) + ' Build ONLY what THE FULL PROMPT says, with its name, its words and its objects. Never reuse an object, name or line from an earlier build.'
+    return line + (' A build this prompt names: ' + ' / '.join(f"{r.get('name')}: {str(r.get('prompt'))[:220]}" for r in named) if named else '')
+
+
+HOME_WORDS = re.compile(r"(?i)\b(home ?page|landing( page)?|front page|first page|main page)\b")
+ROOM_WORDS = re.compile(r"(?i)\b(in the room|the room|room page|second page|monitors?|posters?)\b")
+WRONG_BUILD = re.compile(r"(?i)\b(not what i asked|isn'?t what i|wrong (design|build|idea|coin)|design( idea)? (is ?n'?t|is not)|start over|from scratch|replace everything|brand new scene)\b")
+ASKS_DASH = re.compile(r"(?i)\b(charts?|dash(board)?|numbers?|stats?|vitals?|live data)\b")
+
+
+CODE_WORDS = re.compile(r"(?i)\b(shaders?|glsl|particles?|procedural|react-three|r3f|usefr(ame)?|useframe|three\.js code|collapsing star|nebula|scroll ?= ?gravity)\b")
+
+
+def wants_code(text):
+    """A design no photoscan library holds, a shader or particles or a star that collapses, is written as real three.js by the minds. Library scenes are for real objects (owner 2026-11-07: a collapsing star came back as bare walls)."""
+    return bool(CODE_WORDS.search(str(text or '')))
+
+
+def names_room(text):
+    """A site of two places: only the room's own name sends a change there. The word chart says nothing about where, and naming the home page always means the home page."""
+    t = str(text or '')
+    return bool(ROOM_WORDS.search(t)) and not HOME_WORDS.search(t)
+
+
+def prompt_of(text, limit=6000):
+    """The design in a paste: fenced and import code is dropped, since a scene is built from words and a plan's code used up the room and got cut mid line."""
+    t = re.sub(r'```.*?(```|$)', ' ', str(text or ''), flags=re.S)
+    t = '\n'.join(x for x in t.split('\n') if not re.match(r'\s*(import |const |export |function |return |<\w)', x))
+    return t.strip()[:limit]
+
+
+ASKS_WORDS = re.compile(r"(?i)\b(headlines?|title|rename|name is|called|words?|text|copy|tagline|sub ?line|sections?|button says)\b")
+
+
+def keep_page(old, new, text=''):
+    """A reply changes what it sends and nothing else: a page it leaves out or blanks keeps its dash, button and sections. And a model asked for a chart may not rewrite the words on the page: they change only when the owner asks."""
+    old = old if isinstance(old, dict) else {}; new = new if isinstance(new, dict) else {}
+    got = {**old, **{k: v for k, v in new.items() if v not in (None, '', [], {})}} if old or new else {}
+    if old.get('headline') and not ASKS_WORDS.search(str(text or '')):
+        got.update({k: old[k] for k in ('headline', 'sub', 'cta', 'sections') if k in old})
+    return got
+
+
+def _walk(seed, n=48):
+    x = 40.0; out = []
+    for i in range(n):
+        x = max(5.0, x + ((seed * (i + 3) * 7919) % 17 - 7.5) * 0.9); out.append(round(x, 2))
+    return out
+
+
+CHART_WORDS = set("a an and add added at back button buttons chart charts dash dashboard data enter fake fix for from get go going has have home i in info information is it its landing live main more my need needs no not number numbers of off on page pages put real room sample show stats still that the there theres they this to took transparent vital vitals want was we what where with you your".split())
+
+
+def chart_only(text, scene, name=''):
+    """Only a chart, numbers or a back button on a build that exists. Code does that exactly, free and at once: a model asked the same thing rewrote the words and the stage. One word about anything else and the model does it."""
+    t = str(text or '')
+    if not (scene or {}).get('objects') or not ASKS_DASH.search(t) or WRONG_BUILD.search(t):
+        return False
+    known = CHART_WORDS | set(re.findall(r"[a-z]+", str(name or '').lower())) | set(re.findall(r"[a-z]+", str(((scene.get('page') or {}).get('headline')) or '').lower()))
+    return all(w in known for w in re.findall(r"[a-z]+", t.lower().replace("'s", '').replace("'", '')))
+
+
+def ensure_asks(scene, text, name=''):
+    """Asked for a chart or numbers and none came, or one number and a straight line: the page gets a full dash, labelled as sample numbers. What a model did send stays."""
+    pg = scene.get('page') if isinstance(scene.get('page'), dict) else None; have = (pg or {}).get('dash') or {}
+    if not ASKS_DASH.search(str(text or '')) or (len(have.get('points') or []) >= 8 and len(have.get('stats') or []) >= 3):
+        return scene
+    head = (pg or {}).get('headline') or str(name or 'Live'); seed = sum(map(ord, str(head))) or 7
+    stats = [{'label': 'Price', 'value': f'${seed % 90 / 1000 + 0.004:.4f}'}, {'label': 'Market cap', 'value': f'${seed % 900 + 120}K'}, {'label': 'Holders', 'value': f'{(seed * 7) % 4000 + 300:,}'}, {'label': '24h volume', 'value': f'${seed % 300 + 40}K'}]
+    mine = [x for x in have.get('stats') or [] if isinstance(x, dict)]; labels = {str(x.get('label')).lower() for x in mine}
+    dash = {'title': have.get('title') or str(head)[:60], 'note': 'Sample numbers until the coin is live', 'stats': (mine + [x for x in stats if x['label'].lower() not in labels])[:6], 'points': have['points'] if len(have.get('points') or []) >= 8 else _walk(seed)}
+    return {**scene, 'page': {'headline': head, **(pg or {}), 'dash': dash}}
+
+
+def page_facts(first, second):
+    """What the saved site really holds, read from it, never what a model said it did."""
+    def one(word, sc):
+        d = ((sc or {}).get('page') or {}).get('dash') or {}
+        return f"{word}: {'a chart and ' + str(len(d.get('stats') or [])) + ' numbers' if d.get('points') else 'no chart'}"
+    return '; '.join([one('Home page', first)] + ([one('Room', second) + ', a back button'] if second else [])) + '.'
 
 
 def add_reference(rows, name, prompt, scene):
@@ -182,7 +262,7 @@ def expand_prefabs(raw):
 
 
 COUNT_WORDS = {'dual': 2, 'two': 2, 'double': 2, 'triple': 3, 'three': 3, 'four': 4, 'quad': 4, 'five': 5, 'six': 6}
-BUILT_THINGS = re.compile(r'(?i)\b(room|bedroom|studio|office|monitors?|screens?|displays?|posters?|charts?|walls?)\b')
+BUILT_THINGS = re.compile(r'(?i)\b(room|bedroom|studio|office|monitors?|screens?|displays?|posters?|charts?|walls?|buttons?|dash(board)?)\b')
 
 
 def _count_of(prompt, word, default):
@@ -195,7 +275,7 @@ def _count_of(prompt, word, default):
 
 def ensure_named(scene, prompt):
     """What the prompt names is built, whatever the model did. A real model turned "a gamer room" into an ottoman and dropped its monitors and posters, so a room, the exact number of screens and the posters come from the words themselves. Pure."""
-    p = str(prompt or ''); rows = list(scene.get('objects') or []); wants_room = bool(re.search(r'(?i)\b(room|office|bedroom)\b', p)); monitors = _count_of(p, r'(?:monitors?|screens?|displays?)', 1 if re.search(r'(?i)\b(monitors?|screens?|displays?)\b', p) else 0); posters = _count_of(p, r'posters?', 2 if re.search(r'(?i)\bposters?\b', p) else 0)
+    p = str(prompt or ''); rows = list(scene.get('objects') or []); wants_room = bool(re.search(r"(?i)(?<!dark )(?<!enter the )(?<!chat )(?<!war )\b(room|office|bedroom)\b", p)); monitors = _count_of(p, r'(?:monitors?|screens?|displays?)', 1 if re.search(r'(?i)\b(monitors?|screens?|displays?)\b', p) else 0); posters = _count_of(p, r'posters?', 2 if re.search(r'(?i)\bposters?\b', p) else 0)
     # what is ours to build was never a real thing to fetch
     rows = [o for o in rows if not (o.get('find') and BUILT_THINGS.search(o['find']) and not o.get('asset')) and not (o.get('asset') and BUILT_THINGS.search(o.get('name') or '') and (wants_room or monitors or posters))]
     add = []; names = {o['name'] for o in rows}
@@ -393,7 +473,8 @@ def _overlay(s, i, has_next, esc):
     sections = ''.join(f'<section><h2>{esc(x["title"])}</h2><p>{esc(x["body"])}</p></section>' for x in pg.get('sections') or [])
     dash = _dash_html(pg['dash'], esc) if isinstance(pg.get('dash'), dict) else ''
     extra = (s.get('code') or {}).get('html') or ''
-    return f'<main data-page="{i}"{"" if i == 0 else " hidden"}>{extra}<header class="hero{" is-dash" if dash else ""}"><h1>{esc(pg["headline"])}</h1><p>{esc(pg.get("sub") or "")}</p>{cta}</header>{dash}<div id="more{i}">{sections}</div></main>'
+    back = '' if i == 0 else '<button type="button" class="cta page-back" data-go="0">\u2190 Back</button>'
+    return f'<main data-page="{i}"{"" if i == 0 else " hidden"}>{back}{extra}<header class="hero{" is-dash" if dash else ""}"><h1>{esc(pg["headline"])}</h1><p>{esc(pg.get("sub") or "")}</p>{cta}</header>{dash}<div id="more{i}">{sections}</div></main>'
 
 
 def to_html(scene, name='3D scene', second=None):
@@ -403,7 +484,7 @@ def to_html(scene, name='3D scene', second=None):
     over = ''.join(_overlay(s, i, len(scenes) > 1, esc) for i, s in enumerate(scenes)); uses = any(o.get('asset') or o.get('pbr') for s in scenes for o in s['objects']) or any(s.get('hdri') for s in scenes); pics = any(o.get('image') for s in scenes for o in s['objects'])
     custom_css = ''.join((s.get('code') or {}).get('css') or '' for s in scenes); custom_js = ''.join(f'<script>{(s.get("code") or {}).get("js")}</script>' for s in scenes if (s.get('code') or {}).get('js'))
     credit = f'<small class="credit">{_assets.CREDIT}{" · Pictures by Pollinations" if pics else ""}</small>' if uses or pics else ''
-    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>{THREE_TAG}<style>html,body{{margin:0;background:{s0['bg']};color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}}body{{min-height:100vh;{'' if paged else 'overflow:hidden;height:100vh'}}}canvas{{position:fixed;inset:0;display:block;z-index:0;transition:opacity .45s ease}}canvas.is-out{{opacity:0}}#none{{position:fixed;inset:0;display:none;place-items:center;font-size:15px}}main{{position:relative;z-index:1;pointer-events:none}}main[hidden]{{display:none}}.hero{{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:7vh 6vw;box-sizing:border-box}}.hero.is-dash{{min-height:auto;padding-top:5vh;padding-bottom:0}}h1{{margin:0;font-size:clamp(38px,8vw,110px);line-height:.95;font-weight:800;letter-spacing:-.03em;text-shadow:0 4px 40px #000a}}.hero p{{max-width:620px;font-size:clamp(16px,2vw,22px);opacity:.88;text-shadow:0 2px 16px #000a}}.cta{{pointer-events:auto;align-self:flex-start;margin-top:16px;padding:14px 26px;border:0;border-radius:999px;background:#fff;color:#000;font:700 16px inherit;text-decoration:none;cursor:pointer;transition:transform .15s ease}}.cta:hover{{transform:translateY(-2px)}}.cta:active{{transform:scale(.98)}}.cta:focus-visible{{outline:3px solid #fff;outline-offset:3px}}section{{min-height:70vh;display:flex;flex-direction:column;justify-content:center;padding:6vh 6vw;max-width:560px}}h2{{margin:0;font-size:clamp(26px,4vw,52px);line-height:1.05;text-shadow:0 2px 24px #000a}}section p{{font-size:clamp(15px,1.6vw,19px);line-height:1.5;text-shadow:0 2px 14px #000c}}.dash{{padding:2vh 6vw 8vh}}.dash h2{{font-size:clamp(18px,2vw,26px);opacity:.85}}.stats{{display:flex;flex-wrap:wrap;gap:4vw;margin:2vh 0}}.stats span{{display:grid;gap:2px}}.stats small{{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;text-shadow:0 1px 8px #000}}.stats b{{font-size:clamp(30px,5.4vw,76px);font-weight:800;letter-spacing:-.02em;text-shadow:0 3px 26px #000c}}.dash svg{{display:block;width:100%;height:clamp(180px,38vh,420px);overflow:visible}}.dash .line{{fill:none;stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 10px #fff9)}}.note{{display:block;margin-top:8px;font-size:12px;opacity:.7;text-shadow:0 1px 8px #000}}.credit{{position:fixed;right:10px;bottom:8px;z-index:2;font-size:10px;opacity:.6}}@media (prefers-reduced-motion: reduce){{canvas{{transition:none}}}}{custom_css}</style></head><body><div id="none">This scene needs WebGL.</div>{over}{credit}{custom_js}<script type="module">
+    return f"""<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>{THREE_TAG}<style>.page-back{{position:fixed;top:14px;right:14px;z-index:9;min-height:40px;margin:0;cursor:pointer}}html,body{{margin:0;background:{s0['bg']};color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif}}body{{min-height:100vh;{'' if paged else 'overflow:hidden;height:100vh'}}}canvas{{position:fixed;inset:0;display:block;z-index:0;transition:opacity .45s ease}}canvas.is-out{{opacity:0}}#none{{position:fixed;inset:0;display:none;place-items:center;font-size:15px}}main{{position:relative;z-index:1;pointer-events:none}}main[hidden]{{display:none}}.hero{{min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end;padding:7vh 6vw;box-sizing:border-box}}.hero.is-dash{{min-height:auto;padding-top:5vh;padding-bottom:0}}h1{{margin:0;font-size:clamp(38px,8vw,110px);line-height:.95;font-weight:800;letter-spacing:-.03em;text-shadow:0 4px 40px #000a}}.hero p{{max-width:620px;font-size:clamp(16px,2vw,22px);opacity:.88;text-shadow:0 2px 16px #000a}}.cta{{pointer-events:auto;align-self:flex-start;margin-top:16px;padding:14px 26px;border:0;border-radius:999px;background:#fff;color:#000;font:700 16px inherit;text-decoration:none;cursor:pointer;transition:transform .15s ease}}.cta:hover{{transform:translateY(-2px)}}.cta:active{{transform:scale(.98)}}.cta:focus-visible{{outline:3px solid #fff;outline-offset:3px}}section{{min-height:70vh;display:flex;flex-direction:column;justify-content:center;padding:6vh 6vw;max-width:560px}}h2{{margin:0;font-size:clamp(26px,4vw,52px);line-height:1.05;text-shadow:0 2px 24px #000a}}section p{{font-size:clamp(15px,1.6vw,19px);line-height:1.5;text-shadow:0 2px 14px #000c}}.dash{{padding:2vh 6vw 8vh}}.dash h2{{font-size:clamp(18px,2vw,26px);opacity:.85}}.stats{{display:flex;flex-wrap:wrap;gap:4vw;margin:2vh 0}}.stats span{{display:grid;gap:2px}}.stats small{{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.75;text-shadow:0 1px 8px #000}}.stats b{{font-size:clamp(30px,5.4vw,76px);font-weight:800;letter-spacing:-.02em;text-shadow:0 3px 26px #000c}}.dash svg{{display:block;width:100%;height:clamp(180px,38vh,420px);overflow:visible}}.dash .line{{fill:none;stroke:#fff;stroke-width:3;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 10px #fff9)}}.note{{display:block;margin-top:8px;font-size:12px;opacity:.7;text-shadow:0 1px 8px #000}}.credit{{position:fixed;right:10px;bottom:8px;z-index:2;font-size:10px;opacity:.6}}@media (prefers-reduced-motion: reduce){{canvas{{transition:none}}}}{custom_css}</style></head><body><div id="none">This scene needs WebGL.</div>{over}{credit}{custom_js}<script type="module">
 import * as THREE from 'three';
 import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
 import {{ RoomEnvironment }} from 'three/addons/environments/RoomEnvironment.js';

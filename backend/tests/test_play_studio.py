@@ -374,8 +374,10 @@ def test_asking_for_more_keeps_the_look_and_the_second_page(monkeypatch, tmp_pat
         return ('{"say":"Matches the prompt"}' if 'You check' in sys_ else json.dumps({'say': 'Added', 'page': {'headline': 'Inside', 'dash': {'title': 'Live', 'note': 'Sample', 'stats': [{'label': 'Price', 'value': '$1'}], 'points': [1, 2]}}})), 0, False
     monkeypatch.setattr(fs, '_ws_ask', fake)
     asyncio.run(fs._ws_run('g', row['id'], 'a', 'add a transparent chart to the room', None)); got = fs._ws_load('g', row['id'])
-    assert 'keeps' not in seen[0] and 'look its owner loves' in seen[0] and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['stats'][0]['value'] == '$1'
-    page = got['versions'][-1]['html']; assert 'Enter the room' in page and 'data-go="1"' in page and '$1' in page; fs._WS_DONE.clear()
+    assert not seen and got['scene3d']['page']['headline'] == 'GLINT' and len(got['scene3dNext']['page']['dash']['points']) > 8 and 'dash' not in got['scene3d']['page']   # a chart alone needs no model, and only the room changes
+    page = got['versions'][-1]['html']; assert 'Enter the room' in page and 'data-go="1"' in page and 'page-back' in page
+    asyncio.run(fs._ws_run('g', row['id'], 'a', 'add a chart and a brass lamp to the room', None)); got = fs._ws_load('g', row['id'])
+    assert 'look its owner loves' in seen[0] and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['stats'][0]['value'] == '$1'; fs._WS_DONE.clear()
 
 
 def test_sicarios_works_when_asked_and_what_loads_the_machines_stays_off(monkeypatch, tmp_path):
@@ -435,7 +437,7 @@ def test_a_3d_page_can_hold_its_own_code_and_a_broken_tag_cannot_escape():
 
 
 def test_every_agent_knows_the_builds_he_loves():
-    line = ps.references_line([{'name': 'Bar', 'prompt': 'a bar'}]); assert 'GLINT' in line and 'Bar: a bar' in line and 'as data' in line
+    line = ps.references_line([{'name': 'Bar', 'prompt': 'a bar'}], 'like Bar and GLINT'); assert 'GLINT:' in line and 'Bar: a bar' in line and 'as data' in line
     rows = ps.add_reference([{'name': 'A', 'prompt': 'old'}], 'A', 'new', {'objects': [{'name': 'Cam', 'asset': {'id': 'c', 'url': 'https://dl.polyhaven.org/c.gltf'}, 'pos': [0, 0, 0]}]}); assert rows == [{'name': 'A', 'prompt': 'new', 'why': 'Real assets: Cam'}]
 
 

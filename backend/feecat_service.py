@@ -3941,7 +3941,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -6198,14 +6198,19 @@ WS_DRAFT_CHARS = 60000   # what the Code tab shows of a page still being written
 LOCAL_PAGE_S = 480   # 🕰 owner 2026-11-07: "OSSY and G4 pull their own weight, if they can't they just get timed out". No paid stand-in writes for them
 
 
+LOCAL_PAGE_S = 600
+
+
 async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
     """One whole page. The wallet's provider stops a reply at about 1,500 tokens whatever is asked (receipts, 2026-11-05), so an unfinished page is continued from where it stopped, up to 3 more calls."""
-    raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
+    started_ = time.time(); raw, usd, own = await _ws_ask(cat, model, sys_, user_, tokens)
     if on_part:   # 👀 the Code tab shows each part as it lands, and the chat's cost moves with it
         on_part(raw, usd)
     for _ in range(3):
         html = _aip.html_of(raw)
         if not html or _feat.page_complete(html):
+            break
+        if str(model).startswith('local/') and time.time() - started_ > LOCAL_PAGE_S:   # its own machine pulls its own weight, or it stops: one page never holds the Mac for 20 minutes
             break
         more, u_, own = await _ws_ask(cat, model, sys_, f"{user_[:6000]}\n\nYour page stopped partway. It ended with:\n{raw[-1200:]}\n\nContinue from exactly the next character.{_feat.cut_hint(raw)} Send only the rest of the document: no repeat, no code fences, no comment.", tokens)
         usd += u_
@@ -6220,8 +6225,19 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
 
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
-    room_ask = bool(doc.get('scene3dNext')) and bool(re.search(r'(?i)\b(room|dash|chart|monitors?|posters?|second page)\b', str(text)))   # a site of two places: the words say which one changes
-    slot = 'scene3dNext' if room_ask else 'scene3d'; cat_id = cat.get('id'); cost = 0.0; own = False; now_scene = _play.clean_scene(None if re.search(r'(?i)\b(start over|from scratch|replace everything|brand new scene)\b', str(text)) else doc.get(slot)); seen_used = []; seen_missing = []; prompt = str(text)[:3000]
+    room_ask = bool(doc.get('scene3dNext')) and _play.names_room(text); wrong_ = bool(_play.WRONG_BUILD.search(str(text)))   # a site of two places: the words say which one changes
+    slot = 'scene3dNext' if room_ask else 'scene3d'; cat_id = cat.get('id'); cost = 0.0; own = False; now_scene = _play.clean_scene(None if wrong_ else doc.get(slot)); seen_used = []; seen_missing = []; prompt = _play.prompt_of(text)
+    first_ask = next((m.get('text') for m in doc.get('messages') or [] if m.get('by') == 'you'), '')
+    if wrong_ and first_ask and first_ask != text:   # "that is not what I asked": build what was asked first, with this correction on top
+        prompt = f'{prompt}\nTHE ORIGINAL ASK: {_play.prompt_of(first_ask)}'
+    if _play.chart_only(text, now_scene, doc.get('name')):   # 📊 no model needed: the 3D, the light and the words stay exactly as they are
+        doc[slot] = _play.ensure_asks(now_scene, text, doc.get('name'))
+        if doc.get('scene3dNext') and slot == 'scene3d' and re.search(r'(?i)\broom\b', str(text)):
+            doc['scene3dNext'] = _play.ensure_asks(doc['scene3dNext'], text, doc.get('name'))
+        first_, next_ = doc.get('scene3d'), doc.get('scene3dNext')
+        _feat.add_version(doc, _play.lock_site(_play.to_html(first_, doc.get('name'), next_)), 'FEELESS', time.time()); _play_save(cat_id, '3d', {'scene': doc[slot], 'mind': doc[slot]})
+        _feat.add_msg(doc, 'FEELESS', f"Page {len(doc['versions'])} is ready. Open Static to try it. Read from the page: {_play.page_facts(first_, next_)} The numbers are samples until the coin is live. The 3D and your words did not change.", time.time())
+        return 0.0, '', False
     if not brains:
         _feat.add_msg(doc, 'FEELESS', 'Pick a model for this agent first. Nothing changed.', time.time())
         return 0.0, 'This agent has no model.', False
@@ -6235,10 +6251,10 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     busy('build'); scene = None; say = ''; by = name(order[0]); tries = [(order[0], '')]
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
-        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or []) + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
+        raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or [], prompt) + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
         scene, say = _play.parse_reply(raw, now_scene)
         if scene:
-            scene = _play.ensure_named(scene, prompt); by = name(i_); break
+            scene = {**_play.ensure_named(scene, prompt), 'page': _play.keep_page(now_scene.get('page'), scene.get('page'), text)}; by = name(i_); break
         print(f'[3d] unreadable reply from {brains[i_]}: {str(raw)[:160]!r} ... {str(raw)[-120:]!r}')
     if not scene:
         _feat.add_msg(doc, name(order[0]), 'It did not send a usable scene. Nothing changed, and the last page is safe. Try again.', time.time())
@@ -6254,18 +6270,22 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
         if fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
             checked = 'The check found nothing to add'
         elif fixed:
-            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; scene = await resolve(_play.ensure_named(fixed, prompt))   # the check fixes what is missing: the light the builder chose stands
+            fixed.pop('light_find', None); fixed['hdri'] = light_ or fixed.get('hdri'); fixed = {k: v for k, v in fixed.items() if v is not None}; fixed['page'] = _play.keep_page(scene.get('page'), fixed.get('page'), text); scene = await resolve(_play.ensure_named(fixed, prompt))   # the check fixes what is missing: the light the builder chose stands
         elif not checked:
             m_ = re.search(r'"say"\s*:\s*"([^"]{1,160})"', str(raw)); checked = m_.group(1) if m_ else ''
     except Exception as e:   # noqa: BLE001 — the build still stands without its check
         checked = f'The check did not finish: {str(e)[:60]}'
+    scene = _play.ensure_asks(scene, text, doc.get('name'))
     keep_cam = scene.get('camera') if any(o['name'] == 'Back wall' for o in scene['objects']) else None; scene['camera'] = [0, 0, 0]; scene = _play._frame(_assets.compose(scene)); scene['camera'] = _play.room_camera(scene) if keep_cam else scene['camera']   # every build is framed by code on what really landed
     async with httpx.AsyncClient(timeout=120) as h_:
         await _play.embed_pictures(h_, [scene])
-    doc[slot] = scene; first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
+    doc[slot] = scene
+    if slot == 'scene3d' and doc.get('scene3dNext') and re.search(r'(?i)\b(room|enter the room)\b', str(text)) and _play.ASKS_DASH.search(str(text)):   # one message about both places
+        doc['scene3dNext'] = _play.ensure_asks(doc['scene3dNext'], text, doc.get('name'))
+    first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
     html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing else '') + (f' Check against your prompt: {checked}.' if checked else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -6277,11 +6297,15 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and (_assets.wants_3d(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
+        first_said_ = next((m.get('text') for m in doc.get('messages') or [] if m.get('by') == 'you'), '')
+        redo_code_ = bool(_play.WRONG_BUILD.search(str(text))) and _play.wants_code(first_said_)
+        if redo_code_:   # what was asked needs real code, so it starts over from that ask with this correction on top
+            text = f'{text}\nTHE ORIGINAL ASK: {first_said_}'; doc.pop('scene3d', None); doc.pop('scene3dNext', None)
+        if kind == 'build' and not redo_code_ and not (_play.wants_code(text) and not doc.get('scene3d')) and (_assets.wants_3d(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
             cost += usd_
         elif kind == 'build':
-            cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
+            cur = '' if redo_code_ else (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
             read_ = ''
             if not cur:   # a new page learns from the best first. An edit already has its page
                 read_, doc['sitesRead'] = await _site_reads('pos')
@@ -6317,7 +6341,9 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     from_repo_ = ''
             user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
-            kits_ = _kits.use_line(picks_) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            if _play.wants_code(text):   # the design needs three.js, whatever kits were picked
+                picks_ = list(dict.fromkeys(['three', *picks_]))
+            kits_ = _kits.use_line(picks_) + _kits.skills_line(cat.get('brainsCfg')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -7655,7 +7681,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)
-        text_ = str(p.text or '').strip()[:3000]
+        text_ = str(p.text or '').strip()[:12000]
         said_ = text_; left_ = _feat.unfinished_of(doc_)
         if left_ and left_.get('ask') and (p.finish or _feat.is_retry(text_)):   # "finish it" and "try again" mean the ask that stopped, not those words
             said_ = 'Finish it.' if p.finish else text_; text_ = left_['ask']
@@ -7943,8 +7969,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(409, str(e))
         new_ = _feat.new_doc(row_); new_['versions'] = [{'html': _ws_placed(got_['cat'], v_[-1]['html']), 'by': 'Popular build', 'at': round(time.time())}]; _ws_save(cat_id, new_); keep_owned(cat); _save(store)
         return {'folder': row_, 'workspaces': cat['workspaces']}
-    if p.op in ('kit_list', 'kit_pick'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
+    if p.op in ('kit_list', 'kit_pick', 'kit_skill'):   # 🧰 any agent: which kits it reads first, or the agent chooses per request
         b_ = cat.setdefault('brainsCfg', {})
+        if p.op == 'kit_skill':
+            try:
+                _kits.set_skill(b_, str(p.text or ''), str(p.job or ''), bool(p.on), next((k.get('skills') for k in _kits.catalog_view(KITS_DIR) if k['id'] == p.text), None))
+            except ValueError as e:
+                raise HTTPException(400, str(e)[:120])
+            keep_owned(cat); _save(store)
         if p.op == 'kit_pick':
             kind_k_ = p.to if p.to in _kits.KINDS else None; have_ = {k['id'] for k in _kits.all_rows(KITS_DIR)}; known_ = set(_kits.CATALOG) | {x['id'] for x in _kits.found_rows(KITS_DIR)} | {_kits.FEELESS_ID} | have_; want_ = [x for x in str(p.text or '').split(',') if x in known_][:_kits.MAX_PICKS]
             for kid_ in [x for x in want_ if x not in have_ and x != _kits.FEELESS_ID]:   # only the catalog's fixed addresses, the guide is text
@@ -7960,7 +7992,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
         rec_ = await asyncio.to_thread(_kit_record, store); view_ = [{**k, 'record': rec_.get(k['id']) or {'used': 0, 'won': 0, 'lost': 0}, 'quality': _kits.quality(rec_.get(k['id']))} for k in _kits.catalog_view(KITS_DIR)]
         by_ = {k: dict(zip(('mode', 'picks'), _kits.picks_of(b_, k))) for k in _kits.KINDS}; now_k_ = by_.get(p.to) or by_['pos']
-        return {'kits': view_, 'by': by_, 'picks': now_k_['picks'], 'mode': now_k_['mode'], 'max': _kits.MAX_PICKS, 'recs': {k: _kits.recommend(view_, k, record=rec_) for k in _kits.KINDS}, 'stacks': _proof_kits.STACKS}
+        return {'kits': view_, 'skillsOff': b_.get('kitSkillsOff') or {}, 'by': by_, 'picks': now_k_['picks'], 'mode': now_k_['mode'], 'max': _kits.MAX_PICKS, 'recs': {k: _kits.recommend(view_, k, record=rec_) for k in _kits.KINDS}, 'stacks': _proof_kits.STACKS}
     if p.op in ('kit_catalog', 'kit_add', 'kit_drop', 'kit_read', 'kit_edit', 'kit_scout', 'kit_approve', 'kit_reject', 'kit_ask'):   # 🧰 the library: the owner only, on Fee
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner changes the kit library.')

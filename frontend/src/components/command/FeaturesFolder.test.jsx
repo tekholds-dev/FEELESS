@@ -343,3 +343,18 @@ test('Real proofs shows each type, says when one has none, and opens a real page
   await act(async () => { el.querySelector('[data-testid=pgl-show-PoW]').click(); });
   expect(el.textContent).not.toContain('Narrative finder');
 });
+
+test('a kit skill is a switch that tells the server, and what is off stays off', async () => {
+  const { KitPick } = require('./FeaturesFolder');
+  const row = { id: 'fl-coin-vet', name: 'Coin Vetter', what: 'x', kinds: ['pos'], by: 'FEELESS', cat: 'Research', task: 'T', skills: ['holders', 'rug checks'], added: true, quality: 'Untested', license: 'Private', compat: 'Read' };
+  let state = { kits: [row], picks: ['fl-coin-vet'], mode: 'mine', max: 3, recs: {}, stacks: [], by: {}, skillsOff: {} }; const calls = [];
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'kit_skill') state = { ...state, skillsOff: { [b.text]: [b.job] } }; return state; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<KitPick cat={{ id: 'c' }} work={fake} kind="pos" />); });
+  await act(async () => { el.querySelector('[data-testid="kit-discover"]').click(); });
+  const box = () => document.querySelector('[data-testid="kit-skill-fl-coin-vet-holders"]');
+  expect(box().checked).toBe(true);
+  await act(async () => { box().click(); });
+  expect(calls.at(-1)).toEqual({ op: 'kit_skill', text: 'fl-coin-vet', job: 'holders', on: false }); expect(box().checked).toBe(false);
+  await act(async () => { root.unmount(); }); el.remove();
+});
