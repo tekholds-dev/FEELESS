@@ -8015,7 +8015,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not best_:
             return {'trade': None}
         c_, f_ = best_
-        return {'trade': {'cat': c_, 'id': re.sub(r'[^a-z0-9]', '', str(f_['id']).lower()), 'sym': str(f_.get('sym') or '')[:16], 'pnl': round(float(f_['pnlPct']), 1), 'entry': f_.get('entry'), 'tp': f_.get('tp'), 'sl': f_.get('sl'), 'line': [float(x) for x in f_['line'] if isinstance(x, (int, float))][-200:], 'files': [{'file': str(x.get('file')), 'site': str(x.get('site') or '')[:40]} for x in f_.get('shots') or [] if isinstance(x, dict) and x.get('file')][:6]}}
+        return {'trade': {'cat': c_, 'id': re.sub(r'[^a-z0-9]', '', str(f_['id']).lower()), 'sym': str(f_.get('sym') or '')[:16], 'pair': {'chainId': 'solana', 'pairAddress': str(f_.get('pair') or ''), 'baseToken': {'address': str(f_.get('mint') or ''), 'symbol': str(f_.get('sym') or '')[:16]}, 'symbol': str(f_.get('sym') or '')[:16], 'mint': str(f_.get('mint') or '')}, 'pnl': round(float(f_['pnlPct']), 1), 'entry': f_.get('entry'), 'tp': f_.get('tp'), 'sl': f_.get('sl'), 'line': [float(x) for x in f_['line'] if isinstance(x, (int, float))][-200:], 'files': [{'file': str(x.get('file')), 'site': str(x.get('site') or '')[:40]} for x in f_.get('shots') or [] if isinstance(x, dict) and x.get('file')][:6]}}
     if p.op == 'tools_show':   # 🧰 real library counts for the Proofs tab
         rows_ = _assets._load(KITS_DIR, _assets.INDEX).get('rows') or {}
         return {'models': _assets.model_count(KITS_DIR), 'hdris': len(rows_.get('hdri') or []), 'textures': len(rows_.get('texture') or [])}
