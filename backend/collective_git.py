@@ -382,6 +382,18 @@ async def push(http, token, full, branch, files, manifest, message, cap=PUSH_CAP
     return {'pushed': len(done), 'left': max(0, len(changed) - cap), 'commit': c.json()['sha'], 'manifest': m}
 
 
+CHAT_SYS = 'You help the owner with their Git folder. You are given only file names and sizes, never what is inside. Answer in short plain words from those names: what is there, what looks old or doubled, where to look next. You cannot move, delete or push anything, so tell the owner which button to use. If the names do not answer it, say so. Never invent a file. Never offer to open or read a file, you cannot. A lost proof is evidence: never call it dead weight or say to delete it, the owner decides.'
+
+
+def chat_facts(files, limit=160):
+    """File names and sizes for the chat, newest-looking last. Never a file's contents."""
+    rows = sorted(files.items())
+    lines = [f'{p} ({len(raw)} bytes)' for p, raw in rows[-limit:]]
+    tree = '; '.join(f"{r['path']}: {r['files']} files" for r in tree_summary(files)[:40])
+    more = f'\n{len(rows) - limit} older names not shown.' if len(rows) > limit else ''
+    return f'{len(rows)} files. By folder: {tree}\n' + '\n'.join(lines) + more
+
+
 def tree_summary(files):
     """{top folder: files, bytes} for the screen."""
     out = {}

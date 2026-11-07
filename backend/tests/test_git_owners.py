@@ -36,3 +36,11 @@ def test_a_mark_keeps_the_scroll_it_was_drawn_at():
 def test_a_page_reports_its_scroll_and_finds_a_quote():
     page = af.preview('<!doctype html><html><head></head><body>hi</body></html>')
     assert 'feeless-scroll' in page and 'feeless-find' in page and 'feeless-picked' in page
+
+
+def test_the_git_chat_gets_names_and_sizes_never_what_is_inside():
+    import collective_git as cg
+    line = cg.chat_facts({'proofs/PoW/a.json': b'SECRET-INSIDE', 'kits/b.md': b'xx'})
+    assert 'proofs/PoW/a.json (13 bytes)' in line and '2 files' in line and 'SECRET-INSIDE' not in line
+    many = cg.chat_facts({f'p/q/{i}.json': b'' for i in range(200)}, limit=10)
+    assert '190 older names not shown' in many and many.count('.json') == 10

@@ -128,3 +128,19 @@ test('🧬 each proof type shows what it got right and wrong', () => {
   expect(rows[0]).toMatchObject({ label: 'PoW', total: 2, good: 1, bad: 1, open: 0 }); expect(rows[4]).toMatchObject({ label: 'PoStatic', good: 1, open: 1 }); expect(rows[1]).toMatchObject({ good: 0, bad: 0, open: 1 });
 });
 
+
+test('the Git chat asks its agent and shows the answer, and a failed ask keeps the words', async () => {
+  const sent = []; let fail = false;
+  const fake = jest.fn(async (_, b) => { if (b.op === 'git_chat') { sent.push(b); if (fail) throw new Error('No model'); return { said: 'Two proof folders.', usd: 0.0012 }; } return { files: [['a.json', 3]], link: {} }; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<GitFolder cat={{ id: 'c' }} work={fake} />); });
+  await act(async () => { el.querySelector('[data-testid=git-chat-open]').click(); });
+  await act(async () => { el.querySelector('[data-testid=git-chat-ask]').click(); });
+  expect(sent[0].text).toBe('What is in here?'); expect(el.textContent).toContain('Two proof folders.'); expect(el.textContent).toContain('$0.0012');
+  fail = true;
+  const box = el.querySelector('[data-testid=git-chat-text]');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(box, 'why?'); box.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('form.ckit-composer').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(el.textContent).toContain('No model'); expect(el.querySelector('[data-testid=git-chat-text]').value).toBe('why?');
+  el.remove();
+});

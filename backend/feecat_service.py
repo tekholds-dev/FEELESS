@@ -1882,6 +1882,19 @@ async def _git_op(cat, p):
             if collective:
                 view_['proposed'] = _sort.proposed(_sort.load(GIT_DIR)['items'].get(str(p.job))); view_['theirs'] = bool(_sort.theirs([str(p.job)], _sort.owners(files_), _git_own_tags(_load())))
             return view_
+        if p.op == 'git_chat':   # 💬 ask about the folder: its agent reads file names and sizes only, and can change nothing
+            ask_ = str(p.text or '').strip()[:600]; brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not ask_:
+                raise ValueError('Say what you want to know.')
+            if not brains_:
+                raise ValueError('Pick a model for this agent first.')
+            files_, _c = await asyncio.to_thread(_git_files, cat, collective)
+            past_ = '\n'.join(f"{str(m.get('by'))[:8]}: {str(m.get('text'))[:300]}" for m in ((p.tools or {}).get('past') or [])[-6:] if isinstance(m, dict))
+            raw_, usd_, _own = await _ws_ask(cat, brains_[0], _cg.CHAT_SYS, f'THE FOLDER:\n{_cg.chat_facts(files_)}\n{past_}\nOWNER: {ask_}', 500)
+            said_ = re.sub(r'<think>.*?</think>', '', str(raw_ or ''), flags=re.S).strip()
+            if not said_:
+                raise ValueError('The agent did not answer. Nothing changed.')
+            return {'said': said_[:1500], 'usd': round(float(usd_ or 0), 5)}
         if p.op == 'git_state':
             files, counts = await asyncio.to_thread(_git_files, cat, collective); out_, _c = await asyncio.to_thread(_git_outbound, cat, collective); path = _git_manifest_path(cat['id'], collective); manifest = json.loads(path.read_text()) if path.exists() else {}
             return {'files': [[k, len(v)] for k, v in sorted(files.items())][:2000], 'vault': _vault_view(cat), 'link': _git_view(cat, key), 'tree': _cg.tree_summary(files), 'waiting': sum(manifest.get(k) != _cg.blob_sha(v) for k, v in out_.items()), 'total': len(files), 'counts': counts, 'memory': sorted(_feat._sources.MEMORY) if collective else None, 'sealed': collective, 'project': None if collective else _project_view(cat), 'clean': None if collective else _sort.clean_view(cat), 'notice': None if collective else cat.get('gitNotice'), **({'sort': (lambda x: {'on': x['on'], 'items': x['items'], 'counts': _sort.counts(x['items'], len(files))})(_sort.load(GIT_DIR))} if collective else {}), 'powShots': {f['id']: [x.get('file') for x in (f.get('shots') or []) if x.get('file')][:12] for f in (cat.get('powFolders') or []) if f.get('id') and f.get('shots')}}
@@ -7424,7 +7437,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
-    if p.op in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
+    if p.op in ('git_chat', 'git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
         out_ = await _git_op(cat, p)
         if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete'):
             keep_owned(cat); _save(store)
