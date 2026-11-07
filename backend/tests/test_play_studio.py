@@ -527,7 +527,7 @@ def _no_network(monkeypatch, fs):
     async def fill(_http, _root, scene, many=False, avoid=()):
         scene = dict(scene); scene['objects'] = [{**o, 'asset': {'id': str(o['find'])[:20].replace(' ', ''), 'name': o['find'], 'url': 'https://dl.polyhaven.org/x.gltf', 'files': {}}} if o.get('find') else o for o in scene.get('objects') or []]; scene['hdri'] = {'id': 'h', 'name': 'h', 'url': 'https://dl.polyhaven.org/h.hdr', 'files': {}}; scene.pop('hdri_id', None)
         return scene, ['real thing'], []
-    monkeypatch.setattr(fs._assets, 'ensure', ensure); monkeypatch.setattr(fs._assets, 'fill', fill); fs._SHOWCASE.clear()
+    monkeypatch.setattr(fs._assets, 'ensure', ensure); monkeypatch.setattr(fs._assets, 'fill', fill); fs._SHOWCASE.clear(); monkeypatch.setattr(fs, '_RATE', {})   # its own limiter: one test's many taps cannot 429 the next test
 
 
 def test_every_studio_and_features_button_reaches_the_server_and_gets_a_real_page(monkeypatch, tmp_path):
