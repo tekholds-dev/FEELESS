@@ -519,3 +519,47 @@ def test_every_proof_compares_before_it_settles():
     import proof_plan as pp
     assert 'Compare' in pp.LOOP and 'at least two other options' in ak.score_line('pop')
 
+
+
+def _no_network(monkeypatch, fs):
+    async def ensure(*_a, **_k):
+        return None
+    async def fill(_http, _root, scene, many=False, avoid=()):
+        scene = dict(scene); scene['objects'] = [{**o, 'asset': {'id': str(o['find'])[:20].replace(' ', ''), 'name': o['find'], 'url': 'https://dl.polyhaven.org/x.gltf', 'files': {}}} if o.get('find') else o for o in scene.get('objects') or []]; scene['hdri'] = {'id': 'h', 'name': 'h', 'url': 'https://dl.polyhaven.org/h.hdr', 'files': {}}; scene.pop('hdri_id', None)
+        return scene, ['real thing'], []
+    monkeypatch.setattr(fs._assets, 'ensure', ensure); monkeypatch.setattr(fs._assets, 'fill', fill); fs._SHOWCASE.clear()
+
+
+def test_every_studio_and_features_button_reaches_the_server_and_gets_a_real_page(monkeypatch, tmp_path):
+    fs, c, _store = _server(monkeypatch, tmp_path); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw}); _no_network(monkeypatch, fs)
+    got = post('play3d_get').json(); assert len(got['moods']) == len(ps.MOODS) and {t['kind'] for t in got['templates']} == {'site', 'game'}
+    for t in ps.TEMPLATES:
+        r = post('play3d_template', job=t['id']); assert r.status_code == 200, r.text
+        sc = r.json()['scene']; assert sc['mood'] == t['brief']['mood']; assert post('play3d_get').json()['scene']['mood'] == sc['mood']
+        r = post('play3d_preview', job=t['name'], tools={'scene': sc}); assert r.status_code == 200, r.text; assert 'three' in r.json()['preview']
+        r = post('tools_showcase', job=t['id']); assert r.status_code == 200, r.text; assert t['name'].lower() in r.json()['preview'].lower()
+        if t['kind'] == 'game':
+            assert '__game' in r.json()['preview']
+    sc = post('play3d_template', job='silver-hour').json()['scene']
+    r = post('play3d_mood', job='sunset', tools={'scene': sc}); assert r.status_code == 200, r.text; moved = r.json()['scene']
+    assert moved['mood'] == 'sunset' and not any(o['name'] == 'Mood floor' for o in moved['objects']) and any(o['name'] == 'vintage camera' for o in moved['objects'])   # what was built stays, the old stage goes
+    assert post('play3d_mood', job='nope', tools={'scene': sc}).status_code == 400 and post('play3d_template', job='nope').status_code == 400 and post('tools_showcase', job='nope').status_code == 400
+    assert post('tools_show').json()['templates'][0]['thumb'].startswith('/showcase/')
+    r = post('play3d_file', job='From a template', tools={'scene': sc}); assert r.status_code == 200, r.text
+
+
+def test_every_template_has_its_real_poster():
+    import pathlib
+    root = pathlib.Path(ps.__file__).resolve().parent.parent / 'frontend' / 'public' / 'showcase'
+    assert {f'{t["id"]}.jpg' for t in ps.TEMPLATES} == {p.name for p in root.glob('*.jpg')}
+
+
+def test_a_game_request_goes_the_3d_way_and_a_model_that_cannot_answer_still_gets_a_set(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); _no_network(monkeypatch, fs)
+    async def silent(cat, model, sys_, user_, tokens):
+        return 'I am sorry, I cannot do JSON.', 0.0, False
+    monkeypatch.setattr(fs, '_ws_ask', silent); monkeypatch.setattr(ps, 'brief_from_words', lambda root, prompt: {'hero': 'robot', 'props': ['crate']})
+    cat = store['cats']['g']; doc = {'id': 'w', 'name': 'Run', 'kind': 'build', 'messages': [], 'versions': []}
+    import asyncio
+    usd, why, _own = asyncio.run(fs._build_3d(cat, doc, 'a playable runner game with a robot', ['a/b'], [0], lambda i: 'Mind A', 'a'))
+    assert not why and doc['scene3d']['game'] == 'runner' and '__game' in doc['versions'][-1]['html'] and usd == 0

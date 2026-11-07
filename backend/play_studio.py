@@ -341,9 +341,9 @@ def drop_rejected(scene, before):
 def apply_print(scene, pr):
     """The print fills what the model left open. Its own choices win, and a room keeps its walls."""
     if scene.get('light_find') and not scene.get('mood'):   # it chose its exact light and pieces: that stands
-        return {**scene, 'layout': scene.get('layout') or pr.get('layout')}
+        return clean_scene({**scene, 'layout': scene.get('layout') or pr.get('layout')})
     mood = scene.get('mood') if scene.get('mood') in MOODS else pr.get('mood'); out = dress(scene, mood, str(pr)) if not scene.get('mood') or scene.get('mood') != mood else scene
-    return {**out, 'layout': out.get('layout') or pr.get('layout')}
+    return clean_scene({**out, 'layout': out.get('layout') or pr.get('layout')})
 
 
 def print_line(pr):

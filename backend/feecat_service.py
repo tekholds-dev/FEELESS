@@ -6332,7 +6332,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if not scene and fresh_:   # 🧩 no model could answer: its words still name real things, so the owner gets a set and is told why
         got_ = _play.brief_from_words(KITS_DIR, text)
         if got_:
-            scene = _play.from_brief(got_, prompt); say = 'Your models could not answer, so this was built from your words.'; by = 'FEELESS'
+            scene = _play.clean_scene(_play.from_brief(got_, prompt)); say = 'Your models could not answer, so this was built from your words.'; by = 'FEELESS'
     if not scene:
         _feat.add_msg(doc, name(order[0]), 'It did not send a usable scene. Nothing changed, and the last page is safe. Try again.', time.time())
         return cost, 'It did not send a usable scene.', own
@@ -7472,7 +7472,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             _play_save(cat_id, '3d', {**saved_, 'scene': base_})
             return {'scene': base_, 'say': f"Ready. Real assets: {', '.join(dict.fromkeys(used_)) or 'none'}." + (f" Not in the library: {', '.join(missing_)}." if missing_ else '')}
         if p.op == 'play3d_preview':   # the real page, exactly as it would file
-            if not now_scene_['objects'] and not now_scene_.get('game'):
+            if not now_scene_['objects'] and not now_scene_.get('game') and not now_scene_.get('hero'):
                 raise HTTPException(400, 'Add something to the scene first.')
             async with httpx.AsyncClient(timeout=30) as h_:
                 await _assets.ensure(h_, KITS_DIR); ready_, _u, _m = await _assets.fill(h_, KITS_DIR, now_scene_)
@@ -7507,7 +7507,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             _play_save(cat_id, '3d', {'scene': scene_, 'mind': scene_})
             return {'scene': scene_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': note_}
         if p.op == 'play3d_file':
-            if not now_scene_['objects']:
+            if not now_scene_['objects'] and not now_scene_.get('hero'):
                 raise HTTPException(400, 'Add something to the scene first.')
             note_ = _play.diff_scene(saved_.get('mind'), now_scene_) if saved_.get('mind') else ''
             if note_:
