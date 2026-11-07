@@ -36,7 +36,7 @@ import { SplitFlow, money } from './SplitFlow';
 import { AgentStage, ChatStylePicker, chatClass, useChatStyle } from './ChatStyles';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings, ChatStop } from '../chat/ChatKit';
 import { DeskPrint } from './Proofprint';
-import { BoostCoin, DeskSettings, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
+import { BoostCoin, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -1212,7 +1212,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const foldTabs = k => { const g = foldGroup(k); if (!g) return null; return <span className="m-seg dsk-fold-tabs" role="tablist" aria-label="In this folder">{g.map(x => { const row = apps.find(a => a[0] === x); return <button key={x} type="button" role="tab" aria-selected={x === k} className={x === k ? 'active' : ''} onClick={() => { if (x !== k) { set(x, { open: true, min: false, x: w[k]?.x, y: w[k]?.y, w: w[k]?.w, h: w[k]?.h }); set(k, { open: false }); setTop(x); } }} data-testid={`fold-tab-${x}`}>{row?.[2] || x}</button>; })}</span>; };
   const openWin = k => { if (k.startsWith('app-')) { const ws = k.slice(4); setAppOpen({ ws, name: deskApps.find(a => a.ws === ws)?.name || 'App', preview: null }); set('app', { open: true, min: false }); work(cat.id, { op: 'desk_apps', job: 'open', to: ws }).then(j => setAppOpen(x => (x?.ws === ws ? { ...x, preview: j.preview || '' } : x))).catch(() => setAppOpen(x => (x?.ws === ws ? { ...x, preview: '' } : x))); setTop('app'); return; } if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false, ...(prefs.winOpen === 'max' ? { max: true } : prefs.winOpen === 'center' && !w[k]?.open ? { x: Math.max(8, Math.round((window.innerWidth - 1180) / 2)), y: 24 } : clearOfIcons(w[k], pos, window.innerWidth)) }); setTop(k); };
   const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false);
-  const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
+  const set = useCallback((k, p) => setW(x => deskSet(x, k, p)), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   useEffect(() => { if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps

@@ -217,3 +217,23 @@ body.theme-day .dset-map { background: #0d2a1b0d; border-color: #0d2a1b2e; }
 body.fx-lite .dsk-alerts { animation: none; } @media (prefers-reduced-motion: reduce) { .dsk-alerts { animation: none; } }
 
 .dsk-think { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 0; padding: 7px 10px; border-radius: 9px; background: #15d16a14; font-size: 12px; } .dsk-think.is-low { background: #ffc24d24; color: var(--gold); }
+
+/* ◧ Half and half: hover the green light. */
+.dsk-title { position: relative; z-index: 4; overflow: visible; }
+.dsk-fit { position: relative; display: inline-flex; }
+.dsk-dots .dsk-tiles { position: absolute; top: calc(100% + 6px); left: -8px; display: flex; gap: 4px; padding: 5px; border-radius: 10px; border: 1px solid #ffffff2a; background: #0a120ef7; box-shadow: 0 12px 30px #000a; opacity: 0; visibility: hidden; transform: translateY(-3px); transition: opacity .14s ease .12s, transform .14s ease .12s, visibility 0s linear .26s; }
+.dsk-dots .dsk-tiles::before { content: ''; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
+.dsk-fit:hover .dsk-tiles, .dsk-fit:focus-within .dsk-tiles { opacity: 1; visibility: visible; transform: none; transition: opacity .14s ease, transform .14s ease, visibility 0s; }
+.dsk-dots .dsk-tiles button { width: 40px; height: 32px; padding: 6px 8px; border-radius: 7px; border: 1px solid transparent; background: #ffffff0d; display: grid; transition: background .12s, border-color .12s, transform .1s; }
+.dsk-dots .dsk-tiles button::after { content: none; }
+.dsk-dots .dsk-tiles button:hover { background: #15d16a33; border-color: #45e48680; filter: none; transform: none; } .dsk-dots .dsk-tiles button:active { transform: scale(.95); }
+.dsk-dots .dsk-tiles button.is-on { background: #15d16a; }
+.dsk-tiles i { display: block; border-radius: 3px; border: 1.5px solid #dfffee; position: relative; overflow: hidden; }
+.dsk-tiles i::after { content: ''; position: absolute; inset: 0; background: #dfffee; }
+.dsk-tiles .is-left-tile i::after { right: 50%; } .dsk-tiles .is-right-tile i::after { left: 50%; }
+.dsk-tiles .is-on i { border-color: #03130a; } .dsk-tiles .is-on i::after { background: #03130a; }
+@media (min-width: 641px) { .dsk-win.is-tile, .dsk-win.is-tile[data-testid], .dsk-win.is-tile:has(> .bwr-dock.is-right:not(.is-fold)) { width: 50vw; height: calc(100% - 46px); border-radius: 0; } .dsk-win.is-tile:has(> .bwr-dock) { overflow: hidden; } }
+@media (max-width: 640px) { .dsk-fit:hover .dsk-tiles, .dsk-fit:focus-within .dsk-tiles, .dsk-dots .dsk-tiles { display: none; } }
+@media (prefers-reduced-motion: reduce) { .dsk-dots .dsk-tiles { transition: none; } }
+body.fx-lite .dsk-dots .dsk-tiles { transition: none; }
+body.theme-day .dsk-dots .dsk-tiles { background: #fff; border-color: #0000001f; } body.theme-day .dsk-dots .dsk-tiles button { background: #0000000a; } body.theme-day .dsk-tiles i { border-color: #0d2a1b; } body.theme-day .dsk-tiles i::after { background: #0d2a1b; }

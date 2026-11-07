@@ -127,6 +127,29 @@ export function toGrid(keys, saved, height, cell = 96) {
   let n = 0; keys.filter(k => !out[k]).forEach(k => { let p; do { p = { x: Math.floor(n / rows) * cell, y: (n % rows) * cell }; n += 1; } while (used.has(id(p))); used.add(id(p)); out[k] = p; });
   return out;
 }
+// 🧲 Every folder stays on the page, above the taskbar. A saved spot past the edge shows in the nearest free cell, and comes back if the window grows.
+const ICON_W = 116; const ICON_H = 162;   // the folder, its label, the page margin and the taskbar
+export function iconsOnPage(pos, vw, vh, cell = 96) {
+  const maxX = Math.max(0, Math.floor((vw - ICON_W) / cell)) * cell; const maxY = Math.max(0, Math.floor((vh - ICON_H) / cell)) * cell; const out = {}; const late = [];
+  Object.keys(pos).forEach(k => { const p = pos[k]; if (p && p.x >= 0 && p.y >= 0 && p.x <= maxX && p.y <= maxY) out[k] = p; else if (p) late.push(k); });
+  const taken = c => Object.values(out).some(q => Math.abs(q.x - c.x) < cell * 0.8 && Math.abs(q.y - c.y) < cell * 0.8);
+  late.forEach(k => { const want = pos[k]; let best = null; let far = Infinity; for (let x = 0; x <= maxX; x += cell) for (let y = 0; y <= maxY; y += cell) { const d = (x - want.x) ** 2 + (y - want.y) ** 2; if (d < far && !taken({ x, y })) { far = d; best = { x, y }; } } out[k] = best || { x: Math.min(want.x, maxX), y: Math.min(want.y, maxY) }; });
+  return out;
+}
+// ◧ Half and half. Taking a side sends the other open window to the other side, and the next folder you open fills an empty half.
+export function deskSet(all, k, p) {
+  const others = Object.keys(all).filter(x => x !== k && all[x]?.open && !all[x].min); const me = { ...all[k], ...p }; const next = { ...all, [k]: me }; const was = all[k] || {};
+  if (p.max || p.open === false) me.tile = null;
+  if (p.tile) {
+    const opp = p.tile === 'left' ? 'right' : 'left'; me.max = false;
+    others.filter(x => all[x].tile === p.tile).forEach(x => { next[x] = { ...all[x], tile: null }; });
+    if (!others.some(x => all[x].tile === opp)) { const mate = [...others].reverse().find(x => !all[x].tile); if (mate) next[mate] = { ...all[mate], tile: opp, max: false }; }
+  } else if (p.open && !was.open && !me.tile) {
+    const held = others.filter(x => all[x].tile);
+    if (held.length === 1) { me.tile = all[held[0]].tile === 'left' ? 'right' : 'left'; me.max = false; }
+  } else if (p.min === false && me.tile && others.some(x => all[x].tile === me.tile)) me.tile = null;
+  return next;
+}
 // A folder dropped on another swaps places with it.
 export function dropOnGrid(pos, k, p, cell = 96) {
   const to = snapTo(p, cell); const from = pos[k]; const other = Object.keys(pos).find(x => x !== k && pos[x].x === to.x && pos[x].y === to.y);
@@ -142,10 +165,12 @@ export function useDeskIcons(id, apps, prefs, { load, store, onDrag } = {}) {
   const pos = useMemo(() => (allKeys.split(',').some(k => k && !stored[k]) ? toGrid(allKeys.split(','), stored, window.innerHeight, cell) : stored), [stored, allKeys, cell]);
   useEffect(() => { if (!load || prefs.autoFit) return undefined; let on = true; load().then(j => { if (!on) return; const got = j?.pos || {}; if (Object.keys(got).length) { const n = toGrid(allKeys.split(','), got, window.innerHeight, cell); setPos(n); try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* full */ } } else { let had = null; try { had = localStorage.getItem(key); } catch { /* private */ } if (had) store?.(JSON.parse(had)); } }).catch(() => {}); return () => { on = false; }; }, [id]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPos(x => { const missing = allKeys.split(',').some(k => !x[k]); return missing ? toGrid(allKeys.split(','), x, window.innerHeight, cell) : x; }); }, [allKeys, cell]);
-  const moveIcon = (k, p) => { if (prefs.autoFit) onDrag?.(); setPos(x => { const n = dropOnGrid(x, k, p, cell); save(n); return n; }); };
+  const [page, setPage] = useState(() => [window.innerWidth, window.innerHeight]); useEffect(() => { let t = 0; const on = () => { clearTimeout(t); t = setTimeout(() => setPage([window.innerWidth, window.innerHeight]), 120); }; window.addEventListener('resize', on); return () => { clearTimeout(t); window.removeEventListener('resize', on); }; }, []);
+  const seen = useMemo(() => iconsOnPage(pos, page[0], page[1], cell), [pos, page, cell]);
+  const moveIcon = (k, p) => { if (prefs.autoFit) onDrag?.(); setPos(x => { const n = dropOnGrid(iconsOnPage(x, window.innerWidth, window.innerHeight, cell), k, p, cell); const m = iconsOnPage(n, window.innerWidth, window.innerHeight, cell); save(m); return m; }); };
   const fit = useCallback(o => { const n = fitIcons(shown, o || prefs, window.innerWidth, window.innerHeight); setPos(x => { const m = { ...x, ...n }; save(m); return m; }); }, [names, prefs.iconSort, prefs.iconFlow, prefs.iconSide, prefs.iconSize]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!prefs.autoFit) return undefined; fit(); let t = 0; const on = () => { clearTimeout(t); t = setTimeout(() => fit(), 150); }; window.addEventListener('resize', on); return () => { clearTimeout(t); window.removeEventListener('resize', on); }; }, [prefs.autoFit, fit]);
-  return { pos, moveIcon, fit, shown };
+  return { pos: seen, moveIcon, fit, shown };
 }
 // ⚡ A desktop covers the whole page, so the page under it stops painting. It comes back where you left it.
 let deskCount = 0;
@@ -238,7 +263,7 @@ export function BoostCoin({ earning = false }) {
 export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, testid, earn = false, earning = false }) {
   const g = useRef(null); const dragged = useRef(false);
   const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y, px: at.x, py: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { d.px = Math.max(0, d.ox + dx); d.py = Math.max(0, d.oy + dy); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };
+  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { d.px = Math.min(Math.max(0, d.ox + dx), Math.max(0, window.innerWidth - ICON_W)); d.py = Math.min(Math.max(0, d.oy + dy), Math.max(0, window.innerHeight - ICON_H)); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };
   const up = () => { const d = g.current; g.current = null; if (d && dragged.current) onMove(k, { x: d.px, y: d.py }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
@@ -246,16 +271,21 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
+const WIN_TILES = [['max', 'Fill the screen'], ['left', 'Left half of the screen'], ['right', 'Right half of the screen']];
 export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, children }) {
   const drag = useRef(null); const box = useRef(null);
-  const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a')) return; drag.current = { x: e.clientX - s.x, y: e.clientY - s.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { const g = drag.current; if (!g) return; g.px = e.clientX - g.x; g.py = Math.max(0, e.clientY - g.y); if (box.current) box.current.style.transform = `translate(${g.px}px, ${g.py}px)`; };   // only this window moves; nothing re-renders until the drop
-  const up = () => { const g = drag.current; drag.current = null; if (g && g.px != null) set(k, { x: g.px, y: g.py }); };
-  return <section ref={box} className={`dsk-win${s.max ? ' is-max' : ''}${top ? ' is-top' : ''}`} style={s.max ? undefined : { transform: `translate(${s.x}px, min(${s.y}px, calc(100dvh - 400px)))`, '--wx': `${s.x}px`, '--wy': `min(${s.y}px, calc(100dvh - 400px))` }} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
-    <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={() => set(k, { max: !s.max })}>
+  const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a') || !box.current) return; const r = box.current.getBoundingClientRect(); const d = box.current.querySelector(':scope > .bwr-dock:not(.is-fold)'); const side = d ? d.getBoundingClientRect().width + 8 : 0; const isLeft = d?.classList.contains('is-left'); drag.current = { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height, l: isLeft ? side : 0, r: isLeft ? 0 : side }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { const g = drag.current; if (!g) return; g.px = Math.max(g.l, Math.min(e.clientX - g.x, window.innerWidth - g.w - g.r)); g.py = Math.max(0, Math.min(e.clientY - g.y, window.innerHeight - 46 - g.h)); if (box.current) box.current.style.transform = `translate(${g.px}px, ${g.py}px)`; };   // only this window moves, and only inside the page; nothing re-renders until the drop
+  const up = () => { const g = drag.current; drag.current = null; if (g && g.px != null) set(k, { x: g.px, y: g.py, tile: null }); };
+  const onPage = `clamp(0px, ${s.x}px, calc(100vw - 320px))`; const downPage = `clamp(0px, ${s.y}px, calc(100dvh - 400px))`;   // a saved spot from before, or from a bigger window, comes back onto the page
+  const place = s.max ? undefined : s.tile ? { transform: `translateX(${s.tile === 'right' ? '50vw' : '0'})` } : { transform: `translate(${onPage}, ${downPage})`, '--wx': onPage, '--wy': downPage };
+  const now = s.max ? 'max' : s.tile || '';
+  return <section ref={box} className={`dsk-win${s.max ? ' is-max' : ''}${s.tile && !s.max ? ' is-tile' : ''}${top ? ' is-top' : ''}`} style={place} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
+    <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={() => set(k, s.tile ? { tile: null } : { max: !s.max })}>
       <span className="dsk-dots"><button type="button" className="is-x" onClick={onClose} aria-label={`Close ${title}`} data-tip="Close" />
         <button type="button" className="is-min" onClick={() => set(k, { min: true })} aria-label={`Minimize ${title}`} data-tip="Minimize — it waits in the taskbar" data-testid={`dsk-min-${k}`} />
-        <button type="button" className="is-max" onClick={() => set(k, { max: !s.max })} aria-label={s.max ? 'Restore' : 'Maximize'} data-tip={s.max ? 'Restore' : 'Maximize'} /></span>
+        <span className="dsk-fit"><button type="button" className="is-max" onClick={() => set(k, s.tile ? { tile: null } : { max: !s.max })} aria-label={s.max || s.tile ? 'Restore' : 'Maximize'} data-testid={`dsk-max-${k}`} />
+          <span className="dsk-tiles" role="group" aria-label={`Arrange ${title}`}>{WIN_TILES.map(([t, tip]) => <button key={t} type="button" className={`is-${t}-tile${now === t ? ' is-on' : ''}`} onClick={() => set(k, t === 'max' ? { max: true } : { tile: t })} aria-label={tip} aria-pressed={now === t} data-tip={tip} data-testid={`dsk-tile-${t}-${k}`}><i aria-hidden="true" /></button>)}</span></span></span>
       <b><Ic3Text text={title} /></b><span className="dsk-tools">{tools}</span></header>
     <i className="dsk-water" aria-hidden="true"><Ic3 e={leadOf(title)} size="100%" /></i>
     <div className="dsk-body">{children}</div>{dock}</section>;
@@ -331,7 +361,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   const [w, setW] = useState(() => Object.fromEntries(apps.map((a, i) => [a.k, { open: false, min: false, max: false, x: 140 + i * 16, y: 34 + i * 12 }])));
   const [top, setTop] = useState(''); const [now, setNow] = useState(Date.now());
   const { pos, moveIcon } = icons;
-  const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { max: false, min: false, x: 150, y: 40, ...x[k], ...p } })), []);   // a folder may appear after this desktop opened
+  const set = useCallback((k, p) => setW(x => deskSet({ ...x, [k]: { max: false, min: false, x: 150, y: 40, ...x[k] } }, k, p)), []);   // a folder may appear after this desktop opened
   const open = k => { set(k, { open: true, min: false }); setTop(k); };
   useEffect(() => { const go = e => { set(e.detail, { open: true, min: false }); setTop(e.detail); }; window.addEventListener('feeless:open-win', go); return () => window.removeEventListener('feeless:open-win', go); }, [set]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
