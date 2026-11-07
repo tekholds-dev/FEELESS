@@ -203,7 +203,7 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 ### Owner's newest list, 2026-11-06 evening, in this order (one at a time)
 Done and pushed: the failed "graduated under $30K" rule left the theory, the DEGEN mindset and the AUTO-TUNED fixes. Boost is one-screen dashboard (`BoostFolder.jsx`): ledger strip, proofs, the proof's real loop from `proof_plan`, the send, burn, pools. Collective is one screen per view (`CollectiveLanding.jsx`): The print, What pays (`KeepDeal`: real inputs, table from $1, live rates from `/api/reputation/pool-rates`), The record, The stash, Agents. "Follow the proof" is gone. HQ's money flow takes real amounts.
-1. PoStatic desk: why the chat text is green, and a way to finish when both minds stop or answer "held no page" at step 6 (it sits there with no way forward).
+1. PoStatic: DONE 2026-11-06. Pages over 24,000 chars are edited in small exact changes (`agent_features.EDIT_SYS`, `apply_page_edits`) instead of rewritten whole. A stopped round leaves `doc.unfinished`, shown with Finish it and Keep page N (`FinishBar`); "try again" means the last ask. Green text: no stylesheet rule found, so chat text is now set explicitly; not seen signed in.
 2. Fuse > Agents: removed, owner's call.
 3. Scoring: true mechanical weights and ranks per proof kind, so proofs do not all get the same judgement. Py agents learn scoring from OSSY and G4. New prompts by use case, or one overall for all proofs and agents.
 4. Git folder: cleaner and quicker to move on while cleaning, and a chat inside it.

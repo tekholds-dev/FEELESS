@@ -178,3 +178,18 @@ test('the thin bar moves on real steps and real text, and never fakes a number',
   expect(buildPart({ stage: 'build', draft: 'x'.repeat(12500) })).toBeCloseTo(0.625); expect(buildPart({ stage: 'review', draft: 'x'.repeat(99999) }, 25000)).toBeLessThan(0.98);
   expect(buildPart({})).toBeNull(); expect(buildPart({ stage: 'content' })).toBeNull();
 });
+
+test('a stopped PoStatic says why, Finish runs the same ask, and Keep stops at the last page', async () => {
+  const doc = { id: 'w1', kind: 'build', name: 'B', stage: 'review', busy: null, pending: true, versions: 5, cost: 0.02, messages: [{ by: 'you', text: 'fix the buttons' }, { by: 'Mind A', text: 'Nothing changed' }], cfg: { research: true, suggest: true, review: true, depth: 'quick' }, unfinished: { ask: 'fix the buttons', why: 'Its changes did not match the page.' } };
+  const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_keep' ? { doc: { ...doc, unfinished: null, stage: 'filed', pending: false } } : b.op === 'ws_build' ? { doc: { ...doc, unfinished: null, busy: { stage: 'build', at: 1 } } } : {}));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FeaturesFolder cat={{ id: 'c' }} d={{}} work={work} />); });
+  await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your folders')).click(); });
+  await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
+  const q = t => el.querySelector(`[data-testid="${t}"]`);
+  expect(q('ws-finish').textContent).toContain('did not match'); expect(q('ws-finish-keep').textContent).toContain('Keep page 5'); expect(el.querySelector('[data-testid="ws-steps"] .is-stopped').textContent).toContain('other mind');
+  await act(async () => { q('ws-finish-go').click(); });
+  expect(work).toHaveBeenCalledWith('c', { op: 'ws_build', job: 'w1', text: 'fix the buttons', finish: true, to: 'both' }); expect(q('ws-finish')).toBeNull();
+  await act(async () => root.unmount());
+});
+

@@ -5679,9 +5679,9 @@ def _ws_view(cat_id, ws_id):
     if not d_:
         raise HTTPException(404, 'No such folder.')
     if d_.get('busy') and _ws_dead(cat_id, ws_id, float(d_['busy'].get('at') or 0), time.time()):   # a run that died never locks the folder, and says so
-        d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed. Send it again to start over.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
+        d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
 
 
 def _general_mind(cat):
@@ -5773,6 +5773,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind'); start_versions = len(doc.get('versions') or [])
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
+    stop_why = ''
     try:
         if kind == 'build':
             cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
@@ -5816,14 +5817,26 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
                     _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost + usd_, 6), 'by': by_, 'draft': re.sub(r'```(?:html)?', '', raw_)[:WS_DRAFT_CHARS]}})
-                raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
-                cost += usd; paid_own = own; html = _aip.html_of(raw)
+                raw, usd, own, html = '', 0.0, paid_own, None
+                if _feat.wants_rewrite(cur, text):
+                    raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
+                    cost += usd; paid_own = own; html = _aip.html_of(raw)
                 if (not html or not _feat.page_complete(html)) and cur:
-                    patch_raw, patch_usd, patch_own = await _ws_ask(cat, brains[i], 'Return JSON only: {"find":"exact old HTML substring","replace":"new HTML substring"}. Make one concrete change that fulfills the owner request. The find text must occur exactly once. Keep the rest of the page. No explanation.', f'Owner request: {text[:1200]}\nCurrent page:\n{cur[:18000]}', 1300)
-                    cost += patch_usd; paid_own = patch_own
-                    html = _feat.apply_page_patch(cur, patch_raw)
+                    html, landed_, said_ = cur, 0, ''
+                    for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
+                        patch_raw, patch_usd, patch_own = await _ws_ask(cat, WS_CODE_MODEL if str(brains[i]).startswith('local/') else brains[i], _feat.EDIT_SYS + kits_, f"Owner request: {text[:1200]}{_feat.region_note(region)}" + (f'\nStill left from your last reply: {said_}' if said_ else '') + f'\nCurrent page:\n{html[:_feat.PAGE_PROMPT_CHARS]}', 1300)
+                        cost += patch_usd; paid_own = patch_own
+                        next_, n_, said_ = _feat.apply_page_edits(html, patch_raw)
+                        if not next_:
+                            break
+                        html, landed_ = next_, landed_ + n_
+                        if not said_:
+                            break
+                    html = html if landed_ else None
+                    stop_why = 'Its changes did not match the page.' if not landed_ else stop_why
                 if html and not _feat.page_complete(html):
                     _feat.add_msg(doc, name(i), 'That answer was cut off before the page finished, so it was not kept.', time.time())
+                    stop_why = 'Its answer was cut off before the page finished.'
                 elif html:
                     faults_ = _feat.page_faults(html)
                     if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
@@ -5831,7 +5844,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     html = _kits.open_for_kits(_kits.with_kit_tags(html, picks_), picks_); doc['kitsUsed'] = _kits.kit_report(html, picks_); doc['kitsOutside'] = _kits.outside_files(html, picks_)
                     cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
-                    _feat.add_msg(doc, name(i), 'That answer held no page, so nothing changed.', time.time())
+                    stop_why = stop_why or 'Its answer held no page.'
+                    _feat.add_msg(doc, name(i), f'{stop_why} Nothing changed, and the last page is safe.', time.time())
                 _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
         else:
             sys_ = _feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS
@@ -5841,9 +5855,12 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder
         _feat.add_msg(doc, 'FEELESS', f'A model did not answer ({str(e)[:80]}). Nothing was lost.', time.time())
+        stop_why = 'A model did not answer.'
     doc['busy'] = None; doc['cost'] = round(float(doc.get('cost') or 0) + cost, 6); doc['lastCost'] = round(cost, 6)
     if kind == 'build' and len(doc.get('versions') or []) > start_versions:
-        doc['stage'] = 'filed'
+        doc['stage'] = 'filed'; doc.pop('unfinished', None)
+    elif kind == 'build' and doc.get('stage') != 'approve':
+        doc['unfinished'] = {'ask': text[:3000], 'why': stop_why or 'It stopped before saving a new page.', 'region': region, 'at': round(time.time())}
     _ws_save(cat_id, doc)
     built = kind == 'build' and len(doc.get('versions') or []) > start_versions
     if built:
@@ -6329,6 +6346,7 @@ def _internal(request):
 
 class WorkPayload(BaseModel):
     op: str
+    finish: bool = False
     ver: Optional[str] = None           # ⛏ op 'state': the filed-folders version the page already has (unchanged → not re-sent)
     ownerId: Optional[str] = None
     session: Optional[str] = None
@@ -6835,9 +6853,20 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if isinstance(p.tools, dict) and isinstance(p.tools.get('paths'), list):
             doc_['source'] = [x for x in p.tools['paths'] if x in allowed_][:_cg.PROJECT_READ_FILES]; _ws_save(cat_id, doc_)
         return {'source': doc_.get('source') or [], 'paths': allowed_, 'full': link_.get('full'), 'most': _cg.PROJECT_READ_FILES}
+    if p.op == 'ws_keep':   # ✋ its owner stops here: the last page stands, and nothing is spent
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('busy') or not doc_.get('versions'):
+            raise HTTPException(400, 'There is no page to keep yet.')
+        doc_.pop('unfinished', None); doc_['pending'] = False; doc_['stage'] = 'filed'; _feat.add_msg(doc_, 'you', f"Keep page {len(doc_['versions'])}.", time.time()); _ws_save(cat_id, doc_)
+        return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)
         text_ = str(p.text or '').strip()[:3000]
+        said_ = text_; left_ = _feat.unfinished_of(doc_)
+        if left_ and left_.get('ask') and (p.finish or _feat.is_retry(text_)):   # "finish it" and "try again" mean the ask that stopped, not those words
+            said_ = 'Finish it.' if p.finish else text_; text_ = left_['ask']
+            if left_.get('region') and not isinstance(p.tools, dict):
+                p.tools = {'region': left_['region']}
         if not doc_ or not text_:
             raise HTTPException(400, 'Say what to make.')
         if doc_.get('busy'):
@@ -6848,7 +6877,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         files_ = [_af.find(cat, i) for i in ((p.tools or {}).get('files') or [])[:_feat.ATTACH_MAX]] if isinstance(p.tools, dict) else []
         if any(files_):
             doc_['attached'] = [{'id': f['id'], 'name': f.get('name')} for f in files_ if f]
-        _feat.add_msg(doc_, 'you', text_, time.time()); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
+        _feat.add_msg(doc_, 'you', said_, time.time()); doc_.pop('unfinished', None); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
         _ws_save(cat_id, doc_)
         _ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)
         return {'doc': _ws_view(cat_id, p.job)}

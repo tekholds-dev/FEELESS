@@ -114,6 +114,59 @@ def apply_page_patch(current, raw):
     return candidate if page_complete(candidate) and (not re.search(r'</html\s*>', current, re.I) or re.search(r'</html\s*>', candidate, re.I)) else None
 
 
+EDIT_SYS = 'You edit one existing HTML page in small exact changes. Return JSON only: {"edits":[{"find":"exact old HTML substring","replace":"new HTML substring"}],"left":"what is still not done, or empty"}. Each find must occur exactly once in the page and be as short as stays unique. Up to 6 edits a reply, smallest first. Keep everything else. Scripts you add must run and every button you touch must work. No explanation.'
+REWRITE_MAX_CHARS = 24000   # a reply stops near 1,500 tokens and a page gets 3 more tries, so a bigger page can no longer be written whole (receipt: 40,996 chars, both minds failed)
+PAGE_PROMPT_CHARS = 90000
+_FROM_SCRATCH = re.compile(r'(?i)\b(rebuild|rbuild|from scratch|start over|brand new page)\b')
+_RETRY_WORDS = re.compile(r'(?i)^\s*(please\s+)?(try|do|run)?\s*(it|that|the|your)?\s*(last\s+(request|ask|one)\s*)?(again|finish( it)?|continue|keep going|retry)\s*[.!]*\s*$|^\s*try\s+(the\s+)?last\s+request(\s+again)?\s*[.!]*\s*$')
+
+
+def wants_rewrite(cur, ask):
+    """Edit in place once a page is too big to write whole, unless the owner asked for a new one."""
+    return len(cur or '') <= REWRITE_MAX_CHARS or bool(_FROM_SCRATCH.search(str(ask or '')))
+
+
+def is_retry(text):
+    return bool(_RETRY_WORDS.match(str(text or '')))
+
+
+def apply_page_edits(current, raw):
+    """Every exact, unique change a reply holds, in order. → (page or None, how many landed, what it says is left). Never runs model code. A change that would break the page is dropped, the rest stay."""
+    try:
+        patch = json.loads(re.search(r'\{.*\}', str(raw or ''), re.S).group(0))
+    except (AttributeError, ValueError):
+        return None, 0, ''
+    rows = patch.get('edits') if isinstance(patch.get('edits'), list) else [patch]
+    page, done = current, 0
+    for e in rows[:12]:
+        if not isinstance(e, dict):
+            continue
+        find, replace = e.get('find'), e.get('replace')
+        if not isinstance(find, str) or not isinstance(replace, str) or not find or find == replace or page.count(find) != 1:
+            continue
+        next_ = page.replace(find, replace, 1)
+        if page_complete(next_) and (not re.search(r'</html\s*>', page, re.I) or re.search(r'</html\s*>', next_, re.I)):
+            page, done = next_, done + 1
+    left = patch.get('left') if isinstance(patch.get('left'), str) else ''
+    return (page if done else None), done, left[:300]
+
+
+FINISHING = ('build', 'review', 'research')
+
+
+def unfinished_of(doc):
+    """What a stopped round was asked. An older folder has no note, so its last ask is read from the chat. A plan waiting on its owner is not stopped."""
+    d = doc or {}
+    if d.get('kind') != 'build' or d.get('busy'):
+        return None
+    if d.get('unfinished'):
+        return d['unfinished']
+    if d.get('pending') and d.get('stage') in FINISHING:
+        ask = next((m.get('text') for m in reversed(d.get('messages') or []) if m.get('by') == 'you'), '')
+        return {'ask': str(ask)[:3000], 'why': 'It stopped before saving a new page.'} if ask else None
+    return None
+
+
 def new_doc(row):
     return {**row, 'messages': [], 'versions': [], 'busy': None}
 
