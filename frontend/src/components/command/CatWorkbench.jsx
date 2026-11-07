@@ -228,6 +228,16 @@ export function useDrop(w) {
   return { drop, tray };
 }
 
+// 🖍 What it boxed on the page runs down a wire to the bottom of its monitor, and what it got sits there for a few seconds (owner 2026-11-07).
+const FIND_MS = 7000;
+export function FindWires({ m }) {
+  const [on, setOn] = useState(null);
+  useEffect(() => { if (!m?.at || !(m.pts || []).length) return undefined; setOn(m); const t = setTimeout(() => setOn(x => (x === m ? null : x)), FIND_MS); return () => clearTimeout(t); }, [m?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!on) return null; const pts = on.pts.slice(0, 8); const slot = i => 8 + (84 * (i + 0.5)) / pts.length;
+  return <div className={`cwb-find${on.hunt ? ' is-hunt' : ''}`} key={on.at} data-testid="cwb-find" aria-live="off"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{pts.map(([x, y], i) => <path key={i} d={`M ${x * 100} ${y * 100} C ${x * 100} ${(y * 100 + 88) / 2}, ${slot(i)} ${(y * 100 + 88) / 2}, ${slot(i)} 88`} pathLength="1" style={{ '--i': i }} />)}</svg>
+    <div className="cwb-find-tray"><small>{on.hunt ? 'LOOKING FOR' : 'FOUND'} ON {String(on.site || 'THIS PAGE').toUpperCase()}</small><span>{(on.got || []).map((g, i) => <b key={`${g}${i}`} style={{ '--i': i }}>{g}</b>)}</span></div></div>;
+}
+
 // ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
 // agreeing = the 4 coins + this mind's pick · holding = the watcher's FEELESS chart of the coin, the researcher's coins + vitals · the talk under both
 const PH = { propose: 'PROPOSING 3 EACH', split: 'SPLITTING THE SHORTLIST', scout: 'RESEARCHING ITS COINS', choose: 'DECIDING THE ONE', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
@@ -326,6 +336,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
       {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
+      <FindWires m={w?.marks} />
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
@@ -1094,7 +1105,7 @@ function HoneyPot({ cat, pool }) {
 // 👛 the agent's WALLET app (owner 2026-11-01: "desktop agent wallet swapping"): its live SOL + USDC, and YOUR swap inside its own wallet —
 // SOL ⇄ USDC only, nothing leaves it, the gas reserve always stays; the server signs only a quote that echoes exactly this swap
 function WalletApp({ cat, compact = false, onBrowse = null }) {
-  const [pane, setPane] = useState('wallet');
+  const [pane, setPane] = useState('swap'); const px = useSolPrice();
   const [think, setThink] = useState(null); useEffect(() => { let on = true; work(cat.id, { op: 'wallet_think' }).then(j => on && setThink(j)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   const [w, setW] = useState(null); const [side, setSide] = useState('USDC>SOL'); const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
   useEffect(() => { let on = true; work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(e => on && setW({ err: e.message })); return () => { on = false; }; }, [cat.id]);
@@ -1108,24 +1119,31 @@ function WalletApp({ cat, compact = false, onBrowse = null }) {
     catch (e) { setMsg(e.message || 'Not swapped — nothing moved.'); } finally { setBusy(false); } };
   if (w.fuse) return <div className="dsk-wal" data-testid="dsk-fuse-wallet"><div className="dsk-wal-bal">{[['ON THE CARD', w.cardSol, 'What it can trade with'], ['IN THE WALLET', w.walletSol, 'All SOL at this address'], ['GAS RESERVE', w.reserveSol, 'Kept for network fees'], ['NOT ON THE CARD', w.outsideSol, 'Not assigned to the card yet']].map(([k, v, sub]) => <span key={k} className="is-sol"><em>{k}</em><b className="m-num">{v == null ? '—' : `${Number(v).toFixed(4)} SOL`}</b><small>{sub}</small></span>)}</div>
     <p className="dsk-note">Sicario's trades from the Fuse wallet. To top up, send SOL to this address, then put it on the card in HQ › Fuse. Then ask it to file a PoW.</p>{w.address ? <code className="dsk-wal-addr" data-testid="dsk-fuse-address">{w.address}</code> : <p className="dsk-note" role="alert">The card service did not answer.</p>}</div>;
-  const tabs = <div className="m-seg" role="tablist" aria-label="Wallet">{[['wallet', 'Its wallet'], ['card', 'Get a card']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`wal-tab-${k}`}>{l}</button>)}</div>;
-  if (pane === 'card') return <div className="dsk-wal" data-testid="dsk-wallet-card">{tabs}<CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /></div>;
-  return <div className="dsk-wal" data-testid="dsk-wallet">{tabs}{think?.calls ? <p className={`dsk-think${days != null && days < 3 ? ' is-low' : ''}`} data-tip="From its own receipts over the last week. Nothing tops up by itself" data-testid="dsk-think"><b>Thinking costs about ${think.perDay.toFixed(2)} a day</b>{days != null ? <span>{days < 3 ? `Top up soon: about ${days.toFixed(1)} days of USDC left` : `About ${Math.round(days)} days of USDC left`}</span> : null}</p> : null}
-    {compact ? null : <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
-      <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>}
-    <p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} remaining. Wallet balances above are live; SingIt charges the USDC here per call.</p>
-    <div className="dsk-receipts" data-testid="dsk-model-receipts"><b>Model charge receipts</b>
-      {(w.modelReceipts || []).length ? <ul>{w.modelReceipts.map(r => <li key={r.id}><strong>${Number(r.usd).toFixed(4)}</strong> · {r.provider} / {r.model} <small>{r.funding || 'agent USDC wallet'} · {r.tokens == null ? 'tokens unreported' : `${r.tokens} tokens`} · {ago(r.at)} ago · {r.status} · #{r.id}</small></li>)}</ul> : <small>No model charges recorded yet.</small>}</div>
-    {compact ? null : <code className="dsk-wal-addr" data-tip="Its own wallet address">{w.address}</code>}
-    {w.canSwap ? <form className="dsk-wal-swap" onSubmit={e => { e.preventDefault(); go(); }}>
+  const solUsd = Number(w.sol || 0) * (px || 0); const total = solUsd + Number(w.usdc || 0); const gasShare = w.sol ? Math.min(1, (w.gas || 0) / w.sol) : 0; const runway = days == null ? null : Math.min(1, days / 30);
+  const PANES = [['swap', 'Swap', 'SOL and USDC, inside its own wallet'], ['topup', 'Top up', 'Its address, to send it SOL or USDC'], ['spend', 'Spending', 'What its thinking costs, call by call'], ['card', 'Get a card', 'A card for its wallet']];
+  const tabs = <div className="m-seg wal2-tabs" role="tablist" aria-label="Wallet">{PANES.map(([k, l, t]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-tip={t} data-testid={`wal-tab-${k}`}>{l}</button>)}</div>;
+  const copy = () => { try { navigator.clipboard?.writeText(w.address); setMsg('Address copied.'); } catch { setMsg('Copy did not work. Select the address instead.'); } };
+  return <div className="dsk-wal wal2" data-testid="dsk-wallet">
+    <header className="wal2-hero"><span><small>ITS WALLET</small><b className="m-num" data-testid="wal2-total">{px ? `$${total.toFixed(2)}` : `${Number(w.sol || 0).toFixed(4)} SOL`}</b><em>{px ? 'Live, at today\'s SOL price' : 'Reading the SOL price'}</em></span>
+      {w.address ? <button type="button" className="wal2-addr" onClick={copy} data-tip="Its own wallet address. Tap to copy" data-testid="wal2-copy"><code>{`${w.address.slice(0, 4)}…${w.address.slice(-4)}`}</code><i aria-hidden="true">⧉</i></button> : null}</header>
+    <div className="wal2-coins">
+      <section className="is-sol"><small>SOL</small><b className="m-num">{Number(w.sol || 0).toFixed(4)}</b><em>{px ? `$${solUsd.toFixed(2)}` : ''}</em><u data-tip={`${w.gas} SOL always stays for network fees`}><s style={{ transform: `scaleX(${gasShare})` }} /></u><span>{w.gas} kept for gas</span></section>
+      <section className="is-usdc"><small>USDC</small><b className="m-num">{Number(w.usdc || 0).toFixed(2)}</b><em>pays its thinking</em><u data-tip="Days of thinking left, out of 30"><s style={{ transform: `scaleX(${runway ?? 0})` }} className={days != null && days < 3 ? 'is-low' : ''} /></u><span data-testid="dsk-think">{days == null ? 'No spending yet' : days < 3 ? `Top up soon: about ${days.toFixed(1)} days left` : `About ${Math.round(days)} days of thinking left`}</span></section>
+    </div>
+    {tabs}
+    {pane === 'swap' ? (w.canSwap ? <form className="dsk-wal-swap" onSubmit={e => { e.preventDefault(); go(); }}>
       <span className="m-seg" role="group" aria-label="Swap direction">{[['USDC>SOL', 'USDC → SOL'], ['SOL>USDC', 'SOL → USDC']].map(([k, l]) =>
         <button key={k} type="button" className={side === k ? 'active' : ''} aria-pressed={side === k} onClick={() => setSide(k)} data-tip={`Swap its ${k.split('>')[0]} into ${k.split('>')[1]}`}>{l}</button>)}</span>
       <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder={`amount ${tok} (empty = all ${max.toFixed(tok === 'SOL' ? 4 : 2)})`} value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={`Amount of ${tok}`} />
         <button type="button" className="m-btn" onClick={() => setAmt(String(Number(max.toFixed(6))))} data-tip="Everything it can swap (the gas reserve stays)">All</button></span>
       <button type="submit" className="m-btn m-go" disabled={busy || !max} data-testid="dsk-wallet-swap" data-tip="Its wallet signs this one swap through FEELESS; the money stays in its wallet">{busy ? 'Swapping…' : `Swap ${tok}`}</button>
-    </form> : <p className="dsk-note">Only a wallet Circle signs for this agent can swap.</p>}
+    </form> : <p className="dsk-note">Only a wallet Circle signs for this agent can swap.</p>) : null}
+    {pane === 'swap' && (w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
+    {pane === 'topup' ? <div className="wal2-topup" data-testid="wal2-topup"><p>Send SOL or USDC on Solana to this address. Only send from a wallet you control.</p><code className="dsk-wal-addr">{w.address}</code><button type="button" className="m-btn m-go" onClick={copy} data-testid="wal2-copy-full">Copy the address</button></div> : null}
+    {pane === 'spend' ? <><p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} left. Its own USDC pays each call, listed below.</p>
+      <div className="dsk-receipts" data-testid="dsk-model-receipts"><b>What each call cost</b>{(w.modelReceipts || []).length ? <ul>{w.modelReceipts.map(r => <li key={r.id}><strong>${Number(r.usd).toFixed(4)}</strong> · {String(r.model || '').split('/').pop()} <small>{r.tokens == null ? 'tokens unreported' : `${r.tokens} tokens`} · {ago(r.at)} ago · {r.status}</small></li>)}</ul> : <small>No model charges recorded yet.</small>}</div></> : null}
+    {pane === 'card' ? <CardSites onBrowse={onBrowse} cat={cat} work={work} link={w.cardLink} /> : null}
     {msg ? <small className="dsk-wal-msg" role="status">{msg}</small> : null}
-    {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
   </div>;
 }
 // 🧹 Folders that live inside another (owner 2026-11-06). Same folder, same window: reached by a tab along its parent's title bar, so the desktop stays short.

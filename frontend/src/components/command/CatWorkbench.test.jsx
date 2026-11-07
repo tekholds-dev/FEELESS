@@ -361,7 +361,9 @@ test('👛 the wallet app: live SOL + USDC, pick a direction, Swap sends op wall
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="wallet" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-wallet').textContent).toContain('1.35'); expect(q('dsk-wallet').textContent).toContain('0.0075');
-  expect(q('dsk-model-receipts').textContent).toContain('$0.0030'); expect(q('dsk-model-receipts').textContent).toContain('120 tokens');
+  await act(async () => { q('wal-tab-spend').click(); }); expect(q('dsk-model-receipts').textContent).toContain('$0.0030'); expect(q('dsk-model-receipts').textContent).toContain('120 tokens'); expect(q('dsk-model-receipts').textContent).not.toContain('SingIt');
+  await act(async () => { q('wal-tab-topup').click(); }); expect(q('wal2-topup').textContent).toContain('AGT');
+  await act(async () => { q('wal-tab-swap').click(); });
   const inp = q('dsk-wallet').querySelector('input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   await act(async () => { set.call(inp, '1'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { q('dsk-wallet-swap').click(); });

@@ -4964,7 +4964,7 @@ def _work_task_view(cat_id, owner=False):
     wins = []
     for x in t['windows']:
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
-        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN', 'cursor')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
+        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN', 'cursor', 'marks')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('hand') if x.get('status') == 'human' and s_.get('hand') else s_.get('live'), 'hand': x.get('status') == 'human' and bool(s_.get('hand')), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
     return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid')}, 'windows': wins}
 

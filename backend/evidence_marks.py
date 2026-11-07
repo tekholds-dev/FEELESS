@@ -103,7 +103,9 @@ LIVE_JS = r"""(args) => {
   const rows = args.rects || []; if (!rows.length) return 0;
   const box = document.createElement('div'); box.id = 'feeless-marks'; box.setAttribute('aria-hidden', 'true'); box.style.cssText = 'position:fixed;inset:0;z-index:2147483646;pointer-events:none;';
   rows.forEach(r => { const m = document.createElement('i'); m.style.cssText = `position:fixed;left:${r[0] - 4}px;top:${r[1] - 3}px;width:${r[2] - r[0] + 8}px;height:${r[3] - r[1] + 6}px;box-sizing:border-box;border:2px solid ${args.color};border-radius:4px;background:${args.color}1f;box-shadow:0 0 10px ${args.color}80;`; box.appendChild(m); });
-  document.documentElement.appendChild(box); return rows.length;
+  document.documentElement.appendChild(box);
+  const top = Math.max(0, outerHeight - innerHeight), W = outerWidth || innerWidth, H = outerHeight || innerHeight;
+  return { n: rows.length, pts: rows.slice(0, 8).map(r => [Math.min(1, Math.max(0, (r[0] + r[2]) / 2 / W)), Math.min(1, Math.max(0, (top + (r[1] + r[3]) / 2) / H))]) };
 }"""
 SEEN = '#3ee58a'   # what the mind says it is reading
 HUNT = '#ffc24d'   # the words of the job, found on a page it just opened
@@ -117,15 +119,17 @@ def mark_words(a):
 
 
 async def live_marks(page, words, color=SEEN):
-    """🖍 Lined boxes round what it is reading, in the window itself, so the owner watches them land. They sit on top and take no clicks, and the next set replaces them. Only text really on the screen gets one. Never stops the work. → how many"""
+    """🖍 Lined boxes round what it is reading, in the window itself, so the owner watches them land. They sit on top and take no clicks, and the next set replaces them. Only text really on the screen gets one. Never stops the work. → {n, pts: where each box is as a share of the window, found: the words it found}"""
     try:
         draw_ = getattr(page, 'draw_marks', None)
-        if not draw_:
-            return 0
-        got = await draw_(f"() => ({FIND_JS})({json.dumps({'words': list(words or []), 'pattern': None, 'max': LIVE_MAX, 'scroll': False})})") if words else {}
-        return await draw_(f"() => ({LIVE_JS})({json.dumps({'rects': (got or {}).get('rects') or [], 'color': color})})") or 0
+        if not draw_ or not words:
+            return {'n': 0, 'pts': [], 'found': []}
+        got = await draw_(f"() => ({FIND_JS})({json.dumps({'words': list(words or []), 'pattern': None, 'max': LIVE_MAX, 'scroll': False})})") or {}
+        drawn = await draw_(f"() => ({LIVE_JS})({json.dumps({'rects': got.get('rects') or [], 'color': color})})") or {}
+        drawn = drawn if isinstance(drawn, dict) else {'n': int(drawn or 0), 'pts': []}
+        return {'n': drawn.get('n') or 0, 'pts': drawn.get('pts') or [], 'found': [w for w in words if w in (got.get('found') or {})]}
     except Exception:   # noqa: BLE001 — a box is a nicety
-        return 0
+        return {'n': 0, 'pts': [], 'found': []}
 
 
 async def marked_shot(page, words=None, now=0, pattern=None, read=False):

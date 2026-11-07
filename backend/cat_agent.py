@@ -360,8 +360,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             a['url'] = full_url(a['url'])
         thought = str(a.get('thought') or '').strip()
         said_marks = _marks.mark_words(a)
-        if said_marks and page:   # 🖍 what it read on the screen it is looking at gets a lined box before it moves on, so the owner sees it
-            if await _marks.live_marks(page, said_marks):
+        if said_marks and page:   # 🖍 what it read on the screen it is looking at gets a lined box before it moves on, and a wire carries it to the tray at the bottom of its window
+            got_ = await _marks.live_marks(page, said_marks)
+            if got_['n']:
+                facts_ = [f"{f.get('label')}: {f.get('value')}" for f in (a.get('facts') or []) if isinstance(f, dict) and f.get('value')]
+                w['marks'] = {'at': round(time.time(), 2), 'site': _pow.host_of(getattr(page, 'url', '') or ''), 'pts': got_['pts'], 'got': (facts_ or got_['found'])[:6]}
                 w.setdefault('_marked', []).extend(said_marks); await asyncio.sleep(0.9)
         if task.get('research') and act not in RESEARCH_ACTIONS and (act or a):   # 📰 a trader's window only reads coins + narrative (plain prose = its answer, below)
             _step(w, f'research only: no "{act}"' if act else 'no action in its reply', 'refused')
@@ -548,7 +551,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
             if act in ('open', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('(') and task.get('keepShots'):   # a new screen: the words of its job are found on it
-                await _marks.live_marks(page, _marks.words_of([task.get('topic') or task.get('text') or ''], 6), _marks.HUNT)
+                hunt_ = await _marks.live_marks(page, _marks.words_of([task.get('topic') or task.get('text') or ''], 6), _marks.HUNT)
+                if hunt_['n']:
+                    w['marks'] = {'at': round(time.time(), 2), 'site': _pow.host_of(getattr(page, 'url', '') or ''), 'pts': hunt_['pts'], 'got': hunt_['found'][:6], 'hunt': True}
             if act in ('open', 'search', 'site_search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
                 h_read = _pow.host_of(page.url)   # 📖 what it really read, per site: survives a window that runs out of budget before it writes its answer

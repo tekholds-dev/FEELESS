@@ -246,15 +246,15 @@ def test_what_a_mind_says_it_read_gets_a_box():
     drawn = []
     class Live:
         async def draw_marks(self, js):
-            drawn.append(js); return {'rects': [[1, 2, 3, 4]]} if 'createTreeWalker' in js else 1
+            drawn.append(js); return {'rects': [[1, 2, 3, 4]], 'found': {'nets': 1}} if 'createTreeWalker' in js else {'n': 1, 'pts': [[0.5, 0.4]]}
     class Reader:
         pass
-    assert asyncio.run(em.live_marks(Live(), ['nets'])) == 1 and 'feeless-marks' in drawn[-1] and 'pointer-events:none' in drawn[-1]
-    assert asyncio.run(em.live_marks(Reader(), ['nets'])) == 0
+    assert asyncio.run(em.live_marks(Live(), ['nets', 'hawks'])) == {'n': 1, 'pts': [[0.5, 0.4]], 'found': ['nets']} and 'feeless-marks' in drawn[-1] and 'pointer-events:none' in drawn[-1]
+    assert asyncio.run(em.live_marks(Reader(), ['nets']))['n'] == 0
     class Broken:
         async def draw_marks(self, js):
             raise RuntimeError('page gone')
-    assert asyncio.run(em.live_marks(Broken(), ['nets'])) == 0   # a box never stops the work
+    assert asyncio.run(em.live_marks(Broken(), ['nets']))['n'] == 0   # a box never stops the work
 
 
 def test_the_public_print_shows_only_basic_facts_and_only_active_proofs_glow(monkeypatch, tmp_path):
