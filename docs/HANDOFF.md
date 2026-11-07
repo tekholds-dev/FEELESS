@@ -201,6 +201,14 @@ Split PoP Run-instead; PoB quarter lines in chat; Endless; a cloud Browser windo
 
 # WHAT'S LEFT
 
+### Owner's list, 2026-11-07, comes first, in this order
+1. Collective HQ full redo: a real dashboard to create anything for and with the Collective wallet and find the best earning options. Numbers and risks only, it never tells him what to buy, nothing moves money by itself.
+2. Sicario's HQ page: the new intake is in, this page is old. New look, keep what is needed, remove what is not.
+3. PoStatic marks: a mark must stay on the page while scrolling, several spots at once, the minds see them as he scrolls. Taller window.
+4. Agents needing a login: give him time if he is moving on screen, and a way to enter email and recent code on the watch screen. Watch room tools on one monitor, more free options. Works in PoB and desk.
+5. New prompts by use case, or one overall.
+6. Every proof unique: filing a PoB has leg options for a parlay; PoP calls need the real truth of why, not a generic reason.
+
 ### Owner's newest list, 2026-11-06 evening, in this order (one at a time)
 Done and pushed: the failed "graduated under $30K" rule left the theory, the DEGEN mindset and the AUTO-TUNED fixes. Boost is one-screen dashboard (`BoostFolder.jsx`): ledger strip, proofs, the proof's real loop from `proof_plan`, the send, burn, pools. Collective is one screen per view (`CollectiveLanding.jsx`): The print, What pays (`KeepDeal`: real inputs, table from $1, live rates from `/api/reputation/pool-rates`), The record, The stash, Agents. "Follow the proof" is gone. HQ's money flow takes real amounts.
 1. PoStatic: DONE 2026-11-06. Pages over 24,000 chars are edited in small exact changes (`agent_features.EDIT_SYS`, `apply_page_edits`) instead of rewritten whole. A stopped round leaves `doc.unfinished`, shown with Finish it and Keep page N (`FinishBar`); "try again" means the last ask. Green text: no stylesheet rule found, so chat text is now set explicitly; not seen signed in.

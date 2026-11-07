@@ -3,7 +3,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
 import { SplitFlow, sendRows, splitOf } from './SplitFlow';
 import { BoostFolder } from './BoostFolder';
-import { CollectiveOwner } from './CollectiveOwner';
+import { CollectiveOwner, topOptions } from './CollectiveOwner';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const RULES = { deal: 'plans', skimPct: 20, potPct: 50, potPayDayPct: 5, weightMaxX: 2, boostBackPts: 5, ptsBase: 5, ptsPerUsd: 2, ptsMaxSend: 60, ptsPerDay: 10, boostFadeDays: 60, depositPct: 10, firstMinUsd: 50, txnSmallPct: 5, txnMidPct: 3, txnBigPct: 1, txnSmallUsd: 10, txnBigUsd: 100, boostMode: 'payout', plans: [{ plan: 'week', days: 7, backPct: 70, weightX: 1, roomX: 1 }, { plan: 'month', days: 30, backPct: 85, weightX: 2, roomX: 2 }, { plan: 'quarter', days: 90, backPct: 95, weightX: 3, roomX: 3 }, { plan: 'vault', days: null, backPct: 0, weightX: 6, roomX: 6 }] };
@@ -37,12 +37,17 @@ test('HQ shows the money, the pools and each cut, saves a dial, and profit needs
   const q = t => el.querySelector(`[data-testid="${t}"]`);
   expect(q('cof-cover').textContent).toContain('FULLY COVERED'); expect(q('cof-withdrawals').textContent).toContain('OFF');
   expect(q('hq-kpi-stakedUsd').textContent).toContain('$200'); expect(q('hq-kpi-keepUsd').textContent).toContain('$17');
-  expect(q('hq-pool-p1').textContent).toContain('SOL-USDC'); expect(q('hq-agent-a').textContent).toContain('1.87%'); expect(q('hq-agent-a').textContent).toContain('FAST');
-  expect(q('hq-range-note').textContent).toContain('not wired'); expect(q('hq-live').textContent).toContain('THE LIVE FLOOR'); expect(q('hqf-agent-a')).toBeTruthy(); expect(q('hqf-tank-p1')).toBeTruthy();
-  await click(q('hq-open-checks')); await click(q('cof-clear-h1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
-  expect(q('cof-save').disabled).toBe(true);
+  expect(q('hq-live').textContent).toContain('THE LIVE FLOOR'); expect(q('hqf-agent-a')).toBeTruthy(); expect(q('hqf-tank-p1')).toBeTruthy(); expect(q('hq-needs')).toBeTruthy(); expect(q('hq-top')).toBeTruthy();
+  await click(q('hq-view-agents')); expect(q('hq-agent-a').textContent).toContain('1.87%'); expect(q('hq-agent-a').textContent).toContain('FAST');
+  await click(q('cof-clear-h1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ clear: { cat: 'c', id: 'h1' } }); call.mockClear();
+  await click(q('hq-view-deal')); expect(q('cof-save').disabled).toBe(true); expect(q('hq-amt-profit')).toBeTruthy();
+  await click(q('hq-view-build')); expect(q('hq-pool-p1').textContent).toContain('SOL-USDC'); expect(q('hq-range-note').textContent).toContain('not wired');
   await click(q('hq-pool-on-p1')); expect(JSON.parse(call.mock.calls.find(c => c[1])[1].body)).toEqual({ poolSet: { id: 'p1', on: false } });
   await act(async () => root.unmount());
+});
+test('the top options are the best payers of each kind, thin pools left out, and nothing with no pay', () => {
+  const rows = [{ id: 'l1', kind: 'lend', per1k24: 0.2 }, { id: 'l2', kind: 'lend', per1k24: 0.3 }, { id: 'l3', kind: 'lend', per1k24: 0.1 }, { id: 'p1', kind: 'pool', per1k24: 9, tvl: 500 }, { id: 'p2', kind: 'pool', per1k24: 1, tvl: 2e6 }, { id: 'p3', kind: 'pool', per1k24: 0, tvl: 2e6 }, { id: 's1', kind: 'stock', per1k24: 0 }];
+  expect(topOptions(rows).map(r => r.id)).toEqual(['l2', 'l1', 'p2']); expect(topOptions(null)).toEqual([]);
 });
 test('the boost folder shows the deal in live numbers, and burning points asks the server', async () => {
   const stake = { sentUsd: 10, capUsd: 18.7, x: 1.87, grade: 87, paidUsd: 2, burned: 0, pointsLeft: 16.7, cutPct: 1.87, fastPct: 0, nowPct: 1.87, topPct: 2, fastUntil: null };

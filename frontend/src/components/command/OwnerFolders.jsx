@@ -5,7 +5,7 @@ import { CircleAlert, Gift, LifeBuoy, RefreshCw, ShieldCheck, Sparkles } from 'l
 import { apiUrl } from '../../lib/api';
 import { money } from './SplitFlow';
 import { ColonyPot } from './HiveBoard';
-import { Pools, Dials } from './CollectiveOwner';
+import { Pools, Dials, planBody } from './CollectiveOwner';
 import { Fx, Roll } from './CollectiveSetup';
 import '../../styles/collectiveHq.css';
 import '../../styles/ownerFolders.css';
@@ -47,7 +47,6 @@ export function FallbackFolder({ d, onPay }) {
   </div></Fx>;
 }
 
-const PLATFORM_OF = { raydium: 'raydium', meteora: 'meteora', orca: 'orca' };
 const yearly = rate => (Number(rate) || 0) * 365 * 100;
 const VENUE_URL = { raydium: id => `https://raydium.io/clmm/create-position/?pool_id=${id}`, meteora: id => `https://app.meteora.ag/dlmm/${id}`, orca: id => `https://www.orca.so/pools/${id}` };
 // How much a band of plus or minus w concentrates money against the whole price range (constant-product maths). Fees earned only while price sits inside it.
@@ -98,7 +97,7 @@ export function GrowFolder({ d, save, busy, call, extra = null }) {
   const toggle = id => setPicks(x => (x.includes(id) ? x.filter(y => y !== id) : [...x, id].slice(-4)));
   const series = (picks || []).map((id, i) => { const r = (rows || []).find(x => x.id === id); const doc = docs[id]; const m = doc ? curveOf(doc, hours, size) : null; return { id, name: r?.name || id, row: r, color: GROW_COLORS[i % 4], why: doc?.why, loading: !doc, ...(m || {}) }; }).filter(x => x.row);
   const drawn = series.filter(x => x.curve); const inPlan = r => pools.some(p => (r.kind === 'pool' ? p.address === r.id : p.pair === r.name.slice(0, 32)));
-  const addPlan = r => save(null, { poolAdd: r.kind === 'pool' ? { platform: PLATFORM_OF[r.venue] || 'other', pair: r.name, address: r.id, mint: r.pool?.mintX } : { platform: 'other', pair: r.name, note: `${r.kind} on ${r.venue}` } });
+  const addPlan = r => save(null, planBody(r));
   return <Fx><div className="ofd" data-testid="ofd-grow"><Head icon={Sparkles} title="Money" line="What is really here, every way it could work, and what the same dollars would have done. Real numbers. The picks are yours: this is data, not advice, and past numbers promise nothing." />
     <div className="hq-kpis" data-testid="grow-real">{[['STAKED', st.stakedUsd, '#57c7ff', 'What agents really sent, by the ledger'], ['COLLECTIVE KEEPS', st.keepUsd, '#3ee58a', 'Fees that are the Collective\'s own'], ['POOL PROFIT', st.profitUsd, '#ffc24d', 'Profit that really landed'], ['PAID TO AGENTS', st.paidUsd, '#c58bff', 'What agents have really been paid']].map(([k, v, col, t], i) => <motion.article key={k} {...rise(i)} style={{ '--c': col }} data-tip={t}><small>{k}</small><Roll v={Number(v) || 0} fmt={money} /></motion.article>)}</div>
     <section className="hq-card" data-testid="grow-chart"><h4>WHAT {money(size)} WOULD HAVE DONE<small>after price moves. Opens on the deepest of each kind. Tick up to 4 below</small></h4>

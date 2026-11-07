@@ -1,7 +1,7 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { Accordion, Chip } from '@heroui/react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Chip } from '@heroui/react';
 import { motion } from 'motion/react';
-import { Banknote, ChevronDown, Layers3, Link2, ShieldCheck, Users } from 'lucide-react';
+import { ArrowUpRight, Banknote, CircleAlert, Hammer, Layers3, LayoutDashboard, Link2, Radar, ReceiptText, RefreshCw, Scale, ShieldCheck, Users, Wallet } from 'lucide-react';
 import { Ic3 } from '../../lib/icon3d';
 import { money } from './SplitFlow';
 import { NOT_PONZI } from './GrowthExample';
@@ -37,7 +37,7 @@ function Validators({ d, save, busy }) {
 }
 const KPI = [['stakedUsd', 'STAKED IN THE POOLS', 'What agents have sent, less pool losses. It works in the pools you open', '#57c7ff'], ['profitUsd', 'POOL PROFIT', 'Every profit the chain showed landing in the Collective wallet', '#3ee58a'], ['paidUsd', 'PAID TO AGENTS', 'Boost cash: their cuts, up to their boost points', '#ffc24d'], ['keepUsd', 'THE COLLECTIVE EARNED', 'Agent wallet fees, top-ups, site fees and its piece of each profit', '#c58bff'], ['compoundUsd', 'COMPOUNDING', 'Profit nobody took. It goes back to work in the pools', '#ff8bd8']];
 function Kpis({ s }) {
-  return <div className="hq-kpis">{KPI.map(([k, l, tip, c], i) => <motion.article key={k} {...rise(i)} style={{ '--c': c }} data-tip={tip} data-testid={`hq-kpi-${k}`}><small>{l}</small><Roll v={s[k] || 0} fmt={money} /></motion.article>)}</div>;
+  return <div className="hq-strip">{KPI.map(([k, l, tip, c]) => <span key={k} style={{ '--c': c }} data-tip={tip} data-testid={`hq-kpi-${k}`}><small>{l}</small><Roll v={s[k] || 0} fmt={money} /></span>)}</div>;
 }
 const MoneyFlow = lazy(() => import('./MoneyCharts').then(m => ({ default: m.MoneyFlow })));
 const FLOW_COLORS = { 'Agent fees': '#ffc24d', 'A proof sent': '#57c7ff', 'The pools': '#57c7ff', 'Pool profit': '#3ee58a', Agents: '#ffc24d', 'The Collective': '#c58bff', 'Back in the pools': '#ff8bd8' };
@@ -68,26 +68,58 @@ function MoneyIn({ t }) {
   const rows = Object.entries(t.in || {}).sort((a, b) => b[1] - a[1]); const most = Math.max(1e-9, ...rows.map(r => r[1]));
   return <section className="cof-in">{rows.length ? <ul>{rows.map(([k, v], i) => <li key={k} style={{ '--i': i }}><small>{IN[k] || k}</small><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.02, v / most)})` }} /></i><b className="m-num">{money(v)}</b></li>)}</ul> : <p className="fch-nil">No money counted yet. The ledger starts with the next deposit, fee or proof.</p>}</section>;
 }
-// Opens only when asked, so the heavy parts cost nothing until then.
-const MORE = (d, save, busy, call, c, setC) => [['in', 'Money in', 'Every kind of money the ledger counted', <MoneyIn key="i" t={d.totals || {}} />], ['grow', 'Day by day', 'The Collective over time', <Trend key="t" hist={d.hist} />], ['checks', `The five validators${d.held?.length ? ` · ${d.held.length} held` : ''}`, 'Proofs waiting on you', <Validators key="v" d={d} save={save} busy={busy} />], ['site', 'Site fees', 'Your share of swap fees', <Outside key="o" d={d} save={save} busy={busy} />], ['fees', 'Agent fees', 'What the Collective earns from the jump', <Dials key="f" d={d} save={save} busy={busy} c={c} setC={setC} rows={FEES} />], ['wallet', 'Wallet and pool', 'The Collective wallet', <ColonyPot key="w" call={call} />], ['stash', 'Stash', 'Every proof kept sealed, with its web of sources', <StashWeb key="s" call={call} testid="cof-stash" />], ['why', 'How rewards stay real', 'The rules that keep it honest', <ul key="n" className="hq-why">{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><ShieldCheck size={14} aria-hidden="true" /> {h}<small>{t}</small></li>)}</ul>]];
+const GrowFolderLazy = lazy(() => import('./OwnerFolders').then(m => ({ default: m.GrowFolder })));
+const PLATFORM_OF = { raydium: 'raydium', meteora: 'meteora', orca: 'orca' };
+export const planBody = r => ({ poolAdd: r.kind === 'pool' ? { platform: PLATFORM_OF[r.venue] || 'other', pair: r.name, address: r.id, mint: r.pool?.mintX } : { platform: 'other', pair: r.name, note: `${r.kind} on ${r.venue}` } });
+// The top of the live board by what each paid in the last day: the lenders with no price risk, then deep pools. Numbers to compare, never a pick.
+export function topOptions(rows) {
+  const by = (k, n, keep = () => true) => (rows || []).filter(r => r.kind === k && Number(r.per1k24) > 0 && keep(r)).sort((a, b) => b.per1k24 - a.per1k24).slice(0, n);
+  return [...by('lend', 2), ...by('stake', 1), ...by('pool', 4, r => Number(r.tvl) >= 1000000)];
+}
+const RISK_WORD = { none: 'No price risk', half: 'One coin moves', both: 'Both coins move', coin: 'Moves with its coin' };
+const small$ = v => (v >= 1 ? money(v) : `$${(Number(v) || 0).toFixed(3)}`);
+// 📡 What the same dollars would earn today, on any amount. It reads and it adds to a plan. It moves nothing.
+function TopNow({ d, call, save, busy, onMore }) {
+  const [rows, setRows] = useState(null); const [err, setErr] = useState(''); const [usd, setUsd] = useState(() => Math.round(d.stake?.stakedUsd || 0) || 1000);
+  const read = () => { setErr(''); call('/admin/grow').then(j => setRows(j.rows || [])).catch(e => setErr(e.message)); };
+  useEffect(read, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const top = useMemo(() => topOptions(rows), [rows]); const inPlan = r => (d.pools || []).some(p => (r.kind === 'pool' ? p.address === r.id : p.pair === r.name.slice(0, 32))); const n = Number(usd) || 0;
+  return <section className="hq-card hq-top-now" data-testid="hq-top"><h4><Radar size={14} aria-hidden="true" /> TOP BY LIVE NUMBERS<button type="button" className="m-btn hq-re" onClick={read} aria-label="Read again" data-tip="Read every venue again"><RefreshCw size={13} aria-hidden="true" /></button></h4>
+    <label className="hq-on"><small>ON</small><span>$<input className="m-num" type="number" min="0" step="any" value={usd} onChange={e => setUsd(e.target.value === '' ? '' : Number(e.target.value))} aria-label="Dollars to compare" data-testid="hq-top-usd" /></span></label>
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : !rows ? <p className="fch-nil">Reading every venue…</p> : !top.length ? <p className="fch-nil">No venue answered. Read again in a minute.</p> : <ul className="hq-top-list">{top.map(r => { const day = Number(r.per1k24) / 1000 * n; return <li key={r.id} data-testid={`hq-top-${r.id}`}><span><b>{r.name}</b><small>{r.venue} · {RISK_WORD[r.risk] || 'Has risk'}</small></span><em className="m-num" data-tip={`At the last day's pace, about ${r.yearPct}% a year. Before any price move`}>{small$(day)}<small>a day</small></em><em className="m-num">{small$(day * 30)}<small>a month</small></em><button type="button" className="m-btn" disabled={busy || inPlan(r)} onClick={() => save(null, planBody(r))} data-tip="Adds it to your plan. It moves no money" data-testid={`hq-top-add-${r.id}`}>{inPlan(r) ? 'Planned' : 'Plan'}</button></li>; })}</ul>}
+    <button type="button" className="hq-link" onClick={onMore} data-testid="hq-top-more">Every option, with what it would have done <ArrowUpRight size={13} aria-hidden="true" /></button>
+    <small className="hq-fine">Live numbers to compare, not advice. Today's pace can change tomorrow, and hacks, peg breaks and price falls are not in these lines.</small></section>;
+}
+const TOKEN_ROOT = { SOL: 1e9, USDC: 1e6 };
+function WalletNow({ d }) {
+  const t = d.chain?.tokens || {}; const rows = Object.entries(t);
+  return <section className="hq-card" data-testid="hq-wallet"><h4><Wallet size={14} aria-hidden="true" /> THE WALLET<small>vs what it must hold</small></h4>{rows.length ? <ul className="hq-need">{rows.map(([k, r]) => { const u = TOKEN_ROOT[k] || 1e6; const has = (r.chain || 0) / u; const need = (r.need || 0) / u; return <li key={k} className={has < need ? 'is-short' : ''} data-testid={`hq-wallet-${k}`}><b>{k}</b><em className="m-num">{+has.toFixed(4)}</em><i aria-hidden="true"><u style={{ transform: `scaleX(${need ? Math.min(1, has / need) : has ? 1 : 0})` }} /></i><small className="m-num">needs {+need.toFixed(4)}</small></li>; })}</ul> : <p className="fch-nil">The wallet has not been read yet. It is read every 5 minutes.</p>}</section>;
+}
+// What is waiting on you, from the real record. Nothing here is a to-do list made up for the page.
+function NeedsYou({ d, go }) {
+  const pools = d.pools || []; const live = pools.filter(p => p.on); const rows = [...(d.chain?.short?.length ? [['bad', `Wallet short in ${d.chain.short.join(' + ')}`, 'now']] : []), ...(d.held?.length ? [['warn', `${d.held.length} proof${d.held.length === 1 ? '' : 's'} held by the checks`, 'agents']] : []), ...(d.stops?.length ? [['warn', `${d.stops.length} pool stop${d.stops.length === 1 ? '' : 's'} hit`, 'build']] : []), ...(d.payPaused ? [['warn', 'Payouts are stopped', 'deal']] : []), ...(!live.length ? [['warn', 'No pool is open, so nothing earns', 'find']] : [])];
+  return <section className="hq-card" data-testid="hq-needs"><h4><CircleAlert size={14} aria-hidden="true" /> NEEDS YOU<small className="m-num">{rows.length}</small></h4>{rows.length ? <ul className="hq-needs">{rows.map(([tone, word, to]) => <li key={word}><button type="button" className={`is-${tone}`} onClick={() => go(to)} data-tip="Go there">{word}<ArrowUpRight size={12} aria-hidden="true" /></button></li>)}</ul> : <p className="hq-clear" data-testid="hq-clear">All clear on the record.</p>}</section>;
+}
+const MAKE = [['find', 'Find a place for money', 'Every venue, read live'], ['build', 'Open a pool, log a profit', 'Label it, then paste its transaction'], ['deal', 'Change the deal', 'Scores, cuts and fees'], ['agents', 'Agents and their proofs', 'Cuts, and what is held']];
+const VIEWS = [['now', 'Command', LayoutDashboard], ['find', 'Find profit', Radar], ['build', 'Build', Hammer], ['deal', 'The deal', Scale], ['agents', 'Agents', Users], ['books', 'The books', ReceiptText]];
 export function CollectiveOwner({ call }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [c, setC] = useState(null);
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [c, setC] = useState(null); const [view, setView] = useState('now');
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) call('/admin/collective').then(x => on && setD(x)).catch(e => on && setErr(e.message)); }; go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
   useEffect(() => { if (d?.cfg) setC(d.cfg); }, [d?.cfg]);
   const save = async (cfg, extra) => { setBusy(true); setErr(''); try { setD(await call('/admin/collective', { method: 'POST', body: JSON.stringify(cfg ? { cfg } : extra) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const chain = d?.chain; const short = chain?.short?.length; const agents = d?.stakeAgents || []; const cutsPct = agents.reduce((n, a) => n + (a.nowPct || 0), 0);
-  return <Fx><div className="hq" data-testid="cof"><motion.header className="hq-top m-live" {...rise(0)}><span><small>OWNER ONLY</small><h3>Collective HQ</h3></span><div className="hq-chips">
+  return <Fx><div className="hq" data-testid="cof"><header className="hq-bar m-live"><span className="hq-name"><small>OWNER ONLY</small><h3>Collective HQ</h3></span>{d ? <Kpis s={d.stake || {}} /> : null}<div className="hq-chips">
       <Chip className={`hq-chip${short ? ' is-bad' : chain ? ' is-ok' : ''}`} data-tip="Every 5 minutes the real wallet is read and compared with what it must hold" data-testid="cof-cover">{!chain ? 'WALLET NOT READ YET' : short ? `SHORT IN ${chain.short.join(' + ')}` : 'FULLY COVERED'}</Chip>
       <Chip className={`hq-chip${d?.audit?.ok ? ' is-ok' : d?.audit ? ' is-bad' : ''}`} data-tip={d?.audit && !d.audit.ok ? d.audit.why : 'Every 5 minutes the whole chain is walked from the first dollar. An edited ledger refuses to load'} data-testid="cof-audit">{!d?.audit ? 'CHAIN NOT WALKED YET' : d.audit.ok ? `CHAIN UNBROKEN · ${d.links} LINKS` : 'CHAIN BROKEN'}</Chip>
-      <Chip className="hq-chip is-lock" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up" data-testid="cof-withdrawals">WITHDRAWALS OFF</Chip></div></motion.header>
+      <Chip className="hq-chip is-lock" data-tip="No payout code is switched on. It stays off until a lawyer has checked this and the payout wallet is set up" data-testid="cof-withdrawals">WITHDRAWALS OFF</Chip></div></header>
+    <nav className="hq-nav"><span className="m-seg" role="tablist" aria-label="Collective HQ">{VIEWS.map(([k, l, I]) => <button key={k} type="button" role="tab" className={view === k ? 'active' : ''} aria-selected={view === k} onClick={() => setView(k)} data-testid={`hq-view-${k}`}><I size={13} aria-hidden="true" /> {l}</button>)}</span></nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
-    {!d || !c ? <p className="fch-nil">reading the ledger…</p> : <>
-      <Kpis s={d.stake || {}} />
-      <HqLive d={d} />
-      <div className="hq-grid"><motion.section className="hq-card" {...rise(1)}><h4>WHERE THE MONEY GOES<small>Starts on the ledger. Type any amount</small></h4><DealFlow c={c} cutsPct={cutsPct} totals={d.stake} /></motion.section><motion.section className="hq-card" {...rise(2)} data-testid="hq-dials"><h4>THE DEAL</h4><Dials d={d} save={save} busy={busy} c={c} setC={setC} rows={DIALS} /></motion.section></div>
-      <Pools d={d} save={save} busy={busy} />
-      <Agents rows={agents} />
-      <Accordion className="hq-more" allowsMultipleExpanded data-testid="hq-more">{MORE(d, save, busy, call, c, setC).map(([k, t, tip, body]) => <Accordion.Item key={k} id={k} data-testid={`cof-more-${k}`}><Accordion.Heading><Accordion.Trigger className="hq-more-t" data-tip={tip} data-testid={`hq-open-${k}`}><span>{t}</span><Accordion.Indicator><ChevronDown size={15} aria-hidden="true" /></Accordion.Indicator></Accordion.Trigger></Accordion.Heading><Accordion.Panel><Accordion.Body>{body}</Accordion.Body></Accordion.Panel></Accordion.Item>)}</Accordion>
-      {d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}
-    </>}</div></Fx>;
+    {!d || !c ? <p className="fch-nil">reading the ledger…</p> : <div className={`hq-view is-${view}`} key={view}>
+      {view === 'now' ? <><div className="hq-col"><WalletNow d={d} /><NeedsYou d={d} go={setView} /><section className="hq-card"><h4>MAKE SOMETHING</h4><ul className="hq-make">{MAKE.map(([k, l, t]) => <li key={k}><button type="button" onClick={() => setView(k)} data-testid={`hq-make-${k}`}><b>{l}</b><small>{t}</small></button></li>)}</ul></section></div><div className="hq-col hq-mid"><HqLive d={d} /></div><div className="hq-col"><TopNow d={d} call={call} save={save} busy={busy} onMore={() => setView('find')} /></div></> : null}
+      {view === 'find' ? <Suspense fallback={<p className="fch-nil">Reading every venue…</p>}><GrowFolderLazy d={d} save={save} busy={busy} call={call} /></Suspense> : null}
+      {view === 'build' ? <><Pools d={d} save={save} busy={busy} /><section className="hq-card" data-testid="hq-open-real"><h4>OPEN A REAL POOL WITH THE COLLECTIVE WALLET</h4><ColonyPot call={call} /></section></> : null}
+      {view === 'deal' ? <><section className="hq-card"><h4>WHERE THE MONEY GOES<small>Starts on the ledger. Type any amount</small></h4><DealFlow c={c} cutsPct={cutsPct} totals={d.stake} /></section><section className="hq-card" data-testid="hq-dials"><h4>THE DEAL</h4><Dials d={d} save={save} busy={busy} c={c} setC={setC} rows={DIALS} /></section><section className="hq-card"><h4>AGENT FEES<small>What the Collective earns from the jump</small></h4><Dials d={d} save={save} busy={busy} c={c} setC={setC} rows={FEES} /></section></> : null}
+      {view === 'agents' ? <><Agents rows={agents} /><Validators d={d} save={save} busy={busy} /></> : null}
+      {view === 'books' ? <><section className="hq-card"><h4>MONEY IN<small>Every kind the ledger counted</small></h4><MoneyIn t={d.totals || {}} /></section><section className="hq-card"><Trend hist={d.hist} /></section><Outside d={d} save={save} busy={busy} /><section className="hq-card"><h4>HOW REWARDS STAY REAL</h4><ul className="hq-why">{NOT_PONZI.map(([h, t]) => <li key={h} data-tip={t}><ShieldCheck size={14} aria-hidden="true" /> {h}<small>{t}</small></li>)}</ul></section><section className="hq-card hq-wide"><h4>THE STASH<small>Every proof kept sealed, with its web of sources</small></h4><StashWeb call={call} testid="cof-stash" /></section>{d.log?.length ? <ol className="cof-log">{d.log.slice(0, 5).map(x => <li key={x.at}>{new Date(x.at * 1000).toLocaleDateString()} · {Object.entries(x.changed).map(([k, [a, b]]) => `${k} ${a} → ${b}`).join(', ')}</li>)}</ol> : null}</> : null}
+    </div>}</div></Fx>;
 }
