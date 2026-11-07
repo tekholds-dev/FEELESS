@@ -193,3 +193,25 @@ test('a stopped PoStatic says why, Finish runs the same ask, and Keep stops at t
   await act(async () => root.unmount());
 });
 
+test('🧰 a kit opens in full with why it is suggested, a ready set fills the picks, and a PoW kit says it needs a pick', async () => {
+  const { KitPick } = require('./FeaturesFolder');
+  const calls = []; const row = { id: 'fl-coin-vet', name: 'Coin Vetter', what: 'Checks a coin', kinds: ['pow'], cat: 'Research', task: 'Trading research', skills: ['rug checks'], can: ['A check list'], examples: ['Vet the 4 hottest coins'], version: '1.0', compat: 'Read by the minds', by: 'FEELESS', license: 'FEELESS', added: true, pickOnly: true, quality: 'Untested', record: { used: 0, won: 0, lost: 0 } };
+  const live = { ...row, id: 'fl-funding', name: 'Funding Reader', kinds: ['pop'], pickOnly: false, fresh: ['BTC funding +0.01%/h'], source: 'Hyperliquid' };
+  let state = { kits: [row, live], picks: [], mode: 'auto', max: 3, recs: { pow: [{ id: 'fl-coin-vet', why: ['Made for this proof: trading research'] }], pop: [{ id: 'fl-funding', why: ['Fresh numbers from Hyperliquid'] }] }, stacks: [{ id: 'coin-desk', name: 'Coin desk', kind: 'pow', picks: ['fl-coin-vet'], what: 'Vetting' }] };
+  const fake = async (_, b) => { calls.push(b); if (b.op === 'kit_pick') state = { ...state, picks: b.text.split(','), mode: b.job }; return state; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<KitPick cat={{ id: 'c' }} work={fake} kind="pop" />); });
+  expect(el.querySelector('[data-testid="kit-would"]').textContent).toContain('Funding Reader');
+  await act(async () => { el.querySelector('[data-testid="kit-discover"]').click(); });
+  expect(document.querySelector('[data-testid="kit-pick-fl-coin-vet"]')).toBeNull();   // the PoP door shows PoP kits first
+  await act(async () => { document.querySelector('[data-testid="kit-for-pow"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="kit-info-fl-coin-vet"]').click(); });
+  const look = document.querySelector('[data-testid="kit-detail"]');
+  for (const word of ['Made for this proof', 'A check list', 'Vet the 4 hottest coins', 'No graded proof yet']) expect(look.textContent).toContain(word);
+  expect(document.querySelector('[data-testid="kit-pick-only"]')).not.toBeNull();
+  await act(async () => { document.querySelector('[data-testid="kit-back"]').click(); });
+  await act(async () => { document.querySelector('[data-testid="kit-stack-coin-desk"]').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'fl-coin-vet', job: 'mine' });
+  expect(el.querySelector('[data-testid="kit-on-fl-coin-vet"]')).not.toBeNull();
+  await act(async () => { root.unmount(); }); el.remove();
+});
