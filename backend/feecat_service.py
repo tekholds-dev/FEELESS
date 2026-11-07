@@ -6276,6 +6276,9 @@ async def _ws_page(cat, model, sys_, user_, tokens, on_part=None):
     return raw, usd, own
 
 
+_SHOWCASE = {}
+
+
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
     room_ask = bool(doc.get('scene3dNext')) and _play.names_room(text); wrong_ = bool(_play.WRONG_BUILD.search(str(text)))   # a site of two places: the words say which one changes
@@ -6301,9 +6304,9 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
             await _assets.ensure(h_, KITS_DIR); scene, used, missing = await _assets.fill(h_, KITS_DIR, scene, many=bool(_assets.MANY.search(prompt)), avoid=_play_load(cat_id, 'usedAssets') or [])
         seen_used.extend(used); seen_missing.extend(missing)
         return scene
-    fresh_ = wrong_ or not now_scene['objects']; print_ = _play.creative_print(f'{doc.get("id")}{time.time()}{prompt[:80]}', _play_load(cat_id, 'prints') or []) if fresh_ and slot == 'scene3d' else None
+    fresh_ = wrong_ or not now_scene['objects']; print_ = _play.creative_print(f'{doc.get("id")}{time.time()}{prompt[:80]}', _play_load(cat_id, 'prints') or [], text) if fresh_ and slot == 'scene3d' else None
     if _play.wants_code(prompt) and print_:   # a design no library holds is what the code-built worlds are for
-        print_.update(hero='star', world='stars' if print_['world'] not in ('stars', 'nebula', 'void') else print_['world'])
+        print_['mood'] = 'space'
     mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_k_ = _kits.auto_picks(KITS_DIR, 'pos', prompt, record=_kit_record()) if mode_k_ == 'auto' else mine_k_; stash_, stash_names_ = _kits.stash_line(KITS_DIR, 'pos', prompt, picks_k_); doc['kitsStash'] = stash_names_
     was_ = doc.get(slot) if wrong_ else None
     kit_read_ = _play.rejected_line(was_) + _kits.line(KITS_DIR, 'pos', picks_k_)[:2500] + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _convo(cat) + ('\n' + _play.print_line(print_) if print_ else '')
@@ -6311,21 +6314,29 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     tries += [(i, '') for i in range(len(brains)) if i != order[0]] or [(order[0], ' Your last reply could not be read. Send one JSON object and nothing else.')]
     for i_, extra_ in tries:   # one bad reply never ends a build: the other mind tries, and a lone mind gets one more go
         raw, usd, own = await _ws_ask(cat, brains[i_], _play.SCENE_SYS + _play.EXACT + (_play.KEEP_LOOK if now_scene['objects'] else '') + _play.references_line(_play_load(cat_id, 'refs') or [], prompt) + kit_read_ + extra_ + _play.notes_line(cat, '3d') + _recall(cat, 'Code', prompt), f'THE SCENE NOW: {_play.scene_brief(now_scene)}\nTHE FULL PROMPT: {prompt}', 3500); cost += usd
-        scene, say = _play.parse_reply(raw, now_scene)
+        scene, say = _play.parse_reply(raw, now_scene, prompt)
         if scene:
             scene, kept_ = _play.keep_monitors(scene, now_scene, text, prompt); scene = {**_play.ensure_named(scene, kept_), 'page': _play.keep_page(now_scene.get('page'), scene.get('page'), text)}; by = name(i_); break
         print(f'[3d] unreadable reply from {brains[i_]}: {str(raw)[:160]!r} ... {str(raw)[-120:]!r}')
+    if not scene and fresh_:   # 🧩 no model could answer: its words still name real things, so the owner gets a set and is told why
+        got_ = _play.brief_from_words(KITS_DIR, text)
+        if got_:
+            scene = _play.from_brief(got_, prompt); say = 'Your models could not answer, so this was built from your words.'; by = 'FEELESS'
     if not scene:
         _feat.add_msg(doc, name(order[0]), 'It did not send a usable scene. Nothing changed, and the last page is safe. Try again.', time.time())
         return cost, 'It did not send a usable scene.', own
-    scene = await resolve(scene)
-    if not scene['objects']:
+    if print_:
+        scene = _play.apply_print(scene, print_); _play_save(cat_id, 'prints', ([*(_play_load(cat_id, 'prints') or []), print_])[-40:])
+    scene = _play.lead_up(await resolve(scene))
+    if print_ and not any(o.get('asset') for o in scene['objects']):   # nothing named is in the library: a code-built centrepiece holds the set, and the message names what was missing
+        scene['hero'] = _play.HEROES[len(prompt) % len(_play.HEROES)]
+    if not scene['objects'] and not scene.get('hero'):
         _feat.add_msg(doc, by, f"Nothing it asked for exists in the library: {', '.join(seen_missing[:6])}. Nothing changed. Try other words.", time.time())
         return cost, 'None of its assets were found.', own
     busy('review'); checker = brains[order[-1]] if len(brains) > 1 else brains[order[0]]; checked = ''
     try:
         raw, usd, own2 = await _ws_ask(cat, checker, _play.CHECK_SYS, f'THE FULL PROMPT: {prompt}\nTHE BUILD: {_play.build_summary(scene)}', 1500); cost += usd; own = own or own2
-        fixed, checked = _play.parse_reply(raw, scene); light_ = scene.get('hdri')
+        fixed, checked = _play.parse_reply(raw, scene, prompt); light_ = scene.get('hdri')
         if fixed and len(fixed['objects']) < len(scene['objects']):   # a real checker shrank a good set to one object: a check may add, it may not take away
             checked = 'The check found nothing to add'
         elif fixed:
@@ -6335,8 +6346,6 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     except Exception as e:   # noqa: BLE001 — the build still stands without its check
         checked = f'The check did not finish: {str(e)[:60]}'
     scene = _play.ensure_asks(_play.drop_rejected(scene, was_), text, doc.get('name'))
-    if print_:
-        scene = _play.apply_print(scene, print_); _play_save(cat_id, 'prints', ([*(_play_load(cat_id, 'prints') or []), print_])[-40:])
     _play_save(cat_id, 'usedAssets', list(dict.fromkeys([*(_play_load(cat_id, 'usedAssets') or []), *[(o.get('asset') or {}).get('id') for o in scene.get('objects') or [] if o.get('asset')]]))[-400:])
     keep_cam = scene.get('camera') if any(o['name'] == 'Back wall' for o in scene['objects']) else None; scene['camera'] = [0, 0, 0]; scene = _play._frame(_assets.compose(scene)); scene['camera'] = _play.room_camera(scene) if keep_cam else scene['camera']   # every build is framed by code on what really landed
     async with httpx.AsyncClient(timeout=120) as h_:
@@ -6347,7 +6356,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     first_, next_ = doc.get('scene3d') or scene, doc.get('scene3dNext')
     html = _play.lock_site(_play.to_html(first_, doc.get('name'), next_))
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {print_['world']} world, {print_['hero']} hero, words {print_['layout']}." if print_ else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {print_['layout']}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -6359,7 +6368,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
+        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or _play.wants_game(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
             cost += usd_
         elif kind == 'build':
@@ -7436,8 +7445,25 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
         f3_ = _play_path(cat_id, '3d'); saved_ = _play_load(cat_id, '3d') or {}
         if p.op == 'play3d_get':
-            return {'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+            return {'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}
         now_scene_ = _play.clean_scene((p.tools or {}).get('scene'))
+        if p.op in ('play3d_template', 'play3d_mood'):   # 🧱 a whole set in one tap, with no model and no cost
+            base_ = _play.template_scene(p.job) if p.op == 'play3d_template' else _play.clean_scene(_play.dress(now_scene_, p.job, str(len(now_scene_['objects']))))
+            if not base_ or (p.op == 'play3d_mood' and p.job not in _play.MOODS):
+                raise HTTPException(400, 'No such choice.')
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR); base_, used_, missing_ = await _assets.fill(h_, KITS_DIR, base_)
+            base_ = _play.lead_up(base_)
+            if p.op == 'play3d_template':
+                base_['camera'] = [0, 0, 0]; base_ = _play._frame(_assets.compose(base_))
+            _play_save(cat_id, '3d', {**saved_, 'scene': base_})
+            return {'scene': base_, 'say': f"Ready. Real assets: {', '.join(dict.fromkeys(used_)) or 'none'}." + (f" Not in the library: {', '.join(missing_)}." if missing_ else '')}
+        if p.op == 'play3d_preview':   # the real page, exactly as it would file
+            if not now_scene_['objects'] and not now_scene_.get('game'):
+                raise HTTPException(400, 'Add something to the scene first.')
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR); ready_, _u, _m = await _assets.fill(h_, KITS_DIR, now_scene_)
+            return {'preview': _feat.preview(_play.lock_site(_play.to_html(ready_, str(p.job or '3D scene'))))}
         if p.op == 'play3d_save':
             _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_})
             return {'ok': True}
@@ -7458,7 +7484,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             if note_:
                 _play.add_note(cat, '3d', note_); keep_owned(cat); _save(store)
             raw_, usd_, _own = await _ws_ask(cat, brains_[0], _play.SCENE_SYS + _play.notes_line(cat, '3d') + _recall(cat, 'Code', str(p.text)), f"THE SCENE NOW: {_play.scene_brief(now_scene_)}\nBUILD THIS: {str(p.text)[:800]}", 3500)
-            scene_, say_ = _play.parse_reply(raw_, now_scene_)
+            scene_, say_ = _play.parse_reply(raw_, now_scene_, str(p.text))
             if not scene_:
                 raise HTTPException(502, 'The agent did not send a usable scene, and nothing changed. Try again, or ask for less.')
             async with httpx.AsyncClient(timeout=30) as h_:
@@ -8019,10 +8045,16 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'trade': {'cat': c_, 'id': re.sub(r'[^a-z0-9]', '', str(f_['id']).lower()), 'sym': str(f_.get('sym') or '')[:16], 'pair': {'chainId': 'solana', 'pairAddress': str(f_.get('pair') or ''), 'baseToken': {'address': str(f_.get('mint') or ''), 'symbol': str(f_.get('sym') or '')[:16]}, 'symbol': str(f_.get('sym') or '')[:16], 'mint': str(f_.get('mint') or '')}, 'pnl': round(float(f_['pnlPct']), 1), 'entry': f_.get('entry'), 'tp': f_.get('tp'), 'sl': f_.get('sl'), 'line': [float(x) for x in f_['line'] if isinstance(x, (int, float))][-200:], 'files': [{'file': str(x.get('file')), 'site': str(x.get('site') or '')[:40]} for x in f_.get('shots') or [] if isinstance(x, dict) and x.get('file')][:6]}}
     if p.op == 'tools_show':   # 🧰 real library counts for the Proofs tab
         rows_ = _assets._load(KITS_DIR, _assets.INDEX).get('rows') or {}
-        return {'models': _assets.model_count(KITS_DIR), 'hdris': len(rows_.get('hdri') or []), 'textures': len(rows_.get('texture') or [])}
-    if p.op == 'tools_demo':   # 🌌 one real world from the 3D studio. No model, no assets
-        t_ = p.tools if isinstance(p.tools, dict) else {}; w_ = t_.get('world') if t_.get('world') in _play.WORLDS else 'nebula'; h_ = t_.get('hero') if t_.get('hero') in _play.HEROES else 'star'
-        return {'preview': _feat.preview(_play.lock_site(_play.to_html(_play.clean_scene({'world': w_, 'hero': h_, 'tint': '#ff8a3d', 'ground': False, 'layout': 'left', 'objects': [], 'camera': [0, 2, 8], 'page': {'headline': w_.upper(), 'sub': f'A real {w_} world around a {h_}, running in this page'}}), w_)))}
+        return {'models': _assets.model_count(KITS_DIR), 'hdris': len(rows_.get('hdri') or []), 'textures': len(rows_.get('texture') or []), 'templates': _play.menu()['templates']}
+    if p.op == 'tools_showcase':   # 🎬 a finished piece from the engine, for Features. No model, the same assets every time, kept once built
+        if p.job not in _play.TEMPLATE_BY:
+            raise HTTPException(400, 'No such piece.')
+        got_ = _SHOWCASE.get(p.job)
+        if not got_:
+            async with httpx.AsyncClient(timeout=30) as h_:
+                await _assets.ensure(h_, KITS_DIR); sc_, _u, _m = await _assets.fill(h_, KITS_DIR, _play.template_scene(p.job))
+            sc_ = _play.lead_up(sc_); sc_['camera'] = [0, 0, 0]; sc_ = _play._frame(_assets.compose(sc_)); got_ = _SHOWCASE[p.job] = _feat.preview(_play.lock_site(_play.to_html(sc_, _play.TEMPLATE_BY[p.job]['name'])))
+        return {'preview': got_}
     if p.op == 'demo_gallery':   # 🖼 real proofs of every type, whitelisted, for the Features folder
         g_ = _demo_gallery(store, cat)
         return {'kinds': g_['kinds']}

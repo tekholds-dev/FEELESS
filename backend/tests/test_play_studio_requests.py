@@ -1,3 +1,4 @@
+import json
 import play_studio as ps
 
 GLINT_HOME = {'objects': [], 'page': {'headline': 'GLINT', 'sub': 's', 'cta': 'Enter the room', 'sections': []}}
@@ -80,12 +81,62 @@ def test_moving_the_monitors_never_loses_them_and_they_sit_on_the_real_desk():
 def test_every_request_gets_a_print_it_did_not_just_use():
     used = []
     for i in range(6):
-        pr = ps.creative_print(f'r{i}', used); assert pr not in used; used.append(pr)
-    assert all(a['world'] != b['world'] for a, b in zip(used, used[1:]))
-    sc = ps.apply_print({'objects': [{'name': 'Floor', 'shape': 'box'}, {'name': 'Back wall', 'shape': 'box'}, {'name': 'Cannon', 'shape': 'box'}], 'world': 'grid'}, {'world': 'stars', 'hero': 'star', 'layout': 'right', 'tint': '#ff8a3d'})
-    assert 'code' not in sc and sc['world'] == 'grid' and sc['hero'] == 'star' and sc['layout'] == 'right' and not sc['ground'] and [o['name'] for o in sc['objects']] == ['Cannon']
-    assert 'makeWorld(S, here)' in ps.to_html(sc, 'N', None) and 'at-right' in ps.to_html(sc, 'N', None)
+        pr = ps.creative_print(f'r{i}', used, 'a plain page'); assert pr not in used; used.append(pr)
+    assert all(a['mood'] != b['mood'] for a, b in zip(used, used[1:]))
+    assert ps.creative_print('x', [], 'a neon arcade coin')['mood'] == 'neon' and ps.mood_of('not noir, make it a sunset') == 'sunset'
+    sc = ps.apply_print({'objects': [{'name': 'Cannon', 'find': 'cannon', 'pos': [0, 0, 0]}], 'layout': None}, {'mood': 'noir', 'layout': 'right'})
+    assert sc['mood'] == 'noir' and sc['layout'] == 'right' and [o['name'] for o in sc['objects']][:2] == ['Mood floor', 'Mood stage']
+    room = ps.apply_print({'objects': [{'name': 'Back wall', 'shape': 'box'}]}, {'mood': 'noir', 'layout': 'left'})
+    assert [o['name'] for o in room['objects']] == ['Back wall']   # a room keeps its walls, with no stage dropped in it
+    html = ps.to_html(ps.clean_scene(sc), 'N', None); assert 'at-right' in html and 'playfair-display' in html and 'UnrealBloomPass' in html
     assert ps.WRONG_BUILD.search("USE DIFFERENT 3D ARTIFACTS AND CREATE A NEW 3D PLAYGROUND FOR THE BACKGROUND, DONT DO THE SAME THING")
+
+
+def test_a_short_brief_is_enough_for_a_whole_set():
+    scene, say = ps.parse_reply(json.dumps({'say': 'x', 'brief': {'mood': 'sunset', 'hero': 'motorcycle', 'props': ['barrel', 'tree'], 'page': {'headline': 'Long Road'}}}))
+    rows = {o['name']: o for o in scene['objects']}
+    assert say == 'x' and scene['mood'] == 'sunset' and scene['hdri_id'] in ps.MOODS['sunset']['skies'] and not scene['ground']
+    assert rows['motorcycle']['pos'] == [0, 0, 0] and rows['barrel']['pos'] != [0, 0, 0] and rows['barrel']['pos'][2] < 0
+    assert rows['tree']['height'] <= rows['motorcycle']['height'] * 1.5   # a tree may not push the camera back until the hero is a speck
+    assert scene['page']['headline'] == 'Long Road' and scene['camera'][2] > 2
+
+
+def test_a_weak_model_cannot_stack_everything_on_the_hero():
+    scene, _ = ps.parse_reply(json.dumps({'objects': [{'find': 'chair'}, {'find': 'table'}, {'find': 'lamp'}]}))
+    assert len({tuple(o['pos']) for o in scene['objects']}) == 3
+    now = ps.clean_scene({'objects': [{'find': 'chair', 'pos': [0, 0, 0]}]})
+    more, _ = ps.parse_reply(json.dumps({'add': ['old books'], 'mood': 'neon'}), now)
+    assert more['mood'] == 'neon' and [o['name'] for o in more['objects']] == ['chair', 'old books']
+
+
+def test_every_mood_and_template_is_real():
+    import asset_packs as a
+    for k, m in ps.MOODS.items():
+        assert m['skies'] and m['font'] and m['set'] in ('place', 'studio', 'far')
+    for t in ps.TEMPLATES:
+        assert t['brief']['mood'] in ps.MOODS and ps.template_scene(t['id'])['objects']
+    assert ps.template_scene('nope') is None and len(ps.menu()['moods']) == len(ps.MOODS)
+    assert a.SAFE_URL.fullmatch('https://dl.polyhaven.org/file/a.hdr')
+
+
+def test_a_game_brief_makes_a_real_game_page_with_no_model():
+    scene, _ = ps.parse_reply(json.dumps({'brief': {'mood': 'neon', 'game': 'runner', 'player': 'robot', 'hazards': ['crate'], 'pickup': 'gold coin', 'page': {'headline': 'Run', 'cta': 'Go'}}}))
+    assert scene['game'] == 'runner' and [o.get('role') for o in scene['objects']] == ['player', 'hazard', None]   # a coin is drawn by code, it reads better than any upload
+    scene['objects'][0]['asset'] = {'url': 'https://dl.polyhaven.org/x.gltf', 'files': {}}
+    html = ps.to_html(scene, 'Run')
+    for needed in ('window.__game', 'pointerdown', 'localStorage', 'id="go"', 'prefers-reduced-motion', 'bot('):
+        assert needed in html
+    assert '<script type="module">' in html and html.count('Run') > 1
+    assert ps.lock_site(html).count('Content-Security-Policy') == 1
+    assert ps.wants_game('make a playable arcade game') and not ps.wants_game('a landing page')
+    made = ps.from_brief({'hero': 'tank'}, 'a survival arena game'); assert made['game'] == 'arena' and made['objects'][0]['role'] == 'player'
+
+
+def test_the_library_will_not_call_a_cannon_a_barrel(tmp_path):
+    import asset_packs as a
+    a._save(tmp_path, a.INDEX, {'at': 9e12, 'rows': {'model': [{'id': 'cannon_01', 'name': 'cannon 01', 'tags': ['barrel', 'weapon'], 'pop': 99}, {'id': 'Barrel_01', 'name': 'Barrel 01', 'tags': ['wood'], 'pop': 1}]}})
+    assert a.best(tmp_path, 'wooden barrel', 'model')['id'] == 'Barrel_01'
+    assert a.best(tmp_path, 'weapon', 'model')['id'] == 'cannon_01'   # our own photoscan tags still count when nothing is named it
 
 
 def test_what_was_turned_down_cannot_come_back():

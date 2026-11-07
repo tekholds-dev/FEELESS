@@ -295,7 +295,7 @@ test('🎬 the editor finds the right moment in a cut timeline, and the same wor
 });
 
 test('🧊 a device with no 3D still opens the playground, says so plainly, and can still ask', async () => {
-  jest.doMock('three/examples/jsm/controls/OrbitControls.js', () => ({ OrbitControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/controls/TransformControls.js', () => ({ TransformControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/environments/RoomEnvironment.js', () => ({ RoomEnvironment: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/GLTFLoader.js', () => ({ GLTFLoader: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/RGBELoader.js', () => ({ RGBELoader: class {} }), { virtual: true });
+  jest.doMock('three/examples/jsm/controls/OrbitControls.js', () => ({ OrbitControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/objects/GroundedSkybox.js', () => ({ GroundedSkybox: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/controls/TransformControls.js', () => ({ TransformControls: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/environments/RoomEnvironment.js', () => ({ RoomEnvironment: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/GLTFLoader.js', () => ({ GLTFLoader: class {} }), { virtual: true }); jest.doMock('three/examples/jsm/loaders/RGBELoader.js', () => ({ RGBELoader: class {} }), { virtual: true });
   jest.doMock('three', () => ({ WebGLRenderer: class { constructor() { throw new Error('no WebGL'); } } }));
   const Playground3D = require('./Playground3D').default;
   const calls = []; const asset = { id: 'Camera_01', name: 'Camera 01', url: 'https://dl.polyhaven.org/x.gltf', files: {} }; const fake = async (_, b) => { calls.push(b); if (b.op === 'play3d_get') return { scene: null, canAsk: true, notes: ['moved Tower'] }; if (b.op === 'play3d_assets') return b.to ? { asset } : { rows: [{ id: 'Camera_01', name: 'Camera 01', kind: 'model', thumb: 'https://cdn.polyhaven.com/x.png' }], credit: 'Assets from Poly Haven (CC0)' }; return { ok: true }; };
@@ -362,19 +362,21 @@ test('a kit skill is a switch that tells the server, and what is off stays off',
 });
 
 
-test('Proofs: a door per proof, its real tools, real numbers and a start that works', async () => {
+test('Proofs: finished work plays on one stage, each capability one tap away, a start that works', async () => {
   const { ProofDoors } = require('./ProofDoors');
   const calls = []; const kit = { id: 'fl-funding', name: 'Funding Reader', what: 'x', by: 'FEELESS', kinds: ['pop'], fresh: ['BTC funding 0.01%'], source: 'Hyperliquid', skills: ['funding'], quality: 'Untested' };
-  const work = async (_, b) => { calls.push(b); if (b.op === 'tools_show') return { models: 44000, hdris: 997, textures: 869 }; if (b.op === 'kit_list') return { kits: [kit], picks: [], mode: 'mine', max: 3, recs: {}, stacks: [], by: {} }; if (b.op === 'demo_gallery') return { kinds: [] }; if (b.op === 'tools_demo') return { preview: '<b>world</b>' }; return {}; };
+  const work = async (_, b) => { calls.push(b); if (b.op === 'tools_show') return { models: 44000, hdris: 997, textures: 869, templates: [{ id: 'night-run', kind: 'game', name: 'Night Run', what: 'x', thumb: '/t.png' }, { id: 'silver-hour', kind: 'site', name: 'Silver Hour', what: 'y', thumb: '/u.png' }] }; if (b.op === 'kit_list') return { kits: [kit], picks: [], mode: 'mine', max: 3, recs: {}, stacks: [], by: {} }; if (b.op === 'demo_gallery') return { kinds: [] }; if (b.op === 'tools_showcase') return { preview: `<b>${b.job}</b>` }; return {}; };
   const onCommand = jest.fn(); const onMake = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{ popFolders: [{}] }} work={work} onCommand={onCommand} onMake={onMake} />); });
   await act(async () => { await Promise.resolve(); });
+  await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('pdr-n-MODELS').textContent).toBe('44K'); expect(q('pdr-world-frame').getAttribute('sandbox')).toBe('allow-scripts');
-  await act(async () => { q('pdr-w-aurora').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_demo', tools: { world: 'aurora', hero: 'star' } });
+  expect(q('pdr-n-MODELS').textContent).toBe('44K'); expect(q('pdr-piece-frame').getAttribute('sandbox')).toBe('allow-scripts'); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'night-run' });
+  await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('pdr-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
   await act(async () => { q('pdr-pop').click(); });
-  expect(q('pdr-perp')).toBeTruthy(); expect(q('pdr-no-proof').textContent).toContain('PoP'); expect(el.textContent).not.toContain('Research');
+  expect(q('pdr-agent')).toBeTruthy(); await act(async () => { q('pdr-cap-chart').click(); }); expect(q('pdr-perp')).toBeTruthy();
+  await act(async () => { q('pdr-cap-best').click(); }); expect(q('pdr-no-proof').textContent).toContain('PoP');
   await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
   el.remove();
 });

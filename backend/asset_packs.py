@@ -162,6 +162,11 @@ def best(root, query, kind, avoid=()):
     if not fits:
         return None
     avoid = set(avoid or ())
+    named = [r for r in fits if head in {_stem(w) for w in _words(r['name'])}]   # a thing called a barrel beats one merely tagged with the word: a cannon is tagged barrel
+    if kind == 'model' and head:
+        fits = named or [r for r in fits if not r.get('lic')]   # a loose tag on an outside upload is not enough to call it that thing
+        if not fits:
+            return None
     return sorted(fits, key=lambda r: (r['id'] not in avoid, _score(r, words)), reverse=True)[0]
 
 
@@ -225,7 +230,7 @@ def clean_asset(a):
 def compose(scene):
     """Gravity and staging by code, because a real model put a chair in mid air: real things rest on the stage or the ground, and a stage is sized to what stands on it."""
     rows = scene.get('objects') or []; things = [o for o in rows if o.get('asset')]; stage = next((o for o in rows if o.get('shape') == 'cylinder' and not o.get('asset') and o['scale'][0] >= 1 and o['scale'][1] <= 0.5), None)
-    if stage and things:
+    if stage and things and stage.get('name') != 'Mood stage':
         cx, cz = stage['pos'][0], stage['pos'][2]; reach = max((((o['pos'][0] - cx) ** 2 + (o['pos'][2] - cz) ** 2) ** 0.5 + (o.get('height') or 0.5) / 2 for o in things), default=1); size = round(max(1.4, reach * 2.3), 2); stage['scale'][0] = size; stage['scale'][2] = size
     top = stage['pos'][1] + stage['scale'][1] / 2 if stage else 0
     for o in things:
@@ -264,7 +269,8 @@ async def fill(http, root, scene, many=False, avoid=()):
                 else:
                     missing.append(o['find'])
         if o.get('look') and not o.get('pbr'):
-            hit = next((h for h in (best(root, w, 'texture') for w in reversed(_words(o['look'])) if not any(p[3].search(w) for p in SET_PIECES) and w not in LOOK_SKIP) if h), None); got = await resolve(http, root, hit['id'], 'texture') if hit else None
+            exact = next((r for r in (_load(root, INDEX).get('rows') or {}).get('texture') or [] if r['id'] == o['look']), None)   # a mood names its surface exactly
+            hit = exact or next((h for h in (best(root, w, 'texture') for w in reversed(_words(o['look'])) if not any(p[3].search(w) for p in SET_PIECES) and w not in LOOK_SKIP) if h), None); got = await resolve(http, root, hit['id'], 'texture') if hit else None
             if got:
                 o['pbr'] = got; used.append(got['name'])
             else:
@@ -280,6 +286,11 @@ async def fill(http, root, scene, many=False, avoid=()):
         seen.add(key); keep.append(o)
     scene['objects'] = keep
     compose(scene)
+    if scene.get('hdri_id') and not scene.get('hdri'):   # a mood names its real place exactly
+        got = await resolve(http, root, scene['hdri_id'], 'hdri', '2k')   # it is seen as the world, so it needs the sharper file
+        if got:
+            scene['hdri'] = got; used.append(got['name'])
+    scene.pop('hdri_id', None)
     if scene.get('light_find') and not scene.get('hdri'):
         hit = next(iter(search(root, scene['light_find'], 'hdri', 1)), None); got = await resolve(http, root, hit['id'], 'hdri') if hit else None
         if got:
