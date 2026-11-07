@@ -271,6 +271,7 @@ test('⚔ Collective Debate: a proof goes on the table, its grades show, content
   const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'debate_put') v = { ...v, rows: [mineRow, theirs], settled: 1 }; if (b.op === 'debate_allow') v = { ...v, allowed: b.on }; return v; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<DebateFolder cat={{ id: 'c' }} d={{ pobFolders: [{ id: 'f1', status: 'closed', topic: 'NBA night' }, { id: 'f2', status: 'open', topic: 'Not filed' }] }} work={fake} />); });
+  await act(async () => { document.querySelector('[data-testid=dbt-tab-floor]')?.click(); });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('dbt-allow').checked).toBe(false); expect(q('dbt-pick').textContent).toContain('NBA night'); expect(q('dbt-pick').textContent).not.toContain('Not filed');
@@ -335,7 +336,7 @@ test('Real proofs shows each type, says when one has none, and opens a real page
   const { el } = await mount(work);
   await act(async () => { el.querySelector('[data-testid=fea-tab-real]').click(); });
   await act(async () => { await Promise.resolve(); });
-  expect(el.textContent).toContain('Narrative finder'); expect(el.textContent).toContain('No PoW has been filed and closed yet.');
+  expect(el.textContent).toContain('Narrative finder'); expect(el.textContent).toContain('Your agents have not filed a PoW yet.');
   await act(async () => { el.querySelector('[data-testid=pgl-open-x1]').click(); });
   const f = el.querySelector('[data-testid=pgl-page-x1]');
   expect(f.getAttribute('sandbox')).toBe('allow-scripts'); expect(f.getAttribute('srcdoc')).toBe('<b>real</b>');

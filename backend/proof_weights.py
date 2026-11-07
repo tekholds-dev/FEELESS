@@ -19,6 +19,7 @@ RANKS = ((0.92, 'S'), (0.78, 'A'), (0.6, 'B'), (0.4, 'C'), (0.0, 'D'))
 # 🔒 owner 2026-11-07: "doing a simple request well is not a high score". How high a proof can reach depends on how deep the work went, so no mark or win lifts simple work past its ceiling.
 CEIL_SIMPLE = 0.3   # the ceiling with no depth at all; full depth opens it to the top
 CEIL_FAILED = 0.4    # marked wrong, or it lost
+CEIL_BROKEN = 0.5    # measured in a real browser: its own words collide or sit under something
 CEIL_UNPROVEN = 0.6  # nobody has marked it or it has no result yet
 LINE_LIKE = 0.25     # this alike, or the same page, counts as the same line of work
 GROW_FULL = 0.25     # this much more depth than where its line started is full marks for evolution
@@ -224,7 +225,7 @@ RUBRIC = {
     'pop': [('result', 'Practice result', 25, _pop_result), ('build', 'Depth of work', 20, None), ('unique', 'Unique', 15, None), ('evolve', 'Evolution', 10, None), ('sources', 'Sources read', 10, _pop_sources), ('plan', 'Exits on calls', 10, _pop_plan), ('reads', 'True prices', 5, _pop_reads), ('blind', 'Blind calls', 5, _pob_blind)],
     'pob': [('result', 'Real result', 20, _mark), ('build', 'Depth of work', 20, None), ('unique', 'Unique', 15, None), ('series', 'Its run', 15, _pob_series), ('evolve', 'Evolution', 10, None), ('evidence', 'What it read', 10, _pob_evidence), ('odds', 'Games and odds', 5, _pob_odds), ('blind', 'Blind picks', 5, _pob_blind)],
     'poc': [('build', 'Depth of work', 25, None), ('mark', 'Your mark', 15, _mark), ('unique', 'Unique', 15, None), ('earned', 'What it earned', 15, _poc_earned), ('evolve', 'Evolution', 10, None), ('trends', 'Trends read', 10, _poc_trends), ('pitch', 'Pitches', 5, _poc_pitch), ('shots', 'Snapshots', 5, _shots3)],
-    'pos': [('build', 'Real build', 35, None), ('mark', 'Your mark', 15, _mark), ('evolve', 'Evolution', 15, None), ('unique', 'Unique', 15, None), ('review', 'Second mind', 10, _pos_review), ('plan', 'Its plan', 5, _pos_plan), ('refs', 'Builds studied', 5, _pos_refs)],
+    'pos': [('build', 'Real build', 30, None), ('look', 'How it looks', 15, None), ('mark', 'Your mark', 15, _mark), ('evolve', 'Evolution', 10, None), ('unique', 'Unique', 10, None), ('review', 'Second mind', 10, _pos_review), ('plan', 'Its plan', 5, _pos_plan), ('refs', 'Builds studied', 5, _pos_refs)],
 }
 
 
@@ -247,6 +248,8 @@ def ceiling(parts):
         rows.append((CEIL_UNPROVEN, 'Not proven yet'))
     elif proof <= 0:
         rows.append((CEIL_FAILED, 'It failed'))
+    if by.get('look') is not None and by['look'] < 0.5:
+        rows.append((CEIL_BROKEN, 'It looks broken'))
     cap, why = min(rows, key=lambda r: r[0])
     return round(cap, 4), f'{why}: held at {round(cap * 100)}% of the top'
 
@@ -266,6 +269,9 @@ def view(kind, folder, top=300.0, weights=None, earlier=None, page=None):
                 v, note = depth(k, folder, page)
             elif key == 'evolve':
                 v, note = _evolved(k, folder, earlier, page)
+            elif key == 'look':
+                st = page(folder) if page else None
+                v, note = (None, 'Not looked at yet') if not st or st.get('look') is None else (st['look'], st.get('lookNote') or '')
             else:
                 v, note = read(folder)
         except (TypeError, ValueError, AttributeError, KeyError):

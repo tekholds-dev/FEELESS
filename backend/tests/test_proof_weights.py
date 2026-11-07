@@ -4,7 +4,7 @@ DEEP = {'scout': [1, 2, 3, 4], 'rounds': 3, 'shots': [{'site': f's{i}.com'} for 
 WON = {'status': 'closed', 'real': True, 'pnlPct': 80, 'tp': 50, 'sl': 30, 'boughtAt': 1000, 'soldAt': 1000 + 3600, 'vitals': {'a': 1}, 'sym': 'WIF', 'at': 5, **DEEP}
 FIRST = {'id': 'f', 'at': 1, 'sym': 'BONK', 'shots': [{'site': f's{i}.com'} for i in range(4)]}   # where its line started: the same method, another coin, less work
 LOST = {'status': 'closed', 'pnlPct': -19, 'boughtAt': 1000, 'soldAt': 1300}
-BIG = {'chars': 60000, 'fns': 80, 'handlers': 12, 'state': 5, 'visuals': 4, 'kits': 3}
+BIG = {'chars': 60000, 'fns': 80, 'handlers': 12, 'state': 5, 'visuals': 4, 'kits': 3, 'look': 1.0, 'lookNote': 'Nothing overlaps'}
 TINY = {'chars': 9000, 'fns': 4, 'handlers': 1, 'state': 0, 'visuals': 0, 'kits': 0}
 PAGE = {**{'id': 'p', 'at': 9, 'status': 'closed', 'ws': 'w', 'version': 3, 'plan': 'p', 'steps': [1, 2, 3], 'refs': [{'open': True}] * 3, 'graded': 'right', 'topic': 'tool'}}
 
@@ -122,3 +122,11 @@ def test_doing_the_same_thing_again_costs_it():
     assert pw.view('PoW', f, earlier=[])['score'] > pw.view('PoW', again, earlier=[f])['score']
     assert next(p for p in pw.view('PoW', again)['parts'] if p['key'] == 'unique')['note'] == 'Not compared yet'
 
+
+
+def test_a_page_with_its_words_colliding_cannot_rank_high_however_deep_its_code_is():
+    old = {**PAGE, 'id': 'o', 'at': 1, 'version': 1}; pages = lambda look: (lambda f: {**BIG, 'look': look, 'lookNote': 'desktop: 4 overlaps'} if f['version'] == 3 else TINY)
+    clean, messy, unseen = pw.view('PoStatic', PAGE, earlier=[old], page=pages(1.0)), pw.view('PoStatic', PAGE, earlier=[old], page=pages(.3)), pw.view('PoStatic', PAGE, earlier=[old], page=pages(None))
+    assert clean['rank'] == 'S' and messy['frac'] == pw.CEIL_BROKEN and 'It looks broken' in messy['held'] and messy['rank'] not in ('S', 'A')
+    assert next(p for p in messy['parts'] if p['key'] == 'look')['note'] == 'desktop: 4 overlaps'
+    assert next(p for p in unseen['parts'] if p['key'] == 'look')['value'] is None and unseen['rank'] != 'S'

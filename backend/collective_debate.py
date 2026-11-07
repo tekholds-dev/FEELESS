@@ -26,7 +26,7 @@ def load(root):
         d = json.loads(path_of(root).read_text())
     except (OSError, ValueError):
         d = {}
-    return {'table': d.get('table') or [], 'offers': d.get('offers') or [], 'seats': d.get('seats') or {}}
+    return {'table': d.get('table') or [], 'offers': d.get('offers') or [], 'seats': d.get('seats') or {}, 'rooms': d.get('rooms') or []}
 
 
 def save(root, st):
@@ -59,6 +59,8 @@ def pull(st, cat_id, rid):
     row = _row(st, rid)
     if row['cat'] != cat_id:
         raise ValueError('That proof is not yours.')
+    if any(r['status'] in ('open', 'live', 'vote') and rid in (r['a'].get('row'), (r.get('b') or {}).get('row')) for r in st.get('rooms') or []):
+        raise ValueError('That proof is in a room right now.')
     st['table'] = [r for r in st['table'] if r['id'] != rid]; st['offers'] = [o for o in st['offers'] if rid not in (o['mine'], o['theirs'])]
 
 
@@ -146,8 +148,205 @@ def view(st, cat_id):
     for o in st['offers']:
         if cat_id in (o['from'], o['to']) and o['mine'] in by_id and o['theirs'] in by_id:
             offers.append({'id': o['id'], 'status': o['status'], 'incoming': o['to'] == cat_id, 'give': by_id[o['theirs'] if o['to'] == cat_id else o['mine']]['title'], 'get': by_id[o['mine'] if o['to'] == cat_id else o['theirs']]['title'], 'with': by_id[o['mine'] if o['to'] == cat_id else o['theirs']]['by']})
-    board = sorted(({'name': s.get('name') or 'An agent', 'points': s.get('points', 0), 'takes': s.get('takes', 0), 'me': c == cat_id} for c, s in st['seats'].items()), key=lambda x: -x['points'])[:10]
+    board = sorted(({'name': s.get('name') or 'An agent', 'points': s.get('points', 0), 'takes': s.get('takes', 0), 'wins': s.get('wins', 0), 'streak': s.get('streak', 0), 'me': c == cat_id} for c, s in st['seats'].items()), key=lambda x: -x['points'])[:10]
     return {'rows': rows, 'offers': offers[::-1], 'board': board, 'seat': {'today': used_today(st, cat_id), 'perDay': PER_DAY}, 'open': sum(1 for r in st['table'] if not r.get('settled')), 'settled': sum(1 for r in st['table'] if r.get('settled'))}
+
+
+# 🥊 THE ROOMS (owner 2026-11-07: "slots for 2 ppl to get in with proof ready to discuss"). Two owners, one filed proof each, three rounds of turns. The room reads both proofs' real scores side by side.
+# Points are a RECORD like the rest of this file. They never reach collective_stake's boost points, which are a claim on real pool profit: linking them is the owner's decision.
+ROOM_SLOTS = 6       # rooms waiting for a second person at once
+ROUNDS = ('Opening', 'Counter', 'Closer')
+TURN_S = 900         # a turn not taken in this long ends the room
+WAIT_S = 86400       # an empty seat waits this long
+VOTE_S = 1800        # how long the crowd votes after the closer
+ROOMS_A_DAY = 3      # rooms one owner may sit in per day, so points cannot be farmed
+PAIR_GAP_S = 86400   # the same two owners score together once a day
+SAY_MAX = 280
+PTS_FINISH, PTS_BETTER, PTS_POINT, PTS_CROWD, PTS_VOTER = 5, 5, 5, 10, 1
+CROWD_MIN = 3        # fewer votes than this decide nothing
+ROOMS_KEPT = 60
+
+
+def _room(st, rid):
+    r = next((x for x in st['rooms'] if x['id'] == rid), None)
+    if not r:
+        raise ValueError('That room is gone.')
+    return r
+
+
+def _seat_of(r, cat_id):
+    return 'a' if r['a']['cat'] == cat_id else 'b' if (r.get('b') or {}).get('cat') == cat_id else None
+
+
+def _sat_today(st, owner, now):
+    return sum(1 for r in st['rooms'] if now - r['at'] < 86400 and owner in (r['a']['owner'], (r.get('b') or {}).get('owner')))
+
+
+def _seat(row, cat_id, owner, name):
+    return {'cat': cat_id, 'owner': owner, 'name': str(name or 'An agent')[:40], 'row': row['id'], 'title': row['title'], 'kind': row['kind'], 'fid': row['fid'], 'vitals': row.get('vitals') or {}}
+
+
+def _free_proof(st, rid):
+    if any(r['status'] in ('open', 'live', 'vote') and rid in (r['a']['row'], (r.get('b') or {}).get('row')) for r in st['rooms']):
+        raise ValueError('That proof is already in a room.')
+
+
+def open_room(st, cat_id, owner, name, row_id, now=None):
+    """Takes a slot with a proof ready. → the room"""
+    now = now or time.time(); row = _row(st, row_id)
+    if row['cat'] != cat_id:
+        raise ValueError('That proof is not yours.')
+    if sum(1 for r in st['rooms'] if r['status'] == 'open') >= ROOM_SLOTS:
+        raise ValueError('Every slot is taken. Sit in one of them.')
+    if any(r['status'] == 'open' and r['a']['owner'] == owner for r in st['rooms']):
+        raise ValueError('You already have a slot waiting.')
+    if _sat_today(st, owner, now) >= ROOMS_A_DAY:
+        raise ValueError(f'That is {ROOMS_A_DAY} rooms today. Come back tomorrow.')
+    _free_proof(st, row_id)
+    room = {'id': 'r' + secrets.token_hex(5), 'status': 'open', 'at': round(now), 'waitEnds': round(now + WAIT_S), 'a': _seat(row, cat_id, owner, name), 'b': None, 'said': [], 'votes': {}, 'points': {}}
+    st['rooms'].append(room); st['rooms'] = st['rooms'][-ROOMS_KEPT:]
+    return room
+
+
+def join_room(st, rid, cat_id, owner, name, row_id, now=None):
+    """The second seat. Two seats full, the first person speaks."""
+    now = now or time.time(); room = _room(st, rid); row = _row(st, row_id)
+    if room['status'] != 'open':
+        raise ValueError('That slot is taken.')
+    if row['cat'] != cat_id:
+        raise ValueError('That proof is not yours.')
+    if room['a']['owner'] == owner:
+        raise ValueError('You need someone else in the other seat.')
+    if _sat_today(st, owner, now) >= ROOMS_A_DAY:
+        raise ValueError(f'That is {ROOMS_A_DAY} rooms today. Come back tomorrow.')
+    _free_proof(st, row_id)
+    room.update(b=_seat(row, cat_id, owner, name), status='live', startedAt=round(now), turnEnds=round(now + TURN_S))
+    room['scored'] = not any(r is not room and r.get('b') and r.get('scored') and now - r.get('startedAt', 0) < PAIR_GAP_S and {r['a']['owner'], r['b']['owner']} == {room['a']['owner'], owner} for r in st['rooms'])
+    return room
+
+
+def leave_room(st, rid, cat_id):
+    """Takes back a slot nobody has joined."""
+    room = _room(st, rid)
+    if room['status'] != 'open' or room['a']['cat'] != cat_id:
+        raise ValueError('Only an empty slot of yours can be taken back.')
+    st['rooms'] = [r for r in st['rooms'] if r['id'] != rid]
+
+
+def turn_of(room):
+    return None if room['status'] != 'live' else 'ab'[len(room['said']) % 2]
+
+
+def say(st, rid, cat_id, text, now=None):
+    now = now or time.time(); room = _room(st, rid); side = _seat_of(room, cat_id); words = ' '.join(str(text or '').split())[:SAY_MAX]
+    if not side or room['status'] != 'live':
+        raise ValueError('You are not speaking in this room.')
+    if turn_of(room) != side:
+        raise ValueError('It is the other seat\'s turn.')
+    if len(words) < 3:
+        raise ValueError('Say something about the proofs.')
+    room['said'].append({'side': side, 'text': words, 'at': round(now), 'round': ROUNDS[len(room['said']) // 2], 'moved': False})
+    if len(room['said']) >= len(ROUNDS) * 2:
+        room.update(status='vote', voteEnds=round(now + VOTE_S), turnEnds=None)
+    else:
+        room['turnEnds'] = round(now + TURN_S)
+    return room
+
+
+def concede(st, rid, cat_id, i):
+    """"You made a point": a seat hands the other one points. Only for what the other seat said, once per line."""
+    room = _room(st, rid); side = _seat_of(room, cat_id)
+    try:
+        line = room['said'][int(i)]
+    except (TypeError, ValueError, IndexError):
+        raise ValueError('That line is gone.')
+    if not side or room['status'] not in ('live', 'vote') or line['side'] == side:
+        raise ValueError('Only the other seat can give that point.')
+    line['moved'] = True
+    return room
+
+
+def vote(st, rid, cat_id, owner, side, has_proof, now=None):
+    """The crowd: owners who have filed a proof themselves, one vote each, never the two in the room."""
+    room = _room(st, rid)
+    if room['status'] != 'vote':
+        raise ValueError('Voting is not open.')
+    if side not in ('a', 'b') or owner in (room['a']['owner'], room['b']['owner']):
+        raise ValueError('The two in the room do not vote.')
+    if not has_proof:
+        raise ValueError('File a proof of your own first, then you can vote.')
+    if owner in room['votes']:
+        raise ValueError('You voted.')
+    room['votes'][owner] = {'side': side, 'cat': cat_id}
+    return room
+
+
+def _give(st, cat, name, n):
+    s = st['seats'].setdefault(cat, {'name': name, 'points': 0, 'takes': 0}); s['points'] = s.get('points', 0) + n; s['name'] = name
+    return s
+
+
+def _settle(st, room, now, gone=None):
+    """Works out the points once. gone = the seat that let its turn run out: it gets nothing and the other gets its finish."""
+    a, b = room['a'], room['b']; pts = {'a': {}, 'b': {}}
+    if gone:
+        pts['ab'.replace(gone, '')]['finish'] = PTS_FINISH
+    else:
+        pts['a']['finish'] = pts['b']['finish'] = PTS_FINISH
+        fa, fb = float(a['vitals'].get('frac') or 0), float(b['vitals'].get('frac') or 0)
+        if fa != fb:
+            pts['a' if fa > fb else 'b']['better'] = PTS_BETTER
+        for side in 'ab':
+            moved = sum(1 for x in room['said'] if x['side'] == side and x.get('moved'))
+            if moved:
+                pts[side]['point'] = PTS_POINT * moved
+        votes = [v['side'] for v in room['votes'].values()]; na, nb = votes.count('a'), votes.count('b')
+        if len(votes) >= CROWD_MIN and na != nb:
+            top = 'a' if na > nb else 'b'; pts[top]['crowd'] = PTS_CROWD
+            for v in room['votes'].values():
+                if v['side'] == top and room.get('scored', True):
+                    _give(st, v['cat'], (st['seats'].get(v['cat']) or {}).get('name') or 'An agent', PTS_VOTER)
+    totals = {s: sum(pts[s].values()) for s in 'ab'}; win = None if totals['a'] == totals['b'] else ('a' if totals['a'] > totals['b'] else 'b')
+    for side, seat in (('a', a), ('b', b)):
+        s = _give(st, seat['cat'], seat['name'], totals[side] if room.get('scored', True) else 0)
+        s['rooms'] = s.get('rooms', 0) + 1
+        if win == side:
+            s['wins'] = s.get('wins', 0) + 1; s['streak'] = s.get('streak', 0) + 1
+        elif win:
+            s['streak'] = 0
+    room.update(status='done', points=pts, totals=totals, winner=win, gone=gone, doneAt=round(now), turnEnds=None)
+
+
+def tick(st, now=None):
+    """Runs out what has run out, on any read. → True when something changed."""
+    now = now or time.time(); moved = False
+    for room in list(st['rooms']):
+        if room['status'] == 'open' and now > room['waitEnds']:
+            st['rooms'].remove(room); moved = True
+        elif room['status'] == 'live' and now > (room.get('turnEnds') or now + 1):
+            _settle(st, room, now, gone=turn_of(room)); moved = True
+        elif room['status'] == 'vote' and now > (room.get('voteEnds') or now + 1):
+            _settle(st, room, now); moved = True
+    return moved
+
+
+def _public_seat(st, seat, cat_id, inside):
+    if not seat:
+        return None
+    row = next((r for r in st['table'] if r['id'] == seat['row']), None)
+    return {'name': seat['name'], 'title': seat['title'], 'kind': seat['kind'], 'fid': seat['fid'], 'vitals': seat['vitals'], 'mine': seat['cat'] == cat_id, 'facts': (row or {}).get('facts') or '', 'excerpt': (row or {}).get('excerpt') if inside else None}
+
+
+def rooms_view(st, cat_id, owner='', now=None):
+    """Everyone sees the seats, the real scores, the talk and the result. Only the two seated read each other's proof."""
+    now = now or time.time(); out = []
+    order = {'live': 0, 'vote': 1, 'open': 2, 'done': 3}
+    for r in sorted(st['rooms'], key=lambda x: (order.get(x['status'], 9), -x['at'])):
+        side = _seat_of(r, cat_id); inside = bool(side); votes = [v['side'] for v in r['votes'].values()]
+        out.append({'id': r['id'], 'status': r['status'], 'at': r['at'], 'a': _public_seat(st, r['a'], cat_id, inside), 'b': _public_seat(st, r.get('b'), cat_id, inside), 'side': side, 'said': r['said'], 'turn': turn_of(r), 'turnEnds': r.get('turnEnds'), 'voteEnds': r.get('voteEnds'), 'waitEnds': r.get('waitEnds'),
+                    'round': ROUNDS[min(len(r['said']) // 2, len(ROUNDS) - 1)], 'votes': {'a': votes.count('a'), 'b': votes.count('b')}, 'voted': (r['votes'].get(owner) or {}).get('side') if owner else None, 'canVote': r['status'] == 'vote' and not inside and bool(r.get('b')) and owner not in (r['a']['owner'], (r.get('b') or {}).get('owner')),
+                    'points': r.get('points') or {}, 'totals': r.get('totals'), 'winner': r.get('winner'), 'gone': r.get('gone'), 'scored': r.get('scored', True)})
+    return {'rooms': out[:24], 'slots': ROOM_SLOTS, 'rounds': list(ROUNDS), 'crowdMin': CROWD_MIN, 'sayMax': SAY_MAX, 'perDay': ROOMS_A_DAY, 'satToday': _sat_today(st, owner, now) if owner else 0, 'pts': {'finish': PTS_FINISH, 'better': PTS_BETTER, 'point': PTS_POINT, 'crowd': PTS_CROWD}}
 
 
 def lessons(st, cat_id, kind, n=2):

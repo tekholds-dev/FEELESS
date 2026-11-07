@@ -24,3 +24,14 @@ def test_it_picks_the_best_and_a_real_failure_and_nothing_unfiled():
     rows = [({'id': 'a', 'status': 'closed', 'graded': 'right'}, v(.8)), ({'id': 'b', 'status': 'closed', 'graded': 'wrong'}, v(.3)), ({'id': 'c', 'status': 'open', 'graded': 'right'}, v(.99)), ({'id': 'd', 'status': 'closed'}, v(.5))]
     assert [f['id'] for f, _ in pd.pick(rows)] == ['a', 'b']
     assert [f['id'] for f, _ in pd.pick(rows[3:])] == ['d'] and pd.pick([rows[2]]) == [] and pd.pick([]) == []
+
+
+def test_an_owner_sees_only_their_own_agents_proofs(monkeypatch, tmp_path):
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    f = lambda i: {'id': i, 'at': 5, 'status': 'closed', 'topic': i, 'graded': 'right'}
+    store = {'cats': {'mine1': {'id': 'mine1', 'ownerWallet': 'W1', 'pobFolders': [f('m1')]}, 'mine2': {'id': 'mine2', 'ownerWallet': 'W1', 'pobFolders': [f('m2')]}, 'theirs': {'id': 'theirs', 'ownerWallet': 'W2', 'ownerStaff': True, 'pobFolders': [f('t1')], 'psFolders': [{**f('t2'), 'ws': 'wx'}]}}}
+    monkeypatch.setattr(fs, 'DATA_DIR', tmp_path); fs._DEMOS.clear()
+    got = fs._demo_gallery(store, store['cats']['mine1']); blob = json.dumps(got['kinds'])
+    assert 't1' not in blob and 'm1' in blob and not got['links']
+    assert 't1' in json.dumps(fs._demo_gallery(store, store['cats']['theirs'])['kinds'])

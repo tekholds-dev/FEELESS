@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useCountUp } from '../../lib/useCountUp';
 import { FolderRidge } from './ProofKit';
 
-// 🖼 Real proofs (owner 2026-11-06: "examples for all proof folders"). Nothing is a mock-up: each is a proof really filed, its best and its worst, with what scored it.
+// 🖼 Real proofs (owner 2026-11-06: "examples for all proof folders"). Nothing is a mock-up, and only this owner's own agents show: each is a proof really filed, its best and its worst, with what scored it.
 const pct = v => (v == null ? '—' : `${Math.round(Number(v) * 100)}`);
 function Card({ c, i, work, cat }) {
   const score = useCountUp(Number(c.score) || 0); const [page, setPage] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
@@ -23,8 +23,8 @@ export function ProofGallery({ cat, work }) {
   useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'demo_gallery' })).then(j => on && setData(j)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id, work]);
   const kinds = data?.kinds || []; const seen = kinds.filter(k => show === 'all' || k.kind === show); let n = 0;
   return <div className="pgl" data-testid="pgl">
-    <header className="pgl-h"><span><b>Real proofs</b><small>Filed by FEELESS's own agents. The best and the worst of each type, with what scored them.</small></span>
+    <header className="pgl-h"><span><b>Your real proofs</b><small>Filed by your agents. The best and the worst of each type, with what scored them. Other owners' proofs only reach you when they bring them to the Collective Debate.</small></span>
       <div className="m-seg" role="tablist" aria-label="Proof type">{[['all', 'All'], ...kinds.map(k => [k.kind, k.kind])].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={show === k} className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-tip={k === 'all' ? 'Every proof type' : `Only ${l}`} data-testid={`pgl-show-${k}`}>{l}</button>)}</div></header>
-    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : !data ? <p className="pgl-empty" role="status">Reading the real proofs…</p> : <div className="pgl-grid">{seen.map(k => <React.Fragment key={k.kind}><h4 className="pgl-kind">{k.kind}<small>{k.line}</small></h4>{k.cards.length ? k.cards.map(c => <Card key={c.id} c={c} i={n++} work={work} cat={cat} />) : <p className="pgl-empty">No {k.kind} has been filed and closed yet.</p>}</React.Fragment>)}</div>}
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : !data ? <p className="pgl-empty" role="status">Reading the real proofs…</p> : <div className="pgl-grid">{seen.map(k => <React.Fragment key={k.kind}><h4 className="pgl-kind">{k.kind}<small>{k.line}</small></h4>{k.cards.length ? k.cards.map(c => <Card key={c.id} c={c} i={n++} work={work} cat={cat} />) : <p className="pgl-empty">Your agents have not filed a {k.kind} yet.</p>}</React.Fragment>)}</div>}
   </div>;
 }

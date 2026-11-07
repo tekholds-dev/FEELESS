@@ -129,3 +129,92 @@ def test_the_minds_are_told_todays_date_so_a_real_date_is_not_called_fake():
     st, row = table(); text = cd.ask_text(row, 1794000000)
     assert text.startswith('TODAY: 2026-') and 'NBA night' in text and 'waiting on its result is not wrong' in cd.SYSTEM and 'never call a date fake' in cd.SYSTEM
 
+
+
+def _two_on_the_table():
+    st = {'table': [], 'offers': [], 'seats': {}, 'rooms': []}
+    for cat, fid, frac in (('a', 'f1', .7), ('b', 'f2', .4)):
+        r = cd.put(st, cat, cat.upper(), 'pob', {'id': fid, 'status': 'closed', 'topic': f'T {fid}'}, 'facts ' + fid, 'SECRET ' + fid); r['vitals'] = {'rank': 'B', 'score': frac * 300, 'top': 300, 'frac': frac, 'parts': [{'label': 'Result', 'value': frac}]}
+    return st
+
+
+def _full_room(st, now=1000.0, oa='oa', ob='ob'):
+    ra, rb = [r['id'] for r in st['table'] if r['cat'] == 'a'][-1], [r['id'] for r in st['table'] if r['cat'] == 'b'][-1]
+    room = cd.open_room(st, 'a', oa, 'A', ra, now=now); cd.join_room(st, room['id'], 'b', ob, 'B', rb, now=now + 1)
+    return room
+
+
+def test_a_room_runs_three_rounds_and_only_the_two_seated_read_the_proofs():
+    st = _two_on_the_table(); room = _full_room(st); rid = room['id']
+    with pytest.raises(ValueError):
+        cd.say(st, rid, 'b', 'out of turn', now=1002)
+    for i in range(6):
+        cd.say(st, rid, 'ab'[i % 2], f'line number {i}', now=1002 + i)
+    assert room['status'] == 'vote' and [x['round'] for x in room['said']] == ['Opening', 'Opening', 'Counter', 'Counter', 'Closer', 'Closer']
+    a, out = cd.rooms_view(st, 'a', 'oa', now=1010)['rooms'][0], cd.rooms_view(st, 'c', 'oc', now=1010)['rooms'][0]
+    assert 'SECRET f2' in a['b']['excerpt'] and out['b']['excerpt'] is None and out['a']['excerpt'] is None and 'oa' not in json.dumps(out) and out['canVote'] and not a['canVote']
+    with pytest.raises(ValueError):
+        cd.vote(st, rid, 'a', 'oa', 'a', True)
+    with pytest.raises(ValueError):
+        cd.vote(st, rid, 'c', 'oc', 'a', False)
+    cd.concede(st, rid, 'a', 1)   # A says B made a point
+    with pytest.raises(ValueError):
+        cd.concede(st, rid, 'a', 0)   # nobody credits their own line
+    for o in ('o1', 'o2', 'o3'):
+        cd.vote(st, rid, 'v' + o, o, 'b', True)
+    with pytest.raises(ValueError):
+        cd.vote(st, rid, 'vo1', 'o1', 'b', True)
+    assert cd.tick(st, now=1010) is False and cd.tick(st, now=1010 + cd.VOTE_S) is True
+    assert room['points'] == {'a': {'finish': 5, 'better': 5}, 'b': {'finish': 5, 'point': 5, 'crowd': 10}} and room['winner'] == 'b' and room['totals'] == {'a': 10, 'b': 20}
+    assert st['seats']['b']['points'] == 20 and st['seats']['b']['wins'] == 1 and st['seats']['vo1']['points'] == 1 and cd.tick(st, now=9e9) is False   # settled once
+
+
+def test_rooms_cannot_be_farmed():
+    st = _two_on_the_table(); ra = st['table'][0]['id']; rb = st['table'][1]['id']
+    room = cd.open_room(st, 'a', 'oa', 'A', ra, now=1000)
+    with pytest.raises(ValueError):
+        cd.join_room(st, room['id'], 'b', 'oa', 'B', rb, now=1001)   # one owner cannot fill both seats
+    with pytest.raises(ValueError):
+        cd.open_room(st, 'a', 'oa', 'A', ra, now=1001)              # one slot waiting at a time
+    with pytest.raises(ValueError):
+        cd.pull(st, 'a', ra)                                         # a proof in a room stays on the table
+    cd.join_room(st, room['id'], 'b', 'ob', 'B', rb, now=1002)
+    for i in range(6):
+        cd.say(st, room['id'], 'ab'[i % 2], 'a real line', now=1003 + i)
+    cd.tick(st, now=1009 + cd.VOTE_S); first = st['seats']['a']['points']
+    assert first == 10
+    r2 = cd.put(st, 'a', 'A', 'pob', {'id': 'f3', 'status': 'closed', 'topic': 'x'}, '', ''); r3 = cd.put(st, 'b', 'B', 'pob', {'id': 'f4', 'status': 'closed', 'topic': 'y'}, '', '')
+    again = cd.open_room(st, 'a', 'oa', 'A', r2['id'], now=2000); cd.join_room(st, again['id'], 'b', 'ob', 'B', r3['id'], now=2001)
+    assert again['scored'] is False   # the same two owners score once a day
+    for i in range(6):
+        cd.say(st, again['id'], 'ab'[i % 2], 'another line', now=2002 + i)
+    cd.tick(st, now=2008 + cd.VOTE_S); assert st['seats']['a']['points'] == first
+    r4 = cd.put(st, 'a', 'A', 'pob', {'id': 'f5', 'status': 'closed', 'topic': 'z'}, '', ''); r5 = cd.put(st, 'a', 'A', 'pob', {'id': 'f6', 'status': 'closed', 'topic': 'w'}, '', '')
+    third = cd.open_room(st, 'a', 'oa', 'A', r4['id'], now=3000); cd.leave_room(st, third['id'], 'a')
+    cd.open_room(st, 'a', 'oa', 'A', r4['id'], now=3001); st['rooms'][-1].update(status='done')
+    with pytest.raises(ValueError):
+        cd.open_room(st, 'a', 'oa', 'A', r5['id'], now=3002)         # 3 rooms a day
+
+
+def test_a_turn_not_taken_ends_the_room_and_the_one_who_left_gets_nothing():
+    st = _two_on_the_table(); room = _full_room(st); cd.say(st, room['id'], 'a', 'my opening', now=1002)
+    assert cd.tick(st, now=1002 + cd.TURN_S + 1) is True and room['gone'] == 'b' and room['winner'] == 'a' and room['totals'] == {'a': 5, 'b': 0}
+
+
+def test_debate_points_never_touch_the_money_ledger():
+    src = Path(cd.__file__).read_text()
+    assert 'collective_stake' not in [n.name for x in ast.walk(ast.parse(src)) if isinstance(x, ast.Import) for n in x.names]
+    assert 'pointsLeft' not in src and 'bonus(' not in src
+
+
+def test_two_owners_get_in_a_room_on_the_real_route(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); post = lambda who, op, **kw: c.post(f'/api/cats/{who}/work', json={'ownerId': who, 'session': who, 'op': op, **kw})
+    store['cats']['b']['pobFolders'] = [{'id': 'f9', 'at': 6, 'status': 'closed', 'topic': 'MLB', 'graded': 'wrong'}]
+    r = post('a', 'debate_room_open', tools={'kind': 'pob', 'fid': 'f1'}); assert r.status_code == 200, r.text
+    rid = r.json()['room']['rooms'][0]['id']; assert r.json()['room']['rooms'][0]['a']['vitals']['rank']
+    assert post('a', 'debate_room_join', tools={'kind': 'pob', 'fid': 'f1', 'room': rid}).status_code == 400   # its own room
+    assert post('b', 'debate_room_open', tools={'kind': 'pob', 'fid': 'nope'}).status_code == 400   # not its proof
+    r = post('b', 'debate_room_join', tools={'kind': 'pob', 'fid': 'f9', 'room': rid}); assert r.status_code == 200, r.text
+    assert r.json()['room']['rooms'][0]['status'] == 'live' and r.json()['room']['rooms'][0]['turn'] == 'a'
+    assert post('b', 'debate_room_say', tools={'room': rid, 'text': 'not my turn'}).status_code == 400
+    assert post('a', 'debate_room_say', tools={'room': rid, 'text': 'my proof read the injury report'}).json()['room']['rooms'][0]['turn'] == 'b'

@@ -87,6 +87,7 @@ import collective_kits as _kits
 import agent_topup as _topup
 import collective_git as _cg
 import proof_demos as _demos
+import page_look as _look
 import agent_eco as _eco
 import free_browser as _fb
 import evidence_marks as _marks
@@ -1552,7 +1553,51 @@ def _page_stats(cat_id, ws, version):
     """⚖ What one filed version of a page really holds. Numbers only, once per version, so scoring never reopens a sealed page."""
     rows = (_ws_load(cat_id, ws) or {}).get('versions') or [] if cat_id and ws else []
     i = int(version or len(rows)) - 1
-    return _weights.page_stats(rows[min(i, len(rows) - 1)].get('html')) if rows and i >= 0 else None
+    st = _weights.page_stats(rows[min(i, len(rows) - 1)].get('html')) if rows and i >= 0 else None
+    seen = _looks().get(_look.key_of(cat_id, ws, version or len(rows))) if st else None
+    return {**st, 'look': seen.get('v'), 'lookNote': seen.get('note')} if seen else st
+
+
+_LOOKS = {'at': 0.0, 'rows': {}}
+
+
+def _looks():
+    """👁 What pages looked like in a real browser, re-read at most once a minute."""
+    if time.time() - _LOOKS['at'] > 60:
+        _LOOKS.update(at=time.time(), rows=_look.load(DATA_DIR))
+    return _LOOKS['rows']
+
+
+_LOOK_BUSY = [False]
+
+
+async def _look_pass(store, most=1):
+    """👁 The newest filed pages nobody has looked at yet, one at a time, in a real browser, only while the machine has room. A score never opens a browser itself. → how many were looked at"""
+    if _LOOK_BUSY[0] or os.getloadavg()[0] > 10:
+        return 0
+    import free_browser as _fb
+    chromium = _fb.chromium_path()
+    if not chromium:
+        return 0
+    _LOOK_BUSY[0] = True; done = 0
+    try:
+        rows = _look.load(DATA_DIR)
+        todo = sorted(((float(f.get('at') or 0), cid, f) for cid, c in (store.get('cats') or {}).items() for f in c.get('psFolders') or [] if isinstance(f, dict) and f.get('ws') and f.get('status') == 'closed'), key=lambda r: -r[0])
+        for _, cid, f in todo:
+            if done >= most:
+                break
+            vs = (_ws_load(cid, f['ws']) or {}).get('versions') or []; n = int(f.get('version') or len(vs)); k = _look.key_of(cid, f['ws'], n)
+            if k in rows or not vs or n < 1:
+                continue
+            try:
+                got = await asyncio.wait_for(_look.measure(_feat.preview(_ws_placed(cid, vs[min(n, len(vs)) - 1]['html'])), chromium), 60)
+            except Exception as e:   # the page itself would not open: that is a reading too, but a failed browser is not, so it is tried again later
+                print(f'[look] {k}: {str(e)[:90]}'); done += 1
+                continue
+            v, note = _look.score(got); rows[k] = {'v': v, 'note': note, 'at': round(time.time())}; _look.save(DATA_DIR, rows); _LOOKS['at'] = 0.0; done += 1
+    finally:
+        _LOOK_BUSY[0] = False
+    return done
 
 
 def _proof_view(cat, kind, f, top=300.0, weights=None):
@@ -1577,30 +1622,37 @@ def _all_work(store, top):
     return {'proofs': sorted(proofs, key=lambda x: -float(x.get('at') or 0))[:300], 'jobs': sorted(jobs, key=lambda x: -float(x.get('at') or 0))[:200]}
 
 
-_DEMOS = {'at': 0, 'rows': None}
+_DEMOS = {}
 
 
-def _demo_gallery(store):
-    """🖼 Each proof type's best and worst real proof, from staff agents, read at most once in 5 minutes."""
-    if _DEMOS['rows'] is not None and time.time() - _DEMOS['at'] < 300:
-        return _DEMOS['rows']
+def _same_owner(a, b):
+    """Is agent b run by the owner of agent a? By wallet where both have one, else by the browser that made them."""
+    wa, wb = owner_wallet(a), owner_wallet(b)
+    return wa == wb if wa and wb else bool(a.get('ownerId')) and a.get('ownerId') == b.get('ownerId')
+
+
+def _demo_gallery(store, viewer):
+    """🖼 Each proof type's best and worst, from this owner's own agents only (owner 2026-11-07). Another owner's proof is seen only if shared in the Collective Debate. Kept 5 minutes."""
+    key = owner_wallet(viewer) or str(viewer.get('ownerId') or viewer.get('id')); hit = _DEMOS.get(key)
+    if hit and time.time() - hit['at'] < 300:
+        return hit
     saved = _weights.load(DATA_DIR); kinds = []; links = {}
-    for kind, key, line in _demos.KINDS:
+    for kind, folders, line in _demos.KINDS:
         rows = []
         for cid, c in (store.get('cats') or {}).items():
-            if not c.get('ownerStaff') or c.get('revoked') or c.get('incognito'):
+            if c.get('revoked') or not (cid == viewer.get('id') or _same_owner(viewer, c)):
                 continue
-            for f in c.get(key) or []:
+            for f in c.get(folders) or []:
                 if isinstance(f, dict) and f.get('id'):
                     rows.append((f, {**(_proof_view(c, kind, f, 300.0, saved) or {}), 'cat': cid, 'kind': kind}))
         cards = []
         for f, v in _demos.pick([r for r in rows if r[1].get('parts')]):
             one = _demos.card(kind, v['cat'], f, v, _proof_title(kind, f), public_words); cards.append(one)
             if one['page']:
-                links[one['id']] = (v['cat'], f['ws'])
+                links[one['id']] = (v['cat'], f['ws'], f.get('version'))
         kinds.append({'kind': kind, 'line': line, 'cards': cards})
-    _DEMOS.update(at=time.time(), rows={'kinds': kinds}, links=links)
-    return _DEMOS['rows']
+    _DEMOS[key] = {'at': time.time(), 'kinds': kinds, 'links': links}
+    return _DEMOS[key]
 
 
 def _proof_title(kind, f):
@@ -1848,6 +1900,8 @@ async def _git_pass(store, now):
         _LIVE_AT[0] = now; asyncio.create_task(_live_pass(store))
     if now - _ECO_CHECK_AT[0] > 3600:
         _ECO_CHECK_AT[0] = now; asyncio.create_task(_eco_check_pass(store))
+    if now - _LOOK_AT[0] > 120:
+        _LOOK_AT[0] = now; asyncio.create_task(_look_pass(store))
     if now - _DEBATE_AT[0] > 300:
         _DEBATE_AT[0] = now; asyncio.create_task(_debate_pass(store))
     if now - _KITS_LIVE_AT[0] > 900:   # 🧰 the kits' fresh numbers, from fixed public addresses
@@ -3808,6 +3862,7 @@ async def _eco_check_pass(store):
 
 
 _DEBATE_AT = [0.0]
+_LOOK_AT = [0.0]
 _DEBATE_BUSY = [False]
 
 
@@ -7358,13 +7413,34 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 _debate.answer(st_, cat_id, str(p.text or ''), bool(p.on))
             elif p.op == 'debate_allow':
                 b_['debateOn'] = bool(p.on); keep_owned(cat); _save(store)
+            elif p.op in ('debate_room_open', 'debate_room_join'):
+                t_ = p.tools if isinstance(p.tools, dict) else {}; k_ = _weights.kind_of(t_.get('kind')); f_ = next((x for x in cat.get(_PROOF_KEYS.get(k_) or '') or [] if isinstance(x, dict) and x.get('id') == t_.get('fid')), None)
+                if not f_:
+                    raise ValueError('Pick one of its filed proofs.')
+                row_ = next((r for r in st_['table'] if r['cat'] == cat_id and r['fid'] == f_['id']), None); v_ = _proof_view(cat, k_, f_) or {}
+                row_ = row_ or _debate.put(st_, cat_id, cat.get('name'), k_, f_, _weights.facts_line(v_), json.dumps({x: y for x, y in _vv.public_folder(f_).items() if x not in ('talk', 'chat', 'shots', 'vitals')}, default=str))
+                row_['vitals'] = {'rank': v_.get('rank'), 'score': v_.get('score'), 'top': v_.get('top'), 'frac': v_.get('frac'), 'parts': [{'label': x.get('label'), 'value': x.get('value')} for x in (v_.get('parts') or [])][:8]}
+                who_ = owner_wallet(cat) or str(cat.get('ownerId') or cat_id)
+                if p.op == 'debate_room_open':
+                    _debate.open_room(st_, cat_id, who_, cat.get('name'), row_['id'])
+                else:
+                    _debate.join_room(st_, str(t_.get('room') or ''), cat_id, who_, cat.get('name'), row_['id'])
+            elif p.op == 'debate_room_say':
+                t_ = p.tools if isinstance(p.tools, dict) else {}; _debate.say(st_, str(t_.get('room') or ''), cat_id, t_.get('text'))
+            elif p.op == 'debate_room_concede':
+                t_ = p.tools if isinstance(p.tools, dict) else {}; _debate.concede(st_, str(t_.get('room') or ''), cat_id, t_.get('i'))
+            elif p.op == 'debate_room_vote':
+                t_ = p.tools if isinstance(p.tools, dict) else {}; _debate.vote(st_, str(t_.get('room') or ''), cat_id, owner_wallet(cat) or str(cat.get('ownerId') or cat_id), t_.get('side'), any(isinstance(x, dict) and x.get('status') == 'closed' for key_ in _PROOF_KEYS.values() for x in cat.get(key_) or []))
+            elif p.op == 'debate_room_leave':
+                t_ = p.tools if isinstance(p.tools, dict) else {}; _debate.leave_room(st_, str(t_.get('room') or ''), cat_id)
             elif p.op != 'debate_get':
                 raise ValueError('No such step.')
         except ValueError as e:
             raise HTTPException(400, str(e)[:160])
-        if p.op not in ('debate_get', 'debate_allow'):
+        moved_ = _debate.tick(st_)
+        if moved_ or p.op not in ('debate_get', 'debate_allow'):
             _debate.save(DATA_DIR, st_)
-        return {**_debate.view(st_, cat_id), 'allowed': bool(b_.get('debateOn')), 'canGrade': bool(b_.get('brains'))}
+        return {**_debate.view(st_, cat_id), 'room': _debate.rooms_view(st_, cat_id, owner_wallet(cat) or str(cat.get('ownerId') or cat_id)), 'allowed': bool(b_.get('debateOn')), 'canGrade': bool(b_.get('brains'))}
     if p.op.startswith('eco_d_'):   # 🗂 the PoEco desk: sealed, its owner's only, Python does every sum, and nothing here can move money
         today_ = _eco.their_today(p.to, time.strftime('%Y-%m-%d', time.gmtime())); desk_ = _eco_desk_load(cat_id); said_ = None
         try:
@@ -7841,13 +7917,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
     if p.op == 'demo_gallery':   # 🖼 real proofs of every type, whitelisted, for the Features folder
-        return _demo_gallery(store)
+        g_ = _demo_gallery(store, cat)
+        return {'kinds': g_['kinds']}
     if p.op == 'demo_open':   # one of those pages, locked in a sandbox
-        _demo_gallery(store); got_ = (_DEMOS.get('links') or {}).get(str(p.job))
+        got_ = _demo_gallery(store, cat)['links'].get(str(p.job))
         if not got_:
             raise HTTPException(404, 'That page is not in the gallery.')
-        doc_ = _ws_load(*got_); v_ = (doc_ or {}).get('versions') or []
-        return {'preview': _feat.preview(_ws_placed(got_[0], v_[-1]['html'])) if v_ else ''}
+        v_ = (_ws_load(got_[0], got_[1]) or {}).get('versions') or []; n_ = int(got_[2] or len(v_))
+        return {'preview': _feat.preview(_ws_placed(got_[0], v_[min(n_, len(v_)) - 1]['html'])) if v_ else ''}
     if p.op == 'build_list':   # 🏆 builds their owners sent to the Collective, newest first, no owner shown
         return {'builds': _popular_builds(store)}
     if p.op == 'build_open':   # one of those, to look at. A locked page in a sandbox
