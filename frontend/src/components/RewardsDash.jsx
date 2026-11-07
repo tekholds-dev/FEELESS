@@ -1,3 +1,4 @@
+import { useCountUp } from '../lib/useCountUp';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
@@ -24,17 +25,6 @@ const postJson = async (url, body) => {
   return j;
 };
 
-function useCountUp(value, ms = 700) {
-  const [shown, setShown] = useState(value || 0);
-  useEffect(() => {
-    const from = shown; const to = Number(value || 0); if (from === to) return undefined;
-    if (document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setShown(to); return undefined; }
-    const t0 = performance.now(); let raf = 0;
-    const tick = now => { const p = Math.min(1, (now - t0) / ms); setShown(Math.round(from + (to - from) * (1 - (1 - p) ** 3))); if (p < 1) raf = requestAnimationFrame(tick); };
-    raf = requestAnimationFrame(tick); return () => cancelAnimationFrame(raf);
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
-  return shown;
-}
 
 function LevelRing({ level }) {
   const xp = Number(level?.xp || 0); const next = Number(level?.next || 0); const pct = next ? Math.min(1, xp / next) : 1; const C = 2 * Math.PI * 46;

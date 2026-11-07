@@ -328,3 +328,17 @@ test('💡 ideas are marked, and a refused one moves out of the new list', async
   await act(async () => { q('ideas-view-bad').click(); }); expect(q('idea-a')).not.toBeNull();
   await act(async () => { root.unmount(); }); el.remove();
 });
+
+test('Real proofs shows each type, says when one has none, and opens a real page in a sandbox', async () => {
+  const card = { id: 'x1', print: 'ps1', kind: 'PoStatic', title: 'Narrative finder', tone: 'good', said: 'Marked right', rank: 'S', score: 280, top: 300, parts: [{ label: 'Result', value: 1, weight: 40 }, { label: 'Depth', value: null, weight: 10 }], facts: [['Version', 3]], page: true };
+  const work = jest.fn(async (_, b) => (b.op === 'demo_gallery' ? { kinds: [{ kind: 'PoStatic', line: 'A page', cards: [card] }, { kind: 'PoW', line: 'Traded', cards: [] }] } : b.op === 'demo_open' ? { preview: '<b>real</b>' } : DATA));
+  const { el } = await mount(work);
+  await act(async () => { el.querySelector('[data-testid=fea-tab-real]').click(); });
+  await act(async () => { await Promise.resolve(); });
+  expect(el.textContent).toContain('Narrative finder'); expect(el.textContent).toContain('No PoW has been filed and closed yet.');
+  await act(async () => { el.querySelector('[data-testid=pgl-open-x1]').click(); });
+  const f = el.querySelector('[data-testid=pgl-page-x1]');
+  expect(f.getAttribute('sandbox')).toBe('allow-scripts'); expect(f.getAttribute('srcdoc')).toBe('<b>real</b>');
+  await act(async () => { el.querySelector('[data-testid=pgl-show-PoW]').click(); });
+  expect(el.textContent).not.toContain('Narrative finder');
+});

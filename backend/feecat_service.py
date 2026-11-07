@@ -86,6 +86,7 @@ import collective_stash as _stash
 import collective_kits as _kits
 import agent_topup as _topup
 import collective_git as _cg
+import proof_demos as _demos
 import agent_eco as _eco
 import free_browser as _fb
 import evidence_marks as _marks
@@ -1574,6 +1575,32 @@ def _all_work(store, top):
             if isinstance(j, dict):
                 jobs.append({'id': j.get('id'), 'agent': name, 'ask': str(j.get('request') or '')[:200], 'at': j.get('at'), 'cost': j.get('cost'), 'rate': (c.get('jobRates') or {}).get(j.get('id')), 'answer': str(j.get('answer') or j.get('final') or '')[:600]})
     return {'proofs': sorted(proofs, key=lambda x: -float(x.get('at') or 0))[:300], 'jobs': sorted(jobs, key=lambda x: -float(x.get('at') or 0))[:200]}
+
+
+_DEMOS = {'at': 0, 'rows': None}
+
+
+def _demo_gallery(store):
+    """🖼 Each proof type's best and worst real proof, from staff agents, read at most once in 5 minutes."""
+    if _DEMOS['rows'] is not None and time.time() - _DEMOS['at'] < 300:
+        return _DEMOS['rows']
+    saved = _weights.load(DATA_DIR); kinds = []; links = {}
+    for kind, key, line in _demos.KINDS:
+        rows = []
+        for cid, c in (store.get('cats') or {}).items():
+            if not c.get('ownerStaff') or c.get('revoked') or c.get('incognito'):
+                continue
+            for f in c.get(key) or []:
+                if isinstance(f, dict) and f.get('id'):
+                    rows.append((f, {**(_proof_view(c, kind, f, 300.0, saved) or {}), 'cat': cid, 'kind': kind}))
+        cards = []
+        for f, v in _demos.pick([r for r in rows if r[1].get('parts')]):
+            one = _demos.card(kind, v['cat'], f, v, _proof_title(kind, f), public_words); cards.append(one)
+            if one['page']:
+                links[one['id']] = (v['cat'], f['ws'])
+        kinds.append({'kind': kind, 'line': line, 'cards': cards})
+    _DEMOS.update(at=time.time(), rows={'kinds': kinds}, links=links)
+    return _DEMOS['rows']
 
 
 def _proof_title(kind, f):
@@ -7813,6 +7840,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op == 'demo_gallery':   # 🖼 real proofs of every type, whitelisted, for the Features folder
+        return _demo_gallery(store)
+    if p.op == 'demo_open':   # one of those pages, locked in a sandbox
+        _demo_gallery(store); got_ = (_DEMOS.get('links') or {}).get(str(p.job))
+        if not got_:
+            raise HTTPException(404, 'That page is not in the gallery.')
+        doc_ = _ws_load(*got_); v_ = (doc_ or {}).get('versions') or []
+        return {'preview': _feat.preview(_ws_placed(got_[0], v_[-1]['html'])) if v_ else ''}
     if p.op == 'build_list':   # 🏆 builds their owners sent to the Collective, newest first, no owner shown
         return {'builds': _popular_builds(store)}
     if p.op == 'build_open':   # one of those, to look at. A locked page in a sandbox
