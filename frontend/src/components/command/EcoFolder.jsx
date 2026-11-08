@@ -22,20 +22,20 @@ function Book({ f, work, cat, onRows, onBack, onCommand }) {
     {onCommand ? <button type="button" className="m-btn" onClick={() => onCommand(`Read these books and tell me the one thing to change: income ${usd(f.income)}, costs ${usd(f.costs)}, net ${usd(f.net)}, biggest costs ${(f.cats || []).slice(0, 3).map(c => `${c.cat} ${usd(c.usd)}`).join(', ')}.`)} data-tip="Puts the totals in its chat box. You press send" data-testid="eco-ask">Ask its minds</button> : null}
     {said ? <small className="git-said" role="status">{said}</small> : null}{err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</div>;
 }
-// The folder opens on the desk. Its filed proofs and their print sit under Proofs: a proof is made from the books, so there is one set of entries, never two.
-function Proofs({ rows, cat, d, pool, work, onBrowse, onRows, onCommand, tool }) {
-  const [open, setOpen] = useState(null); const [name, setName] = useState(''); const [said, setSaid] = useState('');
-  useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const prove = async e => { e.preventDefault(); const j = await tool.prove(name.trim() || 'All books'); if (j) { setName(''); setSaid('Filed. It holds totals and a hash, never an entry.'); } };
-  return <div className="prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} /><div className="prf-main">
-    {open ? <Book f={open} work={work} cat={cat} onRows={onRows} onBack={() => setOpen(null)} onCommand={onCommand} /> : <>
-      {rows.length ? <div className="dsk-xgrid" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'none'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={usd(f.net)} tip={f.topic} onOpen={() => setOpen(f)} testid={`eco-${f.id}`} />)}</div> : null}
-      <form className="eco-new m-card" onSubmit={prove}><h4><Ic3 e="📊" /> PROVE MY BOOKS</h4><div className="eco-row"><input className="m-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name, like Q3 books" aria-label="Name of this proof" data-testid="eco-name" /><button type="submit" className="m-btn m-go" disabled={tool.busy || !tool.count} data-tip={tool.count ? 'Files your real entries as a proof you can send' : 'Add real entries first. Made-up examples never count'} data-testid="eco-file">File {tool.count} entries</button><small>Python does the sums and the entries stay sealed. A proof holds totals and a hash you can send.</small></div>
-        {said ? <small className="git-said" role="status" data-testid="eco-proved">{said}</small> : null}</form></>}
-  </div><aside className="prf-rail"><ProofKit kind="poe" folders={rows} onCommand={onCommand} /></aside></div>;
+// 📊 PoEco in the same frame as every proof (owner 2026-11-07: "redo the whole folder to be as good as the others"): its proof header on top,
+// the books desk in the middle, and the rail files the books as a proof, holds the filed ones and its kit. One set of entries, never two.
+function Rail({ rows, tool, onOpen, onCommand }) {
+  const [name, setName] = useState(''); const [said, setSaid] = useState('');
+  const prove = async e => { e.preventDefault(); const j = await tool?.prove(name.trim() || 'All books'); if (j) { setName(''); setSaid('Filed. It holds totals and a hash, never an entry.'); } };
+  return <><form className="eco-new m-card" onSubmit={prove} data-testid="eco-prove"><h4><Ic3 e="📊" /> PROVE MY BOOKS</h4><p className="eco-say">Files your real entries as a proof: totals and a hash, never a row.</p><div className="eco-row"><input className="m-input" maxLength={60} value={name} onChange={e => setName(e.target.value)} placeholder="Name, like Q3 books" aria-label="Name of this proof" data-testid="eco-name" /><button type="submit" className="m-btn m-go" disabled={!tool || tool.busy || !tool.count} data-tip={tool?.count ? 'Files your real entries as a proof you can send' : 'Add real entries first. Made-up examples never count'} data-testid="eco-prove-go">File it</button></div>{said ? <small className="git-said" role="status" data-testid="eco-proved">{said}</small> : null}</form>
+    <section className="eco-filed" aria-label="Filed PoEco proofs"><h4 className="m-label">FILED <b className="m-num">{rows.length}</b></h4>{rows.length ? <div className="eco-tiles" data-testid="eco-tiles">{rows.map((f, i) => <ProofTile key={f.id} i={i} ic="📊" tone={f.graded === 'right' ? 'good' : f.graded === 'wrong' ? 'bad' : 'none'} print={[f.id, mark(f.graded)]} label={`PoEco #${f.n}`} sub={usd(f.net)} tip={f.topic} onOpen={() => onOpen(f)} testid={`eco-${f.id}`} />)}</div> : <p className="eco-say">Nothing filed yet. Your first proof shows here.</p>}</section>
+    <ProofKit kind="poe" folders={rows} onCommand={onCommand} /></>;
 }
 export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse }) {
-  const rows = useMemo(() => d?.poeFolders || [], [d?.poeFolders]);
+  const rows = useMemo(() => d?.poeFolders || [], [d?.poeFolders]); const [open, setOpen] = useState(null); const [tool, setTool] = useState(null);
   const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
-  return <EcoDesk cat={cat} work={work} onCommand={onCommand} onRows={onRows} proofs={tool => <Proofs rows={rows} cat={cat} d={d} pool={pool} work={work} onBrowse={onBrowse} onRows={onRows} onCommand={onCommand} tool={tool} />} />;
+  useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
+  return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
+    <div className="prf-main">{open ? <Book f={open} work={work} cat={cat} onRows={onRows} onBack={() => setOpen(null)} onCommand={onCommand} /> : null}<div hidden={!!open}><EcoDesk cat={cat} work={work} onCommand={onCommand} onRows={onRows} onTool={setTool} /></div></div>
+    <aside className="prf-rail"><Rail rows={rows} tool={tool} onOpen={setOpen} onCommand={onCommand} /></aside></div>;
 }

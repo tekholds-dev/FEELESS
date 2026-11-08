@@ -13,3 +13,9 @@ body.fx-lite .eco-book { animation: none; }
 @media (prefers-reduced-motion: reduce) { .eco-book { animation: none; } }
 body.theme-day .eco-bh b, body.theme-day .eco-kpis b { color: #10241a; } body.theme-day .eco-kpis span, body.theme-day .eco-two section { background: #fff; border-color: #00000018; }
 @media (max-width: 640px) { .eco-two { grid-template-columns: minmax(0, 1fr); } }
+/* 📊 PoEco in the proof frame: the rail files the books and holds the filed proofs */
+.eco-prf .prf-main { min-width: 0; } .eco-prf .prf-rail .eco-new { margin-top: 0; } .eco-prf .eco-row .m-input { flex: 1 1 140px; min-width: 0; }
+.eco-say { margin: 0; font-size: 12px; line-height: 1.4; opacity: .75; }
+.eco-filed { display: grid; gap: 8px; margin: 12px 0; } .eco-filed h4 { display: flex; align-items: center; gap: 8px; margin: 0; } .eco-filed h4 b { padding: 1px 7px; border-radius: 99px; background: #e8c15a24; color: #f2dfa6; font-size: 11px; }
+.eco-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+body.theme-day .eco-filed h4 b { background: #8a6a1422; color: #5c4710; }
