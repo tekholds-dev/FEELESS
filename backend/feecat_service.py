@@ -6418,6 +6418,21 @@ def _ws_rewind(cat, cat_id, doc, n, now):
     return got['request']
 
 
+async def _ws_sections(cat, minds, text, extra):
+    """🧩 A page built in sections: the first mind writes a small shell, then the minds take the sections in turn, each reply short enough to finish.
+    Cloud minds write their sections at the same time; a local machine writes one at a time. → (html or None, $, own key, parts written)"""
+    raw, usd, own = await _ws_ask(cat, minds[0], _feat.SECTIONS_SYS, f'BUILD THIS: {str(text)[:2000]}', 500)   # the mind plans; code writes the frame, so the frame always finishes
+    shell = _feat.code_shell(_feat.plan_sections(raw, text)); parts = _feat.shell_parts(shell)
+    async def one(i, n, brief):
+        r_, u_, _o = await _ws_ask(cat, minds[i % len(minds)], _feat.PART_SYS.format(n=n) + extra[:1500], f'THE PAGE: {str(text)[:800]}\nTHIS SECTION ({n}): {brief}\nTHE OTHER SECTIONS: {'; '.join(f'{m}: {b_}' for m, b_ in parts if m != n)}', 1400)
+        return n, _feat.part_html(r_), u_
+    jobs = [(i, n, b) for i, (n, b) in enumerate(parts)]
+    got = [await one(*j) for j in jobs] if any(str(m).startswith('local/') for m in minds) else await asyncio.gather(*[one(*j) for j in jobs])
+    usd += sum(g[2] for g in got); done = {n: h for n, h, _ in got if h.strip()}
+    html = _aip.lock_html(_feat.assemble(shell, done)) if done else None
+    return (html if html and _feat.page_complete(html) else None), usd, own, len(done)
+
+
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
     room_ask = bool(doc.get('scene3dNext')) and _play.names_room(text); wrong_ = bool(_play.WRONG_BUILD.search(str(text)))   # a site of two places: the words say which one changes
@@ -6583,6 +6598,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 if _feat.wants_rewrite(cur, text):
                     raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
                     cost += usd; paid_own = own; html = _aip.html_of(raw)
+                if (not html or not _feat.page_complete(html)) and not cur and not k:   # 🧩 no page yet and the whole page did not fit in a reply: build it in sections
+                    html_s_, usd_s_, own_s_, n_s_ = await _ws_sections(cat, [brains[j] for j in order], text, read_ + kits_); cost += usd_s_; paid_own = paid_own or own_s_
+                    if html_s_:
+                        html = html_s_; _feat.add_msg(doc, name(i), f"The whole page did not fit in one reply, so it was built in {n_s_} sections" + (f" shared by {' and '.join(name(j) for j in order)}." if len(order) > 1 else '.'), time.time())
                 if (not html or not _feat.page_complete(html)) and cur:
                     html, landed_, said_ = cur, 0, ''
                     for _ in range(3):   # small exact changes against the whole page, until it says nothing is left
