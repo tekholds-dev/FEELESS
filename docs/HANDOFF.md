@@ -685,3 +685,7 @@ Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fi
 10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.
 11. Earlier, still open: any folder opens PoB, can't delete proofs in some folders, PoC Live desk layout.
 Done 2026-11-07: Git › Sites & kits per proof (proof_book.py), the Git keep guide, no coin sites on PoB, NBA odds by team name. OSSY = qwen3.5-9b and G4 = qwen3.5-4b stay; they beat Gemma 4 12B on a decoy fact test (15, 14, 10 of 15). Gemma 4 12B MLX (9.8 GB) is still on the MacBook; the owner may delete it.
+12. (owner 2026-11-07) Every method Claude uses to work well becomes a kit in the stash for every proof type, plus new proof types that are missing:
+    - planning, checking its own work, finding real components and packs, reading docs before building, testing before claiming done, picking good sources;
+    - agent minds find and use the best sources and newest component packs themselves (a kit scout per proof);
+    - the goal: cheap and local models work like the newest models because the stash gives them the tools and the method.
