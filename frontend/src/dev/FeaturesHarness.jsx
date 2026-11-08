@@ -1,11 +1,12 @@
 import React from 'react';
-import { FeaturesFolder } from '../components/command/FeaturesFolder';
+import { FeaturesFolder, ProofDesk } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
 import { apiUrl } from '../lib/api';
 import { CollectiveLanding } from '../components/command/CollectiveLanding';
 import { EcoDesk } from '../components/command/EcoDesk';
 import { EcoFolder } from '../components/command/EcoFolder';
+import { DeskWidgets } from '../components/command/DeskWidgets';
 import { LiveDesk } from '../components/command/PocEditor';
 import { ProofSendForm } from '../components/command/ProofKit';
 import { GrowFolder } from '../components/command/OwnerFolders';
@@ -30,6 +31,8 @@ function Models() {   // the real model list from 5088, in the real popover, so 
 }
 export default function FeaturesHarness() {
   if (/models/.test(window.location.search)) return <Models />;
+  if (/widgets/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, width: 260 }}><DeskWidgets d={{ powFolders: [{ pnlPct: 12 }, { pnlPct: -4 }], pobFolders: [{ graded: 'right' }], pocFolders: [{ graded: 'right' }, {}], psFolders: Array.from({ length: 9 }, (_, i) => ({ graded: i % 3 ? 'right' : 'wrong' })), poeFolders: [{ net: 2460 }], jobs: [{}, { done: true }], signedIn: [1], logins: [1, 2] }} pool={{ stake: { pointsLeft: 3, sentUsd: 5, nowPct: 0.4 } }} openWin={() => {}} cat={{ id: 'x', brainsCfg: { brains: ['local/ossy', 'local/g4'], mindNames: ['OSSY', 'G4'], credit: 5.8, spent: 1.2 } }} work={null} has={['brains']} /></div>;
+  if (/pdk/.test(window.location.search)) return <div className="dsk-win" style={{ height: '100vh', background: '#07040d' }}><div className="dsk-body" style={{ height: '100%', overflow: 'auto', display: 'grid' }}><ProofDesk cat={cat} kind="build" work={async (_c, b) => (b.op === 'features' ? { workspaces: [1, 2, 3, 4, 5, 6].map(i => ({ id: `w${i}`, kind: 'build', name: `Page ${i}` })), psFolders: Array.from({ length: 30 }, (_, i) => ({ id: `p${i}`, n: i + 1, topic: `Page ${i % 6}`, ws: `w${i % 6}`, version: 2, graded: i % 3 ? 'right' : null })) } : {})} onCommand={() => {}} /></div></div>;
   if (/money/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><GrowFolder d={{ stake: { stakedUsd: 0, keepUsd: 0, profitUsd: 0, paidUsd: 0 }, cfg: { reservePct: 10, collectivePoolPct: 20, spotMaxPct: 30 }, pools: [], stakeAgents: [] }} save={async () => {}} busy={false} call={async u => (String(u).startsWith('/admin/grow/detail') ? { points: [], why: 'History is read on the real desk' } : String(u).startsWith('/admin/grow') ? GROW : {})} /></div>;
   if (/grade/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, boxSizing: 'border-box', maxWidth: 560 }}><ProofSendForm cat={cat} work={async (_c, b) => (b.op === 'pool' ? { weights: GRADE.weights } : {})} f={{ id: GRADE.id }} kind="PoStatic" coin={false} /></div>;
   if (/live/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><LiveDesk cat={cat} work={async () => ({ sites: [{ id: 's1', host: 'news.ycombinator.com', url: 'https://news.ycombinator.com', note: 'Read 12 min ago: 3 new threads' }, { id: 's2', host: 'reddit.com/r/solana', url: 'https://reddit.com/r/solana', note: 'Read 40 min ago: quiet' }], drafts: [{ id: 'd1', status: 'new', site: 'news.ycombinator.com', happened: 'A thread on local models hit the front page', room: 'Skeptical, technical, tired of hype', narrative: 'Small models now do real work on a laptop', angle: 'Show a real run, not a claim', draft: 'Ran a 9B model on a MacBook for a week of real tasks. What it got right, what it did not, and the numbers.', why: 'The room wants receipts, not takes' }] })} /></div>;
