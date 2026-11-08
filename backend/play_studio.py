@@ -6,6 +6,7 @@ import base64
 import html as _html
 import json
 import play_games as _games
+import html as html_lib
 import re
 import secrets
 import zlib
@@ -301,6 +302,30 @@ TEMPLATE_BY = {t['id']: t for t in TEMPLATES}
 
 # 🎬 Plays a finished page by itself in the showcase: an agent's cursor reads down it, presses its buttons, and a game is played by its bot. Nobody has to touch it.
 DEMO_PLAYER = """<style>#dcur{position:fixed;left:62%;top:40%;z-index:99;width:22px;height:22px;pointer-events:none;background:#fff;clip-path:polygon(0 0,0 78%,24% 58%,44% 100%,58% 92%,40% 54%,72% 52%);filter:drop-shadow(0 2px 5px #000);transition:left .9s cubic-bezier(.3,.8,.3,1),top .9s cubic-bezier(.3,.8,.3,1),transform .12s ease}#dcur.down{transform:scale(.72)}html{scrollbar-width:none}html::-webkit-scrollbar{display:none}</style><i id="dcur"></i><script>(()=>{if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=document.getElementById('dcur'),w=m=>new Promise(r=>setTimeout(r,m));const at=e=>{const r=e.getBoundingClientRect();c.style.left=r.left+Math.min(r.width/2,180)+'px';c.style.top=r.top+r.height/2+'px'};const press=async e=>{at(e);await w(1000);c.classList.add('down');await w(160);c.classList.remove('down');e.click()};const glide=(y,ms)=>new Promise(r=>{const a=scrollY,t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/ms),e=k<.5?2*k*k:1-((1-k)**2)*2;scrollTo(0,a+(y-a)*e);k<1?requestAnimationFrame(f):r()};requestAnimationFrame(f)});async function run(){await w(2600);for(;;){const go=document.querySelector('#go');if(go){for(let i=0;i<40&&go.disabled;i++)await w(300);at(go);await w(1200);c.classList.add('down');await w(160);c.classList.remove('down');window.__game&&window.__game.demo();await w(600);c.style.opacity=0;return}const main=document.querySelector('main:not([hidden])');const cta=main&&main.querySelector('.cta:not(.page-back)');if(cta){at(cta);await w(1500)}for(const s of main?main.querySelectorAll('section'):[]){await glide(s.getBoundingClientRect().top+scrollY-60,1500);const h=s.querySelector('h2');if(h)at(h);await w(1900)}if(scrollY>10){await glide(0,1300);await w(800)}const nx=main&&main.querySelector('[data-go="1"]');if(nx){await press(nx);await w(5200);const bk=document.querySelector('main:not([hidden]) [data-go="0"]');if(bk){await press(bk);await w(1500)}}await w(1200)}}run()})()</script>"""
+
+
+# 💻 The code playground (owner 2026-11-07: "a real 3D playground like GPT's, not just artifacts"): one three.js module, written by the owner
+# or a mind, run live in the same locked sandbox a filed page uses. Everything is drawn from code: no network, no outside files.
+CODE_SYS = ('You write one three.js ES module for a live 3D playground. It runs as <script type="module"> in a page with nothing else on it. '
+            "Import only from 'three' and 'three/addons/...' (three 0.170). Make the renderer yourself, append its canvas to document.body, fill the window, "
+            'handle resize, run an animation loop, and make it react to the pointer. Everything is built from code: geometry, materials, shaders, particles, light. '
+            'No textures or models from URLs, no fetch, no network. Keep what already works when asked for a change. '
+            'Reply with the whole module in one ```js block, then one short line on what you made.')
+
+
+def code_reply(raw):
+    """→ (code, say). The module from a ```js block, or the whole reply if it is plainly code. Pure."""
+    t = str(raw or ''); m = re.search(r'```(?:js|javascript)?\s*\n(.*?)```', t, re.S)
+    code = (m.group(1) if m else (t if re.search(r"import \* as THREE|new THREE\.", t) else '')).strip()
+    say = re.sub(r'```.*?```', '', t, flags=re.S).strip()[:200] if m else ''
+    return (code[:60000] if 'THREE' in code else ''), say
+
+
+def code_page(code, name='3D playground'):
+    """The module as a whole page that runs by itself. The lock lets three.js through and nothing else."""
+    safe = str(code or '').replace('</script', '<\\/script')
+    return lock_site(f'<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html_lib.escape(str(name))[:60]}</title>{THREE_TAG}'
+                     f'<style>html,body{{margin:0;height:100%;overflow:hidden;background:#05070a}}canvas{{display:block}}</style></head><body><script type="module">\n{safe}\n</script></body></html>')
 
 
 def template_scene(tid):

@@ -1,3 +1,4 @@
+import { Code3D } from './Code3D';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -69,7 +70,10 @@ export default function Playground3D({ cat, work, onBack, onVideo }) {
   useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'play3d_get' })).then(j => { if (on) { setInfo(j); setScene(j.scene?.objects ? { ...EMPTY, ...j.scene } : EMPTY); } }).catch(e => { if (on) { setErr(e.message); setScene(EMPTY); } }); return () => { on = false; }; }, [cat.id, work]);
   const change = useCallback(fn => { setScene(s => { const n = fn(s); setPast(p => [...p.slice(-39), s]); setNext([]); return n; }); }, []);
   const moved = useCallback(m => { const id = m.userData.id; change(s => ({ ...s, objects: s.objects.map(o => (o.id === id ? { ...o, pos: m.position.toArray().map(v => +v.toFixed(3)), rot: [m.rotation.x, m.rotation.y, m.rotation.z].map(v => +v.toFixed(3)), scale: m.scale.toArray().map(v => +Math.max(0.01, v).toFixed(3)) } : o)) })); }, [change]);
-  return scene ? <Studio {...{ host, scene, setScene, past, setPast, next, setNext, sel, setSel, mode, setMode, ask, setAsk, busy, setBusy, said, setSaid, err, setErr, noGl, setNoGl, info, setInfo, name, setName, change, moved, cat, work, onBack, onVideo }} /> : <p className="p3d-none" data-testid="p3d-loading">Opening the playground…</p>;
+  const [kind, setKind] = useState('objects');
+  const modes = <div className="p3d-modes">{kind === 'code' && onBack ? <button type="button" className="m-btn p3d-modes-back" onClick={onBack} data-testid="p3c-back">← Back</button> : null}<span className="m-seg" role="tablist" aria-label="Playground">{[['objects', 'Objects', 'Real models, light and surfaces you place'], ['code', 'Code', 'Real three.js you or its minds write, running live']].map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''} onClick={() => setKind(k)} data-tip={tip} data-testid={`p3d-mode-${k}`}>{l}</button>)}</span></div>;
+  if (kind === 'code') return <>{modes}<Code3D cat={cat} work={work} initial={info.code || ''} /></>;
+  return scene ? <>{modes}<Studio {...{ host, scene, setScene, past, setPast, next, setNext, sel, setSel, mode, setMode, ask, setAsk, busy, setBusy, said, setSaid, err, setErr, noGl, setNoGl, info, setInfo, name, setName, change, moved, cat, work, onBack, onVideo }} /></> : <p className="p3d-none" data-testid="p3d-loading">Opening the playground…</p>;
 }
 
 function Studio({ host, scene, setScene, past, setPast, next, setNext, sel, setSel, mode, setMode, ask, setAsk, busy, setBusy, said, setSaid, err, setErr, noGl, setNoGl, info, name, setName, change, moved, cat, work, onBack, onVideo }) {

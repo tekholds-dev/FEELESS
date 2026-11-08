@@ -6475,7 +6475,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
     if not scene['objects'] and not scene.get('hero'):
         _feat.add_msg(doc, by, f"Nothing it asked for exists in the library: {', '.join(seen_missing[:6])}. Nothing changed. Try other words.", time.time())
         return cost, 'None of its assets were found.', own
-    checked = ''; checker = brains[order[-1]] if len(brains) > 1 else brains[order[0]]
+    checked = ''; checker = brains[order[-1]] if len(order) > 1 else brains[order[0]]; check_by = name(order[-1]) if len(order) > 1 else ''
     if fresh_:   # a check is against the whole prompt, so an edit skips it: it answered "the prompt has no page 5", and added things nobody asked for
         busy('review')
         try:
@@ -6518,7 +6518,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
             except Exception as e:   # noqa: BLE001 — a look that fails never costs the page
                 print(f'[look] {str(e)[:120]}')
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it. Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it." + (f" {by} built it, {check_by} checked it against your words{': ' + checked.rstrip('.') if checked else ''}." if check_by and check_by != by and fresh_ else '') + f" Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -6531,7 +6531,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     stop_why = ''
     try:
         if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
-            usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
+            lead_ = len(doc.get('versions') or []) % len(order) if to == 'both' and len(order) > 1 else 0   # 🧠🧠 owner 2026-11-07 "only ONE mind seems to work": with both picked, the minds take turns leading a 3D round and the other checks it
+            usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order[lead_:] + order[:lead_], name, to)
             cost += usd_
         elif kind == 'build':
             cur = (doc.get('versions') or [{}])[-1].get('html') or ''; cfg_ = _feat.build_cfg(doc); pl_ = doc.get('plan') or {}
@@ -7701,7 +7702,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
         f3_ = _play_path(cat_id, '3d'); saved_ = _play_load(cat_id, '3d') or {}
         if p.op == 'play3d_get':
-            return {'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}
+            return {'code': (_play_load(cat_id, 'code3d') or {}).get('code') or '', 'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}
         now_scene_ = _play.clean_scene((p.tools or {}).get('scene'))
         if p.op in ('play3d_template', 'play3d_mood'):   # 🧱 a whole set in one tap, with no model and no cost
             base_ = _play.template_scene(p.job) if p.op == 'play3d_template' else _play.clean_scene(_play.dress(now_scene_, p.job, str(len(now_scene_['objects']))))
@@ -7749,6 +7750,31 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 say_ = f"{say_} Used: {', '.join(used_[:6]) or 'nothing real'}." + (f" Not found: {', '.join(missing_[:4])}." if missing_ else '')
             _play_save(cat_id, '3d', {'scene': scene_, 'mind': scene_})
             return {'scene': scene_, 'say': say_, 'usd': round(float(usd_ or 0), 5), 'learned': note_}
+        if p.op == 'play3d_code':   # 💻 the code playground: a mind writes or changes the module; with two minds they take turns leading
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_ or not str(p.text or '').strip():
+                raise HTTPException(400, 'Pick a model for this agent, and say what to make.')
+            code_s_ = _play_load(cat_id, 'code3d') or {}; turn_ = int(code_s_.get('turn') or 0); i_ = turn_ % len(brains_); was_ = str(p.job or code_s_.get('code') or '')[:40000]
+            raw_, usd_, _own = await _ws_ask(cat, brains_[i_], _play.CODE_SYS + _recall(cat, 'Code', str(p.text)), (f'THE CODE NOW:\n{was_}\n\n' if was_ else '') + f'MAKE THIS: {str(p.text)[:1200]}', 6000)
+            code_, say_ = _play.code_reply(raw_)
+            if not code_:
+                raise HTTPException(502, f"Mind {'AB'[i_]} did not send usable code, and nothing changed. Try again.")
+            _play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1})
+            return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'usd': round(float(usd_ or 0), 5)}
+        if p.op == 'play3d_code_save':   # 💾 its owner's own edits stay with the playground
+            _play_save(cat_id, 'code3d', {**(_play_load(cat_id, 'code3d') or {}), 'code': str(p.job or '')[:60000]})
+            return {'saved': True}
+        if p.op == 'play3d_code_file':   # 📄 the running module becomes a real page and a PoStatic, the same locked page anyone opens
+            code_ = str(p.job or (_play_load(cat_id, 'code3d') or {}).get('code') or '')
+            if 'THREE' not in code_:
+                raise HTTPException(400, 'Write or ask for some three.js first.')
+            try:
+                row_ = _feat.new_folder(cat, 'build', str(p.text or '3D playground')[:40], time.time())
+            except ValueError as e:
+                raise HTTPException(409, str(e))
+            doc_ = _feat.new_doc(row_); doc_['versions'] = [{'html': _play.code_page(code_, row_['name']), 'by': '3D playground', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]
+            filed_ = _feat.file_static(cat, doc_, '3D playground', time.time()); _ws_save(cat_id, doc_); keep_owned(cat); _save(store)
+            return {'folder': row_, 'filed': filed_, 'workspaces': cat['workspaces']}
         if p.op == 'play3d_file':
             if not now_scene_['objects'] and not now_scene_.get('hero'):
                 raise HTTPException(400, 'Add something to the scene first.')

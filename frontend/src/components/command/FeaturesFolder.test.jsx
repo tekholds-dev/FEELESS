@@ -407,3 +407,10 @@ test('the PoStatic reel is a mix: kinds take turns, and every example page and t
   const fs = require('fs'); const path = require('path');
   EXAMPLE_PIECES.forEach(p => { [p.src, p.thumb].forEach(f => expect(fs.existsSync(path.join(__dirname, '../../../public', f))).toBe(true)); });
 });
+
+test('the 3D code playground runs its code in a locked frame that loads only three.js, and every starter is three.js', () => {
+  const { pageOf, STARTERS } = require('./Code3D');
+  const p = pageOf("import * as THREE from 'three'; '</script>'");
+  expect(p).toMatch(/Content-Security-Policy/); expect(p).toMatch(/three@0\.170\.0/); expect(p).not.toMatch(/<\/script>'/);
+  STARTERS.forEach(([, , c]) => { expect(c).toMatch(/import \* as THREE from 'three'/); expect(c).toMatch(/setAnimationLoop/); });
+});
