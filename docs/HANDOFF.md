@@ -691,6 +691,7 @@ Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fi
 8. The Collective: 5 tabs, 2 nearly the same with the same diagrams. Merge them.
    - DONE 2026-11-07: How it pays and Try it from $1 both drew the live pool rules (the score ladder twice, the story cards = the try-it stat row). Now one How it pays tab on the interactive `KeepDeal` (amount, score, pot, rate, flow, table, ladder, chart); `StakeStory`/`ScoreLadder` stay for the Whitepaper. 4 tabs. The Pools make choices wrap instead of hiding the Hot rate off the edge. Seen in Chromium at 1280 and 360.
 9. PoEco is useless. Rebuild it as a white dashboard with day/night and real charts that can add a card to order, pay bills, and more.
+   - PARTLY DONE 2026-11-07: PoEco is a clean white dashboard by default with a Day/Night switch (remembered per browser; Night = the old dark desk): KPI cards, a bigger cash-over-time chart with axes and grid, a new Where it goes donut, colours that follow the look. Seen in Chromium at 1280 and 360 on real `agent_eco` sample numbers (`dev/ecoFixture.json`). NOT built: ordering a card and paying bills. Both move money and need his decision on the path (a bill is still only marked paid and opens his own link).
 10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.
 11. Earlier, still open: any folder opens PoB, can't delete proofs in some folders, PoC Live desk layout.
 12b. (owner 2026-11-07, after 1-11, before stopping) In his words, condensed:
