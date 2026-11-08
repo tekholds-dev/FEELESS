@@ -33,3 +33,6 @@ body.fx-lite .p3d-start, body.fx-lite .p3d-tpls button, body.fx-lite .p3d-live {
 @media (prefers-reduced-motion: reduce) { .p3d-start, .p3d-tpls button, .p3d-live { animation: none; } }
 body.theme-day .p3d-start { background: #f4f8f5f2; } body.theme-day .p3d-start h3, body.theme-day .p3d-tpls button { color: #0d2a1b; } body.theme-day .p3d-start > p, body.theme-day .p3d-tpls small { color: #3c5a4a; }
 @media (max-width: 640px) { .p3d-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* a model with no picture shows a drawn cube, never a black square (43,000 Objaverse rows came without thumbnails) */
+.p3d-thumb { background: #0b1418 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235cc8ff' stroke-width='1.2' stroke-linejoin='round' opacity='.55'%3E%3Cpath d='M12 2 3 7v10l9 5 9-5V7z'/%3E%3Cpath d='M3 7l9 5 9-5M12 12v10'/%3E%3C/svg%3E") center / 42% no-repeat; }

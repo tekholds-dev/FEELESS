@@ -176,6 +176,44 @@ def best(root, query, kind, avoid=(), strict=False):
 SET_PIECES = (('cylinder', [3.2, 0.12, 3.2], [0, 0.06, 0], re.compile(r'(?i)\b(stage|slab|platform|pedestal|plinth|podium|base)\b')), ('box', [14, 7, 0.2], [0, 3.5, -4], re.compile(r'(?i)\b(backdrop|wall|curtain|background)\b')), ('box', [14, 0.1, 14], [0, 0.05, 0], re.compile(r'(?i)\b(floor|carpet|rug)\b')))
 
 
+THUMBS = 'assets_thumbs.dat'
+OX = re.compile(r'^ox-([0-9a-f]{32})$')
+
+
+def thumb_of(r):
+    """A row's picture: its own, Poly Haven's by id, or for an Objaverse model our cached Sketchfab lookup. '' when there is none. Pure."""
+    if r.get('thumb'):
+        return r['thumb']
+    m = OX.match(str(r.get('id') or ''))
+    if m:
+        return f'/api/cats/assets/thumb/{m.group(1)}'
+    return '' if r.get('url') else f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256"
+
+
+async def sketchfab_thumb(http, root, uid):
+    """The picture Sketchfab shows for an Objaverse model, about 256 px, looked up once and kept. '' when the model is gone. → url"""
+    if not re.fullmatch(r'[0-9a-f]{32}', str(uid or '')):
+        return ''
+    d = _load(root, THUMBS); have = (d.get('rows') or {}).get(uid)
+    if have is not None:
+        return have
+    url = ''
+    try:
+        r = await http.get(f'https://api.sketchfab.com/v3/models/{uid}', headers={'User-Agent': UA}, timeout=10)
+        if r.status_code == 200:
+            ims = sorted(((r.json().get('thumbnails') or {}).get('images') or []), key=lambda x: abs(int(x.get('width') or 0) - 256))
+            url = next((str(x['url']) for x in ims if str(x.get('url', '')).startswith('https://media.sketchfab.com/')), '')
+        elif r.status_code != 404:
+            return ''   # a busy API is asked again later, only a missing model is remembered as missing
+    except Exception:   # noqa: BLE001 — no picture, the name still shows
+        return ''
+    rows = dict(d.get('rows') or {}); rows[uid] = url
+    if len(rows) > 50000:
+        rows = dict(list(rows.items())[-40000:])
+    _save(root, THUMBS, {'rows': rows})
+    return url
+
+
 def search(root, query, kind='model', n=24):
     words = _words(query); rows = list((_load(root, INDEX).get('rows') or {}).get(kind) or [])
     if kind == 'model':
@@ -184,7 +222,7 @@ def search(root, query, kind='model', n=24):
     ranked = sorted({r['id']: r for r in rows}.values(), key=lambda r: _score(r, words), reverse=True)
     if words:
         ranked = [r for r in ranked if _score(r, words)[0] > 0]
-    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': r.get('thumb') or ('' if r.get('url') else f"https://cdn.polyhaven.com/asset_img/thumbs/{r['id']}.png?width=256&height=256")} for r in ranked[:n]]
+    return [{'id': r['id'], 'name': r['name'], 'kind': kind, 'tags': r['tags'][:5], 'thumb': thumb_of(r)} for r in ranked[:n]]
 
 
 def _url(v):

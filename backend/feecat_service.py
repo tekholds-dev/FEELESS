@@ -6931,6 +6931,15 @@ def model_prints(store):
 _PRINTS = {'at': 0.0, 'rows': []}
 
 
+@app.get('/api/cats/assets/thumb/{uid}')
+async def asset_thumb(uid: str):
+    """🖼 An Objaverse model's picture in the 3D studio search (they came with none, so 43,000 tiles were black). Public, cached, no key: it only points at Sketchfab's own image."""
+    from fastapi.responses import RedirectResponse, Response
+    async with httpx.AsyncClient(timeout=12) as h_:
+        url = await _assets.sketchfab_thumb(h_, KITS_DIR, uid)
+    return RedirectResponse(url, status_code=302, headers={'Cache-Control': 'public, max-age=86400'}) if url else Response(status_code=404, headers={'Cache-Control': 'public, max-age=3600'})
+
+
 @app.get('/api/cats/models/prints')
 async def cat_model_prints():
     """🧬 The models our agents used, each with its fingerprint score. Only the model picker shows it."""
