@@ -414,3 +414,18 @@ test('the 3D code playground runs its code in a locked frame that loads only thr
   expect(p).toMatch(/Content-Security-Policy/); expect(p).toMatch(/three@0\.170\.0/); expect(p).not.toMatch(/<\/script>'/);
   STARTERS.forEach(([, , c]) => { expect(c).toMatch(/import \* as THREE from 'three'/); expect(c).toMatch(/setAnimationLoop/); });
 });
+
+test('🧮 before a send: its grade and why, how far the seats can move it, and what the amount does at this grade against flawless', async () => {
+  const { ProofSendForm, gradeMath } = require('./ProofKit');
+  const rules = { walletCapPct: 10, cutPerX: 1, score: { potUsd: 10000, top: 300 } };
+  const a = gradeMath(rules, 129, 25, 10000, 54); const b = gradeMath(rules, 300, 25, 10000, 54);
+  expect(a.x).toBeCloseTo(1.29); expect(a.limit).toBeCloseTo(32.25); expect(b.limit).toBe(75); expect(b.day).toBeGreaterThan(a.day);
+  global.fetch = async u => ({ ok: true, json: async () => (String(u).includes('pool/rules') ? { rules } : String(u).includes('pool-rates') ? { hotPct: 54 } : {}) });
+  const weights = { p1: { score: 129.3, top: 300, rank: 'C', parts: [{ key: 'unique', label: 'Unique', weight: 1, value: 0, note: '0% new, closest is #43' }, { key: 'build', label: 'Real build', weight: 1, value: 0.52, note: '32K page' }] } };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ProofSendForm cat={{ id: 'c' }} work={async () => ({ weights })} f={{ id: 'p1' }} kind="PoStatic" coin={false} />); });
+  for (let i = 0; i < 20 && !el.querySelector('[data-testid="grade-preview"]'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  const g = el.querySelector('[data-testid="grade-preview"]'); expect(g.textContent).toContain('129'); expect(g.textContent).toContain('0% new, closest is #43'); expect(g.textContent).toContain('lift it at most 24');
+  expect(el.querySelector('[data-testid="grade-math"]').textContent).toContain('3.00x'); expect(el.querySelector('[data-testid="proof-meter"]')).toBeNull();
+  act(() => root.unmount()); el.remove();
+});

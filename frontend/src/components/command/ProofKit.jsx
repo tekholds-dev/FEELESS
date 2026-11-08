@@ -1,7 +1,8 @@
 import { KitPick } from './KitPick';
 import { useSolPrice } from '../../lib/solPrice';
 import { ChatSettings } from '../chat/ChatKit';
-import { boostX, GRADE_BASE, seatOf } from './KeepDeal';
+import { boostX, dayEarn, GRADE_BASE, limitIn, seatOf, tinyUsd, usePoolRates } from './KeepDeal';
+import { usePoolRules } from './SplitFlow';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
@@ -29,6 +30,32 @@ const perpTitle = f => { const c = (Array.isArray(f?.calls) ? f.calls : []).find
 export const proofTitle = f => f?.name || f?.topic || f?.title || f?.game || f?.sym || perpTitle(f) || `Proof${f?.n ? ` #${f.n}` : ''}`;
 const SentCard = ({ sent, f }) => <section className="psub is-sent" data-testid="proof-submit-sent"><span className="psub-said"><b>SENT TO THE COLLECTIVE</b>{sent.usd ? <em className="m-num">${sent.usd}</em> : <em className="m-num">{Number(sent.sol).toFixed(4)} SOL</em>}</span>{(sent.review || f?.review)?.seats ? <ul className="psub-seats" aria-label="The five checks">{(sent.review || f.review).seats.map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.why}>{x.name}</li>)}</ul> : null}{sent.link ? <a className="m-btn" href={sent.link} target="_blank" rel="noopener noreferrer">Tx ↗</a> : null}</section>;
 // 🪙 The send itself: the amount, what it can earn, and a second tap to confirm. The proof's popover and the Boost folder both use it.
+// 🧮 Before anything is sent (owner 2026-11-07: "users should see the score, how much boost it could get, and why, before they just send"). The grade
+// on its own record now, each part and why, how far the three seats can still move it, and what this amount does at this grade against flawless.
+const GRADES = new Map();
+export const gradeMath = (rules, score, usdIn, pot, rate) => { const x = boostX(score); const seat = seatOf(rules, x, usdIn); const limit = usdIn * x; const day = dayEarn(seat, pot, rate); return { x, seat, limit, day, takes: limitIn(limit, day) }; };
+export function GradePreview({ cat, work, f, usdIn }) {
+  const [v, setV] = useState(() => GRADES.get(`${cat?.id}:${f?.id}`) ?? null); const rules = usePoolRules(); const rates = usePoolRates();
+  useEffect(() => { if (!work || !cat?.id || !f?.id || v) return undefined; let on = true; Promise.resolve().then(() => work(cat.id, { op: 'pool' })).then(j => { const g = j?.weights?.[f.id] || { none: true }; GRADES.set(`${cat.id}:${f.id}`, g); if (on) setV(g); }).catch(() => on && setV({ none: true })); return () => { on = false; }; }, [cat?.id, f?.id, work, v]);
+  if (!v) return <p className="gpv-wait" data-testid="grade-wait">Reading its grade…</p>;
+  if (v.none || !v.parts) return <p className="gpv-wait" data-testid="grade-none">This kind is graded after it is sent.</p>;
+  const top = v.top || rules?.score?.top || GRADE_BASE; const pot = rules?.score?.potUsd ?? 0; const rate = rates?.hotPct ?? 20; const lift = Math.round(0.08 * top);
+  const now = gradeMath(rules, v.score, usdIn, pot, rate); const best = gradeMath(rules, top, usdIn, pot, rate); const big = gradeMath(rules, v.score, usdIn, 10000, rate);
+  const weak = [...v.parts].filter(p => p.value != null).sort((a, b) => a.value * a.weight - b.value * b.weight).slice(0, 2);
+  return <section className="gpv" data-testid="grade-preview">
+    <header><span className={`gpv-rank is-${v.rank || 'D'}`} data-tip="S 92%+ · A 78% · B 60% · C 40% · D below">{v.rank || '–'}</span><span><small>ITS GRADE ON ITS RECORD NOW</small><b className="m-num">{Math.round(v.score)}<em> / {top}</em></b><i className="gpv-bar" aria-hidden="true"><u style={{ transform: `scaleX(${Math.min(1, v.score / top)})` }} /></i></span></header>
+    <ul className="gpv-parts">{v.parts.map((p, i) => <li key={p.key} style={{ '--i': i }} data-tip={`Weighs ${Math.round(p.weight * 100)} of its grade`}><span>{p.label}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${p.value ?? 0})` }} /></i><b className="m-num">{p.value == null ? '–' : `${Math.round(p.value * 100)}%`}</b><small>{p.note}</small></li>)}</ul>
+    {v.held ? <p className="gpv-note is-warn" data-testid="grade-held">Held at {Math.round(v.score)}: {String(v.held)}.</p> : null}
+    <p className="gpv-note">After you send, three seats grade it. They can lift it at most {lift} above this, or lower it. {weak.length ? `To grade higher next time: ${weak.map(p => p.label.toLowerCase()).join(' and ')}.` : ''}</p>
+    <table className="gpv-math" data-testid="grade-math"><thead><tr><th>${usdIn || 0} sent</th><th>At this grade</th><th>If flawless ({top})</th></tr></thead><tbody>
+      <tr><td>Boost</td><td className="m-num">{now.x.toFixed(2)}x</td><td className="m-num">{best.x.toFixed(2)}x</td></tr>
+      <tr><td>Most it can earn</td><td className="m-num">{tinyUsd(now.limit)}</td><td className="m-num">{tinyUsd(best.limit)}</td></tr>
+      <tr><td>A day, pot today ${Math.round(pot).toLocaleString()}</td><td className="m-num">{tinyUsd(now.day)}</td><td className="m-num">{tinyUsd(best.day)}</td></tr>
+      <tr><td>Reaches its limit, pot today</td><td className="m-num">{now.takes}</td><td className="m-num">{best.takes}</td></tr>
+      <tr><td>Reaches its limit, at a $10K pot</td><td className="m-num">{big.takes}</td><td className="m-num">{gradeMath(rules, top, usdIn, 10000, rate).takes}</td></tr></tbody></table>
+    <p className="gpv-note">{v.score < 100 ? 'Under 100 it is 1x: the most it can earn is what it sends. ' : ''}Pools earn {rate}% a year today and can lose money. Only real pool profit pays.</p>
+  </section>;
+}
 export function ProofSendForm({ cat, work, f, kind, coin = true, onSent = null, rules = null, onUsd = null }) {
   const px = useSolPrice(); const [usd, setUsd] = useState(5); const [sure, setSure] = useState(false); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [done, setDone] = useState(null);
   const n = Number(usd) || 0; const low = boostX(0) * n; const top = boostX(GRADE_BASE) * n; const seat = seatOf(rules, boostX(GRADE_BASE), n); const least = cat?.ownerStaff ? 0 : 1;   // the owner's own agents may send any amount, to test
@@ -37,9 +64,9 @@ export function ProofSendForm({ cat, work, f, kind, coin = true, onSent = null, 
   if (done) return <SentCard sent={done} f={f} />;
   return <section className="psub">{coin ? <span className="psub-coin" aria-hidden="true"><Suspense fallback={null}><Coin3DLazy energy={sure ? 1 : 0.6} size={64} /></Suspense></span> : null}
     <span className="psub-body"><b>SEND THIS PROOF TO THE COLLECTIVE</b><span className="m-seg" role="group" aria-label="Dollars to send">{SEND_CHIPS.map(v => <button key={v} type="button" className={usd === v ? 'active' : ''} aria-pressed={usd === v} onClick={() => { setUsd(v); onUsd?.(v); setSure(false); }} data-testid={`proof-usd-${v}`}>${v}</button>)}</span><input className="m-input m-num" type="number" min={least || 0} step="any" value={usd} onChange={e => { const v = e.target.value === '' ? '' : Number(e.target.value); setUsd(v); onUsd?.(v); setSure(false); }} aria-label="Dollars to send" data-testid="proof-usd" /></span>
-    <span className="psub-meter" data-tip="Its score decides. A flawless proof scores 300 today, which is 3x. It earns only from real pool profit. It can also earn nothing, and a stake can lose money" data-testid="proof-meter"><small>MOST IT CAN EARN</small><i aria-hidden="true"><u /></i><em className="m-num">${low.toFixed(2)} to ${top.toFixed(2)}</em><small className="m-num">Seat about {seat.toFixed(2)}% if flawless</small></span>
+    {f?.id && work ? null : <span className="psub-meter" data-tip="Its score decides. A flawless proof scores 300 today, which is 3x. It earns only from real pool profit. It can also earn nothing, and a stake can lose money" data-testid="proof-meter"><small>MOST IT CAN EARN</small><i aria-hidden="true"><u /></i><em className="m-num">${low.toFixed(2)} to ${top.toFixed(2)}</em><small className="m-num">Seat about {seat.toFixed(2)}% if flawless</small></span>}
     <button type="button" className={`m-btn m-go${sure ? ' is-sure' : ''}`} disabled={busy || !px || n <= 0 || n < least || !!blocked} onClick={go} data-tip={blocked || "Its own wallet signs one transfer. It can't be undone, and a stake can lose money"} data-testid="proof-send">{busy ? 'Sending…' : sure ? `Yes, send $${n}` : blocked ? 'Not a +50% win' : n < least ? '$1 minimum' : `Send $${n}`}</button>
-    {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}</section>;
+    {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}{f?.id ? <GradePreview cat={cat} work={work} f={f} usdIn={n} /> : null}</section>;
 }
 export function ProofSubmit({ cat, work, f, kind }) {
   const [open, setOpen] = useState(false);
