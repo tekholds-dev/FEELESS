@@ -159,7 +159,7 @@ def test_what_was_turned_down_cannot_come_back():
 def test_the_plan_fits_the_work():
     import agent_features as af
     assert 'THIS IS A GAME' in af.plan_sys('make me a playable game') and 'THIS IS A SHOP' in af.plan_sys('a store with a checkout') and 'THIS IS A COIN PAGE' in af.plan_sys('landing page for my memecoin')
-    assert af.plan_sys('something odd') == af.PLAN_SYS and 'THE PLAN' in af.ANSWER_SHAPES['content'] and 'THE PLAN' in af.ANSWER_SHAPES['research']
+    assert af.plan_sys('something odd') == af.PLAN_SYS and 'the hook' in af.ANSWER_SHAPES['content'] and 'Build it:' in af.CONTENT_SYS and 'THE PLAN' in af.ANSWER_SHAPES['research']
 
 
 def test_users_read_the_collective_not_the_internal_minds():
