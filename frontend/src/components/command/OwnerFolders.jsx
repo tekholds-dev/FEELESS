@@ -3,7 +3,7 @@ import { Chip, Slider, Switch } from '@heroui/react';
 import { motion } from 'motion/react';
 import { CircleAlert, Gift, LifeBuoy, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
-import { money } from './SplitFlow';
+import { money, usePoolRules } from './SplitFlow';
 import { ColonyPot } from './HiveBoard';
 import { Pools, Dials, planBody } from './CollectiveOwner';
 import { Fx, Roll } from './CollectiveSetup';
@@ -98,6 +98,40 @@ function GapStrip({ call }) {
   if (!rows?.length) return null;
   return <section className="hq-card grow-gaps" data-testid="grow-gaps"><h4>PRICE GAPS NOW<small>The same coin priced differently across its pools, after swap costs. Read only</small></h4><ul>{rows.map((g, i) => <li key={`${g.mint || g.symbol}-${i}`} style={{ '--i': i }}><b>{g.symbol || g.sym || 'Coin'}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.min(1, Math.abs(Number(g.net ?? g.gap ?? 0)) / 3)})` }} /></i><em className="m-num">{Number(g.net ?? g.gap ?? 0).toFixed(2)}%</em></li>)}</ul></section>;
 }
+// 🧭 THE BEST BY RISK (owner 2026-11-07: "a true dash that helps find the best to keep the Collective growing and paying out"). The top earners
+// on the board are thin coin pools that can fall 90%, so one ranking would point at the riskiest. Four lanes, the best of each on today's
+// real numbers, why it leads, and what $1K there would pay out. It ranks: the pick and the money stay the owner's.
+const LANES = [
+  ['steady', 'Steady dollars', 'No price risk. It can still fail or lose its peg', r => r.risk === 'none' && (r.tvl || 0) >= 1e6, '#45e486'],
+  ['stake', 'SOL staking', 'Moves with SOL. Pays for holding it', r => r.kind === 'stake' && (r.tvl || 0) >= 5e6, '#57c7ff'],
+  ['deep', 'Deep pool fees', 'A busy pool over $2M deep. One or both coins move', r => r.kind === 'pool' && (r.tvl || 0) >= 2e6, '#ffc24d'],
+  ['hot', 'Hot and risky', 'The top fees on the board, in thin coin pools that can fall hard', r => r.kind === 'pool' && (r.tvl || 0) >= 1e5, '#ff8fa3'],
+];
+export const bestByLane = rows => LANES.map(([k, t, risk, ok, col]) => { const all = (rows || []).filter(ok).sort((a, b) => b.per1k24 - a.per1k24); return { k, t, risk, col, best: all[0] || null, next: all.slice(1, 3), n: all.length }; });
+const short$ = v => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${Math.round(v || 0)}`);
+function laneWhy(l, lanes) {
+  const r = l.best; if (!r) return '';
+  if (l.k === 'hot') { const deep = lanes.find(x => x.k === 'deep')?.best; return `Leads on fees${deep ? `, ${Math.round(r.per1k24 / Math.max(0.01, deep.per1k24))}x the deepest pool's pace` : ''}, in a ${short$(r.tvl)} pool. A small price fall wipes that out.`; }
+  return `Leads its lane on today's pace${r.mean30 ? `; its 30-day average is ${r.mean30.toFixed(1)}%` : ''}.${l.next[0] ? ` Next: ${l.next[0].name} at $${l.next[0].per1k24.toFixed(2)} a day.` : ''}`;
+}
+function MoneyDash({ d, rows, rules, picks, onChart, onPlan, inPlan, busy, cutsPct }) {
+  const st = d.stake || {}; const pot = rules?.score?.potUsd ?? 0; const ladder = rules?.score?.ladder || []; const next = ladder.find(x => x.pot > pot); const lanes = useMemo(() => bestByLane(rows), [rows]); const piece = d.cfg?.collectivePoolPct || 0;
+  const kpis = [['STAKED', st.stakedUsd, 'What agents really sent, by the ledger'], ['COLLECTIVE KEEPS', st.keepUsd, "Fees that are the Collective's own"], ['POOL PROFIT', st.profitUsd, 'Profit that really landed'], ['PAID TO AGENTS', st.paidUsd, 'What agents have really been paid']];
+  return <section className="mny" data-testid="money-dash">
+    <div className="mny-kpis" data-testid="grow-real">{kpis.map(([k, v, t], i) => <motion.article key={k} {...rise(i)} data-tip={t}><small>{k}</small><b className="m-num"><Roll v={Number(v) || 0} fmt={money} /></b></motion.article>)}
+      <motion.article {...rise(4)} className="mny-rung" data-tip="The pot decides today's top score. A bigger pot opens a higher top, so the best proofs can earn more"><small>NEXT TOP SCORE</small>{next ? <><b className="m-num">{next.top}</b><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.min(1, pot / next.pot)})` }} /></i><em className="m-num">{short$(pot)} of {short$(next.pot)} pot</em></> : <b className="m-num">At the top</b>}</motion.article></div>
+    <header className="mny-h"><h4>THE BEST BY RISK<small>Today's real numbers, before price moves. It ranks; the pick is yours</small></h4></header>
+    {!rows ? <p className="fch-nil">reading every venue…</p> : <div className="mny-lanes">{lanes.map((l, i) => { const r = l.best; const pay = r ? payOf(r.per1k24 * 30, 720, cutsPct, piece) : null; return <motion.article key={l.k} {...rise(i)} className="mny-lane" style={{ '--c': l.col }} data-testid={`money-lane-${l.k}`}>
+      <header><b>{l.t}</b><small>{l.n} on the board</small></header><p className="mny-risk">{l.risk}</p>
+      {r ? <><h3 title={r.name}>{r.name}</h3><small className="mny-venue">{String(r.venue || '').replace(/-/g, ' ')}</small>
+        <div className="mny-nums"><span><small>A DAY ON $1K</small><b className="m-num">${r.per1k24.toFixed(2)}</b></span><span><small>A YEAR</small><b className="m-num">{r.yearPct.toFixed(1)}%</b></span><span><small>DEPTH</small><b className="m-num">{short$(r.tvl)}</b></span></div>
+        <p className="mny-why">{laneWhy(l, lanes)}</p>
+        {pay ? <p className="mny-pay" data-tip="A month at today's pace on $1K, before price moves, split by today's rules">$1K for a month: <b className="m-num">{money(pay.month)}</b>. Agents {money(pay.agents)}, Collective {money(pay.piece)}</p> : null}
+        <div className="mny-acts"><button type="button" className="m-btn" aria-pressed={!!picks?.includes(r.id)} onClick={() => onChart(r.id)} data-tip="Puts it on the chart below with its real history" data-testid={`money-chart-${l.k}`}>{picks?.includes(r.id) ? 'On the chart' : 'Chart it'}</button>{r.kind !== 'pool' ? <button type="button" className="m-btn m-go" disabled={busy || inPlan(r)} onClick={() => onPlan(r)} data-tip="Adds it to your plan. It moves no money" data-testid={`money-plan-${l.k}`}>{inPlan(r) ? 'In your plan' : 'Add to plan'}</button> : null}</div></> : <p className="fch-nil">Nothing in this lane today.</p>}
+    </motion.article>; })}</div>}
+  </section>;
+}
+
 export function GrowFolder({ d, save, busy, call, extra = null }) {
   const [rows, setRows] = useState(null); const [err, setErr] = useState(''); const [kind, setKind] = useState('all'); const [sort, setSort] = useState('day'); const [size, setSize] = useState(1000); const [hours, setHours] = useState(24); const [picks, setPicks] = useState(null); const [docs, setDocs] = useState({}); const [open, setOpen] = useState('');
   const pools = d.pools || []; const c = d.cfg || {}; const st = d.stake || {}; const used = pools.reduce((n, p) => n + (Number(p.targetPct) || 0), 0); const cutsPct = (d.stakeAgents || []).reduce((n, a) => n + (a.nowPct || 0), 0);
@@ -108,9 +142,9 @@ export function GrowFolder({ d, save, busy, call, extra = null }) {
   const toggle = id => setPicks(x => (x.includes(id) ? x.filter(y => y !== id) : [...x, id].slice(-4)));
   const series = (picks || []).map((id, i) => { const r = (rows || []).find(x => x.id === id); const doc = docs[id]; const m = doc ? curveOf(doc, hours, size) : null; return { id, name: r?.name || id, row: r, color: GROW_COLORS[i % 4], why: doc?.why, loading: !doc, ...(m || {}) }; }).filter(x => x.row);
   const drawn = series.filter(x => x.curve); const inPlan = r => pools.some(p => (r.kind === 'pool' ? p.address === r.id : p.pair === r.name.slice(0, 32)));
-  const addPlan = r => save(null, planBody(r));
+  const addPlan = r => save(null, planBody(r)); const rules = usePoolRules();
   return <Fx><div className="ofd" data-testid="ofd-grow"><Head icon={Sparkles} title="Money" line="What is really here, every way it could work, and what the same dollars would have done. Real numbers. The picks are yours: this is data, not advice, and past numbers promise nothing." />
-    <div className="hq-kpis" data-testid="grow-real">{[['STAKED', st.stakedUsd, '#57c7ff', 'What agents really sent, by the ledger'], ['COLLECTIVE KEEPS', st.keepUsd, '#3ee58a', 'Fees that are the Collective\'s own'], ['POOL PROFIT', st.profitUsd, '#ffc24d', 'Profit that really landed'], ['PAID TO AGENTS', st.paidUsd, '#c58bff', 'What agents have really been paid']].map(([k, v, col, t], i) => <motion.article key={k} {...rise(i)} style={{ '--c': col }} data-tip={t}><small>{k}</small><Roll v={Number(v) || 0} fmt={money} /></motion.article>)}</div>
+    <MoneyDash d={d} rows={rows} rules={rules} picks={picks} onChart={id => setPicks(x => ((x || []).includes(id) ? x : [...(x || []), id].slice(-4)))} onPlan={addPlan} inPlan={inPlan} busy={busy} cutsPct={cutsPct} />
     <section className="hq-card" data-testid="grow-chart"><h4>WHAT {money(size)} WOULD HAVE DONE<small>after price moves. Opens on the deepest of each kind. Tick up to 4 below</small></h4>
       <div className="ofd-row"><Seg value={hours} set={setHours} opts={WINDOWS} label="Window" id="grow-win" /><Seg value={size} set={setSize} opts={[[5, '$5'], [25, '$25'], [100, '$100'], [1000, '$1K'], [10000, '$10K']]} label="Money" id="grow-money" /></div>
       {drawn.length ? <Suspense fallback={<div className="grow-wait" />}><GrowLines series={drawn} money={size} /></Suspense> : <div className="grow-wait">{series.length && series.every(x => !x.loading) ? 'No history to draw for these.' : 'Reading real history…'}</div>}

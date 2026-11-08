@@ -429,3 +429,11 @@ test('🧮 before a send: its grade and why, how far the seats can move it, and 
   expect(el.querySelector('[data-testid="grade-math"]').textContent).toContain('3.00x'); expect(el.querySelector('[data-testid="proof-meter"]')).toBeNull();
   act(() => root.unmount()); el.remove();
 });
+
+test('💰 the Money dash ranks the best by risk, so the thin coin pool that tops the board never leads the safe lanes', () => {
+  const { bestByLane } = require('./OwnerFolders');
+  const rows = [{ id: 'a', kind: 'pool', name: 'MEME-SOL', risk: 'both', tvl: 2e5, per1k24: 90, yearPct: 3000 }, { id: 'b', kind: 'lend', name: 'USDC on kamino', risk: 'none', tvl: 4e7, per1k24: 0.22, yearPct: 8 },
+    { id: 'c', kind: 'stake', name: 'JitoSOL', risk: 'coin', tvl: 9e8, per1k24: 0.18, yearPct: 6.5 }, { id: 'd', kind: 'pool', name: 'SOL-USDC', risk: 'half', tvl: 3e7, per1k24: 1.4, yearPct: 51 }];
+  const by = Object.fromEntries(bestByLane(rows).map(l => [l.k, l.best?.name]));
+  expect(by).toEqual({ steady: 'USDC on kamino', stake: 'JitoSOL', deep: 'SOL-USDC', hot: 'MEME-SOL' });
+});
