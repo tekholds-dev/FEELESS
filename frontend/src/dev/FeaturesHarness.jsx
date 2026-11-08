@@ -1,6 +1,8 @@
 import React from 'react';
 import { FeaturesFolder } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
+import { ModelPop } from '../components/command/LaunchCat';
+import { apiUrl } from '../lib/api';
 import '../styles/features.css';
 
 // 🧪 DEV ONLY (`/dev/features`, never in a production build): an agent's Features folder on fixtures, no sign-in. The Showcase reel and the
@@ -11,7 +13,13 @@ const LIVE = { solUsd: 89.25, solChange24h: -0.94, slot: 466741400, tps: 1590, w
 const LIVE_PAGE = '<!doctype html><html><head><style>body{margin:0;font:16px system-ui;background:#07130d;color:#e6fff0;display:grid;place-items:center;height:100vh}b{font-size:44px;display:block}small{color:#7fd6a5}</style></head><body><div id=o><small>WAITING FOR LIVE NUMBERS</small></div><script>addEventListener("message",e=>{if(e.data&&e.data.t==="feeless-live"){const l=e.data.live;document.getElementById("o").innerHTML="<small>LIVE · "+l.source+"</small><b>SOL $"+l.solUsd+"</b><small>slot "+l.slot+" · "+l.tps+" TPS · wallet "+l.walletSol+" SOL</small>"}})</script></body></html>';
 const cat = { id: 'fx', name: 'Fixture agent', brainsCfg: { kind: 'general', brains: ['local/ossy'] } };
 const work = async (_id, p) => (p.op === 'play3d_get' ? { scene: null, code: '', canAsk: true } : p.op === 'play3d_code' ? { code: `${p.job}\n// harness: the mind's reply would land here`, by: 'Mind A', say: 'harness reply' } : p.op === 'play3d_code_file' ? { filed: { n: 7 }, folder: { id: 'w9' } } : p.op === 'play3d_code_save' ? { saved: true } : p.op === 'features' ? { workspaces: [] } : p.op === 'tools_show' ? { models: 3378, hdris: 997, textures: 869, templates: TEMPLATES } : p.op === 'feature_create' ? { folder: { id: /live/i.test(p.job || '') ? 'wlive' : 'w1', kind: p.text, name: p.job || 'New' }, workspaces: [] } : p.op === 'live_feed' ? { live: { ...LIVE, slot: LIVE.slot + Math.round((Date.now() / 1000 - LIVE.at) * 2.5), at: Math.round(Date.now() / 1000) } } : p.op === 'ws_open' && p.text === 'wlive' ? { doc: { id: 'wlive', kind: 'build', name: 'Live', messages: [], versions: 1, code: LIVE_PAGE, previousCode: '', preview: LIVE_PAGE } } : p.op === 'tools_showcase' ? new Promise(() => {}) : p.op === 'ws_open' ? fetch('/showcase/pos/pulse-dash.html').then(r => r.text()).then(t => ({ doc: { id: 'w1', kind: 'build', name: 'Pulse', messages: [{ by: 'you', text: 'A launch post for my coffee app' }, { by: 'Mind A', text: 'For early risers who hate queues. Hook: your coffee is ready before your eyes are.\nYour barista knows your order. Now your phone does too.\nTap once, walk in, grab it, go.\nWhy now: mornings are back to the office.\nBuild it: a one page launch site with a cup that fills as you scroll.' }], versions: 2, code: t, previousCode: t.replace('Store analytics', 'Shop analytics'), preview: t } })) : {});
+function Models() {   // the real model list from 5088, in the real popover, so scrolling it can be measured
+  const [d, setD] = React.useState(null); const [, tick] = React.useState(0);
+  React.useEffect(() => { fetch(apiUrl('/api/cats/models')).then(r => r.json()).then(setD); const t = setInterval(() => tick(x => x + 1), 3000); return () => clearInterval(t); }, []);
+  return d ? <ModelPop d={d} title="Pick a mind" kind="general" picked={[]} onPick={() => {}} onClose={() => {}} /> : null;
+}
 export default function FeaturesHarness() {
+  if (/models/.test(window.location.search)) return <Models />;
   if (/play/.test(window.location.search)) return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box', overflow: 'auto' }}><Playground3D cat={cat} work={work} onBack={() => {}} /></div>;
   return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ height: 'calc(100vh - 32px)', overflow: 'auto' }}><FeaturesFolder cat={cat} d={{ setup: { use: 'code' } }} work={work} /></div></div>;
 }

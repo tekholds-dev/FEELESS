@@ -687,6 +687,7 @@ Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fi
 6. PoC answers are fun to read and fit the idea, plus a "Send to" button (PoStatic and others) so the answer is ready to build.
    - DONE 2026-11-07: `CONTENT_SYS` now asks for a scroll-stopping hook, short punchy lines, real wit, no headings or bullet walls, and ends with a "Build it:" line; the stiff THE PLAN header is one plain line now. Each mind's answer has Send to PoStatic: makes a build folder and opens PoStatic with the answer in its box (nothing runs until he sends). Seen in Chromium on `/dev/features`; real model answers in the new voice not run.
 7. Model discovery glitches while scrolling.
+   - DONE 2026-11-07: measured on the real model list (`/dev/features?models`, 60 tiles from 5088): plain scroll was smooth (p95 17.6 ms, no shift) but a wheel with the pointer over tiles fired 100 hover lift/glow transitions in 40 ticks. The popover marks itself scrolling and tiles skip hover until 150 ms after it stops: 100 → 7, hover still works after. Headless Chrome numbers; not felt on his Mac.
 8. The Collective: 5 tabs, 2 nearly the same with the same diagrams. Merge them.
 9. PoEco is useless. Rebuild it as a white dashboard with day/night and real charts that can add a card to order, pay bills, and more.
 10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.

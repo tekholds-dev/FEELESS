@@ -270,7 +270,7 @@ export function ModelPrints({ onPick, picked = [] }) {
 export function ModelPop({ d, title, kind = 'trading', picked = [], onPick, onClose }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(<div className="lct-pop" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.target === e.currentTarget && onClose()} data-testid="model-pop">
-    <section className={`lct is-${kind} lct-pop-card m-pop`}>
+    <section className={`lct is-${kind} lct-pop-card m-pop`} onScroll={e => { const el = e.currentTarget; el.classList.add('is-scrolling'); clearTimeout(el.__st); el.__st = setTimeout(() => el.classList.remove('is-scrolling'), 150); }}>
       <header className="lct-pop-head"><b>{title}</b><small>pick a smart, cheap one — sort by Cheapest or set a max $</small>
         <button type="button" className="m-btn" onClick={onClose} data-testid="model-pop-close" aria-label="Close the model list">✕</button></header>
       <ModelPrints picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
