@@ -14,10 +14,9 @@ test('the front page: real atoms from the safe feed, three pages, $1 first, and 
   await act(async () => { createRoot(el).render(<CollectiveLanding />); }); await act(async () => { await new Promise(r => { setTimeout(r, 30); }); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(urls.some(u => u.includes('/collective/atoms'))).toBe(true); expect(urls.some(u => u.includes('colony/flow'))).toBe(false); expect(q('cll-print').textContent).toBe('1 atoms');
-  expect([...el.querySelectorAll('[role=tab]')].map(b => b.textContent)).toEqual(['The print', 'How a proof works', 'How it pays', 'Try it from $1']); expect(q('cll-view-stash')).toBeNull();
+  expect([...el.querySelectorAll('[role=tab]')].map(b => b.textContent)).toEqual(['The print', 'How a proof works', 'How it pays']); expect(q('cll-view-stash')).toBeNull();
   await act(async () => { q('cll-cta').click(); }); expect(q('cll-walk')).toBeTruthy(); expect(el.textContent).toContain('Tally');
-  await act(async () => { q('cll-view-pays').click(); }); expect(q('cll-story')).toBeTruthy();
-  await act(async () => { q('cll-view-try').click(); }); expect(q('cll-deal').textContent).toBe('1'); expect(q('cll-try').textContent).toContain('no money moves');
+  await act(async () => { q('cll-view-pays').click(); }); expect(q('cll-deal').textContent).toBe('1'); expect(q('cll-pays').textContent).toContain('no money moves'); expect(q('cll-view-try')).toBeNull(); expect(q('cll-ladder')).toBeNull();
   expect(el.textContent).not.toMatch(/OSSY|G4/);
   el.remove();
 });

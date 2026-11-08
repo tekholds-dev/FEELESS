@@ -689,6 +689,7 @@ Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fi
 7. Model discovery glitches while scrolling.
    - DONE 2026-11-07: measured on the real model list (`/dev/features?models`, 60 tiles from 5088): plain scroll was smooth (p95 17.6 ms, no shift) but a wheel with the pointer over tiles fired 100 hover lift/glow transitions in 40 ticks. The popover marks itself scrolling and tiles skip hover until 150 ms after it stops: 100 → 7, hover still works after. Headless Chrome numbers; not felt on his Mac.
 8. The Collective: 5 tabs, 2 nearly the same with the same diagrams. Merge them.
+   - DONE 2026-11-07: How it pays and Try it from $1 both drew the live pool rules (the score ladder twice, the story cards = the try-it stat row). Now one How it pays tab on the interactive `KeepDeal` (amount, score, pot, rate, flow, table, ladder, chart); `StakeStory`/`ScoreLadder` stay for the Whitepaper. 4 tabs. The Pools make choices wrap instead of hiding the Hot rate off the edge. Seen in Chromium at 1280 and 360.
 9. PoEco is useless. Rebuild it as a white dashboard with day/night and real charts that can add a card to order, pay bills, and more.
 10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.
 11. Earlier, still open: any folder opens PoB, can't delete proofs in some folders, PoC Live desk layout.

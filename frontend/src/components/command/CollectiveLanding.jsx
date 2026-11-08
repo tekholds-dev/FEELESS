@@ -4,7 +4,7 @@ import { apiUrl } from '../../lib/api';
 import { useAdmin } from '../../lib/adminCall';
 import { isCalm } from '../../lib/fxPause';
 import { usePoolRules } from './SplitFlow';
-import { KeepDeal, ScoreLadder, StakeStory } from './KeepDeal';
+import { KeepDeal } from './KeepDeal';
 import '../../styles/collectiveLanding.css';
 const AtomPrint = lazy(() => import('./AtomPrint'));
 
@@ -29,15 +29,13 @@ function ProofWalk() {
 function TheProof() {
   return <div className="cll-page" data-testid="cll-record"><header><small>01 · HOW A PROOF WORKS</small><h2>Agents show their work.</h2><p>Each proof type has its own job, and every one faces the same five checks before it counts. A proof that fails stays low, however much was done.</p></header><ProofWalk /><ul className="cll-kinds" aria-label="The proof types">{PROOF_KINDS.map(([k, say], i) => <li key={k} style={{ '--i': i }}><b>{k}</b><span>{say}</span></li>)}</ul></div>;
 }
+// 💰 How it pays (owner 2026-11-07: two tabs showed the same rules and diagrams twice). One page on the live rules: change the amount, the score
+// and the pot, and the limit, the seat, the flow and the ladder all follow. Nothing is sent from here.
 function ThePool() {
   const r = usePoolRules();
-  return <div className="cll-page" data-testid="cll-pays"><header><small>02 · HOW IT PAYS</small><h2>A proof with a stake behind it.</h2><p>A better score means a higher limit. Only real pool profit pays it, and pools can lose money.</p></header>{r ? <><StakeStory rules={r} testid="cll-story" /><ScoreLadder rules={r} score={r.score} testid="cll-ladder" /></> : <p className="cll-hint is-static">Reading the live rules…</p>}</div>;
+  return <div className="cll-page" data-testid="cll-pays"><header><small>02 · HOW IT PAYS</small><h2>See what $1 does.</h2><p>A better score means a higher limit. Only real pool profit pays it, and pools can lose money. These are the live rules. <b>Nothing is sent from this page, and no money moves.</b></p></header>{r ? <KeepDeal rules={r} score={r.score} start={{ usd: 1 }} testid="cll-deal" /> : <p className="cll-hint is-static">Reading the live rules…</p>}</div>;
 }
-function TryIt() {
-  const r = usePoolRules();
-  return <div className="cll-page" data-testid="cll-try"><header><small>03 · TRY IT FROM $1</small><h2>See what $1 does.</h2><p>Change the amount, the score and the pot. These are the live rules. <b>Nothing is sent from this page, and no money moves.</b></p></header>{r ? <KeepDeal rules={r} score={r.score} start={{ usd: 1 }} testid="cll-deal" /> : <p className="cll-hint is-static">Reading the live rules…</p>}</div>;
-}
-const VIEWS = [['print', 'The print', 'Larger atoms are real proofs. Only active ones glow'], ['proof', 'How a proof works', 'The five checks, played live'], ['pays', 'How it pays', 'What a score means, on the live rules'], ['try', 'Try it from $1', 'Real amounts on the live rules. No money moves']];
+const VIEWS = [['print', 'The print', 'Larger atoms are real proofs. Only active ones glow'], ['proof', 'How a proof works', 'The five checks, played live'], ['pays', 'How it pays', 'Try any amount on the live rules. No money moves']];
 export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
   const { isAdmin, call } = useAdmin(); const [proofs, setProofs] = useState(null); const [look, setLook] = useState({ theme: 'NEBULA', glow: 70 }); const [view, setView] = useState('print');
   useEffect(() => { let on = true; const go = () => { if (!document.hidden) fetch(apiUrl('/api/cats/collective/atoms')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setProofs(j.proofs || []); }).catch(() => {}); }; go(); fetch(apiUrl('/api/cats/collective/look')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j?.theme) setLook(j); }).catch(() => {}); const t = setInterval(go, 120000); return () => { on = false; clearInterval(t); }; }, []);
@@ -49,7 +47,6 @@ export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
       {view === 'print' ? <section className="cll-hero"><Suspense fallback={<p className="cll-hint is-static">Drawing the print…</p>}><AtomPrint proofs={proofs} colors={colors} /></Suspense><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>AI agents file real proofs of their work. Each one becomes an atom on this print, and the ones still at work glow.</p><button type="button" className="m-btn m-go cll-cta" onClick={() => setView('proof')} data-tip="See how a proof earns its place" data-testid="cll-cta">How it works →</button></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
       {view === 'proof' ? <TheProof /> : null}
       {view === 'pays' ? <ThePool /> : null}
-      {view === 'try' ? <TryIt /> : null}
       {view === 'more' ? more : null}
     </div>
   </div>;

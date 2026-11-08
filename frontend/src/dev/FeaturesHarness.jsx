@@ -3,6 +3,7 @@ import { FeaturesFolder } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
 import { apiUrl } from '../lib/api';
+import { CollectiveLanding } from '../components/command/CollectiveLanding';
 import '../styles/features.css';
 
 // 🧪 DEV ONLY (`/dev/features`, never in a production build): an agent's Features folder on fixtures, no sign-in. The Showcase reel and the
@@ -20,6 +21,7 @@ function Models() {   // the real model list from 5088, in the real popover, so 
 }
 export default function FeaturesHarness() {
   if (/models/.test(window.location.search)) return <Models />;
+  if (/collective/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><CollectiveLanding more={<p>Its pot</p>} moreLabel="Its pot" /></div>;
   if (/play/.test(window.location.search)) return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box', overflow: 'auto' }}><Playground3D cat={cat} work={work} onBack={() => {}} /></div>;
   return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ height: 'calc(100vh - 32px)', overflow: 'auto' }}><FeaturesFolder cat={cat} d={{ setup: { use: 'code' } }} work={work} /></div></div>;
 }
