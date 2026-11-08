@@ -6494,7 +6494,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or _play.wants_game(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written
+        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order, name, to)
             cost += usd_
         elif kind == 'build':

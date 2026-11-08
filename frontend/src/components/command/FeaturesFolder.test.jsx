@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FeaturesFolder, FEATURES, ProofDesk } from './FeaturesFolder';
+import { FeaturesFolder, FEATURES, ProofDesk, STARTERS, briefOf } from './FeaturesFolder';
 import { nextMove } from './CollectiveTop';
 
 jest.mock('../terminal/TrenchChart', () => ({ TrenchChart: () => <i data-testid="trench" /> }));
@@ -389,4 +389,13 @@ test('the score is a real chart, and what is not known says so', async () => {
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ProofSeal rank="B" tone="good" parts={[{ label: 'Result', value: 1 }, { label: 'Depth', value: 0.5 }, { label: 'Earned', value: null }]} />); });
   const seal = el.querySelector('[data-testid=pvz-seal]'); expect(seal.getAttribute('aria-label')).toContain('Earned not known'); expect(seal.querySelector('b').textContent).toBe('B'); expect(seal.querySelector('.recharts-wrapper')).toBeTruthy();
+});
+
+test('every build tile is its own page: no GLINT, no repeat brief twice in a row, a white day/night dashboard tile', () => {
+  const all = STARTERS.build.flatMap(s => [].concat(s[3]));
+  expect(all.some(a => /GLINT/.test(a))).toBe(false);
+  expect(new Set(all).size).toBe(all.length);
+  const dash = STARTERS.build.find(s => s[1] === 'Clean dashboard');
+  expect([].concat(dash[3]).every(a => /white/.test(a) && /Day \/ Night/.test(a))).toBe(true);
+  STARTERS.build.forEach(([, t, , ask]) => { let last = ''; for (let i = 0; i < 12; i++) { const b = briefOf(t, ask); expect([].concat(ask)).toContain(b); if ([].concat(ask).length > 1) expect(b).not.toBe(last); last = b; } });
 });
