@@ -34,3 +34,10 @@ def test_try_again_means_the_last_ask():
         assert f.is_retry(said), said
     for said in ('try a darker chart', 'make the buttons work again please now', 'continue the chart to the right'):
         assert not f.is_retry(said), said
+
+
+def test_every_preview_moves_links_inside_the_page():
+    """🧭 owner 2026-11-07: a #section or /page link in a srcdoc frame went to the parent's address and blanked the page."""
+    import agent_features as af
+    out = af.preview('<html><head></head><body><a href="#more0">Go</a><div id="more0"></div></body></html>')
+    assert 'feeless-link' in out and "closest('a[href]')" in out and out.index('feeless-link') < out.index('</body>')

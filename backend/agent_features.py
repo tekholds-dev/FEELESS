@@ -283,6 +283,14 @@ def add_css(html, reply):
     return f'{h[:m.start()]}{block}{h[m.start():]}' if m else block + h
 
 
+# 🧭 A built page runs in a srcdoc frame, where "#more" or "/pack" resolves against the parent's address: one click and the page went blank
+# (owner 2026-11-07: "clicking to another page really navigates"). Links inside the page move inside the page: a #id scrolls to it and opens
+# its page if it sits in a hidden [data-page]; "pack" or "/pack.html" finds a page or section by that name; an outside link asks the parent.
+NAV = """<script>(function(){function go(t){var pg=t.closest('[data-page]');if(pg&&pg.hidden){[].forEach.call(document.querySelectorAll('[data-page]'),function(m){m.hidden=m!==pg});}if(t.hidden)t.hidden=false;t.scrollIntoView({behavior:'smooth',block:'start'})}
+function find(k){if(!k)return null;try{return document.getElementById(k)||document.querySelector('[data-page="'+CSS.escape(k)+'"],[data-route="'+CSS.escape(k)+'"],[name="'+CSS.escape(k)+'"],section#'+CSS.escape(k.toLowerCase()))}catch(_){return null}}
+addEventListener('click',function(e){if(e.defaultPrevented||e.button)return;var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var h=a.getAttribute('href')||'';if(/^(javascript:|mailto:|tel:)/i.test(h))return;e.preventDefault();
+if(/^(https?:)?\\/\\//i.test(h)){try{parent.postMessage({t:'feeless-link',href:new URL(h,'https://x.invalid').href},'*')}catch(_){}return}
+var k=decodeURIComponent(h.replace(/^#/,'').replace(/^\\.?\\//,'').replace(/[?#].*$/,'').replace(/\\.html?$/i,''));var t=h.charAt(0)==='#'?find(decodeURIComponent(h.slice(1))):find(k)||find(k.toLowerCase());if(t)go(t);else if(h==='#'||!k)scrollTo({top:0,behavior:'smooth'})})})();</script>"""
 PAGE_ERR = "<script>addEventListener('error',function(e){try{parent.postMessage({t:'feeless-page-error',m:String(e.message||'').slice(0,200)},'*')}catch(_){}})</script>"
 
 
@@ -301,7 +309,7 @@ def preview(html):
     import collective_kits as _kits
     h = _kits.open_for_kits(strip_notes(html))   # a page's own kit files load, pages built before this fix too. Nothing else does
     h = re.sub(r'(<head[^>]*>(?:<meta[^>]+content-security-policy[^>]*>)?)', lambda m: m.group(1) + PAGE_ERR, h, count=1, flags=re.I)   # a script crash reaches the panel, so nobody stares at a dead page
-    return h.replace('</body>', PICKER + '</body>', 1) if '</body>' in h else h + PICKER
+    return h.replace('</body>', NAV + PICKER + '</body>', 1) if '</body>' in h else h + NAV + PICKER
 
 
 REGION_MAX = 12
