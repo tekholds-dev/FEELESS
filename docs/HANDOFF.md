@@ -693,6 +693,7 @@ Audit EVERY desktop folder: layout, styling, mechanics, flow, missing vitals. Fi
 9. PoEco is useless. Rebuild it as a white dashboard with day/night and real charts that can add a card to order, pay bills, and more.
    - PARTLY DONE 2026-11-07: PoEco is a clean white dashboard by default with a Day/Night switch (remembered per browser; Night = the old dark desk): KPI cards, a bigger cash-over-time chart with axes and grid, a new Where it goes donut, colours that follow the look. Seen in Chromium at 1280 and 360 on real `agent_eco` sample numbers (`dev/ecoFixture.json`). NOT built: ordering a card and paying bills. Both move money and need his decision on the path (a bill is still only marked paid and opens his own link).
 10. Git folder "is gone". Vault belongs inside the Git folder (it was folded the other way: FOLD_INTO github→vault). Fix that.
+   - DONE 2026-11-07: `FOLD_INTO.vault = 'github'`: the Git folder is back on the desktop and Vault is a tab inside it. Found and fixed with it: a folder tab skipped the "somewhere safe?" gate, so the Vault tab now asks first. Proven in the real desktop test (`CatWorkbench.test.jsx`); not seen signed in.
 11. Earlier, still open: any folder opens PoB, can't delete proofs in some folders, PoC Live desk layout.
 12b. (owner 2026-11-07, after 1-11, before stopping) In his words, condensed:
    - PoStatic: fix "cut off / held no page" (LIVE VAULT, both minds). The minds must work on different sections of the code smartly, not rewrite whole pages. Bigger preview, better layout.

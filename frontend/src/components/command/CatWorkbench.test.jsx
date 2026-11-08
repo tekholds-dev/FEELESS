@@ -222,7 +222,8 @@ test('🖥 the private desktop: the live window minimizes to the taskbar, the Va
   expect(q('dsk-win-live').textContent).toMatch(/closes in 1[45]:/); expect(q('cwb-pop-frame').getAttribute('src')).toBe('https://view/x');
   await act(async () => { q('dsk-min-live').click(); }); expect(q('dsk-win-live')).toBeNull(); expect(q('dsk-task-live')).not.toBeNull();
   await act(async () => { q('dsk-task-live').click(); }); expect(q('dsk-win-live')).not.toBeNull();
-  await act(async () => { q('dsk-vault').click(); }); expect(q('safe-gate')).not.toBeNull(); expect(q('dsk-win-vault')).toBeNull();
+  expect(q('dsk-vault')).toBeNull(); expect(q('dsk-ico-github')).not.toBeNull();   // 🗃 the Vault lives inside the Git folder (owner 2026-11-07: Git "was gone")
+  await act(async () => { q('dsk-ico-github').click(); }); await act(async () => { q('fold-tab-vault').click(); }); expect(q('safe-gate')).not.toBeNull(); expect(q('dsk-win-vault')).toBeNull();
   await act(async () => { q('safe-yes').click(); }); expect(q('dsk-win-vault').textContent).toContain('proton.me');
   await act(async () => { q('dsk-tab-sealed').click(); }); expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('dsk-tab-sealed').textContent).toContain('1');
   await act(async () => { q('dsk-ico-pow').click(); }); expect(q('dsk-win-pow')).not.toBeNull();             // ⛏ its proofs folder
