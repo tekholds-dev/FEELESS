@@ -3632,7 +3632,7 @@ def _read_start(cat, goal, who, kind=''):
     if kind in ('pob', 'poc', 'pos'):   # the sources book + the PoW guide list coin sites (Birdeye, Jupiter, RugCheck): GLM followed them on a Knicks pick (2026-11-07)
         _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
     if kind in _book.KINDS and (cat.get('siteBook') or {}).get(kind):   # 📚 a repeating window moves to the owner's next site, never an off one
-        t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind])
+        t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _foot.order_sites(kind, _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind]), cat.get(_PROOF_KEYS.get(kind)))   # 🧭 the sites the last proofs leaned on go last
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
 

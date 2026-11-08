@@ -29,8 +29,9 @@ def test_the_loop_moves_on_from_what_the_last_proofs_leaned_on():
 
 def test_the_minds_read_the_last_footprints_and_their_own_angle():
     t = fp.note('pob', [A, B], 0)
-    assert 'LAST FOOTPRINTS' in t and 'espn.com' in t and 'injuries' in t and 'never run its search' in t and 'odds and line' not in t
-    assert 'lines, odds' in fp.note('pob', [A], 1) and fp.note('pob', []) == ''
+    assert 'LAST FOOTPRINTS' in t and 'espn.com' in t and 'never run its search' in t and fp.angle_for('pob', [A, B], 0)[0] in t   # its angle turns every proof (owner 2026-11-07)
+    assert fp.angle_for('pob', [A], 1)[0] in fp.note('pob', [A], 1) and fp.angle_for('pob', [A], 1) != fp.angle_for('pob', [A, B], 1)
+    assert fp.note('pob', []).strip().startswith('IF A STEP FAILS')
 
 
 def test_odd_records_never_break_it():

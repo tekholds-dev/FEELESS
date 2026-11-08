@@ -1,3 +1,4 @@
+import itertools
 """👣 THE PROOF LOOP'S FOOTPRINT (owner 2026-11-07: "they should be planning and executing, not doing the same searches at the same time, they should know the last fingerprint"). Pure and tested.
 
 A footprint is what a proof really touched: its topic, the sites it read, and what it called. Before a new proof the minds get the last footprints, their own sites and their own angle. After it, a proof is measured against everything before it of its kind, and that number counts in its score."""
@@ -7,12 +8,24 @@ import zlib
 KEEP = 12
 _STOP = {'the', 'and', 'for', 'best', 'top', 'picks', 'pick', 'proof', 'file', 'tonight', 'today', 'this', 'that', 'with', 'from', 'what', 'who', 'will', 'vs', 'pob', 'pow', 'pop', 'poc', 'trends', 'week', 'page', 'make', 'new'}
 # Two minds never chase the same thing at once: each kind's work split in two.
-ANGLES = {
-    'pob': (('injuries, form and matchups', 'injury report and recent form'), ('lines, odds and what the market prices', 'odds and line movement')),
-    'pop': (('what the chart and funding say', 'funding and open interest'), ('what news and flows say', 'news and exchange flows')),
-    'poc': (('what people are arguing about', 'debates and replies'), ('what is rising before it peaks', 'early rising searches')),
-    'pow': (('who is buying and who holds', 'holders and buyers'), ('the chart and the pool', 'chart structure and pool depth')),
-    'pos': (('what the page must do', 'how the best products work'), ('how it should look', 'the best current designs')),
+ANGLES = {   # 🧭 owner 2026-11-07 "a new footpath every proof": six angles a kind, the next pair each proof, never the same mind on both
+    'pob': (('injuries, form and matchups', 'injury report and recent form'), ('lines, odds and what the market prices', 'odds and line movement'), ('rest, travel and schedule spots', 'rest days and travel'),
+            ('head to head and how they match up', 'head to head history'), ('weather, venue and referees', 'venue and officials'), ('sharp money against the public', 'betting splits')),
+    'pop': (('what the chart and funding say', 'funding and open interest'), ('what news and flows say', 'news and exchange flows'), ('where liquidations sit', 'liquidation levels'),
+            ('what the order book hides', 'order book depth'), ('how the majors lead it', 'BTC and ETH correlation'), ('what on-chain whales do', 'whale wallets')),
+    'poc': (('what people are arguing about', 'debates and replies'), ('what is rising before it peaks', 'early rising searches'), ('what creators missed', 'gaps in top posts'),
+            ('a number nobody quoted', 'fresh data'), ('the story from the other side', 'contrarian takes'), ('what works in a small room', 'niche communities')),
+    'pow': (('who is buying and who holds', 'holders and buyers'), ('the chart and the pool', 'chart structure and pool depth'), ('who made it and what they did before', 'creator history'),
+            ('where the snipers and bundles are', 'sniper and bundle wallets'), ('what the community really does', 'socials and replies'), ('how it compares to runners like it', 'similar runners')),
+    'pos': (('what the page must do', 'how the best products work'), ('how it should look', 'the best current designs'), ('what the visitor needs first', 'user flows'),
+            ('the motion and feel', 'animation references'), ('the real data it should show', 'live data sources'), ('what makes it different', 'what already exists, and better')),
+}
+FALLBACKS = {   # when a step fails, the next step of its own kind, never a guess
+    'pob': 'a site blocks you: the league or team official site, then another sports desk. No odds load: say "no odds", never invent a line. A game already played: say so and skip it.',
+    'pop': 'the chart will not load: read the exchange page or another chart site. No funding data: say so and size smaller. A source is a day old: say how old.',
+    'poc': 'a trend page is empty: use another trend source. A post cannot be read: work from the headline, and say so. Nothing new: say nothing is worth a post.',
+    'pow': 'a checker blocks you: use the next checker. No holder data: mark holders unknown and never call it safe. The pool is gone: stop and say so.',
+    'pos': 'a reference site blocks you: use another of the best products like it. A kit fails: build it in plain HTML and say so. Too big for one reply: build it in sections.',
 }
 _SEARCH = re.compile(r'(^|\.)(duckduckgo|google|bing|yahoo|brave)\.')
 
@@ -114,23 +127,36 @@ def plan(kind, topic, sites, folders, minds=2):
         for h in footprint(kind, f)['sites']:
             used[h] = used.get(h, 0) + 1
     seed = f'{topic}{len(folders or [])}'; rows = [s for i, s in sorted(enumerate(sites or []), key=lambda x: (used.get(_host(x[1]), 0), zlib.crc32(f'{seed}{x[1]}'.encode()), x[0]))]   # among the least used, a different order each proof: fixed ties opened ESPN first every time
-    angles = ANGLES.get(kind) or ANGLES['pos']
-    return {'sites': [rows[i::minds] for i in range(minds)], 'angles': [angles[i % len(angles)] for i in range(minds)], 'used': used}
+    return {'sites': [rows[i::minds] for i in range(minds)], 'angles': [angle_for(kind, folders, i) for i in range(minds)], 'used': used}
+
+
+def angle_for(kind, folders, mind=0):
+    """This proof's angle for a mind: the next pair along each proof, so the angles cycle and the two minds never share one. Pure."""
+    pool = ANGLES.get(kind) or ANGLES['pos']; n = len([f for f in folders or [] if isinstance(f, dict) and not f.get('live')])
+    return pool[(n * 2 + int(mind)) % len(pool)]
+
+
+def order_sites(kind, sites, folders):
+    """Sites the last proofs leaned on go last, so each proof walks new ground first. Pure."""
+    groups = plan(kind, '', list(sites or []), folders)['sites']
+    return [x for g in itertools.zip_longest(*groups) for x in g if x]
 
 
 def note(kind, folders, mind=None):
     """What the minds read before they start: what the last proofs touched, and that repeating it counts against them."""
     rows = _recent(folders)
+    fb = FALLBACKS.get(kind); fb = f' IF A STEP FAILS: {fb}' if fb else ''
     if not rows:
-        return ''
+        a = angle_for(kind, folders, mind or 0)
+        return f"\nYOUR ANGLE: {a[0]} (look at {a[1]}).{fb}" if mind is not None else (f'\n{fb.strip()}' if fb else '')
     lines = []
     for f in rows[::-1]:
         fp = footprint(kind, f); bits = [', '.join(sorted(fp['words'])[:4]), ('read ' + ', '.join(sorted(fp['sites'])[:3])) if fp['sites'] else '', ('called ' + ', '.join(sorted(fp['calls'])[:2])) if fp['calls'] else '']
         lines.append(' · '.join(b for b in bits if b) or 'no record')
     angle = ''
     if mind is not None:
-        a = (ANGLES.get(kind) or ANGLES['pos'])[int(mind) % 2]; angle = f' Your angle this time: {a[0]}. The other mind has the other angle and other sites, so never run its search.'
-    return f"\nLAST FOOTPRINTS, newest first: {'; '.join(lines)}. Your proof is scored on how different it is. Find what these missed, or use a stronger source, and say what is new.{angle}"
+        a = angle_for(kind, folders, mind); angle = f' Your angle this time: {a[0]} (look at {a[1]}). It changes every proof. The other mind has another angle and other sites, so never run its search.'
+    return f"\nLAST FOOTPRINTS, newest first: {'; '.join(lines)}. Your proof is scored on how different it is. Find what these missed, or use a stronger source, and say what is new.{angle}{fb}"
 
 
 CONVO_KEEP = 14
