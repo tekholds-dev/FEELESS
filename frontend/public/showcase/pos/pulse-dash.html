@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pulse · analytics</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#111827;--mute:#6b7280;--line:#e5e7eb;--a:#4f46e5;--b:#06b6d4;--c:#f59e0b;--d:#ec4899;--up:#059669;--dn:#dc2626;--sh:0 1px 2px #0000000d,0 8px 24px #0f172a0d}
+body.night{--bg:#0b1020;--card:#121a2e;--ink:#e8ecf6;--mute:#8b95ad;--line:#22304d;--sh:0 1px 2px #0006,0 10px 30px #0007}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;transition:background .4s,color .4s}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:18px}.logo{width:30px;height:30px;border-radius:9px;background:conic-gradient(var(--a),var(--b),var(--d),var(--a))}
+h1{font-size:18px;margin:0;font-weight:700}h1 small{display:block;font-size:12px;color:var(--mute);font-weight:500}
+.sw{margin-left:auto;display:flex;background:var(--line);border-radius:999px;padding:3px}.sw button{border:0;background:none;color:var(--mute);font:600 12px system-ui;padding:6px 12px;border-radius:999px;cursor:pointer}.sw button.on{background:var(--card);color:var(--ink);box-shadow:var(--sh)}
+.tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);background:var(--line);padding:2px 7px;border-radius:6px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:16px;transition:background .4s,border-color .4s;opacity:0;transform:translateY(8px);animation:in .5s ease forwards;animation-delay:calc(var(--i)*70ms)}
+@keyframes in{to{opacity:1;transform:none}}
+.stat small{color:var(--mute);font-size:12px}.stat b{display:block;font-size:26px;margin:6px 0 4px;font-variant-numeric:tabular-nums}.stat em{font-style:normal;font-size:12px;font-weight:600}.up{color:var(--up)}.dn{color:var(--dn)}
+.spark{display:block;width:100%;height:28px;margin-top:8px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.card h3{margin:0 0 12px;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+svg text{fill:var(--mute);font-size:10px}.gl{stroke:var(--line)}
+.line{fill:none;stroke:var(--a);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:2000;stroke-dashoffset:2000;animation:draw 1.6s ease forwards .3s}.area{fill:url(#ga);opacity:0;animation:fade 1s ease forwards 1s}
+@keyframes draw{to{stroke-dashoffset:0}}@keyframes fade{to{opacity:1}}
+.bar{fill:var(--b);transform-box:fill-box;transform-origin:bottom;transform:scaleY(0);animation:grow .7s cubic-bezier(.2,.8,.2,1) forwards;animation-delay:calc(.4s + var(--i)*80ms)}.bar:hover{fill:var(--a)}
+@keyframes grow{to{transform:scaleY(1)}}
+.seg{fill:none;stroke-width:16;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-width .2s}.seg:hover{stroke-width:20}
+.legend{display:grid;gap:8px;margin-top:10px}.legend span{display:flex;align-items:center;gap:8px;font-size:12px}.legend i{width:10px;height:10px;border-radius:3px}.legend b{margin-left:auto;font-variant-numeric:tabular-nums}
+.row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}.row:first-of-type{border-top:0}.row u{flex:1;height:6px;background:var(--line);border-radius:6px;overflow:hidden;text-decoration:none}.row u i{display:block;height:100%;background:linear-gradient(90deg,var(--a),var(--b));transform-origin:left;transform:scaleX(0);animation:grow2 1s ease forwards .6s}
+@keyframes grow2{to{transform:scaleX(var(--w))}}.row b{width:48px;text-align:right;font-variant-numeric:tabular-nums}
+.ring{display:grid;place-items:center}.ring circle{fill:none;stroke-width:12}.ring .bg{stroke:var(--line)}.ring .fg{stroke:var(--up);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 1.4s ease}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--card);font-size:12px;padding:5px 8px;border-radius:7px;opacity:0;transition:opacity .15s;z-index:9}
+@media(max-width:760px){.stats{grid-template-columns:1fr 1fr}.grid,.grid2{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.card{opacity:1;transform:none}.line{stroke-dashoffset:0}.area{opacity:1}.bar{transform:none}.row u i{transform:scaleX(var(--w))}}
+</style></head><body>
+<div class="wrap">
+<header><span class="logo"></span><h1>Pulse<small>Store analytics · last 30 days</small></h1><span class="tag">Sample data</span><div class="sw" role="group" aria-label="Theme"><button id="day" class="on" aria-pressed="true">☀ Day</button><button id="night" aria-pressed="false">☾ Night</button></div></header>
+<section class="stats" id="stats"></section>
+<section class="grid">
+ <div class="card" style="--i:4"><h3>Revenue, 30 days <span class="tag">USD</span></h3><svg id="lc" viewBox="0 0 640 220" width="100%"></svg></div>
+ <div class="card" style="--i:5"><h3>Traffic sources</h3><div style="display:flex;justify-content:center"><svg id="dn" viewBox="0 0 120 120" width="150"></svg></div><div class="legend" id="lg"></div></div>
+</section>
+<section class="grid2">
+ <div class="card" style="--i:6"><h3>Orders by weekday</h3><svg id="bc" viewBox="0 0 360 170" width="100%"></svg></div>
+ <div class="card" style="--i:7"><h3>Top products <span class="tag">units</span></h3><div id="tp"></div></div>
+</section>
+</div><div id="tip"></div>
+<script>
+const $=s=>document.querySelector(s),tip=$('#tip');
+const show=(e,t)=>{tip.textContent=t;tip.style.left=e.clientX+12+'px';tip.style.top=e.clientY-28+'px';tip.style.opacity=1},hide=()=>tip.style.opacity=0;
+const S=[['Revenue',48210,'$','+12.4%',1],['Orders',1284,'','+8.1%',1],['Avg order',37.55,'$','+3.9%',1],['Refunds',2.1,'%','-0.6%',0]];
+$('#stats').innerHTML=S.map((s,i)=>`<div class="card stat" style="--i:${i}"><small>${s[0]}</small><b data-v="${s[1]}" data-p="${s[2]}">0</b><em class="${s[4]?'up':'dn'}">${s[3]} vs last month</em><svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><polyline fill="none" stroke="${['#4f46e5','#06b6d4','#f59e0b','#ec4899'][i]}" stroke-width="2" points="${Array.from({length:14},(_,j)=>j*7.6+','+(24-Math.abs(Math.sin(j*.9+i))*18-j*.6)).join(' ')}"/></svg></div>`).join('');
+const fmt=(v,p)=>p==='$'?'$'+(v>=1000?Math.round(v).toLocaleString():v.toFixed(2)):p==='%'?v.toFixed(1)+'%':Math.round(v).toLocaleString();
+document.querySelectorAll('.stat b').forEach(b=>{const v=+b.dataset.v,p=b.dataset.p,t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/1400),e=1-Math.pow(1-k,3);b.textContent=fmt(v*e,p);if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)});
+// line chart
+const R=Array.from({length:30},(_,i)=>1100+Math.sin(i/3)*260+i*28+((i*37)%11)*30),W=640,H=220,P=30,mx=Math.max(...R)*1.08;
+const X=i=>P+i*(W-P-10)/29,Y=v=>H-24-(v/mx)*(H-44);let g='<defs><linearGradient id="ga" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#4f46e5" stop-opacity=".28"/><stop offset="1" stop-color="#4f46e5" stop-opacity="0"/></linearGradient></defs>';
+for(let k=0;k<=4;k++){const v=mx*k/4;g+=`<line class="gl" x1="${P}" x2="${W-10}" y1="${Y(v)}" y2="${Y(v)}"/><text x="0" y="${Y(v)+3}">$${Math.round(v/100)/10}k</text>`}
+const pts=R.map((v,i)=>X(i)+','+Y(v)).join(' ');g+=`<polygon class="area" points="${X(0)},${H-24} ${pts} ${X(29)},${H-24}"/><polyline class="line" points="${pts}"/>`;
+R.forEach((v,i)=>{g+=`<circle cx="${X(i)}" cy="${Y(v)}" r="9" fill="transparent" data-t="Day ${i+1}: $${Math.round(v).toLocaleString()}"/>`;if(i%5==0)g+=`<text x="${X(i)-8}" y="${H-6}">Oct ${i+1}</text>`});
+$('#lc').innerHTML=g;
+// bars
+const B=[['Mon',142],['Tue',168],['Wed',191],['Thu',176],['Fri',224],['Sat',247],['Sun',136]];let bg='';
+B.forEach(([d,v],i)=>{const h=v/260*130,x=14+i*49;bg+=`<rect class="bar" style="--i:${i}" x="${x}" y="${144-h}" width="32" height="${h}" rx="6" data-t="${d}: ${v} orders"/><text x="${x+6}" y="162">${d}</text>`});$('#bc').innerHTML=bg;
+// donut
+const D=[['Search',42,'#4f46e5'],['Social',27,'#06b6d4'],['Direct',19,'#f59e0b'],['Email',12,'#ec4899']],C=2*Math.PI*42;let off=0,dg=`<circle cx="60" cy="60" r="42" fill="none" stroke="var(--line)" stroke-width="16"/>`;
+D.forEach(([n,v,c])=>{dg+=`<circle class="seg" cx="60" cy="60" r="42" stroke="${c}" stroke-dasharray="0 ${C}" data-d="${v/100*C} ${C}" stroke-dashoffset="${-off}" data-t="${n}: ${v}%"/>`;off+=v/100*C});
+dg+=`<text x="60" y="58" text-anchor="middle" style="font-size:16px;font-weight:700;fill:var(--ink)">8.4k</text><text x="60" y="72" text-anchor="middle">visits</text>`;$('#dn').innerHTML=dg;
+$('#lg').innerHTML=D.map(([n,v,c])=>`<span><i style="background:${c}"></i>${n}<b>${v}%</b></span>`).join('');
+setTimeout(()=>document.querySelectorAll('.seg').forEach((s,i)=>{s.style.transition=`stroke-dasharray 1s ease ${i*.15}s`;s.setAttribute('stroke-dasharray',s.dataset.d)}),400);
+// products
+const T=[['Trail runner',412,1],['Canvas tote',318,.77],['Water bottle',276,.67],['Cap',190,.46],['Socks 3-pack',151,.37]];
+$('#tp').innerHTML=T.map(([n,v,w])=>`<div class="row" data-t="${n}: ${v} units"><span style="width:110px">${n}</span><u><i style="--w:${w}"></i></u><b>${v}</b></div>`).join('');
+document.addEventListener('mousemove',e=>{const t=e.target.closest('[data-t]');t?show(e,t.dataset.t):hide()});
+const theme=n=>{document.body.classList.toggle('night',n);$('#day').classList.toggle('on',!n);$('#night').classList.toggle('on',n);$('#day').setAttribute('aria-pressed',!n);$('#night').setAttribute('aria-pressed',n)};
+$('#day').onclick=()=>theme(false);$('#night').onclick=()=>theme(true);
+if(/demo/.test(location.search)){let n=false;setInterval(()=>theme(n=!n),4500)}
+</script></body></html>

@@ -72,6 +72,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/cats') {   // 🧪 one agent's desk + REAL MODE proposals on a fixture cat (src/dev/CatHarness.jsx)
   import('./dev/CatHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/features') {   // 🧪 an agent's Features folder on fixtures (src/dev/FeaturesHarness.jsx)
+  import('./dev/FeaturesHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/perps') {   // 🧪 the Perps money read + paper desk on fixtures (src/dev/PerpsHarness.jsx)
   import('./dev/PerpsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/towers') {   // 🧪 Trench Towers on the live intake · ?cdc = the Crypto.com key door (src/dev/TowersHarness.jsx)

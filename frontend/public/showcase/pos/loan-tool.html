@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Keyhole · loan calculator</title>
+<style>
+:root{--bg:#fbfaf7;--card:#fff;--ink:#1d1b16;--mute:#77716a;--line:#ebe7e0;--p:#0f766e;--i:#f97316}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Georgia,'Times New Roman',serif}
+.wrap{max-width:980px;margin:0 auto;padding:28px 20px;display:grid;grid-template-columns:340px 1fr;gap:22px}
+h1{grid-column:1/3;margin:0;font-size:30px;font-weight:400;letter-spacing:-.01em}h1 em{color:var(--p)}h1 small{display:block;font:13px system-ui;color:var(--mute);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 10px 30px #3a2a1008}
+label{display:block;font:600 12px system-ui;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:16px 0 6px}label:first-child{margin-top:0}
+label b{float:right;color:var(--ink);font:700 15px system-ui;letter-spacing:0;text-transform:none}
+input[type=range]{width:100%;accent-color:var(--p);height:28px;cursor:pointer}
+input[type=range]:focus-visible{outline:2px solid var(--p);outline-offset:3px;border-radius:6px}
+.big{text-align:center;padding:18px 0 6px}.big small{font:600 12px system-ui;letter-spacing:.08em;color:var(--mute);text-transform:uppercase}.big b{display:block;font:700 46px system-ui;color:var(--p);font-variant-numeric:tabular-nums}
+.split{display:flex;height:12px;border-radius:12px;overflow:hidden;margin:10px 0}.split i{display:block;transition:flex-grow .5s ease}.split .p{background:var(--p)}.split .in{background:var(--i)}
+.keys{display:flex;justify-content:space-between;font:13px system-ui;color:var(--mute)}.keys b{color:var(--ink)}
+svg text{font:11px system-ui;fill:var(--mute)}.gl{stroke:var(--line)}
+.ap,.ai{transition:d .5s ease}.ap{fill:var(--p);opacity:.85}.ai{fill:var(--i);opacity:.85}
+table{width:100%;border-collapse:collapse;font:13px system-ui;margin-top:12px;font-variant-numeric:tabular-nums}th,td{padding:7px 6px;text-align:right;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:600}th:first-child,td:first-child{text-align:left}
+tbody tr{animation:in .4s ease both;animation-delay:calc(var(--i)*40ms)}@keyframes in{from{opacity:0;transform:translateY(4px)}}
+.note{font:12px system-ui;color:var(--mute);margin-top:10px}
+@media(max-width:760px){.wrap{grid-template-columns:1fr}h1{grid-column:1}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<div class="wrap">
+<h1>What will this loan <em>really</em> cost?<small>Move the sliders. Everything updates as you go.</small></h1>
+<div class="card">
+ <label for="amt">Amount <b id="amtv"></b></label><input id="amt" type="range" min="5000" max="600000" step="5000" value="250000">
+ <label for="rate">Rate per year <b id="ratev"></b></label><input id="rate" type="range" min="1" max="14" step="0.1" value="6.4">
+ <label for="yrs">Years <b id="yrsv"></b></label><input id="yrs" type="range" min="1" max="30" step="1" value="25">
+ <div class="big"><small>Monthly payment</small><b id="pay">$0</b></div>
+ <div class="split"><i class="p" id="sp"></i><i class="in" id="si"></i></div>
+ <div class="keys"><span><span style="color:var(--p)">■</span> Principal <b id="tp"></b></span><span style="color:var(--i)">■ Interest <b id="ti"></b></span></div>
+ <p class="note">Fixed rate, monthly payments. An estimate, not an offer.</p>
+</div>
+<div class="card"><svg id="ch" viewBox="0 0 560 230" width="100%"></svg><table><thead><tr><th>Year</th><th>Principal paid</th><th>Interest paid</th><th>Still owed</th></tr></thead><tbody id="tb"></tbody></table></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),m=v=>'$'+Math.round(v).toLocaleString();let shown=0;
+function run(){const A=+$('amt').value,r=+$('rate').value/1200,n=+$('yrs').value*12,pay=r?A*r/(1-Math.pow(1+r,-n)):A/n;
+$('amtv').textContent=m(A);$('ratev').textContent=(+$('rate').value).toFixed(1)+'%';$('yrsv').textContent=$('yrs').value;
+const t0=performance.now(),from=shown;const f=t=>{const k=Math.min(1,(t-t0)/450);shown=from+(pay-from)*(1-Math.pow(1-k,3));$('pay').textContent=m(shown);if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f);
+let bal=A,ys=[],cp=0,ci=0;for(let i=1;i<=n;i++){const it=bal*r,pr=pay-it;bal-=pr;cp+=pr;ci+=it;if(i%12==0)ys.push([i/12,cp,ci,Math.max(0,bal)])}
+$('tp').textContent=m(A);$('ti').textContent=m(ci);$('sp').style.flexGrow=A;$('si').style.flexGrow=ci;
+const W=560,H=230,P=44,mx=A+ci,X=i=>P+(i)*(W-P-26)/ys.length,Y=v=>H-26-v/mx*(H-40);let g='';
+for(let k=0;k<=4;k++){const v=mx*k/4;g+=`<line class="gl" x1="${P}" x2="${W-10}" y1="${Y(v)}" y2="${Y(v)}"/><text x="0" y="${Y(v)+4}">${v>=1e6?(v/1e6).toFixed(1)+'M':Math.round(v/1000)+'k'}</text>`}
+const top=ys.map((y,i)=>X(i+1)+','+Y(y[1]+y[2])).join(' '),mid=ys.map((y,i)=>X(i+1)+','+Y(y[1])).join(' ');
+g+=`<polygon class="ap" points="${X(0)},${Y(0)} ${mid} ${X(ys.length)},${Y(0)}"/><polygon class="ai" points="${X(0)},${Y(0)} ${top} ${[...ys].reverse().map((y,i)=>X(ys.length-i)+','+Y(y[1])).join(' ')}"/>`;
+ys.forEach((y,i)=>{if(ys.length<=10||(i+1)%5==0)g+=`<text x="${X(i+1)-6}" y="${H-8}">Y${y[0]}</text>`});$('ch').innerHTML=g;
+$('tb').innerHTML=ys.filter((y,i)=>ys.length<=8||i%Math.ceil(ys.length/8)==0||i==ys.length-1).map((y,i)=>`<tr style="--i:${i}"><td>${y[0]}</td><td>${m(y[1])}</td><td>${m(y[2])}</td><td>${m(y[3])}</td></tr>`).join('')}
+['amt','rate','yrs'].forEach(id=>$(id).addEventListener('input',run));run();
+if(/demo/.test(location.search)){const seq=[['rate',4.2],['yrs',15],['amt',420000],['rate',8.9],['yrs',30],['amt',250000],['rate',6.4],['yrs',25]];let k=0;setInterval(()=>{const[id,v]=seq[k++%seq.length];$(id).value=v;run()},2200)}
+</script></body></html>

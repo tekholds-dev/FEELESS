@@ -399,3 +399,11 @@ test('every build tile is its own page: no GLINT, no repeat brief twice in a row
   expect([].concat(dash[3]).every(a => /white/.test(a) && /Day \/ Night/.test(a))).toBe(true);
   STARTERS.build.forEach(([, t, , ask]) => { let last = ''; for (let i = 0; i < 12; i++) { const b = briefOf(t, ask); expect([].concat(ask)).toContain(b); if ([].concat(ask).length > 1) expect(b).not.toBe(last); last = b; } });
 });
+
+test('the PoStatic reel is a mix: kinds take turns, and every example page and thumb is on disk', () => {
+  const { mixPieces, EXAMPLE_PIECES } = require('./ProofDoors');
+  const rows = [...['a', 'b', 'c', 'd'].map(id => ({ id, kind: 'site' })), { id: 'g', kind: 'game' }, ...EXAMPLE_PIECES];
+  expect(mixPieces(rows).slice(0, 5).map(r => r.kind)).toEqual(['site', 'game', 'dash', 'chart', 'tool']);
+  const fs = require('fs'); const path = require('path');
+  EXAMPLE_PIECES.forEach(p => { [p.src, p.thumb].forEach(f => expect(fs.existsSync(path.join(__dirname, '../../../public', f))).toBe(true)); });
+});
