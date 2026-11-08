@@ -11,7 +11,8 @@ import { scoreOf } from '../../lib/proofprint';
 // 🏆 THE PROOFS FOLDER (owner 2026-11-04): every proof this agent filed, in one place. A ring, a 3D chart and the Proof Loop orbit up top, the PoI timeline under them:
 // what each mind decided at the time, and the snapshots it decided on. Read from the filed folders only. Each proof is scored in its own unit: SOL and paper % are never added together.
 const KINDS = { pow: ['⛏', 'PoW'], pop: ['📉', 'PoP'], pob: ['🎲', 'PoB'], poc: ['📣', 'PoC'], pos: ['💻', 'PoStatic'], poe: ['📊', 'PoEco'] };
-const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids', poc: 'features' };
+const OPEN_APP = { pow: 'pow', pop: 'pop', pob: 'bids', poc: 'poc', pos: 'postatic', poe: 'poe' };   // every kind opens its own folder, never another
+const LIST = { pow: 'powFolders', pop: 'popFolders', pob: 'pobFolders', poc: 'pocFolders', pos: 'psFolders', poe: 'poeFolders' };
 
 // A mind's reason is sometimes its raw JSON reply, cut short: show its sentence, not the JSON.
 export function reasonOf(v) {
@@ -77,7 +78,7 @@ export function visitorProofs(cat) {
   return proofRows(cat).slice(0, 20).map(r => ({ id: r.id, kind: KINDS[r.kind][1], label: r.sub || r.name, pct: r.kind === 'pob' ? null : r.value, stamp: r.stamp, games: r.games }));
 }
 export function proofRows(d) {
-  const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null });
+  const add = (f, r) => ({ ...r, stamp: f.stamp || d?.stamps?.[f.id] || null, games: f.games || null, hidden: !!f.hidden });
   return [...(d?.powFolders || []).map(f => add(f, powRow(f))), ...(d?.popFolders || []).map(f => add(f, popRow(f))), ...(d?.pobFolders || []).map(f => add(f, pobRow(f))), ...(d?.pocFolders || []).map(f => add(f, pocRow(f))), ...(d?.psFolders || []).map(f => add(f, posRow(f))), ...(d?.poeFolders || []).map(f => add(f, poeRow(f))),].sort((a, b) => b.at - a.at);
 }
 
@@ -123,7 +124,7 @@ function LoopOrbit({ rows }) {
 const day = at => new Date(at * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const clock = at => new Date(at * 1000).toTimeString().slice(0, 5);
 
-function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
+function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder, onHide }) {
   const src = s => s.src.replace('{cat}', cat.id);
   return <li className={`pfx-e is-${r.state}${open ? ' is-open' : ''}`} style={{ '--i': i }} data-testid={`pfx-entry-${r.id}`}>
     <i className="pfx-node" aria-hidden="true" />
@@ -139,11 +140,13 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder }) {
         {r.loop?.past?.length ? <p className="pfx-skip"><Ic3 e="🪄" size="18px" /> Studied first: {r.loop.past.slice(0, 3).map(p => p.sym ? `$${p.sym} ${p.pct}%` : p.market ? `${p.market} ${p.roe}%` : `#${p.n}${p.mark ? ` ${p.mark}` : ''}`).join(', ')}</p> : null}</section>
       {r.sent?.sig ? <CollectiveSub sent={r.sent} name={r.name} review={r.review} /> : null}
       <section><h4>WHAT IT SAW</h4>{r.shots.length ? <div className="pfx-gallery">{r.shots.map(s => <button key={s.file} type="button" onClick={() => onShot({ ...s, url: src(s) })} data-tip={`${s.site}: open it big`}><img src={src(s)} alt={`${s.site} at the time`} loading="lazy" onError={e => { e.currentTarget.style.visibility = 'hidden'; }} /><small>{s.site}</small></button>)}</div> : <p className="pfx-none">{r.kind === 'pop' ? 'A PoP reads its sources and the chart, so it files no page snapshots.' : 'No snapshots were kept with this one.'}</p>}</section>
-      {onOpenFolder ? <button type="button" className="m-btn" onClick={() => onOpenFolder(OPEN_APP[r.kind])} data-testid="pfx-open-folder">Open its {KINDS[r.kind][1]} folder</button> : null}</div> : null}</li>;
+      <div className="pfx-acts">{onOpenFolder && OPEN_APP[r.kind] ? <button type="button" className="m-btn" onClick={() => onOpenFolder(OPEN_APP[r.kind])} data-testid="pfx-open-folder">Open its {KINDS[r.kind][1]} folder</button> : null}{onHide ? <button type="button" className="m-btn" onClick={() => onHide(r, !r.hidden)} data-tip={r.hidden ? 'Puts it back in your folders' : 'Takes it out of your folders. Its score and record stay exactly as filed, so nothing about the agent changes'} data-testid={`pfx-hide-${r.id}`}>{r.hidden ? 'Put it back' : 'Remove from view'}</button> : null}</div></div> : null}</li>;
 }
 
 export function ProofsFolder({ cat, d, onOpenFolder, work }) {
-  const all = useMemo(() => proofRows(d), [d]); const [lens, setLens] = useState('all'); const [open, setOpen] = useState(''); const [big, setBig] = useState(null);
+  const [hid, setHid] = useState({}); const [showHidden, setShowHidden] = useState(false); const every = useMemo(() => proofRows(d).map(r => (r.id in hid ? { ...r, hidden: hid[r.id] } : r)), [d, hid]); const gone = every.filter(r => r.hidden).length; const all = showHidden ? every : every.filter(r => !r.hidden); const [hideErr, setHideErr] = useState('');
+  const hide = async (r, on) => { setHideErr(''); try { await work(cat.id, { op: 'proof_hide', job: LIST[r.kind], text: r.id, on }); setHid(x => ({ ...x, [r.id]: on })); } catch (e) { setHideErr(e.message); } };
+  const [lens, setLens] = useState('all'); const [open, setOpen] = useState(''); const [big, setBig] = useState(null);
   const rows = lens === 'all' ? all : all.filter(r => r.kind === lens);
   const days = useMemo(() => rows.reduce((out, r) => { const k = day(r.at); const last = out[out.length - 1]; if (last?.k === k) last.rows.push(r); else out.push({ k, rows: [r] }); return out; }, []), [rows]);
   return <div className="pfx" data-testid="dsk-proofs">
@@ -153,7 +156,8 @@ export function ProofsFolder({ cat, d, onOpenFolder, work }) {
     <MindBoard board={cat?.mindBoard} />
     <header className="pfx-bar-h"><h3><Ic3 e="🕒" size="22px" /> PoI TIMELINE</h3>
       <div className="m-seg" role="group" aria-label="Which proofs">{[['all', 'All'], ...Object.entries(KINDS).map(([k, v]) => [k, v[1]])].map(([k, l]) => <button key={k} type="button" className={lens === k ? 'active' : ''} aria-pressed={lens === k} onClick={() => setLens(k)} data-testid={`pfx-lens-${k}`}>{l}</button>)}</div></header>
-    {days.length ? <div className="pfx-line">{days.map(g => <section key={g.k}><h4 className="pfx-day m-num">{g.k}</h4><ol>{g.rows.map((r, i) => <Entry key={r.id} r={r} i={i} cat={cat} open={open === r.id} onToggle={() => setOpen(open === r.id ? '' : r.id)} onShot={setBig} onOpenFolder={onOpenFolder} />)}</ol></section>)}</div>
+    {gone || hideErr ? <p className="pfx-gone" role="status">{hideErr ? `⚠ ${hideErr}` : `${gone} removed from view. Their scores still count.`}{gone ? <button type="button" className="m-btn" onClick={() => setShowHidden(x => !x)} data-testid="pfx-show-hidden">{showHidden ? 'Hide them' : 'Show them'}</button> : null}</p> : null}
+    {days.length ? <div className="pfx-line">{days.map(g => <section key={g.k}><h4 className="pfx-day m-num">{g.k}</h4><ol>{g.rows.map((r, i) => <Entry key={r.id} r={r} i={i} cat={cat} open={open === r.id} onToggle={() => setOpen(open === r.id ? '' : r.id)} onShot={setBig} onOpenFolder={onOpenFolder} onHide={work ? hide : undefined} />)}</ol></section>)}</div>
       : <p className="pfx-empty" data-testid="pfx-empty">No proofs here yet. Type “file a PoW”, “file a perp” or “file a pob best NFL picks” in its chat.</p>}
     {big ? <div className="ast-shade" role="dialog" aria-modal="true" aria-label={big.site} onClick={() => setBig(null)}><img src={big.url} alt={big.site} /></div> : null}
   </div>;

@@ -5,6 +5,7 @@ import { ModelPop } from '../components/command/LaunchCat';
 import { apiUrl } from '../lib/api';
 import { CollectiveLanding } from '../components/command/CollectiveLanding';
 import { EcoDesk } from '../components/command/EcoDesk';
+import { LiveDesk } from '../components/command/PocEditor';
 import ECO from './ecoFixture.json';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
 
@@ -23,6 +24,7 @@ function Models() {   // the real model list from 5088, in the real popover, so 
 }
 export default function FeaturesHarness() {
   if (/models/.test(window.location.search)) return <Models />;
+  if (/live/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><LiveDesk cat={cat} work={async () => ({ sites: [{ id: 's1', host: 'news.ycombinator.com', url: 'https://news.ycombinator.com', note: 'Read 12 min ago: 3 new threads' }, { id: 's2', host: 'reddit.com/r/solana', url: 'https://reddit.com/r/solana', note: 'Read 40 min ago: quiet' }], drafts: [{ id: 'd1', status: 'new', site: 'news.ycombinator.com', happened: 'A thread on local models hit the front page', room: 'Skeptical, technical, tired of hype', narrative: 'Small models now do real work on a laptop', angle: 'Show a real run, not a claim', draft: 'Ran a 9B model on a MacBook for a week of real tasks. What it got right, what it did not, and the numbers.', why: 'The room wants receipts, not takes' }] })} /></div>;
   if (/eco/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><EcoDesk cat={cat} work={async () => ECO} onCommand={() => {}} proofs={() => <p>Proofs</p>} /></div>;
   if (/collective/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><CollectiveLanding more={<p>Its pot</p>} moreLabel="Its pot" /></div>;
   if (/play/.test(window.location.search)) return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box', overflow: 'auto' }}><Playground3D cat={cat} work={work} onBack={() => {}} /></div>;

@@ -7998,6 +7998,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['savedPages'] = ([str(p.text)] + saved_)[:50] if p.on is not False else saved_
         keep_owned(cat); _save(store)
         return {'saved': p.on is not False}
+    if p.op == 'proof_hide':   # 🗂 a filed proof leaves its owner's folders; its score and record stay as filed, so hiding never improves an agent
+        if p.job not in ('powFolders', 'popFolders', 'pobFolders', 'pocFolders', 'psFolders', 'poeFolders'):
+            raise HTTPException(400, 'No such proof list.')
+        row_ = next((f_ for f_ in cat.get(p.job) or [] if isinstance(f_, dict) and f_.get('id') == p.text), None)
+        if not row_:
+            raise HTTPException(404, 'That proof is not in this agent.')
+        row_['hidden'] = p.on is not False; keep_owned(cat); _save(store)
+        return {'hidden': row_['hidden'], 'id': row_['id']}
     if p.op == 'live_feed':   # 📡 real numbers for a page that shows live data: the preview passes them into its frame
         return {'live': await _live_feed(cat)}
     if p.op == 'ws_open':

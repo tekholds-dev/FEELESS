@@ -122,6 +122,7 @@ export function EcoDesk({ cat, work, onCommand, onRows, proofs }) {
   const act = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, { ...body, to: localDay() }); setD(j); if (j.poeFolders) onRows?.(j.poeFolders); return j; } catch (e) { setErr(e.message); return null; } finally { setBusy(false); } }, [cat.id, work, onRows]);
   useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'eco_d_get', to: localDay() })).then(j => { if (on) { setD(j); setAsking(!j.desk.setup); if (j.poeFolders) onRows?.(j.poeFolders); } }).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id, work, onRows]);
   if (!d) return err ? <p className="lct-err" role="alert" data-testid="eco-err">⚠ {err}</p> : <p className="ecd-none" data-testid="eco-loading">Opening your desk…</p>;
+  if (!d.desk || !d.view) return <p className="lct-err" role="alert" data-testid="eco-err">⚠ Could not read your desk. Nothing was lost. Open it again in a moment.</p>;   // a bad reply never takes the whole desktop down
   const { desk, view: v, today } = d; const setup = desk.setup; const wants = setup?.wants; const shown = TABS.filter(t => !t[2] || !wants || wants.includes(t[2]));
   const done = async a => { const j = await act({ op: 'eco_d_setup', tools: a }); if (j) { setAsking(false); setTab('today'); } };
   return <div className={`ecd is-${look}${asking ? ' is-asking' : ''}`} data-testid="eco-desk">

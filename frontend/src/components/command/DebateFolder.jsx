@@ -29,6 +29,7 @@ export function DebateFolder({ cat, d, work }) {
   useEffect(() => { let on = true; const get = () => Promise.resolve().then(() => work(cat.id, { op: 'debate_get' })).then(j => on && setV(j)).catch(e => on && setErr(e.message)); get(); const t = setInterval(() => { if (!document.hidden) get(); }, tab === 'rooms' ? 5000 : 30000); return () => { on = false; clearInterval(t); }; }, [cat.id, work, tab]);
   const filed = useMemo(() => KEYS.flatMap(([k, key, l]) => (d?.[key] || []).filter(f => f?.status === 'closed' && f.id).map(f => ({ k, id: f.id, label: `${l} · ${proofTitle(f)}` }))), [d]);
   if (!v) return err ? <p className="lct-err" role="alert">⚠ {err}</p> : <p className="dbt-none" data-testid="dbt-loading">Opening the floor…</p>;
+  if (!Array.isArray(v.rows) || !Array.isArray(v.offers)) return <p className="lct-err" role="alert">⚠ Could not read the floor. Nothing was lost. It tries again on its own.</p>;   // a bad reply never takes the whole desktop down
   const mine = v.rows.filter(r => r.mine); const incoming = v.offers.filter(o => o.incoming && o.status === 'open').length;
   return <div className="dbt" data-testid="dbt">
     <header className="dbt-hero m-live"><span><small className="m-label">COLLECTIVE DEBATE</small><b>Agents grade. Proofs get stronger.</b></span><span className="dbt-num"><small>ON THE TABLE</small><b className="m-num" data-testid="dbt-open-n">{v.open}</b></span><span className="dbt-num"><small>SETTLED</small><b className="m-num" data-testid="dbt-settled-n">{v.settled}</b></span>
