@@ -3266,6 +3266,42 @@ async def _sol_usd(http):
     return _num(((r.json().get('pairs') or [{}])[0]).get('priceUsd'))
 
 
+_LIVE: dict = {}
+LIVE_S = 20
+
+
+async def _live_feed(cat):
+    """📡 Real numbers any proof may use, read only: SOL price and 24h change (DexScreener), slot and TPS over its own Helius key from the
+    cabinet when saved, else FEELESS's RPC, and its own wallet's SOL. Cached 20 s per agent. The key stays here. → dict"""
+    now = time.time(); hit = _LIVE.get(cat.get('id'))
+    if hit and now - hit['at'] < LIVE_S:
+        return hit
+    key = _ck.key_for(cat, 'helius', data_dir=DATA_DIR); addr = (cat.get('agentWallet') or {}).get('address')
+    async with httpx.AsyncClient(timeout=10) as http:
+        async def rpc(method, params):
+            if key:
+                r = await http.post(f'https://mainnet.helius-rpc.com/?api-key={key}', json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params})
+                return (r.json() or {}).get('result') if r.status_code == 200 else None
+            return await _crpc._rpc(http, method, params, scan=False)
+        async def pair():
+            r = await http.get('https://api.dexscreener.com/latest/dex/pairs/solana/58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2', timeout=8)
+            p_ = (r.json().get('pairs') or [{}])[0] if r.status_code == 200 else {}
+            return _num(p_.get('priceUsd')) or None, (p_.get('priceChange') or {}).get('h24')
+        async def safe(c):
+            try:
+                return await c
+            except Exception:   # noqa: BLE001 — one dead source leaves its number empty, never the others
+                return None
+        got = await asyncio.gather(safe(pair()), safe(rpc('getSlot', [{'commitment': 'confirmed'}])), safe(rpc('getRecentPerformanceSamples', [1])), safe(_lamports_sol(http, addr)) if addr else asyncio.sleep(0))
+    (sol, ch), slot, perf, bal = got[0] or (None, None), got[1], got[2], got[3]
+    perf_ = (perf or [{}])[0] if isinstance(perf, list) else {}
+    tps = round(perf_.get('numTransactions', 0) / perf_['samplePeriodSecs']) if perf_.get('samplePeriodSecs') else None
+    feed = {'solUsd': sol, 'solChange24h': _num(ch) if ch is not None else None, 'slot': slot if isinstance(slot, int) else None, 'tps': tps, 'walletSol': bal,
+            'source': 'its own Helius key' if key else 'FEELESS RPC', 'at': round(now)}
+    _LIVE[cat.get('id')] = feed
+    return feed
+
+
 async def _lamports_sol(http, addr):
     """The SOL on an address, read on-chain, or None. It is what the chain says, not the site's own balance figure."""
     try:
@@ -6533,6 +6569,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 except httpx.HTTPError:
                     from_repo_ = ''
             user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            if _feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
+                user += _feat.live_line(await _live_feed(cat), page=True)
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
             stash_, doc['kitsStash'] = _kits.stash_line(KITS_DIR, 'pos', text, picks_)
             kits_ = _kits.use_line(picks_) + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
@@ -6572,7 +6610,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
         else:
             sys_ = (_feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS) + ' ' + _feat.ANSWER_SHAPES.get(kind, '')
-            past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1])
+            past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1]) + (_feat.live_line(await _live_feed(cat)) if _feat.wants_live(text) else '')
             for i in order:
                 raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
@@ -7934,6 +7972,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['savedPages'] = ([str(p.text)] + saved_)[:50] if p.on is not False else saved_
         keep_owned(cat); _save(store)
         return {'saved': p.on is not False}
+    if p.op == 'live_feed':   # 📡 real numbers for a page that shows live data: the preview passes them into its frame
+        return {'live': await _live_feed(cat)}
     if p.op == 'ws_open':
         view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or []); view_['project'] = (cat.get('projectRepo') or {}).get('full')
         if p.ver is not None and p.ver == str(view_['versions']):

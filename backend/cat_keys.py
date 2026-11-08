@@ -20,7 +20,7 @@ PROVIDERS = {
     'github_project': ('GitHub project', 'the project its agent works on', False, r'^(ghp_|gho_|ghu_|github_pat_)[A-Za-z0-9_]{20,255}$'),
     'openrouter': ('OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', True, r'^sk-or-[A-Za-z0-9_-]{20,}$'),
     'birdeye': ('Birdeye', 'holder + price reads for its scans', False, r'^[A-Za-z0-9]{16,64}$'),
-    'helius': ('Helius', 'its own Solana RPC — faster wallet + tape reads', False, r'^[A-Za-z0-9-]{20,64}$'),
+    'helius': ('Helius', 'its own Solana RPC: live numbers in its PoStatic pages, PoC posts and research', True, r'^[A-Za-z0-9-]{20,64}$'),
     'x': ('X (Twitter)', 'a bearer token — reads the coin\'s X chatter', False, r'^[A-Za-z0-9%_-]{30,200}$'),
     'telegram': ('Telegram channel', 'a public @channel it reads for calls', False, r'^@?[A-Za-z0-9_]{5,32}$'),
     'webhook': ('Signal webhook', 'your own signal URL (https) it reads before a buy', False, r'^https://[^\s]{6,300}$'),
