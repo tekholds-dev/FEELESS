@@ -1158,7 +1158,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     fallback; users default to OpenRouter, my caller is theirs"). → (text, $, via). Fee / staff: SingIt from its own wallet → OpenRouter →
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
-    wallet = _pays_itself(cat) and not own_key
+    wallet = _pays_itself(cat)   # 💳 owner 2026-11-10: an agent on its own OpenRouter key still falls back to SingIt from its wallet when OpenRouter runs dry
     if (cat.get('personal') or cat.get('proofNote')) and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
     async def paid():
@@ -1168,7 +1168,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
         if not own_key and not staff and not _brains_live() and not str(model).startswith('local/'):
             return '', 0.0
         return await _or_call(model, messages, max_tokens=max_tokens, effort=effort, key=own_key)
-    for name, step in ((('openrouter', router),) if own_key else (('openrouter', router), ('singit', paid)) if staff else (('singit', paid), ('openrouter', router))):
+    for name, step in ((('openrouter', router), ('singit', paid)) if own_key or staff else (('singit', paid), ('openrouter', router))):
         text, usd = await step()
         if str(text or '').strip():
             if name == 'openrouter' and usd > 0:

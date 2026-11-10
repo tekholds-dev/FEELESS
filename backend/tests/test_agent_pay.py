@@ -136,6 +136,7 @@ def test_a_model_the_provider_cannot_answer_tries_its_default_once_and_routes_di
     order.clear(); monkeypatch.setattr(fs, '_brains_live', lambda: False)
     asyncio.run(fs._think({'isLeader': True}, 'm', [])); assert order == ['openrouter', 'free']   # owner 2026-11-10: Fee and staff use FEELESS's OpenRouter even with the users' switch off
     order.clear(); assert asyncio.run(fs._think({}, 'm', [], own_key='k'))[2] == '' and order == ['openrouter']   # an owner's own key: their bill, no FEELESS free route
+    order.clear(); asyncio.run(fs._think({'agentWallet': agent}, 'm', [], own_key='k')); assert order == ['openrouter', 'singit']   # owner 2026-11-10: its own OpenRouter first, then its wallet on SingIt, never FEELESS's free route
 
 
 def test_fees_circle_wallet_stops_being_watch_only_and_only_fee_pays_from_the_creator_project(monkeypatch):
