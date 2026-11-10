@@ -99,3 +99,5 @@ body.theme-day .awk-list > li { background: #f4f6fa; } body.theme-day .awk-list 
 @keyframes gpvIn { from { opacity: 0; transform: translateY(4px); } } body.fx-lite .gpv, body.fx-lite .gpv-parts li { animation: none; } @media (prefers-reduced-motion: reduce) { .gpv, .gpv-parts li { animation: none; } .gpv-bar u, .gpv-parts u { transition: none; } }
 body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-day :is(.gpv-bar, .gpv-parts i) { background: #0000000f; } body.theme-day .gpv-math td { border-color: #0000000f; }
 @media (max-width: 640px) { .gpv-parts li { grid-template-columns: minmax(80px, 1fr) minmax(40px, 1fr) 36px; } }
+/* AGT-11: the cost toggle was 22 x 20; a 32 px hit area, the look unchanged */
+.cost-t-b { position: relative; } .cost-t-b::after { content: ''; position: absolute; inset: -6px; }
