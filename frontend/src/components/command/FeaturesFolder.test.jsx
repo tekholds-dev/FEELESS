@@ -179,6 +179,8 @@ test('the thin bar moves on real steps and real text, and never fakes a number',
   expect(buildPart({ stage: 'research' })).toBeCloseTo(0.3 / 4); expect(buildPart({ stage: 'build', draft: '' })).toBe(0.5);
   expect(buildPart({ stage: 'build', draft: 'x'.repeat(12500) })).toBeCloseTo(0.625); expect(buildPart({ stage: 'review', draft: 'x'.repeat(99999) }, 25000)).toBeLessThan(0.98);
   expect(buildPart({})).toBeNull(); expect(buildPart({ stage: 'content' })).toBeNull();
+  expect(buildPart({ stage: 'answer', step: 1, steps: 2 })).toBe(0.5); expect(buildPart({ stage: 'answer', step: 0, steps: 2 })).toBe(0.04);   // a PoC: minds answered of how many (owner 2026-11-09: "loading bar not true")
+  expect(buildPart({ stage: 'answer' })).toBeNull();
 });
 
 test('a stopped PoStatic says why, Finish runs the same ask, and Keep stops at the last page', async () => {

@@ -75,13 +75,14 @@ export function ChatCost({ doc }) {
 }
 // ⏳ What the job is really doing: which step, who is on it, how much it has written and how long it has run. The fill moves on real steps and real text, never on a timer.
 const BUILD_ORDER = ['research', 'suggest', 'build', 'review'];
-const STAGE_WORD = { research: 'reading the best sites', suggest: 'writing the plan', build: 'writing the page', review: 'reviewing and fixing the page' };
-export const buildPart = (busy, prevLen = 0) => { const i = BUILD_ORDER.indexOf(busy?.stage); if (i < 0) return null; const chars = String(busy?.draft || '').length; const inside = /build|review/.test(busy.stage) ? Math.min(0.92, chars / Math.max(8000, prevLen || 25000)) : 0.3; return Math.min(0.97, (i + inside) / BUILD_ORDER.length); };
+const STAGE_WORD = { research: 'reading the best sites', suggest: 'writing the plan', build: 'writing the page', review: 'reviewing and fixing the page', answer: 'writing its answer' };
+export const buildPart = (busy, prevLen = 0) => { if (busy?.stage === 'answer') return busy.steps ? Math.max(0.04, Number(busy.step || 0) / busy.steps) : null;   // a PoC / research: minds that have answered, of how many
+  const i = BUILD_ORDER.indexOf(busy?.stage); if (i < 0) return null; const chars = String(busy?.draft || '').length; const inside = /build|review/.test(busy.stage) ? Math.min(0.92, chars / Math.max(8000, prevLen || 25000)) : 0.3; return Math.min(0.97, (i + inside) / BUILD_ORDER.length); };
 function BuildBar({ doc }) {
   const busy = doc?.busy; const started = useRef(Date.now()); const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) tick(n => n + 1); }, 1000); return () => clearInterval(t); }, []);
-  const part = buildPart(busy, String(doc?.code || '').length); const secs = Math.round((Date.now() - started.current) / 1000); const chars = String(busy?.draft || '').length;
-  return <div className={`fea-bar${part == null ? ' is-open' : ''}`} data-testid="ws-buildbar"><span><b>{busy?.by || 'Working'}</b><small>{STAGE_WORD[busy?.stage] || 'thinking'}{chars ? ` · ${chars.toLocaleString()} characters` : ''} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</small></span><i role="progressbar" aria-label="Its progress" aria-valuemin={0} aria-valuemax={100} {...(part == null ? {} : { 'aria-valuenow': Math.round(part * 100) })}><u style={part == null ? undefined : { transform: `scaleX(${part})` }} /></i></div>;
+  const part = buildPart(busy, String(doc?.code || '').length); const from = Number(busy?.at) ? Number(busy.at) * 1000 : started.current; const secs = Math.max(0, Math.round((Date.now() - from) / 1000)); const chars = String(busy?.draft || '').length;   // the clock runs from when the job began, not from when this window opened
+  return <div className={`fea-bar${part == null ? ' is-open' : ''}`} data-testid="ws-buildbar"><span><b>{busy?.by || 'Working'}</b><small>{STAGE_WORD[busy?.stage] || 'thinking'}{busy?.stage === 'answer' && busy.steps ? ` · ${Number(busy.step || 0)} of ${busy.steps} answered` : ''}{chars ? ` · ${chars.toLocaleString()} characters` : ''} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</small></span><i role="progressbar" aria-label="Its progress" aria-valuemin={0} aria-valuemax={100} {...(part == null ? {} : { 'aria-valuenow': Math.round(part * 100) })}><u style={part == null ? undefined : { transform: `scaleX(${part})` }} /></i></div>;
 }
 // 📂 Which files of your own repo this build continues from. They are read live and kept nowhere here.
 function RepoFiles({ cat, row, work, doc, setDoc }) {

@@ -812,17 +812,22 @@ def test_wallet_model_payment_writes_a_safe_per_call_receipt(monkeypatch, tmp_pa
         async def __aexit__(self, *args): pass
         async def post(self, url, **kw):
             if 'agent-x402-pay' in url: return R(200, {'signedTransaction': 'private-signature'})
-            return R(200, {'choices': [{'message': {'content': 'answer'}}], 'usage': {'total_tokens': 42}}) if kw.get('headers') else R(402)
+            return R(200, {'model': 'singit-ask', 'choices': [{'message': {'content': 'answer'}}], 'usage': {'total_tokens': 42}}) if kw.get('headers') else R(402)   # SingIt names its router, not the model
     monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **kw: H())
     monkeypatch.setattr(fs._ap, 'pick_quote', lambda *a: ({}, {'amount': fs._ap.USDC_SCALE // 100}))
     monkeypatch.setattr(fs._ap, 'payment_header', lambda *a: 'private-payment-header')
     monkeypatch.setattr(fs, '_internal_headers', lambda: {})
     monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)
-    answer, usd = asyncio.run(fs._wallet_once({'id': 'cat-a', 'agentWallet': {'circleId': 'wallet-a', 'address': 'addr-a'}}, 'model-a', [], 300, 0.1))
+    heard = {}; tok = fs._ANSWER.set(heard)
+    try:
+        answer, usd = asyncio.run(fs._wallet_once({'id': 'cat-a', 'agentWallet': {'circleId': 'wallet-a', 'address': 'addr-a'}}, 'model-a', [], 300, 0.1))
+    finally:
+        fs._ANSWER.reset(tok)
     receipt = json.loads((tmp_path / 'model_receipts.jsonl').read_text())
     assert (answer, usd) == ('answer', 0.01)
     assert receipt['model'] == 'model-a' and receipt['usd'] == 0.01 and receipt['tokens'] == 42
     assert 'private-' not in json.dumps(receipt)
+    assert (heard['route'], heard['model']) == ('singit', 'model-a')   # the call log names the model paid for, never the router 'singit-ask' (found live 2026-11-09)
 
 
 def test_singit_pow_calls_reduce_the_bought_model_budget(monkeypatch):

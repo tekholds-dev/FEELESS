@@ -1145,7 +1145,8 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
                 # A receipt disk error must never turn an already accepted
                 # payment into a reported free call or trigger another route.
                 print(f"[agent pay] receipt write failed: {type(e).__name__}")
-            _heard(route='singit', model=answer.get('model') or model_id, tokens=receipt['tokens'])
+            said_ = str(answer.get('model') or '')
+            _heard(route='singit', model=model_id if not said_ or said_.startswith('singit') else said_, tokens=receipt['tokens'])   # SingIt names its router ('singit-ask'): the model we paid for is the one that answered (found live 2026-11-09)
             return ((answer.get('choices') or [{}])[0].get('message') or {}).get('content') or '', receipt['usd']
     except (ValueError, KeyError, httpx.HTTPError) as e:
         print(f"[agent pay] {cat['id']}: {str(e)[:120]}")
@@ -6728,7 +6729,9 @@ async def _ws_run(cat_id, ws_id, to, text, region):
         else:
             sys_ = (_feat.CONTENT_SYS if kind == 'content' else _feat.RESEARCH_SYS) + ' ' + _feat.ANSWER_SHAPES.get(kind, '')
             past = '\n'.join(f"{m['by']}: {m['text'][:400]}" for m in (doc.get('messages') or [])[-6:-1]) + (_feat.live_line(await _live_feed(cat)) if _feat.wants_live(text) else '')
-            for i in order:
+            t0_ = (doc.get('busy') or {}).get('at') or round(time.time())
+            for j_, i in enumerate(order):   # ⏳ the bar shows the real step (which mind, how many answered, since the job began); each save carries the answers so far, so A's shows while B works
+                _ws_save(cat_id, {**doc, 'busy': {'at': t0_, 'to': to, 'stage': 'answer', 'by': name(i), 'step': j_, 'steps': len(order), 'spent': round(cost, 6)}})
                 raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
                 cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
             if kind == 'content' and _assets.wants_3d(text):
@@ -8208,7 +8211,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         files_ = [_af.find(cat, i) for i in ((p.tools or {}).get('files') or [])[:_feat.ATTACH_MAX]] if isinstance(p.tools, dict) else []
         if any(files_):
             doc_['attached'] = [{'id': f['id'], 'name': f.get('name')} for f in files_ if f]
-        _feat.add_msg(doc_, 'you', said_, time.time()); doc_.pop('unfinished', None); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'build' if doc_.get('versions') or doc_.get('kind') != 'build' else 'research'}
+        _feat.add_msg(doc_, 'you', said_, time.time()); doc_.pop('unfinished', None); doc_['complete'] = False; doc_['pending'] = doc_.get('kind') == 'build'; doc_['busy'] = {'at': round(time.time()), 'to': str(p.to or 'both'), 'stage': 'answer' if doc_.get('kind') != 'build' else 'build' if doc_.get('versions') else 'research'}   # a PoC or research answers; only a build writes a page
         _ws_save(cat_id, doc_)
         _ws_start(cat_id, p.job, str(p.to or 'both'), text_, (p.tools or {}).get('region') if isinstance(p.tools, dict) else None)
         return {'doc': _ws_view(cat_id, p.job)}
