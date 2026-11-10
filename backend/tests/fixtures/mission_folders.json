@@ -1,0 +1,1589 @@
+{
+ "_about": "Cleaned copies of real proof folders from backend/data/feecats.json (2026-11-09). Wallets, mints, signatures, keys and emails replaced; long text cut. Shapes are real; values are not live data.",
+ "cat": {
+  "id": "cat-fixture",
+  "name": "Fixture agent",
+  "brainsCfg": {
+   "brains": [
+    "local/ossy",
+    "local/g4"
+   ]
+  }
+ },
+ "folders": {
+  "pow_real_closed": {
+   "key": "powFolders",
+   "folder": {
+    "id": "pow1793519105",
+    "n": 1,
+    "name": "PoW #1 · Nov 01 · 07:45 UTC",
+    "at": 1793519106,
+    "coins": [
+     {
+      "mint": "B58_1",
+      "pair": "B58_2",
+      "sym": "niketyson",
+      "src": "intake",
+      "liq": 27590.06,
+      "mc": 104210.0,
+      "ch": 2.76,
+      "read": "FEELESS · coin search \"B58_1\" (deepest pool first):\n$niketyson · price $0.0001076 · cap $104.2K · pool $27.6K · 24h vol $227.7K · 24h +147.0% · pumpswap · pair B58_2\n$niketyson · price $0.0001893 · cap $189.4K · pool $217 · 24h vol $22 · 24h +1130.0% · meteora · pair B58_3\nFEELESS chart $niketyson ("
+     },
+     {
+      "mint": "B58_4",
+      "pair": "B58_4",
+      "sym": "PEAKY",
+      "src": "intake",
+      "liq": 5417.730977825305,
+      "mc": 21991.47294348282,
+      "ch": -14.808893901560216,
+      "read": "FEELESS · coin search \"B58_4\" (deepest pool first):\n$PEAKY · price $2.202860784526981e-05 · cap $21.9K · pool $5.4K · 24h vol $77.2K · 24h +199.6% · jupiter · pair B58_4\nFEELESS chart $PEAKY (5m, last 120 min): +2.1% · high +22.4% above now · low -27.1% below · price sits 55% up its range · last 30 "
+     },
+     {
+      "mint": "B58_5",
+      "pair": "B58_6",
+      "sym": "BLUE",
+      "src": "pump",
+      "liq": 59052.14,
+      "mc": 427826.0,
+      "ch": 10.26,
+      "read": "FEELESS · coin search \"B58_5\" (deepest pool first):\n$BLUE · price $0.0004463 · cap $432.4K · pool $59.4K · 24h vol $2.6M · 24h +995.0% · pumpswap · pair B58_6\n$BLUE · price $0.0004299 · cap $416.5K · pool $9.5K · 24h vol $140.2K · 24h -39.2% · meteora · pair B58_7\n$BLUE · price $0.0004704 · cap $455"
+     },
+     {
+      "mint": "B58_9",
+      "pair": "B58_10",
+      "sym": "SIS",
+      "src": "dex",
+      "liq": 61553.05,
+      "mc": 470764.0,
+      "ch": 26.45,
+      "read": "FEELESS · coin search \"B58_9\" (deepest pool first):\n$SIS · price $0.0004746 · cap $471.7K · pool $61.6K · 24h vol $3.4M · 24h +982.0% · pumpswap · pair B58_10\n$SIS · price $0.0004137 · cap $411.2K · pool $52 · 24h vol $227 · 24h -5.8% · orca · pair B58_11\n$FORK · price $0.000006966 · cap $7.0K · poo"
+     }
+    ],
+    "minds": 2,
+    "phase": "done",
+    "pick": {
+     "mint": "B58_5",
+     "pair": "B58_6",
+     "sym": "BLUE",
+     "src": "pump",
+     "liq": 59052.14,
+     "mc": 427826.0,
+     "ch": 10.26,
+     "read": "FEELESS · coin search \"B58_5\" (deepest pool first):\n$BLUE · price $0.0004463 · cap $432.4K · pool $59.4K · 24h vol $2.6M · 24h +995.0% · pumpswap · pair B58_6\n$BLUE · price $0.0004299 · cap $416.5K · pool $9.5K · 24h vol $140.2K · 24h -39.2% · meteora · pair B58_7\n$BLUE · price $0.0004704 · cap $455"
+    },
+    "talk": [
+     {
+      "by": "engine",
+      "text": "new folder: $niketyson (FEELESS intake), $PEAKY (FEELESS intake), $BLUE (Pump), $SIS (DexScreener)",
+      "at": 1793519108
+     },
+     {
+      "by": "gpt-6-luna",
+      "text": "picks $BLUE — BLUE: pool $59K, cap $428K, vol $2.6M, +995% — best liquidity-to-cap ratio, no rug signals.",
+      "at": 1793519137
+     },
+     {
+      "by": "solar-pro4",
+      "text": "picks $BLUE — BLUE: $59K pool, $2.6M vol, +995%, deep liquidity vs SIS; best momentum-to-rug ratio.",
+      "at": 1793519142
+     },
+     {
+      "by": "engine",
+      "text": "bought 0.01 SOL of $BLUE on FEELESS (its wallet)",
+      "at": 1793519162
+     },
+     {
+      "by": "solar-pro4",
+      "text": "research: price $0.0004722 · risk score GOOD, no risks found · lp locked 76.10% · mint authority none",
+      "at": 1793519410
+     },
+     {
+      "by": "gpt-6-luna",
+      "text": "HOLD: Chart up 8.7% from first sample, holding near high 5.31e-06; last moves flat, no breakdown — ride it.",
+      "at": 1793519435
+     },
+     {
+      "by": "solar-pro4",
+      "text": "research: price $0.0004686 · market cap $454.0K · volume 24h $2.7M · mint authority no",
+      "at": 1793519722
+     },
+     {
+      "by": "gpt-6-luna",
+      "text": "SELL: Chart rolled over: -7.8%, -8.3%, now at the low 4.066e-06, down 12.4%. Momentum broken — exit.",
+      "at": 1793519748
+     }
+    ],
+    "rounds": 2,
+    "status": "closed",
+    "why": "the watcher: Chart rolled over: -7.8%, -8.3%, now at the low 4.066e-06, down 12.4%. Momentum ",
+    "entry": 4.644e-06,
+    "exit": 4.378e-06,
+    "pnlPct": -5.73,
+    "pnlSol": -0.000573,
+    "sym": "BLUE",
+    "boughtAt": 1793519162,
+    "soldAt": 1793519774,
+    "real": true,
+    "research": [
+     {
+      "site": "feeless.app",
+      "label": "price",
+      "value": "$0.0004722"
+     },
+     {
+      "site": "rugcheck.xyz",
+      "label": "risk score",
+      "value": "GOOD, no risks found"
+     },
+     {
+      "site": "rugcheck.xyz",
+      "label": "lp locked",
+      "value": "76.10%"
+     },
+     {
+      "site": "rugcheck.xyz",
+      "label": "mint authority",
+      "value": "none"
+     },
+     {
+      "site": "feeless.app",
+      "label": "price",
+      "value": "$0.0004686"
+     },
+     {
+      "site": "feeless.app",
+      "label": "market cap",
+      "value": "$454.0K"
+     },
+     {
+      "site": "feeless.app",
+      "label": "volume 24h",
+      "value": "$2.7M"
+     },
+     {
+      "site": "rugcheck.xyz",
+      "label": "mint authority",
+      "value": "no"
+     }
+    ],
+    "picks": {
+     "0": 2,
+     "1": 2
+    },
+    "whys": {
+     "0": "BLUE: pool $59K, cap $428K, vol $2.6M, +995% — best liquidity-to-cap ratio, no rug signals.",
+     "1": "BLUE: $59K pool, $2.6M vol, +995%, deep liquidity vs SIS; best momentum-to-rug ratio."
+    },
+    "base": 0,
+    "pair": "B58_6",
+    "mint": "B58_5",
+    "sol": 0.01,
+    "now": 4.378e-06,
+    "line": [
+     4.629e-06,
+     4.746e-06,
+     4.954e-06,
+     4.954e-06,
+     5.31e-06,
+     5.292e-06,
+     5.292e-06,
+     5.265e-06
+    ]
+   }
+  },
+  "pow_proposed": {
+   "key": "powFolders",
+   "folder": {
+    "id": "pow1793740668",
+    "n": 13,
+    "name": "PoW #13 · Nov 03 · 21:17 UTC",
+    "at": 1793740668,
+    "coins": [
+     {
+      "mint": "B58_13",
+      "pair": "B58_14",
+      "sym": "SPHERE",
+      "src": "pump",
+      "liq": 34845.83,
+      "mc": 172938.0,
+      "ch": -9.63,
+      "safe": true,
+      "risk": null,
+      "read": "FEELESS · coin search \"B58_13\" (deepest pool first):\n$SPHERE · price $0.0001743 · cap $173.7K · pool $35.0K · 24h vol $2.5M · 24h +246.0% · pumpswap · pair B58_14\n$SPHERE · price $0.0007953 · cap $792.2K · pool $1 · 24h vol $91 · 24h -39.4% · meteora · pair B58_15\nFEELESS chart $SPHERE (5m, last 120"
+     },
+     {
+      "mint": "B58_16",
+      "pair": "B58_17",
+      "sym": "Mag",
+      "src": "pump",
+      "liq": 60474.82,
+      "mc": 424154.0,
+      "ch": 12.21,
+      "safe": true,
+      "risk": null,
+      "read": "FEELESS · coin search \"B58_16\" (deepest pool first):\n$Mag · price $0.0004329 · cap $425.2K · pool $60.6K · 24h vol $3.2M · 24h +1017.0% · pumpswap · pair B58_17\n$Mag · price $0.0004372 · cap $429.4K · pool $11.1K · 24h vol $344.7K · 24h +46.8% · meteora · pair B58_18\n$Mag · price $0.0006012 · cap $5"
+     },
+     {
+      "mint": "B58_20",
+      "pair": "B58_21",
+      "sym": "Pog",
+      "src": "pump",
+      "liq": 8959.22,
+      "mc": 15343.0,
+      "ch": -6.97,
+      "safe": true,
+      "risk": null,
+      "read": "FEELESS · coin search \"B58_20\" (deepest pool first):\n$Pog · price $0.00001567 · cap $15.2K · pool $8.9K · 24h vol $490.8K · 24h -58.4% · pumpswap · pair B58_21\n$Pog · price $0.00001396 · cap $13.6K · pool $0 · 24h vol $84 · 24h -32.3% · meteora · pair B58_22\nFEELESS chart $Pog (5m, last 95 min): +87"
+     },
+     {
+      "mint": "B58_23",
+      "pair": "B58_24",
+      "sym": "MAIN",
+      "src": "pump",
+      "liq": 17592.35,
+      "mc": 50832.0,
+      "ch": -16.24,
+      "safe": true,
+      "risk": null,
+      "read": "FEELESS · coin search \"B58_23\" (deepest pool first):\n$MAIN · price $0.00005286 · cap $50.9K · pool $17.6K · 24h vol $359.3K · 24h +37.1% · pumpswap · pair B58_24\n$MAIN · price $0.00004960 · cap $47.8K · pool $176 · 24h vol $5.7K · 24h -49.0% · meteora · pair B58_25\nFEELESS chart $MAIN (5m, last 85 m"
+     }
+    ],
+    "minds": 2,
+    "phase": "done",
+    "pick": {
+     "mint": "B58_16",
+     "pair": "B58_17",
+     "sym": "Mag",
+     "src": "pump",
+     "liq": 60474.82,
+     "mc": 424154.0,
+     "ch": 12.21,
+     "safe": true,
+     "risk": null,
+     "read": "FEELESS · coin search \"B58_16\" (deepest pool first):\n$Mag · price $0.0004329 · cap $425.2K · pool $60.6K · 24h vol $3.2M · 24h +1017.0% · pumpswap · pair B58_17\n$Mag · price $0.0004372 · cap $429.4K · pool $11.1K · 24h vol $344.7K · 24h +46.8% · meteora · pair B58_18\n$Mag · price $0.0006012 · cap $5"
+    },
+    "talk": [
+     {
+      "by": "engine",
+      "text": "replaced 12 unsafe: $STONKS (top 10 wallets hold 27%), $Satoshi (top 10 wallets hold 26%), $SEXYANSEM (🚀 +954% in 1h — already ran, that is the), $STONKCAT (🚀 +529% in 1h — already ran, that is the), ",
+      "at": 1793740674
+     },
+     {
+      "by": "engine",
+      "text": "new folder: $SPHERE (Pump), $Mag (Pump), $Pog (Pump), $MAIN (Pump)",
+      "at": 1793740674
+     },
+     {
+      "by": "plan",
+      "text": "1) the engine vets up to 20 candidates (every buy guard + safety) — four safe coins or the two-source fallback reach the minds → 2) A proposes 3, B proposes 3 OTHER coins — 6 on the table (each sees t",
+      "at": 1793740674
+     },
+     {
+      "by": "deepseek-v4-pro-0813",
+      "text": "proposes $SPHERE, $Mag, $MAIN — SPHERE and Mag show strong momentum and volume; MAIN has positive growth with reasonable pool depth.",
+      "at": 1793740700
+     },
+     {
+      "by": "glm-5.3-flash",
+      "text": "proposes $Pog — Pog has huge volume vs pool and my rugcheck/birdeye edge; need the other two coin reads to finalize.",
+      "at": 1793740729
+     },
+     {
+      "by": "engine",
+      "text": "shortlist: $SPHERE, $Mag, $MAIN, $Pog — each mind takes 2 and plans its research",
+      "at": 1793740729
+     },
+     {
+      "by": "deepseek-v4-pro-0813",
+      "text": "takes $SPHERE, $Mag — plan: Check Pump.fun pages, DexScreener, and Twitter for each. Verify holder distribution, volume vs pool, dev activity, and socials. Kill if volume fake, holders concentrated, o",
+      "at": 1793740756
+     },
+     {
+      "by": "glm-5.3-flash",
+      "text": "takes $Pog, $MAIN — plan: $Pog: verify $490K volume vs $8.9K pool on DexScreener—wash trading kills it. $MAIN: check Pump.fun creator history, bundled wallets, top-10 holder concentration.",
+      "at": 1793740791
+     }
+    ],
+    "rounds": 0,
+    "status": "closed",
+    "why": "💡 proposes $Mag — $Mag: +1017% 24h, $3.2M vol, deepest pool $60K, 2.85K holders; others fading or thin.",
+    "sym": "Mag",
+    "soldAt": 1793741551,
+    "research": [],
+    "picks": {
+     "0": 1,
+     "1": 1
+    },
+    "whys": {
+     "0": "$Mag: +1017% 24h, $3.2M vol, deepest pool $60K, 2.85K holders; others fading or thin.",
+     "1": "Agree: $Mag +1017% 24h, $3.2M vol, $60K deepest pool, 2.85K holders; others fading or thin."
+    },
+    "base": 0,
+    "pair": "B58_17",
+    "mint": "B58_16",
+    "propose": true,
+    "sol": 0.01,
+    "plan": [
+     "the engine vets up to 20 candidates (every buy guard + safety) — four safe coins or the two-source fallback reach the minds",
+     "A proposes 3, B proposes 3 OTHER coins — 6 on the table (each sees the coin's prior PoW)",
+     "each mind takes 2 of the shortlist + writes how it will investigate them",
+     "each researches its own coins: FEELESS + 3 sites, 3–8 moves a site, ≤ 3 vitals a site, duplicates dropped",
+     "every coin is checked again → 3 turns decide the ONE (size, TP, SL) → bought on FEELESS → checks until it sells → filed forever"
+    ],
+    "tp": 15.0,
+    "sl": 8.0,
+    "shots": [
+     {
+      "mint": "B58_13",
+      "site": "rugcheck.xyz",
+      "n": 1,
+      "at": 1793740862,
+      "file": "31syoq_r0_rugcheck.xyz_1.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_13",
+      "site": "rugcheck.xyz",
+      "n": 2,
+      "at": 1793740869,
+      "file": "31syoq_r0_rugcheck.xyz_2.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_13",
+      "site": "v2.bubblemaps.io",
+      "n": 1,
+      "at": 1793740890,
+      "file": "31syoq_r0_v2.bubblemaps.io_1.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_13",
+      "site": "v2.bubblemaps.io",
+      "n": 2,
+      "at": 1793740910,
+      "file": "31syoq_r0_v2.bubblemaps.io_2.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_20",
+      "site": "dexscreener.com",
+      "n": 1,
+      "at": 1793740973,
+      "file": "jcplcb_r0_dexscreener.com_1.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_20",
+      "site": "dexscreener.com",
+      "n": 2,
+      "at": 1793741020,
+      "file": "jcplcb_r0_dexscreener.com_2.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_20",
+      "site": "jup.ag",
+      "n": 1,
+      "at": 1793741049,
+      "file": "jcplcb_r0_jup.ag_1.jpg",
+      "round": 0
+     },
+     {
+      "mint": "B58_20",
+      "site": "jup.ag",
+      "n": 2,
+      "at": 1793741058,
+      "file": "jcplcb_r0_jup.ag_2.jpg",
+      "round": 0
+     }
+    ],
+    "vitals": {
+     "B58_13": [
+      {
+       "site": "feeless.app",
+       "label": "price",
+       "value": "$0.0001731",
+       "sites": [
+        "feeless.app"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "lp locked",
+       "value": "100%",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "holders",
+       "value": "5,329",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "risk score",
+       "value": "GOOD",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "v2.bubblemaps.io",
+       "label": "top 10 holders",
+       "value": "top cluster 1.74%, PumpSwap 9.81%",
+       "sites": [
+        "v2.bubblemaps.io"
+       ]
+      }
+     ],
+     "B58_20": [
+      {
+       "site": "feeless.app",
+       "label": "volume 24h",
+       "value": "$491.6K vs pool $8.3K, -63.2% 24h (FEELESS)",
+       "sites": [
+        "feeless.app"
+       ]
+      },
+      {
+       "site": "jup.ag",
+       "label": "liquidity",
+       "value": "$13.5K, holders 525, MC $14.7K (jup.ag)",
+       "sites": [
+        "dexscreener.com",
+        "jup.ag"
+       ]
+      },
+      {
+       "site": "jup.ag",
+       "label": "top 10 holders",
+       "value": "20.52% top10, 13.95%+ others shown, holders 525, org score 82 (jup.ag)",
+       "sites": [
+        "jup.ag"
+       ]
+      },
+      {
+       "site": "jup.ag",
+       "label": "mint authority",
+       "value": "renounced (Freeze Auth/Mint Auth shown on jup.ag)",
+       "sites": [
+        "jup.ag"
+       ]
+      },
+      {
+       "site": "coingecko.com",
+       "label": "market cap",
+       "value": "not listed on CoinGecko (0 search results)",
+       "sites": [
+        "coingecko.com"
+       ]
+      }
+     ],
+     "B58_16": [
+      {
+       "site": "defined.fi",
+       "label": "price",
+       "value": "$0.00037527",
+       "sites": [
+        "feeless.app",
+        "defined.fi"
+       ]
+      },
+      {
+       "site": "feeless.app",
+       "label": "volume 24h",
+       "value": "$3.3M",
+       "sites": [
+        "feeless.app"
+       ]
+      },
+      {
+       "site": "defined.fi",
+       "label": "market cap",
+       "value": "$369K",
+       "sites": [
+        "feeless.app",
+        "defined.fi"
+       ]
+      },
+      {
+       "site": "gmgn.ai",
+       "label": "holders",
+       "value": "2.85K",
+       "sites": [
+        "gmgn.ai"
+       ]
+      },
+      {
+       "site": "gmgn.ai",
+       "label": "dev holds",
+       "value": "Dev Token 238",
+       "sites": [
+        "gmgn.ai"
+       ]
+      },
+      {
+       "site": "defined.fi",
+       "label": "liquidity",
+       "value": "$38.0K",
+       "sites": [
+        "defined.fi"
+       ]
+      }
+     ],
+     "B58_23": [
+      {
+       "site": "feeless.app",
+       "label": "volume 24h",
+       "value": "$379.2K",
+       "sites": [
+        "feeless.app"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "lp locked",
+       "value": "100%",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "market cap",
+       "value": "$14K",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "rugcheck.xyz",
+       "label": "holders",
+       "value": "2372",
+       "sites": [
+        "rugcheck.xyz"
+       ]
+      },
+      {
+       "site": "v2.bubblemaps.io",
+       "label": "top 10 holders",
+       "value": "largest cluster 6.85%, pool 30.07%, 2 pump.fun creators 3.17%+1.42%",
+       "sites": [
+        "v2.bubblemaps.io"
+       ]
+      }
+     ]
+    },
+    "scout": [
+     "B58_13",
+     "B58_20",
+     "B58_16",
+     "B58_23"
+    ],
+    "scoutDone": [
+     "B58_13",
+     "B58_20",
+     "B58_16",
+     "B58_23"
+    ],
+    "rMind": 1,
+    "scouted": true,
+    "fav": "B58_13",
+    "cost": 0.107684,
+    "spend": {
+     "0": 0.063403,
+     "1": 0.044281
+    },
+    "report": {
+     "name": "PoW #13 · Nov 03 · 21:17 UTC",
+     "coins": [
+      {
+       "sym": "SPHERE",
+       "mint": "B58_13",
+       "src": "Pump",
+       "safe": true,
+       "risk": null,
+       "vitals": 5,
+       "shots": 4,
+       "sites": [
+        "feeless.app",
+        "rugcheck.xyz",
+        "v2.bubblemaps.io"
+       ],
+       "pick": false
+      },
+      {
+       "sym": "Mag",
+       "mint": "B58_16",
+       "src": "Pump",
+       "safe": true,
+       "risk": null,
+       "vitals": 6,
+       "shots": 5,
+       "sites": [
+        "defined.fi",
+        "feeless.app",
+        "gmgn.ai",
+        "solsniffer.com"
+       ],
+       "pick": true
+      },
+      {
+       "sym": "Pog",
+       "mint": "B58_20",
+       "src": "Pump",
+       "safe": true,
+       "risk": null,
+       "vitals": 5,
+       "shots": 6,
+       "sites": [
+        "coingecko.com",
+        "dexscreener.com",
+        "feeless.app",
+        "jup.ag"
+       ],
+       "pick": false
+      },
+      {
+       "sym": "MAIN",
+       "mint": "B58_23",
+       "src": "Pump",
+       "safe": true,
+       "risk": null,
+       "vitals": 5,
+       "shots": 4,
+       "sites": [
+        "feeless.app",
+        "rugcheck.xyz",
+        "v2.bubblemaps.io"
+       ],
+       "pick": false
+      }
+     ],
+     "researched": 4,
+     "pick": "Mag",
+     "sol": 0.01,
+     "tp": 15.0,
+     "sl": 8.0,
+     "pnlPct": null,
+     "pnlSol": null,
+     "grade": "no trade",
+     "why": "💡 proposes $Mag — $Mag: +1017% 24h, $3.2M vol, deepest pool $60K, 2.85K holders; others fading or thin.",
+     "held": null,
+     "checks": 0,
+     "costUsd": 0.107684,
+     "real": false,
+     "lesson": "proposal only — nothing bought"
+    },
+    "grade": null,
+    "dropped": [
+     {
+      "mint": "B58_26",
+      "sym": "STONKS",
+      "src": "intake",
+      "risk": "top 10 wallets hold 27%"
+     },
+     {
+      "mint": "B58_27",
+      "sym": "Satoshi",
+      "src": "intake",
+      "risk": "top 10 wallets hold 26%"
+     },
+     {
+      "mint": "B58_28",
+      "sym": "SEXYANSEM",
+      "src": "pump",
+      "risk": "🚀 +954% in 1h — already ran, that is the top-buyer seat"
+     },
+     {
+      "mint": "B58_29",
+      "sym": "STONKCAT",
+      "src": "pump",
+      "risk": "🚀 +529% in 1h — already ran, that is the top-buyer seat"
+     },
+     {
+      "mint": "B58_30",
+      "sym": "MSTRT",
+      "src": "pump",
+      "risk": "9 snipers"
+     },
+     {
+      "mint": "B58_31",
+      "sym": "DCYC",
+      "src": "pump",
+      "risk": "top 10 wallets hold 24%"
+     },
+     {
+      "mint": "B58_32",
+      "sym": "SARAH",
+      "src": "intake",
+      "risk": "top 10 wallets hold 39%"
+     },
+     {
+      "mint": "B58_33",
+      "sym": "Sexbot",
+      "src": "pump",
+      "risk": "top 10 wallets hold 28%"
+     }
+    ],
+    "proposed": {
+     "0": {
+      "picks": [
+       0,
+       1,
+       3
+      ],
+      "why": "SPHERE and Mag show strong momentum and volume; MAIN has positive growth with reasonable pool depth.",
+      "by": "deepseek-v4-pro-0813"
+     },
+     "1": {
+      "picks": [
+       2
+      ],
+      "why": "Pog has huge volume vs pool and my rugcheck/birdeye edge; need the other two coin reads to finalize.",
+      "by": "glm-5.3-flash"
+     }
+    },
+    "shortlist": [
+     0,
+     1,
+     3,
+     2
+    ],
+    "owner": {
+     "B58_13": 0,
+     "B58_16": 0,
+     "B58_20": 1,
+     "B58_23": 1
+    },
+    "plans": {
+     "B58_13": "Check Pump.fun pages, DexScreener, and Twitter for each. Verify holder distribution, volume vs pool, dev activity, and socials. Kill if volume fake, holders concentrated, or no narrative.",
+     "B58_16": "Check Pump.fun pages, DexScreener, and Twitter for each. Verify holder distribution, volume vs pool, dev activity, and socials. Kill if volume fake, holders concentrated, or no narrative.",
+     "B58_20": "$Pog: verify $490K volume vs $8.9K pool on DexScreener—wash trading kills it. $MAIN: check Pump.fun creator history, bundled wallets, top-10 holder concentration.",
+     "B58_23": "$Pog: verify $490K volume vs $8.9K pool on DexScreener—wash trading kills it. $MAIN: check Pump.fun creator history, bundled wallets, top-10 holder concentration."
+    },
+    "moves": {
+     "B58_13": {
+      "feeless.app": {
+       "max": 5,
+       "used": 0
+      },
+      "rugcheck.xyz": {
+       "max": 4,
+       "used": 1
+      },
+      "app.bubblemaps.io": {
+       "max": 7,
+       "used": 1
+      },
+      "v2.bubblemaps.io": {
+       "max": 5,
+       "used": 1
+      }
+     },
+     "B58_20": {
+      "feeless.app": {
+       "max": 3,
+       "used": 0
+      },
+      "dexscreener.com": {
+       "max": 5,
+       "used": 1
+      },
+      "jup.ag": {
+       "max": 5,
+       "used": 1
+      },
+      "coingecko.com": {
+       "max": 5,
+       "used": 1
+      }
+     },
+     "B58_16": {
+      "feeless.app": {
+       "max": 3,
+       "used": 0
+      },
+      "gmgn.ai": {
+       "max": 3,
+       "used": 1
+      },
+      "defined.fi": {
+       "max": 8,
+       "used": 1
+      },
+      "solsniffer.com": {
+       "max": 5,
+       "used": 3
+      }
+     },
+     "B58_23": {
+      "feeless.app": {
+       "max": 4,
+       "used": 0
+      },
+      "rugcheck.xyz": {
+       "max": 6,
+       "used": 1
+      },
+      "app.bubblemaps.io": {
+       "max": 3,
+       "used": 1
+      },
+      "v2.bubblemaps.io": {
+       "max": 7,
+       "used": 1
+      }
+     }
+    }
+   }
+  },
+  "pop_any": {
+   "key": "popFolders",
+   "folder": {
+    "proposal": true,
+    "id": "pop1793774091",
+    "at": 1793774091,
+    "calls": [
+     {
+      "mind": 0,
+      "name": "deepseek-v4-pro-0813",
+      "market": "SOL",
+      "side": "long",
+      "lev": 3.0,
+      "tp": 2.5,
+      "sl": 1.2,
+      "why": "SOL near 24h high $93.84 with +1.77% momentum and strong volume 683k, breakout continuation likely.",
+      "first": "long SOL at 3.0x, take profit 2.5%, stop 1.2%, because: SOL ",
+      "changed": false
+     },
+     {
+      "mind": 1,
+      "name": "glm-5.3-flash",
+      "market": "BTC",
+      "side": "long",
+      "lev": 2.0,
+      "tp": 1.2,
+      "sl": 0.8,
+      "why": "Holding BTC long: price $77,933 within 0.17% of $78,066 high on confirmed +1.93%, tight-range breakout with clean stop; SOL's own high is $93.84 and it's 0.87% below with more room to fail.",
+      "first": "long BTC at 2.0x, take profit 1.2%, stop 0.8%, because: BTC ",
+      "changed": false
+     }
+    ],
+    "kernel": "efec14752ff3",
+    "paper": true,
+    "cost": 0.008114,
+    "spend": {
+     "0": 0.004082,
+     "1": 0.004032
+    },
+    "status": "closed",
+    "noTrade": true,
+    "why": "long SOL vs long BTC"
+   }
+  },
+  "pob_scoreboard": {
+   "key": "pobFolders",
+   "folder": {
+    "id": "pob1794016325",
+    "at": 1794016326,
+    "closedAt": 1794016326,
+    "kind": "PoB",
+    "paper": true,
+    "status": "closed",
+    "topic": "Spurs vs Kings",
+    "sites": [
+     "reuters.com",
+     "apnews.com",
+     "espn.com",
+     "kalshi.com"
+    ],
+    "browsed": {
+     "0": {
+      "sites": [
+       "espn.com",
+       "reuters.com"
+      ],
+      "note": "html.duckduckgo.com: ON SCREEN (view 100% down the page — a panel inside may still scroll):\n[link] View today's NBA odds at FanDuel Sportsbook, including betting lines, spreads, moneylines, totals, player props, futures, and live NBA odds.\n[link] Spurs at Kings odds, picks and predictions - USA TODA",
+      "cost": 0.0303
+     },
+     "1": {
+      "sites": [
+       "espn.com",
+       "kalshi.com",
+       "rugcheck.xyz"
+      ],
+      "note": "html.duckduckgo.com: Skip to main content Skip to navigation ESPN NFL NCAAF NBA MLB Soccer NHL WNBA More Sports Watch Fantasy Where to Watch NBA Cup - Group Play San Antonio Spurs 6-2 , 2-0 Away SA -17.5 DAZN SAS Sacramento Kings 1-7 , 0-3 Home San Antonio Spurs @ Sacramento Kings Gamecast Preview O",
+      "cost": 0.02642
+     }
+    },
+    "browseWhy": "time ran out on the read",
+    "shots": [
+     {
+      "mind": 0,
+      "site": "espn.com",
+      "title": "NBA Game Odds with Spread, Moneyline, and More - ESPN",
+      "url": "https://www.espn.com/nba/odds",
+      "file": "m0_0.jpg",
+      "at": 1794016129,
+      "found": [],
+      "sha": "4ce30358b1fff47976b379ef4fa0cf56"
+     },
+     {
+      "mind": 1,
+      "site": "espn.com",
+      "title": "San Antonio Spurs Injury Status - ESPN",
+      "url": "https://www.espn.com/nba/team/injuries/_/name/sa",
+      "file": "m1_0.jpg",
+      "at": 1794016116,
+      "found": [
+       "injuries"
+      ],
+      "sha": "4c4ea44860881a729329513771c72440"
+     },
+     {
+      "mind": 1,
+      "site": "html.duckduckgo.com",
+      "title": "",
+      "url": "https://html.duckduckgo.com/html/",
+      "file": "m1_1.jpg",
+      "at": 1794016252,
+      "found": [
+       "injuries"
+      ],
+      "sha": "15884427872419d069bd89b3d7655e53"
+     },
+     {
+      "mind": 1,
+      "site": "kalshi.com",
+      "title": "Spurs vs. Kings Odds & Prediction, Nov 6 | Kalshi",
+      "url": "https://kalshi.com/markets/kxnbagame/spurs-vs-kings/kxnbagame-26nov06sassac",
+      "file": "m1_2.jpg",
+      "at": 1794016274,
+      "found": [
+       "market"
+      ],
+      "sha": "47b71c765117f56629862aaa04a46e46"
+     }
+    ],
+    "loop": {
+     "n": 1,
+     "topic": "Spurs vs Kings",
+     "right": 0,
+     "wrong": 0,
+     "past": []
+    },
+    "lead": null,
+    "games": [
+     {
+      "id": "401909295",
+      "sport": "nba",
+      "side": "San Antonio Spurs",
+      "short": "Spurs",
+      "label": "Spurs at Kings",
+      "final": true,
+      "state": "post",
+      "status": "Final",
+      "score": "124 - 109",
+      "won": true,
+      "said": "End"
+     }
+    ],
+    "poly": {
+     "id": "1284238",
+     "title": "Spurs vs. Kings",
+     "end": "2026-11-07T03:00:00Z",
+     "slug": "nba-sas-sac-2026-11-06"
+    },
+    "settleAt": "2026-11-07T03:00:00Z",
+    "calls": [
+     {
+      "mind": 0,
+      "name": "deepseek-v4-pro-0813",
+      "picks": [
+       {
+        "pick": "Spurs",
+        "confidence": 85,
+        "why": "Spurs are 6-2 while Kings are 1-7 per USA TODAY Sportsbook Wire preview snippet"
+       },
+       {
+        "pick": "Spurs -spread",
+        "confidence": 70,
+        "why": "6-2 vs 1-7 record gap suggests Spurs favored on the road in Sacramento per sportsbookwire.usatoday.com"
+       }
+      ],
+      "pass": ""
+     },
+     {
+      "mind": 1,
+      "name": "glm-5.3-flash",
+      "picks": [
+       {
+        "pick": "Spurs ML",
+        "confidence": 80,
+        "why": "espn.com lists SA ML -1340 vs SAC +810, Spurs 6-2 on a 5-game win streak (incl. 130-103 win over SAC on 10/27) while Kings are 1-7/0-3 home."
+       }
+      ],
+      "pass": ""
+     }
+    ],
+    "agreed": [],
+    "cost": 0.06082,
+    "n": 5,
+    "graded": "right",
+    "gradedBy": "scoreboard"
+   }
+  },
+  "pob_owner_mark": {
+   "key": "pobFolders",
+   "folder": {
+    "id": "pob1793907481",
+    "at": 1793907481,
+    "closedAt": 1793907481,
+    "kind": "PoB",
+    "paper": true,
+    "status": "closed",
+    "topic": "Wake Forest to beat Merrimack Just 2 picks",
+    "sites": [
+     "reuters.com",
+     "apnews.com",
+     "espn.com",
+     "kalshi.com"
+    ],
+    "browsed": {
+     "0": {
+      "sites": [
+       "espn.com",
+       "reuters.com"
+      ],
+      "note": "html.duckduckgo.com: ON SCREEN (view 0% down the page, more below — scroll down to see it):\n[link] Men's College Basketball Game Odds with Spread, Moneyline, and More - ESPN\n[link] www.espn.com/mens-college-basketball/odds\n[link] View the draftkings NCAAM Odds on ESPN. Includes opening lines and cur",
+      "cost": 0.03003
+     },
+     "1": {
+      "sites": [
+       "espn.com",
+       "jup.ag",
+       "kalshi.com"
+      ],
+      "note": "⏹ it ran out of steps before answering (last on ESPN - Serving Sports Fans. Anytime. Anywhere.). html.duckduckgo.com: ON SCREEN (view 0% down the page, more below — scroll down to see it):\n[link] Kalshi Predictions - Sign Up for Market Predictions\n[button] AD\n[link] kalshi.com\n[link] A CFTC-regulate",
+      "cost": 0.02846
+     }
+    },
+    "browseWhy": "",
+    "shots": [
+     {
+      "mind": 0,
+      "site": "espn.com",
+      "title": "Men's College Basketball Game Odds with Spread, Moneyline, and More - ESPN",
+      "url": "https://www.espn.com/mens-college-basketball/odds",
+      "file": "m0_0.jpg",
+      "at": 1793907297,
+      "found": [
+       "forest"
+      ],
+      "sha": "a610e6f72f918a91920953cdd1322164"
+     },
+     {
+      "mind": 1,
+      "site": "espn.com",
+      "title": "ESPN - Serving Sports Fans. Anytime. Anywhere.",
+      "url": "https://www.espn.com/",
+      "file": "m1_0.jpg",
+      "at": 1793907289,
+      "found": [
+       "today's"
+      ],
+      "sha": "c71fdbd32798028bd02d00a7d5ef75cc"
+     },
+     {
+      "mind": 1,
+      "site": "kalshi.com",
+      "title": "Vercel Security Checkpoint",
+      "url": "https://kalshi.com/markets",
+      "file": "m1_1.jpg",
+      "at": 1793907334,
+      "found": [],
+      "sha": "c152b27306a133c33c46815ef3898a5f"
+     },
+     {
+      "mind": 1,
+      "site": "html.duckduckgo.com",
+      "title": "Loading https://duckduckgo.com/l/",
+      "url": "https://html.duckduckgo.com/html/",
+      "file": "m1_2.jpg",
+      "at": 1793907444,
+      "found": [
+       "forest"
+      ],
+      "sha": "84dcfaee3ce63dc92761a80199886193"
+     }
+    ],
+    "loop": {
+     "n": 2,
+     "topic": "Wake Forest to beat Merrimack Just 2 picks",
+     "right": 0,
+     "wrong": 0,
+     "past": [
+      {
+       "n": 1,
+       "at": 1793878727,
+       "topic": "best NBA picks tonight NBA, just 2 picks, go",
+       "picks": [],
+       "mark": null,
+       "net": null
+      }
+     ]
+    },
+    "lead": null,
+    "games": [
+     {
+      "id": "401858290",
+      "sport": "cfb",
+      "side": "Merrimack Warriors",
+      "short": "Merrimack",
+      "label": "Merrimack at Wake Forest",
+      "final": false,
+      "state": "pre",
+      "status": "11/7 - 3:30 PM EST",
+      "score": "0 - 0",
+      "won": null
+     },
+     {
+      "id": "401909726",
+      "sport": "cbb",
+      "side": "Wake Forest Demon Deacons",
+      "short": "Wake Forest",
+      "label": "Wake Forest at Vanderbilt",
+      "final": true,
+      "state": "post",
+      "status": "Final",
+      "score": "51 - 74",
+      "won": false,
+      "said": "End"
+     }
+    ],
+    "poly": null,
+    "settleAt": "",
+    "calls": [
+     {
+      "mind": 0,
+      "name": "deepseek-v4-pro-0813",
+      "picks": [
+       {
+        "pick": "Wake Forest to beat Merrimack",
+        "confidence": 70,
+        "why": "ESPN NCAAM odds page lists Wake Forest as a -2.5 favorite over McNeese, showing Wake Forest is favored in early-season matchups; Merrimack is a lower-tier opponent and no line shown against Wake Fores"
+       }
+      ],
+      "pass": ""
+     },
+     {
+      "mind": 1,
+      "name": "glm-5.3-flash",
+      "picks": [
+       {
+        "pick": "Wake Forest to beat Merrimack",
+        "confidence": 92,
+        "why": "bluechipanalytics.com shows Wake Forest -47.5 line and power ratings favoring them by 47.7 on Nov 7, 2026"
+       }
+      ],
+      "pass": "Only one pick is supported by what I read; no data seen justifies a second pick, so I decline to invent one."
+     }
+    ],
+    "agreed": [
+     "Wake Forest to beat Merrimack"
+    ],
+    "cost": 0.06262,
+    "n": 4,
+    "graded": "right"
+   }
+  },
+  "pob_unmarked": {
+   "key": "pobFolders",
+   "folder": {
+    "id": "pob1793878726",
+    "at": 1793878727,
+    "closedAt": 1793878727,
+    "kind": "PoB",
+    "paper": true,
+    "status": "closed",
+    "topic": "best NBA picks tonight NBA, just 2 picks, go",
+    "sites": [
+     "espn.com",
+     "nba.com",
+     "cbssports.com",
+     "actionnetwork.com"
+    ],
+    "browsed": {
+     "0": {
+      "note": "Your windows read too little, so this came from free scores and market odds: best NFL picks: Jaguars to beat Ravens, Chiefs to beat Jets, 49ers to beat Raiders"
+     },
+     "1": {
+      "note": "Your windows read too little, so this came from free scores and market odds: best NFL picks: Jaguars to beat Ravens, Chiefs to beat Jets, 49ers to beat Raiders"
+     }
+    },
+    "browseWhy": "",
+    "shots": [
+     {
+      "mind": 0,
+      "site": "espn.com",
+      "title": "NBA Game Odds with Spread, Moneyline, and More - ESPN",
+      "url": "https://www.espn.com/nba/odds",
+      "file": "m0_0.jpg",
+      "at": 1793878633,
+      "found": [],
+      "sha": "3b972f34e7dacdd06e671cccd9bf6395"
+     },
+     {
+      "mind": 0,
+      "site": "nba.com",
+      "title": "NBA Games - All NBA matchups | NBA.com",
+      "url": "https://www.nba.com/games",
+      "file": "m0_1.jpg",
+      "at": 1793878719,
+      "found": [],
+      "sha": "ad2fc79ea34e3d450a81509fadac39b2"
+     },
+     {
+      "mind": 1,
+      "site": "actionnetwork.com",
+      "title": "Latest NBA Betting Picks | The Action Network",
+      "url": "https://www.actionnetwork.com/nba/picks",
+      "file": "m1_0.jpg",
+      "at": 1793878641,
+      "found": [
+       "market"
+      ],
+      "sha": "56211279b263d160b4dec7f9c2a4772a"
+     },
+     {
+      "mind": 1,
+      "site": "espn.com",
+      "title": "NBA on ESPN - Scores, Stats and Highlights",
+      "url": "https://www.espn.com/nba/",
+      "file": "m1_1.jpg",
+      "at": 1793878691,
+      "found": [
+       "nba.com"
+      ],
+      "sha": "a5df85429ab0e1b5f179f2b989a474c2"
+     }
+    ],
+    "fallback": "free scores and market odds",
+    "loop": {
+     "n": 1,
+     "topic": "best NBA picks tonight NBA, just 2 picks, go",
+     "right": 0,
+     "wrong": 0,
+     "past": []
+    },
+    "lead": null,
+    "games": [],
+    "poly": null,
+    "settleAt": "",
+    "calls": [
+     {
+      "mind": 0,
+      "name": "deepseek-v4-pro-0813",
+      "picks": [
+       {
+        "pick": "Jaguars to beat Ravens",
+        "confidence": 55,
+        "why": "Read Jaguars to beat Ravens as a best NFL pick on the free scores/market odds page"
+       },
+       {
+        "pick": "Chiefs to beat Jets",
+        "confidence": 50,
+        "why": "Read Chiefs to beat Jets as a best NFL pick on the free scores/market odds page"
+       }
+      ],
+      "pass": ""
+     },
+     {
+      "mind": 1,
+      "name": "glm-5.3-flash",
+      "picks": [],
+      "pass": "Nothing I read supports NBA picks — the browser data only contained NFL markets (Jaguars, Chiefs, 49ers), so any NBA pick would be invented."
+     }
+    ],
+    "agreed": [],
+    "cost": 0.00412,
+    "n": 1
+   }
+  },
+  "poc_marked": {
+   "key": "pocFolders",
+   "folder": {
+    "id": "poc1793879805",
+    "shots": [
+     {
+      "site": "news.ycombinator.com",
+      "url": "https://news.ycombinator.com/",
+      "title": "Hacker News",
+      "file": "newsycombinatorcom_0.jpg",
+      "at": 1793879817,
+      "found": [
+       "released",
+       "residential",
+       "detected",
+       "animation",
+       "lemmings"
+      ],
+      "missing": [
+       "surprisingly",
+       "celebrations",
+       "mississippi",
+       "democratic",
+       "questions",
+       "elections",
+       "democrat",
+       "southern"
+      ],
+      "sha": "fcf434313f3c66f0644cdf5743c3ba87"
+     },
+     {
+      "site": "news.google.com",
+      "url": "https://news.google.com/home",
+      "title": "Google News",
+      "file": "newsgooglecom_1.jpg",
+      "at": 1793879817,
+      "found": [
+       "midterms"
+      ],
+      "missing": [
+       "surprisingly",
+       "celebrations",
+       "mississippi",
+       "residential",
+       "democratic",
+       "questions",
+       "animation",
+       "elections"
+      ],
+      "sha": "5c0d604304951705f459eda5fffaeb54"
+     },
+     {
+      "site": "en.wikipedia.org",
+      "url": "https://en.wikipedia.org/wiki/Main_Page",
+      "title": "Wikipedia, the free encyclopedia",
+      "file": "enwikipediaorg_2.jpg",
+      "at": 1793879817,
+      "found": [
+       "267,006",
+       "7,259,577",
+       "questions",
+       "democratic"
+      ],
+      "missing": [
+       "surprisingly",
+       "celebrations",
+       "mississippi",
+       "residential",
+       "animation",
+       "elections",
+       "democrat",
+       "released"
+      ],
+      "sha": "c2e3c9d790fa2bff8273ea52cff15774"
+     }
+    ],
+    "n": 1,
+    "kind": "PoC",
+    "at": 1793879817,
+    "status": "closed",
+    "paper": true,
+    "topic": "memecoin trends this week",
+    "trends": {
+     "Google News": [
+      "Democratic leaders reflect on midterm results and what's next for the party - NPR",
+      "Trump says Hegseth doing 'a very good job' as questions swirl about his future - Reuters",
+      "Democrat leads by dozens of votes in surprisingly tight Mississippi Senate race - BBC",
+      "Elon Musk moved to Texas to escape Democrats — now they’re in charge - NBC News",
+      "DSA’s Raman Beats Bass in Los Angeles Mayor Race, DDHQ Projects - Bloomberg.com"
+     ],
+     "Hacker News": [
+      "Baidu released ERNIE 5.5 Flash Base",
+      "Residential proxies detected on White House network",
+      "Lemmings CSS Animation",
+      "Awesome repositories are no longer awesome",
+      "A thousand fewer paths to root"
+     ],
+     "Bluesky": [
+      "Southern states voting data",
+      "Guy Fawkes Night celebrations",
+      "Vance on Iran war, midterms",
+      "Ocarina of Time remake release day",
+      "French blood bank freezers hacked"
+     ],
+     "CoinGecko": [
+      "$PEARL",
+      "$TRUMP",
+      "$INJ",
+      "$BTC",
+      "$KNTQ"
+     ],
+     "Wikipedia": [
+      "Jesús de Miguel",
+      "2026 United States elections",
+      "Jesús Owono",
+      "Abdul El-Sayed",
+      "United States midterm election"
+     ]
+    },
+    "calls": [
+     {
+      "mind": 0,
+      "name": "deepseek-v4-pro-0813",
+      "angle": "Low cap, huge volume spike",
+      "post": "Feeless.app: $44K market cap, $17K liquidity, but $929K 24h volume. That ratio is a volatility bomb. Watch it.",
+      "why": "Volume-to-liquidity ratio over 50x signals imminent price action or manipulation",
+      "trend": "Low-cap memecoin volatility"
+     },
+     {
+      "mind": 1,
+      "name": "glm-5.3-flash",
+      "angle": "High volume, tiny market cap — volatility signal",
+      "post": "Memecoin watch: $PEARL-style plays with 24h volume 20x market cap ($929K vol vs $44K mcap, $17.7K liquidity) scream volatility. Thin liquidity + heavy trading = violent swings both ways. Size positions accordingly.",
+      "why": "Feeless data shows volume dwarfing cap this week",
+      "trend": "CoinGecko memecoins ($PEARL, $TRUMP)"
+     }
+    ],
+    "cost": 0.00409,
+    "graded": "right"
+   }
+  },
+  "pos_right": {
+   "key": "psFolders",
+   "folder": {
+    "id": "ps4d2a2722a9",
+    "n": 1,
+    "kind": "PoStatic",
+    "at": 1793880696,
+    "closedAt": 1793880696,
+    "status": "closed",
+    "topic": "Tip page 2",
+    "ws": "w083137deb1",
+    "version": 2,
+    "by": "Mind B",
+    "plan": "A minimal, single-page tip calculator that computes tip amount and total bill based on bill amount, tip percentage, and optional split count.",
+    "refs": [
+     {
+      "title": "I made a simple tip calculator",
+      "url": "https://www.mytipcalculator.net/",
+      "source": "Hacker News"
+     },
+     {
+      "title": "Free Online Tip Calculator – A Clean and Simple Gratuity Calculator",
+      "url": "https://tipcalculator.top/",
+      "source": "Hacker News"
+     }
+    ],
+    "steps": [
+     "Create a single HTML file with a centered card layout and a title like 'Tip Calculator'.",
+     "Add input fields for bill amount, tip percentage (with quick-select buttons like 10%, 15%, 20%), and number of people.",
+     "Write JavaScript to calculate tip amount, total, and per-person amounts on any input change.",
+     "Display results prominently: tip per person, total per person, and optionally total tip.",
+     "Style with simple CSS: readable fonts, adequate spacing, and a neutral color palette."
+    ],
+    "graded": "right"
+   }
+  },
+  "pos_unmarked": {
+   "key": "psFolders",
+   "folder": {
+    "id": "ps3afc823aa9",
+    "n": 3,
+    "kind": "PoStatic",
+    "at": 1793909328,
+    "closedAt": 1793909328,
+    "status": "closed",
+    "topic": "Tip page 2",
+    "ws": "w083137deb1",
+    "version": 4,
+    "by": "Mind B",
+    "plan": "A minimal, single-page tip calculator that computes tip amount and total bill based on bill amount, tip percentage, and optional split count.",
+    "refs": [
+     {
+      "title": "I made a simple tip calculator",
+      "url": "https://www.mytipcalculator.net/",
+      "source": "Hacker News"
+     },
+     {
+      "title": "Free Online Tip Calculator – A Clean and Simple Gratuity Calculator",
+      "url": "https://tipcalculator.top/",
+      "source": "Hacker News"
+     }
+    ],
+    "steps": [
+     "Create a single HTML file with a centered card layout and a title like 'Tip Calculator'.",
+     "Add input fields for bill amount, tip percentage (with quick-select buttons like 10%, 15%, 20%), and number of people.",
+     "Write JavaScript to calculate tip amount, total, and per-person amounts on any input change.",
+     "Display results prominently: tip per person, total per person, and optionally total tip.",
+     "Style with simple CSS: readable fonts, adequate spacing, and a neutral color palette."
+    ]
+   }
+  },
+  "poe_test_books": {
+   "key": "poeFolders",
+   "folder": {
+    "id": "pec9b39f6c8e",
+    "n": 1,
+    "kind": "PoEco",
+    "at": 1793917201,
+    "closedAt": 1793917201,
+    "status": "closed",
+    "topic": "Example books",
+    "hash": "86eb4563d264adc17661489540f600c98430b69e47a565392d06090fbad16f58",
+    "graded": "right",
+    "sent": null,
+    "count": 8,
+    "income": 13650.0,
+    "costs": 9220.0,
+    "net": 4430.0,
+    "margin": 32.5,
+    "months": [
+     {
+      "month": "2026-09",
+      "income": 6200.0,
+      "costs": 4320.0,
+      "net": 1880.0
+     },
+     {
+      "month": "2026-10",
+      "income": 7450.0,
+      "costs": 4900.0,
+      "net": 2550.0
+     }
+    ],
+    "cats": [
+     {
+      "cat": "Payroll",
+      "usd": 5200.0
+     },
+     {
+      "cat": "Rent",
+      "usd": 2800.0
+     },
+     {
+      "cat": "Ads",
+      "usd": 900.0
+     },
+     {
+      "cat": "Software",
+      "usd": 320.0
+     }
+    ],
+    "taxPct": 25,
+    "taxSetAside": 1107.5,
+    "keep": 3322.5,
+    "burnPerMonth": 4610.0
+   }
+  }
+ }
+}
