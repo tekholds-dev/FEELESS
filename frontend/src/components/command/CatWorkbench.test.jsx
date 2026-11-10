@@ -661,3 +661,9 @@ test('🗂 AGT-9: Jobs shows a proof\'s research jobs with their kind, and count
   const src = require('fs').readFileSync(require('path').join(__dirname, 'CatWorkbench.jsx'), 'utf8');
   expect(src).toContain("['FROM PROOFS', jobs.filter(x => x.proof).length]"); expect(src).toContain("pob: '🎲 PoB'");
 });
+
+test('⚡ SITE-2: heavy desk windows are fetched while idle and render without suspending once their code is here', async () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'CatWorkbench.jsx'), 'utf8');
+  expect(src).toMatch(/const FeaturesLazy = preLazy\(/); expect(src).toMatch(/useEffect\(\(\) => \{ prefetchDeskWindows\(\); \}, \[\]\);/);
+  const { prefetchDeskWindows } = require('./CatWorkbench'); expect(() => prefetchDeskWindows()).not.toThrow();
+});

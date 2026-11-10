@@ -969,14 +969,29 @@ function PowExplorer({ cat, d, setD }) {
 }
 // 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
 // field), the gas reserve always stays, Circle signs one transfer; it lands on the colony ledger with its tx
-const BidsLazy = lazy(() => import('../RepMarkets'));
-const PrintLazy = lazy(() => import('./Proofprint').then(m => ({ default: m.ProofprintFolder })));
+// ⚡ a lazy window that, once its code is here, renders it directly: React.lazy still suspended on the first open even with the code fetched,
+// and React holds a suspended reveal back (268 ms commit from a timer, measured 2026-11-10)
+function preLazy(load, pick) {
+  let mod = null; const L = lazy(() => load().then(m => { mod = m; return { default: pick(m) }; }));
+  const C = props => { const M = mod ? pick(mod) : L; return <M {...props} />; };
+  C.preload = () => load().then(m => { mod = m; return m; }); return C;
+}
+const BidsLazy = preLazy(() => import('../RepMarkets'), m => m.default);
+const PrintLazy = preLazy(() => import('./Proofprint'), m => m.ProofprintFolder);
 const BoostLazy = lazy(() => import('./BoostFolder').then(m => ({ default: m.BoostFolder })));
-const FeaturesLazy = lazy(() => import('./FeaturesFolder').then(m => ({ default: m.FeaturesFolder })));
-const ProofDeskLazy = lazy(() => import('./FeaturesFolder').then(m => ({ default: m.ProofDesk })));
+const FeaturesLazy = preLazy(() => import('./FeaturesFolder'), m => m.FeaturesFolder);
+const ProofDeskLazy = preLazy(() => import('./FeaturesFolder'), m => m.ProofDesk);
 const CollectiveLandingLazy = lazy(() => import('./CollectiveLanding').then(m => ({ default: m.CollectiveLanding })));
-const CharacterLazy = lazy(() => import('./CharacterFolder').then(m => ({ default: m.CharacterFolder })));
+const CharacterLazy = preLazy(() => import('./CharacterFolder'), m => m.CharacterFolder);
 const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.AgentLedger })));
+// ⚡ SITE-2 (measured 2026-11-10 in his Chrome): Features took 725 ms on its FIRST open, 38-46 ms after: the time was its code arriving. The
+// desktop fetches the heavy windows' code while idle, once, so the first click is already loaded. Fetch only: nothing renders.
+let PREFETCHED = false;
+export function prefetchDeskWindows() {
+  if (PREFETCHED || typeof window === 'undefined') return; PREFETCHED = true;
+  const go = () => { for (const L of [FeaturesLazy, ProofDeskLazy, PrintLazy, CharacterLazy, BidsLazy]) L.preload().catch(() => {}); };
+  if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+}
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {
   const px = useSolPrice();
@@ -1266,6 +1281,7 @@ function LiveDeskWin({ live, s, top, set, onTop, onClose, onReopen, actions }) {
 }
 export const AGENT_COMMAND = 'feeless:agent-command';   // a folder's button puts words in this agent's chat box, wherever the desktop was opened from
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand: commandProp = null, start = null, extra: extraProp = [], mood = 'agent', glassOver = null }) {
+  useEffect(() => { prefetchDeskWindows(); }, []);
   const onCommand = commandProp || (t => { window.dispatchEvent(new CustomEvent(AGENT_COMMAND, { detail: { id: cat?.id, text: t } })); onClose?.(); });
   const pageApps = React.useContext(DeskExtras); const walletTop = pageApps.find(a => a.k === 'wallet')?.body;
   const pool = useAgentPool(cat, work, 60000); const [prefs, setPrefs] = useDeskPrefs(cat.id); const [proofStart, setProofStart] = useState({}); const browseSite = h => { setBrowseTo({ site: h, at: Date.now() }); openWin('browser'); };
