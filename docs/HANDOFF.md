@@ -22,13 +22,30 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 
 ## TASKS
 
-## 🔁 NOW — TODAY'S RUN (2026-11-10, owner: "finish all of it today")
+## 🔁 NOW — HANDOFF (2026-11-10 evening, from the session that ran out of usage)
 
-**Honest count:** 83 rows. Built 26 · waiting on the owner (money, keys, his look, a lawyer) 23 · open for Claude 34, of which ~25 fit
-today (list A) and 9 are too big for one day (list C). Claude does A in this order, one at a time, proven, pushed.
+**How to work with the owner (read first):**
+- He runs ONE command himself; never open Terminal windows (no osascript / up.sh):
+  `cd "/Users/christopherclark/Desktop/feeless v.o7" && caffeinate -dimsu bash -c 'bash backend/run-feeless.sh && cd frontend && PORT=51367 yarn start'`
+  Frontend edits are live at once (dev server). Backend edits go live only when he re-runs it: batch them, then tell him once.
+- Push = `git push -q origin main` ONLY (the pre-push hook runs `scripts/gate.sh` once; never run the gate yourself first). The gate re-runs failed
+  backend tests alone before going red (load flakes). Never edit `scripts/gate.sh` while a push is running.
+- Work in BIG blocks: several rows built → one push → browser check in his Chrome (Claude in Chrome is connected; Sicario's desk = the test bench,
+  Happy Assistant is HIS, never test there). Measure lag only with Chrome in front (a blank page must read ~60 fps first).
+- Reports: ≤ 5 short lines. Progress: 30 of 83 rows built, 6 partly, 23 wait on him (money / keys / his look / lawyer).
 
-**How it goes faster (no quality cut):** batch 2–3 finished rows per gate (a gate is ~12 min on this Mac, so it is the bottleneck); no
-restart until a batch is pushed; one browser check per batch; a row is done only with its test + a screenshot or a live read.
+**Live state:** backend last restarted 16:12 (before the SSRF fix, rate limit, chat facts, SITE-5 slices 3-4): ask him to re-run his command, then check
+5088 / 5077 health and the Engines window on Sicario's desk.
+
+**Built today (all pushed, newest cea51edc):** OSSY+G4 review every proof (v5, Sicario's only until he says `FEELESS_REVIEW_SCOPE=all`) · kit freshness
+(daily npm + headless smoke, 9 new kits) · Showcase real reviews / kits / PoEco books · 📡 Engines + 🗄 Database windows · COL-10 kit proposals ·
+COL-24 gaps · AGT-1/9/11/23 · SITE-1 Familia phone scroll · SITE-2 Features 725→38 ms · SITE-3 HeroUI −31 KB · SITE-5 slices 2-4 (71 routes out)
+· SITE-6 Fee public desk tabs + Launch glass · SITE-9 audit (SSRF fixed, no secrets in bundle, 0 unguarded writes, headers, 5077 rate limit) · AGT-6 mic.
+
+**Next, in order:** SITE-3 rest (HeroUI on the Brain panels) · SITE-5 slice 5 (non-admin read routes, same AST script idea: route table must stay
+identical) · SITE-2 rest (agents-tab fps with charts, LAG01, a production-build measure) · AGT-19 (reproduce snapshot gestures first) · AGT-6 rest
+(speaking back) · Features real media (5c, after his media tests) · then list C one slice at a time. Real money waits only on him: fund the Fuse card,
+one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
 
 **A · Claude, today, in this order**
 1. ✅ **BUILT 2026-11-10** (Showcase: every door gets 🧑‍⚖️ Graded by OSSY + G4 = its own proofs' five checks lighting up, 🧰 Built with = its kits at the live version with what moved up; a new 📒 PoEco door draws its real books; `ReviewReel`, `KitWall`, `BooksDemo`, op `showcase`. Owner look pending: needs Claude in Chrome or his eyes) **Features folder: every proof type shows off its best** (owner today: "it got lazy after the static previews") — one showcase
