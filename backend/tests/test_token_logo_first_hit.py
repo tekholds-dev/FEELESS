@@ -38,6 +38,7 @@ def test_a_coin_with_a_logo_answers_from_the_first_source_that_has_one(monkeypat
     async def _no_rpc(*_a, **_k):
         await asyncio.sleep(60)
     monkeypatch.setattr(rs.httpx, 'AsyncClient', _Client)
+    import feeless_mcp as _fm; monkeypatch.setattr(_fm, 'safe_url', lambda u: None)   # the made-up CDN host is 'public' here: no DNS in a test (the guard itself: test_security_headers)
     monkeypatch.setattr(rs, '_rpc', _no_rpc)
     _Client.asked = []
     r = asyncio.run(rs.token_logo(MINT))

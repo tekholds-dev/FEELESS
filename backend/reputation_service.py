@@ -32293,11 +32293,26 @@ def _ipfs_variants(u):
     return [g + m.group(1) for g in IPFS_GATEWAYS] if m else [u]
 
 
+async def _public_get(http, u, hops=3):
+    """🔒 SITE-9 (2026-11-10): a URL from a coin's own metadata is the launcher's to choose, so it could name 127.0.0.1 or the LAN and make this
+    server call it. Every hop must be a public http(s) address (`feeless_mcp.safe_url`); redirects are followed by hand so each one is checked."""
+    import feeless_mcp as _fm
+    from urllib.parse import urljoin
+    for _ in range(hops + 1):
+        if await asyncio.to_thread(_fm.safe_url, u):
+            return None
+        r = await http.get(u, timeout=8, follow_redirects=False)
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get('location'):
+            u = urljoin(u, r.headers['location']); continue
+        return r
+    return None
+
+
 async def _fetch_first(http, urls, want_json=False):
     for u in urls:
         try:
-            r = await http.get(u, timeout=8, follow_redirects=True)
-            if r.status_code != 200:
+            r = await _public_get(http, u)
+            if r is None or r.status_code != 200:
                 continue
             if want_json:
                 return r.json()
