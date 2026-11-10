@@ -87,7 +87,7 @@ def test_a_visitor_sees_the_card_never_the_vitals(monkeypatch):
 def test_every_owner_door_refuses_a_signed_out_caller(monkeypatch):
     """🔒 The sweep: every agent route that changes or shows owner-only things answers 401/403 with no session — a new door can't slip by."""
     fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
-    public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}', '/api/cats/{cat_id}/live'}
+    public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}', '/api/cats/{cat_id}/live', '/api/cats/{cat_id}/record'}   # record: AGT-10 public counts only (test_public_record checks nothing private leaks)
     seen = 0
     for r in fs.app.routes:
         path = getattr(r, 'path', '')

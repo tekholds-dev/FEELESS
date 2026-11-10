@@ -4602,6 +4602,11 @@ async def _pob_tick(http, cat, now):
                 cat.pop('pobRun', None)
                 _pob_file(cat, rec, f"🎲 PoB closed: {_pob.report(rec)['lesson']}")
         return
+    if do == 'start' and not cat.get('pobRead') and not cat.get('pobAsk') and not cat.pop('pobBoard', None):   # 🏈 owner 2026-11-10 ("I asked for a PoB, it did a trench coin"): a PoB with no topic bets on today's best games, never the coin board unless asked
+        try:
+            cat['pobAsk'] = await _tools.best_topic(http) or "tonight's best games"
+        except Exception:   # noqa: BLE001: the sports read failing still means sports
+            cat['pobAsk'] = "tonight's best games"
     rd = cat.get('pobRead')
     if rd:
         done, notes, why = _read_check(cat, rd, now)
@@ -9318,6 +9323,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
             if ok_:
                 cat.pop('proofSite', None)
+                if re.search(r'\b(board|chips?|coins?)\b', str(p.text or ''), re.I):   # only when asked: the free-chip coin board
+                    cat['pobBoard'] = True
                 _POB_WANT[cat_id] = 'start'; _POW_WAKE.set()
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'bids'}])[-200:]
             keep_owned(cat); _save(store)

@@ -65,7 +65,7 @@ def test_pob_reads_first_then_bids_only_on_agreement(fs, monkeypatch):
     monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who, kind='': fs._WORK.__setitem__(cat['id'], _task()) or '')
 
     async def run_():
-        cat = _cat(); fs._POB_WANT['c1'] = 'start'
+        cat = {**_cat(), 'pobBoard': True}; fs._POB_WANT['c1'] = 'start'   # the free-chip board, asked for (a plain PoB now bets on games)
         await fs._pob_tick(None, cat, 1000.0)
         assert cat['pobRead']['tid'] == 't1' and not staked and not seen     # reading, no call yet
         await fs._pob_tick(None, cat, 1001.0)
@@ -89,7 +89,7 @@ def test_pob_files_no_bid_when_the_minds_split(fs, monkeypatch):
     monkeypatch.setattr(fs, '_read_start', lambda cat, goal, who, kind='': 'its windows were busy')
 
     async def run_():
-        cat = _cat(); fs._POB_WANT['c1'] = 'start'
+        cat = {**_cat(), 'pobBoard': True}; fs._POB_WANT['c1'] = 'start'   # the free-chip board, asked for (a plain PoB now bets on games)
         await fs._pob_tick(None, cat, 1000.0)
         f = cat['pobFolders'][0]
         assert not staked and f['noTrade'] and f['why'] == 'the minds disagreed' and f['browseWhy'] == 'its windows were busy'
