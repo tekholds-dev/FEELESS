@@ -5089,13 +5089,25 @@ def _first_list(cat):
     return _feat._sources.first_rows(cat, _src_book(), jar, now)
 
 
+READ_FRESH_S = {'pow': 300, 'pop': 300, 'pob': 1800, 'poc': 3600, 'pos': 6 * 3600, 'poe': 3600}   # 🧠 COL-9: how long a read stays true for the next proof of its kind
+_READS = {}   # kind → (at, line, sites, reused): one read shared by every agent's proof of that kind while it is fresh
+
+
 async def _site_reads(kind):
-    """📖 A7: the best listed sites for this proof, really opened by us before the minds answer, and each visit goes in the sources book. Never stops a proof."""
+    """📖 A7: the best listed sites for this proof, really opened by us before the minds answer, and each visit goes in the sources book. Never stops a proof.
+    🧠 COL-9: never the same research twice. A read another proof of this kind made a moment ago is reused while still fresh (markets: 5 minutes,
+    games: 30, content: an hour, pages: 6 hours); the reuse is counted, nothing is opened again."""
+    hit = _READS.get(kind)
+    if hit and time.time() - hit[0] < READ_FRESH_S.get(kind, 600) and hit[2]:
+        _READS[kind] = (hit[0], hit[1], hit[2], hit[3] + 1)
+        return hit[1], hit[2]
     try:
         async with httpx.AsyncClient() as http:
             line_, sites_ = await _feat._sources.read_first(http, kind, await asyncio.to_thread(_stash.trust_rows, STASH_DIR, _feat._sources.STASH_CAT.get(kind)))
         for r_ in sites_:
             _src_note(r_['host'], r_['ok'])
+        if any(r_.get('ok') for r_ in sites_):
+            _READS[kind] = (time.time(), line_, sites_, 0)
         return line_, sites_
     except Exception as e:   # noqa: BLE001
         print(f'[refs] {kind}: {str(e)[:120]}')
