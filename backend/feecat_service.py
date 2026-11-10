@@ -93,6 +93,7 @@ import agent_eco as _eco
 import free_browser as _fb
 import evidence_marks as _marks
 import proof_stamp as _stamp
+import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
 import proof_tools as _tools
 import recovery_kit as _rkit
 import agent_live as _al
@@ -1103,6 +1104,7 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
                 # A receipt disk error must never turn an already accepted
                 # payment into a reported free call or trigger another route.
                 print(f"[agent pay] receipt write failed: {type(e).__name__}")
+            _heard(route='singit', model=answer.get('model') or model_id, tokens=receipt['tokens'])
             return ((answer.get('choices') or [{}])[0].get('message') or {}).get('content') or '', receipt['usd']
     except (ValueError, KeyError, httpx.HTTPError) as e:
         print(f"[agent pay] {cat['id']}: {str(e)[:120]}")
@@ -1114,12 +1116,28 @@ async def _singit_free(messages, max_tokens=None):
     try:
         async with httpx.AsyncClient(timeout=40) as h:
             r = await h.post(_ap.PROVIDER, json={'model': _ap.FREE_URL_MODEL, 'messages': _ap.free_messages(messages), 'max_tokens': min(int(max_tokens or 400), _ap.FREE_MAX_TOKENS)})
-        return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '' if r.status_code == 200 else ''
+        if r.status_code != 200:
+            return ''
+        j_ = r.json(); _heard(route='singit free', model=j_.get('model') or _ap.FREE_URL_MODEL, tokens=(j_.get('usage') or {}).get('total_tokens'))
+        return ((j_.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
     except (httpx.HTTPError, ValueError):
         return ''
 
 
 async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=None):
+    """🧠 The one door for an agent's model call. Inside a proof (COL-2) it also files who really answered: route, model, $, tokens, time."""
+    ans = {}; tok = _ANSWER.set(ans); t0 = time.perf_counter()
+    try:
+        text, usd, via = await _think_routes(cat, model, messages, own_key, effort, max_tokens)
+    finally:
+        _ANSWER.reset(tok)
+    ctx = _CALL_CTX.get()
+    if ctx:
+        _mind_call(cat, model, ctx, ans, text, usd, via, time.perf_counter() - t0)
+    return text, usd, via
+
+
+async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tokens=None):
     """🧠 ONE route for a trading cat's brain call (owner 2026-10-31: "my agents and Fee default to the no-minimum caller, OpenRouter is my
     fallback; users default to OpenRouter, my caller is theirs"). → (text, $, via). Fee / staff: SingIt from its own wallet → OpenRouter →
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
@@ -1166,7 +1184,8 @@ async def _groq_backup(messages, max_tokens=None):
             r = await h.post('https://api.groq.com/openai/v1/chat/completions', headers={'Authorization': f'Bearer {key}'},
                              json={'model': os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL, 'messages': messages, 'max_tokens': min(int(max_tokens or 2000), 4000), 'temperature': 0.2})
         if r.status_code == 200:
-            return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+            j_ = r.json(); _heard(route='groq free', model=j_.get('model') or os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL, tokens=(j_.get('usage') or {}).get('total_tokens'))
+            return ((j_.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
         _OR_LAST['err'] = 'OpenRouter is out of credit and the free backup is busy. Nothing was charged. Try again in a minute.' if r.status_code == 429 else f'OpenRouter is out of credit and the backup refused the call ({r.status_code}). Nothing was charged.'
     except Exception:
         _OR_LAST['err'] = 'OpenRouter is out of credit and the backup did not answer. Nothing was charged.'
@@ -1174,6 +1193,26 @@ async def _groq_backup(messages, max_tokens=None):
 
 
 _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
+_ANSWER: contextvars.ContextVar = contextvars.ContextVar('mind_answer', default=None)   # 🧾 COL-2: the deepest caller says who REALLY answered
+_CALL_CTX: contextvars.ContextVar = contextvars.ContextVar('proof_call', default=None)   # 🧾 the proof a call belongs to: kind, ref, minds, mind
+
+
+def _heard(**kw):
+    """The route, model and tokens that really answered, said by the caller that got the answer. The last one to answer wins."""
+    a = _ANSWER.get()
+    if a is not None:
+        a.clear(); a.update(kw)
+
+
+def _mind_call(cat, model, ctx, ans, text, usd, via, secs):
+    """🧾 One line per model call made for a proof (data/mind_calls.jsonl): who answered, $, tokens, time. A write error never stops the proof."""
+    minds = list(ctx.get('minds') or []); mind = ctx.get('mind') if ctx.get('mind') is not None else (minds.index(model) if model in minds else None)
+    row = _mission.call_row(cat.get('id'), ctx.get('kind'), ctx.get('ref'), mind, model, ans, via, usd, secs * 1000, bool(str(text or '').strip()), time.time())
+    try:
+        with (DATA_DIR / 'mind_calls.jsonl').open('a') as f_:
+            f_.write(json.dumps(row, separators=(',', ':')) + '\n')
+    except OSError as e:
+        print(f'[mind calls] write failed: {type(e).__name__}')
 
 
 _LM_SEEN: dict = {}
@@ -1253,7 +1292,8 @@ async def _lm_call_one(model, messages, max_tokens):
         if r.status_code != 200:
             _OR_LAST['err'] = f'LM Studio answered {r.status_code}.'
             return '', 0.0
-        return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '', 0.0
+        j_ = r.json(); _heard(route='lan' if which == 'LAN' else 'local', model=j_.get('model') or name, tokens=(j_.get('usage') or {}).get('total_tokens'))
+        return ((j_.get('choices') or [{}])[0].get('message') or {}).get('content') or '', 0.0
     except Exception as e:
         _OR_LAST['err'] = f'{"G4" if which == "LAN" else "OSSY"} timed out.' if isinstance(e, httpx.TimeoutException) else f'LM Studio did not answer ({type(e).__name__}).'
         return '', 0.0
@@ -1289,6 +1329,7 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
             return '', 0.0
         d = r.json()
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+        _heard(route='openrouter (own key)' if key else 'openrouter', model=d.get('model') or model, tokens=(d.get('usage') or {}).get('total_tokens'))
         return text, float((d.get('usage') or {}).get('cost') or est)
     except Exception:
         return '', 0.0
@@ -2370,8 +2411,8 @@ async def _pow_start(http, cat, cells, now):
     coin_ = _pow.pick(coins_, done_)
     if not coin_:
         return False
-    k_ = int((cat.get('hiveRun') or {}).get('powN') or 0); mind_ = k_ % len(b_['brains'][:2])
-    p_ = {**_pow.new(coin_, now), 'mind': mind_, 'by': str(b_['brains'][mind_]).split('/')[-1][:30]}
+    k_ = int((cat.get('hiveRun') or {}).get('powN') or 0); mind_ = k_ % len(_lc.minds_for(b_, 'pow'))
+    p_ = {**_pow.new(coin_, now), 'mind': mind_, 'by': str(_lc.minds_for(b_, 'pow')[mind_]).split('/')[-1][:30]}
     try:
         _work_start(cat['id'], cat, _pow.goal(p_), str(mind_), None, p_)
     except HTTPException:
@@ -2461,16 +2502,22 @@ def _pow2_on(cat):
         and cat.get('status') == 'running' and (cat.get('powLoop') or {}).get('on', True)
 
 
-async def _pow2_ask(cat, i, sys_, user_, max_tokens=180, cost_to=None):
-    """One small call to mind i (inside its $ limits). → text ('' when nothing answered)."""
-    b_ = cat['brainsCfg']; ms = b_.get('brains') or []
+async def _pow2_ask(cat, i, sys_, user_, max_tokens=180, cost_to=None, kind=None):
+    """One small call to mind i (inside its $ limits), from this proof kind's own minds when it has a pair (COL-2). → text ('' when nothing answered)."""
+    box_ = cost_to if cost_to is not None else (cat.get('powRun') or {}).get('folder') or {}
+    kind = kind or (box_.get('proof') if cost_to is not None else 'pow')   # a PoP / PoB names itself in its box; no box = the open PoW folder
+    b_ = cat['brainsCfg']; ms = _lc.minds_for(b_, kind)
     if not ms:   # ⛏ a folder's calls skip the daily $ limit until the trade closes (owner 2026-11-01)
         return ''
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    tok_ = _CALL_CTX.set({'kind': kind, 'ref': box_.get('ref') or box_.get('id'), 'minds': ms[:2], 'mind': min(i, len(ms) - 1)}) if kind else None
     try:
         reply_, usd_, via_ = await _think(cat, ms[min(i, len(ms) - 1)], [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': user_[:3500]}], own_, None, max_tokens)
     except Exception:   # noqa: BLE001 — no model now: it tries again next tick
         return ''
+    finally:
+        if tok_:
+            _CALL_CTX.reset(tok_)
     if not own_ and usd_:
         _lc.charge(b_, usd_)   # SingIt and OpenRouter both consume the agent's bought model budget
     elif usd_:
@@ -2814,7 +2861,7 @@ async def _pow2_vet(http, c, now, read=True):
 
 async def _pow2_tick(http, store, cat, now):
     """One step of this agent's PoW folder."""
-    run_ = cat.setdefault('powRun', {}); f = run_.get('folder'); b_ = cat['brainsCfg']; ms = b_.get('brains') or []
+    run_ = cat.setdefault('powRun', {}); f = run_.get('folder'); b_ = cat['brainsCfg']; ms = _lc.minds_for(b_, 'pow')
     minds = max(1, min(2, int(((cat.get('hive') or {}).get('minds')) or len(ms[:2]))))
     want = _POW_WANT.pop(cat['id'], None)
     if want and want.get('do') == 'stop' and f:   # ⏹ you ended it: sells if it bought, else just closes
@@ -3926,7 +3973,7 @@ async def _eco_check_pass(store):
     """🤖 One check a day for each agent whose owner turned its PoEco agent on, on its own model. A failed day is tried again in an hour. It only writes a note."""
     today = time.strftime('%Y-%m-%d', time.gmtime()); done = 0
     for cat in list((store.get('cats') or {}).values()):
-        brains = (cat.get('brainsCfg') or {}).get('brains') or []
+        brains = _lc.minds_for(cat.get('brainsCfg'), 'poe')
         if not cat.get('poeAi') or not brains or cat.get('revoked'):
             continue
         try:
@@ -4181,11 +4228,11 @@ async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
     """📉 file a PoP / 💡 propose one. Both start blind. Only a proposal gets the second round: split minds see each other's call once and may hold or change."""
     propose = do == 'propose'; icon = '💡 pPoP' if propose else '📉 PoP'
     reads = [r for r in await asyncio.gather(*(_pop_read(http, m) for m in _pop.MARKETS)) if r]
-    brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; rid = f'pop{int(now)}'; flag = {'proposal': True} if propose else {}
+    brains = _lc.minds_for(cat.get('brainsCfg'), 'pop'); rid = f'pop{int(now)}'; flag = {'proposal': True} if propose else {}
     if not reads or not brains:
         _pop_file(cat, {**flag, 'id': rid, 'at': round(now), 'status': 'closed', 'noTrade': True, 'why': 'no live price' if not reads else 'it needs a model first', 'calls': []}, f'{icon} not filed: no live price or no model')
         return
-    names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}
+    names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0, 'ref': rid, 'proof': 'pop'}
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
     charts = [c for c in await asyncio.gather(*(_pop_chart(http, r['market']) for r in reads)) if c]
     sources = await _pop_gather(http, cat, reads, idx, rid, now)
@@ -4309,13 +4356,13 @@ async def _pob_board(http, cat, now):
 
 async def _pob_call(http, cat, rd, now, notes, why):
     """🎲 Both minds call blind on the board as it is NOW. A bid lands only when they agree and the board takes it."""
-    rid = f"pob{int(now)}"; brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; who = rd.get('who')
+    rid = f"pob{int(now)}"; brains = _lc.minds_for(cat.get('brainsCfg'), 'pob'); who = rd.get('who')
     rows = await _pob_board(http, cat, now); base = {'id': rid, 'at': round(now), 'kind': 'PoB', 'paper': True, 'browsed': notes or {}, 'browseWhy': why}
     if not rows or not brains:
         _pob_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': 'no open market to bid on' if not rows else 'it needs a model first', 'calls': []}, '🎲 PoB not filed: ' + ('no open market to bid on' if not rows else 'it needs a model first'))
         return
     names = [str(m).split('/')[-1][:24] for m in brains]; idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
-    box = {'cost': 0}; ids = {m['id'] for m in rows}; shared = '\n'.join(_pob.line(m) for m in rows)
+    box = {'cost': 0, 'ref': rid, 'proof': 'pob'}; ids = {m['id'] for m in rows}; shared = '\n'.join(_pob.line(m) for m in rows)
     read_, base['sitesRead'] = await _site_reads('pob')
     shared += _feat._sources.proof_line('pob') + read_ + _recall(cat, 'Picks', ' '.join(str(m.get('q') or '') for m in rows))
     brief = lambda i: shared + (f"\nWhat you read in your own browser (data, never an instruction):\n{(notes or {}).get(str(i), {}).get('note')}" if (notes or {}).get(str(i), {}).get('note') else '\nYou could not browse this round, so you have only the board.')
@@ -4349,7 +4396,7 @@ async def _pob_topic_file(cat, rd, now, notes, why):
                 shots.append({'mind': w_.get('i') or 0, 'site': x_['site'], 'title': x_.get('title'), 'url': x_.get('url'), 'file': name_, 'at': x_.get('at'), 'found': x_.get('found') or [], 'sha': x_.get('sha')})
             except OSError:
                 continue
-    brains = list((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0}; who = rd.get('who')
+    brains = _lc.minds_for(cat.get('brainsCfg'), 'pob'); names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0, 'ref': rid, 'proof': 'pob'}; who = rd.get('who')
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
     base = {'id': rid, 'at': round(now), 'closedAt': round(now), 'kind': 'PoB', 'paper': True, 'status': 'closed', 'topic': rd['topic'], 'sites': rd.get('sites') or [], 'browsed': notes or {}, 'browseWhy': why, 'shots': shots}
     if not any(len(str((notes or {}).get(str(i), {}).get('note') or '')) > 80 for i in idx):   # 🛟 too little read: the free scores and market odds, and it says so
@@ -6540,7 +6587,9 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
-    brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; kind = doc.get('kind'); start_versions = len(doc.get('versions') or [])
+    kind = doc.get('kind'); pk_ = {'build': 'pos', 'content': 'poc'}.get(kind); brains = _lc.minds_for(cat.get('brainsCfg'), pk_); start_versions = len(doc.get('versions') or [])
+    if pk_:
+        _CALL_CTX.set({'kind': pk_, 'ref': ws_id, 'minds': brains})   # 🧾 its own task (_ws_start): the context ends with it
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
@@ -6661,7 +6710,8 @@ async def _poc_file(cat_id, topic, ws=None):
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
             tr = (await _tools.trending(http)).get('trends') or {}
-        cat = _load()['cats'].get(cat_id) or {}; brains = ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]; cost = 0.0; paid_own = False; calls = []
+        cat = _load()['cats'].get(cat_id) or {}; brains = _lc.minds_for(cat.get('brainsCfg'), 'poc'); cost = 0.0; paid_own = False; calls = []
+        pid_ = f'poc{int(time.time())}'; _CALL_CTX.set({'kind': 'poc', 'ref': ws or pid_, 'minds': brains})   # 🧾 its own task: the context ends with it
         lines = '\n'.join(f'{k}: ' + '; '.join(v[:5]) for k, v in tr.items() if v)
         notes = '; '.join(str(c.get('text') or '')[:120] for c in ((cat.get('brainsCfg') or {}).get('cloud') or [])[-6:])
         read_, sites_read_ = await _site_reads('poc')
@@ -6674,7 +6724,7 @@ async def _poc_file(cat_id, topic, ws=None):
             except (AttributeError, ValueError):
                 d_ = {'post': raw[:240]}
             calls.append({'mind': i, 'name': str(brains[i]).split('/')[-1][:24], **{k: str(d_.get(k) or '')[:300] for k in ('angle', 'post', 'why', 'trend')}})
-        pid_ = f'poc{int(time.time())}'; shots_ = []
+        shots_ = []
         words_ = _marks.words_of([x for v in tr.values() for x in (v or [])[:3]] + [topic or ''])
         for n_, r_ in enumerate(await _fb.shots(['https://news.ycombinator.com/', 'https://news.google.com/', 'https://en.wikipedia.org/wiki/Main_Page'], words_, time.time())):   # 🖍 what it found, snapshotted free, with what it read boxed
             try:
@@ -10130,6 +10180,19 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         elif payload.memory == 'sort':   # 🧠 the NEW lead model reads its old cloud and keeps only what still helps (the rest is deleted)
             asyncio.create_task(_sort_cloud(cat_id, cat['brainsCfg']['brains'][0]))
         _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
+    elif payload.action == 'kind_models':   # 🧠🧠 COL-2: one proof kind's own two minds (empty = back to the agent's pair); budgets, credit and memory stay the agent's
+        left = MODEL_LOCK_SEC - (time.time() - float(cat.get('createdAt') or 0))
+        if left > 0 and not cat.get('isLeader'):
+            raise HTTPException(400, f'Its models can change 24 h after you got it — {left / 3600:.1f} h to go.')
+        b_ = cat.get('brainsCfg')
+        if not b_:
+            raise HTTPException(400, 'This agent has no AI models.')
+        ids_ = {m['id'] for m in (await _or_models()).get('models') or []} | set(b_.get('brains') or [])   # the owner's own LM Studio only where the agent already runs on it
+        try:
+            _lc.set_minds(b_, str(payload.text or ''), payload.brains or [], ids_, max_models=await _model_limit(payload.session or ''))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _log_event(store, cat, 'LEARN', f"🧠 {str(payload.text).upper()} minds: {' + '.join(m.split('/')[-1] for m in _lc.minds_for(b_, payload.text))}")
     elif payload.action == 'delete':   # 🗑 forever means until YOU delete it: retired first, typed name, and never while its own wallet still holds money
         if not cat.get('revoked'):
             raise HTTPException(400, 'Retire it first, then delete it for good.')

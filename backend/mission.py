@@ -109,6 +109,39 @@ def _minds(cat, f):
              'spentUsd': round(_f(spend.get(str(i), spend.get(i))), 6), 'answeredBy': None, 'route': None} for i in range(n)]
 
 
+def call_row(cat_id, kind, ref, mind, asked, answer, via, usd, ms, ok, now):
+    """🧾 COL-2: one model call during a proof, as it really went: the model asked for, the route and model that answered (from the deepest
+    caller, never guessed), its $, tokens and time. `answer` is what that caller reported; empty when nothing answered."""
+    answer = answer or {}
+    return {'at': round(float(now), 3), 'cat': cat_id, 'kind': kind_of(kind), 'ref': ref, 'mind': mind, 'asked': asked,
+            'route': answer.get('route') if ok else None, 'model': answer.get('model') if ok else None, 'tokens': answer.get('tokens') if ok else None,
+            'via': str(via or '')[:80] or None, 'usd': round(_f(usd), 6), 'ms': int(_f(ms)), 'ok': bool(ok),
+            'local': answer.get('route') in ('local', 'lan') if ok else None}
+
+
+def calls_for(rows, kind, ref):
+    """This proof's calls, from the call log."""
+    k = kind_of(kind)
+    return [r for r in rows or [] if isinstance(r, dict) and r.get('ref') == ref and r.get('kind') == k] if ref else []
+
+
+def _attribute(minds, calls):
+    """Who really answered each mind, from the log: the routes and models seen, counted. Local calls cost $0 of API, never an invented price."""
+    for m in minds:
+        mine = [c for c in calls if c.get('mind') == m['i']]
+        if not mine:
+            continue
+        seen = {}
+        for c in mine:
+            if c.get('ok'):
+                key = f"{c.get('route') or '?'}:{c.get('model') or '?'}"; seen[key] = seen.get(key, 0) + 1
+        m.update(answeredBy=[{'route': kk.split(':', 1)[0], 'model': kk.split(':', 1)[1], 'calls': n} for kk, n in sorted(seen.items(), key=lambda x: -x[1])],
+                 calls=len(mine), failed=sum(1 for c in mine if not c.get('ok')), tokens=sum(int(_f(c.get('tokens'))) for c in mine),
+                 ms=sum(int(_f(c.get('ms'))) for c in mine), apiUsd=round(sum(_f(c.get('usd')) for c in mine if not c.get('local')), 6),
+                 localCalls=sum(1 for c in mine if c.get('local')))
+    return minds
+
+
 def _quality(k, q):
     if k == 'poe':
         return {'state': 'none', 'why': 'PoEco has no rubric yet: no grade is invented'}
@@ -118,20 +151,27 @@ def _quality(k, q):
             'held': q.get('held'), 'parts': [{'key': p.get('key'), 'weight': p.get('weight'), 'value': p.get('value')} for p in q['parts']]}
 
 
-def envelope(kind, folder, now, cat=None, quality=None):
-    """→ one proof in the shared shape, or None for an unknown kind or a folder that is not a dict. Never changes `folder` or `cat`."""
+def ref_of(k, f):
+    """The id its calls are logged under: a page or post's workspace, else the folder."""
+    return f.get('ws') if k in ('pos', 'poc') and f.get('ws') else f.get('id')
+
+
+def envelope(kind, folder, now, cat=None, quality=None, calls=None):
+    """→ one proof in the shared shape, or None for an unknown kind or a folder that is not a dict. Never changes `folder` or `cat`.
+    `calls` = the call log rows (COL-2); this proof's own are picked out by its ref."""
     k = kind_of(kind)
     if not k or not isinstance(folder, dict):
         return None
     f = folder; out = outcome(k, f, now); arts = _artifacts(k, f); sent = f.get('sent')
-    minds = _minds(cat, f)
+    mine = calls_for(calls, k, ref_of(k, f)); minds = _attribute(_minds(cat, f), mine)
     return {
         'v': VERSION, 'id': f.get('id'), 'kind': k, 'code': KINDS[k][0], 'n': f.get('n'), 'title': _title(k, f),
         'agent': {'id': (cat or {}).get('id'), 'name': (cat or {}).get('name')},
         'status': f.get('status'), 'at': f.get('at'), 'closedAt': f.get('soldAt') or f.get('closedAt'),
         'real': bool(f.get('real')) if k == 'pow' else False,
-        'minds': minds, 'attribution': NOT_YET,
-        'cost': {'usd': round(_f(f.get('cost')), 6), 'byMind': {m['i']: m['spentUsd'] for m in minds}, 'apiVsLocal': NOT_YET},
+        'minds': minds, 'attribution': f'{len(mine)} calls recorded' if mine else NOT_YET,
+        'cost': {'usd': round(_f(f.get('cost')), 6), 'byMind': {m['i']: m['spentUsd'] for m in minds},
+                 'apiVsLocal': {'apiUsd': round(sum(_f(c.get('usd')) for c in mine if not c.get('local')), 6), 'localCalls': sum(1 for c in mine if c.get('local'))} if mine else NOT_YET},
         'sources': arts['sites'], 'kits': [str(x.get('id') if isinstance(x, dict) else x) for x in _rows(f.get('kits'))],
         'artifacts': arts, 'recordSha': record_sha(f),
         'quality': _quality(k, quality), 'outcome': out,
@@ -142,12 +182,12 @@ def envelope(kind, folder, now, cat=None, quality=None):
     }
 
 
-def all_of(cat, now, quality_of=None):
+def all_of(cat, now, quality_of=None, calls=None):
     """Every proof of one agent, newest first. `quality_of(kind, folder)` is the service's own scorer, when given."""
-    out = []
+    out = []; calls = [c for c in calls or [] if isinstance(c, dict) and c.get('cat') == (cat or {}).get('id')]
     for k, (_, key) in KINDS.items():
         for f in _rows((cat or {}).get(key)):
-            e = envelope(k, f, now, cat, quality_of(k, f) if quality_of and k != 'poe' else None)
+            e = envelope(k, f, now, cat, quality_of(k, f) if quality_of and k != 'poe' else None, calls)
             if e:
                 out.append(e)
     return sorted(out, key=lambda e: -_f(e.get('at')))

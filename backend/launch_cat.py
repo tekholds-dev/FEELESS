@@ -231,8 +231,38 @@ def plan(models, mode):
     return {'perDecision': round(one, 6), 'perTrade': trade, 'trades': (int(START_CREDIT / trade) if trade > 0 else None), 'calls': calls}
 
 
+PROOF_KINDS = ('pow', 'pop', 'pob', 'poc', 'pos', 'poe')   # 🧠🧠 COL-2: each proof kind may have its own two minds
+OWNED = ('brains', 'brainMode', 'billing', 'prompt', 'kind', 'efforts', 'promptLocked', 'credit', 'owed', 'spent', 'asks', 'chime', 'talk',
+         'decisions', 'cloud', 'minds', 'byKind')   # the keys clean() writes itself; every other setting rides along untouched
+
+
+def minds_for(cfg, kind=None):
+    """The two minds a proof kind uses: its own pair when the owner set one, else the agent's own. → [model ids], at most 2."""
+    cfg = cfg or {}; own = [str(m) for m in (cfg.get('byKind') or {}).get(kind) or [] if m] if kind in PROOF_KINDS else []
+    return own[:2] or [str(m) for m in cfg.get('brains') or [] if m][:2]
+
+
+def set_minds(cfg, kind, models, ids=None, max_models=2):
+    """Sets (or with no models, clears) one proof kind's own pair. Budgets, credit and memory stay the agent's. → the cfg."""
+    if kind not in PROOF_KINDS:
+        raise ValueError('unknown proof kind')
+    want = list(dict.fromkeys(str(m)[:80] for m in models or [] if m))
+    if len(want) > min(2, max_models):
+        raise ValueError(f'At most {min(2, max_models)} models for one kind of proof.')
+    if ids is not None and any(m not in ids for m in want):   # the caller lists what this agent may use (the owner's own LM Studio only for his agents)
+        raise ValueError('That model is not on the list.')
+    by = {k: v for k, v in (cfg.get('byKind') or {}).items() if k in PROOF_KINDS and v}
+    if want:
+        by[kind] = want
+    else:
+        by.pop(kind, None)
+    cfg['byKind'] = by
+    return cfg
+
+
 def clean(body, prev=None, ids=None, max_models=2):
-    """The brain part of a cat. The prompt is set ONCE: a cat that has one keeps it whatever the body says."""
+    """The brain part of a cat. The prompt is set ONCE: a cat that has one keeps it whatever the body says. Settings clean() does not own
+    (kits per proof, today's spend, persona, switches) ride along: a model switch used to drop them, today's spend included."""
     prev = prev or {}
     raw = [str(x)[:80] for x in (body.get('brains') or prev.get('brains') or [])]
     if len(set(raw)) > max_models:
@@ -252,7 +282,10 @@ def clean(body, prev=None, ids=None, max_models=2):
     kind = prev.get('kind') or body.get('brainKind') or 'trading'   # 📈 trading = hunts coins itself · 🧭 general = does what you order (set once)
     if kind not in KINDS:
         raise ValueError('unknown kind')
-    return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
+    keep = {k: v for k, v in prev.items() if k not in OWNED}
+    by = {k: [m for m in v if not ids or m in ids][:2] for k, v in (prev.get('byKind') or {}).items() if k in PROOF_KINDS and isinstance(v, list)}
+    return {**keep, 'byKind': {k: v for k, v in by.items() if v},
+            'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
             'efforts': {m: e for m, e in (body.get('efforts') or prev.get('efforts') or {}).items() if m in brains},
             'promptLocked': bool(prompt), 'credit': prev.get('credit', 0.0 if kind == 'general' else START_CREDIT),   # 🧭 a general agent starts at $0: only real money buys its credit (owner 2026-10-31)
             'owed': prev.get('owed', 0.0),

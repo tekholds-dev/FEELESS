@@ -84,6 +84,32 @@ function DeleteForGood({ cat, busy, onAct }) {
     <input className="m-input" value={t} onChange={e => setT(e.target.value)} placeholder={`type ${cat.name} to delete it`} aria-label="Type the agent's name to delete it" data-testid="kd-del-name" />
     <button type="submit" className="m-btn kd-danger" disabled={busy || t.trim().toLowerCase() !== String(cat.name).toLowerCase()} data-testid="kd-delete" data-tip="Gone for good — withdraw its wallet first"><Ic3 e="🗑" /> Delete for good</button></form>;
 }
+// 🧠🧠 COL-2 (owner + GPT 2026-11-09): each kind of proof may run on its own two minds; none set = the agent's pair above.
+// Its budget, credit and memory stay the agent's. The server checks every model (its list, or the agent's own minds) and the 24 h lock.
+export const PROOF_KINDS = [['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic'], ['poe', 'PoEco']];
+const shortId = id => String(id || '').split('/').pop();
+export function KindMinds({ cat, d, kind, mind, busy, onAct, row }) {
+  const by = cat.brainsCfg.byKind || {}; const base = cat.brainsCfg.brains || []; const [k, setK] = useState('pos');
+  const [pick, setPick] = useState(['', '']); const [open, setOpen] = useState(-1);
+  useEffect(() => { const own = (cat.brainsCfg.byKind || {})[k] || []; setPick([own[0] || '', own[1] || '']); setOpen(-1); }, [k, cat.brainsCfg.byKind]);
+  const own = by[k] || []; const label = PROOF_KINDS.find(x => x[0] === k)[1]; const want = pick.filter(Boolean); const changed = want.join() !== own.join();
+  const put = (i, id) => setPick(p => { const n = [p[0] || '', p[1] || '']; n[i] = id; if (id && n[1 - i] === id) n[1 - i] = ''; return n; });
+  return <>
+    <span className="m-label">BY PROOF<em>its own two minds for each kind · none set = the pair above</em></span>
+    <div className="m-seg kd-mem" role="radiogroup" aria-label="Which kind of proof">{PROOF_KINDS.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={k === v} className={k === v ? 'is-on' : ''} onClick={() => setK(v)} data-testid={`kd-kind-${v}`}
+      data-tip={`${l}: ${(by[v] || []).length ? by[v].map(shortId).join(' + ') : 'uses the pair above'}`}>{l}{(by[v] || []).length ? ' ●' : ''}</button>)}</div>
+    <div className="fmd-pick">{[0, 1].map(i => { const id = pick[i]; const m = row(id);
+      return <div key={i} className={`fmd-slot${id ? ' is-on' : ''}`}><em>{label} · {mind} {'AB'[i]}{i ? ' · reviews' : ' · leads'}</em>
+        <span className="fmd-slot-m"><b>{id ? (m?.name || shortId(id)) : base[i] ? `same as above: ${shortId(base[i])}` : 'none'}</b><small>{id ? (m ? `♟ ${m.intel ?? '—'} · ${m.perDecision ? `$${m.perDecision.toFixed(4)} a decision` : 'free'}` : 'its own mind') : 'uses the pair above'}</small></span>
+        <span className="fmd-slot-acts"><button type="button" className="m-btn" disabled={!d} onClick={() => setOpen(i)} data-testid={`kd-kind-open-${i}`} data-tip="Pick from the full model list">{id ? 'Change' : 'Pick'}</button>
+          {base.filter(b => b !== id).map(b => <button key={b} type="button" className="m-btn" onClick={() => put(i, b)} data-testid={`kd-kind-own-${i}-${shortId(b)}`} data-tip={`Use ${shortId(b)}, one of this agent's own minds`}>{shortId(b)}</button>)}
+          {id ? <button type="button" className="m-btn" onClick={() => put(i, '')} data-testid={`kd-kind-drop-${i}`} data-tip="Clear this slot">Drop</button> : null}</span></div>; })}</div>
+    <span className="fmd-slot-acts"><button type="button" className="m-btn m-go" disabled={busy || !changed || (!want.length && !own.length)} onClick={() => onAct('kind_models', { text: k, brains: want })} data-testid="kd-kind-save"
+      data-tip={`Every ${label} from now on asks these minds. Its budget and memory stay the agent's.`}>{want.length || !own.length ? `Save for ${label}` : 'Back to the pair above'}</button></span>
+    {open >= 0 ? <ModelPop d={d} kind={kind} title={`🧠 ${label} · ${mind} ${'AB'[open]} · ${cat.name}`} picked={want.map(id => ({ id }))} onPick={id => put(open, id)} onClose={() => setOpen(-1)} /> : null}
+  </>;
+}
+
 // 🔁 its models can be switched 24 h after you got it (the sealed brief, credit, memory and cloud carry over)
 export const MODEL_LOCK_H = 24;
 export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0, MODEL_LOCK_H * 3600 - (now - Number(createdAt || 0))); }
@@ -100,7 +126,8 @@ function ModelSwitch({ cat, busy, onAct }) {
           <span className="fmd-slot-acts"><button type="button" className="m-btn" disabled={!d} onClick={() => setOpen(i)} data-testid={`kd-model-open-${i}`}>{pick[i] ? 'Change' : 'Pick from the list'}</button>
             {i && pick[i] ? <button type="button" className="m-btn" onClick={() => setPick(p => [p[0]])}>Drop</button> : null}</span></div>; })}</div>
         <div className="m-seg kd-mem" role="radiogroup" aria-label="Its memory with the new models">{[['keep', '☁ keep its memory'], ['sort', '🧠 new model sorts it'], ['fresh', '🧹 start fresh']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`kd-mem-${k}`}>{l}</button>)}</div>
-        <button type="button" className="m-btn m-go" disabled={busy || !pick[0] || pick.filter(Boolean).join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick.filter(Boolean), memory })} data-testid="kd-model-save">Switch</button></>}
+        <button type="button" className="m-btn m-go" disabled={busy || !pick[0] || pick.filter(Boolean).join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick.filter(Boolean), memory })} data-testid="kd-model-save">Switch</button>
+        <KindMinds cat={cat} d={d} kind={kind} mind={mind} busy={busy} onAct={onAct} row={row} /></>}
     {open >= 0 ? <ModelPop d={d} kind={kind} title={`🔁 ${mind} ${'AB'[open]} · ${cat.name}`} picked={pick.filter(Boolean).map(id => ({ id }))} onPick={id => setPick(p => { const n = [p[0] || '', p[1] || '']; n[open] = id; if (n[1 - open] === id) n[1 - open] = ''; return n[0] ? n : [id]; })} onClose={() => setOpen(-1)} /> : null}
   </section>;
 }

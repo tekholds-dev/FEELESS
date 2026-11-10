@@ -96,3 +96,22 @@ test('🃏 one owner desk: a two-brain trader gets the same desk as a general ag
   expect(el.querySelector('.cwb-flip').className).not.toContain('is-back');
   act(() => root.unmount());
 });
+
+test('🧠🧠 by proof: a kind picks its own two minds from the agent\'s own, saves them, and can go back to the pair above (COL-2)', async () => {
+  const { KindMinds } = require('./CatDesk');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onAct = jest.fn();
+  const cat = { name: 'Sicario', brainsCfg: { brains: ['local/ossy', 'local/g4'], byKind: { pow: ['local/g4'] } } };
+  await act(async () => root.render(<KindMinds cat={cat} d={{ models: [] }} kind="general" mind="MIND" busy={false} onAct={onAct} row={() => null} />));
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('kd-kind-pow').textContent).toContain('●'); expect(q('kd-kind-pos').getAttribute('aria-checked')).toBe('true');
+  expect(q('kd-kind-save').disabled).toBe(true);   // nothing changed yet
+  await act(async () => q('kd-kind-own-0-g4').click()); await act(async () => q('kd-kind-own-1-ossy').click());
+  await act(async () => q('kd-kind-save').click());
+  expect(onAct).toHaveBeenLastCalledWith('kind_models', { text: 'pos', brains: ['local/g4', 'local/ossy'] });
+  await act(async () => q('kd-kind-pow').click());
+  expect(q('kd-kind-drop-0')).toBeTruthy(); await act(async () => q('kd-kind-drop-0').click());
+  expect(q('kd-kind-save').textContent).toBe('Back to the pair above');
+  await act(async () => q('kd-kind-save').click());
+  expect(onAct).toHaveBeenLastCalledWith('kind_models', { text: 'pow', brains: [] });
+  act(() => root.unmount()); el.remove();
+});
