@@ -8482,6 +8482,21 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'There is no page to keep yet.')
         doc_.pop('unfinished', None); doc_['pending'] = False; doc_['stage'] = 'filed'; _feat.add_msg(doc_, 'you', f"Keep page {len(doc_['versions'])}.", time.time()); _ws_save(cat_id, doc_)
         return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'pow_claim':   # ➕ COL-15: the owner traded a PoW proposal by hand somewhere else: his claim is kept on the folder, never a settled result until a send confirms it
+        f_ = next((x for x in cat.get('powFolders') or [] if x.get('id') == p.job and x.get('propose')), None)
+        if not f_:
+            raise HTTPException(400, 'Pick one of its proposals.')
+        t_ = p.tools if isinstance(p.tools, dict) else {}
+        link_ = str(t_.get('receipt') or '').strip(); venue_ = re.sub(r'\s+', ' ', str(t_.get('venue') or '')).strip()[:40]
+        try:
+            usd_ = round(float(t_.get('resultUsd')), 2)
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'Say what it made or lost, in dollars (a minus for a loss).')
+        if not venue_ or abs(usd_) > 1_000_000 or (link_ and not re.match(r'^https://[^\s]{6,400}$', link_)):
+            raise HTTPException(400, 'Where you traded it, the result in dollars, and (optional) an https link to the receipt.')
+        f_['manual'] = {'venue': venue_, 'receipt': link_ or None, 'resultUsd': usd_, 'note': str(p.text or '').strip()[:200], 'at': round(time.time()), 'status': 'claim'}
+        keep_owned(cat); _save(store)
+        return {'powFolders': (cat.get('powFolders') or [])[::-1]}
     if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked fal.ai / Replicate
         linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
         return _mg.catalog(linked)

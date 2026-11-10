@@ -594,3 +594,20 @@ test('💵 a proof folder\'s discussion shows what it cost, per mind and in all 
   await act(async () => root.render(<FolderCost f={{ cost: 0, compare: { sources: 2, ok: false, why: 'compared 2 of 4 sources' } }} />)); expect(el.textContent).toBe('COST · folder $0.0000 · ⚖ compared 2 of 4 sources · thin');   // COL-13
   act(() => root.unmount());
 });
+
+test('➕ a proposal traded by hand is filed as the owner\'s claim (COL-15)', async () => {
+  const { ProposalClaim } = require('./CatWorkbench');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ powFolders: [{ id: 'p1', propose: true, manual: { venue: 'Crypto.com', resultUsd: 12.5, status: 'claim' } }] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const done = jest.fn();
+  await act(async () => root.render(<ProposalClaim cat={{ id: 'c1' }} f={{ id: 'p1', propose: true }} onDone={done} />));
+  await act(async () => el.querySelector('[data-testid="pow-claim-open"]').click());
+  const type = async (id, val) => { const i = el.querySelector(`[data-testid="${id}"]`); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, val); i.dispatchEvent(new Event('input', { bubbles: true })); }); };
+  await type('pow-claim-venue', 'Crypto.com'); await type('pow-claim-usd', '12.5');
+  await act(async () => el.querySelector('[data-testid="pow-claim-save"]').click());
+  expect(JSON.parse(globalThis.fetch.mock.calls[0][1].body)).toMatchObject({ op: 'pow_claim', job: 'p1', tools: { venue: 'Crypto.com', resultUsd: '12.5' } });
+  expect(done).toHaveBeenCalled();
+  await act(async () => root.render(<ProposalClaim cat={{ id: 'c1' }} f={{ id: 'p1', propose: true, manual: { venue: 'Crypto.com', resultUsd: 12.5 } }} />));
+  expect(el.textContent).toContain('+$12.50'); expect(el.textContent).toContain('your claim until a send confirms it');
+  act(() => root.unmount());
+});

@@ -53,6 +53,8 @@ def _title(k, f):
 def _authority(k, f):
     """→ (who verified the outcome, how strong, plain words, tx signatures it rests on)."""
     if k == 'pow':
+        if (f.get('manual') or {}).get('status') == 'claim':   # ➕ COL-15: the owner traded it by hand: his claim, until a send confirms it
+            m = f['manual']; return 'owner claim', 'self', f"Traded by hand on {m.get('venue')}, {m.get('resultUsd'):+} USD claimed: a claim until a send confirms it", []
         if f.get('settlementVerified') and f.get('buySig') and f.get('sellSig'):
             return 'chain', 'chain', 'Both trades read back from the chain, fees included', [f['buySig'], f['sellSig']]
         if f.get('real'):

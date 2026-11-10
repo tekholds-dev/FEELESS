@@ -437,6 +437,23 @@ export function ColonyTab({ cat }) {
 // they split — the Pass holder · its model credit · a capped buyback of its own coin (fees only, shown here). Claiming + paying out from its
 // wallet is the next step, tested live by the owner first.
 const SPLIT_PRESETS = [['Balanced', { holder: 50, credit: 30, buyback: 20 }], ['Holder first', { holder: 70, credit: 20, buyback: 10 }], ['Self-funding', { holder: 30, credit: 60, buyback: 10 }], ['Momentum', { holder: 40, credit: 20, buyback: 40 }]];
+// ➕ COL-15: a proposal the owner traded by hand somewhere else (Crypto.com, any app): where, the result, the receipt link. It stays HIS CLAIM
+// in the record (never a settled result) until a send confirms it.
+export function ProposalClaim({ cat, f, onDone }) {
+  const m = f.manual; const [open, setOpen] = useState(false); const [v, setV] = useState({ venue: '', resultUsd: '', receipt: '', note: '' }); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const set = k => e => setV(x => ({ ...x, [k]: e.target.value }));
+  const save = async () => { setBusy(true); setErr('');
+    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/work`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), op: 'pow_claim', job: f.id, text: v.note, tools: { venue: v.venue, resultUsd: v.resultUsd, receipt: v.receipt } }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); onDone?.(j.powFolders); setOpen(false); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  if (m) return <p className="dsk-note" data-testid="pow-claim">➕ You traded it on <b>{m.venue}</b>: <b className="m-num">{m.resultUsd >= 0 ? '+' : ''}${Number(m.resultUsd).toFixed(2)}</b> · your claim until a send confirms it{m.receipt ? <> · <a href={m.receipt} target="_blank" rel="noopener noreferrer">receipt ↗</a></> : null}</p>;
+  if (!open) return <button type="button" className="m-btn" onClick={() => setOpen(true)} data-testid="pow-claim-open" data-tip="You traded this proposal yourself on another app: file where and how it went">＋ I traded it</button>;
+  return <div className="dsk-note" data-testid="pow-claim-form" style={{ display: 'grid', gap: 6 }}>
+    <input className="m-input" value={v.venue} onChange={set('venue')} placeholder="Where (e.g. Crypto.com)" aria-label="Where you traded it" data-testid="pow-claim-venue" />
+    <input className="m-input" value={v.resultUsd} onChange={set('resultUsd')} inputMode="decimal" placeholder="Result in $ (a minus for a loss)" aria-label="Result in dollars" data-testid="pow-claim-usd" />
+    <input className="m-input" value={v.receipt} onChange={set('receipt')} placeholder="https:// link to the receipt (optional)" aria-label="Receipt link" data-testid="pow-claim-receipt" />
+    <span><button type="button" className="m-btn m-go" disabled={busy || !v.venue.trim() || v.resultUsd === ''} onClick={save} data-testid="pow-claim-save">File it</button> <button type="button" className="m-btn" onClick={() => setOpen(false)}>Cancel</button></span>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
+}
 // 💵 AGT-8: what a PoW / PoP / PoB discussion cost, per mind and in all, above its talk (PoStatic and PoC have ChatCost)
 export function FolderCost({ f }) {
   const sp = f?.spend && typeof f.spend === 'object' ? f.spend : {}; const per = [0, 1].map(i => Number(sp[i] ?? sp[String(i)]) || 0); const all = Number(f?.cost) || per[0] + per[1];
@@ -926,7 +943,7 @@ function PowExplorer({ cat, d, setD }) {
             sub={`${SRC[x.src] || x.src} · ${cleanShots(f, x.mint).length} 📸`} onOpen={() => setPath([f.id, x.mint])} tip={`$${x.sym}'s folder — its vitals and snapshots`} testid={`dsk-x-coin-${x.mint}`} />; })}
         <Tile kind="dir" i={5} tone="live" ic="🧬" label="PoI" sub={f.poiTrace ? `${Object.keys(f.poiTrace).length} traced` : 'not recorded'} onOpen={() => setPath([f.id, 'poi'])} tip="How this PoW used Proof of Intelligence: routes, evidence and each mind's DNA" testid="dsk-x-poi" />
         <Tile kind="file" i={6} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every line the minds and the engine said" testid="dsk-x-talk" /></div>
-      {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
+      {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}{f.propose ? <ProposalClaim cat={cat} f={f} onDone={rows => setD(x => ({ ...x, powFolders: rows }))} /> : null}</>; }
   return <div className="dsk-pow" data-testid="dsk-pow">
     <p className="dsk-path dsk-xpath">{path.length ? <button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}
       {crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p>
