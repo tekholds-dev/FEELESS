@@ -4537,6 +4537,25 @@ async def _pob_call(http, cat, rd, now, notes, why):
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🎲 PoB open: {bid['side'].upper()} on {m.get('q')} with {_pob.STAKE} free chips.", 'at': now, 'open': 'bids'}])[-200:]
 
 
+def _topic_key(topic):
+    return ' '.join(str(topic or '').lower().split())[:120]
+
+
+def _topic_shared(topic, now):
+    """A fresh read of this same topic by any agent, or None. Its notes go to every mind of the next proof."""
+    r = _TOPIC_READS.get(_topic_key(topic))
+    if not r or now - r['at'] > READ_FRESH_S['pob']:
+        return None
+    text = '\n'.join(str(v.get('note') or '') for v in (r['notes'] or {}).values() if isinstance(v, dict))
+    return {**r, 'notes': {str(i): {'note': f'Shared read from {round((now - r["at"]) / 60)} min ago (another proof read these sites): {text}'} for i in range(2)}}
+
+
+def _topic_keep(cat, rd, now, notes):
+    """Keep a topic read for the next proof, only when it read something real (a note over 80 characters)."""
+    if rd.get('topic') and not rd.get('sharedFrom') and any(len(str((v or {}).get('note') or '')) > 80 for v in (notes or {}).values() if isinstance(v, dict)):
+        _TOPIC_READS[_topic_key(rd['topic'])] = {'at': now, 'notes': notes, 'sites': rd.get('sites') or [], 'by': cat['id'], 'reused': 0}
+
+
 async def _pob_topic_file(cat, rd, now, notes, why):
     """🏈 A topic PoB's read is done: keep its snapshots, ask both minds blind, file the folder. Nothing is staked."""
     cat.pop('proofHosts', None); rid = f"pob{int(now)}"; t_ = (_WORK.get(cat['id']) or {}).get('task') or {}; shots = []
@@ -4551,6 +4570,8 @@ async def _pob_topic_file(cat, rd, now, notes, why):
     brains = _lc.minds_for(cat.get('brainsCfg'), 'pob'); names = [str(m).split('/')[-1][:24] for m in brains]; box = {'cost': 0, 'ref': rid, 'proof': 'pob'}; who = rd.get('who')
     idx = [int(who)] if who in ('0', '1') and int(who) < len(brains) else list(range(len(brains)))
     base = {'id': rid, 'at': round(now), 'closedAt': round(now), 'kind': 'PoB', 'paper': True, 'status': 'closed', 'topic': rd['topic'], 'sites': rd.get('sites') or [], 'browsed': notes or {}, 'browseWhy': why, 'shots': shots}
+    if rd.get('sharedFrom'):
+        base['sharedRead'] = {'from': rd['sharedFrom'], 'at': rd.get('sharedAt')}   # 🧠 COL-9: it reused another proof's fresh read of this topic
     if not any(len(str((notes or {}).get(str(i), {}).get('note') or '')) > 80 for i in idx):   # 🛟 too little read: the free scores and market odds, and it says so
         try:
             async with httpx.AsyncClient(timeout=12) as http_f:
@@ -4614,9 +4635,17 @@ async def _pob_tick(http, cat, now):
         if done:
             cat.pop('pobRead', None)
             if rd.get('topic'):
+                _topic_keep(cat, rd, now, notes)
                 await _pob_topic_file(cat, rd, now, notes, why)
                 return
             await _pob_call(http, cat, rd, now, notes, why)
+    elif do == 'start' and cat.get('pobAsk') and _topic_shared(cat['pobAsk'], now):   # 🧠 COL-9: someone read this topic minutes ago: reuse it, never browse twice
+        topic = cat.pop('pobAsk'); sh_ = _topic_shared(topic, now); _TOPIC_READS[_topic_key(topic)]['reused'] += 1
+        try:
+            _pev.append(DATA_DIR / _pev.DB_NAME, 'pob', f'pob{int(now)}', 'reuse', {'topic': topic[:80], 'from': sh_['by'], 'ageMin': round((now - sh_['at']) / 60)}, cat=cat['id'])
+        except Exception as e:   # noqa: BLE001
+            print(f'[pob] reuse event: {str(e)[:80]}')
+        await _pob_topic_file(cat, {'who': who, 'topic': topic, 'sites': sh_['sites'], 'sharedFrom': sh_['by'], 'sharedAt': round(sh_['at'])}, now, sh_['notes'], 'shared read')
     elif do == 'start' and cat.get('pobAsk'):
         topic = cat.pop('pobAsk'); foot_ = _foot.plan('pob', topic, _book.apply(cat.get('siteBook'), 'pob', _pob.sites_for(topic)), cat.get('pobFolders')); sites = [x for pair_ in zip(*foot_['sites']) for x in pair_][:6] or _pob.sites_for(topic)[:4]; cat['proofHosts'] = _pob.sites_for(topic)   # the whole list stays open, so a result it clicks on another good site is not bounced
         why = _read_start(cat, _pob.topic_goal(topic, sites), who, 'pob')
@@ -5137,6 +5166,7 @@ def _first_list(cat):
 
 
 READ_FRESH_S = {'pow': 300, 'pop': 300, 'pob': 1800, 'poc': 3600, 'pos': 6 * 3600, 'poe': 3600}   # 🧠 COL-9: how long a read stays true for the next proof of its kind
+_TOPIC_READS = {}   # 🏈 COL-9: topic → a topic PoB's browser notes, reused by any agent's PoB on the same topic while fresh (READ_FRESH_S['pob'])
 _READS = {}   # kind → (at, line, sites, reused): one read shared by every agent's proof of that kind while it is fresh
 
 

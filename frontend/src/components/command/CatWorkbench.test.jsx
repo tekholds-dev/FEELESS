@@ -622,3 +622,12 @@ test('🧑‍⚖️ OSSY and G4\'s review shows each score, pass or fail, and a 
   act(() => root.unmount());
 });
 
+
+test('🧠 COL-9: a PoB that reused a fresh topic read says so; its own browse still shows why', async () => {
+  const { BrowseNote } = require('./CatWorkbench');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => root.render(<BrowseNote f={{ at: 1600, sharedRead: { from: 'a', at: 1000 }, browseWhy: 'shared read' }} />));
+  expect(el.textContent).toContain('Reused a fresh read of this topic from 10 min earlier');
+  await act(async () => root.render(<BrowseNote f={{ browseWhy: 'site blocked' }} />)); expect(el.textContent).toBe('Browsing: site blocked');
+  act(() => root.unmount());
+});

@@ -456,6 +456,12 @@ export function ProposalClaim({ cat, f, onDone }) {
 }
 // 🧑‍⚖️ OSSY and G4's review of a filed proof (owner 2026-11-10: "have ossy and g4 test each proof"): each one's score and pass / fail, who really
 // answered, the checks on hover. A review, never the boost grade.
+// 🌐 how a PoB's research ran: its own browse, or (COL-9) another proof's fresh read of the same topic, reused so it never browses twice
+export function BrowseNote({ f }) {
+  if (f?.sharedRead) return <p className="dsk-note" data-testid="pob-shared" data-tip="Another proof read this topic minutes ago; its notes went to both minds instead of a second browse">🧠 Reused a fresh read of this topic{f.sharedRead.at && f.at ? ` from ${Math.max(0, Math.round((f.at - f.sharedRead.at) / 60))} min earlier` : ''} · never browsed twice</p>;
+  return f?.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null;
+}
+
 export function ReviewChips({ review }) {
   if (!review?.by) return <span className="rvw is-wait" data-testid="review-wait" data-tip="OSSY and G4 review every filed proof, newest first">🧑‍⚖️ review queued</span>;
   return <span className={`rvw is-${review.verdict}`} data-testid="review">{Object.entries(review.by).map(([k, v]) => <b key={k} className={`rvw-${v.verdict}`}
@@ -1082,7 +1088,7 @@ function PobTopic({ f, catId, onMark }) {
   return <div className="pob pbt" data-testid="pob-topic">
     <header className="pbt-head m-glass m-live"><Ic3 e="🎲" size="38px" /><span><em className="m-num">{r?.grade || 'RESEARCH'}</em><b>{f.topic}</b><small>{(f.shots || []).length} snapshots · {(f.sites || []).length} sites{f.cost ? ` · $${Number(f.cost).toFixed(4)}` : ''}</small></span>
       {f.noTrade ? null : <span className="m-seg pbt-mark" role="group" aria-label="How it turned out">{[['right', '👍 Right'], ['wrong', '👎 Wrong']].map(([k, l]) => <button key={k} type="button" className={f.graded === k ? 'active' : ''} aria-pressed={f.graded === k} onClick={() => onMark(f.id, f.graded === k ? 'clear' : k)} data-tip="Mark it once the result is known" data-testid={`pbt-${k}`}>{l}</button>)}</span>}</header>
-    {r ? <p className="dsk-note">{r.lesson}</p> : null}{f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}<SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
+    {r ? <p className="dsk-note">{r.lesson}</p> : null}<BrowseNote f={f} /><SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
     {(f.agreed || []).length ? <ul className="pbt-agree" data-testid="pbt-agreed">{f.agreed.map((x, i) => <li key={x} style={{ '--i': i }}><Ic3 e="🤝" size="22px" /><b>{x}</b><small>both minds, blind</small></li>)}</ul> : null}
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'}</b>
       {(c.picks || []).length ? <ul className="pbt-picks">{c.picks.map((p, i) => <li key={p.pick} className={agreed.has(p.pick.toLowerCase()) ? 'is-both' : ''} style={{ '--i': i, '--v': p.confidence / 100 }} data-tip={p.why}><span>{p.pick}</span><em className="m-num">{p.confidence}%</em><u aria-hidden="true"><i /></u><small>{p.why}</small></li>)}</ul> : <small className="pob-why">{c.pass || 'It made no pick.'}</small>}
@@ -1097,7 +1103,7 @@ function PobFolder({ f, catId, onMark }) {
   return <div className="pob" data-testid="pob-folder">
     <div className={`dsk-trade is-${tone === 'live' ? 'open' : tone}`}><b>{r?.grade || '● OPEN'}{f.side ? ` · ${String(f.side).toUpperCase()}` : ''}</b><small className="m-num">{f.q || f.why || ''}{f.chips ? ` · ${f.chips} free chips` : ''}</small></div>
     {r ? <p className="dsk-note">{r.lesson}</p> : <p className="dsk-note">The market's own result files this.</p>}
-    {f.browseWhy ? <p className="dsk-note">Browsing: {f.browseWhy}</p> : null}<SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
+    <BrowseNote f={f} /><SitesRead rows={f.sitesRead} /><ProofSubmit cat={{ id: catId }} work={work} f={f} kind="PoB" />
     <div className="pop-srcs">{(f.calls || []).map(c => <section key={c.mind} className={`pop-src m-glass is-m${c.mind}`}><b>MIND {c.mind === 0 ? 'A' : 'B'} · {c.side ? String(c.side).toUpperCase() : 'NO BID'}</b><small className="pob-why">{c.why || 'No reason given.'}</small><Browsed b={f.browsed?.[c.mind]} /></section>)}</div></div>;
 }
 function PobShelf({ d, open, setOpen, catId, onMark }) {
