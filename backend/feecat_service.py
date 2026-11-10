@@ -1130,7 +1130,7 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
             head = _ap.payment_header(doc, entry, s_.json()['signedTransaction'])
             r2 = await h.post(_ap.PROVIDER, json=body, headers={'PAYMENT-SIGNATURE': head, 'X-PAYMENT': head})
             if r2.status_code != 200:
-                print(f"[agent pay] {cat['id']}: provider {r2.status_code} {r2.text[:120]}")
+                print(f"[agent pay] {cat['id']}: provider {r2.status_code} {r2.text[:400]}")
                 return '', 0.0
             answer = r2.json()
             # A receipt records the accepted x402 charge without retaining the

@@ -28,3 +28,11 @@ def test_poc_answers_are_short_by_rule_and_kept_whole():
     assert 'under 120 words' in af.CONTENT_SYS and 'picks one to build' in af.CONTENT_SYS
     doc = {}; af.add_msg(doc, 'Mind A', 'x' * 5000, 1)
     assert len(doc['messages'][0]['text']) == 5000   # was cut at 3,500 mid-word; the chat folds it behind Read more instead
+
+
+def test_plan_steps_are_not_cut_mid_word():
+    import json
+    import agent_features as af
+    step = 'Open the read-only visit pages first, then compare the won Launch page, the lost New build and the recent Collective builds for what held up'
+    p = af.parse_plan(json.dumps({'summary': 's', 'steps': [step], 'risks': 'r'}), [])
+    assert p['steps'] == [step]   # was cut at 120: "the recent collectiv"

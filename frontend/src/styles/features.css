@@ -264,3 +264,15 @@ body.theme-day .prp-step b { color: #0d2a1b; } body.theme-day .prp-step small { 
 @media (max-width: 760px) { .prp { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(160px, 1fr) auto; overflow-y: auto; } .prp-side { overflow: visible; } }
 
 .fea-sub { display: inline-flex; width: fit-content; } .fea-sub button { min-height: 32px; padding-inline: 14px; }
+/* 🗺 a plan waiting on you takes the stage (owner 2026-11-09): read whole, numbered, then approve or change */
+.fea-plan.is-stage { --pk2: var(--pk, #45e486); align-self: center; width: min(760px, calc(100% - 32px)); max-height: calc(100% - 32px); margin: 16px auto; padding: 20px 24px; gap: 12px; overflow-y: auto; scrollbar-width: thin; border-color: color-mix(in srgb, var(--pk2) 55%, transparent); box-shadow: 0 0 60px color-mix(in srgb, var(--pk2) 16%, transparent), inset 0 1px 0 #ffffff17; animation: feaPlanIn .28s ease-out both; }
+.fea-plan.is-stage header b { font: 800 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--pk2); }
+.fea-plan.is-stage .fea-plan-s { font: 800 21px/1.3 var(--f-ui) !important; letter-spacing: -.01em; }
+.fea-plan.is-stage .fea-plan-steps { counter-reset: st; list-style: none; padding: 0; display: grid; gap: 8px; font-size: 14px; line-height: 1.5; }
+.fea-plan.is-stage .fea-plan-steps li { counter-increment: st; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 9px 12px; border-radius: 12px; border: 1px solid #ffffff12; background: #ffffff06; animation: feaPlanIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.fea-plan.is-stage .fea-plan-steps li::before { content: counter(st); display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font: 800 12px var(--f-mono); color: #04110a; background: var(--pk2); }
+.fea-plan.is-stage p { font-size: 13px; } .fea-plan.is-stage .fea-plan-go .m-btn { min-height: 40px; padding: 0 18px; }
+@keyframes feaPlanIn { from { transform: translateY(10px); } to { transform: none; } }   /* slide only: a paused page never hides the plan */
+body.fx-lite .fea-plan.is-stage, body.fx-lite .fea-plan.is-stage li { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-plan.is-stage, .fea-plan.is-stage li { animation: none; } }
+body.theme-day .fea-plan.is-stage { background: #fff; box-shadow: 0 2px 14px #0000001a; } body.theme-day .fea-plan.is-stage .fea-plan-steps li { background: #f5f8f6; border-color: #00000012; color: #142231; } body.theme-day .fea-plan.is-stage .fea-plan-s { color: #0e1a14 !important; }
+@media (max-width: 640px) { .fea-plan.is-stage { width: calc(100% - 16px); margin: 8px auto; padding: 14px; } .fea-plan.is-stage .fea-plan-s { font-size: 17px !important; } }

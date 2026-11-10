@@ -103,7 +103,7 @@ test('a PoStatic shows its steps, waits on its plan, and approval is what builds
   await act(async () => { [...el.querySelectorAll('[role="tab"]')].find(b => b.textContent.includes('Your work')).click(); });
   await act(async () => { el.querySelector('[data-testid="ws-w1"]').click(); });
   expect(el.querySelector('[data-testid="ws-steps"] .is-now').textContent).toContain('You approve');
-  expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('A desk'); expect(el.querySelector('[data-testid="ws-plan"]').textContent).toContain('Blocked');
+  expect(el.querySelector('[data-testid="ws-plan-stage"]').textContent).toContain('A desk'); expect(el.querySelector('[data-testid="ws-plan-stage"]').textContent).toContain('Blocked');   // a waiting plan takes the stage (owner 2026-11-09)
   await act(async () => { el.querySelector('[data-testid="ws-settings"]').click(); });
   await act(async () => { el.querySelector('[data-testid="ws-depth-deep"]').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_cfg', tools: expect.objectContaining({ depth: 'deep' }) }));
   await act(async () => { el.querySelector('[data-testid="ws-approve"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'ws_approve', job: 'w1', text: '' });
@@ -181,6 +181,13 @@ test('the thin bar moves on real steps and real text, and never fakes a number',
   expect(buildPart({})).toBeNull(); expect(buildPart({ stage: 'content' })).toBeNull();
   expect(buildPart({ stage: 'answer', step: 1, steps: 2 })).toBe(0.5); expect(buildPart({ stage: 'answer', step: 0, steps: 2 })).toBe(0.04);   // a PoC: minds answered of how many (owner 2026-11-09: "loading bar not true")
   expect(buildPart({ stage: 'answer' })).toBeNull();
+});
+
+test('a plan waiting on you takes the stage; approved or building, it goes back to the side', () => {
+  const { planWaiting } = require('./FeaturesFolder');
+  const plan = { plan: { summary: 'x', steps: ['a'] }, approved: false };
+  expect(planWaiting({ plan })).toBe(true); expect(planWaiting({ plan: { ...plan, approved: true } })).toBe(false);
+  expect(planWaiting({ plan, busy: { stage: 'build' } })).toBe(false); expect(planWaiting({})).toBe(false);
 });
 
 test('a long answer is kept whole and folds behind Read more at a word, never cut mid-word', () => {

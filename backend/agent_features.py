@@ -207,7 +207,7 @@ def parse_plan(raw, refs):
             continue
         if 0 <= i < len(refs or []) and refs[i] not in picked:
             picked.append(refs[i])
-    return {'summary': str(d.get('summary') or '')[:240], 'refs': picked[:3], 'borrow': str(d.get('borrow') or '')[:300], 'steps': [str(x)[:120] for x in (d.get('steps') or []) if x][:5], 'risks': str(d.get('risks') or '')[:200]}
+    return {'summary': str(d.get('summary') or '')[:400], 'refs': picked[:3], 'borrow': str(d.get('borrow') or '')[:300], 'steps': [str(x)[:400] for x in (d.get('steps') or []) if x][:5], 'risks': str(d.get('risks') or '')[:300]}   # steps were cut mid-word at 120 (owner 2026-11-09)
 
 
 def build_prompt(text, plan):
