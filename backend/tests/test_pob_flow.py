@@ -46,7 +46,7 @@ def test_a_proof_read_is_capped_silent_and_owes_no_flat_fee(fs, monkeypatch):
         assert 'workNow' not in cat   # a restart never re-runs it as a chat ask
         fs._WORK['c1']['done'] = True; t['status'] = 'done'; t['cost'] = 0.01
         store = {'cats': {'c1': cat}}; fs._work_settle(store)
-        assert not cat.get('feesDue') and cat['chat'] == [] and not cat.get('jobs')
+        assert not cat.get('feesDue') and cat['chat'] == [] and [j['proof'] for j in cat.get('jobs') or []] == ['proof']   # AGT-9: its research job is filed in Jobs, tagged; the chat stays quiet
     asyncio.run(run_())
 
 

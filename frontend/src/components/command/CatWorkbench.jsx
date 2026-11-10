@@ -797,16 +797,17 @@ function WorkTree({ job, rate }) {
       <svg className="wtr-fork" viewBox={`0 0 ${minds.length * 100} 24`} preserveAspectRatio="none" aria-hidden="true">{minds.map((_, i) => <path key={i} d={`M${i * 100 + 50} 0 C${i * 100 + 50} 16 ${minds.length * 50} 8 ${minds.length * 50} 24`} vectorEffect="non-scaling-stroke" />)}</svg></> : <p className="dsk-note">Answered straight away, with no browsing steps.</p>}
     <div className={`wtr-root is-end is-${rate === 'up' ? 'good' : rate === 'down' ? 'bad' : 'none'}`}><small>THE ANSWER {rate === 'up' ? '· 👍 YOU LIKED IT' : rate === 'down' ? '· 👎 YOU DID NOT' : `· ${String(job.status || '').toUpperCase()}`}</small><p>{job.answer}</p></div></div>;
 }
+const JOB_PROOF = { pow: '⛏ PoW', pop: '📉 PoP', pob: '🎲 PoB', poc: '📣 PoC', pos: '💻 PoStatic', proof: '🌐 Proof' };   // 🗂 AGT-9: a proof's own research job, filed in Jobs
 function JobsFolder({ d }) {   // 🗂 the same explorer as PoW (owner 2026-11-02: "jobs etc are supposed to be styled in foldered work trees"): Jobs › a request › MIND A · MIND B · ANSWER
   const [path, setPath] = useState([]); const jobs = d?.jobs || [];
   if (!jobs.length) return <p className="dsk-note">No finished requests yet — each one lands here as a folder.</p>;
   const j = jobs.find(x => x.id === path[0]); const r = j ? d?.jobRates?.[j.id] : null;
   const crumbs = [['Jobs', []], ...(j ? [[String(j.request).slice(0, 40), [j.id]]] : [])];
   let body;
-  if (!j) body = <><div className="hv-pow-stats">{[['REQUESTS', jobs.length], ['👍', Object.values(d?.jobRates || {}).filter(x => x === 'up').length], ['👎', Object.values(d?.jobRates || {}).filter(x => x === 'down').length], ['COST', `$${jobs.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([kk, v]) =>
+  if (!j) body = <><div className="hv-pow-stats">{[['REQUESTS', jobs.length], ['FROM PROOFS', jobs.filter(x => x.proof).length], ['👍', Object.values(d?.jobRates || {}).filter(x => x === 'up').length], ['👎', Object.values(d?.jobRates || {}).filter(x => x === 'down').length], ['COST', `$${jobs.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([kk, v]) =>
     <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{jobs.map((x, i) => { const rr = d?.jobRates?.[x.id]; return <Tile key={x.id} i={i} tone={rr === 'up' ? 'good' : rr === 'down' ? 'bad' : 'none'} ic={rr === 'up' ? '👍' : rr === 'down' ? '👎' : '🗂'}
-      label={String(x.request).slice(0, 22)} sub={`${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
+      label={String(x.request).slice(0, 22)} sub={`${x.proof ? `${JOB_PROOF[x.proof] || x.proof.toUpperCase()} research · ` : ''}${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
   else body = <WorkTree job={j} rate={r} />;
   return <div className="dsk-pow" data-testid="dsk-jobs">
     <p className="dsk-path dsk-xpath">{path.length ? <button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}

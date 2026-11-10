@@ -3823,6 +3823,7 @@ def _read_start(cat, goal, who, kind=''):
         _WORK[cat['id']]['task'].update(knowhow=_colony.KNOWHOW, alts=[])
     if kind in _book.KINDS and (cat.get('siteBook') or {}).get(kind):   # 📚 a repeating window moves to the owner's next site, never an off one
         t_b_ = _WORK[cat['id']]['task']; t_b_['alsoHosts'] = _foot.order_sites(kind, _book.apply(cat['siteBook'], kind, list(t_b_.get('alsoHosts') or []) + _book.DEFAULTS[kind]), cat.get(_PROOF_KEYS.get(kind)))   # 🧭 the sites the last proofs leaned on go last
+    _WORK[cat['id']]['task']['proofKind'] = kind or 'proof'   # 🗂 AGT-9: this job is filed in Jobs under its proof
     _WORK[cat['id']]['task']['notCoins'] = kind in ('pob', 'poc', 'pos')   # the coin research order (RugCheck, Solscan) is only for coins: it was sent to every window, so a game pick opened a rug checker
     return ''
 
@@ -5527,12 +5528,12 @@ async def _hard_stop(w, grace=2.0):
     r.cancel()
 
 
-JOBS_KEEP = 30
+JOBS_KEEP = 60   # AGT-9: proofs' research jobs land here too, so room for both
 
 
 def _job_tree(t):
     """🗂 One request as a tree: the request → each mind (its job, 3-step plan, its steps, its answer) → the final answer."""
-    return {'id': t.get('id'), 'at': round(time.time()), 'request': str(t.get('text') or '')[:400], 'status': t.get('status'), 'cost': round(float(t.get('cost') or 0), 4),
+    return {'id': t.get('id'), 'at': round(time.time()), 'proof': t.get('proofKind') or ('pow' if t.get('pow') or t.get('pows') else None), 'request': str(t.get('text') or '')[:400], 'status': t.get('status'), 'cost': round(float(t.get('cost') or 0), 4),
             'answer': str(t.get('answer') or '')[:1200], 'minds': [{'model': str(w.get('model') or '').split('/')[-1][:30], 'job': _ca.job_label(w.get('goal')), 'plan': list(w.get('plan') or [])[:3],
             'steps': [{'a': x.get('action'), 't': str(x.get('thought') or '')[:90], 'd': str(x.get('detail') or '')[:90]} for x in (w.get('steps') or [])[-24:]],
             'answer': str(w.get('answer') or '')[:400], 'cost': round(float(w.get('cost') or 0), 5)} for w in t.get('windows') or [] if w.get('goal')]}
@@ -5602,8 +5603,7 @@ def _work_settle(store):
                 _site_trade_filed(cat, t)
             cat['chat'] = list(cat.get('chat') or []) if t.get('pow') or t.get('proofRead') else (list(cat.get('chat') or []) + ([] if t.get('youSaid') else [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')}]) + [
                            {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast'), 'tid': t.get('id')}])[-CHAT_KEEP:]
-            if not t.get('pow') and not t.get('proofRead'):   # 🗂 the exact log tree of this request (owner 2026-11-01): your words → each mind's job, plan, steps, answer — rated 👍 / 👎 in the chat
-                cat['jobs'] = (list(cat.get('jobs') or []) + [_job_tree(t)])[-JOBS_KEEP:]
+            cat['jobs'] = (list(cat.get('jobs') or []) + [_job_tree(t)])[-JOBS_KEEP:]   # 🗂 the exact log tree of every request (owner 2026-11-01), AGT-9: a proof's own research jobs too, tagged with its kind
         if cat and cat.get('brainsCfg'):
             _job_memory(cat)
         if cat and t.get('parked'):   # ⏸ filed to come back to when you are back (desk: Resume / Drop)

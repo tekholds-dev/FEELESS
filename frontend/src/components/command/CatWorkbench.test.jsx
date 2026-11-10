@@ -655,3 +655,9 @@ test('📡 AGT-12: the Engines window shows each engine live: reviewer progress 
   expect(q('eng-kits').textContent).toContain('23'); expect(q('eng-reads').textContent).toContain('2× reused'); expect(q('eng-routes').querySelectorAll('li')).toHaveLength(2);
   act(() => root.unmount());
 });
+
+test('🗂 AGT-9: Jobs shows a proof\'s research jobs with their kind, and counts them', async () => {
+  const { CatWorkbench } = require('./CatWorkbench'); void CatWorkbench;
+  const src = require('fs').readFileSync(require('path').join(__dirname, 'CatWorkbench.jsx'), 'utf8');
+  expect(src).toContain("['FROM PROOFS', jobs.filter(x => x.proof).length]"); expect(src).toContain("pob: '🎲 PoB'");
+});

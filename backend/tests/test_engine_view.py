@@ -17,3 +17,12 @@ def test_routes_reviewer_reads_methods():
     rd = ev.reads({'pob': (now - 60, 'x', ['a', 'b'], 3), 'pow': (now - 9999, 'x', [], 1)}, {'nba': {'at': now - 10, 'reused': 2}}, {'pob': 1800, 'pow': 300}, now)
     assert rd['kinds'] == [{'kind': 'pob', 'ageMin': 1, 'freshMin': 30, 'reused': 3, 'sites': 2}] and rd['topicReuses'] == 2
     assert ev.methods({'a': {'kit': 'a', 'state': 'active'}, 'b': {'kit': 'b', 'state': 'quarantined'}})['quarantined'] == 1
+
+
+def test_agt9_a_proofs_research_job_is_filed_in_jobs_with_its_kind():
+    import feecat_service as fs
+    j = fs._job_tree({'id': 't1', 'text': 'read espn', 'proofKind': 'pob', 'windows': [{'goal': 'read', 'model': 'x/a', 'answer': 'Knicks'}]})
+    assert j['proof'] == 'pob' and j['minds'][0]['answer'] == 'Knicks'
+    assert fs._job_tree({'id': 't2', 'pow': {'sym': 'X'}})['proof'] == 'pow' and fs._job_tree({'id': 't3', 'text': 'hi'})['proof'] is None
+    src = open(fs.__file__).read()
+    assert "if not t.get('pow') and not t.get('proofRead'):   # 🗂" not in src   # proofs' jobs are no longer dropped
