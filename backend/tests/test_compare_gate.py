@@ -38,3 +38,11 @@ def test_a_thin_pob_is_not_bid_and_says_why(monkeypatch):
     monkeypatch.setattr(fs, '_site_reads', reads4)
     asyncio.run(fs._pob_call(None, cat, {}, 1001.0, {}, ''))
     assert staked and staked[-1]['market'] == 'm1' and cat['pobRun']['compare']['ok']   # compared enough: it bids
+
+
+def test_a_filed_page_keeps_what_its_build_read():
+    import agent_features as af
+    cat = {}
+    doc = {'id': 'w', 'name': 'GONE', 'versions': [{}], 'sitesRead': [{'host': 'awwwards.com', 'ok': True}, {'host': 'x.io', 'ok': False}], 'kitsUsed': [{'id': 'three', 'used': True}, {'id': 'gsap', 'used': False}]}
+    row = af.file_static(cat, doc, 'Mind A', 1)
+    assert row['sitesRead'][0] == {'host': 'awwwards.com', 'name': None, 'ok': True} and row['kits'] == ['three'] and cg.sources(row) == ['awwwards.com']   # COL-8
