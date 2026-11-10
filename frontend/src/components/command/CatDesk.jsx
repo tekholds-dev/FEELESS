@@ -133,6 +133,9 @@ export function ModelVitals({ cat }) {
       <ul>{d.contribution.sources.slice(0, 8).map((s, i) => { const n = s.won + s.lost; return <li key={s.source} style={{ '--i': i }} data-tip={`${s.proofs} proofs read it (${s.kinds.join(', ')}) · ${n ? `${s.won} won, ${s.lost} lost when settled from outside` : 'nothing it fed has settled yet'}${s.enough ? '' : ' · too few to judge'}`}>
         <b>{s.source}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${n ? s.won / n : 0})` }} /></i><small className="m-num">{n ? `${s.won}–${s.lost}` : `${s.proofs} read`}</small></li>; })}</ul>
       {(d.contribution.disagree || []).length ? <small className="kd-mv-dis">{d.contribution.disagree.map(x => `${PROOF_KINDS.find(p => p[0] === x.kind)?.[1]}: the minds split ${Math.round(x.rate * 100)}% of ${x.pairs}`).join(' · ')}</small> : null}</div> : null}
+    {d?.methods?.length ? <div className="kd-mv-earn" data-testid="kd-methods"><span className="m-label">METHOD KITS<em>followed vs skipped, outside-settled wins · read-only</em></span>
+      <ul>{d.methods.map((k, i) => <li key={k.kit} style={{ '--i': i }} data-tip={`${k.what} · v${k.v} · followed ${k.followed}, skipped ${k.skipped}`}>
+        <b>{k.kit}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${k.followedWin ?? 0})` }} /></i><small className="m-num">{k.state === 'quarantined' ? 'quarantined' : `${pct(k.followedWin)} vs ${pct(k.skippedWin)}`}</small></li>)}</ul></div> : null}
   </section>;
 }
 

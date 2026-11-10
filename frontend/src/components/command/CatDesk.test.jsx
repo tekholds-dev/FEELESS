@@ -77,7 +77,8 @@ test('📊 model × proof: real rows per model and kind, a pick only where the r
     { model: 'z-ai/glm-5.3-flash', kind: 'pos', proofs: 1, calls: 3, localCalls: 0, perProofUsd: 0.0061, quality: 142.1, verified: 0, winRate: null, failRate: 0, enough: false },
     { model: 'local/ossy', kind: 'pob', proofs: 6, calls: 14, localCalls: 14, perProofUsd: 0, quality: 118.4, verified: 6, winRate: 0.667, failRate: 0.286, enough: true }],
     pick: { pos: { model: null, why: 'not enough settled proofs yet' }, pob: { model: 'local/ossy', why: 'cheapest within 10 points' } } },
-    contribution: { sources: [{ source: 'rugcheck.xyz', proofs: 16, won: 5, lost: 6, kinds: ['pow'], enough: true }], disagree: [{ kind: 'pop', pairs: 2, split: 2, rate: 1 }] } }) }));
+    contribution: { sources: [{ source: 'rugcheck.xyz', proofs: 16, won: 5, lost: 6, kinds: ['pow'], enough: true }], disagree: [{ kind: 'pop', pairs: 2, split: 2, rate: 1 }] },
+    methods: [{ kit: 'read-the-record-first', v: 1, what: 'x', followed: 38, skipped: 61, followedWin: 0.625, skippedWin: 0.143, state: 'unmeasured' }] }) }));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<ModelVitals cat={{ id: 'c1' }} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const t = el.textContent;
@@ -86,6 +87,7 @@ test('📊 model × proof: real rows per model and kind, a pick only where the r
   expect(el.querySelector('.kd-mv-n.is-bad')).toBeTruthy();   // 29% of calls failed
   expect(t).toContain('PoB → ossy: cheapest within 10 points'); expect(t).toContain('PoStatic : not enough settled proofs yet');
   expect(el.querySelector('[data-testid="kd-contrib"]').textContent).toContain('rugcheck.xyz5–6'); expect(t).toContain('PoP: the minds split 100% of 2');   // COL-12
+  expect(el.querySelector('[data-testid="kd-methods"]').textContent).toContain('read-the-record-first63% vs 14%');   // COL-10
   act(() => root.unmount());
 });
 

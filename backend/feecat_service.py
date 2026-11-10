@@ -98,6 +98,7 @@ import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai /
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
+import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -4248,12 +4249,15 @@ def _fit_line(cat, kind):
     return ('Worth knowing: ' + '; '.join(names) + '. It still does the work, the result just may not be its best. Model discovery shows which models suit this proof.') if names else ''
 
 
+_MKIT_STATE = {}   # 🧰 COL-10: the last measured state of each method kit (a quarantined kit stops being offered)
+
+
 def _recall(cat, category, text):
     """🔎 Every proof looks first in the Collective's private record for a winning proof of its own or anyone's, before it searches, and gets the kits for its kind of proof, the owner's picks first. Never stops a proof."""
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _mkits.active_line(kind_, _MKIT_STATE) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -9941,7 +9945,8 @@ async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
     _owner_gate(store, cat, session, ownerId)
     rec = _pev_record()
     calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
-    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
+    kits_ = _mkits.reliability(rows, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}); _MKIT_STATE.update(kits_)
+    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'methods': list(kits_.values()), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')
