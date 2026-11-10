@@ -277,3 +277,19 @@ body.fx-lite .fea-plan.is-stage, body.fx-lite .fea-plan.is-stage li { animation:
 body.theme-day .fea-plan.is-stage { background: #fff; box-shadow: 0 2px 14px #0000001a; } body.theme-day .fea-plan.is-stage .fea-plan-steps li { background: #f5f8f6; border-color: #00000012; color: #142231; } body.theme-day .fea-plan.is-stage .fea-plan-s { color: #0e1a14 !important; }
 @media (max-width: 640px) { .fea-plan.is-stage { width: calc(100% - 16px); margin: 8px auto; padding: 14px; } .fea-plan.is-stage .fea-plan-s { font-size: 17px !important; } }
 .fea-poc-new { grid-template-columns: minmax(0, 1fr) auto auto; } @media (max-width: 640px) { .fea-poc-new { grid-template-columns: minmax(0, 1fr) auto; } .fea-poc-new .mst-open { grid-column: 1 / -1; justify-content: center; } }   /* 🎬 the Image / video button sits beside File a PoC */
+/* 🧩 COL-26 proven parts (PartsShelf.jsx): a strip over the PoStatic desk, opens to the list with each part's family tree */
+.pts { border-radius: 14px; border: 1px solid #45e48633; background: linear-gradient(120deg, #0d1a14, #070a0c 70%); box-shadow: inset 0 1px 0 #ffffff12; }
+.pts > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 6px 12px; }
+.pts > summary::-webkit-details-marker { display: none; } .pts > summary:hover b { color: #fff; } .pts > summary:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; border-radius: 12px; }
+.pts > summary b { font: 800 11px var(--f-mono); letter-spacing: .12em; color: #45e486; } .pts > summary small { margin-left: auto; font: 600 10.5px var(--f-mono); color: #9db4a6; }
+.pts-pips { display: flex; gap: 3px; flex-wrap: wrap; max-width: 40%; } .pts-pips i { width: 7px; height: 7px; border-radius: 2px; background: #45e48655; } .pts-pips i.is-used { background: #45e486; box-shadow: 0 0 6px #45e486aa; } .pts-pips i.is-stale { background: #ffffff1c; }
+.pts-list { margin: 0; padding: 0 10px 10px; list-style: none; display: grid; gap: 6px; max-height: 320px; overflow-y: auto; scrollbar-width: thin; }
+.pts-list li { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: 10px; align-items: center; padding: 7px 10px; border-radius: 10px; border: 1px solid #ffffff10; background: #ffffff05; animation: ptsIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 35ms); }
+.pts-list li.is-stale { opacity: .55; }
+.pts-t { display: grid; min-width: 0; } .pts-t b { font: 700 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .pts-t small { font: 600 9.5px var(--f-mono); color: #9db4a6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pts-n { display: grid; gap: 2px; } .pts-n em { font: 800 8.5px var(--f-mono); letter-spacing: .1em; color: #9db4a6; font-style: normal; } .pts-n i { display: block; height: 3px; border-radius: 99px; background: #ffffff14; overflow: hidden; } .pts-n u { display: block; height: 100%; background: #45e486; transform-origin: left; }
+.pts-s { font: 700 9.5px var(--f-mono); letter-spacing: .06em; padding: 3px 7px; border-radius: 99px; background: #15d16a22; color: #45e486; } .pts-s.is-stale { background: #ffffff10; color: #9db4a6; }
+@keyframes ptsIn { from { transform: translateY(5px); } to { transform: none; } }
+body.fx-lite .pts-list li { animation: none; } @media (prefers-reduced-motion: reduce) { .pts-list li { animation: none; } }
+body.theme-day .pts { background: #fff; border-color: #0f7a4333; } body.theme-day .pts-list li { background: #f5f8f6; border-color: #00000012; } body.theme-day :is(.pts-t small, .pts-n em, .pts > summary small) { color: #4b6457; }
+@media (max-width: 640px) { .pts-pips { display: none; } .pts-list li { grid-template-columns: minmax(0, 1fr) auto; } .pts-n { display: none; } }

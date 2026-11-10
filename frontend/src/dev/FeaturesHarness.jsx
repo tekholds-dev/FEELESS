@@ -29,6 +29,11 @@ function Models() {   // the real model list from 5088, in the real popover, so 
   React.useEffect(() => { fetch(apiUrl('/api/cats/models')).then(r => r.json()).then(setD); const t = setInterval(() => tick(x => x + 1), 3000); return () => clearInterval(t); }, []);
   return d ? <ModelPop d={d} title="Pick a mind" kind="general" picked={[]} onPick={() => {}} onClose={() => {}} /> : null;
 }
+if (/pdk/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes('/parts?') ? Promise.resolve(new Response(JSON.stringify({ staleDays: 30, parts: [   // ?pdk — the parts shelf on fixtures (titles from the 2026-11-10 dry harvest)
+  { id: 'pt_1', title: 'Cluster grid', tag: 'section', kind: 'pos', licenses: ['MIT'], uses: 3, reusedBy: [{ kind: 'pos', ref: 'w2' }], stale: false, mine: true },
+  { id: 'pt_2', title: 'Velocity ranking', tag: 'aside', kind: 'pos', licenses: ['MIT'], uses: 1, reusedBy: [{ kind: 'pos', ref: 'w4' }], stale: false, mine: false },
+  { id: 'pt_3', title: 'APE WITH CONVICTION. EXIT LIQUIDITY NOT INCLUDED.', tag: 'section', kind: 'pos', licenses: ['Apache-2.0', 'Free, GSAP standard'], uses: 0, reusedBy: [], stale: false, mine: true },
+  { id: 'pt_4', title: 'topbar', tag: 'header', kind: 'pos', licenses: ['FEELESS'], uses: 0, reusedBy: [], stale: true, mine: false }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o)); }
 export default function FeaturesHarness() {
   if (/models/.test(window.location.search)) return <Models />;
   if (/widgets/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, width: 260 }}><DeskWidgets d={{ powFolders: [{ pnlPct: 12 }, { pnlPct: -4 }], pobFolders: [{ graded: 'right' }], pocFolders: [{ graded: 'right' }, {}], psFolders: Array.from({ length: 9 }, (_, i) => ({ graded: i % 3 ? 'right' : 'wrong' })), poeFolders: [{ net: 2460 }], jobs: [{}, { done: true }], signedIn: [1], logins: [1, 2] }} pool={{ stake: { pointsLeft: 3, sentUsd: 5, nowPct: 0.4 } }} openWin={() => {}} cat={{ id: 'x', brainsCfg: { brains: ['local/ossy', 'local/g4'], mindNames: ['OSSY', 'G4'], credit: 5.8, spent: 1.2 } }} work={null} has={['brains']} /></div>;

@@ -22,7 +22,7 @@ import mission as _mission
 import proof_stamp as _stamp
 
 VERSION = 1
-EVENTS = ('plan', 'build', 'review', 'file', 'grade', 'stamp', 'send', 'score', 'correction')
+EVENTS = ('plan', 'build', 'review', 'file', 'grade', 'stamp', 'send', 'score', 'correction', 'reuse')   # reuse: COL-26, a proven part used again
 GENESIS = 'proof-events:genesis'
 DB_NAME = 'proof_events.db'
 

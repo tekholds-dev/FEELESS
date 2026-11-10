@@ -95,6 +95,7 @@ import evidence_marks as _marks
 import proof_stamp as _stamp
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
+import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -1555,6 +1556,7 @@ async def _pool_pass(http, store, now):
     if now - float(store.get('shotsCleanAt') or 0) >= 3600:   # 🧊 every hour: the Stash keeps everything first, then a proof closed for 14 days keeps its best two snapshots in its own folder
         store['shotsCleanAt'] = now
         await asyncio.to_thread(_stash_all, store)
+        await asyncio.to_thread(_parts_pass, store)
         await asyncio.to_thread(_git_memory)
         await _git_pass(store, now)
         for c in store['cats'].values():
@@ -2171,6 +2173,43 @@ async def _git_op(cat, p):
     except ValueError as e:
         raise HTTPException(400, str(e)[:200])
     return {'link': _git_view(cat, key)}
+
+
+def _parts_path():
+    return DATA_DIR / _parts.DB_NAME
+
+
+def _parts_pass(store, now=None):
+    """🧩 COL-26: every PROVED PoStatic page gives its blocks to the parts record, once (licenses carried, code checked). → parts kept"""
+    now = now or time.time(); n = 0
+    for cid, c in (store.get('cats') or {}).items():
+        for f in c.get('psFolders') or []:
+            if not f.get('ws') or _mission.outcome('pos', f, now)['state'] != 'proved':
+                continue
+            try:
+                doc = _ws_load(cid, f['ws']) or {}
+                vs = doc.get('versions') or []; v = int(f.get('version') or len(vs)) - 1
+                page = (vs[v] if 0 <= v < len(vs) else (vs[-1] if vs else {})).get('html')
+                if not page:
+                    continue
+                kits = [k.get('id') for k in doc.get('kitsUsed') or [] if isinstance(k, dict) and k.get('used')]
+                n += len(_parts.harvest(_parts_path(), cid, {'kind': 'pos', 'id': f.get('id'), 'ws': f['ws'], 'state': 'proved'}, page, kits, _kits.CATALOG, None, now)['kept'])
+            except Exception as e:   # noqa: BLE001: one page never stops the rest
+                print(f"[parts] {f.get('id')}: {str(e)[:100]}")
+    if n:
+        print(f'[parts] kept {n} new parts')
+    return n
+
+
+def _parts_used(cat_id, ws_id, html):
+    """A finished page that carries a part's mark: the reuse is logged once and filed in the proof history."""
+    try:
+        new = _parts.use(_parts_path(), _parts.reused_in(html), 'pos', ws_id, cat_id)
+        for pid in new:
+            _pev.append(DATA_DIR / _pev.DB_NAME, 'pos', ws_id, 'reuse', {'part': pid}, cat=cat_id)
+        return new
+    except Exception as e:   # noqa: BLE001: logging a reuse never costs the build
+        print(f'[parts] reuse not logged: {str(e)[:100]}'); return []
 
 
 def _stash_all(store):
@@ -6823,7 +6862,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 user += _feat.live_line(await _live_feed(cat), page=True)
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
             stash_, doc['kitsStash'] = _kits.stash_line(KITS_DIR, 'pos', text, picks_)
-            kits_ = _kits.use_line(picks_) + stash_ + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
+            kits_ = _kits.use_line(picks_) + stash_ + _parts.offer_line(_parts.offer(_parts_path(), text)) + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})
                 def part_(raw_, usd_, by_=name(i)):
@@ -6857,7 +6896,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     if faults_['cutCss'] or len(faults_['classes']) >= 3:   # 🩹 it ended properly but lost styling: one small repair, not a whole new page
                         css_, fix_usd_, paid_own = await _ws_ask(cat, brains[i], _feat.REPAIR_SYS, _feat.repair_prompt(html, faults_), 3000); cost += fix_usd_; html = _feat.add_css(html, css_)
                     html = _kits.open_for_kits(_kits.with_kit_tags(html, picks_), picks_); doc['kitsUsed'] = _kits.kit_report(html, picks_); doc['kitsOutside'] = _kits.outside_files(html, picks_)
-                    cur = html; _feat.add_version(doc, html, name(i), time.time()); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
+                    cur = html; _feat.add_version(doc, html, name(i), time.time()); _parts_used(cat_id, ws_id, html); _feat.add_msg(doc, name(i), f'Page {len(doc["versions"])} is ready. Open Static to try it.', time.time())
                 else:
                     stop_why = stop_why or 'Its answer held no page.'
                     _feat.add_msg(doc, name(i), f'{stop_why} Nothing changed, and the last page is safe.', time.time())
@@ -9744,6 +9783,17 @@ def _calls_of(cat_id, limit=20000):
                 except ValueError:
                     pass
     return out
+
+
+@app.get('/api/cats/{cat_id}/parts')
+async def cat_parts(cat_id: str, ownerId: str = '', session: str = ''):
+    """🧩 COL-26: the Collective's proven parts, each with its family tree (which proofs reused it), licenses and whether it went stale. Owner only."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId)
+    rows = _parts.family(_parts_path())
+    return {'parts': [{**r, 'mine': r['cat'] == cat_id} for r in rows], 'staleDays': _parts.STALE_S // 86400}
 
 
 @app.get('/api/cats/{cat_id}/missions')
