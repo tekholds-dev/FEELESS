@@ -41,6 +41,7 @@ def test_col10_reviews_propose_kits_the_owner_approves_and_their_state_history_i
     assert 'fix-pow-2' in mk.active_line('pow', {}, ex) and 'fix-pow-2' not in mk.active_line('pob', {}, ex)
     moved = mk.log_changes(tmp_path, {'a': {'state': 'unmeasured'}}, {'a': {'state': 'quarantined'}})
     assert moved and mk.history(tmp_path)[0] == {**moved[0]}
+    assert mk.log_changes(tmp_path, {}, {'a': {'state': 'quarantined'}, 'b': {'state': 'unmeasured'}}) == []   # after a restart: nothing moved, nothing logged
 
 
 def test_col24_asks_no_proof_covers_become_proposed_proof_types():

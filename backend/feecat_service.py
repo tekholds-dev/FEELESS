@@ -98,6 +98,7 @@ import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai /
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
+import agent_db as _adb   # 🗄 AGT-11: each agent's sealed, growing private database with select access
 import proof_gaps as _gaps   # 🧭 COL-24: proof types the Collective proposes from real asks
 import engine_view as _engv   # 📡 AGT-12: what each engine does, live counts only
 import kit_fresh as _kfresh   # 🧰♻️ the kits' CDN versions, kept fresh daily (smoke-tested, rolled back if they break)
@@ -4276,7 +4277,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _mkits.active_line(kind_, _MKIT_STATE, _mkit_extra()) + _review.lessons_line(_REVIEW_LESSONS.get(kind_) or []) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _mkits.active_line(kind_, _MKIT_STATE, _mkit_extra()) + _db_shared_line(cat, kind_) + _review.lessons_line(_REVIEW_LESSONS.get(kind_) or []) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -5704,6 +5705,7 @@ async def _engine_loop():
                 print(f'[collective] {str(e)[:160]}')
             _work_settle(store)
             _review_apply(store)   # 🧑‍⚖️ OSSY and G4's verdicts land on their folders
+            _db_grow(store)   # 🗄 every closed proof becomes a sealed row in its agent's own database
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
                 await _meta_post(store)
@@ -5817,6 +5819,43 @@ async def _review_one(store):
     rv = {**_review.combine(by), 'at': round(time.time())}
     _REVIEW_DONE.append((cid, kind, f.get('id'), rv)); _POW_WAKE.set()
     return rv
+
+
+_ADB_SEEN = {}   # agent id → proof ids already in its database (read once from the file)
+
+
+def _db_grow(store):
+    """🗄 AGT-11: each agent's closed proofs are added to its own database, sealed with its key. Idempotent; a write error never stops the engine."""
+    n = 0
+    for cid, c in store['cats'].items():
+        if c.get('revoked'):
+            continue
+        try:
+            path_ = _adb.path_of(DATA_DIR, cid)
+            seen_ = _ADB_SEEN.get(cid)
+            if seen_ is None:
+                seen_ = _ADB_SEEN[cid] = _adb.ids(path_)
+            for k, (code_, key) in _mission.KINDS.items():
+                for f in c.get(key) or []:
+                    fid = str(f.get('id') or '')
+                    if not fid or fid in seen_ or f.get('status') != 'closed':
+                        continue
+                    _adb.add(path_, fid, k, f"{code_} · {f.get('topic') or f.get('sym') or f.get('name') or fid}", _adb.summary(k, f), lambda raw, i=cid: _ck.seal_bytes(raw, i),
+                             tags=[k] + ([str(f.get('sym'))] if f.get('sym') else []), source='proof', now=float(f.get('closedAt') or f.get('soldAt') or f.get('at') or time.time()))
+                    seen_.add(fid); n += 1
+        except Exception as e:   # noqa: BLE001
+            print(f'[db] {cid}: {str(e)[:100]}')
+    return n
+
+
+def _db_shared_line(cat, kind):
+    """Rows the owner's other agents shared with this one (select access), as data in its brief."""
+    try:
+        store_ = _load(); mine_ = [cid for cid, c in store_['cats'].items() if not c.get('revoked') and _same_owner(cat, c)]
+        return _adb.shared_line(_adb.shared_to(DATA_DIR, cat.get('id'), mine_, lambda cid: (lambda raw: _ck.unseal_bytes(raw, cid)), kind or None))
+    except Exception as e:   # noqa: BLE001
+        print(f'[db] shared: {str(e)[:80]}')
+        return ''
 
 
 def _review_apply(store):
@@ -8990,6 +9029,22 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, str(e)[:120])
     if p.op == 'agents_now':   # 🖥 the desk's Working now
         return {'agents': _agents_now(store, cat)}
+    if p.op in ('db_list', 'db_read', 'db_share'):   # 🗄 AGT-11: its owner lists, opens and shares rows of its private database
+        path_ = _adb.path_of(DATA_DIR, cat_id)
+        if p.op == 'db_read':
+            body_ = _adb.read(path_, str(p.job or ''), lambda raw: _ck.unseal_bytes(raw, cat_id))
+            if body_ is None:
+                raise HTTPException(404, 'No such row.')
+            return {'id': p.job, 'body': body_}
+        targets_ = [{'id': cid_, 'name': c_.get('name')} for cid_, c_ in store['cats'].items() if cid_ != cat_id and not c_.get('revoked') and _same_owner(cat, c_)] + [{'id': _adb.COLLECTIVE, 'name': 'The Collective'}]
+        if p.op == 'db_share':
+            if str(p.text or '') not in {t['id'] for t in targets_}:
+                raise HTTPException(400, 'Share only with your own agents or the Collective.')
+            try:
+                _adb.share(path_, str(p.job or ''), str(p.text), bool(p.on))
+            except ValueError as e:
+                raise HTTPException(404, str(e))
+        return {'rows': _adb.rows(path_), 'targets': targets_}
     if p.op == 'kit_method_approve':   # 🧪 COL-10: the owner's yes on a kit the reviews proposed (on Fee, the creator only)
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner approves a method kit.')

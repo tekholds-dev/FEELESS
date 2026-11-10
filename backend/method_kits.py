@@ -128,8 +128,14 @@ def approve(root, row, now=None):
 
 def log_changes(root, prev, new, now=None):
     """Every kit whose state moved (unmeasured → active → quarantined and back) is one line in the history: the rollback record."""
-    rows = [{'kit': k, 'from': (prev.get(k) or {}).get('state'), 'to': r.get('state'), 'at': round(now or _time.time())}
-            for k, r in (new or {}).items() if (prev.get(k) or {}).get('state') != r.get('state')]
+    last = {}   # the last state each kit was logged at: a restart empties memory, so memory alone re-logged every kit (seen live 2026-11-10)
+    try:
+        for line in (root / LOG_FILE).read_text().splitlines():
+            x = _json.loads(line); last[x['kit']] = x['to']
+    except (OSError, ValueError, KeyError):
+        pass
+    was = lambda k: (prev.get(k) or {}).get('state') or last.get(k) or 'unmeasured'
+    rows = [{'kit': k, 'from': was(k), 'to': r.get('state'), 'at': round(now or _time.time())} for k, r in (new or {}).items() if was(k) != r.get('state')]
     if rows:
         try:
             with (root / LOG_FILE).open('a') as fh:

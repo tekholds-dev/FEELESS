@@ -685,3 +685,18 @@ test('🧪 COL-10/24: the Engines window lists what the Collective proposes; onl
   expect(el2.querySelector('[data-testid="eng-approve-fix-pow-2"]')).toBeNull(); expect(el2.textContent).toContain('80%');
   act(() => root2.unmount());
 });
+
+test('🗄 AGT-11: its database lists sealed rows, opens one for its owner, and shares a row with one click', async () => {
+  const { DatabaseFolder } = require('./DatabaseFolder');
+  let rows = [{ id: 'b1', kind: 'pob', title: 'PoB · NBA', tags: ['pob'], at: 1794300000, source: 'proof', shared: [] }];
+  const targets = [{ id: 'h', name: 'Happy' }, { id: 'collective', name: 'The Collective' }]; const calls = [];
+  const work = jest.fn(async (_, b) => { calls.push(b); if (b.op === 'db_read') return { id: 'b1', body: { topic: 'NBA', why: 'Knicks at home' } }; if (b.op === 'db_share') rows = [{ ...rows[0], shared: b.on ? [b.text] : [] }]; return { rows, targets }; });
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => root.render(<DatabaseFolder cat={{ id: 'c' }} work={work} />)); await act(async () => { await Promise.resolve(); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('adb').textContent).toContain('PoB · NBA'); expect(q('adb').textContent).not.toContain('Knicks');
+  await act(async () => { q('adb-row-b1').querySelector('button').click(); }); expect(q('adb').textContent).toContain('Knicks at home');
+  await act(async () => { q('adb-share-b1-collective').click(); }); expect(calls.at(-1)).toEqual({ op: 'db_share', job: 'b1', text: 'collective', on: true });
+  expect(q('adb-share-b1-collective').getAttribute('aria-pressed')).toBe('true');
+  act(() => root.unmount());
+});
