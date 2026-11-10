@@ -1,5 +1,28 @@
 @import "tailwindcss";
-@import "@heroui/styles";
+/* SITE-3 (2026-11-10): only the HeroUI parts the app renders (Button, Chip, Slider, Switch, Tabs, TextArea, ProgressCircle, Surface, Popover),
+   in HeroUI's own order (shared primitives first). The whole library shipped ~52 KB gz of component CSS for ~8 KB used. A new HeroUI
+   component needs its css added here. */
+@layer theme, base, components, utilities;
+@import "@heroui/styles/base/base.css" layer(base);
+@import "@heroui/styles/base/scrollbar.css" layer(base);
+@import "@heroui/styles/components/close-button.css" layer(components);
+@import "@heroui/styles/components/description.css" layer(components);
+@import "@heroui/styles/components/error-message.css" layer(components);
+@import "@heroui/styles/components/field-error.css" layer(components);
+@import "@heroui/styles/components/label.css" layer(components);
+@import "@heroui/styles/components/tabs.css" layer(components);
+@import "@heroui/styles/components/button.css" layer(components);
+@import "@heroui/styles/components/slider.css" layer(components);
+@import "@heroui/styles/components/switch.css" layer(components);
+@import "@heroui/styles/components/chip.css" layer(components);
+@import "@heroui/styles/components/progress-circle.css" layer(components);
+@import "@heroui/styles/components/textfield.css" layer(components);
+@import "@heroui/styles/components/textarea.css" layer(components);
+@import "@heroui/styles/components/surface.css" layer(components);
+@import "@heroui/styles/components/popover.css" layer(components);
+@import "@heroui/styles/themes/default" layer(theme);
+@import "@heroui/styles/utilities";
+@import "@heroui/styles/variants";
 @import "./styles/heroTheme.css";
 
 @config "../tailwind.config.cjs";

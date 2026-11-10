@@ -6,6 +6,10 @@ import { Ic3 } from '../../lib/icon3d';
 // agents or the Collective (only shared rows reach their briefs).
 const KIND = { pow: '⛏ PoW', pop: '📉 PoP', pob: '🎲 PoB', poc: '📣 PoC', pos: '💻 PoStatic', poe: '📒 PoEco' };
 const day = t => (t ? new Date(t * 1000).toISOString().slice(0, 10) : '');
+// a row's value, readable: lists of calls / picks as one line each (a mind's reason is often JSON inside a string), objects as k: v
+const why = x => { try { const j = JSON.parse(x); return j?.why || x; } catch { return String(x).match(/"why"\s*:\s*"([^"]*)/)?.[1] || x; } };   // kept reasons were cut mid-JSON
+const pretty = v => (Array.isArray(v) ? v.slice(0, 6).map(o => (o && typeof o === 'object' ? `${o.name || o.sym || (o.mind != null ? `mind ${o.mind}` : '')}${o.side ? ` ${o.side}` : ''}: ${String(why(o.why || o.pick || '')).slice(0, 160)}` : String(o))).join('\n')
+  : v && typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k}: ${typeof x === 'object' ? JSON.stringify(x).slice(0, 80) : x}`).join(' · ') : String(v));
 
 export function DatabaseFolder({ cat, work }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [open, setOpen] = useState(null); const [kind, setKind] = useState('all');
@@ -22,7 +26,7 @@ export function DatabaseFolder({ cat, work }) {
     <div className="m-seg adb-kinds" role="tablist" aria-label="Which proofs">{kinds.map(k => <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? 'is-on' : ''} onClick={() => setKind(k)} data-testid={`adb-kind-${k}`}>{k === 'all' ? 'All' : KIND[k] || k}</button>)}</div>
     {rows.length ? <ol className="adb-rows">{rows.map((r, i) => <li key={r.id} style={{ '--i': Math.min(i, 14) }} className={open?.id === r.id ? 'is-open' : ''} data-testid={`adb-row-${r.id}`}>
       <button type="button" className="adb-row" onClick={() => view(r)} aria-expanded={open?.id === r.id} data-tip="Opens its sealed record (only you)"><em>{KIND[r.kind] || r.kind}</em><b>{r.title}</b><small className="m-num">{day(r.at)}</small>{r.shared.length ? <i className="adb-badge">🔓 {r.shared.length}</i> : <i className="adb-badge is-sealed">🔒</i>}</button>
-      {open?.id === r.id ? <div className="adb-open"><dl className="m-kv">{Object.entries(open.body || {}).map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd>{typeof v === 'object' ? JSON.stringify(v).slice(0, 300) : String(v)}</dd></React.Fragment>)}</dl>
+      {open?.id === r.id ? <div className="adb-open"><dl className="m-kv">{Object.entries(open.body || {}).map(([k, v]) => <React.Fragment key={k}><dt>{k}</dt><dd className="adb-val">{pretty(v)}</dd></React.Fragment>)}</dl>
         <div className="adb-share" role="group" aria-label="Who may read this row"><small className="m-label">WHO MAY READ IT</small>{d.targets.map(t => { const on = r.shared.includes(t.id); return <button key={t.id} type="button" className={`m-chip${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => run({ op: 'db_share', job: r.id, text: t.id, on: !on })} data-tip={on ? `${t.name} reads this row in its briefs. Tap to take it back` : `Let ${t.name} read this row`} data-testid={`adb-share-${r.id}-${t.id}`}>{on ? '✓ ' : ''}{t.name}</button>; })}</div></div> : null}
     </li>)}</ol> : <p className="dsk-note">No closed proof yet. Each one lands here by itself, sealed.</p>}
   </div>;

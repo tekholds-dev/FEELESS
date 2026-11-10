@@ -731,14 +731,14 @@ body.theme-day .eng-list li { background: #f4f7f5; } body.theme-day :is(.eng-her
 @media (max-width: 640px) { .eng { grid-template-columns: minmax(0, 1fr); } .eng-routes li { grid-template-columns: minmax(0, 1fr) 40px; } .eng-routes li i, .eng-routes li small { display: none; } }
 
 /* 🗄 AGT-11 its private database: header with live counts, kind segments, sealed rows that open to their record and share chips */
-.adb { display: grid; align-content: start; gap: 10px; padding: 10px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.adb { display: grid; align-content: start; grid-auto-rows: max-content; gap: 10px; padding: 10px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .adb-h { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; } .adb-h span { display: grid; gap: 2px; } .adb-h b { font: 800 12px var(--f-mono); letter-spacing: .12em; } .adb-h small { font: 400 11.5px var(--f-ui); opacity: .72; }
 .adb-stats { grid-template-columns: auto auto; align-items: baseline; gap: 2px 6px !important; } .adb-stats b { font: 800 22px var(--f-display); letter-spacing: 0; color: #45e486; text-shadow: 0 0 12px #15d16a55; }
 .adb-kinds button { min-height: 32px; } .adb-rows { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .adb-rows > li { border-radius: 11px; border: 1px solid #ffffff14; background: #ffffff05; animation: engIn .25s ease-out both; animation-delay: calc(var(--i) * 40ms); } .adb-rows > li.is-open { border-color: #15d16a66; box-shadow: inset 0 1px 0 #ffffff14, 0 0 16px #15d16a22; }
 .adb-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: 500 12px var(--f-ui); }
 .adb-row:hover b { color: #45e486; } .adb-row:focus-visible { outline: 2px solid #45e486; outline-offset: -2px; border-radius: 11px; } .adb-row em { font: 700 10.5px var(--f-tech); font-style: normal; opacity: .8; } .adb-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; } .adb-row small { font-size: 10.5px; opacity: .6; }
-.adb-badge { font: 600 10.5px var(--f-mono); font-style: normal; color: #45e486; } .adb-badge.is-sealed { opacity: .5; }
+.adb-val { white-space: pre-line; word-break: normal !important; } .adb-badge { font: 600 10.5px var(--f-mono); font-style: normal; color: #45e486; } .adb-badge.is-sealed { opacity: .5; }
 .adb-open { display: grid; gap: 10px; padding: 4px 12px 12px; } .adb-share { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .adb-share .m-chip { min-height: 32px; cursor: pointer; } .adb-share .m-chip.is-on { background: #15d16a; color: #04130a; border-color: #15d16a; }
 body.fx-lite .adb-rows > li { animation: none; } @media (prefers-reduced-motion: reduce) { .adb-rows > li { animation: none; } }
 body.theme-day .adb-rows > li { background: #f4f7f5; border-color: #0000001a; } body.theme-day .adb-stats b, body.theme-day .adb-badge { color: #0b7a3e; text-shadow: none; }
