@@ -136,6 +136,7 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 | LOCAL | Check folder `wfdde5bb856` ("SICARIO TESTS"); local page quality not run; G4's LM Studio system prompt makes it answer in trading JSON. |
 
 ## Decided (do not undo)
+- **SingIt only for the owner's and admins' agents and Fee** (owner 2026-11-09; `_singit_only` = `ownerStaff` or `isLeader`): calls go SingIt paid from the agent's wallet → its local LM Studio mind if it has one → SingIt free; never OpenRouter or Groq (no answer instead). Their model pickers (desk Brains, BY PROOF, Fee's models) list SingIt's own chat models (`/api/cats/models?via=singit`, `launch_cat.singit_catalog`: the OpenRouter row where SingIt serves the same model, at SingIt's price) and the server only accepts those. Credit reads SINGIT CREDIT (a budget; the USDC in its wallet pays). Users' agents unchanged. The launch wizard still lists OpenRouter.
 - OSSY and G4 are ONE agent, Sicario's, private to the owner; minds stay qwen3.5-9b + qwen3.5-4b (beat Gemma 4 12B on a decoy fact test).
 - Proofs propose until they can run the whole loop like PoW. Each proof has its own steps, colour, site list, layout and fingerprint.
 - Trader-only Edge desk; the server refuses it for a general agent (the answer to "why two kinds of agent").

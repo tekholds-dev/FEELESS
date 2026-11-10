@@ -5,7 +5,7 @@ import { apiUrl } from '../../lib/api';
 import { AgentLog, MindVitals, PowCard, SafeGate, safeOk } from './CatCockpit';
 import { HeadCloud, McapChart, asModel } from './AgentLive';
 import { useStickToBottom } from '../../lib/useStickToBottom';
-import { ApiDrawer, Bubble } from './LaunchCat';
+import { ApiDrawer, Bubble, singitOnly } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
 import '../../styles/hive.css';
@@ -1489,7 +1489,7 @@ function WorkbenchLive({ cat }) {
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
       <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open"><Ic3 e="🖥" /> Desktop<SetupDot id={cat.id} left={d?.setup?.left ?? null} /></button>
       <span className="cwb-meters">
-        <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
+        <span data-tip={singitOnly(cat) ? 'SingIt only: every answer and browsing step is paid on SingIt from its wallet USDC, never OpenRouter. This is its budget left' : 'Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel'}><em>{singitOnly(cat) ? 'SINGIT' : 'CREDIT'}</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />

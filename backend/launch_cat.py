@@ -222,6 +222,37 @@ def catalog(rows):
             'billing': [{'key': k, 'label': v} for k, v in BILLING.items()], 'budget': {'start': START_CREDIT, 'liveAsks': LIVE_ASKS, 'alertPct': ALERT_PCT}}
 
 
+def _priced_row(row, usd_in, usd_out, **more):
+    row = {**row, 'inUsd': round(_f(usd_in), 6), 'outUsd': round(_f(usd_out), 6), **more}   # SingIt's rates are tiny: 4 places would show a paid model as free
+    row['free'] = row['inUsd'] == 0 and row['outUsd'] == 0
+    row['perDecision'] = decision_usd(row)
+    row['perTask'] = round((row['inUsd'] * TASK_IN + row['outUsd'] * TASK_OUT) * TASK_CALLS / 1e6, 6)
+    return row
+
+
+def singit_catalog(doc, or_rows):
+    """🎤 The owner and admins think on SingIt only (owner 2026-11-09). SingIt's own chat models, shown like every other list: where SingIt
+    serves the same model as an OpenRouter row, that row (its id, name, scores, categories) at SingIt's price; else SingIt's own row
+    (`singit/<id>`). Routers and the free tier (the stand-in route, 20 calls a day) are not picks. → a catalog() dict with via='singit'. Pure."""
+    by_short = {}
+    for r in sorted(or_rows or [], key=lambda r: ':free' in r['id']):   # the paid OpenRouter row before its ':free' twin
+        by_short.setdefault(r['id'].split('/')[-1].split(':')[0], r)
+    rows, seen = [], set()
+    for m in (doc or {}).get('data') or []:
+        sid = str(m.get('id') or '')
+        if m.get('modality') != 'chat' or not m.get('available') or m.get('router') or not sid or sid.startswith('free/'):
+            continue
+        pr = m.get('singitUsdPerMillionTokens') or m.get('usdPerMillionTokens') or {}
+        base = by_short.get(sid) or slim({'id': f'singit/{sid}', 'name': m.get('name') or sid, 'context_length': m.get('contextLength') or m.get('context'),
+                                         'description': m.get('description'), 'architecture': {'input_modalities': m.get('inputModalities') or []}})
+        row = _priced_row(base, pr.get('input'), pr.get('output'), via='singit', singit=sid)
+        if row['id'] not in seen and priced({'pricing': {'prompt': row['inUsd'], 'completion': row['outUsd']}}):
+            seen.add(row['id']); row['cats'] = cats_of(row); rows.append(row)
+    place_proofs(rows)
+    counts = {k: sum(1 for r in rows if k in r['cats']) for k in CATS}
+    return {'models': rows, 'via': 'singit', 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k], **({'general': True} if k in GENERAL_CATS else {})} for k, v in CATS.items()]}
+
+
 def plan(models, mode):
     """$ a trade costs in decisions and how many trades the starting credit covers (worst case: every live ask fires)."""
     calls = len(models) if mode in ('discuss', 'together') else 1

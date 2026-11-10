@@ -234,7 +234,7 @@ export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
   useEffect(() => setN(PAGE), [q, cat, sort, range]);
   const cats = useMemo(() => { const c = (d?.cats || []).filter(x => gen || !x.general); return gen ? [...c.filter(x => x.general), ...c.filter(x => !x.general)] : c; }, [d, gen]);
   const pick = onPick;
-  if (!d) return <p className="lct-load">Reading OpenRouter's model list…</p>;
+  if (!d) return <p className="lct-load">Reading the model list…</p>;
   return <>
           {gen ? <label className="lct-job" data-tip="Pick the job — the list shows the models best at it (category, tools / vision it needs, ranked)"><span>WHAT'S ITS JOB?</span>
           <select className="m-input" value={job} onChange={e => setJob(e.target.value)} data-testid="lct-job" aria-label="What is its job">{JOBS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
@@ -255,25 +255,29 @@ export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
 // 🪟 the model list as a POP-OUT (owner 2026-10-30: "a popout of the full list, not a dropdown") — Fee's models and every agent's model switch
 // 🧬 every model our agents really used, as a fingerprint with its score — only here, where a model is changed (owner 2026-11-07)
 const KIND_WORD = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic', trade: 'Trades' };
-export function ModelPrints({ onPick, picked = [] }) {
+export function ModelPrints({ onPick, picked = [], only = null }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl('/api/cats/models/prints')).then(r => (r.ok ? r.json() : null)).then(x => on && setRows(x?.models || [])).catch(() => on && setRows([])); return () => { on = false; }; }, []);
-  if (!rows?.length) return null;
+  const shown = only ? (rows || []).filter(m => only.has(m.id)) : rows;   // a SingIt-only agent sees only the records of models SingIt serves
+  if (!shown?.length) return null;
   return <section className="lct-prints" aria-label="How each model did for our agents" data-testid="model-prints"><small>OUR AGENTS' RECORD · score from proofs they really filed</small>
-    <div className="lct-prints-row">{rows.slice(0, 8).map((m, i) => { const on = picked.some(p => p.id === m.id); const graded = m.right + m.wrong;
+    <div className="lct-prints-row">{shown.slice(0, 8).map((m, i) => { const on = picked.some(p => p.id === m.id); const graded = m.right + m.wrong;
       return <button key={m.id} type="button" className={`lct-print${on ? ' is-on' : ''}`} style={{ '--i': i, '--s': m.score / 100 }} onClick={() => onPick?.(m)} data-testid={`model-print-${i}`}
         data-tip={`${m.n} calls · ${graded ? `${m.right} right, ${m.wrong} wrong` : 'nothing graded yet'} · ${m.kinds.map(k => KIND_WORD[k] || k).join(', ')}. Tap to pick it`}>
         <span className="lct-print-ring"><FolderRidge fid={`model:${m.id}`} size={46} /><b className="m-num">{m.score}</b></span>
         <span className="lct-print-t"><b>{m.name}</b><em>{m.n} calls{graded ? ` · ${Math.round((100 * m.right) / graded)}% right` : ''}</em><i aria-hidden="true"><u /></i></span></button>; })}</div></section>;
 }
 
+// 🎤 owner 2026-11-09: the owner's and admins' agents (and Fee) think on SingIt only — its models, paid from its wallet, never OpenRouter
+export const singitOnly = cat => !!(cat?.ownerStaff || cat?.isLeader);
+export const modelsUrl = cat => (singitOnly(cat) ? '/api/cats/models?via=singit' : '/api/cats/models');
 export function ModelPop({ d, title, kind = 'trading', picked = [], onPick, onClose }) {
   useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return createPortal(<div className="lct-pop" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.target === e.currentTarget && onClose()} data-testid="model-pop">
     <section className={`lct is-${kind} lct-pop-card m-pop`} onScroll={e => { const el = e.currentTarget; el.classList.add('is-scrolling'); clearTimeout(el.__st); el.__st = setTimeout(() => el.classList.remove('is-scrolling'), 150); }}>
-      <header className="lct-pop-head"><b>{title}</b><small>pick a smart, cheap one — sort by Cheapest or set a max $</small>
+      <header className="lct-pop-head"><b>{title}</b><small>{d?.via === 'singit' ? `SingIt only · ${d.models?.length || 0} models it serves, at SingIt's price` : 'pick a smart, cheap one — sort by Cheapest or set a max $'}</small>
         <button type="button" className="m-btn" onClick={onClose} data-testid="model-pop-close" aria-label="Close the model list">✕</button></header>
-      <ModelPrints picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
+      <ModelPrints picked={picked} only={d?.via === 'singit' ? new Set((d.models || []).map(m => m.id)) : null} onPick={m => { onPick(m.id); onClose(); }} />
       <ModelBrowser d={d} kind={kind} picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
     </section></div>, document.body);
 }

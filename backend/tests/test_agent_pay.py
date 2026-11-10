@@ -127,7 +127,7 @@ def test_a_model_the_provider_cannot_answer_tries_its_default_once_and_routes_di
     monkeypatch.setattr(fs, '_wallet_call', wallet); monkeypatch.setattr(fs, '_or_call', orc); monkeypatch.setattr(fs, '_singit_free', free)
     monkeypatch.setattr(fs, '_brains_live', lambda: True)
     agent = {'circleAcct': 'agent'}
-    assert asyncio.run(fs._think({'isLeader': True, 'agentWallet': agent}, 'm', [])) [:2] == ('BUY', 0.0) and order == ['singit', 'openrouter', 'free']
+    assert asyncio.run(fs._think({'isLeader': True, 'agentWallet': agent}, 'm', [])) [:2] == ('BUY', 0.0) and order == ['singit', 'free']   # owner 2026-11-09: Fee and staff agents think on SingIt only, never OpenRouter or Groq
     order.clear(); asyncio.run(fs._think({'agentWallet': agent}, 'm', [])); assert order == ['singit', 'openrouter', 'free']   # a user: its wallet pays SingIt first
     order.clear(); monkeypatch.setattr(fs, '_brains_live', lambda: False)
     asyncio.run(fs._think({'isLeader': True}, 'm', [])); assert order == ['free']   # switch off + no wallet: never FEELESS's OpenRouter
