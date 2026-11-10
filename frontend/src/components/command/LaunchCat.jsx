@@ -80,7 +80,7 @@ export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YO
   ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
   ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
   ['webhook', 'Signal webhook', 'your own signal URL (https) it reads before a buy', false, 'https://…']];
-export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start }) {
+export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, onConnect }) {   // onConnect: one-click OpenRouter (an agent that exists; the wizard pastes)
   const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
   return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
@@ -89,6 +89,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start })
     <ul className="akd-list">{API_PROVIDERS.map(([k, label, use, wired, ph], i) => { const row = (rows || []).find(r => r.provider === k);
       return <li key={k} style={{ '--i': i }} className={row?.saved ? 'is-saved' : ''}>
         <span className="akd-name"><b>{label}</b><em className={wired ? 'is-live' : ''}>{wired ? 'LIVE' : 'STORED'}</em><small>{use}</small></span>
+        {k === 'openrouter' && !row?.saved && onConnect ? <button type="button" className="m-btn m-go" disabled={busy} onClick={onConnect} data-testid="akd-connect-openrouter" data-tip="Approve FEELESS on OpenRouter's own page: it makes a key just for this agent and we seal it. Nothing to copy; you can revoke it on OpenRouter any time">Connect OpenRouter</button> : null}
         {row?.saved ? <span className="akd-have"><code>••••{row.last4}</code><button type="button" className="m-btn" disabled={busy} onClick={() => onDrop?.(k)} data-tip={`Remove the ${label} key`} data-testid={`akd-drop-${k}`}>Remove</button></span>
           : <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder={ph} value={draft?.[k] || ''} aria-label={`${label} key`} data-testid={`akd-${k}`}
             onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}

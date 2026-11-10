@@ -44,6 +44,7 @@ const queryClient = new QueryClient({
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+import('./lib/openrouterConnect').then(m => m.finishOpenRouterConnect()).catch(() => {});   // 🔑 back from OpenRouter's approval page: seal the key, clear the one-time code
 if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/colony') {   // 🧪 the Colony on fixtures
   import('./dev/ColonyHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/rewards') {   // 🧪 the rewards dash on fixtures, signed in (src/dev/RewardsHarness.jsx)

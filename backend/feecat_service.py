@@ -10034,6 +10034,22 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _ck.put(cat, payload.provider, payload.secret, data_dir=DATA_DIR) if payload.secret else _ck.drop(cat, payload.provider)
         except (ValueError, RuntimeError) as e:
             raise HTTPException(400, str(e))
+    elif payload.action == 'openrouter_connect':   # 🔑 owner 2026-11-10: one-click Connect OpenRouter. OpenRouter's sign-in code + this tab's verifier → a key made for FEELESS, sealed here; it never goes back to the page
+        code_, verifier_ = str(payload.secret or '').strip(), str(payload.text or '').strip()
+        if not code_ or not 20 <= len(verifier_) <= 128:
+            raise HTTPException(400, 'Connect OpenRouter again: the approval came back incomplete.')
+        try:
+            async with httpx.AsyncClient(timeout=20) as h_:
+                r_ = await h_.post('https://openrouter.ai/api/v1/auth/keys', json={'code': code_, 'code_verifier': verifier_, 'code_challenge_method': 'S256'})
+        except httpx.HTTPError:
+            raise HTTPException(502, 'OpenRouter did not answer. Try Connect again in a minute.')
+        key_ = (r_.json() if r_.status_code == 200 else {}).get('key') if r_.headers.get('content-type', '').startswith('application/json') else None
+        if not key_:
+            raise HTTPException(400, 'OpenRouter did not accept that approval (it works once, for a few minutes). Press Connect OpenRouter again.')
+        try:
+            _ck.put(cat, 'openrouter', key_, data_dir=DATA_DIR)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(400, str(e))
     elif payload.action == 'venues':   # 📈 where a trading cat trades — FEELESS rails only
         try:
             cat['venues'] = _ck.venues(payload.venues)
