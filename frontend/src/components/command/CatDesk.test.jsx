@@ -71,6 +71,22 @@ test('💵 a general agent with a wallet shows its real wallet, credit and coins
   act(() => root.unmount());
 });
 
+test('📊 model × proof: real rows per model and kind, a pick only where the record is big enough (COL-5)', async () => {
+  const { ModelVitals } = require('./CatDesk');
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ missions: [{}, {}], chain: { intact: true, count: 40 }, vitals: { rows: [
+    { model: 'z-ai/glm-5.3-flash', kind: 'pos', proofs: 1, calls: 3, localCalls: 0, perProofUsd: 0.0061, quality: 142.1, verified: 0, winRate: null, failRate: 0, enough: false },
+    { model: 'local/ossy', kind: 'pob', proofs: 6, calls: 14, localCalls: 14, perProofUsd: 0, quality: 118.4, verified: 6, winRate: 0.667, failRate: 0.286, enough: true }],
+    pick: { pos: { model: null, why: 'not enough settled proofs yet' }, pob: { model: 'local/ossy', why: 'cheapest within 10 points' } } } }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ModelVitals cat={{ id: 'c1' }} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const t = el.textContent;
+  expect(globalThis.fetch.mock.calls[0][0]).toContain('/api/cats/c1/missions?'); expect(t).toContain('2 proofs · record intact · 40 events');
+  expect(t).toContain('glm-5.3-flash'); expect(t).toContain('too few to rank'); expect(t).toContain('67%'); expect(t).toContain('14 local');
+  expect(el.querySelector('.kd-mv-n.is-bad')).toBeTruthy();   // 29% of calls failed
+  expect(t).toContain('PoB → ossy: cheapest within 10 points'); expect(t).toContain('PoStatic : not enough settled proofs yet');
+  act(() => root.unmount());
+});
+
 test('⬇ the desk has a download button on its picture; the file name is the agent\'s', () => {
   const { fileName, inlineSvg } = require('../../lib/svgPng');
   expect(fileName('Night Claw')).toBe('night-claw-feeless.png'); expect(fileName('')).toBe('agent-feeless.png');

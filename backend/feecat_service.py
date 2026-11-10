@@ -9663,6 +9663,49 @@ async def cat_file_get(cat_id: str, name: str):
     return Response(content=raw_, media_type=mime_, headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', **locked_})
 
 
+_PEV_OK = {'head': None, 'v': None}
+
+
+def _pev_record():
+    """COL-3's history for the envelopes: per-proof counts in one read, and the whole chain verified once per new head."""
+    path = DATA_DIR / _pev.DB_NAME
+    try:
+        h_ = _pev.head(path) if path.exists() else None
+        if h_ != _PEV_OK['head'] or _PEV_OK['v'] is None:
+            _PEV_OK.update(head=h_, v=_pev.verify(path) if h_ else {'ok': True, 'count': 0})
+        return {'rows': _pev.counts(path), 'intact': bool(_PEV_OK['v'] and _PEV_OK['v']['ok']), 'count': (_PEV_OK['v'] or {}).get('count', 0), 'why': (_PEV_OK['v'] or {}).get('why')}
+    except Exception as e:   # noqa: BLE001: the envelopes still show, saying the record could not be read
+        return {'rows': {}, 'intact': None, 'count': 0, 'why': f'{type(e).__name__}: {e}'}
+
+
+def _calls_of(cat_id, limit=20000):
+    p_ = DATA_DIR / 'mind_calls.jsonl'
+    if not p_.exists():
+        return []
+    out = []
+    with p_.open() as fh:
+        for line in fh.readlines()[-limit:]:
+            if f'"cat":"{cat_id}"' in line:
+                try:
+                    out.append(json.loads(line))
+                except ValueError:
+                    pass
+    return out
+
+
+@app.get('/api/cats/{cat_id}/missions')
+async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
+    """🧾 COL-4: every proof of this agent in one shape, its three evaluations kept apart (quality = the rubric, outcome = the stamp and who
+    settled it, improvement = unverified until a matched baseline), plus who really answered (COL-2) and its tamper-proof history (COL-3). Owner only."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId)
+    rec = _pev_record()
+    calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
+    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
+
+
 @app.get('/api/cats/{cat_id}/agent-wallet')
 async def cat_agent_wallet(cat_id: str, ownerId: str = '', session: str = ''):
     """👛 The cat's own wallet: address, mode and its live SOL / USDC — its owner's only (a visitor never learns what an agent holds)."""

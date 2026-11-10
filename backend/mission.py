@@ -156,7 +156,18 @@ def ref_of(k, f):
     return f.get('ws') if k in ('pos', 'poc') and f.get('ws') else f.get('id')
 
 
-def envelope(kind, folder, now, cat=None, quality=None, calls=None):
+def _record(k, f, record):
+    """COL-3's history for this proof: its own rows plus, for a page or post, its workspace's plan, build and review rows."""
+    if record is None:
+        return {'state': NOT_YET.replace('COL-2', 'COL-3')}
+    rows = [record.get('rows', {}).get((k, str(x))) for x in dict.fromkeys([f.get('id'), f.get('ws')]) if x]
+    rows = [r for r in rows if r]
+    steps = list(dict.fromkeys(s for r in rows for s in r['steps']))
+    return {'state': 'recorded' if rows else 'none', 'events': sum(r['events'] for r in rows), 'steps': steps,
+            'last': max(rows, key=lambda r: r['at'] or 0)['last'] if rows else None, 'chainIntact': record.get('intact')}
+
+
+def envelope(kind, folder, now, cat=None, quality=None, calls=None, record=None):
     """→ one proof in the shared shape, or None for an unknown kind or a folder that is not a dict. Never changes `folder` or `cat`.
     `calls` = the call log rows (COL-2); this proof's own are picked out by its ref."""
     k = kind_of(kind)
@@ -176,18 +187,64 @@ def envelope(kind, folder, now, cat=None, quality=None, calls=None):
         'artifacts': arts, 'recordSha': record_sha(f),
         'quality': _quality(k, quality), 'outcome': out,
         'improvement': {'state': 'unverified', 'why': 'No matched baseline yet (COL-11). A better grade than an earlier proof is not proof of improvement.'},
-        'evidence': evidence(k, f, out, arts),
+        'evidence': evidence(k, f, out, arts), 'record': _record(k, f, record),
         'mark': f.get('graded') if f.get('graded') in ('right', 'wrong') else None, 'markedBy': f.get('gradedBy') or ('owner' if f.get('graded') in ('right', 'wrong') else None),
         'sent': {'sent': bool(sent), 'sig': sent.get('sig') if isinstance(sent, dict) else None},
     }
 
 
-def all_of(cat, now, quality_of=None, calls=None):
+def all_of(cat, now, quality_of=None, calls=None, record=None):
     """Every proof of one agent, newest first. `quality_of(kind, folder)` is the service's own scorer, when given."""
     out = []; calls = [c for c in calls or [] if isinstance(c, dict) and c.get('cat') == (cat or {}).get('id')]
     for k, (_, key) in KINDS.items():
         for f in _rows((cat or {}).get(key)):
-            e = envelope(k, f, now, cat, quality_of(k, f) if quality_of and k != 'poe' else None, calls)
+            e = envelope(k, f, now, cat, quality_of(k, f) if quality_of and k != 'poe' else None, calls, record)
             if e:
                 out.append(e)
     return sorted(out, key=lambda e: -_f(e.get('at')))
+
+
+MIN_SAMPLE = 5   # fewer proofs than this for a model on a kind: shown, never ranked or recommended
+
+
+def vitals(envelopes, calls):
+    """COL-5: model × proof kind, from the real record only. Per row: proofs, calls, failed calls, API $ apart from local calls,
+    average quality, outcomes settled from outside (chain / scoreboard / true prices) and how many won. A recommendation only where
+    the sample is big enough: the cheapest model whose verified win rate is at least the kind's best minus 10 points. Pure."""
+    by_ref = {}
+    for c in calls or []:
+        if isinstance(c, dict) and c.get('kind') in KINDS:
+            by_ref.setdefault((c['kind'], str(c.get('ref'))), []).append(c)
+    rows = {}
+    for e in envelopes or []:
+        k = e.get('kind'); refs = {str(e.get('id'))} | ({str(e['artifacts']['page']['ws'])} if (e.get('artifacts') or {}).get('page') else set())
+        mine = [c for r in refs for c in by_ref.get((k, r), [])]
+        for model in dict.fromkeys(str(c.get('model') or c.get('asked') or '?') for c in mine):
+            mc = [c for c in mine if str(c.get('model') or c.get('asked') or '?') == model]
+            r = rows.setdefault((model, k), {'model': model, 'kind': k, 'proofs': 0, 'calls': 0, 'failed': 0, 'apiUsd': 0.0, 'localCalls': 0, 'q': [], 'verified': 0, 'won': 0})
+            r['proofs'] += 1; r['calls'] += len(mc); r['failed'] += sum(1 for c in mc if not c.get('ok'))
+            r['apiUsd'] += sum(_f(c.get('usd')) for c in mc if not c.get('local')); r['localCalls'] += sum(1 for c in mc if c.get('local'))
+            q = (e.get('quality') or {}).get('score')
+            if q is not None:
+                r['q'].append(_f(q))
+            out = e.get('outcome') or {}
+            if out.get('strength') in ('chain', 'outside') and out.get('state') in ('proved', 'not'):
+                r['verified'] += 1; r['won'] += 1 if out.get('state') == 'proved' else 0
+    out = []
+    for r in rows.values():
+        q = r.pop('q'); r['quality'] = round(sum(q) / len(q), 1) if q else None
+        r['apiUsd'] = round(r['apiUsd'], 6); r['perProofUsd'] = round(r['apiUsd'] / r['proofs'], 6) if r['proofs'] else None
+        r['failRate'] = round(r['failed'] / r['calls'], 3) if r['calls'] else None
+        r['winRate'] = round(r['won'] / r['verified'], 3) if r['verified'] else None
+        r['enough'] = r['proofs'] >= MIN_SAMPLE
+        out.append(r)
+    pick = {}
+    for k in KINDS:
+        ok = [r for r in out if r['kind'] == k and r['enough'] and r['winRate'] is not None and r['verified'] >= MIN_SAMPLE]
+        if ok:
+            best = max(r['winRate'] for r in ok)
+            fit = sorted((r for r in ok if r['winRate'] >= best - 0.10), key=lambda r: (r['perProofUsd'] or 0, -r['winRate']))
+            pick[k] = {'model': fit[0]['model'], 'why': f"cheapest within 10 points of the best verified win rate ({round(best * 100)}%) on {fit[0]['verified']} settled proofs"}
+        else:
+            pick[k] = {'model': None, 'why': f'not enough settled proofs yet (needs {MIN_SAMPLE} per model)'}
+    return {'rows': sorted(out, key=lambda r: (r['kind'], -r['proofs'])), 'pick': pick, 'minSample': MIN_SAMPLE}

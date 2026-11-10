@@ -148,3 +148,29 @@ def test_all_of_reads_every_kind_newest_first_and_never_scores_poeco():
     assert len(rows) == len(FIX['folders']) and {r['kind'] for r in rows} == set(mission.KINDS)
     assert [r['at'] for r in rows] == sorted((r['at'] for r in rows), reverse=True)
     assert 'poe' not in asked and len(asked) == len(rows) - 1
+
+
+def test_the_envelope_carries_its_tamper_proof_record():
+    f = {'id': 'ps1', 'ws': 'w1', 'status': 'closed', 'at': 1}
+    rec = {'rows': {('pos', 'ps1'): {'events': 2, 'last': 'grade', 'at': 5, 'steps': ['file', 'grade']},
+                    ('pos', 'w1'): {'events': 3, 'last': 'review', 'at': 4, 'steps': ['plan', 'build', 'review']}}, 'intact': True}
+    r = mission.envelope('pos', f, 10, record=rec)['record']
+    assert r == {'state': 'recorded', 'events': 5, 'steps': ['file', 'grade', 'plan', 'build', 'review'], 'last': 'grade', 'chainIntact': True}   # its folder rows plus its workspace's
+    assert mission.envelope('pos', f, 10, record={'rows': {}, 'intact': False})['record']['state'] == 'none'
+    assert 'COL-3' in mission.envelope('pos', f, 10)['record']['state']   # no record passed: says so, never invents one
+
+
+def test_vitals_count_only_the_real_record_and_never_rank_thin_data():
+    def env(i, state='proved', strength='outside', q=100):
+        return {'kind': 'pob', 'id': f'b{i}', 'artifacts': {}, 'quality': {'score': q}, 'outcome': {'state': state, 'strength': strength}}
+    calls = [{'kind': 'pob', 'ref': f'b{i}', 'model': m, 'ok': True, 'usd': usd, 'local': usd == 0} for i in range(6) for m, usd in (('cheap', 0.0), ('dear', 0.01))]
+    calls.append({'kind': 'pob', 'ref': 'b0', 'model': 'dear', 'ok': False, 'usd': 0})
+    envs = [env(i, 'proved' if i < 5 else 'not') for i in range(6)]
+    v = mission.vitals(envs, calls)
+    cheap = next(r for r in v['rows'] if r['model'] == 'cheap'); dear = next(r for r in v['rows'] if r['model'] == 'dear')
+    assert (cheap['proofs'], cheap['localCalls'], cheap['apiUsd'], cheap['verified'], cheap['won'], cheap['enough']) == (6, 6, 0.0, 6, 5, True)
+    assert dear['failRate'] == round(1 / 7, 3) and dear['perProofUsd'] == 0.01
+    assert v['pick']['pob']['model'] == 'cheap' and v['pick']['pos']['model'] is None   # equal win rate: the cheaper one; no data: no pick
+    owner_marked = mission.vitals([env(i, strength='self') for i in range(6)], calls)
+    assert owner_marked['pick']['pob']['model'] is None and owner_marked['rows'][0]['verified'] == 0   # an owner mark is not an outside settlement
+    assert mission.vitals([env(i) for i in range(3)], calls)['pick']['pob']['model'] is None   # 3 proofs: shown, never ranked

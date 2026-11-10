@@ -165,3 +165,10 @@ def test_a_service_save_files_events_and_a_broken_file_never_stops_it(tmp_path, 
     store['cats']['evCat']['pocFolders'][0]['graded'] = 'right'
     fs._save(store)   # still saves
     assert fs._load()['cats']['evCat']['pocFolders'][0]['graded'] == 'right'
+
+
+def test_counts_per_proof_in_one_read(tmp_path):
+    p = _db(tmp_path); _three(p); pe.append(p, 'pob', 'b1', 'file', key=K)
+    c = pe.counts(p)
+    assert c[('pos', 'ws1')] == {'events': 3, 'last': 'file', 'at': 102.0, 'steps': ['plan', 'build', 'file']} and c[('pob', 'b1')]['events'] == 1
+    assert pe.counts(tmp_path / 'none.db') == {}

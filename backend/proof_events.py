@@ -179,6 +179,24 @@ def head(path):
         c.close()
 
 
+def counts(path):
+    """Every proof's record in one read: {(kind, ref): {'events', 'last', 'at', 'steps'}}. A missing file is an empty record."""
+    from pathlib import Path
+    if not Path(path).exists():
+        return {}
+    c = _db(path)
+    try:
+        out = {}
+        for kind, ref, event, at in c.execute('SELECT kind, ref, event, at FROM events ORDER BY n'):
+            r = out.setdefault((kind, ref), {'events': 0, 'last': None, 'at': None, 'steps': []})
+            r['events'] += 1; r['last'] = event; r['at'] = at
+            if event not in r['steps']:
+                r['steps'].append(event)
+        return out
+    finally:
+        c.close()
+
+
 def history(path, kind, ref):
     """One proof's rows in order. A row a later correction fixes carries `correctedBy` (that row's n)."""
     c = _db(path)
