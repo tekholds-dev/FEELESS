@@ -50,3 +50,8 @@ test('📲 the Familia shell swaps in its own manifest + theme colour, offers �
   expect(document.head.querySelector('link[rel="manifest"]')).toBeNull(); expect(meta.getAttribute('content')).toBe('#000000');   // the terminal's own again
   meta.remove();
 });
+
+test('📱 SITE-1: on a phone the shell locks the page, so Familia scrolls its own pane (it scrolled nothing: the city was out of reach)', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '../styles/familiaApp.css'), 'utf8');
+  expect(css).toMatch(/body\.phone-lock \.fa > \.fa-main \{[^}]*overflow-y: auto/); expect(css).toMatch(/body\.phone-lock \.fa \{[^}]*height: var\(--app-vh/);
+});
