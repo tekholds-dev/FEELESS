@@ -19285,11 +19285,6 @@ async def _ai_loop():
         await asyncio.sleep(_ai_pause(time.time() - t0))
 
 
-@app.get('/api/reputation/admin/ai/providers')
-async def admin_ai_providers(request: Request):
-    """🧠 Owner only: the AI providers in their order — state, model, latency, failures. Never a key."""
-    _require_owner(request)
-    return _ai_view()
 
 
 @app.post('/api/reputation/admin/ai/providers')
@@ -19636,11 +19631,6 @@ async def _model_desk_view():
     return {'models': out_, 'mcp': mcp_, 'bounds': {k_: [lo_, hi_] for k_, (lo_, hi_, _t) in __import__('ai_rig').INFER_BOUNDS.items()}, 'at': time.time()}
 
 
-@app.get('/api/reputation/admin/ai/models')
-async def admin_ai_models(request: Request):
-    """🧠 Owner: Brain › Models — every model's INFO · SERVER · INFERENCE · VITALS (what LM Studio really reports) + FEELESS's MCP."""
-    _require_owner(request)
-    return await _model_desk_view()
 
 
 # 🎭 PROMPT STUDIO (owner, 2026-10-22): each model's live context, its record, what the record says is wrong, and four prompt sets written from it
@@ -26117,10 +26107,6 @@ class BadgeLimits(BaseModel):
     chat: int = Field(ge=0, le=12)
 
 
-@app.get('/api/reputation/admin/badges/limits')
-async def badge_limits_admin_get(request: Request):
-    _require_admin(request)
-    return _badge_limits()
 
 
 @app.get('/api/reputation/admin/badges')
@@ -26299,10 +26285,6 @@ async def report_bug(request: Request, payload: BugReport):
     return {'ok': True}
 
 
-@app.get('/api/reputation/admin/bugs')
-async def admin_bugs(request: Request):
-    _require_admin(request)
-    return _json_load(BUGS_PATH, {'bugs': []})
 
 
 @app.post('/api/reputation/admin/bugs/{bug_id}')
@@ -26720,10 +26702,6 @@ async def admin_defence_lift(p: DefenceLift, request: Request):
     return _def.view(_def_s())
 
 
-@app.get('/api/reputation/admin/security/guard')
-async def admin_guard(request: Request):
-    _require_admin(request)
-    return _guard.view(_guard_s())
 
 
 class GuardDecision(BaseModel):
@@ -26953,10 +26931,6 @@ async def admin_snapshot(request: Request, asset: str = 'fee', label: str = ''):
     return {'ok': True, 'id': snap['id'], 'holders': len(snap['rows'])}
 
 
-@app.get('/api/reputation/admin/snapshots')
-async def admin_snapshots(request: Request):
-    _require_admin(request)
-    return {'snaps': [{k: v for k, v in s.items() if k != 'rows'} | {'holders': len(s['rows'])} for s in _snaps()['snaps']][::-1]}
 
 
 @app.get('/api/reputation/admin/snapshots/{snap_id}/diff')
@@ -28759,10 +28733,6 @@ async def ad_event(ad_id: str, kind: str = Query('view')):
     return {'ok': True}
 
 
-@app.get('/api/reputation/admin/ads')
-async def admin_ads(request: Request):
-    _require_admin(request)
-    return _json_load(ADS_PATH, {'ads': []})
 
 
 @app.post('/api/reputation/admin/ads')
@@ -31082,10 +31052,6 @@ _IDEA_SEED = [{'id': 'passkeys', 'title': 'Passkey wallets + sponsored gas', 'st
                'body': 'Onboard with Face ID / passkeys (no seed phrase) via smart accounts, and sponsor gas for first trades. Pairs with Get Gas: "trade anything from any chain, never think about gas." Needs a smart-wallet provider (e.g. Privy/Turnkey/Coinbase Smart Wallet) + a paymaster budget.'}]
 
 
-@app.get('/api/reputation/admin/ideas')
-async def admin_ideas(request: Request):
-    _require_admin(request)
-    return {'ideas': _json_load(IDEAS_PATH, {'ideas': _IDEA_SEED})['ideas']}
 
 
 class IdeaPayload(BaseModel):
@@ -32436,10 +32402,6 @@ LATENCY_PROBES = [
 ]
 
 
-@app.get('/api/reputation/admin/latency')
-async def admin_latency(request: Request):
-    _require_admin(request)
-    return {**await _probe_latency(), 'alarms': [{'name': k, 'since': v['since'], 'posted': bool(v.get('posted'))} for k, v in _latency_bad.items()]}
 
 
 async def _probe_latency():
@@ -34778,3 +34740,6 @@ async def _agent_send_loop(signed, sig, seconds=75):
 
 import rep_tools as _rep_tools  # noqa: E402
 app.include_router(_rep_tools.router)   # 🧩 Q02: the first routes moved out of this file
+import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: read-only admin views
+app.include_router(_rep_admin_reads.router)
+admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
