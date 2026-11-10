@@ -923,32 +923,6 @@ async def _or_models():
     return _MODELS['rows'] or _lc.catalog([])
 
 
-_SINGIT = {'at': 0, 'doc': None}
-
-
-def _singit_only(cat):
-    """🎤 owner 2026-11-09: the owner's and admins' agents (and Fee) think on SingIt only: its models, its wallet, never OpenRouter or Groq."""
-    return bool((cat or {}).get('ownerStaff') or (cat or {}).get('isLeader'))
-
-
-async def _singit_models():
-    """SingIt's own chat models as a catalog (cached an hour, the last good copy kept when it fails)."""
-    if _SINGIT['doc'] is None or time.time() - _SINGIT['at'] >= 3600:
-        try:
-            async with httpx.AsyncClient(timeout=15) as h:
-                r = await h.get(_ap.MODELS_URL)
-            if r.status_code == 200 and isinstance(r.json(), dict):
-                _SINGIT.update(at=time.time(), doc=r.json())
-        except Exception:
-            pass
-    return _lc.singit_catalog(_SINGIT['doc'] or {}, (await _or_models()).get('models') or [])
-
-
-async def _model_ids(cat):
-    """The ids an agent may pick: SingIt's list for the owner's and admins' agents, OpenRouter's for everyone else."""
-    return {m['id'] for m in ((await _singit_models()) if _singit_only(cat) else (await _or_models())).get('models') or []}
-
-
 def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
@@ -1189,14 +1163,12 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
+    staff = bool(cat.get('ownerStaff') or cat.get('isLeader')) and not own_key   # 🔑 owner 2026-11-10: the owner's and admins' agents (and Fee) think on FEELESS's OpenRouter first, SingIt behind it
     async def router():
-        if not own_key and not _brains_live() and not str(model).startswith('local/'):
+        if not own_key and not staff and not _brains_live() and not str(model).startswith('local/'):
             return '', 0.0
         return await _or_call(model, messages, max_tokens=max_tokens, effort=effort, key=own_key)
-    singit_only = _singit_only(cat) and not own_key   # 🎤 owner 2026-11-09: the owner's and admins' agents never touch OpenRouter or Groq
-    async def local():
-        return await _or_call(model, messages, max_tokens=max_tokens, effort=effort) if str(model).startswith('local/') else ('', 0.0)
-    for name, step in ((('openrouter', router),) if own_key else (('singit', paid), ('local', local)) if singit_only else (('singit', paid), ('openrouter', router))):
+    for name, step in ((('openrouter', router),) if own_key else (('openrouter', router), ('singit', paid)) if staff else (('singit', paid), ('openrouter', router))):
         text, usd = await step()
         if str(text or '').strip():
             if name == 'openrouter' and usd > 0:
@@ -1212,7 +1184,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     if own_key:
         return '', 0.0, ''
     for name, step in ((f"SingIt free · {_ap.FREE_URL_MODEL.split('/')[-1]} stood in", lambda: _singit_free(messages, max_tokens)),
-                       *(() if singit_only else ((f"Groq free · {(os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL).split('/')[-1]} stood in", lambda: _groq_backup(messages, max_tokens)),))):   # the model that REALLY answered
+                       (f"Groq free · {(os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL).split('/')[-1]} stood in", lambda: _groq_backup(messages, max_tokens))):   # the model that REALLY answered
         text = await step()
         if str(text or '').strip():
             return text, 0.0, name
@@ -5705,10 +5677,9 @@ class CreatePayload(BaseModel):
 
 
 @app.get('/api/cats/models')
-async def cat_models(session: str = "", via: str = ""):
-    """🚀 Launch a Cat: OpenRouter's whole public model list (price, context, what it's good at), FEELESS's three on top.
-    `via=singit`: SingIt's own list, what the owner's and admins' agents pick from (owner 2026-11-09)."""
-    return {**((await _singit_models()) if via == 'singit' else (await _or_models())), 'live': _brains_live(), 'generalLive': _work_live(), 'maxModels': await _model_limit(session)}
+async def cat_models(session: str = ""):
+    """🚀 Launch a Cat: OpenRouter's whole public model list (price, context, what it's good at), FEELESS's three on top."""
+    return {**(await _or_models()), 'live': _brains_live(), 'generalLive': _work_live(), 'maxModels': await _model_limit(session)}
 
 
 async def _model_limit(session=''):
@@ -10213,11 +10184,11 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(400, f'Its models can change 24 h after you got it — {left / 3600:.1f} h to go.')
         if not cat.get('brainsCfg') and not cat.get('isLeader'):
             raise HTTPException(400, 'This agent has no AI models.')
-        ids_ = await _model_ids(cat)
+        cat_ = await _or_models()
         prev_ = cat.get('brainsCfg') or {'kind': 'trading', 'billing': 'payg'}
         try:   # the brief and credit carry over; the old model context is sealed before a fresh or sorted copy replaces it
             next_ = _lc.clean({'brains': payload.brains, 'brainKind': prev_.get('kind') or 'trading', 'billing': prev_.get('billing') or 'payg', 'prompt': payload.text or ''},
-                              prev_ if cat.get('brainsCfg') else None, ids_ or None, max_models=await _model_limit(payload.session or ''))
+                              prev_ if cat.get('brainsCfg') else None, {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
         except ValueError as e:
             raise HTTPException(400, str(e))
         if cat.get('brainsCfg'):
@@ -10238,7 +10209,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         b_ = cat.get('brainsCfg')
         if not b_:
             raise HTTPException(400, 'This agent has no AI models.')
-        ids_ = (await _model_ids(cat)) | set(b_.get('brains') or [])   # the owner's own LM Studio only where the agent already runs on it
+        ids_ = {m['id'] for m in (await _or_models()).get('models') or []} | set(b_.get('brains') or [])   # the owner's own LM Studio only where the agent already runs on it
         try:
             _lc.set_minds(b_, str(payload.text or ''), payload.brains or [], ids_, max_models=await _model_limit(payload.session or ''))
         except ValueError as e:

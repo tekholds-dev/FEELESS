@@ -64,7 +64,7 @@ export default function CatHarness() {
   const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'circle', circleAcct: 'agent' } : null);
   if (demo) return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><AgentDemo kind={['plan', 'jobs'].includes(demo) ? 'general' : 'trading'} mode={demo} models={[{ name: 'GPT-6 Astra' }, { name: 'Claude Opus 5.5' }]} /></div>;
   const cat0 = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
-  const cat = { ...cat0, ...(aw ? { agentWallet: aw } : {}), ...(REALPOW ? { id: REALPOW } : {}), ...(window.location.search.includes('staff') ? { ownerStaff: true } : {}) };   // ?staff — an owner/admin agent: SingIt only
+  const cat = { ...cat0, ...(aw ? { agentWallet: aw } : {}), ...(REALPOW ? { id: REALPOW } : {}) };
   const act = async (a, x = {}) => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); if (a === 'agent_wallet') setAw({ address: AGT, mode: 'approve', provider: 'circle', circleAcct: 'agent' }); if (a === 'agent_mode') setAw(w => ({ ...w, mode: x.mode })); };
   // 🧭 ?general = a General AI cat: its brain panel with YOUR ORDERS (one proposed, one filled on paper, one stopped by a guard)
   const gen = window.location.search.includes('general');

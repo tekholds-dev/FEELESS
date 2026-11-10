@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import { apiUrl } from '../../lib/api';
-import { ModelPop, modelsUrl } from './LaunchCat';
+import { ModelPop } from './LaunchCat';
 import { Ic3 } from '../../lib/icon3d';
 
 // 🧠 FEE'S OWN MODELS (owner, 2026-10-30): the creator picks Fee's models from the FULL smart list in a pop-out (search · cheapest · $ range ·
@@ -18,7 +18,7 @@ export function FeeModels() {
   const [cat, setCat] = useState(null); const [d, setD] = useState(null); const [pick, setPick] = useState(['', '']); const [text, setText] = useState('');
   const [memory, setMemory] = useState('keep'); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(null); const [open, setOpen] = useState(-1);
   const load = () => fetch(apiUrl('/api/cats/leader')).then(r => r.json()).then(x => { setCat(x.cat); const b = x.cat?.brainsCfg; if (b?.brains) { setPick([b.brains[0] || '', b.brains[1] || '']); setText(b.prompt || ''); } }).catch(() => {});
-  useEffect(() => { load(); fetch(apiUrl(modelsUrl({ isLeader: true }))).then(r => r.json()).then(setD).catch(() => {}); }, []);
+  useEffect(() => { load(); fetch(apiUrl('/api/cats/models')).then(r => r.json()).then(setD).catch(() => {}); }, []);
   const b = cat?.brainsCfg; const had = !!b?.brains?.length;
   const row = id => (d?.models || []).find(m => m.id === id);
   const send = async body => {

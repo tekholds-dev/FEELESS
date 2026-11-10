@@ -17,7 +17,6 @@ from solders.transaction import VersionedTransaction
 import cat_fund as _cf
 
 PROVIDER = 'https://ask.singitai.app/v1/chat/completions'
-MODELS_URL = 'https://ask.singitai.app/v1/models'   # its public model list (prices per 1M tokens, what is up)
 SOLANA = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp'
 MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
 MAX_CALL_USD = 0.25

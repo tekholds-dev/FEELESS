@@ -304,7 +304,7 @@ def test_the_owner_id_never_leaves_the_server_and_only_mine_is_answered(monkeypa
     assert 'browser-secret-123' not in json.dumps(asyncio.run(svc.list_cats(ownerId='browser-secret-123', session='browser-secret-123')))
 
 
-def test_fee_takes_a_singit_model_and_a_new_model_can_start_fresh(monkeypatch):
+def test_fee_takes_an_openrouter_model_and_a_new_model_can_start_fresh(monkeypatch):
     import feecat_service as svc
     from types import SimpleNamespace
     fee = {'id': 'leader', 'ownerId': 'feeless-system', 'isLeader': True, 'name': 'Fee', 'status': 'running', 'positions': [], 'createdAt': 0}
@@ -321,7 +321,6 @@ def test_fee_takes_a_singit_model_and_a_new_model_can_start_fresh(monkeypatch):
     async def creator(addr):
         return True
     monkeypatch.setattr(svc, '_or_models', models)
-    monkeypatch.setattr(svc, '_singit_models', models)   # owner 2026-11-09: Fee picks from SingIt's own list
     monkeypatch.setattr(svc, '_model_limit', limit)
     monkeypatch.setattr(svc, '_is_creator', creator)
     monkeypatch.setattr(svc._real, 'session_wallet', lambda sessions, s: 'CREATOR' if s == 'ok' else None)

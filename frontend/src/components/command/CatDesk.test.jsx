@@ -71,22 +71,6 @@ test('💵 a general agent with a wallet shows its real wallet, credit and coins
   act(() => root.unmount());
 });
 
-test('🎤 an owner or admin agent shows SingIt credit and asks SingIt\'s model list, never OpenRouter\'s', async () => {
-  const { singitOnly, modelsUrl } = require('./LaunchCat');
-  expect(modelsUrl({ ownerStaff: true })).toBe('/api/cats/models?via=singit'); expect(modelsUrl({ isLeader: true })).toBe('/api/cats/models?via=singit');
-  expect(modelsUrl({ ownerId: 'x' })).toBe('/api/cats/models'); expect(singitOnly(null)).toBe(false);
-  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ balance: { sol: 0.0266, usdc: 3.1 } }) }));
-  const gen = { ...CAT, ownerStaff: true, brainsCfg: { kind: 'general', brains: ['a/x'], brainMode: 'turns', credit: 5.59, spent: 1.41 }, agentWallet: { address: 'R'.repeat(44), mode: 'approve' } };
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CatDesk cat={gen} canEdit onBack={() => {}} onAct={() => {}} />); });
-  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  const dq = id => document.querySelector(`[data-testid="${id}"]`);
-  await act(async () => { el.querySelector('[data-testid="kd-open-desktop"]').click(); });
-  await act(async () => { dq('dsk-ico-wallet').click(); });
-  expect(dq('kd-real-tiles').textContent).toContain('SINGIT CREDIT'); expect(dq('kd-real-tiles').textContent).toContain('$5.59'); expect(dq('kd-real-tiles').textContent).not.toContain('MODEL CREDIT');
-  act(() => root.unmount());
-});
-
 test('⬇ the desk has a download button on its picture; the file name is the agent\'s', () => {
   const { fileName, inlineSvg } = require('../../lib/svgPng');
   expect(fileName('Night Claw')).toBe('night-claw-feeless.png'); expect(fileName('')).toBe('agent-feeless.png');

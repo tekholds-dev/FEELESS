@@ -3,7 +3,7 @@ import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
-import { signWord, ModelPop, singitOnly, modelsUrl } from './LaunchCat';
+import { signWord, ModelPop } from './LaunchCat';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
@@ -62,7 +62,7 @@ function SpendLimits({ cat, busy, onAct }) {
   const l = cat.limits || {}; const minds = (cat.brainsCfg?.brains || []).map(m => String(m).split('/').pop());
   const [v, setV] = useState(() => ({ taskUsd: cat.taskCap ?? 0.05, mind0: l.mindUsd?.[0] ?? 0, mind1: l.mindUsd?.[1] ?? 0, steps: l.steps ?? 0, dayUsd: l.dayUsd ?? 0 }));
   const set = k => x => setV(o => ({ ...o, [k]: x }));
-  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b><Ic3 e="🧠" /> WHAT IT MAY SPEND</b><small>{singitOnly(cat) ? 'SingIt credit' : 'model credit'} · 0 = no extra limit</small></header>
+  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b><Ic3 e="🧠" /> WHAT IT MAY SPEND</b><small>model credit · 0 = no extra limit</small></header>
     <form onSubmit={e => { e.preventDefault(); onAct('controls', { limits: { taskUsd: v.taskUsd, mindUsd: [v.mind0, v.mind1], steps: v.steps, dayUsd: v.dayUsd } }); }}>
       <LimitRow k="taskUsd" label="MOST A TASK" lo={0.005} hi={2} st={0.005} unit="$" value={v.taskUsd} set={set('taskUsd')} note="Both minds together, on one task" />
       {minds.length > 1 ? minds.slice(0, 2).map((m, i) => <LimitRow key={m} k={`mind${i}`} label={`${'AB'[i]} · ${m.toUpperCase()}`} lo={0} hi={2} st={0.005} unit="$" value={v[`mind${i}`]} set={set(`mind${i}`)} note="This mind alone, on one task" />) : null}
@@ -116,9 +116,9 @@ export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0
 function ModelSwitch({ cat, busy, onAct }) {
   const left = lockLeft(cat.createdAt); const [d, setD] = useState(null); const [memory, setMemory] = useState('keep'); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]); const [open, setOpen] = useState(-1);
   const kind = cat.brainsCfg.kind === 'general' ? 'general' : 'trading'; const mind = kind === 'general' ? 'MIND' : 'BRAIN';
-  useEffect(() => { if (left > 0 || d) return; fetch(modelsUrl(cat)).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD({ models: [] })); }, [left, d]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (left > 0 || d) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD({ models: [] })); }, [left, d]);
   const row = id => (d?.models || []).find(m => m.id === id);
-  return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : singitOnly(cat) ? 'SingIt only · paid from its wallet, never OpenRouter · its brief stays' : 'switch any time — its brief stays; you choose what happens to its memory'}</small></header>
+  return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief stays; you choose what happens to its memory'}</small></header>
     {left > 0 ? <i className="kd-lock" aria-hidden="true"><u style={{ transform: `scaleX(${1 - left / (MODEL_LOCK_H * 3600)})` }} /></i>
       : <><div className="fmd-pick">{[0, 1].map(i => { const m = row(pick[i]);
         return <div key={i} className={`fmd-slot${pick[i] ? ' is-on' : ''}`}><em>{mind} {'AB'[i]}{i ? ' · optional' : ' · leads'}</em>
@@ -197,8 +197,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const theater = useRef(null); useTheater(theater, visitor);
   const tiles = gen && !visitor ? <div className="kd-tiles" data-testid="kd-real-tiles">
       <Tile k={0} label="IN ITS WALLET" value={`${bal.sol == null ? '…' : Number(bal.sol).toFixed(4)} SOL`} sub={`${bal.usdc == null ? '…' : Number(bal.usdc).toFixed(2)} USDC`} tip={aw ? 'Live from the chain, every 20 seconds' : 'Make its wallet to fund it'} />
-      {singitOnly(cat) ? <Tile k={1} label="SINGIT CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used · paid in USDC`} tip="SingIt only: every call is paid on SingIt from its wallet's USDC, never OpenRouter. This is the budget it has left" />
-        : <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />}
+      <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
       <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
       <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
       <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub={cat.rentSweep?.backSol ? `♻ +${cat.rentSweep.backSol.toFixed(4)} SOL rent back` : 'in its wallet'} tip="Coins it really bought and still holds. Rent back: SOL returned when it closed the empty accounts of coins it sold" />
