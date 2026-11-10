@@ -94,7 +94,7 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 | AGT-17 | OPEN | **3D:** NOVA not solved (OSSY 22 min, opened black; G4 and paid not run on it); PoC and PoEco as bigger worlds; real GPU frame rate not measured. |
 | AGT-18 | OPEN | **Browser proofs on OSSY and G4 under load:** a read died when the keep-alive restarted 5088 at Mac load 41. Try windows and models from the LAN box, a more patient health check, one window at a time. |
 | AGT-19 | OPEN | **Snapshot mouse gestures and clicks:** suspected buggy, never reproduced. Reproduce first. |
-| AGT-20 | OPEN | **Redundant code audit** (desktop audit #5, never done). |
+| AGT-20 | DONE 2026-11-10 | Redundant code audit: an AST scan of every backend module found 3 top-level functions nothing names (8 lines: `pow.engine_pick`, `proof_tools.free_image`, `poc_watch.hash_of`), and a scan of every frontend export found one unused component (`MoneyCharts.BackLines`); all removed, suites green. 24 unused `lucide3d` icon exports stay (tree-shaken from the build). Rerun the same scan after big features. |
 | AGT-21 | OPEN | **Agents beyond pages in a user's repo:** edit files, and chat requests that read the project. Send-a-page works. |
 | AGT-22 | OPEN | **Watch room (was A4):** more free legal options and tools on one monitor (his words were unclear: ask). Official players only (`WatchWall` built). |
 | AGT-23 | OPEN | **Agent go-mode** (history 2026-10-29 Q1): keep going task after task until a human is truly needed, inside its $ cap, never typing a password or card. Check what exists before building. |
