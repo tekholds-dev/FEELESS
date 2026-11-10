@@ -26,3 +26,15 @@ def test_a_coins_logo_url_can_never_make_the_server_call_a_private_address(monke
     assert run(['http://127.0.0.1:5088/x', 'http://192.168.1.20:1234/v1/models']) is None and called == []
     assert run(['https://public.example/hop']) is None and called == ['https://public.example/hop']     # the redirect target was never called
     assert run(['https://public.example/logo.png']) == ('image/png', b'x')
+
+
+def test_writes_are_rate_limited_per_caller_and_internal_calls_never(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs, 'WRITES_PER_MIN', 3); rs._WRITE_HITS.clear()
+    c = TestClient(rs.app)
+    codes = [c.post('/api/reputation/pv', json={}, headers={'x-forwarded-for': '9.9.9.9'}).status_code for _ in range(5)]
+    assert codes[3:] == [429, 429] and 429 not in codes[:3]
+    assert c.post('/api/reputation/pv', json={}, headers={'x-forwarded-for': '8.8.8.8'}).status_code != 429     # another caller is untouched
+    assert c.get('/api/reputation/metas', headers={'x-forwarded-for': '9.9.9.9'}).status_code == 200            # reads are never limited
+    assert c.post('/api/reputation/internal/notify', json={}, headers={'x-forwarded-for': '9.9.9.9', 'x-feeless-internal': 'x'}).status_code != 429
+    rs._WRITE_HITS.clear()

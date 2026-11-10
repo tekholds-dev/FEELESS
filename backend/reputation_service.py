@@ -326,10 +326,28 @@ app = FastAPI(title='FEELESS Reputation Graph')
 @app.middleware('http')
 async def _sec_headers(request, call_next):
     """🔒 SITE-9 (2026-11-10): every response says no MIME sniffing and sends no referrer (5088 already did). No framing rule here: pages may be framed."""
+    # 🚦 SITE-9: writes are limited per caller (the forwarded IP when a proxy sets one). Generous: a person never reaches it, a script does.
+    # The site's own services (internal key) are never limited.
+    if request.method in ('POST', 'PUT', 'DELETE', 'PATCH') and not request.headers.get('x-feeless-internal'):
+        who = (request.headers.get('x-forwarded-for') or (request.client.host if request.client else '-')).split(',')[0].strip()
+        now = time.time(); q = _WRITE_HITS.setdefault(who, []) if who != 'testclient' else []   # the test suite's own client is one 'caller' for 3,000 tests
+        while q and now - q[0] > 60:
+            q.pop(0)
+        if len(q) >= WRITES_PER_MIN:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({'detail': 'Too many requests. Slow down.'}, status_code=429)
+        q.append(now)
+        if len(_WRITE_HITS) > 5000:   # never grows without bound
+            for k in [k for k, v in _WRITE_HITS.items() if not v or now - v[-1] > 60][:2500]:
+                _WRITE_HITS.pop(k, None)
     resp = await call_next(request)
     resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
     resp.headers.setdefault('Referrer-Policy', 'no-referrer')
     return resp
+
+
+WRITES_PER_MIN = 600   # per caller, every write route together (the page's own telemetry posts included)
+_WRITE_HITS = {}
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
@@ -4677,10 +4695,6 @@ async def fuse_rules_public():
     return _card_rules()
 
 
-@app.get('/api/reputation/admin/fuses/rules')
-async def admin_fuse_rules_get(request: Request):
-    _require_admin(request)
-    return {'rules': _card_rules(), 'defaults': _hq.CARD_RULES, 'ranges': _hq.RULE_RANGES, 'feeback': await _feeback_book()}
 
 
 @app.post('/api/reputation/admin/fuses/rules')
@@ -4760,10 +4774,6 @@ async def fuse_auto_yield(p: FuseYieldIn):
     return {'ok': True, 'autoYield': pos.get('autoYield')}
 
 
-@app.get('/api/reputation/admin/fuses/auto-yield')
-async def admin_auto_yield_get(request: Request):
-    _require_admin(request)
-    return _json_load(FUSE_HQ_PATH, {}).get('autoYieldDefault') or {'on': False, 'at': _hq.YIELD_DEFAULT_AT}
 
 
 @app.post('/api/reputation/admin/fuses/auto-yield')
@@ -17332,11 +17342,6 @@ async def circle_profile_save(request: Request, body: dict):
     return {'ok': True, 'address': addr, 'profile': d['profiles'][addr]}
 
 
-@app.get('/api/reputation/admin/fuse-wallet/report')
-async def fuse_wallet_report(request: Request, card: str = Query('', max_length=40)):
-    """🩺 Owner: what each real run did (from the audit ledger) + the flaws it shows, each with its fix. Read-only."""
-    _require_owner(request)
-    return {'reports': await _fw_reports(card)}
 
 
 async def _fw_reports(card=''):
@@ -17588,12 +17593,6 @@ async def admin_rpc_set(request: Request):
     return {'ok': True, 'slot': slot, 'provider': _chain.provider_of(url), 'holders': bool(res.get('holders')), 'ms': res.get('ms'), 'lanes': _rpc_quota_state()}
 
 
-@app.get('/api/reputation/admin/providers')
-async def admin_providers(request: Request):
-    """🔑 Owner only: which provider keys are set, by name. Never a value. Calls nothing."""
-    _require_owner(request)
-    import provider_ready as _pr
-    return _pr.status(os.environ)
 
 
 ALLIANCES_PATH = DATA_DIR / 'alliances.json'
@@ -17684,11 +17683,6 @@ async def admin_provider_key(request: Request):
     return _pr.status(os.environ)
 
 
-@app.get('/api/reputation/admin/ai-key')
-async def admin_ai_key_status(request: Request):
-    """🔑 Owner only: which AI providers have a key — provider, set, the last 4 characters. Never a key."""
-    _require_owner(request)
-    return _aik.status(os.environ)
 
 
 @app.post('/api/reputation/admin/ai-key')
@@ -18991,11 +18985,6 @@ async def admin_ai_seat_post(request: Request):
     return _duo_view()
 
 
-@app.get('/api/reputation/admin/ai/seat')
-async def admin_ai_seat(request: Request):
-    """🧠 Owner: G4's own seat — its minute thoughts (action · why · vitals · the agents' pressure · Qwen's word) and its paper / real record."""
-    _require_owner(request)
-    return _g4_view()
 
 
 @app.get('/api/reputation/cats-ai')
@@ -19815,15 +19804,6 @@ async def _studio_boot():
         print('prompt studio:', str(e)[:80])
 
 
-@app.get('/api/reputation/admin/agent-slots')
-async def admin_agent_slots(request: Request):
-    """🎟 Owner: agent slots open / taken / left (≤ 1,000 across all users)."""
-    _require_owner(request)
-    try:
-        r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/supply', timeout=6)
-        return r_.json()
-    except Exception:
-        raise HTTPException(503, 'Fee service did not answer.')
 
 
 @app.post('/api/reputation/admin/agent-slots')
@@ -19921,11 +19901,6 @@ async def _colony_pool_build(d, body):
     return args, r
 
 
-@app.get('/api/reputation/admin/colony')
-async def admin_colony(request: Request):
-    """🐝 Owner: the colony pot — its Circle wallet, live value, the locked principal, what may pay out this epoch and the honey split."""
-    _require_owner(request)
-    return await _colony_view()
 
 
 @app.post('/api/reputation/admin/colony')
@@ -19986,11 +19961,6 @@ async def admin_colony_set(request: Request):
     return await _colony_view()
 
 
-@app.get('/api/reputation/admin/ai/prompts')
-async def admin_ai_prompts(request: Request):
-    """🎭 Owner: every model's live context (the layers it reads + its window), record, diagnosis and four prompt sets."""
-    _require_owner(request)
-    return await _studio_view()
 
 
 @app.post('/api/reputation/admin/ai/prompts')
@@ -23667,12 +23637,6 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         pass
 
 
-@app.get('/api/reputation/admin/agents/office')
-async def admin_agents_office(request: Request):
-    """🏢 The office in ONE payload (mission · agents · current case · pipeline · positions · execution · learning · judge · performance).
-    It only returns what the last agent pass and tier tick left in memory: a page view runs no desk, no scan, no quote, no wallet call."""
-    _require_admin(request)
-    return _office.get('payload') or {'cold': True, 'at': 0}
 
 
 def _agents_real():
@@ -23737,12 +23701,6 @@ def _agents_go_rows(legs=(), seats=2, learn=False, learn_pct=100, trust=False):
     return out[:1 if learning else 4]
 
 
-@app.get('/api/reputation/admin/agents')
-async def admin_agents(request: Request):
-    """🤖 HQ › Agents + the swap-in 🤖 Agents list (creator / admin wallets): the four agents, their scorecards, the live table (every agent's
-    word per coin), the paper desk and the road to real money. Read-only; only the creator may switch the real-card feed (POST)."""
-    _require_admin(request)
-    return Response(_agents_page_body(), media_type='application/json')
 
 
 def _agents_snapshot():
@@ -23982,12 +23940,6 @@ def _agents_page_body(now=None):
     return _agents_page['body']
 
 
-@app.get('/api/reputation/admin/agents/log')
-async def admin_agents_log(request: Request, hours: int = Query(24, ge=1, le=168)):
-    """🧾 The agent desk's war log (calls, GO vs control, deaths + lessons, ideas, best / worst, calibration) as data + Markdown to export."""
-    _require_admin(request)
-    log, md = _pd.war_log(_agents_mem.get(), time.time(), hours)
-    return {'log': log, 'md': md}
 
 
 @app.post('/api/reputation/admin/agents')
@@ -24262,14 +24214,6 @@ async def admin_runner_funnel(request: Request):
     return {**out, 'dial': rd.get('cfgDial') or 'custom', 'at': now, 'card': real and {'label': real.get('label') or real.get('tpl'), **real['pipeline']}}
 
 
-@app.get('/api/reputation/admin/runners/suggest')
-async def admin_runner_suggest(request: Request):
-    """⚡ Stronger engine found? Every setting where the live config is weaker than the recommended one (with why), plus each
-    lane's self-tuning record. Apply = POST /admin/runners/config with the merged values (one click in HQ)."""
-    _require_admin(request)
-    d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
-    cfg = _runner_cfg(); pr = _rn.lane_proofs(d['rounds'], d['paths'], time.time(), cfg)
-    return {'suggestions': _rn.suggest_cfg(cfg), 'lanes': pr, 'weights': _rn.lane_weights(pr), 'cfg': cfg}
 
 
 async def _scenario_stage(rd, now):
@@ -24850,14 +24794,6 @@ async def _verdict_build(real=True):
     return {**out, 'at': now}
 
 
-@app.get('/api/reputation/admin/fuses/verdict')
-async def fuse_verdict(request: Request):
-    """🧾 Owner: what's working and what's not, before anything is scrapped — every engine judged on its own record (tier card runs,
-    strategies, runner lanes, engine dials, playground clocks, sim configs, real runs). Fresh on open; the background keeps it hourly."""
-    _require_owner(request)
-    out = await _verdict_build(real=True)
-    out['history'] = (_json_load(VERDICT_PATH, {}).get('history') or [])[-48:]
-    return out
 
 
 async def _verdict_tick(now):
@@ -24963,10 +24899,6 @@ async def fuse_verdict_act(request: Request, p: VerdictActIn):
     return {'ok': True, 'done': done, 'at': now}
 
 
-@app.get('/api/reputation/admin/fuses/sim')
-async def pg_sim_view(request: Request):
-    _require_admin(request)
-    return _json_load(PG_SIM_PATH, {})
 
 
 @app.post('/api/reputation/admin/fuses/sim/apply')
@@ -25024,10 +24956,6 @@ async def runners_pick_filter(request: Request, body: dict):
     return {'filter': fid, 'sitOut': bool(_json_load(RUNNERS_PATH, {}).get('sitOut'))}
 
 
-@app.get('/api/reputation/admin/fuses/pg-battles')
-async def pg_battles_get(request: Request):
-    _require_admin(request)
-    return _pg_battle_view(_json_load(RUNNERS_PATH, {}))
 
 
 @app.post('/api/reputation/admin/fuses/pg-battles')
@@ -25675,11 +25603,6 @@ async def admin_quest_season(request: Request):
     return {'ok': True, 'season': s, 'awarded': awarded}
 
 
-@app.get('/api/reputation/admin/quests')
-async def admin_quests(request: Request):
-    _require_admin(request)
-    return {'badges': _quest_defs(), 'defaults': _quests.DEFAULTS, 'overrides': _json_load(QUESTS_PATH, {}), 'metrics': _quests.METRICS,
-            'tiers': list(_quests.TIER_XP), 'daily': _quests.DAILY, 'weekly': _quests.WEEKLY, 'stats': await _quest_rarity(), 'season': _quest_season()}
 
 
 @app.post('/api/reputation/admin/quests')
@@ -26690,11 +26613,6 @@ async def token_approvals(address: str, request: Request):
     return {'address': address, 'approvals': out, 'checked': len(res), 'at': now}
 
 
-@app.get('/api/reputation/admin/security/defence')
-async def admin_defence(request: Request):
-    """🛡 The learned defence: live blocks (and why), learned rules, tarpits, every incident with its plain abuse report. Never a counter-attack."""
-    _require_admin(request)
-    return _def.view(_def_s())
 
 
 class DefenceLift(BaseModel):
@@ -27409,12 +27327,6 @@ async def internal_agent_fee(request: Request, body: dict):
     return {'signature': sig_, 'usd': usd_, 'token': token}
 
 
-@app.get('/api/reputation/admin/stash')
-async def admin_stash(request: Request):
-    """🧊 Owner: what the Collective Stash holds, how much room is left and its web."""
-    _require_owner(request)
-    root = DATA_DIR / 'stash'
-    return {'stats': await asyncio.to_thread(_stash.stats, root), 'web': await asyncio.to_thread(_stash.web, root), 'mirror': bool(os.environ.get('STASH_R2_BUCKET'))}
 
 
 _GROW = {'at': 0.0, 'rows': [], 'detail': {}}
@@ -27488,12 +27400,6 @@ async def admin_grow_detail(request: Request, id: str = Query('', max_length=128
     return out_
 
 
-@app.get('/api/reputation/admin/py-agents')
-async def admin_py_agents(request: Request):
-    """🐍 Owner: the five validators, their real record and what the local minds propose. It changes no code."""
-    _require_owner(request)
-    import py_agents as _pa
-    return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), 'learned': _pa.learned(DATA_DIR, _json_load(DATA_DIR / 'git_manifests' / 'collective_sort.json', {})), **_pa.load(DATA_DIR)}
 
 
 @app.post('/api/reputation/admin/py-agents')
@@ -27523,11 +27429,6 @@ async def admin_py_agents_ask(request: Request):
     return {'seats': _pa.record(_cpool.load(POOL_PATH)), **_pa.add(DATA_DIR, who_, rows_, time.time())}
 
 
-@app.get('/api/reputation/admin/collective')
-async def admin_collective(request: Request):
-    """🪙 Owner: the Pool ledger, every setting and where the money stands."""
-    _require_owner(request)
-    return await _collective_view()
 
 
 @app.post('/api/reputation/admin/collective')
@@ -27886,10 +27787,6 @@ async def admin_fees_house(request: Request, p: HouseFees):
     return {'ok': True, 'house': _house(), 'feecatSynced': synced}
 
 
-@app.get('/api/reputation/admin/fees')
-async def admin_fees_get(request: Request):
-    _require_admin(request)
-    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle')), 'rounds': _rounds_cfg(), 'house': _house()}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
 
 
 @app.get('/api/reputation/admin/fees/balances')
@@ -31626,10 +31523,6 @@ class RoutesPayload(BaseModel):
     routes: list
 
 
-@app.get('/api/reputation/admin/treasury/routes')
-async def routes_get(request: Request):
-    _require_admin(request)
-    return _json_load(ROUTES_PATH, {'routes': []})
 
 
 @app.put('/api/reputation/admin/treasury/routes')
@@ -32589,16 +32482,8 @@ def _require_owner(request: Request):
     return me
 
 
-@app.get('/api/reputation/admin/circle/status')
-async def circle_status(request: Request):
-    _require_owner(request)
-    return await _circle('GET', '/status')
 
 
-@app.get('/api/reputation/admin/circle/wallets')
-async def circle_wallets(request: Request):
-    _require_owner(request)
-    return {'wallets': await _circle_wallets_live()}
 
 
 @app.post('/api/reputation/admin/circle/wallets')
@@ -33040,13 +32925,6 @@ async def perf_config():
     return {'forceLite': bool(_json_load(PERF_CFG_PATH, {}).get('forceLite'))}
 
 
-@app.get('/api/reputation/admin/perf/loop')
-async def perf_loop(request: Request, reset: int = 0):
-    _require_admin(request)
-    out = _loop_lag.WATCH.view()
-    if reset:
-        _loop_lag.WATCH.reset()
-    return out
 
 
 class PerfCfgIn(BaseModel):
@@ -33538,20 +33416,6 @@ async def treasury_money(request: Request):
 _pulse_cache: dict = {}
 
 
-@app.get('/api/reputation/admin/money-pulse')
-async def admin_money_pulse(request: Request, fresh: int = 0):
-    """ONE snapshot for every HQ money card: fee accounts, admin, season reserves, badge pools and Circle
-    wallets (one batched chain read + Circle in parallel), their payout plans, a preflight of everything trading
-    depends on, and nudges. Owners also get Circle (and calling it keeps the Circle service alive)."""
-    me = _require_admin(request)
-    owner = me in _owner_wallets()
-    key = 'owner' if owner else 'admin'
-    hit = _pulse_cache.get(key)
-    if hit and not fresh and time.time() - hit[0] < 15:
-        return {**hit[1], 'cached': True}
-    out = await _money_pulse_build(me, owner)
-    _pulse_cache[key] = (time.time(), out)
-    return out
 
 
 async def _money_pulse_build(me: str, owner: bool) -> dict:
@@ -34316,11 +34180,6 @@ async def _circle_destinations(circle_wallets=None) -> list:
                                           _json_load(CIRCLE_DEST_PATH, {'saved': []}).get('saved', []))
 
 
-@app.get('/api/reputation/admin/circle/destinations')
-async def circle_destinations(request: Request):
-    """Where a Circle wallet may send: HQ wallets + ones the owner saved."""
-    _require_owner(request)
-    return {'destinations': await _circle_destinations()}
 
 
 class CircleDestIn(BaseModel):
@@ -34343,10 +34202,6 @@ async def circle_destination_save(request: Request, p: CircleDestIn):
     return {'saved': d['saved']}
 
 
-@app.get('/api/reputation/admin/circle/meta')
-async def circle_meta_get(request: Request):
-    _require_owner(request)
-    return _json_load(CIRCLE_META_PATH, {})
 
 
 class CircleSendIn(BaseModel):
@@ -34767,3 +34622,5 @@ app.include_router(_rep_tools.router)   # 🧩 Q02: the first routes moved out o
 import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: read-only admin views
 app.include_router(_rep_admin_reads.router)
 admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
+for _n in ('admin_fuse_rules_get', 'admin_auto_yield_get', 'fuse_wallet_report', 'admin_providers', 'admin_ai_key_status', 'admin_ai_seat', 'admin_agent_slots', 'admin_colony', 'admin_ai_prompts', 'admin_agents_office', 'admin_agents', 'admin_agents_log', 'admin_runner_suggest', 'fuse_verdict', 'pg_sim_view', 'pg_battles_get', 'admin_quests', 'admin_defence', 'admin_stash', 'admin_py_agents', 'admin_collective', 'admin_fees_get', 'routes_get', 'circle_status', 'circle_wallets', 'perf_loop', 'admin_money_pulse', 'circle_destinations', 'circle_meta_get'):   # slice 3: the same names still answer here
+    globals()[_n] = getattr(_rep_admin_reads, _n)
