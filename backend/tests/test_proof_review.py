@@ -16,7 +16,7 @@ def test_verdicts_parse_strictly_and_combine():
 
 def test_next_due_takes_the_newest_unreviewed_closed_proof():
     store = {'cats': {'a': {'pobFolders': [{'id': 'old', 'status': 'closed', 'closedAt': 1}, {'id': 'new', 'status': 'closed', 'closedAt': 9}, {'id': 'nt', 'status': 'closed', 'closedAt': 20, 'noTrade': True}]},
-                      'b': {'psFolders': [{'id': 'done', 'status': 'closed', 'closedAt': 30, 'review': {}}, {'id': 'open', 'status': 'live', 'closedAt': 40}]}}}
+                      'b': {'psFolders': [{'id': 'done', 'status': 'closed', 'closedAt': 30, 'review': {'v': pr.VERSION}}, {'id': 'open', 'status': 'live', 'closedAt': 40}]}}}
     assert pr.next_due(store)[2]['id'] == 'new' and pr.next_due(store, {('a', 'new')})[2]['id'] == 'old'
     assert 'wallet' not in pr.brief('pob', {'id': 'x', 'ownerWallet': 'wallet', 'sites': ['espn.com'], 'why': 'w'})
 
@@ -59,3 +59,25 @@ def test_the_test_bench_reviews_only_sicarios():
     f = lambda at: {'id': f'p{at}', 'status': 'closed', 'closedAt': at}
     store = {'cats': {'h': {'handle': 'happy-assistant', 'psFolders': [f(9)]}, 's': {'handle': 'sicarios', 'powFolders': [f(1)]}}}
     assert pr.next_due(store)[0] == 'h' and pr.next_due(store, handles=('sicarios',))[0] == 's'
+
+
+def test_v2_brief_carries_the_kinds_evidence_and_today():
+    """A trade is judged on its own prices and times; books never get the 4-source rule; an old-version review is due again."""
+    f = {'id': 'w', 'status': 'closed', 'sym': 'LEEROY', 'entry': 1e-6, 'exit': 9e-7, 'boughtAt': 1793897298, 'soldAt': 1793897559, 'closedAt': 1793897559,
+         'coins': [{'sym': 'LEEROY', 'liq': 6e4, 'read': 'FEELESS coin search ...'}], 'whys': {'0': 'only riser'}}
+    raw = pr.brief('pow', f, now=1794336000); assert raw.startswith('TODAY IS 2026-11-10.')
+    b = json.loads(raw.split('\n', 1)[1])
+    assert b['today'].startswith('2026-11-10') and b['evidence']['entryPriceInSol'] == 1e-6 and b['evidence']['sold'].startswith('2026-11-05')
+    assert b['compareRule'] == 'filed before the 4-source rule existed' and b['evidence']['whatWasRead']
+    assert 'compareRule' not in json.loads(pr.brief('poe', {'status': 'closed', 'income': 1, 'costs': 1, 'net': 0}).split('\n', 1)[1])
+    big = pr.brief('pow', {**f, 'coins': [{'sym': 'X', 'read': 'r' * 5000}] * 2, 'plan': 'p' * 3000}, now=1794336000)
+    json.loads(big.split('\n', 1)[1])   # too long → whole parts dropped, still valid JSON
+    old = {'cats': {'s': {'powFolders': [{**f, 'review': {'v': 1}}]}}}
+    assert pr.next_due(old)[2]['id'] == 'w' and pr.next_due({'cats': {'s': {'powFolders': [{**f, 'review': {'v': pr.VERSION}}]}}}) is None
+
+
+def test_v3_score_is_counted_from_the_five_checks_never_the_models_number():
+    raw = '{"score": 0, "checks": [{"pass": true, "found": "a"}, {"pass": true, "found": "b"}, {"pass": true, "found": "c"}, {"pass": false, "found": "d"}, {"pass": true, "found": "e"}], "why": "w"}'
+    v = pr.verdict_of(raw)
+    assert v['score'] == 80 and v['verdict'] == 'pass' and v['checks'][3] == '✗ d' and v['checks'][0] == '✓ a'
+    assert pr.verdict_of('{"checks": [{"pass": false, "found": "x"}]}')['verdict'] == 'fail'

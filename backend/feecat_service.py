@@ -5786,7 +5786,7 @@ def _review_apply(store):
         cid, kind, fid, rv = _REVIEW_DONE.pop(0)
         key = _mission.KINDS[kind][1]
         f = next((x for x in (store['cats'].get(cid) or {}).get(key) or [] if x.get('id') == fid), None)
-        if f is None or f.get('review'):
+        if f is None or ((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0):   # an older version's review is replaced
             continue
         f['review'] = rv; n += 1
         _REVIEW_LESSONS[kind] = _review.lessons(store, kind)
