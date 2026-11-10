@@ -8983,6 +8983,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except OSError:
             pass
         kf_ = _kfresh.view(_kits.KIT_USE, KITS_DIR)
+        if not _MKIT_STATE:   # measured only when Missions opened: after a restart the card read 0 / 0 / 0 (seen live 2026-11-10)
+            try:
+                rows_m_ = _mission.all_of(cat, now_, lambda k, f: _proof_view(cat, k, f), _calls_of(cat_id), _pev_record())
+                _MKIT_STATE.update(_mkits.reliability(rows_m_, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}))
+            except Exception as e:   # noqa: BLE001
+                print(f'[engines] kits: {str(e)[:80]}')
         return {'at': round(now_), 'reviewer': _engv.reviewer(store['cats'].values(), _review.VERSION, lines_, REVIEW_EVERY_S, REVIEW_SCOPE),
                 'kits': {'checkedAt': kf_.get('checkedAt'), 'live': len(kf_['kits']), 'moved': sum(1 for k in kf_['kits'] if k.get('prev')), 'held': [r for r in kf_.get('log') or [] if not r.get('ok')][:3], 'everyH': round(_kfresh.CHECK_EVERY_S / 3600)},
                 'reads': _engv.reads(_READS, _TOPIC_READS, READ_FRESH_S, now_), 'methods': _engv.methods(_MKIT_STATE), 'routes': _engv.routes(lines_, now_)}

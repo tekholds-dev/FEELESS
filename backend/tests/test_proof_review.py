@@ -98,3 +98,9 @@ def test_a_today_date_called_future_is_overturned_by_code():
     v = pr.verdict_of(raw, '2026-11-10')
     assert v['score'] == 80 and 'overturned' in v['checks'][0] and v['checks'][1].startswith('✗')
     assert pr.verdict_of(raw)['score'] == 60   # without today nothing is overturned
+
+
+def test_the_bought_coins_read_comes_first_and_is_labelled():
+    f = {'id': 'w', 'status': 'closed', 'sym': 'DEMO', 'mint': 'M2', 'coins': [{'sym': 'COGE', 'mint': 'M1', 'read': 'coge read'}, {'sym': 'DEMO', 'mint': 'M2', 'read': 'demo read'}]}
+    reads = json.loads(pr.brief('pow', f, now=1794336000).split('\n', 1)[1])['evidence']['whatWasRead']
+    assert reads[0] == 'DEMO (BOUGHT): demo read' and reads[1].startswith('COGE: ')

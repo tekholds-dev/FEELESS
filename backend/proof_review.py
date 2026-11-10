@@ -9,7 +9,7 @@ import re
 import compare_gate as _cmp
 
 REVIEWERS = (('ossy', 'local/ossy', 'OSSY'), ('g4', 'local/g4', 'G4'))
-VERSION = 4   # v4: code overturns a "future" date on or before today · v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
+VERSION = 5   # v5: the bought coin's read first, each read labelled · v4: code overturns a "future" date on or before today · v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
 COMPARE_SINCE = 1794182400   # 2026-11-09 00:00 UTC: COL-13's 4-source rule; a proof filed before it was never asked for it
 PASS_AT = 60
 MAX_BRIEF = 6000
@@ -50,13 +50,13 @@ def _iso(t):
 def _evidence(kind, f):
     """The kind's own evidence, as the folder recorded it. Pure."""
     if kind == 'pow':
-        coins = [c for c in (f.get('coins') or []) if isinstance(c, dict)]
+        coins = sorted((c for c in (f.get('coins') or []) if isinstance(c, dict)), key=lambda c: c.get('mint') != f.get('mint'))   # the coin it bought first (2026-11-10: the brief showed the shortlist's first two, so a Democat buy was judged on $COGE's read)
         return {'coin': f.get('sym'), 'mint': f.get('mint'), 'entryPriceInSol': f.get('entry'), 'exitPriceInSol': f.get('exit'), 'entryPriceInUsd': f.get('entryUsd'),
                 'bought': _iso(f.get('boughtAt')), 'sold': _iso(f.get('soldAt')), 'exitReason': f.get('why'), 'takeProfitPct': f.get('tp'), 'stopPct': f.get('sl'),
                 'sizeSol': f.get('sol'), 'realMoney': bool(f.get('real')), 'mindsWhy': [str(x)[:200] for x in (f.get('whys') or {}).values()][:2],
                 'shortlist': [{k: c.get(k) for k in ('sym', 'liq', 'mc', 'ch', 'safe', 'risk', 'src') if c.get(k) is not None} for c in coins[:5]],
                 'shortlistChangeIs': 'the coin\'s 24h price change when it was listed, before the buy',
-                'droppedBySafety': len(f.get('dropped') or []), 'whatWasRead': [str(c.get('read'))[:450] for c in coins[:2] if c.get('read')]}
+                'droppedBySafety': len(f.get('dropped') or []), 'whatWasRead': [f"{c.get('sym') or '?'}{' (BOUGHT)' if c.get('mint') == f.get('mint') else ''}: {str(c.get('read'))[:450]}" for c in coins[:2] if c.get('read')]}
     if kind == 'poe':
         out = {k: f.get(k) for k in ('topic', 'income', 'costs', 'net', 'margin', 'months', 'count', 'burnPerMonth', 'taxPct', 'taxSetAside') if f.get(k) is not None}
         out['fieldsMean'] = 'income / costs / net = totals of every month; margin = net / income %; count = ledger entries (not months); burnPerMonth = average monthly costs; taxSetAside = net x taxPct'
