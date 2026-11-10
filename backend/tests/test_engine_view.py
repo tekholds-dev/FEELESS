@@ -26,3 +26,25 @@ def test_agt9_a_proofs_research_job_is_filed_in_jobs_with_its_kind():
     assert fs._job_tree({'id': 't2', 'pow': {'sym': 'X'}})['proof'] == 'pow' and fs._job_tree({'id': 't3', 'text': 'hi'})['proof'] is None
     src = open(fs.__file__).read()
     assert "if not t.get('pow') and not t.get('proofRead'):   # 🗂" not in src   # proofs' jobs are no longer dropped
+
+
+def test_col10_reviews_propose_kits_the_owner_approves_and_their_state_history_is_kept(tmp_path):
+    import method_kits as mk
+    import proof_review as pr
+    rv = lambda fail: {'review': {'by': {'ossy': {'checks': ['✓ a', '✗ b' if fail else '✓ b', '✓ c', '✓ d', '✓ e']}}}}
+    cats = [{'powFolders': [{'id': str(i), **rv(i < 4)} for i in range(5)]}]
+    rows = mk.proposals(cats, pr.RUBRIC)
+    assert [r['id'] for r in rows] == ['fix-pow-2'] and rows[0]['failRate'] == 0.8 and 'reason' in rows[0]['what']
+    ex = mk.approve(tmp_path, rows[0]); kit = mk.all_kits(ex)['fix-pow-2']
+    assert kit['permissions'] == ('read',) and kit['kinds'] == ('pow',) and kit['check']('pow', {**rv(False)}) and not kit['check']('pow', rv(True))
+    assert mk.proposals(cats, pr.RUBRIC, ex) == []                       # approved once, never proposed again
+    assert 'fix-pow-2' in mk.active_line('pow', {}, ex) and 'fix-pow-2' not in mk.active_line('pob', {}, ex)
+    moved = mk.log_changes(tmp_path, {'a': {'state': 'unmeasured'}}, {'a': {'state': 'quarantined'}})
+    assert moved and mk.history(tmp_path)[0] == {**moved[0]}
+
+
+def test_col24_asks_no_proof_covers_become_proposed_proof_types():
+    import proof_gaps as pg
+    jobs = [{'request': 'Research https://crawlnet.network give me a summary'}] * 3 + [{'request': 'buy this coin'}] * 5 + [{'request': 'summary of x', 'proof': 'pob'}] * 9
+    rows = pg.gaps([{'jobs': jobs}])
+    assert rows == [{'name': 'Proof of Summary', 'word': 'summary', 'asks': 3, 'examples': [jobs[0]['request']] * 3}]

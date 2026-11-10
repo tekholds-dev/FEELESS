@@ -667,3 +667,21 @@ test('⚡ SITE-2: heavy desk windows are fetched while idle and render without s
   expect(src).toMatch(/const FeaturesLazy = preLazy\(/); expect(src).toMatch(/useEffect\(\(\) => \{ prefetchDeskWindows\(\); \}, \[\]\);/);
   const { prefetchDeskWindows } = require('./CatWorkbench'); expect(() => prefetchDeskWindows()).not.toThrow();
 });
+
+test('🧪 COL-10/24: the Engines window lists what the Collective proposes; only the owner sees Approve, and it calls the server', async () => {
+  const { EngineFolder } = require('./EngineFolder');
+  const base = { reviewer: {}, kits: {}, reads: {}, methods: {}, routes: [] };
+  const props = can => ({ ...base, proposals: { kits: [{ id: 'fix-pow-2', kind: 'pow', check: 1, what: 'the reason is backed', failRate: 0.8, seen: 5 }], proofs: [{ name: 'Proof of Summary', word: 'summary', asks: 3, examples: ['x'] }], approved: [], history: [], canApprove: can } });
+  const calls = []; const work = jest.fn(async (_, b) => { calls.push(b); return b.op === 'kit_method_approve' ? { approved: [{ id: 'fix-pow-2', kind: 'pow' }] } : props(true); });
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => root.render(<EngineFolder cat={{ id: 'leader' }} work={work} />)); await act(async () => { await Promise.resolve(); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('eng-proposals').textContent).toContain('Proof of Summary');
+  await act(async () => { q('eng-approve-fix-pow-2').click(); });
+  expect(calls.at(-1)).toEqual({ op: 'kit_method_approve', text: 'fix-pow-2' }); expect(q('eng-said').textContent).toContain('fix-pow-2'); expect(q('eng-approve-fix-pow-2')).toBeNull();
+  act(() => root.unmount());
+  const el2 = document.createElement('div'); const root2 = createRoot(el2); const work2 = jest.fn(async () => props(false));
+  await act(async () => root2.render(<EngineFolder cat={{ id: 'c' }} work={work2} />)); await act(async () => { await Promise.resolve(); });
+  expect(el2.querySelector('[data-testid="eng-approve-fix-pow-2"]')).toBeNull(); expect(el2.textContent).toContain('80%');
+  act(() => root2.unmount());
+});

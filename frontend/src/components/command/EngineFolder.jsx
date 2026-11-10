@@ -7,7 +7,7 @@ const ago = t => (t ? `${Math.max(0, Math.round((Date.now() / 1000 - t) / 60))} 
 const usd = n => (n ? `$${n < 0.01 ? n.toFixed(4) : n.toFixed(2)}` : '$0');
 
 export function EngineFolder({ cat, work }) {
-  const [d, setD] = useState(null); const [err, setErr] = useState('');
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
   useEffect(() => {
     let on = true; const go = () => { if (document.hidden) return; Promise.resolve().then(() => work(cat.id, { op: 'engines' })).then(j => { if (on) { setD(j); setErr(''); } }).catch(e => on && setErr(e.message)); };
     go(); const t = setInterval(go, 15000); return () => { on = false; clearInterval(t); };
@@ -15,6 +15,8 @@ export function EngineFolder({ cat, work }) {
   if (!d) return <p className="dsk-note" data-testid="eng-wait">{err ? `⚠ ${err}` : 'Reading the engines…'}</p>;
   const rv = d.reviewer || {}; const kits = d.kits || {}; const rd = d.reads || {}; const mk = d.methods || {}; const top = Math.max(1, ...(d.routes || []).map(r => r.calls));
   const pct = rv.graded + rv.waiting ? rv.graded / (rv.graded + rv.waiting) : 0;
+  const pr = d.proposals || {};
+  const approve = async id => { setSaid(''); try { const j = await work(cat.id, { op: 'kit_method_approve', text: id }); setD(x => ({ ...x, proposals: { ...x.proposals, approved: j.approved, kits: (x.proposals?.kits || []).filter(r => r.id !== id) } })); setSaid(`Approved: every proof of its kind now follows ${id}`); } catch (e) { setSaid(e.message); } };
   return <div className="eng" data-testid="eng">
     <section className="eng-card m-card m-live" style={{ '--i': 0 }} data-testid="eng-reviewer"><h4><Ic3 e="🧑‍⚖️" /> REVIEWER <small>OSSY + G4 grade every closed proof · one every {rv.everyS}s · {rv.scope?.join(', ')}</small></h4>
       <div className="eng-hero"><b className="m-num" data-tip="Proofs graded at the current review version">{rv.graded}</b><small>graded</small><b className="m-num">{rv.waiting}</b><small>waiting</small><b className="m-num">{rv.passPct == null ? '—' : `${rv.passPct}%`}</b><small>pass</small></div>
@@ -28,6 +30,18 @@ export function EngineFolder({ cat, work }) {
         <li><span>PoB topic reads live</span><b className="m-num">{rd.topics} · {rd.topicReuses}× reused</b></li></ul></section>
     <section className="eng-card m-card" style={{ '--i': 3 }} data-testid="eng-methods"><h4><Ic3 e="🧰" /> METHOD KITS <small>followed vs skipped, settled from outside; quarantined when clearly worse</small></h4>
       <div className="eng-hero"><b className="m-num">{mk.active}</b><small>active</small><b className="m-num">{mk.unmeasured}</b><small>measuring</small><b className="m-num">{mk.quarantined}</b><small>quarantined</small></div></section>
+    <section className="eng-card m-card eng-wide" style={{ '--i': 4 }} data-testid="eng-proposals"><h4>🧪 THE COLLECTIVE PROPOSES <small>from its own reviews and the asks no proof covers; nothing changes until the owner says yes</small></h4>
+      <div className="eng-props">
+        <div><small className="m-label">METHOD KITS · checks OSSY + G4 keep failing</small>{(pr.kits || []).length ? <ul className="eng-list">{pr.kits.map(r => <li key={r.id} data-testid={`eng-prop-${r.id}`} data-tip={`${r.kind.toUpperCase()}: failed in ${Math.round(r.failRate * 100)}% of ${r.seen} reviewed proofs`}>
+          <span>{r.kind.toUpperCase()} · {r.what}</span><i className="eng-meter is-bad" aria-hidden="true"><u style={{ transform: `scaleX(${r.failRate})` }} /></i>
+          {pr.canApprove ? <button type="button" className="m-btn m-go" onClick={() => approve(r.id)} data-tip="Every proof of this kind is told to pass this check, and it is measured like the other kits" data-testid={`eng-approve-${r.id}`}>Approve</button> : <b className="m-num">{Math.round(r.failRate * 100)}%</b>}</li>)}</ul>
+          : <p className="dsk-note">None yet: a check must fail in 60%+ of 4+ reviewed proofs of a kind.</p>}</div>
+        <div><small className="m-label">NEW PROOF TYPES · asks no proof covers</small>{(pr.proofs || []).length ? <ul className="eng-list">{pr.proofs.map(g => <li key={g.word} data-tip={g.examples.join(' · ')}><span>{g.name}</span><b className="m-num">{g.asks} asks</b></li>)}</ul>
+          : <p className="dsk-note">None yet: the same kind of ask, 3+ times, with no proof for it.</p>}</div>
+        <div><small className="m-label">APPROVED · HISTORY</small><ul className="eng-list">{(pr.approved || []).map(a => <li key={a.id}><span>✓ {a.id}</span><b>{a.kind?.toUpperCase()}</b></li>)}
+          {(pr.history || []).slice(0, 5).map((h, i) => <li key={`h${i}`}><span>{h.kit}: {h.from || 'new'} → {h.to}</span><b className="m-num">{ago(h.at)}</b></li>)}
+          {!(pr.approved || []).length && !(pr.history || []).length ? <li><span>Nothing approved or moved yet</span><b>—</b></li> : null}</ul></div>
+      </div>{said ? <p className="dsk-note" role="status" data-testid="eng-said">{said}</p> : null}</section>
     <section className="eng-card m-card eng-wide" style={{ '--i': 4 }} data-testid="eng-routes"><h4><Ic3 e="🛰" /> MODEL ROUTES · LAST HOUR <small>who really answered, how fast, what it cost</small></h4>
       {(d.routes || []).length ? <ul className="eng-routes">{d.routes.map(r => <li key={r.route} data-tip={`${r.calls} calls · ${r.okPct}% ok · avg ${Math.round(r.avgMs / 100) / 10}s · ${usd(r.usd)}`}><span>{r.route}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${r.calls / top})` }} /></i><b className="m-num">{r.calls}</b><small className="m-num">{r.okPct}% · {Math.round(r.avgMs / 100) / 10}s · {usd(r.usd)}</small></li>)}</ul>
         : <p className="dsk-note">No model call in the last hour.</p>}</section>

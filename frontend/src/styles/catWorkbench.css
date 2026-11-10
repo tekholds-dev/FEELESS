@@ -722,6 +722,8 @@ body.theme-day .rvw b.rvw-pass { color: #0b7a3f; background: #e6f8ee; } body.the
 .eng-foot { font: 500 10px var(--f-mono); opacity: .6; }
 .eng-routes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .eng-routes li { display: grid; grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) 40px minmax(110px, auto); gap: 8px; align-items: center; min-height: 32px; font: 600 11px var(--f-tech); }
 .eng-routes li:hover { color: #45e486; } .eng-routes i { display: block; height: 8px; border-radius: 99px; background: #ffffff10; overflow: hidden; } .eng-routes b { font: 700 13px var(--f-mono); color: #45e486; text-align: right; } .eng-routes small { font: 500 10px var(--f-mono); opacity: .7; }
+.eng-props { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; } .eng-props > div { display: grid; align-content: start; gap: 6px; }
+.eng-props li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; } .eng-props li .eng-meter { grid-column: 1 / -1; } .eng-meter.is-bad u { background: linear-gradient(90deg, #6a1f2c, #ff8fa3); }
 @keyframes engIn { from { opacity: 0; transform: translateY(6px); } }
 body.fx-lite .eng-card { animation: none; } body.fx-lite :is(.eng-meter u, .eng-routes i u) { transition: none; }
 @media (prefers-reduced-motion: reduce) { .eng-card { animation: none; } :is(.eng-meter u, .eng-routes i u) { transition: none; } }

@@ -98,6 +98,7 @@ import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai /
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
+import proof_gaps as _gaps   # 🧭 COL-24: proof types the Collective proposes from real asks
 import engine_view as _engv   # 📡 AGT-12: what each engine does, live counts only
 import kit_fresh as _kfresh   # 🧰♻️ the kits' CDN versions, kept fresh daily (smoke-tested, rolled back if they break)
 import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
@@ -4254,6 +4255,20 @@ def _fit_line(cat, kind):
 
 
 _MKIT_STATE = {}   # 🧰 COL-10: the last measured state of each method kit (a quarantined kit stops being offered)
+_MKIT_EXTRA = {'at': -1, 'kits': {}}   # the owner-approved kits the reviews proposed (data/method_kits_extra.json), read once per change
+
+
+def _mkit_extra():
+    p_ = DATA_DIR / _mkits.EXTRA_FILE
+    at_ = p_.stat().st_mtime if p_.exists() else 0
+    if at_ != _MKIT_EXTRA['at']:
+        _MKIT_EXTRA.update(at=at_, kits=_mkits.load_extra(DATA_DIR))
+    return _MKIT_EXTRA['kits']
+
+
+def _mkit_set(new_):
+    """Store a measurement and log every kit whose state moved (the rollback history)."""
+    _mkits.log_changes(DATA_DIR, dict(_MKIT_STATE), new_); _MKIT_STATE.update(new_)
 
 
 def _recall(cat, category, text):
@@ -4261,7 +4276,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _mkits.active_line(kind_, _MKIT_STATE) + _review.lessons_line(_REVIEW_LESSONS.get(kind_) or []) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _mkits.active_line(kind_, _MKIT_STATE, _mkit_extra()) + _review.lessons_line(_REVIEW_LESSONS.get(kind_) or []) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -8975,6 +8990,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, str(e)[:120])
     if p.op == 'agents_now':   # 🖥 the desk's Working now
         return {'agents': _agents_now(store, cat)}
+    if p.op == 'kit_method_approve':   # 🧪 COL-10: the owner's yes on a kit the reviews proposed (on Fee, the creator only)
+        if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
+            raise HTTPException(403, 'Only the owner approves a method kit.')
+        row_ = next((r for r in _mkits.proposals(list(store['cats'].values()), _review.RUBRIC, _mkit_extra()) if r['id'] == str(p.text or '')), None)
+        if not row_:
+            raise HTTPException(400, 'No such proposal (it may be approved already).')
+        _mkits.approve(DATA_DIR, row_)
+        return {'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()]}
     if p.op == 'engines':   # 📡 AGT-12: every engine that runs on its own, live, counts only (no wallet, prompt or page)
         now_ = time.time(); lines_ = []
         try:
@@ -8986,12 +9009,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not _MKIT_STATE:   # measured only when Missions opened: after a restart the card read 0 / 0 / 0 (seen live 2026-11-10)
             try:
                 rows_m_ = _mission.all_of(cat, now_, lambda k, f: _proof_view(cat, k, f), _calls_of(cat_id), _pev_record())
-                _MKIT_STATE.update(_mkits.reliability(rows_m_, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}))
+                _mkit_set(_mkits.reliability(rows_m_, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}, _mkit_extra()))
             except Exception as e:   # noqa: BLE001
                 print(f'[engines] kits: {str(e)[:80]}')
         return {'at': round(now_), 'reviewer': _engv.reviewer(store['cats'].values(), _review.VERSION, lines_, REVIEW_EVERY_S, REVIEW_SCOPE),
                 'kits': {'checkedAt': kf_.get('checkedAt'), 'live': len(kf_['kits']), 'moved': sum(1 for k in kf_['kits'] if k.get('prev')), 'held': [r for r in kf_.get('log') or [] if not r.get('ok')][:3], 'everyH': round(_kfresh.CHECK_EVERY_S / 3600)},
-                'reads': _engv.reads(_READS, _TOPIC_READS, READ_FRESH_S, now_), 'methods': _engv.methods(_MKIT_STATE), 'routes': _engv.routes(lines_, now_)}
+                'reads': _engv.reads(_READS, _TOPIC_READS, READ_FRESH_S, now_), 'methods': _engv.methods(_MKIT_STATE), 'routes': _engv.routes(lines_, now_),
+                'proposals': {'kits': _mkits.proposals(list(store['cats'].values()), _review.RUBRIC, _mkit_extra()), 'proofs': _gaps.gaps(store['cats'].values()),
+                              'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()], 'history': _mkits.history(DATA_DIR),
+                              'canApprove': cat.get('id') == 'leader' and await _is_creator(_session_wallet(p.session or ''))}}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
         return {**_review.showcase(mine_), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR),
@@ -10167,7 +10193,7 @@ async def cat_paths(cat_id: str, ownerId: str = '', session: str = ''):
             order_ = []
         out.append({'kind': k, 'reads': [{'host': r.get('host'), 'name': r.get('name') or r.get('host'), 'why': r.get('why') or r.get('use') or ''} for r in order_[:6]],
                     'freshMin': round(READ_FRESH_S.get(k, 600) / 60), 'minds': _lc.minds_for(b_, k), 'ownMinds': bool((b_.get('byKind') or {}).get(k)), 'route': route_,
-                    'checks': checks.get(k, []), 'kits': [kid for kid, kt in _mkits.KITS.items() if k in kt['kinds'] and (_MKIT_STATE.get(kid) or {}).get('state') != 'quarantined'],
+                    'checks': checks.get(k, []), 'kits': [kid for kid, kt in _mkits.all_kits(_mkit_extra()).items() if k in kt['kinds'] and (_MKIT_STATE.get(kid) or {}).get('state') != 'quarantined'],
                     'prompt': bool((b_.get('promptBy') or {}).get(k)), 'persona': ((b_.get('personaBy') or {}).get(k) or {}).get('style')})
     return {'paths': out}
 
@@ -10193,7 +10219,7 @@ async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
     _owner_gate(store, cat, session, ownerId)
     rec = _pev_record()
     calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
-    kits_ = _mkits.reliability(rows, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}); _MKIT_STATE.update(kits_)
+    kits_ = _mkits.reliability(rows, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}, _mkit_extra()); _mkit_set(kits_)
     return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'methods': list(kits_.values()), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
 
 
