@@ -6249,27 +6249,6 @@ async def fuse_hq_admin_save(request: Request):
     return {'ok': True}
 
 
-@app.get('/api/reputation/admin/fuses/health')
-async def fuse_health(request: Request):
-    """Each published Fuse re-scored on live numbers vs a fresh champion of the same size."""
-    _require_admin(request)
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    raw = await _fuse_discover_pairs('solana')
-    cands = {}
-    for lens in _fuse.LENSES:
-        for r in _fuse.discover(raw, lens, 'solana', now_ms=time.time() * 1000, limit=12):
-            cands.setdefault(r['pairAddress'], r)
-    out = []
-    for fid, f in store['fuses'].items():
-        pairs = await _fuse_pairs(f['legs'])
-        metas = {k: _fuse.leg_meta(v) for k, v in pairs.items()}
-        if len(metas) < 2:
-            out.append({'id': fid, 'name': f.get('name'), 'dead': True}); continue
-        mine = _fuse.fitness(list(metas), metas)['fitness']
-        champ = await asyncio.to_thread(_fuse.evolve, {**dict(list(cands.items())[:40]), **metas}, len(metas), 10, 24, 'yield', 0.05, 150.0, 11, [list(metas)])
-        out.append({'id': fid, 'name': f.get('name'), 'emoji': f.get('emoji'), **_hq.health(mine, champ['champions'][0]['fitness'] if champ['champions'] else 0),
-                    'suggest': champ['champions'][0]['pools'] if champ['champions'] else []})
-    return {'fuses': out}
 
 
 async def _fuse_candidates(chain='solana'):
@@ -9662,24 +9641,6 @@ async def _familia_prices_load():
     _fcity.set_prices(_admin_load().get('familiaPrices'))
 
 
-@app.get('/api/reputation/admin/familia/rules')
-async def admin_familia_rules(request: Request):
-    """🏙 HQ › Familia control center: the rules (live + planned), what each one means, and the economy right now."""
-    _require_owner(request)
-    import crews as _cr
-    now = time.time(); st = _json_load(CREWS_PATH, {}); _cr._norm(st); w = st.get('world') or _fworld.blank(); r_ = _familia_rules()
-    _fworld.set_rules(r_)
-    crews_ = list((st.get('crews') or {}).values())
-    banks = [int(_fcity.city_of(o, now)['bank']) for o in crews_]
-    blocks = _fworld.block_ids(); own = _fworld.taken(w)
-    cities = [{'key': k, 'name': n, 'plots': sum(1 for b in blocks if _fworld.borough_of(b) in bs), 'held': sum(1 for b in blocks if _fworld.borough_of(b) in bs and b in own)}
-              for k, n, bs, _ in _fworld.CITIES]
-    raids = list((w.get('raids') or {}).values())
-    return {'rules': r_, 'live': list(_fworld.LIVE_RULES), 'range': _fworld.RULE_RANGE, 'prices': _fcity.price_rows(_bmk.ISLAND_MP),
-            'economy': {'families': len(crews_), 'members': sum(len(o.get('members') or []) for o in crews_), 'bankMp': sum(banks), 'topBankMp': max(banks or [0]),
-                        'houseMp': int(st.get('house') or 0), 'raidsLive': sum(1 for x in raids if x.get('status') == 'live'),
-                        'raids24h': sum(1 for x in raids if now - float(x.get('at') or x.get('startAt') or 0) < 86400), 'cities': cities},
-            'blockPrice': {b[0]: int(_fworld.BLOCK_MP * b[5]) for b in _fworld.BOROUGHS}}
 
 
 @app.post('/api/reputation/admin/familia/rules')
@@ -12120,14 +12081,6 @@ async def crew_badge(p: CrewBadge):
     return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True)}
 
 
-@app.get('/api/reputation/admin/familia/unlocks')
-async def admin_familia_unlocks(request: Request):
-    """🌹 Owner: every badge part with its default unlock line, the line in force (your overrides) and the metrics they can read."""
-    import crews as _cr
-    _require_owner(request); cfg = _crew_cfg()
-    return {'metrics': _cr.METRICS, 'parts': {part: [{'key': o, 'label': lab, 'default': {'metric': m, 'min': n}, 'now': dict(zip(('metric', 'min'), _cr.unlock_rule(part, o, cfg)))}
-                                                     for o, (lab, m, n) in opts.items()] for part, opts in _cr.PARTS.items()},
-            'badgeUsd': _crew_badge_usd(cfg), 'createUsd': _cr.price('create', cfg), 'packUsd': _cr.price('seats', cfg)}
 
 
 @app.post('/api/reputation/crews/leave')
@@ -17312,14 +17265,6 @@ def circle_profile_merge(prev: dict, edit: dict) -> dict:
     return {**prev, **{real: edit[k] for k, real in CIRCLE_PROFILE_KEYS.items() if k in edit}}
 
 
-@app.get('/api/reputation/admin/circle/profiles')
-async def circle_profiles(request: Request):
-    """Owner: every Circle wallet with its FEELESS profile (so it can be searched + edited from the creator wallet)."""
-    _require_owner(request)
-    ws = await _circle_wallets_live()
-    profs = _profiles_load()['profiles']
-    return {'wallets': [{'id': w.get('id'), 'address': w.get('address'), 'name': w.get('name'), 'blockchain': w.get('blockchain'),
-                         'profile': circle_profile_view(profs.get(w.get('address')) or {})} for w in ws]}
 
 
 @app.post('/api/reputation/admin/circle/profile')
@@ -17562,12 +17507,6 @@ async def fuse_wallet_cfg(request: Request):
     return {'cfg': cfg}
 
 
-@app.get('/api/reputation/admin/rpc')
-async def admin_rpc_status(request: Request):
-    """Owner only: the keeper's RPC lanes — provider domain, in quota or not, minutes until it resets. Never a URL or a key."""
-    _require_owner(request)
-    lanes = _rpc_quota_state()
-    return {'lanes': lanes, 'needsKey': not lanes or all(x['spent'] for x in lanes), 'slots': [{'slot': k, 'set': any(x['slot'] == k for x in lanes)} for k in _chain.LANE_KEYS]}
 
 
 @app.post('/api/reputation/admin/rpc')
@@ -19998,21 +19937,6 @@ async def admin_ai_prompts_set(request: Request):
     return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
 
 
-@app.get('/api/reputation/admin/ai/rig')
-async def admin_ai_rig(request: Request):
-    """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY and the load command that matches it."""
-    _require_owner(request)
-    import ai_rig as _rg
-    rig_ = _rig_apply()
-    models_ = {k_: _air.provider(os.environ, k_, _ai_cfg()).get('model') for k_ in _rg.KEYS}
-    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
-    live_ = {r_['key']: {'state': r_.get('state'), 'lastMs': r_.get('lastMs')} for r_ in v_.get('providers') or []}
-    lms_ = await _lms_states()
-    _brain_load()
-    set_ = _chat.get('settings') or {}
-    return {**_rg.view(rig_, models_, lms_), 'live': live_,
-            'chat': {'temp': set_.get('temp'), 'len': set_.get('len'), 'temps': list(_rg.CHAT_TEMPS), 'lens': _rg.CHAT_LENS}, 'reloading': sorted(_lms_reloading),
-            'presets': _rg.presets_view(_json_load(AI_PRESETS_PATH, {}))}
 
 
 @app.post('/api/reputation/admin/ai/rig/preset')
@@ -20083,16 +20007,6 @@ async def admin_ai_calls(request: Request):
     return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}, 'limits': lim_}
 
 
-@app.get('/api/reputation/admin/ai/activity')
-async def admin_ai_activity(request: Request):
-    """📜 Owner: one timeline of everything the models did — reads, proposals + your decisions, playground creations, background reads."""
-    _require_owner(request)
-    pr_ = (_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}
-    real_ = next((c_ for c_ in (pr_.get('cards') or {}).values() if (c_ or {}).get('real')), None) or {}
-    mv_ = next((v_ for v_ in (_json_load(OWNER_MOVES_PATH, {}) or {}).values() if isinstance(v_, dict)), {}).get('rows') or []
-    rv_ = ((_office_state() or {}).get('judge') or {}).get('reviews') or []
-    return {'items': _aic.activity(_ai['log'], _chat_props(), (_json_load(AI_PLAY_PATH, {}) or {}).get('items'), _local_lane, n=120, g4=_g4_state()['log'][-60:],
-                                   card=(real_.get('events') or [])[-40:], moves=mv_[-30:], reviews=rv_[-20:]), 'g4': _g4_view(), 'at': round(time.time(), 1)}
 
 
 @app.get('/api/reputation/admin/ai/learned')
@@ -20112,11 +20026,6 @@ async def admin_ai_learned(request: Request):
             'germYours': yours_, 'pending': pend_, 'size': _aim.size(mem_), 'at': round(now, 1)}
 
 
-@app.get('/api/reputation/admin/ai/playground')
-async def admin_ai_playground(request: Request):
-    """🧩 Owner: the code lab's proposals (newest first) + the parts of FEELESS a proposal may target."""
-    _require_owner(request)
-    return {'items': [x for x in (_json_load(AI_PLAY_PATH, {}) or {}).get('items') or [] if x.get('code')], 'targets': [[k, v[1], v[0]] for k, v in _play.TARGETS.items()]}   # the retired HTML playground's items have no code
 
 
 @app.post('/api/reputation/admin/ai/playground')
@@ -20612,15 +20521,6 @@ async def admin_ai_chat_remember(request: Request):
     return {'ok': True, 'learned': _chat_learned()}
 
 
-@app.get('/api/reputation/admin/ai/chat')
-async def admin_ai_chat_get(request: Request):
-    _require_owner(request)
-    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
-    live_ = next((r_ for r_ in v_.get('providers') or [] if r_.get('state') == 'ONLINE'), None)
-    _brain_load()
-    return {'history': _chat['th'].get('chat') or [], **_chat_extra(), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
-            'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')},
-            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')]}
 
 
 @app.post('/api/reputation/admin/ai/proposals/decide')
@@ -24197,21 +24097,6 @@ def _round_move(p, live):
     return round((now_px / entry - 1) * 100, 2) if now_px > 0 and entry > 0 else None
 
 
-@app.get('/api/reputation/admin/runners/funnel')
-async def admin_runner_funnel(request: Request):
-    """⚡ HQ › Engine, top of the screen: every coin the board sees right now against every gate — how many each gate stops, how
-    many it stops ALONE (its real cost), and what the coins it stopped earlier went on to do. Plus the real card's own pipeline."""
-    _require_admin(request)
-    rd = _json_load(RUNNERS_PATH, {})
-    now = time.time()
-    try:
-        regret = _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now)
-    except Exception:
-        regret = []
-    out = _rn.gate_funnel(list(_runner_cands), _runner_cfg(), regret)
-    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    real = next((c for c in cards.values() if c and c.get('real') and c.get('pipeline')), None)
-    return {**out, 'dial': rd.get('cfgDial') or 'custom', 'at': now, 'card': real and {'label': real.get('label') or real.get('tpl'), **real['pipeline']}}
 
 
 
@@ -24980,11 +24865,6 @@ async def pg_battles_set(request: Request, body: dict):
     return _pg_battle_view(_json_load(RUNNERS_PATH, {}))
 
 
-@app.get('/api/reputation/admin/runners/config')
-async def runners_cfg_get(request: Request):
-    _require_admin(request)
-    return {'cfg': _runner_cfg(), 'defaults': _rn.DEFAULT_CFG, 'ranges': _rn.CFG_RANGES, 'dial': _json_load(RUNNERS_PATH, {}).get('cfgDial') or 'custom',
-            'dials': {k: {'label': v['label'], 'why': v['why']} for k, v in _rn.ENGINE_DIALS.items()}, 'autoTune': _json_load(RUNNERS_PATH, {}).get('autoTune') is not False}
 
 
 @app.post('/api/reputation/admin/runners/config')
@@ -25160,15 +25040,6 @@ async def fuse_aura(request: Request, fid: str):
     return {'ok': True, 'aura': aura}
 
 
-@app.get('/api/reputation/admin/fuses/cards')
-async def fuse_cards_admin(request: Request):
-    """NFT tab: collection status + every published Fuse with its card, current holder (paid the cut) and owed amount."""
-    _require_admin(request)
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()])
-    pay = await asyncio.gather(*[_fuse_pay_to(f) for f in store['fuses'].values()])
-    rows = [{**v, 'card': store['fuses'][v['id']].get('card'), 'payTo': p} for v, p in zip(views, pay)]
-    return {'collection': store.get('cardCollection'), 'rows': rows, 'site': _site(request)}
 
 
 class FuseBuy(BaseModel):
@@ -25203,13 +25074,6 @@ async def fuse_buy(fid: str, payload: FuseBuy):
     return {'ok': True, 'counted': True}
 
 
-@app.get('/api/reputation/admin/fuses')
-async def admin_fuses(request: Request):
-    _require_admin(request)
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()])
-    pay = await asyncio.gather(*[_fuse_pay_to(store['fuses'][v['id']]) for v in views])
-    return {'fuses': [{**v, 'payTo': p, 'card': store['fuses'][v['id']].get('card')} for v, p in zip(views, pay)], 'maxCreatorBps': _house()['fuseCreatorMaxBps'], 'maxLegs': _fuse.MAX_LEGS}
 
 
 @app.post('/api/reputation/admin/fuses')
@@ -25305,12 +25169,6 @@ async def vault_pool_search(q: str = Query(..., min_length=2, max_length=60)):
     return {'pools': _fuse.mark_real(rows, q)}
 
 
-@app.get('/api/reputation/admin/vaults')
-async def admin_vaults(request: Request, deposit: float = Query(10.0, gt=0, le=100000)):
-    _require_admin(request)
-    d = _json_load(VAULTS_PATH, {'vaults': {}})
-    return {'vaults': await asyncio.gather(*[_vault_view(vid, v, deposit) for vid, v in d['vaults'].items()]), 'maxPools': _vault.MAX_POOLS,
-            'maxMgmtBps': VAULT_MAX_MGMT_BPS, 'maxPerfBps': VAULT_MAX_PERF_BPS, 'feeWallet': _fee_cfg().get('vaultFeeWallet') or ''}
 
 
 @app.post('/api/reputation/admin/vaults')
@@ -26008,22 +25866,6 @@ async def _token_holders(mint: str):
     return out
 
 
-@app.get('/api/reputation/admin/holders')
-async def admin_holders(request: Request, asset: str = 'fee'):
-    _require_admin(request)
-    mints = await _ecosystem_mints()
-    mint = mints.get(asset) or (asset if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', asset) else None)
-    if not mint:
-        raise HTTPException(404, 'Unknown asset.')
-    data = await _token_holders(mint)
-    d = _admin_load(); bl = _block_load()['wallets']
-    lp_like = set()
-    for r in data['rows'][:3]:
-        if r['pct'] > 20:
-            lp_like.add(r['owner'])  # bonding curve / pool vaults usually dominate the top
-    rows = [{**r, 'customBadges': list(d['badges'].get(r['owner'], {}).values()), 'blocked': _is_blocked(bl.get(r['owner'])),
-             'likelyPool': r['owner'] in lp_like, 'isAdmin': r['owner'] in _admin_wallets()} for r in data['rows'][:2000]]
-    return {**data, 'rows': rows, 'assets': list(mints.keys())}
 
 
 class AdminBadge(BaseModel):
@@ -26563,25 +26405,6 @@ async def familia_street_mod(city: str, p: StreetMod):
     return {'ok': True}
 
 
-@app.get('/api/reputation/admin/security/stores')
-async def admin_stores(request: Request):
-    """🗄 Every store under backend/data with its class, cap and state (ok · watch · over · stale snapshot · money kept whole). Read-only."""
-    import store_caps as _sc
-    _require_admin(request)
-    rows = []
-    for f in DATA_DIR.iterdir():
-        try:
-            if f.is_file():
-                st_ = f.stat(); rows.append((f.name, st_.st_size, st_.st_mtime))
-            elif f.is_dir():
-                size_, mt_ = 0, 0.0
-                for g in f.rglob('*'):
-                    if g.is_file():
-                        gs_ = g.stat(); size_ += gs_.st_size; mt_ = max(mt_, gs_.st_mtime)
-                rows.append((f.name + '/', size_, mt_))
-        except OSError:
-            continue
-    return _sc.audit(rows, time.time())
 
 
 _appr_hits = {}
@@ -26655,11 +26478,6 @@ async def admin_guard_decide(payload: GuardDecision, request: Request):
 GOLIVE_STEPS = ('adapter', 'twap', 'devnet', 'audit', 'multisig')
 
 
-@app.get('/api/reputation/admin/contract/golive')
-async def contract_golive(request: Request):
-    _require_admin(request)
-    g = _admin_load().get('golive') or {}
-    return {'steps': {k: g.get(k) or {} for k in GOLIVE_STEPS}, 'ready': all((g.get(k) or {}).get('done') for k in GOLIVE_STEPS)}
 
 
 @app.post('/api/reputation/admin/contract/golive')
@@ -27360,12 +27178,6 @@ async def _grow_rows():
     return rows_
 
 
-@app.get('/api/reputation/admin/grow')
-async def admin_grow(request: Request):
-    """💰 Owner: the money board. It reads and measures. It never picks and never moves money."""
-    _require_owner(request)
-    import grow_board as _gb
-    return {'rows': [_gb.view(r_) for r_ in await _grow_rows()], 'at': round(_GROW['at'])}
 
 
 @app.get('/api/reputation/admin/grow/detail')
@@ -27624,12 +27436,6 @@ class FeeCfg(BaseModel):
         return bool(v)
 
 
-@app.get('/api/reputation/admin/fuses/fees')
-async def admin_fuse_fees(request: Request):
-    """HQ › Fees: live $ from people fusing (Fuse card legs matched to the fee ledger by signature)."""
-    _require_admin(request)
-    rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
-    return _hq.fuse_fees(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows, time.time())
 
 
 @app.post('/api/reputation/admin/fees/prepay')
@@ -27644,14 +27450,6 @@ async def admin_fees_prepay(request: Request, body: dict):
     return {'prepay': pp}
 
 
-@app.get('/api/reputation/admin/fuses/fee-list')
-async def admin_fuse_fee_list(request: Request):
-    """HQ › Fuse › 💲 Fees: every card fee (buy · swap · sell · round packs) with totals — each row links its transaction."""
-    _require_admin(request)
-    rows = [r for v in _json_load(FEE_LEDGER_PATH, {}).values() for r in (v or [])]
-    cfg = _fee_cfg()
-    return {**_hq.fee_list(_json_load(FUSE_HQ_PATH, {}).get('positions') or [], rows), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': _rounds_cfg(), 'crews': {'createUsd': __import__('crews').price('create', cfg.get('crews')), 'packUsd': __import__('crews').price('seats', cfg.get('crews'))}, 'prepay': _hq.clean_prepay(cfg.get('prepay')),
-            'swapBps': int(cfg['platformFeeBps'] or 0), 'example': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), 3, 20, 10)}
 
 
 @app.post('/api/reputation/admin/fees/bundle')
@@ -27789,24 +27587,6 @@ async def admin_fees_house(request: Request, p: HouseFees):
 
 
 
-@app.get('/api/reputation/admin/fees/balances')
-async def admin_fee_balances(request: Request):
-    _require_admin(request)
-    referral = str(_fee_cfg().get('referralAccount') or '').strip()
-    if not referral:
-        return {'referralAccount': '', 'accounts': [], 'totalAccounts': 0}
-    accounts = []
-    async with httpx.AsyncClient(timeout=20) as http:
-        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
-            result = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
-            for row in (result or {}).get('value', []):
-                info = _parsed_info(row.get('account'))
-                amount = info.get('tokenAmount') or {}
-                if int(amount.get('amount') or 0) <= 0:
-                    continue
-                accounts.append({'tokenAccount': row.get('pubkey'), 'mint': info.get('mint'), 'amount': amount.get('uiAmountString') or '0', 'decimals': amount.get('decimals', 0), 'program': 'Token-2022' if program.startswith('Tokenz') else 'SPL Token'})
-    return {'referralAccount': referral, 'accounts': accounts, 'totalAccounts': len(accounts),
-            'note': 'Unclaimed on-chain referral-token balances. Claiming requires the referral authority wallet signature.'}
 
 
 JUP_ULTRA_REFERRAL_PROJECT = 'DkiqsTrw1u1bYFumumC7sCG2S8K25qc2vemJFHyW2wJc'
@@ -28782,24 +28562,6 @@ async def admin_broadcast(request: Request, payload: BroadcastIn):
     return {'ok': True, 'rooms': posted, 'pushed': sent, 'stale': gone}
 
 
-@app.get('/api/reputation/admin/treasury')
-async def admin_treasury(request: Request):
-    admin = _require_admin(request)
-    stats = await wallet_stats(admin) if not admin.startswith('0x') else {}
-    mints = await _ecosystem_mints()
-    held = {}
-    for aid, mint in mints.items():
-        try:
-            held[aid] = round(await _holding_usd(admin, mint), 2)
-        except Exception:
-            held[aid] = None
-    recent = []
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            recent = [{'sig': s['signature'], 'at': s.get('blockTime'), 'ok': not s.get('err')} for s in (await _rpc(http, 'getSignaturesForAddress', [admin, {'limit': 12}])) or []]
-    except Exception:
-        pass
-    return {'wallet': admin, 'sol': stats.get('sol'), 'holdingsUsd': held, 'recent': recent}
 
 
 # ---- Holder gate for EVM coin rooms ---------------------------------------------------------
@@ -30887,11 +30649,6 @@ async def admin_season_upsert(request: Request, p: SeasonPayload):
     return {'ok': True, 'id': sid}
 
 
-@app.get('/api/reputation/admin/seasons')
-async def admin_seasons(request: Request):
-    _require_admin(request)
-    d = _seasons()
-    return {'seasons': d['seasons'], 'players': {k: len(v) for k, v in d['scores'].items()}}
 
 
 # ================================================================================================
@@ -30919,11 +30676,6 @@ class RolePayload(BaseModel):
 grant_message = _hq_auth.grant_message
 
 
-@app.get('/api/reputation/admin/roles')
-async def admin_roles(request: Request):
-    me = _require_admin(request)
-    return {'owners': _owner_wallets(), 'grants': _granted(), 'youAreOwner': me in _owner_wallets(), 'roles': ROLE_NAMES,
-            'yourRole': _role_of(me), 'scopes': {k: sorted(v) for k, v in ROLE_SCOPES.items()}}
 
 
 @app.post('/api/reputation/admin/roles')
@@ -31508,11 +31260,6 @@ SETUP_KEYS = [
 ]
 
 
-@app.get('/api/reputation/admin/setup')
-async def admin_setup(request: Request):
-    _require_admin(request)
-    return {'keys': [{'key': k, 'name': n, 'why': w, 'required': req, 'set': bool(os.environ.get(k, '').strip())} for k, n, w, req in SETUP_KEYS],
-            'launchRail': bool(_json_load(LAUNCH_RAIL_PATH, {}).get('config')), 'owners': _owner_wallets()}
 
 
 # ---- Treasury routing: where FEELESS fee earnings go (addresses you control — never keys) --------
@@ -32515,13 +32262,6 @@ async def _reserve_plan(s, d, bal=None):
             'payout': (d.get('reservePayouts') or {}).get(s['id'])}
 
 
-@app.get('/api/reputation/admin/reserve/{sid}')
-async def admin_reserve_plan(request: Request, sid: str):
-    _require_admin(request)
-    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
-    if not s:
-        raise HTTPException(404, 'Season not found.')
-    return await _reserve_plan(s, d)
 
 
 class ReservePaid(BaseModel):
@@ -32831,13 +32571,6 @@ async def admin_badge_pool_delete(request: Request, pid: str):
     return {'ok': True}
 
 
-@app.get('/api/reputation/admin/badge-pools/{pid}/plan')
-async def admin_badge_pool_plan(request: Request, pid: str):
-    _require_admin(request)
-    pool = next((x for x in _pools()['pools'] if x['id'] == pid), None)
-    if not pool:
-        raise HTTPException(404, 'Pool not found.')
-    return await _pool_plan(pool)
 
 
 @app.post('/api/reputation/admin/badge-pools/{pid}/paid')
@@ -32972,12 +32705,6 @@ async def _code_health_loop():
 CH_QUEUE_TAG = '🧹 Remove '
 
 
-@app.get('/api/reputation/admin/perf/code-health')
-async def perf_code_health(request: Request):
-    """🧹 HQ › Lag catcher › Code health: the last scan (scripts/code-health.py · backend/code_health.py). Reads the cached file only."""
-    _require_admin(request)
-    queued_ = [i_.get('title', '')[len(CH_QUEUE_TAG):] for i_ in (_build_state().get('items') or []) if str(i_.get('title', '')).startswith(CH_QUEUE_TAG) and i_.get('status') in ('queued', 'building')]
-    return {**_json_load(CODE_HEALTH_PATH, {}), 'scanning': _code_health_busy['on'], 'queued': queued_}
 
 
 class ChQueue(BaseModel):
@@ -33011,17 +32738,6 @@ async def perf_code_health_scan(request: Request):
     return {'scanning': True}
 
 
-@app.get('/api/reputation/admin/perf')
-async def perf_admin(request: Request, hours: float = Query(1, ge=0.1, le=24)):
-    _require_admin(request)
-    since = time.time() - hours * 3600
-    import lag_advice as _la
-    summ = perf.summarize([s for s in _perf_samples if s['at'] >= since])
-    loop_ = _loop_lag.WATCH.view()
-    mach = await _machine_read()
-    fx_ = (summ.get('fx') or {}) if isinstance(summ.get('fx'), dict) else {}
-    return {**summ, 'forceLite': bool(_json_load(PERF_CFG_PATH, {}).get('forceLite')), 'hours': hours,
-            'advice': _la.advise(summ, loop_, mach), 'vitals': _la.vitals(summ, loop_, mach, fx_), 'machine': mach}
 
 
 _mach_cache = {'at': 0, 'v': {}}
@@ -33115,19 +32831,6 @@ def _fee_totals_heal():
     return fresh
 
 
-@app.get('/api/reputation/admin/fee-book')
-async def admin_fee_book(request: Request, format: str = ''):
-    """Every account's lifetime FEELESS fees, FeeBack earned, paid and still owed (CSV with ?format=csv)."""
-    _require_admin(request)
-    _fee_totals_heal()
-    rows = fee_report.fee_book(_json_load(FEE_TOTALS_PATH, {}), _json_load(FEEBACK_PAID_PATH, {}))
-    if format == 'csv':
-        from fastapi.responses import Response
-        cols = ['address', 'trades', 'volumeUsd', 'feeUsd', 'feeSol', 'feeUsdc', 'feeBackUsd', 'paidUsd', 'owedUsd', 'first', 'last']
-        body = ','.join(cols) + '\n' + '\n'.join(','.join(str(r.get(c, '')) for c in cols) for r in rows)
-        return Response(body, media_type='text/csv', headers={'Content-Disposition': 'attachment; filename=feeless-fee-book.csv'})
-    return {'accounts': len(rows), 'totalFeesUsd': round(sum(r['feeUsd'] for r in rows), 4), 'owedUsd': round(sum(r['owedUsd'] for r in rows), 4),
-            'feeBackPct': fee_report.FEEBACK_PCT, 'rows': rows[:500]}
 
 
 @app.get('/api/reputation/fee-report/{address}')
@@ -33894,19 +33597,6 @@ async def nft_drop(request: Request, cid: str, p: NftDropIn):
     return {'minted': len(ok), 'failed': bad}
 
 
-@app.get('/api/reputation/admin/nft/holders/{key:path}')
-async def nft_card_holders(request: Request, key: str):
-    """Wallets that hold a card (badge or season card): the natural drop list for that card's collection."""
-    _require_admin(request)
-    out = set()
-    if key.startswith('badge:'):
-        bid = key.split(':', 1)[1]
-        out |= {a for a, items in (_admin_load().get('badges') or {}).items() if bid in items}
-        out |= {a for a, (at, rec) in _badge_cache.items() if any(b.get('id') == bid for b in (rec or {}).get('badges', []))}
-    else:
-        out |= {a for a, items in _json_load(COLLECTION_PATH, {}).items() if any(_collection_card_key(it) == key for it in items)}
-    safe = _protected_wallets()
-    return {'key': key, 'wallets': sorted(a for a in out if _re.match(_B58, a) and a not in safe)[:nft_studio.MAX_DROP]}
 
 
 @app.get('/api/reputation/nft-meta/{name}')
@@ -33991,13 +33681,6 @@ async def _desk_start():
     asyncio.create_task(_desk_loop())
 
 
-@app.get('/api/reputation/admin/intel-desk')
-async def intel_desk_view(request: Request):
-    """Most wanted, crews, predicted next moves and the department's daily catch."""
-    _require_admin(request)
-    d = await _desk_get()
-    snap = {k: v for k, v in d['snap'].items() if k != 'index'}
-    return {**snap, 'history': _json_load(INTEL_DESK_PATH, {'history': []}).get('history', [])[-30:]}
 
 
 @app.post('/api/reputation/admin/intel-desk/sweep')
@@ -34007,15 +33690,6 @@ async def intel_desk_sweep(request: Request):
     return {'ok': True, 'totals': d['snap']['totals']}
 
 
-@app.get('/api/reputation/admin/intel-desk/actor/{address}')
-async def intel_desk_actor(request: Request, address: str):
-    _require_admin(request)
-    d = await _desk_get()
-    a = d['actors'].get(address)
-    if not a:
-        raise HTTPException(404, 'Not in the database (no strikes, no funding links, no bad launches).')
-    ring = next((r for r in d['rings'] if address in r['members']), None)
-    return {**intel_desk.public_actor(a, time.time()), 'fundedWallets': a['funded'][:50], 'mints': sorted(a['mints'])[:50], 'crew': ring}
 
 
 @app.get('/api/reputation/intel/check')
@@ -34622,5 +34296,65 @@ app.include_router(_rep_tools.router)   # 🧩 Q02: the first routes moved out o
 import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: read-only admin views
 app.include_router(_rep_admin_reads.router)
 admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
-for _n in ('admin_fuse_rules_get', 'admin_auto_yield_get', 'fuse_wallet_report', 'admin_providers', 'admin_ai_key_status', 'admin_ai_seat', 'admin_agent_slots', 'admin_colony', 'admin_ai_prompts', 'admin_agents_office', 'admin_agents', 'admin_agents_log', 'admin_runner_suggest', 'fuse_verdict', 'pg_sim_view', 'pg_battles_get', 'admin_quests', 'admin_defence', 'admin_stash', 'admin_py_agents', 'admin_collective', 'admin_fees_get', 'routes_get', 'circle_status', 'circle_wallets', 'perf_loop', 'admin_money_pulse', 'circle_destinations', 'circle_meta_get'):   # slice 3: the same names still answer here
-    globals()[_n] = getattr(_rep_admin_reads, _n)
+fuse_health = _rep_admin_reads.fuse_health
+admin_familia_rules = _rep_admin_reads.admin_familia_rules
+admin_familia_unlocks = _rep_admin_reads.admin_familia_unlocks
+circle_profiles = _rep_admin_reads.circle_profiles
+admin_rpc_status = _rep_admin_reads.admin_rpc_status
+admin_ai_rig = _rep_admin_reads.admin_ai_rig
+admin_ai_activity = _rep_admin_reads.admin_ai_activity
+admin_ai_playground = _rep_admin_reads.admin_ai_playground
+admin_ai_chat_get = _rep_admin_reads.admin_ai_chat_get
+admin_runner_funnel = _rep_admin_reads.admin_runner_funnel
+runners_cfg_get = _rep_admin_reads.runners_cfg_get
+fuse_cards_admin = _rep_admin_reads.fuse_cards_admin
+admin_fuses = _rep_admin_reads.admin_fuses
+admin_vaults = _rep_admin_reads.admin_vaults
+admin_holders = _rep_admin_reads.admin_holders
+admin_stores = _rep_admin_reads.admin_stores
+contract_golive = _rep_admin_reads.contract_golive
+admin_grow = _rep_admin_reads.admin_grow
+admin_fuse_fees = _rep_admin_reads.admin_fuse_fees
+admin_fuse_fee_list = _rep_admin_reads.admin_fuse_fee_list
+admin_fee_balances = _rep_admin_reads.admin_fee_balances
+admin_treasury = _rep_admin_reads.admin_treasury
+admin_seasons = _rep_admin_reads.admin_seasons
+admin_roles = _rep_admin_reads.admin_roles
+admin_setup = _rep_admin_reads.admin_setup
+admin_reserve_plan = _rep_admin_reads.admin_reserve_plan
+admin_badge_pool_plan = _rep_admin_reads.admin_badge_pool_plan
+perf_code_health = _rep_admin_reads.perf_code_health
+perf_admin = _rep_admin_reads.perf_admin
+admin_fee_book = _rep_admin_reads.admin_fee_book
+nft_card_holders = _rep_admin_reads.nft_card_holders
+intel_desk_view = _rep_admin_reads.intel_desk_view
+intel_desk_actor = _rep_admin_reads.intel_desk_actor
+admin_fuse_rules_get = _rep_admin_reads.admin_fuse_rules_get
+admin_auto_yield_get = _rep_admin_reads.admin_auto_yield_get
+fuse_wallet_report = _rep_admin_reads.fuse_wallet_report
+admin_providers = _rep_admin_reads.admin_providers
+admin_ai_key_status = _rep_admin_reads.admin_ai_key_status
+admin_ai_seat = _rep_admin_reads.admin_ai_seat
+admin_agent_slots = _rep_admin_reads.admin_agent_slots
+admin_colony = _rep_admin_reads.admin_colony
+admin_ai_prompts = _rep_admin_reads.admin_ai_prompts
+admin_agents_office = _rep_admin_reads.admin_agents_office
+admin_agents = _rep_admin_reads.admin_agents
+admin_agents_log = _rep_admin_reads.admin_agents_log
+admin_runner_suggest = _rep_admin_reads.admin_runner_suggest
+fuse_verdict = _rep_admin_reads.fuse_verdict
+pg_sim_view = _rep_admin_reads.pg_sim_view
+pg_battles_get = _rep_admin_reads.pg_battles_get
+admin_quests = _rep_admin_reads.admin_quests
+admin_defence = _rep_admin_reads.admin_defence
+admin_stash = _rep_admin_reads.admin_stash
+admin_py_agents = _rep_admin_reads.admin_py_agents
+admin_collective = _rep_admin_reads.admin_collective
+admin_fees_get = _rep_admin_reads.admin_fees_get
+routes_get = _rep_admin_reads.routes_get
+circle_status = _rep_admin_reads.circle_status
+circle_wallets = _rep_admin_reads.circle_wallets
+perf_loop = _rep_admin_reads.perf_loop
+admin_money_pulse = _rep_admin_reads.admin_money_pulse
+circle_destinations = _rep_admin_reads.circle_destinations
+circle_meta_get = _rep_admin_reads.circle_meta_get

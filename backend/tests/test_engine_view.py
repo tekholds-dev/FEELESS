@@ -49,3 +49,12 @@ def test_col24_asks_no_proof_covers_become_proposed_proof_types():
     jobs = [{'request': 'Research https://crawlnet.network give me a summary'}] * 3 + [{'request': 'buy this coin'}] * 5 + [{'request': 'summary of x', 'proof': 'pob'}] * 9
     rows = pg.gaps([{'jobs': jobs}])
     assert rows == [{'name': 'Proof of Summary', 'word': 'summary', 'asks': 3, 'examples': [jobs[0]['request']] * 3}]
+
+
+def test_the_trader_chat_knows_what_feeless_proofs_are():
+    """2026-11-10: asked what PoStatic is, G4 made up a staking answer and OSSY did not know: the chat prompt carried no FEELESS facts."""
+    import feecat_service as fs
+    sys_ = fs.TALK_SYS.format(name='OSSY', cat='x', calls='none', where=fs._know.WHERE)
+    for word in ('PoStatic = Proof of Static', 'PoEco = Proof of Eco', 'PoB = Proof of Bids', 'Proofing = filing a proof', 'never guess'):
+        assert word in sys_
+    assert len(sys_) < 1800 and fs._know.asks_about('whats a PoEco')     # short enough for a small local model

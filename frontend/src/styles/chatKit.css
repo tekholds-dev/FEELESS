@@ -32,3 +32,8 @@ body.fx-lite .ckit-box, body.fx-lite .ckit-tool.is-busy svg { animation: none; t
 body.theme-day .ckit-box { box-shadow: none; }
 body.theme-day .ckit-send.ckit-send { color: #fff; }
 @media (max-width: 640px) { .ckit-box { padding: 8px 8px 6px; border-radius: 16px; } .ckit-in.ckit-in { font-size: 16px; } }
+/* 🎙 AGT-6 the mic: a soft pulse ring while it listens (transform / opacity only), red-pink when the browser refused it */
+.ckit-mic.is-on { color: #45e486; position: relative; } .ckit-mic.is-on::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid #45e486; animation: ckitMic 1.2s ease-out infinite; pointer-events: none; }
+.ckit-mic.is-err { color: #ff8fa3; } @keyframes ckitMic { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+body.fx-lite .ckit-mic.is-on::after { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .ckit-mic.is-on::after { animation: none; opacity: .6; } }
+body.theme-day .ckit-mic.is-on { color: #0b7a3e; } body.theme-day .ckit-mic.is-on::after { border-color: #0b7a3e; }

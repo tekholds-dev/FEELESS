@@ -1,6 +1,6 @@
-import React, { useImperativeHandle, useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Popover, Surface, TextArea } from '@heroui/react';
-import { ArrowUp, Plus, Settings2, Square } from 'lucide-react';
+import { ArrowUp, Mic, Plus, Settings2, Square } from 'lucide-react';
 import '../../styles/chatKit.css';
 
 // 💬 THE chat composer (owner 2026-11-05): one box, built from HeroUI, for every chat on the site. Each chat passes its own tools and settings.
@@ -9,9 +9,32 @@ export function ChatComposer({ className = '', onSubmit, above = null, field, to
     {above}
     <Surface variant="secondary" className="ckit-box">
       <div className="ckit-field">{field}</div>
-      <div className="ckit-bar">{tools}<span className="ckit-grow" />{action}</div>
+      <div className="ckit-bar">{tools}<span className="ckit-grow" /><ChatMic />{action}</div>
     </Surface>
   </form>;
+}
+// 🎙 AGT-6 voice to text, in every chat (it lives in the composer): the browser's own speech recognition writes into the box as you talk;
+// tap again to stop. Shown only where the browser has it. The words go through the field's normal onChange, so each chat's state stays its own.
+const speechOf = () => (typeof window !== 'undefined' ? window.SpeechRecognition || window.webkitSpeechRecognition : null);
+export function typeInto(field, text) {
+  const set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(field), 'value')?.set; if (set) set.call(field, text); else field.value = text;
+  field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+export function ChatMic() {
+  const [on, setOn] = useState(false); const [err, setErr] = useState(''); const rec = useRef(null); const btn = useRef(null);
+  useEffect(() => () => { try { rec.current?.abort(); } catch { /* already stopped */ } }, []);
+  if (!speechOf()) return null;
+  const flip = () => {
+    if (on) { rec.current?.stop(); return; }
+    const field = btn.current?.closest('form')?.querySelector('textarea, input[type="text"], input:not([type])'); if (!field) return;
+    const R = speechOf(); const r = new R(); rec.current = r; r.continuous = true; r.interimResults = true; r.lang = navigator.language || 'en-US';
+    const base = field.value ? `${field.value.replace(/\s+$/, '')} ` : ''; setErr('');
+    r.onresult = e => { let said = ''; for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript; typeInto(field, base + said); };
+    r.onerror = e => setErr(e.error === 'not-allowed' ? 'Allow the microphone for this site to talk to it' : e.error === 'no-speech' ? '' : `Voice stopped: ${e.error}`);
+    r.onend = () => { setOn(false); field.focus(); };
+    try { r.start(); setOn(true); } catch { setOn(false); }
+  };
+  return <ChatTool ref={btn} className={`ckit-mic${on ? ' is-on' : ''}${err ? ' is-err' : ''}`} onPress={flip} aria-pressed={on} aria-label={on ? 'Stop listening' : 'Talk instead of typing'} data-tip={err || (on ? 'Listening. Tap to stop' : 'Talk instead of typing')} data-testid="ckit-mic"><Mic size={16} aria-hidden="true" /></ChatTool>;
 }
 const CAN_GROW = typeof CSS !== 'undefined' && CSS.supports?.('field-sizing', 'content');
 // Long text wraps and the box grows (up to its max, then it scrolls). Enter sends, Shift+Enter is a new line.
@@ -27,9 +50,9 @@ export const ChatInput = React.forwardRef(function ChatInput({ className = '', e
   };
   return <TextArea ref={el} rows={1} variant="primary" fullWidth className={`ckit-in ${className}`.trim()} value={value} onKeyDown={keys} {...props} />;
 });
-export function ChatTool({ className = '', children, ...props }) {
-  return <Button isIconOnly variant="ghost" size="sm" className={`ckit-tool ${className}`.trim()} {...props}>{children}</Button>;
-}
+export const ChatTool = React.forwardRef(function ChatTool({ className = '', children, ...props }, ref) {
+  return <Button ref={ref} isIconOnly variant="ghost" size="sm" className={`ckit-tool ${className}`.trim()} {...props}>{children}</Button>;
+});
 export function ChatAttach({ busy = false, ...props }) {
   return <ChatTool className={busy ? 'is-busy' : ''} {...props}><Plus size={17} aria-hidden="true" /></ChatTool>;
 }

@@ -6870,7 +6870,8 @@ TALK_S = 90
 _TALK_RUN: set = set()   # held so a reply task is never garbage-collected mid-call
 _TALK_DONE: list = []   # 💬 replies are filed by the engine pass (the store's one writer)
 TALK_SYS = ("You are {name}, one of {cat}'s two trading minds on FEELESS, a Solana trading terminal. Your owner is talking with you in your chat. "
-            "Answer in your own voice, plainly, in at most 3 short sentences. Chat never places a trade: buys and sells only happen in your own calls. Your last calls: {calls}")
+            "Answer in your own voice, plainly, in at most 3 short sentences. Chat never places a trade: buys and sells only happen in your own calls. Your last calls: {calls}\n"
+            "{where}\nAsked about FEELESS or its proofs, answer ONLY from the facts above. If it is not there, say you do not know: never guess what a FEELESS word means.")   # 2026-11-10: asked what PoStatic is, G4 made up "a validator locks up funds" and OSSY said it did not know
 
 
 def talk_targets(b, to):
@@ -6891,7 +6892,7 @@ async def _talk_reply(cat, i, text):
     calls = '; '.join(f"{x.get('word')} ${x.get('sym')}" for x in (b.get('decisions') or []) if short in str(x.get('by') or ''))[-300:] or 'none yet'
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
     try:
-        out, usd, via = await asyncio.wait_for(_think(cat, model, [{'role': 'system', 'content': TALK_SYS.format(name=name, cat=cat.get('name') or 'its agent', calls=calls)},
+        out, usd, via = await asyncio.wait_for(_think(cat, model, [{'role': 'system', 'content': TALK_SYS.format(name=name, cat=cat.get('name') or 'its agent', calls=calls, where=_know.WHERE)},
                                                                {'role': 'user', 'content': text}], own_, None, 260), TALK_S)
     except Exception as e:   # noqa: BLE001 — a mind that does not answer says so in the chat
         out, usd, via = '', 0.0, ''

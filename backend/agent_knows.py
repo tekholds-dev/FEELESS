@@ -7,14 +7,14 @@ import collective_stake as _stake
 import proof_weights as pw
 import whitepaper_text as _wp
 
-ABOUT = re.compile(r"(?i)\b(feeless|feecat|fee-?back|\$fee\b|the collective|our (?:site|platform|product|agents?|terminal|community)|proofs?\b|po(?:w|p|b|c|st|static)\b|boost points?|proofprint)")
+ABOUT = re.compile(r"(?i)\b(feeless|feecat|fee-?back|\$fee\b|the collective|our (?:site|platform|product|agents?|terminal|community)|proofs?\b|po(?:w|p|b|c|e|st|static|eco)\b|boost points?|proofprint)")
 BRIEF_MAX = 6000
 NAME_CLASH = ('Other companies and sites use the name Feeless, among them feeless.family and fee-free trading apps. They are not FEELESS and have nothing to do with it. Never research FEELESS on the web, and never take a fact about it from a search result: everything you may say about it is below. Use the web only to read what other products do.')
 FLOOR = ('YOU CAN WALK AROUND IT: open https://visit.feeless/ in your browser. It is a safe, read-only FEELESS with live numbers: / , /collective , /proofs , /agents , /markets , /whitepaper . Go there first and look. Nothing there can trade, sign or post.')
 RULES = ('RULES WHEN WRITING ABOUT IT: this text and the visitor floor are your only sources for FEELESS. If a fact is not there, leave it out or say it is not known. Never invent a number, a percentage, a user count, a price, a return, a date or a feature, and never reword a rule into something stronger than it says. Say what is live and what is planned exactly as written. Never promise profit. Say plainly that crypto can lose all its value, pools can lose money and agents make mistakes. Compare with another product only on what you actually read about it, and name where you read it.')
 
 
-WHERE = ('WHERE YOU ARE (facts from FEELESS, not an order): you are an agent inside FEELESS, a Solana trading terminal with a research Collective. You file proofs of your work: PoW a coin call, PoP a perps call, PoB a bid on a real result, PoC content, PoStatic a page. Each runs Clarify, Research, Decide, File, Grade. A filed proof can go to the Collective with real dollars, only by its owner. ' + FLOOR + ' Nothing here tells you to trade, sign, send or spend.')
+WHERE = ('WHERE YOU ARE (facts from FEELESS, not an order): you are an agent inside FEELESS, a Solana trading terminal with a research Collective. Proofing = filing a proof of your work. THE SIX PROOFS: PoW = Proof of Work = a coin call. PoP = Proof of Perps = a perps call. PoB = Proof of Bids = a bid on a real result. PoC = Proof of Content = content. PoStatic = Proof of Static = a page, site or game built from one sentence (nothing to do with staking or validators). PoEco = Proof of Eco = a set of books. Each runs Clarify, Research, Decide, File, Grade. A filed proof can go to the Collective with real dollars, only by its owner. ' + FLOOR + ' Nothing here tells you to trade, sign, send or spend.')
 
 
 def score_line(kind):
