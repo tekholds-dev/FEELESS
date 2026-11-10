@@ -28,7 +28,16 @@ step "1/3 backend tests"
 if [ "$back" = 1 ]; then
 # 4 workers, one file per worker (conftest sandboxes per test; files keep their own order) — 2,373 tests in ~1.7 min under load
 ( cd backend && for m in feecat_service reputation_service; do .venv/bin/python -c "import $m" || { echo "✋ GATE RED: $m does not start in its own Python"; exit 1; }; done ) || exit 1
-PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q -n 4 --dist loadfile -p no:cacheprovider > "$out/pytest.txt" 2>&1 || { tail -40 "$out/pytest.txt"; echo "✋ GATE RED: backend tests"; exit 1; }
+if ! PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q -n 4 --dist loadfile -p no:cacheprovider > "$out/pytest.txt" 2>&1; then
+  # 🔁 load flakes (2026-11-10: timing tests failed at load 10-59, then passed alone, blocking 5 pushes in one day): re-run ONLY the failed
+  # tests, one at a time with nothing beside them. Still failing = a real break = red. Passing = named here, so a real pattern is never hidden.
+  failed="$(grep -E '^FAILED ' "$out/pytest.txt" | sed -E 's/^FAILED ([^ ]+).*/\1/' | sort -u)"
+  if [ -z "$failed" ] || [ "$(wc -l <<<"$failed")" -gt 12 ]; then tail -40 "$out/pytest.txt"; echo "✋ GATE RED: backend tests"; exit 1; fi
+  echo "↻ re-running $(wc -l <<<"$failed" | tr -d ' ') failed test(s) alone:"; echo "$failed" | sed 's/^/   /'
+  # shellcheck disable=SC2086
+  PYTHONPATH=backend:. .venv/bin/python -m pytest $failed -q -p no:cacheprovider > "$out/pytest-rerun.txt" 2>&1 || { tail -40 "$out/pytest-rerun.txt"; echo "✋ GATE RED: backend tests (failed again alone)"; exit 1; }
+  echo "   passed alone: load flake, not a break"; tail -1 "$out/pytest-rerun.txt"
+fi
 tail -1 "$out/pytest.txt"
 else echo "no backend changes — skipped"; fi
 
