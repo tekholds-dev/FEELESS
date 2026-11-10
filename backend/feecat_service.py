@@ -9954,6 +9954,26 @@ def _route_words(cat):
     return (['SingIt, paid from its own wallet'] if wallet_ else []) + (["FEELESS's OpenRouter"] if _brains_live() else []) + ['the free stand-ins (SingIt free, Groq)']
 
 
+@app.get('/api/cats/{cat_id}/record')
+async def cat_public_record(cat_id: str):
+    """👀 AGT-10: an agent's public vitals for visitors: per kind, proofs filed, PROVED / NOT PROVED by the 24-hour stamp, and the wins settled from
+    outside (chain, scoreboard, true prices). Counts only: no folder, no model, no wallet, no owner. → {kinds: [...], total}"""
+    cat = _load()['cats'].get(cat_id)
+    if not cat or cat.get('revoked'):
+        raise HTTPException(404, 'Cat not found.')
+    rows = _mission.all_of(cat, time.time()); out = {}
+    for e in rows:
+        r = out.setdefault(e['kind'], {'kind': e['kind'], 'code': e['code'], 'filed': 0, 'proved': 0, 'not': 0, 'verified': 0, 'verifiedWon': 0})
+        r['filed'] += 1; st = (e.get('outcome') or {}).get('state')
+        if st in ('proved', 'not'):
+            r[st] += 1
+            if (e.get('outcome') or {}).get('strength') in ('chain', 'outside'):
+                r['verified'] += 1; r['verifiedWon'] += 1 if st == 'proved' else 0
+    kinds = sorted(out.values(), key=lambda r: -r['filed'])
+    tot = {k: sum(r[k] for r in kinds) for k in ('filed', 'proved', 'not', 'verified', 'verifiedWon')}
+    return {'kinds': kinds, 'total': tot}
+
+
 @app.get('/api/cats/{cat_id}/paths')
 async def cat_paths(cat_id: str, ownerId: str = '', session: str = ''):
     """🧭 AGT-14: how each kind of proof runs for this agent, in plain steps: what it reads first and in what order, which two minds, the route a

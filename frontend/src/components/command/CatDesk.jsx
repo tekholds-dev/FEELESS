@@ -139,6 +139,20 @@ export function ModelVitals({ cat }) {
   </section>;
 }
 
+// 👀 AGT-10: what a visitor sees above the two monitors: its proofs per kind, proved by the 24-hour stamp, and the wins settled from outside.
+// Public counts only (no folder, model, wallet or owner). One row, no scroll.
+export function PublicVitals({ cat }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/record`)).then(r => (r.ok ? r.json() : null)).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
+  if (!d?.kinds?.length) return null; const t = d.total; const rate = t.proved + t.not ? Math.round((100 * t.proved) / (t.proved + t.not)) : null;
+  return <div className="kd-pv" data-testid="kd-public-vitals">
+    <span className="kd-pv-hero" data-tip="Proofs the 24-hour stamp settled: PROVED out of PROVED + NOT PROVED"><b className="m-num">{rate == null ? '—' : `${rate}%`}</b><small>PROVED · {t.filed} proofs</small></span>
+    {d.kinds.map((k, i) => { const n = k.proved + k.not; return <span key={k.kind} className="kd-pv-k" style={{ '--i': i, '--p': n ? k.proved / n : 0 }} data-tip={`${k.code}: ${k.filed} filed · ${k.proved} proved · ${k.not} not proved${k.verified ? ` · ${k.verifiedWon} of ${k.verified} settled from outside` : ''}`}>
+      <i aria-hidden="true" /><b>{k.code}</b><small className="m-num">{n ? `${k.proved}/${n}` : `${k.filed} filed`}</small></span>; })}
+    {t.verified ? <span className="kd-pv-out" data-tip="Settled by the chain, a scoreboard or true prices: not by its owner"><b className="m-num">{t.verifiedWon}/{t.verified}</b><small>won, settled from outside</small></span> : null}
+  </div>;
+}
+
 // 🧭 AGT-14: how each kind of proof runs for this agent, in plain steps, read from the live config (owner 2026-11-06: "explain proof paths simply")
 export function ProofPaths({ cat }) {
   const [d, setD] = useState(null); const [k, setK] = useState('pow'); const [err, setErr] = useState('');
@@ -333,6 +347,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {tabbed ? null : tiles}
+    {visitor ? <PublicVitals cat={cat} /> : null}
     {!on('desk') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
     {visitor || tabbed ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}

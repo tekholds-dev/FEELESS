@@ -146,3 +146,14 @@ test('🧭 how its proofs run: plain steps per kind from the live settings (AGT-
   expect(t).toContain('its own prompt · analyst voice'); expect(t).toContain('method kits: plan-first');
   act(() => root.unmount());
 });
+
+test('👀 a visitor sees public vitals only: the proved rate, a ring per kind, outside-settled wins (AGT-10)', async () => {
+  const { PublicVitals } = require('./CatDesk');
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ kinds: [{ kind: 'pob', code: 'PoB', filed: 12, proved: 5, not: 3, verified: 8, verifiedWon: 5 }], total: { filed: 99, proved: 27, not: 26, verified: 15, verifiedWon: 6 } }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PublicVitals cat={{ id: 'c1' }} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(globalThis.fetch.mock.calls[0][0]).toContain('/api/cats/c1/record'); const t = el.textContent;
+  expect(t).toContain('51%'); expect(t).toContain('99 proofs'); expect(t).toContain('PoB5/8'); expect(t).toContain('6/15');
+  act(() => root.unmount());
+});
+

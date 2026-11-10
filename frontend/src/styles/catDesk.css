@@ -207,3 +207,13 @@ body.theme-day .kd-mv-earn li small, body.theme-day .kd-mv-dis { color: #4b6457;
 .kd-path-steps b { font: 800 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: #9db4a6; } .kd-path-steps span { font: 600 12.5px/1.4 var(--f-ui); } .kd-path-steps small { font: 500 10.5px var(--f-ui); color: #9db4a6; }
 body.fx-lite .kd-path-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-path-steps li { animation: none; } }
 body.theme-day .kd-path-steps li { background: #f5f8f6; border-color: #00000012; } body.theme-day :is(.kd-path-steps b, .kd-path-steps small) { color: #4b6457; }
+/* 👀 AGT-10 visitor vitals (PublicVitals): one row over the monitors — the proved rate, a ring per kind, wins settled from outside */
+.kd-pv { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--kd-acc, #45e486) 35%, transparent); background: linear-gradient(110deg, #0b1410e6, #070a0ccc); box-shadow: inset 0 1px 0 #ffffff12; }
+.kd-pv-hero { display: grid; } .kd-pv-hero b { font-size: 22px; color: var(--kd-acc, #45e486); text-shadow: 0 0 14px color-mix(in srgb, var(--kd-acc, #45e486) 45%, transparent); } .kd-pv-hero small, .kd-pv-out small { font: 700 9px var(--f-mono); letter-spacing: .1em; color: #9db4a6; }
+.kd-pv-k { display: inline-grid; grid-template-columns: 22px auto; grid-template-rows: auto auto; column-gap: 6px; align-items: center; animation: kdMvIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.kd-pv-k i { grid-row: span 2; width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(var(--kd-acc, #45e486) calc(var(--p) * 360deg), #ffffff1a 0); -webkit-mask: radial-gradient(circle, transparent 6px, #000 7px); mask: radial-gradient(circle, transparent 6px, #000 7px); }
+.kd-pv-k b { font: 700 11px var(--f-tech); } .kd-pv-k small { font: 600 10px var(--f-mono); color: #9db4a6; }
+.kd-pv-out { display: grid; margin-left: auto; text-align: right; } .kd-pv-out b { font-size: 14px; }
+body.fx-lite .kd-pv-k { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-pv-k { animation: none; } }
+body.theme-day .kd-pv { background: #ffffffe6; } body.theme-day :is(.kd-pv-hero small, .kd-pv-out small, .kd-pv-k small) { color: #4b6457; }
+@media (max-width: 640px) { .kd-pv { gap: 6px 10px; } .kd-pv-out { margin-left: 0; text-align: left; } }
