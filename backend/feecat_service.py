@@ -98,6 +98,7 @@ import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai /
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
+import kit_fresh as _kfresh   # 🧰♻️ the kits' CDN versions, kept fresh daily (smoke-tested, rolled back if they break)
 import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
 import proof_review as _review   # 🧑‍⚖️ OSSY and G4 review every filed proof (owner 2026-11-10)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
@@ -5841,6 +5842,33 @@ async def _review_loop():
         await asyncio.sleep(REVIEW_EVERY_S)
 
 
+async def _kit_fresh_loop():
+    """🧰♻️ Saved pins first (so a restart never goes back to stale), then once a day: npm → smoke test in a headless browser → move or roll back."""
+    try:
+        n_ = _kfresh.apply(_kits.KIT_USE, _kfresh.load(KITS_DIR))
+        print(f'[kits] fresh pins applied: {n_}')
+    except Exception as e:   # noqa: BLE001
+        print(f'[kits] apply: {str(e)[:100]}')
+    await asyncio.sleep(120)
+    while True:
+        try:
+            if time.time() - float(_kfresh.load(KITS_DIR).get('checkedAt') or 0) >= _kfresh.CHECK_EVERY_S:
+                ch_ = _fb.chromium_path()
+                async def smoke_(html, expr): return await asyncio.wait_for(_kfresh.browser_smoke(ch_, html, expr), 60)
+                async with httpx.AsyncClient(timeout=20) as h_:
+                    rows_ = await _kfresh.run(h_, _kits.KIT_USE, KITS_DIR, smoke_)
+                print(f'[kits] fresh pass: {[(r["kit"], r["from"], r["to"], r["ok"]) for r in rows_]}')
+        except Exception as e:   # noqa: BLE001: a failed pass changes nothing
+            print(f'[kits] fresh: {type(e).__name__}: {str(e)[:100]}')
+        await asyncio.sleep(3600)
+
+
+@app.on_event('startup')
+async def _start_kit_fresh():
+    if os.environ.get('FEELESS_KIT_FRESH', '1') != '0':
+        asyncio.create_task(_kit_fresh_loop())
+
+
 @app.on_event('startup')
 async def _start_review():
     if os.environ.get('FEELESS_REVIEW', '1') != '0':
@@ -9028,7 +9056,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
         rec_ = await asyncio.to_thread(_kit_record, store); view_ = [{**k, 'record': rec_.get(k['id']) or {'used': 0, 'won': 0, 'lost': 0}, 'quality': _kits.quality(rec_.get(k['id']))} for k in _kits.catalog_view(KITS_DIR)]
         by_ = {k: dict(zip(('mode', 'picks'), _kits.picks_of(b_, k))) for k in _kits.KINDS}; now_k_ = by_.get(p.to) or by_['pos']
-        return {'kits': view_, 'skillsOff': b_.get('kitSkillsOff') or {}, 'by': by_, 'picks': now_k_['picks'], 'mode': now_k_['mode'], 'max': _kits.MAX_PICKS, 'recs': {k: _kits.recommend(view_, k, record=rec_) for k in _kits.KINDS}, 'stacks': _proof_kits.STACKS}
+        return {'kits': view_, 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR), 'skillsOff': b_.get('kitSkillsOff') or {}, 'by': by_, 'picks': now_k_['picks'], 'mode': now_k_['mode'], 'max': _kits.MAX_PICKS, 'recs': {k: _kits.recommend(view_, k, record=rec_) for k in _kits.KINDS}, 'stacks': _proof_kits.STACKS}
     if p.op in ('kit_catalog', 'kit_add', 'kit_drop', 'kit_read', 'kit_edit', 'kit_scout', 'kit_approve', 'kit_reject', 'kit_ask'):   # 🧰 the library: the owner only, on Fee
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner changes the kit library.')
@@ -9043,7 +9071,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 _kits.reject(KITS_DIR, str(p.text or ''))
             elif p.op == 'kit_ask':   # 🧠 OSSY and G4 search and rate now instead of waiting for the daily pass. Free, on his own machines
                 said_ = await _kit_minds_pass()
-                return {'said': said_, 'catalog': _kits.CATALOG, 'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'proposed': _kits.proposed_rows(KITS_DIR)}
+                return {'said': said_, 'catalog': _kits.CATALOG, 'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'proposed': _kits.proposed_rows(KITS_DIR), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR)}
             elif p.op == 'kit_add':
                 async with httpx.AsyncClient() as h_:
                     await _kits.add(h_, KITS_DIR, str(p.text or ''))
@@ -9055,7 +9083,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 return {'text': (_kits.load(KITS_DIR, str(p.text or '')) or {}).get('text') or ''}
         except (ValueError, httpx.HTTPError) as e:
             raise HTTPException(400, str(e)[:160])
-        return {'catalog': _kits.CATALOG, 'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'proposed': _kits.proposed_rows(KITS_DIR)}
+        return {'catalog': _kits.CATALOG, 'kits': [_kits.view(k) for k in _kits.rows(KITS_DIR)], 'proposed': _kits.proposed_rows(KITS_DIR), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR)}
     if p.op in ('card_link', 'card_drop'):   # 💳 no money moves here
         try:
             link_ = card_link(cat, str(p.text or ''), p.job, time.time()) if p.op == 'card_link' else cat.pop('cardLink', None) and None

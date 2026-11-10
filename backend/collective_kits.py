@@ -37,6 +37,15 @@ CATALOG = {
     'fabric': {'name': 'Fabric.js', 'what': 'A full canvas photo and design editor', 'cat': 'Image editing', 'url': 'https://unpkg.com/fabric/README.md', 'site': 'https://fabricjs.com', 'license': 'MIT', 'kinds': ['poc', 'pos']},
     'chartjs': {'name': 'Chart.js', 'what': 'Simple good looking charts', 'cat': 'Charts', 'url': 'https://unpkg.com/chart.js/README.md', 'site': 'https://www.chartjs.org', 'license': 'MIT', 'kinds': ['pos', 'pob', 'pop', 'poc']},
     'mermaid': {'name': 'Mermaid', 'what': 'Diagrams and flows from text', 'cat': 'Charts', 'url': 'https://unpkg.com/mermaid/README.md', 'site': 'https://mermaid.js.org', 'license': 'MIT', 'kinds': ['pos', 'poc', 'pob']},
+    'phaser': {'name': 'Phaser', 'what': 'A full 2D game engine', 'cat': 'Games', 'url': 'https://unpkg.com/phaser/README.md', 'site': 'https://phaser.io', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'matter': {'name': 'Matter.js', 'what': 'Real 2D physics', 'cat': 'Games', 'url': 'https://unpkg.com/matter-js/README.md', 'site': 'https://brm.io/matter-js', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'howler': {'name': 'Howler', 'what': 'Game and page sound', 'cat': 'Sound', 'url': 'https://unpkg.com/howler/README.md', 'site': 'https://howlerjs.com', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'tone': {'name': 'Tone.js', 'what': 'Music and synths made in the page', 'cat': 'Sound', 'url': 'https://unpkg.com/tone/README.md', 'site': 'https://tonejs.github.io', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'anime': {'name': 'Anime.js', 'what': 'Light timeline animation', 'cat': 'Animation', 'url': 'https://unpkg.com/animejs/README.md', 'site': 'https://animejs.com', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'particles': {'name': 'tsParticles', 'what': 'Particles, confetti, fireworks', 'cat': 'Graphics', 'url': 'https://unpkg.com/@tsparticles/slim/README.md', 'site': 'https://particles.js.org', 'license': 'MIT', 'kinds': ['pos', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'marked': {'name': 'Marked', 'what': 'Markdown to a clean page', 'cat': 'Content', 'url': 'https://unpkg.com/marked/README.md', 'site': 'https://marked.js.org', 'license': 'MIT', 'kinds': ['poc', 'pos']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'tabulator': {'name': 'Tabulator', 'what': 'Sortable, filterable data tables', 'cat': 'Data', 'url': 'https://unpkg.com/tabulator-tables/README.md', 'site': 'https://tabulator.info', 'license': 'MIT', 'kinds': ['pos', 'pow', 'pop', 'pob', 'poc']},   # 🧰 added 2026-11-10 (CDN file checked live)
+    'leaflet': {'name': 'Leaflet', 'what': 'Real maps with markers', 'cat': 'Maps', 'url': 'https://unpkg.com/leaflet/README.md', 'site': 'https://leafletjs.com', 'license': 'BSD-2-Clause', 'kinds': ['pos', 'poc', 'pob']},   # 🧰 added 2026-11-10 (CDN file checked live)
 }
 # What each outside kit is for: task, skills and an ask that uses it.
 USES = {
@@ -50,7 +59,16 @@ USES = {
     'remotion': ('Video', ['video', 'motion graphics'], 'Plan a short video from this post'), 'assistantui': ('Chat', ['chat', 'streaming'], 'Build a chat window for a support page'),
     'gsap': ('Animation', ['timelines', 'scroll scenes'], 'Build a scroll story with pinned sections'), 'three': ('3D', ['scenes', 'models', 'shaders'], 'Build a 3D showroom you can walk through'), 'pixi': ('Graphics', ['particles', 'sprites'], 'Make a poster with moving particles'),
     'konva': ('Image editing', ['layers', 'crop', 'stickers'], 'Build an editor to crop a photo and add text'), 'fabric': ('Image editing', ['filters', 'text', 'export'], 'Make a thumbnail editor with filters and export'), 'chartjs': ('Charts', ['bars', 'lines', 'pies'], 'Chart these results for a post'), 'mermaid': ('Charts', ['flowcharts', 'timelines'], 'Turn this plan into a diagram'),
-    'ccxt': ('Data', ['exchanges', 'order books', 'funding'], 'Compare the funding on three exchanges'), 'mantine': ('Components', ['forms', 'tables', 'hooks'], 'Build a customer form with validation'),
+    'ccxt': ('Data', ['exchanges', 'order books', 'funding'], 'Compare the funding on three exchanges'),
+    'phaser': ('Games', ['scenes', 'sprites', 'arcade physics'], 'Build a side-scroller where the coin dodges rugs'),
+    'matter': ('Games', ['bodies', 'collisions', 'gravity'], "Drop the week's coins into a physics pile sized by volume"),
+    'howler': ('Sound', ['effects', 'music loops'], 'Add a buy sound and a rug alarm to this game'),
+    'tone': ('Sound', ['synths', 'beats'], 'Turn the price line into a beat that plays as it moves'),
+    'anime': ('Animation', ['timelines', 'stagger', 'svg paths'], 'Draw the chart line in on load with a stagger'),
+    'particles': ('Graphics', ['confetti', 'fireworks', 'starfields'], 'Fire confetti when a proof is PROVED'),
+    'marked': ('Content', ['markdown', 'articles'], 'Render this write-up as a clean article page'),
+    'tabulator': ('Data', ['sort', 'filter', 'group'], 'Table every pick with sorting and filters'),
+    'leaflet': ('Maps', ['markers', 'routes', 'heat'], "Map tonight's games by stadium"), 'mantine': ('Components', ['forms', 'tables', 'hooks'], 'Build a customer form with validation'),
 }
 KINDS = ('pow', 'pop', 'pob', 'poc', 'pos')
 MAX_BYTES = 90_000
@@ -244,6 +262,15 @@ KIT_USE = {
     'chartjs': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.js"></script>'], 'how': 'Draw with new Chart(canvas, {...}).', 'sign': r'new Chart\('},
     'mermaid': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>'], 'how': 'Write <pre class="mermaid">graph TD; A-->B;</pre> and call mermaid.initialize({startOnLoad:true}).', 'sign': r'class="mermaid"|mermaid\.'},
     'r3f': {'tags': ['<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>'], 'how': 'R3F needs React, so write the 3D scene with three directly in <script type="module">: import * as THREE from "three".', 'sign': r'THREE\.'},
+    'phaser': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/phaser@4/dist/phaser.min.js"></script>'], 'how': 'Build the game with the global Phaser: new Phaser.Game({type: Phaser.AUTO, scene: {...}}).', 'sign': r'Phaser\\.'},
+    'matter': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/matter-js@0.20/build/matter.min.js"></script>'], 'how': 'Simulate with the global Matter: Matter.Engine.create(), Matter.Bodies, Matter.Render or your own canvas.', 'sign': r'Matter\\.'},
+    'howler': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/howler@2/dist/howler.min.js"></script>'], 'how': 'Play sound with new Howl({src: [...]}); start it only after the first tap.', 'sign': r'new Howl\\('},
+    'tone': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/tone@15/build/Tone.js"></script>'], 'how': 'Make sound with the global Tone: new Tone.Synth().toDestination(); call Tone.start() on the first tap.', 'sign': r'Tone\\.'},
+    'anime': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/animejs@4/dist/bundles/anime.umd.min.js"></script>'], 'how': 'Animate with the global anime: anime.animate(target, {...}), anime.stagger, anime.createTimeline.', 'sign': r'anime\\.\\w+'},
+    'particles': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/@tsparticles/slim@4/tsparticles.slim.bundle.min.js"></script>'], 'how': 'await loadSlim(tsParticles); await tsParticles.load({id: "fx", options: {...}}).', 'sign': r'tsParticles\\.'},
+    'marked': {'tags': ['<script src="https://cdn.jsdelivr.net/npm/marked@18/lib/marked.umd.js"></script>'], 'how': 'Turn markdown into HTML with marked.parse(text) and put it in an <article>.', 'sign': r'marked\\.parse'},
+    'tabulator': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@6/dist/css/tabulator_midnight.min.css">', '<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6/dist/js/tabulator.min.js"></script>'], 'how': 'Build tables with new Tabulator(el, {data, columns, layout: "fitColumns"}).', 'sign': r'new Tabulator\\('},
+    'leaflet': {'tags': ['<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">', '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>'], 'how': 'Draw maps with the global L: L.map(el).setView([lat, lng], z), L.marker(...).addTo(map). Tiles need a page that may load them; without tiles draw markers on a plain map.', 'sign': r'\\bL\\.map\\('},
 }
 
 

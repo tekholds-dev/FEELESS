@@ -631,3 +631,13 @@ test('🧠 COL-9: a PoB that reused a fresh topic read says so; its own browse s
   await act(async () => root.render(<BrowseNote f={{ browseWhy: 'site blocked' }} />)); expect(el.textContent).toBe('Browsing: site blocked');
   act(() => root.unmount());
 });
+
+test('♻ the kit shelf shows every live kit version and what moved up (from → to), and what was held back', async () => {
+  const { KitFresh } = require('./GitFolder');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => root.render(<KitFresh fresh={{ checkedAt: Date.now() / 1000 - 7200, kits: [{ kit: 'echarts', pkg: 'echarts', v: '6', pin: 'major', prev: '5', movedAt: 1 }, { kit: 'gsap', pkg: 'gsap', v: '3', pin: 'major' }],
+    log: [{ kit: 'konva', to: '10', ok: false, why: 'the library never appeared' }] }} />));
+  expect(el.querySelector('[data-testid="kit-fresh-echarts"]').textContent).toBe('echarts5 → 6');
+  expect(el.textContent).toContain('checked 2 h ago · 1 moved up · 2 kits live in pages'); expect(el.textContent).toContain('konva 10 held back');
+  act(() => root.unmount());
+});

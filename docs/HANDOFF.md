@@ -22,6 +22,39 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 
 ## TASKS
 
+## 🔁 NOW — TODAY'S RUN (2026-11-10, owner: "finish all of it today")
+
+**Honest count:** 83 rows. Built 26 · waiting on the owner (money, keys, his look, a lawyer) 23 · open for Claude 34, of which ~25 fit
+today (list A) and 9 are too big for one day (list C). Claude does A in this order, one at a time, proven, pushed.
+
+**How it goes faster (no quality cut):** batch 2–3 finished rows per gate (a gate is ~12 min on this Mac, so it is the bottleneck); no
+restart until a batch is pushed; one browser check per batch; a row is done only with its test + a screenshot or a live read.
+
+**A · Claude, today, in this order**
+1. **Features folder: every proof type shows off its best** (owner today: "it got lazy after the static previews") — one showcase
+   card per kind built from its real folders: PoW trade card with the candle and entry/exit, PoP the call and ROE meter, PoB picks with odds
+   and the result, PoC the post preview, PoStatic the live page, PoEco the books bars; review chips on each. (AGT-5 part)
+2. **COL-8 Collective audit** — every mechanic and folder with vitals; the OSSY + G4 reviews already flag the bad data: fix what they find
+   in Sicario's 6 proofs (truncated reads, books count, sample data).
+3. **AGT-12 Engine folder** — live data of what each engine does (reads, reviews, kit fresh, reuse counts).
+4. **AGT-9 jobs missing from folders** — proofs and chat jobs land in their folder.
+5. **SITE-1 dead clicks** (triaged) → fix every one found. **SITE-2 lag** — before/after numbers on the 35–48 fps list.
+6. **AGT-19 snapshot gestures** (reproduce first) · **AGT-11 clean desktop** (nothing clipped, no big buttons).
+7. **SITE-7 tutorials styling** · **SITE-3 HeroUI rest** (FeeCat tabs, Brain panels) · **SITE-6 Q03 leftovers** (glass restyle).
+8. **COL-10 rest** — kit scout per proof, minds propose kits (the reviews feed it), rollback history (fresh pins already roll back).
+9. **COL-24 proposals** — the Collective proposes missing proof types from real gaps (owner picks).
+10. **AGT-18 / AGT-15 / AGT-17** — OSSY/G4 under load, the fix agent on a paid mind, 3D NOVA retry — only with real runs.
+
+**B · Only the owner (each ~1 click or one answer; Claude stops and says so when it hits one)**
+Claude in Chrome connect (for signed-in screenshots) · W05 OpenRouter credit · CASH Fuse card · SEND1 one real $1 send · SI31 one paid
+PoW + PoP · COL-6 approve Sicario's PoStatic plan · AGT-24–33 real-money / keys rows · COL-16, 21–23 · SITE-12–16, 18–22.
+
+**C · Too big for one honest day (started only after A, each sliced)**
+SITE-4 command center rebuild (his order: last) · SITE-5 split the 35K-line reputation_service · SITE-8 scale (DB, workers) · SITE-9
+security pass (after his first general agent) · COL-11 Evolution Lab (after COL-6) · COL-18 ledger to a DB · COL-19 proving ground ·
+AGT-7 live code IDE · SITE-17 Familia.
+
+
 ---
 
 # 0 · BLOCKERS ONLY THE OWNER CAN CLEAR (say these first in any report that hits them)
@@ -85,6 +118,7 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 | AGT-8 | BUILT 2026-11-10 | Cost in PoW, PoP and PoB folder talk: `FolderCost` (CatWorkbench) above both discussion views: Mind A $, Mind B $, folder $ (PoStatic and PoC keep `ChatCost`). Test in `CatWorkbench.test.jsx`. |
 | AGT-9 | OPEN | **Jobs from proofs and chat are missing from folders.** "Live price in every agent chat": his request text was not found; ask him. |
 | REVIEW | BUILT 2026-11-10 | **OSSY and G4 review every proof** (owner: "have ossy and g4 test each proof, hardcoded to grade and test any proof"): `proof_review.py` + `_review_loop` (every 90 s, one proof, newest unreviewed closed proof of any agent and kind): each reads the proof's own record (sources, compare, calls, games, result, outcome, a page's words / placeholders, a game's playtest) and returns score / pass-fail / checks; filed on the folder (`review`) and in the proof history (`review` event), with who REALLY answered from the call log. A review, never the boost grade (COL-4). Free (local). UI: ReviewChips (OSSY 12 ✗ · G4 38 ✗, checks on hover) on PoW / PoP / PoB discussions and on filed PoStatic / PoC rows. First real review (in-process, scratch): your GONE PoStatic failed both, with real findings (a made-up source, sample data called live, cut-off text). Tests: `test_proof_review.py`, CatWorkbench. **Test bench (owner 2026-11-10):** reviews run only on Sicario's proofs (`FEELESS_REVIEW_SCOPE`, default `sicarios`; `all` opens every agent once he confirms); a review on any other agent comes off. Live proof: OSSY local qwen3.5-9b + G4 LAN qwen3.5-4b, $0. **v3 (2026-11-10):** five fixed checks per kind (`RUBRIC`), each pass/fail; the score is counted by code (20 a check), never the model's number; the brief states TODAY, the kind's own evidence (trade prices in SOL and USD, times, what was read; the books' fields explained), drops whole parts instead of cutting text, no 4-source rule on books or on proofs filed before it. Older reviews re-run. Known limit: OSSY 9B misreads SOL-vs-USD P&L on trades. |
+| KITS-FRESH | BUILT 2026-11-10 | **The stash's kits stay fresh** (owner: "always the best, never stale"): `kit_fresh.py` asks npm daily for each of 23 page kits; a release a week old whose real CDN file passes a headless-Chromium smoke test moves the pin, and a pin that stops loading rolls back. The first real pass moved echarts 5→6, konva 9→10, fabric 6→7, mermaid 11→12 and three 0.170→0.187; motion 14 and lightweight-charts 5 wait out the week. **9 new kits** (CDN files checked live, MIT/BSD): Phaser 4, Matter.js, Howler, Tone.js, Anime.js 4, tsParticles, Marked, Tabulator, Leaflet. Fee's kit shelf shows ♻ FRESH, NEVER STALE (`KitFresh`). Tests: test_kit_fresh, CatWorkbench.test. |
 | PoB-TOPIC | FIXED 2026-11-10 | **A plain PoB researched a trench coin** (owner: "I asked for a PoB, this did a trench coin"): only the exact words "file a pob" picked today's games; any other start ("pob", the button) fell to the free-chip board, which is all coin markets, so its windows opened DexScreener. Now every PoB without a topic bets on today's best games (`best_topic`, else "tonight's best games"); the coin board only when asked ("pob board", chips, coins). Test: `test_pob_default_topic.py`. |
 | AGT-10 | BUILT 2026-11-10 | Visitor view: the theater desk (no scroll) now opens with a public vitals row (`PublicVitals`, `GET /api/cats/{id}/record`, open to visitors, counts only): the PROVED rate over all its proofs, a ring per kind (proved / settled), and its wins settled from outside (chain, scoreboard, true prices). No folder, model, wallet or owner data. Seen at /dev/cats?general&wallet&visitor with Happy's real numbers (51% proved of 99, 6 / 15 outside). Tests: `test_public_record.py`, CatDesk. |
 | AGT-11 | OPEN | **Each agent: an encrypted, growing private database with select access**, and a clean desktop: no big buttons, nothing clipped or hidden, every mechanic wired. (next list #3) |
