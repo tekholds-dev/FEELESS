@@ -437,6 +437,12 @@ export function ColonyTab({ cat }) {
 // they split — the Pass holder · its model credit · a capped buyback of its own coin (fees only, shown here). Claiming + paying out from its
 // wallet is the next step, tested live by the owner first.
 const SPLIT_PRESETS = [['Balanced', { holder: 50, credit: 30, buyback: 20 }], ['Holder first', { holder: 70, credit: 20, buyback: 10 }], ['Self-funding', { holder: 30, credit: 60, buyback: 10 }], ['Momentum', { holder: 40, credit: 20, buyback: 40 }]];
+// 💵 AGT-8: what a PoW / PoP / PoB discussion cost, per mind and in all, above its talk (PoStatic and PoC have ChatCost)
+export function FolderCost({ f }) {
+  const sp = f?.spend && typeof f.spend === 'object' ? f.spend : {}; const per = [0, 1].map(i => Number(sp[i] ?? sp[String(i)]) || 0); const all = Number(f?.cost) || per[0] + per[1];
+  const u = n => `$${n.toFixed(4)}`;
+  return <p className="dsk-note" data-testid="fold-cost" data-tip="Every model call this folder made">COST · {per[0] || per[1] ? <>Mind A <b className="m-num">{u(per[0])}</b> · Mind B <b className="m-num">{u(per[1])}</b> · </> : null}folder <b className="m-num">{u(all)}</b></p>;
+}
 // 🔑 the API drawer as a cabinet slot (owner 2026-10-31): its own keys, sealed on the server — only the last 4 ever come back
 export function ApiSlot({ cat }) {
   const [rows, setRows] = useState(cat?.apiDrawer || []); const [draft, setDraft] = useState({}); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
@@ -899,7 +905,7 @@ function PowExplorer({ cat, d, setD }) {
 </>;
   else if (path[1] === 'report') body = <ReportFile f={f} catId={cat.id} />;
   else if (path[1] === 'poi') body = <PoiFolder f={f} poi={d?.poi} onShot={setBig} />;
-  else if (path[1] === 'talk') body = <ul className="dsk-fold-talk">{(f.talk || []).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul>;
+  else if (path[1] === 'talk') body = <><FolderCost f={f} /><ul className="dsk-fold-talk">{(f.talk || []).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul></>;
   else if (c) { const g = f.pick?.mint === c.mint ? gradeOf(f) : null;
     body = <>{!f.live ? <span className="dsk-fold-acts"><button type="button" className={`m-btn${sure === c.mint ? ' is-danger' : ''}`} onClick={() => (sure === c.mint ? act('delete_coin', { text: f.id, secret: c.mint }) : setSure(c.mint))}
       data-tip="Remove this coin folder (and its snapshots) from the desktop — its facts stay in the archive" data-testid="dsk-coin-del">{sure === c.mint ? 'Tap again to delete' : '🗑 Delete coin folder'}</button></span> : null}
@@ -1026,7 +1032,7 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
     : <p className="dsk-note">No proofs yet. Type “file a perp” or “propose a perp” in its chat, or tap a button.</p>}</>);
   else if (path[1] === 'report') body = <PopReport f={f} />;
   else if (path[1] === 'src') body = <><ProofSubmit cat={cat} work={work} f={f} kind="PoP" /><PopSources f={f} /></>;
-  else if (path[1] === 'talk') body = (f.talk || []).length ? <ul className="dsk-fold-talk" data-testid="pop-talk">{f.talk.map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : <p className="dsk-note">The discussion is filed when this folder closes.</p>;
+  else if (path[1] === 'talk') body = (f.talk || []).length ? <><FolderCost f={f} /><ul className="dsk-fold-talk" data-testid="pop-talk">{f.talk.map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul></> : <p className="dsk-note">The discussion is filed when this folder closes.</p>;
   else if (path[1]?.startsWith('m:')) { const m = path[1].slice(2); body = <PopMarket f={f} m={m} read={reads.find(r => r.market === m)} />; }
   else { const at = popStep(f);
     body = <>{!f.live ? <span className="dsk-fold-acts"><button type="button" className={`m-btn${f.kept ? ' is-on' : ''}`} aria-pressed={!!f.kept} onClick={() => act('keep', { text: f.id, on: !f.kept })} data-tip={f.kept ? 'Kept: never trimmed from the desktop. Tap to un-keep' : 'Keep it: the desktop holds the newest 40 folders, a kept one stays for good'} data-testid="pop-keep">{f.kept ? '📌 Kept' : '📌 Keep'}</button>

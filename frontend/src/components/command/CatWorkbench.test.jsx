@@ -583,3 +583,13 @@ test('a waiting window takes an email or code on the watch screen and says it is
   expect(body.some(b => b.op === 'win_type' && b.i === 1 && b.text === 'a@b.co')).toBe(true);
   global.fetch = fetchWas; el.remove();
 });
+
+test('💵 a proof folder\'s discussion shows what it cost, per mind and in all (AGT-8)', async () => {
+  const { FolderCost } = require('./CatWorkbench');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<FolderCost f={{ cost: 0.0031, spend: { 0: 0.002, 1: 0.0011 } }} />));
+  expect(el.textContent).toBe('COST · Mind A $0.0020 · Mind B $0.0011 · folder $0.0031');
+  await act(async () => root.render(<FolderCost f={{ cost: 0 }} />)); expect(el.textContent).toBe('COST · folder $0.0000');
+  act(() => root.unmount());
+});

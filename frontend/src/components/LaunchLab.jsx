@@ -56,11 +56,11 @@ export const DOOR = {
 };
 const PLATFORM_DOOR = { 'Pump.fun': DOOR.pump[0], 'Raydium LaunchLab': DOOR.launchlab[0], 'Meteora DBC': '#launchpads', FEELESS: DOOR.dbc[0] };
 const EX_DOOR = { 'Rug shield from minute one': '/terminal/reputation', 'Its own war room + chat': '/terminal/chat', 'One signature, full receipt': '/terminal/launch?setup=feeless',
-  'House config (HQ)': '/terminal/hq', 'Fuse-ready': '/terminal/fuse', 'Pump Pulse + callouts': '/terminal/pump' };
+  'House config (HQ)': 'hq:', 'Fuse-ready': '/terminal/fuse', 'Pump Pulse + callouts': '/terminal/pump' };   // HQ is the creator's pop-up, not a page (/terminal/hq was a 404, SITE-10)
 const ext = u => /^https?:/.test(u);
 export function Door({ to, children, className = '', tip, testId }) {
-  return <a className={className} href={to} data-tip={tip} data-testid={testId} {...(ext(to) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-    onClick={e => { if (to.startsWith('#')) { e.preventDefault(); document.getElementById(to.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{children}</a>;
+  return <a className={className} href={to === 'hq:' ? '#hq' : to} data-tip={tip} data-testid={testId} {...(ext(to) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    onClick={e => { if (to === 'hq:') { e.preventDefault(); window.dispatchEvent(new CustomEvent('feeless:hq-open')); return; } if (to.startsWith('#')) { e.preventDefault(); document.getElementById(to.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{children}</a>;
 }
 
 function Demo({ kind }) {

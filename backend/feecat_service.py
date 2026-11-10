@@ -96,6 +96,7 @@ import proof_stamp as _stamp
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
+import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -1318,6 +1319,9 @@ async def _lm_call_one(model, messages, max_tokens):
         return '', 0.0
 
 
+LONG_WRITE_TOK = 4000   # a reply budget this big is a page or a game: the model writes, it does not deliberate
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None, backup=False):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
@@ -1327,12 +1331,15 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
     plugins = list(_OR_PLUGINS.get())
     try:
         async with httpx.AsyncClient(timeout=40) as h:
-            body = {'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}}
+            long_write = not effort and (max_tokens or 0) >= LONG_WRITE_TOK   # 🧾 found 2026-11-10: Hy4 spent a whole 6,000-token page budget thinking, wrote nothing and still billed; off, it wrote the full game in half the time and cost
+            body = {'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {'reasoning': {'enabled': False}} if long_write else {}), 'usage': {'include': True}}
             extra = {'plugins': plugins, **({'response_format': {'type': 'json_object'}} if any(x['id'] == 'response-healing' for x in plugins) else {})} if plugins else {}
             auth = {'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"}
             r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, **extra})
             if extra and r.status_code == 400:   # a model that refuses a plugin still answers without it
                 r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json=body)
+            if long_write and r.status_code == 400:   # a model that must think: ask again with its own default
+                r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**{k: v for k, v in body.items() if k != 'reasoning'}, **extra})
         if r.status_code != 200:   # a refused call costs nothing and says why (it used to read as 'no answer' and bill the estimate)
             _OR_LAST['err'] = 'The AI provider account is out of credit. Add credit at OpenRouter, then ask again. Nothing was charged.' if r.status_code == 402 else f'The AI provider refused the call ({r.status_code}). Nothing was charged.'
             if r.status_code == 402:   # the owner hears it (once a day) and credit sales pause
@@ -1347,7 +1354,16 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
                     return text_, 0.0
             return '', 0.0
         d = r.json()
-        text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+        ch_ = (d.get('choices') or [{}])[0]; text = (ch_.get('message') or {}).get('content') or ''
+        if long_write and not text.strip() and ch_.get('finish_reason') == 'length':   # some models ignore 'off' (GLM): once more with thinking capped
+            async with httpx.AsyncClient(timeout=40) as h:
+                r2 = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, 'reasoning': {'max_tokens': 300}, **extra})
+            if r2.status_code == 200:
+                d2 = r2.json(); c2 = (d2.get('choices') or [{}])[0]
+                if ((c2.get('message') or {}).get('content') or '').strip():
+                    d = {**d2, 'usage': {**(d2.get('usage') or {}), 'cost': float((d2.get('usage') or {}).get('cost') or 0) + float((d.get('usage') or {}).get('cost') or 0)}}; ch_ = c2; text = c2['message']['content']
+        if not text.strip() and ch_.get('finish_reason') == 'length':   # all thinking, no answer: said plainly (it is still billed by the provider)
+            _OR_LAST['err'] = f'{model} used its whole reply budget thinking and wrote no answer.'
         _heard(route='openrouter (own key)' if key else 'openrouter', model=d.get('model') or model, tokens=(d.get('usage') or {}).get('total_tokens'))
         return text, float((d.get('usage') or {}).get('cost') or est)
     except Exception:
@@ -6704,6 +6720,48 @@ async def _ws_sections(cat, minds, text, extra):
     return (html if html and _feat.page_complete(html) else None), usd, own, len(done)
 
 
+async def _build_game(cat, doc, text, brains, order, name, to):
+    """🎮 AGT-35: a mind designs the game, writes it on a real free engine, a headless browser plays it, the other mind fixes what failed.
+    Only a game that passes the playtest becomes a version. → (cost, why it stopped or None, paid on its own key)"""
+    cat_id = cat.get('id'); cost = 0.0; own = False; lead, other = order[0], order[-1]
+    stage = lambda st, by=None, **x: _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': st, 'spent': round(cost, 6), **({'by': by} if by else {}), **x}})
+    stage('suggest', name(lead))
+    raw, usd, own = await _ws_ask(cat, brains[lead], _forge.DESIGN_SYS, f'The owner wants: {text}', 900); cost += usd
+    try:
+        design = _forge.design_of(raw)
+    except ValueError as e:
+        _feat.add_msg(doc, name(lead), f'I could not design it: {e}', time.time()); return cost, str(e), own
+    eng = _forge.ENGINES[design['engine']]
+    _feat.add_msg(doc, name(lead), f"THE DESIGN · {design['title']} · {design['genre']} on {eng['name']}\n{design['pitch']}\nLoop: {design['coreLoop']}\nControls: {design['controls']['keys']} / touch: {design['controls']['touch']}\nWin: {design['win']} · Lose: {design['lose']}", time.time())
+    stage('build', name(lead))
+    raw, usd, own = await _ws_page(cat, brains[lead], _forge.build_sys(design), text, 12000); cost += usd
+    html = _forge.html_of(raw); by = name(lead); report = {'ok': False, 'why': ['it wrote no page']}
+    for n in range(_forge.MAX_FIX + 1):
+        if '<' not in html:
+            report = {'ok': False, 'why': ['it wrote no page'], 'facts': {}}
+        else:
+            stage('review', 'playtest', step=n)
+            try:
+                report = await asyncio.wait_for(_forge.playtest(html, _fb.chromium_path()), 120)
+            except Exception as e:   # noqa: BLE001: a browser that cannot start is said plainly, never counted as a pass
+                report = {'ok': False, 'why': [f'the test browser did not run: {type(e).__name__}'], 'facts': {}}
+        if report['ok'] or n == _forge.MAX_FIX:
+            break
+        _feat.add_msg(doc, 'Playtest', 'Failed: ' + '; '.join(report['why']), time.time())
+        stage('review', name(other))
+        raw, usd, _o = await _ws_page(cat, brains[other], _forge.fix_sys(design, report), f'{text}\n\nTHE CURRENT FILE (fix it, keep what works):\n{html[:45000]}', 12000); cost += usd
+        html = _forge.html_of(raw) or html; by = name(other)
+    if not report['ok']:
+        _feat.add_msg(doc, 'Playtest', 'Not filed. It still fails: ' + '; '.join(report['why']), time.time())
+        return cost, 'The game failed its playtest: ' + '; '.join(report['why'])[:200], own
+    doc['game'] = {'design': design, 'engine': design['engine'], 'license': eng['license'], 'playtest': report['facts'], 'at': round(time.time())}
+    doc['kitsUsed'] = [{'id': design['engine'], 'name': eng['name'], 'used': True}]
+    _feat.add_version(doc, html, by, time.time()); _parts_used(cat_id, doc.get('id'), html)
+    f_ = report['facts']
+    _feat.add_msg(doc, 'Playtest', f"Passed: it draws, takes input ({f_.get('changed')} pixels moved), reached \"{(f_.get('after') or {}).get('state')}\", {f_.get('fps')} fps, no errors. Page {len(doc['versions'])} is ready. Open Static to play it.", time.time())
+    return cost, None, own
+
+
 async def _build_3d(cat, doc, text, brains, order, name, to):
     """🧊 The full prompt becomes a scene of real assets, a second pass checks it word by word against the prompt, and it becomes a real page and a new version. The owner can keep working on it in the 3D studio. → (cost, why it stopped, own key)"""
     room_ask = bool(doc.get('scene3dNext')) and _play.names_room(text); wrong_ = bool(_play.WRONG_BUILD.search(str(text)))   # a site of two places: the words say which one changes
@@ -6818,7 +6876,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
+        if kind == 'build' and _play.wants_game(text) and not doc.get('scene3d'):   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template
+            usd_, stop_why, paid_own = await _build_game(cat, doc, text, brains, order, name, to)
+            cost += usd_
+        elif kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
             lead_ = len(doc.get('versions') or []) % len(order) if to == 'both' and len(order) > 1 else 0   # 🧠🧠 owner 2026-11-07 "only ONE mind seems to work": with both picked, the minds take turns leading a 3D round and the other checks it
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order[lead_:] + order[:lead_], name, to)
             cost += usd_
@@ -9873,7 +9934,8 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
         _save(store)
     mine = owner_check(cat, _fresh_session_wallet(session), ownerId) in ('ok', 'claim')
     inside = request is not None and bool(request.headers.get('x-feeless-internal')) and _internal_ok(request)   # 🔒 FEELESS's own services (funding, withdraw) read the full record
-    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or inside or cat.get('isLeader') else public_cat(cat)})
+    full_ = {'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or inside or cat.get('isLeader') else public_cat(cat)}
+    out = json.loads(json.dumps(_no_keys(full_), ensure_ascii=False)) if (mine or inside) else _pub(full_)   # 👤 AGT-2: its owner sees its real minds (OSSY, G4); visitors still read "FeeCat AI"
     if cat.get('isLeader') and not (mine or inside):   # 🔒 the leader's desk is public, its private drawers are not (found in the 2026-11-04 audit)
         for k_ in LEADER_PRIVATE:
             out['cat'].pop(k_, None)

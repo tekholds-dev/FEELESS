@@ -66,6 +66,7 @@ export default function HqPop() {
   const [open, setOpen] = useState(() => { try { return sessionStorage.getItem(OPEN_KEY) === '1'; } catch { return false; } });
   const busy = useHqBusy();
   const set = v => { setOpen(v); try { if (v) sessionStorage.setItem(OPEN_KEY, '1'); else sessionStorage.removeItem(OPEN_KEY); } catch { /* private mode */ } };
+  useEffect(() => { const on = () => set(true); window.addEventListener('feeless:hq-open', on); return () => window.removeEventListener('feeless:hq-open', on); }, []);   // a link elsewhere (LaunchLab's HQ door) opens it   // eslint-disable-line react-hooks/exhaustive-deps
   if (!addr) return null;
   return <>
     <button type="button" className={`hqp-fab ${open ? 'on' : ''} ${busy.n ? 'is-work' : ''}`} onClick={() => set(!open)} data-testid="hq-pop-open" aria-label="Open HQ" aria-pressed={open} data-tip="HQ — one click, any page (creator wallet only)">
