@@ -21,3 +21,10 @@ def test_a_poc_bar_moves_on_real_answers(monkeypatch, tmp_path):
     assert (b1['by'], b1['step'], b1['at']) == ('Mind B', 1, 1000) and 'Mind A' in said1 and 'Mind A' not in said0   # A's answer is saved before B starts
     done = fs._ws_load('g', row['id'])
     assert done['busy'] is None and [m['by'] for m in done['messages']][-2:] == ['Mind A', 'Mind B'] and done['lastCost'] == 0.004
+
+
+def test_poc_answers_are_short_by_rule_and_kept_whole():
+    import agent_features as af
+    assert 'under 120 words' in af.CONTENT_SYS and 'picks one to build' in af.CONTENT_SYS
+    doc = {}; af.add_msg(doc, 'Mind A', 'x' * 5000, 1)
+    assert len(doc['messages'][0]['text']) == 5000   # was cut at 3,500 mid-word; the chat folds it behind Read more instead

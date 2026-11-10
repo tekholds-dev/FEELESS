@@ -6733,7 +6733,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             for j_, i in enumerate(order):   # ⏳ the bar shows the real step (which mind, how many answered, since the job began); each save carries the answers so far, so A's shows while B works
                 _ws_save(cat_id, {**doc, 'busy': {'at': t0_, 'to': to, 'stage': 'answer', 'by': name(i), 'step': j_, 'steps': len(order), 'spent': round(cost, 6)}})
                 raw, usd, own = await _ws_ask(cat, brains[i], sys_, f'{past}\nThe owner asks: {text}', 700)
-                cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw[:3500] or 'No answer came back.', time.time())
+                cost += usd; paid_own = own; _feat.add_msg(doc, name(i), raw or 'No answer came back.', time.time())
             if kind == 'content' and _assets.wants_3d(text):
                 _feat.add_msg(doc, 'FEELESS', 'This is the idea in words. To build it for real, send the same prompt to a PoStatic folder: it builds in the 3D studio with real models, light and surfaces. For a video, use Video and image editor, then 3D.', time.time())
     except Exception as e:   # noqa: BLE001 — it says so in the folder

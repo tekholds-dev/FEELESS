@@ -183,6 +183,13 @@ test('the thin bar moves on real steps and real text, and never fakes a number',
   expect(buildPart({ stage: 'answer' })).toBeNull();
 });
 
+test('a long answer is kept whole and folds behind Read more at a word, never cut mid-word', () => {
+  const { foldText } = require('./FeaturesFolder');
+  expect(foldText('short answer')).toBeNull();
+  const long = 'word '.repeat(400).trim(); const f = foldText(long);
+  expect(f.endsWith('…')).toBe(true); expect(f.length).toBeLessThan(600); expect(f.slice(0, -1).endsWith('word')).toBe(true);
+});
+
 test('a stopped PoStatic says why, Finish runs the same ask, and Keep stops at the last page', async () => {
   const doc = { id: 'w1', kind: 'build', name: 'B', stage: 'review', busy: null, pending: true, versions: 5, cost: 0.02, messages: [{ by: 'you', text: 'fix the buttons' }, { by: 'Mind A', text: 'Nothing changed' }], cfg: { research: true, suggest: true, review: true, depth: 'quick' }, unfinished: { ask: 'fix the buttons', why: 'Its changes did not match the page.' } };
   const work = jest.fn(async (id, b) => (b.op === 'ws_open' ? { doc } : b.op === 'features' ? { workspaces: [{ id: 'w1', kind: 'build', name: 'B' }] } : b.op === 'ws_keep' ? { doc: { ...doc, unfinished: null, stage: 'filed', pending: false } } : b.op === 'ws_build' ? { doc: { ...doc, unfinished: null, busy: { stage: 'build', at: 1 } } } : {}));
