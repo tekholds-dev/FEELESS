@@ -1,6 +1,6 @@
 # FEELESS — working rules (lean). The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
 
-> 🧭 New session? Read `docs/HANDOFF.md` (map, commands, state, and `## TASKS`, the only task list) → only the history lines your task touches.
+> 🧭 New session? Read `docs/HANDOFF.md`: section 0 (owner blockers), then the block your task is in (1 AGENTS · 2 COLLECTIVE · 3 SITE, the only task list) → only the history lines your task touches.
 > 🧨 Fuse / the real card? Read `docs/DEGEN_PLAYBOOK.md` first.
 
 Degen trading terminal (Solana-first). Every feature ships **one and done**: styled, animated, fast, tested, pushed.
@@ -158,8 +158,8 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 ## Current work — single source of truth
 
-Read [docs/HANDOFF.md](docs/HANDOFF.md) `## TASKS` for every open request, priorities, owner prerequisites, conflicts and the archived exact request ledger. Do not recreate a competing task list here.
+Read [docs/HANDOFF.md](docs/HANDOFF.md) `## TASKS`: every open request in three blocks (AGENTS · COLLECTIVE · SITE), owner blockers, conflicts. The exact old wording is archived in `docs/FEELESS_HISTORY.md` ("ARCHIVED HANDOFF 2026-11-09"). Do not recreate a competing task list here or in any new file.
 
 Read [docs/MOBILE_LAYOUT.md](docs/MOBILE_LAYOUT.md) before any phone/Duo change. Owner reference: folded 466×678, rotated 678×466, unfolded 890×626 / 626×890 CSS px, DPR 3; these are supplied viewport references, not universal hardware specs. Every mobile browser must fit its actual usable viewport, preserve controls and rotation state, and account for Safari chrome/safe areas/keyboard.
 
-Conserve usage: read the selected task and relevant code, finish that scope, verify, update HANDOFF and HANDOFF, stop. Existing unrelated edits must not be committed with your change.
+Conserve usage: read the selected task and relevant code, finish that scope, verify, update the HANDOFF row, stop. Existing unrelated edits must not be committed with your change.
