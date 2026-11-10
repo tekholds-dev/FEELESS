@@ -98,6 +98,7 @@ import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai /
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
+import engine_view as _engv   # 📡 AGT-12: what each engine does, live counts only
 import kit_fresh as _kfresh   # 🧰♻️ the kits' CDN versions, kept fresh daily (smoke-tested, rolled back if they break)
 import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
 import proof_review as _review   # 🧑‍⚖️ OSSY and G4 review every filed proof (owner 2026-11-10)
@@ -5789,7 +5790,7 @@ async def _review_one(store):
         tok = _CALL_CTX.set({'kind': kind, 'ref': f'review:{f.get("id")}', 'minds': [m for _k, m, _n in _review.REVIEWERS]})
         try:
             raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body}], max_tokens=700), 240)
-            by[key] = _review.verdict_of(raw)
+            by[key] = _review.verdict_of(raw, time.strftime('%Y-%m-%d', time.gmtime()))
             if by[key]:
                 row_ = next((r for r in reversed(_calls_of(sic.get('id'), 50)) if r.get('ref') == f'review:{f.get("id")}' and r.get('asked') == model), {})
                 by[key]['answeredBy'] = f"{row_.get('route') or '?'} · {row_.get('model') or '?'}"   # who REALLY answered, from the call log (a stand-in shows as one)
@@ -8974,6 +8975,21 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, str(e)[:120])
     if p.op == 'agents_now':   # 🖥 the desk's Working now
         return {'agents': _agents_now(store, cat)}
+    if p.op == 'engines':   # 📡 AGT-12: every engine that runs on its own, live, counts only (no wallet, prompt or page)
+        now_ = time.time(); lines_ = []
+        try:
+            with (DATA_DIR / 'mind_calls.jsonl').open() as fh_:
+                lines_ = fh_.readlines()[-4000:]
+        except OSError:
+            pass
+        kf_ = _kfresh.view(_kits.KIT_USE, KITS_DIR)
+        return {'at': round(now_), 'reviewer': _engv.reviewer(store['cats'].values(), _review.VERSION, lines_, REVIEW_EVERY_S, REVIEW_SCOPE),
+                'kits': {'checkedAt': kf_.get('checkedAt'), 'live': len(kf_['kits']), 'moved': sum(1 for k in kf_['kits'] if k.get('prev')), 'held': [r for r in kf_.get('log') or [] if not r.get('ok')][:3], 'everyH': round(_kfresh.CHECK_EVERY_S / 3600)},
+                'reads': _engv.reads(_READS, _TOPIC_READS, READ_FRESH_S, now_), 'methods': _engv.methods(_MKIT_STATE), 'routes': _engv.routes(lines_, now_)}
+    if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
+        mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
+        return {**_review.showcase(mine_), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR),
+                'kits': [{'id': kid, 'name': c_['name'], 'what': c_['what'], 'kinds': c_.get('kinds') or [], 'license': c_.get('license'), 'live': kid in _kits.KIT_USE} for kid, c_ in _kits.CATALOG.items()]}
     if p.op == 'demo_trade':   # ⛏ this owner's best real trade, for the flight on the Proofs tab: numbers and picture names, no wallet
         best_ = None
         for cid_, c_ in store['cats'].items():

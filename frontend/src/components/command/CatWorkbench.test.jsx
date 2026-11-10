@@ -641,3 +641,17 @@ test('♻ the kit shelf shows every live kit version and what moved up (from →
   expect(el.textContent).toContain('checked 2 h ago · 1 moved up · 2 kits live in pages'); expect(el.textContent).toContain('konva 10 held back');
   act(() => root.unmount());
 });
+
+test('📡 AGT-12: the Engines window shows each engine live: reviewer progress and who answered, kit freshness, shared reads, routes', async () => {
+  const { EngineFolder } = require('./EngineFolder');
+  const d = { at: 1, reviewer: { graded: 4, waiting: 2, passPct: 25, lastAt: Date.now() / 1000 - 120, everyS: 90, scope: ['sicarios'], answered: [{ who: 'OSSY · local · qwen/qwen3.5-9b', calls: 19 }] },
+    kits: { live: 23, moved: 5, everyH: 24, held: [], checkedAt: Date.now() / 1000 }, reads: { kinds: [{ kind: 'pob', ageMin: 3, freshMin: 30, reused: 2, sites: 4 }], topics: 1, topicReuses: 1 },
+    methods: { active: 2, unmeasured: 2, quarantined: 0 }, routes: [{ route: 'local', calls: 19, okPct: 100, avgMs: 21652, usd: 0 }, { route: 'lan', calls: 17, okPct: 100, avgMs: 28841, usd: 0 }] };
+  const work = jest.fn(async () => d); const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => root.render(<EngineFolder cat={{ id: 'c' }} work={work} />)); await act(async () => { await Promise.resolve(); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(work).toHaveBeenCalledWith('c', { op: 'engines' });
+  expect(q('eng-reviewer').textContent).toContain('OSSY · local · qwen/qwen3.5-9b'); expect(q('eng-reviewer').textContent).toContain('25%');
+  expect(q('eng-kits').textContent).toContain('23'); expect(q('eng-reads').textContent).toContain('2× reused'); expect(q('eng-routes').querySelectorAll('li')).toHaveLength(2);
+  act(() => root.unmount());
+});

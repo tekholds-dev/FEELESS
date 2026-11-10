@@ -18,7 +18,11 @@ const PROOFS = {
     caps: [['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof']] },
   poc: { ic: '📣', t: 'PoC', full: 'Proof of Content', line: 'From what people read today to a post, a cut, an image or a 3D commercial.', folders: 'pocFolders', make: 'content', go: 'Start a PoC',
     caps: [['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post']] },
+  poe: { ic: '📒', t: 'PoEco', full: 'Proof of Eco', line: 'Its books kept true: income, costs and tax set aside, every month drawn and hashed.', folders: 'poeFolders', open: 'poe', go: 'Open PoEco',
+    caps: [['books', '📒', 'Its books, drawn', 'Income against costs, month by month, from its real books']] },
 };
+// Every proof type also shows two real things: its own proofs graded by OSSY + G4, and the kits it builds with (kept fresh daily).
+const EVERY = [['reviews', '🧑‍⚖️', 'Graded by OSSY + G4', 'Its own proofs: the five checks each reviewer made, pass or fail'], ['kits', '🧰', 'Built with', 'The kits it builds with, at the version live today']];
 const K = n => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n || 0));
 
 const num = v => +String(v).replace(/,/g, '');
@@ -119,10 +123,36 @@ function ParlayReplay() {
   const [at] = useSteps(PARLAY_STEPS.length, 3400); const n = Math.min(LEGS.length, at + 1); const all = LEGS.reduce((a, l) => a * (l[1] / 100), 1);
   return <div className="prp" data-testid="pdr-parlay"><Tag t="made-up games" /><Steps names={['READ', 'LEGS', 'ODDS', 'GRADE']} at={at} /><div className="prp-main"><div className="prp-game"><div className="prp-minds is-legs">{LEGS.slice(0, n).map(([p, c, site]) => <div key={p} className="prp-mind"><b>{site}.com</b><strong>{p}{at === 3 ? ' ✓' : ''}</strong><u><s style={{ transform: `scaleX(${c / 100})` }} /></u><small>{c}% by its read</small></div>)}</div>{at >= 2 ? <span className="prp-grade">ALL THREE: {Math.round(all * 100)}%{at === 3 ? ' · GRADED BY THE SCORES' : ''}</span> : null}</div></div><div className="prp-side">{PARLAY_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
 }
-export function ProofDoors({ cat, d, work, onCommand, onMake, kindFirst = 'pos' }) {
-  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const p = PROOFS[k];
-  useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null)])).then(([a, b, t]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); }); return () => { live = false; }; }, [cat.id, work]);
-  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const caps = (pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress); const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
+// 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
+export function ReviewReel({ rows }) {
+  const [i, setI] = useState(0); const r = rows?.[i % Math.max(1, rows?.length || 1)];
+  const [at] = useSteps(6, 900);
+  if (!rows?.length) return <p className="dbt-none" data-testid="pdr-no-reviews">No graded proof of this kind yet. OSSY and G4 grade its first one within minutes of it closing.</p>;
+  return <div className="prv" data-testid="pdr-reviews"><header><span className="m-seg" role="tablist" aria-label="Which proof">{rows.map((x, n) => <button key={x.id} type="button" role="tab" aria-selected={n === i % rows.length} className={n === i % rows.length ? 'is-on' : ''} onClick={() => setI(n)} data-tip={`Score ${x.score} · ${x.verdict}`}>{x.title}</button>)}</span>
+    <b className={`prv-score is-${r.verdict}`} data-tip="The two reviewers' average; each check is worth 20"><i className="m-num">{r.score ?? '—'}</i><small>{String(r.verdict || '').toUpperCase()}{r.agree === false ? ' · SPLIT' : ''}</small></b></header>
+    <div className="prv-minds">{Object.entries(r.by || {}).map(([n, v]) => <section key={n} className={`prv-mind is-${v.verdict}`}><h5>{n.toUpperCase()} <i className="m-num">{v.score}</i><small>{v.answeredBy || ''}</small></h5>
+      <ol>{(v.checks || []).map((c, k) => <li key={k} className={`${k < at ? 'is-in' : ''} ${String(c).startsWith('✓') ? 'is-ok' : 'is-no'}`} style={{ '--i': k }}>{c}</li>)}</ol></section>)}</div></div>;
+}
+// 🧰 What it builds with: every kit for this kind, its live version, and an arrow when the daily check moved it up.
+export function KitWall({ kits, fresh, kind }) {
+  const v = Object.fromEntries((fresh?.kits || []).map(x => [x.kit, x])); const rows = (kits || []).filter(x => (x.kinds || []).includes(kind));
+  if (!rows.length) return <p className="dbt-none">No kit is set for this kind yet.</p>;
+  return <div className="pkw" data-testid="pdr-kits"><p className="pkw-sum m-num">{rows.length} kits · {rows.filter(x => v[x.id]?.prev).length} moved up · checked daily, smoke-tested before use</p>
+    <ul>{rows.map((x, i) => { const f = v[x.id]; return <li key={x.id} className={f?.prev ? 'is-moved' : ''} style={{ '--i': i }} data-tip={`${x.what} · ${x.license}${f ? ` · ${f.pkg}@${f.v}` : ' · read as a guide'}`} data-testid={`pdr-kit-${x.id}`}>
+      <b>{x.name}</b><small>{x.what}</small><em className="m-num">{f ? <>{f.prev ? <><s>{f.prev}</s> → </> : null}v{f.v}</> : 'guide'}</em></li>; })}</ul></div>;
+}
+// 📒 Its books, drawn: income and costs per month as bars, the net on top. Real books only.
+export function BooksDemo({ b }) {
+  if (!b?.months?.length) return <p className="dbt-none" data-testid="pdr-no-books">No books yet. Its first PoEco draws here.</p>;
+  const top = Math.max(1, ...b.months.flatMap(m => [m.income || 0, m.costs || 0])); const usd = n => `$${Math.round(n || 0).toLocaleString()}`;
+  return <div className="pbk" data-testid="pdr-books"><header><b>{b.topic || 'Its books'}</b><span className="m-num">IN {usd(b.income)} · OUT {usd(b.costs)} · NET <i>{usd(b.net)}</i> · {b.margin ?? '—'}% margin</span></header>
+    <ol className="pbk-bars">{b.months.map((m, i) => <li key={m.month} style={{ '--i': i }} data-tip={`${m.month}: in ${usd(m.income)}, out ${usd(m.costs)}, net ${usd(m.net)}`}><span><u className="is-in" style={{ transform: `scaleY(${(m.income || 0) / top})` }} /><u className="is-out" style={{ transform: `scaleY(${(m.costs || 0) / top})` }} /></span><small className="m-num">{m.month}</small><b className="m-num">{usd(m.net)}</b></li>)}</ol>
+    {b.taxSetAside != null ? <p className="pbk-tax m-num">TAX SET ASIDE {usd(b.taxSetAside)}</p> : null}</div>;
+}
+export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos' }) {
+  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k];
+  useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
+  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const caps = [...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
   const stage = () => {
     if (String(now).startsWith('piece:')) { const id = now.slice(6); return <Piece key={now} id={id} t={rows.find(t => t.id === id)} cat={cat} work={work} />; }
     if (now === 'demo') return <div className="pdr-agd" data-testid="pdr-agent"><AgentDemo kind="trading" mode="discuss" /></div>;
@@ -131,6 +161,9 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, kindFirst = 'pos' 
     if (now === 'video') return <VideoFilm />;
     if (now === 'image') return <ImageFilm />;
     if (now === 'parlay') return <ParlayReplay />;
+    if (now === 'reviews') return <ReviewReel key={k} rows={show?.reviews?.[k]} />;
+    if (now === 'kits') return <KitWall kits={show?.kits} fresh={show?.fresh} kind={k} />;
+    if (now === 'books') return <BooksDemo b={show?.books} />;
     return <p className="dbt-none pdr-wait">Opening it…</p>;
   };
   return <div className={`pdr is-${k}`} data-testid="pdr">
@@ -138,7 +171,7 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, kindFirst = 'pos' 
     <section className="pdr-main" key={k}>
       <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>
         {k === 'pos' && counts ? <p className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</p> : null}
-        <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.make ? 'Makes its folder' : `Tells it: ${p.cmd}`} data-testid="pdr-go">{p.go}</button></aside>
+        <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.open ? onOpen?.(p.open) : p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.open ? 'Opens its window' : p.make ? 'Makes its folder' : `Tells it: ${p.cmd}`} data-testid="pdr-go">{p.go}</button></aside>
       <div className="pdr-stage" data-testid="pdr-stage">{stage()}</div>
     </section></div>;
 }

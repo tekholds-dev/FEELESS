@@ -711,3 +711,19 @@ body.theme-day .wal2-hero { background: #eefaf3; } body.theme-day .wal2-hero b, 
 .rvw small { font: 700 9px var(--f-mono); color: var(--gold, #f5c542); letter-spacing: .08em; }
 .rvw.is-wait { font: 600 10px var(--f-mono); color: #9db4a6; }
 body.theme-day .rvw b.rvw-pass { color: #0b7a3f; background: #e6f8ee; } body.theme-day .rvw b.rvw-fail { color: #b3263f; background: #fde8ec; } body.theme-day .rvw.is-wait { color: #4b6457; }
+
+/* 📡 AGT-12 Engines: a live card per engine (m-card), hero numbers, meters, the route bars */
+.eng { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 10px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.eng-card { display: grid; align-content: start; gap: 8px; animation: engIn .25s ease-out both; animation-delay: calc(var(--i) * 55ms); } .eng-wide { grid-column: 1 / -1; }
+.eng-card h4 { display: grid; gap: 2px; margin: 0; font: 800 11px var(--f-mono); letter-spacing: .12em; } .eng-card h4 small { font: 400 11px var(--f-ui); letter-spacing: 0; opacity: .7; }
+.eng-hero { display: grid; grid-template-columns: repeat(3, auto 1fr); align-items: baseline; gap: 4px 6px; } .eng-hero b { font: 800 26px var(--f-display); color: #45e486; text-shadow: 0 0 14px #15d16a55; } .eng-hero small { font: 600 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+.eng-meter { display: block; height: 5px; border-radius: 99px; background: #ffffff12; overflow: hidden; } .eng-meter u, .eng-routes i u { display: block; height: 100%; background: linear-gradient(90deg, #0b6b37, #45e486); transform-origin: left; transition: transform .5s ease; }
+.eng-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; } .eng-list li { display: flex; justify-content: space-between; gap: 8px; min-height: 28px; align-items: center; padding: 4px 8px; border-radius: 8px; background: #ffffff06; font: 500 11.5px var(--f-ui); } .eng-list b { font: 600 11px var(--f-mono); color: #9ff0c0; white-space: nowrap; }
+.eng-foot { font: 500 10px var(--f-mono); opacity: .6; }
+.eng-routes { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .eng-routes li { display: grid; grid-template-columns: minmax(90px, 160px) minmax(0, 1fr) 40px minmax(110px, auto); gap: 8px; align-items: center; min-height: 32px; font: 600 11px var(--f-tech); }
+.eng-routes li:hover { color: #45e486; } .eng-routes i { display: block; height: 8px; border-radius: 99px; background: #ffffff10; overflow: hidden; } .eng-routes b { font: 700 13px var(--f-mono); color: #45e486; text-align: right; } .eng-routes small { font: 500 10px var(--f-mono); opacity: .7; }
+@keyframes engIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .eng-card { animation: none; } body.fx-lite :is(.eng-meter u, .eng-routes i u) { transition: none; }
+@media (prefers-reduced-motion: reduce) { .eng-card { animation: none; } :is(.eng-meter u, .eng-routes i u) { transition: none; } }
+body.theme-day .eng-list li { background: #f4f7f5; } body.theme-day :is(.eng-hero b, .eng-routes b) { color: #0b7a3e; text-shadow: none; } body.theme-day .eng-list b { color: #0b5a2f; }
+@media (max-width: 640px) { .eng { grid-template-columns: minmax(0, 1fr); } .eng-routes li { grid-template-columns: minmax(0, 1fr) 40px; } .eng-routes li i, .eng-routes li small { display: none; } }

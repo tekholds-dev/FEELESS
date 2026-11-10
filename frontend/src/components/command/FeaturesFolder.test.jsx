@@ -472,3 +472,24 @@ test('🎭 each kind of proof can have its own prompt and personality; All stays
   expect(q('voice-kind-pob').textContent).toContain('●');
   act(() => root.unmount());
 });
+
+
+test('🎬 every proof type shows its real proofs graded by OSSY + G4, the kits it builds with, and PoEco draws its books', async () => {
+  const { ProofDoors } = require('./ProofDoors');
+  const show = { reviews: { pow: [{ id: 'w1', title: 'LEEROY', score: 30, verdict: 'fail', agree: true, by: { ossy: { score: 20, verdict: 'fail', checks: ['✓ read the pool', '✗ no holders read'], answeredBy: 'local · qwen' }, g4: { score: 40, verdict: 'fail', checks: ['✓ stop fits'] } } }], poe: [] },
+    books: { topic: 'Q4 books', income: 13650, costs: 9220, net: 4430, margin: 32.5, taxSetAside: 1107.5, months: [{ month: '2026-09', income: 6200, costs: 4320, net: 1880 }, { month: '2026-10', income: 7450, costs: 4900, net: 2550 }] },
+    fresh: { kits: [{ kit: 'echarts', pkg: 'echarts', v: '6', prev: '5' }] }, kits: [{ id: 'echarts', name: 'ECharts', what: 'Big charts', kinds: ['pow', 'pos'], license: 'Apache-2.0' }, { id: 'tabulator', name: 'Tabulator', what: 'Tables', kinds: ['pow'], license: 'MIT' }] };
+  const work = async (_, b) => (b.op === 'showcase' ? show : b.op === 'tools_show' ? { templates: [] } : {});
+  const onOpen = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{}} work={work} onCommand={() => {}} onMake={() => {}} onOpen={onOpen} kindFirst="pow" />); });
+  await act(async () => { await Promise.resolve(); }); await act(async () => { await Promise.resolve(); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('pdr-cap-reviews').click(); });
+  expect(q('pdr-reviews').textContent).toContain('LEEROY'); expect(q('pdr-reviews').textContent).toContain('✗ no holders read'); expect(q('pdr-reviews').textContent).toContain('OSSY');
+  await act(async () => { q('pdr-cap-kits').click(); });
+  expect(q('pdr-kit-echarts').textContent).toContain('5 → v6'); expect(q('pdr-kits').textContent).toContain('2 kits · 1 moved up');
+  await act(async () => { q('pdr-poe').click(); }); expect(q('pdr-books').textContent).toContain('NET $4,430'); expect(q('pdr-books').querySelectorAll('li')).toHaveLength(2);
+  await act(async () => { q('pdr-cap-reviews').click(); }); expect(q('pdr-no-reviews')).toBeTruthy();
+  await act(async () => { q('pdr-go').click(); }); expect(onOpen).toHaveBeenCalledWith('poe');
+  el.remove();
+});

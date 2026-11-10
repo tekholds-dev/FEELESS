@@ -81,3 +81,20 @@ def test_v3_score_is_counted_from_the_five_checks_never_the_models_number():
     v = pr.verdict_of(raw)
     assert v['score'] == 80 and v['verdict'] == 'pass' and v['checks'][3] == '✗ d' and v['checks'][0] == '✓ a'
     assert pr.verdict_of('{"checks": [{"pass": false, "found": "x"}]}')['verdict'] == 'fail'
+
+
+def test_showcase_rows_are_real_reviews_and_books_with_nothing_private():
+    cats = [{'ownerId': 'SECRET', 'agentWallet': {'address': 'W'}, 'powFolders': [{'id': 'a', 'sym': 'LEEROY', 'closedAt': 5, 'ownerWallet': 'W', 'review': {'score': 30, 'verdict': 'fail', 'by': {'ossy': {'score': 20, 'verdict': 'fail', 'checks': ['✗ x']}}}},
+                                                                          {'id': 'b', 'sym': 'NOPE', 'closedAt': 9}],
+             'poeFolders': [{'id': 'e', 'topic': 'Q4', 'at': 3, 'months': [{'month': '2026-10', 'income': 1, 'costs': 1, 'net': 0}], 'income': 1, 'costs': 1, 'net': 0}]}]
+    sc = pr.showcase(cats)
+    assert [r['title'] for r in sc['reviews']['pow']] == ['LEEROY'] and sc['books']['topic'] == 'Q4' and sc['reviews']['pob'] == []
+    assert 'SECRET' not in json.dumps(sc) and '"W"' not in json.dumps(sc)
+
+
+def test_a_today_date_called_future_is_overturned_by_code():
+    raw = json.dumps({'checks': [{'pass': False, 'found': 'Evidence contains a future date (2026-11-10)'}, {'pass': False, 'found': 'Game dated 2026-12-01 is in the future'},
+                                 {'pass': True, 'found': 'ok'}, {'pass': True, 'found': 'ok'}, {'pass': True, 'found': 'ok'}]})
+    v = pr.verdict_of(raw, '2026-11-10')
+    assert v['score'] == 80 and 'overturned' in v['checks'][0] and v['checks'][1].startswith('✗')
+    assert pr.verdict_of(raw)['score'] == 60   # without today nothing is overturned

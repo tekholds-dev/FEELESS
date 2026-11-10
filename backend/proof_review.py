@@ -9,7 +9,7 @@ import re
 import compare_gate as _cmp
 
 REVIEWERS = (('ossy', 'local/ossy', 'OSSY'), ('g4', 'local/g4', 'G4'))
-VERSION = 3   # v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
+VERSION = 4   # v4: code overturns a "future" date on or before today · v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
 COMPARE_SINCE = 1794182400   # 2026-11-09 00:00 UTC: COL-13's 4-source rule; a proof filed before it was never asked for it
 PASS_AT = 60
 MAX_BRIEF = 6000
@@ -108,7 +108,16 @@ def _page_text(html):
             'text': text[:1500], 'chars': len(h), 'placeholders': len(re.findall(r'lorem ipsum|placeholder|TODO|coming soon', h, re.I))}
 
 
-def verdict_of(raw):
+def _false_future(found, today):
+    """A small model calls a date that is today or earlier "future" (G4 did, live 2026-11-10). True when the check says future and every date it
+    quotes is on or before today. Pure."""
+    if not today or 'future' not in str(found).lower():
+        return False
+    days = re.findall(r'(20\d\d-\d\d-\d\d)', str(found))
+    return bool(days) and all(x <= today for x in days)
+
+
+def verdict_of(raw, today=None):
     """A reviewer's reply → {'score', 'verdict', 'checks', 'why'} or None. Pure."""
     m = re.search(r'\{.*\}', re.sub(r'<think>.*?</think>', '', str(raw or ''), flags=re.S), re.S)
     if not m:
@@ -120,6 +129,9 @@ def verdict_of(raw):
     cs = d.get('checks') if isinstance(d.get('checks'), list) else []
     marks = [c for c in cs if isinstance(c, dict) and isinstance(c.get('pass'), bool)]
     if marks:   # v3: the score is counted by code, 100 / checks per check passed, never the model's own number
+        for c in marks:   # a date check the record already answers: code checks dates, never the model
+            if not c['pass'] and _false_future(c.get('found'), today):
+                c['pass'] = True; c['found'] = f"{c.get('found')} (overturned: that date is on or before today, {today})"
         score = round(100 * sum(c['pass'] for c in marks) / len(marks))
         checks = [('✓ ' if c['pass'] else '✗ ') + str(c.get('found') or c.get('check') or '')[:150] for c in marks][:5]
     else:
@@ -188,3 +200,23 @@ def lessons(store, kind, keep=LESSONS_KEEP):
 def lessons_line(lines):
     """The brief line a proof reads: data from past reviews, never an instruction to move money."""
     return ('\nREVIEWERS FAILED RECENT PROOFS OF THIS KIND FOR (do not repeat these): ' + ' | '.join(lines) + '\n') if lines else ''
+
+
+def showcase(cats, keep=3):
+    """🎬 The Showcase's real rows: per kind, the newest reviewed proofs of these agents (title, each reviewer's verdict and checks), and the
+    newest books. Titles and checks only: no wallet, owner, key or page. Pure."""
+    import mission
+    out = {k: [] for k in mission.KINDS}; books = None
+    for c in cats:
+        for k, (_code, key) in mission.KINDS.items():
+            for f in c.get(key) or []:
+                rv = f.get('review') or {}
+                if rv.get('by'):
+                    out[k].append({'id': f.get('id'), 'title': str(f.get('topic') or f.get('sym') or f.get('name') or f.get('id'))[:80], 'at': float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0),
+                                   'score': rv.get('score'), 'verdict': rv.get('verdict'), 'agree': rv.get('agree'),
+                                   'by': {n: {'score': v.get('score'), 'verdict': v.get('verdict'), 'checks': (v.get('checks') or [])[:5], 'answeredBy': v.get('answeredBy')} for n, v in rv['by'].items()}})
+        for f in c.get('poeFolders') or []:
+            if f.get('months') and (books is None or float(f.get('closedAt') or f.get('at') or 0) > books['at']):
+                books = {'at': float(f.get('closedAt') or f.get('at') or 0), 'topic': f.get('topic'), 'months': (f.get('months') or [])[-12:], 'income': f.get('income'), 'costs': f.get('costs'),
+                         'net': f.get('net'), 'margin': f.get('margin'), 'taxSetAside': f.get('taxSetAside')}
+    return {'reviews': {k: sorted(v, key=lambda r: -r['at'])[:keep] for k, v in out.items()}, 'books': books}
