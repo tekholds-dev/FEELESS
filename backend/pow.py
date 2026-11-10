@@ -706,11 +706,21 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rPair', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'shadow', 'kept', 'hidden')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rPair', 'rMind', 'pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'sigsFrom', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'shadow', 'kept', 'hidden')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]
     return out
+
+
+def match_sigs(f, tx, slack=900):
+    """🧾 COL-25: a filed real PoW that lost its order ids → its own buy and sell in the agent's transactions: same coin, a successful buy
+    from the folder's start, the first successful sell after it, before the folder closed (+ slack). → (buy_tx, sell_tx) or None. Pure."""
+    mint = f.get('mint'); start = float(f.get('at') or 0) - 120; end = float(f.get('soldAt') or f.get('closedAt') or 0) + slack
+    ok = sorted((t for t in tx or [] if t.get('mint') == mint and t.get('status') == 'success' and t.get('sig') and start <= float(t.get('at') or 0) <= end), key=lambda t: float(t.get('at') or 0))
+    buy = next((t for t in ok if t.get('side') == 'buy'), None)
+    sell = next((t for t in ok if t.get('side') == 'sell' and buy and float(t.get('at') or 0) >= float(buy.get('at') or 0)), None)
+    return (buy, sell) if buy and sell else None
 
 
 def shadow_compare(f, exit_prices, at):

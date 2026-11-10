@@ -76,7 +76,10 @@ def put(root, key, category, source, agent, outcome, title, raw, kind='json', at
     """Keep one thing, once. → True when it was new. Only the owner's own delete (`drop`) ever removes, and a dropped key never comes back."""
     c = _db(root)
     try:
-        if c.execute('SELECT 1 FROM items WHERE key=?', (key,)).fetchone() or c.execute('SELECT 1 FROM gone WHERE key=?', (key,)).fetchone():
+        had = c.execute('SELECT outcome FROM items WHERE key=?', (key,)).fetchone()
+        if had and had[0] == 'none' and outcome in ('won', 'lost', 'flat'):   # 🧾 COL-7: a proof filed before it settled (a game not yet played) gets its result once; a settled result never changes, the stored copy never does
+            c.execute('UPDATE items SET outcome=? WHERE key=? AND outcome=?', (outcome, key, 'none')); c.commit()
+        if had or c.execute('SELECT 1 FROM gone WHERE key=?', (key,)).fetchone():
             return False
         packed = compress_image(raw) if kind == 'image' else zlib.compress(raw, 9)
         sha, stored = _blob(root, packed)

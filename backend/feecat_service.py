@@ -2760,12 +2760,16 @@ def _pow2_say(f, who, text):
     f['talk'] = f['talk'][-24:]
 
 
-async def _pow2_reconcile(http, cat, f):
-    """Use the two confirmed wallet fills, including fees, before reporting net profit or a Colony obligation."""
+async def _pow2_reconcile(http, cat, f, buy=None, sell=None):
+    """Use the two confirmed wallet fills, including fees, before reporting net profit or a Colony obligation. `buy` / `sell` = rows with a
+    `sig` (COL-25 relink); by default its own proposals."""
     proposals = {p.get('id'): p for p in cat.get('proposals') or []}
-    buy, sell = proposals.get(f.get('pid')) or {}, proposals.get(f.get('sellPid')) or {}
+    if buy is None:
+        buy, sell = proposals.get(f.get('pid')) or {}, proposals.get(f.get('sellPid')) or {}
+        if any(p.get('status') != 'done' for p in (buy, sell)):
+            return False
     wallet = (cat.get('agentWallet') or {}).get('address')
-    if not wallet or any(p.get('status') != 'done' or not p.get('sig') for p in (buy, sell)):
+    if not wallet or any(not (p or {}).get('sig') for p in (buy, sell)):
         return False
     try:
         txs = await asyncio.gather(*(_crpc._rpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}], scan=False)
@@ -2779,6 +2783,30 @@ async def _pow2_reconcile(http, cat, f):
     f.update(buySig=buy['sig'], sellSig=sell['sig'], netPnlSol=round(fills[1]['cashSol'] - fills[0]['cashSol'], 9),
              settlementVerified=True, cashSpentSol=fills[0]['cashSol'], cashReturnedSol=fills[1]['cashSol'])
     return True
+
+
+_RELINKED = set()
+
+
+async def _pow2_relink(store):
+    """🧾 COL-25 (found 2026-11-10): filed real PoWs lost their order ids and chain proof (pow.folder_public dropped them), so none was ever
+    checked against the chain. Each one with its own buy and sell in the agent's transactions is read back from the chain once: P&L becomes
+    the net of the two real fills, fees included, and the proof history files the change as a correction. Reads only; moves nothing."""
+    fixed = 0
+    async with httpx.AsyncClient(timeout=20) as http:
+        for cid, c in (store.get('cats') or {}).items():
+            for f in c.get('powFolders') or []:
+                if not f.get('real') or f.get('settlementVerified') or (cid, f.get('id')) in _RELINKED:
+                    continue
+                _RELINKED.add((cid, f.get('id')))
+                pair = _pow.match_sigs(f, c.get('agentTx'))
+                if not pair:
+                    continue
+                if await _pow2_reconcile(http, c, f, pair[0], pair[1]):
+                    f.update(pid=pair[0].get('pid'), sellPid=pair[1].get('pid'), sigsFrom='agent transactions, matched by coin and time')
+                    f['pnlSol'] = f['netPnlSol']; f['pnlPct'] = round(100 * f['netPnlSol'] / f['cashSpentSol'], 2) if f.get('cashSpentSol') else None
+                    fixed += 1
+    return fixed
 
 
 def _pow2_shadow_entry(f, prices, now):
@@ -5580,6 +5608,31 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 async def _start_sort():
     if os.environ.get('FEELESS_SORT', '1') != '0':
         asyncio.create_task(_sort_loop())
+
+
+async def _pow2_relink_once(delay=30):
+    """🧾 COL-25 at start: chain reads happen on a copy; only the fixed folders' fields go onto a FRESH store, saved at once (never a stale overwrite)."""
+    await asyncio.sleep(delay)
+    try:
+        copy_ = _load()
+        if not await _pow2_relink(copy_):
+            return
+        fresh = _load(); n = 0; keys_ = ('pid', 'sellPid', 'buySig', 'sellSig', 'settlementVerified', 'netPnlSol', 'cashSpentSol', 'cashReturnedSol', 'sigsFrom', 'pnlSol', 'pnlPct')
+        for cid, c in copy_['cats'].items():
+            got = {f['id']: f for f in c.get('powFolders') or [] if f.get('settlementVerified') and f.get('sigsFrom')}
+            for f in (fresh['cats'].get(cid) or {}).get('powFolders') or []:
+                if f.get('id') in got and not f.get('settlementVerified'):
+                    f.update({k: got[f['id']].get(k) for k in keys_}); n += 1
+        if n:
+            _save(fresh); print(f'[pow2] {n} real PoW folders read back from the chain (COL-25)')
+    except Exception as e:   # noqa: BLE001: a read that fails just waits for the next start
+        print(f'[pow2] relink skipped: {type(e).__name__}: {str(e)[:100]}')
+
+
+@app.on_event('startup')
+async def _start_relink():
+    if os.environ.get('FEELESS_RELINK', '1') != '0':
+        asyncio.create_task(_pow2_relink_once())
 
 
 @app.on_event('startup')
