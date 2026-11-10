@@ -9888,7 +9888,7 @@ async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
     _owner_gate(store, cat, session, ownerId)
     rec = _pev_record()
     calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
-    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
+    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')

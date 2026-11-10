@@ -191,3 +191,11 @@ body.theme-day .kd.is-tabbed .kd-hero, body.theme-day .kd.is-tabbed > .kd-tabs {
 body.fx-lite .kd-mv-rows li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-mv-rows li { animation: none; } .kd-mv-n u { transition: none; } }
 body.theme-day .kd-mv-rows li { background: #f5f8f6; border-color: #00000012; } body.theme-day :is(.kd-mv-m small, .kd-mv-n em, .kd-mv-n small) { color: #4b6457; } body.theme-day .kd-mv-pick { color: #24382e; }
 @media (max-width: 640px) { .kd-mv-rows li { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kd-mv-m { grid-column: 1 / -1; } }
+/* COL-12 what earned it (ModelVitals): sources by outside-settled wins, the minds' split rate */
+.kd-mv-earn { display: grid; gap: 6px; } .kd-mv-earn ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.kd-mv-earn li { display: grid; grid-template-columns: minmax(0, 1fr) 90px 44px; gap: 8px; align-items: center; font: 600 11px var(--f-mono); animation: kdMvIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+.kd-mv-earn li b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; } .kd-mv-earn li i { display: block; height: 4px; border-radius: 99px; background: #ff8fa344; overflow: hidden; }
+.kd-mv-earn li u.is-won { display: block; height: 100%; background: #45e486; transform-origin: left; } .kd-mv-earn li small, .kd-mv-earn li small.m-num { text-align: right; color: #9db4a6; font: 700 11px var(--f-mono); }
+.kd-mv-dis { font: 500 11px var(--f-ui); color: #b8cbc0; }
+body.fx-lite .kd-mv-earn li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-mv-earn li { animation: none; } }
+body.theme-day .kd-mv-earn li small, body.theme-day .kd-mv-dis { color: #4b6457; }

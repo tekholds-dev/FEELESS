@@ -174,3 +174,17 @@ def test_vitals_count_only_the_real_record_and_never_rank_thin_data():
     owner_marked = mission.vitals([env(i, strength='self') for i in range(6)], calls)
     assert owner_marked['pick']['pob']['model'] is None and owner_marked['rows'][0]['verified'] == 0   # an owner mark is not an outside settlement
     assert mission.vitals([env(i) for i in range(3)], calls)['pick']['pob']['model'] is None   # 3 proofs: shown, never ranked
+
+
+def test_contribution_credits_only_outside_settled_results():
+    f_won = {'id': 'b1', 'status': 'closed', 'sites': ['espn.com', 'nba.com'], 'calls': [{'market': 'm', 'side': 'yes'}, {'market': 'm', 'side': 'no'}]}
+    f_own = {'id': 'b2', 'status': 'closed', 'sites': ['espn.com']}
+    cat = {'pobFolders': [f_won, f_own]}
+    envs = [{'kind': 'pob', 'id': 'b1', 'outcome': {'strength': 'outside', 'state': 'proved'}}, {'kind': 'pob', 'id': 'b2', 'outcome': {'strength': 'self', 'state': 'proved'}}]
+    calls = [{'kind': 'pob', 'ref': 'b1', 'model': 'm/a', 'usd': 0.01}, {'kind': 'pob', 'ref': 'b2', 'model': 'm/a', 'usd': 0.02, 'local': True}]
+    c = mission.contribution(cat, envs, calls)
+    espn = next(s for s in c['sources'] if s['source'] == 'espn.com')
+    assert (espn['proofs'], espn['won'], espn['lost'], espn['enough']) == (2, 1, 0, False)   # the owner-marked one counts as read, not as a win
+    m = c['minds'][0]
+    assert (m['calls'], m['apiUsd'], m['proofs'], m['won']) == (2, 0.01, 2, 1)   # a local call costs nothing
+    assert c['disagree'] == [{'kind': 'pob', 'pairs': 1, 'split': 1, 'rate': 1.0}]

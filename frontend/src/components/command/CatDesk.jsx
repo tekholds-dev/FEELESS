@@ -129,6 +129,10 @@ export function ModelVitals({ cat }) {
       <span className="kd-mv-n" data-tip="Won, of proofs settled from outside (chain, scoreboard, true prices). Owner marks do not count"><em>VERIFIED</em><b className="m-num">{r.verified ? pct(r.winRate) : '—'}</b><small>{r.verified} settled</small></span>
       <span className={`kd-mv-n${r.failRate > 0.2 ? ' is-bad' : ''}`} data-tip="Calls that got no answer"><em>FAILED</em><b className="m-num">{pct(r.failRate)}</b><small>{r.calls} calls</small></span></li>)}</ul>
     {d && kinds.length ? <p className="kd-mv-pick">{(k === 'all' ? kinds.map(([v]) => v) : [k]).map(v => { const p = d.vitals.pick[v] || {}; return <span key={v}><b>{PROOF_KINDS.find(x => x[0] === v)?.[1]}</b> {p.model ? `→ ${shortId(p.model)}: ${p.why}` : `: ${p.why}`}</span>; })}</p> : null}
+    {d?.contribution?.sources?.length ? <div className="kd-mv-earn" data-testid="kd-contrib"><span className="m-label">WHAT EARNED IT<em>sources by outside-settled wins · activity alone earns nothing</em></span>
+      <ul>{d.contribution.sources.slice(0, 8).map((s, i) => { const n = s.won + s.lost; return <li key={s.source} style={{ '--i': i }} data-tip={`${s.proofs} proofs read it (${s.kinds.join(', ')}) · ${n ? `${s.won} won, ${s.lost} lost when settled from outside` : 'nothing it fed has settled yet'}${s.enough ? '' : ' · too few to judge'}`}>
+        <b>{s.source}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${n ? s.won / n : 0})` }} /></i><small className="m-num">{n ? `${s.won}–${s.lost}` : `${s.proofs} read`}</small></li>; })}</ul>
+      {(d.contribution.disagree || []).length ? <small className="kd-mv-dis">{d.contribution.disagree.map(x => `${PROOF_KINDS.find(p => p[0] === x.kind)?.[1]}: the minds split ${Math.round(x.rate * 100)}% of ${x.pairs}`).join(' · ')}</small> : null}</div> : null}
   </section>;
 }
 

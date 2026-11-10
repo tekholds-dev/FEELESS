@@ -249,3 +249,42 @@ def vitals(envelopes, calls):
         else:
             pick[k] = {'model': None, 'why': f'not enough settled proofs yet (needs {MIN_SAMPLE} per model)'}
     return {'rows': sorted(out, key=lambda r: (r['kind'], -r['proofs'])), 'pick': pick, 'minSample': MIN_SAMPLE}
+
+
+def contribution(cat, envelopes, calls):
+    """COL-12: who and what earned the Collective's results, from the real record only. Per source (host): the proofs that read it and the
+    outside-settled wins / losses among them. Per model: calls, API $, proofs worked, outside-settled wins. Disagreement: how often the two
+    minds called differently. Activity alone earns nothing; owner marks are not outside settlements; nothing is ranked under MIN_SAMPLE. Pure."""
+    env = {(e.get('kind'), str(e.get('id'))): e for e in envelopes or []}
+    settled = lambda e: (e or {}).get('outcome', {}).get('strength') in ('chain', 'outside') and (e or {}).get('outcome', {}).get('state') in ('proved', 'not')
+    src, dis = {}, {}
+    for k, (_code, key) in KINDS.items():
+        for f in _rows((cat or {}).get(key)):
+            e = env.get((k, str(f.get('id')))); won = settled(e) and e['outcome']['state'] == 'proved'
+            for h in _cmp.sources(f):
+                r = src.setdefault(h, {'source': h, 'proofs': 0, 'won': 0, 'lost': 0, 'kinds': set()})
+                r['proofs'] += 1; r['kinds'].add(k)
+                if settled(e):
+                    r['won' if won else 'lost'] += 1
+            cs = [c for c in _rows(f.get('calls')) if isinstance(c, dict) and (c.get('side') or c.get('market') or c.get('pick'))]
+            if len(cs) >= 2:
+                d = dis.setdefault(k, {'kind': k, 'pairs': 0, 'split': 0})
+                d['pairs'] += 1; d['split'] += 1 if len({(c.get('market'), c.get('side'), c.get('pick')) for c in cs}) > 1 else 0
+    for r in src.values():
+        n = r['won'] + r['lost']; r['kinds'] = sorted(r['kinds']); r['winRate'] = round(r['won'] / n, 3) if n else None; r['enough'] = n >= MIN_SAMPLE
+    minds = {}
+    for c in calls or []:
+        if not isinstance(c, dict):
+            continue
+        m = str(c.get('model') or c.get('asked') or '?'); r = minds.setdefault(m, {'model': m, 'calls': 0, 'apiUsd': 0.0, 'refs': set(), 'won': 0, 'lost': 0})
+        r['calls'] += 1; r['apiUsd'] += 0 if c.get('local') else _f(c.get('usd')); r['refs'].add((c.get('kind'), str(c.get('ref'))))
+    for r in minds.values():
+        for k, ref in r['refs']:
+            e = env.get((k, ref)) or next((x for x in envelopes or [] if x.get('kind') == k and (x.get('artifacts') or {}).get('page', {}).get('ws') == ref), None)
+            if settled(e):
+                r['won' if e['outcome']['state'] == 'proved' else 'lost'] += 1
+        n = r['won'] + r['lost']; r['proofs'] = len(r.pop('refs')); r['apiUsd'] = round(r['apiUsd'], 6); r['winRate'] = round(r['won'] / n, 3) if n else None; r['enough'] = n >= MIN_SAMPLE
+    for d in dis.values():
+        d['rate'] = round(d['split'] / d['pairs'], 3) if d['pairs'] else None
+    return {'sources': sorted(src.values(), key=lambda r: (-(r['won'] + r['lost']), -r['proofs']))[:24], 'minds': sorted(minds.values(), key=lambda r: -r['calls']),
+            'disagree': sorted(dis.values(), key=lambda d: d['kind']), 'minSample': MIN_SAMPLE}
