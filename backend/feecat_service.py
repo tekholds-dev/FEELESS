@@ -94,6 +94,7 @@ import free_browser as _fb
 import evidence_marks as _marks
 import proof_stamp as _stamp
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
+import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -6293,8 +6294,119 @@ def _ws_view(cat_id, ws_id):
         raise HTTPException(404, 'No such folder.')
     if d_.get('busy') and _ws_dead(cat_id, ws_id, float(d_['busy'].get('at') or 0), time.time()):   # a run that died never locks the folder, and says so
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
+    _media_resume(cat_id, d_)
     v_ = d_.get('versions') or []
     return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+
+
+def _media_dir():
+    return DATA_DIR / 'media'
+
+
+_MEDIA_LIVE = set()   # media ids a task is polling right now (a restart resumes the rest from the folder)
+
+
+def _media_msg(doc, mid):
+    return next((m for m in doc.get('messages') or [] if (m.get('media') or {}).get('id') == mid), None)
+
+
+def _media_set(cat_id, ws_id, mid, keep=None, **fields):
+    """Writes a job's state into its folder message. A run that saved over it puts the message back (never a lost job)."""
+    d_ = _ws_load(cat_id, ws_id)
+    if not d_:
+        return None
+    m_ = _media_msg(d_, mid)
+    if m_ is None and keep:
+        m_ = json.loads(json.dumps(keep)); d_['messages'] = list(d_.get('messages') or []) + [m_]
+    if m_ is None:
+        return None
+    m_['media'] = {**(m_.get('media') or {}), **fields}
+    _ws_save(cat_id, d_)
+    return m_
+
+
+def _media_resume(cat_id, doc):
+    for m_ in doc.get('messages') or []:
+        md = m_.get('media') or {}
+        if md.get('status') in ('queued', 'running') and md.get('id') not in _MEDIA_LIVE:
+            try:
+                asyncio.get_running_loop().create_task(_media_run(cat_id, doc.get('id'), md['id']))
+            except RuntimeError:
+                return
+
+
+async def _media_run(cat_id, ws_id, mid):
+    """🎬 One image or video: submit on the owner's own key, poll, keep the file. Every step is written to the folder, so the page shows the truth."""
+    if mid in _MEDIA_LIVE:
+        return
+    _MEDIA_LIVE.add(mid)
+    try:
+        d_ = _ws_load(cat_id, ws_id) or {}; m_ = _media_msg(d_, mid)
+        if not m_:
+            return
+        keep = json.loads(json.dumps(m_)); md = m_['media']
+        cat = (_load()['cats'].get(cat_id) or {})
+        key = _ck.key_for(cat, md['provider'], data_dir=DATA_DIR)
+        if not key:
+            _media_set(cat_id, ws_id, mid, keep, status='failed', why=f"{_mg.PROVIDERS[md['provider']]['name']} is not linked any more."); return
+        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as h:
+            hd = md.get('handle')
+            if not hd:
+                meth, url, heads, body = _mg.submit_req(md['provider'], md['model'], md['prompt'], key)
+                r = await h.request(meth, url, headers=heads, json=body)
+                try:
+                    hd = _mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
+                except ValueError as e:
+                    _media_set(cat_id, ws_id, mid, keep, status='failed', why=f'{r.status_code}: {e}'); return
+                _media_set(cat_id, ws_id, mid, keep, status='running', handle=hd, step='queued')
+            started = float(md.get('at') or time.time())
+            while True:
+                if time.time() - started > _mg.GIVE_UP_S:
+                    _media_set(cat_id, ws_id, mid, keep, status='failed', why='It took longer than 15 minutes. Nothing more is charged from here.'); return
+                r = await h.get(hd['status'], headers=_mg.auth(md['provider'], key))
+                st, why = _mg.state_of(md['provider'], r.json() if r.status_code == 200 else {'status': 'running'})
+                if st == 'failed':
+                    _media_set(cat_id, ws_id, mid, keep, status='failed', why=why or 'The provider stopped it.'); return
+                if st == 'done':
+                    break
+                if why != md.get('step'):
+                    md['step'] = why; _media_set(cat_id, ws_id, mid, keep, step=why)
+                await asyncio.sleep(_mg.POLL_S)
+            r = await h.get(hd['result'], headers=_mg.auth(md['provider'], key))
+            src = _mg.output_url(md['provider'], md['kind'], r.json() if r.status_code == 200 else {})
+            if not src:
+                _media_set(cat_id, ws_id, mid, keep, status='failed', why='It finished without a file.'); return
+            _media_dir().joinpath(cat_id).mkdir(parents=True, exist_ok=True)
+            got = 0; tmp = _media_dir() / cat_id / f'{mid}.part'
+            async with h.stream('GET', src) as f:   # the file's own link: no key sent to it
+                ext = _mg.ext_of(md['kind'], src, f.headers.get('content-type', ''))
+                with tmp.open('wb') as out:
+                    async for chunk in f.aiter_bytes():
+                        got += len(chunk)
+                        if got > _mg.MAX_BYTES:
+                            break
+                        out.write(chunk)
+            if got > _mg.MAX_BYTES or not got:
+                tmp.unlink(missing_ok=True)
+                _media_set(cat_id, ws_id, mid, keep, status='done', url=src, kept=False, why='Too big to keep here: the link is the provider\'s.'); return
+            name = f'{mid}.{ext}'; tmp.replace(_media_dir() / cat_id / name)
+            _media_set(cat_id, ws_id, mid, keep, status='done', url=f'/api/cats/media/{cat_id}/{name}', kept=True, bytes=got, doneAt=round(time.time()))
+    except (httpx.HTTPError, OSError, ValueError, KeyError) as e:
+        _media_set(cat_id, ws_id, mid, None, status='failed', why=f'{type(e).__name__}: {str(e)[:120]}')
+    finally:
+        _MEDIA_LIVE.discard(mid)
+
+
+@app.get('/api/cats/media/{cat_id}/{name}')
+async def cat_media_file(cat_id: str, name: str):
+    """A finished image or video. Its id is random, so the link is the permission (a post can share it)."""
+    from starlette.responses import FileResponse
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', cat_id) or not _mg.NAME.fullmatch(name):
+        raise HTTPException(404, 'No such file.')
+    f_ = _media_dir() / cat_id / name
+    if not f_.is_file():
+        raise HTTPException(404, 'No such file.')
+    return FileResponse(f_, headers={'Cache-Control': 'public, max-age=86400'})
 
 
 def _general_mind(cat):
@@ -8157,6 +8269,28 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not doc_ or doc_.get('busy') or not doc_.get('versions'):
             raise HTTPException(400, 'There is no page to keep yet.')
         doc_.pop('unfinished', None); doc_['pending'] = False; doc_['stage'] = 'filed'; _feat.add_msg(doc_, 'you', f"Keep page {len(doc_['versions'])}.", time.time()); _ws_save(cat_id, doc_)
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked fal.ai / Replicate
+        linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
+        return _mg.catalog(linked)
+    if p.op == 'media_make':   # 🎬 one image or video in a PoC folder, on the owner's own key; the page polls ws_open for its state
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'Images and video are made in a PoC folder.')
+        linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
+        t_ = p.tools if isinstance(p.tools, dict) else {}
+        try:
+            mid_, prov_, model_, kind_ = _mg.choose(str(t_.get('model') or '') or None, str(t_.get('kind') or ''), linked)
+            prompt_ = _mg.clean_prompt(p.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
+            raise HTTPException(429, 'Three are already making. Wait for one to finish.')
+        jid = 'm' + uuid.uuid4().hex[:12]; row_ = _mg.MODELS[mid_]
+        doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': prompt_, 'at': round(time.time()),
+            'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(time.time())}}]
+        _ws_save(cat_id, doc_)
+        asyncio.create_task(_media_run(cat_id, p.job, jid))
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)

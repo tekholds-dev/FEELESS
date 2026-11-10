@@ -1,0 +1,30 @@
+/* 🎬 PoC images and video (MediaStudio.jsx): the pop-out, the 3-step link, model cards, and the result card in the chat. Built on m-* tokens. */
+.mst-open { display: inline-flex; gap: 8px; align-items: center; } .mst-open em { font: 800 9.5px var(--f-mono); letter-spacing: .06em; padding: 2px 6px; border-radius: 99px; background: #15d16a33; color: #45e486; font-style: normal; }
+.mst-pop { position: relative; display: grid; gap: 12px; width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 40px); overflow-y: auto; scrollbar-width: thin; padding: 16px 18px; border-radius: 18px; border: 1px solid #45e48655; background: linear-gradient(150deg, #0d1a14, #070a0c 70%); box-shadow: 0 0 60px #15d16a22, inset 0 1px 0 #ffffff14; color: #e9f3ee; animation: mstIn .2s ease-out both; }
+.mst-pop header { display: flex; align-items: center; gap: 10px; } .mst-pop header b { font: 800 14px var(--f-ui); } .mst-pop header small { flex: 1; font: 600 11px var(--f-mono); color: #9db4a6; }
+.mst-lead { margin: 0; font: 500 13px/1.5 var(--f-ui); color: #cfe0d6; }
+.mst-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; counter-reset: ms; }
+.mst-steps li { counter-increment: ms; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff06; animation: mstIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.mst-steps li::before { content: counter(ms); grid-row: span 2; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font: 800 12px var(--f-mono); color: #04110a; background: #45e486; }
+.mst-steps li b { font: 700 13px var(--f-ui); } .mst-steps li small { grid-column: 2 / -1; font: 500 11.5px var(--f-ui); color: #9db4a6; } .mst-steps .m-btn { min-height: 32px; }
+.mst-key { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.mst-models { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.mst-models button { width: 100%; min-height: 64px; display: grid; gap: 2px; text-align: left; padding: 9px 11px; border-radius: 12px; border: 1px solid #ffffff17; background: #ffffff07; color: inherit; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; animation: mstIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.mst-models button:hover:not(:disabled) { transform: translateY(-1px); border-color: #45e48688; } .mst-models button:active:not(:disabled) { transform: translateY(0); }
+.mst-models button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .mst-models button:disabled { opacity: .45; cursor: not-allowed; }
+.mst-models button.is-on { background: #45e486; border-color: #45e486; color: #04110a; } .mst-models button.is-on small, .mst-models button.is-on em { color: #04110a; }
+.mst-models b { font: 700 12.5px var(--f-ui); } .mst-models small { font: 600 10px var(--f-mono); color: #9db4a6; } .mst-models em { font: 800 11px var(--f-mono); font-style: normal; color: #45e486; }
+.mst-go { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .mst-go small { font: 500 11.5px var(--f-ui); color: #9db4a6; } .mst-go .m-btn { min-height: 40px; padding: 0 18px; }
+.mst-card { margin: 6px 0 0; display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid #45e48644; background: #0b1410; }
+.mst-card figcaption { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .mst-card figcaption b { font: 700 12px var(--f-ui); } .mst-card figcaption small { font: 600 10px var(--f-mono); color: #9db4a6; }
+.mst-card video, .mst-card img { width: 100%; max-height: 420px; object-fit: contain; border-radius: 10px; background: #000; }
+.mst-card.is-failed { border-color: #ff8fa355; } .mst-prompt { margin: 0; font: 500 11.5px/1.45 var(--f-ui); color: #b8cbc0; } .mst-note { color: #9db4a6; }
+.mst-wait { display: grid; gap: 5px; } .mst-wait span { font: 600 11px var(--f-mono); color: #cfe0d6; }
+.mst-wait i { display: block; height: 3px; border-radius: 99px; background: #ffffff14; overflow: hidden; } .mst-wait u { display: block; height: 100%; width: 35%; background: #45e486; animation: mstRun 1.4s ease-in-out infinite; }
+@keyframes mstIn { from { transform: translateY(8px); } to { transform: none; } }
+@keyframes mstRun { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+body.fx-lite :is(.mst-pop, .mst-steps li, .mst-models button) { animation: none; } body.fx-lite .mst-wait u { animation: none; width: 100%; opacity: .5; }
+@media (prefers-reduced-motion: reduce) { :is(.mst-pop, .mst-steps li, .mst-models button) { animation: none; } .mst-wait u { animation: none; width: 100%; opacity: .5; } .mst-models button { transition: none; } }
+body.theme-day .mst-pop { background: #fff; color: #10241a; border-color: #0f7a4333; box-shadow: 0 6px 28px #0000002a; } body.theme-day :is(.mst-steps li, .mst-models button) { background: #f5f8f6; border-color: #00000012; }
+body.theme-day .mst-card { background: #f5f8f6; border-color: #0f7a4333; } body.theme-day :is(.mst-lead, .mst-prompt, .mst-wait span) { color: #24382e; }
+@media (max-width: 640px) { .mst-pop { padding: 12px; } .mst-steps li { grid-template-columns: 26px minmax(0, 1fr); } .mst-steps li .m-btn { grid-column: 2; justify-self: start; } .mst-models { grid-template-columns: minmax(0, 1fr); } }
