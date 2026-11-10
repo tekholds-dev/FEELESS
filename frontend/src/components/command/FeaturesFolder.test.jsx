@@ -453,3 +453,22 @@ test('💰 the Money dash ranks the best by risk, so the thin coin pool that top
   const by = Object.fromEntries(bestByLane(rows).map(l => [l.k, l.best?.name]));
   expect(by).toEqual({ steady: 'USDC on kamino', stake: 'JitoSOL', deep: 'SOL-USDC', hot: 'MEME-SOL' });
 });
+
+test('🎭 each kind of proof can have its own prompt and personality; All stays the agent\'s own (AGT-3 / AGT-4)', async () => {
+  const { Persona } = require('./FeaturesFolder');
+  const calls = []; const work = jest.fn(async (_id, b) => { calls.push(b);
+    if (b.op === 'persona') return { persona: { style: 'warm', heat: 3 }, styles: ['warm', 'analyst'], heat: { 3: 'steady' }, promptBy: {}, personaBy: {} };
+    return { promptBy: { pob: b.tools.prompt }, personaBy: b.tools.persona ? { pob: b.tools.persona } : {} }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<Persona cat={{ id: 'c' }} work={work} />)); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('voice-prompt')).toBeNull();   // All: today's single voice
+  await act(async () => q('voice-kind-pob').click());
+  const ta = q('voice-prompt'); await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'Bet only with a final score source'); ta.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => q('voice-save').click());
+  expect(calls.at(-1)).toEqual({ op: 'kind_voice', text: 'pob', tools: { prompt: 'Bet only with a final score source' } });
+  await act(async () => q('persona-analyst').click());
+  expect(calls.at(-1)).toMatchObject({ op: 'kind_voice', text: 'pob', tools: { persona: { style: 'analyst' } } });
+  expect(q('voice-kind-pob').textContent).toContain('●');
+  act(() => root.unmount());
+});

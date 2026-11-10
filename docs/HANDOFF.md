@@ -77,8 +77,8 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 |---|---|---|
 | AGT-1 | OPEN | **Show the real payer.** Agents that pay through SingIt still show MODEL CREDIT (`CatDesk.jsx:173`, spend header :65). (desktop audit 2026-11-07) |
 | AGT-2 | BUILT 2026-11-10 | Sicario's chats name both minds: the owner's own `GET /api/cats/{id}` was scrubbed like a visitor's (`_pub` turns OSSY / G4 into "FeeCat AI"). The owner (and FEELESS's own services) now read the real names; visitors still read FeeCat AI. Test: `test_owner_sees_minds.py`. |
-| AGT-3 | OPEN | **New prompts by use case, or one overall** (asked 2026-11-06 and twice on 11-07). GENERAL mind exists; per-use-case prompts do not. |
-| AGT-4 | OPEN | **Personalities per use case** (today one setting per agent, `prompt_studio.PERSONAS`). |
+| AGT-3 | BUILT 2026-11-10 | Prompts per use case: HOW IT TALKS (agent Mind panel) has a kind switch (All · PoW · PoP · PoB · PoC · PoStatic · PoEco); each kind may carry the owner's own prompt (≤ 1,500 chars), sent as THE OWNER'S PROMPT FOR THIS KIND OF PROOF while that proof runs (`_general_mind` reads the running proof's kind); empty = the agent's own. Op `kind_voice`. Tests: `test_kind_voice.py`, FeaturesFolder. |
+| AGT-4 | BUILT 2026-11-10 | Personalities per use case: the same switch sets a personality per kind (`personaBy`), else All. Words only, it changes no buy, size or rule. |
 | AGT-5 | OPEN | **PoC and PoStatic: the user takes steps and asks**, with a quick preview and the tools used shown; PoC must be great. **PoC watch:** he picks the watch and its steps, it checks a few times an hour while doing other work, and a SHORT report lands after X hours (Live desk covers part). |
 | AGT-6 | OPEN | **PoC and PoEco conversationalist:** mic voice-to-text, natural voices, fast replies; browsing quicker. |
 | AGT-7 | OPEN | **Live code:** a real VS Code look with packages, a whole project, marked areas, fast answers, short prompts unless he asks for long. True token streaming changes the paid routes (`_wallet_call`, `_or_call`): his call. |

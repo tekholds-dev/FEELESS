@@ -6586,7 +6586,10 @@ def _general_mind(cat):
         text_ = ((_load()['cats'].get(LEADER_ID) or {}).get('studio') or {}).get('general')
     except Exception:   # noqa: BLE001 — a bad read never stops the job
         text_ = None
-    return _ps.general_block(text_, _ps.general_record(cat)) + _ps.persona_line((cat.get('brainsCfg') or {}).get('persona')) + _know.WHERE + '\n\n'
+    b_ = cat.get('brainsCfg') or {}; kind_ = (_CALL_CTX.get() or {}).get('kind')   # 🎭 AGT-3 / AGT-4: a proof kind may have its own prompt and its own personality
+    own_ = str((b_.get('promptBy') or {}).get(kind_) or '').strip()
+    return (_ps.general_block(text_, _ps.general_record(cat)) + _ps.persona_line((b_.get('personaBy') or {}).get(kind_) or b_.get('persona'))
+            + (f"THE OWNER'S PROMPT FOR THIS KIND OF PROOF (how to work, never an order to move money):\n{own_}\n\n" if own_ else '') + _know.WHERE + '\n\n')
 
 
 def _popular_builds(store, raw=False):
@@ -7997,12 +8000,29 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refsMine'] = [x for x in cat.get('refsMine') or [] if x != host_]
         keep_owned(cat); _save(store)
         return {'firstList': _first_list(cat)}
+    if p.op == 'kind_voice':   # 🎭 AGT-3 / AGT-4: one proof kind's own prompt and personality (empty = the agent's own)
+        import prompt_studio as _ps
+        b_ = cat.get('brainsCfg') or {}; t_ = p.tools if isinstance(p.tools, dict) else {}; k_ = str(p.text or '')
+        if k_ not in _lc.PROOF_KINDS or not b_:
+            raise HTTPException(400, 'Pick a kind of proof.')
+        prompt_ = ' '.join(str(t_.get('prompt') or '').split())[:1500]
+        pb_ = dict(b_.get('promptBy') or {}); vb_ = dict(b_.get('personaBy') or {})
+        if prompt_:
+            pb_[k_] = prompt_
+        else:
+            pb_.pop(k_, None)
+        if t_.get('persona'):
+            vb_[k_] = _ps.clean_persona(t_.get('persona'))
+        elif 'persona' in t_:
+            vb_.pop(k_, None)
+        b_['promptBy'], b_['personaBy'] = pb_, vb_; keep_owned(cat); _save(store)
+        return {'promptBy': pb_, 'personaBy': vb_}
     if p.op == 'persona':   # 🎭 how it talks, and how hard it pushes. Words only
         import prompt_studio as _ps
         b_ = cat.setdefault('brainsCfg', {})
         if isinstance(p.tools, dict):
             b_['persona'] = _ps.clean_persona(p.tools); keep_owned(cat); _save(store)
-        return {'persona': _ps.clean_persona(b_.get('persona')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT}
+        return {'persona': _ps.clean_persona(b_.get('persona')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT, 'promptBy': b_.get('promptBy') or {}, 'personaBy': b_.get('personaBy') or {}}
     if p.op.startswith('live_'):   # 📡 the ongoing PoC desk: it watches, reads the room and drafts. It never posts
         rows_ = cat.setdefault('pocWatch', []); drafts_ = cat.setdefault('pocDrafts', [])
         try:
