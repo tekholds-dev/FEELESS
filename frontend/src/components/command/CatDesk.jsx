@@ -143,7 +143,7 @@ export function ModelVitals({ cat }) {
 // Public counts only (no folder, model, wallet or owner). One row, no scroll.
 export function PublicVitals({ cat }) {
   const [d, setD] = useState(null);
-  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/record`)).then(r => (r.ok ? r.json() : null)).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
+  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/record`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   if (!d?.kinds?.length) return null; const t = d.total; const rate = t.proved + t.not ? Math.round((100 * t.proved) / (t.proved + t.not)) : null;
   return <div className="kd-pv" data-testid="kd-public-vitals">
     <span className="kd-pv-hero" data-tip="Proofs the 24-hour stamp settled: PROVED out of PROVED + NOT PROVED"><b className="m-num">{rate == null ? '—' : `${rate}%`}</b><small>PROVED · {t.filed} proofs</small></span>

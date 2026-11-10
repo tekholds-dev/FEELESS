@@ -611,3 +611,14 @@ test('➕ a proposal traded by hand is filed as the owner\'s claim (COL-15)', as
   expect(el.textContent).toContain('+$12.50'); expect(el.textContent).toContain('your claim until a send confirms it');
   act(() => root.unmount());
 });
+
+test('🧑‍⚖️ OSSY and G4\'s review shows each score, pass or fail, and a split (owner 2026-11-10)', async () => {
+  const { ReviewChips } = require('./CatWorkbench');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<ReviewChips review={{ verdict: 'fail', agree: false, by: { ossy: { score: 12, verdict: 'fail', checks: ['a source does not exist'], answeredBy: 'local · qwen3.5-9b' }, g4: { score: 70, verdict: 'pass', checks: [] } } }} />));
+  expect(el.textContent).toBe('OSSY 12 ✗G4 70 ✓split'); expect(el.querySelector('.rvw-fail').getAttribute('data-tip')).toContain('a source does not exist');
+  await act(async () => root.render(<ReviewChips review={null} />)); expect(el.textContent).toContain('review queued');
+  act(() => root.unmount());
+});
+

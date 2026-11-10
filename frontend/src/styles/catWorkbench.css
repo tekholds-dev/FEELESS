@@ -703,3 +703,11 @@ body.theme-day .cwb-find-tray { background: #f2fff7f0; } body.theme-day .cwb-fin
 body.fx-lite .wal2-coins s { transition: none; } @media (prefers-reduced-motion: reduce) { .wal2-coins s { transition: none; } }
 body.theme-day .wal2-hero { background: #eefaf3; } body.theme-day .wal2-hero b, body.theme-day .wal2-coins b { color: #0f2a1b; text-shadow: none; } body.theme-day .wal2-coins section { background: #fff; } body.theme-day .wal2-addr { background: #fff; color: #0f2a1b; border-color: #0000001f; }
 @media (max-width: 640px) { .wal2-coins { grid-template-columns: minmax(0, 1fr); } .wal2-hero { flex-wrap: wrap; } }
+/* 🧑‍⚖️ OSSY and G4's review chips (ReviewChips): each reviewer's score, pass in green, fail in rose, the checks on hover */
+.rvw { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; vertical-align: middle; }
+.rvw b { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 99px; font: 700 10px var(--f-mono); letter-spacing: .04em; border: 1px solid transparent; cursor: help; }
+.rvw b i { font-style: normal; font-weight: 800; }
+.rvw b.rvw-pass { color: #45e486; background: #15d16a1f; border-color: #45e48655; } .rvw b.rvw-fail { color: #ff8fa3; background: #ff8fa31a; border-color: #ff8fa355; }
+.rvw small { font: 700 9px var(--f-mono); color: var(--gold, #f5c542); letter-spacing: .08em; }
+.rvw.is-wait { font: 600 10px var(--f-mono); color: #9db4a6; }
+body.theme-day .rvw b.rvw-pass { color: #0b7a3f; background: #e6f8ee; } body.theme-day .rvw b.rvw-fail { color: #b3263f; background: #fde8ec; } body.theme-day .rvw.is-wait { color: #4b6457; }

@@ -99,6 +99,7 @@ import collective_parts as _parts   # 🧩 COL-26: proven page blocks become par
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
 import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
 import method_kits as _mkits   # 🧰 COL-10: named, versioned, measured method kits per proof type (read-only)
+import proof_review as _review   # 🧑‍⚖️ OSSY and G4 review every filed proof (owner 2026-11-10)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -5655,6 +5656,7 @@ async def _engine_loop():
             except Exception as e:   # noqa: BLE001 — the Collective never stops the engine
                 print(f'[collective] {str(e)[:160]}')
             _work_settle(store)
+            _review_apply(store)   # 🧑‍⚖️ OSSY and G4's verdicts land on their folders
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
                 await _meta_post(store)
@@ -5730,6 +5732,76 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 async def _start_sort():
     if os.environ.get('FEELESS_SORT', '1') != '0':
         asyncio.create_task(_sort_loop())
+
+
+_REVIEW_DONE: list = []   # 🧑‍⚖️ verdicts waiting for the engine (the store's one writer) to file them
+_REVIEWED = set()          # (cat, folder) already asked this run, so a failing one is not asked again and again
+REVIEW_EVERY_S = 90
+
+
+async def _review_one(store):
+    """OSSY then G4 read the newest unreviewed proof and each gives its own verdict. Every call is logged with the model that really answered."""
+    due = _review.next_due(store, _REVIEWED)
+    if not due:
+        return None
+    cid, kind, f = due; _REVIEWED.add((cid, f.get('id')))
+    cat = store['cats'][cid]; f_ = dict(f)
+    if kind in ('pos', 'poc') and f.get('ws'):
+        vs = (_ws_load(cid, f['ws']) or {}).get('versions') or []; v = int(f.get('version') or len(vs)) - 1
+        f_['_page'] = (vs[v] if 0 <= v < len(vs) else (vs[-1] if vs else {})).get('html') or ''
+    env = _mission.envelope(kind, f, time.time(), cat)
+    body = _review.brief(kind, f_, env); by = {}
+    sic = next((c for c in store['cats'].values() if c.get('handle') == 'sicarios'), None) or {'id': 'collective', 'ownerStaff': True}
+    for key, model, name in _review.REVIEWERS:
+        tok = _CALL_CTX.set({'kind': kind, 'ref': f'review:{f.get("id")}', 'minds': [m for _k, m, _n in _review.REVIEWERS]})
+        try:
+            raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body}], max_tokens=700), 240)
+            by[key] = _review.verdict_of(raw)
+            if by[key]:
+                row_ = next((r for r in reversed(_calls_of(sic.get('id'), 50)) if r.get('ref') == f'review:{f.get("id")}' and r.get('asked') == model), {})
+                by[key]['answeredBy'] = f"{row_.get('route') or '?'} · {row_.get('model') or '?'}"   # who REALLY answered, from the call log (a stand-in shows as one)
+        except Exception as e:   # noqa: BLE001: one reviewer down never stops the other
+            print(f'[review] {name}: {type(e).__name__}')
+            by[key] = None
+        finally:
+            _CALL_CTX.reset(tok)
+    rv = {**_review.combine(by), 'at': round(time.time())}
+    _REVIEW_DONE.append((cid, kind, f.get('id'), rv)); _POW_WAKE.set()
+    return rv
+
+
+def _review_apply(store):
+    """The engine files each verdict on its folder and in the proof history."""
+    n = 0
+    while _REVIEW_DONE:
+        cid, kind, fid, rv = _REVIEW_DONE.pop(0)
+        key = _mission.KINDS[kind][1]
+        f = next((x for x in (store['cats'].get(cid) or {}).get(key) or [] if x.get('id') == fid), None)
+        if f is None or f.get('review'):
+            continue
+        f['review'] = rv; n += 1
+        try:
+            _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy')} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict']}, cat=cid)
+        except Exception as e:   # noqa: BLE001
+            print(f'[review] history: {str(e)[:80]}')
+    return n
+
+
+async def _review_loop():
+    """🧑‍⚖️ Every REVIEW_EVERY_S, one proof: OSSY and G4 review the newest one nobody reviewed. Off with FEELESS_REVIEW=0."""
+    await asyncio.sleep(45)
+    while True:
+        try:
+            await _review_one(_load())
+        except Exception as e:   # noqa: BLE001
+            print(f'[review] {type(e).__name__}: {str(e)[:120]}')
+        await asyncio.sleep(REVIEW_EVERY_S)
+
+
+@app.on_event('startup')
+async def _start_review():
+    if os.environ.get('FEELESS_REVIEW', '1') != '0':
+        asyncio.create_task(_review_loop())
 
 
 async def _pow2_relink_once(delay=30):

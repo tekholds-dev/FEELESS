@@ -454,11 +454,18 @@ export function ProposalClaim({ cat, f, onDone }) {
     <span><button type="button" className="m-btn m-go" disabled={busy || !v.venue.trim() || v.resultUsd === ''} onClick={save} data-testid="pow-claim-save">File it</button> <button type="button" className="m-btn" onClick={() => setOpen(false)}>Cancel</button></span>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
 }
+// 🧑‍⚖️ OSSY and G4's review of a filed proof (owner 2026-11-10: "have ossy and g4 test each proof"): each one's score and pass / fail, who really
+// answered, the checks on hover. A review, never the boost grade.
+export function ReviewChips({ review }) {
+  if (!review?.by) return <span className="rvw is-wait" data-testid="review-wait" data-tip="OSSY and G4 review every filed proof, newest first">🧑‍⚖️ review queued</span>;
+  return <span className={`rvw is-${review.verdict}`} data-testid="review">{Object.entries(review.by).map(([k, v]) => <b key={k} className={`rvw-${v.verdict}`}
+    data-tip={`${k.toUpperCase()} · ${v.verdict} · answered by ${v.answeredBy || '?'}\n${(v.checks || []).join('\n')}${v.why ? `\n${v.why}` : ''}`}>{k.toUpperCase()} <i className="m-num">{v.score}</i> {v.verdict === 'pass' ? '✓' : '✗'}</b>)}{review.agree === false ? <small>split</small> : null}</span>;
+}
 // 💵 AGT-8: what a PoW / PoP / PoB discussion cost, per mind and in all, above its talk (PoStatic and PoC have ChatCost)
 export function FolderCost({ f }) {
   const sp = f?.spend && typeof f.spend === 'object' ? f.spend : {}; const per = [0, 1].map(i => Number(sp[i] ?? sp[String(i)]) || 0); const all = Number(f?.cost) || per[0] + per[1];
   const u = n => `$${n.toFixed(4)}`;
-  return <p className="dsk-note" data-testid="fold-cost" data-tip="Every model call this folder made">COST · {per[0] || per[1] ? <>Mind A <b className="m-num">{u(per[0])}</b> · Mind B <b className="m-num">{u(per[1])}</b> · </> : null}folder <b className="m-num">{u(all)}</b>{f?.compare ? <span data-testid="fold-compare" data-tip={f.compare.ok ? 'It compared enough before settling' : `Compare before settling: ${f.compare.why}`}> · ⚖ compared <b className="m-num">{f.compare.sources}</b> of 4 sources{f.compare.ok ? '' : ' · thin'}</span> : null}</p>;
+  return <p className="dsk-note" data-testid="fold-cost" data-tip="Every model call this folder made">{f?.status === 'closed' ? <><ReviewChips review={f.review} /> </> : null}COST · {per[0] || per[1] ? <>Mind A <b className="m-num">{u(per[0])}</b> · Mind B <b className="m-num">{u(per[1])}</b> · </> : null}folder <b className="m-num">{u(all)}</b>{f?.compare ? <span data-testid="fold-compare" data-tip={f.compare.ok ? 'It compared enough before settling' : `Compare before settling: ${f.compare.why}`}> · ⚖ compared <b className="m-num">{f.compare.sources}</b> of 4 sources{f.compare.ok ? '' : ' · thin'}</span> : null}</p>;
 }
 // 🔑 the API drawer as a cabinet slot (owner 2026-10-31): its own keys, sealed on the server — only the last 4 ever come back
 export function ApiSlot({ cat }) {
