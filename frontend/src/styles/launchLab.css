@@ -112,3 +112,10 @@ body.theme-day .lrb-tile { background: #fff; } body.theme-day .lrb-top b { color
 @keyframes llpBeat { 50% { opacity: .5; } }
 body.theme-day .llp-tape li, body.theme-day .llp-kpis span { background: #fff; } body.theme-day :is(.llp-sym b, .llp-kpis b) { color: #10301f; }
 @media (max-width: 640px) { .llp-tape li { grid-template-columns: minmax(0, 1fr) 34px 60px; } .llp-dev, .llp-curve { display: none; } }
+
+/* 🪟 SITE-6 (2026-11-10 sweep): the last flat Launch panels get Launch's glass: the logo green on near-black, an inner highlight, soft depth.
+   The guide grid drew its dividers with a grey 1px-gap background: now separate glass cards with a real gap. */
+:is(.meta-launch-readiness, .launchpad-card, .launchpad-guide-card, .llb-stage) { background: linear-gradient(160deg, rgba(21, 209, 106, .07), rgba(6, 10, 8, .92) 55%); border: 1px solid rgba(21, 209, 106, .22); border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 14px 34px rgba(0, 0, 0, .45); }
+.launchpad-guide-grid { gap: 10px; background: none; } .launchpad-guide-card { transition: border-color .15s ease, transform .15s ease; } .launchpad-guide-card:hover, .launchpad-card:hover { border-color: rgba(21, 209, 106, .5); transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) { .launchpad-guide-card, .launchpad-card { transition: none; } .launchpad-guide-card:hover, .launchpad-card:hover { transform: none; } }
+body.theme-day :is(.meta-launch-readiness, .launchpad-card, .launchpad-guide-card, .llb-stage) { background: linear-gradient(160deg, rgba(15, 138, 70, .08), #fff 60%); border-color: rgba(15, 138, 70, .25); box-shadow: inset 0 1px 0 #fff, 0 10px 26px rgba(0, 0, 0, .08); }

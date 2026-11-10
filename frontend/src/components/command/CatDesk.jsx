@@ -259,7 +259,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
   const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
   // 🖥 EVERY owner desk is tabbed (owner 2026-10-31: "Fee's desk is all scroll, not organized like Happy's")
-  const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk'); const [deskAt, setDeskAt] = useState(null);   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
+  const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk'); const [deskAt, setDeskAt] = useState(null);
+  const pubTabbed = !canEdit && !visitor; const [pubTab, setPubTab] = useState('live');   // 🗂 SITE-6 (2026-11-10): Fee's public desk was one 3,300 px scroll: everyone sees it as three tabs   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
   const on = k => !tabbed || tab === k;
   const theater = useRef(null); useTheater(theater, visitor);
   const tiles = gen && !visitor ? <div className="kd-tiles" data-testid="kd-real-tiles">
@@ -356,10 +357,12 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {tabbed ? null : tiles}
+    {pubTabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['live', '📡 LIVE', 'Its windows and what it is doing now'], ['record', '📒 RECORD', 'Its trades and its record'], ...(Tools ? [['tools', '🧰 TOOLS', 'What it runs for everyone']] : [])].map(([k, l, tip]) =>
+      <button key={k} type="button" role="tab" aria-selected={pubTab === k} className={pubTab === k ? 'active' : ''} onClick={() => setPubTab(k)} data-tip={tip} data-testid={`kd-pub-${k}`}><Ic3Text text={l} /></button>)}</nav> : null}
     {visitor ? <PublicVitals cat={cat} /> : null}
-    {!on('desk') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
+    {!on('desk') || (pubTabbed && pubTab !== 'live') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
-    {visitor || tabbed ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
-    {Tools}
+    {visitor || tabbed || (pubTabbed && pubTab !== 'record') ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
+    {pubTabbed && pubTab !== 'tools' ? null : Tools}
   </section></DeskExtras.Provider>;
 }
