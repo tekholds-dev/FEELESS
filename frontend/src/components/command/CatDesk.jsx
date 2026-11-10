@@ -139,6 +139,22 @@ export function ModelVitals({ cat }) {
   </section>;
 }
 
+// 🧭 AGT-14: how each kind of proof runs for this agent, in plain steps, read from the live config (owner 2026-11-06: "explain proof paths simply")
+export function ProofPaths({ cat }) {
+  const [d, setD] = useState(null); const [k, setK] = useState('pow'); const [err, setErr] = useState('');
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/cats/${cat.id}/paths?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [cat.id]);
+  const p = (d?.paths || []).find(x => x.kind === k);
+  return <section className="kd-card kd-paths" data-testid="kd-paths"><header><b>🧭 HOW ITS PROOFS RUN</b><small>{err ? `⚠ ${err}` : 'read from its live settings, step by step'}</small></header>
+    <div className="m-seg kd-mem" role="radiogroup" aria-label="Which proof">{PROOF_KINDS.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={k === v} className={k === v ? 'is-on' : ''} onClick={() => setK(v)} data-testid={`kd-path-${v}`}>{l}</button>)}</div>
+    {p ? <ol className="kd-path-steps">
+      <li style={{ '--i': 0 }}><b>Reads first</b><span>{p.reads.length ? p.reads.map(r => r.name).join(' → ') : 'its own record only'}</span><small>a read is shared with every agent's next {PROOF_KINDS.find(x => x[0] === k)[1]} for {p.freshMin} min</small></li>
+      <li style={{ '--i': 1 }}><b>Two minds</b><span>{p.minds.map(shortId).join(' + ') || 'none set'}</span><small>{p.ownMinds ? 'its own pair for this kind' : 'the agent\'s pair (set one in By proof)'}{p.prompt ? ' · its own prompt' : ''}{p.persona ? ` · ${p.persona} voice` : ''}</small></li>
+      <li style={{ '--i': 2 }}><b>Each call goes</b><span>{p.route.join(' → ')}</span><small>the log shows which model really answered</small></li>
+      <li style={{ '--i': 3 }}><b>Before it settles</b><span>{p.checks.join(' · ')}</span><small>method kits: {p.kits.join(', ') || 'none'}</small></li>
+    </ol> : <p className="m-note">{err ? 'Could not read its paths.' : 'Reading…'}</p>}
+  </section>;
+}
+
 // 🔁 its models can be switched 24 h after you got it (the sealed brief, credit, memory and cloud carry over)
 export const MODEL_LOCK_H = 24;
 export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0, MODEL_LOCK_H * 3600 - (now - Number(createdAt || 0))); }
@@ -278,12 +294,12 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <section className="kd-card kd-revoke"><header><b><Ic3 e="🔒" /> RETIRE IT</b><small>stops it for good · frees a slot</small></header>
           <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
           {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
-        {cat.brainsCfg && !tabbed ? <><ModelSwitch cat={cat} busy={busy} onAct={onAct} /><ModelVitals cat={cat} /></> : null}
+        {cat.brainsCfg && !tabbed ? <><ModelSwitch cat={cat} busy={busy} onAct={onAct} /><ModelVitals cat={cat} /><ProofPaths cat={cat} /></> : null}
         <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside> : null;
   // 🖥 owner 2026-11-04: its wallet and limits live on its desktop, so the desk stays the monitors and the chat
-  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin kd-walwin">{tiles}{Real}{Holds}</div> }, ...(Brains || (cat.brainsCfg && runs) ? [{ k: 'brains', ic: '🧠', label: 'Brains', tip: 'Its models, its brief, and what it learned. Change a model here', body: <div className="kd-inwin"><div className="kd-main">{cat.brainsCfg?.kind === 'trading' ? <div className="kd-minds" data-testid="kd-minds">{(cat.brainsCfg.brains || []).slice(0, 2).map((m, i) => <MindVitals key={m} cat={cat} model={m} i={i} live={cat.status === 'running'} />)}</div> : null}{cat.brainsCfg && runs ? <><ModelSwitch cat={cat} busy={busy} onAct={onAct} /><ModelVitals cat={cat} /></> : null}{Brains}{Learned}</div></div> }] : []), ...(Activity || !gen ? [{ k: 'log', ic: '📜', label: 'Activity', tip: 'Its results and everything it did', body: <div className="kd-inwin"><div className="kd-main">{Curve}{Activity}</div></div> }] : []), ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
+  const deskApps = tabbed ? [{ k: 'wallet', body: <div className="kd-inwin kd-walwin">{tiles}{Real}{Holds}</div> }, ...(Brains || (cat.brainsCfg && runs) ? [{ k: 'brains', ic: '🧠', label: 'Brains', tip: 'Its models, its brief, and what it learned. Change a model here', body: <div className="kd-inwin"><div className="kd-main">{cat.brainsCfg?.kind === 'trading' ? <div className="kd-minds" data-testid="kd-minds">{(cat.brainsCfg.brains || []).slice(0, 2).map((m, i) => <MindVitals key={m} cat={cat} model={m} i={i} live={cat.status === 'running'} />)}</div> : null}{cat.brainsCfg && runs ? <><ModelSwitch cat={cat} busy={busy} onAct={onAct} /><ModelVitals cat={cat} /><ProofPaths cat={cat} /></> : null}{Brains}{Learned}</div></div> }] : []), ...(Activity || !gen ? [{ k: 'log', ic: '📜', label: 'Activity', tip: 'Its results and everything it did', body: <div className="kd-inwin"><div className="kd-main">{Curve}{Activity}</div></div> }] : []), ...(runs ? [{ k: 'limits', ic: '🎚', label: 'Limits', tip: 'What it may spend and trade. It can only ever trade less', body: <div className="kd-inwin">{sidePane}</div> }] : [])] : [];
   const [workLive, setWorkLive] = useState(false);   // 💡 its windows tell the lamp when they work
   useEffect(() => { const on = e => { if (e.detail?.id === cat.id) setWorkLive(!!e.detail.live); }; window.addEventListener('feeless:agent-live', on); return () => window.removeEventListener('feeless:agent-live', on); }, [cat.id]);
   const lampOn = workLive || (cat.brainsCfg?.kind !== 'general' && !cat.revoked && ['hunting', 'running'].includes(String(cat.status || '').toLowerCase()));

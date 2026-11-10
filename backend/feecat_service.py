@@ -9944,6 +9944,42 @@ def _calls_of(cat_id, limit=20000):
     return out
 
 
+def _route_words(cat):
+    """The order a model call takes for this agent, in plain words (AGT-14)."""
+    own_ = bool(_ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)); staff_ = bool(cat.get('ownerStaff') or cat.get('isLeader')); wallet_ = _pays_itself(cat)
+    if own_:
+        return ['your own OpenRouter key (you pay OpenRouter)'] + (['SingIt, paid from its own wallet'] if wallet_ else []) + ['no free stand-in: it says so instead']
+    if staff_:
+        return ["FEELESS's OpenRouter"] + (['SingIt, paid from its own wallet'] if wallet_ else []) + ['the free stand-ins (SingIt free, Groq)']
+    return (['SingIt, paid from its own wallet'] if wallet_ else []) + (["FEELESS's OpenRouter"] if _brains_live() else []) + ['the free stand-ins (SingIt free, Groq)']
+
+
+@app.get('/api/cats/{cat_id}/paths')
+async def cat_paths(cat_id: str, ownerId: str = '', session: str = ''):
+    """🧭 AGT-14: how each kind of proof runs for this agent, in plain steps: what it reads first and in what order, which two minds, the route a
+    call takes and its fallbacks, the checks before it may settle, and its method kits. Read from the live config, never written up by hand. Owner only."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId)
+    b_ = cat.get('brainsCfg') or {}; route_ = _route_words(cat); out = []
+    checks = {'pow': ['compare before settling: recorded, never blocks a real buy', 'the 24-hour stamp', 'real trades read back from the chain'],
+              'pop': ['compare before settling: a thin call is not traded', 'the 24-hour stamp, priced at true prices'],
+              'pob': ['compare before settling: a thin pick is not bid', 'the final score or the market settles it'],
+              'poc': ['the owner marks it', 'the 24-hour stamp'], 'pos': ['a game must pass a headless playtest before it is filed', 'the owner marks the page', 'the 24-hour stamp'],
+              'poe': ['a hash of the books: it proves nothing changed']}
+    for k in _lc.PROOF_KINDS:
+        try:
+            order_ = _feat._sources.read_order(k, await asyncio.to_thread(_stash.trust_rows, STASH_DIR, _feat._sources.STASH_CAT.get(k))) if k in _feat._sources.STASH_CAT else []
+        except Exception:   # noqa: BLE001: the rest of the path still shows
+            order_ = []
+        out.append({'kind': k, 'reads': [{'host': r.get('host'), 'name': r.get('name') or r.get('host'), 'why': r.get('why') or r.get('use') or ''} for r in order_[:6]],
+                    'freshMin': round(READ_FRESH_S.get(k, 600) / 60), 'minds': _lc.minds_for(b_, k), 'ownMinds': bool((b_.get('byKind') or {}).get(k)), 'route': route_,
+                    'checks': checks.get(k, []), 'kits': [kid for kid, kt in _mkits.KITS.items() if k in kt['kinds'] and (_MKIT_STATE.get(kid) or {}).get('state') != 'quarantined'],
+                    'prompt': bool((b_.get('promptBy') or {}).get(k)), 'persona': ((b_.get('personaBy') or {}).get(k) or {}).get('style')})
+    return {'paths': out}
+
+
 @app.get('/api/cats/{cat_id}/parts')
 async def cat_parts(cat_id: str, ownerId: str = '', session: str = ''):
     """🧩 COL-26: the Collective's proven parts, each with its family tree (which proofs reused it), licenses and whether it went stale. Owner only."""

@@ -135,3 +135,14 @@ test('🧠🧠 by proof: a kind picks its own two minds from the agent\'s own, s
   expect(onAct).toHaveBeenLastCalledWith('kind_models', { text: 'pow', brains: [] });
   act(() => root.unmount()); el.remove();
 });
+
+test('🧭 how its proofs run: plain steps per kind from the live settings (AGT-14)', async () => {
+  const { ProofPaths } = require('./CatDesk');
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ paths: [{ kind: 'pow', reads: [{ name: 'DexScreener' }, { name: 'RugCheck' }], freshMin: 5, minds: ['tencent/hy4', 'z-ai/glm-5.3-flash'], ownMinds: false, route: ['your own OpenRouter key', 'SingIt'], checks: ['compare before settling'], kits: ['plan-first'], prompt: true, persona: 'analyst' }] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ProofPaths cat={{ id: 'c1' }} />); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const t = el.textContent;
+  expect(t).toContain('DexScreener → RugCheck'); expect(t).toContain('hy4 + glm-5.3-flash'); expect(t).toContain('your own OpenRouter key → SingIt');
+  expect(t).toContain('its own prompt · analyst voice'); expect(t).toContain('method kits: plan-first');
+  act(() => root.unmount());
+});
