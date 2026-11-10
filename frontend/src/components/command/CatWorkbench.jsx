@@ -441,7 +441,7 @@ const SPLIT_PRESETS = [['Balanced', { holder: 50, credit: 30, buyback: 20 }], ['
 export function FolderCost({ f }) {
   const sp = f?.spend && typeof f.spend === 'object' ? f.spend : {}; const per = [0, 1].map(i => Number(sp[i] ?? sp[String(i)]) || 0); const all = Number(f?.cost) || per[0] + per[1];
   const u = n => `$${n.toFixed(4)}`;
-  return <p className="dsk-note" data-testid="fold-cost" data-tip="Every model call this folder made">COST · {per[0] || per[1] ? <>Mind A <b className="m-num">{u(per[0])}</b> · Mind B <b className="m-num">{u(per[1])}</b> · </> : null}folder <b className="m-num">{u(all)}</b></p>;
+  return <p className="dsk-note" data-testid="fold-cost" data-tip="Every model call this folder made">COST · {per[0] || per[1] ? <>Mind A <b className="m-num">{u(per[0])}</b> · Mind B <b className="m-num">{u(per[1])}</b> · </> : null}folder <b className="m-num">{u(all)}</b>{f?.compare ? <span data-testid="fold-compare" data-tip={f.compare.ok ? 'It compared enough before settling' : `Compare before settling: ${f.compare.why}`}> · ⚖ compared <b className="m-num">{f.compare.sources}</b> of 4 sources{f.compare.ok ? '' : ' · thin'}</span> : null}</p>;
 }
 // 🔑 the API drawer as a cabinet slot (owner 2026-10-31): its own keys, sealed on the server — only the last 4 ever come back
 export function ApiSlot({ cat }) {

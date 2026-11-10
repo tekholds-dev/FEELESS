@@ -591,5 +591,6 @@ test('💵 a proof folder\'s discussion shows what it cost, per mind and in all 
   await act(async () => root.render(<FolderCost f={{ cost: 0.0031, spend: { 0: 0.002, 1: 0.0011 } }} />));
   expect(el.textContent).toBe('COST · Mind A $0.0020 · Mind B $0.0011 · folder $0.0031');
   await act(async () => root.render(<FolderCost f={{ cost: 0 }} />)); expect(el.textContent).toBe('COST · folder $0.0000');
+  await act(async () => root.render(<FolderCost f={{ cost: 0, compare: { sources: 2, ok: false, why: 'compared 2 of 4 sources' } }} />)); expect(el.textContent).toBe('COST · folder $0.0000 · ⚖ compared 2 of 4 sources · thin');   // COL-13
   act(() => root.unmount());
 });

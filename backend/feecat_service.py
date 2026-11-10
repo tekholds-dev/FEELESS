@@ -97,6 +97,7 @@ import mission as _mission   # 🧾 COL-2: one line per model call made for a pr
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
+import compare_gate as _cmp   # ⚖ COL-13: compare before settling (enforced on PoB / PoP, recorded on PoW)
 import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
@@ -4366,6 +4367,10 @@ async def _pop_open(http, cat, do, who, now, browsed=None, read_why=''):
         why = _pop.no_trade_why(why, calls)
         _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': why}, f'{icon} filed with no trade: {why}')
         return
+    chk_ = _cmp.check('pop', {**base, **trade, 'calls': calls, 'board': reads}); base['compare'] = chk_
+    if not chk_['ok']:   # ⚖ COL-13: a thin call is not traded, even on paper; the next round reads more first
+        _pop_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': f"not traded: {chk_['why']}. Compare before settling."}, f"{icon} filed with no trade: {chk_['why']}")
+        return
     px = next(r['px'] for r in reads if r['market'] == trade['market'])
     if propose:
         cat['popCard'] = _pop.card(rid, trade, px, now, calls, conviction, base)
@@ -4476,6 +4481,10 @@ async def _pob_call(http, cat, rd, now, notes, why):
     bid, no = _pob.agree(parsed); base.update(calls=calls, cost=box.get('cost', 0), board=[{k: m.get(k) for k in ('id', 'q', 'crowd', 'n')} for m in rows])
     if not bid:
         _pob_file(cat, {**base, 'status': 'closed', 'noTrade': True, 'why': no}, f'🎲 PoB filed with no bid: {no}')
+        return
+    chk_ = _cmp.check('pob', {**base, **bid}); base['compare'] = chk_
+    if not chk_['ok']:   # ⚖ COL-13: a thin pick is not bid; the next round researches again
+        _pob_file(cat, {**base, **bid, 'status': 'closed', 'noTrade': True, 'why': f"not bid: {chk_['why']}. Compare before settling: the next round reads more first."}, f"🎲 PoB filed with no bid: {chk_['why']}")
         return
     m = next(x for x in rows if x['id'] == bid['market'])
     got = await _pob_rep(http, {'op': 'stake', 'catId': cat['id'], 'market': bid['market'], 'side': bid['side'], 'chips': _pob.STAKE})

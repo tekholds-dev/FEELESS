@@ -9,6 +9,7 @@ import json
 
 import proof_footprint as _foot
 import proof_stamp as _stamp
+import compare_gate as _cmp
 
 VERSION = 1
 KINDS = {   # kind → (its code, the folder list on an agent)
@@ -187,7 +188,7 @@ def envelope(kind, folder, now, cat=None, quality=None, calls=None, record=None)
         'artifacts': arts, 'recordSha': record_sha(f),
         'quality': _quality(k, quality), 'outcome': out,
         'improvement': {'state': 'unverified', 'why': 'No matched baseline yet (COL-11). A better grade than an earlier proof is not proof of improvement.'},
-        'evidence': evidence(k, f, out, arts), 'record': _record(k, f, record),
+        'evidence': evidence(k, f, out, arts), 'record': _record(k, f, record), 'compare': {x: v for x, v in _cmp.check(k, f).items() if x != 'hosts'},
         'mark': f.get('graded') if f.get('graded') in ('right', 'wrong') else None, 'markedBy': f.get('gradedBy') or ('owner' if f.get('graded') in ('right', 'wrong') else None),
         'sent': {'sent': bool(sent), 'sig': sent.get('sig') if isinstance(sent, dict) else None},
     }
