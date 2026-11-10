@@ -94,6 +94,7 @@ import free_browser as _fb
 import evidence_marks as _marks
 import proof_stamp as _stamp
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
+import proof_events as _pev   # 🧾 COL-3: every step of every proof, hash-chained, its own key, log only
 import proof_tools as _tools
 import recovery_kit as _rkit
 import agent_live as _al
@@ -114,6 +115,19 @@ import trade_fills as _fills   # ⛓ exact on-chain wallet deltas; Colony never 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'feecats.json'
+_PEV_W = {}   # path → its Watcher (tests move DATA_DIR)
+_PEV_ERR = [0.0]
+
+
+def _pev_watch(items):
+    """🧾 COL-3: files what a save changed in any proof. Log only: a busy or broken event file never stops or slows a save more than its short lock."""
+    try:
+        path = DATA_DIR / _pev.DB_NAME
+        w = _PEV_W.get(str(path)) or _PEV_W.setdefault(str(path), _pev.Watcher(path))
+        w.watch(items() if callable(items) else items)
+    except Exception as e:   # noqa: BLE001: the record must never cost a proof
+        if time.time() - _PEV_ERR[0] > 60:
+            _PEV_ERR[0] = time.time(); print(f'[proof-events] not filed this time: {type(e).__name__}: {e}', flush=True)
 
 TICK_SECONDS = 20
 # ✂ 2026-10-23 (P2 #1): the old catalog showed Claude / GPT / Grok labels that only ever ran the rule engine — one honest row now. Real AI
@@ -195,6 +209,7 @@ def _save(store: dict):
         tmp.replace(STORE_PATH)
     finally:
         tmp.unlink(missing_ok=True)
+    _pev_watch(lambda: _pev.states(store, time.time()))
 
 
 _ECHO_OLD = re.compile(r':?\s*under \d{1,2} words(?:, numbers)?')
@@ -6239,6 +6254,9 @@ def _ws_file(cat_id, ws_id):
 def _ws_save(cat_id, doc):
     f_ = _ws_file(cat_id, doc.get('id')); f_.parent.mkdir(parents=True, exist_ok=True)
     f_.write_bytes(_ck.seal_bytes(json.dumps(doc).encode(), cat_id))   # 🔒 its owner's work, sealed with this agent's key
+    st_ = _pev.ws_state(cat_id, doc)
+    if st_:
+        _pev_watch([st_])
 
 
 def _ws_load(cat_id, ws_id):
