@@ -83,11 +83,13 @@ def combine(by):
             'verdict': ('pass' if all(v['verdict'] == 'pass' for v in got.values()) else 'fail') if got else None, 'missing': [k for k, v in by.items() if not v]}
 
 
-def next_due(store, done=(), kinds=None):
+def next_due(store, done=(), kinds=None, handles=None):
     """The newest closed proof nobody reviewed yet, of any agent and kind. → (cat_id, kind, folder) or None. Pure."""
     import mission
     best = None
     for cid, c in ((store or {}).get('cats') or {}).items():
+        if handles and c.get('handle') not in handles:   # 🧪 the test bench: only these agents' proofs until the owner opens it to all
+            continue
         for k, (_code, key) in mission.KINDS.items():
             if kinds and k not in kinds:
                 continue
@@ -98,3 +100,34 @@ def next_due(store, done=(), kinds=None):
                 if best is None or at > best[0]:
                     best = (at, cid, k, f)
     return best[1:] if best else None
+
+
+LESSONS_KEEP = 3
+
+
+def lessons(store, kind, keep=LESSONS_KEEP):
+    """What OSSY and G4 failed most recently in proofs of this kind, across every agent: one short line each, newest first. Pure.
+    The next proof of the kind reads them in its brief, so the reviews make the Collective's next proof better (COL-10)."""
+    import mission
+    key = mission.KINDS.get(kind, (None, None))[1]
+    rows = []
+    for c in ((store or {}).get('cats') or {}).values():
+        for f in c.get(key) or [] if key else []:
+            rv = f.get('review') or {}
+            if rv.get('verdict') != 'fail':
+                continue
+            for v in (rv.get('by') or {}).values():
+                if v.get('verdict') == 'fail' and (v.get('why') or v.get('checks')):
+                    rows.append((float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0), str(v.get('why') or v['checks'][0])[:160]))
+    seen, out = set(), []
+    for _at, line in sorted(rows, reverse=True):
+        if line.lower() not in seen:
+            seen.add(line.lower()); out.append(line)
+        if len(out) >= keep:
+            break
+    return out
+
+
+def lessons_line(lines):
+    """The brief line a proof reads: data from past reviews, never an instruction to move money."""
+    return ('\nREVIEWERS FAILED RECENT PROOFS OF THIS KIND FOR (do not repeat these): ' + ' | '.join(lines) + '\n') if lines else ''

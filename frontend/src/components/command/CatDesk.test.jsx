@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CatDesk, deskVitals, curveOf } from './CatDesk';
+import { CatDesk, deskVitals, curveOf, payerOf } from './CatDesk';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => null }));   // lightweight-charts is ESM jest can't parse (the desk's live windows load it lazily)
@@ -157,3 +157,9 @@ test('👀 a visitor sees public vitals only: the proved rate, a ring per kind, 
   act(() => root.unmount());
 });
 
+
+test('💳 AGT-1: the desk names who really pays (SingIt from its wallet, your OpenRouter, or model credit)', () => {
+  expect(payerOf({ payRoute: ['SingIt, paid from its own wallet', 'the free stand-ins'] })).toMatchObject({ wallet: true, short: 'SingIt, paid from its wallet' });
+  expect(payerOf({ payRoute: ['your own OpenRouter key (you pay OpenRouter)'] })).toMatchObject({ own: true, wallet: false });
+  expect(payerOf({}).short).toBe('model credit');
+});

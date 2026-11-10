@@ -4258,7 +4258,7 @@ def _recall(cat, category, text):
     try:
         cfg_ = cat.get('brainsCfg') or {}; kind_ = RECALL_KIND.get(category, ''); mode_, mine_ = _kits.picks_of(cfg_, kind_); auto_ = mode_ == 'auto'
         picks_ = _kits.auto_picks(KITS_DIR, kind_, text, record=_kit_record()) if auto_ else mine_; _KIT_LAST[(cat.get('id'), kind_)] = picks_
-        return _mkits.active_line(kind_, _MKIT_STATE) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
+        return _mkits.active_line(kind_, _MKIT_STATE) + _review.lessons_line(_REVIEW_LESSONS.get(kind_) or []) + _stash_best(cat, category, text) + _convo(cat) + _proof_brain(cat, kind_) + (_cg.project_line(cat.get('projectRepo')) if kind_ == 'pos' else '') + _kits.line(KITS_DIR, kind_, picks_, open_kits=auto_) + _kits.skills_line(cat.get('brainsCfg'), {k['id']: k.get('name') for k in _kits.catalog_view(KITS_DIR)}) + _feat._sources.recall_line(_stash.related(STASH_DIR, re.findall(r"[A-Za-z0-9$][A-Za-z0-9$-]{2,}", str(text or ''))[:10], category), _stash.agent_tag(cat.get('id')))
     except Exception as e:   # noqa: BLE001
         print(f'[recall] {str(e)[:100]}')
         return ''
@@ -5735,13 +5735,15 @@ async def _start_sort():
 
 
 _REVIEW_DONE: list = []   # 🧑‍⚖️ verdicts waiting for the engine (the store's one writer) to file them
+REVIEW_SCOPE = tuple(x for x in os.environ.get('FEELESS_REVIEW_SCOPE', 'sicarios').split(',') if x.strip() and x.strip() != 'all')   # owner 2026-11-10: test on Sicario's; Happy's is his once all is confirmed (FEELESS_REVIEW_SCOPE=all opens it)
+_REVIEW_LESSONS = {}       # kind → what the reviewers failed lately, every proof of that kind reads it (COL-10)
 _REVIEWED = set()          # (cat, folder) already asked this run, so a failing one is not asked again and again
 REVIEW_EVERY_S = 90
 
 
 async def _review_one(store):
     """OSSY then G4 read the newest unreviewed proof and each gives its own verdict. Every call is logged with the model that really answered."""
-    due = _review.next_due(store, _REVIEWED)
+    due = _review.next_due(store, _REVIEWED, handles=REVIEW_SCOPE or None)
     if not due:
         return None
     cid, kind, f = due; _REVIEWED.add((cid, f.get('id')))
@@ -5773,6 +5775,13 @@ async def _review_one(store):
 def _review_apply(store):
     """The engine files each verdict on its folder and in the proof history."""
     n = 0
+    if REVIEW_SCOPE:   # a review filed on an agent outside the test bench comes off (the proof history keeps its event)
+        for c_ in store['cats'].values():
+            if c_.get('handle') not in REVIEW_SCOPE:
+                for _k, (_c, key_) in _mission.KINDS.items():
+                    for f_ in c_.get(key_) or []:
+                        if f_.pop('review', None) is not None:
+                            n += 1
     while _REVIEW_DONE:
         cid, kind, fid, rv = _REVIEW_DONE.pop(0)
         key = _mission.KINDS[kind][1]
@@ -5780,6 +5789,7 @@ def _review_apply(store):
         if f is None or f.get('review'):
             continue
         f['review'] = rv; n += 1
+        _REVIEW_LESSONS[kind] = _review.lessons(store, kind)
         try:
             _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy')} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict']}, cat=cid)
         except Exception as e:   # noqa: BLE001
@@ -5792,7 +5802,10 @@ async def _review_loop():
     await asyncio.sleep(45)
     while True:
         try:
-            await _review_one(_load())
+            st_ = _load()
+            if not _REVIEW_LESSONS:
+                _REVIEW_LESSONS.update({k: _review.lessons(st_, k) for k in _mission.KINDS})
+            await _review_one(st_)
         except Exception as e:   # noqa: BLE001
             print(f'[review] {type(e).__name__}: {str(e)[:120]}')
         await asyncio.sleep(REVIEW_EVERY_S)
@@ -10178,6 +10191,7 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
     out['cat']['printPublic'] = _print.public(_print.build(cat, time.time()))   # 🧬 a level: never what is in it
     if mine:   # 🧠 the record each mind has by topic is its owner's
         out['cat']['mindBoard'] = _pl.mind_board(cat)
+        out['cat']['payRoute'] = _route_words(cat)   # 💳 AGT-1: who really pays for its thinking, in call order (the desk names the first)
         out['cat']['liveKeys'] = _al.owner_view(cat.get('liveKeys'))   # 🔴 whether each channel is set, never the key
         out['cat']['nameLeftS'] = _nl.left_s(cat.get('nameLock'))
         out['cat']['recoveryView'] = _rkit.view(cat.get('recoveryKit'))

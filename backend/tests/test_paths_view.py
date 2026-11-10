@@ -12,3 +12,13 @@ def test_paths_are_read_from_live_settings(monkeypatch, tmp_path):
     assert by['pow']['minds'] == ['a/x', 'b/y'] and not by['pow']['ownMinds'] and by['pob']['freshMin'] == 30
     assert any('playtest' in x for x in by['pos']['checks']) and 'compare-before-settling' in by['pob']['kits'] and by['pow']['route']
     assert c.get('/api/cats/g/paths', params={'ownerId': 'x', 'session': 'x'}).status_code in (401, 403)
+
+
+def test_owner_get_names_the_real_payer(monkeypatch, tmp_path):
+    """AGT-1: an agent that pays SingIt from its wallet must not read MODEL CREDIT: the owner's GET carries the call order."""
+    fs, c, store = _server(monkeypatch, tmp_path)
+    monkeypatch.setattr(fs, '_pays_itself', lambda cat: True)
+    store['cats']['g'].pop('ownerStaff', None); store['cats']['g'].pop('isLeader', None)
+    me = c.get('/api/cats/g', params={'ownerId': 'g', 'session': 'g'}).json()['cat']
+    assert me['payRoute'][0].startswith('SingIt')
+    assert 'payRoute' not in c.get('/api/cats/g', params={'ownerId': 'x', 'session': 'x'}).json()['cat']

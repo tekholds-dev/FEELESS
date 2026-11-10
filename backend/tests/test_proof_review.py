@@ -34,3 +34,28 @@ def test_a_review_is_filed_with_who_answered(monkeypatch):
     assert asked == ['local/ossy', 'local/g4'] and (rv['score'], rv['verdict'], rv['agree']) == (60, 'fail', False)
     assert fs._review_apply(store) == 1 and store['cats']['s']['pobFolders'][0]['review']['by']['ossy']['score'] == 70
     assert asyncio.run(fs._review_one(store)) is None   # reviewed once
+
+
+def test_failed_reviews_become_the_next_proofs_lessons():
+    """COL-10: what OSSY and G4 failed lately in a kind reaches the next proof of that kind; passes and other kinds do not."""
+    fail = lambda why, at: {'id': f'p{at}', 'status': 'closed', 'closedAt': at, 'review': {'verdict': 'fail', 'by': {'ossy': {'verdict': 'fail', 'why': why, 'checks': []}}}}
+    store = {'cats': {'a': {'pobFolders': [fail('odds were made up', 1), fail('no real sources', 3), fail('No real sources', 2),
+                                          {'id': 'ok', 'status': 'closed', 'closedAt': 9, 'review': {'verdict': 'pass', 'by': {'g4': {'verdict': 'pass', 'why': 'fine'}}}}]},
+                      'b': {'powFolders': [fail('rug ignored', 5)]}}}
+    assert pr.lessons(store, 'pob') == ['no real sources', 'odds were made up']
+    assert 'no real sources' in pr.lessons_line(pr.lessons(store, 'pob')) and pr.lessons_line([]) == ''
+
+
+def test_kit_reliability_shows_review_rates_but_never_quarantines_on_them():
+    import method_kits as mk
+    fs = {('pob', str(i)): {'id': str(i), 'sitesRead': ['x'] if i % 2 else [], 'review': {'verdict': 'pass' if i % 2 else 'fail'}} for i in range(30)}
+    env = [{'kind': 'pob', 'id': str(i), 'outcome': {}} for i in range(30)]
+    row = mk.reliability(env, fs)['read-the-record-first']
+    assert row['followedReview'] == 1.0 and row['skippedReview'] == 0.0 and row['state'] == 'unmeasured'
+
+
+def test_the_test_bench_reviews_only_sicarios():
+    """Owner 2026-11-10: OSSY and G4 test on Sicario's proofs; his own agent waits until all is confirmed."""
+    f = lambda at: {'id': f'p{at}', 'status': 'closed', 'closedAt': at}
+    store = {'cats': {'h': {'handle': 'happy-assistant', 'psFolders': [f(9)]}, 's': {'handle': 'sicarios', 'powFolders': [f(1)]}}}
+    assert pr.next_due(store)[0] == 'h' and pr.next_due(store, handles=('sicarios',))[0] == 's'

@@ -63,7 +63,7 @@ function SpendLimits({ cat, busy, onAct }) {
   const l = cat.limits || {}; const minds = (cat.brainsCfg?.brains || []).map(m => String(m).split('/').pop());
   const [v, setV] = useState(() => ({ taskUsd: cat.taskCap ?? 0.05, mind0: l.mindUsd?.[0] ?? 0, mind1: l.mindUsd?.[1] ?? 0, steps: l.steps ?? 0, dayUsd: l.dayUsd ?? 0 }));
   const set = k => x => setV(o => ({ ...o, [k]: x }));
-  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b><Ic3 e="🧠" /> WHAT IT MAY SPEND</b><small>model credit · 0 = no extra limit</small></header>
+  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b><Ic3 e="🧠" /> WHAT IT MAY SPEND</b><small>{payerOf(cat).short} · 0 = no extra limit</small></header>
     <form onSubmit={e => { e.preventDefault(); onAct('controls', { limits: { taskUsd: v.taskUsd, mindUsd: [v.mind0, v.mind1], steps: v.steps, dayUsd: v.dayUsd } }); }}>
       <LimitRow k="taskUsd" label="MOST A TASK" lo={0.005} hi={2} st={0.005} unit="$" value={v.taskUsd} set={set('taskUsd')} note="Both minds together, on one task" />
       {minds.length > 1 ? minds.slice(0, 2).map((m, i) => <LimitRow key={m} k={`mind${i}`} label={`${'AB'[i]} · ${m.toUpperCase()}`} lo={0} hi={2} st={0.005} unit="$" value={v[`mind${i}`]} set={set(`mind${i}`)} note="This mind alone, on one task" />) : null}
@@ -134,13 +134,20 @@ export function ModelVitals({ cat }) {
         <b>{s.source}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${n ? s.won / n : 0})` }} /></i><small className="m-num">{n ? `${s.won}–${s.lost}` : `${s.proofs} read`}</small></li>; })}</ul>
       {(d.contribution.disagree || []).length ? <small className="kd-mv-dis">{d.contribution.disagree.map(x => `${PROOF_KINDS.find(p => p[0] === x.kind)?.[1]}: the minds split ${Math.round(x.rate * 100)}% of ${x.pairs}`).join(' · ')}</small> : null}</div> : null}
     {d?.methods?.length ? <div className="kd-mv-earn" data-testid="kd-methods"><span className="m-label">METHOD KITS<em>followed vs skipped, outside-settled wins · read-only</em></span>
-      <ul>{d.methods.map((k, i) => <li key={k.kit} style={{ '--i': i }} data-tip={`${k.what} · v${k.v} · followed ${k.followed}, skipped ${k.skipped}`}>
-        <b>{k.kit}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${k.followedWin ?? 0})` }} /></i><small className="m-num">{k.state === 'quarantined' ? 'quarantined' : `${pct(k.followedWin)} vs ${pct(k.skippedWin)}`}</small></li>)}</ul></div> : null}
+      <ul>{d.methods.map((k, i) => <li key={k.kit} style={{ '--i': i }} data-tip={`${k.what} · v${k.v} · followed ${k.followed}, skipped ${k.skipped}${k.followedReview != null || k.skippedReview != null ? ` · OSSY + G4 review pass: ${pct(k.followedReview)} followed vs ${pct(k.skippedReview)} skipped (shown, never used to quarantine)` : ''}`}>
+        <b>{k.kit}</b><i aria-hidden="true"><u className="is-won" style={{ transform: `scaleX(${k.followedWin ?? 0})` }} /></i><small className="m-num">{k.state === 'quarantined' ? 'quarantined' : `${pct(k.followedWin)} vs ${pct(k.skippedWin)}`}{k.followedReview != null ? <em className="kd-mv-rv"> · 🧑‍⚖️ {pct(k.followedReview)}</em> : null}</small></li>)}</ul></div> : null}
   </section>;
 }
 
 // 👀 AGT-10: what a visitor sees above the two monitors: its proofs per kind, proved by the 24-hour stamp, and the wins settled from outside.
 // Public counts only (no folder, model, wallet or owner). One row, no scroll.
+// 💳 AGT-1: who really pays for an agent's thinking (the owner's GET carries payRoute, the same words as HOW ITS PROOFS RUN)
+export function payerOf(cat) {
+  const r = cat?.payRoute || []; const first = String(r[0] || '');
+  const wallet = first.startsWith('SingIt'); const own = first.startsWith('your own OpenRouter');
+  return { wallet, own, route: r.join(' → '), short: wallet ? 'SingIt, paid from its wallet' : own ? 'your OpenRouter key' : 'model credit' };
+}
+
 export function PublicVitals({ cat }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/record`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setD(x)).catch(() => {}); return () => { on = false; }; }, [cat.id]);
@@ -243,6 +250,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const xpNext = 100 * (cat.level || 1); const xpFill = Math.min(1, (Number(cat.xp) || 0) / xpNext);
   const state = cat.revoked ? ['REVOKED', 'off'] : cat.status === 'running' ? [v.open ? `HOLDING ${v.open}` : 'HUNTING', 'on'] : ['STOPPED', 'off'];
   const aw = cat.agentWallet; const gen = cat.brainsCfg?.kind === 'general'; const bal = useAgentWallet(cat.id, !!aw)?.balance || {};   // 💵 a real agent's desk shows its real wallet, never paper numbers
+  const payer = payerOf(cat);
   const today = new Date().toISOString().slice(0, 10); const credit = Number(cat.brainsCfg?.credit ?? 0); const spentAll = Number(cat.brainsCfg?.spent || 0); const spentDay = Number(cat.brainsCfg?.daySpend?.[today] || 0); const dayCap = Number(cat.limits?.dayUsd || 0);
   const realCoins = Object.entries(cat.realHeld || {}); const realTrades = (cat.agentTx || []).filter(t => t.status === 'success').length;
   const copy = async () => { try { if (!aw && (cat.hasWallet || gen)) return; await navigator.clipboard.writeText(aw?.address || cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
@@ -256,7 +264,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const theater = useRef(null); useTheater(theater, visitor);
   const tiles = gen && !visitor ? <div className="kd-tiles" data-testid="kd-real-tiles">
       <Tile k={0} label="IN ITS WALLET" value={`${bal.sol == null ? '…' : Number(bal.sol).toFixed(4)} SOL`} sub={`${bal.usdc == null ? '…' : Number(bal.usdc).toFixed(2)} USDC`} tip={aw ? 'Live from the chain, every 20 seconds' : 'Make its wallet to fund it'} />
-      <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
+      {payer.wallet ? <Tile k={1} label="PAID VIA SINGIT" value={`$${spentAll.toFixed(2)}`} sub="from its own wallet" tip={`Who pays for its thinking, in order: ${payer.route}`} />
+        : <Tile k={1} label={payer.own ? 'YOUR OPENROUTER' : 'MODEL CREDIT'} value={payer.own ? `$${spentAll.toFixed(2)}` : `$${credit.toFixed(2)}`} fill={payer.own ? null : credit / Math.max(0.01, credit + spentAll)} sub={payer.own ? 'billed to your key' : `$${spentAll.toFixed(2)} used`} tip={payer.route ? `Who pays for its thinking, in order: ${payer.route}` : 'Pays for its thinking; add more in its funding panel'} />}
       <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
       <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
       <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub={cat.rentSweep?.backSol ? `♻ +${cat.rentSweep.backSol.toFixed(4)} SOL rent back` : 'in its wallet'} tip="Coins it really bought and still holds. Rent back: SOL returned when it closed the empty accounts of coins it sold" />

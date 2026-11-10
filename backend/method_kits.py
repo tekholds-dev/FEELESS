@@ -35,17 +35,22 @@ def reliability(envelopes, folders_by_id):
     """Per kit: proofs that followed it vs did not, the outside-settled win rate of each side, and the verdict. → {kit: row}"""
     out = {}
     for kid, kit in KITS.items():
-        row = {'kit': kid, 'v': kit['v'], 'what': kit['what'], 'kinds': list(kit['kinds']), 'followed': 0, 'skipped': 0, 'fw': 0, 'fl': 0, 'sw': 0, 'sl': 0}
+        row = {'kit': kid, 'v': kit['v'], 'what': kit['what'], 'kinds': list(kit['kinds']), 'followed': 0, 'skipped': 0, 'fw': 0, 'fl': 0, 'sw': 0, 'sl': 0, 'rfp': 0, 'rfn': 0, 'rsp': 0, 'rsn': 0}
         for e in envelopes or []:
             k = e.get('kind'); f = folders_by_id.get((k, str(e.get('id'))))
             if k not in kit['kinds'] or f is None:
                 continue
             ok = bool(kit['check'](k, f)); row['followed' if ok else 'skipped'] += 1
             o = e.get('outcome') or {}
+            rv = (f.get('review') or {}).get('verdict')   # 🧑‍⚖️ OSSY + G4's review: a fast second signal, shown, never used to quarantine
+            if rv in ('pass', 'fail'):
+                row[('rf' if ok else 'rs') + ('p' if rv == 'pass' else 'n')] += 1
             if o.get('strength') in ('chain', 'outside') and o.get('state') in ('proved', 'not'):
                 row[('f' if ok else 's') + ('w' if o['state'] == 'proved' else 'l')] += 1
         nf, ns = row['fw'] + row['fl'], row['sw'] + row['sl']
         row['followedWin'] = round(row['fw'] / nf, 3) if nf else None; row['skippedWin'] = round(row['sw'] / ns, 3) if ns else None
+        rf_, rs_ = row['rfp'] + row['rfn'], row['rsp'] + row['rsn']
+        row['followedReview'] = round(row['rfp'] / rf_, 3) if rf_ else None; row['skippedReview'] = round(row['rsp'] / rs_, 3) if rs_ else None
         if nf < MIN_SETTLED or ns < MIN_SETTLED:
             row['state'] = 'unmeasured'
         elif row['skippedWin'] - row['followedWin'] >= QUARANTINE_GAP:
