@@ -640,11 +640,6 @@ def agree_trade(trades):
     return {'sol': min(t['sol'] for t in ts), 'sl': min(t['sl'] for t in ts), 'tp': round(sum(t['tp'] for t in ts) / len(ts), 1)}
 
 
-def engine_pick(coins):
-    """When a mind stays silent the folder never waits forever: the strongest coin by the numbers (pool, then the intake's rank)."""
-    return max(range(len(coins)), key=lambda k: (_f(coins[k].get('liq')), _f(coins[k].get('mc')))) if coins else None
-
-
 def agree(picks, minds):
     """Both minds on the same coin (or the one mind's pick). → index or None."""
     vals = [picks.get(str(i)) for i in range(minds)]

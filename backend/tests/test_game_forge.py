@@ -79,3 +79,15 @@ def test_a_long_write_turns_thinking_off_and_retries_when_it_still_only_thinks(m
     assert text == '<html>game</html>' and round(usd, 6) == 0.009 and sent == [{'enabled': False}, {'max_tokens': 300}]   # both calls' cost counted
     sent.clear(); asyncio.run(fs._or_call('z-ai/glm', [{'role': 'user', 'content': 'x'}], max_tokens=600, key='k'))
     assert sent[0] is None   # a short decision keeps the model's own thinking
+
+
+def test_every_engine_kit_passes_the_real_playtest():
+    """Each kit is what a mind builds on: it must already play (real headless Chromium, the same gate a game must pass)."""
+    import free_browser as fb
+    chromium = fb.chromium_path()
+    if not chromium:
+        pytest.skip('no Chromium on this machine')
+    for eng in gf.ENGINES:
+        r = asyncio.run(gf.playtest(gf.kit_of(eng), chromium))
+        assert r['ok'], (eng, r['why'])
+        assert 'GAME LOGIC GOES HERE' in gf.kit_of(eng) and 'window.__game' in gf.kit_of(eng)

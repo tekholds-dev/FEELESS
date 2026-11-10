@@ -11,8 +11,6 @@ import re
 ENGINES = {   # pinned, checked live 2026-11-10 (all 200 on jsDelivr); licenses carried into the parts record
     'phaser': {'name': 'Phaser 3', 'dims': '2D', 'license': 'MIT', 'tag': '<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>',
                'how': 'new Phaser.Game({type: Phaser.AUTO, scale: {mode: Phaser.Scale.RESIZE}, physics: {default: "arcade"}, scene: [...]})'},
-    'babylon': {'name': 'Babylon.js 7', 'dims': '3D', 'license': 'Apache-2.0', 'tag': '<script src="https://cdn.jsdelivr.net/npm/babylonjs@7.31.0/babylon.js"></script>',
-                'how': 'const engine = new BABYLON.Engine(canvas, true); const scene = new BABYLON.Scene(engine); scene.collisionsEnabled = true; engine.runRenderLoop(() => scene.render())'},
     'three': {'name': 'three.js + Rapier', 'dims': '3D', 'license': 'MIT + Apache-2.0',
               'tag': '<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/","rapier":"https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.14.0/rapier.es.js"}}</script>',
               'how': "<script type=\"module\">import * as THREE from 'three'; import RAPIER from 'rapier'; await RAPIER.init(); ...</script>"},
@@ -22,7 +20,7 @@ GENRES = ('platformer', 'shooter', 'racer', 'puzzle', 'survival', 'tower defense
 MAX_FIX = 2
 
 DESIGN_SYS = ('You are a senior game designer. Design ONE small but complete browser game for the owner\'s ask: something a player would '
-              'actually replay, not a demo. Answer ONLY JSON: {"title": "<2-4 words>", "genre": "<' + '|'.join(GENRES) + '>", "engine": "<phaser for 2D | babylon or three for 3D>", '
+              'actually replay, not a demo. Answer ONLY JSON: {"title": "<2-4 words>", "genre": "<' + '|'.join(GENRES) + '>", "engine": "<phaser for 2D | three for 3D>", '
               '"pitch": "<one line>", "coreLoop": "<what the player does every 10 seconds>", "controls": {"keys": "<keys>", "touch": "<touch>"}, '
               '"win": "<how you win or how a run scores>", "lose": "<how you lose>", "progression": ["<what gets harder or unlocks>", "..."], '
               '"juice": ["<feel: screen shake, particles, sound, hit stop>", "..."], "entities": ["<player, enemies, pickups, level pieces>", "..."], '
@@ -39,7 +37,7 @@ def design_of(raw):
     except ValueError:
         raise ValueError('The design was not JSON.')
     eng = str(d.get('engine') or '').lower().strip()
-    eng = eng if eng in ENGINES else ('phaser' if '2d' in json.dumps(d).lower() else 'three')
+    eng = eng if eng in ENGINES else ('phaser' if '2d' in json.dumps(d).lower() else 'three')   # babylon and anything else 3D: three.js (the engines with a proven kit)
     s = lambda v, n=200: ' '.join(str(v or '').split())[:n]
     lst = lambda v, n=6: [s(x, 120) for x in (v if isinstance(v, list) else [v] if v else [])][:n]
     out = {'title': s(d.get('title'), 40) or 'Untitled', 'genre': s(d.get('genre'), 30).lower() or 'other', 'engine': eng, 'pitch': s(d.get('pitch')),
@@ -51,6 +49,14 @@ def design_of(raw):
     return out
 
 
+KITS = __import__('pathlib').Path(__file__).with_name('game_kits')
+
+
+def kit_of(engine):
+    """The engine's starter: a working title → play → game over loop with keys, touch, sound and the hook. Each one passes the playtest as is."""
+    return (KITS / f'{engine}.html').read_text()
+
+
 def build_sys(design):
     """The build brief for the mind that writes the game. Pure."""
     e = ENGINES[design['engine']]
@@ -60,7 +66,10 @@ def build_sys(design):
             '(on-screen buttons or swipe on phones); it fills the window and survives a resize; it keeps 60 fps on a laptop (pool objects, no leaks). '
             'Make it FEEL good: the juice listed, sound with the Web Audio API (no audio files), clear readable HUD. ' + ART + ' '
             'REQUIRED hook, exactly: window.__game = {state: "title", score: 0, start() {/* leaves the title and begins play */}}; keep state ("title" | "play" | "over") '
-            'and score current as the game runs. No other network, no eval, no alert().\n\nTHE DESIGN:\n' + json.dumps(design, indent=1))
+            'and score current as the game runs. No other network, no eval, no alert().\n\nTHE DESIGN:\n' + json.dumps(design, indent=1)
+            + '\n\nSTART FROM THIS WORKING KIT. It already passes the playtest: keep its hook, its three states, its touch pad, its beep() and its loop; '
+              'replace GAME_TITLE; build the whole game where it says GAME LOGIC GOES HERE (add classes, spawners, collisions, levels around it). '
+              'Return the complete file.\n' + kit_of(design['engine']))
 
 
 def fix_sys(design, report):

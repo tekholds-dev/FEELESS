@@ -305,11 +305,6 @@ async def free_images(http, q, must=()):
     return imgs
 
 
-async def free_image(http, q, must=()):
-    got = await free_images(http, q, must)
-    return got[0] if got else None
-
-
 def _rec(text):
     """'8-1' or '6-2-1' → how often it wins, or None. Pure."""
     p = [int(x) for x in re.findall(r'\d+', str(text or ''))]

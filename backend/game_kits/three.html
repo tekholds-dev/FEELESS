@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GAME_TITLE</title>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<style>html,body{margin:0;height:100%;background:#05070b;overflow:hidden;touch-action:none;user-select:none;font-family:system-ui}
+#hud{position:fixed;top:14px;left:16px;color:#e9f3ee;font:700 20px system-ui;z-index:2}
+#msg{position:fixed;inset:0;display:grid;place-items:center;text-align:center;color:#45e486;font:800 28px system-ui;white-space:pre-line;z-index:2;pointer-events:none}
+#pad{position:fixed;inset:auto 0 18px 0;display:flex;justify-content:space-between;padding:0 18px;z-index:3}
+#pad button{width:64px;height:64px;border-radius:50%;border:1px solid #45e48688;background:#0b1410cc;color:#45e486;font:700 22px system-ui}
+@media (hover:hover){#pad{display:none}}</style></head>
+<body><div id="hud"></div><div id="msg">GAME_TITLE
+press SPACE or tap to start</div><div id="pad"><span><button data-k="left">◀</button> <button data-k="right">▶</button></span><button data-k="fire">●</button></div>
+<script type="module">
+// FEELESS game kit (three.js): a working title → play → game over loop with keys AND touch, sound, resize, and the window.__game hook the
+// playtest reads. Build the real game in step(dt) and spawn(). Keep the hook, the three states and the touch pad.
+import * as THREE from 'three';
+const g = window.__game = { state: 'title', score: 0, start() { if (this.state !== 'play') { this.state = 'play'; this.score = 0; begin(); } } };
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setPixelRatio(Math.min(2, devicePixelRatio)); renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x070b12); scene.fog = new THREE.Fog(0x070b12, 12, 60);
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 200); camera.position.set(0, 4, 8); camera.lookAt(0, 0.5, -6);
+scene.add(new THREE.HemisphereLight(0xbfe9ff, 0x101820, 1.2)); const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(4, 8, 5); scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 200), new THREE.MeshStandardMaterial({ color: 0x0d1a14, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.position.z = -80; scene.add(floor);
+const player = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshStandardMaterial({ color: 0x45e486, emissive: 0x0a3a20 })); player.position.y = 0.45; scene.add(player);
+const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') g.start(); }); addEventListener('keyup', e => { keys[e.code] = false; });
+const touch = { left: false, right: false, fire: false };
+document.querySelectorAll('#pad button').forEach(b => { const k = b.dataset.k; const on = v => e => { e.preventDefault(); touch[k] = v; if (v) g.start(); };
+  b.addEventListener('pointerdown', on(true)); b.addEventListener('pointerup', on(false)); b.addEventListener('pointerleave', on(false)); });
+renderer.domElement.addEventListener('pointerdown', () => g.start());
+const ac = new (window.AudioContext || window.webkitAudioContext)();
+function beep(f = 440, t = 0.08, type = 'square', v = 0.06) { try { const o = ac.createOscillator(), n = ac.createGain(); o.type = type; o.frequency.value = f; n.gain.value = v; n.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t); o.connect(n).connect(ac.destination); o.start(); o.stop(ac.currentTime + t); } catch (e) { /* no audio */ } }
+const hud = document.getElementById('hud'), msg = document.getElementById('msg');
+function begin() { msg.textContent = ''; player.position.x = 0; beep(660, 0.12, 'triangle'); }
+function over() { g.state = 'over'; msg.textContent = `GAME OVER\nscore ${g.score}\nSPACE or tap to restart`; beep(120, 0.4, 'sawtooth'); }
+function step(dt) {
+  const sp = dt * 7;
+  if (keys.ArrowLeft || keys.KeyA || touch.left) player.position.x -= sp;
+  if (keys.ArrowRight || keys.KeyD || touch.right) player.position.x += sp;
+  player.position.x = Math.max(-5, Math.min(5, player.position.x)); player.rotation.y += dt * 2;
+  g.score += 1;
+  // GAME LOGIC GOES HERE: spawn, move, collide, call over() when the run ends
+}
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+let last = performance.now();
+renderer.setAnimationLoop(now => { const dt = Math.min(0.05, (now - last) / 1000); last = now; if (g.state === 'play') step(dt); hud.textContent = g.state === 'title' ? '' : `SCORE ${g.score}`; renderer.render(scene, camera); });
+</script></body></html>

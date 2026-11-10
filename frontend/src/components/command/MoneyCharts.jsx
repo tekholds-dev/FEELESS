@@ -43,12 +43,6 @@ export function MoneyFlow({ rows, colors, height = 300, testid = 'money-flow', l
   return <div className="mch-flow" style={{ height }} data-testid={testid} role="img" aria-label={label}><ResponsiveContainer width="100%" height="100%"><Sankey data={data} node={<FlowNode />} link={<FlowLink />} nodeWidth={8} nodePadding={26} iterations={32} sort={false} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}><Tooltip content={<FlowTip />} /></Sankey></ResponsiveContainer></div>;
 }
 const axis = { tickLine: false, axisLine: false, tickMargin: 6, fontSize: 10 };
-export function BackLines({ c, testid = 'cs-curves' }) {
-  const P = [['week', '1 week', '#57c7ff'], ['month', '30 days', '#3ee58a'], ['quarter', '90 days', '#c58bff']]; const max = Math.max(...P.map(p => c[`${p[0]}Days`]), 7); const days = [...new Set([0, ...P.map(p => c[`${p[0]}Days`]), max])].sort((a, b) => a - b);
-  const data = days.map(d => Object.fromEntries([['d', d], ...P.map(([n]) => [n, Math.round(c[`${n}Back`] * Math.min(1, d / c[`${n}Days`]) * 10) / 10])]));
-  const cfg = Object.fromEntries(P.map(([k, label, color]) => [k, { label, color }]));
-  return <div data-testid={testid}><ChartContainer config={cfg} className="aspect-auto h-[190px] w-full"><LineChart data={data} margin={{ left: 0, right: 10, top: 6 }}><CartesianGrid vertical={false} strokeOpacity={0.12} /><XAxis dataKey="d" type="number" domain={[0, max]} ticks={days} tickFormatter={v => `${v}d`} {...axis} /><YAxis width={34} domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={v => `${v}%`} {...axis} /><ChartTooltip content={<ChartTooltipContent labelFormatter={(_, p) => `Day ${p?.[0]?.payload?.d}`} formatter={(v, n) => <><span className="mch-tn">{cfg[n]?.label}</span><b className="m-num">{v}% back</b></>} />} />{P.map(([k]) => <Line key={k} dataKey={k} type="linear" stroke={`var(--color-${k})`} strokeWidth={2} dot={false} />)}<ChartLegend content={<ChartLegendContent />} /></LineChart></ChartContainer></div>;
-}
 export function PlanBars({ c, testid = 'cs-bars' }) {
   const lock = 100 - c.skimPct; const row = (name, n) => ({ name, back: lock * c[`${n}Back`] / 100, later: lock * (100 - c[`${n}Back`]) / 100, now: c.skimPct, vault: 0 });
   const data = [row('1 week', 'week'), row('30 days', 'month'), row('90 days', 'quarter'), { name: 'Vault', back: 0, later: 0, now: c.skimPct, vault: lock }];

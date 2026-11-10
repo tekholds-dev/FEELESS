@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GAME_TITLE</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<style>html,body{margin:0;height:100%;background:#05070b;overflow:hidden;touch-action:none;user-select:none}
+#pad{position:fixed;inset:auto 0 18px 0;display:flex;justify-content:space-between;padding:0 18px;pointer-events:none}
+#pad button{pointer-events:auto;width:64px;height:64px;border-radius:50%;border:1px solid #45e48688;background:#0b1410cc;color:#45e486;font:700 22px system-ui}
+@media (hover:hover){#pad{display:none}}</style></head>
+<body><div id="pad"><span><button data-k="left">◀</button> <button data-k="right">▶</button></span><button data-k="fire">●</button></div>
+<script>
+// FEELESS game kit (Phaser 3): a working title → play → game over loop with keys AND touch, sound, and the window.__game hook the playtest reads.
+// Build the real game INSIDE Play (create / update). Keep the hook, the three states and the touch pad.
+window.__game = { state: 'title', score: 0, start() { if (this.state !== 'play') { this.state = 'play'; this.score = 0; window.dispatchEvent(new Event('game-start')); } } };
+const touch = { left: false, right: false, fire: false };
+document.querySelectorAll('#pad button').forEach(b => { const k = b.dataset.k; const on = v => e => { e.preventDefault(); touch[k] = v; if (v) window.__game.start(); };
+  b.addEventListener('pointerdown', on(true)); b.addEventListener('pointerup', on(false)); b.addEventListener('pointerleave', on(false)); });
+const ac = new (window.AudioContext || window.webkitAudioContext)();
+function beep(f = 440, t = 0.08, type = 'square', v = 0.06) { try { const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.value = v; g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + t); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + t); } catch (e) { /* no audio */ } }
+
+class Play extends Phaser.Scene {
+  constructor() { super('play'); }
+  create() {
+    const W = this.scale.width, H = this.scale.height;
+    this.keys = this.input.keyboard.addKeys('LEFT,RIGHT,UP,DOWN,SPACE,A,D,W,S');
+    this.player = this.add.rectangle(W / 2, H - 120, 42, 42, 0x45e486);
+    this.hud = this.add.text(16, 14, '', { fontFamily: 'system-ui', fontSize: '20px', color: '#e9f3ee' }).setDepth(10);
+    this.title = this.add.text(W / 2, H / 2, 'GAME_TITLE\npress SPACE or tap to start', { fontFamily: 'system-ui', fontSize: '28px', color: '#45e486', align: 'center' }).setOrigin(0.5).setDepth(10);
+    this.input.on('pointerdown', () => window.__game.start());
+    window.addEventListener('game-start', () => this.begin());
+    this.scale.on('resize', s => { this.player.y = s.height - 120; this.title.setPosition(s.width / 2, s.height / 2); });
+  }
+  begin() { this.title.setVisible(false); this.player.x = this.scale.width / 2; beep(660, 0.12, 'triangle'); }
+  over() { const g = window.__game; g.state = 'over'; this.title.setText(`GAME OVER\nscore ${g.score}\nSPACE or tap to restart`).setVisible(true); this.cameras.main.shake(200, 0.01); beep(120, 0.4, 'sawtooth'); }
+  update(_, dt) {
+    const g = window.__game, k = this.keys;
+    if (g.state !== 'play') { if (Phaser.Input.Keyboard.JustDown(k.SPACE)) g.start(); return; }
+    const sp = dt * 0.5;
+    if (k.LEFT.isDown || k.A.isDown || touch.left) this.player.x -= sp;
+    if (k.RIGHT.isDown || k.D.isDown || touch.right) this.player.x += sp;
+    this.player.x = Phaser.Math.Clamp(this.player.x, 21, this.scale.width - 21);
+    g.score += 1;
+    this.hud.setText(`SCORE ${g.score}`);
+    // GAME LOGIC GOES HERE: spawn, move, collide, call this.over() when the run ends
+  }
+}
+new Phaser.Game({ type: Phaser.AUTO, backgroundColor: '#0a0f14', scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight }, physics: { default: 'arcade' }, scene: [Play] });
+</script></body></html>

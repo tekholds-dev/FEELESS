@@ -37,10 +37,6 @@ def changes(old, new):
     return '\n'.join(x for x in (new or '').splitlines() if x not in had and len(x) > 24)[:MAX_TEXT]
 
 
-def hash_of(text):
-    return hashlib.sha256(str(text).encode()).hexdigest()[:20]
-
-
 def can_draft(site, now):
     day = time.strftime('%Y-%m-%d', time.gmtime(now))
     return site.get('day') != day or int(site.get('dayN') or 0) < DAY_DRAFTS
