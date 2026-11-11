@@ -3,7 +3,7 @@
 .fem { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px dashed #d4af3755; background: linear-gradient(160deg, #1a120a, #0b0806); animation: femIn .3s ease-out both; }
 .fem-art { flex: none; width: 112px; height: 54px; overflow: visible; }
 .fem-art g { fill: none; stroke: #c9a24a; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .75; }
-.fem-art .hi { stroke: #f1d27a; } .fem-art .plus { stroke: #45e486; } .fem-art .tgt { stroke: #ff4d6d; } .fem-art .flame { stroke: #ffb35a; animation: femFlick .3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: top; }
+.fem-art .hi { stroke: #f1d27a; } .fem-art .plus { stroke: #b48cff; } .fem-art .tgt { stroke: #ff4d6d; } .fem-art .flame { stroke: #ffb35a; animation: femFlick .3s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: top; }
 .fem-art text { fill: #f1d27a; stroke: none; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; }
 .fem-art .blink { animation: femBlink 2.2s ease-in-out infinite; } .fem-art .wave { stroke: #45e4c8; animation: femDrift 4s ease-in-out infinite alternate; }
 .fem-txt { display: grid; gap: 2px; min-width: 0; flex: 1; } .fem-txt b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #f1d27a; }

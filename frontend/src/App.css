@@ -12,7 +12,7 @@
 }
 
 .ambient-background {
-  --ambient-start: #0b0e0d;
+  --ambient-start: #0e0b22;
   --ambient-end: #040505;
   --ambient-grid: rgba(54, 169, 111, .08);
   --ambient-glow-one: rgba(18, 192, 122, .14);
@@ -164,7 +164,7 @@ body.reduced-motion-setting .ambient-background * {
   gap: 14px;
   padding: 32px;
   background: #070908;
-  color: #eafff3;
+  color: #f3eeff;
   text-align: left;
 }
 
@@ -251,5 +251,5 @@ body.theme-day .App { background: transparent !important; }
 
 body.theme-day .ambient-background::before{will-change:transform;contain:strict}
 /* particles: a tall tiled layer that slides with transform (composited) instead of animating background-position */
-body.theme-day .ambient-background::after{inset:0 0 auto 0!important;height:200%!important;background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%)!important;background-size:420px 420px!important;animation:day-particles-t 60s linear infinite!important;will-change:transform;contain:strict}
+body.theme-day .ambient-background::after{inset:0 0 auto 0!important;height:200%!important;background-image:radial-gradient(2px 2px at 10% 20%,#5a33bd55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#5a33bd44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%)!important;background-size:420px 420px!important;animation:day-particles-t 60s linear infinite!important;will-change:transform;contain:strict}
 @keyframes day-particles-t{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-50%,0)}}

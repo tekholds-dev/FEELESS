@@ -15,7 +15,7 @@ const GRAVITY = 30; const R = 0.35;
 const MAP = 64;   // the yard is ±64 m
 // the yard: shipping containers, crate stacks, two warehouses with open doors, ramps onto their roofs — every piece also a collider
 const CONTAINERS = [[-20, -8, 0, '#1f7a4d'], [-20, -4.6, 0, '#b8322f'], [-14, 18, 1.57, '#2b5d9c'], [-7, 18, 1.57, '#d8892a'], [12, -22, 0.4, '#1f7a4d'], [18, -14, 1.2, '#7a2f8f'],
-  [28, 10, 0, '#b8322f'], [28, 13.4, 0, '#2b5d9c'], [0, 34, 0, '#d8892a'], [-34, 30, 0.8, '#1f7a4d'], [36, -36, 0.3, '#2b5d9c'], [-40, -34, 1.1, '#b8322f'], [6, 6, 0.78, '#15d16a']];
+  [28, 10, 0, '#b8322f'], [28, 13.4, 0, '#2b5d9c'], [0, 34, 0, '#d8892a'], [-34, 30, 0.8, '#1f7a4d'], [36, -36, 0.3, '#2b5d9c'], [-40, -34, 1.1, '#b8322f'], [6, 6, 0.78, '#9b6bff']];
 const CRATES = [[-4, -14], [-2.6, -14], [-3.3, -14, 1], [10, 2], [10, 3.3], [22, 26], [23.3, 26], [-26, 8], [-26, 9.3], [-26, 8.6, 1], [40, 22], [-10, -32], [-8.7, -32], [30, -4]];
 const HOUSES = [[-38, 4, 16, 12], [34, -16, 14, 18]];
 const SPAWNS = [[-56, -56], [56, -56], [-56, 56], [56, 56], [0, -58], [0, 58], [-58, 0], [58, 0]];
@@ -54,7 +54,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
         const world = new THREE.Group(); scene.add(world); const solids = [];
         const concrete = tex(THREE, 256, 256, (x, w, h) => { x.fillStyle = '#9a9d98'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1600; i += 1) { x.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 2; x.strokeRect(0, 0, w, h); }, 28, 28);
         const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP * 2 + 20, MAP * 2 + 20), new THREE.MeshStandardMaterial({ map: concrete, roughness: 0.95 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; world.add(ground); solids.push(ground);
-        const logo = tex(THREE, 512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); x.font = '900 120px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(21,209,106,.55)'; x.fillText('FEE', w / 2, h / 2 - 60); x.fillText('CITY', w / 2, h / 2 + 70); });
+        const logo = tex(THREE, 512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); x.font = '900 120px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(155, 107, 255,.55)'; x.fillText('FEE', w / 2, h / 2 - 60); x.fillText('CITY', w / 2, h / 2 + 70); });
         const decal = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false })); decal.rotation.x = -Math.PI / 2; decal.position.y = 0.02; scene.add(decal);
         const box = (w, h, d, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; world.add(m); solids.push(m); return m; };
         const wallM = new THREE.MeshStandardMaterial({ map: tex(THREE, 128, 64, (x, w, h) => { x.fillStyle = '#c7b9a0'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(0,0,0,.18)'; for (let r = 0; r < 4; r += 1) for (let cc = 0; cc < 4; cc += 1) x.strokeRect(cc * 32 + (r % 2) * 16, r * 16, 32, 16); }, 20, 2), roughness: 0.9 });
@@ -69,7 +69,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           const door = 3.2; const side = (w - door) / 2; box(side, hgt, t, wallM, x - w / 2 + side / 2, hgt / 2, z + d / 2); box(side, hgt, t, wallM, x + w / 2 - side / 2, hgt / 2, z + d / 2); box(door, hgt - 3, t, wallM, x, hgt - (hgt - 3) / 2, z + d / 2);
           box(w + 0.6, 0.4, d + 0.6, roofM, x, hgt + 0.2, z);
           const ramp = box(3, 0.4, 11, roofM, x + w / 2 + 1.6, hgt / 2, z); ramp.rotation.x = Math.atan2(hgt, 11); });
-        const sign = tex(THREE, 512, 128, (x, w, h) => { x.fillStyle = '#0b120e'; x.fillRect(0, 0, w, h); x.font = '900 70px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#15d16a'; x.fillText('STRIKE ZONE', w / 2, h / 2); });
+        const sign = tex(THREE, 512, 128, (x, w, h) => { x.fillStyle = '#0b120e'; x.fillRect(0, 0, w, h); x.font = '900 70px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#9b6bff'; x.fillText('STRIKE ZONE', w / 2, h / 2); });
         const board = new THREE.Mesh(new THREE.PlaneGeometry(20, 5), new THREE.MeshBasicMaterial({ map: sign })); board.position.set(0, 9, -MAP + 0.1); scene.add(board);
         const octree = new Octree(); octree.fromGraphNode(world);
         // ── characters (the three.js Soldier, cloned; a capsule figure if the model can't load) ──
@@ -96,7 +96,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           if (lo.barrel === 'supp') part('silencer-small', 0.16, 0, box.max.z + 0.07); part(lo.mag === 'ext' || lo.mag === 'drum' ? 'clip-large' : 'clip-small', lo.mag === 'ext' || lo.mag === 'drum' ? 0.18 : 0.13, box.min.y - 0.02, 0.02);
           return grp; };
         const gunMesh = (lo, skin) => {   // the gun YOU built: body + barrel length + optic + magazine + stock, in your skin
-          const col = { green: '#15d16a', carbon: '#2b2f33', pink: '#ff5dbb', ice: '#8fd3ff', gold: '#f5c451' }[skin] || '#15d16a';
+          const col = { green: '#9b6bff', carbon: '#2b2f33', pink: '#ff5dbb', ice: '#8fd3ff', gold: '#f5c451' }[skin] || '#9b6bff';
           const body = new THREE.MeshStandardMaterial({ color: '#1c2024', metalness: 0.6, roughness: 0.4 }); const accent = new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.35, emissive: col, emissiveIntensity: 0.12 });
           const model = modelGun(lo, col); if (model) { scene.add(model); return model; }
           const grp = new THREE.Group(); const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; grp.add(m); return m; };
@@ -122,7 +122,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
         const D = BOT_DIFF[diff] || BOT_DIFF.normal; const NAMES = ['RUGGER', 'SNIPEY', 'BUNDLE', 'JEET', 'DEVWALLET', 'PAPERHAND', 'EXITLIQ'];
         const bots = []; const botDmg = { easy: 10, normal: 14, hard: 18 }[diff] || 14;
         const nameTag = txt => { const c = document.createElement('canvas'); c.width = 256; c.height = 64; const t = new THREE.CanvasTexture(c); const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: false })); sp.scale.set(1.6, 0.4, 1); sp.position.y = 2.15;
-          const draw = (label, hp) => { const x = c.getContext('2d'); x.clearRect(0, 0, 256, 64); x.font = '800 26px "JetBrains Mono", monospace'; x.textAlign = 'center'; x.fillStyle = '#ff8fa3'; x.fillText(label, 128, 26); x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(48, 40, 160, 10); x.fillStyle = hp > 50 ? '#45e486' : hp > 25 ? '#f5c451' : '#ff3b3b'; x.fillRect(48, 40, 160 * Math.max(0, hp) / 100, 10); t.needsUpdate = true; };
+          const draw = (label, hp) => { const x = c.getContext('2d'); x.clearRect(0, 0, 256, 64); x.font = '800 26px "JetBrains Mono", monospace'; x.textAlign = 'center'; x.fillStyle = '#ff8fa3'; x.fillText(label, 128, 26); x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(48, 40, 160, 10); x.fillStyle = hp > 50 ? '#b48cff' : hp > 25 ? '#f5c451' : '#ff3b3b'; x.fillRect(48, 40, 160 * Math.max(0, hp) / 100, 10); t.needsUpdate = true; };
           draw(txt, 100); return { sp, draw }; };
         const addBot = i => { const a = actor('#ff9a8a'); const sp = SPAWNS[(i * 3 + 2) % SPAWNS.length]; const c = new Capsule(new THREE.Vector3(sp[0], R, sp[1]), new THREE.Vector3(sp[0], 1.45, sp[1]), R);
           const tag = nameTag(NAMES[i % NAMES.length]); a.root.add(tag.sp); const gun = gunMesh({ gun: 'rifle' }, 'carbon');

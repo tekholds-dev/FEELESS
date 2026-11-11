@@ -48,23 +48,23 @@ body.theme-day .fcl-copy h1 { color: #1e1240; text-shadow: none; }
 /* 📖 man fee (owner 2026-11-02: "anything under the header should look like a manual, with more tutorial details", like colony --flow): one
    terminal frame; NAME · SYNOPSIS (the 5-step tutorial) · the five chapters with live numbers + meters + how it works · COMMANDS · STATUS */
 .fcl-man { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid rgba(179, 136, 255, .28); background: linear-gradient(170deg, #0d0a18, #07050d); box-shadow: inset 0 1px rgba(255, 255, 255, .06); font-family: var(--f-mono); }
-.fcl-man-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; } .fcl-man-h b { color: #45e486; font: 700 14px var(--f-mono); } .fcl-man-h b i { color: #6f6590; font-style: normal; margin: 0 4px; }
+.fcl-man-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; } .fcl-man-h b { color: #b48cff; font: 700 14px var(--f-mono); } .fcl-man-h b i { color: #6f6590; font-style: normal; margin: 0 4px; }
 .fcl-man-h small { color: #8f84ad; font: 500 11px var(--f-mono); }
 .fcl-mp { display: grid; gap: 0; border-top: 1px solid rgba(255, 255, 255, .08); }
 .fcl-mp-sec { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(255, 255, 255, .06); animation: fclMp .35s both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fcl-mp-sec h3 { margin: 0; color: var(--fcl-a); font: 800 11px var(--f-mono); letter-spacing: .1em; } .fcl-mp-sec > div { display: grid; gap: 6px; align-content: start; }
 .fcl-mp-sec p { margin: 0; color: #d9d1f2; font: 500 12px/1.55 var(--f-mono); } .fcl-mp-sec p b { color: #fff; } .fcl-mp-sec p:not(.fcl-mp-big) .m-num { color: var(--fcl-gold); font: 700 11px var(--f-mono); margin-left: 6px; }
 .fcl-mp-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; } .fcl-mp-big b { color: #fff; font: 800 20px var(--f-mono); text-shadow: 0 0 14px rgba(179, 136, 255, .6); } .fcl-mp-big small { color: #c6b8ec; font: 600 11px var(--f-mono); }
-.fcl-mp-how { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; } .fcl-mp-how li { color: #b9b0d6; font: 500 11.5px/1.5 var(--f-mono); } .fcl-mp-how li::before { content: '› '; color: #45e486; }
+.fcl-mp-how { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; } .fcl-mp-how li { color: #b9b0d6; font: 500 11.5px/1.5 var(--f-mono); } .fcl-mp-how li::before { content: '› '; color: #b48cff; }
 .fcl-mp-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; } .fcl-mp-steps li { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); align-items: center; gap: 10px; animation: fclMp .35s both; animation-delay: calc(var(--i, 0) * 60ms); }
 .fcl-mp-n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--fcl-a); color: var(--fcl-a2); font: 800 10px var(--f-mono); }
-.fcl-mp-cmd { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(69, 228, 134, .4); background: rgba(69, 228, 134, .08); color: #45e486; font: 700 11.5px var(--f-mono); text-decoration: none; white-space: nowrap; }
-a.fcl-mp-cmd:hover { background: rgba(69, 228, 134, .18); color: #fff; } a.fcl-mp-cmd:active { transform: scale(.97); } a.fcl-mp-cmd:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.fcl-mp-cmd { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(180, 140, 255, .4); background: rgba(180, 140, 255, .08); color: #b48cff; font: 700 11.5px var(--f-mono); text-decoration: none; white-space: nowrap; }
+a.fcl-mp-cmd:hover { background: rgba(180, 140, 255, .18); color: #fff; } a.fcl-mp-cmd:active { transform: scale(.97); } a.fcl-mp-cmd:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
 .fcl-mp-steps small { color: #b9b0d6; font: 500 11px var(--f-mono); }
 .fcl-mp-meter { display: flex; gap: 4px; } .fcl-mp-meter i { flex: 0 0 18px; height: 8px; border-radius: 2px; background: rgba(255, 255, 255, .1); } .fcl-mp-meter i.is-on { background: var(--fcl-gold); box-shadow: 0 0 8px rgba(255, 211, 107, .6); }
-.fcl-mp-wl { display: block; width: min(320px, 100%); height: 8px; border-radius: 4px; background: #ff8fa3; overflow: hidden; } .fcl-mp-wl s { display: block; height: 100%; background: #45e486; transform-origin: left; transition: transform .6s; }
+.fcl-mp-wl { display: block; width: min(320px, 100%); height: 8px; border-radius: 4px; background: #ff8fa3; overflow: hidden; } .fcl-mp-wl s { display: block; height: 100%; background: #b48cff; transform-origin: left; transition: transform .6s; }
 .fcl-mp-cmds, .fcl-mp-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; } .fcl-mp-cmds dd, .fcl-mp-kv dd { margin: 0; color: #d9d1f2; font: 500 11.5px var(--f-mono); }
-.fcl-mp-cmds code { color: #45e486; font: 700 11.5px var(--f-mono); } .fcl-mp-kv dt { color: #a99bd0; font: 700 10px var(--f-mono); letter-spacing: .1em; }
+.fcl-mp-cmds code { color: #b48cff; font: 700 11.5px var(--f-mono); } .fcl-mp-kv dt { color: #a99bd0; font: 700 10px var(--f-mono); letter-spacing: .1em; }
 @keyframes fclMp { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .fcl-mp-sec, body.fx-lite .fcl-mp-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .fcl-mp-sec, .fcl-mp-steps li { animation: none; } .fcl-mp-wl s { transition: none; } }
 body.theme-day .fcl-man { background: #fbf9ff; border-color: rgba(120, 80, 200, .25); } body.theme-day .fcl-mp-sec p, body.theme-day .fcl-mp-cmds dd, body.theme-day .fcl-mp-kv dd, body.theme-day .fcl-mp-how li, body.theme-day .fcl-mp-steps small { color: #2d2150; }

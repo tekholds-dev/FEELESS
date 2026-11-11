@@ -1,5 +1,5 @@
 /* 🏆 ProofsFolder.jsx (pfx-*): ring, 3D chart, loop orbit, PoI timeline. Built from m-* tokens. Motion: pfx* keyframes, transform and opacity only. */
-.pfx { --win: #45e486; --loss: #ff8fa3; --none: #8d86a8; --pow: #f2b84b; --pop: #b388ff; --pob: #58c7f3; display: grid; gap: 14px; padding: 14px; min-width: 0; color: #eef2f5; container-type: inline-size; }
+.pfx { --win: #b48cff; --loss: #ff8fa3; --none: #8d86a8; --pow: #f2b84b; --pop: #b388ff; --pob: #58c7f3; display: grid; gap: 14px; padding: 14px; min-width: 0; color: #eef2f5; container-type: inline-size; }
 .pfx-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .pfx-part { margin: 0; display: grid; grid-template-rows: auto 170px auto; gap: 8px; justify-items: center; padding: 12px; border-radius: 16px; border: 1px solid #ffffff1f; background: linear-gradient(155deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff24, 0 14px 34px #0006; min-width: 0; }
 .pfx-part figcaption { justify-self: start; font: 800 10px var(--f-mono); letter-spacing: .14em; color: #aab3bd; }
@@ -10,7 +10,7 @@
 .pfx-minds { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; padding: 12px; border-radius: 16px; border: 1px solid #ffffff1f; background: #ffffff08; } .pfx-minds > b, .pfx-minds > small { grid-column: 1 / -1; }
 .pfx-mind { display: grid; gap: 4px; min-width: 0; } .pfx-mind > span { font: 700 11px var(--f-tech); color: #eef2f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pfx-mind em { position: relative; display: flex; justify-content: space-between; gap: 8px; padding: 3px 7px; border-radius: 7px; overflow: hidden; font: 600 10.5px var(--f-mono); font-style: normal; color: #c4cbd3; background: #ffffff0a; }
-.pfx-mind em u { position: absolute; inset: 0; transform-origin: 0 50%; background: #8d86a84d; transition: transform .4s ease-out; } .pfx-mind em.is-top u { background: #45e48640; } .pfx-mind em.is-top b { color: var(--win); }
+.pfx-mind em u { position: absolute; inset: 0; transform-origin: 0 50%; background: #8d86a84d; transition: transform .4s ease-out; } .pfx-mind em.is-top u { background: #b48cff40; } .pfx-mind em.is-top b { color: var(--win); }
 .pfx-mind em small, .pfx-mind em b { position: relative; }
 .pfx-none { margin: 0; align-self: center; font: 600 11px var(--f-ui); color: #aab3bd; text-align: center; }
 
@@ -22,7 +22,7 @@
 .pfx-stage { width: 100%; height: 170px; display: grid; place-items: center; perspective: 700px; overflow: hidden; }
 .pfx-floor { position: relative; width: 148px; height: 148px; transform: translateY(14px) rotateX(58deg) rotateZ(-42deg); transform-style: preserve-3d; border-radius: 8px; background: repeating-linear-gradient(0deg, #ffffff12 0 1px, transparent 1px 37px), repeating-linear-gradient(90deg, #ffffff12 0 1px, transparent 1px 37px), #ffffff06; }
 .pfx-bar { --c: var(--none); --c2: #5d5874; --c3: #47435a; position: absolute; left: calc(var(--x) * 37px + 7px); top: calc(var(--y) * 37px + 7px); width: 23px; height: 23px; padding: 0; border: 0; background: none; cursor: help; overflow: visible; transform-style: preserve-3d; animation: pfxRise .5s ease-out calc(var(--i) * 40ms) backwards; }
-.pfx-bar.is-win { --c: #5cf09a; --c2: #15d16a; --c3: #0d8c47; } .pfx-bar.is-loss { --c: #ffb1bf; --c2: #ff8fa3; --c3: #b95468; }
+.pfx-bar.is-win { --c: #5cf09a; --c2: #9b6bff; --c3: #0d8c47; } .pfx-bar.is-loss { --c: #ffb1bf; --c2: #ff8fa3; --c3: #b95468; }
 .pfx-bar i { position: absolute; display: block; transition: filter .15s; }
 .pfx-bar .f-top { inset: 0; background: var(--c); transform: translateZ(var(--h)); }
 .pfx-bar .f-a { left: 0; right: 0; bottom: 0; height: var(--h); background: var(--c2); transform-origin: bottom; transform: rotateX(-90deg); }
@@ -36,24 +36,24 @@
 
 .pfx-bar-h { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; } .pfx-bar-h h3 { display: flex; align-items: center; gap: 8px; margin: 0; font: 800 12px var(--f-mono); letter-spacing: .14em; color: #eef2f5; } .pfx-bar-h .m-seg button { min-height: 32px; }
 .pfx-line { display: grid; gap: 10px; } .pfx-line > section > ol { position: relative; display: grid; gap: 8px; margin: 0; padding: 0 0 0 22px; list-style: none; }
-.pfx-line > section > ol::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; border-radius: 2px; background: linear-gradient(#45e48699, #b388ff55); }
+.pfx-line > section > ol::before { content: ''; position: absolute; left: 7px; top: 6px; bottom: 6px; width: 2px; border-radius: 2px; background: linear-gradient(#b48cff99, #b388ff55); }
 .pfx-day { margin: 0 0 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .12em; color: #aab3bd; text-transform: uppercase; }
 .pfx-e { position: relative; display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px; border: 1px solid #ffffff1c; background: linear-gradient(155deg, #ffffff0e, #ffffff03); animation: pfxIn .3s ease-out calc(var(--i) * 45ms) both; transition: border-color .15s, background .15s; }
-.pfx-e:hover { border-color: #ffffff3a; } .pfx-e.is-open { border-color: #45e48666; background: linear-gradient(155deg, #45e4860f, #ffffff03); }
+.pfx-e:hover { border-color: #ffffff3a; } .pfx-e.is-open { border-color: #b48cff66; background: linear-gradient(155deg, #b48cff0f, #ffffff03); }
 .pfx-node { position: absolute; left: -20px; top: 18px; width: 10px; height: 10px; border-radius: 50%; background: var(--none); box-shadow: 0 0 0 3px #0a0f14; }
-.pfx-e.is-win .pfx-node { background: var(--win); box-shadow: 0 0 0 3px #0a0f14, 0 0 12px #45e486aa; } .pfx-e.is-loss .pfx-node { background: var(--loss); box-shadow: 0 0 0 3px #0a0f14, 0 0 12px #ff8fa3aa; } .pfx-e.is-open .pfx-node { transform: scale(1.2); }
+.pfx-e.is-win .pfx-node { background: var(--win); box-shadow: 0 0 0 3px #0a0f14, 0 0 12px #b48cffaa; } .pfx-e.is-loss .pfx-node { background: var(--loss); box-shadow: 0 0 0 3px #0a0f14, 0 0 12px #ff8fa3aa; } .pfx-e.is-open .pfx-node { transform: scale(1.2); }
 .pfx-e-h { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; width: 100%; min-height: 36px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; font: inherit; }
 .pfx-e-print { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #0b1422; border: 1px solid #ffffff1a; }
 .pfx-e-h > .pfx-e-print { flex: 0 0 40px; min-width: 40px; }
 .pfx-e-print svg { max-width: 100%; max-height: 100%; }
-.pfx-e-h:focus-visible { outline: 2px solid #45e486; outline-offset: 3px; border-radius: 6px; } .pfx-e-h > span { flex: 1 1 140px; display: grid; min-width: 0; } .pfx-e-h b { font: 800 13px var(--f-ui); } .pfx-e-h small { font: 600 11px var(--f-ui); color: #aab3bd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pfx-e-h:focus-visible { outline: 2px solid #b48cff; outline-offset: 3px; border-radius: 6px; } .pfx-e-h > span { flex: 1 1 140px; display: grid; min-width: 0; } .pfx-e-h b { font: 800 13px var(--f-ui); } .pfx-e-h small { font: 600 11px var(--f-ui); color: #aab3bd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pfx-e-h time { font-size: 10.5px; color: #aab3bd; } .pfx-e-h strong { min-width: 70px; text-align: right; font-size: 13px; font-weight: 800; color: #c4cbd3; } .pfx-e-h strong.is-win { color: var(--win); } .pfx-e-h strong.is-loss { color: var(--loss); }
 .pfx-chip { padding: 2px 8px; border-radius: 999px; border: 1px solid #b388ff66; background: #b388ff1c; font: 800 9.5px var(--f-mono); letter-spacing: .08em; font-style: normal; color: #d9c8ff; } .pfx-chip.is-dim { border-color: #ffffff24; background: #ffffff0a; color: #aab3bd; }
 .pfx-thumbs { display: flex; gap: 6px; overflow: hidden; } .pfx-thumbs img { flex: 0 0 auto; width: 84px; height: 50px; object-fit: cover; border-radius: 7px; border: 1px solid #ffffff1c; }
 .pfx-open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; animation: pfxIn .2s ease-out both; } .pfx-open h4 { margin: 0 0 6px; font: 800 9.5px var(--f-mono); letter-spacing: .14em; color: #aab3bd; } .pfx-open > .m-btn { grid-column: 1 / -1; justify-self: start; min-height: 34px; }
 .pfx-dec { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; } .pfx-dec li { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 8px; background: #ffffff09; font: 500 12px/1.4 var(--f-ui); animation: pfxIn .25s ease-out calc(var(--i) * 40ms) both; } .pfx-dec b { font: 800 10px var(--f-mono); color: #aab3bd; overflow-wrap: anywhere; }
 .pfx-skip { display: flex; align-items: flex-start; gap: 6px; margin: 8px 0 0; font: 600 11.5px/1.4 var(--f-ui); color: #c4cbd3; }
-.pfx-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; } .pfx-gallery button { display: grid; gap: 3px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } .pfx-gallery img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid #ffffff1f; transition: transform .15s, border-color .15s; } .pfx-gallery button:hover img { transform: translateY(-2px); border-color: #45e48699; } .pfx-gallery button:focus-visible img { outline: 2px solid #45e486; } .pfx-gallery small { font: 600 10px var(--f-mono); color: #aab3bd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pfx-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; } .pfx-gallery button { display: grid; gap: 3px; padding: 0; border: 0; background: none; color: inherit; cursor: pointer; text-align: left; } .pfx-gallery img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 1px solid #ffffff1f; transition: transform .15s, border-color .15s; } .pfx-gallery button:hover img { transform: translateY(-2px); border-color: #b48cff99; } .pfx-gallery button:focus-visible img { outline: 2px solid #b48cff; } .pfx-gallery small { font: 600 10px var(--f-mono); color: #aab3bd; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pfx-empty { margin: 0; padding: 26px 14px; border: 1px dashed #ffffff2b; border-radius: 14px; text-align: center; font: 600 13px var(--f-ui); color: #c4cbd3; }
 
 @keyframes pfxIn { from { opacity: 0; transform: translateY(5px); } }

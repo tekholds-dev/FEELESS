@@ -8,8 +8,8 @@
 .np-item p, .np-watch p, .np-group > summary p { overflow-wrap: anywhere; word-break: break-word; }
 .np-item:hover { transform: none; }   /* the slide made the box scroll sideways */
 .np-sniper { grid-template-columns: minmax(0, 1fr) auto auto auto; }
-.np-head { position: sticky; top: -8px; z-index: 1; margin: -8px -8px 0; padding: 10px 14px 8px; background: inherit; border-bottom: 1px solid rgba(69, 228, 134, .14); }
-.np-all { position: sticky; bottom: -8px; margin: 0 -8px -8px; background: inherit; border-top: 1px solid rgba(69, 228, 134, .14); }
+.np-head { position: sticky; top: -8px; z-index: 1; margin: -8px -8px 0; padding: 10px 14px 8px; background: inherit; border-bottom: 1px solid rgba(180, 140, 255, .14); }
+.np-all { position: sticky; bottom: -8px; margin: 0 -8px -8px; background: inherit; border-top: 1px solid rgba(180, 140, 255, .14); }
 
 @media (max-width: 640px) {
   .notif-pop { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; max-height: calc(100vh - 84px); }

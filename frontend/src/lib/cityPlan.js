@@ -42,7 +42,7 @@ export const CORE = { podium: [0, 0], warroom: [1, 0], trades: [2, 0], mymoney: 
 export const KEYS = [
   { key: 'key-rose', name: 'ROSE KEY', color: '#ff8fa3', of: 'clmm', side: 'w' }, { key: 'key-gold', name: 'GOLD KEY', color: '#d4af37', of: 'stake', side: 'e' },
   { key: 'key-noir', name: 'NOIR KEY', color: '#b388ff', of: 'flats', side: 'w' }, { key: 'key-ivory', name: 'IVORY KEY', color: '#e8e3d6', of: 'lend', side: 'e' },
-  { key: 'key-ash', name: 'ASH KEY', color: '#9aa3b2', of: 'clmm', side: 'n' }, { key: 'key-jade', name: 'JADE KEY', color: '#45e486', of: 'stake', side: 'n' },
+  { key: 'key-ash', name: 'ASH KEY', color: '#9aa3b2', of: 'clmm', side: 'n' }, { key: 'key-jade', name: 'JADE KEY', color: '#b48cff', of: 'stake', side: 'n' },
 ];
 export const keyOfPlot = i => ({ k: Math.floor(i / 4) % KEYS.length, cell: [i % 2, Math.floor((i % 4) / 2)] });
 
@@ -56,7 +56,7 @@ export const PLACES = [
   { key: 'ranked', lens: 'ranked', name: 'THE LADDER', sub: 'ranked · Street Rat → Kingpin', in: 'podium', art: 'tower', color: '#d4af37' },
   { key: 'raids', lens: 'raids', name: 'THE PRECINCT', sub: 'raids · live + the war log', in: 'warroom', art: 'precinct', color: '#ff5d73' },
   { key: 'rewards', lens: 'shop', name: 'PAWN & GOLD', sub: 'rewards · MP → FEECAT', isl: 'fee', art: 'pawn', color: '#f5c451' },
-  { key: 'jobs', lens: 'jobs', name: 'JOB BOARD', sub: 'errands · MP every few minutes', in: 'hq', art: 'board', color: '#45e486' },
+  { key: 'jobs', lens: 'jobs', name: 'JOB BOARD', sub: 'errands · MP every few minutes', in: 'hq', art: 'board', color: '#b48cff' },
   { key: 'gym', lens: 'rc', name: 'THE GYM', sub: 'challenges · win recruits', in: 'hq', art: 'gym', color: '#6ad7ff' },
   { key: 'cards', lens: 'deck', name: 'CARD ROOM', sub: 'your crew, dealt live', in: 'hq', art: 'casino', color: '#b388ff' },
   { key: 'strike', lens: 'strike', name: 'STRIKE ZONE', sub: 'third-person shooter · bots or online · level up your guns', in: 'hq', art: 'precinct', color: '#ff5d73', big: true },   // 🎯 owner 2026-10-27 (replaced the Raceway)
@@ -64,21 +64,21 @@ export const PLACES = [
   // 🗼 TT — ONE landmark tower on its own island (owner, 2026-10-23): READY coins lit on its floors, the hottest coin on its crown; one pop-out
   { key: 'tt', lens: 'tt', name: 'TRENCH TOWERS', sub: "the desk's intake list · trade it right here", isl: 'money', art: 'tt', color: '#ff8fa3', tool: true, money: true },
   // 🛣 FEELESS AVENUE — the site's best tools as buildings: each pops out its live vitals + quick tools (`tool: true`, `page` = its full page)
-  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hot Pump coins · runners · the desk\'s trades', isl: 'ave', art: 'radar', color: '#45e486', tool: true, money: true, page: '/terminal/pump' },
+  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hot Pump coins · runners · the desk\'s trades', isl: 'ave', art: 'radar', color: '#b48cff', tool: true, money: true, page: '/terminal/pump' },
   { key: 'runners', lens: 'runners', name: 'RUNNERS TRACK', sub: "FEELESS's live runner calls", in: 'pumpradar', art: 'track', color: '#ff9f45', tool: true, page: '/terminal/fuse?tab=runners' },
   { key: 'watch', lens: 'watch', name: 'THE WATCHTOWER', sub: 'your watchlist · signal alerts', in: 'court', art: 'watch', color: '#6ad7ff', tool: true, page: '/terminal/watchlist' },
   { key: 'court', lens: 'rep', name: 'REP COURTHOUSE', sub: 'case files · check anyone', isl: 'ave', art: 'court', color: '#d4af37', tool: true, page: '/terminal/reputation' },
   { key: 'feecat', lens: 'feecat', name: 'FEECAT TOWER', sub: 'the trading cat, live', isl: 'ave', art: 'cat', color: '#b388ff', tool: true, page: '/terminal/feecat' },
   { key: 'fuel', lens: 'gas', name: 'FUEL STATION', sub: 'gas on 12 chains', in: 'feebank', art: 'fuel', color: '#ffd36b', tool: true, page: '/terminal/trade' },
   { key: 'news', lens: 'feedx', name: 'THE NEWSSTAND', sub: 'FEEd · every call, live', in: 'wire', art: 'news', color: '#45e4c8', tool: true },
-  { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'fee', art: 'bank', color: '#15d16a', tool: true, money: true, page: '/terminal/fee' },
+  { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'fee', art: 'bank', color: '#9b6bff', tool: true, money: true, page: '/terminal/fee' },
   { key: 'perps', lens: 'perps', name: 'THE PERPS DESK', sub: 'perps markets live · funding · leverage', isl: 'ave', art: 'perps', color: '#ff5dbb', tool: true, money: true },
-  { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', in: 'pumpradar', art: 'trade', color: '#45e486', tool: true, money: true },   // 🚪 a room of Pump Radar (owner 2026-10-27: one building)
+  { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', in: 'pumpradar', art: 'trade', color: '#b48cff', tool: true, money: true },   // 🚪 a room of Pump Radar (owner 2026-10-27: one building)
   { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', in: 'pools', art: 'sleep', color: '#9b8cff', tool: true, money: true },   // 🚪 a room of the Pool Hall (owner 2026-10-27: one pools building)
   // 💵 YOUR MONEY (owner 1e): every position FEELESS can prove for your wallet, priced live — the Avenue's last cell
   // 🏦 THE BROKERAGE (DECISIONS #9): your own broker linked to your wallet — stocks · ETFs · crypto, live, trade from $1
   { key: 'brokers', lens: 'brokers', name: 'THE BROKERAGE', sub: 'your broker linked · stocks · crypto · live', in: 'mymoney', art: 'bank', color: '#ffd36b', tool: true, money: true },
-  { key: 'mymoney', lens: 'mymoney', name: 'YOUR MONEY', sub: 'every proved position · live', isl: 'fee', art: 'money', color: '#45e486', tool: true, money: true },
+  { key: 'mymoney', lens: 'mymoney', name: 'YOUR MONEY', sub: 'every proved position · live', isl: 'fee', art: 'money', color: '#b48cff', tool: true, money: true },
 ];
 // 🚪 the rooms of one building: the host first, then every place that lives inside it (`in`)
 export const roomsOf = key => { const p = PLACES.find(x => x.key === key || x.lens === key); const host = p?.in || p?.key; return host ? PLACES.filter(x => x.key === host || x.in === host) : []; };
@@ -87,9 +87,9 @@ export const roomsOf = key => { const p = PLACES.find(x => x.key === key || x.le
 // places: [source, kinds, how many] — live markets (`mk`) by TVL, then Pool Hub rows (`pool`), freshest to Fee City + paying first. A cell
 // nothing fills is a PARK. West column = 3 cols, east column = 4 cols, every district 2 rows: the canal bridges land on shared avenues.
 export const METRO = {
-  ave: { name: 'FEELESS AVENUE', sub: 'the tools + the perps strip', at: [0, -1], cols: 4, rows: 2, color: '#15d16a', fill: [['mk', ['perps'], 1], ['pool', ['perps'], 3]] },
+  ave: { name: 'FEELESS AVENUE', sub: 'the tools + the perps strip', at: [0, -1], cols: 4, rows: 2, color: '#9b6bff', fill: [['mk', ['perps'], 1], ['pool', ['perps'], 3]] },
   stake: { name: 'STAKE HEIGHTS', sub: 'liquid staking · every LST', at: [1, -1], cols: 4, rows: 2, color: '#6ad7ff', fill: [['mk', ['stake'], 4], ['pool', ['stake'], 4]] },
-  row: { name: 'DEX ROW', sub: 'the DEXes + the Pool Hall', at: [1, 0], cols: 4, rows: 2, color: '#45e486', fill: [['mk', ['dex'], 5], ['pool', ['v2', 'dlmm'], 2]] },
+  row: { name: 'DEX ROW', sub: 'the DEXes + the Pool Hall', at: [1, 0], cols: 4, rows: 2, color: '#b48cff', fill: [['mk', ['dex'], 5], ['pool', ['v2', 'dlmm'], 2]] },
   lend: { name: 'LEND STREET', sub: 'lending + treasuries', at: [1, 1], cols: 4, rows: 2, color: '#f5c451', fill: [['mk', ['lend'], 3], ['pool', ['rwa'], 2], ['pool', ['lend'], 3]] },
   money: { name: 'TT · TRENCH TOWERS', sub: "the desk's intake list · one tower", at: [0, 1], cols: 2, rows: 2, color: '#ff8fa3', fill: [] },
   flats: { name: 'THE FLATS', sub: 'v2 pools · constant product', at: [-1, 1], cols: 3, rows: 2, color: '#ff9f45', fill: [['pool', ['v2'], 6]] },
@@ -111,7 +111,7 @@ export const DISTRICTS = {
 };
 // 🏛 each outer city's CITY HALL — that platform's live tools in a click (a radar of its own launchpad board, or the Rep court for the docks)
 export const HALLS = {
-  harbor: { name: 'PUMP HALL', sub: 'Pump.fun live · one-tap trade', art: 'radar', color: '#45e486', scope: 'pump' },
+  harbor: { name: 'PUMP HALL', sub: 'Pump.fun live · one-tap trade', art: 'radar', color: '#b48cff', scope: 'pump' },
   heights: { name: 'RAYDIUM HALL', sub: 'LaunchLab live · one-tap trade', art: 'radar', color: '#6ad7ff', scope: 'raydium' },
   bay: { name: 'BONK HALL', sub: 'LetsBONK live · one-tap trade', art: 'radar', color: '#ffd36b', scope: 'bonk' },
   docks: { name: 'DOCKS COURT', sub: 'the cartels caught this week', art: 'court', color: '#3ddc84', scope: null },
@@ -302,9 +302,9 @@ export const TOWN = {
   tt: { name: 'TRENCH TOWERS', sub: 'the intake list · trade it', art: 'tt', color: '#ff8fa3' },
   perps: { name: 'PERPS DESK', sub: 'funding · leverage · US venues', art: 'perps', color: '#ff5dbb' },
   pools: { name: 'POOL HALL', sub: 'APY · 24h earned · range tuner', art: 'hall', color: '#45e4c8' },
-  trades: { name: 'TRADE CENTER', sub: "the desk's real trades · live P&L", art: 'trade', color: '#45e486' },
+  trades: { name: 'TRADE CENTER', sub: "the desk's real trades · live P&L", art: 'trade', color: '#b48cff' },
   vault: { name: 'NIGHT VAULT', sub: 'earn while you sleep · live APY', art: 'sleep', color: '#9b8cff' },
-  radar: { name: 'PUMP RADAR', sub: 'hottest Pump coins · one tap', art: 'radar', color: '#45e486' },
+  radar: { name: 'PUMP RADAR', sub: 'hottest Pump coins · one tap', art: 'radar', color: '#b48cff' },
   cats: { name: 'FEECAT TOWER', sub: 'FeeCat live · your cats', art: 'cat', color: '#b388ff' },
   rep: { name: 'REP MARKET', sub: 'call it right → chips → points', art: 'casino', color: '#ffd36b' },
 };
@@ -313,7 +313,7 @@ export const TOWN = {
 // island; a new island (and its bridge) every 15. Stands dress the streets; MY POOLS is one combo building of every position the block holds.
 export const ISLAND_CELLS = 15;
 export const STAND = { kiosk: { name: 'KIOSK', sub: 'coffee · street talk', color: '#ffd36b', icon: '☕' }, food: { name: 'FOOD STALL', sub: 'tacos for the trench', color: '#ff8fa3', icon: '🌮' },
-  sign: { name: 'BILLBOARD', sub: "the family's sign", color: '#45e486', icon: '🪧' }, fountain: { name: 'FOUNTAIN', sub: 'make a wish', color: '#7fe0ff', icon: '⛲' },
+  sign: { name: 'BILLBOARD', sub: "the family's sign", color: '#b48cff', icon: '🪧' }, fountain: { name: 'FOUNTAIN', sub: 'make a wish', color: '#7fe0ff', icon: '⛲' },
   park: { name: 'PARK', sub: 'trees + a bench', color: '#5fd38a', icon: '🌳' }, garden: { name: 'GARDEN', sub: 'flower beds in bloom', color: '#ff7ac8', icon: '🌷' },
   statue: { name: 'STATUE', sub: 'the Don in gold', color: '#ffcf5c', icon: '🗽' }, plaza: { name: 'PLAZA', sub: 'tiles + lamp posts', color: '#c9b6ff', icon: '🏛' },
   pond: { name: 'POND', sub: 'koi + lily pads', color: '#5fc9ff', icon: '🪷' }, palms: { name: 'PALMS', sub: 'a beach corner', color: '#3ddc97', icon: '🌴' } };
@@ -371,7 +371,7 @@ export function blockPlan(bl, live = {}) {
     } else if (kind === 'lp' && lpBy[id]) {
       const p = lpBy[id]; const v = Number(p.valueUsd) || 0; const f = Number(p.feeUsd) || 0;
       markets.push({ key: `lp-${p.id}`, pick: { lp: p.id }, kind: 'damm', name: p.sym, proto: 'Meteora DAMM v2', pool: true, tvl: v, apy: p.feeDay != null ? p.feeDay * 36500 : null, hz: p.inRange ? 1.8 : 0.4,
-        h: heightOf(Math.max(1, v) * 4000) * 1.2, rect, island: isk, m: p, tone: p.inRange ? '#45e486' : '#6b6f78',
+        h: heightOf(Math.max(1, v) * 4000) * 1.2, rect, island: isk, m: p, tone: p.inRange ? '#b48cff' : '#6b6f78',
         lines: [p.sym, `${dollarsSmall(v)} · fees +${dollarsSmall(f)}`, p.inRange ? `IN RANGE · ${p.feeDay != null ? `${(p.feeDay * 100).toFixed(1)}%/day` : 'earning'}` : 'OUT OF RANGE · earning 0'] });
     } else if (kind === 'town' && TOWN[id]) {   // 🏘 a tool building — each sign carries its tool's own live number (lib/townLive)
       const t = TOWN[id]; const tt = id === 'tt' ? ttLive(live.coins) : null; const tl = live.town?.[id];

@@ -43,7 +43,7 @@ test('keeps the daylight layer scoped and covers shared surfaces and focus state
 });
 
 test('keeps the official night palette (logo green on near-black, owner 2026-10-23) outside the daylight scope', () => {
-  expect(css).toContain(':root{--mint:#15d16a;--mint-bright:#45e486;--ink:#090a0a');
+  expect(css).toContain(':root{--mint:#9b6bff;--mint-bright:#b48cff;--ink:#090a0a');
   expect(css).toContain('.terminal-header{height:82px');
   expect(css).toContain('background:#090b0a');   // the header: near-black, no green tint
 });

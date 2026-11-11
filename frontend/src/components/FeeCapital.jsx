@@ -45,7 +45,7 @@ function gateRect(at_) {
 // (each side's bar = its coin's move since the bell, the seat's winner lit), the clash flashes while the clock runs
 function Stadium({ hot, fight }) {
   const seats = fight?.duel?.seats || [];
-  return <div className={`fc-std ${hot || fight ? 'is-hot' : ''} ${fight ? 'is-fight' : ''}`} style={fight ? { '--ca': fight.a.color || '#45e486', '--cb': fight.b.color || '#ff8fa3' } : undefined}>
+  return <div className={`fc-std ${hot || fight ? 'is-hot' : ''} ${fight ? 'is-fight' : ''}`} style={fight ? { '--ca': fight.a.color || '#b48cff', '--cb': fight.b.color || '#ff8fa3' } : undefined}>
     <i className="fc-std-base" /><i className="fc-std-tier t1" /><i className="fc-std-tier t2" /><i className="fc-std-tier t3" />
     <i className="fc-std-pitch"><b />{seats.length ? <span className="fc-seats">{seats.map(x => <i key={x.seat} className={x.win ? `w-${x.win}` : ''}>
       <s className="a" style={{ transform: `scaleX(${Math.min(1, Math.abs(x.a.pct) / 15)})` }} /><s className="b" style={{ transform: `scaleX(${Math.min(1, Math.abs(x.b.pct) / 15)})` }} /></i>)}</span> : null}</i>
@@ -96,7 +96,7 @@ export function FeeCapital({ v, sel, onPick, onGo, tour, hot }) {
     {Object.keys(FEE_MARKS).map(k => { const s = feeSpot({ lm: k }); return <Billboard key={k} x={s.x} y={s.y} z={BILL_Z[k]} className={`fc-bill k-${k} ${tour ? 'is-dim' : ''}`}>
       <b>{marks[k]?.name || k}</b><small key={line(k)}>{line(k)}</small></Billboard>; })}
     {fight ? ['a', 'b'].map(sd => { const p = cardAt(sd === 'a' ? 0.37 : 0.63); const x = fight[sd];
-      return <Billboard key={sd} x={p.x} y={p.y} z={54} className={`fc-fighter s-${sd}`}><b style={{ '--fc': x.color || (sd === 'a' ? '#45e486' : '#ff8fa3') }}>{x.tag}</b>
+      return <Billboard key={sd} x={p.x} y={p.y} z={54} className={`fc-fighter s-${sd}`}><b style={{ '--fc': x.color || (sd === 'a' ? '#b48cff' : '#ff8fa3') }}>{x.tag}</b>
         <small key={x.pct}>{x.pct == null ? '—' : `${x.pct >= 0 ? '+' : ''}${x.pct.toFixed(2)}%`}</small></Billboard>; }) : null}
     <Billboard x={SEA + ISW / 2} y={SEA + ISH + 30} z={60} className="fc-title"><b>FEE CITY</b><small>CAPITAL OF THE TRENCHES</small></Billboard>
     {tour ? TOUR.map(([k, n, t, d]) => { const s = k === 'w' ? { x: SEA - 40, y: SEA + ISH / 2 } : k ? feeSpot({ lm: k }) : feeSpot({ i: 3 });

@@ -11,7 +11,7 @@ const DEFENCE = shaped({ blocks: [], rules: [], incidents: [], honeypots: [], ta
 // fingerprint (24h, doubling); a scanner TOOL seen from many IPs becomes a rule; scrapers and replayed HQ signatures are slowed, never blocked.
 // Every incident carries a plain abuse report — FEELESS reports, it never attacks back. The stores map is read-only: money is kept whole.
 const ago = s => (s < 90 ? `${Math.round(s)}s` : s < 5400 ? `${Math.round(s / 60)}m` : s < 172800 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`);
-const CLASS_COLOR = { money: '#d4af37', cache: '#6fd3ff', log: '#9b5cff', memory: '#45e486', snapshot: '#ff9f45', other: '#8a93a6' };
+const CLASS_COLOR = { money: '#d4af37', cache: '#6fd3ff', log: '#9b5cff', memory: '#b48cff', snapshot: '#ff9f45', other: '#8a93a6' };
 // pure: the stores' classes as one stacked bar (share of the total)
 export function classBar(byClass) { const tot = Object.values(byClass || {}).reduce((a, c) => a + c.mb, 0) || 1; return Object.entries(byClass || {}).sort((a, b) => b[1].mb - a[1].mb).map(([k, c]) => ({ k, mb: c.mb, n: c.n, w: c.mb / tot })); }
 

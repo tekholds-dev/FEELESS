@@ -27,10 +27,10 @@
 .fa-pulse b { font: 900 14px 'JetBrains Mono', monospace; color: var(--fam-acc2); text-shadow: 0 0 10px color-mix(in srgb, var(--fam-acc) 55%, transparent); animation: faIn .35s ease-out; }
 .fa-pulse small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a8987a; }
 .fa-pulse > span.is-hot { border-color: rgba(255, 77, 94, .55); } .fa-pulse > span.is-hot b { color: #ffb0a0; }
-.fa-dot { align-self: center; width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: faBeat 2s ease-in-out infinite; }
+.fa-dot { align-self: center; width: 7px; height: 7px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; animation: faBeat 2s ease-in-out infinite; }
 .fa-wallet { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--fam-acc) 45%, transparent);
   background: rgba(0, 0, 0, .5); color: #fff3c9; font: 800 10.5px 'JetBrains Mono', monospace; }
-.fa-wallet > i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; }
+.fa-wallet > i { width: 7px; height: 7px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; }
 button.fa-wallet { cursor: pointer; background: linear-gradient(180deg, var(--fam-acc2), var(--fam-acc)); color: #120c04; transition: transform .15s; }
 button.fa-wallet:hover { transform: translateY(-1px); } button.fa-wallet:active { transform: scale(.96); } button.fa-wallet:focus-visible { outline: 2px solid #fff3c9; outline-offset: 2px; }
 .fa-main { min-width: 0; padding: 14px clamp(10px, 2.4vw, 26px) 40px; }

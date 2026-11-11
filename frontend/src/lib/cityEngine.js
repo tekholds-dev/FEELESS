@@ -27,7 +27,7 @@ export const MODELS = {
   lamp: [`${BASE}/roads/light-square.glb`], signal: [`${BASE}/roads/traffic-light.glb`],
 };
 const KIND = { mine: '#ffcc4d', family: '#b388ff', cpu: '#ff5d73', cartel: '#3ddc84', free: '#5b6577' };
-const MKT = { damm: '#45e486', dex: '#45e486', lend: '#f5c451', perps: '#ff5dbb', stake: '#6ad7ff', coin: '#ff8fa3', v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', rwa: '#e8e3d6' };
+const MKT = { damm: '#b48cff', dex: '#b48cff', lend: '#f5c451', perps: '#ff5dbb', stake: '#6ad7ff', coin: '#ff8fa3', v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', rwa: '#e8e3d6' };
 const FOOD = [['PIZZA', '#ff6a3d'], ['TACOS', '#ffd36b'], ['COFFEE', '#c98a5a'], ['BOBA', '#ff8fd0'], ['WINGS', '#ff9f45'], ['NOODLES', '#6ad7ff']];
 
 // ── models: one load per file, clones share geometry + the lit-window material ─────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ async function tallest(urls, w, d, h) {
 
 // ── canvas textures: signs, skies, water ripples, distant windows, awnings ──────────────────────────────────────────────────────────
 // 🪙 a coin disc with its ticker on both faces (TT towers float one; the $FEE Bank turns a big one)
-function coinDisc(text, color = '#15d16a', r = 0.75) {
+function coinDisc(text, color = '#9b6bff', r = 0.75) {
   const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; const g = cv.getContext('2d');
   g.fillStyle = '#0b1a12'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill(); g.strokeStyle = color; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke();
   const t = String(text || '').slice(0, 6); g.fillStyle = '#f4fff6'; g.font = `bold ${t.length > 4 ? 26 : 36}px JetBrains Mono, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 64, 66);
@@ -277,7 +277,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     // 🚶 people on the promenades (one instanced mesh, moved every frame)
     const N = lite ? 0 : Math.min(90, walkPaths.length * 14);
     if (N) { walkers = { mesh: new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.07, 0.22, 3, 6), new THREE.MeshStandardMaterial({ roughness: 0.8 }), N), list: [] };
-      const col = new THREE.Color(); const tints = ['#e8e3d6', '#d4af37', '#ff8fa3', '#6ad7ff', '#b388ff', '#45e486', '#2a2a30'];
+      const col = new THREE.Color(); const tints = ['#e8e3d6', '#d4af37', '#ff8fa3', '#6ad7ff', '#b388ff', '#b48cff', '#2a2a30'];
       for (let k = 0; k < N; k += 1) { const path = walkPaths[k % walkPaths.length]; const segs = path.map((a, j) => { const b = path[(j + 1) % 4]; return { a, b, len: Math.hypot(b[0] - a[0], b[1] - a[1]) }; });
         const total = segs.reduce((s, x) => s + x.len, 0); walkers.list.push({ segs, total, s: Math.random() * total, v: (0.35 + Math.random() * 0.3) * (k % 2 ? 1 : -1), off: (k % 3 - 1) * 0.22 });
         walkers.mesh.setColorAt(k, col.set(tints[k % tints.length])); }
@@ -346,12 +346,12 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       for (let k = 0; k < 8; k += 1) { const tr = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.9, 7), M.leaf); tr.position.set(r.x + 1.2 + k * 2.4, 0.6, r.z + (k % 2 ? r.d - 0.5 : 0.5)); content.add(tr); }
       const sg = sign(['FEE PLAZA'], { color: '#d4af37', w: 360 }); sg.position.set(c.x, 2.6, c.z); content.add(sg); }
     for (const m of p.markets) {   // 🏦 a real market / pool: a tower by TVL, neon edges, a billboard, a roof light pulsing at its volume
-      side(m.rect, '#2a2e2a'); const c = centerOf(m.rect); const col = MKT[m.kind] || '#45e486';
+      side(m.rect, '#2a2e2a'); const c = centerOf(m.rect); const col = MKT[m.kind] || '#b48cff';
       const want = Math.max(2.4, m.h * 2.1); const pool_ = want > 6 ? MODELS.sky : want > 3.6 ? [...MODELS.big, ...MODELS.sky.slice(0, 2)] : [...MODELS.mid, ...MODELS.big];
       const fw = Math.min(FOOT.tower, m.rect.w - 0.7); const fd = Math.min(FOOT.tower, m.rect.d - 0.7); yard(m.rect, fw);
       const o = await make(await tallest(pool_, fw, fd, want), { lit: true }); fit(o, fw, fd, want);
       o.position.set(c.x, 0.14, c.z); content.add(o); const h = sizeOf(o).y;
-      const tone = m.tone || (m.kind === 'coin' && m.move != null ? (m.move >= 0 ? '#45e486' : '#ff5d73') : col);   // 🏗 an LP tower: green in range, grey out
+      const tone = m.tone || (m.kind === 'coin' && m.move != null ? (m.move >= 0 ? '#b48cff' : '#ff5d73') : col);   // 🏗 an LP tower: green in range, grey out
       edges(o, c, tone);
       const beacon = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.06, 8, 30), neon(tone, 1.5)); beacon.rotation.x = Math.PI / 2; beacon.position.set(c.x, h + 0.35, c.z); content.add(beacon);
       const hz = m.hz || 1; beacon.rotation.y = 0.35;   // activity = how FAST the halo turns (volume), never a flash
@@ -404,7 +404,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       pitch.rotation.x = -Math.PI / 2; pitch.position.y = 0.06; g.add(pitch);
       const crowd = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.18, 0.14), new THREE.MeshStandardMaterial({ roughness: 1 }), 420); const m4 = new THREE.Matrix4(); const col = new THREE.Color();
       for (let k = 0; k < 420; k += 1) { const a = (k / 420) * Math.PI * 2 * 3; const t = (k % 3) / 3; const rr = 2.55 + t * 0.55; m4.makeTranslation(Math.cos(a) * rr * r.w / 6.6, (0.45 + t * 1.2) * ky, Math.sin(a) * rr * r.d / 6.6);
-        crowd.setMatrixAt(k, m4); crowd.setColorAt(k, col.set(['#d4af37', '#45e486', '#ff8fa3', '#e8e3d6', '#b388ff'][k % 5])); }
+        crowd.setMatrixAt(k, m4); crowd.setColorAt(k, col.set(['#d4af37', '#b48cff', '#ff8fa3', '#e8e3d6', '#b388ff'][k % 5])); }
       g.add(crowd);
       [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => { box(0.14, 4.6, 0.14, '#55585f', sx * r.w * 0.47, 2.3, sz * r.d * 0.45, g);
         const head = box(0.6, 0.26, 0.24, null, sx * r.w * 0.47, 4.6, sz * r.d * 0.45, g, neon('#fff6d8', 3.2)); head.lookAt(0, 0, 0);
@@ -479,7 +479,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const s = sizeOf(o); const band = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(s.x, s.z) * 0.62, Math.max(s.x, s.z) * 0.62, 0.32, 40, 1, true), new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, side: THREE.DoubleSide }));
       band.position.set(c.x, top + 0.25, c.z); content.add(band); anim.push(t => { tx.offset.x = (t * 0.05) % 1; }); return; }
     if (pl.art === 'trade' || pl.art === 'perps') {   // 📈 THE TRADE CENTER: three P&L bars on the roof breathing up and down (green / red / green), a slow tape of the desk
-      [['#45e486', 0], ['#ff5d73', 1.3], ['#45e486', 2.4]].forEach(([col_, ph], k) => { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1, 0.28), neon(col_, 1.8));
+      [['#b48cff', 0], ['#ff5d73', 1.3], ['#b48cff', 2.4]].forEach(([col_, ph], k) => { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1, 0.28), neon(col_, 1.8));
         bar.geometry.translate(0, 0.5, 0); bar.position.set(c.x - 0.45 + k * 0.45, top, c.z); content.add(bar); anim.push(t => { bar.scale.y = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 0.7 + ph)); }); });
       return; }
     if (pl.art === 'sleep') {   // 💤 THE NIGHT VAULT: a crescent moon rocking over the roof + a coin stack that breathes taller (money compounding)
@@ -489,15 +489,15 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       for (let k = 0; k < 5; k += 1) { const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.08, 20), new THREE.MeshStandardMaterial({ color: '#d4af37', metalness: 0.8, roughness: 0.3, emissive: '#5a4508', emissiveIntensity: 0.6 })); coin.position.y = k * 0.1; stack.add(coin); }
       anim.push(t => { moon.rotation.y = Math.sin(t * 0.4) * 0.5; moon.position.y = top + 1.5 + Math.sin(t * 0.8) * 0.1; stack.scale.y = 1 + 0.35 * (0.5 + 0.5 * Math.sin(t * 0.5)); }); return; }
     if (pl.art === 'money') {   // 💵 YOUR MONEY: three lit rings (your positions) orbiting the crown, the middle one gold, drifting up and down
-      const gm = new THREE.MeshStandardMaterial({ color: '#45e486', emissive: '#15d16a', emissiveIntensity: 1.1, metalness: 0.6, roughness: 0.3 });
+      const gm = new THREE.MeshStandardMaterial({ color: '#b48cff', emissive: '#9b6bff', emissiveIntensity: 1.1, metalness: 0.6, roughness: 0.3 });
       const au = new THREE.MeshStandardMaterial({ color: '#ffd36b', emissive: '#a07a10', emissiveIntensity: 0.9, metalness: 0.7, roughness: 0.3 });
       const piv = new THREE.Group(); piv.position.set(c.x, top + 0.5, c.z); content.add(piv);
       [0, 1, 2].forEach(i => { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5 + i * 0.13, 0.05, 8, 40), i === 1 ? au : gm); ring.rotation.x = Math.PI / 2; ring.position.y = i * 0.32; piv.add(ring); });
       anim.push(t => { piv.rotation.y = t * 0.5; piv.children.forEach((rg, i) => { rg.position.y = i * 0.32 + Math.sin(t * 1.3 + i * 1.7) * 0.06; }); }); }
     if (pl.art === 'bank') {   // a giant FEE coin turning over the vault
       const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#0c3a20'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = '#45e486'; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#e8ffe9'; g.font = 'bold 40px JetBrains Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('FEE', 64, 66);
-      const face = new THREE.CanvasTexture(cv); face.colorSpace = THREE.SRGBColorSpace; const rim = new THREE.MeshStandardMaterial({ color: '#15d16a', metalness: 0.7, roughness: 0.3, emissive: '#0a5a2c', emissiveIntensity: 0.6 });
+      g.strokeStyle = '#b48cff'; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#e8ffe9'; g.font = 'bold 40px JetBrains Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('FEE', 64, 66);
+      const face = new THREE.CanvasTexture(cv); face.colorSpace = THREE.SRGBColorSpace; const rim = new THREE.MeshStandardMaterial({ color: '#9b6bff', metalness: 0.7, roughness: 0.3, emissive: '#0a5a2c', emissiveIntensity: 0.6 });
       const fm = new THREE.MeshBasicMaterial({ map: face, toneMapped: false }); const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.14, 40), [rim, fm, fm]);
       coin.rotation.x = Math.PI / 2; const piv = new THREE.Group(); piv.position.set(c.x, top + 1.1, c.z); piv.add(coin); content.add(piv);
       anim.push(t => { piv.rotation.y = t * 0.8; piv.position.y = top + 1.1 + Math.sin(t * 1.1) * 0.08; }); }
@@ -605,7 +605,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => box(0.05, tiers[0][1], 0.05, null, c.x + sx * (tiers[0][0] / 2 + 0.03), 0.14 + tiers[0][1] / 2, c.z + sz * (tiers[0][0] / 2 + 0.03), content, neon(col, 1.3)));
     const spire = new THREE.Mesh(new THREE.ConeGeometry(0.5, 3.2, 8), neon(col, 1.6)); spire.position.set(c.x, y + 1.6, c.z); content.add(spire); const top = y + 3.2;
     const tops = (live.top || []).length ? live.top : live.hot ? [live.hot] : [{ sym: 'TT' }];
-    tops.slice(0, 3).forEach((t0, k) => { const tone = t0.ch == null ? col : t0.ch >= 0 ? '#45e486' : '#ff5d73'; const cd = coinDisc(String(t0.sym || '').replace('$', ''), tone, (k ? 0.7 : 1.15) * Math.max(0.7, ks));
+    tops.slice(0, 3).forEach((t0, k) => { const tone = t0.ch == null ? col : t0.ch >= 0 ? '#b48cff' : '#ff5d73'; const cd = coinDisc(String(t0.sym || '').replace('$', ''), tone, (k ? 0.7 : 1.15) * Math.max(0.7, ks));
       content.add(cd); const R = k ? 2.6 * ks : 0; const ph = (k * Math.PI * 2) / 3;
       const put = t => { const a = t * 0.5 + ph; cd.position.set(c.x + Math.cos(a) * R, (k ? top - 1.4 : top + 1.2) + Math.sin(t * 1.1 + k) * 0.12, c.z + Math.sin(a) * R); cd.rotation.y = t * 0.9; };
       put(0); if (!lite_) anim.push(put); });

@@ -1,6 +1,6 @@
 /* 🎬 Pit reel (PitReel.jsx): a looping cycle of battle scenes in the middle of every fight. One keyframe set (pr*),
    transform/opacity only, list stagger via --i, static VS under fx-lite / reduced motion. Built from m-* tokens. */
-.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #15d16a); --pr-b: #ff8fa3; --pr-v: #c08bff; }
+.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #9b6bff); --pr-b: #ff8fa3; --pr-v: #c08bff; }
 .pr-stage { position: relative; width: 100%; height: 170px; overflow: hidden; border-radius: 16px; isolation: isolate;
   background: radial-gradient(60% 70% at 50% 55%, rgba(155, 92, 255, .16), transparent 70%); }
 .pr-stage i { position: absolute; display: block; pointer-events: none; }
@@ -46,7 +46,7 @@
 
 /* 🛡 block: the leader's shield takes the hit */
 .pr-shield { top: 50%; left: 50%; width: 56px; height: 64px; margin: -32px -28px; opacity: 0; border-radius: 50% 50% 46% 46% / 30% 30% 70% 70%;
-  border: 3px solid var(--pr-a); background: radial-gradient(circle at 50% 35%, rgba(21, 209, 106, .35), transparent 70%); animation: prShield 3.4s ease-out both; }
+  border: 3px solid var(--pr-a); background: radial-gradient(circle at 50% 35%, rgba(155, 107, 255, .35), transparent 70%); animation: prShield 3.4s ease-out both; }
 .pr.lead-b .pr-shield { border-color: var(--pr-b); background: radial-gradient(circle at 50% 35%, rgba(255, 143, 163, .35), transparent 70%); }
 
 /* ☄ meteor: falls on the trailing corner, crater + sparks */
@@ -92,10 +92,10 @@ body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a
 .pl-race { position: relative; width: 100%; height: 86px; display: grid; grid-template-rows: 64px auto; gap: 2px; }
 .pl-plot { position: relative; height: 64px; } .pl-race svg { width: 100%; height: 100%; overflow: visible; display: block; }
 .pl-race polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.pl-a { stroke: var(--m-accent, #15d16a); filter: drop-shadow(0 0 4px rgba(21, 209, 106, .6)); } .pl-b { stroke: #ff8fa3; opacity: .9; }
+.pl-a { stroke: var(--m-accent, #9b6bff); filter: drop-shadow(0 0 4px rgba(155, 107, 255, .6)); } .pl-b { stroke: #ff8fa3; opacity: .9; }
 .pl-zero { stroke: var(--m-line-hi, #2d1d4c); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .pl-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; pointer-events: none; animation: plPulse 1.4s ease-in-out infinite; }
-.pl-dot.a { background: var(--m-accent, #15d16a); box-shadow: 0 0 10px var(--m-accent, #15d16a); } .pl-dot.b { background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3; animation-delay: -.7s; }
+.pl-dot.a { background: var(--m-accent, #9b6bff); box-shadow: 0 0 10px var(--m-accent, #9b6bff); } .pl-dot.b { background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3; animation-delay: -.7s; }
 .pl-race small { display: flex; justify-content: space-between; gap: 6px; font: 10px var(--m-mono, monospace); letter-spacing: .04em; } .pl-race small em { font-style: normal; color: var(--m-dim); }
 .pl-ticker { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 10px; padding: 6px 10px;
   border-radius: 999px; border: 1px solid var(--m-line-hi, #2d1d4c); background: rgba(0, 0, 0, .35); }
@@ -105,7 +105,7 @@ body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a
 .pl-track { display: flex; gap: 14px; width: max-content; animation: plBelt 28s linear infinite; }
 .pl-ticker:hover .pl-track { animation-play-state: paused; }
 .pl-tick { display: inline-flex; gap: 5px; align-items: baseline; font-size: 11.5px; white-space: nowrap; } .pl-tick b { font-weight: 600; }
-.pl-tick.s-a b { color: var(--m-accent, #15d16a); } .pl-tick.s-b b { color: #ff8fa3; } .pl-tick em { font-style: normal; font-size: 11px; }
+.pl-tick.s-a b { color: var(--m-accent, #9b6bff); } .pl-tick.s-b b { color: #ff8fa3; } .pl-tick em { font-style: normal; font-size: 11px; }
 @keyframes plPulse { 50% { opacity: .35; transform: scale(.7); } }
 @keyframes plBelt { to { transform: translateX(-50%); } }
 body.fx-lite .pl-dot, body.fx-lite .pl-live i, body.fx-lite .pl-track { animation: none; }

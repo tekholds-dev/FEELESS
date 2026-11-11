@@ -17,7 +17,7 @@
   animation: fcsPulse 2.4s ease-in-out infinite; }
 .fcs-copy { display: grid; gap: 8px; min-width: 0; }
 .fcs-status { justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em;
-  background: rgba(21, 209, 106, .14); color: #45e486; border: 1px solid rgba(69, 228, 134, .4); }
+  background: rgba(155, 107, 255, .14); color: #b48cff; border: 1px solid rgba(180, 140, 255, .4); }
 .fcs-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: fcsPulse 1.2s ease-in-out infinite; }
 .fcs-status.nap { background: rgba(245, 196, 81, .14); color: #f5c451; border-color: rgba(245, 196, 81, .4); }
 .fcs-copy h1 { margin: 0; font: 800 34px/1 'Unbounded', system-ui; letter-spacing: .02em; color: #fff; text-shadow: 0 0 18px #7c4dff, 0 0 40px #7c4dff66; }
@@ -34,7 +34,7 @@
 .fcs-tile em { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .16em; font-style: normal; color: #a993d6; }
 .fcs-tile b { font: 800 20px 'JetBrains Mono', monospace; color: #f4edff; animation: fcsPop .45s ease; } .fcs-tile b small { font-size: 11px; color: #a993d6; }
 .fcs-tile > small { font: 600 10px 'JetBrains Mono', monospace; color: #9f8bc9; }
-.fcs-tile.up b { color: #45e486; text-shadow: 0 0 12px #15d16a88; } .fcs-tile.dn b { color: #ff8fa3; }
+.fcs-tile.up b { color: #b48cff; text-shadow: 0 0 12px #9b6bff88; } .fcs-tile.dn b { color: #ff8fa3; }
 .fcs-tile u { display: block; height: 5px; border-radius: 3px; background: #1d1033; overflow: hidden; text-decoration: none; }
 .fcs-tile s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7c4dff, #ff6fd8); text-decoration: none; transition: transform .8s cubic-bezier(.2, .8, .2, 1); }
 .fcs-ringtile { grid-template-columns: 50px 1fr; align-items: center; }

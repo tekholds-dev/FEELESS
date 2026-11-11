@@ -7,9 +7,9 @@
   color: #f3ecff; background: rgba(124, 77, 255, .22); border: 1px solid rgba(180, 140, 255, .55); box-shadow: 0 0 18px -6px #b48cff; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
 .fob-pill:hover { transform: translateY(-2px); box-shadow: 0 0 24px -4px #b48cff; } .fob-pill:active { transform: scale(.97); } .fob-pill:focus-visible { outline: 2px solid #ffcf5c; outline-offset: 2px; }
 .fob-pill b { font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(0, 0, 0, .3); color: #ffcf5c; }
-.fob-pill.is-wallet.is-real { border-color: #45e486; box-shadow: 0 0 22px -4px #45e486; } .fob-pill.is-wallet.is-real b { color: #45e486; }
+.fob-pill.is-wallet.is-real { border-color: #b48cff; box-shadow: 0 0 22px -4px #b48cff; } .fob-pill.is-wallet.is-real b { color: #b48cff; }
 .fob-dot { width: 8px; height: 8px; border-radius: 50%; background: #ffcf5c; box-shadow: 0 0 10px #ffcf5c; animation: fobBeat 1.8s ease-in-out infinite; }
-.fob-pill.is-real .fob-dot { background: #45e486; box-shadow: 0 0 10px #45e486; }
+.fob-pill.is-real .fob-dot { background: #b48cff; box-shadow: 0 0 10px #b48cff; }
 .fob-ping { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ff8fa3; animation: fobBeat 1.2s ease-in-out infinite; }
 /* the pop-outs: a backdrop + a glass panel that scales in */
 .fob-back { position: fixed; inset: 0; z-index: 5300;   /* above the HQ pop-out (4000) + Agents floor (4500): at 2000 it opened BEHIND HQ — 'the button doesn't work' */

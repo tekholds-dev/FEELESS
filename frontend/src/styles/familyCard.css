@@ -10,12 +10,12 @@
 .fcc-rank.is-p2 { color: #12161a; background: linear-gradient(135deg, #6f757d, #f6f8fb 45%, #a7adb5); border-color: #f6f8fb; }
 .fcc-rank.is-p3 { color: #1a0d04; background: linear-gradient(135deg, #6b3a12, #f0b07a 45%, #a0602a); border-color: #f0b07a; }
 .fcc-live { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font: 700 9px "JetBrains Mono", monospace; letter-spacing: .06em; color: #c9f5d9; background: rgba(0, 0, 0, .55); }
-.fcc-live i { width: 6px; height: 6px; border-radius: 50%; background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: fccBeat 2.6s ease-in-out infinite; }
+.fcc-live i { width: 6px; height: 6px; border-radius: 50%; background: #9b6bff; box-shadow: 0 0 8px #9b6bff; animation: fccBeat 2.6s ease-in-out infinite; }
 .fcc-crest { display: grid; place-items: center; min-height: 64px; margin-top: 2px; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, .65)); }
 .fcc-vitals { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; width: 100%; margin-top: auto; box-sizing: border-box; padding: 6px; border-radius: 10px;
   background: linear-gradient(180deg, rgba(10, 7, 4, .55), rgba(10, 7, 4, .85)); border: 1px solid rgba(212, 175, 55, .22); box-shadow: inset 0 1px 0 rgba(255, 233, 166, .12); }
 .fcc-v { display: grid; justify-items: center; align-content: start; gap: 1px; min-width: 0; }
-.fcc-v b, .fcc-v .crw-3pct { font: 900 15px "JetBrains Mono", monospace; color: #fff4dc; line-height: 1.1; } .fcc-v .crw-3pct { font-size: 16px; } .fcc-v .crw-3pct.m-pos { color: #45e486; text-shadow: 0 0 12px rgba(21, 209, 106, .45); } .fcc-v .crw-3pct.m-neg { color: #ff8fa3; }
+.fcc-v b, .fcc-v .crw-3pct { font: 900 15px "JetBrains Mono", monospace; color: #fff4dc; line-height: 1.1; } .fcc-v .crw-3pct { font-size: 16px; } .fcc-v .crw-3pct.m-pos { color: #b48cff; text-shadow: 0 0 12px rgba(155, 107, 255, .45); } .fcc-v .crw-3pct.m-neg { color: #ff8fa3; }
 .fcc-v s { text-decoration: none; font-size: 10px; color: #b89b5e; } .fcc-v small { font: 700 7.5px "JetBrains Mono", monospace; letter-spacing: .16em; color: #b89b5e; }
 .fcc-v u { width: 80%; height: 3px; border-radius: 2px; background: #ffffff14; overflow: hidden; } .fcc-v u i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7a0f1f, #d4af37); transition: transform .6s ease; }
 .crw-3d.is-small .fcc-v b, .crw-3d.is-small .fcc-v .crw-3pct { font-size: 12px; } .crw-3d.is-small .crw-3name { font-size: 12px; } .crw-3d.is-small .fcc-crest { min-height: 44px; }

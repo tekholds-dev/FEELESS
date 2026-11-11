@@ -15,7 +15,7 @@
 @keyframes fcpRow { from { opacity: 0; transform: translateX(-6px); } }
 @keyframes fcpFloat { 50% { transform: translateY(-4px); } }
 body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-platform-tabs { background: #fff; border-color: #d8e2dc; }
-body.theme-day .fc-v2 .paper-platform-tabs button.active { background: #0b7a4a; color: #fff; }
+body.theme-day .fc-v2 .paper-platform-tabs button.active { background: #5a33bd; color: #fff; }
 @media (max-width: 640px) { .fc-v2 .paper-platform-head h1 { font-size: 30px; } .fc-v2 .paper-platform-tabs { display: flex; } }/* 🐱 Cat detail v2: hero, live P/L trace (area + pulsing last point), readable controls, withdraw + access cards */ .fc-v2 .paper-disclosure { font-size: 11px; }
 @keyframes fcpPulse { 50% { opacity: .35; } }
 

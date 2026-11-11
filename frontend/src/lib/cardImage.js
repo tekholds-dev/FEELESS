@@ -9,7 +9,7 @@ export async function cardToPng(card) {
   const W = 1000, H = 1400, cx = W / 2, cy = 560;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
-  const a = card.accent || '#15d16a', b = card.accent2 || '#f5c451', r = RANK[card.rarity] || 2;
+  const a = card.accent || '#9b6bff', b = card.accent2 || '#f5c451', r = RANK[card.rarity] || 2;
   // base + design wash
   x.fillStyle = '#030a06'; x.fillRect(0, 0, W, H);
   let g = x.createRadialGradient(cx, 0, 50, cx, 0, 1100); g.addColorStop(0, `${a}66`); g.addColorStop(1, 'transparent'); x.fillStyle = g; x.fillRect(0, 0, W, H);
@@ -33,7 +33,7 @@ export async function cardToPng(card) {
   else { x.font = '200px serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(card.glyph || '✦', cx, cy + 10); }
   x.restore();
   // text
-  x.textAlign = 'center'; x.fillStyle = '#eafff3'; x.font = '700 76px Sora, Arial, sans-serif'; x.fillText(card.title || '', cx, 1000, W - 120);
+  x.textAlign = 'center'; x.fillStyle = '#f3eeff'; x.font = '700 76px Sora, Arial, sans-serif'; x.fillText(card.title || '', cx, 1000, W - 120);
   x.fillStyle = 'rgba(234,255,243,.65)'; x.font = '500 34px "JetBrains Mono", monospace'; x.fillText(String(card.subtitle || '').toUpperCase(), cx, 1060, W - 120);
   x.fillStyle = a; x.font = '600 30px "JetBrains Mono", monospace'; x.fillText(`${String(card.rarity || 'rare').toUpperCase()} · FEELESS`, cx, 1300);
   for (let i = 0; i < 5; i++) { x.save(); x.translate(cx - 100 + i * 50, 120); x.rotate(Math.PI / 4); x.fillStyle = i < r ? a : 'transparent'; x.strokeStyle = a; x.lineWidth = 3; x.fillRect(-12, -12, 24, 24); x.strokeRect(-12, -12, 24, 24); x.restore(); }

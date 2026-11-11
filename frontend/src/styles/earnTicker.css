@@ -1,9 +1,9 @@
 /* 💸 EarnTicker.jsx (`etk`) — the money ticking up every second: a green digit roll + a pulsing coin dot. m-* tokens; transform / opacity only. */
 .etk { position: relative; display: inline-grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; padding: 6px 10px 6px 22px; border-radius: 10px;
-  background: rgba(21, 209, 106, .07); border: 1px solid rgba(69, 228, 134, .25); line-height: 1.1; }
-.etk::before { content: ''; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: etkBeat 1s ease-in-out infinite; }
+  background: rgba(155, 107, 255, .07); border: 1px solid rgba(180, 140, 255, .25); line-height: 1.1; }
+.etk::before { content: ''; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; animation: etkBeat 1s ease-in-out infinite; }
 .etk em { grid-column: 1 / -1; font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #9bc7ad; }
-.etk b { font: 900 16px 'JetBrains Mono', monospace; color: #45e486; text-shadow: 0 0 12px rgba(69, 228, 134, .45); animation: etkRoll .5s ease-out; }
+.etk b { font: 900 16px 'JetBrains Mono', monospace; color: #b48cff; text-shadow: 0 0 12px rgba(180, 140, 255, .45); animation: etkRoll .5s ease-out; }
 .etk small { font: 700 9px 'JetBrains Mono', monospace; color: #8fb39f; } .etk:not(.is-on) b { color: #8fb39f; text-shadow: none; } .etk:not(.is-on)::before { animation: none; opacity: .4; }
 @keyframes etkRoll { from { opacity: .35; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 @keyframes etkBeat { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.7); } }

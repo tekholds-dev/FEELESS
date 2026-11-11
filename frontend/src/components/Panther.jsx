@@ -7,11 +7,11 @@ import '../styles/panther.css';
 export const GESTURES = ['idle', 'wave', 'pounce', 'roar', 'purr', 'sleep', 'celebrate', 'think'];
 export const GESTURE_WORD = { idle: '😼 idle', wave: '👋 wave', pounce: '💥 pounce', roar: '🔥 roar', purr: '💚 purr', sleep: '💤 sleep', celebrate: '🎉 celebrate', think: '🤔 think' };
 export const COATS = {
-  black: { name: 'Black panther', fur: '#16171c', fur2: '#2b2d36', eye: '#45e486', nose: '#3a2b33', glow: 'rgba(69,228,134,.45)' },
+  black: { name: 'Black panther', fur: '#16171c', fur2: '#2b2d36', eye: '#b48cff', nose: '#3a2b33', glow: 'rgba(180, 140, 255,.45)' },
   pink: { name: 'Pink panther', fur: '#f17aa8', fur2: '#ffb3cf', eye: '#ffe066', nose: '#b03a6b', glow: 'rgba(255,128,180,.5)' },
   gold: { name: 'Gold panther', fur: '#c9971f', fur2: '#f5cf5c', eye: '#0f3d24', nose: '#6b4a10', glow: 'rgba(245,197,66,.5)' },
   snow: { name: 'Snow panther', fur: '#dfe6ee', fur2: '#ffffff', eye: '#4fb8ff', nose: '#8a97a6', glow: 'rgba(160,210,255,.5)' },
-  royal: { name: 'Royal panther', fur: '#0b2a19', fur2: '#15553a', eye: '#45e486', nose: '#041a0f', glow: 'rgba(21,209,106,.55)' },
+  royal: { name: 'Royal panther', fur: '#0b2a19', fur2: '#15553a', eye: '#b48cff', nose: '#041a0f', glow: 'rgba(155, 107, 255,.55)' },
   shadow: { name: 'Shadow panther', fur: '#231436', fur2: '#43286b', eye: '#d6b4ff', nose: '#170b26', glow: 'rgba(180,140,255,.5)' },
   neon: { name: 'Neon panther', fur: '#06080c', fur2: '#0e1520', eye: '#ff3df0', nose: '#2a1030', glow: 'rgba(255,61,240,.55)' },
 };
@@ -38,10 +38,10 @@ function Pattern({ kind, color }) {
 }
 export function Gear({ kind }) {
   switch (kind) {
-    case 'crown': return <g className="pt-gear g-crown"><path d="M76 34l6-22 9 13 9-18 9 18 9-13 6 22z" fill="#f5c542" stroke="#8a6410" strokeWidth="1.6" strokeLinejoin="round" /><path d="M76 34h48" stroke="#8a6410" strokeWidth="2" /><circle cx="100" cy="10" r="2.6" fill="#ff5d73" /><circle cx="82" cy="14" r="2" fill="#6ad7ff" /><circle cx="118" cy="14" r="2" fill="#45e486" /></g>;
+    case 'crown': return <g className="pt-gear g-crown"><path d="M76 34l6-22 9 13 9-18 9 18 9-13 6 22z" fill="#f5c542" stroke="#8a6410" strokeWidth="1.6" strokeLinejoin="round" /><path d="M76 34h48" stroke="#8a6410" strokeWidth="2" /><circle cx="100" cy="10" r="2.6" fill="#ff5d73" /><circle cx="82" cy="14" r="2" fill="#6ad7ff" /><circle cx="118" cy="14" r="2" fill="#b48cff" /></g>;
     case 'shades': return <g className="pt-gear g-shades"><path d="M63 59h31l-3 12c-1 5-5 7-11 7h-5c-6 0-10-3-11-8zM106 59h31l-1 11c-1 5-5 8-11 8h-5c-6 0-10-2-11-7z" fill="#0b0d14" stroke="#d6d9e0" strokeWidth="1.6" /><path d="M94 62h12" stroke="#d6d9e0" strokeWidth="2.4" /><path d="M69 63l9-1M112 63l9-1" stroke="#fff" strokeWidth="2" opacity=".55" strokeLinecap="round" /></g>;
     case 'chain': return <g className="pt-gear g-chain"><path d="M66 100c10 18 58 18 68 0" fill="none" stroke="#f5c542" strokeWidth="4.5" strokeDasharray="5 3" strokeLinecap="round" /><circle cx="100" cy="117" r="7" fill="#f5c542" stroke="#8a6410" strokeWidth="1.5" /><path d="M100 112v10M97 114h5a2 2 0 010 4h-4a2 2 0 000 4h5" stroke="#5a3d00" strokeWidth="1.4" fill="none" /></g>;
-    case 'headset': return <g className="pt-gear g-headset"><path d="M57 70c0-38 86-38 86 0" fill="none" stroke="#22252e" strokeWidth="6" strokeLinecap="round" /><rect x="49" y="60" width="13" height="22" rx="6" fill="#15d16a" /><rect x="138" y="60" width="13" height="22" rx="6" fill="#15d16a" /><path d="M55 82c3 14 16 19 31 19" stroke="#22252e" strokeWidth="2.6" fill="none" strokeLinecap="round" /><circle cx="88" cy="101" r="3.4" fill="#45e486" /></g>;
+    case 'headset': return <g className="pt-gear g-headset"><path d="M57 70c0-38 86-38 86 0" fill="none" stroke="#22252e" strokeWidth="6" strokeLinecap="round" /><rect x="49" y="60" width="13" height="22" rx="6" fill="#9b6bff" /><rect x="138" y="60" width="13" height="22" rx="6" fill="#9b6bff" /><path d="M55 82c3 14 16 19 31 19" stroke="#22252e" strokeWidth="2.6" fill="none" strokeLinecap="round" /><circle cx="88" cy="101" r="3.4" fill="#b48cff" /></g>;
     case 'halo': return <g className="pt-gear g-halo"><ellipse cx="100" cy="16" rx="27" ry="6.5" fill="none" stroke="#ffe9a0" strokeWidth="4.5" /><ellipse cx="100" cy="16" rx="27" ry="6.5" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".8" /></g>;
     case 'cap': return <g className="pt-gear g-cap"><path d="M60 46c3-26 77-26 80 0z" fill="#ff5d73" /><path d="M60 46c-12 1-24 5-29 12h37z" fill="#c23a50" /><path d="M100 22v24" stroke="#c23a50" strokeWidth="1.4" /><circle cx="100" cy="21" r="3" fill="#c23a50" /><text x="112" y="40" fontSize="11" fontWeight="900" fill="#fff" fontFamily="JetBrains Mono, monospace">F</text></g>;
     case 'bow': return <g className="pt-gear g-bow" transform="translate(128 30)"><path d="M0 0l-15-9v18zM0 0l15-9v18z" fill="#ff7ab0" stroke="#c2185b" strokeWidth="1.2" /><circle r="4.5" fill="#ff4d8f" /></g>;
@@ -52,7 +52,7 @@ export function Gear({ kind }) {
 
 export function Panther({ size = 120, coat, gesture, auto = false, crop, colors, label, onGesture, className = '', pattern = null, gear = null, eyes = null }) {
   const mine = useCoat();
-  const C0 = colors ? { fur: colors[0], fur2: lift(colors[0]), eye: '#45e486', nose: '#2a2a2a', glow: `${colors[1]}88` } : (COATS[coat || mine] || COATS.black);   // the fur is the fur; the accent draws the pattern
+  const C0 = colors ? { fur: colors[0], fur2: lift(colors[0]), eye: '#b48cff', nose: '#2a2a2a', glow: `${colors[1]}88` } : (COATS[coat || mine] || COATS.black);   // the fur is the fur; the accent draws the pattern
   const C = EYE_COLOR[eyes] ? { ...C0, eye: EYE_COLOR[eyes] } : C0;
   const id = `pt-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [g, setG] = useState(gesture || 'idle'); const timer = useRef(null);

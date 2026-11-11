@@ -3,7 +3,7 @@ import { radarPoint, repVitals } from './RepHero';
 test('trust radar: a cleaner record sits nearer the core; every creator keeps one spot; vitals come from the board', () => {
   const d = p => Math.hypot(p.x - 120, p.y - 120);
   const good = radarPoint({ address: 'A1', score: 95, badge: 'trusted' }); const bad = radarPoint({ address: 'A1', score: 10, badge: 'flagged' });
-  expect(d(good)).toBeLessThan(d(bad)); expect(good.tone).toBe('#45e486'); expect(bad.tone).toBe('#ff4d6d');
+  expect(d(good)).toBeLessThan(d(bad)); expect(good.tone).toBe('#b48cff'); expect(bad.tone).toBe('#ff4d6d');
   expect(radarPoint({ address: 'X', score: 50 })).toEqual(radarPoint({ address: 'X', score: 50 }));
   expect(d(radarPoint({ address: 'Z', score: -50 }))).toBeLessThanOrEqual(110.1);
   const v = repVitals([{ badge: 'trusted', ruggedCount: 0 }, { badge: 'risky', ruggedCount: 2, serialDumper: true }, { badge: 'veteran' }, { badge: 'risky', ruggedCount: 1 }]);

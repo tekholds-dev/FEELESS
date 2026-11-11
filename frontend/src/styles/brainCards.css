@@ -1,8 +1,8 @@
 /* 🃏 Brain pop-out › live cards (BrainCards.jsx): m-* tokens, transform / opacity motion only */
 .bcd { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-.bcd-card { padding: 10px; border-radius: 12px; background: rgba(21, 209, 106, .05); border: 1px solid rgba(21, 209, 106, .25); }
+.bcd-card { padding: 10px; border-radius: 12px; background: rgba(155, 107, 255, .05); border: 1px solid rgba(155, 107, 255, .25); }
 .bcd-card header { display: flex; justify-content: space-between; align-items: center; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .08em; color: #e9fff2; }
-.bcd-pnl.up, .bcd-legs li.up .bcd-p, .bcd-kpi b.up { color: #45e486; } .bcd-pnl.dn, .bcd-legs li.dn .bcd-p, .bcd-kpi b.dn { color: #ff8fa3; }
+.bcd-pnl.up, .bcd-legs li.up .bcd-p, .bcd-kpi b.up { color: #b48cff; } .bcd-pnl.dn, .bcd-legs li.dn .bcd-p, .bcd-kpi b.dn { color: #ff8fa3; }
 .bcd-kpi { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 8px 0; }
 .bcd-kpi span { min-width: 0; padding: 5px 6px; border-radius: 8px; background: rgba(255, 255, 255, .04); display: flex; flex-direction: column; }
 .bcd-kpi em { font: 700 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #89928e; }
@@ -14,7 +14,7 @@
 .bcd-who { display: flex; align-items: center; gap: 3px; } .bcd-who small { font: 700 8.5px 'JetBrains Mono', monospace; color: #a9c7b6; }
 .bcd-legs b { color: #e9fff2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bcd-bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .07); overflow: hidden; }
-.bcd-bar u { display: block; height: 100%; transform-origin: left; transition: transform .6s ease; background: #45e486; }
+.bcd-bar u { display: block; height: 100%; transform-origin: left; transition: transform .6s ease; background: #b48cff; }
 .bcd-legs li.dn .bcd-bar u { background: #ff8fa3; }
 .bcd-p { font: 800 11.5px 'JetBrains Mono', monospace; text-align: right; animation: bcdTick .4s ease-out; }
 .bcd-meta { grid-column: 1 / -1; color: #89928e; font: 600 9.5px 'JetBrains Mono', monospace; }

@@ -1,6 +1,6 @@
 /* 💡 FirstTips (ft-*): a small pulsing spot on a control's corner, its one-line card on hover / focus, and a "skip" pill bottom-left.
    FEELESS green, transform / opacity only, one keyframe set (ft*). fx-lite + reduced motion + day + 640px at the end. */
-.ft { --ft-acc: #15d16a; --ft-acc2: #45e486; --ft-ink: #b8f5d0; --ft-bg: #06100bf2; }
+.ft { --ft-acc: #9b6bff; --ft-acc2: #b48cff; --ft-ink: #b8f5d0; --ft-bg: #06100bf2; }
 .ft.is-violet { --ft-acc: #a77bff; --ft-acc2: #c9a8ff; --ft-ink: #e6dcff; --ft-bg: #0d0818f2; } .ft.is-gold { --ft-acc: #e0b54a; --ft-acc2: #f3d382; --ft-ink: #f6e7bd; --ft-bg: #120d05f2; }
 .ft-spot { position: fixed; z-index: 70; width: 18px; height: 18px; }
 .ft-dot { position: absolute; inset: -7px; width: 32px; height: 32px; border: 0; padding: 0; background: transparent; cursor: help; }

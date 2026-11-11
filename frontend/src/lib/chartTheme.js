@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 export const CHART_THEMES = {
   feeless: { name: 'FEELESS', up: '#00e7a0', down: '#ff4d6d', dayUp: '#08764e', dayDown: '#b42346' },
   classic: { name: 'CLASSIC', up: '#26a69a', down: '#ef5350', dayUp: '#089981', dayDown: '#d32f2f' },
-  neon: { name: 'NEON', up: '#45e486', down: '#ff5dbb', dayUp: '#0a8a44', dayDown: '#c2187a' },
+  neon: { name: 'NEON', up: '#b48cff', down: '#ff5dbb', dayUp: '#0a8a44', dayDown: '#c2187a' },
   mono: { name: 'MONO', up: '#e9e9e9', down: '#5f6368', dayUp: '#1b1b1b', dayDown: '#a0a0a0' },
   cb: { name: 'COLOR-BLIND', up: '#2f8cff', down: '#ff9f1c', dayUp: '#0b5cd5', dayDown: '#c46a00' },
 };

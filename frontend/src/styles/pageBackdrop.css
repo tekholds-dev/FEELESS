@@ -3,14 +3,14 @@
    card loses its own box. transform / opacity only; still in fx-lite / reduced motion; no backdrop-filter over the animated layer. */
 .context-transition.pg-home, .context-transition.pg-feecat, .context-transition.pg-launch { position: relative; isolation: isolate; }
 .pgb { position: absolute; inset: -12px; z-index: -1; overflow: hidden; pointer-events: none; contain: paint; }
-.pgb-home { background: radial-gradient(70% 45% at 15% 0%, rgba(120, 140, 255, .14), transparent 60%), radial-gradient(60% 40% at 90% 10%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(180deg, #07080b, #050607 60%); }
+.pgb-home { background: radial-gradient(70% 45% at 15% 0%, rgba(120, 140, 255, .14), transparent 60%), radial-gradient(60% 40% at 90% 10%, rgba(180, 140, 255, .12), transparent 60%), linear-gradient(180deg, #07080b, #050607 60%); }
 .pgb-feecat { background: radial-gradient(70% 50% at 50% 0%, rgba(160, 90, 255, .2), transparent 60%), radial-gradient(50% 40% at 0% 80%, rgba(60, 200, 220, .12), transparent 60%), linear-gradient(180deg, #0b0714, #060409 60%); }
 /* 🟢 Launch = the OFFICIAL logo green on near-black (owner, 2026-10-22: "better official site green than this shitty green" — the amber dusk read as mud) */
-.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(40, 214, 196, .08), transparent 60%), linear-gradient(180deg, #090a0a, #040404 60%); }
+.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(155, 107, 255, .16), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(40, 214, 196, .08), transparent 60%), linear-gradient(180deg, #090a0a, #040404 60%); }
 .pgb-glow { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; opacity: .5; animation: pgbDrift 26s ease-in-out infinite; }
-.pgb-home .pgb-glow { background: radial-gradient(closest-side, rgba(120, 150, 255, .18), transparent); } .pgb-home .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(69, 228, 134, .14), transparent); }
+.pgb-home .pgb-glow { background: radial-gradient(closest-side, rgba(120, 150, 255, .18), transparent); } .pgb-home .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(180, 140, 255, .14), transparent); }
 .pgb-feecat .pgb-glow { background: radial-gradient(closest-side, rgba(170, 100, 255, .2), transparent); } .pgb-feecat .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(80, 220, 230, .14), transparent); }
-.pgb-launch .pgb-glow { background: radial-gradient(closest-side, rgba(21, 209, 106, .18), transparent); } .pgb-launch .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(40, 214, 196, .12), transparent); }
+.pgb-launch .pgb-glow { background: radial-gradient(closest-side, rgba(155, 107, 255, .18), transparent); } .pgb-launch .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(40, 214, 196, .12), transparent); }
 .pgb-glow.g1 { left: -10vmax; top: -16vmax; } .pgb-glow.g2 { right: -14vmax; top: 10vmax; animation-delay: -9s; animation-duration: 32s; } .pgb-glow.g3 { left: 30%; bottom: -24vmax; animation-delay: -17s; opacity: .3; }
 .pgb-floor { position: absolute; left: -20%; right: -20%; bottom: -10%; height: 46%; transform: perspective(600px) rotateX(64deg); transform-origin: bottom; opacity: .35;
   background-image: linear-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px); background-size: 56px 56px;
@@ -18,7 +18,7 @@
 .pgb-bits i { position: absolute; bottom: -10px; width: 2px; height: 70px; border-radius: 2px; opacity: 0; animation: pgbStreak 9s linear infinite; animation-delay: calc(var(--i) * -1.15s); }
 .pgb-home .pgb-bits i { background: linear-gradient(0deg, transparent, rgba(150, 170, 255, .5)); }
 .pgb-feecat .pgb-bits i { width: 3px; height: 3px; border-radius: 50%; background: #c08cff; box-shadow: 0 0 8px #c08cff; animation-name: pgbEmber; }
-.pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(69, 228, 134, .7), #fff); animation-name: pgbRocket; }
+.pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(180, 140, 255, .7), #fff); animation-name: pgbRocket; }
 .pgb-eyes { position: absolute; right: 8%; top: 14%; display: flex; gap: 18px; opacity: .6; }
 .pgb-eyes b { width: 16px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0a0a0a 0 22%, #c4ff6b 24% 60%, transparent 62%); box-shadow: 0 0 14px #c4ff6b88; animation: pgbBlink 6s ease-in-out infinite; }
 .pgb-vignette { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(0, 0, 0, .55)); }
@@ -35,7 +35,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px -36px #000 !important; }
 .pg-home .m-card .m-card, .pg-feecat .m-card .m-card, .pg-launch .m-card .m-card { background: rgba(255, 255, 255, .025) !important; border-color: rgba(255, 255, 255, .05) !important; box-shadow: none !important; }
 .pg-home .command-home-heading h1, .pg-feecat h1, .pg-launch h1 { font-family: 'Sora', system-ui, sans-serif; letter-spacing: -.02em; }
-.pg-home .command-home-heading h1 { background: linear-gradient(90deg, #ffffff, #b8c6ff 55%, #45e486); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pg-home .command-home-heading h1 { background: linear-gradient(90deg, #ffffff, #b8c6ff 55%, #b48cff); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .pg-feecat h1 em, .pg-feecat h1 span { color: #d0a6ff; } .pg-launch h1 em, .pg-launch h1 span { color: #ffb46b; }
 .pg-feecat .m-card { border-color: rgba(192, 140, 255, .16) !important; } .pg-launch .m-card { border-color: rgba(255, 180, 107, .16) !important; }
 body.fx-lite .pgb * { animation: none !important; } body.fx-lite .pgb-bits { display: none; }
@@ -58,7 +58,7 @@ body.theme-day .pg-home .command-home-heading h1 { background: linear-gradient(9
 .pg-feecat .btn-primary { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: transparent !important; box-shadow: 0 8px 22px -10px #8a5cff; }
 .pg-feecat .btn-primary:hover { filter: brightness(1.08); }
 /* 🏠 the $FEE heartbeat on Home: graphite + a cool light, the green kept for the logo and the numbers */
-.pg-home .fee-heartbeat.m-live::before { background: radial-gradient(60% 70% at 70% 30%, rgba(120, 150, 255, .16), transparent 60%), radial-gradient(50% 60% at 20% 80%, rgba(69, 228, 134, .08), transparent 60%) !important; }
+.pg-home .fee-heartbeat.m-live::before { background: radial-gradient(60% 70% at 70% 30%, rgba(120, 150, 255, .16), transparent 60%), radial-gradient(50% 60% at 20% 80%, rgba(180, 140, 255, .08), transparent 60%) !important; }
 .pg-home .fee-heartbeat.m-live::after { opacity: .35; }
 .pg-home .heartbeat-visual { background-image: linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) !important; }
 .pg-home .heartbeat-chart-panel { background: rgba(255, 255, 255, .02) !important; border-color: rgba(255, 255, 255, .06) !important; }

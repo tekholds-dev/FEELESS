@@ -5,7 +5,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#05040b;touch-action:n
 canvas{display:block;width:100vw;height:100vh;cursor:crosshair}
 #hud{position:fixed;inset:12px 14px auto;display:flex;justify-content:space-between;pointer-events:none;font-size:12px;letter-spacing:.12em}
 #hud b{display:block;font-size:22px;letter-spacing:0;color:#fff;text-shadow:0 0 14px #b07aff99}#hud .r{text-align:right}
-#bar{display:block;width:140px;height:6px;margin-top:6px;border-radius:4px;background:#ffffff14;overflow:hidden}#bar s{display:block;height:100%;background:linear-gradient(90deg,#ff5d8f,#ffd54a,#45e486);transform-origin:left;transition:transform .2s}
+#bar{display:block;width:140px;height:6px;margin-top:6px;border-radius:4px;background:#ffffff14;overflow:hidden}#bar s{display:block;height:100%;background:linear-gradient(90deg,#ff5d8f,#ffd54a,#b48cff);transform-origin:left;transition:transform .2s}
 #msg{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center}
 #msg div{padding:22px 30px;border-radius:16px;background:#0c0817d9;border:1px solid #b07aff55;box-shadow:0 0 60px #b07aff22,inset 0 1px 0 #ffffff14;transition:opacity .25s,transform .25s}
 #msg.off div{opacity:0;transform:scale(.94)}#msg h1{margin:0 0 6px;font:900 34px/1 system-ui,sans-serif;letter-spacing:-.02em}#msg h1 em{color:#b07aff;font-style:normal}
@@ -30,7 +30,7 @@ const KINDS = {
   spam: { r: 9, hp: 1, sp: 1.9, col: '#ff5d8f', pts: 25 },
   mev: { r: 13, hp: 3, sp: 1.4, col: '#ffd54a', pts: 80, dash: true },
   whale: { r: 30, hp: 18, sp: .7, col: '#5dd2ff', pts: 300, split: true },
-  sniper: { r: 15, hp: 5, sp: .9, col: '#45e486', pts: 140, shoots: true },
+  sniper: { r: 15, hp: 5, sp: .9, col: '#b48cff', pts: 140, shoots: true },
 };
 const S = { score: 0, best: store.get(), wave: 1, state: 'ready', t: 0, shake: 0, mult: 1, multT: 0, spawnLeft: 0, spawnT: 0, flash: 0 };
 const P = { x: 0, y: 0, vx: 0, vy: 0, r: 13, hp: 100, inv: 0, dash: 0, dashCd: 0, fire: 0, spread: 0, shield: 0, aim: 0 };
@@ -105,7 +105,7 @@ function step() {
   hostile = hostile.filter(b => { b.x += b.vx; b.y += b.vy; if ((b.x - P.x) ** 2 + (b.y - P.y) ** 2 < (P.r + 4) ** 2) { hurt(10); return false; } return --b.life > 0; });
   pickups = pickups.filter(p => { if ((p.x - P.x) ** 2 + (p.y - P.y) ** 2 < (P.r + 14) ** 2) { if (p.k === 'spread') P.spread = 480; if (p.k === 'shield') P.shield = 900; if (p.k === 'heal') P.hp = Math.min(100, P.hp + 30); if (p.k === 'gas') { S.mult = Math.min(8, S.mult + 2); S.multT = 300; } floats.push({ x: p.x, y: p.y, t: p.k.toUpperCase(), col: '#fff', life: 1 }); blip(1100, .15, 'sine', .05); hud(); return false; } return --p.life > 0; });
 }
-const PICK = { spread: '#ff7ae0', shield: '#5dd2ff', heal: '#45e486', gas: '#ffd54a' };
+const PICK = { spread: '#ff7ae0', shield: '#5dd2ff', heal: '#b48cff', gas: '#ffd54a' };
 function draw() {
   const sh = S.shake > .3 ? S.shake : 0; S.shake *= .85; cx.save(); cx.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
   const g = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, '#120a26'); g.addColorStop(1, '#030207'); cx.fillStyle = g; cx.fillRect(-20, -20, W + 40, H + 40);

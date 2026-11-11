@@ -14,7 +14,7 @@
 .ckit-tool.is-on.is-on { color: var(--ckit-acc, var(--kd-acc, var(--accent))); background: color-mix(in srgb, var(--ckit-acc, var(--kd-acc, var(--accent))) 16%, transparent); }
 .ckit-tool.is-busy svg { animation: ckitSpin 1s linear infinite; }
 .ckit-send.ckit-send, .ckit-stop.ckit-stop { width: 34px; height: 34px; min-width: 34px; border-radius: 50%; }
-.ckit-send.ckit-send { background: var(--ckit-a); color: #07110b; box-shadow: 0 6px 16px -8px var(--ckit-a); }
+.ckit-send.ckit-send { background: var(--ckit-a); color: #0d0a22; box-shadow: 0 6px 16px -8px var(--ckit-a); }
 .ckit-send.has-text { width: auto; padding: 0 14px; border-radius: 17px; font: 700 11px var(--f-mono); }
 .ckit-stop.ckit-stop { background: var(--foreground); color: var(--background); }
 .ckit-send.ckit-send:hover { transform: translateY(-1px); }
@@ -33,7 +33,7 @@ body.theme-day .ckit-box { box-shadow: none; }
 body.theme-day .ckit-send.ckit-send { color: #fff; }
 @media (max-width: 640px) { .ckit-box { padding: 8px 8px 6px; border-radius: 16px; } .ckit-in.ckit-in { font-size: 16px; } }
 /* 🎙 AGT-6 the mic: a soft pulse ring while it listens (transform / opacity only), red-pink when the browser refused it */
-.ckit-mic.is-on { color: #45e486; position: relative; } .ckit-mic.is-on::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid #45e486; animation: ckitMic 1.2s ease-out infinite; pointer-events: none; }
+.ckit-mic.is-on { color: #b48cff; position: relative; } .ckit-mic.is-on::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid #b48cff; animation: ckitMic 1.2s ease-out infinite; pointer-events: none; }
 .ckit-mic.is-err { color: #ff8fa3; } @keyframes ckitMic { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
 body.fx-lite .ckit-mic.is-on::after { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .ckit-mic.is-on::after { animation: none; opacity: .6; } }
-body.theme-day .ckit-mic.is-on { color: #0b7a3e; } body.theme-day .ckit-mic.is-on::after { border-color: #0b7a3e; }
+body.theme-day .ckit-mic.is-on { color: #5a33bd; } body.theme-day .ckit-mic.is-on::after { border-color: #5a33bd; }

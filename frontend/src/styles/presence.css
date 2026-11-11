@@ -1,6 +1,6 @@
 /* 🟢 presence dots + the status picker (PresenceDot.jsx `prs-*`): online breathes (≤ 0.4 Hz), away is a quiet gold, offline is grey */
 .prs { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; } .prs i { width: 9px; height: 9px; border-radius: 50%; background: #5b6470; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
-.prs-online i { background: #15d16a; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55), 0 0 8px #15d16a; animation: prsBreathe 2.6s ease-in-out infinite; } .prs-away i { background: #ffd36b; }
+.prs-online i { background: #9b6bff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55), 0 0 8px #9b6bff; animation: prsBreathe 2.6s ease-in-out infinite; } .prs-away i { background: #ffd36b; }
 .prs em { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; font-style: normal; color: #8fb0a5; }
 .prs-pick { flex-wrap: wrap; } .prs-pick button { min-height: 32px; }
 /* where the dots sit: the profile header row, a DM avatar's corner */

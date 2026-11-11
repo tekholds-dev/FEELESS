@@ -7,7 +7,7 @@
 .fwd-side header { display: grid; } .fwd-side header b { font: 700 14px 'Playfair Display', Georgia, serif; } .fwd-side p { margin: 0; font-size: 12px; line-height: 1.45; }
 .fwd-side.t-cpu { border-color: rgba(255, 90, 110, .5); } .fwd-side.t-cartel { border-color: rgba(125, 255, 154, .4); } .fwd-side.t-mine { border-color: rgba(212, 175, 55, .6); }
 .fwd-acts { display: flex; flex-wrap: wrap; gap: 6px; }
-.fwd-deskgo { width: 100%; min-height: 42px; justify-content: center; box-shadow: 0 0 22px -10px #45e486; animation: fwdDeskGo 3s ease-in-out infinite; }   /* 💸 the side panel's ONE money door */
+.fwd-deskgo { width: 100%; min-height: 42px; justify-content: center; box-shadow: 0 0 22px -10px #b48cff; animation: fwdDeskGo 3s ease-in-out infinite; }   /* 💸 the side panel's ONE money door */
 @keyframes fwdDeskGo { 50% { transform: translateY(-1px); } }
 body.fx-lite .fwd-deskgo { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-deskgo { animation: none; } }
 .fwd-raids { display: grid; gap: 12px; }
@@ -106,7 +106,7 @@ body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 @keyframes fwdPlaceIn { from { opacity: 0; transform: translateX(18px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes fwdPlaceDot { from { opacity: .45; } to { opacity: 1; } }
 /* 🏦 a real market + a place card in the side column */
-.fwd-side.t-mk { border-color: rgba(69, 228, 134, .5); } .fwd-side.t-mk.k-lend, .fwd-side.t-mk.k-perps, .fwd-side.t-mk.k-stake { border-color: rgba(245, 196, 81, .55); } .fwd-side.t-mk.k-coin { border-color: rgba(255, 143, 163, .5); }
+.fwd-side.t-mk { border-color: rgba(180, 140, 255, .5); } .fwd-side.t-mk.k-lend, .fwd-side.t-mk.k-perps, .fwd-side.t-mk.k-stake { border-color: rgba(245, 196, 81, .55); } .fwd-side.t-mk.k-coin { border-color: rgba(255, 143, 163, .5); }
 .fwd-side.t-mk header small, .fwd-side.t-place header small { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9b47c; }
 .fwd-side.t-place { border-color: color-mix(in srgb, var(--pc) 55%, transparent); box-shadow: 0 0 26px -14px var(--pc); }
 .fwd-mkv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -114,7 +114,7 @@ body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 .fwd-mkv span:first-child { grid-column: 1 / -1; }
 .fwd-mkv em { font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #9a8a62; }
 .fwd-mkv b { font: 800 14px 'JetBrains Mono', monospace; color: #fff3d6; animation: fwdNum .5s ease-out; }
-.fwd-mkv u { display: block; height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .fwd-mkv u s { display: block; height: 100%; background: linear-gradient(90deg, #d4af37, #45e486); transform-origin: left; transition: transform .6s ease; }
+.fwd-mkv u { display: block; height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .fwd-mkv u s { display: block; height: 100%; background: linear-gradient(90deg, #d4af37, #b48cff); transform-origin: left; transition: transform .6s ease; }
 @keyframes fwdNum { from { opacity: .4; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 body.fx-lite .fwd-place, body.fx-lite .fwd-place > header > i, body.fx-lite .fwd-mkv span, body.fx-lite .fwd-mkv b { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fwd-place, .fwd-place > header > i, .fwd-mkv span, .fwd-mkv b { animation: none; } }
@@ -170,17 +170,17 @@ body.fx-lite .fwd-rooms button { animation: none; }
 @media (max-width: 640px) { .fwd-rooms { padding: 6px 8px; } .fwd-rooms button { padding: 0 10px; font-size: 10px; } }
 /* 🖥 money + tool rooms open as a BIG window over the whole page (owner, 2026-10-23: "bigger window") — the desk, Pool Hall, Night Vault, Perps */
 @media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { position: fixed; inset: 64px 16px 16px; width: auto; max-height: none; z-index: 60;
-  background: #060807; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .72), 0 30px 80px -20px #000; animation: none; }
+  background: #08061a; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .72), 0 30px 80px -20px #000; animation: none; }
   body.theme-day .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { background: #f7faf8; box-shadow: 0 0 0 100vmax rgba(20, 24, 22, .45); }
   /* the side column (place card + street chat) sits outside the map's stacking context and painted OVER the big room — hidden while one is open */
   .fwd-mapwrap:has(.fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-col { visibility: hidden; } }
 /* 🏦 a pool building's side panel = SUMMARY + ONE button (the desk pops out big): an APY ring, TVL bar, what $100 earns a day */
 .fwd-psum { gap: 10px; } .fwd-pvit { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 8px 12px; align-items: center; }
 .fwd-pring { grid-row: span 2; display: grid; place-items: center; align-content: center; width: 84px; height: 84px; border-radius: 50%;
-  background: radial-gradient(closest-side, #0b0a12 78%, transparent 80% 100%), conic-gradient(#45e486 var(--a), rgba(255, 255, 255, .08) 0); box-shadow: 0 0 22px -8px #45e486; animation: fwdPop .4s ease-out both; }
-.fwd-pring b { font: 900 16px 'JetBrains Mono', monospace; color: #45e486; line-height: 1; } .fwd-pring small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #c9b47c; }
+  background: radial-gradient(closest-side, #0b0a12 78%, transparent 80% 100%), conic-gradient(#b48cff var(--a), rgba(255, 255, 255, .08) 0); box-shadow: 0 0 22px -8px #b48cff; animation: fwdPop .4s ease-out both; }
+.fwd-pring b { font: 900 16px 'JetBrains Mono', monospace; color: #b48cff; line-height: 1; } .fwd-pring small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #c9b47c; }
 .fwd-pk { display: grid; gap: 2px; } .fwd-pk em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #c9b47c; } .fwd-pk b { font: 900 15px 'JetBrains Mono', monospace; color: #fff; }
-.fwd-pk b.is-up { color: #45e486; text-shadow: 0 0 10px rgba(69, 228, 134, .45); } .fwd-pk small { font: 700 9px 'JetBrains Mono', monospace; color: #a99c7a; }
+.fwd-pk b.is-up { color: #b48cff; text-shadow: 0 0 10px rgba(180, 140, 255, .45); } .fwd-pk small { font: 700 9px 'JetBrains Mono', monospace; color: #a99c7a; }
 .fwd-pk u { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; } .fwd-pk s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #d4af37, #ffd36b); transition: transform .6s ease; }
 @keyframes fwdPop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 body.fx-lite .fwd-pring { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-pring { animation: none; } .fwd-pk s { transition: none; } }

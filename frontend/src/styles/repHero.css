@@ -1,14 +1,14 @@
 /* 🛡 Rep hero + section nav (RepHero.jsx, rph-*): a deep-teal glass stage, a live 3D shield, glass number tiles. transform / opacity only. */
 .rph { position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, .8fr); gap: 18px; align-items: center;
   padding: 26px 26px 22px; border-radius: 20px; border: 1px solid rgba(110, 230, 200, .22);
-  background: radial-gradient(70% 90% at 85% 40%, rgba(40, 180, 160, .22), transparent 60%), radial-gradient(60% 80% at 0% 0%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(160deg, #06121a, #030709 70%);
+  background: radial-gradient(70% 90% at 85% 40%, rgba(40, 180, 160, .22), transparent 60%), radial-gradient(60% 80% at 0% 0%, rgba(180, 140, 255, .12), transparent 60%), linear-gradient(160deg, #06121a, #030709 70%);
   box-shadow: 0 30px 80px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .06); }
 .rph::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .35; background-image: radial-gradient(rgba(160, 255, 220, .25) 1px, transparent 1.2px); background-size: 22px 22px;
   -webkit-mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); }
 .rph-copy { display: grid; gap: 10px; justify-items: start; min-width: 0; }
 .rph-eyebrow { display: inline-flex; gap: 6px; align-items: center; font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .2em; color: #7ff0cf; }
 .rph h1 { margin: 0; font: 800 clamp(28px, 3.8vw, 46px)/1.04 'Sora', system-ui, sans-serif; letter-spacing: -.02em; color: #f2fbf8; }
-.rph h1 em { font-style: normal; background: linear-gradient(90deg, #45e486, #7ff0cf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rph h1 em { font-style: normal; background: linear-gradient(90deg, #b48cff, #7ff0cf); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .rph p { margin: 0; max-width: 560px; color: #9fbcb2; font-size: 14px; line-height: 1.5; }
 .rph-nums { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: 8px; margin-top: 4px; }
 .rph-nums span { display: grid; gap: 2px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07); backdrop-filter: none; }
@@ -16,13 +16,13 @@
 .rph-art { position: relative; display: grid; place-items: center; min-height: 240px; }
 /* 📡 the trust radar: drawn rings, a sweeping beam, real creators as dots (green core → red rim), the shield at the heart */
 .rph-radar { width: min(280px, 100%); height: auto; overflow: visible; filter: drop-shadow(0 12px 30px rgba(0, 0, 0, .45)); }
-.rph-radar .rr { fill: none; stroke: rgba(127, 240, 207, .2); stroke-width: 1; } .rph-radar .rr.o { fill: rgba(127, 240, 207, .035); stroke: rgba(127, 240, 207, .4); } .rph-radar .rr.in { stroke: rgba(69, 228, 134, .45); stroke-dasharray: 3 3; }
+.rph-radar .rr { fill: none; stroke: rgba(127, 240, 207, .2); stroke-width: 1; } .rph-radar .rr.o { fill: rgba(127, 240, 207, .035); stroke: rgba(127, 240, 207, .4); } .rph-radar .rr.in { stroke: rgba(180, 140, 255, .45); stroke-dasharray: 3 3; }
 .rph-radar .rx { stroke: rgba(127, 240, 207, .1); } .rph-radar .rl { font: 700 6.5px 'JetBrains Mono', monospace; letter-spacing: .14em; fill: rgba(159, 188, 178, .7); text-anchor: middle; }
 .rph-sweep { transform-box: view-box; transform-origin: 120px 120px; animation: rphSweep 7s linear infinite; }
 .rph-node circle { fill: var(--c); filter: drop-shadow(0 0 4px var(--c)); opacity: 0; animation: rphNode .5s ease forwards; animation-delay: calc(var(--i) * 30ms); transform-box: fill-box; transform-origin: center; transition: transform .15s ease; }
 .rph-node:hover circle { transform: scale(1.8); }
-.rph-shield path { fill: rgba(69, 228, 134, .18); stroke: #7ff0cf; stroke-width: 1.4; stroke-linejoin: round; } .rph-shield .ck { fill: none; stroke: #45e486; stroke-width: 2; stroke-linecap: round; }
-.rph-nums b.is-good { color: #45e486; } .rph-nums b.is-bad { color: #ff8fa3; }
+.rph-shield path { fill: rgba(180, 140, 255, .18); stroke: #7ff0cf; stroke-width: 1.4; stroke-linejoin: round; } .rph-shield .ck { fill: none; stroke: #b48cff; stroke-width: 2; stroke-linecap: round; }
+.rph-nums b.is-good { color: #b48cff; } .rph-nums b.is-bad { color: #ff8fa3; }
 .rph-mix { display: grid; gap: 4px; width: 100%; max-width: 520px; } .rph-mix > span { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; } .rph-mix > span i { display: block; min-width: 3px; }
 .rph-mix small { display: flex; flex-wrap: wrap; gap: 10px; font: 600 9.5px 'JetBrains Mono', monospace; color: #8fb0a5; text-transform: uppercase; letter-spacing: .06em; } .rph-mix em { font-style: normal; display: inline-flex; align-items: center; gap: 4px; } .rph-mix u { width: 7px; height: 7px; border-radius: 2px; }
 @keyframes rphSweep { to { transform: rotate(360deg); } }
@@ -34,7 +34,7 @@
   cursor: pointer; transition: background .15s ease, color .15s ease, transform .12s ease; }
 .rph-nav button:hover { color: #e8fff7; background: rgba(127, 240, 207, .08); } .rph-nav button:active { transform: scale(.97); }
 .rph-nav button:focus-visible { outline: 2px solid #7ff0cf; outline-offset: 2px; }
-.rph-nav button.active { color: #0a0d0c; background: linear-gradient(135deg, #7ff0cf, #45e486); box-shadow: 0 6px 18px -8px #45e486; }
+.rph-nav button.active { color: #0a0d0c; background: linear-gradient(135deg, #7ff0cf, #b48cff); box-shadow: 0 6px 18px -8px #b48cff; }
 .rph-sec { display: grid; gap: 12px; animation: rphIn .25s ease both; }
 @keyframes rphPop { from { transform: scale(1.1); } to { transform: none; } }
 @keyframes rphIn { from { transform: translateY(6px); } to { transform: none; } }

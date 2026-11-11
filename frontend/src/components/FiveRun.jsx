@@ -32,7 +32,7 @@ function Curve({ amt, apy }) {   // one year of compounding, drawn: the area gro
   const pts = Array.from({ length: 25 }, (_, i) => [(i / 24) * W, y(grow(amt, apy, (i / 24) * YEAR_S))]);
   const d = pts.map(([x, yy], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${yy.toFixed(1)}`).join(' ');
   return <svg className="fr-curve" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id="frg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#45e486" stopOpacity=".45" /><stop offset="1" stopColor="#45e486" stopOpacity="0" /></linearGradient></defs>
+    <defs><linearGradient id="frg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#b48cff" stopOpacity=".45" /><stop offset="1" stopColor="#b48cff" stopOpacity="0" /></linearGradient></defs>
     <path d={`${d} L${W} ${H} L0 ${H} Z`} fill="url(#frg)" /><path className="fr-line" d={d} pathLength="1" />
     {MILES.map(([, s], i) => { const x = Math.max(4, (s / YEAR_S) * W); return <circle key={i} cx={x} cy={y(grow(amt, apy, s))} r="2.6" className="fr-mile" />; })}
     <circle cx="4" cy={y(amt)} r="4.5" className="fr-now" /></svg>;

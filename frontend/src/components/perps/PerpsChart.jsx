@@ -27,7 +27,7 @@ export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice, ind 
       rightPriceScale: { borderColor: 'rgba(255,93,187,.18)', scaleMargins: { top: 0.08, bottom: 0.22 } },
       timeScale: { borderColor: 'rgba(255,93,187,.18)', timeVisible: true, secondsVisible: false, rightOffset: 6 },
     });
-    const series = chart.addSeries(CandlestickSeries, { upColor: '#45e486', downColor: '#ff5d8f', borderUpColor: '#45e486', borderDownColor: '#ff5d8f', wickUpColor: '#45e486', wickDownColor: '#ff5d8f',
+    const series = chart.addSeries(CandlestickSeries, { upColor: '#b48cff', downColor: '#ff5d8f', borderUpColor: '#b48cff', borderDownColor: '#ff5d8f', wickUpColor: '#b48cff', wickDownColor: '#ff5d8f',
       priceLineColor: '#ff9fd2', priceLineStyle: LineStyle.Dotted,
       autoscaleInfoProvider: orig => {   // the scale always holds YOUR levels (TP / SL / positions; ☠ liq when it is within 4 % of the price)
         const r = orig(); if (!r?.priceRange) return r;
@@ -52,12 +52,12 @@ export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice, ind 
       set('bu', bb && bb.upper, 'rgba(255,159,210,.65)', 1); set('bm', bb && bb.mid, 'rgba(255,159,210,.35)', 1, 0, true); set('bl', bb && bb.lower, 'rgba(255,159,210,.65)', 1);
       if (on.has('rsi')) { const r = line('rsi', '#ff9fd2', 1.5, 1); r.setData(rsi(bars, 14));
         if (!indRef.current.rsiLines) { r.createPriceLine({ price: 70, color: 'rgba(255,93,143,.5)', lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '70' });
-          r.createPriceLine({ price: 30, color: 'rgba(69,228,134,.5)', lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '30' }); indRef.current.rsiLines = true; }
+          r.createPriceLine({ price: 30, color: 'rgba(180, 140, 255,.5)', lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '30' }); indRef.current.rsiLines = true; }
         try { chart.panes()[1]?.setHeight(110); } catch { /* older pane api */ } }
       else if (indRef.current.rsi) { try { chart.removeSeries(indRef.current.rsi); } catch { /* gone */ } delete indRef.current.rsi; delete indRef.current.rsiLines; }
     };
     let alive = true; setState('loading');
-    const volBar = b => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(69,228,134,.35)' : 'rgba(255,93,143,.35)' });
+    const volBar = b => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(180, 140, 255,.35)' : 'rgba(255,93,143,.35)' });
     fetchBars(asset, iv).then(bars => {
       if (!alive) return;
       if (!bars.length) { setState('empty'); return; }

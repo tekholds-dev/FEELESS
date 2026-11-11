@@ -9,7 +9,7 @@
 .abs-styles u { height: 6px; border-radius: 6px; background: #ffffff10; overflow: hidden; } .abs-styles s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #8a6a14, #ffd76a); text-decoration: none; transition: transform .5s ease; }
 .abs-styles b { font: 800 12px 'JetBrains Mono', monospace; color: #ffd76a; text-align: right; }
 .abs-cmp li { display: grid; grid-template-columns: minmax(0, 1fr) 70px 60px; gap: 6px; font: 700 11px 'JetBrains Mono', monospace; color: #c9d4cc; padding: 3px 0; border-bottom: 1px solid #ffffff0d; }
-.abs-cmp em { font-style: normal; color: var(--m-mute, #7d8783); } .abs-cmp b { text-align: right; } .abs-cmp b.up { color: #45e486; } .abs-cmp .abs-h b { font-size: 9.5px; letter-spacing: .12em; color: #a89f86; }
+.abs-cmp em { font-style: normal; color: var(--m-mute, #7d8783); } .abs-cmp b { text-align: right; } .abs-cmp b.up { color: #b48cff; } .abs-cmp .abs-h b { font-size: 9.5px; letter-spacing: .12em; color: #a89f86; }
 .abs-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .abs-cards span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; border: 1px solid #d4af3733; background: linear-gradient(160deg, #15120a, #0a0907); animation: absIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); }
 .abs-cards b { font: 800 11px 'JetBrains Mono', monospace; color: #ffd76a; } .abs-cards small { font: 600 10px 'JetBrains Mono', monospace; color: #c9c2ad; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

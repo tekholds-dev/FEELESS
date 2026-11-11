@@ -36,7 +36,7 @@ export const STARTERS = [
   ['Glow knot', 'A metal knot under two coloured lights', BASE(`scene.background = new THREE.Color('#05070a');
 const knot = new THREE.Mesh(new THREE.TorusKnotGeometry(1.2, 0.38, 220, 32), new THREE.MeshStandardMaterial({ color: '#d7fbe8', metalness: 0.9, roughness: 0.18 }));
 scene.add(knot);
-const a = new THREE.PointLight('#15d16a', 60, 20); a.position.set(3, 2, 3); scene.add(a);
+const a = new THREE.PointLight('#9b6bff', 60, 20); a.position.set(3, 2, 3); scene.add(a);
 const b = new THREE.PointLight('#5b7cff', 60, 20); b.position.set(-3, -1, 2); scene.add(b);
 scene.add(new THREE.AmbientLight('#ffffff', 0.15));`, `  knot.rotation.set(t * 0.3 + pointer.y * 0.6, t * 0.4 + pointer.x * 0.6, 0);
   a.position.x = Math.sin(t) * 4; b.position.z = Math.cos(t * 0.7) * 4;`)],

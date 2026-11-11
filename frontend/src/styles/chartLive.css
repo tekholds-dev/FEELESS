@@ -24,12 +24,12 @@
 @keyframes clv2Beat { 50% { transform: scale(1.7); opacity: .4; } }
 body.fx-lite .clv2-dot, body.fx-lite .clv2-ring-core { animation: none; } body.fx-lite .clv2-tag { transition: none; }
 @media (prefers-reduced-motion: reduce) { .clv2-dot, .clv2-ring-core { animation: none; } .clv2-tag { transition: none; } }
-body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: #0d7a41; color: #0d7a41; } body.theme-day .clv2-tag.is-dn { border-color: #b42346; color: #b42346; }
-body.theme-day .clv2-tag span { color: #47524d; } body.theme-day .clv2-buy { background: rgba(255, 255, 255, .85); color: #0d7a41; } body.theme-day .clv2-buy.is-dn { color: #b42346; } body.theme-day .clv2-line { background: #0d7a41; } body.theme-day .clv2-line.is-dn { background: #b42346; }
+body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: #5a33bd; color: #5a33bd; } body.theme-day .clv2-tag.is-dn { border-color: #b42346; color: #b42346; }
+body.theme-day .clv2-tag span { color: #47524d; } body.theme-day .clv2-buy { background: rgba(255, 255, 255, .85); color: #5a33bd; } body.theme-day .clv2-buy.is-dn { color: #b42346; } body.theme-day .clv2-line { background: #5a33bd; } body.theme-day .clv2-line.is-dn { background: #b42346; }
 @media (max-width: 640px) { .clv2-tag span { display: none; } }
 
 /* 📍 leader from the forming candle to the P&L tag (the tag sits GAP px off the candle) */
-.clv2-lead { position: absolute; left: 0; top: 0; width: 1px; height: 0; border-top: 1px dotted rgba(69, 228, 134, .55); transform-origin: left; pointer-events: none; z-index: 3; }
+.clv2-lead { position: absolute; left: 0; top: 0; width: 1px; height: 0; border-top: 1px dotted rgba(180, 140, 255, .55); transform-origin: left; pointer-events: none; z-index: 3; }
 body.theme-day .clv2-lead { border-top-color: rgba(12, 138, 69, .6); }
 /* 📱 phones · folds · Duo: the seat tag a size down — the price, not a pill, owns the chart */
 @media (max-width: 900px) and (pointer: coarse) { .clv2-tag { margin-top: -7px; padding: 0 4px; gap: 3px; } .clv2-tag b { font-size: 8.5px; } .clv2-tag span { font-size: 7.5px; } .clv2-tag small { font-size: 6px; }

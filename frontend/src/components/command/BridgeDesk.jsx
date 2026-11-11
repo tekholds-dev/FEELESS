@@ -25,7 +25,7 @@ const PHASE_STEP = { quote: 0, switch: 1, approve: 1, sim: 1, sign: 2, source: 3
 export const stepOf = phase => PHASE_STEP[phase] ?? 0;
 
 export function ChainOrb({ k, size = 34, ring = false }) {
-  const c = CHAIN[k] || { tick: '?', c1: '#45e486', c2: '#0b6b35' };
+  const c = CHAIN[k] || { tick: '?', c1: '#b48cff', c2: '#0b6b35' };
   return <svg className={`br-orb ${ring ? 'br-orb-big' : ''}`} width={size} height={size} viewBox="0 0 40 40" aria-hidden="true">
     <defs><radialGradient id={`br-g-${k}`} cx="35%" cy="30%" r="75%"><stop offset="0" stopColor={c.c2} /><stop offset="1" stopColor={c.c1} /></radialGradient></defs>
     <circle cx="20" cy="20" r="17" fill={`url(#br-g-${k})`} /><circle cx="20" cy="20" r="17" className="br-orb-rim" />

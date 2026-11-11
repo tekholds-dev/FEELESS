@@ -155,7 +155,7 @@ function draw() {
     b.trail.forEach(([x, y], i) => { cx.globalAlpha = i / b.trail.length * .35; cx.fillStyle = '#9fffd0'; cx.beginPath(); cx.arc(x, y, b.r * i / b.trail.length, 0, 6.283); cx.fill(); }); cx.globalAlpha = 1;
     cx.shadowColor = '#fff'; cx.shadowBlur = 18; cx.fillStyle = '#fff'; cx.beginPath(); cx.arc(b.x, b.y, b.r, 0, 6.283); cx.fill(); cx.shadowBlur = 0;
   }
-  const pg = cx.createLinearGradient(pad.x - pad.w / 2, 0, pad.x + pad.w / 2, 0); pg.addColorStop(0, '#0f7a43'); pg.addColorStop(.5, S.laser > 0 ? '#ff8d96' : '#45e486'); pg.addColorStop(1, '#0f7a43');
+  const pg = cx.createLinearGradient(pad.x - pad.w / 2, 0, pad.x + pad.w / 2, 0); pg.addColorStop(0, '#5a33bd'); pg.addColorStop(.5, S.laser > 0 ? '#ff8d96' : '#b48cff'); pg.addColorStop(1, '#5a33bd');
   cx.shadowColor = '#2dff9a'; cx.shadowBlur = 22; cx.fillStyle = pg; cx.beginPath(); cx.roundRect(pad.x - pad.w / 2, pad.y, pad.w, pad.h, 7); cx.fill(); cx.shadowBlur = 0; cx.fillStyle = '#ffffff55'; cx.fillRect(pad.x - pad.w / 2 + 8, pad.y + 2, pad.w - 16, 2);
   cx.fillStyle = '#02100a'; cx.font = '800 9px ui-monospace,monospace'; cx.textAlign = 'center'; cx.fillText(S.wide > 0 ? 'WHALE BAG' : 'YOUR BAG', pad.x, pad.y + 11);
   parts = parts.filter(p => { p.x += p.vx; p.y += p.vy; p.vy += .12; p.life -= .025; cx.globalAlpha = Math.max(0, p.life); cx.fillStyle = p.col; cx.fillRect(p.x, p.y, p.s, p.s); return p.life > 0; }); cx.globalAlpha = 1;

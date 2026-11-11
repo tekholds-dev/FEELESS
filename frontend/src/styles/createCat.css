@@ -93,7 +93,7 @@ body.theme-day .cct-name { color: #24163f; } body.theme-day .cct-meters b { colo
 .cct-fund-rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .cct-fund-rows > span { display: grid; gap: 1px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .06); }
 .cct-fund-rows small { font: 800 8px var(--f-mono, monospace); letter-spacing: .12em; color: #9d8fbf; } .cct-fund-rows b { font-size: 13.5px; color: #fff; }
-.cct-fund-rows .is-need { border-color: rgba(69, 228, 134, .45); } .cct-fund-rows .is-need b { color: #45e486; text-shadow: 0 0 10px rgba(69, 228, 134, .4); }
+.cct-fund-rows .is-need { border-color: rgba(180, 140, 255, .45); } .cct-fund-rows .is-need b { color: #b48cff; text-shadow: 0 0 10px rgba(180, 140, 255, .4); }
 .cct-fund-note { margin: 0; font-size: 12px; line-height: 1.45; color: #cbbfe6; }
 @keyframes cctFundIn { from { opacity: 0; transform: translateY(6px); } }
 body.fx-lite .cct-fund { animation: none; } @media (prefers-reduced-motion: reduce) { .cct-fund { animation: none; } }

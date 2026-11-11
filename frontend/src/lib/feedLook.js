@@ -6,7 +6,7 @@ export const FEED_BGS = [['void', '⬛ Void'], ['royal', '🌌 Royal aurora'], [
 export const FEED_FONTS = [['sans', 'Clean', 'system-ui, -apple-system, "Segoe UI", sans-serif'], ['mono', 'Mono', '"JetBrains Mono", ui-monospace, monospace'],
   ['serif', 'Serif', 'Georgia, "Times New Roman", serif'], ['loud', 'Loud', '"Unbounded", "Impact", "Arial Black", sans-serif']];
 export const FEED_SIZES = [['s', 'S', 13], ['m', 'M', 15], ['l', 'L', 17], ['xl', 'XL', 19]];
-export const FEED_ACCENTS = [['green', '#15d16a'], ['violet', '#a66bff'], ['ice', '#5ad7ff'], ['gold', '#f5c451'], ['pink', '#ff5fa2']];
+export const FEED_ACCENTS = [['green', '#9b6bff'], ['violet', '#a66bff'], ['ice', '#5ad7ff'], ['gold', '#f5c451'], ['pink', '#ff5fa2']];
 export const FEED_DENSITY = [['comfy', 'Comfy'], ['tight', 'Tight']];
 export const HANDLE_SITES = [['x', '𝕏', 'https://x.com/'], ['reddit', '👽', 'https://www.reddit.com/user/'], ['bluesky', '🦋', 'https://bsky.app/profile/'], ['telegram', '✈', 'https://t.me/']];
 export const DEFAULT_LOOK = { bg: 'void', font: 'sans', size: 'm', accent: 'green', density: 'comfy', handles: {} };

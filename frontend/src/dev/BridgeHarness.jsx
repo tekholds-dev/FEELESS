@@ -12,7 +12,7 @@ export default function BridgeHarness() {
   const q = new URLSearchParams(window.location.search); const day = q.has('day');
   useEffect(() => { document.body.classList.toggle('theme-day', day); document.body.classList.toggle('fx-lite', q.has('lite')); document.body.style.background = day ? '#f3f7f4' : '#050806'; }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const v = routeVitals(Q);
-  return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 16, color: day ? '#111816' : '#ecf7f0' }}><div style={{ display: 'grid', gap: 18, maxWidth: 760, margin: '0 auto' }}>
+  return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 16, color: day ? '#111816' : '#f2eeff' }}><div style={{ display: 'grid', gap: 18, maxWidth: 760, margin: '0 auto' }}>
     <h2 className="m-label">🧪 DEV PREVIEW · bridge desk</h2>
     <BridgeDesk />
     <h3 className="m-label">quoted · refreshing</h3>

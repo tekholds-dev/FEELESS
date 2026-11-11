@@ -16,7 +16,7 @@
 .mdk-vh img, .mdk-av { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c) 60%, transparent); }
 .mdk-av { display: grid; place-items: center; font: 900 11px var(--m-mono); font-style: normal; color: #1a1200; background: var(--nx); }
 .mdk-vh b { font: 900 12px var(--m-mono); letter-spacing: .08em; color: var(--c); } .mdk-vh small { font: 600 9px var(--m-mono); color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mdk-dot { width: 8px; height: 8px; border-radius: 50%; background: #626262; } .mdk-dot.is-on { background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: mdkBlink 2.4s ease-in-out infinite; }
+.mdk-dot { width: 8px; height: 8px; border-radius: 50%; background: #626262; } .mdk-dot.is-on { background: #9b6bff; box-shadow: 0 0 8px #9b6bff; animation: mdkBlink 2.4s ease-in-out infinite; }
 .mdk-q { font: 800 8px var(--m-mono); text-decoration: none; padding: 2px 6px; border-radius: 6px; background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--m-text); animation: mdkBlink 1.4s ease-in-out infinite; }
 .mdk-vb { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 9px; align-items: center; }
 .mdk-ring { --p: 0; position: relative; width: 58px; height: 58px; border-radius: 50%; display: grid; place-content: center; text-align: center;
@@ -52,22 +52,22 @@
 .mdk-note { margin: 0; font: 600 9.5px var(--m-mono); color: var(--m-dim); }
 .mdk-sys { display: grid; gap: 4px; padding: 9px 11px; border-radius: 10px; border: 1px dashed rgba(245, 196, 81, .4); background: rgba(245, 196, 81, .06); }
 .mdk-sys em { font: 800 8.5px var(--m-mono); letter-spacing: .12em; font-style: normal; color: #ffe08a; } .mdk-sys p { margin: 0; font: 600 10.5px/1.45 var(--m-mono); color: var(--m-text); }
-.mdk-sys u { text-decoration: none; font-weight: 800; color: #ffe08a; } .mdk-sys u.is-on { color: #45e486; }
+.mdk-sys u { text-decoration: none; font-weight: 800; color: #ffe08a; } .mdk-sys u.is-on { color: #b48cff; }
 .mdk-knobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 7px; }
 .mdk-knob { display: grid; gap: 5px; padding: 8px 9px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); animation: mdkIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 35ms); }
 .mdk-knob em { display: flex; justify-content: space-between; gap: 6px; font: 800 8px var(--m-mono); letter-spacing: .12em; font-style: normal; color: var(--m-mute); }
-.mdk-knob em small { letter-spacing: 0; font-weight: 700; color: var(--m-dim); } .mdk-knob em small.src-yours { color: #45e486; } .mdk-knob em small.src-runtime { color: #ffe08a; }
+.mdk-knob em small { letter-spacing: 0; font-weight: 700; color: var(--m-dim); } .mdk-knob em small.src-yours { color: #b48cff; } .mdk-knob em small.src-runtime { color: #ffe08a; }
 .mdk-seg { display: flex; flex-wrap: wrap; gap: 4px; }
 .mdk-seg button { min-height: 30px; min-width: 38px; padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: var(--m-text); font: 700 10px var(--m-mono); cursor: pointer; transition: background .15s, border-color .15s; }
 .mdk-seg button:hover { border-color: color-mix(in srgb, var(--c) 60%, transparent); } .mdk-seg button:active { transform: scale(.96); }
-.mdk-seg button.active { background: var(--c); border-color: var(--c); color: #0a0c0b; } .mdk-seg button:disabled { opacity: .55; cursor: wait; }
+.mdk-seg button.active { background: var(--c); border-color: var(--c); color: #0c0a1e; } .mdk-seg button:disabled { opacity: .55; cursor: wait; }
 .mdk-stop { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .mdk-stop .m-input { flex: 1; min-width: 120px; min-height: 30px; font-size: 11px; }
 .mdk-chip { min-height: 28px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 143, 163, .4); background: rgba(255, 143, 163, .08); color: #ffc2cd; font: 700 10px var(--m-mono); cursor: pointer; }
 .mdk-chip:hover { background: rgba(255, 143, 163, .18); }
 .mdk-chat { display: grid; gap: 6px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, .06); } .mdk-chat > em { font: 800 8.5px var(--m-mono); letter-spacing: .12em; font-style: normal; color: var(--m-mute); }
 .mdk-srv { display: flex; gap: 9px; align-items: center; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(255, 143, 163, .35); background: rgba(255, 143, 163, .07); }
 .mdk-srv i { width: 10px; height: 10px; border-radius: 50%; background: #ff8fa3; } .mdk-srv b { font: 900 10px var(--m-mono); letter-spacing: .12em; color: #ffc2cd; } .mdk-srv small { font: 600 9.5px var(--m-mono); color: var(--m-dim); }
-.mdk-srv.is-ok { border-color: rgba(21, 209, 106, .4); background: rgba(21, 209, 106, .07); } .mdk-srv.is-ok i { background: #15d16a; box-shadow: 0 0 10px #15d16a; animation: mdkBlink 2.4s ease-in-out infinite; } .mdk-srv.is-ok b { color: #45e486; }
+.mdk-srv.is-ok { border-color: rgba(155, 107, 255, .4); background: rgba(155, 107, 255, .07); } .mdk-srv.is-ok i { background: #9b6bff; box-shadow: 0 0 10px #9b6bff; animation: mdkBlink 2.4s ease-in-out infinite; } .mdk-srv.is-ok b { color: #b48cff; }
 .mdk-tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .mdk-tools span { display: grid; gap: 2px; padding: 7px 9px; border-radius: 9px; border: 1px solid rgba(111, 211, 255, .18); background: rgba(111, 211, 255, .05); animation: mdkIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 25ms); }
 .mdk-tools b { font: 800 10.5px var(--m-mono); color: #9fe3ff; } .mdk-tools small { font: 600 9px var(--m-mono); color: var(--m-dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

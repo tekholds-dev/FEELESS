@@ -91,7 +91,7 @@ body.theme-day .radar-page.is-familia .crw-noir { background: #1a1410d9; }
 .fpd-who b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 13px 'Playfair Display', Georgia, serif; color: #fff1cf; }
 .fpd-who em { font: 800 15px 'JetBrains Mono', monospace; font-style: normal; animation: fpdNum .5s ease-out; }
 .fpd-who u { display: block; width: 84px; height: 4px; border-radius: 4px; background: #ffffff14; overflow: hidden; } .fpd-who u s { display: block; height: 100%; transform-origin: left; transition: transform .6s ease; }
-.fpd-who u s.up { background: linear-gradient(90deg, #15d16a, #45e486); } .fpd-who u s.dn { background: linear-gradient(90deg, #ff8fa3, #ff4d6a); }
+.fpd-who u s.up { background: linear-gradient(90deg, #9b6bff, #b48cff); } .fpd-who u s.dn { background: linear-gradient(90deg, #ff8fa3, #ff4d6a); }
 .fpd-crown { position: absolute; top: -20px; left: 50%; width: 26px; height: 16px; margin-left: -13px; background: linear-gradient(180deg, #ffe48a, #d4af37);
   clip-path: polygon(0 100%, 0 30%, 25% 60%, 50% 0, 75% 60%, 100% 30%, 100% 100%); animation: fpdCrown 2.4s ease-in-out infinite alternate; }
 .fpd-plinth { width: 100%; display: grid; place-items: center; align-content: center; gap: 2px; border-radius: 10px 10px 4px 4px; border: 1px solid #d4af3766;

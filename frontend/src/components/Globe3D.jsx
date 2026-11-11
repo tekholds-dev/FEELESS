@@ -263,7 +263,7 @@ function GlobeFallback({ onSelect, selectedId }) {
               borderRadius: 999,
               padding: '6px 9px',
               background: selectedId === node.id ? `${node.color}33` : 'rgba(2, 12, 8, .88)',
-              color: '#eafff3',
+              color: '#f3eeff',
               boxShadow: selectedId === node.id ? `0 0 18px ${node.color}88` : 'none',
               cursor: 'pointer',
               fontSize: 10,

@@ -28,9 +28,9 @@
 .ow-name small { font: 600 10px 'JetBrains Mono', monospace; color: #b9a77a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ow-pnl { display: grid; justify-items: center; gap: 1px; position: relative; }
 .ow-ring { width: 40px; height: 40px; transform: rotate(-90deg); } .ow-rbg { fill: none; stroke: rgba(255, 255, 255, .08); stroke-width: 4; }
-.ow-rfg { fill: none; stroke: #45e486; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(69, 228, 134, .7)); } .ow-ring.is-neg .ow-rfg { stroke: #ff8fa3; filter: none; }
+.ow-rfg { fill: none; stroke: #b48cff; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(180, 140, 255, .7)); } .ow-ring.is-neg .ow-rfg { stroke: #ff8fa3; filter: none; }
 .ow-pnl b { font: 800 12px 'JetBrains Mono', monospace; } .ow-pnl small { font: 700 7.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #b9a77a; }
-.is-pos { color: #45e486; } .is-neg { color: #ff8fa3; }
+.is-pos { color: #b48cff; } .is-neg { color: #ff8fa3; }
 .ow-bars { display: grid; gap: 5px; }
 .ow-bars p { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 8px; align-items: center; margin: 0; }
 .ow-bars em { font: 700 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #b9a77a; }
@@ -41,7 +41,7 @@
 .ow-seats i.is-on { background: var(--fc); box-shadow: 0 0 6px color-mix(in srgb, var(--fc) 60%, transparent); }
 .ow-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .ow-chips span { padding: 3px 8px; border-radius: 999px; font: 700 9.5px 'JetBrains Mono', monospace; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .08); color: #e9d3a0; }
-.ow-chips .is-pool { border-color: rgba(21, 209, 106, .45); color: #9fe6bf; } .ow-chips .is-launch { border-color: rgba(255, 211, 107, .5); color: #ffd36b; }
+.ow-chips .is-pool { border-color: rgba(155, 107, 255, .45); color: #9fe6bf; } .ow-chips .is-launch { border-color: rgba(255, 211, 107, .5); color: #ffd36b; }
 .ow-more { justify-self: start; min-height: 32px; padding: 4px 10px; border-radius: 999px; cursor: pointer; border: 1px solid rgba(212, 175, 55, .35); background: rgba(0, 0, 0, .4);
   color: #ffe9b0; font: 700 10px 'JetBrains Mono', monospace; transition: transform .15s, background .15s; }
 .ow-more:hover { background: rgba(212, 175, 55, .16); transform: translateY(-1px); } .ow-more:active { transform: scale(.97); } .ow-more:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }

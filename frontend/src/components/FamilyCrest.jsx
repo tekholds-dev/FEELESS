@@ -25,7 +25,7 @@ const RIVETS = {
 export const METAL = {
   iron: ['#2b3036', '#9aa1a8', '#3b4148', '#7b828a', '#24282d'], silver: ['#7d838b', '#f6f8fb', '#a7adb5', '#e9edf2', '#6f757d'],
   gold: ['#7a5410', '#ffe9a6', '#c8922c', '#fff1c4', '#8a6116'], blood: ['#3d0209', '#ff5a73', '#8a0a1f', '#ff8095', '#4a0510'],
-  holo: ['#6fd3ff', '#9b5cff', '#ff8fa3', '#ffd36b', '#45e486'], black: ['#000000', '#3c3c3c', '#0a0a0a', '#2c2c2c', '#000000'],
+  holo: ['#6fd3ff', '#9b5cff', '#ff8fa3', '#ffd36b', '#b48cff'], black: ['#000000', '#3c3c3c', '#0a0a0a', '#2c2c2c', '#000000'],
   warlord: ['#1d0d0f', '#b3122e', '#ffd36b', '#b3122e', '#1d0d0f'],
 };
 const RIVET = { iron: '#c3c9cf', silver: '#ffffff', gold: '#fff1c4', blood: '#ff8095', holo: '#ffffff', black: '#d4af37', warlord: '#ffd36b' };
@@ -107,7 +107,7 @@ function Charge({ k, f, d, s, c }) {
       <path d="M55,36 L60,37 M58,37 L60,35 M58,37 L60,39.5" stroke="#ff4d6d" strokeWidth="1.3" strokeLinecap="round" fill="none" /><path {...ink} stroke={c} strokeOpacity=".5" d="M24,27 C29,23 34,22 38,22" /></g>;
     case 'crown': return <g><path {...body} d="M6,44 L9,15 L20,29 L30,7 L40,29 L51,15 L54,44 Z" /><rect {...body} x="5" y="44" width="50" height="9" rx="2" />
       <circle cx="9" cy="14" r="3.4" fill={c} stroke={d} strokeWidth="1.2" /><circle cx="30" cy="6" r="3.8" fill={c} stroke={d} strokeWidth="1.2" /><circle cx="51" cy="14" r="3.4" fill={c} stroke={d} strokeWidth="1.2" />
-      <circle cx="18" cy="48.5" r="2.2" fill="#ff4d6d" stroke={d} strokeWidth=".8" /><path d="M30,45.5 L33,48.5 L30,51.5 L27,48.5 Z" fill="#6fd3ff" stroke={d} strokeWidth=".8" /><circle cx="42" cy="48.5" r="2.2" fill="#15d16a" stroke={d} strokeWidth=".8" />
+      <circle cx="18" cy="48.5" r="2.2" fill="#ff4d6d" stroke={d} strokeWidth=".8" /><path d="M30,45.5 L33,48.5 L30,51.5 L27,48.5 Z" fill="#6fd3ff" stroke={d} strokeWidth=".8" /><circle cx="42" cy="48.5" r="2.2" fill="#9b6bff" stroke={d} strokeWidth=".8" />
       <path {...ink} d="M14,40 L46,40" strokeOpacity=".5" /></g>;
     case 'diamond': return <g><path {...body} d="M14,8 H46 L56,22 L30,55 L4,22 Z" /><polygon points="14,8 22,22 4,22" fill="#fff" fillOpacity=".35" /><polygon points="30,8 38,22 22,22" fill="#fff" fillOpacity=".2" />
       <polygon points="38,22 56,22 30,55" fill={d} fillOpacity=".3" /><path {...ink} d="M4,22 H56 M14,8 L22,22 L30,8 L38,22 L46,8 M22,22 L30,55 L38,22" /></g>;
@@ -149,7 +149,7 @@ export function FamilyCrest({ b, px = 64, banner = true, grid = false, sheen = t
   const raw = useId(); const id = `fc${raw.replace(/[^a-zA-Z0-9]/g, '')}`;
   const show = k => !only || ORDER.indexOf(k) <= ORDER.indexOf(only);
   const shape = SHAPES[b?.shape] ? b.shape : 'heater'; const path = SHAPES[shape]; const frame = METAL[b?.frame] ? b.frame : 'iron';
-  const c1 = b?.c1 || '#15d16a'; const c2 = b?.c2 || '#ffd36b'; const c3 = b?.c3 || '#ffffff'; const cy = CENTER_Y[shape];
+  const c1 = b?.c1 || '#9b6bff'; const c2 = b?.c2 || '#ffd36b'; const c3 = b?.c3 || '#ffffff'; const cy = CENTER_Y[shape];
   const withBanner = banner && show('banner'); const vb = withBanner ? '0 0 120 140' : '7 1 106 118';
   const M = METAL[frame];
   return <svg className={`fcr fcr-${frame}`} viewBox={vb} width={px} height={px * (withBanner ? 140 / 120 : 118 / 106)} role="img" aria-label={title || `${b?.name || 'family'} crest`} data-testid="family-crest">

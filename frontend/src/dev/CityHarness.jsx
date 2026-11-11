@@ -23,7 +23,7 @@ const json = d => Promise.resolve(new Response(JSON.stringify(d), { status: 200,
 // 💬 THE STREETS on fixtures: crests, a Don, a call with its receipt, an @you line, reactions, who's on the block
 const crest = (c1, c2, charge, shape, frame, tag, name) => ({ shape, field: 'split', charge, frame, banner: 'ribbon', c1, c2, c3: '#ffffff', tag, name, fx: 'none' });
 const FAM = { SIC: { id: 'c1', tag: 'SIC', name: 'Sicario', color: '#d4af37', badge: crest('#d4af37', '#7a0f1f', 'skull', 'heater', 'gold', 'SIC', 'Sicario') },
-  FRT: { id: ME, tag: 'FRT', name: 'Feeless Family', color: '#15d16a', badge: crest('#15d16a', '#0b2a19', 'snake', 'kite', 'silver', 'FRT', 'Feeless Family') },
+  FRT: { id: ME, tag: 'FRT', name: 'Feeless Family', color: '#9b6bff', badge: crest('#9b6bff', '#0b2a19', 'snake', 'kite', 'silver', 'FRT', 'Feeless Family') },
   RUG: { id: 'c3', tag: 'BNK', name: 'Bonk Boys', color: '#ff5fa2', badge: crest('#ff5fa2', '#1b3a6b', 'dice', 'round', 'iron', 'BNK', 'Bonk Boys') } };
 const ms = Date.now();
 const STREET = { room: 'city-fee', reacts: ['🔥', '💀', '🫡', '💰'], mod: { staff: false, don: true, famId: ME }, me: { fam: FAM.FRT, handle: 'dev' }, hereN: 17,

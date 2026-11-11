@@ -12,7 +12,7 @@ const FAM = [
   { id: 'c2', tag: 'WLF', name: 'Lupi Neri', badge: B('kite', 'bend', 'wolf', 'silver', '#1b3a6b', '#ffffff', '#d4af37', 'WLF') },
   { id: 'c3', tag: 'LEO', name: 'Leoni', badge: B('chevron', 'stripes', 'lion', 'warlord', '#111111', '#ff4d6d', '#ffd36b', 'LEO') },
   { id: 'c4', tag: 'ROS', name: 'Rosa Nera', badge: B('card', 'split', 'rose', 'black', '#111111', '#7a0f1f', '#ff4d6d', 'ROS') },
-  { id: 'c5', tag: 'DRG', name: 'Draghi', badge: B('round', 'chevron', 'dragon', 'blood', '#15d16a', '#111111', '#ffd36b', 'DRG') },
+  { id: 'c5', tag: 'DRG', name: 'Draghi', badge: B('round', 'chevron', 'dragon', 'blood', '#9b6bff', '#111111', '#ffd36b', 'DRG') },
 ];
 const BOARD = { total: 5, rule: 'Verified FEELESS trades over 7 days (price result, fees apart). A family ranks with ≥ 2 members and ≥ 5 closed trades.',
   board: FAM.map((f, i) => ({ ...f, members: 6 - i, seats: 10, active: 3 - (i % 3), pct: [18.2, 9.4, 3.1, -2.6, null][i], ranked: i < 4, trades: 12 - i, wonPct: 64 - i * 6, bounties: i, card: { style: ['noir', 'gold', 'neon', 'blood', 'ice'][i], fx: 'embers' } })) };

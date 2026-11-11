@@ -13,7 +13,7 @@ export function BestFuseTile({ onOpen }) {
   const c = heroCard(d?.cards, null);
   if (!c) return null;
   const t = TIER[c.tier] || TIER.gold; const p = Number(cardResult(c) || 0);   /* a real card = all time */
-  return <a href={HREF} onClick={e => { if (onOpen) { e.preventDefault(); onOpen(HREF); } }} className="bft m-card cfx-host" data-testid="best-fuse-tile" style={{ '--bft': t.look?.accent || '#15d16a' }}
+  return <a href={HREF} onClick={e => { if (onOpen) { e.preventDefault(); onOpen(HREF); } }} className="bft m-card cfx-host" data-testid="best-fuse-tile" style={{ '--bft': t.look?.accent || '#9b6bff' }}
     data-tip={`Best Fuse card right now: ${c.label} (${c.real ? 'real money' : 'paper'}). Tap to open it in the Arena.`}>
     <CardFx kind="grid" />
     <span className="m-label"><Ic3 e="⚡" /> BEST FUSE CARD NOW · {c.real ? '💵 REAL' : '📄 PAPER'}</span>

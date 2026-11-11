@@ -2,7 +2,7 @@
    the effect per REAL tick — a one-shot sweep in the tick's direction and a glow level by how far it moved. transform / opacity only. */
 .pnt { overflow: hidden; isolation: isolate; }
 .pnt-tick { position: absolute; inset: 0; z-index: -1; pointer-events: none; transform: translateX(-100%); animation: pntSweep .7s ease-out both; }
-.pnt-tick.is-up { background: linear-gradient(90deg, transparent, rgba(21, 209, 106, .28), transparent); }
+.pnt-tick.is-up { background: linear-gradient(90deg, transparent, rgba(155, 107, 255, .28), transparent); }
 .pnt-tick.is-dn { background: linear-gradient(90deg, transparent, rgba(255, 85, 119, .26), transparent); animation-name: pntSweepDn; }
 .pnt-pct { display: inline-block; font-variant-numeric: tabular-nums; }
 .pnt-h-2 .pnt-pct, .pnt-h-3 .pnt-pct { animation: pntBeat .6s ease-out both; }

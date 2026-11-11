@@ -69,7 +69,7 @@ function Process() {
   return <section className="hq-card" data-testid="ofd-process"><h4>HOW IT GOES, START TO PAID</h4><ol className="ofd-steps">{PROCESS.map(([t, d, st], i) => <motion.li key={t} {...rise(i)} className={st === 'hand' ? 'is-hand' : ''}><i className="m-num">{i + 1}</i><span><b>{t}</b><small>{d}</small></span><em>{st === 'hand' ? 'BY HAND' : 'WIRED'}</em></motion.li>)}</ol></section>;
 }
 const GrowLines = lazy(() => import('./MoneyCharts').then(m => ({ default: m.GrowLines })));
-const GROW_COLORS = ['#45e486', '#57c7ff', '#ffc24d', '#c58bff'];
+const GROW_COLORS = ['#b48cff', '#57c7ff', '#ffc24d', '#c58bff'];
 const GROW_KINDS = [['all', 'Everything'], ['pool', 'Pools'], ['lend', 'Lending'], ['stake', 'SOL staking'], ['stock', 'Stocks']];
 const KIND_WORD = { pool: 'POOL', lend: 'LENDING', stake: 'STAKING', stock: 'STOCK' };
 const RISK_WORD = { none: ['NO PRICE RISK', 'Dollars only. It can still fail or lose its peg'], half: ['ONE COIN MOVES', 'Half sits in a coin that can fall, and range moves cost more'], both: ['BOTH COINS MOVE', 'Neither side is a dollar'], coin: ['MOVES WITH THE COIN', 'Its value goes up and down with the coin'] };
@@ -102,7 +102,7 @@ function GapStrip({ call }) {
 // on the board are thin coin pools that can fall 90%, so one ranking would point at the riskiest. Four lanes, the best of each on today's
 // real numbers, why it leads, and what $1K there would pay out. It ranks: the pick and the money stay the owner's.
 const LANES = [
-  ['steady', 'Steady dollars', 'No price risk. It can still fail or lose its peg', r => r.risk === 'none' && (r.tvl || 0) >= 1e6, '#45e486'],
+  ['steady', 'Steady dollars', 'No price risk. It can still fail or lose its peg', r => r.risk === 'none' && (r.tvl || 0) >= 1e6, '#b48cff'],
   ['stake', 'SOL staking', 'Moves with SOL. Pays for holding it', r => r.kind === 'stake' && (r.tvl || 0) >= 5e6, '#57c7ff'],
   ['deep', 'Deep pool fees', 'A busy pool over $2M deep. One or both coins move', r => r.kind === 'pool' && (r.tvl || 0) >= 2e6, '#ffc24d'],
   ['hot', 'Hot and risky', 'The top fees on the board, in thin coin pools that can fall hard', r => r.kind === 'pool' && (r.tvl || 0) >= 1e5, '#ff8fa3'],

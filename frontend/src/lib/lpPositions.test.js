@@ -22,7 +22,7 @@ test('🏙 your LP positions stand on the family block: a tower each, green in r
   const lp = [{ id: 'P1', sym: 'PANGEA-SOL', valueUsd: 12.5, feeUsd: 0.31, feeDay: 0.06, inRange: true }, { id: 'P2', sym: 'BORDR-SOL', valueUsd: 4, feeUsd: 0, inRange: false }, { id: 'P3', sym: 'X-SOL', empty: true }];
   const p = blockPlan(bl, { lp });
   const towers = p.markets.filter(m => m.key.startsWith('lp-')); expect(towers.map(m => m.key)).toEqual(['lp-P1', 'lp-P2']);
-  expect(towers[0]).toMatchObject({ tone: '#45e486', pick: { lp: 'P1' } }); expect(towers[1].tone).toBe('#6b6f78');
+  expect(towers[0]).toMatchObject({ tone: '#b48cff', pick: { lp: 'P1' } }); expect(towers[1].tone).toBe('#6b6f78');
   expect(towers[0].lines.join(' ')).toContain('$12.50 · fees +$0.310'); expect(towers[0].lines.join(' ')).toContain('IN RANGE · 6.0%/day'); expect(towers[1].lines.join(' ')).toContain('OUT OF RANGE');
   expect(spotOf(p, { lp: 'P1' })).toEqual(centerOf(towers[0].rect));
   const rects = [...p.markets, ...p.places, ...p.lots].map(x => `${x.rect.x},${x.rect.z}`); expect(new Set(rects).size).toBe(rects.length);   // nothing stacked

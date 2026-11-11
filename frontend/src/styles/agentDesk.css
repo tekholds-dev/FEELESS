@@ -1,7 +1,7 @@
 /* 🤖 HQ › Agents (AgentDesk.jsx) — m-* tokens throughout. One keyframe set (agd*),transform / opacity only.
    Layout: hero → KPI tiles → office → agent picker → ONE lens. Agent colour = --ag (set per .is-<agent>). */
-.agd { --ag: var(--m-accent); --agd-up: #45e486; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
-  background: linear-gradient(160deg, #0b0d0c, #0b0a18); color: var(--m-text); min-width: 0; }
+.agd { --ag: var(--m-accent); --agd-up: #b48cff; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
+  background: linear-gradient(160deg, #0d0b20, #0b0a18); color: var(--m-text); min-width: 0; }
 .agd .is-tally { --ag: #1fd178; } .agd .is-sherlock { --ag: #a07bff; } .agd .is-trigger { --ag: #f5c451; } .agd .is-devil { --ag: #ff6b86; } .agd .is-desk { --ag: var(--m-accent); }
 /* ⚡ the tab-wide aurora stays STILL (measured 2026-10-14: drifting,it was the biggest per-frame cost of the tab — the whole 4,200px page
    re-composited every frame and the content above it needed its own 5.8 Mpx layer). The ribbon's own m-live keeps drifting on top. */
@@ -87,7 +87,7 @@
 .agd-aim, .agd-strike { cursor: pointer; transition: transform .12s; } .agd-aim:hover, .agd-strike:hover { transform: translateY(-1px); } .agd-aim:active, .agd-strike:active { transform: scale(.96); }
 .agd-aim:focus-visible, .agd-strike:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .agd-aim { color: var(--m-warn); border: 1px solid rgba(245, 196, 81, .55); }
-.agd-strike.is-ok { color: var(--agd-up); border: 1px solid rgba(69, 228, 134, .5); } .agd-strike.is-no { color: var(--m-danger); border: 1px solid rgba(255, 143, 163, .5); }
+.agd-strike.is-ok { color: var(--agd-up); border: 1px solid rgba(180, 140, 255, .5); } .agd-strike.is-no { color: var(--m-danger); border: 1px solid rgba(255, 143, 163, .5); }
 
 .agd-table { display: grid; gap: 4px; min-width: 0; }
 .agd-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 2px; }
@@ -108,7 +108,7 @@
 .agd-pips i.is-go { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 45%, transparent); } .agd-pips i.is-no { border-color: var(--m-danger); background: color-mix(in srgb, var(--m-danger) 35%, transparent); }
 .agd-pips i.is-idle { opacity: .35; } .agd-pips i.is-sel { transform: scale(1.18); }
 .agd-lean { position: relative; height: 6px; border-radius: 3px; background: var(--m-line); overflow: hidden; }
-.agd-lean i { position: absolute; inset: 0; transform-origin: left; transition: transform .5s var(--m-ease); } .agd-lean i.is-up { background: linear-gradient(90deg, #15d16a, var(--agd-up)); } .agd-lean i.is-dn { background: var(--m-danger); }
+.agd-lean i { position: absolute; inset: 0; transform-origin: left; transition: transform .5s var(--m-ease); } .agd-lean i.is-up { background: linear-gradient(90deg, #9b6bff, var(--agd-up)); } .agd-lean i.is-dn { background: var(--m-danger); }
 .agd-lean u { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--m-text); opacity: .7; }
 .agd-verdict { justify-self: start; font: 800 10px var(--m-mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-mute); white-space: nowrap; }
 .agd-verdict.is-go { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink); } .agd-verdict.is-obj { border-color: var(--m-danger); color: var(--m-danger); } .agd-verdict.is-wait { border-color: color-mix(in srgb, var(--m-warn) 55%, transparent); color: var(--m-warn); }
@@ -130,7 +130,7 @@
 .agd-li i small { font: 600 8.5px var(--m-mono); color: var(--m-mute); letter-spacing: .06em; text-transform: uppercase; }
 .agd-li i.is-good { border-left-color: var(--m-accent); } .agd-li i.is-warn { border-left-color: var(--gold); color: var(--gold); } .agd-li i.is-bad { border-left-color: var(--m-danger); color: var(--m-danger); }
 .agd-ph { font: 800 8.5px var(--m-mono); letter-spacing: .05em; padding: 1px 5px; border-radius: 4px; margin-right: 6px; border: 1px solid var(--m-line); color: var(--m-mute); }
-.agd-ph.is-good { color: var(--m-accent); border-color: rgba(21, 209, 106, .45); } .agd-ph.is-warn { color: var(--gold); border-color: rgba(255, 200, 80, .45); } .agd-ph.is-bad { color: var(--m-danger); border-color: rgba(255, 143, 163, .45); }
+.agd-ph.is-good { color: var(--m-accent); border-color: rgba(155, 107, 255, .45); } .agd-ph.is-warn { color: var(--gold); border-color: rgba(255, 200, 80, .45); } .agd-ph.is-bad { color: var(--m-danger); border-color: rgba(255, 143, 163, .45); }
 .agd-vit i { font-style: normal; display: grid; padding: 3px 8px; border-radius: 6px; background: rgba(255, 255, 255, .04); border: 1px solid var(--m-line); font: 700 11px var(--m-mono); color: var(--m-text); }
 .agd-vit i small { font: 600 8.5px var(--m-mono); color: var(--m-mute); letter-spacing: .06em; text-transform: uppercase; } .agd-vit i.is-bad { color: var(--m-danger); border-color: rgba(255, 143, 163, .4); }
 .agd-op { margin: 0; font-size: 11.5px; color: var(--m-text); } .agd-op i { font-style: normal; margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid rgba(245, 196, 81, .5); color: var(--m-warn); font-size: 10px; }
@@ -155,10 +155,10 @@
 .agd-road-top { display: flex; justify-content: space-between; } .agd-road-top b { font: 800 11px var(--m-mono); letter-spacing: .14em; color: var(--m-warn); }
 .agd-road-top em { font: 800 18px var(--m-mono); font-style: normal; color: var(--m-warn); }
 .agd-road-bar { display: block; height: 7px; border-radius: 4px; background: var(--m-line); overflow: hidden; }
-.agd-road-bar i { display: block; height: 100%; background: linear-gradient(90deg, #15d16a, #f5c451); transform-origin: left; transition: transform .6s ease; }
+.agd-road-bar i { display: block; height: 100%; background: linear-gradient(90deg, #9b6bff, #f5c451); transform-origin: left; transition: transform .6s ease; }
 .agd-road ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .agd-road li { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--m-mute); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--m-line); } .agd-road li span { flex: none; }
-.agd-road li.is-now { color: var(--m-warn); font-weight: 700; border-color: rgba(245, 196, 81, .55); } .agd-road li.is-done { color: var(--agd-up); border-color: rgba(69, 228, 134, .5); }
+.agd-road li.is-now { color: var(--m-warn); font-weight: 700; border-color: rgba(245, 196, 81, .55); } .agd-road li.is-done { color: var(--agd-up); border-color: rgba(180, 140, 255, .5); }
 .agd-sugg { font-size: 11px; color: var(--m-dim); }
 
 /* ⚙ controls · 💡 ideas */
@@ -169,7 +169,7 @@
 .agd-dec li.is-pull { border-left-color: var(--agd-up); } .agd-dec li.is-swap { border-left-color: #7fd4ff; }
 .agd-ideas ul { gap: 6px; }
 .agd-ideas li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 11.5px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m-line-hi); }
-.agd-ideas li.is-take { border-color: rgba(69, 228, 134, .5); } .agd-ideas li.is-avoid { border-color: rgba(255, 143, 163, .5); }
+.agd-ideas li.is-take { border-color: rgba(180, 140, 255, .5); } .agd-ideas li.is-avoid { border-color: rgba(255, 143, 163, .5); }
 .agd-idea-do { display: flex; gap: 6px; } .agd-idea-do .m-btn { min-height: 28px; padding: 3px 12px; font-size: 11px; }
 
 /* 📜 creed · 🧪 tanks */
@@ -192,7 +192,7 @@ body.theme-day .agd-verdict.is-go, body.theme-day .agd-stage span.is-done { back
 body.theme-day .agd-box, body.theme-day .agd-tr, body.theme-day .agd-floor, body.theme-day .agd-feed, body.theme-day .agd-road { background: rgba(255, 255, 255, .72); border-color: var(--m-line); }
    body.theme-day .agd-tr.is-go { background: #e3f7ea; border-color: #15a857; }
 body.theme-day .agd-tags i { color: #5b2fb0; border-color: #c8b4f0; } body.theme-day .agd-tags.is-lingo i { color: #135d86; border-color: #a9d3ea; } body.theme-day .agd-tag { color: #5b2fb0; }
-body.theme-day .agd-says > div, body.theme-day .agd-vit i, body.theme-day .agd-li i { background: #eef6f1; }  
+body.theme-day .agd-says > div, body.theme-day .agd-vit i, body.theme-day .agd-li i { background: #f1edff; }  
 body.theme-day .agd .is-trigger { --ag: #a87b12; } body.theme-day .agd .is-tally { --ag: #0e7a46; } body.theme-day .agd .is-sherlock { --ag: #5a3fb0; } body.theme-day .agd .is-devil { --ag: #c0304e; }
 
 @media (max-width: 980px) {

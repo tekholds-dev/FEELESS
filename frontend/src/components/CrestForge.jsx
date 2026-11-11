@@ -10,7 +10,7 @@ import { Ic3 } from '../lib/icon3d';
 // spotlight, a LAYER LIST (Shape · Field · Charge · Frame · Banner · FX), the picked layer's tiles (each tile IS that option on your crest),
 // the charge's own scale / rotate / flip, locked tiles with the family's real progress to them, 🎲 roll, Forge / Restyle (cost from HQ).
 export const LAYERS = [['shape', 'Shape', 'shape'], ['field', 'Field', 'field'], ['emblem', 'Charge', 'charge'], ['frame', 'Frame', 'frame'], ['banner', 'Banner', 'banner'], ['fx', 'FX', 'fx']];
-export const COLOR_PAIRS = [['#d4af37', '#111111'], ['#ff4d6d', '#111111'], ['#15d16a', '#ffd36b'], ['#9b5cff', '#6fd3ff'], ['#ffffff', '#ff4d6d'], ['#ff9f45', '#9b5cff'], ['#7a0f1f', '#d4af37'], ['#1b3a6b', '#ffffff']];
+export const COLOR_PAIRS = [['#d4af37', '#111111'], ['#ff4d6d', '#111111'], ['#9b6bff', '#ffd36b'], ['#9b5cff', '#6fd3ff'], ['#ffffff', '#ff4d6d'], ['#ff9f45', '#9b5cff'], ['#7a0f1f', '#d4af37'], ['#1b3a6b', '#ffffff']];
 export const LAYER_TIP = {
   shape: 'The shield itself. Changing it keeps the charge’s size, turn and flip.', field: 'How the shield is painted: split, bend, chevron, quarters or stripes in your MAIN + TRIM colours.',
   emblem: 'The drawn charge on the shield. Scale, rotate and flip it — the rarer charges unlock from what the family really did.', frame: 'The metal rim. Gold, blood oath, holo, black card and warlord are earned.',

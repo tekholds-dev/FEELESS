@@ -6,7 +6,7 @@
 .fbk-title { font: 700 13px 'Cinzel', Georgia, serif; letter-spacing: 1.5px; color: #f1d27a; margin-right: auto; }
 .fbk-hud > span { display: grid; gap: 1px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07); min-width: 82px; }
 .fbk-hud em { font: 700 8px 'JetBrains Mono', monospace; letter-spacing: 1.2px; font-style: normal; color: #a99070; } .fbk-hud b { font: 800 14px 'JetBrains Mono', monospace; color: #fff3d6; animation: fbkPop .4s ease; }
-.fbk-cap { height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .fbk-cap u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ffd36b, #45e486); transition: transform 1s linear; }
+.fbk-cap { height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .fbk-cap u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ffd36b, #b48cff); transition: transform 1s linear; }
 .fbk-staff { border-color: #d4af37 !important; color: #ffd36b; font: 800 10px 'JetBrains Mono', monospace; place-items: center; }
 .fbk-back { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 9px; border: 1px solid #d4af3755; background: #1a1208; color: #f1d27a; cursor: pointer; font: 700 11px 'JetBrains Mono', monospace; }
 .fbk-back:hover { background: #2a1a0a; } .fbk-back:focus-visible { outline: 2px solid #ffd36b; }
@@ -76,12 +76,12 @@
 body.fx-lite .fbk-b, body.fx-lite .fbk-crane b, body.fx-lite .s-club .fbk-n::after { animation: none; }
 .fbk-picks { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 6; display: flex; align-items: flex-end; gap: 14px; pointer-events: none; }
 .fbk-picks > em { position: absolute; top: -8px; left: 50%; transform: translate(-50%, -100%); font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .18em; color: #d4af37; font-style: normal; white-space: nowrap; }
-.fbk-pick { pointer-events: auto; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; cursor: pointer; border: 2px solid #45e486;
-  background: radial-gradient(circle at 35% 30%, #1f6b3f, #0a2414 70%); box-shadow: 0 0 18px #15d16a66, inset 0 2px 0 #ffffff33; color: #eafff1;
+.fbk-pick { pointer-events: auto; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; cursor: pointer; border: 2px solid #b48cff;
+  background: radial-gradient(circle at 35% 30%, #1f6b3f, #0a2414 70%); box-shadow: 0 0 18px #9b6bff66, inset 0 2px 0 #ffffff33; color: #eafff1;
   animation: fbkFloat 3.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -1s); transition: transform .15s ease, box-shadow .15s ease; }
 .fbk-pick.dn { border-color: #ff8fa3; background: radial-gradient(circle at 35% 30%, #6b1f2e, #240a10 70%); box-shadow: 0 0 18px #ff5d7355, inset 0 2px 0 #ffffff33; }
 .fbk-pick b { font: 800 11px 'JetBrains Mono', monospace; } .fbk-pick small { font: 700 10px 'JetBrains Mono', monospace; margin-top: -10px; color: #b9f5cf; } .fbk-pick.dn small { color: #ffc2cd; }
-.fbk-pick:hover, .fbk-pick:focus-visible { box-shadow: 0 0 28px #45e486aa, inset 0 2px 0 #ffffff44; outline: none; animation-play-state: paused; } .fbk-pick:active { transform: scale(.94); }
+.fbk-pick:hover, .fbk-pick:focus-visible { box-shadow: 0 0 28px #b48cffaa, inset 0 2px 0 #ffffff44; outline: none; animation-play-state: paused; } .fbk-pick:active { transform: scale(.94); }
 @keyframes fbkFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); }}
 body.fx-lite .fbk-pick { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fbk-pick { animation: none; transition: none; }}
@@ -123,5 +123,5 @@ body.theme-day .fbk { background: linear-gradient(180deg, #fbf4e6, #f4ead4); } b
 body.theme-day .fbk-crew li { background: rgba(60, 40, 10, .05); } body.theme-day .fbk-crew b { color: #8a5a00; }
 @media (prefers-reduced-motion: reduce) { .fbk-crew li, .fbk-dice { transition: none; }}
 /* 🏗 IN POOLS on the block's HUD: your LP positions' worth + their unclaimed fees */
-.fbk-hud > span.fbk-lp { border-color: rgba(69, 228, 134, .45); background: rgba(21, 209, 106, .08); } .fbk-lp b { color: #45e486 !important; } .fbk-lp small { font: 700 9px 'JetBrains Mono', monospace; color: #9cc4aa; }
-body.theme-day .fbk-hud > span.fbk-lp { background: #eefbf3; } body.theme-day .fbk-lp b { color: #0d7a41 !important; }
+.fbk-hud > span.fbk-lp { border-color: rgba(180, 140, 255, .45); background: rgba(155, 107, 255, .08); } .fbk-lp b { color: #b48cff !important; } .fbk-lp small { font: 700 9px 'JetBrains Mono', monospace; color: #9cc4aa; }
+body.theme-day .fbk-hud > span.fbk-lp { background: #eefbf3; } body.theme-day .fbk-lp b { color: #5a33bd !important; }

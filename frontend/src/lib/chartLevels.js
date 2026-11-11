@@ -8,7 +8,7 @@ import { tradeLevels } from './chartMarkers';
 export const NEAR_PCT = 2.5;   // the live price is "at" a level inside this distance
 export const TAG_GAP = 15;     // px two tags keep between them
 
-const TONE_OF = c => ({ '#15d16a': 'up', '#45e486': 'up', '#7df9d0': 'up', '#ff8fa3': 'dn', '#fa708c': 'dn', '#ff5d73': 'dn', '#f5c542': 'gold', '#f5c451': 'gold', '#e9bd65': 'gold', '#ff9a3c': 'gold',
+const TONE_OF = c => ({ '#9b6bff': 'up', '#b48cff': 'up', '#7df9d0': 'up', '#ff8fa3': 'dn', '#fa708c': 'dn', '#ff5d73': 'dn', '#f5c542': 'gold', '#f5c451': 'gold', '#e9bd65': 'gold', '#ff9a3c': 'gold',
   '#9fe3ff': 'ice', '#5ec8ff': 'ice', '#b388ff': 'violet', '#9e8cff': 'violet', '#8a79ff': 'violet' }[String(c || '').toLowerCase().slice(0, 7)] || 'mute');
 const row = (id, px, title, tone, key = false, tip = null) => (Number(px) > 0 && Number.isFinite(Number(px)) ? { id, px: Number(px), title, tone, key, ...(tip ? { tip } : {}) } : null);
 

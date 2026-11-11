@@ -99,7 +99,7 @@ function Directory({ onGo, open, setOpen, active, pools, onDesk, desk }) {
   return <nav className={`fc3-dir ${open ? 'is-open' : ''}`} aria-label="City directory" data-testid="city-directory">
     <button type="button" className="fc3-dirtoggle" onClick={() => setOpen(o => !o)} aria-expanded={open} data-tip="Every place in the city — money first" data-testid="city-dir-toggle"><Building2 size={15} aria-hidden="true" /><span>DIRECTORY</span></button>
     <ul>
-      <li className="fc3-dirgo" style={{ '--i': 0, '--pc': '#45e486' }}><button type="button" className={desk && !desk.focus ? 'active' : ''} onClick={onDesk} aria-pressed={!!desk && !desk.focus} data-testid="dir-compound"
+      <li className="fc3-dirgo" style={{ '--i': 0, '--pc': '#b48cff' }}><button type="button" className={desk && !desk.focus ? 'active' : ''} onClick={onDesk} aria-pressed={!!desk && !desk.focus} data-testid="dir-compound"
         data-tip="The best yields you can start right here, live — pick one, pick your amount, watch it compound; your wallet signs"><Zap size={16} aria-hidden="true" /><span><b>START COMPOUNDING</b><small>{best ? `${best.sym} · ${apyTxt(best.apy)} · in place` : 'the best live yields, in place'}</small></span></button></li>
       {DIR_GROUPS.map(([word, keys], gi) => (gi && !more ? null : <React.Fragment key={word}><li className="fc3-dirh" aria-hidden="true">{word}</li>
         {keys.map(k => PLACES.find(x => x.key === k)).filter(Boolean).map(p => { n += 1; const Icon = PLACE_ICON[p.key] || Building2; const host = p.in ? PLACES.find(x => x.key === p.in) : null; const live = dirLive(p.key, pools);

@@ -149,7 +149,7 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink, onDesk = n
   const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const [more, setMore] = useState(false); const [desk, setDesk] = useState(false); const t = tradeOf(r); const stake = useStake(); const e = earn24(r, stake);
   const canLend = r.project === 'jupiter-lend' && (r.mints || []).length > 0;
   const tvlK = Math.max(0.04, Math.min(1, (Math.log10(1 + (r.tvl || 0)) - 4) / 5.5));
-  return <li className={`phb-row k-${r.kind} ${big ? 'is-big' : ''}`} style={{ '--i': Math.min(i, 14), '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`pool-${r.id}`}>
+  return <li className={`phb-row k-${r.kind} ${big ? 'is-big' : ''}`} style={{ '--i': Math.min(i, 14), '--kc': KIND_COLOR[r.kind] || '#b48cff' }} data-testid={`pool-${r.id}`}>
     <span className="phb-id"><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}{r.meta ? ` · ${r.meta}` : ''}</small></span>
     <span className="phb-tvl" data-tip={`Total value locked ${usd(r.tvl)}${r.vol ? ` · 24h volume ${usd(r.vol)}` : ''}`}><em>TVL</em><b className="m-num">{usd(r.tvl)}</b><u><s style={{ transform: `scaleX(${tvlK})` }} /></u></span>
     <span className="phb-apy" data-tip={r.apy == null ? 'No APY published for this DEX pool — its 24h volume vs liquidity shows how busy it is' : `APY ${apyTxt(r.apy)}${r.base != null ? ` · base ${apyTxt(r.base)}` : ''}${r.reward ? ` · rewards ${apyTxt(r.reward)}` : ''}${r.il ? ' · impermanent-loss risk' : ''}`}>
@@ -199,7 +199,7 @@ function CatCombo({ pools }) {
 }
 // 💸 the combo, alive: the split as a stacked bar (each leg's weight, its own colour) + the money it would have earned since you opened the
 // hall, ticking every second at your amount and today's blended APY (true math, before gas)
-const LEG_C = { CASH: '#6ad7ff', SOL: '#b388ff', FEES: '#45e486' };
+const LEG_C = { CASH: '#6ad7ff', SOL: '#b388ff', FEES: '#b48cff' };
 function ComboLive({ c, amt }) {
   const [t0] = useState(() => Date.now()); const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 1000); return () => clearInterval(t); }, []);
@@ -227,7 +227,7 @@ function HighYield({ pools }) {
   if (!rows.length) return null;
   return <div className="phb-hy" data-testid="high-yield"><header><b><Ic3 e="🔥" /> HIGH YIELD · RIGHT NOW</b><small>the biggest APYs with real depth — the risk is named on each · your wallet signs</small></header>
     <div className="phb-hyg">{rows.map(({ r, risk }, i) => { const day = (stake * r.apy) / 100 / 365;
-      return <article key={r.id} className={`phb-hyc k-${r.kind}`} style={{ '--i': i, '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`hy-${r.id}`}>
+      return <article key={r.id} className={`phb-hyc k-${r.kind}`} style={{ '--i': i, '--kc': KIND_COLOR[r.kind] || '#b48cff' }} data-testid={`hy-${r.id}`}>
         <span className="phb-hyt"><Gauge v={r.apy} /><span><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}</small></span></span>
         <strong className="m-num" key={r.apy}>{apyTxt(r.apy)}</strong>
         <span className="phb-hyd"><em>${stake >= 1000 ? `${stake / 1000}K` : stake} MAKES</em><b className="m-num">+{cash(day)}/day</b><small className="m-num">{cash(day * 30)}/mo · TVL {usd(r.tvl)}</small></span>

@@ -115,7 +115,7 @@ const EV_ICON = { founded: '🌹', joined: '🤝', badge: '🛡', bounty: '🎯'
 // 📡 THE WIRE (Live tab, 2026-10-22 redo): a drawn radar — the arm sweeps, every family event of the week is a blip (closer to the centre =
 // newer, its angle = what kind of event) — the week's counters glide to their numbers, and the teletype under it wears each family's crest.
 const EV_ORDER = ['founded', 'joined', 'badge', 'bounty', 'claimed', 'paid', 'launch', 'crown'];
-const EV_COLOR = { founded: '#ff4d6d', joined: '#45e486', badge: '#d4af37', bounty: '#ff9f45', claimed: '#6fd3ff', paid: '#ffd36b', launch: '#9b5cff', crown: '#fff1c4' };
+const EV_COLOR = { founded: '#ff4d6d', joined: '#b48cff', badge: '#d4af37', bounty: '#ff9f45', claimed: '#6fd3ff', paid: '#ffd36b', launch: '#9b5cff', crown: '#fff1c4' };
 // pure: where an event sits on the radar (newer = nearer the middle; the kind picks the slice)
 export function blipAt(e, now) {
   const k = Math.max(0, EV_ORDER.indexOf(e.kind)); const age = Math.max(0, now - (e.at || now));
@@ -137,13 +137,13 @@ export function FamilyPulse({ rows }) {
         <circle cx="100" cy="100" r="92" className="ring o" /><circle cx="100" cy="100" r="62" className="ring" /><circle cx="100" cy="100" r="32" className="ring" />
         <path d="M100,8 V192 M8,100 H192" className="cross" />
         <g className="fwi-sweep"><path d="M100,100 L100,8 A92,92 0 0 1 165,35 Z" /></g>
-        {ev.slice(0, 24).map(e => { const p = blipAt(e, now); return <g key={`${e.kind}-${e.id}-${e.at}`} className={`fwi-blip ${p.fresh ? 'is-fresh' : ''}`} style={{ '--bc': EV_COLOR[e.kind] || '#45e486' }}>
+        {ev.slice(0, 24).map(e => { const p = blipAt(e, now); return <g key={`${e.kind}-${e.id}-${e.at}`} className={`fwi-blip ${p.fresh ? 'is-fresh' : ''}`} style={{ '--bc': EV_COLOR[e.kind] || '#b48cff' }}>
           <circle cx={p.x} cy={p.y} r="7" className="halo" /><circle cx={p.x} cy={p.y} r="3" className="dot" /><title>[{e.fam}] {e.text}</title></g>; })}
         <circle cx="100" cy="100" r="3" className="core" />
       </svg>
       <div className="fwi-vit">{tiles.map(([k, n], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b><Glide n={n} /></b></span>)}</div>
     </div>
-    {ev.length ? <ol className="fwi-feed" data-testid="family-feed">{ev.slice(0, 12).map((e, i) => <li key={`${e.kind}-${e.id}-${e.at}`} className={`k-${e.kind} ${now - e.at < 3600 ? 'is-fresh' : ''}`} style={{ '--i': i, '--bc': EV_COLOR[e.kind] || '#45e486' }}>
+    {ev.length ? <ol className="fwi-feed" data-testid="family-feed">{ev.slice(0, 12).map((e, i) => <li key={`${e.kind}-${e.id}-${e.at}`} className={`k-${e.kind} ${now - e.at < 3600 ? 'is-fresh' : ''}`} style={{ '--i': i, '--bc': EV_COLOR[e.kind] || '#b48cff' }}>
       <span className="fwi-crest">{crest[e.fam] ? <FamilyBadge b={{ ...crest[e.fam], tag: e.fam }} size="sm" px={26} /> : <i>{EV_ICON[e.kind] || '•'}</i>}</span>
       <b>[{e.fam}]</b><span className="fwi-txt"><u>{EV_ICON[e.kind] || '•'}</u>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
       : <p className="crw-empty">{d ? 'Quiet this week — found a family, post a bounty, pin a launch.' : 'Reading the families…'}</p>}

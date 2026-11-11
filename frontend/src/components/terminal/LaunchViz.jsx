@@ -54,8 +54,8 @@ export const LaunchStage = memo(function LaunchStage({ form, rail, locked, pump 
     <span className="lv-stars" aria-hidden="true" /><span className="lv-sweep" aria-hidden="true" />
     <svg viewBox={`0 0 ${W} ${H}`} className="lv-svg" aria-hidden="true">
       <defs>
-        <linearGradient id="lvFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#15d16a" stopOpacity=".32" /><stop offset="1" stopColor="#15d16a" stopOpacity="0" /></linearGradient>
-        <linearGradient id="lvLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#0f5c32" /><stop offset=".55" stopColor="#15d16a" /><stop offset="1" stopColor="#45e486" /></linearGradient>
+        <linearGradient id="lvFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#9b6bff" stopOpacity=".32" /><stop offset="1" stopColor="#9b6bff" stopOpacity="0" /></linearGradient>
+        <linearGradient id="lvLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#4b3596" /><stop offset=".55" stopColor="#9b6bff" /><stop offset="1" stopColor="#b48cff" /></linearGradient>
       </defs>
       {[0.25, 0.5, 0.75].map(t => <line key={t} x1={PADX} x2={W - PADX} y1={TOP + t * (BASE - TOP)} y2={TOP + t * (BASE - TOP)} className="lv-grid" />)}
       <line x1={PADX} x2={W - PADX} y1={BASE} y2={BASE} className="lv-axis" />
@@ -92,7 +92,7 @@ export function StepRing({ fill = 0, n: num, done }) {
 }
 
 // 🍩 where every swap fee goes: the split as a lit ring + each side's take per $10K of volume
-const SIDES = [['creatorFeeShare', 'CREATOR', '#45e486'], ['referralShare', 'REFERRAL', '#8fd8ff'], ['holderRewardShare', 'HOLDERS', '#ffd36b'], ['buybackBurnShare', 'BUYBACK + BURN', '#ff8f6b']];
+const SIDES = [['creatorFeeShare', 'CREATOR', '#b48cff'], ['referralShare', 'REFERRAL', '#8fd8ff'], ['holderRewardShare', 'HOLDERS', '#ffd36b'], ['buybackBurnShare', 'BUYBACK + BURN', '#ff8f6b']];
 export function feeSplit(form, volume = 10000) {
   const fee = n(form?.swapFee) / 100; let at = 0;
   const parts = SIDES.map(([k, label, color]) => { const pct = n(form?.[k]); const p = { k, label, color, pct, from: at, usd: volume * fee * (pct / 100) }; at += pct; return p; });

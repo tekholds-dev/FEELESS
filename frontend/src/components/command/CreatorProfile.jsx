@@ -10,7 +10,7 @@ import { shortAddress, thumb } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
-const BADGE_COLOR = { risky: '#ff9f45', trusted: '#15d16a', building: '#9bd6aa', unproven: '#929292', flagged: '#fa708c', veteran: '#f5c542' };
+const BADGE_COLOR = { risky: '#ff9f45', trusted: '#9b6bff', building: '#9bd6aa', unproven: '#929292', flagged: '#fa708c', veteran: '#f5c542' };
 
 export const timeAgo = seconds => {
   if (!seconds) return 'just now';

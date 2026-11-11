@@ -1,7 +1,7 @@
 /* 🤖 AUTORANGE DESK (arx-*): the Pool Hall's teal-green on a deep navy night, glass panels with an inner highlight, the band glowing on the chart,
    the next action as the hot tile. Motion = data only + one sweep: the engine's eyes blink, the armed dot breathes, the band edge glows.
    One keyframe set (arx*), transform / opacity only; fx-lite + reduced motion + day + 980 / 640px at the end. */
-.arx { --ac: #2ee6a6; --ac2: #6ad7ff; --up: #45e486; --dn: #ff6b8b; --ln: rgba(46, 230, 166, .16); --mu: #7f93a0; --pan: rgba(9, 18, 26, .82);
+.arx { --ac: #2ee6a6; --ac2: #6ad7ff; --up: #b48cff; --dn: #ff6b8b; --ln: rgba(46, 230, 166, .16); --mu: #7f93a0; --pan: rgba(9, 18, 26, .82);
   grid-column: 1 / -1; position: relative; display: grid; gap: 10px; padding: 12px; border-radius: 18px; overflow: hidden; isolation: isolate; color: #e6f3f0;
   background: radial-gradient(60% 40% at 0% 0%, rgba(46, 230, 166, .12), transparent 60%), radial-gradient(50% 50% at 100% 100%, rgba(106, 215, 255, .1), transparent 60%), #050b11;
   border: 1px solid rgba(46, 230, 166, .3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 60px -26px var(--ac); animation: arxIn .25s ease-out both; }
@@ -14,7 +14,7 @@
 .arx-id { display: flex; gap: 10px; align-items: center; min-width: 0; } .arx-id img, .arx-id > i { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; display: grid; place-items: center; background: rgba(255, 255, 255, .06); border: 2px solid var(--ac); font: 900 14px 'JetBrains Mono', monospace; font-style: normal; }
 .arx-id > span { display: grid; min-width: 0; } .arx-id b { font: 900 18px 'JetBrains Mono', monospace; color: #fff; white-space: nowrap; } .arx-id b em { color: var(--mu); font-weight: 700; } .arx-id small { font: 600 11px 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .arx-chips { display: grid; gap: 4px; } .arx-chips i { font: 800 10px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .08em; padding: 3px 9px; border-radius: 7px; text-align: center; background: rgba(255, 255, 255, .05); color: var(--mu); }
-.arx-chips .is-rising { color: #04140b; background: var(--up); } .arx-chips .is-falling { color: #2a0610; background: var(--dn); } .arx-chips .is-wild, .arx-chips .is-hot { color: #2a1604; background: #ffb347; } .arx-chips .is-ranging { color: #04141c; background: var(--ac2); } .arx-chips .is-ok { color: var(--up); border: 1px solid rgba(69, 228, 134, .35); }
+.arx-chips .is-rising { color: #04140b; background: var(--up); } .arx-chips .is-falling { color: #2a0610; background: var(--dn); } .arx-chips .is-wild, .arx-chips .is-hot { color: #2a1604; background: #ffb347; } .arx-chips .is-ranging { color: #04141c; background: var(--ac2); } .arx-chips .is-ok { color: var(--up); border: 1px solid rgba(180, 140, 255, .35); }
 .arx-price { display: grid; } .arx-price b { font: 900 22px 'JetBrains Mono', monospace; color: #fff; animation: arxTick .4s ease-out; } .arx-price small { font: 800 12px 'JetBrains Mono', monospace; } .is-up { color: var(--up) !important; } .is-dn { color: var(--dn) !important; }
 .arx-kv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; } .arx-kv div { min-width: 0; } .arx-kv dt { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--mu); } .arx-kv dd { margin: 2px 0 0; font: 800 15px 'JetBrains Mono', monospace; color: #fff; }
 /* chart + engine */
@@ -102,8 +102,8 @@ body.theme-day .arx :is(.arx-strats button, .arx-amts button) { background: #fff
 /* the picker above the desk (Night Vault · Launch › Pools) */
 .arx-pick { display: grid; gap: 8px; } .arx-pick > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
 .arx-pick > header b { font: 900 12px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #2ee6a6; } .arx-pick > header small { font: 600 10px 'JetBrains Mono', monospace; color: #7f93a0; }
-.arx-pools { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }   /* one row, swipe for more (not scroll-heavy) */
-.arx-pools > button { flex: 0 0 158px; scroll-snap-align: start; } .arx-pools::-webkit-scrollbar { height: 6px; } .arx-pools::-webkit-scrollbar-thumb { background: #15d16a88; border-radius: 6px; }
+.arx-pools { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #9b6bff transparent; }   /* one row, swipe for more (not scroll-heavy) */
+.arx-pools > button { flex: 0 0 158px; scroll-snap-align: start; } .arx-pools::-webkit-scrollbar { height: 6px; } .arx-pools::-webkit-scrollbar-thumb { background: #9b6bff88; border-radius: 6px; }
 .arx-tiers { margin-left: auto; } .arx-tiers button { min-height: 30px; padding-inline: 10px; }
 .arx-pools button { display: grid; gap: 2px; justify-items: start; min-height: 46px; padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(46, 230, 166, .2); background: rgba(5, 11, 17, .7); color: #e6f3f0; cursor: pointer; transition: border-color .15s, transform .12s, background .15s; }
 .arx-pools button b { font: 800 12px 'JetBrains Mono', monospace; } .arx-pools button small { font: 700 9.5px 'JetBrains Mono', monospace; color: #7f93a0; }
@@ -112,33 +112,33 @@ body.theme-day .arx :is(.arx-strats button, .arx-amts button) { background: #fff
 body.theme-day .arx-pools button { background: #fff; color: #0e2a24; }
 /* real money: result lines + YOUR BANDS (live positions with re-center / close) */
 .arx-err, .arx-ok { margin: 0; padding: 8px 10px; border-radius: 10px; font: 700 11px 'JetBrains Mono', monospace; }
-.arx-err { color: #ffd0d8; background: rgba(255, 107, 139, .12); border: 1px solid rgba(255, 107, 139, .35); } .arx-ok { color: #c9ffe0; background: rgba(69, 228, 134, .1); border: 1px solid rgba(69, 228, 134, .35); }
+.arx-err { color: #ffd0d8; background: rgba(255, 107, 139, .12); border: 1px solid rgba(255, 107, 139, .35); } .arx-ok { color: #c9ffe0; background: rgba(180, 140, 255, .1); border: 1px solid rgba(180, 140, 255, .35); }
 .arx-ok a { color: #6ad7ff; margin-left: 6px; } .arx-ok a:focus-visible { outline: 2px solid #6ad7ff; outline-offset: 2px; }
 .arx-bands { display: grid; gap: 6px; } .arx-bands > em { font: 800 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #2ee6a6; } .arx-bands > small { font: 600 10px 'JetBrains Mono', monospace; color: #7f93a0; }
 .arx-band { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); animation: arxIn .25s ease-out both; }
-.arx-band > i { width: 10px; height: 10px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486; animation: arxBreath 1.6s ease-in-out infinite; } .arx-band.is-out > i { background: #ff6b8b; box-shadow: 0 0 10px #ff6b8b; }
+.arx-band > i { width: 10px; height: 10px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 10px #b48cff; animation: arxBreath 1.6s ease-in-out infinite; } .arx-band.is-out > i { background: #ff6b8b; box-shadow: 0 0 10px #ff6b8b; }
 .arx-band span { display: grid; min-width: 0; } .arx-band b { font: 800 10.5px 'JetBrains Mono', monospace; color: #fff; } .arx-band small { font: 600 9.5px 'JetBrains Mono', monospace; color: #7f93a0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .arx-band .m-btn { min-height: 32px; padding: 0 10px; font-size: 10px; }
 body.fx-lite .arx-band, body.fx-lite .arx-band > i { animation: none; } @media (prefers-reduced-motion: reduce) { .arx-band, .arx-band > i { animation: none; } }
 body.theme-day .arx-band { background: #fff; } body.theme-day .arx-band b { color: #0e2a24; }
 @media (max-width: 640px) { .arx-band { grid-template-columns: 10px minmax(0, 1fr); } .arx-band .m-btn { grid-column: span 1; } }
 /* 💵 SIZED TO YOUR $ (owner 2026-10-27): the net-per-day curve across widths (the pick glows), seven vitals that tick, a typed amount */
-.arx-size { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(69, 228, 134, .28); background: linear-gradient(160deg, rgba(21, 209, 106, .08), rgba(0, 0, 0, .35)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+.arx-size { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(180, 140, 255, .28); background: linear-gradient(160deg, rgba(155, 107, 255, .08), rgba(0, 0, 0, .35)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
 .arx-size.is-small { border-color: rgba(255, 143, 163, .4); }
 .arx-size > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; } .arx-size > header b { font: 800 11px var(--f-mono); letter-spacing: .12em; color: #86efac; }
 .arx-size > header small { flex: 1 1 220px; font: 600 10px var(--f-ui); color: #9fb5a8; } .arx-qa { display: flex; gap: 4px; } .arx-qa .m-btn { min-height: 32px; padding: 0 9px; }
 .arx-size-in { display: grid; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); gap: 12px; align-items: center; }
-.arx-curve { width: 100%; height: 90px; } .arx-zero { stroke: rgba(255, 255, 255, .15); stroke-dasharray: 3 4; } .arx-cline { fill: none; stroke: #45e486; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.arx-cfill { fill: rgba(21, 209, 106, .14); } .arx-cdot { fill: #f5c451; stroke: #fff; stroke-width: 1.5; }
+.arx-curve { width: 100%; height: 90px; } .arx-zero { stroke: rgba(255, 255, 255, .15); stroke-dasharray: 3 4; } .arx-cline { fill: none; stroke: #b48cff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.arx-cfill { fill: rgba(155, 107, 255, .14); } .arx-cdot { fill: #f5c451; stroke: #fff; stroke-width: 1.5; }
 .arx-cbox { display: grid; gap: 2px; } .arx-cax { display: flex; justify-content: space-between; gap: 6px; font: 700 9px var(--f-mono); color: #8fa89a; } .arx-cax i { font-style: normal; } .arx-cax b { color: #f5c451; }
 .arx-svit { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
 .arx-svit span { display: grid; gap: 2px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .06); animation: arxSizeIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
-.arx-svit em { font: 800 8px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #8fa89a; } .arx-svit b { font: 800 14px var(--f-mono); color: #eafff3; animation: arxSizeIn .35s ease-out; }
-.arx-svit b.is-up { color: #45e486; } .arx-svit b.is-dn { color: #ff8fa3; }
+.arx-svit em { font: 800 8px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #8fa89a; } .arx-svit b { font: 800 14px var(--f-mono); color: #f3eeff; animation: arxSizeIn .35s ease-out; }
+.arx-svit b.is-up { color: #b48cff; } .arx-svit b.is-dn { color: #ff8fa3; }
 .arx-warn { margin: 0; font: 600 11px var(--f-ui); color: #ff8fa3; }
-.arx-amtin { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(69, 228, 134, .35); background: rgba(0, 0, 0, .35); }
+.arx-amtin { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(180, 140, 255, .35); background: rgba(0, 0, 0, .35); }
 .arx-amtin span { font: 800 11px var(--f-mono); color: #86efac; } .arx-amtin input { width: 74px; border: 0; background: none; color: #fff; font: 800 13px var(--f-mono); outline: none; }
-.arx-amtin:focus-within { outline: 2px solid #45e486; outline-offset: 1px; }
+.arx-amtin:focus-within { outline: 2px solid #b48cff; outline-offset: 1px; }
 @keyframes arxSizeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 body.fx-lite .arx-svit span, body.fx-lite .arx-svit b { animation: none; } @media (prefers-reduced-motion: reduce) { .arx-svit span, .arx-svit b { animation: none; } }
 body.theme-day .arx-size { background: #f1fbf5; } body.theme-day .arx-svit span, body.theme-day .arx-amtin { background: #fff; } body.theme-day .arx-svit b, body.theme-day .arx-amtin input { color: #0d1a12; }

@@ -13,7 +13,7 @@ import { Ic3 } from '../../lib/icon3d';
 //   [ MIND A vitals ] [ the chat: bubbles, A left · B right · you ] [ MIND B vitals ]  →  📁 the log, one folder per kind of thing it did.
 // Desk skins = the owner's real nature clips (Earth · creek · forest) or plain Night; they stop under fx-lite / reduced motion.
 export const SCENES = [['aurora', '✨', 'Live aurora'], ['violet', '🌙', 'Live violet'], ['hive', '💎', 'Live hive'], ['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
-export const ACCENTS = ['#b388ff', '#9dffcf', '#45e486', '#7fd3ff', '#f5c542', '#ff5dbb'];
+export const ACCENTS = ['#b388ff', '#d6c4ff', '#b48cff', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
   try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'globe', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }

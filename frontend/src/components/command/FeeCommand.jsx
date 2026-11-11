@@ -12,7 +12,7 @@ import { ChartBoundary } from '../terminal/ChartBoundary';
 import { MarketAvailabilityNotice } from '../terminal/MarketPrimitives';
 
 export const ALLOCATIONS = [
-  { amount: 70, name: 'Liquidity & Ecosystem', description: 'Market infrastructure, liquidity provisioning and the connected FEELESS ecosystem.', color: '#15d16a' },
+  { amount: 70, name: 'Liquidity & Ecosystem', description: 'Market infrastructure, liquidity provisioning and the connected FEELESS ecosystem.', color: '#9b6bff' },
   { amount: 15, name: 'Marketing & Growth', description: 'Awareness, distribution and responsible ecosystem adoption.', color: '#c3f4de' },
   { amount: 10, name: 'Team & Development', description: 'Engineering, research and ongoing product delivery.', color: '#62a992' },
   { amount: 5, name: 'Community & Airdrops', description: 'Community participation and future published airdrop programs.', color: '#d6bd7a' },

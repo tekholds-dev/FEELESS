@@ -17,21 +17,21 @@ body.theme-day .p3d { --p3d: #0a6fa8; } body.theme-day .p3d-side { background: #
 
 /* 🧱 Start from a finished piece, moods, and the real page */
 .p3d-wrap { position: relative; min-width: 0; min-height: 0; display: grid; } .p3d-wrap > .p3d-stage { min-height: 0; }
-.p3d-start { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 20px; background: radial-gradient(ellipse at 50% 40%, #0b1410e0, #05080bf5); animation: p3dIn .2s ease both; overflow: auto; scrollbar-width: thin; }
+.p3d-start { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 20px; background: radial-gradient(ellipse at 50% 40%, #120d26e0, #05080bf5); animation: p3dIn .2s ease both; overflow: auto; scrollbar-width: thin; }
 .p3d-start h3 { margin: 0; color: #fff; font: 800 20px var(--f-display); } .p3d-start > p { margin: 0 0 8px; color: #b5cfc2; font: 500 13px var(--f-ui); }
 .p3d-tpls { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .p3d-tpls button { position: relative; display: grid; gap: 3px; padding: 0 0 8px; overflow: hidden; border: 1px solid #ffffff1f; border-radius: 12px; background: #ffffff08; color: #fff; text-align: left; cursor: pointer; animation: p3dIn .25s ease both; transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease; }
-.p3d-tpls button:hover { transform: translateY(-2px); border-color: #45e48680; box-shadow: 0 10px 24px #0008; } .p3d-tpls button:active { transform: scale(.98); } .p3d-tpls button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .p3d-tpls button:disabled { opacity: .55; cursor: wait; }
+.p3d-tpls button:hover { transform: translateY(-2px); border-color: #b48cff80; box-shadow: 0 10px 24px #0008; } .p3d-tpls button:active { transform: scale(.98); } .p3d-tpls button:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; } .p3d-tpls button:disabled { opacity: .55; cursor: wait; }
 .p3d-tpls img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; } .p3d-tpls b { padding: 4px 10px 0; font: 800 13px var(--f-ui); } .p3d-tpls small { padding: 0 10px; color: #9dbcad; font: 600 10.5px var(--f-mono); }
 .p3d-moods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .p3d-moods button { position: relative; min-height: 46px; padding: 0; overflow: hidden; border: 1px solid #ffffff1c; border-radius: 9px; background: #000; cursor: pointer; transition: border-color .12s ease, transform .12s ease; }
-.p3d-moods button:hover { border-color: #45e48680; transform: translateY(-1px); } .p3d-moods button:active { transform: scale(.97); } .p3d-moods button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; } .p3d-moods button.is-on { border-color: #15d16a; box-shadow: 0 0 0 1px #15d16a; }
+.p3d-moods button:hover { border-color: #b48cff80; transform: translateY(-1px); } .p3d-moods button:active { transform: scale(.97); } .p3d-moods button:focus-visible { outline: 2px solid #b48cff; outline-offset: 1px; } .p3d-moods button.is-on { border-color: #9b6bff; box-shadow: 0 0 0 1px #9b6bff; }
 .p3d-moods img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .75; } .p3d-moods small { position: relative; display: block; padding: 26px 6px 4px; color: #fff; font: 800 10px var(--f-ui); text-align: left; text-shadow: 0 1px 6px #000; background: linear-gradient(to top, #000c, transparent); }
 .p3d-live { position: absolute; inset: 0; z-index: 3; background: #000; animation: p3dIn .2s ease both; } .p3d-live iframe { width: 100%; height: 100%; border: 0; display: block; } .p3d-live .m-btn { position: absolute; top: 10px; left: 10px; min-height: 36px; }
 @keyframes p3dIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .p3d-start, body.fx-lite .p3d-tpls button, body.fx-lite .p3d-live { animation: none; }
 @media (prefers-reduced-motion: reduce) { .p3d-start, .p3d-tpls button, .p3d-live { animation: none; } }
-body.theme-day .p3d-start { background: #f4f8f5f2; } body.theme-day .p3d-start h3, body.theme-day .p3d-tpls button { color: #0d2a1b; } body.theme-day .p3d-start > p, body.theme-day .p3d-tpls small { color: #3c5a4a; }
+body.theme-day .p3d-start { background: #f4f8f5f2; } body.theme-day .p3d-start h3, body.theme-day .p3d-tpls button { color: #1f1840; } body.theme-day .p3d-start > p, body.theme-day .p3d-tpls small { color: #3c5a4a; }
 @media (max-width: 640px) { .p3d-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* a model with no picture shows a drawn cube, never a black square (43,000 Objaverse rows came without thumbnails) */

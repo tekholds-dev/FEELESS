@@ -5,7 +5,7 @@
 .bk-lock { justify-self: start; padding: 4px 10px; border-radius: 999px; border: 1px dashed rgba(255, 211, 107, .4); font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffd36b; }
 .bk-h { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; } .bk-val { display: grid; margin-left: auto; text-align: right; line-height: 1.05; }
 .bk-val em, .bk-ah em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #c2b28a; } .bk-val b { font: 900 24px 'JetBrains Mono', monospace; color: #fff; text-shadow: 0 0 16px rgba(255, 211, 107, .45); }
-.bk .is-up { color: #45e486; } .bk .is-dn { color: #ff8fa3; } .bk-val small { font: 800 10px 'JetBrains Mono', monospace; }
+.bk .is-up { color: #b48cff; } .bk .is-dn { color: #ff8fa3; } .bk-val small { font: 800 10px 'JetBrains Mono', monospace; }
 .bk-sm, .bk-go, .bk-ticket button, .bk-acct li button { min-height: 32px; border-radius: 9px; cursor: pointer; font: 800 10.5px 'JetBrains Mono', monospace; transition: transform .12s, filter .12s; }
 .bk-sm { padding: 0 10px; border: 1px solid rgba(255, 211, 107, .35); background: transparent; color: #ffd36b; } .bk-sm:hover, .bk-go:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
 .bk-sm:active, .bk-go:active { transform: scale(.97); } :is(.bk-sm, .bk-go, .bk-ticket button, .bk-acct li button, .bk input, .bk select):focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
@@ -42,7 +42,7 @@ body.theme-day .bk-keys.is-cdc .bk-steps li { background: #eef6ff; }
 .bk-capg { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
 .bk-capg span { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .06); animation: bkIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
 .bk-capg em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #7cc4ff; } .bk-capg b { font: 900 14px 'JetBrains Mono', monospace; color: #fff; } .bk-capg small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8aa3b8; }
-.bk-capg .is-ok small { color: #45e486; } .bk-capg .is-off { opacity: .6; }
+.bk-capg .is-ok small { color: #b48cff; } .bk-capg .is-off { opacity: .6; }
 .bk-mkt, .bk-lev { flex: none; } .bk-mkt button, .bk-lev button { min-height: 32px; }
 body.theme-day .bk-caps { background: #eef6ff; } body.theme-day .bk-capg span { background: #fff; } body.theme-day .bk-capg b { color: #0b2540; }
 .bk-keys.is-cdc .bk-venue button.active, .bk-keys.is-cdc .bk-go { background: linear-gradient(120deg, #0b6fc4, #1199fa); color: #fff; border-color: transparent; }

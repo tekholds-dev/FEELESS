@@ -11,11 +11,11 @@ import { Ic3 } from '../lib/icon3d';
 // (StrikeGame — three.js loads only then). XP + loadout are saved on the server (arena.py) for a wallet or a Telegram player.
 const StrikeGame = lazy(() => import('./StrikeGame').then(m => ({ default: m.StrikeGame })));
 const SLOTS = [['barrel', 'BARREL'], ['optic', 'OPTIC'], ['mag', 'MAGAZINE'], ['stock', 'STOCK'], ['skin', 'SKIN']];
-const SKIN_C = { green: '#15d16a', carbon: '#3a3f44', pink: '#ff5dbb', ice: '#8fd3ff', gold: '#f5c451' };
+const SKIN_C = { green: '#9b6bff', carbon: '#3a3f44', pink: '#ff5dbb', ice: '#8fd3ff', gold: '#f5c451' };
 const BARS = [['dmg', 'DAMAGE', 100], ['rpm', 'FIRE RATE', 950], ['range', 'RANGE', 320], ['mag', 'MAGAZINE', 64], ['spread', 'ACCURACY', 0.09, true], ['recoil', 'CONTROL', 1.3, true], ['speed', 'MOBILITY', 1.15]];
 
 function GunArt({ lo }) {   // the drawn gun — every part you pick changes the picture
-  const c = SKIN_C[lo.skin] || '#15d16a'; const big = lo.gun === 'sniper' ? 1.25 : lo.gun === 'smg' ? 0.82 : 1; const bl = lo.barrel === 'long' ? 70 : lo.barrel === 'short' ? 26 : lo.barrel === 'supp' ? 64 : 46;
+  const c = SKIN_C[lo.skin] || '#9b6bff'; const big = lo.gun === 'sniper' ? 1.25 : lo.gun === 'smg' ? 0.82 : 1; const bl = lo.barrel === 'long' ? 70 : lo.barrel === 'short' ? 26 : lo.barrel === 'supp' ? 64 : 46;
   return <svg viewBox="0 0 300 110" className="sz-gun" aria-hidden="true">
     <rect x={150 - 70 * big} y="44" width={140 * big} height="20" rx="4" fill={c} />
     <rect x={150 + 70 * big} y={lo.barrel === 'supp' ? 47 : 50} width={bl} height={lo.barrel === 'supp' ? 14 : 8} rx="2" fill="#1c2024" />

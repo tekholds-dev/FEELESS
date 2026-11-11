@@ -8,7 +8,7 @@
 .chat-fx > .chat-fx-a, .chat-fx > .chat-fx-b { position: absolute; inset: -30%; }
 .chat-fx u, .chat-fx b { position: absolute; display: block; text-decoration: none; }
 .chat-fx.fx-off *, .chat-fx.fx-off { animation-play-state: paused !important; }
-.chat-fx-logo { position: absolute; right: 12px; bottom: 10px; width: 28px; opacity: .34; filter: drop-shadow(0 0 6px rgba(21, 209, 106, .55)); }
+.chat-fx-logo { position: absolute; right: 12px; bottom: 10px; width: 28px; opacity: .34; filter: drop-shadow(0 0 6px rgba(155, 107, 255, .55)); }
 .fx-fee .chat-fx-logo { display: none; }
 .cfx-run { position: absolute; left: 0; bottom: 0; height: 52%; aspect-ratio: 10 / 1; min-width: 200%; animation: cfxRun4 40s linear infinite; will-change: transform; }
 .cfx-rise { position: absolute; inset: 0; }
@@ -18,11 +18,11 @@
 .cfx-neural { position: absolute; inset: 0; width: 100%; height: 100%; }
 .cfx-neural.far { opacity: .26; transform: scale(1.4) scaleX(-1); }
 .cfx-neural .syn { stroke: #9d8bff; stroke-width: 1; opacity: .42; vector-effect: non-scaling-stroke; }
-.cfx-neural .pulse { stroke: #45e486; stroke-width: 2; stroke-dasharray: 8 92; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .85; animation: cfxFire 3.6s linear infinite; animation-delay: calc(var(--i, 0) * -.9s); }
+.cfx-neural .pulse { stroke: #b48cff; stroke-width: 2; stroke-dasharray: 8 92; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .85; animation: cfxFire 3.6s linear infinite; animation-delay: calc(var(--i, 0) * -.9s); }
 .cfx-neural .node { fill: #c9b8ff; opacity: .7; transform-box: fill-box; transform-origin: center; animation: cfxNode 4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.45s); }
 .cfx-neural.far .node { animation: none; }
 /* 📈 live mood — the coin as a live horizon; colour + tilt = the mood */
-.fx-live { --mc: #15d16a; color: var(--mc); background: radial-gradient(90% 60% at 50% 100%, color-mix(in srgb, var(--mc) 18%, transparent), transparent 70%), linear-gradient(180deg, #04070a, #050a09); }
+.fx-live { --mc: #9b6bff; color: var(--mc); background: radial-gradient(90% 60% at 50% 100%, color-mix(in srgb, var(--mc) 18%, transparent), transparent 70%), linear-gradient(180deg, #04070a, #050a09); }
 .fx-live.mood-dump { --mc: #ff5d73; } .fx-live.mood-clear { --mc: #f5c451; } .fx-live.mood-calm { --mc: #5ec8ff; }
 .cfx-grid { position: absolute; left: 0; bottom: 0; width: 100%; height: 52%; } .cfx-grid line { stroke: rgba(255, 255, 255, .05); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .cfx-tilt { position: absolute; inset: 0; transform-origin: 50% 100%; } .mood-pump .cfx-tilt { transform: rotate(-4deg) translateY(-4%); } .mood-dump .cfx-tilt { transform: rotate(4deg) translateY(6%); }
@@ -30,64 +30,64 @@
 .cfx-liveline .gl { fill: none; stroke: currentColor; stroke-width: 9; stroke-opacity: .12; vector-effect: non-scaling-stroke; } .cfx-liveline .ln { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-opacity: .9; vector-effect: non-scaling-stroke; }
 .cfx-now { right: 22%; top: 16%; bottom: 0; width: 1px; background: linear-gradient(transparent, color-mix(in srgb, var(--mc) 60%, transparent)); animation: cfxBreathe 3s ease-in-out infinite; }
 /* 🪙 FEE glow — the coin in the corner, rays turning behind it, sparks lifting */
-.fx-fee { background: radial-gradient(70% 60% at 88% 92%, rgba(21, 209, 106, .24), transparent 65%), radial-gradient(60% 50% at 8% 0%, rgba(69, 228, 134, .08), transparent 70%), linear-gradient(170deg, #040908, #030605); }
-.cfx-rays { position: absolute; right: -45%; bottom: -70%; width: 150%; aspect-ratio: 1; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(69, 228, 134, .11) 0 6deg, transparent 6deg 18deg);
+.fx-fee { background: radial-gradient(70% 60% at 88% 92%, rgba(155, 107, 255, .24), transparent 65%), radial-gradient(60% 50% at 8% 0%, rgba(180, 140, 255, .08), transparent 70%), linear-gradient(170deg, #040908, #030605); }
+.cfx-rays { position: absolute; right: -45%; bottom: -70%; width: 150%; aspect-ratio: 1; border-radius: 50%; background: repeating-conic-gradient(from 0deg, rgba(180, 140, 255, .11) 0 6deg, transparent 6deg 18deg);
   -webkit-mask-image: radial-gradient(circle, #000 18%, transparent 62%); mask-image: radial-gradient(circle, #000 18%, transparent 62%); animation: cfxSpin 70s linear infinite; }
 .cfx-coin { position: absolute; right: -9%; bottom: -16%; width: min(62%, 320px); aspect-ratio: 1; animation: cfxCoin 9s ease-in-out infinite; }
-.cfx-coin .rim { fill: #0b2a1a; stroke: #15d16a; stroke-width: 3; } .cfx-coin .ridge { fill: none; stroke: #45e486; stroke-width: 5; stroke-dasharray: 2 4; opacity: .55; }
-.cfx-coin .face { fill: #06150e; stroke: rgba(69, 228, 134, .5); stroke-width: 1.5; } .cfx-coin .ring { fill: none; stroke: rgba(69, 228, 134, .35); stroke-dasharray: 1 3; }
+.cfx-coin .rim { fill: #0b2a1a; stroke: #9b6bff; stroke-width: 3; } .cfx-coin .ridge { fill: none; stroke: #b48cff; stroke-width: 5; stroke-dasharray: 2 4; opacity: .55; }
+.cfx-coin .face { fill: #06150e; stroke: rgba(180, 140, 255, .5); stroke-width: 1.5; } .cfx-coin .ring { fill: none; stroke: rgba(180, 140, 255, .35); stroke-dasharray: 1 3; }
 .cfx-coin .shine { fill: none; stroke: rgba(255, 255, 255, .32); stroke-width: 3; stroke-linecap: round; }
-.cfx-spark { background: #7dffb8; box-shadow: 0 0 8px #15d16a; }
+.cfx-spark { background: #7dffb8; box-shadow: 0 0 8px #9b6bff; }
 /* 🕯 candles — two depths of a real chart sliding by + the last-price line */
-.fx-candles { background: radial-gradient(80% 50% at 50% 100%, rgba(21, 209, 106, .12), transparent 70%), linear-gradient(180deg, #05080b, #04070a); }
+.fx-candles { background: radial-gradient(80% 50% at 50% 100%, rgba(155, 107, 255, .12), transparent 70%), linear-gradient(180deg, #05080b, #04070a); }
 .cfx-candles line { stroke-width: 1; vector-effect: non-scaling-stroke; }
-.cfx-candles .up line { stroke: #15d16a; } .cfx-candles .up rect { fill: #15d16a; } .cfx-candles .dn line { stroke: #ff5d73; } .cfx-candles .dn rect { fill: #ff5d73; }
+.cfx-candles .up line { stroke: #9b6bff; } .cfx-candles .up rect { fill: #9b6bff; } .cfx-candles .dn line { stroke: #ff5d73; } .cfx-candles .dn rect { fill: #ff5d73; }
 .cfx-candles.near { opacity: .6; animation-duration: 48s; }
 .cfx-candles.far { top: 5%; bottom: auto; height: 34%; opacity: .16; animation-duration: 90s; }
-.cfx-last { left: 0; right: 0; bottom: 31%; height: 0; border-top: 1px dashed rgba(69, 228, 134, .5); }
-.cfx-last em { position: absolute; right: 46px; top: -9px; padding: 1px 6px; border-radius: 4px; font: 700 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #04110a; background: #15d16a; box-shadow: 0 0 10px rgba(21, 209, 106, .6); }
+.cfx-last { left: 0; right: 0; bottom: 31%; height: 0; border-top: 1px dashed rgba(180, 140, 255, .5); }
+.cfx-last em { position: absolute; right: 46px; top: -9px; padding: 1px 6px; border-radius: 4px; font: 700 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #04110a; background: #9b6bff; box-shadow: 0 0 10px rgba(155, 107, 255, .6); }
 /* 🌊 order flow — buys ride right on the top lanes, sells left below; bubble size = trade size */
-.fx-flow { background: linear-gradient(90deg, rgba(21, 209, 106, .1), transparent 35%, transparent 65%, rgba(255, 93, 115, .1)), linear-gradient(180deg, #05080a, #050709); }
+.fx-flow { background: linear-gradient(90deg, rgba(155, 107, 255, .1), transparent 35%, transparent 65%, rgba(255, 93, 115, .1)), linear-gradient(180deg, #05080a, #050709); }
 .cfx-mid { left: 0; right: 0; top: 50%; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .28), transparent); }
 .cfx-lane { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid rgba(255, 255, 255, .04); }
 .cfx-ride { position: absolute; left: 0; top: 0; width: 100%; height: 0; animation: cfxRideB var(--t) linear infinite; animation-delay: var(--dl); }
 .cfx-lane.s .cfx-ride { animation-name: cfxRideS; }
-.cfx-ride b { left: 0; top: calc(var(--s) / -2); width: var(--s); height: var(--s); border-radius: 50%; opacity: .62; background: radial-gradient(circle at 35% 35%, #b6ffd6, #15d16a 60%, #0a6b37); box-shadow: 0 0 10px rgba(21, 209, 106, .6); }
-.cfx-ride b::after { content: ''; position: absolute; right: 100%; top: 50%; width: 70px; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, rgba(21, 209, 106, .5)); }
+.cfx-ride b { left: 0; top: calc(var(--s) / -2); width: var(--s); height: var(--s); border-radius: 50%; opacity: .62; background: radial-gradient(circle at 35% 35%, #b6ffd6, #9b6bff 60%, #0a6b37); box-shadow: 0 0 10px rgba(155, 107, 255, .6); }
+.cfx-ride b::after { content: ''; position: absolute; right: 100%; top: 50%; width: 70px; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, rgba(155, 107, 255, .5)); }
 .cfx-lane.s .cfx-ride b { background: radial-gradient(circle at 35% 35%, #ffc9d2, #ff5d73 60%, #8a1d2c); box-shadow: 0 0 10px rgba(255, 93, 115, .55); }
 .cfx-lane.s .cfx-ride b::after { right: auto; left: 100%; background: linear-gradient(270deg, transparent, rgba(255, 93, 115, .5)); }
 .cfx-ride b.whale { box-shadow: 0 0 0 3px rgba(255, 255, 255, .14), 0 0 20px rgba(255, 255, 255, .35); }
 /* 📚 depth — the ladder above, the two cliffs below, the spread between */
 .fx-depth { background: radial-gradient(50% 60% at 50% 100%, rgba(255, 255, 255, .05), transparent 70%), linear-gradient(180deg, #05080a, #06090b); }
 .cfx-depth { position: absolute; left: -4%; width: 108%; bottom: 0; height: 46%; animation: cfxSway 14s ease-in-out infinite alternate; }
-.cfx-depth .bid { fill: rgba(21, 209, 106, .18); stroke: #15d16a; stroke-width: 1.5; vector-effect: non-scaling-stroke; } .cfx-depth .ask { fill: rgba(255, 93, 115, .15); stroke: #ff5d73; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.cfx-depth .bid { fill: rgba(155, 107, 255, .18); stroke: #9b6bff; stroke-width: 1.5; vector-effect: non-scaling-stroke; } .cfx-depth .ask { fill: rgba(255, 93, 115, .15); stroke: #ff5d73; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .cfx-depth .mid { stroke: rgba(255, 255, 255, .35); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .cfx-book { position: absolute; left: 6%; right: 6%; top: 9%; height: 38%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(8, 1fr); grid-auto-flow: column; gap: 4px 12px; }
 .cfx-book i { display: block; align-self: center; height: 70%; max-height: 10px; animation: cfxBook 4s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.7s); }
-.cfx-book i.b { justify-self: end; width: var(--w); border-radius: 3px 0 0 3px; transform-origin: right; background: linear-gradient(270deg, rgba(21, 209, 106, .5), rgba(21, 209, 106, .04)); }
+.cfx-book i.b { justify-self: end; width: var(--w); border-radius: 3px 0 0 3px; transform-origin: right; background: linear-gradient(270deg, rgba(155, 107, 255, .5), rgba(155, 107, 255, .04)); }
 .cfx-book i.a { justify-self: start; width: var(--w); border-radius: 0 3px 3px 0; transform-origin: left; background: linear-gradient(90deg, rgba(255, 93, 115, .45), rgba(255, 93, 115, .04)); }
 /* 📡 trench radar — rings, bearings, the sweep, coins lighting as the beam crosses */
-.fx-radar { background: radial-gradient(60% 60% at 50% 50%, rgba(21, 209, 106, .1), transparent 70%), #030806; }
+.fx-radar { background: radial-gradient(60% 60% at 50% 50%, rgba(155, 107, 255, .1), transparent 70%), #030806; }
 .cfx-radar { position: absolute; left: 50%; top: 50%; width: min(92%, 460px); aspect-ratio: 1; transform: translate(-50%, -50%); }
 .cfx-radar svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cfx-radar .rg { fill: none; stroke: rgba(21, 209, 106, .3); } .cfx-radar .x { stroke: rgba(21, 209, 106, .18); } .cfx-radar .tk { stroke: rgba(69, 228, 134, .45); }
+.cfx-radar .rg { fill: none; stroke: rgba(155, 107, 255, .3); } .cfx-radar .x { stroke: rgba(155, 107, 255, .18); } .cfx-radar .tk { stroke: rgba(180, 140, 255, .45); }
 .cfx-radar text { fill: rgba(157, 255, 200, .75); font: 700 9px 'JetBrains Mono', monospace; }
-.cfx-sweep { position: absolute; inset: 1.5%; border-radius: 50%; background: conic-gradient(from -80deg, transparent 0, rgba(69, 228, 134, .1) 15%, rgba(69, 228, 134, .5) 22.2%, transparent 22.3%); animation: cfxSpin 6s linear infinite; }
-.cfx-blip { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #b6ffd6; box-shadow: 0 0 12px #45e486; opacity: 0; animation: cfxPing 6s linear infinite; animation-delay: var(--dl); }
+.cfx-sweep { position: absolute; inset: 1.5%; border-radius: 50%; background: conic-gradient(from -80deg, transparent 0, rgba(180, 140, 255, .1) 15%, rgba(180, 140, 255, .5) 22.2%, transparent 22.3%); animation: cfxSpin 6s linear infinite; }
+.cfx-blip { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: #b6ffd6; box-shadow: 0 0 12px #b48cff; opacity: 0; animation: cfxPing 6s linear infinite; animation-delay: var(--dl); }
 /* 🌆 terminal — a striped sun setting behind a candle skyline, the neon floor rushing in */
 .fx-grid { background: linear-gradient(180deg, #07040f 0%, #170a26 40%, #0d1a16 60%, #030605 100%); }
 .fx-grid .chat-fx-b { inset: auto 0 38% 0; height: 18%; background: radial-gradient(50% 100% at 50% 100%, rgba(255, 110, 200, .28), transparent 70%); }
 .cfx-sun { position: absolute; left: 50%; bottom: 40%; width: min(56%, 300px); aspect-ratio: 2; transform: translateX(-50%); }
 .cfx-sun circle { fill: #ffb547; } .cfx-sun rect { fill: #170a26; }
-.cfx-skyline { position: absolute; left: 0; width: 100%; bottom: 40%; height: 12%; } .cfx-skyline rect { fill: #06120d; stroke: rgba(21, 209, 106, .4); stroke-width: .6; vector-effect: non-scaling-stroke; }
+.cfx-skyline { position: absolute; left: 0; width: 100%; bottom: 40%; height: 12%; } .cfx-skyline rect { fill: #06120d; stroke: rgba(155, 107, 255, .4); stroke-width: .6; vector-effect: non-scaling-stroke; }
 .cfx-floor { position: absolute; left: -50%; right: -50%; bottom: 0; height: 40%; perspective: 260px; overflow: hidden; }
 .cfx-floor::after { content: ''; position: absolute; inset: 0; background: linear-gradient(#0d1a16, transparent 45%); }
 .cfx-floor i { position: absolute; left: 0; right: 0; top: -34px; height: 220%; transform-origin: 50% 0; transform: rotateX(62deg);
-  background: linear-gradient(rgba(21, 209, 106, .6) 1px, transparent 1px) 0 0 / 100% 34px, linear-gradient(90deg, rgba(21, 209, 106, .38) 1px, transparent 1px) 0 0 / 46px 100%; animation: cfxFloor 2.4s linear infinite; }
+  background: linear-gradient(rgba(155, 107, 255, .6) 1px, transparent 1px) 0 0 / 100% 34px, linear-gradient(90deg, rgba(155, 107, 255, .38) 1px, transparent 1px) 0 0 / 46px 100%; animation: cfxFloor 2.4s linear infinite; }
 /* 📟 ticker tape — three LED boards, dot-matrix, rolling */
-.fx-tape { background: radial-gradient(70% 50% at 50% 50%, rgba(21, 209, 106, .06), transparent 70%), linear-gradient(180deg, #050607, #07090a); }
+.fx-tape { background: radial-gradient(70% 50% at 50% 50%, rgba(155, 107, 255, .06), transparent 70%), linear-gradient(180deg, #050607, #07090a); }
 .cfx-col { position: absolute; left: -2%; right: -2%; height: 30px; margin-top: -15px; overflow: hidden; background: #020303; border-top: 1px solid rgba(255, 255, 255, .08); border-bottom: 1px solid rgba(0, 0, 0, .6);
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, .9), 0 0 0 1px rgba(21, 209, 106, .14); }
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, .9), 0 0 0 1px rgba(155, 107, 255, .14); }
 .cfx-col::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, transparent 0 1px, rgba(0, 0, 0, .32) 1.4px) 0 0 / 3px 3px; }
 .cfx-roll { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 28px; width: max-content; white-space: nowrap; animation: cfxRoll calc(28s + var(--i) * 7s) linear infinite; }
 .cfx-col.r .cfx-roll { animation-direction: reverse; }
@@ -113,14 +113,14 @@
 .cfx-lava.a { animation-duration: 18s; opacity: .82; } .cfx-lava.a path { fill: #c2410c; } .cfx-lava.a .crust { fill: none; stroke: #ffcf6b; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: .85; }
 .cfx-ember { background: #ffb347; box-shadow: 0 0 8px #ff6a1a; }
 /* 🌀 reserve vortex — the reserve as an accretion disk: orbits turning, three coins riding, a burning core */
-.fx-vortex { background: radial-gradient(40% 30% at 50% 52%, rgba(94, 200, 255, .18), transparent 70%), radial-gradient(80% 60% at 50% 50%, rgba(21, 209, 106, .1), transparent 70%), #03060a; }
+.fx-vortex { background: radial-gradient(40% 30% at 50% 52%, rgba(94, 200, 255, .18), transparent 70%), radial-gradient(80% 60% at 50% 50%, rgba(155, 107, 255, .1), transparent 70%), #03060a; }
 .cfx-disk { position: absolute; left: 50%; top: 52%; width: min(130%, 720px); aspect-ratio: 1; container-type: size; transform: translate(-50%, -50%) rotate(-14deg) scaleY(.36); }
 .cfx-ring { position: absolute; left: 50%; top: 50%; width: var(--r); height: var(--r); margin: calc(var(--r) / -2) 0 0 calc(var(--r) / -2); border-radius: 50%; border: 2px dotted rgba(94, 200, 255, .55);
   animation: cfxSpin calc(20s + var(--i) * 9s) linear infinite; }
-.cfx-ring:nth-of-type(odd) { border-style: dashed; border-color: rgba(69, 228, 134, .5); animation-direction: reverse; }
+.cfx-ring:nth-of-type(odd) { border-style: dashed; border-color: rgba(180, 140, 255, .5); animation-direction: reverse; }
 .cfx-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: cfxSpin calc(14s + var(--i) * 6s) linear infinite; }
 .cfx-orbit img { position: absolute; left: calc(var(--r) * 1cqw - 11px); top: -30px; width: 22px; height: 61px; object-fit: fill; animation: cfxSpin calc(14s + var(--i) * 6s) linear infinite reverse; }
-.cfx-core { position: absolute; left: 50%; top: 52%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; background: radial-gradient(circle, #e9fff4 0 6%, rgba(94, 200, 255, .6) 14%, rgba(21, 209, 106, .25) 34%, transparent 66%); animation: cfxBreathe 3.4s ease-in-out infinite; }
+.cfx-core { position: absolute; left: 50%; top: 52%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; background: radial-gradient(circle, #e9fff4 0 6%, rgba(94, 200, 255, .6) 14%, rgba(155, 107, 255, .25) 34%, transparent 66%); animation: cfxBreathe 3.4s ease-in-out infinite; }
 /* 🏦 gold vault — the door (bolts, wheel, dial), bars stacked in front, glints and gold dust */
 .fx-gold { background: radial-gradient(60% 50% at 72% 40%, rgba(245, 196, 81, .15), transparent 70%), linear-gradient(180deg, #0a0805, #070604); }
 .cfx-vault { position: absolute; right: 4%; top: 46%; width: min(58%, 340px); aspect-ratio: 1; transform: translateY(-50%); }
@@ -156,19 +156,19 @@
 /* 🎨 the picker: every theme is a live mini room, grouped by $FEE tier, locked ones show how close you are */
 .ctp { display: grid; gap: 8px; }
 .ctp-tier { display: grid; gap: 5px; } .ctp-tier > header { display: flex; align-items: center; gap: 8px; font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--m-dim, #8a93a6); }
-.ctp-tier > header u { flex: 1; max-width: 90px; height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .ctp-tier > header u s { display: block; height: 100%; transform-origin: left; text-decoration: none; background: linear-gradient(90deg, #15d16a, #ffd36b); }
+.ctp-tier > header u { flex: 1; max-width: 90px; height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .ctp-tier > header u s { display: block; height: 100%; transform-origin: left; text-decoration: none; background: linear-gradient(90deg, #9b6bff, #ffd36b); }
 .ctp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
 .ctp-tile { position: relative; display: grid; align-content: end; min-height: 58px; padding: 5px 7px; border-radius: 10px; overflow: hidden; isolation: isolate; cursor: pointer; text-align: left;
   border: 1px solid rgba(255, 255, 255, .1); background: #050907; color: #e8fff1; transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; animation: ctpIn .3s ease both; animation-delay: calc(var(--i) * 35ms); }
-.ctp-tile:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(69, 228, 134, .6); } .ctp-tile:active:not(:disabled) { transform: scale(.97); } .ctp-tile:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
-.ctp-tile.active { border-color: #45e486; box-shadow: 0 0 0 1px #45e486, 0 8px 18px -10px #45e486; }
-.ctp-tile.active::after { content: '✓'; position: absolute; top: 4px; right: 5px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; font: 900 9px sans-serif; color: #04110a; background: #45e486; }
+.ctp-tile:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(180, 140, 255, .6); } .ctp-tile:active:not(:disabled) { transform: scale(.97); } .ctp-tile:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+.ctp-tile.active { border-color: #b48cff; box-shadow: 0 0 0 1px #b48cff, 0 8px 18px -10px #b48cff; }
+.ctp-tile.active::after { content: '✓'; position: absolute; top: 4px; right: 5px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; font: 900 9px sans-serif; color: #04110a; background: #b48cff; }
 .ctp-tile b { position: relative; font: 700 10.5px 'JetBrains Mono', monospace; text-shadow: 0 1px 4px #000; } .ctp-tile:disabled { cursor: not-allowed; } .ctp-tile:disabled > .chat-fx { opacity: .35; filter: grayscale(.8); }
 .ctp-lock { position: absolute; top: 4px; right: 6px; font-size: 10px; }
 @keyframes ctpIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-body.theme-day .fx-neural { background: radial-gradient(120% 80% at 20% 0%, #e7defe 0%, transparent 60%), linear-gradient(170deg, #f7f4ff, #eef6f1); } body.theme-day .cfx-neural .syn { stroke: #6a4fd6; opacity: .3; }
+body.theme-day .fx-neural { background: radial-gradient(120% 80% at 20% 0%, #e7defe 0%, transparent 60%), linear-gradient(170deg, #f7f4ff, #f1edff); } body.theme-day .cfx-neural .syn { stroke: #6a4fd6; opacity: .3; }
 body.fx-lite .chat-fx *, body.fx-lite .chat-fx > i, body.fx-lite .ctp-tile { animation: none !important; }
 body.fx-lite .cfx-rise, body.fx-lite .cfx-blip, body.fx-lite .cfx-sweep { display: none; }
 @media (prefers-reduced-motion: reduce) { .chat-fx *, .chat-fx > i, .ctp-tile { animation: none !important; } .cfx-rise, .cfx-blip, .cfx-sweep { display: none; } .ctp-tile { transition: none; } }
-body.theme-day .chat-fx { opacity: .5; } body.theme-day .ctp-tile { background: #0b1410; }
+body.theme-day .chat-fx { opacity: .5; } body.theme-day .ctp-tile { background: #120d26; }
 @media (max-width: 640px) { .ctp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cfx-moonart { width: min(34%, 110px); } .cfx-roll em { font-size: 12px; } }

@@ -26,7 +26,7 @@ export function cellLook(cell, bl) {
   if (kind === 'blk') { const b = (bl?.buildings || []).find(x => x.key === id); return { icon: b?.state === 'built' ? '🏙' : '🏗', name: b?.sym || b?.name || id, tone: b?.state === 'built' ? 'built' : 'build', color: '#d4af37' }; }
   if (kind === 'town' && TOWN[id]) return { icon: '🏘', name: TOWN[id].name, tone: 'town', color: TOWN[id].color };
   if (kind === 'stand' && STAND[id]) return { icon: STAND[id].icon, name: STAND[id].name, tone: 'stand', color: STAND[id].color };
-  if (kind === 'new') { const m = (bl?.catalog || []).find(x => x.key === id); return { icon: '🏗', name: m?.name || id, tone: 'new', color: '#45e486' }; }
+  if (kind === 'new') { const m = (bl?.catalog || []).find(x => x.key === id); return { icon: '🏗', name: m?.name || id, tone: 'new', color: '#b48cff' }; }
   if (cell === 'pools') return { icon: '💧', name: MY_POOLS.name, tone: 'pools', color: MY_POOLS.color };
   if (cell === 'open') return { icon: '📍', name: 'OPEN LOT', tone: 'open', color: '#d4af37' };
   return { icon: '🌿', name: 'LAND', tone: 'gap', color: '#4f7a5a' };

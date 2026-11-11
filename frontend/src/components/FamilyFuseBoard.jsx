@@ -37,7 +37,7 @@ function Fight({ f, me, cards, act, busy }) {
   const pool = f.crowd.pool; const tot = Math.max(1, f.crowd.total);
   return <article className={`ffb-fight s-${f.status} ${f.winner ? `w-${f.winner}` : ''}`} data-testid={`ff-${f.id}`}>
     <header className="ffb-score">
-      <span className="ffb-side a" style={{ '--fc': f.a.color || '#45e486' }}><i>{f.a.tag}</i>{f.a.bracket ? <b className="ffb-br" data-tip={`Fuse rating ${n(f.a.rating)} · ${f.a.bracket} bracket`}>{f.a.bracket} · {n(f.a.rating)}</b> : null}<small>{f.a.card?.name} · {f.a.card?.coins} coins</small><em className={f.a.pct >= 0 ? 'm-pos' : 'm-neg'} key={f.a.pct}>{pc(f.a.pct)}</em></span>
+      <span className="ffb-side a" style={{ '--fc': f.a.color || '#b48cff' }}><i>{f.a.tag}</i>{f.a.bracket ? <b className="ffb-br" data-tip={`Fuse rating ${n(f.a.rating)} · ${f.a.bracket} bracket`}>{f.a.bracket} · {n(f.a.rating)}</b> : null}<small>{f.a.card?.name} · {f.a.card?.coins} coins</small><em className={f.a.pct >= 0 ? 'm-pos' : 'm-neg'} key={f.a.pct}>{pc(f.a.pct)}</em></span>
       <span className="ffb-mid"><b key={`${d?.a}-${d?.b}`}>{d ? `${d.a} ⚡ ${d.b}` : 'VS'}</b>
         <small>{f.status === 'live' ? <Ticking left={f.left} /> : f.status === 'open' ? 'waiting for an answer' : f.winner === 'draw' ? 'DRAW' : f.status === 'done' ? `[${f[f.winner]?.tag}] WINS` : 'nobody answered'}</small>
         <em>{f.stake === 'mp' ? `${n(f.mp)} MP each` : 'paper'} · {f.mins}m</em>

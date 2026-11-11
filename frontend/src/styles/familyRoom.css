@@ -21,7 +21,7 @@
 .frm-vit { grid-area: vit; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
 .frm-vit span { display: grid; gap: 3px; padding: 9px 10px; border-radius: 10px; border: 1px solid #d4af3726; background: #00000066; animation: frmIn .4s ease both; animation-delay: calc(var(--i) * 50ms); }
 .frm-vit b { font: 800 16px 'JetBrains Mono', monospace; color: #f5e2b0; animation: frmPop .4s ease; }
-.frm-vit .t-up b { color: #45e486; } .frm-vit .t-dn b { color: #ff8fa3; } .frm-vit .t-gold b { color: #ffd36b; }
+.frm-vit .t-up b { color: #b48cff; } .frm-vit .t-dn b { color: #ff8fa3; } .frm-vit .t-gold b { color: #ffd36b; }
 .frm-leave { position: absolute; top: 12px; right: 12px; font-size: 11px; opacity: .7; } .frm-leave:hover { opacity: 1; }
 .frm-table, .frm-wire { display: grid; gap: 8px; align-content: start; padding: 14px; border-radius: 16px; border: 1px solid #d4af3740; background: #0b0806d9; min-width: 0; }
 .frm-table > header, .frm-wire > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
@@ -57,10 +57,10 @@
 .frm-opts button:hover:not(:disabled) { transform: translateY(-1px); border-color: #d4af37; } .frm-opts button.active { background: #d4af37; color: #160f05; border-color: #d4af37; }
 .frm-opts button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
 .frm-wire li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: 'r n e' 'r s s'; gap: 0 8px; align-items: center; padding: 7px 9px; border-radius: 10px;
-  border-left: 2px solid #45e486; background: #00000055; animation: frmIn .35s ease both; animation-delay: calc(var(--i) * 40ms); }
+  border-left: 2px solid #b48cff; background: #00000055; animation: frmIn .35s ease both; animation-delay: calc(var(--i) * 40ms); }
 .frm-wire li.is-dn { border-left-color: #ff4d6d; }
 .frm-wr { grid-area: r; font-size: 16px; } .frm-wn { grid-area: n; font-size: 12px; color: #c9b38a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .frm-wn b { color: #f5e2b0; }
-.frm-wire em { grid-area: e; font: 800 13px 'JetBrains Mono', monospace; font-style: normal; } .frm-wire .is-up em { color: #45e486; } .frm-wire .is-dn em { color: #ff8fa3; }
+.frm-wire em { grid-area: e; font: 800 13px 'JetBrains Mono', monospace; font-style: normal; } .frm-wire .is-up em { color: #b48cff; } .frm-wire .is-dn em { color: #ff8fa3; }
 .frm-wire li small { grid-area: s; }
 .frm-empty { margin: 0; padding: 16px; border: 1px dashed #d4af3740; border-radius: 12px; text-align: center; font-size: 12px; color: #a89070; }
 
@@ -77,8 +77,8 @@
 .frm-fgrid span { display: grid; gap: 2px; padding: 8px; border-radius: 10px; border: 1px solid #d4af3722; background: #00000066; animation: frmIn .3s ease both; animation-delay: calc(var(--i) * 30ms); }
 .frm-fgrid em { font: 700 8px 'JetBrains Mono', monospace; letter-spacing: 1.2px; font-style: normal; color: #b89b5e; } .frm-fgrid b { font: 800 13px 'JetBrains Mono', monospace; color: #f5e2b0; }
 .frm-ftrades { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.frm-ftrades li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; padding: 6px 9px; border-radius: 9px; background: #00000055; border-left: 2px solid #45e486; font-size: 12px; color: #e9d3a0; }
-.frm-ftrades li.is-dn { border-left-color: #ff4d6d; } .frm-ftrades em { font: 800 12px 'JetBrains Mono', monospace; font-style: normal; } .frm-ftrades .is-up em { color: #45e486; } .frm-ftrades .is-dn em { color: #ff8fa3; }
+.frm-ftrades li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; padding: 6px 9px; border-radius: 9px; background: #00000055; border-left: 2px solid #b48cff; font-size: 12px; color: #e9d3a0; }
+.frm-ftrades li.is-dn { border-left-color: #ff4d6d; } .frm-ftrades em { font: 800 12px 'JetBrains Mono', monospace; font-style: normal; } .frm-ftrades .is-up em { color: #b48cff; } .frm-ftrades .is-dn em { color: #ff8fa3; }
 /* 🃏 card studio */
 .frm-studio { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 16px; align-items: start; }
 .frm-studio-prev { display: grid; place-items: center; padding: 14px; border-radius: 14px; background: radial-gradient(circle at 50% 30%, #2a1a0a, #070504); }

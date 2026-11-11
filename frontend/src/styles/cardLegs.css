@@ -5,11 +5,11 @@
 .fcl-st { font-style: normal; margin-left: 4px; font-size: 10px; }
 .fcl-flow { position: absolute; left: 0; right: 0; bottom: 0; height: 12px; display: block; pointer-events: none; }
 .fcl-flow > i { position: absolute; bottom: 0; height: 3px; width: calc(100% - 44px); border-radius: 2px; transition: transform .6s ease; }
-.fcl-b { left: 0; transform-origin: left; background: linear-gradient(90deg, #15d16a, #45e486); }
+.fcl-b { left: 0; transform-origin: left; background: linear-gradient(90deg, #9b6bff, #b48cff); }
 .fcl-s { left: 0; transform-origin: right; background: linear-gradient(90deg, #ff6b86, #ff8fa3); }
 .fcl-none { left: 0; background: rgba(255, 255, 255, .1); }
 .fcl-lean { position: absolute; right: 0; bottom: 0; width: 40px; height: 12px; overflow: visible; }
-.fcl-lean line { stroke-width: 1.6; stroke-dasharray: 3 2; } .fcl-lean.is-up line, .fcl-lean.is-up circle { stroke: #45e486; fill: #45e486; }
+.fcl-lean line { stroke-width: 1.6; stroke-dasharray: 3 2; } .fcl-lean.is-up line, .fcl-lean.is-up circle { stroke: #b48cff; fill: #b48cff; }
 .fcl-lean.is-down line, .fcl-lean.is-down circle { stroke: #ff8fa3; fill: #ff8fa3; } .fcl-lean.is-flat line, .fcl-lean.is-flat circle { stroke: #9ab; fill: #9ab; }
 .fcl-flip { display: inline-block; animation: fclFlip .5s ease-out; }
 .fcd-leg.is-riding::before { opacity: 1; box-shadow: inset 2px 0 0 #9fe3ff; background: linear-gradient(90deg, rgba(159, 227, 255, .12), transparent 60%); }

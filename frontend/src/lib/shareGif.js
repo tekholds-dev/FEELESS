@@ -8,7 +8,7 @@ const ease = t => 1 - (1 - t) ** 3;
 
 // Gains glow royal green; anything negative (drops, losses, flagged creators) gets its own crimson world.
 const PALETTES = {
-  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#15d16a', brand: '#15d16a', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
+  up: { base: '#021a10', pools: ['18,192,122', '11,122,82'], fade: 'rgba(2,26,16,0)', flare: '184,255,228', spark: '157,255,217', kicker: '#9dffd9', big: '#9b6bff', brand: '#9b6bff', frame: 'rgba(18,192,122,.55)', panel: 'rgba(3,20,12,.55)', text: '#d9efe4', foot: '#8fbfa8' },
   down: { base: '#1a0208', pools: ['255,64,100', '140,20,50'], fade: 'rgba(26,2,8,0)', flare: '255,190,205', spark: '255,150,170', kicker: '#ffb3c3', big: '#ff6b8b', brand: '#ff6b8b', frame: 'rgba(255,90,122,.6)', panel: 'rgba(24,4,10,.6)', text: '#f3dbe1', foot: '#c9929f' },
 };
 
@@ -74,7 +74,7 @@ function designFx(g, theme, P, t, seed) {
 // The Fuse card as it looks in the app: portrait, tier gradient + edge, FUSE mark, tier name, coin logos, one line per coin.
 function drawFuseCard(g, fz, imgs, t) {
   const T = Math.PI * 2; const cw = 196, ch = 300; const cx = 56 + cw / 2, cy = 52 + ch / 2;
-  const a1 = fz.accent || '#15d16a', a2 = fz.accent2 || '#0b7a3e';
+  const a1 = fz.accent || '#9b6bff', a2 = fz.accent2 || '#5a33bd';
   g.save(); g.translate(cx, cy + 4 * Math.sin(t * T)); g.rotate(0.035 * Math.sin(t * T)); g.translate(-cw / 2, -ch / 2);
   g.shadowColor = a1; g.shadowBlur = 26 + 10 * Math.sin(t * T * 2);
   const bg = g.createLinearGradient(0, 0, cw, ch); bg.addColorStop(0, '#0d0d0d'); bg.addColorStop(1, '#050706');
@@ -92,9 +92,9 @@ function drawFuseCard(g, fz, imgs, t) {
     g.restore(); g.strokeStyle = c.locked ? '#f5c451' : a1; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, T); g.stroke(); });
   coins.forEach((c, i) => { const y = 134 + i * 26; const up = (c.pct || 0) >= 0;
     g.fillStyle = '#fff'; g.font = '700 13px "Sora", sans-serif'; g.fillText(`${c.locked ? '🔒 ' : ''}$${String(c.symbol || '').slice(0, 9)}`, 14, y);
-    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left';
+    g.fillStyle = up ? '#b48cff' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left';
     const mx = Math.max(5, ...coins.map(k => Math.abs(k.pct || 0))); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(14, y + 6, cw - 28, 3);   /* how big each coin's move is, at a glance */
-    g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.fillRect(14, y + 6, (cw - 28) * Math.min(1, Math.abs(c.pct || 0) / mx) * ease(Math.min(1, t * 3 + 0.35)), 3); });
+    g.fillStyle = up ? '#b48cff' : '#ff8fa3'; g.fillRect(14, y + 6, (cw - 28) * Math.min(1, Math.abs(c.pct || 0) / mx) * ease(Math.min(1, t * 3 + 0.35)), 3); });
   if (fz.foot) { g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.roundRect(10, ch - 34, cw - 20, 24, 8); g.fill(); g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 11px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.fillText(String(fz.foot).slice(0, 26), cw / 2, ch - 18); g.textAlign = 'left'; }
   g.restore();
 }
@@ -103,7 +103,7 @@ function drawFuseCard(g, fz, imgs, t) {
 // SENT (green, a win) or COOKED (pink, a loss) that disintegrates into drifting dust, the result counting up, chips (coin · side · move · held),
 // the ride from entry to exit, a bonus box and the FEELESS wordmark. card.trade = {sym, side, pct, held, entry, exit, spark, bonus, bonusUnit, rank}.
 function hazard(g, card, logo, coin, t, seed) {
-  const up = card.tone !== 'down'; const A = up ? '#15d16a' : '#ff4d6d'; const A2 = up ? '#45e486' : '#ff8fa3'; const T = card.trade || {};
+  const up = card.tone !== 'down'; const A = up ? '#9b6bff' : '#ff4d6d'; const A2 = up ? '#b48cff' : '#ff8fa3'; const T = card.trade || {};
   g.fillStyle = '#060606'; g.fillRect(0, 0, W, H);
   const band = 18; g.save(); g.beginPath(); g.rect(0, 0, W, H); g.rect(band, band, W - band * 2, H - band * 2); g.clip('evenodd');
   g.fillStyle = '#ffd400'; g.fillRect(0, 0, W, H); g.fillStyle = '#0a0a0a'; const off = (t * 48) % 48;
@@ -177,7 +177,7 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
   // 🧮 the card's vitals in four tiles (fuse shares): put in · in the card now · profit pulled · swaps
   vit.forEach((v, i) => { const x = 56 + ox + i * 93, y = 292; g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.roundRect(x, y, 87, 40, 9); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 9px "Sora", sans-serif'; g.fillText(String(v.label).toUpperCase().slice(0, 14), x + 8, y + 14);
-    g.fillStyle = v.tone === 'bad' ? '#ff8fa3' : v.tone === 'ok' ? '#45e486' : '#ffffff'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText(String(v.value).slice(0, 9), x + 8, y + 32); });
+    g.fillStyle = v.tone === 'bad' ? '#ff8fa3' : v.tone === 'ok' ? '#b48cff' : '#ffffff'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText(String(v.value).slice(0, 9), x + 8, y + 32); });
   // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
   // 📈 a ride's % path since entry (ride shares): drawn left → right as the loop plays, the entry line, the peak, the agents' would-sells as ✂ ticks
   if (Array.isArray(card.spark) && card.spark.length > 1) {
@@ -195,7 +195,7 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
     g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.roundRect(x, y, 142, 42, 10); g.fill();
     g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Sora", sans-serif'; g.fillText(String(s.label).toUpperCase(), x + 10, y + 15);
-    g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#15d16a' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
+    g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#9b6bff' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
     g.font = '700 16px "Sora", sans-serif'; g.fillText(String(s.value).slice(0, 16), x + 10, y + 34);
   });
   // FeeCat effects: a paw-print trail walks across the card.

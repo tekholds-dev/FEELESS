@@ -151,8 +151,8 @@ export function focusMint(d, pick, tapped = null, prev = null) {
 
 // ── the chart ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const MARK = {   // a tape line → a chart marker (only real events; a line with no time is never drawn)
-  trigger: r => (r.action === 'ENTER' ? { shape: 'circle', color: '#45e486', position: 'belowBar', text: '⏱ ENTER' } : null),
-  kernel: r => (r.action === 'READY' ? { shape: 'circle', color: '#15d16a', position: 'belowBar', text: 'READY' } : null),
+  trigger: r => (r.action === 'ENTER' ? { shape: 'circle', color: '#b48cff', position: 'belowBar', text: '⏱ ENTER' } : null),
+  kernel: r => (r.action === 'READY' ? { shape: 'circle', color: '#9b6bff', position: 'belowBar', text: 'READY' } : null),
   devil: r => (r.action === 'HARD VETO' ? { shape: 'square', color: '#ff8fa3', position: 'aboveBar', text: '⚖ VETO' } : null),
   reaper: r => (/EXIT|TAKE|PROTECT/.test(r.action) ? { shape: 'arrowDown', color: /EXIT/.test(r.action) ? '#ff8fa3' : '#9fe3ff', position: 'aboveBar', text: `☠ ${r.action}` } : null),
   warden: r => (r.action === 'VETO' ? { shape: 'square', color: '#f5c542', position: 'aboveBar', text: '🛡 VETO' } : null),
@@ -161,7 +161,7 @@ const MARK = {   // a tape line → a chart marker (only real events; a line wit
 export function chartMarkers(rows, fills) {
   const out = [];
   (fills || []).forEach(f => { const t = num(f.at); const px = num(f.px); if (!t) return;
-    const buy = f.side === 'buy'; out.push({ time: Math.floor(t), position: px ? (buy ? 'atPriceBottom' : 'atPriceTop') : (buy ? 'belowBar' : 'aboveBar'), price: px || undefined, shape: buy ? 'arrowUp' : 'arrowDown', color: buy ? '#15d16a' : '#fa708c', text: `${buy ? 'BUY' : 'SELL'}${f.usd != null ? ` $${Number(f.usd).toFixed(2)}` : ''}` }); });
+    const buy = f.side === 'buy'; out.push({ time: Math.floor(t), position: px ? (buy ? 'atPriceBottom' : 'atPriceTop') : (buy ? 'belowBar' : 'aboveBar'), price: px || undefined, shape: buy ? 'arrowUp' : 'arrowDown', color: buy ? '#9b6bff' : '#fa708c', text: `${buy ? 'BUY' : 'SELL'}${f.usd != null ? ` $${Number(f.usd).toFixed(2)}` : ''}` }); });
   (rows || []).forEach(r => { const fn = MARK[r.agent]; const m = fn && fn(r); const t = num(r.at); if (m && t) out.push({ time: Math.floor(t), ...m }); });
   return out.sort((a, b) => a.time - b.time);
 }
@@ -181,11 +181,11 @@ export function chartModel(d, mint, livePx, hint = null) {
   const mc = price > 0 && supply > 0 ? price * supply : null;
   const e = num(p?.entry); const lines = [];
   if (e > 0) {
-    lines.push({ px: e, title: 'entry', color: '#15d16a' });
+    lines.push({ px: e, title: 'entry', color: '#9b6bff' });
     if (num(p.take)) lines.push({ px: e * (1 + p.take / 100), title: `take +${p.take}%`, color: '#9fe3ff' });
     if (num(p.stop)) lines.push({ px: e * (1 + p.stop / 100), title: `stop ${p.stop}%`, color: '#ff8fa3' });
     if (num(p.trailAt)) lines.push({ px: e * (1 + p.trailAt / 100), title: `trail +${p.trailAt}%`, color: '#e8c46a' });   // 🏔 the live trailing exit Reaper is holding to
-    if (num(p.peak) > 0) lines.push({ px: e * (1 + p.peak / 100), title: `peak +${(+p.peak).toFixed(1)}%`, color: '#45e486' });
+    if (num(p.peak) > 0) lines.push({ px: e * (1 + p.peak / 100), title: `peak +${(+p.peak).toFixed(1)}%`, color: '#b48cff' });
     if (num(p.thesis?.invalidation) && !['yours', 'model'].includes(p.takeSource)) lines.push({ px: p.thesis.invalidation, title: 'invalid', color: '#ff8fa3' });   // Reaper never sells your / the models' trade on the thesis — don't draw it there
   }
   const own = num(p?.supply ?? c?.supply ?? rv?.supply) > 0;
@@ -284,10 +284,10 @@ export function execWords(m) {
 
 // ── chart markers: ONE letter per real event (T Trigger · D Devil · W Warden · B buy filled · R Reaper · X exit) ──────────────────
 const LETTER = {
-  trigger: r => (/ENTER/.test(r.action) ? ['T', '#45e486', 'belowBar', 'circle'] : null),
+  trigger: r => (/ENTER/.test(r.action) ? ['T', '#b48cff', 'belowBar', 'circle'] : null),
   devil: r => (/HARD VETO/.test(r.action) ? ['D', '#ff5577', 'aboveBar', 'square'] : /WARNING/.test(r.action) ? ['D', '#f5c451', 'aboveBar', 'square'] : null),
   warden: r => (/^SIZE|VETO/.test(r.action) ? ['W', /VETO/.test(r.action) ? '#ff8fa3' : '#6c9bff', 'aboveBar', 'square'] : null),
-  courier: r => (/FILLED|CONFIRMED/.test(r.action) ? (/SELL/.test(r.action) ? ['X', '#fa708c', 'aboveBar', 'arrowDown'] : /BUY/.test(r.action) ? ['B', '#15d16a', 'belowBar', 'arrowUp'] : null) : null),
+  courier: r => (/FILLED|CONFIRMED/.test(r.action) ? (/SELL/.test(r.action) ? ['X', '#fa708c', 'aboveBar', 'arrowDown'] : /BUY/.test(r.action) ? ['B', '#9b6bff', 'belowBar', 'arrowUp'] : null) : null),
   reaper: r => (/EXIT/.test(r.action) ? ['X', '#ff5577', 'aboveBar', 'arrowDown'] : /PROTECT|TAKE|HOLD/.test(r.action) ? ['R', '#9fe3ff', 'aboveBar', 'circle'] : null),
 };
 // → [{time, position, shape, color, text (the letter), price?, id, agent, action, why, mc, at}] — a line with no time is never drawn
@@ -299,7 +299,7 @@ export function letterMarkers(rows, fills) {
       id: r.id, agent: r.agent, action: r.action, why: r.why, mc: num(r.mc), at: t }); });
   if (!hasCourier) (fills || []).forEach(f => { const t = num(f.at); const px = num(f.px); if (!t) return; const buy = f.side === 'buy';
     out.push({ time: Math.floor(t), position: px ? (buy ? 'atPriceBottom' : 'atPriceTop') : (buy ? 'belowBar' : 'aboveBar'), ...(px ? { price: px } : {}), shape: buy ? 'arrowUp' : 'arrowDown',
-      color: buy ? '#15d16a' : '#fa708c', text: buy ? 'B' : 'X', id: `f${t}`, agent: 'courier', action: buy ? 'FILLED BUY' : 'FILLED SELL', why: f.usd != null ? `$${Number(f.usd).toFixed(2)} on the ledger` : 'on the ledger', mc: null, at: t }); });
+      color: buy ? '#9b6bff' : '#fa708c', text: buy ? 'B' : 'X', id: `f${t}`, agent: 'courier', action: buy ? 'FILLED BUY' : 'FILLED SELL', why: f.usd != null ? `$${Number(f.usd).toFixed(2)} on the ledger` : 'on the ledger', mc: null, at: t }); });
   return out.sort((a, b) => a.time - b.time);
 }
 

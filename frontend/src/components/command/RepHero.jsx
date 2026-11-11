@@ -14,7 +14,7 @@ export const REP_SECTIONS = [
 // 📡 THE TRUST RADAR (2026-10-22 redo — owner: "fake 3D, slang with no real vitals"): every dot is a REAL creator from the board — trusted ones
 // sit near the core, risky / flagged ones out at the rim (distance = 100 − score), colour = its badge, hover = the wallet + its score + why.
 // The beam sweeps; the numbers beside it are the board's own (trusted share, rugs caught, serial dumpers) and glide when they change.
-export const BADGE_TONE = { trusted: '#45e486', veteran: '#7ff0cf', building: '#6fd3ff', unproven: '#b9c4bf', risky: '#ffb347', flagged: '#ff4d6d' };
+export const BADGE_TONE = { trusted: '#b48cff', veteran: '#7ff0cf', building: '#6fd3ff', unproven: '#b9c4bf', risky: '#ffb347', flagged: '#ff4d6d' };
 const hash = s => { let h = 0; for (const c of String(s || '')) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
 // pure: where a creator sits on the radar (x, y in a 240 box) and its tone
 export function radarPoint(row) {
@@ -31,7 +31,7 @@ export function repVitals(rows) {
 // pure: what a creator's launches became, as bar parts
 export function recordParts(row) {
   const n = Math.max(1, Number(row.tokenCount) || 0);
-  const parts = [['sustained', row.sustainedCount, '#45e486'], ['dumped', row.dumpedCount, '#ffb347'], ['dead', row.deadCount, '#8a93a6'], ['rugged', row.ruggedCount, '#ff4d6d']]
+  const parts = [['sustained', row.sustainedCount, '#b48cff'], ['dumped', row.dumpedCount, '#ffb347'], ['dead', row.deadCount, '#8a93a6'], ['rugged', row.ruggedCount, '#ff4d6d']]
     .map(([k, v, c]) => ({ k, v: Number(v) || 0, c, w: (Number(v) || 0) / n })).filter(p => p.v > 0);
   return { parts, other: Math.max(0, 1 - parts.reduce((a, p) => a + p.w, 0)), n };
 }
@@ -56,7 +56,7 @@ export function RepHero({ creators, tokens, chain, rows = [] }) {
       </div>
       <div className="rph-art">
         <svg className="rph-radar" viewBox="0 0 240 240" role="img" aria-label={`${pts.length} creators on the trust radar`}>
-          <defs><radialGradient id="rphCore" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#45e486" stopOpacity=".35" /><stop offset="1" stopColor="#45e486" stopOpacity="0" /></radialGradient>
+          <defs><radialGradient id="rphCore" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#b48cff" stopOpacity=".35" /><stop offset="1" stopColor="#b48cff" stopOpacity="0" /></radialGradient>
             <linearGradient id="rphBeam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#7ff0cf" stopOpacity="0" /><stop offset="1" stopColor="#7ff0cf" stopOpacity=".32" /></linearGradient></defs>
           <circle cx="120" cy="120" r="112" className="rr o" /><circle cx="120" cy="120" r="82" className="rr" /><circle cx="120" cy="120" r="52" className="rr" /><circle cx="120" cy="120" r="26" className="rr in" />
           <path d="M120,6 V234 M6,120 H234" className="rx" />

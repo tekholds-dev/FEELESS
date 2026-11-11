@@ -1,17 +1,17 @@
 /* Sitewide tooltip layer (lib/tipLayer.js): one fixed bubble for every [data-tip], never clipped by a card. */
-.tip-layer { position: fixed; left: 0; top: 0; z-index: 9999; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m-accent); background: #090a0a; color: #eafff3;
+.tip-layer { position: fixed; left: 0; top: 0; z-index: 9999; max-width: 280px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m-accent); background: #090a0a; color: #f3eeff;
   font: 500 11.5px/1.45 system-ui, sans-serif; box-shadow: 0 12px 30px -12px #000, 0 0 18px -8px var(--m-accent); pointer-events: none; opacity: 0; transition: opacity .12s; }
 .tip-layer.on { opacity: 1; } [data-tip] { cursor: help; } button[data-tip], label[data-tip] { cursor: pointer; }
-body.theme-day .tip-layer { background: #ffffff; color: #171c1a; }
+body.theme-day .tip-layer { background: #ffffff; color: #1c1830; }
 @media (prefers-reduced-motion: reduce) { .tip-layer { transition: none; } }
 .cf-live { margin-left: 8px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--m-line-hi, #2a5a3f); font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .08em; color: var(--m-dim, #8fb09c); }
-.cf-live.is-live { color: #15d16a; border-color: #15d16a; animation: cfLive 1.6s ease-in-out infinite alternate; }
+.cf-live.is-live { color: #9b6bff; border-color: #9b6bff; animation: cfLive 1.6s ease-in-out infinite alternate; }
 @keyframes cfLive { from { opacity: .6; } to { opacity: 1; } }
 body.fx-lite .cf-live.is-live { animation: none; } @media (prefers-reduced-motion: reduce) { .cf-live.is-live { animation: none; } }
 
 /* HQ › Bugs: merged repeat count + fix note */
 .cc-bug-count { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--m-danger, #ff8fa3); color: #1a0006; font: 700 10px 'JetBrains Mono', monospace; }
-.cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #15d16a); font-size: 11px; }
+.cc-bug-fix { display: block; margin-top: 3px; color: var(--m-accent, #9b6bff); font-size: 11px; }
 
 /* 🛡 Guard (HQ › Security) */
 .gd { display: grid; gap: 12px; margin-bottom: 14px; }
@@ -36,7 +36,7 @@ body.theme-day .gd-sus, body.theme-day .gd-rules span { background: var(--m-surf
 .mission-meter { display: flex; gap: 4px; margin-top: 14px; max-width: 720px; }
 .mission-meter span { display: grid; gap: 1px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--m-line); min-width: 70px; transform-origin: left; animation: mCardIn .3s var(--m-ease) both; }
 .mission-meter small { font: 9px var(--m-mono); letter-spacing: .12em; color: var(--m-dim); }
-.mm-live { background: color-mix(in srgb, #15d16a 22%, transparent); border-color: #15d16a !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
+.mm-live { background: color-mix(in srgb, #9b6bff 22%, transparent); border-color: #9b6bff !important; } .mm-testing { background: color-mix(in srgb, #6ad7ff 18%, transparent); }
 .mm-building { background: color-mix(in srgb, #f5c451 16%, transparent); } .mm-planned { background: color-mix(in srgb, #b388ff 14%, transparent); }
 @media (prefers-reduced-motion: reduce) { .mission-meter span { animation: none; } }
 
@@ -56,17 +56,17 @@ body.theme-day .primary-action small { color: inherit; opacity: .78; }   /* the 
 .fx-off, .fx-off *, .fx-off *::before, .fx-off *::after { animation-play-state: paused !important; }
 /* war room chart header: copy the coin's contract address */
 .eco-chart-ca{display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid #212523;background:transparent;color:var(--muted);font:500 11px 'JetBrains Mono',monospace;cursor:pointer;transition:color .15s,border-color .15s,box-shadow .15s}
-.eco-chart-ca i{font-style:normal}.eco-chart-ca:hover,.eco-chart-ca:focus-visible{color:#45e486;border-color:#15d16a;box-shadow:0 0 10px rgba(21,209,106,.35);outline:none}.eco-chart-ca:active{transform:translateY(1px)}
+.eco-chart-ca i{font-style:normal}.eco-chart-ca:hover,.eco-chart-ca:focus-visible{color:#b48cff;border-color:#9b6bff;box-shadow:0 0 10px rgba(155, 107, 255,.35);outline:none}.eco-chart-ca:active{transform:translateY(1px)}
 body.theme-day .eco-chart-ca{border-color:var(--day-border);color:#345}body.theme-day .eco-chart-ca:hover{color:#0a7a3d;border-color:#0a7a3d;box-shadow:none}
 @media(prefers-reduced-motion:reduce){.eco-chart-ca{transition:none}}
 /* music queue: the ✕ button also had width:100%, so the song title (flex-basis 0) was squeezed to 14px and read as a bare number */
 .feecat-queue li > .feecat-x { width: auto; flex: none; }
 
 /* ⚡ home: best Fuse card quick tile */
-.bft { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 12px 16px; margin: 0 0 12px; text-decoration: none; color: inherit; border-left: 3px solid var(--bft, #15d16a); transition: transform .15s ease, border-color .15s ease; }
-.bft .m-label { grid-column: 1 / -1; } .bft-name { font-size: 16px; } .bft em { font-style: normal; font-size: 18px; } .bft u { text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; color: var(--bft, #15d16a); }
+.bft { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 4px 14px; padding: 12px 16px; margin: 0 0 12px; text-decoration: none; color: inherit; border-left: 3px solid var(--bft, #9b6bff); transition: transform .15s ease, border-color .15s ease; }
+.bft .m-label { grid-column: 1 / -1; } .bft-name { font-size: 16px; } .bft em { font-style: normal; font-size: 18px; } .bft u { text-decoration: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; color: var(--bft, #9b6bff); }
 .bft-coins { display: flex; flex-wrap: wrap; gap: 4px 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 0; } .bft-coins i { font-style: normal; }
-.bft:hover { transform: translateY(-2px); border-color: var(--bft, #15d16a); } .bft:active { transform: translateY(0); } .bft:focus-visible { outline: 2px solid var(--bft, #15d16a); outline-offset: 2px; }
+.bft:hover { transform: translateY(-2px); border-color: var(--bft, #9b6bff); } .bft:active { transform: translateY(0); } .bft:focus-visible { outline: 2px solid var(--bft, #9b6bff); outline-offset: 2px; }
 @media (max-width: 640px) { .bft { grid-template-columns: minmax(0, 1fr) auto; } .bft-coins { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .bft { transition: none; } }
 body.theme-day .bft { background: #fff; }
@@ -82,16 +82,16 @@ body.theme-day .ambient-background::before, body.theme-day .ambient-background::
 body.theme-day::before { filter: none !important; }
 
 /* ⚛️ a Fuse card's levels on its coin's chart header (opened from the card) */
-.chart-fuse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 10px; margin: 0 0 6px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .06); font-size: 12px; }
-.chart-fuse b { font-size: 12.5px; } .chart-fuse em { font-style: normal; font-family: 'JetBrains Mono', monospace; } .chart-fuse .up { color: #15d16a; } .chart-fuse .down { color: #ff8fa3; }
-body.theme-day .chart-fuse { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .chart-fuse .up { color: #0b7a4a; } body.theme-day .chart-fuse .down { color: #c2334d; }
-.chart-fuse-btn { margin-left: auto; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .6); background: none; color: inherit; font: inherit; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
-.chart-fuse-btn:hover { background: rgba(21, 209, 106, .16); } .chart-fuse-btn:active { transform: scale(.97); } .chart-fuse-btn:focus-visible { outline: 1px solid #15d16a; outline-offset: 2px; }
-body.theme-day .chart-fuse-btn { border-color: #0b7a4a; }
+.chart-fuse { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; padding: 6px 10px; margin: 0 0 6px; border-radius: 10px; border: 1px solid rgba(155, 107, 255, .35); background: rgba(155, 107, 255, .06); font-size: 12px; }
+.chart-fuse b { font-size: 12.5px; } .chart-fuse em { font-style: normal; font-family: 'JetBrains Mono', monospace; } .chart-fuse .up { color: #9b6bff; } .chart-fuse .down { color: #ff8fa3; }
+body.theme-day .chart-fuse { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .chart-fuse .up { color: #5a33bd; } body.theme-day .chart-fuse .down { color: #c2334d; }
+.chart-fuse-btn { margin-left: auto; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(155, 107, 255, .6); background: none; color: inherit; font: inherit; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
+.chart-fuse-btn:hover { background: rgba(155, 107, 255, .16); } .chart-fuse-btn:active { transform: scale(.97); } .chart-fuse-btn:focus-visible { outline: 1px solid #9b6bff; outline-offset: 2px; }
+body.theme-day .chart-fuse-btn { border-color: #5a33bd; }
 
 /* 🖼 Share card: the still spins 180° into place when the preview opens (and on each new design). */
 .gif-stage { padding: 14px 14px 0; }
-.gif-card .gif-spin { border-radius: 14px; box-shadow: 0 18px 50px -18px #000, 0 0 0 1px rgba(21, 209, 106, .35); animation: gifSpin .75s cubic-bezier(.2, .8, .2, 1) both; transform-origin: 50% 50%; }
+.gif-card .gif-spin { border-radius: 14px; box-shadow: 0 18px 50px -18px #000, 0 0 0 1px rgba(155, 107, 255, .35); animation: gifSpin .75s cubic-bezier(.2, .8, .2, 1) both; transform-origin: 50% 50%; }
 /* perspective lives INSIDE the transform: a `perspective` parent left the finished image unpainted in Chromium (blank preview) */
 @keyframes gifSpin { from { transform: perspective(1400px) rotateY(180deg) scale(.72); opacity: 0; } 45% { opacity: 0; } 60% { opacity: 1; } to { transform: perspective(1400px) rotateY(0deg) scale(1); opacity: 1; } }
 body.fx-lite .gif-card .gif-spin { animation-duration: .01s; }

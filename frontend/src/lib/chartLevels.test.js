@@ -1,7 +1,7 @@
 import { distWord, feeLevels, levelRead, ownLevels, spreadTags, toolLevels } from './chartLevels';
 
 test('a Fuse card coin gets entry, stop, lock and trail as key rows in the chart unit, plus the agents named lines', () => {
-  const rows = ownLevels({ userEntry: 2, ratio: 10, fuse: { entry: 1, stop: 0.8, slPct: 20, lock: 1.3, lockPct: 30, trail: 0, lines: [{ px: 1.5, title: '🎯 take +50%', color: '#15d16a' }, { px: 0.9, title: 'support' }, { px: 0 }] } });
+  const rows = ownLevels({ userEntry: 2, ratio: 10, fuse: { entry: 1, stop: 0.8, slPct: 20, lock: 1.3, lockPct: 30, trail: 0, lines: [{ px: 1.5, title: '🎯 take +50%', color: '#9b6bff' }, { px: 0.9, title: 'support' }, { px: 0 }] } });
   expect(rows.map(r => r.id)).toEqual(['you', 'entry', 'stop', 'lock', 'x0', 'x1']);
   expect(rows.find(r => r.id === 'stop')).toMatchObject({ px: 8, tone: 'dn', key: true, title: '🛑 stop −20%' });
   expect(rows.find(r => r.id === 'x0')).toMatchObject({ px: 15, tone: 'up', key: true });

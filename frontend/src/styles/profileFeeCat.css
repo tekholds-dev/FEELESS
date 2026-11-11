@@ -11,7 +11,7 @@
 .pfc-cat svg { width: 44px; height: 44px; }
 .pfc-who { display: grid; min-width: 0; } .pfc-who em, .pfc-num em, .pfc-head em { font: 800 8px var(--f-mono, monospace); font-style: normal; letter-spacing: .14em; color: #b49cff; }
 .pfc-who b { font: 800 16px var(--f-display, var(--f-ui, sans-serif)); } .pfc-who small { font: 600 10px var(--f-ui, sans-serif); color: #a99ccf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pfc-num { display: grid; justify-items: end; } .pfc-num b { font: 800 14px var(--f-mono, monospace); color: #fff; } .pfc-num.is-up b { color: #45e486; text-shadow: 0 0 12px rgba(69, 228, 134, .45); } .pfc-num.is-dn b { color: #ff8fa3; }
+.pfc-num { display: grid; justify-items: end; } .pfc-num b { font: 800 14px var(--f-mono, monospace); color: #fff; } .pfc-num.is-up b { color: #b48cff; text-shadow: 0 0 12px rgba(180, 140, 255, .45); } .pfc-num.is-dn b { color: #ff8fa3; }
 .pfc-go { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; color: #cfc6ff; }
 .pfc { display: grid; gap: 10px; } .pfc-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(180, 140, 255, .3);
   background: linear-gradient(135deg, rgba(156, 107, 255, .14), rgba(7, 4, 13, .8)); color: #efe8ff; }

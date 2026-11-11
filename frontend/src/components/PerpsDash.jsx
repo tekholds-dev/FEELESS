@@ -33,13 +33,13 @@ export function perpLines(asset, t, plan, mark, positions) {
   const out = [];
   if (plan && mark > 0) {
     out.push({ id: 'liq', price: plan.liq, color: '#ff5d73', title: `☠ ${t.lev}× LIQ`, dash: true });
-    if (t.tp) out.push({ id: 'tp', price: t.tp, color: '#45e486', title: 'TP', drag: true });
+    if (t.tp) out.push({ id: 'tp', price: t.tp, color: '#b48cff', title: 'TP', drag: true });
     if (t.sl) out.push({ id: 'sl', price: t.sl, color: '#ff9f43', title: 'SL', drag: true });
   }
   (positions || []).filter(p => p.asset === asset).forEach((p, i) => {
-    if (p.entry > 0) out.push({ id: `e${i}`, price: p.entry, color: p.side === 'long' ? '#45e486' : '#ff9fd2', title: `${p.side === 'long' ? '▲' : '▼'} ${p.lev}× ENTRY`, dash: true });
+    if (p.entry > 0) out.push({ id: `e${i}`, price: p.entry, color: p.side === 'long' ? '#b48cff' : '#ff9fd2', title: `${p.side === 'long' ? '▲' : '▼'} ${p.lev}× ENTRY`, dash: true });
     if (p.liq > 0) out.push({ id: `l${i}`, price: p.liq, color: '#ff5d73', title: `☠ ${p.lev}×` });
-    (p.tpsl || []).forEach(o => { if (o.price > 0) out.push({ id: `o${o.id}`, price: o.price, color: o.kind === 'tp' ? '#45e486' : '#ff9f43', title: `${o.kind.toUpperCase()} ${p.lev}×`, dash: true }); });
+    (p.tpsl || []).forEach(o => { if (o.price > 0) out.push({ id: `o${o.id}`, price: o.price, color: o.kind === 'tp' ? '#b48cff' : '#ff9f43', title: `${o.kind.toUpperCase()} ${p.lev}×`, dash: true }); });
   });
   return out;
 }

@@ -62,7 +62,7 @@ body.theme-day .cf-step u { background: #e2d8f6; } body.theme-day .cf-step em { 
   background: linear-gradient(110deg, #2a1650, #12081f); color: #e6dcff; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; transition: transform .15s ease, box-shadow .15s ease; }
 .cw-go:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -12px #b388ff; } .cw-go:active { transform: scale(.97); } .cw-go:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
 .cw-go i { width: 7px; height: 7px; border-radius: 50%; background: #b388ff; }
-.cw-go.is-real { border-color: #45e486aa; background: linear-gradient(110deg, #0c3a20, #061009); color: #bff5d3; } .cw-go.is-real i { background: #45e486; box-shadow: 0 0 10px #45e486; animation: cwBreath 1.6s ease-in-out infinite; }
+.cw-go.is-real { border-color: #b48cffaa; background: linear-gradient(110deg, #0c3a20, #061009); color: #bff5d3; } .cw-go.is-real i { background: #b48cff; box-shadow: 0 0 10px #b48cff; animation: cwBreath 1.6s ease-in-out infinite; }
 @keyframes cwBreath { 50% { opacity: .35; } }
 body.fx-lite .cw-go.is-real i { animation: none; } @media (prefers-reduced-motion: reduce) { .cw-go.is-real i { animation: none; } .cw-go { transition: none; } }
 body.theme-day .cw-go { background: #f5f0fd; color: #3d2a66; } body.theme-day .cw-go.is-real { background: #eafbf1; color: #0d5a31; }

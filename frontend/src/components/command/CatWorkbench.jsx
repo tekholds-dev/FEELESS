@@ -1033,7 +1033,7 @@ const PopChartLazy = lazy(() => import('../perps/PerpsChart').then(m => ({ defau
 // 📈 what the minds are looking at: the true candles with this trade's levels on them
 function PopChart({ f }) {
   const dir = f.side === 'short' ? -1 : 1; const e = Number(f.entry) || 0;
-  const lines = e ? [{ id: 'entry', price: e, color: '#ffffff', title: 'ENTRY' }, { id: 'tp', price: e * (1 + dir * f.tp / 100), color: '#45e486', title: 'TAKE', dash: true }, { id: 'sl', price: e * (1 - dir * f.sl / 100), color: '#ff8fa3', title: 'STOP', dash: true }] : [];
+  const lines = e ? [{ id: 'entry', price: e, color: '#ffffff', title: 'ENTRY' }, { id: 'tp', price: e * (1 + dir * f.tp / 100), color: '#b48cff', title: 'TAKE', dash: true }, { id: 'sl', price: e * (1 - dir * f.sl / 100), color: '#ff8fa3', title: 'STOP', dash: true }] : [];
   return <div className="pop-chart m-glass" data-testid="pop-chart"><Suspense fallback={<p className="dsk-note">Loading true candles…</p>}><PopChartLazy asset={f.market} iv="1m" lines={lines} /></Suspense></div>;
 }
 // 🌐 what a mind actually opened in its own window, and what it read there
@@ -1325,7 +1325,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />
       {shownApps.filter(([k]) => !folded(k)).map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} earn={EARNS.has(k)} earning={!!pool?.pool?.ratePerSecUsd} badge={k === 'manual' && setupLeft > 0 ? { lit: true, text: `${setupLeft}` } : k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
-        <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
+        <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#b48cff" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#9b6bff" /><circle cx="24" cy="24" r="7" fill="none" stroke="#b48cff" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#b48cff" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
     </nav>
     {prefs.widgets !== false && !live ? <DeskWidgets d={d} pool={pool} openWin={openWin} cat={cat} work={work} has={apps.map(a => a[0])} /> : null}
     {prefs.glass ? <PerfGlass {...(glassOver || glass)} onOpen={() => { set('perf', { open: true, min: false }); setTop('perf'); }} /> : null}

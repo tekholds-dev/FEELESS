@@ -34,7 +34,7 @@
 .ftp-art.a-sleep u { width: 12px; height: 12px; bottom: 31px; clip-path: none; border-radius: 50%; background: transparent; box-shadow: inset -4px 2px 0 0 #fff2c4; }
 .ftp-art.a-radar u { width: 18px; height: 9px; bottom: 30px; margin-left: -9px; clip-path: none; border-radius: 18px 18px 0 0; background: #d8dde6; }
 .ftp-art.a-cat u { width: 22px; margin-left: -11px; clip-path: polygon(0 100%, 18% 0, 36% 100%, 64% 100%, 82% 0, 100% 100%); }
-.ftp-art.a-trade u, .ftp-art.a-perps u { width: 18px; height: 10px; margin-left: -9px; clip-path: none; background: linear-gradient(90deg, #45e486 0 30%, transparent 30% 36%, #ff5d73 36% 64%, transparent 64% 70%, #45e486 70%); }
+.ftp-art.a-trade u, .ftp-art.a-perps u { width: 18px; height: 10px; margin-left: -9px; clip-path: none; background: linear-gradient(90deg, #b48cff 0 30%, transparent 30% 36%, #ff5d73 36% 64%, transparent 64% 70%, #b48cff 70%); }
 .ftp-art.a-casino u { width: 26px; margin-left: -13px; height: 7px; clip-path: none; border-radius: 3px; background: repeating-linear-gradient(90deg, var(--tc) 0 4px, #b3122e 4px 8px); }
 .ftp-tog, .ftp-badge { min-width: 82px; min-height: 32px; padding: 0 8px; border-radius: 8px; font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; text-align: center; }
 .ftp-tog { border: 1px solid color-mix(in srgb, var(--tc) 45%, transparent); background: color-mix(in srgb, var(--tc) 10%, #0b0907); color: color-mix(in srgb, var(--tc) 85%, #fff); cursor: pointer;
@@ -59,7 +59,7 @@
 .ftr-body::-webkit-scrollbar { width: 6px; } .ftr-body::-webkit-scrollbar-thumb { background: var(--tc); border-radius: 6px; }
 
 /* the deck: the town's buildings first, each with a lit dot */
-.fdk-tabs button.in-town { position: relative; } .fdk-tabs button.in-town::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; }
+.fdk-tabs button.in-town { position: relative; } .fdk-tabs button.in-town::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; }
 
 /* the CSS fallback block: a town tower in its own colour */
 .fb3-b.is-town .fb3-tower { background: repeating-linear-gradient(180deg, transparent 0 9px, color-mix(in srgb, var(--tc) 55%, transparent) 9px 12px), linear-gradient(180deg, #1d1b26, #0c0b10);
@@ -81,6 +81,6 @@ body.theme-day .ftr { background: linear-gradient(165deg, #fffaf0f4, #f4ecdaf6);
   .ftr { inset: 6px; width: auto; max-height: calc(100% - 12px); } }
 /* 🏘 a standing building's live number (lib/townLive): it ticks in when the number changes, coloured by its tone */
 .ftp-go small.ftp-live { color: #e8dcc0; font-weight: 800; letter-spacing: .02em; text-transform: none; animation: ftwIn .35s ease-out both; }
-.ftp-live.is-up, .ftp-live.is-hot { color: #45e486 !important; text-shadow: 0 0 8px rgba(21, 209, 106, .45); } .ftp-live.is-down { color: #ff8fa3 !important; } .ftp-live.is-calm { color: #c9b38a !important; }
+.ftp-live.is-up, .ftp-live.is-hot { color: #b48cff !important; text-shadow: 0 0 8px rgba(155, 107, 255, .45); } .ftp-live.is-down { color: #ff8fa3 !important; } .ftp-live.is-calm { color: #c9b38a !important; }
 body.fx-lite .ftp-live { animation: none; } @media (prefers-reduced-motion: reduce) { .ftp-live { animation: none; } }
-body.theme-day .ftp-live.is-up, body.theme-day .ftp-live.is-hot { color: #0d7a41 !important; text-shadow: none; } body.theme-day .ftp-live.is-down { color: #b4233f !important; }
+body.theme-day .ftp-live.is-up, body.theme-day .ftp-live.is-hot { color: #5a33bd !important; text-shadow: none; } body.theme-day .ftp-live.is-down { color: #b4233f !important; }

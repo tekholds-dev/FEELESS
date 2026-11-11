@@ -17,7 +17,7 @@ const WIDE = { proof: [0, 120], checks: [205, 0], boost: [410, 0], points: [615,
 const TALL = { proof: [110, 0], checks: [0, 115], pools: [220, 115], boost: [0, 230], profit: [220, 230], points: [0, 345], seat: [110, 460], house: [220, 345], rest: [220, 575], cash: [0, 575] };
 const LINKS = [['proof', 'checks', 'gold'], ['checks', 'boost', 'gold'], ['boost', 'points', 'gold'], ['boost', 'seat', 'gold'], ['points', 'cash', 'gold', 'its limit'], ['proof', 'pools', 'blue'], ['pools', 'profit', 'blue'], ['profit', 'seat', 'green', 'only real profit'], ['seat', 'cash', 'green'], ['profit', 'house', 'blue'], ['profit', 'rest', 'blue']];
 const NODE_W = 186; const NODE_H = 70;
-const INK = { gold: '#ffc24d', blue: '#57c7ff', green: '#45e486' };
+const INK = { gold: '#ffc24d', blue: '#57c7ff', green: '#b48cff' };
 const dayWord = v => `${v >= 1 ? money(v) : `$${v.toFixed(v >= 0.01 ? 3 : 4)}`} a day`;
 export default function StakeFlow({ usd, grade, x, points, seat, collectivePct = 20, dayUsd = null, testid = 'stake-map' }) {
   const box = useRef(null); const [size, setSize] = useState({ w: 0, h: 0 }); const vertical = size.w > 0 && size.w < 640;

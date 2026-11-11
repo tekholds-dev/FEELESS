@@ -1,6 +1,6 @@
 /* 🎇 Card FX (CardFx.jsx): four live backdrops for any card. Layers sit BEHIND the content (z-index -1 inside an isolated host). */
 .cfx-host { position: relative; isolation: isolate; }
-.cfx { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; --cfx: 21, 209, 106; --cfx2: 69, 228, 134; }
+.cfx { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; --cfx: 155, 107, 255; --cfx2: 255, 63, 164; }
 .cfx.is-down { --cfx: 255, 107, 139; --cfx2: 255, 143, 163; }
 .cfx.is-gold { --cfx: 245, 196, 81; --cfx2: 255, 214, 106; }
 .cfx i { position: absolute; display: block; will-change: transform, opacity; }

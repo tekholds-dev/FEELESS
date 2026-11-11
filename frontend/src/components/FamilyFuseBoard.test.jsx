@@ -7,7 +7,7 @@ import { FeeCapital } from './FeeCapital';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const seat = (i, a, b, win) => ({ seat: i, a: { symbol: `A${i}`, pct: a }, b: { symbol: `B${i}`, pct: b }, win });
 const LIVE = { id: 'f1', status: 'live', stake: 'mp', mp: 1000, mins: 15, left: 500, bidsOpen: true, lockIn: 100, winner: null, paid: null, at: 1,
-  a: { id: 'fa', tag: 'AAA', name: 'A', color: '#45e486', card: { name: 'A card', coins: 3 }, pct: 4.2 }, b: { id: 'fb', tag: 'BBB', name: 'B', card: { name: 'B card', coins: 2 }, pct: -1.1 },
+  a: { id: 'fa', tag: 'AAA', name: 'A', color: '#b48cff', card: { name: 'A card', coins: 3 }, pct: 4.2 }, b: { id: 'fb', tag: 'BBB', name: 'B', card: { name: 'B card', coins: 2 }, pct: -1.1 },
   crowd: { pool: { a: 300, b: 100 }, total: 400, pays: { a: 1.27, b: 3.8 }, bidders: 3 }, duel: { a: 2, b: 1, seats: [seat(1, 5, 1, 'a'), seat(2, 2, -3, 'a'), seat(3, -1, 0.5, 'b')] } };
 const OPEN = { ...LIVE, id: 'f2', status: 'open', a: { ...LIVE.a, id: 'fc', tag: 'CCC', card: { name: 'C card', coins: 4 } }, b: { ...LIVE.b, id: 'fz', card: null, pct: null }, duel: null };
 const CARDS = [{ key: 'design:1', name: 'Two', coins: 2 }, { key: 'design:2', name: 'Four', coins: 4 }, { key: 'design:3', name: 'Six', coins: 6 }];
