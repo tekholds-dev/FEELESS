@@ -1,23 +1,22 @@
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
-> ## 🔁 PICK UP HERE (2026-11-11 ~12:15, owner awake, design redo day; he tests real money next)
-> **Pushed to main, gates green** (a1086e43, 1208338f). Backend reloads itself (keep-alive: 15 s settle, compiles, `busy: 0`; a file that does
-> not compile holds the reload: check `/tmp/feeless-keepalive.log`). **RPC:** only SOLANA_RPC_URL (Chainstack) answers; Tatum 5/min, Helius maxed/401,
-> OnFinality keyless 429. A real trade depends on that one lane until another paid key lands.
-> - 🎨 Look: PLASMA default; Looks engine (4 free + 4 holder looks, server-only palettes). His device + wallet wear **Holo Chrome** (his pick).
->   The logo art follows every look (measured hue-rotate per look, `logoHue`). Leftover mint UI tints → Plasma; price-up greens stay.
-> - 🎬 Showcase ads: the stage shows the whole 16:9 video (it cut the bottom half). Recorder frame check (cut text/cards, text on text, panel
->   over words, empty frame, canvas words, debug counters) → one whole-page rebuild. Ads are built by **Claude Sonnet 5.5** (owner +$1, cap
->   $2.25) with GSAP, never a game kit (Phaser dragged in the game playtest and the "STATE play · SCORE" counter). Rebuild of all six running.
-> - 🖥 Desk: hero hidden on an open desk, idle minds = short cards, lone DESK tab gone, chat row fills the width, repeat lines fold ×N.
->   File cabinet = ONE stylesheet block (five sheets used to fight). Leaked model thinking filtered everywhere (`cat_policy.thinking_leak`).
-> - 🧭 HQ: grouped by job (Money · Agents · Launch · Insights · Marketing · Community · Rewards · Safety · System); fees before keys; HqEmpty
->   empty states; Bugs badge = reports seen in 3 days (309 stale dev crashes fold); moderation hides old health pings. Trade page centred.
-> **Not done / next:** HQ tabs still uneven inside (Familia KPI rows repeat; Launch + Pools share the same curve block); the owner's narrated
-> 5–10 min product film (his last ask, after everything); real-money tests AGT-25 → SITE-14; the desk-spot race (`_KEPT`); `rpf.py` decision.
-> **Owner decides (money paths, untouched):** dead but tested defs — fuse_vault.shares_for_deposit, cat_fund.credit_open, reserve_pool.route_split,
-> collective_pool.book_result / pays_for_itself, family_world.family_fuse_ok / paid_hit_payout, runners.failed_gates, arena_prime.cool_left,
-> trench_kernel.lifecycle.has_authority: wire or delete.
+> ## 🔁 PICK UP HERE (2026-11-11 ~13:15, session out of usage; owner wants the next account to continue)
+> **Pushed:** a3cf5ae6 and earlier, gates green. **Not committed:** `.gitignore` (+.claude-wip/) and this page.
+> - 🎬 **Showcase ads: DONE, by hand (no OpenRouter).** Six ads written by Claude in `.claude-wip/ads/ad.html` (one engine, a config per proof
+>   type), filmed by `.claude-wip/ads/make.py` through the same recorder + frame check: all six pass, 0 faults. Installed as
+>   `backend/data/show_ads/<happy>/<kind>.webm` (+ `<kind>-claude.webm` kept). Owner: stop spending OpenRouter on ads; the agent ad writer
+>   (Sonnet 5.5, `_ads_write`) stays in code but runs only on "Redo this ad". OpenRouter balance ≈ $1.9 of $10; ~$1.4 of spend in the last
+>   hours has NO receipt (not the ads, not the 7 images): find the caller before topping up.
+> - 🎞 **The film (owner's last ask, IN PROGRESS):** everything in `.claude-wip/film/`: `script.json` (9 chapters, 882 words), narration
+>   `vo/*.mp3` (edge-tts, en-US-AndrewMultilingualNeural, ~5:16), title cards `card.html` → `raw/c-*.webm`, site footage `rec.py` → `raw/d-*`,
+>   phones `raw/p-*`, shots `comp.py` → `shots/*.mp4`, cutter `assemble.py` (crossfades, voice placed per chapter, generated score ducked,
+>   loudnorm, 720p chapter clips). **Owner said: NO humans** → edit `assemble.py` PLAN: drop s-trader-*, s-duo-coll, s-woman-iphone,
+>   s-couch-galaxy; use s-phones + `img/p-hero.png`, `img/p-fold.png` (green-screen product shots, add to comp.py like s-phones) and the six
+>   ads above as chapter 04 (`shots/ad-<kind>.mp4` = footage() of `.claude-wip/ads/out/<kind>.webm`). Then run assemble.py, watch frames,
+>   publish an Artifact player (chapters as clips <15 MB, download per clip) per the owner.
+> - 🖥 Desk: monitors back, idle monitor = newest proof (`newestProofs`); Ad lab on Fee's desk (every attempt, faults, $, video).
+> - 💡 Owner question answered in chat: Emma (Nuance Labs, launched 2026-11-09, video persona, API, no public price) as the PoEco face.
+> **Next:** finish the film → owner's real-money tests (AGT-25 → SITE-14). RPC: only Chainstack lane 1 answers.
 
 > ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
 > **Blockers (owner):** 2026-11-10 keys: NEW Helius key (SOLANA_RPC_URL) works live; HELIUS_RPC_URL + _4 still "max usage reached", _3 = 401, Tatum + OnFinality + Alchemy 429. Fixed: `helius_key()` now skips spent keys, Helius's "max usage reached" parks the lane, FeeCat balance reads use the live lane. Pasted notes moved into real names (backup `.env.bak-keys7`): new Jupiter key → JUPITER_API_KEY_2 (price + quote 200), Brave ×2 → BRAVE_API_KEY/_2 (200), SnapTrade PERS → SNAPTRADE_CLIENT_ID/CONSUMER_KEY. Crypto.com pair in the note = 40101 auth failure (left unassigned). Claude in Chrome not connected from the app.

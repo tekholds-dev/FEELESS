@@ -120,3 +120,4 @@ frontend/public/dev-collective.json
 frontend/public/dev-git.json
 
 frontend/public/dev-grow*.json
+.claude-wip/
