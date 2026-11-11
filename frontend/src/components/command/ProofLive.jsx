@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { drawFrame, pickLook, sceneName, seeded, LOOKS_PER_PROOF } from '../../lib/proofFx';
+import { drawFrame, pickLook, sceneName, seeded, readyScenes, LOOKS_PER_PROOF } from '../../lib/proofFx';
+import { fetchFeelessCandles } from '../../lib/candles';
 import { isCalm, useOnScreen } from '../../lib/fxPause';
 import '../../styles/proofLive.css';
 
@@ -41,6 +42,37 @@ function useTween(value, ms = 600) {
   return shown;
 }
 
+// 📡 the stage's data — the run's own numbers and words only. Missing data = that scene is not shown.
+const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
+function useRunData(kind, d, wins, spent, steps) {
+  const f = d?.powFolder; const pop = d?.popFolder; const pob = d?.pobRun || d?.pobRead;
+  const [candles, setCandles] = useState([]);
+  useEffect(() => {   // the coin's REAL 1-minute candles from FEELESS's candle service (the same source as every chart), every 15 s
+    if (!f?.pair) { setCandles([]); return undefined; } let on = true;
+    const load = () => fetchFeelessCandles('solana', f.pair, '1m', null, f.mint).then(r => { if (on) setCandles((r?.candles || []).slice(-60).map(k => (Array.isArray(k) ? { o: +k[1], h: +k[2], l: +k[3], c: +k[4] } : { o: +k.open, h: +k.high, l: +k.low, c: +k.close })).filter(k => k.h > 0)); }).catch(() => {});
+    load(); const i = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => { on = false; clearInterval(i); };
+  }, [f?.pair, f?.mint]);
+  const series = useRef([]); const roe = useRef([]);
+  const lastS = series.current[series.current.length - 1];
+  if (!lastS || lastS.spent !== spent || lastS.steps !== steps) series.current = [...series.current, { spent: Number(spent) || 0, steps }].slice(-60);
+  const r = num(pop?.roePct); if (r != null && roe.current[roe.current.length - 1] !== r) roe.current = [...roe.current, r].slice(-80);
+  const brains = wins.map(w => String(w?.model || '').split('/').pop());
+  const mindOf = by => { const b = String(by || ''); if (/^B\b/.test(b)) return 1; if (/^A\b/.test(b)) return 0; const i = brains.findIndex(x => x && b.includes(x.slice(0, 10))); return i < 0 ? 0 : i; };
+  const talk = (f?.talk || pob?.talk || []).length ? (f?.talk || pob?.talk).map(t => ({ mind: mindOf(t.by), text: t.text }))
+    : (d?.chat || []).filter(m => m.by !== 'you').slice(-7).map(m => ({ mind: 0, text: m.text }));
+  const stepRows = wins.flatMap((w, i) => (Array.isArray(w?.steps) ? w.steps : []).filter(x => x && typeof x === 'object').map(x => ({ mind: i, at: x.at || 0, text: `${x.action || 'step'}${x.detail ? ` · ${x.detail}` : x.thought ? ` · ${x.thought}` : ''}` })))
+    .sort((a, b) => a.at - b.at);
+  const entry = num(f?.entry); const now = num(f?.now); const okEntry = entry && now ? entry > now / 50 && entry < now * 50 : !!entry;
+  const e0 = okEntry ? entry : null;
+  return {
+    candles, line: (f?.line || []).map(num).filter(v => v > 0), entry: e0,
+    tp: e0 && num(f?.tp) ? e0 * (1 + num(f.tp) / 100) : null, sl: e0 && num(f?.sl) ? e0 * (1 - Math.abs(num(f.sl)) / 100) : null,
+    coins: (f?.coins || []).map(c => ({ sym: c.sym || '?', picked: !!(c.pick || (f?.mint && c.mint === f.mint)), chg: num(c.chg ?? c.priceChange ?? c.change) })),
+    talk, steps: stepRows, series: series.current, roe: roe.current,
+    game: pob && (pob.home || pob.homeScore != null) ? { home: pob.home, away: pob.away, hs: pob.homeScore, as: pob.awayScore, clock: pob.clock, pick: pob.pick } : null,
+  };
+}
+
 export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, onShowChat }) {
   const box = useRef(null); const cv = useRef(null); const on = useOnScreen(box);
   const seed = d?.task?.id || d?.powFolder?.id || d?.popFolder?.id || d?.deskProof?.id || kind;
@@ -51,7 +83,8 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
   useEffect(() => { if (steps > last.current.steps || spent > last.current.spent) energy.current = 1; last.current = { steps, spent }; }, [steps, spent]);
   const [t0] = useState(() => Date.now()); const [now, setNow] = useState(Date.now());
   useEffect(() => { const i = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(i); }, []);
-  const [scene, setScene] = useState(() => sceneName(kind, look, 0));
+  const data = useRunData(kind, d, wins, spent, steps); const dataRef = useRef(data); dataRef.current = data;
+  const [scene, setScene] = useState(() => sceneName(kind, look, 0, data));
 
   useEffect(() => {   // the frame loop: stops off-screen, in a hidden tab and under fx-lite / reduced motion (one still frame then)
     const c = cv.current; if (!c) return undefined; const ctx = c.getContext?.('2d'); if (!ctx) return undefined;
@@ -61,7 +94,7 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
     let shownScene = '';
     const frame = now_ => { if (!alive) return; const t = (now_ - start) / 1000;
       energy.current = Math.max(0, energy.current - 0.012);
-      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd });
+      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd, data: dataRef.current });
       if (out.scene !== shownScene) { shownScene = out.scene; setScene(out.scene); }
       if (!isCalm() && on && !document.hidden) raf = requestAnimationFrame(frame); };
     frame(performance.now());
@@ -70,6 +103,7 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
     return () => { alive = false; cancelAnimationFrame(raf); ro?.disconnect(); document.removeEventListener('visibilitychange', vis); };
   }, [kind, look, rnd, on, t0]);
 
+  const nReady = readyScenes(kind, data).length;
   const f = d?.powFolder; const at = f ? PH_ORDER.indexOf(f.phase) : -1;
   const spentT = useTween(spent); const stepsT = useTween(steps, 400);
   const minds = wins.slice(0, 2);
@@ -86,7 +120,7 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
       <span data-tip="How long this run has been going"><em>TIME</em><b className="m-num">{clock((now - t0) / 1000)}</b></span>
       <span data-tip="Steps both minds have taken"><em>STEPS</em><b className="m-num">{Math.round(stepsT)}</b></span>
       <span data-tip="What this run has cost so far, from each call's own bill"><em>SPENT</em><b className="m-num is-hot">{money(spentT)}</b></span>
-      <span data-tip={`One of ${LOOKS_PER_PROOF} looks for this proof, picked from the run`}><em>SCENE</em><b className="m-num">{scene}</b></span>
+      <span data-tip={`Live view of real run data · ${nReady} view${nReady === 1 ? '' : 's'} this run can fill right now · one of ${LOOKS_PER_PROOF} looks`}><em>VIEW</em><b className="m-num">{scene || 'waiting for data'}</b></span>
     </div>
     <div className="pl-minds">{minds.map((w, i) => <div key={i} className={`pl-mind${w?.status === 'working' ? ' is-on' : ''}`} style={{ '--i': i }}>
       <b>{'AB'[i]} · {String(w?.model || '').split('/').pop().replace(':free', '') || 'mind'}</b>
