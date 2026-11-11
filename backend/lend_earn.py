@@ -9,6 +9,7 @@ The client then simulates it (nothing is signed if the chain would reject it), t
 """
 import base64
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
+from fnum import plain as _n
 
 EARN = 'https://api.jup.ag/lend/v1/earn'
 EARN_PUBLIC = 'https://lite-api.jup.ag/lend/v1/earn'
@@ -93,12 +94,6 @@ def verify(b64, signer, allow=None, must=('jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZiv
 RUN = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC', 'So11111111111111111111111111111111111111112': 'SOL'}
 RUN_MIN_USD = 5
 
-
-def _n(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def run_assets(tokens):

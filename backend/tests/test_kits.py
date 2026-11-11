@@ -342,3 +342,12 @@ def test_a_non_kit_file_in_the_kits_folder_never_breaks_the_repo_tree(tmp_path):
     (tmp_path / 'fresh.json').write_text(_j.dumps({'pins': {}, 'log': [], 'checkedAt': 0}))   # kit_fresh's own file (made the GitHub folder 500)
     (tmp_path / 'a.json').write_text(_j.dumps({'id': 'a', 'name': 'A', 'text': 'x'}))
     assert [r['id'] for r in _k.rows(tmp_path)] == ['a'] and list(_k.tree(tmp_path)) == ['kits/a.md']
+
+
+def test_a_three_page_may_load_the_core_file_its_module_imports():
+    """three ≥ 0.171: three.module.js imports ./three.core.js. The lock allowed the module alone, so every 0.187 scene (and 4 of 6 Showcase ads) went dark."""
+    import collective_kits as ck2
+    page = ('<html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'"><script type="importmap">{"imports":{"three":'
+            '"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script></head><body></body></html>')
+    csp = ck2.open_for_kits(page, ['three']).split('script-src', 1)[1].split(';', 1)[0]
+    assert 'https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js' in csp and 'https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.core.js' in csp

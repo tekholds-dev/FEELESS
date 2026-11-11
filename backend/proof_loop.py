@@ -5,17 +5,12 @@ PoB and PoP: the same topic or market keeps one running series, "Loop 3 on laker
 Pure and tested: the service reads the folders and passes the note on. Every line here comes from a filed folder.
 """
 import re
+from fnum import plain as _f
 
 KEEP = 5
 _GENERIC = {'best', 'top', 'good', 'great', 'pick', 'picks', 'bid', 'bids', 'bidding', 'bet', 'bets', 'betting', 'parlay', 'parlays', 'choice', 'choices', 'odds', 'game', 'games', 'tonight', 'today',
             'tomorrow', 'this', 'next', 'week', 'for', 'the', 'and', 'on', 'of', 'in', 'to', 'a', 'an', 'my', 'me', 'what', 'who', 'which', 'will', 'win', 'wins', 'keep', 'more', 'file', 'pob', 'proof'}
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _size(v, steps):

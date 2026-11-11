@@ -461,8 +461,8 @@ body.theme-day .pdr-full { background: #fffd; color: #0d2a1b; border-color: #000
 .pdr:has(> .pbr) { height: max(600px, calc(100cqh - 24px)); gap: 6px; }
 /* ▶ Showcase: a 16:9 stage that fits its frame (never stretched wide), then the start bar under it */
 .pdr-view { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; min-height: 0; }
-.pdr-frame { container-type: size; display: grid; place-items: center; min-height: 0; }
-.pdr-frame > .pdr-stage { width: min(100cqw, 100cqh * 16 / 9); height: min(100cqh, 100cqw * 9 / 16); }
+.pdr-fit { container-type: size; display: grid; place-items: center; min-height: 0; }   /* the 16:9 box; never .pdr-frame (that is the iframe: pointer-events none, it hid every button on the stage) */
+.pdr-fit > .pdr-stage { width: min(100cqw, 100cqh * 16 / 9); height: min(100cqh, 100cqw * 9 / 16); }
 .sst { position: relative; display: grid; gap: 7px; padding: 9px 10px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--pt) 45%, transparent); background: linear-gradient(120deg, color-mix(in srgb, var(--pt) 16%, #05090c) 0%, #05090cf2 55%); box-shadow: inset 0 1px 0 #ffffff17, 0 0 26px color-mix(in srgb, var(--pt) 18%, transparent); overflow: hidden; animation: sstIn .28s ease both; }
 .sst::before { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--pt) 22%, transparent) 50%, transparent 70%); transform: translateX(-100%); animation: sstSweep 5.5s ease-in-out infinite; pointer-events: none; }
 .sst-chips { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; } .sst-chips::-webkit-scrollbar { display: none; }
@@ -475,7 +475,7 @@ body.theme-day .pdr-full { background: #fffd; color: #0d2a1b; border-color: #000
 @keyframes sstIn { from { opacity: 0; transform: translateY(6px); } } @keyframes sstSweep { 0%, 55% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 body.fx-lite .sst::before, body.fx-lite :is(.sst, .sst-chips li) { animation: none; } @media (prefers-reduced-motion: reduce) { .sst::before, .sst, .sst-chips li { animation: none; } .sst-chips button { transition: none; } }
 body.theme-day .sst { background: linear-gradient(120deg, color-mix(in srgb, var(--pt) 12%, #fff), #fffffff2 60%); } body.theme-day .sst-chips button { background: #0000000a; color: #14202c; border-color: #0000001a; } body.theme-day .sst-say b { color: #14202c; } body.theme-day .sst-say small { color: #4a5a70; }
-@media (max-width: 760px) { .pdr-frame { container-type: normal; } .pdr-frame > .pdr-stage { width: 100%; height: auto; aspect-ratio: 16 / 9; } .sst-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .pdr-fit { container-type: normal; } .pdr-fit > .pdr-stage { width: 100%; height: auto; aspect-ratio: 16 / 9; } .sst-row { grid-template-columns: minmax(0, 1fr); } }
 /* 🎬 its ad: the recorded video, or the run's live state */
 .adr { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(80% 70% at 50% 40%, color-mix(in srgb, var(--pt) 16%, #04070a), #04070a); }
 .adr-vid { width: 100%; height: 100%; object-fit: contain; background: #000; }
@@ -483,7 +483,7 @@ body.theme-day .sst { background: linear-gradient(120deg, color-mix(in srgb, var
 .adr-orb { width: 74px; height: 74px; border-radius: 50%; background: conic-gradient(from 0deg, var(--pt), transparent 60%, var(--pt)); mask: radial-gradient(circle, transparent 54%, #000 56%); animation: adrSpin 2.4s linear infinite; filter: drop-shadow(0 0 14px color-mix(in srgb, var(--pt) 60%, transparent)); }
 .adr-steps { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; } .adr-steps i { padding: 4px 9px; border-radius: 99px; border: 1px solid #ffffff1f; font: 700 10px var(--f-tech); font-style: normal; letter-spacing: .05em; color: #8fa59a; }
 .adr-steps i.is-on { border-color: var(--pt); color: #fff; } .adr-steps i.is-done { background: var(--pt); border-color: var(--pt); color: #04100a; }
-.adr-dl { position: absolute; right: 54px; bottom: 10px; z-index: 2; min-height: 34px; text-decoration: none; }
+.adr-dl { position: absolute; right: 54px; bottom: 10px; z-index: 2; min-height: 34px; text-decoration: none; } .adr-redo { position: absolute; left: 10px; bottom: 10px; z-index: 2; min-height: 34px; }
 @keyframes adrSpin { to { transform: rotate(360deg); } } body.fx-lite .adr-orb { animation: none; } @media (prefers-reduced-motion: reduce) { .adr-orb, .adr-wait { animation: none; } }
 body.theme-day .adr-wait b { color: #14202c; } body.theme-day .adr-wait small { color: #4a5a70; }
 /* 🪞 talks like you: what it learned from your messages and how much it copies */

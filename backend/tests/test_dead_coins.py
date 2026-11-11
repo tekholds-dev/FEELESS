@@ -1,5 +1,5 @@
 """💀 Dead coins never take a seat and a held one gives its seat away; majors / xStocks are never a trench seat; the brain reads the bad guys' footprint."""
-import agents
+import paper_desk as agents
 import fuse
 import office
 import opportunity as opp

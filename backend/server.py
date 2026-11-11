@@ -36,13 +36,7 @@ db = client[os.environ['DB_NAME']]
 app = FastAPI()
 
 
-@app.middleware('http')
-async def _sec_headers(request, call_next):
-    """🔒 SITE-9 (2026-11-10): every response says no MIME sniffing and sends no referrer (5088 already did). No framing rule here: pages may be framed."""
-    resp = await call_next(request)
-    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
-    resp.headers.setdefault('Referrer-Policy', 'no-referrer')
-    return resp
+app.middleware('http')(http_ctx.sec_headers)   # 🔒 nosniff + no-referrer on every response (SITE-9)
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 intelligence = Intelligence(db)

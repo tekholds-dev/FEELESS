@@ -214,3 +214,9 @@ export async function launchOnPump({ provider, creator, session, form, onStatus 
   keepReceipt(signature, creator, 'launch');
   return { mint: mint.publicKey.toBase58(), signature, uri: body.uri };
 }
+
+// 🌊 The Meteora CP-AMM client on the relay connection, loaded on first use (one copy: poolBuilder, lpBuilder and lpPositions each had their own).
+export async function meteoraSdk() {
+  const [{ web3, connection }, amm, BN] = await Promise.all([relayConnection(), import('@meteora-ag/cp-amm-sdk'), import('bn.js').then(m => m.default)]);
+  return { web3, connection, amm, BN, client: new amm.CpAmm(connection) };
+}

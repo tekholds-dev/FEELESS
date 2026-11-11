@@ -1,12 +1,7 @@
 """✅ THE 24-HOUR STAMP (owner 2026-11-04): every proof gets PROVED or NOT PROVED a day after it closes. A bid on a game not yet played waits for the final score. Worked out from the folder each time, so nothing can be set by hand. Pure."""
+from fnum import plain as _f
 DAY_S = 86400
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _result(kind, f):

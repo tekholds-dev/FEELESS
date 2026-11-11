@@ -12,6 +12,7 @@ Guards: only the vaults below (a coin against USDC), leverage capped 10 points u
 maximum size. Pure: no network here.
 """
 import lend_earn
+from fnum import plain as _f
 
 BORROW = 'https://api.jup.ag/lend/v1/borrow'
 BORROW_PUBLIC = 'https://lite-api.jup.ag/lend/v1/borrow'
@@ -24,12 +25,6 @@ ALL = str(-(2 ** 127))   # repay all / withdraw all
 SAFETY = 0.10            # never open within 10 points of the vault's max loan-to-value
 MAX_USD = 2000           # one open, at most (raise in code with the owner)
 
-
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def markets(vaults):

@@ -7,6 +7,7 @@ the market's own max: size = margin × leverage at the entry mark. Every read ma
 Close = realized P&L back into the paper cash. Paper only — nothing here is money, an order or advice."""
 import time
 import uuid
+from fnum import plain as _f
 
 START = 10_000.0       # paper dollars a new book gets (reset any time)
 MAX_OPEN = 6
@@ -15,12 +16,6 @@ MAINT = 0.005          # maintenance margin: liquidation lands this much before 
 KEEP_CLOSED = 40
 YEAR = 365 * 86400
 
-
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def blank(now=None):

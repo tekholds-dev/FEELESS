@@ -9,6 +9,7 @@ by the cat's max position (and, real, by the budget you set). Pure + tested; fee
 """
 import json
 import re
+from fnum import or_none as _num
 
 POOL_MIN_USD = 5_000.0
 AGE_MIN_MIN = 15.0
@@ -22,12 +23,6 @@ ORDER_SYS = ('You turn a trader\'s order into JSON for a Solana trading cat. Rep
              '{"side":"buy|sell","coin":"<SYMBOL or mint address>","sol":<SOL to spend on a buy, or null>,"fraction":<0-1 of the holding to sell, or null>}. '
              'If the order is not a buy or a sell of one coin, reply {"side":"none"}. Never invent a coin the order does not name.')
 
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def parse_order(text):

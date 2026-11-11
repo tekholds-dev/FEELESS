@@ -1,17 +1,12 @@
 """🧬 THE AGENT'S FINGERPRINT (owner 2026-11-04): every proof it files teaches it what it is good and bad at. Each trait is weighed by outcome and fades with age. Contents are sealed for its owner; everyone else sees only a level. Pure."""
 import math
 import re
+from fnum import plain as _f
 
 HALF_LIFE_S = 30 * 86400
 KIND = {'powFolders': 'trade', 'popFolders': 'perp', 'pobFolders': 'bid', 'pocFolders': 'content', 'psFolders': 'code'}
 _STOP = {'best', 'top', 'the', 'and', 'for', 'picks', 'pick', 'good', 'this', 'next', 'week', 'today', 'tonight', 'with'}
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _size(v, cuts, names):

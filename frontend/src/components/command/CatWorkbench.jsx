@@ -1,3 +1,4 @@
+import { useOnScreen } from '../../lib/fxPause';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -71,12 +72,6 @@ export async function work(id, body) {
   return j;
 }
 
-function useOnScreen(ref) {
-  const [on, setOn] = useState(true);
-  useEffect(() => { const el = ref.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
-    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { threshold: 0.05 }); io.observe(el); return () => io.disconnect(); }, [ref]);
-  return on;
-}
 
 // 🃏 ONE OWNER DESK for every agent (owner 2026-10-31: "both trader and general desks should be the same, slightly different for what's needed"):
 // [mind A vitals | head cloud + the chat card | mind B vitals] — the Files button flips the WHOLE desk over to its file cabinet, Esc / Chat flips back

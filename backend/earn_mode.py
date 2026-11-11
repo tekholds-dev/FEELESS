@@ -4,18 +4,13 @@ money could do right now for the owner's risk choice. Pure, tested. It never sig
 owner's wallet signs (an agent wallet that deposits on its own is a later, guarded build — the owner tests real money first).
 
 A gap counts only while OPEN and its net (after a swap's cost each side) is above zero; on most reads costs eat it, and the plan says so."""
+from fnum import plain as _f
 
 RISKS = ('safe', 'mid', 'risky')
 ALLOW = {'safe': {'safe'}, 'mid': {'safe', 'mid'}, 'risky': {'safe', 'mid', 'risky'}}
 VAULT_TIER = {'lst': 'safe', 'stable': 'safe', 'vault': 'mid', 'loop': 'risky'}
 SHOW = 6
 
-
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def plays(gaps=None, vault=None, pools=None, risk='safe', budget_usd=25.0):

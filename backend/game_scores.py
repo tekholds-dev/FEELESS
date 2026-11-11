@@ -7,17 +7,12 @@ Team colours and short names only, never league logos. Read-only, cached, nothin
 import time
 
 from proof_tools import SPORTS
+from fnum import or_none as _f
 
 BASE = 'https://site.api.espn.com/apis/site/v2/sports/{}/{}'
 TTL = 15
 _CACHE: dict = {}
 
-
-def _f(v, d=None):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def _side(c):

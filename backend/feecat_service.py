@@ -6922,13 +6922,47 @@ def _ads_set(cat_id, k, **row):
     return c_
 
 
+async def _ads_film(cat_id, k, ws):
+    """🎬 Records one ad. A page that crashes while it plays gets ONE fix pass in its own folder with its exact errors (counted toward the cap,
+    only while the cap allows another build), then is recorded again; still crashing → 'page error' with the error, never a blank video called done."""
+    for attempt_ in (0, 1):
+        html_ = ((_ws_load(cat_id, ws) or {}).get('versions') or [{}])[-1].get('html') or ''
+        if not html_:
+            _ads_set(cat_id, k, state='no page'); return
+        _ads_set(cat_id, k, state='recording'); errs_ = []
+        got_ = await _ads.record(_kits.open_for_kits(_ws_placed(cat_id, html_)), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path(), errs=errs_)
+        if not errs_:
+            _ads_set(cat_id, k, state='done' if got_ else 'no video', err=None); return
+        if attempt_ or not _ads.may_start(((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}, _ads_cost(cat_id))[0]:
+            _ads_set(cat_id, k, state='page error', err=errs_[0][:200]); return
+        fix_ = _ads.fix_ask(errs_); doc_ = _ws_load(cat_id, ws) or {}; now_ = time.time()
+        _feat.add_msg(doc_, 'you', fix_, now_); doc_['pending'] = True; doc_['busy'] = {'at': round(now_), 'to': 'a', 'stage': 'build'}; _ws_save(cat_id, doc_)
+        _ads_set(cat_id, k, state='fixing', err=errs_[0][:200])
+        try:
+            await _ws_start(cat_id, ws, 'a', fix_, None)
+        except Exception:   # noqa: BLE001
+            pass
+
+
 async def _ads_run(cat_id):
     """🎬 One ad per proof type, one at a time, under the $1.25 cap; each finished page is recorded to a video."""
+    # Once per run (no ad task is alive here): a built page with no video (no ffmpeg, a deleted .webm) is recorded again, never rebuilt (no new spend);
+    # a build or recording a restart killed (2026-11-11) is recorded if its page exists, else built again, its spend kept in lostWs for the cap.
+    for k_, j_ in list((((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}).items()):
+        st_ = j_.get('state'); cut_ = st_ in ('building', 'recording', 'fixing')
+        if not j_.get('ws') or not (cut_ or st_ == 'no video' or (st_ == 'done' and not (SHOW_ADS_DIR / cat_id / f'{k_}.webm').exists())):
+            continue
+        html_ = ((_ws_load(cat_id, j_['ws']) or {}).get('versions') or [{}])[-1].get('html') or ''
+        if html_:
+            await _ads_film(cat_id, k_, j_['ws'])
+        elif cut_:
+            _ads_set(cat_id, k_, ws=None, state='waiting', lostWs=[*(j_.get('lostWs') or []), j_['ws']])
     while True:
         store = _load(); cat = store['cats'].get(cat_id)
         if not cat:
             return
-        jobs = cat.get('showAds') or {}; k = _ads.next_kind(jobs)
+        jobs = cat.get('showAds') or {}
+        k = _ads.next_kind(jobs)
         if not k:
             return
         ok, _s = _ads.may_start(jobs, _ads_cost(cat_id))
@@ -6936,22 +6970,17 @@ async def _ads_run(cat_id):
             _ads_set(cat_id, k, state='over budget'); return
         now = time.time()
         try:
-            row_ = _feat.new_folder(cat, 'build', f'Ad · {_ads.NAME[k]}', now)
+            row_ = _feat.new_folder(cat, 'build', f'Ad · {_ads.NAME[k]}', now, ad=True)
         except ValueError:
             _ads_set(cat_id, k, state='no room for a folder'); return
         doc_ = _feat.new_doc(row_); doc_['cfg'] = {'research': False, 'suggest': False, 'review': False}; text_ = _ads.ask_for(k)
         _feat.add_msg(doc_, 'you', text_, now); doc_['complete'] = False; doc_['pending'] = True; doc_['busy'] = {'at': round(now), 'to': 'a', 'stage': 'build'}
-        _ws_save(cat_id, doc_); cat.setdefault('showAds', {})[k] = {'ws': row_['id'], 'state': 'building', 'at': round(now)}; keep_owned(cat); _save(store)
+        _ws_save(cat_id, doc_); cat.setdefault('showAds', {})[k] = {'ws': row_['id'], 'state': 'building', 'at': round(now), **({'lostWs': jobs[k]['lostWs']} if (jobs.get(k) or {}).get('lostWs') else {})}; keep_owned(cat); _save(store)
         try:
             await _ws_start(cat_id, row_['id'], 'a', text_, None)
         except Exception:   # noqa: BLE001
             pass
-        html_ = ((_ws_load(cat_id, row_['id']) or {}).get('versions') or [{}])[-1].get('html') or ''
-        if not html_:
-            _ads_set(cat_id, k, state='no page'); continue
-        _ads_set(cat_id, k, state='recording')
-        got_ = await _ads.record(_ws_placed(cat_id, html_), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path())
-        _ads_set(cat_id, k, state='done' if got_ else 'no video')
+        await _ads_film(cat_id, k, row_['id'])
 
 
 def _ads_view(cat_id, cat):
@@ -9554,10 +9583,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'show_ads':   # 🎬 owner-staff only: this agent makes one ad per proof type for the Showcase, $1.25 cap, one at a time
         if not cat.get('ownerStaff'):
             raise HTTPException(403, 'Showcase ads are made by the owner\'s agents.')
-        if p.text == 'go':
-            t_ = _ADS_LIVE.get(cat_id)
-            if not (t_ and not t_.done()):
-                _ADS_LIVE[cat_id] = asyncio.create_task(_ads_run(cat_id))
+        live_ = bool(_ADS_LIVE.get(cat_id) and not _ADS_LIVE[cat_id].done())
+        redo_ = str(p.text or '')[5:] if str(p.text or '').startswith('redo:') else ''
+        if redo_:   # ↻ one ad built again from scratch: its old build stays counted toward the cap (lostWs), its video goes. A live run picks it up next
+            j_ = (cat.get('showAds') or {}).get(redo_)
+            if redo_ not in _ads.KINDS or not (j_ or {}).get('ws'):
+                raise HTTPException(400, 'That ad has not been built yet.')
+            if j_.get('state') in ('building', 'recording', 'fixing') and live_:
+                raise HTTPException(409, 'That ad is being made right now.')
+            cat['showAds'][redo_] = {'state': 'waiting', 'lostWs': [*(j_.get('lostWs') or []), j_['ws']]}; keep_owned(cat); _save(store)
+            (SHOW_ADS_DIR / cat_id / f'{redo_}.webm').unlink(missing_ok=True)
+        if (p.text == 'go' or redo_) and not live_:
+            _ADS_LIVE[cat_id] = asyncio.create_task(_ads_run(cat_id))
         return {'ads': _ads_view(cat_id, cat), 'running': bool(_ADS_LIVE.get(cat_id) and not _ADS_LIVE[cat_id].done())}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
@@ -10326,7 +10363,7 @@ def public_live(w, cat=None):
     for x in t.get('windows') or []:
         host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
         frozen = x.get('status') == 'human'
-        private_ = _vv.private_page(x.get('url')) if x.get('url') else False   # 👀 a mailbox or an account page: blank for visitors, and its address stays out too
+        private_ = (_vv.private_page(x.get('url')) or (bool(cat) and _signed_host(cat, x.get('url')))) if x.get('url') else False   # 👀 a mailbox, an account page or a site it is signed in to: blank for visitors, its address out too
         host = '' if private_ else host
         live_ = x.get('status') == 'working' and str(x.get('url') or '').startswith('http')
         slot_ = _slot_of(cat, x.get('model'), int(x.get('i') or 0))
@@ -10447,7 +10484,7 @@ async def cat_screen(cat_id: str, i: int, ownerId: str = '', session: str = ''):
         jpg_ = await pg_.shot() if pg_ and getattr(pg_, 'live', False) else None
         if jpg_:
             return Response(content=jpg_, media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
-    if (x or {}).get('status') == 'human':   # a window handed to its owner: blank for everyone else
+    if (x or {}).get('status') == 'human' or (x and not mine_ and _signed_host(cat, x.get('url') or '')):   # handed to its owner, or a site it is signed in to (its account could show): blank for everyone else
         return Response(content=_vv.blank_jpg(), media_type='image/jpeg', headers={'Cache-Control': 'no-store', 'X-Private': '1'})
     if not x or x.get('status') != 'working':   # 🖼 idle / done: the last page it was on, until it works again
         if not got:

@@ -3,16 +3,11 @@
 funding · Pool Hall = the best sane APY · Trade Center = the real card's open seats and record · Night Vault = the best overnight strategy ·
 Pump Radar = the hottest Pump coin · FeeCat = Fee's stack and lives · Rep market = live calls. Pure: the service feeds each tool's cached read
 (GET /api/reputation/familia-town/live, one shared read every 45 s); a missing source leaves that sign on its plain subtitle."""
+from fnum import or_none as _f
 
 POOL_MIN_TVL = 1_000_000   # the Pool Hall's sign only quotes pools with real depth…
 POOL_MAX_APY = 300         # …and an APY that is not a farm's launch-day number
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def usd(v):

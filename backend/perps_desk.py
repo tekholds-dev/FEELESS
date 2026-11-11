@@ -8,6 +8,7 @@ futures via its CFTC-registered FCM since 2025-07: BTC ETH at launch). Hyperliqu
 nothing routes there. Only coins a US venue lists are shown. `liq_move` = how far price can move against a position before it is liquidated.
 Re-check each venue's market list when you touch this (sources: Kraken / Coinbase launch notes, 2025–26).
 """
+from fnum import or_none as _f
 INFO = 'https://api.hyperliquid.xyz/info'
 TOP = 12
 US_VENUES = {'kraken': ('BTC', 'ETH', 'SOL', 'XRP', 'ADA', 'LINK', 'DOGE', 'LTC', 'AVAX'), 'coinbase': ('BTC', 'ETH')}
@@ -17,12 +18,6 @@ def venues_for(coin):
     """The US-legal venues that list this coin's perps (empty = no US route → the row is not shown)."""
     return [v for v, coins in US_VENUES.items() if coin in coins]
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def rows(payload, top=TOP):

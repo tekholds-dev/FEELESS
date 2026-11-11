@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 // Off-screen FX pause: the Arena had ~400 animations running at once and 4 in 5 were on cards nobody could see.
 // ONE IntersectionObserver marks animated surfaces that are off-screen with `fx-off` (CSS pauses every animation inside);
 // they resume the moment they scroll back in. One MutationObserver (batched per frame) picks up cards as they mount.
@@ -77,4 +78,12 @@ function startGovernor() {
   document.addEventListener('visibilitychange', run);
   setTimeout(run, 800);
   return () => { clearInterval(every); clearTimeout(timer); window.removeEventListener('scroll', soon, { capture: true }); window.removeEventListener('resize', soon); document.removeEventListener('visibilitychange', run); };
+}
+
+// 👁 One hook for "is this on screen?" (was copied into CatWorkbench and HiveBoard): pause polls and art while scrolled away. No observer → on.
+export function useOnScreen(ref) {
+  const [on, setOn] = useState(true);
+  useEffect(() => { const el = ref.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { threshold: 0.05 }); io.observe(el); return () => io.disconnect(); }, [ref]);
+  return on;
 }

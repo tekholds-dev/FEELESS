@@ -2,7 +2,7 @@
 stage rule (breakeven = milestone 1 · 2× the put-in = graduation)."""
 import math
 
-import agents as ag
+import paper_desk as ag
 import chart_intel as ci
 import market_data as md
 import office as of

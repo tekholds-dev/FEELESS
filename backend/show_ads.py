@@ -3,6 +3,7 @@ One owner-staff agent builds one ad page per proof type through its normal Build
 one at a time, under a hard budget: a build starts only while the money already spent plus one average build stays under the cap. Each finished
 page is then recorded in headless Chromium at 1280 × 720 into a .webm the owner can play in the Showcase and download. Nothing here posts anything."""
 import asyncio
+import re
 import time
 from pathlib import Path
 
@@ -30,7 +31,7 @@ def ask_for(kind):
 
 def spent(jobs, cost_of):
     """Money the ad builds have cost so far. cost_of(ws_id) → $."""
-    return round(sum(float(cost_of(j.get('ws')) or 0) for j in (jobs or {}).values() if j.get('ws')), 6)
+    return round(sum(float(cost_of(w) or 0) for j in (jobs or {}).values() for w in [j.get('ws'), *(j.get('lostWs') or [])] if w), 6)   # a build a restart killed still cost money
 
 
 def may_start(jobs, cost_of, budget=BUDGET):
@@ -44,10 +45,29 @@ def next_kind(jobs):
     return next((k for k in KINDS if not (jobs or {}).get(k, {}).get('ws')), None)
 
 
-async def record(html, out: Path, chromium, seconds=14, timeout_s=60):
-    """Plays one page at 1280 × 720 for `seconds` and saves it as out (.webm). → True when a video was written."""
+HIDDEN_FIX = '<style>[hidden]{display:none!important}</style>'
+
+
+def playable(html):
+    """🎬 A page's own `.x{display:grid}` beat its `hidden` attribute and kept an "Animation unavailable" cover on the whole PoP ad (2026-11-11):
+    hidden means hidden. Goes inside <head> (before the doctype would drop the page into quirks mode). Pure."""
+    h = str(html or '')
+    m = re.search(r'<head[^>]*>', h, re.I) or re.search(r'<html[^>]*>', h, re.I) or re.search(r'<!doctype[^>]*>', h, re.I)
+    return h[:m.end()] + HIDDEN_FIX + h[m.end():] if m else HIDDEN_FIX + h
+
+
+def fix_ask(errs):
+    """The one fix pass a crashing ad gets: its own errors, word for word, and nothing else to change. Pure."""
+    return ('This ad page crashes while it plays, so its scenes never show. Fix exactly these errors and change nothing else: '
+            + ' | '.join(str(e)[:220] for e in (errs or [])[:3]))
+
+
+async def record(html, out: Path, chromium, seconds=14, timeout_s=60, errs=None):
+    """Plays one page at 1280 × 720 for `seconds` and saves it as out (.webm). → True when a video was written.
+    `errs` (a list) collects the page's own crashes and blocked loads while it plays: 4 of the first 6 ads recorded 14 s of an empty stage (2026-11-11)."""
     if not chromium or not html:
         return False
+    html = playable(html)
 
     async def run():
         from playwright.async_api import async_playwright
@@ -58,7 +78,15 @@ async def record(html, out: Path, chromium, seconds=14, timeout_s=60):
             try:
                 ctx = await b.new_context(viewport={'width': 1280, 'height': 720}, record_video_dir=str(tmp), record_video_size={'width': 1280, 'height': 720})
                 pg = await ctx.new_page()
+                if errs is not None:
+                    pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
+                    pg.on('console', lambda m: m.type == 'error' and errs.append(m.text[:300]))
+                await pg.set_content('<body style="margin:0;background:#04070a"></body>')   # the first frames are night, not a white flash
                 await pg.set_content(html, wait_until='load', timeout=20000)
+                # 🎬 a game-kit page waits on "press SPACE or tap to start" (the first ad recorded 14 s of that screen, 2026-11-11): press play
+                await pg.wait_for_timeout(600)
+                await pg.mouse.click(640, 360)
+                await pg.keyboard.press('Space')
                 await pg.wait_for_timeout(seconds * 1000)
                 vid = pg.video
                 await ctx.close()
@@ -83,6 +111,6 @@ def view(jobs, cost_of, has_video):
     for k in KINDS:
         j = (jobs or {}).get(k) or {}
         rows[k] = {'name': NAME[k], 'ws': j.get('ws'), 'state': j.get('state') or ('waiting' if not j.get('ws') else 'building'), 'cost': round(float(cost_of(j.get('ws')) or 0), 4) if j.get('ws') else 0,
-                   'video': bool(j.get('ws') and has_video(k)), 'at': j.get('at')}
+                   'video': bool(j.get('ws') and has_video(k)), 'at': j.get('at'), 'err': j.get('err')}
     s = spent(jobs, cost_of)
     return {'budget': BUDGET, 'spent': s, 'left': round(max(0.0, BUDGET - s), 4), 'rows': rows, 'at': round(time.time())}

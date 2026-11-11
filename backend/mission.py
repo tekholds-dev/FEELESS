@@ -10,6 +10,7 @@ import json
 import proof_footprint as _foot
 import proof_stamp as _stamp
 import compare_gate as _cmp
+from fnum import plain as _f
 
 VERSION = 1
 KINDS = {   # kind → (its code, the folder list on an agent)
@@ -27,12 +28,6 @@ NOT_YET = 'not recorded yet (COL-2)'
 def kind_of(kind):
     return ALIASES.get(str(kind or '').lower())
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _rows(v):

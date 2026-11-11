@@ -14,6 +14,7 @@ import hashlib
 import re
 import time
 from urllib.parse import quote_plus, urlsplit
+from fnum import plain as _f
 
 SITE_STEPS = 5
 SITE_PULLS = 3
@@ -378,12 +379,6 @@ CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, worki
 DECIDE_SYS = ('You are {name}, the CHART WATCHER of a FEELESS trader agent holding ${sym}. Read the chart samples, your partner\'s research and '
               'the P/L, then decide. Answer ONLY JSON: {{"action": "HOLD|SELL", "say": "<= 20 words to your partner — what the chart shows"}}.')
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def is_pump(c):

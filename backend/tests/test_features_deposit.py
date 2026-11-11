@@ -205,8 +205,8 @@ def test_pob_shows_live_first_real_markets_and_only_free_pictures_of_the_real_su
     ok = {'title': 'File:Lakers at Suns.jpg', 'imageinfo': [{'thumburl': 'https://x/a.jpg', 'descriptionurl': 'd', 'extmetadata': {'LicenseShortName': {'value': 'CC BY-SA 4.0'}, 'Artist': {'value': '<a>Jo</a>'}}}]}
     closed = {'title': 'File:Lakers game.jpg', 'imageinfo': [{'thumburl': 'https://x/b.jpg', 'extmetadata': {'LicenseShortName': {'value': 'Fair use'}}}]}
     off = {'title': 'File:Cat.jpg', 'imageinfo': [{'thumburl': 'https://x/c.jpg', 'extmetadata': {'LicenseShortName': {'value': 'CC0'}}}]}
-    assert pt.parse_image({'query': {'pages': {'1': closed, '2': off, '3': ok}}}, ['lakers'])['by'] == 'Jo'
-    assert pt.parse_image({'query': {'pages': {'1': closed, '2': off}}}, ['lakers']) is None                     # nothing fits: no picture, never a fake
+    assert pt.parse_images({'query': {'pages': {'1': closed, '2': off, '3': ok}}}, ['lakers'], 1)[0]['by'] == 'Jo'
+    assert pt.parse_images({'query': {'pages': {'1': closed, '2': off}}}, ['lakers'], 1) == []                     # nothing fits: no picture, never a fake
     ev = {'id': 1, 'title': 'Fed decision in June', 'endDate': 'E', 'tags': [{'label': 'Economy'}], 'volume24hr': '5', 'markets': [{'outcomes': '["Yes","No"]', 'outcomePrices': '["0.7","0.3"]', 'groupItemTitle': 'Cut'}]}
     row = pt.parse_markets([ev])[0]; assert row['cat'] == 'Business' and row['lead'] == {'name': 'Cut', 'chance': 0.7}
     assert pt.poly_for('will the fed decision in june', [row])['id'] == '1' and pt.poly_for('lakers', [row]) is None
@@ -278,13 +278,6 @@ def test_workspace_view_exposes_saved_code_change_and_actual_model_cost(monkeypa
     assert view['previousCode'] == doc['versions'][0]['html']
     assert view['code'] == doc['versions'][1]['html']
     assert view['cost'] == 0.01234 and view['complete'] is True and view['pending'] is False
-
-
-def test_page_patch_requires_one_exact_match_and_a_complete_page():
-    page = '<html><body><h1>Old</h1></body></html>'
-    assert feat.apply_page_patch(page, '{"find":"<h1>Old</h1>","replace":"<h1>New</h1>"}') == '<html><body><h1>New</h1></body></html>'
-    assert feat.apply_page_patch(page, '{"find":"not here","replace":"new"}') is None
-    assert feat.apply_page_patch(page, '{"find":"</html>","replace":""}') is None
 
 
 

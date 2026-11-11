@@ -1,7 +1,7 @@
 """🆕 Fresh 0–12h trench coins must dominate selection: the old failure (a flat 100-candle old coin outranking an 8-candle accelerating
 launch), the candle budget order, the best-available bar, the Pump entry phase, early-wallet pressure, the Judge's loss classes, the
 curve switch."""
-import agents as ag
+import paper_desk as ag
 import chart_intel as ci
 import fuse_wallet as fw
 import judge_review as jr

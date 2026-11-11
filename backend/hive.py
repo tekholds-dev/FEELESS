@@ -9,6 +9,7 @@ runs the loop (feecat_service._hive_*), never a trade, never a key.
 """
 import re
 import time
+from fnum import plain as _num
 
 EPOCH_S = 86400          # one UTC day
 GRADE_AFTER_S = 3600     # a cell is judged one hour after it was filed
@@ -121,12 +122,6 @@ def public(cell):
     """What anyone may see of a cell (no costs, no model routes)."""
     return {k: cell.get(k) for k in ('id', 'cat', 'name', 'sym', 'pair', 'call', 'why', 'price', 'at', 'honey', 'move')}
 
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def now():

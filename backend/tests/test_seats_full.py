@@ -2,7 +2,7 @@
 (1) where a coin was FOUND, its cap band, narrative, launchpad, chart label = context: never a learned rug sign, never Devil's veto;
 (2) an empty seat with NOTHING cleared takes the best near-ready coin after NEAR_PATIENCE_SEC — only coins whose sole open checks are the
 entry moment / ENTER-grade data — at half size (Warden W19). No network, no wallet, no order."""
-import agents as ag
+import paper_desk as ag
 import office as of
 import office_edge as oe
 

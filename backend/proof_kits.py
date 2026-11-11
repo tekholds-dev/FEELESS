@@ -4,6 +4,7 @@ A kit is reference data. It moves no money and runs no code. A PoW kit reaches a
 import json
 import time
 from pathlib import Path
+from fnum import plain as _f
 
 LIVE_FILE = 'live.dat'   # not *.json: rows() reads every .json in the kit folder as a kit
 LIVE_MAX_AGE = 6 * 3600   # older numbers than this are not shown as fresh
@@ -84,12 +85,6 @@ STACKS = [
 ]
 IDS = {k['id'] for k in BOOK}
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _usd(v):

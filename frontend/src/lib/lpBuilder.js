@@ -1,15 +1,11 @@
 import { keepReceipt } from './receipts';
-import { relayConnection, signSend } from './launchRail';
+import { meteoraSdk as sdk, signSend } from './launchRail';
 
 // 🔌 IN-PLACE LP (owner, 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"): join a Meteora DAMM v2 pool from FEELESS.
 // Built in the browser with Meteora's own SDK, SIMULATED first (nothing is signed if the chain would reject it), signed by the user's wallet,
 // which supplies both sides. FEELESS never holds the funds. The position is an NFT in the user's wallet; fees accrue to it.
 export const SOL = 'So11111111111111111111111111111111111111112';
 
-async function sdk() {
-  const [{ web3, connection }, amm, BN] = await Promise.all([relayConnection(), import('@meteora-ag/cp-amm-sdk'), import('bn.js').then(m => m.default)]);
-  return { web3, connection, amm, BN, client: new amm.CpAmm(connection) };
-}
 
 // pure: the other side with slippage head-room, as integer base units (BN-free so it is testable)
 export const withSlip = (units, bps = 100) => (BigInt(units) * BigInt(10000 + Number(bps))) / 10000n;

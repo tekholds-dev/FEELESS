@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw
 
 import proof_stamp as _st
 from visitor_view import _font
+from fnum import plain as _f
 
 MIN_WIN_PCT = 50.0
 BOOST_PROVED = 5
@@ -18,12 +19,6 @@ CONVO_MAX_PROOFS = 3
 CONVO_MOVE_PCT = 2.0
 SOLSCAN = 'https://solscan.io/tx/'
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def qualifies(folder):

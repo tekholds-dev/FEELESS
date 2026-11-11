@@ -1,13 +1,8 @@
 """⚖ THE FIVE VALIDATORS (owner 2026-11-05): five of the desk's agents check every proof sent to the Collective, instead of trading. Each one checks one thing from the record itself, with no model and no cost, so nothing it says can be talked into. A proof that fails is HELD: its money still follows its plan, but it earns no fee pot share and no points until the owner clears it. Pure."""
+from fnum import plain as _f
 SEATS = {'tally': ('Tally', 'The numbers add up'), 'sherlock': ('Sherlock', 'The evidence is there'), 'devil': ('Devil', 'It was not gamed'), 'archivist': ('Archivist', 'The record is in order'), 'judge': ('Judge', 'The final call')}
 MIN_HOLD_S = 60
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def tally(f, sent_sol):

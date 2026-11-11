@@ -70,7 +70,7 @@ def test_several_free_photos_each_with_a_license():
     page = lambda n, lic: {'title': f'File:Pistons {n}.jpg', 'imageinfo': [{'thumburl': f'https://x/{n}.jpg', 'descriptionurl': 'https://x', 'extmetadata': {'LicenseShortName': {'value': lic}}}]}
     data = {'query': {'pages': {str(i): page(i, 'CC BY 4.0') for i in range(7)} | {'9': page(9, 'All rights reserved')}}}
     got = t.parse_images(data, ['Pistons'])
-    assert len(got) == 5 and all(x['license'] == 'CC BY 4.0' for x in got) and t.parse_image(data, ['Pistons'])['url'] == got[0]['url']
+    assert len(got) == 5 and all(x['license'] == 'CC BY 4.0' for x in got) and t.parse_images(data, ['Pistons'], 1)[0]['url'] == got[0]['url']
 
 
 def test_each_job_gets_its_own_short_source_line():

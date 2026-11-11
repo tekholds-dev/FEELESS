@@ -12,6 +12,7 @@ import random
 import statistics
 
 import pick_edge as _edge
+from fnum import plain as _num
 
 STEP_MIN = 5
 CLOCKS = (5, 15, 30, 60)
@@ -408,12 +409,6 @@ def strategies(sub, min_n=6, retired=None):
                     'proof': {t: {'medPct': score[t][v]['medPct'], 'n': score[t][v]['n']} for t, v in cfg.items()}, 'profitable': med > 0})
     return out
 
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def summary(results):

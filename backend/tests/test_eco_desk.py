@@ -102,8 +102,9 @@ def test_the_day_is_theirs_but_a_wild_date_is_ignored():
 
 
 def test_this_module_cannot_move_money():
-    src = (Path(e.__file__)).read_text(); names = {n.name.split('.')[0] for x in ast.walk(ast.parse(src)) if isinstance(x, (ast.Import, ast.ImportFrom)) for n in x.names}
-    assert names <= {'calendar', 'csv', 'datetime', 'hashlib', 'io', 'json', 're', 'secrets'}, names
+    src = (Path(e.__file__)).read_text()   # the MODULES it imports (a `from x import y` counts as x): only the standard library + fnum's pure number parsing
+    names = {(x.module if isinstance(x, ast.ImportFrom) else n.name).split('.')[0] for x in ast.walk(ast.parse(src)) if isinstance(x, (ast.Import, ast.ImportFrom)) for n in x.names}
+    assert names <= {'calendar', 'csv', 'datetime', 'fnum', 'hashlib', 'io', 'json', 're', 'secrets'}, names
 
 
 def _server(monkeypatch, tmp_path):

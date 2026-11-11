@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { keepReceipt } from './receipts';
-import { relayConnection, signSend } from './launchRail';
+import { meteoraSdk as sdk, signSend } from './launchRail';
 import { getSolPrice } from './solPrice';
 
 // 🏗 YOUR LP POSITIONS, LIVE (owner, 2026-10-23: "show my LP positions as live buildings in my family town — fees earned, in range or not —
@@ -10,10 +10,6 @@ import { getSolPrice } from './solPrice';
 export const SOL = 'So11111111111111111111111111111111111111112';
 const Q64 = 2 ** 64;
 
-async function sdk() {
-  const [{ web3, connection }, amm, BN] = await Promise.all([relayConnection(), import('@meteora-ag/cp-amm-sdk'), import('bn.js').then(m => m.default)]);
-  return { web3, connection, amm, BN, client: new amm.CpAmm(connection) };
-}
 const decCache = new Map();
 async function decimalsOf(connection, mint) {
   const k = mint.toBase58(); if (decCache.has(k)) return decCache.get(k);

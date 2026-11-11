@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-import agents as ag
+import paper_desk as ag
 import arena_prime as ap
 import chart_intel as ci
 import office as of

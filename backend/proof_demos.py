@@ -2,17 +2,12 @@
 Only what is named here leaves: no wallets, mints, prompts, owners' notes or model names. Nothing is made up: a type nobody filed shows empty."""
 import hashlib
 import re
+from fnum import plain as _n
 
 KINDS = [('PoW', 'powFolders', 'Traded on-chain, with what it read'), ('PoP', 'popFolders', 'A perp call, with the real reason'), ('PoB', 'pobFolders', 'A game or market call, graded by the score'),
          ('PoC', 'pocFolders', 'Content planned, made and marked'), ('PoStatic', 'psFolders', 'A page it built, tried and reviewed')]
 MAX_PARTS = 8
 
-
-def _n(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def _len(v):

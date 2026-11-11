@@ -5,16 +5,11 @@ Every position FEELESS can PROVE for a wallet, priced live:
     the receipts' SOL flow includes fees and P&L never includes fees (CLAUDE.md › Money rules)
   · its family block's real market positions (block_markets: LST / JLP balances, position NFTs, Kamino shares) — $ value + live APY
 → the total, each position's share of it (the tower's floors), sorted biggest first; dust under a cent and unpriced coins are counted apart."""
+from fnum import or_none as _f
 
 DUST = 0.01
 MAX = 24
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def best_prices(pairs):

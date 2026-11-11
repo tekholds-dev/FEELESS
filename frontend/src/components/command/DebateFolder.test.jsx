@@ -40,3 +40,14 @@ test('a finished room says what it really banked, and says so when it banked not
   expect((await paint({})).querySelector('[data-testid=dbr-unbanked]').textContent).toContain('both of you need a stake');
   expect((await paint({ a: 0, b: 0 })).querySelector('[data-testid=dbr-unbanked]').textContent).toContain('limit is full');
 });
+
+test('an empty floor is still the stage: your proof in seat A, the open seat, the crowd bar at even', async () => {
+  const room = { rooms: [], slots: 2, perDay: 2, satToday: 0, sayMax: 280, crowdMin: 3, rounds: ['Opening', 'Counter', 'Closer'], pts: { finish: 5, better: 5, point: 5, crowd: 10 } };
+  const work = jest.fn(async () => ({ rows: [], offers: [], board: [], seat: { today: 0, perDay: 5 }, open: 0, settled: 0, allowed: false, canGrade: true, room }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<DebateFolder cat={{ id: 'c' }} d={{ pobFolders: [{ id: 'f1', status: 'closed', topic: 'NBA' }] }} work={work} />); });
+  await act(async () => { await Promise.resolve(); });
+  const idle = el.querySelector('[data-testid=dbr-idle]'); expect(idle).toBeTruthy();
+  expect(idle.textContent).toContain('Bring a filed proof below'); expect(idle.textContent).toContain('OPEN SEAT'); expect(idle.textContent).toContain('3 rounds');
+  el.remove();
+});

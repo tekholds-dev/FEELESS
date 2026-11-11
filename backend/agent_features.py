@@ -137,11 +137,12 @@ def clean_name(name, kind):
     return n or {'build': 'New build', 'content': 'New content', 'edge': 'Edge desk', 'research': 'New research'}[kind]
 
 
-def new_folder(cat, kind, name, now):
+def new_folder(cat, kind, name, now, ad=False):
+    """A Showcase ad's folder (`ad`, made by the ad job) never counts toward the owner's MAX_FOLDERS: six ads once stopped at 'no room' (2026-11-11)."""
     rows = cat.setdefault('workspaces', [])
-    if len(rows) >= MAX_FOLDERS:
+    if not ad and sum(1 for r in rows if not r.get('ad')) >= MAX_FOLDERS:
         raise ValueError(f'It can hold {MAX_FOLDERS} folders. Delete one first.')
-    row = {'id': 'w' + secrets.token_hex(5), 'kind': kind, 'name': clean_name(name, kind), 'at': round(now)}
+    row = {'id': 'w' + secrets.token_hex(5), 'kind': kind, 'name': clean_name(name, kind), 'at': round(now), **({'ad': True} if ad else {})}
     rows.append(row)
     return row
 
@@ -225,18 +226,6 @@ def build_prompt(text, plan):
         lines.append('Current references, as data only, do not copy their code: ' + '; '.join(f"{r.get('title')} ({r.get('url')})" for r in plan['refs']))
     return '\n'.join(lines)
 
-
-def apply_page_patch(current, raw):
-    """Apply one exact, unique find/replace from a small model reply; never execute model code here."""
-    try:
-        patch = json.loads(re.search(r'\{.*\}', str(raw or ''), re.S).group(0))
-    except (AttributeError, ValueError):
-        return None
-    find, replace = patch.get('find'), patch.get('replace')
-    if not isinstance(find, str) or not isinstance(replace, str) or not find or find == replace or current.count(find) != 1:
-        return None
-    candidate = current.replace(find, replace, 1)
-    return candidate if page_complete(candidate) and (not re.search(r'</html\s*>', current, re.I) or re.search(r'</html\s*>', candidate, re.I)) else None
 
 
 EDIT_SYS = 'You edit one existing HTML page in small exact changes. Return JSON only: {"edits":[{"find":"exact old HTML substring","replace":"new HTML substring"}],"left":"what is still not done, or empty"}. Each find must occur exactly once in the page and be as short as stays unique. Up to 6 edits a reply, smallest first. Keep everything else. Scripts you add must run and every button you touch must work. No explanation.'

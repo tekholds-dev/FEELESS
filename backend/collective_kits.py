@@ -337,6 +337,8 @@ def open_for_kits(html, picks=None):
     if not on:
         return h
     sheets = [u for u in on if u.endswith('.css')]; code = [u for u in on if not u.endswith('.css')]
+    # three ≥ 0.171 splits into three.module.js + the three.core.js it imports from the same folder: allowing one alone left every 0.187 scene dark (2026-11-11)
+    code += [u[:-len('three.module.js')] + 'three.core.js' for u in code if u.endswith('/build/three.module.js')]
     assets = (' https://dl.polyhaven.org' if 'https://dl.polyhaven.org/' in h else '') + (' https://image.pollinations.ai' if 'https://image.pollinations.ai/' in h else '') + (' https://raw.githubusercontent.com/ToxSam/' if 'https://raw.githubusercontent.com/ToxSam/' in h else '') + (' https://raw.githubusercontent.com/nasa/' if 'https://raw.githubusercontent.com/nasa/' in h else '') + (' https://huggingface.co https://*.hf.co https://*.huggingface.co' if 'https://huggingface.co/datasets/allenai/objaverse/' in h else '')   # 🎁 real CC0 models, light and textures: this one host, read only by what the page itself asks for
     rule = f"default-src 'none'; img-src data: blob:{assets}; {f'connect-src blob: data:{assets}; ' if assets else ''}style-src 'unsafe-inline' {' '.join(sheets)}; script-src 'unsafe-inline' {' '.join(code)}; font-src data:{' https://cdn.jsdelivr.net/npm/@fontsource/' if '/npm/@fontsource/' in h else ''}"
     tag = f'<meta http-equiv="Content-Security-Policy" content="{" ".join(rule.split())}">'

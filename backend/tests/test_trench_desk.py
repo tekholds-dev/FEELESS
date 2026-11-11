@@ -2,7 +2,7 @@
 event wakeups, fresh-first priority, cost-aware sizing, real-money desk records, one execution path."""
 from pathlib import Path
 
-import agents as ag
+import paper_desk as ag
 import judge_review as jr
 import market_wake as mw
 import office as of

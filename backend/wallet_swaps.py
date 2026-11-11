@@ -6,17 +6,12 @@ the WALLET'S OWN balance changes. Pure, tested (tests/test_wallet_swaps.py).
 A swap = exactly one non-quote coin moved for the wallet AND a priced quote leg moved the other way: SOL (native, fee added back when the
 wallet paid it, + wrapped SOL) at the live SOL price, or a stablecoin 1:1. Token-for-token routes, plain transfers and failed transactions
 are not swaps. → {ts, side, usd, price, token, tx} — the same row shape the Helius path returns."""
+from fnum import plain as _f
 
 WSOL = 'So11111111111111111111111111111111111111112'
 STABLES = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
 DUST = 1e-9
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _keys(tx):

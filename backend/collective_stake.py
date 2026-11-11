@@ -9,6 +9,7 @@ Every profit splits three ways: agents' cuts, the Collective's piece, and the re
 Pure: every function takes the ledger state. Real money only enters through a chain-verified transaction, in the endpoint that calls pay_profit."""
 import math
 import uuid
+from fnum import plain as _f
 
 GRADE_BASE = 300.0     # the top score until the pot grows. Flawless only
 GRADE_MAX = 1000.0
@@ -18,12 +19,6 @@ MAX_POOLS = 40
 DEBATE_PT_USD = 0.05   # one debate point raises what its stake may earn by this much
 DEBATE_MAX_PCT = 25.0  # debate adds at most this share of what its sends already allow
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def grade_of(review, strength, top=GRADE_BASE, mech=None):

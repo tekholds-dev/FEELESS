@@ -2,6 +2,7 @@
 Runs the locked page (`agent_features.preview`) with nothing but https allowed and no file or local address. Numbers only are kept: never a page."""
 import json
 from pathlib import Path
+from fnum import plain as _n
 
 STORE = 'page_looks.json'
 SIZES = (('desktop', 1280, 800), ('phone', 390, 800))
@@ -61,12 +62,6 @@ def score(sizes):
             bits.append(f"{name}: {', '.join(x for x in said if x)}")
     return round(worst, 3), ('; '.join(bits) or 'Nothing overlaps at either size')[:150]
 
-
-def _n(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 async def shot(html, chromium, w=1280, h=800, wait=7000):

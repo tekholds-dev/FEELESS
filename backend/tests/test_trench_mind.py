@@ -1,5 +1,5 @@
 import trench_mind as tm
-import agents as ag
+import paper_desk as ag
 
 
 def test_slang_words_and_narratives():

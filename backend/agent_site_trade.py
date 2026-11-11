@@ -6,6 +6,7 @@ What fails: the page can say anything, so the receipt comes from the chain when 
 Guards (buys only, a sell always gets out): a pool, an age and an already-ran check, plus a per-trade and a 24 h cap. They can only stop a trade. Pure and tested: the service holds the network.
 """
 import re
+from fnum import plain as _f
 
 MIN_USD = 0.5
 MAX_USD = 25.0
@@ -49,12 +50,6 @@ def parse(text, signed):
     pct = 100 if amount in ('all', 'everything') else int(amount[:-1])
     return {'side': 'sell', 'pct': pct, 'coin': m.group(2), 'site': site}
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def facts(pair, now):

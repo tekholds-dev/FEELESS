@@ -14,6 +14,7 @@ SOURCES = {'bids': [('ESPN', 'Games, scores, teams', True), ('Polymarket', 'Mark
            'pop': [('Hyperliquid', 'Funding, open interest, price', True), ('Coinbase', 'Spot price feed', True), ('Fear & Greed', 'Market mood', True), ('CoinGecko', 'Global market', True), ('DefiLlama', 'Perp volume', True)]}
 import game_edge as _ge
 import pob as _pob
+from fnum import plain as _f
 
 TTL = 60
 LIVE_TTL = 15   # 🏟 a live game's window: the play by play and its fingerprint
@@ -37,12 +38,6 @@ async def _get(http, url, **kw):
     except Exception:   # noqa: BLE001 — a source that is down is shown as down
         return None
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _logo(t):
@@ -280,10 +275,6 @@ def parse_images(data, must, n=5):
             break
     return out
 
-
-def parse_image(data, must):
-    got = parse_images(data, must, 1)
-    return got[0] if got else None
 
 
 async def free_images(http, q, must=()):

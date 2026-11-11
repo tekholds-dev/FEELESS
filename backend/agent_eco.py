@@ -7,6 +7,7 @@ import io
 import json
 import re
 import secrets
+from fnum import plain as _f
 
 MAX_ROWS = 5000
 CATS = [('Sales', r'sale|invoice|client|customer|stripe|shopify|revenue|payment received|deposit'), ('Payroll', r'payroll|salary|wage|contractor|freelanc'), ('Rent', r'\brent\b|lease|office'), ('Software', r'software|saas|subscription|hosting|github|aws|openai|anthropic|domain'), ('Ads', r'\bads?\b|advert|marketing|meta|google ads'), ('Tax', r'\btax\b|irs|vat|gst'), ('Travel', r'flight|hotel|uber|lyft|travel|fuel'), ('Supplies', r'supplies|equipment|inventory|stock|materials'), ('Fees', r'\bfees?\b|bank charge|interest')]
@@ -306,12 +307,6 @@ def their_today(sent, server_today):
     except (TypeError, ValueError):
         return server_today
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _days(date, today):

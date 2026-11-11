@@ -47,6 +47,10 @@ def test_a_signed_in_page_is_private():
     cat = {'siteSessions': {'pump.fun': {}, 'polymarket.com': {}}}
     assert fs._signed_host(cat, 'https://pump.fun/profile') and fs._signed_host(cat, 'https://www.polymarket.com/x')
     assert not fs._signed_host(cat, 'https://dexscreener.com/solana')
+    # wired 2026-11-11 (it was tested but never called): a visitor's view of a window on a signed-in site keeps its address out
+    w = {'task': {'status': 'working', 'windows': [{'i': 0, 'url': 'https://pump.fun/profile/me', 'status': 'working'}, {'i': 1, 'url': 'https://dexscreener.com/solana', 'status': 'working'}]}}
+    win = fs.public_live(w, {**cat, 'id': 'c'})['windows']
+    assert win[0]['private'] and win[0]['host'] == '' and not win[1]['private'] and win[1]['host'] == 'dexscreener.com'
     assert fs._shot_private(cat, 'pob123', 'm0_0.jpg')
     assert fs._shot_private(cat, 'powf1', 'g8lf8u_r0_pump.fun_1.jpg')
     assert not fs._shot_private(cat, 'powf1', 'g8lf8u_r0_jup.ag_1.jpg')

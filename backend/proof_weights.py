@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 import proof_footprint as fp
+from fnum import plain as _f
 
 STORE = 'proof_weights.json'
 LEARN_MIN = 12
@@ -24,12 +25,6 @@ CEIL_UNPROVEN = 0.6  # nobody has marked it or it has no result yet
 LINE_LIKE = 0.25     # this alike, or the same page, counts as the same line of work
 GROW_FULL = 0.25     # this much more depth than where its line started is full marks for evolution
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _clip(v):

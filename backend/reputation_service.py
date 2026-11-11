@@ -323,15 +323,9 @@ class ObservePayload(BaseModel):
 app = FastAPI(title='FEELESS Reputation Graph')
 
 
-@app.middleware('http')
-async def _sec_headers(request, call_next):
-    """🔒 SITE-9 (2026-11-10): every response says no MIME sniffing and sends no referrer (5088 already did). No framing rule here: pages may be framed."""
-    # 🚦 writes are limited by `guard` (90 a minute per IP, local services exempt; it trusts X-Forwarded-For only with FEELESS_TRUST_PROXY=1).
-    # A second limiter here (2026-11-10) read X-Forwarded-For from anyone, so a fake header dodged it: removed (SITE-9, same day).
-    resp = await call_next(request)
-    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
-    resp.headers.setdefault('Referrer-Policy', 'no-referrer')
-    return resp
+app.middleware('http')(http_ctx.sec_headers)   # 🔒 nosniff + no-referrer on every response (SITE-9)
+# 🚦 writes are limited by `guard` (90 a minute per IP, local services exempt; it trusts X-Forwarded-For only with FEELESS_TRUST_PROXY=1).
+# A second limiter here (2026-11-10) read X-Forwarded-For from anyone, so a fake header dodged it: removed (SITE-9, same day).
 
 
 from starlette.middleware.gzip import GZipMiddleware as _GZip
@@ -10080,25 +10074,6 @@ _shared_intake: dict = {'at': 0.0, 'rows': []}
 
 INTAKE_MAX = 20
 
-
-def _intake_pump(have, room):
-    """🔥 The hottest Pump.fun front-runners of the open trench board that its safety scan did not fail, beside the agents' list (never twice,
-    up to `room`), tagged src 'pump' so a tower says where it came from."""
-    seen_ = {r_.get('mint') for r_ in have}; out_ = []
-    for r_ in (_open_board() or []) if room > 0 else []:
-        m_ = r_.get('mint')
-        if not m_ or m_ in seen_ or not str(m_).endswith('pump') or r_.get('safe') is False:
-            continue
-        seen_.add(m_)
-        age_ = round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None
-        cap_ = r_.get('mcap') or r_.get('cap')
-        row_ = {'mint': m_, 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress') or r_.get('pair'), 'mc': cap_, 'liq': r_.get('liq'), 'ch': r_.get('chg5m'),
-                'ageMin': age_, 'status': 'PUMP', 'src': 'pump', 'read': f"Pump front-runner #{r_.get('rank') or '?'}" + (' · scan clean' if r_.get('safe') else ' · not scanned yet')}
-        row_['theory'] = __import__('trench_theory').verdict({'ageMin': age_, 'cap': cap_, 'liq': r_.get('liq'), 'status': r_.get('stage')})['line'][:200]
-        out_.append(row_)
-        if len(out_) >= room:
-            break
-    return out_
 
 
 @app.get('/api/reputation/familia/intake')

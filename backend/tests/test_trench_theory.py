@@ -10,7 +10,6 @@ def test_the_theory_reads_a_case_from_measured_laws():
     assert big['fits'] == [] and big['breaks'] == [] and 'no proven edge' in big['line']
     assert tt.verdict({'heldMin': 40})['fits'] == ['hold'] and tt.verdict({'heldMin': 6})['breaks'] == ['hold'] and tt.verdict({'heldMin': 20})['fits'] == []
     assert tt.verdict(None)['score'] == 0 and 'exits set first' in tt.verdict({})['line']
-    assert len(tt.laws_text()) == len(tt.EVIDENCE)
 
 
 def test_the_router_lets_the_theory_through():

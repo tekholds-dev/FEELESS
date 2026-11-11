@@ -5,7 +5,7 @@ import inspect
 import math
 import random
 
-import agents as ag
+import paper_desk as ag
 import chart_intel as ci
 import office_edge as oe
 import seat_ops as so

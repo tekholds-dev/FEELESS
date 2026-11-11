@@ -14,6 +14,7 @@ import hmac
 import json
 import os
 import uuid
+from fnum import plain as _f
 
 TOKENS = ('SOL', 'USDC')
 UNITS = {'SOL': 1_000_000_000, 'USDC': 1_000_000}
@@ -47,12 +48,6 @@ def print_seed(cat_id):
     """An agent's fingerprint seed: keyed, so nobody can pick or copy one. Safe to show: it says nothing about the agent."""
     return hmac.new(_key(), f'print:{cat_id}'.encode(), hashlib.sha256).hexdigest()[:32]
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def clean_cfg(c):

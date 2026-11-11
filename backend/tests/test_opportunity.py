@@ -1,5 +1,5 @@
 """🎯 RANK, DON'T VETO: hard danger = NO · imperfect but good = smaller yes · strong = yes (owner's spec, 2026-10-11)."""
-import agents as ag
+import paper_desk as ag
 import office as of
 import opportunity as op
 

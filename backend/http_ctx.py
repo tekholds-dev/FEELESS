@@ -32,3 +32,12 @@ def install():
 
 def stats():
     return {'shared': _state['shared']}
+
+
+async def sec_headers(request, call_next):
+    """🔒 SITE-9 (2026-11-10): every response says no MIME sniffing and sends no referrer. No framing rule here: pages may be framed.
+    ONE copy for 5001 and 5077 (each had its own; 5088 sets its own headers). Register with `app.middleware('http')(http_ctx.sec_headers)`."""
+    resp = await call_next(request)
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('Referrer-Policy', 'no-referrer')
+    return resp

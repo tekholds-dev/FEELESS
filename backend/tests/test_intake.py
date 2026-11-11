@@ -109,7 +109,7 @@ def test_the_service_reads_every_outlet_once_and_builds_rows_for_coins_the_board
 
 
 def test_tallys_tape_keeps_at_least_every_coin_the_intake_can_read():
-    import agents as ag
+    import paper_desk as ag
     assert ag.SERIES_COINS >= oe.INTAKE_MAX                                                     # a coin read this pass never loses its tape to the next
 
 

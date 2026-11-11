@@ -1,3 +1,4 @@
+import { useOnScreen } from '../../lib/fxPause';
 import { WeightBars } from './ProofKit';
 import { PoolBuilder } from './CollectiveSetup';
 import { useSolPrice } from '../../lib/solPrice';
@@ -202,12 +203,6 @@ export function ColonyPot({ call }) {
 // 🐝 THE COLONY PAGE (owner 2026-10-31: "like Crawl's crawlers page — about 8-10 agents a page, more on scroll, each with 2 good-sized screens and
 // the agent drawn in the middle"): every agent's two windows as visitors may see them (a real cached screenshot, its last page when it's done, frozen
 // while its owner signs in, nothing when incognito), the drawn agent between them, its honey this epoch and its newest graded call.
-function useSeen(ref) {
-  const [on, setOn] = useState(true);
-  useEffect(() => { const el = ref.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
-    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { threshold: 0.05 }); io.observe(el); return () => io.disconnect(); }, [ref]);
-  return on;
-}
 function ColonyScreen({ a, w, side, tick }) {
   const [bad, setBad] = useState(false); useEffect(() => setBad(false), [tick, w?.screen]);
   const host = w?.host || (a.kind === 'trading' ? 'FEELESS · trenches' : 'idle');
@@ -224,7 +219,7 @@ function ColonyScreen({ a, w, side, tick }) {
     <span className="cl-view">{body}{a.incognito || w?.frozen ? null : <AiCursor c={w?.cursor} kind={readCursor()} page />}<small className="cl-model">{side} · {(a.name === "Sicario's" ? ['OSSY', 'G4'] : a.mindNames)?.[side === 'A' ? 0 : 1] || w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
 }
 function ColonyCell({ a, onOpen, i, top, extra }) {
-  const ref = useRef(null); const seen = useSeen(ref); const [tick, setTick] = useState(0); const live = a.windows?.some(w => w.status === 'working');
+  const ref = useRef(null); const seen = useOnScreen(ref); const [tick, setTick] = useState(0); const live = a.windows?.some(w => w.status === 'working');
   useEffect(() => { if (!seen || !live) return undefined; const t = setInterval(() => { if (!document.hidden) setTick(x => x + 1); }, 5000); return () => clearInterval(t); }, [seen, live]);
   const wins = [0, 1].map(k => a.windows?.find(w => w.i === k) || a.windows?.[k] || null);
   const c = a.last; const seenAt = useRef(a.carrying?.at); const [drop, setDrop] = useState(null);
@@ -243,7 +238,7 @@ function ColonyCell({ a, onOpen, i, top, extra }) {
   </article>;
 }
 export function ColonyGrid({ api, onOpen, ids, extra }) {
-  const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [err, setErr] = useState(''); const pageRef = useRef(0); const busy = useRef(false); const end = useRef(null); const seeEnd = useSeen(end);
+  const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [err, setErr] = useState(''); const pageRef = useRef(0); const busy = useRef(false); const end = useRef(null); const seeEnd = useOnScreen(end);
   const load = useCallback(async (page, replace) => { if (busy.current) return; busy.current = true;
     try { const x = await api(`/api/cats/colony?page=${page}${ids ? `&ids=${encodeURIComponent(ids)}` : ''}`); if (!x || !Array.isArray(x.agents)) throw new Error('The Collective did not answer.');
       setRows(r => (replace ? x.agents : [...r.filter(o => !x.agents.some(n => n.id === o.id)), ...x.agents])); setMeta(x); pageRef.current = page; setErr(''); }

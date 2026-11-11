@@ -527,6 +527,7 @@ test('🎬 its ad: the owner starts the run, sees each ad’s state, and a ready
   await act(async () => { createRoot(el2).render(<AdReel k="pos" cat={{ id: 'c' }} work={work} ads={{ cat: 'happy', rows, spent: 0.2 }} />); });
   expect(el2.querySelector('[data-testid="adr-video"]').getAttribute('src')).toContain('/api/cats/happy/showad/pos?');
   expect(el2.querySelector('[data-testid="adr-dl"]').getAttribute('href')).toContain('&dl=1');
+  await act(async () => { el2.querySelector('[data-testid="adr-redo"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'show_ads', text: 'redo:pos' });   // ↻ one bad ad, built again
 });
 
 test('🧪 Model Lab says plainly no model exists yet and keeps the owner’s name for it', async () => {

@@ -9,6 +9,7 @@ Two sources, both read-only and cached by the service:
 Pure: no network here. FEELESS never takes custody — a deposit happens on the protocol's own page, a trade goes through our engine.
 """
 import re
+from fnum import nan_safe as _f
 
 SOL = 'So11111111111111111111111111111111111111112'
 QUOTES = {SOL, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}
@@ -26,13 +27,6 @@ APP = {'raydium-amm': 'https://raydium.io/liquidity-pools/', 'orca-dex': 'https:
 NAME = {'raydium-amm': 'Raydium', 'orca-dex': 'Orca', 'kamino-liquidity': 'Kamino Vaults', 'kamino-lend': 'Kamino Lend', 'jupiter-lend': 'Jupiter Lend', 'save': 'Save',
         'project-0': 'marginfi', 'loopscale-lending': 'Loopscale', 'gmx-solana': 'GMX Solana', 'meteora': 'Meteora', 'pumpswap': 'PumpSwap', 'raydium': 'Raydium', 'orca': 'Orca'}
 
-
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def kind_of(project, meta=''):

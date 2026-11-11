@@ -3,18 +3,13 @@ Every coin the desk senses gets three checkpoints from the moment we FIRST saw i
 survived each (never fell 50 % or more under the first price we saw). Pure: the caller keeps the book (a dict) and feeds it the sensed rows.
 It feeds the Warden's risk scale (a failed checkpoint / a coin watched under a minute = a risk flag — it can only shrink a seat) and the
 agents' vitals (the last hour's cohort survival at 1 / 5 / 15 min)."""
+from fnum import plain as _f
 
 CHECKS = ((1, 60), (5, 300), (15, 900))
 RUG_PCT = -50.0
 KEEP = 3000          # coins remembered
 FORGET_SEC = 6 * 3600
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _px(r):

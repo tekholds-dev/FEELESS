@@ -3,7 +3,7 @@ import itertools
 
 import pytest
 
-import agents as ag
+import paper_desk as ag
 import chart_intel as ci
 import office as of
 

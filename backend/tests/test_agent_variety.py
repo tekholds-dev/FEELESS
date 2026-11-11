@@ -1,5 +1,5 @@
 """🔁 Agents stop recycling the same losers + 🏛 established volume coins are reviewable + 🧠 every confirmed exit is a lesson (2026-10-11)."""
-import agents as ag
+import paper_desk as ag
 import office_edge as oe
 import real_learn as rl
 import runners

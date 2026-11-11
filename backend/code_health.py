@@ -137,6 +137,9 @@ def css_classes(text):
     return out
 
 
+LIB_CSS = ('react-flow__',)   # classes a library draws itself (@xyflow/react's own nodes, edges and handles): styled by us, rendered by it
+
+
 def scan_css(styles, files, public=None):
     """Mirrors styles/cssHygiene.test.js: a class is used when any source token equals it or a dynamic prefix
     (`x-${…}` / 'x-' +) starts it."""
@@ -148,7 +151,7 @@ def scan_css(styles, files, public=None):
     rows = []
     for p in sorted(Path(styles).glob('*.css')):
         for c, line in css_classes(p.read_text(errors='ignore')).items():
-            if c in tokens or c.startswith(prefixes):
+            if c in tokens or c.startswith(prefixes) or c.startswith(LIB_CSS):
                 continue
             rows.append(_row('dead_css', p, line, c, f'No component renders .{c} — delete its rule (brace-aware; cssCoverage still passes).'))
     return rows
@@ -230,6 +233,9 @@ def dead_files(src, back, script_dirs=()):
             r = _resolve(p, spec, fe, src)
             if r and r != p:
                 (by_test if _is_test(p) else used).add(r)
+    cfg = (Path(src).parent / 'craco.config.js')   # the test runner's module map points at stubs (<rootDir>/src/test/heroStub.jsx …): those are used
+    for spec in re.findall(r'<rootDir>/(src/[^\'"]+)', cfg.read_text(errors='ignore') if cfg.exists() else ''):
+        used.add((Path(src).parent / spec).resolve())
     for p in fe:
         if _is_test(p) or p.name in FE_KEEP or p in used:
             continue

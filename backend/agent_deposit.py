@@ -1,13 +1,8 @@
 """💵 WHAT A DEPOSIT COSTS (owner 2026-11-04), per agent: 10% of every deposit, a first one starts at $50, and all of it goes to the Collective wallet in the same transaction, on the receipt before the owner signs. Nothing from an agent goes to a FEELESS wallet. Staff pay nothing. The rate lives in the owner's Collective folder. Pure, tested."""
+from fnum import plain as _f
 FIRST_MIN_USD = 50.0
 RATE_PCT = 10.0
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def is_first(cat):

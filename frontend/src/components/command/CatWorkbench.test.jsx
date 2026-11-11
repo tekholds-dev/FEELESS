@@ -580,6 +580,20 @@ test('a folder that arrives after the first paint has its place in that same ren
   await act(async () => { root.unmount(); }); el.remove();
 });
 
+test('a spot the agent never took survives the next load; once taken, the agent copy wins', async () => {
+  const { useDeskIcons } = require('./DeskShell'); const apps = [['pow', 'PoW'], ['pop', 'PoP']]; const key = 'feeless.dsk.icons.sync';
+  const server = { pos: { pow: { x: 96, y: 0 }, pop: { x: 0, y: 0 } } }; const store = jest.fn(async () => ({ ok: true })); let got = null;
+  function Desk() { got = useDeskIcons('sync', apps, { iconSize: 'md', hidden: [] }, { load: async () => server, store }).pos; return null; }
+  localStorage.setItem(key, JSON.stringify({ pow: { x: 0, y: 0 }, pop: { x: 0, y: 96 } })); localStorage.setItem(`${key}.dirty`, '1');
+  const el = document.createElement('div'); document.body.appendChild(el); let root = require('react-dom/client').createRoot(el);
+  await act(async () => { root.render(<Desk />); });
+  expect(got.pow).toEqual({ x: 0, y: 0 }); expect(store).toHaveBeenCalledWith({ pow: { x: 0, y: 0 }, pop: { x: 0, y: 96 } }); expect(localStorage.getItem(`${key}.dirty`)).toBeNull();
+  await act(async () => { root.unmount(); }); root = require('react-dom/client').createRoot(el);
+  await act(async () => { root.render(<Desk />); });
+  expect(got.pow).toEqual({ x: 96, y: 0 });   // synced: the agent's copy is the truth again
+  await act(async () => { root.unmount(); }); el.remove(); localStorage.removeItem(key);
+});
+
 test('a folded folder has one icon on the desktop and every sibling one tab away', () => {
   const { FOLD_INTO, foldGroup } = require('./CatWorkbench');
   expect(foldGroup('mail')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('browser')).toEqual(['browser', 'sources', 'mail']); expect(foldGroup('manual')).toEqual(['manual', 'terms', 'cmds', 'deskset']); expect(foldGroup('pow')).toBeNull();

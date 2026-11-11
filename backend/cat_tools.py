@@ -7,6 +7,7 @@ switches to OUR live chart of it. Nothing here trades, signs, creates or posts: 
 """
 import time
 import re
+from fnum import plain as _n
 
 TOOLS = {
     'coin': 'one coin on FEELESS: price, cap, pool, 24h volume + move (opens our live chart)',
@@ -31,12 +32,6 @@ MAIN = 'http://127.0.0.1:5001'
 REP = 'http://127.0.0.1:5077'
 CANDLES = 'http://127.0.0.1:5099'
 
-
-def _n(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def money(v):

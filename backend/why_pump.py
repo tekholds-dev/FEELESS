@@ -4,6 +4,7 @@ for the CA / ticker, and the text of the two best pages. This module turns that 
 we measured, never a guess — and (2) the packet + prompt a model reads to write the story. A model line that names no source is dropped.
 A read, never advice."""
 import re
+from fnum import or_none as _f
 
 WHY_ASK = (
     "You are FEELESS's pump detective. The CASE has the coin's MEASURED numbers (NUMBERS), the drivers the engine already proved from those "
@@ -15,12 +16,6 @@ WHY_ASK = (
 )
 VERDICTS = ('ORGANIC', 'NEWS', 'CALLERS', 'WHALES', 'BOTTED', 'UNCLEAR')
 
-
-def _f(v, d=None):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def _pct(v):

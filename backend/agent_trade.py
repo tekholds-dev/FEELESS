@@ -17,6 +17,7 @@ import base64
 import base58
 
 import agent_wallet as _aw
+from fnum import nan_safe as _f
 
 SOL = 'So11111111111111111111111111111111111111112'
 TRADE = 'http://127.0.0.1:5001/api/trading'
@@ -32,13 +33,6 @@ RETRY_SEC = 60.0
 NEVER_LANDED_S = 180   # a blockhash is dead after about 90 s: a signature the chain has never seen by now can never land
 SIGNER_SILENT_S = 900  # a send the signer never answered: stop holding the wallet for it
 
-
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
 
 
 def in_flight(cat):

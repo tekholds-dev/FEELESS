@@ -6,6 +6,7 @@ case against the laws BEFORE any model sees it, so G4 / OSSY / NEXA confirm or d
 faster reads), and every model argues from the same evidence. Re-run the audit and update EVIDENCE when the numbers move; a law that stops
 holding on unseen coins is deleted, never argued with.
 """
+from fnum import or_none as _n
 
 AS_OF = '2026-10-22'
 COST_PCT = 3.0
@@ -20,12 +21,6 @@ EVIDENCE = {
     'thin':    ('a pool under $5K cannot take a real exit', 'slippage eats the move'),
 }
 
-
-def _n(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def verdict(case):
@@ -52,6 +47,3 @@ def verdict(case):
     return {'score': score, 'fits': fits, 'breaks': breaks, 'line': f"theory {AS_OF}: {lead}" + (f" — {'; '.join(words)}" if words else '') + f"; exits set first (+50 / −30); cost {COST_PCT:g} %."}
 
 
-def laws_text():
-    """The theory as plain lines (Brain › Models, the docs, a GENERAL question about strategy)."""
-    return [f"{k.upper()}: {claim} — {ev}" for k, (claim, ev) in EVIDENCE.items()]

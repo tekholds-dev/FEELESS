@@ -5,6 +5,7 @@ Built ONLY from live reads: the Pool Hub's rows (DefiLlama yields + our pair fee
 (api.kamino.finance … /reserves/metrics: supply / borrow APY + max LTV per token). Nothing is guessed: a strategy with no live row is left out,
 a loop is only offered where Kamino lends SOL against that LST. Deposits stay where they are safe today — our engine swaps (wallet signs),
 the verified Jupiter Lend deposit-here, or the protocol's own page (Kamino vaults / Multiply need their SDK: the owner's call)."""
+from fnum import plain as _f
 
 KAMINO_MAIN = '7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF'
 JLP_MINT = '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4'
@@ -19,12 +20,6 @@ RISK = {
     'loop': {'contract': 2, 'depeg': 2, 'il': 0, 'liq': 3, 'note': 'Loop = stake, borrow SOL against it, stake again. More yield, but a depeg past the cushion gets you liquidated.'},
 }
 
-
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
 
 
 def kamino_rates(rows):

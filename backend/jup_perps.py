@@ -11,6 +11,7 @@ checked against the side + the live mark) or are added / moved / cancelled on a 
 Pure: no network here.
 """
 import base64
+from fnum import or_none as _f
 
 API = 'https://perps-api.jup.ag/v1'
 PERPS = 'PERPHjGBqRHArX4DySjwM6UJHiR3sWAatqfdBS2qQJu'
@@ -24,12 +25,6 @@ INPUTS = {'USDC': (USDC, 6), 'SOL': (SOL, 9)}
 MIN_USD, MAX_USD, MIN_LEV, MAX_LEV, SLIP_BPS = 10, 1000, 1.1, 250, 100   # 250× = Jupiter's own cap (it refuses 300: "cannot exceed 250")
 MAX_TX_BYTES = 1232
 
-
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return None
 
 
 def clean_open(raw, sol_price):

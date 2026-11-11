@@ -7,6 +7,7 @@ volume (≥ MIN_VOL a day) and trades this hour — its USD price for THAT token
 gap = richest ÷ cheapest − 1; net = gap − a swap's cost on each side (COST_PCT). A gap only counts as OPEN once it is still there on the next
 read (`persist`): one stale DexScreener row is not a gap. What a holder does with it: compound / enter through the cheap pool (Jupiter routes
 there for you), and a gap that stays open is arbitrage volume — fees for that pool's LPs."""
+from fnum import nan_safe as _f
 
 MIN_LIQ = 30_000.0   # (owner 2026-10-31: "way more price gap options") — still a real pool, never dust
 MIN_VOL = 5_000.0
@@ -19,13 +20,6 @@ TOKENS = 30             # tokens read a minute (one DexScreener /token-pairs rea
 QUOTES = {'So11111111111111111111111111111111111111112': 'SOL', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
           'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT'}   # a pool counts only against a quote whose USD price is solid (an exotic stable invents gaps)
 
-
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
 
 
 def pool_px(p, mint):

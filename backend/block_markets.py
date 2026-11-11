@@ -13,6 +13,7 @@ ERRANDS are what the real position needs next — build it (deposit there) · a 
 each opens the real tool; the wallet signs. Other families see a building's state and a value band, never an exact balance.
 Pure + tested; the service does the reads (one cached read per family per minute).
 """
+from fnum import plain as _num
 
 MAX = 16
 OPEN = 4   # open plots shown beside the buildings (the block grows as they fill)
@@ -191,12 +192,6 @@ def needs(lots):
     ks = {x['key'] for x in lots}
     return {'mints': {MINTS[k] for k in ks if k in MINTS}, 'nft': any(k in NFT for k in ks), 'kamino': 'kamino' in ks, 'meteora': 'meteora' in ks, **{k: k in ks for k in CHAIN}}
 
-
-def _num(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def meteora_held(portfolios):

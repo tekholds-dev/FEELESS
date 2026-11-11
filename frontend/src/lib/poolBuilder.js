@@ -1,14 +1,10 @@
 import { keepReceipt } from './receipts';
-import { relayConnection, signSend } from './launchRail';
+import { meteoraSdk as sdk, signSend } from './launchRail';
 
 // Meteora DAMM v2 pool for an existing token, paired with SOL. Built in the browser, simulated,
 // then signed by the connected wallet — which also supplies both sides of the liquidity.
 const SOL = 'So11111111111111111111111111111111111111112';
 
-async function sdk() {
-  const [{ web3, connection }, amm, BN] = await Promise.all([relayConnection(), import('@meteora-ag/cp-amm-sdk'), import('bn.js').then(m => m.default)]);
-  return { web3, connection, amm, BN, client: new amm.CpAmm(connection) };
-}
 
 // What the pool would be: mint decimals/program, and whether this pair already has a custom pool.
 export async function inspectPool(mint) {
