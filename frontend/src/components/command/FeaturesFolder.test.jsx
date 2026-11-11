@@ -390,13 +390,14 @@ test('Showcase: a reel. Nothing to operate, each capability plays how the agent 
   await act(async () => { q('pdr-cap-wick-breaker').click(); }); expect(q('pdr-piece').textContent).toContain('candle chart'); expect(q('pdr-piece-frame').getAttribute('src')).toBe('/showcase/pos/wick-breaker.html?demo=1'); expect(q('pdr-cap-mempool')).toBeTruthy();
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('sst-go').click(); }); expect(onMake).toHaveBeenCalledWith('build', ['💻', 'Silver Hour', '', 'A camera page']);   // ▶ the page on the stage starts with its own ask
-  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-perp-replay'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
+  const seen = {}; for (const [door, id] of [['pow', 'pdr-agent'], ['pop', 'pdr-perp'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
   expect(new Set(Object.values(seen)).size).toBe(4);   // no two proofs open on the same demo
   await act(async () => { q('pdr-cap-video').click(); }); expect(q('pdr-video').querySelector('video').getAttribute('src')).toContain('images-assets.nasa.gov');   // 🔥 PoC opens on the real viral clips first
-  for (const [cap, id] of [['image', 'pdr-image'], ['replay', 'pdr-story-replay']]) { await act(async () => { q(`pdr-cap-${cap}`).click(); }); expect(q(id)).toBeTruthy(); }
+  for (const [cap, id] of [['image', 'pdr-image']]) { await act(async () => { q(`pdr-cap-${cap}`).click(); }); expect(q(id)).toBeTruthy(); }
   await act(async () => { q('pdr-cap-long-road-film').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
-  await act(async () => { q('pdr-pob').click(); }); await act(async () => { q('pdr-cap-parlay').click(); }); expect(q('pdr-parlay')).toBeTruthy();
-  await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-pick-replay')).toBeTruthy(); await act(async () => { q('pdr-cap-live').click(); }); expect(q('pdr-live').querySelector('video').getAttribute('src')).toBe('/showcase/pob/gridiron.mp4');
+  for (const sample of ['pdr-cap-replay', 'pdr-cap-parlay']) expect(q(sample)).toBeNull();   // 🚫 owner 2026-11-11: no made-up sample runs
+  await act(async () => { q('pdr-pob').click(); });
+  expect(q('pdr-cap-replay')).toBeNull(); expect(q('pdr-cap-parlay')).toBeNull(); expect(q('pdr-live').querySelector('video').getAttribute('src')).toBe('/showcase/pob/gridiron.mp4');
   expect(q('pdr-cap-stash')).toBeNull();   // the same sample tool on every type is gone (owner 2026-11-11: no filler tabs)
   await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('sst-chip-1').click(); }); await act(async () => { q('sst-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp on SOL and show where 10x longs get liquidated');
   expect(el.querySelectorAll('input, textarea, select').length).toBe(1);   // the one thing to fill in is the ask under the preview
