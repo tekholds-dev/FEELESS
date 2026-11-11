@@ -26,3 +26,9 @@ def test_bell_reads_one_agents_newest_steps_with_verdicts(tmp_path):
     rows = pev.recent(db, 'c1')
     assert [(r['kind'], r['event'], r['detail'], r['bad']) for r in rows] == [('pos', 'grade', 'right', False), ('pow', 'review', 'fail 0/100', True)]
     assert pev.recent(db, 'c1', since=150)[0]['ref'] == 's1' and len(pev.recent(db, 'c1', since=150)) == 1
+
+
+def test_the_bell_never_shows_a_raw_dict():
+    import feecat_service as fs
+    assert fs._feed_detail("{'won': False}/100") == 'lost' and fs._feed_detail("{'won': True}") == 'won'
+    assert fs._feed_detail("{'score': 72}") == '72/100' and fs._feed_detail('graded right') == 'graded right' and fs._feed_detail("{'x': 1}") == ''

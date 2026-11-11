@@ -779,3 +779,8 @@ body.theme-day .cwb-soc.is-on { background: #e8f7ee; border-color: #5a33bd; } bo
 @keyframes cwbProofSpin { to { transform: rotate(360deg); } }
 body.fx-lite .cwb-proof-glow { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-proof-glow { animation: none; } .cwb-proof > i { transition: none; } }
 body.theme-day .cwb-proof { background: #f7f3ff; color: #2a1650; } body.theme-day .cwb-proof > b { color: #2a1650; }
+
+/* 💬 owner 2026-11-11: a chat column like real chat apps (~720px), the two minds flank it instead of the chat stretching across the desk */
+@media (min-width: 1101px) { .cwb-deck { grid-template-columns: minmax(180px, 1fr) minmax(0, 720px) minmax(180px, 1fr); }
+  .cwb-deck > :first-child { justify-self: end; width: min(100%, 290px); } .cwb-deck > :last-child { justify-self: start; width: min(100%, 290px); } }
+.pl-back { justify-self: center; margin-bottom: 4px; }

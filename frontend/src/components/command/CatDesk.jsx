@@ -92,7 +92,8 @@ const shortId = id => String(id || '').split('/').pop();
 export function KindMinds({ cat, d, kind, mind, busy, onAct, row }) {
   const by = cat.brainsCfg.byKind || {}; const base = cat.brainsCfg.brains || []; const [k, setK] = useState('pos');
   const [pick, setPick] = useState(['', '']); const [open, setOpen] = useState(-1);
-  useEffect(() => { const own = (cat.brainsCfg.byKind || {})[k] || []; setPick([own[0] || '', own[1] || '']); setOpen(-1); }, [k, cat.brainsCfg.byKind]);
+  const ownKey = ((cat.brainsCfg.byKind || {})[k] || []).join('|');   // 🐞 owner 2026-11-11: keyed on the object, every desk poll (a new object) closed the picker mid-browse
+  useEffect(() => { const own = ownKey ? ownKey.split('|') : []; setPick([own[0] || '', own[1] || '']); setOpen(-1); }, [k, ownKey]);
   const own = by[k] || []; const label = PROOF_KINDS.find(x => x[0] === k)[1]; const want = pick.filter(Boolean); const changed = want.join() !== own.join();
   const put = (i, id) => setPick(p => { const n = [p[0] || '', p[1] || '']; n[i] = id; if (id && n[1 - i] === id) n[1 - i] = ''; return n; });
   return <>

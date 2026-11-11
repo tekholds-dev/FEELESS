@@ -1,4 +1,5 @@
 import { useOnScreen } from '../../lib/fxPause';
+import ProofLive, { proofOf } from './ProofLive';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -1568,7 +1569,9 @@ function WorkbenchLive({ cat }) {
   const msgs = useMemo(() => (d?.chat || []).slice(-24).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []), [d?.chat]);
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
-  const proofs = useMemo(() => newestProofs(d), [d]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
+  const proofs = useMemo(() => newestProofs(d), [d]);
+  const liveKind = live ? proofOf(d, live) : null; const [peek, setPeek] = useState(false);   // 🎆 a running proof turns the chat into its live stage
+  useEffect(() => { setPeek(false); }, [liveKind, d?.task?.id]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
@@ -1602,6 +1605,8 @@ function WorkbenchLive({ cat }) {
       {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
       </div>]] : [])]} /></>}>
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
+    {liveKind && !peek ? <ProofLive d={d} wins={wins} spent={spent} name={cat.name} kind={liveKind} onShowChat={() => setPeek(true)} />
+    : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
@@ -1610,6 +1615,7 @@ function WorkbenchLive({ cat }) {
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
         <span className="cwb-sugg">{SUGGEST.map(t => <button key={t} type="button" onClick={() => setText(t)}>{t}</button>)}</span></li> : null}
     </ol>}
+    </>}
     {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest message" data-testid="cwb-newmsg">↓ {unseen} new</button> : null}
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b><Ic3 e="💸" /> Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}

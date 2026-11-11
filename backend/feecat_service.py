@@ -5517,7 +5517,7 @@ def _work_task_view(cat_id, owner=False):
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
         wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN', 'cursor', 'marks')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('hand') if x.get('status') == 'human' and s_.get('hand') else s_.get('live'), 'hand': x.get('status') == 'human' and bool(s_.get('hand')), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
-    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid')}, 'windows': wins}
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid', 'proofKind')}, 'windows': wins}
 
 
 def clean_limits(raw):
@@ -7141,6 +7141,25 @@ FEED_WORDS = {'file': ('done', 'filed'), 'grade': ('done', 'graded'), 'review': 
 FEED_KIND = {'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'pos': 'PoStatic', 'poe': 'PoEco'}
 
 
+def _feed_detail(v):
+    """🔔 a proof event's detail in words: an old writer stored a Python dict as text ("{'won': False}/100") and the bell showed it raw."""
+    t = str(v or '').strip()
+    if not t.startswith('{'):
+        return t[:120]
+    import ast
+    try:
+        d = ast.literal_eval(t.split('}')[0] + '}')
+    except (ValueError, SyntaxError):
+        return ''
+    if isinstance(d, dict):
+        if 'won' in d:
+            return 'won' if d['won'] else 'lost'
+        n = d.get('score', d.get('grade'))
+        if isinstance(n, (int, float)):
+            return f'{n:g}/100'
+    return ''
+
+
 _BRIEF: dict = {}
 
 
@@ -7202,7 +7221,7 @@ async def cat_feed(cat_id: str, since: float = 0.0, ownerId: str = '', session: 
         for r in await asyncio.to_thread(_pev.recent, DATA_DIR / _pev.DB_NAME, cat_id, since, 30):
             tone, word = FEED_WORDS.get(r['event'], (None, None))
             if tone:
-                rows.append({'at': r['at'], 'tone': 'look' if r.get('bad') else tone, 'kind': FEED_KIND.get(r['kind'], r['kind']), 'text': f"{FEED_KIND.get(r['kind'], r['kind'])} {word}{': ' + r['detail'] if r.get('detail') else ''}", 'ref': r['ref']})
+                rows.append({'at': r['at'], 'tone': 'look' if r.get('bad') else tone, 'kind': FEED_KIND.get(r['kind'], r['kind']), 'text': f"{FEED_KIND.get(r['kind'], r['kind'])} {word}{': ' + _feed_detail(r['detail']) if _feed_detail(r.get('detail')) else ''}", 'ref': r['ref']})
     except Exception:   # a busy or missing events file never breaks the desk
         pass
     rows += [x for x in _FEED.get(cat_id, []) if x['at'] > since]
