@@ -30273,8 +30273,9 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
         add(b.get('address'), symbol=b.get('symbol'), name=b.get('name'), icon=(p.get('info') or {}).get('imageUrl'),
             price=float(p['priceUsd']) if p.get('priceUsd') else None, mcap=p.get('marketCap') or p.get('fdv'),
             liquidity=(p.get('liquidity') or {}).get('usd'))
-    # Biggest market cap first; an exact contract paste always leads.
-    rows = sorted(found.values(), key=lambda x: (x['mint'] != q, -(x['mcap'] or 0), -(x['liquidity'] or 0)))[:20]
+    # An exact contract paste leads, then Jupiter-verified coins, then market cap (owner 2026-11-11: a fake "USDC " reporting a $76B cap
+    # outranked the real USDC — a self-reported cap is not trust).
+    rows = sorted(found.values(), key=lambda x: (x['mint'] != q, not x['verified'], -(x['mcap'] or 0), -(x['liquidity'] or 0)))[:20]
     data = {'q': q, 'tokens': rows, 'ok': bool(jup or dex)}
     if rows:  # never cache a miss: a provider hiccup must not blank the picker for 30s
         _tok_search_cache[q.lower()] = (time.time(), data)
