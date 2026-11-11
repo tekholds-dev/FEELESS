@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { CodeLines, MarkJumps, StatusBar, Tabs, diffRows, markLines, plainRows } from './CodeView';
 import { MediaButton, MediaCard } from './MediaStudio';
 import { PartsShelf } from './PartsShelf';
@@ -239,18 +240,18 @@ export function StoreCheck({ cat, row, doc, work }) {
   const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [res, setRes] = useState(null); const [err, setErr] = useState('');
   const last = res || doc?.storeCheck; const stale = last && doc?.versions && last.version && last.version !== doc.versions;
   const run = async () => { setOpen(true); setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'store_check', job: row.id }); setRes(j.check); } catch (e) { setErr(e.message); } setBusy(false); };
-  return <span className="fsc-wrap">
-    <button type="button" className={`m-btn fsc-btn${last ? ` is-${last.state}` : ''}`} disabled={!doc?.preview || busy} onClick={() => (open && !busy ? setOpen(false) : run())} aria-expanded={open}
+  return <span className="stc-wrap">
+    <button type="button" className={`m-btn stc-btn${last ? ` is-${last.state}` : ''}`} disabled={!doc?.preview || busy} onClick={() => (open && !busy ? setOpen(false) : run())} aria-expanded={open}
       data-tip="Checks this page the way the App Store and Google Play would, once it is wrapped as an app: phone fit, icon, privacy, real money, crypto, errors, tap sizes" data-testid="store-check">
       📱 {busy ? 'Checking…' : 'Store check'}{last && !busy ? <b className="m-num">{last.score}{stale ? '*' : ''}</b> : null}</button>
-    {open ? <div className="fsc" role="dialog" aria-label="Store check" data-testid="store-panel">
-      <header><span className={`fsc-ring is-${res?.state || 'wait'}`} style={{ '--p': (res?.score || 0) / 100 }}><b className="m-num">{res ? res.score : '…'}</b></span>
+    {open ? createPortal(<><button type="button" className="stc-scrim" aria-label="Close the store check" onClick={() => setOpen(false)} /><div className="stc" role="dialog" aria-label="Store check" data-testid="store-panel">
+      <header><span className={`stc-ring is-${res?.state || 'wait'}`} style={{ '--p': (res?.score || 0) / 100 }}><b className="m-num">{res ? res.score : '…'}</b></span>
         <div><small className="m-label">APP STORE · GOOGLE PLAY</small><strong>{busy ? 'Opening it on two phone sizes…' : res?.line || err || 'Not checked yet'}</strong>
-          {res ? <span className="fsc-tally"><em className="is-fail">{res.fails} reject</em><em className="is-warn">{res.warns} decide</em><em className="is-pass">{res.rows.filter(r => r.state === 'pass').length} pass</em></span> : null}</div>
-        <button type="button" className="fsc-x" onClick={() => setOpen(false)} aria-label="Close the store check">✕</button></header>
+          {res ? <span className="stc-tally"><em className="is-fail">{res.fails} reject</em><em className="is-warn">{res.warns} decide</em><em className="is-pass">{res.rows.filter(r => r.state === 'pass').length} pass</em></span> : null}</div>
+        <button type="button" className="stc-x" onClick={() => setOpen(false)} aria-label="Close the store check">✕</button></header>
       {res ? <ol>{res.rows.map((r, i) => <li key={r.id} className={`is-${r.state}`} style={{ '--i': i }}><i aria-hidden="true">{SC_ICON[r.state]}</i><span><b>{r.label}</b><small>{r.rule}{r.detail ? ` · ${r.detail}` : ''}</small>{r.fix ? <em>{r.fix}</em> : null}</span></li>)}</ol> : null}
-      {res ? <p className="fsc-foot">Nothing is sent to a store. Fix the ✕ rows, decide the ! rows, then wrap it (PWA / TWA) and submit.</p> : null}
-    </div> : null}
+      {res ? <p className="stc-foot">Nothing is sent to a store. Fix the ✕ rows, decide the ! rows, then wrap it (PWA / TWA) and submit.</p> : null}
+    </div></>, document.body) : null}
   </span>;
 }
 export function SaveToRepo({ cat, row, doc, work, setDoc }) {

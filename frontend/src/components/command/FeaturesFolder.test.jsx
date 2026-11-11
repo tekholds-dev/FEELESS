@@ -509,7 +509,7 @@ test('📱 store check: runs the server check on the latest page, shows the ring
   expect(btn.textContent).toContain('70*');                                  // last score, starred: the page changed since
   await require('react').act(async () => { btn.click(); });
   expect(calls).toEqual([{ op: 'store_check', job: 'w1' }]);
-  const panel = el.querySelector('[data-testid="store-panel"]');
+  const panel = document.querySelector('[data-testid="store-panel"]');   // portalled to the page so no window clips it
   expect(panel.textContent).toContain('Ready once you decide 2 flags'); expect(panel.textContent).toContain('Apple 2.3.8 Icons'); expect(panel.textContent).toContain('Add an app icon');
   expect(panel.querySelectorAll('li.is-warn')).toHaveLength(1);
 });
