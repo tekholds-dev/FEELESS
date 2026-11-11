@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import '../../styles/deskShell.css';
 import { apiUrl } from '../../lib/api';
+import { agentAuthQuery } from '../../lib/chatSession';
 
 // 🖥 ONE DESKTOP SHELL (owner 2026-11-04: "the same as the general agent gets"): every agent's desktop and the owner's two are built from these pieces.
 
@@ -392,7 +393,7 @@ export function DeskBell({ catId, onOpen }) {
   const [rows, setRows] = useState([]); const [open, setOpen] = useState(false); const [seen, setSeen] = useState(() => bellSeen(catId)); const [toast, setToast] = useState(null); const newest = useRef(0);
   useEffect(() => {
     if (!catId) return undefined; let live = true;
-    const pull = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${encodeURIComponent(catId)}/feed`)).then(r => (r.ok ? r.json() : { rows: [] })).then(j => {
+    const pull = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${encodeURIComponent(catId)}/feed?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : { rows: [] })).then(j => {
       if (!live) return; const got = Array.isArray(j?.rows) ? j.rows : []; setRows(got);
       const top = got[0]; if (top && newest.current && top.at > newest.current) { setToast(top); setTimeout(() => live && setToast(t => (t === top ? null : t)), 6000); }
       if (top) newest.current = Math.max(newest.current, top.at); }).catch(() => {}); };

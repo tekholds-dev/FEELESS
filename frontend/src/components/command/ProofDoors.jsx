@@ -46,7 +46,7 @@ function useSteps(n, ms = 3400) {
   return [at];
 }
 const Steps = ({ names, at }) => <span className="prp-dots" aria-hidden="true">{names.map((l, i) => <em key={l} className={at === i ? 'is-on' : i < at ? 'is-done' : ''}>{l}</em>)}</span>;
-const Tag = ({ t }) => <span className="prp-tag">SAMPLE RUN · {t}</span>;
+const Tag = ({ t, real }) => <span className={`prp-tag${real ? ' is-real' : ''}`}>{real ? 'REAL RESULT' : 'SAMPLE RUN'} · {t}</span>;
 const POW_STEPS = [['🔎', 'Scouts and reads', 'Five sites, a picture of each', ['dexscreener', 'x.com', 'birdeye', 'solscan', 'gmgn']], ['🧠', 'Both minds decide', 'Three turns to agree on one coin and a size'], ['🛡', 'Exits set first', 'Stop −30%, take +50%, before any buy'], ['⛏', 'Buys and trims', 'Real money through the pool, pinned on the chart'], ['🏅', 'Scored on the result', 'Money and hold time count most']];
 function PowReplay() {
   const [at] = useSteps(POW_STEPS.length); const [t, setT] = useState(0);
@@ -119,7 +119,7 @@ function ViralReel({ cat, work }) {
   useEffect(() => { if (!rows?.length) return undefined; const t = setInterval(() => { if (!document.hidden) setOn(i => (i + 1) % rows.length); }, 6000); return () => clearInterval(t); }, [rows]);
   if (!rows?.length) return <div className="prp is-wide pdr-viral" data-testid="pdr-viral"><p className="dbt-none pdr-wait">{rows ? 'No clips yet.' : 'Opening it…'}</p></div>;
   const x = rows[on % rows.length];
-  return <div className="prp is-wide pdr-viral" data-testid="pdr-viral"><Tag t="real AI results, made 2026-11-10" />
+  return <div className="prp is-wide pdr-viral" data-testid="pdr-viral"><Tag real t="made on these models 2026-11-10, unedited" />
     <div className="prp-main pdv-stage">{x.kind === 'video' ? <video key={x.id} src={x.sample} autoPlay muted loop playsInline preload="metadata" aria-label={`${x.label}, made on ${x.modelLabel}`} />
       : <img key={x.id} src={x.sample} alt={`${x.label}, made on ${x.modelLabel}`} decoding="async" />}
       <span className="pdv-cap"><b>{x.label}</b><small>{x.modelLabel} · ${Number(x.usd).toFixed(2)}{x.secs ? ` · ${x.secs}s to make` : ''}</small></span></div>
@@ -128,7 +128,7 @@ function ViralReel({ cat, work }) {
 // 🖼 AI makes an image: a real generated picture comes into focus, then the thumbnail is built on it, layer by layer.
 const IMG_LOG = ['Writes the prompt from your ask', 'Generates it with a free image model', 'Crops for a phone screen', 'Adds 3 big words', 'Adds the accent', 'Saves 3 versions to test'];
 function ImageFilm() {
-  const [at] = useSteps(IMG_LOG.length, 2600); const pics = ['/media/samples/ai-vs-handmade.jpg', '/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg'];   // first = a real Gemini 3.1 Flash Image result (2026-11-10)
+  const [at] = useSteps(IMG_LOG.length, 2600); const pics = ['/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg', '/showcase/night-run.jpg'];   // landscape art: this reel crops for a phone screen (a 9:16 still blew up blurry here; the vertical ones live in 🔥 Viral AI clips)
   return <div className="prp is-wide" data-testid="pdr-image"><Tag t="a real generated picture" /><div className="prp-main flm-art"><img src={pics[0]} alt="" className={at === 0 ? 'is-blur' : at === 1 ? 'is-soft' : at >= 2 ? 'is-crop' : ''} />{at === 0 ? <p className="flm-prompt">dramatic rocket launch at dusk, cinematic, wide shot</p> : null}{at >= 3 ? <h4 className="flm-big">We <em>left</em> at dusk</h4> : null}{at >= 4 ? <b className="flm-pill">NEW</b> : null}{at >= 5 ? <span className="flm-vers">{pics.map(p => <img key={p} src={p} alt="" loading="lazy" />)}</span> : null}</div>
     <ol className="flm-log prp-side">{IMG_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
 }

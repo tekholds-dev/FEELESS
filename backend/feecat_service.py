@@ -6742,8 +6742,12 @@ async def proofs_brief():
 
 
 @app.get('/api/cats/{cat_id}/feed')
-async def cat_feed(cat_id: str, since: float = 0.0):
-    """🔔 The desktop's notification bar: what this agent finished or thinks is worth a look, newest first. Positions only, never secrets."""
+async def cat_feed(cat_id: str, since: float = 0.0, ownerId: str = '', session: str = ''):
+    """🔔 The desktop's notification bar: what this agent finished or thinks is worth a look, newest first. Its owner only (failed reviews are theirs)."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its notifications')
     rows = []
     try:
         for r in await asyncio.to_thread(_pev.recent, DATA_DIR / _pev.DB_NAME, cat_id, since, 30):
