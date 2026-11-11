@@ -556,3 +556,19 @@ test('🧪 Model Lab live: the dataset per proof type, the owner grades an open 
   expect(blobs).toHaveLength(1); expect(el.textContent).toContain('2 rows saved');
   URL.createObjectURL = urlWas; el.remove();
 });
+
+test('🎬 the ad lab keeps every attempt: the faults that repeat, each try with its model, $, end and video', async () => {
+  const { AdLab } = require('./ProofDoors');
+  const rows = [{ kind: 'pop', name: 'PoP', cat: 'happy', ws: 'w2', at: 1794421100, cost: 0.12, versions: 1, model: 'anthropic/claude-sonnet-5.5', faults: [], outcome: 'passed', current: true, video: true },
+    { kind: 'pop', name: 'PoP', cat: 'happy', ws: 'w1', at: 1794419000, cost: 0.03, versions: 2, model: 'hy4 + glm-5.3-flash', faults: ['text on text: "A" over "B"', 'cut by the frame: "LIVE"'], outcome: 'replaced', current: false, video: false },
+    { kind: 'pos', name: 'PoStatic', cat: 'happy', ws: 'w3', at: 1794419500, cost: 0.08, versions: 2, model: 'anthropic/claude-sonnet-5.5', faults: ["Unexpected token '<'", 'text on text: "C" over "D"'], outcome: 'failed the check', current: false, video: true }];
+  const work = jest.fn(async () => ({ rows, spent: 0.23, budget: 2.25, model: 'anthropic/claude-sonnet-5.5' }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AdLab cat={{ id: 'leader' }} work={work} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(work).toHaveBeenCalledWith('leader', { op: 'ad_lab' });
+  expect(q('ad-lab-lesson').textContent).toContain('text on text'); expect(q('ad-lab-lesson').textContent).toContain('×2'); expect(q('ad-lab-lesson').textContent).toContain('a script error');
+  expect(el.textContent).toContain('$0.23'); expect(q('ad-try-w1').textContent).toContain('hy4 + glm-5.3-flash'); expect(q('ad-play-w1')).toBeNull();
+  await act(async () => { q('ad-lab-pos').click(); }); expect(q('ad-try-w2')).toBeNull(); expect(q('ad-try-w3')).not.toBeNull();
+  await act(async () => { q('ad-play-w3').click(); }); expect(el.querySelector('video.adl-vid').getAttribute('src')).toContain('ws=w3');
+});

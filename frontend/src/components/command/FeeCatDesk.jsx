@@ -19,6 +19,7 @@ import '../../styles/collectiveSetup.css';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StashWeb } from './StashWeb';
 import { ProviderReady } from './ProviderReady';
+import { AdLab } from './ProofDoors';
 import { AgentDesktop, work } from './CatWorkbench';
 import { GitFolder } from './GitFolder';
 import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
@@ -227,6 +228,7 @@ export function FeeCatDesk({ call }) {
       { k: 'git', ic: '🐙', label: 'Git', tip: 'The same Git folder as Fee\'s desktop: every kept proof, sorted, and your own repo', body: <GitFolder cat={c} work={work} scope="collective" /> },
       { k: 'stash', ic: '🧊', label: 'Stash', tip: 'Every proof kept sealed, with its web of sources', body: <StashWeb call={call} testid="own-stash" /> },
       { k: 'ready', ic: '🔌', label: 'Providers', tip: 'Which keys and services are ready', body: <ProviderReady call={call} /> },
+      { k: 'adlab', ic: '🎬', label: 'Ad lab', tip: 'Every ad attempt your agents made: model, $, what failed and why, and its video. Kept so the next build learns', body: <AdLab cat={c} work={work} /> },
       { k: 'slots', ic: '🎟', label: 'Agent slots', tip: 'Who can buy an agent, and how many are open', body: <AgentSlots call={call} /> },
     ]} call={call} /> : null}
     {tab === 'overview' ? <div className="fch-grid">

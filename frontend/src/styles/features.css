@@ -459,3 +459,30 @@ body.theme-day .adr-wait b { color: #14202c; } body.theme-day .adr-wait small { 
 .vmr-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .vmr-h b { font: 700 12.5px var(--f-ui); color: #e6d6ff; } .vmr-h small { color: #b5add6; font: 600 10px var(--f-mono); }
 .vmr-t { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; } .vmr-t li { padding: 4px 9px; border-radius: 99px; background: #c9a8ff1f; border: 1px solid #c9a8ff40; color: #eadcff; font: 600 10.5px var(--f-ui); animation: sstIn .3s ease both; animation-delay: calc(var(--i) * 50ms); }
 body.theme-day .vmr-h b { color: #5b21b6; } body.theme-day .vmr-t li { color: #4c1d95; background: #7c3aed14; } body.fx-lite .vmr-t li { animation: none; } @media (prefers-reduced-motion: reduce) { .vmr-t li { animation: none; } }
+/* 🎬 Ad lab (Fee's desk): every ad attempt kept as a lesson — KPIs, the faults that keep coming back as bars, then one row per try */
+.adl { display: grid; gap: 12px; padding: 14px; }
+.adl-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; } .adl-head > span:first-child { display: grid; gap: 2px; }
+.adl-head b { font: 800 18px var(--f-display); color: #fff; } .adl-head small { color: #aaa1c9; font: 500 12px var(--f-ui); }
+.adl-kpis { display: flex; flex-wrap: wrap; gap: 6px; } .adl-kpis em { display: grid; justify-items: center; min-width: 64px; padding: 6px 10px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff06; color: #aaa1c9; font: 700 9.5px var(--f-mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; }
+.adl-kpis em b { color: #fff; font: 800 16px var(--f-mono); letter-spacing: 0; text-transform: none; }
+.adl-lesson { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid #ff3fa433; background: radial-gradient(90% 140% at 0% 0%, #ff3fa418, transparent 60%), #0c0818; }
+.adl-lesson h4 { display: flex; justify-content: space-between; margin: 0 0 2px; color: #ff8fd0; font: 800 10px var(--f-mono); letter-spacing: .16em; } .adl-lesson h4 small { color: #aaa1c9; letter-spacing: 0; font: 600 11px var(--f-ui); }
+.adl-lesson span { display: grid; grid-template-columns: minmax(120px, 210px) minmax(0, 1fr) auto; align-items: center; gap: 10px; animation: adlIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.adl-lesson i { overflow: hidden; color: #e3d9fb; font: 600 12px var(--f-ui); font-style: normal; white-space: nowrap; text-overflow: ellipsis; }
+.adl-lesson u { height: 6px; border-radius: 6px; background: #ffffff10; overflow: hidden; } .adl-lesson s { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #9b6bff, #ff3fa4); transform-origin: left; transition: transform .6s ease-out; }
+.adl-lesson b { color: #fff; font: 800 12px var(--f-mono); }
+.adl-seg { justify-self: start; flex-wrap: wrap; }
+.adl-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-height: 62vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent; }
+.adl-row { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff12; border-left: 3px solid #ffffff22; background: #0b0717; animation: adlIn .28s ease-out both; animation-delay: calc(var(--i) * 30ms); }
+.adl-row.is-good { border-left-color: #3cf0c5; } .adl-row.is-bad { border-left-color: #ff5c7a; } .adl-row.is-now { border-left-color: #9b6bff; } .adl-row.is-old { opacity: .82; }
+.adl-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .adl-top b { color: #fff; font: 800 13px var(--f-tech, var(--f-ui)); letter-spacing: .04em; }
+.adl-top em { padding: 2px 8px; border-radius: 99px; background: #ffffff10; color: #e3d9fb; font: 800 9.5px var(--f-mono); font-style: normal; letter-spacing: .08em; text-transform: uppercase; }
+.adl-row.is-good .adl-top em { background: #3cf0c522; color: #3cf0c5; } .adl-row.is-bad .adl-top em { background: #ff5c7a22; color: #ff8fa3; }
+.adl-top small { color: #aaa1c9; font: 600 11px var(--f-mono); } .adl-top .m-btn { margin-left: auto; min-height: 32px; }
+.adl-vid { width: 100%; max-height: 360px; border-radius: 10px; background: #000; object-fit: contain; }
+.adl-faults { display: grid; gap: 3px; margin: 0; padding: 0 0 0 14px; } .adl-faults li { overflow: hidden; color: #d9cff6; font: 500 11.5px/1.4 var(--f-ui); white-space: nowrap; text-overflow: ellipsis; }
+.adl-clean { margin: 0; color: #3cf0c5; font: 600 11.5px var(--f-ui); } .adl-wait { margin: 0; padding: 18px; color: #aaa1c9; font: 600 12px var(--f-ui); text-align: center; }
+@keyframes adlIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .adl-lesson span, body.fx-lite .adl-row { animation: none; } @media (prefers-reduced-motion: reduce) { .adl-lesson span, .adl-row { animation: none; } .adl-lesson s { transition: none; } }
+body.theme-day .adl-row, body.theme-day .adl-lesson { background: #fff; border-color: #7c4dff22; } body.theme-day .adl-head b, body.theme-day .adl-top b { color: #2a1650; } body.theme-day .adl-faults li, body.theme-day .adl-lesson i { color: #3a2a60; }
+@media (max-width: 640px) { .adl { padding: 10px; } .adl-lesson span { grid-template-columns: minmax(0, 1fr) 80px auto; } .adl-top .m-btn { margin-left: 0; } }

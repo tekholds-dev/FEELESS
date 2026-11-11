@@ -86,12 +86,14 @@ def test_the_recorder_sees_a_broken_frame(tmp_path):
             '<h1 style="position:absolute;left:1150px;top:10px;margin:0">CUT OFF HEADLINE</h1>'
             '<p style="position:absolute;left:20px;top:300px;margin:0">ONE LINE</p><p style="position:absolute;left:24px;top:304px;margin:0">TWO LINE</p>'
             '<div style="position:absolute;left:300px;top:640px;width:400px;height:200px;background:#333">a card</div>'
-            '<i style="position:absolute;left:20px;top:20px">STATE play</i></body>')
+            '<i style="position:absolute;left:20px;top:20px">STATE play</i>'
+            '<div style="position:absolute;left:1000px;top:500px;width:460px;height:460px;border-radius:50%;background:radial-gradient(#9b6bff,transparent)"></div>'
+            '<p style="position:absolute;left:400px;top:400px;margin:0">PROOF ROW</p><button style="position:absolute;left:380px;top:396px;width:300px;height:60px;background:linear-gradient(#fa0,#f80)">FILE THE CALL</button></body>')
     lay = []
     asyncio.run(sa.record(page, Path(tmp_path) / 'x.webm', fb.chromium_path(), seconds=2, lay=lay))
     said = ' | '.join(lay)
     assert 'cut by the frame: "CUT OFF HEADLINE"' in said and 'text on text: "ONE LINE" over "TWO LINE"' in said
-    assert 'a panel cut by the frame' in said and 'a debug readout: "STATE play"' in said
+    assert 'covered: "PROOF ROW" sits under "FILE THE CALL"' in said and 'a panel cut by the frame: "a card"' in said and 'a debug readout: "STATE play"' in said and said.count('panel cut') == 1   # the glow orb off the edge is design, not a fault
     fine = []
     asyncio.run(sa.record('<body style="margin:0;background:#000;color:#fff"><h1 style="margin:200px 100px">FITS</h1></body>', Path(tmp_path) / 'y.webm', fb.chromium_path(), seconds=2, lay=fine))
     assert fine == []
@@ -105,3 +107,23 @@ def test_every_ad_has_its_own_light_and_no_libraries():
     assert all(sa.LOOK[k].split(' ')[0] in looks[k] for k in sa.KINDS) and len({sa.LOOK[k] for k in sa.KINDS}) == 6
     assert all('no game library' in a and 'GSAP' in a and 'Not the same green' in a and '{look}' not in a and 'nothing past the edges' in a for a in looks.values())
     assert sa.MODEL.startswith('anthropic/') and sa.KITS == ['gsap'] and sa.BUDGET == 2.25   # a design-grade model, pro motion, the owner's +$1
+
+
+def test_a_replaced_ad_folder_folds_away_from_the_desk():
+    import feecat_service as fs
+    cat = {'workspaces': [{'id': 'w1', 'name': 'PoP ad', 'ad': True}, {'id': 'w2', 'name': 'PoP ad', 'ad': True}, {'id': 'w3', 'name': 'My site'}],
+           'showAds': {'pop': {'ws': 'w2', 'lostWs': ['w1']}}}
+    assert [w['id'] for w in fs._ws_list(cat)] == ['w2', 'w3'] and len(cat['workspaces']) == 3   # kept on disk, counted in the cap
+
+
+def test_every_ad_attempt_is_kept_as_a_lesson(monkeypatch):
+    import feecat_service as fs
+    docs = {'w1': {'at': fs.AD_SONNET_AT - 100, 'cost': 0.03, 'versions': [1, 2], 'messages': [{'by': 'you', 'text': 'Ad for PoP …'}, {'by': 'you', 'text': 'This ad page breaks while it plays. text on text'}]},
+            'w2': {'at': fs.AD_SONNET_AT + 100, 'cost': 0.12, 'versions': [1], 'messages': [{'by': 'you', 'text': 'Ad for PoP …'}]}}
+    monkeypatch.setattr(fs, '_ws_load', lambda cid, ws: docs.get(ws))
+    cat = {'brainsCfg': {'brains': ['tencent/hy4', 'z-ai/glm-5.3-flash']},
+           'showAds': {'pop': {'ws': 'w2', 'state': 'done', 'lostWs': ['w1'], 'tries': [{'ws': 'w2', 'model': 'anthropic/claude-sonnet-5.5', 'faults': [], 'outcome': 'passed'}]}}}
+    rows = fs._ads_lab('c1', cat)
+    assert [r['ws'] for r in rows] == ['w2', 'w1'] and rows[0]['outcome'] == 'passed' and rows[0]['current'] and not rows[1]['current']
+    assert rows[1]['model'] == 'hy4 + glm-5.3-flash' and rows[1]['faults'] == ['This ad page breaks while it plays. text on text'] and rows[1]['outcome'] == 'replaced'
+    assert rows[1]['versions'] == 2 and rows[0]['cost'] == 0.12

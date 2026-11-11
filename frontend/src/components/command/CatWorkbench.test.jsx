@@ -728,3 +728,10 @@ test('🗄 AGT-11: its database lists sealed rows, opens one for its owner, and 
   expect(q('adb-share-b1-collective').getAttribute('aria-pressed')).toBe('true');
   act(() => root.unmount());
 });
+
+test('🖥 an idle monitor gets its agent\'s newest proofs, newest first, across every kind', () => {
+  const { newestProofs } = require('./CatWorkbench');
+  const d = { pobFolders: [{ id: 'b1', at: 100, topic: 'Jets vs Chiefs', graded: 'right' }], powFolders: [{ id: 'w1', at: 300, sym: 'WIF' }], psFolders: [{ id: 's1', at: 200, name: 'Coffee site' }] };
+  const p = newestProofs(d);
+  expect(p.map(x => x.id)).toEqual(['w1', 's1', 'b1']); expect(p[0].title).toBe('$WIF'); expect(p[2].grade).toBe('right'); expect(newestProofs(null)).toEqual([]);
+});

@@ -24,6 +24,7 @@ import contextvars
 import hashlib
 import json
 import re
+import shutil
 import os
 import math
 import time
@@ -1354,7 +1355,7 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
         return await _lm_call(model, messages, max_tokens)
     plugins = list(_OR_PLUGINS.get())
     try:
-        async with httpx.AsyncClient(timeout=40) as h:
+        async with httpx.AsyncClient(timeout=240 if (max_tokens or 0) >= LONG_WRITE_TOK else 40) as h:   # a whole page is minutes of writing: at 40 s every Sonnet ad page timed out, fell to the 1,500-token route and was stitched into broken scripts (2026-11-11)
             long_write = not effort and (max_tokens or 0) >= LONG_WRITE_TOK   # 🧾 found 2026-11-10: Hy4 spent a whole 6,000-token page budget thinking, wrote nothing and still billed; off, it wrote the full game in half the time and cost
             body = {'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {'reasoning': {'enabled': False}} if long_write else {}), 'usage': {'include': True}}
             extra = {'plugins': plugins, **({'response_format': {'type': 'json_object'}} if any(x['id'] == 'response-healing' for x in plugins) else {})} if plugins else {}
@@ -6727,10 +6728,10 @@ def _shot_private(cat, folder, name):
 
 
 @app.get('/api/cats/{cat_id}/showad/{kind}')
-async def show_ad_video(cat_id: str, kind: str, ownerId: str = '', session: str = '', dl: int = 0):
-    """🎬 One Showcase ad video: its owner only (owner 2026-11-11: only the owner can download them)."""
-    store = _load(); cat = store['cats'].get(cat_id)
-    f_ = SHOW_ADS_DIR / re.sub(r'[^a-z0-9]', '', cat_id) / f"{re.sub(r'[^a-z]', '', kind)}.webm"
+async def show_ad_video(cat_id: str, kind: str, ownerId: str = '', session: str = '', dl: int = 0, ws: str = ''):
+    """🎬 One Showcase ad video (or, with ws, one kept attempt's): its owner only (owner 2026-11-11: only the owner can download them)."""
+    store = _load(); cat = store['cats'].get(cat_id); w_ = re.sub(r'[^a-z0-9]', '', ws)
+    f_ = SHOW_ADS_DIR / re.sub(r'[^a-z0-9]', '', cat_id) / f"{re.sub(r'[^a-z]', '', kind)}{'-' + w_ if w_ else ''}.webm"
     if not cat or kind not in _ads.KINDS or not f_.exists():
         raise HTTPException(404, 'No ad yet.')
     _owner_gate(store, cat, session, ownerId, 'see its ads')
@@ -6938,27 +6939,77 @@ def _ads_set(cat_id, k, **row):
     return c_
 
 
+AD_SONNET_AT = 1794421031   # 2026-11-11 12:17: ads built by show_ads.MODEL from here; before it, by the agent's own two minds
+
+
+def _ads_try(cat_id, k, ws, faults, outcome):
+    """🎬 One ad attempt, kept for good (owner 2026-11-11: "that's my money spent … future agents see what to do and what not to"): its folder,
+    model, the frame check's words and how it ended. Its video is kept beside the current one as <kind>-<folder>.webm."""
+    d_ = SHOW_ADS_DIR / cat_id; cur_ = d_ / f'{k}.webm'
+    if cur_.exists():
+        shutil.copyfile(cur_, d_ / f'{k}-{re.sub(r"[^a-z0-9]", "", str(ws))}.webm')
+    j_ = ((((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}).get(k)) or {}
+    row_ = {'ws': ws, 'at': round(time.time()), 'model': _ads.MODEL, 'faults': [str(f)[:300] for f in (faults or [])][:8], 'outcome': outcome}
+    _ads_set(cat_id, k, tries=[*(j_.get('tries') or []), row_][-40:])
+
+
+def _ads_lab(cat_id, cat):
+    """→ every ad attempt of one agent, newest first: proof type, folder, model, $, page versions, the exact faults it was sent back with, the end."""
+    rows = []; own_ = ' + '.join(str(m).split('/')[-1] for m in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]) or 'its own minds'
+    for k, j in (cat.get('showAds') or {}).items():
+        tries = {}
+        for t_ in j.get('tries') or []:
+            tries.setdefault(t_.get('ws'), []).append(t_)
+        for ws in [*(j.get('lostWs') or []), *([j['ws']] if j.get('ws') else [])]:
+            doc = _ws_load(cat_id, ws) or {}; at_ = doc.get('at') or 0; mine_ = tries.get(ws) or []
+            asks_ = [str(m.get('text') or '') for m in doc.get('messages') or [] if m.get('by') == 'you'][1:]   # every ask after the brief is a fix it was sent back with
+            last_ = mine_[-1] if mine_ else {}
+            rows.append({'kind': k, 'name': _ads.NAME.get(k, k), 'cat': cat_id, 'ws': ws, 'at': at_, 'cost': round(float(doc.get('cost') or 0), 4),
+                         'versions': len(doc.get('versions') or []), 'model': last_.get('model') or (_ads.MODEL if at_ >= AD_SONNET_AT else own_),
+                         'faults': [f for t_ in mine_ for f in t_.get('faults') or []][:12] or [a_[:400] for a_ in asks_][:4],
+                         'outcome': last_.get('outcome') or (('now · ' + str(j.get('state') or '')) if ws == j.get('ws') else 'replaced'),
+                         'current': ws == j.get('ws'), 'video': (SHOW_ADS_DIR / cat_id / f'{k}-{ws}.webm').exists()})
+    return sorted(rows, key=lambda r: -(r['at'] or 0))
+
+
+async def _ads_write(cat_id, k, ws, fix=None):
+    """🎬 One ad page written whole by show_ads.MODEL with the ad writer's own brief and every earlier attempt's faults as lessons; filed as a new
+    version of its folder (the folder and its cost stay the record). → True when a whole page came back."""
+    cat_ = _load()['cats'].get(cat_id) or {}; doc_ = _ws_load(cat_id, ws) or {}; cur_ = ((doc_.get('versions') or [{}])[-1]).get('html') or ''
+    past_ = [f_ for c_ in _load()['cats'].values() if c_.get('showAds') and _same_owner(cat_, c_) for r_ in _ads_lab(c_['id'] if c_.get('id') else cat_id, c_) for f_ in r_['faults']]
+    user_ = _ads.ask_for(k) + _ads.lessons(past_) + (f"\n\nTHE FILE NOW:\n{cur_[:60000]}\n\nREWRITE THE WHOLE FILE. {fix}" if fix and cur_ else '')
+    text_, usd_ = await _or_call(_ads.MODEL, [{'role': 'system', 'content': _ads.AD_SYS}, {'role': 'user', 'content': user_}], max_tokens=16000)
+    html_ = _aip.html_of(text_) if text_ else ''; ok_ = bool(html_ and _feat.page_complete(html_)); now_ = time.time()
+    doc_ = _ws_load(cat_id, ws) or doc_; doc_['cost'] = round(float(doc_.get('cost') or 0) + float(usd_ or 0), 6); doc_.pop('busy', None); doc_['pending'] = False
+    if fix:
+        _feat.add_msg(doc_, 'you', fix, now_)
+    if ok_:
+        doc_.setdefault('versions', []).append({'html': html_, 'at': round(now_), 'by': _ads.MODEL.split('/')[-1]})
+    _feat.add_msg(doc_, _ads.MODEL.split('/')[-1], f"{'Ad page ' + str(len(doc_.get('versions') or [])) + ' written whole' if ok_ else 'The reply was not a whole page'} · ${float(usd_ or 0):.3f}", now_)
+    _ws_save(cat_id, doc_)
+    return ok_
+
+
 async def _ads_film(cat_id, k, ws):
     """🎬 Records one ad. A page that crashes while it plays, or breaks its own frame (text past the edges or on top of text), gets ONE fix pass in its own folder with its exact errors (counted toward the cap,
     only while the cap allows another build), then is recorded again; still crashing → 'page error' with the error, never a blank video called done."""
     for attempt_ in (0, 1):
         html_ = ((_ws_load(cat_id, ws) or {}).get('versions') or [{}])[-1].get('html') or ''
         if not html_:
-            _ads_set(cat_id, k, state='no page'); return
-        _ads_set(cat_id, k, state='recording'); errs_ = []; lay_ = []
+            _ads_set(cat_id, k, ws=ws, state='no page'); return
+        _ads_set(cat_id, k, ws=ws, state='recording'); errs_ = []; lay_ = []
         got_ = await _ads.record(_kits.open_for_kits(_ws_placed(cat_id, html_)), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path(), errs=errs_, lay=lay_)
         if not errs_ and not lay_:
-            _ads_set(cat_id, k, state='done' if got_ else 'no video', err=None, fit=1); return
+            _ads_set(cat_id, k, ws=ws, state='done' if got_ else 'no video', err=None, fit=1); _ads_try(cat_id, k, ws, [], 'passed' if got_ else 'no video'); return
         why_ = (errs_ or lay_)[0][:200]
         if attempt_ or not _ads.may_start(((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}, _ads_cost(cat_id))[0]:
-            _ads_set(cat_id, k, state='page error', err=why_, fit=1); return
-        fix_ = _ads.fix_ask(errs_, lay_); doc_ = _ws_load(cat_id, ws) or {}; now_ = time.time()
-        _feat.add_msg(doc_, 'you', fix_, now_); doc_['pending'] = True; doc_['busy'] = {'at': round(now_), 'to': 'a', 'stage': 'build'}; _ws_save(cat_id, doc_)
-        _ads_set(cat_id, k, state='fixing', err=why_)
+            _ads_set(cat_id, k, ws=ws, state='page error', err=why_, fit=1); _ads_try(cat_id, k, ws, errs_ + lay_, 'failed the check'); return
+        fix_ = _ads.fix_ask(errs_, lay_)
+        _ads_set(cat_id, k, ws=ws, state='fixing', err=why_); _ads_try(cat_id, k, ws, errs_ + lay_, 'sent back once')
         try:
-            await _ws_start(cat_id, ws, 'a', fix_, None)
-        except Exception:   # noqa: BLE001
-            pass
+            await _ads_write(cat_id, k, ws, fix=fix_)
+        except Exception as e_:   # noqa: BLE001 — the page stays as it was and is filmed again
+            print(f'[ads] fix write failed: {type(e_).__name__}')
 
 
 async def _ads_run(cat_id):
@@ -6987,17 +7038,23 @@ async def _ads_run(cat_id):
             _ads_set(cat_id, k, state='over budget'); return
         now = time.time()
         try:
-            row_ = _feat.new_folder(cat, 'build', f'Ad · {_ads.NAME[k]}', now, ad=True)
+            row_ = _feat.new_folder(cat, 'build', f'{_ads.NAME[k]} ad', now, ad=True)
         except ValueError:
             _ads_set(cat_id, k, state='no room for a folder'); return
         doc_ = _feat.new_doc(row_); doc_['cfg'] = {'research': False, 'suggest': False, 'review': False}; text_ = _ads.ask_for(k)
-        _feat.add_msg(doc_, 'you', text_, now); doc_['complete'] = False; doc_['pending'] = True; doc_['busy'] = {'at': round(now), 'to': 'a', 'stage': 'build'}
-        _ws_save(cat_id, doc_); cat.setdefault('showAds', {})[k] = {'ws': row_['id'], 'state': 'building', 'at': round(now), **({'lostWs': jobs[k]['lostWs']} if (jobs.get(k) or {}).get('lostWs') else {})}; keep_owned(cat); _save(store)
+        _feat.add_msg(doc_, 'you', text_, now); doc_['complete'] = False; doc_['pending'] = True
+        _ws_save(cat_id, doc_); cat.setdefault('showAds', {})[k] = {'ws': row_['id'], 'state': 'building', 'at': round(now), **{x_: jobs[k][x_] for x_ in ('lostWs', 'tries') if (jobs.get(k) or {}).get(x_)}}; keep_owned(cat); _save(store)
         try:
-            await _ws_start(cat_id, row_['id'], 'a', text_, None)
-        except Exception:   # noqa: BLE001
-            pass
+            await _ads_write(cat_id, k, row_['id'])
+        except Exception as e_:   # noqa: BLE001 — no page: the film step says so
+            print(f'[ads] write failed: {type(e_).__name__}')
         await _ads_film(cat_id, k, row_['id'])
+
+
+def _ws_list(cat):
+    """🗂 The folders the owner sees: an ad folder a newer build replaced (its showAds lostWs) folds away, kept on disk, still counted in the cap."""
+    gone_ = {w for j in (cat.get('showAds') or {}).values() for w in (j.get('lostWs') or [])}
+    return [w for w in cat.get('workspaces') or [] if w.get('id') not in gone_]
 
 
 def _ads_view(cat_id, cat):
@@ -7678,7 +7735,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                     _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost + usd_, 6), 'by': by_, 'draft': re.sub(r'```(?:html)?', '', raw_)[:WS_DRAFT_CHARS]}})
                 raw, usd, own, html = '', 0.0, paid_own, None
                 if _feat.wants_rewrite(cur, text):
-                    raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 8000, on_part=part_)
+                    raw, usd, own = await _ws_page(cat, brains[i], (_feat.REVIEW_SYS if k else _feat.BUILD_SYS) + _feat._sources.proof_line('pos') + read_ + kits_, user if not k else f'{text}\nThe page:\n{cur[:40000]}', 16000 if doc.get('ad') else 8000, on_part=part_)
                     cost += usd; paid_own = own; html = _aip.html_of(raw)
                 if (not html or not _feat.page_complete(html)) and not cur and not k:   # 🧩 no page yet and the whole page did not fit in a reply: build it in sections
                     html_s_, usd_s_, own_s_, n_s_ = await _ws_sections(cat, [brains[j] for j in order], text, read_ + kits_); cost += usd_s_; paid_own = paid_own or own_s_
@@ -8924,7 +8981,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(409, str(e))
             doc_ = _feat.new_doc(row_); doc_['versions'] = [{'html': _play.code_page(code_, row_['name']), 'by': '3D playground', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]
             filed_ = _feat.file_static(cat, doc_, '3D playground', time.time()); _ws_save(cat_id, doc_); keep_owned(cat); _save(store)
-            return {'folder': row_, 'filed': filed_, 'workspaces': cat['workspaces']}
+            return {'folder': row_, 'filed': filed_, 'workspaces': _ws_list(cat)}
         if p.op == 'play3d_file':
             if not now_scene_['objects'] and not now_scene_.get('hero'):
                 raise HTTPException(400, 'Add something to the scene first.')
@@ -8939,7 +8996,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(409, str(e))
             doc_ = _feat.new_doc(row_); doc_['scene3d'] = now_scene_; doc_['versions'] = [{'html': _play.lock_site(_play.to_html(now_scene_, row_['name'])), 'by': '3D studio', 'at': round(time.time())}]; doc_['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _ws_save(cat_id, doc_)
             filed_ = _feat.file_static(cat, doc_, '3D studio', time.time()); keep_owned(cat); _save(store); _play_save(cat_id, '3d', {**saved_, 'scene': now_scene_, 'mind': now_scene_})
-            return {'filed': filed_, 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': cat.get('workspaces') or []}
+            return {'filed': filed_, 'psFolders': (cat.get('psFolders') or [])[::-1], 'workspaces': _ws_list(cat)}
         raise HTTPException(400, 'No such step.')
     if p.op.startswith('debate_'):   # ⚔ Collective Debate. The owner puts proofs on the table and allows their agent to grade. No money moves here
         b_ = cat.setdefault('brainsCfg', {}); st_ = _debate.load(DATA_DIR)
@@ -9126,7 +9183,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat.setdefault('brainsCfg', {})['endless'] = bool(p.on); keep_owned(cat); _save(store)
         return {'endless': bool(p.on)}
     if p.op == 'features':   # ✨ its Features folder: folders it has, memory, its fingerprint
-        return {'firstList': _first_list(cat), 'workspaces': cat.get('workspaces') or [], 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'psFolders': cat.get('psFolders') or [], 'pocFolders': _poc_view(cat)}
+        return {'firstList': _first_list(cat), 'workspaces': _ws_list(cat), 'memory': _feat.memory_view(cat), 'print': _print.build(cat, time.time()), 'use': (cat.get('setup') or {}).get('use'), 'edge': _edge.rows(), 'edgeCats': _edge.CATEGORIES, 'indicators': _edge.indicator_list(), 'psFolders': cat.get('psFolders') or [], 'pocFolders': _poc_view(cat)}
     if p.op == 'feature_create':
         kind_ = _feat.clean_kind(p.text)
         if not kind_:
@@ -9138,13 +9195,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except ValueError as e:
             raise HTTPException(409, str(e))
         _ws_save(cat_id, _feat.new_doc(row_)); keep_owned(cat); _save(store)
-        return {'folder': row_, 'workspaces': cat['workspaces']}
+        return {'folder': row_, 'workspaces': _ws_list(cat)}
     if p.op == 'feature_delete':
         cat['workspaces'] = [w_ for w_ in cat.get('workspaces') or [] if w_.get('id') != p.text]
         if not any(f.get('ws') == p.text for f in cat.get('psFolders') or []) and not any(f.get('ws') == p.text for f in cat.get('pocFolders') or []):   # a filed proof keeps its page: this only takes the folder off the desk
             _ws_file(cat_id, p.text).unlink(missing_ok=True)
         keep_owned(cat); _save(store)
-        return {'workspaces': cat['workspaces']}
+        return {'workspaces': _ws_list(cat)}
     if p.op == 'ws_repo':   # 💾 a page its owner keeps: it joins this agent's own folder, sealed under its key in the Collective's store, and its own repo if one is linked. Only its owner reads it here
         if not _ws_load(cat_id, str(p.text or '')):
             raise HTTPException(404, 'No such folder.')
@@ -9609,11 +9666,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(400, 'That ad has not been built yet.')
             if j_.get('state') in ('building', 'recording', 'fixing') and live_:
                 raise HTTPException(409, 'That ad is being made right now.')
-            cat['showAds'][redo_] = {'state': 'waiting', 'lostWs': [*(j_.get('lostWs') or []), j_['ws']]}; keep_owned(cat); _save(store)
+            cat['showAds'][redo_] = {'state': 'waiting', 'lostWs': [*(j_.get('lostWs') or []), j_['ws']], **({'tries': j_['tries']} if j_.get('tries') else {})}; keep_owned(cat); _save(store)
             (SHOW_ADS_DIR / cat_id / f'{redo_}.webm').unlink(missing_ok=True)
         if (p.text == 'go' or redo_) and not live_:
             _ADS_LIVE[cat_id] = asyncio.create_task(_ads_run(cat_id))
         return {'ads': _ads_view(cat_id, cat), 'running': bool(_ADS_LIVE.get(cat_id) and not _ADS_LIVE[cat_id].done())}
+    if p.op == 'ad_lab':   # 🎬 owner only: every ad attempt of this owner's agents, kept as the lesson for the next build (Fee's desk › Ad lab)
+        if not cat.get('ownerStaff') and not cat.get('isLeader'):
+            raise HTTPException(403, 'The ad lab is the owner\'s.')
+        mine_ = [(cid_, c_) for cid_, c_ in store['cats'].items() if c_.get('showAds') and (cid_ == cat_id or _same_owner(cat, c_))]
+        rows_ = [r_ for cid_, c_ in mine_ for r_ in _ads_lab(cid_, c_)]
+        return {'rows': rows_[:240], 'spent': round(sum(r_['cost'] for r_ in rows_), 4), 'budget': _ads.BUDGET, 'model': _ads.MODEL}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
         ads_ = next((dict(_ads_view(cid_, c_), cat=cid_) for cid_, c_ in store['cats'].items() if c_.get('showAds') and not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))), None)
@@ -9669,7 +9732,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except ValueError as e:
             raise HTTPException(409, str(e))
         new_ = _feat.new_doc(row_); new_['versions'] = [{'html': _ws_placed(got_['cat'], v_[-1]['html']), 'by': 'Popular build', 'at': round(time.time())}]; _ws_save(cat_id, new_); keep_owned(cat); _save(store)
-        return {'folder': row_, 'workspaces': cat['workspaces']}
+        return {'folder': row_, 'workspaces': _ws_list(cat)}
     if p.op == 'site_book':   # 📚 its sites per proof: the owner's order, on / off. No text = just read
         if p.text:
             try:

@@ -297,19 +297,22 @@ function useHereWhileWaiting(on, catId, i) {
     return () => { clearInterval(t); document.removeEventListener('pointermove', mark); document.removeEventListener('keydown', mark); };
   }, [on, catId, i]);
 }
-// 💤 An idle mind is one short card, not a 400px monitor of a blank page (owner 2026-11-11: "desk first look … cant see shit, gotta scroll").
-// Its model, its state and what it last said; the big live browser comes back the moment it works a proof or needs you.
-function IdleMind({ w }) {
-  const sl = w?.slot ?? w?.i ?? 0; const last = (w?.steps || []).at(-1);
-  const said = w?.answer || last?.thought || last?.why || '';
-  return <article className={`cwb-idle w${sl % 2}`} style={{ '--i': sl }} data-testid={`cwb-win-${w?.i ?? sl}`}>
-    <span className="cwb-idle-h"><i className="cwb-idle-dot" aria-hidden="true" /><b>MIND {'AB'[sl] || sl + 1}</b><small>{w?.model ? String(w.model).split('/').pop() : 'model'}</small>
-      <em data-tip="It wakes when you ask, when Let it go is on, or when a proof starts">{String(w?.status === 'done' ? 'done' : 'idle').toUpperCase()}</em></span>
-    <p data-tip={said || undefined}>{said ? <><em>LAST</em>{String(said).slice(0, 200)}</> : <span className="cwb-idle-none">Waiting for your ask. Its live browser opens here when it works.</span>}</p>
-  </article>;
+// 🖥 THE NEWEST PROOFS ON THE MONITORS (owner 2026-11-11: "any proof being worked on shows on the desk … monitors gone"): an idle monitor
+// shows one of its agent's newest filed proofs — type, what it was on, its grade, when — and opens the Desktop where the folder lives. Pure.
+const PROOF_KIND = { pob: ['🎲', 'PoB'], pow: ['⛏', 'PoW'], poc: ['📣', 'PoC'], ps: ['💻', 'PoStatic'], pop: ['📉', 'PoP'], poe: ['📊', 'PoEco'] };
+export function newestProofs(d) {
+  const row = (k, f) => f && { k, id: f.id, at: Number(f.closedAt || f.at || 0), title: String(f.topic || (f.sym ? '$' + f.sym : '') || f.name || f.title || PROOF_KIND[k][1]).slice(0, 80), grade: f.graded || f.grade || null, live: !!f.live || f.status === 'open' };
+  return [...(d?.pobFolders || []).map(f => row('pob', f)), ...(d?.powFolders || []).map(f => row('pow', f)), ...(d?.pocFolders || []).map(f => row('poc', f)),
+    ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, 4);   // a Showcase ad build is not one of its proofs
+}
+function ProofScreen({ p, onOpen }) {
+  const [ic, nm] = PROOF_KIND[p.k] || ['🗂', 'Proof'];
+  return <button type="button" className={'cwb-proof is-' + (p.grade === 'right' ? 'good' : p.grade === 'wrong' ? 'bad' : 'none')} onClick={onOpen} data-tip="Its newest proof. Opens its Desktop, where every proof folder is" data-testid="cwb-proof">
+    <span className="cwb-proof-glow" aria-hidden="true" /><i aria-hidden="true"><Ic3 e={ic} /></i><em>{nm} · {p.live ? 'RUNNING' : p.grade ? 'GRADED ' + String(p.grade).toUpperCase() : 'FILED'}</em>
+    <b>{p.title}</b><small>{p.at ? ago(p.at) : ''}</small></button>;
 }
 
-export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null }) {
+export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null, proof = null, onProof }) {
   const { drop, tray } = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
@@ -353,6 +356,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
         : !working && !w?.hand && w?.status !== 'human' && folder?.coins?.length ? <PowScreen f={folder} slot={sl} />
+        : !working && !w?.hand && w?.status !== 'human' && proof ? <ProofScreen p={proof} onOpen={onProof} />
         : !working && !w?.hand && w?.status !== 'human' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/last/${sl}?v=${w?.status}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
@@ -1564,6 +1568,7 @@ function WorkbenchLive({ cat }) {
   const msgs = useMemo(() => (d?.chat || []).slice(-24).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []), [d?.chat]);
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
+  const proofs = useMemo(() => newestProofs(d), [d]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
@@ -1578,8 +1583,7 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
-    {live || wins.some(w => w.hand || w.status === 'human') ? <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-      : <div className="cwb-stage agd-wins is-idle">{wins.map(w => <IdleMind key={`${w.i}-${w.slot ?? w.i}`} w={w} />)}</div>}
+    <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={proofs[n]} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}

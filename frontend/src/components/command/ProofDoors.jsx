@@ -219,6 +219,34 @@ const TRADE_ASKS = {
 // 🎬 Its ad for this proof type, made by the owner's agent through a real Build folder and recorded to video ($2.25 cap for all six).
 // Only the owner sees it: the video comes from an owner-only door, and Download saves the .webm.
 const AD_STATE = { waiting: 'Waiting its turn', building: 'Claude Sonnet 5.5 is building the page', recording: 'Recording the page to video', done: 'Ready', 'no video': 'Built, but the video did not record', 'no page': 'The mind returned no page', 'over budget': 'Stopped at the $1.25 cap', 'no room for a folder': 'No room for another folder', fixing: 'Its page crashed: one fix pass with the error', 'page error': 'Its page still crashes, so no video' };
+// 🎬 THE AD LAB (Fee's desk; owner 2026-11-11: "that's my money spent … so future agents see what to do and what not to"): every ad attempt of
+// this owner's agents, newest first — its proof type, model, $, page versions, the frame check's exact words, how it ended, and its kept video.
+// Up top, the lesson: which faults keep coming back, counted.
+const AD_KINDS = [['all', 'All'], ['pos', 'PoStatic'], ['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['poe', 'PoEco']];
+const faultKind = f => (String(f).match(/^(cut by the frame|text on text|covered|a panel cut by the frame|the frame is empty|its words are painted on a canvas|a debug readout)/) || [])[1] || (/crash|error|Cannot|Unexpected|undefined|null/i.test(f) ? 'a script error' : 'other');
+export function AdLab({ cat, work }) {
+  const [d, setD] = useState(null); const [k, setK] = useState('all'); const [err, setErr] = useState(''); const [play, setPlay] = useState('');
+  useEffect(() => { let live = true; work(cat.id, { op: 'ad_lab' }).then(j => live && setD(j)).catch(e => live && setErr(e.message)); return () => { live = false; }; }, [cat.id, work]);
+  const rows = (d?.rows || []).filter(r => k === 'all' || r.kind === k);
+  const lesson = useMemo(() => { const m = {}; (d?.rows || []).forEach(r => r.faults.forEach(f => { const x = faultKind(f); m[x] = (m[x] || 0) + 1; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6); }, [d]);
+  const top = lesson[0]?.[1] || 1; const passed = (d?.rows || []).filter(r => r.outcome === 'passed').length;
+  if (err) return <p className="kd-err" role="alert">⚠ {err}</p>;
+  if (!d) return <p className="adl-wait">Reading every ad attempt…</p>;
+  return <section className="adl" data-testid="ad-lab">
+    <header className="adl-head"><span><b>Ad lab</b><small>Every ad attempt your agents made, kept: what it cost, which model, what failed and why.</small></span>
+      <span className="adl-kpis"><em data-tip="Attempts kept"><b className="m-num">{d.rows.length}</b>tries</em><em data-tip="Passed the frame check"><b className="m-num">{passed}</b>passed</em>
+        <em data-tip="What every attempt cost, summed from its folder"><b className="m-num">${d.spent.toFixed(2)}</b>spent</em><em data-tip="The model building ads now">{String(d.model).split('/').pop()}</em></span></header>
+    {lesson.length ? <div className="adl-lesson" data-testid="ad-lab-lesson"><h4>WHAT KEEPS FAILING<small>the next build reads this</small></h4>
+      {lesson.map(([x, n], i) => <span key={x} style={{ '--i': i }}><i>{x}</i><u aria-hidden="true"><s style={{ transform: `scaleX(${n / top})` }} /></u><b className="m-num">×{n}</b></span>)}</div> : null}
+    <nav className="m-seg adl-seg" aria-label="Proof type">{AD_KINDS.map(([x, l]) => <button key={x} type="button" className={k === x ? 'active' : ''} aria-pressed={k === x} onClick={() => setK(x)} data-tip={`Only ${l}`} data-testid={`ad-lab-${x}`}>{l}</button>)}</nav>
+    {!rows.length ? <p className="adl-wait">No attempts for this proof type yet.</p> : <ol className="adl-list">{rows.map((r, i) => <li key={r.ws} className={`adl-row is-${r.outcome === 'passed' ? 'good' : r.current ? 'now' : /fail|error/.test(r.outcome) ? 'bad' : 'old'}`} style={{ '--i': Math.min(i, 12) }} data-testid={`ad-try-${r.ws}`}>
+      <div className="adl-top"><b>{r.name}</b><em>{r.outcome}</em><small>{String(r.model).split('/').pop()} · ${r.cost.toFixed(3)} · {r.versions} page{r.versions === 1 ? '' : 's'} · {r.at ? new Date(r.at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}</small>
+        {r.video ? <button type="button" className="m-btn" onClick={() => setPlay(p => (p === r.ws ? '' : r.ws))} aria-pressed={play === r.ws} data-tip="Play this attempt's recorded video" data-testid={`ad-play-${r.ws}`}>{play === r.ws ? 'Hide' : '▶ Video'}</button> : null}</div>
+      {play === r.ws ? <video className="adl-vid" src={apiUrl(`/api/cats/${r.cat}/showad/${r.kind}?${agentAuthQuery()}&ws=${r.ws}`)} autoPlay loop muted playsInline controls /> : null}
+      {r.faults.length ? <ul className="adl-faults">{r.faults.slice(0, 4).map((f, j) => <li key={j} title={f}>{f}</li>)}</ul> : <p className="adl-clean">Nothing failed the check.</p>}</li>)}</ol>}
+  </section>;
+}
+
 export function AdReel({ k, cat, work, ads: given }) {
   const [ads, setAds] = useState(given || null); const [run, setRun] = useState(false); const [err, setErr] = useState('');
   const pull = useCallback(() => work(cat.id, { op: 'show_ads' }).then(j => { setAds(a => ({ ...(a || {}), ...j.ads, cat: (a || given || {}).cat || cat.id })); setRun(!!j.running); }).catch(e => setErr(e.message)), [cat.id, work, given]);

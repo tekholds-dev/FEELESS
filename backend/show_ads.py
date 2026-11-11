@@ -40,8 +40,43 @@ BRIEF = {
     'pop': 'Ad for PoP, Proof of Perps: two minds call BTC long or short blind, sealed, then opened on the true chart with liquidation lines where 10x dies.',
     'pob': 'Ad for PoB, Proof of Bids: picks on tonight\'s game from different sites, a 3-leg parlay slip, and the scoreboard grading each leg green or red.',
     'poc': 'Ad for PoC, Proof of Content: what is trending today, two angles pitched, the post written, a short clip cut with big captions.',
-    'poe': 'Ad for PoEco, Proof of Eco: an agent\'s books kept true, income vs costs month by month as bars, tax set aside, each month sealed with a hash.',
+    'poe': ('Ad for PoEco, Proof of Eco: your money, run like a business, with an agent that keeps it true. Your bills with due dates that repeat '
+            'on their own and tick to PAID, a "due this week" card from its coach, invoices out and money in, a savings goal ring filling with a streak, '
+            'and every month of the books sealed with a hash so the record can never be edited. A real-life money manager, not a spreadsheet.'),
 }
+
+
+# 🎬 THE AD WRITER'S OWN BRIEF (owner 2026-11-11: "real commercial type ads"): ads are written whole in one reply, not by the site builder (its
+# dashboard kit put a header, a nav and chapter labels on every ad and its 40 s calls stitched pages into broken scripts).
+AD_SYS = ('You are the senior motion designer at the agency that makes launch films for the biggest tech brands. You write ONE complete, self-contained '
+          'HTML file that IS a 14-second looping 1280 x 720 TV commercial, recorded straight to video. Output only the file, starting with <!doctype html>.\n'
+          'FRAME: html and body exactly 1280 x 720, overflow hidden, a dark cinematic base. It is a video frame, not a website: no header, nav, menu, tabs, '
+          'footer, buttons, cursor, scrollbars, chapter or scene labels ("Scene 01"), timers, state or score counters, or any UI chrome around the picture.\n'
+          'SCENES: exactly 4 full-bleed scenes (each position absolute, inset 0) on ONE GSAP master timeline of 14 s that repeats forever (repeat: -1); each scene '
+          'owns its window (3.5 s): it builds in, holds, and is fully gone (autoAlpha 0) before the next one lands. Only one scene is ever visible.\n'
+          'TYPE: at most a headline (2 to 6 words, 72 to 110 px, heavy) and one support line (at most 12 words) per scene, inside 64 px safe margins. '
+          'Text never touches or overlaps other text, a panel or the frame edge, at any moment.\n'
+          'MOTION: a slow camera push-in (scale 1 to 1.06) on every scene, parallax layers, a light sweep, kinetic words that land with a stagger, numbers that '
+          'count up (gsap onUpdate). Animate transform and opacity only.\n'
+          'PRODUCT SHOT: draw the FEELESS screen the brief names as a lit glass device or panel with real-looking live numbers (mark made-up ones SAMPLE).\n'
+          'LAST SCENE: the FEELESS wordmark lockup and the line "Start it in one sentence".\n'
+          'Load GSAP with exactly <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script> and no other script or library. Draw with HTML, '
+          'CSS and SVG only: no images, no canvas, no emoji as art.')
+
+
+def fault_kind(f):
+    """→ the family of one frame-check fault, for the lessons and the Ad lab. Pure."""
+    m = re.match(r'(cut by the frame|text on text|covered|a panel cut by the frame|the frame is empty|its words are painted on a canvas|a debug readout)', str(f))
+    return m.group(1) if m else ('a script error' if re.search(r'crash|error|Cannot|Unexpected|undefined|null', str(f), re.I) else 'other')
+
+
+def lessons(faults):
+    """→ one line the ad writer reads: what failed before, most common first (owner 2026-11-11: "future agents see … what not to do"). Pure."""
+    c = {}
+    for f in faults or []:
+        k = fault_kind(f); c[k] = c.get(k, 0) + 1
+    top = sorted(c.items(), key=lambda kv: -kv[1])[:6]
+    return ('\nEARLIER ADS FAILED THE FRAME CHECK ON (never do these): ' + '; '.join(f'{k} x{n}' for k, n in top) + '.') if top else ''
 
 
 def ask_for(kind):
@@ -96,7 +131,7 @@ FIT_JS = r"""(at) => {
   const shown = el => { let o = 1; for (let e = el; e && e.nodeType === 1; e = e.parentElement) { const s = getComputedStyle(e); if (s.display === 'none' || s.visibility === 'hidden') return 0; o *= +s.opacity; } return o; };
   const inside = r => r.right > 0 && r.left < W && r.bottom > 0 && r.top < H;
   const cut = r => inside(r) && (r.right > W + 4 || r.bottom > H + 4 || r.left < -4 || r.top < -4);
-  const solid = s => { const m = (s.backgroundColor || '').match(/[\d.]+/g); return (m && (m.length < 4 || +m[3] > 0.3)) || (s.backgroundImage && s.backgroundImage !== 'none'); };
+  const alpha = s => { const m = (s.backgroundColor || '').match(/[\d.]+/g); return !m ? 0 : m.length < 4 ? 1 : +m[3]; };   // a glow (gradient image) is light, not a panel
   for (const el of document.body.querySelectorAll('*')) {
     if (/^(script|style|title|noscript)$/i.test(el.tagName)) continue;
     const nodes = [...el.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim().length > 1); if (!nodes.length) continue;
@@ -115,13 +150,15 @@ FIT_JS = r"""(at) => {
     const cx = (a.r.left + a.r.right) / 2, cy = (a.r.top + a.r.bottom) / 2;   // something solid drawn over the middle of the words
     for (const t of document.elementsFromPoint(Math.min(W - 1, Math.max(0, cx)), Math.min(H - 1, Math.max(0, cy)))) {
       if (t === a.el || t.contains(a.el) || a.el.contains(t)) break;
-      if ((/^(img|video|canvas)$/i.test(t.tagName) || solid(getComputedStyle(t))) && shown(t) > 0.5) { out.push('covered: "' + a.t + '" sits under another panel'); break; }
+      const cs = getComputedStyle(t), words = (t.innerText || '').trim().length > 1;   // a button or glass card over words covers them; a glow does not
+      if ((/^(img|video)$/i.test(t.tagName) || alpha(cs) > 0.6 || (words && (alpha(cs) > 0.15 || (cs.backgroundImage && cs.backgroundImage !== 'none') || (cs.backdropFilter && cs.backdropFilter !== 'none')))) && shown(t) > 0.5) { out.push('covered: "' + a.t + '" sits under "' + (t.innerText || t.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + '"'); break; }
     }
   }
   for (const el of document.body.querySelectorAll('div,section,article,aside,figure,li')) {   // a card half off the frame
     const r = el.getBoundingClientRect(), s = getComputedStyle(el);
-    if (r.width < 120 || r.height < 48 || r.width > W * 0.95 || r.height > H * 0.95 || !cut(r) || !(solid(s) || parseFloat(s.borderTopWidth) > 0) || shown(el) < 0.35) continue;
-    const t = (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40); out.push('a panel cut by the frame' + (t ? ': "' + t + '"' : '')); if (out.length > 10) break;
+    const t = (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40);   // a card holds words; a glow orb bleeding off the edge is design
+    if (t.length < 2 || r.width < 120 || r.height < 48 || r.width > W * 0.95 || r.height > H * 0.95 || !cut(r) || !(alpha(s) > 0.3 || parseFloat(s.borderTopWidth) > 0) || shown(el) < 0.35) continue;
+    out.push('a panel cut by the frame: "' + t + '"'); if (out.length > 10) break;
   }
   for (let i = 0; i < runs.length; i++) for (let j = i + 1; j < runs.length; j++) {
     const a = runs[i], b = runs[j]; if (a.el.contains(b.el) || b.el.contains(a.el) || (a.o < 0.35 && b.o < 0.35)) continue;
