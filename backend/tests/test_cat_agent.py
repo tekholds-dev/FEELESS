@@ -156,7 +156,7 @@ def test_the_workbench_is_the_owners_only_refuses_while_model_calls_are_off_and_
     c = TestClient(fs.app)
     assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b2', "session": 'b2'}).status_code == 403
     assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b1', "session": 'b1'}).json()['task'] is None
-    monkeypatch.setattr(fs, '_work_live', lambda: False)
+    monkeypatch.setattr(fs, '_work_live', lambda *_a: False)
     r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'research Kalshi'})
     assert r.status_code == 400 and 'Model calls are off' in r.json()['detail']                     # nothing sent, nothing charged
     assert c.post('/api/cats/t1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'x'}).status_code == 400   # a trading cat does not browse
@@ -181,7 +181,7 @@ def test_let_it_go_queues_asks_runs_the_next_on_its_own_and_gives_a_long_step_bu
     assert ca.new_task('x', 'q', ['m/a'], 1, ca.GO_STEPS)['stepsMax'] == ca.GO_STEPS > ca.STEP_MAX
     store = {'cats': {'g1': {'id': 'g1', 'name': 'Gen', 'ownerId': 'b1', 'positions': [], 'risk': {}, 'status': 'stopped', 'revoked': False, 'balanceSol': 0,
                              'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 1.0, 'billing': 'payg'}}}, 'events': []}
-    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda: True)
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True)
     started = []
     monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None, files=None: started.append(text))
     c = TestClient(fs.app)

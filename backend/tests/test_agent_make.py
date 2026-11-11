@@ -37,13 +37,13 @@ def _cat(credit=5.0):
 
 def test_it_refuses_with_no_budget_or_while_busy(monkeypatch):
     import feecat_service as fs
-    monkeypatch.setattr(fs, '_work_live', lambda: True); fs._MADE_BUSY.clear()
+    monkeypatch.setattr(fs, '_work_live', lambda *_a: True); fs._MADE_BUSY.clear()
     assert fs._made_refusal(_cat(), {'kind': 'image', 'prompt': 'a cat'}) == ''
     assert 'too low' in fs._made_refusal(_cat(fs._lc.CREDIT_RESERVE + .01), {'kind': 'image', 'prompt': 'a cat'})
     fs._MADE_BUSY.add('c1')
     assert 'still making' in fs._made_refusal(_cat(), {'kind': 'image', 'prompt': 'a cat'})
     fs._MADE_BUSY.clear()
-    monkeypatch.setattr(fs, '_work_live', lambda: False)
+    monkeypatch.setattr(fs, '_work_live', lambda *_a: False)
     assert 'off' in fs._made_refusal(_cat(), {'kind': 'page', 'prompt': 'a shop'})
 
 

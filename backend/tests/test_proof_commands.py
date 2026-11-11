@@ -35,7 +35,7 @@ def _desk(monkeypatch, brains=('m/a', 'm/b')):
     from fastapi.testclient import TestClient
     monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
     store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': list(brains), 'credit': 5}}}, 'events': []}
-    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
     runs = []; asks = []
     monkeypatch.setattr(fs, '_ws_start', lambda cid, ws, to, text, region: runs.append((ws, text)))
     monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None, files=None: asks.append(text))

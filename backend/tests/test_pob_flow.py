@@ -7,7 +7,7 @@ import pytest
 @pytest.fixture
 def fs(monkeypatch):
     import feecat_service as fs
-    monkeypatch.setattr(fs, '_work_live', lambda: True)
+    monkeypatch.setattr(fs, '_work_live', lambda *_a: True)
     fs._WORK.clear(); fs._POB_WANT.clear(); fs._POP_WANT.clear()
     return fs
 

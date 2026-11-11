@@ -23,7 +23,7 @@ def test_an_ask_about_feeless_reaches_its_minds_and_your_words_stay_yours(monkey
     from fastapi.testclient import TestClient
     monkeypatch.setattr(fs, '_session_wallet', lambda s: str(s or '')); monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
     store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 5}}}, 'events': []}
-    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda *_a: True); monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
     seen = []
     monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None, files=None: seen.append(text))
     r = TestClient(fs.app).post('/api/cats/g/work', json={'ownerId': 'me', 'session': 'me', 'op': 'ask', 'text': 'write a post about the feeless collective'})

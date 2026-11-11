@@ -69,7 +69,7 @@ def test_endpoints_are_owner_only_and_the_upload_reaches_its_browser(monkeypatch
     assert c.get('/api/cats/g/files/0123456789abcdef0123456789abcdef.png').status_code == 404
     assert c.post('/api/cats/g/files', json={'ownerId': 'me', "session": 'me', 'dataUrl': 'data:text/html;base64,PGh0bWw+'}).status_code == 400
     # ask with it attached → the task text names it and the task carries its path for `upload`
-    monkeypatch.setattr(fs, '_work_live', lambda: True)
+    monkeypatch.setattr(fs, '_work_live', lambda *_a: True)
     monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
     seen = {}
     def start(cid, cat, text, to=None, files=None):
