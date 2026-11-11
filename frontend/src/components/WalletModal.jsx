@@ -25,16 +25,16 @@ const WalletMark = ({ w, size }) => (w.icon && /^data:image\/(svg\+xml|png|webp)
 function WalletChooser({ busy, found, onPick }) {
   const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
   const insecure = insecureWalletPage();
+  const installed = brand => brand === 'metamask'
+    ? found.find(w => /metamask/i.test(w.label) && (!w.brand || w.brand.startsWith('eip6963:')))
+    : found.find(w => w.brand === brand);
+  const [more, setMore] = useState(() => MORE.some(w => installed(w.brand)) && !FEATURED.some(w => installed(w.brand)));   // hooks before any early return
   if (insecure) {
     return <div className="m-note row" data-testid="wallet-insecure">
       <span><b>Not a secure address</b><small>{mobile ? 'Wallets only connect over https. This page is plain http on a network address, so your wallet will not answer.' : 'Wallets only connect on localhost or https. This page is plain http on a network address, so Phantom will not answer.'}</small></span>
       {!mobile && <a className="btn-primary" href={insecure.localUrl} data-testid="wallet-open-localhost" data-tip="Same page on localhost: wallets connect there">Open on localhost</a>}
     </div>;
   }
-  const installed = brand => brand === 'metamask'
-    ? found.find(w => /metamask/i.test(w.label) && (!w.brand || w.brand.startsWith('eip6963:')))
-    : found.find(w => w.brand === brand);
-  const [more, setMore] = useState(() => MORE.some(w => installed(w.brand)) && !FEATURED.some(w => installed(w.brand)));
   if (mobile) {
     return <div className="wallet-chooser">
       <p className="wallet-mobile-guidance">Choose a wallet, approve the connection in its app, then return to this browser.</p>
