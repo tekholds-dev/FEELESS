@@ -27,8 +27,12 @@ export function ProChart({ rows = [], lines = null, base = 0, fmt = v => String(
         return { s, l, data }; });
       chart.timeScale().fitContent();
       chart.subscribeCrosshairMove(p => { if (!tipEl.current) return; if (!p?.time || !p.point) { tipEl.current.classList.remove('is-on'); return; }
-        const parts = made.map(({ s, l, data }) => { const v = p.seriesData.get(s)?.value; if (v == null) return ''; const row = data.find(d => d.time === p.time)?.row; return `${l.name ? `${l.name} ` : ''}${fmt(v)}${!lines && row && tip ? `<small>${String(tip(row)).replace(/[<>&]/g, '')}</small>` : ''}`; }).filter(Boolean);
-        tipEl.current.innerHTML = parts.join('<br/>'); tipEl.current.classList.add('is-on'); });
+        // 🔒 text nodes only: a series name is an agent's or coin's name other people set, and once went into innerHTML unescaped (2026-11-11)
+        const parts = made.map(({ s, l, data }) => { const v = p.seriesData.get(s)?.value; if (v == null) return null; const row = data.find(d => d.time === p.time)?.row;
+          const line = document.createElement('span'); line.append(`${l.name ? `${l.name} ` : ''}${fmt(v)}`);
+          if (!lines && row && tip) { const sm = document.createElement('small'); sm.textContent = String(tip(row)); line.append(sm); }
+          return line; }).filter(Boolean);
+        tipEl.current.replaceChildren(...parts.flatMap((n, i) => (i ? [document.createElement('br'), n] : [n]))); tipEl.current.classList.add('is-on'); });
     }).catch(() => { if (!gone) setFail(true); });
     return () => { gone = true; ro?.disconnect(); if (chart) { chart.remove(); chart = null; } };
   }, [key, base, stamps]);   // eslint-disable-line react-hooks/exhaustive-deps
