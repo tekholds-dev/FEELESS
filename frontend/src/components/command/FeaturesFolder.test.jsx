@@ -521,7 +521,7 @@ test('🎬 its ad: the owner starts the run, sees each ad’s state, and a ready
   await act(async () => { createRoot(el).render(<AdReel k="pow" cat={{ id: 'c' }} work={work} ads={null} />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   await act(async () => { q('adr-make').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'show_ads', text: 'go' });
-  expect(el.textContent).toContain('Its mind is building the page'); expect(el.textContent).toContain('$0.20 of $1.25'); expect(q('adr-make').disabled).toBe(true);
+  expect(el.textContent).toContain('Claude Sonnet 5.5 is building the page'); expect(el.textContent).toContain('$0.20 of $1.25'); expect(q('adr-make').disabled).toBe(true);
   const el2 = document.createElement('div'); document.body.appendChild(el2);
   await act(async () => { createRoot(el2).render(<AdReel k="pos" cat={{ id: 'c' }} work={work} ads={{ cat: 'happy', rows, spent: 0.2 }} />); });
   expect(el2.querySelector('[data-testid="adr-video"]').getAttribute('src')).toContain('/api/cats/happy/showad/pos?');

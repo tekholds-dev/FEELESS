@@ -5,10 +5,10 @@
 import { remapSite } from '../components/HolderTheme';
 
 export const FREE_LOOKS = {
-  plasma: { id: 'plasma', name: 'Plasma', ambient: 'plasma', tokens: { bg: '#08051a', s1: '#120b2c', s2: '#1a1140', line: '#2a1f55', lineHi: '#4b3596', text: '#f2eeff', dim: '#aaa1c9', accent: '#9b6bff', hi: '#b48cff', deep: '#7c4dff', tail: '#ff6fbf', tint: '#c9a8ff', dark: '#5b33c9', ink: '#12081f', third: '#3ee7ff' } },
-  molten: { id: 'molten', name: 'Molten', ambient: 'molten', tokens: { bg: '#0b0704', s1: '#170f08', s2: '#22160c', line: '#3a2a12', lineHi: '#7a5418', text: '#fff4e2', dim: '#cdb393', accent: '#ffb020', hi: '#ffc95a', deep: '#e0780f', tail: '#ff5a1f', tint: '#ffe08a', dark: '#a8560a', ink: '#2a1400', third: '#ffe08a' } },
-  neon: { id: 'neon', name: 'Neon Grid', ambient: 'neon', tokens: { bg: '#02060b', s1: '#061019', s2: '#0a1826', line: '#0d3340', lineHi: '#00a8b8', text: '#e6fbff', dim: '#86aebd', accent: '#00f0ff', hi: '#6ff7ff', deep: '#00b8d4', tail: '#ff2bd6', tint: '#a8fbff', dark: '#00788a', ink: '#00141a', third: '#faff00' } },
-  holo: { id: 'holo', name: 'Holo Chrome', ambient: 'holo', tokens: { bg: '#06080d', s1: '#0d121c', s2: '#141b29', line: '#26324a', lineHi: '#5a6f99', text: '#f3f7ff', dim: '#a3b1c8', accent: '#8fd3ff', hi: '#b6e3ff', deep: '#6fb6f0', tail: '#c7a6ff', tint: '#ffc6ec', dark: '#4f86b8', ink: '#0d1020', third: '#ffc6ec' } },
+  plasma: { id: 'plasma', name: 'Plasma', ambient: 'plasma', tokens: { bg: '#08051a', s1: '#120b2c', s2: '#1a1140', line: '#2a1f55', lineHi: '#4b3596', text: '#f2eeff', dim: '#aaa1c9', accent: '#9b6bff', hi: '#b48cff', deep: '#7c4dff', tail: '#ff6fbf', tint: '#c9a8ff', dark: '#5b33c9', ink: '#12081f', third: '#3ee7ff', logoHue: 145 } },
+  molten: { id: 'molten', name: 'Molten', ambient: 'molten', tokens: { bg: '#0b0704', s1: '#170f08', s2: '#22160c', line: '#3a2a12', lineHi: '#7a5418', text: '#fff4e2', dim: '#cdb393', accent: '#ffb020', hi: '#ffc95a', deep: '#e0780f', tail: '#ff5a1f', tint: '#ffe08a', dark: '#a8560a', ink: '#2a1400', third: '#ffe08a', logoHue: -60 } },
+  neon: { id: 'neon', name: 'Neon Grid', ambient: 'neon', tokens: { bg: '#02060b', s1: '#061019', s2: '#0a1826', line: '#0d3340', lineHi: '#00a8b8', text: '#e6fbff', dim: '#86aebd', accent: '#00f0ff', hi: '#6ff7ff', deep: '#00b8d4', tail: '#ff2bd6', tint: '#a8fbff', dark: '#00788a', ink: '#00141a', third: '#faff00', logoHue: 45 } },
+  holo: { id: 'holo', name: 'Holo Chrome', ambient: 'holo', tokens: { bg: '#06080d', s1: '#0d121c', s2: '#141b29', line: '#26324a', lineHi: '#5a6f99', text: '#f3f7ff', dim: '#a3b1c8', accent: '#8fd3ff', hi: '#b6e3ff', deep: '#6fb6f0', tail: '#c7a6ff', tint: '#ffc6ec', dark: '#4f86b8', ink: '#0d1020', third: '#ffc6ec', logoHue: 59 } },
 };
 export const LOOK_KEY = 'feeless.look';
 
@@ -34,8 +34,9 @@ export function applyLook(look) {
   const root = document.documentElement; const t = look?.tokens;
   const VARS = { '--m-bg': 'bg', '--m-surface': 's1', '--m-surface-2': 's2', '--m-line': 'line', '--m-line-hi': 'lineHi', '--m-text': 'text', '--m-dim': 'dim', '--m-accent': 'accent', '--m-accent-ink': 'ink',
     '--ink': 'bg', '--mint': 'accent', '--look-hi': 'hi', '--look-tail': 'tail', '--look-third': 'third' };
-  if (!t || look.id === 'plasma') { Object.keys(VARS).forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); return; }
+  if (!t || look.id === 'plasma') { [...Object.keys(VARS), '--logo-hue', '--logo-sat'].forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); return; }
   for (const [k, v] of Object.entries(VARS)) root.style.setProperty(k, t[v]);
+  root.style.setProperty('--logo-hue', `${t.logoHue ?? 145}deg`); root.style.setProperty('--logo-sat', String(t.logoSat ?? 1.15));   // the green logo art wears this look's accent (CSS hue-rotate is not linear: each look carries its measured angle)
   root.dataset.look = look.ambient || look.id;
   remapSite(lookMap(t));
 }

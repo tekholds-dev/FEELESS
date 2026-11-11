@@ -7615,7 +7615,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
 async def _ws_run(cat_id, ws_id, to, text, region):
     """🛠 One request in a feature folder. Build: one mind writes the page, or A writes and B improves it. Content or research: an answer per mind. It never touches the store until it has an answer."""
     doc = _ws_load(cat_id, ws_id) or {}; cat = _load()['cats'].get(cat_id) or {}; cost = 0.0; paid_own = False
-    kind = doc.get('kind'); pk_ = {'build': 'pos', 'content': 'poc'}.get(kind); brains = _lc.minds_for(cat.get('brainsCfg'), pk_); start_versions = len(doc.get('versions') or [])
+    kind = doc.get('kind'); pk_ = {'build': 'pos', 'content': 'poc'}.get(kind); brains = [_ads.MODEL] if doc.get('ad') else _lc.minds_for(cat.get('brainsCfg'), pk_); start_versions = len(doc.get('versions') or [])   # 🎬 a Showcase ad is built by the design-grade model
     if pk_:
         _CALL_CTX.set({'kind': pk_, 'ref': ws_id, 'minds': brains})   # 🧾 its own task (_ws_start): the context ends with it
     order = list(range(len(brains))) if to == 'both' else [1 if to == 'b' and len(brains) > 1 else 0]; name = lambda i: 'Mind ' + 'AB'[i]
@@ -7669,8 +7669,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             if _feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
                 user += _feat.live_line(await _live_feed(cat), page=True)
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
-            picks_ = [] if doc.get('ad') else picks_   # 🎬 an ad is HTML, CSS and SVG only: a game kit (Phaser) dragged in the game playtest and its STATE / SCORE counter (2026-11-11)
-            stash_, doc['kitsStash'] = ('', None) if doc.get('ad') else _kits.stash_line(KITS_DIR, 'pos', text, picks_)
+            picks_ = list(_ads.KITS) if doc.get('ad') else picks_   # 🎬 an ad gets GSAP, never a game kit (Phaser dragged in the game playtest and its STATE / SCORE counter, 2026-11-11)
+            stash_, doc['kitsStash'] = _kits.stash_line(KITS_DIR, 'pos', text, picks_)
             kits_ = _kits.use_line(picks_) + stash_ + _parts.offer_line(_parts.offer(_parts_path(), text)) + _mark_lessons() + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})

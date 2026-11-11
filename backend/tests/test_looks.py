@@ -16,5 +16,5 @@ def test_free_looks_for_anyone_and_advanced_palettes_only_when_unlocked():
 def test_every_look_has_the_whole_token_set_and_no_old_green():
     need = {'bg', 's1', 's2', 'line', 'lineHi', 'text', 'dim', 'accent', 'hi', 'deep', 'tail', 'tint', 'dark', 'ink', 'third'}
     for k, (_n, _t, _l, _a, t) in lk.LOOKS.items():
-        assert set(t) == need, k
+        assert set(t) - {'logoHue', 'logoSat'} == need and isinstance(t['logoHue'], int), k   # each look carries its measured logo angle
         assert '#15d16a' not in t.values() and '#45e486' not in t.values()

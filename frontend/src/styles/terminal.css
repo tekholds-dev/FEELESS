@@ -2563,8 +2563,7 @@ body.theme-day .chat-pinned p{color:#212724}
 .td-go{width:100%}
 body.theme-day .td-fee b{color:#121715}body.theme-day .td-field select,body.theme-day .td-field input{background:#f1edff}
 /* Holder theme */
-.feeless-mark img{filter:hue-rotate(103deg) saturate(1.15)}   /* PLASMA (owner 2026-11-11): the green logo art turns to the site violet; a holder's own theme rotates it below */
-.holder-theme .feeless-mark img{filter:hue-rotate(var(--logo-hue,0deg)) saturate(1.1)}
+.feeless-mark img{filter:hue-rotate(var(--logo-hue,145deg)) saturate(var(--logo-sat,1.15))}   /* PLASMA (owner 2026-11-11): the green logo art turns to the site violet; a look or a holder's theme sets --logo-hue */
 .holder-theme-card{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--mint) 35%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--mint) 8%,transparent),transparent)}
 .holder-theme-card h3{margin:0;font-size:15px}.holder-theme-card h3 small{font-size:10px;color:#f5c542;margin-left:6px;text-transform:uppercase}.holder-theme-card p{margin:0;font-size:12.5px;color:var(--muted)}
 .ht-swatches{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ht-swatches button{width:28px;height:28px;border-radius:50%;border:2px solid rgba(255,255,255,.15);cursor:pointer}.ht-swatches button.on{border-color:#fff;box-shadow:0 0 0 2px var(--mint)}
@@ -2652,6 +2651,7 @@ body.theme-day .shield-commit input:not([type=checkbox]){background:#f1edff}
 .cc-ideas{display:grid;gap:8px}.cc-ideas article{padding:10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}.cc-ideas small{margin-left:8px;color:#f5c542;font-size:10px;text-transform:uppercase}.cc-ideas p{margin:4px 0 0;font-size:12.5px;color:var(--muted)}
 /* ===== Simple trade page ===== */
 .community-rail.is-hidden{display:none!important}
+.terminal-content-grid:has(>.community-rail.is-hidden){grid-template-columns:minmax(0,1fr)}  /* a hidden rail keeps no empty column (the trade page sat left of 355px of nothing, 2026-11-11) */
 .trade-title{text-align:center}
 .trade-simple{max-width:560px;margin:0 auto;display:grid;gap:12px}
 .trade-simple .trade-desk{position:static;padding:14px;border-radius:22px;border:1px solid color-mix(in srgb,var(--mint) 25%,transparent);background:radial-gradient(120% 80% at 50% 0%,color-mix(in srgb,var(--mint) 9%,transparent),transparent 60%),rgba(255,255,255,.02);box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -3117,6 +3117,7 @@ body.theme-day .xp-avatar .wp-avatar{background:linear-gradient(135deg,#d9fff0,#
 /* FEELESS coin logos are already coins: no extra ring, border or plate around them anywhere */
 :is(span,div,i,a,button):has(> img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"])){border:0!important;background:none!important;box-shadow:none!important;outline:0!important}
 img:is([src*="49MmWE8sgNjuw342"],[src*="2vZjg2w58k4urtdN"],[src*="AsX2abSJ2HqPqRx"],[src*="/assets/feeless-logo"],[src*="/assets/feecat-mark"]){object-fit:contain!important;border:0!important;background:none!important;filter:drop-shadow(0 2px 6px #9b6bff33)}
+img[src*="/assets/feeless-logo"]{filter:hue-rotate(var(--logo-hue,145deg)) saturate(var(--logo-sat,1.15)) drop-shadow(0 2px 6px #9b6bff33)}   /* the green logo art wears the look's colour everywhere (header included) */
 /* ===== Day mode v2: dimmer base, slow drifting colour, card polish ===== */
 html:has(body.theme-day){background:#dfe9e3!important}body.theme-day{background:transparent!important}
 body.theme-day::before{content:'';position:fixed;inset:0;z-index:-1;background-size:160% 160%!important;pointer-events:none;

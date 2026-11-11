@@ -8,16 +8,16 @@ import show_ads as sa
 def test_builds_stop_before_the_cap():
     cost = {'a': 0.30, 'b': 0.40, 'c': 0.35}.get
     jobs = {'pos': {'ws': 'a'}, 'pow': {'ws': 'b'}}
-    ok, s = sa.may_start(jobs, cost); assert ok and s == 0.70           # 0.70 + avg 0.35 = 1.05 ≤ 1.25
+    ok, s = sa.may_start(jobs, cost, budget=1.25); assert ok and s == 0.70           # 0.70 + avg 0.35 = 1.05 ≤ 1.25
     jobs['pop'] = {'ws': 'c'}
-    ok, s = sa.may_start(jobs, cost); assert not ok and s == 1.05       # 1.05 + 0.35 > 1.25: the next one never starts
+    ok, s = sa.may_start(jobs, cost, budget=1.25); assert not ok and s == 1.05       # 1.05 + 0.35 > 1.25: the next one never starts
     assert sa.next_kind(jobs) == 'pob' and sa.next_kind({k: {'ws': k} for k in sa.KINDS}) is None
 
 
 def test_every_kind_has_its_own_brief_and_the_view_counts_money():
     assert len({sa.ask_for(k) for k in sa.KINDS}) == 6 and all('16:9' in sa.ask_for(k) for k in sa.KINDS)
     v = sa.view({'pos': {'ws': 'a', 'state': 'done'}}, {'a': 0.2}.get, lambda k: k == 'pos')
-    assert v['spent'] == 0.2 and v['left'] == 1.05 and v['rows']['pos']['video'] and v['rows']['pow']['state'] == 'waiting'
+    assert v['spent'] == 0.2 and v['left'] == round(sa.BUDGET - 0.2, 4) and v['rows']['pos']['video'] and v['rows']['pow']['state'] == 'waiting'
 
 
 def test_no_browser_writes_no_video(tmp_path):
@@ -103,4 +103,5 @@ def test_the_recorder_sees_a_broken_frame(tmp_path):
 def test_every_ad_has_its_own_light_and_no_libraries():
     looks = {k: sa.ask_for(k) for k in sa.KINDS}
     assert all(sa.LOOK[k].split(' ')[0] in looks[k] for k in sa.KINDS) and len({sa.LOOK[k] for k in sa.KINDS}) == 6
-    assert all('no libraries' in a and 'Not the same green' in a and '{look}' not in a and 'nothing past the edges' in a for a in looks.values())
+    assert all('no game library' in a and 'GSAP' in a and 'Not the same green' in a and '{look}' not in a and 'nothing past the edges' in a for a in looks.values())
+    assert sa.MODEL.startswith('anthropic/') and sa.KITS == ['gsap'] and sa.BUDGET == 2.25   # a design-grade model, pro motion, the owner's +$1
