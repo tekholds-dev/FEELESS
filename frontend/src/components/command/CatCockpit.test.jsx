@@ -120,8 +120,7 @@ test('🔓 signed-in sites sit inside Credentials: saved rows show site + cookie
   const f = global.fetch; global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ live: 'https://steel/live', site: 'x.com' }) }));
   const el = await mount(<SignedSites cat={{ id: 'g' }} rows={[{ site: 'proton.me', at: Date.now() / 1000, n: 7 }]} />);
   expect(el.textContent).toContain('proton.me'); expect(el.textContent).toContain('7 cookies');
-  act(() => [...el.querySelectorAll('.cwb-signed-add .m-seg button')].find(b => b.textContent.includes('X')).click());
-  await act(async () => { el.querySelector('.cwb-signed-add').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  await act(async () => { el.querySelector('[data-testid="cwb-soc-x"]').click(); });   // 👥 X is a Social profiles tile now
   expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({ op: 'signin_open', text: 'x.com' });
   expect(document.querySelector('[data-testid="cwb-pop-frame"]').getAttribute('src')).toBe('https://steel/live'); global.fetch = f;
 });
