@@ -1,3 +1,4 @@
+import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -1023,8 +1024,8 @@ function PopApp({ cat, d, setD }) {
   const mark = `${d?.popCard?.id || ''}|${d?.popFolder?.id || ''}|${d?.popFolders?.[0]?.id || ''}`;
   useEffect(() => { if (!asking) return undefined; if (asking !== mark) { setAsking(null); return undefined; } const t = setTimeout(() => setAsking(null), 90000); return () => clearTimeout(t); }, [asking, mark]);
   const send = async job => { setBusy(true); setErr(''); try { await work(cat.id, { op: 'pop', job }); if (job === 'propose' || job === 'start') setAsking(mark); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  const busyNow = busy || !!asking || !!d?.popRead;
-  return <PopExplorer cat={cat} d={d} setD={setD} send={send} busy={busyNow}>{rows => <PopDesk d={d} send={send} busy={busyNow} asking={!!asking || !!d?.popRead} err={err}>{rows}</PopDesk>}</PopExplorer>;
+  const busyNow = busy || !!asking || !!d?.popRead; const prices = useProofPrices(cat.id, work);
+  return <PopExplorer cat={cat} d={d} setD={setD} send={send} busy={busyNow}>{rows => <PopDesk d={d} send={send} busy={busyNow} asking={!!asking || !!d?.popRead} err={err} price={priceWord(prices?.pop)}>{rows}</PopDesk>}</PopExplorer>;
 }
 // 📉 THE PoP EXPLORER (owner 2026-11-04: "PoP needs to be folders like PoW"): PoP › each dated folder › REPORT, a folder per market they read, the discussion. The same Tile, crumbs and steps as PoW.
 const POP_STEPS = ['READ', 'CALL', 'AGREE', 'OPEN', 'EXIT', 'FILED'];

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>Mempool</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#05040b;touch-action:none;font-family:ui-monospace,'JetBrains Mono',Menlo,monospace;color:#f1ecff}
+canvas{display:block;width:100vw;height:100vh;cursor:crosshair}
+#hud{position:fixed;inset:12px 14px auto;display:flex;justify-content:space-between;pointer-events:none;font-size:12px;letter-spacing:.12em}
+#hud b{display:block;font-size:22px;letter-spacing:0;color:#fff;text-shadow:0 0 14px #b07aff99}#hud .r{text-align:right}
+#bar{display:block;width:140px;height:6px;margin-top:6px;border-radius:4px;background:#ffffff14;overflow:hidden}#bar s{display:block;height:100%;background:linear-gradient(90deg,#ff5d8f,#ffd54a,#45e486);transform-origin:left;transition:transform .2s}
+#msg{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;text-align:center}
+#msg div{padding:22px 30px;border-radius:16px;background:#0c0817d9;border:1px solid #b07aff55;box-shadow:0 0 60px #b07aff22,inset 0 1px 0 #ffffff14;transition:opacity .25s,transform .25s}
+#msg.off div{opacity:0;transform:scale(.94)}#msg h1{margin:0 0 6px;font:900 34px/1 system-ui,sans-serif;letter-spacing:-.02em}#msg h1 em{color:#b07aff;font-style:normal}
+#msg p{margin:0;color:#c7b8ef;font-size:12px;letter-spacing:.1em}#msg small{display:block;margin-top:12px;color:#ffd54a;font-size:11px}
+#wave{position:fixed;left:0;right:0;top:38%;text-align:center;pointer-events:none;font:900 28px system-ui,sans-serif;letter-spacing:.2em;color:#fff;text-shadow:0 0 24px #b07aff;opacity:0;transition:opacity .4s}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="hud"><span>SCORE<b id="sc">0</b><span id="mult"></span></span><span class="r">BLOCK <span id="wv">1</span> · BEST <span id="best">0</span><span id="bar"><s id="hp"></s></span><span id="pw"></span></span></div>
+<div id="wave"></div>
+<div id="msg"><div><h1>MEM<em>POOL</em></h1><p>YOU ARE THE VALIDATOR. CLEAR THE SPAM BEFORE THE BLOCK FILLS.</p><p style="margin-top:8px">WASD / ARROWS MOVE · MOUSE AIMS (OR AUTO-AIM) · SPACE / RIGHT CLICK DASH</p><small>SPAM SWARMS · MEV BOTS DASH · WHALES SPLIT · SNIPERS SHOOT BACK</small></div></div>
+<script>
+(() => {
+const DEMO = /demo/.test(location.search);
+const cv = document.getElementById('c'), cx = cv.getContext('2d'); const $ = id => document.getElementById(id);
+let W = 0, H = 0;
+const fit = () => { const d = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * d; cv.height = H * d; cx.setTransform(d, 0, 0, d, 0, 0); };
+const store = { get: () => { try { return +localStorage.getItem('mempool-best') || 0; } catch { return 0; } }, set: v => { try { localStorage.setItem('mempool-best', v); } catch { /* private window */ } } };
+let ac = null; const blip = (f, d = .05, type = 'square', g = .03) => { if (!ac || DEMO) return; const o = ac.createOscillator(), v = ac.createGain(); o.type = type; o.frequency.value = f; v.gain.value = g; v.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + d); o.connect(v).connect(ac.destination); o.start(); o.stop(ac.currentTime + d); };
+const wake = () => { if (!ac && !DEMO) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { ac = null; } } };
+
+const KINDS = {
+  spam: { r: 9, hp: 1, sp: 1.9, col: '#ff5d8f', pts: 25 },
+  mev: { r: 13, hp: 3, sp: 1.4, col: '#ffd54a', pts: 80, dash: true },
+  whale: { r: 30, hp: 18, sp: .7, col: '#5dd2ff', pts: 300, split: true },
+  sniper: { r: 15, hp: 5, sp: .9, col: '#45e486', pts: 140, shoots: true },
+};
+const S = { score: 0, best: store.get(), wave: 1, state: 'ready', t: 0, shake: 0, mult: 1, multT: 0, spawnLeft: 0, spawnT: 0, flash: 0 };
+const P = { x: 0, y: 0, vx: 0, vy: 0, r: 13, hp: 100, inv: 0, dash: 0, dashCd: 0, fire: 0, spread: 0, shield: 0, aim: 0 };
+let foes = [], bullets = [], hostile = [], parts = [], pickups = [], floats = [], stars = [];
+const mouse = { x: 0, y: 0, on: false }; const keys = {};
+
+function reset() { Object.assign(S, { score: 0, wave: 1, mult: 1, multT: 0, t: 0 }); Object.assign(P, { x: W / 2, y: H / 2, vx: 0, vy: 0, hp: 100, inv: 60, spread: 0, shield: 0, dashCd: 0 }); foes = []; bullets = []; hostile = []; pickups = []; startWave(); hud(); }
+function startWave() { S.spawnLeft = 14 + S.wave * 7; S.spawnT = 0; const w = $('wave'); w.textContent = `BLOCK ${S.wave}`; w.style.opacity = 1; setTimeout(() => { w.style.opacity = 0; }, 1300); blip(520, .2, 'sine', .05); }
+function spawn() {
+  const roll = Math.random(); const w = S.wave;
+  const k = w >= 3 && roll < .08 ? 'whale' : w >= 2 && roll < .22 ? 'sniper' : roll < .45 + Math.min(.2, w * .02) && w >= 1 ? (roll < .3 ? 'mev' : 'spam') : 'spam';
+  const side = Math.floor(Math.random() * 4); const x = side === 0 ? -40 : side === 1 ? W + 40 : Math.random() * W; const y = side === 2 ? -40 : side === 3 ? H + 40 : Math.random() * H;
+  addFoe(k, x, y);
+  if (k === 'spam') for (let i = 0; i < 2 + Math.floor(Math.random() * 3); i++) addFoe('spam', x + (Math.random() - .5) * 60, y + (Math.random() - .5) * 60);   // spam comes in packs
+}
+function addFoe(k, x, y, r) { const d = KINDS[k]; foes.push({ k, x, y, vx: 0, vy: 0, r: r || d.r, hp: d.hp * (1 + S.wave * .08) * ((r || d.r) / d.r), max: d.hp * (1 + S.wave * .08), t: Math.random() * 200, hit: 0 }); }
+function hud() { $('sc').textContent = S.score.toLocaleString(); $('wv').textContent = S.wave; $('best').textContent = S.best.toLocaleString(); $('hp').style.transform = `scaleX(${Math.max(0, P.hp) / 100})`; $('mult').textContent = S.mult > 1 ? `GAS ×${S.mult}` : ''; $('pw').textContent = [P.spread > 0 && 'SPREAD', P.shield > 0 && 'SHIELD'].filter(Boolean).join(' · '); }
+const msg = (h, p, s) => { const m = $('msg'); if (!h) { m.className = 'off'; return; } m.className = ''; m.querySelector('div').innerHTML = `<h1>${h}</h1><p>${p}</p>${s ? `<small>${s}</small>` : ''}`; };
+function burst(x, y, col, n = 16, f = 4) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, v = Math.random() * f + .5; parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 1, col, s: Math.random() * 3 + 1 }); } }
+function start() { wake(); if (S.state === 'over' || S.state === 'ready') reset(); S.state = 'play'; msg(); }
+function dash() { if (P.dashCd > 0 || S.state !== 'play') return; const m = Math.hypot(P.vx, P.vy) || 1; const dx = m > .3 ? P.vx / m : Math.cos(P.aim), dy = m > .3 ? P.vy / m : Math.sin(P.aim); P.vx = dx * 16; P.vy = dy * 16; P.dash = 12; P.inv = Math.max(P.inv, 16); P.dashCd = 50; burst(P.x, P.y, '#b07aff', 12, 3); blip(180, .12, 'sawtooth', .04); }
+
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = 1; if (e.key === ' ') { e.preventDefault(); if (S.state !== 'play') start(); else dash(); } if (e.key === 'Enter' && S.state !== 'play') start(); });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = 0; });
+addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.on = e.pointerType === 'mouse'; });
+addEventListener('pointerdown', e => { if (DEMO) return; mouse.x = e.clientX; mouse.y = e.clientY; if (S.state !== 'play') { start(); return; } if (e.button === 2) dash(); if (e.pointerType !== 'mouse') touch = { x: e.clientX, y: e.clientY }; });
+addEventListener('pointerup', () => { touch = null; }); addEventListener('contextmenu', e => e.preventDefault());
+let touch = null; addEventListener('resize', fit);
+
+function nearest() { let b = null, bd = 1e9; for (const f of foes) { const d = (f.x - P.x) ** 2 + (f.y - P.y) ** 2; if (d < bd) { bd = d; b = f; } } return b; }
+// 🤖 the demo bot: pushed away from every foe (closer = harder), pulled gently to the centre, dashes out when boxed in
+function bot() {
+  if (S.state !== 'play') { if (S.t > 80) start(); return { x: 0, y: 0 }; }
+  let fx = (W / 2 - P.x) * .002, fy = (H / 2 - P.y) * .002, close = 0;
+  for (const f of foes) { const dx = P.x - f.x, dy = P.y - f.y, d = Math.hypot(dx, dy) || 1, reach = 150 + f.r * 2; if (d < reach) { const w = (reach - d) / reach; fx += dx / d * w * 2.2; fy += dy / d * w * 2.2; if (d < 70 + f.r) close++; } }
+  for (const b of hostile) { const dx = P.x - b.x, dy = P.y - b.y, d = Math.hypot(dx, dy) || 1; if (d < 90) { fx += dx / d * 1.8; fy += dy / d * 1.8; } }
+  const p = pickups[0]; if (p && foes.length < 6) { fx += (p.x - P.x) * .004; fy += (p.y - P.y) * .004; }
+  if (close >= 3 && P.dashCd <= 0) { P.vx = fx; P.vy = fy; dash(); }
+  const m = Math.hypot(fx, fy) || 1; return { x: fx / m * Math.min(1, m), y: fy / m * Math.min(1, m) };
+}
+function hurt(n) { if (P.inv > 0) return; if (P.shield > 0) { P.shield = 0; P.inv = 40; burst(P.x, P.y, '#5dd2ff', 24, 4); blip(700, .1); hud(); return; } P.hp -= n; P.inv = 45; S.shake = 12; S.flash = 1; S.mult = 1; burst(P.x, P.y, '#ff5d8f', 20, 5); blip(120, .25, 'sawtooth', .05); hud();
+  if (P.hp <= 0) { S.state = 'over'; S.t = 0; if (S.score > S.best) { S.best = S.score; store.set(S.best); } burst(P.x, P.y, '#fff', 60, 8); msg('BLOCK <em>FULL</em>', `SCORE ${S.score.toLocaleString()} · BLOCK ${S.wave}`, DEMO ? 'THE BOT GOES AGAIN' : 'CLICK OR SPACE TO VALIDATE AGAIN'); hud(); } }
+
+function step() {
+  S.t++; for (let i = 0; i < 2; i++) if (stars.length < 140) stars.push({ x: Math.random() * W, y: Math.random() * H, z: Math.random() });
+  if (S.state !== 'play') { if (DEMO) bot(); return; }
+  let mv = { x: 0, y: 0 };
+  if (DEMO) mv = bot(); else { mv.x = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0); mv.y = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0); if (touch) { mv.x = (mouse.x - P.x) / 60; mv.y = (mouse.y - P.y) / 60; } const m = Math.hypot(mv.x, mv.y); if (m > 1) { mv.x /= m; mv.y /= m; } }
+  const acc = P.dash > 0 ? 0 : .9; P.vx = (P.vx + mv.x * acc) * (P.dash > 0 ? .9 : .82); P.vy = (P.vy + mv.y * acc) * (P.dash > 0 ? .9 : .82);
+  P.x = Math.max(P.r, Math.min(W - P.r, P.x + P.vx)); P.y = Math.max(P.r + 40, Math.min(H - P.r, P.y + P.vy));
+  for (const k of ['inv', 'dash', 'dashCd', 'spread', 'shield']) if (P[k] > 0) P[k]--;
+  if (S.multT > 0 && --S.multT === 0) { S.mult = 1; hud(); }
+  const tgt = nearest(); if (mouse.on && !DEMO) P.aim = Math.atan2(mouse.y - P.y, mouse.x - P.x); else if (tgt) { const lead = Math.hypot(tgt.x - P.x, tgt.y - P.y) / 13; P.aim = Math.atan2(tgt.y + tgt.vy * lead - P.y, tgt.x + tgt.vx * lead - P.x); }
+  if (--P.fire <= 0 && (tgt || mouse.on)) { P.fire = 7; const n = P.spread > 0 ? 5 : 1; for (let i = 0; i < n; i++) { const a = P.aim + (i - (n - 1) / 2) * .13; bullets.push({ x: P.x + Math.cos(a) * 16, y: P.y + Math.sin(a) * 16, vx: Math.cos(a) * 13, vy: Math.sin(a) * 13, life: 70 }); } blip(880 + Math.random() * 80, .025, 'square', .012); }
+  if (S.spawnLeft > 0 && --S.spawnT <= 0) { S.spawnT = Math.max(8, 34 - S.wave * 3); spawn(); S.spawnLeft--; }
+  if (!S.spawnLeft && !foes.length) { S.wave++; S.score += 500 * S.wave; P.hp = Math.min(100, P.hp + 20); startWave(); hud(); }
+  for (const f of foes) {
+    const d = KINDS[f.k]; f.t++; const dx = P.x - f.x, dy = P.y - f.y, dist = Math.hypot(dx, dy) || 1; let sp = d.sp * (1 + S.wave * .04);
+    if (d.dash && f.t % 150 > 120) sp *= 3.4;
+    if (d.shoots) { if (dist < 260) sp = -.6; if (f.t % 90 === 0) { hostile.push({ x: f.x, y: f.y, vx: dx / dist * 5, vy: dy / dist * 5, life: 160 }); blip(300, .05, 'triangle', .02); } }
+    f.vx += (dx / dist * sp - f.vx) * .08; f.vy += (dy / dist * sp - f.vy) * .08; f.x += f.vx; f.y += f.vy; f.hit *= .8;
+    if (dist < f.r + P.r) { hurt(d.split ? 25 : 12); f.vx = -dx / dist * 6; f.vy = -dy / dist * 6; }
+  }
+  for (let i = 0; i < foes.length; i++) for (let j = i + 1; j < foes.length; j++) { const a = foes[i], b = foes[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, o = a.r + b.r - d; if (o > 0) { a.x -= dx / d * o / 2; a.y -= dy / d * o / 2; b.x += dx / d * o / 2; b.y += dy / d * o / 2; } }
+  bullets = bullets.filter(b => { b.x += b.vx; b.y += b.vy; if (--b.life <= 0 || b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) return false;
+    for (const f of foes) if ((f.x - b.x) ** 2 + (f.y - b.y) ** 2 < (f.r + 3) ** 2) { f.hp--; f.hit = 1; f.vx += b.vx * .04; f.vy += b.vy * .04; burst(b.x, b.y, KINDS[f.k].col, 3, 2); return false; } return true; });
+  foes = foes.filter(f => { if (f.hp > 0) return true; const d = KINDS[f.k]; const pts = Math.round(d.pts * S.mult * (f.r / d.r)); S.score += pts; floats.push({ x: f.x, y: f.y, t: `+${pts}`, col: d.col, life: 1 });
+    S.mult = Math.min(8, S.mult + (f.k === 'spam' ? 0 : 1)); S.multT = 180; S.shake = Math.min(14, S.shake + f.r / 6); burst(f.x, f.y, d.col, 10 + f.r, 2 + f.r / 8); blip(240 + Math.random() * 120, .08, 'triangle', .03);
+    if (d.split && f.r > 14) for (let i = 0; i < 3; i++) addFoe('whale', f.x + Math.cos(i * 2.1) * 12, f.y + Math.sin(i * 2.1) * 12, f.r * .55);
+    if (Math.random() < (f.k === 'spam' ? .03 : .18)) pickups.push({ x: f.x, y: f.y, k: ['spread', 'shield', 'heal', 'gas'][Math.floor(Math.random() * 4)], life: 600 });
+    hud(); return false; });
+  hostile = hostile.filter(b => { b.x += b.vx; b.y += b.vy; if ((b.x - P.x) ** 2 + (b.y - P.y) ** 2 < (P.r + 4) ** 2) { hurt(10); return false; } return --b.life > 0; });
+  pickups = pickups.filter(p => { if ((p.x - P.x) ** 2 + (p.y - P.y) ** 2 < (P.r + 14) ** 2) { if (p.k === 'spread') P.spread = 480; if (p.k === 'shield') P.shield = 900; if (p.k === 'heal') P.hp = Math.min(100, P.hp + 30); if (p.k === 'gas') { S.mult = Math.min(8, S.mult + 2); S.multT = 300; } floats.push({ x: p.x, y: p.y, t: p.k.toUpperCase(), col: '#fff', life: 1 }); blip(1100, .15, 'sine', .05); hud(); return false; } return --p.life > 0; });
+}
+const PICK = { spread: '#ff7ae0', shield: '#5dd2ff', heal: '#45e486', gas: '#ffd54a' };
+function draw() {
+  const sh = S.shake > .3 ? S.shake : 0; S.shake *= .85; cx.save(); cx.translate((Math.random() - .5) * sh, (Math.random() - .5) * sh);
+  const g = cx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .7); g.addColorStop(0, '#120a26'); g.addColorStop(1, '#030207'); cx.fillStyle = g; cx.fillRect(-20, -20, W + 40, H + 40);
+  for (const s of stars) { s.x -= (P.vx * .2 + .2) * s.z; s.y -= P.vy * .2 * s.z; if (s.x < 0) s.x += W; if (s.x > W) s.x -= W; if (s.y < 0) s.y += H; if (s.y > H) s.y -= H; cx.fillStyle = `rgba(200,180,255,${.15 + s.z * .5})`; cx.fillRect(s.x, s.y, 1 + s.z, 1 + s.z); }
+  cx.strokeStyle = '#b07aff12'; for (let x = 0; x < W; x += 48) { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke(); } for (let y = 0; y < H; y += 48) { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke(); }
+  for (const p of pickups) { const pulse = 1 + Math.sin(S.t * .15) * .15; cx.shadowColor = PICK[p.k]; cx.shadowBlur = 18; cx.strokeStyle = PICK[p.k]; cx.lineWidth = 2; cx.beginPath(); cx.arc(p.x, p.y, 10 * pulse, 0, 6.283); cx.stroke(); cx.fillStyle = PICK[p.k]; cx.font = '800 8px ui-monospace,monospace'; cx.textAlign = 'center'; cx.fillText(p.k.toUpperCase(), p.x, p.y + 3); } cx.shadowBlur = 0;
+  for (const f of foes) { const d = KINDS[f.k]; cx.save(); cx.translate(f.x, f.y); cx.rotate(f.t * (f.k === 'spam' ? .08 : .02)); cx.shadowColor = d.col; cx.shadowBlur = 16; cx.fillStyle = f.hit > .2 ? '#fff' : d.col; cx.strokeStyle = d.col; cx.lineWidth = 2;
+    if (f.k === 'spam') { cx.beginPath(); for (let i = 0; i < 3; i++) { const a = i * 2.094; cx.lineTo(Math.cos(a) * f.r, Math.sin(a) * f.r); } cx.closePath(); cx.fill(); }
+    else if (f.k === 'mev') { cx.beginPath(); cx.moveTo(f.r, 0); cx.lineTo(0, f.r * .7); cx.lineTo(-f.r, 0); cx.lineTo(0, -f.r * .7); cx.closePath(); cx.fill(); if (f.t % 150 > 120) { cx.strokeStyle = '#fff'; cx.stroke(); } }
+    else if (f.k === 'whale') { cx.globalAlpha = .25; cx.beginPath(); cx.arc(0, 0, f.r, 0, 6.283); cx.fill(); cx.globalAlpha = 1; cx.beginPath(); cx.arc(0, 0, f.r, 0, 6.283); cx.stroke(); cx.beginPath(); cx.arc(0, 0, f.r * .45, 0, 6.283); cx.fill(); }
+    else { cx.strokeRect(-f.r, -f.r, f.r * 2, f.r * 2); cx.fillRect(-f.r * .4, -f.r * .4, f.r * .8, f.r * .8); }
+    cx.restore(); if (f.hp < f.max && f.r > 12) { cx.fillStyle = '#0008'; cx.fillRect(f.x - f.r, f.y - f.r - 8, f.r * 2, 3); cx.fillStyle = d.col; cx.fillRect(f.x - f.r, f.y - f.r - 8, f.r * 2 * Math.max(0, f.hp / f.max), 3); } }
+  cx.shadowBlur = 0; cx.fillStyle = '#ff5d8f'; for (const b of hostile) { cx.shadowColor = '#ff5d8f'; cx.shadowBlur = 10; cx.beginPath(); cx.arc(b.x, b.y, 4, 0, 6.283); cx.fill(); }
+  cx.strokeStyle = '#efe4ff'; cx.lineWidth = 3; cx.lineCap = 'round'; cx.shadowColor = '#b07aff'; cx.shadowBlur = 10; cx.beginPath(); for (const b of bullets) { cx.moveTo(b.x, b.y); cx.lineTo(b.x - b.vx * .9, b.y - b.vy * .9); } cx.stroke(); cx.shadowBlur = 0;
+  if (S.state === 'play' || S.state === 'ready') { cx.save(); cx.translate(P.x, P.y); cx.rotate(P.aim); cx.globalAlpha = P.inv > 0 && S.t % 6 < 3 ? .45 : 1; cx.shadowColor = '#b07aff'; cx.shadowBlur = 22; cx.fillStyle = '#f4ecff'; cx.beginPath(); cx.moveTo(22, 0); cx.lineTo(-14, 14); cx.lineTo(-6, 0); cx.lineTo(-14, -14); cx.closePath(); cx.fill(); cx.fillStyle = '#b07aff'; cx.fillRect(-14, -3, 6 + Math.random() * 6, 6);
+    if (P.shield > 0) { cx.strokeStyle = '#5dd2ff'; cx.lineWidth = 2; cx.beginPath(); cx.arc(0, 0, 24, 0, 6.283); cx.stroke(); } cx.restore(); }
+  parts = parts.filter(p => { p.x += p.vx; p.y += p.vy; p.vx *= .96; p.vy *= .96; p.life -= .03; cx.globalAlpha = Math.max(0, p.life); cx.fillStyle = p.col; cx.fillRect(p.x, p.y, p.s, p.s); return p.life > 0; }); cx.globalAlpha = 1;
+  floats = floats.filter(f => { f.y -= .7; f.life -= .02; cx.globalAlpha = Math.max(0, f.life); cx.fillStyle = f.col; cx.font = '800 13px ui-monospace,monospace'; cx.textAlign = 'center'; cx.fillText(f.t, f.x, f.y); return f.life > 0; }); cx.globalAlpha = 1;
+  if (S.flash > .02) { cx.fillStyle = `rgba(255,60,110,${S.flash * .25})`; cx.fillRect(0, 0, W, H); S.flash *= .85; }
+  cx.restore();
+}
+let last = 0, acc = 0;
+function frame(t) { if (innerWidth !== W || innerHeight !== H) { fit(); if (S.state !== 'play') { P.x = W / 2; P.y = H / 2; } } acc += Math.min(100, t - (last || t)); last = t; while (acc >= 16.67) { step(); acc -= 16.67; } draw(); requestAnimationFrame(frame); }
+fit(); P.x = W / 2; P.y = H / 2; requestAnimationFrame(frame);
+})();
+</script></body></html>

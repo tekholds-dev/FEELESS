@@ -87,6 +87,7 @@ import collective_stash as _stash
 import collective_kits as _kits
 import agent_topup as _topup
 import collective_git as _cg
+import stash_forks as _forks
 import proof_demos as _demos
 import page_look as _look
 import agent_eco as _eco
@@ -933,6 +934,17 @@ async def _or_models():
     return _MODELS['rows'] or _lc.catalog([])
 
 
+async def _est_usd(model, in_chars, out_tokens):
+    """💲 What one model call should cost BEFORE it runs (owner 2026-11-10: "show price for stuff so users aren't blind"): OpenRouter's own
+    $ per 1M tokens for this model, prompt at ~3.5 characters a token. A model on his own machines is free. None = no price listed."""
+    if not model or str(model).startswith('local/'):
+        return 0.0
+    row = next((m for m in (await _or_models()).get('models') or [] if m.get('id') == model), None)
+    if not row:
+        return None
+    return round((float(in_chars or 0) / 3.5) * float(row.get('inUsd') or 0) / 1e6 + float(out_tokens or 0) * float(row.get('outUsd') or 0) / 1e6, 5)
+
+
 def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
@@ -1636,14 +1648,14 @@ def _git_page(cat_id, ws):
 def _git_files(cat, collective, marked=True):
     """(files, counts) as its owner reads them here. Built off the event loop: the Collective can be large. Anything holding a key or a token is held back."""
     if not collective:
-        return _cg.without_leaks(_cg.agent_tree(cat, _vv.public_folder, lambda ws: _git_page(cat['id'], ws)))[0], None
+        return _cg.without_leaks({**_cg.agent_tree(cat, _vv.public_folder, lambda ws: _git_page(cat['id'], ws)), **_forks.tree(_forks.load(DATA_DIR), DATA_DIR, cat['id'])})[0], None
     store = _load(); pages = [(c['id'], f.get('ws'), f.get('topic') or 'page') for c in store['cats'].values() if _setup_ok_for_stash(c) for f in c.get('psFolders') or [] if f.get('graded') == 'right' and f.get('ws')]
     seen = {}; [seen.setdefault((a, w), (a, w, n)) for a, w, n in pages]
     files, counts = _cg.collective_tree(STASH_DIR, _git_page, list(seen.values()))
     proof_files_, proof_index_ = _cg.proof_tree(_sent_rows(store)); files.update(proof_files_)
     if proof_index_:
         files['index.json'] = json.dumps(json.loads(files.get('index.json') or b'[]') + proof_index_, separators=(',', ':'), default=str).encode()
-    files.update(_kits.tree(KITS_DIR)); files.update(_kits.feeless_tree())   # 🧩 only the Collective's own folder, read from the running code
+    files.update(_kits.tree(KITS_DIR)); files.update(_kits.feeless_tree()); files.update(_forks.collective_tree(_forks.load(DATA_DIR), DATA_DIR))   # 🍴 versions agents offered back   # 🧩 only the Collective's own folder, read from the running code
     clean = _sort.without_gone(GIT_DIR, _cg.without_leaks(files)[0])
     return (_sort.with_marked(GIT_DIR, clean) if marked else clean), counts
 
@@ -2203,6 +2215,135 @@ async def _git_op(cat, p):
     except ValueError as e:
         raise HTTPException(400, str(e)[:200])
     return {'link': _git_view(cat, key)}
+
+
+_CALL_TALLY = {'at': 0.0, 'rows': None}
+
+
+def _call_tally():
+    """🧾 Per proof (kind, ref): what its model calls really cost and how many tokens they used, from mind_calls.jsonl. Read at most every 5 minutes."""
+    if _CALL_TALLY['rows'] is not None and time.time() - _CALL_TALLY['at'] < 300:
+        return _CALL_TALLY['rows']
+    rows = {}
+    try:
+        with (DATA_DIR / 'mind_calls.jsonl').open() as f_:
+            lines_ = f_.readlines()[-20000:]
+    except OSError:
+        lines_ = []
+    for ln_ in lines_:
+        try:
+            r_ = json.loads(ln_)
+        except ValueError:
+            continue
+        if not r_.get('ref') or not r_.get('kind') or str(r_.get('ref')).startswith('review:'):   # a review is the other minds' cost, not the proof's
+            continue
+        k_ = (r_['kind'], r_['ref']); t_ = rows.setdefault(k_, {'cat': r_.get('cat'), 'usd': 0.0, 'tokens': 0})
+        t_['usd'] += float(r_.get('usd') or 0); t_['tokens'] += int(r_.get('tokens') or 0)
+    _CALL_TALLY.update(at=time.time(), rows=rows)
+    return rows
+
+
+async def _proof_prices(cat):
+    """💲 What one proof of each kind should cost THIS agent before it starts (owner 2026-11-10: "a vid/img/text or any proof that requires api money
+    calls needs to show clearly what the task costs"): its own median real $ when it has filed that kind; else the median tokens every agent's proofs
+    of that kind really used, priced at its own minds' OpenRouter rates. Minds on his own machines are free."""
+    tally_ = _call_tally(); out_ = {}
+    for k_ in ('pow', 'pop', 'pob', 'poc', 'pos'):
+        mine_ = sorted(t['usd'] for (kk, _r), t in tally_.items() if kk == k_ and t['cat'] == cat.get('id'))
+        toks_ = sorted(t['tokens'] for (kk, _r), t in tally_.items() if kk == k_ and t['tokens'] > 0)
+        minds_ = _lc.minds_for(cat.get('brainsCfg') or {}, k_) or []
+        local_ = bool(minds_) and all(str(m).startswith('local/') for m in minds_)
+        est_ = None
+        if toks_ and minds_ and not local_:
+            med_ = toks_[len(toks_) // 2]; parts_ = [await _est_usd(m, med_ * 0.8 * 3.5 / len(minds_), med_ * 0.2 / len(minds_)) for m in minds_]
+            est_ = round(sum(x for x in parts_ if x is not None), 5) if any(x is not None for x in parts_) else None
+        out_[k_] = {'usd': 0.0 if local_ else (round(mine_[len(mine_) // 2], 5) if mine_ and mine_[len(mine_) // 2] > 0 else est_), 'from': 'local' if local_ else 'its proofs' if mine_ and mine_[len(mine_) // 2] > 0 else 'estimate' if est_ is not None else None,
+                    'n': len(mine_), 'minds': [str(m).split('/')[-1] for m in minds_][:2]}
+    return out_
+
+
+_FORK_BUSY: set = set()
+
+
+def _fork_sources(store):
+    """What can be forked: the builds owners sent to the Collective (the stash's code), newest working first."""
+    return [{'id': r['id'], 'name': r['name'], 'kits': r.get('kits') or [], 'works': r.get('works'), 'at': r.get('at')} for r in _popular_builds(store, raw=True)]
+
+
+async def _fork_price(cat, html):
+    brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+    if not brains_:
+        return {'model': None, 'usd': None}
+    n_ = len(html or '') + len(_forks.TUNE_SYS) + 1200
+    return {'model': brains_[0], 'usd': await _est_usd(brains_[0], n_, min(32000, int(len(html or '') / 3.2) + 800))}
+
+
+async def _fork_op(cat, p):
+    """🍴 Forks of the stash's builds. Copying, opening, offering and dropping are free; only a new version uses its model, priced first."""
+    d_ = _forks.load(DATA_DIR); store_ = _load(); fid_ = str(p.job or '')
+    try:
+        if p.op in ('fork_board', 'fork_take'):   # 👁 Fee's desk: the owner only
+            if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
+                raise HTTPException(403, 'Only the owner sees every fork.')
+            if p.op == 'fork_take':
+                f_ = _forks.take(d_, fid_, time.time()); _forks.save(DATA_DIR, d_)
+                html_ = _forks.read_html(DATA_DIR, fid_, f_['taken']['v'])
+                await asyncio.to_thread(_stash.put, STASH_DIR, f"fork:{fid_}:{f_['taken']['v']}", 'Code', 'fork', _forks.agent_tag(f_['cat']), 'none', f"{f_['name']} v{f_['taken']['v']}", html_.encode(), 'html')
+            return {'board': _forks.board(d_), 'counts': _forks.counts(d_)}
+        if p.op == 'fork_open':   # 👀 one version, locked in a sandbox (its own, or any for Fee's owner)
+            f_ = d_['forks'].get(fid_)
+            mine_ = bool(f_) and f_.get('cat') == cat['id']
+            if not f_ or not (mine_ or (cat.get('id') == 'leader' and await _is_creator(_session_wallet(p.session or '')))):
+                raise ValueError('No such fork.')
+            v_ = str(p.text or f_['versions'][-1]['v']); html_ = _forks.read_html(DATA_DIR, fid_, v_)
+            if not html_:
+                raise ValueError('No such version.')
+            return {'preview': _feat.preview(html_), 'v': v_}
+        if p.op == 'fork_make':
+            src_ = next((r for r in _popular_builds(store_, raw=True) if r['id'] == fid_), None)
+            if not src_:
+                raise ValueError('That build is not in the stash.')
+            vs_ = (_ws_load(src_['cat'], src_['ws']) or {}).get('versions') or []
+            if not vs_:
+                raise ValueError('That build has no saved page.')
+            _forks.make(d_, DATA_DIR, cat['id'], src_['id'], src_['name'], _ws_placed(src_['cat'], vs_[-1]['html']), time.time()); _forks.save(DATA_DIR, d_)
+        elif p.op == 'fork_tune':
+            f_ = d_['forks'].get(fid_)
+            if not f_ or f_.get('cat') != cat['id']:
+                raise ValueError('No such fork.')
+            ask_ = re.sub(r'\s+', ' ', str(p.text or '')).strip()[:600]
+            if not ask_:
+                raise ValueError('Say what this version should change.')
+            brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
+            if not brains_:
+                raise ValueError('Pick a model for this agent first.')
+            html_ = _forks.read_html(DATA_DIR, fid_, f_['versions'][-1]['v'])
+            if len(html_) > _forks.TUNE_CAP:
+                raise ValueError('This page is too big for one rewrite. Fork a smaller build, or ask for one part.')
+            if fid_ in _FORK_BUSY:
+                raise ValueError('It is already making the next version.')
+            _FORK_BUSY.add(fid_)
+            try:
+                raw_, usd_, _own = await _ws_ask(cat, brains_[0], _forks.TUNE_SYS, f"WHAT THE OWNER WANTS IN THIS VERSION: {ask_}\n\nTHE PAGE NOW (v{f_['versions'][-1]['v']}):\n{html_}", min(32000, int(len(html_) / 3.2) + 800))
+            finally:
+                _FORK_BUSY.discard(fid_)
+            new_ = _forks.clean_html(raw_)
+            if len(new_) < 60 or '<body' not in new_.lower():
+                raise ValueError(f'The model did not send back a whole page, so nothing was saved.{f" It still cost ${usd_:.4f}." if usd_ else ""}')
+            _forks.add_version(d_, DATA_DIR, fid_, new_, ask_, brains_[0].split('/')[-1], usd_, time.time()); _forks.save(DATA_DIR, d_)
+            _feed_push(cat['id'], {'tone': 'done', 'kind': 'Fork', 'text': f"🍴 {f_['name']} v{f_['versions'][-1]['v']} is ready (${usd_:.4f})", 'ref': fid_})
+        elif p.op == 'fork_offer':
+            _forks.offer(d_, fid_, cat['id'], str(p.text or '') or None, time.time()); _forks.save(DATA_DIR, d_)
+        elif p.op == 'fork_drop':
+            _forks.drop(d_, DATA_DIR, fid_, cat['id']); _forks.save(DATA_DIR, d_)
+        elif p.op != 'fork_list':
+            raise ValueError('No such step.')
+    except ValueError as e:
+        raise HTTPException(400, str(e)[:200])
+    rows_ = _forks.mine(d_, cat['id']); last_ = rows_[0] if rows_ else None
+    price_ = await _fork_price(cat, _forks.read_html(DATA_DIR, last_['id'], last_['v']) if last_ else '')
+    return {'forks': rows_, 'sources': _fork_sources(store_), 'price': price_, 'prices': {r['id']: (await _fork_price(cat, _forks.read_html(DATA_DIR, r['id'], r['v'])))['usd'] for r in rows_[:12]},
+            'limits': {'forks': _forks.FORKS_PER_AGENT, 'versions': _forks.VERSIONS_PER_FORK}}
 
 
 def _keep_mark_notes(doc, region):
@@ -8720,6 +8861,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
+    if p.op == 'proof_prices':   # 💲 a proof's price before it starts
+        return {'prices': await _proof_prices(cat)}
+    if p.op.startswith('fork_'):   # 🍴 its own v1.01 of a stash build (owner 2026-11-10), kept in its git folder; Fee's desk sees every fork
+        return await _fork_op(cat, p)
     if p.op in ('git_chat', 'git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete', 'git_connect', 'git_push', 'git_auto', 'git_drop', 'project_link', 'project_send', 'project_drop', 'project_copy'):
         out_ = await _git_op(cat, p)
         if p.op not in ('git_state', 'git_read', 'sort_set', 'sort_on', 'sort_trash', 'sort_alert', 'proof_score', 'sort_bulk', 'sort_approve', 'sort_delete'):

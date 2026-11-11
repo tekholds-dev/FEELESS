@@ -28,7 +28,7 @@ MODELS = {
     'or-grok-lite': ('openrouter', 'x-ai/grok-imagine-video-1.5-lite', 'video', 'Grok Imagine 1.5 lite', 'The cheap viral clip: 5 s, 720p, vertical, ~25 s to make', 0.15),
     'or-veo-lite': ('openrouter', 'google/veo-3.1-lite', 'video', 'Veo 3.1 lite', 'With its own sound (music, voice): 4 s, 720p', 0.20),
     'or-wan3': ('openrouter', 'alibaba/wan-3.0', 'video', 'Wan 3.0', 'Smooth camera moves, cinematic: 5 s, 480p', 0.25),
-    'or-kling3': ('openrouter', 'kwaivgi/kling-v3.0-std', 'video', 'Kling 3.0', 'Great people and motion, 5 s (not run by us yet)', 0.42),
+    'or-kling3': ('openrouter', 'kwaivgi/kling-v3.0-std', 'video', 'Kling 3.0', 'Great people and motion: 5 s, 720p (sports footage the others refuse)', 0.63),   # real bill 2026-11-10: $0.63 at 720p 16:9
     # "is this AI?" grade (owner 2026-11-10: "real vids… people questioning every proof"): the three that passed our own look test
     'or-seedance-fast': ('openrouter', 'bytedance/seedance-2.0-fast', 'video', 'Seedance 2.0 fast', 'Looks like real phone footage: street, food, people. 5 s, 720p', 0.46),
     'or-veo-fast': ('openrouter', 'google/veo-3.1-fast', 'video', 'Veo 3.1 fast', 'Real people talking, with their voice and city sound. 4 s', 0.40),
@@ -47,7 +47,7 @@ OR_VIDEO = {
 }
 TESTED = {'or-seedance-fast': ('/media/samples/street-omelette.mp4', 148), 'or-veo-fast': ('/media/samples/street-interview.mp4', 58), 'or-kling3-pro': ('/media/samples/dog-trader.mp4', 148),
           'or-gpt-image-mini': ('/media/samples/coin-logos.jpg', 20), 'or-veo-lite': ('/media/samples/hotel-lobby.mp4', 25), 'or-wan3': ('/media/samples/faceless-avatar.mp4', 66),
-          'or-flash-image': ('/media/samples/ai-vs-handmade.jpg', 9), 'or-nano-banana': ('/media/samples/ai-will-replace-you.jpeg', 12)}
+          'or-flash-image': ('/media/samples/ai-vs-handmade.jpg', 9), 'or-nano-banana': ('/media/samples/ai-will-replace-you.jpeg', 12), 'or-kling3': ('/showcase/pob/hoops.mp4', 140)}
 # 🔥 what is going viral on TikTok / Reels (Nov 2026 trend charts) as a FEELESS twist: {idea} = the folder's own text
 PRESETS = [
     {'id': 'is-this-ai', 'label': 'Is this AI?', 'kind': 'video', 'model': 'or-seedance-fast', 'trend': 'The "is this real?" clips: phone footage nobody can call',

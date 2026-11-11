@@ -4,6 +4,7 @@ import { agentAuthQuery } from '../../lib/chatSession';
 import { Ic3 } from '../../lib/icon3d';
 import { AgentDemo, DemoChart } from './AgentDemo';
 import { ProofSeal } from './ProofVisuals';
+import { priceTip, priceWord, useProofPrices } from '../../lib/proofPrice';
 const TrenchChart = lazy(() => import('../terminal/TrenchChart').then(m => ({ default: m.TrenchChart })));
 const PerpsChart = lazy(() => import('../perps/PerpsChart').then(m => ({ default: m.PerpsChart })));
 
@@ -11,13 +12,13 @@ const PerpsChart = lazy(() => import('../perps/PerpsChart').then(m => ({ default
 const PROOFS = {
   pos: { ic: '💻', t: 'PoStatic', full: 'Proof of Static', line: 'Sites, dashboards, tools and games from one sentence.', folders: 'psFolders', make: 'build', go: 'Start a PoStatic', caps: [] },
   pow: { ic: '⛏', t: 'PoW', full: 'Proof of Work', line: 'A real trade, and everything it read before it.', folders: 'powFolders', cmd: 'file a PoW', go: 'Start a PoW',
-    caps: [['replay', '⛏', 'One whole trade', 'From scouting a coin to the score it earns'], ['demo', '🧠', 'Two minds at work', 'Both windows, recorded on real sites'], ['chart', '📈', 'Its best real trade', 'On the real chart, with what it read']] },
+    caps: [['replay', '⛏', 'One whole trade', 'From scouting a coin to the score it earns'], ['demo', '🧠', 'Two minds at work', 'Both windows, recorded on real sites'], ['chart', '📈', 'Its best real trade', 'On the real chart, with what it read'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
   pop: { ic: '📉', t: 'PoP', full: 'Proof of Perps', line: 'Both minds call a market blind, on paper, with a number behind every call.', folders: 'popFolders', cmd: 'file a perp', go: 'Start a PoP',
-    caps: [['replay', '🙈', 'Blind calls', 'Sealed, opened, then put on the true chart'], ['chart', '💀', 'Where leverage dies', 'True candles with live liquidation lines']] },
+    caps: [['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs'], ['replay', '🙈', 'Blind calls', 'Sealed, opened, then put on the true chart'], ['chart', '💀', 'Where leverage dies', 'True candles with live liquidation lines']] },
   pob: { ic: '🎲', t: 'PoB', full: 'Proof of Bids', line: 'Picks on any game or market, graded by the scoreboard, never by the mind.', folders: 'pobFolders', cmd: 'file a pob best NFL picks', go: 'Start a PoB',
-    caps: [['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof']] },
+    caps: [['live', '📺', 'Watches the game live', 'Your stream in the room, its agent reading every play beside it'], ['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
   poc: { ic: '📣', t: 'PoC', full: 'Proof of Content', line: 'From what people read today to a post, a cut, an image or a 3D commercial.', folders: 'pocFolders', make: 'content', go: 'Start a PoC',
-    caps: [['viral', '🔥', 'Viral AI clips', 'Real clips made today on 5 models, the formats trending on TikTok'], ['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post']] },
+    caps: [['viral', '🔥', 'Viral AI clips', 'Real clips made today on 5 models, the formats trending on TikTok'], ['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
   poe: { ic: '📒', t: 'PoEco', full: 'Proof of Eco', line: 'Its books kept true: income, costs and tax set aside, every month drawn and hashed.', folders: 'poeFolders', open: 'poe', go: 'Open PoEco',
     caps: [['books', '📒', 'Its books, drawn', 'Income against costs, month by month, from its real books']] },
 };
@@ -83,6 +84,8 @@ function StoryReplay() {
 export const EXAMPLE_PIECES = [
   { id: 'pulse-dash', kind: 'dash', name: 'Pulse', what: 'White dashboard, Day and Night', ask: 'A clean white analytics dashboard with a Day / Night switch and animated charts', things: ['stat cards', 'line chart', 'donut', 'bars'], src: '/showcase/pos/pulse-dash.html', thumb: '/showcase/pos/pulse-dash.jpg' },
   { id: 'tape-desk', kind: 'chart', name: 'Tape desk', what: 'Live chart desk', ask: 'A trading desk page: candles that tick, an order book and a trade tape with whales marked', things: ['candles', 'order book', 'trade tape'], src: '/showcase/pos/tape-desk.html', thumb: '/showcase/pos/tape-desk.jpg' },
+  { id: 'wick-breaker', kind: 'game', name: 'Wick Breaker', what: 'Brick breaker on a candle chart', ask: 'A brick breaker where the bricks are a candle chart: red candles take two hits, gold ones drop power-ups, combos multiply the score', things: ['ball physics', 'power-ups', 'combos', 'a bot that plays'], src: '/showcase/pos/wick-breaker.html', thumb: '/showcase/pos/wick-breaker.jpg' },
+  { id: 'mempool', kind: 'game', name: 'Mempool', what: 'Twin-stick shooter in waves', ask: 'A twin-stick space shooter: you are the validator clearing spam, MEV bots dash at you, whales split, snipers shoot back', things: ['waves', 'dash', 'auto-aim', 'pickups'], src: '/showcase/pos/mempool.html', thumb: '/showcase/pos/mempool.jpg' },
   { id: 'loan-tool', kind: 'tool', name: 'Keyhole', what: 'Loan calculator', ask: 'A loan calculator: sliders, the monthly payment as a big number and a chart of interest against principal', things: ['sliders', 'area chart', 'year table'], src: '/showcase/pos/loan-tool.html', thumb: '/showcase/pos/loan-tool.jpg' },
 ];
 const KIND_WORD = { game: 'GAME', site: 'SITE', dash: 'DASHBOARD', chart: 'CHART', tool: 'TOOL' };
@@ -98,8 +101,8 @@ function Piece({ id, t, cat, work }) {
   return <div className="flm" data-testid="pdr-piece">{page ? <iframe className="pdr-frame" title={t?.name || 'Finished work'} {...(t?.src ? { src: `${t.src}?demo=1` } : { srcDoc: page })} sandbox="allow-scripts" tabIndex={-1} data-testid="pdr-piece-frame" /> : null}
     <div className={`flm-over${ready ? ' is-off' : ''}`} aria-hidden={ready}><div className="flm-card"><small className="m-label">YOU ASK</small><p className="flm-ask" key={id}>{t?.ask}</p>
       {at >= 1 ? <div className="flm-row"><small className="m-label">IT CHOOSES</small><span className="flm-chips">{t?.mood ? <em>Mood: {t.mood}</em> : null}{(t?.things || []).map(x => <em key={x}>{x === 'blackhole' ? 'black hole' : x}</em>)}</span></div> : null}
-      {at >= 2 ? <div className="flm-row"><small className="m-label">{t?.src ? 'IT WRITES IT' : 'CODE PLACES IT'}</small><span className="flm-build"><i /><i /><i /></span><small>{t?.src ? 'Layout, charts, motion, Day and Night' : 'Real models, a real place, light, camera, finish'}</small></div> : null}{err ? <p className="dbt-none">{err}</p> : at >= 3 && !page ? <p className="dbt-none">Opening it…</p> : null}</div></div>
-    {ready ? <span className="flm-tag">{t?.src ? 'EXAMPLE PAGE · SAMPLE DATA' : t?.kind === 'game' ? 'BUILT BY AN AGENT · ITS BOT IS PLAYING' : 'BUILT BY AN AGENT · RUNNING LIVE'}</span> : null}</div>;
+      {at >= 2 ? <div className="flm-row"><small className="m-label">{t?.src ? 'IT WRITES IT' : 'CODE PLACES IT'}</small><span className="flm-build"><i /><i /><i /></span><small>{t?.src ? (t.kind === 'game' ? 'Physics, controls, sound, a bot that plays it' : 'Layout, charts, motion, Day and Night') : 'Real models, a real place, light, camera, finish'}</small></div> : null}{err ? <p className="dbt-none">{err}</p> : at >= 3 && !page ? <p className="dbt-none">Opening it…</p> : null}</div></div>
+    {ready ? <span className="flm-tag">{t?.src ? (t.kind === 'game' ? 'EXAMPLE GAME · ITS BOT IS PLAYING · PLAYABLE' : 'EXAMPLE PAGE · SAMPLE DATA') : t?.kind === 'game' ? 'BUILT BY AN AGENT · ITS BOT IS PLAYING' : 'BUILT BY AN AGENT · RUNNING LIVE'}</span> : null}</div>;
 }
 // 🎬 AI cuts a video: real public domain NASA footage, on a timeline, words on top, exported.
 const CLIPS = [['Launch', 'https://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~mobile.mp4#t=16', 'WE LEFT'], ['Earth', 'https://images-assets.nasa.gov/video/Earth%20Views%20from%20the%20International%20Space%20Station/Earth%20Views%20from%20the%20International%20Space%20Station~mobile.mp4#t=8', 'AT DAWN'], ['Liftoff', 'https://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~mobile.mp4#t=20', 'AND KEPT GOING']];
@@ -137,6 +140,58 @@ const LEGS = [['Home wins', 72, 'rotowire'], ['Over 214.5', 58, 'oddsshark'], ['
 function ParlayReplay() {
   const [at] = useSteps(PARLAY_STEPS.length, 3400); const n = Math.min(LEGS.length, at + 1); const all = LEGS.reduce((a, l) => a * (l[1] / 100), 1);
   return <div className="prp" data-testid="pdr-parlay"><Tag t="made-up games" /><Steps names={['READ', 'LEGS', 'ODDS', 'GRADE']} at={at} /><div className="prp-main"><div className="prp-game"><div className="prp-minds is-legs">{LEGS.slice(0, n).map(([p, c, site]) => <div key={p} className="prp-mind"><b>{site}.com</b><strong>{p}{at === 3 ? ' ✓' : ''}</strong><u><s style={{ transform: `scaleX(${c / 100})` }} /></u><small>{c}% by its read</small></div>)}</div>{at >= 2 ? <span className="prp-grade">ALL THREE: {Math.round(all * 100)}%{at === 3 ? ' · GRADED BY THE SCORES' : ''}</span> : null}</div></div><div className="prp-side">{PARLAY_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
+}
+// 📺 Watches the game live (owner 2026-11-10: "overlay edits of how agents work live if they added nfl+ or nba tv to each room"): the owner's own
+// stream plays in the room, its agent reads the live score and play-by-play beside it, and its pick is graded by the final score. The footage
+// here is AI-made (no league, no logos), so nothing is anyone's broadcast; the calls are a sample.
+const GAMES = [{ src: '/showcase/pob/gridiron.mp4', poster: '/showcase/pob/gridiron.jpg', sport: 'FOOTBALL', home: 'HOME', away: 'AWAY', start: [17, 20], end: [24, 20], clock: ['Q4', 134], plays: [
+  ['READS', 'Third and 8, two deep safeties, the corner is playing off'], ['SPOTS', 'Receiver 29 has a step on the outside'], ['CALLS', 'Deep shot is on. Home win chance 41% → 68%'], ['PICK', 'Home +2.5 holds · 66% · graded by the final score']] },
+{ src: '/showcase/pob/hoops.mp4', poster: '/showcase/pob/hoops.jpg', sport: 'BASKETBALL', home: 'HOME', away: 'AWAY', start: [98, 101], end: [102, 101], clock: ['Q4', 71], plays: [
+  ['READS', 'Home on a 9–2 run, their big has 4 fouls'], ['SPOTS', 'Drive to the rim: the help defender is late'], ['CALLS', 'Run keeps going. Home win chance 44% → 61%'], ['PICK', 'Home moneyline · 61% · graded by the final score']] }];
+const LIVE_LOG = ['Your NFL+ or NBA TV plays in the room', 'It reads the live score and every play', 'Win chance moves, and it says why', 'Its pick waits for the final score'];
+function LiveGame() {
+  const [at] = useSteps(4, 2600); const [g, setG] = useState(0); const [ok, setOk] = useState({});
+  const rows = GAMES.filter(x => ok[x.src] !== false); const x = rows[g % Math.max(1, rows.length)] || GAMES[0];
+  useEffect(() => { if (at === 3) { const t = setTimeout(() => setG(i => i + 1), 2400); return () => clearTimeout(t); } return undefined; }, [at]);
+  const sc = at >= 2 ? x.end : x.start; const sec = Math.max(0, x.clock[1] - at * 9); const win = [x.plays[2][1].match(/(\d+)% → (\d+)%/)].map(m => (m ? [+m[1], +m[2]] : [50, 50]))[0];
+  return <div className="prp is-wide pdr-live" data-testid="pdr-live"><Tag t="AI-made footage, no real league · sample calls" />
+    <div className="prp-main plv-stage"><video key={x.src} src={x.src} poster={x.poster} autoPlay muted loop playsInline preload="metadata" onError={() => setOk(o => ({ ...o, [x.src]: false }))} aria-label={`${x.sport.toLowerCase()} footage, AI-made`} />
+      <span className="plv-bug" aria-hidden="true"><b>{x.home}</b><i className="m-num" key={`h${sc[0]}`}>{sc[0]}</i><i className="m-num" key={`a${sc[1]}`}>{sc[1]}</i><b>{x.away}</b><small className="m-num">{x.clock[0]} {Math.floor(sec / 60)}:{String(sec % 60).padStart(2, '0')}</small></span>
+      <span className="plv-live" aria-hidden="true"><s />LIVE · YOUR STREAM</span>
+      <span className="plv-ring" style={{ '--x': at === 1 ? '72%' : '50%', '--y': at === 1 ? '62%' : '55%' }} aria-hidden="true" />
+      <aside className="plv-mind" aria-live="polite"><header><Ic3 e="🧠" size="16px" /><b>ITS AGENT · READING</b></header>
+        <ol>{x.plays.slice(0, at + 1).map(([k, say], i) => <li key={`${g}-${k}`} className={i === at ? 'is-on' : ''}><em>{k}</em>{say}</li>)}</ol>
+        <div className="plv-win"><small>HOME WIN CHANCE</small><b className="m-num">{at >= 2 ? win[1] : win[0]}%</b><u><s style={{ transform: `scaleX(${(at >= 2 ? win[1] : win[0]) / 100})` }} /></u></div></aside></div>
+    <ol className="flm-log prp-side">{LIVE_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
+}
+// 🧩 Builds its own tool (owner 2026-11-10: "have ur agent build a component off stash that best fits proof file request"): the file asks for a
+// watcher, its agent searches the stash, the best fit is forked (v1.00 → v1.01 in its git folder) and the tool runs. The parts are the real kits
+// for this proof kind; the fit numbers and the tool's readings are a sample run.
+const STASH_ASK = { pop: 'Watch BTC: tell me when funding flips and where 10x longs die', pob: "Watch tonight's game: ping me when the line moves 2 points", pow: 'Watch new pools: flag the ones whose snipers already sold', poc: 'Watch what is rising in crypto video and draft three hooks' };
+const STASH_FALLBACK = { pop: ['Funding Reader', 'Leverage Math', 'OI Heat'], pob: ['Value Scorer', 'Line Mover', 'Injury Feed'], pow: ['Coin Vetter', 'Sniper Scan', 'Risk Desk'], poc: ['Trend Radar', 'Hook Writer', 'Thumb Maker'] };
+const STASH_TOOL = { pop: 'funding-watch', pob: 'line-watch', pow: 'sniper-watch', poc: 'hook-desk' };
+const BUILD_LOG = ['Your proof file asks for a watcher', 'It searches the stash for the part that fits', 'Forks the best one: v1.00 → v1.01, made for you', 'The tool runs, kept in its git folder'];
+const SAMPLE_LEV = { sym: 'BTC', mark: 98400, l3: 98400 * 0.7, s3: 98400 * 1.3, l10: 98400 * 0.905, s10: 98400 * 1.095 };   // only when today's live lines have not loaded: the reel is a sample run
+function ToolRun({ k, lev: live, t }) {
+  let lev = live;
+  if (k === 'pop') { const f = Math.sin(t / 3) * 0.00012; lev = lev || SAMPLE_LEV; const px = lev.mark; return <div className="psb-tool is-pop"><div className="psb-gauge"><small>FUNDING · 1H</small><b className={`m-num ${f < 0 ? 'is-neg' : 'is-pos'}`}>{f >= 0 ? '+' : ''}{(f * 100).toFixed(3)}%</b><u><s style={{ transform: `translateX(${(f / 0.00012) * 80}px)` }} /></u><em>{f < 0 ? 'SHORTS PAY · FLIPPED' : 'LONGS PAY'}</em></div>
+    <ul className="psb-ladder">{[['3x SHORTS DIE', lev?.s3], ['10x SHORTS DIE', lev?.s10], ['MARK', px], ['10x LONGS DIE', lev?.l10], ['3x LONGS DIE', lev?.l3]].map(([l, v]) => <li key={l} className={l === 'MARK' ? 'is-mark' : l.includes('LONG') ? 'is-long' : 'is-short'}><small>{l}</small><b className="m-num">{v ? `$${Math.round(v).toLocaleString()}` : '—'}</b></li>)}</ul></div>; }
+  if (k === 'pob') { const pts = Array.from({ length: 16 }, (_, i) => 3.5 + Math.sin((i + t) / 2.4) * 1.2 + (i > 10 ? (i - 10) * 0.25 : 0)); const top = 6; return <div className="psb-tool is-pob"><small>HOME SPREAD · LIVE</small><svg viewBox="0 0 160 60" preserveAspectRatio="none" aria-hidden="true"><polyline points={pts.map((v, i) => `${i * 10.6},${60 - (v / top) * 60}`).join(' ')} /></svg><b className="m-num">−{pts.at(-1).toFixed(1)}</b><em>{pts.at(-1) - pts[0] >= 2 ? 'MOVED 2+ · PINGED YOU' : 'WATCHING'}</em></div>; }
+  if (k === 'pow') return <div className="psb-tool is-pow"><small>NEW POOLS · LAST 10 MIN</small><ul>{[['FROGX', 92, 1], ['KITTY', 61, 0], ['BLUE', 88, 1], ['MOON', 23, 0]].map(([s, out, ok], i) => <li key={s} style={{ '--i': i }}><b>${s}</b><u><s style={{ transform: `scaleX(${out / 100})` }} /></u><i className="m-num">{out}% snipers out</i><em className={ok ? 'is-ok' : 'is-no'}>{ok ? 'FLAG' : 'SKIP'}</em></li>)}</ul></div>;
+  return <div className="psb-tool is-poc"><small>RISING · CRYPTO VIDEO</small><ol>{['Nobody tells you why this chart bottomed', 'I let an AI trade for 24 hours. Here is the tape', 'The 3 second rule every trencher ignores'].map((h, i) => <li key={h} style={{ '--i': i }}><em className="m-num">HOOK {i + 1}</em>{h}</li>)}</ol></div>;
+}
+function StashBuild({ k, kits }) {
+  const [at] = useSteps(4, 3000); const [t, setT] = useState(0);
+  useEffect(() => { const c = setInterval(() => { if (!document.hidden) setT(x => x + 1); }, 700); return () => clearInterval(c); }, []);
+  const own = (kits || []).filter(x => (x.kinds || []).includes(k)).slice(0, 3); const names = own.length >= 2 ? own.map(x => x.name) : STASH_FALLBACK[k];
+  const parts = names.map((n, i) => ({ n, what: own[i]?.what || '', fit: [91, 74, 58][i] }));
+  const lev = useMemo(() => (k === 'pop' ? levOf(kits || []) : null), [k, kits]);
+  return <div className="prp is-wide pdr-stash" data-testid="pdr-stash"><Tag t="sample run on this proof's real stash parts" />
+    <div className="prp-main psb-stage"><p className="psb-ask"><small>YOUR PROOF FILE ASKS</small>{STASH_ASK[k]}</p>
+      {at >= 1 ? <ul className="psb-parts">{parts.map((x, i) => <li key={x.n} className={at >= 2 && i === 0 ? 'is-pick' : at >= 2 ? 'is-off' : ''} style={{ '--i': i }}><b>{x.n}</b><small>{x.what || 'from the stash'}</small><u><s style={{ transform: `scaleX(${at >= 1 ? x.fit / 100 : 0})` }} /></u><i className="m-num">{x.fit}% fit</i></li>)}</ul> : null}
+      {at >= 2 ? <p className="psb-fork m-num"><span>v1.00</span><em>→</em><span className="is-new">v1.01</span><small>forks/{STASH_TOOL[k]}/v1.01.html · made for you</small></p> : null}
+      {at >= 3 ? <ToolRun k={k} lev={lev} t={t} /> : null}</div>
+    <ol className="flm-log prp-side">{BUILD_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
 }
 // 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
 export function ReviewReel({ rows }) {
@@ -185,15 +240,17 @@ export function ProofBrief({ onPick }) {
 }
 
 export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos' }) {
-  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k];
+  const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k]; const prices = useProofPrices(cat?.id, work); const cost = p.cmd ? priceWord(prices?.[k]) : '';
   useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
-  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const caps = [...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
+  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film' && t.kind !== 'game'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const caps = [...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
   const stage = () => {
     if (String(now).startsWith('piece:')) { const id = now.slice(6); return <Piece key={now} id={id} t={rows.find(t => t.id === id)} cat={cat} work={work} />; }
     if (now === 'demo') return <div className="pdr-agd" data-testid="pdr-agent"><AgentDemo kind="trading" mode="discuss" /></div>;
     if (now === 'replay') return k === 'pow' ? <PowReplay /> : k === 'pop' ? <PerpReplay kits={kits.filter(x => x.id === 'fl-liq')} /> : k === 'pob' ? <PickReplay /> : <StoryReplay />;
     if (now === 'chart') return k === 'pow' ? <TradeDemo t={trade} /> : <PerpDemo kits={kits.filter(x => x.id === 'fl-liq')} />;
     if (now === 'viral') return <ViralReel cat={cat} work={work} />;
+    if (now === 'live') return <LiveGame />;
+    if (now === 'stash') return <StashBuild key={k} k={k} kits={kits} />;
     if (now === 'video') return <VideoFilm />;
     if (now === 'image') return <ImageFilm />;
     if (now === 'parlay') return <ParlayReplay />;
@@ -207,7 +264,7 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     <section className="pdr-main" key={k}>
       <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>
         {k === 'pos' && counts ? <p className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</p> : null}
-        <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.open ? onOpen?.(p.open) : p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.open ? 'Opens its window' : p.make ? 'Makes its folder' : `Tells it: ${p.cmd}`} data-testid="pdr-go">{p.go}</button></aside>
+        <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.open ? onOpen?.(p.open) : p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.open ? 'Opens its window' : p.make ? 'Makes its folder' : `Tells it: ${p.cmd}. ${priceTip(prices?.[k])}`} data-testid="pdr-go">{p.go}{cost ? <small className="pdr-go-cost" data-testid="pdr-go-cost">{cost}</small> : null}</button></aside>
       <div className="pdr-stage" data-testid="pdr-stage">{stage()}</div>
     </section></div>;
 }

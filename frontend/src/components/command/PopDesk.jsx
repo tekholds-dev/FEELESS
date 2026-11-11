@@ -50,12 +50,12 @@ function ProposalScore({ rows }) {
   const closed = rows.filter(r => r.ghost); if (!closed.length) return null;
   return <div className="pop-score" data-testid="pop-score"><em>THEIR PROPOSALS</em>{Object.entries(CONVICTION).map(([k, [tag]]) => { const xs = closed.filter(r => r.conviction === k); return xs.length ? <span key={k} className="m-chip">{tag} {xs.filter(r => r.won).length}/{xs.length}</span> : null; })}</div>;
 }
-export function PopDesk({ d, send, busy, asking = false, err, children = null }) {
+export function PopDesk({ d, send, busy, asking = false, err, children = null, price = '' }) {
   const live = d?.popFolder; const card = d?.popCard; const rows = d?.popFolders || []; const done = rows.filter(r => !r.noTrade && !r.proposal); const won = done.filter(r => r.won).length; const paper = done.reduce((a, r) => a + (r.pnlUsd || 0), 0);
   return <section className="pop" data-testid="pop-desk">
     <header className="pop-head m-glass"><span><b><Ic3 e="📉" /> PROOF OF PERPS</b><small>Both minds must agree. True prices, paper fills: no real order is sent.</small></span>
       <span className="pop-head-acts">{!card ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('propose')} data-tip="The same paid call, filed as a card. Nothing opens until you press Run. Or type propose a perp" data-testid="pop-propose"><Ic3 e="💡" /> Propose</button> : null}{live ? <button type="button" className="m-btn" disabled={busy} onClick={() => send('stop')} data-tip="Ends this PoP at the live price" data-testid="pop-stop">■ Stop</button>
-        : <button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('start')} data-tip="Each mind reads its own sources against the chart and makes one small paid model call. A paper trade runs if they agree. Or type file a perp" data-testid="pop-start">File a PoP</button>}</span></header>
+        : <button type="button" className="m-btn m-go" disabled={busy} onClick={() => send('start')} data-tip="Each mind reads its own sources against the chart and makes one small paid model call. A paper trade runs if they agree. Or type file a perp" data-testid="pop-start">File a PoP{price ? ` · ${price}` : ''}</button>}</span></header>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     <div className="pop-stats">{[['PROOFS', rows.filter(r => !r.proposal).length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['PAPER P/L', `${paper >= 0 ? '+' : '−'}$${Math.abs(paper).toFixed(2)}`]].map(([k, v]) => <span key={k} className="m-glass"><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     {asking ? <p className="pop-asking m-glass" role="status" data-testid="pop-asking"><i aria-hidden="true" />{d?.popRead ? 'Each mind is reading sites in its own window. Watch its monitors…' : 'Each mind is reading its own sources against the chart…'}</p> : null}

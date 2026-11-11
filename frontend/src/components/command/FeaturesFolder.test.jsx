@@ -385,15 +385,19 @@ test('Showcase: a reel. Nothing to operate, each capability plays how the agent 
   await act(async () => { createRoot(el).render(<ProofDoors cat={{ id: 'c' }} d={{}} work={work} onCommand={onCommand} onMake={onMake} />); });
   await act(async () => { await Promise.resolve(); }); await act(async () => { await Promise.resolve(); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('pdr-count').textContent).toContain('44K'); expect(q('pdr-piece').textContent).toContain('A robot game'); expect(q('pdr-piece-frame').getAttribute('sandbox')).toBe('allow-scripts'); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'night-run' }); expect(q('pdr-cap-long-road-film')).toBeNull();
+  expect(q('pdr-count').textContent).toContain('44K'); expect(q('pdr-piece-frame').getAttribute('sandbox')).toBe('allow-scripts'); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' }); expect(q('pdr-cap-long-road-film')).toBeNull();
+  expect(q('pdr-cap-night-run')).toBeNull();   // 🎮 owner 2026-11-10: no engine runner in the reel; the games are real games
+  await act(async () => { q('pdr-cap-wick-breaker').click(); }); expect(q('pdr-piece').textContent).toContain('candle chart'); expect(q('pdr-piece-frame').getAttribute('src')).toBe('/showcase/pos/wick-breaker.html?demo=1'); expect(q('pdr-cap-mempool')).toBeTruthy();
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('pdr-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
-  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-perp-replay'], ['pob', 'pdr-pick-replay'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
+  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-stash'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
   expect(new Set(Object.values(seen)).size).toBe(4);   // no two proofs open on the same demo
   await act(async () => { q('pdr-cap-video').click(); }); expect(q('pdr-video').querySelector('video').getAttribute('src')).toContain('images-assets.nasa.gov');   // 🔥 PoC opens on the real viral clips first
   for (const [cap, id] of [['image', 'pdr-image'], ['replay', 'pdr-story-replay']]) { await act(async () => { q(`pdr-cap-${cap}`).click(); }); expect(q(id)).toBeTruthy(); }
   await act(async () => { q('pdr-cap-long-road-film').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
   await act(async () => { q('pdr-pob').click(); }); await act(async () => { q('pdr-cap-parlay').click(); }); expect(q('pdr-parlay')).toBeTruthy();
+  await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-pick-replay')).toBeTruthy(); await act(async () => { q('pdr-cap-live').click(); }); expect(q('pdr-live').querySelector('video').getAttribute('src')).toBe('/showcase/pob/gridiron.mp4');
+  await act(async () => { q('pdr-cap-stash').click(); }); expect(q('pdr-stash').textContent).toContain('line moves');
   await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
   expect(el.querySelector('input, textarea, select')).toBeNull();   // nothing to fill in or operate
   el.remove();

@@ -12,6 +12,7 @@ import { Ic3 } from '../../lib/icon3d';
 import { fitBox, identityOf } from '../../lib/proofprint';
 import { statRidges } from '../../lib/gamePrint';
 import { KitPick } from './KitPick';
+import { ForkBoard, StashForks } from './StashForks';
 import '../../styles/gitFolder.css';
 
 // 🐙 ITS GITHUB FOLDER (owner 2026-11-05): filed proofs go to its owner's own repo, private or public. With scope="collective", the owner's private repo holds the whole Collective, sorted.
@@ -347,8 +348,8 @@ export function GitFolder({ cat, work, scope = '' }) {
   const shotsFor = useCallback((path, data) => { const files_ = data?.id ? (s?.powShots || {})[data.id] : null; return (files_ || []).map(f => apiUrl(`/api/cats/${cat.id}/powshot/${String(data.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${f}?${agentAuthQuery()}`)); }, [s, cat.id]);
   const [tab, setTab] = useState('repo'); const l = s?.link || {}; const on = !!l.full; const linkRef = useRef(null);
   return <div className={`git${collective ? ' is-collective' : ''}`} data-testid={collective ? 'git-collective' : 'git-folder'}>
-    {<div className="m-seg" role="tablist" aria-label="GitHub">{(collective ? [['repo', 'The repo'], ['kits', 'Kits for every agent']] : [['repo', 'Its proofs'], ['book', 'Sites & kits']]).map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div>}
-    {collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : !collective && tab === 'book' ? <SiteBook cat={cat} work={work} /> : <>
+    {<div className="m-seg" role="tablist" aria-label="GitHub">{(collective ? [['repo', 'The repo'], ['forks', "Agents' forks"], ['kits', 'Kits for every agent']] : [['repo', 'Its proofs'], ['forks', 'Its v1.01s'], ['book', 'Sites & kits']]).map(([k, t]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`git-tab-${k}`}>{t}</button>)}</div>}
+    {tab === 'forks' ? (collective ? <ForkBoard cat={cat} work={work} /> : <StashForks cat={cat} work={work} />) : collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : !collective && tab === 'book' ? <SiteBook cat={cat} work={work} /> : <>
     {collective ? null : <KeepGuide linked={on} onLink={() => { const el = linkRef.current; if (el) { el.open = true; el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }} />}
     <header className="git-h m-live"><span><em>{collective ? 'THE COLLECTIVE · ONLY YOU' : 'ITS GITHUB'}</em><b>{on ? l.full : collective ? 'The Collective repo' : 'Keep its proofs in your repo'}</b><small>{collective ? 'Every kept proof sorted by kind, result and month, with snapshots and the pages behind PoStatic.' : 'Its filed proofs and pages, sorted by kind, result and month. Keys and sign-ins never go in.'}</small></span>{on ? <a className="m-btn" href={l.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub" data-testid="git-open">Open on GitHub</a> : null}</header>
     {on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
