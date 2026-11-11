@@ -399,3 +399,9 @@ body.theme-day .fea-src.fcv { background: #fbfcfb; color: #1d2b24; } body.theme-
 .fpk li a { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: #9db4a6; text-decoration: none; } .fpk li a:hover, .fpk li a:focus-visible { background: #15d16a1c; color: #fff; outline: none; }
 body.fx-lite .fpk li { animation: none; } @media (prefers-reduced-motion: reduce) { .fpk li { animation: none; } } body.theme-day .fpk li { background: #fff; border-color: #0000001a; } body.theme-day .fpk li b { color: #10241a; }
 @media (max-width: 640px) { .fpk li { grid-template-columns: 8px minmax(0, 1fr) auto 32px; } .fpk li small { display: none; } }
+
+/* 🖍 AGT-7 marked areas in the code */
+.fcv-l.is-mark { background: color-mix(in srgb, var(--gold, #ffd54a) 14%, transparent); box-shadow: inset 3px 0 0 var(--gold, #ffd54a); } .fcv-l.is-mark .fcv-m { color: var(--gold, #ffd54a); font-weight: 800; }
+.fcv-marks { position: sticky; top: 34px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 12px; background: #0a0c08f2; border-bottom: 1px solid #ffd54a33; }
+.fcv-marks small { font: 800 9px var(--f-mono); letter-spacing: .12em; color: var(--gold, #ffd54a); } .fcv-marks button { min-height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid #ffd54a55; background: #ffd54a14; color: #ffe9a8; font: 700 10.5px var(--f-mono); cursor: pointer; }
+.fcv-marks button:hover, .fcv-marks button:focus-visible { background: #ffd54a2e; outline: none; } body.theme-day .fcv-marks { background: #fffbea; } body.theme-day .fcv-marks button { color: #6a4f07; }

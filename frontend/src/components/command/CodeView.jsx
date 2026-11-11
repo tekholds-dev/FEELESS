@@ -16,12 +16,24 @@ export function diffRows(previous = '', code = '') {
   after.slice(after.length - end).forEach((t, i) => rows.push({ n: after.length - end + i + 1, text: t, kind: '' }));
   return { rows, added: added.length, removed: removed.length };
 }
-export const CodeLines = forwardRef(function CodeLines({ rows, path = 'index.html', caret = false }, ref) {
+// 🖍 AGT-7: the parts its owner marked on the page, found in the code: the first line of each marked element's HTML (≥ 12 letters, spaces folded).
+const fold = t => String(t || '').replace(/\s+/g, ' ').trim();
+export function markLines(rows, marks) {
+  const keys = (marks || []).map(m => fold(String(m?.html || '').split('>')[0] + '>')).filter(k => k.length >= 12);
+  const hot = new Map(); if (!keys.length) return hot;
+  rows.forEach((r, i) => { if (r.kind === 'rem') return; const t = fold(r.text); keys.forEach((k, j) => { if (!hot.has(i) && t.includes(k)) hot.set(i, j + 1); }); });
+  return hot;
+}
+export const CodeLines = forwardRef(function CodeLines({ rows, path = 'index.html', caret = false, hot = null }, ref) {
   const lang = langOf(path);
-  const body = useMemo(() => rows.map((r, i) => <span key={i} className={`fcv-l${r.kind ? ` is-${r.kind}` : ''}`}><i className="fcv-n" aria-hidden="true">{r.n ?? ''}</i><i className="fcv-m" aria-hidden="true">{r.kind === 'add' ? '+' : r.kind === 'rem' ? '−' : ''}</i>
-    <code>{i < TINT_MAX ? tint(r.text, lang).map(([t, k], j) => (k ? <b key={j} className={`t-${k}`}>{t}</b> : t)) : r.text}{caret && i === rows.length - 1 ? <i className="fea-caret" aria-hidden="true" /> : null}</code>{'\n'}</span>), [rows, lang, caret]);
+  const body = useMemo(() => rows.map((r, i) => <span key={i} id={hot?.has(i) ? `fcv-mark-${hot.get(i)}` : undefined} className={`fcv-l${r.kind ? ` is-${r.kind}` : ''}${hot?.has(i) ? ' is-mark' : ''}`}><i className="fcv-n" aria-hidden="true">{r.n ?? ''}</i><i className="fcv-m" aria-hidden="true">{hot?.has(i) ? hot.get(i) : r.kind === 'add' ? '+' : r.kind === 'rem' ? '−' : ''}</i>
+    <code>{i < TINT_MAX ? tint(r.text, lang).map(([t, k], j) => (k ? <b key={j} className={`t-${k}`}>{t}</b> : t)) : r.text}{caret && i === rows.length - 1 ? <i className="fea-caret" aria-hidden="true" /> : null}</code>{'\n'}</span>), [rows, lang, caret, hot]);
   return <pre ref={ref} className="fea-src fcv">{body}</pre>;
 });
+export function MarkJumps({ hot, rows }) {
+  if (!hot?.size) return null; const at = [...hot.entries()].sort((a, b) => a[1] - b[1]);
+  return <nav className="fcv-marks" aria-label="Marked areas in the code" data-testid="code-marks"><small>🖍 MARKED ON THE PAGE</small>{at.map(([i, n]) => <button key={n} type="button" onClick={() => document.getElementById(`fcv-mark-${n}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })} data-tip="Jump to it in the code" data-testid={`code-mark-${n}`}>{n} · line {rows[i]?.n}</button>)}</nav>;
+}
 export function StatusBar({ path = 'index.html', rows, extra }) {
   const lines = rows.filter(r => r.kind !== 'rem').length; const chars = rows.reduce((a, r) => a + (r.kind === 'rem' ? 0 : r.text.length + 1), 0);
   return <footer className="fcv-bar m-num"><b>{{ html: 'HTML', css: 'CSS', js: 'JavaScript' }[langOf(path)]}</b><span>{lines.toLocaleString()} lines</span><span>{chars.toLocaleString()} chars</span><span>UTF-8</span><span>LF</span>{extra ? <em>{extra}</em> : null}</footer>;

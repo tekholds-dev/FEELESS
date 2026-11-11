@@ -96,9 +96,16 @@ def all_kits(extra=None):
     """The built-in kits plus the approved proposals. A proposal's check: the reviewers passed that rubric check. Read-only, always."""
     out = dict(KITS)
     for kid, e in (extra or {}).items():
+        if e.get('combo'):   # 🧩 a combo: followed only when every member kit was followed
+            continue
         i = int(e['check'])
         out[kid] = {'v': e.get('v', 1), 'kinds': (e['kind'],), 'permissions': ('read',), 'what': e['what'], 'proposed': True,
                     'check': (lambda k, f, i=i: _check_failed(f, i) is False)}
+    for kid, e in (extra or {}).items():
+        parts = [out[m] for m in e.get('combo') or [] if m in out]
+        if e.get('combo') and len(parts) == len(e['combo']) >= 2:
+            out[kid] = {'v': e.get('v', 1), 'kinds': tuple(e['kinds']), 'permissions': ('read',), 'what': e['what'], 'combo': list(e['combo']),
+                        'check': (lambda k, f, parts=parts: all(bool(x['check'](k, f)) for x in parts))}
     return out
 
 
@@ -151,3 +158,43 @@ def history(root, n=12):
         return [_json.loads(x) for x in (root / LOG_FILE).read_text().splitlines()[-n:]][::-1]
     except (OSError, ValueError):
         return []
+
+
+# ── 🧩 COL-10: combining kits (2026-11-10). Two kits often work best together; the record says when ──
+COMBO_MIN = MIN_SETTLED      # settled proofs that followed BOTH before a combo can be proposed
+COMBO_LIFT = 0.05            # their win rate must beat the better of the two alone by this much
+
+
+def combos(envelopes, folders_by_id, extra=None):
+    """Every pair of kits that share a proof kind: proofs that followed both, their outside-settled win rate, against each kit followed
+    alone. A pair with COMBO_MIN settled and COMBO_LIFT over the better single is proposed. Pure. → rows, proposed first"""
+    kits = {k: v for k, v in all_kits(extra).items() if not v.get('combo')}
+    have = {tuple(sorted(e['combo'])) for e in (extra or {}).values() if e.get('combo')}
+    seen = {}   # (a, b) → {'both': [n, w], 'a': [n, w], 'b': [n, w]}: settled proofs that followed both, only a, only b
+    for e in envelopes or []:
+        k = e.get('kind'); f = folders_by_id.get((k, str(e.get('id')))); o = e.get('outcome') or {}
+        if f is None or o.get('strength') not in ('chain', 'outside') or o.get('state') not in ('proved', 'not'):
+            continue
+        rel = sorted(kid for kid, kt in kits.items() if k in kt['kinds']); on = {kid for kid in rel if kits[kid]['check'](k, f)}; win = o['state'] == 'proved'
+        for x, a in enumerate(rel):
+            for b in rel[x + 1:]:
+                side = 'both' if a in on and b in on else 'a' if a in on else 'b' if b in on else None
+                if side:
+                    r = seen.setdefault((a, b), {'both': [0, 0], 'a': [0, 0], 'b': [0, 0]})[side]; r[0] += 1; r[1] += win
+    rate = lambda c: c[1] / c[0] if c[0] else None
+    rows = []
+    for (a, b), c in seen.items():
+        both = rate(c['both']); alone = [x for x in (rate(c['a']), rate(c['b'])) if x is not None]; best = max(alone) if alone else None
+        kinds = sorted(set(kits[a]['kinds']) & set(kits[b]['kinds'])); n = c['both'][0]
+        ok = n >= COMBO_MIN and both is not None and best is not None and both - best >= COMBO_LIFT and (a, b) not in have and bool(kinds)
+        rows.append({'id': f'combo-{a}+{b}', 'combo': [a, b], 'kinds': kinds, 'settled': n, 'bothWin': round(both, 3) if both is not None else None,
+                     'bestAlone': round(best, 3) if best is not None else None, 'proposed': bool(ok), 'approved': (a, b) in have})
+    return sorted(rows, key=lambda r: (not r['proposed'], -(r['settled'])))
+
+
+def approve_combo(root, row, now=None):
+    """The owner's yes on a combo: it joins every brief of its kinds and is measured like any kit. Read-only by construction."""
+    ex = load_extra(root)
+    ex[row['id']] = {'combo': list(row['combo']), 'kinds': list(row['kinds']), 'what': ' AND '.join(row['combo']) + ' (both, together)', 'v': 1, 'approvedAt': round(now or _time.time())}
+    root.mkdir(parents=True, exist_ok=True); (root / EXTRA_FILE).write_text(_json.dumps(ex, indent=1))
+    return ex

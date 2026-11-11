@@ -4489,9 +4489,21 @@ def _mkit_extra():
     return _MKIT_EXTRA['kits']
 
 
-def _mkit_set(new_):
+_MKIT_COMBOS: list = []   # 🧩 COL-10: pairs of kits measured together, the last measurement
+
+
+def _mkit_set(new_, combos_=None):
     """Store a measurement and log every kit whose state moved (the rollback history)."""
     _mkits.log_changes(DATA_DIR, dict(_MKIT_STATE), new_); _MKIT_STATE.update(new_)
+    if combos_ is not None:
+        _MKIT_COMBOS[:] = combos_[:24]
+
+
+def _mkit_measure(cat, rows):
+    """Kits one by one, and kits in pairs, from the same proofs."""
+    fb_ = {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}
+    kits_ = _mkits.reliability(rows, fb_, _mkit_extra()); _mkit_set(kits_, _mkits.combos(rows, fb_, _mkit_extra()))
+    return kits_
 
 
 def _recall(cat, category, text):
@@ -9427,6 +9439,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op == 'kit_method_approve':   # 🧪 COL-10: the owner's yes on a kit the reviews proposed (on Fee, the creator only)
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner approves a method kit.')
+        if str(p.text or '').startswith('combo-'):   # 🧩 a pair the record proposed
+            row_ = next((r for r in _MKIT_COMBOS if r['id'] == str(p.text) and r['proposed']), None)
+            if not row_:
+                raise HTTPException(400, 'No such combo proposed (it may be approved already).')
+            _mkits.approve_combo(DATA_DIR, row_)
+            return {'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()]}
         row_ = next((r for r in _mkits.proposals(list(store['cats'].values()), _review.RUBRIC, _mkit_extra()) if r['id'] == str(p.text or '')), None)
         if not row_:
             raise HTTPException(400, 'No such proposal (it may be approved already).')
@@ -9443,14 +9461,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not _MKIT_STATE:   # measured only when Missions opened: after a restart the card read 0 / 0 / 0 (seen live 2026-11-10)
             try:
                 rows_m_ = _mission.all_of(cat, now_, lambda k, f: _proof_view(cat, k, f), _calls_of(cat_id), _pev_record())
-                _mkit_set(_mkits.reliability(rows_m_, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}, _mkit_extra()))
+                _mkit_measure(cat, rows_m_)
             except Exception as e:   # noqa: BLE001
                 print(f'[engines] kits: {str(e)[:80]}')
         return {'at': round(now_), 'reviewer': _engv.reviewer(store['cats'].values(), _review.VERSION, lines_, REVIEW_EVERY_S, REVIEW_SCOPE),
                 'kits': {'checkedAt': kf_.get('checkedAt'), 'live': len(kf_['kits']), 'moved': sum(1 for k in kf_['kits'] if k.get('prev')), 'held': [r for r in kf_.get('log') or [] if not r.get('ok')][:3], 'everyH': round(_kfresh.CHECK_EVERY_S / 3600)},
                 'reads': _engv.reads(_READS, _TOPIC_READS, READ_FRESH_S, now_), 'methods': _engv.methods(_MKIT_STATE), 'routes': _engv.routes(lines_, now_),
                 'proposals': {'kits': _mkits.proposals(list(store['cats'].values()), _review.RUBRIC, _mkit_extra()), 'proofs': _gaps.gaps(store['cats'].values()),
-                              'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()], 'history': _mkits.history(DATA_DIR),
+                              'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()], 'history': _mkits.history(DATA_DIR), 'combos': list(_MKIT_COMBOS),
                               'canApprove': cat.get('id') == 'leader' and await _is_creator(_session_wallet(p.session or ''))}}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
@@ -10656,7 +10674,7 @@ async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
     _owner_gate(store, cat, session, ownerId)
     rec = _pev_record()
     calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
-    kits_ = _mkits.reliability(rows, {(k, str(f.get('id'))): f for k, (_c, key) in _mission.KINDS.items() for f in cat.get(key) or []}, _mkit_extra()); _mkit_set(kits_)
+    kits_ = _mkit_measure(cat, rows)
     return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'methods': list(kits_.values()), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
 
 
