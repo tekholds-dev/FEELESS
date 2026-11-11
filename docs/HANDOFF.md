@@ -1,5 +1,25 @@
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
+> ## 🔁 PICK UP HERE (2026-11-11 evening, Opus 5.5 out of usage) — conserve usage · finish everything by priority · never dead-style
+> **Live on main (gates green, last 32971b6a):** OpenRouter receipts on every billed call · FEELESS OpenRouter key REMOVED from backend/.env
+>   (owner: only Happy's own key calls; `_work_live(cat)` accepts the agent's key) · desk shows the REAL OpenRouter balance (`_or_credit`) ·
+>   rate limits: provider-wide cooldown on 403/429 (market.cached), SOL price backoff (pump_network, trading) · chat column ~720px + ProofLive
+>   stage (lib/proofFx.js: REAL data only — candles/entry/TP/SL, shortlist, minds' talk, steps, spend, PoP roe, PoB score) · model picker no
+>   longer closes on poll (CatDesk KindMinds) · bell on-screen, no raw dicts · Showcase: all made-up sample runs removed · best real trade
+>   meta (TradeDemo) · ELITE looks (Obsidian/Carbon/Titanium/Ledger: Lucide line icons via Ic3 `data-edition`, Sora display, no ambient) ·
+>   swap picker ranks verified coins first (fake USDC) · film v1 player https://claude.ai/artifact/W4K7mti7HkEkf3F1kQSfiF
+> **IN PROGRESS — film v2 (owner: "record yourself navigating, no repeated screenshots"):** `.claude-wip/film/rec2.py` recorded real
+>   cursor journeys raw/j-*.webm (globe, search→BONK war room, pump, swap, agents=Fee live desk, lore, collective, fuse, launch, rep, looks).
+>   j-build has a human portrait → excluded. Next: `comp.py journeys` → `assemble.py` (PLAN already uses j-*) → watch frames → `player.py`
+>   → republish the SAME artifact file `.claude-wip/film/player/index.html`.
+> **Owner's new idea (not built):** build from a blank default browser canvas — he marks spots and comments what to build at each mark,
+>   agents fulfil it (PoStatic). Design it on the existing Features/PoStatic chip-mark ("Marked area") flow.
+> **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from
+>   "In your wallet") · T2 Fuse card Withdraw $1 → HQ › Money › Circle FUSE🧬 send to his saved Phantom · T3 $1 USDC into Happy's wallet and back.
+> **Owner blockers:** $FEE/FEECAT/rFEE have no pool (headline "Into $FEE free" fails) · Q29 15% swap fee · Fuse gas reserve short 0.006 SOL ·
+>   RPC = Chainstack only (archive calls 403 on its plan) · put a $ limit on OpenRouter key "OAuth: localhost:51367" · not seen live: ProofLive
+>   during a real proof, rate-limit drop not re-measured (check /tmp/feeless-api.log 429/403 counts vs 417 per 10 min before).
+
 > ## 🔁 PICK UP HERE (2026-11-11 ~13:15, session out of usage; owner wants the next account to continue)
 > **Pushed:** a3cf5ae6 and earlier, gates green. **Not committed:** `.gitignore` (+.claude-wip/) and this page.
 > - 🎬 **Showcase ads: DONE, by hand (no OpenRouter).** Six ads written by Claude in `.claude-wip/ads/ad.html` (one engine, a config per proof
