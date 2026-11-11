@@ -221,10 +221,13 @@ def test_fee_selftest_probe_skips_balance_only_with_the_internal_key(engine, mon
 
 
 def test_rpc_falls_through_rate_limited_nodes_but_never_resends(monkeypatch):
-    """A 429 / down primary falls through to the backups for reads; sendTransaction only ever hits the primary."""
+    """A 429 / down primary falls through to the backups for reads AND for a send (2026-11-11: a spent primary failed every real trade):
+    the send offers the SAME signed bytes to the next lane only after a refusal, and stops at the first lane that takes them."""
     import asyncio, httpx
     monkeypatch.setenv('SOLANA_RPC_URL', 'https://primary'); monkeypatch.setenv('SOLANA_RPC_FALLBACKS', 'https://backup')
     monkeypatch.setenv('JUPITER_API_KEY', 'k'); monkeypatch.delenv('ALCHEMY_API_KEY', raising=False)
+    for n in range(2, 7):
+        monkeypatch.delenv(f'SOLANA_RPC_URL_{n}', raising=False)
     hits = []
 
     class Http:
@@ -236,9 +239,8 @@ def test_rpc_falls_through_rate_limited_nodes_but_never_resends(monkeypatch):
     svc = trading.TradingService(None); svc._http = Http(); svc._http.is_closed = False
     assert asyncio.run(svc.rpc('getBalance', ['x'])) == 'ok' and hits[-1][0] == 'https://backup'
     hits.clear()
-    with pytest.raises(trading.HTTPException):
-        asyncio.run(svc.rpc('sendTransaction', ['tx']))
-    assert hits == [('https://primary', 'sendTransaction')]
+    assert asyncio.run(svc.rpc('sendTransaction', ['tx'])) == 'ok'
+    assert hits == [('https://primary', 'sendTransaction'), ('https://backup', 'sendTransaction')]   # refused once, taken once, never a third
 
 
 def test_a_closed_sol_fee_account_never_breaks_a_trade_the_fee_goes_to_the_fee_wallet_as_sol(engine, monkeypatch):
