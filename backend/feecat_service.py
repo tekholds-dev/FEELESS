@@ -94,6 +94,8 @@ import proof_demos as _demos
 import page_look as _look
 import agent_eco as _eco
 import free_browser as _fb
+import show_ads as _ads
+import voice_mirror as _vm
 import store_check as _store
 import evidence_marks as _marks
 import proof_stamp as _stamp
@@ -6706,6 +6708,20 @@ def _shot_private(cat, folder, name):
     return bool(cat.get('incognito')) or str(folder).startswith('pob') or any(s in str(name) for s in (cat.get('siteSessions') or {}))
 
 
+@app.get('/api/cats/{cat_id}/showad/{kind}')
+async def show_ad_video(cat_id: str, kind: str, ownerId: str = '', session: str = '', dl: int = 0):
+    """🎬 One Showcase ad video: its owner only (owner 2026-11-11: only the owner can download them)."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    f_ = SHOW_ADS_DIR / re.sub(r'[^a-z0-9]', '', cat_id) / f"{re.sub(r'[^a-z]', '', kind)}.webm"
+    if not cat or kind not in _ads.KINDS or not f_.exists():
+        raise HTTPException(404, 'No ad yet.')
+    _owner_gate(store, cat, session, ownerId, 'see its ads')
+    head_ = {'Cache-Control': 'private, max-age=600'}
+    if dl:
+        head_['Content-Disposition'] = f'attachment; filename="feeless-{_ads.NAME[kind].lower()}-ad.webm"'
+    return Response(content=f_.read_bytes(), media_type='video/webm', headers=head_)
+
+
 @app.get('/api/cats/{cat_id}/powshot/{folder}/{name}')
 async def pow_snapshot(cat_id: str, folder: str, name: str, ownerId: str = '', session: str = ''):
     """📸 One research snapshot of a proof folder. Public research pages stay public; anything private asks for its owner's signed session."""
@@ -6886,6 +6902,58 @@ _WS_LIVE: dict = {}
 def _ws_start(cat_id, ws_id, *args):
     t_ = asyncio.create_task(_ws_run(cat_id, ws_id, *args)); _WS_LIVE[(cat_id, ws_id)] = t_
     return t_
+
+
+SHOW_ADS_DIR = DATA_DIR / 'show_ads'
+_ADS_LIVE = {}
+
+
+def _ads_cost(cat_id):
+    return lambda ws: (_ws_load(cat_id, ws) or {}).get('cost') or 0 if ws else 0
+
+
+def _ads_set(cat_id, k, **row):
+    store = _load(); c_ = store['cats'].get(cat_id)
+    if c_ is None:
+        return None
+    c_.setdefault('showAds', {}).setdefault(k, {}).update(row); _save(store)
+    return c_
+
+
+async def _ads_run(cat_id):
+    """🎬 One ad per proof type, one at a time, under the $1.25 cap; each finished page is recorded to a video."""
+    while True:
+        store = _load(); cat = store['cats'].get(cat_id)
+        if not cat:
+            return
+        jobs = cat.get('showAds') or {}; k = _ads.next_kind(jobs)
+        if not k:
+            return
+        ok, _s = _ads.may_start(jobs, _ads_cost(cat_id))
+        if not ok:
+            _ads_set(cat_id, k, state='over budget'); return
+        now = time.time()
+        try:
+            row_ = _feat.new_folder(cat, 'build', f'Ad · {_ads.NAME[k]}', now)
+        except ValueError:
+            _ads_set(cat_id, k, state='no room for a folder'); return
+        doc_ = _feat.new_doc(row_); doc_['cfg'] = {'research': False, 'suggest': False, 'review': False}; text_ = _ads.ask_for(k)
+        _feat.add_msg(doc_, 'you', text_, now); doc_['complete'] = False; doc_['pending'] = True; doc_['busy'] = {'at': round(now), 'to': 'a', 'stage': 'build'}
+        _ws_save(cat_id, doc_); cat.setdefault('showAds', {})[k] = {'ws': row_['id'], 'state': 'building', 'at': round(now)}; keep_owned(cat); _save(store)
+        try:
+            await _ws_start(cat_id, row_['id'], 'a', text_, None)
+        except Exception:   # noqa: BLE001
+            pass
+        html_ = ((_ws_load(cat_id, row_['id']) or {}).get('versions') or [{}])[-1].get('html') or ''
+        if not html_:
+            _ads_set(cat_id, k, state='no page'); continue
+        _ads_set(cat_id, k, state='recording')
+        got_ = await _ads.record(_ws_placed(cat_id, html_), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path())
+        _ads_set(cat_id, k, state='done' if got_ else 'no video')
+
+
+def _ads_view(cat_id, cat):
+    return _ads.view(cat.get('showAds') or {}, _ads_cost(cat_id), lambda k: (SHOW_ADS_DIR / cat_id / f'{k}.webm').exists())
 
 
 def _ws_dead(cat_id, ws_id, at, now):
@@ -7152,6 +7220,7 @@ def _general_mind(cat):
     b_ = cat.get('brainsCfg') or {}; kind_ = (_CALL_CTX.get() or {}).get('kind')   # 🎭 AGT-3 / AGT-4: a proof kind may have its own prompt and its own personality
     own_ = str((b_.get('promptBy') or {}).get(kind_) or '').strip()
     return (_ps.general_block(text_, _ps.general_record(cat)) + _ps.persona_line((b_.get('personaBy') or {}).get(kind_) or b_.get('persona'))
+            + (f"{_m}\n\n" if (_m := _vm.line(b_.get('voice'), (b_.get('persona') or {}).get('mirror'))) else '')   # 🪞 talks the way its owner writes, as much as the owner set
             + (f"THE OWNER'S PROMPT FOR THIS KIND OF PROOF (how to work, never an order to move money):\n{own_}\n\n" if own_ else '') + _know.WHERE + '\n\n')
 
 
@@ -8392,6 +8461,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
     if p.op in ('ws_build', 'ask', 'poc', 'pob', 'pop') and str(p.text or '').strip():   # 🧵 one conversation across every proof type
+        cat.setdefault('brainsCfg', {})['voice'] = _vm.learn((cat.get('brainsCfg') or {}).get('voice'), p.text)   # 🪞 how its owner writes, learned from every message
         kind_c_ = {'ws_build': {'build': 'PoStatic', 'content': 'PoC', 'research': 'Research'}.get(next((w.get('kind') for w in cat.get('workspaces') or [] if w.get('id') == p.job), ''), 'Folder'), 'ask': 'Chat', 'poc': 'PoC', 'pob': 'PoB', 'pop': 'PoP'}[p.op]
         _play_save(cat_id, 'convo', _foot.convo_add(_play_load(cat_id, 'convo'), kind_c_, p.text, time.time()))
     if p.op == 'pop':   # 📉 the PoP desk's buttons: the engine pass does the work
@@ -8585,8 +8655,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         import prompt_studio as _ps
         b_ = cat.setdefault('brainsCfg', {})
         if isinstance(p.tools, dict):
-            b_['persona'] = _ps.clean_persona(p.tools); keep_owned(cat); _save(store)
-        return {'persona': _ps.clean_persona(b_.get('persona')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT, 'promptBy': b_.get('promptBy') or {}, 'personaBy': b_.get('personaBy') or {}}
+            b_['persona'] = _ps.clean_persona({**(b_.get('persona') or {}), **p.tools}); keep_owned(cat); _save(store)
+        return {'persona': _ps.clean_persona(b_.get('persona')), 'voice': _vm.view(b_.get('voice'), (b_.get('persona') or {}).get('mirror')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT, 'promptBy': b_.get('promptBy') or {}, 'personaBy': b_.get('personaBy') or {}}
     if p.op.startswith('live_'):   # 📡 the ongoing PoC desk: it watches, reads the room and drafts. It never posts
         rows_ = cat.setdefault('pocWatch', []); drafts_ = cat.setdefault('pocDrafts', [])
         try:
@@ -9479,9 +9549,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 'proposals': {'kits': _mkits.proposals(list(store['cats'].values()), _review.RUBRIC, _mkit_extra()), 'proofs': _gaps.gaps(store['cats'].values()),
                               'approved': [{'id': k_, **v_} for k_, v_ in _mkit_extra().items()], 'history': _mkits.history(DATA_DIR), 'combos': list(_MKIT_COMBOS),
                               'canApprove': cat.get('id') == 'leader' and await _is_creator(_session_wallet(p.session or ''))}}
+    if p.op == 'show_ads':   # 🎬 owner-staff only: this agent makes one ad per proof type for the Showcase, $1.25 cap, one at a time
+        if not cat.get('ownerStaff'):
+            raise HTTPException(403, 'Showcase ads are made by the owner\'s agents.')
+        if p.text == 'go':
+            t_ = _ADS_LIVE.get(cat_id)
+            if not (t_ and not t_.done()):
+                _ADS_LIVE[cat_id] = asyncio.create_task(_ads_run(cat_id))
+        return {'ads': _ads_view(cat_id, cat), 'running': bool(_ADS_LIVE.get(cat_id) and not _ADS_LIVE[cat_id].done())}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
-        return {**_review.showcase(mine_), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR),
+        ads_ = next((dict(_ads_view(cid_, c_), cat=cid_) for cid_, c_ in store['cats'].items() if c_.get('showAds') and not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))), None)
+        return {**_review.showcase(mine_), 'ads': ads_, 'adsOk': bool(cat.get('ownerStaff')), 'fresh': _kfresh.view(_kits.KIT_USE, KITS_DIR),
                 'kits': [{'id': kid, 'name': c_['name'], 'what': c_['what'], 'kinds': c_.get('kinds') or [], 'license': c_.get('license'), 'live': kid in _kits.KIT_USE} for kid, c_ in _kits.CATALOG.items()]}
     if p.op == 'demo_trade':   # ⛏ this owner's best real trade, for the flight on the Proofs tab: numbers and picture names, no wallet
         best_ = None

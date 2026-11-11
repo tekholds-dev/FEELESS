@@ -92,9 +92,11 @@ def rows(root):
     out = []
     for p in sorted(Path(root).glob('*.json')) if Path(root).exists() else []:
         try:
-            out.append(json.loads(p.read_text()))
+            k = json.loads(p.read_text())
         except ValueError:
             continue
+        if isinstance(k, dict) and k.get('id') and k.get('name'):   # kit_fresh keeps its pins file in the same folder: that is not a kit
+            out.append(k)
     return out
 
 

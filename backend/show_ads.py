@@ -1,0 +1,88 @@
+"""🎬 SHOWCASE ADS (owner 2026-11-11: "$1.25 on Happy for proof-realistic ad-like previews for the Features showcase … only owner can download").
+One owner-staff agent builds one ad page per proof type through its normal Build folder (so each ad is a real PoStatic folder the owner can open),
+one at a time, under a hard budget: a build starts only while the money already spent plus one average build stays under the cap. Each finished
+page is then recorded in headless Chromium at 1280 × 720 into a .webm the owner can play in the Showcase and download. Nothing here posts anything."""
+import asyncio
+import time
+from pathlib import Path
+
+BUDGET = 1.25
+KINDS = ('pos', 'pow', 'pop', 'pob', 'poc', 'poe')
+NAME = {'pos': 'PoStatic', 'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'poe': 'PoEco'}
+STYLE = ('A 16:9 animated ad page, 1280 × 720, that plays by itself in a loop of about 14 seconds with no clicks: 4 scenes that cut with motion '
+         '(scale, slide, light sweep), one big headline per scene in heavy type, live-looking numbers that count up, and a last scene with the FEELESS '
+         'wordmark and the line "Start it in one sentence". Black / deep green night, royal green #15d16a neon, glass panels with an inner highlight. '
+         'Draw everything with HTML, CSS and SVG (no stock photos, no emoji as art). Say SAMPLE in small type on any number that is not real. '
+         'One self-contained HTML file.')
+BRIEF = {
+    'pos': 'Ad for PoStatic, Proof of Static: one sentence becomes a working site, game or dashboard. Show a typed sentence, the code writing itself, the page appearing, a store-check ring hitting 100.',
+    'pow': 'Ad for PoW, Proof of Work: an agent scouts a new Solana coin on five sites, two minds argue, it trades, and the proof file is graded. Show scouting cards, a candle chart, the buy, the graded score.',
+    'pop': 'Ad for PoP, Proof of Perps: two minds call BTC long or short blind, sealed, then opened on the true chart with liquidation lines where 10x dies.',
+    'pob': 'Ad for PoB, Proof of Bids: picks on tonight\'s game from different sites, a 3-leg parlay slip, and the scoreboard grading each leg green or red.',
+    'poc': 'Ad for PoC, Proof of Content: what is trending today, two angles pitched, the post written, a short clip cut with big captions.',
+    'poe': 'Ad for PoEco, Proof of Eco: an agent\'s books kept true, income vs costs month by month as bars, tax set aside, each month sealed with a hash.',
+}
+
+
+def ask_for(kind):
+    return f'{BRIEF[kind]} {STYLE}'
+
+
+def spent(jobs, cost_of):
+    """Money the ad builds have cost so far. cost_of(ws_id) → $."""
+    return round(sum(float(cost_of(j.get('ws')) or 0) for j in (jobs or {}).values() if j.get('ws')), 6)
+
+
+def may_start(jobs, cost_of, budget=BUDGET):
+    """A new build may start only if spent + one average build (or $0.15 before any finished) stays under the cap. Pure."""
+    s = spent(jobs, cost_of); done = [j for j in (jobs or {}).values() if j.get('ws') and float(cost_of(j['ws']) or 0) > 0]
+    avg = (s / len(done)) if done else 0.15
+    return s + avg <= budget, s
+
+
+def next_kind(jobs):
+    return next((k for k in KINDS if not (jobs or {}).get(k, {}).get('ws')), None)
+
+
+async def record(html, out: Path, chromium, seconds=14, timeout_s=60):
+    """Plays one page at 1280 × 720 for `seconds` and saves it as out (.webm). → True when a video was written."""
+    if not chromium or not html:
+        return False
+
+    async def run():
+        from playwright.async_api import async_playwright
+        tmp = out.parent / f'.rec-{out.stem}'
+        tmp.mkdir(parents=True, exist_ok=True)
+        async with async_playwright() as pw:
+            b = await pw.chromium.launch(executable_path=chromium)
+            try:
+                ctx = await b.new_context(viewport={'width': 1280, 'height': 720}, record_video_dir=str(tmp), record_video_size={'width': 1280, 'height': 720})
+                pg = await ctx.new_page()
+                await pg.set_content(html, wait_until='load', timeout=20000)
+                await pg.wait_for_timeout(seconds * 1000)
+                vid = pg.video
+                await ctx.close()
+                src = Path(await vid.path()) if vid else None
+            finally:
+                await b.close()
+        if src and src.exists():
+            out.parent.mkdir(parents=True, exist_ok=True)
+            src.replace(out)
+        for f in tmp.glob('*'):
+            f.unlink()
+        tmp.rmdir()
+        return out.exists() and out.stat().st_size > 1000
+    try:
+        return await asyncio.wait_for(run(), timeout_s)
+    except Exception:   # noqa: BLE001 — a page that will not play is left without a video, and says so
+        return False
+
+
+def view(jobs, cost_of, has_video):
+    rows = {}
+    for k in KINDS:
+        j = (jobs or {}).get(k) or {}
+        rows[k] = {'name': NAME[k], 'ws': j.get('ws'), 'state': j.get('state') or ('waiting' if not j.get('ws') else 'building'), 'cost': round(float(cost_of(j.get('ws')) or 0), 4) if j.get('ws') else 0,
+                   'video': bool(j.get('ws') and has_video(k)), 'at': j.get('at')}
+    s = spent(jobs, cost_of)
+    return {'budget': BUDGET, 'spent': s, 'left': round(max(0.0, BUDGET - s), 4), 'rows': rows, 'at': round(time.time())}

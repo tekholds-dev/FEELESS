@@ -262,11 +262,13 @@ function PopFolderArt() {
 export function BoostCoin({ earning = false }) {
   return <span className={`bst-coinart${earning ? ' is-earning' : ''}`} aria-hidden="true"><img src="/coin/boost-coin-160.webp" alt="" draggable="false" /></span>;
 }
+// ▦ The grid it snaps to, faint on the wall; the cell a dragged folder will land in lights up. Spots are saved, so a refresh keeps them.
+export const DeskGrid = () => <i className="dsk-grid" aria-hidden="true" data-testid="dsk-grid"><b /></i>;
 export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, testid, earn = false, earning = false }) {
   const g = useRef(null); const dragged = useRef(false);
   const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y, px: at.x, py: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
-  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { d.px = Math.min(Math.max(0, d.ox + dx), Math.max(0, window.innerWidth - ICON_W)); d.py = Math.min(Math.max(0, d.oy + dy), Math.max(0, window.innerHeight - ICON_H)); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };
-  const up = () => { const d = g.current; g.current = null; if (d && dragged.current) onMove(k, { x: d.px, y: d.py }); };
+  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) { const nav = e.currentTarget.parentElement; const c = ICON_CELL[nav?.dataset.size] || 96; nav?.classList.add('is-drag'); nav?.style.setProperty('--tx', `${Math.round(d.px / c) * c}px`); nav?.style.setProperty('--ty', `${Math.round(d.py / c) * c}px`); d.px = Math.min(Math.max(0, d.ox + dx), Math.max(0, window.innerWidth - ICON_W)); d.py = Math.min(Math.max(0, d.oy + dy), Math.max(0, window.innerHeight - ICON_H)); e.currentTarget.style.transform = `translate(${d.px}px, ${d.py}px)`; } };
+  const up = e => { e?.currentTarget?.parentElement?.classList.remove('is-drag'); const d = g.current; g.current = null; if (d && dragged.current) onMove(k, { x: d.px, y: d.py }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
     <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : k === 'boost' ? <BoostCoin /> : <em><Ic3 e={ic} size="30px" /></em>}{earn ? <u className="bst-earn"><BoostCoin earning={earning} /></u> : null}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
@@ -372,7 +374,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   return createPortal(<div className="dsk dsk-app" role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
     <ShaderWall mood={mood} />
     <div className="dsk-wall" aria-hidden="true"><b>{title}</b><small>{sub}</small></div>
-    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}>{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
+    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
     {glass ? <PerfGlass {...glass} onOpen={() => open(glass.app)} /> : null}
     {apps.map(a => (w[a.k]?.open && !w[a.k].min ? <DeskWin key={a.k} k={a.k} title={`${a.ic} ${a.label}`} s={w[a.k]} top={top === a.k} set={set} onTop={() => setTop(a.k)} onClose={() => set(a.k, { open: false })}>{a.body}</DeskWin> : null))}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>

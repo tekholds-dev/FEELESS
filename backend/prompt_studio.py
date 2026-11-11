@@ -329,7 +329,11 @@ def clean_persona(d):
         heat = max(1, min(5, int(d.get('heat') or 3)))
     except (TypeError, ValueError):
         heat = 3
-    return {'style': d.get('style') if d.get('style') in PERSONAS else 'straight', 'heat': heat}
+    try:
+        mirror = max(0, min(3, int(d.get('mirror') or 0)))   # 🪞 how much it talks like its owner (voice_mirror)
+    except (TypeError, ValueError):
+        mirror = 0
+    return {'style': d.get('style') if d.get('style') in PERSONAS else 'straight', 'heat': heat, 'mirror': mirror}
 
 
 def persona_line(d):

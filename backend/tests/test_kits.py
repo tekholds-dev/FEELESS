@@ -334,3 +334,11 @@ def test_a_page_keeps_its_kit_after_the_kit_version_moves(monkeypatch):
     rule = k.open_for_kits(old)
     assert 'three@0.170.0/build/three.module.js' in rule and 'three@0.170.0/examples/jsm/' in rule
     assert 'evil@1.0.0' not in rule.split('Content-Security-Policy')[1].split('>')[0]
+
+
+def test_a_non_kit_file_in_the_kits_folder_never_breaks_the_repo_tree(tmp_path):
+    import json as _j
+    import collective_kits as _k
+    (tmp_path / 'fresh.json').write_text(_j.dumps({'pins': {}, 'log': [], 'checkedAt': 0}))   # kit_fresh's own file (made the GitHub folder 500)
+    (tmp_path / 'a.json').write_text(_j.dumps({'id': 'a', 'name': 'A', 'text': 'x'}))
+    assert [r['id'] for r in _k.rows(tmp_path)] == ['a'] and list(_k.tree(tmp_path)) == ['kits/a.md']

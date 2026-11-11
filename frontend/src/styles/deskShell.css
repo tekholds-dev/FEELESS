@@ -262,3 +262,10 @@ body.fx-lite :is(.dbl-pop, .dbl-pop li, .dbl-toast, .dbl-btn.has-new svg) { anim
 @media (prefers-reduced-motion: reduce) { :is(.dbl-pop, .dbl-pop li, .dbl-toast, .dbl-btn.has-new svg) { animation: none; } .dbl-btn, .dbl-pop li button { transition: none; } }
 body.theme-day .dbl-pop, body.theme-day .dbl-toast { background: #fff; color: #10241a; border-color: #0f7a4333; } body.theme-day :is(.dbl-pop li small, .dbl-toast small, .dbl-pop header small, .dbl-none) { color: #3b5246; }
 @media (max-width: 640px) { .dbl-pop { position: fixed; right: 12px; left: 12px; width: auto; bottom: 64px; } .dbl-toast { right: 12px; left: 12px; width: auto; } }
+/* ▦ the grid folders snap to: faint lines on the wall, the landing cell lights while you drag */
+.dsk-grid { --cell: 96px; position: absolute; left: -6px; top: -6px; z-index: -1; width: calc(100vw - 20px); height: calc(100vh - 70px); pointer-events: none; background-image: linear-gradient(#ffffff0d 1px, transparent 1px), linear-gradient(90deg, #ffffff0d 1px, transparent 1px); background-size: var(--cell) var(--cell); mask-image: radial-gradient(120% 90% at 0 0, #000 30%, transparent 75%); transition: opacity .2s ease; opacity: .8; }
+.dsk-icons[data-size="s"] .dsk-grid { --cell: 80px; } .dsk-icons[data-size="l"] .dsk-grid { --cell: 118px; }
+.dsk-grid b { position: absolute; left: 0; top: 0; width: var(--cell); height: var(--cell); border: 1px dashed #45e48699; border-radius: 12px; background: #15d16a14; box-shadow: 0 0 18px #15d16a33 inset; opacity: 0; transform: translate(var(--tx, 0), var(--ty, 0)); transition: transform .08s ease-out, opacity .15s ease; }
+.dsk-icons.is-drag .dsk-grid { opacity: 1; mask-image: none; background-image: linear-gradient(#45e4861f 1px, transparent 1px), linear-gradient(90deg, #45e4861f 1px, transparent 1px); } .dsk-icons.is-drag .dsk-grid b { opacity: 1; }
+body.theme-day .dsk-grid { background-image: linear-gradient(#0f1f3a12 1px, transparent 1px), linear-gradient(90deg, #0f1f3a12 1px, transparent 1px); }
+@media (prefers-reduced-motion: reduce) { .dsk-grid, .dsk-grid b { transition: none; } } @media (max-width: 640px) { .dsk-grid { display: none; } }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ModelLab } from './ModelLab';
 import SegTabs from '../SegTabs';
 import { FeeOwnerBar } from './FeeOwnerBar';
 import { IdeasFolder } from './IdeasFolder';
@@ -215,6 +216,7 @@ export function FeeCatDesk({ call }) {
       { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
       { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
+      { k: 'model', ic: '🧪', label: 'Model Lab', tip: 'Owner only: the plan for FEELESS\'s own AI model, built from the stash, and where the big models fall short', body: <ModelLab /> },
     ]} agentApps={[
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },

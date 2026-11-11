@@ -451,7 +451,7 @@ def test_a_build_can_be_an_app_on_the_desktop(monkeypatch, tmp_path):
 def test_personality_is_words_only_and_scales(monkeypatch, tmp_path):
     import prompt_studio as pst
     fs, c, store = _server(monkeypatch, tmp_path); post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': 'persona', **kw}).json()
-    assert post()['persona'] == {'style': 'straight', 'heat': 3} and post(tools={'style': 'snappy', 'heat': 99})['persona'] == {'style': 'snappy', 'heat': 5} and post(tools={'style': 'evil'})['persona']['style'] == 'straight'
+    assert post()['persona'] == {'style': 'straight', 'heat': 3, 'mirror': 0} and post(tools={'style': 'snappy', 'heat': 99})['persona'] == {'style': 'snappy', 'heat': 5, 'mirror': 0} and post(tools={'style': 'evil'})['persona']['style'] == 'straight'
     post(tools={'style': 'snappy', 'heat': 5}); mind = fs._general_mind(store['cats']['g']); assert 'Snappy' in mind and 'savage about ideas' in mind and 'across the table' in mind
     assert pst.persona_line(None).startswith(pst.TALK)
 

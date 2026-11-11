@@ -241,12 +241,49 @@ export function ProofBrief({ onPick }) {
   </section>;
 }
 
-export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos' }) {
+// ▶ Every preview ends in a start (owner 2026-11-11: "start something is the point of showcase"). Pick a ready ask or write your own, then Start:
+// PoStatic / PoC make their folder with the ask in its chat box (nothing runs until you send); PoW / PoP / PoB send the ask to the agent's chat.
+const TRADE_ASKS = {
+  pow: [['⛏', 'Hottest young coin', 'file a PoW on the hottest pump.fun coin under an hour old'], ['🛡', 'Rug check first', 'file a PoW on a coin with clean holders and a locked pool'], ['🐋', 'Follow a whale', 'file a PoW on the coin the biggest wallet bought today'], ['📚', 'Edge desk', 'edge']],
+  pop: [['📉', 'BTC blind call', 'file a perp on BTC: long or short, entry, stop and the number behind it'], ['💀', 'Where 10x dies', 'file a perp on SOL and show where 10x longs get liquidated'], ['🔄', 'Funding flip', 'file a perp on the market whose funding just flipped']],
+  pob: [['🏈', 'Tonight\'s NFL', 'file a pob best NFL picks tonight'], ['🏀', 'NBA value pick', 'file a pob one NBA pick with real value'], ['🧾', '3-leg parlay', 'file a pob a 3 leg parlay, each leg from a different site']],
+};
+// 🎬 Its ad for this proof type, made by the owner's agent through a real Build folder and recorded to video ($1.25 cap for all six).
+// Only the owner sees it: the video comes from an owner-only door, and Download saves the .webm.
+const AD_STATE = { waiting: 'Waiting its turn', building: 'Its mind is building the page', recording: 'Recording the page to video', done: 'Ready', 'no video': 'Built, but the video did not record', 'no page': 'The mind returned no page', 'over budget': 'Stopped at the $1.25 cap', 'no room for a folder': 'No room for another folder' };
+export function AdReel({ k, cat, work, ads: given }) {
+  const [ads, setAds] = useState(given || null); const [run, setRun] = useState(false); const [err, setErr] = useState('');
+  const pull = useCallback(() => work(cat.id, { op: 'show_ads' }).then(j => { setAds(a => ({ ...(a || {}), ...j.ads, cat: (a || given || {}).cat || cat.id })); setRun(!!j.running); }).catch(e => setErr(e.message)), [cat.id, work, given]);
+  useEffect(() => { if (!run) return undefined; const t = setInterval(() => { if (!document.hidden) pull(); }, 8000); return () => clearInterval(t); }, [run, pull]);
+  const row = ads?.rows?.[k]; const src = row?.video && ads?.cat ? apiUrl(`/api/cats/${ads.cat}/showad/${k}?${agentAuthQuery()}`) : '';
+  const go = async () => { setErr(''); try { const j = await work(cat.id, { op: 'show_ads', text: 'go' }); setAds(a => ({ ...(a || {}), ...j.ads, cat: cat.id })); setRun(!!j.running); } catch (e) { setErr(e.message); } };
+  return <div className="adr" data-testid="pdr-ad">{src ? <video className="adr-vid" src={src} autoPlay loop muted playsInline data-testid="adr-video" /> : <div className="adr-wait"><i className="adr-orb" aria-hidden="true" /><b>{row?.ws ? AD_STATE[row.state] || row.state : 'Its ad is not made yet'}</b>
+      <small>{ads ? `$${(ads.spent || 0).toFixed(2)} of $${(ads.budget || 1.25).toFixed(2)} spent · ${Object.values(ads.rows || {}).filter(r => r.video).length} of 6 ads ready` : 'Your agent builds one ad page per proof type, then records each to video. $1.25 cap for all six.'}</small>
+      {ads?.rows ? <span className="adr-steps" aria-label="Each ad">{Object.entries(ads.rows).map(([x, r]) => <i key={x} className={`is-${r.video ? 'done' : r.ws ? 'on' : 'off'}`} data-tip={`${r.name}: ${r.ws ? AD_STATE[r.state] || r.state : 'waiting'}${r.cost ? ` · $${r.cost.toFixed(3)}` : ''}`}>{r.name}</i>)}</span> : null}
+      <button type="button" className="m-btn m-go" disabled={run} onClick={go} data-tip="Starts the next ad that is missing. It stops before $1.25" data-testid="adr-make">{run ? 'Making…' : ads?.spent ? 'Make the rest' : 'Have this agent make the ads'}</button>{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>}
+    {src ? <a className="m-btn adr-dl" href={`${src}&dl=1`} download data-tip="Saves this ad as a .webm (only you can)" data-testid="adr-dl">⬇ Download</a> : null}</div>;
+}
+export function ShowStart({ k, starters = {}, onMake, onCommand, onOpen, p, cost = '', costTip = '', seed = null }) {
+  const rows = k === 'pos' ? starters.build || [] : k === 'poc' ? [...(starters.content || []), ...(starters.research || []).slice(0, 2).map(r => [...r, 'research'])] : TRADE_ASKS[k] || [];
+  const ask0 = r => [].concat(r?.[3] ?? r?.[2] ?? '')[0] || '';
+  const [at, setAt] = useState(0); const [text, setText] = useState(() => (k === 'pow' || k === 'pop' || k === 'pob' ? rows[0]?.[2] : ask0(rows[0])) || '');
+  useEffect(() => { if (seed?.ask) { setText(seed.ask); setAt(-1); } }, [seed?.ask]);   // the page on the stage: its own ask, ready to make your version
+  if (k === 'poe') return <div className="sst" data-testid="show-start"><span className="sst-say"><b>Its books, kept true</b><small>Income, costs and tax set aside, drawn every month</small></span><button type="button" className="m-btn m-go sst-go" onClick={() => onOpen?.(p.open)} data-testid="sst-go">Open PoEco ▸</button></div>;
+  const trade = !!TRADE_ASKS[k];
+  const pick = (r, i) => { setAt(i); setText(trade ? (r[2] === 'edge' ? '' : r[2]) : ask0(r)); if (trade && r[2] === 'edge') onMake?.('edge', ['📚', 'Edge desk', '', '']); };
+  const go = () => { const t = text.trim(); if (!t) return; if (trade) onCommand?.(t); else { const r = at < 0 ? ['💻', seed?.name || p.t, ''] : rows[at] || []; onMake?.(r[4] === 'research' ? 'research' : k === 'pos' ? 'build' : 'content', [r[0] || p.ic, r[1] || p.t, r[2] || '', t]); } };
+  return <form className="sst" onSubmit={e => { e.preventDefault(); go(); }} data-testid="show-start">
+    <ul className="sst-chips" aria-label="Ready asks">{rows.slice(0, 8).map((r, i) => <li key={r[1]} style={{ '--i': i }}><button type="button" className={at === i ? 'is-on' : ''} aria-pressed={at === i} onClick={() => pick(r, i)} data-tip={trade ? r[2] : r[2]} data-testid={`sst-chip-${i}`}><Ic3 e={r[0]} size="16px" />{r[1]}</button></li>)}</ul>
+    <span className="sst-row"><input className="m-input sst-in" value={text} onChange={e => setText(e.target.value)} maxLength={600} placeholder={`Tell it what to make: ${p.line}`} aria-label="Your ask" data-testid="sst-text" />
+      <button type="submit" className="m-btn m-go sst-go" disabled={!text.trim()} data-tip={trade ? `Sends this to its chat. ${costTip}` : 'Makes the folder with this ask in its chat box. Nothing runs until you send'} data-testid="sst-go">{p.go} ▸{cost ? <small className="pdr-go-cost" data-testid="pdr-go-cost">{cost}</small> : null}</button></span></form>;
+}
+export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos', starters }) {
   const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k]; const prices = useProofPrices(cat?.id, work); const cost = p.cmd ? priceWord(prices?.[k]) : '';
   useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
-  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film' && t.kind !== 'game'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const caps = [...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
+  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film' && t.kind !== 'game'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const adCap = show?.ads || show?.adsOk ? [['ad', '🎬', 'Its ad', 'The ad your agent made for this proof, recorded to video']] : []; const caps = [...adCap, ...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
   const stage = () => {
     if (String(now).startsWith('piece:')) { const id = now.slice(6); return <Piece key={now} id={id} t={rows.find(t => t.id === id)} cat={cat} work={work} />; }
+    if (now === 'ad') return <AdReel key={k} k={k} cat={cat} work={work} ads={show?.ads} />;
     if (now === 'demo') return <div className="pdr-agd" data-testid="pdr-agent"><AgentDemo kind="trading" mode="discuss" /></div>;
     if (now === 'replay') return k === 'pow' ? <PowReplay /> : k === 'pop' ? <PerpReplay kits={kits.filter(x => x.id === 'fl-liq')} /> : k === 'pob' ? <PickReplay /> : <StoryReplay />;
     if (now === 'chart') return k === 'pow' ? <TradeDemo t={trade} /> : <PerpDemo kits={kits.filter(x => x.id === 'fl-liq')} />;
@@ -266,7 +303,8 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     <section className="pdr-main" key={k}>
       <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>
         {k === 'pos' && counts ? <p className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</p> : null}
-        <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.open ? onOpen?.(p.open) : p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.open ? 'Opens its window' : p.make ? 'Makes its folder' : `Tells it: ${p.cmd}. ${priceTip(prices?.[k])}`} data-testid="pdr-go">{p.go}{cost ? <small className="pdr-go-cost" data-testid="pdr-go-cost">{cost}</small> : null}</button></aside>
-      <div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div>
+</aside>
+      <div className="pdr-view"><div className="pdr-frame"><div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div></div>
+        <ShowStart key={k} k={k} p={p} seed={String(now).startsWith('piece:') ? rows.find(t => `piece:${t.id}` === now) || null : null} cost={cost} costTip={p.cmd ? priceTip(prices?.[k]) : ''} starters={starters} onMake={onMake} onCommand={onCommand} onOpen={onOpen} /></div>
     </section></div>;
 }

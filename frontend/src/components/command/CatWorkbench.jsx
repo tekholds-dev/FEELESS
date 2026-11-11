@@ -41,7 +41,7 @@ import { SplitFlow, money } from './SplitFlow';
 import { AgentStage, ChatStylePicker, chatClass, useChatStyle } from './ChatStyles';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings, ChatStop } from '../chat/ChatKit';
 import { DeskPrint } from './Proofprint';
-import { BoostCoin, DeskBell, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
+import { BoostCoin, DeskBell, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskGrid, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -1327,7 +1327,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     <DeskCount d={pool} onOpen={() => openWin('boost')} />
-    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}>
+    <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />
       {shownApps.filter(([k]) => !folded(k)).map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k] || extra.find(a => a.k === k)?.tip} earn={EARNS.has(k)} earning={!!pool?.pool?.ratePerSecUsd} badge={k === 'manual' && setupLeft > 0 ? { lit: true, text: `${setupLeft}` } : k === 'pop' && d?.popFolder ? { up: d.popFolder.roePct >= 0, text: `${d.popFolder.roePct >= 0 ? '+' : ''}${Number(d.popFolder.roePct || 0).toFixed(1)}%` } : null} />)}
       {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}

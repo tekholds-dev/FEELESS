@@ -8,19 +8,19 @@ jest.mock('../perps/PerpsChart', () => ({ PerpsChart: ({ asset }) => <i data-tes
 jest.mock('../terminal/TradeTape', () => ({ TradeTape: () => <i data-testid="tape" /> }));
 jest.mock('./FeeCatShell', () => ({ goTo: jest.fn() }));
 const DATA = { workspaces: [], memory: { notes: 3, mindNotes: 1, recent: ['a note'], personal: '' }, print: { level: 40, proofs: 6, traits: [{ t: 'source pump', score: 2, n: 3, won: 3 }] }, edge: [{ id: 'x', cat: 'safety', t: 'Mint on', read: 'r', means: 'm', do: 'd', stop: 's' }], edgeCats: { safety: 'Rugs' }, indicators: [{ id: 'rsi', t: 'RSI' }], pocFolders: [] };
-async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); await act(async () => { el.querySelector('[data-testid="fea-tab-features"]').click(); }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
+async function mount(work, d = { setup: { use: 'code' } }) { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(<FeaturesFolder cat={{ id: 'c' }} d={d} work={work} onCommand={() => {}} />); }); await act(async () => { await Promise.resolve(); }); await act(async () => { }); return { el, q: id => el.querySelector(`[data-testid="${id}"]`) }; }
 const type = async (n, v) => { await act(async () => { const set = Object.getOwnPropertyDescriptor(n.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value').set; set.call(n, v); n.dispatchEvent(new Event('input', { bubbles: true })); }); };
 
-test('this agent’s use comes first and every feature has a create button', async () => {
+test('every proof type in the Showcase ends in a start', async () => {
   const { el, q } = await mount(jest.fn(async () => DATA));
-  expect(el.querySelector('.fea-cat b').textContent).toBe('Build');
-  for (const k of Object.keys(FEATURES)) { await act(async () => { q(`fea-${k}`).click(); }); expect(q('fea-create').textContent).toContain(FEATURES[k].t); }
+  expect(q('fea-tab-features')).toBeNull();   // the start lives under every Showcase preview now
+  for (const k of ['pos', 'pow', 'pop', 'pob', 'poc', 'poe']) { await act(async () => { q(`pdr-${k}`).click(); }); expect(q('sst-go')).toBeTruthy(); }
 });
 test('create makes a real folder and opens it: blank screen, a mind picker, send goes to the owner door', async () => {
   const doc = { id: 'w1', kind: 'build', name: 'Site', messages: [], versions: 0, code: '', preview: '', busy: null };
   const work = jest.fn(async (_, b) => (b.op === 'feature_create' ? { folder: { id: 'w1', kind: 'build', name: 'Site' }, workspaces: [{ id: 'w1', kind: 'build', name: 'Site' }] } : b.op === 'ws_open' ? { doc } : b.op === 'ws_build' ? { doc: { ...doc, messages: [{ by: 'you', text: b.text }], busy: null } } : DATA));
   const { el, q } = await mount(work);
-  await act(async () => { q('fea-create').click(); }); await act(async () => { await Promise.resolve(); });
+  await act(async () => { q('sst-go').click(); }); await act(async () => { await Promise.resolve(); });
   expect(el.textContent).toContain('A blank screen'); expect(q('ws-mark').disabled).toBe(true);
   await act(async () => { q('ws-to-a').click(); }); await type(q('ws-input'), 'make a timer');
   await act(async () => { q('ws-send').click(); });
@@ -389,7 +389,7 @@ test('Showcase: a reel. Nothing to operate, each capability plays how the agent 
   expect(q('pdr-cap-night-run')).toBeNull();   // 🎮 owner 2026-11-10: no engine runner in the reel; the games are real games
   await act(async () => { q('pdr-cap-wick-breaker').click(); }); expect(q('pdr-piece').textContent).toContain('candle chart'); expect(q('pdr-piece-frame').getAttribute('src')).toBe('/showcase/pos/wick-breaker.html?demo=1'); expect(q('pdr-cap-mempool')).toBeTruthy();
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
-  await act(async () => { q('pdr-go').click(); }); expect(onMake).toHaveBeenCalledWith('build');
+  await act(async () => { q('sst-go').click(); }); expect(onMake).toHaveBeenCalledWith('build', ['💻', 'Silver Hour', '', 'A camera page']);   // ▶ the page on the stage starts with its own ask
   const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-stash'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
   expect(new Set(Object.values(seen)).size).toBe(4);   // no two proofs open on the same demo
   await act(async () => { q('pdr-cap-video').click(); }); expect(q('pdr-video').querySelector('video').getAttribute('src')).toContain('images-assets.nasa.gov');   // 🔥 PoC opens on the real viral clips first
@@ -398,8 +398,8 @@ test('Showcase: a reel. Nothing to operate, each capability plays how the agent 
   await act(async () => { q('pdr-pob').click(); }); await act(async () => { q('pdr-cap-parlay').click(); }); expect(q('pdr-parlay')).toBeTruthy();
   await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-pick-replay')).toBeTruthy(); await act(async () => { q('pdr-cap-live').click(); }); expect(q('pdr-live').querySelector('video').getAttribute('src')).toBe('/showcase/pob/gridiron.mp4');
   await act(async () => { q('pdr-cap-stash').click(); }); expect(q('pdr-stash').textContent).toContain('line moves');
-  await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('pdr-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp');
-  expect(el.querySelector('input, textarea, select')).toBeNull();   // nothing to fill in or operate
+  await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('sst-chip-1').click(); }); await act(async () => { q('sst-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp on SOL and show where 10x longs get liquidated');
+  expect(el.querySelectorAll('input, textarea, select').length).toBe(1);   // the one thing to fill in is the ask under the preview
   el.remove();
 });
 
@@ -494,7 +494,7 @@ test('🎬 every proof type shows its real proofs graded by OSSY + G4, the kits 
   expect(q('pdr-kit-echarts').textContent).toContain('5 → v6'); expect(q('pdr-kits').textContent).toContain('2 kits · 1 moved up');
   await act(async () => { q('pdr-poe').click(); }); expect(q('pdr-books').textContent).toContain('NET $4,430'); expect(q('pdr-books').querySelectorAll('li')).toHaveLength(2);
   await act(async () => { q('pdr-cap-reviews').click(); }); expect(q('pdr-no-reviews')).toBeTruthy();
-  await act(async () => { q('pdr-go').click(); }); expect(onOpen).toHaveBeenCalledWith('poe');
+  await act(async () => { q('sst-go').click(); }); expect(onOpen).toHaveBeenCalledWith('poe');
   el.remove();
 });
 
@@ -512,4 +512,26 @@ test('📱 store check: runs the server check on the latest page, shows the ring
   const panel = document.querySelector('[data-testid="store-panel"]');   // portalled to the page so no window clips it
   expect(panel.textContent).toContain('Ready once you decide 2 flags'); expect(panel.textContent).toContain('Apple 2.3.8 Icons'); expect(panel.textContent).toContain('Add an app icon');
   expect(panel.querySelectorAll('li.is-warn')).toHaveLength(1);
+});
+
+test('🎬 its ad: the owner starts the run, sees each ad’s state, and a ready ad plays with an owner-only download', async () => {
+  const { AdReel } = require('./ProofDoors');
+  const rows = { pos: { name: 'PoStatic', ws: 'w1', state: 'done', video: true, cost: 0.2 }, pow: { name: 'PoW', ws: 'w2', state: 'building', video: false, cost: 0 } };
+  const work = jest.fn(async (_, b) => ({ ads: { budget: 1.25, spent: 0.2, rows }, running: b.text === 'go' }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AdReel k="pow" cat={{ id: 'c' }} work={work} ads={null} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('adr-make').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'show_ads', text: 'go' });
+  expect(el.textContent).toContain('Its mind is building the page'); expect(el.textContent).toContain('$0.20 of $1.25'); expect(q('adr-make').disabled).toBe(true);
+  const el2 = document.createElement('div'); document.body.appendChild(el2);
+  await act(async () => { createRoot(el2).render(<AdReel k="pos" cat={{ id: 'c' }} work={work} ads={{ cat: 'happy', rows, spent: 0.2 }} />); });
+  expect(el2.querySelector('[data-testid="adr-video"]').getAttribute('src')).toContain('/api/cats/happy/showad/pos?');
+  expect(el2.querySelector('[data-testid="adr-dl"]').getAttribute('href')).toContain('&dl=1');
+});
+
+test('🧪 Model Lab says plainly no model exists yet and keeps the owner’s name for it', async () => {
+  const { ModelLab } = require('./ModelLab');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ModelLab />); });
+  expect(el.textContent).toContain('No model is trained yet'); expect(el.querySelectorAll('[data-testid^="mlb-step-"]').length).toBe(7);
 });
