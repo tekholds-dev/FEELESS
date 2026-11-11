@@ -18,7 +18,7 @@ export function ChartBg({ kind }) {
   if (!kind || kind === 'default' || !CHART_BGS.some(([k]) => k === kind)) return null;
   return <div className={`cbg cbg-${kind}`} aria-hidden data-testid={`chart-bg-${kind}`}>
     <i className="cbg-tide is-up" /><i className="cbg-tide is-dn" />{/* ⚡ every scene breathes with the REAL tick */}
-    {kind === 'neon' && <div className="cbg-stage"><i className="cbg-sunglow" /><span className="cbg-sun"><img src="/assets/feeless-logo.png" alt="" decoding="async" /></span><b className="cbg-word">FEELESS</b>
+    {kind === 'neon' && <div className="cbg-stage"><i className="cbg-sunglow" /><span className="cbg-sun"><img src="/assets/feeless-logo-256.png" alt="" decoding="async" /></span><b className="cbg-word">FEELESS</b>
       <div className="cbg-floor"><div className="cbg-plane"><i className="cbg-grid" /><i className="cbg-grid is-dn" /></div></div><i className="cbg-horizon" /><i className="cbg-shock" /><i className="cbg-vignette" /></div>}
     {kind === 'pit' && <div className="cbg-stage"><i className="cbg-slime" /><b className="cbg-pumpword">PUMP</b>
       {n(16, i => <i key={i} className="cbg-pill" style={{ '--i': i, left: `${((i * 6.3) % 94 + 3).toFixed(1)}%` }} />)}<i className="cbg-pop" /><i className="cbg-vignette" /></div>}

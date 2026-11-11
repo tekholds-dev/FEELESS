@@ -34,7 +34,7 @@ test('every theme shows the FEE mark and its drawn scene; Plain shows nothing', 
   for (const [id] of CHAT_THEMES.filter(([t]) => t !== 'off')) {
     act(() => root.render(<ChatFx theme={id} room="solana-general" />));
     expect(host.querySelector('[data-testid="chat-fx"]').className).toContain(`fx-${id}`);
-    expect(host.querySelector('.chat-fx-logo').getAttribute('src')).toBe('/assets/feeless-logo.png');
+    expect(host.querySelector('.chat-fx-logo').getAttribute('src')).toBe('/assets/feeless-logo-256.png');
   }
   // 🎨 redrawn scenes (2026-10-22): real drawn art, motion on whole layers
   act(() => root.render(<ChatFx theme="candles" />)); expect(host.querySelectorAll('.cfx-candles.near rect').length).toBe(96);   // 24 candles × 4 seamless copies

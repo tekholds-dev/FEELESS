@@ -1,3 +1,4 @@
+import { CodeLines, StatusBar, Tabs, diffRows, plainRows } from './CodeView';
 import { MediaButton, MediaCard } from './MediaStudio';
 import { PartsShelf } from './PartsShelf';
 import { KitPick } from './KitPick';
@@ -198,14 +199,11 @@ export function LiveCode({ draft = '', by, stage }) {
     raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf);
   }, [draft]);
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [n]);
-  return <div className="fea-code-view fea-live" data-testid="ws-live-code"><div className="fea-code-delta m-num" role="status"><i className="fea-livedot" aria-hidden="true" /><b>{by || 'Mind'} is {stage === 'review' ? 'reviewing' : 'writing'}</b><em>{draft.split('\n').length} lines · {draft.length.toLocaleString()} characters</em></div><pre ref={box} className="fea-src">{draft.slice(0, n)}<i className="fea-caret" aria-hidden="true" /></pre></div>;
+  return <div className="fea-code-view fea-live" data-testid="ws-live-code"><div className="fea-code-delta m-num" role="status"><i className="fea-livedot" aria-hidden="true" /><b>{by || 'Mind'} is {stage === 'review' ? 'reviewing' : 'writing'}</b><em>{draft.split('\n').length} lines · {draft.length.toLocaleString()} characters</em></div><Tabs files={['index.html']} at="index.html" /><CodeLines ref={box} rows={plainRows(draft.slice(0, n))} caret /><StatusBar rows={plainRows(draft.slice(0, n))} extra={`${by || 'Mind'} typing`} /></div>;
 }
 function CodeChanges({ code = '', previous = '', busy }) {
-  const before = previous.split('\n'); const after = code.split('\n'); let start = 0; let end = 0;
-  while (start < Math.min(before.length, after.length) && before[start] === after[start]) start++;
-  while (end < Math.min(before.length, after.length) - start && before[before.length - 1 - end] === after[after.length - 1 - end]) end++;
-  const removed = previous ? before.slice(start, before.length - end) : []; const added = after.slice(start, after.length - end);
-  return <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>+{added.length} added</b><em>−{removed.length} removed</em>{busy ? <span>Mind is coding… latest completed version shown</span> : null}</div><pre className="fea-src">{after.slice(0, start).join('\n')}{start ? '\n' : ''}{removed.length ? <span className="fea-removed">{removed.map(x => `− ${x}`).join('\n')}{'\n'}</span> : null}{added.length ? <span className="fea-added">{added.map(x => `+ ${x}`).join('\n')}{'\n'}</span> : null}{after.slice(after.length - end).join('\n')}</pre></div>;
+  const d = useMemo(() => diffRows(previous, code), [previous, code]);
+  return <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>+{d.added} added</b><em>−{d.removed} removed</em>{busy ? <span>Mind is coding… latest completed version shown</span> : null}</div><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra={previous ? 'changes since the last version' : null} /></div>;
 }
 // 🌳 The Code tab: the whole page with what changed, or any one page, style or script of it, and the tree saves as one zip.
 const GROUP_IC = { Page: '📄', Pages: '🗂', Styles: '🎨', Scripts: '⚙', Kits: '🧰' };
@@ -215,7 +213,7 @@ function CodeTree({ doc, name }) {
   const groups = [...new Set(files.map(x => x.group))];
   return <div className="fea-tree" data-testid="ws-tree"><nav className="fea-tree-nav" aria-label="Code files">{groups.map(g => <div key={g} className="fea-tree-g"><small className="m-label">{GROUP_IC[g]} {g.toUpperCase()}</small>{files.filter(x => x.group === g).map((x, i) => <button key={x.path} type="button" style={{ '--i': i }} className={x.path === f.path ? 'is-on' : ''} aria-current={x.path === f.path} onClick={() => setAt(x.path)} data-tip={`${x.text.split('\n').length} lines`} data-testid={`ws-file-${x.path}`}>{x.path.split('/').pop()}</button>)}</div>)}
     <button type="button" className="m-btn m-go fea-tree-save" onClick={save} data-tip="Downloads the whole tree as one zip: index.html runs by itself" data-testid="ws-tree-save">Save files (.zip)</button></nav>
-    {f.path === 'index.html' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy} /> : <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>{f.path}</b><span>{f.text.split('\n').length} lines</span></div><pre className="fea-src">{f.text}</pre></div>}</div>;
+    <div className="fcv-ed"><Tabs files={files.map(x => x.path).slice(0, 8)} at={f.path} onPick={setAt} />{f.path === 'index.html' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy} /> : <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>{f.path}</b><span>{f.text.split('\n').length} lines</span></div><CodeLines rows={plainRows(f.text)} path={f.path} /><StatusBar rows={plainRows(f.text)} path={f.path} /></div>}</div></div>;
 }
 // 💾 Keeps this page in its own folder. Sealed under its key in the Collective's store, in its own repo if one is linked. Only its owner opens it.
 // 🧰 Which picked kits this page really uses, read from its code.

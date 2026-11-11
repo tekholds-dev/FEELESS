@@ -1,0 +1,316 @@
+{
+"board": {
+"ok": true,
+"games": [
+{
+"id": "401909960",
+"state": "in",
+"detail": "5:05 - 4th",
+"start": "2026-11-11T00:30Z",
+"home": {
+"abbr": "NY",
+"name": "Knicks",
+"score": 106,
+"color": "#1d428a",
+"record": "5-4",
+"winner": false
+},
+"away": {
+"abbr": "MIL",
+"name": "Bucks",
+"score": 78,
+"color": "#00471b",
+"record": "1-9",
+"winner": false
+},
+"last": "Dalton Knecht enters the game for Andre Drummond",
+"homeWin": 99.9,
+"tv": [
+"Bucks App",
+"MyMi"
+]
+},
+{
+"id": "401909961",
+"state": "in",
+"detail": "4:54 - 3rd",
+"start": "2026-11-11T01:00Z",
+"home": {
+"abbr": "PHI",
+"name": "76ers",
+"score": 71,
+"color": "#1d428a",
+"record": "9-2",
+"winner": false
+},
+"away": {
+"abbr": "BOS",
+"name": "Celtics",
+"score": 76,
+"color": "#008348",
+"record": "8-2",
+"winner": false
+},
+"last": "Jayson Tatum out of bounds bad pass turnover",
+"homeWin": 32.5,
+"tv": [
+"NBC"
+]
+},
+{
+"id": "401909962",
+"state": "in",
+"detail": "9:56 - 2nd",
+"start": "2026-11-11T02:00Z",
+"home": {
+"abbr": "PHX",
+"name": "Suns",
+"score": 31,
+"color": "#29127a",
+"record": "3-6",
+"winner": false
+},
+"away": {
+"abbr": "LAC",
+"name": "Clippers",
+"score": 24,
+"color": "#12173f",
+"record": "2-7",
+"winner": false
+},
+"last": "Suns Full timeout",
+"homeWin": 81.1,
+"tv": [
+"Arizona's Family 3TV",
+"ClipperVision",
+"Suns Live"
+]
+},
+{
+"id": "401909963",
+"state": "in",
+"detail": "29.9 - 1st",
+"start": "2026-11-11T02:00Z",
+"home": {
+"abbr": "UTAH",
+"name": "Jazz",
+"score": 25,
+"color": "#4e008e",
+"record": "1-9",
+"winner": false
+},
+"away": {
+"abbr": "MIA",
+"name": "Heat",
+"score": 26,
+"color": "#98002e",
+"record": "4-6",
+"winner": false
+},
+"last": "(00:29.8) [Heat] COACH'S CHALLENGE (CALL REPLAYCENTER)",
+"homeWin": 37.1,
+"tv": [
+"Jazz+",
+"KJZZ-TV"
+]
+},
+{
+"id": "401909964",
+"state": "pre",
+"detail": "11/10 - 10:00 PM EST",
+"start": "2026-11-11T03:00Z",
+"home": {
+"abbr": "SAC",
+"name": "Kings",
+"score": 0,
+"color": "#5a2d81",
+"record": "1-9",
+"winner": false
+},
+"away": {
+"abbr": "ORL",
+"name": "Magic",
+"score": 0,
+"color": "#0150b5",
+"record": "2-7",
+"winner": false
+},
+"last": null,
+"homeWin": null,
+"tv": []
+},
+{
+"id": "401909965",
+"state": "pre",
+"detail": "11/10 - 11:00 PM EST",
+"start": "2026-11-11T04:00Z",
+"home": {
+"abbr": "POR",
+"name": "Trail Blazers",
+"score": 0,
+"color": "#e03a3e",
+"record": "6-3",
+"winner": false
+},
+"away": {
+"abbr": "OKC",
+"name": "Thunder",
+"score": 0,
+"color": "#007ac1",
+"record": "8-2",
+"winner": false
+},
+"last": null,
+"homeWin": null,
+"tv": [
+"KSBI",
+"NBC",
+"Thunder App"
+]
+}
+]
+},
+"game": {
+"ok": true,
+"win": [
+90.5,
+87.3,
+88.9,
+90.7,
+89.7,
+89.3,
+88.4,
+89.3,
+90.9,
+90.3,
+89.5,
+88.2,
+87.3,
+90.4,
+92.1,
+92.8,
+93.6,
+94.4,
+93.3,
+93.0,
+92.8,
+92.4,
+93.3,
+94.5,
+94.9,
+95.1,
+94.6,
+94.4,
+96.9,
+95.5,
+96.9,
+98.0,
+98.3,
+98.6,
+98.9,
+99.1,
+99.0,
+99.0,
+99.2,
+98.8,
+99.2,
+99.2,
+99.6,
+99.6,
+99.6,
+99.6,
+99.6,
+99.4,
+99.4,
+99.4,
+99.1,
+98.7,
+98.1,
+99.1,
+99.4,
+99.1,
+99.3,
+98.8,
+99.0,
+99.0,
+99.5,
+99.7,
+99.7,
+99.6,
+99.5,
+99.4,
+99.3,
+99.0,
+98.2,
+98.6,
+99.0,
+99.4,
+99.6,
+99.7,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9,
+99.9
+],
+"plays": [
+{
+"text": "personal foul",
+"clock": "5:05",
+"period": 4,
+"score": false
+},
+{
+"text": "Andre Drummond offensive rebound",
+"clock": "5:08",
+"period": 4,
+"score": false
+},
+{
+"text": "Mohamed Diawara misses 4-foot turnaround jump shot",
+"clock": "5:08",
+"period": 4,
+"score": false
+},
+{
+"text": "Andre Drummond defensive rebound",
+"clock": "5:24",
+"period": 4,
+"score": false
+},
+{
+"text": "Ousmane Dieng misses 13-foot jumper",
+"clock": "5:24",
+"period": 4,
+"score": false
+},
+{
+"text": "Bucks offensive team rebound",
+"clock": "5:37",
+"period": 4,
+"score": false
+},
+{
+"text": "Kel'el Ware misses two point shot",
+"clock": "5:37",
+"period": 4,
+"score": false
+},
+{
+"text": "Pacome Dadiet enters the game for Miles McBride",
+"clock": "5:46",
+"period": 4,
+"score": false
+}
+],
+"spread": "NY -14.5",
+"total": 221.5,
+"by": "DraftKings"
+},
+"id": "401909960"
+}

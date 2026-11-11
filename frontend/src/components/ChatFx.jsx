@@ -96,7 +96,7 @@ const SCENE = {
   // 🪙 FEE GLOW: the FEE coin rising out of the corner — ridged rim, struck face, light rays turning behind it, sparks lifting off
   fee: () => <><i className="cfx-rays" /><svg className="cfx-coin" viewBox="0 0 200 200">
     <circle className="rim" cx="100" cy="100" r="92" /><circle className="ridge" cx="100" cy="100" r="86" /><circle className="face" cx="100" cy="100" r="74" />
-    <circle className="ring" cx="100" cy="100" r="62" /><path className="shine" d="M38,70 A70,70 0 0 1 120,30" /><image href="/assets/feeless-logo.png" x="62" y="62" width="76" height="76" /></svg>
+    <circle className="ring" cx="100" cy="100" r="62" /><path className="shine" d="M38,70 A70,70 0 0 1 120,30" /><image href="/assets/feeless-logo-256.png" x="62" y="62" width="76" height="76" /></svg>
     <span className="cfx-rise">{rise(12, 'cfx-spark', 3)}</span></>,
   // 🕯 CANDLES: two depths of a real chart scrolling by — the near one bright, the far one in the haze — with the last-price line
   candles: () => <><svg className="cfx-run cfx-candles far" viewBox="0 0 1600 160" preserveAspectRatio="none"><Strip set={FAR} bw={5} /></svg>
@@ -152,7 +152,7 @@ export function ChatFx({ theme, room }) {
   return <div className={`chat-fx fx-${theme}${theme === 'live' ? ` mood-${mood}` : ''}`} aria-hidden="true" data-testid="chat-fx" data-mood={theme === 'live' ? mood : undefined}>
     <i className="chat-fx-a" /><i className="chat-fx-b" />
     {SCENE[theme]?.()}
-    <img className="chat-fx-logo" src="/assets/feeless-logo.png" alt="" />
+    <img className="chat-fx-logo" src="/assets/feeless-logo-256.png" alt="" />
   </div>;
 }
 

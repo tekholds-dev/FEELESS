@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Slider } from '@heroui/react';
 import '../../styles/proofRooms.css';
+import { WatchLive } from './WatchLive';
 
 // 🧮 Tools that keep a user inside its proof folders: real maths on what they type, nothing guessed. And a watch room for PoB: only official players and services the user signs in to.
 const num = v => (Number(v) || 0);
@@ -70,10 +71,10 @@ function WatchGuide({ onPlay, onBrowse }) {
     {onBrowse ? <><small className="m-label">FREE MOVIES AND TV</small><div className="prm-chs">{FREE_SITES.map(([n, h, what]) => <button key={n} type="button" className="m-chip prm-ch" onClick={() => onBrowse(h)} data-tip={`${what}. Opens in its browser`} data-testid={`prm-site-${n.split(' ')[0]}`}>{n}</button>)}</div></> : null}</div>;
 }
 // 📺 The Watch folder: a wall of up to 4 official players, each its own game or stream, with the sound where you want it.
-export function WatchWall({ onBrowse }) {
+export function WatchWall({ onBrowse, onCommand, price = '' }) {
   const [n, setN] = useState(() => { try { return Math.min(4, Math.max(1, +localStorage.getItem('feeless.watch.n') || 1)); } catch { return 1; } });
   const pick = v => { setN(v); try { localStorage.setItem('feeless.watch.n', String(v)); } catch { /* it still changes for now */ } };
-  return <div className="prm-wall" data-testid="prm-wall"><span className="m-seg" role="radiogroup" aria-label="How many screens">{[1, 2, 4].map(v => <button key={v} type="button" role="radio" aria-checked={n === v} className={n === v ? 'active' : ''} onClick={() => pick(v)} data-tip={`${v} screen${v > 1 ? 's' : ''}. Each plays its own link`} data-testid={`prm-wall-${v}`}>{v === 1 ? 'One screen' : `${v} screens`}</button>)}</span><div className={`prm-wall-grid is-${n}`}>{Array.from({ length: n }, (_, i) => <WatchRoom key={i} onBrowse={onBrowse} />)}</div></div>;
+  return <div className="prm-wall" data-testid="prm-wall"><span className="m-seg" role="radiogroup" aria-label="How many screens">{[1, 2, 4].map(v => <button key={v} type="button" role="radio" aria-checked={n === v} className={n === v ? 'active' : ''} onClick={() => pick(v)} data-tip={`${v} screen${v > 1 ? 's' : ''}. Each plays its own link`} data-testid={`prm-wall-${v}`}>{v === 1 ? 'One screen' : `${v} screens`}</button>)}</span><div className="prm-wall-main"><div className={`prm-wall-grid is-${n}`}>{Array.from({ length: n }, (_, i) => <WatchRoom key={i} onBrowse={onBrowse} />)}</div><WatchLive onBrowse={onBrowse} onCommand={onCommand} price={price} /></div></div>;
 }
 export function WatchRoom({ onBrowse }) {
   const [link, setLink] = useState(''); const [err, setErr] = useState(''); const [saved, setSaved] = useState(() => { try { return JSON.parse(localStorage.getItem(WATCH_KEY) || '[]'); } catch { return []; } }); const [on, setOn] = useState(null); const parent = useMemo(() => (typeof window === 'undefined' ? 'localhost' : window.location.hostname), []);

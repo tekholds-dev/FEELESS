@@ -16,6 +16,9 @@ import ASSETS from './assetsFixture.json';   // asset_packs.search('water') with
 import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a real unsent proof (Happy Assistant), 2026-11-07
 import ECO from './ecoFixture.json';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
+import { WatchWall } from '../components/command/ProofRooms';
+import { CodeLines, StatusBar, Tabs, diffRows } from '../components/command/CodeView';
+import WATCH from '../components/command/__fixtures__/watchLive.json';   // game_scores.board + .game on ESPN's live NBA scoreboard, 2026-11-10
 
 // 🧪 DEV ONLY (`/dev/features`, never in a production build): an agent's Features folder on fixtures, no sign-in. The Showcase reel and the
 // Start something tiles render for real; nothing reaches the server (3D pieces answer "Opening it…").
@@ -35,7 +38,16 @@ if (/pdk/.test(window.location.search)) { const real = window.fetch; window.fetc
   { id: 'pt_2', title: 'Velocity ranking', tag: 'aside', kind: 'pos', licenses: ['MIT'], uses: 1, reusedBy: [{ kind: 'pos', ref: 'w4' }], stale: false, mine: false },
   { id: 'pt_3', title: 'APE WITH CONVICTION. EXIT LIQUIDITY NOT INCLUDED.', tag: 'section', kind: 'pos', licenses: ['Apache-2.0', 'Free, GSAP standard'], uses: 0, reusedBy: [], stale: false, mine: true },
   { id: 'pt_4', title: 'topbar', tag: 'header', kind: 'pos', licenses: ['FEELESS'], uses: 0, reusedBy: [], stale: true, mine: false }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o)); }
+function CodeHarness() {
+  const [t, setT] = React.useState('');
+  React.useEffect(() => { fetch('/showcase/pos/loan-tool.html').then(r => r.text()).then(setT); }, []);
+  const d = diffRows(t, t.replace('<title>Keyhole · loan calculator</title>', '<title>Keyhole · loan calculator</title>\n<meta name="theme-color" content="#0f766e">'));
+  return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
+}
 export default function FeaturesHarness() {
+  if (/code/.test(window.location.search)) return <CodeHarness />;   // ?code — the editor look on a real showcase page, with a change
+  if (/watch/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes('/api/cats/scores/') ? Promise.resolve(new Response(JSON.stringify(String(u).endsWith(`/${WATCH.id}`) ? WATCH.game : WATCH.board), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o));   // ?watch — the watch wall with tonight's real games
+    return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><WatchWall onBrowse={() => {}} onCommand={() => {}} price="≈$0.0040 a proof" /></div>; }
   if (/models/.test(window.location.search)) return <Models />;
   if (/widgets/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, width: 260 }}><DeskWidgets d={{ powFolders: [{ pnlPct: 12 }, { pnlPct: -4 }], pobFolders: [{ graded: 'right' }], pocFolders: [{ graded: 'right' }, {}], psFolders: Array.from({ length: 9 }, (_, i) => ({ graded: i % 3 ? 'right' : 'wrong' })), poeFolders: [{ net: 2460 }], jobs: [{}, { done: true }], signedIn: [1], logins: [1, 2] }} pool={{ stake: { pointsLeft: 3, sentUsd: 5, nowPct: 0.4 } }} openWin={() => {}} cat={{ id: 'x', brainsCfg: { brains: ['local/ossy', 'local/g4'], mindNames: ['OSSY', 'G4'], credit: 5.8, spent: 1.2 } }} work={null} has={['brains']} /></div>;
   const MEDIA = on => ({ linked: on ? ['fal'] : [], pick: { image: on ? 'fal-flux-schnell' : null, video: on ? 'fal-wan22-5b' : null }, providers: { fal: { name: 'fal.ai', signup: 'https://fal.ai/login', keys: 'https://fal.ai/dashboard/keys' }, replicate: { name: 'Replicate', signup: 'https://replicate.com/signin', keys: 'https://replicate.com/account/api-tokens' } },

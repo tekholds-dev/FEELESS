@@ -31028,8 +31028,44 @@ async def _fetch_first(http, urls, want_json=False):
     return None
 
 
+LOGO_THUMBS = (64, 128, 256)
+
+
+def _logo_thumb(raw, w):
+    """🖼 SITE-2: a coin logo at the size it is shown (2× its CSS px). 940 px logos were decoded for 22 px rows. → webp bytes, or None to serve the original."""
+    import io
+    from PIL import Image
+    try:
+        im = Image.open(io.BytesIO(raw))
+        if getattr(im, 'is_animated', False) or max(im.size) <= w:   # an animated logo keeps its motion; a small one is already small
+            return None
+        im = im.convert('RGBA'); im.thumbnail((w, w), Image.LANCZOS); out = io.BytesIO(); im.save(out, 'WEBP', quality=86, method=4)
+        return out.getvalue()
+    except Exception:   # noqa: BLE001 — anything Pillow can't read (svg) is served as it is
+        return None
+
+
 @app.get('/api/reputation/token-logo/{mint}')
-async def token_logo(mint: str):
+async def token_logo(mint: str, w: int = 0):
+    """A coin's logo. `?w=64|128|256` answers a small webp of it (cached on disk per size), for rows and chips that show it at ≤ 128 px."""
+    from fastapi.responses import FileResponse, Response
+    got = await _token_logo_any(mint)
+    if w not in LOGO_THUMBS:
+        return got
+    over = isinstance(got, FileResponse) and 'max-age=300' in str(got.headers.get('cache-control') or '')   # the owner's own logo can change: never kept as a thumb
+    tdir = LOGO_DIR / 'w'; tf = tdir / f'{mint}-{w}.webp'
+    if not over and tf.exists():
+        return FileResponse(tf, media_type='image/webp', headers={'Cache-Control': 'public, max-age=604800, immutable'})
+    raw = Path(got.path).read_bytes() if isinstance(got, FileResponse) else bytes(got.body)
+    small = await asyncio.to_thread(_logo_thumb, raw, w)
+    if not small:
+        return got
+    if not over:
+        tdir.mkdir(parents=True, exist_ok=True); tf.write_bytes(small)
+    return Response(small, media_type='image/webp', headers={'Cache-Control': 'public, max-age=300' if over else 'public, max-age=604800, immutable'})
+
+
+async def _token_logo_any(mint: str):
     from fastapi.responses import FileResponse, Response
     if not _re.match(_B58, mint):
         raise HTTPException(400, 'Solana mint required.')

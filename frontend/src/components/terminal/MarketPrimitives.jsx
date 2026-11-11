@@ -17,7 +17,7 @@ const KNOWN_LOGOS = {
   [SOL_MINT_ADDR]: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
   '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump': '/assets/feeless-logo-256.png',
 };
-export const tokenImageUrls = pair => {
+export const tokenImageUrls = (pair, px = 0) => {   // px: the size it shows at; FEELESS's own logo route then answers a small webp (SITE-2)
   const address = pair?.baseToken?.address;
   const chainId = pair?.chainId;
   const candidates = [
@@ -36,7 +36,7 @@ export const tokenImageUrls = pair => {
   ].filter(isImageSource);
   // Solana: IPFS links go through FEELESS's cached logo endpoint (public gateways rate-limit), and
   // the same endpoint is the last resort after DexScreener's CDN.
-  const logo = chainId === 'solana' && address ? `/api/reputation/token-logo/${encodeURIComponent(address)}` : null;
+  const w = px ? [64, 128, 256].find(x => x >= px * 2) : 0; const logo = chainId === 'solana' && address ? `/api/reputation/token-logo/${encodeURIComponent(address)}${w ? `?w=${w}` : ''}` : null;
   const direct = logo ? candidates.map(u => (/\/ipfs\/|^ipfs:\/\//.test(u) ? logo : u)) : candidates;
   // FEELESS's own logo cache first (disk-cached forever once found: DexScreener → Jupiter → on-chain metadata → pump.fun),
   // then DexScreener's CDN (often 404 for young coins) as the last try.
@@ -108,7 +108,7 @@ function PulseDot({ mint, pairAddress, size }) {
 }
 
 export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
-  const sources = tokenImageUrls(pair);
+  const sources = tokenImageUrls(pair, size);
   const [imageIndex, setImageIndex] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [exhausted, setExhausted] = useState(false);
