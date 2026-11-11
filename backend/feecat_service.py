@@ -4089,11 +4089,29 @@ async def _live_read(cat, site, force=False, now=None):
         site['note'] = 'Changed, but it reached its 4 drafts for today.'
         return site['note']
     raw_, _u, _o = await _ws_ask(cat, brains[0], _pw.SYS + _play.notes_line(cat, 'live'), _pw.ask_text(site, fresh_ or text_[:_pw.MAX_TEXT]), 600); _pw.note_draft(site, now); row_, why_ = _pw.parse(raw_)
+    site['checks'] = int(site.get('checks') or 0) + 1; site['lastUsd'] = round(float(_u or 0), 5); site['spentUsd'] = round(float(site.get('spentUsd') or 0) + float(_u or 0), 5); site['lastAt'] = round(now)   # 💵 what each read really cost
     if row_:
         row_.update(site=site['host'], url=site['url'], at=round(now)); cat['pocDrafts'] = (list(cat.get('pocDrafts') or []) + [row_])[-40:]; site['note'] = 'New draft.'
         return f"New draft: {row_['happened']}"
     site['note'] = f"Not worth a word: {why_}" if why_ else 'The agent sent nothing usable.'
     return site['note']
+
+
+def _live_view(cat, sites, drafts):
+    """📡 The live desk's state: its pages (with what each read really cost), drafts, the model that reads, and the agent's PoC files
+    (a PoC's name + its first ask become a page's agenda in one tap)."""
+    brains = (cat.get('brainsCfg') or {}).get('brains') or []
+    paid = [r['lastUsd'] for r in sites if r.get('checks') and r.get('lastUsd') is not None]
+    pocs = []
+    for w in (cat.get('workspaces') or [])[-24:][::-1]:
+        if w.get('kind') != 'content':
+            continue
+        doc = _ws_load(cat['id'], w.get('id')) or {}
+        first = next((m.get('text') for m in doc.get('messages') or [] if m.get('by') == 'you' and m.get('text')), '')
+        pocs.append({'id': w.get('id'), 'name': w.get('name'), 'agenda': str(first or w.get('name') or '')[:240]})
+    return {'sites': sites, 'drafts': drafts, 'canAsk': bool(brains), 'model': brains[0] if brains else None,
+            'perReadUsd': round(sum(paid) / len(paid), 5) if paid else None, 'spentUsd': round(sum(float(r.get('spentUsd') or 0) for r in sites), 4),
+            'pocs': pocs[:12], 'limits': {'pages': _pw.MAX_SITES, 'draftsPerPageDay': _pw.DAY_DRAFTS}}
 
 
 async def _live_pass(store):
@@ -8348,14 +8366,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 if not site_:
                     raise ValueError('That page is gone.')
                 got_ = await _live_read(cat, site_, force=True); keep_owned(cat); _save(store)
-                return {'sites': rows_, 'drafts': (cat.get('pocDrafts') or [])[::-1], 'said': got_, 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+                return {**_live_view(cat, rows_, (cat.get('pocDrafts') or [])[::-1]), 'said': got_}
             elif p.op != 'live_get':
                 raise ValueError('No such step.')
         except ValueError as e:
             raise HTTPException(400, str(e)[:160])
         if p.op != 'live_get':
             keep_owned(cat); _save(store)
-        return {'sites': rows_, 'drafts': drafts_[::-1], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains'))}
+        return _live_view(cat, rows_, drafts_[::-1])
     if p.op.startswith('ideas_'):   # 💡 owner only, on Fee: OSSY and G4 pitch from real counts. An idea changes nothing
         if cat.get('id') != 'leader' or not await _is_creator(_session_wallet(p.session or '')):
             raise HTTPException(403, 'Only the owner reads the ideas.')
@@ -8391,8 +8409,26 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'apps': rows_}
     if p.op.startswith('playc_'):   # 🎬 the PoC editor: media stays in the owner's browser, the edit list comes here
         saved_ = _play_load(cat_id, 'edit') or {}
+        files_ = dict(saved_.get('files') or {}); cur_ = saved_.get('current') or 'Untitled'   # 📁 named edit files (owner 2026-11-10: "new starts a file they name to save and just go")
+        if saved_.get('project') and cur_ not in files_:
+            files_[cur_] = {'project': saved_['project'], 'at': saved_.get('at') or round(time.time())}   # an edit from before files existed keeps its work as "Untitled"
+        list_ = lambda: sorted([{'name': k, 'at': v.get('at'), 'clips': len((v.get('project') or {}).get('clips') or [])} for k, v in files_.items()], key=lambda x: -(x['at'] or 0))[:40]
+        if p.op in ('playc_new', 'playc_open'):
+            name_ = re.sub(r'\s+', ' ', str(p.text or '')).strip()[:60]
+            if not name_:
+                raise HTTPException(400, 'Name the file first.')
+            if p.op == 'playc_new':
+                if name_ in files_:
+                    raise HTTPException(400, 'A file with that name exists. Open it, or pick another name.')
+                if len(files_) >= 40:
+                    raise HTTPException(400, 'Forty files is the limit. Delete one in your files first.')
+                files_[name_] = {'project': None, 'at': round(time.time())}
+            elif name_ not in files_:
+                raise HTTPException(404, 'No file with that name.')
+            _play_save(cat_id, 'edit', {**saved_, 'files': files_, 'current': name_, 'project': files_[name_].get('project')})
+            return {'project': files_[name_].get('project'), 'current': name_, 'files': list_()}
         if p.op == 'playc_get':
-            return {'project': saved_.get('project'), 'notes': ((cat.get('playNotes') or {}).get('edit') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'canPaid': bool(_ck.key_for(cat, 'openrouter', data_dir=DATA_DIR))}
+            return {'current': cur_, 'files': list_(), 'project': saved_.get('project'), 'notes': ((cat.get('playNotes') or {}).get('edit') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), 'canPaid': bool(_ck.key_for(cat, 'openrouter', data_dir=DATA_DIR))}
         if p.op == 'playc_gen':   # 🖼 free needs no key. Better uses the agent's own OpenRouter key and its own balance
             prompt_ = ' '.join(str(p.text or '').split())
             if not prompt_:
@@ -8415,9 +8451,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     raise HTTPException(502, 'The free image service did not answer. Try again in a minute.')
                 return {'image': f"data:{r_.headers['content-type'].split(';')[0]};base64,{base64.b64encode(r_.content).decode()}", 'usd': 0, 'by': 'Pollinations (free)'}
         project_ = _play.clean_project((p.tools or {}).get('project'))
-        if p.op == 'playc_save':
-            _play_save(cat_id, 'edit', {**saved_, 'project': project_})
-            return {'ok': True}
+        if p.op == 'playc_save':   # the open file keeps every save, so switching files never loses work
+            files_[cur_] = {'project': project_, 'at': round(time.time())}
+            _play_save(cat_id, 'edit', {**saved_, 'project': project_, 'files': files_, 'current': cur_})
+            return {'ok': True, 'current': cur_}
         if p.op == 'playc_ask':
             brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
             if not brains_ or not str(p.text or '').strip():
