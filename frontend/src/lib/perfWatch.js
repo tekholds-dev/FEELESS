@@ -45,6 +45,7 @@ export function layoutIssues(doc = document, win = window) {
   for (const e of doc.querySelectorAll('main button, main a[href], [role=dialog] button')) {
     if (++b > 200 || out.covered.length >= 5) break;
     const r = e.getBoundingClientRect(); if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.top > win.innerHeight || r.right < 0 || r.left > W) continue;
+    const shut = e.closest('details:not([open])'); if (shut && !e.closest('summary')) continue;   // inside a closed <details> it keeps a box but nobody can see it (a false "covered Recover")
     const top = doc.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 12));
     if (top && top !== e && !e.contains(top) && !top.contains(e) && !top.closest('[role=dialog], .feecat-widget, [data-tip-pop]')) add(out.covered, e);
   }
