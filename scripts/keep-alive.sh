@@ -71,13 +71,16 @@ print(m[0].get('loaded_context_length') or 0 if m else 0)" 2>/dev/null)"
 # 15 s, they compile, and no folder build / ad run is live on 5088 (/api/cats/health `busy` = 0; a restart kills a run), restart every
 # service from THIS process tree. The owner's one command starts this watcher, so the restarted services keep his Mac's LAN route.
 mark=/tmp/feeless-code-mark; touch "$mark"
-changed_py() { find "$root/backend" -name '*.py' -newer "$mark" -not -path '*/.venv/*' -not -path '*/tests/*' -not -path '*/data/*' -not -path '*/node_modules/*' 2>/dev/null; }
+changed_py() {   # backend code, and backend/.env (a new key goes live without a restart; it is not compiled)
+  find "$root/backend" -name '*.py' -newer "$mark" -not -path '*/.venv/*' -not -path '*/tests/*' -not -path '*/data/*' -not -path '*/node_modules/*' 2>/dev/null
+  [[ "$root/backend/.env" -nt "$mark" ]] && echo "$root/backend/.env"
+}
 code_reload() {
   local files newest busy
   files="$(changed_py)"; [[ -z "$files" ]] && return 0
   newest=$(echo "$files" | tr '\n' '\0' | xargs -0 stat -f %m 2>/dev/null | sort -n | tail -1)
   (( $(date +%s) - ${newest:-0} < 15 )) && return 0                                  # still being edited
-  if ! echo "$files" | tr '\n' '\0' | xargs -0 "$root/backend/.venv/bin/python" -m py_compile 2>/dev/null; then
+  if ! echo "$files" | grep '\.py$' | tr '\n' '\0' | xargs -0 "$root/backend/.venv/bin/python" -m py_compile 2>/dev/null; then
     [[ "$code_said" == "$newest" ]] || echo "$(date '+%F %T') code reload waits: a changed file does not compile"; code_said="$newest"; return 0
   fi
   busy=$(curl -s -m 8 http://127.0.0.1:5088/api/cats/health | python3 -c 'import json,sys; print(json.load(sys.stdin).get("busy",0))' 2>/dev/null)

@@ -256,7 +256,7 @@ class TradingService:
                 res.raise_for_status()
                 data = res.json()
                 if data.get('error'):
-                    if (data['error'] or {}).get('code') in (-32005, 429):   # node-side rate limit: try the next one
+                    if (data['error'] or {}).get('code') in (-32005, -32029, 429):   # node-side rate limit (-32029 = OnFinality's): try the next one
                         continue
                     raise HTTPException(503, 'Solana RPC rejected the request. Try later or configure a dedicated RPC.')
                 return data.get('result')
