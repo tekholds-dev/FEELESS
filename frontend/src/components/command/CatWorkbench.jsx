@@ -1403,8 +1403,14 @@ function SealedVault({ cat, rows = [], onSaved }) {
 
 // 🔓 SIGNED-IN SITES (owner 2026-10-31): a site that blocks bots, or your agent's own email — open it here, sign in yourself in the live window,
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
-const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['accounts.google.com', '📧 Google'], ['discord.com', '💬 Discord'], ['web.telegram.org', '✈ Telegram'],
-  ['github.com', '🐙 GitHub'], ['dexscreener.com', '📈 DexScreener'], ['coingecko.com', '🦎 CoinGecko'], ['solscan.io', '🔎 Solscan'], ['pump.fun', '💊 Pump'], ['tradingview.com', '📊 TradingView'], ['reddit.com', '👽 Reddit']];
+const SIGNIN_PICKS = [['proton.me', '📧 Proton Mail'], ['accounts.google.com', '📧 Google'], ['github.com', '🐙 GitHub'], ['dexscreener.com', '📈 DexScreener'],
+  ['coingecko.com', '🦎 CoinGecko'], ['solscan.io', '🔎 Solscan'], ['pump.fun', '💊 Pump'], ['tradingview.com', '📊 TradingView']];
+// 👥 SOCIAL PROFILES (owner 2026-11-11 "social media profile icons so users can sign in to multiple"): one tile per network, ✓ when this agent's
+// windows are signed in there. One account per network per agent — a second account = sign another agent in. (X's own API sign-in waits on
+// the owner's X app key, so it is not offered here.)
+const SOCIALS = [['x.com', '𝕏', 'X'], ['instagram.com', '◎', 'Instagram'], ['tiktok.com', '♪', 'TikTok'], ['youtube.com', '▶', 'YouTube'], ['facebook.com', 'f', 'Facebook'],
+  ['linkedin.com', 'in', 'LinkedIn'], ['reddit.com', '👽', 'Reddit'], ['discord.com', '💬', 'Discord'], ['web.telegram.org', '✈', 'Telegram'], ['threads.net', '@', 'Threads']];
+const onSite = (rows, host) => rows.some(r => { const s_ = String(r.site || ''); return host === s_ || host.endsWith(`.${s_}`) || s_.endsWith(`.${host}`); });
 export function SignedSites({ cat, d = null, rows = [], onSaved, nested = false, start = null }) {
   const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   useEffect(() => { if (start) run('signin_open', start); }, [start]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1419,10 +1425,11 @@ export function SignedSites({ cat, d = null, rows = [], onSaved, nested = false,
       {big ? <AgentDesktop cat={cat} live={live} onClose={() => setBig(false)} onReopen={() => run('signin_open', live.site)}
         actions={<button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows (and seal anything you downloaded)" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button>} />
         : <SignInFrame live={live} cat={cat} work={work} d={d} />}</div>
-      : <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
+      : <><div className="cwb-social" role="group" aria-label="Social profiles" data-testid="cwb-social">{SOCIALS.map(([h, ic, n], i) => { const on = onSite(rows, h); return <button key={h} type="button" className={`cwb-soc${on ? ' is-on' : ''}`} style={{ '--i': i }} disabled={!!busy} onClick={() => run('signin_open', h)} data-tip={on ? `Signed in to ${n} — tap to open it again (to switch account, sign out first)` : `Sign this agent in to ${n}: a live window opens, you sign in yourself, then Save`} data-testid={`cwb-soc-${n.toLowerCase()}`}><i aria-hidden="true">{ic}</i><b>{n}</b><small>{on ? '✓ signed in' : 'Sign in'}</small></button>; })}</div>
+      <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
         <span className="m-seg">{SIGNIN_PICKS.map(([h, l]) => <button key={h} type="button" className={site === h ? 'active' : ''} onClick={() => setSite(h)} data-tip={`Sign its windows in to ${h}`}>{l}</button>)}</span>
         <input className="m-input" value={site} onChange={e => setSite(e.target.value)} placeholder="any site, e.g. x.com" aria-label="Site to sign in to" data-testid="cwb-signed-site" />
-        <button type="submit" className="m-btn m-go" disabled={!site.trim() || !!busy} data-testid="cwb-signed-open">{busy === 'signin_open' ? 'Opening…' : 'Open + sign in'}</button></form>}
+        <button type="submit" className="m-btn m-go" disabled={!site.trim() || !!busy} data-testid="cwb-signed-open">{busy === 'signin_open' ? 'Opening…' : 'Open + sign in'}</button></form></>}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
   </section>;
 }

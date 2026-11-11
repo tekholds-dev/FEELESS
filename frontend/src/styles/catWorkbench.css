@@ -743,3 +743,16 @@ body.theme-day .eng-list li { background: #f4f7f5; } body.theme-day :is(.eng-her
 body.fx-lite .adb-rows > li { animation: none; } @media (prefers-reduced-motion: reduce) { .adb-rows > li { animation: none; } }
 body.theme-day .adb-rows > li { background: #f4f7f5; border-color: #0000001a; } body.theme-day .adb-stats b, body.theme-day .adb-badge { color: #0b7a3e; text-shadow: none; }
 @media (max-width: 640px) { .adb-row { grid-template-columns: minmax(0, 1fr) auto; } .adb-row em, .adb-row small { display: none; } }
+/* 👥 Social profiles: icon tiles, ✓ when this agent is signed in there */
+.cwb-social { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.cwb-soc { display: grid; justify-items: center; gap: 2px; min-height: 72px; padding: 8px 6px; border-radius: 12px; border: 1px solid #ffffff1a; background: linear-gradient(180deg, #ffffff08, #ffffff02); color: inherit; cursor: pointer;
+  box-shadow: inset 0 1px 0 #ffffff0e; transition: transform .12s ease, border-color .14s ease, background .14s ease; animation: cwbSocIn .24s ease both; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes cwbSocIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.cwb-soc i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; font: 800 15px var(--f-tech, sans-serif); font-style: normal; background: #ffffff10; color: #eafff3; }
+.cwb-soc b { font: 700 11.5px var(--f-ui, sans-serif); } .cwb-soc small { font: 600 9.5px var(--f-mono, monospace); color: #9db4a6; }
+.cwb-soc:hover { transform: translateY(-1px); border-color: #45e48688; } .cwb-soc:active { transform: scale(.97); } .cwb-soc:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.cwb-soc.is-on { border-color: #15d16a; background: linear-gradient(180deg, #15d16a22, #15d16a08); } .cwb-soc.is-on i { background: #15d16a; color: #04100a; } .cwb-soc.is-on small { color: #45e486; }
+body.fx-lite .cwb-soc { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-soc { animation: none; transition: none; } }
+body.theme-day .cwb-soc { background: #fff; border-color: #0000001a; } body.theme-day .cwb-soc i { background: #0000000d; color: #10241a; } body.theme-day .cwb-soc small { color: #3f5a4c; }
+body.theme-day .cwb-soc.is-on { background: #e8f7ee; border-color: #0b7a3e; } body.theme-day .cwb-soc.is-on i { background: #0b7a3e; color: #fff; }
+@media (max-width: 640px) { .cwb-social { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); } }

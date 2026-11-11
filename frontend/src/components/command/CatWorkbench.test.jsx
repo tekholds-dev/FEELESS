@@ -172,6 +172,20 @@ test('⤢ signing in opens the live window BIG (save from inside it; ✕ / Esc s
   act(() => root2.unmount());
 });
 
+test('👥 social profiles: one tile per network, ✓ where this agent is signed in, a tap opens that network\'s live sign-in window', async () => {
+  const { SignedSites } = require('./CatWorkbench');
+  const calls = [];
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push(b); return { ok: true, json: async () => ({ live: 'https://view/hand', site: b.text }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<SignedSites cat={{ id: 'g1' }} rows={[{ site: 'x.com', at: 1, n: 4 }, { site: 'telegram.org', at: 1, n: 2 }]} nested />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(document.querySelectorAll('.cwb-soc')).toHaveLength(10);
+  expect(q('cwb-soc-x').className).toContain('is-on'); expect(q('cwb-soc-telegram').textContent).toContain('signed in'); expect(q('cwb-soc-tiktok').textContent).toContain('Sign in');
+  await act(async () => { q('cwb-soc-tiktok').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'signin_open', text: 'tiktok.com' });
+  act(() => root.unmount());
+});
+
 test('🗄 a trader agent gets the same key drawers (Credentials with signed-in sites, API keys) over its log', async () => {
   sessionStorage.setItem('feeless:safe-place', '1');
   const { TraderCabinet } = require('./CatWorkbench');

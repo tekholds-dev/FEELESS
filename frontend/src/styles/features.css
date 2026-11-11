@@ -449,3 +449,13 @@ body.theme-day .stc li { background: #f6fbf8; border-color: #0000001a; } body.th
 .is-pgfull { position: fixed !important; inset: 0 !important; z-index: 9995 !important; width: auto !important; height: auto !important; max-height: none !important; margin: 0 !important; }
 body.theme-day .pdr-full { background: #fffd; color: #0d2a1b; border-color: #0000002a; }
 @media (prefers-reduced-motion: reduce) { .pdr-full { transition: none; } }
+/* 📐 owner 2026-11-11 "screen can be taller … so much space wasted … and wide": the brief is one compact strip, the doors slimmer, the rail
+   narrower, so the stage (the thing you came to see) gets the height and width */
+.pbr { padding: 7px 12px; gap: 5px; }
+.pbr-best { margin: 0; font-size: 12.5px; line-height: 1.3; }
+.pbr-rows { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 5px; }
+.pbr-rows button { min-height: 36px; padding: 4px 8px; gap: 2px 6px; }
+.pbr-kits { font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdr-doors button { min-height: 34px; padding: 3px 8px; }
+.pdr-main { grid-template-columns: 186px minmax(0, 1fr); gap: 8px; }
+.pdr:has(> .pbr) { height: max(600px, calc(100cqh - 24px)); gap: 6px; }
