@@ -12,16 +12,13 @@
 >   fallback, ~$0.0005 every 1–2 min). Fixed: `_or_call` writes a receipt for EVERY billed call (cat via `_OR_CAT`, incl. cut-off replies),
 >   media jobs + Better images receipt, `ai_router._spend_note` receipts the site fallback (`cat: 'site'`). Test: test_model_receipts.
 >   Not covered: dev scripts that read the key directly (.claude-wip) and the admin fix seat (rep_tools, ~$0.001).
-> - 🎞 **The film (owner's last ask, IN PROGRESS):** everything in `.claude-wip/film/`: `script.json` (9 chapters, 882 words), narration
->   `vo/*.mp3` (edge-tts, en-US-AndrewMultilingualNeural, ~5:16), title cards `card.html` → `raw/c-*.webm`, site footage `rec.py` → `raw/d-*`,
->   phones `raw/p-*`, shots `comp.py` → `shots/*.mp4`, cutter `assemble.py` (crossfades, voice placed per chapter, generated score ducked,
->   loudnorm, 720p chapter clips). **Owner said: NO humans** → edit `assemble.py` PLAN: drop s-trader-*, s-duo-coll, s-woman-iphone,
->   s-couch-galaxy; use s-phones + `img/p-hero.png`, `img/p-fold.png` (green-screen product shots, add to comp.py like s-phones) and the six
->   ads above as chapter 04 (`shots/ad-<kind>.mp4` = footage() of `.claude-wip/ads/out/<kind>.webm`). Then run assemble.py, watch frames,
->   publish an Artifact player (chapters as clips <15 MB, download per clip) per the owner.
+> - 🎞 **The film: DONE 2026-11-11** — 5:35, 9 chapters, no humans (product phones `s-hero`/`s-fold`/`s-phones` + the six ads as ch04),
+>   −16 LUFS. Player: https://claude.ai/artifact/W4K7mti7HkEkf3F1kQSfiF (play all, per-chapter download). Rebuild: `.claude-wip/film/`
+>   `comp.py product` → `assemble.py` → `player.py`. Fixed: multi-screen composites cropped per screen (full-frame layers blacked out
+>   the other phones), score expression commas escaped.
 > - 🖥 Desk: monitors back, idle monitor = newest proof (`newestProofs`); Ad lab on Fee's desk (every attempt, faults, $, video).
 > - 💡 Owner question answered in chat: Emma (Nuance Labs, launched 2026-11-09, video persona, API, no public price) as the PoEco face.
-> **Next:** finish the film → owner's real-money tests (AGT-25 → SITE-14). RPC: only Chainstack lane 1 answers.
+> **Next:** real-money readiness pass (swap buy/sell, Fuse top-up/withdraw, agent send) → 2-3 owner tests. RPC: only Chainstack lane 1 answers.
 
 > ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
 > **Blockers (owner):** 2026-11-10 keys: NEW Helius key (SOLANA_RPC_URL) works live; HELIUS_RPC_URL + _4 still "max usage reached", _3 = 401, Tatum + OnFinality + Alchemy 429. Fixed: `helius_key()` now skips spent keys, Helius's "max usage reached" parks the lane, FeeCat balance reads use the live lane. Pasted notes moved into real names (backup `.env.bak-keys7`): new Jupiter key → JUPITER_API_KEY_2 (price + quote 200), Brave ×2 → BRAVE_API_KEY/_2 (200), SnapTrade PERS → SNAPTRADE_CLIENT_ID/CONSUMER_KEY. Crypto.com pair in the note = 40101 auth failure (left unassigned). Claude in Chrome not connected from the app.
