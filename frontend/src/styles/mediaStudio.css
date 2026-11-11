@@ -21,10 +21,21 @@
 .mst-card.is-failed { border-color: #ff8fa355; } .mst-prompt { margin: 0; font: 500 11.5px/1.45 var(--f-ui); color: #b8cbc0; } .mst-note { color: #9db4a6; }
 .mst-wait { display: grid; gap: 5px; } .mst-wait span { font: 600 11px var(--f-mono); color: #cfe0d6; }
 .mst-wait i { display: block; height: 3px; border-radius: 99px; background: #ffffff14; overflow: hidden; } .mst-wait u { display: block; height: 100%; width: 35%; background: #45e486; animation: mstRun 1.4s ease-in-out infinite; }
+.mst-inline { margin: 8px 0; } .mst-inline .mst-pop { width: 100%; max-height: none; animation: mstIn .18s ease-out; }
+.mst-h { margin: 2px 0 0; font: 800 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: #b8f5d0; } .mst-h small { margin-left: 8px; font: 500 11px var(--f-ui); letter-spacing: 0; text-transform: none; color: #9db4a6; }
+.mst-presets { margin: 0; padding: 0 0 4px; list-style: none; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 172px); gap: 10px; overflow-x: auto; scrollbar-width: thin; scroll-snap-type: x mandatory; }
+.mst-preset { scroll-snap-align: start; display: grid; gap: 5px; align-content: start; padding: 8px; border-radius: 14px; border: 1px solid #45e48633; background: linear-gradient(180deg, #0f1c15, #0a120e); box-shadow: inset 0 1px 0 #ffffff10; animation: mstIn .3s both; animation-delay: calc(var(--i, 0) * 55ms); transition: transform .15s ease, border-color .15s ease; }
+.mst-preset:hover { transform: translateY(-2px); border-color: #45e48699; }
+.mst-thumb { position: relative; display: block; aspect-ratio: 9 / 16; border-radius: 10px; overflow: hidden; background: #000; }
+.mst-thumb video, .mst-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; } .mst-thumb em { position: absolute; top: 6px; left: 6px; font-style: normal; font-size: 13px; filter: drop-shadow(0 1px 2px #000); }
+.mst-preset b { font: 800 12.5px var(--f-ui); } .mst-preset small { font: 500 10.5px/1.35 var(--f-ui); color: #9db4a6; min-height: 28px; }
+.mst-meta { display: flex; flex-wrap: wrap; gap: 4px; } .mst-meta i { font: 700 9.5px var(--f-mono); font-style: normal; padding: 2px 6px; border-radius: 99px; background: #45e48618; color: #b8f5d0; }
+.mst-preset .m-btn { min-height: 32px; width: 100%; } .mst-open.is-on { border-color: #45e486; color: #45e486; }
 @keyframes mstIn { from { transform: translateY(8px); } to { transform: none; } }
 @keyframes mstRun { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
-body.fx-lite :is(.mst-pop, .mst-steps li, .mst-models button) { animation: none; } body.fx-lite .mst-wait u { animation: none; width: 100%; opacity: .5; }
-@media (prefers-reduced-motion: reduce) { :is(.mst-pop, .mst-steps li, .mst-models button) { animation: none; } .mst-wait u { animation: none; width: 100%; opacity: .5; } .mst-models button { transition: none; } }
+body.fx-lite :is(.mst-pop, .mst-steps li, .mst-models button, .mst-preset) { animation: none; } body.fx-lite .mst-wait u { animation: none; width: 100%; opacity: .5; }
+@media (prefers-reduced-motion: reduce) { :is(.mst-pop, .mst-steps li, .mst-models button, .mst-preset) { animation: none; } .mst-preset { transition: none; } .mst-wait u { animation: none; width: 100%; opacity: .5; } .mst-models button { transition: none; } }
 body.theme-day .mst-pop { background: #fff; color: #10241a; border-color: #0f7a4333; box-shadow: 0 6px 28px #0000002a; } body.theme-day :is(.mst-steps li, .mst-models button) { background: #f5f8f6; border-color: #00000012; }
+body.theme-day .mst-preset { background: #f5f8f6; border-color: #0f7a4333; } body.theme-day :is(.mst-h, .mst-meta i) { color: #0a6b3c; } body.theme-day .mst-preset small { color: #3b5246; }
 body.theme-day .mst-card { background: #f5f8f6; border-color: #0f7a4333; } body.theme-day :is(.mst-lead, .mst-prompt, .mst-wait span) { color: #24382e; }
 @media (max-width: 640px) { .mst-pop { padding: 12px; } .mst-steps li { grid-template-columns: 26px minmax(0, 1fr); } .mst-steps li .m-btn { grid-column: 2; justify-self: start; } .mst-models { grid-template-columns: minmax(0, 1fr); } }

@@ -1,0 +1,280 @@
+{
+ "models": [
+  {
+   "id": "fal-flux-schnell",
+   "provider": "fal",
+   "providerName": "fal.ai",
+   "kind": "image",
+   "label": "FLUX.1 schnell",
+   "why": "Fast, cheap stills: thumbnails, post art, a face to test",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "fal-wan22-5b",
+   "provider": "fal",
+   "providerName": "fal.ai",
+   "kind": "video",
+   "label": "Wan 2.2 5B",
+   "why": "The cheap video: 5 s, 720p",
+   "usd": 0.15,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "fal-wan22-a14b",
+   "provider": "fal",
+   "providerName": "fal.ai",
+   "kind": "video",
+   "label": "Wan 2.2 A14B",
+   "why": "Sharper motion than 5B, still cheap",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "fal-wan25",
+   "provider": "fal",
+   "providerName": "fal.ai",
+   "kind": "video",
+   "label": "Wan 2.5",
+   "why": "Newer Wan, better faces and motion",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "fal-kling25",
+   "provider": "fal",
+   "providerName": "fal.ai",
+   "kind": "video",
+   "label": "Kling 2.5 Turbo Pro",
+   "why": "Top quality for a hero clip",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "rep-flux-schnell",
+   "provider": "replicate",
+   "providerName": "Replicate",
+   "kind": "image",
+   "label": "FLUX.1 schnell",
+   "why": "Fast, cheap stills",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "rep-wan22-fast",
+   "provider": "replicate",
+   "providerName": "Replicate",
+   "kind": "video",
+   "label": "Wan 2.2 fast",
+   "why": "The cheap video: 480p, fast",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "rep-wan25",
+   "provider": "replicate",
+   "providerName": "Replicate",
+   "kind": "video",
+   "label": "Wan 2.5",
+   "why": "Newer Wan, better faces and motion",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "rep-seedance-lite",
+   "provider": "replicate",
+   "providerName": "Replicate",
+   "kind": "video",
+   "label": "Seedance 1 Lite",
+   "why": "Smooth, cheap realistic motion",
+   "usd": null,
+   "ready": false,
+   "sample": null,
+   "secs": null
+  },
+  {
+   "id": "or-nano-banana",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "image",
+   "label": "Nano Banana 2.1",
+   "why": "Memes, captions, split screens: the text comes out right",
+   "usd": 0.04,
+   "ready": true,
+   "sample": "/media/samples/ai-will-replace-you.jpeg",
+   "secs": 12
+  },
+  {
+   "id": "or-flash-image",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "image",
+   "label": "Gemini 3.1 Flash Image",
+   "why": "Product-shot look, clean renders",
+   "usd": 0.07,
+   "ready": true,
+   "sample": "/media/samples/ai-vs-handmade.jpg",
+   "secs": 9
+  },
+  {
+   "id": "or-grok-lite",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Grok Imagine 1.5 lite",
+   "why": "The cheap viral clip: 5 s, 720p, vertical, ~25 s to make",
+   "usd": 0.15,
+   "ready": true,
+   "sample": "/media/samples/baby-dance.mp4",
+   "secs": 25
+  },
+  {
+   "id": "or-veo-lite",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Veo 3.1 lite",
+   "why": "With its own sound (music, voice): 4 s, 720p",
+   "usd": 0.2,
+   "ready": true,
+   "sample": "/media/samples/hotel-lobby.mp4",
+   "secs": 25
+  },
+  {
+   "id": "or-wan3",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Wan 3.0",
+   "why": "Smooth camera moves, cinematic: 5 s, 480p",
+   "usd": 0.25,
+   "ready": true,
+   "sample": "/media/samples/faceless-avatar.mp4",
+   "secs": 66
+  },
+  {
+   "id": "or-kling3",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Kling 3.0",
+   "why": "The hero clip: best people and motion, 5 s",
+   "usd": 0.42,
+   "ready": true,
+   "sample": null,
+   "secs": null
+  }
+ ],
+ "linked": [
+  "openrouter"
+ ],
+ "house": false,
+ "pick": {
+  "image": "or-nano-banana",
+  "video": "or-grok-lite"
+ },
+ "providers": {
+  "fal": {
+   "name": "fal.ai",
+   "signup": "https://fal.ai/login",
+   "keys": "https://fal.ai/dashboard/keys",
+   "billing": "https://fal.ai/dashboard/billing"
+  },
+  "replicate": {
+   "name": "Replicate",
+   "signup": "https://replicate.com/signin",
+   "keys": "https://replicate.com/account/api-tokens",
+   "billing": "https://replicate.com/account/billing"
+  },
+  "openrouter": {
+   "name": "OpenRouter",
+   "signup": "https://openrouter.ai",
+   "keys": "https://openrouter.ai/settings/keys",
+   "billing": "https://openrouter.ai/settings/credits"
+  }
+ },
+ "presets": [
+  {
+   "id": "baby-dance",
+   "label": "AI baby dance",
+   "kind": "video",
+   "model": "or-grok-lite",
+   "trend": "TikTok, Nov 2026: one photo does the routine",
+   "prompt": "Vertical phone video, viral \"AI baby dance\": a chubby smiling baby in a tiny neon green hoodie does a bouncy hip-hop dance on a sunny kitchen floor, handheld look. Theme: {idea}",
+   "sample": "/media/samples/baby-dance.mp4",
+   "secs": 25,
+   "usd": 0.15,
+   "modelLabel": "Grok Imagine 1.5 lite",
+   "ready": true
+  },
+  {
+   "id": "hotel-lobby",
+   "label": "Hotel lobby booth",
+   "kind": "video",
+   "model": "or-veo-lite",
+   "trend": "TikTok: pets and friends dropped into a lobby booth",
+   "prompt": "Vertical phone video, viral \"hotel lobby\" format: a cool cat in tiny gold sunglasses sits in a velvet booth of a fancy hotel lobby at night, turns to camera and nods to the beat, lounge music. Theme: {idea}",
+   "sample": "/media/samples/hotel-lobby.mp4",
+   "secs": 25,
+   "usd": 0.2,
+   "modelLabel": "Veo 3.1 lite",
+   "ready": true
+  },
+  {
+   "id": "faceless-avatar",
+   "label": "Faceless explainer",
+   "kind": "video",
+   "model": "or-wan3",
+   "trend": "Faceless AI channels: one consistent avatar, no face on camera",
+   "prompt": "Vertical faceless explainer video: a sleek glowing green robot cat in a dark studio points at a floating neon chart, camera pushes in, cinematic. About: {idea}",
+   "sample": "/media/samples/faceless-avatar.mp4",
+   "secs": 66,
+   "usd": 0.25,
+   "modelLabel": "Wan 3.0",
+   "ready": true
+  },
+  {
+   "id": "ai-vs-handmade",
+   "label": "AI vs handmade",
+   "kind": "image",
+   "model": "or-flash-image",
+   "trend": "TikTok split screens set to \"Dame Hombro\"",
+   "prompt": "Vertical 9:16 split screen, viral \"AI vs HANDMADE\": left a glossy AI render, right the same thing made by hand on a messy desk, bold caption bar. Subject: {idea}",
+   "sample": "/media/samples/ai-vs-handmade.jpg",
+   "secs": 9,
+   "usd": 0.07,
+   "modelLabel": "Gemini 3.1 Flash Image",
+   "ready": true
+  },
+  {
+   "id": "ai-will-replace-you",
+   "label": "AI will replace you",
+   "kind": "image",
+   "model": "or-nano-banana",
+   "trend": "Reels: the polished AI demo vs messy real life",
+   "prompt": "Vertical 9:16 meme photo, \"AI will replace you\": top half a flawless AI demo captioned \"AI DEMO\", bottom half the messy real version captioned \"REAL LIFE\". Subject: {idea}",
+   "sample": "/media/samples/ai-will-replace-you.jpeg",
+   "secs": 12,
+   "usd": 0.04,
+   "modelLabel": "Nano Banana 2.1",
+   "ready": true
+  }
+ ],
+ "houseLeftUsd": null
+}

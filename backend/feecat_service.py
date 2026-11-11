@@ -6708,6 +6708,31 @@ def _media_resume(cat_id, doc):
                 return
 
 
+MEDIA_HOUSE_PATH = DATA_DIR / 'media_house.json'   # {'YYYY-MM-DD': usd booked on FEELESS's OpenRouter key}
+
+
+def _media_house(cat):
+    """🔒 Only a staff agent (its owner is a FEELESS admin wallet, or the leader) may make media on FEELESS's own OpenRouter key."""
+    return bool(os.environ.get('OPENROUTER_API_KEY', '').strip()) and (bool(cat.get('isLeader')) or owner_wallet(cat) in owner_wallets())
+
+
+def _media_house_spent(day=None):
+    try:
+        return float(json.loads(MEDIA_HOUSE_PATH.read_text()).get(day or time.strftime('%Y-%m-%d'), 0))
+    except (OSError, ValueError):
+        return 0.0
+
+
+def _media_house_add(usd):
+    d = time.strftime('%Y-%m-%d')
+    try:
+        book = json.loads(MEDIA_HOUSE_PATH.read_text())
+    except (OSError, ValueError):
+        book = {}
+    book = {k: v for k, v in book.items() if k >= time.strftime('%Y-%m-%d', time.localtime(time.time() - 30 * 86400))}
+    book[d] = round(float(book.get(d, 0)) + usd, 4); MEDIA_HOUSE_PATH.write_text(json.dumps(book))
+
+
 async def _media_run(cat_id, ws_id, mid):
     """🎬 One image or video: submit on the owner's own key, poll, keep the file. Every step is written to the folder, so the page shows the truth."""
     if mid in _MEDIA_LIVE:
@@ -6719,13 +6744,26 @@ async def _media_run(cat_id, ws_id, mid):
             return
         keep = json.loads(json.dumps(m_)); md = m_['media']
         cat = (_load()['cats'].get(cat_id) or {})
-        key = _ck.key_for(cat, md['provider'], data_dir=DATA_DIR)
+        key = _ck.key_for(cat, md['provider'], data_dir=DATA_DIR) or (os.environ.get('OPENROUTER_API_KEY', '').strip() if md.get('house') and _media_house(cat) else None)
         if not key:
             _media_set(cat_id, ws_id, mid, keep, status='failed', why=f"{_mg.PROVIDERS[md['provider']]['name']} is not linked any more."); return
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as h:
+            if md['provider'] == 'openrouter' and md['kind'] == 'image':   # 🖼 OpenRouter images come back in one answer (base64), no job to poll
+                r = await h.post('https://openrouter.ai/api/v1/chat/completions', timeout=180, headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
+                                 json={'model': md['model'], 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': md['prompt']}]})
+                j_ = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
+                im_ = (((j_.get('choices') or [{}])[0].get('message') or {}).get('images') or [{}])[0].get('image_url', {}).get('url', '')
+                mt_ = re.match(r'data:image/(png|jpe?g|webp);base64,(.+)', im_, re.S)
+                if not mt_:
+                    _media_set(cat_id, ws_id, mid, keep, status='failed', why=f"{r.status_code}: {str((j_.get('error') or {}).get('message') if isinstance(j_.get('error'), dict) else 'no picture came back')[:160]}"); return
+                raw_ = base64.b64decode(mt_.group(2)); ext_ = 'jpg' if mt_.group(1).startswith('jp') else mt_.group(1)
+                _media_dir().joinpath(cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{mid}.{ext_}').write_bytes(raw_)
+                _media_set(cat_id, ws_id, mid, keep, status='done', url=f'/api/cats/media/{cat_id}/{mid}.{ext_}', kept=True, bytes=len(raw_), doneAt=round(time.time()),
+                           **({'paidUsd': round(float((j_.get('usage') or {}).get('cost')), 4)} if (j_.get('usage') or {}).get('cost') is not None else {}))
+                return
             hd = md.get('handle')
             if not hd:
-                meth, url, heads, body = _mg.submit_req(md['provider'], md['model'], md['prompt'], key)
+                meth, url, heads, body = _mg.submit_req(md['provider'], md['model'], md['prompt'], key, md.get('modelId'))
                 r = await h.request(meth, url, headers=heads, json=body)
                 try:
                     hd = _mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
@@ -6745,13 +6783,16 @@ async def _media_run(cat_id, ws_id, mid):
                 if why != md.get('step'):
                     md['step'] = why; _media_set(cat_id, ws_id, mid, keep, step=why)
                 await asyncio.sleep(_mg.POLL_S)
-            r = await h.get(hd['result'], headers=_mg.auth(md['provider'], key))
-            src = _mg.output_url(md['provider'], md['kind'], r.json() if r.status_code == 200 else {})
+            if md['provider'] == 'openrouter':
+                src = hd['result']   # its /content link needs the key (not presigned)
+            else:
+                r = await h.get(hd['result'], headers=_mg.auth(md['provider'], key))
+                src = _mg.output_url(md['provider'], md['kind'], r.json() if r.status_code == 200 else {})
             if not src:
                 _media_set(cat_id, ws_id, mid, keep, status='failed', why='It finished without a file.'); return
             _media_dir().joinpath(cat_id).mkdir(parents=True, exist_ok=True)
             got = 0; tmp = _media_dir() / cat_id / f'{mid}.part'
-            async with h.stream('GET', src) as f:   # the file's own link: no key sent to it
+            async with h.stream('GET', src, **({'headers': _mg.auth('openrouter', key)} if md['provider'] == 'openrouter' else {})) as f:   # a provider's file link gets no key; OpenRouter's /content needs it
                 ext = _mg.ext_of(md['kind'], src, f.headers.get('content-type', ''))
                 with tmp.open('wb') as out:
                     async for chunk in f.aiter_bytes():
@@ -8725,25 +8766,33 @@ async def cat_work(cat_id: str, p: WorkPayload):
         f_['manual'] = {'venue': venue_, 'receipt': link_ or None, 'resultUsd': usd_, 'note': str(p.text or '').strip()[:200], 'at': round(time.time()), 'status': 'claim'}
         keep_owned(cat); _save(store)
         return {'powFolders': (cat.get('powFolders') or [])[::-1]}
-    if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked fal.ai / Replicate
+    if p.op == 'media_models':   # 🎬 the picker: which image / video models run on the owner's linked OpenRouter / fal.ai / Replicate (+ the viral presets)
         linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
-        return _mg.catalog(linked)
+        return {**_mg.catalog(linked, _media_house(cat)), 'houseLeftUsd': round(max(0.0, _mg.HOUSE_DAILY_USD - _media_house_spent()), 2) if _media_house(cat) else None}
     if p.op == 'media_make':   # 🎬 one image or video in a PoC folder, on the owner's own key; the page polls ws_open for its state
         doc_ = _ws_load(cat_id, p.job)
         if not doc_ or doc_.get('kind') != 'content':
             raise HTTPException(400, 'Images and video are made in a PoC folder.')
         linked = {r['provider'] for r in _ck.public(cat) if r.get('saved') and r['provider'] in _mg.PROVIDERS}
         t_ = p.tools if isinstance(p.tools, dict) else {}
+        house_ = _media_house(cat)
         try:
-            mid_, prov_, model_, kind_ = _mg.choose(str(t_.get('model') or '') or None, str(t_.get('kind') or ''), linked)
-            prompt_ = _mg.clean_prompt(p.text)
+            text_, want_model, want_kind = (_mg.fill(str(t_['preset']), p.text) if t_.get('preset') else (p.text, str(t_.get('model') or '') or None, str(t_.get('kind') or '')))
+            mid_, prov_, model_, kind_ = _mg.choose(want_model, want_kind, linked, house_)
+            prompt_ = _mg.clean_prompt(text_)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        on_house = prov_ == 'openrouter' and 'openrouter' not in linked
+        if on_house and _media_house_spent() + float(_mg.MODELS[mid_][5] or 0.5) > _mg.HOUSE_DAILY_USD:
+            raise HTTPException(429, f'FEELESS\'s ${_mg.HOUSE_DAILY_USD:.0f} a day for media is used up. Link your own OpenRouter key, or try tomorrow.')
         if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
             raise HTTPException(429, 'Three are already making. Wait for one to finish.')
         jid = 'm' + uuid.uuid4().hex[:12]; row_ = _mg.MODELS[mid_]
         doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': prompt_, 'at': round(time.time()),
-            'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(time.time())}}]
+            'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(time.time()),
+                      **({'house': True} if on_house else {}), **({'preset': str(t_['preset'])} if t_.get('preset') else {})}}]
+        if on_house:
+            _media_house_add(float(row_[5] or 0.5))   # booked up front at the list price, so two clicks can't both slip under the cap
         _ws_save(cat_id, doc_)
         asyncio.create_task(_media_run(cat_id, p.job, jid))
         return {'doc': _ws_view(cat_id, p.job)}

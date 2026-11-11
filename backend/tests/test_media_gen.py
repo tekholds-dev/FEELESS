@@ -19,7 +19,7 @@ def test_picks_only_what_a_linked_provider_runs():
     assert all(r['ready'] == (r['provider'] == 'fal') for r in c['models'])
     assert mg.catalog(set())['pick'] == {'image': None, 'video': None}
     assert mg.choose(None, 'video', {'replicate'})[:3] == ('rep-wan22-fast', 'replicate', 'wan-video/wan-2.2-t2v-fast')
-    for args, why in (((None, 'video', set()), 'Link fal.ai or Replicate'), (('fal-wan22-5b', 'video', {'replicate'}), 'Link fal.ai first'),
+    for args, why in (((None, 'video', set()), 'Link OpenRouter, fal.ai or Replicate'), (('fal-wan22-5b', 'video', {'replicate'}), 'Link fal.ai first'),
                       (('fal-flux-schnell', 'video', {'fal'}), 'makes images'), ((None, 'audio', {'fal'}), 'image or video')):
         with pytest.raises(ValueError, match=why):
             mg.choose(*args)
@@ -112,7 +112,7 @@ def test_guards_and_plain_failures(monkeypatch, tmp_path):
     post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', **kw})
     row = fs._feat.new_folder(store['cats']['g'], 'content', 'X', 1.0); fs._ws_save('g', fs._feat.new_doc(row))
     r = post(op='media_make', job=row['id'], text='a rat', tools={'kind': 'video'})
-    assert r.status_code == 400 and 'Link fal.ai or Replicate' in r.json()['detail']   # nothing linked: told how, nothing queued
+    assert r.status_code == 400 and 'Link OpenRouter, fal.ai or Replicate' in r.json()['detail']   # nothing linked: told how, nothing queued
     b = fs._feat.new_folder(store['cats']['g'], 'build', 'B', 1.0); fs._ws_save('g', fs._feat.new_doc(b))
     assert post(op='media_make', job=b['id'], text='a rat', tools={'kind': 'image'}).status_code == 400   # PoC folders only
     ws = _poc(fs, store, tmp_path, REP_KEY, 'replicate'); real = fs._media_run

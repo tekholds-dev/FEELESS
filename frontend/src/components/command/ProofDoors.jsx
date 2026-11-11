@@ -17,7 +17,7 @@ const PROOFS = {
   pob: { ic: '🎲', t: 'PoB', full: 'Proof of Bids', line: 'Picks on any game or market, graded by the scoreboard, never by the mind.', folders: 'pobFolders', cmd: 'file a pob best NFL picks', go: 'Start a PoB',
     caps: [['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof']] },
   poc: { ic: '📣', t: 'PoC', full: 'Proof of Content', line: 'From what people read today to a post, a cut, an image or a 3D commercial.', folders: 'pocFolders', make: 'content', go: 'Start a PoC',
-    caps: [['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post']] },
+    caps: [['viral', '🔥', 'Viral AI clips', 'Real clips made today on 5 models, the formats trending on TikTok'], ['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post']] },
   poe: { ic: '📒', t: 'PoEco', full: 'Proof of Eco', line: 'Its books kept true: income, costs and tax set aside, every month drawn and hashed.', folders: 'poeFolders', open: 'poe', go: 'Open PoEco',
     caps: [['books', '📒', 'Its books, drawn', 'Income against costs, month by month, from its real books']] },
 };
@@ -110,10 +110,25 @@ function VideoFilm() {
     <div className="flm-time" aria-hidden="true"><span>{CLIPS.map(([n], i) => <i key={n} className={`${step >= i + 1 ? 'is-in' : ''}${i === on && step >= 3 ? ' is-on' : ''}`}>{step >= i + 1 ? n : ''}</i>)}</span><span className="is-words">{step >= 4 ? CLIPS.map(([n, , w]) => <b key={n}>{w}</b>) : null}</span><u style={{ transform: `translateX(${step >= 3 ? ((at % 12) / 12) * 100 : 0}%)` }} /></div></div>
     <ol className="flm-log prp-side">{CUT_LOG.map((l, i) => <li key={l} className={i === step ? 'is-on' : i < step ? 'is-done' : ''}>{l}</li>)}</ol></div>;
 }
+// 🔥 Viral AI clips (owner 2026-11-10: "best img/video… real and relevant to the viral AI videos today"): the formats trending on
+// TikTok / Reels, each a REAL result made on its model (OpenRouter, 2026-11-10), with the model, its price and how long it took.
+// The list is the server's own (media_models presets), so the Showcase and the in-chat maker can never disagree.
+function ViralReel({ cat, work }) {
+  const [rows, setRows] = useState(null); const [on, setOn] = useState(0);
+  useEffect(() => { let live = true; if (cat?.id && work) work(cat.id, { op: 'media_models' }).then(d => { if (live) setRows((d?.presets || []).filter(x => x.sample)); }).catch(() => live && setRows([])); else setRows([]); return () => { live = false; }; }, [cat?.id, work]);
+  useEffect(() => { if (!rows?.length) return undefined; const t = setInterval(() => { if (!document.hidden) setOn(i => (i + 1) % rows.length); }, 6000); return () => clearInterval(t); }, [rows]);
+  if (!rows?.length) return <div className="prp is-wide pdr-viral" data-testid="pdr-viral"><p className="dbt-none pdr-wait">{rows ? 'No clips yet.' : 'Opening it…'}</p></div>;
+  const x = rows[on % rows.length];
+  return <div className="prp is-wide pdr-viral" data-testid="pdr-viral"><Tag t="real AI results, made 2026-11-10" />
+    <div className="prp-main pdv-stage">{x.kind === 'video' ? <video key={x.id} src={x.sample} autoPlay muted loop playsInline preload="metadata" aria-label={`${x.label}, made on ${x.modelLabel}`} />
+      : <img key={x.id} src={x.sample} alt={`${x.label}, made on ${x.modelLabel}`} decoding="async" />}
+      <span className="pdv-cap"><b>{x.label}</b><small>{x.modelLabel} · ${Number(x.usd).toFixed(2)}{x.secs ? ` · ${x.secs}s to make` : ''}</small></span></div>
+    <ol className="flm-log prp-side pdv-list">{rows.map((r, i) => <li key={r.id} className={i === on ? 'is-on' : ''}><button type="button" onClick={() => setOn(i)} data-testid={`pdv-${r.id}`} data-tip={r.trend}>{r.kind === 'video' ? '🎬' : '🖼'} {r.label}<small>{r.trend}</small></button></li>)}</ol></div>;
+}
 // 🖼 AI makes an image: a real generated picture comes into focus, then the thumbnail is built on it, layer by layer.
 const IMG_LOG = ['Writes the prompt from your ask', 'Generates it with a free image model', 'Crops for a phone screen', 'Adds 3 big words', 'Adds the accent', 'Saves 3 versions to test'];
 function ImageFilm() {
-  const [at] = useSteps(IMG_LOG.length, 2600); const pics = ['/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg', '/showcase/night-run.jpg'];
+  const [at] = useSteps(IMG_LOG.length, 2600); const pics = ['/media/samples/ai-vs-handmade.jpg', '/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg'];   // first = a real Gemini 3.1 Flash Image result (2026-11-10)
   return <div className="prp is-wide" data-testid="pdr-image"><Tag t="a real generated picture" /><div className="prp-main flm-art"><img src={pics[0]} alt="" className={at === 0 ? 'is-blur' : at === 1 ? 'is-soft' : at >= 2 ? 'is-crop' : ''} />{at === 0 ? <p className="flm-prompt">dramatic rocket launch at dusk, cinematic, wide shot</p> : null}{at >= 3 ? <h4 className="flm-big">We <em>left</em> at dusk</h4> : null}{at >= 4 ? <b className="flm-pill">NEW</b> : null}{at >= 5 ? <span className="flm-vers">{pics.map(p => <img key={p} src={p} alt="" loading="lazy" />)}</span> : null}</div>
     <ol className="flm-log prp-side">{IMG_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
 }
@@ -158,6 +173,7 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     if (now === 'demo') return <div className="pdr-agd" data-testid="pdr-agent"><AgentDemo kind="trading" mode="discuss" /></div>;
     if (now === 'replay') return k === 'pow' ? <PowReplay /> : k === 'pop' ? <PerpReplay kits={kits.filter(x => x.id === 'fl-liq')} /> : k === 'pob' ? <PickReplay /> : <StoryReplay />;
     if (now === 'chart') return k === 'pow' ? <TradeDemo t={trade} /> : <PerpDemo kits={kits.filter(x => x.id === 'fl-liq')} />;
+    if (now === 'viral') return <ViralReel cat={cat} work={work} />;
     if (now === 'video') return <VideoFilm />;
     if (now === 'image') return <ImageFilm />;
     if (now === 'parlay') return <ParlayReplay />;

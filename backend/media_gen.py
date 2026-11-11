@@ -1,4 +1,5 @@
-"""🎬 AI images and video for PoC (owner 2026-11-10): runs on the USER'S OWN fal.ai or Replicate key, sealed on the agent like every
+"""🎬 AI images and video for PoC (owner 2026-11-10): runs on the USER'S OWN OpenRouter, fal.ai or Replicate key (staff agents may use FEELESS's
+OpenRouter key, capped at HOUSE_DAILY_USD a day), sealed on the agent like every
 API-drawer key. FEELESS never pays for a frame and never sees the key on the page. A job is submitted, polled until done, and its file
 is kept by FEELESS so a provider link that expires never breaks a post.
 
@@ -8,6 +9,7 @@ import re
 PROVIDERS = {
     'fal': {'name': 'fal.ai', 'signup': 'https://fal.ai/login', 'keys': 'https://fal.ai/dashboard/keys', 'billing': 'https://fal.ai/dashboard/billing'},
     'replicate': {'name': 'Replicate', 'signup': 'https://replicate.com/signin', 'keys': 'https://replicate.com/account/api-tokens', 'billing': 'https://replicate.com/account/billing'},
+    'openrouter': {'name': 'OpenRouter', 'signup': 'https://openrouter.ai', 'keys': 'https://openrouter.ai/settings/keys', 'billing': 'https://openrouter.ai/settings/credits'},
 }
 # id → (provider, model, kind, label, what it is for, $ per run or None). Checked live 2026-11-10 (fal: Wan 2.2 5B "$0.15 per video", 5 s 720p).
 MODELS = {
@@ -20,8 +22,40 @@ MODELS = {
     'rep-wan22-fast': ('replicate', 'wan-video/wan-2.2-t2v-fast', 'video', 'Wan 2.2 fast', 'The cheap video: 480p, fast', None),
     'rep-wan25': ('replicate', 'wan-video/wan-2.5-t2v', 'video', 'Wan 2.5', 'Newer Wan, better faces and motion', None),
     'rep-seedance-lite': ('replicate', 'bytedance/seedance-1-lite', 'video', 'Seedance 1 Lite', 'Smooth, cheap realistic motion', None),
+    # 🎬 OpenRouter (owner 2026-11-10): one key for every image + video model. Prices = OpenRouter's own list (2026-11-10) for the settings below.
+    'or-nano-banana': ('openrouter', 'google/gemini-nano-banana-2.1', 'image', 'Nano Banana 2.1', 'Memes, captions, split screens: the text comes out right', 0.04),
+    'or-flash-image': ('openrouter', 'google/gemini-3.1-flash-image', 'image', 'Gemini 3.1 Flash Image', 'Product-shot look, clean renders', 0.07),
+    'or-grok-lite': ('openrouter', 'x-ai/grok-imagine-video-1.5-lite', 'video', 'Grok Imagine 1.5 lite', 'The cheap viral clip: 5 s, 720p, vertical, ~25 s to make', 0.15),
+    'or-veo-lite': ('openrouter', 'google/veo-3.1-lite', 'video', 'Veo 3.1 lite', 'With its own sound (music, voice): 4 s, 720p', 0.20),
+    'or-wan3': ('openrouter', 'alibaba/wan-3.0', 'video', 'Wan 3.0', 'Smooth camera moves, cinematic: 5 s, 480p', 0.25),
+    'or-kling3': ('openrouter', 'kwaivgi/kling-v3.0-std', 'video', 'Kling 3.0', 'The hero clip: best people and motion, 5 s', 0.42),
 }
-DEFAULT = {('fal', 'image'): 'fal-flux-schnell', ('fal', 'video'): 'fal-wan22-5b', ('replicate', 'image'): 'rep-flux-schnell', ('replicate', 'video'): 'rep-wan22-fast'}
+# per-model request settings for OpenRouter's /videos, and what we saw when we ran it (2026-11-10, real calls, real files in public/media/samples)
+OR_VIDEO = {
+    'or-grok-lite': {'duration': 5, 'resolution': '720p', 'aspect_ratio': '9:16'},
+    'or-veo-lite': {'duration': 4, 'resolution': '720p', 'aspect_ratio': '9:16', 'generate_audio': True},
+    'or-wan3': {'duration': 5, 'resolution': '480p', 'aspect_ratio': '9:16'},
+    'or-kling3': {'duration': 5, 'resolution': '720p', 'aspect_ratio': '9:16'},
+}
+TESTED = {'or-grok-lite': ('/media/samples/baby-dance.mp4', 25), 'or-veo-lite': ('/media/samples/hotel-lobby.mp4', 25), 'or-wan3': ('/media/samples/faceless-avatar.mp4', 66),
+          'or-flash-image': ('/media/samples/ai-vs-handmade.jpg', 9), 'or-nano-banana': ('/media/samples/ai-will-replace-you.jpeg', 12)}
+# 🔥 what is going viral on TikTok / Reels (Nov 2026 trend charts) as a FEELESS twist: {idea} = the folder's own text
+PRESETS = [
+    {'id': 'baby-dance', 'label': 'AI baby dance', 'kind': 'video', 'model': 'or-grok-lite', 'trend': 'TikTok, Nov 2026: one photo does the routine',
+     'prompt': 'Vertical phone video, viral "AI baby dance": a chubby smiling baby in a tiny neon green hoodie does a bouncy hip-hop dance on a sunny kitchen floor, handheld look. Theme: {idea}'},
+    {'id': 'hotel-lobby', 'label': 'Hotel lobby booth', 'kind': 'video', 'model': 'or-veo-lite', 'trend': 'TikTok: pets and friends dropped into a lobby booth',
+     'prompt': 'Vertical phone video, viral "hotel lobby" format: a cool cat in tiny gold sunglasses sits in a velvet booth of a fancy hotel lobby at night, turns to camera and nods to the beat, lounge music. Theme: {idea}'},
+    {'id': 'faceless-avatar', 'label': 'Faceless explainer', 'kind': 'video', 'model': 'or-wan3', 'trend': 'Faceless AI channels: one consistent avatar, no face on camera',
+     'prompt': 'Vertical faceless explainer video: a sleek glowing green robot cat in a dark studio points at a floating neon chart, camera pushes in, cinematic. About: {idea}'},
+    {'id': 'ai-vs-handmade', 'label': 'AI vs handmade', 'kind': 'image', 'model': 'or-flash-image', 'trend': 'TikTok split screens set to "Dame Hombro"',
+     'prompt': 'Vertical 9:16 split screen, viral "AI vs HANDMADE": left a glossy AI render, right the same thing made by hand on a messy desk, bold caption bar. Subject: {idea}'},
+    {'id': 'ai-will-replace-you', 'label': 'AI will replace you', 'kind': 'image', 'model': 'or-nano-banana', 'trend': 'Reels: the polished AI demo vs messy real life',
+     'prompt': 'Vertical 9:16 meme photo, "AI will replace you": top half a flawless AI demo captioned "AI DEMO", bottom half the messy real version captioned "REAL LIFE". Subject: {idea}'},
+]
+DEFAULT = {('fal', 'image'): 'fal-flux-schnell', ('fal', 'video'): 'fal-wan22-5b', ('replicate', 'image'): 'rep-flux-schnell', ('replicate', 'video'): 'rep-wan22-fast',
+           ('openrouter', 'image'): 'or-nano-banana', ('openrouter', 'video'): 'or-grok-lite'}
+ORDER = ('fal', 'replicate', 'openrouter')
+HOUSE_DAILY_USD = 2.0   # 🔒 staff agents on FEELESS's own OpenRouter key: at most this much a day, then it refuses
 KINDS = ('image', 'video')
 MAX_PROMPT = 1500
 MAX_BYTES = 120 * 1024 * 1024
@@ -30,29 +64,44 @@ GIVE_UP_S = 15 * 60
 EXT = {'image': ('png', 'jpg', 'jpeg', 'webp'), 'video': ('mp4', 'webm', 'mov')}
 
 
-def catalog(linked):
-    """The picker: every model, which can run now (its provider is linked), the cheap default per kind. Pure."""
-    rows = [{'id': k, 'provider': p, 'providerName': PROVIDERS[p]['name'], 'kind': kd, 'label': lb, 'why': why, 'usd': usd, 'ready': p in linked}
+def _ready(p, linked, house):
+    return p in linked or (p == 'openrouter' and house)
+
+
+def catalog(linked, house=False):
+    """The picker: every model (which can run now, its sample and seconds when we ran it), the viral presets, the default per kind. Pure."""
+    rows = [{'id': k, 'provider': p, 'providerName': PROVIDERS[p]['name'], 'kind': kd, 'label': lb, 'why': why, 'usd': usd, 'ready': _ready(p, linked, house),
+             'sample': (TESTED.get(k) or (None,))[0], 'secs': (TESTED.get(k) or (None, None))[1]}
             for k, (p, _m, kd, lb, why, usd) in MODELS.items()]
-    pick = {kd: next((DEFAULT[(p, kd)] for p in ('fal', 'replicate') if p in linked), None) for kd in KINDS}
-    return {'models': rows, 'linked': sorted(linked), 'pick': pick, 'providers': PROVIDERS}
+    pick = {kd: next((DEFAULT[(p, kd)] for p in ORDER if _ready(p, linked, house)), None) for kd in KINDS}
+    presets = [{**x, 'sample': (TESTED.get(x['model']) or (None,))[0], 'secs': (TESTED.get(x['model']) or (None, None))[1], 'usd': MODELS[x['model']][5], 'modelLabel': MODELS[x['model']][3],
+                'ready': _ready(MODELS[x['model']][0], linked, house)} for x in PRESETS]
+    return {'models': rows, 'linked': sorted(linked), 'house': bool(house), 'pick': pick, 'providers': PROVIDERS, 'presets': presets}
 
 
-def choose(model_id, kind, linked):
+def choose(model_id, kind, linked, house=False):
     """→ (id, provider, model, kind) or ValueError. A model whose provider is not linked is refused, never silently swapped."""
     if kind not in KINDS:
         raise ValueError('Pick image or video.')
-    mid = model_id or next((DEFAULT[(p, kind)] for p in ('fal', 'replicate') if p in linked), None)
+    mid = model_id or next((DEFAULT[(p, kind)] for p in ORDER if _ready(p, linked, house)), None)
     if not mid:
-        raise ValueError('Link fal.ai or Replicate first: images and video run on your own account.')
+        raise ValueError('Link OpenRouter, fal.ai or Replicate first: images and video run on your own account.')
     if mid not in MODELS:
         raise ValueError('Unknown model.')
     p, m, kd = MODELS[mid][:3]
     if kd != kind:
         raise ValueError(f'{MODELS[mid][3]} makes {kd}s, not {kind}s.')
-    if p not in linked:
+    if not _ready(p, linked, house):
         raise ValueError(f'Link {PROVIDERS[p]["name"]} first: this model runs on your own account.')
     return mid, p, m, kd
+
+
+def fill(preset_id, idea):
+    """A viral preset's prompt with the folder's own words in it. Pure."""
+    x = next((x for x in PRESETS if x['id'] == preset_id), None)
+    if not x:
+        raise ValueError('Unknown format.')
+    return x['prompt'].replace('{idea}', re.sub(r'\s+', ' ', str(idea or '')).strip()[:600] or 'FEELESS, the trader\'s terminal'), x['model'], x['kind']
 
 
 def clean_prompt(text):
@@ -62,8 +111,10 @@ def clean_prompt(text):
     return t[:MAX_PROMPT]
 
 
-def submit_req(provider, model, prompt, key):
+def submit_req(provider, model, prompt, key, model_id=None):
     """→ (method, url, headers, json) for the first call. Pure."""
+    if provider == 'openrouter':
+        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'model': model, 'prompt': prompt, **OR_VIDEO.get(model_id, {})}
     if provider == 'fal':
         return 'POST', f'https://queue.fal.run/{model}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, {'prompt': prompt}
     return 'POST', f'https://api.replicate.com/v1/models/{model}/predictions', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'input': {'prompt': prompt}}
@@ -72,6 +123,10 @@ def submit_req(provider, model, prompt, key):
 def handle_of(provider, body):
     """The provider's answer to a submit → what we poll later (no key in it). Pure."""
     body = body or {}
+    if provider == 'openrouter':
+        if not body.get('id'):
+            raise ValueError(str((body.get('error') or {}).get('message') if isinstance(body.get('error'), dict) else body.get('error') or 'OpenRouter did not start the job.')[:200])
+        return {'status': body.get('polling_url') or f"https://openrouter.ai/api/v1/videos/{body['id']}", 'result': f"https://openrouter.ai/api/v1/videos/{body['id']}/content", 'rid': body['id']}
     if provider == 'fal':
         if not body.get('status_url') or not body.get('response_url'):
             raise ValueError(str(body.get('detail') or 'fal.ai did not start the job.')[:200])
@@ -82,13 +137,19 @@ def handle_of(provider, body):
 
 
 def auth(provider, key):
-    return {'Authorization': f'Key {key}'} if provider == 'fal' else {'Authorization': f'Bearer {key}'}
+    return {'Authorization': f'Key {key}'} if provider == 'fal' else {'Authorization': f'Bearer {key}'}   # Replicate + OpenRouter: Bearer
 
 
 def state_of(provider, body):
     """A poll answer → ('running'|'done'|'failed', why). Pure."""
     body = body or {}
     s = str(body.get('status') or '').upper()
+    if provider == 'openrouter':
+        if s == 'COMPLETED':
+            return 'done', ''
+        if s in ('FAILED', 'ERROR', 'CANCELLED', 'CANCELED'):
+            return 'failed', str(body.get('error') or s.lower())[:200]
+        return 'running', s.lower() or 'pending'
     if provider == 'fal':
         if s == 'COMPLETED':
             return ('failed', str(body.get('error'))[:200]) if body.get('error') else ('done', '')
@@ -101,8 +162,10 @@ def state_of(provider, body):
 
 
 def output_url(provider, kind, body):
-    """The finished file's link from the result. Pure."""
+    """The finished file's link from the result. Pure. (OpenRouter's file is its /content link, fetched with the key: not here.)"""
     body = body or {}
+    if provider == 'openrouter':
+        return None
     if provider == 'fal':
         if kind == 'video':
             return ((body.get('video') or {}).get('url')) or None
