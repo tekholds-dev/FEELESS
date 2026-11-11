@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect } from 'react';
+import './styles/looks.css';
 import { isCrashNoise } from './components/PanelBoundary';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -102,7 +103,8 @@ function App() {
 
 export default App;
 
-function HolderThemeMount() { useHolderTheme(); return null; }
+// 🎨 the wallet's saved look (or this device's, or Plasma) + the look's ambient layer behind every page (styles/looks.css)
+function HolderThemeMount() { useHolderTheme(); return <div className="look-amb" aria-hidden="true"><i className="la-a" /><i className="la-b" /><i className="la-c" /><i className="la-d" /><i className="la-e" /></div>; }
 
 // One fire-and-forget beacon per route change: powers the HQ's Traffic tab.
 function PageViews() {

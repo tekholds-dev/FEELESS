@@ -1,0 +1,44 @@
+// 🎨 LOOKS (owner 2026-11-11): one switch re-skins the whole site. PLASMA is the default and needs nothing applied. Another look sets the
+// meta tokens on <html> and copies every stylesheet rule that writes a Plasma colour into one override sheet with that look's colour
+// (same walk as the holder theme), so hand-written colours follow too. <html data-look> drives the ambient layer (styles/looks.css).
+// The four free looks ship here; an advanced look's colours come only from the server, only to a wallet that unlocked it.
+import { remapSite } from '../components/HolderTheme';
+
+export const FREE_LOOKS = {
+  plasma: { id: 'plasma', name: 'Plasma', ambient: 'plasma', tokens: { bg: '#08051a', s1: '#120b2c', s2: '#1a1140', line: '#2a1f55', lineHi: '#4b3596', text: '#f2eeff', dim: '#aaa1c9', accent: '#9b6bff', hi: '#b48cff', deep: '#7c4dff', tail: '#ff6fbf', tint: '#c9a8ff', dark: '#5b33c9', ink: '#12081f', third: '#3ee7ff' } },
+  molten: { id: 'molten', name: 'Molten', ambient: 'molten', tokens: { bg: '#0b0704', s1: '#170f08', s2: '#22160c', line: '#3a2a12', lineHi: '#7a5418', text: '#fff4e2', dim: '#cdb393', accent: '#ffb020', hi: '#ffc95a', deep: '#e0780f', tail: '#ff5a1f', tint: '#ffe08a', dark: '#a8560a', ink: '#2a1400', third: '#ffe08a' } },
+  neon: { id: 'neon', name: 'Neon Grid', ambient: 'neon', tokens: { bg: '#02060b', s1: '#061019', s2: '#0a1826', line: '#0d3340', lineHi: '#00a8b8', text: '#e6fbff', dim: '#86aebd', accent: '#00f0ff', hi: '#6ff7ff', deep: '#00b8d4', tail: '#ff2bd6', tint: '#a8fbff', dark: '#00788a', ink: '#00141a', third: '#faff00' } },
+  holo: { id: 'holo', name: 'Holo Chrome', ambient: 'holo', tokens: { bg: '#06080d', s1: '#0d121c', s2: '#141b29', line: '#26324a', lineHi: '#5a6f99', text: '#f3f7ff', dim: '#a3b1c8', accent: '#8fd3ff', hi: '#b6e3ff', deep: '#6fb6f0', tail: '#c7a6ff', tint: '#ffc6ec', dark: '#4f86b8', ink: '#0d1020', third: '#ffc6ec' } },
+};
+export const LOOK_KEY = 'feeless.look';
+
+// Plasma's own colours, as the sheets write them → which token of the new look takes each one
+const SRC = {
+  '9b6bff': 'accent', b48cff: 'hi', '7c4dff': 'deep', ff6fbf: 'tail', c9a8ff: 'tint', '5b33c9': 'dark', d6c4ff: 'tint', ff8fd0: 'tail', e3d6ff: 'text',
+  '08061a': 'bg', '0e0b22': 's1', '140f2e': 's2', '0c0a1e': 's1', '0d0b20': 's1', '0d0a22': 's1', '12081f': 'ink', '120d26': 's2', '120e28': 's2', '15102e': 's2', '1c1830': 's2', '1f1840': 's2',
+  '2a1f55': 'line', '3d3466': 'line', '4b3596': 'lineHi', f1edff: 'text', f3eeff: 'text', f2eeff: 'text', e2dcf6: 'text', cfc7ea: 'text', cdc5e9: 'text',
+  aaa1c9: 'dim', '9f97c2': 'dim', c4bce0: 'dim', b5add6: 'dim', '9c94bd': 'dim', '8d85ad': 'dim',
+};
+const SRC_RGB = [['155,107,255', 'accent'], ['180,140,255', 'hi'], ['124,77,255', 'deep'], ['255,63,164', 'tail'], ['255,111,191', 'tail'], ['62,231,255', 'third'], ['242,238,255', 'text']];
+const rgbOf = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+
+/** → the { plasmaHex: lookHex } map (6-digit, lowercase, no #) and the { 'r,g,b': [r, g, b] } map for one look's tokens. Pure. */
+export function lookMap(t) {
+  const hex = {}; for (const [k, v] of Object.entries(SRC)) if (t[v]) hex[k] = t[v].slice(1).toLowerCase();
+  const rgb = {}; for (const [k, v] of SRC_RGB) if (t[v]) rgb[k] = rgbOf(t[v]);
+  return { hex, rgb };
+}
+
+/** Wear a look (a FREE_LOOKS entry or the server's `wear` answer). Plasma, or nothing, puts the site back to its own colours. */
+export function applyLook(look) {
+  const root = document.documentElement; const t = look?.tokens;
+  const VARS = { '--m-bg': 'bg', '--m-surface': 's1', '--m-surface-2': 's2', '--m-line': 'line', '--m-line-hi': 'lineHi', '--m-text': 'text', '--m-dim': 'dim', '--m-accent': 'accent', '--m-accent-ink': 'ink',
+    '--ink': 'bg', '--mint': 'accent', '--look-hi': 'hi', '--look-tail': 'tail', '--look-third': 'third' };
+  if (!t || look.id === 'plasma') { Object.keys(VARS).forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); return; }
+  for (const [k, v] of Object.entries(VARS)) root.style.setProperty(k, t[v]);
+  root.dataset.look = look.ambient || look.id;
+  remapSite(lookMap(t));
+}
+
+export function localLook() { try { const k = localStorage.getItem(LOOK_KEY); return FREE_LOOKS[k] || null; } catch { return null; } }
+export function keepLocalLook(id) { try { if (FREE_LOOKS[id]) localStorage.setItem(LOOK_KEY, id); } catch { /* private window: it still applies for this visit */ } }

@@ -18,6 +18,7 @@ import agent_deposit as _deposit
 import collective_pool as _cpool
 import collective_stake as _stake
 import collective_stash as _stash
+import looks as _looks   # 🎨 the site's looks: Plasma default, free + advanced (looks.py)
 import reserve_pool
 import perf
 import verify
@@ -29339,16 +29340,27 @@ async def theme_get(address: str):
             notify(a, 'perk', f'🏗 Pool builder unlocked — you hold ${held:,.0f} of $FEE coins. Open your profile to build pools.', f'/terminal/profile/{a}', a)
     staff = _is_staff(a)   # the creator / admin wallets always get their colors
     ok = staff or held >= THEME_MIN_USD
+    worn = _looks.wear((saved or {}).get('look'), ok) if saved else None   # 🎨 a free look anyone may wear; an advanced one only while unlocked
+    theme = ({**saved, 'look': worn} if ok else ({'look': worn} if worn else None)) if saved else None
     return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': ok, 'staff': staff,
-            'theme': saved if ok else None}
+            'theme': theme}
+
+
+@app.get('/api/reputation/looks')
+async def looks_catalog(address: str = ''):
+    """🎨 Every look's card; the full colour set of an ADVANCED look only for a wallet that unlocked it (staff, or $1,000+ across $FEE coins)."""
+    a = primary_of(address) if address else ''
+    ok = bool(a) and (_is_staff(a) or (await _eco_holding_usd(a)) >= THEME_MIN_USD)
+    return {'looks': _looks.catalog(ok), 'eligible': ok, 'minUsd': THEME_MIN_USD, 'default': _looks.DEFAULT}
 
 
 class ThemePayload(BaseModel):
     address: str
     session: str
-    accent: str
+    accent: Optional[str] = None
     accent2: Optional[str] = None
     logo: Optional[str] = None
+    look: Optional[str] = None   # 🎨 a look id (looks.py); with no accent it is the whole theme
 
 
 @app.post('/api/reputation/theme')
@@ -29359,8 +29371,16 @@ async def theme_set(p: ThemePayload):
         if c is not None and not _HEX.match(c):
             raise HTTPException(400, 'Colors must be #RRGGBB.')
     a = primary_of(p.address)
-    held = await _eco_holding_usd(a)
-    if held < THEME_MIN_USD and not _is_staff(a):
+    held = await _eco_holding_usd(a); ok = held >= THEME_MIN_USD or _is_staff(a)
+    if p.look is not None and p.accent is None:   # 🎨 a look: the four free ones for anyone signed in, the advanced ones once unlocked
+        worn = _looks.wear(p.look, ok)
+        if not worn:
+            raise HTTPException(403 if p.look in _looks.LOOKS else 400, f'That look unlocks at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).' if p.look in _looks.LOOKS else 'No such look.')
+        d = _json_load(THEMES_PATH, {}); d[a] = {'look': p.look, 'at': time.time()}; _json_save(THEMES_PATH, d)
+        return {'ok': True, 'theme': {**d[a], 'look': worn}}
+    if not p.accent:
+        raise HTTPException(400, 'Pick a look or a colour.')
+    if not ok:
         raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
     d = _json_load(THEMES_PATH, {})
     d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}

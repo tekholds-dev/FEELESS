@@ -1,0 +1,59 @@
+/* 🎨 THE LOOK'S AMBIENT LAYER (owner 2026-11-11: "dull, dead … no live animations"): one fixed layer behind every page, its motion set by
+   <html data-look> (lib/looks.js); no attribute = PLASMA. Transform / opacity only, no blur filters, still under fx-lite and reduced motion. */
+.look-amb { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict; }
+.look-amb i { position: absolute; display: block; will-change: transform, opacity; }
+
+/* PLASMA (default): two plasma blobs drift, a cyan spark crosses */
+.look-amb .la-a, .look-amb .la-b { width: 70vmax; height: 70vmax; border-radius: 50%; opacity: .5; }
+.look-amb .la-a { left: -20vmax; top: -30vmax; background: radial-gradient(closest-side, rgba(155, 107, 255, .32), transparent 70%); animation: laBlobA 18s ease-in-out infinite alternate; }
+.look-amb .la-b { right: -25vmax; bottom: -35vmax; background: radial-gradient(closest-side, rgba(255, 63, 164, .24), transparent 70%); animation: laBlobB 22s ease-in-out infinite alternate; }
+.look-amb .la-c { left: 0; top: 30%; width: 40vmax; height: 2px; background: linear-gradient(90deg, transparent, rgba(62, 231, 255, .5), transparent); opacity: 0; animation: laSpark 9s ease-in-out infinite; }
+.look-amb .la-d, .look-amb .la-e { display: none; }
+
+/* MOLTEN: a heat glow rises from the floor, embers climb */
+html[data-look="molten"] .look-amb .la-a { left: 10%; top: auto; bottom: -40vmax; width: 80vmax; background: radial-gradient(closest-side, rgba(255, 90, 31, .26), transparent 70%); animation: laHeat 5s ease-in-out infinite alternate; }
+html[data-look="molten"] .look-amb .la-b { right: -10vmax; bottom: auto; top: -40vmax; background: radial-gradient(closest-side, rgba(255, 176, 32, .14), transparent 70%); }
+html[data-look="molten"] .look-amb .la-c, html[data-look="molten"] .look-amb .la-d, html[data-look="molten"] .look-amb .la-e { display: block; top: auto; bottom: -8px; width: 4px; height: 4px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 10px 2px #ff8a1f; opacity: 0; animation: laEmber 7s linear infinite; }
+html[data-look="molten"] .look-amb .la-c { left: 22%; } html[data-look="molten"] .look-amb .la-d { left: 58%; animation-delay: -2.4s; animation-duration: 9s; } html[data-look="molten"] .look-amb .la-e { left: 81%; animation-delay: -4.8s; animation-duration: 8s; }
+
+/* NEON GRID: a grid floor rolls toward you, a scan line falls */
+html[data-look="neon"] .look-amb .la-a { left: -50%; right: -50%; top: auto; bottom: -10%; width: auto; height: 55%; border-radius: 0; opacity: .55; background-image: linear-gradient(rgba(0, 240, 255, .2) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 240, 255, .2) 1px, transparent 1px); background-size: 56px 56px; transform: perspective(480px) rotateX(64deg); transform-origin: 50% 100%; animation: laFloor 2.6s linear infinite; }
+html[data-look="neon"] .look-amb .la-b { inset: 0; width: auto; height: auto; border-radius: 0; opacity: 1; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); animation: none; }
+html[data-look="neon"] .look-amb .la-c { left: 0; right: 0; width: auto; top: -140px; height: 140px; background: linear-gradient(180deg, transparent, rgba(0, 240, 255, .06), transparent); opacity: 1; animation: laScan 6s linear infinite; }
+
+/* HOLO CHROME: an iridescent sheet turns slowly */
+html[data-look="holo"] .look-amb .la-a { left: -40vmax; top: -60vmax; width: 180vmax; height: 180vmax; opacity: .9; background: conic-gradient(from 0deg, rgba(143, 211, 255, .1), rgba(199, 166, 255, .1), rgba(255, 198, 236, .1), rgba(125, 240, 207, .08), rgba(143, 211, 255, .1)); animation: laSpin 60s linear infinite; }
+html[data-look="holo"] .look-amb .la-b { display: none; }
+
+/* AURORA: two curtains of light sway across the top */
+html[data-look="aurora"] .look-amb .la-a, html[data-look="aurora"] .look-amb .la-b { top: -20vh; width: 120vw; height: 60vh; border-radius: 50%; opacity: .55; }
+html[data-look="aurora"] .look-amb .la-a { left: -30vw; background: radial-gradient(60% 50% at 50% 50%, rgba(62, 242, 201, .26), transparent 70%); animation: laCurtain 14s ease-in-out infinite alternate; }
+html[data-look="aurora"] .look-amb .la-b { left: 10vw; right: auto; bottom: auto; background: radial-gradient(60% 50% at 50% 50%, rgba(139, 107, 255, .22), transparent 70%); animation: laCurtain 19s ease-in-out infinite alternate-reverse; }
+
+/* BLOOD MOON: a crimson moon breathes in the corner */
+html[data-look="bloodmoon"] .look-amb .la-a { left: auto; right: -12vmax; top: -12vmax; width: 46vmax; height: 46vmax; opacity: .7; background: radial-gradient(closest-side, rgba(255, 46, 77, .34), rgba(255, 46, 77, .08) 60%, transparent 72%); animation: laBreathe 6s ease-in-out infinite alternate; }
+html[data-look="bloodmoon"] .look-amb .la-b { left: -20vmax; right: auto; bottom: -40vmax; background: radial-gradient(closest-side, rgba(194, 16, 44, .16), transparent 70%); }
+
+/* VAPOR SUNSET: a striped sun over a synth grid */
+html[data-look="vapor"] .look-amb .la-a { left: 50%; top: auto; bottom: 18%; width: 34vmax; height: 34vmax; margin-left: -17vmax; opacity: .5; background: repeating-linear-gradient(180deg, rgba(255, 113, 206, .5) 0 10px, transparent 10px 16px), radial-gradient(closest-side, rgba(255, 251, 150, .35), rgba(255, 113, 206, .25)); animation: laBreathe 7s ease-in-out infinite alternate; }
+html[data-look="vapor"] .look-amb .la-b { left: -50%; right: -50%; top: auto; bottom: -10%; width: auto; height: 40%; border-radius: 0; opacity: .5; background-image: linear-gradient(rgba(1, 205, 254, .22) 1px, transparent 1px), linear-gradient(90deg, rgba(1, 205, 254, .22) 1px, transparent 1px); background-size: 52px 52px; transform: perspective(460px) rotateX(66deg); transform-origin: 50% 100%; animation: laFloor 3s linear infinite; }
+
+/* GHOST: one soft light sweeps the room */
+html[data-look="ghost"] .look-amb .la-a { left: -60vw; top: 0; width: 60vw; height: 100vh; border-radius: 0; opacity: .5; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .05), transparent); animation: laSweep 12s ease-in-out infinite; }
+html[data-look="ghost"] .look-amb .la-b { display: none; }
+
+@keyframes laBlobA { to { transform: translate(14vmax, 18vmax) scale(1.12); } }
+@keyframes laBlobB { to { transform: translate(-14vmax, -16vmax) scale(1.08); } }
+@keyframes laSpark { 0%, 70% { transform: translateX(-40vmax); opacity: 0; } 80% { opacity: 1; } 100% { transform: translateX(110vw); opacity: 0; } }
+@keyframes laHeat { to { transform: scaleY(1.1); opacity: .7; } }
+@keyframes laEmber { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(-105vh) translateX(30px); opacity: 0; } }
+@keyframes laFloor { to { transform: perspective(480px) rotateX(64deg) translateY(56px); } }
+@keyframes laScan { to { transform: translateY(calc(100vh + 140px)); } }
+@keyframes laSpin { to { transform: rotate(360deg); } }
+@keyframes laCurtain { to { transform: translateX(18vw) skewX(-8deg) scaleY(1.15); } }
+@keyframes laBreathe { to { transform: scale(1.08); opacity: 1; } }
+@keyframes laSweep { 0% { transform: translateX(0); } 100% { transform: translateX(220vw); } }
+
+body.fx-lite .look-amb i { animation: none !important; } body.theme-day .look-amb { display: none; }
+@media (prefers-reduced-motion: reduce) { .look-amb i { animation: none !important; } }
+@media (max-width: 640px) { .look-amb .la-c, .look-amb .la-d, .look-amb .la-e { display: none !important; } }

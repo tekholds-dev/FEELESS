@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';
+import { applyLook, localLook } from '../lib/looks';
 
 // $1k+ FEELESS holders recolor the logo and the whole site (for themselves). The server re-checks
 // holdings and the wallet session on every save; the browser only ever applies what it returns.
@@ -26,37 +27,55 @@ export function recolorText(css, hex) {
   return css.replace(/#([0-9a-f]{6})([0-9a-f]{2})?(?![0-9a-f])/gi, (m, c, a) => { const n = shade([0, 2, 4].map(k => parseInt(c.slice(k, k + 2), 16))); return n ? `#${hexOf(n)}${a || ''}` : m; })
     .replace(/(rgba?)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/gi, (m, f, r, g, b) => { const n = shade([+r, +g, +b]); return n ? `${f.toLowerCase()}(${n[0]}, ${n[1]}, ${n[2]}` : m; });
 }
-// A screen's own sheet loads when it opens (HQ's hqNav.css, a desk's sheet …): recolor once more when one arrives, debounced, or that
-// screen kept the default brand colour under a custom theme (2026-11-11: HQ's active sidebar item stayed default on a red theme).
-let lateSheets = null;
-function watchLateSheets(hex) {
-  lateSheets?.obs.disconnect(); clearTimeout(lateSheets?.t); lateSheets = null;
-  if (!hex || typeof MutationObserver === 'undefined') return;
-  const again = () => { clearTimeout(lateSheets?.t); if (lateSheets) lateSheets.t = setTimeout(() => recolorSite(hex, true), 150); };
-  const obs = new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) {
-    if (n.id === 'feeless-recolor') continue;
-    if (n.tagName === 'STYLE') again(); else if (n.tagName === 'LINK' && /stylesheet/i.test(n.rel)) n.addEventListener('load', again, { once: true });
-  } });
-  obs.observe(document.head, { childList: true }); lateSheets = { obs, t: 0 };
-}
-export function recolorSite(hex, late = false) {
-  let el = document.getElementById('feeless-recolor');
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || ['#9b6bff', '#15d16a', '#19f58f'].includes(hex.toLowerCase())) { el?.remove(); watchLateSheets(null); return; }   // the default (and the retired greens a saved theme may still name) = no override
-  if (!late) watchLateSheets(hex);
+// 🧵 One override sheet per job (a holder's colour, a look): one pass over the stylesheets copies every rule its transform changes into that
+// sheet, last in <head>. A screen's own sheet loads when it opens (HQ's hqNav.css, a desk's sheet …), so each override is rebuilt when one
+// arrives, debounced (2026-11-11: HQ's active sidebar item stayed default on a red theme).
+const OVERRIDES = {};   // id → { transform, t }
+let lateObs = null;
+function rebuild(id) {
+  const o = OVERRIDES[id]; let el = document.getElementById(id);
+  if (!o) { el?.remove(); return; }
   const out = [];
   const walk = rules => { for (const rule of rules) {
     if (rule.cssRules && rule.media) { const before = out.length; walk(rule.cssRules); const added = out.splice(before); if (added.length) out.push(`@media ${rule.media.mediaText}{${added.join('')}}`); continue; }
-    if (rule.selectorText) { const t = recolorText(rule.cssText, hex); if (t !== rule.cssText) out.push(t); }
+    if (rule.selectorText) { const t = o.transform(rule.cssText); if (t !== rule.cssText) out.push(t); }
   } };
-  for (const sheet of document.styleSheets) { if (sheet.ownerNode?.id === 'feeless-recolor') continue; try { walk(sheet.cssRules); } catch { /* cross-origin sheet */ } }
-  if (!el) { el = document.createElement('style'); el.id = 'feeless-recolor'; }
+  for (const sheet of document.styleSheets) { if (OVERRIDES[sheet.ownerNode?.id] || sheet.ownerNode?.id?.startsWith('feeless-')) continue; try { walk(sheet.cssRules); } catch { /* cross-origin sheet */ } }
+  if (!el) { el = document.createElement('style'); el.id = id; }
   el.textContent = out.join('\n');
   document.head.appendChild(el);   // last in <head> = wins at equal specificity
 }
+function watchLate() {
+  const live = Object.keys(OVERRIDES).length;
+  if (!live) { lateObs?.disconnect(); lateObs = null; return; }
+  if (lateObs || typeof MutationObserver === 'undefined') return;
+  let t = 0; const again = () => { clearTimeout(t); t = setTimeout(() => Object.keys(OVERRIDES).forEach(rebuild), 150); };
+  lateObs = new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) {
+    if (String(n.id || '').startsWith('feeless-')) continue;
+    if (n.tagName === 'STYLE') again(); else if (n.tagName === 'LINK' && /stylesheet/i.test(n.rel)) n.addEventListener('load', again, { once: true });
+  } });
+  lateObs.observe(document.head, { childList: true });
+}
+function overrideSite(id, transform) {
+  if (transform) OVERRIDES[id] = { transform }; else delete OVERRIDES[id];
+  rebuild(id); watchLate();
+}
+export function recolorSite(hex) {
+  const on = hex && /^#[0-9a-f]{6}$/i.test(hex) && !['#9b6bff', '#15d16a', '#19f58f'].includes(hex.toLowerCase());   // the default (and the retired greens a saved theme may still name) = no override
+  overrideSite('feeless-recolor', on ? css => recolorText(css, hex) : null);
+}
+/** 🎨 A look's colours over Plasma's own: { hex: { plasmaHex: lookHex }, rgb: { 'r,g,b': [r, g, b] } } (lib/looks.lookMap). Pure. */
+export function remapText(css, { hex, rgb }) {
+  return css.replace(/#([0-9a-f]{6})([0-9a-f]{2})?(?![0-9a-f])/gi, (m, c, a) => (hex[c.toLowerCase()] ? `#${hex[c.toLowerCase()]}${a || ''}` : m))
+    .replace(/(rgba?)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/gi, (m, f, r, g, b) => { const n = rgb[`${r},${g},${b}`]; return n ? `${f.toLowerCase()}(${n[0]}, ${n[1]}, ${n[2]}` : m; });
+}
+export function remapSite(map) { overrideSite('feeless-look', map ? css => remapText(css, map) : null); }
 
 export function applyTheme(t) {
   const root = document.documentElement;
-  if (!t) { ['--mint', '--accent2', '--logo-hue', '--m-accent'].forEach(k => root.style.removeProperty(k)); root.classList.remove('holder-theme'); recolorSite(null); return; }
+  if (!t?.accent) { ['--accent2', '--logo-hue'].forEach(k => root.style.removeProperty(k)); root.classList.remove('holder-theme'); recolorSite(null);
+    applyLook(t?.look?.tokens ? t.look : localLook()); return; }   // 🎨 no custom colour: the saved look (or this device's), else Plasma
+  applyLook(null);
   root.style.setProperty('--mint', t.accent); root.style.setProperty('--accent2', t.accent2 || t.accent); root.style.setProperty('--m-accent', t.accent);
   recolorSite(t.accent);
   root.style.setProperty('--logo-hue', `${Math.round(hueOf(t.logo || t.accent) - MINT_HUE)}deg`);

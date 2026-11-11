@@ -24,6 +24,7 @@ export const TAB_INFO = {
   feecat: ['Fee 🐱', "FeeCat's trading brain: rules, what she's learning, and her results.", ['Brain', 'Lessons', 'Book']],
   broadcast: ['Broadcast', 'Message everyone at once (site banner / push).', []],
   investigate: ['Intel desk', 'The reputation department: ruggers, snipers, bundlers, their funders and crews, with each one\'s likely next move. FeeCat and the rug shield read the same database.', []],
+  looks: ['Looks', 'Pick how all of FEELESS looks: Plasma, the free looks and the advanced ones holders unlock.', ['Preview', 'Save']],
   verify: ['Verify coins', 'Run the verification checks, grant the gold check or revoke one.', ['Run checks', 'Grant', 'Revoke']],
   overview: ['Security', 'Platform health, keys and risks at a glance.', []],
   mod: ['Moderation', 'Reports, mutes and the blocklist.', []],

@@ -1,4 +1,5 @@
 import '../../styles/hqNav.css';
+import { LookPicker } from '../LookPicker';
 import { FeeCategories } from './FeeCategories';
 import { ProviderReady } from './ProviderReady';
 import NumInput from '../NumInput';
@@ -173,13 +174,14 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'ads', 'ideas'], '📈', 'who comes, from where, what they do'],
     ['Holders', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, invites, broadcasts'],
     ['Rewards', ['badges', 'nfts', 'seasons'], '🏅', 'badges, NFT drops, seasons'],
+    ['Brand', ['looks'], '🎨', 'the site looks: Plasma, free and advanced'],
     ['Safety', ['investigate', 'shield', 'overview', 'mod', 'access', 'bugs'], '🛡', 'intel, shield, security, mods, roles, bugs']];
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
-  const TABS = [['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   // one distinct mark per tool (the shared lucide icons repeated ⚡ on five tools — noise, not wayfinding)
-  const TAB_ICON = { agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
+  const TAB_ICON = { looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
     numbers: '📊', traffic: '🚦', pulse: '💓', marketing: '📣', kols: '🎤', ads: '🪧', ideas: '💡', holders: '👥', studio: '🪂', airdrops: '🗓', snapshots: '📸', invites: '✉️',
     broadcast: '📡', badges: '🏅', nfts: '🖼', seasons: '🏆', investigate: '🕵️', shield: '🛡', overview: '🔐', mod: '🧹', access: '🔑', bugs: '🐞' };
   const groups = TAB_GROUPS.filter(g => g[1].some(allowed));
@@ -211,6 +213,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'collective' && <CollectiveOwner call={call} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
     {tab === 'verify' && <CoinVerifyPanel call={call} />}
+    {tab === 'looks' && <LookPicker />}
     {tab === 'latency' && <>{isOwner ? <RpcKey call={call} /> : null}<LagCatcher call={call} /><LatencyPanel call={call} /></>}
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
