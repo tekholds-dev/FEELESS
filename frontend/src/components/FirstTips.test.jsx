@@ -24,3 +24,19 @@ test('💡 first-time tips: a spot per control, one line on hover, Got it retire
   expect(q('tips-t')).toBeNull();   // first time only
   await act(async () => root.unmount());
 });
+
+test('💡 SITE-7: the tip card is a stepped tour: TIP n OF total, Next tip retires this one and opens the next, the last one only says Got it', async () => {
+  localStorage.removeItem('feeless:tips:n');
+  document.body.innerHTML = '<button id="a">A</button><button id="b">B</button>';
+  const tips = [['#a', 'Alpha', 'does a'], ['#b', 'Beta', 'does b']];
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FirstTips id="familia" tips={tips} />); });
+  const q = s => document.querySelector(`[data-testid="${s}"]`);
+  expect(q('tips-familia').className).toContain('is-gold');
+  await act(async () => { q('tip-familia-0').click(); });
+  expect(document.body.textContent).toContain('TIP 1 OF 2');
+  await act(async () => { q('tip-next-familia-0').click(); });
+  expect(document.body.textContent).toContain('TIP 2 OF 2'); expect(document.body.textContent).toContain('does b');
+  expect(q('tip-next-familia-1')).toBeNull(); expect(q('tips-skip-familia').textContent).toContain('1 tip ');
+  localStorage.removeItem('feeless:tips:familia'); await act(async () => root.unmount());
+});

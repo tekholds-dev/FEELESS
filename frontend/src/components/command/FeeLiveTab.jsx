@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import SegTabs from '../SegTabs';
 import '../../styles/feeLive.css';
 import { AgentLive } from './AgentLive';
 import { callThread } from '../../lib/feeCallChat';
@@ -68,8 +69,7 @@ export function FeeLanding({ book }) {
   const [p, setP] = useState(() => { try { const v = localStorage.getItem(PART_KEY); return PARTS.some(x => x[0] === v) ? v : 'view'; } catch { return 'view'; } });
   const pick = k => { setP(k); try { localStorage.setItem(PART_KEY, k); } catch { /* private window: this visit only */ } };
   return <div className="fcl" data-testid="fee-landing">
-    <nav className="m-seg fcl-seg" role="tablist" aria-label="Fee live" data-testid="fcl-seg">{PARTS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={p === k}
-      className={p === k ? 'active' : ''} onClick={() => pick(k)} data-tip={tip} data-testid={`fcl-${k}`}>{l}</button>)}</nav>
+    <SegTabs items={PARTS} value={p} onChange={pick} label="Fee live" className="fcl-seg" rootTestid="fcl-seg" testid={k => `fcl-${k}`} />
     <div className="fcl-pane" key={p} role="tabpanel">{p === 'book' ? book : <FeeLiveTab part={p} />}</div>
     <FirstTips id="fee-landing" tips={LAND_TIPS} />
   </div>;

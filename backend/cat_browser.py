@@ -38,6 +38,12 @@ def chain(env):
 
 
 SNAP_MAX = 3500   # 📸 the whole-page snapshot a mind reads when a page opens
+def _page_xy(x, y, win):
+    """🖱 AGT-19: x / y are shares of the WHOLE window (the live view shows its chrome); px / py are shares of the PAGE, for the page-only
+    screenshots (a window with a toolbar drew the cursor ~70 px low there: (toolbar + y) / outer ≠ y / inner)."""
+    return {'px': round(min(1, max(0, x / win[0])), 4), 'py': round(min(1, max(0, y / win[1])), 4)} if win[0] and win[1] else {}
+
+
 GLIDE_STEPS, GLIDE_MS = 14, 520   # 🖱 the mouse's glide to a target (the desk's cursor animates over the same ~0.5 s)
 VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
 
@@ -637,7 +643,8 @@ class LivePage:
             win = await self._p.evaluate('() => [innerWidth, innerHeight, outerWidth, outerHeight]')
             if box and win[2] and win[3]:
                 top = max(0, win[3] - win[1])
-                self.cursor = {'x': round(min(1, (box['x'] + box['width'] / 2) / win[2]), 4), 'y': round(min(1, (top + box['y'] + box['height'] / 2) / win[3]), 4), 'act': act, 'at': time.time()}
+                cx, cy = box['x'] + box['width'] / 2, box['y'] + box['height'] / 2
+                self.cursor = {'x': round(min(1, cx / win[2]), 4), 'y': round(min(1, (top + cy) / win[3]), 4), **_page_xy(cx, cy, win), 'act': act, 'at': time.time()}
         except Exception:
             pass
 
@@ -734,7 +741,7 @@ class LivePage:
         """🖱 the real mouse glides there (the live view shows it move), and FEELESS's cursor follows."""
         win = await self._p.evaluate('() => [innerWidth, innerHeight, outerWidth, outerHeight]')
         if win[2] and win[3]:   # the target goes out FIRST, so the desk's cursor glides while the real mouse does (it used to land after the click)
-            self.cursor = {'x': round(min(1, x / win[2]), 4), 'y': round(min(1, (max(0, win[3] - win[1]) + y) / win[3]), 4), 'act': act, 'at': time.time()}
+            self.cursor = {'x': round(min(1, x / win[2]), 4), 'y': round(min(1, (max(0, win[3] - win[1]) + y) / win[3]), 4), **_page_xy(x, y, win), 'act': act, 'at': time.time()}
             cb = getattr(self, 'on_cursor', None)
             if cb:
                 cb(self.cursor)

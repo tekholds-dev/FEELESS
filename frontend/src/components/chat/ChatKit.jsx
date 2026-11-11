@@ -1,6 +1,6 @@
 import React, { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Popover, Surface, TextArea } from '@heroui/react';
-import { ArrowUp, Mic, Plus, Settings2, Square } from 'lucide-react';
+import { ArrowUp, Mic, Plus, Settings2, Square, Volume2 } from 'lucide-react';
 import '../../styles/chatKit.css';
 
 // 💬 THE chat composer (owner 2026-11-05): one box, built from HeroUI, for every chat on the site. Each chat passes its own tools and settings.
@@ -29,12 +29,35 @@ export function ChatMic() {
     const field = btn.current?.closest('form')?.querySelector('textarea, input[type="text"], input:not([type])'); if (!field) return;
     const R = speechOf(); const r = new R(); rec.current = r; r.continuous = true; r.interimResults = true; r.lang = navigator.language || 'en-US';
     const base = field.value ? `${field.value.replace(/\s+$/, '')} ` : ''; setErr('');
-    r.onresult = e => { let said = ''; for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript; typeInto(field, base + said); };
+    r.onresult = e => { voiced = true; let said = ''; for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript; typeInto(field, base + said); };
     r.onerror = e => setErr(e.error === 'not-allowed' ? 'Allow the microphone for this site to talk to it' : e.error === 'no-speech' ? '' : `Voice stopped: ${e.error}`);
     r.onend = () => { setOn(false); field.focus(); };
     try { r.start(); setOn(true); } catch { setOn(false); }
   };
   return <ChatTool ref={btn} className={`ckit-mic${on ? ' is-on' : ''}${err ? ' is-err' : ''}`} onPress={flip} aria-pressed={on} aria-label={on ? 'Stop listening' : 'Talk instead of typing'} data-tip={err || (on ? 'Listening. Tap to stop' : 'Talk instead of typing')} data-testid="ckit-mic"><Mic size={16} aria-hidden="true" /></ChatTool>;
+}
+// 🔊 AGT-6 speaking back: the browser's own voices (the most natural one it has: Siri / Google / "Natural" / "Premium"). A question asked
+// by mic gets its answer read out (takeVoiced); every answer has a Listen button. Links and [source] tags are skipped when read.
+let voiced = false;
+export const takeVoiced = () => { const v = voiced; voiced = false; return v; };
+export const canSpeak = () => typeof window !== 'undefined' && !!window.speechSynthesis && typeof window.SpeechSynthesisUtterance === 'function';
+const NATURAL = /natural|neural|premium|enhanced|siri|google/i;
+function bestVoice() {
+  const lang = (navigator.language || 'en').slice(0, 2); const vs = window.speechSynthesis.getVoices().filter(v => (v.lang || '').startsWith(lang));
+  return vs.find(v => NATURAL.test(v.name)) || vs.find(v => v.default) || vs[0] || null;
+}
+export const speakable = text => String(text || '').replace(/\[[^\]]*\]/g, '').replace(/https?:\/\/\S+/g, 'link').replace(/[*_`#>|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 1800);
+export function speak(text, onEnd) {
+  if (!canSpeak()) return false; const s = window.speechSynthesis; const said = speakable(text); s.cancel(); if (!said) return false;
+  const u = new window.SpeechSynthesisUtterance(said); const v = bestVoice(); if (v) { u.voice = v; u.lang = v.lang; } u.rate = 1.05;
+  u.onend = u.onerror = () => onEnd?.(); s.speak(u); return true;
+}
+export function SpeakBtn({ text, testid, className = '' }) {
+  const [on, setOn] = useState(false);
+  useEffect(() => () => { if (on) window.speechSynthesis?.cancel(); }, [on]);
+  if (!canSpeak()) return null;
+  return <button type="button" className={`${className}${on ? ' is-on' : ''}`} aria-pressed={on} onClick={() => { if (on) { window.speechSynthesis.cancel(); setOn(false); } else setOn(speak(text, () => setOn(false))); }}
+    data-tip={on ? 'Stop reading' : 'Read this answer out loud'} data-testid={testid}><Volume2 size={12} aria-hidden="true" /> {on ? 'Stop' : 'Listen'}</button>;
 }
 const CAN_GROW = typeof CSS !== 'undefined' && CSS.supports?.('field-sizing', 'content');
 // Long text wraps and the box grows (up to its max, then it scrolls). Enter sends, Shift+Enter is a new line.

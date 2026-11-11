@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SegTabs from '../SegTabs';
 import EcosystemChat from '../EcosystemChat';
 import '../../styles/feeWall.css';
 import { toast } from 'sonner';
@@ -121,7 +122,7 @@ export function FeeCatProfile({ catId = 'leader' }) {
   return <section className="fcp" data-testid="feecat-profile">
     {c.positions?.length > 0 && <div className="fcp-open"><h4>Open now</h4>{c.positions.map(p => <a key={p.pairAddress} className="fcp-pos" href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
       <b>${p.symbol}</b><span className={p.currentChange >= 0 ? 'positive' : 'negative'}>{p.currentChange >= 0 ? '+' : ''}{Number(p.currentChange).toFixed(1)}%</span><em className="fcp-mirror" onClick={e => { e.preventDefault(); window.location.href = `/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`; }}>Mirror this trade →</em><small>{Number(p.costSol).toFixed(2)} SOL · peak +{Number(p.peakChange || 0).toFixed(1)}%{p.scaled ? ' · runner' : ''}{p.conviction ? ` · ${p.conviction}×` : ''}</small></a>)}</div>}
-    <nav className="fcp-tabs m-seg" role="tablist" aria-label="Fee's book">{[['wall', '💬 Her wall', null], ['trades', '📈 Every trade', (d.trades || []).length], ['after', '👀 After the sell', (d.exits || []).length]].map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`fcp-tab-${k}`}>{l}{n ? <em>{n}</em> : null}</button>)}</nav>
+    <SegTabs items={[['wall', '💬 Her wall'], ['trades', '📈 Every trade', null, (d.trades || []).length], ['after', '👀 After the sell', null, (d.exits || []).length]]} value={tab} onChange={setTab} label="Fee's book" testid={k => `fcp-tab-${k}`} />
     {tab === 'wall' && <div className="fw-row"><WallVitals d={d} side="l" /><div className="fcp-wall" data-testid="fee-wall"><details className="fee-wall-pin" data-testid="fee-wall-pin"><summary><b><Ic3 e="📌" /> What Fee does</b><span>trades like a desk · calls every buy · trench report every 30 min</span></summary>
         <ul><li data-testid="feecat-crowd-edge"><b><Ic3 e="🧠" /> Learns from users</b> — every 10 min FEELESS scores its traders on their verified buys (≥24h old); the proven ones are "elite". When elites buy a coin she leans in a little (≤×1.15) and files it in her memory, so following them only keeps its weight if it actually wins.</li>
           <li data-testid="feecat-fuse-edge"><b>⚛️ Fuse edge</b> — skips any coin the Fuse runner gates already failed (the gate is her reason), gives a small boost (≤×1.2) to coins several Fuse sources agree on, and her setup memory learns whether Fuse-backed entries actually pay. Never while discipline is cutting her size.</li>

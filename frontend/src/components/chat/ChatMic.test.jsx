@@ -20,3 +20,19 @@ test('🎙 AGT-6: the mic lives in the shared composer: talking writes into that
   const el2 = document.createElement('div'); const root2 = createRoot(el2); await act(async () => root2.render(<Box />));
   expect(el2.querySelector('[data-testid="ckit-mic"]')).toBeNull(); act(() => root2.unmount()); el.remove();
 });
+
+test('🔊 AGT-6: answers speak back in the most natural voice; asked by mic → read out once; links + [tags] are skipped', async () => {
+  const { SpeakBtn, speak, speakable, takeVoiced } = require('./ChatKit');
+  const said = []; window.SpeechSynthesisUtterance = function U(t) { this.text = t; };
+  window.speechSynthesis = { cancel: jest.fn(), getVoices: () => [{ name: 'Fred', lang: 'en-US' }, { name: 'Samantha (Enhanced)', lang: 'en-US' }], speak: u => { said.push(u); } };
+  expect(speakable('Desk is flat [agents] see https://x.y/z **now**')).toBe('Desk is flat see link now');
+  expect(speak('hello')).toBe(true); expect(said[0].voice.name).toBe('Samantha (Enhanced)');
+  expect(takeVoiced()).toBe(true); expect(takeVoiced()).toBe(false);   // the mic test above spoke; it is used once
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => root.render(<SpeakBtn text="gm degen" testid="say" />));
+  const b = el.querySelector('[data-testid="say"]'); await act(async () => b.click());
+  expect(said[1].text).toBe('gm degen'); expect(b.textContent).toContain('Stop');
+  await act(async () => said[1].onend());
+  expect(b.textContent).toContain('Listen');
+  delete window.speechSynthesis; await act(async () => root.render(<SpeakBtn text="x" testid="say2" />)); expect(el.querySelector('[data-testid="say2"]')).toBeNull();
+});

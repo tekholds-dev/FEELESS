@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import SegTabs from '../SegTabs';
 import { toast } from 'sonner';
 import NumInput from '../NumInput';
 import '../../styles/feeCats.css';
@@ -71,8 +72,7 @@ export function FeeCategories({ call, Trading, Fuse }) {
   const [cat, setCat] = useState(() => { try { const k = localStorage.getItem(KEY); return FEE_CATS.some(c => c[0] === k) ? k : 'trading'; } catch { return 'trading'; } });
   const pick = k => { setCat(k); try { localStorage.setItem(KEY, k); } catch { /* private window */ } };
   return <div className="fct" data-testid="fee-categories">
-    <nav className="m-seg fct-seg" role="tablist" aria-label="Fee categories">{FEE_CATS.map(([k, l, tip], i) => <button key={k} type="button" role="tab" aria-selected={cat === k}
-      className={cat === k ? 'is-on' : ''} style={{ '--i': i }} onClick={() => pick(k)} data-tip={tip} data-testid={`fct-${k}`}>{l}</button>)}</nav>
+    <SegTabs items={FEE_CATS} value={cat} onChange={pick} label="Fee categories" className="fct-seg" testid={k => `fct-${k}`} />
     {cat === 'trading' ? Trading : cat === 'agents' ? <AgentFees call={call} /> : cat === 'fuse' ? Fuse : <FamilyFees call={call} />}
   </div>;
 }

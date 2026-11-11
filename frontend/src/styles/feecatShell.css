@@ -62,7 +62,7 @@
 .fcx .eyebrow { color: #c9a8ff; }
 .fcx .fee-cats-platform { margin: 0; width: 100%; max-width: none; min-width: 0; }   /* auto margins made it shrink-to-fit its widest row */
 @media (max-width: 640px) { .fcx .paper-platform-tabs { display: flex; flex-wrap: wrap; width: 100%; } .fcx .paper-platform-tabs button { flex: 1 1 40%; padding: 8px 10px; font-size: 11.5px; }
-  .fcx .fcp-tabs { display: flex; flex-wrap: wrap; } .fcx .fcp-tabs button { flex: 1 1 30%; min-width: 0; }
+  
   .fcx .paper-platform-head { flex-wrap: wrap; } .fcx.fcx .fc-v2 .paper-platform-head h1 { font-size: 30px; } }
 body.theme-day .fcx { --m-bg: #fbf9ff; --m-surface: #ffffff; --m-surface-2: #f6f0ff; --m-line: #e2d6ff; --m-line-hi: #c4adff; --m-text: #2a1650; --m-dim: #5a4a7a; --m-mute: #8a7aa8; --m-accent: #7c4dff; --m-accent-ink: #fff; }
 body.theme-day .fcx :is(.paper-panel, .paper-my-cats, .paper-create-card) { background: #fff; border-color: #7c4dff26; }

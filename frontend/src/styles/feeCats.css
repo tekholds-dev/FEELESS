@@ -1,7 +1,6 @@
 /* 💲 FeeCategories.jsx — HQ › Core › Fees by product: one seg bar, a meter row per product, a small editor. Built from m-* tokens; transform / opacity only. */
 .fct { display: grid; gap: 12px; }
-.fct-seg { position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
-.fct-seg button { min-height: 36px; animation: fctIn .3s both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fct-seg { position: sticky; top: 0; z-index: 2; }
 .fct-panel { display: grid; gap: 12px; }
 .fct-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
 .fct-meter { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-panel, #ffffff06); }
@@ -13,9 +12,7 @@
 .fct-meter.is-free b { color: var(--m-accent); } .fct-meter.is-gold i u { background: linear-gradient(90deg, #a07500, var(--gold, #f5c542)); }
 .fct-edit { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; } .fct-edit label, .fct-edit > span { display: grid; gap: 4px; font: 800 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute); }
 .fct-edit .m-input { min-height: 38px; width: 140px; font: 700 13px var(--f-mono); } .fct-edit .m-btn { min-height: 38px; }
-@keyframes fctIn { from { opacity: 0; transform: translateY(4px); } }
-body.fx-lite .fct-seg button { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fct-seg button { animation: none; } .fct-meter i u { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .fct-meter i u { transition: none; } }
 body.theme-day .fct-meter { background: #fff; } body.theme-day .fct-meter b { text-shadow: none; }
 @media (max-width: 640px) { .fct-meters { grid-template-columns: 1fr 1fr; } .fct-edit .m-input { width: 100%; } .fct-edit label { flex: 1 1 120px; } }
 

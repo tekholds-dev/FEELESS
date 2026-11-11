@@ -52,9 +52,9 @@ body.theme-day .pg-home .command-home-heading h1 { background: linear-gradient(9
 .pg-launch .llb-dot { filter: drop-shadow(0 0 6px #ffb46b); } .pg-launch .llb-pile rect { fill: rgba(255, 180, 107, .3); stroke: #ffb46b; }
 .pg-launch .llb-shackle path { stroke: #ffb46b; } .pg-launch .llb-body { fill: #5a2a0b; stroke: #ffb46b; }
 .pg-launch .llb-row.is-feeless { background: rgba(255, 150, 70, .1); border-color: rgba(255, 180, 107, .4); } .pg-launch .llb-row.is-feeless b { color: #ffb46b; }
-/* 🐱 FeeCat page in violet (was the same green as everything else) + the tab explainer */
-.pg-feecat .fcp-tabs button.active, .pg-feecat .m-seg button.active { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: #c08cff !important; }
-.pg-feecat .fcp-tabs button:hover { color: #efe3ff; }
+.pg-feecat .seg-tabs, .fcx .seg-tabs { --accent: #a77bff; --accent-foreground: #12071f; }
+.pg-feecat .m-seg button.active { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: #c08cff !important; }
+
 .pg-feecat .btn-primary { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: transparent !important; box-shadow: 0 8px 22px -10px #8a5cff; }
 .pg-feecat .btn-primary:hover { filter: brightness(1.08); }
 /* 🏠 the $FEE heartbeat on Home: graphite + a cool light, the green kept for the logo and the numbers */

@@ -9822,7 +9822,10 @@ async def cat_last_page(cat_id: str, slot: int):
 
 def _pub_cursor(c):
     try:
-        return {'x': round(min(1, max(0, float(c['x']))), 3), 'y': round(min(1, max(0, float(c['y']))), 3), 'act': str(c.get('act') or 'move')[:10], 'at': c.get('at')} if c else None
+        if not c:
+            return None
+        page = {k: round(min(1, max(0, float(c[k]))), 3) for k in ('px', 'py') if c.get(k) is not None}   # 🖱 AGT-19: page shares for the screenshots
+        return {'x': round(min(1, max(0, float(c['x']))), 3), 'y': round(min(1, max(0, float(c['y']))), 3), **page, 'act': str(c.get('act') or 'move')[:10], 'at': c.get('at')}
     except (KeyError, TypeError, ValueError):
         return None
 

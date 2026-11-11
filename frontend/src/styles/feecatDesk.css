@@ -103,7 +103,7 @@ body.theme-day .fcl-chips i { background: #fff; color: #10301f; } body.theme-day
 body.theme-day .fch-lane label { background: rgba(236, 246, 240, .7); } body.theme-day .fch-lane label.is-mine { border-color: #a07500; } body.theme-day .fch-lane label.is-mine em { color: #8a6100; }
 @media (max-width: 640px) { .fch-lane { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* 🪟 NEXA desk tabs — one pane at a time, the new glass look */
-.fch-tabs { flex-wrap: wrap; position: sticky; top: 0; z-index: 3; } .fch-tabs button { min-height: 36px; font: 800 10.5px var(--f-tech, sans-serif); letter-spacing: .08em; }
+.fch-tabs { position: sticky; top: 0; z-index: 3; }
 .fch-brain { display: grid; gap: 10px; }
 /* 🧠 the Brain tab's rule inputs — real inputs in the new look (they rendered as bare browser boxes): glass fields, the card colour on focus, the limit beside */
 .fch-brain .fch-group { border-radius: 14px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 26%, #ffffff12); background: #0b0716b8; padding: 10px 12px; }

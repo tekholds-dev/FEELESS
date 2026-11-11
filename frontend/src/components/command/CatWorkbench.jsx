@@ -208,7 +208,9 @@ const CURSOR_KEY = 'feeless:ai-cursor';
 export const readCursor = () => { try { return localStorage.getItem(CURSOR_KEY) || 'arrow'; } catch { return 'arrow'; } };
 // 🖱 ALWAYS on (owner 2026-10-31): before its first move the cursor rests mid-screen, dimmed; then it glides to every real move
 const REST = { x: 0.5, y: 0.55, act: 'move' };
-export function AiCursor({ c, kind, think }) {   // think = its mind is working between moves → a 'reading' ring pulses at the cursor
+export function AiCursor({ c, kind, think, page }) {   // think = its mind is working between moves → a 'reading' ring pulses at the cursor
+  // 🖱 AGT-19: over a page-only screenshot (page) use the PAGE shares (px / py); x / y are shares of the whole window, chrome included (the live view)
+  if (page && c?.px != null) c = { ...c, x: c.px, y: c.py };
   const rest = !c || c.x == null; if (rest) c = REST;
   return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}${think ? ' is-think' : ''}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
     <i /><u key={c.at} className={`at-${c.act || 'click'}`} /></span>;
@@ -346,7 +348,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
-      {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
+      {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} page={!(w?.live && seen && (working || w.hand))} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       <FindWires m={w?.marks} />
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
@@ -673,7 +675,7 @@ function PublicMinds({ cat }) {
           <div className="agd-screen cwb-view cwb-pubscreen">{w.screen && !w.frozen ? <img className="cwb-shot" src={apiUrl(w.last ? `/api/cats/${cat.id}/last/${w.slot ?? i}` : `/api/cats/${cat.id}/screen/${i}?t=${tick}`)} alt={`${w.model || 'its'} window, ${w.last ? 'its last page' : 'live'}`} data-testid={`cwb-pubshot-${i}`} />
             : <><span className="cwb-pub-host" key={w.host}>{w.frozen ? '🔒 paused' : d?.incognito ? '🕶 incognito' : w.host || (go ? 'thinking…' : 'idle')}</span>
               <small className="cwb-pub-note">{w.frozen ? 'its owner is signing in — this window is hidden until they finish' : d?.incognito ? 'its owner keeps these screens private' : go ? 'reading…' : "waiting for its owner's ask"}</small></>}
-            {w.frozen || d?.incognito ? null : <AiCursor c={w.cursor} kind={readCursor()} />}
+            {w.frozen || d?.incognito ? null : <AiCursor c={w.cursor} kind={readCursor()} page />}
 </div></div>
         {go && !w.frozen ? <p className={`agd-done is-on cwb-say is-under at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}
       </article>; })}</div>

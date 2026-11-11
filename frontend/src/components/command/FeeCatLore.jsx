@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SegTabs from '../SegTabs';
 import { Link } from 'react-router-dom';
 import { useGlide } from '../../lib/useGlide';
 import '../../styles/feeCatLore.css';
@@ -69,7 +70,7 @@ export function FeeCatLore({ asset, community, onSelect, children, start = 'lege
           {asset?.pair ? <button type="button" className="m-btn" onClick={() => onSelect?.(asset.pair)} data-testid="feecat-open-market">Open FEECAT market ↗</button> : null}</div></div>
     </header>
     <div className="fcl-man"><p className="fcl-man-h"><b>~/feeless <i>›</i> man fee{sec === 'legend' ? '' : ` --${sec}`}</b><small># her legend, how every cat works, and how to put your own to work</small></p>
-    <nav className="m-seg fcl-secs" role="tablist" aria-label="Lore">{LORE_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={sec === k} className={sec === k ? 'active' : ''} onClick={() => setSec(k)} data-tip={tip} data-testid={`lore-${k}`}>{l}</button>)}</nav>
+    <SegTabs items={LORE_TABS} value={sec} onChange={setSec} label="Lore" className="fcl-secs" testid={k => `lore-${k}`} />
     {sec === 'brain' ? <><ThinkFlow /><FeeCatBrainPage /></> : null}
     {sec === 'legend' ? <div className="fcl-mp" data-testid="lore-manual">
       <section className="fcl-mp-sec"><h3>NAME</h3><div><p><b>fee</b> — the first trading cat of FEELESS. <span className="m-num">{chapterStat('born', p, asset).join(' · ')}</span></p></div></section>
@@ -89,7 +90,7 @@ export function FeeCatLore({ asset, community, onSelect, children, start = 'lege
         ['FEECAT MARKET', asset?.status === 'market_observed' && asset?.pair?.priceUsd ? `$${Number(asset.pair.priceUsd).toPrecision(3)}` : 'awaiting a market']].map(([k, v], i) => <React.Fragment key={k}><dt>{k}</dt><dd data-testid={`feecat-stat-${i}`}>{v}</dd></React.Fragment>)}</dl></div></section>
     </div> : null}
     {sec === 'feeback' ? <>
-    <div className="m-seg fcl-tabs" role="tablist" aria-label="Fee-Back">{[['path', '↻ The return path'], ['calc', '🧮 Fee-Back calculator']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`feecat-tab-${k}`}>{l}</button>)}</div>
+    <SegTabs items={[['path', '↻ The return path'], ['calc', '🧮 Fee-Back calculator']]} value={tab} onChange={setTab} label="Fee-Back" className="fcl-tabs" testid={k => `feecat-tab-${k}`} />
     <div className="fcl-pane">{children ? children(tab) : null}</div></> : null}
     </div>
   </section>;

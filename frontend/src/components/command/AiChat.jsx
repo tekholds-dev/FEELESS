@@ -2,7 +2,7 @@
 // Agents, the creator's mini cat (🧠 Brain tab) and a full-window pop-out (⤢). Its own state: an answer patches THIS panel only — never the
 // agent hub, the chart, the stream or the P&L. It LEARNS on the owner's tap (🧠 Remember → a lesson every model case reads) and FIXES
 // agents only on the owner's call (🛠 proposals → ✅ Approve). Modes: 💬 Chat · 🔎 Case review · 🛠 Fix agents.
-import { ChatComposer, ChatInput, ChatSend, ChatSettings, ChatTool } from '../chat/ChatKit';
+import { ChatComposer, ChatInput, ChatSend, ChatSettings, ChatTool, SpeakBtn, speak, takeVoiced } from '../chat/ChatKit';
 import { Switch } from '@heroui/react';
 import { AiPlayground } from './AiPlayground';
 import BrainCards from './BrainCards';
@@ -139,7 +139,7 @@ const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBui
     {hist.length ? hist.map((t, i) => <li key={`${i}-${t.text.slice(0, 12)}`} className={`cch-msg is-${t.role} ${i >= from ? 'is-fresh' : ''}`}><small>{t.role === 'user' ? 'YOU' : 'BRAIN'}</small>{t.meta?.img ? <img className="cch-img" src={t.meta.img} alt="attached" loading="lazy" /> : null}{t.role === 'assistant' ? <AnswerCard text={t.text} /> : <span>{t.text}</span>}
       {t.meta?.data ? <DataChip d={t.meta.data} /> : null}
       {t.meta?.web?.length ? <WebSrc w={t.meta.web} /> : null}
-      <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}><Ic3 e="🧠" /> Remember</button>
+      <i className="cch-mact">{t.role !== 'user' && t.text.length >= 8 && !t.text.startsWith('⚠') ? <><SpeakBtn text={t.text} testid={`cch-say-${i}`} /><button type="button" onClick={() => onRemember(t.text)} data-tip="Remember this: it becomes a lesson every fitting model read sees" data-testid={`cch-rem-${i}`}><Ic3 e="🧠" /> Remember</button>
           <button type="button" onClick={() => onBuild(t.text)} data-tip="Build this: your tap is the permission — it joins the build queue the next build session ships" data-testid={`cch-build-${i}`}>🧱 Build this</button></> : null}
         {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}><Ic3 e="✏" /> Edit</button> : null}
         <button type="button" onClick={() => onDelete(i)} data-tip="Delete this message" aria-label="Delete this message" data-testid={`cch-del-${i}`}>✕</button></i></li>)
@@ -188,9 +188,11 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   const say = async (text, m = mode) => {
     const v = String(text || '').trim(); if (busy || (!v && m !== 'case')) return;
     const pic = m === 'case' ? null : img; setImg(null);
+    const aloud = takeVoiced();
     setBusy(true); markFresh(m); addMsg(m, { role: 'user', ...(pic ? { meta: { img: pic } } : {}), text: m === 'case' ? `[case review] $${focusSym || focus || '?'} ${v}`.trim() : v });
     try { const r = await call('/admin/ai/chat', { method: 'POST', body: JSON.stringify({ text: v, mode: m, focus: focus || null, provider: prov, ...(pic ? { image: pic } : {}) }) });
       take(r); setLast(r); setErr(null);
+      if (aloud) { const h = r.history || r.threads?.[r.mode || m] || []; const a = [...h].reverse().find(x => x.role === 'assistant'); if (a?.text) speak(a.text); }   /* asked by voice → answered by voice */
       if (r.routed) pickMode(r.mode);   /* a chat message that asked for a change ran as 🛠 Fix agents */
       if (!r.ok) toast.error(r.why || 'no provider answered'); else if ((r.new || []).length) { setOpenP(true); toast.success(r.rig ? `🎛 ${r.new.length} model change${r.new.length === 1 ? '' : 's'} waiting for your ✅` : `🛠 ${r.new.length} fix${r.new.length === 1 ? '' : 'es'} waiting for your call`); }
     } catch (x) { toast.error(x.message); addMsg(m, { role: 'assistant', text: `⚠ ${x.message}` }); } finally { setBusy(false); }
