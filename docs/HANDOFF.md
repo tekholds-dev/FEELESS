@@ -5,8 +5,13 @@
 > - 🎬 **Showcase ads: DONE, by hand (no OpenRouter).** Six ads written by Claude in `.claude-wip/ads/ad.html` (one engine, a config per proof
 >   type), filmed by `.claude-wip/ads/make.py` through the same recorder + frame check: all six pass, 0 faults. Installed as
 >   `backend/data/show_ads/<happy>/<kind>.webm` (+ `<kind>-claude.webm` kept). Owner: stop spending OpenRouter on ads; the agent ad writer
->   (Sonnet 5.5, `_ads_write`) stays in code but runs only on "Redo this ad". OpenRouter balance ≈ $1.9 of $10; ~$1.4 of spend in the last
->   hours has NO receipt (not the ads, not the 7 images): find the caller before topping up.
+>   (Sonnet 5.5, `_ads_write`) stays in code but runs only on "Redo this ad". OpenRouter balance ≈ $1.9 of $10.
+> - 🧾 **OpenRouter money traced (2026-11-11, from openrouter.ai/activity, 24 h = $7.42):** key "OAuth: localhost:51367" (Happy Assistant's
+>   Connect-OpenRouter key) $2.81 = Sonnet 5.5 $2.00 (only $0.34 had receipts) + Hy4 $0.81; FEELESS key "gpt 6 luna" $5.61 = videos $3.35 +
+>   images $1.12 (Claude dev scripts, Nov 10 19:14–19:38 + film stills; the app's media cap never saw them) + GPT-6 Luna $0.14 (site AI router
+>   fallback, ~$0.0005 every 1–2 min). Fixed: `_or_call` writes a receipt for EVERY billed call (cat via `_OR_CAT`, incl. cut-off replies),
+>   media jobs + Better images receipt, `ai_router._spend_note` receipts the site fallback (`cat: 'site'`). Test: test_model_receipts.
+>   Not covered: dev scripts that read the key directly (.claude-wip) and the admin fix seat (rep_tools, ~$0.001).
 > - 🎞 **The film (owner's last ask, IN PROGRESS):** everything in `.claude-wip/film/`: `script.json` (9 chapters, 882 words), narration
 >   `vo/*.mp3` (edge-tts, en-US-AndrewMultilingualNeural, ~5:16), title cards `card.html` → `raw/c-*.webm`, site footage `rec.py` → `raw/d-*`,
 >   phones `raw/p-*`, shots `comp.py` → `shots/*.mp4`, cutter `assemble.py` (crossfades, voice placed per chapter, generated score ducked,

@@ -90,6 +90,8 @@ CALL_ROLE = _cv.ContextVar('ai_call_role', default='')
 # are masked (`_mask`), nothing is written to disk — memory only, gone on restart.
 from collections import deque as _dq
 CALL_LOG = _dq(maxlen=30)
+from pathlib import Path as _Path
+RECEIPTS_PATH = _Path(__file__).parent / 'data' / 'model_receipts.jsonl'   # 🧾 the same ledger the agents' calls write
 INFLIGHT = {}
 _CALL_TASKS = {}  # private: cid -> asyncio task
 
@@ -999,7 +1001,15 @@ class Router:
             return
         self.budget[key] = {'remain': _f(rem), 'limit': _f(lim), 'resetAt': now + reset_sec(rst), 'at': now}
 
-    def _spend_note(self, key, usd, now):
+    def _spend_note(self, key, usd, now, model=None, id_=None):
+        if usd and usd > 0:   # 🧾 owner 2026-11-11: the site's paid fallback (GPT-6 Luna) billed all day with no receipt row
+            try:
+                with RECEIPTS_PATH.open('a') as f_:
+                    f_.write(json.dumps({'id': str(id_ or hashlib.sha1(f'{key}{now}'.encode()).hexdigest())[:40], 'cat': 'site', 'at': now, 'provider': LABEL.get(key, key),
+                                         'model': model, 'usd': usd, 'tokens': None, 'status': 'provider reported', 'funding': 'FEELESS key', 'role': CALL_ROLE.get() or ''},
+                                        separators=(',', ':')) + '\n')
+            except OSError:
+                pass
         day = int(now // 86400)
         sp = self.spend.get(key)
         if not sp or sp['day'] != day:
@@ -1049,7 +1059,7 @@ class Router:
         url = next((((x.get('image_url') or {}).get('url')) for x in msg.get('images') or [] if isinstance(x, dict)), None)
         usd = _f((j.get('usage') or {}).get('cost'))
         if usd:
-            self._spend_note('openrouter', usd, time.time())
+            self._spend_note('openrouter', usd, time.time(), m, j.get('id'))
         if not url or not str(url).startswith('data:image/'):
             return {'ok': False, 'why': 'the model answered without a picture', 'text': clean_answer(msg.get('content') or '', 200)}
         return {'ok': True, 'url': url, 'model': m, 'ms': round((time.perf_counter() - t0) * 1000), 'usd': usd, 'text': clean_answer(msg.get('content') or '', 200)}
@@ -1139,7 +1149,7 @@ class Router:
             return None, ('fail', f'HTTP {r.status_code}' + _err_word(r), None)
         try:
             j = r.json()
-            self._spend_note(p['key'], _f((j.get('usage') or {}).get('cost')), time.time())
+            self._spend_note(p['key'], _f((j.get('usage') or {}).get('cost')), time.time(), j.get('model') or p.get('model'), j.get('id'))
             u_ = j.get('usage') or {}
             self.lastUsage[p['key']] = {'in': int(_f(u_.get('prompt_tokens'))), 'out': int(_f(u_.get('completion_tokens')))}   # token counts only (shown beside a chat answer)
             return harmony_clean(((j.get('choices') or [{}])[0].get('message') or {}).get('content')), None

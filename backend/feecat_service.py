@@ -974,6 +974,7 @@ def _kept(text, n):
 
 async def _sort_cloud(cat_id, model):
     """🧠 owner 2026-10-30: on a model swap the new lead sorts the old cloud — keeps what helps, deletes the rest. One call, charged like any other."""
+    _OR_CAT.set(cat_id)
     await asyncio.sleep(1)   # after the switch itself is saved
     cat = _load()['cats'].get(cat_id)
     items = ((cat or {}).get('brainsCfg') or {}).get('cloud') or []
@@ -1140,13 +1141,7 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
             receipt = {'id': hashlib.sha256(head.encode()).hexdigest()[:20], 'cat': cat['id'], 'at': time.time(),
                        'provider': 'SingIt', 'model': model_id, 'usd': int(entry['amount']) / _ap.USDC_SCALE,
                        'tokens': (answer.get('usage') or {}).get('total_tokens'), 'status': 'provider accepted'}
-            try:
-                with (DATA_DIR / 'model_receipts.jsonl').open('a') as ledger:
-                    ledger.write(json.dumps(receipt, separators=(',', ':')) + '\n')
-            except OSError as e:
-                # A receipt disk error must never turn an already accepted
-                # payment into a reported free call or trigger another route.
-                print(f"[agent pay] receipt write failed: {type(e).__name__}")
+            _receipt_write(receipt)   # a disk error never turns an accepted payment into a free call or another route
             said_ = str(answer.get('model') or '')
             _heard(route='singit', model=model_id if not said_ or said_.startswith('singit') else said_, tokens=receipt['tokens'])   # SingIt names its router ('singit-ask'): the model we paid for is the one that answered (found live 2026-11-09)
             return ((answer.get('choices') or [{}])[0].get('message') or {}).get('content') or '', receipt['usd']
@@ -1186,6 +1181,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     fallback; users default to OpenRouter, my caller is theirs"). → (text, $, via). Fee / staff: SingIt from its own wallet → OpenRouter →
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
+    _OR_CAT.set(cat.get('id'))
     wallet = _pays_itself(cat)   # 💳 owner 2026-11-10: an agent on its own OpenRouter key still falls back to SingIt from its wallet when OpenRouter runs dry
     if (cat.get('personal') or cat.get('proofNote')) and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
@@ -1199,16 +1195,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     for name, step in ((('openrouter', router), ('singit', paid)) if own_key or staff else (('singit', paid), ('openrouter', router))):
         text, usd = await step()
         if str(text or '').strip():
-            if name == 'openrouter' and usd > 0:
-                receipt = {'id': uuid.uuid4().hex[:20], 'cat': cat['id'], 'at': time.time(), 'provider': 'OpenRouter',
-                           'model': model, 'usd': usd, 'tokens': None, 'status': 'provider reported',
-                           'funding': 'owner key' if own_key else 'model credit'}
-                try:
-                    with (DATA_DIR / 'model_receipts.jsonl').open('a') as ledger:
-                        ledger.write(json.dumps(receipt, separators=(',', ':')) + '\n')
-                except OSError as e:
-                    print(f"[agent pay] receipt write failed: {type(e).__name__}")
-            return text, usd, name
+            return text, usd, name   # 🧾 the OpenRouter receipt is written inside _or_call (every caller, billed even when empty)
     if own_key:
         return '', 0.0, ''
     for name, step in ((f"SingIt free · {_ap.FREE_URL_MODEL.split('/')[-1]} stood in", lambda: _singit_free(messages, max_tokens)),
@@ -1235,6 +1222,18 @@ async def _groq_backup(messages, max_tokens=None):
     except Exception:
         _OR_LAST['err'] = 'OpenRouter is out of credit and the backup did not answer. Nothing was charged.'
     return ''
+
+
+_OR_CAT = contextvars.ContextVar('or_cat', default=None)   # 🧾 the agent this task's OpenRouter calls are for (its receipt row)
+
+
+def _receipt_write(row):
+    """🧾 THE model receipt ledger (owner 2026-11-11: $1.66 of Sonnet billed with no row — only _think wrote one). Never raises."""
+    try:
+        with (DATA_DIR / 'model_receipts.jsonl').open('a') as ledger:
+            ledger.write(json.dumps(row, separators=(',', ':')) + '\n')
+    except OSError as e:
+        print(f"[receipts] write failed: {type(e).__name__}")
 
 
 _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
@@ -1390,6 +1389,11 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
         if not text.strip() and ch_.get('finish_reason') == 'length':   # all thinking, no answer: said plainly (it is still billed by the provider)
             _OR_LAST['err'] = f'{model} used its whole reply budget thinking and wrote no answer.'
         _heard(route='openrouter (own key)' if key else 'openrouter', model=d.get('model') or model, tokens=(d.get('usage') or {}).get('total_tokens'))
+        billed_ = float((d.get('usage') or {}).get('cost') or 0)
+        if billed_ > 0:   # 🧾 every billed call, whoever asked and even when the reply came back empty or cut off
+            _receipt_write({'id': str(d.get('id') or uuid.uuid4().hex)[:40], 'cat': _OR_CAT.get(), 'at': time.time(), 'provider': 'OpenRouter', 'model': d.get('model') or model,
+                            'usd': billed_, 'tokens': (d.get('usage') or {}).get('total_tokens'), 'status': 'provider reported',
+                            'funding': 'owner key' if key else 'FEELESS key', 'finish': ch_.get('finish_reason')})
         return text, float((d.get('usage') or {}).get('cost') or est)
     except Exception:
         return '', 0.0
@@ -5589,6 +5593,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
 
 
 async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, own_key=None):
+    _OR_CAT.set(cat_id)
     w = _WORK[cat_id]
     await _or_models()   # the price list: after a restart every model read as 'unknown cost' and the budget check stopped the task
     cat_now = _load()['cats'].get(cat_id) or {}; paid_ = {'usdc': 0.0, 'on': False}
@@ -6975,6 +6980,7 @@ def _ads_lab(cat_id, cat):
 async def _ads_write(cat_id, k, ws, fix=None):
     """🎬 One ad page written whole by show_ads.MODEL with the ad writer's own brief and every earlier attempt's faults as lessons; filed as a new
     version of its folder (the folder and its cost stay the record). → True when a whole page came back."""
+    _OR_CAT.set(cat_id)
     cat_ = _load()['cats'].get(cat_id) or {}; doc_ = _ws_load(cat_id, ws) or {}; cur_ = ((doc_.get('versions') or [{}])[-1]).get('html') or ''
     past_ = [f_ for c_ in _load()['cats'].values() if c_.get('showAds') and _same_owner(cat_, c_) for r_ in _ads_lab(c_['id'] if c_.get('id') else cat_id, c_) for f_ in r_['faults']]
     user_ = _ads.ask_for(k) + _ads.lessons(past_) + (f"\n\nTHE FILE NOW:\n{cur_[:60000]}\n\nREWRITE THE WHOLE FILE. {fix}" if fix and cur_ else '')
@@ -7103,6 +7109,11 @@ def _media_set(cat_id, ws_id, mid, keep=None, **fields):
         return None
     m_['media'] = {**(m_.get('media') or {}), **fields}
     _ws_save(cat_id, d_)
+    md_ = m_['media']
+    if fields.get('status') == 'done' and (md_.get('paidUsd') or md_.get('usd')):   # 🧾 a made image / video is a bill too (provider's own cost, else its list price)
+        _receipt_write({'id': str(mid), 'cat': cat_id, 'at': time.time(), 'provider': (_mg.PROVIDERS.get(md_.get('provider')) or {}).get('name') or md_.get('provider'),
+                        'model': md_.get('model'), 'usd': float(md_.get('paidUsd') or md_.get('usd') or 0), 'tokens': None,
+                        'status': 'provider reported' if md_.get('paidUsd') else 'list price', 'funding': 'FEELESS key' if md_.get('house') else 'owner key'})
     return m_
 
 
@@ -8867,6 +8878,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     j_ = r_.json(); im_ = ((j_.get('choices') or [{}])[0].get('message') or {}).get('images') or []
                     if not im_:
                         raise HTTPException(502, 'That model sent no image. Try another prompt.')
+                    if float((j_.get('usage') or {}).get('cost') or 0) > 0:   # 🧾
+                        _receipt_write({'id': str(j_.get('id') or uuid.uuid4().hex)[:40], 'cat': cat_id, 'at': time.time(), 'provider': 'OpenRouter', 'model': _play.PAID_IMAGE_MODEL,
+                                        'usd': float(j_['usage']['cost']), 'tokens': None, 'status': 'provider reported', 'funding': 'owner key'})
                     return {'image': im_[0]['image_url']['url'], 'usd': (j_.get('usage') or {}).get('cost'), 'by': _play.PAID_IMAGE_MODEL}
                 r_ = await h_.get(_play.free_image_url(prompt_, size_.get('w'), size_.get('h'), secrets.randbelow(999999)), headers={'User-Agent': 'FEELESS'})
                 if r_.status_code != 200 or not r_.headers.get('content-type', '').startswith('image/') or len(r_.content) > _play.MAX_IMAGE_BYTES:
@@ -11007,6 +11021,7 @@ async def _order_pair(http, coin):
 async def _run_order(store, cat, text, http):
     """🧭 A General cat's order: understood (words first, its brain only when the words don't parse) → guarded → REAL = a proposal your wallet
     signs · paper = a paper fill. → the order-log row (also on cat['orders'])."""
+    _OR_CAT.set(cat.get('id'))
     now = time.time()
     b = cat.get('brainsCfg') or {}
     ensure_real(cat)
@@ -11257,6 +11272,7 @@ async def cat_recover(payload: RecoverPayload):
 
 @app.post('/api/cats/{cat_id}/action')
 async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
+    _OR_CAT.set(cat_id)   # 🧾 its model calls' receipts carry this agent
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:
