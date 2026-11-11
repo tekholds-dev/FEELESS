@@ -784,3 +784,375 @@ async def nft_meta(name: str, request: Request):
         raise rs.HTTPException(404, 'Not found')
     site = rs.os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
     return rs.nft_studio.item_json(c, site, int(m.group(2))) if m.group(2) else rs.nft_studio.collection_json(c, site)
+
+
+@router.get('/api/reputation/reactions')
+async def reactions(room: str, voter: Optional[str] = None):
+    rs = _rs()
+    msgs = rs._react_load()['rooms'].get(room[:120], {})
+    return {'reactions': {mid: {e: {'count': len(v), 'mine': bool(voter and voter in v)} for e, v in em.items() if v} for mid, em in msgs.items()},
+            'emojis': rs.REACTIONS}
+
+
+@router.get('/api/reputation/profile/{address}')
+async def get_profile(address: str):
+    rs = _rs()
+    p = rs._profiles_load()['profiles'].get(address)
+    board = await rs.caller_board(days=30)
+    caller = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
+    return {'address': address, 'profile': {k: v for k, v in p.items() if k != 'nameLock'} if p else p, 'caller': caller, 'verified': rs.is_verified(address)}
+
+
+@router.get('/api/reputation/profiles')
+async def get_profiles(addresses: str):
+    rs = _rs()
+    d = rs._profiles_load()['profiles']
+    return {'profiles': {a: {**{k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx', 'handle')}, 'verified': rs.is_verified(a)} for a in addresses.split(',')[:100] if a in d}}
+
+
+@router.get('/api/reputation/fuses/search')
+async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_length=60)):
+    rs = _rs()
+    """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover).
+    A pasted CA does a direct token lookup (search can miss fresh coins). HQ sees EVERY pool (thin ones flagged, not hidden)."""
+    is_ca = bool(rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q.strip()))
+    async with rs.httpx.AsyncClient(timeout=8) as http:
+        try:
+            url = f'https://api.dexscreener.com/tokens/v1/solana/{q.strip()}' if is_ca else 'https://api.dexscreener.com/latest/dex/search'
+            got = (await http.get(url, params=None if is_ca else {'q': q})).json()
+            pairs = got if isinstance(got, list) else (got or {}).get('pairs') or []
+        except Exception:
+            pairs = []
+        if not pairs:   # 📡 DexScreener silent (outage / not indexed yet) → Jupiter's data for the same CA or ticker, same pair shape
+            try:
+                key = rs._jkeys.read_key(rs.os.environ) or ''
+                base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else (rs._launchpad_board.JUP_SEARCH, {})
+                jr = await http.get(base, params={'query': q.strip().lstrip('$')}, headers=hdr)
+                toks = jr.json() if jr.status_code == 200 else []
+                pairs = [p_ for p_ in (rs._launchpad_board.jup_pair(t) for t in (toks if isinstance(toks, list) else [])[:12]) if p_]
+            except Exception:
+                pairs = []
+    pairs = [rs._fuse.with_curve(p) for p in pairs]   # 🆕 a coin still on Pump's launch curve is tradable: its curve depth stands in for a pool
+    admin = rs._is_admin_req(request)
+    real = {p.get('pairAddress') for p in rs._fuse.real_pools(pairs)}
+    src = pairs if admin else [p for p in pairs if p.get('pairAddress') in real]
+    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **rs._fuse.leg_meta(p), **({'thin': True} if p.get('pairAddress') not in real else {}), **({'curve': True} if p.get('curve') else {})}
+            for p in src[:20] if p.get('chainId') == 'solana']
+    qu = q.strip().upper().lstrip('$')
+    if qu in rs._fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in rs._fuse.MAJORS.values()):   # 'BTC' → the real ones, always
+        have = {r['pairAddress'] for r in rows}
+        rows += [r for r in await rs._majors_rows() if r['pairAddress'] not in have]
+    hidden = sum(1 for p in pairs if p.get('chainId') == 'solana' and p.get('pairAddress') not in real) if not admin else 0
+    seen_ = {r.get('mint'): r for r in rs._runner_cands}
+    for r in rows:   # ⚠ what the runner board already knows about this coin's creator (cache only — informs a pick, never blocks it)
+        w = rs._creator_warn(seen_.get(r.get('baseAddress')))
+        if w:
+            r['warn'] = w
+    return {'pools': rs._fuse.mark_real(rows, qu)[:15], 'hidden': hidden,
+            'why': ('That coin has no tradable pool yet (still on its launch curve, or no volume) — a card can only swap into a live pool.' if is_ca and not rows
+                    else f'{hidden} pool{"s" if hidden != 1 else ""} hidden: no volume or a parked pool.' if hidden and not rows else '')}
+
+
+@router.get('/api/reputation/fuses/creators')
+async def fuse_creators():
+    """Fuse creator season (this week, from Monday 00:00 UTC): ranked by buyers' real P&L. 60s cache."""
+    rs = _rs()
+    hit = rs._fuse_holders_cache.get('creators')
+    if hit and rs.time.time() - hit[0] < 60:
+        return hit[1]
+    now = rs.time.time(); since = now - ((rs.time.gmtime(now).tm_wday * 86400) + now % 86400)
+    pos = [x for x in rs._json_load(rs.FUSE_HQ_PATH, {}).get('positions') or [] if (x.get('at') or 0) >= since and x.get('fuseId')]
+    px = await rs._hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
+    fz = {fid: {'creator': f.get('creator'), 'name': f.get('name')} for fid, f in rs._json_load(rs.FUSES_PATH, {'fuses': {}})['fuses'].items()}
+    board = rs._hq.creator_board([{**rs._hq.position_pnl(x, px), 'wallet': x['wallet'], 'fuseId': x['fuseId'], 'at': x.get('at')} for x in pos], fz, since)
+    out = {'since': since, 'endsAt': since + 7 * 86400, 'minBuyers': rs._hq.MIN_BUYERS, 'rows': [{**r, 'handle': rs.handle_of(r['creator'])} for r in board[:30]]}
+    rs._fuse_holders_cache['creators'] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/fuses/replay/{kind}/{cid}')
+async def fuse_replay(kind: str, cid: str):
+    """▶ Card replay: each coin's last 24h path (15m) + the card's moments (buys, take-profits, swaps, compounds) as markers."""
+    rs = _rs()
+    now = rs.time.time(); legs, marks = [], []
+    if kind == 'user':
+        pos = next((x for x in rs._json_load(rs.FUSE_HQ_PATH, {}).get('positions') or [] if x['id'] == cid), None)
+        if not pos:
+            raise rs.HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': round(rs._fuse._f(l.get('usd')) / rs._fuse._f(l.get('tokens0') or l.get('tokens')), 12) if rs._fuse._f(l.get('tokens0') or l.get('tokens')) else None,
+                 'at': l.get('addedAt') or pos.get('at')} for l in pos['legs']]
+        marks = [{'at': e.get('at'), 'kind': e.get('kind'), 'label': f"{e.get('kind')} {e.get('symbol') or ''}".strip()} for e in pos.get('events') or [] if e.get('at')]
+        marks.insert(0, {'at': pos.get('at'), 'kind': 'open', 'label': 'card opened'})
+    elif kind in ('lit', 'round'):
+        rd = rs._json_load(rs.RUNNERS_PATH, {'rounds': []})
+        c = next((x for x in (rd.get('litCards') or []) + (rd.get('rounds') or []) if str(x.get('id')) == cid), None)
+        if not c:
+            raise rs.HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'entry': p.get('entry'), 'at': p.get('swappedIn') or c['at']} for p in c['picks']]
+        marks = [{'at': c['at'], 'kind': 'open', 'label': 'lit' if kind == 'lit' else 'round dealt'}] + [{'at': s['at'], 'kind': 'swap', 'label': f"swap ${s['out'].get('symbol')} → ${s['in'].get('symbol')}"} for s in c.get('swaps') or []]
+    elif kind == 'mega':
+        f = (rs._json_load(rs.FUSES_PATH, {'fuses': {}}).get('fuses') or {}).get(cid)
+        if not f:
+            raise rs.HTTPException(404, 'No such card.')
+        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': (f.get('basePrices') or {}).get(l['pairAddress']), 'at': f.get('createdAt')} for l in f['legs']]
+    elif kind == 'auto':
+        ac = rs._json_load(rs.RUNNERS_PATH, {}).get('autoCard') or {}
+        if cid not in (ac.get('id'), 'arena-pick'):
+            raise rs.HTTPException(404, 'No such card.')
+        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry')} | {'at': ac['at']} for l in ac['legs']]
+        marks = [{'at': ac['at'], 'kind': 'open', 'label': 'arena dealt it'}]
+    elif kind == 'feecat':
+        fc = await rs._feecat_card()
+        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry', 'at')} for l in (fc or {}).get('legs') or []]
+        marks = [{'at': l['at'], 'kind': 'buy', 'label': f"🐱 bought ${l['symbol']}"} for l in legs if l.get('at')]
+    else:
+        raise rs.HTTPException(400, 'Unknown card kind.')
+    legs = legs[:12]
+    series = await rs.asyncio.gather(*[rs._series_24h(l['pairAddress']) for l in legs])
+    return {'from': now - 86400, 'to': now, 'legs': [{**l, 'series': s} for l, s in zip(legs, series)],
+            'markers': [m for m in marks if rs._fuse._f(m.get('at')) >= now - 86400]}
+
+
+@router.get('/api/reputation/fuses/battles/{address}')
+async def fuse_my_battles(address: str):
+    """⚔ A wallet's cards in Arena battles: the live ones (with both sides' move since the bell) + the last results."""
+    rs = _rs()
+    me = rs.primary_of(address); mine = set(rs.linked_of(me)) | {me}
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    keys = {f"user:{x['id']}": x.get('name') or 'Fuse card' for x in d.get('positions') or [] if x['wallet'] in mine}
+    view = rs._battle_view(rs._arena_mega_cache.get('data') or [], rs.time.time())
+    live = [{**p_, 'mine': 'a' if p_['a']['key'] in keys else 'b'} for p_ in view['pairs'] if p_['a']['key'] in keys or p_['b']['key'] in keys]
+    past = [{**r, 'mine': 'a' if r.get('aKey') in keys else 'b', 'won': r.get('winnerKey') in keys} for r in reversed(d.get('battleLog') or [])
+            if r.get('aKey') in keys or r.get('bKey') in keys][:20]
+    rec = {'w': sum(1 for r in past if r['won']), 'l': sum(1 for r in past if not r['won'] and not r.get('draw')), 'd': sum(1 for r in past if r.get('draw'))}
+    return {'live': live, 'past': past, 'record': rec, 'endsAt': view.get('endsAt'), 'cards': len(keys)}
+
+
+@router.get('/api/reputation/fuses/prebuilt')
+async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), budget: float = Query(20, ge=1, le=10000)):
+    rs = _rs()
+    """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
+    Traders get 3-pool baskets; HQ may ask for up to 12. Cached 5 min per size."""
+    legs = legs if rs._is_admin_req(request) else min(legs, rs._fuse.USER_MAX_LEGS)
+    # Breeding buckets (fee drag + size guard depend on size): $1 · $5 · $20 · $100. The buyer's exact amount is used at Fuse in.
+    key = (legs, 1 if budget < 3 else 5 if budget < 12 else 20 if budget < 60 else 100)
+    hit = rs._fuse_prebuilt_cache.get(key)
+    if hit and rs.time.time() - hit[0] < 300:
+        return hit[1]
+    metas, sol_usd = await rs.asyncio.gather(rs._fuse_candidates(), rs._sol_usd_live())
+    board = {r['style']: r for r in rs._hq.arena_board([rs._hq.arena_value(e, {}, rs.time.time()) for e in rs._json_load(rs.FUSE_HQ_PATH, {}).get('arena') or []])}
+    seed = int(rs.time.time() // 300)
+    runs = await rs.asyncio.gather(*[rs.asyncio.to_thread(rs._fuse.evolve, metas, legs, 14, 28, st, key[1] / sol_usd, sol_usd, seed) for st in rs._fuse.STYLES])
+    dead = rs._retired(list(board.values()))   # ☠ strategies the arena proved to lose never reach a trader's rail
+    cards = [{'style': st, 'arena': board.get(st), **rs._champ_view(ev['champions'][0], metas)} for st, ev in zip(rs._fuse.STYLES, runs) if ev['champions'] and st not in dead]
+    out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'retired': sorted(dead), 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
+    rs._fuse_prebuilt_cache[key] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/fuses/edge')
+async def fuses_edge():
+    """🧬 The swap-in lists ranked by evidence + Coming up's own record + the learned combos that have settled. A ranking, never a promise."""
+    rs = _rs()
+    st = rs._json_load(rs.EDGE_PROOF_PATH, {})
+    proof = rs._trench.meta_proof(st, keys=tuple(st))
+    return {'rows': [{k: r.get(k) for k in ('mint', 'symbol', 'pairAddress', 'baseAddress', 'logo', 'priceUsd', 'price', 'tv', 'vital', 'edge')} for r in rs._edge_rank()[:60]],
+            'up': proof.get('up'), 'combos': {k: v for k, v in proof.items() if k != 'up' and v.get('n')}}
+
+
+@router.get('/api/reputation/fuses/forecast')
+async def fuses_forecast():
+    """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
+    rs = _rs()
+    rcfg = rs._runner_cfg()
+    safe = [r for r in rs._runner_cands if rs._rn.safe_only(r, rcfg) and rs._fuse._f(r.get('liq')) >= 10000]   # setups only among coins clearing every SAFETY gate
+    proof = rs._trench.meta_proof(rs._json_load(rs.ENTRY_PROOF_PATH, {}), keys=rs._prime.ENTRY_SETUPS)
+    eg = rs._edge_load()
+    return {**rs._prime.forecast(rs._json_load(rs.PG_SIM_PATH, {}), rs._runner_cands), 'edge': {k: eg.get(k) for k in ('n', 'base', 'proof', 'best', 'worst', 'at')} | {'on': bool(eg.get('table'))}, 'entries': [{**e, 'proof': proof.get(e['setup'])} for e in rs._prime.entries(safe)],
+            'setups': [{'key': k, 'ico': v[0], 'name': v[1], 'why': v[2], **(proof.get(k) or {})} for k, v in rs._prime.ENTRY_SETUPS.items()]}
+
+
+@router.get('/api/reputation/arena')
+async def arena_home(address: str = Query('', max_length=64), session: str = Query('', max_length=400), tg: str = Query('', max_length=4096)):
+    """🎯 the catalog (guns + attachments + the level curve), your profile, today's leaders, the online rooms."""
+    rs = _rs()
+    now = rs.time.time(); who_, _n = rs._arena_who(address, session, tg)
+    players_ = (rs._json_load(rs.ARENA_PATH, {}) or {}).get('players') or {}
+    return {'guns': rs._ar.GUNS, 'parts': {k: [{'id': i, 'name': n, 'level': lv, 'mod': m} for i, n, lv, m in v] for k, v in rs._ar.PARTS.items()}, 'default': rs._ar.DEFAULT,
+            'xp': rs._ar.XP, 'me': rs._arena_profile(players_, who_) if who_ else {**rs._arena_profile({}, ''), 'guest': True},
+            'board': rs._ar.board(players_, rs._arena_day(now)), 'rooms': [{'room': k, 'n': len(v)} for k, v in rs._arena_rooms.items() if v][:20]}
+
+
+@router.get('/api/reputation/fuses/sparks')
+async def fuse_sparks(mints: str = Query('', max_length=4000)):
+    rs = _rs()
+    """📈 Mini chart lines for coin lists: the last ~2 hours of recorded prices (5-min readings) per mint, from the runner board's own
+    record. ≤ 60 mints a call; a coin the board has not tracked returns nothing (the row just shows no line). Cache only — ms."""
+    paths = rs._json_load(rs.RUNNERS_PATH, {}).get('paths') or {}
+    cut = rs.time.time() - 2.5 * 3600
+    out = {}
+    for m in [x for x in mints.split(',') if 32 <= len(x) <= 44][:60]:
+        pts = [float(p) for t, p in (paths.get(m) or []) if t >= cut and p]
+        if len(pts) >= 3:
+            out[m] = [round(v / pts[0], 5) for v in pts[-30:]]   # indexed to 1.0 at the first point: shape, not price
+    return {'sparks': out}
+
+
+@router.get('/api/reputation/fuses/strategies')
+async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
+    rs = _rs()
+    """🎯 3 strategies for a card's round length (🛡 Steady · 🧠 Engine pick · 🔥 Hunt) from the background sims on REAL recorded prices
+    (fees in, re-run every ~15 min). Longer clocks than the sims play read the nearest one (said so). Never a promise."""
+    bc = rs._json_load(rs.PG_SIM_PATH, {}).get('byClock') or {}
+    rows = [(float(k), v) for k, v in bc.items() if v.get('strategies')]
+    if not rows:
+        return {'clock': None, 'strategies': [], 'note': 'The sim brain needs ~15 min of recorded prices first.'}
+    want = hours * 60
+    clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
+    note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
+    sniper = (rs._json_load(rs.PG_SIM_PATH, {}).get('setups') or {}).get(str(int(clock))) or []   # 🚀 🎯 whole setups first, each with its own walk-forward proof
+    rows_all = sniper + v['strategies']
+    win = [x for x in rows_all if x.get('profitable')]
+    if win:   # 🏆 only setups that ENDED UP on the replay are offered; the losing ones are counted, not shown
+        hid = len(rows_all) - len(win)
+        note = (note + ' ' if note else '') + (f"{hid} setup{'s' if hid != 1 else ''} that lost on the replay {'are' if hid != 1 else 'is'} hidden." if hid else '')
+        rows_all = win
+    return {'clock': int(clock), 'n': v.get('n'), 'strategies': rows_all, 'note': note.strip(), 'at': rs._json_load(rs.PG_SIM_PATH, {}).get('at')}
+
+
+@router.get('/api/reputation/fuses/dna/unique')
+async def fuse_dna_unique(dial: str = '', seed: str = ''):
+    """🎲 A card DNA nobody on FEELESS holds right now (every Arena card + every open trader card) — so a new card plays its own way."""
+    rs = _rs()
+    taken = dict((rs._json_load(rs.FUSE_HQ_PATH, {}).get('cardDna') or {}))
+    for x in rs._json_load(rs.FUSE_HQ_PATH, {}).get('positions') or []:
+        if not x.get('closedAt'):
+            taken[f"user:{x['id']}"] = rs._dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press', 'rescue', 'auto') else 'off', 'compound': x.get('compoundStyle') or 'smart',
+                                                   'payoutPct': x.get('payoutPct', 100), 'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
+    new_id = f"new:{seed or rs.uuid.uuid4().hex[:8]}"
+    d = rs._dna.assign([*({'id': k} for k in taken), {'id': new_id, 'dial': dial if dial in ('safe', 'balanced', 'degen') else None}], known=taken)[new_id]
+    return {'dna': d, 'label': rs._dna.label(d)}
+
+
+@router.get('/api/reputation/fuses/brain')
+async def fuse_brain():
+    """🧠 The engine's best card DNA so far (learned from playground battles) — the Lab offers it as a one-tap setup."""
+    rs = _rs()
+    br = (rs._json_load(rs.RUNNERS_PATH, {}).get('pgBattle') or {}).get('brain') or {}
+    best = rs._dna.best(br)
+    return {**best, 'label': rs._dna.label(best['dna']), 'fights': sum(v['n'] for vals in br.values() for v in vals.values()) // 5 if br else 0}
+
+
+@router.get('/api/reputation/clicks/top')
+async def top_clicks(kind: str = '', limit: int = 10):
+    rs = _rs()
+    d = rs._json_load(rs.CLICKS_PATH, {})
+    rows = [{'kind': k.split(':', 1)[0], 'value': k.split(':', 1)[1], 'count': v[0], 'lastAt': v[1]} for k, v in d.items() if not kind or k.startswith(kind + ':')]
+    rows.sort(key=lambda r: -r['count'])
+    return {'rows': rows[:max(1, min(limit, 50))]}
+
+
+@router.get('/api/reputation/calls/following/{address}')
+async def following_calls(address: str, hours: int = Query(24, ge=1, le=168)):
+    rs = _rs()
+    me = rs.primary_of(address)
+    following = set(rs._fol()['following'].get(me, []))
+    if not following:
+        return {'calls': [], 'following': 0}
+    since = rs.time.time() - hours * 3600
+    board = {r.get('callerAddress'): r for r in (await rs.caller_board(days=30))['rows']}
+    calls = [rs._call_view(c) for c in rs._calls_load()['calls'].values() if c['at'] >= since and rs.primary_of(c.get('callerAddress') or '') in following]
+    calls.sort(key=lambda c: -c['at'])
+    for c in calls:
+        b = board.get(c.get('callerAddress')) or {}
+        c['callerHitRate'] = b.get('hitRate'); c['callerCalls'] = b.get('calls')
+    return {'calls': calls[:30], 'following': len(following)}
+
+
+@router.get('/api/reputation/ads')
+async def public_ads(placement: str = 'banner'):
+    rs = _rs()
+    now = rs.time.time()
+    ads = [a for a in rs._json_load(rs.ADS_PATH, {'ads': []})['ads'] if a['active'] and a['placement'] == placement and (not a['startsAt'] or a['startsAt'] <= now) and (not a['endsAt'] or now < a['endsAt'])]
+    return {'ads': [{k: a[k] for k in ('id', 'title', 'text', 'url', 'imageUrl', 'sponsor')} for a in ads]}
+
+
+@router.get('/api/reputation/kols')
+async def kols():
+    rs = _rs()
+    d = rs._json_load(rs.KOLS_PATH, {})
+    rows = await rs.asyncio.gather(*(rs._kol_stats(a, v['chain']) for a, v in d.items()))
+    return {'kols': [{'address': a, **v, 'stats': s} for (a, v), s in zip(d.items(), rows)], 'at': rs.time.time()}
+
+
+@router.get('/api/reputation/season')
+async def season_get(address: str = ''):
+    rs = _rs()
+    d = rs._seasons(); s = rs._current_season(d)
+    upcoming = sorted((x for x in d['seasons'] if x['start'] > rs.time.time()), key=lambda x: x['start'])[:1]
+    if not s:
+        return {'season': None, 'upcoming': upcoming[0] if upcoming else None, 'tiers': rs.SEASON_TIERS}
+    sc = d['scores'].get(s['id'], {})
+    board = sorted(sc.items(), key=lambda kv: -kv[1]['score'])
+    top = [{'rank': i + 1, 'address': a, 'handle': rs.handle_of(a), 'name': rs._display_name(a), 'score': r['score'], **rs._tier(r['score'])} for i, (a, r) in enumerate(board[:25])]
+    me = None
+    if address:
+        a = rs.primary_of(address); r = sc.get(a)
+        rank = next((i + 1 for i, (x, _) in enumerate(board) if x == a), None)
+        me = {'address': a, 'score': r['score'] if r else 0, 'rank': rank, 'players': len(board), **rs._tier(r['score'] if r else 0)}
+    return {'season': s, 'endsIn': round(s['end'] - rs.time.time()), 'players': len(board), 'top': top, 'me': me, 'tiers': rs.SEASON_TIERS,
+            'upcoming': upcoming[0] if upcoming else None}
+
+
+@router.get('/api/reputation/rug-report')
+async def rug_report(days: int = Query(7, ge=1, le=30)):
+    """The week's receipts: who got caught, who funded them, which promises broke."""
+    rs = _rs()
+    since = rs.time.time() - days * 86400
+    bl = rs._block_load()['wallets']
+    caught = [{'wallet': w, 'roles': sorted(set((r.get('mints') or {}).values())), 'launches': len(r.get('mints') or {}), 'blocked': rs._is_blocked(r)}
+              for w, r in bl.items() if (r.get('firstSeen') or 0) >= since]
+    fd = rs._funders_load()
+    funders = [{'wallet': w, 'walletsFunded': len(r.get('funded') or []), 'launches': len(r.get('mints') or {})}
+               for w, r in fd['funders'].items() if rs._is_flagged_funder(r) and (r.get('lastSeen') or 0) >= since]
+    broken = [{'mint': m, 'creator': s['creator'], 'rules': [b['rule'] for b in s['breaches']]}
+              for m, s in rs._json_load(rs.SHIELD_PATH, {}).items() if any(b['at'] >= since for b in s['breaches'])]
+    rugs = [e for e in rs._radar['events'] if e['kind'] in ('rug', 'dump') and e['at'] >= since]
+    return {'days': days, 'from': since, 'to': rs.time.time(),
+            'totals': {'caught': len(caught), 'blocklisted': sum(1 for c in caught if c['blocked']), 'funders': len(funders), 'brokenShields': len(broken), 'rugs': len(rugs)},
+            'caught': sorted(caught, key=lambda c: -c['launches'])[:10], 'funders': sorted(funders, key=lambda f: -f['walletsFunded'])[:5],
+            'brokenShields': broken[:5], 'rugs': rugs[:8]}
+
+
+@router.get('/api/reputation/badge-pools')
+async def badge_pools_public(address: str = ''):
+    """Public: every live badge pool, its pot and what this wallet's badges earn from it."""
+    rs = _rs()
+    hit = rs._pool_pub_cache.get('all')
+    if not hit or rs.time.time() - hit[0] > 60:
+        plans = await rs.asyncio.gather(*(rs._pool_plan(p) for p in rs._pools()['pools'] if p.get('pct')))
+        hit = (rs.time.time(), plans); rs._pool_pub_cache['all'] = hit
+    a = rs.primary_of(address) if address else ''
+    return {'pools': [{'id': pl['pool']['id'], 'name': pl['pool']['name'], 'pct': pl['pct'], 'potSol': pl['potSol'], 'wallets': len(pl['rows']),
+                       'earns': [k.split(':', 1)[1] for k in pl['pool'].get('weights', {})], 'me': rs.reserve_pool.wallet_share(pl, a) if a else None} for pl in hit[1]]}
+
+
+@router.get('/api/reputation/after-sell/{address}')
+async def after_sell(address: str):
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise rs.HTTPException(400, 'Bad address.')
+    trades = [t for t in await rs.wallet_trades(address) if t.get('side') == 'sell'][:20]
+    toks = list({t['token'] for t in trades})[:30]
+    prices = {}
+    if toks:
+        try:
+            async with rs.httpx.AsyncClient(timeout=8) as http:
+                for p in (await http.get(f"https://api.dexscreener.com/latest/dex/tokens/{','.join(toks)}")).json().get('pairs') or []:
+                    a = (p.get('baseToken') or {}).get('address')
+                    if a and a not in prices and p.get('priceUsd'):
+                        prices[a] = float(p['priceUsd'])
+        except Exception:
+            pass
+    rows = rs.after_sell_lessons(trades, prices)
+    return {'address': address, 'rows': rows, 'runners': sum(r['lesson'] == 'runner' for r in rows), 'saved': sum(r['lesson'] == 'saved' for r in rows)}

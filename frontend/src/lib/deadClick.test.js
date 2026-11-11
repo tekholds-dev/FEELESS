@@ -46,3 +46,12 @@ test('a press on decorative art (aria-hidden) over a control is delivered to tha
   await new Promise(r => setTimeout(r, 5));
   expect(onClick).toHaveBeenCalledTimes(1); expect(filed[0]).toContain('i.dso-scan sits over button[ack-seat-1]');
 });
+
+test('🪟 SITE-1: a control behind ANOTHER fixed window (HQ over the sidebar) is not a dead click; a layer inside the same window still is', () => {
+  document.body.innerHTML = '<a class="season-banner" href="/s" id="banner">S</a><div class="hqp" id="hq" style="position:fixed"><div class="cc-shell" id="shell"><button id="inner">in</button><i id="glow"></i></div></div>';
+  const banner = document.getElementById('banner'); const shell = document.getElementById('shell'); const inner = document.getElementById('inner');
+  document.elementsFromPoint = () => [shell, document.getElementById('hq'), banner, document.body];
+  expect(blockerAt(1, 1)).toBeNull();   // the banner is behind HQ, not blocked
+  document.elementsFromPoint = () => [document.getElementById('glow'), inner, shell, document.getElementById('hq'), document.body];
+  expect(desc(blockerAt(1, 1).control)).toBe('button');   // a layer over a button inside HQ is still caught
+});

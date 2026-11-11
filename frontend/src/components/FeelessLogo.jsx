@@ -2,7 +2,7 @@ import React from 'react';
 
 export function FeelessMark({ size = 40, glow = true }) {
   return <span className={`feeless-mark ${glow ? 'mark-glow' : ''}`} style={{ width: size, height: size }}>
-    <img src="/assets/feeless-logo.png" alt="FEELESS" width={size} height={size} />
+    <img src={size <= 128 ? '/assets/feeless-logo-256.png' : '/assets/feeless-logo.png'} alt="FEELESS" width={size} height={size} decoding="async" />   {/* 🖼 SITE-2: 36 KB, not 294 KB, at header sizes */}
   </span>;
 }
 

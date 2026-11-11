@@ -15,7 +15,7 @@ const isImageSource = value => typeof value === 'string' && (/^https?:\/\//i.tes
 const SOL_MINT_ADDR = 'So11111111111111111111111111111111111111112';
 const KNOWN_LOGOS = {
   [SOL_MINT_ADDR]: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
-  '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump': '/assets/feeless-logo.png',
+  '49MmWE8sgNjuw342Eu7tB9thsVFtvTfKigUw9KSppump': '/assets/feeless-logo-256.png',
 };
 export const tokenImageUrls = pair => {
   const address = pair?.baseToken?.address;

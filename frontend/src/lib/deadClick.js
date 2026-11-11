@@ -29,7 +29,14 @@ export function blockerAt(x, y, doc = document, win = window) {
   }
   try { if (win.getComputedStyle(top).cursor === 'pointer') return null; } catch { /* detached */ }   // a div with its own onClick
   const control = stack.slice(1).find(el => !el.contains(top) && el.matches?.(CONTROL) && !el.disabled);
-  return control ? { layer: top, control } : null;
+  if (!control) return null;
+  // 🪟 SITE-1: a control BEHIND another fixed window (HQ is a full-screen window over the sidebar and the season banner) is not blocked,
+  // it is just behind a window — 51 queue hits (HQ button 18, season banner 33) were presses on HQ's own background. Only a layer in the same window counts.
+  for (let n = top; n && n !== doc.body; n = n.parentElement) {
+    let fixed = false; try { fixed = win.getComputedStyle(n).position === 'fixed'; } catch { /* detached */ }
+    if (fixed) { if (!n.contains(control)) return null; break; }
+  }
+  return { layer: top, control };
 }
 
 export function installDeadClick({ doc = document, win = window, report } = {}) {

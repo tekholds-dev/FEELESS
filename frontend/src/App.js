@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useEffect } from 'react';
+import { isCrashNoise } from './components/PanelBoundary';
 import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useLocation as _useLoc } from 'react-router-dom';
@@ -53,7 +54,7 @@ class AppErrorBoundary extends React.Component {
     // Auto crash report → HQ > Bugs, with the real error and the component that threw. Dev hot-reload crashes
     // (half-applied edits, `.hot-update.js` frames) are not real bugs and are never filed.
     try {
-      if (/\.hot-update\.js/.test(String(info?.componentStack || '') + String(error?.stack || ''))) return;
+      if (isCrashNoise(error, info?.componentStack)) return;
       const firstComp = (String(info?.componentStack || '').match(/at (\w+)/) || [])[1] || '?';
       fetch('/api/reputation/bugs', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'bug', page: `${window.location.pathname}${window.location.search}`.slice(0, 300),

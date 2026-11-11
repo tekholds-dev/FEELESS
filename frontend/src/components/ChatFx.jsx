@@ -137,7 +137,7 @@ const SCENE = {
     <svg className="cfx-run cfx-lava a" viewBox="0 0 1600 160" preserveAspectRatio="none"><path d={area(LAVA_A)} /><path className="crust" d={LAVA_A} /></svg></>,
   // 🌀 RESERVE VORTEX: the FEE reserve as an accretion disk — dotted orbits turning at their own speeds, three coins riding them, a burning core
   vortex: () => <><span className="cfx-disk">{[44, 62, 78, 94].map((r, i) => <i key={r} className="cfx-ring" style={{ '--r': `${r}%`, '--i': i }} />)}
-    {[28, 39, 47].map((r, i) => <span key={r} className="cfx-orbit" style={{ '--i': i, '--r': r }}><img src="/assets/feeless-logo.png" alt="" /></span>)}</span><i className="cfx-core" /></>,
+    {[28, 39, 47].map((r, i) => <span key={r} className="cfx-orbit" style={{ '--i': i, '--r': r }}><img src="/assets/feeless-logo-256.png" alt="" decoding="async" /></span>)}</span><i className="cfx-core" /></>,
   // 🏦 GOLD VAULT: the vault door — bolts, the wheel, the dial — gold bars stacked in front, glints and gold dust in the air
   gold: () => <><span className="cfx-rise">{rise(10, 'cfx-dust', 4)}</span><span className="cfx-vault"><svg className="door" viewBox="0 0 200 200"><circle className="rim" cx="100" cy="100" r="96" /><circle className="plate" cx="100" cy="100" r="78" />
     {BOLTS.map(([x, y], i) => <circle key={i} className="bolt" cx={x} cy={y} r="4.5" />)}<circle className="hub" cx="100" cy="100" r="18" /></svg>

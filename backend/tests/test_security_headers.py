@@ -28,13 +28,15 @@ def test_a_coins_logo_url_can_never_make_the_server_call_a_private_address(monke
     assert run(['https://public.example/logo.png']) == ('image/png', b'x')
 
 
-def test_writes_are_rate_limited_per_caller_and_internal_calls_never(monkeypatch):
+def test_one_write_limiter_and_a_fake_forwarded_header_does_not_dodge_it():
+    """SITE-9: `guard` is the one write limiter (5001 + 5077). It reads X-Forwarded-For only behind a trusted proxy, so a script can't
+    rotate fake IPs in that header to escape the per-IP minute; the removed second limiter on 5077 trusted it from anyone."""
+    import guard
     import reputation_service as rs
-    monkeypatch.setattr(rs, 'WRITES_PER_MIN', 3); rs._WRITE_HITS.clear()
-    c = TestClient(rs.app)
-    codes = [c.post('/api/reputation/pv', json={}, headers={'x-forwarded-for': '9.9.9.9'}).status_code for _ in range(5)]
-    assert codes[3:] == [429, 429] and 429 not in codes[:3]
-    assert c.post('/api/reputation/pv', json={}, headers={'x-forwarded-for': '8.8.8.8'}).status_code != 429     # another caller is untouched
-    assert c.get('/api/reputation/metas', headers={'x-forwarded-for': '9.9.9.9'}).status_code == 200            # reads are never limited
-    assert c.post('/api/reputation/internal/notify', json={}, headers={'x-forwarded-for': '9.9.9.9', 'x-feeless-internal': 'x'}).status_code != 429
-    rs._WRITE_HITS.clear()
+    assert not hasattr(rs, '_WRITE_HITS')
+    assert guard.client_ip({'x-forwarded-for': '9.9.9.9'}, '1.2.3.4', False) == '1.2.3.4'   # untrusted: the socket's address
+    assert guard.client_ip({'x-forwarded-for': '9.9.9.9'}, '127.0.0.1', True) == '9.9.9.9'          # behind our proxy: the real caller
+    s = guard.new_state(); now = 1000.0
+    codes = [(guard.check(s, '1.2.3.4', 'POST', '/api/x', now=now) or (200,))[0] for _ in range(guard.WRITE_PER_MIN + 1)]
+    assert codes[-1] == 429 and 429 not in codes[:-1]
+    assert guard.check(s, '127.0.0.1', 'POST', '/api/x', now=now) is None                              # the services' own calls never

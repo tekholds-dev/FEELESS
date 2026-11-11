@@ -326,28 +326,14 @@ app = FastAPI(title='FEELESS Reputation Graph')
 @app.middleware('http')
 async def _sec_headers(request, call_next):
     """🔒 SITE-9 (2026-11-10): every response says no MIME sniffing and sends no referrer (5088 already did). No framing rule here: pages may be framed."""
-    # 🚦 SITE-9: writes are limited per caller (the forwarded IP when a proxy sets one). Generous: a person never reaches it, a script does.
-    # The site's own services (internal key) are never limited.
-    if request.method in ('POST', 'PUT', 'DELETE', 'PATCH') and not request.headers.get('x-feeless-internal'):
-        who = (request.headers.get('x-forwarded-for') or (request.client.host if request.client else '-')).split(',')[0].strip()
-        now = time.time(); q = _WRITE_HITS.setdefault(who, []) if who != 'testclient' else []   # the test suite's own client is one 'caller' for 3,000 tests
-        while q and now - q[0] > 60:
-            q.pop(0)
-        if len(q) >= WRITES_PER_MIN:
-            from fastapi.responses import JSONResponse
-            return JSONResponse({'detail': 'Too many requests. Slow down.'}, status_code=429)
-        q.append(now)
-        if len(_WRITE_HITS) > 5000:   # never grows without bound
-            for k in [k for k, v in _WRITE_HITS.items() if not v or now - v[-1] > 60][:2500]:
-                _WRITE_HITS.pop(k, None)
+    # 🚦 writes are limited by `guard` (90 a minute per IP, local services exempt; it trusts X-Forwarded-For only with FEELESS_TRUST_PROXY=1).
+    # A second limiter here (2026-11-10) read X-Forwarded-For from anyone, so a fake header dodged it: removed (SITE-9, same day).
     resp = await call_next(request)
     resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
     resp.headers.setdefault('Referrer-Policy', 'no-referrer')
     return resp
 
 
-WRITES_PER_MIN = 600   # per caller, every write route together (the page's own telemetry posts included)
-_WRITE_HITS = {}
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
@@ -1893,13 +1879,6 @@ async def react(payload: ReactPayload):
     return {'ok': True}
 
 
-@app.get('/api/reputation/reactions')
-async def reactions(room: str, voter: Optional[str] = None):
-    msgs = _react_load()['rooms'].get(room[:120], {})
-    return {'reactions': {mid: {e: {'count': len(v), 'mine': bool(voter and voter in v)} for e, v in em.items() if v} for mid, em in msgs.items()},
-            'emojis': REACTIONS}
-
-
 @app.get('/api/reputation/calls/by-room')
 async def calls_by_room(room: str):
     out = {}
@@ -2133,20 +2112,6 @@ async def x_oauth_callback(code: str = '', state: str = '', error: str = ''):
         pr_['twitter'] = '@' + me_['username'][:40]
         tmp_ = PROFILE_PATH.with_suffix('.tmp'); tmp_.write_text(json.dumps(d_)); tmp_.replace(PROFILE_PATH)
     return RedirectResponse(f"{site_}{st_['back']}{'&' if '?' in st_['back'] else '?'}x=linked")
-
-
-@app.get('/api/reputation/profile/{address}')
-async def get_profile(address: str):
-    p = _profiles_load()['profiles'].get(address)
-    board = await caller_board(days=30)
-    caller = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
-    return {'address': address, 'profile': {k: v for k, v in p.items() if k != 'nameLock'} if p else p, 'caller': caller, 'verified': is_verified(address)}
-
-
-@app.get('/api/reputation/profiles')
-async def get_profiles(addresses: str):
-    d = _profiles_load()['profiles']
-    return {'profiles': {a: {**{k: d[a].get(k) for k in ('displayName', 'avatarUrl', 'accent', 'mood', 'featuredBadges', 'ring', 'nameFx', 'handle')}, 'verified': is_verified(a)} for a in addresses.split(',')[:100] if a in d}}
 
 
 # ---- Evidence-based blocklist of snipers and bundlers ----------------------------
@@ -2953,48 +2918,6 @@ def _creator_warn(c):
     if c.get('creatorFlagged') or c.get('creatorRep') == 'suspect':
         return 'Creator is flagged as suspect. The engine buys it only once the coin proves itself.'
     return ''
-
-
-@app.get('/api/reputation/fuses/search')
-async def fuses_search(request: Request, q: str = Query(..., min_length=2, max_length=60)):
-    """Pool picker for the Fuse builder: live pools with the meta a builder needs (depth, volume, APR est., turnover).
-    A pasted CA does a direct token lookup (search can miss fresh coins). HQ sees EVERY pool (thin ones flagged, not hidden)."""
-    is_ca = bool(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q.strip()))
-    async with httpx.AsyncClient(timeout=8) as http:
-        try:
-            url = f'https://api.dexscreener.com/tokens/v1/solana/{q.strip()}' if is_ca else 'https://api.dexscreener.com/latest/dex/search'
-            got = (await http.get(url, params=None if is_ca else {'q': q})).json()
-            pairs = got if isinstance(got, list) else (got or {}).get('pairs') or []
-        except Exception:
-            pairs = []
-        if not pairs:   # 📡 DexScreener silent (outage / not indexed yet) → Jupiter's data for the same CA or ticker, same pair shape
-            try:
-                key = _jkeys.read_key(os.environ) or ''
-                base, hdr = ('https://api.jup.ag/tokens/v2/search', {'x-api-key': key}) if key else (_launchpad_board.JUP_SEARCH, {})
-                jr = await http.get(base, params={'query': q.strip().lstrip('$')}, headers=hdr)
-                toks = jr.json() if jr.status_code == 200 else []
-                pairs = [p_ for p_ in (_launchpad_board.jup_pair(t) for t in (toks if isinstance(toks, list) else [])[:12]) if p_]
-            except Exception:
-                pairs = []
-    pairs = [_fuse.with_curve(p) for p in pairs]   # 🆕 a coin still on Pump's launch curve is tradable: its curve depth stands in for a pool
-    admin = _is_admin_req(request)
-    real = {p.get('pairAddress') for p in _fuse.real_pools(pairs)}
-    src = pairs if admin else [p for p in pairs if p.get('pairAddress') in real]
-    rows = [{'chainId': p.get('chainId'), 'pairAddress': p.get('pairAddress'), **_fuse.leg_meta(p), **({'thin': True} if p.get('pairAddress') not in real else {}), **({'curve': True} if p.get('curve') else {})}
-            for p in src[:20] if p.get('chainId') == 'solana']
-    qu = q.strip().upper().lstrip('$')
-    if qu in _fuse.MAJOR_ALIASES or any(qu == v[0].upper() for v in _fuse.MAJORS.values()):   # 'BTC' → the real ones, always
-        have = {r['pairAddress'] for r in rows}
-        rows += [r for r in await _majors_rows() if r['pairAddress'] not in have]
-    hidden = sum(1 for p in pairs if p.get('chainId') == 'solana' and p.get('pairAddress') not in real) if not admin else 0
-    seen_ = {r.get('mint'): r for r in _runner_cands}
-    for r in rows:   # ⚠ what the runner board already knows about this coin's creator (cache only — informs a pick, never blocks it)
-        w = _creator_warn(seen_.get(r.get('baseAddress')))
-        if w:
-            r['warn'] = w
-    return {'pools': _fuse.mark_real(rows, qu)[:15], 'hidden': hidden,
-            'why': ('That coin has no tradable pool yet (still on its launch curve, or no volume) — a card can only swap into a live pool.' if is_ca and not rows
-                    else f'{hidden} pool{"s" if hidden != 1 else ""} hidden: no volume or a parked pool.' if hidden and not rows else '')}
 
 
 _fuse_discover_cache = {}
@@ -5019,22 +4942,6 @@ async def fuse_pnl(address: str):
 _fuse_holders_cache: dict = {}
 
 
-@app.get('/api/reputation/fuses/creators')
-async def fuse_creators():
-    """Fuse creator season (this week, from Monday 00:00 UTC): ranked by buyers' real P&L. 60s cache."""
-    hit = _fuse_holders_cache.get('creators')
-    if hit and time.time() - hit[0] < 60:
-        return hit[1]
-    now = time.time(); since = now - ((time.gmtime(now).tm_wday * 86400) + now % 86400)
-    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if (x.get('at') or 0) >= since and x.get('fuseId')]
-    px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
-    fz = {fid: {'creator': f.get('creator'), 'name': f.get('name')} for fid, f in _json_load(FUSES_PATH, {'fuses': {}})['fuses'].items()}
-    board = _hq.creator_board([{**_hq.position_pnl(x, px), 'wallet': x['wallet'], 'fuseId': x['fuseId'], 'at': x.get('at')} for x in pos], fz, since)
-    out = {'since': since, 'endsAt': since + 7 * 86400, 'minBuyers': _hq.MIN_BUYERS, 'rows': [{**r, 'handle': handle_of(r['creator'])} for r in board[:30]]}
-    _fuse_holders_cache['creators'] = (time.time(), out)
-    return out
-
-
 @app.get('/api/reputation/fuses/holders')
 async def fuse_holders():
     """Fuse holders board (Fuse chat side panel): every wallet with verified Fuse positions, live P&L, best first. 60s cache."""
@@ -5205,48 +5112,6 @@ async def _series_24h(pair):
     out = [[int(c[0]), c[4]] for c in cs if c and c[0] >= since and c[4]]
     _replay_cache[pair] = (time.time(), out)
     return out
-
-
-@app.get('/api/reputation/fuses/replay/{kind}/{cid}')
-async def fuse_replay(kind: str, cid: str):
-    """▶ Card replay: each coin's last 24h path (15m) + the card's moments (buys, take-profits, swaps, compounds) as markers."""
-    now = time.time(); legs, marks = [], []
-    if kind == 'user':
-        pos = next((x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['id'] == cid), None)
-        if not pos:
-            raise HTTPException(404, 'No such card.')
-        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': round(_fuse._f(l.get('usd')) / _fuse._f(l.get('tokens0') or l.get('tokens')), 12) if _fuse._f(l.get('tokens0') or l.get('tokens')) else None,
-                 'at': l.get('addedAt') or pos.get('at')} for l in pos['legs']]
-        marks = [{'at': e.get('at'), 'kind': e.get('kind'), 'label': f"{e.get('kind')} {e.get('symbol') or ''}".strip()} for e in pos.get('events') or [] if e.get('at')]
-        marks.insert(0, {'at': pos.get('at'), 'kind': 'open', 'label': 'card opened'})
-    elif kind in ('lit', 'round'):
-        rd = _json_load(RUNNERS_PATH, {'rounds': []})
-        c = next((x for x in (rd.get('litCards') or []) + (rd.get('rounds') or []) if str(x.get('id')) == cid), None)
-        if not c:
-            raise HTTPException(404, 'No such card.')
-        legs = [{'pairAddress': p.get('pairAddress') or p['mint'], 'symbol': p.get('symbol'), 'entry': p.get('entry'), 'at': p.get('swappedIn') or c['at']} for p in c['picks']]
-        marks = [{'at': c['at'], 'kind': 'open', 'label': 'lit' if kind == 'lit' else 'round dealt'}] + [{'at': s['at'], 'kind': 'swap', 'label': f"swap ${s['out'].get('symbol')} → ${s['in'].get('symbol')}"} for s in c.get('swaps') or []]
-    elif kind == 'mega':
-        f = (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).get(cid)
-        if not f:
-            raise HTTPException(404, 'No such card.')
-        legs = [{'pairAddress': l['pairAddress'], 'symbol': l.get('symbol'), 'entry': (f.get('basePrices') or {}).get(l['pairAddress']), 'at': f.get('createdAt')} for l in f['legs']]
-    elif kind == 'auto':
-        ac = _json_load(RUNNERS_PATH, {}).get('autoCard') or {}
-        if cid not in (ac.get('id'), 'arena-pick'):
-            raise HTTPException(404, 'No such card.')
-        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry')} | {'at': ac['at']} for l in ac['legs']]
-        marks = [{'at': ac['at'], 'kind': 'open', 'label': 'arena dealt it'}]
-    elif kind == 'feecat':
-        fc = await _feecat_card()
-        legs = [{k: l.get(k) for k in ('pairAddress', 'symbol', 'entry', 'at')} for l in (fc or {}).get('legs') or []]
-        marks = [{'at': l['at'], 'kind': 'buy', 'label': f"🐱 bought ${l['symbol']}"} for l in legs if l.get('at')]
-    else:
-        raise HTTPException(400, 'Unknown card kind.')
-    legs = legs[:12]
-    series = await asyncio.gather(*[_series_24h(l['pairAddress']) for l in legs])
-    return {'from': now - 86400, 'to': now, 'legs': [{**l, 'series': s} for l, s in zip(legs, series)],
-            'markers': [m for m in marks if _fuse._f(m.get('at')) >= now - 86400]}
 
 
 @app.get('/api/reputation/fuses/season')
@@ -5585,20 +5450,6 @@ async def fuse_paper(key: str = Query(..., max_length=120)):
     rec = {'won': sum(1 for x in past if x.get('result') == 'won'), 'lost': sum(1 for x in past if x.get('result') == 'lost'),
            'pnlUsd': round(sum(_fuse._f(x.get('pnlUsd')) for x in past), 4), 'feesUsd': round(sum(_fuse._f(x.get('feesUsd')) for x in past), 4)}
     return {'live': view, 'past': past, 'record': rec}
-
-
-@app.get('/api/reputation/fuses/battles/{address}')
-async def fuse_my_battles(address: str):
-    """⚔ A wallet's cards in Arena battles: the live ones (with both sides' move since the bell) + the last results."""
-    me = primary_of(address); mine = set(linked_of(me)) | {me}
-    d = _json_load(FUSE_HQ_PATH, {})
-    keys = {f"user:{x['id']}": x.get('name') or 'Fuse card' for x in d.get('positions') or [] if x['wallet'] in mine}
-    view = _battle_view(_arena_mega_cache.get('data') or [], time.time())
-    live = [{**p_, 'mine': 'a' if p_['a']['key'] in keys else 'b'} for p_ in view['pairs'] if p_['a']['key'] in keys or p_['b']['key'] in keys]
-    past = [{**r, 'mine': 'a' if r.get('aKey') in keys else 'b', 'won': r.get('winnerKey') in keys} for r in reversed(d.get('battleLog') or [])
-            if r.get('aKey') in keys or r.get('bKey') in keys][:20]
-    rec = {'w': sum(1 for r in past if r['won']), 'l': sum(1 for r in past if not r['won'] and not r.get('draw')), 'd': sum(1 for r in past if r.get('draw'))}
-    return {'live': live, 'past': past, 'record': rec, 'endsAt': view.get('endsAt'), 'cards': len(keys)}
 
 
 class BracketPick(BaseModel):
@@ -6164,27 +6015,6 @@ def _champ_view(c, metas, chain='solana'):
 
 
 _fuse_prebuilt_cache: dict = {}
-
-
-@app.get('/api/reputation/fuses/prebuilt')
-async def fuses_prebuilt(request: Request, legs: int = Query(3, ge=2, le=12), budget: float = Query(20, ge=1, le=10000)):
-    """Discover rail: the best basket for EACH strategy right now (bred from live pools), with that strategy's arena record.
-    Traders get 3-pool baskets; HQ may ask for up to 12. Cached 5 min per size."""
-    legs = legs if _is_admin_req(request) else min(legs, _fuse.USER_MAX_LEGS)
-    # Breeding buckets (fee drag + size guard depend on size): $1 · $5 · $20 · $100. The buyer's exact amount is used at Fuse in.
-    key = (legs, 1 if budget < 3 else 5 if budget < 12 else 20 if budget < 60 else 100)
-    hit = _fuse_prebuilt_cache.get(key)
-    if hit and time.time() - hit[0] < 300:
-        return hit[1]
-    metas, sol_usd = await asyncio.gather(_fuse_candidates(), _sol_usd_live())
-    board = {r['style']: r for r in _hq.arena_board([_hq.arena_value(e, {}, time.time()) for e in _json_load(FUSE_HQ_PATH, {}).get('arena') or []])}
-    seed = int(time.time() // 300)
-    runs = await asyncio.gather(*[asyncio.to_thread(_fuse.evolve, metas, legs, 14, 28, st, key[1] / sol_usd, sol_usd, seed) for st in _fuse.STYLES])
-    dead = _retired(list(board.values()))   # ☠ strategies the arena proved to lose never reach a trader's rail
-    cards = [{'style': st, 'arena': board.get(st), **_champ_view(ev['champions'][0], metas)} for st, ev in zip(_fuse.STYLES, runs) if ev['champions'] and st not in dead]
-    out = {'legs': legs, 'budgetUsd': key[1], 'solUsd': sol_usd, 'retired': sorted(dead), 'cards': sorted(cards, key=lambda c: -((c['arena'] or {}).get('avgPct') or -999))}
-    _fuse_prebuilt_cache[key] = (time.time(), out)
-    return out
 
 
 # ---- FUSE RUNNERS (backend/runners.py): coins come to it — live launchpad feed → gates → lanes → rounds → paper proof --
@@ -8012,15 +7842,6 @@ def duo_lessons(log, by_model):
     return {'record': by_model or {}, 'lessons': les}
 
 
-@app.get('/api/reputation/fuses/edge')
-async def fuses_edge():
-    """🧬 The swap-in lists ranked by evidence + Coming up's own record + the learned combos that have settled. A ranking, never a promise."""
-    st = _json_load(EDGE_PROOF_PATH, {})
-    proof = _trench.meta_proof(st, keys=tuple(st))
-    return {'rows': [{k: r.get(k) for k in ('mint', 'symbol', 'pairAddress', 'baseAddress', 'logo', 'priceUsd', 'price', 'tv', 'vital', 'edge')} for r in _edge_rank()[:60]],
-            'up': proof.get('up'), 'combos': {k: v for k, v in proof.items() if k != 'up' and v.get('n')}}
-
-
 def _list_records():
     lens_ = _trench.meta_proof(_json_load(LENS_PROOF_PATH, {}), keys=LENS_TRACK)
     call_ = _trench.meta_proof((_json_load(TRENCH_CALLOUT_PATH, {}) or {}).get('state') or {}, keys=('leader', 'mover', 'fresh'))
@@ -8400,17 +8221,6 @@ def _pick_why(pair, mint, floor=25_000):
     kind = 'launch curve' if pair.get('curve') else 'pool'
     return (f"${sym}'s {kind} holds ${m['liquidityUsd']:,.0f} — under your ${fl:,.0f} pick floor. That floor is your own setting: "
             f"Edit Fuse › wallet limits › My own pick min pool (trench coins: Trench min pool). It can go down to $5,000.")
-
-
-@app.get('/api/reputation/fuses/forecast')
-async def fuses_forecast():
-    """🌦 Public: the runner weather and where it is heading (sim cards + live launch-coin breadth). Caches only — answers in ms."""
-    rcfg = _runner_cfg()
-    safe = [r for r in _runner_cands if _rn.safe_only(r, rcfg) and _fuse._f(r.get('liq')) >= 10000]   # setups only among coins clearing every SAFETY gate
-    proof = _trench.meta_proof(_json_load(ENTRY_PROOF_PATH, {}), keys=_prime.ENTRY_SETUPS)
-    eg = _edge_load()
-    return {**_prime.forecast(_json_load(PG_SIM_PATH, {}), _runner_cands), 'edge': {k: eg.get(k) for k in ('n', 'base', 'proof', 'best', 'worst', 'at')} | {'on': bool(eg.get('table'))}, 'entries': [{**e, 'proof': proof.get(e['setup'])} for e in _prime.entries(safe)],
-            'setups': [{'key': k, 'ico': v[0], 'name': v[1], 'why': v[2], **(proof.get(k) or {})} for k, v in _prime.ENTRY_SETUPS.items()]}
 
 
 DUELS_PATH = FUSE_HQ_PATH.parent / 'fuse_duels.json'
@@ -10558,16 +10368,6 @@ class ArenaResult(ArenaWho):
     deaths: int = Field(..., ge=0, le=999)
     heads: int = Field(default=0, ge=0, le=999)
     won: bool = False
-
-
-@app.get('/api/reputation/arena')
-async def arena_home(address: str = Query('', max_length=64), session: str = Query('', max_length=400), tg: str = Query('', max_length=4096)):
-    """🎯 the catalog (guns + attachments + the level curve), your profile, today's leaders, the online rooms."""
-    now = time.time(); who_, _n = _arena_who(address, session, tg)
-    players_ = (_json_load(ARENA_PATH, {}) or {}).get('players') or {}
-    return {'guns': _ar.GUNS, 'parts': {k: [{'id': i, 'name': n, 'level': lv, 'mod': m} for i, n, lv, m in v] for k, v in _ar.PARTS.items()}, 'default': _ar.DEFAULT,
-            'xp': _ar.XP, 'me': _arena_profile(players_, who_) if who_ else {**_arena_profile({}, ''), 'guest': True},
-            'board': _ar.board(players_, _arena_day(now)), 'rooms': [{'room': k, 'n': len(v)} for k, v in _arena_rooms.items() if v][:20]}
 
 
 @app.post('/api/reputation/arena/loadout')
@@ -24350,41 +24150,6 @@ async def _engine_self_fix(now, sim):
     return {**pp, **({'real': rp} if rp else {})}
 
 
-@app.get('/api/reputation/fuses/sparks')
-async def fuse_sparks(mints: str = Query('', max_length=4000)):
-    """📈 Mini chart lines for coin lists: the last ~2 hours of recorded prices (5-min readings) per mint, from the runner board's own
-    record. ≤ 60 mints a call; a coin the board has not tracked returns nothing (the row just shows no line). Cache only — ms."""
-    paths = _json_load(RUNNERS_PATH, {}).get('paths') or {}
-    cut = time.time() - 2.5 * 3600
-    out = {}
-    for m in [x for x in mints.split(',') if 32 <= len(x) <= 44][:60]:
-        pts = [float(p) for t, p in (paths.get(m) or []) if t >= cut and p]
-        if len(pts) >= 3:
-            out[m] = [round(v / pts[0], 5) for v in pts[-30:]]   # indexed to 1.0 at the first point: shape, not price
-    return {'sparks': out}
-
-
-@app.get('/api/reputation/fuses/strategies')
-async def fuse_strategies(hours: float = Query(1.0, ge=0.01, le=48)):
-    """🎯 3 strategies for a card's round length (🛡 Steady · 🧠 Engine pick · 🔥 Hunt) from the background sims on REAL recorded prices
-    (fees in, re-run every ~15 min). Longer clocks than the sims play read the nearest one (said so). Never a promise."""
-    bc = _json_load(PG_SIM_PATH, {}).get('byClock') or {}
-    rows = [(float(k), v) for k, v in bc.items() if v.get('strategies')]
-    if not rows:
-        return {'clock': None, 'strategies': [], 'note': 'The sim brain needs ~15 min of recorded prices first.'}
-    want = hours * 60
-    clock, v = min(rows, key=lambda kv: abs(kv[0] - want))
-    note = '' if abs(clock - want) < 1 else f"Sims play 5–60 min rounds; these are for {int(clock)} min, the nearest to your clock."
-    sniper = (_json_load(PG_SIM_PATH, {}).get('setups') or {}).get(str(int(clock))) or []   # 🚀 🎯 whole setups first, each with its own walk-forward proof
-    rows_all = sniper + v['strategies']
-    win = [x for x in rows_all if x.get('profitable')]
-    if win:   # 🏆 only setups that ENDED UP on the replay are offered; the losing ones are counted, not shown
-        hid = len(rows_all) - len(win)
-        note = (note + ' ' if note else '') + (f"{hid} setup{'s' if hid != 1 else ''} that lost on the replay {'are' if hid != 1 else 'is'} hidden." if hid else '')
-        rows_all = win
-    return {'clock': int(clock), 'n': v.get('n'), 'strategies': rows_all, 'note': note.strip(), 'at': _json_load(PG_SIM_PATH, {}).get('at')}
-
-
 import verdict as _verdict
 
 
@@ -24560,27 +24325,6 @@ async def pg_sim_apply(request: Request):
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {}); pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **patch}); _json_save(FUSE_HQ_PATH, d)
     ad = _admin_load(); _audit(ad, me, 'sim-apply', json.dumps(patch)); _admin_save(ad)
     return {'ok': True, 'applied': patch, 'cfg': pr['cfg']}
-
-
-@app.get('/api/reputation/fuses/dna/unique')
-async def fuse_dna_unique(dial: str = '', seed: str = ''):
-    """🎲 A card DNA nobody on FEELESS holds right now (every Arena card + every open trader card) — so a new card plays its own way."""
-    taken = dict((_json_load(FUSE_HQ_PATH, {}).get('cardDna') or {}))
-    for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or []:
-        if not x.get('closedAt'):
-            taken[f"user:{x['id']}"] = _dna.clean({'cycle': x.get('cycle') if x.get('cycle') in ('classic', 'adaptive', 'safe', 'press', 'rescue', 'auto') else 'off', 'compound': x.get('compoundStyle') or 'smart',
-                                                   'payoutPct': x.get('payoutPct', 100), 'clock': x.get('rotateHours') or 24, 'stop': x.get('slMode') or 'sell'})
-    new_id = f"new:{seed or uuid.uuid4().hex[:8]}"
-    d = _dna.assign([*({'id': k} for k in taken), {'id': new_id, 'dial': dial if dial in ('safe', 'balanced', 'degen') else None}], known=taken)[new_id]
-    return {'dna': d, 'label': _dna.label(d)}
-
-
-@app.get('/api/reputation/fuses/brain')
-async def fuse_brain():
-    """🧠 The engine's best card DNA so far (learned from playground battles) — the Lab offers it as a one-tap setup."""
-    br = (_json_load(RUNNERS_PATH, {}).get('pgBattle') or {}).get('brain') or {}
-    best = _dna.best(br)
-    return {**best, 'label': _dna.label(best['dna']), 'fights': sum(v['n'] for vals in br.values() for v in vals.values()) // 5 if br else 0}
 
 
 @app.post('/api/reputation/admin/runners/pick-filter')
@@ -26483,14 +26227,6 @@ async def track_click(request: Request, payload: ClickIn):
     return {'ok': True, 'count': rec[0]}
 
 
-@app.get('/api/reputation/clicks/top')
-async def top_clicks(kind: str = '', limit: int = 10):
-    d = _json_load(CLICKS_PATH, {})
-    rows = [{'kind': k.split(':', 1)[0], 'value': k.split(':', 1)[1], 'count': v[0], 'lastAt': v[1]} for k, v in d.items() if not kind or k.startswith(kind + ':')]
-    rows.sort(key=lambda r: -r['count'])
-    return {'rows': rows[:max(1, min(limit, 50))]}
-
-
 # ---- Auto profile: every wallet gets real on-chain stats before it ever sets up ------------
 _wstats_cache = {}
 
@@ -27654,20 +27390,6 @@ async def case_file(address: str, fresh: bool = False):
 
 
 # ---- Copy callers: calls from wallets you follow, newest first, with each caller's record ---------------
-@app.get('/api/reputation/calls/following/{address}')
-async def following_calls(address: str, hours: int = Query(24, ge=1, le=168)):
-    me = primary_of(address)
-    following = set(_fol()['following'].get(me, []))
-    if not following:
-        return {'calls': [], 'following': 0}
-    since = time.time() - hours * 3600
-    board = {r.get('callerAddress'): r for r in (await caller_board(days=30))['rows']}
-    calls = [_call_view(c) for c in _calls_load()['calls'].values() if c['at'] >= since and primary_of(c.get('callerAddress') or '') in following]
-    calls.sort(key=lambda c: -c['at'])
-    for c in calls:
-        b = board.get(c.get('callerAddress')) or {}
-        c['callerHitRate'] = b.get('hitRate'); c['callerCalls'] = b.get('calls')
-    return {'calls': calls[:30], 'following': len(following)}
 
 
 async def _fee_wallet_owner(http, cfg):
@@ -28051,13 +27773,6 @@ class AdIn(BaseModel):
     endsAt: float = 0
     active: bool = True
     sponsor: str = Field(default='', max_length=40)
-
-
-@app.get('/api/reputation/ads')
-async def public_ads(placement: str = 'banner'):
-    now = time.time()
-    ads = [a for a in _json_load(ADS_PATH, {'ads': []})['ads'] if a['active'] and a['placement'] == placement and (not a['startsAt'] or a['startsAt'] <= now) and (not a['endsAt'] or now < a['endsAt'])]
-    return {'ads': [{k: a[k] for k in ('id', 'title', 'text', 'url', 'imageUrl', 'sponsor')} for a in ads]}
 
 
 @app.post('/api/reputation/ads/{ad_id}/event')
@@ -29875,13 +29590,6 @@ async def _kol_stats(address, chain):
     return stats
 
 
-@app.get('/api/reputation/kols')
-async def kols():
-    d = _json_load(KOLS_PATH, {})
-    rows = await asyncio.gather(*(_kol_stats(a, v['chain']) for a, v in d.items()))
-    return {'kols': [{'address': a, **v, 'stats': s} for (a, v), s in zip(d.items(), rows)], 'at': time.time()}
-
-
 # ---- Traffic analytics for marketing: what people actually view (privacy-light) -----------------
 # No raw IPs or wallets stored: visitors are a salted SHA-256 of IP+day (salt rotates daily), so
 # uniques can be counted per day but never linked across days. Writes are batched in memory and
@@ -30115,24 +29823,6 @@ def _tier(score):
             name = n
     nxt = next(((n, need) for n, need in SEASON_TIERS if need > score), None)
     return {'tier': name, 'next': nxt[0] if nxt else None, 'toNext': round(nxt[1] - score) if nxt else 0}
-
-
-@app.get('/api/reputation/season')
-async def season_get(address: str = ''):
-    d = _seasons(); s = _current_season(d)
-    upcoming = sorted((x for x in d['seasons'] if x['start'] > time.time()), key=lambda x: x['start'])[:1]
-    if not s:
-        return {'season': None, 'upcoming': upcoming[0] if upcoming else None, 'tiers': SEASON_TIERS}
-    sc = d['scores'].get(s['id'], {})
-    board = sorted(sc.items(), key=lambda kv: -kv[1]['score'])
-    top = [{'rank': i + 1, 'address': a, 'handle': handle_of(a), 'name': _display_name(a), 'score': r['score'], **_tier(r['score'])} for i, (a, r) in enumerate(board[:25])]
-    me = None
-    if address:
-        a = primary_of(address); r = sc.get(a)
-        rank = next((i + 1 for i, (x, _) in enumerate(board) if x == a), None)
-        me = {'address': a, 'score': r['score'] if r else 0, 'rank': rank, 'players': len(board), **_tier(r['score'] if r else 0)}
-    return {'season': s, 'endsIn': round(s['end'] - time.time()), 'players': len(board), 'top': top, 'me': me, 'tiers': SEASON_TIERS,
-            'upcoming': upcoming[0] if upcoming else None}
 
 
 class SeasonPayload(BaseModel):
@@ -30769,25 +30459,6 @@ async def shield_leaderboard():
     for r in rows:
         r['handle'] = handle_of(r['creator']); r['score'] = r['kept'] * 3 + r['active'] - r['broken'] * 10
     return {'rows': rows[:50]}
-
-
-@app.get('/api/reputation/rug-report')
-async def rug_report(days: int = Query(7, ge=1, le=30)):
-    """The week's receipts: who got caught, who funded them, which promises broke."""
-    since = time.time() - days * 86400
-    bl = _block_load()['wallets']
-    caught = [{'wallet': w, 'roles': sorted(set((r.get('mints') or {}).values())), 'launches': len(r.get('mints') or {}), 'blocked': _is_blocked(r)}
-              for w, r in bl.items() if (r.get('firstSeen') or 0) >= since]
-    fd = _funders_load()
-    funders = [{'wallet': w, 'walletsFunded': len(r.get('funded') or []), 'launches': len(r.get('mints') or {})}
-               for w, r in fd['funders'].items() if _is_flagged_funder(r) and (r.get('lastSeen') or 0) >= since]
-    broken = [{'mint': m, 'creator': s['creator'], 'rules': [b['rule'] for b in s['breaches']]}
-              for m, s in _json_load(SHIELD_PATH, {}).items() if any(b['at'] >= since for b in s['breaches'])]
-    rugs = [e for e in _radar['events'] if e['kind'] in ('rug', 'dump') and e['at'] >= since]
-    return {'days': days, 'from': since, 'to': time.time(),
-            'totals': {'caught': len(caught), 'blocklisted': sum(1 for c in caught if c['blocked']), 'funders': len(funders), 'brokenShields': len(broken), 'rugs': len(rugs)},
-            'caught': sorted(caught, key=lambda c: -c['launches'])[:10], 'funders': sorted(funders, key=lambda f: -f['walletsFunded'])[:5],
-            'brokenShields': broken[:5], 'rugs': rugs[:8]}
 
 
 # ---- FEELESS launch rail (Meteora Dynamic Bonding Curve) -------------------------------------
@@ -31989,18 +31660,6 @@ async def admin_badge_pool_paid(request: Request, pid: str, p: ReservePaid):
 _pool_pub_cache = {}
 
 
-@app.get('/api/reputation/badge-pools')
-async def badge_pools_public(address: str = ''):
-    """Public: every live badge pool, its pot and what this wallet's badges earn from it."""
-    hit = _pool_pub_cache.get('all')
-    if not hit or time.time() - hit[0] > 60:
-        plans = await asyncio.gather(*(_pool_plan(p) for p in _pools()['pools'] if p.get('pct')))
-        hit = (time.time(), plans); _pool_pub_cache['all'] = hit
-    a = primary_of(address) if address else ''
-    return {'pools': [{'id': pl['pool']['id'], 'name': pl['pool']['name'], 'pct': pl['pct'], 'potSol': pl['potSol'], 'wallets': len(pl['rows']),
-                       'earns': [k.split(':', 1)[1] for k in pl['pool'].get('weights', {})], 'me': reserve_pool.wallet_share(pl, a) if a else None} for pl in hit[1]]}
-
-
 # ---- Lag catcher: browsers report API latency / long tasks / FPS once a minute; HQ sees the fix ----
 PERF_CFG_PATH = DATA_DIR / 'perf_config.json'
 _perf_samples = collections.deque(maxlen=4000)
@@ -32415,26 +32074,6 @@ def after_sell_lessons(trades: list, prices: dict) -> list:
         out.append({'token': t['token'], 'symbol': t.get('symbol'), 'pair': t.get('pair'), 'soldAt': t['price'], 'now': now, 'movePct': move,
                     'soldUsd': t.get('usd'), 'ts': t.get('ts'), 'lesson': 'runner' if move >= 40 else 'saved' if move <= -30 else 'fair'})
     return sorted(out, key=lambda x: -x['movePct'])[:12]
-
-
-@app.get('/api/reputation/after-sell/{address}')
-async def after_sell(address: str):
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
-        raise HTTPException(400, 'Bad address.')
-    trades = [t for t in await wallet_trades(address) if t.get('side') == 'sell'][:20]
-    toks = list({t['token'] for t in trades})[:30]
-    prices = {}
-    if toks:
-        try:
-            async with httpx.AsyncClient(timeout=8) as http:
-                for p in (await http.get(f"https://api.dexscreener.com/latest/dex/tokens/{','.join(toks)}")).json().get('pairs') or []:
-                    a = (p.get('baseToken') or {}).get('address')
-                    if a and a not in prices and p.get('priceUsd'):
-                        prices[a] = float(p['priceUsd'])
-        except Exception:
-            pass
-    rows = after_sell_lessons(trades, prices)
-    return {'address': address, 'rows': rows, 'runners': sum(r['lesson'] == 'runner' for r in rows), 'saved': sum(r['lesson'] == 'saved' for r in rows)}
 
 
 # ---- Treasury hub: where the money sits, the split plan, and verified splits signed by the owner ----------
@@ -33670,6 +33309,19 @@ wars = _rep_public_reads.wars
 darkside = _rep_public_reads.darkside
 season_reserve = _rep_public_reads.season_reserve
 perf_config = _rep_public_reads.perf_config
+reactions = _rep_public_reads.reactions
+fuses_search = _rep_public_reads.fuses_search
+fuse_replay = _rep_public_reads.fuse_replay
+fuse_my_battles = _rep_public_reads.fuse_my_battles
+fuses_prebuilt = _rep_public_reads.fuses_prebuilt
+fuse_sparks = _rep_public_reads.fuse_sparks
+fuse_strategies = _rep_public_reads.fuse_strategies
+fuse_dna_unique = _rep_public_reads.fuse_dna_unique
+top_clicks = _rep_public_reads.top_clicks
+kols = _rep_public_reads.kols
+badge_pools_public = _rep_public_reads.badge_pools_public
+after_sell = _rep_public_reads.after_sell
+
 
 fuses_list = _rep_public_reads.fuses_list
 familia_block_visit = _rep_public_reads.familia_block_visit

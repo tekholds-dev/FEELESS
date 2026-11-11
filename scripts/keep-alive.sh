@@ -17,6 +17,19 @@ start() {
   eval "born_$port=$(date +%s)"
   echo "$(date '+%F %T') restarted $name :$port"
 }
+# 🫀 AGT-18 patience: a service whose process is GONE restarts at once; one that is alive but silent (a browser read at Mac load 41 once
+# lost its 5088 mid-proof to the old two-tries rule) gets STRIKES failed checks in a row (~20-40 s apart, so ~2.5 min), doubled while the
+# 5-min load is over 2x the cores, before it is restarted. bash 3.2: per-port counters are plain variables (miss_<port>).
+CORES=$(sysctl -n hw.ncpu 2>/dev/null || echo 8)
+strikes() { local l; l=$(sysctl -n vm.loadavg 2>/dev/null | awk '{print int($3)}'); (( ${l:-0} > CORES * 2 )) && echo 8 || echo 4; }
+watch() {   # port probe-path venv app name
+  local port="$1" v="miss_$1"
+  fresh "$port" && return 0
+  if up "$port" "$2"; then eval "$v=0"; return 0; fi
+  if ! pgrep -f "uvicorn $4" >/dev/null 2>&1; then start "$port" "$3" "$4" "$5"; eval "$v=0"; return 0; fi
+  eval "$v=$(( ${!v:-0} + 1 ))"
+  if (( ${!v} >= $(strikes) )); then echo "$(date '+%F %T') $5 :$port alive but silent for ${!v} checks — restarting"; start "$port" "$3" "$4" "$5"; eval "$v=0"; fi
+}
 # 💻 LM STUDIO WATCHDOG (owner, 2026-10-14: "local lm should be always running"): about once a minute — server down → `lms server start`;
 # the agents' model not loaded, or loaded with a context too small for the brain prompt → reload it at LM_CTX (8192). A reload at most once
 # every 30 min (a bad load never loops). Model name = LOCAL_LLM_MODEL in backend/.env (first value, like env_loader); nothing is printed but its name.
@@ -56,11 +69,11 @@ print(m[0].get('loaded_context_length') or 0 if m else 0)" 2>/dev/null)"
 }
 while true; do
   lm_tick=$(( (lm_tick + 1) % 3 )); (( lm_tick == 1 )) && lm_watch
-  up 5001 /api/health            || { sleep 5; up 5001 /api/health || start 5001 "$root/.venv" server:app api; }
+  watch 5001 /api/health "$root/.venv" server:app api
   # 5077 is probed on a CHEAP route: /fuses/prime rebuilds for 12–13s at times and the old probe restarted a healthy keeper every ~75s (2026-10-12)
-  fresh 5077 || up 5077 /api/reputation/perf/config || { sleep 5; up 5077 /api/reputation/perf/config || start 5077 "$root/backend/.venv" reputation_service:app reputation; }
-  up 5088 /docs                  || { sleep 5; up 5088 /docs || start 5088 "$root/backend/.venv" feecat_service:app feecat; }
-  up 5099 /docs                  || { sleep 5; up 5099 /docs || start 5099 "$root/backend/.venv" candles_service:app candles; }
+  watch 5077 /api/reputation/perf/config "$root/backend/.venv" reputation_service:app reputation
+  watch 5088 /docs "$root/backend/.venv" feecat_service:app feecat
+  watch 5099 /docs "$root/backend/.venv" candles_service:app candles
   if [[ -d "$root/circle/node_modules" ]] && ! lsof -tiTCP:5111 -sTCP:LISTEN >/dev/null 2>&1; then
     (cd "$root/circle" && nohup node server.mjs >> /tmp/feeless-circle.log 2>&1 &); echo "$(date '+%F %T') restarted circle :5111"
   fi
