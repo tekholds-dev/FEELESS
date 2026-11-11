@@ -18,7 +18,12 @@
 >   the other phones), score expression commas escaped.
 > - 🖥 Desk: monitors back, idle monitor = newest proof (`newestProofs`); Ad lab on Fee's desk (every attempt, faults, $, video).
 > - 💡 Owner question answered in chat: Emma (Nuance Labs, launched 2026-11-09, video persona, API, no public price) as the PoEco face.
-> **Next:** real-money readiness pass (swap buy/sell, Fuse top-up/withdraw, agent send) → 2-3 owner tests. RPC: only Chainstack lane 1 answers.
+> **Readiness pass (2026-11-11):** swap quote → review → "Approve in Phantom" works on real USDC (0.01 SOL → 0.848 USDC, simulated, owner fee 0).
+> Fixed: picker ranked a fake "USDC " ($76B self-reported cap) over real USDC → verified first (test_token_search_trust); WalletModal hook order broke the build.
+> **Owner blockers:** $FEE / FEECAT / rFEE have NO pool anywhere (DexScreener 0 pairs, Jupiter "not tradable") → the "Into $FEE, it's free" headline fails;
+> Q29 15% swap fee (`platformFeeBps` 1500) still unanswered; Fuse card 0.0227 SOL, gas reserve short 0.006; RPC = Chainstack only; edge 1/968 rules.
+> Circle: both tenants answer live (6 FEELESS wallets incl. FUSE🧬). Withdraw path (card → wallet SOL → Circle send to a saved address) never run live.
+> **Owner tests handed over:** T1 $1 SOL→USDC→SOL swap · T2 Fuse withdraw $1 → Circle send to Phantom · T3 $1 into Happy's wallet and back. RPC: only Chainstack lane 1 answers.
 
 > ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
 > **Blockers (owner):** 2026-11-10 keys: NEW Helius key (SOLANA_RPC_URL) works live; HELIUS_RPC_URL + _4 still "max usage reached", _3 = 401, Tatum + OnFinality + Alchemy 429. Fixed: `helius_key()` now skips spent keys, Helius's "max usage reached" parks the lane, FeeCat balance reads use the live lane. Pasted notes moved into real names (backup `.env.bak-keys7`): new Jupiter key → JUPITER_API_KEY_2 (price + quote 200), Brave ×2 → BRAVE_API_KEY/_2 (200), SnapTrade PERS → SNAPTRADE_CLIENT_ID/CONSUMER_KEY. Crypto.com pair in the note = 40101 auth failure (left unassigned). Claude in Chrome not connected from the app.
