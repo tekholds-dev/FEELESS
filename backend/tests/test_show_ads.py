@@ -76,3 +76,9 @@ def test_the_recorder_hears_a_page_crash(tmp_path):
     errs = []
     asyncio.run(sa.record('<body><script>null.style</script></body>', Path(tmp_path) / 'x.webm', fb.chromium_path(), seconds=1, errs=errs))
     assert errs and 'null' in errs[0]
+
+
+def test_every_ad_has_its_own_light_and_no_libraries():
+    looks = {k: sa.ask_for(k) for k in sa.KINDS}
+    assert all(sa.LOOK[k].split(' ')[0] in looks[k] for k in sa.KINDS) and len({sa.LOOK[k] for k in sa.KINDS}) == 6
+    assert all('no libraries' in a and 'Not the same green' in a and '{look}' not in a for a in looks.values())

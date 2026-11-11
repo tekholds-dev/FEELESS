@@ -10,11 +10,22 @@ from pathlib import Path
 BUDGET = 1.25
 KINDS = ('pos', 'pow', 'pop', 'pob', 'poc', 'poe')
 NAME = {'pos': 'PoStatic', 'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'poe': 'PoEco'}
+# 🎨 Each proof type its own light (owner 2026-11-11: "make the ad lit, not just fucking green") — the same light as its card in the Showcase.
+LOOK = {
+    'pos': 'electric cyan #5cc8ff and ultraviolet #7b5cff on midnight blue, code glowing like neon tubes',
+    'pow': 'fire orange #ff9f43 and molten gold #ffd166 on charcoal, candles that burn, sparks on every buy',
+    'pop': 'violet #b58cff and liquidation red #ff4d6d on deep indigo, laser lines where leverage dies',
+    'pob': 'stadium gold #ffc94d under white floodlights on night blue, a scoreboard that lights up',
+    'poc': 'hot magenta #ff5fb0 and electric cyan #3de0ff on black, a social feed that pops',
+    'poe': 'teal #36e2c4 and gold #f5c542 on deep navy, ledger bars that rise like a skyline',
+}
 STYLE = ('A 16:9 animated ad page, 1280 × 720, that plays by itself in a loop of about 14 seconds with no clicks: 4 scenes that cut with motion '
          '(scale, slide, light sweep), one big headline per scene in heavy type, live-looking numbers that count up, and a last scene with the FEELESS '
-         'wordmark and the line "Start it in one sentence". Black / deep green night, royal green #15d16a neon, glass panels with an inner highlight. '
-         'Draw everything with HTML, CSS and SVG (no stock photos, no emoji as art). Say SAMPLE in small type on any number that is not real. '
-         'One self-contained HTML file.')
+         'wordmark and the line "Start it in one sentence". LIT, not flat: saturated colour, cinematic light (rays, bloom, a moving spotlight, glow on the hot '
+         'number), depth from layered gradients and glass panels with an inner highlight. Colours: {look}. Not the same green as every other ad. '
+         'Motion with CSS @keyframes and SVG only: no libraries, no CDN scripts, at most one small inline script for the count-ups. Every scene must be '
+         'visible from the first frame (never wait for a click, never start at opacity 0 without its own animation). Draw everything with HTML, CSS and '
+         'SVG (no stock photos, no emoji as art). Say SAMPLE in small type on any number that is not real. One self-contained HTML file.')
 BRIEF = {
     'pos': 'Ad for PoStatic, Proof of Static: one sentence becomes a working site, game or dashboard. Show a typed sentence, the code writing itself, the page appearing, a store-check ring hitting 100.',
     'pow': 'Ad for PoW, Proof of Work: an agent scouts a new Solana coin on five sites, two minds argue, it trades, and the proof file is graded. Show scouting cards, a candle chart, the buy, the graded score.',
@@ -26,7 +37,7 @@ BRIEF = {
 
 
 def ask_for(kind):
-    return f'{BRIEF[kind]} {STYLE}'
+    return f"{BRIEF[kind]} {STYLE.format(look=LOOK[kind])}"
 
 
 def spent(jobs, cost_of):

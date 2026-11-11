@@ -13,18 +13,18 @@ const PerpsChart = lazy(() => import('../perps/PerpsChart').then(m => ({ default
 const PROOFS = {
   pos: { ic: '💻', t: 'PoStatic', full: 'Proof of Static', line: 'Sites, dashboards, tools and games from one sentence.', folders: 'psFolders', make: 'build', go: 'Start a PoStatic', caps: [] },
   pow: { ic: '⛏', t: 'PoW', full: 'Proof of Work', line: 'A real trade, and everything it read before it.', folders: 'powFolders', cmd: 'file a PoW', go: 'Start a PoW',
-    caps: [['replay', '⛏', 'One whole trade', 'From scouting a coin to the score it earns'], ['demo', '🧠', 'Two minds at work', 'Both windows, recorded on real sites'], ['chart', '📈', 'Its best real trade', 'On the real chart, with what it read'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
+    caps: [['replay', '⛏', 'One whole trade', 'From scouting a coin to the score it earns'], ['demo', '🧠', 'Two minds at work', 'Both windows, recorded on real sites'], ['chart', '📈', 'Its best real trade', 'On the real chart, with what it read']] },
   pop: { ic: '📉', t: 'PoP', full: 'Proof of Perps', line: 'Both minds call a market blind, on paper, with a number behind every call.', folders: 'popFolders', cmd: 'file a perp', go: 'Start a PoP',
-    caps: [['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs'], ['replay', '🙈', 'Blind calls', 'Sealed, opened, then put on the true chart'], ['chart', '💀', 'Where leverage dies', 'True candles with live liquidation lines']] },
+    caps: [['replay', '🙈', 'Blind calls', 'Sealed, opened, then put on the true chart'], ['chart', '💀', 'Where leverage dies', 'True candles with live liquidation lines']] },
   pob: { ic: '🎲', t: 'PoB', full: 'Proof of Bids', line: 'Picks on any game or market, graded by the scoreboard, never by the mind.', folders: 'pobFolders', cmd: 'file a pob best NFL picks', go: 'Start a PoB',
-    caps: [['live', '📺', 'Watches the game live', 'Your stream in the room, its agent reading every play beside it'], ['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
+    caps: [['live', '📺', 'Watches the game live', 'Your stream in the room, its agent reading every play beside it'], ['replay', '🎯', 'One graded pick', 'Two minds pick blind, the scoreboard grades it'], ['parlay', '🧾', 'Builds a parlay', 'Legs from different sites, one proof']] },
   poc: { ic: '📣', t: 'PoC', full: 'Proof of Content', line: 'From what people read today to a post, a cut, an image or a 3D commercial.', folders: 'pocFolders', make: 'content', go: 'Start a PoC',
-    caps: [['viral', '🔥', 'Viral AI clips', 'Real clips made today on 5 models, the formats trending on TikTok'], ['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post'], ['stash', '🧩', 'Builds its own tool', 'Finds the stash part that fits the file, forks it, the tool runs']] },
+    caps: [['viral', '🔥', 'Viral AI clips', 'Real clips made today on 5 models, the formats trending on TikTok'], ['video', '🎬', 'AI cuts a video', 'Finds real footage, cuts it, adds words, exports'], ['image', '🖼', 'AI makes an image', 'Generates it, then builds the thumbnail'], ['piece:long-road-film', '🎥', '3D commercial', 'A film made by the 3D engine'], ['replay', '📡', 'Trend to post', 'What is moving, the angle, the finished post']] },
   poe: { ic: '📒', t: 'PoEco', full: 'Proof of Eco', line: 'Its books kept true: income, costs and tax set aside, every month drawn and hashed.', folders: 'poeFolders', open: 'poe', go: 'Open PoEco',
     caps: [['books', '📒', 'Its books, drawn', 'Income against costs, month by month, from its real books']] },
 };
-// Every proof type also shows two real things: its own proofs graded by OSSY + G4, and the kits it builds with (kept fresh daily).
-const EVERY = [['reviews', '🧑‍⚖️', 'Graded by OSSY + G4', 'Its own proofs: the five checks each reviewer made, pass or fail'], ['kits', '🧰', 'Built with', 'The kits it builds with, at the version live today']];
+// A proof type with graded proofs also shows them, graded by OSSY + G4; the kits it builds with are one quiet line under the stage.
+const EVERY = [['reviews', '🧑‍⚖️', 'Graded by OSSY + G4', 'Its own proofs: the five checks each reviewer made, pass or fail']];
 const K = n => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n || 0));
 
 const num = v => +String(v).replace(/,/g, '');
@@ -169,32 +169,6 @@ function LiveGame() {
 // 🧩 Builds its own tool (owner 2026-11-10: "have ur agent build a component off stash that best fits proof file request"): the file asks for a
 // watcher, its agent searches the stash, the best fit is forked (v1.00 → v1.01 in its git folder) and the tool runs. The parts are the real kits
 // for this proof kind; the fit numbers and the tool's readings are a sample run.
-const STASH_ASK = { pop: 'Watch BTC: tell me when funding flips and where 10x longs die', pob: "Watch tonight's game: ping me when the line moves 2 points", pow: 'Watch new pools: flag the ones whose snipers already sold', poc: 'Watch what is rising in crypto video and draft three hooks' };
-const STASH_FALLBACK = { pop: ['Funding Reader', 'Leverage Math', 'OI Heat'], pob: ['Value Scorer', 'Line Mover', 'Injury Feed'], pow: ['Coin Vetter', 'Sniper Scan', 'Risk Desk'], poc: ['Trend Radar', 'Hook Writer', 'Thumb Maker'] };
-const STASH_TOOL = { pop: 'funding-watch', pob: 'line-watch', pow: 'sniper-watch', poc: 'hook-desk' };
-const BUILD_LOG = ['Your proof file asks for a watcher', 'It searches the stash for the part that fits', 'Forks the best one: v1.00 → v1.01, made for you', 'The tool runs, kept in its git folder'];
-const SAMPLE_LEV = { sym: 'BTC', mark: 98400, l3: 98400 * 0.7, s3: 98400 * 1.3, l10: 98400 * 0.905, s10: 98400 * 1.095 };   // only when today's live lines have not loaded: the reel is a sample run
-function ToolRun({ k, lev: live, t }) {
-  let lev = live;
-  if (k === 'pop') { const f = Math.sin(t / 3) * 0.00012; lev = lev || SAMPLE_LEV; const px = lev.mark; return <div className="psb-tool is-pop"><div className="psb-gauge"><small>FUNDING · 1H</small><b className={`m-num ${f < 0 ? 'is-neg' : 'is-pos'}`}>{f >= 0 ? '+' : ''}{(f * 100).toFixed(3)}%</b><u><s style={{ transform: `translateX(${(f / 0.00012) * 80}px)` }} /></u><em>{f < 0 ? 'SHORTS PAY · FLIPPED' : 'LONGS PAY'}</em></div>
-    <ul className="psb-ladder">{[['3x SHORTS DIE', lev?.s3], ['10x SHORTS DIE', lev?.s10], ['MARK', px], ['10x LONGS DIE', lev?.l10], ['3x LONGS DIE', lev?.l3]].map(([l, v]) => <li key={l} className={l === 'MARK' ? 'is-mark' : l.includes('LONG') ? 'is-long' : 'is-short'}><small>{l}</small><b className="m-num">{v ? `$${Math.round(v).toLocaleString()}` : '—'}</b></li>)}</ul></div>; }
-  if (k === 'pob') { const pts = Array.from({ length: 16 }, (_, i) => 3.5 + Math.sin((i + t) / 2.4) * 1.2 + (i > 10 ? (i - 10) * 0.25 : 0)); const top = 6; return <div className="psb-tool is-pob"><small>HOME SPREAD · LIVE</small><svg viewBox="0 0 160 60" preserveAspectRatio="none" aria-hidden="true"><polyline points={pts.map((v, i) => `${i * 10.6},${60 - (v / top) * 60}`).join(' ')} /></svg><b className="m-num">−{pts.at(-1).toFixed(1)}</b><em>{pts.at(-1) - pts[0] >= 2 ? 'MOVED 2+ · PINGED YOU' : 'WATCHING'}</em></div>; }
-  if (k === 'pow') return <div className="psb-tool is-pow"><small>NEW POOLS · LAST 10 MIN</small><ul>{[['FROGX', 92, 1], ['KITTY', 61, 0], ['BLUE', 88, 1], ['MOON', 23, 0]].map(([s, out, ok], i) => <li key={s} style={{ '--i': i }}><b>${s}</b><u><s style={{ transform: `scaleX(${out / 100})` }} /></u><i className="m-num">{out}% snipers out</i><em className={ok ? 'is-ok' : 'is-no'}>{ok ? 'FLAG' : 'SKIP'}</em></li>)}</ul></div>;
-  return <div className="psb-tool is-poc"><small>RISING · CRYPTO VIDEO</small><ol>{['Nobody tells you why this chart bottomed', 'I let an AI trade for 24 hours. Here is the tape', 'The 3 second rule every trencher ignores'].map((h, i) => <li key={h} style={{ '--i': i }}><em className="m-num">HOOK {i + 1}</em>{h}</li>)}</ol></div>;
-}
-function StashBuild({ k, kits }) {
-  const [at, go] = useSteps(4, 3000); const [t, setT] = useState(0);
-  useEffect(() => { const c = setInterval(() => { if (!document.hidden) setT(x => x + 1); }, 700); return () => clearInterval(c); }, []);
-  const own = (kits || []).filter(x => (x.kinds || []).includes(k)).slice(0, 3); const names = own.length >= 2 ? own.map(x => x.name) : STASH_FALLBACK[k];
-  const parts = names.map((n, i) => ({ n, what: own[i]?.what || '', fit: [91, 74, 58][i] }));
-  const lev = useMemo(() => (k === 'pop' ? levOf(kits || []) : null), [k, kits]);
-  return <div className="prp is-wide pdr-stash" data-testid="pdr-stash"><Tag t="sample run on this proof's real stash parts" />
-    <div className="prp-main psb-stage"><p className="psb-ask"><small>YOUR PROOF FILE ASKS</small>{STASH_ASK[k]}</p>
-      {at >= 1 ? <ul className="psb-parts">{parts.map((x, i) => <li key={x.n} className={at >= 2 && i === 0 ? 'is-pick' : at >= 2 ? 'is-off' : ''} style={{ '--i': i }}><b>{x.n}</b><small>{x.what || 'from the stash'}</small><u><s style={{ transform: `scaleX(${at >= 1 ? x.fit / 100 : 0})` }} /></u><i className="m-num">{x.fit}% fit</i></li>)}</ul> : null}
-      {at >= 2 ? <p className="psb-fork m-num"><span>v1.00</span><em>→</em><span className="is-new">v1.01</span><small>forks/{STASH_TOOL[k]}/v1.01.html · made for you</small></p> : null}
-      {at >= 3 ? <ToolRun k={k} lev={lev} t={t} /> : null}</div>
-    <ol className="flm-log prp-side">{BUILD_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}><button type="button" onClick={() => go(i)} data-tip="Show this step">{l}</button></li>)}</ol></div>;
-}
 // 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
 export function ReviewReel({ rows }) {
   const [i, setI] = useState(0); const r = rows?.[i % Math.max(1, rows?.length || 1)];
@@ -206,13 +180,6 @@ export function ReviewReel({ rows }) {
       <ol>{(v.checks || []).map((c, k) => <li key={k} className={`${k < at ? 'is-in' : ''} ${String(c).startsWith('✓') ? 'is-ok' : 'is-no'}`} style={{ '--i': k }}>{c}</li>)}</ol></section>)}</div></div>;
 }
 // 🧰 What it builds with: every kit for this kind, its live version, and an arrow when the daily check moved it up.
-export function KitWall({ kits, fresh, kind }) {
-  const v = Object.fromEntries((fresh?.kits || []).map(x => [x.kit, x])); const rows = (kits || []).filter(x => (x.kinds || []).includes(kind));
-  if (!rows.length) return <p className="dbt-none">No kit is set for this kind yet.</p>;
-  return <div className="pkw" data-testid="pdr-kits"><p className="pkw-sum m-num">{rows.length} kits · {rows.filter(x => v[x.id]?.prev).length} moved up · checked daily, smoke-tested before use</p>
-    <ul>{rows.map((x, i) => { const f = v[x.id]; return <li key={x.id} className={f?.prev ? 'is-moved' : ''} style={{ '--i': i }} data-tip={`${x.what} · ${x.license}${f ? ` · ${f.pkg}@${f.v}` : ' · read as a guide'}`} data-testid={`pdr-kit-${x.id}`}>
-      <b>{x.name}</b><small>{x.what}</small><em className="m-num">{f ? <>{f.prev ? <><s>{f.prev}</s> → </> : null}v{f.v}</> : 'guide'}</em></li>; })}</ul></div>;
-}
 // 📒 Its books, drawn: income and costs per month as bars, the net on top. Real books only.
 export function BooksDemo({ b }) {
   if (!b?.months?.length) return <p className="dbt-none" data-testid="pdr-no-books">No books yet. Its first PoEco draws here.</p>;
@@ -225,20 +192,21 @@ export function BooksDemo({ b }) {
 // the proof record (filed, reviewed by the other minds, graded) and the kits that moved today. No model writes it, so it can't be talked up.
 const BRIEF_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic', poe: 'PoEco' };
 const BRIEF_DOOR = { pos: 'pos', pow: 'pow', pop: 'pop', pob: 'pob', poc: 'poc', poe: 'poe' };
-export function ProofBrief({ onPick }) {
+// 🃏 THE TYPE ROW (owner 2026-11-11: "un-necessary tabs with no design … so much to click each proof type"): the six proof types as lit cards
+// that carry today's live numbers (filed this week, graded right, review score) — the brief box and the tab row are one row now. One click per type.
+export function ProofBrief({ k, onPick }) {
   const [b, setB] = useState(null);
   useEffect(() => { let live = true; fetch(apiUrl('/api/cats/brief/proofs')).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
-  if (!b?.rows?.length) return null;
-  const best = b.rows.find(r => r.kind === b.best); const top = Math.max(1, ...b.rows.map(r => r.filed7));
-  return <section className="pbr" data-testid="proof-brief"><header><b>📰 Today's proofs brief</b><small>from the proof record · {new Date((b.at || 0) * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}</small></header>
-    {best ? <p className="pbr-best" data-testid="proof-brief-best"><em>Work in {BRIEF_NAME[best.kind]} today</em> {best.filed7} filed this week{best.avgScore != null ? `, review average ${best.avgScore}/100` : ''}{best.rightPct != null ? `, ${best.rightPct}% graded right` : ''}.</p> : <p className="pbr-best">Nothing reviewed this week yet: every proof starts level.</p>}
-    <ol className="pbr-rows">{b.rows.map((r, i) => <li key={r.kind} className={r.kind === b.best ? 'is-best' : ''} style={{ '--i': i }}><button type="button" onClick={() => onPick?.(BRIEF_DOOR[r.kind])} data-testid={`proof-brief-${r.kind}`}
-      data-tip={`${BRIEF_NAME[r.kind]}: ${r.filed24} filed today, ${r.filed7} this week · ${r.reviews} reviewed${r.passPct != null ? ` (${r.passPct}% passed)` : ''} · graded ${r.right} right / ${r.wrong} wrong`}>
-      <b>{BRIEF_NAME[r.kind]}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${(r.avgScore || 0) / 100})` }} /></u><i>{r.avgScore != null ? `${r.avgScore}` : '–'}</i>
-      <span className="pbr-dots" aria-hidden="true"><s style={{ transform: `scaleX(${r.filed7 / top})` }} /></span><small>{r.filed7} wk{r.rightPct != null ? ` · ${r.rightPct}% right` : ''}</small></button></li>)}</ol>
-    {b.kits?.moved24?.length ? <p className="pbr-kits">🧰 {b.kits.moved24.length} kit{b.kits.moved24.length > 1 ? 's' : ''} updated today: {b.kits.moved24.map(k => `${k.pkg} ${k.prev ? `${k.prev} → ` : ''}${k.v || ''}`).join(' · ')}</p>
-      : <p className="pbr-kits">🧰 {b.kits?.tracked || 0} kits checked daily · none moved today</p>}
-  </section>;
+  const by = Object.fromEntries((b?.rows || []).map(r => [r.kind, r]));
+  return <nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
+    return <button key={x} type="button" role="tab" aria-selected={k === x} className={`pdr-type is-${x}${k === x ? ' is-on' : ''}${b?.best === x ? ' is-best' : ''}`} style={{ '--i': i }} onClick={() => onPick?.(x)} data-testid={`pdr-${x}`}
+      data-tip={r ? `${v.full}: ${r.filed24} filed today, ${r.filed7} this week · ${r.reviews} reviewed${r.passPct != null ? ` (${r.passPct}% passed)` : ''} · graded ${r.right} right / ${r.wrong} wrong` : v.full}>
+      <span className="pdr-type-ic"><Ic3 e={v.ic} size="26px" /></span><b>{v.t}</b>
+      <small className="m-num" data-testid={`proof-brief-${x}`}>{r ? `${r.filed7} this wk${r.rightPct != null ? ` · ${r.rightPct}% right` : ''}` : v.full}</small>
+      <u aria-hidden="true"><s style={{ transform: `scaleX(${(r?.avgScore || 0) / 100})` }} /></u>{b?.best === x ? <em className="pdr-type-hot" data-tip="Where the work is today: most filed this week">HOT</em> : null}</button>; })}</nav>;
+}
+export function kitLine(fresh) {   // what it builds with, one quiet line under the stage (was a whole tab)
+  const moved = fresh?.kits?.filter(x => x.prev) || []; return moved.length ? `🧰 ${moved.length} kit${moved.length > 1 ? 's' : ''} updated today: ${moved.slice(0, 5).map(x => `${x.pkg || x.id} ${x.prev} → ${x.v}`).join(' · ')}` : '';
 }
 
 // ▶ Every preview ends in a start (owner 2026-11-11: "start something is the point of showcase"). Pick a ready ask or write your own, then Start:
@@ -283,7 +251,10 @@ export function ShowStart({ k, starters = {}, onMake, onCommand, onOpen, p, cost
 export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos', starters }) {
   const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k]; const prices = useProofPrices(cat?.id, work); const cost = p.cmd ? priceWord(prices?.[k]) : '';
   useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
-  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film' && t.kind !== 'game'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const adCap = show?.ads || show?.adsOk ? [['ad', '🎬', 'Its ad', 'The ad your agent made for this proof, recorded to video']] : []; const caps = [...adCap, ...(pieces.length ? pieces.map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress), ...EVERY]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
+  const rows = mixPieces([...(counts?.templates || []).filter(t => t.kind !== 'film' && t.kind !== 'game'), ...(counts ? EXAMPLE_PIECES : [])]); const pieces = k === 'pos' ? rows : []; const adMade = !!show?.ads?.rows?.[k]?.video; const adCap = adMade || show?.adsOk ? [['ad', '🎬', 'Its ad', 'The ad your agent made for this proof, recorded to video']] : [];
+  const own = (pieces.length ? pieces.slice(0, 6).map(t => [`piece:${t.id}`, null, t.name, t.what, t.thumb, t.kind]) : p.caps).filter(c => c[0] !== 'chart' || k !== 'pow' || trade?.pair?.pairAddress);
+  const caps = [...(adMade ? adCap : []), ...own, ...(show?.reviews?.[k]?.length ? [EVERY[0]] : []), ...(adMade ? [] : adCap)]; const now = caps.some(c => c[0] === on) ? on : caps[0]?.[0];
+  const next = () => { const i = caps.findIndex(c => c[0] === now); if (caps.length > 1) setOn(caps[(i + 1) % caps.length][0]); };   // 📖 a chapter that played out hands over to the next (the bar's own animation, paused on hover)
   const stage = () => {
     if (String(now).startsWith('piece:')) { const id = now.slice(6); return <Piece key={now} id={id} t={rows.find(t => t.id === id)} cat={cat} work={work} />; }
     if (now === 'ad') return <AdReel key={k} k={k} cat={cat} work={work} ads={show?.ads} />;
@@ -292,22 +263,22 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     if (now === 'chart') return k === 'pow' ? <TradeDemo t={trade} /> : <PerpDemo kits={kits.filter(x => x.id === 'fl-liq')} />;
     if (now === 'viral') return <ViralReel cat={cat} work={work} />;
     if (now === 'live') return <LiveGame />;
-    if (now === 'stash') return <StashBuild key={k} k={k} kits={kits} />;
     if (now === 'video') return <VideoFilm />;
     if (now === 'image') return <ImageFilm />;
     if (now === 'parlay') return <ParlayReplay />;
     if (now === 'reviews') return <ReviewReel key={k} rows={show?.reviews?.[k]} />;
-    if (now === 'kits') return <KitWall kits={show?.kits} fresh={show?.fresh} kind={k} />;
     if (now === 'books') return <BooksDemo b={show?.books} />;
     return <p className="dbt-none pdr-wait">Opening it…</p>;
   };
-  return <div className={`pdr is-${k}`} data-testid="pdr"><ProofBrief onPick={x => { if (x && PROOFS[x]) { setK(x); setOn(''); } }} />
-    <nav className="pdr-doors" role="tablist" aria-label="Proof types">{Object.entries(PROOFS).map(([x, v]) => <button key={x} type="button" role="tab" aria-selected={k === x} className={k === x ? 'is-on' : ''} onClick={() => { setK(x); setOn(''); }} data-tip={v.full} data-testid={`pdr-${x}`}><Ic3 e={v.ic} size="24px" /><b>{v.t}</b></button>)}</nav>
+  const pick = x => { if (x && PROOFS[x]) { setK(x); setOn(''); } }; const kitsNow = kitLine(show?.fresh);
+  return <div className={`pdr is-${k}`} data-testid="pdr"><ProofBrief k={k} onPick={pick} />
     <section className="pdr-main" key={k}>
-      <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>
-        {k === 'pos' && counts ? <p className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</p> : null}
-</aside>
-      <div className="pdr-view"><div className="pdr-fit"><div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div></div>
-        <ShowStart key={k} k={k} p={p} seed={String(now).startsWith('piece:') ? rows.find(t => `piece:${t.id}` === now) || null : null} cost={cost} costTip={p.cmd ? priceTip(prices?.[k]) : ''} starters={starters} onMake={onMake} onCommand={onCommand} onOpen={onOpen} /></div>
+      <header className="pdr-head"><b>{p.full}</b><span className="pdr-line">{p.line}</span>{k === 'pos' && counts ? <small className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</small> : null}</header>
+      <div className="pdr-fit"><div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div></div>
+      {caps.length > 1 ? <nav className="pdr-chaps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <button key={id} type="button" role="tab" aria-selected={now === id} className={now === id ? 'is-on' : ''} style={{ '--i': i }} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>
+        <i className="pdr-chap-bar" aria-hidden="true">{now === id ? <u style={{ '--dur': id === 'ad' ? '16s' : '10s' }} onAnimationEnd={next} /> : null}</i>
+        <span className="pdr-chap-t">{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="18px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</span></button>)}</nav> : null}
+      {kitsNow ? <p className="pdr-kits m-num" data-testid="pdr-kits-line">{kitsNow}</p> : null}
+      <ShowStart key={k} k={k} p={p} seed={String(now).startsWith('piece:') ? rows.find(t => `piece:${t.id}` === now) || null : null} cost={cost} costTip={p.cmd ? priceTip(prices?.[k]) : ''} starters={starters} onMake={onMake} onCommand={onCommand} onOpen={onOpen} />
     </section></div>;
 }

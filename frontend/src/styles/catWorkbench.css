@@ -756,3 +756,17 @@ body.fx-lite .cwb-soc { animation: none; } @media (prefers-reduced-motion: reduc
 body.theme-day .cwb-soc { background: #fff; border-color: #0000001a; } body.theme-day .cwb-soc i { background: #0000000d; color: #10241a; } body.theme-day .cwb-soc small { color: #3f5a4c; }
 body.theme-day .cwb-soc.is-on { background: #e8f7ee; border-color: #0b7a3e; } body.theme-day .cwb-soc.is-on i { background: #0b7a3e; color: #fff; }
 @media (max-width: 640px) { .cwb-social { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); } }
+
+/* 🗄 THE FILE CABINET (owner 2026-11-11: "the file cabinet on the desk … still long as fuck"): one panel, never an outer scroll. A slim header,
+   the head cloud and last money as two compact chips, then a sidebar of drawers and the file list filling the rest, each scrolling on its own. */
+.cwb-back { grid-template-rows: auto auto minmax(0, 1fr); grid-auto-rows: initial; align-content: stretch; overflow: hidden; gap: 8px; }
+.cwb-back > .agl-cloud, .cwb-back > .cwb-money { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; justify-items: start; gap: 2px 8px; width: auto; min-height: 40px; padding: 5px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff06; text-align: left; }
+.cwb-back > .agl-cloud > svg { width: 30px; height: 22px; } .cwb-back > .agl-cloud > b { position: static; font-size: 15px; }   /* the art's big number sits in the row here */ .cwb-back > .agl-cloud::before, .cwb-back > .agl-cloud::after { display: none; }
+.cwb-back > :is(.agl-cloud, .cwb-money) { justify-self: stretch; width: 100%; box-sizing: border-box; } .cwb-back > .agl-cloud { grid-template-columns: auto auto auto minmax(0, 1fr); }
+.cwb-back > :is(.agl-cloud, .cwb-money) small { grid-column: -2; grid-row: 1; overflow: hidden; max-width: 100%; white-space: nowrap; text-overflow: ellipsis; }
+.cwb-back > .ck-log { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
+.cwb-back .ck-cabinet { min-height: 0; height: 100%; grid-template-columns: 172px minmax(0, 1fr); align-items: stretch; gap: 10px; }
+.cwb-back .ck-log .ck-folders { max-height: none; min-height: 0; gap: 3px; overflow-y: auto; }
+.cwb-back .ck-log .ck-folders button { min-height: 30px; padding: 3px 10px; font-size: 11.5px; }
+.cwb-back .ck-cabinet .ck-rows { max-height: none; min-height: 0; overflow-y: auto; }
+@media (max-width: 640px) { .cwb-back { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); } .cwb-back .ck-cabinet { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .cwb-back .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } }

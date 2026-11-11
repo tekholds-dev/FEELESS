@@ -390,14 +390,14 @@ test('Showcase: a reel. Nothing to operate, each capability plays how the agent 
   await act(async () => { q('pdr-cap-wick-breaker').click(); }); expect(q('pdr-piece').textContent).toContain('candle chart'); expect(q('pdr-piece-frame').getAttribute('src')).toBe('/showcase/pos/wick-breaker.html?demo=1'); expect(q('pdr-cap-mempool')).toBeTruthy();
   await act(async () => { q('pdr-cap-silver-hour').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'silver-hour' });
   await act(async () => { q('sst-go').click(); }); expect(onMake).toHaveBeenCalledWith('build', ['💻', 'Silver Hour', '', 'A camera page']);   // ▶ the page on the stage starts with its own ask
-  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-stash'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
+  const seen = {}; for (const [door, id] of [['pow', 'pdr-pow-replay'], ['pop', 'pdr-perp-replay'], ['pob', 'pdr-live'], ['poc', 'pdr-viral']]) { await act(async () => { q(`pdr-${door}`).click(); }); expect(q(id)).toBeTruthy(); seen[door] = id; }
   expect(new Set(Object.values(seen)).size).toBe(4);   // no two proofs open on the same demo
   await act(async () => { q('pdr-cap-video').click(); }); expect(q('pdr-video').querySelector('video').getAttribute('src')).toContain('images-assets.nasa.gov');   // 🔥 PoC opens on the real viral clips first
   for (const [cap, id] of [['image', 'pdr-image'], ['replay', 'pdr-story-replay']]) { await act(async () => { q(`pdr-cap-${cap}`).click(); }); expect(q(id)).toBeTruthy(); }
   await act(async () => { q('pdr-cap-long-road-film').click(); }); expect(calls.at(-1)).toEqual({ op: 'tools_showcase', job: 'long-road-film' });
   await act(async () => { q('pdr-pob').click(); }); await act(async () => { q('pdr-cap-parlay').click(); }); expect(q('pdr-parlay')).toBeTruthy();
   await act(async () => { q('pdr-cap-replay').click(); }); expect(q('pdr-pick-replay')).toBeTruthy(); await act(async () => { q('pdr-cap-live').click(); }); expect(q('pdr-live').querySelector('video').getAttribute('src')).toBe('/showcase/pob/gridiron.mp4');
-  await act(async () => { q('pdr-cap-stash').click(); }); expect(q('pdr-stash').textContent).toContain('line moves');
+  expect(q('pdr-cap-stash')).toBeNull();   // the same sample tool on every type is gone (owner 2026-11-11: no filler tabs)
   await act(async () => { q('pdr-pop').click(); }); await act(async () => { q('sst-chip-1').click(); }); await act(async () => { q('sst-go').click(); }); expect(onCommand).toHaveBeenCalledWith('file a perp on SOL and show where 10x longs get liquidated');
   expect(el.querySelectorAll('input, textarea, select').length).toBe(1);   // the one thing to fill in is the ask under the preview
   el.remove();
@@ -478,7 +478,7 @@ test('🎭 each kind of proof can have its own prompt and personality; All stays
 });
 
 
-test('🎬 every proof type shows its real proofs graded by OSSY + G4, the kits it builds with, and PoEco draws its books', async () => {
+test('🎬 a proof type with graded proofs shows them (OSSY + G4), its kits are one line under the stage, and PoEco draws its books', async () => {
   const { ProofDoors } = require('./ProofDoors');
   const show = { reviews: { pow: [{ id: 'w1', title: 'LEEROY', score: 30, verdict: 'fail', agree: true, by: { ossy: { score: 20, verdict: 'fail', checks: ['✓ read the pool', '✗ no holders read'], answeredBy: 'local · qwen' }, g4: { score: 40, verdict: 'fail', checks: ['✓ stop fits'] } } }], poe: [] },
     books: { topic: 'Q4 books', income: 13650, costs: 9220, net: 4430, margin: 32.5, taxSetAside: 1107.5, months: [{ month: '2026-09', income: 6200, costs: 4320, net: 1880 }, { month: '2026-10', income: 7450, costs: 4900, net: 2550 }] },
@@ -490,10 +490,9 @@ test('🎬 every proof type shows its real proofs graded by OSSY + G4, the kits 
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   await act(async () => { q('pdr-cap-reviews').click(); });
   expect(q('pdr-reviews').textContent).toContain('LEEROY'); expect(q('pdr-reviews').textContent).toContain('✗ no holders read'); expect(q('pdr-reviews').textContent).toContain('OSSY');
-  await act(async () => { q('pdr-cap-kits').click(); });
-  expect(q('pdr-kit-echarts').textContent).toContain('5 → v6'); expect(q('pdr-kits').textContent).toContain('2 kits · 1 moved up');
+  expect(q('pdr-cap-kits')).toBeNull(); expect(q('pdr-kits-line').textContent).toContain('echarts 5 → 6');   // 🧰 a quiet line, not a tab
   await act(async () => { q('pdr-poe').click(); }); expect(q('pdr-books').textContent).toContain('NET $4,430'); expect(q('pdr-books').querySelectorAll('li')).toHaveLength(2);
-  await act(async () => { q('pdr-cap-reviews').click(); }); expect(q('pdr-no-reviews')).toBeTruthy();
+  expect(q('pdr-cap-reviews')).toBeNull();   // no graded proof yet = no empty tab
   await act(async () => { q('sst-go').click(); }); expect(onOpen).toHaveBeenCalledWith('poe');
   el.remove();
 });
