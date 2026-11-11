@@ -397,6 +397,7 @@ authority named · L3 re-checked independently (a second reader or a replay reac
 | A03 | Same-coin shadow ledger and edge audit: repeat after ~50 newer model trades; diagnose G4 uptime. No claim of profitable unseen performance. |
 | Q05 | Old PRD claims (chain coverage, risk signals, moderation, identity): validate against the code before any rebuild. |
 | Q07 | Final site-wide click-through after the builds: day / night, 360 px, lite / reduced motion, every step and empty state. |
+| WC01 | Wallet connect on http://10.0.0.104:51367 hung (not a secure page, Phantom never answers): modal now says so + Open on localhost; prompts time out at 90s; bare `connect()` doors (agent desk, Rep, Rewards) connect Solana. Seen in his Chrome on both addresses. Phone over LAN needs https (not built). |
 | AUDIT-11-07 | Signed-out audit of every page at 1280 and 360: 0 crashes, 0 sideways scroll. Signed-in pages, Duo sizes and real funds not covered. |
 
 ## Decided (do not undo) — money, custody, legal (details: `docs/DECISIONS.md`, read it before any money or custody work)
