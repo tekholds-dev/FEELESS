@@ -55,7 +55,7 @@ try:
 except ValueError:
     SCAN_RPS = 1.0
 SCAN_BURST = 6.0
-QUOTA_WORDS = ('daily request limit', 'capacity limit', 'monthly', 'quota', 'credits')
+QUOTA_WORDS = ('daily request limit', 'capacity limit', 'monthly', 'quota', 'credits', 'max usage reached')   # last = Helius's spent plan
 _quota_until: dict[str, float] = {}   # endpoint → when its plan's quota comes back (never retried before that)
 
 
@@ -411,12 +411,19 @@ async def probe(http, url):
 
 
 def helius_key():
-    """HELIUS_API_KEY, else the api-key in HELIUS_RPC_URL, else in SOLANA_RPC_URL (which may point at another RPC)."""
+    """HELIUS_API_KEY, else the first Helius api-key in the RPC lanes (SOLANA_RPC_URL, _2.._6) whose plan isn't spent, else
+    HELIUS_RPC_URL's. A spent key is used only when every key is spent (2026-11-10: HELIUS_RPC_URL was spent while the new
+    SOLANA_RPC_URL key worked, and the trade tape kept asking the spent one)."""
     import re as _re2
     if os.environ.get('HELIUS_API_KEY'):
         return os.environ['HELIUS_API_KEY'].strip()
-    for var in ('HELIUS_RPC_URL', 'SOLANA_RPC_URL'):
-        m = _re2.search(r'helius[^?]*\?(?:.*&)?api-key=([A-Za-z0-9-]{20,})', os.environ.get(var, ''))
-        if m:
+    now, spent = time.time(), None
+    vars_ = ['SOLANA_RPC_URL'] + [f'SOLANA_RPC_URL_{n}' for n in range(2, 7)] + ['HELIUS_RPC_URL']
+    for url in dict.fromkeys(os.environ.get(v, '').strip() for v in vars_):
+        m = _re2.search(r'helius[^?]*\?(?:.*&)?api-key=([A-Za-z0-9-]{20,})', url)
+        if not m:
+            continue
+        if max(_quota_until.get(url, 0), _rpc_cooldown_until.get(url, 0)) <= now:
             return m.group(1)
-    return None
+        spent = spent or m.group(1)
+    return spent

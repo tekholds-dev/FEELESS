@@ -3806,7 +3806,7 @@ def _site_wallet(cat, site):
 
 async def _token_balance(http, owner, mint):
     """The coin balance of a wallet on the chain, or None when the read failed. Zero means no coins, not a failed read."""
-    url_ = os.environ.get('HELIUS_RPC_URL') or os.environ.get('SOLANA_RPC_URL') or 'https://api.mainnet-beta.solana.com'
+    url_ = _crpc._next_rpc_endpoint() or 'https://api.mainnet-beta.solana.com'   # the live lane, never a spent key
     try:
         r = await http.post(url_, json={'jsonrpc': '2.0', 'id': 1, 'method': 'getTokenAccountsByOwner', 'params': [owner, {'mint': mint}, {'encoding': 'jsonParsed'}]}, timeout=10)
         rows = (r.json().get('result') or {})['value']
@@ -3964,7 +3964,7 @@ async def _site_scan_run(cat_id, url, site, kind, ctx):
 
 async def _watch_pass(store):
     """👁 Each wallet in a new Watch a Wallet folder gets one chain check: does this address have real history. A model can name an address that was never a trader."""
-    url_ = os.environ.get('HELIUS_RPC_URL') or os.environ.get('SOLANA_RPC_URL') or 'https://api.mainnet-beta.solana.com'
+    url_ = _crpc._next_rpc_endpoint() or 'https://api.mainnet-beta.solana.com'   # the live lane, never a spent key
     rows_ = [(c, f) for c in store['cats'].values() for f in c.get('watchFolders') or [] if not f.get('checked')]
     if not rows_:
         return
