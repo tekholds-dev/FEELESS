@@ -66,6 +66,7 @@ const ROLES = shaped({ owners: [], roles: [], grants: [], youAreOwner: false });
 const SECURITY = shaped({ score: 0, services: [], checks: [], audit: [], topErrors: [], signals: {}, stats: {} });
 const INVITES = shaped({ top: [], total: 0, owedUsd: 0, pct: 0 });
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
+const PayGridLazy = lazy(() => import('./PayGrid').then(m => ({ default: m.PayGrid })));   // 💳 HQ › Money › Cards & pay
 
 const SESSION_KEY = 'feeless:cc-session';
 const readSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
@@ -111,7 +112,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   useEffect(() => { setGrp(null); }, [tab]);
   const [moneyView, setMoneyView] = useState('treasury');
   // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
-  const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
+  const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve', 'cards'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
   const [prefill, setPrefill] = useState(null);
   // search bar: open the tab, then (Fuse) the deck panel once the deck has mounted
   const jump = j => { setGrp(null); if (j.view) openTab(j.view); else setTab(j.tab); if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
@@ -206,9 +207,10 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'broadcast' && <BroadcastPanel call={call} />}
     {tab === 'marketing' && <MarketingPanel call={call} />}
     {tab === 'money' && <section className="m-stack" data-testid="cc-money">
-      <div className="m-seg" role="tablist" aria-label="Money">{[['treasury', '🏦 Treasury & splits'], ['reserve', '💰 Reserve & badge pools'], ['circle', '◎ Circle wallets']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={moneyView === k} className={moneyView === k ? 'active' : ''} onClick={() => setMoneyView(k)}>{l}</button>)}</div>
+      <div className="m-seg" role="tablist" aria-label="Money">{[['treasury', '🏦 Treasury & splits'], ['reserve', '💰 Reserve & badge pools'], ['circle', '◎ Circle wallets'], ['cards', '💳 Cards & pay']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={moneyView === k} className={moneyView === k ? 'active' : ''} onClick={() => setMoneyView(k)}>{l}</button>)}</div>
       {moneyView === 'treasury' && <><TreasuryHub call={call} prefill={prefill} /><TreasuryRoutes call={call} isOwner={isOwner} /></>}
       {moneyView === 'reserve' && <><ReservePool call={call} /><BadgePools call={call} /></>}
+      {moneyView === 'cards' && <Suspense fallback={null}><PayGridLazy /></Suspense>}
       {moneyView === 'circle' && (isOwner ? <CircleWallets call={call} /> : <p className="cc-empty">Only owner wallets can manage Circle wallets.</p>)}
     </section>}
     {tab === 'overview' && <><GuardPanel call={call} /><DefencePanel call={call} /><Overview sec={sec} reload={loadSec} /></>}
