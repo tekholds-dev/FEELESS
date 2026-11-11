@@ -91,7 +91,7 @@ CALL_ROLE = _cv.ContextVar('ai_call_role', default='')
 from collections import deque as _dq
 CALL_LOG = _dq(maxlen=30)
 from pathlib import Path as _Path
-RECEIPTS_PATH = _Path(__file__).parent / 'data' / 'model_receipts.jsonl'   # 🧾 the same ledger the agents' calls write
+RECEIPTS_PATH = _Path(__file__).parent / 'data' / 'model_receipts.jsonl'   # a Path, so tests/conftest sandboxes it   # 🧾 the same ledger the agents' calls write
 INFLIGHT = {}
 _CALL_TASKS = {}  # private: cid -> asyncio task
 
