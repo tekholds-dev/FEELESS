@@ -11,20 +11,42 @@ const hueOf = hex => { const r = parseInt(hex.slice(1, 3), 16) / 255, g = parseI
 const PRESETS = [['Royal green (default)', '#15d16a'], ['Gold', '#f5c542'], ['Diamond', '#7cc8ff'], ['Rose', '#fa708c'], ['Violet', '#b388ff'], ['Solar', '#ff8a3d'], ['Ice', '#e7f3ff']];
 
 // Whole-site recolor (admins, creators, $1000+ holders): one pass over the stylesheets at apply time copies every rule
-// that uses the FEELESS green (#15d16a / rgba(21, 209, 106,a)) into one override sheet with your colour, alpha kept.
-// No filters, nothing per frame — zero lag. null removes it.
+// that uses a FEELESS brand green into one override sheet with your colour, alpha kept. No filters, nothing per frame — zero lag.
+// The brand is a FAMILY, not one hex (2026-11-11: only #15d16a was swapped, so every #0bd97f → #15d16a → #6bffc0 button went
+// green-red-green and the 1,452 uses of the bright #45e486 stayed green): each family shade keeps its own lightness and takes your
+// hue + saturation; #15d16a itself becomes exactly your colour. Price-up greens (#3ee58a …) are not the brand and never change. null removes it.
+const BRAND = new Set(['15d16a', '45e486', '0bd97f', '6bffc0', '7cf0ab', '0d8f49']);
+const toHsl = (r, g, b) => { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; if (mx === mn) return [0, 0, l];
+  const d = mx - mn; const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, s, l]; };
+const toRgb = (h, s, l) => { const k = n => (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); return [0, 8, 4].map(n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))))); };
 export function recolorText(css, hex) {
-  const h = hex.replace('#', '').toLowerCase(); const [r, g, b] = [0, 2, 4].map(k => parseInt(h.slice(k, k + 2), 16));
-  return css.replace(/#15d16a([0-9a-f]{2})?(?![0-9a-f])/gi, (m, a) => `#${h}${a || ''}`)
-    .replace(/rgba?\(\s*21\s*,\s*209\s*,\s*106/gi, m => `${m.startsWith('rgba') ? 'rgba' : 'rgb'}(${r}, ${g}, ${b}`);
+  const h = hex.replace('#', '').toLowerCase(); const want = [0, 2, 4].map(k => parseInt(h.slice(k, k + 2), 16)); const [th, ts] = toHsl(...want);
+  const hexOf = c => c.map(x => x.toString(16).padStart(2, '0')).join('');
+  const shade = c => { const x = hexOf(c); if (!BRAND.has(x)) return null; return x === '15d16a' ? want : toRgb(th, ts, toHsl(...c)[2]); };
+  return css.replace(/#([0-9a-f]{6})([0-9a-f]{2})?(?![0-9a-f])/gi, (m, c, a) => { const n = shade([0, 2, 4].map(k => parseInt(c.slice(k, k + 2), 16))); return n ? `#${hexOf(n)}${a || ''}` : m; })
+    .replace(/(rgba?)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})/gi, (m, f, r, g, b) => { const n = shade([+r, +g, +b]); return n ? `${f.toLowerCase()}(${n[0]}, ${n[1]}, ${n[2]}` : m; });
 }
-export function recolorSite(hex) {
+// A screen's own sheet loads when it opens (HQ's hqNav.css, a desk's sheet …): recolor once more when one arrives, debounced, or that
+// screen kept the default green under a custom theme (2026-11-11: HQ's active sidebar item stayed #15d16a on a red theme).
+let lateSheets = null;
+function watchLateSheets(hex) {
+  lateSheets?.obs.disconnect(); clearTimeout(lateSheets?.t); lateSheets = null;
+  if (!hex || typeof MutationObserver === 'undefined') return;
+  const again = () => { clearTimeout(lateSheets?.t); if (lateSheets) lateSheets.t = setTimeout(() => recolorSite(hex, true), 150); };
+  const obs = new MutationObserver(list => { for (const m of list) for (const n of m.addedNodes) {
+    if (n.id === 'feeless-recolor') continue;
+    if (n.tagName === 'STYLE') again(); else if (n.tagName === 'LINK' && /stylesheet/i.test(n.rel)) n.addEventListener('load', again, { once: true });
+  } });
+  obs.observe(document.head, { childList: true }); lateSheets = { obs, t: 0 };
+}
+export function recolorSite(hex, late = false) {
   let el = document.getElementById('feeless-recolor');
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || ['#15d16a', '#19f58f'].includes(hex.toLowerCase())) { el?.remove(); return; }   // the old mint = the default too
+  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex) || ['#15d16a', '#19f58f'].includes(hex.toLowerCase())) { el?.remove(); watchLateSheets(null); return; }   // the old mint = the default too
+  if (!late) watchLateSheets(hex);
   const out = [];
   const walk = rules => { for (const rule of rules) {
     if (rule.cssRules && rule.media) { const before = out.length; walk(rule.cssRules); const added = out.splice(before); if (added.length) out.push(`@media ${rule.media.mediaText}{${added.join('')}}`); continue; }
-    if (rule.selectorText && /15d16a|21,\s*209,\s*106/i.test(rule.cssText)) out.push(recolorText(rule.cssText, hex));
+    if (rule.selectorText) { const t = recolorText(rule.cssText, hex); if (t !== rule.cssText) out.push(t); }
   } };
   for (const sheet of document.styleSheets) { if (sheet.ownerNode?.id === 'feeless-recolor') continue; try { walk(sheet.cssRules); } catch { /* cross-origin sheet */ } }
   if (!el) { el = document.createElement('style'); el.id = 'feeless-recolor'; }

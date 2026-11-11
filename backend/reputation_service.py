@@ -33307,6 +33307,8 @@ import rep_tools as _rep_tools  # noqa: E402
 app.include_router(_rep_tools.router)   # 🧩 Q02: the first routes moved out of this file
 import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: read-only admin views
 app.include_router(_rep_admin_reads.router)
+import rep_model_lab as _rep_model_lab   # 🧪 Model Lab: the owner's dataset, review queue and clean export
+app.include_router(_rep_model_lab.router)
 admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
 fuse_health = _rep_admin_reads.fuse_health
 admin_familia_rules = _rep_admin_reads.admin_familia_rules

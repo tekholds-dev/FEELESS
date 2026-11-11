@@ -231,6 +231,16 @@ def web_public(root):
     return {**{k: v for k, v in w.items() if k not in ('sources', 'links')}, 'sources': [{'id': names[s['id']], 'n': s['n']} for s in w.get('sources') or []], 'links': [{'from': l['from'], 'to': names[l['to']], 'n': l['n']} for l in w.get('links') or [] if l['to'] in names], 'dots': [[a, names.get(b, ''), d] for a, b, d in w.get('dots') or []]}
 
 
+def catalog(root):
+    """🧪 Every kept item's index row, newest first: what Model Lab counts and queues. Never the content (that is `read`, owner tools only)."""
+    c = _db(root)
+    try:
+        rows = c.execute('SELECT key, at, category, source, agent, outcome, title FROM items ORDER BY at DESC').fetchall()
+    finally:
+        c.close()
+    return [{'key': k, 'at': t or 0, 'category': g, 'source': s_, 'agent': a, 'outcome': o, 'title': ti} for k, t, g, s_, a, o, ti in rows]
+
+
 def trust_rows(root, category=None):
     """How each source has really done: (source, outcome, count), for one kind of proof when given. Safe to show anyone."""
     c = _db(root)
