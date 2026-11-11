@@ -4,6 +4,25 @@ import os
 import re
 from urllib.parse import urlsplit
 
+# 🧠 A reasoning model that skips the JSON pastes its private thinking: "hy4: I need to follow the standing orders and the task structure. Let me
+# think about what's required…" was filed as its answer, its head cloud and its cabinet, and shown on its card (owner 2026-11-11).
+_THINK_HEAD = re.compile(r"^\s*(?:[\w.-]{1,16}:\s*)?(?:okay|ok|alright|hmm+|so,|let me|let's see|i need to|i should|i'll|i will|i must|we need to|"
+                         r"the user (?:wants|asked|is asking)|first,? i)\b", re.I)
+_THINK_TELL = re.compile(r"let me think|let me (?:check|figure|look|see)|standing orders|first turn must|the task structure|my instructions|"
+                         r"the instructions say|wait,? (?:no|actually)|<think>", re.I)
+
+
+def thinking_leak(text):
+    """True when the text is a model's private thinking, not an answer: never show, file or keep it. Pure."""
+    t = str(text or ''); tells = len(_THINK_TELL.findall(t))
+    return tells >= 2 or (tells >= 1 and bool(_THINK_HEAD.match(t)))
+
+
+def no_thinking(items):
+    """→ the cloud / notes rows without any leaked thinking (each row's `text`). Pure."""
+    return [x for x in (items or []) if not thinking_leak((x or {}).get('text') if isinstance(x, dict) else x)]
+
+
 TOOLS = {
     'agent': ('browse', 'forms'), 'content': ('browse', 'forms', 'storage', 'post'),
     'code': ('browse', 'build', 'storage'), 'detective': ('browse', 'notes'),

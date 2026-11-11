@@ -46,7 +46,7 @@ import { FamiliaAdmin } from './FamiliaAdmin';
 import { TreasuryHub } from './TreasuryHub';
 import { CoinVerifyPanel } from './CoinVerifyPanel';
 import { TreasuryPulse } from './TreasuryPulse';
-import { TAB_INFO } from './ccTabInfo';
+import { HqEmpty, TAB_INFO } from './ccTabInfo';
 import { FeeCatDesk } from './FeeCatDesk';
 import { CollectiveOwner } from './CollectiveOwner';
 import { CirclePay, useCircleWallet } from './CirclePay';
@@ -78,6 +78,12 @@ const download = (name, text) => { const a = document.createElement('a'); a.href
 const SEVERITY = { security: [0, '🔴 Critical · security'], bug: [1, '🟠 Bug'], idea: [2, '🔵 Idea'] };
 const sortBugs = list => [...list].sort((a, b) => ((SEVERITY[a.kind]?.[0] ?? 1) - (SEVERITY[b.kind]?.[0] ?? 1))
   || ((['fixed', 'wontfix'].includes(a.status) ? 1 : 0) - (['fixed', 'wontfix'].includes(b.status) ? 1 : 0)) || (b.at - a.at));
+
+// 🐞 fresh first: a report seen in the last 3 days is news; older ones fold under one button (285 stale dev-reload crashes buried the real ones, 2026-11-11)
+const BUG_FRESH_MS = 3 * 86400e3;
+const bugSeen = b => { const x = Number(b.lastAt || b.at || 0); return x > 1e12 ? x : x * 1000; };
+export const bugView = (list, showOld) => { const now = Date.now(); const fresh = list.filter(b => now - bugSeen(b) < BUG_FRESH_MS || ['fixing'].includes(b.status)); const old = list.filter(b => !fresh.includes(b));
+  return [...sortBugs(fresh), ...(old.length ? [{ fold: true, n: old.length }] : []), ...(showOld ? sortBugs(old) : [])]; };
 
 const ROLE_TABS_FIRST = { moderator: 'mod', marketing: 'marketing' };
 // ⏳ one bar for every HQ write in flight; it says what is happening once a write is slow (most waits = the keeper finishing a swap pass)
@@ -121,7 +127,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   const [selected, setSelected] = useState(() => new Set());
   const [hidePools, setHidePools] = useState(true);
   const [drops, setDrops] = useState([]);
-  const [bugs, setBugs] = useState([]);
+  const [bugs, setBugs] = useState([]); const [bugOld, setBugOld] = useState(false);
   const [busy, setBusy] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [role, setRole] = useState('');
@@ -169,17 +175,20 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   // 🗂 six short groups (owner, 2026-10-21: "clean up HQ so I can get to stuff quicker"): ≤ 7 tools each, one line that says what lives there.
-  const TAB_GROUPS = [['Core', ['agents', 'collective', 'money', 'fuse', 'fees', 'latency'], '⚡', 'the real card, the Collective, the treasury, every fee, lag'],
-    ['Build', ['launch', 'familia', 'feecat', 'pools', 'verify'], '🧬', 'launches, Fuse, Familia, FeeCat, pools, coin checks'],
-    ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'ads', 'ideas'], '📈', 'who comes, from where, what they do'],
-    ['Holders', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, invites, broadcasts'],
+  // 🧭 THE MENU, BY THE JOB YOU ARE DOING (owner 2026-11-11: "hard to find, all over the place"): nine groups, none over six tools.
+  const TAB_GROUPS = [['Money', ['money', 'fees', 'fuse', 'collective', 'pools'], '💰', 'the treasury, every fee, Fuse, the Collective, pools'],
+    ['Agents', ['agents', 'feecat', 'familia'], '🤖', "Sicario's, Fee, Familia"],
+    ['Launch', ['launch', 'verify'], '🚀', 'launch a coin, check a coin'],
+    ['Insights', ['numbers', 'traffic', 'pulse'], '📈', 'who comes, from where, what they do'],
+    ['Marketing', ['marketing', 'kols', 'ads', 'ideas'], '📣', 'campaigns, KOLs, ads, ideas'],
+    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, snapshots, invites, broadcasts'],
     ['Rewards', ['badges', 'nfts', 'seasons'], '🏅', 'badges, NFT drops, seasons'],
-    ['Brand', ['looks'], '🎨', 'the site looks: Plasma, free and advanced'],
-    ['Safety', ['investigate', 'shield', 'overview', 'mod', 'access', 'bugs'], '🛡', 'intel, shield, security, mods, roles, bugs']];
+    ['Safety', ['investigate', 'shield', 'overview', 'mod', 'access', 'bugs'], '🛡', 'intel, shield, security, mods, roles, bugs'],
+    ['System', ['latency', 'looks'], '⚙️', 'lag catcher, the site looks']];
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
-  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled drops', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   // one distinct mark per tool (the shared lucide icons repeated ⚡ on five tools — noise, not wayfinding)
   const TAB_ICON = { looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
     numbers: '📊', traffic: '🚦', pulse: '💓', marketing: '📣', kols: '🎤', ads: '🪧', ideas: '💡', holders: '👥', studio: '🪂', airdrops: '🗓', snapshots: '📸', invites: '✉️',
@@ -275,12 +284,12 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'feecat' && <><FeeCatDesk call={call} /><FeeCatTune call={call} /></>}
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'familia' && (isOwner ? <FamiliaAdmin call={call} /> : <p className="cc-empty">Only the creator wallet runs Familia.</p>)}
-    {tab === 'fees' && isOwner ? <ProviderReady call={call} /> : null}
     {tab === 'fees' && <FeeCategories call={call} Trading={<><FeesPanel call={call} /><FeeBook call={call} /></>} Fuse={<FuseFees call={call} />} />}
+    {tab === 'fees' && isOwner ? <ProviderReady call={call} /> : null}   {/* the fees first (the tab's name); the keys behind them under it */}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
-      : <div className="cc-bugs">{sortBugs(bugs).map(b => <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em className={`sev sev-${SEVERITY[b.kind]?.[0] ?? 1}`}>{SEVERITY[b.kind]?.[1] || b.kind}</em><b>{b.text}</b>{b.count > 1 && <span className="cc-bug-count" data-tip={`Same crash on the same page, reported ${b.count}× (last ${new Date((b.lastAt || b.at) * 1000).toLocaleString()})`}>×{b.count}</span>}{b.fixNote && <small className="cc-bug-fix">✓ {b.fixNote}</small>}<small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
+      : <div className="cc-bugs">{bugView(bugs, bugOld).map(b => b.fold ? <button key="fold" type="button" className="m-btn cc-bug-fold" onClick={() => setBugOld(o => !o)} aria-expanded={bugOld} data-tip="Reports nobody has hit in 3 days: mostly crashes from dev reloads that are fixed" data-testid="bug-old">{bugOld ? 'Hide' : 'Show'} {b.n} older reports (not seen in 3 days)</button> : <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em className={`sev sev-${SEVERITY[b.kind]?.[0] ?? 1}`}>{SEVERITY[b.kind]?.[1] || b.kind}</em><b>{b.text}</b>{b.count > 1 && <span className="cc-bug-count" data-tip={`Same crash on the same page, reported ${b.count}× (last ${new Date((b.lastAt || b.at) * 1000).toLocaleString()})`}>×{b.count}</span>}{b.fixNote && <small className="cc-bug-fix">✓ {b.fixNote}</small>}<small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
     </TabGuard>
     </main>
@@ -752,6 +761,7 @@ function KolAdmin({ call }) {
   const remove = async a => { try { await call(`/admin/kols/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
   return <section className="cc-card"><h3>KOL tracker</h3><p className="wp-bio">Add wallets you know belong to KOLs. FEELESS reads their real Solana trades and shows users hold times, quick-flip rate and call-and-dump flags on the Rep page.</p>
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="X handle" value={f.x} onChange={e => setF({ ...f, x: e.target.value })} /><button className="btn-primary" type="submit">Track</button></form>
+    {!rows.length ? <HqEmpty ic="🎤" title="No KOLs tracked yet" line="Paste a KOL's wallet above. FEELESS reads its real trades: hold times, quick flips, call-and-dump flags." /> : null}
     <div className="cc-kol-list">{rows.map(k => <div key={k.address}><b>{k.name}</b><small>{k.x ? `@${k.x} · ` : ''}{k.chain} · {shortAddress(k.address)}</small><span>{k.stats ? `${k.stats.closed} closed · flips ${k.stats.quickFlipPct ?? '—'}% · ${k.stats.danger ? '⚠ call-and-dump' : 'no dump pattern'}` : '…'}</span><button type="button" className="btn-outline" onClick={() => remove(k.address)}>Remove</button></div>)}</div>
   </section>;
 }
@@ -788,6 +798,7 @@ function SeasonsAdmin({ call }) {
   const save = async e => { e.preventDefault(); try { await call('/admin/seasons', { method: 'POST', body: JSON.stringify({ ...f, multiplier: Number(f.multiplier), start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000 }) }); toast.success('Season scheduled.'); load(); } catch (err) { toast.error(err.message); } };
   const set = k => e => setF({ ...f, [k]: e.target.value });
   return <section className="cc-card"><h3>Monthly seasons</h3>
+    {!(d?.seasons || []).length ? <HqEmpty ic="🏆" title="No season scheduled" line="Name next month's season above. Its prize and multiplier show on every leaderboard." /> : null}
     <div className="cc-kol-list">{(d?.seasons || []).map(s => <div key={s.id} style={{ borderLeft: `3px solid ${s.accent}` }}><b>{s.name}</b><small>{new Date(s.start * 1000).toLocaleDateString()} → {new Date(s.end * 1000).toLocaleDateString()} · {s.multiplier}×</small><span>{d.players[s.id] || 0} players</span><button type="button" className="btn-outline" onClick={() => setEditing(s)}>Edit</button></div>)}</div>
     {editing && <SeasonEditor season={editing} call={call} onDone={() => { setEditing(null); load(); }} />}
     <form className="cc-kol-form" onSubmit={save}><input required placeholder="Season name (e.g. Diamond Hands)" value={f.name} onChange={set('name')} /><input placeholder="Theme / story" value={f.theme} onChange={set('theme')} /><input placeholder="Prize" value={f.prize} onChange={set('prize')} />
@@ -807,6 +818,7 @@ function AccessAdmin({ call, signMessage, address }) {
   if (!d) return <p className="wp-bio">Loading access…</p>;
   return <section className="cc-card"><h3>HQ access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
     {d.youAreOwner && <form className="cc-kol-form" onSubmit={grant}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{d.roles.map(r => <option key={r}>{r}</option>)}</select><button className="btn-primary" type="submit">Grant</button></form>}
+    {!Object.keys(d.grants).length ? <HqEmpty ic="🔑" title="Only you have HQ access" line="Grant a wallet a moderator or marketing role above. It sees only that role's tabs." /> : null}
     <div className="cc-kol-list">{Object.entries(d.grants).map(([a, g]) => <div key={a}><b>{shortAddress(a)}</b><small>{g.role}</small><span>since {new Date(g.at * 1000).toLocaleDateString()}</span>{d.youAreOwner && <button type="button" className="btn-outline" onClick={() => revoke(a)}>Revoke</button>}</div>)}{!Object.keys(d.grants).length && <p className="wp-bio">No one else has access yet.</p>}</div>
   </section>;
 }
@@ -818,6 +830,7 @@ function IdeasAdmin({ call }) {
   const add = async e => { e.preventDefault(); try { await call('/admin/ideas', { method: 'POST', body: JSON.stringify(f) }); setF({ title: '', body: '' }); load(); } catch (err) { toast.error(err.message); } };
   return <section className="cc-card"><h3>Ideas board</h3>
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Idea" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /><input placeholder="Details" value={f.body} onChange={e => setF({ ...f, body: e.target.value })} /><button className="btn-primary" type="submit">Save idea</button></form>
+    {!rows.length ? <HqEmpty ic="💡" title="No ideas saved yet" line="Write one above. Community ideas land here too, newest first." /> : null}
     <div className="cc-ideas">{rows.map(i => <article key={i.id}><b>{i.title}</b><small>{i.status}</small><p>{i.body}</p></article>)}</div>
   </section>;
 }

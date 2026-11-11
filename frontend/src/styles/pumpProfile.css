@@ -20,7 +20,7 @@
 @keyframes ppBlink { 50% { opacity: .45; } }
 body.fx-lite .pp, body.fx-lite .pp-tiles > div, body.fx-lite .pp-chips .is-live { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pp, .pp-tiles > div, .pp-chips .is-live { animation: none; } .pp-tiles > div:hover { transform: none; } }
-body.theme-day .pp-tiles > div { background: #f1faf5; border-color: #b9dcc8; } body.theme-day .pp-logo { background: #eaf7f0; border-color: #9fd3b6; box-shadow: none; }
+body.theme-day .pp-tiles > div { background: #f1faf5; border-color: #b9dcc8; } body.theme-day .pp-logo { background: #eaf7f0; border-color: #c9a8ff; box-shadow: none; }
 body.theme-day .pp-glyph, body.theme-day .pp-chips .is-grad { color: #5a33bd; } body.theme-day .pp-chips .is-curve { color: #8a6100; } body.theme-day .pp-tiles .bad .m-num, body.theme-day .pp-chips :is(.is-live, .is-bad) { color: #b3264a; }
 @media (max-width: 640px) { .pp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pp-out { margin-left: 0; } }
 .cp-pump { padding: 0 18px; }

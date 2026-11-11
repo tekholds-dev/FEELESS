@@ -49,7 +49,7 @@ body.fx-lite .hqp, body.fx-lite .hqp-fx > i, body.fx-lite .hqp-mark > i, body.fx
 body.theme-day .hqp { background: #f1edff; color: #181d1b; } body.theme-day .hqp-bar { background: rgba(255, 255, 255, .92); border-bottom-color: rgba(10, 60, 35, .16); }
 body.theme-day .hqp-fx > i { opacity: .12; } body.theme-day .hqp-mood b, body.theme-day .hqp-mark b { color: #5a33bd; } body.theme-day .hqp-mood small { color: rgba(24, 29, 27, .6); }
  
-body.theme-day .hqp-fab { background: radial-gradient(circle at 35% 30%, #e3f2e8, #fff); color: #181d1b; } body.theme-day .hqp-fab.on { background: #5a33bd; color: #fff; }
+body.theme-day .hqp-fab { background: radial-gradient(circle at 35% 30%, #efe6ff, #fff); color: #181d1b; } body.theme-day .hqp-fab.on { background: #5a33bd; color: #fff; }
 body.theme-day .hqp-x { color: #b3261e; border-color: rgba(179, 38, 30, .35); } body.theme-day .hqp-load { color: rgba(24, 29, 27, .6); }
 @media (max-width: 640px) { .hqp-bar { gap: 8px; padding: 8px 10px; } .hqp-mood { min-width: 0; } .hqp-mood small { display: none; }  .hqp-body { padding: 10px 8px 30px; } }
 .hqp-body .hqm-head > .cc-close { display: none; }   /* the pop-out's own ✕ closes it */

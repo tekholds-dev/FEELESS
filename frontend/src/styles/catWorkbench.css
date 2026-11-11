@@ -199,8 +199,7 @@ body.theme-day .cwb-file { background: #fff; border-color: rgba(106, 61, 240, .2
 .agd-url small.m-num { margin-left: auto; font-size: 10px; color: #a99bc8; }
 .agd-live.is-off { opacity: .55; }
 .cwb-under { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }   /* one desk: vitals · chat · vitals, flipping to the cabinet (owner 2026-10-31) */
-.cwb-tools-rail .ck-log { padding: 10px; max-width: none; } .cwb-tools-rail .ck-cabinet { grid-template-columns: 150px minmax(0, 1fr); gap: 10px; }
-.cwb-tools-rail .ck-cabinet .ck-rows, .ck-panel { max-height: 460px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; }
+.cwb-tools-rail .ck-log { padding: 10px; max-width: none; }
 .ck-panel { display: grid; gap: 8px; align-content: start; min-width: 0; animation: cwbIn .2s ease both; } .ck-panel::-webkit-scrollbar { width: 6px; } .ck-panel::-webkit-scrollbar-thumb { background: #b388ff88; border-radius: 6px; }
 .cwb-builds { display: grid; gap: 6px; }
 body.fx-lite .ck-panel { animation: none; } @media (prefers-reduced-motion: reduce) { .ck-panel { animation: none; } }
@@ -466,11 +465,8 @@ body.theme-day .dsk-win { background: #fff; border-color: #00000018; } body.them
 .cwb-back { transform: rotateY(180deg); display: grid; grid-auto-rows: max-content; align-content: start; gap: 10px; padding: 12px; overflow-y: auto; border-radius: 20px; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent;
   border: 1px solid #b388ff44; background: linear-gradient(170deg, #120c22f2, #080612f2); box-shadow: inset 0 1px 0 #ffffff1f, 0 18px 40px -28px #000; }
 .cwb-back { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .cwb-back > .cwb-talk-h, .cwb-back > .ck-log { grid-column: 1 / -1; } .cwb-back > .cwb-money { padding: 8px 12px; align-self: center; }
-.cwb-back .ck-log header small { display: none; } .cwb-back .ck-log .ck-folders { align-items: stretch; } .cwb-back .ck-log .ck-folders button { min-height: 34px; }
-.kd.is-glass .cwb-back .ck-rows li, .cwb-back .ck-rows li { grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; padding: 6px 4px; border-radius: 0; border-left: 0; border-bottom: 1px solid #ffffff0d; background: none; } .cwb-back .ck-rows { gap: 0; }
-.cwb-back .ck-rows li > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11.5px; } .cwb-back .ck-rows li:hover { background: #ffffff08; } .cwb-back .ck-rows li:hover > span { white-space: normal; overflow-wrap: anywhere; }
-.cwb-back .ck-rows li.is-up > i { filter: drop-shadow(0 0 4px #b48cff); } .cwb-back .ck-rows li.is-dn > i { filter: drop-shadow(0 0 4px #ff5d7a); }
-.cwb-back .ck-log { padding: 0; border: 0; background: none; box-shadow: none; } .cwb-back .ck-cabinet { grid-template-columns: 150px minmax(0, 1fr); }
+.cwb-back .ck-log header small { display: none; }
+.cwb-back .ck-log { padding: 0; border: 0; background: none; box-shadow: none; }
 .cwb-deck { align-items: stretch; height: 100%; } .cwb-deck > .ck-vitals { align-self: start; }
 .cwb-deck .cwb-mid { grid-template-rows: auto minmax(0, 1fr); justify-items: stretch; min-height: 0; } .cwb-deck .agl-cloud { justify-self: center; }
 .cwb-deck .cwb-talk { display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; } .cwb-deck .cwb-talk > * { flex: none; } .cwb-deck .cwb-talk > :is(.cwb-chat, .ck-chat) { flex: 1 1 auto; min-height: 120px; max-height: none; } /* your words never get squeezed away by a card */ .cwb-deck .cwb-talk > :is(.tpc, .cwb-queue) { max-height: 170px; overflow-y: auto; scrollbar-width: thin; }
@@ -503,9 +499,9 @@ body.theme-day .dsk-win { background: #fff; border-color: #00000018; } body.them
 body.fx-lite .cwb-flip-in { transition: none; } body.fx-lite .cwb-dots i, body.fx-lite .cwb-status.is-live i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cwb-flip-in { transition: none; } .cwb-dots i, .cwb-status.is-live i { animation: none; } }
 body.theme-day .cwb-talk { background: linear-gradient(170deg, #fdfbff, #f4efff); border-color: #7c4dff33; box-shadow: 0 18px 40px -30px #7c4dff55; }
-body.theme-day .kd.is-glass .cwb-back .ck-rows li, body.theme-day .cwb-back .ck-rows li { background: none; border-bottom-color: #7c4dff1a; } body.theme-day .cwb-talk-h > b, body.theme-day .cwb-empty b { color: #2a1650; } body.theme-day .cwb-talk-h { border-color: #7c4dff1a; } body.theme-day .cwb-msg time { color: #6f6390; } body.theme-day .cwb-back { background: #fbf8ff; border-color: #7c4dff33; } body.theme-day .cwb-flip-btn { color: #3b2470; background: #7c4dff12; }
+body.theme-day .cwb-talk-h > b, body.theme-day .cwb-empty b { color: #2a1650; } body.theme-day .cwb-talk-h { border-color: #7c4dff1a; } body.theme-day .cwb-msg time { color: #6f6390; } body.theme-day .cwb-back { background: #fbf8ff; border-color: #7c4dff33; } body.theme-day .cwb-flip-btn { color: #3b2470; background: #7c4dff12; }
 body.theme-day .cwb-sugg button { color: #3b2470; }
-@media (max-width: 640px) { .cwb-flip-in { height: auto; } .cwb-deck .cwb-talk { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span { display: none; } .cwb-talk-h { gap: 6px; } .cwb-back .ck-cabinet { grid-template-columns: 1fr; } .cwb-talk-h > b { font-size: 12.5px; } }
+@media (max-width: 640px) { .cwb-flip-in { height: auto; } .cwb-deck .cwb-talk { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span { display: none; } .cwb-talk-h { gap: 6px; } .cwb-talk-h > b { font-size: 12.5px; } }
 
 .cwb-cursor.is-rest { opacity: .55; }   /* 🖱 resting before its first move — always on screen */
 /* 🖱 thinking between moves: a 'reading' ring pulses at the cursor (it reads what is on screen, then moves) */
@@ -765,8 +761,24 @@ body.theme-day .cwb-soc.is-on { background: #e8f7ee; border-color: #5a33bd; } bo
 .cwb-back > :is(.agl-cloud, .cwb-money) { justify-self: stretch; width: 100%; box-sizing: border-box; } .cwb-back > .agl-cloud { grid-template-columns: auto auto auto minmax(0, 1fr); }
 .cwb-back > :is(.agl-cloud, .cwb-money) small { grid-column: -2; grid-row: 1; overflow: hidden; max-width: 100%; white-space: nowrap; text-overflow: ellipsis; }
 .cwb-back > .ck-log { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; }
-.cwb-back .ck-cabinet { min-height: 0; height: 100%; grid-template-columns: 172px minmax(0, 1fr); align-items: stretch; gap: 10px; }
-.cwb-back .ck-log .ck-folders { max-height: none; min-height: 0; gap: 3px; overflow-y: auto; }
-.cwb-back .ck-log .ck-folders button { min-height: 30px; padding: 3px 10px; font-size: 11.5px; }
-.cwb-back .ck-cabinet .ck-rows { max-height: none; min-height: 0; overflow-y: auto; }
-@media (max-width: 640px) { .cwb-back { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); } .cwb-back .ck-cabinet { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } .cwb-back .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } }
+.cwb-back .ck-cabinet { min-height: 0; height: 100%; align-items: stretch; }
+.cwb-back :is(.ck-folders, .ck-rows, .ck-panel) { max-height: none; min-height: 0; }   /* the flipped card sets the height; each scrolls inside */
+@media (max-width: 640px) { .cwb-back { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); } .cwb-back .ck-cabinet { grid-template-rows: auto minmax(0, 1fr); } }
+
+/* 💤 idle minds: two short cards side by side (the live monitors return when a mind works a proof or needs you) */
+.cwb-stage.is-idle { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+.cwb-idle { position: relative; display: grid; gap: 8px; min-width: 0; padding: 12px 14px; overflow: hidden; border-radius: 14px; border: 1px solid #b48cff33;
+  background: radial-gradient(120% 140% at 0% 0%, #9b6bff1f, transparent 60%), linear-gradient(180deg, #140c2b, #0b0718); box-shadow: inset 0 1px 0 #ffffff12; animation: cwbIdleIn .3s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.cwb-idle.w1 { border-color: #ff6fbf33; background: radial-gradient(120% 140% at 100% 0%, #ff6fbf1a, transparent 60%), linear-gradient(180deg, #140c2b, #0b0718); }
+.cwb-idle::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff0a 50%, transparent 70%); transform: translateX(-100%); animation: cwbIdleSweep 6s ease-in-out infinite; pointer-events: none; }
+.cwb-idle-h { display: flex; align-items: center; gap: 8px; min-width: 0; } .cwb-idle-h b { color: #fff; font: 800 11px var(--f-mono); letter-spacing: .14em; }
+.cwb-idle-h small { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #c9bfe8; font: 600 11px var(--f-mono); }
+.cwb-idle-h em { margin-left: auto; padding: 2px 8px; border-radius: 99px; border: 1px solid #ffffff1f; color: #aaa1c9; font: 800 9px var(--f-mono); font-style: normal; letter-spacing: .12em; }
+.cwb-idle-dot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: #9b6bff; box-shadow: 0 0 10px #9b6bff; animation: cwbIdleBreath 2.4s ease-in-out infinite; } .cwb-idle.w1 .cwb-idle-dot { background: #ff6fbf; box-shadow: 0 0 10px #ff6fbf; }
+.cwb-idle > p { display: -webkit-box; margin: 0; overflow: hidden; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #e3d9fb; font: 500 12.5px/1.45 var(--f-ui); }
+.cwb-idle > p em { margin-right: 6px; color: var(--kd-acc, #b48cff); font: 800 9px var(--f-mono); font-style: normal; letter-spacing: .12em; } .cwb-idle-none { color: #aaa1c9; }
+@keyframes cwbIdleIn { from { opacity: 0; transform: translateY(6px); } } @keyframes cwbIdleSweep { 0%, 60% { transform: translateX(-100%); } 100% { transform: translateX(100%); } } @keyframes cwbIdleBreath { 50% { opacity: .45; transform: scale(.8); } }
+body.fx-lite .cwb-idle, body.fx-lite .cwb-idle::after, body.fx-lite .cwb-idle-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cwb-idle, .cwb-idle::after, .cwb-idle-dot { animation: none; } }
+body.theme-day .cwb-idle { background: #fff; border-color: #7c4dff2e; } body.theme-day .cwb-idle-h b, body.theme-day .cwb-idle > p { color: #2a1650; } body.theme-day .cwb-idle-h small { color: #4a3a78; }
+@media (max-width: 640px) { .cwb-idle { padding: 10px 12px; } }

@@ -352,7 +352,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         </div>
       </header>
     </>}
-    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '💎 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
+    {tabbed && !gen && !cat.isLeader ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['colony', '💎 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" onClick={() => setDeskAt('none')} data-tip="Its wallet, limits, proofs, mail and everything else" data-testid="kd-open-desktop"><Ic3 e="🖥" /> DESKTOP<SetupDot id={cat.id} /></button></nav> : null}
     {deskAt ? <AgentDesktop cat={cat} start={deskAt} onClose={() => setDeskAt(null)} /> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}

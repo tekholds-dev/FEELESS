@@ -1,6 +1,6 @@
 /* 🛸 CatCockpit.jsx — an agent's desk under its two live windows: [vitals A | skinny bubble chat | vitals B] → 📁 the foldered log; desk skins
    (drawn calm scenes + a card colour, --kd-acc). transform / opacity only (ck* keyframes); scenes stop under fx-lite + reduced motion. */
-.ck-cockpit { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 620px) minmax(170px, 230px); justify-content: center; gap: 14px; align-items: start; }
+.ck-cockpit { display: grid; grid-template-columns: minmax(180px, 290px) minmax(0, 1fr) minmax(180px, 290px); gap: 14px; align-items: start; }   /* fills the desk: no empty sides */
 /* 🧠 one mind's vitals */
 .ck-vitals { --c: var(--kd-acc, #b388ff); position: sticky; top: 8px; display: grid; gap: 8px; padding: 14px 12px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
   background: linear-gradient(170deg, color-mix(in srgb, var(--c) 14%, #0e0820), #0b0716f2); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -30px var(--c); animation: ckIn .4s both; }
@@ -27,15 +27,6 @@
 /* 📁 the log */
 .ck-log { display: grid; gap: 8px; max-width: 1110px; width: 100%; margin-inline: auto; padding: 12px; border-radius: 18px; border: 1px solid #ffffff12; background: #0a0614cc; }
 .ck-log header { display: flex; align-items: baseline; gap: 8px; } .ck-log header b { color: #fff; font: 800 11px var(--f-mono); letter-spacing: .14em; } .ck-log header small { color: #8f84ad; font-size: 10.5px; }
-.ck-folders { display: flex; flex-wrap: wrap; gap: 6px; } .ck-folders button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 11px; border-radius: 11px; cursor: pointer;
-  border: 1px solid #ffffff14; background: #ffffff06; color: #d8ccf5; font: 700 11px var(--f-tech, sans-serif); letter-spacing: .04em; transition: transform .15s, background .15s; }
-.ck-folders button:hover { transform: translateY(-1px); background: #ffffff10; } .ck-folders button:active { transform: scale(.97); } .ck-folders button:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 2px; }
-.ck-folders button.is-on { background: var(--kd-acc, #b388ff); color: #0b0716; border-color: transparent; } .ck-folders i { font-style: normal; } .ck-folders b { font: 800 10px var(--f-mono); opacity: .8; }
-.ck-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; }
-.ck-rows li { --i: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: #ffffff05; border-left: 3px solid #ffffff1a;
-  animation: ckIn .25s both; animation-delay: calc(var(--i) * 25ms); }
-.ck-rows li.is-up { border-left-color: #b48cff; } .ck-rows li.is-dn { border-left-color: #ff5d7a; } .ck-rows li.is-warn { border-left-color: #f5c542; } .ck-rows li.is-acc { border-left-color: var(--kd-acc, #b388ff); }
-.ck-rows li.ck-empty { display: block; } .ck-rows i { font-style: normal; } .ck-rows span { color: #e3d9fb; font: 500 12px/1.4 var(--f-ui); overflow-wrap: anywhere; } .ck-rows small { color: #8f84ad; font: 600 9.5px var(--f-mono); }
 /* 🎨 desk skin picker */
 .ck-skin { position: relative; } .ck-skin summary { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border-radius: 11px; cursor: pointer; list-style: none;
   border: 1px solid #ffffff1a; background: #ffffff08; color: #fff; font: 800 10.5px var(--f-mono); letter-spacing: .1em; } .ck-skin summary::-webkit-details-marker { display: none; }
@@ -94,7 +85,7 @@ body.theme-day .ck-pow { background: linear-gradient(160deg, color-mix(in srgb, 
 .ckb-stick { position: sticky; top: 0; height: 100vh; height: 100dvh; contain: strict; }
 .ckb-video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ckb-scrim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, #05040a73, #05040a26 35%, #05040a59 85%); }   /* light: the clip stays HD-bright, the glass cards keep text readable */
-.kd.is-glass :is(.ck-msg, .ck-rows li, .ck-v-row) { background: #0a0716b8; }
+.kd.is-glass :is(.ck-msg, .ck-v-row) { background: #0a0716b8; }
 .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-shadow: 0 1px 2px #000c; }
 body.fx-lite .ckb-video { display: none; }
 /* 🧊 no lag behind the clip (owner 2026-10-30, measured: 41% of video frames dropped, 20 fps): what it covers rests, and a chart tick lays out its own card, not the page */
@@ -113,38 +104,57 @@ body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-sh
 .ck-fee .fch-card p { line-height: 1.5; }
 @media (max-width: 640px) { .ck-fee { padding: 8px; } .ck-fee .fch-card { padding: 12px; } }
 
-/* 🗄 the log as a FILE CABINET: drawers on the left (the open one pulls out, lit edge + handle), its files on the right */
-.ck-cabinet { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; align-items: start; }
-.ck-log .ck-folders { flex-direction: column; flex-wrap: nowrap; gap: 5px; padding: 7px; border-radius: 14px; border: 1px solid #ffffff14;
-  background: linear-gradient(180deg, #1b1430, #0d0918); box-shadow: inset 0 1px 0 #ffffff14, inset 0 -10px 20px -12px #000; }
-.ck-log .ck-folders button { position: relative; justify-content: flex-start; width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 9px; border: 1px solid #ffffff12;
-  background: linear-gradient(180deg, #2a2142, #17112a); color: #d8ccf6; box-shadow: inset 0 1px 0 #ffffff1a, 0 3px 6px -4px #000; transition: transform .18s ease-out, box-shadow .18s, border-color .18s; animation: ckIn .3s ease-out both; animation-delay: calc(var(--i) * 45ms); }
-.ck-log .ck-folders button span { flex: 1; text-align: left; font: 700 11px var(--f-tech, var(--f-ui)); letter-spacing: .06em; }
-.ck-log .ck-folders button:hover:not(:disabled) { transform: translateX(4px); border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 50%, transparent); }
-.ck-log .ck-folders button.is-on { transform: translateX(9px); background: linear-gradient(180deg, #33285a, #1d1536); color: #fff; border-color: var(--kd-acc, #b388ff); box-shadow: inset 3px 0 0 var(--kd-acc, #b388ff), 0 8px 18px -10px var(--kd-acc, #b388ff); }
-.ck-log .ck-folders button:disabled { opacity: .4; cursor: default; }
-.ck-handle { position: absolute; left: 50%; bottom: 4px; width: 26px; height: 3px; margin-left: -13px; border-radius: 3px; background: #ffffff33; box-shadow: 0 1px 0 #000; }
-.ck-log .ck-folders button.is-on .ck-handle { background: var(--kd-acc, #b388ff); }
-.ck-cabinet .ck-rows { max-height: 330px; }
-/* 🗄 a real drawer: the open one slides out of the cabinet with a shadow under its lip, then settles (ckPull) */
-.ck-cabinet .ck-pull { position: relative; transform-origin: left center; animation: ckPull .34s cubic-bezier(.2, .9, .25, 1.15) both; box-shadow: inset 0 1px 0 #ffffff14, 0 14px 26px -16px #000; border-radius: 12px; }
-@keyframes ckPull { 0% { opacity: 0; transform: translateX(-26px) scaleX(.94); } 70% { opacity: 1; transform: translateX(3px) scaleX(1.005); } 100% { transform: none; } }
+/* 🗄 THE FILE CABINET — one design wherever it shows (owner 2026-11-11: "bad x per cabinet … dont know how to stack text"; five sheets once
+   styled it at once). Wide: a sidebar of drawers, one width, one line each (icon · name · count), the open drawer's files beside it, one line
+   each. ✕ hides a drawer: it takes the count's place on hover, never the name's. Narrow (< 560px of its own width): the drawers are one strip. */
+.ck-log { container-type: inline-size; }
+.ck-cabinet { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 10px; align-items: start; }
+.ck-folders { display: flex; flex-direction: column; gap: 2px; max-height: 460px; min-width: 0; padding: 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent;
+  border-radius: 14px; border: 1px solid #ffffff14; background: linear-gradient(180deg, #1b1430, #0d0918); box-shadow: inset 0 1px 0 #ffffff14; }
+.ck-fold { position: relative; display: block; min-width: 0; }
+.ck-folders [role="tab"] { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 0 10px; border-radius: 9px;
+  border: 1px solid transparent; background: transparent; color: #d8ccf6; text-align: left; cursor: pointer; transition: background .15s, border-color .15s, color .15s; animation: ckIn .28s ease-out both; animation-delay: calc(var(--i) * 35ms); }
+.ck-folders [role="tab"] i { display: grid; place-items: center; font-style: normal; }
+.ck-folders [role="tab"] span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 11px var(--f-tech, var(--f-ui)); letter-spacing: .05em; }
+.ck-folders [role="tab"] b { min-width: 18px; text-align: right; color: #a99fc9; font: 800 10px var(--f-mono); transition: opacity .15s; }
+.ck-folders [role="tab"]:hover:not(:disabled) { background: #ffffff0d; border-color: #ffffff14; } .ck-folders [role="tab"]:active:not(:disabled) { transform: scale(.98); }
+.ck-folders [role="tab"]:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 1px; }
+.ck-folders [role="tab"].is-on { color: #fff; border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 45%, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--kd-acc, #b388ff) 28%, transparent), transparent); box-shadow: inset 3px 0 0 var(--kd-acc, #b388ff); }
+.ck-folders [role="tab"].is-on b { color: var(--kd-acc, #b388ff); } .ck-folders [role="tab"]:disabled { opacity: .4; cursor: default; }
+.ck-hide { position: absolute; top: 50%; right: 5px; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; margin-top: -11px; padding: 0; border-radius: 6px; border: 0; background: #0b0716;
+  color: #c9bce6; font-size: 10px; cursor: pointer; opacity: 0; pointer-events: none; transition: opacity .15s, color .15s; }
+.ck-fold:hover .ck-hide, .ck-fold:focus-within .ck-hide { opacity: 1; pointer-events: auto; } .ck-fold:hover [role="tab"] b, .ck-fold:focus-within [role="tab"] b { opacity: 0; }
+.ck-hide:hover { color: #ff8fa3; } .ck-hide:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); }
+.ck-empties { padding: 8px 10px 2px; color: #8f86a8; font: 700 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+.ck-unhide { min-height: 30px; margin-top: 4px; border-radius: 9px; border: 1px dashed #b388ff55; background: transparent; color: var(--kd-acc, #b388ff); font: 800 10px var(--f-mono); letter-spacing: .08em; cursor: pointer; }
+.ck-unhide:hover { background: #b388ff14; } .ck-unhide:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); }
+.ck-rows, .ck-panel { min-width: 0; max-height: 460px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent; }
+.ck-rows { display: grid; align-content: start; margin: 0; padding: 4px; list-style: none; border-radius: 12px; border: 1px solid #ffffff10; background: #ffffff04; }
+.ck-rows li { --i: 0; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-bottom: 1px solid #ffffff0b; animation: ckIn .25s both; animation-delay: calc(var(--i) * 25ms); }
+.ck-rows li:last-child { border-bottom: 0; } .ck-rows li:hover { background: #ffffff08; } .ck-rows i { font-style: normal; text-align: center; }
+.ck-rows li > span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #e3d9fb; font: 500 12px/1.4 var(--f-ui); }
+.ck-rows li small { color: #8f84ad; font: 600 9.5px var(--f-mono); white-space: nowrap; }
+.ck-rows li.is-up > i { color: #b48cff; } .ck-rows li.is-dn > i { color: #ff5d7a; } .ck-rows li.is-warn > i { color: #f5c542; }
+.ck-rows li.ck-empty { display: block; border: 0; } .ck-rows li.ck-more { display: block; padding: 6px 0 2px; border: 0; }
+.ck-more button { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 32px; padding: 0 14px; border-radius: 9px; border: 1px solid #b388ff44; background: #b388ff10;
+  color: #e6dcff; font: 700 11px var(--f-ui); white-space: nowrap; cursor: pointer; transition: background .15s, transform .12s; }
+.ck-more button:hover { background: #b388ff24; } .ck-more button:active { transform: scale(.98); } .ck-more button:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.ck-cabinet .ck-pull { transform-origin: left center; animation: ckPull .3s cubic-bezier(.2, .9, .25, 1.1) both; }
+@keyframes ckPull { from { opacity: 0; transform: translateX(-18px); } }
+@container (max-width: 560px) {
+  .ck-cabinet { grid-template-columns: minmax(0, 1fr); }
+  .ck-folders { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; }
+  .ck-folders [role="tab"] { width: auto; flex: none; } .ck-folders .ck-fold { flex: none; } .ck-hide { display: none; } .ck-fold:hover [role="tab"] b { opacity: 1; }
+  .ck-empties { align-self: center; padding: 0 6px; white-space: nowrap; } }
+body.theme-day .ck-folders { background: #f3eefc; border-color: #7c4dff1f; } body.theme-day .ck-folders [role="tab"] { color: #2a1650; } body.theme-day .ck-folders [role="tab"].is-on { background: #e7dcff; }
+body.theme-day .ck-rows { background: #fff; border-color: #7c4dff1a; } body.theme-day .ck-rows li { border-bottom-color: #7c4dff14; } body.theme-day .ck-rows li > span { color: #2a1650; }
+body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; } body.theme-day .ck-hide { background: #fff; color: #4a3a78; }
+body.fx-lite .ck-folders [role="tab"], body.fx-lite .ck-rows li, body.fx-lite .ck-cabinet .ck-pull { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ck-folders [role="tab"], .ck-rows li, .ck-cabinet .ck-pull { animation: none; } .ck-folders [role="tab"], .ck-hide, .ck-more button { transition: none; } }
+@media (hover: none) { .ck-hide { opacity: .7; pointer-events: auto; } .ck-fold [role="tab"] b { opacity: 0; } }
 body.theme-day .ck-skin summary { background: #fff; color: #2a1650; border-color: #7c4dff33; } body.theme-day .ck-skin summary:hover { background: #f3eefc; }
-body.theme-day .ck-log .ck-folders { background: #f3eefc; } body.theme-day .ck-log .ck-folders button { background: #fff; color: #2a1650; }
-body.theme-day .ck-log .ck-folders button.is-on { background: #efe6ff; color: #2a1650; }
-body.fx-lite .ck-log .ck-folders button, body.fx-lite .ck-cabinet .ck-pull { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ck-cabinet .ck-pull { animation: none; } .ck-log .ck-folders button { animation: none !important; transition: none !important; } }
-@media (max-width: 640px) { .ck-cabinet { grid-template-columns: 1fr; } .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } .ck-log .ck-folders button { width: auto; flex: none; }
-  .ck-log .ck-folders button.is-on { transform: translateY(-3px); } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-2px); } }
-/* 🙈 hide a log drawer (✕ on hover / focus) · the unhide pill shows while any is hidden · ×N on a folded repeat */
-.ck-fold { position: relative; display: block; } .ck-log .ck-folders .ck-hide, .ck-folders .ck-hide { position: absolute; top: 50%; right: 6px; z-index: 2; width: 24px; min-height: 24px; height: 24px; padding: 0; margin-top: -12px;
-  display: grid; place-items: center; border-radius: 7px; border: 1px solid #ffffff1a; background: #0b0716; color: #c9bce6; font-size: 11px; opacity: 0; animation: none; transform: none; transition: opacity .15s, color .15s; }
-.ck-fold:hover .ck-hide, .ck-fold:focus-within .ck-hide { opacity: 1; } .ck-log .ck-folders .ck-hide:hover { color: #ff8fa3; transform: none; } .ck-log .ck-folders .ck-hide:focus-visible { opacity: 1; outline: 2px solid var(--kd-acc, #b388ff); }
-.ck-log .ck-folders .ck-unhide, .ck-folders .ck-unhide { justify-content: center; min-height: 32px; border-style: dashed; background: transparent; color: var(--kd-acc, #b388ff); font: 800 10px var(--f-mono); letter-spacing: .08em; animation: none; }
 .ck-x, .cwb-x { font-style: normal; font: 800 10px var(--f-mono); color: var(--kd-acc, #b388ff); opacity: .85; }
 .cwb-topup { margin: 0; } .cwb-topup .m-btn { justify-self: start; min-height: 32px; }
-@media (hover: none) { .ck-folders .ck-hide { opacity: .7; } }
-@media (prefers-reduced-motion: reduce) { .ck-folders .ck-hide { transition: none; } }
 /* 🛡 safe-place check before a sealed drawer opens */
 .ck-safe { position: fixed; inset: 0; z-index: 2700; display: grid; place-items: center; padding: 16px; background: #05030bd9; }
 .ck-safe-box { display: grid; gap: 10px; justify-items: center; width: min(460px, 100%); padding: 20px 18px; border-radius: 18px; text-align: center;
@@ -158,23 +168,7 @@ body.fx-lite .ck-safe-ic { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ck-safe-ic { animation: none; } }
 body.theme-day .ck-safe-box { background: #fff5f7; } body.theme-day .ck-safe-box b { color: #8a1c33; } body.theme-day .ck-safe-box p { color: #5a2a36; }
 @media (max-width: 640px) { .ck-safe-box { padding: 16px 12px; } }
-/* 🗄 the cabinet scrolls inside itself: its drawers and its list each stop at a height; 12 at a time to 40, the rest on its Desktop */
-.cwb-back .ck-log .ck-folders, .cwb-tools-rail .ck-log .ck-folders { max-height: 460px; overflow-y: auto; scrollbar-width: thin; }
-.ck-more { display: grid; justify-items: center; padding: 6px 0 2px; list-style: none; }
-.ck-more button { min-height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid #b388ff55; background: #b388ff14; color: #e6dcff; font: 700 11px var(--f-ui, sans-serif); cursor: pointer; transition: background .15s, transform .12s; }
-.ck-more button:hover { background: #b388ff26; } .ck-more button:active { transform: scale(.97); } .ck-more button:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
-body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; }
-@media (prefers-reduced-motion: reduce) { .ck-more button { transition: none; } }
-/* the cabinet's drawers sit in one row over the open drawer, never a tall empty column (owner 2026-11-04: "long wide stuff") */
-.ck-cabinet { grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.ck-log .ck-folders { flex-direction: row; flex-wrap: wrap; } .ck-log .ck-folders button { width: auto; flex: 0 1 auto; min-height: 36px; } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-1px); } .ck-log .ck-folders button.is-on { transform: none; }
 .kd .cwb-hbtn { width: fit-content; justify-self: end; margin-inline-start: auto; min-height: 34px; }
-
-/* 🗄 A short cabinet: drawers in one strip, each row one line, which mind and what it did */
-.ck-log .ck-cabinet { grid-template-columns: minmax(0, 1fr); } .ck-log .ck-folders { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 5px; padding: 6px; max-height: none; overflow: visible; }
-.ck-log .ck-folders .ck-fold { width: auto; } .ck-log .ck-folders button { width: auto; min-height: 32px; padding: 4px 10px; } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-1px); } .ck-log .ck-folders button.is-on { transform: none; } .ck-log .ck-folders .ck-handle { display: none; }
-.ck-empties { color: #8f86a8; font: 600 10.5px var(--f-ui); padding-inline: 4px; }
-.ck-log .ck-rows { max-height: 340px; overflow-y: auto; scrollbar-width: thin; } .ck-log .ck-rows li { align-items: center; padding-block: 5px; }
 .ck-line { display: flex; align-items: center; gap: 7px; min-width: 0; } .ck-line > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ck-who { flex: none; padding: 1px 6px; border-radius: 6px; background: #b388ff26; color: #e6dcff; font: 700 10px var(--f-mono); text-transform: uppercase; } .ck-act { flex: none; padding: 1px 6px; border-radius: 6px; background: #ffffff10; color: #cfe6da; font: 700 10px var(--f-mono); font-style: normal; } .ck-act.is-refused { background: #ff8fa326; color: #ffc2cd; } .ck-act.is-site_search, .ck-act.is-search { background: #b48cff26; color: #b9f5d1; } .ck-act.is-open, .ck-act.is-click { background: #5ec8ff22; color: #c5ecff; }
 body.theme-day .ck-who { background: #7143d01f; color: #3a2470; } body.theme-day .ck-act { background: #0000000d; color: #22392d; }

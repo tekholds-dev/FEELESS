@@ -11,7 +11,7 @@
 .hqs-nav { overflow-y: auto; overscroll-behavior: contain; display: grid; align-content: start; gap: 12px; padding: 2px 2px 8px 0; scrollbar-width: thin; scrollbar-color: #9b6bff transparent; }
 .hqs-nav::-webkit-scrollbar { width: 6px; } .hqs-nav::-webkit-scrollbar-thumb { background: #9b6bff; border-radius: 6px; }
 .hqs-nav section { display: grid; gap: 1px; }
-.hqs-nav h6 { margin: 0 0 3px; padding: 0 8px; font: 700 9.5px var(--f-mono, 'JetBrains Mono', monospace); letter-spacing: .16em; text-transform: uppercase; color: #7fdcaa; opacity: .85; cursor: default; }
+.hqs-nav h6 { margin: 0 0 3px; padding: 0 8px; font: 700 9.5px var(--f-mono, 'JetBrains Mono', monospace); letter-spacing: .16em; text-transform: uppercase; color: #c9a8ff; opacity: .85; cursor: default; }
 .hqs-nav button { position: relative; display: flex; align-items: center; gap: 9px; width: 100%; min-height: 32px; padding: 6px 10px; border: 1px solid transparent; border-radius: 9px; background: none;
   color: #b9cdc1; font: 500 12.5px var(--f-ui, 'Sora', sans-serif); text-align: left; cursor: pointer; transition: background .14s ease, color .14s ease, transform .1s ease; }
 .hqs-nav button > i { width: 16px; text-align: center; font-style: normal; font-size: 13px; line-height: 1; }
@@ -95,5 +95,15 @@ body.theme-day .hq-busy > span { background: #fff; color: #8a5a00; border-color:
 body.fx-lite .cc-tabguard { animation: none; } @media (prefers-reduced-motion: reduce) { .cc-tabguard { animation: none; } }
 body.theme-day .cc-tabguard { background: #fff8e6; } body.theme-day .cc-tabguard code { background: #fff; color: #7a4f00; }
 /* ⓘ Money › How the money flows: one closed disclosure, sub-heads inside */
-.money-flows h4 { margin: 10px 16px 4px; font: 700 10px var(--f-mono, 'JetBrains Mono', monospace); letter-spacing: .14em; text-transform: uppercase; color: #7fdcaa; }
+.money-flows h4 { margin: 10px 16px 4px; font: 700 10px var(--f-mono, 'JetBrains Mono', monospace); letter-spacing: .14em; text-transform: uppercase; color: #c9a8ff; }
 body.theme-day .money-flows h4 { color: #0b6b3f; }
+/* 🫙 HqEmpty: an empty HQ list is a lit, centred card with what fills it, never blank space */
+.cc-emptycard { display: grid; justify-items: center; gap: 6px; padding: 28px 18px; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--m-accent, #9b6bff) 40%, transparent); text-align: center;
+  background: radial-gradient(60% 90% at 50% 0%, color-mix(in srgb, var(--m-accent, #9b6bff) 14%, transparent), transparent 70%), #ffffff04; animation: ccEmptyIn .3s ease-out both; }
+.cc-emptycard > i { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 24px; font-style: normal; border: 1px solid color-mix(in srgb, var(--m-accent, #9b6bff) 45%, transparent);
+  background: color-mix(in srgb, var(--m-accent, #9b6bff) 12%, transparent); box-shadow: 0 0 24px -6px var(--m-accent, #9b6bff); animation: ccEmptyFloat 4s ease-in-out infinite; }
+.cc-emptycard > b { color: var(--m-text, #f2eeff); font: 700 14px var(--f-display, var(--f-ui)); } .cc-emptycard > small { max-width: 440px; color: var(--m-dim, #aaa1c9); font: 500 12px/1.5 var(--f-ui); }
+@keyframes ccEmptyIn { from { opacity: 0; transform: translateY(6px); } } @keyframes ccEmptyFloat { 50% { transform: translateY(-4px); } }
+body.fx-lite .cc-emptycard, body.fx-lite .cc-emptycard > i { animation: none; } @media (prefers-reduced-motion: reduce) { .cc-emptycard, .cc-emptycard > i { animation: none; } }
+body.theme-day .cc-emptycard { background: #faf7ff; } body.theme-day .cc-emptycard > b { color: #2a1650; } body.theme-day .cc-emptycard > small { color: #4a3a78; }
+@media (max-width: 640px) { .cc-emptycard { padding: 20px 12px; } }

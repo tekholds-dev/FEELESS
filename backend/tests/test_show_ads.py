@@ -58,7 +58,7 @@ def test_a_build_a_restart_killed_still_counts_toward_the_cap():
 
 def test_hidden_means_hidden_in_a_recorded_ad():
     p = sa.playable('<!doctype html><html><head><title>x</title></head><body><div class="nojs" hidden>Animation unavailable</div></body></html>')
-    assert p.startswith('<!doctype html><html><head><style>[hidden]{display:none!important}</style>')   # inside head: the doctype stays first (no quirks mode)
+    assert p.startswith('<!doctype html><html><head>' + sa.HIDDEN_FIX) and '[hidden]{display:none!important}' in sa.HIDDEN_FIX   # inside head: the doctype stays first (no quirks mode)
     assert sa.playable('<b>bare</b>').startswith(sa.HIDDEN_FIX)
 
 
@@ -78,7 +78,29 @@ def test_the_recorder_hears_a_page_crash(tmp_path):
     assert errs and 'null' in errs[0]
 
 
+def test_the_recorder_sees_a_broken_frame(tmp_path):
+    import free_browser as fb
+    if not fb.chromium_path():
+        return
+    page = ('<body style="margin:0;background:#000;color:#fff;font:40px sans-serif">'
+            '<h1 style="position:absolute;left:1150px;top:10px;margin:0">CUT OFF HEADLINE</h1>'
+            '<p style="position:absolute;left:20px;top:300px;margin:0">ONE LINE</p><p style="position:absolute;left:24px;top:304px;margin:0">TWO LINE</p>'
+            '<div style="position:absolute;left:300px;top:640px;width:400px;height:200px;background:#333">a card</div>'
+            '<i style="position:absolute;left:20px;top:20px">STATE play</i></body>')
+    lay = []
+    asyncio.run(sa.record(page, Path(tmp_path) / 'x.webm', fb.chromium_path(), seconds=2, lay=lay))
+    said = ' | '.join(lay)
+    assert 'cut by the frame: "CUT OFF HEADLINE"' in said and 'text on text: "ONE LINE" over "TWO LINE"' in said
+    assert 'a panel cut by the frame' in said and 'a debug readout: "STATE play"' in said
+    fine = []
+    asyncio.run(sa.record('<body style="margin:0;background:#000;color:#fff"><h1 style="margin:200px 100px">FITS</h1></body>', Path(tmp_path) / 'y.webm', fb.chromium_path(), seconds=2, lay=fine))
+    assert fine == []
+    ask = sa.fix_ask([], lay)
+    assert 'breaks the 1280 × 720 frame' in ask and 'CUT OFF HEADLINE' in ask and 'from scratch' in ask and 'no game library' in ask   # a layout fix rebuilds whole (patches never landed)
+    assert 'change nothing else' in sa.fix_ask(['boom'])
+
+
 def test_every_ad_has_its_own_light_and_no_libraries():
     looks = {k: sa.ask_for(k) for k in sa.KINDS}
     assert all(sa.LOOK[k].split(' ')[0] in looks[k] for k in sa.KINDS) and len({sa.LOOK[k] for k in sa.KINDS}) == 6
-    assert all('no libraries' in a and 'Not the same green' in a and '{look}' not in a for a in looks.values())
+    assert all('no libraries' in a and 'Not the same green' in a and '{look}' not in a and 'nothing past the edges' in a for a in looks.values())

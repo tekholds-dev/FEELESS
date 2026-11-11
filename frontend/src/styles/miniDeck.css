@@ -23,8 +23,8 @@
 @keyframes mdIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .md-list li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .md-list li { animation: none; } .md-list button, .md-fuse, .mini-bar button { transition: none; } }
-body.theme-day .md-list button:hover { background: #eaf7f0; border-color: #9fd3b6; } body.theme-day .md-fuse { background: #f1faf5; border-color: #9fd3b6; }
-body.theme-day .mini-bar { border-top-color: #cfe6da; } body.theme-day .mini-bar button { border-color: #9fd3b6; } body.theme-day .mini-bar .is-play { background: #5a33bd; color: #fff; border-color: #5a33bd; }
+body.theme-day .md-list button:hover { background: #eaf7f0; border-color: #c9a8ff; } body.theme-day .md-fuse { background: #f1faf5; border-color: #c9a8ff; }
+body.theme-day .mini-bar { border-top-color: #cfe6da; } body.theme-day .mini-bar button { border-color: #c9a8ff; } body.theme-day .mini-bar .is-play { background: #5a33bd; color: #fff; border-color: #5a33bd; }
 @media (max-width: 640px) { .md { padding: 10px; } .md-list button { grid-template-columns: 14px auto minmax(0, 1fr) auto 50px; gap: 6px; } }
 
 /* 🧠 the creator's Brain tab: a wider panel + a tab row that scrolls instead of squeezing (five tabs) */

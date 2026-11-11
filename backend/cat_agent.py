@@ -17,7 +17,7 @@ import re
 import time
 from urllib.parse import quote_plus
 from agent_mail import SOURCES
-from cat_policy import RESEARCH_ACTIONS, RULES, check_url, refusal, research_ok
+from cat_policy import RESEARCH_ACTIONS, RULES, check_url, refusal, research_ok, thinking_leak
 from cat_policy import is_post as _is_post
 import pow as _pow
 
@@ -404,7 +404,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = '(NOT YET — a PoW answers only after it has pulled vitals: use action "pull" with label + value from THIS page.)\n' + str(w.get('_page') or seen)[:READ_MAX]
             continue
         if act == 'answer' or not act:
-            w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:600]   # short, always (owner: least usage)   # a model that just answers in plain words still answers
+            w['answer'] = next((x for x in (a.get('say'), thought, str(raw or '').strip()) if x and not thinking_leak(x)), 'no readable answer')[:600]   # 🧠 never its private thinking   # short, always (owner: least usage)   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
             break
         need = {'open': 'browse', 'search': 'browse', 'site_search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
@@ -711,7 +711,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
                 raise next(g for g in got if isinstance(g, Stopped))
             task['answer'] = '\n\n'.join(f"{names[w['i']]} · {job_label(w['goal'])}\n{w['answer'] or '(nothing)'}" for w in on)[:8000]
-            task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in on if w.get('answer')][:KEEP_MAX]
+            task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in on if w.get('answer') and not thinking_leak(w['answer'])][:KEEP_MAX]
             task['status'] = 'done'
             return _clean(task)
         p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
@@ -734,7 +734,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             raw = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()
             m = parse_json(raw)
             task['answer'] = str(m.get('answer') or raw).strip()[:6000]
-            task['keep'] = [str(x)[:240] for x in (m.get('keep') or []) if str(x).strip()][:KEEP_MAX]
+            task['keep'] = [str(x)[:240] for x in (m.get('keep') or []) if str(x).strip() and not thinking_leak(x)][:KEEP_MAX]
         else:
             task['answer'] = ws[0]['answer']
         task['status'] = 'done'

@@ -297,6 +297,18 @@ function useHereWhileWaiting(on, catId, i) {
     return () => { clearInterval(t); document.removeEventListener('pointermove', mark); document.removeEventListener('keydown', mark); };
   }, [on, catId, i]);
 }
+// 💤 An idle mind is one short card, not a 400px monitor of a blank page (owner 2026-11-11: "desk first look … cant see shit, gotta scroll").
+// Its model, its state and what it last said; the big live browser comes back the moment it works a proof or needs you.
+function IdleMind({ w }) {
+  const sl = w?.slot ?? w?.i ?? 0; const last = (w?.steps || []).at(-1);
+  const said = w?.answer || last?.thought || last?.why || '';
+  return <article className={`cwb-idle w${sl % 2}`} style={{ '--i': sl }} data-testid={`cwb-win-${w?.i ?? sl}`}>
+    <span className="cwb-idle-h"><i className="cwb-idle-dot" aria-hidden="true" /><b>MIND {'AB'[sl] || sl + 1}</b><small>{w?.model ? String(w.model).split('/').pop() : 'model'}</small>
+      <em data-tip="It wakes when you ask, when Let it go is on, or when a proof starts">{String(w?.status === 'done' ? 'done' : 'idle').toUpperCase()}</em></span>
+    <p data-tip={said || undefined}>{said ? <><em>LAST</em>{String(said).slice(0, 200)}</> : <span className="cwb-idle-none">Waiting for your ask. Its live browser opens here when it works.</span>}</p>
+  </article>;
+}
+
 export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null }) {
   const { drop, tray } = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
@@ -553,8 +565,13 @@ function LastMoney({ m }) {
     <b className="m-num">{m.usd == null ? '…' : `${up ? '+' : '−'}$${Math.abs(Number(m.usd)).toFixed(2)}`}</b><small>{m.sol != null ? `${up ? '+' : ''}${Number(m.sol).toFixed(4)} SOL · ` : ''}{m.what || 'trade'}</small></div>;
 }
 // pure: the same line again and again (a retry, a cap stop) folds into one row with ×N — newest time kept (owner 2026-10-30: "collapse the repeated")
-export const squash = (out, x) => { const last = out[out.length - 1]; const key = r => `${r.f || r.by}|${String(r.text).replace(/\$[\d.]+/g, '$')}`;
-  if (last && key(last) === key(x)) { last.n = (last.n || 1) + 1; return out; } out.push({ ...x }); return out; };
+// 🗂 a run of the same line folds into one row ×N, showing the NEWEST (owner 2026-11-11: eight "Dallas Cowboys: 20 - 23 · 1:15 …" rows): its numbers
+// may differ (a live score, a price), your own words never fold
+const foldKey = r => `${r.f || r.by}|${r.by === 'you' || /^You: /.test(r.text) ? r.text : String(r.text).replace(/\$?[\d.:]+/g, '#')}`;
+export const squash = (out, x) => { const last = out[out.length - 1];
+  if (last && foldKey(last) === foldKey(x)) { last.n = (last.n || 1) + 1; if ((x.at || 0) > (last.at || 0)) Object.assign(last, { text: x.text, at: x.at }); return out; } out.push({ ...x }); return out; };
+// the cabinet folds the same line wherever it repeats (two games' scores interleave), newest first. Pure
+const foldAll = rows => { const seen = new Map(); return rows.reduce((out, x) => { const k = foldKey(x); const hit = seen.get(k); if (hit) { hit.n = (hit.n || 1) + 1; return out; } const y = { ...x }; seen.set(k, y); out.push(y); return out; }, []); };
 const BUDGET_STOP = /budget reached/i;
 const SUGGEST = ["Find today's top coin on pump.fun and tell me why", 'Read X for $SOL news in the last hour', 'Check a coin on RugCheck + Solscan and report'];
 // 💬 one chat message, the way a work chat shows it (owner 2026-10-31: "not corporate looking"): avatar · who · tags · time · cost, then the text.
@@ -598,12 +615,12 @@ const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the si
 // pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
 export function genLog(d) {
   const now = Date.now() / 1000;
-  return [...(d?.chat || []).map(m => ({ f: 'tasks', at: m.at, text: `${m.by === 'you' ? 'You' : '🧠🧠'}: ${m.text}`, tone: m.by === 'you' ? 'acc' : 'up' })),
+  return foldAll([...(d?.chat || []).map(m => ({ f: 'tasks', at: m.at, text: m.by === 'you' ? `You: ${m.text}` : String(m.text), tone: m.by === 'you' ? 'acc' : 'up' })),
     ...(d?.windows || []).flatMap(w => (w.steps || []).map((s, k) => ({ f: 'thoughts', at: now - ((w.steps.length - k) * 5), text: `${String(w.model || '').split('/').pop()} · ${s.action}: ${s.thought}${s.detail ? ` (${s.detail})` : ''}`, tone: s.action === 'refused' ? 'warn' : s.action === 'handoff' ? 'up' : 'mute' }))),
     ...Object.entries(d?.minds || {}).flatMap(([m, xs]) => xs.map(c => ({ f: 'cloud', at: c.at, text: `☁ ${m.split('/').pop()} · ${c.text}`, tone: 'mute' }))),
     ...(d?.artifacts || []).map(a => ({ f: 'files', at: now, text: `${a.kind}: ${a.title}`, tone: 'acc' })),
     ...(d?.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `${c.word} $${c.sym}`, tone: 'acc' })),
-    ...(d?.refusals || []).map(r => ({ f: 'guards', at: r.at || now, text: r.why, tone: 'warn' }))].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0)).reduce(squash, []);
+    ...(d?.refusals || []).map(r => ({ f: 'guards', at: r.at || now, text: r.why, tone: 'warn' }))].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0)));
 }
 
 // 👀 a visitor (from the leaderboard) sees its minds + what both agreed on — its live windows and chat stay private to its owner
@@ -1561,7 +1578,8 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
-    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    {live || wins.some(w => w.hand || w.status === 'human') ? <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+      : <div className="cwb-stage agd-wins is-idle">{wins.map(w => <IdleMind key={`${w.i}-${w.slot ?? w.i}`} w={w} />)}</div>}
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}

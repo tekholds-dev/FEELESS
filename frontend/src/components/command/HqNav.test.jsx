@@ -18,7 +18,7 @@ test('🧭 HQ sidebar: every tool once under its group, one click switches the p
   const tools = [...document.querySelectorAll('.hqs-nav button')].map(b => b.dataset.testid);
   expect(tools.length).toBe(new Set(tools).size);                         // no tool twice (the old pinned row repeated five)
   expect(tools).toEqual(expect.arrayContaining(['cc-tab-agents', 'cc-tab-money', 'cc-tab-fuse', 'cc-tab-bugs']));
-  expect(q('cc-group-core').textContent).toContain('Fuse');
+  expect(q('cc-group-money').textContent).toContain('Fuse'); expect(q('cc-group-system').textContent).toContain('Looks');   // grouped by the job (owner 2026-11-11)
   await act(async () => { q('hq-menu').click(); });
   expect(q('hq-shell').className).toContain('is-nav');
   await act(async () => { q('cc-tab-money').click(); });

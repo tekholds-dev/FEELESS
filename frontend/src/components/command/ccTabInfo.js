@@ -1,3 +1,10 @@
+import { Ic3 } from '../../lib/icon3d';
+
+// 🫙 one empty state for every HQ list (owner 2026-11-11: pages were a form row over blank space): what goes here and how it fills
+export function HqEmpty({ ic, title, line }) {
+  return <div className="cc-emptycard" role="status"><i aria-hidden="true"><Ic3 e={ic} /></i><b>{title}</b><small>{line}</small></div>;
+}
+
 // One clear line per HQ tab: what it is, what you do there. Rendered as the tab's header.
 export const TAB_INFO = {
   launch: ['Launch & setup', 'Hook up keys, then sign the one-time launch config. Everything launchable is mapped here.', ['Launch map', 'Presets', 'Readiness check']],

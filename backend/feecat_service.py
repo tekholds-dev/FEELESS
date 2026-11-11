@@ -5846,11 +5846,11 @@ def _work_settle(store):
             for w_ in t.get('windows') or []:   # ☁ each mind's best notes → its OWN cloud
                 if w_.get('best'):
                     mc_ = cat['brainsCfg'].setdefault('minds', {})
-                    mc_[w_['model']] = ((mc_.get(w_['model']) or []) + [{'at': time.time(), 'text': str(x)[:240]} for x in w_['best']])[-_ca.MIND_CLOUD_MAX:]
+                    mc_[w_['model']] = ((mc_.get(w_['model']) or []) + [{'at': time.time(), 'text': str(x)[:240]} for x in w_['best'] if not _cp.thinking_leak(x)])[-_ca.MIND_CLOUD_MAX:]
                     w_['best'] = []
             for x_ in (t.get('filed') or [])[-12:]:   # 📥 what its windows read + noted while browsing → the cabinet, with where it came from
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'FILED', 'sym': '', 'text': f"📥 {x_.get('site')}: {x_.get('text')}"[:240], 'by': ['browser']}])[-_lc.CLOUD_MAX:]
-            for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
+            for k_ in [k_ for k_ in t.get('keep') or [] if not _cp.thinking_leak(k_)]:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away; never a mind's private thinking)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             if t.get('siteTrade'):
                 _site_trade_filed(cat, t)
@@ -6198,13 +6198,29 @@ async def _start_hive():
         asyncio.create_task(_hive_loop())
 
 
+def heal_thinking(cat):
+    """🧠 Notes filed before the thinking filter: any cloud or mind note that is a model's private thinking comes off. → True if any did."""
+    b_ = cat.get('brainsCfg') or {}; hit_ = False
+    if b_.get('cloud') and len(_cp.no_thinking(b_['cloud'])) != len(b_['cloud']):
+        b_['cloud'] = _cp.no_thinking(b_['cloud']); hit_ = True
+    for m_, v_ in list((b_.get('minds') or {}).items()):
+        if len(_cp.no_thinking(v_)) != len(v_ or []):
+            b_['minds'][m_] = _cp.no_thinking(v_); hit_ = True
+    for f_ in cat.get('pobFolders') or []:   # a PoB's browse note was the same leak
+        for v_ in (f_.get('browsed') or {}).values():
+            if isinstance(v_, dict) and _cp.thinking_leak(v_.get('note')):
+                v_['note'] = 'Its window gave no readable note.'; hit_ = True
+    return hit_
+
+
 @app.on_event('startup')
 async def _start_engine():
     try:
         store_ = _load()
         healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
         healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if _ck.reseal_cat(c_, data_dir=DATA_DIR) or c_.pop('cloud', None)]
-        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if heal_site_sessions(c_)]   # 🧼 stored sign-ins re-cut at every start
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if heal_site_sessions(c_)]
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if heal_thinking(c_)]   # 🧠 leaked private thinking comes off its cloud, minds and card   # 🧼 stored sign-ins re-cut at every start
         healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if file_interrupted(c_)]   # 🛟 a task a restart cut off → filed to resume   # (+ the FEELESS-funded cloud is gone: owner 2026-10-30)   # 🔐 every older seal → its agent's own key
         try:
             healed_ += ['fee wallet'] if await _heal_fee_wallet(store_) else []
@@ -6923,21 +6939,22 @@ def _ads_set(cat_id, k, **row):
 
 
 async def _ads_film(cat_id, k, ws):
-    """🎬 Records one ad. A page that crashes while it plays gets ONE fix pass in its own folder with its exact errors (counted toward the cap,
+    """🎬 Records one ad. A page that crashes while it plays, or breaks its own frame (text past the edges or on top of text), gets ONE fix pass in its own folder with its exact errors (counted toward the cap,
     only while the cap allows another build), then is recorded again; still crashing → 'page error' with the error, never a blank video called done."""
     for attempt_ in (0, 1):
         html_ = ((_ws_load(cat_id, ws) or {}).get('versions') or [{}])[-1].get('html') or ''
         if not html_:
             _ads_set(cat_id, k, state='no page'); return
-        _ads_set(cat_id, k, state='recording'); errs_ = []
-        got_ = await _ads.record(_kits.open_for_kits(_ws_placed(cat_id, html_)), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path(), errs=errs_)
-        if not errs_:
-            _ads_set(cat_id, k, state='done' if got_ else 'no video', err=None); return
+        _ads_set(cat_id, k, state='recording'); errs_ = []; lay_ = []
+        got_ = await _ads.record(_kits.open_for_kits(_ws_placed(cat_id, html_)), SHOW_ADS_DIR / cat_id / f'{k}.webm', _fb.chromium_path(), errs=errs_, lay=lay_)
+        if not errs_ and not lay_:
+            _ads_set(cat_id, k, state='done' if got_ else 'no video', err=None, fit=1); return
+        why_ = (errs_ or lay_)[0][:200]
         if attempt_ or not _ads.may_start(((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}, _ads_cost(cat_id))[0]:
-            _ads_set(cat_id, k, state='page error', err=errs_[0][:200]); return
-        fix_ = _ads.fix_ask(errs_); doc_ = _ws_load(cat_id, ws) or {}; now_ = time.time()
+            _ads_set(cat_id, k, state='page error', err=why_, fit=1); return
+        fix_ = _ads.fix_ask(errs_, lay_); doc_ = _ws_load(cat_id, ws) or {}; now_ = time.time()
         _feat.add_msg(doc_, 'you', fix_, now_); doc_['pending'] = True; doc_['busy'] = {'at': round(now_), 'to': 'a', 'stage': 'build'}; _ws_save(cat_id, doc_)
-        _ads_set(cat_id, k, state='fixing', err=errs_[0][:200])
+        _ads_set(cat_id, k, state='fixing', err=why_)
         try:
             await _ws_start(cat_id, ws, 'a', fix_, None)
         except Exception:   # noqa: BLE001
@@ -6950,7 +6967,7 @@ async def _ads_run(cat_id):
     # a build or recording a restart killed (2026-11-11) is recorded if its page exists, else built again, its spend kept in lostWs for the cap.
     for k_, j_ in list((((_load()['cats'].get(cat_id) or {}).get('showAds')) or {}).items()):
         st_ = j_.get('state'); cut_ = st_ in ('building', 'recording', 'fixing')
-        if not j_.get('ws') or not (cut_ or st_ == 'no video' or (st_ == 'done' and not (SHOW_ADS_DIR / cat_id / f'{k_}.webm').exists())):
+        if not j_.get('ws') or not (cut_ or st_ == 'no video' or (st_ == 'done' and not (j_.get('fit') and (SHOW_ADS_DIR / cat_id / f'{k_}.webm').exists()))):   # a done ad filmed before the frame check is checked once
             continue
         html_ = ((_ws_load(cat_id, j_['ws']) or {}).get('versions') or [{}])[-1].get('html') or ''
         if html_:
@@ -7605,10 +7622,10 @@ async def _ws_run(cat_id, ws_id, to, text, region):
     _OR_PLUGINS.set(tuple(_feat.or_plugins(_feat.build_cfg(doc))))
     stop_why = ''
     try:
-        if kind == 'build' and _play.wants_game(text) and not doc.get('scene3d'):   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template
+        if kind == 'build' and _play.wants_game(text) and not doc.get('scene3d') and not doc.get('ad'):   # 🎮 AGT-35: a game is designed, engine-built and playtested, never a template (an ad's brief reads like a game: 'plays by itself in a loop'; it is a page)
             usd_, stop_why, paid_own = await _build_game(cat, doc, text, brains, order, name, to)
             cost += usd_
-        elif kind == 'build' and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
+        elif kind == 'build' and not doc.get('ad') and (_assets.wants_3d(text) or _play.wants_code(text) or doc.get('scene3d')):   # 🧊 owner 2026-11-06: a 3D prompt is built in the 3D studio with real assets and checked against the prompt, never hand written. A plain game is written by the minds (owner 2026-11-07: the runner template came back for every arcade ask); a 3D game still goes to the studio
             lead_ = len(doc.get('versions') or []) % len(order) if to == 'both' and len(order) > 1 else 0   # 🧠🧠 owner 2026-11-07 "only ONE mind seems to work": with both picked, the minds take turns leading a 3D round and the other checks it
             usd_, stop_why, paid_own = await _build_3d(cat, doc, text, brains, order[lead_:] + order[:lead_], name, to)
             cost += usd_
@@ -7652,7 +7669,8 @@ async def _ws_run(cat_id, ws_id, to, text, region):
             if _feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
                 user += _feat.live_line(await _live_feed(cat), page=True)
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
-            stash_, doc['kitsStash'] = _kits.stash_line(KITS_DIR, 'pos', text, picks_)
+            picks_ = [] if doc.get('ad') else picks_   # 🎬 an ad is HTML, CSS and SVG only: a game kit (Phaser) dragged in the game playtest and its STATE / SCORE counter (2026-11-11)
+            stash_, doc['kitsStash'] = ('', None) if doc.get('ad') else _kits.stash_line(KITS_DIR, 'pos', text, picks_)
             kits_ = _kits.use_line(picks_) + stash_ + _parts.offer_line(_parts.offer(_parts_path(), text)) + _mark_lessons() + _kits.skills_line(cat.get('brainsCfg')) + _foot.note('pos', cat.get('psFolders')) + _recall(cat, 'Code', text)   # 🧰 the kits it was told to use reach the build itself, not only the plan
             for k, i in enumerate(order):
                 doc['stage'] = 'review' if k else 'build'; _ws_save(cat_id, {**doc, 'busy': {'at': round(time.time()), 'to': to, 'stage': doc['stage'], 'spent': round(cost, 6)}})

@@ -83,7 +83,7 @@ function RecordBar({ row }) {
     <small>{r.parts.length ? r.parts.map(p => `${p.v} ${p.k}`).join(' · ') : `${r.n} launch${r.n === 1 ? '' : 'es'} · judging`}</small></span>;
 }
 function ScoreRing({ score, badge }) {
-  const v = Math.max(0, Math.min(100, Number(score) || 0)); const c = { trusted: '#b48cff', veteran: '#7ff0cf', building: '#6fd3ff', risky: '#ffb347', flagged: '#ff4d6d' }[badge] || '#b9c4bf';
+  const v = Math.max(0, Math.min(100, Number(score) || 0)); const c = { trusted: '#b48cff', veteran: '#3ee7ff', building: '#6fd3ff', risky: '#ffb347', flagged: '#ff4d6d' }[badge] || '#b9c4bf';
   return <svg className="rep-ring" viewBox="0 0 44 44" role="img" aria-label={`score ${v}`} data-tip={`Score ${v} / 100`}><circle cx="22" cy="22" r="18" className="bg" />
     <circle cx="22" cy="22" r="18" className="fg" style={{ stroke: c, strokeDasharray: `${(v / 100) * 113.1} 113.1` }} transform="rotate(-90 22 22)" /><text x="22" y="26">{v}</text></svg>;
 }

@@ -3,7 +3,7 @@
   padding: 18px; margin: 0 0 14px; overflow: hidden; isolation: isolate; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c1) 35%, transparent);
   background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--c1) 16%, transparent), transparent 60%), linear-gradient(160deg, #07060c, #050606 70%); }
 .frg.is-plasma { --c1: #9e7bff; --c2: #5ec8ff; --c3: #e4d4ff; } .frg.is-gold { --c1: #f5c95b; --c2: #ff9a3c; --c3: #fff1c2; }
-.frg.is-prism { --c1: #7df9d0; --c2: #9fe3ff; --c3: #ffffff; } .frg.is-nebula { --c1: #b388ff; --c2: #ff7ad9; --c3: #d6c8ff; }
+.frg.is-prism { --c1: #3ee7ff; --c2: #9fe3ff; --c3: #ffffff; } .frg.is-nebula { --c1: #b388ff; --c2: #ff7ad9; --c3: #d6c8ff; }
 /* the forge stage */
 .frg-stage { position: relative; height: 330px; display: grid; place-items: center; perspective: 900px; }
 .frg-floor { position: absolute; left: 6%; right: 6%; bottom: 8%; height: 34%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c1) 30%, transparent), transparent);

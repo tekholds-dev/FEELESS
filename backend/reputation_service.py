@@ -6880,8 +6880,7 @@ async def _sf_read(src):
             return _sfeed.from_pump((b_.get('latest') or [])[:40] + (b_.get('top') or [])[:20])
         if src == 'feeless':
             d_ = _chat_load()
-            ops_ = _re.compile(r'(recovered \(\d+ ms\)|degraded for 5\+ min|Fallbacks are serving)')   # old health pings stay out of the social feed
-            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless([m_ for m_ in (d_['rooms'].get(r_) or [])[-60:] if not ops_.search(str(m_.get('text') or ''))][-40:], r_)]
+            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless([m_ for m_ in (d_['rooms'].get(r_) or [])[-60:] if not _OPS_PING.search(str(m_.get('text') or ''))][-40:], r_)]
         if src == 'x':
             return list((_json_load(FEED_X_PATH, {}) or {}).get('posts') or [])
         if src == 'telegram':
@@ -25697,6 +25696,16 @@ async def admin_support_poll(request: Request):
     return {'ok': True}
 
 
+BUG_FRESH_S = 3 * 86400   # 🐞 HQ's open-bug count: reports seen in 3 days (a dev-reload crash from weeks ago is not news)
+
+
+def _bug_seen(b):
+    """When a bug report last fired, in seconds (reports carry ms or s)."""
+    x = float(b.get('lastAt') or b.get('at') or 0)
+    return x / 1000 if x > 1e12 else x
+
+
+
 @app.get('/api/reputation/admin/security')
 async def admin_security(request: Request):
     _require_admin(request)
@@ -25748,7 +25757,7 @@ async def admin_security(request: Request):
     return {'score': score, 'checks': checks, 'services': services, 'signals': signals,
             'topErrors': sorted(({'key': k, 'count': v} for k, v in by.items()), key=lambda x: -x['count'])[:12],
             'stats': {'chat24h': msgs24, 'chatRooms': len(rooms), 'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)),
-                      'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing')), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
+                      'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing') and time.time() - _bug_seen(b) < BUG_FRESH_S), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
             'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
 
 
@@ -27904,10 +27913,14 @@ async def admin_pulse(request: Request):
             'pushSubscribers': len(_push_load()['subs']), 'muted': sum(1 for v in _json_load(MUTES_PATH, {}).values() if v > time.time())}
 
 
+# 🛠 old service-health pings posted into rooms ("Jupiter price … degraded for 3+ min", "recovered (124 ms)"): never social, never mod work
+_OPS_PING = _re.compile(r'(recovered \(\d+ ms\)|degraded for \d+\+ min|Fallbacks are serving)')
+
+
 @app.get('/api/reputation/admin/chat-feed')
 async def admin_chat_feed(request: Request, limit: int = 80):
     _require_admin(request)
-    msgs = [m for r, ms in _chat_load()['rooms'].items() for m in ms if isinstance(m, dict) and not m.get('system')]
+    msgs = [m for r, ms in _chat_load()['rooms'].items() for m in ms if isinstance(m, dict) and not m.get('system') and not _OPS_PING.search(str(m.get('text') or ''))]
     msgs.sort(key=lambda m: -m.get('ts', 0))
     mutes = _json_load(MUTES_PATH, {})
     return {'messages': [{**{k: m.get(k) for k in ('id', 'room', 'address', 'username', 'handle', 'text', 'ts')}, 'muted': mutes.get(primary_of(m.get('address', '')), 0) > time.time()} for m in msgs[:max(1, min(limit, 300))]]}
