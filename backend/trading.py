@@ -38,8 +38,10 @@ def valid_key(value):
     return value
 
 def rpc_pool() -> list:
-    """Primary first, then any backups: SOLANA_RPC_FALLBACKS (comma list), Alchemy, then free public nodes."""
-    urls = [os.environ.get('SOLANA_RPC_URL', '').strip()] + [u.strip() for u in os.environ.get('SOLANA_RPC_FALLBACKS', '').split(',')]
+    """Primary first, then the keyed lanes (SOLANA_RPC_URL_2 … _6, the keeper's), SOLANA_RPC_FALLBACKS (comma list), Alchemy, then free public nodes.
+    2026-11-11: the primary's plan ran out ("max usage reached") while lane 5 still answered, and the pool never held lanes 2-6."""
+    urls = [os.environ.get('SOLANA_RPC_URL', '').strip()] + [os.environ.get(f'SOLANA_RPC_URL_{n}', '').strip() for n in range(2, 7)]
+    urls += [u.strip() for u in os.environ.get('SOLANA_RPC_FALLBACKS', '').split(',')]
     if os.environ.get('ALCHEMY_API_KEY', '').strip():
         urls.append(f"https://solana-mainnet.g.alchemy.com/v2/{os.environ['ALCHEMY_API_KEY'].strip()}")
     urls += ['https://solana-rpc.publicnode.com', 'https://api.mainnet-beta.solana.com']
@@ -240,10 +242,12 @@ class TradingService:
         return ok
 
     async def rpc(self, method, params):
-        """Reads fall through a pool (SOLANA_RPC_URL, then SOLANA_RPC_FALLBACKS / ALCHEMY_API_KEY, then public nodes) so one
-        rate-limited free plan never stops trading. sendTransaction only ever goes to the primary: no silent resubmits."""
+        """Every call falls through the pool (`rpc_pool`) so one spent or rate-limited plan never stops trading. A send too: it carries the
+        SAME signed bytes to whichever lane takes them (one signature lands at most once, exactly as `broadcast` re-sends it every 2 s), and a
+        lane that refuses (401 / 403 / 429, "max usage reached") never took it. Nothing here signs or builds a new transaction.
+        (Until 2026-11-11 a send went to the primary only: when its plan ran out, every real trade failed with lane 5 still up.)"""
         self.require_configured()
-        urls = rpc_pool() if method != 'sendTransaction' else rpc_pool()[:1]
+        urls = rpc_pool()
         for url in urls:
             try:
                 res = await self.http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}, timeout=15)
