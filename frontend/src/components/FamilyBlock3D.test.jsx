@@ -34,6 +34,10 @@ test('🏙 no WebGL → the drawn block: lit towers, scaffolding, open plots; ta
   act(() => q('errand-switch').click()); expect(onErrand.mock.calls[0][0].kind).toBe('switch');
   await act(async () => { root.render(<BlockCard bl={BL} sel={{ blk: 'meteora' }} mine onAct={onAct} onErrand={onErrand} />); });
   expect(q('blk-card').textContent).toContain('not wired yet — it stays under construction');
+  const loan = { key: 'save', name: 'Save', kind: 'lend', state: 'built', usd: 50, debt: 400, risk: 0.9, proof: 'chain', band: '$', errands: [{ kind: 'health', icon: '🩸', urgent: true, tool: 'desk', text: 'Save loan at 90% of its liquidation line — repay or add collateral' }] };
+  await act(async () => { root.render(<BlockCard bl={{ ...BL, buildings: [loan] }} sel={{ blk: 'save' }} mine onAct={onAct} onErrand={onErrand} />); });
+  expect(q('blk-card').textContent).toContain('DEBT'); expect(q('blk-card').textContent).toContain('$400'); expect(q('blk-card').textContent).toContain('on-chain account');
+  expect(q('blk-card').querySelector('.is-risk')).not.toBeNull(); expect(q('errand-health')).not.toBeNull();   // a loan near liquidation glows red + an urgent errand
   await act(async () => { root.render(<BlockCard bl={BL} sel={{ open: 0 }} mine onAct={onAct} onErrand={onErrand} />); });
   act(() => q('blk-add-orca').click()); expect(onAct).toHaveBeenCalledWith('add', 'orca');
   expect(q('blk-add-save').textContent).toContain('no reader yet');

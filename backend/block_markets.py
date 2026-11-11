@@ -22,8 +22,16 @@ MINTS = {**{k: v[0] for k, v in LST.items()}, 'jlp': '27G8MtK7VtTcCHkpASjSDdkWWY
 SYMS = {**{k: v[1] for k, v in LST.items()}, 'jlp': 'JLP'}
 NFT = {'orca': ('whirlpool position', 'OWP'), 'raydium': ('raydium concentrated liquidity', 'RCL')}   # (name contains, symbol)
 API = {'kamino': 'kamino', 'meteora': 'meteora'}   # 🌊 SITE-17 C03: Meteora DLMM via its own data API (dlmm.datapi.meteora.ag/portfolio/open), checked on real wallets 2026-11-10
-WHY_NONE = {'phoenix': 'Phoenix seats / open orders reader not wired yet', 'marginfi': 'marginfi account reader not wired yet',
-            'save': 'Save (Solend) obligation reader not wired yet', 'pumpswap': 'PumpSwap LP-token reader not wired yet'}
+# ⛓ SITE-17 C03 (2026-11-10): on-chain account readers, each layout checked against real accounts (owner → accounts round trip):
+#   marginfi  MarginfiAccount (2312 B): authority @40, 16 balances @72 × 104 B (active u8, bank, asset / liability shares I80F48 @40 / @56);
+#             Bank: mint @8, decimals @40, asset / liability share value I80F48 @80 / @96 → amount × live price.
+#   save      Solend Obligation (1300 B): owner @42, deposited / borrowed / unhealthy-borrow value (WAD u128, USD) @74 / @90 / @122 — as of
+#             the obligation's last refresh.
+#   phoenix   Seat (128 B): market @8, trader @40, status u64 @72 (1 = approved): a trading seat on that market (funds sit in the market).
+#   pumpswap  Pool (301 B, owner pAMM…): base / quote / LP mint @43 / @75 / @107, quote vault @171; an LP mint's authority IS its pool.
+CHAIN = {'marginfi': ('MFv2hWf31Z9kbCa1snEPYctwafyhdvnV7FZnsebVacA', 2312, 40), 'save': ('So1endDq2YkqhipRh3WViPa8hdiSpxWy6z3Z6tMCpAo', 1300, 42),
+         'phoenix': ('PhoeNiXZ8ByJGLkxNfZRnkUfjvmuYqLR89jjFHGqdXY', 128, 40), 'pumpswap': ('pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA', 301, None)}
+WHY_NONE = {}
 SWITCH_PP = 0.4   # an LST paying ≥ 0.4 pp more APY gets a switch errand
 
 
@@ -35,6 +43,8 @@ def proof_of(key):
         return 'nft', NFT[key]
     if key in API:
         return 'api', API[key]
+    if key in CHAIN:
+        return 'chain', CHAIN[key][0]
     return None, WHY_NONE.get(key, 'no position reader for this market yet')
 
 
@@ -179,7 +189,7 @@ def layout_set(c, cells, me, staff=False, rank=None):
 def needs(lots):
     """What the service must read for these buildings: {'mints': set, 'nft': bool, 'kamino': bool}."""
     ks = {x['key'] for x in lots}
-    return {'mints': {MINTS[k] for k in ks if k in MINTS}, 'nft': any(k in NFT for k in ks), 'kamino': 'kamino' in ks, 'meteora': 'meteora' in ks}
+    return {'mints': {MINTS[k] for k in ks if k in MINTS}, 'nft': any(k in NFT for k in ks), 'kamino': 'kamino' in ks, 'meteora': 'meteora' in ks, **{k: k in ks for k in CHAIN}}
 
 
 def _num(v):
@@ -205,6 +215,74 @@ def meteora_held(portfolios):
         return None
     worst = next((x for x in pools if x['out']), None)
     return {'n': n, 'usd': round(usd, 2), 'fees': round(fees, 2), 'pnl': round(pnl, 2), 'ranges': {'n': n, 'out': out, 'near': 0, 'worst': {'pair': worst['pair']} if worst else {}}}
+
+
+def _i80(b):
+    return int.from_bytes(b, 'little', signed=True) / 2 ** 48
+
+
+def _u128wad(b):
+    return int.from_bytes(b, 'little') / 1e18
+
+
+def marginfi_held(accounts, banks, prices):
+    """marginfi accounts (raw bytes) + their banks {bank: raw} + live prices {mint: usd} → {'n', 'usd', 'debt'} or None. Pure."""
+    n = 0; usd = debt = 0.0
+    for d in accounts or []:
+        if len(d or b'') < 72 + 16 * 104:
+            continue
+        live = False
+        for i in range(16):
+            o = 72 + i * 104
+            if d[o] != 1:
+                continue
+            bk = banks.get(d[o + 1:o + 33])
+            if not bk or len(bk) < 112:
+                continue
+            mint, dec = bk[8:40], bk[40]
+            px = float((prices or {}).get(mint) or 0)
+            a, l = _i80(d[o + 40:o + 56]) * _i80(bk[80:96]) / 10 ** dec, _i80(d[o + 56:o + 72]) * _i80(bk[96:112]) / 10 ** dec
+            if a > 0 or l > 0:
+                live = True
+                usd += a * px; debt += l * px
+        n += live
+    return {'n': n, 'usd': round(usd - debt, 2), 'debt': round(debt, 2), 'gross': round(usd, 2)} if n else None
+
+
+def save_held(obligations):
+    """Save (Solend) obligations (raw bytes) → {'n', 'usd' (net), 'debt', 'risk' (borrowed ÷ liquidation line)} or None. Pure."""
+    n = 0; dep = bor = unh = 0.0
+    for d in obligations or []:
+        if len(d or b'') < 138:
+            continue
+        a, b, u = _u128wad(d[74:90]), _u128wad(d[90:106]), _u128wad(d[122:138])
+        if a <= 0 and b <= 0:
+            continue
+        n += 1; dep += a; bor += b; unh += u
+    if not n:
+        return None
+    return {'n': n, 'usd': round(dep - bor, 2), 'debt': round(bor, 2), 'gross': round(dep, 2), 'risk': round(bor / unh, 3) if unh > 0 else (1.0 if bor > 0 else 0.0)}
+
+
+def phoenix_held(seats):
+    """Phoenix seats (raw bytes) → {'n' approved seats, 'markets'} or None. A seat is the trading account; balances live in the market. Pure."""
+    import base58 as _b58
+    ok = [d for d in seats or [] if len(d or b'') >= 80 and int.from_bytes(d[72:80], 'little') == 1]
+    return {'n': len(ok), 'markets': sorted({_b58.b58encode(d[8:40]).decode() for d in ok})} if ok else None
+
+
+def pumpswap_held(lp, pools, vaults, prices):
+    """PumpSwap LP: lp = {lp mint: (held raw, supply raw)}, pools = {lp mint: raw pool}, vaults = {lp mint: quote reserve (ui)},
+    prices = {quote mint: usd} → {'n', 'usd'} or None. Value = your share of the pool × quote reserve × 2. Pure."""
+    import base58 as _b58
+    n = 0; usd = 0.0
+    for m, (held, supply) in (lp or {}).items():
+        p = (pools or {}).get(m)
+        if not p or len(p) < 203 or not held or not supply:
+            continue
+        q = _b58.b58encode(p[75:107]).decode()
+        n += 1; usd += held / supply * float((vaults or {}).get(m) or 0) * 2 * float((prices or {}).get(q) or 0)
+    return {'n': n, 'usd': round(usd, 2)} if n else None
 
 
 def nft_count(assets, key):
@@ -261,6 +339,9 @@ def errands(b, apys, url=None):
                         'text': f"{rg['near']} of {rg['n']} near the edge — {w.get('edgePct', 0):.1f} % of room left. Widen or re-center before it slips out"})
         elif not rg.get('n'):
             out.append({'kind': 'range', 'icon': '🎯', 'text': f"Check your {b['name']} range — out of range earns nothing", 'tool': 'range', 'urgent': False})
+    if k in ('save', 'marginfi') and b.get('risk') is not None and b['risk'] >= 0.8:
+        out.append({'kind': 'health', 'icon': '🩸', 'urgent': True, 'tool': 'desk',
+                    'text': f"{b['name']} loan at {b['risk'] * 100:.0f}% of its liquidation line — repay or add collateral"})
     if k == 'jlp':
         out.append({'kind': 'hedge', 'icon': '⚖', 'text': 'JLP is the house: it loses when traders win — size it against your SOL', 'tool': 'perps', 'urgent': False})
     return out
@@ -279,7 +360,7 @@ def view(lots, markets, held, prices=None, apys=None, mine=False):
         b = {'key': k, 'i': i, 'name': m.get('name') or k.title(), 'kind': m.get('kind') or 'dex', 'tvl': m.get('tvl'), 'url': m.get('url'), 'offer': m.get('offer'),
              'state': state, 'proof': how or 'none', 'why': (what if how is None else ''), 'apy': (apys or {}).get(k), 'band': band(h.get('usd')), 'at': x.get('at')}
         if mine:
-            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k), ranges=h.get('ranges'), fees=h.get('fees'), pnl=h.get('pnl'))
+            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k), ranges=h.get('ranges'), fees=h.get('fees'), pnl=h.get('pnl'), debt=h.get('debt'), risk=h.get('risk'), markets=h.get('markets'))
             b['errands'] = errands(b, apys or {}, m.get('url'))
         out.append(b)
     return out

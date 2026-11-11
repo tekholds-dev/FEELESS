@@ -8813,6 +8813,7 @@ async def familia_city_act(p: CityAct):
 # 🏙 THE FAMILY BLOCK = REAL MARKETS (block_markets.py): the Don adds market buildings; each stays UNDER CONSTRUCTION until the family's wallets
 # really hold a position there (receipt tokens · position NFTs · Kamino vault shares), read once a minute per family. Points never build these.
 import block_markets as _bmk   # noqa: E402
+import base64 as _b64m, base58 as _b58m   # noqa: E402  (C03 on-chain readers)
 
 _fblock_held = {}   # cid → (at, {key: {amount, usd, n}})
 FBLOCK_HELD_SEC = 60.0
@@ -8873,11 +8874,62 @@ async def _fblock_reads(c, lots, now):
                         kam_.append(p_)
             except Exception as e_:
                 print('block kamino:', str(e_)[:80])
+        chain_ = {k_: [] for k_ in _bmk.CHAIN}; lp_ = {}
+        async def gpa(k_, w_):   # ⛓ SITE-17 C03: the wallet's own accounts of that program (owner field memcmp)
+            prog_, size_, off_ = _bmk.CHAIN[k_]
+            try:
+                r_ = await _rpc(http, 'getProgramAccounts', [prog_, {'encoding': 'base64', 'filters': [{'dataSize': size_}, {'memcmp': {'offset': off_, 'bytes': w_}}]}])
+                chain_[k_] += [_b64m.b64decode(a_['account']['data'][0]) for a_ in (r_ if isinstance(r_, list) else []) or []]
+            except Exception as e_:
+                print(f'block {k_}:', str(e_)[:80])
+        async def lps(w_):   # 🫧 PumpSwap LP (a Token-2022 mint): every coin the wallet holds whose mint authority is a PumpSwap pool
+            try:
+                r_ = await _rpc(http, 'getTokenAccountsByOwner', [w_, {'programId': 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'}, {'encoding': 'jsonParsed'}])
+                for a_ in (r_ or {}).get('value') or []:
+                    inf_ = (((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                    raw_ = int((inf_.get('tokenAmount') or {}).get('amount') or 0)
+                    if raw_ > 0 and (inf_.get('tokenAmount') or {}).get('decimals') == 9:
+                        lp_[inf_['mint']] = lp_.get(inf_['mint'], 0) + raw_
+            except Exception as e_:
+                print('block pumpswap:', str(e_)[:80])
         jobs_ = [toks(w_) for w_ in wallets_] if need_['mints'] else []
         jobs_ += [nfts(w_) for w_ in wallets_] if need_['nft'] else []
         jobs_ += [kamino(w_) for w_ in wallets_] if need_['kamino'] else []
         jobs_ += [meteora(w_) for w_ in wallets_] if need_.get('meteora') else []
+        jobs_ += [gpa(k_, w_) for k_ in ('marginfi', 'save', 'phoenix') if need_.get(k_) for w_ in wallets_]
+        jobs_ += [lps(w_) for w_ in wallets_] if need_.get('pumpswap') else []
         await asyncio.gather(*jobs_)
+        bank_px_ = {}
+        if chain_['marginfi']:   # the banks behind every active balance → mint, decimals, share values; then live prices
+            try:
+                bks_ = sorted({d_[72 + i_ * 104 + 1:72 + i_ * 104 + 33] for d_ in chain_['marginfi'] for i_ in range(16) if len(d_) >= 1736 and d_[72 + i_ * 104] == 1})
+                b58_ = [_b58m.b58encode(b_).decode() for b_ in bks_][:100]
+                acc_ = ((await _rpc(http, 'getMultipleAccounts', [b58_, {'encoding': 'base64'}])) or {}).get('value') or [] if b58_ else []
+                banks_ = {b_: _b64m.b64decode(a_['data'][0]) for b_, a_ in zip(bks_, acc_) if a_}
+                px_m_ = await _live_px([_b58m.b58encode(v_[8:40]).decode() for v_ in banks_.values()])
+                mh2_ = _bmk.marginfi_held(chain_['marginfi'], banks_, {_b58m.b58decode(k_): v_ for k_, v_ in px_m_.items()})
+                if mh2_:
+                    bank_px_['marginfi'] = mh2_
+            except Exception as e_:
+                print('block marginfi banks:', str(e_)[:80])
+        if lp_:   # held mints → their authorities → the ones that are PumpSwap pools → quote vault reserves
+            try:
+                ms_ = list(lp_)[:100]
+                mi_ = ((await _rpc(http, 'getMultipleAccounts', [ms_, {'encoding': 'jsonParsed'}])) or {}).get('value') or []
+                auth_ = {m_: (((a_ or {}).get('data') or {}).get('parsed') or {}).get('info') or {} for m_, a_ in zip(ms_, mi_)}
+                cand_ = {m_: i_ for m_, i_ in auth_.items() if i_.get('mintAuthority')}
+                pa_ = [i_['mintAuthority'] for i_ in cand_.values()]
+                pacc_ = ((await _rpc(http, 'getMultipleAccounts', [pa_, {'encoding': 'base64'}])) or {}).get('value') or [] if pa_ else []
+                pools_ = {m_: _b64m.b64decode(a_['data'][0]) for m_, a_ in zip(cand_, pacc_) if a_ and a_.get('owner') == _bmk.CHAIN['pumpswap'][0]}
+                vk_ = {m_: _b58m.b58encode(p_[171:203]).decode() for m_, p_ in pools_.items()}
+                va_ = ((await _rpc(http, 'getMultipleAccounts', [list(vk_.values()), {'encoding': 'jsonParsed'}])) or {}).get('value') or [] if vk_ else []
+                vaults_ = {m_: float(((((a_ or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount', {}).get('uiAmount') or 0) for m_, a_ in zip(vk_, va_)}
+                qpx_ = await _live_px(sorted({_b58m.b58encode(p_[75:107]).decode() for p_ in pools_.values()}))
+                ph_ = _bmk.pumpswap_held({m_: (lp_[m_], int(cand_[m_].get('supply') or 0)) for m_ in pools_}, pools_, vaults_, qpx_)
+                if ph_:
+                    bank_px_['pumpswap'] = ph_
+            except Exception as e_:
+                print('block pumpswap pools:', str(e_)[:80])
     px_ = await _live_px(list(bal_)) if bal_ else {}
     for k_, m_ in _bmk.MINTS.items():
         if bal_.get(m_):
@@ -8891,6 +8943,9 @@ async def _fblock_reads(c, lots, now):
         n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
         if n_:
             out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
+    for k_, h_ in (('save', _bmk.save_held(chain_['save'])), ('phoenix', _bmk.phoenix_held(chain_['phoenix'])), *bank_px_.items()):
+        if h_:
+            out_[k_] = h_
     mh_ = _bmk.meteora_held(met_)
     if mh_:
         out_['meteora'] = mh_

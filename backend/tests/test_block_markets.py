@@ -29,17 +29,18 @@ def test_only_the_don_underboss_or_creator_adds_and_the_block_grows():
 
 
 def test_a_building_is_under_construction_until_a_real_position_is_proved():
-    lots = [{'key': 'jito'}, {'key': 'orca'}, {'key': 'phoenix'}, {'key': 'jupsol'}]
-    assert bm.needs(lots) == {'mints': {bm.MINTS['jito'], bm.MINTS['jupsol']}, 'nft': True, 'kamino': False, 'meteora': False}
+    lots = [{'key': 'jito'}, {'key': 'orca'}, {'key': 'drift'}, {'key': 'jupsol'}]
+    assert bm.needs(lots) == {'mints': {bm.MINTS['jito'], bm.MINTS['jupsol']}, 'nft': True, 'kamino': False, 'meteora': False,
+                              'marginfi': False, 'save': False, 'phoenix': False, 'pumpswap': False}
     assets = [{'name': 'Orca Whirlpool Position', 'symbol': 'OWP'}, {'name': 'Mad Lads #1', 'symbol': 'MAD'}]
     assert bm.nft_count(assets, 'orca') == 1 and bm.nft_count(assets, 'raydium') == 0
-    held = {'jito': {'amount': 2.5, 'usd': 540.0}, 'orca': {'n': bm.nft_count(assets, 'orca')}, 'phoenix': {'usd': 999}}
+    held = {'jito': {'amount': 2.5, 'usd': 540.0}, 'orca': {'n': bm.nft_count(assets, 'orca')}, 'drift': {'usd': 999}}
     apys = bm.lst_apys([{'kind': 'stake', 'sym': 'JITOSOL', 'apy': 4.85}, {'kind': 'stake', 'sym': 'JUPSOL', 'apy': 5.4}, {'kind': 'lend', 'sym': 'JUPSOL', 'apy': 99}])
     assert apys == {'jito': 4.85, 'jupsol': 5.4}
     v = {b['key']: b for b in bm.view(lots, MK, held, apys=apys, mine=True)}
     assert v['jito']['state'] == 'built' and v['jito']['usd'] == 540.0 and v['jito']['band'] == '$$'
     assert v['orca']['state'] == 'built'
-    assert v['phoenix']['state'] == 'construction' and 'not wired' in v['phoenix']['why']   # no reader → never shown as built
+    assert v['drift']['state'] == 'construction' and 'no position reader' in v['drift']['why']   # no reader → never shown as built
     assert v['jupsol']['state'] == 'construction' and v['jupsol']['errands'][0]['kind'] == 'build'
     sw = [e for e in v['jito']['errands'] if e['kind'] == 'switch'][0]
     assert sw['swap'] == {'from': bm.MINTS['jito'], 'to': bm.MINTS['jupsol']} and sw['gain'] == 0.55   # JupSOL pays 0.55 pp more → switch?

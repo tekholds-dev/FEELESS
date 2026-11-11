@@ -92,7 +92,7 @@ export function BlockGrid({ bl, sel, onPick, town = null, lp = null }) {
 }
 
 // 🗂 the side card: a building's REAL numbers + its errands (own family), or the add-a-market list on an open plot
-const PROOF_WORD = { mint: 'token balance', nft: 'position NFT', api: 'vault shares', none: 'no reader yet' };
+const PROOF_WORD = { mint: 'token balance', nft: 'position NFT', api: "protocol's own API", chain: 'on-chain account', none: 'no reader yet' };
 const RC = 2 * Math.PI * 22;
 // a protocol whose own deposit needs its SDK: the same job runs here through the in-place providers (said plainly, never a link out)
 const SDK_NOTE = { kamino: 'Kamino', marginfi: 'marginfi', save: 'Save', meteora: 'Meteora', orca: 'Orca', raydium: 'Raydium', pumpswap: 'PumpSwap', phoenix: 'Phoenix' };
@@ -109,7 +109,8 @@ export function BlockCard({ bl, sel, busy, mine, onAct, onErrand }) {
       <div className="fbm-kv">
         <span style={{ '--i': 0 }} data-tip={mine ? 'What your family wallets hold there right now (live price)' : 'Other families see a band, never a balance'}><em>{mine ? 'YOUR VALUE' : 'VALUE'}</em>
           <b className="fl-tick" key={String(b.usd ?? b.band)}>{mine ? (b.usd ? usd(b.usd) : built ? `${b.n || 1} pos` : '$0') : (b.band || '—')}</b></span>
-        <span style={{ '--i': 1 }} data-tip="The market's live yield (pool hub)"><em>APY</em><b>{apyTxt(b.apy)}</b></span>
+        {mine && b.debt > 0 ? <span style={{ '--i': 1 }} className={b.risk >= 0.8 ? 'is-risk' : ''} data-tip={`What your family owes there (live price)${b.risk != null ? ` · ${Math.round(b.risk * 100)}% of the liquidation line` : ''}`}><em>DEBT</em><b className="fl-tick" key={String(b.debt)}>{usd(b.debt)}</b></span>
+          : <span style={{ '--i': 1 }} data-tip="The market's live yield (pool hub)"><em>APY</em><b>{apyTxt(b.apy)}</b></span>}
         <span style={{ '--i': 2 }} data-tip="How FEELESS proves the position — read from the chain or the protocol, never typed in"><em>PROOF</em><b>{PROOF_WORD[b.proof] || '—'}</b></span>
       </div>
       {b.why ? <p className="fbm-why">⚠ {b.why} — it stays under construction.</p> : null}

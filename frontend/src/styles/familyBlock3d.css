@@ -59,6 +59,7 @@ body.theme-day .fb3-b.is-stand { background: #fffaf0; } body.theme-day .fb3-isl 
 .fbm-kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .fbm-kv span { display: grid; gap: 2px; padding: 7px; border-radius: 8px; background: rgba(212, 175, 55, .06); border: 1px solid rgba(212, 175, 55, .18); animation: fb3In .3s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fbm-kv em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #a8987a; font-style: normal; } .fbm-kv b { font: 800 14px 'JetBrains Mono', monospace; color: #fff3c9; }
+.fbm-kv span.is-risk { border-color: rgba(255, 143, 163, .5); background: rgba(255, 143, 163, .08); } .fbm-kv span.is-risk b { color: #ff8fa3; } body.theme-day .fbm-kv span.is-risk b { color: #b4233f; }
 .fbm-errands { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .fbm-errands button { width: 100%; min-height: 40px; display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; cursor: pointer; text-align: left;
   color: #f5e6b8; background: linear-gradient(90deg, rgba(212, 175, 55, .14), rgba(212, 175, 55, .03)); border: 1px solid rgba(212, 175, 55, .35); transition: transform .12s ease, border-color .15s ease; }
