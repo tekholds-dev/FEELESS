@@ -4211,3 +4211,4 @@ body.theme-day .meta-launch-banner-label small{color:#5b7466}
 .token-metrics{grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}.token-metrics .metric small{white-space:nowrap}.token-metrics .metric strong,.token-metrics .metric>span{overflow-wrap:normal;white-space:nowrap}
 
 .ecosystem-chat .chat-compose{margin:8px}
+.chart-message a[data-testid] { display: inline-flex; align-items: center; min-height: 32px; }   /* audit 2026-11-11 */

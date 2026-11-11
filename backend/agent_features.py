@@ -406,8 +406,9 @@ def preview(html):
 REGION_MAX = 12
 
 
-def region_note(region):
-    """Every dragged box as words for the model, from numbers and a capped snippet. A note is the owner's. The snippet is data from the page."""
+def region_note(region, blank=False):
+    """Every dragged box as words for the model, from numbers and a capped snippet. A note is the owner's. The snippet is data from the page.
+    blank (owner 2026-11-11): no page yet, he marked a blank canvas, so each box is where a part goes, built in that spot."""
     rows = [r for r in (region if isinstance(region, list) else [region]) if isinstance(r, dict)][:REGION_MAX]
 
     def one(r):
@@ -425,6 +426,8 @@ def region_note(region):
         return f"{pct('w')}% wide, {pct('h')}% tall, starting {pct('x')}% across and {where}." + (f' The owner says: {said}' if said else '') + (f' It holds: {snippet}' if snippet else '')
     if not rows:
         return ''
+    if blank:
+        return '\nThe owner drew the page on a blank canvas: each box is where one part goes, at that size. Build every part in its own spot, doing what his note says:' + ''.join(f'\n{i + 1}. {one(r)}' for i, r in enumerate(rows))
     if len(rows) == 1:
         return f'\nThe owner marked this area to fix: {one(rows[0])}'
     return '\nThe owner marked these areas to fix, change every one of them:' + ''.join(f'\n{i + 1}. {one(r)}' for i, r in enumerate(rows))

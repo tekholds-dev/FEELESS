@@ -234,3 +234,4 @@ body.theme-day :is(.gfk-src li, .gfk-board li, .gfk-vers button, .gfk-stats span
 body.fx-lite :is(.pjw-hits, .pjw-said, .pjw-diff) { animation: none; } @media (prefers-reduced-motion: reduce) { :is(.pjw-hits, .pjw-said, .pjw-diff) { animation: none; } }
 body.theme-day :is(.pjw-said, .pjw-hits) { background: #fff; border-color: #0000001a; } body.theme-day .pjw-said p, body.theme-day .pjw-hits button { color: #10241a; } body.theme-day .pjw-diff pre { background: #f6f8f7; color: #22332a; }
 @media (max-width: 640px) { .pjw-ask { flex-wrap: wrap; } .pjw-ask .m-btn { flex: 1; } }
+.gtr-linkbtn { position: relative; } .gtr-linkbtn::before { content: ''; position: absolute; inset: -9px -4px; }   /* audit 2026-11-11: 32px hit area */

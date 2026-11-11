@@ -205,3 +205,11 @@ def ext_of(kind, url, content_type=''):
 
 
 NAME = re.compile(r'^m[0-9a-f]{12}\.(png|jpg|webp|mp4|webm|mov)$')
+
+
+def made_by_happy():
+    """🎬 The real results Happy made on these models (2026-11-10, unedited, public files): every user's editor shelf leads with them. Pure."""
+    name_ = {x['model']: x['label'] for x in PRESETS}
+    return [{'id': f'happy-{k}', 'type': 'video' if src.endswith('.mp4') else 'image', 'proof': 'AI', 'title': name_.get(k) or MODELS[k][3], 'src': src, 'q': '', 'pub': True,
+             'at': 0, 'cat': 'happy', 'agent': 'Happy', 'happy': True, 'from': f"{MODELS[k][3]} · ${MODELS[k][5]:.2f} · {secs}s to make"}
+            for k, (src, secs) in TESTED.items() if k in MODELS]

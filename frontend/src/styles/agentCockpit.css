@@ -262,3 +262,4 @@ body.theme-day .aip { background: #f1edff; } body.theme-day .aip-shade { backgro
 .ack .m-input:focus { outline: none; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .45)) padding-box, linear-gradient(90deg, var(--m-accent), #5fd0ff) border-box; }
 .ack .m-input::placeholder { color: var(--m-mute); font-size: 10px; letter-spacing: .06em; }
 body.theme-day .ack .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #181e1b; }
+.ack-aichip { position: relative; } .ack-aichip::before { content: ''; position: absolute; inset: -5px 0; }   /* audit 2026-11-11: 32px hit area */

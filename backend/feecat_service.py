@@ -6959,6 +6959,33 @@ def _ads_try(cat_id, k, ws, faults, outcome):
     _ads_set(cat_id, k, tries=[*(j_.get('tries') or []), row_][-40:])
 
 
+def _media_library(cat_id, cat):
+    """🗂 Everything one agent made, every proof kind, newest first (owner 2026-11-11: the editor's Video / Image / 3D tabs reuse it):
+    its Showcase ad videos, the images and videos it made, and the 3D scenes it filed. Links only, no bytes. Site snapshots are evidence, never content (owner 2026-11-11)."""
+    rows = []; cid_ = re.sub(r'[^a-z0-9]', '', cat_id)
+    d_ = SHOW_ADS_DIR / cid_
+    for f_ in (sorted(d_.glob('*.webm')) if d_.is_dir() else []):
+        k_, _, w_ = f_.stem.partition('-')
+        if k_ in _ads.KINDS:
+            rows.append({'id': f'ad{k_}{w_}', 'type': 'video', 'proof': _ads.NAME[k_], 'title': f"{_ads.NAME[k_]} ad{' · ' + w_ if w_ else ''}", 'at': round(f_.stat().st_mtime),
+                         'src': f'/api/cats/{cat_id}/showad/{k_}', 'q': f'ws={w_}' if w_ else '', 'from': 'Showcase ad'})
+    for w in _ws_list(cat)[-80:]:
+        if w.get('kind') not in ('content', 'build'):
+            continue
+        doc_ = _ws_load(cat_id, w['id']) or {}
+        for m_ in doc_.get('messages') or []:
+            md_ = m_.get('media') if isinstance(m_, dict) else None
+            if md_ and md_.get('status') == 'done' and md_.get('url'):
+                rows.append({'id': md_.get('id'), 'type': 'video' if md_.get('kind') == 'video' else 'image', 'proof': 'PoC', 'title': str(md_.get('prompt') or 'made')[:40], 'at': int(md_.get('doneAt') or md_.get('at') or 0),
+                             'src': md_['url'], 'q': '', 'from': f"{md_.get('label') or 'made'} · {w.get('name') or ''}".strip(' ·')})
+        sc_ = doc_.get('scene3d')
+        if isinstance(sc_, dict) and (sc_.get('objects') or sc_.get('hero')):
+            rows.append({'id': w['id'], 'type': '3d', 'proof': 'PoStatic', 'title': str(w.get('name') or '3D scene')[:40], 'at': int(w.get('at') or 0), 'ws': w['id'],
+                         'objects': len(sc_.get('objects') or []), 'from': 'PoStatic 3D'})
+    rows.sort(key=lambda r: -r['at'])
+    return rows
+
+
 def _ads_lab(cat_id, cat):
     """→ every ad attempt of one agent, newest first: proof type, folder, model, $, page versions, the exact faults it was sent back with, the end."""
     rows = []; own_ = ' + '.join(str(m).split('/')[-1] for m in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]) or 'its own minds'
@@ -7781,7 +7808,7 @@ async def _ws_run(cat_id, ws_id, to, text, region):
                 except httpx.HTTPError:
                     from_repo_ = ''
             _keep_mark_notes(doc, region)
-            user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
+            user = f'{ask_}{_know.for_ask(text)}{_feat.region_note(region, blank=not cur)}{_feat.attach_note(doc.pop("attached", None))}{from_repo_}' + (f'\nThe page now:\n{cur[:40000]}' if cur else '')
             if _feat.wants_live(text) or 'feeless-live' in str(cur):   # 📡 a page that asks for live data gets real numbers and how to receive them
                 user += _feat.live_line(await _live_feed(cat), page=True)
             mode_k_, mine_k_ = _kits.picks_of(cat.get('brainsCfg'), 'pos'); picks_ = _kits.auto_picks(KITS_DIR, 'pos', text, record=_kit_record()) if mode_k_ == 'auto' else mine_k_
@@ -8984,6 +9011,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 base_['camera'] = [0, 0, 0]; base_ = _play._frame(_assets.compose(base_))
             _play_save(cat_id, '3d', {**saved_, 'scene': base_})
             return {'scene': base_, 'say': f"Ready. Real assets: {', '.join(dict.fromkeys(used_)) or 'none'}." + (f" Not in the library: {', '.join(missing_)}." if missing_ else '')}
+        if p.op == 'play3d_take':   # 🗂 a 3D scene this owner filed (any of its agents) opens back in the playground
+            src_ = str(p.to or cat_id); c2_ = store['cats'].get(src_)
+            if not c2_ or not (src_ == cat_id or _same_owner(cat, c2_)):
+                raise HTTPException(403, 'That scene is not yours.')
+            sc_ = (_ws_load(src_, re.sub(r'[^a-z0-9]', '', str(p.job or ''))) or {}).get('scene3d')
+            if not isinstance(sc_, dict):
+                raise HTTPException(404, 'That scene is gone.')
+            sc_ = _play.clean_scene(sc_); _play_save(cat_id, '3d', {**saved_, 'scene': sc_})
+            return {'scene': sc_, 'say': 'Your filed scene is open. It saves as you work.'}
         if p.op == 'play3d_preview':   # the real page, exactly as it would file
             if not now_scene_['objects'] and not now_scene_.get('game') and not now_scene_.get('hero'):
                 raise HTTPException(400, 'Add something to the scene first.')
@@ -9739,6 +9775,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         mine_ = [(cid_, c_) for cid_, c_ in store['cats'].items() if c_.get('showAds') and (cid_ == cat_id or _same_owner(cat, c_))]
         rows_ = [r_ for cid_, c_ in mine_ for r_ in _ads_lab(cid_, c_)]
         return {'rows': rows_[:240], 'spent': round(sum(r_['cost'] for r_ in rows_), 4), 'budget': _ads.BUDGET, 'model': _ads.MODEL}
+    if p.op == 'media_library':   # 🗂 the editor's library: every image, video and 3D scene this owner's agents made, any proof kind
+        mine_ = [(cid_, c_) for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
+        rows_ = sorted([dict(r_, cat=cid_, agent=c_.get('name') or '') for cid_, c_ in mine_ for r_ in _media_library(cid_, c_)], key=lambda r: -r['at'])
+        rows_ = _mg.made_by_happy() + rows_   # 🎬 Happy's real AI results lead every user's shelf (public files, the same for everyone)
+        return {'rows': rows_[:400], 'count': {t_: sum(1 for r_ in rows_ if r_['type'] == t_) for t_ in ('video', 'image', '3d')}}
     if p.op == 'showcase':   # 🎬 the Showcase's real rows: this owner's reviewed proofs per kind and its newest books (no wallet, no page)
         mine_ = [c_ for cid_, c_ in store['cats'].items() if not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))]
         ads_ = next((dict(_ads_view(cid_, c_), cat=cid_) for cid_, c_ in store['cats'].items() if c_.get('showAds') and not c_.get('revoked') and (cid_ == cat_id or _same_owner(cat, c_))), None)

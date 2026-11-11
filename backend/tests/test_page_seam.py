@@ -38,3 +38,11 @@ def test_many_marks_reach_the_model_with_their_notes():
     assert '1. 50% wide' in many and 'bigger chart' in many and '2. 10% wide' in many and '<div>a</div>' in many
     assert af.region_note(None) == '' and af.region_note([]) == '' and many.count('owner says') == 1
     assert af.region_note([{'x': 0, 'y': 0, 'w': 1, 'h': 1}] * 50).count('100% wide') == af.REGION_MAX
+
+
+def test_a_drawing_on_a_blank_canvas_says_build_each_part_in_its_spot():
+    import agent_features as fe
+    boxes = [{'x': 0, 'y': 0, 'w': 1, 'h': 0.1, 'note': 'Logo left, Order right'}, {'x': 0.05, 'y': 0.2, 'w': 0.4, 'h': 0.3, 'note': 'Big headline'}]
+    note = fe.region_note(boxes, blank=True)
+    assert 'blank canvas' in note and 'Build every part in its own spot' in note and '1. 100% wide, 10% tall' in note and '2. 40% wide' in note and 'Big headline' in note and 'to fix' not in note
+    assert 'to fix' in fe.region_note(boxes) and fe.region_note([], blank=True) == ''

@@ -484,3 +484,5 @@ body.theme-day .adl-row, body.theme-day .adl-lesson { background: #fff; border-c
 body.theme-day .pdr-best-kv b, body.theme-day .pdr-best-why p { color: #1b1236; } body.theme-day .pdr-best-kv em, body.theme-day .pdr-best-verdict small { color: #5a4d80; }
 body.fx-lite .pdr-best-kv span { animation: none; } @media (prefers-reduced-motion: reduce) { .pdr-best-kv span { animation: none; } }
 @media (max-width: 640px) { .pdr-best-verdict b { font-size: 20px; } .pdr-best-why p:nth-child(n+3) { display: none; } }
+/* 🖍 blank canvas (owner 2026-11-11): + Mark on an empty page draws it, box by box; a faint layout grid so the boxes read as a page */
+.fea-idle.is-canvas { align-content: end; padding-bottom: 14px; background: linear-gradient(#7c4dff14 1px, transparent 1px) 0 0 / 100% 40px, linear-gradient(90deg, #7c4dff14 1px, transparent 1px) 0 0 / 8.333% 100%, #f7f5fb; } .fea-idle.is-canvas .fea-blank { padding: 6px 12px; border-radius: 8px; background: #1b1236e6; color: #efe9ff; }

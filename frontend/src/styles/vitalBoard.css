@@ -88,3 +88,4 @@ body.theme-day .vbd-tile.is-good { --t: #0c8a45; } body.theme-day .vbd-tile.is-w
 @keyframes vbdGerm { 0%, 100% { opacity: 0; transform: scale(.97); } 50% { opacity: .9; transform: scale(1.02); } }
 body.fx-lite .vbd-tile.is-germzone::after { animation: none; opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .vbd-tile.is-germzone::after { animation: none; opacity: .6; } }
+.vbd-sgrade { position: relative; } .vbd-sgrade::before { content: ''; position: absolute; inset: -8px 0; }   /* audit 2026-11-11: 32px hit area */

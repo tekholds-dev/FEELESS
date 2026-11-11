@@ -21,7 +21,7 @@ test('create makes a real folder and opens it: blank screen, a mind picker, send
   const work = jest.fn(async (_, b) => (b.op === 'feature_create' ? { folder: { id: 'w1', kind: 'build', name: 'Site' }, workspaces: [{ id: 'w1', kind: 'build', name: 'Site' }] } : b.op === 'ws_open' ? { doc } : b.op === 'ws_build' ? { doc: { ...doc, messages: [{ by: 'you', text: b.text }], busy: null } } : DATA));
   const { el, q } = await mount(work);
   await act(async () => { q('sst-go').click(); }); await act(async () => { await Promise.resolve(); });
-  expect(el.textContent).toContain('A blank screen'); expect(q('ws-mark').disabled).toBe(true);
+  expect(el.textContent).toContain('A blank screen'); expect(q('ws-mark').disabled).toBe(false); expect(q('ws-mark').dataset.tip).toContain('Draw the page');
   await act(async () => { q('ws-to-a').click(); }); await type(q('ws-input'), 'make a timer');
   await act(async () => { q('ws-send').click(); });
   expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'ws_build', job: 'w1', text: 'make a timer', to: 'a' }));

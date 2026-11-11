@@ -563,3 +563,19 @@ def test_a_game_request_goes_the_3d_way_and_a_model_that_cannot_answer_still_get
     import asyncio
     usd, why, _own = asyncio.run(fs._build_3d(cat, doc, 'a playable runner game with a robot', ['a/b'], [0], lambda i: 'Mind A', 'a'))
     assert not why and doc['scene3d']['game'] == 'runner' and '__game' in doc['versions'][-1]['html'] and usd == 0
+
+
+def test_the_editor_library_lists_what_every_proof_made_and_a_filed_scene_opens_again(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw})
+    store['cats']['g']['powFolders'] = [{'id': 'pw1', 'n': 3, 'topic': '$BONK', 'at': 100, 'shots': [{'file': 'rugcheck_1.jpg', 'site': 'rugcheck.xyz', 'at': 120}]}]
+    store['cats']['x'] = {'id': 'x', 'name': 'Other', 'ownerId': 'x', 'revoked': False}
+    (fs.SHOW_ADS_DIR / 'g').mkdir(parents=True, exist_ok=True); (fs.SHOW_ADS_DIR / 'g' / 'pob.webm').write_bytes(b'w')
+    ws = post('play3d_file', job='Ember', tools={'scene': {'objects': [OBJ]}}).json()['filed']['ws']
+    j = post('media_library').json(); mine = [r for r in j['rows'] if not r.get('happy')]; by = {r['type']: r for r in mine}
+    happy = [r for r in j['rows'] if r.get('happy')]; assert happy and j['rows'][:len(happy)] == happy and all(r['pub'] and r['src'].startswith(('/media/samples/', '/showcase/')) for r in happy)
+    assert {r['type'] for r in happy} == {'image', 'video'} and any(r['title'] == 'AI vs handmade' and '9s to make' in r['from'] for r in happy)
+    assert 'image' not in by and not any('powshot' in str(r.get('src')) for r in j['rows'])   # site snapshots are evidence, never content
+    assert by['video']['src'] == '/api/cats/g/showad/pob' and by['video']['proof'] == 'PoB' and by['3d']['ws'] == ws and by['3d']['cat'] == 'g'
+    post('play3d_save', tools={'scene': {'objects': []}})
+    t = post('play3d_take', job=ws, to='g').json(); assert t['scene']['objects'][0]['name'] == OBJ['name'] and post('play3d_get').json()['scene']['objects']
+    assert post('play3d_take', job=ws, to='x').status_code == 403 and post('play3d_take', job='wnope', to='g').status_code == 404

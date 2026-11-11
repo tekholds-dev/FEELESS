@@ -114,3 +114,4 @@ body.fx-lite .ltk-rc li { animation: none; }
 body.theme-day .ltk-rs, body.theme-day .ltk-rn, body.theme-day .ltk-chip { background: rgba(255, 255, 255, .75); border-color: rgba(10, 60, 35, .16); color: #1c1830; } body.theme-day .ltk-chip b { color: #1c1830; }
 body.theme-day .ltk-rn b { text-shadow: none; filter: brightness(.7); }
 @media (max-width: 640px) { .ltk-body { grid-template-columns: minmax(0, 1fr) 64px; gap: 6px; } .ltk-head > small { display: none; } .ltk-plot { --gut: 50px; } }
+.ltk-b::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; } .ltk-bc > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* audit 2026-11-11: 32px hit area, long names end in … */
