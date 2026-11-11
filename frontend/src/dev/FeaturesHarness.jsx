@@ -17,6 +17,10 @@ import GRADE from './gradeFixture.json';   // feecat_service._proof_view on a re
 import ECO from './ecoFixture.json';   // agent_eco.run_setup with its own sample rows, then agent_eco.view: the real numbers code
 import '../styles/features.css';
 import { WatchWall } from '../components/command/ProofRooms';
+import { AgentCockpit } from '../components/command/AgentCockpit';
+import { AgentHubProvider, selectors } from '../lib/agentHub';
+import { D as COCKPIT } from '../components/command/__fixtures__/cockpit';
+import '../styles/agentDesk.css';
 import { CodeLines, StatusBar, Tabs, diffRows } from '../components/command/CodeView';
 import WATCH from '../components/command/__fixtures__/watchLive.json';   // game_scores.board + .game on ESPN's live NBA scoreboard, 2026-11-10
 
@@ -45,6 +49,11 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/sic/.test(window.location.search) && !window.__sicFetch) { window.__sicFetch = true; const real = window.fetch; const W = [{ i: 0, model: 'local/ossy', status: 'working', provider: 'lan', url: 'https://dexscreener.com/solana', bubble: 'reading the holders of $CARLO', steps: [{ action: 'open', thought: 'open DexScreener' }], cost: 0 }, { i: 1, model: 'local/g4', status: 'working', provider: 'lan', url: 'https://rugcheck.xyz', bubble: 'checking the mint and freeze authority', steps: [{ action: 'open', thought: 'open RugCheck' }], cost: 0 }];
+    const SIC = { id: 'sic', name: "Sicario's", handle: 'sicarios', brainsCfg: { brains: ['local/ossy', 'local/g4'], endless: true, cardSeat: true }, hive: { on: true }, powFolders: [{ id: 'p1', status: 'closed' }], pobFolders: [] };
+    window.fetch = (u, o) => { const url = String(u); if (/\/api\/cats\?/.test(url)) return Promise.resolve(new Response(JSON.stringify({ cats: [SIC] }), { status: 200 })); if (/\/api\/cats\/sic\/work/.test(url)) { const b = JSON.parse(o?.body || '{}'); return Promise.resolve(new Response(JSON.stringify(b.op === 'desk_seats' ? { seats: { seats: 4, held: 2, ai: 1, free: 2 } } : { live: true, providers: ['lan'], cap: 0.05, credit: 9.2, chat: [{ by: 'you', text: 'file a PoW' }, { by: 'cats', text: 'Both minds are reading $CARLO' }], task: { id: 't', text: 'PoW $CARLO', status: 'working', cap: 0.05, cost: 0 }, windows: W, powFolders: SIC.powFolders }), { status: 200 })); } return real(u, o); }; }
+  if (/sic/.test(window.location.search)) { const hub = { d: COCKPIT, livePx: new Map(), sel: selectors(COCKPIT), load: () => {} };   // ?sic — Sicario's HQ cockpit on the test payload
+    return <div style={{ minHeight: '100vh', background: '#050406', padding: 12 }}><AgentHubProvider value={hub}><section className="agd is-sic is-dial-calm" data-testid="agent-desk"><AgentCockpit call={async () => ({})} /></section></AgentHubProvider></div>; }
   if (/pkgs/.test(window.location.search)) return <div className="fea-view" style={{ height: '100vh' }}><Packages text={'https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js\nhttps://unpkg.com/@tsparticles/engine@3.9.1/tsparticles.engine.min.js\nhttps://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css\nhttps://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700\nhttps://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js'} /></div>;   // ?pkgs — the packages panel
   if (/code/.test(window.location.search)) return <CodeHarness />;   // ?code — the editor look on a real showcase page, with a change
   if (/watch/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes('/api/cats/scores/') ? Promise.resolve(new Response(JSON.stringify(String(u).endsWith(`/${WATCH.id}`) ? WATCH.game : WATCH.board), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o));   // ?watch — the watch wall with tonight's real games

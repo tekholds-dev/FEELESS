@@ -39,3 +39,8 @@ body.theme-day .cof .cof-tank b { color: #101a44; } body.theme-day :is(.cof .cof
 body.theme-day .dag { background: #fff; border-color: #a9822a66; } body.theme-day .dag header .dag-n b { color: #3a2a06; text-shadow: none; } body.theme-day .dag header .dag-n small { color: #4a4436; } body.theme-day .dag .dag-n em { color: #8a6a1c; } body.theme-day .dag .cl-cell { background: #fffaf3; }
 
 .dag .cl-scr { min-width: 0; } .dag .cl-view { aspect-ratio: auto; height: clamp(170px, 26dvh, 260px); overflow: hidden; }
+/* 🎩 AGT-13 (owner: "monitors small and layout not organized and clean"): Sicario's two minds' screens are the page's main monitors — full width, tall, stacked when the HQ window is narrow */
+.dag .cwb-stage.agd-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; }
+.dag .cwb-stage.agd-wins > .cwb-win { min-height: clamp(400px, 58vh, 680px); }
+@media (max-width: 1000px) { .dag .cwb-stage.agd-wins { grid-template-columns: minmax(0, 1fr); } .dag .cwb-stage.agd-wins > .cwb-win { aspect-ratio: auto; min-height: 0; height: clamp(300px, 42vh, 420px); } }   /* stacked: twice as wide, never a screen-tall box */
+.dag .ck-vitals > .ck-now { display: none; }   /* 🎩 AGT-13: its screen above already says what it is reading; the card keeps status, steps, spend and the site */

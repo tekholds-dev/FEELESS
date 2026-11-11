@@ -2,8 +2,10 @@
 .agd.is-sic { --m-accent: #e7c36a; position: relative; border-color: #e7c36a44; background: radial-gradient(80% 40% at 50% 0%, #e7c36a14, transparent 70%), #060507; }
 .agd.is-sic .m-seg button.active, .agd.is-sic [role='tab'][aria-selected='true'] { background: #e7c36a; color: #120d03; }
 .ack-sicmain { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 12px; align-items: start; min-width: 0; } .ack-sicmain > * { min-width: 0; display: grid; gap: 8px; }
-.ack-opencoin { justify-self: start; min-height: 34px; border-color: #e7c36a66; }
+.ack-rhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 0 2px; } .ack-rhead small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #b89a52; }
+.ack-opencoin { min-height: 32px; padding: 0 12px; border-color: #e7c36a66; color: #f3dfa8; font: 700 11.5px var(--f-ui); } .ack-opencoin:hover { border-color: #e7c36a; background: #e7c36a1a; }
 .ack-sicdesk { display: grid; align-content: start; overflow-y: auto; min-height: 0; padding: 8px; }
 .agd.is-sic :is(.ack-seatwrap > *, .ack-deckwrap) { border-color: #e7c36a2e; }
+body.theme-day .ack-rhead small { color: #8a6a1c; } body.theme-day .ack-opencoin { color: #3a2a06; }
 body.theme-day .agd.is-sic { background: #fffaf3; border-color: #a9822a44; } body.theme-day .agd.is-sic .m-seg button.active { background: #8a6a1c; color: #fff; }
 @media (max-width: 900px) { .ack-sicmain { grid-template-columns: minmax(0, 1fr); } }

@@ -59,7 +59,7 @@ export const mcWord = v => (v == null || !Number.isFinite(v) ? '—' : Math.abs(
 const signed = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}$${Math.abs(v) < 1e4 ? Math.abs(v).toFixed(2) : cash(Math.abs(v)).replace('$', '')}`);
 const mins = m => (m == null ? '—' : m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${(m / 1440).toFixed(1)}d`);
 const secs = s => (s == null ? '—' : s < 60 ? `${Math.round(s)}s` : `${Math.round(s / 60)}m`);
-const ago = (at, now = Date.now() / 1000) => { if (!at) return '—'; const s = Math.max(0, Math.round(now - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${(s / 3600).toFixed(1)}h`; };
+const ago = (at, now = Date.now() / 1000) => { if (!at) return '—'; const s = Math.max(0, Math.round(now - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : s < 172800 ? `${(s / 3600).toFixed(1)}h` : `${Math.round(s / 86400)}d`; };   // 🎩 AGT-13: two days and up read in days, never 498434.9h
 const tone = v => (v == null ? '' : v > 0 ? 'm-pos' : v < 0 ? 'm-neg' : '');
 const money2 = v => (v == null ? '—' : Math.abs(v) < 1e4 ? `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}` : cash(v));   // the card's own dollars, to the cent
 const FMT = { usd: money2 };
@@ -767,12 +767,12 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     {/* 💵 ONE sticky strip: the money at a glance + the icon nav; nothing else above the chart. Every other section is a pane behind the nav */}
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
       brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)"><Ic3 e="🧠" /> BRAIN</button>} />
-    {isOwner ? <Suspense fallback={null}><DeskAgentsLazy /></Suspense> : null}
     <div className="ack-topseats" data-testid="ack-topseats">
       <div className={`ack-seatrow n-${seats.length}`}>{seats.map((s, i) => <div key={s.seat} className="ack-seatwrap"><SeatCard s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />{isOwner ? <QuickTrade s={s} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div></div>
+    {isOwner ? <Suspense fallback={null}><DeskAgentsLazy /></Suspense> : null}
     <div className="ack-sicmain">
       <div className="ack-left"><IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
-      <div className="ack-right">{mint ? <button type="button" className="m-btn ack-opencoin" onClick={() => openCoin({ mint, sym: dec?.symbol || model?.symbol })} data-tip="Open this coin's full chart" data-testid="ack-open-chart">Open ${dec?.symbol || model?.symbol || 'coin'} chart</button> : null}<DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+      <div className="ack-right">{mint ? <span className="ack-rhead"><small>THE COIN ON THE DESK</small><button type="button" className="m-btn ack-opencoin" onClick={() => openCoin({ mint, sym: dec?.symbol || model?.symbol })} data-tip="Open this coin's full chart" data-testid="ack-open-chart">📈 ${dec?.symbol || model?.symbol || 'coin'} chart ↗</button></span> : null}<DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
     {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}
