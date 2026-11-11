@@ -15,8 +15,6 @@ import { Ic3 } from '../lib/icon3d';
 const HqDeck = lazy(() => import('./command/HqDeck').then(m => ({ default: m.HqDeck })));
 const OPEN_KEY = 'feeless.hqPop';
 // one tap to the places the creator runs to most (HqDeck listens for feeless:hq-go)
-export const HQ_JUMPS = [['agents', '🎩', "Sicario's", { tab: 'agents' }], ['wallet', '👛', 'Fuse wallet', { tab: 'fuse', panel: 'wallet' }], ['fuse', '⚛', 'Fuse', { tab: 'fuse' }],
-  ['money', '💰', 'Money', { view: 'treasury' }], ['lag', '🩺', 'Lag catcher', { tab: 'latency' }], ['fees', '💲', 'Fees', { tab: 'fees' }], ['collective', '💎', 'Collective HQ', { tab: 'collective' }]];
 // the header's word for what HQ is doing right now — trench talk, read from real requests in flight (never a canned ticker)
 export function hqMood(b) {
   if (!b?.n) return { key: 'idle', icon: '🟢', word: 'LOCKED IN', line: 'standing by' };
@@ -39,19 +37,16 @@ export function useIsCreator() {
 
 function HqPopWindow({ address, signMessage, onClose }) {
   const busy = useHqBusy(); const mood = hqMood(busy);
-  const [at, setAt] = useState('agents');
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape' && !e.defaultPrevented && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) onClose(); };
     document.addEventListener('keydown', onKey); document.body.classList.add('hqp-open');
     return () => { document.removeEventListener('keydown', onKey); document.body.classList.remove('hqp-open'); };
   }, [onClose]);
-  const go = (k, detail) => { setAt(k); window.dispatchEvent(new CustomEvent('feeless:hq-go', { detail })); };
   return createPortal(<div className={`hqp is-${mood.key}`} data-testid="hq-pop" role="dialog" aria-label="HQ">
     <div className="hqp-fx" aria-hidden="true"><i /><i /><i /></div>
     <header className="hqp-bar">
       <span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span>
       <span className="hqp-mood" data-testid="hq-pop-mood" data-mood={mood.key}><b><Ic3 e={mood.icon} /> {mood.word}</b><small>{mood.line}</small></span>
-      <nav className="hqp-jumps" aria-label="HQ shortcuts">{HQ_JUMPS.map(([k, ic, label, detail]) => <button key={k} type="button" className={at === k ? 'active' : ''} onClick={() => go(k, detail)} data-testid={`hq-pop-go-${k}`}><i><Ic3 e={ic} /></i>{label}</button>)}</nav>
       <button type="button" className="hqp-x" onClick={onClose} aria-label="Close HQ" data-testid="hq-pop-close" data-tip="Close (Esc)">✕</button>
     </header>
     <div className="hqp-body"><Suspense fallback={<div className="hqp-load" data-testid="hq-pop-loading"><span className="hqp-mark is-big" aria-hidden="true"><i /><i /><b>HQ</b></span><small>opening HQ…</small></div>}>

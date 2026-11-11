@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import HqPop, { hqMood, HQ_JUMPS } from './HqPop';
+import HqPop, { hqMood } from './HqPop';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: global.__wallet, signMessage: async () => 'sig' }) }));
@@ -19,10 +19,7 @@ test('⚡ only the creator wallet gets the HQ button; one click opens the whole 
   await act(async () => { q('hq-pop-open').click(); }); await tick();
   expect(q('hq-shell').textContent).toBe('HQ for CREATOR on agents');
   expect(q('hq-pop-mood').getAttribute('data-mood')).toBe('idle');
-  const got = []; const on = e => got.push(e.detail); window.addEventListener('feeless:hq-go', on);
-  await act(async () => { q('hq-pop-go-wallet').click(); });
-  expect(got).toEqual([{ tab: 'fuse', panel: 'wallet' }]); expect(q('hq-pop-go-wallet').className).toContain('active');
-  window.removeEventListener('feeless:hq-go', on);
+  expect(q('hq-pop-go-wallet')).toBeNull();   // 🧭 one nav: every tool lives in the HQ sidebar, not a second row in the bar
   expect(document.body.classList.contains('hqp-open')).toBe(true);
   await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
   expect(q('hq-pop')).toBeNull(); expect(document.body.classList.contains('hqp-open')).toBe(false);
@@ -40,5 +37,4 @@ test('the header says what HQ is really doing', () => {
   expect(hqMood({ n: 0 })).toMatchObject({ key: 'idle', word: 'LOCKED IN' });
   expect(hqMood({ n: 1, label: '💵 Top up' })).toMatchObject({ key: 'work', word: 'SENDING IT', line: '💵 Top up' });
   expect(hqMood({ n: 2, slow: true, label: 'Top up' }).key).toBe('slow');
-  expect(HQ_JUMPS.map(j => j[0])).toEqual(['agents', 'wallet', 'fuse', 'money', 'lag', 'fees', 'collective']);
 });

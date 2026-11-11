@@ -48,7 +48,6 @@ import { TreasuryPulse } from './TreasuryPulse';
 import { TAB_INFO } from './ccTabInfo';
 import { FeeCatDesk } from './FeeCatDesk';
 import { CollectiveOwner } from './CollectiveOwner';
-import { MoneyFlows } from './MoneyFlows';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { CardStudio } from '../cards/CardStudio';
 import { IntelDesk } from './IntelDesk';
@@ -105,17 +104,16 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   const [session, setSession] = useState(() => readSession(address));
   const [tab, setTab] = useRemembered('feeless.hq.tab', startTab || 'numbers');   // 🔁 a refresh comes back to the same HQ tab
   // the creator's pop-out (HqPop) jumps between sections from its own header: feeless:hq-go {tab, view, panel}
-  useEffect(() => { const on = e => { const j = e.detail || {}; setGrp(null); if (j.view) { setMoneyView(j.view); setTab('money'); } else if (j.tab) setTab(j.tab);
+  useEffect(() => { const on = e => { const j = e.detail || {}; if (j.view) { setMoneyView(j.view); setTab('money'); } else if (j.tab) setTab(j.tab);
     if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
     window.addEventListener('feeless:hq-go', on); return () => window.removeEventListener('feeless:hq-go', on); }, []);
-  const [grp, setGrp] = useState(null);   // which nav group is open; null = the group of the current tab
-  useEffect(() => { setGrp(null); }, [tab]);
+  const [navOpen, setNavOpen] = useState(false);   // 📱 the sidebar drawer on a phone
   const [moneyView, setMoneyView] = useState('treasury');
   // Old tab ids (treasury, circle, reserve) and header shortcuts all land in the one Money tab, on the right section.
   const openTab = (t, pre) => { setPrefill(pre || null); if (['treasury', 'circle', 'reserve', 'cards'].includes(t)) { setMoneyView(t); setTab('money'); } else setTab(t); };
   const [prefill, setPrefill] = useState(null);
   // search bar: open the tab, then (Fuse) the deck panel once the deck has mounted
-  const jump = j => { setGrp(null); if (j.view) openTab(j.view); else setTab(j.tab); if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
+  const jump = j => { if (j.view) openTab(j.view); else setTab(j.tab); if (j.panel) [80, 500].forEach(ms => setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:fuse-deck-go', { detail: { panel: j.panel } })), ms)); };
   const [sec, setSec] = useState(null);
   const [holders, setHolders] = useState(null);
   const [asset, setAsset] = useState('fee');
@@ -170,8 +168,8 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   // 🗂 six short groups (owner, 2026-10-21: "clean up HQ so I can get to stuff quicker"): ≤ 7 tools each, one line that says what lives there.
-  const TAB_GROUPS = [['Core', ['agents', 'collective', 'money', 'fees', 'latency'], '⚡', 'the real card, the Collective, the treasury, every fee, lag'],
-    ['Build', ['launch', 'fuse', 'familia', 'feecat', 'pools', 'verify'], '🧬', 'launches, Fuse, Familia, FeeCat, pools, coin checks'],
+  const TAB_GROUPS = [['Core', ['agents', 'collective', 'money', 'fuse', 'fees', 'latency'], '⚡', 'the real card, the Collective, the treasury, every fee, lag'],
+    ['Build', ['launch', 'familia', 'feecat', 'pools', 'verify'], '🧬', 'launches, Fuse, Familia, FeeCat, pools, coin checks'],
     ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'ads', 'ideas'], '📈', 'who comes, from where, what they do'],
     ['Holders', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, invites, broadcasts'],
     ['Rewards', ['badges', 'nfts', 'seasons'], '🏅', 'badges, NFT drops, seasons'],
@@ -180,14 +178,33 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
   const TABS = [['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
-  return <div className="cc-shell" data-testid="hq-shell"><HqBusyBar />
-    <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
-      {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
-      <nav className="cc-tabs cc-nav2" data-testid="cc-nav"><HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={jump} />{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
-        return <><div className="m-seg cc-groups" role="tablist" aria-label="HQ sections">{groups.map(([group, ids, ico, blurb]) => <button key={group} type="button" role="tab" aria-selected={cur === group} className={cur === group ? 'active' : ''} onClick={() => setGrp(group)} data-tip={blurb} data-testid={`cc-group-${group.toLowerCase()}`}><b aria-hidden="true">{ico}</b>{group}<i className="m-num">{ids.filter(allowed).length}</i></button>)}</div>
-          <div className="cc-tab-group" key={cur} data-testid="cc-tools"><small>{(groups.find(g => g[0] === cur) || [])[3]}</small>{((groups.find(g => g[0] === cur) || [0, []])[1]).filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)} data-tip={TAB_INFO[id]?.[1] || label}><Icon size={14} />{label}</button>)}</div></>; })()}</nav>
-      <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
-    {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
+  // one distinct mark per tool (the shared lucide icons repeated ⚡ on five tools — noise, not wayfinding)
+  const TAB_ICON = { agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
+    numbers: '📊', traffic: '🚦', pulse: '💓', marketing: '📣', kols: '🎤', ads: '🪧', ideas: '💡', holders: '👥', studio: '🪂', airdrops: '🗓', snapshots: '📸', invites: '✉️',
+    broadcast: '📡', badges: '🏅', nfts: '🖼', seasons: '🏆', investigate: '🕵️', shield: '🛡', overview: '🔐', mod: '🧹', access: '🔑', bugs: '🐞' };
+  const groups = TAB_GROUPS.filter(g => g[1].some(allowed));
+  const label = id => (TABS.find(t => t[0] === id) || [])[1] || id;
+  const curGroup = (TAB_GROUPS.find(g => g[1].includes(tab)) || [])[0] || '';
+  const go = fn => { fn(); setNavOpen(false); };
+  // 🧭 one sidebar, every tool visible under its group (Stripe / Vercel dashboard pattern; owner 2026-11-10: "cluttered per tab and nav"):
+  // was a group bar + a sideways-scrolling tool row + a hero box (three rows of chrome above every tab). Phone: the sidebar is a drawer.
+  return <div className={`cc-shell cc-v2${navOpen ? ' is-nav' : ''}`} data-testid="hq-shell"><HqBusyBar />
+    <aside className="hqs" data-testid="cc-nav" aria-label="HQ navigation">
+      <div className="hqs-top"><b className="trenches-font">HQ</b><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)}</small></div>
+      <HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={j => go(() => jump(j))} />
+      <nav className="hqs-nav">
+        {groups.map(([group, ids, ico, blurb]) => <section key={group} data-testid={`cc-group-${group.toLowerCase()}`}><h6 data-tip={blurb}>{ico} {group}</h6>
+          {ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, lbl]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => go(() => setTab(id))} data-tip={TAB_INFO[id]?.[1] || lbl} data-testid={`cc-tab-${id}`}><i aria-hidden="true">{TAB_ICON[id] || '•'}</i><span>{String(lbl).replace(/ \(\d+\)$/, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim()}</span>{id === 'bugs' && sec?.stats?.openBugs ? <em className="m-num">{sec.stats.openBugs}</em> : null}</button>)}</section>)}
+      </nav>
+    </aside>
+    <button type="button" className="hqs-scrim" aria-label="Close the menu" onClick={() => setNavOpen(false)} tabIndex={navOpen ? 0 : -1} />
+    <main className="hqm">
+      <header className="hqm-head" key={`head-${tab}`}>
+        <button type="button" className="hqm-menu" onClick={() => setNavOpen(true)} aria-label="Open the HQ menu" data-testid="hq-menu" data-tip="Every HQ tool"><span aria-hidden="true">☰</span></button>
+        <div className="hqm-title" data-testid="cc-tab-hero"><small>{curGroup.toUpperCase() || 'HQ'}</small><h3>{TAB_INFO[tab]?.[0] || label(tab)}</h3>{TAB_INFO[tab]?.[1] ? <p>{TAB_INFO[tab][1]}</p> : null}</div>
+        <TreasuryPulse call={call} onOpen={openTab} />
+        <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button>
+      </header>
 
     <TabGuard key={tab} tab={TAB_INFO[tab]?.[0] || tab}>
     {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
@@ -256,13 +273,14 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'pools' && <PoolsPanel call={call} />}
     {tab === 'familia' && (isOwner ? <FamiliaAdmin call={call} /> : <p className="cc-empty">Only the creator wallet runs Familia.</p>)}
     {tab === 'fees' && isOwner ? <ProviderReady call={call} /> : null}
-    {tab === 'fees' && <FeeCategories call={call} Trading={<><MoneyFlows /><FeesPanel call={call} /><FeeBook call={call} /></>} Fuse={<FuseFees call={call} />} />}
+    {tab === 'fees' && <FeeCategories call={call} Trading={<><FeesPanel call={call} /><FeeBook call={call} /></>} Fuse={<FuseFees call={call} />} />}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
       : <div className="cc-bugs">{sortBugs(bugs).map(b => <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em className={`sev sev-${SEVERITY[b.kind]?.[0] ?? 1}`}>{SEVERITY[b.kind]?.[1] || b.kind}</em><b>{b.text}</b>{b.count > 1 && <span className="cc-bug-count" data-tip={`Same crash on the same page, reported ${b.count}× (last ${new Date((b.lastAt || b.at) * 1000).toLocaleString()})`}>×{b.count}</span>}{b.fixNote && <small className="cc-bug-fix">✓ {b.fixNote}</small>}<small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
     </TabGuard>
+    </main>
   </div>;
 }
 
@@ -700,7 +718,7 @@ function PoolsPanel({ call }) {
   const verify = async () => { setFound(null); try { const d = await (await fetch(`/api/market/pairs/solana/${check.trim()}`)).json(); setFound(d.pairs?.[0] || false); } catch { setFound(false); } };
   return <section className="cc-panel">
     <div className="cc-toolbar"><select value={asset} onChange={e => setAsset(e.target.value)}>{Object.keys(mints).map(k => <option key={k} value={k}>{k.toUpperCase()}</option>)}</select>{mint && <><code className="pool-mint">{mint}</code><button type="button" onClick={() => copy(mint)}>Copy mint</button><button type="button" onClick={() => copy('So11111111111111111111111111111111111111112')}>Copy SOL mint</button></>}</div>
-    <details className="tr-explain" open><summary><Ic3 e="🔒" /> What does "lock" actually lock? (read this first)</summary>
+    <details className="tr-explain"><summary><Ic3 e="🔒" /> What does "lock" actually lock?</summary>
       <ul><li><b>A pool can never be deleted by anyone</b> — once it exists on-chain, anyone can trade it or add to it. Locking is about <b>your deposit</b> (your liquidity position), not the pool.</li>
         <li><b>Locked forever:</b> you can never pull your tokens + SOL back out, but that position keeps earning swap fees and you can claim them anytime. Holders can verify it → rug-proof badge.</li>
         <li><b>Not locked:</b> you keep full control — withdraw your deposit whenever you want, plus the fees. Holders see it can be pulled, so no rug-proof badge and less trust.</li>

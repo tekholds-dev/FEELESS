@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { AgentDesk } from '../components/command/AgentDesk';
 import { RpcKey } from '../components/command/FuseWallet';
 import { D } from '../components/command/__fixtures__/cockpit';
@@ -83,8 +84,9 @@ if (DECK) {
 }
 
 export default function HqHarness() {
-  if (DECK) return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)"><div className="hqp-body">
-    <HqDeck address={FAKE} signMessage={async () => 'dev'} onClose={() => {}} startTab={DECK} /></div></div>;
+  if (DECK) return <MemoryRouter><div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
+    <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
+    <div className="hqp-body"><HqDeck address={FAKE} signMessage={async () => 'dev'} onClose={() => {}} startTab={DECK} /></div></div></MemoryRouter>;
   return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
     <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
     <div className="hqp-body"><div className="cc-shell" data-testid="hq-shell">{window.location.search.includes('rpc') ? <RpcKey call={call} /> : <AgentDesk call={call} isOwner />}</div></div>

@@ -55,12 +55,6 @@ export function TreasuryHub({ call, prefill }) {
   };
   const unit = asset === 'USDC' ? 'USDC' : 'SOL';
   return <section className="cc-panel treasury-hub m-stack" data-testid="treasury-hub">
-    <MoneyFlows />
-    <div className="m-grid">{[
-      ['💸 Where do trading fees go?', <p key="a">Every FEELESS trade carries its own fee transfer inside the transaction the trader signs. Buys pay in SOL into the <b>SOL fee account</b>; USDC trades pay into the <b>USDC fee account</b>. The money lands the moment the trade confirms — no claiming, no middleman.</p>],
-      ['🏦 Fee accounts vs treasury vs reserves vs Circle', <p key="b"><b>Fee accounts</b>: where fees arrive (your wallet owns them). <b>Treasury destinations</b>: where you send fees on (split plan). <b>Season reserve / badge pools</b>: SOL shared with badge holders. <b>Circle wallets</b>: custodial ops wallets, separate from fees.</p>],
-      ['🔀 How a split works', <p key="c">Pick the asset and amount, review each cut, press Split. It's simulated first, you approve once, and the server re-reads every transaction on-chain and records only what moved. Auto-splitting would need a server-held key — FEELESS never has one.</p>],
-    ].map(([t, body]) => <details key={t} className="m-card m-details"><summary className="m-label">{t}</summary>{body}</details>)}</div>
     <div className="m-card"><div className="m-label">READY TO SPLIT</div>
       <ul className="pulse-checks">{checks.map(([t, ok, how]) => <li key={t} className={ok ? 'ok' : 'bad'}><i>{ok ? '✓' : '!'}</i><span><b>{t}</b>{!ok && <small>{how}</small>}</span></li>)}</ul></div>
     <div className="m-grid">
