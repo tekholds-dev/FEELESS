@@ -74,6 +74,16 @@ export const EVM_CHAINS = {
   unichain: { chainId: '0x82', chainName: 'Unichain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.unichain.org'], blockExplorerUrls: ['https://uniscan.xyz'] },
   worldchain: { chainId: '0x1e0', chainName: 'World Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://worldchain-mainnet.g.alchemy.com/public'], blockExplorerUrls: ['https://worldscan.org'] },
 };
+// Wallet extensions (Phantom, Trust…) never answer on a plain-http page that isn't localhost — e.g. this Mac's LAN address
+// http://10.0.0.104:51367 — so connect would wait forever. Returns the same page on localhost, or null when the page is secure.
+export const insecureWalletPage = () => {
+  if (typeof window === 'undefined' || window.isSecureContext !== false) return null;
+  const { port, pathname, search, hash } = window.location;
+  return { localUrl: `http://localhost${port ? `:${port}` : ''}${pathname}${search}${hash}` };
+};
+const INSECURE_MSG = 'Wallets only connect on a secure address. Open this page on localhost (same computer) or over https.';
+const CONNECT_TIMEOUT_MS = 90000;
+const withTimeout = promise => Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('Your wallet did not answer. Open it, unlock it, and try again.')), CONNECT_TIMEOUT_MS))]);
 export const ecoOf = chain => (chain === 'solana' ? 'solana' : EVM_CHAINS[chain] ? 'evm' : null);
 export const networkLabel = hex => Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(hex || '').toLowerCase())?.[1].chainName || (hex ? `Chain ${parseInt(hex, 16)}` : null);
 // Wallets disagree on what signMessage returns: Uint8Array, ArrayBuffer, number[], a Node-style
@@ -103,6 +113,8 @@ export const WalletProvider = ({ children }) => {
   const walletRef = useRef(wallet);
   useEffect(() => { walletRef.current = wallet; }, [wallet]);
   const connect = async (type, brand, opts = {}) => {
+    if (insecureWalletPage()) throw Object.assign(new Error(INSECURE_MSG), { code: 'INSECURE' });
+    if (type !== 'evm') type = 'solana';   // bare connect() from a door (agent desk, Rep, Rewards…) means Phantom/Solana, never the EVM branch
     if (!brand && opts.silent) brand = brandOf(provider);
     if (brand === 'walletconnect') {
       const { connectWalletConnect } = await import('../lib/reownWalletConnect');
@@ -132,7 +144,7 @@ export const WalletProvider = ({ children }) => {
     if (brand && !pairedProvider(brand, type)) throw new Error(`Your ${walletName(provider, wallet?.chain)} doesn't expose a ${type === 'solana' ? 'Solana' : 'EVM'} account in this browser — enable it in the wallet's settings.`);
     if (!p) throw new Error(type === 'solana' ? 'No Solana wallet found. Phantom, Trust Wallet, Solflare and Backpack all work — enable Solana in your wallet.' : 'No EVM wallet detected in this browser.');
     if (type === 'solana') {
-      const result = await p.connect(opts.silent ? { onlyIfTrusted: true } : undefined);
+      const result = await withTimeout(p.connect(opts.silent ? { onlyIfTrusted: true } : undefined));
       if (!result.publicKey) throw new Error('No wallet account was returned.');
       const nextWallet = { name: walletName(p, 'solana'), chain: type, address: result.publicKey.toString() };
       try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
@@ -141,7 +153,7 @@ export const WalletProvider = ({ children }) => {
       setProvider(p);
       return { wallet: nextWallet, provider: p };
     } else {
-      const accounts = await p.request({ method: 'eth_requestAccounts' });
+      const accounts = await withTimeout(p.request({ method: 'eth_requestAccounts' }));
       if (!accounts?.[0]) throw new Error('No wallet account was returned.');
       let evmChainId = await p.request({ method: 'eth_chainId' }).catch(() => null);
       const want = opts.chain && EVM_CHAINS[opts.chain];

@@ -16,6 +16,7 @@ jest.mock('./ui/dialog', () => ({
 jest.mock('../hooks/useWallet', () => ({
   useWallet: () => globalThis.__mobileWalletContext,
   detectWallets: () => globalThis.__detectMobileWallets(),
+  insecureWalletPage: () => globalThis.__insecureWalletPage || null,
   EVM_CHAINS: {},
   networkLabel: () => '',
   signWith: jest.fn(),
@@ -38,6 +39,7 @@ afterEach(() => {
   delete window.phantom;
   delete globalThis.__mobileWalletContext;
   delete globalThis.__detectMobileWallets;
+  delete globalThis.__insecureWalletPage;
   if (window.__previousUserAgent) Object.defineProperty(window.navigator, 'userAgent', window.__previousUserAgent);
   delete window.__previousUserAgent;
   getChatSession.mockReset();
@@ -81,4 +83,18 @@ test('desktop retains the existing direct install choices', async () => {
   expect(host.querySelector('[data-testid="wallet-install-phantom"]')).not.toBeNull();
   expect(host.querySelector('[data-testid="wallet-mobile-connect-solana"]')).toBeNull();
   await act(async () => { root.unmount(); });
+});
+
+test('a plain-http LAN address shows why wallets cannot connect and links the same page on localhost', async () => {
+  setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130');
+  globalThis.__detectMobileWallets = () => [{ brand: 'phantom', label: 'Phantom', types: ['solana'] }];
+  globalThis.__insecureWalletPage = { localUrl: 'http://localhost:51367/terminal/feecat/agents' };
+  const connect = jest.fn();
+  globalThis.__mobileWalletContext = { wallet: null, connect, disconnect: jest.fn(), switchTo: jest.fn(), linkCandidate: null, linkAccounts: jest.fn() };
+  const { host, root } = await mount({ open: true, onClose: jest.fn() });
+  expect(host.querySelector('[data-testid="wallet-insecure"]')).not.toBeNull();
+  expect(host.querySelector('[data-testid="wallet-open-localhost"]').getAttribute('href')).toBe('http://localhost:51367/terminal/feecat/agents');
+  expect(host.querySelector('[data-testid="wallet-connect-phantom"]')).toBeNull();
+  expect(connect).not.toHaveBeenCalled();
+  await act(async () => root.unmount());
 });
