@@ -20,7 +20,6 @@ body.theme-day .cll { color: #101a44; } body.theme-day .cll-gates p { color: #3a
 .cll-hero .cll-hint, .cll-hero .cll-empty { left: clamp(16px, 4vw, 48px); translate: none; bottom: 22px; font: 700 10px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: #a5a0c9; white-space: normal; max-width: min(46%, 380px); }
 @media (max-width: 640px) { .cll-hero .cll-title { max-width: 72%; top: 44px; } .cll-hero .cll-title p { display: none; } .cll-hero .cll-theme { bottom: 14px; left: 12px; right: auto; justify-items: start; } .cll-hero .cll-hint, .cll-hero .cll-empty { left: auto; right: 12px; bottom: 22px; max-width: 46%; text-align: right; } }
 body.theme-day .cll-inwin { color: #1a1033; }
-.grw { display: grid; gap: 10px; min-width: 0; padding: 12px; border-radius: 14px; border: 1px solid #ffffff17; background: #060611; } .grw-x { font: 500 11px var(--f-ui); opacity: .7; } .grw-up { color: #3ee58a; } .grw-dn { color: #ff8fa3; }
 @keyframes cllStep { from { opacity: 0; transform: translateY(5px); } }
 .cll-nav { display: flex; min-width: 0; } .cll-nav .m-seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; } .cll-nav button { min-height: 34px; white-space: nowrap; }
 .cll-view { min-height: 0; min-width: 0; overflow: auto; scrollbar-width: thin; animation: cllIn .2s ease-out both; } .cll-view.is-print { overflow: hidden; }

@@ -1,3 +1,4 @@
+from fnum import nan_none as _f
 """🎭 PROMPT STUDIO (owner, 2026-10-22: "context prompts and suggested prompts for all models — 3 auto-generated ELITE SUPREME PERSONAS and
 DEGEN TRENCH prompts for each model, so if G4 or OSSY's trading style isn't working we can have prompts auto-tuned to fix the mindset:
 quick, but patient when in profit — rush is good and progressive"). Pure + tested; the service reads the records, the router applies.
@@ -19,13 +20,6 @@ RUNNER_AFTER = 40.0                  # a coin that ran +40 % after the sale = a 
 QUICK_MIN = 15.0                     # the card's law: holds under 15 min lose
 MIN_N = 5                            # fewer closed trades = too few to judge a habit
 
-
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else None
-    except (TypeError, ValueError):
-        return None
 
 
 def _med(xs):

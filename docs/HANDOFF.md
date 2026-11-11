@@ -1,15 +1,29 @@
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
-> ## 🔁 PICK UP HERE (2026-11-11 ~01:30, session ran out of usage)
-> **Pushed to main, all gates green (frontend 2162, backend 3436, build ok). Not checked in a browser yet.** Next: `bash scripts/start-backend.sh` if auto-pull did not restart, then check each item in Chrome.
-> - Desktop widgets column stays above the taskbar (deskWidgets.css `.dwg` bottom + inner scroll). Faint snap grid `DeskGrid` on every desk (DeskShell.jsx, deskShell.css `.dsk-grid`), landing cell lights while dragging; spots already persist.
-> - GitHub folder HTTP 500 fixed: kit_fresh's pins file sat in KITS_DIR and `collective_kits.rows` read it as a kit (test in test_kits.py). Live only after restart.
-> - Showcase: 16:9 stage that fits (`.pdr-frame`), `ShowStart` start bar under every preview (shown page's own ask prefilled, ready chips, Start ▸). "Start something" tab + rail Start button removed, dead CSS stripped.
-> - 🎬 Showcase ads: `show_ads.py` + op `show_ads` (ownerStaff only) + GET `/api/cats/{id}/showad/{kind}` (owner gate, `dl=1` download). Run it from Happy's desk: Features › Showcase › any proof › "Its ad" › Have this agent make the ads. One build at a time, stops before $1.25 (owner approved $1.25 on Happy). Records 1280×720 webm via Playwright. NOT run live yet.
-> - 🪞 Voice mirror: `voice_mirror.py` learns from each owner message (ws_build/ask/poc/pob/pop), persona `mirror` 0–3 adds a prompt line; UI in Its mind › persona card "Talks like you".
-> - 🧪 Model Lab folder on Fee's owner desk (`ModelLab.jsx`, `modelLab.css`): plan for FEELESS's own model, honest "not started" states, editable name (localStorage).
-> **2026-11-11:** auto code reload shipped (keep-alive.sh `code_reload`, run-feeless.sh → start-backend.sh + background.sh; auto-pull defers to it). Owner must re-run his command ONCE to switch. Browser check + ad job + styling sweep blocked: Claude in Chrome not connected, built-in pane has no wallet.
-> **Still open from the owner's last ask:** degen styling sweep of every agents/collective folder and tab (not done), "WOW" pass; run the ad job and check the 6 videos; then owner tests (Showcase full screen, Social tiles) → real-money AGT-25, then SITE-14.
+> ## 🔁 PICK UP HERE (2026-11-11 ~03:15, overnight run while the owner slept; he tests real money when he wakes)
+> **All pushed to main, gates green. Backend reloads itself now** — never ask him to restart: his command starts `keep-alive.sh`, which reloads
+> changed backend .py once they sit 15 s, compile, and 5088 `/api/cats/health` says `busy: 0` (log `/tmp/feeless-keepalive.log`). Frontend: refresh.
+> **Checked live in his Chrome (signed in):** Showcase 16:9 + start bar, desk grid, widgets above taskbar, GitHub folder (500 gone), every Happy folder.
+> - 🎬 Ads (Happy, ~$0.25 of the $1.25 cap): 4 of 6 good — PoStatic, PoW (3D, needed `three.core.js` allowed), PoB, PoC. PoP + PoEco still
+>   crash in the cheap model's own code after 3 builds each (`null.setAttribute`, Motion keyframe array); the Motion kit now names that error.
+>   Fix: Features › Showcase › PoP / PoEco › Its ad › ↻ Redo this ad (spend stays counted), or give Happy's PoStatic minds a stronger model first
+>   (his choice: Brains › BY PROOF). Recorder: ffmpeg, press-play, [hidden] kept hidden, preview's kit lock, ONE fix pass, `page error` not blank.
+> - 🧪 Model Lab (Fee's owner desk › 👑 OWNER › FEE desktop › Model Lab): LIVE — 140 rows / 46 pairs from the stash, 8 open proofs to grade
+>   (👍/👎/skip + why), the minds' real record (calls, fail %, speed, $), ⬇ scrubbed .jsonl export. `model_lab.py` (pure) + `rep_model_lab.py` (3 owner routes).
+> - 🔒 Fixed: visitors saw live screens of sites the owner is signed in to (`_signed_host` existed, was never called); chart tooltip put others'
+>   names into innerHTML; deps critical 2→0, high 96→46 (rest listed in commit a1efcfe2: build-only, major-locked, or no fix exists).
+> - 🎨 Theme recolor: his red theme only swapped #15d16a → green-red-green buttons, #45e486 (1,452 uses) stayed green, HQ's late sheet stayed
+>   green. Now the 6 brand shades follow the theme by hue (price-up greens never change) and late sheets are recolored as they load.
+> - 🧹 Clean: dead CSS 0, unused exports 0 (23 icon wrappers, PlanBars, GrowthCalc chain), dead files 2 (contracts.py = tests' data contracts, rpf.py = his Real Project Finder, never wired: his call),
+>   39 helper copies → `fnum`, one useOnScreen / Meteora loader / sec-headers middleware, agents.py alias + 6 dead files gone.
+>   `.pdr-frame` → `.pdr-fit` (nothing on the Showcase stage was clickable), desk windows clip (a focus hid the title bar), Debate's empty floor is a stage.
+> **Owner decides (not touched, money paths):** dead but tested money/trading defs — fuse_vault.shares_for_deposit, cat_fund.credit_open,
+> reserve_pool.route_split, collective_pool.book_result / pays_for_itself, family_world.family_fuse_ok / paid_hit_payout, runners.failed_gates,
+> arena_prime.cool_left, trench_kernel.lifecycle.has_authority: wire or delete. fabric 6→7 (moves object origins; advisory not reachable).
+> **Known race (not fixed, core store):** a long job that `keep_owned(cat)` with a cat loaded before the owner moved a desk icon puts the old
+> `deskIcons` back (`_KEPT` re-applies OWNER_KEYS on every `_save`). Client now pushes unsynced spots on load; the server side needs per-key
+> versions in `_KEPT`. Lag catcher's portfolio 3.5 s / theme 1.3 s were cold-start reads after restarts (warm: 3–9 ms).
+> **Next:** his real-money tests AGT-25 → SITE-14; then the race above; `rpf.py` decision; SITE-5 slices (reputation_service is 33k lines).
 
 > ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
 > **Blockers (owner):** 2026-11-10 keys: NEW Helius key (SOLANA_RPC_URL) works live; HELIUS_RPC_URL + _4 still "max usage reached", _3 = 401, Tatum + OnFinality + Alchemy 429. Fixed: `helius_key()` now skips spent keys, Helius's "max usage reached" parks the lane, FeeCat balance reads use the live lane. Pasted notes moved into real names (backup `.env.bak-keys7`): new Jupiter key → JUPITER_API_KEY_2 (price + quote 200), Brave ×2 → BRAVE_API_KEY/_2 (200), SnapTrade PERS → SNAPTRADE_CLIENT_ID/CONSUMER_KEY. Crypto.com pair in the note = 40101 auth failure (left unassigned). Claude in Chrome not connected from the app.

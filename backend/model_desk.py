@@ -4,16 +4,10 @@ tested; the service feeds it what LM Studio (`GET /api/v1/models`), the router's
 MCP server really report. Nothing here is guessed: a field the source does not give is None and the screen says so.
 """
 import re
+from fnum import nan_none as _f
 
 SAMPLING = ('temperature', 'top_k', 'top_p', 'min_p', 'repeat_penalty', 'presence_penalty', 'frequency_penalty', 'seed')
 
-
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else None
-    except (TypeError, ValueError):
-        return None
 
 
 def _q(xs, q):

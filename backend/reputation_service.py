@@ -28862,6 +28862,7 @@ async def _portfolio_build(a):
 
 # ---- Image proxy for coin logos whose hosts forbid cross-site embedding ------------------------
 from fastapi.responses import Response as _Resp
+from fnum import zero as _num_or_0
 _img_cache = {}
 
 
@@ -29009,12 +29010,6 @@ class EdgeObservation(BaseModel):
     score: float
     priceUsd: float
 
-
-def _num_or_0(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 def _edge_price_ok(sent, live):

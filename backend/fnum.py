@@ -5,6 +5,7 @@ finite   — float(v); NaN, ±inf / not a number → d
 plain    — float(v); not a number → d (NaN and inf pass)
 zero     — float(v or 0); not a number → 0.0
 or_none  — float(v); not a number → d (None by default)
+nan_none — float(v); NaN / not a number → None
 """
 import math
 
@@ -38,3 +39,7 @@ def zero(v):
 
 def or_none(v, d=None):
     return plain(v, d)
+
+
+def nan_none(v):
+    return nan_safe(v, None)

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Sankey, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 // 📊 Money charts (owner 2026-11-05: free libraries, never hand-drawn): shadcn/ui charts on Recharts. Loaded only when a money screen opens.
 const FMT = v => (Math.abs(v) >= 100 ? `$${Math.round(v).toLocaleString()}` : `$${Number(v).toFixed(2)}`);
@@ -15,10 +15,6 @@ function FlowLink({ sourceX, targetX, sourceY, targetY, sourceControlX, targetCo
 const FlowTip = ({ active, payload }) => { const p = payload?.[0]?.payload?.payload; if (!active || !p) return null; const link = p.source && p.target; return <div className="mch-tip"><b>{link ? `${p.source.name} → ${p.target.name}` : p.name}</b><em className="m-num">{FMT(p.value)}</em></div>; };
 // 🌱 As FEELESS grows: what one send ends up, against how much everyone else swaps. One line per number of senders; above the zero line it is ahead.
 const GROW_COLORS = ['#3ee58a', '#8fb7ff', '#c58bff']; const bigUsd = v => (v >= 1e6 ? `$${v / 1e6}M` : v >= 1e3 ? `$${v / 1e3}K` : `$${v}`);
-export function GrowthLines({ g, testid = 'growth-lines' }) {
-  const rows = g.rows.map(r => ({ ...r, x: r.swaps ? bigUsd(r.swaps) : 'None' })); const vals = rows.flatMap(r => g.senders.map(n => r[`s${n}`])); const lo = Math.min(0, ...vals); const hi = Math.max(0, ...vals);
-  return <div className="mch-profit" data-testid={testid} role="img" aria-label={`What a ${g.send} dollar send ends up as swaps grow`}><ResponsiveContainer width="100%" height={230}><LineChart data={rows} margin={{ top: 10, right: 14, bottom: 2, left: 0 }}><CartesianGrid stroke="#ffffff10" vertical={false} /><XAxis dataKey="x" tick={{ fill: '#8f9bb8', fontSize: 10 }} tickLine={false} axisLine={{ stroke: '#ffffff22' }} /><YAxis domain={[lo * 1.1, hi * 1.1 || 1]} width={50} tick={{ fill: '#8f9bb8', fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v < 0 ? '−' : '+'}$${Math.abs(v) >= 100 ? Math.round(Math.abs(v)) : Math.abs(v).toFixed(1)}`} /><Tooltip contentStyle={{ background: '#070b12', border: '1px solid #ffffff2b', borderRadius: 10, fontSize: 12 }} labelFormatter={l => `Swaps a day: ${l}`} formatter={(v, n) => [`${v < 0 ? 'Short' : 'Ahead'} $${Math.abs(Number(v)).toFixed(2)}`, `${Number(String(n).slice(1)).toLocaleString()} senders`]} /><ReferenceLine y={0} stroke="#ffc24d" strokeDasharray="5 5" label={{ value: 'Even', position: 'insideTopLeft', fill: '#ffc24d', fontSize: 10 }} />{g.senders.map((n, i) => <Line key={n} type="monotone" dataKey={`s${n}`} stroke={GROW_COLORS[i]} strokeWidth={2} dot={{ r: 3, strokeWidth: 0, fill: GROW_COLORS[i] }} isAnimationActive={false} />)}</LineChart></ResponsiveContainer><p className="mch-keys">{g.senders.map((n, i) => <span key={n}><i style={{ background: GROW_COLORS[i] }} />{n.toLocaleString()} senders</span>)}</p></div>;
-}
 // 🧮 What comes back, day by day, against what was sent. One axis; the dashed line is the send.
 export function ProfitLines({ p, testid = 'profit-lines' }) {
   const rows = p.series.map(r => ({ day: r.day, back: r.back, total: Number((r.back + r.pot).toFixed(4)) }));
@@ -43,12 +39,6 @@ export function MoneyFlow({ rows, colors, height = 300, testid = 'money-flow', l
   return <div className="mch-flow" style={{ height }} data-testid={testid} role="img" aria-label={label}><ResponsiveContainer width="100%" height="100%"><Sankey data={data} node={<FlowNode />} link={<FlowLink />} nodeWidth={8} nodePadding={26} iterations={32} sort={false} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}><Tooltip content={<FlowTip />} /></Sankey></ResponsiveContainer></div>;
 }
 const axis = { tickLine: false, axisLine: false, tickMargin: 6, fontSize: 10 };
-export function PlanBars({ c, testid = 'cs-bars' }) {
-  const lock = 100 - c.skimPct; const row = (name, n) => ({ name, back: lock * c[`${n}Back`] / 100, later: lock * (100 - c[`${n}Back`]) / 100, now: c.skimPct, vault: 0 });
-  const data = [row('1 week', 'week'), row('30 days', 'month'), row('90 days', 'quarter'), { name: 'Vault', back: 0, later: 0, now: c.skimPct, vault: lock }];
-  const cfg = { back: { label: 'Back to the agent', color: '#3ee58a' }, later: { label: 'Collective, later', color: '#2f7fd6' }, now: { label: 'Collective, now', color: '#57c7ff' }, vault: { label: 'Vault', color: '#c58bff' } };
-  return <div data-testid={testid}><ChartContainer config={cfg} className="aspect-auto h-[190px] w-full"><BarChart data={data} layout="vertical" margin={{ left: 0, right: 8 }}><CartesianGrid horizontal={false} strokeOpacity={0.12} /><XAxis type="number" domain={[0, 100]} tickFormatter={v => `$${v}`} {...axis} /><YAxis type="category" dataKey="name" width={58} interval={0} {...axis} /><ChartTooltip content={<ChartTooltipContent formatter={(v, n) => <><span className="mch-tn">{cfg[n]?.label}</span><b className="m-num">{FMT(v)}</b></>} />} />{Object.keys(cfg).map(k => <Bar key={k} dataKey={k} stackId="a" fill={`var(--color-${k})`} barSize={14} />)}<ChartLegend content={<ChartLegendContent />} /></BarChart></ChartContainer></div>;
-}
 // The year example: its lines, a marker on the chosen day.
 export function YearLines({ rows, series, at, label }) {
   const cfg = Object.fromEntries(series.map(([k, l, color]) => [k, { label: l, color }])); const data = rows.map((r, i) => ({ ...r, day: i * 10 }));

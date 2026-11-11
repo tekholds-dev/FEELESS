@@ -6,6 +6,7 @@ Pure and tested: the service holds the store, the clock and the network.
 """
 import json
 import re
+from fnum import zero as _f
 
 STAKE = 50             # free chips on every proof
 LOCK_MARGIN_S = 90     # a market about to lock is not offered: the stake could miss it
@@ -20,12 +21,6 @@ SYS = ('You are {name}, one of two independent minds filing a PoB (Proof of Bid)
 COMMANDS = [('file a bid', 'Each mind reads sites in its own browser, then calls a live market on the bid board. If they agree, it bids free chips and that market\'s result grades the proof')]
 _START = re.compile(r'(?i)^\s*(?:/pob|pob|proof of bids?|(?:file|start|run|do|place)\s+(?:a\s+|the\s+)?(?:pob|bid))\s*$')
 
-
-def _f(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 # 🏈 A PoB ON A TOPIC (owner 2026-11-04: "best choices for nfl bidding, with snapshots of espn and other major sites"). The same loop as a PoW: read real sources, keep snapshots, both minds call blind,
