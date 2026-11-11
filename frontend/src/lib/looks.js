@@ -10,6 +10,14 @@ export const FREE_LOOKS = {
   neon: { id: 'neon', name: 'Neon Grid', ambient: 'neon', tokens: { bg: '#02060b', s1: '#061019', s2: '#0a1826', line: '#0d3340', lineHi: '#00a8b8', text: '#e6fbff', dim: '#86aebd', accent: '#00f0ff', hi: '#6ff7ff', deep: '#00b8d4', tail: '#ff2bd6', tint: '#a8fbff', dark: '#00788a', ink: '#00141a', third: '#faff00', logoHue: 45 } },
   holo: { id: 'holo', name: 'Holo Chrome', ambient: 'holo', tokens: { bg: '#06080d', s1: '#0d121c', s2: '#141b29', line: '#26324a', lineHi: '#5a6f99', text: '#f3f7ff', dim: '#a3b1c8', accent: '#8fd3ff', hi: '#b6e3ff', deep: '#6fb6f0', tail: '#c7a6ff', tint: '#ffc6ec', dark: '#4f86b8', ink: '#0d1020', third: '#ffc6ec', logoHue: 59 } },
 };
+// 🎩 ELITE EDITION (owner 2026-11-11): grown-up looks for everyone; wearing one also sets <html data-edition="elite"> (line icons, plain display type, no ambient blobs)
+export const ELITE_LOOKS = {
+  obsidian: { id: 'obsidian', name: 'Obsidian', ambient: 'obsidian', tier: 'elite', tokens: { bg: '#0a0a0a', s1: '#121212', s2: '#1a1a1a', line: '#262626', lineHi: '#4a4a4a', text: '#ededed', dim: '#8f8f8f', accent: '#ffb000', hi: '#ffc640', deep: '#e09a00', tail: '#ff8a00', tint: '#ffd98a', dark: '#a87300', ink: '#0a0a0a', third: '#4aa3ff', logoHue: -95, edition: 'elite' } },
+  carbon: { id: 'carbon', name: 'Carbon', ambient: 'carbon', tier: 'elite', tokens: { bg: '#0b0c0e', s1: '#111216', s2: '#17181d', line: '#23252b', lineHi: '#3d404a', text: '#f7f8f8', dim: '#8a8f98', accent: '#5e6ad2', hi: '#7c86e8', deep: '#4a55c0', tail: '#8b93ff', tint: '#b4baf5', dark: '#3a438f', ink: '#ffffff', third: '#26b5ce', logoHue: 75, edition: 'elite' } },
+  titanium: { id: 'titanium', name: 'Titanium', ambient: 'titanium', tier: 'elite', tokens: { bg: '#0f0f11', s1: '#1c1c1e', s2: '#2c2c2e', line: '#38383a', lineHi: '#636366', text: '#f5f5f7', dim: '#98989d', accent: '#0a84ff', hi: '#409cff', deep: '#0071e3', tail: '#64d2ff', tint: '#a8d4ff', dark: '#0058b0', ink: '#ffffff', third: '#64d2ff', logoHue: 55, edition: 'elite' } },
+  ledger: { id: 'ledger', name: 'Ledger', ambient: 'ledger', tier: 'elite', tokens: { bg: '#0b0f15', s1: '#111823', s2: '#18212f', line: '#243042', lineHi: '#3d4f6b', text: '#ebeef3', dim: '#8d98a9', accent: '#c9a86a', hi: '#dcc08a', deep: '#b08f52', tail: '#e3cf9f', tint: '#efe2c2', dark: '#8a6f3d', ink: '#0b0f15', third: '#7fa7d9', logoHue: -110, logoSat: 0.55, edition: 'elite' } },
+};
+export const LOCAL_LOOKS = { ...FREE_LOOKS, ...ELITE_LOOKS };
 export const LOOK_KEY = 'feeless.look';
 
 // Plasma's own colours, as the sheets write them → which token of the new look takes each one
@@ -34,6 +42,8 @@ export function applyLook(look) {
   const root = document.documentElement; const t = look?.tokens;
   const VARS = { '--m-bg': 'bg', '--m-surface': 's1', '--m-surface-2': 's2', '--m-line': 'line', '--m-line-hi': 'lineHi', '--m-text': 'text', '--m-dim': 'dim', '--m-accent': 'accent', '--m-accent-ink': 'ink',
     '--ink': 'bg', '--mint': 'accent', '--look-hi': 'hi', '--look-tail': 'tail', '--look-third': 'third' };
+  if (t?.edition === 'elite') root.dataset.edition = 'elite'; else delete root.dataset.edition;
+  window.dispatchEvent(new Event('feeless:edition'));
   if (!t || look.id === 'plasma') { [...Object.keys(VARS), '--logo-hue', '--logo-sat'].forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); return; }
   for (const [k, v] of Object.entries(VARS)) root.style.setProperty(k, t[v]);
   root.style.setProperty('--logo-hue', `${t.logoHue ?? 145}deg`); root.style.setProperty('--logo-sat', String(t.logoSat ?? 1.15));   // the green logo art wears this look's accent (CSS hue-rotate is not linear: each look carries its measured angle)
@@ -41,5 +51,5 @@ export function applyLook(look) {
   remapSite(lookMap(t));
 }
 
-export function localLook() { try { const k = localStorage.getItem(LOOK_KEY); return FREE_LOOKS[k] || null; } catch { return null; } }
-export function keepLocalLook(id) { try { if (FREE_LOOKS[id]) localStorage.setItem(LOOK_KEY, id); } catch { /* private window: it still applies for this visit */ } }
+export function localLook() { try { const k = localStorage.getItem(LOOK_KEY); return LOCAL_LOOKS[k] || null; } catch { return null; } }
+export function keepLocalLook(id) { try { if (LOCAL_LOOKS[id]) localStorage.setItem(LOOK_KEY, id); } catch { /* private window: it still applies for this visit */ } }

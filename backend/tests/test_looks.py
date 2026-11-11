@@ -4,7 +4,7 @@ import looks as lk
 
 def test_free_looks_for_anyone_and_advanced_palettes_only_when_unlocked():
     locked = {r['id']: r for r in lk.catalog(False)}; open_ = {r['id']: r for r in lk.catalog(True)}
-    assert lk.DEFAULT == 'plasma' and set(locked) == set(lk.LOOKS) and len(locked) == 8
+    assert lk.DEFAULT == 'plasma' and set(locked) == set(lk.LOOKS) and len(locked) == 12   # 4 free + 4 elite (open) + 4 advanced
     for k in ('plasma', 'molten', 'neon', 'holo'):
         assert not locked[k]['locked'] and locked[k]['tokens']['accent'].startswith('#')
     for k in ('aurora', 'bloodmoon', 'vapor', 'ghost'):
@@ -16,5 +16,12 @@ def test_free_looks_for_anyone_and_advanced_palettes_only_when_unlocked():
 def test_every_look_has_the_whole_token_set_and_no_old_green():
     need = {'bg', 's1', 's2', 'line', 'lineHi', 'text', 'dim', 'accent', 'hi', 'deep', 'tail', 'tint', 'dark', 'ink', 'third'}
     for k, (_n, _t, _l, _a, t) in lk.LOOKS.items():
-        assert set(t) - {'logoHue', 'logoSat'} == need and isinstance(t['logoHue'], int), k   # each look carries its measured logo angle
+        assert set(t) - {'logoHue', 'logoSat', 'edition'} == need and isinstance(t['logoHue'], int), k   # each look carries its measured logo angle
         assert '#15d16a' not in t.values() and '#45e486' not in t.values()
+
+
+def test_the_elite_edition_is_open_to_everyone_and_marks_its_edition():
+    import looks
+    elite = [l for l in looks.catalog(False) if l['tier'] == 'elite']
+    assert {l['id'] for l in elite} == {'obsidian', 'carbon', 'titanium', 'ledger'} and all(not l['locked'] and l['tokens']['edition'] == 'elite' for l in elite)
+    assert looks.wear('ledger', False)['tokens']['edition'] == 'elite' and looks.wear('ghost', False) is None   # advanced stays locked

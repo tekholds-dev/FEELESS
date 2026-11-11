@@ -5,7 +5,7 @@ and a third light for the ambient layer. PLASMA is the default. The four FREE lo
 or not). The ADVANCED looks' colour sets are sent only to wallets that unlocked them (FEELESS staff, or $1,000+ held across $FEE coins), so
 they are not in the public bundle to lift. Everyone sees their name, line and four swatches."""
 
-FREE, HOLDER = 'free', 'holder'
+FREE, HOLDER, ELITE = 'free', 'holder', 'elite'   # ELITE (owner 2026-11-11: "grown man options, no kiddy cartoon") is open to everyone
 
 # id: (name, tier, line, ambient, tokens). logoHue = the CSS hue-rotate (measured by eye, 2026-11-11) that turns the green logo art into the look's accent
 LOOKS = {
@@ -33,6 +33,14 @@ LOOKS = {
     'ghost': ('Ghost', HOLDER, 'Monochrome glass: white light on graphite, nothing but form and motion.', 'ghost',
               {'bg': '#0a0a0c', 's1': '#141418', 's2': '#1c1c22', 'line': '#2c2c34', 'lineHi': '#5c5c6a', 'text': '#fafafa', 'dim': '#a6a6b0',
                'accent': '#f5f5f7', 'hi': '#ffffff', 'deep': '#d0d0d8', 'tail': '#9a9aa8', 'tint': '#e8e8ee', 'dark': '#77777f', 'ink': '#0a0a0c', 'third': '#ffffff', 'logoHue': 0, 'logoSat': 0}),
+    'obsidian': ('Obsidian', ELITE, 'Terminal black, amber signal. The trading-desk look: dense, calm, every number first.', 'obsidian',
+               {'bg': '#0a0a0a', 's1': '#121212', 's2': '#1a1a1a', 'line': '#262626', 'lineHi': '#4a4a4a', 'text': '#ededed', 'dim': '#8f8f8f', 'accent': '#ffb000', 'hi': '#ffc640', 'deep': '#e09a00', 'tail': '#ff8a00', 'tint': '#ffd98a', 'dark': '#a87300', 'ink': '#0a0a0a', 'third': '#4aa3ff', 'logoHue': -95, 'edition': 'elite'}),
+    'carbon': ('Carbon', ELITE, 'Graphite and one indigo line. Quiet surfaces, sharp type, nothing that moves without a reason.', 'carbon',
+               {'bg': '#0b0c0e', 's1': '#111216', 's2': '#17181d', 'line': '#23252b', 'lineHi': '#3d404a', 'text': '#f7f8f8', 'dim': '#8a8f98', 'accent': '#5e6ad2', 'hi': '#7c86e8', 'deep': '#4a55c0', 'tail': '#8b93ff', 'tint': '#b4baf5', 'dark': '#3a438f', 'ink': '#ffffff', 'third': '#26b5ce', 'logoHue': 75, 'edition': 'elite'}),
+    'titanium': ('Titanium', ELITE, 'Space grey and system blue. Pro hardware calm: frosted panels, clean edges, clear numbers.', 'titanium',
+               {'bg': '#0f0f11', 's1': '#1c1c1e', 's2': '#2c2c2e', 'line': '#38383a', 'lineHi': '#636366', 'text': '#f5f5f7', 'dim': '#98989d', 'accent': '#0a84ff', 'hi': '#409cff', 'deep': '#0071e3', 'tail': '#64d2ff', 'tint': '#a8d4ff', 'dark': '#0058b0', 'ink': '#ffffff', 'third': '#64d2ff', 'logoHue': 55, 'edition': 'elite'}),
+    'ledger': ('Ledger', ELITE, 'Private-bank navy and champagne gold. Old money on a new rail.', 'ledger',
+               {'bg': '#0b0f15', 's1': '#111823', 's2': '#18212f', 'line': '#243042', 'lineHi': '#3d4f6b', 'text': '#ebeef3', 'dim': '#8d98a9', 'accent': '#c9a86a', 'hi': '#dcc08a', 'deep': '#b08f52', 'tail': '#e3cf9f', 'tint': '#efe2c2', 'dark': '#8a6f3d', 'ink': '#0b0f15', 'third': '#7fa7d9', 'logoHue': -110, 'logoSat': 0.55, 'edition': 'elite'}),
 }
 DEFAULT = 'plasma'
 
@@ -40,7 +48,7 @@ DEFAULT = 'plasma'
 def allowed(look_id, eligible):
     """May this wallet wear it? Free looks: anyone. Advanced: only an unlocked wallet."""
     row = LOOKS.get(look_id)
-    return bool(row) and (row[1] == FREE or bool(eligible))
+    return bool(row) and (row[1] in (FREE, ELITE) or bool(eligible))
 
 
 def catalog(eligible):

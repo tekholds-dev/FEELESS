@@ -205,7 +205,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
       <HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={j => go(() => jump(j))} />
       <nav className="hqs-nav">
         {groups.map(([group, ids, ico, blurb]) => <section key={group} data-testid={`cc-group-${group.toLowerCase()}`}><h6 data-tip={blurb}>{ico} {group}</h6>
-          {ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, lbl]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => go(() => setTab(id))} data-tip={TAB_INFO[id]?.[1] || lbl} data-testid={`cc-tab-${id}`}><i aria-hidden="true">{TAB_ICON[id] || '•'}</i><span>{String(lbl).replace(/ \(\d+\)$/, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim()}</span>{id === 'bugs' && sec?.stats?.openBugs ? <em className="m-num">{sec.stats.openBugs}</em> : null}</button>)}</section>)}
+          {ids.filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, lbl]) => <button key={id} type="button" className={tab === id ? 'active' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => go(() => setTab(id))} data-tip={TAB_INFO[id]?.[1] || lbl} data-testid={`cc-tab-${id}`}><i aria-hidden="true"><Ic3 e={TAB_ICON[id] || '•'} size="1.05em" /></i><span>{String(lbl).replace(/ \(\d+\)$/, '').replace(/\p{Extended_Pictographic}\uFE0F?/gu, '').trim()}</span>{id === 'bugs' && sec?.stats?.openBugs ? <em className="m-num">{sec.stats.openBugs}</em> : null}</button>)}</section>)}
       </nav>
     </aside>
     <button type="button" className="hqs-scrim" aria-label="Close the menu" onClick={() => setNavOpen(false)} tabIndex={navOpen ? 0 : -1} />

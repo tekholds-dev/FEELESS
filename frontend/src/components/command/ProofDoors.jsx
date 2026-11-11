@@ -30,11 +30,29 @@ const K = n => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : Strin
 const num = v => +String(v).replace(/,/g, '');
 const levOf = kits => { const m = kits.flatMap(k => k.fresh || []).map(x => String(x).match(/^(\w+) mark \$([\d,.]+): 3x long \$([\d,.]+) \/ short \$([\d,.]+), 10x long \$([\d,.]+) \/ short \$([\d,.]+)/)).find(Boolean); return m ? { sym: m[1], mark: num(m[2]), l3: num(m[3]), s3: num(m[4]), l10: num(m[5]), s10: num(m[6]) } : null; };
 const Wait = ({ what }) => <p className="dbt-none">{what}</p>;
-// ⛏ The real chart its best trade was made on, and the real pictures of what it read before buying.
+// ⛏ Its best REAL trade (owner 2026-11-11: "do sumn more meta"): the verdict and its real numbers on top, the real chart, what the two
+// minds said before buying, and the sites it read, each labelled. Every number is the filed folder's own; a missing one is left out.
+const held = s => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : s >= 60 ? `${Math.round(s / 60)}m` : `${Math.round(s)}s`);
+const pxs = v => (v >= 1 ? v.toFixed(4) : v >= 0.001 ? v.toFixed(6) : Number(v).toPrecision(3));
 function TradeDemo({ t }) {
   if (!t?.pair?.pairAddress) return <p className="dbt-none" data-testid="pdr-no-trade">No real trade yet. Its first one shows here on its real chart.</p>;
-  const q = agentAuthQuery();
-  return <div className="pdr-demo" data-testid="pdr-trade"><div className="pdr-chart"><Suspense fallback={<Wait what="Loading its chart…" />}><TrenchChart key={t.pair.pairAddress} pair={t.pair} defaultInterval="1m" tools={false} tape={false} /></Suspense></div>{t.files?.length ? <ul className="pdr-film" aria-label="Sites it read before buying">{t.files.map(f => <li key={f.file} data-tip={`It read ${f.site}`}><img src={apiUrl(`/api/cats/${t.cat}/powshot/${t.id}/${f.file}?${q}`)} alt={f.site} loading="lazy" onError={e => { e.currentTarget.parentElement.style.display = 'none'; }} /></li>)}</ul> : null}</div>;
+  const q = agentAuthQuery(); const win = Number(t.pnl) >= 0; const line = (t.line || []).filter(v => v > 0);
+  const exit = line.length ? line[line.length - 1] : null; const hold = t.boughtAt && t.soldAt ? Number(t.soldAt) - Number(t.boughtAt) : null;
+  const stats = [
+    t.sol != null && ['SIZE', `${Number(t.sol).toFixed(3)} SOL`, 'What it put into the pool'],
+    t.pnlSol != null && ['P/L', `${Number(t.pnlSol) >= 0 ? '+' : ''}${Number(t.pnlSol).toFixed(4)} SOL`, 'Money back minus money in, fees apart'],
+    hold != null && hold > 0 && ['HELD', held(hold), 'From its buy to its sell'],
+    Number(t.entry) > 0 && ['ENTRY', pxs(Number(t.entry)), 'Its fill price'],
+    exit && ['EXIT', pxs(exit), 'The last price on its watch'],
+    t.tp != null && ['TAKE', `+${Number(t.tp)}%`, 'The take-profit it set before buying'],
+    t.sl != null && ['STOP', `-${Math.abs(Number(t.sl))}%`, 'The stop it set before buying'],
+  ].filter(Boolean);
+  return <div className="pdr-demo pdr-best" data-testid="pdr-trade">
+    <div className="pdr-best-head"><span className={`pdr-best-verdict ${win ? 'is-win' : 'is-loss'}`} data-tip="The filed result of this real trade, fees apart"><small>BEST REAL TRADE · ${t.sym}</small><b className="m-num">{win ? '+' : ''}{Number(t.pnl).toFixed(1)}%</b></span>
+      <span className="pdr-best-kv">{stats.map(([k, v, tip], i) => <span key={k} style={{ '--i': i }} data-tip={tip}><em>{k}</em><b className="m-num">{v}</b></span>)}</span></div>
+    <div className="pdr-chart"><Suspense fallback={<Wait what="Loading its chart…" />}><TrenchChart key={t.pair.pairAddress} pair={t.pair} defaultInterval="1m" tools={false} tape={false} /></Suspense></div>
+    {t.why || t.talk?.length ? <div className="pdr-best-why">{t.why ? <p><em>WHY IT BOUGHT</em>{t.why}</p> : null}{(t.talk || []).slice(-2).map((m, i) => <p key={i}><em>{m.by || 'MIND'}</em>{m.text}</p>)}</div> : null}
+    {t.files?.length ? <ul className="pdr-film" aria-label="Sites it read before buying">{t.files.map(f => <li key={f.file} data-tip={`It read ${f.site}`}><img src={apiUrl(`/api/cats/${t.cat}/powshot/${t.id}/${f.file}?${q}`)} alt={f.site} loading="lazy" onError={e => { e.currentTarget.parentElement.style.display = 'none'; }} /><small>{f.site}</small></li>)}</ul> : null}</div>;
 }
 // 📉 Real candles (TradingView Lightweight Charts) with where 3x and 10x die, from the Leverage Math kit's live numbers.
 function PerpDemo({ kits }) {
