@@ -1,3 +1,4 @@
+import { toggleFull } from '../../lib/fullView';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
@@ -266,6 +267,6 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
       <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>
         {k === 'pos' && counts ? <p className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</p> : null}
         <button type="button" className="m-btn m-go pdr-go" onClick={() => (p.open ? onOpen?.(p.open) : p.make ? onMake?.(p.make) : onCommand?.(p.cmd))} data-tip={p.open ? 'Opens its window' : p.make ? 'Makes its folder' : `Tells it: ${p.cmd}. ${priceTip(prices?.[k])}`} data-testid="pdr-go">{p.go}{cost ? <small className="pdr-go-cost" data-testid="pdr-go-cost">{cost}</small> : null}</button></aside>
-      <div className="pdr-stage" data-testid="pdr-stage">{stage()}</div>
+      <div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div>
     </section></div>;
 }

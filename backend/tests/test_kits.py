@@ -321,3 +321,16 @@ def test_a_minds_search_words_stay_plain_and_only_real_names_count(tmp_path):
     rows_ = {r['name']: r for r in ck.proposed_rows(tmp_path)}
     assert rows_['aaa']['minds']['OSSY'] == {'use': True, 'why': 'Useful'} and rows_['bbb']['minds']['OSSY']['use'] is False and 'minds' not in rows_['ccc']
 
+
+
+def test_a_page_keeps_its_kit_after_the_kit_version_moves(monkeypatch):
+    """2026-11-11: kit_fresh moved three 0.170.0 → 0.187.0 and every older 3D page went dark (its own files no longer matched the lock).
+    A page loads its kit's files at the version it was built with; nothing else gets through."""
+    import collective_kits as k
+    monkeypatch.setitem(k.KIT_USE, 'three', {**k.KIT_USE['three'], 'tags': [t.replace('three@0.170.0', 'three@0.187.0') for t in k.KIT_USE['three']['tags']]})
+    old = ('<html><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'"></head><body><script type="importmap">'
+           '{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}'
+           '</script><script src="https://cdn.jsdelivr.net/npm/evil@1.0.0/x.js"></script></body></html>')
+    rule = k.open_for_kits(old)
+    assert 'three@0.170.0/build/three.module.js' in rule and 'three@0.170.0/examples/jsm/' in rule
+    assert 'evil@1.0.0' not in rule.split('Content-Security-Policy')[1].split('>')[0]

@@ -314,9 +314,24 @@ def _kit_urls(picks=None):
     return {u for p in rows for tag in KIT_USE[p]['tags'] for u in re.findall(r'https://[^"\s]+', tag)}   # an import map's address counts too: it was left out, so a 3D page's own three.js was blocked
 
 
+def _kit_hits(h, picks=None):
+    """The kit files this page really carries, at WHATEVER version it was built with (2026-11-11: kit_fresh moved three 0.170.0 → 0.187.0
+    and every page built before that lost its 3D scene: its exact-version files no longer matched and were blocked). Same host, same
+    package, same file path — only the version may differ. Pure."""
+    out = set()
+    for u in _kit_urls(picks):
+        if u in h:
+            out.add(u); continue
+        v = re.search(r'@\d+(?:\.\d+){0,3}', u)
+        if v:
+            pat = re.escape(u[:v.start() + 1]) + r'\d+(?:\.\d+){0,3}' + re.escape(u[v.end():])
+            out.update(m.group(0) for m in re.finditer(pat, h))
+    return out
+
+
 def open_for_kits(html, picks=None):
     """Every built page is locked so it can load nothing (`ai_play.lock_html`), which also blocked its own kits: pages came out unstyled with their scripts dead. This lets through only the exact kit files the page really carries, and only of the picked kits when picks are given. Everything else stays blocked by the browser. Pure. → html"""
-    h = str(html or ''); on = sorted(u for u in _kit_urls(picks) if u in h)
+    h = str(html or ''); on = sorted(_kit_hits(h, picks))
     if not on:
         return h
     sheets = [u for u in on if u.endswith('.css')]; code = [u for u in on if not u.endswith('.css')]
