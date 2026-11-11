@@ -7160,6 +7160,34 @@ def _feed_detail(v):
     return ''
 
 
+_OR_CREDIT: dict = {}   # cat id → (at, row): the agent's own OpenRouter balance, read at most once a minute
+
+
+async def _or_credit(cat):
+    """The REAL $ its own OpenRouter key can still spend: the account's credits − usage, capped by the key's own limit. None = no key / no read."""
+    key_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    if not key_:
+        return None
+    hit = _OR_CREDIT.get(cat.get('id'))
+    if hit and time.time() - hit[0] < 60:
+        return hit[1]
+    row = None
+    try:
+        async with httpx.AsyncClient(timeout=6) as h_:
+            c_, k_ = await asyncio.gather(h_.get('https://openrouter.ai/api/v1/credits', headers={'Authorization': f'Bearer {key_}'}),
+                                          h_.get('https://openrouter.ai/api/v1/key', headers={'Authorization': f'Bearer {key_}'}))
+        if c_.status_code == 200:
+            d_ = c_.json().get('data') or {}; left = float(d_.get('total_credits') or 0) - float(d_.get('total_usage') or 0)
+            kd = (k_.json().get('data') or {}) if k_.status_code == 200 else {}
+            cap = kd.get('limit_remaining')
+            row = {'left': round(min(left, float(cap)) if cap is not None else left, 4), 'account': round(left, 4), 'keyLimit': kd.get('limit'),
+                   'keyUsed': round(float(kd.get('usage') or 0), 4), 'at': round(time.time())}
+    except (httpx.HTTPError, ValueError):
+        row = None
+    _OR_CREDIT[cat.get('id')] = (time.time(), row)
+    return row
+
+
 _BRIEF: dict = {}
 
 
@@ -10994,6 +11022,7 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
     out['cat']['printPublic'] = _print.public(_print.build(cat, time.time()))   # 🧬 a level: never what is in it
     if mine:   # 🧠 the record each mind has by topic is its owner's
         out['cat']['mindBoard'] = _pl.mind_board(cat)
+        out['cat']['orCredit'] = await _or_credit(cat)   # 💳 owner 2026-11-11: the desk said $5.55 (its model credit) while it really thinks on its OpenRouter balance
         out['cat']['payRoute'] = _route_words(cat)   # 💳 AGT-1: who really pays for its thinking, in call order (the desk names the first)
         out['cat']['liveKeys'] = _al.owner_view(cat.get('liveKeys'))   # 🔴 whether each channel is set, never the key
         out['cat']['nameLeftS'] = _nl.left_s(cat.get('nameLock'))

@@ -437,7 +437,9 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
   return <section className="paper-panel lct-brains" data-testid="brain-panel">
     <div className="paper-panel-head"><div><span className="eyebrow"><Ic3 e="🧠" /> BRAINS · {b.brainMode?.toUpperCase()}</span><h2>{b.brains.map(x => x.split('/').pop()).join(' + ')}</h2></div><Panther size={56} gesture={cat.status === 'running' ? 'purr' : 'sleep'} /></div>
     <div className="lct-vitals">
-      <span><small>CREDIT LEFT</small><b className="fl-tick" key={left}>{fmtUsd(left)}</b><i className="lct-tank"><em style={{ transform: `scaleX(${Math.min(1, left / start)})` }} /></i></span>
+      {cat.orCredit ? <span data-tip="Read live from its own OpenRouter key: your account's credits minus usage (capped by the key's own limit if it has one). Refreshes every minute." data-testid="brain-or-credit">
+        <small>OPENROUTER LEFT</small><b className="fl-tick" key={cat.orCredit.left}>{fmtUsd(cat.orCredit.left)}</b><small>{fmtUsd(cat.orCredit.keyUsed)} used on its key</small></span>
+      : <span><small>CREDIT LEFT</small><b className="fl-tick" key={left}>{fmtUsd(left)}</b><i className="lct-tank"><em style={{ transform: `scaleX(${Math.min(1, left / start)})` }} /></i></span>}
       <span><small>DECISIONS</small><b className="fl-tick" key={b.asks}>{b.asks || 0}</b><small>{fmtUsd(b.spent || 0)} spent</small></span>
       <span><small>OWED</small><b className={b.owed > 0 ? 'negative' : ''}>{fmtUsd(b.owed || 0)}</b><small>{b.billing === 'profit' ? 'paid from winning sales' : 'pay as you go'}</small></span>
       <span><small>MODEL FEES PAID</small><b>{fmtUsd(cat.brainFeesUsd || 0)}</b><small>apart from P/L</small></span>

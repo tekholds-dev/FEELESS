@@ -329,7 +329,7 @@ def create_market_router(db, intelligence=None):
             queue = requests[provider]
             while queue and monotonic() - queue[0] > 60:
                 queue.popleft()
-            if monotonic() < cooldown.get(key, 0) or len(queue) >= 240:
+            if monotonic() < cooldown.get(key, 0) or monotonic() < cooldown.get(('prov', provider), 0) or len(queue) >= 240:
                 error = 'Provider refresh limit reached. Try again in a minute.'
             else:
                 queue.append(monotonic())
@@ -343,8 +343,15 @@ def create_market_router(db, intelligence=None):
                     await db.market_cache.update_one({'key': key}, {'$set': {
                         'data': _mongo_safe(data), 'fetched_at': fetched, 'provider': provider}}, upsert=True)
                     return data, provider_meta(provider, fetched)
-                except (httpx.HTTPError, ValueError):
+                except (httpx.HTTPError, ValueError) as e:
                     cooldown[key] = monotonic() + 45
+                    code = getattr(getattr(e, 'response', None), 'status_code', 0)
+                    if code in (403, 429):   # 🧯 owner 2026-11-11: pump.fun 403'd 190× in 10 min (every page, every 45 s). A refusal pauses the whole provider.
+                        try:
+                            wait = float(e.response.headers.get('retry-after') or 0)
+                        except (TypeError, ValueError):
+                            wait = 0
+                        cooldown[('prov', provider)] = monotonic() + (900 if code == 403 else max(120, min(wait, 900)))
                     error = f'{provider} is temporarily unavailable.'
             if hit:
                 return hit['data'], provider_meta(provider, hit['fetched_at'], stale=True, error=error)

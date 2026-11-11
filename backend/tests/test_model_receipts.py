@@ -73,3 +73,17 @@ def test_an_agent_on_its_own_key_still_works_with_feeless_key_removed(monkeypatc
     monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **_k: 'sk-own' if cat.get('id') == 'happy' and prov == 'openrouter' else None)
     assert fs._work_live({'id': 'happy'}) is True
     assert fs._work_live({'id': 'other'}) is False and fs._work_live() is False
+
+
+def test_the_desk_reads_its_real_openrouter_balance_through_its_own_key(monkeypatch):
+    class H:
+        def __init__(self, **_k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_a): return False
+        async def get(self, url, **_k):
+            return _R(200, {'data': {'total_credits': 20, 'total_usage': 8.085}} if 'credits' in url else {'data': {'limit': None, 'limit_remaining': None, 'usage': 3.2}})
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', H); fs._OR_CREDIT.clear()
+    monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **_k: 'sk-own' if cat.get('id') == 'happy' else None)
+    row = asyncio.run(fs._or_credit({'id': 'happy'}))
+    assert row['left'] == 11.915 and row['keyUsed'] == 3.2
+    assert asyncio.run(fs._or_credit({'id': 'other'})) is None

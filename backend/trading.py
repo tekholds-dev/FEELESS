@@ -463,8 +463,8 @@ class TradingService:
     async def _sol_now(self):
         """Today's SOL/USD (30s cache) — only ever used for rows still waiting for their own moment's price."""
         hit = self._sol_hist.get('now')
-        if hit and time.time() - hit[0] < 30:
-            return hit[1]
+        if hit and time.time() - hit[0] < 30 or time.time() < self._sol_hist.get('wait', 0):
+            return hit[1] if hit else 0.0   # 🧯 a refused read waits a minute instead of retrying on every call
         try:
             r = await self.http.get(f'https://lite-api.jup.ag/price/v3?ids={SOL_MINT}', timeout=4)
             px = float((r.json().get(SOL_MINT) or {}).get('usdPrice') or 0)
@@ -472,6 +472,8 @@ class TradingService:
             px = 0.0
         if px > 0:
             self._sol_hist['now'] = (time.time(), px)
+        else:
+            self._sol_hist['wait'] = time.time() + 60
         return px or (hit[1] if hit else 0.0)
 
     async def sol_usd_at(self, ts):

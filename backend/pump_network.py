@@ -194,8 +194,8 @@ class PumpNetwork:
 
     # ---- helpers for API + market fallbacks -------------------------------------------------
     async def sol_price(self):
-        if self.sol_usd and time.time() - self._sol_at < 30:
-            return self.sol_usd
+        if self.sol_usd and time.time() - self._sol_at < 30 or time.time() < getattr(self, '_sol_wait', 0):
+            return self.sol_usd   # 🧯 a refused read waits a minute (it used to retry both Jupiter hosts on every call while they 429'd)
         sol = 'So11111111111111111111111111111111111111112'
         key = (__import__('jup_keys').read_key(os.environ) or '').strip()   # 🔑 a read: never the keeper's quote key
         # Keyed Jupiter first (the free lite endpoint is shared and often rate-limited).
@@ -208,6 +208,8 @@ class PumpNetwork:
                     break
                 except Exception:
                     continue
+            else:
+                self._sol_wait = time.time() + 60
         return self.sol_usd
 
     def pair_for(self, address, sol_usd):
