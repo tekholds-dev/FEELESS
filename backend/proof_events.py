@@ -211,6 +211,64 @@ def history(path, kind, ref):
     return rows
 
 
+def recent(path, cat, since=0.0, limit=30):
+    """🔔 The desk's bell: one agent's newest steps (any proof), newest first. Read only; no data body beyond a short label."""
+    c = _db(path)
+    try:
+        rows = [_row(r) for r in c.execute(f'SELECT {_COLS} FROM events WHERE cat = ? AND at > ? ORDER BY at DESC LIMIT ?', (str(cat), float(since or 0), int(limit)))]
+    finally:
+        c.close()
+    def detail(d):
+        d = d or {}
+        if d.get('verdict'):
+            return f"{d['verdict']}{' ' + str(d['score']) + '/100' if d.get('score') is not None else ''}"
+        if d.get('graded'):
+            return str(d['graded'])
+        if d.get('score') is not None:
+            return f"{d['score']}/100"
+        return str(d.get('label') or d.get('name') or d.get('sym') or '')[:40]
+    return [{'at': r['at'], 'kind': r['kind'], 'ref': r['ref'], 'event': r['event'], 'detail': detail(r['data']), 'bad': (r['data'] or {}).get('verdict') == 'fail' or (r['data'] or {}).get('graded') == 'wrong'} for r in rows]
+
+
+BRIEF_KINDS = ('pow', 'pop', 'pob', 'poc', 'pos', 'poe')
+
+
+def brief(path, now=None):
+    """📰 The daily proofs brief, from the record itself (no model, no guess): per proof type, what was filed in 24 h and 7 d, how the other
+    minds reviewed it (pass rate, average score) and how it graded. The ranking rewards proofs that pass review and actually get graded right;
+    a type with nothing reviewed this week cannot top it. Pure on the file's rows."""
+    from pathlib import Path
+    now = now or time.time(); out = {k: {'kind': k, 'filed24': 0, 'filed7': 0, 'reviews': 0, 'passed': 0, 'scoreSum': 0, 'right': 0, 'wrong': 0} for k in BRIEF_KINDS}
+    if Path(path).exists():
+        c = _db(path)
+        try:
+            for kind, event, at, data in c.execute('SELECT kind, event, at, data FROM events WHERE at > ?', (now - 7 * 86400,)):
+                r = out.get(kind)
+                if not r:
+                    continue
+                d = json.loads(data or '{}')
+                if event == 'file':   # when it was really filed (the record was backfilled on 2026-11-09/10, so `at` alone says "today" for old proofs)
+                    when = float(d.get('filedAt') or at)
+                    if when > now - 7 * 86400:
+                        r['filed7'] += 1; r['filed24'] += int(when > now - 86400)
+                elif event == 'review' and d.get('score') is not None:
+                    r['reviews'] += 1; r['scoreSum'] += float(d['score']); r['passed'] += int(d.get('verdict') == 'pass')
+                elif event == 'grade':
+                    r['right'] += int(d.get('graded') == 'right'); r['wrong'] += int(d.get('graded') == 'wrong')
+        finally:
+            c.close()
+    rows = []
+    for r in out.values():
+        avg = round(r['scoreSum'] / r['reviews']) if r['reviews'] else None
+        pass_pct = round(100 * r['passed'] / r['reviews']) if r['reviews'] else None
+        graded = r['right'] + r['wrong']; right_pct = round(100 * r['right'] / graded) if graded else None
+        heat = (0 if avg is None else avg) * 0.5 + (0 if right_pct is None else right_pct) * 0.3 + min(r['filed7'], 20) + 5 * min(r['filed24'], 4)
+        rows.append({'kind': r['kind'], 'filed24': r['filed24'], 'filed7': r['filed7'], 'reviews': r['reviews'], 'avgScore': avg, 'passPct': pass_pct,
+                     'right': r['right'], 'wrong': r['wrong'], 'rightPct': right_pct, 'heat': round(heat, 1) if r['reviews'] else 0})
+    rows.sort(key=lambda x: -x['heat'])
+    return {'rows': rows, 'best': rows[0]['kind'] if rows and rows[0]['heat'] > 0 else None, 'at': now}
+
+
 # ---- the watcher: folder state the service saved → the events it implies --------------------------------------------------
 
 def _sent_of(v):

@@ -68,7 +68,7 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
   const load = () => work(cat.id, { op: 'media_models' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message));
   useEffect(() => { if (open) { load(); if (!text && seed) setText(seed.slice(0, 600)); } }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
-  const rows = (d?.models || []).filter(m => m.kind === kind); const pick = model && rows.some(m => m.id === model && m.ready) ? model : d?.pick?.[kind];
+  const rows = (d?.models || []).filter(m => m.kind === kind).sort((a, b) => Number(b.ready) - Number(a.ready)); /* what runs now first */ const pick = model && rows.some(m => m.id === model && m.ready) ? model : d?.pick?.[kind];
   const make = async () => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text, tools: { kind, model: pick } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const makePreset = async x => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: text || seed || '', tools: { preset: x.id } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const making = (doc?.messages || []).filter(m => ['queued', 'running'].includes(m.media?.status)).length;

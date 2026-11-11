@@ -164,6 +164,26 @@ export function BooksDemo({ b }) {
     <ol className="pbk-bars">{b.months.map((m, i) => <li key={m.month} style={{ '--i': i }} data-tip={`${m.month}: in ${usd(m.income)}, out ${usd(m.costs)}, net ${usd(m.net)}`}><span><u className="is-in" style={{ transform: `scaleY(${(m.income || 0) / top})` }} /><u className="is-out" style={{ transform: `scaleY(${(m.costs || 0) / top})` }} /></span><small className="m-num">{m.month}</small><b className="m-num">{usd(m.net)}</b></li>)}</ol>
     {b.taxSetAside != null ? <p className="pbk-tax m-num">TAX SET ASIDE {usd(b.taxSetAside)}</p> : null}</div>;
 }
+// 📰 Today's proofs brief (owner 2026-11-10: "daily proofs update… a quick draw for a summary on best proof types to work in"): straight from
+// the proof record (filed, reviewed by the other minds, graded) and the kits that moved today. No model writes it, so it can't be talked up.
+const BRIEF_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', pos: 'PoStatic', poe: 'PoEco' };
+const BRIEF_DOOR = { pos: 'pos', pow: 'pow', pop: 'pop', pob: 'pob', poc: 'poc', poe: 'poe' };
+export function ProofBrief({ onPick }) {
+  const [b, setB] = useState(null);
+  useEffect(() => { let live = true; fetch(apiUrl('/api/cats/brief/proofs')).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
+  if (!b?.rows?.length) return null;
+  const best = b.rows.find(r => r.kind === b.best); const top = Math.max(1, ...b.rows.map(r => r.filed7));
+  return <section className="pbr" data-testid="proof-brief"><header><b>📰 Today's proofs brief</b><small>from the proof record · {new Date((b.at || 0) * 1000).toLocaleDateString([], { month: 'short', day: 'numeric' })}</small></header>
+    {best ? <p className="pbr-best" data-testid="proof-brief-best"><em>Work in {BRIEF_NAME[best.kind]} today</em> {best.filed7} filed this week{best.avgScore != null ? `, review average ${best.avgScore}/100` : ''}{best.rightPct != null ? `, ${best.rightPct}% graded right` : ''}.</p> : <p className="pbr-best">Nothing reviewed this week yet: every proof starts level.</p>}
+    <ol className="pbr-rows">{b.rows.map((r, i) => <li key={r.kind} className={r.kind === b.best ? 'is-best' : ''} style={{ '--i': i }}><button type="button" onClick={() => onPick?.(BRIEF_DOOR[r.kind])} data-testid={`proof-brief-${r.kind}`}
+      data-tip={`${BRIEF_NAME[r.kind]}: ${r.filed24} filed today, ${r.filed7} this week · ${r.reviews} reviewed${r.passPct != null ? ` (${r.passPct}% passed)` : ''} · graded ${r.right} right / ${r.wrong} wrong`}>
+      <b>{BRIEF_NAME[r.kind]}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${(r.avgScore || 0) / 100})` }} /></u><i>{r.avgScore != null ? `${r.avgScore}` : '–'}</i>
+      <span className="pbr-dots" aria-hidden="true"><s style={{ transform: `scaleX(${r.filed7 / top})` }} /></span><small>{r.filed7} wk{r.rightPct != null ? ` · ${r.rightPct}% right` : ''}</small></button></li>)}</ol>
+    {b.kits?.moved24?.length ? <p className="pbr-kits">🧰 {b.kits.moved24.length} kit{b.kits.moved24.length > 1 ? 's' : ''} updated today: {b.kits.moved24.map(k => `${k.pkg} ${k.prev ? `${k.prev} → ` : ''}${k.v || ''}`).join(' · ')}</p>
+      : <p className="pbr-kits">🧰 {b.kits?.tracked || 0} kits checked daily · none moved today</p>}
+  </section>;
+}
+
 export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos' }) {
   const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k];
   useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
@@ -182,7 +202,7 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     if (now === 'books') return <BooksDemo b={show?.books} />;
     return <p className="dbt-none pdr-wait">Opening it…</p>;
   };
-  return <div className={`pdr is-${k}`} data-testid="pdr">
+  return <div className={`pdr is-${k}`} data-testid="pdr"><ProofBrief onPick={x => { if (x && PROOFS[x]) { setK(x); setOn(''); } }} />
     <nav className="pdr-doors" role="tablist" aria-label="Proof types">{Object.entries(PROOFS).map(([x, v]) => <button key={x} type="button" role="tab" aria-selected={k === x} className={k === x ? 'is-on' : ''} onClick={() => { setK(x); setOn(''); }} data-tip={v.full} data-testid={`pdr-${x}`}><Ic3 e={v.ic} size="24px" /><b>{v.t}</b></button>)}</nav>
     <section className="pdr-main" key={k}>
       <aside className="pdr-rail"><p className="pdr-line">{p.line}</p><ul className="pdr-caps" role="tablist" aria-label={`What ${p.t} can do`}>{caps.map(([id, ic, t, say, thumb, kind], i) => <li key={id} style={{ '--i': i }}><button type="button" role="tab" aria-selected={now === id} className={`${now === id ? 'is-on' : ''}${thumb ? ' has-thumb' : ''}`} onClick={() => setOn(id)} data-tip={say} data-testid={`pdr-cap-${id.replace('piece:', '')}`}>{thumb ? <img src={thumb} alt="" loading="lazy" /> : <Ic3 e={ic} size="22px" />}<b>{t}</b>{kind ? <small className={`is-${kind}`}>{KIND_WORD[kind] || 'SITE'}</small> : null}</button></li>)}</ul>

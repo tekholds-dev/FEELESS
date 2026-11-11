@@ -192,7 +192,7 @@ body.theme-day .dfw-tile { background: #ffffffc4; border-color: #0000001f; box-s
 /* ⚡ Measured on the real PoW folder: 26 fps scrolling, 60 with this block. The page under a desktop stops painting, a window behind stops animating, and no filter repaints while a list scrolls. */
 body.dsk-open .app-content > :not(section), body.dsk-open #root > :not(.app-content) { content-visibility: hidden; }
 .dsk-win { contain: layout style; } .dsk-body { contain: paint; }
-.dsk-win:not(.is-top) * { animation-play-state: paused !important; }
+.dsk-win:not(.is-top) * { animation-duration: 0s !important; animation-delay: 0s !important; }   /* a window behind another stops its loops but never freezes an entrance at frame one (paused left fade-ins invisible, 2026-11-10) */
 .dsk-body :is(.dsk-ico-art em, .dsk-file em, .prg) { filter: none; }
 .dsk-body .dsk-ico-art { box-shadow: inset 0 1px 0 #ffffff40; }
 /* 🗂 Fitting its folders */
@@ -237,3 +237,28 @@ body.fx-lite .dsk-alerts { animation: none; } @media (prefers-reduced-motion: re
 @media (prefers-reduced-motion: reduce) { .dsk-dots .dsk-tiles { transition: none; } }
 body.fx-lite .dsk-dots .dsk-tiles { transition: none; }
 body.theme-day .dsk-dots .dsk-tiles { background: #fff; border-color: #0000001f; } body.theme-day .dsk-dots .dsk-tiles button { background: #0000000a; } body.theme-day .dsk-tiles i { border-color: #0d2a1b; } body.theme-day .dsk-tiles i::after { background: #0d2a1b; }
+
+/* 🔔 DeskBell (DeskShell.jsx): the taskbar bell, its list and the corner toast. Built on m-* tokens; one keyframe set (dbl*). */
+.dbl { position: relative; display: inline-flex; }
+.dbl-btn { position: relative; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; border: 1px solid var(--m-line, #ffffff1f); background: #ffffff0a; color: var(--m-text, #eafff3); cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.dbl-btn svg { width: 17px; height: 17px; fill: currentColor; } .dbl-btn:hover { transform: translateY(-1px); border-color: #45e486; } .dbl-btn:active { transform: scale(.94); } .dbl-btn:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.dbl-btn.is-on { background: #45e486; color: #04110a; border-color: #45e486; } .dbl-btn.has-new svg { animation: dblRing 2.4s ease-in-out infinite; transform-origin: 50% 10%; }
+.dbl-btn em { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 99px; display: grid; place-items: center; background: #ff8fa3; color: #1a0508; font: 800 9.5px var(--f-mono); font-style: normal; box-shadow: 0 0 0 2px #070b09; }
+.dbl-pop { position: absolute; right: 0; bottom: calc(100% + 10px); z-index: 60; width: min(340px, calc(100vw - 24px)); max-height: min(60vh, 440px); overflow-y: auto; scrollbar-width: thin; padding: 10px; border-radius: 16px; border: 1px solid #45e48644; background: #07100bf5; box-shadow: 0 22px 50px -18px #000c, inset 0 1px 0 #ffffff12; animation: dblIn .16s ease-out; transform-origin: bottom right; }
+.dbl-pop header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 2px 4px 8px; } .dbl-pop header b { font: 800 12px var(--f-ui); } .dbl-pop header small { font: 700 10px var(--f-mono); color: #9db4a6; }
+.dbl-pop ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.dbl-pop li button, .dbl-toast { width: 100%; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; padding: 8px; border-radius: 11px; border: 1px solid transparent; background: #ffffff07; color: inherit; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.dbl-pop li { animation: dblIn .22s both; animation-delay: calc(var(--i, 0) * 40ms); } .dbl-pop li button:hover { background: #45e4861a; border-color: #45e48655; } .dbl-pop li button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.dbl-pop li i, .dbl-toast i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; font-style: normal; font: 800 12px var(--f-mono); background: #45e48622; color: #45e486; }
+.dbl-pop li.is-look i, .dbl-toast.is-look i { background: #f5c45122; color: var(--gold, #f5c451); } .dbl-pop li.is-new button { border-color: #45e48633; }
+.dbl-pop li b, .dbl-toast b { display: block; font: 700 12px/1.3 var(--f-ui); } .dbl-pop li small, .dbl-toast small { font: 600 10px var(--f-mono); color: #9db4a6; }
+.dbl-none { margin: 4px; font: 500 12px/1.45 var(--f-ui); color: #9db4a6; }
+.dbl-toast { position: fixed; right: 18px; bottom: 64px; z-index: 70; width: min(320px, calc(100vw - 24px)); border-color: #45e48655; background: #07100bf5; box-shadow: 0 18px 40px -16px #000d; animation: dblToast .28s ease-out; }
+.dbl-toast.is-look { border-color: #f5c45166; }
+@keyframes dblIn { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@keyframes dblToast { from { opacity: 0; transform: translateY(14px); } }
+@keyframes dblRing { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(14deg); } 90% { transform: rotate(-12deg); } 95% { transform: rotate(6deg); } }
+body.fx-lite :is(.dbl-pop, .dbl-pop li, .dbl-toast, .dbl-btn.has-new svg) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.dbl-pop, .dbl-pop li, .dbl-toast, .dbl-btn.has-new svg) { animation: none; } .dbl-btn, .dbl-pop li button { transition: none; } }
+body.theme-day .dbl-pop, body.theme-day .dbl-toast { background: #fff; color: #10241a; border-color: #0f7a4333; } body.theme-day :is(.dbl-pop li small, .dbl-toast small, .dbl-pop header small, .dbl-none) { color: #3b5246; }
+@media (max-width: 640px) { .dbl-pop { position: fixed; right: 12px; left: 12px; width: auto; bottom: 64px; } .dbl-toast { right: 12px; left: 12px; width: auto; } }

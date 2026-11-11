@@ -6708,6 +6708,55 @@ def _media_resume(cat_id, doc):
                 return
 
 
+_FEED: dict = {}   # 🔔 cat id → newest media results (made / failed), for the desk's bell; proof steps come from proof_events
+
+
+def _feed_push(cat_id, item):
+    q = _FEED.setdefault(cat_id, []); q.insert(0, {**item, 'at': round(time.time(), 3)}); del q[30:]
+
+
+# 🔔 what each proof step means to the person at the desk ("done" or "worth a look"); everything else stays out of the bell
+FEED_WORDS = {'file': ('done', 'filed'), 'grade': ('done', 'graded'), 'review': ('done', 'reviewed by the other mind'), 'stamp': ('done', 'stamped'),
+              'send': ('done', 'sent'), 'score': ('look', 'scored'), 'plan': ('look', 'has a plan waiting for you'), 'reuse': ('look', 'reused a proven part')}
+FEED_KIND = {'pow': 'PoW', 'pop': 'PoP', 'pob': 'PoB', 'poc': 'PoC', 'pos': 'PoStatic', 'poe': 'PoEco'}
+
+
+_BRIEF: dict = {}
+
+
+@app.get('/api/cats/brief/proofs')
+async def proofs_brief():
+    """📰 Today's proofs brief for every desk: per proof type from the proof record (filed, reviewed, graded) + which kits moved in 24 h.
+    Rebuilt at most every 10 minutes. Public: counts and scores only."""
+    if _BRIEF.get('at', 0) > time.time() - 600:
+        return _BRIEF['v']
+    b = await asyncio.to_thread(_pev.brief, DATA_DIR / _pev.DB_NAME)
+    try:
+        kf = _kfresh.view(_kits.KIT_USE, KITS_DIR)
+        moved = [k for k in kf.get('kits') or [] if k.get('movedAt') and float(k['movedAt']) > time.time() - 86400]
+        b['kits'] = {'checkedAt': kf.get('checkedAt'), 'moved24': [{'kit': k['kit'], 'pkg': k['pkg'], 'v': k.get('v'), 'prev': k.get('prev')} for k in moved][:8], 'tracked': len(kf.get('kits') or [])}
+    except Exception:
+        b['kits'] = {'checkedAt': None, 'moved24': [], 'tracked': 0}
+    _BRIEF.update(at=time.time(), v=b)
+    return b
+
+
+@app.get('/api/cats/{cat_id}/feed')
+async def cat_feed(cat_id: str, since: float = 0.0):
+    """🔔 The desktop's notification bar: what this agent finished or thinks is worth a look, newest first. Positions only, never secrets."""
+    rows = []
+    try:
+        for r in await asyncio.to_thread(_pev.recent, DATA_DIR / _pev.DB_NAME, cat_id, since, 30):
+            tone, word = FEED_WORDS.get(r['event'], (None, None))
+            if tone:
+                rows.append({'at': r['at'], 'tone': 'look' if r.get('bad') else tone, 'kind': FEED_KIND.get(r['kind'], r['kind']), 'text': f"{FEED_KIND.get(r['kind'], r['kind'])} {word}{': ' + r['detail'] if r.get('detail') else ''}", 'ref': r['ref']})
+    except Exception:   # a busy or missing events file never breaks the desk
+        pass
+    rows += [x for x in _FEED.get(cat_id, []) if x['at'] > since]
+    rows.sort(key=lambda x: -x['at'])
+    return {'rows': rows[:30], 'now': time.time()}
+
+
 MEDIA_HOUSE_PATH = DATA_DIR / 'media_house.json'   # {'YYYY-MM-DD': usd booked on FEELESS's OpenRouter key}
 
 
@@ -6758,6 +6807,7 @@ async def _media_run(cat_id, ws_id, mid):
                     _media_set(cat_id, ws_id, mid, keep, status='failed', why=f"{r.status_code}: {str((j_.get('error') or {}).get('message') if isinstance(j_.get('error'), dict) else 'no picture came back')[:160]}"); return
                 raw_ = base64.b64decode(mt_.group(2)); ext_ = 'jpg' if mt_.group(1).startswith('jp') else mt_.group(1)
                 _media_dir().joinpath(cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{mid}.{ext_}').write_bytes(raw_)
+                _feed_push(cat_id, {'tone': 'done', 'kind': 'PoC', 'text': f"Your image is ready ({md.get('label') or md['model']})", 'ref': ws_id})
                 _media_set(cat_id, ws_id, mid, keep, status='done', url=f'/api/cats/media/{cat_id}/{mid}.{ext_}', kept=True, bytes=len(raw_), doneAt=round(time.time()),
                            **({'paidUsd': round(float((j_.get('usage') or {}).get('cost')), 4)} if (j_.get('usage') or {}).get('cost') is not None else {}))
                 return
@@ -6805,6 +6855,7 @@ async def _media_run(cat_id, ws_id, mid):
                 _media_set(cat_id, ws_id, mid, keep, status='done', url=src, kept=False, why='Too big to keep here: the link is the provider\'s.'); return
             name = f'{mid}.{ext}'; tmp.replace(_media_dir() / cat_id / name)
             _media_set(cat_id, ws_id, mid, keep, status='done', url=f'/api/cats/media/{cat_id}/{name}', kept=True, bytes=got, doneAt=round(time.time()))
+            _feed_push(cat_id, {'tone': 'done', 'kind': 'PoC', 'text': f"Your {md['kind']} is ready ({md.get('label') or md['model']})", 'ref': ws_id})
     except (httpx.HTTPError, OSError, ValueError, KeyError) as e:
         _media_set(cat_id, ws_id, mid, None, status='failed', why=f'{type(e).__name__}: {str(e)[:120]}')
     finally:

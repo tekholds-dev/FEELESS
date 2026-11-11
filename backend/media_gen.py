@@ -28,7 +28,12 @@ MODELS = {
     'or-grok-lite': ('openrouter', 'x-ai/grok-imagine-video-1.5-lite', 'video', 'Grok Imagine 1.5 lite', 'The cheap viral clip: 5 s, 720p, vertical, ~25 s to make', 0.15),
     'or-veo-lite': ('openrouter', 'google/veo-3.1-lite', 'video', 'Veo 3.1 lite', 'With its own sound (music, voice): 4 s, 720p', 0.20),
     'or-wan3': ('openrouter', 'alibaba/wan-3.0', 'video', 'Wan 3.0', 'Smooth camera moves, cinematic: 5 s, 480p', 0.25),
-    'or-kling3': ('openrouter', 'kwaivgi/kling-v3.0-std', 'video', 'Kling 3.0', 'The hero clip: best people and motion, 5 s', 0.42),
+    'or-kling3': ('openrouter', 'kwaivgi/kling-v3.0-std', 'video', 'Kling 3.0', 'Great people and motion, 5 s (not run by us yet)', 0.42),
+    # "is this AI?" grade (owner 2026-11-10: "real vids… people questioning every proof"): the three that passed our own look test
+    'or-seedance-fast': ('openrouter', 'bytedance/seedance-2.0-fast', 'video', 'Seedance 2.0 fast', 'Looks like real phone footage: street, food, people. 5 s, 720p', 0.46),
+    'or-veo-fast': ('openrouter', 'google/veo-3.1-fast', 'video', 'Veo 3.1 fast', 'Real people talking, with their voice and city sound. 4 s', 0.40),
+    'or-kling3-pro': ('openrouter', 'kwaivgi/kling-v3.0-pro', 'video', 'Kling 3.0 Pro', 'The hero clip: animals and faces that hold up frame by frame. 5 s', 0.84),
+    'or-gpt-image-mini': ('openrouter', 'openai/gpt-5-image-mini', 'image', 'GPT-5 Image mini', 'Coin logos and icons: clean edges, the ticker spelled right', 0.05),
 }
 # per-model request settings for OpenRouter's /videos, and what we saw when we ran it (2026-11-10, real calls, real files in public/media/samples)
 OR_VIDEO = {
@@ -36,13 +41,23 @@ OR_VIDEO = {
     'or-veo-lite': {'duration': 4, 'resolution': '720p', 'aspect_ratio': '9:16', 'generate_audio': True},
     'or-wan3': {'duration': 5, 'resolution': '480p', 'aspect_ratio': '9:16'},
     'or-kling3': {'duration': 5, 'resolution': '720p', 'aspect_ratio': '9:16'},
+    'or-seedance-fast': {'duration': 5, 'resolution': '720p', 'aspect_ratio': '9:16'},
+    'or-veo-fast': {'duration': 4, 'resolution': '720p', 'aspect_ratio': '9:16', 'generate_audio': True},
+    'or-kling3-pro': {'duration': 5, 'resolution': '720p', 'aspect_ratio': '9:16'},
 }
-TESTED = {'or-grok-lite': ('/media/samples/baby-dance.mp4', 25), 'or-veo-lite': ('/media/samples/hotel-lobby.mp4', 25), 'or-wan3': ('/media/samples/faceless-avatar.mp4', 66),
+TESTED = {'or-seedance-fast': ('/media/samples/street-omelette.mp4', 148), 'or-veo-fast': ('/media/samples/street-interview.mp4', 58), 'or-kling3-pro': ('/media/samples/dog-trader.mp4', 148),
+          'or-gpt-image-mini': ('/media/samples/coin-logos.jpg', 20), 'or-veo-lite': ('/media/samples/hotel-lobby.mp4', 25), 'or-wan3': ('/media/samples/faceless-avatar.mp4', 66),
           'or-flash-image': ('/media/samples/ai-vs-handmade.jpg', 9), 'or-nano-banana': ('/media/samples/ai-will-replace-you.jpeg', 12)}
 # 🔥 what is going viral on TikTok / Reels (Nov 2026 trend charts) as a FEELESS twist: {idea} = the folder's own text
 PRESETS = [
-    {'id': 'baby-dance', 'label': 'AI baby dance', 'kind': 'video', 'model': 'or-grok-lite', 'trend': 'TikTok, Nov 2026: one photo does the routine',
-     'prompt': 'Vertical phone video, viral "AI baby dance": a chubby smiling baby in a tiny neon green hoodie does a bouncy hip-hop dance on a sunny kitchen floor, handheld look. Theme: {idea}'},
+    {'id': 'is-this-ai', 'label': 'Is this AI?', 'kind': 'video', 'model': 'or-seedance-fast', 'trend': 'The "is this real?" clips: phone footage nobody can call',
+     'prompt': 'Handheld iPhone footage, photorealistic, natural shaky camera, real light and real people in the background, no text: {idea}'},
+    {'id': 'street-interview', 'label': 'Street interview', 'kind': 'video', 'model': 'or-veo-fast', 'trend': 'AI street interviews with a punchline, with real voice',
+     'prompt': 'Vertical street interview on a busy city sidewalk, handheld mic in frame, real city noise, documentary look. The person answers in one short funny line about: {idea}'},
+    {'id': 'pet-reacts', 'label': 'Pet reacts', 'kind': 'video', 'model': 'or-kling3-pro', 'trend': 'Animals doing human jobs: the most shared AI genre',
+     'prompt': 'Ultra realistic phone video, real fur detail, natural motion, warm home light: a pet reacts like a person to {idea}'},
+    {'id': 'coin-logos', 'label': 'Coin logo ideas', 'kind': 'image', 'model': 'or-gpt-image-mini', 'trend': 'What coin launchers ask for first: four logo routes at once',
+     'prompt': 'A 2x2 grid of four distinct professional coin logo concepts (flat vector, bold mascot, neon geometric, gold embossed), each a clean round token emblem with its ticker under it, dark background, crisp edges. The coin: {idea}'},
     {'id': 'hotel-lobby', 'label': 'Hotel lobby booth', 'kind': 'video', 'model': 'or-veo-lite', 'trend': 'TikTok: pets and friends dropped into a lobby booth',
      'prompt': 'Vertical phone video, viral "hotel lobby" format: a cool cat in tiny gold sunglasses sits in a velvet booth of a fancy hotel lobby at night, turns to camera and nods to the beat, lounge music. Theme: {idea}'},
     {'id': 'faceless-avatar', 'label': 'Faceless explainer', 'kind': 'video', 'model': 'or-wan3', 'trend': 'Faceless AI channels: one consistent avatar, no face on camera',
@@ -53,7 +68,7 @@ PRESETS = [
      'prompt': 'Vertical 9:16 meme photo, "AI will replace you": top half a flawless AI demo captioned "AI DEMO", bottom half the messy real version captioned "REAL LIFE". Subject: {idea}'},
 ]
 DEFAULT = {('fal', 'image'): 'fal-flux-schnell', ('fal', 'video'): 'fal-wan22-5b', ('replicate', 'image'): 'rep-flux-schnell', ('replicate', 'video'): 'rep-wan22-fast',
-           ('openrouter', 'image'): 'or-nano-banana', ('openrouter', 'video'): 'or-grok-lite'}
+           ('openrouter', 'image'): 'or-gpt-image-mini', ('openrouter', 'video'): 'or-seedance-fast'}
 ORDER = ('fal', 'replicate', 'openrouter')
 HOUSE_DAILY_USD = 2.0   # 🔒 staff agents on FEELESS's own OpenRouter key: at most this much a day, then it refuses
 KINDS = ('image', 'video')

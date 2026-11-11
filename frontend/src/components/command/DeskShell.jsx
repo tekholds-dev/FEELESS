@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useRef, useState
 import { createPortal } from 'react-dom';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import '../../styles/deskShell.css';
+import { apiUrl } from '../../lib/api';
 
 // 🖥 ONE DESKTOP SHELL (owner 2026-11-04: "the same as the general agent gets"): every agent's desktop and the owner's two are built from these pieces.
 
@@ -378,4 +379,35 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
       <time className="m-num">{prefs.clock === '12' ? new Date(now).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : new Date(now).toTimeString().slice(0, 5)}</time>
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back (Esc)" data-testid="dsk-app-close">Exit desktop</button></footer>
   </div>, document.body);
+}
+
+
+// 🔔 The desk's notification bar (owner 2026-11-10: "a noti bar for desktop for when stuff is done or agents see potential"): what this agent
+// finished (filed · graded · reviewed · a picture or clip ready) or thinks is worth a look (a plan waiting, a failed review), newest first.
+// One poll every 20 s while the desk is open and the tab is visible; the newest one also slides in as a toast. Seen = per agent, this device.
+const BELL_KEY = id => `feeless:bell:${id}`;
+const bellSeen = id => { try { return Number(localStorage.getItem(BELL_KEY(id)) || 0); } catch { return 0; } };
+const ago = at => { const s = Math.max(1, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
+export function DeskBell({ catId, onOpen }) {
+  const [rows, setRows] = useState([]); const [open, setOpen] = useState(false); const [seen, setSeen] = useState(() => bellSeen(catId)); const [toast, setToast] = useState(null); const newest = useRef(0);
+  useEffect(() => {
+    if (!catId) return undefined; let live = true;
+    const pull = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${encodeURIComponent(catId)}/feed`)).then(r => (r.ok ? r.json() : { rows: [] })).then(j => {
+      if (!live) return; const got = Array.isArray(j?.rows) ? j.rows : []; setRows(got);
+      const top = got[0]; if (top && newest.current && top.at > newest.current) { setToast(top); setTimeout(() => live && setToast(t => (t === top ? null : t)), 6000); }
+      if (top) newest.current = Math.max(newest.current, top.at); }).catch(() => {}); };
+    pull(); const t = setInterval(pull, 20000); return () => { live = false; clearInterval(t); };
+  }, [catId]);
+  useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
+  const unread = rows.filter(r => r.at > seen).length;
+  const flip = () => { setOpen(o => !o); if (rows[0]) { const at = rows[0].at; setSeen(at); try { localStorage.setItem(BELL_KEY(catId), String(at)); } catch { /* private window */ } } };
+  return <span className="dbl">
+    <button type="button" className={`dbl-btn${unread ? ' has-new' : ''}${open ? ' is-on' : ''}`} onClick={flip} aria-expanded={open} aria-label={unread ? `${unread} new` : 'Notifications'} data-tip="What your agent finished or thinks is worth a look" data-testid="desk-bell">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.6L4.3 16h15.4L18 12.6V9a6 6 0 0 0-6-6Zm0 18a2.6 2.6 0 0 0 2.5-2h-5A2.6 2.6 0 0 0 12 21Z" /></svg>{unread ? <em>{unread > 9 ? '9+' : unread}</em> : null}</button>
+    {open ? <div className="dbl-pop" role="dialog" aria-label="Notifications" data-testid="desk-bell-list"><header><b>Your agent</b><small>{rows.length ? `${rows.filter(r => r.tone === 'done').length} done · ${rows.filter(r => r.tone === 'look').length} worth a look` : 'nothing yet'}</small></header>
+      {rows.length ? <ol>{rows.map((r, i) => <li key={`${r.at}-${i}`} className={`is-${r.tone}${r.at > seen ? ' is-new' : ''}`} style={{ '--i': i }}><button type="button" onClick={() => { setOpen(false); onOpen?.(r); }} data-testid={`desk-bell-${i}`}>
+        <i aria-hidden="true">{r.tone === 'done' ? '✓' : '👀'}</i><span><b>{r.text}</b><small>{r.kind} · {ago(r.at)} ago</small></span></button></li>)}</ol>
+        : <p className="dbl-none">When your agent files, grades, reviews or finishes a picture or clip, it shows up here.</p>}</div> : null}
+    {toast && !open ? <button type="button" className={`dbl-toast is-${toast.tone}`} onClick={() => { setToast(null); flip(); }} role="status" data-testid="desk-bell-toast"><i aria-hidden="true">{toast.tone === 'done' ? '✓' : '👀'}</i><span><b>{toast.text}</b><small>{toast.kind} · just now</small></span></button> : null}
+  </span>;
 }

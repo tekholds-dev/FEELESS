@@ -6,10 +6,10 @@ import media_gen as mg
 def test_presets_are_viral_formats_with_real_samples_prices_and_seconds():
     c = mg.catalog({'openrouter'})
     ids = [p['id'] for p in c['presets']]
-    assert ids == ['baby-dance', 'hotel-lobby', 'faceless-avatar', 'ai-vs-handmade', 'ai-will-replace-you']
+    assert ids == ['is-this-ai', 'street-interview', 'pet-reacts', 'coin-logos', 'hotel-lobby', 'faceless-avatar', 'ai-vs-handmade', 'ai-will-replace-you']
     for p in c['presets']:
         assert p['sample'].startswith('/media/samples/') and p['usd'] > 0 and p['ready']
-    assert c['pick'] == {'image': 'or-nano-banana', 'video': 'or-grok-lite'}
+    assert c['pick'] == {'image': 'or-gpt-image-mini', 'video': 'or-seedance-fast'}   # the best that passed our look test, not the cheapest
     assert not any(p['ready'] for p in mg.catalog(set())['presets'])          # nothing linked, not staff: nothing runs
     assert all(p['ready'] for p in mg.catalog(set(), house=True)['presets'])   # staff: FEELESS's key
 
@@ -44,7 +44,7 @@ def test_a_model_on_an_unlinked_provider_is_refused_never_swapped():
     except ValueError as e:
         assert 'OpenRouter' in str(e)
     assert mg.choose(None, 'video', {'fal'})[0] == 'fal-wan22-5b'      # the user's own account comes first
-    assert mg.choose(None, 'video', set(), house=True)[0] == 'or-grok-lite'
+    assert mg.choose(None, 'video', set(), house=True)[0] == 'or-seedance-fast'
 
 
 def test_house_spend_is_booked_per_day(tmp_path, monkeypatch):
@@ -55,3 +55,11 @@ def test_house_spend_is_booked_per_day(tmp_path, monkeypatch):
     assert abs(fs._media_house_spent() - 0.40) < 1e-9
     monkeypatch.setenv('OPENROUTER_API_KEY', 'sk-or-house'); monkeypatch.setenv('FEELESS_ADMIN_WALLETS', 'STAFFWALLET')
     assert fs._media_house({'isLeader': True}) and not fs._media_house({'id': 'x'})
+
+
+def test_every_sample_file_exists_and_no_retired_clip_is_offered():
+    import os
+    root = os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'public')
+    for k, (path, secs) in mg.TESTED.items():
+        assert os.path.exists(root + path), path
+    assert not any('baby' in v[0] for v in mg.TESTED.values())   # its head turned all the way round: retired (owner 2026-11-10)

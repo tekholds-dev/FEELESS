@@ -141,8 +141,8 @@
    "why": "The cheap viral clip: 5 s, 720p, vertical, ~25 s to make",
    "usd": 0.15,
    "ready": true,
-   "sample": "/media/samples/baby-dance.mp4",
-   "secs": 25
+   "sample": null,
+   "secs": null
   },
   {
    "id": "or-veo-lite",
@@ -174,11 +174,59 @@
    "providerName": "OpenRouter",
    "kind": "video",
    "label": "Kling 3.0",
-   "why": "The hero clip: best people and motion, 5 s",
+   "why": "Great people and motion, 5 s (not run by us yet)",
    "usd": 0.42,
    "ready": true,
    "sample": null,
    "secs": null
+  },
+  {
+   "id": "or-seedance-fast",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Seedance 2.0 fast",
+   "why": "Looks like real phone footage: street, food, people. 5 s, 720p",
+   "usd": 0.46,
+   "ready": true,
+   "sample": "/media/samples/street-omelette.mp4",
+   "secs": 148
+  },
+  {
+   "id": "or-veo-fast",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Veo 3.1 fast",
+   "why": "Real people talking, with their voice and city sound. 4 s",
+   "usd": 0.4,
+   "ready": true,
+   "sample": "/media/samples/street-interview.mp4",
+   "secs": 58
+  },
+  {
+   "id": "or-kling3-pro",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "video",
+   "label": "Kling 3.0 Pro",
+   "why": "The hero clip: animals and faces that hold up frame by frame. 5 s",
+   "usd": 0.84,
+   "ready": true,
+   "sample": "/media/samples/dog-trader.mp4",
+   "secs": 148
+  },
+  {
+   "id": "or-gpt-image-mini",
+   "provider": "openrouter",
+   "providerName": "OpenRouter",
+   "kind": "image",
+   "label": "GPT-5 Image mini",
+   "why": "Coin logos and icons: clean edges, the ticker spelled right",
+   "usd": 0.05,
+   "ready": true,
+   "sample": "/media/samples/coin-logos.jpg",
+   "secs": 20
   }
  ],
  "linked": [
@@ -186,8 +234,8 @@
  ],
  "house": false,
  "pick": {
-  "image": "or-nano-banana",
-  "video": "or-grok-lite"
+  "image": "or-gpt-image-mini",
+  "video": "or-seedance-fast"
  },
  "providers": {
   "fal": {
@@ -211,16 +259,55 @@
  },
  "presets": [
   {
-   "id": "baby-dance",
-   "label": "AI baby dance",
+   "id": "is-this-ai",
+   "label": "Is this AI?",
    "kind": "video",
-   "model": "or-grok-lite",
-   "trend": "TikTok, Nov 2026: one photo does the routine",
-   "prompt": "Vertical phone video, viral \"AI baby dance\": a chubby smiling baby in a tiny neon green hoodie does a bouncy hip-hop dance on a sunny kitchen floor, handheld look. Theme: {idea}",
-   "sample": "/media/samples/baby-dance.mp4",
-   "secs": 25,
-   "usd": 0.15,
-   "modelLabel": "Grok Imagine 1.5 lite",
+   "model": "or-seedance-fast",
+   "trend": "The \"is this real?\" clips: phone footage nobody can call",
+   "prompt": "Handheld iPhone footage, photorealistic, natural shaky camera, real light and real people in the background, no text: {idea}",
+   "sample": "/media/samples/street-omelette.mp4",
+   "secs": 148,
+   "usd": 0.46,
+   "modelLabel": "Seedance 2.0 fast",
+   "ready": true
+  },
+  {
+   "id": "street-interview",
+   "label": "Street interview",
+   "kind": "video",
+   "model": "or-veo-fast",
+   "trend": "AI street interviews with a punchline, with real voice",
+   "prompt": "Vertical street interview on a busy city sidewalk, handheld mic in frame, real city noise, documentary look. The person answers in one short funny line about: {idea}",
+   "sample": "/media/samples/street-interview.mp4",
+   "secs": 58,
+   "usd": 0.4,
+   "modelLabel": "Veo 3.1 fast",
+   "ready": true
+  },
+  {
+   "id": "pet-reacts",
+   "label": "Pet reacts",
+   "kind": "video",
+   "model": "or-kling3-pro",
+   "trend": "Animals doing human jobs: the most shared AI genre",
+   "prompt": "Ultra realistic phone video, real fur detail, natural motion, warm home light: a pet reacts like a person to {idea}",
+   "sample": "/media/samples/dog-trader.mp4",
+   "secs": 148,
+   "usd": 0.84,
+   "modelLabel": "Kling 3.0 Pro",
+   "ready": true
+  },
+  {
+   "id": "coin-logos",
+   "label": "Coin logo ideas",
+   "kind": "image",
+   "model": "or-gpt-image-mini",
+   "trend": "What coin launchers ask for first: four logo routes at once",
+   "prompt": "A 2x2 grid of four distinct professional coin logo concepts (flat vector, bold mascot, neon geometric, gold embossed), each a clean round token emblem with its ticker under it, dark background, crisp edges. The coin: {idea}",
+   "sample": "/media/samples/coin-logos.jpg",
+   "secs": 20,
+   "usd": 0.05,
+   "modelLabel": "GPT-5 Image mini",
    "ready": true
   },
   {

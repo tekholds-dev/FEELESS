@@ -39,7 +39,7 @@ import { SplitFlow, money } from './SplitFlow';
 import { AgentStage, ChatStylePicker, chatClass, useChatStyle } from './ChatStyles';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings, ChatStop } from '../chat/ChatKit';
 import { DeskPrint } from './Proofprint';
-import { BoostCoin, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
+import { BoostCoin, DeskBell, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
@@ -1344,6 +1344,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })} tools={foldTabs(k)}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
+      <DeskBell catId={cat.id} onOpen={r => { const k = { PoW: 'pow', PoP: 'pop', PoB: 'pob', PoC: 'poc', PoStatic: 'pos', PoEco: 'poe' }[r.kind]; if (k && w[k]) { set(k, { open: true, min: false }); setTop(k); } }} />
       <DesktopClock />
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
