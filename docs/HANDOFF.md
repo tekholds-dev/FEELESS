@@ -1,5 +1,10 @@
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
+> ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
+> **Blockers (owner):** every RPC answers 429 (Helius quota; OnFinality URLs have no key; SOLANA_RPC_URL_3 = 401) → buy a keyed RPC. Claude in Chrome not connected from the app.
+> **Next session, in order:** 1) recheck RPCs, then marginfi / Save / PumpSwap / Phoenix readers (SITE-17 C03) on one real family account · 2) COL-6 OSSY + G4 PoStatic pilot (owner approves the plan) → COL-9 live stash proof → COL-11 · 3) AGT-15 before/after picture · 4) SITE-5 money/write/admin route moves (route table identity check) · 5) SITE-8 DB + workers · 6) AGT-17 NOVA on local models · 7) words needed from owner: AGT-7 "short prompts", SITE-6 FeeCat items, SITE-17 C02 game parts · owner-only: real money rows (AGT-24/25/26, SITE-12..16/18, COL-16/19, C04).
+> **Verify on 51367 (built, tested with fakes, not seen signed in):** Live ops desk folder, HQ › Money › Cards & pay, Watch room live games, Git › Its v1.01s + Agents' forks, repo Ask/Change, Sicario HQ order.
+
 > ⚡ EVERY SESSION (owner, repeat in anything you hand off): **1. Conserve usage** (grep first, read only what you need, batch, no essays).
 > **2. Finish everything in priority order** (never leave a surface half done; one task at a time, proof, then stop).
 > **3. Never dead-style** (prove no component renders a class before deleting it; every new box gets real styling and a live visual).
