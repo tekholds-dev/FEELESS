@@ -21,9 +21,8 @@ LST = {'jito': ('J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'JitoSOL', 'JITO
 MINTS = {**{k: v[0] for k, v in LST.items()}, 'jlp': '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4'}
 SYMS = {**{k: v[1] for k, v in LST.items()}, 'jlp': 'JLP'}
 NFT = {'orca': ('whirlpool position', 'OWP'), 'raydium': ('raydium concentrated liquidity', 'RCL')}   # (name contains, symbol)
-API = {'kamino': 'kamino'}
-WHY_NONE = {'meteora': 'Meteora DLMM positions are program accounts — their reader is not wired yet',
-            'phoenix': 'Phoenix seats / open orders reader not wired yet', 'marginfi': 'marginfi account reader not wired yet',
+API = {'kamino': 'kamino', 'meteora': 'meteora'}   # 🌊 SITE-17 C03: Meteora DLMM via its own data API (dlmm.datapi.meteora.ag/portfolio/open), checked on real wallets 2026-11-10
+WHY_NONE = {'phoenix': 'Phoenix seats / open orders reader not wired yet', 'marginfi': 'marginfi account reader not wired yet',
             'save': 'Save (Solend) obligation reader not wired yet', 'pumpswap': 'PumpSwap LP-token reader not wired yet'}
 SWITCH_PP = 0.4   # an LST paying ≥ 0.4 pp more APY gets a switch errand
 
@@ -180,7 +179,32 @@ def layout_set(c, cells, me, staff=False, rank=None):
 def needs(lots):
     """What the service must read for these buildings: {'mints': set, 'nft': bool, 'kamino': bool}."""
     ks = {x['key'] for x in lots}
-    return {'mints': {MINTS[k] for k in ks if k in MINTS}, 'nft': any(k in NFT for k in ks), 'kamino': 'kamino' in ks}
+    return {'mints': {MINTS[k] for k in ks if k in MINTS}, 'nft': any(k in NFT for k in ks), 'kamino': 'kamino' in ks, 'meteora': 'meteora' in ks}
+
+
+def _num(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def meteora_held(portfolios):
+    """Meteora's own /portfolio/open answers, one per family wallet → {'n', 'usd', 'fees', 'pnl', 'ranges'} or None when nothing is open.
+    usd = what the positions hold now; ranges.out = positions whose price left their bins (they earn nothing). Pure."""
+    n = 0; usd = fees = pnl = 0.0; out = 0; pools = []
+    for d in portfolios or []:
+        if not isinstance(d, dict):
+            continue
+        t = d.get('total') or {}; n += int(_num(t.get('totalPositions') or d.get('totalPositions')))
+        usd += _num(t.get('balances')); fees += _num(t.get('unclaimedFees')); pnl += _num(t.get('pnl'))
+        for p in d.get('pools') or []:
+            po = p.get('positionsOutOfRange'); o = len(po) if isinstance(po, list) else int(_num(po)); o = o or (1 if p.get('outOfRange') is True else 0); out += o   # a list of the positions that left their bins
+            pools.append({'pair': f"{p.get('tokenX') or '?'}-{p.get('tokenY') or '?'}", 'out': o, 'open': int(_num(p.get('openPositionCount')))})
+    if not n:
+        return None
+    worst = next((x for x in pools if x['out']), None)
+    return {'n': n, 'usd': round(usd, 2), 'fees': round(fees, 2), 'pnl': round(pnl, 2), 'ranges': {'n': n, 'out': out, 'near': 0, 'worst': {'pair': worst['pair']} if worst else {}}}
 
 
 def nft_count(assets, key):
@@ -219,6 +243,13 @@ def errands(b, apys, url=None):
         if best and best[1] - apys[k] >= SWITCH_PP:
             out.append({'kind': 'switch', 'icon': '⚖', 'text': f"{SYMS[best[0]]} pays {best[1]:.2f}% vs your {SYMS[k]} {apys[k]:.2f}% — switch?",
                         'swap': {'from': MINTS[k], 'to': MINTS[best[0]]}, 'urgent': False, 'gain': round(best[1] - apys[k], 2)})
+    if k == 'meteora':   # 🌊 Meteora says itself which positions left their bins
+        rg = b.get('ranges') or {}
+        if rg.get('out'):
+            out.append({'kind': 'range', 'icon': '🎯', 'urgent': True, 'tool': 'range',
+                        'text': f"{rg['out']} of {rg['n']} Meteora positions out of range{(' (' + rg['worst']['pair'] + ')') if (rg.get('worst') or {}).get('pair') else ''}: they earn no fees. Re-center"})
+        if b.get('fees'):
+            out.append({'kind': 'claim', 'icon': '💸', 'urgent': False, 'tool': 'desk', 'text': f"${b['fees']:.2f} in fees waiting to claim on Meteora"})
     if k in NFT:   # 🎯 the positions' real ranges (clmm_range.summary) when read, else a plain check
         rg = b.get('ranges') or {}
         w = rg.get('worst') or {}
@@ -248,7 +279,7 @@ def view(lots, markets, held, prices=None, apys=None, mine=False):
         b = {'key': k, 'i': i, 'name': m.get('name') or k.title(), 'kind': m.get('kind') or 'dex', 'tvl': m.get('tvl'), 'url': m.get('url'), 'offer': m.get('offer'),
              'state': state, 'proof': how or 'none', 'why': (what if how is None else ''), 'apy': (apys or {}).get(k), 'band': band(h.get('usd')), 'at': x.get('at')}
         if mine:
-            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k), ranges=h.get('ranges'))
+            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k), ranges=h.get('ranges'), fees=h.get('fees'), pnl=h.get('pnl'))
             b['errands'] = errands(b, apys or {}, m.get('url'))
         out.append(b)
     return out

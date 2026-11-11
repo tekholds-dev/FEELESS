@@ -8836,8 +8836,15 @@ async def _fblock_reads(c, lots, now):
     if not wallets_ or os.environ.get('PYTEST_CURRENT_TEST'):
         _fblock_held[c['id']] = (now, out_, keys_)
         return out_
-    bal_ = {}; assets_ = []; kam_ = []
+    bal_ = {}; assets_ = []; kam_ = []; met_ = []
     async with httpx.AsyncClient(timeout=12) as http:
+        async def meteora(w_):   # 🌊 SITE-17 C03: Meteora's own by-wallet portfolio (no RPC quota spent)
+            try:
+                r_ = await http.get('https://dlmm.datapi.meteora.ag/portfolio/open', params={'user': w_})
+                if r_.status_code == 200:
+                    met_.append(r_.json())
+            except Exception as e_:
+                print('block meteora:', str(e_)[:80])
         async def toks(w_):
             try:
                 r_ = await _rpc(http, 'getTokenAccountsByOwner', [w_, {'programId': TOKEN_PROGRAM}, {'encoding': 'jsonParsed'}])
@@ -8869,6 +8876,7 @@ async def _fblock_reads(c, lots, now):
         jobs_ = [toks(w_) for w_ in wallets_] if need_['mints'] else []
         jobs_ += [nfts(w_) for w_ in wallets_] if need_['nft'] else []
         jobs_ += [kamino(w_) for w_ in wallets_] if need_['kamino'] else []
+        jobs_ += [meteora(w_) for w_ in wallets_] if need_.get('meteora') else []
         await asyncio.gather(*jobs_)
     px_ = await _live_px(list(bal_)) if bal_ else {}
     for k_, m_ in _bmk.MINTS.items():
@@ -8883,6 +8891,9 @@ async def _fblock_reads(c, lots, now):
         n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
         if n_:
             out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
+    mh_ = _bmk.meteora_held(met_)
+    if mh_:
+        out_['meteora'] = mh_
     _fblock_held[c['id']] = (now, out_, keys_)
     return out_
 

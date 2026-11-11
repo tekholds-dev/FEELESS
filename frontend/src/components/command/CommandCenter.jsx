@@ -4,7 +4,7 @@ import { agentAuthQuery } from '../../lib/chatSession';
 import { Ic3 } from '../../lib/icon3d';
 import '../../styles/commandCenter.css';
 
-// 🛰 SITE-4 · THE COMMAND CENTER (Supreme Intelligence §7: "research, browser activity, PoI evolution, trades, wallets, costs and Colony ... no
+// 🛰 SITE-4 · LIVE OPS (the HQ's name never ships in the bundle: the gate checks) (Supreme Intelligence §7: "research, browser activity, PoI evolution, trades, wallets, costs and Colony ... no
 // fake activity or decorative telemetry"). One live screen of what every agent is really doing: who is working and on what, which browser
 // waits on you, which model answered and what it cost this hour, how the reviewers grade each proof kind, which shared reads are fresh, the
 // method kits' state, and the event river. Every number comes from the running service; nothing here is drawn for show. Polls every 15 s
@@ -36,7 +36,7 @@ export function CommandCenter({ cat, work }) {
   const reads = e.reads?.kinds || []; const kits = e.methods?.kits || []; const brief = d.brief?.rows || []; const feed = d.feed?.items || d.feed?.rows || [];
   if (!d.at) return <p className="dsk-note" data-testid="ccx-wait">Reading the live service…</p>;
   return <section className="ccx" data-testid="command-center">
-    <header className="ccx-h m-live"><span><em>COMMAND CENTER · LIVE</em><b>Every agent, every call, every proof, right now</b><small>From the running service, every 15 seconds. Nothing on this screen is drawn for show.</small></span>
+    <header className="ccx-h m-live"><span><em>LIVE OPS</em><b>Every agent, every call, every proof, right now</b><small>From the running service, every 15 seconds. Nothing on this screen is drawn for show.</small></span>
       <span className="ccx-tick m-num" key={d.at}><s />{new Date(d.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span></header>
     <div className="ccx-kpis">
       <Kpi i={0} k="WORKING NOW" v={`${working.length}/${agents.length}`} sub="agents" tone={working.length ? 'go' : ''} />
