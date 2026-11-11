@@ -116,8 +116,15 @@ def clean(text):
 # 🧩 THE FEELESS KIT (owner 2026-11-06): our own new majors, read from the code that runs, so anything on main is in it at once. The owner sees its files in Fee's private folder. A user can pick it, and sees only its name.
 SRC = Path(__file__).resolve().parent.parent / 'frontend' / 'src'
 FEELESS_ID = 'feeless'
-FEELESS_FILES = ('styles/heroTheme.css', 'styles/chatKit.css', 'styles/meta.css', 'components/chat/ChatKit.jsx', 'components/command/KitPick.jsx', 'components/command/MoneyCharts.jsx', 'lib/proofprint.js')
+FEELESS_FILES = ('styles/heroTheme.css', 'styles/chatKit.css', 'styles/meta.css', 'styles/hqNav.css', 'components/chat/ChatKit.jsx', 'components/command/KitPick.jsx', 'components/command/MoneyCharts.jsx', 'lib/proofprint.js')   # hqNav = the dashboard shell (sidebar + slim header + phone drawer), 2026-11-10
 FEELESS_GUIDE_FILES = ('styles/heroTheme.css', 'styles/chatKit.css')
+# 🧭 what the owner approved, as rules every build reads (2026-11-10): the dashboard shell, no dead controls, and what the 📱 Store check asks
+FEELESS_RULES = ('LAYOUT: a dashboard = one left sidebar with every tool under short group headings (search on top) + one slim sticky header '
+                 '(group, title, one line, the live numbers) and the content right under it; on a phone the sidebar is a drawer behind a menu button. '
+                 'Explainers stay closed and sit below the data. Anything that looks clickable is a real <button> that does something (steps, chips, rows), '
+                 'with hover, active and focus states. SHIP-READY (the Store check): <meta name="viewport" content="width=device-width,initial-scale=1">, '
+                 'a <title>, <html lang>, an apple-touch-icon and a manifest link, https only, alt on every image, buttons at least 44 px, rel="noopener" '
+                 'on new-tab links, no placeholder text, no eval, a privacy link when it asks for personal data.')
 FEELESS_VIEW = {'id': FEELESS_ID, 'name': 'Feeless Kit', 'what': "FEELESS's own look and parts, always current", 'license': 'Private', 'kinds': list(KINDS), 'added': True, 'private': True, 'task': 'Our own look', 'skills': ['palette', 'fonts', 'components'], 'compat': 'Read by the minds', 'by': 'FEELESS', 'can': ['Our palette and type', 'Our component rules', 'Always current with the code'], 'examples': ['Build this page in the FEELESS look']}
 
 
@@ -134,7 +141,7 @@ def feeless_tree(src=SRC):
 def feeless_row(src=SRC):
     """The kit as a proof reads it: our palette, fonts and component rules. The minds get this as reference. The user's folder never does."""
     text = '\n'.join((Path(src) / f).read_text() for f in FEELESS_GUIDE_FILES if (Path(src) / f).exists())
-    return {'id': FEELESS_ID, 'name': 'Feeless Kit', 'what': FEELESS_VIEW['what'], 'kinds': list(KINDS), 'text': 'Black and very dark green surfaces, royal green #15d16a accent, JetBrains Mono for numbers, Unbounded for heroes, Sora for body. Glass panels with an inner highlight, live numbers, meters over paragraphs. Never copy the brand name onto another product.\n' + text}
+    return {'id': FEELESS_ID, 'name': 'Feeless Kit', 'what': FEELESS_VIEW['what'], 'kinds': list(KINDS), 'text': 'Black and very dark green surfaces, royal green #15d16a accent, JetBrains Mono for numbers, Unbounded for heroes, Sora for body. Glass panels with an inner highlight, live numbers, meters over paragraphs. Never copy the brand name onto another product.\n' + FEELESS_RULES + '\n' + text}
 
 
 FOUND_FILE = 'found.dat'   # not *.json: rows() reads every .json here as a kit

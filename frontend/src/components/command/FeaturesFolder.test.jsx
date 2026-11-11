@@ -497,3 +497,19 @@ test('🎬 every proof type shows its real proofs graded by OSSY + G4, the kits 
   await act(async () => { q('pdr-go').click(); }); expect(onOpen).toHaveBeenCalledWith('poe');
   el.remove();
 });
+
+test('📱 store check: runs the server check on the latest page, shows the ring, the verdict and every store rule with its fix', async () => {
+  const { StoreCheck } = require('./FeaturesFolder');
+  const calls = []; const check = { score: 88, state: 'review', fails: 0, warns: 2, line: 'Ready once you decide 2 flags', rows: [
+    { id: 'icon', label: 'Has an app icon', rule: 'Apple 2.3.8 Icons', state: 'warn', fix: 'Add an app icon', detail: '' },
+    { id: 'viewport', label: 'Fits a phone screen', rule: 'Apple 4.0 Design', state: 'pass', fix: '', detail: '' }] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = require('react-dom/client').createRoot(el);
+  await require('react').act(async () => { root.render(<StoreCheck cat={{ id: 'c' }} row={{ id: 'w1' }} doc={{ preview: '<p>x</p>', versions: 3, storeCheck: { score: 70, state: 'blocked', version: 2 } }} work={async (_, b) => { calls.push(b); return { check }; }} />); });
+  const btn = el.querySelector('[data-testid="store-check"]');
+  expect(btn.textContent).toContain('70*');                                  // last score, starred: the page changed since
+  await require('react').act(async () => { btn.click(); });
+  expect(calls).toEqual([{ op: 'store_check', job: 'w1' }]);
+  const panel = el.querySelector('[data-testid="store-panel"]');
+  expect(panel.textContent).toContain('Ready once you decide 2 flags'); expect(panel.textContent).toContain('Apple 2.3.8 Icons'); expect(panel.textContent).toContain('Add an app icon');
+  expect(panel.querySelectorAll('li.is-warn')).toHaveLength(1);
+});

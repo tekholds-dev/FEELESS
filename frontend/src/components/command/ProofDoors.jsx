@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
 import { Ic3 } from '../../lib/icon3d';
@@ -42,43 +42,44 @@ function PerpDemo({ kits }) {
 }
 // 🎞 A proof's own replay: a sample run on its own tools, labelled as a sample on the stage.
 function useSteps(n, ms = 3400) {
-  const [at, setAt] = useState(0);
-  useEffect(() => { if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined; const t = setInterval(() => { if (!document.hidden) setAt(x => (x + 1) % n); }, ms); return () => clearInterval(t); }, [n, ms]);
-  return [at];
+  const [at, setAt] = useState(0); const hold = useRef(0);   // a click jumps to that step and holds it 12 s before the reel plays on
+  useEffect(() => { if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined; const t = setInterval(() => { if (!document.hidden && Date.now() > hold.current) setAt(x => (x + 1) % n); }, ms); return () => clearInterval(t); }, [n, ms]);
+  const go = useCallback(i => { hold.current = Date.now() + 12000; setAt(((i % n) + n) % n); }, [n]);
+  return [at, go];
 }
-const Steps = ({ names, at }) => <span className="prp-dots" aria-hidden="true">{names.map((l, i) => <em key={l} className={at === i ? 'is-on' : i < at ? 'is-done' : ''}>{l}</em>)}</span>;
+const Steps = ({ names, at, go }) => <span className="prp-dots" role="tablist" aria-label="Steps">{names.map((l, i) => <button type="button" role="tab" aria-selected={at === i} key={l} className={at === i ? 'is-on' : i < at ? 'is-done' : ''} onClick={() => go?.(i)} data-tip={`Jump to ${l}`}>{l}</button>)}</span>;
 const Tag = ({ t, real }) => <span className={`prp-tag${real ? ' is-real' : ''}`}>{real ? 'REAL RESULT' : 'SAMPLE RUN'} · {t}</span>;
 const POW_STEPS = [['🔎', 'Scouts and reads', 'Five sites, a picture of each', ['dexscreener', 'x.com', 'birdeye', 'solscan', 'gmgn']], ['🧠', 'Both minds decide', 'Three turns to agree on one coin and a size'], ['🛡', 'Exits set first', 'Stop −30%, take +50%, before any buy'], ['⛏', 'Buys and trims', 'Real money through the pool, pinned on the chart'], ['🏅', 'Scored on the result', 'Money and hold time count most']];
 function PowReplay() {
-  const [at] = useSteps(POW_STEPS.length); const [t, setT] = useState(0);
+  const [at, go] = useSteps(POW_STEPS.length); const [t, setT] = useState(0);
   useEffect(() => { const c = setInterval(() => { if (!document.hidden) setT(x => x + 1); }, 900); return () => clearInterval(c); }, []);
-  return <div className="prp" data-testid="pdr-pow-replay"><Tag t="not a real trade" /><Steps names={['READ', 'DECIDE', 'EXITS', 'BUY', 'SCORE']} at={at} /><div className="prp-main"><DemoChart seed={5} t={t} who="A" sym="SAMPLE" calls={at >= 3} /></div>
-    <div className="prp-side">{POW_STEPS.map(([ic, b, say, chips], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small>{chips && i === at ? <span className="prp-chips">{chips.map(c => <em key={c}>{c}</em>)}</span> : null}</div>)}{at === 4 ? <span className="prp-seal"><ProofSeal rank="A" tone="good" size={70} parts={[{ label: 'Result', value: 0.9 }, { label: 'Held', value: 0.8 }, { label: 'Reads', value: 0.7 }, { label: 'Exits', value: 1 }, { label: 'New', value: 0.6 }]} />Its score, from its record</span> : null}</div></div>;
+  return <div className="prp" data-testid="pdr-pow-replay"><Tag t="not a real trade" /><Steps names={['READ', 'DECIDE', 'EXITS', 'BUY', 'SCORE']} at={at} go={go} /><div className="prp-main"><DemoChart seed={5} t={t} who="A" sym="SAMPLE" calls={at >= 3} /></div>
+    <div className="prp-side">{POW_STEPS.map(([ic, b, say, chips], i) => <button type="button" key={b} onClick={() => go(i)} data-tip="Show this step" className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small>{chips && i === at ? <span className="prp-chips">{chips.map(c => <em key={c}>{c}</em>)}</span> : null}</button>)}{at === 4 ? <span className="prp-seal"><ProofSeal rank="A" tone="good" size={70} parts={[{ label: 'Result', value: 0.9 }, { label: 'Held', value: 0.8 }, { label: 'Reads', value: 0.7 }, { label: 'Exits', value: 1 }, { label: 'New', value: 0.6 }]} />Its score, from its record</span> : null}</div></div>;
 }
 const POP_STEPS = [['🙈', 'Each mind calls blind', 'Neither sees the other. A call needs a number behind it'], ['📖', 'The calls open', 'They disagree, and both reasons are on the record'], ['📏', 'Lines on true candles', 'Entry, stop and where its leverage dies'], ['📊', 'True price grades it', 'A practice trade runs. No real money moves']];
 function PerpReplay({ kits }) {
-  const lev = useMemo(() => levOf(kits), [kits]); const [at] = useSteps(POP_STEPS.length, 3800); const px = lev?.mark;
+  const lev = useMemo(() => levOf(kits), [kits]); const [at, go] = useSteps(POP_STEPS.length, 3800); const px = lev?.mark;
   const lines = px && at >= 2 ? [{ id: 'e', price: px, title: 'A ENTRY', color: '#45e486' }, { id: 's', price: px * 0.975, title: 'A STOP', color: '#ffd54a', dash: true }, { id: 'l', price: lev.l10, title: '10x DIES', color: '#ff8fa3', dash: true }] : [];
   const open = at >= 1;
-  return <div className="prp" data-testid="pdr-perp-replay"><Tag t="sample calls on today's real candles" /><Steps names={['BLIND', 'OPEN', 'LINES', 'GRADE']} at={at} /><div className="prp-main"><div className="pdr-chart" style={{ height: '100%' }}><Suspense fallback={<Wait what="Loading true candles…" />}><PerpsChart asset={lev?.sym || 'BTC'} iv="1h" lines={lines} /></Suspense></div>
+  return <div className="prp" data-testid="pdr-perp-replay"><Tag t="sample calls on today's real candles" /><Steps names={['BLIND', 'OPEN', 'LINES', 'GRADE']} at={at} go={go} /><div className="prp-main"><div className="pdr-chart" style={{ height: '100%' }}><Suspense fallback={<Wait what="Loading true candles…" />}><PerpsChart asset={lev?.sym || 'BTC'} iv="1h" lines={lines} /></Suspense></div>
     <div className="prp-calls">{[['MIND A', 'LONG 3x', 'Funding is negative while price holds its range', 'long'], ['MIND B', 'SHORT 5x', 'Open interest rose 9% into a flat tape', 'short']].map(([who, call, why, side]) => <div key={who} className={`prp-call${open ? ` is-${side}` : ' is-sealed'}`}><b>{who}</b><strong>{open ? call : 'SEALED'}</strong><small>{open ? why : 'Waiting for the other mind'}</small></div>)}</div></div>
-    <div className="prp-side">{POP_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
+    <div className="prp-side">{POP_STEPS.map(([ic, b, say], i) => <button type="button" key={b} onClick={() => go(i)} data-tip="Show this step" className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></button>)}</div></div>;
 }
 const POB_STEPS = [['🔎', 'Each mind searches its own sites', 'One reads injuries and form, one reads the odds'], ['🎯', 'Picks blind', 'A pick, a confidence, and the site its number came from'], ['🏟', 'The game plays', 'Live numbers from the scoreboard'], ['✅', 'The scoreboard grades it', 'Never the mind that made the pick']];
 function PickReplay() {
-  const [at] = useSteps(POB_STEPS.length, 3600);
-  return <div className="prp" data-testid="pdr-pick-replay"><Tag t="made-up game" /><Steps names={['READ', 'PICK', 'LIVE', 'GRADE']} at={at} /><div className="prp-main"><div className="prp-game"><div className="prp-teams"><b>HOME</b><em className="m-num">{at >= 2 ? (at >= 3 ? '112 – 104' : '58 – 55') : 'vs'}</em><b>AWAY</b></div>
+  const [at, go] = useSteps(POB_STEPS.length, 3600);
+  return <div className="prp" data-testid="pdr-pick-replay"><Tag t="made-up game" /><Steps names={['READ', 'PICK', 'LIVE', 'GRADE']} at={at} go={go} /><div className="prp-main"><div className="prp-game"><div className="prp-teams"><b>HOME</b><em className="m-num">{at >= 2 ? (at >= 3 ? '112 – 104' : '58 – 55') : 'vs'}</em><b>AWAY</b></div>
     <div className="prp-minds">{[['MIND A · FORM', 'Home wins', 72, 'Away star out, says the injury report'], ['MIND B · ODDS', 'Home −4.5', 61, 'The line moved two points since noon']].map(([who, p, c, why]) => <div key={who} className="prp-mind"><b>{who}</b><strong>{at >= 1 ? p : 'Reading…'}</strong><u><s style={{ transform: `scaleX(${at >= 1 ? c / 100 : 0})` }} /></u><small>{at >= 1 ? `${c}% · ${why}` : 'Its own sites, its own search'}</small></div>)}</div>{at === 3 ? <span className="prp-grade">BOTH RIGHT · GRADED BY THE FINAL SCORE</span> : null}</div></div>
-    <div className="prp-side">{POB_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
+    <div className="prp-side">{POB_STEPS.map(([ic, b, say], i) => <button type="button" key={b} onClick={() => go(i)} data-tip="Show this step" className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></button>)}</div></div>;
 }
 const POC_STEPS = [['📡', 'Reads what is moving', 'Five trend sources, a picture of each'], ['💡', 'Each mind pitches an angle', 'Two different takes on the same story'], ['✍', 'Writes the finished post', 'In your voice, ready to use. It never posts by itself']];
 function StoryReplay() {
-  const [at] = useSteps(POC_STEPS.length, 4200);
-  return <div className="prp" data-testid="pdr-story-replay"><Tag t="sample topics" /><Steps names={['TRENDS', 'ANGLES', 'POST']} at={at} /><div className="prp-main">
+  const [at, go] = useSteps(POC_STEPS.length, 4200);
+  return <div className="prp" data-testid="pdr-story-replay"><Tag t="sample topics" /><Steps names={['TRENDS', 'ANGLES', 'POST']} at={at} go={go} /><div className="prp-main">
     {at === 0 ? <div className="prp-trend"><h4>RISING RIGHT NOW</h4><ul>{[['New phone launch', 0.92, '+340%'], ['Playoff race', 0.71, '+120%'], ['Solana ETF', 0.55, '+64%'], ['Coffee prices', 0.3, '+22%']].map(([l, v, g]) => <li key={l}><span>{l}</span><b className="m-num">{g}</b><u><s style={{ transform: `scaleX(${v})` }} /></u></li>)}</ul></div> : null}
     {at === 1 ? <div className="prp-game"><div className="prp-minds">{[['MIND A · THE ARGUMENT', 'Nobody needs this phone, and everyone will buy it', 'Replies are 3 to 1 against'], ['MIND B · BEFORE THE PEAK', 'The one feature reviewers skipped', 'Searches for it doubled today']].map(([who, p, why]) => <div key={who} className="prp-mind"><b>{who}</b><strong>{p}</strong><small>{why}</small></div>)}</div></div> : null}
     {at === 2 ? <div className="prp-post"><article><header><i aria-hidden="true" />Your account</header><p>Every review skipped the one thing you'll use daily.{'\n'}I spent a week with it. Three things they missed 🧵</p><small>READY TO POST · ALSO A 40 SECOND SCRIPT AND A THUMBNAIL</small></article></div> : null}</div>
-    <div className="prp-side">{POC_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
+    <div className="prp-side">{POC_STEPS.map(([ic, b, say], i) => <button type="button" key={b} onClick={() => go(i)} data-tip="Show this step" className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></button>)}</div></div>;
 }
 // 📊 Not every PoStatic is a 3D site (owner 2026-11-07: "a mix, not just games and repeated landing pages"). Example pages of the kinds the Build tiles start, labelled as examples with sample data.
 export const EXAMPLE_PIECES = [
@@ -108,10 +109,10 @@ function Piece({ id, t, cat, work }) {
 const CLIPS = [['Launch', 'https://images-assets.nasa.gov/video/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988/KSC-20240525-MH-RKL01-0001-Rocket_Lab_PREFIRE_1_Launch_1080p-M6988~mobile.mp4#t=16', 'WE LEFT'], ['Earth', 'https://images-assets.nasa.gov/video/Earth%20Views%20from%20the%20International%20Space%20Station/Earth%20Views%20from%20the%20International%20Space%20Station~mobile.mp4#t=8', 'AT DAWN'], ['Liftoff', 'https://images-assets.nasa.gov/video/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130/KSC-20230507-MH-RLS01-TROPICS_Rocket_Launch-Rocket_Lab-WON_3330130~mobile.mp4#t=20', 'AND KEPT GOING']];
 const CUT_LOG = ['Reads your ask: 15 seconds, big words', 'Searches NASA for launch footage', 'Keeps 3 clips, public domain', 'Opens on the payoff, cuts every 4 seconds', 'Adds words people can read on a phone', 'Exports an MP4 on your machine'];
 function VideoFilm() {
-  const [at] = useSteps(CUT_LOG.length * 2, 2600); const step = Math.floor(at / 2); const on = Math.min(2, Math.max(0, step >= 3 ? at - 6 : 0)) % 3;
+  const [at, go] = useSteps(CUT_LOG.length * 2, 2600); const step = Math.floor(at / 2); const on = Math.min(2, Math.max(0, step >= 3 ? at - 6 : 0)) % 3;
   return <div className="prp is-wide" data-testid="pdr-video"><Tag t="real NASA footage, public domain" /><div className="prp-main flm-mon">{CLIPS.map(([n, src], i) => (i === on ? <video key={n} src={src} autoPlay muted loop playsInline preload="metadata" /> : null))}{step >= 4 ? <p className="flm-word" key={on}>{CLIPS[on][2]}</p> : null}{step >= 5 ? <span className="flm-done">launch-cut.mp4 · 15 s · ready</span> : null}
     <div className="flm-time" aria-hidden="true"><span>{CLIPS.map(([n], i) => <i key={n} className={`${step >= i + 1 ? 'is-in' : ''}${i === on && step >= 3 ? ' is-on' : ''}`}>{step >= i + 1 ? n : ''}</i>)}</span><span className="is-words">{step >= 4 ? CLIPS.map(([n, , w]) => <b key={n}>{w}</b>) : null}</span><u style={{ transform: `translateX(${step >= 3 ? ((at % 12) / 12) * 100 : 0}%)` }} /></div></div>
-    <ol className="flm-log prp-side">{CUT_LOG.map((l, i) => <li key={l} className={i === step ? 'is-on' : i < step ? 'is-done' : ''}>{l}</li>)}</ol></div>;
+    <ol className="flm-log prp-side">{CUT_LOG.map((l, i) => <li key={l} className={i === step ? 'is-on' : i < step ? 'is-done' : ''}><button type="button" onClick={() => go(i * 2)} data-tip="Show this step">{l}</button></li>)}</ol></div>;
 }
 // 🔥 Viral AI clips (owner 2026-11-10: "best img/video… real and relevant to the viral AI videos today"): the formats trending on
 // TikTok / Reels, each a REAL result made on its model (OpenRouter, 2026-11-10), with the model, its price and how long it took.
@@ -131,15 +132,15 @@ function ViralReel({ cat, work }) {
 // 🖼 AI makes an image: a real generated picture comes into focus, then the thumbnail is built on it, layer by layer.
 const IMG_LOG = ['Writes the prompt from your ask', 'Generates it with a free image model', 'Crops for a phone screen', 'Adds 3 big words', 'Adds the accent', 'Saves 3 versions to test'];
 function ImageFilm() {
-  const [at] = useSteps(IMG_LOG.length, 2600); const pics = ['/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg', '/showcase/night-run.jpg'];   // landscape art: this reel crops for a phone screen (a 9:16 still blew up blurry here; the vertical ones live in 🔥 Viral AI clips)
+  const [at, go] = useSteps(IMG_LOG.length, 2600); const pics = ['/showcase/poc/gen1.jpg', '/showcase/poc/gen2.jpg', '/showcase/night-run.jpg'];   // landscape art: this reel crops for a phone screen (a 9:16 still blew up blurry here; the vertical ones live in 🔥 Viral AI clips)
   return <div className="prp is-wide" data-testid="pdr-image"><Tag t="a real generated picture" /><div className="prp-main flm-art"><img src={pics[0]} alt="" className={at === 0 ? 'is-blur' : at === 1 ? 'is-soft' : at >= 2 ? 'is-crop' : ''} />{at === 0 ? <p className="flm-prompt">dramatic rocket launch at dusk, cinematic, wide shot</p> : null}{at >= 3 ? <h4 className="flm-big">We <em>left</em> at dusk</h4> : null}{at >= 4 ? <b className="flm-pill">NEW</b> : null}{at >= 5 ? <span className="flm-vers">{pics.map(p => <img key={p} src={p} alt="" loading="lazy" />)}</span> : null}</div>
-    <ol className="flm-log prp-side">{IMG_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
+    <ol className="flm-log prp-side">{IMG_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}><button type="button" onClick={() => go(i)} data-tip="Show this step">{l}</button></li>)}</ol></div>;
 }
 const PARLAY_STEPS = [['🔎', 'Reads a different site per leg', 'Injuries on one, lines on another'], ['🧾', 'Adds each leg with its reason', 'A number from a site, or no leg'], ['✖', 'Works out the real odds', 'Every leg has to hit'], ['✅', 'Grades leg by leg', 'From the final scores']];
 const LEGS = [['Home wins', 72, 'rotowire'], ['Over 214.5', 58, 'oddsshark'], ['Star 25+ points', 64, 'teamrankings']];
 function ParlayReplay() {
-  const [at] = useSteps(PARLAY_STEPS.length, 3400); const n = Math.min(LEGS.length, at + 1); const all = LEGS.reduce((a, l) => a * (l[1] / 100), 1);
-  return <div className="prp" data-testid="pdr-parlay"><Tag t="made-up games" /><Steps names={['READ', 'LEGS', 'ODDS', 'GRADE']} at={at} /><div className="prp-main"><div className="prp-game"><div className="prp-minds is-legs">{LEGS.slice(0, n).map(([p, c, site]) => <div key={p} className="prp-mind"><b>{site}.com</b><strong>{p}{at === 3 ? ' ✓' : ''}</strong><u><s style={{ transform: `scaleX(${c / 100})` }} /></u><small>{c}% by its read</small></div>)}</div>{at >= 2 ? <span className="prp-grade">ALL THREE: {Math.round(all * 100)}%{at === 3 ? ' · GRADED BY THE SCORES' : ''}</span> : null}</div></div><div className="prp-side">{PARLAY_STEPS.map(([ic, b, say], i) => <div key={b} className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></div>)}</div></div>;
+  const [at, go] = useSteps(PARLAY_STEPS.length, 3400); const n = Math.min(LEGS.length, at + 1); const all = LEGS.reduce((a, l) => a * (l[1] / 100), 1);
+  return <div className="prp" data-testid="pdr-parlay"><Tag t="made-up games" /><Steps names={['READ', 'LEGS', 'ODDS', 'GRADE']} at={at} go={go} /><div className="prp-main"><div className="prp-game"><div className="prp-minds is-legs">{LEGS.slice(0, n).map(([p, c, site]) => <div key={p} className="prp-mind"><b>{site}.com</b><strong>{p}{at === 3 ? ' ✓' : ''}</strong><u><s style={{ transform: `scaleX(${c / 100})` }} /></u><small>{c}% by its read</small></div>)}</div>{at >= 2 ? <span className="prp-grade">ALL THREE: {Math.round(all * 100)}%{at === 3 ? ' · GRADED BY THE SCORES' : ''}</span> : null}</div></div><div className="prp-side">{PARLAY_STEPS.map(([ic, b, say], i) => <button type="button" key={b} onClick={() => go(i)} data-tip="Show this step" className={`prp-step${i === at ? ' is-on' : i < at ? ' is-done' : ''}`}><i aria-hidden="true"><Ic3 e={ic} /></i><b>{b}</b><small>{say}</small></button>)}</div></div>;
 }
 // 📺 Watches the game live (owner 2026-11-10: "overlay edits of how agents work live if they added nfl+ or nba tv to each room"): the owner's own
 // stream plays in the room, its agent reads the live score and play-by-play beside it, and its pick is graded by the final score. The footage
@@ -150,7 +151,7 @@ const GAMES = [{ src: '/showcase/pob/gridiron.mp4', poster: '/showcase/pob/gridi
   ['READS', 'Home on a 9–2 run, their big has 4 fouls'], ['SPOTS', 'Drive to the rim: the help defender is late'], ['CALLS', 'Run keeps going. Home win chance 44% → 61%'], ['PICK', 'Home moneyline · 61% · graded by the final score']] }];
 const LIVE_LOG = ['Your NFL+ or NBA TV plays in the room', 'It reads the live score and every play', 'Win chance moves, and it says why', 'Its pick waits for the final score'];
 function LiveGame() {
-  const [at] = useSteps(4, 2600); const [g, setG] = useState(0); const [ok, setOk] = useState({});
+  const [at, go] = useSteps(4, 2600); const [g, setG] = useState(0); const [ok, setOk] = useState({});
   const rows = GAMES.filter(x => ok[x.src] !== false); const x = rows[g % Math.max(1, rows.length)] || GAMES[0];
   useEffect(() => { if (at === 3) { const t = setTimeout(() => setG(i => i + 1), 2400); return () => clearTimeout(t); } return undefined; }, [at]);
   const sc = at >= 2 ? x.end : x.start; const sec = Math.max(0, x.clock[1] - at * 9); const win = [x.plays[2][1].match(/(\d+)% → (\d+)%/)].map(m => (m ? [+m[1], +m[2]] : [50, 50]))[0];
@@ -162,7 +163,7 @@ function LiveGame() {
       <aside className="plv-mind" aria-live="polite"><header><Ic3 e="🧠" size="16px" /><b>ITS AGENT · READING</b></header>
         <ol>{x.plays.slice(0, at + 1).map(([k, say], i) => <li key={`${g}-${k}`} className={i === at ? 'is-on' : ''}><em>{k}</em>{say}</li>)}</ol>
         <div className="plv-win"><small>HOME WIN CHANCE</small><b className="m-num">{at >= 2 ? win[1] : win[0]}%</b><u><s style={{ transform: `scaleX(${(at >= 2 ? win[1] : win[0]) / 100})` }} /></u></div></aside></div>
-    <ol className="flm-log prp-side">{LIVE_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
+    <ol className="flm-log prp-side">{LIVE_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}><button type="button" onClick={() => go(i)} data-tip="Show this step">{l}</button></li>)}</ol></div>;
 }
 // 🧩 Builds its own tool (owner 2026-11-10: "have ur agent build a component off stash that best fits proof file request"): the file asks for a
 // watcher, its agent searches the stash, the best fit is forked (v1.00 → v1.01 in its git folder) and the tool runs. The parts are the real kits
@@ -181,7 +182,7 @@ function ToolRun({ k, lev: live, t }) {
   return <div className="psb-tool is-poc"><small>RISING · CRYPTO VIDEO</small><ol>{['Nobody tells you why this chart bottomed', 'I let an AI trade for 24 hours. Here is the tape', 'The 3 second rule every trencher ignores'].map((h, i) => <li key={h} style={{ '--i': i }}><em className="m-num">HOOK {i + 1}</em>{h}</li>)}</ol></div>;
 }
 function StashBuild({ k, kits }) {
-  const [at] = useSteps(4, 3000); const [t, setT] = useState(0);
+  const [at, go] = useSteps(4, 3000); const [t, setT] = useState(0);
   useEffect(() => { const c = setInterval(() => { if (!document.hidden) setT(x => x + 1); }, 700); return () => clearInterval(c); }, []);
   const own = (kits || []).filter(x => (x.kinds || []).includes(k)).slice(0, 3); const names = own.length >= 2 ? own.map(x => x.name) : STASH_FALLBACK[k];
   const parts = names.map((n, i) => ({ n, what: own[i]?.what || '', fit: [91, 74, 58][i] }));
@@ -191,7 +192,7 @@ function StashBuild({ k, kits }) {
       {at >= 1 ? <ul className="psb-parts">{parts.map((x, i) => <li key={x.n} className={at >= 2 && i === 0 ? 'is-pick' : at >= 2 ? 'is-off' : ''} style={{ '--i': i }}><b>{x.n}</b><small>{x.what || 'from the stash'}</small><u><s style={{ transform: `scaleX(${at >= 1 ? x.fit / 100 : 0})` }} /></u><i className="m-num">{x.fit}% fit</i></li>)}</ul> : null}
       {at >= 2 ? <p className="psb-fork m-num"><span>v1.00</span><em>→</em><span className="is-new">v1.01</span><small>forks/{STASH_TOOL[k]}/v1.01.html · made for you</small></p> : null}
       {at >= 3 ? <ToolRun k={k} lev={lev} t={t} /> : null}</div>
-    <ol className="flm-log prp-side">{BUILD_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}>{l}</li>)}</ol></div>;
+    <ol className="flm-log prp-side">{BUILD_LOG.map((l, i) => <li key={l} className={i === at ? 'is-on' : i < at ? 'is-done' : ''}><button type="button" onClick={() => go(i)} data-tip="Show this step">{l}</button></li>)}</ol></div>;
 }
 // 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
 export function ReviewReel({ rows }) {

@@ -94,6 +94,7 @@ import proof_demos as _demos
 import page_look as _look
 import agent_eco as _eco
 import free_browser as _fb
+import store_check as _store
 import evidence_marks as _marks
 import proof_stamp as _stamp
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
@@ -6903,7 +6904,7 @@ def _ws_view(cat_id, ws_id):
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     _media_resume(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None, 'storeCheck': d_.get('storeCheck')}
 
 
 def _media_dir():
@@ -9042,6 +9043,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         return {'hidden': row_['hidden'], 'id': row_['id']}
     if p.op == 'live_feed':   # 📡 real numbers for a page that shows live data: the preview passes them into its frame
         return {'live': await _live_feed(cat)}
+    if p.op == 'store_check':   # 📱 its latest page, checked the way App Review / Google Play would see it wrapped as an app (store_check)
+        doc_ = _ws_load(cat_id, p.job)
+        v_ = (doc_ or {}).get('versions') or []
+        if not v_:
+            raise HTTPException(400, 'Build the page first, then check it for the stores.')
+        res_ = await _store.check(_ws_placed(cat_id, v_[-1]['html']), device=True)
+        res_['version'] = len(v_); doc_['storeCheck'] = {k_: res_[k_] for k_ in ('score', 'state', 'fails', 'warns', 'line', 'version', 'at')}; _ws_save(cat_id, doc_)
+        return {'check': res_}
     if p.op == 'ws_open':
         view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or []); view_['project'] = (cat.get('projectRepo') or {}).get('full')
         if p.ver is not None and p.ver == str(view_['versions']):
