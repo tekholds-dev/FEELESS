@@ -8,6 +8,7 @@
 > - 🎬 Showcase ads: `show_ads.py` + op `show_ads` (ownerStaff only) + GET `/api/cats/{id}/showad/{kind}` (owner gate, `dl=1` download). Run it from Happy's desk: Features › Showcase › any proof › "Its ad" › Have this agent make the ads. One build at a time, stops before $1.25 (owner approved $1.25 on Happy). Records 1280×720 webm via Playwright. NOT run live yet.
 > - 🪞 Voice mirror: `voice_mirror.py` learns from each owner message (ws_build/ask/poc/pob/pop), persona `mirror` 0–3 adds a prompt line; UI in Its mind › persona card "Talks like you".
 > - 🧪 Model Lab folder on Fee's owner desk (`ModelLab.jsx`, `modelLab.css`): plan for FEELESS's own model, honest "not started" states, editable name (localStorage).
+> **2026-11-11:** auto code reload shipped (keep-alive.sh `code_reload`, run-feeless.sh → start-backend.sh + background.sh; auto-pull defers to it). Owner must re-run his command ONCE to switch. Browser check + ad job + styling sweep blocked: Claude in Chrome not connected, built-in pane has no wallet.
 > **Still open from the owner's last ask:** degen styling sweep of every agents/collective folder and tab (not done), "WOW" pass; run the ad job and check the 6 videos; then owner tests (Showcase full screen, Social tiles) → real-money AGT-25, then SITE-14.
 
 > ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
@@ -43,7 +44,8 @@ never invent a test, outcome, cost or proof · no duplicate systems · leave eve
 **How to work with the owner (read first):**
 - He runs ONE command himself; never open Terminal windows (no osascript / up.sh):
   `cd "/Users/christopherclark/Desktop/feeless v.o7" && caffeinate -dimsu bash -c 'bash backend/run-feeless.sh && cd frontend && PORT=51367 yarn start'`
-  Frontend edits are live at once (dev server). Backend edits go live only when he re-runs it: batch them, then tell him once.
+  Frontend edits are live at once (dev server). Backend edits go live BY THEMSELVES (2026-11-11): his command starts keep-alive.sh, which reloads
+  changed backend .py once they sit 15 s, compile, and 5088 `/api/cats/health` says `busy: 0` (no build / ad run). Log: /tmp/feeless-keepalive.log.
 - Push = `git push -q origin main` ONLY (the pre-push hook runs `scripts/gate.sh` once; never run the gate yourself first). The gate re-runs failed
   backend tests alone before going red (load flakes). Never edit `scripts/gate.sh` while a push is running.
 - Work in BIG blocks: several rows built → one push → browser check in his Chrome (Claude in Chrome is connected; Sicario's desk = the test bench,

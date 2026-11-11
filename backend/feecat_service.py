@@ -6607,7 +6607,9 @@ async def activity(catId: Optional[str] = None):
 @app.get('/api/cats/health')
 async def health():
     store = _load()
-    return {'ok': True, 'cats': len(store['cats']), 'events': len(store['events'])}
+    # 🔁 `busy` = folder builds + ad runs alive right now: scripts/keep-alive.sh reloads new backend code only when this is 0 (a restart kills a run)
+    busy = sum(1 for t in list(_WS_LIVE.values()) + list(_ADS_LIVE.values()) if t is not None and not t.done())
+    return {'ok': True, 'cats': len(store['cats']), 'events': len(store['events']), 'busy': busy}
 
 
 TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),

@@ -45,8 +45,12 @@ while true; do
         git merge -q --ff-only "origin/$branch"
         echo "$(date +%T) updated to $(git log --oneline -1)"
         if grep -q '^backend/' <<<"$changed"; then
-          echo "$(date +%T) backend changed, so restarting services"
-          bash "$root/scripts/start-backend.sh" || echo "backend restart failed, see /tmp/feeless-*.log"
+          if pgrep -f "scripts/keep-alive.sh" >/dev/null 2>&1; then   # the watcher reloads it once no build is running (a restart kills a run)
+            echo "$(date +%T) backend changed: the watcher reloads it when builds are idle (/tmp/feeless-keepalive.log)"
+          else
+            echo "$(date +%T) backend changed, so restarting services"
+            bash "$root/scripts/start-backend.sh" || echo "backend restart failed, see /tmp/feeless-*.log"
+          fi
         fi
         if grep -qE '^frontend/(package.json|yarn.lock)$' <<<"$changed"; then
           echo "$(date +%T) frontend dependencies changed, so installing them"
