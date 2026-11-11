@@ -65,3 +65,11 @@ def test_the_site_router_receipts_its_paid_fallback(monkeypatch, tmp_path):
     r._spend_note('openrouter', 0.0, 1794425001.0, 'nvidia/free', 'gen-4')
     rows = _rows(tmp_path / 'r.jsonl')
     assert len(rows) == 1 and rows[0]['model'] == 'openai/gpt-6-luna' and rows[0]['cat'] == 'site' and rows[0]['funding'] == 'FEELESS key'
+
+
+def test_an_agent_on_its_own_key_still_works_with_feeless_key_removed(monkeypatch):
+    monkeypatch.delenv('OPENROUTER_API_KEY', raising=False)
+    monkeypatch.setenv('GENERAL_CAT_LIVE', '1')
+    monkeypatch.setattr(fs._ck, 'key_for', lambda cat, prov, **_k: 'sk-own' if cat.get('id') == 'happy' and prov == 'openrouter' else None)
+    assert fs._work_live({'id': 'happy'}) is True
+    assert fs._work_live({'id': 'other'}) is False and fs._work_live() is False

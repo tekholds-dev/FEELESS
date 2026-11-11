@@ -3855,7 +3855,7 @@ async def _site_trade_chat(cat_id, order, ans):
     b_ = cat.get('brainsCfg') or {}; w_ = _WORK.get(cat_id)
     if w_ and not w_.get('done'):
         return '🛒 It is still working. Stop that first, then ask again. Nothing was placed.'
-    if not _work_live() or not _lc.can_ask(b_) or not b_.get('brains'):
+    if not _work_live(cat) or not _lc.can_ask(b_) or not b_.get('brains'):
         return '🛒 It has no model credit to work its window. Nothing was placed.'
     wallet_ = _site_wallet(cat, c_['site'])
     before_ = None
@@ -4025,7 +4025,7 @@ def _read_start(cat, goal, who, kind=''):
     w_ = _WORK.get(cat['id']); b_ = cat.get('brainsCfg') or {}
     if w_ and not w_.get('done'):
         return 'its windows were busy'
-    if not _work_live():
+    if not _work_live(cat):
         return 'browsing is off on this server'
     if not b_.get('brains') or (float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE <= 0.005 and not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)):
         return 'no model credit left for browsing'
@@ -4094,7 +4094,7 @@ def _made_refusal(cat, job):
     why_ = _ca.refusal(job['prompt'])
     if why_:
         return f'🛑 {why_}'
-    if not _work_live():
+    if not _work_live(cat):
         return '⏸ Model calls are off on this server.'
     if cat['id'] in _MADE_BUSY:
         return '🎨 It is still making the last one.'
@@ -5493,10 +5493,11 @@ async def _human_wait(ev, base_s, seen_at):
 CHAT_KEEP = 60
 
 
-def _work_live():
+def _work_live(cat=None):
     """General cats' model calls: their OWN switch (GENERAL_CAT_LIVE) so the owner can test a general cat without turning on every trading
     cat's brain calls (LAUNCH_CAT_LIVE turns both on). Needs the OpenRouter key either way."""
-    return bool(os.environ.get('OPENROUTER_API_KEY')) and (os.environ.get('GENERAL_CAT_LIVE', '').lower() in ('1', 'true', 'on') or _brains_live())
+    key_ = bool(os.environ.get('OPENROUTER_API_KEY')) or bool(cat and _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR))   # 🔑 owner 2026-11-11: an agent on its OWN key works with FEELESS's key removed
+    return key_ and (os.environ.get('GENERAL_CAT_LIVE', '').lower() in ('1', 'true', 'on') or _brains_live())
 
 
 def _work_view(cat_id, owner=False):
@@ -5869,7 +5870,7 @@ def _work_settle(store):
             cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-HANDOFF_MAX:]
         w['settled'] = True
         # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason; a parked one does not)
-        if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
+        if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live(cat) and _lc.can_ask(cat.get('brainsCfg') or {}):
             if day_left(cat) is None or day_left(cat) > 0:   # at its daily $ limit the queue waits
                 nxt = cat['workQueue'].pop(0)
                 _work_start(cid, cat, nxt.get('text'), nxt.get('to'), nxt.get('files'))
@@ -10235,7 +10236,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': why}])[-100:]
             _save(store)
             raise HTTPException(400, why)
-        if not _work_live():
+        if not _work_live(cat):
             raise HTTPException(400, 'Model calls are off on this server (GENERAL_CAT_LIVE) — nothing was sent or charged.')
         if not _lc.can_ask(b):
             raise HTTPException(400, 'It stopped 10 cents before its model credit ran out. Top up to ask again.')
@@ -10278,7 +10279,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             keep_owned(cat); _save(store)
     out = _as_collective(_work_view(cat_id, owner=True))
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
-            'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
+            'live': _work_live(cat), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
             'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'challengeStats': cat.get('challengeStats') or {}, 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat), 'ipfs': list(reversed(cat.get('ipfs') or []))[:20],   # ☁ its cloud: pool, quota, files · ⛓ what it keeps on IPFS
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
