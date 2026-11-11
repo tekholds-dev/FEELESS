@@ -1,6 +1,6 @@
 import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
-import { formatUSD, formatPct, shortAddress, formatAge } from '../../lib/dexscreener';
+import { formatUSD, formatPct, shortAddress, formatAge, thumb } from '../../lib/dexscreener';
 import { LivePrice } from '../terminal/LiveCells';
 import { DipRipTool } from '../terminal/DipRipTool';
 import { CreatorFeesCard } from './CreatorFeesCard';
@@ -60,7 +60,7 @@ export function CoinProfile({ chain, pairAddress }) {
   return <section className="coin-profile" data-testid="coin-profile">
     <div className="cp-banner" style={(pair.info?.header || pump?.banner) ? { backgroundImage: `url(${pair.info?.header || pump.banner})` } : undefined} />
     <div className="cp-head">
-      <div className="cp-logo">{(pair.info?.imageUrl || pump?.image) ? <img src={pair.info?.imageUrl || pump.image} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}{chain === 'solana' && <VerifiedTick mint={mint} size={96} />}</div>
+      <div className="cp-logo">{(pair.info?.imageUrl || pump?.image) ? <img decoding="async" loading="lazy" src={thumb(pair.info?.imageUrl || pump.image, 64)} alt="" /> : <span>{pair.baseToken.symbol.slice(0, 2)}</span>}{chain === 'solana' && <VerifiedTick mint={mint} size={96} />}</div>
       <div className="cp-id"><h1>${pair.baseToken.symbol} <small>{pair.baseToken.name}</small></h1><span>{chain} · {pair.dexId} · pool {formatAge(pair.pairCreatedAt)} old · <code>{shortAddress(mint)}</code><CopyBtn value={mint} /></span>
         <div className="cp-links">{(pair.info?.socials || []).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">{x.type}</a>)}{(pair.info?.websites || []).slice(0, 1).map(x => <a key={x.url} href={x.url} target="_blank" rel="noopener noreferrer">website</a>)}<a href={`/terminal/chat?chain=${chain}&pair=${pool}&room=bulls`}>Chart + trade →</a></div></div>
       <button type="button" className="btn-outline wp-flip-btn" data-testid="coin-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>

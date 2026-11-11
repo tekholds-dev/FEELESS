@@ -1,3 +1,4 @@
+import { thumb } from '../lib/dexscreener';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiUrl } from '../lib/api';
@@ -19,7 +20,7 @@ export function WalletSwaps({ address, title = 'Swaps', limit = 12, onMirror }) 
     <h4>{title}</h4>
     {rows == null ? <p className="wp-bio">Reading swaps…</p> : !rows.length ? <p className="wp-bio">No swaps found for this wallet yet.</p> :
       rows.slice(0, limit).map(t => <div key={t.tx + t.token} className={`ws-row ${t.side}`}>
-        {t.imageUrl ? <img src={t.imageUrl} alt="" /> : <span className="ws-dot" />}
+        {t.imageUrl ? <img decoding="async" loading="lazy" src={thumb(t.imageUrl)} alt="" /> : <span className="ws-dot" />}
         <b>{t.side === 'buy' ? 'Bought' : 'Sold'} ${t.symbol}</b>
         <span>${Number(t.usd).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
         <small>{t.chain} · {ago(t.ts)}</small>

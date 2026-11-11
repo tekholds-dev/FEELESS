@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { ShieldQuestion, ExternalLink, Copy, ArrowLeft, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { ShieldCheck, ShieldAlert, Shield, Wallet, Star, Rocket, Link2 } from '../../lib/lucide3d';
 import { fetchCreator, watchCreator, unwatchCreator, fetchWatchlist, fetchWatchlistFeed, BADGE_LABEL } from '../../lib/reputation';
-import { shortAddress } from '../../lib/dexscreener';
+import { shortAddress, thumb } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
@@ -128,7 +128,7 @@ function LaunchTable({ chain, tokens }) {
       const change = Number(m?.change24h);
       const mint = t.baseTokenAddress;
       return <div key={t.pairAddress} className={`launch-row status-${t.status} ${m && !m.listed ? 'is-unlisted' : ''}`}>
-        <span className="launch-sym">{m?.imageUrl ? <img src={m.imageUrl} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<span><b>{t.symbol || 'Unknown'}</b><small>{timeAgo(t.firstSeenAt)} · {t.status}</small></span></span>
+        <span className="launch-sym">{m?.imageUrl ? <img decoding="async" loading="lazy" src={thumb(m.imageUrl)} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<span><b>{t.symbol || 'Unknown'}</b><small>{timeAgo(t.firstSeenAt)} · {t.status}</small></span></span>
         <span><small>MARKET CAP</small><b>{m?.listed ? fmtUsd(m.marketCap) : m ? 'Not listed' : '…'}</b></span>
         <span><small>24H</small><b className={Number.isFinite(change) ? (change >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(change) ? `${change.toFixed(1)}%` : '—'}</b></span>
         <span><small>VOL 24H</small><b>{fmtUsd(m?.volume24h)}</b></span>

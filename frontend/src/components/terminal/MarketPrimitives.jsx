@@ -2,7 +2,7 @@ import { AnimatedNumber } from './AnimatedNumber';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Coins, UserRound } from '../../lib/lucide3d';
-import { formatPct, formatUSD, formatTime, shortAddress } from '../../lib/dexscreener';
+import { formatPct, formatUSD, formatTime, shortAddress, thumb } from '../../lib/dexscreener';
 import { useVerified } from '../../lib/verifyBatch';
 import { useReputation, cachedReputation } from '../../lib/reputation';
 import { usePumpPulse, pulseSummary } from '../../lib/pumpPulse';
@@ -134,7 +134,7 @@ export const TokenAvatar = ({ pair, size = 34, onExhausted, maxAttempts }) => {
     {(!imageUrl || exhausted) && <span className="token-avatar-fallback" aria-hidden="true"><Coins size={Math.round(size * 0.42)} /></span>}
     {imageUrl && !exhausted && <img data-fb-skip="1"
       key={`${imageUrl}-${attempts}`}
-      src={imageUrl} loading="lazy" decoding="async"
+      src={thumb(imageUrl, size)} loading="lazy" decoding="async"
       alt=""
       onError={() => {
         const nextAttempts = attempts + 1;

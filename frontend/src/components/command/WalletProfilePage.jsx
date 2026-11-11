@@ -29,7 +29,7 @@ import { isCoinAddress } from '../../lib/resolveCoin';
 import { useWallet } from '../../hooks/useWallet';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { LivePrice } from '../terminal/LiveCells';
-import { shortAddress, formatUSD } from '../../lib/dexscreener';
+import { shortAddress, formatUSD, thumb } from '../../lib/dexscreener';
 import { BadgeArtifacts, useBadges } from '../terminal/Badges';
 import EcosystemChat from '../EcosystemChat';
 import { BadgeJourney } from './BadgeJourney';
@@ -101,7 +101,7 @@ function SwapTopCoins({ onSelect }) {
   const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 10);
   return <aside className="swap-market-rail" data-testid="swap-top-coins"><header><span><i />LIVE</span><b>Top 10 coins</b><small>30s</small></header>
     <div className="swap-market-list">{!pairs.length ? <p className="wp-bio">Loading live markets…</p> : pairs.map((p, index) => { const change = Number(p.priceChange?.h24); const txns = Number(p.txns?.h24?.buys || 0) + Number(p.txns?.h24?.sells || 0); const heat = Math.min(1, Math.log10(Math.max(10, Number(p.volume?.h24 || 0))) / 7); return <button type="button" key={p.pairAddress} onClick={() => onSelect(p)} style={{ '--heat': heat, '--pulse-speed': `${Math.max(1.4, 5 - Math.min(3.6, txns / 500))}s` }}>
-      <span className="sm-rank">{index + 1}</span>{p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <span className="sm-coin">{p.baseToken.symbol.slice(0, 1)}</span>}<span className="sm-name"><b>${p.baseToken.symbol}</b><small>{p.baseToken.name || 'Solana market'}</small></span><em className={change >= 0 ? 'positive' : 'negative'}>{Number.isFinite(change) ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}</em>
+      <span className="sm-rank">{index + 1}</span>{p.info?.imageUrl ? <img decoding="async" loading="lazy" src={thumb(p.info.imageUrl)} alt="" /> : <span className="sm-coin">{p.baseToken.symbol.slice(0, 1)}</span>}<span className="sm-name"><b>${p.baseToken.symbol}</b><small>{p.baseToken.name || 'Solana market'}</small></span><em className={change >= 0 ? 'positive' : 'negative'}>{Number.isFinite(change) ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '—'}</em>
       <span className="sm-metrics"><small>MC <b>{formatUSD(p.marketCap || p.fdv)}</b></small><small>VOL <b>{formatUSD(p.volume?.h24)}</b></small><small>LIQ <b>{formatUSD(p.liquidity?.usd)}</b></small><small>TX <b>{txns || '—'}</b></small></span><i className="sm-activity" aria-hidden="true" /></button>; })}</div>
     <small className="swap-market-source">Provider-ranked activity · tap a coin to load it in the swap</small>
   </aside>;
@@ -269,7 +269,7 @@ export function WalletProfilePage({ address }) {
       <h3>Top 8 coins</h3>
       {edit && <div className="wp-top8-add"><input placeholder="Paste a CA to add…" value={ca} onChange={e => setCa(e.target.value)} /><button type="button" className="btn-outline" onClick={addByCa} disabled={!ca.trim()}><Plus size={13} />Add</button>{watchlist.slice(0, 6).map(w => <button type="button" key={w.pairAddress} className="wp-chip" onClick={() => addCoin({ chain: w.chainId, pairAddress: w.pairAddress, mint: w.baseToken?.address, symbol: w.baseToken?.symbol, imageUrl: w.info?.imageUrl || '' })}>+ {w.baseToken?.symbol}</button>)}</div>}
       {!(p.top8 || []).length ? <p className="wp-bio">{edit ? 'Add up to 8 coins you ride with.' : 'No Top 8 yet.'}</p> : <div className="wp-top8-grid">{p.top8.map((t, i) => <div key={t.pairAddress} className="wp-coin">
-        {t.imageUrl ? <img src={t.imageUrl} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<b>{t.symbol}</b>
+        {t.imageUrl ? <img decoding="async" loading="lazy" src={thumb(t.imageUrl)} alt="" /> : <i>{(t.symbol || '?').slice(0, 2)}</i>}<b>{t.symbol}</b>
         <LivePrice pair={{ chainId: t.chain, baseToken: { address: t.mint }, pairAddress: t.pairAddress }} precise />
         {edit ? <button type="button" className="wp-coin-x" onClick={() => setDraft(d => ({ ...d, top8: d.top8.filter((_, j) => j !== i) }))} aria-label="Remove">×</button> : <a href={`/terminal/chat?chain=${t.chain}&pair=${t.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer" className="wp-coin-open">war room ↗</a>}
       </div>)}</div>}

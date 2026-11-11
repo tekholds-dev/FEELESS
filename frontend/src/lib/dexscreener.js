@@ -114,4 +114,12 @@ export function formatAge(ts) {
   if (minutes < 60) return `${minutes}m`;
   if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
   return `${Math.floor(minutes / 1440)}d`;
+}// 🖼 SITE-2 lag: DexScreener's CDN sends coin images at 800×800 q95 (45 KB) and lists showed them at 22 px — each one decoded on the main
+// thread mid-scroll (150–280 ms frames on /terminal). Its CDN takes the size in the URL (64 px = 1.7 KB), so ask for 2× the shown size,
+// in 64 / 128 / 256 steps so one coin shares a cache entry. Any other URL passes through untouched.
+const DS_CDN = /^https:\/\/cdn\.dexscreener\.com\/cms\/images\//;
+export function thumb(url, px = 32) {
+  if (typeof url !== 'string' || !DS_CDN.test(url)) return url;
+  const w = px * 2 <= 64 ? 64 : px * 2 <= 128 ? 128 : 256;
+  return `${url.split('?')[0]}?width=${w}&height=${w}&quality=85&format=auto`;
 }

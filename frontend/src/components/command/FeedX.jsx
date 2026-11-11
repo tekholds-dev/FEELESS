@@ -1,3 +1,4 @@
+import { thumb } from '../../lib/dexscreener';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
@@ -84,7 +85,7 @@ function CoinChip({ mint, symbol, pair, big }) {
   const m5 = Number(pair?.priceChange?.m5); const up = !(m5 < 0);
   return <button type="button" className={`fd-coin ${big ? 'is-big' : ''} ${pair ? (up ? 'is-up' : 'is-dn') : 'is-wait'}`} onClick={go} data-testid="feed-coin"
     data-tip={pair ? `$${String(pair.baseToken?.symbol || symbol).replace(/^\$/, '')} live — tap to open its Trenches floor (chart + Quick trade)` : 'Reading this coin live…'}>
-    {pair?.info?.imageUrl ? <img src={pair.info.imageUrl} alt="" loading="lazy" /> : <i className="fd-coin-ico">$</i>}
+    {pair?.info?.imageUrl ? <img decoding="async" src={thumb(pair.info.imageUrl)} alt="" loading="lazy" /> : <i className="fd-coin-ico">$</i>}
     <b>${String(pair?.baseToken?.symbol || symbol || 'COIN').replace(/^\$/, '')}</b>
     <span className="fd-coin-px" key={pair?.priceUsd}>{pxWord(pair?.priceUsd)}</span>
     <em>{pctWord(pair?.priceChange?.m5)}<small>5m</small></em>
@@ -323,7 +324,7 @@ function FeedTopCoins() {
   return <div className="fd-card fd-trend" data-testid="feed-top-coins"><h4><Ic3 e="🔥" /> Trending <small>live · 24h</small></h4>
     {!pairs.length ? <div className="fd-skel is-rows">{[0, 1, 2].map(k => <span key={k} style={{ '--i': k }}><b /></span>)}</div> : pairs.map((p, i) => { const ch = Number(p.priceChange?.h24); return <button type="button" key={p.pairAddress} style={{ '--i': i }}
       onClick={() => openTrenchTrade({ chainId: p.chainId, pairAddress: p.pairAddress })} data-tip={`Open $${p.baseToken.symbol}'s Trenches floor`}>
-      {p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" loading="lazy" /> : <span className="fd-dotico" />}<b>${p.baseToken.symbol}</b>
+      {p.info?.imageUrl ? <img decoding="async" src={thumb(p.info.imageUrl)} alt="" loading="lazy" /> : <span className="fd-dotico" />}<b>${p.baseToken.symbol}</b>
       <span className={`fd-mbar ${ch >= 0 ? '' : 'is-dn'}`} aria-hidden="true"><i style={{ transform: `scaleX(${Math.min(1, Math.abs(ch || 0) / top)})` }} /></span>
       <em className={ch >= 0 ? 'm-pos' : 'm-neg'}>{pctWord(ch)}</em></button>; })}
   </div>;

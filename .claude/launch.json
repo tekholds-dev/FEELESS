@@ -4,17 +4,44 @@
     {
       "name": "feeless-api",
       "runtimeExecutable": ".venv/bin/uvicorn",
-      "runtimeArgs": ["server:app", "--app-dir", "backend", "--host", "127.0.0.1", "--port", "5001"],
+      "runtimeArgs": [
+        "server:app",
+        "--app-dir",
+        "backend",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5001"
+      ],
       "port": 5001,
       "url": "http://127.0.0.1:5001"
     },
     {
       "name": "feeless-frontend",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--prefix", "frontend", "craco", "start"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "craco",
+        "start"
+      ],
       "cwd": "frontend",
-      "env": { "PORT": "51367", "BROWSER": "none" },
+      "env": {
+        "PORT": "51367",
+        "BROWSER": "none"
+      },
       "port": 51367
+    },
+    {
+      "name": "feeless-fast",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/fast-server.js"
+      ],
+      "env": {
+        "FAST_PORT": "51368"
+      },
+      "port": 51368
     }
   ]
 }

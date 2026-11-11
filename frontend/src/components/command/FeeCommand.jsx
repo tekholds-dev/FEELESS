@@ -5,7 +5,7 @@ import { BarChart3 } from '../../lib/lucide3d';
 import { toast } from 'sonner';
 import { FeelessMark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
-import { formatUSD, formatPct, shortAddress } from '../../lib/dexscreener';
+import { formatUSD, formatPct, shortAddress, thumb } from '../../lib/dexscreener';
 
 import { PriceChart } from '../terminal/PriceChart';
 import { ChartBoundary } from '../terminal/ChartBoundary';
@@ -20,7 +20,7 @@ export const ALLOCATIONS = [
 
 const AssetLogo = ({ asset, size }) => <span className="fee-asset-logo" style={{ width: size, height: size }}>
   <FeelessMark size={size} />
-  {(asset?.imageUrl || asset?.pair?.info?.imageUrl) && <img src={asset.imageUrl || asset.pair.info.imageUrl} alt={`${asset.label || asset.id || 'Fee'} logo`} onError={e => { e.currentTarget.style.display = 'none'; }} />}
+  {(asset?.imageUrl || asset?.pair?.info?.imageUrl) && <img decoding="async" loading="lazy" src={thumb(asset.imageUrl || asset.pair.info.imageUrl)} alt={`${asset.label || asset.id || 'Fee'} logo`} onError={e => { e.currentTarget.style.display = 'none'; }} />}
 </span>;
 
 export const Tokenomics = ({ compact = false }) => {

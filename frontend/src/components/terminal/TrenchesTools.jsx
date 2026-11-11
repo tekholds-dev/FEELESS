@@ -4,7 +4,7 @@ import { Flame, Crown, Megaphone, Zap } from '../../lib/lucide3d';
 import { apiUrl } from '../../lib/api';
 import '../../styles/discovery.css';
 import { AnimatedNumber } from './AnimatedNumber';
-import { formatUSD } from '../../lib/dexscreener';
+import { formatUSD, thumb } from '../../lib/dexscreener';
 import { LivePrice, LiveChange24 } from './LiveCells';
 import { Ic3 } from '../../lib/icon3d';
 
@@ -24,7 +24,7 @@ export function HotCalls({ onPick }) {
   return <section className="trench-tool" data-testid="hot-calls"><div className="trench-tool-head"><Flame size={14} /><h3 className="trenches-font">Hot CAs</h3><small>most-called · 3h</small></div>
     {!rows.length && <p className="trench-empty">No calls in the last 3 hours. Paste a CA in chat to start the ledger.</p>}
     {rows.map(r => <button type="button" key={r.pairAddress} className="hot-row" onClick={() => onPick?.(r)}>
-      {r.imageUrl ? <img src={r.imageUrl} alt="" /> : <i>{(r.symbol || '?').slice(0, 2)}</i>}
+      {r.imageUrl ? <img decoding="async" loading="lazy" src={thumb(r.imageUrl)} alt="" /> : <i>{(r.symbol || '?').slice(0, 2)}</i>}
       <b>{r.symbol}</b><small>{r.callers} caller{r.callers === 1 ? '' : 's'} · {r.calls} call{r.calls === 1 ? '' : 's'}</small>
       <span className={(r.x || 1) >= 1 ? 'positive' : 'negative'}><AnimatedNumber value={r.x || 1} format={fmtX} /></span>
     </button>)}
@@ -171,7 +171,7 @@ export function TrendingCards({ pairs = [], newPairs = [], onPick }) {
       const up = Number(p.priceChange?.h24) >= 0;
       const m5 = Number(p.priceChange?.[tf]);
       return <article key={p.pairAddress} className={`trend-card ${up ? 'is-up' : 'is-down'}`} style={{ animationDelay: `${i * 40}ms` }} onClick={() => onPick?.(p)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && onPick?.(p)}>
-        <div className="trend-top">{p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <i>{p.baseToken.symbol.slice(0, 2)}</i>}<div><b>{p.baseToken.symbol}</b><small>{p.baseToken.name}</small></div><span className="trend-rank">#{i + 1}</span></div>
+        <div className="trend-top">{p.info?.imageUrl ? <img decoding="async" loading="lazy" src={thumb(p.info.imageUrl)} alt="" /> : <i>{p.baseToken.symbol.slice(0, 2)}</i>}<div><b>{p.baseToken.symbol}</b><small>{p.baseToken.name}</small></div><span className="trend-rank">#{i + 1}</span></div>
         <div className="trend-price"><LivePrice pair={p} precise /><LiveChange24 pair={p} /></div>
         <div className="trend-stats"><span><small>MC</small>{formatUSD(p.marketCap || p.fdv)}</span><span><small>VOL 24H</small>{formatUSD(p.volume?.h24)}</span><span><small>{tfLabel.toUpperCase()}</small><em className={Number.isFinite(m5) ? (m5 >= 0 ? 'positive' : 'negative') : ''}>{Number.isFinite(m5) ? `${m5 >= 0 ? '+' : ''}${m5.toFixed(1)}%` : '—'}</em></span></div>
         {share != null && <div className="trend-pressure" title={`${b} buys / ${s} sells in the last hour`}><i style={{ width: `${share * 100}%` }} /><small>{Math.round(share * 100)}% buys · 1h</small></div>}

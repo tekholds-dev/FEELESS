@@ -488,3 +488,299 @@ async def music_next(title: str = Query('', max_length=160), skip: str = Query('
     if not pick:
         pick = rs._music.pick_next(await rs._yt_search('top songs this week'), [s for s in skip.split(',') if s], [t for t in titles.split('|') if t])
     return {'next': pick, 'artist': artist}
+
+
+@router.get('/api/reputation/token/{chain}/{address}')
+async def token_reputation(chain: str, address: str):
+    rs = _rs()
+    store = rs._load()
+    mint_key = f'{chain}:{address}'
+    mint_state = store['mints'].get(mint_key)
+    if not mint_state or not mint_state.get('creator'):
+        return {'creator': None, 'score': None, 'badge': 'unproven'}
+    ckey = rs._creator_key(chain, mint_state['creator'])
+    entry = store['creators'].get(ckey)
+    if not entry:
+        return {'creator': mint_state['creator'], 'score': None, 'badge': 'unproven'}
+    out = {'creator': entry['address'], **rs.score_creator(entry)}
+    return {**out, **rs._hygiene(entry['address'], out)}
+
+
+@router.get('/api/reputation/room-sentiment/{chain}/{pair}')
+async def room_sentiment(chain: str, pair: str):
+    """Community mood for a coin: last-24h posts and posters in its Bulls vs Bears rooms."""
+    rs = _rs()
+    part = lambda v: rs._re.sub(r'%[0-9a-fA-F]{2}', '_', rs.quote(str(v), safe=''))
+    rooms = rs._chat_load()['rooms']; since = (rs.time.time() - 86400) * 1000
+    out = {}
+    for side in ('bulls', 'bears', 'trenches'):
+        msgs = [m for m in rooms.get(f'coin-{part(chain)}-{part(pair)}-{side}', []) if m.get('ts', 0) >= since and not m.get('system')]
+        out[side] = {'posts': len(msgs), 'posters': len({m.get('identity') or m.get('address') for m in msgs})}
+    # Posters weigh double: one loud wallet can't swing the mood alone.
+    bull = out['bulls']['posts'] + 2 * out['bulls']['posters']; bear = out['bears']['posts'] + 2 * out['bears']['posters']
+    out['bullPct'] = round(bull / (bull + bear) * 100) if bull + bear else None
+    return out
+
+
+@router.get('/api/reputation/fuses')
+async def fuses_list():
+    rs = _rs()
+    store = rs._json_load(rs.FUSES_PATH, {'fuses': {}})
+    rows = await rs.asyncio.gather(*[rs._fuse_view(fid, f, store) for fid, f in store['fuses'].items() if f.get('enabled', True)])
+    return {'fuses': sorted(rows, key=lambda r: -rs._hq.trust_rank(r['score']['points'], r['trust']['buyers'], r['trust']['trusted']))}
+
+
+@router.get('/api/reputation/fuses/score/{address}')
+async def fuse_score_get(address: str):
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise rs.HTTPException(400, 'Bad address.')
+    return await rs._fuse_score(address)
+
+
+@router.get('/api/reputation/familia-block/{cid}')
+async def familia_block_visit(cid: str):
+    """🏙 Visit a family's market block (public): which markets stand, built or under construction, a value band — never a balance."""
+    rs = _rs()
+    import crews as _cr
+    st = rs._json_load(rs.CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
+    if not c:
+        raise rs.HTTPException(404, 'No such family.')
+    return await rs._fblock_view(c)
+
+
+@router.get('/api/reputation/hq/pair/{code}')
+async def hq_pair_poll(code: str):
+    """The computer's poll: waiting · expired · the session, handed over once."""
+    rs = _rs()
+    return rs._hqp.take(rs._hqp_store, code[:64], rs.time.time())
+
+
+@router.get('/api/reputation/quests/{address}')
+async def quest_board(address: str):
+    rs = _rs()
+    s = await rs._quest_summary(address)
+    r = await rs._quest_rarity()
+    eds = rs._json_load(rs.EDITIONS_PATH, {})
+    left = {b['id']: max(0, rs.EDITION_CAP - len(eds.get(b['id']) or [])) for b in s['badges']}   # edition hunt: numbered spots left
+    return {**s, 'rarity': r['pct'], 'holders': r['holders'], 'editionsLeft': left, 'metricsLabels': rs._quests.METRICS}
+
+
+@router.get('/api/reputation/perks/{address}')
+async def perks(address: str):
+    rs = _rs()
+    tier, usd = await rs._perk_tier(address)
+    nxt = next((t for t in rs.PERK_TIERS if t['tier'] == tier + 1), None)
+    return {'address': address, 'tier': tier, 'feeUsd': round(usd, 2), 'tiers': rs.PERK_TIERS,
+            'next': {'name': nxt['name'], 'needUsd': round(max(0, nxt['minUsd'] - usd), 2)} if nxt else None}
+
+
+@router.get('/api/reputation/identity/{address}')
+async def identity(address: str):
+    rs = _rs()
+    return {'address': address, 'primary': rs.primary_of(address), 'linked': rs.linked_of(address)}
+
+
+@router.get('/api/reputation/rugshield/{mint}')  # its own path: /shield/{mint} is the launch-promise Shield
+async def rug_shield(mint: str):
+    """ok / caution / danger with the reasons. danger = the trader must tick 'I understand' before signing."""
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
+        raise rs.HTTPException(400, 'Bad mint.')
+    if mint in rs.FEE_SETTLEMENT_MINTS:
+        return {'mint': mint, 'level': 'ok', 'reasons': []}
+    try:
+        if mint in set((await rs._ecosystem_mints()).values()):
+            return {'mint': mint, 'level': 'ok', 'reasons': [], 'official': True, 'note': 'Official FEELESS coin.'}
+    except Exception:
+        pass
+    try:
+        async with rs.httpx.AsyncClient(timeout=10) as http:
+            intel, auth = await rs.asyncio.gather(rs.token_intel('solana', mint), rs._mint_authorities(http, mint))
+    except rs.HTTPException:
+        return {'mint': mint, 'level': 'unknown', 'reasons': ['On-chain check unavailable right now.']}
+    creator = intel.get('creator')
+    if creator in rs._protected_wallets():
+        intel = {**intel, 'creator': None}   # FEELESS wallets are never the risk
+    return {'mint': mint, **rs.shield_verdict(intel, rs._block_load()['wallets'], auth or {}, rs._quick_rep(creator) if creator and creator not in rs._protected_wallets() else None)}
+
+
+@router.get('/api/reputation/resolve/{query}')
+async def resolve_profile(query: str):
+    """@handle, display name or wallet address → profile address (for search + mentions)."""
+    rs = _rs()
+    q = query.strip().lstrip('@')
+    if rs._re.match(r'^0x[0-9a-fA-F]{40}$', q):
+        return {'address': rs.primary_of(q), 'handle': rs.handle_of(rs.primary_of(q))}
+    if rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q):
+        # Only wallets become profiles; token mints / pools stay coin searches.
+        try:
+            async with rs.httpx.AsyncClient(timeout=10) as http:
+                info = await rs._rpc(http, 'getAccountInfo', [q, {'encoding': 'base64'}])
+            owner = ((info or {}).get('value') or {}).get('owner')
+        except Exception:
+            owner = None
+        if owner in (None, '11111111111111111111111111111111'):
+            return {'address': rs.primary_of(q), 'handle': rs.handle_of(rs.primary_of(q))}
+        raise rs.HTTPException(404, 'That address is a token or program, not a wallet.')
+    ql = q.lower()
+    for a, v in rs._profiles_load()['profiles'].items():
+        if (v or {}).get('handle') == ql or str((v or {}).get('displayName') or '').lower() == ql:
+            return {'address': a, 'handle': rs.handle_of(a)}
+    raise rs.HTTPException(404, 'No profile with that name.')
+
+
+@router.get('/api/reputation/img')
+async def img_proxy(u: str):
+    rs = _rs()
+    if not rs._re.match(r'^https://[\w.-]+/', u) or len(u) > 600:
+        raise rs.HTTPException(400, 'Bad image URL.')
+    hit = rs._img_cache.get(u)
+    if hit and rs.time.time() - hit[0] < 3600:
+        return rs._Resp(content=hit[1], media_type=hit[2], headers={'Cache-Control': 'public, max-age=3600'})
+    try:
+        async with rs.httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
+            r = await http.get(u, headers={'accept': 'image/*'})
+    except Exception:
+        raise rs.HTTPException(502, 'Image host unreachable.')
+    ctype = r.headers.get('content-type', '').split(';')[0]
+    b = r.content[:12]
+    sniff = 'image/png' if b.startswith(b'\x89PNG') else 'image/jpeg' if b.startswith(b'\xff\xd8') else 'image/gif' if b[:4] == b'GIF8' else 'image/webp' if b[:4] == b'RIFF' and b[8:12] == b'WEBP' else None
+    ctype = sniff or ctype
+    if r.status_code != 200 or not sniff or len(r.content) > 2_500_000:
+        raise rs.HTTPException(415, 'Not a usable image.')
+    if len(rs._img_cache) > 800:
+        rs._img_cache.clear()
+    rs._img_cache[u] = (rs.time.time(), r.content, ctype)
+    return rs._Resp(content=r.content, media_type=ctype, headers={'Cache-Control': 'public, max-age=3600'})
+
+
+@router.get('/api/reputation/follows/{address}')
+async def follows(address: str, viewer: str = ''):
+    rs = _rs()
+    a = rs.primary_of(address)
+    d = rs._fol()['following']
+    following = d.get(a, [])
+    followers = [x for x, lst in d.items() if a in lst]
+    return {'address': a, 'followers': len(followers), 'following': len(following), 'followersList': followers[-30:][::-1], 'followingList': following[-30:][::-1],
+            'viewerFollows': bool(viewer) and a in d.get(rs.primary_of(viewer), [])}
+
+
+@router.get('/api/reputation/shield/{mint}')
+async def shield_get(mint: str):
+    rs = _rs()
+    s = rs._json_load(rs.SHIELD_PATH, {}).get(mint)
+    if not s:
+        return {'mint': mint, 'status': 'none'}
+    return await rs._shield_check(mint, s)
+
+
+@router.get('/api/reputation/collection/{address}')
+async def collection(address: str):
+    rs = _rs()
+    items = rs._json_load(rs.COLLECTION_PATH, {}).get(rs.primary_of(address), [])
+    return {'address': rs.primary_of(address), 'items': sorted(items, key=lambda x: -x['at'])}
+
+
+@router.get('/api/reputation/version')
+async def version():
+    """Which code this machine is running vs GitHub main, so a stale copy is obvious (footer shows it)."""
+    rs = _rs()
+    hit = rs._version_cache.get('v')
+    if hit and rs.time.time() - hit[0] < 30:
+        return hit[1]
+    if rs.time.time() - rs._version_cache.get('fetched', 0) > 300:
+        rs._version_cache['fetched'] = rs.time.time()
+        await rs._git('fetch', '-q', 'origin', 'main', timeout=20)
+    head, branch, behind, dirty = await rs.asyncio.gather(rs._git('rev-parse', '--short', 'HEAD'), rs._git('rev-parse', '--abbrev-ref', 'HEAD'),
+                                                       rs._git('rev-list', '--count', 'HEAD..origin/main'), rs._git('status', '--porcelain', '--untracked-files=no'))
+    v = {'head': head or None, 'branch': branch or None, 'behind': int(behind) if behind.isdigit() else None,
+         'dirty': [l[3:] for l in dirty.splitlines()][:8], 'fix': 'bash scripts/update.sh'}
+    rs._version_cache['v'] = (rs.time.time(), v)
+    return v
+
+
+@router.get('/api/reputation/launch-rail')
+async def launch_rail():
+    rs = _rs()
+    r = rs._json_load(rs.LAUNCH_RAIL_PATH, {})
+    return {'ready': bool(r.get('config')), **r, 'tab': rs.launch_meta.clean_tab(r.get('tab') or rs.launch_meta.TAB_DEFAULT), 'costs': rs.launch_meta.clean_costs(r.get('costs')), 'siteUrl': rs.os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
+
+
+@router.get('/api/reputation/pump-profile/{mint}')
+async def pump_profile_get(mint: str):
+    rs = _rs()
+    """🟢 What Pump says about a coin (logo, links, creator, graduated, cap vs its ATH, 1h volume, replies, live). 60s cache; {} when
+    Pump has no record. Read-only, public data."""
+    if not (mint.isalnum() and 30 <= len(mint) <= 48):
+        raise rs.HTTPException(400, 'Not a mint.')
+    hit = rs._PUMP_PROFILE.get(mint)
+    if hit and rs.time.time() - hit[0] < 60:
+        return hit[1] or {}
+    import launchpad_board as _lb
+    try:
+        async with rs.httpx.AsyncClient(timeout=6, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+            r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}')
+        prof = _lb.pump_profile(r.json() if r.status_code == 200 else None, rs.time.time() * 1000)
+    except Exception:
+        return (hit[1] if hit else None) or {}      # Pump busy: the last copy, never an error wall
+    if len(rs._PUMP_PROFILE) > 600:
+        rs._PUMP_PROFILE.clear()
+    rs._PUMP_PROFILE[mint] = (rs.time.time(), prof)
+    rs._pump_links_put(mint, prof)
+    return prof or {}
+
+
+@router.get('/api/reputation/coin-profile/{mint}')
+async def coin_profile_get(mint: str):
+    rs = _rs()
+    return rs._json_load(rs.COIN_PROFILES_PATH, {}).get(mint) or {}
+
+
+@router.get('/api/reputation/token-meta/{name}')
+async def token_meta_get(name: str):
+    rs = _rs()
+    from fastapi.responses import FileResponse
+    if not rs._re.match(r'^[a-f0-9]{32}\.json$', name) or not (rs.TOKEN_META_DIR / name).exists():
+        raise rs.HTTPException(404, 'Not found')
+    return FileResponse(rs.TOKEN_META_DIR / name, media_type='application/json')
+
+
+@router.get('/api/reputation/rugproof/{mint}')
+async def rugproof(mint: str):
+    rs = _rs()
+    if not rs._re.match(rs._B58, mint):
+        raise rs.HTTPException(400, 'Solana mint required.')
+    hit = rs._rugproof_cache.get(mint)
+    if hit and rs.time.time() - hit[0] < 600:
+        return hit[1]
+    async with rs.httpx.AsyncClient(timeout=10) as http:
+        info = await rs._rpc(http, 'getAccountInfo', [mint, {'encoding': 'jsonParsed'}])
+    parsed = rs._parsed_info((info or {}).get('value'))
+    if not parsed:
+        raise rs.HTTPException(404, 'Not a token mint.')
+    launch = (rs._load().get('feelessLaunches') or {}).get(mint) or {}
+    rail = rs._json_load(rs.LAUNCH_RAIL_PATH, {})
+    reg = [p for p in rs._json_load(rs.POOLS_REG_PATH, {'pools': []})['pools'] if p['mint'] == mint]
+    if any(p.get('locked') for p in reg):
+        lp = {'ok': True, 'how': 'FEELESS pool with liquidity permanently locked'}
+    elif launch.get('rail') == 'feeless' and launch.get('config') == rail.get('config') and float((rail.get('params') or {}).get('lockedLpPct', 100)) >= 100:
+        lp = {'ok': True, 'how': 'FEELESS rail locks 100% of graduated liquidity forever'}
+    else:
+        lp = {'ok': False, 'how': 'No verified permanent liquidity lock known to FEELESS'}
+    out = {'mint': mint, 'mintRevoked': not parsed.get('mintAuthority'), 'freezeRevoked': not parsed.get('freezeAuthority'), 'lpLocked': lp}
+    out['rugProof'] = out['mintRevoked'] and out['freezeRevoked'] and lp['ok']
+    rs._rugproof_cache[mint] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/nft-meta/{name}')
+async def nft_meta(name: str, request: Request):
+    """Public metadata JSON: {id}.json for the collection, {id}-{n}.json for item n."""
+    rs = _rs()
+    m = rs._re.match(r'^([a-f0-9]{12})(?:-(\d{1,6}))?\.json$', name)
+    c = m and next((x for x in rs._nft_load()['collections'] if x['id'] == m.group(1)), None)
+    if not c:
+        raise rs.HTTPException(404, 'Not found')
+    site = rs.os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
+    return rs.nft_studio.item_json(c, site, int(m.group(2))) if m.group(2) else rs.nft_studio.collection_json(c, site)

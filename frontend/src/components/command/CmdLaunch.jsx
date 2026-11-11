@@ -1,3 +1,4 @@
+import { thumb } from '../../lib/dexscreener';
 import React, { useEffect, useMemo, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
@@ -114,7 +115,7 @@ export function CmdLaunch({ rail }) {
 
     {step === 'review' && <div className="m-card is-hot m-stack m-pop" data-testid="cmd-launch-confirm"><div className="m-label">4 · REVIEW & SIGN</div>
       <div className={`m-note ${kind === 'pump' ? '' : 'warn'}`} data-testid="cl-destination"><b>{kind === 'pump' ? '💊 This creates a NEW coin on pump.fun' : '🌐 This creates a NEW coin on Meteora — not pump.fun'}</b>{RAILS.find(r => r.id === kind)?.after}</div>
-      <div className="cl-sum">{f.imageUrl && <img src={src(f.imageUrl)} alt="" />}<div><b>{f.name}</b> <span className="m-chip ok">${f.symbol.toUpperCase()}</span><p className="m-dim">{f.description || 'No description.'}</p></div></div>
+      <div className="cl-sum">{f.imageUrl && <img decoding="async" loading="lazy" src={thumb(src(f.imageUrl))} alt="" />}<div><b>{f.name}</b> <span className="m-chip ok">${f.symbol.toUpperCase()}</span><p className="m-dim">{f.description || 'No description.'}</p></div></div>
       <dl className="m-kv"><dt>Rail</dt><dd>{kind === 'house' ? `🏠 House · ${cfg?.label}` : kind === 'feeless' ? '🌐 FEELESS public config' : '💊 Pump.fun'}</dd>
         <dt>Creator wallet</dt><dd><code>{wallet?.address || 'connect a Solana wallet'}</code></dd>
         <dt>First buy</dt><dd>{Number(f.devBuy) || 0} {kind === 'pump' ? 'SOL' : unit} (same transaction, before anyone else)</dd>
@@ -157,7 +158,7 @@ export function LaunchReceipt({ r, onNew }) {
   return <div className="m-card is-hot m-stack m-pop cl-receipt" data-testid="cmd-launch-receipt">
     <div className="m-row"><span className="m-label">LAUNCH RECEIPT</span><span className="m-chip ok">✓ signed & confirmed</span></div>
     <LiveCheck r={r} />
-    <div className="cl-sum">{r.imageUrl && <img src={src(r.imageUrl)} alt="" />}<div><b>{r.name}</b> <span className="m-chip ok">${r.symbol}</span><p className="m-dim">{new Date(r.at).toLocaleString()}</p></div></div>
+    <div className="cl-sum">{r.imageUrl && <img decoding="async" loading="lazy" src={thumb(src(r.imageUrl))} alt="" />}<div><b>{r.name}</b> <span className="m-chip ok">${r.symbol}</span><p className="m-dim">{new Date(r.at).toLocaleString()}</p></div></div>
     <div className="cl-ca"><small className="m-label">CONTRACT ADDRESS</small><code data-testid="cmd-launch-ca">{r.mint}</code><CopyBtn value={r.mint} /></div>
     <div className="m-row cl-links">{receiptLinks(r.kind, r.mint, r.signature).map(([l, u]) => <a key={l} className={`m-btn ${l === 'pump.fun' ? 'primary' : ''}`} href={u} target={u.startsWith('/') ? undefined : '_blank'} rel="noopener noreferrer">{l} ↗</a>)}</div>
     <dl className="m-kv"><dt>Rail</dt><dd>{r.kind === 'pump' ? 'Pump.fun' : r.kind === 'house' ? 'House config' : 'FEELESS public config'}</dd>

@@ -1,3 +1,4 @@
+import { thumb } from '../../lib/dexscreener';
 import '../../styles/sicario.css';
 import { symOf, tapSym } from '../../lib/symTap';
 import { addTip } from '../../lib/agentTips';
@@ -735,7 +736,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       {duo.wide ? <nav className="dfl-rail" aria-label="Agents floor">
         {hqBtn}
         <span className="dfl-recent" aria-label="Seats">{held.slice(0, 5).map((x, i) => <button key={x.seat} type="button" style={{ '--i': i }} className={`dfl-rc ${x.mint === mint ? 'is-on' : ''}`} onClick={() => onPick(x.mint)}
-          aria-label={`Seat ${x.seat} $${x.symbol}`} data-tip={`Seat ${x.seat} · $${x.symbol} — put it on the chart`} data-testid={`adf-seat-${i}`}>{railLive.get(x.mint)?.info?.imageUrl ? <img src={railLive.get(x.mint).info.imageUrl} alt="" loading="lazy" /> : <b>{String(x.symbol || '?').slice(0, 3)}</b>}</button>)}</span>
+          aria-label={`Seat ${x.seat} $${x.symbol}`} data-tip={`Seat ${x.seat} · $${x.symbol} — put it on the chart`} data-testid={`adf-seat-${i}`}>{railLive.get(x.mint)?.info?.imageUrl ? <img decoding="async" src={thumb(railLive.get(x.mint).info.imageUrl)} alt="" loading="lazy" /> : <b>{String(x.symbol || '?').slice(0, 3)}</b>}</button>)}</span>
         {swapBtn}{brainBtn}
       </nav> : null}
       <section className="dfl-chart ack ack-duo" data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>

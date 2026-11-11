@@ -1,3 +1,4 @@
+import { thumb } from '../lib/dexscreener';
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { fetchFeelessCandles } from '../lib/candles';
@@ -135,7 +136,7 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
   if (!mint) return null;
   return <section className={`arx ${on ? '' : 'is-off'} is-${(dec?.state || 'reading').toLowerCase()}`} data-testid="autorange">
     <header className="arx-top">
-      <span className="arx-id">{tape.pair?.info?.imageUrl ? <img src={tape.pair.info.imageUrl} alt="" /> : <i>{String(pool.sym || '?').slice(0, 2)}</i>}
+      <span className="arx-id">{tape.pair?.info?.imageUrl ? <img decoding="async" loading="lazy" src={thumb(tape.pair.info.imageUrl)} alt="" /> : <i>{String(pool.sym || '?').slice(0, 2)}</i>}
         <span><b>${String(pool.sym || '').split('-')[0]} <em>/ {String(pool.sym || '').split('-')[1] || 'USDC'}</em></b><small>{pool.proto} · {pool.kind === 'dlmm' ? 'DLMM' : 'v3 CLMM'} · {feeTier(pool.meta) != null ? `${(feeTier(pool.meta) * 100).toFixed(2)}% fee` : 'fee n/a'}</small></span></span>
       <span className="arx-chips"><i className={`is-${(dec?.state || 'reading').toLowerCase()}`}>{dec?.state || 'READING'}</i><i className={ms.vol >= 0.6 ? 'is-hot' : 'is-ok'}>{ms.vol == null ? 'risk —' : ms.vol >= 0.6 ? '⚠ high risk' : ms.vol >= 0.25 ? 'medium risk' : 'low risk'}</i></span>
       <span className="arx-price"><b className="m-num" key={price}>{px(price)}</b><small className={`m-num ${ch24 >= 0 ? 'is-up' : 'is-dn'}`}>{pc(ch24)} (24h)</small></span>

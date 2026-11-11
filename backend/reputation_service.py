@@ -435,21 +435,6 @@ def _hygiene(creator, scored):
     return {'score': adj, 'badge': badge, 'hygiene': {'launches': n, 'avgSnipers': round(snip / n, 1), 'avgBundled': round(bund / n, 1), 'penalty': penalty}}
 
 
-@app.get('/api/reputation/token/{chain}/{address}')
-async def token_reputation(chain: str, address: str):
-    store = _load()
-    mint_key = f'{chain}:{address}'
-    mint_state = store['mints'].get(mint_key)
-    if not mint_state or not mint_state.get('creator'):
-        return {'creator': None, 'score': None, 'badge': 'unproven'}
-    ckey = _creator_key(chain, mint_state['creator'])
-    entry = store['creators'].get(ckey)
-    if not entry:
-        return {'creator': mint_state['creator'], 'score': None, 'badge': 'unproven'}
-    out = {'creator': entry['address'], **score_creator(entry)}
-    return {**out, **_hygiene(entry['address'], out)}
-
-
 _market_cache: dict = {}
 MARKET_TTL = 60
 
@@ -2659,21 +2644,6 @@ async def _rpc_busy(request: Request, exc: RuntimeError):
     raise exc
 
 
-@app.get('/api/reputation/room-sentiment/{chain}/{pair}')
-async def room_sentiment(chain: str, pair: str):
-    """Community mood for a coin: last-24h posts and posters in its Bulls vs Bears rooms."""
-    part = lambda v: _re.sub(r'%[0-9a-fA-F]{2}', '_', quote(str(v), safe=''))
-    rooms = _chat_load()['rooms']; since = (time.time() - 86400) * 1000
-    out = {}
-    for side in ('bulls', 'bears', 'trenches'):
-        msgs = [m for m in rooms.get(f'coin-{part(chain)}-{part(pair)}-{side}', []) if m.get('ts', 0) >= since and not m.get('system')]
-        out[side] = {'posts': len(msgs), 'posters': len({m.get('identity') or m.get('address') for m in msgs})}
-    # Posters weigh double: one loud wallet can't swing the mood alone.
-    bull = out['bulls']['posts'] + 2 * out['bulls']['posters']; bear = out['bears']['posts'] + 2 * out['bears']['posters']
-    out['bullPct'] = round(bull / (bull + bear) * 100) if bull + bear else None
-    return out
-
-
 @app.get('/api/reputation/chat/{room}')
 async def chat_room(room: str, session: str = ''):
     if room in _ALPHA and not await _alpha_allowed(room, session_address(session) or ''):
@@ -2972,13 +2942,6 @@ async def _fuse_view(fid, f, store):
             'aprEst': round(sum(m['aprEst'] * m['weight'] for m in metas) / max(1, sum(m['weight'] for m in metas)), 1),
             'trust': {'buyers': len({b['wallet'] for b in buys}), 'trusted': len({b['wallet'] for b in buys if not b.get('selfDeal') and not b.get('bot')})},
             'stats': {'buys': len(buys), 'volumeUsd': round(sum(b['usd'] for b in buys), 2), 'creatorEarnedUsd': earned, 'creatorPaidUsd': paid, 'creatorOwedUsd': round(max(0.0, earned - paid), 6)}}
-
-
-@app.get('/api/reputation/fuses')
-async def fuses_list():
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    rows = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items() if f.get('enabled', True)])
-    return {'fuses': sorted(rows, key=lambda r: -_hq.trust_rank(r['score']['points'], r['trust']['buyers'], r['trust']['trusted']))}
 
 
 def _creator_warn(c):
@@ -5348,13 +5311,6 @@ async def _fuse_score(address, fresh=False):
                       'closed': sum(1 for r in rows if r.get('closed'))}}
     _fuse_score_cache[a] = (time.time(), out)
     return out
-
-
-@app.get('/api/reputation/fuses/score/{address}')
-async def fuse_score_get(address: str):
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
-        raise HTTPException(400, 'Bad address.')
-    return await _fuse_score(address)
 
 
 _ids_warming: set = set()
@@ -9181,16 +9137,6 @@ async def familia_block(address: str, session: str):
     return await _fblock_view(c, me, _is_staff(me), rk_)
 
 
-@app.get('/api/reputation/familia-block/{cid}')
-async def familia_block_visit(cid: str):
-    """🏙 Visit a family's market block (public): which markets stand, built or under construction, a value band — never a balance."""
-    import crews as _cr
-    st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
-    if not c:
-        raise HTTPException(404, 'No such family.')
-    return await _fblock_view(c)
-
-
 class BlockAct(BaseModel):
     address: str
     session: str
@@ -11775,12 +11721,6 @@ async def hq_pair_sign(code: str, p: HqPairSig):
     except KeyError as e:
         raise HTTPException(410, str(e.args[0]))
     return {'ok': True}
-
-
-@app.get('/api/reputation/hq/pair/{code}')
-async def hq_pair_poll(code: str):
-    """The computer's poll: waiting · expired · the session, handed over once."""
-    return _hqp.take(_hqp_store, code[:64], time.time())
 
 
 @app.get('/api/reputation/familia-markets')
@@ -25146,15 +25086,6 @@ async def _quest_rarity():
     return data
 
 
-@app.get('/api/reputation/quests/{address}')
-async def quest_board(address: str):
-    s = await _quest_summary(address)
-    r = await _quest_rarity()
-    eds = _json_load(EDITIONS_PATH, {})
-    left = {b['id']: max(0, EDITION_CAP - len(eds.get(b['id']) or [])) for b in s['badges']}   # edition hunt: numbered spots left
-    return {**s, 'rarity': r['pct'], 'holders': r['holders'], 'editionsLeft': left, 'metricsLabels': _quests.METRICS}
-
-
 class QuestCheckin(BaseModel):
     address: str
     session: str
@@ -26518,14 +26449,6 @@ async def _perk_tier(address: str):
     return tier, usd
 
 
-@app.get('/api/reputation/perks/{address}')
-async def perks(address: str):
-    tier, usd = await _perk_tier(address)
-    nxt = next((t for t in PERK_TIERS if t['tier'] == tier + 1), None)
-    return {'address': address, 'tier': tier, 'feeUsd': round(usd, 2), 'tiers': PERK_TIERS,
-            'next': {'name': nxt['name'], 'needUsd': round(max(0, nxt['minUsd'] - usd), 2)} if nxt else None}
-
-
 # ---- Click tracking for $TICKERS, CAs and @mentions in chat -------------------------------
 CLICKS_PATH = DATA_DIR / 'clicks.json'
 _click_ip = {}
@@ -26662,11 +26585,6 @@ async def identity_link(payload: LinkIn):
         _json_save(IDENTITY_PATH, d)
     _badge_cache.pop(payload.evm, None); _perk_cache.pop(payload.evm, None)
     return {'ok': True, 'primary': payload.solana, 'linked': linked_of(payload.solana)}
-
-
-@app.get('/api/reputation/identity/{address}')
-async def identity(address: str):
-    return {'address': address, 'primary': primary_of(address), 'linked': linked_of(address)}
 
 
 class ChatDelete(BaseModel):
@@ -27473,27 +27391,6 @@ _fee_coin_names: dict = {}
 
 
 # ---- Rug shield: one verdict for the swap review / quick trade, from on-chain forensics --------------
-@app.get('/api/reputation/rugshield/{mint}')  # its own path: /shield/{mint} is the launch-promise Shield
-async def rug_shield(mint: str):
-    """ok / caution / danger with the reasons. danger = the trader must tick 'I understand' before signing."""
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
-        raise HTTPException(400, 'Bad mint.')
-    if mint in FEE_SETTLEMENT_MINTS:
-        return {'mint': mint, 'level': 'ok', 'reasons': []}
-    try:
-        if mint in set((await _ecosystem_mints()).values()):
-            return {'mint': mint, 'level': 'ok', 'reasons': [], 'official': True, 'note': 'Official FEELESS coin.'}
-    except Exception:
-        pass
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            intel, auth = await asyncio.gather(token_intel('solana', mint), _mint_authorities(http, mint))
-    except HTTPException:
-        return {'mint': mint, 'level': 'unknown', 'reasons': ['On-chain check unavailable right now.']}
-    creator = intel.get('creator')
-    if creator in _protected_wallets():
-        intel = {**intel, 'creator': None}   # FEELESS wallets are never the risk
-    return {'mint': mint, **shield_verdict(intel, _block_load()['wallets'], auth or {}, _quick_rep(creator) if creator and creator not in _protected_wallets() else None)}
 
 
 def shield_verdict(intel, blocklist, auth=None, creator_rep=None):
@@ -27960,30 +27857,6 @@ async def chat_session(payload: SessionIn):
 def handle_of(address: str) -> str:
     p = _profiles_load()['profiles'].get(address) or {}
     return p.get('handle') or address[:6].lower()
-
-
-@app.get('/api/reputation/resolve/{query}')
-async def resolve_profile(query: str):
-    """@handle, display name or wallet address → profile address (for search + mentions)."""
-    q = query.strip().lstrip('@')
-    if _re.match(r'^0x[0-9a-fA-F]{40}$', q):
-        return {'address': primary_of(q), 'handle': handle_of(primary_of(q))}
-    if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', q):
-        # Only wallets become profiles; token mints / pools stay coin searches.
-        try:
-            async with httpx.AsyncClient(timeout=10) as http:
-                info = await _rpc(http, 'getAccountInfo', [q, {'encoding': 'base64'}])
-            owner = ((info or {}).get('value') or {}).get('owner')
-        except Exception:
-            owner = None
-        if owner in (None, '11111111111111111111111111111111'):
-            return {'address': primary_of(q), 'handle': handle_of(primary_of(q))}
-        raise HTTPException(404, 'That address is a token or program, not a wallet.')
-    ql = q.lower()
-    for a, v in _profiles_load()['profiles'].items():
-        if (v or {}).get('handle') == ql or str((v or {}).get('displayName') or '').lower() == ql:
-            return {'address': a, 'handle': handle_of(a)}
-    raise HTTPException(404, 'No profile with that name.')
 
 
 @app.get('/api/reputation/activity/{address}')
@@ -29236,46 +29109,12 @@ from fastapi.responses import Response as _Resp
 _img_cache = {}
 
 
-@app.get('/api/reputation/img')
-async def img_proxy(u: str):
-    if not _re.match(r'^https://[\w.-]+/', u) or len(u) > 600:
-        raise HTTPException(400, 'Bad image URL.')
-    hit = _img_cache.get(u)
-    if hit and time.time() - hit[0] < 3600:
-        return _Resp(content=hit[1], media_type=hit[2], headers={'Cache-Control': 'public, max-age=3600'})
-    try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as http:
-            r = await http.get(u, headers={'accept': 'image/*'})
-    except Exception:
-        raise HTTPException(502, 'Image host unreachable.')
-    ctype = r.headers.get('content-type', '').split(';')[0]
-    b = r.content[:12]
-    sniff = 'image/png' if b.startswith(b'\x89PNG') else 'image/jpeg' if b.startswith(b'\xff\xd8') else 'image/gif' if b[:4] == b'GIF8' else 'image/webp' if b[:4] == b'RIFF' and b[8:12] == b'WEBP' else None
-    ctype = sniff or ctype
-    if r.status_code != 200 or not sniff or len(r.content) > 2_500_000:
-        raise HTTPException(415, 'Not a usable image.')
-    if len(_img_cache) > 800:
-        _img_cache.clear()
-    _img_cache[u] = (time.time(), r.content, ctype)
-    return _Resp(content=r.content, media_type=ctype, headers={'Cache-Control': 'public, max-age=3600'})
-
-
 # ---- Social graph: follow / followers / following ----------------------------------------------
 FOLLOW_PATH = DATA_DIR / 'follows.json'
 
 
 def _fol():
     return _json_load(FOLLOW_PATH, {'following': {}})
-
-
-@app.get('/api/reputation/follows/{address}')
-async def follows(address: str, viewer: str = ''):
-    a = primary_of(address)
-    d = _fol()['following']
-    following = d.get(a, [])
-    followers = [x for x, lst in d.items() if a in lst]
-    return {'address': a, 'followers': len(followers), 'following': len(following), 'followersList': followers[-30:][::-1], 'followingList': following[-30:][::-1],
-            'viewerFollows': bool(viewer) and a in d.get(primary_of(viewer), [])}
 
 
 class FollowIn(BaseModel):
@@ -30218,14 +30057,6 @@ async def _shield_check(mint, s):
             'endsAt': s['at'] + s['lockDays'] * 86400, 'status': status, 'checks': checks, 'breaches': s.get('breaches', [])}
 
 
-@app.get('/api/reputation/shield/{mint}')
-async def shield_get(mint: str):
-    s = _json_load(SHIELD_PATH, {}).get(mint)
-    if not s:
-        return {'mint': mint, 'status': 'none'}
-    return await _shield_check(mint, s)
-
-
 def shield_record(creator: str):
     """For trust/creator scoring: kept vs broken shields."""
     d = _json_load(SHIELD_PATH, {})
@@ -30559,12 +30390,6 @@ async def _start_drops():
     asyncio.create_task(_drops_loop())
 
 
-@app.get('/api/reputation/collection/{address}')
-async def collection(address: str):
-    items = _json_load(COLLECTION_PATH, {}).get(primary_of(address), [])
-    return {'address': primary_of(address), 'items': sorted(items, key=lambda x: -x['at'])}
-
-
 class SeasonEdit(BaseModel):
     name: Optional[str] = None
     theme: Optional[str] = None
@@ -30866,23 +30691,6 @@ async def _git(*args, timeout=8):
     return out.decode().strip() if proc.returncode == 0 else ''
 
 
-@app.get('/api/reputation/version')
-async def version():
-    """Which code this machine is running vs GitHub main, so a stale copy is obvious (footer shows it)."""
-    hit = _version_cache.get('v')
-    if hit and time.time() - hit[0] < 30:
-        return hit[1]
-    if time.time() - _version_cache.get('fetched', 0) > 300:
-        _version_cache['fetched'] = time.time()
-        await _git('fetch', '-q', 'origin', 'main', timeout=20)
-    head, branch, behind, dirty = await asyncio.gather(_git('rev-parse', '--short', 'HEAD'), _git('rev-parse', '--abbrev-ref', 'HEAD'),
-                                                       _git('rev-list', '--count', 'HEAD..origin/main'), _git('status', '--porcelain', '--untracked-files=no'))
-    v = {'head': head or None, 'branch': branch or None, 'behind': int(behind) if behind.isdigit() else None,
-         'dirty': [l[3:] for l in dirty.splitlines()][:8], 'fix': 'bash scripts/update.sh'}
-    _version_cache['v'] = (time.time(), v)
-    return v
-
-
 @app.post('/api/reputation/local/update')
 async def local_update(request: Request):
     """One-click update from the footer, for the machine running FEELESS itself: runs scripts/update.sh detached
@@ -30998,12 +30806,6 @@ class LaunchRailIn(BaseModel):
     params: dict = {}
     scope: str = 'public'      # public: the Launch page for everyone · house: owner/admin-only launches (FEELESS's own coins)
     label: str = ''
-
-
-@app.get('/api/reputation/launch-rail')
-async def launch_rail():
-    r = _json_load(LAUNCH_RAIL_PATH, {})
-    return {'ready': bool(r.get('config')), **r, 'tab': launch_meta.clean_tab(r.get('tab') or launch_meta.TAB_DEFAULT), 'costs': launch_meta.clean_costs(r.get('costs')), 'siteUrl': os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')}
 
 
 @app.put('/api/reputation/admin/launch-rail')
@@ -31277,34 +31079,6 @@ async def _chart_fill(rows, now, limit=14):
 _PUMP_PROFILE = {}   # mint → (at, profile | None)
 
 
-@app.get('/api/reputation/pump-profile/{mint}')
-async def pump_profile_get(mint: str):
-    """🟢 What Pump says about a coin (logo, links, creator, graduated, cap vs its ATH, 1h volume, replies, live). 60s cache; {} when
-    Pump has no record. Read-only, public data."""
-    if not (mint.isalnum() and 30 <= len(mint) <= 48):
-        raise HTTPException(400, 'Not a mint.')
-    hit = _PUMP_PROFILE.get(mint)
-    if hit and time.time() - hit[0] < 60:
-        return hit[1] or {}
-    import launchpad_board as _lb
-    try:
-        async with httpx.AsyncClient(timeout=6, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-            r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}')
-        prof = _lb.pump_profile(r.json() if r.status_code == 200 else None, time.time() * 1000)
-    except Exception:
-        return (hit[1] if hit else None) or {}      # Pump busy: the last copy, never an error wall
-    if len(_PUMP_PROFILE) > 600:
-        _PUMP_PROFILE.clear()
-    _PUMP_PROFILE[mint] = (time.time(), prof)
-    _pump_links_put(mint, prof)
-    return prof or {}
-
-
-@app.get('/api/reputation/coin-profile/{mint}')
-async def coin_profile_get(mint: str):
-    return _json_load(COIN_PROFILES_PATH, {}).get(mint) or {}
-
-
 @app.post('/api/reputation/coin-profile')
 async def coin_profile_set(p: CoinProfileIn):
     me = primary_of(_session_or_401(p.address, p.session))
@@ -31321,14 +31095,6 @@ async def coin_profile_set(p: CoinProfileIn):
     async with _admin_lock:
         d = _json_load(COIN_PROFILES_PATH, {}); d[p.mint] = rec; _json_save(COIN_PROFILES_PATH, d)
     return rec
-
-
-@app.get('/api/reputation/token-meta/{name}')
-async def token_meta_get(name: str):
-    from fastapi.responses import FileResponse
-    if not _re.match(r'^[a-f0-9]{32}\.json$', name) or not (TOKEN_META_DIR / name).exists():
-        raise HTTPException(404, 'Not found')
-    return FileResponse(TOKEN_META_DIR / name, media_type='application/json')
 
 
 # Browser-side Solana RPC relay for wallet-signed launches: the Helius key stays on the server and
@@ -31490,33 +31256,6 @@ async def _quiet(coro):
 # ---- Rug-proof check: mint can't inflate, can't freeze, liquidity can't be pulled -------------------
 POOLS_REG_PATH = DATA_DIR / 'pools_registry.json'
 _rugproof_cache: dict = {}
-
-
-@app.get('/api/reputation/rugproof/{mint}')
-async def rugproof(mint: str):
-    if not _re.match(_B58, mint):
-        raise HTTPException(400, 'Solana mint required.')
-    hit = _rugproof_cache.get(mint)
-    if hit and time.time() - hit[0] < 600:
-        return hit[1]
-    async with httpx.AsyncClient(timeout=10) as http:
-        info = await _rpc(http, 'getAccountInfo', [mint, {'encoding': 'jsonParsed'}])
-    parsed = _parsed_info((info or {}).get('value'))
-    if not parsed:
-        raise HTTPException(404, 'Not a token mint.')
-    launch = (_load().get('feelessLaunches') or {}).get(mint) or {}
-    rail = _json_load(LAUNCH_RAIL_PATH, {})
-    reg = [p for p in _json_load(POOLS_REG_PATH, {'pools': []})['pools'] if p['mint'] == mint]
-    if any(p.get('locked') for p in reg):
-        lp = {'ok': True, 'how': 'FEELESS pool with liquidity permanently locked'}
-    elif launch.get('rail') == 'feeless' and launch.get('config') == rail.get('config') and float((rail.get('params') or {}).get('lockedLpPct', 100)) >= 100:
-        lp = {'ok': True, 'how': 'FEELESS rail locks 100% of graduated liquidity forever'}
-    else:
-        lp = {'ok': False, 'how': 'No verified permanent liquidity lock known to FEELESS'}
-    out = {'mint': mint, 'mintRevoked': not parsed.get('mintAuthority'), 'freezeRevoked': not parsed.get('freezeAuthority'), 'lpLocked': lp}
-    out['rugProof'] = out['mintRevoked'] and out['freezeRevoked'] and lp['ok']
-    _rugproof_cache[mint] = (time.time(), out)
-    return out
 
 
 class PoolRegIn(BaseModel):
@@ -33219,17 +32958,6 @@ async def nft_drop(request: Request, cid: str, p: NftDropIn):
 
 
 
-@app.get('/api/reputation/nft-meta/{name}')
-async def nft_meta(name: str, request: Request):
-    """Public metadata JSON: {id}.json for the collection, {id}-{n}.json for item n."""
-    m = _re.match(r'^([a-f0-9]{12})(?:-(\d{1,6}))?\.json$', name)
-    c = m and next((x for x in _nft_load()['collections'] if x['id'] == m.group(1)), None)
-    if not c:
-        raise HTTPException(404, 'Not found')
-    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
-    return nft_studio.item_json(c, site, int(m.group(2))) if m.group(2) else nft_studio.collection_json(c, site)
-
-
 # ---- Intel desk: the reputation department's database of ruggers, snipers, bundlers, funders and their crews -------
 INTEL_DESK_PATH = DATA_DIR / 'intel_desk.json'
 _desk = {'at': 0, 'snap': None, 'rings': [], 'actors': {}}
@@ -33942,3 +33670,17 @@ wars = _rep_public_reads.wars
 darkside = _rep_public_reads.darkside
 season_reserve = _rep_public_reads.season_reserve
 perf_config = _rep_public_reads.perf_config
+
+fuses_list = _rep_public_reads.fuses_list
+familia_block_visit = _rep_public_reads.familia_block_visit
+quest_board = _rep_public_reads.quest_board
+perks = _rep_public_reads.perks
+identity = _rep_public_reads.identity
+resolve_profile = _rep_public_reads.resolve_profile
+follows = _rep_public_reads.follows
+collection = _rep_public_reads.collection
+version = _rep_public_reads.version
+launch_rail = _rep_public_reads.launch_rail
+pump_profile_get = _rep_public_reads.pump_profile_get
+rugproof = _rep_public_reads.rugproof
+nft_meta = _rep_public_reads.nft_meta

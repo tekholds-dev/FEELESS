@@ -12,7 +12,7 @@ import { FlashValue } from '../terminal/FlashValue';
 import { useClock } from './WorkspaceChrome';
 import { useLiveTokenMarkets, withLiveMarket } from '../../lib/liveTokens';
 import { LivePrice, LiveChange24, LiveMarketCap } from '../terminal/LiveCells';
-import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage } from '../../lib/dexscreener';
+import { formatUSD, formatAge, formatTime, pairKey, hasProviderImage, thumb } from '../../lib/dexscreener';
 import { matchesPad } from '../../lib/launchpads';
 import { BoltLegend, BoltSignal } from '../terminal/BoltSignal';
 import { MiniChart } from '../terminal/MiniChart';
@@ -255,7 +255,7 @@ export const MetaDetector = ({ pairs, onSelect }) => {
         <small>{formatUSD(m.volume24h)} vol · {m.volumeShare}% of flow{m.freshLaunches24h ? ` · ${m.freshLaunches24h} launched today` : ''}{m.trend1h != null ? ` · ${m.trend1h >= 0 ? '+' : ''}${m.trend1h}% vs 1h` : ''}</small>
       </button>
       {m.riskShare > 0 && <div className="meta-copycats">⚠ {m.riskShare}% of this meta's scanned coins show sniper/bundle/funder red flags</div>}
-      <div className="meta-avatars">{m.top.slice(0, 6).map(t => t.imageUrl ? <img key={t.pairAddress} src={t.imageUrl} alt="" className="meta-thumb" /> : <span key={t.pairAddress} className="meta-thumb">{(t.symbol || '?').slice(0, 2)}</span>)}</div>
+      <div className="meta-avatars">{m.top.slice(0, 6).map(t => t.imageUrl ? <img decoding="async" loading="lazy" key={t.pairAddress} src={thumb(t.imageUrl)} alt="" className="meta-thumb" /> : <span key={t.pairAddress} className="meta-thumb">{(t.symbol || '?').slice(0, 2)}</span>)}</div>
       {open === m.meta && <div className="meta-members">{m.top.map(t => <button type="button" key={t.pairAddress} onClick={() => onSelect?.({ chainId: t.chain, pairAddress: t.pairAddress, baseToken: { symbol: t.symbol }, info: { imageUrl: t.imageUrl } })}>
         <b>{t.symbol}</b><small>{t.chain}</small><span className={Number(t.change24h) >= 0 ? 'positive' : 'negative'}>{Number.isFinite(Number(t.change24h)) ? `${Number(t.change24h).toFixed(1)}%` : '—'}</span><small>{formatUSD(t.volume24h)}</small>
       </button>)}</div>}
