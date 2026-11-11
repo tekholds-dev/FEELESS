@@ -392,3 +392,10 @@ body.theme-day .psb-stage { background: #f6f8f7; } body.theme-day :is(.psb-ask, 
 .fcv-bar b { font-weight: 800; } .fcv-bar em { margin-left: auto; font-style: normal; }
 body.theme-day .fea-src.fcv { background: #fbfcfb; color: #1d2b24; } body.theme-day .fcv-tabs { background: #eef3f0; } body.theme-day .fcv-tabs button.is-on { background: #fff; color: #10241a; } body.theme-day .t-k { color: #7c3aed; } body.theme-day .t-s { color: #3a7d18; } body.theme-day .t-n { color: #c2410c; } body.theme-day .t-f { color: #1d4ed8; }
 @media (max-width: 640px) { .fcv-l { grid-template-columns: 34px 12px minmax(0, 1fr); } .fea-src.fcv { font-size: 11px; } }
+/* 📦 AGT-7 packages panel (fpk-*) */
+.fpk ul { display: grid; gap: 4px; margin: 0; padding: 8px 10px; list-style: none; }
+.fpk li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto 32px; align-items: center; gap: 10px; min-height: 36px; padding: 4px 8px; border-radius: 8px; background: #ffffff06; border: 1px solid #ffffff0d; animation: feaIn .3s ease-out both; animation-delay: calc(var(--i) * 40ms); }
+.fpk li b { font: 700 12px var(--f-mono); color: #eafff2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fpk li em { font: 800 11px var(--f-mono); font-style: normal; color: #45e486; } .fpk li small { font: 600 10px var(--f-mono); color: #8fa59a; white-space: nowrap; }
+.fpk li a { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 7px; color: #9db4a6; text-decoration: none; } .fpk li a:hover, .fpk li a:focus-visible { background: #15d16a1c; color: #fff; outline: none; }
+body.fx-lite .fpk li { animation: none; } @media (prefers-reduced-motion: reduce) { .fpk li { animation: none; } } body.theme-day .fpk li { background: #fff; border-color: #0000001a; } body.theme-day .fpk li b { color: #10241a; }
+@media (max-width: 640px) { .fpk li { grid-template-columns: 8px minmax(0, 1fr) auto 32px; } .fpk li small { display: none; } }

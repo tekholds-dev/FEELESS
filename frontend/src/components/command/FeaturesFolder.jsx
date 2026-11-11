@@ -6,7 +6,7 @@ import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings } from '../
 import { addFile, AttachChips, ReviewChips } from './CatWorkbench';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { apiUrl } from '../../lib/api';
-import { codeTree, zipFiles } from '../../lib/codeTree';
+import { codeTree, packageOf, zipFiles } from '../../lib/codeTree';
 import { Ic3 } from '../../lib/icon3d';
 import { isCalm } from '../../lib/fxPause';
 import { ProofStamp } from './ProofStamp';
@@ -205,6 +205,12 @@ function CodeChanges({ code = '', previous = '', busy }) {
   const d = useMemo(() => diffRows(previous, code), [previous, code]);
   return <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>+{d.added} added</b><em>−{d.removed} removed</em>{busy ? <span>Mind is coding… latest completed version shown</span> : null}</div><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra={previous ? 'changes since the last version' : null} /></div>;
 }
+// 📦 AGT-7: the page's packages, like an editor's dependency panel: name, pinned version, where it loads from, script or style.
+export function Packages({ text }) {
+  const rows = String(text || '').split('\n').filter(Boolean).map(packageOf);
+  return <div className="fea-code-view fpk" data-testid="ws-packages"><div className="fea-code-delta m-num" role="status"><b>{rows.length} packages</b><span>loaded by this page, version pinned in its links</span></div>
+    <ul>{rows.map((r, i) => <li key={r.url} style={{ '--i': Math.min(i, 10) }}><i className={`fcv-dot is-${r.kind === 'style' ? 'css' : 'js'}`} aria-hidden="true" /><b>{r.name}</b><em className="m-num">{r.version ? (/^\d/.test(r.version) ? `v${r.version}` : r.version) : 'no version'}</em><small>{r.from} · {r.kind}</small><a href={r.url} target="_blank" rel="noopener noreferrer" data-tip="Opens the file it loads" aria-label={`Open ${r.name}`}>↗</a></li>)}</ul></div>;
+}
 // 🌳 The Code tab: the whole page with what changed, or any one page, style or script of it, and the tree saves as one zip.
 const GROUP_IC = { Page: '📄', Pages: '🗂', Styles: '🎨', Scripts: '⚙', Kits: '🧰' };
 function CodeTree({ doc, name }) {
@@ -213,7 +219,7 @@ function CodeTree({ doc, name }) {
   const groups = [...new Set(files.map(x => x.group))];
   return <div className="fea-tree" data-testid="ws-tree"><nav className="fea-tree-nav" aria-label="Code files">{groups.map(g => <div key={g} className="fea-tree-g"><small className="m-label">{GROUP_IC[g]} {g.toUpperCase()}</small>{files.filter(x => x.group === g).map((x, i) => <button key={x.path} type="button" style={{ '--i': i }} className={x.path === f.path ? 'is-on' : ''} aria-current={x.path === f.path} onClick={() => setAt(x.path)} data-tip={`${x.text.split('\n').length} lines`} data-testid={`ws-file-${x.path}`}>{x.path.split('/').pop()}</button>)}</div>)}
     <button type="button" className="m-btn m-go fea-tree-save" onClick={save} data-tip="Downloads the whole tree as one zip: index.html runs by itself" data-testid="ws-tree-save">Save files (.zip)</button></nav>
-    <div className="fcv-ed"><Tabs files={files.map(x => x.path).slice(0, 8)} at={f.path} onPick={setAt} />{f.path === 'index.html' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy} /> : <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>{f.path}</b><span>{f.text.split('\n').length} lines</span></div><CodeLines rows={plainRows(f.text)} path={f.path} /><StatusBar rows={plainRows(f.text)} path={f.path} /></div>}</div></div>;
+    <div className="fcv-ed"><Tabs files={files.map(x => x.path).slice(0, 8)} at={f.path} onPick={setAt} />{f.path === 'kits.txt' ? <Packages text={f.text} /> : f.path === 'index.html' ? <CodeChanges code={doc.code} previous={doc.previousCode} busy={!!doc.busy} /> : <div className="fea-code-view" data-testid="ws-code"><div className="fea-code-delta m-num" role="status"><b>{f.path}</b><span>{f.text.split('\n').length} lines</span></div><CodeLines rows={plainRows(f.text)} path={f.path} /><StatusBar rows={plainRows(f.text)} path={f.path} /></div>}</div></div>;
 }
 // 💾 Keeps this page in its own folder. Sealed under its key in the Collective's store, in its own repo if one is linked. Only its owner opens it.
 // 🧰 Which picked kits this page really uses, read from its code.

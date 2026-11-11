@@ -1,6 +1,6 @@
 import React from 'react';
 import ORCAT from '../components/command/__fixtures__/mediaModels.json';   // 🎬 the real media_models answer (OpenRouter presets + samples), from media_gen.catalog
-import { FeaturesFolder, ProofDesk } from '../components/command/FeaturesFolder';
+import { FeaturesFolder, Packages, ProofDesk } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
 import { apiUrl } from '../lib/api';
@@ -45,6 +45,7 @@ function CodeHarness() {
   return <div className="fea-view" style={{ height: '100vh', background: '#050a08' }}><div className="fcv-ed"><Tabs files={['index.html', 'styles/main.css', 'scripts/app.js']} at="index.html" /><div className="fea-code-view"><CodeLines rows={d.rows} /><StatusBar rows={d.rows} extra="changes since the last version" /></div></div></div>;
 }
 export default function FeaturesHarness() {
+  if (/pkgs/.test(window.location.search)) return <div className="fea-view" style={{ height: '100vh' }}><Packages text={'https://cdn.jsdelivr.net/npm/echarts@6.0.0/dist/echarts.min.js\nhttps://unpkg.com/@tsparticles/engine@3.9.1/tsparticles.engine.min.js\nhttps://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css\nhttps://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700\nhttps://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js'} /></div>;   // ?pkgs — the packages panel
   if (/code/.test(window.location.search)) return <CodeHarness />;   // ?code — the editor look on a real showcase page, with a change
   if (/watch/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes('/api/cats/scores/') ? Promise.resolve(new Response(JSON.stringify(String(u).endsWith(`/${WATCH.id}`) ? WATCH.game : WATCH.board), { status: 200, headers: { 'Content-Type': 'application/json' } })) : real(u, o));   // ?watch — the watch wall with tonight's real games
     return <div style={{ minHeight: '100vh', background: '#07040d', padding: 16, boxSizing: 'border-box' }}><WatchWall onBrowse={() => {}} onCommand={() => {}} price="≈$0.0040 a proof" /></div>; }

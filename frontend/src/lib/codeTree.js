@@ -16,6 +16,15 @@ export function codeTree(html) {
   return files;
 }
 
+// 📦 AGT-7: what a page loads, read from its kit links: package, version, where from, script or style. Unknown hosts keep their address.
+export function packageOf(url) {
+  const u = String(url || '').trim(); let m;
+  if ((m = u.match(/(?:cdn\.jsdelivr\.net\/npm|unpkg\.com|esm\.sh)\/((?:@[\w.-]+\/)?[\w.-]+)@([\w.-]+)/))) return { name: m[1], version: m[2], from: u.split('/')[2], kind: /\.css(\?|$)/.test(u) ? 'style' : 'script', url: u };
+  if ((m = u.match(/cdnjs\.cloudflare\.com\/ajax\/libs\/([\w.-]+)\/([\w.-]+)\//))) return { name: m[1], version: m[2], from: 'cdnjs.cloudflare.com', kind: /\.css(\?|$)/.test(u) ? 'style' : 'script', url: u };
+  if (/fonts\.googleapis\.com/.test(u)) return { name: 'Google Fonts', version: (u.match(/family=([^&:]+)/) || [])[1]?.replace(/\+/g, ' ') || '', from: 'fonts.googleapis.com', kind: 'style', url: u };
+  let host = ''; try { host = new URL(u, 'https://x.invalid').host; } catch { host = ''; }
+  return { name: u.split('/').pop()?.split('?')[0] || u, version: '', from: host === 'x.invalid' ? 'this page' : host, kind: /\.css(\?|$)/.test(u) ? 'style' : 'script', url: u };
+}
 // 📦 A plain zip (stored, no compression) so the whole tree saves as one file with nothing to install.
 const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
 const crc32 = b => { let c = 0xffffffff; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
