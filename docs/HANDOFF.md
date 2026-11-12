@@ -169,7 +169,7 @@ AGT-7 live code IDE · SITE-17 Familia.
 |---|---|---|
 | W05 | CLEARED 2026-11-10 | OpenRouter live read: $10 credits, $0.66 used, **$9.34 left**. Paid model calls work. |
 | AG11 | Image output | OpenRouter needs at least $1.00 for images. |
-| CASH | Any real-card or Sicario seat buy | Fuse card held 0.002565 SOL at last read. Fund it, then Auto-collect on Sicario's. |
+| CASH | Any real-card or Sicario seat buy | Fuse card 0.022717 SOL (cash-check 2026-11-11 21:41: covered, 30 swaps match, gas reserve 0.005967 short). Sicario's Auto-collect is OFF, so its PoW files nothing: turn it on. Happy's PoW wallet: 0.0513 SOL + 0.367 USDC, OpenRouter $11.86 left. Edge audit HOLD (0/966) holds the card engine only, not PoW buys. Agent withdraw never run for real. |
 | SEND1 | Every send, boost and payout path (all fakes today) | One real small proof send ($1+) by the owner. The Pool ledger has 0 real sends. |
 | SI31 | Proves SI01-21, 25, 29, 30, 34, 36, 37, 40-42, 44-46, 48, PF01, B02, FC12 at once | One paid PoW + one paid PoP, owner OK'd. |
 | LAWYER | Withdrawals (FC14), rewards by amount sent, profit share from a pool, earning from debate on top of a stake, team logos, tokenized stocks for pooled money, card fees on third-party cards, custody (W02, C13), perps partner APIs, geo/KYC (Q06), Terms text | `docs/COUNSEL_BRIEF.md`. Withdrawals and any cap on them stay OFF until counsel answers. |
