@@ -6,6 +6,8 @@ import { MediaButton, MediaCard } from './MediaStudio';
 import { PartsShelf } from './PartsShelf';
 import { KitPick } from './KitPick';
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings } from '../chat/ChatKit';
+import { nextOptions, WhatNext } from '../chat/WhatNext';
+export { nextOptions };
 import { addFile, AttachChips, ReviewChips } from './CatWorkbench';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { apiUrl } from '../../lib/api';
@@ -135,24 +137,12 @@ const SEND_TO = [['pos', 'PoStatic', 'A PoStatic folder with this answer in its 
   ['pob', 'PoB', 'Puts "file a pob" with this story in the agent chat: a pick graded by the scoreboard'], ['pop', 'PoP', 'Puts "file a perp" with this story in the agent chat: a paper call']];
 const SEND_CMD = { pow: 'file a PoW', pob: 'file a pob', pop: 'file a perp' };
 export const sendBrief = (kind, name, text) => `${SEND_CMD[kind]} from my PoC "${name}": ${String(text || '').replace(/^THE PLAN[^\n]*\n?/i, '').replace(/\s+/g, ' ').trim().slice(0, 600)}`;
-// 🧭 WHAT NEXT (owner 2026-11-12: "they ask which should they do next like you do, with options or input a different one"): after every
-// reply the chat offers the next step. When the reply itself lists choices (1. … / - … after a question), those ARE the options; otherwise the
-// steps that fit where the work is, plus one tap that carries this answer into the next proof. "Something else" goes to the box.
-export function nextOptions(last, { page = 0, kinds = [] } = {}) {
-  const t = String(last?.text || ''); if (!t || last?.by === 'you') return [];
-  const q = t.lastIndexOf('?'); const tail = q >= 0 ? t.slice(q + 1) : '';
-  const own = tail.split('\n').map(x => x.match(/^\s*(?:\d+[.)]|[-•*])\s+(.{3,90}?)\s*$/)?.[1]).filter(Boolean).slice(0, 4);
-  if (own.length >= 2) return own.map(x => ({ label: x.replace(/\*\*/g, ''), say: x.replace(/\*\*/g, '') }));
-  const out = page ? [{ label: 'Make it great on a phone', say: 'Make this page work beautifully on a 360 px phone.' }, { label: 'Add a live chart of real data', say: 'Add one live chart fed by real data, with its source named.' }, { label: 'Sharper headline and copy', say: 'Tighten the headline and the copy: shorter, clearer, more confident.' }]
-    : [{ label: 'Go deeper', say: 'Go deeper on that: what would make it twice as good?' }, { label: 'What could go wrong?', say: 'What could go wrong with this, and how do we guard against it?' }, { label: 'Build it', say: 'Build it.' }];
-  return [...out, ...kinds.slice(0, 1).map(k => ({ label: `Carry it into a ${k[1]}`, sendTo: k[0] }))];
-}
 export function NextSteps({ doc, busy, send, onSendTo, onOther }) {
   const msgs = doc?.messages || []; const last = msgs[msgs.length - 1];
   const page = +(String(last?.text || '').match(/^Page (\d+) is ready/)?.[1] || 0);
   const opts = useMemo(() => nextOptions(last, { page, kinds: onSendTo ? SEND_TO.filter(([k]) => (page ? k !== 'pos' : true)) : [] }), [last, page, onSendTo]);
   if (busy || !opts.length || last?.media) return null;
-  return <div className="fea-next" role="group" aria-label="What next" data-testid="ws-next"><small className="m-label">WHAT NEXT?</small>{opts.map((o, i) => <button key={o.label} type="button" className="m-chip" style={{ '--i': i }} onClick={() => (o.sendTo ? onSendTo(last, o.sendTo) : send(o.say, 'both', []))} data-tip={o.sendTo ? 'Carries this answer into that proof, ready for you to send' : `Sends: ${o.say}`} data-testid={`ws-next-${i}`}>{o.label}</button>)}<button type="button" className="m-chip is-other" onClick={onOther} data-tip="Type your own next step" data-testid="ws-next-other">Something else…</button></div>;
+  return <WhatNext opts={opts} onPick={o => (o.sendTo ? onSendTo(last, o.sendTo) : send(o.say, 'both', []))} onOther={onOther} />;
 }
 function Chat({ doc, send, busy, chip, clearChip, draft = '', cat, row, work, setDoc, onSendTo }) {
   const [text, setText] = useState(draft); const [to, setTo] = useState('both'); const box = useRef(null); const pick = useRef(null); const [files, setFiles] = useState([]); const [upping, setUpping] = useState(false); const [upErr, setUpErr] = useState('');

@@ -26,6 +26,8 @@
 .cch-modes > button:hover { color: var(--m-text); background: rgba(255, 255, 255, .05); } .cch-modes > button:active { transform: scale(.97); } .cch-modes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
 .cch-modes > button.active { color: #0c0e0d; background: linear-gradient(120deg, var(--br), var(--br2)); }
 .cch-main { display: grid; gap: 8px; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; } .cch.is-pop .cch-main { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.cch:not(.is-pop):not(.is-full) .cch-main { display: flex; flex-direction: column; } .cch:not(.is-pop):not(.is-full) .cch-main > .cch-talk { flex: 1 1 0; min-height: min(240px, 100%); } .cch:not(.is-pop):not(.is-full) .cch-main > .cch-side { flex: 0 1 auto; min-height: 0; }
+@media (max-width: 1100px) { .cch.is-full .cch-main { display: flex; flex-direction: column; } .cch.is-full .cch-main > .cch-talk { flex: 1 1 0; min-height: min(240px, 100%); } .cch.is-full .cch-main > .cch-side { flex: 0 1 auto; min-height: 0; } }   /* 2026-11-12: on a short window the fixes panel took every pixel and the chat (0px tall) spilled over it; the chat keeps 240px, the fixes scroll */
 .cch-talk { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; }
 .cch-log { list-style: none; margin: 0; padding: 2px; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
 .cch-log::-webkit-scrollbar { width: 6px; } .cch-log::-webkit-scrollbar-thumb { background: var(--br); border-radius: 3px; }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
+import { ActBtn } from '../ActBtn';
 import { BadgeArt } from '../BadgeArt';
 import { CHAT_THEMES } from '../ChatFx';
 import { perkText } from '../QuestBoard';
@@ -20,11 +21,12 @@ export function QuestEngineAdmin({ call }) {
   const load = () => call('/admin/quests').then(x => setD(QUESTS(x))).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <div className="cc-block"><span className="loader" /> Loading quest engine…</div>;
-  const save = async (b, patch) => { try { const r = await call('/admin/quests', { method: 'POST', body: JSON.stringify({ badges: { [b.id]: patch } }) }); setD(x => ({ ...x, badges: r.badges })); setEdit(null); toast.success('Saved'); } catch (e) { toast.error(e.message); } };
-  const doGrant = async () => { try { await call('/admin/quests/grant', { method: 'POST', body: JSON.stringify(grant) }); toast.success(`${grant.action} ✓`); } catch (e) { toast.error(e.message); } };
+  const put = async (b, patch) => { const r = await call('/admin/quests', { method: 'POST', body: JSON.stringify({ badges: { [b.id]: patch } }) }); setD(x => ({ ...x, badges: r.badges })); setEdit(null); };   // throws: the ActBtn shows ✓ only on the server's OK
+  const doGrant = () => call('/admin/quests/grant', { method: 'POST', body: JSON.stringify(grant) });   // throws: its ActBtn shows ✓ only on the server's OK
   const st = d.stats || {};
   const season = d.season || {};
-  const seasonCall = async body => { try { const r = await call('/admin/quests/season', { method: 'POST', body: JSON.stringify(body) }); setD(x => ({ ...x, season: r.season })); toast.success(r.awarded?.length ? `Trophies sent to ${r.awarded.length} wallet(s)` : 'Season saved'); } catch (e) { toast.error(e.message); } };
+  const seasonPut = async body => { const r = await call('/admin/quests/season', { method: 'POST', body: JSON.stringify(body) }); setD(x => ({ ...x, season: r.season })); if (r.awarded) toast.success(r.awarded.length ? `Trophies sent to ${r.awarded.length} wallet(s)` : 'No new trophies this week'); return r; };
+  const seasonCall = body => seasonPut(body).then(() => toast.success('Season saved')).catch(e => toast.error(e.message));
   const perkOf = (b, kind) => (b.perks || []).find(p => p.kind === kind);
   return <div className="cc-block qe" data-testid="quest-engine">
     <div className="m-row"><h4>Quest engine</h4><span className="m-chip ok">{d.badges.length} badges</span><span className="m-chip">{st.wallets || 0} active wallets</span>
@@ -32,14 +34,14 @@ export function QuestEngineAdmin({ call }) {
     <div className="m-row qe-season" data-testid="quest-season-admin"><span className="m-label">SEASON</span>
       <input className="m-input" defaultValue={season.name} onBlur={e => e.target.value !== season.name && seasonCall({ name: e.target.value })} aria-label="Season name" />
       <span className={`m-chip ${season.paused ? 'warn' : 'ok'}`}>{season.paused ? '⏸ paused (pre-launch)' : `live since ${season.start ? new Date(season.start * 1000).toLocaleDateString() : '—'}`}</span>
-      <button type="button" className="m-btn" onClick={() => seasonCall({ paused: !season.paused })}>{season.paused ? '▶ Start season (launch day)' : '⏸ Pause season'}</button>
-      <button type="button" className="m-btn" disabled={season.paused} onClick={() => seasonCall({ awardWeek: true })} title="Gives this week's top 3 a trophy (once per week)"><Ic3 e="🏆" /> Award week's top 3</button></div>
+      <ActBtn className="m-btn" money confirm={season.paused ? 'Tap again to start the season' : 'Tap again to pause the season'} run={() => seasonPut({ paused: !season.paused })} done={season.paused ? 'Paused' : 'Live'} data-testid="quest-season-toggle">{season.paused ? '▶ Start season (launch day)' : '⏸ Pause season'}</ActBtn>
+      <ActBtn className="m-btn" disabled={season.paused} money confirm="Tap again to award the top 3" run={() => seasonPut({ awardWeek: true })} done="Awarded" data-tip="Gives this week's top 3 a trophy (once per week)" data-testid="quest-award"><Ic3 e="🏆" /> Award week's top 3</ActBtn></div>
     <div className="m-seg" role="tablist">{[['feeless', 'FEELESS'], ['frsv', 'FEE RESERVE']].map(([id, l]) => <button key={id} type="button" className={set === id ? 'active' : ''} onClick={() => setSet(id)}>{l}</button>)}</div>
     <div className="qe-list">{d.badges.filter(b => b.set === set).map(b => <div key={b.id} className={`qe-row ${b.enabled === false ? 'is-off' : ''}`}>
       <BadgeArt art={b.art} name={b.name} size="sm" /><div><b>{b.name}</b> <span className={`m-chip tier-${b.tier}`}>{b.tier}</span> <small className="m-dim">{st.holders?.[b.id] || 0} hold · {st.pct?.[b.id] || 0}%</small>
         <div className="m-dim">{b.tasks.map(t => t.label).join(' · ')}</div>{b.perks?.length > 0 && <div className="m-dim">Perks: {b.perks.map(perkText).join(' · ')}</div>}</div>
       <div className="m-row"><button type="button" className="m-btn" onClick={() => setEdit({ ...b, tasks: b.tasks.map(t => ({ metric: t.metric, target: t.target, label: t.label })) })}>Edit</button>
-        <button type="button" className="m-btn" onClick={() => save(b, { enabled: b.enabled === false })}>{b.enabled === false ? 'Turn on' : 'Turn off'}</button></div></div>)}</div>
+        <ActBtn className="m-btn" run={() => put(b, { enabled: b.enabled === false })} done="Saved" data-testid={`quest-onoff-${b.id}`}>{b.enabled === false ? 'Turn on' : 'Turn off'}</ActBtn></div></div>)}</div>
     {edit && <div className="m-card qe-edit" data-testid="quest-edit"><div className="m-row"><input className="m-input" value={edit.name} onChange={e => setEdit({ ...edit, name: e.target.value })} aria-label="Badge name" />
       <select className="m-input" value={edit.tier} onChange={e => setEdit({ ...edit, tier: e.target.value })} aria-label="Tier">{d.tiers.map(t => <option key={t}>{t}</option>)}</select></div>
       <div className="m-row"><span className="m-label">PERKS</span>
@@ -52,11 +54,11 @@ export function QuestEngineAdmin({ call }) {
         <input className="m-input" value={t.label} onChange={e => setEdit({ ...edit, tasks: edit.tasks.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })} aria-label="Task label" />
         <button type="button" className="m-btn danger" onClick={() => setEdit({ ...edit, tasks: edit.tasks.filter((_, j) => j !== i) })} aria-label="Remove task">✕</button></div>)}
       <div className="m-row"><button type="button" className="m-btn" onClick={() => setEdit({ ...edit, tasks: [...edit.tasks, { metric: 'trades', target: 1, label: '1 trade' }] })}>+ Task</button>
-        <button type="button" className="m-btn primary" onClick={() => save(edit, { name: edit.name, tier: edit.tier, tasks: edit.tasks, perks: edit.perks || [], aura: edit.aura || '' })}>Save badge</button>
-        <button type="button" className="m-btn" onClick={() => save(edit, { reset: true })}>Reset to default</button><button type="button" className="m-btn" onClick={() => setEdit(null)}>Cancel</button></div></div>}
+        <ActBtn className="m-btn primary" run={() => put(edit, { name: edit.name, tier: edit.tier, tasks: edit.tasks, perks: edit.perks || [], aura: edit.aura || '' })} done="Saved" okToast="Badge saved." data-testid="quest-save">Save badge</ActBtn>
+        <ActBtn className="m-btn" money confirm="Tap again to reset this badge" run={() => put(edit, { reset: true })} done="Reset" data-testid="quest-reset">Reset to default</ActBtn><button type="button" className="m-btn" onClick={() => setEdit(null)}>Cancel</button></div></div>}
     <div className="m-row qe-grant"><input className="m-input" placeholder="Wallet address" value={grant.address} onChange={e => setGrant({ ...grant, address: e.target.value.trim() })} aria-label="Wallet" />
       <select className="m-input" value={grant.badge} onChange={e => setGrant({ ...grant, badge: e.target.value })} aria-label="Badge"><option value="">Badge…</option>{d.badges.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
       <div className="m-seg">{['grant', 'revoke', 'clear'].map(a => <button key={a} type="button" className={grant.action === a ? 'active' : ''} onClick={() => setGrant({ ...grant, action: a })}>{a}</button>)}</div>
-      <button type="button" className="m-btn primary" disabled={!grant.address || !grant.badge} onClick={doGrant}>Apply</button></div>
+      <ActBtn className="m-btn primary" disabled={!grant.address || !grant.badge} run={doGrant} done="Applied" okToast={`${grant.action} ✓`} data-testid="quest-grant">Apply</ActBtn></div>
   </div>;
 }

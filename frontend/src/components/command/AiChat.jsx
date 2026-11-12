@@ -20,6 +20,7 @@ import { ChatFx, ChatThemePicker, chatTheme } from '../ChatFx';
 import { useChatPrefs } from '../../lib/chatPrefs';
 import { Ic3 } from '../../lib/icon3d';
 import { twoTap } from '../ActBtn';
+import { nextOptions, WhatNext } from '../chat/WhatNext';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
   ['case', '🔎 Case', 'The structured read of the coin on the chart (validated JSON → shown as a verdict)'],
@@ -271,6 +272,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
     <div className="cch-main">
       <div className="cch-talk">
         <ChatLog hist={hist} err={err} busy={busy} call={call} from={fresh.mode === mode ? fresh.from : Infinity} onRemember={remember} onBuild={queueBuild} onEdit={edit} onDelete={clear} />
+        {isOwner && !busy ? <WhatNext testid="cch-next" opts={nextOptions(hist[hist.length - 1])} onPick={o => say(o.say)} onOther={() => document.querySelector('[data-testid="cch-input"]')?.focus()} /> : null}
         <div className="cch-quick" data-testid="cch-quick">{(QUICK[mode] || []).map(([l, q]) => <button key={l} type="button" disabled={!isOwner || busy} onClick={() => say(q)} data-testid={`cch-chip-${l.split(' ')[1] || l}`}>{l}</button>)}</div>
         {last && metaLine(last) ? <p className="cch-meta" data-testid="cch-meta">{metaLine(last)}{(last.refused || []).length ? ` · ${last.refused.length} suggestion${last.refused.length === 1 ? '' : 's'} refused (execution / money is out of reach)` : ''}</p> : null}
         {img ? <p className="cch-att" data-testid="cch-att"><img src={img} alt="to send" /><span>picture attached · goes to a cloud model that can see images</span><button type="button" className="cch-ico" onClick={() => setImg(null)} aria-label="Remove the picture">✕</button></p> : null}

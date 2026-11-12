@@ -248,3 +248,18 @@ test('🎛 a rig proposal reads in words and warns before a reload', () => {
   expect(rigKey('local.load')).toBe('OSSY · LM Studio load'); expect(rigKey('chat.temp')).toBe('BRAIN CHAT · temperature');
   expect(rigReloads('lan.load')).toBe(true); expect(rigReloads('win.ctx')).toBe(true); expect(rigReloads('lan.timeout')).toBe(false);
 });
+
+test('🧭 the Brain offers WHAT NEXT after a reply: its own listed choices become one-tap sends', async () => {
+  const sent = [];
+  const call = jest.fn(async (path, opt) => {
+    if (!opt) return { history: [], proposals: { pending: [], decided: [] } };
+    const body = JSON.parse(opt.body); sent.push(body.text);
+    return { ok: true, mode: 'chat', reply: 'Two setups look clean. Which should I check?\n1. The BONK dip\n2. The WIF breakout', provider: 'LOCAL AI',
+      history: [{ role: 'user', text: body.text }, { role: 'assistant', text: 'Two setups look clean. Which should I check?\n1. The BONK dip\n2. The WIF breakout' }], proposals: { pending: [], decided: [] } };
+  });
+  const el = await mount(<AiChat call={call} />);
+  expect(q(el, 'cch-next')).toBeNull();
+  await type(el, 'best seat?'); await act(async () => { q(el, 'cch-send').click(); });
+  expect([...q(el, 'cch-next').querySelectorAll('.m-chip')].map(b => b.textContent)).toEqual(['The BONK dip', 'The WIF breakout', 'Something else…']);
+  await act(async () => { q(el, 'cch-next-1').click(); }); expect(sent).toEqual(['best seat?', 'The WIF breakout']);
+});

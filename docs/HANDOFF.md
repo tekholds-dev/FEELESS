@@ -27,7 +27,7 @@ DONE, on main, gates green:
    inside its browser; FEELESS never sees a password). Seen live: "Lakers", @Ninja + "fortnite". `/dev/hq?watch`.
 8. 🔜 QUEUED (owner 2026-11-12, same message — build in this order, think past the ask, CLAUDE.md "THINK PAST THE ASK"):
    a. ✅ DONE 2026-11-12: proof work chats end with WHAT NEXT? (`nextOptions`/`NextSteps` in FeaturesFolder.jsx): the reply's own listed choices
-      become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. NEXT: the agent Brain chat.
+      become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. ✅ Brain chat too (2026-11-12): one shared `chat/WhatNext.jsx` for every chat; Brain layout fix: on a short window the fixes panel ate the chat (0 px) → chat keeps 240 px, fixes scroll. HQ rows: FuseBuilder + Quest engine buttons are ActBtn (✓ only on the server's OK; delete / reset / start season / award week take two taps). Test: HqRowSaves.
    b. ✅ BUILT 2026-11-12: PoC station (`PocStation`, top of PoC › Make): LAUNCH PATH 6 steps read from the PoC record (answer → filed → OSSY/G4
       review pass → your mark → posted link → carried on), the one next step as a button, 4 big doors carrying the newest mind answer into PoStatic /
       PoW / PoB / PoP (PoW etc. land in the agent chat, never run). `/dev/features?station`. NEXT: a PoC watch (AGT-5).
