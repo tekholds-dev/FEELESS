@@ -135,6 +135,12 @@ COL-24 gaps · AGT-1/9/11/23 · SITE-1 Familia phone scroll · SITE-2 Features 7
 **Next, in order:** (done 2026-11-10 late: SITE-3, SITE-5 slices 5-6, SITE-7, AGT-19, AGT-6 speaking, SITE-2 image decode + prod measure + logo, SITE-1 crash/dead-click noise, AGT-18 patience, SITE-9 deps + one limiter, SITE-5 slice 7) · SITE-2 in his Chrome in front · Features real media (5c, after his media tests) · then list C one slice at a time. Real money waits only on him: fund the Fuse card,
 one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
 
+**2026-11-12 audit (pushed 2e30778e):** HQ › Sicario's freeze fixed (3 `@container` boxes → `lib/useBox.js`; style pass 38 s → 39 ms in his tab) ·
+one-click update now needs the HQ signature · unsigned `POST /api/chat/{room}` removed · `fabric` dropped · Settings dup key + globe https.
+**Still open:** ~20 other `@container` boxes (Fuse Lab, runners, chats, IntelligenceCard…) can freeze the same way → move them to `useBox` one page at a time ·
+dev server binds 0.0.0.0 with `allowedHosts: all` (LAN / DNS-rebinding; needs his 51367 restart) · CORS `*` until `ALLOWED_ORIGINS` · `why-quota`
+counts 10.x/192.168.x as local · sub-32px hit areas (chat 118) · audit covered signed-out pages only.
+
 **A · Claude, today, in this order**
 1. ✅ **BUILT 2026-11-10** (Showcase: every door gets 🧑‍⚖️ Graded by OSSY + G4 = its own proofs' five checks lighting up, 🧰 Built with = its kits at the live version with what moved up; a new 📒 PoEco door draws its real books; `ReviewReel`, `KitWall`, `BooksDemo`, op `showcase`. Owner look pending: needs Claude in Chrome or his eyes) **Features folder: every proof type shows off its best** (owner today: "it got lazy after the static previews") — one showcase
    card per kind built from its real folders: PoW trade card with the candle and entry/exit, PoP the call and ROE meter, PoB picks with odds
