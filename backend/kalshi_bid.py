@@ -32,7 +32,7 @@ SERIES = ((r'\b(nba|basketball|lakers|celtics|knicks|warriors|pacers|wizards|bul
           (r'\b(mlb|baseball|yankees|dodgers|red sox|mets|cubs|braves|astros|phillies|padres|giants|mariners|orioles|guardians|twins|rays|blue jays|brewers|cardinals|reds|pirates|royals|tigers|white sox|angels|athletics|rockies|marlins|nationals|diamondbacks|rangers)\b', 'KXMLBGAME'),
           (r'\b(ncaaf|college football|cfb)\b', 'KXNCAAFGAME'),
           (r'\b(ncaab|college basketball|march madness)\b', 'KXNCAAMBGAME'))
-KEY_RE = re.compile(r'^\s*([0-9A-Za-z-]{20,64}?)\s*(-----BEGIN (?:RSA )?PRIVATE KEY-----)\s*([A-Za-z0-9+/=\s]{100,8000}?)\s*(-----END (?:RSA )?PRIVATE KEY-----)\s*$', re.S)
+KEY_RE = re.compile(r'^\s*([0-9A-Za-z-]{20,64}?)\s*(-----BEGIN (?:RSA )?PRIVATE KEY-----)\s*([A-Za-z0-9+/=\s]{40,8000}?)\s*(-----END (?:RSA )?PRIVATE KEY-----)\s*$', re.S)
 
 
 def cfg(raw):
@@ -57,11 +57,13 @@ def split_key(secret):
 
 
 def sign(pem, method, path, ts_ms):
-    """Kalshi's request signature: RSA-PSS (SHA-256, salt = digest length) over timestamp + METHOD + path (no query), base64."""
+    """Kalshi's request signature over timestamp + METHOD + path (no query), base64: RSA-PSS (SHA-256, salt = digest length) for an RSA key,
+    plain Ed25519 for an Ed25519 key (Kalshi's default key type now; the owner's key is one, 2026-11-11)."""
     from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives.asymmetric import ed25519, padding
     key = serialization.load_pem_private_key(pem.encode(), password=None)
-    sig = key.sign(f'{ts_ms}{method.upper()}{path.split("?")[0]}'.encode(), padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())
+    msg = f'{ts_ms}{method.upper()}{path.split("?")[0]}'.encode()
+    sig = key.sign(msg) if isinstance(key, ed25519.Ed25519PrivateKey) else key.sign(msg, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())
     return base64.b64encode(sig).decode()
 
 

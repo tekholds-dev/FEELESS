@@ -739,3 +739,12 @@ test('🖥 an idle monitor gets its agent\'s newest proofs, newest first, across
   const p = newestProofs(d);
   expect(p.map(x => x.id)).toEqual(['w1', 's1', 'b1']); expect(p[0].title).toBe('$WIF'); expect(p[2].grade).toBe('right'); expect(newestProofs(null)).toEqual([]);
 });
+
+test('🔑 a refused key seal shows on its own row, not below the whole drawer', async () => {
+  const { ApiDrawer } = require('./LaunchCat');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ApiDrawer start rows={[]} draft={{}} onSave={() => {}} errFor={{ k: 'kalshi', m: "That doesn't look like a Kalshi key." }} />); });
+  const err = el.querySelector('[data-testid="akd-err-kalshi"]'); expect(err.textContent).toContain('Kalshi key');
+  expect(err.closest('li').querySelector('[data-testid="akd-kalshi-0"]')).not.toBeNull();   // same row as the Kalshi boxes
+  act(() => root.unmount()); el.remove();
+});

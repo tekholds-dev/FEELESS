@@ -688,7 +688,7 @@ export function MyCards({ addr }) {
   return <><WeatherStrip /><HqRealCards addr={addr} onCount={setRealN} /><RealCardFixes addr={addr} /><MyCardsBody realN={realN} d={d} openRows={openRows} act={act} setAct={setAct} open={open} setMode={setMode} setRisk={setRisk} setAdv={setAdv} addr={addr} ses={ses} refresh={refresh} /></>;
 }
 
-function RealCardFixes({ addr }) {
+export function RealCardFixes({ addr }) {
   const { call } = useAdmin();
   const [cards, setCards] = useState([]);
   const [busy, setBusy] = useState('');
@@ -704,9 +704,13 @@ function RealCardFixes({ addr }) {
     const key = `payout-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/payout-profit', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: amt }) })
       .then(x => { toast.success(`Paid out ${m$(x.paidUsd || amt)} profit · principal untouched`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
-  const withdraw = (c, usdNow) => { const left = Math.max(0, (c.realBook?.fundedUsd || 0) - (usdNow || 0));
+  const withdraw = (c, cashNow) => {   // 💵 how much to take: typed, at most the card's cash (it used to take ALL of it, 2026-11-11)
+    const typed = window.prompt(`How many dollars of card cash to take out of ${c.label}? It has ${m$(cashNow)} of cash.`, String(Math.min(1, Math.floor((cashNow || 0) * 100) / 100)));
+    if (typed == null) return; const usdNow = Number(String(typed).replace(/[$,\s]/g, ''));
+    if (!(usdNow > 0) || usdNow > (cashNow || 0) + 1e-9) { toast.error(`Type an amount above $0 and at most ${m$(cashNow)}.`); return; }
+    const left = Math.max(0, (c.realBook?.fundedUsd || 0) - usdNow);
     if (!window.confirm(`Take ${m$(usdNow)} of card cash out of ${c.label}? Your principal becomes ${m$(left)} — profit is then anything the card is worth above ${m$(left)}.`)) return;
-    setBusy(`wd-${c.tpl}`); call('/admin/fuse-wallet/withdraw-cash', { method: 'POST', body: JSON.stringify({ tpl: c.tpl }) })
+    setBusy(`wd-${c.tpl}`); call('/admin/fuse-wallet/withdraw-cash', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: usdNow }) })
       .then(x => { toast.success(`↗ ${m$(x.tookUsd)} out · principal now ${m$(x.principalUsd)}`); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const retryDead = (c, o) => { const key = `dead-${c.tpl}-${o.side}-${o.mint}`; setBusy(key);
     call('/admin/fuse-wallet/retry-dead', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, side: o.side, mint: o.mint }) })

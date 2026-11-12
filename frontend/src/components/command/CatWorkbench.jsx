@@ -494,15 +494,15 @@ export function FolderCost({ f }) {
 }
 // 🔑 the API drawer as a cabinet slot (owner 2026-10-31): its own keys, sealed on the server — only the last 4 ever come back
 export function ApiSlot({ cat }) {
-  const [rows, setRows] = useState(cat?.apiDrawer || []); const [draft, setDraft] = useState({}); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [rows, setRows] = useState(cat?.apiDrawer || []); const [draft, setDraft] = useState({}); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [rowErr, setRowErr] = useState(null);
   const [joined, setJoined] = useState(() => takeConnectResult(cat?.id));   // 🔑 back from OpenRouter's approval page: say how it went
   useEffect(() => { const on = e => { if (e.detail?.cat !== cat?.id) return; setJoined(takeConnectResult(cat.id) || e.detail); if (e.detail.ok) setRows(r => [...r.filter(x => x.provider !== 'openrouter'), { provider: 'openrouter', saved: true, last4: e.detail.last4 }]); };
     window.addEventListener('feeless:orConnect', on); return () => window.removeEventListener('feeless:orConnect', on); }, [cat?.id]);
   const send = async (provider, secret) => { setBusy(true); setErr('');
     try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/action`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), action: 'api_key', provider, secret: String(secret || '').trim() }) });
-      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setRows(j.cat?.apiDrawer || []); setDraft(x => ({ ...x, [provider]: '', [`${provider}.0`]: '', [`${provider}.1`]: '' })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setRows(j.cat?.apiDrawer || []); setDraft(x => ({ ...x, [provider]: '', [`${provider}.0`]: '', [`${provider}.1`]: '' })); setRowErr(null); } catch (e) { setRowErr({ k: provider, m: e.message }); } finally { setBusy(false); } };
   return <div data-testid="cwb-api">{joined ? <p className={joined.ok ? 'm-note' : 'kd-err'} role="status" data-testid="or-connected">{joined.ok ? '✓ Connected to your OpenRouter. Its models now run on your OpenRouter account.' : `⚠ ${joined.why}`}</p> : null}
-    <ApiDrawer start rows={rows} draft={draft} busy={busy} onDraft={(k, v) => setDraft(x => ({ ...x, [k]: v }))} onSave={send} onDrop={k => send(k, '')} onConnect={() => startOpenRouterConnect(cat.id).catch(e => setErr(e.message))} />
+    <ApiDrawer start rows={rows} draft={draft} busy={busy} onDraft={(k, v) => setDraft(x => ({ ...x, [k]: v }))} onSave={send} onDrop={k => send(k, '')} errFor={rowErr} onConnect={() => startOpenRouterConnect(cat.id).catch(e => setErr(e.message))} />
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div>;
 }
 export function TreasuryDrawer({ cat }) {

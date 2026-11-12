@@ -161,3 +161,26 @@ def test_sealing_a_kalshi_or_fal_key_runs_one_free_live_check_and_shows_it(monke
     assert asyncio.run(fs._key_check('fal', 'abc-123:deadbeefdeadbeef'))['ok'] is False
     monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **kw: H(404))
     assert asyncio.run(fs._key_check('fal', 'abc-123:deadbeefdeadbeef'))['ok'] is True
+
+
+def test_ed25519_key_seals_splits_and_signs():
+    # 🔑 Kalshi's default key type is Ed25519 now (the owner's key was one, 2026-11-11): it must seal, split and sign (RSA still works)
+    import base64 as b64
+    import re as re_
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ed25519, rsa
+    import cat_keys
+    for key in (ed25519.Ed25519PrivateKey.generate(), rsa.generate_private_key(public_exponent=65537, key_size=2048)):
+        pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+        secret = 'b7990b29-83c1-4017-a192-3de083000000 ' + pem.strip()
+        assert re_.match(cat_keys.PROVIDERS['kalshi'][3], secret)
+        kid, clean = kb.split_key(secret)
+        assert kid == 'b7990b29-83c1-4017-a192-3de083000000' and clean.startswith('-----BEGIN ' + 'PRIVATE KEY')
+        sig = b64.b64decode(kb.sign(clean, 'GET', '/trade-api/v2/portfolio/balance?x=1', 1700000000000))
+        msg = b'1700000000000GET/trade-api/v2/portfolio/balance'
+        if isinstance(key, ed25519.Ed25519PrivateKey):
+            key.public_key().verify(sig, msg)   # raises if wrong
+        else:
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.asymmetric import padding
+            key.public_key().verify(sig, msg, padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.DIGEST_LENGTH), hashes.SHA256())

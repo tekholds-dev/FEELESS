@@ -195,4 +195,4 @@ body.theme-day .agl .agd-toasts li { background: rgba(255, 255, 255, .96); color
 @media (max-width: 640px) { .agl .agd-toasts { left: 8px; right: 8px; } .agl .agd-toasts li { white-space: normal; } }
 /* 🔑 two-part keys: two boxes stacked (owner 2026-11-11), the private key in a multi-line box that keeps its line breaks */
 .akd-parts { display: grid; gap: 6px; min-width: 0; flex: 1 1 260px; } .akd-parts .m-input { width: 100%; min-height: 34px; } .akd-area { min-height: 72px; resize: vertical; font: 500 11px var(--f-mono); line-height: 1.4; }
-.akd-check { font: 600 10.5px var(--f-mono); } .akd-check.is-ok { color: #3cf0c5; } .akd-check.is-bad { color: #ff5c7a; }
+.akd-check { font: 600 10.5px var(--f-mono); } .akd-err { grid-column: 1 / -1; flex-basis: 100%; font: 600 11px var(--f-mono); } .akd-check.is-ok { color: #3cf0c5; } .akd-check.is-bad { color: #ff5c7a; }

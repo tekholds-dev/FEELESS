@@ -85,7 +85,7 @@ export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YO
 // 🔑 keys made of two parts get two boxes (owner 2026-11-11): Kalshi = key id + private key (a multi-line box keeps its line breaks), fal = key id + secret
 export const KEY_PARTS = { kalshi: [['Key ID', 'a952bcbe-ec3b-…'], ['Private key', 'paste the whole private key, with its BEGIN and END lines', true], ' '], fal: [['Key ID', 'key id (before the colon)'], ['Key secret', 'secret (after the colon)'], ':'] };
 const joinParts = (k, d) => { const sep = KEY_PARTS[k][2]; const x = String(d?.[`${k}.0`] || '').trim(); const y = String(d?.[`${k}.1`] || '').trim(); return x && y ? `${x}${sep}${y}` : ''; };
-export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, onConnect }) {   // onConnect: one-click OpenRouter (an agent that exists; the wizard pastes)
+export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, onConnect, errFor = null }) {   // errFor: {k, m} — a refused seal shows on its own row (it used to print below the whole drawer, out of sight)   // onConnect: one-click OpenRouter (an agent that exists; the wizard pastes)
   const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
   return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
@@ -102,7 +102,7 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, o
           : <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder={ph} value={draft?.[k] || ''} aria-label={`${label} key`} data-testid={`akd-${k}`}
             onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}
         {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !(KEY_PARTS[k] ? joinParts(k, draft) : draft?.[k])} onClick={() => onSave(k, KEY_PARTS[k] ? joinParts(k, draft) : draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
-      </li>; })}</ul>
+      {errFor?.k === k ? <small className="kd-err akd-err" role="alert" data-testid={`akd-err-${k}`}>⚠ {errFor.m}</small> : null}</li>; })}</ul>
     <p className="akd-note"><Ic3 e="🔒" /> Sealed at rest, never sent back. A key never opens another exchange — the agent trades on FEELESS rails only.</p>
   </details>;
 }

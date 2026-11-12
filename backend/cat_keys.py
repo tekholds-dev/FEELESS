@@ -21,7 +21,7 @@ PROVIDERS = {
     'openrouter': ('OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', True, r'^sk-or-[A-Za-z0-9_-]{20,}$'),
     'fal': ('fal.ai', 'AI images and video in PoC run on YOUR fal.ai account (Wan, FLUX, Kling)', True, r'^[A-Za-z0-9-]{8,64}:[A-Za-z0-9]{16,128}$'),
     'replicate': ('Replicate', 'AI images and video in PoC run on YOUR Replicate account (Wan, FLUX, Seedance)', True, r'^r8_[A-Za-z0-9]{20,80}$'),
-    'kalshi': ('Kalshi', 'real bids from its PoB on YOUR Kalshi account, only inside your caps (key id, a space, then the private key)', True, r'^\s*[0-9A-Za-z-]{20,64}?\s*-----BEGIN (RSA )?PRIVATE KEY-----[\s\S]{100,8000}-----END (RSA )?PRIVATE KEY-----\s*$'),
+    'kalshi': ('Kalshi', 'real bids from its PoB on YOUR Kalshi account, only inside your caps (key id, a space, then the private key)', True, r'^\s*[0-9A-Za-z-]{20,64}?\s*-----BEGIN (RSA )?PRIVATE KEY-----[\s\S]{40,8000}-----END (RSA )?PRIVATE KEY-----\s*$'),
     'birdeye': ('Birdeye', 'holder + price reads for its scans', False, r'^[A-Za-z0-9]{16,64}$'),
     'helius': ('Helius', 'its own Solana RPC: live numbers in its PoStatic pages, PoC posts and research', True, r'^[A-Za-z0-9-]{20,64}$'),
     'x': ('X (Twitter)', 'a bearer token — reads the coin\'s X chatter', False, r'^[A-Za-z0-9%_-]{30,200}$'),
