@@ -80,6 +80,23 @@ body.theme-day .fea-tree-nav { background: #f3f7f5; border-color: #d7e3dc; } bod
 .fea-pocres { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; gap: 6px; margin-top: 6px; } .fea-pocres .m-btn { min-height: 32px; }
 body.fx-lite .fea-steps .is-now, body.fx-lite .fea-set-pop { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-steps .is-now, .fea-set-pop { animation: none; } }
 @media (max-width: 640px) { .fea-creator > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fea-plan-go, .fea-pocres { grid-template-columns: minmax(0, 1fr); } }
+/* 🛰 PoC station: launch path meter + doors into the next proof */
+.fea-station { display: grid; gap: 10px; padding: 12px; border-radius: 13px; border: 1px solid var(--m-accent, #19e68c); border-color: color-mix(in srgb, var(--m-accent, #19e68c) 40%, transparent); background: #111116; }
+.fea-station header { display: flex; align-items: center; gap: 10px; } .fea-station header > div { flex: 1; min-width: 0; display: grid; gap: 2px; } .fea-station header strong { font: 700 13.5px var(--f-ui); color: #ececf1; }
+.fea-path { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.fea-path li { display: grid; justify-items: center; gap: 4px; padding: 6px 2px; border-radius: 9px; border: 1px solid #ffffff12; animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 45ms); }
+.fea-path li i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font: 800 10.5px var(--f-mono); font-style: normal; background: #ffffff10; color: #8b8b95; }
+.fea-path li small { font: 700 8.5px var(--f-mono); letter-spacing: .06em; color: #8b8b95; text-align: center; }
+.fea-path li.is-done i { background: var(--m-accent, #19e68c); color: #04140c; } .fea-path li.is-done small { color: #ececf1; }
+.fea-path li.is-next { border-color: var(--m-accent, #19e68c); } .fea-path li.is-next i { color: var(--m-accent, #19e68c); box-shadow: inset 0 0 0 1.5px var(--m-accent, #19e68c); }
+.fea-doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fea-doors button { min-height: 58px; display: grid; align-content: center; gap: 3px; padding: 8px; border-radius: 10px; border: 1px solid #ffffff14; background: #ffffff05; color: #ececf1; text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; animation: stcIn .2s ease both; animation-delay: calc(var(--i) * 50ms); }
+.fea-doors button:hover:not(:disabled) { border-color: var(--m-accent, #19e68c); transform: translateY(-1px); } .fea-doors button:active:not(:disabled) { transform: scale(.98); } .fea-doors button:focus-visible { outline: 2px solid var(--m-accent, #19e68c); outline-offset: 2px; }
+.fea-doors button:disabled { opacity: .45; cursor: not-allowed; } .fea-doors b { font: 700 12.5px var(--f-tech); } .fea-doors small { font-size: 10.5px; color: #8b8b95; }
+.fea-carry { margin: 0; font-size: 11.5px; color: #cfd6d2; line-height: 1.4; } .fea-carry .m-label { margin-right: 6px; }
+@media (max-width: 640px) { .fea-doors { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fea-path li small { font-size: 7.5px; } }
+body.theme-day .fea-station { background: #fff; } body.theme-day .fea-station header strong, body.theme-day .fea-doors button { color: #16211b; } body.theme-day .fea-path li.is-done small, body.theme-day .fea-carry { color: #2b3a33; } body.theme-day .fea-doors button { background: #f6fbf8; border-color: #0000001a; }
+body.fx-lite .fea-path li, body.fx-lite .fea-doors button { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-path li, .fea-doors button { animation: none; transition: none; } }
 
 /* 📚 First sources: one compact row per site, like a mail list. */
 .fea-first { display: grid; gap: 10px; align-content: start; min-width: 0; }

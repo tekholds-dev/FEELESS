@@ -1,6 +1,7 @@
 # FEELESS — working rules (lean).
 
 > 👑 **The owner's newest chat message overrides anything in this file, HANDOFF or memory.** When he sets or changes a rule, update every .md that says otherwise in the same turn. Don't stop to ask before tasks: work through all he asked, in order.
+> 🧰 **STASH ORDER (owner 2026-11-12, every Claude):** every safe, clean, harmless piece of data or build you make or find goes into the stash AND Fee's stash/Git folder. That folder is an elite dashboard of proof stats (every proof type), easy to maintain. Think above and beyond; never lazy.
 
 The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
 

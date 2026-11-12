@@ -340,6 +340,32 @@ function GitChat({ ask }) {
       <ChatComposer onSubmit={e => { e.preventDefault(); send(text); }} field={<ChatInput value={text} onChange={e => setText(e.target.value)} maxLength={600} placeholder="Ask about these files" aria-label="Ask about these files" data-testid="git-chat-text" />} action={<ChatSend isDisabled={!text.trim() || busy} data-tip="Send" data-testid="git-chat-send" />} />
     </div> : null}</section>;
 }
+// 📊 Fee's stash dashboard (owner 2026-11-12: "an elite dashboard where I can see the stats of proofs and maintain easy"): every number is
+// counted from the Collective record itself (git_state: counts per proof type, file paths by kind / result / month), nothing estimated.
+const MONTHS = 6;
+export function stashStats(s) {
+  const files = s?.files || []; const kinds = Object.entries(s?.counts || {}).map(([k, c]) => { const won = c.won || 0; const lost = c.lost || 0; const open = c.open || 0; return { k, won, lost, open, n: won + lost + open, rate: won + lost ? won / (won + lost) : null }; }).sort((a, b) => b.n - a.n);
+  const tot = kinds.reduce((a, r) => ({ won: a.won + r.won, lost: a.lost + r.lost, open: a.open + r.open, n: a.n + r.n }), { won: 0, lost: 0, open: 0, n: 0 });
+  const byMonth = {}; files.forEach(([p]) => { const m = String(p).match(/^proofs\/[^/]+\/(won|lost|open)\/(\d{4}-\d{2})\//); if (m) { const r = byMonth[m[2]] || (byMonth[m[2]] = { won: 0, lost: 0, open: 0 }); r[m[1]] += 1; } });
+  const months = Object.keys(byMonth).sort().slice(-MONTHS).map(m => ({ m, ...byMonth[m], n: byMonth[m].won + byMonth[m].lost + byMonth[m].open }));
+  const count = re => files.filter(([p]) => re.test(p)).length; const bytes = files.reduce((a, [, b]) => a + (Number(b) || 0), 0);
+  return { kinds, tot, rate: tot.won + tot.lost ? tot.won / (tot.won + tot.lost) : null, months, pages: count(/^source\/pages\//), shots: count(/^snapshots\//), files: s?.total ?? files.length, bytes, waiting: s?.waiting || 0, sealed: !!s?.sealed, clean: s?.notice?.paths?.length || 0, linked: !!s?.link?.full };
+}
+const pct = v => (v == null ? '—' : `${Math.round(v * 100)}%`);
+export function StashBoard({ s, onTab }) {
+  const d = stashStats(s); const top = Math.max(1, ...d.months.map(m => m.n));
+  const tiles = [['PROOFS KEPT', d.tot.n, `${d.tot.won} won · ${d.tot.lost} lost · ${d.tot.open} open`], ['WIN RATE', pct(d.rate), 'Won ÷ (won + lost). Open proofs are not counted'], ['POSTATIC PAGES', d.pages, 'Pages behind PoStatic wins, kept as source'], ['SNAPSHOTS', d.shots, 'Screens saved with the proofs'], ['FILES', d.files, size(d.bytes)]];
+  return <section className="stb m-card" aria-label="Stash dashboard" data-testid="stash-board">
+    <header><span><small className="m-label">FEE'S STASH · LIVE FROM THE RECORD</small><b>{d.tot.n ? `${d.tot.n} proofs kept across ${d.kinds.length} proof types` : 'No proofs kept yet'}</b></span>
+      <span className="stb-acts"><button type="button" className="m-btn" onClick={() => onTab('kits')} data-tip="Every kit agents build with: add, edit, take new ones" data-testid="stb-kits">🧰 Kits</button><button type="button" className="m-btn" onClick={() => onTab('forks')} data-tip="Versions agents made of shared builds" data-testid="stb-forks">⑂ Forks</button></span></header>
+    <div className="stb-tiles">{tiles.map(([k, v, t], i) => <span key={k} style={{ '--i': i }} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div>
+    <div className="stb-two">
+      <ol className="stb-kinds" aria-label="By proof type">{d.kinds.map((r, i) => <li key={r.k} style={{ '--i': i }} data-testid={`stb-kind-${r.k}`}><span className="stb-ring" style={{ "--p": r.rate || 0 }}><b className="m-num">{pct(r.rate)}</b></span>
+        <span><b>{r.k}</b><small className="m-num">{r.n} kept · {r.won} won · {r.lost} lost · {r.open} open</small><i className="stb-bar" aria-hidden="true"><u className="is-won" style={{ flexGrow: r.won }} /><u className="is-lost" style={{ flexGrow: r.lost }} /><u className="is-open" style={{ flexGrow: r.open }} /></i></span></li>)}</ol>
+      <figure className="stb-months" aria-label="Proofs kept by month"><figcaption className="m-label">LAST {MONTHS} MONTHS</figcaption>{d.months.length ? <div>{d.months.map((m, i) => <span key={m.m} style={{ '--i': i }} data-tip={`${m.m}: ${m.won} won · ${m.lost} lost · ${m.open} open`}><i style={{ height: `${(m.n / top) * 100}%` }}><u className="is-won" style={{ flexGrow: m.won }} /><u className="is-lost" style={{ flexGrow: m.lost }} /><u className="is-open" style={{ flexGrow: m.open }} /></i><small className="m-num">{m.m.slice(5)}</small></span>)}</div> : <small>Nothing by month yet</small>}</figure></div>
+    <footer className="stb-keep"><small className="m-label">KEEP IT UP</small>{[[d.linked ? (d.waiting ? `${d.waiting} files wait for the next push` : 'GitHub copy is current') : 'Not copied to GitHub yet', d.linked && !d.waiting], [d.clean ? `${d.clean} files look unused` : 'Nothing to clean', !d.clean], [d.sealed ? 'Every file sealed on GitHub' : 'Files not sealed', d.sealed]].map(([t, ok]) => <em key={t} className={ok ? 'is-ok' : 'is-due'}>{ok ? '✓' : '!'} {t}</em>)}</footer>
+  </section>;
+}
 export function GitFolder({ cat, work, scope = '' }) {
   const collective = scope === 'collective'; const [s, setS] = useState(null); const [token, setToken] = useState(''); const [repo, setRepo] = useState(collective ? 'feeless-collective' : `${String(cat?.handle || 'agent').replace(/[^a-z0-9-]/gi, '')}-proofs`); const [priv, setPriv] = useState(true); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
   const ask = useCallback(body => work(cat.id, { ...body, to: scope || undefined }), [cat.id, work, scope]);
@@ -353,6 +379,7 @@ export function GitFolder({ cat, work, scope = '' }) {
     {tab === 'forks' ? (collective ? <ForkBoard cat={cat} work={work} /> : <StashForks cat={cat} work={work} />) : collective && tab === 'kits' ? <KitShelf cat={cat} work={work} /> : !collective && tab === 'book' ? <SiteBook cat={cat} work={work} /> : <>
     {collective ? null : <KeepGuide linked={on} onLink={() => { const el = linkRef.current; if (el) { el.open = true; el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }} />}
     <header className="git-h m-live"><span><em>{collective ? 'THE COLLECTIVE · ONLY YOU' : 'ITS GITHUB'}</em><b>{on ? l.full : collective ? 'The Collective repo' : 'Keep its proofs in your repo'}</b><small>{collective ? 'Every kept proof sorted by kind, result and month, with snapshots and the pages behind PoStatic.' : 'Its filed proofs and pages, sorted by kind, result and month. Keys and sign-ins never go in.'}</small></span>{on ? <a className="m-btn" href={l.url} target="_blank" rel="noopener noreferrer" data-tip="Opens it on GitHub" data-testid="git-open">Open on GitHub</a> : null}</header>
+    {collective && s ? <StashBoard s={s} onTab={setTab} /> : null}
     {on ? <RepoPrint name={l.full} tree={s?.tree} /> : null}
     {!collective && s?.vault?.on ? <section className="git-vault m-card" data-testid="git-vault"><i aria-hidden="true"><Ic3 e="🔐" /></i><span><b>{s.vault.files ? `${s.vault.files} files kept safe, ${size(s.vault.bytes || 0)}` : 'Kept safe on the next hourly pass'}</b><small>Free. Its filed proofs and pages are sealed under its own key in the Collective's private store, with hashed names. Your own repo below is optional.{s.vault.left ? ` ${s.vault.left} files are over its 20 MB share and wait.` : ''}</small></span><em className="m-num">{s.vault.at ? ago(s.vault.at) : 'waiting'}</em></section> : null}
     {s?.sealed ? <p className="git-seal" data-testid="git-sealed-note"><Lock size={13} aria-hidden="true" /> On GitHub every file is encrypted with a hashed name. You read them here.</p> : null}

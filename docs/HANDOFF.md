@@ -28,11 +28,18 @@ DONE, on main, gates green:
 8. 🔜 QUEUED (owner 2026-11-12, same message — build in this order, think past the ask, CLAUDE.md "THINK PAST THE ASK"):
    a. ✅ DONE 2026-11-12: proof work chats end with WHAT NEXT? (`nextOptions`/`NextSteps` in FeaturesFolder.jsx): the reply's own listed choices
       become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. NEXT: the agent Brain chat.
-   b. PoC = the ULTIMATE station: it feeds the next proof type (content → launch/PoW/PoB), so it gets the biggest, most capable desk.
+   b. ✅ BUILT 2026-11-12: PoC station (`PocStation`, top of PoC › Make): LAUNCH PATH 6 steps read from the PoC record (answer → filed → OSSY/G4
+      review pass → your mark → posted link → carried on), the one next step as a button, 4 big doors carrying the newest mind answer into PoStatic /
+      PoW / PoB / PoP (PoW etc. land in the agent chat, never run). `/dev/features?station`. NEXT: a PoC watch (AGT-5).
    c. ✅ DONE 2026-11-12: 🚀 Go live (PoStatic toolbar, beside Store check; `GoLive` in FeaturesFolder, `backend/deploy_hosts.py`): Cloudflare Pages,
       Surge, GitHub Pages, Vercel, Netlify, Render ranked cheapest first ($0 plans, most free traffic, then first paid step); each row re-read daily
       on its own pricing page and shown ✓ checked / ! page changed; free loads a month from the page's real zip size; steps + Save zip + Open host.
       All 6 checked live 2026-11-12. Fly left out (no free tier). NOT built: one-tap deploy with the user's own host token. `/dev/features?golive`.
+   d. ✅ BUILT 2026-11-12 (owner order: "safe clean data and builds go in stash; Fee's stash/git folder = elite dashboard"): STASH DASHBOARD on top of
+      Fee's Collective repo (`StashBoard`/`stashStats` in GitFolder): proofs kept, win rate, PoStatic pages, snapshots, files; per proof type ring +
+      won/lost/open bar; last 6 months stacked; keep-it-up checks (push waiting, unused files, sealed). All counted from git_state. `/dev/features?stashboard`.
+   e. ✅ 2026-11-12: Scrolltide in the stash (kit `scrolltide`, catalog `guide` = our own notes + links to its 7 free templates; its terms: build and
+      ship freely, never share the prompts). Its MCP is paid (Yearly/Lifetime) — not added.
 NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)

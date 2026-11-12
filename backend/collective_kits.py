@@ -58,6 +58,20 @@ CATALOG = {
     'nivo': {'name': 'nivo', 'what': 'Sankey, treemap, calendar heatmaps and more', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/plouc/nivo/master/README.md', 'site': 'https://nivo.rocks', 'license': 'MIT', 'kinds': ['pos', 'pow', 'pop', 'pob']},
     'visx': {'name': 'visx', 'what': 'Airbnb low-level chart primitives for custom data pictures', 'cat': 'Charts', 'url': 'https://raw.githubusercontent.com/airbnb/visx/master/README.md', 'site': 'https://airbnb.io/visx', 'license': 'MIT', 'kinds': ['pos', 'pob']},
     'sonner': {'name': 'Sonner', 'what': 'The toast every pro app uses (already in FEELESS)', 'cat': 'Components', 'url': 'https://raw.githubusercontent.com/emilkowalski/sonner/main/README.md', 'site': 'https://sonner.emilkowal.ski', 'license': 'MIT', 'kinds': ['pos']},
+    # 🌊 owner 2026-11-12: "find free good stuff on scrolltide.co, always add to stash". Its 7 free templates (each link answered 200 that day).
+    # Terms: sites built from them are ours to ship and monetize; the prompts themselves may never be resold or shared, so the guide is links + our words.
+    'scrolltide': {'name': 'Scrolltide (free heroes)', 'what': 'Cinematic scroll-driven hero and landing templates, 7 free', 'cat': 'Animation', 'url': 'https://www.scrolltide.co/free', 'site': 'https://www.scrolltide.co/free',
+                   'license': 'Free templates: ship and monetize what you build; never resell or share the prompts; one free copy without an account', 'kinds': ['pos', 'poc'],
+                   'guide': '# Scrolltide free templates (our notes, 2026-11-12)\nScroll-driven heroes built with GSAP / Framer Motion / Three.js / Lenis. Each page holds a prompt you paste into Claude, Cursor or v0 to rebuild it. '
+                            'The owner copies the prompt from the link (one free copy without an account, more need a free account). Never paste a Scrolltide prompt into a shared page, file or chat: build from it, ship the result.\n'
+                            '- Aurora (hero): a soft aurora drifting behind a headline that eases in. https://www.scrolltide.co/templates/aurora\n'
+                            '- Monsoon (hero): motion that gathers like a storm, for a big launch coming. https://www.scrolltide.co/templates/monsoon\n'
+                            '- Glacier (hero): slow, heavy motion for a brand that wants to feel solid. https://www.scrolltide.co/templates/glacier\n'
+                            '- Visor (hero): a light theme; a headset shot in a rounded 16:9 frame, huge type around it, three fanned cards. https://www.scrolltide.co/templates/visor\n'
+                            '- Fluxora (landing): raking amber light, a headline that switches to italic serif on the key word, proof stacked below. https://www.scrolltide.co/templates/fluxora\n'
+                            '- Otis (hero): a cartoon face you drag and stretch, which snaps back with a new expression. https://www.scrolltide.co/templates/otis\n'
+                            '- SELENE (landing): a Moon landing in six parallax layers, a trajectory line drawing to 384,400 km, a reel on scroll. https://www.scrolltide.co/templates/selene\n'
+                            'FEELESS fits: Aurora or Monsoon for a coin launch hero, SELENE for a long scroll story (PoC), Otis for a playful mascot page, Visor for a light product page.'},
 }
 # What each outside kit is for: task, skills and an ask that uses it.
 USES = {
@@ -228,6 +242,8 @@ async def add(http, root, kid, now=None):
     c = CATALOG.get(kid) or next((x for x in found_rows(root) if x['id'] == kid), None)
     if not c:
         raise ValueError('Pick a kit from the list.')
+    if c.get('guide'):   # 📝 a source with no text guide of its own (e.g. a template site): our own written guide, links only, nothing of theirs copied
+        return save(root, {'id': kid, **{k: c[k] for k in ('name', 'what', 'site', 'license', 'kinds')}, 'text': clean(c['guide']), 'at': round(now or time.time())})
     r = await http.get(c['url'], timeout=20, follow_redirects=not c.get('found'), headers={'User-Agent': 'FEELESS'})
     if r.status_code != 200 or 'html' in r.headers.get('content-type', ''):
         raise ValueError(f"{c['name']} did not send its guide ({r.status_code}).")

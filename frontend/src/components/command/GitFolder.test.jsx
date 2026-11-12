@@ -154,3 +154,19 @@ test('its sites per proof: the owner orders and switches off sites, and the guid
   const g = await mount(); expect(g.querySelector('[data-testid="git-keep"]').textContent).toMatch(/cleaned/);
   expect(g.querySelector('[data-testid="git-tab-book"]')).toBeTruthy();
 });
+
+test('📊 Fee’s stash dashboard counts proofs per type, win rate and months from the record itself', async () => {
+  const { StashBoard, stashStats } = require('./GitFolder');
+  const s = { counts: { PoW: { won: 3, lost: 1, open: 2 }, PoStatic: { won: 1, lost: 0, open: 0 } }, total: 9, waiting: 2, sealed: true, link: { full: 'fee/collective' }, notice: { paths: [] },
+    files: [['proofs/PoW/won/2026-10/a-1.json', 100], ['proofs/PoW/lost/2026-11/b-2.json', 50], ['proofs/PoW/won/2026-11/c-3.json', 50], ['source/pages/ab12/x-1.html', 4000], ['snapshots/rugcheck/1.webp', 900]] };
+  const d = stashStats(s);
+  expect(d.tot).toEqual({ won: 4, lost: 1, open: 2, n: 7 }); expect(d.rate).toBe(0.8); expect(d.kinds[0].k).toBe('PoW');
+  expect(d.months).toEqual([{ m: '2026-10', won: 1, lost: 0, open: 0, n: 1 }, { m: '2026-11', won: 1, lost: 1, open: 0, n: 2 }]);
+  expect([d.pages, d.shots, d.bytes]).toEqual([1, 1, 5100]);
+  const tabs = []; const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<StashBoard s={s} onTab={t => tabs.push(t)} />); });
+  expect(el.textContent).toMatch(/7 proofs kept across 2 proof types/); expect(el.textContent).toMatch(/80%/); expect(el.textContent).toMatch(/2 files wait for the next push/);
+  expect(el.querySelector('[data-testid="stb-kind-PoW"]').textContent).toMatch(/6 kept · 3 won · 1 lost · 2 open/);
+  await act(async () => { el.querySelector('[data-testid="stb-kits"]').click(); }); expect(tabs).toEqual(['kits']);
+  act(() => root.unmount()); el.remove();
+});

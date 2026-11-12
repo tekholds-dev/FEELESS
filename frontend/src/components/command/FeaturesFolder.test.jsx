@@ -717,3 +717,20 @@ test('🚀 Go live lists the hosts cheapest first with this page’s size and op
   expect(hostLoads(hosts[1])).toBe('≈38K free loads a month'); expect(hostLoads(hosts[0])).toBe('Traffic not metered');
   act(() => root.unmount()); el.remove();
 });
+
+test('🛰 PoC station: the launch path reads the PoC record, offers the one next step and carries the newest answer into a proof', async () => {
+  const { PocStation, pocPath } = require('./FeaturesFolder');
+  expect(pocPath({ answered: false }).filter(s => s.done)).toHaveLength(0);
+  const f = { id: 'p1', n: 3, review: { verdict: 'pass' }, graded: 'right', result: { link: 'https://x.com/p', earnedUsd: 12 } };
+  expect(pocPath({ answered: true, pocs: [f] }).map(s => s.done)).toEqual([true, true, true, true, true, false]);
+  const fileAnswer = jest.fn(); const sent = [];
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PocStation answered pocs={[]} mind="A hook for early risers: your coffee is ready first." onFileAnswer={fileAnswer} onFile={() => {}} onSide={() => {}} onSend={k => sent.push(k)} />); });
+  expect(el.textContent).toMatch(/Next: File this answer/); expect(el.querySelector('.fea-path .is-next').textContent).toMatch(/FILED/);
+  await act(async () => { el.querySelector('[data-testid="poc-next"]').click(); }); expect(fileAnswer).toHaveBeenCalled();
+  await act(async () => { el.querySelector('[data-testid="poc-door-pow"]').click(); }); expect(sent).toEqual(['pow']);
+  expect(el.textContent).toMatch(/CARRIES/);
+  await act(async () => { root.render(<PocStation answered={false} pocs={[]} mind="" onFileAnswer={() => {}} onFile={() => {}} onSide={() => {}} onSend={() => {}} />); });
+  expect(el.querySelector('[data-testid="poc-door-pos"]').disabled).toBe(true);
+  act(() => root.unmount()); el.remove();
+});
