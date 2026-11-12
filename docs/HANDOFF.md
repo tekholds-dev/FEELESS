@@ -32,6 +32,15 @@
 >   if it moved > 2¢), $1/bid (hard max $5), $3/day (hard max $20), both minds ≥ 65%, 5–95¢, closes > 10 min out, one bid per market per 24 h,
 >   balance floor $2. Key = Keys › Kalshi: key id + private key (pasted on one line is fine), sealed per agent. OWNER TO DO: kalshi.com › Account ›
 >   API keys › create, paste "<key id> <private key>" into Happy's Keys › Kalshi, Bids › switch the door on, "file a pob nba tonight", Approve.
+> **🔑 KEYS (2026-11-11 late):** Kalshi was missing from the Vault drawer (page copy of cat_keys.PROVIDERS; test_key_drawer_mirror now guards it).
+>   Two-part keys now get two boxes (`KEY_PARTS` in LaunchCat.jsx: Kalshi key id + multi-line private key, fal key id + secret); the drawer no
+>   longer trims while typing; Seal runs ONE free live check (`_key_check`: Kalshi balance, fal status 401/403 = refused) and shows ✓/⚠ next to
+>   the last 4. Owner's Kalshi + fal saves had NOT landed (no kalshi/fal key on any agent): he must Seal again after this push, then check the ✓.
+> **NEXT (owner asked, NOT built):** proof window layout for EVERY proof type — PoC window (ContentSpace in FeaturesFolder.jsx) left column is one
+>   long scroll (site box, creator desk, new PoC + MediaButton media maker, PoC list, ProofTools): put it behind m-seg tabs Make | Its PoCs |
+>   Research, chat stays right; add a "Back to desk · it keeps working" button in every open proof folder header (`fea-open-h`) that minimizes
+>   its window (DeskShell dot `.is-min` → set(k, {min:true})) so he watches the desk's two mind monitors + chat animations; then PoW/PoB/PoP
+>   windows the same way (CatWorkbench). Screenshot each at 1280 + 390.
 > **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
 > **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from

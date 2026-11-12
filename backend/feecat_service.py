@@ -11436,7 +11436,6 @@ async def cat_recover(payload: RecoverPayload):
     return {'cat': {**_no_keys(cat), 'mine': True}}
 
 
-@app.post('/api/cats/{cat_id}/action')
 async def _key_check(provider, secret):
     """One free call that proves a key works, never a paid one: Kalshi reads the balance; fal asks the status of a request that does not exist
     (a refused key answers 401 / 403, an accepted one anything else). → {ok, why, at}."""
@@ -11453,6 +11452,7 @@ async def _key_check(provider, secret):
         return {'ok': False, 'why': str(e)[:180], 'at': round(time.time())}
 
 
+@app.post('/api/cats/{cat_id}/action')
 async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     _OR_CAT.set(cat_id)   # 🧾 its model calls' receipts carry this agent
     store = _load()
