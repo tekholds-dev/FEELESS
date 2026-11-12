@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 import { Slider } from '@heroui/react';
 import '../../styles/proofRooms.css';
 import { WatchLive } from './WatchLive';
@@ -47,7 +48,7 @@ const TOOLS = { pow: CoinCalc, pop: PerpCalc, content: PostDesk };
 export function ProofCalc({ kind }) { const T = TOOLS[kind]; return T ? <T /> : null; }
 
 // 📺 Watch inside FEELESS, official sources only. A link becomes the provider's own player. Paid services open in the agent's browser, where the user signs in themself.
-const SERVICES = [['espn.com/watch', 'ESPN', 'Sports, with a TV or ESPN+ sign-in'], ['nba.com/watch', 'NBA', 'League Pass and free clips'], ['nfl.com/plus', 'NFL+', 'Live local and prime games on phones'], ['mlb.tv', 'MLB.TV', 'Out-of-market games'], ['nhl.com/video', 'NHL', 'Highlights, and games by region'], ['ufcfightpass.com', 'UFC Fight Pass', 'Fights and archives'], ['tv.youtube.com', 'YouTube TV', 'Live channels'], ['twitch.tv', 'Twitch', 'Free live streams']];
+const SERVICES = [['espn.com/watch', 'ESPN', 'Sports, with a TV or ESPN+ sign-in'], ['nba.com/watch', 'NBA', 'League Pass and free clips'], ['nfl.com/plus', 'NFL+', 'Live local and prime games on phones'], ['mlb.tv', 'MLB.TV', 'Out-of-market games'], ['nhl.com/video', 'NHL', 'Highlights, and games by region'], ['ufcfightpass.com', 'UFC Fight Pass', 'Fights and archives'], ['tv.youtube.com', 'YouTube TV', 'Live channels'], ['peacocktv.com', 'Peacock', 'Sports, NBC shows and movies, your Peacock sign-in'], ['plus.fifa.com', 'FIFA+', 'Free football: classic matches, docs and some live games'], ['dazn.com', 'DAZN', 'Boxing and football, a free tier and paid'], ['twitch.tv', 'Twitch', 'Free live streams']];
 /** The provider's official player for a link, or null. Only YouTube and Twitch: nothing else is embedded. */
 export function playerFor(link, parent = 'localhost') {
   let u; try { u = new URL(String(link || '').trim()); } catch { return null; } const host = u.hostname.replace(/^www\.|^m\./, ''); const clean = v => (/^[\w-]{2,64}$/.test(v || '') ? v : null); const parts = u.pathname.split('/').filter(Boolean);
@@ -63,6 +64,30 @@ const FREE_MORE = [['NASA', 'UC9SM7V7J1pAhPabOUST01fw'], ['Bloomberg', 'UCyxnPZf
 const FREE_SITES = [['Tubi', 'tubitv.com', 'Free movies and shows'], ['Pluto TV', 'pluto.tv/live-tv', 'Free live TV channels'], ['The Roku Channel', 'therokuchannel.roku.com', 'Free movies and live TV'], ['Plex', 'watch.plex.tv/live-tv', 'Free live TV']];
 export const channelLive = id => `https://www.youtube-nocookie.com/embed/live_stream?channel=${id}`;
 export const channelLatest = id => `https://www.youtube-nocookie.com/embed/videoseries?list=UU${id.slice(2)}`;
+// 🎬 HIGHLIGHTS (owner 2026-11-12: "recent highlights per gamer or team"): the newest videos across every official league channel plus any
+// channel you follow by @handle (a team, a gamer, a creator), filtered by the name you type. Free, no key: each channel's public feed
+// (newest 15 per channel), read by the server every 10 min at most and shared by everyone. Plays in YouTube's own player.
+const FOLLOW_KEY = 'feeless:watch:follow';
+const ago = iso => { const s = Math.max(0, (Date.now() - Date.parse(iso)) / 1000); return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`; };
+const views = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n || 0));
+export function Highlights({ onPlay }) {
+  const [follow, setFollow] = useState(() => { try { return JSON.parse(localStorage.getItem(FOLLOW_KEY) || '[]'); } catch { return []; } });
+  const [q, setQ] = useState(''); const [shorts, setShorts] = useState(false); const [d, setD] = useState(null); const [err, setErr] = useState(''); const [handle, setHandle] = useState(''); const [adding, setAdding] = useState(false);
+  const ids = useMemo(() => [...follow.map(f => f.id), ...FREE_SPORTS.map(x => x[1])].slice(0, 30).join(','), [follow]);
+  useEffect(() => { let on = true; const t = setTimeout(() => { fetch(apiUrl(`/api/reputation/watch/highlights?ch=${ids}&q=${encodeURIComponent(q.trim())}&shorts=${shorts ? 1 : 0}`)).then(r => r.json().then(j => (r.ok ? j : Promise.reject(new Error(j.detail || 'Could not read the channels.'))))).then(j => { if (on) { setD(j); setErr(''); } }).catch(e => on && setErr(e.message)); }, 300); return () => { on = false; clearTimeout(t); }; }, [ids, q, shorts]);
+  const keep = next => { setFollow(next); try { localStorage.setItem(FOLLOW_KEY, JSON.stringify(next)); } catch { /* private window: kept for this visit */ } };
+  const add = async e => { e.preventDefault(); setAdding(true); try { const r = await fetch(apiUrl(`/api/reputation/watch/channel?handle=${encodeURIComponent(handle.trim())}`)); const j = await r.json(); if (!r.ok) throw new Error(j.detail || 'Could not find it.'); if (!follow.some(f => f.id === j.id)) keep([j, ...follow].slice(0, 12)); setHandle(''); setErr(''); } catch (x) { setErr(x.message); } finally { setAdding(false); } };
+  const vids = d?.videos || [];
+  return <div className="prm-hl" data-testid="prm-hl"><small className="m-label">HIGHLIGHTS<em>{d ? `${vids.length} newest · ${d.read} of ${d.channels} channels read` : 'reading the channels…'}</em></small>
+    <div className="prm-hl-bar"><input className="m-input" value={q} onChange={e => setQ(e.target.value)} placeholder="A team, player or gamer: Lakers, Messi, Ninja" aria-label="Find highlights" data-testid="prm-hl-q" />
+      <button type="button" className={`m-chip${shorts ? ' active' : ''}`} aria-pressed={shorts} onClick={() => setShorts(x => !x)} data-tip="Include YouTube Shorts" data-testid="prm-hl-shorts">Shorts</button></div>
+    <form className="prm-hl-bar" onSubmit={add}><input className="m-input" value={handle} onChange={e => setHandle(e.target.value)} placeholder="Follow any channel: @Ninja, @Lakers, @FIFA" aria-label="Follow a YouTube channel" data-testid="prm-hl-handle" /><button type="submit" className="m-btn" disabled={adding || handle.trim().length < 3} data-tip="Adds its newest videos to your highlights" data-testid="prm-hl-follow">{adding ? 'Finding…' : 'Follow'}</button></form>
+    {follow.length ? <div className="prm-chs">{follow.map(f => <span key={f.id} className="m-chip prm-ch"><button type="button" onClick={() => setQ('')} data-tip={`${f.handle}: newest videos are in your highlights`}>{f.name}</button><button type="button" aria-label={`Unfollow ${f.name}`} onClick={() => keep(follow.filter(x => x.id !== f.id))} data-testid={`prm-hl-x-${f.id}`}>✕</button></span>)}</div> : null}
+    {err ? <small className="kd-err" role="alert">{err}</small> : null}
+    {vids.length ? <ul className="prm-hl-grid">{vids.slice(0, 24).map((v, i) => <li key={v.id} style={{ '--i': i }}><button type="button" onClick={() => onPlay(`https://www.youtube-nocookie.com/embed/${v.id}?autoplay=1`)} data-tip={v.title} data-testid={`prm-hl-v-${v.id}`}><img src={v.thumb} alt="" loading="lazy" /><b>{v.title}</b><small className="m-num">{v.channel} · {ago(v.at)}{v.views ? ` · ${views(v.views)} views` : ''}</small></button></li>)}</ul>
+      : d ? <p className="prm-hl-none">{q ? `Nothing named “${q}” in the newest videos. Follow its own channel above to see more.` : 'No videos yet.'}</p> : null}
+  </div>;
+}
 function WatchGuide({ onPlay, onBrowse }) {
   const [mode, setMode] = useState('live'); const src = id => (mode === 'live' ? channelLive(id) : channelLatest(id));
   const row = rows => rows.map(([n, id]) => <button key={n} type="button" className="m-chip prm-ch" onClick={() => onPlay(src(id))} data-tip={`${n}'s official ${mode === 'live' ? 'live stream, when it has one on' : 'newest videos'}`} data-testid={`prm-ch-${id}`}>{n}</button>);
@@ -81,6 +106,7 @@ export function WatchRoom({ onBrowse }) {
   const play = l => { const src = playerFor(l, parent); if (!src) { setErr('Paste a YouTube or Twitch link. Other services open below, where you sign in.'); return; } setErr(''); setOn(src); const next = [l, ...saved.filter(x => x !== l)].slice(0, 8); setSaved(next); try { localStorage.setItem(WATCH_KEY, JSON.stringify(next)); } catch { /* private window */ } setLink(''); };
   return <section className="prm-card prm-watch" data-testid="prm-watch"><h5>WATCH ROOM<small>Official players and your own subscriptions</small></h5>
     {on ? <div className="prm-screen"><iframe title="Official player" src={on} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen sandbox="allow-scripts allow-same-origin allow-presentation allow-popups" referrerPolicy="strict-origin-when-cross-origin" data-testid="prm-player" /><button type="button" className="m-btn" onClick={() => setOn(null)} aria-label="Close the player" data-tip="Close the player">✕</button></div> : null}
+    <Highlights onPlay={src => { setErr(''); setOn(src); }} />
     <WatchGuide onPlay={src => { setErr(''); setOn(src); }} onBrowse={onBrowse} />
     <form className="prm-link" onSubmit={e => { e.preventDefault(); play(link); }}><input className="m-input" value={link} onChange={e => setLink(e.target.value)} placeholder="Paste a YouTube or Twitch link" aria-label="Video link" data-testid="prm-link" /><button type="submit" className="m-btn m-go" disabled={!link.trim()} data-testid="prm-play">Play</button></form>{err ? <small className="kd-err" role="alert">{err}</small> : null}
     {saved.length ? <div className="prm-saved">{saved.map(l => <button key={l} type="button" className="m-chip" onClick={() => play(l)} data-tip={l}>{l.replace(/^https?:\/\/(www\.)?/, '').slice(0, 28)}</button>)}</div> : null}

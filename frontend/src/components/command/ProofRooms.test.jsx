@@ -53,3 +53,22 @@ test('the Watch guide plays official channels and only opens free services in it
   expect(document.querySelector('.prm-screen iframe').getAttribute('src')).toContain('list=UUWJ2lWNubArHWmf3FIHbfcQ');
   await act(async () => { q('prm-site-Tubi').click(); }); expect(onBrowse).toHaveBeenCalledWith('tubitv.com');
 });
+
+test('🎬 highlights: the newest official videos filtered by name, play in YouTube’s player, follow any channel by @handle', async () => {
+  jest.useFakeTimers(); localStorage.removeItem('feeless:watch:follow');
+  const vid = { id: 'aaaaaaaaaaa', title: 'Lakers vs Celtics | Highlights', channel: 'NBA', channelId: 'UCWJ2lWNubArHWmf3FIHbfcQ', at: new Date(Date.now() - 2 * 3600e3).toISOString(), thumb: 't.jpg', views: 12000, short: false };
+  const calls = []; global.fetch = jest.fn(async u => { calls.push(String(u)); return String(u).includes('/watch/channel') ? { ok: true, json: async () => ({ id: 'UCAW-NpUFkMyCNrvRSSGIvDQ', name: 'Ninja', handle: '@Ninja' }) } : { ok: true, json: async () => ({ videos: [vid], channels: 2, read: 2 }) }; });
+  const { Highlights } = require('./ProofRooms'); const played = [];
+  const { el } = await mount(<Highlights onPlay={s => played.push(s)} />);
+  await act(async () => { jest.advanceTimersByTime(350); }); await act(async () => {});
+  expect(el.querySelector('[data-testid="prm-hl-v-aaaaaaaaaaa"]').textContent).toContain('NBA · 2h ago · 12K views');
+  await act(async () => { el.querySelector('[data-testid="prm-hl-v-aaaaaaaaaaa"]').click(); });
+  expect(played[0]).toBe('https://www.youtube-nocookie.com/embed/aaaaaaaaaaa?autoplay=1');
+  const h = el.querySelector('[data-testid="prm-hl-handle"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { set.call(h, '@Ninja'); h.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); }); await act(async () => {});
+  expect(JSON.parse(localStorage.getItem('feeless:watch:follow'))[0].id).toBe('UCAW-NpUFkMyCNrvRSSGIvDQ');
+  await act(async () => { jest.advanceTimersByTime(350); }); await act(async () => {});
+  expect(calls.some(u => u.includes('ch=UCAW-NpUFkMyCNrvRSSGIvDQ,UCWJ2lWNubArHWmf3FIHbfcQ'))).toBe(true);   // the followed channel leads the read
+  jest.useRealTimers();
+});

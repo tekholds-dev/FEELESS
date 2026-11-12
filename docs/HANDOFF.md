@@ -21,6 +21,15 @@ DONE, on main, gates green:
    quote printed 3.5% above the source 1m bar's real high, then the reload swapped the source bar in. Now only a real fill (stream `k`) shapes the
    forming candle; quotes move the header price only; 1m/5m reload the source bar every 15 s (PriceChart.jsx, chartShape.test.js). Not watched live
    through a full minute of real fills (the coin sent none while measured).
+7. ✅ 📺 WATCH HIGHLIGHTS 2026-11-12 (owner: "recent highlights per gamer or team… roku, peacock… fifa"): Watch room › HIGHLIGHTS searches the
+   newest videos of every official league channel + any channel you follow by @handle (`backend/rep_watch.py`: public channel feeds, no key, 10-min
+   shared cache, newest 15 per channel; handle → the page's CANONICAL id). Peacock, FIFA+, DAZN added to the sign-in services (the user signs in
+   inside its browser; FEELESS never sees a password). Seen live: "Lakers", @Ninja + "fortnite". `/dev/hq?watch`.
+8. 🔜 QUEUED (owner 2026-11-12, same message — build in this order, think past the ask, CLAUDE.md "THINK PAST THE ASK"):
+   a. Every proof/folder chat ends with "what next?" options + a free-text box (like Claude asks), each option one tap into the next proof.
+   b. PoC = the ULTIMATE station: it feeds the next proof type (content → launch/PoW/PoB), so it gets the biggest, most capable desk.
+   c. Deploy picker: user chooses the deployment provider (Vercel / Netlify / Cloudflare Pages / Render / Fly…) by real price + limits, cheapest
+      first; verify each provider's free tier with one real call before listing it.
 NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)

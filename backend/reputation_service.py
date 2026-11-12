@@ -33494,6 +33494,8 @@ import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: rea
 app.include_router(_rep_admin_reads.router)
 import rep_model_lab as _rep_model_lab   # 🧪 Model Lab: the owner's dataset, review queue and clean export
 app.include_router(_rep_model_lab.router)
+import rep_watch as _rep_watch   # 📺 Watch folder highlights: official channels' public feeds, filtered by team / player / gamer
+app.include_router(_rep_watch.router)
 
 
 @app.on_event('startup')

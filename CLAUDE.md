@@ -25,6 +25,10 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 ## How to work (save usage)
 - 🧩 New component UI: look at HeroUI first (owner 2026-11-05, heroui.com/llms.txt), then the existing m-* presets. Every coding agent gets it the same way through the kit library.
+- 🧠 **THINK PAST THE ASK (owner 2026-11-12, every Claude):** "he couldn't even fathom this — humans never think of this and that's why they fail."
+  For every request, also build the elite piece the owner didn't name: the next step a user will want, the failure a human would miss, the
+  data that makes it honest, the one-tap path from it to the next proof. Every proof/folder chat ends by offering what to do next (options +
+  a free-text "something else"), the way Claude asks. Real data and the money rules still win: never fake a feature to look elite.
 - 🏆 The owner's asks are BASIC on purpose (owner 2026-10-30): build the corporate-level version. Before any UI, look at how the best real products do it
   (chat boxes, settings popovers, drawers, dashboards) and match that pattern with our existing m-* presets and sheets — never invent from no reference.
   Think one step ahead (e.g. settings go behind a ⚙ popover in the chat bar, not a loose panel). No new code or CSS lines unless truly needed.
