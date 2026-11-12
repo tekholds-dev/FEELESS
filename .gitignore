@@ -118,6 +118,7 @@ frontend/public/dev-prompts.json
 frontend/public/dev-pow.json
 frontend/public/dev-collective.json
 frontend/public/dev-git.json
+frontend/public/dev-lab.json
 
 frontend/public/dev-grow*.json
 .claude-wip/

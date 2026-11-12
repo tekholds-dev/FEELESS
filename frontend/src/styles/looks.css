@@ -64,7 +64,7 @@ html[data-edition="elite"] .look-amb { display: none; }
 html[data-edition="elite"] .ic3-line { color: var(--m-accent, #9b6bff); vertical-align: -0.18em; flex: none; }
 /* 🟢 PRO LOOK sitewide (owner pick 2026-11-12, Obsidian / Desk / Pit all wear the elite edition): hairlines, one solid accent, no glow, no sweep, no
    cursor glow or flakes. The live NUMBERS still move (count-ups, bars, tickers); only decoration goes. */
-html[data-edition="elite"] .m-live { border-color: var(--m-line) !important; } html[data-edition="elite"] .m-live::before, html[data-edition="elite"] .m-live::after { display: none; }
+html[data-edition="elite"] .m-live { border-color: var(--m-line) !important; box-shadow: none !important; } html[data-edition="elite"] .m-live::before, html[data-edition="elite"] .m-live::after { display: none; }
 html[data-edition="elite"] .live-gradient-text { background: none !important; color: var(--m-accent) !important; -webkit-text-fill-color: currentColor; animation: none; }
 html[data-edition="elite"] :is(.mouse-glow, .ambient-flakes) { display: none; }
 html[data-edition="elite"] body.theme-day .live-gradient-text { color: #08995a !important; }

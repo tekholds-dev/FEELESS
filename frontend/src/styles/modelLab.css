@@ -192,3 +192,16 @@ body.fx-lite :is(.mc2-board li, .mc2-state i) { animation: none; }
 body.theme-day .mc2 { --p-bg: #fafafa; --p-card: #ffffff; --p-line: #0f0f1a14; --p-text: #16161d; --p-mute: #6b6b76; --p-acc: #6d3fe0; --p-up: #0b8a6c; --p-dn: #c2334f; }
 body.theme-day .mc2-board li.is-comp { background: #f6f2ff; } body.theme-day .mc2-ways li.is-todo { background: #fafafa; } body.theme-day .mc2-bar { background: #0f0f1a0d; } body.theme-day .mc2-bar u { background: #c8c8d0 !important; }
 @media (max-width: 640px) { .mc2-live { grid-template-columns: minmax(0, 1fr); } .mc2-top { grid-template-columns: repeat(3, minmax(0, 1fr)); } .mc2-base { grid-column: 1 / -1; } .mc2-board li { grid-template-columns: minmax(0, 1fr) 48px; } .mc2-board li .mc2-bar { grid-column: 1 / -1; grid-row: 2; } }
+/* 🖤 PRO under the owner's look (2026-11-12): Build + Data tabs wear the COMP v2 tokens — flat #111116 cards on hairlines, the look's accent,
+   no purple gradients, sweeps or glow. Night only; the day theme keeps its own white cards. */
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb, .mlf) { --p-card: #111116; --p-line: #ffffff12; --p-text: #ececf1; --p-mute: #8b8b95; color: var(--p-text); }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb-head, .mlb-steps li, .mlb-card, .mlb-stat, .mlb-kind, .mlb-q, .mlb-minds li, .mlf-card, .mlf-slab, .mlf-pipe li, .mlf-model) { background: var(--p-card); border-color: var(--p-line); box-shadow: none; }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlf-slab.is-block, .mlf-slab.is-emb, .mlf-slab.is-tok, .mlf-slab.is-out) { border-color: var(--p-line); background: var(--p-card); }
+html[data-edition="elite"] body:not(.theme-day) .mlf-slab.is-block { border-left: 2px solid var(--m-accent); }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb-head::after, .mlf-flow, .mlf-pipe.is-live li::before) { display: none; }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb-stat b, .mlf-ring b) { color: var(--p-text); text-shadow: none; }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb-ring, .mlf-ring) { background: conic-gradient(var(--m-accent) calc(var(--k) * 360deg), var(--p-line) 0); }
+html[data-edition="elite"] body:not(.theme-day) .mlf-ring::before { background: var(--p-card); box-shadow: none; } html[data-edition="elite"] body:not(.theme-day) .mlf-ring small { color: var(--p-mute); }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb-bar u, .mlf-meter u, .mlf-runbar u) { background: var(--m-accent); }
+html[data-edition="elite"] body:not(.theme-day) .mlb-steps li.is-have > i { background: var(--m-accent); color: var(--m-accent-ink); box-shadow: none; }
+html[data-edition="elite"] body:not(.theme-day) .mlf-model.is-on { border-color: var(--m-accent); box-shadow: 0 0 0 1px var(--m-accent); }

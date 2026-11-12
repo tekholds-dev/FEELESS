@@ -7,6 +7,11 @@ import office from '../components/command/__fixtures__/office.json';
 import { hubLoad } from '../lib/agentHub';
 import { HqDeck } from '../components/command/HqDeck';
 import '../styles/hqPop.css';
+import { EcoDesk } from '../components/command/EcoDesk';
+import { ModelLab } from '../components/command/ModelLab';
+import ecoFix from './ecoFixture.json';
+import '../styles/looks.css';
+import { applyLook, DEFAULT_LOOK } from '../lib/looks';
 
 // 🧪 DEV ONLY (`/dev/hq`, never in a production build — index.js imports it behind NODE_ENV): HQ › Sicario's on the test fixtures, no wallet,
 // no signed session. Lets anyone (or Claude) click every Agents-tab control in a real browser and hit-test it — the owner shouldn't have to
@@ -49,6 +54,8 @@ const RPC = { needsKey: false, slots: [1, 2, 3, 4, 5, 6].map(n => ({ slot: n, se
   lanes: [{ lane: 1, slot: 1, provider: 'helius-rpc.com', spent: true, backInMin: 420 }, { lane: 2, slot: 2, provider: 'quiknode.pro', spent: false, backInMin: 0 }] };
 // 📸 ?snap = the LIVE desk: copy backend/data/agents_view.json → frontend/public/dev-agents.json (gitignored) to see the owner's real cockpit
 const SNAP = new URLSearchParams(window.location.search).has('snap');
+// 🧪 ?lab reads a local snapshot of the owner's Model Lab views (public/dev-lab.json, written from the server handlers, never committed); writes do nothing
+let labSnap = null; const labCall = async (path, opt) => { labSnap = labSnap || await (await fetch('/dev-lab.json')).json(); if (opt?.method === 'POST') return {}; if (labSnap[path]) return labSnap[path]; throw new Error('Not in the dev snapshot.'); };
 const call = async path => (path === '/admin/agents' ? (SNAP ? (await fetch('/dev-agents.json')).json() : live()) : path === '/admin/rpc' ? RPC : { ok: true });
 window.__hubLoad = hubLoad;
 
@@ -84,6 +91,8 @@ if (DECK) {
 }
 
 export default function HqHarness() {
+  if (qa.has('lab')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><ModelLab call={labCall} /></div>; }   // 🧪 COMP Model Lab under the owner's look
+  if (qa.has('eco')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><EcoDesk cat={{ id: 'dev' }} work={async () => ecoFix} /></div>; }   // 🧪 PoEco desk on server-built sample rows, under the owner's look
   if (DECK) return <MemoryRouter><div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
     <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
     <div className="hqp-body"><HqDeck address={FAKE} signMessage={async () => 'dev'} onClose={() => {}} startTab={DECK} /></div></div></MemoryRouter>;
