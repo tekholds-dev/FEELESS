@@ -146,15 +146,13 @@ one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
    `setupProxy` `xfwd` — needs the 51367 restart), #5 (`_pay_hold` one payment = one use), #6 (httpx quiet, access-log redaction, `umask 077`;
    **rotate the Helius key if any /tmp log was ever shared**), #7 (agent signer policy — all 25 real past sends pass — + overlapping-send fix).
    keep-alive.sh now imports each service before a reload (takes effect when the owner restarts his command).
-3. **Model Lab → COMPAI** (owner 2026-11-12, his words: "elite dev's dash … live view of whatever it's learning … one model: COMP Flagship v1.02,
-   the folder is named COMP, my AI company is COMPAI"): desktop icon/label `COMP` (FeeCatDesk.jsx `k: 'model'`), header = COMPAI; ONE model
-   "COMP Flagship" whose builds are VERSIONS (v1.00, v1.01, v1.02 …, continue training from the last version's weights); the header name drives
-   it (today `mlb-name` and the forge's own name are two things — merge). Dashboard: where files live (`backend/data/model_forge/<id>/` weights.npz,
-   tokenizer.json, card.json, corpus.txt + sizes + download), HOW it learns (tokenize → predict → loss → backprop → AdamW, live lr / grad-norm
-   charts), WHAT it learns live (samples every N steps, top-5 next-token view, an attention heatmap), version leaderboard + scaling chart
-   (params vs held-out loss), guardrail test suite, a "Flagship" preset (~5M params, BPE 2048, ctx 256). Learn-from-the-labs panel (RMSNorm,
-   SwiGLU, RoPE, GQA as toggles only once the engine supports them). Engine works today: Nano 6 s, Mini 2 min (held-out 2.43), real asks +
-   guardrails proven in his Chrome. Recalibrate `model_forge.FLOPS_PER_SEC` (idle Mac: Nano 48, Mini 92 GFLOP/s).
+3. ✅ **COMPAI BUILT 2026-11-12** (desktop icon COMP, header = the model's one name, server-side `model_forge/family.json`): every build is a VERSION
+   (v1.00, v1.01 …) that continues from the newest version with the same shape (weights + tokenizer). Live: learn pipe, loss + lr/grad-norm charts,
+   its writing per checkpoint, top-5 next token, last-block attention per head. Version board + scaling chart, files on disk (download), guardrail suite,
+   Flagship preset (5.33M params, BPE 2048, ctx 256), labs panel (RMSNorm/SwiGLU/RoPE/GQA marked not built). **Proven in his Chrome:** Flagship v1.00
+   (200 steps, 244 s, held-out 5.56, ppl 260/2048) → v1.01 continued (started at loss 5.41, ended held-out 5.05, ppl 156, 400 steps total), suite 6/6,
+   ask + footer. Speed fit 47.7 GFLOP/s × (N/136K)^0.26 (estimate 4 min, real 4 min). Header squash fixed (`.mlb` rows max-content). Not checked: day
+   theme, 360 px, a file download click. Next: train v1.02+ with more steps (each version adds on top).
 4. Rerun the 18-device audit (scratchpad script; MOBILE_LAYOUT.md matrix) on a QUIET machine (no backend edits during it: each edit restarts services → 504s).
 5. Desktop folder audit (every agent + owner desktop folder, his Chrome, signed in). Then the 5 things agents/Collective are missing (his ask).
 

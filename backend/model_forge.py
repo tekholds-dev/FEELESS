@@ -298,9 +298,10 @@ def _write(path, obj):
 
 
 PROBE = '### PoW · won · '
+LOOK_PROBE = '### PoW · won · bought the dip at $0.0021, sold at +40% when the volume dried up. why: the chart held'   # long enough for a real attention map (BPE packs the short probe into 1-2 tokens)
 
 
-def peek(P, c, tok, text=PROBE, top=5, max_t=32):
+def peek(P, c, tok, text=LOOK_PROBE, top=5, max_t=24):
     """🔬 What it has learned right now, on one fixed piece of text: its top next-token guesses and the last layer's attention (every head)."""
     ids = (tok.encode(text) or [0])[-min(max_t, c['ctx']):]
     logits, _, fw = forward(P, c, np.array([ids]))

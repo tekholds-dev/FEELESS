@@ -1,5 +1,5 @@
 /* 🧪 Model Lab: the plan for FEELESS's own model, owner only */
-.mlb { display: grid; gap: 12px; padding: 4px 2px 14px; color: #e9f5ee; }
+.mlb { display: grid; grid-auto-rows: max-content; gap: 12px; padding: 4px 2px 14px; color: #e9f5ee; }
 .mlb-head { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 18px; border-radius: 16px; border: 1px solid #9b6bff55; background: radial-gradient(120% 140% at 0 0, #9b6bff26, transparent 60%), linear-gradient(150deg, #15102e, #05090b); box-shadow: inset 0 1px 0 #ffffff17, 0 0 30px #9b6bff1f; overflow: hidden; }
 .mlb-head::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, #b48cff22 50%, transparent 65%); transform: translateX(-100%); animation: mlbSweep 6s ease-in-out infinite; pointer-events: none; }
 .mlb-head > span:first-child { display: grid; gap: 4px; min-width: 0; flex: 1; } .mlb-head small { font: 700 9.5px var(--f-mono); letter-spacing: .14em; color: #b48cff; }
@@ -114,8 +114,8 @@ body.theme-day .mlf-ring::before { background: #fff; } body.theme-day .mlf-ring 
 .mlf-top > span { display: grid; grid-template-columns: minmax(48px, auto) minmax(0, 1fr) 50px; align-items: center; gap: 8px; animation: mlfIn .3s ease both; animation-delay: calc(var(--i) * 50ms); }
 .mlf-top code { padding: 2px 7px; border-radius: 6px; background: #9b6bff22; color: #fff; font: 700 12px var(--f-mono); white-space: pre; } .mlf-top b { text-align: right; color: #3ee7ff; font-size: 12px; } .mlf-top > span:first-of-type b { text-shadow: 0 0 10px #3ee7ffaa; }
 .mlf-attn { grid-column: 1 / -1; } .mlf-attn-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; } .mlf-attn-head .m-seg > button { min-height: 32px; min-width: 36px; }
-.mlf-attn-grid { display: grid; grid-template-columns: repeat(var(--t), minmax(0, 1fr)); gap: 1px; max-width: 560px; aspect-ratio: 1; } .mlf-attn-grid i { border-radius: 2px; background: #ff3fa4; transition: opacity .4s ease; }
-.mlf-attn-grid i:hover { outline: 1px solid #3ee7ff; } .mlf-attn-toks { display: grid; grid-template-columns: repeat(var(--t), minmax(0, 1fr)); gap: 1px; max-width: 560px; } .mlf-attn-toks span { overflow: hidden; color: #9c94bd; font: 9px var(--f-mono); text-align: center; white-space: pre; }
+.mlf-attn-grid { display: grid; grid-template-columns: repeat(var(--t), minmax(0, 1fr)); gap: 1px; width: min(100%, calc(var(--t) * 24px)); aspect-ratio: 1; } .mlf-attn-grid i { border-radius: 2px; background: #ff3fa4; transition: opacity .4s ease; }
+.mlf-attn-grid i:hover { outline: 1px solid #3ee7ff; } .mlf-attn-toks { display: grid; grid-template-columns: repeat(var(--t), minmax(0, 1fr)); gap: 1px; width: min(100%, calc(var(--t) * 24px)); } .mlf-attn-toks span { overflow: hidden; color: #9c94bd; font: 9px var(--f-mono); text-align: center; white-space: pre; }
 .mlf-board { display: grid; gap: 10px; } .mlf-model-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .mlf-model-top b { font-size: 15px; }
 .mlf-ops { margin-top: 4px; } .mlf-ops > div { display: grid; gap: 6px; align-content: start; min-width: 0; }
 .mlf-files, .mlf-rails { display: grid; gap: 6px; } .mlf-path { overflow: hidden; padding: 6px 9px; border-radius: 8px; background: #08051acc; color: #3ee7ff; font: 11px var(--f-mono); white-space: nowrap; text-overflow: ellipsis; }
