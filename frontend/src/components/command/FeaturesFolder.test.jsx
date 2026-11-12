@@ -689,3 +689,12 @@ test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where 
   expect(sent.find(x => x[0].endsWith('/comp2/train'))[1]).toEqual({ iters: 400 });
   el.remove(); localStorage.removeItem('feeless.modelLab.tab');
 });
+
+test('🧭 what next: the reply’s own choices become the options; otherwise steps that fit the stage + one carry into the next proof', () => {
+  const { nextOptions } = require('./FeaturesFolder');
+  const own = nextOptions({ by: 'Claude', text: 'Here is the plan. Which should I do next?\n1. Add a pricing table\n2. **Build the hero**\n3. Write the FAQ' });
+  expect(own.map(o => o.label)).toEqual(['Add a pricing table', 'Build the hero', 'Write the FAQ']);
+  const page = nextOptions({ by: 'Claude', text: 'Page 2 is ready.' }, { page: 2, kinds: [['pow', 'PoW']] });
+  expect(page[0].label).toMatch(/phone/); expect(page[page.length - 1]).toEqual({ label: 'Carry it into a PoW', sendTo: 'pow' });
+  expect(nextOptions({ by: 'you', text: 'hi?' })).toEqual([]); expect(nextOptions(null)).toEqual([]);
+});

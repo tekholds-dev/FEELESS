@@ -26,7 +26,8 @@ DONE, on main, gates green:
    shared cache, newest 15 per channel; handle → the page's CANONICAL id). Peacock, FIFA+, DAZN added to the sign-in services (the user signs in
    inside its browser; FEELESS never sees a password). Seen live: "Lakers", @Ninja + "fortnite". `/dev/hq?watch`.
 8. 🔜 QUEUED (owner 2026-11-12, same message — build in this order, think past the ask, CLAUDE.md "THINK PAST THE ASK"):
-   a. Every proof/folder chat ends with "what next?" options + a free-text box (like Claude asks), each option one tap into the next proof.
+   a. ✅ DONE 2026-11-12: proof work chats end with WHAT NEXT? (`nextOptions`/`NextSteps` in FeaturesFolder.jsx): the reply's own listed choices
+      become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. NEXT: the agent Brain chat.
    b. PoC = the ULTIMATE station: it feeds the next proof type (content → launch/PoW/PoB), so it gets the biggest, most capable desk.
    c. Deploy picker: user chooses the deployment provider (Vercel / Netlify / Cloudflare Pages / Render / Fly…) by real price + limits, cheapest
       first; verify each provider's free tier with one real call before listing it.
