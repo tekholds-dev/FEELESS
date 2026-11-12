@@ -151,4 +151,4 @@ def public(cat):
     """What the page may see: every provider, whether one is saved (last 4 only), and whether the cat uses it yet."""
     drawer = cat.get('apiKeys') or {}
     return [{'provider': p, 'label': lab, 'use': use, 'wired': wired, 'saved': p in drawer, 'last4': (drawer.get(p) or {}).get('last4'),
-             'at': (drawer.get(p) or {}).get('at')} for p, (lab, use, wired, _) in PROVIDERS.items() if p != 'github_project']
+             'at': (drawer.get(p) or {}).get('at'), 'check': (drawer.get(p) or {}).get('check')} for p, (lab, use, wired, _) in PROVIDERS.items() if p != 'github_project']

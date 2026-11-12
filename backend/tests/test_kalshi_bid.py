@@ -138,3 +138,26 @@ def test_the_owner_taps_approve_and_exactly_one_limit_order_goes_out_on_his_key(
     monkeypatch.setattr(fs._kb, 'market', market3)
     j = post('kalshi_bid', job='kb3').json()
     assert j['ticket']['status'] == 'refused' and 'price moved' in j['ticket']['why'] and len(sent) == 1
+
+
+def test_sealing_a_kalshi_or_fal_key_runs_one_free_live_check_and_shows_it(monkeypatch):
+    import asyncio
+    import pytest
+    fs = pytest.importorskip('feecat_service')
+    _, pem = _pem()
+    async def bal(h, k, p): return 10.0
+    monkeypatch.setattr(fs._kb, 'balance', bal)
+    got = asyncio.run(fs._key_check('kalshi', 'a952bcbe-ec3b-4b5b-b8f9-11dae589608c ' + pem))
+    assert got['ok'] and '$10.00' in got['why']
+    assert asyncio.run(fs._key_check('kalshi', 'nonsense'))['ok'] is False
+    class R:
+        def __init__(self, code): self.status_code = code
+    class H:
+        def __init__(self, code): self.code = code
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, headers=None): assert headers['Authorization'].startswith('Key ') and '/status' in url; return R(self.code)
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **kw: H(401))
+    assert asyncio.run(fs._key_check('fal', 'abc-123:deadbeefdeadbeef'))['ok'] is False
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **kw: H(404))
+    assert asyncio.run(fs._key_check('fal', 'abc-123:deadbeefdeadbeef'))['ok'] is True

@@ -11437,6 +11437,22 @@ async def cat_recover(payload: RecoverPayload):
 
 
 @app.post('/api/cats/{cat_id}/action')
+async def _key_check(provider, secret):
+    """One free call that proves a key works, never a paid one: Kalshi reads the balance; fal asks the status of a request that does not exist
+    (a refused key answers 401 / 403, an accepted one anything else). → {ok, why, at}."""
+    try:
+        async with httpx.AsyncClient(timeout=12) as h_:
+            if provider == 'kalshi':
+                kid_, pem_ = _kb.split_key(secret)
+                if not kid_:
+                    return {'ok': False, 'why': 'The key id or the private key did not read right.', 'at': round(time.time())}
+                return {'ok': True, 'why': f'Kalshi answered: balance ${await _kb.balance(h_, kid_, pem_):.2f}', 'at': round(time.time())}
+            r_ = await h_.get('https://queue.fal.run/fal-ai/flux/requests/00000000-0000-0000-0000-000000000000/status', headers={'Authorization': f'Key {secret}'})
+            return {'ok': r_.status_code not in (401, 403), 'why': 'fal accepted the key (checked without spending)' if r_.status_code not in (401, 403) else f'fal refused this key ({r_.status_code})', 'at': round(time.time())}
+    except Exception as e:   # noqa: BLE001 — the key stays sealed; the reason is shown
+        return {'ok': False, 'why': str(e)[:180], 'at': round(time.time())}
+
+
 async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     _OR_CAT.set(cat_id)   # 🧾 its model calls' receipts carry this agent
     store = _load()
@@ -11575,6 +11591,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _ck.put(cat, payload.provider, payload.secret, data_dir=DATA_DIR) if payload.secret else _ck.drop(cat, payload.provider)
         except (ValueError, RuntimeError) as e:
             raise HTTPException(400, str(e))
+        if payload.secret and payload.provider in ('kalshi', 'fal'):   # 🔑 owner 2026-11-11 "assure it's ready": one free live call the moment it is sealed
+            cat['apiKeys'][payload.provider]['check'] = await _key_check(payload.provider, str(payload.secret).strip())
     elif payload.action == 'openrouter_connect':   # 🔑 owner 2026-11-10: one-click Connect OpenRouter. OpenRouter's sign-in code + this tab's verifier → a key made for FEELESS, sealed here; it never goes back to the page
         code_, verifier_ = str(payload.secret or '').strip(), str(payload.text or '').strip()
         if not code_ or not 20 <= len(verifier_) <= 128:

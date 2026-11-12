@@ -82,6 +82,9 @@ export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YO
   ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
   ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
   ['webhook', 'Signal webhook', 'your own signal URL (https) it reads before a buy', false, 'https://…']];
+// 🔑 keys made of two parts get two boxes (owner 2026-11-11): Kalshi = key id + private key (a multi-line box keeps its line breaks), fal = key id + secret
+export const KEY_PARTS = { kalshi: [['Key ID', 'a952bcbe-ec3b-…'], ['Private key', 'paste the whole private key, with its BEGIN and END lines', true], ' '], fal: [['Key ID', 'key id (before the colon)'], ['Key secret', 'secret (after the colon)'], ':'] };
+const joinParts = (k, d) => { const sep = KEY_PARTS[k][2]; const x = String(d?.[`${k}.0`] || '').trim(); const y = String(d?.[`${k}.1`] || '').trim(); return x && y ? `${x}${sep}${y}` : ''; };
 export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, onConnect }) {   // onConnect: one-click OpenRouter (an agent that exists; the wizard pastes)
   const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
@@ -92,10 +95,13 @@ export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start, o
       return <li key={k} style={{ '--i': i }} className={row?.saved ? 'is-saved' : ''}>
         <span className="akd-name"><b>{label}</b><em className={wired ? 'is-live' : ''}>{wired ? 'LIVE' : 'STORED'}</em><small>{use}</small></span>
         {k === 'openrouter' && !row?.saved && onConnect ? <button type="button" className="m-btn m-go" disabled={busy} onClick={onConnect} data-testid="akd-connect-openrouter" data-tip="Approve FEELESS on OpenRouter's own page: it makes a key just for this agent and we seal it. Nothing to copy; you can revoke it on OpenRouter any time">Connect OpenRouter</button> : null}
-        {row?.saved ? <span className="akd-have"><code>••••{row.last4}</code><button type="button" className="m-btn" disabled={busy} onClick={() => onDrop?.(k)} data-tip={`Remove the ${label} key`} data-testid={`akd-drop-${k}`}>Remove</button></span>
+        {row?.saved ? <span className="akd-have"><code>••••{row.last4}</code>{row.check ? <small className={`akd-check${row.check.ok ? ' is-ok' : ' is-bad'}`} role="status" data-testid={`akd-check-${k}`}>{row.check.ok ? '✓' : '⚠'} {row.check.why}</small> : null}<button type="button" className="m-btn" disabled={busy} onClick={() => onDrop?.(k)} data-tip={`Remove the ${label} key`} data-testid={`akd-drop-${k}`}>Remove</button></span>
+          : KEY_PARTS[k] ? <span className="akd-parts">{KEY_PARTS[k].slice(0, 2).map(([pl, pph, area], j) => (area
+            ? <textarea key={j} className="m-input akd-area" rows={3} autoComplete="off" spellCheck={false} placeholder={pph} value={draft?.[`${k}.${j}`] || ''} aria-label={`${label} ${pl}`} data-testid={`akd-${k}-${j}`} onChange={e => onDraft?.(`${k}.${j}`, e.target.value)} />
+            : <input key={j} className="m-input" type={j ? 'password' : 'text'} autoComplete="off" spellCheck={false} placeholder={pph} value={draft?.[`${k}.${j}`] || ''} aria-label={`${label} ${pl}`} data-testid={`akd-${k}-${j}`} onChange={e => onDraft?.(`${k}.${j}`, e.target.value)} />))}</span>
           : <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder={ph} value={draft?.[k] || ''} aria-label={`${label} key`} data-testid={`akd-${k}`}
             onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}
-        {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !draft?.[k]} onClick={() => onSave(k, draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
+        {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !(KEY_PARTS[k] ? joinParts(k, draft) : draft?.[k])} onClick={() => onSave(k, KEY_PARTS[k] ? joinParts(k, draft) : draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
       </li>; })}</ul>
     <p className="akd-note"><Ic3 e="🔒" /> Sealed at rest, never sent back. A key never opens another exchange — the agent trades on FEELESS rails only.</p>
   </details>;
@@ -307,7 +313,8 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, face: readMyCat()?.face, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
         brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
       try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); localStorage.setItem(`feeless.fundToken.${r.cat.id}`, fundToken); } catch { /* private window */ }   // its funding step opens on this $
-      for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
+      const sealed = { ...Object.fromEntries(Object.entries(keys).filter(([k, v]) => v && !k.includes('.'))), ...Object.fromEntries(Object.keys(KEY_PARTS).map(k => [k, joinParts(k, keys)]).filter(([, v]) => v)) };   // two-part keys join here
+      for (const [provider, secret] of Object.entries(sealed)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create an Agent: it starts trading at once
       onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
@@ -370,7 +377,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
       <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your agent and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — at $0 its minds pause until you add more from its wallet panel, in SOL or USDC. Your funding never pays for model calls: it goes to its own wallet.</p>
-      {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} />}
+      {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: k.includes('.') ? v : v.trim() }))} />}
       <SafetyCard gen={gen} />
       <FundReceipt general={gen} />
       <div className="lct-bar lct-cost lct-fund" data-tip="What goes into its own wallet, paid from your wallet; you sign once after launch">

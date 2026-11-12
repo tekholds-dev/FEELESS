@@ -84,3 +84,14 @@ test('📈 the trader demo: A on the FEELESS chart → perps, B on the BTC narra
   const { BTC_FEED } = require('./AgentDemo');
   expect(BTC_FEED[0]).toMatch(/FEELESS chart/); expect(BTC_FEED[2]).toMatch(/B → A/); expect(BTC_FEED.filter(l => l === null)).toHaveLength(1);
 });
+
+test('🔑 Kalshi and fal get two boxes each, and Seal sends them joined the way the server checks', async () => {
+  const onSave = jest.fn();
+  const draft = { 'kalshi.0': 'a952bcbe-ec3b-4b5b-b8f9-11dae589608c', 'kalshi.1': 'LINE1\nLINE2', 'fal.0': 'abc-123', 'fal.1': 'deadbeef' };
+  const d = await mount(<ApiDrawer rows={[]} draft={draft} onDraft={jest.fn()} onSave={onSave} />);
+  expect(d.querySelector('[data-testid="akd-kalshi-1"]').tagName).toBe('TEXTAREA'); expect(d.querySelector('[data-testid="akd-fal-0"]')).not.toBeNull();
+  click(d, '[data-testid="akd-save-kalshi"]'); expect(onSave).toHaveBeenLastCalledWith('kalshi', 'a952bcbe-ec3b-4b5b-b8f9-11dae589608c LINE1\nLINE2');
+  click(d, '[data-testid="akd-save-fal"]'); expect(onSave).toHaveBeenLastCalledWith('fal', 'abc-123:deadbeef');
+  const e = await mount(<ApiDrawer rows={[]} draft={{ 'kalshi.0': 'only-the-id' }} onDraft={jest.fn()} onSave={onSave} />);
+  expect(e.querySelector('[data-testid="akd-save-kalshi"]').disabled).toBe(true);   // both parts or nothing
+});
