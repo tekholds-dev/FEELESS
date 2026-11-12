@@ -70,3 +70,7 @@ html[data-edition="elite"] :is(.mouse-glow, .ambient-flakes) { display: none; }
 html[data-edition="elite"] body.theme-day .live-gradient-text { color: #08995a !important; }
 html[data-edition="elite"] :is(.m-go, .btn-primary):not(:disabled) { background: var(--m-accent) !important; color: var(--m-accent-ink) !important; box-shadow: none !important; }   /* one solid accent, no multi-stop gradient */
 html[data-edition="elite"] body.theme-day :is(.m-go, .btn-primary):not(:disabled) { background: #08995a !important; color: #fff !important; }
+/* 🖤 PRO HQ (owner 2026-11-12): every HQ glass panel (m-glass + the HQ desk list in meta.css) goes flat — #111116 on a hairline, no tinted
+   radial wash, no coloured drop glow. Night only; the day theme keeps its own cards. */
+html[data-edition="elite"] body:not(.theme-day) :is(.m-glass, .kd .kd-hero, .kd .kd-tile, .kd .kd-card, .kd .ck-vitals, .kd .ck-chat, .kd .ck-log, .kd .agd, .kd .cwb, .kd .lct-brains, .kd .paper-panel, .kd .fcv-card, .kd .fcp, .kd .cr-agent, .kd .cr-wallet, .kd .cr-safe, .kd .cr-strip > span, .kd .col-head) {
+  background: #111116; border-color: #ffffff12; box-shadow: none; }

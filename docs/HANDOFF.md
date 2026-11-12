@@ -12,7 +12,14 @@ DONE, on main, gates green:
 4. ✅ Quests/rank: grep found no fake rank/XP/board numbers; Desk widgets are server-only with honest empty states.
 5. 🟡 PoEco: Live books got a Recharts **Sankey money flow** (`flowOf` in EcoLive.jsx: fees in + your pocket → FeeBack / each model / kept, balanced, null if no money).
    Not seen signed in (owner-only route). Pro look sitewide under the elite edition (`styles/looks.css` end): no m-live aurora/sweep, no gradient
-   headline, no mouse glow/flakes, solid accent primary buttons (day #08995a). NEXT: EcoDesk, Model Lab tabs, HQ folders surface by surface.
+   headline, no mouse glow/flakes, solid accent primary buttons (day #08995a). DONE 2026-11-12: EcoDesk (night = Pro tokens, cash line + donut in
+   the look's colours), Model Lab Build + Data tabs (flat cards, accent rings/bars), every HQ glass panel (m-glass + the HQ list → #111116 hairline,
+   looks.css end), no m-live glow. Seen in `/dev/hq?eco`, `/dev/hq?lab` (needs a local `public/dev-lab.json`, never committed) and any `/dev/*?look`.
+   NEXT: the terminal surfaces, then ActBtn on HQ saves.
+6. ✅ 🕯 TRUE CANDLES 2026-11-12 (owner: "up like it was finna moon, wick out, then morph within 1m"): measured on Hero, the Jupiter aggregate
+   quote printed 3.5% above the source 1m bar's real high, then the reload swapped the source bar in. Now only a real fill (stream `k`) shapes the
+   forming candle; quotes move the header price only; 1m/5m reload the source bar every 15 s (PriceChart.jsx, chartShape.test.js). Not watched live
+   through a full minute of real fills (the coin sent none while measured).
 NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
