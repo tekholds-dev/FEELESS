@@ -42,6 +42,12 @@
   + hidden, so the taskbar brings back the same open folder. Seen in harnesses `/dev/features?pdk&poc` + `/dev/cats` at 1280 + 390; not signed in.
 > **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
+> **2026-11-11 late (this session):** Kalshi Ed25519 keys (Kalshi's default now; the owner's key is one) seal + sign (`kalshi_bid.sign`, cat_keys regex
+  40+ chars) — NOT yet proven against Kalshi live: his Seal is the first live call (✓ balance or the error on the row). Fuse Withdraw asks an amount.
+  PoC layout: media maker spans the column, chat pinned full height. LAG (his Chrome, dev build): desk open 2.3 s → 2.1 s blocked; fixed the 8 s
+  464 KB record re-read (now 30 s, no re-render if same), theme re-scan of every CSS rule per lazy sheet, hover forced layout, 5 preloads at once,
+  backdrops 22 MB → 7 MB. Left: the desk's first React render (~0.8 s + 3×0.2 s in DEV; production is several times faster). Push from
+  `.claude/worktrees/gate` only: a gate in the main tree killed his `yarn start` twice.
 > **The 3 real-money tests: READY, handed to the owner 2026-11-11** (owner presses; never sign for him). Dry-checked live, no funds moved:
   T1 real quotes both legs (swap engine; platform fee 1425 bps after his tier = the open Q29) · T2 Fuse wallet is a live Circle wallet, owner
   wallets are saved destinations, withdraw = book move; NEW guard `_fuse_send_guard`: a Circle SOL send from the real Fuse wallet stops at
