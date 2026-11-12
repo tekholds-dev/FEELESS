@@ -7,8 +7,9 @@ import '../../styles/modelLab.css';
 // 🧪 MODEL LAB (owner 2026-11-11: "a folder for the new AI we are creating … a full AI and human setup to build / learn how to be a new kind of
 // artificial intel"). LIVE: what FEELESS's own model would learn from, read from the stash (every proof and how it really ended), the model-call
 // log (the rented minds' real record: the bar to beat) and the owner's own grades on proofs nothing settled (the human half). No model is
-// trained here and nothing is spent or sent: Export gives the owner a scrubbed .jsonl file. Name is the owner's to pick (kept in this browser).
-const NAME_KEY = 'feeless.modelLab.name'; const TAB_KEY = 'feeless.modelLab.tab';
+// trained here and nothing is spent or sent: Export gives the owner a scrubbed .jsonl file. 🏷 COMPAI (owner 2026-11-12): the header name is THE
+// model's name, kept on the server (forge/family), and every build is a version of it (COMP Flagship v1.00, v1.01 …).
+const TAB_KEY = 'feeless.modelLab.tab';
 const TABS = [['build', '🏗 Build your model', 'Design it, see its specs, set its guardrails, press Build: it trains on this Mac'], ['data', '📊 Data & grades', 'What it learns from, your grades, the minds to beat, the road to a big fine-tune']];
 const STEPS = [
   ['data', 'Collect the data we own', 'Every graded proof (PoW, PoP, PoB, PoC, PoStatic, PoEco), every 👍 / 👎 the owners gave, the kits and the fixes that made a page pass the store check. Ours, labelled by real results, not scraped text.', 'Proof folders, review grades and kit library already store this'],
@@ -56,8 +57,14 @@ function Review({ q, i, busy, onGrade }) {
 }
 
 export function ModelLab({ call }) {
-  const [name, setName] = useState(() => { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } });
-  const keep = v => { setName(v); try { localStorage.setItem(NAME_KEY, v); } catch { /* private window */ } };
+  const [name, setName] = useState(''); const [saidName, setSaidName] = useState('');
+  useEffect(() => { if (call) call('/admin/model-lab/forge/family').then(x => { const n = String(x?.name || ''); setName(n); setSaidName(n); }).catch(() => {}); }, [call]);
+  useEffect(() => {   // the name saves itself after typing settles (one write), and the forge's versions follow it
+    const v = name.trim(); if (!call || !v || v === saidName) return undefined;
+    const t = setTimeout(() => call('/admin/model-lab/forge/family', { method: 'POST', body: JSON.stringify({ name: v }) }).then(x => setSaidName(String(x?.name || v))).catch(() => {}), 600);
+    return () => clearTimeout(t);
+  }, [name, saidName, call]);
+  const keep = v => setName(v);
   const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'build'; } catch { return 'build'; } });
   const pickTab = k => { setTab(k); try { localStorage.setItem(TAB_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState('');
@@ -74,12 +81,12 @@ export function ModelLab({ call }) {
   };
   const steps = d?.steps || {}; const real = STEPS.filter(s => (steps[s[0]] || 'todo') !== 'todo').length;
   return <div className="mlb" data-testid="model-lab">
-    <header className="mlb-head"><span><small>FEELESS · MODEL LAB · OWNER ONLY</small><input className="mlb-name" value={name} maxLength={32} onChange={e => keep(e.target.value)} placeholder="Name your model" aria-label="Model name" data-testid="mlb-name" /></span>
+    <header className="mlb-head"><span><small>COMPAI · OWNER ONLY{saidName && name.trim() !== saidName ? ' · saving…' : ''}</small><input className="mlb-name" value={name} maxLength={32} onChange={e => keep(e.target.value)} placeholder="Name your model" aria-label="Model name (every version is built under it)" data-tip="The model's one name: every build becomes its next version" data-testid="mlb-name" /></span>
       {d ? <span className="mlb-stat" data-tip="Settled proofs + your grades: rows it would learn from"><Num v={d.rows} /><small>ROWS</small></span> : null}
       {d ? <span className="mlb-stat" data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>PAIRS</small></span> : null}
       <span className="mlb-ring" style={{ '--k': real / STEPS.length }} data-tip="Steps with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>STEPS</small></span></header>
     <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
-    {tab === 'build' ? <ModelForge call={call} /> : <>
+    {tab === 'build' ? <ModelForge call={call} family={saidName} /> : <>
     <p className="mlb-truth">Below is everything your models learn from, live, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>

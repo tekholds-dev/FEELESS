@@ -68,3 +68,31 @@ def test_specs_count_every_parameter_and_cap_the_size():
     big = mf.spec({'d': 384, 'layers': 8, 'heads': 8, 'ctx': 256, 'vocab': 4096, 'tok': 'bpe'}, 4096, 1000)
     assert big['tooBig'] and 'Too big' in big['verdict']
     assert mf.clean_cfg({'d': 30, 'heads': 4})['heads'] in (1, 2, 3)     # heads always divide the width
+
+
+def test_a_new_version_continues_from_the_last_versions_weights_and_shows_what_it_learns(tmp_path):
+    import json
+    cfg = {'name': 'COMP Flagship v1.00', 'tok': 'char', 'd': 32, 'layers': 1, 'heads': 2, 'ctx': 16, 'steps': 24, 'batch': 4, 'lr': 3e-3}
+    text = '### PoW · won · bought the dip, sold at +40%. ' * 40
+    a = tmp_path / 'a'; a.mkdir(); (a / 'corpus.txt').write_text(text)
+    (a / 'job.json').write_text(json.dumps({'cfg': cfg, 'family': 'COMP Flagship', 'version': 'v1.00'}))
+    pa = mf.train(a)
+    assert pa['status'] == 'done' and pa['card']['version'] == 'v1.00' and pa['card']['totalSteps'] == 24
+    # live view: samples, top-5 guesses that sum ≤ 1, a last-layer attention map per head (causal: nothing looks ahead)
+    assert pa['samples'] and len(pa['peek']['top']) == 5 and sum(t['p'] for t in pa['peek']['top']) <= 1.0001
+    heads = pa['peek']['attn']['heads']; T = len(pa['peek']['attn']['tokens'])
+    assert len(heads) == 2 and all(heads[0][i][j] == 0 for i in range(T) for j in range(i + 1, T))
+    assert len(pa['history'][0]) == 5   # step, loss, held-out, learning rate, gradient norm
+    b = tmp_path / 'b'; b.mkdir(); (b / 'corpus.txt').write_text(text)
+    (b / 'job.json').write_text(json.dumps({'cfg': {**cfg, 'name': 'COMP Flagship v1.01'}, 'version': 'v1.01', 'from': str(a)}))
+    pb = mf.train(b)
+    assert pb['status'] == 'done' and pb['base'] == 'v1.00' and pb['card']['totalSteps'] == 48
+    assert pb['history'][0][1] < pa['history'][0][1]   # it starts where v1.00 ended, not from random numbers
+    c = tmp_path / 'c'; c.mkdir(); (c / 'corpus.txt').write_text(text)
+    (c / 'job.json').write_text(json.dumps({'cfg': {**cfg, 'd': 64}, 'version': 'v1.02', 'from': str(a)}))
+    assert 'another shape' in mf.train(c)['error']
+
+
+def test_the_speed_estimate_matches_the_two_real_builds():
+    assert abs(mf.flops_rate(136_384) / 1e9 - 47.7) < 0.5 and abs(mf.flops_rate(874_112) / 1e9 - 77.6) < 4
+    assert mf.n_params(mf.clean_cfg(mf.PRESETS['flagship']), 2048)['total'] < mf.LIMITS['params']

@@ -23,8 +23,16 @@ PRESETS = {
     'nano': {'name': 'Nano', 'tok': 'char', 'd': 64, 'layers': 2, 'heads': 4, 'ctx': 64, 'steps': 300, 'batch': 16, 'lr': 3e-3, 'vocab': 256},
     'mini': {'name': 'Mini', 'tok': 'char', 'd': 128, 'layers': 4, 'heads': 4, 'ctx': 128, 'steps': 800, 'batch': 16, 'lr': 1e-3, 'vocab': 256},
     'small': {'name': 'Small', 'tok': 'bpe', 'd': 192, 'layers': 6, 'heads': 6, 'ctx': 128, 'steps': 2000, 'batch': 16, 'lr': 6e-4, 'vocab': 1024},
+    # 🏁 COMP Flagship (owner 2026-11-12): ~5M parameters, BPE 2048, sees 256 tokens. Each version continues from the last one's weights.
+    'flagship': {'name': 'Flagship', 'tok': 'bpe', 'd': 256, 'layers': 6, 'heads': 8, 'ctx': 256, 'steps': 600, 'batch': 16, 'lr': 6e-4, 'vocab': 2048},
 }
-FLOPS_PER_SEC = 12e9      # numpy on an M3 for a ~100K model (measured 2026-11-12: Nano 12, Mini 36 GFLOP/s effective — bigger matmuls run faster)
+FLOPS_PER_SEC = 47.7e9    # measured on an idle M3, 2026-11-12: Nano (136K params) 47.7 GFLOP/s, Mini (874K) 77.6 GFLOP/s
+FLOPS_REF_N, FLOPS_EXP = 136_384, 0.26   # bigger matmuls run faster: rate = FLOPS_PER_SEC × (N / FLOPS_REF_N) ^ 0.26 (fitted to those two builds)
+
+
+def flops_rate(n):
+    """FLOP/s numpy reaches here for a model of n parameters (capped: the fit is from two real builds, never trusted far past them)."""
+    return min(150e9, FLOPS_PER_SEC * (max(1.0, n) / FLOPS_REF_N) ** FLOPS_EXP)
 EPS = 1e-5
 RAILS_DEFAULT = {'refuse': ['seed phrase', 'private key', 'guaranteed profit'], 'block': [], 'scrub': True, 'max_chars': 600,
                  'footer': 'Not financial advice.'}
@@ -65,7 +73,7 @@ def spec(c, vocab, corpus_tokens):
             'weightsMb': round(N * 4 / 1e6, 2), 'trainMb': round(N * 16 / 1e6 + act_mb, 1),
             'flopsPerToken': flops_tok, 'tokensSeen': seen, 'corpusTokens': corpus_tokens,
             'epochs': round(seen / max(1, corpus_tokens), 1), 'tokensPerParam': round(corpus_tokens / max(1, N), 3),
-            'estSec': round(seen * flops_tok / min(40e9, FLOPS_PER_SEC * math.sqrt(max(1.0, N / 1e5))), 1), 'headDim': d // c['heads'],
+            'estSec': round(seen * flops_tok / flops_rate(N), 1), 'flopsRate': round(flops_rate(N) / 1e9, 1), 'headDim': d // c['heads'],
             'verdict': ('Too big for this Mac: lower the width or layers.' if N > LIMITS['params'] else
                         'Your data is small next to this model: it will learn your proofs\' voice and repeat them — more proofs make it smarter.'
                         if corpus_tokens < 2 * N else 'Data and size are balanced: it can generalise past what it read.')}
@@ -289,6 +297,23 @@ def _write(path, obj):
     tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(obj)); os.replace(tmp, path)
 
 
+PROBE = '### PoW · won · '
+
+
+def peek(P, c, tok, text=PROBE, top=5, max_t=32):
+    """🔬 What it has learned right now, on one fixed piece of text: its top next-token guesses and the last layer's attention (every head)."""
+    ids = (tok.encode(text) or [0])[-min(max_t, c['ctx']):]
+    logits, _, fw = forward(P, c, np.array([ids]))
+    z = logits[0, -1].astype(np.float64); p = np.exp(z - z.max()); p /= p.sum(); best = np.argsort(-p)[:top]
+    att = fw[1][-1][6][0]   # last block's attention: (heads, T, T)
+    return {'top': [{'tok': tok.decode([int(i)]) or '∅', 'p': round(float(p[i]), 4)} for i in best],
+            'attn': {'tokens': [tok.decode([i]) or '∅' for i in ids], 'heads': [[[round(float(v), 3) for v in row] for row in h] for h in att]}}
+
+
+def _same_shape(c, P):
+    return P['wte'].shape[1] == c['d'] and P['wpe'].shape[0] == c['ctx'] and sum(1 for k in P if k.endswith('.wqkv')) == c['layers']
+
+
 def train(job_dir, max_seconds=None):
     """Reads job.json + corpus.txt, trains, and keeps progress.json current (status, step, losses, tokens/s, ETA). A `stop` file ends it early;
     the weights it reached are still saved, so a stopped build can still be tried."""
@@ -296,15 +321,25 @@ def train(job_dir, max_seconds=None):
     prog = {'status': 'tokenizing', 'step': 0, 'steps': c['steps'], 'history': [], 'started': time.time(), 'pid': os.getpid()}
     _write(job_dir / 'progress.json', prog)
     try:
-        tok = tok_train(c['tok'], text, c['vocab']); data = np.array(tok.encode(text), dtype=np.int64)
+        base = Path(job['from']) if job.get('from') else None   # 🔁 a new version continues from the last one's weights and tokenizer
+        if base:
+            P0, c0, tok, card0 = load(base)
+            if not _same_shape(c, P0) or c0.get('heads') != c['heads'] or c0.get('tok') != c['tok']:
+                raise ValueError(f"{card0.get('version') or base.name} has another shape: a new version keeps width, layers, heads, context and tokenizer.")
+        else:
+            tok = tok_train(c['tok'], text, c['vocab'])
+        data = np.array(tok.encode(text), dtype=np.int64)
         if len(data) < 2 * (c['ctx'] + 2):
             raise ValueError(f'Only {len(data)} tokens to learn from: add text or lower the context.')
         cut = min(int(len(data) * 0.9), len(data) - (c['ctx'] + 2)); tr, va = data[:cut], data[cut:]   # the last 10% is held out: val loss
-        P = init_params(c, tok.size, seed=int(job.get('seed') or 0)); opt = AdamW(P, c['lr']); r = np.random.default_rng(1)
+        P = {k: v.astype(np.float32) for k, v in P0.items()} if base else init_params(c, tok.size, seed=int(job.get('seed') or 0))
+        opt = AdamW(P, c['lr']); r = np.random.default_rng(1)
+        prior = int((card0.get('totalSteps') or card0.get('steps') or 0)) if base else 0
+        prog.update(base=(card0.get('version') or base.name) if base else None, priorSteps=prior, samples=[], peek=None)
         sp = spec(c, tok.size, len(data)); prog.update(status='training', vocab=tok.size, tokens=len(data), spec=sp)
         batch = lambda src: (lambda ix: (np.stack([src[i:i + c['ctx']] for i in ix]), np.stack([src[i + 1:i + c['ctx'] + 1] for i in ix])))(
             r.integers(0, len(src) - c['ctx'] - 1, c['batch']))
-        t0 = time.time(); every = max(1, c['steps'] // 60); best = None
+        t0 = time.time(); every = max(1, c['steps'] // 60); best = None; look = max(1, c['steps'] // 8)
         for s in range(c['steps']):
             if (job_dir / 'stop').exists() or (max_seconds and time.time() - t0 > max_seconds):
                 prog['status'] = 'stopped'; break
@@ -312,11 +347,15 @@ def train(job_dir, max_seconds=None):
             norm = math.sqrt(sum(float((g * g).sum()) for g in G.values()))
             if norm > 1.0:
                 G = {k: g / norm for k, g in G.items()}
-            opt.step(P, G, lr_at(s, c['steps'], c['lr']))
+            lr_ = lr_at(s, c['steps'], c['lr']); opt.step(P, G, lr_)
+            if s % look == 0 or s == c['steps'] - 1:   # 🔬 the live view: what it writes, its top guesses, where it looks
+                pk = peek(P, c, tok)
+                prog['peek'] = {'step': s + 1, **pk}
+                prog['samples'] = (prog['samples'] + [{'step': s + 1, 'text': generate(P, c, tok, PROBE, max_new=60, seed=s), 'top': pk['top']}])[-12:]
             if s % every == 0 or s == c['steps'] - 1:
                 vx, vy = batch(va); vl = forward(P, c, vx, vy)[1]; el = time.time() - t0; tps = (s + 1) * c['batch'] * c['ctx'] / max(1e-6, el)
                 best = vl if best is None else min(best, vl)
-                prog['history'].append([s, round(loss, 4), round(vl, 4)]); prog['history'] = prog['history'][-200:]
+                prog['history'].append([s, round(loss, 4), round(vl, 4), float(f'{lr_:.3g}'), round(norm, 3)]); prog['history'] = prog['history'][-200:]
                 prog.update(step=s + 1, loss=round(loss, 4), val=round(vl, 4), tps=round(tps), elapsed=round(el, 1),
                             eta=round((c['steps'] - s - 1) * c['batch'] * c['ctx'] / max(1, tps), 1), gradNorm=round(norm, 3))
                 _write(job_dir / 'progress.json', prog)
@@ -325,7 +364,8 @@ def train(job_dir, max_seconds=None):
         card = {'name': c['name'], 'cfg': c, 'spec': sp, 'vocab': tok.size, 'tokens': len(data), 'steps': prog['step'], 'loss': prog.get('loss'),
                 'val': prog.get('val'), 'bestVal': best, 'perplexity': round(math.exp(min(20, prog.get('val') or 20)), 2),
                 'baselinePerplexity': tok.size, 'seconds': round(time.time() - t0, 1), 'sample': sample, 'rails': clean_rails(job.get('rails')),
-                'built': time.time()}
+                'built': time.time(), 'family': job.get('family'), 'version': job.get('version'), 'base': prog.get('base'),
+                'totalSteps': prior + int(prog['step'])}
         (job_dir / 'card.json').write_text(json.dumps(card))
         prog.update(status='stopped' if prog['status'] == 'stopped' else 'done', card=card)
     except Exception as e:   # noqa: BLE001 — a failed build says why on the page

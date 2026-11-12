@@ -217,7 +217,7 @@ export function FeeCatDesk({ call }) {
       { k: 'brain', ic: '🧠', label: 'Brain', tip: 'Her style, her rules and what she learned', body: brainPane() },
       { k: 'prompts', ic: '🎭', label: 'Prompts', tip: 'Her record and the mindsets written from it', body: <PromptStudio call={call} only={FEE_ONLY} /> },
       { k: 'style', ic: '🎨', label: 'Wallet + style', tip: 'Her wallet and how she looks', body: <FeeOwnerBar cat={c} /> },
-      { k: 'model', ic: '🧪', label: 'Model Lab', tip: 'Owner only: the live dataset for FEELESS\'s own AI model, your grades on open proofs, the minds it must beat and a clean export', body: <ModelLab call={call} /> },
+      { k: 'model', ic: '🧠', label: 'COMP', tip: 'COMPAI, owner only: build COMP Flagship in versions on this Mac, watch it learn live, its files, guardrail suite, dataset and grades', body: <ModelLab call={call} /> },
     ]} agentApps={[
       { k: 'colony', ic: '💎', label: 'Collective', tip: 'The living print, the Pool, every agent and every winning proof', body: <div className="cll-inwin"><React.Suspense fallback={null}><CollectiveLandingLazy more={<ColonyFlow api={flowApi} />} /></React.Suspense></div> },
       { k: 'collective', ic: '💎', label: 'Collective HQ', tip: 'Owner only: where the money stands, every split and fee with a hover that explains it, and the Pool wallet', body: <CollectiveOwner call={call} /> },

@@ -620,3 +620,47 @@ test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guar
   expect(el.querySelector('[data-testid="mlf-ans"]').textContent).toContain('footer: NFA');
   jest.useRealTimers();
 });
+
+test('🧠 COMPAI: the header name is the model, Build trains its next version from the last one, and the live view shows what it learns', async () => {
+  jest.useFakeTimers();
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'build');
+  const card = v => ({ name: `COMP Flagship ${v}`, version: v, cfg: { d: 64, layers: 2, heads: 4, ctx: 64, tok: 'char', vocab: 256 }, spec: { paramsTotal: 136000 }, val: v === 'v1.01' ? 2.1 : 2.4, perplexity: 8, baselinePerplexity: 90, seconds: 6, totalSteps: v === 'v1.01' ? 600 : 300, base: v === 'v1.01' ? 'v1.00' : null, sample: 'PoW won' });
+  const job = (id, v) => ({ id, version: v, status: 'done', history: [[0, 4.4, 4.4, 0.0003, 0.9], [299, 1.8, 1.9, 0.0001, 0.4]], steps: 300, step: 300, card: card(v), files: [{ name: 'weights.npz', bytes: 552342, say: 'every learned number' }] });
+  const view = { family: { name: 'COMP Flagship', company: 'COMPAI' }, folder: '/x/model_forge', next: 'v1.02', sources: [{ k: 'proofs', label: 'Your proofs', chars: 17000, blocks: 250 }],
+    presets: { nano: { name: 'Nano', tok: 'char', d: 64, layers: 2, heads: 4, ctx: 64, steps: 300, batch: 16, lr: 0.003, vocab: 256 } }, limits: { params: 6000000, layers: [1, 8] },
+    rails: { refuse: ['seed phrase'], block: [], scrub: true, max_chars: 600, footer: 'NFA' }, jobs: [job('20261112-110100-comp-v1-01', 'v1.01'), job('20261112-110000-comp-v1-00', 'v1.00')], running: null };
+  const sent = [];
+  const live = { id: '20261112-120000-comp-v1-02', version: 'v1.02', base: 'v1.01', status: 'training', step: 80, steps: 300, loss: 1.7, val: 1.8, history: [[0, 1.9, 1.95, 0.0002, 0.8], [80, 1.7, 1.8, 0.0006, 0.5]], tps: 3000, eta: 15,
+    samples: [{ step: 1, text: 'PoW won · bought', top: [] }, { step: 76, text: 'PoW won · sold at +40%', top: [] }], peek: { step: 76, top: [{ tok: ' ', p: 0.41 }, { tok: 's', p: 0.2 }, { tok: 'b', p: 0.1 }, { tok: 'P', p: 0.05 }, { tok: 'w', p: 0.02 }], attn: { tokens: ['P', 'o', 'W'], heads: [[[1, 0, 0], [0.4, 0.6, 0], [0.2, 0.3, 0.5]], [[1, 0, 0], [0.5, 0.5, 0], [0.1, 0.1, 0.8]]] } } };
+  const call = jest.fn(async (path, opts) => {
+    const body = opts?.body && JSON.parse(opts.body); sent.push([path, body]);
+    if (path.endsWith('/forge/family')) return body ? { name: body.name, company: 'COMPAI' } : view.family;
+    if (path.endsWith('/forge')) return view;
+    if (path.endsWith('/spec')) return { paramsTotal: 136000, params: { embed: 5760, position: 4096, per_block: 49920, final_norm: 128 }, vocab: 90, weightsMb: 0.5, trainMb: 9, flopsPerToken: 1e6, flopsRate: 47.7, headDim: 16, corpusTokens: 52000, epochs: 1.5, tokensPerParam: 0.4, estSec: 6, verdict: 'small', tooBig: false };
+    if (path.endsWith('/build')) return { id: live.id, version: 'v1.02', base: 'v1.01', spec: {} };
+    if (path.endsWith('/railtest')) return { passed: 3, total: 3, tests: [{ rule: 'refuse', test: 'asks about "seed phrase"', pass: true, got: 'I will not' }, { rule: 'max_chars', test: 'long', pass: true, got: '601' }, { rule: 'footer', test: 'ends', pass: true, got: 'NFA' }] };
+    return live;
+  });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
+  await act(async () => { jest.advanceTimersByTime(300); });
+  expect(el.querySelector('[data-testid="mlb-name"]').value).toBe('COMP Flagship'); expect(el.textContent).toContain('COMPAI');
+  expect(el.querySelector('[data-testid="mlf-build"]').textContent).toContain('Train COMP Flagship v1.02');
+  expect(el.querySelector('[data-testid="mlf-cont"]').checked).toBe(true); expect(el.textContent).toContain('Continue from v1.01');
+  expect(el.querySelector('[data-testid="mlf-models"]').textContent).toContain('BEST');   // v1.01 has the lowest held-out loss
+  await act(async () => { el.querySelector('[data-testid="mlf-railtest"]').click(); });
+  expect(el.querySelector('[data-testid="mlf-rails"]').textContent).toContain('3/3 held');
+  expect(el.querySelector('[data-testid="mlf-files"]').textContent).toContain('weights.npz');
+  await act(async () => { el.querySelector('[data-testid="mlf-build"]').click(); });
+  expect(sent.find(x => x[0].endsWith('/build'))[1].cont).toBe(true);
+  await act(async () => { jest.advanceTimersByTime(1600); });
+  const run = el.querySelector('[data-testid="mlf-run"]');
+  expect(run.textContent).toContain('LEARNING LIVE'); expect(run.textContent).toContain('from v1.01'); expect(run.textContent).toContain('GRAD NORM');
+  expect(el.querySelector('[data-testid="mlf-learn"]').textContent).toContain('sold at +40%'); expect(el.querySelector('[data-testid="mlf-top"]').textContent).toContain('41.0%');
+  expect(el.querySelectorAll('.mlf-attn-grid i').length).toBe(9);
+  const ren = el.querySelector('[data-testid="mlb-name"]'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { setter.call(ren, 'COMP Prime'); ren.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { jest.advanceTimersByTime(700); });
+  expect(sent.find(x => x[0].endsWith('/forge/family') && x[1])[1]).toEqual({ name: 'COMP Prime' });
+  el.remove(); jest.useRealTimers();
+});

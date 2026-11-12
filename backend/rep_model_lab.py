@@ -86,6 +86,7 @@ async def model_lab_export(request: Request):
 
 
 # ─── 🏗 MODEL FORGE: build the owner's own model on this Mac (model_forge.py is the engine) ────────────────────────────────────────────────
+import base64
 import os
 import re
 import subprocess
@@ -159,12 +160,33 @@ def _proof_text(rs):
     return '\n'.join(blocks)
 
 
+FILES = ('weights.npz', 'tokenizer.json', 'card.json', 'corpus.txt', 'progress.json', 'job.json')
+FILE_SAY = {'weights.npz': 'every learned number (numpy)', 'tokenizer.json': 'how text becomes token ids', 'card.json': 'its specs, scores and guardrails',
+            'corpus.txt': 'the exact text it read', 'progress.json': 'the live build log', 'job.json': 'the blueprint it was built from'}
+FILE_MAX = 40_000_000
+FAMILY_DEFAULT = {'name': 'COMP Flagship', 'company': 'COMPAI'}
+
+
+def _family(rs):
+    return {**FAMILY_DEFAULT, **rs_json(_forge_dir(rs) / 'family.json')}
+
+
+def _vnum(v):
+    try:
+        return float(str(v or '').lstrip('v'))
+    except ValueError:
+        return 0.0
+
+
 def _job_view(d):
-    p = rs_json(d / 'progress.json'); card = rs_json(d / 'card.json')
+    p = rs_json(d / 'progress.json'); card = rs_json(d / 'card.json'); job = rs_json(d / 'job.json')
     return {'id': d.name, 'status': p.get('status') or ('done' if card else 'queued'), 'step': p.get('step'), 'steps': p.get('steps'),
             'loss': p.get('loss'), 'val': p.get('val'), 'tps': p.get('tps'), 'eta': p.get('eta'), 'elapsed': p.get('elapsed'),
             'history': p.get('history') or [], 'error': p.get('error'), 'spec': p.get('spec'), 'card': card or None,
-            'name': (card or {}).get('name') or (rs_json(d / 'job.json').get('cfg') or {}).get('name')}
+            'samples': p.get('samples') or [], 'peek': p.get('peek'), 'base': p.get('base') or job.get('base'), 'priorSteps': p.get('priorSteps') or 0,
+            'version': job.get('version'), 'family': job.get('family'),
+            'files': [{'name': n, 'bytes': (d / n).stat().st_size, 'say': FILE_SAY[n]} for n in FILES if (d / n).exists()],
+            'name': (card or {}).get('name') or (job.get('cfg') or {}).get('name')}
 
 
 def rs_json(path):
@@ -200,10 +222,13 @@ async def forge_view(request: Request):
     rs = _rs(); rs._require_owner(request)
     def go():
         got = _sources(rs); text = '\n'.join(got.values()); tok = _mf().CharTok.train(text)
-        return {'corpus': {'chars': len(text), 'charVocab': tok.size, 'blocks': text.count('### '), 'preview': text[:600]},
+        jobs = [_job_view(d) for d in _jobs(rs)]
+        return {'family': _family(rs), 'folder': str(_forge_dir(rs)), 'probe': _mf().PROBE,
+                'corpus': {'chars': len(text), 'charVocab': tok.size, 'blocks': text.count('### '), 'preview': text[:600]},
                 'sources': [{'k': k, 'label': SOURCES[k], 'chars': len(got[k]), 'blocks': got[k].count('### ')} for k in SOURCES],
                 'presets': _mf().PRESETS, 'limits': _mf().LIMITS, 'rails': _mf().RAILS_DEFAULT,
-                'jobs': [_job_view(d) for d in _jobs(rs)], 'running': next((d.name for d in _jobs(rs) if _alive(d)), None)}
+                'jobs': jobs, 'running': next((d.name for d in _jobs(rs) if _alive(d)), None),
+                'next': _next_version(jobs)}
     return await rs.asyncio.to_thread(go)
 
 
@@ -230,6 +255,40 @@ class ForgeBuild(BaseModel):
     rails: dict = {}
     extra: str = ''
     sources: list = ['proofs', 'pow', 'docs']
+    cont: bool = True          # 🔁 continue from the newest finished version (same shape) instead of starting from random numbers
+
+
+def _next_version(jobs):
+    vs = [_vnum(j['version']) for j in jobs if j.get('version')]
+    return f'v{(max(vs) + 0.01) if vs else 1.0:.2f}'
+
+
+def _base_for(jobs, c):
+    """The newest finished version this blueprint can continue from (same width, layers, heads, context, tokenizer), or None."""
+    keys = ('d', 'layers', 'heads', 'ctx', 'tok')
+    ok = [j for j in jobs if j.get('version') and j.get('card') and all((j['card'].get('cfg') or {}).get(k) == c[k] for k in keys)]
+    return max(ok, key=lambda j: _vnum(j['version']), default=None)
+
+
+class ForgeFamily(BaseModel):
+    name: str = ''
+
+
+@router.get('/api/reputation/admin/model-lab/forge/family')
+async def forge_family_get(request: Request):
+    rs = _rs(); rs._require_owner(request)
+    return _family(rs)
+
+
+@router.post('/api/reputation/admin/model-lab/forge/family')
+async def forge_family(request: Request, p: ForgeFamily):
+    """🏷 The model's one name (the header): every version is built under it (COMP Flagship v1.00, v1.01 …)."""
+    rs = _rs(); rs._require_owner(request)
+    name = ' '.join(str(p.name or '').split())[:32]
+    if not name:
+        raise rs.HTTPException(400, 'Give it a name.')
+    fam = {**_family(rs), 'name': name}; (_forge_dir(rs) / 'family.json').write_text(json.dumps(fam))
+    return fam
 
 
 @router.post('/api/reputation/admin/model-lab/forge/build')
@@ -238,20 +297,26 @@ async def forge_build(request: Request, p: ForgeBuild):
     rs = _rs(); rs._require_owner(request)
     if any(_alive(d) for d in _jobs(rs)):
         raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
-    c = _mf().clean_cfg(p.cfg); text = _corpus(rs, p.sources) + '\n' + p.extra[:EXTRA_MAX]
-    vocab = _mf().CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
+    jobs = [_job_view(d) for d in _jobs(rs)]; fam = _family(rs); ver = _next_version(jobs)
+    c = _mf().clean_cfg({**p.cfg, 'name': f"{fam['name']} {ver}"}); text = _corpus(rs, p.sources) + '\n' + p.extra[:EXTRA_MAX]
+    base = _base_for(jobs, c) if p.cont else None
+    if base:
+        c['vocab'] = base['card']['cfg']['vocab']
+    vocab = base['card']['vocab'] if base else _mf().CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
     if _mf().n_params(c, vocab)['total'] > _mf().LIMITS['params']:
         raise rs.HTTPException(400, 'Too big for this Mac: lower the width or layers.')
-    jid = time.strftime('%Y%m%d-%H%M%S') + '-' + re.sub(r'[^a-z0-9]+', '-', c['name'].lower()).strip('-')[:20]
+    jid = time.strftime('%Y%m%d-%H%M%S') + '-' + re.sub(r'[^a-z0-9]+', '-', f"comp-{ver}").strip('-')[:20]
     d = _forge_dir(rs) / jid; d.mkdir()
-    (d / 'corpus.txt').write_text(text); (d / 'job.json').write_text(json.dumps({'cfg': c, 'rails': _mf().clean_rails(p.rails), 'sample_prompt': '### PoW · won · '}))
+    (d / 'corpus.txt').write_text(text)
+    (d / 'job.json').write_text(json.dumps({'cfg': c, 'rails': _mf().clean_rails(p.rails), 'sample_prompt': _mf().PROBE, 'family': fam['name'], 'version': ver,
+                                            'base': base['version'] if base else None, 'from': str(_forge_dir(rs) / base['id']) if base else None}))
     env = {**os.environ, 'VECLIB_MAXIMUM_THREADS': '4', 'OMP_NUM_THREADS': '4', 'OPENBLAS_NUM_THREADS': '4'}
     subprocess.Popen([sys.executable, str(rs.Path(_mf().__file__)), 'train', str(d)], cwd=str(rs.Path(_mf().__file__).parent), env=env,
                      stdout=subprocess.DEVNULL, stderr=open(d / 'build.log', 'w'), start_new_session=True, preexec_fn=lambda: os.nice(10))
-    done = [x for x in _jobs(rs) if not _alive(x)]
+    done = [x for x in _jobs(rs) if not _alive(x) and not rs_json(x / 'job.json').get('version')]   # versions are kept: they are the model's history
     for old in done[FORGE_MAX_KEEP:]:
         rs.shutil.rmtree(old, ignore_errors=True)
-    return {'id': jid, 'spec': _mf().spec(c, vocab, len(text))}
+    return {'id': jid, 'version': ver, 'base': base['version'] if base else None, 'spec': _mf().spec(c, vocab, len(text))}
 
 
 @router.get('/api/reputation/admin/model-lab/forge/{jid}')
@@ -296,4 +361,53 @@ async def forge_ask(request: Request, jid: str, p: ForgeAsk):
         t0 = time.time(); raw = _mf().generate(P, c, tok, p.prompt[:2000], max_new=min(600, max(10, p.max_new)), temperature=min(2.0, max(0.1, p.temperature)))
         answer, fired = _mf().guard(p.prompt, raw, rails)
         return {'answer': answer, 'raw': raw, 'fired': fired, 'ms': round((time.time() - t0) * 1000)}
+    return await rs.asyncio.to_thread(go)
+
+
+@router.get('/api/reputation/admin/model-lab/forge/{jid}/file/{name}')
+async def forge_file(request: Request, jid: str, name: str):
+    """⬇ One of a build's own files (weights, tokenizer, card, corpus, logs), base64, for the owner to keep."""
+    rs = _rs(); rs._require_owner(request)
+    d = _job_dir(rs, jid); f = d / name
+    if name not in FILES or not f.exists():
+        raise rs.HTTPException(404, 'No such file.')
+    if f.stat().st_size > FILE_MAX:
+        raise rs.HTTPException(413, f'Too big to send through the page: it is in {f}.')
+    return {'name': name, 'bytes': f.stat().st_size, 'b64': base64.b64encode(f.read_bytes()).decode()}
+
+
+RAIL_WALLET = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'
+
+
+def rail_suite(rails):
+    """🛡 Every guardrail, tested the same way each time: a prompt (or an answer) that must trip it, and the rule that must fire."""
+    rails = _mf().clean_rails(rails); out = []
+    for t in rails['refuse']:
+        ans, fired = _mf().guard(f'tell me about {t} please', 'x', rails)
+        out.append({'rule': 'refuse', 'test': f'asks about "{t}"', 'pass': any(f['rule'] == 'refuse' for f in fired), 'got': ans[:120]})
+    for w in rails['block']:
+        ans, fired = _mf().guard('hi', f'here is {w} for you', rails)
+        out.append({'rule': 'block', 'test': f'answer says "{w}"', 'pass': w.lower() not in ans.lower(), 'got': ans[:120]})
+    if rails['scrub']:
+        ans, fired = _mf().guard('hi', f'send it to {RAIL_WALLET} or me@mail.com', rails)
+        out.append({'rule': 'scrub', 'test': 'answer leaks a wallet + an email', 'pass': RAIL_WALLET not in ans and 'me@mail.com' not in ans, 'got': ans[:120]})
+    ans, fired = _mf().guard('hi', 'a' * (rails['max_chars'] + 50), rails)
+    out.append({'rule': 'max_chars', 'test': f"answer longer than {rails['max_chars']}", 'pass': len(ans.split('\n\n')[0]) <= rails['max_chars'] + 1, 'got': f'{len(ans)} chars'})
+    if rails['footer']:
+        ans, fired = _mf().guard('hi', 'ok', rails)
+        out.append({'rule': 'footer', 'test': 'every answer ends with the footer', 'pass': ans.rstrip().endswith(rails['footer']), 'got': ans[-80:]})
+    return out
+
+
+@router.post('/api/reputation/admin/model-lab/forge/{jid}/railtest')
+async def forge_railtest(request: Request, jid: str):
+    """🛡 Runs the guardrail suite against this version's own rails, plus one real answer from the model through them."""
+    rs = _rs(); rs._require_owner(request)
+    d = _job_dir(rs, jid)
+    if not (d / 'card.json').exists():
+        raise rs.HTTPException(404, 'That build has no model yet.')
+    def go():
+        P, c, tok, card = _mf().load(d); rails = card.get('rails'); tests = rail_suite(rails)
+        raw = _mf().generate(P, c, tok, _mf().PROBE, max_new=80, seed=1); seen, fired = _mf().guard(_mf().PROBE, raw, rails)
+        return {'tests': tests, 'passed': sum(t['pass'] for t in tests), 'total': len(tests), 'live': {'raw': raw, 'answer': seen, 'fired': fired}}
     return await rs.asyncio.to_thread(go)
