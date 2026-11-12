@@ -486,10 +486,5 @@ body.fx-lite .pdr-best-kv span { animation: none; } @media (prefers-reduced-moti
 @media (max-width: 640px) { .pdr-best-verdict b { font-size: 20px; } .pdr-best-why p:nth-child(n+3) { display: none; } }
 /* 🖍 blank canvas (owner 2026-11-11): + Mark on an empty page draws it, box by box; a faint layout grid so the boxes read as a page */
 .fea-idle.is-canvas { align-content: end; padding-bottom: 14px; background: linear-gradient(#7c4dff14 1px, transparent 1px) 0 0 / 100% 40px, linear-gradient(90deg, #7c4dff14 1px, transparent 1px) 0 0 / 8.333% 100%, #f7f5fb; } .fea-idle.is-canvas .fea-blank { padding: 6px 12px; border-radius: 8px; background: #1b1236e6; color: #efe9ff; }
-/* 🗂 PoC column tabs + Back to desk (2026-11-11) */
-.fea-side-tabs { align-self: flex-start; } .fea-side-pane { display: flex; flex-direction: column; gap: 8px; animation: feaIn .18s ease both; }
-.fea-open-h .fea-todesk { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; min-height: 32px; }
-.fea-todesk i { width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); box-shadow: 0 0 8px var(--m-accent); animation: feaLive 1.6s ease-in-out infinite; }
-body.fx-lite :is(.fea-side-pane, .fea-todesk i) { animation: none; } @media (prefers-reduced-motion: reduce) { :is(.fea-side-pane, .fea-todesk i) { animation: none; } }
-body.theme-day .fea-todesk i { box-shadow: none; }
-@media (max-width: 640px) { .fea-open-h { flex-wrap: wrap; } .fea-open-h .fea-todesk { margin-left: 0; width: 100%; justify-content: center; } }
+.fea-side-tabs { align-self: flex-start; } .fea-side-pane { display: flex; flex-direction: column; gap: 8px; animation: feaIn .18s ease both; } /* PoC column tabs (2026-11-11) */
+body.fx-lite .fea-side-pane { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-side-pane { animation: none; } }

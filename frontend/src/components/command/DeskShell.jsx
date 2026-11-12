@@ -285,7 +285,7 @@ export function BackToDesk() {
   const min = React.useContext(DeskWinMin); if (!min) return null;
   return <button type="button" className="m-btn fea-todesk" onClick={min} data-tip="Minimizes this window to the taskbar. The minds keep working: watch the desk's two mind monitors and the chat" data-testid="ws-todesk"><i aria-hidden="true" />Back to desk · it keeps working</button>;
 }
-export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, children }) {
+export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, hid = false, children }) {
   const toMin = useCallback(() => set(k, { min: true }), [set, k]);
   const drag = useRef(null); const box = useRef(null);
   const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a') || !box.current) return; const r = box.current.getBoundingClientRect(); const d = box.current.querySelector(':scope > .bwr-dock:not(.is-fold)'); const side = d ? d.getBoundingClientRect().width + 8 : 0; const isLeft = d?.classList.contains('is-left'); drag.current = { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height, l: isLeft ? side : 0, r: isLeft ? 0 : side }; e.currentTarget.setPointerCapture?.(e.pointerId); };
@@ -294,7 +294,7 @@ export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = n
   const onPage = `clamp(0px, ${s.x}px, calc(100vw - 320px))`; const downPage = `clamp(0px, ${s.y}px, calc(100dvh - 400px))`;   // a saved spot from before, or from a bigger window, comes back onto the page
   const place = s.max ? undefined : s.tile ? { transform: `translateX(${s.tile === 'right' ? '50vw' : '0'})` } : { transform: `translate(${onPage}, ${downPage})`, '--wx': onPage, '--wy': downPage };
   const now = s.max ? 'max' : s.tile || '';
-  return <section ref={box} className={`dsk-win${s.max ? ' is-max' : ''}${s.tile && !s.max ? ' is-tile' : ''}${top ? ' is-top' : ''}`} style={place} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
+  return <section ref={box} hidden={hid} className={`dsk-win${hid ? ' is-hid' : ''}${s.max ? ' is-max' : ''}${s.tile && !s.max ? ' is-tile' : ''}${top ? ' is-top' : ''}`} style={place} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
     <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onDoubleClick={() => set(k, s.tile ? { tile: null } : { max: !s.max })}>
       <span className="dsk-dots"><button type="button" className="is-x" onClick={onClose} aria-label={`Close ${title}`} data-tip="Close" />
         <button type="button" className="is-min" onClick={() => set(k, { min: true })} aria-label={`Minimize ${title}`} data-tip="Minimize — it waits in the taskbar" data-testid={`dsk-min-${k}`} />

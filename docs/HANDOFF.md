@@ -36,10 +36,10 @@
 >   Two-part keys now get two boxes (`KEY_PARTS` in LaunchCat.jsx: Kalshi key id + multi-line private key, fal key id + secret); the drawer no
 >   longer trims while typing; Seal runs ONE free live check (`_key_check`: Kalshi balance, fal status 401/403 = refused) and shows ✓/⚠ next to
 >   the last 4. Owner's Kalshi + fal saves had NOT landed (no kalshi/fal key on any agent): he must Seal again after this push, then check the ✓.
-> **NEXT (owner asked):** proof window layout for every proof type. **PoC DONE 2026-11-11:** left column behind m-seg tabs Make | Its PoCs N |
-  Research (chat stays right); `BackToDesk` (DeskShell, reads `DeskWinMin` context that every `DeskWin` provides = set(k,{min:true})) sits in every
-  open ProofDesk / Features folder header. Seen in harness `/dev/features?pdk&poc` at 1280 + 390 (no h-scroll); not seen signed in.
-  **Still to do:** PoW/PoB/PoP windows (CatWorkbench `prf` blocks) the same way: tabs for their long columns + drop `<BackToDesk />` in their headers.
+> **DONE 2026-11-11: proof window layout, every proof type.** PoC: left column behind Make | Its PoCs N | Research. PoW + PoP: right rail
+  behind Its record | Live tools (`ProofRail`, CatWorkbench). Bids rail was already short (unchanged). `BackToDesk` (DeskShell, `DeskWinMin` context
+  from every `DeskWin`) in every open folder: PoC/PoStatic headers + PoW/PoP/PoB path rows. Minimized proof windows (`KEEP_MIN`) stay mounted
+  + hidden, so the taskbar brings back the same open folder. Seen in harnesses `/dev/features?pdk&poc` + `/dev/cats` at 1280 + 390; not signed in.
 > **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
 > **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from

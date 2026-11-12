@@ -349,10 +349,12 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
+  expect(q('prf-tab-record').getAttribute('aria-selected')).toBe('true'); expect(q('ws-todesk')).toBeNull();   // rail tabs: its record first; no Back to desk until a folder is open
+  await act(async () => { q('prf-tab-tools').click(); }); expect(q('prf-tab-tools').getAttribute('aria-selected')).toBe('true'); await act(async () => { q('prf-tab-record').click(); });
   expect(q('dsk-poi').textContent).toContain('solscan.io promoted'); expect(q('dsk-poi').querySelectorAll('.pf-print').length).toBe(2);   // one mind view, no second diagram
   await act(async () => { q('dsk-memory-1').click(); }); expect(q('dsk-memory-1').textContent).toContain('Tap again');
   await act(async () => { q('dsk-memory-1').click(); }); expect(memoryOps).toContain('memory_restore');
-  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('img').getAttribute('src')).toContain('thumb-down');
+  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('ws-todesk')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('img').getAttribute('src')).toContain('thumb-down');
   expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
   await act(async () => { q('dsk-x-poi').click(); }); expect(q('poi-folder')).not.toBeNull(); expect(q('pf-mind-0')).not.toBeNull();   // 🧬 exactly one PoI child folder
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); });
@@ -361,6 +363,8 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   expect(q('dsk-evidence-meter').textContent).toContain('solscan.io'); expect(q('dsk-coin-M1').textContent).toContain('CONFLICT');
   expect(q('dsk-coin-M1').textContent).toContain('👎 rugcheck.xyz');
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-x-report').click(); });
+  await act(async () => { q('ws-todesk').click(); }); expect(q('dsk-win-pow').hidden).toBe(true); expect(q('dsk-task-pow')).not.toBeNull();   // Back to desk = minimized, still in the taskbar
+  await act(async () => { q('dsk-task-pow').click(); }); expect(q('dsk-win-pow').hidden).toBe(false); expect(q('dsk-report')).not.toBeNull();   // back on the same open folder
   expect(q('dsk-report').textContent).toContain('it lost: stop'); expect(q('dsk-rep-shadow').textContent).toContain('NO TRADE'); expect(q('dsk-rep-shadow').textContent).toContain('+2.3%'); expect(q('dsk-report').querySelector('a').getAttribute('href')).toContain('/powshot/pow9/report.md');
   act(() => root.unmount());
 });

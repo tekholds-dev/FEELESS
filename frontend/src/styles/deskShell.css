@@ -266,3 +266,11 @@ body.theme-day .dbl-pop, body.theme-day .dbl-toast { background: #fff; color: #1
 .dsk-icons.is-drag .dsk-grid { opacity: 1; mask-image: none; background-image: linear-gradient(#b48cff1f 1px, transparent 1px), linear-gradient(90deg, #b48cff1f 1px, transparent 1px); } .dsk-icons.is-drag .dsk-grid b { opacity: 1; }
 body.theme-day .dsk-grid { background-image: linear-gradient(#0f1f3a12 1px, transparent 1px), linear-gradient(90deg, #0f1f3a12 1px, transparent 1px); }
 @media (prefers-reduced-motion: reduce) { .dsk-grid, .dsk-grid b { transition: none; } } @media (max-width: 640px) { .dsk-grid { display: none; } }
+/* 🖥 Back to desk · it keeps working (2026-11-11): in every open proof folder's header / path row, minimizes its desk window */
+:is(.fea-open-h, .dsk-xpath) .fea-todesk { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; min-height: 32px; font: 700 11px var(--f-ui); }
+.fea-todesk i { width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); box-shadow: 0 0 8px var(--m-accent); animation: dskTodesk 1.6s ease-in-out infinite; }
+@keyframes dskTodesk { 50% { opacity: .35; transform: scale(.8); } }
+body.fx-lite .fea-todesk i { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-todesk i { animation: none; } }
+body.theme-day .fea-todesk i { box-shadow: none; }
+@media (max-width: 640px) { .fea-open-h { flex-wrap: wrap; } :is(.fea-open-h, .dsk-xpath) .fea-todesk { margin-left: 0; width: 100%; justify-content: center; } }
+.dsk-win.is-hid { display: none !important; }   /* a minimized proof window stays mounted (keeps its open folder) */
