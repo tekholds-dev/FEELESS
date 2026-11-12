@@ -32965,6 +32965,35 @@ class CircleSendIn(BaseModel):
     confirm: str = ''          # must repeat the destination's last 4 characters
 
 
+def _fuse_card_free_sol(card_sol, wallet_sol):
+    """SOL a Fuse card's wallet may send out by hand: everything except the card's own cash (its trading money), less one network fee."""
+    return max(0.0, _fuse._f(wallet_sol) - _fuse._f(card_sol) - 0.00001)
+
+
+async def _fuse_send_guard(wallet_id, token_id, amount):
+    """🧯 A Circle send of SOL from a REAL Fuse card's wallet never takes the card's own cash (2026-11-11): the card's books would claim SOL
+    that left. Withdraw from the card first (that moves the book), then send. Other wallets and tokens pass untouched."""
+    w = next((x for x in (await _circle_wallets_live()) or [] if x.get('id') == wallet_id), None)
+    if not w:
+        return
+    row = next((b for b in w.get('balances') or [] if b.get('tokenId') == token_id), None)
+    if not row or str(row.get('symbol') or '').upper() != 'SOL' or row.get('mint'):
+        return
+    cards = ((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}
+    for tid, c in cards.items():
+        if not (c or {}).get('real'):
+            continue
+        v = _fw_public(tid)
+        if v.get('wallet') != w.get('address'):
+            continue
+        r = v.get('reconciliation') or {}
+        free = _fuse_card_free_sol(r.get('cardCashSol'), r.get('walletSol') if r.get('walletSol') is not None else row.get('amount'))
+        if amount > free + 1e-9:
+            raise HTTPException(409, f"That would take the Fuse card's own trading cash. This wallet can send up to {free:.6f} SOL now. "
+                                     "Withdraw from the card first (Fuse › Withdraw), then send. Nothing moved.")
+        return
+
+
 @app.post('/api/reputation/admin/circle/transfer')
 async def circle_transfer(request: Request, p: CircleSendIn):
     me = _require_owner(request)
@@ -32977,6 +33006,7 @@ async def circle_transfer(request: Request, p: CircleSendIn):
         raise HTTPException(403, 'Circle wallets only send to FEELESS wallets or wallets you saved. Save this address first.')
     if not _re.match(r'^\d+(\.\d+)?$', p.amount) or float(p.amount) <= 0:
         raise HTTPException(400, 'Amount must be a positive number.')
+    await _fuse_send_guard(p.walletId, p.tokenId, float(p.amount))
     out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})
     ad = _admin_load(); _audit(ad, me, 'circle-send', f'{p.amount} from {p.walletId[:8]} to {p.to[:6]}…'); _admin_save(ad)
     return out

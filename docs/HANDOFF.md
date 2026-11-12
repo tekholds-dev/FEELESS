@@ -42,8 +42,10 @@
   + hidden, so the taskbar brings back the same open folder. Seen in harnesses `/dev/features?pdk&poc` + `/dev/cats` at 1280 + 390; not signed in.
 > **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
-> **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from
->   "In your wallet") · T2 Fuse card Withdraw $1 → HQ › Money › Circle FUSE🧬 send to his saved Phantom · T3 $1 USDC into Happy's wallet and back.
+> **The 3 real-money tests: READY, handed to the owner 2026-11-11** (owner presses; never sign for him). Dry-checked live, no funds moved:
+  T1 real quotes both legs (swap engine; platform fee 1425 bps after his tier = the open Q29) · T2 Fuse wallet is a live Circle wallet, owner
+  wallets are saved destinations, withdraw = book move; NEW guard `_fuse_send_guard`: a Circle SOL send from the real Fuse wallet stops at
+  wallet SOL − card cash (test_circle_admin) · T3 Happy's Circle wallet 0.0513 SOL (pays fees) + 0.367 USDC, $1 top-up allowed (min $1, staff no fee).
 > **Owner blockers:** $FEE/FEECAT/rFEE have no pool (headline "Into $FEE free" fails) · Q29 15% swap fee · Fuse gas reserve short 0.006 SOL ·
 >   RPC = Chainstack only (archive calls 403 on its plan) · put a $ limit on OpenRouter key "OAuth: localhost:51367" · not seen live: ProofLive
 >   during a real proof, rate-limit drop not re-measured (check /tmp/feeless-api.log 429/403 counts vs 417 per 10 min before) · the shelf and

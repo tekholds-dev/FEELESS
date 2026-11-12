@@ -281,3 +281,21 @@ def test_circle_profile_edit_really_saves_name_picture_and_cover():
     assert clean['displayName'] == 'Fuse Wallet' and clean['handle'] == 'fuse_w' and clean['avatarUrl'] == gif and clean['bannerUrl'] == gif
     assert clean['bio'] == 'keep'   # untouched fields stay
     assert rs.circle_profile_view(clean) == {'name': 'Fuse Wallet', 'handle': 'fuse_w', 'bio': 'keep', 'avatar': gif, 'banner': gif}
+
+
+def test_fuse_wallet_send_never_takes_card_cash(monkeypatch):
+    # 🧯 a Circle SOL send from the real Fuse card's wallet stops at wallet SOL − card cash (2026-11-11); other tokens / wallets pass
+    W = [{'id': 'fw', 'address': 'FuseAddr', 'balances': [{'symbol': 'SOL', 'tokenId': 'sol', 'amount': '0.035'}, {'symbol': 'USDC', 'tokenId': 'usdc', 'mint': 'M', 'amount': '5'}]},
+         {'id': 'other', 'address': 'OtherAddr', 'balances': [{'symbol': 'SOL', 'tokenId': 'sol2', 'amount': '1'}]}]
+    async def live():
+        return W
+    monkeypatch.setattr(rs, '_circle_wallets_live', live)
+    monkeypatch.setattr(rs, '_json_load', lambda path, default=None: {'prime': {'cards': {'t1': {'real': True}, 'paper': {}}}})
+    monkeypatch.setattr(rs, '_fw_public', lambda tid: {'wallet': 'FuseAddr', 'reconciliation': {'cardCashSol': 0.0227, 'walletSol': 0.035}})
+    assert abs(rs._fuse_card_free_sol(0.0227, 0.035) - 0.01229) < 1e-9
+    asyncio.run(rs._fuse_send_guard('fw', 'sol', 0.0122))          # inside the free SOL: allowed
+    with pytest.raises(rs.HTTPException) as e:
+        asyncio.run(rs._fuse_send_guard('fw', 'sol', 0.02))         # would dip into the card's cash
+    assert e.value.status_code == 409 and '0.012290 SOL' in e.value.detail and 'Nothing moved' in e.value.detail
+    asyncio.run(rs._fuse_send_guard('fw', 'usdc', 5))               # another token: untouched
+    asyncio.run(rs._fuse_send_guard('other', 'sol2', 1))            # another wallet: untouched
