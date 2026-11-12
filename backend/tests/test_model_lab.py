@@ -57,4 +57,4 @@ def test_export_rows_are_settled_or_owner_graded_and_scrubbed():
 def test_the_routes_are_owner_only():
     import rep_model_lab as rml
     src = open(rml.__file__).read()
-    assert src.count('rs._require_owner(request)') == 3 and src.count('@router.') == 3
+    assert src.count('@router.') >= 3 and src.count('rs._require_owner(request)') == src.count('@router.')   # every route, the forge's too, is the owner's
