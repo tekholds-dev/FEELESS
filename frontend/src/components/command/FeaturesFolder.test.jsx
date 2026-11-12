@@ -698,3 +698,22 @@ test('🧭 what next: the reply’s own choices become the options; otherwise st
   expect(page[0].label).toMatch(/phone/); expect(page[page.length - 1]).toEqual({ label: 'Carry it into a PoW', sendTo: 'pow' });
   expect(nextOptions({ by: 'you', text: 'hi?' })).toEqual([]); expect(nextOptions(null)).toEqual([]);
 });
+
+test('🚀 Go live lists the hosts cheapest first with this page’s size and opens a host’s steps', async () => {
+  const { GoLive, hostLoads } = require('./FeaturesFolder'); global.TextEncoder = global.TextEncoder || require('util').TextEncoder;
+  const hosts = [{ id: 'cloudflare', name: 'Cloudflare Pages', freeGB: null, paid: 5, fits: true, state: 'checked', checkedAt: 1, free: 'Static traffic free', best: 'Most traffic for $0', steps: ['Upload assets'], open: 'https://dash.cloudflare.com', src: 'https://developers.cloudflare.com' },
+    { id: 'netlify', name: 'Netlify', freeGB: 15, paid: 9, fits: true, state: 'changed', checkedAt: 1, visits: 38400, free: '300 credits', best: 'Drag and drop', steps: ['Drop the folder'], open: 'https://app.netlify.com/drop', src: 'https://www.netlify.com/pricing/' }];
+  let asked = ''; global.fetch = async u => { asked = String(u); return { ok: true, json: async () => ({ hosts, checkedAt: 1 }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<GoLive doc={{ preview: true, code: '<html><body>hi</body></html>' }} name="Test" />); });
+  await act(async () => { el.querySelector('[data-testid="go-live"]').click(); });
+  await act(async () => {});
+  expect(asked).toMatch(/deploy\/hosts\?mb=0\.\d{4}/);
+  const panel = document.querySelector('[data-testid="golive-panel"]');
+  expect(panel.textContent).toMatch(/2 hosts put this page online for \$0/); expect(panel.textContent).toMatch(/1\/2 PRICES CHECKED TODAY/);
+  expect(panel.querySelector('.glv-steps').textContent).toBe('Upload assets');
+  await act(async () => { panel.querySelector('[data-testid="golive-netlify"]').click(); });
+  expect(panel.querySelector('.glv-steps').textContent).toBe('Drop the folder'); expect(panel.textContent).toMatch(/! page changed/);
+  expect(hostLoads(hosts[1])).toBe('≈38K free loads a month'); expect(hostLoads(hosts[0])).toBe('Traffic not metered');
+  act(() => root.unmount()); el.remove();
+});

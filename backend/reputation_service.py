@@ -33496,6 +33496,8 @@ import rep_model_lab as _rep_model_lab   # 🧪 Model Lab: the owner's dataset, 
 app.include_router(_rep_model_lab.router)
 import rep_watch as _rep_watch   # 📺 Watch folder highlights: official channels' public feeds, filtered by team / player / gamer
 app.include_router(_rep_watch.router)
+import deploy_hosts as _deploy_hosts   # 🚀 Go live: hosts for a built page, cheapest first, each re-checked on its own pricing page daily
+app.include_router(_deploy_hosts.router)
 
 
 @app.on_event('startup')

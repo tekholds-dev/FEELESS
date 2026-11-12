@@ -29,8 +29,10 @@ DONE, on main, gates green:
    a. ✅ DONE 2026-11-12: proof work chats end with WHAT NEXT? (`nextOptions`/`NextSteps` in FeaturesFolder.jsx): the reply's own listed choices
       become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. NEXT: the agent Brain chat.
    b. PoC = the ULTIMATE station: it feeds the next proof type (content → launch/PoW/PoB), so it gets the biggest, most capable desk.
-   c. Deploy picker: user chooses the deployment provider (Vercel / Netlify / Cloudflare Pages / Render / Fly…) by real price + limits, cheapest
-      first; verify each provider's free tier with one real call before listing it.
+   c. ✅ DONE 2026-11-12: 🚀 Go live (PoStatic toolbar, beside Store check; `GoLive` in FeaturesFolder, `backend/deploy_hosts.py`): Cloudflare Pages,
+      Surge, GitHub Pages, Vercel, Netlify, Render ranked cheapest first ($0 plans, most free traffic, then first paid step); each row re-read daily
+      on its own pricing page and shown ✓ checked / ! page changed; free loads a month from the page's real zip size; steps + Save zip + Open host.
+      All 6 checked live 2026-11-12. Fly left out (no free tier). NOT built: one-tap deploy with the user's own host token. `/dev/features?golive`.
 NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
@@ -125,7 +127,7 @@ NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, ag
 > **Built 2026-11-10 night:** HQ shell redo (one sidebar, every tool once under its group, slim sticky header with live stats, phone drawer, Money explainers folded below data) · 📱 Store check on every Build folder (`store_check.py`: App Store / Play rules, static + real Chromium at 360/390 px; checked on 3 real agent pages: 88/92/88) · Showcase replay steps + chips clickable (jump + 12 s hold) · Feeless Kit now carries the dashboard shell + LAYOUT/SHIP-READY rules every build reads · C03 block readers. Dead-control sweep: Features (all tabs) clean; HQ sweep below.
 
 > ⚡ EVERY SESSION (owner, repeat in anything you hand off): **1. Conserve usage** (grep first, read only what you need, batch, no essays).
-> **2. Finish everything in priority order** (never leave a surface half done; one task at a time, proof, then stop).
+> **2. Finish everything in priority order** (never leave a surface half done; keep going through the whole queue, proof on each).
 > **3. Never dead-style** (prove no component renders a class before deleting it; every new box gets real styling and a live visual).
 
 **How this page works.** One page, three blocks, one task list. Each block has: how it works now (from the code), its open rows in order,

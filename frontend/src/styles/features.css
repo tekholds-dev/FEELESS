@@ -400,6 +400,17 @@ body.fx-lite .stc, body.fx-lite .stc li, body.fx-lite .stc-scrim { animation: no
 body.theme-day .stc { background: #fff; border-color: #5a33bd40; } body.theme-day .stc header strong, body.theme-day .stc li b { color: #1f1840; } body.theme-day .stc-ring::before { background: #fff; } body.theme-day .stc-ring b { color: #1f1840; }
 body.theme-day .stc li { background: #f6fbf8; border-color: #0000001a; } body.theme-day .stc li small, body.theme-day .stc-foot { color: #3f5a4c; } body.theme-day .stc li em { color: #8a5200; } body.theme-day .stc-x { color: #22332a; }
 @media (max-width: 640px) { .stc { inset: auto 8px 8px; margin: 0; width: auto; max-height: 80vh; } }
+/* 🚀 Go live: Store check's dialog, one row a host, the picked one opens its steps */
+.glv li.is-on { border-color: var(--m-accent, #19e68c); background: #ffffff08; } .glv li > i { background: #ffffff10; color: #ececf1; }
+.glv-row { all: unset; box-sizing: border-box; min-height: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; cursor: pointer; border-radius: 6px; }
+.glv-row:hover b { color: var(--m-accent, #19e68c); } .glv-row:focus-visible { outline: 2px solid var(--m-accent, #19e68c); outline-offset: 2px; } .glv-row:active { transform: scale(.99); }
+.glv-row small { color: #ececf1; } .glv .glv-state { margin-left: auto; font: 700 9.5px var(--f-mono); letter-spacing: .06em; color: #8b8b95; }
+.glv .glv-state.is-checked { color: var(--m-accent, #19e68c); } .glv .glv-state.is-changed { color: var(--gold, #f5c451); }
+.glv-go { display: grid; gap: 8px; margin-top: 6px; animation: stcIn .2s ease both; }
+.glv-steps { all: unset; display: grid; gap: 4px; counter-reset: s; } .glv-steps li { all: unset; counter-increment: s; font-size: 11.5px; color: #cfd6d2; } .glv-steps li::before { content: counter(s) '. '; font: 700 10.5px var(--f-mono); color: var(--m-accent, #19e68c); }
+.glv-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .glv-src { font: 600 10.5px var(--f-mono); color: #8b8b95; } .glv-src:hover { color: #ececf1; }
+body.theme-day .glv-row small, body.theme-day .glv-steps li { color: #2b3a33; } body.theme-day .glv li > i { background: #0000000d; color: #1f1840; }
+body.fx-lite .glv-go { animation: none; } @media (prefers-reduced-motion: reduce) { .glv-go { animation: none; } }
 /* ⤢ full screen for any preview (lib/fullView): the Showcase stage and a PoStatic's code/static stage fill the screen */
 .pdr-full { position: absolute; z-index: 6; right: 10px; bottom: 10px; width: 36px; height: 36px; border-radius: 10px; border: 1px solid #ffffff2e; background: #000a; color: #f3eeff; font-size: 17px; cursor: pointer;
   transition: background .14s ease, transform .1s ease, border-color .14s ease; }

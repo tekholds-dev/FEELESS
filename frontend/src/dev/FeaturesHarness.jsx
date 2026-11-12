@@ -1,6 +1,6 @@
 import React from 'react';
 import ORCAT from '../components/command/__fixtures__/mediaModels.json';   // 🎬 the real media_models answer (OpenRouter presets + samples), from media_gen.catalog
-import { FeaturesFolder, NextSteps, Packages, ProofDesk } from '../components/command/FeaturesFolder';
+import { FeaturesFolder, GoLive, NextSteps, Packages, ProofDesk } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
 import { apiUrl } from '../lib/api';
@@ -60,6 +60,7 @@ export default function FeaturesHarness() {
     return <div style={{ minHeight: '100vh', background: '#050406', padding: 12 }}><AgentHubProvider value={hub}><section className="agd is-sic is-dial-calm" data-testid="agent-desk"><AgentCockpit call={async () => ({})} /></section></AgentHubProvider></div>; }
   if (/next/.test(window.location.search)) { const doc = { messages: [{ by: 'you', text: 'A landing page for my coffee shop' }, { by: 'Claude', text: 'Here is the plan: warm hero, menu, map. Which should I do next?\n1. Add a pricing table\n2. Build the hero first\n3. Write the FAQ' }] }; const page = { messages: [{ by: 'Claude', text: 'Page 2 is ready.' }] };   // ?next — the WHAT NEXT strip
     return <div className="fea-chat" style={{ padding: 20, maxWidth: 760, background: '#0b0d0c', minHeight: '100vh', gap: 18 }}><NextSteps doc={doc} send={() => {}} onSendTo={() => {}} onOther={() => {}} /><NextSteps doc={page} send={() => {}} onSendTo={() => {}} onOther={() => {}} /></div>; }
+  if (/golive/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes("/deploy/hosts") ? real("/dev-golive.json") : real(u, o)); return <GoLiveHarness />; }   // ?golive — Go live on the real hosts read (dev-golive.json = deploy_hosts.hosts())
   if (/paygrid/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#050807', padding: 14 }}><PayGrid /></div>;   // ?paygrid — HQ › Money › Cards & pay
   if (/ccx/.test(window.location.search)) { const ccw = async (_c, b) => (b.op === 'agents_now' ? { agents: [{ id: 'a', name: "Sicario's", doing: [{ kind: 'Browser', say: 'rugcheck.xyz: mint and freeze authority', wait: false }, { kind: 'PoW', say: '$CARLO: reading holders' }] }, { id: 'b', name: 'Happy Assistant', doing: [{ kind: 'Browser', say: 'kalshi.com sign-in', wait: true }] }, { id: 'c', name: 'Fee', me: true, doing: [{ kind: 'PoB', say: 'Bucks at Knicks, 4th quarter' }] }, { id: 'd', name: 'Night Shift', doing: [] }] }
       : { routes: [{ route: 'local', calls: 64, okPct: 100, usd: 0, avgMs: 1900 }, { route: 'openrouter', calls: 18, okPct: 94, usd: 0.0412, avgMs: 2600 }, { route: 'singit', calls: 4, okPct: 75, usd: 0.006, avgMs: 4100 }, { route: 'groq free', calls: 2, okPct: 100, usd: 0, avgMs: 700 }], reviewer: { passPct: 58, graded: 41, waiting: 3 }, reads: { kinds: [{ kind: 'pow', ageMin: 2, freshMin: 5, reused: 4, sites: 6 }, { kind: 'pob', ageMin: 12, freshMin: 30, reused: 2, sites: 5 }, { kind: 'poc', ageMin: 35, freshMin: 60, reused: 1, sites: 4 }], topics: 2, topicReuses: 3 }, methods: { kits: [{ kit: 'compare-before-settling', state: 'unmeasured' }, { kit: 'plan-first', state: 'active', followedWin: 0.61 }, { kit: 'read-the-record-first', state: 'active', followedWin: 0.63 }, { kit: 'playtest-before-filing', state: 'unmeasured' }] } });   // ?ccx — live ops on sample numbers
@@ -93,4 +94,9 @@ export default function FeaturesHarness() {
   if (/collective/.test(window.location.search)) return <div style={{ height: '100vh', overflow: 'auto', background: '#07040d' }}><CollectiveLanding more={<p>Its pot</p>} moreLabel="Its pot" /></div>;
   if (/play/.test(window.location.search)) return <div className="fea" style={{ height: '100vh', background: '#07040d', boxSizing: 'border-box', overflow: 'auto' }}><Playground3D cat={cat} work={work} onBack={() => {}} /></div>;
   return <div style={{ height: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ height: 'calc(100vh - 32px)', overflow: 'auto' }}><FeaturesFolder cat={cat} d={{ setup: { use: 'code' } }} work={work} /></div></div>;
+}
+// 🚀 ?golive — the Go live picker on a real showcase page
+function GoLiveHarness() {
+  const [code, setCode] = React.useState(''); React.useEffect(() => { fetch('/showcase/pos/pulse-dash.html').then(r => r.text()).then(setCode); }, []);
+  return <div style={{ minHeight: '100vh', background: '#050807', padding: 16 }}>{code ? <GoLive doc={{ preview: true, code }} name="Pulse" /> : null}</div>;
 }

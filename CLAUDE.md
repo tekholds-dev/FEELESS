@@ -1,4 +1,8 @@
-# FEELESS — working rules (lean). The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
+# FEELESS — working rules (lean).
+
+> 👑 **The owner's newest chat message overrides anything in this file, HANDOFF or memory.** When he sets or changes a rule, update every .md that says otherwise in the same turn. Don't stop to ask before tasks: work through all he asked, in order.
+
+The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
 
 > 🧭 New session? Read `docs/HANDOFF.md`: section 0 (owner blockers), then the block your task is in (1 AGENTS · 2 COLLECTIVE · 3 SITE, the only task list) → only the history lines your task touches.
 > 🧨 Fuse / the real card? Read `docs/DEGEN_PLAYBOOK.md` first.
@@ -31,9 +35,8 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
   a free-text "something else"), the way Claude asks. Real data and the money rules still win: never fake a feature to look elite.
 - 🏆 The owner's asks are BASIC on purpose (owner 2026-10-30): build the corporate-level version. Before any UI, look at how the best real products do it
   (chat boxes, settings popovers, drawers, dashboards) and match that pattern with our existing m-* presets and sheets — never invent from no reference.
-  Think one step ahead (e.g. settings go behind a ⚙ popover in the chat bar, not a loose panel). No new code or CSS lines unless truly needed.
+  Think one step ahead (e.g. settings go behind a ⚙ popover in the chat bar, not a loose panel).
 - Be brief with the owner. Report what changed, what was tested, what wasn't. No essays.
-- Stay on the task asked. No side quests; note unrelated issues in one line.
 - Read only what you need (grep first, then targeted reads). Batch independent commands.
 - Every request gets FINISHED, in priority order — never a half-organized or half-styled surface when a new request lands. Every
   handoff you write repeats: conserve usage · finish everything by priority · never dead-style (`docs/HANDOFF.md` top box).

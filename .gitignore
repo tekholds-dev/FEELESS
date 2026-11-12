@@ -122,3 +122,4 @@ frontend/public/dev-lab.json
 
 frontend/public/dev-grow*.json
 .claude-wip/
+frontend/public/dev-golive.json
