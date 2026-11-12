@@ -135,6 +135,28 @@ COL-24 gaps · AGT-1/9/11/23 · SITE-1 Familia phone scroll · SITE-2 Features 7
 **Next, in order:** (done 2026-11-10 late: SITE-3, SITE-5 slices 5-6, SITE-7, AGT-19, AGT-6 speaking, SITE-2 image decode + prod measure + logo, SITE-1 crash/dead-click noise, AGT-18 patience, SITE-9 deps + one limiter, SITE-5 slice 7) · SITE-2 in his Chrome in front · Features real media (5c, after his media tests) · then list C one slice at a time. Real money waits only on him: fund the Fuse card,
 one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
 
+**🔁 NEXT CLAUDE START HERE (2026-11-12 late, session ran out):** finish in this order, push each through the gate, no new scope.
+1. **Security audit #8** (report: `~/Library/Application Support/Claude/side-session-notes/local_4de149cd-e078-48e9-a7d2-a1e1f99b8672/security-audit-2026-11-12.md`):
+   uploads size check BEFORE base64 decode (`reputation_service.py` `/uploads`), cap `ads/event` / `clicks` / `pv` maps + validate ids before disk,
+   `edge/observe` + `hq/pair` + `perps-real/execute` limits via `_guard.request_ip`; B-list (trading.py `hmac.compare_digest` for the internal key,
+   `/tmp/feeless-update.log` → `backend/data`). Add a unit test for `cat_fund.agent_tx_policy` (attacker transfer refused, own WSOL / pot / top-up ok).
+2. **Done this session, not yet pushed if the gate did not run:** audit #1 (`_INTERNAL_ONLY` actions), #2 (11 money routes `_require_owner`,
+   `test_owner_only_money_routes`), #3 (HQ session 12 h, no future ts), #4 (`guard` trusts XFF from a loopback peer, LAN not internal,
+   `setupProxy` `xfwd` — needs the 51367 restart), #5 (`_pay_hold` one payment = one use), #6 (httpx quiet, access-log redaction, `umask 077`;
+   **rotate the Helius key if any /tmp log was ever shared**), #7 (agent signer policy — all 25 real past sends pass — + overlapping-send fix).
+   keep-alive.sh now imports each service before a reload (takes effect when the owner restarts his command).
+3. **Model Lab → COMPAI** (owner 2026-11-12, his words: "elite dev's dash … live view of whatever it's learning … one model: COMP Flagship v1.02,
+   the folder is named COMP, my AI company is COMPAI"): desktop icon/label `COMP` (FeeCatDesk.jsx `k: 'model'`), header = COMPAI; ONE model
+   "COMP Flagship" whose builds are VERSIONS (v1.00, v1.01, v1.02 …, continue training from the last version's weights); the header name drives
+   it (today `mlb-name` and the forge's own name are two things — merge). Dashboard: where files live (`backend/data/model_forge/<id>/` weights.npz,
+   tokenizer.json, card.json, corpus.txt + sizes + download), HOW it learns (tokenize → predict → loss → backprop → AdamW, live lr / grad-norm
+   charts), WHAT it learns live (samples every N steps, top-5 next-token view, an attention heatmap), version leaderboard + scaling chart
+   (params vs held-out loss), guardrail test suite, a "Flagship" preset (~5M params, BPE 2048, ctx 256). Learn-from-the-labs panel (RMSNorm,
+   SwiGLU, RoPE, GQA as toggles only once the engine supports them). Engine works today: Nano 6 s, Mini 2 min (held-out 2.43), real asks +
+   guardrails proven in his Chrome. Recalibrate `model_forge.FLOPS_PER_SEC` (idle Mac: Nano 48, Mini 92 GFLOP/s).
+4. Rerun the 18-device audit (scratchpad script; MOBILE_LAYOUT.md matrix) on a QUIET machine (no backend edits during it: each edit restarts services → 504s).
+5. Desktop folder audit (every agent + owner desktop folder, his Chrome, signed in). Then the 5 things agents/Collective are missing (his ask).
+
 **2026-11-12 audit (pushed 2e30778e):** HQ › Sicario's freeze fixed (3 `@container` boxes → `lib/useBox.js`; style pass 38 s → 39 ms in his tab) ·
 one-click update now needs the HQ signature · unsigned `POST /api/chat/{room}` removed · `fabric` dropped · Settings dup key + globe https.
 **Still open:** ~20 other `@container` boxes (Fuse Lab, runners, chats, IntelligenceCard…) can freeze the same way → move them to `useBox` one page at a time ·

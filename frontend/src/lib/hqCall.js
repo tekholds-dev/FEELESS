@@ -4,7 +4,7 @@
 import { apiUrl, errorText } from './api';
 
 const SESSION_KEY = 'feeless:cc-session';
-export const readHqSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 86000 ? s : null; } catch { return null; } };
+export const readHqSession = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); return s && s.address === addr && Date.now() / 1000 - s.ts < 43000 ? s : null; } catch { return null; } };
 
 export function hqCallFor(address) {
   return async (path, opts = {}) => {

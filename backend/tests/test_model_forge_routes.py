@@ -18,7 +18,7 @@ def lab(tmp_path, monkeypatch):
     import reputation_service as rs
     monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER')
     monkeypatch.setattr(lab, '_forge_dir', lambda rs_: tmp_path)
-    monkeypatch.setattr(lab, '_corpus', lambda rs_: 'PoW won: bought the dip, sold at +40%. ' * 80)
+    monkeypatch.setattr(lab, '_corpus', lambda rs_, *a: 'PoW won: bought the dip, sold at +40%. ' * 80)
     started = []
     monkeypatch.setattr(lab.subprocess, 'Popen', lambda *a, **k: started.append(a[0]))
     lab._started = started

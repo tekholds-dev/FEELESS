@@ -61,3 +61,15 @@ def test_solana_signature_accepts_base64_base58_and_hex():
     assert not ha.verify_wallet(addr, 'other', base64.b64encode(raw).decode())
     assert not ha.verify_wallet('not-a-key', 'hi', 'x')
     assert ha.grant_message('W', 'admin', 5.9) == 'FEELESS grant HQ access\nwallet:W\nrole:admin\nts:5'
+
+
+def test_a_future_dated_or_day_old_signature_is_refused():
+    """🔒 Audit 2026-11-12 #3: a stolen future-dated signature used to live 48 h; a session now lasts 12 h and is never dated ahead."""
+    import pytest
+    ok = lambda a, m, s: s == 'GOOD'
+    now = 1_000_000
+    assert ha.check_session('A', str(now - 60), 'GOOD', ['A'], ok, now) == 'A'
+    with pytest.raises(ha.HTTPException):
+        ha.check_session('A', str(now + 3600), 'GOOD', ['A'], ok, now)
+    with pytest.raises(ha.HTTPException):
+        ha.check_session('A', str(now - 13 * 3600), 'GOOD', ['A'], ok, now)

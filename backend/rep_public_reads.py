@@ -383,8 +383,8 @@ async def season_drops():
 @router.get('/api/reputation/local/update-log')
 async def local_update_log(request: Request):
     rs = _rs()
-    host = (request.client.host if request.client else '') or ''
-    if host not in ('127.0.0.1', '::1', 'localhost'):
+    rs._require_admin(request)   # 🔒 audit #4: through the dev proxy every LAN caller looked local
+    if not rs._guard.is_local(request):
         raise rs.HTTPException(403, 'Local only.')
     try:
         return {'log': rs.Path('/tmp/feeless-update.log').read_text()[-4000:]}

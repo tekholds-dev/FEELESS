@@ -866,7 +866,7 @@ async def live_charts(payload: LivePayload, request: Request):
     chain, interval = payload.chain, payload.interval if payload.interval in INTERVAL_SECONDS else '1m'
     if chain not in DEX_CHAIN:
         return {'charts': {}}
-    local = (request.client.host if request.client else '') in ('127.0.0.1', '::1', 'localhost')
+    local = __import__('guard').is_local(request)   # this Mac itself, not a LAN device through the dev proxy (audit #4)
     now, step = time.time(), INTERVAL_SECONDS.get(interval, 60)
     store, out, started = _load(), {}, 0
     for pair, mint in list((payload.pairs or {}).items())[:LIVE_MAX_PAIRS]:

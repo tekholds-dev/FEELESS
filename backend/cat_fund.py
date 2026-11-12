@@ -152,3 +152,52 @@ def verify(signed_b64, built_b64, owner):
     if str(signed.message.account_keys[0]) != owner or not all(signed.verify_with_results()):
         raise ValueError("It is not signed by the agent's owner wallet — nothing was sent.")
     return str(signed.signatures[0])
+
+
+# 🔒 AGENT SIGNER POLICY (audit 2026-11-12 #7): the agent Circle signer signed ANY transaction it was handed, so a stolen internal key could
+# drain every agent wallet with one transfer. An agent's own trades are Jupiter swaps FEELESS built and close-empty-account sweeps: only those
+# programs pass, and no top-level instruction may hand value to anyone else (SOL only into its own wrapped-SOL account; a closed account's
+# rent only back to the agent). Jupiter's own inner routing is not decoded here: that part still rests on the internal key staying secret.
+JUPITER_V6 = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4'
+TOKEN_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
+MEMO_PROGRAMS = ('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr', 'Memo1UhkJRfHyvLMcVucJwxXeuD728EqVDDwQDxFMNo')
+WSOL_MINT = 'So11111111111111111111111111111111111111112'
+IPFS_ESCROW = 'CSXnfQsFWxdPB5pnS73TQDA6ivK6kcFnRwtt6TgFquxH'   # toju.network storage, owner-pressed (agent_ipfs.check guards its one instruction)
+AGENT_PROGRAMS = {COMPUTE_PROGRAM, LIGHTHOUSE_PROGRAM, SYSTEM_PROGRAM, TOKEN_PROGRAM, TOKEN_2022, ATA_PROGRAM, JUPITER_V6, IPFS_ESCROW, *MEMO_PROGRAMS}
+_TOKEN_SAFE = {1, 9, 16, 17, 18}          # InitializeAccount, CloseAccount, InitializeAccount2, SyncNative, InitializeAccount3
+_TOKEN_MOVES = {3, 4, 7, 8, 12, 13, 14, 15}   # Transfer, Approve, MintTo, Burn, TransferChecked, ApproveChecked, MintToChecked, BurnChecked
+
+
+def agent_tx_policy(tx_b64, agent, sol_to=()):
+    """→ None when the agent may sign it, else the reason it may not. Checks every top-level instruction of the transaction. `sol_to` = the
+    other places its SOL may go, read by the SERVER from its own records (the Collective pot, the top-up address the owner confirmed)."""
+    try:
+        msg = VersionedTransaction.from_bytes(base64.b64decode(tx_b64)).message
+    except Exception:   # noqa: BLE001 — anything that does not decode is refused
+        return 'not a readable Solana transaction'
+    keys = [str(k) for k in msg.account_keys]
+    if not keys or keys[0] != agent:
+        return 'its fee payer is not this agent'
+    wsol = {str(ata(agent, WSOL_MINT)), str(Pubkey.find_program_address([bytes(Pubkey.from_string(agent)), bytes(Pubkey.from_string(TOKEN_2022)), bytes(Pubkey.from_string(WSOL_MINT))], Pubkey.from_string(ATA_PROGRAM))[0])}
+    for ix in msg.instructions:
+        if ix.program_id_index >= len(keys):
+            return 'a program from a lookup table'
+        prog = keys[ix.program_id_index]; acc = bytes(ix.accounts); data = bytes(ix.data)
+        at = lambda n: keys[acc[n]] if n < len(acc) and acc[n] < len(keys) else None   # None = an account from a lookup table (unverifiable)
+        if prog not in AGENT_PROGRAMS:
+            return f'program {prog[:8]}… is not one an agent trade uses'
+        if prog == SYSTEM_PROGRAM:
+            kind = int.from_bytes(data[:4], 'little') if len(data) >= 4 else -1
+            if kind == 2 and at(1) not in wsol and at(1) not in set(sol_to or ()):   # Transfer: its own wrapped SOL, the pot, its confirmed top-up
+                return 'a SOL transfer to someone else'
+            if kind not in (2,):                          # CreateAccount / Assign / … are not part of an agent trade
+                return f'system instruction {kind} is not part of an agent trade'
+        if prog in (TOKEN_PROGRAM, TOKEN_2022):
+            kind = data[0] if data else -1
+            if kind in _TOKEN_MOVES:
+                return 'a token transfer / approval outside the swap'
+            if kind == 9 and at(1) != agent:                 # CloseAccount: the rent goes back to the agent only
+                return 'a closed account paying someone else'
+            if kind not in _TOKEN_SAFE:
+                return f'token instruction {kind} is not part of an agent trade'
+    return None

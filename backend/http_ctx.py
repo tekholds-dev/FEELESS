@@ -5,7 +5,28 @@ whole CA bundle again: ~6 ms of blocked event loop on an idle machine, seconds u
 (loop_lag, 2026-10-12: stalls on the `httpx.AsyncClient(` line of _live_px, _jup_prices, _rpc_physical …). A client that does not pass
 its own `verify` now shares one context (same CA bundle, same verification). Nothing else about a client changes.
 """
+import logging
+import re
+
 import httpx
+
+# 🔒 Audit 2026-11-12 #6: httpx logged every request URL at INFO (the Helius ?api-key=… landed in /tmp logs, 0644) and uvicorn's access
+# log printed ?session=<token>. httpx/httpcore speak only on warnings; any secret-looking query value in an access line is masked.
+logging.getLogger('httpx').setLevel(logging.WARNING); logging.getLogger('httpcore').setLevel(logging.WARNING)
+_SECRET_Q = re.compile(r'((?:session|sig|signature|token|api[-_]?key|apikey|key|secret|code|verifier|password)=)[^&\s"]+', re.I)
+
+
+class _Redact(logging.Filter):
+    def filter(self, rec):
+        if isinstance(rec.args, tuple):
+            rec.args = tuple(_SECRET_Q.sub(r'\1[redacted]', a) if isinstance(a, str) else a for a in rec.args)
+        if isinstance(rec.msg, str):
+            rec.msg = _SECRET_Q.sub(r'\1[redacted]', rec.msg)
+        return True
+
+
+for _name in ('uvicorn.access', 'uvicorn.error', 'httpx'):
+    logging.getLogger(_name).addFilter(_Redact())
 
 _state = {'ctx': None, 'installed': False, 'shared': 0}
 

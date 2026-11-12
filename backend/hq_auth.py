@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 # $FEE's creator wallet (fee payer of the mint's first transaction on-chain) is the default owner; FEELESS_ADMIN_WALLETS overrides it.
 FEE_CREATOR_WALLET = 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'
-SESSION_SEC = 86400          # an HQ sign-in is good for a day
+SESSION_SEC = 12 * 3600   # 🔒 audit 2026-11-12 #3: was 24 h. The signature is a bearer pass on plain http: shorter life, never future-dated
 
 # Granted roles are SCOPED (hard-coded): a moderator / marketing wallet only reaches its own HQ sections; 'admin'
 # grants reach everything except owner-only money (Circle, referrals, NFTs… via _require_owner). Owners reach everything.
@@ -55,7 +55,9 @@ def check_session(addr, ts, sig, admins, verify, now):
         ts_i = int(ts)
     except ValueError:
         raise HTTPException(401, 'Missing HQ signature.')
-    if abs(now - ts_i) > SESSION_SEC:
+    if ts_i > now + 120:   # a future-dated signature used to live up to 48 h
+        raise HTTPException(401, 'HQ signature is dated in the future — check this computer\'s clock and sign in again.')
+    if now - ts_i > SESSION_SEC:
         raise HTTPException(401, 'HQ session expired — sign in again.')
     if not verify(addr, session_message(addr, ts_i), sig):
         raise HTTPException(401, 'HQ signature does not match.')

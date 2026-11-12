@@ -3,6 +3,7 @@
 #   main API (5001)          → .venv            (repo root)
 #   reputation (5077), FeeCat (5088), candles (5099) → backend/.venv   (has base58/nacl for wallet signatures)
 # Logs go to /tmp/feeless-<service>.log
+umask 077   # 🔒 audit 2026-11-12 #6: logs in /tmp are private to this user (they held an API key and session tokens)
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 

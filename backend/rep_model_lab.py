@@ -106,12 +106,56 @@ def _forge_dir(rs):
     d = rs.DATA_DIR / 'model_forge'; d.mkdir(parents=True, exist_ok=True); return d
 
 
-def _corpus(rs):
-    """The text a build learns from: every clean training row (settled proofs + the owner's grades), one block per proof."""
-    blocks = []
-    for r in _export(rs):
-        body = ' · '.join(f'{k}: {r[k]}' for k in _ml.FIELDS if r.get(k))
-        blocks.append(f"### {r['kind']} · {r.get('outcome', '')} · {r.get('title', '')}\n{body}{(' · note: ' + r['note']) if r.get('note') else ''}\n")
+SOURCES = {'proofs': 'Your proofs (every kept proof, open ones too)', 'pow': 'PoW research notes (plans, reasons, calls)', 'docs': 'FEELESS docs (plans, decisions, the build history)'}
+DOCS_MAX = 1_500_000
+
+
+def _sources(rs):
+    """→ {source: text}. Everything is scrubbed (wallets, keys, emails, phones); the agents' sealed workspaces are never read."""
+    out = {'proofs': _proof_text(rs), 'pow': '', 'docs': ''}
+    rows = []
+    try:
+        for ln in (rs.DATA_DIR / 'pow_archive.jsonl').read_text(errors='ignore').splitlines():
+            try:
+                r = json.loads(ln)
+            except ValueError:
+                continue
+            body = [f'{k}: {_ml.scrub(" ".join(str(r[k]).split()))[:1500]}' for k in ('plan', 'why', 'call') if isinstance(r.get(k), str) and r[k].strip()]
+            if body:
+                rows.append(f"### PoW {r.get('kind') or ''} · ${_ml.scrub(str(r.get('sym') or ''))[:16]}\n" + '\n'.join(body) + '\n')
+    except OSError:
+        pass
+    out['pow'] = '\n'.join(rows)
+    docs, size = [], 0
+    for f in sorted((rs.Path(__file__).resolve().parent.parent / 'docs').glob('*.md'), key=lambda f: f.stat().st_size):
+        try:
+            s = _ml.scrub(f.read_text(errors='ignore'))
+        except OSError:
+            continue
+        if size + len(s) > DOCS_MAX:
+            break
+        docs.append(f'### {f.stem}\n{s}\n'); size += len(s)
+    out['docs'] = '\n'.join(docs)
+    return out
+
+
+def _corpus(rs, sources=('proofs', 'pow', 'docs')):
+    got = _sources(rs)
+    return '\n'.join(got[k] for k in SOURCES if k in (sources or ()) and got.get(k))
+
+
+def _proof_text(rs):
+    """Every kept proof's own words (settled or open, scrubbed) and the owner's grade notes, one block per proof."""
+    stash, _, grades_p = _paths(rs); grades = rs._json_load(grades_p, {}); blocks = []
+    for it in rs._stash.catalog(stash):
+        try:
+            raw = rs._stash.read(stash, it['key']) or b''
+        except Exception:   # noqa: BLE001 — a sealed item that will not open still gives its title
+            raw = b''
+        b = _ml.text_of(it, raw)
+        if b:
+            note = (grades.get(it.get('key')) or {}).get('note')
+            blocks.append(b + (f'owner: {_ml.scrub(note)}\n' if note else ''))
     return '\n'.join(blocks)
 
 
@@ -155,8 +199,9 @@ async def forge_view(request: Request):
     """🏗 What a build would learn from (live), the presets and limits, and every build with its progress or model card."""
     rs = _rs(); rs._require_owner(request)
     def go():
-        text = _corpus(rs); tok = _mf().CharTok.train(text)
+        got = _sources(rs); text = '\n'.join(got.values()); tok = _mf().CharTok.train(text)
         return {'corpus': {'chars': len(text), 'charVocab': tok.size, 'blocks': text.count('### '), 'preview': text[:600]},
+                'sources': [{'k': k, 'label': SOURCES[k], 'chars': len(got[k]), 'blocks': got[k].count('### ')} for k in SOURCES],
                 'presets': _mf().PRESETS, 'limits': _mf().LIMITS, 'rails': _mf().RAILS_DEFAULT,
                 'jobs': [_job_view(d) for d in _jobs(rs)], 'running': next((d.name for d in _jobs(rs) if _alive(d)), None)}
     return await rs.asyncio.to_thread(go)
@@ -165,6 +210,7 @@ async def forge_view(request: Request):
 class ForgeSpec(BaseModel):
     cfg: dict = {}
     extra: str = ''
+    sources: list = ['proofs', 'pow', 'docs']
 
 
 @router.post('/api/reputation/admin/model-lab/forge/spec')
@@ -172,7 +218,7 @@ async def forge_spec(request: Request, p: ForgeSpec):
     """📐 The blueprint's specs before anything runs: parameters per part, memory, compute, data per parameter, an estimated time."""
     rs = _rs(); rs._require_owner(request)
     def go():
-        text = _corpus(rs) + '\n' + p.extra[:EXTRA_MAX]; c = _mf().clean_cfg(p.cfg)
+        text = _corpus(rs, p.sources) + '\n' + p.extra[:EXTRA_MAX]; c = _mf().clean_cfg(p.cfg)
         vocab = _mf().CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
         toks = len(text) if c['tok'] == 'char' else int(len(text) / 3.2)   # BPE ≈ 3.2 characters a token on this text (the build counts exactly)
         return _mf().spec(c, vocab, toks)
@@ -183,6 +229,7 @@ class ForgeBuild(BaseModel):
     cfg: dict = {}
     rails: dict = {}
     extra: str = ''
+    sources: list = ['proofs', 'pow', 'docs']
 
 
 @router.post('/api/reputation/admin/model-lab/forge/build')
@@ -191,7 +238,7 @@ async def forge_build(request: Request, p: ForgeBuild):
     rs = _rs(); rs._require_owner(request)
     if any(_alive(d) for d in _jobs(rs)):
         raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
-    c = _mf().clean_cfg(p.cfg); text = _corpus(rs) + '\n' + p.extra[:EXTRA_MAX]
+    c = _mf().clean_cfg(p.cfg); text = _corpus(rs, p.sources) + '\n' + p.extra[:EXTRA_MAX]
     vocab = _mf().CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
     if _mf().n_params(c, vocab)['total'] > _mf().LIMITS['params']:
         raise rs.HTTPException(400, 'Too big for this Mac: lower the width or layers.')

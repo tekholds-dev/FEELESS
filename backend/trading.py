@@ -782,7 +782,7 @@ class TradingService:
                     probe = hmac.compare_digest(request.headers.get('x-feeless-internal', ''), (Path(__file__).parent / 'data' / 'internal.key').read_text().strip())
                 except OSError:
                     probe = False
-            ip = request.client.host
+            ip = __import__('guard').request_ip(request)   # the real caller, not the dev proxy (audit #4)
             queue = self.rate[ip]
             while queue and time.monotonic() - queue[0] > 60:
                 queue.popleft()

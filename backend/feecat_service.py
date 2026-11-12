@@ -10,6 +10,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
 import functools
 import logging
+import guard as _guard   # 🚦 the caller's real IP (behind the dev proxy too)
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
@@ -6055,8 +6056,8 @@ async def _armor(request, call_next):
     """🔒 Every response: no sniffing, no framing, no referrer, never cached when it is an owner's. Owner doors are rate-limited per IP."""
     path = request.url.path
     parts = path.split('/')
-    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet', 'treasury') and not request.headers.get('x-feeless-internal')
-    if owner_door and not rate_ok((request.client.host if request.client else '-', parts[3])):
+    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet', 'treasury') and not _internal_ok(request)
+    if owner_door and not rate_ok((_guard.request_ip(request), parts[3])):   # the real caller, not the dev proxy's 127.0.0.1 (audit #4)
         return Response('{"detail":"Too many requests — slow down."}', status_code=429, media_type='application/json')
     resp = await call_next(request)
     resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
@@ -8491,6 +8492,14 @@ def _internal_headers():
 
 def _internal_ok(request):
     """True when the request carries FEELESS's internal key (service to service, never a browser)."""
+    try:
+        _internal(request); return True
+    except HTTPException:
+        return False
+
+
+def _internal_ok(request):
+    """True only for the real internal key (a bare header used to skip the owner-door limiter, audit #4)."""
     try:
         _internal(request); return True
     except HTTPException:
@@ -11456,9 +11465,14 @@ async def _key_check(provider, secret):
         return {'ok': False, 'why': str(e)[:180], 'at': round(time.time())}
 
 
+_INTERNAL_ONLY = ('agent_funded', 'agent_withdrew', 'pass_minted')   # written only by reputation after it read the payment on chain
+
+
 @app.post('/api/cats/{cat_id}/action')
 async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     _OR_CAT.set(cat_id)   # 🧾 its model calls' receipts carry this agent
+    if payload.action in _INTERNAL_ONLY:   # 🔒 2026-11-12 audit #1: a signed-in owner could post a made-up payment and get free model credit
+        _internal(request)
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:

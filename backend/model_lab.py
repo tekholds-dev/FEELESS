@@ -48,6 +48,23 @@ def row_of(item, raw):
     return {'kind': kind, 'title': scrub(item.get('title'))[:160], **parts, 'source': item.get('source') or '', 'outcome': item['outcome'], 'at': round(item.get('at') or 0)}
 
 
+def text_of(item, raw):
+    """🏗 Everything a kept proof says, as plain text for the owner's own language model (open proofs too: it learns how the agents write,
+    not whether they were right — the grades are for the fine-tune rows). Scrubbed the same way; None when it says nothing."""
+    kind = KINDS.get(item.get('category'))
+    if not kind:
+        return None
+    try:
+        d = json.loads(zlib.decompress(raw) if raw[:1] == b'x' else raw) if raw else {}
+    except (ValueError, zlib.error, TypeError):
+        d = {}
+    body = [f'{k}: {scrub(" ".join(d[k].split()))[:1500]}' for k in FIELDS if isinstance(d, dict) and isinstance(d.get(k), str) and d[k].strip()]
+    title = scrub(item.get('title'))[:160]
+    if not body and not title:
+        return None
+    return f"### {kind} · {item.get('outcome') or 'open'} · {title}\n" + '\n'.join(body) + '\n'
+
+
 def graded_row(item, grade):
     """An open proof the owner graded becomes a row too: the human label stands where the market could not settle it."""
     kind = KINDS.get(item.get('category'))

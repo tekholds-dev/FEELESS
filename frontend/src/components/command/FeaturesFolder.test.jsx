@@ -594,7 +594,7 @@ test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guar
   jest.useFakeTimers();
   const { ModelForge } = require('./ModelForge');
   const card = { name: 'Nano', cfg: { layers: 2 }, spec: { paramsTotal: 104000 }, val: 1.9, perplexity: 6.7, baselinePerplexity: 90, seconds: 31, sample: 'PoW won' };
-  const view = { corpus: { chars: 52000, blocks: 142, charVocab: 90 }, presets: { nano: { name: 'Nano', tok: 'char', d: 64, layers: 2, heads: 4, ctx: 64, steps: 300, batch: 16, lr: 0.003, vocab: 256 } },
+  const view = { corpus: { chars: 52000, blocks: 142, charVocab: 90 }, sources: [{ k: 'proofs', label: 'Your proofs', chars: 17000, blocks: 250 }, { k: 'docs', label: 'FEELESS docs', chars: 1300000, blocks: 93 }], presets: { nano: { name: 'Nano', tok: 'char', d: 64, layers: 2, heads: 4, ctx: 64, steps: 300, batch: 16, lr: 0.003, vocab: 256 } },
     limits: { params: 6000000, layers: [1, 8] }, rails: { refuse: ['seed phrase'], block: [], scrub: true, max_chars: 600, footer: 'Not financial advice.' },
     jobs: [{ id: '20261112-100000-nano', status: 'done', history: [[0, 4.4, 4.4], [299, 1.8, 1.9]], steps: 300, step: 300, card }], running: null };
   const sent = [];
@@ -613,7 +613,7 @@ test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guar
   await act(async () => { el.querySelector('[data-testid="mlf-layers-up"]').click(); }); await act(async () => { jest.advanceTimersByTime(300); });
   expect(el.querySelectorAll('.mlf-slab.is-block').length).toBe(3); expect(sent.filter(x => x[0].endsWith('/spec')).at(-1)[1].cfg.layers).toBe(3);
   await act(async () => { el.querySelector('[data-testid="mlf-build"]').click(); });
-  const b = sent.find(x => x[0].endsWith('/build'))[1]; expect(b.cfg.layers).toBe(3); expect(b.rails.refuse).toEqual(['seed phrase']);
+  const b = sent.find(x => x[0].endsWith('/build'))[1]; expect(b.cfg.layers).toBe(3); expect(b.rails.refuse).toEqual(['seed phrase']); expect(b.sources).toEqual(['proofs', 'docs']);
   await act(async () => { jest.advanceTimersByTime(1600); });
   expect(el.querySelector('[data-testid="mlf-run"]').textContent).toContain('150/300'); expect(el.querySelector('[data-testid="mlf-stop"]')).not.toBeNull();
   await act(async () => { el.querySelector('[data-testid="mlf-ask"]').click(); });

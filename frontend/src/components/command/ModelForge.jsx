@@ -44,33 +44,33 @@ function Chips({ label, list, onChange, tip, testid }) {
 
 export function ModelForge({ call }) {
   const [f, setF] = useState(null); const [err, setErr] = useState(''); const [cfg, setCfg] = useState(null); const [sp, setSp] = useState(null);
-  const [rails, setRails] = useState(null); const [extra, setExtra] = useState(''); const [job, setJob] = useState(null); const [busy, setBusy] = useState(false);
+  const [rails, setRails] = useState(null); const [extra, setExtra] = useState(''); const [src, setSrc] = useState(null); const [job, setJob] = useState(null); const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState(null); const [q, setQ] = useState('### PoW · won · '); const [temp, setTemp] = useState(0.8); const [ans, setAns] = useState(null);
   const load = useCallback(() => (!call ? Promise.resolve(setErr('Sign in as the owner to build a model.')) : call('/admin/model-lab/forge').then(x => {
-    setF(x); setErr(''); setCfg(c => c || { ...x.presets.nano, preset: 'nano' }); setRails(r => r || x.rails);
+    setF(x); setErr(''); setCfg(c => c || { ...x.presets.nano, preset: 'nano' }); setRails(r => r || x.rails); setSrc(s => s || (x.sources || []).map(y => y.k));
     const run = x.jobs.find(j => j.id === x.running) || null; setJob(j => run || (j && x.jobs.find(y => y.id === j.id)) || x.jobs[0] || null);
     setPick(p => p || x.jobs.find(j => j.card)?.id || null);
   }).catch(e => setErr(e.message))), [call]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {   // specs follow the blueprint (debounced: one read after the clicks settle)
-    if (!cfg || !call) return undefined; const t = setTimeout(() => call('/admin/model-lab/forge/spec', { method: 'POST', body: JSON.stringify({ cfg, extra }) }).then(setSp).catch(e => setErr(e.message)), 250);
+    if (!cfg || !call) return undefined; const t = setTimeout(() => call('/admin/model-lab/forge/spec', { method: 'POST', body: JSON.stringify({ cfg, extra, sources: src || [] }) }).then(setSp).catch(e => setErr(e.message)), 250);
     return () => clearTimeout(t);
-  }, [cfg, extra, call]);
+  }, [cfg, extra, src, call]);
   const live = job && LIVE.has(job.status); const timer = useRef(null);
   useEffect(() => {   // a running build is read every 1.5 s until it ends, then the list refreshes once
     if (!live) return undefined;
     timer.current = setInterval(() => call(`/admin/model-lab/forge/${job.id}`).then(j => { setJob(j); if (!LIVE.has(j.status)) { load(); setPick(j.card ? j.id : null); } }).catch(() => {}), 1500);
     return () => clearInterval(timer.current);
   }, [live, job?.id, call, load]);
-  const build = async () => { setBusy(true); setErr(''); try { const r = await call('/admin/model-lab/forge/build', { method: 'POST', body: JSON.stringify({ cfg, rails, extra }) }); setJob({ id: r.id, status: 'tokenizing', history: [], steps: cfg.steps, spec: r.spec }); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const build = async () => { setBusy(true); setErr(''); try { const r = await call('/admin/model-lab/forge/build', { method: 'POST', body: JSON.stringify({ cfg, rails, extra, sources: src || [] }) }); setJob({ id: r.id, status: 'tokenizing', history: [], steps: cfg.steps, spec: r.spec }); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const stop = () => call(`/admin/model-lab/forge/${job.id}/stop`, { method: 'POST' }).catch(e => setErr(e.message));
   const ask = async () => { setBusy(true); try { setAns(await call(`/admin/model-lab/forge/${pick}/ask`, { method: 'POST', body: JSON.stringify({ prompt: q, temperature: temp, max_new: 220 }) })); setErr(''); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  if (!f || !cfg || !rails) return <p className="mlb-none">{err ? `⚠ ${err}` : 'Opening the forge…'}</p>;
+  if (!f || !cfg || !rails || !src) return <p className="mlb-none">{err ? `⚠ ${err}` : 'Opening the forge…'}</p>;
   const preset = k => setCfg({ ...f.presets[k], preset: k }); const set = c => setCfg({ ...c, preset: 'custom' });
   const pctCap = sp ? Math.min(1, sp.paramsTotal / f.limits.params) : 0; const built = f.jobs.filter(j => j.card);
   const chart = (job?.history || []).map(([s, l, v]) => ({ s, train: l, val: v }));
   return <div ref={forgeBox} className="mlf" data-testid="model-forge">
-    <p className="mlf-truth">A real transformer, written from scratch, trained on <b>this Mac</b> from <b>{f.corpus.chars.toLocaleString()}</b> characters of your proofs ({f.corpus.blocks} proofs). It learns their voice and shape, not world knowledge — more graded proofs make it smarter. Nothing is rented or spent.</p>
+    <p className="mlf-truth">A real transformer, written from scratch, trained on <b>this Mac</b> from <b>{(f.sources || []).filter(s => src.includes(s.k)).reduce((a, s) => a + s.chars, 0).toLocaleString()}</b> characters of your own text. It learns its voice and shape, not world knowledge — the more you give it, the smarter it gets. Nothing is rented or spent.</p>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     <section className="mlf-grid">
       <div className="mlf-card m-live"><h4>① BLUEPRINT</h4>
@@ -101,7 +101,8 @@ export function ModelForge({ call }) {
           <span className="mlf-meter" data-tip="Tokens of your text per parameter. Big models want ~20; below 1 it mostly memorises"><small>DATA PER PARAMETER</small><i><u style={{ transform: `scaleX(${Math.min(1, sp.tokensPerParam / 20)})` }} /></i><b className="m-num">{sp.tokensPerParam}</b></span>
           <p className={`mlf-verdict${sp.tooBig ? ' is-bad' : ''}`}>{sp.verdict}</p></div> : <p className="mlb-none">Reading the specs…</p>}
       </div>
-      <div className="mlf-card"><h4>④ YOUR GUARDRAILS</h4>
+      <div className="mlf-card"><h4>④ WHAT IT READS · ITS GUARDRAILS</h4>
+        <div className="mlf-srcs" role="group" aria-label="What it learns from">{(f.sources || []).map(s => <label key={s.k} className="m-toggle" data-tip={`${s.blocks} pieces · scrubbed of wallets, keys, emails, phones`}><input type="checkbox" checked={src.includes(s.k)} onChange={e => setSrc(e.target.checked ? [...src, s.k] : src.filter(x => x !== s.k))} data-testid={`mlf-src-${s.k}`} /> {s.label}<b className="m-num">{fmt(s.chars)}</b></label>)}</div>
         <Chips label="REFUSE WHEN ASKED ABOUT" list={rails.refuse} onChange={v => setRails({ ...rails, refuse: v })} tip="A prompt with any of these gets a refusal, the model never runs" testid="mlf-refuse" />
         <Chips label="NEVER SAY" list={rails.block} onChange={v => setRails({ ...rails, block: v })} tip="Masked out of every answer" testid="mlf-block" />
         <label className="m-toggle" data-tip="Wallets, keys, emails and phone numbers are replaced in every answer"><input type="checkbox" checked={rails.scrub} onChange={e => setRails({ ...rails, scrub: e.target.checked })} data-testid="mlf-scrub" /> Scrub wallets, keys, emails, phones</label>

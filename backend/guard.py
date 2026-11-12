@@ -27,22 +27,38 @@ def _valid(ip):
         return None
 
 
+def _plain(a):
+    return a.ipv4_mapped if getattr(a, 'ipv4_mapped', None) else a
+
+
 def is_internal(ip):
-    """Loopback / private = our own services. A non-IP peer only exists in-process (test client), never from the internet."""
+    """Loopback = our own services (and the owner's own browser on this Mac). A non-IP peer only exists in-process (test client).
+    Private LAN addresses are NOT internal any more (audit 2026-11-12 #4: a shared Wi-Fi skipped every limit); FEELESS_PRIVATE_INTERNAL=1
+    brings that back for a private service network."""
     if ip == 'invalid':
         return False
     a = _valid(ip)
-    return a is None or a.is_loopback or a.is_private
+    if a is None:
+        return True
+    a = _plain(a)
+    return a.is_loopback or (a.is_private and os.environ.get('FEELESS_PRIVATE_INTERNAL') == '1')
 
 
 def client_ip(headers, peer, trust_proxy=False):
     """The caller's IP. X-Forwarded-For is spoofable, so it's only read behind our own proxy — and then the RIGHTMOST entry
     (the one our proxy wrote), never the client-typed left side. A garbage value lands in one shared 'invalid' bucket."""
-    if trust_proxy:
+    a = _valid(peer)
+    if trust_proxy or (a is not None and _plain(a).is_loopback):   # the services listen on 127.0.0.1: a loopback peer is our own dev proxy (xfwd)
         fwd = (headers.get('x-forwarded-for') or '').split(',')[-1].strip()
         if fwd:
             return fwd if _valid(fwd) else 'invalid'
     return peer or '?'
+
+
+def is_local(request):
+    """This Mac itself (not a LAN device coming through the dev proxy): the only caller a "this machine only" door may serve."""
+    a = _valid(request_ip(request))
+    return a is not None and _plain(a).is_loopback
 
 
 def request_ip(request):

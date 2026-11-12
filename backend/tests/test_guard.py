@@ -44,10 +44,13 @@ def test_blocks_only_by_admin_and_reversible():
         g.decide(s, IP, 'nuke', 'ADMIN')
 
 
-def test_internal_and_proxy_rules():
+def test_internal_and_proxy_rules(monkeypatch):
     s = g.new_state()
     for i in range(500):
-        assert g.check(s, '127.0.0.1', 'POST', '/x', 1 + i * 0.01) is None and g.check(s, '10.0.0.4', 'POST', '/x', 1) is None
+        assert g.check(s, '127.0.0.1', 'POST', '/x', 1 + i * 0.01) is None
+    monkeypatch.setenv('FEELESS_PRIVATE_INTERNAL', '1')   # a private service network is ours only when the owner says so (audit #4)
+    for i in range(500):
+        assert g.check(s, '10.0.0.4', 'POST', '/x', 1) is None
     h = {'x-forwarded-for': '1.1.1.1, 198.51.100.7'}
     assert g.client_ip(h, '10.0.0.2', trust_proxy=False) == '10.0.0.2'                 # spoofed header ignored
     assert g.client_ip(h, '10.0.0.2', trust_proxy=True) == '198.51.100.7'               # our proxy's hop, not the typed one
@@ -168,3 +171,22 @@ def test_request_ip_ignores_a_typed_forwarded_header(monkeypatch):
     assert g.request_ip(R()) == '203.0.113.5'
     monkeypatch.setenv('FEELESS_TRUST_PROXY', '1')
     assert g.request_ip(R()) == '9.9.9.9'   # behind our proxy: the rightmost entry, the one it wrote
+
+
+def test_behind_the_dev_proxy_the_real_caller_counts(monkeypatch):
+    """🔒 Audit 2026-11-12 #4: every call through :51367 came from 127.0.0.1, so a LAN device skipped every limit and every "this Mac only" door."""
+    import guard as g
+    monkeypatch.delenv('FEELESS_TRUST_PROXY', raising=False); monkeypatch.delenv('FEELESS_PRIVATE_INTERNAL', raising=False)
+
+    def req(peer, fwd=None):
+        return type('R', (), {'headers': {'x-forwarded-for': fwd} if fwd else {}, 'client': type('C', (), {'host': peer})()})()
+    lan = req('127.0.0.1', '6.6.6.6, 192.168.1.50')           # a typed header on the left, the proxy's own append on the right
+    assert g.request_ip(lan) == '192.168.1.50' and not g.is_internal('192.168.1.50') and not g.is_local(lan)
+    me = req('127.0.0.1', '::ffff:127.0.0.1')                 # the owner's own browser on this Mac
+    assert g.is_local(me) and g.is_internal(g.request_ip(me))
+    svc = req('127.0.0.1')                                     # one service calling another (no proxy in between)
+    assert g.is_local(svc) and g.is_internal(g.request_ip(svc))
+    outside = req('203.0.113.9', '127.0.0.1')                  # a header from a non-loopback peer is never trusted
+    assert g.request_ip(outside) == '203.0.113.9' and not g.is_local(outside)
+    monkeypatch.setenv('FEELESS_PRIVATE_INTERNAL', '1')
+    assert g.is_internal('10.0.0.4')

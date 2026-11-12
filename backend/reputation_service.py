@@ -3894,7 +3894,9 @@ async def fuse_position(p: FusePositionIn):
     if not legs:
         raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
     prepaid_usd = 0.0
-    if p.prepaySig and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.prepaySig) and p.prepaySig not in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
+    held_ = False
+    if p.prepaySig and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.prepaySig) and not _pay_sig_used(p.prepaySig):
+        _pay_hold(p.prepaySig); held_ = True
         to = await _rounds_pay_to()
         tx = None
         if to:
@@ -3910,12 +3912,16 @@ async def fuse_position(p: FusePositionIn):
         used = {leg['sig'] for pos in d.get('positions') or [] for leg in pos['legs']}
         legs = [leg for leg in legs if leg['sig'] not in used]
         if not legs:
+            if held_:
+                _PAY_HELD.discard(p.prepaySig)   # nothing was credited: the payment stays spendable
             return {'ok': True, 'counted': False}
         pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
         choice = _hq.card_choice(p.plan, _fee_cfg().get('prepay'), _rounds_cfg())   # 🎟 the buyer's rounds · swaps per round · pay now or not
         credited = _hq.choice_credit(pos, prepaid_usd, choice) if choice['chosen'] else (prepaid_usd > 0 and _hq.prepay_credit(pos, prepaid_usd, _fee_cfg().get('prepay')))
-        if credited and p.prepaySig:
+        if credited and p.prepaySig and held_:
             d['roundSigs'] = (d.get('roundSigs') or [])[-500:] + [p.prepaySig]   # a payment is never reused
+        elif held_:
+            _PAY_HELD.discard(p.prepaySig)
         planned = [str(x)[:64] for x in (p.expected or [])[:_fuse.MAX_LEGS]]
         pos['missing'] = _hq.missing_legs(planned, legs)   # ⚠ approved but not landed — never hidden, never counted
         try:
@@ -4342,7 +4348,7 @@ class FusePaidIn(BaseModel):
 async def admin_fuse_payout_paid(request: Request, p: FusePaidIn):
     """Record a payout the fee wallet signed. Every signature must be on-chain and succeeded; only SOL transfers whose
     SOURCE signed the transaction count, and each wallet is credited what actually moved (× the plan's price, ≤ owed)."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     sigs = [str(x) for x in (p.sigs or [])][:20]
     if not sigs or not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in sigs):
         raise HTTPException(400, 'Bad transaction signature.')
@@ -8350,14 +8356,38 @@ def _crew_view(c, pieces, with_code=False):
                 'bounties': [{**b_, 'byName': _crew_name(b_['by']) if b_.get('by') else None} for b_ in (c.get('bounties') or [])[-20:]]} if with_code else {})}
 
 
+_PAY_HELD: set = set()   # 💳 payment signatures taken by a request right now (audit 2026-11-12 #5: N parallel requests spent one payment N times)
+
+
+def _pay_sig_used(sig):
+    """One payment buys ONE thing: crews / seats / badges, card rounds and prepay share this rule."""
+    import crews as _cr
+    return sig in _PAY_HELD or sig in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []) or _cr.sig_used(_json_load(CREWS_PATH, {}), sig)
+
+
+def _pay_hold(sig):
+    """Take a payment before the slow on-chain read (check + add with no await between = atomic on the event loop). → raises 409 when taken."""
+    if _pay_sig_used(sig):
+        raise HTTPException(409, 'That payment was already used.')
+    _PAY_HELD.add(sig)
+
+
 async def _verify_sol_payment(sig, mine, min_usd, st):
     """💳 A SOL transfer one of `mine` signed to the fee wallet, confirmed on-chain, worth ≥ 97% of `min_usd` (SOL re-priced now) and never used before
     (crews and card rounds share the used-signature rule). → {sig, usd, lamports}; raises HTTPException."""
     import crews as _cr
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', sig or ''):
         raise HTTPException(400, 'Send the payment first — no signature yet.')
-    if _cr.sig_used(st, sig) or sig in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
+    if _cr.sig_used(st, sig):
         raise HTTPException(409, 'That payment was already used.')
+    _pay_hold(sig)   # kept on success (the crew store then holds it too); released below when the payment does not check out
+    try:
+        return await _verify_sol_payment_held(sig, mine, min_usd)
+    except BaseException:
+        _PAY_HELD.discard(sig); raise
+
+
+async def _verify_sol_payment_held(sig, mine, min_usd):
     to = await _rounds_pay_to()
     if not to:
         raise HTTPException(503, 'Fee wallet not set — families cannot be paid for right now.')
@@ -11040,7 +11070,7 @@ async def familia_pools_earn(request: Request):
         side_, asset_, signer_, amt_ = _le.clean_request(body)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    ip_ = _guard.request_ip(request); now = time.time()
     hits_ = [t_ for t_ in _fle_hits.get(ip_, []) if now - t_ < 3600]
     if len(hits_) >= 30:
         raise HTTPException(429, 'Too many deposit builds from here — try again in a while.')
@@ -11194,7 +11224,7 @@ async def familia_perps_real_build(request: Request):
     quote (entry, liquidation, fees), `jup_perps.verify` opens it, the wallet signs it next."""
     import jup_perps as _jp
     body = await request.json()
-    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    ip_ = _guard.request_ip(request); now = time.time()
     hits_ = [t_ for t_ in _fjp_hits.get(ip_, []) if now - t_ < 3600]
     if len(hits_) >= 60:
         raise HTTPException(429, 'Too many perps builds from here — try again in a while.')
@@ -11415,7 +11445,7 @@ async def familia_leverage_build(request: Request):
         act_, signer_, vid_, pid_, col_, lev_ = _lb.clean_request(body)
     except ValueError as e:
         raise HTTPException(400, str(e))
-    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    ip_ = _guard.request_ip(request); now = time.time()
     hits_ = [t_ for t_ in _flv_hits.get(ip_, []) if now - t_ < 3600]
     if len(hits_) >= 30:
         raise HTTPException(429, 'Too many leverage builds from here — try again in a while.')
@@ -24718,7 +24748,7 @@ async def vault_pool_search(q: str = Query(..., min_length=2, max_length=60)):
 async def admin_vaults_save(request: Request):
     """Design a vault: up to 3 pools (v2/v3), base weights, per-pool caps (% of pool TVL), v3 range widths, fees.
     Status stays 'design' until the on-chain program is deployed and audited — nothing here moves funds."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     body = await request.json()
     async with _admin_lock:
         d = _json_load(VAULTS_PATH, {'vaults': {}})
@@ -25478,7 +25508,7 @@ async def admin_airdrops(request: Request):
 
 @app.post('/api/reputation/admin/airdrops')
 async def admin_schedule(request: Request, payload: Airdrop):
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     recips = []
     for r in payload.recipients[:1000]:
         a = str((r or {}).get('address', ''))
@@ -25923,7 +25953,7 @@ async def token_approvals(address: str, request: Request):
     what a drainer leaves behind). Read-only; the page builds the revoke and the wallet signs it. 20 checks an hour per IP."""
     if not _re.match(_B58, address or ''):
         raise HTTPException(400, 'Not a Solana address.')
-    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    ip_ = _guard.request_ip(request); now = time.time()
     h_ = [t_ for t_ in _appr_hits.get(ip_, []) if now - t_ < 3600]
     if len(h_) >= 20:
         raise HTTPException(429, 'Too many checks from here — try again in a while.')
@@ -26053,7 +26083,7 @@ _receipt_hits: dict = {}
 @app.post('/api/reputation/receipts')
 async def store_receipt(payload: ReceiptIn, request: Request):
     global _receipt_sigs
-    ip = request.client.host if request.client else '?'
+    ip = _guard.request_ip(request)
     now = time.time(); hits = [t for t in _receipt_hits.get(ip, []) if now - t < 60]
     if len(hits) >= 20:  # each receipt costs RPC lookups; cap per IP
         raise HTTPException(429, 'Too many receipts — slow down.')
@@ -26941,7 +26971,7 @@ async def admin_fees_prepay(request: Request, body: dict):
 @app.post('/api/reputation/admin/fees/bundle')
 async def admin_fees_bundle(request: Request, body: dict):
     """Core › Fees › Bundle pricing: flat $ per coin for cards bought all at once (Fuse / runners)."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     async with _admin_lock:
         d = _admin_load()
         b = _hq.clean_bundle(body)
@@ -26994,6 +27024,16 @@ class RoundsIn(BaseModel):
 
 @app.post('/api/reputation/fuses/rounds')
 async def fuse_rounds(p: RoundsIn):
+    held = bool(p.signature) and p.mode in ('pay', 'settle')
+    if held and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature or ''):
+        _pay_hold(p.signature)
+    try:
+        return await _fuse_rounds(p)
+    except BaseException:
+        _PAY_HELD.discard(p.signature or ''); raise
+
+
+async def _fuse_rounds(p):
     """🔁 +5 rounds on YOUR card: 'pay' = a confirmed SOL transfer YOU signed to the fee wallet (checked on-chain, never reused);
     'compound' = rounds now, the card owes the price until its next profit take; 'settle' = pay what the card owes."""
     me = _session_or_401(p.address, p.session)
@@ -27002,8 +27042,6 @@ async def fuse_rounds(p: RoundsIn):
     if p.mode in ('pay', 'settle') and (cfg['per5Usd'] > 0 or p.mode == 'settle'):
         if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature or ''):
             raise HTTPException(400, 'Send the payment first — no signature yet.')
-        if p.signature in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []):
-            raise HTTPException(409, 'That payment was already used.')
         to = await _rounds_pay_to()
         if not to:
             raise HTTPException(503, 'Fee wallet not set — rounds cannot be bought right now.')
@@ -27056,7 +27094,7 @@ class HouseFees(BaseModel):
 @app.post('/api/reputation/admin/fees/house')
 async def admin_fees_house(request: Request, p: HouseFees):
     """🏠 Save the house fees (audited); FeeCat's paper fee is pushed to her service right away (a failed push says so — her old fee stays)."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     async with _admin_lock:
         d = _admin_load()
         d.setdefault('fees', {})['house'] = p.dict()
@@ -27545,7 +27583,7 @@ async def admin_fee_selftest(request: Request):
 
 @app.post('/api/reputation/admin/fees')
 async def admin_fees_set(request: Request, payload: FeeCfg):
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     addr = r'^[1-9A-HJ-NP-Za-km-z]{32,44}$'
     if payload.engine not in ('swap', 'ultra'):
         raise HTTPException(400, 'Engine must be swap or ultra.')
@@ -30455,9 +30493,8 @@ async def _git(*args, timeout=8):
 async def local_update(request: Request):
     """One-click update from the footer, for the machine running FEELESS itself: runs scripts/update.sh detached
     (it restarts this service). Refused from anywhere but localhost, so a public site can never be poked."""
-    host = (request.client.host if request.client else '') or ''
     origin = (request.headers.get('origin') or '').lower()
-    if host not in ('127.0.0.1', '::1', 'localhost') or (origin and not _re.match(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$', origin)):
+    if not _guard.is_local(request) or (origin and not _re.match(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$', origin)):
         raise HTTPException(403, 'Updates can only be started on the machine running FEELESS.')
     _require_admin(request)   # 🔒 2026-11-11: the dev server proxies every LAN call from 127.0.0.1 (and curl sends no Origin), so localhost alone was not proof
     root = Path(__file__).resolve().parents[1]
@@ -30876,7 +30913,7 @@ def _relay_spent(r) -> bool:
 
 @app.post('/api/reputation/rpc')
 async def rpc_relay(request: Request):
-    ip = request.client.host if request.client else '?'
+    ip = _guard.request_ip(request)
     now = time.time(); hits = [t for t in _rpc_hits.get(ip, []) if now - t < 10]
     if len(hits) >= 60:
         raise HTTPException(429, 'Too many RPC calls.')
@@ -31010,7 +31047,7 @@ class PoolRegIn(BaseModel):
 @app.post('/api/reputation/admin/pools/register')
 async def pools_register(request: Request, p: PoolRegIn):
     """Record a pool created from the HQ. Verified on-chain: succeeded, signed by this admin."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     async with httpx.AsyncClient(timeout=20) as http:
         tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
     if not tx or (tx.get('meta') or {}).get('err'):
@@ -31396,7 +31433,7 @@ async def _circle(method, path, body=None, agent=False):
 def _require_owner(request: Request):
     me = _require_admin(request)
     if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the FEELESS creator wallet can manage Circle wallets.')
+        raise HTTPException(403, 'Only the FEELESS creator wallet can do this: it moves money, routes fees or holds keys.')
     return me
 
 
@@ -31444,7 +31481,7 @@ class ReservePaid(BaseModel):
 @app.post('/api/reputation/admin/reserve/{sid}/paid')
 async def admin_reserve_paid(request: Request, sid: str, p: ReservePaid):
     """Record a payout the reserve wallet signed. Every signature must be on-chain, succeeded and signed by the reserve wallet."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
     if not s:
         raise HTTPException(404, 'Season not found.')
@@ -31679,7 +31716,7 @@ async def admin_badge_pools(request: Request):
 
 @app.post('/api/reputation/admin/badge-pools')
 async def admin_badge_pool_save(request: Request, p: BadgePoolIn):
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     if not _re.match(_ADDR_RE, p.wallet):
         raise HTTPException(400, 'Pool wallet must be a Solana address.')
     weights = {}
@@ -31731,7 +31768,7 @@ async def admin_badge_pool_delete(request: Request, pid: str):
 
 @app.post('/api/reputation/admin/badge-pools/{pid}/paid')
 async def admin_badge_pool_paid(request: Request, pid: str, p: ReservePaid):
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     d = _pools(); pool = next((x for x in d['pools'] if x['id'] == pid), None)
     if not pool:
         raise HTTPException(404, 'Pool not found.')
@@ -32321,7 +32358,7 @@ class SplitRecord(BaseModel):
 async def treasury_split_record(request: Request, p: SplitRecord):
     """Record a split the owner signed from their own wallet. Every signature is re-read on-chain and only the
     transfers the signer really made are stored."""
-    admin = _require_admin(request)
+    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
     if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
         raise HTTPException(400, 'Bad transaction signature.')
     ad = _admin_load()
@@ -33308,6 +33345,37 @@ async def internal_agent_circle_send(request: Request, body: dict):
     book_ = _json_load(AGENT_CIRCLE_SENT, {})
     if book_.get(key_):   # asked again with the same key → the same trade, never a second one
         return {'signature': book_[key_], 'again': True}
+    if key_ in _CIRCLE_HELD:   # 🔒 audit #7: two overlapping sends with one key used to sign twice (the second saved a stale book)
+        raise HTTPException(409, 'That send is already being signed.')
+    why_ = _cfund.agent_tx_policy(tx_, addr_, _agent_sol_to(str(body.get('catId') or '')))
+    if why_:
+        print(f"[agent send] {key_}: refused by the signer policy: {why_}")
+        raise HTTPException(403, f'The agent signer refused it: {why_}.')
+    _CIRCLE_HELD.add(key_)
+    try:
+        return await _agent_circle_sign_send(body, key_, tx_, wid_, addr_)
+    finally:
+        _CIRCLE_HELD.discard(key_)
+
+
+_CIRCLE_HELD: set = set()
+
+
+def _agent_sol_to(cat_id):
+    """Where an agent's SOL may go besides its own wrapped SOL: the Collective pot, and the top-up address its owner confirmed. Read from
+    the server's own files, never from the request."""
+    out = []
+    try:
+        pot = ((_json_load(DATA_DIR / 'colony.json', {}) or {}).get('wallet') or {}).get('address')
+        out += [pot] if pot else []
+        topup = ((((_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('cats') or {}).get(cat_id) or {}).get('topup') or {}).get('address')
+        out += [topup] if topup else []
+    except Exception:   # noqa: BLE001 — an unreadable file only narrows where it may send
+        pass
+    return out
+
+
+async def _agent_circle_sign_send(body, key_, tx_, wid_, addr_):
     acct_ = body.get('acct') == 'agent'   # 🟦 an agent's own wallet lives on the separate account; Fee's assigned wallet on the FEELESS one
     w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet') if acct_ else next((w for w in (await _circle_wallets_live()) or [] if w.get('id') == wid_), None)
     if not w_ or w_.get('address') != addr_:
@@ -33316,7 +33384,8 @@ async def internal_agent_circle_send(request: Request, body: dict):
     sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
     if not signed_.get('signedTransaction') or not sig_:
         raise HTTPException(502, 'Circle did not sign it.')
-    _json_save(AGENT_CIRCLE_SENT, {**book_, key_: sig_})   # written BEFORE the send
+    async with _admin_lock:   # reloaded under the lock: an overlapping send's key is never overwritten by a stale copy
+        _json_save(AGENT_CIRCLE_SENT, {**_json_load(AGENT_CIRCLE_SENT, {}), key_: sig_})   # written BEFORE the send
     async with httpx.AsyncClient(timeout=20) as http_:
         took_ = await _krpc(http_, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
     if not took_:

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 🫀 Keeps every FEELESS backend service up while Fuse runs: checks each port every 20s, restarts ONLY the one that's down.
 # Run: nohup bash scripts/keep-alive.sh > /tmp/feeless-keepalive.log 2>&1 &     Stop: pkill -f keep-alive.sh
+umask 077   # 🔒 audit 2026-11-12 #6: logs in /tmp are private to this user (they held an API key and session tokens)
 root="$(cd "$(dirname "$0")/.." && pwd)"
 up() { curl -s -m 20 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$1$2" | grep -qE '^[1-4]'; }
 # a service started < GRACE seconds ago is not judged yet (cold caches made the first answers slow and the old 10s probe killed it again)
