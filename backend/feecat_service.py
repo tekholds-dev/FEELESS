@@ -5799,7 +5799,6 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             for k_, pg in enumerate(pages):   # 🖼 the last page stays on its window after the task (owner 2026-10-31: "always show the last page they were on")
                 try:
                     jpg_ = await asyncio.wait_for(_vv.visitor_frame(pg, getattr(pg, 'url', '') or ''), 12) if getattr(pg, 'live', False) else None
-                    win_ = next((x for x in (w.get('task') or {}).get('windows') or [] if x.get('i') == k_), None) or {}
                     if jpg_ and jpg_ != _vv.blank_jpg():   # 🔒 a private page never becomes a public resting monitor
                         _SHOTS[(cat_id, k_)] = (time.time(), jpg_)
                         _last_put(cat_id, _slot_of(cat_now, models[k_] if k_ < len(models) else ''), jpg_)   # 🖼 its model's monitor idles on this page (kept on disk)
@@ -7803,7 +7802,7 @@ async def _build_3d(cat, doc, text, brains, order, name, to):
             except Exception as e:   # noqa: BLE001 — a look that fails never costs the page
                 print(f'[look] {str(e)[:120]}')
     doc['scene3d'] = first_; doc['kitsUsed'] = [{'id': 'three', 'name': 'three.js', 'used': True}]; _feat.add_version(doc, html, by, time.time()); _play_save(cat_id, '3d', {'scene': scene, 'mind': scene}); _play_save(cat_id, 'refs', _play.add_reference(_play_load(cat_id, 'refs') or [], doc.get('name'), prompt, scene))
-    _feat.add_msg(doc, by, f"Page {len(doc['versions'])} is ready. Open Static to try it." + (f" {by} built it, {check_by} checked it against your words{': ' + checked.rstrip('.') if checked else ''}." if check_by and check_by != by and fresh_ else '') + f" Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', time.time())
+    _feat.add_msg(doc, by, (f"{say} " if say else '') + f"Page {len(doc['versions'])} is ready. Open Static to try it." + (f" {by} built it, {check_by} checked it against your words{': ' + checked.rstrip('.') if checked else ''}." if check_by and check_by != by and fresh_ else '') + f" Real assets: {', '.join(dict.fromkeys(seen_used)) or 'none'}." + (f" Not in the library, so left out: {', '.join(dict.fromkeys(seen_missing))}." if seen_missing and (seen_used or not now_scene['objects']) else '') + (f" This print: {_play.MOODS[scene['mood']]['name']} mood, words {scene.get('layout') or 'left'}." if print_ and scene.get('mood') in _play.MOODS else '') + f' Read from the page: {_play.page_facts(first_, next_)}' + (f' The other mind said: {checked}.' if checked and not _play.ASKS_DASH.search(str(text)) else '') + (f' It looked at its own page: {looked_}.' if looked_ else '') + ' Open 3D studio to change it by hand.', time.time())
     return cost, '', own
 
 
@@ -9048,7 +9047,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'filed': rows_[-1], 'pocFolders': _poc_view(cat)}
         raise HTTPException(400, 'No such step.')
     if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
-        f3_ = _play_path(cat_id, '3d'); saved_ = _play_load(cat_id, '3d') or {}
+        saved_ = _play_load(cat_id, '3d') or {}
         if p.op == 'play3d_get':
             c3_ = _play_load(cat_id, 'code3d') or {}
             return {'code': c3_.get('code') or '', 'codeChat': c3_.get('chat') or [], 'minds': [str(b_).split('/')[-1] for b_ in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]], 'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}

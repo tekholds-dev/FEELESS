@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useCountUp } from '../../lib/useCountUp';
+import SegTabs from '../SegTabs';
+import { ModelForge } from './ModelForge';
 import '../../styles/modelLab.css';
 
 // 🧪 MODEL LAB (owner 2026-11-11: "a folder for the new AI we are creating … a full AI and human setup to build / learn how to be a new kind of
 // artificial intel"). LIVE: what FEELESS's own model would learn from, read from the stash (every proof and how it really ended), the model-call
 // log (the rented minds' real record: the bar to beat) and the owner's own grades on proofs nothing settled (the human half). No model is
 // trained here and nothing is spent or sent: Export gives the owner a scrubbed .jsonl file. Name is the owner's to pick (kept in this browser).
-const NAME_KEY = 'feeless.modelLab.name';
+const NAME_KEY = 'feeless.modelLab.name'; const TAB_KEY = 'feeless.modelLab.tab';
+const TABS = [['build', '🏗 Build your model', 'Design it, see its specs, set its guardrails, press Build: it trains on this Mac'], ['data', '📊 Data & grades', 'What it learns from, your grades, the minds to beat, the road to a big fine-tune']];
 const STEPS = [
   ['data', 'Collect the data we own', 'Every graded proof (PoW, PoP, PoB, PoC, PoStatic, PoEco), every 👍 / 👎 the owners gave, the kits and the fixes that made a page pass the store check. Ours, labelled by real results, not scraped text.', 'Proof folders, review grades and kit library already store this'],
   ['clean', 'Clean it into training rows', 'One row = the ask, what the agent read, what it did, the grade. Strip wallets, keys and personal data. Drop proofs with no result.', 'A script over the proof store; no model needed yet'],
@@ -55,6 +58,8 @@ function Review({ q, i, busy, onGrade }) {
 export function ModelLab({ call }) {
   const [name, setName] = useState(() => { try { return localStorage.getItem(NAME_KEY) || ''; } catch { return ''; } });
   const keep = v => { setName(v); try { localStorage.setItem(NAME_KEY, v); } catch { /* private window */ } };
+  const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'build'; } catch { return 'build'; } });
+  const pickTab = k => { setTab(k); try { localStorage.setItem(TAB_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState('');
   const load = useCallback(() => (call ? call('/admin/model-lab').then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)) : Promise.resolve()), [call]);
   useEffect(() => { load(); }, [load]);
@@ -73,7 +78,9 @@ export function ModelLab({ call }) {
       {d ? <span className="mlb-stat" data-tip="Settled proofs + your grades: rows it would learn from"><Num v={d.rows} /><small>ROWS</small></span> : null}
       {d ? <span className="mlb-stat" data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>PAIRS</small></span> : null}
       <span className="mlb-ring" style={{ '--k': real / STEPS.length }} data-tip="Steps with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>STEPS</small></span></header>
-    <p className="mlb-truth">No model is trained yet. Below is the data it would learn from, live, and the minds it has to beat.</p>
+    <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
+    {tab === 'build' ? <ModelForge call={call} /> : <>
+    <p className="mlb-truth">Below is everything your models learn from, live, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>
       <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH<small>{d.snapshots} snapshots kept as evidence, not rows</small></h4>
@@ -89,5 +96,6 @@ export function ModelLab({ call }) {
     <ol className="mlb-steps">{STEPS.map(([k, t, say, need], i) => { const st = steps[k] || 'todo'; return <li key={k} className={STATE[st][1]} style={{ '--i': i }} data-testid={`mlb-step-${k}`}><i className="m-num">{i + 1}</i><span><b>{t}</b><small>{say}</small><em>{need}</em></span><u>{STATE[st][0]}</u></li>; })}</ol>
     <section className="mlb-two"><div className="mlb-card"><h4>WHERE THE BIG MODELS FALL SHORT</h4><ul>{GAPS.map(([t, say], i) => <li key={t} style={{ '--i': i }}><b>{t}</b><small>{say}</small></li>)}</ul></div>
       <div className="mlb-card"><h4>THE GAP HUNT · NEXT</h4><ul className="mlb-hunt">{HUNT.map((t, i) => <li key={t} style={{ '--i': i }}>{t}</li>)}</ul><small className="mlb-note">Public sources only. Nothing here copies another company’s model or data.</small></div></section>
+    </>}
   </div>;
 }

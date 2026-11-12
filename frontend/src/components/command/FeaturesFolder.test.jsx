@@ -534,15 +534,17 @@ test('🎬 its ad: the owner starts the run, sees each ad’s state, and a ready
   await act(async () => { el2.querySelector('[data-testid="adr-redo"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'show_ads', text: 'redo:pos' });   // ↻ one bad ad, built again
 });
 
-test('🧪 Model Lab says plainly no model exists yet and keeps the owner’s name for it', async () => {
-  const { ModelLab } = require('./ModelLab');
+test('🧪 Model Lab opens on Build, and its Data tab shows the road to a fine-tune', async () => {
+  const { ModelLab } = require('./ModelLab'); localStorage.removeItem('feeless.modelLab.tab');
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab />); });
-  expect(el.textContent).toContain('No model is trained yet'); expect(el.querySelectorAll('[data-testid^="mlb-step-"]').length).toBe(7);
+  expect(el.textContent).toContain('Sign in as the owner to build a model');
+  await act(async () => { el.querySelector('[data-testid="mlb-tab-data"]').click(); });
+  expect(el.textContent).toContain('everything your models learn from'); expect(el.querySelectorAll('[data-testid^="mlb-step-"]').length).toBe(7);
 });
 
 test('🧪 Model Lab live: the dataset per proof type, the owner grades an open proof, the minds to beat, and a clean export', async () => {
-  const { ModelLab } = require('./ModelLab');
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'data');
   const kind = (k, rows, won, lost, open) => ({ kind: k, rows, won, lost, flat: 0, open, graded: 0, pairs: Math.min(won, lost), rowsPct: rows / 1000, pairsPct: Math.min(won, lost) / 200 });
   const view = graded => ({ kinds: [kind('PoB', 71, 40, 31, 2), kind('PoW', 59, 30, 29, graded ? 0 : 1)], rows: 130 + graded, pairs: 60, graded, open: graded ? 2 : 3, snapshots: 41,
     minds: [{ model: 'hy4', calls: 60, failed: 3, failRate: 0.05, avgMs: 17000, usd: 0.17, local: false, kinds: { poc: 40, pos: 20 } }], spentUsd: 0.17,
@@ -586,4 +588,35 @@ test('Back to desk minimizes the desk window the open proof sits in', async () =
   expect(q('ws-todesk')).toBeNull(); await act(async () => { q('ws-w1').click(); });
   await act(async () => { q('ws-todesk').click(); }); expect(min).toHaveBeenCalledTimes(1); expect(q('ws-content')).not.toBeNull();   // the folder stays open behind the taskbar
   await act(async () => { root.unmount(); }); el.remove();
+});
+
+test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guardrails, the live build draws, and a built model answers with its rules', async () => {
+  jest.useFakeTimers();
+  const { ModelForge } = require('./ModelForge');
+  const card = { name: 'Nano', cfg: { layers: 2 }, spec: { paramsTotal: 104000 }, val: 1.9, perplexity: 6.7, baselinePerplexity: 90, seconds: 31, sample: 'PoW won' };
+  const view = { corpus: { chars: 52000, blocks: 142, charVocab: 90 }, presets: { nano: { name: 'Nano', tok: 'char', d: 64, layers: 2, heads: 4, ctx: 64, steps: 300, batch: 16, lr: 0.003, vocab: 256 } },
+    limits: { params: 6000000, layers: [1, 8] }, rails: { refuse: ['seed phrase'], block: [], scrub: true, max_chars: 600, footer: 'Not financial advice.' },
+    jobs: [{ id: '20261112-100000-nano', status: 'done', history: [[0, 4.4, 4.4], [299, 1.8, 1.9]], steps: 300, step: 300, card }], running: null };
+  const sent = [];
+  const call = jest.fn(async (path, opts) => {
+    const body = opts?.body && JSON.parse(opts.body); sent.push([path, body]);
+    if (path.endsWith('/forge')) return view;
+    if (path.endsWith('/spec')) return { paramsTotal: 104000 + body.cfg.layers, params: { embed: 5760, position: 4096, per_block: 49920, final_norm: 128 }, vocab: 90, weightsMb: 0.4, trainMb: 9, flopsPerToken: 1e6, headDim: 16, corpusTokens: 52000, epochs: 1.5, tokensPerParam: 0.5, estSec: 40, verdict: 'Your data is small', tooBig: false };
+    if (path.endsWith('/build')) return { id: '20261112-101000-nano', spec: {} };
+    if (path.endsWith('/ask')) return { answer: 'PoW won · NFA', raw: 'PoW won', fired: [{ rule: 'footer', detail: 'NFA' }], ms: 40 };
+    return { id: '20261112-101000-nano', status: 'training', step: 150, steps: 300, loss: 2.2, val: 2.4, history: [[0, 4.4, 4.4], [150, 2.2, 2.4]], tps: 3000, eta: 15 };
+  });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ModelForge call={call} />); });
+  await act(async () => { jest.advanceTimersByTime(300); });
+  expect(el.querySelector('[data-testid="mlf-specs"]').textContent).toContain('PARAMETERS'); expect(el.querySelectorAll('.mlf-slab.is-block').length).toBe(2);
+  await act(async () => { el.querySelector('[data-testid="mlf-layers-up"]').click(); }); await act(async () => { jest.advanceTimersByTime(300); });
+  expect(el.querySelectorAll('.mlf-slab.is-block').length).toBe(3); expect(sent.filter(x => x[0].endsWith('/spec')).at(-1)[1].cfg.layers).toBe(3);
+  await act(async () => { el.querySelector('[data-testid="mlf-build"]').click(); });
+  const b = sent.find(x => x[0].endsWith('/build'))[1]; expect(b.cfg.layers).toBe(3); expect(b.rails.refuse).toEqual(['seed phrase']);
+  await act(async () => { jest.advanceTimersByTime(1600); });
+  expect(el.querySelector('[data-testid="mlf-run"]').textContent).toContain('150/300'); expect(el.querySelector('[data-testid="mlf-stop"]')).not.toBeNull();
+  await act(async () => { el.querySelector('[data-testid="mlf-ask"]').click(); });
+  expect(el.querySelector('[data-testid="mlf-ans"]').textContent).toContain('footer: NFA');
+  jest.useRealTimers();
 });

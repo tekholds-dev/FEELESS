@@ -1,5 +1,4 @@
 """📡 PoC as an ongoing proof (owner 2026-11-06: "responding or posting on a site when it has alerts, or when the agent needs narrative or emotion to post"). It watches public pages its owner chose, sees what really changed, reads the room, and drafts what to say. Nothing is ever posted: its owner copies or changes it. Pure, apart from the read."""
-import hashlib
 import html as _html
 import json
 import re

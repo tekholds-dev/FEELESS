@@ -162,7 +162,7 @@ def edge_of(data, sport, teams, plays=None):
     """🎯 The vitals behind a bid, from what ESPN sent. Left out when missing."""
     if len(teams) != 2:
         return {}
-    away, home = teams; aid, hid = away.get('id'), home.get('id'); gi = data.get('gameInfo') or {}; pick = (data.get('pickcenter') or [{}])[0] or {}; comp = ((data.get('header') or {}).get('competitions') or [{}])[0]
+    away, home = teams; aid = away.get('id'); gi = data.get('gameInfo') or {}; pick = (data.get('pickcenter') or [{}])[0] or {}; comp = ((data.get('header') or {}).get('competitions') or [{}])[0]
     state = ((comp.get('status') or {}).get('type') or {}).get('state'); date = comp.get('date'); out = {}
     crew = [{'name': o.get('displayName'), 'role': (o.get('position') or {}).get('name')} for o in gi.get('officials') or [] if o.get('displayName')]
     if crew:

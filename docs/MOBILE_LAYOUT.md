@@ -4,7 +4,7 @@ Owner requirement, 2026-10-28: every page must fit the usable browser screen on 
 
 ## Exact owner-supplied Duo reference
 
-These are the CSS viewport sizes already supplied for this user's “iPhone Duo”. They are not a universal Apple hardware specification or independently measured physical screen dimensions. DPR is 3. Safari in this environment reports no viewport segments; never require that API to enable the layout.
+**Confirmed against Apple's spec page (apple.com/iphone-duo/specs, 2026-11-12):** outer 5.4" 1398 × 2034 px at 460 ppi, inner 7.6" 1878 × 2670 px at 430 ppi (announced 2026-09-09). At DPR 3 that is exactly 466 × 678 folded and 626 × 890 / 890 × 626 open — the owner's numbers. Apple publishes no browser viewport: Safari's toolbars take ~90–120 px of height (folded upright ≈ 466 × 560, open wide ≈ 890 × 540), so test those too. Safari in this environment reports no viewport segments; never require that API to enable the layout.
 
 | State | Width × height, CSS px | Expected behavior |
 |---|---|---|
@@ -21,9 +21,9 @@ Browser chrome, keyboard, display scaling and split windows can produce other us
 2. Orientation comes from the usable layout dimensions, not the device name. Preserve selected coin, interval, dock tab and swap state across rotation. Existing useDuoFloor detects coarse-pointer wide devices/sideways phones; keep ordinary desktop behavior intact.
 3. Scroll the content panes, not the entire fixed cockpit. Avoid a fixed minimum height larger than the viewport. Avoid overflow:hidden ancestors that can be programmatically scrolled by focus; use overflow:clip where no scrolling is intended.
 4. Safe areas, browser bars, keyboard and standalone/home-screen mode must never cover close/navigation/trading controls. iPhone browser fullscreen behavior is platform-controlled; CSS fitting must work without requestFullscreen.
-5. Toolbars are swipeable rows with readable labels and usable touch targets (32px minimum; prefer 40–44px). No missing controls: collapse secondary navigation behind a clearly labeled toggle, preserve keyboard/focus access and allow scrolling.
+5. **Tab rows never scroll sideways (owner 2026-11-12: "no scroll tabs" on the Duo, folds and phones): they wrap and share the row** — one rule in `terminal.css` ("Tab rows never scroll"); add a new tab row's class there. Readable labels and usable touch targets (32px minimum; prefer 40–44px; `touch.css` grows small ones on touch screens). No missing controls: collapse secondary navigation behind a clearly labeled toggle, preserve keyboard/focus access and allow scrolling.
 6. Canvas charts resize from their allocated container. Do not subtract guessed toolbar heights or let a descendant overwrite the intended chart size token. Keep live state intact on viewport changes.
-7. Verify ordinary 360/390px phones; folded 466×678 and 678×466; open 890×626 and 626×890; intermediate widths; shortened Safari viewport; keyboard; day/night; reduced motion/lite; desktop regression. Capture evidence and label emulation versus physical-device testing.
+7. Run the device matrix below (`site-audit` style, touch emulation). Verify ordinary 360/390px phones; folded 466×678 and 678×466; open 890×626 and 626×890; intermediate widths; shortened Safari viewport; keyboard; day/night; reduced motion/lite; desktop regression. Capture evidence and label emulation versus physical-device testing.
 
 ## Duo floors — the OFFICIAL Duo / fold / phone view (owner 2026-10-29: "the official Duo view should be in MD's so no f-ups, bugs, bad containments")
 
@@ -63,3 +63,18 @@ Rules (each one is a bug we already had):
 ## This delivery
 
 Agents only: fitted HQ shell, safe-area padding, visualViewport listeners with cleanup, chart-height allocation, rotation, scroll containment and HQ-controls toggle. Landscape chart gets the entire left half; the money/navigation strip lives above the right desk. Portrait prioritizes the chart above the dock. Other tabs must adopt/verify this contract in M01; they were not all modified here. Physical Safari fullscreen/keyboard verification is still OWNER work.
+
+## Device matrix (2026-11-12, emulated in headless Chromium with touch; physical devices stay OWNER verification)
+
+| Device | CSS px | Source |
+|---|---|---|
+| iPhone Duo folded / sideways / with Safari bars | 466×678 · 678×466 · 466×560 | Apple spec px ÷ 3 |
+| iPhone Duo open upright / wide / with Safari bars | 626×890 · 890×626 · 890×540 | Apple spec px ÷ 3 |
+| Galaxy Z Fold 7 cover / open / open sideways | 412×915 · 984×1092 · 1092×984 | open from yesviz (DPR 2); cover = usual 412 Android width (estimate) |
+| Galaxy Z Fold 5/6 cover / open | 344×882 · 882×1104 | Chrome DevTools preset |
+| Pixel 10 Pro Fold open | 865×897 | 2076×2152 px at ≈2.4 (estimate) |
+| Phones | 360×780 · 375×667 · 390×844 · 440×956 | common widths |
+| iPad · desktop | 820×1180 · 1280×800 | regression |
+
+Checks per page: no page side-scroll, no tab row that overflows (it must wrap), no control off-screen outside a scroll pane, no console error or crash.
+Android fold widths move with the phone's display-size setting, so treat them as ranges, not exact numbers.

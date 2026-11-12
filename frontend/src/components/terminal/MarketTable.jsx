@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { HeldChip } from '../../lib/myHoldings';
 import { LivePrice, LiveChange24 } from './LiveCells';
 import React, { useEffect } from 'react';
@@ -8,9 +9,11 @@ import { Change, TokenAvatar, withRankingContext } from './MarketPrimitives';
 import { observedLabel, observedReasons } from '../../lib/observed';
 import { formatUSD, formatAge, pairKey, dexUrl } from '../../lib/dexscreener';
 
+const tableBox = boxRef([560, 760]);   // 📐 the table fits its own column (Duo / fold split, iPad), not the window
+
 export const MarketTable = ({ pairs, onSelect, has, toggle, loading, refreshing = false, screenerLabel, prefix = 'market' }) => {
   useEffect(() => { scanBackground(pairs); }, [pairs]);
-  return <div className="market-table-wrap">
+  return <div ref={tableBox} className="market-table-wrap">
   {refreshing && <div className="market-table-live-status" data-testid={`${prefix}-refreshing`}><span className="loader" />Updating live DEX coins…</div>}
   <table className="market-table" data-testid={`${prefix}-table`}><thead><tr><th>#</th><th>Token / Pool age</th><th>Price</th><th className="hide-small">1h</th><th>24h</th><th className="hide-medium">24h volume</th><th className="hide-small">Liquidity</th><th className="hide-medium">MCap / FDV</th><th>Actions</th></tr></thead><tbody>
     {loading && <tr><td colSpan={9}><div className="empty-table market-coin-loading" data-testid={`${prefix}-loading`}><span className="loader" />Loading live DEX coins…</div></td></tr>}

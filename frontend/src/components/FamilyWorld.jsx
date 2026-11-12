@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
@@ -261,6 +262,7 @@ function useIntake() {
   return d;
 }
 
+const worldBox = boxRef([560]);   // 📐 the Duo-land map | column split only when the city itself is wide (a Duo half split it twice)
 export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} }) {   // ?place=strike (the Telegram bot's link) opens that room
   const [v, setV, reload] = useWorld(addr, sess); const [lens, setLensRaw] = useState(() => { try { return new URLSearchParams(window.location.search).get('place') || null; } catch { return null; } }); const mk0 = useMarkets(); const intake = useIntake(); const mk = intake?.length ? { ...(mk0 || {}), coins: intake } : mk0; const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
@@ -316,7 +318,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
         {me.redeems?.length ? <ol>{me.redeems.map(x => <li key={x.id}>{mp(x.mp)} MP → {mp(x.feecat)} FEECAT · {x.status}</li>)}</ol> : null}</div></div> : <p className="m-dim">Join a family to spend MP.</p>,
     cartels: <CartelBoard v={v} me={me} act={act} busy={busy} onFly={id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const cc = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (cc) setCity(cc.key); setSelRaw(b); }} />,
   }[lens] || null;
-  return <section className="fwd" data-testid="family-world">
+  return <section ref={worldBox} className="fwd" data-testid="family-world">
     <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
     {v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setLensRaw(null); setCity(k); }} /> : null}
     <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} pools={pools} onPlace={k => setLensRaw(k)} onGoPlace={p => setLens(p.lens)} active={lens}

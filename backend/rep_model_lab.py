@@ -83,3 +83,165 @@ async def model_lab_export(request: Request):
     rs._require_owner(request)
     rows = await rs.asyncio.to_thread(_export, rs)
     return {'rows': rows, 'count': len(rows), 'at': round(time.time())}
+
+
+# ─── 🏗 MODEL FORGE: build the owner's own model on this Mac (model_forge.py is the engine) ────────────────────────────────────────────────
+import os
+import re
+import subprocess
+import sys
+
+import model_forge as _mf
+
+FORGE_MAX_KEEP = 12          # builds kept on disk; the oldest finished one goes first
+EXTRA_MAX = 400_000          # characters the owner may paste on top of the proofs
+
+
+def _forge_dir(rs):
+    d = rs.DATA_DIR / 'model_forge'; d.mkdir(parents=True, exist_ok=True); return d
+
+
+def _corpus(rs):
+    """The text a build learns from: every clean training row (settled proofs + the owner's grades), one block per proof."""
+    blocks = []
+    for r in _export(rs):
+        body = ' · '.join(f'{k}: {r[k]}' for k in _ml.FIELDS if r.get(k))
+        blocks.append(f"### {r['kind']} · {r.get('outcome', '')} · {r.get('title', '')}\n{body}{(' · note: ' + r['note']) if r.get('note') else ''}\n")
+    return '\n'.join(blocks)
+
+
+def _job_view(d):
+    p = rs_json(d / 'progress.json'); card = rs_json(d / 'card.json')
+    return {'id': d.name, 'status': p.get('status') or ('done' if card else 'queued'), 'step': p.get('step'), 'steps': p.get('steps'),
+            'loss': p.get('loss'), 'val': p.get('val'), 'tps': p.get('tps'), 'eta': p.get('eta'), 'elapsed': p.get('elapsed'),
+            'history': p.get('history') or [], 'error': p.get('error'), 'spec': p.get('spec'), 'card': card or None,
+            'name': (card or {}).get('name') or (rs_json(d / 'job.json').get('cfg') or {}).get('name')}
+
+
+def rs_json(path):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _alive(d):
+    pid = rs_json(d / 'progress.json').get('pid')
+    if not pid or rs_json(d / 'progress.json').get('status') not in ('tokenizing', 'training'):
+        return False
+    try:
+        os.kill(int(pid), 0); return True
+    except (OSError, ValueError):
+        return False
+
+
+def _job_dir(rs, jid):
+    if not re.fullmatch(r'\d{8}-\d{6}-[a-z0-9-]{0,20}', jid or ''):
+        raise rs.HTTPException(404, 'No such build.')
+    return _forge_dir(rs) / jid
+
+
+def _jobs(rs):
+    return sorted((d for d in _forge_dir(rs).iterdir() if d.is_dir() and (d / 'job.json').exists()), key=lambda d: d.name, reverse=True)
+
+
+@router.get('/api/reputation/admin/model-lab/forge')
+async def forge_view(request: Request):
+    """🏗 What a build would learn from (live), the presets and limits, and every build with its progress or model card."""
+    rs = _rs(); rs._require_owner(request)
+    def go():
+        text = _corpus(rs); tok = _mf.CharTok.train(text)
+        return {'corpus': {'chars': len(text), 'charVocab': tok.size, 'blocks': text.count('### '), 'preview': text[:600]},
+                'presets': _mf.PRESETS, 'limits': _mf.LIMITS, 'rails': _mf.RAILS_DEFAULT,
+                'jobs': [_job_view(d) for d in _jobs(rs)], 'running': next((d.name for d in _jobs(rs) if _alive(d)), None)}
+    return await rs.asyncio.to_thread(go)
+
+
+class ForgeSpec(BaseModel):
+    cfg: dict = {}
+    extra: str = ''
+
+
+@router.post('/api/reputation/admin/model-lab/forge/spec')
+async def forge_spec(request: Request, p: ForgeSpec):
+    """📐 The blueprint's specs before anything runs: parameters per part, memory, compute, data per parameter, an estimated time."""
+    rs = _rs(); rs._require_owner(request)
+    def go():
+        text = _corpus(rs) + '\n' + p.extra[:EXTRA_MAX]; c = _mf.clean_cfg(p.cfg)
+        vocab = _mf.CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
+        toks = len(text) if c['tok'] == 'char' else int(len(text) / 3.2)   # BPE ≈ 3.2 characters a token on this text (the build counts exactly)
+        return _mf.spec(c, vocab, toks)
+    return await rs.asyncio.to_thread(go)
+
+
+class ForgeBuild(BaseModel):
+    cfg: dict = {}
+    rails: dict = {}
+    extra: str = ''
+
+
+@router.post('/api/reputation/admin/model-lab/forge/build')
+async def forge_build(request: Request, p: ForgeBuild):
+    """🔨 Start one build: its own niced process on this Mac (one at a time), so the site keeps its speed. Nothing is rented or spent."""
+    rs = _rs(); rs._require_owner(request)
+    if any(_alive(d) for d in _jobs(rs)):
+        raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
+    c = _mf.clean_cfg(p.cfg); text = _corpus(rs) + '\n' + p.extra[:EXTRA_MAX]
+    vocab = _mf.CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
+    if _mf.n_params(c, vocab)['total'] > _mf.LIMITS['params']:
+        raise rs.HTTPException(400, 'Too big for this Mac: lower the width or layers.')
+    jid = time.strftime('%Y%m%d-%H%M%S') + '-' + re.sub(r'[^a-z0-9]+', '-', c['name'].lower()).strip('-')[:20]
+    d = _forge_dir(rs) / jid; d.mkdir()
+    (d / 'corpus.txt').write_text(text); (d / 'job.json').write_text(json.dumps({'cfg': c, 'rails': _mf.clean_rails(p.rails), 'sample_prompt': '### PoW · won · '}))
+    env = {**os.environ, 'VECLIB_MAXIMUM_THREADS': '4', 'OMP_NUM_THREADS': '4', 'OPENBLAS_NUM_THREADS': '4'}
+    subprocess.Popen([sys.executable, str(rs.Path(_mf.__file__)), 'train', str(d)], cwd=str(rs.Path(_mf.__file__).parent), env=env,
+                     stdout=subprocess.DEVNULL, stderr=open(d / 'build.log', 'w'), start_new_session=True, preexec_fn=lambda: os.nice(10))
+    done = [x for x in _jobs(rs) if not _alive(x)]
+    for old in done[FORGE_MAX_KEEP:]:
+        rs.shutil.rmtree(old, ignore_errors=True)
+    return {'id': jid, 'spec': _mf.spec(c, vocab, len(text))}
+
+
+@router.get('/api/reputation/admin/model-lab/forge/{jid}')
+async def forge_job(request: Request, jid: str):
+    rs = _rs(); rs._require_owner(request)
+    d = _job_dir(rs, jid)
+    if not (d / 'job.json').exists():
+        raise rs.HTTPException(404, 'No such build.')
+    return {**_job_view(d), 'alive': _alive(d)}
+
+
+@router.post('/api/reputation/admin/model-lab/forge/{jid}/stop')
+async def forge_stop(request: Request, jid: str):
+    """⏹ Ends a build at its next step; the weights it reached are saved and can be tried."""
+    rs = _rs(); rs._require_owner(request)
+    d = _job_dir(rs, jid)
+    if not (d / 'job.json').exists():
+        raise rs.HTTPException(404, 'No such build.')
+    (d / 'stop').write_text('1')
+    return {'ok': True}
+
+
+class ForgeAsk(BaseModel):
+    prompt: str = ''
+    temperature: float = 0.8
+    max_new: int = 200
+    rails: dict | None = None
+
+
+@router.post('/api/reputation/admin/model-lab/forge/{jid}/ask')
+async def forge_ask(request: Request, jid: str, p: ForgeAsk):
+    """💬 Ask a built model. Its guardrails wrap the answer and say which rule fired; the raw answer is shown next to it."""
+    rs = _rs(); rs._require_owner(request)
+    d = _job_dir(rs, jid)
+    if not (d / 'card.json').exists():
+        raise rs.HTTPException(404, 'That build has no model yet.')
+    def go():
+        P, c, tok, card = _mf.load(d); rails = _mf.clean_rails(p.rails if p.rails is not None else card.get('rails'))
+        refused, fired = _mf.guard(p.prompt, '', {**rails, 'block': [], 'scrub': False, 'footer': '', 'max_chars': 4000})
+        if fired:
+            return {'answer': refused, 'raw': '', 'fired': fired, 'ms': 0}
+        t0 = time.time(); raw = _mf.generate(P, c, tok, p.prompt[:2000], max_new=min(600, max(10, p.max_new)), temperature=min(2.0, max(0.1, p.temperature)))
+        answer, fired = _mf.guard(p.prompt, raw, rails)
+        return {'answer': answer, 'raw': raw, 'fired': fired, 'ms': round((time.time() - t0) * 1000)}
+    return await rs.asyncio.to_thread(go)

@@ -17,7 +17,7 @@ import name_lock as _name_lock
 import agent_deposit as _deposit
 import collective_pool as _cpool
 import collective_stake as _stake
-import collective_stash as _stash
+import collective_stash as _stash   # noqa: F401  (read by rep_* modules as rs._stash)
 import looks as _looks   # 🎨 the site's looks: Plasma default, free + advanced (looks.py)
 import reserve_pool
 import perf
@@ -52,7 +52,7 @@ http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS con
 import launchpad_board as _launchpad_board
 ds_pace.install(110, 20)   # 📡 this process's share of DexScreener's ~300/min per IP (market service takes 150)
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from urllib.parse import quote
+from urllib.parse import quote   # noqa: F401  (read by rep_public_reads as rs.quote)
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
@@ -25131,7 +25131,7 @@ async def wallet_badges(address: str):
     return out
 
 
-import chain_rpc as _chain_rpc_mod   # noqa: E402  (provider names for /health)
+import chain_rpc as _chain_rpc_mod   # noqa: E402,F401  (provider names for /health, read as rs._chain_rpc_mod)
 
 
 # ---- FEELESS HQ: creator-wallet admin tools ------------------------------
@@ -28875,7 +28875,7 @@ async def _portfolio_build(a):
 
 
 # ---- Image proxy for coin logos whose hosts forbid cross-site embedding ------------------------
-from fastapi.responses import Response as _Resp
+from fastapi.responses import Response as _Resp   # noqa: F401  (read by rep_public_reads as rs._Resp)
 from fnum import zero as _num_or_0
 _img_cache = {}
 
@@ -30736,7 +30736,7 @@ async def agent_pass_prepare(cat_id: str, p: AgentPassIn):
 async def agent_pass_confirm(cat_id: str, p: AgentPassIn):
     """🎫 Records a Pass only after checking its transaction on-chain (owner signed · fee reached FEELESS · a Core asset · no error)."""
     _session_or_401(p.address, p.session)
-    cat = await _owned_cat(cat_id, p.address)
+    await _owned_cat(cat_id, p.address)   # ownership check: raises when it is not theirs
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', p.signature or '') or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.asset or ''):
         raise HTTPException(400, 'Not a transaction / asset.')
     rules = await _agent_pass_rules()

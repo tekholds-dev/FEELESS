@@ -4213,3 +4213,21 @@ body.theme-day .meta-launch-banner-label small{color:#5b7466}
 .ecosystem-chat .chat-compose{margin:8px}
 .chart-message a[data-testid] { display: inline-flex; align-items: center; min-height: 32px; }   /* audit 2026-11-11 */
 .wp-bio a { display: inline-block; padding: 7px 2px; margin: -7px 0; }   /* audit 2026-11-11: 32px hit area */
+
+/* 2026-11-12: the closed phone drawer was off-screen but still focusable (tab / screen reader walked into hidden links); it hides once slid out */
+@media(max-width:800px){.terminal-sidebar{visibility:hidden;transition:transform .25s,visibility 0s .25s}.terminal-sidebar.sidebar-open{visibility:visible;transition:transform .25s}}
+/* 📱 Tab rows never scroll sideways (owner 2026-11-12: "no scroll tabs" on the iPhone Duo, folds and phones): they wrap and share the row.
+   One rule for every tab row (it also overrides the old swipe-row nowrap above); on a wide screen they still fit on one line. */
+body :is(.trend-sorts, .trend-tfs, .fcx-nav, .paper-platform-tabs, .rph-nav, .wps-nav, .reputation-top-tabs, .pump-radar-stages, .td-modes, .rep-dark nav) { flex-wrap: wrap !important; overflow-x: visible !important; }
+body :is(.trend-sorts, .trend-tfs, .rph-nav, .wps-nav, .reputation-top-tabs, .pump-radar-stages, .td-modes) > :is(button, a) { flex: 1 1 auto; justify-content: center; }
+@media (max-width: 900px) { body :is(.trend-sorts, .trend-tfs) { border-radius: 16px; } }
+/* 📐 The market table fits its own column, not the window (2026-11-12: in the Duo / fold split it sat 754 px wide in a 393 px half and
+   its watch / chart buttons were off-screen; iPad 724 px too). MarketTable measures the wrap (lib/boxRef.js → data-w760 / data-w560). */
+.market-table-wrap[data-w760] .hide-medium { display: none; }
+.market-table-wrap[data-w560] .hide-small, .market-table-wrap[data-w560] .market-table :is(th, td):first-child { display: none; }
+.market-table-wrap[data-w560] .market-table th { font-size: 7px; padding: 10px 5px; } .market-table-wrap[data-w560] .market-table td { padding: 13px 5px; }
+.market-table-wrap[data-w560] .market-table :is(th, td):nth-child(2) { padding-left: 11px; } .market-table-wrap[data-w560] .row-actions { gap: 7px; padding-right: 5px; }
+.market-table-wrap[data-w560] .market-table { font-size: 9px; } .market-table-wrap[data-w560] .market-table :is(th, td):nth-child(2) { width: 100%; max-width: 0; overflow: hidden; }   /* the token column takes what is left and clips */
+.market-table-wrap[data-w560] .token-select { max-width: 100%; min-width: 0; overflow: hidden; } .market-table-wrap[data-w560] .token-select > :not(.token-avatar) { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* the market controls row wraps instead of pushing the chain filter off a narrow half (Duo folded sideways, 2026-11-12) */
+.market-controls { flex-wrap: wrap; }

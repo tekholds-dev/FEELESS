@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Query
+from fastapi import FastAPI, APIRouter, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,9 +6,8 @@ import asyncio
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional, Any
-import uuid
 from datetime import datetime, timezone, timedelta
 
 
@@ -27,7 +26,6 @@ from trading import TradingService
 from whitepaper import router as docs_router
 from pump_network import network as pump_network, create_pump_router
 from lifi import create_lifi_router
-import re
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)

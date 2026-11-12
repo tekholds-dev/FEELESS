@@ -56,23 +56,23 @@ body.is-phone-land .token-focus > .focus-header .token-sub { display: none; }
 /* 🏙📱📱 FAMILIA on a Duo (owner 2026-10-28): held WIDE the city is ONE screen — the live 3D city pinned full height on the left half — and your
    family (HUD, the city strip, the sections) scrolls on the right half; an open room LOCKS to the right half, full height, over the family side
    (the city keeps moving beside it). The SWAP tab (DuoBar) trades the halves. Upright: a room is a bottom sheet over the city. Layout only. */
-body.is-duo-land .fwd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
-body.is-duo-land .fwd > * { grid-column: 2; min-width: 0; }
-body.is-duo-land .fwd > .fwd-mapwrap { display: contents; }
-body.is-duo-land .fwd .fc3 { grid-column: 1; grid-row: 1 / span 60; position: sticky; top: 0; height: calc(100dvh - 64px); min-height: 0; }
-body.is-duo-land .fwd .fwd-col { grid-column: 2; }
-body.is-duo-land.duo-swap .fwd .fc3 { grid-column: 2; } body.is-duo-land.duo-swap .fwd > *, body.is-duo-land.duo-swap .fwd .fwd-col { grid-column: 1; }
-body.is-duo-land .fwd .fwd-place { position: fixed !important; top: 0 !important; bottom: 0 !important; left: 50% !important; right: 0 !important; width: auto !important; max-width: none !important;
+body.is-duo-land .fwd:not([data-w560]) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
+body.is-duo-land .fwd:not([data-w560]) > * { grid-column: 2; min-width: 0; }
+body.is-duo-land .fwd:not([data-w560]) > .fwd-mapwrap { display: contents; }
+body.is-duo-land .fwd:not([data-w560]) .fc3 { grid-column: 1; grid-row: 1 / span 60; position: sticky; top: 0; height: calc(100dvh - 64px); min-height: 0; }
+body.is-duo-land .fwd:not([data-w560]) .fwd-col { grid-column: 2; }
+body.is-duo-land.duo-swap .fwd:not([data-w560]) .fc3 { grid-column: 2; } body.is-duo-land.duo-swap .fwd:not([data-w560]) > *, body.is-duo-land.duo-swap .fwd:not([data-w560]) .fwd-col { grid-column: 1; }
+body.is-duo-land .fwd:not([data-w560]) .fwd-place { position: fixed !important; top: 0 !important; bottom: 0 !important; left: 50% !important; right: 0 !important; width: auto !important; max-width: none !important;
   height: auto !important; max-height: none !important; border-radius: 0 !important; z-index: 60; overflow-y: auto; box-shadow: -14px 0 40px -18px #000; }
-body.is-duo-land.duo-swap .fwd .fwd-place { left: 0 !important; right: 50% !important; box-shadow: 14px 0 40px -18px #000; }
-body.is-duo-land .fwd .fwd-place { top: 64px !important; }   /* under the Familia bar (sticky, 63 px), never behind it */
+body.is-duo-land.duo-swap .fwd:not([data-w560]) .fwd-place { left: 0 !important; right: 50% !important; box-shadow: 14px 0 40px -18px #000; }
+body.is-duo-land .fwd:not([data-w560]) .fwd-place { top: 64px !important; }   /* under the Familia bar (sticky, 63 px), never behind it */
 /* the city's half is ~400 px: the district chips become ONE swipe row at the bottom (they stacked into a column over the raid wire — owner screenshot);
    the raid wire keeps its top-right corner, two lines at most */
-body.is-duo-land .fwd .fc3-isl { top: auto; bottom: 108px; left: 60px; right: 88px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-body.is-duo-land .fwd .mh-wire { width: min(260px, 60%); } body.is-duo-land .fwd .mh-wire li:nth-child(n + 3) { display: none; }
+body.is-duo-land .fwd:not([data-w560]) .fc3-isl { top: auto; bottom: 108px; left: 60px; right: 88px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+body.is-duo-land .fwd:not([data-w560]) .mh-wire { width: min(260px, 60%); } body.is-duo-land .fwd:not([data-w560]) .mh-wire li:nth-child(n + 3) { display: none; }
 /* 📉 the PERPS desk on a wide Duo is its own split app: the room spans BOTH halves, the chart on one and the trade station on the other, split on
    the crease (⇄ SWAP trades them — `.pd-chart` order); every other room keeps one half */
-body.is-duo-land .fwd .fwd-place.k-perps { left: 0 !important; right: 0 !important; }
+body.is-duo-land .fwd:not([data-w560]) .fwd-place.k-perps { left: 0 !important; right: 0 !important; }
 body.is-duo-land .fwd-place.k-perps .pd-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 body.is-duo-land .fwd-place.k-perps .pd-plot { height: calc(100dvh - 230px); min-height: 240px; }
 body.is-duo-land .fwd-place.k-perps .pd-strip, body.is-duo-land .fwd-place.k-perps :is(.pd-pv small, .pd-pv > span, .pd-brand small) { display: none; }
