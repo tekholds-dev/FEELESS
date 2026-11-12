@@ -22,7 +22,12 @@
    save-swaps-copies bug a real run found), PocWatch.test. **Live in his Chrome:** a 4 h watch on news.ycombinator.com on Sicario's (local OSSY, $0),
    checks landing every 15 min. Seen: OSSY once mixed two steps (saw 775 points, said NO) → prompt now says answer each step on its own. Report
    filing at the end of that run: not seen yet (tested with fakes).
-4. **AGT-15 before/after picture** — the fix agent screenshots the broken screen and the fixed one, shown side by side in the fix record.
+4. ✅ **AGT-15 before/after BUILT 2026-11-12** (`fix_agent.before_picture/after_picture/serve_tree`, HQ › Setup › Fix agent): BEFORE = headless Chromium of the
+   crash's page on the running site, taken first; AFTER = the same page served from the fix's own worktree (its dev server on :51398, its own webpack
+   cache via `FEELESS_WEBPACK_CACHE` in craco, stopped after and the port checked free), skipped with a reason when the machine is busy. Side by side in
+   the fix record (click = big), Retake pictures, pictures deleted on Drop, owner-only `/admin/fix/pictures/{id}`. **Real run:** before 9 s + after 24 s on
+   /familia from a throwaway worktree (renders live data through its proxy). First real run found: Playwright had no matching Chromium → uses the
+   installed one (`free_browser.chromium_path`). Not seen: a full crash → model fix → pictures run (needs a real crash case).
 5. **AGT-17 3D world** — NOVA opens black (fix that), run G4 + one paid model on it (owner tests OSSY/G4 more later), PoC + PoEco bigger worlds, real FPS.
 6. **AGT-34** — tag every model call with its PoW ref so research seconds per mind are measurable.
 7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work

@@ -217,9 +217,9 @@ LIVE = 'http://localhost:51367'
 _SHOT_PY = r"""
 import asyncio, sys
 from playwright.async_api import async_playwright
-async def main(url, out):
+async def main(url, out, exe):
     async with async_playwright() as p:
-        b = await p.chromium.launch()
+        b = await p.chromium.launch(executable_path=exe) if exe else await p.chromium.launch()
         pg = await b.new_page(viewport={'width': 1280, 'height': 800})
         try:
             await pg.goto(url, wait_until='domcontentloaded', timeout=90000)
@@ -228,7 +228,7 @@ async def main(url, out):
         await pg.wait_for_timeout(7000)
         await pg.screenshot(path=out, type='jpeg', quality=70)
         await b.close()
-asyncio.run(main(sys.argv[1], sys.argv[2]))
+asyncio.run(main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else ''))
 """
 
 
@@ -244,7 +244,12 @@ def page_path(page):
 def shoot(url, out, run=_run):
     """One headless Chromium screenshot. → '' or why it failed."""
     Path(out).parent.mkdir(parents=True, exist_ok=True); Path(out).unlink(missing_ok=True)
-    code, said = run([sys.executable, '-c', _SHOT_PY, url, str(out)], ROOT, 150)
+    try:
+        import free_browser as _fb   # the Chromium already on this Mac (the same one the proof snapshots use)
+        exe = _fb.chromium_path() or ''
+    except ImportError:
+        exe = ''
+    code, said = run([sys.executable, '-c', _SHOT_PY, url, str(out), exe], ROOT, 150)
     return '' if code == 0 and Path(out).exists() else (said.strip().splitlines() or ['it did not take'])[-1][:160]
 
 
@@ -278,7 +283,8 @@ def serve_tree(tree, port=SHOT_PORT, wait=360, popen=subprocess.Popen, ready=_re
     return None, f'Its preview did not start in {wait // 60} minutes.'
 
 
-def stop(proc):
+def stop(proc, port=SHOT_PORT, ready=_ready, nap=time.sleep):
+    """Stops the preview and waits until its port is really free (its node children can outlive yarn for a moment)."""
     try:
         os.killpg(proc.pid, signal.SIGTERM); proc.wait(20)
     except (OSError, subprocess.TimeoutExpired):
@@ -286,6 +292,10 @@ def stop(proc):
             os.killpg(proc.pid, signal.SIGKILL)
         except OSError:
             pass
+    for _ in range(10):
+        if not ready(f'http://127.0.0.1:{port}/'):
+            return
+        nap(1)
 
 
 def before_picture(case_id, page, live=LIVE, shoot_=shoot, shots=SHOTS):
