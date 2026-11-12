@@ -25,3 +25,11 @@ test('⚡ the build effect never hangs on candle identity again', () => {
   expect(src).toContain('}, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]);');
   expect(src).not.toContain('}, [displayCandles, trail, hasChart,');
 });
+
+test('🕯 a quote is not a trade: only a real fill (k) shapes the forming candle; 1m/5m keep reloading the source bar every 15s', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'PriceChart.jsx'), 'utf8');
+  expect(src).toMatch(/if \(ref\.kind === 'candle'\) \{\s*if \(!fill\) return;/);   // aggregate price ticks never draw a wick
+  expect(src).toContain("apply(Number(m.p), { source: m.k ? 'live trades' : 'live stream' }, !!m.k)");
+  expect(src).not.toMatch(/apply\(Number\(live\?\.usd\), live, true\)/);           // the backup poll is quotes: header price only
+  expect(src).toMatch(/<= 300 \? null/);                                             // short timeframes never settle to a 60s reload
+});

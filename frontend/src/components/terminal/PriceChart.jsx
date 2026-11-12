@@ -146,7 +146,8 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     prefetchAllIntervals(pair.chainId, pair.pairAddress, pair.baseToken?.address);
     // Poll fast until real provider candles arrive, then settle to once a minute.
     let timer = setInterval(() => { load(); }, 15000);
-    const settle = setTimeout(() => { clearInterval(timer); timer = setInterval(load, 60000); }, 120000);
+    const settle = (LIVE_INTERVAL_SECONDS[interval] || 3600) <= 300 ? null   // 1m / 5m: the forming candle IS the source's bar, so keep it fresh
+      : setTimeout(() => { clearInterval(timer); timer = setInterval(load, 60000); }, 120000);
     return () => { alive = false; clearInterval(timer); clearTimeout(settle); };
   }, [pair?.baseToken?.address, pair?.chainId, pair?.pairAddress, interval]);
   const allFeeless = useMemo(() => {
@@ -363,8 +364,6 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
   const keepKey = useMemo(() => [...ownLv.map(r => ({ id: r.id, title: r.title, px: r.px })), ...(seatEntry > 0 ? [{ id: 'entry', px: seatEntry }] : [])], [ownLv, seatEntry]);
   keepRef.current = keepKey;
 
-  // Live ticks: every 3s pull the pair's current price straight from DexScreener and
-  // update the forming candle in place (no redraw, zoom preserved).
   // The stream is keyed by the POOL, never by the pair object or the cap ratio: a parent that rebuilds `pair` each render (or passes a live
   // cap) used to tear the websocket down and reconnect on every price tick (10 "connection open" a minute for one coin).
   const pairLive = useRef(pair); pairLive.current = pair;
@@ -383,7 +382,11 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     // 🕯 REAL TICKS ONLY (owner, 2026-10-13: "current candle morphing before it becomes its true shape — can't have that"): the forming
     // candle is redrawn ONLY when a real price tick lands (the stream re-reads the price right after each on-chain swap), at exactly that
     // price — no eased in-between frames. It used to glide ~350ms through prices nobody traded at.
-    const apply = (usd, live) => {
+    // 🕯 TRUE CANDLES (owner 2026-11-12: "up like it was finna moon, wick out, then morph into a new candle within 1 min"): measured on a hot
+    // coin, the aggregate price (Jupiter quotes across every route, not this pool's trades) printed 3.5% above the source bar's real high,
+    // then the reload swapped the source bar in. Now only a REAL fill (`k`, a swap in this pool) shapes the forming candle; a quote moves the
+    // header price only, and the source's own bar reloads every 15s on short timeframes.
+    const apply = (usd, live, fill = false) => {
       try {
         if (!alive || !(usd > 0)) return;
         const value = usd * ratioLive.current;
@@ -396,6 +399,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
         if (!ref || !last) return;
         const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
         if (ref.kind === 'candle') {
+          if (!fill) return;   // a quote is not a trade: it never draws a wick
           const bar = liveBar(last, value, t);   // 🕯 true data only: a quiet minute draws nothing
           if (!bar) return;
           ref.series.update(bar); shownRef.current = value;
@@ -421,7 +425,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
       try {
         ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/candles/stream/solana/${pair.pairAddress}${pair.baseToken?.address ? `?mint=${pair.baseToken.address}` : ''}`);
         ws.onopen = () => { streaming = true; };
-        ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: m.k ? 'live trades' : 'live stream' });
+        ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: m.k ? 'live trades' : 'live stream' }, !!m.k);
           if (m.k && m.x) window.dispatchEvent(new CustomEvent('feeless:live-fill', { detail: { pool: pair.pairAddress, tx: m.x, kind: m.k, usd: Number(m.u) || 0, price: Number(m.p) || 0, wallet: m.w || '', ts: new Date((Number(m.t) || Date.now() / 1000) * 1000).toISOString() } }));   // 🧾 the tape adds this fill at once
         } catch { /* ignore */ } };   // `k` = a real swap's own fill (per-trade tick)
         ws.onclose = () => { streaming = false; };
