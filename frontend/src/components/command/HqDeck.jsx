@@ -59,7 +59,7 @@ import { hqWrite, useHqBusy } from '../../lib/hqBusy';
 import { useRemembered } from '../../lib/remember';
 import { shaped } from '../../lib/shape';
 import { Ic3 } from '../../lib/icon3d';
-import { twoTap } from '../ActBtn';
+import { ActBtn, twoTap } from '../ActBtn';
 // 🧱 every HQ read through one shape (H01): an empty / partial reply renders an empty panel, never a crashed HQ
 const PULSE = shaped({ hourly: [], busiestRooms: [], topPosters: [], topClicks: [], top: [], messages: 0, activeWallets: 0, profiles: 0, pushSubscribers: 0, muted: 0, fee: {} });
 const TRAFFIC = shaped({ daily: [], hours: [], topPages24h: [], topPages7d: [], topClicks: [], referrers: [], topCoins: [], pairs: [] });
@@ -432,8 +432,8 @@ export function ReservePool({ call }) {
   useEffect(() => { if (plan?.season?.id === sid) setForm({ reserveWallet: plan.season.reserveWallet || '', badgeRewardPct: String(plan.season.badgeRewardPct || '') }); }, [sid, plan?.season?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const usd = v => (px && v != null ? money(v * px) : '');
   const save = async () => {
-    try { setBusy('Saving…'); await call(`/admin/seasons/${sid}`, { method: 'PUT', body: JSON.stringify({ reserveWallet: form.reserveWallet.trim(), badgeRewardPct: Number(form.badgeRewardPct) || 0 }) }); toast.success('Reserve pool saved.'); reload(); }
-    catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
+    try { await call(`/admin/seasons/${sid}`, { method: 'PUT', body: JSON.stringify({ reserveWallet: form.reserveWallet.trim(), badgeRewardPct: Number(form.badgeRewardPct) || 0 }) }); } catch (e) { throw new Error(errorText(e)); }   // 🔘 ActBtn shows it
+    reload();
   };
   const isReserve = wallet?.chain === 'solana' && wallet?.address === plan?.season.reserveWallet;
   const circleW = useCircleWallet(call, plan?.season.reserveWallet);
@@ -454,7 +454,7 @@ export function ReservePool({ call }) {
         {circleW && <span className="m-chip ok" data-testid="reserve-circle">◎ Circle wallet “{circleW.name || 'Circle'}” · {circleW.balances?.find(b => b.symbol === 'SOL')?.amount ?? 0} SOL · pays via Circle</span>}
         <label className="m-field"><span>Wallet (Solana address)</span><input className="m-input" placeholder="Fee Reserve wallet" value={form.reserveWallet} onChange={e => setForm(f => ({ ...f, reserveWallet: e.target.value }))} /></label>
         <label className="m-field"><span>% of the wallet to badge holders</span><NumInput className="m-input" style={{ maxWidth: 110 }} inputMode="decimal" placeholder="0" value={form.badgeRewardPct} onChange={e => setForm(f => ({ ...f, badgeRewardPct: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>
-        <button type="button" className="m-btn primary" disabled={!!busy} onClick={save}>Save pool</button></div>
+        <ActBtn className="m-btn primary" disabled={!!busy} run={save} done="Saved" okToast="Reserve pool saved." data-testid="reserve-save">Save pool</ActBtn></div>
       <div className="m-card is-hot m-stat"><span className="m-label">POT THIS SEASON</span><b className="m-num">{plan ? `${plan.potSol} SOL` : '…'}</b><span className="m-dim">{plan && usd(plan.potSol)}</span>
         <span className="m-dim">{plan ? `${plan.pct}% of ${plan.poolSol} SOL${plan.balanceKnown ? '' : ' (balance unreadable)'}` : ''}</span><span className="m-dim">0.01 SOL always stays for rent + fees</span>
         {plan && plan.assigned && !plan.poolSol && <div className="m-note warn"><b>Why 0?</b>The reserve wallet holds no SOL yet. Send SOL to it (fees, or your own wallet) and the pot fills at {plan.pct}% of whatever it holds.</div>}</div>
@@ -490,13 +490,14 @@ function FeesPanel({ call }) {
   if (!cfg) return <p className="cc-empty">Loading fee settings…</p>;
   const set = (k, v) => setCfg(c => ({ ...c, [k]: v }));
   const loadEarnings = async () => { setEarningsBusy(true); try { setEarnings(await call('/admin/fees/balances')); } catch (e) { toast.error(e.message); } finally { setEarningsBusy(false); } };
-  const save = async (override) => {
+  const saveOr = async (override) => {   // 🔘 throws the server's reason (the Save button is an ActBtn); `save` keeps the toast for other callers
     const cur = override && override.platformFeeBps !== undefined ? override : cfg;
     const body = { ...cur, platformFeeBps: Math.min(Number(cur.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cur.priorityMaxLamports) || 0, ultraFallback: Boolean(cur.ultraFallback), engine: cur.engine || 'swap',
       feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', vaultFeeWallet: (cur.vaultFeeWallet || '').trim(), catMaxModels: Number(cur.catMaxModels ?? 3), agentPassFeeLamports: Math.max(0, Math.round((Number(cur.agentPassFeeSol ?? (cur.agentPassFeeLamports || 0) / 1e9) || 0) * 1e9)), catFeeUsd: Number(cur.catFeeUsd ?? 2), catMinUsd: Number(cur.catMinUsd ?? 10), zeroFeeMints: [],
       promo: { ...(cur.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cur.promo?.until || 0 } };
-    try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); setSavedCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
+    const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); setSavedCfg(d.fees);
   };
+  const save = o => saveOr(o).then(() => toast.success('Fee settings saved — applied to the next quote.')).catch(e => toast.error(e.message));
   const TIERS = ['Trencher', 'Fee Friend', 'Fee Insider', 'Fee Whale'];
   const enabled = Number(cfg.platformFeeBps) > 0;
   const engine = cfg.engine || 'swap';
@@ -575,7 +576,7 @@ function FeesPanel({ call }) {
       {test && <ul className="fee-checks">{test.checks.map(c => <li key={c.label} className={c.ok ? 'ok' : 'bad'}><b>{c.ok ? '✓' : '✗'}</b><span>{c.label}</span><small>{c.detail}</small></li>)}
         {(test.lifiChecks || []).map(c => <li key={c.label} className={c.skipped ? 'skip' : c.ok ? 'ok' : 'bad'}><b>{c.skipped ? '–' : c.ok ? '✓' : '✗'}</b><span>LI.FI · {c.label}</span><small>{c.detail}</small></li>)}</ul>}
     </div>
-    <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><button type="button" className="btn-primary" onClick={save} data-testid="fees-save">Save trading &amp; fees</button></div>
+    <div className="cc-savebar"><span>{routes.length || 0} treasury route{routes.length === 1 ? '' : 's'} saved</span><ActBtn className="btn-primary" run={() => saveOr()} done="Saved" okToast="Fee settings saved — applied to the next quote." data-testid="fees-save">Save trading &amp; fees</ActBtn></div>
   </section>;
 }
 
@@ -617,7 +618,7 @@ function AdsPanel({ call }) {
   useEffect(() => { load(); }, [load]);
   const save = async () => {
     const now = Date.now() / 1000;
-    try { await call('/admin/ads', { method: 'POST', body: JSON.stringify({ ...f, startsAt: f.startsAt || now, endsAt: f.days ? now + f.days * 86400 : 0 }) }); toast.success(f.id ? 'Ad updated' : 'Ad live'); setF(blank); load(); } catch (e) { toast.error(e.message); }
+    await call('/admin/ads', { method: 'POST', body: JSON.stringify({ ...f, startsAt: f.startsAt || now, endsAt: f.days ? now + f.days * 86400 : 0 }) }); toast.success(f.id ? 'Ad updated' : 'Ad live'); setF(blank); load();   // 🔘 ActBtn: a server no shakes it with its reason
   };
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
   const clicks = ads.reduce((a, x) => a + (Number(x.clicks) || 0), 0); const seen = ads.reduce((a, x) => a + (Number(x.views ?? x.impressions) || 0), 0);
@@ -632,7 +633,7 @@ function AdsPanel({ call }) {
         <label>Sponsor (leave blank for FEELESS)<input maxLength={40} value={f.sponsor} onChange={e => set('sponsor', e.target.value)} /></label>
         <label>Placement<select value={f.placement} onChange={e => set('placement', e.target.value)}>{['banner', 'trenches', 'profile', 'ticker'].map(p => <option key={p}>{p}</option>)}</select></label>
         <label>Run for (days, 0 = until turned off)<NumInput type="number" min="0" value={f.days} onChange={e => set('days', Number(e.target.value))} /></label>
-        <button type="button" className="btn-primary" disabled={f.title.length < 2} onClick={save}>{f.id ? 'Save' : 'Publish ad'}</button>
+        <ActBtn className="btn-primary" disabled={f.title.length < 2} run={save} done={f.id ? 'Saved' : 'Live'} data-testid="ad-save">{f.id ? 'Save' : 'Publish ad'}</ActBtn>
       </div>
       <div className="cc-block cc-wide"><h4>Ads</h4>{!ads.length ? <small className="cc-empty">No ads yet.</small> : ads.map(a => <div key={a.id} className={`cc-drop ${a.active ? 's-sent' : 's-cancelled'}`}>
         <div className="cc-drop-top"><b>{a.title}</b><em>{a.placement}{a.active ? '' : ' · off'}</em><small>{a.views || 0} views · {a.clicks || 0} clicks · CTR {a.views ? ((100 * (a.clicks || 0)) / a.views).toFixed(1) : 0}%{a.endsAt ? ` · ends ${new Date(a.endsAt * 1000).toLocaleDateString()}` : ''}{a.sponsor ? ` · ${a.sponsor}` : ''}</small></div>

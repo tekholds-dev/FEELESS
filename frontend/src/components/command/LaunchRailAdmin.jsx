@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { RAIL_DEFAULTS, RAIL_PRESETS, railWarnings, checkRail, createLaunchRail, fetchLaunchRail, partnerFees, claimPartnerFees, configPools, claimCreationToll } from '../../lib/launchRail';
 import { CopyBtn } from '../CopyBtn';
+import { ActBtn } from '../ActBtn';
 import { errorText } from '../../lib/api';
 import { useSolPrice, usd } from '../../lib/solPrice';
 import { TreasurySend } from './TreasurySend';
@@ -109,16 +110,15 @@ function SetupGuide({ keys, rail, routes }) {
 // What the public Launch tab offers. Owners always see every rail and house configs.
 function LaunchTabRules({ call, tab, onSaved }) {
   const [t, setT] = useState(() => ({ rails: ['feeless', 'pump'], devBuy: true, maxDevBuySol: 5, banner: true, ...(tab || {}) }));
-  const [busy, setBusy] = useState(false);
   const has = r => t.rails.includes(r);
   const flip = r => setT(x => ({ ...x, rails: has(r) ? x.rails.filter(y => y !== r) : [...x.rails, r] }));
-  const save = async () => { setBusy(true); try { await call('/admin/launch-tab', { method: 'PUT', body: JSON.stringify({ ...t, maxDevBuySol: Number(t.maxDevBuySol) || 0 }) }); toast.success('Launch tab updated.'); onSaved?.(); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); } };
+  const save = async () => { try { await call('/admin/launch-tab', { method: 'PUT', body: JSON.stringify({ ...t, maxDevBuySol: Number(t.maxDevBuySol) || 0 }) }); } catch (e) { throw new Error(errorText(e)); } onSaved?.(); };   // 🔘 ActBtn: ✓ only when the server kept it
   return <div className="cc-block m-card" data-testid="launch-tab-rules"><div className="m-label">LAUNCH TAB · WHAT EVERYONE ELSE GETS <em>owners always see everything</em></div>
     <div className="m-row">{[['feeless', '🌐 FEELESS rail'], ['pump', '💊 Pump.fun']].map(([k, l]) => <label key={k} className="m-toggle"><input type="checkbox" checked={has(k)} onChange={() => flip(k)} />{l}</label>)}
       <label className="m-toggle"><input type="checkbox" checked={t.banner} onChange={e => setT(x => ({ ...x, banner: e.target.checked }))} />Banner upload</label>
       <label className="m-toggle"><input type="checkbox" checked={t.devBuy} onChange={e => setT(x => ({ ...x, devBuy: e.target.checked }))} />First buy</label>
       {t.devBuy && <label className="m-field"><span>Max first buy (SOL)</span><NumInput className="m-input" inputMode="decimal" style={{ width: 90 }} value={t.maxDevBuySol} onChange={e => setT(x => ({ ...x, maxDevBuySol: e.target.value.replace(/[^0-9.]/g, '') }))} /></label>}
-      <button type="button" className="m-btn primary" disabled={busy || !t.rails.length} onClick={save}>{busy ? 'Saving…' : 'Save launch tab'}</button></div>
+      <ActBtn className="m-btn primary" disabled={!t.rails.length} run={save} done="Saved" okToast="Launch tab updated." data-testid="launch-tab-save">Save launch tab</ActBtn></div>
     {!t.rails.length && <small className="m-neg">Keep at least one rail on.</small>}</div>;
 }
 
@@ -133,14 +133,14 @@ const COST_FIELDS = [
 function LaunchCosts({ call, costs, onSaved, solPx }) {
   const [v, setV] = useState(null);
   useEffect(() => { if (costs) setV(costs); }, [costs]);
-  const save = async () => { try { await call('/admin/launch-costs', { method: 'PUT', body: JSON.stringify(v) }); toast.success('Launch costs saved'); onSaved?.(); } catch (e) { toast.error(e.message || 'Could not save'); } };
+  const save = async () => { await call('/admin/launch-costs', { method: 'PUT', body: JSON.stringify(v) }); onSaved?.(); };   // 🔘 ActBtn: ✓ on the server's OK, its reason otherwise
   if (!v) return <p className="cc-empty">Loading…</p>;
   return <div className="m-card m-stack" data-testid="launch-costs">
     <span className="m-label">LAUNCH COSTS <em>applies to every launch from now on</em></span>
     {COST_FIELDS.map(([k, label, why]) => <label key={k} className="lr-cost"><span>{label}{/SOL/.test(label) && solPx ? <em className="usd-hint"> {usd(v[k], solPx)}</em> : null}</span>
       <NumInput className="m-input" inputMode="decimal" value={v[k]} onChange={e => setV(x => ({ ...x, [k]: e.target.value.replace(/[^0-9.]/g, '') }))} /><small className="m-dim">{why}</small></label>)}
     <div className="m-note">Not adjustable: pump.fun's own ~1% on the first buy, PumpPortal's 0.5% on the first buy (pump.fun launches only), ~0.02 SOL refundable rent per coin.</div>
-    <button type="button" className="m-btn primary" onClick={save}>Save launch costs</button>
+    <ActBtn className="m-btn primary" run={save} done="Saved" okToast="Launch costs saved" data-testid="launch-costs-save">Save launch costs</ActBtn>
   </div>;
 }
 

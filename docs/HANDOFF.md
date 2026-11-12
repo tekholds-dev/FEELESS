@@ -8,14 +8,15 @@ DONE, on main, gates green:
 3. 🟡 Buttons: `components/ActBtn.jsx` (press ring → money 2 taps/3.5 s → spinner → ✓ only on server OK / shake + the server's `detail`).
    On: agent Withdraw, Kalshi Approve (2 taps), Look save, colour save. `twoTap(msg)` replaced ALL 48 window.confirm in 29 files (real card sells/top-ups/
    payouts, Fuse, LP, treasury, deletes): 1st tap arms that button amber + toast, 2nd tap on the same button within 3.5 s confirms. `backend/tests/test_frontend_routes_exist.py`: every /api path the site calls has a route (0 missing).
-   NEXT: ✓/spinner states for non-confirm server writes (HQ saves) via ActBtn, surface by surface.
+   DONE 2026-11-12: HQ Trading & fees save, Seasons reserve save, Ads publish/save, Launch tab + Launch costs saves (✓ only on the server's OK, seen
+   in /dev/hq Ads). NEXT: row-level saves (Fuse builder, Quest engine) — they take arguments, so each row needs its own ActBtn.
 4. ✅ Quests/rank: grep found no fake rank/XP/board numbers; Desk widgets are server-only with honest empty states.
 5. 🟡 PoEco: Live books got a Recharts **Sankey money flow** (`flowOf` in EcoLive.jsx: fees in + your pocket → FeeBack / each model / kept, balanced, null if no money).
    Not seen signed in (owner-only route). Pro look sitewide under the elite edition (`styles/looks.css` end): no m-live aurora/sweep, no gradient
    headline, no mouse glow/flakes, solid accent primary buttons (day #08995a). DONE 2026-11-12: EcoDesk (night = Pro tokens, cash line + donut in
    the look's colours), Model Lab Build + Data tabs (flat cards, accent rings/bars), every HQ glass panel (m-glass + the HQ list → #111116 hairline,
    looks.css end), no m-live glow. Seen in `/dev/hq?eco`, `/dev/hq?lab` (needs a local `public/dev-lab.json`, never committed) and any `/dev/*?look`.
-   NEXT: the terminal surfaces, then ActBtn on HQ saves.
+   Terminal DONE 2026-11-12: Fuse Forge in the look's colours, no page colour blobs, swap desk flat (no spinning violet beam), supply bar accent.
 6. ✅ 🕯 TRUE CANDLES 2026-11-12 (owner: "up like it was finna moon, wick out, then morph within 1m"): measured on Hero, the Jupiter aggregate
    quote printed 3.5% above the source 1m bar's real high, then the reload swapped the source bar in. Now only a real fill (stream `k`) shapes the
    forming candle; quotes move the header price only; 1m/5m reload the source bar every 15 s (PriceChart.jsx, chartShape.test.js). Not watched live
