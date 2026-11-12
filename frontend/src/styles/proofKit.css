@@ -108,3 +108,8 @@ body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-da
 .pfx .fea-side-tabs, .prf-rail-tabs { position: sticky; top: 60px; z-index: 5; background-color: var(--m-surface); box-shadow: 0 -10px 0 var(--m-surface); }
 .prf-rail-tabs { top: 0; }
 .dsk-body > .fea.pfx:not(.pdk) { height: max-content; min-height: 100%; }   /* the folder box grows with its content, or the pinned header lets go (seen in his desk: box 697px, content 1562px) */
+/* 🧱 PoC folder layout (owner's screenshot 2026-11-11: dead gap beside the media maker, chat stopping half way): the maker spans the column,
+   the tabs are a full-width strip, the chat side stays pinned and fills the window height (messages scroll inside, the box sits at the bottom) */
+.fea-poc-new > .mst-inline { grid-column: 1 / -1; } .pfx .fea-side-tabs { align-self: stretch; justify-content: flex-start; }
+@media (min-width: 901px) { .pfx .fea-content-side { position: sticky; top: 64px; align-self: start; height: calc(100dvh - 190px); min-height: 420px; }
+  .pfx .fea-content-side .fea-chat { min-height: 0; } .pfx .fea-content-side .fea-chat ol { max-height: none; min-height: 0; } }
