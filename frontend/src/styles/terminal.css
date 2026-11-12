@@ -4212,3 +4212,4 @@ body.theme-day .meta-launch-banner-label small{color:#5b7466}
 
 .ecosystem-chat .chat-compose{margin:8px}
 .chart-message a[data-testid] { display: inline-flex; align-items: center; min-height: 32px; }   /* audit 2026-11-11 */
+.wp-bio a { display: inline-block; padding: 7px 2px; margin: -7px 0; }   /* audit 2026-11-11: 32px hit area */

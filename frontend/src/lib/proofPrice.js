@@ -18,7 +18,7 @@ export function useProofPrices(catId, work) {
 export function priceWord(row) {
   if (!row || row.usd == null) return '';
   if (row.usd === 0) return row.from === 'local' ? 'free on your machines' : 'free';
-  return `≈$${row.usd < 0.01 ? row.usd.toFixed(4) : row.usd.toFixed(2)} a proof`;
+  return `≈$${row.usd < 0.01 ? row.usd.toFixed(4) : row.usd.toFixed(2)} model bill · no FEELESS fee`;   // owner 2026-11-11: proofs carry no FEELESS fee for anyone; this is the agent's own key's model bill
 }
 export const priceTip = row => (!row || row.usd == null ? 'Its price shows once any agent has filed one of these' : row.from === 'local' ? `Both minds run on your own machines (${(row.minds || []).join(' + ')}): no model bill`
   : row.from === 'its proofs' ? `The middle of its own ${row.n} real bill${row.n === 1 ? '' : 's'} for this proof` : `Real token use of every agent's proofs of this kind, at ${(row.minds || []).join(' + ')} rates`);

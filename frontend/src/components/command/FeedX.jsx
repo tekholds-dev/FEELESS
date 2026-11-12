@@ -426,6 +426,20 @@ function useFoldOnScroll() {
   return hid;
 }
 
+// 🔴 LIVE NOW (owner 2026-11-11: "a better X / Facebook home, live animations and activity"): who is posting this hour as story rings
+// (newest first, the ring turns while they are live, their post count), tap one to read only them. Built from the same posts, no extra fetch.
+export function liveNow(posts, now = Date.now() / 1000) {
+  const by = {};
+  (posts || []).filter(p => now - Number(p.at) < 3600).forEach(p => { const k = p.handle || p.author; if (!k) return; const r = by[k] || (by[k] = { k, name: p.author || k, avatar: p.avatar, src: p.src, n: 0, at: 0 }); r.n += 1; r.at = Math.max(r.at, Number(p.at)); });
+  return Object.values(by).sort((a, b) => b.at - a.at).slice(0, 14);
+}
+function LiveNow({ posts, onPick }) {
+  const rows = liveNow(posts); const now = Date.now() / 1000;
+  if (!rows.length) return null;
+  return <div className="fd-live-now" data-testid="feed-live-now"><span className="fd-ln-h"><i className="fd-live" />LIVE NOW · {rows.length} posting</span>
+    <ul>{rows.map((r, i) => <li key={r.k} style={{ '--i': i }}><button type="button" className={`fd-ln-ring is-${r.src}`} onClick={() => onPick(`@${r.k}`)} data-tip={`${r.name}: ${r.n} post${r.n === 1 ? '' : 's'} this hour. Tap to read only them`} data-testid="feed-live-ring">
+      <span className="fd-ln-av"><Ava src={r.avatar} name={r.name} kind={r.src} /></span>{r.n > 1 ? <b className="fd-ln-n">{r.n}</b> : null}<small>{String(r.name).slice(0, 11)}</small><em>{Math.max(1, Math.round((now - r.at) / 60))}m</em></button></li>)}</ul></div>;
+}
 export function FeedPanel({ onConnect }) {
   const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
   const [srcs, setSrcs] = useState(readSrc);
@@ -474,6 +488,7 @@ export function FeedPanel({ onConnect }) {
         <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pickCat(id)}><span><Ic3 e={icon} /></span>{label}</button>)}</nav>
         <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
       </div> : <>
+        <LiveNow posts={d?.posts} onPick={setQ} />
         <Composer me={me} sess={sess} />
         <details className="fd-xwrap"><summary data-tip="Bring an X post into FEEd">𝕏 Bring in an X post</summary><XShare me={me} sess={sess} /></details>
         <Timeline d={d} tab={tab} q={q} me={me} sess={sess} marks={marks} />

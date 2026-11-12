@@ -316,3 +316,26 @@ body.theme-day .fd-compose textarea::placeholder { color: #8a9a91; } body.theme-
 .fd-page { width: 100%; padding: 14px 0 32px; display: grid; }
 .fd-page-wait { padding: 60px 0; text-align: center; color: #84988e; font: 700 11px var(--f-mono, monospace); letter-spacing: .1em; }
 @media (max-width: 640px) { .fd-page { padding: 0 0 90px; } }
+/* 📰 FEEd is the whole page (owner 2026-11-11): on /terminal/feed the terminal's sidebar, context bar and breadcrumb step aside; FEEd's own nav is the left column (X pattern) */
+.terminal-app:has(.terminal-main.page-feed) > .context-bar, .terminal-body:has(> .terminal-main.page-feed) > .terminal-sidebar, .terminal-main.page-feed > .workspace-topline { display: none; }
+.terminal-main.page-feed { padding: 0 12px; max-width: 1320px; }
+/* 🔴 LIVE NOW story rings: the ring turns while they post (transform only), entrance stagger via --i */
+.fd-live-now { display: grid; gap: 8px; padding: 12px 14px 10px; border-bottom: 1px solid var(--fd-line, #ffffff14); }
+.fd-ln-h { display: inline-flex; align-items: center; gap: 6px; font: 700 10px var(--f-mono, monospace); letter-spacing: .14em; color: #ff8fc8; }
+.fd-live-now ul { display: grid; grid-auto-flow: column; grid-auto-columns: 68px; gap: 8px; margin: 0; padding: 2px 0 4px; list-style: none; overflow-x: auto; scrollbar-width: none; }
+.fd-live-now ul::-webkit-scrollbar { display: none; }
+.fd-live-now li { animation: fdFade .35s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fd-ln-ring { position: relative; display: grid; justify-items: center; gap: 3px; width: 100%; min-height: 32px; padding: 0; border: 0; background: none; color: #ece8ff; cursor: pointer; }
+.fd-ln-av { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; }
+.fd-ln-av::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; background: conic-gradient(#9b6bff, #ff3fa4, #3ee7ff, #9b6bff); animation: fdLnSpin 4s linear infinite; }
+.fd-ln-av::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: #0b0718; }
+.fd-ln-av .fd-ava { position: relative; z-index: 1; width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+.fd-ln-n { position: absolute; top: -2px; right: 4px; z-index: 2; min-width: 18px; padding: 1px 5px; border-radius: 9px; background: #ff3fa4; color: #12061f; font: 800 10px var(--f-mono, monospace); box-shadow: 0 0 10px #ff3fa488; }
+.fd-ln-ring small { max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 11px var(--f-ui, sans-serif); }
+.fd-ln-ring em { font: 600 9.5px var(--f-mono, monospace); font-style: normal; color: #a59cc9; }
+.fd-ln-ring:hover .fd-ln-av { transform: translateY(-2px) scale(1.04); } .fd-ln-ring:active .fd-ln-av { transform: scale(.96); } .fd-ln-ring .fd-ln-av { transition: transform .15s ease; }
+.fd-ln-ring:focus-visible { outline: 2px solid #3ee7ff; outline-offset: 2px; border-radius: 10px; }
+@keyframes fdLnSpin { to { transform: rotate(360deg); } }
+body.fx-lite .fd-ln-av::before, body.fx-lite .fd-live-now li { animation: none; } @media (prefers-reduced-motion: reduce) { .fd-ln-av::before, .fd-live-now li { animation: none; } .fd-ln-ring .fd-ln-av { transition: none; } }
+body.theme-day .fd-ln-av::after { background: #fff; } body.theme-day .fd-ln-ring { color: #1b1236; } body.theme-day .fd-ln-ring em { color: #5a4d80; }
+@media (max-width: 640px) { .terminal-main.page-feed { padding: 0; } .fd-live-now ul { grid-auto-columns: 60px; } .fd-ln-av { width: 50px; height: 50px; } .fd-ln-av .fd-ava { width: 44px; height: 44px; } }

@@ -16,6 +16,14 @@
 > **Film v2 DONE:** real cursor journeys cut in; the Collective re-recorded clicking its own tabs (was one still frame for 30 s); 9 chapters 5:41,
 >   player https://claude.ai/artifact/WUoXgCTfkY5HVmBgdKbCeo (new link: the v1 link was not readable from this account). 3D studio from PoStatic crashed
 >   ("filed is not defined", from tonight's shelf) → fixed and driven through the real door (pdk-play3d, pdk-editor: 0 errors).
+> **Also tonight:** 📰 FEEd is the whole page (/terminal/feed drops the terminal sidebar, context bar and breadcrumb; FEEd's own nav is the left column)
+>   + LIVE NOW story rings (who posted this hour, spinning ring, count, tap = only them) · proof price says "model bill · no FEELESS fee" (proofs never
+>   carry a FEELESS fee; the $ is the agent's own key's model bill) · Command Center audit (34 tabs on fixtures, ~190 buttons clicked, 0 crashes;
+>   18 tabs are still bare text panels: Access, Ads, Airdrops, Broadcast, Bugs, Holders, Ideas, KOLs, Moderation, Seasons, Snapshots, Airdrop Studio,
+>   Traffic, Verify, Pulse, Numbers, Invites, Security → NEXT: give each a live visual of its numbers, Sicario's 241 controls not all clicked).
+> **Owner asks not built (need his call):** agents BIDDING real money on kalshi.com (PoB is free chips / research only today; a real-money bid
+>   door needs guards + his go) · perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
+>   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
 > **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from
 >   "In your wallet") · T2 Fuse card Withdraw $1 → HQ › Money › Circle FUSE🧬 send to his saved Phantom · T3 $1 USDC into Happy's wallet and back.
 > **Owner blockers:** $FEE/FEECAT/rFEE have no pool (headline "Into $FEE free" fails) · Q29 15% swap fee · Fuse gas reserve short 0.006 SOL ·

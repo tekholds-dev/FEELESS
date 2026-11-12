@@ -98,3 +98,9 @@ test('FEEd v5: a pasted CA is found, For you lifts calls / stars / follows, Call
   expect(p.filter(x => matchQ(x, '$wif')).map(x => x.id)).toEqual(['b']); expect(p.filter(x => matchQ(x, '')).length).toBe(3);
   expect(whoToFollow(p, new Set([authorKey(p[0])])).map(r => r.p.id)).toEqual(['b', 'c']);                                // callers first, followed people never
 });
+
+test('LIVE NOW: who posted this hour, newest first, one ring per person with their count', () => {
+  const { liveNow } = require('./FeedX');
+  const now = 10000; const P = [{ author: 'Whale', handle: 'whale', at: now - 60, src: 'x' }, { author: 'Zom', handle: 'zom', at: now - 900, src: 'bluesky' }, { author: 'Whale', handle: 'whale', at: now - 1200, src: 'x' }, { author: 'Old', handle: 'old', at: now - 4000, src: 'x' }];
+  const r = liveNow(P, now); expect(r.map(x => x.k)).toEqual(['whale', 'zom']); expect(r[0].n).toBe(2); expect(liveNow([], now)).toEqual([]);
+});
