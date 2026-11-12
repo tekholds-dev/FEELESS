@@ -25,6 +25,7 @@
 9. **Signed-in check on 51367** of everything marked "not seen signed in" (Desk widgets, Look save, agent withdraw 2-tap, PoEco Sankey, Live ops, Cards & pay).
 
 **Owner only (Claude never moves funds):**
+- 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
   Circle → Phantom → AGT-26, AGT-24.
