@@ -294,3 +294,13 @@ def test_marks_tell_the_minds_where_on_the_page_and_the_page_scrolls_in_mark_mod
     note = feat.region_note([{'x': .1, 'y': .2, 'w': .2, 'h': .2, 'sy': 900, 'note': 'wrong colour'}, {'x': .1, 'y': .2, 'w': .2, 'h': .2, 'sy': 'bad'}])
     assert 'scrolled 900px' in note and 'wrong colour' in note and note.count('scrolled') == 1
     assert 'feeless-scrollby' in feat.PICKER and 'feeless-scrollto' in feat.PICKER
+
+
+def test_proof_numbers_keep_counting_past_the_60_kept():
+    # 🔢 PoStatic numbered len + 1 while the list kept the newest 60: 43 proofs all read #61 (2026-11-11). Highest + 1 now.
+    import agent_features as af
+    import feecat_service as fs
+    cat = {'psFolders': [{'n': i} for i in range(2, 62)]}   # 60 kept, numbers 2..61
+    assert af.file_static(cat, {'id': 'w1', 'name': 'Page'}, 'Mind A', 1)['n'] == 62
+    assert af.file_static(cat, {'id': 'w1', 'name': 'Page'}, 'Mind A', 2)['n'] == 63
+    assert fs._next_n([{'n': 5}, {'n': 61}, {}]) == 62 and fs._next_n([]) == 1

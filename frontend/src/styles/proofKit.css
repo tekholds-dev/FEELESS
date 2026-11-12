@@ -103,3 +103,7 @@ body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-da
 @media (max-width: 640px) { .gpv-parts li { grid-template-columns: minmax(80px, 1fr) minmax(40px, 1fr) 36px; } }
 /* AGT-11: the cost toggle was 22 x 20; a 32 px hit area, the look unchanged */
 .cost-t-b { position: relative; } .cost-t-b::after { content: ''; position: absolute; inset: -6px; }
+/* 📌 an open proof folder keeps its header, path row and tabs on screen while its window scrolls (owner 2026-11-11: they scrolled away) */
+.pfx > .fea-open-h, .prf .dsk-xpath { position: sticky; top: 0; z-index: 6; background-color: var(--m-surface); }
+.pfx .fea-side-tabs, .prf-rail-tabs { position: sticky; top: 60px; z-index: 5; background-color: var(--m-surface); box-shadow: 0 -10px 0 var(--m-surface); }
+.prf-rail-tabs { top: 0; }

@@ -45,7 +45,8 @@
 > **The 3 real-money tests: READY, handed to the owner 2026-11-11** (owner presses; never sign for him). Dry-checked live, no funds moved:
   T1 real quotes both legs (swap engine; platform fee 1425 bps after his tier = the open Q29) · T2 Fuse wallet is a live Circle wallet, owner
   wallets are saved destinations, withdraw = book move; NEW guard `_fuse_send_guard`: a Circle SOL send from the real Fuse wallet stops at
-  wallet SOL − card cash (test_circle_admin) · T3 Happy's Circle wallet 0.0513 SOL (pays fees) + 0.367 USDC, $1 top-up allowed (min $1, staff no fee).
+  wallet SOL − card cash (test_circle_admin) · FIXED: PoStatic numbers stuck at #61 (43 proofs; list keeps 60, n was len+1) → highest+1, PoC same (`_next_n`);
+  open proof folders keep header / path row / tabs pinned while scrolling (owner's screenshot) · T3 Happy's Circle wallet 0.0513 SOL (pays fees) + 0.367 USDC, $1 top-up allowed (min $1, staff no fee).
 > **Owner blockers:** $FEE/FEECAT/rFEE have no pool (headline "Into $FEE free" fails) · Q29 15% swap fee · Fuse gas reserve short 0.006 SOL ·
 >   RPC = Chainstack only (archive calls 403 on its plan) · put a $ limit on OpenRouter key "OAuth: localhost:51367" · not seen live: ProofLive
 >   during a real proof, rate-limit drop not re-measured (check /tmp/feeless-api.log 429/403 counts vs 417 per 10 min before) · the shelf and

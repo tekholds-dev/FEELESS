@@ -148,10 +148,11 @@ def new_folder(cat, kind, name, now, ad=False):
 
 
 def file_static(cat, doc, by, now):
-    """💻 A page it built is a proof too: PoStatic. Only its owner can say if it works. → the row."""
+    """💻 A page it built is a proof too: PoStatic. Only its owner can say if it works. → the row.
+    Its number is the highest so far + 1: the list keeps the newest 60, so len + 1 stuck every new proof at #61 (43 of them, found 2026-11-11)."""
     rows = cat.setdefault('psFolders', [])
     plan = (doc.get('plan') or {}).get('plan') or {}
-    row = {'id': 'ps' + secrets.token_hex(5), 'n': len(rows) + 1, 'kind': 'PoStatic', 'at': round(now), 'closedAt': round(now), 'status': 'closed', 'topic': str(doc.get('name') or 'Page')[:60], 'ws': doc.get('id'), 'version': len(doc.get('versions') or []), 'by': str(by)[:12], 'plan': plan.get('summary'), 'refs': [{k: r.get(k) for k in ('title', 'url', 'source')} for r in plan.get('refs') or []], 'steps': plan.get('steps') or [],
+    row = {'id': 'ps' + secrets.token_hex(5), 'n': max([int(r.get('n') or 0) for r in rows] + [len(rows)]) + 1, 'kind': 'PoStatic', 'at': round(now), 'closedAt': round(now), 'status': 'closed', 'topic': str(doc.get('name') or 'Page')[:60], 'ws': doc.get('id'), 'version': len(doc.get('versions') or []), 'by': str(by)[:12], 'plan': plan.get('summary'), 'refs': [{k: r.get(k) for k in ('title', 'url', 'source')} for r in plan.get('refs') or []], 'steps': plan.get('steps') or [],
            'sitesRead': [{'host': r.get('host'), 'name': r.get('name'), 'ok': bool(r.get('ok'))} for r in doc.get('sitesRead') or [] if isinstance(r, dict)][:12],   # 🧾 COL-8: what the build really read reaches the record (37 of 62 pages recorded none)
            'kits': [k.get('id') for k in doc.get('kitsUsed') or [] if isinstance(k, dict) and k.get('used')][:8], 'markNotes': list(doc.get('markNotes') or [])[-6:]}   # 🖍 COL-14
     rows.append(row); del rows[:-60]

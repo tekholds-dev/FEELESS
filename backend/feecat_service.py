@@ -326,6 +326,11 @@ RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_00
 _intel_cache = {}
 
 
+
+def _next_n(rows):
+    """A new proof's number: the highest so far + 1. Lists keep only the newest 60, so len + 1 repeats a number once full (PoStatic sat at #61, 2026-11-11)."""
+    return max([int(r.get('n') or 0) for r in rows or [] if isinstance(r, dict)] + [len(rows or [])]) + 1
+
 async def _jup_audit(http, mint):
     """🪐 Jupiter's public token audit for one coin → {top10, dev, authority} (None when Jupiter has nothing)."""
     try:
@@ -7960,7 +7965,7 @@ async def _poc_file(cat_id, topic, ws=None):
         store = _load(); c_ = store['cats'].get(cat_id)
         if c_:
             rows = list(c_.get('pocFolders') or [])
-            rows.append({'id': pid_, 'kits': _KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': len(rows) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
+            rows.append({'id': pid_, 'kits': _KIT_LAST.get((cat_id, 'poc')) or [], **({'ws': ws} if ws else {}), 'shots': shots_, 'sitesRead': sites_read_, 'n': _next_n(rows), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': topic or 'best fit now', 'trends': {k: v[:5] for k, v in tr.items()}, 'calls': calls, 'cost': round(cost, 5)})
             c_['pocFolders'] = rows[-60:]
             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows)} is filed: {len(calls)} ideas from what is trending. Nothing was posted.", 'at': time.time(), 'open': 'features'}])[-200:]
             if cost and not paid_own and c_.get('brainsCfg'):
@@ -9038,7 +9043,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             if not stats_.get('clips') and not what_:
                 raise HTTPException(400, 'Edit something first.')
             _play.add_note(cat, 'edit', _play.style_note(stats_)); rows_ = list(cat.get('pocFolders') or [])
-            rows_.append({'id': f'poc{secrets.token_hex(5)}', 'n': len(rows_) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': ' '.join(str(p.job or 'An edit').split())[:60], 'calls': [], 'by': 'Editor', **({'edit': stats_} if stats_.get('clips') else {}), **({'design': {'layers': int(_play._num(what_.get('layers'), 0, 200, 0)), 'size': str(what_.get('size') or '')[:12]}} if what_ else {})})
+            rows_.append({'id': f'poc{secrets.token_hex(5)}', 'n': _next_n(rows_), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': ' '.join(str(p.job or 'An edit').split())[:60], 'calls': [], 'by': 'Editor', **({'edit': stats_} if stats_.get('clips') else {}), **({'design': {'layers': int(_play._num(what_.get('layers'), 0, 200, 0)), 'size': str(what_.get('size') or '')[:12]}} if what_ else {})})
             cat['pocFolders'] = rows_[-60:]; keep_owned(cat); _save(store); _play_save(cat_id, 'edit', {**saved_, 'project': project_, 'mind': project_})
             return {'filed': rows_[-1], 'pocFolders': _poc_view(cat)}
         raise HTTPException(400, 'No such step.')
@@ -9564,7 +9569,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not calls_:
             raise HTTPException(400, 'No answer from its minds in this folder yet.')
         rows_ = list(cat.get('pocFolders') or [])
-        rows_.append({'id': f'poc{int(time.time())}', 'ws': doc_.get('id'), 'n': len(rows_) + 1, 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True})
+        rows_.append({'id': f'poc{int(time.time())}', 'ws': doc_.get('id'), 'n': _next_n(rows_), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True})
         cat['pocFolders'] = rows_[-60:]; keep_owned(cat); _save(store)
         return {'pocFolders': _poc_view(cat)}
     if p.op == 'proof_cfg':   # 🔁 ask first, or just do it, per kind of proof
