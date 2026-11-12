@@ -182,7 +182,7 @@ body.theme-day .fea-cost > span { background: #0000000a; border-color: #00000014
 @keyframes feaBarGo { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
 body.fx-lite .fea-bar.is-open u { animation: none; width: 100%; opacity: .5; } @media (prefers-reduced-motion: reduce) { .fea-bar.is-open u { animation: none; width: 100%; opacity: .5; } .fea-bar u { transition: none; } }
 body.theme-day .fea-bar i { background: #0f1f3a18; }
-.fea-posmark { flex-wrap: nowrap; } .fea-posmark .fea-progress { flex: 0 1 56px; min-width: 30px; } .fea-posmark .m-btn { white-space: nowrap; min-height: 32px; padding-inline: 10px; } .fea-posmark .psub-open > small { display: none; }
+.fea-posmark { flex-wrap: wrap; row-gap: 6px; } .fea-posmark .fea-progress { flex: 0 1 56px; min-width: 30px; } .fea-posmark .m-btn { white-space: nowrap; min-height: 32px; padding-inline: 10px; } .fea-posmark .psub-open > small { display: none; }
 .fea-crash { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 12px; border-radius: 11px; border: 1px solid #ff8fa366; background: #ff8fa314; } .fea-crash b { font: 700 12px var(--f-ui); color: #ff8fa3; } .fea-crash small { flex: 1 1 180px; min-width: 0; font: 500 11px var(--f-mono); opacity: .85; overflow-wrap: anywhere; }
 body.theme-day .fea-crash { background: #fff0f2; } body.theme-day .fea-crash b { color: #c02f4b; }
 .fea-over:not(.is-drag) { pointer-events: none; } .fea-over > i em { position: absolute; top: -9px; left: -9px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #9b6bff; color: #04130a; font-size: 11px; font-weight: 800; font-style: normal; }
@@ -516,3 +516,17 @@ body.fx-lite .pdr-best-kv span { animation: none; } @media (prefers-reduced-moti
 .fea-idle.is-canvas { align-content: end; padding-bottom: 14px; background: linear-gradient(#7c4dff14 1px, transparent 1px) 0 0 / 100% 40px, linear-gradient(90deg, #7c4dff14 1px, transparent 1px) 0 0 / 8.333% 100%, #f7f5fb; } .fea-idle.is-canvas .fea-blank { padding: 6px 12px; border-radius: 8px; background: #1b1236e6; color: #efe9ff; }
 .fea-side-tabs { align-self: flex-start; } .fea-side-pane { display: flex; flex-direction: column; gap: 8px; animation: feaIn .18s ease both; } /* PoC column tabs (2026-11-11) */
 body.fx-lite .fea-side-pane { animation: none; } @media (prefers-reduced-motion: reduce) { .fea-side-pane { animation: none; } }
+/* 🪟 owner 2026-11-12: "in a PoStatic file the code part scroll to bottom dont show bottom" — in a desk window the chat rail grew the build past the
+   window, so the code pane's last lines sat under the window edge. The build now fits its window; the chat scrolls in its rail; the code tree fills its view. */
+@media (min-width: 901px) {
+  .dsk-body:has(> .fea > .fea-build) { display: flex; flex-direction: column; }
+  .dsk-body > .fea:has(> .fea-build) { flex: 1 1 0; min-height: 0; overflow: hidden; }
+  .dsk-body > .fea > .fea-build { flex: 1 1 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+  .dsk-body > .fea > .fea-build :is(.fea-side, .fea-stage) { min-height: 0; overflow: hidden; }
+  .dsk-body > .fea > .fea-build .fea-side .fea-chat { min-height: 0; overflow: hidden; }
+  .dsk-body > .fea > .fea-build .fea-side .fea-chat ol { flex: 1; overflow-y: auto; scrollbar-width: thin; }
+  .dsk-body > .fea > .fea-build .fea-view { flex: 1 1 0; min-height: 0; }
+  .dsk-body > .fea > .fea-build .fea-view > .fea-tree { height: auto; min-height: 0; }
+}
+.fea-posmark > b { white-space: nowrap; } .fea-posmark > .rvw { flex-wrap: nowrap; } .fea-posmark em.is-bad { color: var(--m-danger, #ff8fa3); } .fea-posmark em.is-good { color: var(--m-accent); }
+.fea-posmark > :is(em, small) { white-space: nowrap; } .fea-posmark > .fea-progress { flex: 1 1 40px; min-width: 40px; }

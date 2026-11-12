@@ -7620,7 +7620,16 @@ def _play_save(cat_id, name, data):
 async def _ws_ask(cat, model, sys_, user_, tokens):
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
     text_, usd_, _via = await _think(cat, model, [{'role': 'system', 'content': _general_mind(cat) + sys_}, {'role': 'user', 'content': user_}], own_, None, tokens)
+    _WS_VIA.set(str(_via or ''))   # 🧾 who REALLY answered (a free stand-in when its paid route is off), read by callers that show the model
     return str(text_ or ''), float(usd_ or 0), bool(own_)
+
+
+_WS_VIA = contextvars.ContextVar('ws_via', default='')
+
+
+def _answered_by(model, via):
+    """→ the model name to show: the asked one, or the free stand-in that answered for it (never a paid name on a free answer)."""
+    return via.split(' · ', 1)[1].replace(' stood in', '') + ' (stood in)' if ' stood in' in str(via) and ' · ' in str(via) else str(model).split('/')[-1]
 
 
 _WS_DONE: list = []   # 💻 finished builds, filed by the engine pass (the store's one writer) so a save running at the same moment cannot lose them
@@ -9230,9 +9239,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(502, f"Mind {'AB'[i_]} did not send usable code, and nothing changed. Try again.")
             if _play.code_cut(code_):   # 🛡 a reply that hit its length cap opens black: say so, keep the old code
                 raise HTTPException(502, f"Mind {'AB'[i_]}'s code was cut off before the end, and nothing changed. Ask for a smaller scene or try again.")
-            chat_ = (list(code_s_.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': round(time.time())}, {'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'text': str(say_ or 'Done.')[:400], 'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-30:]
+            chat_ = (list(code_s_.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': round(time.time())}, {'by': f"Mind {'AB'[i_]}", 'model': _answered_by(brains_[i_], _WS_VIA.get()), 'text': str(say_ or 'Done.')[:400], 'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-30:]
             _play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1, 'chat': chat_, 'prev': was_})
-            return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'usd': round(float(usd_ or 0), 5), 'chat': chat_, 'prev': was_}
+            return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'model': _answered_by(brains_[i_], _WS_VIA.get()), 'usd': round(float(usd_ or 0), 5), 'chat': chat_, 'prev': was_}
         if p.op == 'play3d_code_save':   # 💾 its owner's own edits stay with the playground
             _play_save(cat_id, 'code3d', {**(_play_load(cat_id, 'code3d') or {}), 'code': str(p.job or '')[:60000]})
             return {'saved': True}

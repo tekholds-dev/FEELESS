@@ -32,7 +32,10 @@
 5b. **Owner 2026-11-12 (chat):** (a) PoStatic file: the code pane cannot scroll to its last lines — fix. (b) Every proof shows on the desk
    monitors in its own way (PoStatic = code window + the live page side by side; PoW/PoP/PoB/PoC/PoEco each their own view). (c) Every test run on
    Sicario's desk files into a folder he can open (no invisible tests). (d) Chat effects/animations driven by real live data, never decorative fakes.
-   (e) Every report gives the % of this list left.
+   (e) Every report gives the % of this list left. (f) Every folder window fits its window: one scroll region, never a window-long page.
+   (g) Icons inside folder windows follow Desktop settings › Folder look (no 3D cartoon icons). (h) PoStatic file head: the OSSY/G4 score pills
+   overlap "Broken" — never a bad visual. (i) The boost flow (Proof + $ → pools/score → boost cash, React Flow + limit chart) = an elite example:
+   no clipped labels ("Its limit"), no edge labels on nodes. (j) HQ › Money folder redo (owner: "the money folder ugh").
 6. **AGT-34** — tag every model call with its PoW ref so research seconds per mind are measurable.
 7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work
    from the stash brain · COL-10 method kits + Tool Forge · COL-19 proving ground · COL-16 bids/browser wins to the Pool (needs an address) ·

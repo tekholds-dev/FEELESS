@@ -1,5 +1,5 @@
 import '../styles/deskShell.css';
-import React, { useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useSyncExternalStore } from 'react';
 import { CircleDot, Atom, Bot, Bug, Building2, Cat, Droplets, Gem, HeartPulse, RadioTower, ScanSearch, Signpost, SprayCan, Stethoscope, TrafficCone, UserRound, Users, Waves, Archive, Banknote, Battery, Bell, Bookmark, Box, Briefcase, Brush, Calculator, Calendar, Camera, ChartCandlestick, Check, Clock, Coins, CreditCard, Crown, Dices, DollarSign, Dumbbell, File, FileText, Flag, Flame, FlaskConical, Folder, FolderOpen, FolderPlus, Gift, Globe, HandCoins, Hash, Headphones, Heart, Image, KeyRound, Lightbulb, Link, Lock, LockOpen, Mail, MapPin, Medal, Megaphone, MessageCircle, MessageSquare, Mic, Monitor, Moon, Music, NotebookPen, Orbit, PaintBucket, Palette, Pencil, Pickaxe, Pin, Puzzle, Rocket, Scissors, Search, Settings, Shield, SlidersHorizontal, Smartphone, Sparkles, Star, Sun, Target, ThumbsDown, ThumbsUp, Trash2, Trophy, Umbrella, Video, Wallet, Wifi, Wrench, Zap } from 'lucide-react';
 
 // 🧊 One icon set, sitewide (owner 2026-11-04): 3dicons.co V1 (CC0) and its social set, compressed and served from our own origin (public/icons3d, ~1.6 KB each, lazy).
@@ -25,6 +25,9 @@ const EMO_LINE = { '⚛': Atom, '💎': Gem, '🌊': Waves, '🏙': Building2, '
 const sub = cb => { window.addEventListener('feeless:edition', cb); return () => window.removeEventListener('feeless:edition', cb); };
 const isElite = () => typeof document !== 'undefined' && document.documentElement.dataset.edition === 'elite';
 export const useElite = () => useSyncExternalStore(sub, isElite, () => false);
+// 📁 owner 2026-11-12: "the icons on those folders suck and should be options to folder icons" — inside a desk, icons follow Desktop settings › Folder look
+// (every look draws clean line icons in its accent; the 3D cartoon set stays outside the desks).
+export const IconLook = createContext(false);
 
 // 📁 the line icon for a symbol (FolderArt draws every folder with these, in any edition)
 export const lineOf = e => { const c = clean(e); const n = MAP[c] || MAP[e]; return (n && LINE[n]) || EMO_LINE[c] || null; };
@@ -33,7 +36,7 @@ export const ic3Src = name => `/icons3d/${name}.webp`;
 
 export function Ic3({ e, name, social, size = '1.25em', className = '' }) {
   const n = social ? SOCIAL[social] && `social/${SOCIAL[social]}` : name || ic3Name(e);
-  const elite = useElite();
+  const inDesk = useContext(IconLook); const elite = useElite() || !!inDesk;
   const Emo = !n && elite && e ? EMO_LINE[clean(e)] : null;
   if (Emo) return <><Emo className={`ic3 ic3-line ${className}`.trim()} aria-hidden="true" strokeWidth={1.75} style={{ width: size, height: size }} /><span hidden style={{ display: 'none' }}>{e}</span></>;
   if (!n && elite && e && /\p{Extended_Pictographic}/u.test(e)) return <><CircleDot className={`ic3 ic3-line ${className}`.trim()} aria-hidden="true" strokeWidth={1.75} style={{ width: size, height: size }} /><span hidden style={{ display: 'none' }}>{e}</span></>;   // 🎩 elite: an unmapped emoji becomes a quiet mark, never a cartoon

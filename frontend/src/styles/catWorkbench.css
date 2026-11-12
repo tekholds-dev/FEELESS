@@ -702,7 +702,7 @@ body.theme-day .wal2-hero { background: #eefaf3; } body.theme-day .wal2-hero b, 
 /* 🧑‍⚖️ OSSY and G4's review chips (ReviewChips): each reviewer's score, pass in green, fail in rose, the checks on hover */
 .rvw { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; vertical-align: middle; }
 .rvw b { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 99px; font: 700 10px var(--f-mono); letter-spacing: .04em; border: 1px solid transparent; cursor: help; }
-.rvw b i { font-style: normal; font-weight: 800; }
+.rvw b i, .rvw b i.m-num { font: 800 11px/1 var(--f-mono); font-style: normal; }   /* .m-num's 22px blew the pills up over the head (owner 2026-11-12) */
 .rvw b.rvw-pass { color: #b48cff; background: #9b6bff1f; border-color: #b48cff55; } .rvw b.rvw-fail { color: #ff8fa3; background: #ff8fa31a; border-color: #ff8fa355; }
 .rvw small { font: 700 9px var(--f-mono); color: var(--gold, #f5c542); letter-spacing: .08em; }
 .rvw.is-wait { font: 600 10px var(--f-mono); color: #aaa1c9; }

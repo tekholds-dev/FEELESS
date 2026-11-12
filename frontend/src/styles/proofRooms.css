@@ -61,3 +61,10 @@ body.theme-day .wl { background: #f7f9f8; border-color: #0000001a; } body.theme-
 body.fx-lite .prm-hl-grid li { animation: none; } @media (prefers-reduced-motion: reduce) { .prm-hl-grid li { animation: none; } .prm-hl-grid button { transition: none; } }
 body.theme-day .prm-hl-grid button { background: #fff; border-color: #0000001a; color: #10151a; }
 @media (max-width: 640px) { .prm-hl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .prm-hl-bar { flex-wrap: wrap; } }
+/* 🪟 owner 2026-11-12 "not fitted to folders": in a desk window the Watch wall fits the window — the screens and the channel rail each scroll inside. */
+@media (min-width: 761px) and (min-height: 560px) {
+  .dsk-body:has(> .prm-wall) { display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
+  .dsk-body > .prm-wall { flex: 1 1 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); padding: 0 0 10px; }
+  .dsk-body > .prm-wall > .prm-wall-main { min-height: 0; align-items: stretch; }
+  .dsk-body > .prm-wall > .prm-wall-main > * { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--m-accent) 55%, transparent) transparent; }
+}

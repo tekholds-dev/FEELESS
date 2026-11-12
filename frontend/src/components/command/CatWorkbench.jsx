@@ -48,7 +48,7 @@ import { AgentStage, ChatStylePicker, chatClass, useChatStyle } from './ChatStyl
 import { ChatAttach, ChatComposer, ChatInput, ChatSend, ChatSettings, ChatStop } from '../chat/ChatKit';
 import { DeskPrint } from './Proofprint';
 import { BackToDesk, BoostCoin, DeskBell, DeskSettings, deskSet, useDeskPrefs, useDeskIcons, useDeskOverPage, DeskExtras, DeskIcon, DeskGrid, DeskTour, DeskWin, SetupDot, VitalsWall, PerfDiagram, PerfGlass, ShaderWall, glassOf, perfSeries, placeFor, tourSeen } from './DeskShell';
-import { Ic3, Ic3Text } from '../../lib/icon3d';
+import { Ic3, Ic3Text, IconLook } from '../../lib/icon3d';
 import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
@@ -1358,7 +1358,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const glass = useMemo(() => glassOf(series), [series]);
   const foregroundOpen = Object.values(w).some(x => x?.open && !x.min);
   const printLines = useMemo(() => linesOf(printOf(proofRows(d))), [d]);
-  return createPortal(<PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
+  return createPortal(<IconLook.Provider value><PrintSeed.Provider value={pool?.printSeed || cat.id}><PrintLines.Provider value={printLines}><div className="dsk" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     {prefs.motion === 'off' ? null : <ShaderWall mood={prefs.wall || mood} frozen={prefs.motion === 'still' || foregroundOpen} style={{ filter: `brightness(${prefs.light / 100})` }} />}{prefs.title ? <div className="dsk-wall" aria-hidden="true"><b>{cat.name || 'FEELESS'}</b><small>private desktop · only you see this</small></div> : null}
     {pool && prefs.print ? <DeskPrint d={d} seed={pool.printSeed || cat.id} level={pool.printLevel} onOpen={() => openWin('print')} /> : null}
     <DeskCount d={pool} onOpen={() => openWin('boost')} />
@@ -1387,7 +1387,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
-  </div></PrintLines.Provider></PrintSeed.Provider>, document.body);
+  </div></PrintLines.Provider></PrintSeed.Provider></IconLook.Provider>, document.body);
 }
 
 // 🗄 A TRADER'S FILE CABINET (owner 2026-10-31: "trader agents need sign-in etc in their drawer" — they research X / CoinGecko too): the same

@@ -28,3 +28,10 @@ def test_nova_black_cause_html_page_and_cut_reply():
     assert whole == "import * as THREE from 'three';\nnew THREE.Scene();" and not ps.code_cut(whole) and say == 'A scene.'
     assert ps.code_reply("Sure! I used new THREE.Mesh for it.")[0] == ''   # prose is never run as code
     assert not ps.code_cut("const s = '{ ( [';  // {\nfunction a() { return `${1}`; }")
+
+
+def test_playground_names_the_stand_in_not_the_paid_model():
+    """AGT-17 real run: a 'deepseek' NOVA answered in 5 s for $0 — a free stand-in. The chat must never print the paid name on a free answer."""
+    import feecat_service as fs
+    assert fs._answered_by('deepseek/deepseek-v4-pro', 'Groq free · llama-4 stood in') == 'llama-4 (stood in)'
+    assert fs._answered_by('deepseek/deepseek-v4-pro', 'openrouter') == 'deepseek-v4-pro'

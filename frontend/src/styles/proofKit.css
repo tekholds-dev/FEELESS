@@ -113,3 +113,17 @@ body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-da
 .fea-poc-new > .mst-inline { grid-column: 1 / -1; } .pfx .fea-side-tabs { align-self: stretch; justify-content: flex-start; }
 @media (min-width: 901px) { .pfx .fea-content-side { position: sticky; top: 64px; align-self: start; height: calc(100dvh - 190px); min-height: 420px; }
   .pfx .fea-content-side .fea-chat { min-height: 0; } .pfx .fea-content-side .fea-chat ol { max-height: none; min-height: 0; } }
+/* 🪟 owner 2026-11-12: "stuff not fitted to folders … extra scroll and long ass window view" — a proof window is an app, not a long page:
+   its head and vitals wall stay put, the main pane and the rail each scroll inside the window, the window itself never scrolls. */
+@media (min-width: 901px) and (min-height: 560px) {
+  .dsk-body:has(> :is(.prf, .dfw > .dfw-in > .prf)) { display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
+  .dsk-body > .dfw:has(> .dfw-in > .prf) { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .dfw:has(> .dfw-in > .prf) > .dfw-in { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  :is(.dsk-body, .dfw-in) > .prf { flex: 1 1 0; min-height: 0 !important; height: auto; grid-template-rows: auto minmax(0, 1fr); align-content: stretch; }
+  :is(.dsk-body, .dfw-in) > .prf > :is(.prf-main, .prf-rail) { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--pk, var(--m-accent)) 55%, transparent) transparent; padding-bottom: 14px; }
+  :is(.dsk-body, .dfw-in) > .prf > .prf-rail { position: static; }
+  :is(.dsk-body, .dfw-in) > .prf-bids { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
+  :is(.dsk-body, .dfw-in) > .prf-bids > .prf-main { grid-column: 1; } :is(.dsk-body, .dfw-in) > .prf-bids > .prf-rail { grid-column: 2; grid-row: 2; }
+  :is(.dsk-body, .dfw-in) > .prf > :is(.prf-main, .prf-rail)::-webkit-scrollbar { width: 6px; }
+  :is(.dsk-body, .dfw-in) > .prf > :is(.prf-main, .prf-rail)::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--pk, var(--m-accent)) 55%, transparent); border-radius: 6px; }
+}

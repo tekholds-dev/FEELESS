@@ -54,3 +54,11 @@ body.theme-day .chr { color: #10241a; background: linear-gradient(170deg, #f1fbf
 .chr-scene { display: grid; gap: 8px; } .chr-scene-view { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; border: 1px solid #ffffff26; background: #050814; } .chr-scene-view canvas { display: block; width: 100%; height: 100%; }
 .chr-scene-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; } .chr-scene-row > span:first-child { font: 800 9px var(--f-mono); letter-spacing: .12em; color: #9fb0a7; min-width: 52px; } .chr-scene-row .m-seg button { min-height: 30px; padding: 0 9px; }
 .chr-toggle { min-height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid #ffffff26; background: #ffffff0a; color: #dbe6df; font: 700 11px var(--f-ui); cursor: pointer; } .chr-toggle:hover { border-color: var(--chr); } .chr-toggle:focus-visible { outline: 2px solid var(--chr); } .chr-toggle.is-on { background: var(--chr); color: #04140c; border-color: var(--chr); }
+/* 🪟 owner 2026-11-12 "not fitted to folders": in a desk window the character fits — the screen sizes to the window height, the side scrolls inside. */
+@media (min-width: 761px) and (min-height: 560px) {
+  .dsk-body:has(> .chr) { display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden; }
+  .dsk-body > .chr { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  .dsk-body > .chr > .chr-stage { min-height: 0; }
+  .dsk-body > .chr .chr-screen { width: auto; height: auto; max-width: 100%; max-height: calc(100% - 56px); }
+  .dsk-body > .chr > .chr-side { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #b48cff88 transparent; }
+}

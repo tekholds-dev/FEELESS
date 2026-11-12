@@ -2,7 +2,7 @@ import { ProChart } from './ProChart';
 import '../../styles/boosts.css';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Ic3, Ic3Text } from '../../lib/icon3d';
+import { Ic3, Ic3Text, IconLook } from '../../lib/icon3d';
 import { FolderArt } from '../../lib/folderArt';
 import '../../styles/deskShell.css';
 import { apiUrl } from '../../lib/api';
@@ -382,7 +382,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const tasks = apps.filter(a => w[a.k]?.open);
-  return createPortal(<div className="dsk dsk-app" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
+  return createPortal(<IconLook.Provider value><div className="dsk dsk-app" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
     <ShaderWall mood={mood} />
     <div className="dsk-wall" aria-hidden="true"><b>{title}</b><small>{sub}</small></div>
     <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>
@@ -392,7 +392,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
       {tasks.map(a => <button key={a.k} type="button" className={`dsk-task${!w[a.k].min && top === a.k ? ' is-on' : ''}`} onClick={() => { if (w[a.k].min || top !== a.k) { set(a.k, { min: false }); setTop(a.k); } else set(a.k, { min: true }); }} data-testid={`dsk-task-${a.k}`}><Ic3 e={a.ic} /> {a.label}</button>)}
       <time className="m-num">{prefs.clock === '12' ? new Date(now).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : new Date(now).toTimeString().slice(0, 5)}</time>
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back (Esc)" data-testid="dsk-app-close">Exit desktop</button></footer>
-  </div>, document.body);
+  </div></IconLook.Provider>, document.body);
 }
 
 

@@ -74,3 +74,5 @@ body.theme-day :is(.pgl, .pgg) { background: #fff; border-color: #00000018; } bo
 .ptl-pages { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; } .ptl-pages .m-btn { min-width: 44px; min-height: 34px; } .ptl-pages span { font-size: 12px; color: #aaa1c9; } body.theme-day .ptl-pages span { color: #4b6657; }
 /* AGT-11 (2026-11-10 desk sweep): these links were 22 px tall; an invisible 32 px hit area, the look unchanged */
 .ptl-list a, .ptl-link { position: relative; } .ptl-list a::after, .ptl-link::after { content: ''; position: absolute; inset: -5px -2px; }
+/* one clean row of leagues that scrolls sideways (wrapped into ragged rows in a narrower window — owner 2026-11-12) */
+.ptl-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); } .ptl-tabs::-webkit-scrollbar { display: none; } .ptl-tabs > button { flex: none; }
