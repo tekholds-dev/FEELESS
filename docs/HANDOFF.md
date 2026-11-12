@@ -159,6 +159,11 @@ one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
    hairline dividers instead of boxes-in-boxes, one big tight headline (Unbounded, −.02em), mono numbers, no glow/sweep/emoji, muted chart
    grids; day = the same tokens swapped. HeroUI parts are styled by `[data-slot=…]` (their class names fail cssHygiene). DONE: COMP v2 tab
    (`.mc2`, modelLab.css), PoEco Live books (`.ecl`, ecoFolder.css). NEXT: EcoDesk, the other Model Lab tabs, HQ folders, then the terminal.
+   LOOK LAB v2 2026-11-12 (private artifact 7E63NP1BQ7jj4u7BaJZU2K): owner liked Obsidian/Terminal/Daylight; v2 = 3 layouts × 6 colours incl. Feeless
+   Green (his ask, reverses the green ban for this pick), live stage on Lightweight Charts v5 + Number Flow + Motion. WAITING ON HIS PICK → roll it sitewide,
+   old looks kept as one LookPicker row, every button on press → confirm → busy → done/failed from the real server answer. Stash +11 sources (38 guides).
+   Gotchas: `number-flow` registers `<number-flow>` itself on import (define again throws); LW v5 hidden series still own the time axis (setData([]) it);
+   an artifact's iframe console is unreadable — debug a copy in frontend/public, delete it after.
    Site audit 2026-11-12: 68 views (desktop + phone), 0 clipped/spilled. Model builder (Model Lab) is owner-only (every route `_require_owner`).
 3b. 🚀 **COMP v2 · 9B BUILT 2026-11-12** (ModelLab tab `ModelComp2.jsx`, `comp_v2.py`, `comp_v2_exam.py`, `comp_market.py`, `.venv-mlx`): Qwen3.5-9B 4-bit
    (Apache-2.0, LM Studio folder) + an MLX LoRA (8 layers, batch 1, lr 3e-5, 200 iters) on his settled proofs, using ONLY what each proof said before it
