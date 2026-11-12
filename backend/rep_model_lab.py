@@ -411,3 +411,95 @@ async def forge_railtest(request: Request, jid: str):
         raw = _mf().generate(P, c, tok, _mf().PROBE, max_new=80, seed=1); seen, fired = _mf().guard(_mf().PROBE, raw, rails)
         return {'tests': tests, 'passed': sum(t['pass'] for t in tests), 'total': len(tests), 'live': {'raw': raw, 'answer': seen, 'fired': fired}}
     return await rs.asyncio.to_thread(go)
+
+
+# ── 🚀 COMP v2 · 9B: the owner's proofs fine-tuned into Qwen3.5-9B on this Mac (MLX LoRA), then examined against the base + flagships ──
+import comp_v2 as _c2   # noqa: E402
+
+
+class Comp2Train(BaseModel):
+    iters: int = 200
+
+
+def _c2_busy(st):
+    return st['run']['running'] or st['examRunning']
+
+
+@router.get('/api/reputation/admin/model-lab/comp2')
+async def comp2_status(request: Request):
+    rs = _rs()
+    rs._require_owner(request)
+    return await rs.asyncio.to_thread(_c2.status)
+
+
+@router.post('/api/reputation/admin/model-lab/comp2/train')
+async def comp2_train(request: Request, b: Comp2Train):
+    """Rebuilds the dataset from the live proofs (same seed, same held-out exam) and starts one LoRA run. One run at a time."""
+    rs = _rs()
+    rs._require_owner(request)
+    st = await rs.asyncio.to_thread(_c2.status)
+    if _c2_busy(st):
+        raise rs.HTTPException(409, 'COMP v2 is already training or sitting its exam.')
+    if not (st['base']['ready'] and st['base']['mlx']):
+        raise rs.HTTPException(503, 'The 9B base or the MLX engine is not on this Mac.')
+    rows = await rs.asyncio.to_thread(_export, rs)
+    await rs.asyncio.to_thread(_c2.write_dataset, rows)
+    await rs.asyncio.to_thread(_c2.start_train, max(20, min(1000, int(b.iters))))
+    return await rs.asyncio.to_thread(_c2.status)
+
+
+@router.post('/api/reputation/admin/model-lab/comp2/exam')
+async def comp2_exam(request: Request):
+    """Base 9B vs COMP v2 vs the majority baseline vs the flagships whose keys are saved, on the held-out proofs."""
+    rs = _rs()
+    rs._require_owner(request)
+    st = await rs.asyncio.to_thread(_c2.status)
+    if _c2_busy(st):
+        raise rs.HTTPException(409, 'COMP v2 is already training or sitting its exam.')
+    if not st['dataset']:
+        raise rs.HTTPException(400, 'Train COMP v2 first: there is no held-out exam yet.')
+    await rs.asyncio.to_thread(_c2.start_exam)
+    return await rs.asyncio.to_thread(_c2.status)
+
+
+# ── 🌐 the internet learner: snapshot live coins, settle them an hour later, rows join COMP v2's training (comp_market.py) ──
+import comp_market as _cm   # noqa: E402
+
+COLLECT_EVERY = 600
+
+
+async def _collect(rs):
+    import httpx
+    async with httpx.AsyncClient(timeout=12) as http:
+        return await _cm.collect(http, _c2.DATA)
+
+
+@router.post('/api/reputation/admin/model-lab/comp2/collect')
+async def comp2_collect(request: Request):
+    """🌐 One snapshot + settle pass now (it also runs every 10 minutes on its own)."""
+    rs = _rs()
+    rs._require_owner(request)
+    try:
+        await _collect(rs)
+    except Exception as e:   # noqa: BLE001 — DexScreener down: say so, keep the snapshots
+        raise rs.HTTPException(502, f'DexScreener did not answer ({type(e).__name__}). The snapshots are kept.')
+    return await rs.asyncio.to_thread(_c2.status)
+
+
+async def _collect_loop():
+    import asyncio
+    rs = _rs()
+    await asyncio.sleep(45)               # let the service finish booting first
+    while True:
+        try:
+            await _collect(rs)
+        except Exception:   # noqa: BLE001 — the next pass tries again
+            pass
+        await asyncio.sleep(COLLECT_EVERY)
+
+
+def start_collect_loop():
+    import asyncio
+    import os
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        asyncio.get_event_loop().create_task(_collect_loop())

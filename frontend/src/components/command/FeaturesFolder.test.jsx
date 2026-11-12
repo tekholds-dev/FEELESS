@@ -664,3 +664,28 @@ test('🧠 COMPAI: the header name is the model, Build trains its next version f
   expect(sent.find(x => x[0].endsWith('/forge/family') && x[1])[1]).toEqual({ name: 'COMP Prime' });
   el.remove(); jest.useRealTimers();
 });
+
+test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where a flagship with no key is blocked, not guessed', async () => {
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'v2');
+  const sc = (right, n = 28) => ({ n, right, acc: right / n, unsure: 0, kinds: { PoB: { n: 12, right: Math.round(right / 2) }, PoW: { n: 8, right: 3 } } });
+  const st = { base: { name: 'Qwen3.5-9B (4-bit, MLX)', ready: true, params: '9B', bits: 4, engine: 'MLX LoRA', mlx: true },
+    dataset: { train: 99, valid: 15, test: 28, won: 75, lost: 67, net: 0 }, market: { collects: 2, rows: 3, open: 23 }, run: { iters: 150, running: false, done: true, curve: { train: [[5, 2.4], [10, 1.1]], val: [[1, 3.6], [25, 0.9]], last: 150 }, error: '' },
+    exam: { n: 28, at: 1794505730, examinees: [{ id: 'baseline', name: 'Always "won"', kind: 'baseline', score: sc(15) }, { id: 'base', name: 'Qwen3.5-9B (4-bit, MLX)', kind: 'local', score: sc(13) },
+      { id: 'comp', name: 'COMP v2 · 9B LoRA', kind: 'local', score: sc(19) }, { id: 'claude', name: 'Claude Opus 5.5', kind: 'flagship', blocked: 'no key: add it in HQ › Agents' }] }, examRunning: false };
+  const sent = [];
+  const call = jest.fn(async (path, opts) => { sent.push([path, opts?.body && JSON.parse(opts.body)]); if (path.endsWith('/forge/family')) return { name: 'COMP Flagship' }; if (path.includes('/comp2')) return st; return {}; });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
+  const mc = el.querySelector('[data-testid="mc2"]');
+  expect(mc.textContent).toContain('Qwen3.5-9B'); expect(mc.textContent).toContain('99');
+  expect(el.querySelector('[data-testid="mc2-live"]').className).toContain('is-idle'); expect(el.querySelectorAll('.mc2-stack .is-lora').length).toBe(8);
+  expect(el.querySelector('[data-testid="mc2-ways"]').textContent).toContain('NOT BUILT'); expect(el.querySelector('[data-testid="mc2-ways"]').textContent).toContain('3 rows');
+  const board = el.querySelector('[data-testid="mc2-board"]');
+  expect(board.querySelector('li').textContent).toContain('COMP v2');                     // sorted best first
+  expect(el.querySelector('[data-testid="mc2-ex-claude"]').textContent).toContain('no key');
+  expect(el.querySelector('[data-testid="mc2-ex-base"] .mc2-acc').className).toContain('is-under');   // the base did not beat always-won
+  await act(async () => { el.querySelector('[data-testid="mc2-iters-400"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="mc2-train"]').click(); });
+  expect(sent.find(x => x[0].endsWith('/comp2/train'))[1]).toEqual({ iters: 400 });
+  el.remove(); localStorage.removeItem('feeless.modelLab.tab');
+});

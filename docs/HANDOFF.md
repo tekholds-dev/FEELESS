@@ -152,7 +152,16 @@ one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
    Flagship preset (5.33M params, BPE 2048, ctx 256), labs panel (RMSNorm/SwiGLU/RoPE/GQA marked not built). **Proven in his Chrome:** Flagship v1.00
    (200 steps, 244 s, held-out 5.56, ppl 260/2048) → v1.01 continued (started at loss 5.41, ended held-out 5.05, ppl 156, 400 steps total), suite 6/6,
    ask + footer. Speed fit 47.7 GFLOP/s × (N/136K)^0.26 (estimate 4 min, real 4 min). Header squash fixed (`.mlb` rows max-content). Not checked: day
-   theme, 360 px, a file download click. Next: train v1.02+ with more steps (each version adds on top).
+   theme, 360 px, a file download click. v1.02 trained 2026-11-12: 1000 more steps (1400 total) from v1.01, held-out 4.14, ppl 62.7, 3339 s.
+3b. 🚀 **COMP v2 · 9B BUILT 2026-11-12** (ModelLab tab `ModelComp2.jsx`, `comp_v2.py`, `comp_v2_exam.py`, `comp_market.py`, `.venv-mlx`): Qwen3.5-9B 4-bit
+   (Apache-2.0, LM Studio folder) + an MLX LoRA (8 layers, batch 1, lr 3e-5, 200 iters) on his settled proofs, using ONLY what each proof said before it
+   settled. Exam = same 28 held-out proofs for everyone, read by confidence (logit won − lost; the cut only moves when it wins ≥2 more valid proofs),
+   checkpoint picked on valid. **Real result (28 held-out proofs): COMP v2 + memory 67.9% · COMP v2 64.3% · base 9B 64.3% by its top word (53.6% with the valid-tuned cut) · always-won 53.6%. Ties the base, beats the baseline; ±1–2 proofs is noise at n=28 — the market rows are what grow it. Before calibration it collapsed to always "won".** Learners: 🎯 LoRA (live) · 🌐 market rows: DexScreener snapshot every 10 min, settled after
+   1 h (+20% won, −20% or rug lost), train only, capped at his row count (real API proven; loop starts 45 s after the rep service boots) · 🧠 memory
+   recall (5 alike past proofs in the prompt) · 👍 his grades. NOT built: DPO, open-teacher reasons, nightly retrain. Live scan visual (32 layers, 8 lit,
+   flow, ring, loss HUD). Flagships blocked: no ANTHROPIC/OPENAI/XAI key in backend/.env (owner: HQ › Agents). Private repo: `bash scripts/comp-sync.sh`
+   (gh CheckCoded47/comp-ai, private; adapter + rows + exam; base never uploaded). Lesson: 9B LoRA + numpy build + jest at once froze the Mac (load 526,
+   then a Metal OOM at batch 2): run ONE heavy job at a time.
 4. Rerun the 18-device audit (scratchpad script; MOBILE_LAYOUT.md matrix) on a QUIET machine (no backend edits during it: each edit restarts services → 504s).
 5. Desktop folder audit (every agent + owner desktop folder, his Chrome, signed in). Then the 5 things agents/Collective are missing (his ask).
 
