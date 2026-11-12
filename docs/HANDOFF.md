@@ -1,148 +1,34 @@
-# 🚨 LOOK ROLLOUT — status 2026-11-12 (Opus 5.5). Owner order stands: keep going, test, push each.
-**LOOK PICK = Pit + Desk + Obsidian in Feeless Green (#19e68c, day #08995a).** Local copy of the lab: no longer needed (rolled out).
-DONE, on main, gates green:
-1. ✅ Looks: `lib/looks.js` FEELESS_LOOKS + `backend/looks.py` tier `feeless`; Obsidian = DEFAULT (no saved look ⇒ Obsidian green). `<html data-layout>`:
-   **Desk** (`components/DeskLayout.jsx`: menu bar + clock + window bar, Rank/Quests/Board widgets from `/quests/{you}` + `/league` only, lucide dock; phone hides the dock)
-   · **Pit** (Trade shows the room chat + alpha tape rail beside the swap). Old amber Obsidian = `amber`. CLAUDE.md palette rule + memory updated.
-2. ✅ Old looks = ONE Classic row (scrolls) in LookPicker.
-3. 🟡 Buttons: `components/ActBtn.jsx` (press ring → money 2 taps/3.5 s → spinner → ✓ only on server OK / shake + the server's `detail`).
-   On: agent Withdraw, Kalshi Approve (2 taps), Look save, colour save. `twoTap(msg)` replaced ALL 48 window.confirm in 29 files (real card sells/top-ups/
-   payouts, Fuse, LP, treasury, deletes): 1st tap arms that button amber + toast, 2nd tap on the same button within 3.5 s confirms. `backend/tests/test_frontend_routes_exist.py`: every /api path the site calls has a route (0 missing).
-   DONE 2026-11-12: HQ Trading & fees save, Seasons reserve save, Ads publish/save, Launch tab + Launch costs saves (✓ only on the server's OK, seen
-   in /dev/hq Ads). NEXT: row-level saves (Fuse builder, Quest engine) — they take arguments, so each row needs its own ActBtn.
-4. ✅ Quests/rank: grep found no fake rank/XP/board numbers; Desk widgets are server-only with honest empty states.
-5. 🟡 PoEco: Live books got a Recharts **Sankey money flow** (`flowOf` in EcoLive.jsx: fees in + your pocket → FeeBack / each model / kept, balanced, null if no money).
-   Not seen signed in (owner-only route). Pro look sitewide under the elite edition (`styles/looks.css` end): no m-live aurora/sweep, no gradient
-   headline, no mouse glow/flakes, solid accent primary buttons (day #08995a). DONE 2026-11-12: EcoDesk (night = Pro tokens, cash line + donut in
-   the look's colours), Model Lab Build + Data tabs (flat cards, accent rings/bars), every HQ glass panel (m-glass + the HQ list → #111116 hairline,
-   looks.css end), no m-live glow. Seen in `/dev/hq?eco`, `/dev/hq?lab` (needs a local `public/dev-lab.json`, never committed) and any `/dev/*?look`.
-   Terminal DONE 2026-11-12: Fuse Forge in the look's colours, no page colour blobs, swap desk flat (no spinning violet beam), supply bar accent.
-6. ✅ 🕯 TRUE CANDLES 2026-11-12 (owner: "up like it was finna moon, wick out, then morph within 1m"): measured on Hero, the Jupiter aggregate
-   quote printed 3.5% above the source 1m bar's real high, then the reload swapped the source bar in. Now only a real fill (stream `k`) shapes the
-   forming candle; quotes move the header price only; 1m/5m reload the source bar every 15 s (PriceChart.jsx, chartShape.test.js). Not watched live
-   through a full minute of real fills (the coin sent none while measured).
-7. ✅ 📺 WATCH HIGHLIGHTS 2026-11-12 (owner: "recent highlights per gamer or team… roku, peacock… fifa"): Watch room › HIGHLIGHTS searches the
-   newest videos of every official league channel + any channel you follow by @handle (`backend/rep_watch.py`: public channel feeds, no key, 10-min
-   shared cache, newest 15 per channel; handle → the page's CANONICAL id). Peacock, FIFA+, DAZN added to the sign-in services (the user signs in
-   inside its browser; FEELESS never sees a password). Seen live: "Lakers", @Ninja + "fortnite". `/dev/hq?watch`.
-8. 🔜 QUEUED (owner 2026-11-12, same message — build in this order, think past the ask, CLAUDE.md "THINK PAST THE ASK"):
-   a. ✅ DONE 2026-11-12: proof work chats end with WHAT NEXT? (`nextOptions`/`NextSteps` in FeaturesFolder.jsx): the reply's own listed choices
-      become the chips, else stage steps + "Carry it into a PoW"; "Something else…" focuses the box. `/dev/features?next`. ✅ Brain chat too (2026-11-12): one shared `chat/WhatNext.jsx` for every chat; Brain layout fix: on a short window the fixes panel ate the chat (0 px) → chat keeps 240 px, fixes scroll. HQ rows: FuseBuilder + Quest engine buttons are ActBtn (✓ only on the server's OK; delete / reset / start season / award week take two taps). Test: HqRowSaves.
-   b. ✅ BUILT 2026-11-12: PoC station (`PocStation`, top of PoC › Make): LAUNCH PATH 6 steps read from the PoC record (answer → filed → OSSY/G4
-      review pass → your mark → posted link → carried on), the one next step as a button, 4 big doors carrying the newest mind answer into PoStatic /
-      PoW / PoB / PoP (PoW etc. land in the agent chat, never run). `/dev/features?station`. NEXT: a PoC watch (AGT-5).
-   c. ✅ DONE 2026-11-12: 🚀 Go live (PoStatic toolbar, beside Store check; `GoLive` in FeaturesFolder, `backend/deploy_hosts.py`): Cloudflare Pages,
-      Surge, GitHub Pages, Vercel, Netlify, Render ranked cheapest first ($0 plans, most free traffic, then first paid step); each row re-read daily
-      on its own pricing page and shown ✓ checked / ! page changed; free loads a month from the page's real zip size; steps + Save zip + Open host.
-      All 6 checked live 2026-11-12. Fly left out (no free tier). NOT built: one-tap deploy with the user's own host token. `/dev/features?golive`.
-   d. ✅ BUILT 2026-11-12 (owner order: "safe clean data and builds go in stash; Fee's stash/git folder = elite dashboard"): STASH DASHBOARD on top of
-      Fee's Collective repo (`StashBoard`/`stashStats` in GitFolder): proofs kept, win rate, PoStatic pages, snapshots, files; per proof type ring +
-      won/lost/open bar; last 6 months stacked; keep-it-up checks (push waiting, unused files, sealed). All counted from git_state. `/dev/features?stashboard`.
-   e. ✅ 2026-11-12: Scrolltide in the stash (kit `scrolltide`, catalog `guide` = our own notes + links to its 7 free templates; its terms: build and
-      ship freely, never share the prompts). Its MCP is paid (Yearly/Lifetime) — not added.
-NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
+# HANDOFF — THE ONE PAGE. Read REMAINING first; it is the only to-do list.
 
-# HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
+> 👑 The owner's newest chat message beats this page. Don't stop to ask; work the list top down, prove each item, push, tick it here.
+> ✨ **He should never have to curse to get good work.** First try = finished: styled to CLAUDE.md, real data, tested, seen in the browser,
+> pushed, this page updated. Never a half build, a prototype look, a fake number or "done" without proof. If you'd be embarrassed showing it, it isn't done.
+> Old status blocks (looks rollout, 11-10/11-11 pick-ups) are archived word for word in `docs/FEELESS_HISTORY.md` ("ARCHIVED HANDOFF STATUS BLOCKS 2026-11-12").
 
-> ## 💵 NEXT: REAL-MONEY AGENT TESTS (owner 2026-11-12) — the build queue no longer blocks them
-> Pushed through 3171b02a, gates green. Agents block: 31 of 35 rows built/owner-only; still open (none blocks money tests): AGT-5 PoC watch,
-> AGT-15 before/after picture, AGT-17 3D, AGT-34 per-PoW mind timing. **Order:** 1) cash audit (`scripts/edge-audit.py`, card cash, gas
-> reserve short 0.006 SOL) · 2) owner T1 $1 SOL→USDC→SOL swap · T3 $1 into Happy's wallet and back · 3) AGT-25 OSSY/G4 PoWs through the Fuse card
-> (read DEGEN_PLAYBOOK, age/pool/already-ran guards, owner confirms the first buy) · 4) T2 Fuse withdraw $1 → Circle → Phantom · 5) AGT-26, AGT-24.
-> Claude never moves funds: the owner taps every real-money step.
+## ✅ REMAINING (2026-11-12, after 3171b02a) — build in this order; detail = the ID's row below
 
-> ## 🔁 PICK UP HERE (2026-11-11 night, Opus 5.5) — conserve usage · finish everything by priority · never dead-style
-> **Built tonight (gates green, on main):** 🗂 Content editor shelf "MADE BY YOUR AGENTS" on Video / Image / 3D (`MadeLibrary` in PocEditor,
->   op `media_library` = Happy's 9 real AI results FIRST for every user (`media_gen.made_by_happy`, public /media/samples,
->   model · $ · seconds) + this owner's Showcase ad videos, made media and filed 3D scenes; owner: NO site snapshots, they are evidence, not content;
->   Use drops one in; 3D opens via op `play3d_take`). Empty Video / Image tabs play a real Happy result behind the start card (Use this clip/image) · Image tab redo (one bar: size | add | history |
->   name + Save PNG + File as PoC; artboard with size label + empty state; LAYERS list; canvas refits on resize, was overflowing) · 🖍 owner's
->   BLANK CANVAS idea BUILT: a new build folder's + Mark draws boxes on a light grid page, a note per box, Send works with no extra words;
->   `region_note(blank=True)` tells the minds to build each part in its spot (no research/plan step when marks exist) · audit fixes: 3D studio
->   update loop (a prop shadowed its own `take`), 32px hit areas (ltk dots, ck-hide, gtr-linkbtn, ack-aichip, vbd-sgrade, pg-src, chart link,
->   video zoom), long coin names end in … in the live tank. Harness `?pce` (editor + shelf on fixtures), `?blank` (blank canvas).
-> **Audit (scripted, 22 harness pages × 1280 + 390):** clean on overflow, clipped text and hit areas; leftover console errors are fixture IDs
->   hitting the live backend (sic 404, ccx 401 unsigned, /dev/cats ws 403), harness only. NOT done: the signed-in click-through of every real
->   folder — Claude in Chrome was not connected. Next agent: connect it (owner opens the Claude side panel in Chrome) and walk every desktop folder.
-> **Film v2 DONE:** real cursor journeys cut in; the Collective re-recorded clicking its own tabs (was one still frame for 30 s); 9 chapters 5:41,
->   player https://claude.ai/artifact/WUoXgCTfkY5HVmBgdKbCeo (new link: the v1 link was not readable from this account). 3D studio from PoStatic crashed
->   ("filed is not defined", from tonight's shelf) → fixed and driven through the real door (pdk-play3d, pdk-editor: 0 errors).
-> **Also tonight:** 📰 FEEd is the whole page (/terminal/feed drops the terminal sidebar, context bar and breadcrumb; FEEd's own nav is the left column)
->   + LIVE NOW story rings (who posted this hour, spinning ring, count, tap = only them) · proof price says "model bill · no FEELESS fee" (proofs never
->   carry a FEELESS fee; the $ is the agent's own key's model bill) · Command Center: all 18 bare tabs now open on one live
->   vitals band (`HqVitals` in ccTabInfo.js: a ring or spark per real number, count-up, one sweep layer; Access, Ads, Airdrops, Broadcast, Bugs,
->   Holders, Ideas, KOLs, Moderation, Seasons, Snapshots, Airdrop Studio, Traffic, Verify, Pulse, Numbers, Invites, Security); audit on fixtures:
->   34 tabs, 0 crashes (Sicario's 241 controls not all clicked) · 3D code studio: pick Mind A / Mind B / take turns (model names shown), a thread
->   of asks and answers with each answer's $, Undo the last change (`play3d_code` `to`, chat kept in code3d) · editor shelf squashed to 22 px in
->   the desk window → `.pce` rows sized to content · 🎨 the Feeless Kit every PoStatic build reads was still "royal green #15d16a" → now
->   FEELESS_VITALS (PLASMA tokens, type, card, go button, segmented, vitals band, spark, story rings, media rail, empty state, motion rules).
-> **🎯 KALSHI REAL-BID DOOR BUILT (owner said "Build it", 2026-11-11), tested with a fake Kalshi only, NOT run live:** `kalshi_bid.py` +
->   `_kalshi_send` (the ONE place an order is sent) + ops kalshi_state / kalshi_cfg / kalshi_bid / kalshi_skip + `KalshiDoor.jsx` (Bids folder) +
->   `KalshiTicket` (in each PoB folder). A topic PoB's two minds also see the live Kalshi games (public API, read live: NBA 12, NFL 12); both pick
->   the same ticker + side → a ticket. Approve each (default) or Auto in caps. Guards: off by default, LIMIT order at the shown ask (re-read; refused
->   if it moved > 2¢), $1/bid (hard max $5), $3/day (hard max $20), both minds ≥ 65%, 5–95¢, closes > 10 min out, one bid per market per 24 h,
->   balance floor $2. Key = Keys › Kalshi: key id + private key (pasted on one line is fine), sealed per agent. OWNER TO DO: kalshi.com › Account ›
->   API keys › create, paste "<key id> <private key>" into Happy's Keys › Kalshi, Bids › switch the door on, "file a pob nba tonight", Approve.
-> **🔑 KEYS (2026-11-11 late):** Kalshi was missing from the Vault drawer (page copy of cat_keys.PROVIDERS; test_key_drawer_mirror now guards it).
->   Two-part keys now get two boxes (`KEY_PARTS` in LaunchCat.jsx: Kalshi key id + multi-line private key, fal key id + secret); the drawer no
->   longer trims while typing; Seal runs ONE free live check (`_key_check`: Kalshi balance, fal status 401/403 = refused) and shows ✓/⚠ next to
->   the last 4. Owner's Kalshi + fal saves had NOT landed (no kalshi/fal key on any agent): he must Seal again after this push, then check the ✓.
-> **DONE 2026-11-11: proof window layout, every proof type.** PoC: left column behind Make | Its PoCs N | Research. PoW + PoP: right rail
-  behind Its record | Live tools (`ProofRail`, CatWorkbench). Bids rail was already short (unchanged). `BackToDesk` (DeskShell, `DeskWinMin` context
-  from every `DeskWin`) in every open folder: PoC/PoStatic headers + PoW/PoP/PoB path rows. Minimized proof windows (`KEEP_MIN`) stay mounted
-  + hidden, so the taskbar brings back the same open folder. Seen in harnesses `/dev/features?pdk&poc` + `/dev/cats` at 1280 + 390; not signed in.
-> **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
->   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
-> **2026-11-11 late (this session):** Kalshi Ed25519 keys (Kalshi's default now; the owner's key is one) seal + sign (`kalshi_bid.sign`, cat_keys regex
-  40+ chars) — NOT yet proven against Kalshi live: his Seal is the first live call (✓ balance or the error on the row). Fuse Withdraw asks an amount.
-  PoC layout: media maker spans the column, chat pinned full height. LAG (his Chrome, dev build): desk open 2.3 s → 2.1 s blocked; fixed the 8 s
-  464 KB record re-read (now 30 s, no re-render if same), theme re-scan of every CSS rule per lazy sheet, hover forced layout, 5 preloads at once,
-  backdrops 22 MB → 7 MB. Left: the desk's first React render (~0.8 s + 3×0.2 s in DEV; production is several times faster). Push from
-  `.claude/worktrees/gate` only: a gate in the main tree killed his `yarn start` twice.
-> **The 3 real-money tests: READY, handed to the owner 2026-11-11** (owner presses; never sign for him). Dry-checked live, no funds moved:
-  T1 real quotes both legs (swap engine; platform fee 1425 bps after his tier = the open Q29) · T2 Fuse wallet is a live Circle wallet, owner
-  wallets are saved destinations, withdraw = book move; NEW guard `_fuse_send_guard`: a Circle SOL send from the real Fuse wallet stops at
-  wallet SOL − card cash (test_circle_admin) · FIXED: PoStatic numbers stuck at #61 (43 proofs; list keeps 60, n was len+1) → highest+1, PoC same (`_next_n`);
-  open proof folders keep header / path row / tabs pinned while scrolling (owner's screenshot) · T3 Happy's Circle wallet 0.0513 SOL (pays fees) + 0.367 USDC, $1 top-up allowed (min $1, staff no fee).
-> **Owner blockers:** $FEE/FEECAT/rFEE have no pool (headline "Into $FEE free" fails) · Q29 15% swap fee · Fuse gas reserve short 0.006 SOL ·
->   RPC = Chainstack only (archive calls 403 on its plan) · put a $ limit on OpenRouter key "OAuth: localhost:51367" · not seen live: ProofLive
->   during a real proof, rate-limit drop not re-measured (check /tmp/feeless-api.log 429/403 counts vs 417 per 10 min before) · the shelf and
->   blank canvas are not seen signed in.
+**Build now (Claude):**
+1. **Folder icons look bad** (owner 2026-11-12) — redraw every folder icon on the agent desks / Collective / Git folders as one drawn set (SVG, lucide-style
+   strokes, the look's accent, hover + focus, day theme, 360 px). Screenshot every desk before/after.
+2. **Watch room folder back on the agent desks** — today it only opens beside the PoB chat (`ProofTools` rail) and `/dev/hq?watch`. Roku Channel,
+   Peacock, FIFA+, DAZN and Highlights are already inside it.
+3. **AGT-5 PoC watch** — he picks a target + steps + hours; it checks a few times an hour while the agent works on other things; each check is
+   saved as proof; a SHORT report lands in the PoC folder at the end.
+4. **AGT-15 before/after picture** — the fix agent screenshots the broken screen and the fixed one, shown side by side in the fix record.
+5. **AGT-17 3D world** — NOVA opens black (fix that), run G4 + one paid model on it (owner tests OSSY/G4 more later), PoC + PoEco bigger worlds, real FPS.
+6. **AGT-34** — tag every model call with its PoW ref so research seconds per mind are measurable.
+7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work
+   from the stash brain · COL-10 method kits + Tool Forge · COL-19 proving ground · COL-16 bids/browser wins to the Pool (needs an address) ·
+   COL-18 ledger move (on hold: 3.7 KB).
+8. **SITE:** SITE-4 Live ops finish · SITE-5 code split (slices 2–7 done) · SITE-2 logo · SITE-8 city FPS + load tests · SITE-11 price-gap engine ·
+   SITE-17 more lending readers.
+9. **Signed-in check on 51367** of everything marked "not seen signed in" (Desk widgets, Look save, agent withdraw 2-tap, PoEco Sankey, Live ops, Cards & pay).
 
-> ## 🔁 PICK UP HERE (2026-11-11 ~13:15, session out of usage; owner wants the next account to continue)
-> **Pushed:** a3cf5ae6 and earlier, gates green. **Not committed:** `.gitignore` (+.claude-wip/) and this page.
-> - 🎬 **Showcase ads: DONE, by hand (no OpenRouter).** Six ads written by Claude in `.claude-wip/ads/ad.html` (one engine, a config per proof
->   type), filmed by `.claude-wip/ads/make.py` through the same recorder + frame check: all six pass, 0 faults. Installed as
->   `backend/data/show_ads/<happy>/<kind>.webm` (+ `<kind>-claude.webm` kept). Owner: stop spending OpenRouter on ads; the agent ad writer
->   (Sonnet 5.5, `_ads_write`) stays in code but runs only on "Redo this ad". OpenRouter balance ≈ $1.9 of $10.
-> - 🧾 **OpenRouter money traced (2026-11-11, from openrouter.ai/activity, 24 h = $7.42):** key "OAuth: localhost:51367" (Happy Assistant's
->   Connect-OpenRouter key) $2.81 = Sonnet 5.5 $2.00 (only $0.34 had receipts) + Hy4 $0.81; FEELESS key "gpt 6 luna" $5.61 = videos $3.35 +
->   images $1.12 (Claude dev scripts, Nov 10 19:14–19:38 + film stills; the app's media cap never saw them) + GPT-6 Luna $0.14 (site AI router
->   fallback, ~$0.0005 every 1–2 min). Fixed: `_or_call` writes a receipt for EVERY billed call (cat via `_OR_CAT`, incl. cut-off replies),
->   media jobs + Better images receipt, `ai_router._spend_note` receipts the site fallback (`cat: 'site'`). Test: test_model_receipts.
->   Not covered: dev scripts that read the key directly (.claude-wip) and the admin fix seat (rep_tools, ~$0.001).
-> - 🎞 **The film: DONE 2026-11-11** — 5:35, 9 chapters, no humans (product phones `s-hero`/`s-fold`/`s-phones` + the six ads as ch04),
->   −16 LUFS. Player: https://claude.ai/artifact/W4K7mti7HkEkf3F1kQSfiF (play all, per-chapter download). Rebuild: `.claude-wip/film/`
->   `comp.py product` → `assemble.py` → `player.py`. Fixed: multi-screen composites cropped per screen (full-frame layers blacked out
->   the other phones), score expression commas escaped.
-> - 🖥 Desk: monitors back, idle monitor = newest proof (`newestProofs`); Ad lab on Fee's desk (every attempt, faults, $, video).
-> - 💡 Owner question answered in chat: Emma (Nuance Labs, launched 2026-11-09, video persona, API, no public price) as the PoEco face.
-> **Readiness pass (2026-11-11):** swap quote → review → "Approve in Phantom" works on real USDC (0.01 SOL → 0.848 USDC, simulated, owner fee 0).
-> Fixed: picker ranked a fake "USDC " ($76B self-reported cap) over real USDC → verified first (test_token_search_trust); WalletModal hook order broke the build.
-> **Owner blockers:** $FEE / FEECAT / rFEE have NO pool anywhere (DexScreener 0 pairs, Jupiter "not tradable") → the "Into $FEE, it's free" headline fails;
-> Q29 15% swap fee (`platformFeeBps` 1500) still unanswered; Fuse card 0.0227 SOL, gas reserve short 0.006; RPC = Chainstack only; edge 1/968 rules.
-> Circle: both tenants answer live (6 FEELESS wallets incl. FUSE🧬). Withdraw path (card → wallet SOL → Circle send to a saved address) never run live.
-> **Owner tests handed over:** T1 $1 SOL→USDC→SOL swap · T2 Fuse withdraw $1 → Circle send to Phantom · T3 $1 into Happy's wallet and back. RPC: only Chainstack lane 1 answers.
-
-> ## 🔁 NOW (2026-11-10 late, end of session): 43 of 85 rows built · 5 partly · 13 open buildable · 24 owner-only
-> **Blockers (owner):** 2026-11-10 keys: NEW Helius key (SOLANA_RPC_URL) works live; HELIUS_RPC_URL + _4 still "max usage reached", _3 = 401, Tatum + OnFinality + Alchemy 429. Fixed: `helius_key()` now skips spent keys, Helius's "max usage reached" parks the lane, FeeCat balance reads use the live lane. Pasted notes moved into real names (backup `.env.bak-keys7`): new Jupiter key → JUPITER_API_KEY_2 (price + quote 200), Brave ×2 → BRAVE_API_KEY/_2 (200), SnapTrade PERS → SNAPTRADE_CLIENT_ID/CONSUMER_KEY. Crypto.com pair in the note = 40101 auth failure (left unassigned). Claude in Chrome not connected from the app.
-> **Next session, in order:** 1) ✅ C03 readers done 2026-11-10 · 2) COL-6 OSSY + G4 PoStatic pilot (owner approves the plan) → COL-9 live stash proof → COL-11 · 3) AGT-15 before/after picture · 4) SITE-5 money/write/admin route moves (route table identity check) · 5) SITE-8 DB + workers · 6) AGT-17 NOVA on local models · 7) words needed from owner: AGT-7 "short prompts", SITE-6 FeeCat items, SITE-17 C02 game parts · owner-only: real money rows (AGT-24/25/26, SITE-12..16/18, COL-16/19, C04).
-> **Verify on 51367 (built, tested with fakes, not seen signed in):** Live ops desk folder, HQ › Money › Cards & pay, Watch room live games, Git › Its v1.01s + Agents' forks, repo Ask/Change, Sicario HQ order.
-> **Built 2026-11-10 night:** HQ shell redo (one sidebar, every tool once under its group, slim sticky header with live stats, phone drawer, Money explainers folded below data) · 📱 Store check on every Build folder (`store_check.py`: App Store / Play rules, static + real Chromium at 360/390 px; checked on 3 real agent pages: 88/92/88) · Showcase replay steps + chips clickable (jump + 12 s hold) · Feeless Kit now carries the dashboard shell + LAYOUT/SHIP-READY rules every build reads · C03 block readers. Dead-control sweep: Features (all tabs) clean; HQ sweep below.
-
-> ⚡ EVERY SESSION (owner, repeat in anything you hand off): **1. Conserve usage** (grep first, read only what you need, batch, no essays).
-> **2. Finish everything in priority order** (never leave a surface half done; keep going through the whole queue, proof on each).
-> **3. Never dead-style** (prove no component renders a class before deleting it; every new box gets real styling and a live visual).
+**Owner only (Claude never moves funds):**
+- 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
+  Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
+  Circle → Phantom → AGT-26, AGT-24.
+- Decisions/keys: $FEE / FEECAT / rFEE have no pool · Q29 15% swap fee intended? · KEYS, LAWYER, HOUSE, LOOKS rows below · $ limit on the OpenRouter key.
 
 **How this page works.** One page, three blocks, one task list. Each block has: how it works now (from the code), its open rows in order,
 its built-needs-a-check rows, and what the owner decided. A row finished AND proven leaves this page as one line in
@@ -155,14 +41,14 @@ finds both. Nothing was dropped: a row is kept, merged with its repeat, or marke
 **Status words:** OPEN = asked, not built · VERIFY = built, needs one real run or the owner's look · OWNER = needs his key, account,
 signature, money or decision · LAWYER = waits on counsel · DECIDED = a rule, do not undo. Nothing here authorizes a trade or a payment.
 
-**Rules for every row:** inspect the code first, never guess what exists · build locally, test, report, push to `main` only on the owner's go
+**Rules for every row:** inspect the code first, never guess what exists · build locally, test, report, push to `main` when the gate is green
 (he tests on 51367; no dev-branch workflow; the main folder runs the live keeper) · never touch a money path without his explicit OK ·
 never invent a test, outcome, cost or proof · no duplicate systems · leave every running service alone (51367, 5001, 5077, 5088, 5099,
 5111, 5112, 8765, 27017, and nCheck on 3000).
 
 ## TASKS
 
-## 🔁 NOW — HANDOFF (2026-11-10 evening, from the session that ran out of usage)
+## Owner blockers + notes (from 2026-11-10; current list = REMAINING at the top)
 
 **How to work with the owner (read first):**
 - He runs ONE command himself; never open Terminal windows (no osascript / up.sh):

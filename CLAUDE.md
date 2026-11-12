@@ -1,6 +1,7 @@
 # FEELESS — working rules (lean).
 
 > 👑 **The owner's newest chat message overrides anything in this file, HANDOFF or memory.** When he sets or changes a rule, update every .md that says otherwise in the same turn. Don't stop to ask before tasks: work through all he asked, in order.
+> ✨ **FIRST TRY = FINISHED (owner 2026-11-12):** he should never have to curse to get good work. Styled, real data, tested, seen in the browser, pushed, HANDOFF ticked — or it isn't done.
 > 🧰 **STASH ORDER (owner 2026-11-12, every Claude):** every safe, clean, harmless piece of data or build you make or find goes into the stash AND Fee's stash/Git folder. That folder is an elite dashboard of proof stats (every proof type), easy to maintain. Think above and beyond; never lazy.
 
 The full feature log lives in `docs/FEELESS_HISTORY.md` — GREP IT, never load it whole.
@@ -170,4 +171,4 @@ Read [docs/HANDOFF.md](docs/HANDOFF.md) `## TASKS`: every open request in three 
 
 Read [docs/MOBILE_LAYOUT.md](docs/MOBILE_LAYOUT.md) before any phone/Duo change. Owner reference: folded 466×678, rotated 678×466, unfolded 890×626 / 626×890 CSS px, DPR 3; these are supplied viewport references, not universal hardware specs. Every mobile browser must fit its actual usable viewport, preserve controls and rotation state, and account for Safari chrome/safe areas/keyboard.
 
-Conserve usage: read the selected task and relevant code, finish that scope, verify, update the HANDOFF row, stop. Existing unrelated edits must not be committed with your change.
+Read HANDOFF › REMAINING (the only to-do list), work it top down: build, verify, push, tick the row, keep going. Existing unrelated edits must not be committed with your change.
