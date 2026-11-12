@@ -4,6 +4,7 @@ import { KalshiDoor, KalshiTicket } from './KalshiDoor';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useBox } from '../../lib/useBox';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { startOpenRouterConnect, takeConnectResult } from '../../lib/openrouterConnect';
@@ -316,7 +317,7 @@ function ProofScreen({ p, onOpen }) {
 
 export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null, proof = null, onProof }) {
   const { drop, tray } = useDrop(w);
-  const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
+  const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web'); const screen = useRef(null); useBox(screen, 0, true);   // 📐 --box-w/--box-h replace cqw/cqh
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
   const lastAct = (w?.steps || []).at(-1)?.action; const lastN = (w?.steps || []).length;
   useEffect(() => { if (lastAct === 'feeless' && w?.coin?.pair) setTab('chart'); else if (['open', 'click', 'scroll', 'search', 'type'].includes(lastAct)) setTab('web'); }, [lastAct, lastN, w?.coin?.pair]);
@@ -351,7 +352,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
     <span className="agd-url" title={w?.url || ''}><i aria-hidden="true"><Ic3 e="🔒" /></i><b>{roundOver ? `feeless · $${folder.sym || 'its folder'}` : w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
     {w?.coin?.pair && !roundOver ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
       <span key={k} className={(chart ? 'chart' : 'web') === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
-    <div className="agd-screen cwb-view">
+    <div ref={screen} className="agd-screen cwb-view">
       {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[sl] || sl + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
         <McapChart coin={{ pair: w.coin.pair, mint: w.coin.mint, symbol: coinSym }} fuse={folder?.entryUsd > 0 && folder.mint === w.coin.mint && HELD_PHASES.includes(folder.phase) ? { entry: folder.entryUsd, stop: folder.entryUsd * (1 - (Number(folder.sl) || 25) / 100), slPct: Number(folder.sl) || 25 } : null} /></Suspense></div>

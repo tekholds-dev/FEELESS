@@ -107,7 +107,7 @@ body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-sh
 /* 🗄 THE FILE CABINET — one design wherever it shows (owner 2026-11-11: "bad x per cabinet … dont know how to stack text"; five sheets once
    styled it at once). Wide: a sidebar of drawers, one width, one line each (icon · name · count), the open drawer's files beside it, one line
    each. ✕ hides a drawer: it takes the count's place on hover, never the name's. Narrow (< 560px of its own width): the drawers are one strip. */
-.ck-log { container-type: inline-size; }
+.ck-log { min-width: 0; }   /* 📐 narrow = [data-narrow] from useBox (a @container here froze HQ, 2026-11-11) */
 .ck-cabinet { display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 10px; align-items: start; }
 .ck-folders { display: flex; flex-direction: column; gap: 2px; max-height: 460px; min-width: 0; padding: 6px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent;
   border-radius: 14px; border: 1px solid #ffffff14; background: linear-gradient(180deg, #1b1430, #0d0918); box-shadow: inset 0 1px 0 #ffffff14; }
@@ -141,11 +141,10 @@ body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-sh
 .ck-more button:hover { background: #b388ff24; } .ck-more button:active { transform: scale(.98); } .ck-more button:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
 .ck-cabinet .ck-pull { transform-origin: left center; animation: ckPull .3s cubic-bezier(.2, .9, .25, 1.1) both; }
 @keyframes ckPull { from { opacity: 0; transform: translateX(-18px); } }
-@container (max-width: 560px) {
-  .ck-cabinet { grid-template-columns: minmax(0, 1fr); }
-  .ck-folders { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; }
-  .ck-folders [role="tab"] { width: auto; flex: none; } .ck-folders .ck-fold { flex: none; } .ck-hide { display: none; } .ck-fold:hover [role="tab"] b { opacity: 1; }
-  .ck-empties { align-self: center; padding: 0 6px; white-space: nowrap; } }
+.ck-log[data-narrow] .ck-cabinet { grid-template-columns: minmax(0, 1fr); }
+.ck-log[data-narrow] .ck-folders { flex-direction: row; max-height: none; overflow-x: auto; overflow-y: hidden; }
+.ck-log[data-narrow] .ck-folders [role="tab"] { width: auto; flex: none; } .ck-log[data-narrow] .ck-folders .ck-fold { flex: none; } .ck-log[data-narrow] .ck-hide { display: none; } .ck-log[data-narrow] .ck-fold:hover [role="tab"] b { opacity: 1; }
+.ck-log[data-narrow] .ck-empties { align-self: center; padding: 0 6px; white-space: nowrap; }
 body.theme-day .ck-folders { background: #f3eefc; border-color: #7c4dff1f; } body.theme-day .ck-folders [role="tab"] { color: #2a1650; } body.theme-day .ck-folders [role="tab"].is-on { background: #e7dcff; }
 body.theme-day .ck-rows { background: #fff; border-color: #7c4dff1a; } body.theme-day .ck-rows li { border-bottom-color: #7c4dff14; } body.theme-day .ck-rows li > span { color: #2a1650; }
 body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; } body.theme-day .ck-hide { background: #fff; color: #4a3a78; }

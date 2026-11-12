@@ -4,9 +4,9 @@
 .ltk { --lh: 24px; position: relative; display: grid; gap: 6px; padding: 9px 11px 10px; border-radius: 12px; border: 1px solid var(--m-line, #232926);
   background: linear-gradient(180deg, rgba(155, 107, 255, .06), rgba(8, 10, 9, .65)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); }
 .ltk.is-compact { --lh: 20px; }
-.ltk { container-type: inline-size; }   /* the best strip reads its own width: a Duo half or a side rail swipes it like a phone */
-@container (max-width: 560px) { .ltk-best { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ltk-best ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
-  .ltk-best ol::-webkit-scrollbar { display: none; } .ltk-best li { flex: 0 0 132px; scroll-snap-align: start; } }
+/* the best strip reads its own width (useBox → [data-narrow]; a @container here froze HQ, 2026-11-11): a Duo half or a side rail swipes it like a phone */
+.ltk[data-narrow] .ltk-best { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ltk[data-narrow] .ltk-best ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+  .ltk[data-narrow] .ltk-best ol::-webkit-scrollbar { display: none; } .ltk[data-narrow] .ltk-best li { flex: 0 0 132px; scroll-snap-align: start; }
 .ltk-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0; }
 .ltk-head > b { font: 800 10px var(--f-mono); letter-spacing: .12em; color: var(--m-text, #e8f2ea); } .ltk-head > small { flex: 1 1 180px; font: 600 8.5px var(--f-mono); color: var(--m-mute, #7d877f); }
 .ltk-dot { width: 7px; height: 7px; border-radius: 50%; background: #3a423e; align-self: center; } .ltk-dot.is-on { background: #b48cff; box-shadow: 0 0 8px #9b6bff; animation: ltkBreath 1.6s ease-in-out infinite; }

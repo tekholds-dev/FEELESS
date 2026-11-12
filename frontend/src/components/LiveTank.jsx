@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useBox } from '../lib/useBox';
 import { familiaDocked } from '../lib/familiaRoom';
 import { apiUrl } from '../lib/api';
 import '../styles/liveTank.css';
@@ -118,7 +119,7 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const intake = useRead(...READS.intake);
   const dots = tankDots({ intake }); const n = laneCounts(dots); const seen = useRef(new Set());
   const fresh = new Set(dots.filter(d => !seen.current.has(d.id)).map(d => d.id)); dots.forEach(d => seen.current.add(d.id));
-  const [sel, setSel] = useState(null); const host = useRef(null);
+  const [sel, setSel] = useState(null); const host = useRef(null); useBox(host, 560);
   // 🎯 ONE LEVEL IN FOCUS (owner N01: "▲ / ▼ to step through the intake's rows + swipe to move down a row"): ▲ / ▼ step the five levels, the
   // focused level's dots light up (the rest dim) and its coins line up as chips under the tank; while a level is in focus a swipe UP on the
   // tank goes a row down, a swipe DOWN a row up (the page keeps scrolling sideways-free; tap the level name to see all levels again).

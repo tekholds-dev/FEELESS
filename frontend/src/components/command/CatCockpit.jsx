@@ -1,6 +1,7 @@
 import { ChatComposer, ChatInput, ChatSend } from '../chat/ChatKit';
 import { ShaderWall } from './DeskShell';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useBox } from '../../lib/useBox';
 import { useStickToBottom } from '../../lib/useStickToBottom';
 import { createPortal } from 'react-dom';
 import { Bubble } from './LaunchCat';
@@ -181,6 +182,7 @@ export function SafeGate({ label, onYes, onNo }) {
 
 const LOG_STEP = 12, LOG_MAX = 40;   // 🗄 the cabinet shows 12, scrolls inside, adds 12 at a time to 40 — the rest is on its Desktop
 export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = null, onDesktop }) {
+  const box = useRef(null); useBox(box, 560);   // 📐 narrow drawers by its own width (no @container: it froze HQ)
   const [f, setF0] = useState('all'); const [shown, setShown] = useState(LOG_STEP); useEffect(() => setShown(LOG_STEP), [f]); const [hidden, setHidden] = useState(readHidden); const [ask, setAsk] = useState(null);
   const guarded = useMemo(() => new Set(cabinet.filter(c => c[5]?.guard).map(c => c[0])), [cabinet]);
   const setF = k => (guarded.has(k) && !safeOk() ? setAsk(k) : setF0(k));
@@ -194,7 +196,7 @@ export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = n
   const nOf = k => (k === 'all' ? items.length : extra[k] ? extra[k].n : counts[k] || 0);
   const every = [['all', ['🗂', 'All files']], ...cabinet.map(([k, ic, l]) => [k, [ic, l]]), ...Object.entries(FOLDERS)].filter(([k]) => k === 'all' || !hidden.includes(k));
   const drawers = every.filter(([k]) => k === 'all' || k === f || nOf(k) || extra[k]); const empty = every.length - drawers.length;   // an empty log drawer is not shown, so the cabinet stays short. Its key drawers always show: that is where keys and sign-ins are added
-  return <section className="ck-log" data-testid="agent-log">
+  return <section ref={box} className="ck-log" data-testid="agent-log">
     <header><b>🗄 {title}</b><small>a drawer per kind · newest first · no passwords or keys, ever</small></header>
     <div className="ck-cabinet">
       <nav className="ck-folders" role="tablist" aria-label="Log drawers">{drawers.map(([k, [ic, l]], i) => { const n = k === 'all' ? items.length : extra[k] ? extra[k].n : counts[k] || 0;
