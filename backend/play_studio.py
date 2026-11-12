@@ -313,11 +313,38 @@ CODE_SYS = ('You write one three.js ES module for a live 3D playground. It runs 
             'Reply with the whole module in one ```js block, then one short line on what you made.')
 
 
+def _module_of(t):
+    """The module script out of a whole HTML page a mind sent instead of a module (NOVA opened black that way)."""
+    m = re.search(r'<script[^>]*type=["\']module["\'][^>]*>(.*?)(?:</script>|$)', t, re.S | re.I)
+    return m.group(1) if m else t
+
+
+def _three_paths(code):
+    """CDN imports of three become the page's own importmap names (the lock blocks other hosts)."""
+    code = re.sub(r'["\']https?://[^"\']*?/three(?:@[\d.]+)?/examples/jsm/([^"\']+)["\']', r"'three/addons/\1'", code)
+    return re.sub(r'["\']https?://[^"\']*?/three(?:@[\d.]+)?/build/three\.module(?:\.min)?\.js["\']', "'three'", code)
+
+
+def code_cut(code):
+    """True when the module stops mid-way (a reply that hit its length cap): brackets that never close."""
+    t = re.sub(r'//[^\n]*|/\*.*?\*/', '', str(code or ''), flags=re.S)
+    t = re.sub(r'`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'', '""', t, flags=re.S)
+    return t.count('{') > t.count('}') or t.count('(') > t.count(')') or t.count('[') > t.count(']')
+
+
 def code_reply(raw):
-    """→ (code, say). The module from a ```js block, or the whole reply if it is plainly code. Pure."""
-    t = str(raw or ''); m = re.search(r'```(?:js|javascript)?\s*\n(.*?)```', t, re.S)
-    code = (m.group(1) if m else (t if re.search(r"import \* as THREE|new THREE\.", t) else '')).strip()
-    say = re.sub(r'```.*?```', '', t, flags=re.S).strip()[:200] if m else ''
+    """→ (code, say). The module from a ```js block (or an ```html page's module script, or a fence the reply never closed),
+    or the whole reply when it is plainly code. Never prose run as code. Pure."""
+    t = str(raw or '')
+    m = re.search(r'```(js|javascript|mjs|html)?[ \t]*\n(.*?)(?:```|$)', t, re.S | re.I)
+    if m:
+        body = m.group(2)
+        code = _module_of(body) if (m.group(1) or '').lower() == 'html' or re.search(r'<script[^>]*module', body, re.I) else body
+        say = re.sub(r'```.*?(?:```|$)', '', t, flags=re.S).strip()[:200]
+    else:
+        code = _module_of(t) if re.search(r'<script[^>]*module', t, re.I) else (t if re.match(r'\s*(import|//|/\*|const|let)', t) and re.search(r"import \* as THREE|new THREE\.", t) else '')
+        say = ''
+    code = _three_paths(code.strip())
     return (code[:60000] if 'THREE' in code else ''), say
 
 

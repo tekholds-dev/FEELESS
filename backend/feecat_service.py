@@ -9224,10 +9224,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(400, 'Pick a model for this agent, and say what to make.')
             code_s_ = _play_load(cat_id, 'code3d') or {}; turn_ = int(code_s_.get('turn') or 0); was_ = str(p.job or code_s_.get('code') or '')[:40000]
             pick_ = str(p.to if p.to is not None else 'both'); i_ = int(pick_) if pick_ in ('0', '1') and int(pick_) < len(brains_) else turn_ % len(brains_)   # 🧠 owner 2026-11-11: pick the mind that writes, or let them take turns
-            raw_, usd_, _own = await _ws_ask(cat, brains_[i_], _play.CODE_SYS + _recall(cat, 'Code', str(p.text)), (f'THE CODE NOW:\n{was_}\n\n' if was_ else '') + f'MAKE THIS: {str(p.text)[:1200]}', 6000)
+            raw_, usd_, _own = await _ws_ask(cat, brains_[i_], _play.CODE_SYS + _recall(cat, 'Code', str(p.text)), (f'THE CODE NOW:\n{was_}\n\n' if was_ else '') + f'MAKE THIS: {str(p.text)[:1200]}', 16000)
             code_, say_ = _play.code_reply(raw_)
             if not code_:
                 raise HTTPException(502, f"Mind {'AB'[i_]} did not send usable code, and nothing changed. Try again.")
+            if _play.code_cut(code_):   # 🛡 a reply that hit its length cap opens black: say so, keep the old code
+                raise HTTPException(502, f"Mind {'AB'[i_]}'s code was cut off before the end, and nothing changed. Ask for a smaller scene or try again.")
             chat_ = (list(code_s_.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': round(time.time())}, {'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'text': str(say_ or 'Done.')[:400], 'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-30:]
             _play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1, 'chat': chat_, 'prev': was_})
             return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'usd': round(float(usd_ or 0), 5), 'chat': chat_, 'prev': was_}

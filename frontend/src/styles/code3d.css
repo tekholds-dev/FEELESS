@@ -11,7 +11,7 @@
 .p3c-gut { color: #3d6b55; text-align: right; user-select: none; border-right: 1px solid #9b6bff1a; min-height: 100%; }
 .p3c-edit textarea { min-width: 0; height: auto; min-height: 100%; border: 0; outline: 0; resize: none; background: none; color: #d7f5e5; white-space: pre; overflow: hidden; tab-size: 2; field-sizing: content; }
 .p3c-edit textarea:focus-visible { box-shadow: inset 0 0 0 1px #b48cff55; }
-.p3c-err { margin: 0; padding: 8px 12px; background: #ff8fa31a; border-top: 1px solid #ff8fa355; color: #ffb3c0; font: 600 12px var(--f-mono); animation: p3cIn .2s ease both; }
+.p3c-err { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0; padding: 8px 12px; background: #ff8fa31a; border-top: 1px solid #ff8fa355; color: #ffb3c0; font: 600 12px var(--f-mono); animation: p3cIn .2s ease both; }
 .p3c-ask { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #9b6bff22; } .p3c-ask .m-input { flex: 1; min-height: 36px; }
 .p3c-run iframe { flex: 1; min-height: 0; width: 100%; border: 0; background: #05070a; }
 .p3c-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px currentColor; } .p3c-dot.is-ok { background: #b48cff; animation: p3cPulse 1.8s ease-in-out infinite; } .p3c-dot.is-bad { background: #ff8fa3; }
@@ -32,3 +32,4 @@ body.fx-lite .p3c, body.fx-lite .p3c-dot.is-ok, body.fx-lite .p3c-err { animatio
 @keyframes p3cIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .p3c-chat li { animation: none; } @media (prefers-reduced-motion: reduce) { .p3c-chat li { animation: none; } }
 body.theme-day .p3c-chat li { background: #7c4dff12; } body.theme-day .p3c-chat p { color: #1b1236; }
+.p3c-err .m-btn { min-height: 32px; flex: none; }
