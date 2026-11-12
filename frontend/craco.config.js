@@ -107,6 +107,8 @@ let webpackConfig = {
 
       // 🧹 webpack's own build cache (it reached 1.6 GB): versions unused for 3 days are dropped.
       if (webpackConfig.cache && typeof webpackConfig.cache === 'object') webpackConfig.cache = { ...webpackConfig.cache, maxAge: 3 * 24 * 3600 * 1000 };
+      // 📸 the fix agent's after-picture preview runs from its own worktree: its own cache folder, never the running dev server's
+      if (process.env.FEELESS_WEBPACK_CACHE && webpackConfig.cache && typeof webpackConfig.cache === 'object') webpackConfig.cache = { ...webpackConfig.cache, cacheDirectory: process.env.FEELESS_WEBPACK_CACHE };
 
       // Meteora's SDK ships .mjs files that import extensionless paths; allow that for .mjs only.
       webpackConfig.module.rules.push({ test: /\.m?js$/, include: /node_modules[\\/]@meteora-ag/, resolve: { fullySpecified: false } });

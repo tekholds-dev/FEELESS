@@ -69,8 +69,9 @@ def _fix_store(row_):
 
 async def _fix_run(case_, seat_, name_):
     import fix_agent as _fa
-    row_ = {'id': case_['id'], 'text': case_['text'], 'by': name_, 'at': round(time.time()), 'stage': 'reading'}; _fix_store(row_)
+    row_ = {'id': case_['id'], 'text': case_['text'], 'by': name_, 'at': round(time.time()), 'stage': 'reading', 'page': case_.get('page')}; _fix_store(row_)
     try:
+        row_.update(await asyncio.to_thread(_fa.before_picture, case_['id'], case_.get('page'))); _fix_store(row_)   # 📸 the broken screen, on the running site, first
         async with httpx.AsyncClient() as h_:
             model_ = seat_['model']
             if not model_:
@@ -82,6 +83,9 @@ async def _fix_run(case_, seat_, name_):
             row_['stage'] = 'testing'; _fix_store(row_)
             tried_ = await asyncio.to_thread(_fa.try_fix, case_['id'], got_['file'], got_['old'], got_['new'])
             row_.update({k_: tried_.get(k_) for k_ in ('ok', 'branch', 'tree', 'checks')}, why=tried_.get('why') or '')
+            if tried_.get('ok') and tried_.get('tree'):   # 📸 the same screen from the fix's own branch
+                row_['stage'] = 'picturing'; _fix_store(row_)
+                row_.update(await asyncio.to_thread(_fa.after_picture, case_['id'], case_.get('page'), tried_['tree']))
             row_['stage'] = 'review' if tried_.get('ok') else 'failed'
             if tried_.get('branch') and not tried_.get('ok'):   # a fix that failed its own checks is not kept
                 await asyncio.to_thread(_fa.drop, tried_['branch'], tried_['tree']); row_.pop('branch', None); row_.pop('tree', None)
@@ -113,7 +117,20 @@ async def admin_fix_act(request: Request):
         if run_ and run_.get('branch'):
             await asyncio.to_thread(_fa.drop, run_['branch'], run_.get('tree'))
         runs_.pop(id_, None); _rs()._json_save(FIX_RUNS_PATH, runs_)
+        for which_ in ('before', 'after'):
+            _fa.shot_file(id_, which_).unlink(missing_ok=True)
         return {'ok': True}
+    if body.get('pictures'):   # 📸 take the before / after again (the after one needs the branch still on review)
+        if not run_ or run_.get('stage') not in ('review', 'approved') or not run_.get('tree') or _FIX['busy']:
+            raise HTTPException(400, 'Only a fix waiting for your review can be pictured, one at a time.')
+        _FIX['busy'] = {'id': id_, 'by': 'Pictures', 'at': round(time.time())}
+        async def _pics(r_=run_):
+            try:
+                r_.update(await asyncio.to_thread(_fa.before_picture, id_, r_.get('page'))); r_.update(await asyncio.to_thread(_fa.after_picture, id_, r_.get('page'), r_['tree']))
+            finally:
+                _fix_store(r_); _FIX['busy'] = None
+        asyncio.create_task(_pics())
+        return {'busy': _FIX['busy']}
     if body.get('approve'):
         if not run_ or run_.get('stage') != 'review':
             raise HTTPException(400, 'That fix has not passed its checks.')
@@ -130,6 +147,19 @@ async def admin_fix_act(request: Request):
     _FIX['busy'] = {'id': id_, 'by': seat_['name'], 'at': round(time.time())}
     asyncio.create_task(_fix_run(case_, seat_, seat_['name']))
     return {'busy': _FIX['busy']}
+
+
+@router.get('/api/reputation/admin/fix/pictures/{case_id}')
+async def admin_fix_pictures(request: Request, case_id: str):
+    """📸 Owner: one fix's before / after screenshots as small JPEG data (an <img> cannot carry the HQ signature)."""
+    import base64
+    import fix_agent as _fa
+    _rs()._require_owner(request)
+    out_ = {}
+    for which_ in ('before', 'after'):
+        f_ = _fa.shot_file(case_id, which_)
+        out_[which_] = f"data:image/jpeg;base64,{base64.b64encode(f_.read_bytes()).decode()}" if f_.exists() and f_.stat().st_size < 3_000_000 else None
+    return out_
 
 
 @router.get('/api/reputation/admin/ai/limits')

@@ -215,7 +215,17 @@ export function PyAgentsFolder({ call }) {
 
 // 🗂 One folder holding several jobs: a tab each, and only the open one runs.
 // 🛠 A crash → the real file → an exact fix on its own branch, tested → your word. It never touches main or anything near money.
-const FIX_STEPS = [['reading', 'Reads the file'], ['testing', 'Tests its fix'], ['review', 'Your review'], ['approved', 'Queued']];
+const FIX_STEPS = [['reading', 'Reads the file'], ['testing', 'Tests its fix'], ['picturing', 'Before / after'], ['review', 'Your review'], ['approved', 'Queued']];
+// 📸 AGT-15: the broken screen (the running site) beside the same screen from the fix's own branch. Click one to see it big.
+function FixPictures({ call, run, id }) {
+  const [p, setP] = useState(null); const [big, setBig] = useState(null); const have = run.before || run.after;
+  useEffect(() => { if (!have) return undefined; let on = true; call(`/admin/fix/pictures/${encodeURIComponent(id)}`).then(j => on && setP(j)).catch(() => {}); return () => { on = false; }; }, [call, id, have, run.before, run.after, run.at]);
+  if (!have && !run.beforeWhy && !run.afterWhy) return null;
+  const side = (k, label, why) => <figure className={`fix-pic is-${k}`} data-testid={`fix-pic-${k}-${id}`}><figcaption><b>{label}</b><small>{k === 'before' ? 'the running site' : `branch ${run.branch || ''}`}</small></figcaption>
+    {p?.[k] ? <button type="button" className="fix-pic-img" onClick={() => setBig(k)} data-tip="See it big"><img src={p[k]} alt={`${label} screen`} loading="lazy" /></button> : <p className="fix-pic-nil">{why || (have ? 'loading…' : 'not taken yet')}</p>}</figure>;
+  return <div className="fix-pics" data-testid={`fix-pics-${id}`}>{side('before', 'BEFORE', run.beforeWhy)}{side('after', 'AFTER', run.afterWhy)}
+    {big && p?.[big] ? <button type="button" className="fix-pic-big" onClick={() => setBig(null)} aria-label="Close the big picture" data-testid="fix-pic-big"><img src={p[big]} alt={`${big} screen, big`} /></button> : null}</div>;
+}
 export function FixFolder({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [seat, setSeat] = useState('');
   const load = useCallback(() => call('/admin/fix').then(j => { setD(j); setSeat(x => x || j.seats?.[0]?.key || ''); }).catch(e => setErr(e.message)), [call]);
@@ -229,8 +239,9 @@ export function FixFolder({ call }) {
       {r ? <><ol className="fix-rail" aria-label="Where it is">{FIX_STEPS.map(([k, l], i) => <li key={k} className={i < now || r.stage === 'approved' ? 'is-done' : i === now ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
         {r.cause ? <p className="fix-cause"><b>{r.by}:</b> {r.cause}{r.sure != null ? <em className="m-num"> · {r.sure}% sure</em> : null}</p> : null}{r.why ? <p className="fix-why" data-testid={`fix-why-${c.id}`}>{r.why}</p> : null}
         {r.diff?.removed ? <pre className="fix-diff" data-testid={`fix-diff-${c.id}`}><span className="is-old">− {r.diff.removed}</span>{'\n'}<span className="is-new">+ {r.diff.added}</span></pre> : null}
+        <FixPictures call={call} run={r} id={c.id} />
         {r.checks?.length ? <ul className="fix-checks">{r.checks.map(x => <li key={x.name} className={x.ok ? 'is-ok' : 'is-no'} data-tip={x.out || undefined}>{x.ok ? '✓' : '✕'} {x.name}</li>)}</ul> : null}
-        {r.stage === 'review' ? <div className="ofd-row"><button type="button" className="m-btn m-go" onClick={() => act({ id: c.id, approve: true })} data-tip="Queues its branch for the engineer to merge. Nothing merges by itself" data-testid={`fix-approve-${c.id}`}>Approve</button><button type="button" className="m-btn" onClick={() => act({ id: c.id, drop: true })} data-testid={`fix-drop-${c.id}`}>Drop it</button><small className="m-num">{r.branch}</small></div> : r.stage === 'approved' ? <small className="m-num">Queued as {r.build}. {r.branch}</small> : null}</> : null}</li>; })}</ul> : <p className="fch-nil" data-testid="fix-none">No crash logged. Nothing to fix.</p>}</div>;
+        {r.stage === 'review' ? <div className="ofd-row"><button type="button" className="m-btn m-go" onClick={() => act({ id: c.id, approve: true })} data-tip="Queues its branch for the engineer to merge. Nothing merges by itself" data-testid={`fix-approve-${c.id}`}>Approve</button><button type="button" className="m-btn" onClick={() => act({ id: c.id, drop: true })} data-testid={`fix-drop-${c.id}`}>Drop it</button><button type="button" className="m-btn" disabled={!!d.busy} onClick={() => act({ id: c.id, pictures: true })} data-tip="Takes the before and after screenshots again. The after one runs this branch for a few minutes" data-testid={`fix-pics-again-${c.id}`}>Retake pictures</button><small className="m-num">{r.branch}</small></div> : r.stage === 'approved' ? <small className="m-num">Queued as {r.build}. {r.branch}</small> : null}</> : null}</li>; })}</ul> : <p className="fch-nil" data-testid="fix-none">No crash logged. Nothing to fix.</p>}</div>;
 }
 export function FolderTabs({ tabs, at, setAt, id }) {
   const [own, setOwn] = useState(tabs[0]?.[0]); const now = at ?? own; const pick = setAt || setOwn; const open = tabs.find(t => t[0] === now) || tabs[0];

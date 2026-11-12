@@ -6,8 +6,11 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
+import sys
 import time
+import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -204,3 +207,101 @@ async def investigate(http, base, key, model, text, root=ROOT):
         return {'file': path, 'why': 'The model did not reply in the right shape.'}
     named = str(j.get('file') or path)
     return {'cause': str(j.get('cause') or '')[:300], 'file': path if named != path else named, 'old': j.get('old'), 'new': j.get('new'), 'sure': j.get('sure'), 'why': '' if j.get('old') else (str(j.get('cause') or 'It could not tell.')[:200])}
+
+
+# 📸 BEFORE / AFTER (owner, AGT-15): the broken screen on the running site, and the same screen served from the fix's own branch.
+# The after picture runs that branch's dev server on a spare port for a few minutes (its own webpack cache, never the running one's), then stops it.
+SHOTS = ROOT / 'backend' / 'data' / 'fix_shots'
+SHOT_PORT = 51398
+LIVE = 'http://localhost:51367'
+_SHOT_PY = r"""
+import asyncio, sys
+from playwright.async_api import async_playwright
+async def main(url, out):
+    async with async_playwright() as p:
+        b = await p.chromium.launch()
+        pg = await b.new_page(viewport={'width': 1280, 'height': 800})
+        try:
+            await pg.goto(url, wait_until='domcontentloaded', timeout=90000)
+        except Exception as e:
+            print('goto', str(e)[:120])
+        await pg.wait_for_timeout(7000)
+        await pg.screenshot(path=out, type='jpeg', quality=70)
+        await b.close()
+asyncio.run(main(sys.argv[1], sys.argv[2]))
+"""
+
+
+def shot_file(case_id, which, shots=SHOTS):
+    return Path(shots) / f"{re.sub(r'[^a-z0-9-]', '', str(case_id))[:40] or 'case'}-{which}.jpg"
+
+
+def page_path(page):
+    p = str(page or '/').strip()
+    return p if p.startswith('/') and '//' not in p else '/'
+
+
+def shoot(url, out, run=_run):
+    """One headless Chromium screenshot. → '' or why it failed."""
+    Path(out).parent.mkdir(parents=True, exist_ok=True); Path(out).unlink(missing_ok=True)
+    code, said = run([sys.executable, '-c', _SHOT_PY, url, str(out)], ROOT, 150)
+    return '' if code == 0 and Path(out).exists() else (said.strip().splitlines() or ['it did not take'])[-1][:160]
+
+
+def _ready(url):
+    try:
+        with urllib.request.urlopen(url, timeout=5) as r:
+            return r.status == 200
+    except (OSError, ValueError):
+        return False
+
+
+def busy_machine():
+    try:
+        return os.getloadavg()[0] > (os.cpu_count() or 8) * 1.5
+    except OSError:
+        return False
+
+
+def serve_tree(tree, port=SHOT_PORT, wait=360, popen=subprocess.Popen, ready=_ready, nap=time.sleep):
+    """Starts the branch's own dev server. → (process, '') or (None, why)."""
+    env = {**os.environ, 'PORT': str(port), 'BROWSER': 'none', 'CI': 'true', 'DISABLE_ESLINT_PLUGIN': 'true', 'FEELESS_WEBPACK_CACHE': str(Path(tree) / '.webpack-cache')}
+    proc = popen(['yarn', 'start'], cwd=str(Path(tree) / 'frontend'), env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    t0 = time.time()
+    while time.time() - t0 < wait:
+        if proc.poll() is not None:
+            return None, 'Its preview server stopped before it was ready.'
+        if ready(f'http://127.0.0.1:{port}/'):
+            return proc, ''
+        nap(3)
+    stop(proc)
+    return None, f'Its preview did not start in {wait // 60} minutes.'
+
+
+def stop(proc):
+    try:
+        os.killpg(proc.pid, signal.SIGTERM); proc.wait(20)
+    except (OSError, subprocess.TimeoutExpired):
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            pass
+
+
+def before_picture(case_id, page, live=LIVE, shoot_=shoot, shots=SHOTS):
+    out = shot_file(case_id, 'before', shots); why = shoot_(live + page_path(page), out)
+    return {'before': out.name if not why else None, 'beforeWhy': why}
+
+
+def after_picture(case_id, page, tree, port=SHOT_PORT, shoot_=shoot, serve=serve_tree, busy=busy_machine, shots=SHOTS):
+    """The same screen from the fix's branch. Skipped (and said so) when the machine is already busy."""
+    if busy():
+        return {'after': None, 'afterWhy': 'The machine was busy, so the after picture waits. Take it again later.'}
+    proc, why = serve(tree, port)
+    if not proc:
+        return {'after': None, 'afterWhy': why}
+    try:
+        out = shot_file(case_id, 'after', shots); why = shoot_(f'http://127.0.0.1:{port}{page_path(page)}', out)
+        return {'after': out.name if not why else None, 'afterWhy': why}
+    finally:
+        stop(proc)
