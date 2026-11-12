@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { SplitFlow } from './SplitFlow';
 import { ProofTerms } from './ProofTerms';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -136,11 +137,12 @@ function CodeMap() {
 }
 
 const LATER = new Set(['words', 'kinds', 'print', 'limits', 'code']);
+const manualBox = boxRef([560, 760]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function AgentManual({ d, onCommand, cat, setD, work, onOpen, kit }) {
   const [tab, setTab] = useState(() => (d?.setup?.left > 0 ? 'setup' : 'tutorial')); const [more, setMore] = useState(false); const [proof, setProof] = useState('pow'); const [site, setSite] = useState('sites');
   const setupLeft = Number(d?.setup?.left || 0); const tabs = d?.setup && cat ? [['setup', setupLeft ? `🚀 Setup · ${setupLeft}` : '🚀 Setup'], ...TABS] : TABS;
   useEffect(() => { if (setupLeft > 0 && cat) setTab(t => (t === 'tutorial' ? 'setup' : t)); }, [cat, setupLeft > 0]);   // eslint-disable-line react-hooks/exhaustive-deps
-  return <div className="am" data-testid="dsk-manual">
+  return <div ref={manualBox} className="am" data-testid="dsk-manual">
     <div className="am-tabs m-seg" role="tablist" aria-label="Manual">{(more ? tabs : tabs.filter(([k]) => !LATER.has(k) || k === tab)).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`am-tab-${k}`}><Ic3Text text={l} /></button>)}<button type="button" aria-pressed={more} onClick={() => setMore(x => !x)} data-testid="am-more">{more ? 'Less' : 'More'}</button></div>
     <div key={tab} className="am-pane">
       {tab === 'setup' ? <SetupDeck cat={cat} d={d} setD={setD} work={work} onOpen={onOpen} kit={kit} /> : null}

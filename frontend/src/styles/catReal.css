@@ -176,10 +176,10 @@ body.fx-lite .cr-split-rows b { animation: none; } @media (prefers-reduced-motio
 body.theme-day .cr-split { background: #f6f0ff; } body.theme-day .cr-split-rows > * { background: #fff; } body.theme-day .cr-split-rows b { color: #2a1650; } body.theme-day .cr-split-rows em, body.theme-day .cr-split-h small { color: #5a4a7a; }
 @media (max-width: 640px) { .cr-split-rows { grid-template-columns: 1fr; } }
 /* 🪟 never a stretched form (owner 2026-11-03): on a wide page the wallet is two columns and every control keeps its own size */
-.cr-agent { container-type: inline-size; } .cr-agent.is-made { --mg: #ff8fd0; } .cr-fund-what, .cr-out > .m-seg, .cr-safe > .m-btn { justify-self: start; } .cr-out > .m-btn { justify-self: start; min-width: 200px; } .cr-out > .cr-fund-in { width: min(100%, 220px); }
-@container (min-width: 700px) { .cr-ag-on { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 18px; align-items: start; } .cr-ag-on > :not(.cr-ag-mode, .cr-fund, .cr-out) { grid-column: 1 / -1; } .cr-ag-on > .cr-fund { grid-column: 1; grid-row: span 3; } .cr-ag-on > .cr-ag-mode, .cr-ag-on > .cr-out { grid-column: 2; } .cr-ag-on > .cr-out { margin-top: 0; padding-top: 0; border-top: 0; } }
+ .cr-agent.is-made { --mg: #ff8fd0; } .cr-fund-what, .cr-out > .m-seg, .cr-safe > .m-btn { justify-self: start; } .cr-out > .m-btn { justify-self: start; min-width: 200px; } .cr-out > .cr-fund-in { width: min(100%, 220px); }
+.cr-agent:not([data-w699]) .cr-ag-on { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); column-gap: 18px; align-items: start; } .cr-agent:not([data-w699]) .cr-ag-on > :not(.cr-ag-mode, .cr-fund, .cr-out) { grid-column: 1 / -1; } .cr-agent:not([data-w699]) .cr-ag-on > .cr-fund { grid-column: 1; grid-row: span 3; } .cr-agent:not([data-w699]) .cr-ag-on > .cr-ag-mode, .cr-agent:not([data-w699]) .cr-ag-on > .cr-out { grid-column: 2; } .cr-agent:not([data-w699]) .cr-ag-on > .cr-out { margin-top: 0; padding-top: 0; border-top: 0; }
 @media (max-width: 640px) { .cr-fund-what, .cr-out > .m-seg { justify-self: stretch; } .cr-out > .m-btn, .cr-out > .cr-fund-in { width: 100%; justify-self: stretch; } }
-.cr-fund > .cr-fund-what { width: fit-content; min-width: 180px; } @container (min-width: 700px) { .cr-ag-on { grid-auto-flow: row dense; } }
+.cr-fund > .cr-fund-what { width: fit-content; min-width: 180px; } .cr-agent:not([data-w699]) .cr-ag-on { grid-auto-flow: row dense; }
 @media (max-width: 640px) { .cr-fund > .cr-fund-what { width: 100%; } }
 .cr.is-real > header small { color: #e5dcff; text-shadow: 0 1px 3px #000; } body.theme-day .cr.is-real > header small { color: #3a2a5a; text-shadow: none; }
 

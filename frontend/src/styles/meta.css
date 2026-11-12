@@ -476,10 +476,10 @@ body.theme-day .m-go, body.theme-day .terminal-main a.m-go { background: linear-
 body.fx-lite .new-stuff-item:has(.held-chip)::after { animation: none; opacity: .5; }
 @media (prefers-reduced-motion: reduce) { .new-stuff-item:has(.held-chip)::after { animation: none; opacity: .5; } }
 /* FeeCat coin cards fit any chat width: contained, values never spill, stats reflow under 460px. */
-.intelligence-card { container-type: inline-size; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
+.intelligence-card { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .intelligence-card :is(.intel-stats > *, .intel-price > *, .intel-card-heading > *) { min-width: 0; }
 .intelligence-card :is(.intel-stats b, .intel-stats strong, .intel-stats dd, .intel-price strong, .intel-contract) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@container (max-width: 460px) { .intel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } .intel-price, .intel-actions { flex-wrap: wrap; } .intel-actions > * { flex: 1 1 40%; } .intel-links { gap: 8px; } }
+.intelligence-card[data-w460] .intel-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } .intelligence-card[data-w460] .intel-price, .intelligence-card[data-w460] .intel-actions { flex-wrap: wrap; } .intelligence-card[data-w460] .intel-actions > * { flex: 1 1 40%; } .intelligence-card[data-w460] .intel-links { gap: 8px; }
 /* Globe hover card sits above the HTML label layer, solid and unclipped (library class, matched by attribute). */
 [class~="float-tooltip-kap"] { z-index: 60; background: transparent !important; padding: 0 !important; }
 .globe-point-tooltip { position: relative; z-index: 1; box-shadow: 0 10px 30px #000c; }

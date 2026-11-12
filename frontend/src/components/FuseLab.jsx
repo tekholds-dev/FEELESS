@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useMemo, useState } from 'react';
 import NumInput from './NumInput';
 import { cardChoice, keepChoice, PLAN_ROUNDS, PLAN_SWAPS, FREE_ROUNDS } from '../lib/cardChoice';
@@ -174,6 +175,7 @@ export const planBody = plan => ({ ...plan, legs: Object.fromEntries(Object.entr
 // Leg caps mirror the server (fuse_hq.legs_ok): traders 3 pools + 3 runners; HQ 12 legs in any mix (6/6, 12 runners…).
 export const legCaps = admin => (admin ? { pools: 12, runners: 12, total: 12 } : { pools: 3, runners: 3, total: 6 });
 
+const labBox = boxRef([560, 620, 820, 1180]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunnerPicks: setPicksIn, incoming, limits }) {
   const admin = Boolean(call); const caps = legCaps(admin); const MAX = caps.pools;
   const [ownRuns, setOwnRuns] = useState([]);   // HQ Lab keeps its own runner picks; the Fuse page passes them in
@@ -276,7 +278,7 @@ export function FuseLab({ chain = 'solana', call, runnerPicks: picksIn, onRunner
   const toggle = p => { if (p.runner) { onRunnerPicks(isOn(p) ? runnerPicks.filter(x => x.mint !== p.mint) : isFull(p) ? runnerPicks : [...runnerPicks, p]); return; }
     setPicked(list => (isOn(p) ? list.filter(x => x.pairAddress !== p.pairAddress) : isFull(p) ? list : [...list, p])); };
 
-  return <section className={`m-card m-live fl ${admin ? 'is-admin' : ''}`} data-testid="fuse-lab">
+  return <section ref={labBox} className={`m-card m-live fl ${admin ? 'is-admin' : ''}`} data-testid="fuse-lab">
     <header className="fl-head">
       <div><span className="m-label">⚛️ FUSE LAB</span><h3>{admin ? 'Design a mega card.' : 'Many pools. One buy.'}</h3>
         <p className="m-dim">{admin ? 'Up to 12 legs — pools, runners or any mix (6/6, 12 runners) — auto or your own weights, 24h backtest, size guard. No FEELESS fee on HQ cards; publish it or stage it on the Arena.' : `Pick 2–${MAX} live pools. FEELESS weighs them and shows exactly where your SOL goes. One approval buys them all.`}</p></div>

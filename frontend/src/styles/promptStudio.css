@@ -1,6 +1,6 @@
 /* 🎭 PROMPT STUDIO (Brain › 🎭 Prompts, pst-*): a mixing desk for the models' minds — the context window as a lit stack, the record as rings,
    four drawn mindset cards with dial meters. Built from m-* tokens; transform / opacity motion only; one keyframe set (pst*). */
-.pst { --pc: #b79bff; --pe: #f5c451; --pd: #b48cff; --pp: #5fd4ff; position: relative; display: grid; gap: 12px; padding: 14px; overflow: hidden; container-type: inline-size;
+.pst { --pc: #b79bff; --pe: #f5c451; --pd: #b48cff; --pp: #5fd4ff; position: relative; display: grid; gap: 12px; padding: 14px; overflow: hidden;
   background: radial-gradient(90% 70% at 0% 0%, rgba(183, 155, 255, .12), transparent 60%), radial-gradient(80% 60% at 100% 100%, rgba(155, 107, 255, .1), transparent 60%), var(--m-surface, #0c0f0e); }
 .pst.is-load { min-height: 220px; place-content: center; }
 .pst-wait { display: flex; gap: 6px; align-items: center; font: 600 11px var(--m-mono); color: var(--m-dim); }
@@ -134,8 +134,8 @@ body.theme-day .pst-proof span { color: #181e1b; } body.theme-day .pst-proof.is-
 @keyframes pstSweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
 @keyframes pstNeedle { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg); } }
 @keyframes pstBlink { 50% { opacity: .35; } }
-@container (max-width: 720px) { .pst-body, .pst-sets { grid-template-columns: 1fr; } .pst-lad li { grid-template-columns: 30px minmax(0, 1fr) auto; } .pst-div { grid-column: 2 / -1; grid-row: 2; } }
-@container (max-width: 380px) { .pst-dials { grid-template-columns: 1fr; } .pst-win { grid-template-columns: 1fr; } .pst-ring { grid-row: auto; justify-self: center; } }
+.pst[data-w720] .pst-body, .pst[data-w720] .pst-sets { grid-template-columns: 1fr; } .pst[data-w720] .pst-lad li { grid-template-columns: 30px minmax(0, 1fr) auto; } .pst[data-w720] .pst-div { grid-column: 2 / -1; grid-row: 2; }
+.pst[data-w380] .pst-dials { grid-template-columns: 1fr; } .pst[data-w380] .pst-win { grid-template-columns: 1fr; } .pst[data-w380] .pst-ring { grid-row: auto; justify-self: center; }
 body.fx-lite .pst-auto-art, body.fx-lite .pst-lad li, body.fx-lite .pst-auto, body.fx-lite .pst-set::after, body.fx-lite .pst-needle, body.fx-lite .pst-dot.is-on, body.fx-lite .pst-wait i { animation: none; }
 body.fx-lite .pst-set, body.fx-lite .pst-ctx, body.fx-lite .pst-rec, body.fx-lite .pst-layers li, body.fx-lite .pst-fixes li, body.fx-lite .pst-bar i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pst *, .pst *::after, .pst-set::after { animation: none !important; } .pst-set, .pst-dials i b { transition: none; } }

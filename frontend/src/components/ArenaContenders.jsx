@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import { sharedJson } from '../lib/sharedJson';
 import React, { useEffect, useState } from 'react';
 import { useLivePrices } from '../lib/livePrices';
@@ -21,6 +22,7 @@ export function liveRow(r, live, key) {
   return { ...r, price: l?.price || r.price, move, moveLabel: fast(key) ? '1H' : '24H', m5: l ? l.m5 : null };
 }
 
+const rankBox = boxRef([760]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function ArenaContenders({ onPick }) {
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('');
@@ -29,9 +31,9 @@ export function ArenaContenders({ onPick }) {
   const divs = (d?.divisions || []).filter(x => x.rows.length);
   const cur = divs.find(x => x.key === tab) || divs[0];
   const live = useLivePrices((cur?.rows || []).map(r => r.pairAddress));
-  if (!d) return <section className="m-card cn" data-testid="arena-contenders"><span className="loader" /> Ranking the contenders…</section>;
+  if (!d) return <section ref={rankBox} className="m-card cn" data-testid="arena-contenders"><span className="loader" /> Ranking the contenders…</section>;
   if (!cur) return null;
-  return <section className="m-card m-live cn" data-testid="arena-contenders">
+  return <section ref={rankBox} className="m-card m-live cn" data-testid="arena-contenders">
     <header className="cn-head"><span className="m-label"><Ic3 e="🏁" /> CONTENDERS · {divs.length} DIVISIONS FIGHTING FOR THE NEXT CARD SEAT</span>
       <small className="m-dim">Ranked on live volume, depth, momentum and buyers. ⏭ = first in line for a seat — the card engine still runs every gate.</small></header>
     <div className="m-seg cn-tabs" role="tablist">{divs.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === cur.key} className={x.key === cur.key ? 'active' : ''} data-tip={x.rule} onClick={() => setTab(x.key)} data-testid={`cn-tab-${x.key}`}>{x.label}<i className="m-num">{x.rows.length}</i></button>)}</div>

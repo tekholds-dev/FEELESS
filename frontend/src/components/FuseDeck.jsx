@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
@@ -144,12 +145,13 @@ export function Verdict({ call }) {
 // Fuse vs Vault on LIVE pools: where a dollar's return can actually come from. Fuse = price moves (fast, both ways);
 // Vault = pool trading fees (slow, steady, needs the audited contract). Numbers from /fuses/yield-math (no promises).
 const c$ = v => (v >= 1 ? `$${v.toFixed(2)}` : `${(v * 100).toFixed(v < 0.01 ? 2 : 1)}¢`);
+const mathBox = boxRef([620]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function VaultMath() {
   const [y, setY] = useState(null);
   useEffect(() => { let alive = true; fetch(apiUrl('/api/reputation/fuses/yield-math')).then(r => r.json()).then(d => alive && setY(d)).catch(() => {}); return () => { alive = false; }; }, []);
   if (!y?.fuse1) return <div className="fl-row is-ghost" />;
   const pct = v => `${v >= 1 ? '+' : '−'}${Math.abs((v - 1) * 100).toFixed(0)}%`;
-  return <div className="vmath" data-testid="vault-math">
+  return <div ref={mathBox} className="vmath" data-testid="vault-math">
     <div className="vmath-col is-fuse"><span className="m-label">⚛️ FUSE · PRICE MOVES</span><p>$1 split into live pools rides their prices. Last 24h (6h / 1h on young pools; ±95% outliers dropped) on {y.pools} deep Solana pools:</p>
       <dl><dt>Best pool</dt><dd className="m-pos">$1 → ${y.fuse1.best.toFixed(2)} <small>{pct(y.fuse1.best)}</small></dd><dt>Typical</dt><dd>$1 → ${y.fuse1.median.toFixed(2)}</dd><dt>Worst</dt><dd className="m-neg">$1 → ${y.fuse1.worst.toFixed(2)} <small>{pct(y.fuse1.worst)}</small></dd></dl>
       <small className="m-dim">This is where +20¢…+50¢ on $1 in a day can happen — and where −30¢ happens too. The engine's job: pick baskets that lean to the good side (grade, depth, momentum) and the Arena proves whether it does.</small></div>

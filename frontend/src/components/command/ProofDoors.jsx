@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { toggleFull } from '../../lib/fullView';
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
@@ -253,6 +254,7 @@ export function ShowStart({ k, starters = {}, onMake, onCommand, onOpen, p, cost
     <span className="sst-row"><input className="m-input sst-in" value={text} onChange={e => setText(e.target.value)} maxLength={600} placeholder={`Tell it what to make: ${p.line}`} aria-label="Your ask" data-testid="sst-text" />
       <button type="submit" className="m-btn m-go sst-go" disabled={!text.trim()} data-tip={trade ? `Sends this to its chat. ${costTip}` : 'Makes the folder with this ask in its chat box. Nothing runs until you send'} data-testid="sst-go">{p.go} ▸{cost ? <small className="pdr-go-cost" data-testid="pdr-go-cost">{cost}</small> : null}</button></span></form>;
 }
+const bodyBox = boxRef([], { vars: true, parent: true });   // 📐 its own width, no @container (lib/boxRef.js)
 export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst = 'pos', starters }) {
   const [k, setK] = useState(kindFirst); const [counts, setCounts] = useState(null); const [kits, setKits] = useState([]); const [trade, setTrade] = useState(null); const [on, setOn] = useState(''); const [show, setShow] = useState(null); const p = PROOFS[k]; const prices = useProofPrices(cat?.id, work); const cost = p.cmd ? priceWord(prices?.[k]) : '';
   useEffect(() => { let live = true; Promise.resolve().then(() => Promise.all([work(cat.id, { op: 'tools_show' }).catch(() => null), work(cat.id, { op: 'kit_list' }).catch(() => null), work(cat.id, { op: 'demo_trade' }).catch(() => null), work(cat.id, { op: 'showcase' }).catch(() => null)])).then(([a, b, t, sc]) => { if (!live) return; setCounts(a); setKits(b?.kits || []); setTrade(t?.trade || null); setShow(sc); }); return () => { live = false; }; }, [cat.id, work]);
@@ -274,7 +276,7 @@ export function ProofDoors({ cat, d, work, onCommand, onMake, onOpen, kindFirst 
     return <p className="dbt-none pdr-wait">Opening it…</p>;
   };
   const pick = x => { if (x && PROOFS[x]) { setK(x); setOn(''); } }; const kitsNow = kitLine(show?.fresh);
-  return <div className={`pdr is-${k}`} data-testid="pdr"><ProofBrief k={k} onPick={pick} />
+  return <div ref={bodyBox} className={`pdr is-${k}`} data-testid="pdr"><ProofBrief k={k} onPick={pick} />
     <section className="pdr-main" key={k}>
       <header className="pdr-head"><b>{p.full}</b><span className="pdr-line">{p.line}</span>{k === 'pos' && counts ? <small className="pdr-count m-num" data-tip="Free to use, counted live from the library" data-testid="pdr-count">{K(counts.models)} models · {K(counts.hdris)} real places · {K(counts.textures)} surfaces</small> : null}</header>
       <div className="pdr-fit"><div className="pdr-stage" data-testid="pdr-stage">{stage()}<button type="button" className="pdr-full" onClick={e => toggleFull(e.currentTarget.parentElement)} aria-label="Full screen" data-tip="Full screen (Esc to leave)" data-testid="pdr-full">⤢</button></div></div>

@@ -1,5 +1,5 @@
 /* 📉 PROOF OF PERPS (pop-*): pink perps meta on m-glass, the same read as the perps desk. One keyframe set (pop*); transform/opacity only. */
-.pop { --mg: #ff5dbb; --pop-up: #b48cff; --pop-dn: #ff8fa3; container-type: inline-size; display: grid; gap: 10px; padding: 14px; align-content: start; grid-auto-rows: max-content; overflow: auto; color: #f4edff; }
+.pop { --mg: #ff5dbb; --pop-up: #b48cff; --pop-dn: #ff8fa3; display: grid; gap: 10px; padding: 14px; align-content: start; grid-auto-rows: max-content; overflow: auto; color: #f4edff; }
 .pop-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px; } .pop-head span { display: grid; gap: 2px; min-width: 0; } .pop-head b { font: 800 12px var(--f-mono); letter-spacing: .14em; color: #ff9cc9; } .pop-head small { font: 600 10.5px var(--f-ui); color: #c9b8f5; }
 .pop-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .pop-stats span { display: grid; gap: 2px; padding: 9px 11px; min-width: 0; } .pop-stats em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #c9b8f5; } .pop-stats b { font: 800 16px var(--f-mono); color: #fff; }
 .pop-live { display: grid; gap: 10px; padding: 14px; } .pop-live.is-up { --mg: #9b6bff; } .pop-live > header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .pop-live > header b { font: 700 15px var(--f-tech); color: #fff; } .pop-live > header small { font: 600 10.5px var(--f-mono); color: #c9b8f5; }
@@ -17,7 +17,7 @@
 .pop-asking { display: flex; align-items: center; gap: 9px; margin: 0; padding: 10px 14px; font: 600 11.5px var(--f-ui); color: #e8defc; } .pop-asking i { width: 8px; height: 8px; border-radius: 50%; background: #ff9cc9; animation: popPulse 1s ease-in-out infinite alternate; }
 @keyframes popPulse { to { opacity: .25; transform: scale(.7); } }
 @keyframes popTick { from { opacity: .4; transform: translateY(3px); } } @keyframes popIn { from { opacity: 0; transform: translateY(6px); } }
-@container (max-width: 520px) { .pop-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pop-calls { grid-template-columns: minmax(0, 1fr); } }
+.pop[data-w520] .pop-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pop[data-w520] .pop-calls { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 640px) { .pop { padding: 10px; } .pop-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pop-calls { grid-template-columns: minmax(0, 1fr); } .pop-head-acts, .pop-head .m-btn { flex: 1 1 auto; } .pop-tag.is-how { margin-left: 0; } }
 .pbt-ask { width: 100%; min-height: 34px; margin: 0 0 10px; font-size: 12px; }
 .pbt { display: grid; gap: 10px; }
@@ -69,7 +69,7 @@ body.theme-day .pop { color: #1c1230; } body.theme-day .pop-head b { color: #b01
 .bd .dsk-pull { display: grid; gap: 10px; align-content: start; }
 .bd-head { display: flex; padding: 12px 14px; --mg: #ffd36b; } .bd-head span { display: grid; gap: 2px; } .bd-head b { font: 800 13px var(--f-tech); letter-spacing: .1em; color: #ffe08a; } .bd-head small { font: 600 11px var(--f-ui); color: #ddd2b4; }
 .bd-live { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; } .bd-live li { animation: popIn .3s ease-out calc(var(--i) * 50ms) both; } .bd-live button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 8px 11px; border: 0; color: #f6f1e0; font: 600 11.5px var(--f-ui); text-align: left; cursor: pointer; transition: transform .12s; --mg: #ffd36b; } .bd-live button:hover { transform: translateX(2px); } .bd-live button:active { transform: scale(.99); } .bd-live button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; } .bd-live i { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #b48cff; animation: popPulse 1.2s ease-in-out infinite alternate; }
-.bs { --mg: #9b6bff; container-type: inline-size; display: grid; gap: 10px; color: #eef8f2; }
+.bs { --mg: #9b6bff; display: grid; gap: 10px; color: #eef8f2; }
 .bs-head { display: grid; gap: 10px; padding: 13px 15px; } .bs-head > span:first-child { display: grid; gap: 3px; } .bs-head b { font: 800 13px var(--f-tech); letter-spacing: .08em; color: #fff; } .bs-head small { font: 600 11px var(--f-ui); line-height: 1.45; color: #bdd2c6; }
 .bs-meter { display: flex; gap: 3px; height: 18px; } .bs-meter i { display: grid; place-items: center; flex-basis: 0; min-width: 22px; border-radius: 4px; animation: popIn .4s ease-out both; } .bs-meter b { font: 800 10px var(--f-mono); color: #07130c; } .bs-meter .is-api { background: #b48cff; } .bs-meter .is-people { background: #ff8fa3; } .bs-meter .is-unread { background: #ffd36b; }
 .bs-seg { justify-self: start; } .bs-seg button { min-height: 32px; }

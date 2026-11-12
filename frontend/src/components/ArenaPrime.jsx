@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import { sharedJson } from '../lib/sharedJson';
 import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from './NumInput';
@@ -708,6 +709,7 @@ export function Versus({ v }) {
 
 export const occupiedSeats = legs => (legs || []).filter(l => !l.placeholder).length;
 
+const trackBox = boxRef([640]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function HqRealCards({ addr, onCount }) {
   const [owner, setOwner] = useState(false);
   useEffect(() => { if (!addr) return; sharedJson(`/api/reputation/admin/is-admin/${addr}`, { maxAge: 60000 }).then(d => setOwner(!!(d?.owner || d?.admin))).catch(() => {}); }, [addr]);
@@ -764,7 +766,7 @@ export function HqRealCards({ addr, onCount }) {
           <Versus v={c.realBook?.versus} /><PayMap card={c.tpl || 'degen'} /><PickLog events={c.audit || c.events} /><PipeLine p={c.pipeline} /></div>
         {trail === c.id && <CardEarnings title={c.label} onClose={() => setTrail(null)} taken={c.walletUsd || 0} compounded={c.compoundedUsd} fees={c.cardFeesUsd}
           gainNow={allTime(c, b.fundedUsd || c.startUsd)} events={(c.audit || c.events || []).map(e => ({ ...e, label: KIND[e.kind] || VITAL_KIND[e.kind] || e.kind }))} />}
-        <div className="hq-real-track">
+        <div ref={trackBox} className="hq-real-track">
           <div className="hrt-top"><b>{c.label}</b><TopThree c={c} busy={!!busy} onSwap={(leg, r) => prime({ pickSwap: { tpl: c.tpl, pairAddress: leg.pairAddress, to: r.mint, toPair: r.pairAddress } }, `🎯 $${r.symbol} comes in for $${leg.symbol} at the next round`, 'pick')} /><span className={`hrt-state ${state[2]}`} data-tip="Keeper: moves the real coins to what the card says, every tick">{state[0]} {state[1]}</span></div>
           <GoalBar value={c.valueUsd} putIn={b.fundedUsd || c.startUsd} />
           <div className="hrt-hero">

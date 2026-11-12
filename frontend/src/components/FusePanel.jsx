@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import NumInput from './NumInput';
 import { apiUrl } from '../lib/api';
@@ -57,10 +58,11 @@ export function FuseCard({ f }) {
   </article>;
 }
 
+const splitBox = boxRef([980]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function FusePanel() {
   const [d, setD] = useState(null);
   useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/fuses')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); return () => { alive = false; clearInterval(t); }; }, []);
-  return <><div className="fz-split-view"><FuseLab /><FuseSide /></div>{d?.fuses?.length > 0 && <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
+  return <><div ref={splitBox} className="fz-split-view"><FuseLab /><FuseSide /></div>{d?.fuses?.length > 0 && <section className="fz-panel" data-testid="fuse-panel"><div className="m-row"><span className="m-label">⚛️ FUSE · FUSED POOLS</span><small className="m-dim">baskets of live pools — one grade, one index, one tap in</small></div>
     <div className="fz-grid">{d.fuses.map(f => <FuseCard key={f.id} f={f} />)}</div></section>}</>;
 }

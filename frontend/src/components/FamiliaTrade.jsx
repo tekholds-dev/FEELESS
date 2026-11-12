@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { searchTokens } from '../lib/dexscreener';
@@ -60,6 +61,7 @@ export function CoinCard({ p }) {
   </section>;
 }
 
+const chartBox = boxRef([720]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function FamiliaTradeDock() {
   const [desk, setDesk] = useState(null); const [err, setErr] = useState(''); const [wide, setWide] = useState(false);
   const assets = useMarket(desk?.kind === 'swap' ? '/assets' : null, 300000);
@@ -122,7 +124,7 @@ export function FamiliaTradeDock() {
         {err ? <p className="m-note" role="alert">{err}</p> : null}
         {coin && !err && !ready(p) ? <div className="ftd-load" aria-busy="true"><i /><i /><i /><span>opening the desk…</span></div> : null}
         <Suspense fallback={<div className="ftd-load" aria-busy="true"><i /><i /><i /><span>loading the chart…</span></div>}>
-          {coin && ready(p) ? <div className="ftd-pop"><CoinCard p={p} /><div className="eco-chart ftd-chart"><TrenchChart key={p.pairAddress} pair={p} /></div></div> : null}
+          {coin && ready(p) ? <div className="ftd-pop"><CoinCard p={p} /><div ref={chartBox} className="eco-chart ftd-chart"><TrenchChart key={p.pairAddress} pair={p} /></div></div> : null}
           {!coin ? <div className="ftd-swap"><SwapWorkspace key={desk.n} pair={null} feeAsset={(assets.data?.assets || []).find(a => a.id === 'fee')} feeAssets={assets.data?.assets || []} onWallet={() => {}} /></div> : null}
         </Suspense>
       </div>

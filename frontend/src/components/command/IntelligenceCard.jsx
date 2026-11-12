@@ -1,5 +1,7 @@
 import { LivePrice } from '../terminal/LiveCells';
-import React from 'react';
+import React, { useCallback } from 'react';
+import { boxRef } from '../../lib/boxRef';
+const cardBox = boxRef([460]);   // 📐 its own width, no @container (lib/boxRef.js)
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Copy, ArrowUpRight } from 'lucide-react';
 import { Star, Bell, CandlestickChart } from '../../lib/lucide3d';
@@ -23,11 +25,12 @@ export const IntelligenceCard = ({ pair, id, snapshotTime }) => {
   const external = url => { try { return new URL(url).protocol === 'https:'; } catch { return false; } };
   const copy = async () => { try { await navigator.clipboard.writeText(address); toast.success('Contract copied'); } catch { toast.error('Clipboard unavailable'); } };
   const tilt = useTilt(3);
+  const cardRef = useCallback(el => { tilt.ref.current = el; const off = cardBox(el); return () => { tilt.ref.current = null; off?.(); }; }, [tilt.ref]);
   const ch = w => Number(pair.priceChange?.[w]);
   const buys = Number(pair.txns?.h24?.buys) || 0, sells = Number(pair.txns?.h24?.sells) || 0;
   const buyPct = buys + sells ? Math.round((buys / (buys + sells)) * 100) : null;
   const big = v => (Math.abs(v) >= 900 ? `${(v / 100 + 1).toFixed(1)}x` : `${Math.abs(v) >= 100 ? Math.round(v) : v.toFixed(1)}%`);
-  return <article ref={tilt.ref} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="intelligence-card tilt-card" data-testid={id}><i className="tilt-glare" aria-hidden="true" />
+  return <article ref={cardRef} onMouseMove={tilt.onMouseMove} onMouseLeave={tilt.onMouseLeave} className="intelligence-card tilt-card" data-testid={id}><i className="tilt-glare" aria-hidden="true" />
     <div className="intel-card-heading"><TokenAvatar pair={pair} size={38} /><div><b>${pair.baseToken?.symbol}</b><small>{pair.baseToken?.name}</small></div>
       <div className="intel-price"><strong><LivePrice pair={pair} precise /></strong>{Number.isFinite(ch('h24')) && <span className={`intel-chip ${ch('h24') >= 0 ? 'up' : 'down'}`}>{ch('h24') >= 0 ? '+' : ''}{big(ch('h24'))}</span>}</div></div>
     <div className="intel-momentum">{['m5', 'h1', 'h6', 'h24'].map(w => Number.isFinite(ch(w)) ? <span key={w} className={ch(w) >= 0 ? 'up' : 'down'}><small>{w}</small>{ch(w) >= 0 ? '+' : ''}{big(ch(w))}</span> : null)}<em>{pair.chainId}{pad ? ` · ${pad.name}` : ''} · {pair.dexId || 'dex'}</em></div>

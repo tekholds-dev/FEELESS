@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { useBox } from '../lib/useBox';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { boxRef } from '../lib/boxRef';
+const tankBox = boxRef([560]);   // 📐 its own width, no @container (lib/boxRef.js)
 import { familiaDocked } from '../lib/familiaRoom';
 import { apiUrl } from '../lib/api';
 import '../styles/liveTank.css';
@@ -119,7 +120,7 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const intake = useRead(...READS.intake);
   const dots = tankDots({ intake }); const n = laneCounts(dots); const seen = useRef(new Set());
   const fresh = new Set(dots.filter(d => !seen.current.has(d.id)).map(d => d.id)); dots.forEach(d => seen.current.add(d.id));
-  const [sel, setSel] = useState(null); const host = useRef(null); useBox(host, 560);
+  const [sel, setSel] = useState(null); const host = useRef(null); const hostRef = useCallback(el => { host.current = el; const off = tankBox(el); return () => { host.current = null; off?.(); }; }, []);
   // 🎯 ONE LEVEL IN FOCUS (owner N01: "▲ / ▼ to step through the intake's rows + swipe to move down a row"): ▲ / ▼ step the five levels, the
   // focused level's dots light up (the rest dim) and its coins line up as chips under the tank; while a level is in focus a swipe UP on the
   // tank goes a row down, a swipe DOWN a row up (the page keeps scrolling sideways-free; tap the level name to see all levels again).
@@ -138,7 +139,7 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const go = (d, fn) => { setSel(null); if (!d.pair) { if (d.href) window.open(d.href, '_blank', 'noopener'); return; }
     if (fn) fn(d.pair, d.mint); else if (familiaDocked()) window.dispatchEvent(new CustomEvent('feeless:familia-trade', { detail: { kind: 'coin', pair: d.pair } })); else openTrenchTrade(d.pair); };
   const chart = d => go(d, onChart || onTrade); const trade = d => go(d, onTrade || onChart);
-  return <section ref={host} className={`ltk ${compact ? 'is-compact' : ''}${row != null ? ' is-row' : ''}`} style={{ '--n': TANK_LEVELS.length }} data-testid="live-tank">
+  return <section ref={hostRef} className={`ltk ${compact ? 'is-compact' : ''}${row != null ? ' is-row' : ''}`} style={{ '--n': TANK_LEVELS.length }} data-testid="live-tank">
     <header className="ltk-head"><i className={`ltk-dot ${dots.length ? 'is-on' : ''}`} /><b>🫧 {title}</b><small>five water levels · across = live MC · tap a coin</small>
       <span className="ltk-rate m-num" data-tip="Unique coins in the shared discovery snapshot before agent screening">{intake ? <><b>{intake.coins?.length || 0}</b> discovered</> : 'connecting…'}</span></header>
     <div className="ltk-body">

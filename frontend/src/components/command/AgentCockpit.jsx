@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { thumb } from '../../lib/dexscreener';
 import '../../styles/sicario.css';
 import { symOf, tapSym } from '../../lib/symTap';
@@ -320,9 +321,10 @@ function useDir(v) {
   return f;
 }
 const pctW = v => (v == null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(Math.abs(v) < 10 ? 1 : 0)}%`);
+const railBox = boxRef([], { vars: true });   // 📐 its own width, no @container (lib/boxRef.js)
 function Rail({ b, mini }) {
   const up = b.at >= b.zero;
-  return <span className={`thd-rail ${mini ? 'is-mini' : ''}`}>
+  return <span ref={railBox} className={`thd-rail ${mini ? 'is-mini' : ''}`}>
     <span className="thd-fill is-up" style={{ left: `${b.zero * 100}%`, width: `${(1 - b.zero) * 100}%`, transform: `scaleX(${up && b.zero < 1 ? (b.at - b.zero) / (1 - b.zero) : 0})` }} />
     <span className="thd-fill is-dn" style={{ left: 0, width: `${b.zero * 100}%`, transform: `scaleX(${!up && b.zero > 0 ? (b.zero - b.at) / b.zero : 0})` }} />
     <u className="thd-zero" style={{ left: `${b.zero * 100}%` }} />
@@ -330,7 +332,7 @@ function Rail({ b, mini }) {
     {b.takeAt != null ? <s className="thd-line is-take" style={{ left: `${b.takeAt * 100}%` }} /> : null}
     {b.trailAt != null ? <s className="thd-line is-trail" style={{ left: `${b.trailAt * 100}%` }} /> : b.armAt != null && !mini ? <s className="thd-line is-arm" style={{ left: `${b.armAt * 100}%` }} /> : null}
     {b.peak > b.pct + 0.5 ? <em className="thd-peak" style={{ left: `${b.peakAt * 100}%` }} /> : null}
-    <i className="thd-now" style={{ transform: `translateX(${(b.at * 100).toFixed(2)}cqw)` }} /></span>;
+    <i className="thd-now" style={{ transform: `translateX(calc(var(--box-w, 0px) * ${b.at.toFixed(4)}))` }} /></span>;
 }
 // 🌊 the seat's buy / sell vital — the same reading Reaper rules on (R4f sellers took over · R4c buying climax · a tighter stop on a red seat)
 export function SeatFlow({ s }) {

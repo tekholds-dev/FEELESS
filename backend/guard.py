@@ -10,6 +10,7 @@ Rules (pure, tested; the service feeds it requests):
   • Local / private addresses (the services talking to each other) are never limited or flagged.
 """
 import ipaddress
+import os
 import time
 
 WRITE_PER_MIN = 90          # writes per IP per minute before a breather
@@ -42,6 +43,22 @@ def client_ip(headers, peer, trust_proxy=False):
         if fwd:
             return fwd if _valid(fwd) else 'invalid'
     return peer or '?'
+
+
+def request_ip(request):
+    """client_ip for a Starlette request: X-Forwarded-For only with FEELESS_TRUST_PROXY=1 (a per-IP limit that read the header from
+    anyone was dodged with one fake header — uploads, bug reports, clicks, 2026-11-12)."""
+    return client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+
+
+# 🌐 CORS. ALLOWED_ORIGINS=https://a,https://b locks every API to those sites. Unset = this machine + its LAN only (the dev site, the
+# phone on the Wi-Fi), never '*': with '*' any web page the owner opened could read every API through his own browser (2026-11-12).
+LOCAL_ORIGINS = r'^https?://(localhost|127\.0\.0\.1|\[::1\]|10(\.\d{1,3}){3}|192\.168(\.\d{1,3}){2}|172\.(1[6-9]|2\d|3[01])(\.\d{1,3}){2}|[\w-]+\.local)(:\d+)?$'
+
+
+def cors_kwargs():
+    allowed = [o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '').split(',') if o.strip()]
+    return {'allow_origins': allowed} if allowed else {'allow_origin_regex': LOCAL_ORIGINS}
 
 
 def new_state():

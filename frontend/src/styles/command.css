@@ -162,7 +162,7 @@ body.theme-day .tape-row.buy b{color:#5a33bd!important}body.theme-day .tape-row.
 .eco-chart{border:1px solid rgba(155, 107, 255,.38);border-radius:16px;background:#090a0a;overflow:hidden;margin-bottom:16px;animation:flr-in .3s ease}
 .eco-chart-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #212523}.eco-chart-head span{color:var(--muted);font-size:12px}.eco-chart-head>a{margin-left:auto}.eco-chart-head a{font-size:12px;color:var(--mint)}
 .eco-chart-x{border:1px solid var(--line);background:none;color:var(--muted);border-radius:8px;width:28px;height:28px;display:grid;place-items:center;cursor:pointer}
-.eco-chart{container-type:inline-size}.eco-chart .chart-with-trade{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px)}@container (max-width:720px){.eco-chart .chart-with-trade{grid-template-columns:1fr}.eco-chart .chart-aside{height:300px}}
+.eco-chart .chart-with-trade{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,300px)}.eco-chart[data-w720] .chart-with-trade {grid-template-columns:1fr} .eco-chart[data-w720] .chart-aside {height:300px}
 .eco-layout-chart .eco-chart{--chart-h:clamp(340px,54vh,620px)}
 .new-stuff-item.is-pickable{cursor:pointer}.new-stuff-item.is-pickable:hover{border-color:rgba(155, 107, 255,.5);transform:translateY(-1px)}.new-stuff-item.is-active{border-color:var(--mint);box-shadow:0 0 0 1px var(--mint) inset}
 .eco-tip{margin-left:8px;font-size:10px;color:var(--muted);letter-spacing:0;text-transform:none}

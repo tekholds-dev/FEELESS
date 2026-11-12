@@ -31,10 +31,11 @@ function makeDevServerV5Compatible(devServerConfig) {
     ...compatibleConfig.headers,
     "Cross-Origin-Resource-Policy": "same-origin",
   };
-  // Replit serves the app through a proxied preview hostname. CRA's default
-  // host allow-list rejects that hostname with "Invalid Host header".
+  // 0.0.0.0 keeps the phone on the Wi-Fi working. Hosts: localhost, any IP and *.local always pass (webpack-dev-server's
+  // own rule); any other name gets "Invalid Host header" — "all" let a DNS-rebinding page drive the whole site from his
+  // browser (2026-11-12). A tunnel/preview name goes in DEV_ALLOWED_HOSTS=name1,name2.
   compatibleConfig.host = "0.0.0.0";
-  compatibleConfig.allowedHosts = "all";
+  compatibleConfig.allowedHosts = [".local", ...(process.env.DEV_ALLOWED_HOSTS || "").split(",").map((h) => h.trim()).filter(Boolean)];
 
   if (onBeforeSetupMiddleware || setupMiddlewares) {
     compatibleConfig.setupMiddlewares = (middlewares, devServer) => {

@@ -114,12 +114,12 @@
 .cfx-ember { background: #ffb347; box-shadow: 0 0 8px #ff6a1a; }
 /* 🌀 reserve vortex — the reserve as an accretion disk: orbits turning, three coins riding, a burning core */
 .fx-vortex { background: radial-gradient(40% 30% at 50% 52%, rgba(94, 200, 255, .18), transparent 70%), radial-gradient(80% 60% at 50% 50%, rgba(155, 107, 255, .1), transparent 70%), #03060a; }
-.cfx-disk { position: absolute; left: 50%; top: 52%; width: min(130%, 720px); aspect-ratio: 1; container-type: size; transform: translate(-50%, -50%) rotate(-14deg) scaleY(.36); }
+.cfx-disk { position: absolute; left: 50%; top: 52%; width: min(130%, 720px); aspect-ratio: 1; transform: translate(-50%, -50%) rotate(-14deg) scaleY(.36); }
 .cfx-ring { position: absolute; left: 50%; top: 50%; width: var(--r); height: var(--r); margin: calc(var(--r) / -2) 0 0 calc(var(--r) / -2); border-radius: 50%; border: 2px dotted rgba(94, 200, 255, .55);
   animation: cfxSpin calc(20s + var(--i) * 9s) linear infinite; }
 .cfx-ring:nth-of-type(odd) { border-style: dashed; border-color: rgba(180, 140, 255, .5); animation-direction: reverse; }
 .cfx-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: cfxSpin calc(14s + var(--i) * 6s) linear infinite; }
-.cfx-orbit img { position: absolute; left: calc(var(--r) * 1cqw - 11px); top: -30px; width: 22px; height: 61px; object-fit: fill; animation: cfxSpin calc(14s + var(--i) * 6s) linear infinite reverse; }
+.cfx-orbit img { position: absolute; left: calc(var(--r) * var(--box-w, 720px) / 100 - 11px); top: -30px; width: 22px; height: 61px; object-fit: fill; animation: cfxSpin calc(14s + var(--i) * 6s) linear infinite reverse; }
 .cfx-core { position: absolute; left: 50%; top: 52%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; background: radial-gradient(circle, #e9fff4 0 6%, rgba(94, 200, 255, .6) 14%, rgba(155, 107, 255, .25) 34%, transparent 66%); animation: cfxBreathe 3.4s ease-in-out infinite; }
 /* 🏦 gold vault — the door (bolts, wheel, dial), bars stacked in front, glints and gold dust */
 .fx-gold { background: radial-gradient(60% 50% at 72% 40%, rgba(245, 196, 81, .15), transparent 70%), linear-gradient(180deg, #0a0805, #070604); }

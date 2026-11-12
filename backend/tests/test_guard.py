@@ -143,3 +143,28 @@ def test_contract_golive_checklist_needs_owner_and_proof(monkeypatch):
     for st in rs.GOLIVE_STEPS:
         out = asyncio.run(rs.contract_golive_set(Rq({'step': st, 'done': True, 'proof': f'https://proof/{st}'})))
     assert out['ready'] is True and rs._admin_load()['audit'][-1]['action'] == 'contract-golive'
+
+
+def test_cors_is_this_machine_and_lan_until_allowed_origins_is_set(monkeypatch):
+    import re
+    import guard as g
+    monkeypatch.delenv('ALLOWED_ORIGINS', raising=False)
+    rx = re.compile(g.cors_kwargs()['allow_origin_regex'])
+    for ok in ('http://localhost:51367', 'http://127.0.0.1:51367', 'http://192.168.1.23:51367', 'http://10.0.0.7:51367', 'http://studio.local:51367'):
+        assert rx.match(ok), ok
+    for bad in ('https://evil.com', 'http://localhost.evil.com', 'http://192.168.1.23.evil.com', 'http://8.8.8.8:51367', 'null'):
+        assert not rx.match(bad), bad
+    monkeypatch.setenv('ALLOWED_ORIGINS', 'https://feeless.app, https://www.feeless.app')
+    assert g.cors_kwargs() == {'allow_origins': ['https://feeless.app', 'https://www.feeless.app']}
+
+
+def test_request_ip_ignores_a_typed_forwarded_header(monkeypatch):
+    import guard as g
+
+    class R:
+        headers = {'x-forwarded-for': '1.2.3.4, 9.9.9.9'}
+        client = type('C', (), {'host': '203.0.113.5'})()
+    monkeypatch.delenv('FEELESS_TRUST_PROXY', raising=False)
+    assert g.request_ip(R()) == '203.0.113.5'
+    monkeypatch.setenv('FEELESS_TRUST_PROXY', '1')
+    assert g.request_ip(R()) == '9.9.9.9'   # behind our proxy: the rightmost entry, the one it wrote

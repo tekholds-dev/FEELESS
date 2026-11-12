@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useCallback, useEffect, useState } from 'react';
 import '../../styles/modelDesk.css';
 import { ModelRig } from './ModelRig';
@@ -118,13 +119,14 @@ function Mcp({ mcp, m }) {
     <div className="mdk-tools">{(mcp.tools || []).map((t, i) => <span key={t.name} style={{ '--i': i }} data-tip={t.desc}><b>{t.name}</b><small>{t.desc}</small></span>)}</div></>;
 }
 
+const deskBox = boxRef([640]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function ModelDesk({ call }) {
   const [d, setD] = useState(null); const [key, setKey] = useState('lan'); const [tab, setTab] = useState('info'); const [err, setErr] = useState('');
   const load = useCallback(async () => { try { setD(await call('/admin/ai/models')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 5000); return () => clearInterval(t); }, [load]);
   if (!d?.models?.length) return <p className="mdk-wait">{err || 'reading every model…'}</p>;   // an old / partial payload never crashes the Brain
   const m = d.models.find(x => x.key === key) || d.models[0];
-  return <div className="mdk" data-testid="model-desk">
+  return <div ref={deskBox} className="mdk" data-testid="model-desk">
     <div className="mdk-vit">{d.models.map((x, i) => <VitalCard key={x.key} m={x} i={i} on={x.key === m.key} onPick={() => setKey(x.key)} />)}</div>
     <section className={`mdk-panel k-${m.key}`} data-testid={`mdk-panel-${m.key}`}>
       <header className="mdk-ph"><b>{m.name}</b><span>{m.info?.name || m.model}</span>

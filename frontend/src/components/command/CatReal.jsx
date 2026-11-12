@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { depositQuote } from '../../lib/depositQuote';
@@ -235,11 +236,12 @@ function AssignWallet({ cat, busy, send }) {
       data-tip="FEELESS signs only through Crossmint: a wallet Crossmint holds for this project → Fee trades from it. Any other wallet → shown watch-only (FEELESS never holds a private key)"><Ic3 e="👛" /> Assign</button></div>;
 }
 
+const agentBox = boxRef([699]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function AgentWalletCard({ cat, busy, send, addr, session, sign, err }) {
   const w = cat?.agentWallet; const kind = cat?.brainsCfg?.kind; const d = useAgentWallet(cat?.id, !!w); const [copied, setCopied] = useState(false);
   const bal = d?.balance || {}; const mode = w?.mode || 'approve';
   const copy = () => { try { navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* blocked */ } };
-  return <div className={`cr-agent ${w ? 'is-made' : ''} m-${mode}`} data-testid="cr-agent">
+  return <div ref={agentBox} className={`cr-agent ${w ? 'is-made' : ''} m-${mode}`} data-testid="cr-agent">
     <svg className="cr-vault" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="30" rx="6" /><circle cx="24" cy="24" r="8" /><path className="cr-vdial" d="M24 16 V20 M24 28 V32 M16 24 H20 M28 24 H32" /><path d="M11 39 V43 M37 39 V43" /></svg>
     {!w ? <div className="cr-ag-off"><b><Ic3 e="👛" /> ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Circle holds the key, never a browser. FEELESS signs only inside your limits.</small>
       {cat?.isLeader || cat?.id === 'leader' ? null : <FundPick cat={cat} />}

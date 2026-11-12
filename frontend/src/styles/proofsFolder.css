@@ -1,5 +1,5 @@
 /* 🏆 ProofsFolder.jsx (pfx-*): ring, 3D chart, loop orbit, PoI timeline. Built from m-* tokens. Motion: pfx* keyframes, transform and opacity only. */
-.pfx { --win: #b48cff; --loss: #ff8fa3; --none: #8d86a8; --pow: #f2b84b; --pop: #b388ff; --pob: #58c7f3; display: grid; gap: 14px; padding: 14px; min-width: 0; color: #eef2f5; container-type: inline-size; }
+.pfx { --win: #b48cff; --loss: #ff8fa3; --none: #8d86a8; --pow: #f2b84b; --pop: #b388ff; --pob: #58c7f3; display: grid; gap: 14px; padding: 14px; min-width: 0; color: #eef2f5; }
 .pfx-parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .pfx-part { margin: 0; display: grid; grid-template-rows: auto 170px auto; gap: 8px; justify-items: center; padding: 12px; border-radius: 16px; border: 1px solid #ffffff1f; background: linear-gradient(155deg, #ffffff10, #ffffff04); box-shadow: inset 0 1px 0 #ffffff24, 0 14px 34px #0006; min-width: 0; }
 .pfx-part figcaption { justify-self: start; font: 800 10px var(--f-mono); letter-spacing: .14em; color: #aab3bd; }
@@ -60,7 +60,7 @@
 @keyframes pfxFade { from { opacity: 0; } }
 @keyframes pfxRise { from { transform: translateZ(-14px) scale(.7); } }   /* no opacity here: an animated opacity flattens the 3D bars */
 @keyframes pfxOrbit { to { transform: rotate(360deg); } }
-@container (max-width: 760px) { .pfx-parts { grid-template-columns: minmax(0, 1fr); } .pfx-part { grid-template-rows: auto auto auto; } .pfx-open { grid-template-columns: minmax(0, 1fr); } }
+.pfx[data-w760] .pfx-parts { grid-template-columns: minmax(0, 1fr); } .pfx[data-w760] .pfx-part { grid-template-rows: auto auto auto; } .pfx[data-w760] .pfx-open { grid-template-columns: minmax(0, 1fr); }
 @media (max-width: 640px) { .pfx { padding: 10px; } .pfx-e-h strong { min-width: 0; } .pfx-dec li { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 body.fx-lite :is(.pfx-sat, .pfx-bar, .pfx-e, .pfx-seg, .pfx-arc, .pfx-open, .pfx-dec li) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.pfx-sat, .pfx-bar, .pfx-e, .pfx-seg, .pfx-arc, .pfx-open, .pfx-dec li) { animation: none; } }

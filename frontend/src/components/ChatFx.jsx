@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { useCoinMood } from '../lib/coinMood';
@@ -86,6 +87,7 @@ const Net = ({ far }) => <svg className={`cfx-neural${far ? ' far' : ''}`} viewB
   {LINKS.map(([a, b], i) => <line key={`l${i}`} x1={NODES[a][0]} y1={NODES[a][1]} x2={NODES[b][0]} y2={NODES[b][1]} className="syn" style={{ '--i': i }} />)}
   {far ? null : LINKS.filter((_, i) => i % 3 === 0).map(([a, b], i) => <line key={`p${i}`} x1={NODES[a][0]} y1={NODES[a][1]} x2={NODES[b][0]} y2={NODES[b][1]} className="pulse" pathLength="100" style={{ '--i': i }} />)}
   {NODES.map(([x, y], i) => <circle key={`n${i}`} cx={x} cy={y} r=".6" className="node" style={{ '--i': i }} />)}</svg>;
+const diskBox = boxRef([], { vars: true });   // 📐 its own width, no @container (lib/boxRef.js)
 const SCENE = {
   neural: () => <><Net far /><Net /></>,
   // 📈 LIVE MOOD: the room's own coin as a live horizon — the line tilts up on a pump, down on a dump, flat when calm; colour = the mood
@@ -136,7 +138,7 @@ const SCENE = {
     <svg className="cfx-run cfx-lava b" viewBox="0 0 1600 160" preserveAspectRatio="none"><path d={area(LAVA_B)} /></svg>
     <svg className="cfx-run cfx-lava a" viewBox="0 0 1600 160" preserveAspectRatio="none"><path d={area(LAVA_A)} /><path className="crust" d={LAVA_A} /></svg></>,
   // 🌀 RESERVE VORTEX: the FEE reserve as an accretion disk — dotted orbits turning at their own speeds, three coins riding them, a burning core
-  vortex: () => <><span className="cfx-disk">{[44, 62, 78, 94].map((r, i) => <i key={r} className="cfx-ring" style={{ '--r': `${r}%`, '--i': i }} />)}
+  vortex: () => <><span ref={diskBox} className="cfx-disk">{[44, 62, 78, 94].map((r, i) => <i key={r} className="cfx-ring" style={{ '--r': `${r}%`, '--i': i }} />)}
     {[28, 39, 47].map((r, i) => <span key={r} className="cfx-orbit" style={{ '--i': i, '--r': r }}><img src="/assets/feeless-logo-256.png" alt="" decoding="async" /></span>)}</span><i className="cfx-core" /></>,
   // 🏦 GOLD VAULT: the vault door — bolts, the wheel, the dial — gold bars stacked in front, glints and gold dust in the air
   gold: () => <><span className="cfx-rise">{rise(10, 'cfx-dust', 4)}</span><span className="cfx-vault"><svg className="door" viewBox="0 0 200 200"><circle className="rim" cx="100" cy="100" r="96" /><circle className="plate" cx="100" cy="100" r="78" />

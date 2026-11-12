@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import { FeeCatMark } from '../FeeCatMark';
 import { useLeaderProfile, feeHeadline } from '../../lib/feeLeader';
@@ -27,6 +28,7 @@ export function goTo(path) {
 const FOCUS_KEY = 'feeless.fcx.focus';
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 100 ? Math.round(v) : Number(v).toFixed(1)}%`;
 
+const navBox = boxRef([520, 640, 900]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function FeeCatShell({ tab, children }) {
   const h = feeHeadline(useLeaderProfile()); const mine = useMyCat();
   useEffect(() => { document.body.classList.add('fcx-on'); return () => document.body.classList.remove('fcx-on'); }, []);   // 🧊 feecatShell.css: one still sky, no stacked backdrops
@@ -40,7 +42,7 @@ export function FeeCatShell({ tab, children }) {
     <header className="fcx-bar">
       <a className="fcx-brand" href="/terminal/feecat" onClick={e => { e.preventDefault(); goTo('/terminal/feecat'); }} data-tip="FeeCat home — Fee's live desk" data-testid="fcx-home">
         <span className="fcx-mark"><FeeCatMark size={38} /></span><span><b>FEECAT</b><small>the trading cats · violet night</small></span></a>
-      <nav className="fcx-nav" aria-label="FeeCat">{FC_NAV.map(([k, path, ic, name, why], i) => <a key={k} href={path} aria-current={tab === k ? 'page' : undefined}
+      <nav ref={navBox} className="fcx-nav" aria-label="FeeCat">{FC_NAV.map(([k, path, ic, name, why], i) => <a key={k} href={path} aria-current={tab === k ? 'page' : undefined}
         className={`${tab === k ? 'active' : ''} k-${k}`} style={{ '--i': i }} onClick={e => { e.preventDefault(); goTo(path); }} data-tip={`${name} — ${why}`} data-testid={`fcx-${k}`}>
         <i aria-hidden="true"><Ic3 e={ic} /></i><span><b>{name}</b><small>{why}</small></span></a>)}</nav>
       <div className="fcx-live">

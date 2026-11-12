@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import { usePrime, primeRow, TIER } from './ArenaPrime';
 import { LiveFuseCard } from './FuseCard';
@@ -33,6 +34,7 @@ export function heroCard(cards, live) {
   return { ...c, legs };
 }
 
+const fldBox = boxRef([980], { vars: true });   // 📐 its own width, no @container (lib/boxRef.js)
 export function FuseLanding({ onGo, onRun }) {
   const d = usePrime(20000);
   const [lit, setLit] = useState(false);
@@ -46,7 +48,7 @@ export function FuseLanding({ onGo, onRun }) {
   const rounds = cards.reduce((n, x) => n + (x.rounds || 0), 0);
   const bell = Math.max(0, Math.min(...cards.filter(x => x.nextRoundAt && !x.resting).map(x => x.nextRoundAt), now + 3600) - now);
   const note = ([n, t, s], i) => <li key={n} style={{ '--i': i }}><b>{n}</b><span><strong>{t}</strong>{s}</span></li>;
-  return <section className="fld" data-testid="fuse-landing">
+  return <section ref={fldBox} className="fld" data-testid="fuse-landing">
     <div className={`fld-stage ${lit ? 'is-lit' : ''}`}>
       <span className="fld-cone" aria-hidden="true" /><span className="fld-floor" aria-hidden="true" />
       <div className="fld-copy">

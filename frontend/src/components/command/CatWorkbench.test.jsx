@@ -293,7 +293,7 @@ test('🖱 the browser stays in view (the FEELESS chart is a tab), the mind not 
   await act(async () => { createRoot(el).render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a', 'm/b'], credit: 1 } }} />); });
   expect(el.querySelector('[data-testid="cwb-live"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cwb-chart"]')).toBeNull();   // it checked a coin — its browser still shows
   expect(el.querySelector('[data-testid="cwb-tab-chart"]').textContent).toContain('$HUSS');
-  const cur = el.querySelector('[data-testid="cwb-cursor"]'); expect(cur.style.transform).toBe('translate(25cqw, 50cqh)'); expect(cur.className).toContain('c-arrow');
+  const cur = el.querySelector('[data-testid="cwb-cursor"]'); expect(cur.style.transform).toBe('translate(calc(var(--box-w, 0px) * 0.25), calc(var(--box-h, 0px) * 0.5))'); expect(cur.className).toContain('c-arrow');
   expect(el.querySelector('[data-testid="cwb-notasked"]').textContent).toContain('not asked');
   expect(el.querySelectorAll('[data-testid="cwb-input"]')).toHaveLength(1); expect(el.querySelector('.ckit-bar [data-testid="cwb-to-both"]')).not.toBeNull();   // ONE box, the A · B · Both pick in its bar
   await act(async () => { el.querySelector('[data-testid="cwb-gear"]').click(); });

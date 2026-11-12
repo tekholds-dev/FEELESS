@@ -1,6 +1,6 @@
 /* 🧠 THE MODEL DESK (Brain › Models, mdk-*): vitals for every model on top, the picked model's INFO · LOAD · INFERENCE · SERVER · MCP below.
    One model at a time (nothing cut off), m-* tokens, transform / opacity motion only, one keyframe set (mdk*). */
-.mdk { --g4: #6fd3ff; --os: #b48cff; --nx: #f5c451; display: grid; gap: 10px; container-type: inline-size; }
+.mdk { --g4: #6fd3ff; --os: #b48cff; --nx: #f5c451; display: grid; gap: 10px; }
 .mdk-wait { font: 600 11px var(--m-mono); color: var(--m-dim); }
 .mdk-vit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .mdk-vc { --c: var(--g4); position: relative; display: grid; gap: 7px; padding: 10px; border-radius: 13px; text-align: left; cursor: pointer; color: var(--m-text); overflow: hidden; isolation: isolate;
@@ -76,7 +76,7 @@
 @keyframes mdkGrow { from { transform: scaleX(0); } }
 @keyframes mdkSweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
 @keyframes mdkBlink { 50% { opacity: .35; } }
-@container (max-width: 640px) { .mdk-vit { grid-template-columns: 1fr; } .mdk-tabs button { font-size: 9px; padding: 3px 4px; } }
+.mdk[data-w640] .mdk-vit { grid-template-columns: 1fr; } .mdk[data-w640] .mdk-tabs button { font-size: 9px; padding: 3px 4px; }
 body.fx-lite .mdk-vc, body.fx-lite .mdk-vc::after, body.fx-lite .mdk-dot.is-on, body.fx-lite .mdk-q, body.fx-lite .mdk-body, body.fx-lite .mdk-kv div, body.fx-lite .mdk-knob, body.fx-lite .mdk-tools span, body.fx-lite .mdk-srv.is-ok i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mdk *, .mdk *::after, .mdk-vc::after { animation: none !important; } .mdk-vc, .mdk-bar s { transition: none; } }
 body.theme-day .mdk-vc, body.theme-day .mdk-panel { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 10%, #fff), #ffffff 65%); }

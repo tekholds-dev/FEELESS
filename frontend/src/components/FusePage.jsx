@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import { FamilyFuseStrip } from './FamilyFuseBoard';
 import { sharedJson } from '../lib/sharedJson';
 import { FirstTips } from './FirstTips';
@@ -89,6 +90,7 @@ export function useFuseLimits(addr) {
   return lim;
 }
 
+const splitBox = boxRef([980]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function FusePage() {
   const [tab, setTab] = useState(readTab);
   const [runnerPicks, setRunnerPicks] = useState([]);
@@ -108,7 +110,7 @@ export function FusePage() {
       <button type="button" role="tab" aria-selected={tab === 'lab'} className={tab === 'lab' ? 'active' : ''} onClick={() => go('lab')} data-testid="fuse-step-lab"><b>2</b> <Ic3 e="🧪" /> Build the card</button></div>}
     <div className="fp-body" key={tab}>
       {tab === 'home' && <FuseLanding onGo={go} onRun={legs => { setRunnerPicks((legs || []).slice(0, 3).map(l => ({ mint: l.mint, symbol: l.symbol, pairAddress: l.pairAddress, lane: 'runner' }))); go('lab'); }} />}
-      {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
+      {tab === 'lab' && <div ref={splitBox} className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary><Ic3 e="🗑" /> Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}
       {tab === 'arena' && <FamilyFuseStrip />}

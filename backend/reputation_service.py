@@ -331,7 +331,7 @@ app.middleware('http')(http_ctx.sec_headers)   # 🔒 nosniff + no-referrer on e
 
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
-app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, **__import__('guard').cors_kwargs(), allow_methods=['*'], allow_headers=['*'])
 
 
 @app.post('/api/reputation/observe')
@@ -925,7 +925,7 @@ async def upload_image(payload: UploadPayload, request: Request):
     cap = upload_cap(m.group(1), role)
     if role == 'user':
         # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
-        ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+        ip = _guard.request_ip(request)
         hits = [x for x in _upload_ip.get(ip, []) if time.time() - x < 3600]
         if len(hits) >= 20:
             raise HTTPException(429, 'Upload limit reached — try again in an hour.')
@@ -3530,9 +3530,9 @@ async def why_pump(mint: str, request: Request):
     hit = _why_cache.get(mint)
     if hit and time.time() - hit[0] < WHY_TTL:
         return {**hit[1], 'cached': True}
-    ip = (request.client.host if request.client else '') or ''
+    ip = _guard.request_ip(request)
     day = time.strftime('%Y-%m-%d', time.gmtime())
-    local = ip.startswith(('127.', '10.', '192.168.', '::1')) or ip == 'testclient'
+    local = ip.startswith('127.') or ip in ('::1', 'testclient')   # loopback only: a 10.x / 192.168.x peer can be a load balancer carrying everyone
     q = _why_quota.get(ip) or [day, 0]
     if q[0] != day:
         q = [day, 0]
@@ -25558,7 +25558,7 @@ def _bug_key(text, page):
 
 @app.post('/api/reputation/bugs')
 async def report_bug(request: Request, payload: BugReport):
-    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+    ip = _guard.request_ip(request)
     hits = [t for t in _bug_ip_hits.get(ip, []) if time.time() - t < 60]
     if len(hits) >= 3:
         raise HTTPException(429, 'Slow down — 3 reports a minute.')
@@ -26259,7 +26259,7 @@ class ClickIn(BaseModel):
 async def track_click(request: Request, payload: ClickIn):
     if payload.kind not in ('ticker', 'ca', 'mention', 'command'):
         raise HTTPException(400, 'Bad kind.')
-    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0]
+    ip = _guard.request_ip(request)
     hits = [t for t in _click_ip.get(ip, []) if time.time() - t < 60]
     if len(hits) >= 60:
         raise HTTPException(429, 'Too many clicks.')
@@ -29677,7 +29677,7 @@ class PageView(BaseModel):
 
 @app.post('/api/reputation/pv')
 async def page_view(request: Request, p: PageView):
-    ip = request.headers.get('x-forwarded-for', request.client.host if request.client else '?').split(',')[0].strip()
+    ip = _guard.request_ip(request).strip()
     now = time.time()
     hits = [t for t in _tr_ip.get(ip, []) if now - t < 60]
     if len(hits) >= 120:

@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CardFx } from './CardFx';
 import { toast } from 'sonner';
@@ -58,17 +59,18 @@ export function CoinRow({ r, live, px }) {
   </div>;
 }
 
+const runBox = boxRef([520, 900]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function RunnersPanel({ call }) {
   const d = useRunners();
   const lp = useLivePrices([...(d?.round?.picks || []), ...(d?.live || []).slice(0, call ? 60 : 12)].map(x => x.pairAddress));
   const [budget, setBudget] = useState(5); const [go, setGo] = useState(false); const [override, setOverride] = useState(false); const [showDrop, setShowDrop] = useState(false);
   const picks = useMemo(() => d?.round?.picks || [], [d]);
   const legs = useMemo(() => picks.map(p => ({ chainId: 'solana', pairAddress: p.pairAddress, symbol: p.symbol || `${p.mint.slice(0, 4)}…`, baseAddress: p.mint, logo: p.logo, weight: 100 / picks.length, change24h: p.chg1h, liquidityUsd: p.liq })), [picks]);
-  if (!d) return <section className="rn" data-testid="runners"><div className="rn-hero is-ghost" /></section>;
+  if (!d) return <section ref={runBox} className="rn" data-testid="runners"><div className="rn-hero is-ghost" /></section>;
   const lit = d.proof.lights || override;
   const sol = d.solUsd ? budget / d.solUsd : null;
   const force = () => call?.('/admin/runners/round', { method: 'POST' }).then(() => { toast.success('New round dealt'); window.dispatchEvent(new Event('feeless:runners')); }).catch(e => toast.error(e.message));
-  return <section className="rn" data-testid="runners">
+  return <section ref={runBox} className="rn" data-testid="runners">
     <header className="rn-hero cfx-host"><CardFx kind="embers" tone="gold" />
       <div className="rn-title"><span className="m-label">🏃 FUSE RUNNERS · LIVE</span><h3>Coins come to it.</h3>
         <p>Every Pump.fun coin the feed sees is gated, scored and laned the moment it arrives. Every 15 min a round keeps the best runners and deals in new ones. Each lane has its exit plan baked in.</p></div>

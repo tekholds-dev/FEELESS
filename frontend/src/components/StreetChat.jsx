@@ -1,3 +1,4 @@
+import { boxRef } from '../lib/boxRef';
 import { ChatComposer, ChatInput, ChatSend } from './chat/ChatKit';
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -158,6 +159,7 @@ function BestStrip({ onCall }) {
 }
 const STARTERS = ['🔥 GM, block', '📈 who\'s up today?', '💀 rug check — anyone holding?', '🫡 respect to the last caller'];
 
+const streetBox = boxRef([440]);   // 📐 its own width, no @container (lib/boxRef.js)
 export default function StreetChat({ city, name, addr, sess }) {
   const [d, setD] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false); const [reply, setReply] = useState(null); const [tool, setTool] = useState(null); const [cool, setCool] = useState(0); const [, tick] = useState(0); const coolDur = useRef(0); const typedAt = useRef(0);
   const logRef = useRef(null); const seen = useRef(null); const input = useRef(null); const stick = useRef(true);
@@ -210,7 +212,7 @@ export default function StreetChat({ city, name, addr, sess }) {
   const heat = Math.max(0, Math.min(3, v.heat || 0)); const slow = d?.slow;
   const byParent = useMemo(() => { const m = new Map(); lines.forEach(x => { if (x.parentId) m.set(x.parentId, [...(m.get(x.parentId) || []), x]); }); return m; }, [lines]);
   const nameOf = useMemo(() => new Map(lines.map(x => [x.id, x.name])), [lines]);
-  return <section className={`st m-card k-${city} is-heat-${heat}`} data-testid="city-chat">
+  return <section ref={streetBox} className={`st m-card k-${city} is-heat-${heat}`} data-testid="city-chat">
     <StreetScene name={name} heat={heat} />
     <header className="st-head">
       <span className="st-title"><em>THE STREETS</em><b>{name}</b></span>

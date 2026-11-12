@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { useLeaderProfile, useLeaderScan, feeHeadline } from '../../lib/feeLeader';
@@ -62,13 +63,14 @@ export function thinkStations(sc, p, hive) {
     ['learn', '📚', 'LEARN', `${L.memory ?? 0}`, `trades remembered · ${L.missed ?? 0} runners sold early`, 'Every exit is checked an hour on: runners she sold early loosen her trail, bad setups get vetoed next time.'],
   ];
 }
+const pipeBox = boxRef([], { vars: true });   // 📐 its own width, no @container (lib/boxRef.js)
 export function ThinkFlow() {
   const p = useLeaderProfile(); const sc = useLeaderScan(); const [hive, setHive] = useState(null); const [open, setOpen] = useState('gate');
   useEffect(() => { let on = true; fetch(apiUrl('/api/cats/hive')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setHive(x)).catch(() => {}); return () => { on = false; }; }, []);
   const st = thinkStations(sc, p, hive); const cur = st.find(x => x[0] === open) || st[0];
   return <section className="fbr-flow" data-testid="fee-think">
     <header><b><Ic3 e="🧭" /> HOW FEE THINKS</b><small>one coin's trip through her brain · live numbers · tap a station</small></header>
-    <ol className="fbr-pipe" role="tablist" aria-label="Her decision loop">{st.map(([k, ic, name, big, small], i) => <li key={k} style={{ '--i': i }}>
+    <ol ref={pipeBox} className="fbr-pipe" role="tablist" aria-label="Her decision loop">{st.map(([k, ic, name, big, small], i) => <li key={k} style={{ '--i': i }}>
       <button type="button" role="tab" aria-selected={open === k} className={open === k ? 'is-on' : ''} onClick={() => setOpen(k)} data-testid={`think-${k}`} data-tip={small}>
         <i aria-hidden="true"><Ic3 e={ic} /></i><em>{name}</em><b className="m-num" key={big}>{big}</b><small>{small}</small></button></li>)}
       <span className="fbr-coin" aria-hidden="true" /></ol>

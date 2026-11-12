@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { agentAuthQuery } from '../../lib/chatSession';
 import { ProofTerms } from './ProofTerms';
 import React, { useMemo, useState } from 'react';
@@ -143,13 +144,14 @@ function Entry({ r, i, cat, open, onToggle, onShot, onOpenFolder, onHide }) {
       <div className="pfx-acts">{onOpenFolder && OPEN_APP[r.kind] ? <button type="button" className="m-btn" onClick={() => onOpenFolder(OPEN_APP[r.kind])} data-testid="pfx-open-folder">Open its {KINDS[r.kind][1]} folder</button> : null}{onHide ? <button type="button" className="m-btn" onClick={() => onHide(r, !r.hidden)} data-tip={r.hidden ? 'Puts it back in your folders' : 'Takes it out of your folders. Its score and record stay exactly as filed, so nothing about the agent changes'} data-testid={`pfx-hide-${r.id}`}>{r.hidden ? 'Put it back' : 'Remove from view'}</button> : null}</div></div> : null}</li>;
 }
 
+const proofsBox = boxRef([760]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function ProofsFolder({ cat, d, onOpenFolder, work }) {
   const [hid, setHid] = useState({}); const [showHidden, setShowHidden] = useState(false); const every = useMemo(() => proofRows(d).map(r => (r.id in hid ? { ...r, hidden: hid[r.id] } : r)), [d, hid]); const gone = every.filter(r => r.hidden).length; const all = showHidden ? every : every.filter(r => !r.hidden); const [hideErr, setHideErr] = useState('');
   const hide = async (r, on) => { setHideErr(''); try { await work(cat.id, { op: 'proof_hide', job: LIST[r.kind], text: r.id, on }); setHid(x => ({ ...x, [r.id]: on })); } catch (e) { setHideErr(e.message); } };
   const [lens, setLens] = useState('all'); const [open, setOpen] = useState(''); const [big, setBig] = useState(null);
   const rows = lens === 'all' ? all : all.filter(r => r.kind === lens);
   const days = useMemo(() => rows.reduce((out, r) => { const k = day(r.at); const last = out[out.length - 1]; if (last?.k === k) last.rows.push(r); else out.push({ k, rows: [r] }); return out; }, []), [rows]);
-  return <div className="pfx" data-testid="dsk-proofs">
+  return <div ref={proofsBox} className="pfx" data-testid="dsk-proofs">
     {work ? <ProofLoop cat={cat} d={d} work={work} /> : null}
     <details className="pfx-what"><summary data-tip="PoW, PoP, PoB and the rest, in plain words">What do these words mean?</summary><ProofTerms compact /></details>
     <div className="pfx-parts"><Ring rows={rows} /><Chart3d rows={rows} /><LoopOrbit rows={all} /></div>

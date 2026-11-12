@@ -122,7 +122,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()],   # set ALLOWED_ORIGINS=https://your.domain before launch
+    **__import__('guard').cors_kwargs(),   # ALLOWED_ORIGINS=https://your.domain before launch; unset = this machine + LAN only (guard.py)
     allow_methods=["*"],
     allow_headers=["*"],
 )

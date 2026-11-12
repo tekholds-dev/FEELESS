@@ -302,7 +302,7 @@ async def _stop_flush():
         await _flush_store()
     except Exception:
         pass
-app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(CORSMiddleware, **__import__('guard').cors_kwargs(), allow_methods=['*'], allow_headers=['*'])
 
 
 @app.post('/api/candles/observe')

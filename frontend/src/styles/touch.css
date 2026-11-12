@@ -16,4 +16,13 @@
   .row-actions > a, .row-actions > button { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; margin: -9px -8px; }
   [data-testid="market-refresh"] { min-width: 32px; min-height: 32px; }
   [data-testid="markets-view-all"], [data-testid="context-launchpads-link"], a[href="/terminal/leaderboard?lens=crews"] { display: inline-flex; align-items: center; min-height: 32px; }
+  /* 2026-11-12 phone sweep (touch emulation, 34 pages): every control a thumb hit at 19–31px */
+  .m-seg > button, .m-seg > a, button.m-chip, .sup-plus, .net-trigger, .fd-follow, .market-tabs > button, .heartbeat-chart-timeframes > button,
+  .pagination > button, .btn-outline, .prc-btn, .trend-sorts > button, .trend-tfs > button, .wps-nav > button, .mt-pylon, .address-pill,
+  .signal-modes > button, .sup-lens > button, .sup-filter > button, .mission-filters > button, .jup-quick > button, .bdg-seg > button,
+  .launchpad-filters > button { min-height: 32px; }
+  .sidebar-feecat-toggle, .allocation-track > button, .pagination > button, .prc-btn { min-width: 32px; }
+  body :is(.chr-chips, .cwb-alts) .m-chip, body :is(.ca-scanner, .command-home-heading, .launch-actions) .btn-outline, body .mt-pylon { min-height: 32px; }   /* beat their 2-class 28–30px rules */
+  .context-platforms a, .cp-links a, .asset-links a, .sidebar-feecat-subnav a, .heartbeat-bottom > :is(a, button) { display: inline-flex; align-items: center; min-height: 32px; }
+  .allocation-switch button { position: relative; } .allocation-switch button::before { content: ''; position: absolute; inset: -13px; }   /* 6px dots: the hit area grows, not the dot */
 }

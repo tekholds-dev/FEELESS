@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useMemo, useState } from 'react';
 import { cleanShots } from './SnapStack';
 import '../../styles/poiFolder.css';
@@ -72,6 +73,7 @@ export function KernelCard({ kernel }) {
     <div>{kernel.groups.map(g => <section key={g.name}><em>{g.name}</em>{g.rows.map(([k, v]) => <span key={k}><small>{k}</small><b className="m-num">{Array.isArray(v) ? v.join(' – ') : v === false ? 'never' : String(v)}</b></span>)}</section>)}</div></details>;
 }
 
+const poiBox = boxRef([620]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function PoiFolder({ f, poi, onShot }) {
   const [pick, setPick] = useState(null);
   const coins = (f.coins || []).filter(c => f.vitals?.[c.mint] || f.poiTrace?.[c.mint] || (f.shots || []).some(s => s.mint === c.mint));
@@ -83,7 +85,7 @@ export function PoiFolder({ f, poi, onShot }) {
   const spent = ms.reduce((a, m) => a + (m.durationSec || 0), 0); const modelSec = ms.reduce((a, m) => a + (m.modelSec || 0), 0); const openSec = ms.reduce((a, m) => a + (m.openSec || 0), 0); const timed = spent > 0 && ms.some(m => m.modelSec != null);
   const stateCount = s => all.filter(n => n.state === s).length;
   const openNode = pick ? (coins.find(c => c.mint === pick.mint) && nodesOf(f, coins.find(c => c.mint === pick.mint)).find(n => n.h === pick.h)) : null;
-  return <section className="pf" data-testid="poi-folder" aria-label="Proof of Intelligence for this PoW">
+  return <section ref={poiBox} className="pf" data-testid="poi-folder" aria-label="Proof of Intelligence for this PoW">
     <header className="pf-head m-glass"><b><Ic3 e="🧬" /> PROOF OF INTELLIGENCE</b><small>{String(f.name || '').split(' · ')[0]} · owner only · sealed facts stay sealed</small></header>
     {!traced ? <p className="pf-gap" role="note" data-testid="pf-not-recorded">Not recorded: this PoW ran before PoI tracing, so route reasons and its DNA generation were not kept. Below is only what the folder saved.</p> : null}
     <div className="pf-vitals">

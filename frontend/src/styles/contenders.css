@@ -1,5 +1,5 @@
 /* 🏁 Arena contenders (cn-*): divisions + ranked rows. Built from m-* tokens; transform/opacity motion only. */
-.cn { display: grid; gap: 10px; container-type: inline-size; }
+.cn { display: grid; gap: 10px; }
 .cn-head { display: grid; gap: 4px; }
 .cn-tabs { flex-wrap: wrap; }
 .cn-tabs button { display: inline-flex; align-items: center; gap: 6px; }
@@ -37,7 +37,7 @@
 body.fx-lite .cn-row, body.fx-lite .cn-row.is-next::before { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cn-row, .cn-row.is-next::before { animation: none; } .cn-row, .cn-score i { transition: none; } }
 body.theme-day .cn-row { background: #ffffffd9; } body.theme-day .cn-row.is-next { border-color: #0a7d4b; } body.theme-day .cn-new, body.theme-day .cn-streak { color: #8a5a00; }
-@container (max-width: 760px) { .cn-row { grid-template-columns: 20px 26px minmax(0, 1fr) auto auto; row-gap: 6px; } .cn-wide { display: none; } .cn-score { grid-column: 1 / 4; } .cn-seat { grid-column: 4 / -1; justify-self: end; } }
+.cn[data-w760] .cn-row { grid-template-columns: 20px 26px minmax(0, 1fr) auto auto; row-gap: 6px; } .cn[data-w760] .cn-wide { display: none; } .cn[data-w760] .cn-score { grid-column: 1 / 4; } .cn[data-w760] .cn-seat { grid-column: 4 / -1; justify-self: end; }
 @media (max-width: 640px) { .cn-row { padding: 8px; gap: 8px; } }
 
 /* 🏟 Arena zones (az-*): one zone on screen at a time — a sticky segmented bar, the pane slides in. */

@@ -263,5 +263,5 @@ body.theme-day .st-bgo em, body.theme-day .st-bgo strong, body.theme-day .st-bpu
 body.theme-day .st-off { background: #ffe8ec; color: #9a1f37; } body.theme-day .st-starters button { background: #fffaf0; color: #6a4a00; }
 @media (max-width: 640px) { .st-best { flex-direction: column; } .st-bgo small { display: none; } }
 /* the side column is narrow: the two best chips stack instead of squeezing their tickers */
-.st { container-type: inline-size; }
-@container (max-width: 440px) { .st-best { flex-direction: column; } .st-bchip { flex: none; } }
+
+.st[data-w440] .st-best { flex-direction: column; } .st[data-w440] .st-bchip { flex: none; }

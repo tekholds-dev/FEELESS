@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/promptStudio.css';
@@ -164,6 +165,7 @@ export function LimitTest({ call, models }) {
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {(d?.results || []).length ? <ul className="pst-lim-list">{d.results.slice(0, 8).map(r => <li key={`${r.seat}-${r.prompt}`} data-testid={`pst-lim-${r.seat}-${r.prompt}`}><span className="pst-lim-score" style={{ '--p': `${r.score}%` }}><b className="m-num">{r.score}</b></span><span className="pst-lim-who"><b>{r.seat}</b><small>{r.prompt}{r.model ? ` · ${String(r.model).split('/').pop()}` : ''}</small></span><ol>{(r.rows || []).map(x => <li key={x.k} className={x.ok ? 'is-ok' : 'is-no'} data-tip={`${x.why}. ${x.secs}s${x.tps ? `, ${x.tps} tokens a second` : ''}`}><i aria-hidden="true">{x.ok ? '✓' : '✕'}</i><small>{x.name}</small></li>)}</ol><small className="m-num">{r.err || `${r.seconds}s`}</small></li>)}</ul> : <p className="pst-lim-none">No test yet. Pick a prompt and test a model.</p>}</section>;
 }
+const studioBox = boxRef([380, 720]);   // 📐 its own width, no @container (lib/boxRef.js)
 export function PromptStudio({ call, only }) {
   const [d, setD] = useState(null); const [key, setKey] = useState(only?.[0] || 'lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
   const load = useCallback(async () => { try { setD(await call('/admin/ai/prompts')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
@@ -174,10 +176,10 @@ export function PromptStudio({ call, only }) {
     setBusy(true);
     try { const r = await call('/admin/ai/prompts', { method: 'POST', body: JSON.stringify(body) }); setD(r); toast.success(word); } catch (e) { toast.error(String(e?.message || e)); } finally { setBusy(false); }
   };
-  if (!d || !m) return <div className="pst m-card is-load" data-testid="pst">{err || d ? <p className="m-note"><Ic3 e="🎭" /> {err || 'that brain did not answer — is its service up?'}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
+  if (!d || !m) return <div ref={studioBox} className="pst m-card is-load" data-testid="pst">{err || d ? <p className="m-note"><Ic3 e="🎭" /> {err || 'that brain did not answer — is its service up?'}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
   const w = windowOf(m); const r = m.record || {};
   const won = r.wonPct;
-  return <div className="pst m-card m-live" data-testid="pst">
+  return <div ref={studioBox} className="pst m-card m-live" data-testid="pst">
     <header className="pst-head"><span><b className="m-label"><Ic3 e="🎭" /> PROMPT STUDIO</b><small>what each model reads · how it works · the mindset you give it</small></span>
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>

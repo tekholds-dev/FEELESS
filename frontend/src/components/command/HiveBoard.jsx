@@ -1,3 +1,4 @@
+import { boxRef } from '../../lib/boxRef';
 import { useOnScreen } from '../../lib/fxPause';
 import { WeightBars } from './ProofKit';
 import { PoolBuilder } from './CollectiveSetup';
@@ -203,6 +204,7 @@ export function ColonyPot({ call }) {
 // 🐝 THE COLONY PAGE (owner 2026-10-31: "like Crawl's crawlers page — about 8-10 agents a page, more on scroll, each with 2 good-sized screens and
 // the agent drawn in the middle"): every agent's two windows as visitors may see them (a real cached screenshot, its last page when it's done, frozen
 // while its owner signs in, nothing when incognito), the drawn agent between them, its honey this epoch and its newest graded call.
+const viewBox = boxRef([], { vars: true });   // 📐 its own width, no @container (lib/boxRef.js)
 function ColonyScreen({ a, w, side, tick }) {
   const [bad, setBad] = useState(false); useEffect(() => setBad(false), [tick, w?.screen]);
   const host = w?.host || (a.kind === 'trading' ? 'FEELESS · trenches' : 'idle');
@@ -216,7 +218,7 @@ function ColonyScreen({ a, w, side, tick }) {
     <span className="cl-desk-bar" aria-hidden="true"><u /><em>{a.kind === 'trading' ? 'trader · idle' : 'idle'}</em></span></span>;
   return <span className={`cl-scr${w?.status === 'working' ? ' is-go' : ''}`} data-testid={`cl-scr-${a.id}-${side}`}>
     <span className="cl-bar"><i /><i /><i /><b>{host}</b>{w?.last && !a.incognito ? <em className="cl-last">LAST PAGE</em> : w?.status === 'working' ? <em className="cl-rec">● LIVE</em> : null}</span>
-    <span className="cl-view">{body}{a.incognito || w?.frozen ? null : <AiCursor c={w?.cursor} kind={readCursor()} page />}<small className="cl-model">{side} · {(a.name === "Sicario's" ? ['OSSY', 'G4'] : a.mindNames)?.[side === 'A' ? 0 : 1] || w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
+    <span ref={viewBox} className="cl-view">{body}{a.incognito || w?.frozen ? null : <AiCursor c={w?.cursor} kind={readCursor()} page />}<small className="cl-model">{side} · {(a.name === "Sicario's" ? ['OSSY', 'G4'] : a.mindNames)?.[side === 'A' ? 0 : 1] || w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
 }
 function ColonyCell({ a, onOpen, i, top, extra }) {
   const ref = useRef(null); const seen = useOnScreen(ref); const [tick, setTick] = useState(0); const live = a.windows?.some(w => w.status === 'working');

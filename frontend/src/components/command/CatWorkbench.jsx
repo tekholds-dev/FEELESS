@@ -4,7 +4,9 @@ import { KalshiDoor, KalshiTicket } from './KalshiDoor';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useBox } from '../../lib/useBox';
+import { boxRef } from '../../lib/boxRef';
+const screenBox = boxRef([], { vars: true });   // 📐 --box-w/--box-h for the cursor, drop and SL/TP dot (cqw/cqh with no container froze HQ)
+const poiBox = boxRef([620]);
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { startOpenRouterConnect, takeConnectResult } from '../../lib/openrouterConnect';
@@ -212,7 +214,7 @@ export function AiCursor({ c, kind, think, page }) {   // think = its mind is wo
   // 🖱 AGT-19: over a page-only screenshot (page) use the PAGE shares (px / py); x / y are shares of the whole window, chrome included (the live view)
   if (page && c?.px != null) c = { ...c, x: c.px, y: c.py };
   const rest = !c || c.x == null; if (rest) c = REST;
-  return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}${think ? ' is-think' : ''}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
+  return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}${think ? ' is-think' : ''}`} style={{ transform: `translate(calc(var(--box-w, 0px) * ${c.x}), calc(var(--box-h, 0px) * ${c.y}))` }} data-testid="cwb-cursor" aria-hidden="true">
     <i /><u key={c.at} className={`at-${c.act || 'click'}`} /></span>;
 }
 
@@ -265,7 +267,7 @@ function PowPnl({ f }) {   // 📈 LIVE (owner 2026-11-02: "a live pnl like the 
     <span className="cwb-powpnl-big"><em><i className="cwb-live-dot" aria-hidden="true" />P/L LIVE</em><b className="m-num" key={Math.round(pnl * 100)}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%</b><small>{val != null ? `≈ ${val.toFixed(5)} SOL now · fees apart` : 'fees apart'}</small></span>
     <span data-tip="Live-trade checks: +15 s, +30 s, then every 60 s — the watcher reads the chart, the partner agrees or overrides"><em>CHECK</em><b className="m-num">{f.checks || 0}</b><small>{f.nextAt ? `next in ${Math.max(0, Math.round(f.nextAt - Date.now() / 1000))} s` : 'first at +15 s'}</small></span>
     <span data-tip="What this folder cost so far — both minds' calls + their research rounds"><em>COST</em><b className="m-num">${Number(f.cost || 0).toFixed(4)}</b><small>A ${Number(f.spend?.['0'] || 0).toFixed(3)} · B ${Number(f.spend?.['1'] || 0).toFixed(3)}</small></span>
-    <span className="cwb-powpnl-band" data-tip="The stop loss and take profit its minds set — the dot is where it is now"><em>SL −{sl}%</em><u><s style={{ transform: `translateX(${(toStop * 100).toFixed(1)}cqw)` }} /></u><em>TP +{tp}%</em></span>
+    <span className="cwb-powpnl-band" data-tip="The stop loss and take profit its minds set — the dot is where it is now"><em>SL −{sl}%</em><u ref={screenBox}><s style={{ transform: `translateX(calc(var(--box-w, 0px) * ${toStop.toFixed(3)}))` }} /></u><em>TP +{tp}%</em></span>
   </div>;
 }
 function PowScreen({ f, slot }) {
@@ -317,7 +319,7 @@ function ProofScreen({ p, onOpen }) {
 
 export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null, proof = null, onProof }) {
   const { drop, tray } = useDrop(w);
-  const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web'); const screen = useRef(null); useBox(screen, 0, true);   // 📐 --box-w/--box-h replace cqw/cqh
+  const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');    // 📐 --box-w/--box-h replace cqw/cqh
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
   const lastAct = (w?.steps || []).at(-1)?.action; const lastN = (w?.steps || []).length;
   useEffect(() => { if (lastAct === 'feeless' && w?.coin?.pair) setTab('chart'); else if (['open', 'click', 'scroll', 'search', 'type'].includes(lastAct)) setTab('web'); }, [lastAct, lastN, w?.coin?.pair]);
@@ -352,7 +354,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
     <span className="agd-url" title={w?.url || ''}><i aria-hidden="true"><Ic3 e="🔒" /></i><b>{roundOver ? `feeless · $${folder.sym || 'its folder'}` : w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
     {w?.coin?.pair && !roundOver ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
       <span key={k} className={(chart ? 'chart' : 'web') === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
-    <div ref={screen} className="agd-screen cwb-view">
+    <div ref={screenBox} className="agd-screen cwb-view">
       {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[sl] || sl + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
         <McapChart coin={{ pair: w.coin.pair, mint: w.coin.mint, symbol: coinSym }} fuse={folder?.entryUsd > 0 && folder.mint === w.coin.mint && HELD_PHASES.includes(folder.phase) ? { entry: folder.entryUsd, stop: folder.entryUsd * (1 - (Number(folder.sl) || 25) / 100), slPct: Number(folder.sl) || 25 } : null} /></Suspense></div>
@@ -366,7 +368,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
       {notAsked || w?.hand || chart || (!working && folder?.coins?.length && w?.status !== 'human') ? null : <AiCursor c={w?.cursor} kind={cursor} page={!(w?.live && seen && (working || w.hand))} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       <FindWires m={w?.marks} />
-      {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
+      {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `calc(var(--box-w, 0px) * ${drop.x})`, '--y': `calc(var(--box-h, 0px) * ${drop.y})` }} data-testid="cwb-drop" aria-hidden="true"><i><Ic3 e={drop.icon} /></i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       {typeBar ? createPortal(<div className="cwb-fill-float" data-testid="cwb-fill-float">{typeBar}</div>, document.body) : null}
@@ -913,7 +915,7 @@ function PoiPanel({ poi, catId, onRestore }) {
   const restore = async generation => { if (confirm !== generation) { setConfirm(generation); return; }
     setBusy(true); setError(''); try { const x = await work(catId, { op: 'memory_restore', i: generation }); onRestore?.(x.poi); setConfirm(null); }
     catch (e) { setError(e.message); } finally { setBusy(false); } };
-  return <section className="pf pf-root" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
+  return <section ref={poiBox} className="pf pf-root" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
     <PoiMinds poi={poi} />
     {(poi.versions || []).length ? <div className="pf-mem m-glass"><b>SEALED MODEL MEMORY</b>{poi.versions.slice().reverse().map(v => <button key={v.generation} type="button" className="m-btn" disabled={busy} onClick={() => restore(v.generation)} data-testid={`dsk-memory-${v.generation}`}>{confirm === v.generation ? 'Restore this version? Tap again' : `Version ${v.generation} · ${new Date(v.at * 1000).toLocaleDateString()}`}</button>)}</div> : null}
     {error ? <small role="alert">{error}</small> : null}
@@ -1109,7 +1111,7 @@ function PopExplorer({ cat, d, setD, send, busy, children }) {
   const reads = f?.reads || []; const markets = f ? [...new Set([...reads.map(r => r.market), ...(f.calls || []).map(c => c.market), f.market].filter(Boolean))] : [];
   const crumbs = [['PoP', []], ...(f ? [[`${name(f)} · ${popDay(f)}`, [f.id]]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : []), ...(path[1] === 'src' ? [['Sources', path]] : []), ...(path[1] && path[1].startsWith('m:') ? [[`${path[1].slice(2)}-PERP`, path]] : [])];
   let body;
-  if (!path[0] || !f) body = children(<><SiteDoor kind="pop" cat={cat} d={d} setD={setD} work={work} />{d?.popPoi ? <section className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
+  if (!path[0] || !f) body = children(<><SiteDoor kind="pop" cat={cat} d={d} setD={setD} work={work} />{d?.popPoi ? <section ref={poiBox} className="pf pf-root" aria-label="Proof of Perps fingerprint" data-testid="pop-poi"><PoiMinds poi={d.popPoi} /></section> : null}{all.length ? <div className="dsk-xgrid" data-testid="pop-folders">{all.map((x, i) => { const g = popResult(x);
     return <Tile key={x.id} print={[x.id, x.roePct != null && !x.noTrade ? Math.max(0, Math.min(100, 50 + Number(x.roePct))) : null]} i={i} tone={x.live ? 'live' : g || 'none'} ic={x.live ? (x.proposal ? '💡' : '📉') : x.ghost ? '👻' : g === 'good' ? '👍' : g === 'bad' ? '👎' : '📁'} label={`${x.kept ? '📌 ' : ''}${name(x)}`} sub={x.live ? `● ${popPct(x.roePct)}` : `${popDay(x)}${x.noTrade ? ' · no trade' : x.state === 'ran' ? ' · ran' : ` · ${popPct(x.roePct)}`}`} onOpen={() => setPath([x.id])} tip={`${name(x)}: ${x.noTrade ? `no trade, ${x.why}` : x.side ? `${x.side} ${x.market}${x.ghost ? ', ghost' : ''}` : x.why || 'open'}`} testid={`pop-x-${x.id}`} />; })}</div>
     : <p className="dsk-note">No proofs yet. Type “file a perp” or “propose a perp” in its chat, or tap a button.</p>}</>);
   else if (path[1] === 'report') body = <PopReport f={f} />;
