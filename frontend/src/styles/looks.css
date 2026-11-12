@@ -74,3 +74,13 @@ html[data-edition="elite"] body.theme-day :is(.m-go, .btn-primary):not(:disabled
    radial wash, no coloured drop glow. Night only; the day theme keeps its own cards. */
 html[data-edition="elite"] body:not(.theme-day) :is(.m-glass, .kd .kd-hero, .kd .kd-tile, .kd .kd-card, .kd .ck-vitals, .kd .ck-chat, .kd .ck-log, .kd .agd, .kd .cwb, .kd .lct-brains, .kd .paper-panel, .kd .fcv-card, .kd .fcp, .kd .cr-agent, .kd .cr-wallet, .kd .cr-safe, .kd .cr-strip > span, .kd .col-head) {
   background: #111116; border-color: #ffffff12; box-shadow: none; }
+/* 🖤 PRO TERMINAL (owner 2026-11-12): the home's Fuse Forge drops its cycling plasma/gold/prism/nebula palettes for the look's own colours
+   (the headline word was purple), and the page backdrop's drifting colour blobs go — a flat obsidian floor like the look lab. Fuse card art keeps
+   its rarity sheen (that is the card, not decoration). */
+html[data-edition="elite"] .frg:is(.is-plasma, .is-gold, .is-prism, .is-nebula) { --c1: var(--m-accent); --c2: var(--look-tail, var(--m-accent)); --c3: var(--look-hi, #fff); }
+html[data-edition="elite"] .pgb-glow { display: none; }
+/* 🖤 PRO SWAP: the swap desk loses its green/violet aurora + drop glow (flat card, hairline); the flip button is a solid accent disc. */
+html[data-edition="elite"] body:not(.theme-day) .swap-desk { background: #111116 !important; border-color: #ffffff12 !important; box-shadow: none !important; }
+html[data-edition="elite"] .swap-desk::before, html[data-edition="elite"] .swap-desk::after { display: none; }   /* the spinning violet beam + aurora */
+html[data-edition="elite"] :is(.swap-reverse-button, .swap-desk .jup-flip) { background: var(--m-accent) !important; color: var(--m-accent-ink, #04140c) !important; box-shadow: 0 0 0 4px var(--m-bg, #0e1110) !important; }
+html[data-edition="elite"] body:not(.theme-day) .swap-desk .jup-panel.is-receive { background: #ffffff05 !important; }
