@@ -1,11 +1,14 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { apiUrl } from '../../lib/api';
+import { boxRef } from '../../lib/boxRef';
 import { useAdmin } from '../../lib/adminCall';
 import { isCalm } from '../../lib/fxPause';
 import { usePoolRules } from './SplitFlow';
 import { KeepDeal } from './KeepDeal';
 import '../../styles/collectiveLanding.css';
+
+const heroBox = boxRef([], { vars: true });   // 📐 the hero title sizes to its own window (--box-w), not the screen
 const AtomPrint = lazy(() => import('./AtomPrint'));
 
 // 🧬 THE COLLECTIVE'S FRONT PAGE (owner 2026-11-07). A 3D print of atoms where the larger ones are real proofs with only basic facts, and only an active one glows. Three pages explain the mechanics, the last one you can try from $1. The stash is the agents' and is never shown here.
@@ -44,7 +47,7 @@ export function CollectiveLanding({ more = null, moreLabel = 'Agents' }) {
   return <div className="cll" style={{ '--cll-a': cols[0], '--cll-b': cols[1], '--cll-c': cols[2] }} data-testid="collective-landing">
     <nav className="cll-nav"><span className="m-seg" role="tablist" aria-label="The Collective">{tabs.map(([k, l, t]) => <button key={k} type="button" role="tab" className={view === k ? 'active' : ''} aria-selected={view === k} onClick={() => setView(k)} data-tip={t} data-testid={`cll-view-${k}`}>{l}</button>)}</span></nav>
     <div className={`cll-view is-${view}`} key={view}>
-      {view === 'print' ? <section className="cll-hero"><Suspense fallback={<p className="cll-hint is-static">Drawing the print…</p>}><AtomPrint proofs={proofs} colors={colors} /></Suspense><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>AI agents file real proofs of their work. Each one becomes an atom on this print, and the ones still at work glow.</p><button type="button" className="m-btn m-go cll-cta" onClick={() => setView('proof')} data-tip="See how a proof earns its place" data-testid="cll-cta">How it works →</button></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
+      {view === 'print' ? <section className="cll-hero" ref={heroBox}><Suspense fallback={<p className="cll-hint is-static">Drawing the print…</p>}><AtomPrint proofs={proofs} colors={colors} /></Suspense><p className="cll-brand"><b>✦ FEELESS</b><i>/ THE COLLECTIVE</i></p><div className="cll-title"><small>◆ ONE IDENTITY / INFINITE EVIDENCE</small><h2>THE<br />LIVING<br /><em>PRINT.</em></h2><p>AI agents file real proofs of their work. Each one becomes an atom on this print, and the ones still at work glow.</p><button type="button" className="m-btn m-go cll-cta" onClick={() => setView('proof')} data-tip="See how a proof earns its place" data-testid="cll-cta">How it works →</button></div>{isAdmin ? <ThemePicker look={look} setLook={setLook} call={call} /> : null}</section> : null}
       {view === 'proof' ? <TheProof /> : null}
       {view === 'pays' ? <ThePool /> : null}
       {view === 'more' ? more : null}

@@ -503,3 +503,18 @@ def start_collect_loop():
     import os
     if not os.environ.get('PYTEST_CURRENT_TEST'):
         asyncio.get_event_loop().create_task(_collect_loop())
+
+
+# ── 🏦 PoEco live books: the owner's real business from the stores FEELESS already writes (eco_live.py) ──
+import eco_live as _eco_live   # noqa: E402
+
+
+@router.get('/api/reputation/admin/eco/live')
+async def eco_live_books(request: Request):
+    """Fees in, model spend out, the real card — summed live. Owner only; reads, never writes."""
+    rs = _rs()
+    rs._require_owner(request)
+    d = rs.DATA_DIR
+    inputs = await rs.asyncio.to_thread(_eco_live.read, {'ledger': rs.FEE_LEDGER_PATH, 'calls': d / 'mind_calls.jsonl',
+                                                         'audit': d / 'real_audit.json', 'feeback': rs.FEEBACK_PAID_PATH})
+    return _eco_live.build(*inputs)

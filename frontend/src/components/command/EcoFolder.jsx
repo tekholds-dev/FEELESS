@@ -5,6 +5,7 @@ import { Ic3 } from '../../lib/icon3d';
 import { ProofHead, ProofKit, ProofTile } from './ProofKit';
 import { scoreOf } from '../../lib/proofprint';
 import { EcoDesk } from './EcoDesk';
+import { EcoLive } from './EcoLive';
 import '../../styles/ecoFolder.css';
 
 // 📊 PoEco (owner 2026-11-05): a business's books as a proof. Python does the math; the rows stay sealed; a receipt carries totals and a hash, never a row.
@@ -38,6 +39,6 @@ export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse }) {
   const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
   useEffect(() => { if (open) setOpen(o => rows.find(f => f.id === o.id) || o); }, [rows]);   // eslint-disable-line react-hooks/exhaustive-deps
   return <div className="prf eco-prf" data-testid="dsk-poe"><ProofHead kind="poe" folders={rows} d={d} cat={cat} pool={pool} work={work} onBrowse={onBrowse} />
-    <div className="prf-main">{open ? <Book f={open} work={work} cat={cat} onRows={onRows} onBack={() => setOpen(null)} onCommand={onCommand} /> : null}<div hidden={!!open}><EcoDesk cat={cat} work={work} onCommand={onCommand} onRows={onRows} onTool={setTool} /></div></div>
+    <div className="prf-main">{open ? <Book f={open} work={work} cat={cat} onRows={onRows} onBack={() => setOpen(null)} onCommand={onCommand} /> : null}<div hidden={!!open}><EcoLive /><EcoDesk cat={cat} work={work} onCommand={onCommand} onRows={onRows} onTool={setTool} /></div></div>
     <aside className="prf-rail"><Rail rows={rows} tool={tool} onOpen={setOpen} onCommand={onCommand} /></aside></div>;
 }

@@ -1,0 +1,55 @@
+import React, { useEffect, useState } from 'react';
+import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useAdmin } from '../../lib/adminCall';
+import { useCountUp } from '../../lib/useCountUp';
+
+// 🏦 LIVE BOOKS (owner 2026-11-12: "give this dude what he really asked for and really needs instead of this dead ass folder"). The PoEco desk
+// asked him to paste a bank file before it showed anything. This needs nothing: his real business, summed live from what FEELESS already
+// writes (fees in, rented-model spend out, the real Fuse card), a daily chart, where the money goes and one plain verdict. Owner only.
+const usd = v => { const n = Number(v) || 0; const a = Math.abs(n); return `${n < 0 ? '−' : ''}$${a >= 1000 ? `${(a / 1000).toFixed(1)}K` : a >= 1 ? a.toFixed(2) : a.toFixed(3)}`; };
+const tipStyle = { background: '#120b2c', border: '1px solid #9b6bff55', fontSize: 11 };
+const axis = { fontSize: 9, fill: '#9c93bd' };
+
+function Kpi({ label, v, tone, sub, tip, i }) {
+  const n = useCountUp(Number(v) || 0);
+  return <div className={`ecl-kpi is-${tone}`} style={{ '--i': i }} data-tip={tip}><small>{label}</small><b className="m-num">{usd(n)}</b>{sub ? <em>{sub}</em> : null}</div>;
+}
+
+export function EcoLive() {
+  const { isAdmin, call } = useAdmin(); const [d, setD] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!isAdmin || !call) return undefined;
+    const load = () => call('/admin/eco/live').then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message));
+    load(); const t = setInterval(load, 60000); return () => clearInterval(t);
+  }, [isAdmin, call]);
+  if (!isAdmin) return null;
+  if (!d) return <section className="ecl" data-testid="eco-live">{err ? <p className="kd-err">⚠ {err}</p> : <p className="ecl-wait">Summing your real books…</p>}</section>;
+  const k = d.kpi; const maxM = Math.max(...d.byModel.map(m => m.usd), 1e-9);
+  const first = d.daily.findIndex(x => x.in || x.out); const days = d.daily.slice(Math.max(0, Math.min(first < 0 ? 0 : first - 1, d.daily.length - 7)));   // from the first day with money, at least a week
+  return <section className="ecl" data-testid="eco-live">
+    <header className="ecl-head"><span><small className="m-label">LIVE BOOKS · YOUR BUSINESS · FILLS ITSELF</small><b>{d.say}</b></span>
+      <span className={`ecl-pulse${k.netUsd >= 0 ? ' is-up' : ''}`} data-tip="Updates every minute from the fee ledger, the model-call log and the real card audit" aria-hidden="true" /></header>
+    <div className="ecl-kpis">
+      <Kpi i={0} label="FEES IN" v={k.feesUsd} tone="in" sub={`${k.trades} trades · ${k.payers} payer${k.payers === 1 ? '' : 's'}`} tip="Every FEELESS fee users paid (fee ledger), all time" />
+      <Kpi i={1} label="MODEL SPEND" v={-k.spendUsd} tone="out" sub={`${k.calls} calls · ${usd(k.perCallUsd)} each`} tip="Every rented model call the agents made (mind-call log)" />
+      <Kpi i={2} label="NET" v={k.netUsd} tone={k.netUsd >= 0 ? 'in' : 'out'} sub={`7d ${usd(k.net7dUsd)}`} tip="Fees in − FeeBack paid − model spend. 7d adds the real card's last 7 days" />
+      <Kpi i={3} label="BURN / DAY" v={-k.burnPerDayUsd} tone="warn" sub="last 7 days" tip="What the models cost per day, averaged over the last week" />
+    </div>
+    <div className="ecl-grid">
+      <div className="ecl-chart" data-tip="Bars: fees in (up) and model spend (down) per day. Line: the running total over 30 days"><small className="m-label">{days.length} DAYS · IN vs OUT · RUNNING NET</small>
+        <ResponsiveContainer width="100%" height={150}><ComposedChart data={days.map(b => ({ ...b, out: -b.out }))} margin={{ top: 6, right: 8, bottom: 0, left: -16 }} stackOffset="sign">
+          <XAxis dataKey="d" tick={axis} interval="preserveStartEnd" minTickGap={18} /><YAxis tick={axis} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={tipStyle} formatter={v => usd(v)} />
+          <Bar dataKey="in" stackId="a" fill="#3cf0c5" isAnimationActive={false} name="fees in" /><Bar dataKey="out" stackId="a" fill="#ff5c7a" isAnimationActive={false} name="model spend" />
+          <Line type="monotone" dataKey="cum" stroke="#b48cff" strokeWidth={2} dot={false} isAnimationActive={false} name="running net" /></ComposedChart></ResponsiveContainer></div>
+      <div className="ecl-where" data-tip="Which rented minds the spend went to"><small className="m-label">WHERE IT GOES</small>
+        <ul>{d.byModel.map((m, i) => <li key={m.k} style={{ '--i': i }}><span>{m.k}</span><i className="mlb-bar is-bad"><u style={{ transform: `scaleX(${Math.max(0.03, m.usd / maxM)})` }} /></i><b className="m-num">{usd(m.usd)}</b></li>)}</ul>
+        {d.byJob.length ? <p className="ecl-jobs">{d.byJob.map(j => <em key={j.k} className="m-chip">{j.k} {usd(j.usd)}</em>)}</p> : null}</div>
+    </div>
+    {d.card ? <div className="ecl-card" data-tip="The real Fuse card, from the last scripts/real-audit.py run (read-only)">
+      <span><small>REAL CARD</small><b className="m-num">{usd(d.card.putInUsd)}</b><em>put in</em></span>
+      <span><small>OPEN</small><b className="m-num">{d.card.open}</b><em>{usd(d.card.openCostUsd)} cost</em></span>
+      <span><small>LAST 7 DAYS</small><b className={`m-num${d.card.net7dUsd < 0 ? ' is-out' : ' is-in'}`}>{usd(d.card.net7dUsd)}</b><em>{d.card.trips7d} trip{d.card.trips7d === 1 ? '' : 's'}</em></span>
+      {d.card.verdict ? <span className="ecl-verdict"><small>EDGE</small><b>{d.card.verdict}</b><em>{d.card.asOf ? new Date(d.card.asOf * 1000).toLocaleString() : ''}</em></span> : null}
+    </div> : null}
+  </section>;
+}
