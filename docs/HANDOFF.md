@@ -15,8 +15,13 @@
    outline, mono, day. Not checked: 360 px (Chrome stops at 614 px; no folder spilled there).
 2. ✅ **Watch room folder back DONE 2026-11-12**: `FOLD_INTO.watch` removed → 📺 Watch is its own desk folder again; opens the wall (1/2/4 screens,
    Highlights 15 of 15 channels read live in his Chrome).
-3. **AGT-5 PoC watch** — he picks a target + steps + hours; it checks a few times an hour while the agent works on other things; each check is
-   saved as proof; a SHORT report lands in the PoC folder at the end.
+3. ✅ **AGT-5 PoC watch BUILT 2026-11-12** (PoC › Video and image editor › **Watch** tab, `PocWatch.jsx`, `pocWatch.css`, `poc_watch.py` watch helpers,
+   ops `watch_add/stop/drop/get`, `_watch_pass` every 5 min): page + up to 5 steps + 1–24 h + 1–4 checks an hour. Every check is kept as proof (time,
+   page sha256, what changed, each step's answer, real cost); the model is asked only when the page changed (a quiet page = $0); at the end (or Stop)
+   a SHORT report built from the saved checks only is filed as a PoC folder (`by: 'Watch'`) + a chat line. Tests: test_poc_watch_runs (incl. the
+   save-swaps-copies bug a real run found), PocWatch.test. **Live in his Chrome:** a 4 h watch on news.ycombinator.com on Sicario's (local OSSY, $0),
+   checks landing every 15 min. Seen: OSSY once mixed two steps (saw 775 points, said NO) → prompt now says answer each step on its own. Report
+   filing at the end of that run: not seen yet (tested with fakes).
 4. **AGT-15 before/after picture** — the fix agent screenshots the broken screen and the fixed one, shown side by side in the fix record.
 5. **AGT-17 3D world** — NOVA opens black (fix that), run G4 + one paid model on it (owner tests OSSY/G4 more later), PoC + PoEco bigger worlds, real FPS.
 6. **AGT-34** — tag every model call with its PoW ref so research seconds per mind are measurable.

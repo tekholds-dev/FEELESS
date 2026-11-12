@@ -1,0 +1,37 @@
+/* 👁 PoC watch (PocWatch.jsx) — built on the Live desk's look (pcl-*), m-* tokens, one keyframe set pw*. */
+.pw { display: grid; gap: 12px; align-content: start; }
+.pw-add { display: grid; gap: 10px; padding: 14px; }
+.pw-add label, .pw-stepin { display: grid; gap: 6px; }
+.pw-add small, .pw-segs small, .pw-steps small { font: 800 9px var(--f-mono); letter-spacing: .12em; color: var(--m-mute); text-transform: uppercase; }
+.pw-stepin-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.pw-stepin-row > b { color: var(--m-accent); font-size: 12px; text-align: center; }
+.pw-x { min-width: 32px; min-height: 32px; padding: 0; } .pw-more { justify-self: start; min-height: 32px; }
+.pw-segs { display: flex; flex-wrap: wrap; gap: 14px; } .pw-segs > span { display: grid; gap: 6px; }
+.pw-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.pw-in { animation: pwIn .32s var(--m-ease) both; animation-delay: calc(var(--i) * 50ms); }
+.pw-card { position: relative; display: grid; gap: 10px; padding: 14px; overflow: hidden; }
+.pw-card header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.pw-card header span { display: grid; gap: 2px; min-width: 0; } .pw-card header b { font: 700 14px var(--f-tech); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pw-card header small { color: var(--m-dim); font: 600 11px var(--f-mono); } .pw-card header em { font-style: normal; color: var(--m-accent); font-size: 15px; }
+.pw-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--m-mute); }
+.pw-card.is-run .pw-dot { background: var(--m-accent); box-shadow: 0 0 10px var(--m-accent); animation: pwPulse 1.8s ease-in-out infinite; }
+.pw-card.is-run::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 40%, color-mix(in srgb, var(--m-accent) 10%, transparent) 50%, transparent 60%); transform: translateX(-100%); animation: pwSweep 5s linear infinite; pointer-events: none; }
+.pw-bar { display: block; height: 4px; border-radius: 4px; background: var(--m-line); overflow: hidden; }
+.pw-bar u { display: block; height: 100%; background: var(--m-accent); transform-origin: left; transition: transform .6s var(--m-ease); }
+.pw-line { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pw-line li { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--m-line); background: transparent; transition: transform .15s var(--m-ease); }
+.pw-line li:hover { transform: scale(1.3); }
+.pw-line li.is-new { background: var(--m-accent); border-color: var(--m-accent); } .pw-line li.is-same { background: color-mix(in srgb, var(--m-accent) 28%, transparent); }
+.pw-line li.is-fail { background: var(--m-danger); border-color: var(--m-danger); }
+.pw-head { margin: 0; color: var(--m-text); font: 600 13px var(--f-ui); }
+.pw-steps { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pw-steps li { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; align-items: start; }
+.pw-steps li > span { display: grid; gap: 2px; min-width: 0; } .pw-steps em { font-style: normal; color: var(--m-dim); font-size: 12px; overflow-wrap: anywhere; }
+.pw-chip { display: inline-grid; place-items: center; min-height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid var(--m-line); font: 800 9.5px var(--f-mono); letter-spacing: .08em; color: var(--m-mute); }
+.pw-chip.is-yes { background: var(--m-accent); border-color: var(--m-accent); color: var(--m-accent-ink); } .pw-chip.is-no { color: var(--m-danger); border-color: color-mix(in srgb, var(--m-danger) 50%, transparent); }
+.pw-card footer { display: flex; flex-wrap: wrap; gap: 8px; } .pw-card footer .m-btn { min-height: 32px; }
+@keyframes pwIn { from { opacity: 0; transform: translateY(8px); } } @keyframes pwPulse { 50% { opacity: .45; } } @keyframes pwSweep { to { transform: translateX(100%); } }
+body.fx-lite .pw-in, body.fx-lite .pw-card.is-run .pw-dot, body.fx-lite .pw-card.is-run::after { animation: none; } body.fx-lite .pw-card.is-run::after { display: none; }
+@media (prefers-reduced-motion: reduce) { .pw-in, .pw-card.is-run .pw-dot, .pw-card.is-run::after { animation: none; } .pw-card.is-run::after { display: none; } .pw-bar u, .pw-line li { transition: none; } }
+body.theme-day .pw-head { color: #111816; }
+@media (max-width: 640px) { .pw-list { grid-template-columns: minmax(0, 1fr); } .pw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pw-steps li { grid-template-columns: 74px minmax(0, 1fr); } }

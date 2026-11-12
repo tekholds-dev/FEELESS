@@ -186,7 +186,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('siteBook', 'pocWatch', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -2056,6 +2056,8 @@ async def _git_pass(store, now):
     """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
     if now - _LIVE_AT[0] > 1800:
         _LIVE_AT[0] = now; asyncio.create_task(_live_pass(store))
+    if now - _WATCH_AT[0] > 300:
+        _WATCH_AT[0] = now; asyncio.create_task(_watch_pass(store))
     if now - _ECO_CHECK_AT[0] > 3600:
         _ECO_CHECK_AT[0] = now; asyncio.create_task(_eco_check_pass(store))
     if now - _LOOK_AT[0] > 120:
@@ -4331,6 +4333,93 @@ def _live_view(cat, sites, drafts):
     return {'sites': sites, 'drafts': drafts, 'canAsk': bool(brains), 'model': brains[0] if brains else None,
             'perReadUsd': round(sum(paid) / len(paid), 5) if paid else None, 'spentUsd': round(sum(float(r.get('spentUsd') or 0) for r in sites), 4),
             'pocs': pocs[:12], 'limits': {'pages': _pw.MAX_SITES, 'draftsPerPageDay': _pw.DAY_DRAFTS}}
+
+
+_WATCH_AT = [0.0]
+_WATCH_BUSY = [False]
+
+
+async def _watch_check(cat, w, now=None):
+    """👁 One PoC watch check: read the public page, keep its fingerprint, ask the model only when it really changed. → the check row"""
+    now = round(now or time.time()); brains = _lc.minds_for(cat.get('brainsCfg'), 'poc') or (cat.get('brainsCfg') or {}).get('brains') or []
+    row = {'at': now, 'ok': False}
+    if not _kits._public_host(w.get('host') or ''):
+        row['why'] = 'That page is not public.'; _pw.add_check(w, row); return row
+    try:
+        async with httpx.AsyncClient(timeout=20, follow_redirects=False) as h_:
+            r_ = await h_.get(w['url'], headers={'User-Agent': 'Mozilla/5.0 (FEELESS PoC watch)'})
+    except httpx.HTTPError as e:
+        row['why'] = f'It would not open ({type(e).__name__}).'; _pw.add_check(w, row); return row
+    if r_.status_code != 200:
+        row['why'] = f'It would not open ({r_.status_code}).'; _pw.add_check(w, row); return row
+    text_ = _pw.page_text(r_.text); key_ = f"watch{w['id']}"; had_ = _play_load(cat['id'], key_) or {}
+    fresh_ = _pw.changes(had_.get('text'), text_) if had_.get('text') else ''
+    _play_save(cat['id'], key_, {'text': text_[:_pw.MAX_TEXT * 2]})
+    row.update(ok=True, sha=hashlib.sha256(text_.encode()).hexdigest()[:16], chars=len(text_), changed=bool(fresh_) or not had_.get('text'), newLines=len(fresh_.splitlines()) if fresh_ else 0, usd=0.0)
+    prev_ = next((c for c in reversed(w.get('checks') or []) if c.get('ok') and c.get('steps')), None)
+    if had_.get('text') and not fresh_ and prev_:
+        row.update(steps=prev_['steps'], headline=prev_.get('headline', ''), carried=True)   # 💤 nothing new on the page: the last answers stand, no model spent
+    elif not brains:
+        row.update(ok=False, why='Pick a model for this agent first.')
+    else:
+        _CALL_CTX.set({'kind': 'poc', 'ref': w['id'], 'minds': brains[:1]})
+        raw_, usd_, own_ = await _ws_ask(cat, brains[0], _pw.WATCH_SYS, _pw.ask_watch(w, text_, fresh_), 500)
+        head_, steps_ = _pw.parse_watch(raw_, len(w['steps']))
+        row['usd'] = round(float(usd_ or 0), 5)
+        if usd_ and not own_ and cat.get('brainsCfg'):
+            _lc.charge(cat['brainsCfg'], float(usd_))
+        if steps_ is None:
+            row.update(ok=False, why='The model sent nothing usable.')
+        else:
+            row.update(headline=head_, steps=steps_)
+    _pw.add_check(w, row)
+    return row
+
+
+def _watch_file(cat, w, now=None):
+    """📋 The watch is over: the SHORT report becomes a PoC folder (proof: every check's time, page fingerprint and answers stay on it)."""
+    now = round(now or time.time()); rep_ = _pw.report(w); w.update(status='done', doneAt=now, report=rep_)
+    rows_ = list(cat.get('pocFolders') or [])
+    rows_.append({'id': f'poc{secrets.token_hex(5)}', 'n': _next_n(rows_), 'kind': 'PoC', 'by': 'Watch', 'at': now, 'status': 'closed', 'paper': True,
+                  'topic': f"Watch · {w['host']}"[:60], 'calls': [], 'cost': rep_['spentUsd'],
+                  'watch': {'id': w['id'], 'url': w['url'], 'steps': w['steps'], 'hours': w['hours'], 'perHour': w['perHour'], 'startedAt': w['startedAt'], 'report': rep_,
+                            'checks': [{k: c.get(k) for k in ('at', 'ok', 'sha', 'changed', 'newLines', 'usd', 'headline', 'steps', 'why', 'carried')} for c in w.get('checks') or []]}})
+    cat['pocFolders'] = rows_[-60:]
+    seen_ = sum(1 for x in rep_['steps'] if x['verdict'] == 'seen')
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"👁 PoC watch on {w['host']} is done: {rep_['read']} checks in {w['hours']} h, {seen_} of {len(rep_['steps'])} steps seen, ${rep_['spentUsd']:.4f}. The report is in the PoC folder.", 'at': time.time(), 'open': 'poc'}])[-200:]
+    return rows_[-1]
+
+
+async def _watch_pass(store):
+    """Every 5 minutes: each running watch that is due gets one check, one at a time; a finished one files its report."""
+    if _WATCH_BUSY[0]:
+        return
+    _WATCH_BUSY[0] = True
+    try:
+        for cat in list((store.get('cats') or {}).values()):
+            if cat.get('revoked'):
+                continue
+            for wid in [x.get('id') for x in cat.get('pocWatches') or []]:
+                now = time.time(); w = next((x for x in cat.get('pocWatches') or [] if x.get('id') == wid), None)   # looked up again: each save swaps in fresh copies
+                if not w or not _pw.due(w, now):
+                    continue
+                try:
+                    if now < float(w['endsAt']):
+                        await _watch_check(cat, w, now)
+                    else:
+                        _watch_file(cat, w, now)
+                    keep_owned(cat); _save(store)
+                except Exception as e:   # noqa: BLE001 — one dead page never stops the rest
+                    print(f'[watch] {str(e)[:120]}')
+    finally:
+        _WATCH_BUSY[0] = False
+
+
+def _watch_view(cat):
+    brains = _lc.minds_for(cat.get('brainsCfg'), 'poc') or (cat.get('brainsCfg') or {}).get('brains') or []
+    paid = [c['usd'] for w in cat.get('pocWatches') or [] for c in w.get('checks') or [] if c.get('ok') and not c.get('carried') and c.get('usd') is not None]
+    return {'watches': list(cat.get('pocWatches') or [])[::-1], 'model': brains[0] if brains else None, 'perAskUsd': round(sum(paid) / len(paid), 5) if paid else None,
+            'limits': {'watches': _pw.MAX_WATCHES, 'steps': _pw.MAX_STEPS, 'hours': 24, 'perHour': 4}}
 
 
 async def _live_pass(store):
@@ -8901,6 +8990,27 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if isinstance(p.tools, dict):
             b_['persona'] = _ps.clean_persona({**(b_.get('persona') or {}), **p.tools}); keep_owned(cat); _save(store)
         return {'persona': _ps.clean_persona(b_.get('persona')), 'voice': _vm.view(b_.get('voice'), (b_.get('persona') or {}).get('mirror')), 'styles': list(_ps.PERSONAS), 'heat': _ps.HEAT, 'promptBy': b_.get('promptBy') or {}, 'personaBy': b_.get('personaBy') or {}}
+    if p.op.startswith('watch_'):   # 👁 PoC watch (AGT-5): a page, steps, hours. It only reads; nothing is posted
+        rows_ = cat.setdefault('pocWatches', [])
+        try:
+            if p.op == 'watch_add':
+                if sum(1 for w in rows_ if w.get('status') == 'running') >= _pw.MAX_WATCHES:
+                    raise ValueError(f'It runs {_pw.MAX_WATCHES} watches at once. Stop one first.')
+                t_ = p.tools or {}; w_ = _pw.clean_watch(t_.get('url'), t_.get('steps'), t_.get('hours', 4), t_.get('perHour', 3))
+                cat['pocWatches'] = rows_ = (rows_ + [w_])[-12:]
+                await _watch_check(cat, w_); keep_owned(cat); _save(store)   # the first check now, so he sees it work (one save: a save swaps in fresh copies)
+            elif p.op == 'watch_stop':   # stopping early still files what it saw
+                w_ = next((w for w in rows_ if w.get('id') == p.text and w.get('status') == 'running'), None)
+                if not w_:
+                    raise ValueError('That watch is not running.')
+                w_['stoppedEarly'] = True; _watch_file(cat, w_); keep_owned(cat); _save(store)
+            elif p.op == 'watch_drop':
+                cat['pocWatches'] = rows_ = [w for w in rows_ if not (w.get('id') == p.text and w.get('status') != 'running')]; keep_owned(cat); _save(store)
+            elif p.op != 'watch_get':
+                raise ValueError('No such step.')
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:160])
+        return {**_watch_view(cat), 'pocFolders': _poc_view(cat)}
     if p.op.startswith('live_'):   # 📡 the ongoing PoC desk: it watches, reads the room and drafts. It never posts
         rows_ = cat.setdefault('pocWatch', []); drafts_ = cat.setdefault('pocDrafts', [])
         try:
