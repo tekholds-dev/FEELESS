@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ProgressCircle } from '@heroui/react';
+import { Brain, Globe, GraduationCap, RefreshCw, Scale, Target, ThumbsUp } from 'lucide-react';
 import { useCountUp } from '../../lib/useCountUp';
 
 // 🚀 COMP v2 · 9B (owner 2026-11-12: "see how close or farther it is from being better or same as claude and gpt"). LIVE: Qwen3.5-9B on this
 // Mac, LoRA fine-tuned with MLX on the owner's settled proofs (only what each proof said BEFORE it settled), then examined on held-out proofs
 // it never saw, next to the untouched base, an always-the-majority baseline and the flagship APIs whose keys are saved. Nothing is spent
 // unless a flagship key is saved (then at most 40 questions each).
-const tipStyle = { background: '#120b2c', border: '1px solid #9b6bff55', fontSize: 11 };
-const axis = { fontSize: 9, fill: '#9c93bd' };
+const tipStyle = { background: '#0e0e12', border: '1px solid #ffffff1f', borderRadius: 8, fontSize: 11, color: '#ececf1' };
+const axis = { fontSize: 10, fill: '#8b8b95' };
 const KIND = { local: 'ON THIS MAC', baseline: 'BASELINE', flagship: 'FLAGSHIP API' };
 const pct = v => `${Math.round((v || 0) * 100)}%`;
 function Num({ v, d = 0, suf = '' }) { const n = useCountUp(Number(v) || 0); return <b className="m-num">{n.toFixed(d)}{suf}</b>; }
@@ -34,35 +36,28 @@ function Kinds({ exam }) {   // per proof type: where COMP v2 is right vs the ba
 }
 
 
-// 🎥 THE LIVE SCAN: the 9B drawn as its 32 layers (the 8 COMP trains lit pink), proofs flowing in from the tray, a scan pulse climbing the
-// stack while it learns, the answer gate on the right, and a HUD with the real iter ring, live loss (ticking, ▼/▲ vs the last report),
-// the phase and, during the exam, each examinee lighting up as it finishes. Idle = dim and still. transform/opacity only.
-const LAYERS = 32; const TRAINED = 8;
+// 📈 LIVE RUN (owner 2026-11-12: "never build charts and displays from scratch … find the best component sources"): a HeroUI ProgressCircle
+// for the run, a shadcn-style Recharts area for the live loss (gradient fill, hairline grid, card tooltip), the real numbers big and quiet.
 function Live({ d, phase }) {
   const c = d.run.curve || { train: [], val: [] }; const tr = c.train; const last = tr[tr.length - 1]?.[1]; const prev = tr[tr.length - 2]?.[1];
   const loss = useCountUp(Number(last) || 0); const at = d.run.iters ? Math.min(1, (c.last || 0) / d.run.iters) : 0;
   const done = (d.exam?.examinees || []).filter(e => e.score || e.blocked);
-  const R = 26; const C = 2 * Math.PI * R;
-  return <div className={`mc2-live is-${phase}`} data-testid="mc2-live" data-tip="Live: proofs flow in, the 8 layers COMP trains glow, the pulse climbs while it learns">
-    <svg viewBox="0 0 600 190" className="mc2-scene" role="img" aria-label={`COMP v2 ${phase}: iter ${c.last || 0} of ${d.run.iters || 0}`}>
-      <defs><linearGradient id="mc2g" x1="0" x2="0" y1="1" y2="0"><stop offset="0" stopColor="#9b6bff" /><stop offset="1" stopColor="#ff3fa4" /></linearGradient>
-        <linearGradient id="mc2s" x1="0" x2="1"><stop offset="0" stopColor="#3ee7ff00" /><stop offset=".5" stopColor="#3ee7ff" /><stop offset="1" stopColor="#3ee7ff00" /></linearGradient></defs>
-      <g className="mc2-tray">{[0, 1, 2, 3, 4].map(i => <g key={i} className="mc2-card" style={{ '--i': i }}><rect x="8" y={40 + i * 24} width="86" height="18" rx="4" /><rect x="14" y={46 + i * 24} width={30 + (i * 13) % 40} height="3" rx="1.5" className="mc2-ink" /><rect x="14" y={51 + i * 24} width={20 + (i * 7) % 30} height="3" rx="1.5" className="mc2-ink" /></g>)}</g>
-      <text x="51" y="30" className="mc2-cap">YOUR PROOFS</text>
-      <g className="mc2-flow">{[0, 1, 2, 3, 4, 5].map(i => <circle key={i} cx="100" cy={60 + (i * 17) % 80} r="3" style={{ '--i': i }} />)}</g>
-      <g className="mc2-stack">{Array.from({ length: LAYERS }, (_, i) => { const lit = i >= LAYERS - TRAINED; return <rect key={i} x={190 + i * 7.2} y={34 + (i % 2) * 2} width="5" height="122" rx="2" className={lit ? 'is-lora' : ''} style={{ '--i': i }} />; })}
-        <rect className="mc2-scan" x="186" y="30" width="20" height="130" rx="6" fill="url(#mc2s)" /></g>
-      <text x="305" y="26" className="mc2-cap">QWEN3.5 · 9B · 32 LAYERS · <tspan className="mc2-pink">8 TRAINED</tspan></text>
-      <g className="mc2-gate"><rect x="438" y="56" width="64" height="30" rx="8" className="is-won" /><text x="470" y="76">WON</text><rect x="438" y="104" width="64" height="30" rx="8" className="is-lost" /><text x="470" y="124">LOST</text></g>
-      <path d="M424 95 C430 80 432 72 438 71 M424 95 C430 110 432 118 438 119" className="mc2-wire" />
-      <g className="mc2-ring" transform="translate(552 95)"><circle r={R} className="mc2-ring-bg" /><circle r={R} className="mc2-ring-on" strokeDasharray={C} strokeDashoffset={C * (1 - at)} transform="rotate(-90)" />
-        <text y="4">{Math.round(at * 100)}%</text></g>
-    </svg>
-    <div className="mc2-hud">
-      <span className={`m-chip mc2-phase${phase === 'idle' ? '' : ' ok'}`}>{phase === 'train' ? '● TRAINING' : phase === 'exam' ? '● SITTING THE EXAM' : 'IDLE'}</span>
-      <span data-tip="Loss on the answer word for the last report: lower = surer and right"><small>LOSS</small><b className="m-num mc2-loss">{last != null ? loss.toFixed(3) : '—'}</b>{prev != null && last != null ? <em className={last <= prev ? 'is-dn' : 'is-up'}>{last <= prev ? '▼' : '▲'}</em> : null}</span>
-      <span><small>ITER</small><b className="m-num">{c.last || 0}<i>/{d.run.iters || 0}</i></b></span>
-      {phase === 'exam' || done.length ? <span className="mc2-who-done" data-tip="Examinees finished">{done.map(e => <em key={e.id} className={`m-chip${e.score ? ' ok' : ''}`}>{e.id}</em>)}</span> : null}
+  const say = phase === 'train' ? 'Training' : phase === 'exam' ? 'Sitting the exam' : d.run.done ? 'Trained' : 'Idle';
+  return <div className={`mc2-live is-${phase}`} data-testid="mc2-live">
+    <div className="mc2-run-card">
+      <ProgressCircle aria-label="Run progress" value={Math.round(at * 100)} className="mc2-pc"><ProgressCircle.Track><ProgressCircle.TrackCircle /><ProgressCircle.FillCircle /></ProgressCircle.Track></ProgressCircle>
+      <div className="mc2-run-say"><span className="mc2-state"><i className={phase === 'idle' ? '' : 'is-on'} />{say}</span>
+        <b className="m-num">{c.last || 0}<small> / {d.run.iters || 0} iters</small></b>
+        <span className="mc2-loss-line" data-tip="Loss on the answer word, last report. Lower = surer and right">loss <b className="m-num">{last != null ? loss.toFixed(3) : '—'}</b>{prev != null && last != null ? <em className={last <= prev ? 'is-dn' : 'is-up'}>{last <= prev ? '↓' : '↑'} {Math.abs(last - prev).toFixed(3)}</em> : null}</span>
+        {done.length ? <span className="mc2-done">{done.map(e => <em key={e.id} className={e.score ? 'is-ok' : ''}>{e.id}</em>)}</span> : null}</div>
+    </div>
+    <div className="mc2-area" data-tip="Training loss per report: falling = it is learning your proofs">
+      {tr.length > 1 ? <ResponsiveContainer width="100%" height={132}><AreaChart data={tr.map(([s, v]) => ({ s, v }))} margin={{ top: 8, right: 4, bottom: 0, left: -22 }}>
+        <defs><linearGradient id="mc2fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#9b6bff" stopOpacity={0.35} /><stop offset="100%" stopColor="#9b6bff" stopOpacity={0} /></linearGradient></defs>
+        <CartesianGrid vertical={false} stroke="#ffffff0f" /><XAxis dataKey="s" tick={axis} tickLine={false} axisLine={false} /><YAxis tick={axis} tickLine={false} axisLine={false} width={44} />
+        <Tooltip contentStyle={tipStyle} cursor={{ stroke: '#ffffff22' }} formatter={v => [Number(v).toFixed(3), 'loss']} labelFormatter={s => `iter ${s}`} />
+        <Area type="monotone" dataKey="v" stroke="#b48cff" strokeWidth={1.75} fill="url(#mc2fill)" isAnimationActive={false} /></AreaChart></ResponsiveContainer>
+        : <p className="mlb-none">The loss draws here while it trains.</p>}
     </div>
   </div>;
 }
@@ -71,18 +66,18 @@ function Live({ d, phase }) {
 function Ways({ d, busy, collect }) {
   const m = d.market || {}; const mem = (d.exam?.examinees || []).find(e => e.id === 'comp_mem');
   const W = [
-    ['🎯', 'Fine-tune on your proofs', 'LoRA on the 9B: what a proof said before it settled → how it ended', 'live', d.dataset ? `${d.dataset.train - (d.dataset.net || 0)} proofs` : ''],
-    ['🌐', 'Learns from the market itself', 'Snapshots live Solana coins on DexScreener every 10 min, settles each one an hour later (+20% won · −20% or rugged lost). Train only, never more rows than yours', m.collects ? 'live' : 'wait', m.collects ? `${m.rows || 0} rows · ${m.open || 0} holding` : 'starts with the backend'],
-    ['🧠', 'Memory recall', 'Before it answers, it reads the 5 past proofs most like this one and how they ended. A proof settled an hour ago helps right away', mem ? 'live' : 'wait', mem ? `${Math.round(mem.score.acc * 100)}% on the exam` : 'next exam'],
-    ['👍', 'Your grades', 'Your 👍 / 👎 on open proofs (Data & grades tab) become rows where no market settled them', 'live', ''],
-    ['⚖️', 'Preference training', 'Right-vs-wrong pairs teach it which of two answers is better (DPO)', 'todo', 'not built'],
-    ['🎓', 'Open-teacher reasons', 'A bigger Apache-2.0 open model writes the why behind each result; COMP learns the reasoning (licence allows it)', 'todo', 'not built · needs ~20 GB model'],
-    ['🔁', 'Retrains as proofs settle', 'A new adapter each night, kept only if it beats the last one on the exam', 'todo', 'not built'],
+    [Target, 'Fine-tune on your proofs', 'LoRA on the 9B: what a proof said before it settled → how it ended', 'live', d.dataset ? `${d.dataset.train - (d.dataset.net || 0)} proofs` : ''],
+    [Globe, 'Learns from the market itself', 'Snapshots live Solana coins on DexScreener every 10 min, settles each one an hour later (+20% won · −20% or rugged lost). Train only, never more rows than yours', m.collects ? 'live' : 'wait', m.collects ? `${m.rows || 0} rows · ${m.open || 0} holding` : 'starts with the backend'],
+    [Brain, 'Memory recall', 'Before it answers, it reads the 5 past proofs most like this one and how they ended. A proof settled an hour ago helps right away', mem ? 'live' : 'wait', mem ? `${Math.round(mem.score.acc * 100)}% on the exam` : 'next exam'],
+    [ThumbsUp, 'Your grades', 'Your 👍 / 👎 on open proofs (Data & grades tab) become rows where no market settled them', 'live', ''],
+    [Scale, 'Preference training', 'Right-vs-wrong pairs teach it which of two answers is better (DPO)', 'todo', 'not built'],
+    [GraduationCap, 'Open-teacher reasons', 'A bigger Apache-2.0 open model writes the why behind each result; COMP learns the reasoning (licence allows it)', 'todo', 'not built · needs ~20 GB model'],
+    [RefreshCw, 'Retrains as proofs settle', 'A new adapter each night, kept only if it beats the last one on the exam', 'todo', 'not built'],
   ];
   return <section className="mlb-sec"><h4>HOW COMP LEARNS<small>{W.filter(w => w[3] === 'live').length} of {W.length} live</small></h4>
-    <ul className="mc2-ways" data-testid="mc2-ways">{W.map(([ic, t, say, st, n], i) => <li key={t} className={`is-${st}`} style={{ '--i': i }} data-tip={say}>
-      <i aria-hidden="true">{ic}</i><span><b>{t}</b><small>{say}</small></span><em className={`m-chip${st === 'live' ? ' ok' : st === 'wait' ? ' warn' : ''}`}>{st === 'live' ? 'LIVE' : st === 'wait' ? 'WAITING' : 'NOT BUILT'}</em>{n ? <u className="m-num">{n}</u> : null}</li>)}</ul>
-    <button type="button" className="m-btn mc2-collect" disabled={busy} onClick={collect} data-tip="One snapshot + settle pass on DexScreener now (it also runs every 10 minutes)" data-testid="mc2-collect">🌐 Collect market rows now</button>
+    <ul className="mc2-ways" data-testid="mc2-ways">{W.map(([Ic, t, say, st, n], i) => <li key={t} className={`is-${st}`} style={{ '--i': i }} data-tip={say}>
+      <i aria-hidden="true"><Ic size={16} strokeWidth={1.75} /></i><span><b>{t}</b><small>{say}</small></span><em className={`m-chip${st === 'live' ? ' ok' : st === 'wait' ? ' warn' : ''}`}>{st === 'live' ? 'LIVE' : st === 'wait' ? 'WAITING' : 'NOT BUILT'}</em>{n ? <u className="m-num">{n}</u> : null}</li>)}</ul>
+    <button type="button" className="m-btn mc2-collect" disabled={busy} onClick={collect} data-tip="One snapshot + settle pass on DexScreener now (it also runs every 10 minutes)" data-testid="mc2-collect">Collect market rows now</button>
   </section>;
 }
 
@@ -112,8 +107,8 @@ export function ModelComp2({ call }) {
       <div className="mc2-go">
         <label className="mc2-iters" data-tip="Proofs it studies, one at a time (99 = one pass). More = fits them tighter (and risks memorising)"><small className="m-label">ITERS</small>
           <span className="m-seg" role="group" aria-label="Iterations">{[100, 200, 400].map(n => <button key={n} type="button" className={iters === n ? 'active' : ''} aria-pressed={iters === n} data-tip={`${n} iterations`} onClick={() => setIters(n)} data-testid={`mc2-iters-${n}`}>{n}</button>)}</span></label>
-        <button type="button" className="m-btn m-go" disabled={busy || live || !d.base.ready} onClick={() => go('/admin/model-lab/comp2/train', { iters })} data-tip="Rebuilds the rows from your live proofs (same held-out exam) and trains a new adapter here. Takes minutes, costs nothing" data-testid="mc2-train">🚀 Train COMP v2</button>
-        <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="Base vs COMP v2 vs baseline vs every flagship whose key is saved, on the same held-out proofs" data-testid="mc2-exam">🎓 Run the exam</button>
+        <button type="button" className="m-btn m-go" disabled={busy || live || !d.base.ready} onClick={() => go('/admin/model-lab/comp2/train', { iters })} data-tip="Rebuilds the rows from your live proofs (same held-out exam) and trains a new adapter here. Takes minutes, costs nothing" data-testid="mc2-train">Train COMP v2</button>
+        <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="Base vs COMP v2 vs baseline vs every flagship whose key is saved, on the same held-out proofs" data-testid="mc2-exam">Run the exam</button>
         {run.running ? <i className="mlb-bar mc2-run" data-tip={`${pct(at)} of the run`}><u style={{ transform: `scaleX(${Math.max(0.02, at)})` }} /></i> : null}
       </div>
       {run.error ? <p className="kd-err">⚠ {run.error}</p> : null}

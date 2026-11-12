@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bar, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useAdmin } from '../../lib/adminCall';
 import { useCountUp } from '../../lib/useCountUp';
 
@@ -7,8 +7,8 @@ import { useCountUp } from '../../lib/useCountUp';
 // asked him to paste a bank file before it showed anything. This needs nothing: his real business, summed live from what FEELESS already
 // writes (fees in, rented-model spend out, the real Fuse card), a daily chart, where the money goes and one plain verdict. Owner only.
 const usd = v => { const n = Number(v) || 0; const a = Math.abs(n); return `${n < 0 ? '−' : ''}$${a >= 1000 ? `${(a / 1000).toFixed(1)}K` : a >= 1 ? a.toFixed(2) : a.toFixed(3)}`; };
-const tipStyle = { background: '#120b2c', border: '1px solid #9b6bff55', fontSize: 11 };
-const axis = { fontSize: 9, fill: '#9c93bd' };
+const tipStyle = { background: '#0e0e12', border: '1px solid #ffffff1f', borderRadius: 8, fontSize: 11, color: '#ececf1' };
+const axis = { fontSize: 10, fill: '#8b8b95' };
 
 function Kpi({ label, v, tone, sub, tip, i }) {
   const n = useCountUp(Number(v) || 0);
@@ -23,7 +23,7 @@ export function EcoLive() {
     load(); const t = setInterval(load, 60000); return () => clearInterval(t);
   }, [isAdmin, call]);
   if (!isAdmin) return null;
-  if (!d) return <section className="ecl" data-testid="eco-live">{err ? <p className="kd-err">⚠ {err}</p> : <p className="ecl-wait">Summing your real books…</p>}</section>;
+  if (!d) return <section className="ecl" data-testid="eco-live">{err ? <p className="kd-err">{err}</p> : <p className="ecl-wait">Summing your real books…</p>}</section>;
   const k = d.kpi; const maxM = Math.max(...d.byModel.map(m => m.usd), 1e-9);
   const first = d.daily.findIndex(x => x.in || x.out); const days = d.daily.slice(Math.max(0, Math.min(first < 0 ? 0 : first - 1, d.daily.length - 7)));   // from the first day with money, at least a week
   return <section className="ecl" data-testid="eco-live">
@@ -38,9 +38,9 @@ export function EcoLive() {
     <div className="ecl-grid">
       <div className="ecl-chart" data-tip="Bars: fees in (up) and model spend (down) per day. Line: the running total over 30 days"><small className="m-label">{days.length} DAYS · IN vs OUT · RUNNING NET</small>
         <ResponsiveContainer width="100%" height={150}><ComposedChart data={days.map(b => ({ ...b, out: -b.out }))} margin={{ top: 6, right: 8, bottom: 0, left: -16 }} stackOffset="sign">
-          <XAxis dataKey="d" tick={axis} interval="preserveStartEnd" minTickGap={18} /><YAxis tick={axis} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={tipStyle} formatter={v => usd(v)} />
-          <Bar dataKey="in" stackId="a" fill="#3cf0c5" isAnimationActive={false} name="fees in" /><Bar dataKey="out" stackId="a" fill="#ff5c7a" isAnimationActive={false} name="model spend" />
-          <Line type="monotone" dataKey="cum" stroke="#b48cff" strokeWidth={2} dot={false} isAnimationActive={false} name="running net" /></ComposedChart></ResponsiveContainer></div>
+          <CartesianGrid vertical={false} stroke="#ffffff10" /><XAxis dataKey="d" tick={axis} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={18} /><YAxis tick={axis} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={tipStyle} formatter={v => usd(v)} />
+          <Bar dataKey="in" stackId="a" fill="#3cf0c5" radius={[2, 2, 0, 0]} isAnimationActive={false} name="fees in" /><Bar dataKey="out" stackId="a" fill="#ff5c7a" radius={[2, 2, 0, 0]} isAnimationActive={false} name="model spend" />
+          <Line type="monotone" dataKey="cum" stroke="#b48cff" strokeWidth={1.5} dot={false} isAnimationActive={false} name="running net" /></ComposedChart></ResponsiveContainer></div>
       <div className="ecl-where" data-tip="Which rented minds the spend went to"><small className="m-label">WHERE IT GOES</small>
         <ul>{d.byModel.map((m, i) => <li key={m.k} style={{ '--i': i }}><span>{m.k}</span><i className="mlb-bar is-bad"><u style={{ transform: `scaleX(${Math.max(0.03, m.usd / maxM)})` }} /></i><b className="m-num">{usd(m.usd)}</b></li>)}</ul>
         {d.byJob.length ? <p className="ecl-jobs">{d.byJob.map(j => <em key={j.k} className="m-chip">{j.k} {usd(j.usd)}</em>)}</p> : null}</div>

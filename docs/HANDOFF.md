@@ -153,6 +153,13 @@ one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
    (200 steps, 244 s, held-out 5.56, ppl 260/2048) → v1.01 continued (started at loss 5.41, ended held-out 5.05, ppl 156, 400 steps total), suite 6/6,
    ask + footer. Speed fit 47.7 GFLOP/s × (N/136K)^0.26 (estimate 4 min, real 4 min). Header squash fixed (`.mlb` rows max-content). Not checked: day
    theme, 360 px, a file download click. v1.02 trained 2026-11-12: 1000 more steps (1400 total) from v1.01, held-out 4.14, ppl 62.7, 3339 s.
+3c. 🖤 **PRO LOOK — sitewide, surface by surface (owner 2026-11-12: "we look like a kid site", ref landing.love/categories/crypto)**. Rules: charts
+   and widgets from real libraries only (Recharts in the shadcn chart pattern, HeroUI v3, lucide icons; never hand-drawn SVG scenes), TRUE data
+   only. Pattern (copy it): scoped tokens `--p-card #111116 · --p-line #ffffff12 · --p-text #ececf1 · --p-mute #8b8b95 · --p-acc #b48cff · --p-up/--p-dn`,
+   hairline dividers instead of boxes-in-boxes, one big tight headline (Unbounded, −.02em), mono numbers, no glow/sweep/emoji, muted chart
+   grids; day = the same tokens swapped. HeroUI parts are styled by `[data-slot=…]` (their class names fail cssHygiene). DONE: COMP v2 tab
+   (`.mc2`, modelLab.css), PoEco Live books (`.ecl`, ecoFolder.css). NEXT: EcoDesk, the other Model Lab tabs, HQ folders, then the terminal.
+   Site audit 2026-11-12: 68 views (desktop + phone), 0 clipped/spilled. Model builder (Model Lab) is owner-only (every route `_require_owner`).
 3b. 🚀 **COMP v2 · 9B BUILT 2026-11-12** (ModelLab tab `ModelComp2.jsx`, `comp_v2.py`, `comp_v2_exam.py`, `comp_market.py`, `.venv-mlx`): Qwen3.5-9B 4-bit
    (Apache-2.0, LM Studio folder) + an MLX LoRA (8 layers, batch 1, lr 3e-5, 200 iters) on his settled proofs, using ONLY what each proof said before it
    settled. Exam = same 28 held-out proofs for everyone, read by confidence (logit won − lost; the cut only moves when it wins ≥2 more valid proofs),

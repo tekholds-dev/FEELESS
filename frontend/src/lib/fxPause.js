@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 // Off-screen FX pause: the Arena had ~400 animations running at once and 4 in 5 were on cards nobody could see.
 // ONE IntersectionObserver marks animated surfaces that are off-screen with `fx-off` (CSS pauses every animation inside);
 // they resume the moment they scroll back in. One MutationObserver (batched per frame) picks up cards as they mount.
-export const FX_SURFACES = '.chat-fx, .mc-stage, .prime-card, .ar-card, .bf-arena, .sc3-card, .th-stage, .cfx, .cbg, .swap-desk, .clv, .spx-banner, .fcd-legs, .wsky, .st-scene, .lv-stage, .br-scene, .pw-field, .ltk-field, .fd-sky, .fd-wire, .gp-rails, .agd, .crt-stage, .col-flow, .cfl, .mc2-live';
+export const FX_SURFACES = '.chat-fx, .mc-stage, .prime-card, .ar-card, .bf-arena, .sc3-card, .th-stage, .cfx, .cbg, .swap-desk, .clv, .spx-banner, .fcd-legs, .wsky, .st-scene, .lv-stage, .br-scene, .pw-field, .ltk-field, .fd-sky, .fd-wire, .gp-rails, .agd, .crt-stage, .col-flow, .cfl';
 let started = false;
 
 export function startFxPause(root = document.body) {

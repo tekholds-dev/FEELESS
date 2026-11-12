@@ -678,7 +678,7 @@ test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where 
   await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
   const mc = el.querySelector('[data-testid="mc2"]');
   expect(mc.textContent).toContain('Qwen3.5-9B'); expect(mc.textContent).toContain('99');
-  expect(el.querySelector('[data-testid="mc2-live"]').className).toContain('is-idle'); expect(el.querySelectorAll('.mc2-stack .is-lora').length).toBe(8);
+  expect(el.querySelector('[data-testid="mc2-live"]').className).toContain('is-idle'); expect(el.querySelector('[data-testid="mc2-live"]').textContent).toContain('150 / 150 iters');
   expect(el.querySelector('[data-testid="mc2-ways"]').textContent).toContain('NOT BUILT'); expect(el.querySelector('[data-testid="mc2-ways"]').textContent).toContain('3 rows');
   const board = el.querySelector('[data-testid="mc2-board"]');
   expect(board.querySelector('li').textContent).toContain('COMP v2');                     // sorted best first
