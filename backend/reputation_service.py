@@ -33494,7 +33494,11 @@ import rep_admin_reads as _rep_admin_reads   # noqa: E402  🧩 Q02 slice 2: rea
 app.include_router(_rep_admin_reads.router)
 import rep_model_lab as _rep_model_lab   # 🧪 Model Lab: the owner's dataset, review queue and clean export
 app.include_router(_rep_model_lab.router)
-app.add_event_handler('startup', _rep_model_lab.start_collect_loop)   # 🌐 COMP's internet learner, every 10 min
+
+
+@app.on_event('startup')
+async def _start_comp_collect():   # 🌐 COMP's internet learner, every 10 min
+    _rep_model_lab.start_collect_loop()
 admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
 fuse_health = _rep_admin_reads.fuse_health
 admin_familia_rules = _rep_admin_reads.admin_familia_rules
