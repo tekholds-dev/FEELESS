@@ -1,3 +1,13 @@
+# 🚨 NEXT SESSION START HERE — NO STOPPING UNTIL ALL WORK IS DONE (owner 2026-11-12)
+Owner order: do NOT stop, do NOT ask "go?" between steps — finish every item below in order, test each, push each to main, then keep going.
+**LOOK PICK = Pit + Desk + Obsidian, colour Feeless Green (#19e68c, light #08995a).** Reference: artifact https://claude.ai/artifact/7E63NP1BQ7jj4u7BaJZU2K (v7, read it with the Artifact tool).
+1. Roll out sitewide as LookPicker options: Obsidian (default), Desk (menu bar + window + rank/quests/board widgets + lucide dock), Pit (room chat beside TrenchChart + TradeTape + leaderboard). Green replaces PLASMA as default; update CLAUDE.md palette rule (green ban lifted) + memory look-is-plasma / look-pick-pending.
+2. Keep old looks (Plasma etc.) as ONE row in LookPicker.
+3. Every button: press ring → confirm (money = 2 taps, 3.5s) → busy spinner → ✓ only on real server OK / shake + server reason toast. Check each endpoint accepts it; remove buttons that can't work.
+4. Quests/rank/leaderboard only from REAL data (no fake numbers); if no backend exists, build it or don't show it.
+5. Then PoEco elite rebuild (Sankey money flow, real card, real data only), then Pro look on EcoDesk, Model Lab tabs, HQ folders, terminal.
+Gate before each push (CLAUDE.md). Screenshot every surface (desktop, 360px, day, fx-lite). Libraries from the kit stash, never scratch.
+
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
 > ## 🔁 PICK UP HERE (2026-11-11 night, Opus 5.5) — conserve usage · finish everything by priority · never dead-style
