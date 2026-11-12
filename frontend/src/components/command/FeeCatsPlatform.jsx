@@ -126,8 +126,11 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const brainChanged = useCallback(next => { setCat(next); onChanged?.(next); }, [onChanged]);
   const { isAdmin } = useAdmin();   // 💵 Fee's real switch shows to the owner only (the server re-checks the signed owner wallet)
   useEffect(() => {
-    const refresh = async () => { if (document.hidden) return; try { const result = await api(`/api/cats/${initialCat.id}`); if (result.cat) { setCat(result.cat); onChanged?.(result.cat); } } catch {} };
-    refresh(); const interval = setInterval(refresh, 8000);   // at once: opened from the leaderboard, the row has no `mine` yet
+    // ⚡ LAG (measured 2026-11-11 in his Chrome): this re-read the whole 464 KB agent record every 8 s and re-rendered the entire desk each time,
+    // on top of the desk's own live poll. Now every 30 s, and nothing re-renders unless the record really changed.
+    let last = '';
+    const refresh = async () => { if (document.hidden) return; try { const result = await api(`/api/cats/${initialCat.id}`); if (!result.cat) return; const sig = JSON.stringify(result.cat); if (sig === last) return; last = sig; setCat(result.cat); onChanged?.(result.cat); } catch {} };
+    refresh(); const interval = setInterval(refresh, 30000);   // at once: opened from the leaderboard, the row has no `mine` yet
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };

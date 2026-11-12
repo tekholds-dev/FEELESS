@@ -1020,8 +1020,11 @@ const AgentLedgerLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m
 let PREFETCHED = false;
 export function prefetchDeskWindows() {
   if (PREFETCHED || typeof window === 'undefined') return; PREFETCHED = true;
-  const go = () => { for (const L of [FeaturesLazy, ProofDeskLazy, PrintLazy, CharacterLazy, BidsLazy]) L.preload().catch(() => {}); };
-  if (window.requestIdleCallback) window.requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+  // ⚡ one bundle per idle moment (2026-11-11): all five at once ran back to back as one long freeze right after the desk opened
+  const queue = [FeaturesLazy, ProofDeskLazy, PrintLazy, CharacterLazy, BidsLazy];
+  const idle = f => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 4000 }) : setTimeout(f, 1500));
+  const go = () => { const L = queue.shift(); if (!L) return; L.preload().catch(() => {}).finally(() => idle(go)); };
+  idle(go);
 }
 const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
 function PotSend({ cat }) {

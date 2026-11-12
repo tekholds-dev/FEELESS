@@ -28,7 +28,7 @@ export function useDeskSkin(saved, onSave) {
   return [skin, set];
 }
 
-// 🎥 the owner's own 4K nature clips (2026-10-30), encoded to 1080p HD loops (~30 s, silent, fast-start): /backdrops/<scene>.mp4. Full-screen behind
+// 🎥 the owner's own 4K nature clips (2026-10-30), encoded to 720p loops (~30 s, silent, fast-start; 1080p was 18-22 MB each and loaded on every desk open, 2026-11-11 lag fix): /backdrops/<scene>.mp4. Full-screen behind
 // the desk, played only while it is on screen and the tab is visible; fx-lite / reduced motion → paused on its first frame; a missing file → Night.
 // Cards over it are dark GLASS (no backdrop blur over a moving layer — a scrim + near-opaque glass keeps every colour readable).
 export const VIDEO = { globe: 'Earth at night', creek: 'Autumn creek', forest: 'Forest canopy' };
