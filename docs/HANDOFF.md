@@ -25,8 +25,14 @@
 >   of asks and answers with each answer's $, Undo the last change (`play3d_code` `to`, chat kept in code3d) · editor shelf squashed to 22 px in
 >   the desk window → `.pce` rows sized to content · 🎨 the Feeless Kit every PoStatic build reads was still "royal green #15d16a" → now
 >   FEELESS_VITALS (PLASMA tokens, type, card, go button, segmented, vitals band, spark, story rings, media rail, empty state, motion rules).
-> **Owner asks not built (need his call):** agents BIDDING real money on kalshi.com (PoB is free chips / research only today; a real-money bid
->   door needs guards + his go) · perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
+> **🎯 KALSHI REAL-BID DOOR BUILT (owner said "Build it", 2026-11-11), tested with a fake Kalshi only, NOT run live:** `kalshi_bid.py` +
+>   `_kalshi_send` (the ONE place an order is sent) + ops kalshi_state / kalshi_cfg / kalshi_bid / kalshi_skip + `KalshiDoor.jsx` (Bids folder) +
+>   `KalshiTicket` (in each PoB folder). A topic PoB's two minds also see the live Kalshi games (public API, read live: NBA 12, NFL 12); both pick
+>   the same ticker + side → a ticket. Approve each (default) or Auto in caps. Guards: off by default, LIMIT order at the shown ask (re-read; refused
+>   if it moved > 2¢), $1/bid (hard max $5), $3/day (hard max $20), both minds ≥ 65%, 5–95¢, closes > 10 min out, one bid per market per 24 h,
+>   balance floor $2. Key = Keys › Kalshi: key id + private key (pasted on one line is fine), sealed per agent. OWNER TO DO: kalshi.com › Account ›
+>   API keys › create, paste "<key id> <private key>" into Happy's Keys › Kalshi, Bids › switch the door on, "file a pob nba tonight", Approve.
+> **Owner asks not built (need his call):** perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").
 > **Then: the 3 real-money tests** (owner presses; never sign for him): T1 0.012 SOL→USDC→SOL swap on /terminal/trade (pick USDC from
 >   "In your wallet") · T2 Fuse card Withdraw $1 → HQ › Money › Circle FUSE🧬 send to his saved Phantom · T3 $1 USDC into Happy's wallet and back.

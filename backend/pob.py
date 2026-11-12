@@ -110,7 +110,9 @@ def parse_picks(raw):
     rows = []
     for x in (d.get('picks') or [])[:MAX_LEGS] if isinstance(d.get('picks'), list) else []:
         if isinstance(x, dict) and str(x.get('pick') or '').strip():
-            rows.append({'pick': str(x['pick']).strip()[:90], 'confidence': max(0, min(100, int(_f(x.get('confidence'))))), 'why': str(x.get('why') or '')[:200]})
+            k_ = x.get('kalshi') if isinstance(x.get('kalshi'), dict) else None   # 🎯 the Kalshi market it backs, when it was shown live ones (kalshi_bid.py)
+            rows.append({'pick': str(x['pick']).strip()[:90], 'confidence': max(0, min(100, int(_f(x.get('confidence'))))), 'why': str(x.get('why') or '')[:200],
+                         **({'kalshi': {'ticker': str(k_.get('ticker') or '')[:80], 'side': str(k_.get('side') or '').lower()[:3]}} if k_ else {})})
     return {'picks': rows, 'pass': str(d.get('pass') or '')[:200]}
 
 

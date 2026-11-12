@@ -101,3 +101,16 @@ body.theme-day .pop-web:not(:last-child) { border-bottom-color: rgba(0, 0, 0, .1
 @media (max-width: 640px) { .pop-chart { height: 240px; } .pop-srcs { grid-template-columns: minmax(0, 1fr); } }
 body.fx-lite .pop-dev { animation: none; } body.fx-lite .pop-dev s { transition: none; } @media (prefers-reduced-motion: reduce) { .pop-dev { animation: none; } .pop-dev s { transition: none; } }
 body.theme-day .pop-src > b { color: #b01a68; } body.theme-day .pop-src-site em { color: #1c1230; } body.theme-day :is(.pop-src-site small, .pop-dev i) { color: #5a4f78; } body.theme-day .pop-dev small { color: #0b6f3c; } body.theme-day .pop-dev u { background: #00000014; }
+/* 🎯 Kalshi real-bid door + ticket (kd-*): off = calm violet, on = live gold edge; the ticket shows its state */
+.kd { display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid #9b6bff38; } .kd.is-on { border-color: #f5c45188; box-shadow: 0 0 22px #f5c4511f, inset 0 1px 0 #ffffff12; }
+.kd-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .kd-h > span { display: grid; gap: 2px; min-width: 0; } .kd-h b { font: 700 12px var(--f-mono); letter-spacing: .1em; color: var(--gold, #f5c451); } .kd-h small { font: 500 12px var(--f-ui); color: #a59cc9; }
+.kd .hqv { margin: 0; }
+.kd-set { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; } .kd-set .m-seg button { min-height: 32px; } .kd-num { display: grid; gap: 2px; } .kd-num small { font: 700 9.5px var(--f-mono); letter-spacing: .08em; color: #a59cc9; text-transform: uppercase; } .kd-num .m-input { width: 92px; min-height: 34px; }
+.kd-bids { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; } .kd-bids li { display: grid; padding: 6px 10px; border-radius: 8px; background: #ffffff06; border-left: 3px solid #9b6bff; animation: kdIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.kd-bids li.is-filled, .kd-bids li.is-resting, .kd-bids li.is-sent { border-left-color: #3cf0c5; } .kd-bids li.is-refused, .kd-bids li.is-failed { border-left-color: #ff5c7a; } .kd-bids b { font: 600 12px var(--f-ui); color: #ece8ff; } .kd-bids small { font: 600 10.5px var(--f-mono); color: #a59cc9; }
+.kd-ticket { display: grid; gap: 6px; margin: 8px 0; padding: 12px; border-radius: 12px; border: 1px solid #f5c45166; background: linear-gradient(135deg, #1d1530, #120b2c); } .kd-tk-h { display: grid; gap: 2px; } .kd-tk-h b { font: 700 13px var(--f-ui); color: #fff; } .kd-tk-h small, .kd-tk-why { font: 600 10.5px var(--f-mono); color: #a59cc9; }
+.kd-tk-go { display: flex; flex-wrap: wrap; gap: 8px; } .kd-tk-go .m-btn { min-height: 34px; } .kd-tk-st { font: 700 12px var(--f-mono); color: #3cf0c5; } .kd-tk-st.is-refused, .kd-tk-st.is-failed { color: #ff5c7a; } .kd-tk-st.is-skipped { color: #a59cc9; }
+@keyframes kdIn { from { opacity: 0; transform: translateY(4px); } }
+body.fx-lite .kd-bids li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-bids li { animation: none; } }
+body.theme-day .kd-ticket { background: #fff; } body.theme-day .kd-tk-h b, body.theme-day .kd-bids b { color: #1b1236; } body.theme-day .kd-h small, body.theme-day .kd-bids small { color: #5a4d80; }
+@media (max-width: 640px) { .kd-num .m-input { width: 76px; } }

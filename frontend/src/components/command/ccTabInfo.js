@@ -1,6 +1,7 @@
 import React from 'react';
 import { Ic3 } from '../../lib/icon3d';
 import { useCountUp } from '../../lib/useCountUp';
+import '../../styles/hqVitals.css';
 
 // 🫙 one empty state for every HQ list (owner 2026-11-11: pages were a form row over blank space): what goes here and how it fills
 export function HqEmpty({ ic, title, line }) {
