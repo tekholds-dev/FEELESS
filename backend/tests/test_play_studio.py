@@ -579,3 +579,18 @@ def test_the_editor_library_lists_what_every_proof_made_and_a_filed_scene_opens_
     post('play3d_save', tools={'scene': {'objects': []}})
     t = post('play3d_take', job=ws, to='g').json(); assert t['scene']['objects'][0]['name'] == OBJ['name'] and post('play3d_get').json()['scene']['objects']
     assert post('play3d_take', job=ws, to='x').status_code == 403 and post('play3d_take', job='wnope', to='g').status_code == 404
+
+
+def test_the_code_studio_lets_the_owner_pick_the_mind_and_keeps_the_thread(monkeypatch, tmp_path):
+    fs, c, store = _server(monkeypatch, tmp_path); store['cats']['g']['brainsCfg'] = {'brains': ['x/alpha-7b', 'y/beta-pro']}
+    post = lambda op, **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', 'op': op, **kw}); used = []
+    async def fake(cat, model, sys_, user_, tokens):
+        used.append(model)
+        return "Added fog.\n```js\nimport * as THREE from 'three';\nconst s = new THREE.Scene();\n```", 0.0012, False
+    monkeypatch.setattr(fs, '_ws_ask', fake)
+    assert post('play3d_get').json()['minds'] == ['alpha-7b', 'beta-pro']
+    j = post('play3d_code', text='add fog', job='old code', to='1').json()
+    assert used == ['y/beta-pro'] and j['by'] == 'Mind B' and j['model'] == 'beta-pro' and j['prev'] == 'old code'
+    assert [m['by'] for m in j['chat']] == ['you', 'Mind B'] and j['chat'][1]['usd'] == 0.0012
+    post('play3d_code', text='again', to='0'); post('play3d_code', text='and again', to='both')
+    assert used[1] == 'x/alpha-7b' and len(post('play3d_get').json()['codeChat']) == 6

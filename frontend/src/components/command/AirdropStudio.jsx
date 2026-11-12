@@ -7,7 +7,7 @@ import { shortAddress, formatUSD } from '../../lib/dexscreener';
 
 import { tiny } from '../../lib/num';
 import { Ic3 } from '../../lib/icon3d';
-import { HqEmpty } from './ccTabInfo';
+import { HqEmpty, HqVitals } from './ccTabInfo';
 const DAY = 86400;
 const PRESETS = [
   { id: 'top10', label: '🏆 Top 10 holders', f: { top: 10 } },
@@ -74,7 +74,7 @@ export function AirdropStudio({ call, asset, holders, selected, onScheduled }) {
     catch (e) { toast.error(e.message); }
   };
   const gives = recipients.map(r => r.give);
-  return <section className="cc-panel cc-studio" data-testid="airdrop-studio">
+  return <section className="cc-panel cc-studio" data-testid="airdrop-studio"><HqVitals tiles={[{ label: `${String(asset || '').toUpperCase()} holders`, value: holders?.length, tone: 'violet' }, { label: 'Would get it', value: recipients.length, of: holders?.length || 1, tone: 'up', tip: 'Holders left after your filters' }, { label: 'Hand-picked', value: selected?.size, tone: 'pink' }, { label: 'Snapshots', value: snaps.length, tone: 'cyan' }]} />
     <div className="cc-presets">{PRESETS.map(p => <button key={p.id} type="button" onClick={() => applyPreset(p)}>{p.label}</button>)}{selected.length > 0 && <button type="button" onClick={() => setF(x => ({ ...x, useSelection: true }))}><Ic3 e="✅" /> My selection ({selected.length})</button>}</div>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4><Sparkles size={12} /> Who</h4>
@@ -112,7 +112,7 @@ export function Snapshots({ call, asset }) {
   const load = () => call('/admin/snapshots').then(d => setSnaps(d.snaps || [])).catch(() => {});
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const take = async () => { try { const r = await call(`/admin/snapshots?asset=${asset}&label=${encodeURIComponent(label)}`, { method: 'POST' }); toast.success(`Snapshot saved — ${r.holders} holders.`); setLabel(''); load(); } catch (e) { toast.error(e.message); } };
-  return <section className="cc-panel">
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Snapshots', value: snaps.length, tone: 'violet' }, { label: 'Latest holders', value: snaps[0]?.holders, tone: 'up' }, { label: 'Days since last', value: snaps[0]?.at ? Math.floor((Date.now() / 1000 - Number(snaps[0].at)) / 86400) : null, of: 30, tone: 'gold' }]} />
     <p className="cc-note">A snapshot freezes every holder and balance right now. Compare later to see who's new, who left, and who never sold — then airdrop the diamond hands.</p>
     <div className="cc-toolbar"><input placeholder="Label (e.g. Pre-listing)" value={label} onChange={e => setLabel(e.target.value)} /><button type="button" className="btn-primary" onClick={take}><Camera size={13} />Snapshot {asset.toUpperCase()} now</button></div>
     {!snaps.length ? <HqEmpty ic="📸" title="No snapshots yet" line="Take one now: every holder and balance is frozen with its price. Two snapshots compare who joined, grew, shrank or sold." /> : null}

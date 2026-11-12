@@ -23,3 +23,12 @@ body.theme-day .p3c section { background: #ffffff; border-color: #d7e3dc; box-sh
 body.fx-lite .p3c, body.fx-lite .p3c-dot.is-ok, body.fx-lite .p3c-err { animation: none; }
 @media (prefers-reduced-motion: reduce) { .p3c, .p3c-dot.is-ok, .p3c-err { animation: none; } }
 @media (max-width: 640px) { .p3c { grid-template-columns: 1fr; grid-template-rows: 420px 360px; height: auto; } .p3c-bar { flex-wrap: wrap; } }
+/* 💬 owner 2026-11-11: pick which mind writes + the thread of asks and answers (with each answer's $) */
+.p3c-chat { display: grid; gap: 6px; max-height: 170px; margin: 0; padding: 8px; list-style: none; overflow-y: auto; border-radius: 10px; border: 1px solid #ffffff14; background: #ffffff05; scrollbar-width: thin; scrollbar-color: #b48cff66 transparent; }
+.p3c-chat li { display: grid; gap: 2px; max-width: 88%; padding: 6px 10px; border-radius: 10px 10px 10px 3px; background: #1a1140; animation: p3cIn .2s ease-out both; }
+.p3c-chat li.is-you { justify-self: end; border-radius: 10px 10px 3px 10px; background: #9b6bff33; }
+.p3c-chat small { font: 700 9.5px var(--f-mono); letter-spacing: .08em; color: #b48cff; } .p3c-chat small em { font-style: normal; color: #3cf0c5; } .p3c-chat p { margin: 0; font: 500 12.5px var(--f-ui); color: #ece8ff; }
+.p3c-who { max-width: 100%; overflow-x: auto; scrollbar-width: none; } .p3c-who button { flex: none; min-height: 32px; }
+@keyframes p3cIn { from { opacity: 0; transform: translateY(4px); } }
+body.fx-lite .p3c-chat li { animation: none; } @media (prefers-reduced-motion: reduce) { .p3c-chat li { animation: none; } }
+body.theme-day .p3c-chat li { background: #7c4dff12; } body.theme-day .p3c-chat p { color: #1b1236; }

@@ -25,3 +25,10 @@ def test_the_elite_edition_is_open_to_everyone_and_marks_its_edition():
     elite = [l for l in looks.catalog(False) if l['tier'] == 'elite']
     assert {l['id'] for l in elite} == {'obsidian', 'carbon', 'titanium', 'ledger'} and all(not l['locked'] and l['tokens']['edition'] == 'elite' for l in elite)
     assert looks.wear('ledger', False)['tokens']['edition'] == 'elite' and looks.wear('ghost', False) is None   # advanced stays locked
+
+
+def test_the_feeless_kit_every_build_reads_is_plasma_with_ready_parts_never_the_banned_green():
+    import collective_kits as ck
+    t = ck.feeless_row()['text']
+    assert '#15d16a' not in t and '#45e486' not in t and '#9b6bff' in t and '#ff3fa4' in t
+    assert 'VITALS BAND' in t and 'SEGMENTED CONTROL' in t and 'STORY RINGS' in t and 'prefers-reduced-motion' in t

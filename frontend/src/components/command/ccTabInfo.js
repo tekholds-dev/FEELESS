@@ -1,4 +1,6 @@
+import React from 'react';
 import { Ic3 } from '../../lib/icon3d';
+import { useCountUp } from '../../lib/useCountUp';
 
 // 🫙 one empty state for every HQ list (owner 2026-11-11: pages were a form row over blank space): what goes here and how it fills
 export function HqEmpty({ ic, title, line }) {
@@ -38,3 +40,19 @@ export const TAB_INFO = {
   access: ['Access', 'Who can open this HQ.', []],
   bugs: ['Bugs', 'Crash reports and bug tickets, newest first.', []],
 };
+
+// 📟 one live vitals band for every HQ tab (owner 2026-11-11: 18 tabs were bare text panels): each tile is a ring filled by value / of, or a spark
+// of a real series, and its number counts up when it changes. Real numbers only: a tile with no value says "—" and draws an empty ring.
+const kfmt = n => (Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e4 ? `${(n / 1e3).toFixed(1)}K` : n.toLocaleString());
+function HqTile({ t, i }) {
+  const raw = Number(t.value); const has = t.value != null && Number.isFinite(raw); const n = useCountUp(has ? raw : 0);
+  const pct = has && t.of ? Math.max(0, Math.min(1, raw / t.of)) : has && !t.spark ? 1 : 0; const C = 2 * Math.PI * 16;
+  const sp = (t.spark || []).map(Number).filter(Number.isFinite); const mx = Math.max(1, ...sp);
+  return <div className={`hqv-t is-${t.tone || 'violet'}`} style={{ '--i': i }} data-tip={t.tip || t.label} data-testid="hq-vital">
+    {sp.length > 1 ? <svg className="hqv-spark" viewBox="0 0 60 36" aria-hidden="true"><polyline points={sp.map((v, k) => `${(k / (sp.length - 1)) * 60},${34 - (v / mx) * 30}`).join(' ')} /></svg>
+      : <svg className="hqv-ring" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" className="bg" /><circle cx="20" cy="20" r="16" className="fg" style={{ strokeDasharray: `${C * pct} ${C}` }} /></svg>}
+    <span><b className="m-num" key={has ? raw : 'x'}>{has ? `${t.pre || ''}${t.dec ? raw.toFixed(t.dec) : kfmt(n)}${t.unit || ''}` : '—'}</b><small>{t.label}{t.of ? <em> / {kfmt(t.of)}</em> : null}</small></span></div>;
+}
+export function HqVitals({ tiles }) {
+  return <div className="hqv" data-testid="hq-vitals"><i className="hqv-sweep" aria-hidden="true" />{tiles.map((t, i) => <HqTile key={t.label} t={t} i={i} />)}</div>;
+}

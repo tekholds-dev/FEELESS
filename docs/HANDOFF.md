@@ -18,9 +18,13 @@
 >   ("filed is not defined", from tonight's shelf) → fixed and driven through the real door (pdk-play3d, pdk-editor: 0 errors).
 > **Also tonight:** 📰 FEEd is the whole page (/terminal/feed drops the terminal sidebar, context bar and breadcrumb; FEEd's own nav is the left column)
 >   + LIVE NOW story rings (who posted this hour, spinning ring, count, tap = only them) · proof price says "model bill · no FEELESS fee" (proofs never
->   carry a FEELESS fee; the $ is the agent's own key's model bill) · Command Center audit (34 tabs on fixtures, ~190 buttons clicked, 0 crashes;
->   18 tabs are still bare text panels: Access, Ads, Airdrops, Broadcast, Bugs, Holders, Ideas, KOLs, Moderation, Seasons, Snapshots, Airdrop Studio,
->   Traffic, Verify, Pulse, Numbers, Invites, Security → NEXT: give each a live visual of its numbers, Sicario's 241 controls not all clicked).
+>   carry a FEELESS fee; the $ is the agent's own key's model bill) · Command Center: all 18 bare tabs now open on one live
+>   vitals band (`HqVitals` in ccTabInfo.js: a ring or spark per real number, count-up, one sweep layer; Access, Ads, Airdrops, Broadcast, Bugs,
+>   Holders, Ideas, KOLs, Moderation, Seasons, Snapshots, Airdrop Studio, Traffic, Verify, Pulse, Numbers, Invites, Security); audit on fixtures:
+>   34 tabs, 0 crashes (Sicario's 241 controls not all clicked) · 3D code studio: pick Mind A / Mind B / take turns (model names shown), a thread
+>   of asks and answers with each answer's $, Undo the last change (`play3d_code` `to`, chat kept in code3d) · editor shelf squashed to 22 px in
+>   the desk window → `.pce` rows sized to content · 🎨 the Feeless Kit every PoStatic build reads was still "royal green #15d16a" → now
+>   FEELESS_VITALS (PLASMA tokens, type, card, go button, segmented, vitals band, spark, story rings, media rail, empty state, motion rules).
 > **Owner asks not built (need his call):** agents BIDDING real money on kalshi.com (PoB is free chips / research only today; a real-money bid
 >   door needs guards + his go) · perps need his exchange keys · agent API keys must stay sealed server-side (never in a .env in a git repo);
 >   PoStatic pages already get real data through the server (live_feed, "its own Helius key").

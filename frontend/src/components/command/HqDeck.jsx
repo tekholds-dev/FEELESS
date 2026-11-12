@@ -46,7 +46,7 @@ import { FamiliaAdmin } from './FamiliaAdmin';
 import { TreasuryHub } from './TreasuryHub';
 import { CoinVerifyPanel } from './CoinVerifyPanel';
 import { TreasuryPulse } from './TreasuryPulse';
-import { HqEmpty, TAB_INFO } from './ccTabInfo';
+import { HqEmpty, HqVitals, TAB_INFO } from './ccTabInfo';
 import { FeeCatDesk } from './FeeCatDesk';
 import { CollectiveOwner } from './CollectiveOwner';
 import { CirclePay, useCircleWallet } from './CirclePay';
@@ -246,6 +246,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'investigate' && <IntelDesk call={call} />}
     {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><FuseCardMint call={call} /><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
     {tab === 'holders' && <section className="cc-panel">
+      {holders ? <HqVitals tiles={[{ label: `${String(asset).toUpperCase()} holders`, value: (holders.rows || []).length, tone: 'violet' }, { label: 'Held $', value: (holders.rows || []).reduce((t, r) => t + (Number(r.usd) || 0), 0), pre: '$', tone: 'up' }, { label: 'Top 10 share', value: Math.round((holders.rows || []).slice(0, 10).reduce((t, r) => t + (Number(r.pct) || 0), 0)), unit: '%', of: 100, tone: 'gold', tip: 'How much of the supply the 10 biggest holders own' }, { label: 'Picked', value: selected.size, tone: 'pink' }]} /> : null}
       <div className="cc-toolbar">
         <select value={asset} onChange={e => { setAsset(e.target.value); setSelected(new Set()); }}>{(holders?.assets || ['fee', 'feecat', 'rfee']).map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select>
         <label className="cc-check"><input type="checkbox" checked={hidePools} onChange={e => setHidePools(e.target.checked)} />Hide pools / curve</label>
@@ -288,7 +289,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'fees' && isOwner ? <ProviderReady call={call} /> : null}   {/* the fees first (the tab's name); the keys behind them under it */}
     {tab === 'ads' && <AdsPanel call={call} />}
     {tab === 'invites' && <InvitesPanel call={call} />}
-    {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
+    {tab === 'bugs' && <section className="cc-panel"><HqVitals tiles={[{ label: 'Reports', value: bugs.length, tone: 'violet' }, { label: 'Open', value: bugs.filter(b => !/fixed|closed|done/i.test(b.status || '')).length, of: bugs.length || 1, tone: 'down' }, { label: 'Fixed', value: bugs.filter(b => /fixed|closed|done/i.test(b.status || '')).length, of: bugs.length || 1, tone: 'up' }]} />{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
       : <div className="cc-bugs">{bugView(bugs, bugOld).map(b => b.fold ? <button key="fold" type="button" className="m-btn cc-bug-fold" onClick={() => setBugOld(o => !o)} aria-expanded={bugOld} data-tip="Reports nobody has hit in 3 days: mostly crashes from dev reloads that are fixed" data-testid="bug-old">{bugOld ? 'Hide' : 'Show'} {b.n} older reports (not seen in 3 days)</button> : <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em className={`sev sev-${SEVERITY[b.kind]?.[0] ?? 1}`}>{SEVERITY[b.kind]?.[1] || b.kind}</em><b>{b.text}</b>{b.count > 1 && <span className="cc-bug-count" data-tip={`Same crash on the same page, reported ${b.count}× (last ${new Date((b.lastAt || b.at) * 1000).toLocaleString()})`}>×{b.count}</span>}{b.fixNote && <small className="cc-bug-fix">✓ {b.fixNote}</small>}<small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
     </TabGuard>
@@ -301,7 +302,8 @@ function Overview({ sec, reload }) {
   useEffect(() => { fetch(apiUrl('/api/reputation/clicks/top?limit=10')).then(r => r.json()).then(d => setClicks(d.rows || [])).catch(() => {}); }, [sec]);
   if (!sec) return <p className="cc-empty">Running security checks…</p>;
   const tone = sec.score >= 85 ? 'good' : sec.score >= 60 ? 'warn' : 'bad';
-  return <section className="cc-panel cc-overview">
+  const svc = sec.services || []; const chk = sec.checks || [];
+  return <section className="cc-panel cc-overview"><HqVitals tiles={[{ label: 'Score', value: sec.score, of: 100, tone: Number(sec.score) >= 80 ? 'up' : Number(sec.score) >= 50 ? 'gold' : 'down' }, { label: 'Services up', value: svc.filter(x => x.up).length, of: svc.length || 1, tone: 'up' }, { label: 'Checks passing', value: chk.filter(c => c.ok ?? c.pass ?? c.up).length, of: chk.length || 1, tone: 'cyan' }, { label: 'Top errors', value: (sec.topErrors || []).length, tone: (sec.topErrors || []).length ? 'down' : 'violet' }]} />
     <div className={`cc-score s-${tone}`}><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" /><circle cx="60" cy="60" r="52" className="arc" style={{ strokeDasharray: `${(sec.score / 100) * 327} 327` }} /></svg><b>{sec.score}</b><small>security score</small><button type="button" onClick={reload}><RefreshCw size={12} />Re-scan</button></div>
     <div className="cc-block"><h4>Services</h4>{sec.services.map(s => <div key={s.name} className={`cc-svc ${s.up ? 'up' : 'down'}`}><i />{s.name}<small>{s.up ? `${s.ms} ms` : 'DOWN'}</small></div>)}</div>
     <div className="cc-block"><h4>Attack signals · last hour</h4>{[['forgedSignatures', 'Forged signatures'], ['replays', 'Replay attempts'], ['rateLimited', 'Rate-limited'], ['forbidden', 'Forbidden'], ['serverErrors', 'Server errors']].map(([k, l]) => <div key={k} className={`cc-sig ${sec.signals[k] ? 'hot' : ''}`}><span>{l}</span><b>{sec.signals[k]}</b></div>)}</div>
@@ -345,7 +347,8 @@ function Airdrops({ drops, call, reload }) {
     try { await call(`/admin/airdrops/${d.id}`, { method: 'POST', body: JSON.stringify({ status, txSig: sigs[d.id]?.trim() || null }) }); toast.success(status === 'sent' ? 'Verified on-chain — recipients got the 🪂 badge.' : `Marked ${status}.`); reload(); }
     catch (e) { toast.error(e.message); }
   };
-  return <section className="cc-panel">
+  const dueN = drops.filter(d => d.status === 'scheduled' && d.scheduledAt * 1000 <= Date.now()).length;
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Drops', value: drops.length, tone: 'violet' }, { label: 'Scheduled', value: drops.filter(d => d.status === 'scheduled').length, of: drops.length || 1, tone: 'cyan' }, { label: 'Sent', value: drops.filter(d => d.status === 'sent').length, of: drops.length || 1, tone: 'up' }, { label: 'Due now', value: dueN, tone: dueN ? 'gold' : 'violet', tip: 'Scheduled drops whose time has come: sign them below' }]} />
     <p className="cc-note">FEELESS never holds your keys. <b>Send from wallet</b> packs the transfers into a few transactions, dry-runs them, and your wallet approves them in one prompt; every signature is verified on-chain and kept as a receipt. You can still send elsewhere and paste the signature.</p>
     <div className="cc-block cc-top3"><h4>Season top-3 reward / holder fee-share</h4><div className="cc-toolbar"><NumInput inputMode="decimal" placeholder="Amount per winner" value={top3.amount} onChange={e => setTop3(t => ({ ...t, amount: e.target.value.replace(/[^0-9.]/g, '') }))} /><select value={top3.asset} onChange={e => setTop3(t => ({ ...t, asset: e.target.value }))}>{['fee', 'sol', 'feecat', 'rfee'].map(a => <option key={a} value={a}>{a.toUpperCase()}</option>)}</select><button type="button" className="btn-primary" onClick={draftTop3}>Draft top-3 drop</button></div><small className="cc-empty">For a holder fee-share, pick holders on the Holders tab and schedule with SOL — then Send from wallet here.</small></div>
     {!drops.length ? <p className="cc-empty">No airdrops yet. Select holders on the Holders tab to schedule one.</p> : drops.map(d => { const due = d.scheduledAt * 1000 <= Date.now() && d.status === 'scheduled';
@@ -616,7 +619,8 @@ function AdsPanel({ call }) {
     try { await call('/admin/ads', { method: 'POST', body: JSON.stringify({ ...f, startsAt: f.startsAt || now, endsAt: f.days ? now + f.days * 86400 : 0 }) }); toast.success(f.id ? 'Ad updated' : 'Ad live'); setF(blank); load(); } catch (e) { toast.error(e.message); }
   };
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  return <section className="cc-panel">
+  const clicks = ads.reduce((a, x) => a + (Number(x.clicks) || 0), 0); const seen = ads.reduce((a, x) => a + (Number(x.views ?? x.impressions) || 0), 0);
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Ads', value: ads.length }, { label: 'Running', value: ads.filter(a => a.active).length, of: ads.length || 1, tone: 'up' }, { label: 'Clicks', value: clicks, tone: 'pink' }, { label: 'Seen', value: seen, tone: 'cyan' }]} />
     <p className="cc-note">Run announcements, $FEE promos or paid sponsor slots. Every ad is labelled (Sponsored when a sponsor is set), users can hide it for the session, and views/clicks are counted. Links must be https:// or an in-app path.</p>
     <div className="cc-studio-grid">
       <div className="cc-block"><h4>{f.id ? 'Edit ad' : 'New ad'}</h4>
@@ -647,7 +651,7 @@ function InvitesPanel({ call }) {
   const savePct = () => call('/admin/referrals/config', { method: 'PUT', body: JSON.stringify({ pct: Number(pct) || 0 }) }).then(r => { toast.success(`Every inviter now earns ${r.pct}% of their invitees' FEELESS fees.`); load(); }).catch(e => toast.error(errorText(e)));
   if (!d) return <p className="cc-empty">Loading invites…</p>;
   const usd = v => `$${Number(v || 0).toFixed(Number(v) >= 1 ? 2 : 4)}`;
-  return <section className="cc-panel m-stack" data-testid="cc-invites">
+  return <section className="cc-panel m-stack" data-testid="cc-invites">{d ? <HqVitals tiles={[{ label: 'Invited', value: d.total, tone: 'violet' }, { label: 'Inviters', value: d.top.length, tone: 'cyan' }, { label: 'Owed', value: d.owedUsd, pre: '$', dec: 2, tone: 'gold' }, { label: 'Reward %', value: d.pct, unit: '%', of: 100, tone: 'pink' }]} /> : null}
     <div className="m-grid">
       <div className="m-card is-hot m-stack"><span className="m-label">INVITE REWARD · ALL USERS</span>
         <span className="m-dim">Every inviter earns this share of the FEELESS fees their invitees pay, on every confirmed trade. It accrues on their profile; you pay it out.</span>
@@ -668,7 +672,7 @@ function PulsePanel({ call }) {
   useEffect(() => { const load = () => call('/admin/pulse').then(x => setD(PULSE(x))).catch(() => {}); load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [call]);
   if (!d) return <p className="cc-empty">Taking the pulse…</p>;
   const max = Math.max(1, ...d.hourly);
-  return <section className="cc-panel">
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Messages / hr', value: d.messages, spark: d.hourly.map(x => (typeof x === 'object' ? x.n ?? x.count ?? x.messages : x)), tone: 'pink' }, { label: 'Active wallets', value: d.activeWallets, tone: 'up' }, { label: 'Profiles', value: d.profiles, tone: 'violet' }, { label: 'Push subs', value: d.pushSubscribers, tone: 'cyan' }, { label: 'Muted', value: d.muted, tone: d.muted ? 'down' : 'violet' }]} />
     <div className="cc-kpis cc-kpis-5"><span><small>Messages 24h</small><b>{d.messages24h}</b></span><span><small>Active wallets 24h</small><b>{d.activeWallets24h}</b></span><span><small>Profiles</small><b>{d.profiles}</b></span><span><small>Push subscribers</small><b>{d.pushSubscribers}</b></span><span><small>Muted</small><b>{d.muted}</b></span></div>
     <div className="cc-block"><h4>Chat activity · last 24h</h4><div className="cc-spark">{d.hourly.map((v, i) => <i key={i} style={{ height: `${(v / max) * 100}%` }} title={`${v} msgs, ${23 - i}h ago`} />)}</div></div>
     <div className="cc-studio-grid">
@@ -688,7 +692,8 @@ function ModPanel({ call }) {
   const del = m => call('/admin/moderate/delete', { method: 'POST', body: JSON.stringify({ room: m.room, id: m.id }) }).then(() => { toast.success('Removed'); load(); }).catch(e => toast.error(e.message));
   const mute = (m, hours) => call('/admin/moderate/mute', { method: 'POST', body: JSON.stringify({ address: m.address, hours }) }).then(() => { toast.success(hours ? `Muted ${hours}h` : 'Unmuted'); load(); }).catch(e => toast.error(e.message));
   const shown = msgs.filter(m => !q || `${m.text} ${m.handle} ${m.username} ${m.room}`.toLowerCase().includes(q.toLowerCase()));
-  return <section className="cc-panel">
+  const hourAgo = Date.now() / 1000 - 3600;
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Messages', value: msgs.length, tone: 'violet' }, { label: 'Last hour', value: msgs.filter(m => Number(m.at || m.ts || 0) > hourAgo).length, tone: 'pink' }, { label: 'Rooms', value: new Set(msgs.map(m => m.room)).size, tone: 'cyan' }, { label: 'People', value: new Set(msgs.map(m => m.handle || m.username || m.address)).size, tone: 'up' }]} />
     <div className="cc-toolbar"><input placeholder="Filter messages, @handles, rooms…" value={q} onChange={e => setQ(e.target.value)} /><button type="button" onClick={load}>Refresh</button></div>
     <div className="cc-bugs">{!shown.length ? <p className="cc-empty">No messages.</p> : shown.map(m => <div key={m.id} className={`cc-bug ${m.muted ? 'k-security' : ''}`}><div><em>{m.room.slice(0, 40)}</em><b>{m.text}</b><small>@{m.handle || m.username} · {new Date(m.ts).toLocaleString()}{m.muted ? ' · MUTED' : ''}</small></div>
       <div className="cc-drop-actions"><button type="button" onClick={() => del(m)}>Delete</button><button type="button" onClick={() => call('/admin/verify', { method: 'POST', body: JSON.stringify({ address: m.address, hours: 0 }) }).then(() => toast.success('✔ Verified')).catch(e => toast.error(e.message))}><Ic3 e="✔" /> Verify</button>{m.muted ? <button type="button" onClick={() => mute(m, 0)}>Unmute</button> : <><button type="button" onClick={() => mute(m, 1)}>Mute 1h</button><button type="button" onClick={() => mute(m, 24)}>24h</button></>}</div></div>)}</div>
@@ -696,6 +701,7 @@ function ModPanel({ call }) {
 }
 
 function BroadcastPanel({ call }) {
+  const [reach, setReach] = useState(null); useEffect(() => { call('/admin/pulse').then(x => setReach(PULSE(x))).catch(() => {}); }, [call]);
   const [f, setF] = useState({ title: '', body: '', url: '/terminal', push: false, rooms: 'feeless-general' });
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
@@ -705,7 +711,7 @@ function BroadcastPanel({ call }) {
     try { const r = await call('/admin/broadcast', { method: 'POST', body: JSON.stringify({ ...f, rooms: f.rooms.split(/[\s,]+/).filter(Boolean) }) }); toast.success(`Posted in ${r.rooms} room(s) · pushed to ${r.pushed}`); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
-  return <section className="cc-panel">
+  return <section className="cc-panel"><HqVitals tiles={[{ label: 'Push reach', value: reach?.pushSubscribers, tone: 'pink', tip: 'Phones that get a push when you tick Push' }, { label: 'Active wallets', value: reach?.activeWallets, tone: 'up' }, { label: 'Profiles', value: reach?.profiles, tone: 'violet' }, { label: 'Words', value: f.body.trim() ? f.body.trim().split(/\s+/).length : 0, of: 60, tone: 'cyan', tip: 'Keep it under 60 words' }]} />
     <p className="cc-note">Announce drops, listings or airdrops. Posts land in chat as <Ic3 e="👑" /> FEELESS HQ; push goes to everyone who enabled alerts. Use sparingly — every push is a real notification on someone's phone.</p>
     <div className="cc-block cc-award-form">
       <input placeholder="Title (e.g. $FEE airdrop is live)" maxLength={60} value={f.title} onChange={e => set('title', e.target.value)} />
@@ -759,7 +765,7 @@ function KolAdmin({ call }) {
   useEffect(() => { load(); }, []);
   const add = async e => { e.preventDefault(); try { await call('/admin/kols', { method: 'POST', body: JSON.stringify(f) }); toast.success('KOL added — trades load in a few seconds.'); setF({ address: '', name: '', x: '', chain: 'solana' }); load(); } catch (err) { toast.error(err.message); } };
   const remove = async a => { try { await call(`/admin/kols/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
-  return <section className="cc-card"><h3>KOL tracker</h3><p className="wp-bio">Add wallets you know belong to KOLs. FEELESS reads their real Solana trades and shows users hold times, quick-flip rate and call-and-dump flags on the Rep page.</p>
+  return <section className="cc-card"><HqVitals tiles={[{ label: 'KOLs', value: rows.length, tone: 'violet' }, { label: 'Read live', value: rows.filter(k => k.stats).length, of: rows.length || 1, tone: 'up' }, { label: 'Chains', value: new Set(rows.map(k => k.chain)).size, tone: 'cyan' }, { label: 'On X', value: rows.filter(k => k.x).length, tone: 'pink' }]} /><h3>KOL tracker</h3><p className="wp-bio">Add wallets you know belong to KOLs. FEELESS reads their real Solana trades and shows users hold times, quick-flip rate and call-and-dump flags on the Rep page.</p>
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /><input placeholder="X handle" value={f.x} onChange={e => setF({ ...f, x: e.target.value })} /><button className="btn-primary" type="submit">Track</button></form>
     {!rows.length ? <HqEmpty ic="🎤" title="No KOLs tracked yet" line="Paste a KOL's wallet above. FEELESS reads its real trades: hold times, quick flips, call-and-dump flags." /> : null}
     <div className="cc-kol-list">{rows.map(k => <div key={k.address}><b>{k.name}</b><small>{k.x ? `@${k.x} · ` : ''}{k.chain} · {shortAddress(k.address)}</small><span>{k.stats ? `${k.stats.closed} closed · flips ${k.stats.quickFlipPct ?? '—'}% · ${k.stats.danger ? '⚠ call-and-dump' : 'no dump pattern'}` : '…'}</span><button type="button" className="btn-outline" onClick={() => remove(k.address)}>Remove</button></div>)}</div>
@@ -773,7 +779,8 @@ function TrafficPanel({ call }) {
   if (!d) return <p className="wp-bio">Loading traffic…</p>;
   const maxDay = Math.max(1, ...d.daily.map(x => x.views)); const maxHr = Math.max(1, ...d.hours);
   const list = (rows, k, v) => rows.length ? rows.map(r => <div key={r[k]} className="tr-row"><span>{r[k]}</span><b>{r[v].toLocaleString()}</b></div>) : <p className="wp-bio">No data yet.</p>;
-  return <section className="cc-card tr">
+  const today = d.daily[d.daily.length - 1] || {};
+  return <section className="cc-card tr"><HqVitals tiles={[{ label: 'Views today', value: today.views, spark: d.daily.map(x => x.views), tone: 'cyan' }, { label: 'Visitors today', value: today.uniques, tone: 'up' }, { label: 'Pages 24h', value: d.topPages24h.length, tone: 'violet' }, { label: 'Referrers', value: d.referrers.length, tone: 'pink' }]} />
     <h3>Traffic <small>no raw IPs stored · uniques are daily salted hashes</small></h3>
     <div className="tr-days">{d.daily.map(x => <div key={x.day} title={`${x.day}: ${x.views} views, ${x.uniques} visitors`}><i style={{ height: `${(x.views / maxDay) * 100}%` }} /><small>{x.day.slice(5)}</small></div>)}</div>
     <div className="tr-grid">
@@ -797,7 +804,8 @@ function SeasonsAdmin({ call }) {
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async e => { e.preventDefault(); try { await call('/admin/seasons', { method: 'POST', body: JSON.stringify({ ...f, multiplier: Number(f.multiplier), start: Date.parse(f.start) / 1000, end: Date.parse(f.end) / 1000 }) }); toast.success('Season scheduled.'); load(); } catch (err) { toast.error(err.message); } };
   const set = k => e => setF({ ...f, [k]: e.target.value });
-  return <section className="cc-card"><h3>Monthly seasons</h3>
+  const ss = d?.seasons || []; const tnow = Date.now() / 1000; const live = ss.filter(x => Number(x.start) <= tnow && tnow < Number(x.end));
+  return <section className="cc-card"><HqVitals tiles={[{ label: 'Seasons', value: ss.length, tone: 'violet' }, { label: 'Live now', value: live.length, tone: live.length ? 'up' : 'violet' }, { label: 'Days left', value: live[0] ? Math.max(0, Math.round((Number(live[0].end) - tnow) / 86400)) : null, of: 31, tone: 'gold' }]} /><h3>Monthly seasons</h3>
     {!(d?.seasons || []).length ? <HqEmpty ic="🏆" title="No season scheduled" line="Name next month's season above. Its prize and multiplier show on every leaderboard." /> : null}
     <div className="cc-kol-list">{(d?.seasons || []).map(s => <div key={s.id} style={{ borderLeft: `3px solid ${s.accent}` }}><b>{s.name}</b><small>{new Date(s.start * 1000).toLocaleDateString()} → {new Date(s.end * 1000).toLocaleDateString()} · {s.multiplier}×</small><span>{d.players[s.id] || 0} players</span><button type="button" className="btn-outline" onClick={() => setEditing(s)}>Edit</button></div>)}</div>
     {editing && <SeasonEditor season={editing} call={call} onDone={() => { setEditing(null); load(); }} />}
@@ -816,7 +824,7 @@ function AccessAdmin({ call, signMessage, address }) {
     await call('/admin/roles', { method: 'POST', body: JSON.stringify({ ...f, ts, sig }) }); toast.success('Access granted.'); setF({ address: '', role: 'moderator' }); load(); } catch (err) { toast.error(err.message); } };
   const revoke = async a => { try { await call(`/admin/roles/${a}`, { method: 'DELETE' }); load(); } catch (err) { toast.error(err.message); } };
   if (!d) return <p className="wp-bio">Loading access…</p>;
-  return <section className="cc-card"><h3>HQ access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
+  return <section className="cc-card"><HqVitals tiles={[{ label: 'Owners', value: d.owners.length, tone: 'gold' }, { label: 'Granted', value: d.grants.length, tone: 'up' }, { label: 'Roles', value: d.roles.length, tone: 'violet' }]} /><h3>HQ access</h3><p className="wp-bio">Owner: {d.owners.map(shortAddress).join(', ')}. {d.youAreOwner ? 'You can grant and revoke.' : 'Only the owner can change access.'}</p>
     {d.youAreOwner && <form className="cc-kol-form" onSubmit={grant}><input required placeholder="Wallet address" value={f.address} onChange={e => setF({ ...f, address: e.target.value.trim() })} /><select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{d.roles.map(r => <option key={r}>{r}</option>)}</select><button className="btn-primary" type="submit">Grant</button></form>}
     {!Object.keys(d.grants).length ? <HqEmpty ic="🔑" title="Only you have HQ access" line="Grant a wallet a moderator or marketing role above. It sees only that role's tabs." /> : null}
     <div className="cc-kol-list">{Object.entries(d.grants).map(([a, g]) => <div key={a}><b>{shortAddress(a)}</b><small>{g.role}</small><span>since {new Date(g.at * 1000).toLocaleDateString()}</span>{d.youAreOwner && <button type="button" className="btn-outline" onClick={() => revoke(a)}>Revoke</button>}</div>)}{!Object.keys(d.grants).length && <p className="wp-bio">No one else has access yet.</p>}</div>
@@ -828,7 +836,7 @@ function IdeasAdmin({ call }) {
   const load = () => call('/admin/ideas').then(d => setRows(d.ideas || [])).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const add = async e => { e.preventDefault(); try { await call('/admin/ideas', { method: 'POST', body: JSON.stringify(f) }); setF({ title: '', body: '' }); load(); } catch (err) { toast.error(err.message); } };
-  return <section className="cc-card"><h3>Ideas board</h3>
+  return <section className="cc-card"><HqVitals tiles={[{ label: 'Ideas', value: rows.length, tone: 'violet' }, { label: 'Open', value: rows.filter(i => !/done|shipped|closed/i.test(i.status || '')).length, of: rows.length || 1, tone: 'cyan' }, { label: 'Shipped', value: rows.filter(i => /done|shipped/i.test(i.status || '')).length, of: rows.length || 1, tone: 'up' }]} /><h3>Ideas board</h3>
     <form className="cc-kol-form" onSubmit={add}><input required placeholder="Idea" value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /><input placeholder="Details" value={f.body} onChange={e => setF({ ...f, body: e.target.value })} /><button className="btn-primary" type="submit">Save idea</button></form>
     {!rows.length ? <HqEmpty ic="💡" title="No ideas saved yet" line="Write one above. Community ideas land here too, newest first." /> : null}
     <div className="cc-ideas">{rows.map(i => <article key={i.id}><b>{i.title}</b><small>{i.status}</small><p>{i.body}</p></article>)}</div>

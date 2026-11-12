@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 import { AnimatedNumber } from '../terminal/AnimatedNumber';
 import { shaped } from '../../lib/shape';
 import { Ic3 } from '../../lib/icon3d';
+import { HqVitals } from './ccTabInfo';
 const NUMBERS = shaped({ history: [] });   // market stays null when $FEE isn't indexed (the note below reads it)
 
 const usd = v => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(v < 1 ? 6 : 2)}`);
@@ -43,7 +44,8 @@ export function NumbersPanel({ call }) {
     ['Top-10 concentration', h.top10 != null ? `${h.top10}%` : '—', `top wallet ${h.top1 ?? '—'}% · ${h.lpExcluded ?? 0} pool vaults excluded`, h.top10 != null && h.top10 < 35],
     ['Treasury SOL', d.treasury?.sol != null ? Number(d.treasury.sol).toFixed(3) : '—', Object.entries(d.treasury?.holdingsUsd || {}).map(([k, v]) => `${k} ${usd(v)}`).join(' · ') || 'no token holdings'],
   ];
-  return <section className="nm" data-testid="cc-numbers">
+  const vh = d?.holders || {}; const vm = d?.market || {};
+  return <section className="nm" data-testid="cc-numbers">{d ? <HqVitals tiles={[{ label: '$FEE price', value: vm.price, pre: '$', dec: 6, tone: Number(vm.change) >= 0 ? 'up' : 'down' }, { label: 'Market cap', value: vm.marketCap ?? vm.fdv, pre: '$', tone: 'violet' }, { label: 'Liquidity', value: vm.liquidity, pre: '$', tone: 'cyan' }, { label: 'Holders', value: vh.count, tone: 'pink' }, { label: 'Buys / sells', value: vm.buys, of: (Number(vm.buys) || 0) + (Number(vm.sells) || 0) || 1, tone: 'up', tip: 'Buys out of all trades in 24 h' }]} /> : null}
     <header className="nm-head"><div><h3 className="live-gradient-text">The numbers</h3><small>Live from DexScreener, the chain and FEELESS receipts · refreshes every 30s</small></div><button type="button" className="btn-outline" onClick={load} disabled={busy}><RefreshCw size={13} className={busy ? 'spin' : ''} /> Refresh</button></header>
     {!d.market && <p className="nm-note">$FEE isn't indexed on any DEX yet (DexScreener has no pool for <code>{String(d.feeMint || '').slice(0, 6)}…</code>) — market tiles fill in automatically the moment a pool goes live.</p>}
     {/* H01 "hide '—' cells": a tile with no value folds into ONE line instead of a wall of dashes */}

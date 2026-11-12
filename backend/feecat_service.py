@@ -8998,7 +8998,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
     if p.op.startswith('play3d_'):   # 🧊 the PoStatic 3D playground: the owner and the agent work on one scene, and it learns from what the owner changes
         f3_ = _play_path(cat_id, '3d'); saved_ = _play_load(cat_id, '3d') or {}
         if p.op == 'play3d_get':
-            return {'code': (_play_load(cat_id, 'code3d') or {}).get('code') or '', 'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}
+            c3_ = _play_load(cat_id, 'code3d') or {}
+            return {'code': c3_.get('code') or '', 'codeChat': c3_.get('chat') or [], 'minds': [str(b_).split('/')[-1] for b_ in ((cat.get('brainsCfg') or {}).get('brains') or [])[:2]], 'scene': saved_.get('scene'), 'mind': saved_.get('mind'), 'notes': ((cat.get('playNotes') or {}).get('3d') or [])[-3:], 'canAsk': bool((cat.get('brainsCfg') or {}).get('brains')), **_play.menu()}
         now_scene_ = _play.clean_scene((p.tools or {}).get('scene'))
         if p.op in ('play3d_template', 'play3d_mood'):   # 🧱 a whole set in one tap, with no model and no cost
             base_ = _play.template_scene(p.job) if p.op == 'play3d_template' else _play.clean_scene(_play.dress(now_scene_, p.job, str(len(now_scene_['objects']))))
@@ -9059,13 +9060,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
             brains_ = (cat.get('brainsCfg') or {}).get('brains') or []
             if not brains_ or not str(p.text or '').strip():
                 raise HTTPException(400, 'Pick a model for this agent, and say what to make.')
-            code_s_ = _play_load(cat_id, 'code3d') or {}; turn_ = int(code_s_.get('turn') or 0); i_ = turn_ % len(brains_); was_ = str(p.job or code_s_.get('code') or '')[:40000]
+            code_s_ = _play_load(cat_id, 'code3d') or {}; turn_ = int(code_s_.get('turn') or 0); was_ = str(p.job or code_s_.get('code') or '')[:40000]
+            pick_ = str(p.to if p.to is not None else 'both'); i_ = int(pick_) if pick_ in ('0', '1') and int(pick_) < len(brains_) else turn_ % len(brains_)   # 🧠 owner 2026-11-11: pick the mind that writes, or let them take turns
             raw_, usd_, _own = await _ws_ask(cat, brains_[i_], _play.CODE_SYS + _recall(cat, 'Code', str(p.text)), (f'THE CODE NOW:\n{was_}\n\n' if was_ else '') + f'MAKE THIS: {str(p.text)[:1200]}', 6000)
             code_, say_ = _play.code_reply(raw_)
             if not code_:
                 raise HTTPException(502, f"Mind {'AB'[i_]} did not send usable code, and nothing changed. Try again.")
-            _play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1})
-            return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'usd': round(float(usd_ or 0), 5)}
+            chat_ = (list(code_s_.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': round(time.time())}, {'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'text': str(say_ or 'Done.')[:400], 'usd': round(float(usd_ or 0), 5), 'at': round(time.time())}])[-30:]
+            _play_save(cat_id, 'code3d', {'code': code_, 'turn': turn_ + 1, 'chat': chat_, 'prev': was_})
+            return {'code': code_, 'say': say_, 'by': f"Mind {'AB'[i_]}", 'model': str(brains_[i_]).split('/')[-1], 'usd': round(float(usd_ or 0), 5), 'chat': chat_, 'prev': was_}
         if p.op == 'play3d_code_save':   # 💾 its owner's own edits stay with the playground
             _play_save(cat_id, 'code3d', {**(_play_load(cat_id, 'code3d') or {}), 'code': str(p.job or '')[:60000]})
             return {'saved': True}

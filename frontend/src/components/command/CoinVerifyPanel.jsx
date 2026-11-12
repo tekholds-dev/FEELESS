@@ -5,6 +5,7 @@ import { shortAddress } from '../../lib/dexscreener';
 import { clearVerified } from '../../lib/verifyBatch';
 import { VerifyReport } from '../VerifyReport';
 import { shaped } from '../../lib/shape';
+import { HqVitals } from './ccTabInfo';
 const VERIFY = shaped({ requests: [], auto: [], manual: [] });
 
 // HQ › Verify: run the checks on any coin, grant the gold check, or revoke one (revoke always wins).
@@ -21,7 +22,7 @@ export function CoinVerifyPanel({ call }) {
     catch (e) { toast.error(errorText(e)); }
   };
   const open = m => { setMint(m); setRun(x => x + 1); };
-  return <section className="cc-panel coin-verify" data-testid="coin-verify">
+  return <section className="cc-panel coin-verify" data-testid="coin-verify"><HqVitals tiles={[{ label: 'Verified by hand', value: d.manual.length, tone: 'up' }, { label: 'Auto-verified', value: d.auto.length, tone: 'cyan' }, { label: 'Waiting', value: d.requests.length, tone: d.requests.length ? 'gold' : 'violet', tip: 'Requests from projects, waiting for your check' }]} />
     <details className="tr-explain"><summary>✓ How coins earn the check</summary>
       <ul><li><b>Green ✓ (earned):</b> passes all 7 safety gates (mint + freeze revoked, creator not flagged, 24h+ trading, $25K+ liquidity, top 10 under 50%, insiders under 25%) and scores 75+ on 10 cited checks (locked LP, holder spread, insiders, pool depth, clean launch, dev bag, socials, real volume, two-sided flow, 72h+).</li>
         <li><b>Gold ✦ (granted):</b> official FEELESS coins, or coins you review and grant here.</li>
