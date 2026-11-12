@@ -107,3 +107,4 @@ body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-da
 .pfx > .fea-open-h, .prf .dsk-xpath { position: sticky; top: 0; z-index: 6; background-color: var(--m-surface); }
 .pfx .fea-side-tabs, .prf-rail-tabs { position: sticky; top: 60px; z-index: 5; background-color: var(--m-surface); box-shadow: 0 -10px 0 var(--m-surface); }
 .prf-rail-tabs { top: 0; }
+.dsk-body > .fea.pfx:not(.pdk) { height: max-content; min-height: 100%; }   /* the folder box grows with its content, or the pinned header lets go (seen in his desk: box 697px, content 1562px) */
