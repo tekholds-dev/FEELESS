@@ -38,7 +38,7 @@ export function LookPicker({ compact = false }) {
     onClick={() => pick(l)} aria-pressed={on === l.id} disabled={busy} data-tip={l.locked ? `Unlocks at $${(cat.minUsd || 1000).toLocaleString()} held across $FEE coins` : l.line || l.name} data-testid={`look-${l.id}`}>
     <span className="lkp-sky" aria-hidden="true"><i /><i /><i /></span>
     <b>{l.name}</b>{l.line ? <small>{l.line}</small> : null}
-    <span className="lkp-dots" aria-hidden="true">{l.swatch.map(c => <i key={c} style={{ background: c }} />)}</span>
+    <span className="lkp-dots" aria-hidden="true">{l.swatch.map((c, i) => <i key={`${i}${c}`} style={{ background: c }} />)}</span>
     {l.locked ? <em className="lkp-lock">🔒 ADVANCED</em> : on === l.id ? <em className="lkp-on">WEARING</em> : null}</button>;
   return <section className={`lkp${compact ? ' is-compact' : ''}`} data-testid="look-picker">
     <header><span><b>Looks</b><small>How all of FEELESS looks for you. Tap to see it, then save.</small></span>
