@@ -32,7 +32,7 @@ def test_payout_record_requires_reserve_wallet_signature(monkeypatch, tmp_path):
     rs = pytest.importorskip('reputation_service')
     monkeypatch.setattr(rs, 'SEASONS_PATH', tmp_path / 's.json'); monkeypatch.setattr(rs, 'COLLECTION_PATH', tmp_path / 'c.json')
     monkeypatch.setattr(rs, 'BLOCK_PATH', tmp_path / 'b.json')
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Admin'})
     monkeypatch.setattr(rs, '_admin_load', lambda: {'audit': []}); monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
     now = time.time()
     rs._json_save(rs.SEASONS_PATH, {'seasons': [{'id': 's1', 'name': 'S', 'start': now - 10, 'end': now + 99, 'accent': '#00ffa3', 'reserveWallet': D, 'badgeRewardPct': 50}],
@@ -75,7 +75,7 @@ def test_badge_pool_any_wallet_payout_verified_never_recorded_twice(monkeypatch,
     for k, f in (('SEASONS_PATH', 's.json'), ('BADGE_POOLS_PATH', 'p.json'), ('BLOCK_PATH', 'b.json')):
         monkeypatch.setattr(rs, k, tmp_path / f)
     admin = {'badges': {A: {'custom-og': {'id': 'custom-og', 'label': 'OG'}}, B: {'custom-og': {'id': 'custom-og', 'label': 'OG'}}}, 'audit': []}
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_admin_load', lambda: admin)
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Admin'}); monkeypatch.setattr(rs, '_admin_load', lambda: admin)
     monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
 
     async def fake_rpc(http, method, params):
@@ -110,7 +110,7 @@ def test_pct_mode_rejects_over_100(monkeypatch, tmp_path):
     pytest.importorskip('solders')
     rs = pytest.importorskip('reputation_service')
     monkeypatch.setattr(rs, 'BADGE_POOLS_PATH', tmp_path / 'p.json')
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Admin'})
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_badge_pool_save(None, rs.BadgePoolIn(name='Big', wallet=D, pct=50, weights={'badge:a': 60, 'badge:b': 50})))
 
@@ -133,7 +133,7 @@ def test_badge_edit_updates_every_holder(monkeypatch):
     pytest.importorskip('solders')
     rs = pytest.importorskip('reputation_service')
     d = {'badges': {A: {'custom-og': {'id': 'custom-og', 'label': 'OG', 'icon': '⭐'}}, B: {'custom-og': {'id': 'custom-og', 'label': 'OG', 'icon': '⭐'}}}, 'audit': []}
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_admin_load', lambda: d)
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Admin'}); monkeypatch.setattr(rs, '_admin_load', lambda: d)
     monkeypatch.setattr(rs, '_audit', lambda *a: None); monkeypatch.setattr(rs, '_admin_save', lambda x: None)
     assert asyncio.run(rs.admin_badge_edit(None, 'custom-og', rs.BadgeEdit(label='OG Degen', icon='💎', tone='mint')))['holders'] == 2
     assert d['badges'][B]['custom-og']['label'] == 'OG Degen' and d['badges'][A]['custom-og']['tone'] == 'mint'

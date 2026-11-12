@@ -8498,14 +8498,6 @@ def _internal_ok(request):
         return False
 
 
-def _internal_ok(request):
-    """True only for the real internal key (a bare header used to skip the owner-door limiter, audit #4)."""
-    try:
-        _internal(request); return True
-    except HTTPException:
-        return False
-
-
 def _internal(request):
     import hmac
     try:

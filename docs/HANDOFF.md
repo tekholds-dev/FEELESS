@@ -136,11 +136,12 @@ COL-24 gaps · AGT-1/9/11/23 · SITE-1 Familia phone scroll · SITE-2 Features 7
 one $1 send, one paid PoW + PoP; set `ALLOWED_ORIGINS` before going public.
 
 **🔁 NEXT CLAUDE START HERE (2026-11-12 late, session ran out):** finish in this order, push each through the gate, no new scope.
-1. **Security audit #8** (report: `~/Library/Application Support/Claude/side-session-notes/local_4de149cd-e078-48e9-a7d2-a1e1f99b8672/security-audit-2026-11-12.md`):
-   uploads size check BEFORE base64 decode (`reputation_service.py` `/uploads`), cap `ads/event` / `clicks` / `pv` maps + validate ids before disk,
-   `edge/observe` + `hq/pair` + `perps-real/execute` limits via `_guard.request_ip`; B-list (trading.py `hmac.compare_digest` for the internal key,
-   `/tmp/feeless-update.log` → `backend/data`). Add a unit test for `cat_fund.agent_tx_policy` (attacker transfer refused, own WSOL / pot / top-up ok).
-2. **Done this session, not yet pushed if the gate did not run:** audit #1 (`_INTERNAL_ONLY` actions), #2 (11 money routes `_require_owner`,
+1. ✅ **Security audit #8 DONE 2026-11-12** (`test_audit8_limits.py`): uploads refused on size before regex/decode · ads/event real id only, 60/min/device,
+   no rewrite on a miss · clicks map capped (`CLICKS_MAX` 20k) · pv maps capped (`TR_MAP_MAX` 2k) · edge/observe 120/h · hq/pair 6 per 3 min ·
+   perps-real/execute 30/h — one `_ip_hit` limiter on `_guard.request_ip`. B: trading.py `_internal_ok` (cached key, `compare_digest`, missing key refuses),
+   update log → `backend/data/feeless-update.log`. `agent_tx_policy` unit test (attacker refused; own WSOL / pot / top-up pass).
+   The first push of 6817fc98 went RED (duplicate `_internal_ok` in feecat_service + 13 old tests still signing as a non-owner admin): fixed in the same push.
+2. ✅ **Pushed with #8:** audit #1 (`_INTERNAL_ONLY` actions), #2 (11 money routes `_require_owner`,
    `test_owner_only_money_routes`), #3 (HQ session 12 h, no future ts), #4 (`guard` trusts XFF from a loopback peer, LAN not internal,
    `setupProxy` `xfwd` — needs the 51367 restart), #5 (`_pay_hold` one payment = one use), #6 (httpx quiet, access-log redaction, `umask 077`;
    **rotate the Helius key if any /tmp log was ever shared**), #7 (agent signer policy — all 25 real past sends pass — + overlapping-send fix).

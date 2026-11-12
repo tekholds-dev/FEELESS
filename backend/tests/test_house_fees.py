@@ -5,7 +5,7 @@ import pytest
 
 def test_house_fees_default_save_and_feed_every_reader(monkeypatch):
     import reputation_service as rs
-    monkeypatch.setattr(rs, '_require_admin', lambda req: 'ADMIN')
+    monkeypatch.setattr(rs, '_require_admin', lambda req: 'ADMIN'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'ADMIN'})
     monkeypatch.setattr(rs, '_audit', lambda *a, **k: None)
     sent = []
 

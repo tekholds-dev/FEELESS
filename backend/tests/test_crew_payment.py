@@ -23,6 +23,7 @@ def _patch(monkeypatch, rs, tx, sol_usd=100.0, to=FEE):
         return sol_usd
     monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_rounds_pay_to', pay_to); monkeypatch.setattr(rs, '_sol_usd_live', sol)
     monkeypatch.setattr(rs, '_json_load', lambda *a, **k: {})
+    monkeypatch.setattr(rs, '_PAY_HELD', set())   # each test starts with no payment held (one payment = one use)
 
 
 def _run(rs, sig, min_usd, st=None):
@@ -40,6 +41,7 @@ def test_a_payment_a_few_percent_short_is_ok_but_a_real_shortfall_is_refused_wit
     import reputation_service as rs
     _patch(monkeypatch, rs, _tx(ME, FEE, int(0.2425 * 1e9)))                                   # $24.25 = 97% of $25
     assert _run(rs, SIG, 25.0)['usd'] == 24.25
+    rs._PAY_HELD.discard(SIG)   # the accepted payment stays held (one payment = one use); release it to price the same tx again
     _patch(monkeypatch, rs, _tx(ME, FEE, int(0.2 * 1e9)))                                      # $20
     with pytest.raises(HTTPException) as e:
         _run(rs, SIG, 25.0)

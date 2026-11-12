@@ -102,3 +102,27 @@ def test_model_credit_to_agent_wallet_for_low_minimum_provider():
     assert first['feeLamports'] == 2_000_000
     assert first['catLamports'] == 5_000_000
     assert first['gasLamports'] == cf.GAS_LAMPORTS
+
+
+def _policy_tx(payer, ixs, *more):
+    from solders.hash import Hash
+    from solders.message import MessageV0
+    msg = MessageV0.try_compile(payer.pubkey(), ixs, [], Hash.default())
+    return base64.b64encode(bytes(VersionedTransaction(msg, [payer, *more]))).decode()
+
+
+def test_agent_signer_refuses_a_transfer_to_an_attacker_and_passes_its_own_wsol_the_pot_and_its_top_up():
+    from solders.pubkey import Pubkey
+    from solders.system_program import TransferParams, transfer
+    from solders.token.associated import get_associated_token_address
+    agent, attacker, pot, top = Keypair(), Keypair().pubkey(), Keypair().pubkey(), Keypair().pubkey()
+    me = str(agent.pubkey())
+    send = lambda to: transfer(TransferParams(from_pubkey=agent.pubkey(), to_pubkey=to, lamports=1_000))
+    wsol = get_associated_token_address(agent.pubkey(), Pubkey.from_string(cf.WSOL_MINT))
+    assert cf.agent_tx_policy(_policy_tx(agent, [send(attacker)]), me, sol_to=[str(pot)]) == 'a SOL transfer to someone else'
+    assert cf.agent_tx_policy(_policy_tx(agent, [send(wsol)]), me) is None
+    assert cf.agent_tx_policy(_policy_tx(agent, [send(pot)]), me, sol_to=[str(pot), str(top)]) is None
+    assert cf.agent_tx_policy(_policy_tx(agent, [send(top)]), me, sol_to=[str(pot), str(top)]) is None
+    # someone else paying the fee, or garbage, is refused too
+    assert cf.agent_tx_policy(_policy_tx(Keypair(), [send(pot)], agent), me, sol_to=[str(pot)]) == 'its fee payer is not this agent'
+    assert cf.agent_tx_policy('not-a-tx', me) == 'not a readable Solana transaction'

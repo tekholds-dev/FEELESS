@@ -18,7 +18,7 @@ def rs(monkeypatch):
     async def shield(a): return {'verdict': 'bot' if a == 'BOT' else 'clean'}
     monkeypatch.setattr(rs, '_feecat_raw', none); monkeypatch.setattr(rs, '_feecat_card', none)
     monkeypatch.setattr(rs, '_sol_usd_live', sol); monkeypatch.setattr(rs, '_shield_of', shield)
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN'); monkeypatch.setattr(rs, '_protected_wallets', lambda: {FEE})
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'ADMIN'}); monkeypatch.setattr(rs, '_protected_wallets', lambda: {FEE})
     monkeypatch.setattr(rs, 'notify', lambda *a, **k: None)
     return rs
 

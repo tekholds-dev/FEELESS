@@ -102,7 +102,7 @@ def test_fuse_fees_count_only_card_legs_from_the_ledger():
 
 
 def test_vault_fee_wallet_is_saved_and_bundle_kept(rs, monkeypatch):
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin1')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'Admin1'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'Admin1'})
     store = {'audit': [], 'fees': {'bundle': {'on': True, 'perLegUsd': 0.2, 'maxPct': 5, 'maxLegUsd': 50}}}
     monkeypatch.setattr(rs, '_admin_load', lambda: store); monkeypatch.setattr(rs, '_admin_save', lambda d: None)
     w = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'

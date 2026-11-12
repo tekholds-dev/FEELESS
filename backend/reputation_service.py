@@ -907,22 +907,34 @@ class UploadPayload(BaseModel):
 _upload_ip: dict = {}
 
 
+def _ip_hit(store, request, n, win):
+    """🔒 Audit #8: one tiny per-device limiter (real IP via _guard.request_ip). → False when this device used its n calls in win seconds."""
+    ip, now = _guard.request_ip(request), time.time()
+    hits = [t for t in store.get(ip, []) if now - t < win]
+    if len(hits) >= n:
+        return False
+    store[ip] = hits + [now]
+    if len(store) > 5000:
+        store.clear()
+    return True
+
+
 @app.post('/api/reputation/uploads')
 async def upload_image(payload: UploadPayload, request: Request):
     """Images for profiles, launches and seasons. Everyone: 15 MB (animated GIFs: 40 MB). A signed-in creator/admin
     (HQ session) may upload big GIFs/art up to 25 MB; the creator wallet's GIFs are not size-limited (250 MB memory guard)."""
     import base64
     import re
-    m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl or '')
-    if not m:
+    head = (payload.dataUrl or '')[:40]
+    mt = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,', head)
+    if not mt:
         raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
-    raw = base64.b64decode(m.group(2))
     role = 'user'
     try:
         role = 'owner' if _require_admin(request) in _owner_wallets() else 'admin'
     except HTTPException:
         pass
-    cap = upload_cap(m.group(1), role)
+    cap = upload_cap(mt.group(1), role)
     if role == 'user':
         # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
         ip = _guard.request_ip(request)
@@ -930,6 +942,12 @@ async def upload_image(payload: UploadPayload, request: Request):
         if len(hits) >= 20:
             raise HTTPException(429, 'Upload limit reached — try again in an hour.')
         _upload_ip[ip] = hits + [time.time()]
+    if len(payload.dataUrl) > cap * 4 // 3 + 64:   # 🔒 audit #8: refuse an oversized body BEFORE the regex and the base64 decode
+        raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
+    m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl)
+    if not m:
+        raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
+    raw = base64.b64decode(m.group(2))
     if len(raw) > cap:
         raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
     sig = raw[:12]
@@ -11257,11 +11275,16 @@ async def familia_perps_real_build(request: Request):
             'pnlPct': _jp._f(r_.get('estimatedPnlPercent'))} for r_ in (b_ or {}).get('tpslRequests') or []], **what_}
 
 
+_fjx_hits: dict = {}
+
+
 @app.post('/api/reputation/familia/perps-real/execute')
 async def familia_perps_real_execute(request: Request):
     """📉 The wallet-signed perps transaction → Jupiter's /transaction/execute (its keeper co-signs and lands it). Checked again first."""
     import jup_perps as _jp
     body = await request.json()
+    if not _ip_hit(_fjx_hits, request, 30, 3600):   # 🔒 audit #8: no quota burn on FEELESS's Jupiter key
+        raise HTTPException(429, 'Too many perps sends from here — try again in a while.')
     act_, tx_, me_ = str((body or {}).get('action') or ''), str((body or {}).get('signed') or ''), str((body or {}).get('address') or '')
     if act_ not in ('increase-position', 'decrease-position', 'create-tpsl', 'update-tpsl', 'cancel-tpsl'):
         raise HTTPException(400, 'Open, close or TP / SL only.')
@@ -11528,10 +11551,15 @@ def _hqp_site(port):
     return f"http://{ip}:{int(port)}" if ip else None
 
 
+_hqp_ip: dict = {}
+
+
 @app.post('/api/reputation/hq/pair')
-async def hq_pair_new(port: int = Query(51367, ge=1, le=65535)):
+async def hq_pair_new(request: Request, port: int = Query(51367, ge=1, le=65535)):
     """A fresh one-time code (3 min; at most 20 waiting — hq_pair.MAX_OPEN) + the QR link: Phantom CONNECT answering to this computer's
     page on the Wi-Fi (Phantom's deeplink protocol — no in-app browser)."""
+    if not _ip_hit(_hqp_ip, request, 6, 180):   # 🔒 audit #8: one device can't flood the 20 waiting codes and evict the owner's QR
+        raise HTTPException(429, 'Too many sign-in codes — wait a minute.')
     now = time.time(); code = _hqp.new_code(_hqp_store, now); site = _hqp_site(port)
     return {'code': code, 'ttl': _hqp.TTL, 'lan': _lan_ip(), 'link': _hqp.connect_link(_hqp_store, code, site, now) if site else None}
 
@@ -26285,6 +26313,9 @@ class ClickIn(BaseModel):
     room: str = Field(default='', max_length=140)
 
 
+CLICKS_MAX = 20000
+
+
 @app.post('/api/reputation/clicks')
 async def track_click(request: Request, payload: ClickIn):
     if payload.kind not in ('ticker', 'ca', 'mention', 'command'):
@@ -26300,6 +26331,8 @@ async def track_click(request: Request, payload: ClickIn):
     async with _admin_lock:
         d = _json_load(CLICKS_PATH, {})
         key = f'{payload.kind}:{value}'
+        if key not in d and len(d) >= CLICKS_MAX:   # 🔒 audit #8: the click map never grows past CLICKS_MAX keys
+            return {'ok': False, 'count': 0}
         rec = d.get(key) or [0, 0, 0]  # [total, last-at, 24h-bucket-start]
         rec[0] += 1
         rec[1] = time.time()
@@ -27864,17 +27897,27 @@ class AdIn(BaseModel):
     sponsor: str = Field(default='', max_length=40)
 
 
+_ad_ev_ip: dict = {}
+
+
 @app.post('/api/reputation/ads/{ad_id}/event')
-async def ad_event(ad_id: str, kind: str = Query('view')):
+async def ad_event(ad_id: str, request: Request, kind: str = Query('view')):
     if kind not in ('view', 'click'):
         raise HTTPException(400, 'Bad event.')
+    # 🔒 audit #8: a real ad id only, 60 events/min per device, and the file is rewritten only when an ad was counted
+    if not _re.fullmatch(r'[A-Za-z0-9_-]{1,40}', ad_id) or not any(a.get('id') == ad_id for a in _json_load(ADS_PATH, {'ads': []})['ads']):
+        return {'ok': False}
+    if not _ip_hit(_ad_ev_ip, request, 60, 60):
+        raise HTTPException(429, 'Too many ad events.')
     async with _admin_lock:
         d = _json_load(ADS_PATH, {'ads': []})
+        hit = False
         for a in d['ads']:
             if a['id'] == ad_id:
-                a[kind + 's'] = a.get(kind + 's', 0) + 1
-        _json_save(ADS_PATH, d)
-    return {'ok': True}
+                a[kind + 's'] = a.get(kind + 's', 0) + 1; hit = True
+        if hit:
+            _json_save(ADS_PATH, d)
+    return {'ok': hit}
 
 
 
@@ -29069,9 +29112,14 @@ def _edge_price_ok(sent, live):
     return bool(live) and live / 3 <= sent <= live * 3
 
 
+_edge_ip: dict = {}
+
+
 @app.post('/api/reputation/edge/observe')
-async def edge_observe(o: EdgeObservation):
+async def edge_observe(o: EdgeObservation, request: Request):
     import re
+    if not _ip_hit(_edge_ip, request, 120, 3600):   # 🔒 audit #8: one device can't pin hundreds of coins' predictions
+        raise HTTPException(429, 'Too many observations from here.')
     if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24 or not re.fullmatch(r'[A-Za-z0-9]+', o.pairAddress) or not re.fullmatch(r'[a-z0-9-]+', o.chain):
         raise HTTPException(400, 'bad observation')
     if o.chain == 'solana':   # the live price read covers Solana; other chains keep their score only until they have one
@@ -29708,6 +29756,9 @@ _tr_salt = {'day': '', 'salt': ''}
 _tr_ip = {}
 
 
+TR_MAP_MAX = 2000
+
+
 class PageView(BaseModel):
     path: str
     ref: Optional[str] = ''
@@ -29728,15 +29779,19 @@ async def page_view(request: Request, p: PageView):
     path = _re.sub(r'[^a-zA-Z0-9/_-]', '', p.path.split('?')[0])[:80] or '/'
     page = _re.sub(r'/(profile|coin)/[^/]+', r'/\1/:id', path)
     b = _tr_buf
-    b['views'].setdefault(day, {}); b['views'][day][page] = b['views'][day].get(page, 0) + 1
+    cap_ = lambda m_, k_: k_ in m_ or len(m_) < TR_MAP_MAX   # 🔒 audit #8: request-made keys never grow a map past TR_MAP_MAX
+    b['views'].setdefault(day, {})
+    if cap_(b['views'][day], page):
+        b['views'][day][page] = b['views'][day].get(page, 0) + 1
     b['uniq'].setdefault(day, set()).add(who)
     m = _re.search(r'[?&]pair=([A-Za-z0-9]+)', p.path) or _re.search(r'coin=([a-z]+):([A-Za-z0-9]+)', p.path)
     if m:
-        key = m.group(m.lastindex)
-        b['coins'][key] = b['coins'].get(key, 0) + 1
+        key = m.group(m.lastindex)[:64]
+        if cap_(b['coins'], key):
+            b['coins'][key] = b['coins'].get(key, 0) + 1
     host = (_re.match(r'https?://([^/]+)', p.ref or '') or [None, None])[1]
-    if host and 'localhost' not in host:
-        b['refs'][host] = b['refs'].get(host, 0) + 1
+    if host and 'localhost' not in host and cap_(b['refs'], host[:80]):
+        b['refs'][host[:80]] = b['refs'].get(host[:80], 0) + 1
     h = time.gmtime(now).tm_hour
     b['hours'][h] = b['hours'].get(h, 0) + 1
     return {'ok': True}
@@ -30498,10 +30553,11 @@ async def local_update(request: Request):
         raise HTTPException(403, 'Updates can only be started on the machine running FEELESS.')
     _require_admin(request)   # 🔒 2026-11-11: the dev server proxies every LAN call from 127.0.0.1 (and curl sends no Origin), so localhost alone was not proof
     root = Path(__file__).resolve().parents[1]
-    log = open('/tmp/feeless-update.log', 'w')
+    log_path = DATA_DIR / 'feeless-update.log'   # 🔒 audit B: never a predictable /tmp path (a planted symlink)
+    log = open(log_path, 'w')
     await asyncio.create_subprocess_exec('bash', str(root / 'scripts' / 'update.sh'), cwd=str(root), stdout=log, stderr=log, start_new_session=True)
     _version_cache.clear()
-    return {'ok': True, 'log': '/tmp/feeless-update.log'}
+    return {'ok': True, 'log': str(log_path)}
 
 
 # ---- Setup checklist for the HQ: which keys/URLs are configured (never the values) ----

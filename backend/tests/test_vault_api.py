@@ -17,7 +17,7 @@ def test_vault_design_and_simulation(monkeypatch):
     async def pairs(legs): return {leg['pairAddress']: PAIRS[leg['pairAddress']] for leg in legs if leg['pairAddress'] in PAIRS}
     async def sol(): return 200.0
     monkeypatch.setattr(rs, '_fuse_pairs', pairs); monkeypatch.setattr(rs, '_sol_usd_live', sol)
-    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN')
+    monkeypatch.setattr(rs, '_require_admin', lambda r: 'ADMIN'); monkeypatch.setattr(rs, '_owner_wallets', lambda: {'ADMIN'})
     monkeypatch.setattr(rs, '_fee_cfg', lambda: {**rs.FEE_DEFAULTS, 'vaultFeeWallet': 'FeeWa11et1111111111111111111111111111111111'})
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.admin_vaults_save(Req({'name': 'Too many', 'pools': [{'pairAddress': x} for x in 'ABCD'][:0]})))

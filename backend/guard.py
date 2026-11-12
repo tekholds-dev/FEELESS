@@ -64,7 +64,8 @@ def is_local(request):
 def request_ip(request):
     """client_ip for a Starlette request: X-Forwarded-For only with FEELESS_TRUST_PROXY=1 (a per-IP limit that read the header from
     anyone was dodged with one fake header — uploads, bug reports, clicks, 2026-11-12)."""
-    return client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+    c_ = getattr(request, 'client', None)   # a header-less caller (a test's fake request) = its peer only
+    return client_ip(getattr(request, 'headers', None) or {}, c_.host if c_ else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
 
 
 # 🌐 CORS. ALLOWED_ORIGINS=https://a,https://b locks every API to those sites. Unset = this machine + its LAN only (the dev site, the

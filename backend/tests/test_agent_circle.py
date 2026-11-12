@@ -70,6 +70,10 @@ def test_circle_send_endpoint_signs_only_the_assigned_wallet_and_never_twice(mon
     c = TestClient(rs.app)
     h = {'x-feeless-internal': 'IK'}
     body = {'key': 'feeless-leader-p1', 'tx': 'B64', 'walletId': 'w-1', 'address': 'ADDR1', 'catId': 'leader'}
+    # the signer policy itself is tested on real transactions in test_cat_fund; here: a refusal signs nothing, a pass signs once
+    monkeypatch.setattr(rs._cfund, 'agent_tx_policy', lambda tx, addr, sol_to=(): 'a SOL transfer to someone else')
+    assert c.post('/api/reputation/internal/agent-circle-send', json=body, headers=h).status_code == 403
+    monkeypatch.setattr(rs._cfund, 'agent_tx_policy', lambda tx, addr, sol_to=(): None)
     assert c.post('/api/reputation/internal/agent-circle-send', json=body).status_code == 403             # no internal key
     assert c.post('/api/reputation/internal/agent-circle-send', json={**body, 'address': 'OTHER'}, headers=h).status_code == 403
     assert c.post('/api/reputation/internal/agent-circle-send', json=body, headers=h).json()['signature'] == 'SIGC1'

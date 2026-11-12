@@ -18,6 +18,27 @@ from solders.transaction import VersionedTransaction
 from solders.message import to_bytes_versioned
 from pymongo import ReturnDocument
 
+_IKEY = {}
+
+
+def _internal_key():
+    """The internal key, read once per file version (audit B: no disk read per request)."""
+    p_ = Path(__file__).parent / 'data' / 'internal.key'
+    try:
+        m_ = p_.stat().st_mtime
+    except OSError:
+        return ''
+    if _IKEY.get('m') != m_:
+        _IKEY.update(m=m_, k=p_.read_text().strip())
+    return _IKEY['k']
+
+
+def _internal_ok(request):
+    """🔒 audit B: constant-time compare; a missing key file refuses (never matches an empty header)."""
+    k_ = _internal_key()
+    return bool(k_) and hmac.compare_digest(request.headers.get('x-feeless-internal', ''), k_)
+
+
 from fee_tx import DECIMALS, build_transaction, fee_instructions, lookup_tables, split_fee
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
@@ -675,8 +696,7 @@ class TradingService:
         @router.get('/internal/exact-fill/{signature}')
         async def exact_fill_get(signature: str, request: Request):
             """Internal: the exact on-chain fill of one confirmed FEELESS order (repairs positions saved from a quote)."""
-            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
-            if request.headers.get('x-feeless-internal') != key:
+            if not _internal_ok(request):
                 raise HTTPException(403, 'Internal only.')
             order = await self.db.swap_orders.find_one({'signature': signature, 'state': 'confirmed'}, {'_id': 0})
             return {'fill': await self.exact_fill(order, tries=2) if order else None}
@@ -684,8 +704,7 @@ class TradingService:
         @router.get('/internal/wallet-fills/{wallet}')
         async def wallet_fills(wallet: str, request: Request):
             """Internal: every stored, locked fill of a wallet across all coins (profile trade cards)."""
-            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
-            if request.headers.get('x-feeless-internal') != key:
+            if not _internal_ok(request):
                 raise HTTPException(403, 'Internal only.')
             valid_key(wallet)
             try:
@@ -707,8 +726,7 @@ class TradingService:
         @router.get('/internal/fills/{wallet}')
         async def fills(wallet: str, request: Request):
             """Internal: the wallet's confirmed FEELESS trades as position rows (backfills anything the live hook missed)."""
-            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
-            if request.headers.get('x-feeless-internal') != key:
+            if not _internal_ok(request):
                 raise HTTPException(403, 'Internal only.')
             valid_key(wallet)
             orders = await self.db.swap_orders.find({'wallet': wallet, 'state': 'confirmed'}, {'_id': 0}).sort('created_at', -1).limit(300).to_list(300)
@@ -940,8 +958,7 @@ class TradingService:
         @router.get('/internal/earnings')
         async def earnings(request: Request):
             # Internal only: the HQ reads this through the reputation service (admin-signed).
-            key = (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()
-            if request.headers.get('x-feeless-internal') != key:
+            if not _internal_ok(request):
                 raise HTTPException(403, 'Internal only.')
             since = datetime.fromtimestamp(time.time() - 7 * 86400, timezone.utc).isoformat()
             orders = await self.db.swap_orders.find({'state': 'confirmed', 'created_at': {'$gte': since}},
