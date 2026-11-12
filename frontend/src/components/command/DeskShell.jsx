@@ -279,7 +279,14 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
 const WIN_TILES = [['max', 'Fill the screen'], ['left', 'Left half of the screen'], ['right', 'Right half of the screen']];
+// 🖥 "Back to desk · it keeps working" (owner 2026-11-11): any open proof folder inside a desk window can minimize its window, the work keeps running
+export const DeskWinMin = createContext(null);
+export function BackToDesk() {
+  const min = React.useContext(DeskWinMin); if (!min) return null;
+  return <button type="button" className="m-btn fea-todesk" onClick={min} data-tip="Minimizes this window to the taskbar. The minds keep working: watch the desk's two mind monitors and the chat" data-testid="ws-todesk"><i aria-hidden="true" />Back to desk · it keeps working</button>;
+}
 export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = null, children }) {
+  const toMin = useCallback(() => set(k, { min: true }), [set, k]);
   const drag = useRef(null); const box = useRef(null);
   const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a') || !box.current) return; const r = box.current.getBoundingClientRect(); const d = box.current.querySelector(':scope > .bwr-dock:not(.is-fold)'); const side = d ? d.getBoundingClientRect().width + 8 : 0; const isLeft = d?.classList.contains('is-left'); drag.current = { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width, h: r.height, l: isLeft ? side : 0, r: isLeft ? 0 : side }; e.currentTarget.setPointerCapture?.(e.pointerId); };
   const move = e => { const g = drag.current; if (!g) return; g.px = Math.max(g.l, Math.min(e.clientX - g.x, window.innerWidth - g.w - g.r)); g.py = Math.max(0, Math.min(e.clientY - g.y, window.innerHeight - 46 - g.h)); if (box.current) box.current.style.transform = `translate(${g.px}px, ${g.py}px)`; };   // only this window moves, and only inside the page; nothing re-renders until the drop
@@ -295,7 +302,7 @@ export function DeskWin({ k, title, s, top, set, onTop, onClose, tools, dock = n
           <span className="dsk-tiles" role="group" aria-label={`Arrange ${title}`}>{WIN_TILES.map(([t, tip]) => <button key={t} type="button" className={`is-${t}-tile${now === t ? ' is-on' : ''}`} onClick={() => set(k, t === 'max' ? { max: true } : { tile: t })} aria-label={tip} aria-pressed={now === t} data-tip={tip} data-testid={`dsk-tile-${t}-${k}`}><i aria-hidden="true" /></button>)}</span></span></span>
       <b><Ic3Text text={title} /></b><span className="dsk-tools">{tools}</span></header>
     <i className="dsk-water" aria-hidden="true"><Ic3 e={leadOf(title)} size="100%" /></i>
-    <div className="dsk-body">{children}</div>{dock}</section>;
+    <div className="dsk-body"><DeskWinMin.Provider value={toMin}>{children}</DeskWinMin.Provider></div>{dock}</section>;
 }
 
 // 📈 What an agent's filed proofs did. Each proof kind keeps its own unit and is never added to another: real SOL, paper %, free chips.

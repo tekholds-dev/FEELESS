@@ -165,6 +165,10 @@ test('a folder opens with its own proof only, can file its answer, and any proof
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = t => el.querySelector(`[data-testid="${t}"]`);
   await act(async () => { root.render(<ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} setD={() => {}} />); });
   await act(async () => { q('ws-w1').click(); });
+  expect(q('ws-side-make').getAttribute('aria-selected')).toBe('true'); expect(q('ws-creator')).not.toBeNull(); expect(q('poc-pa')).toBeNull();   // Make | Its PoCs | Research, Make first
+  expect(q('ws-side-pocs').textContent).toBe('Its PoCs 1'); expect(q('ws-todesk')).toBeNull();   // no desk window around it = no Back to desk
+  await act(async () => { q('ws-side-research').click(); }); expect(q('ws-url')).not.toBeNull(); expect(q('ws-creator')).toBeNull();
+  await act(async () => { q('ws-side-pocs').click(); });
   expect(q('poc-pa')).not.toBeNull(); expect(q('poc-pb')).toBeNull(); expect(q('poc-mark-pa')).not.toBeNull(); expect(q('poc-mark-pb')).toBeNull();
   await act(async () => { q('poc-file-answer').click(); }); expect(work).toHaveBeenCalledWith('c', expect.objectContaining({ op: 'poc_answer', job: 'w1' }));
   expect(q('proof-usd-5')).toBeNull(); await act(async () => { q('proof-open').click(); });   // one small button until asked
@@ -572,4 +576,14 @@ test('🎬 the ad lab keeps every attempt: the faults that repeat, each try with
   expect(el.textContent).toContain('$0.23'); expect(q('ad-try-w1').textContent).toContain('hy4 + glm-5.3-flash'); expect(q('ad-play-w1')).toBeNull();
   await act(async () => { q('ad-lab-pos').click(); }); expect(q('ad-try-w2')).toBeNull(); expect(q('ad-try-w3')).not.toBeNull();
   await act(async () => { q('ad-play-w3').click(); }); expect(el.querySelector('video.adl-vid').getAttribute('src')).toContain('ws=w3');
+});
+
+test('Back to desk minimizes the desk window the open proof sits in', async () => {
+  const { DeskWinMin } = require('./DeskShell'); const min = jest.fn();
+  const work = jest.fn(async (_, b) => (b.op === 'ws_open' ? { doc: { id: 'w1', messages: [] } } : { workspaces: [{ id: 'w1', kind: 'content', name: 'Mine' }], pocFolders: [] }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = t => el.querySelector(`[data-testid="${t}"]`);
+  await act(async () => { root.render(<DeskWinMin.Provider value={min}><ProofDesk cat={{ id: 'c' }} kind="content" work={work} d={{}} setD={() => {}} /></DeskWinMin.Provider>); });
+  expect(q('ws-todesk')).toBeNull(); await act(async () => { q('ws-w1').click(); });
+  await act(async () => { q('ws-todesk').click(); }); expect(min).toHaveBeenCalledTimes(1); expect(q('ws-content')).not.toBeNull();   // the folder stays open behind the taskbar
+  await act(async () => { root.unmount(); }); el.remove();
 });
