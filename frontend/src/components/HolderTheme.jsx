@@ -35,12 +35,16 @@ let lateObs = null;
 function rebuild(id) {
   const o = OVERRIDES[id]; let el = document.getElementById(id);
   if (!o) { el?.remove(); return; }
-  const out = [];
+  // ⚡ only sheets it has not read yet (2026-11-11 lag): every new sheet used to re-walk EVERY rule on the page with a regex each,
+  // once per lazy sheet as the desk opened. Sheets already read keep their copied rules in o.parts.
+  const out = o.parts || (o.parts = []); const seen = o.seen || (o.seen = new WeakSet());
   const walk = rules => { for (const rule of rules) {
     if (rule.cssRules && rule.media) { const before = out.length; walk(rule.cssRules); const added = out.splice(before); if (added.length) out.push(`@media ${rule.media.mediaText}{${added.join('')}}`); continue; }
     if (rule.selectorText) { const t = o.transform(rule.cssText); if (t !== rule.cssText) out.push(t); }
   } };
-  for (const sheet of document.styleSheets) { if (OVERRIDES[sheet.ownerNode?.id] || sheet.ownerNode?.id?.startsWith('feeless-')) continue; try { walk(sheet.cssRules); } catch { /* cross-origin sheet */ } }
+  const before = out.length;
+  for (const sheet of document.styleSheets) { const node = sheet.ownerNode; if (OVERRIDES[node?.id] || node?.id?.startsWith('feeless-') || seen.has(sheet)) continue; try { walk(sheet.cssRules); seen.add(sheet); } catch { /* cross-origin sheet */ } }
+  if (el && out.length === before && el === document.head.lastElementChild) return;   // nothing new and still last: no rewrite
   if (!el) { el = document.createElement('style'); el.id = id; }
   el.textContent = out.join('\n');
   document.head.appendChild(el);   // last in <head> = wins at equal specificity

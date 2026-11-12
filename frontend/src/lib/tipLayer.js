@@ -13,7 +13,8 @@ function place(el) {
 
 function show(el) {
   if (!bubble) { bubble = document.createElement('div'); bubble.className = 'tip-layer'; bubble.setAttribute('role', 'tooltip'); document.body.appendChild(bubble); }
-  current = el; bubble.textContent = el.getAttribute('data-tip'); bubble.classList.add('on'); place(el);
+  current = el; bubble.textContent = el.getAttribute('data-tip'); bubble.classList.add('on');
+  requestAnimationFrame(() => { if (current === el) place(el); });   // ⚡ measured next frame: placing it inside mouseover forced a 248 ms layout right after the desk opened (2026-11-11)
 }
 function hide(el) { if (bubble && (!el || el === current)) { bubble.classList.remove('on'); current = null; } }
 

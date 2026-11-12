@@ -15,3 +15,16 @@ test('the whole brand family follows the theme (one gradient, one colour) and pr
   expect(r).toBeGreaterThan(g); expect(r).toBeGreaterThan(b);   // the first stop is now a red of its own lightness, not green
   expect(out).toMatch(/border-color:rgba\(\d+, \d+, \d+, 0\.4\)/);
 });
+
+test('⚡ a sheet that loads later is added to the override without re-reading the ones already read (desk-open lag, 2026-11-11)', async () => {
+  const { recolorSite } = require('./HolderTheme');
+  document.head.innerHTML = '<style id="a">.one { color: #9b6bff; }</style>';
+  recolorSite('#ff0000');
+  const ov = () => [...document.head.querySelectorAll('style')].pop();
+  expect(ov().textContent).toContain('.one');
+  const late = document.createElement('style'); late.id = 'b'; late.textContent = '.two { color: #9b6bff; }'; document.head.appendChild(late);
+  await new Promise(r => setTimeout(r, 400));   // the observer's 150 ms debounce
+  const t = ov().textContent; expect(t).toContain('.one'); expect(t).toContain('.two'); expect(t.match(/\.one/g)).toHaveLength(1);   // read once, kept
+  expect(ov()).toBe(document.head.lastElementChild);
+  recolorSite('#9b6bff');
+});
