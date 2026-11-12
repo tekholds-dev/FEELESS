@@ -1,12 +1,18 @@
-# 🚨 NEXT SESSION START HERE — NO STOPPING UNTIL ALL WORK IS DONE (owner 2026-11-12)
-Owner order: do NOT stop, do NOT ask "go?" between steps — finish every item below in order, test each, push each to main, then keep going.
-**LOOK PICK = Pit + Desk + Obsidian, colour Feeless Green (#19e68c, light #08995a).** Reference: artifact https://claude.ai/artifact/7E63NP1BQ7jj4u7BaJZU2K (v7, read it with the Artifact tool).
-1. Roll out sitewide as LookPicker options: Obsidian (default), Desk (menu bar + window + rank/quests/board widgets + lucide dock), Pit (room chat beside TrenchChart + TradeTape + leaderboard). Green replaces PLASMA as default; update CLAUDE.md palette rule (green ban lifted) + memory look-is-plasma / look-pick-pending.
-2. Keep old looks (Plasma etc.) as ONE row in LookPicker.
-3. Every button: press ring → confirm (money = 2 taps, 3.5s) → busy spinner → ✓ only on real server OK / shake + server reason toast. Check each endpoint accepts it; remove buttons that can't work.
-4. Quests/rank/leaderboard only from REAL data (no fake numbers); if no backend exists, build it or don't show it.
-5. Then PoEco elite rebuild (Sankey money flow, real card, real data only), then Pro look on EcoDesk, Model Lab tabs, HQ folders, terminal.
-Gate before each push (CLAUDE.md). Screenshot every surface (desktop, 360px, day, fx-lite). Libraries from the kit stash, never scratch.
+# 🚨 LOOK ROLLOUT — status 2026-11-12 (Opus 5.5). Owner order stands: keep going, test, push each.
+**LOOK PICK = Pit + Desk + Obsidian in Feeless Green (#19e68c, day #08995a).** Local copy of the lab: no longer needed (rolled out).
+DONE, on main, gates green:
+1. ✅ Looks: `lib/looks.js` FEELESS_LOOKS + `backend/looks.py` tier `feeless`; Obsidian = DEFAULT (no saved look ⇒ Obsidian green). `<html data-layout>`:
+   **Desk** (`components/DeskLayout.jsx`: menu bar + clock + window bar, Rank/Quests/Board widgets from `/quests/{you}` + `/league` only, lucide dock; phone hides the dock)
+   · **Pit** (Trade shows the room chat + alpha tape rail beside the swap). Old amber Obsidian = `amber`. CLAUDE.md palette rule + memory updated.
+2. ✅ Old looks = ONE Classic row (scrolls) in LookPicker.
+3. 🟡 Buttons: `components/ActBtn.jsx` (press ring → money 2 taps/3.5 s → spinner → ✓ only on server OK / shake + the server's `detail`).
+   On: agent Withdraw (was window.confirm), Look save, colour save. `backend/tests/test_frontend_routes_exist.py`: every /api path the site calls has a route (0 missing).
+   NEXT: move the other server-write buttons onto ActBtn surface by surface (Fuse actions, Kalshi Approve, HQ saves).
+4. ✅ Quests/rank: grep found no fake rank/XP/board numbers; Desk widgets are server-only with honest empty states.
+5. 🟡 PoEco: Live books got a Recharts **Sankey money flow** (`flowOf` in EcoLive.jsx: fees in + your pocket → FeeBack / each model / kept, balanced, null if no money).
+   Not seen signed in (owner-only route). Pro look sitewide under the elite edition (`styles/looks.css` end): no m-live aurora/sweep, no gradient
+   headline, no mouse glow/flakes, solid accent primary buttons (day #08995a). NEXT: EcoDesk, Model Lab tabs, HQ folders surface by surface.
+NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, agent withdraw 2-tap live, PoEco Sankey with his books).
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 

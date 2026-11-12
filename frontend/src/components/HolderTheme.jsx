@@ -4,6 +4,7 @@ import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';
 import { DEFAULT_LOOK, applyLook, localLook } from '../lib/looks';
+import { ActBtn, serverJson } from './ActBtn';
 
 // $1k+ FEELESS holders recolor the logo and the whole site (for themselves). The server re-checks
 // holdings and the wallet session on every save; the browser only ever applies what it returns.
@@ -105,13 +106,10 @@ export function HolderThemePicker() {
     if (!wallet?.address) { setInfo(null); return; }
     fetch(apiUrl(`/api/reputation/theme/${wallet.address}`)).then(r => r.json()).then(d => { setInfo(d); if (d.theme?.accent) setAccent(d.theme.accent); }).catch(() => {});
   }, [wallet?.address]);
-  const save = async () => {
-    try {
-      const session = await getChatSession(wallet.address, signMessage);
-      const r = await fetch(apiUrl('/api/reputation/theme'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, accent }) });
-      const d = await r.json(); if (!r.ok) throw new Error(d.detail);
-      applyTheme(d.theme); toast.success('Your FEELESS colors are live.');
-    } catch (e) { toast.error(e.message); }
+  const save = async () => {   // 🔘 ActBtn: ✓ only on the server's OK, its reason otherwise
+    const session = await getChatSession(wallet.address, signMessage);
+    const d = await serverJson(await fetch(apiUrl('/api/reputation/theme'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: wallet.address, session, accent }) }));
+    applyTheme(d.theme); toast.success('Your FEELESS colors are live.');
   };
   return <section className="m-card m-stack holder-theme-card" data-testid="holder-theme">
     <div className="m-row cs-bar"><span className="m-label">YOUR FEELESS COLORS <em>{info?.staff ? 'FEELESS HQ · always unlocked' : 'holder perk'}</em></span>{info?.eligible && <span className="m-chip ok">✓ unlocked</span>}</div>
@@ -120,7 +118,7 @@ export function HolderThemePicker() {
       {!info.staff && <div className="m-bars ht-bar"><i style={{ transform: `scaleX(${Math.min(1, info.holdingUsd / info.minUsd)})` }} /></div>}
       {!info.staff && <small className="m-dim">You hold ${Number(info.holdingUsd).toLocaleString()} {info.eligible ? '— unlocked ✓' : `— $${(info.minUsd - info.holdingUsd).toLocaleString(undefined, { maximumFractionDigits: 0 })} to go`}</small>}
       <div className="ht-swatches">{PRESETS.map(([n, c]) => <button key={c} type="button" title={n} className={accent === c ? 'on' : ''} style={{ background: c }} onClick={() => { setAccent(c); if (info.eligible) applyTheme({ accent: c }); }} />)}<input type="color" value={accent} onChange={e => { setAccent(e.target.value); if (info.eligible) applyTheme({ accent: e.target.value }); }} aria-label="Custom color" /></div>
-      <button type="button" className="m-btn primary" disabled={!info.eligible} onClick={save}>{info.eligible ? 'Save my colors' : 'Locked — hold more $FEE'}</button>
+      <ActBtn className="m-btn primary" disabled={!info.eligible} run={save} done="Saved" data-tip="Keeps these colours on your wallet">{info.eligible ? 'Save my colors' : 'Locked — hold more $FEE'}</ActBtn>
     </>}
   </section>;
 }

@@ -5,6 +5,7 @@ import { depositQuote } from '../../lib/depositQuote';
 import { getChatSession, agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
 import { apiUrl } from '../../lib/api';
+import { ActBtn, serverJson } from '../ActBtn';
 import '../../styles/catReal.css';
 import { Ic3 } from '../../lib/icon3d';
 
@@ -124,19 +125,18 @@ export function FundPick({ cat }) {
 
 // ↩ REAL WITHDRAW (owner 2026-10-30): back to the wallet that owns this agent, never anywhere else (the server takes no destination)
 export function WithdrawCat({ cat, addr, session, bal }) {
-  const [token, setToken] = useState('SOL'); const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [done, setDone] = useState(null);
+  const [token, setToken] = useState('SOL'); const [amt, setAmt] = useState(''); const [done, setDone] = useState(null);
   const to = cat?.agentWallet?.owner || ''; const have = token === 'USDC' ? bal?.usdc : bal?.sol;
-  const go = async () => { const what = Number(amt) > 0 ? `${amt} ${token}` : `all its ${token}`;
-    if (!window.confirm(`Send ${what} to your wallet ${to.slice(0, 4)}…${to.slice(-4)}?`)) return; setErr(''); setDone(null); setBusy(true);
-    try { const s0 = await session(); const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/withdraw`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: s0, token, amount: Number(amt) || 0 }) });
-      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setDone(j); setAmt(''); }
-    catch (e) { setErr(e.message); } setBusy(false); };
+  const what = Number(amt) > 0 ? `${amt} ${token}` : `all its ${token}`;
+  const go = async () => { setDone(null);   // 🔘 money = 2 taps (ActBtn), ✓ only on the server's OK, its reason on a no
+    const s0 = await session(); const j = await serverJson(await fetch(apiUrl(`/api/reputation/cats/${cat.id}/withdraw`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: s0, token, amount: Number(amt) || 0 }) }));
+    setDone(j); setAmt(''); return j; };
   return <div className="cr-fund-pick cr-out" data-testid="cr-out"><em>↩ WITHDRAW TO YOUR WALLET · {to ? `${to.slice(0, 4)}…${to.slice(-4)}` : '—'}</em>
     <div className="m-seg" role="radiogroup" aria-label="Withdraw which">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={token === t} className={token === t ? 'active' : ''} onClick={() => setToken(t)} data-tip={`Withdraw ${t}`} data-testid={`cr-out-${t}`}>{t}</button>)}</div>
     <label className="cr-fund-in"><input className="m-input" type="number" min="0" step="any" value={amt} onChange={e => setAmt(e.target.value)} placeholder={have != null ? `all: ${have}` : 'all of it'} aria-label="Amount to withdraw" data-testid="cr-out-amt" />{token}</label>
-    <button type="button" className="m-btn m-go" disabled={busy || !addr} onClick={go} data-testid="cr-out-go" data-tip="Goes only to the wallet that owns this agent">{busy ? 'Sending…' : Number(amt) > 0 ? `↩ Withdraw ${amt} ${token}` : `↩ Withdraw all ${token}`}</button>
+    <ActBtn money run={go} confirm={`Tap again: ${what} → ${to.slice(0, 4)}…${to.slice(-4)}`} done="Sent" className="m-btn m-go" disabled={!addr} data-testid="cr-out-go" data-tip="Goes only to the wallet that owns this agent. Two taps.">{Number(amt) > 0 ? `↩ Withdraw ${amt} ${token}` : `↩ Withdraw all ${token}`}</ActBtn>
     {done ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${done.signature}`} target="_blank" rel="noreferrer" data-testid="cr-out-done">✓ {done.amount} {done.token} sent · {done.signature.slice(0, 8)}… ↗</a> : null}
-    {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div>;
+</div>;
 }
 
 // 🔑 RECOVERY PIN (cat_recovery.py): the way back if this browser is lost. Made here, shown once, only its hash is kept; it never moves money. An older server (404) shows nothing.

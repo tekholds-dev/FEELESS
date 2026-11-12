@@ -34,8 +34,8 @@ body.theme-day .eco-filed h4 b { background: #8a6a1422; color: #5c4710; }
 .ecl-kpi small { color: var(--p-mute); font: 500 10px var(--f-mono); letter-spacing: .12em; } .ecl-kpi b { color: var(--p-text); font: 600 22px var(--f-mono); letter-spacing: -.03em; }
 .ecl-kpi em { overflow: hidden; color: var(--p-mute); font: 500 11px var(--f-ui); font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .ecl-kpi.is-in b { color: var(--p-up); } .ecl-kpi.is-out b { color: var(--p-dn); } .ecl-kpi.is-warn b { color: var(--p-text); }
-.ecl-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
-.ecl-chart, .ecl-where { min-width: 0; padding: 10px 8px 6px; border: 1px solid var(--p-line); border-radius: 10px; background: var(--p-sub); } .ecl-chart > .m-label, .ecl-where > .m-label { display: block; padding: 0 6px 6px; color: var(--p-mute); }
+.ecl-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; } .ecl-flow { margin-bottom: 10px; }
+.ecl-chart, .ecl-where, .ecl-flow { min-width: 0; padding: 10px 8px 6px; border: 1px solid var(--p-line); border-radius: 10px; background: var(--p-sub); } .ecl-chart > .m-label, .ecl-where > .m-label, .ecl-flow > .m-label { display: block; padding: 0 6px 6px; color: var(--p-mute); }
 .ecl-where ul { display: grid; gap: 7px; margin: 0; padding: 0 6px; list-style: none; }
 .ecl-where li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(40px, 1fr) auto; align-items: center; gap: 10px; animation: eclIn .3s calc(var(--i, 0) * 45ms) both; }
 .ecl-where li span { overflow: hidden; color: var(--p-text); font: 500 12px var(--f-ui); text-overflow: ellipsis; white-space: nowrap; } .ecl-where li b { color: var(--p-mute); font: 500 11px var(--f-mono); }

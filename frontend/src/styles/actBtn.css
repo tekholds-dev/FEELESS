@@ -1,0 +1,16 @@
+/* 🔘 ActBtn: the honest button states. Press ring (::after scale), armed pulse, busy spinner, ✓ done, shake on a server no. transform/opacity only. */
+.act { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.act::after { content: ''; position: absolute; inset: -3px; border-radius: inherit; border: 2px solid var(--m-accent); opacity: 0; transform: scale(.94); transition: opacity .18s, transform .18s; pointer-events: none; }
+.act:active::after { opacity: .7; transform: scale(1); }
+.act-armed { background: var(--gold, #f5c542) !important; color: #111 !important; border-color: transparent !important; }
+.act-armed::after { border-color: var(--gold, #f5c542); animation: actArm 1.1s ease-in-out infinite; }
+.act-busy { cursor: progress; opacity: .85; } .act-spin { animation: actSpin .8s linear infinite; }
+.act-ok { background: var(--m-accent) !important; color: var(--m-accent-ink) !important; border-color: transparent !important; }
+.act-fail { animation: actShake .45s ease; border-color: #ff5c7a !important; }
+@keyframes actArm { 0%, 100% { opacity: .2; transform: scale(1); } 50% { opacity: .8; transform: scale(1.06); } }
+@keyframes actSpin { to { transform: rotate(360deg); } }
+@keyframes actShake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+body.fx-lite .act-armed::after { animation: none; opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .act-armed::after, .act-fail { animation: none; } .act-spin { animation-duration: 2s; } .act::after { transition: none; } }
+body.theme-day .act-ok { background: #08995a !important; color: #fff !important; }
+@media (max-width: 640px) { .act { min-height: 36px; } }
