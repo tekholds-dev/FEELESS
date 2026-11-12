@@ -8,3 +8,5 @@ base58>=2.1
 eth-account
 playwright>=1.64  # cat_browser LivePage (Steel/Browserless CDP) — without it every agent window falls back to the text reader
 pillow>=12
+numpy>=2.4   # model_forge: the owner's own model trains on this Mac (Model Lab › Build)
+tokenizers>=0.23   # model_forge: the BPE tokenizer option

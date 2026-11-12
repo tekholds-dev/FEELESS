@@ -83,6 +83,14 @@ code_reload() {
   if ! echo "$files" | grep '\.py$' | tr '\n' '\0' | xargs -0 "$root/backend/.venv/bin/python" -m py_compile 2>/dev/null; then
     [[ "$code_said" == "$newest" ]] || echo "$(date '+%F %T') code reload waits: a changed file does not compile"; code_said="$newest"; return 0
   fi
+  # 🧯 2026-11-12: compiling is not starting — a missing package (numpy) took 5077 down for 8 min. Each service must import in its own
+  # Python first (what the gate checks), or the running copy stays up.
+  local bad=""
+  for m in reputation_service feecat_service candles_service; do (cd "$root/backend" && .venv/bin/python -c "import $m" >/dev/null 2>&1) || bad="$bad $m"; done
+  (cd "$root/backend" && "$root/.venv/bin/python" -c "import server" >/dev/null 2>&1) || bad="$bad server"
+  if [[ -n "$bad" ]]; then
+    [[ "$code_said" == "imp$newest" ]] || echo "$(date '+%F %T') code reload waits: does not start:$bad (the running copy stays up)"; code_said="imp$newest"; return 0
+  fi
   busy=$(curl -s -m 8 http://127.0.0.1:5088/api/cats/health | python3 -c 'import json,sys; print(json.load(sys.stdin).get("busy",0))' 2>/dev/null)
   if [[ "$busy" != "0" ]]; then
     [[ "$code_said" == "busy$newest" ]] || echo "$(date '+%F %T') code reload waits: ${busy:-?} build(s) running"; code_said="busy$newest"; return 0
