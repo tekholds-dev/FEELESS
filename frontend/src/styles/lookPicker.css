@@ -18,6 +18,9 @@
 .lkp-lock { background: #000a; color: #fff; } .lkp-on { background: var(--c1); color: var(--c4); }
 .lkp-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 4px 0 0; font: 800 10px var(--f-mono); letter-spacing: .16em; color: var(--m-accent); } .lkp-h small { color: var(--m-dim); letter-spacing: 0; font: 600 11px var(--f-ui); }
 .lkp.is-compact .lkp-card { min-height: 112px; }
+.lkp-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 160px); gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.lkp-row::-webkit-scrollbar { height: 6px; } .lkp-row::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.lkp-row .lkp-card { min-height: 112px; scroll-snap-align: start; }
 @keyframes lkpIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes lkpA { to { transform: translate(18%, 22%) scale(1.15); } } @keyframes lkpB { to { transform: translate(-16%, 14%) scale(1.1); } }
 @keyframes lkpC { 0% { transform: translateX(-60%); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateX(180%); opacity: 0; } }

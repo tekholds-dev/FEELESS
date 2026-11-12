@@ -1,14 +1,23 @@
 """🎨 LOOKS (owner 2026-11-11: "add more advanced palettes … users can't copy from our files but have access to build the best"). Pure.
 
-A look re-skins the whole site: surfaces, lines, text, the brand family (accent, its bright and deep shades, the gradient tail, a tint, a dark)
-and a third light for the ambient layer. PLASMA is the default. The four FREE looks ship in the site bundle (anyone may wear them, signed in
+A look re-skins the whole site (owner 2026-11-12: Obsidian in Feeless Green is the default; every older look is one Classic row): surfaces, lines, text, the brand family (accent, its bright and deep shades, the gradient tail, a tint, a dark)
+and a third light for the ambient layer. The four FREE looks ship in the site bundle (anyone may wear them, signed in
 or not). The ADVANCED looks' colour sets are sent only to wallets that unlocked them (FEELESS staff, or $1,000+ held across $FEE coins), so
 they are not in the public bundle to lift. Everyone sees their name, line and four swatches."""
 
-FREE, HOLDER, ELITE = 'free', 'holder', 'elite'   # ELITE (owner 2026-11-11: "grown man options, no kiddy cartoon") is open to everyone
+FEELESS, FREE, HOLDER, ELITE = 'feeless', 'free', 'holder', 'elite'   # FEELESS = the owner's pick (2026-11-12): Obsidian · Desk · Pit in Feeless Green, the main row; ELITE (owner 2026-11-11: "grown man options, no kiddy cartoon") is open to everyone
 
 # id: (name, tier, line, ambient, tokens). logoHue = the CSS hue-rotate (measured by eye, 2026-11-11) that turns the green logo art into the look's accent
+_GREEN = {'accent': '#19e68c', 'hi': '#4df0a8', 'deep': '#0fbf72', 'tail': '#2ad4c8', 'tint': '#a6f5d0', 'dark': '#08995a', 'ink': '#04140c', 'third': '#4aa3ff', 'logoHue': 8, 'edition': 'elite'}
 LOOKS = {
+    # 🟢 THE PICK (owner 2026-11-12, look lab v2): one green, three layouts. layout = <html data-layout> (styles/looks.css): obsidian = the trade is the page,
+    # desk = menu bar + clock + window chrome + your rank / quests widgets + a dock, pit = the coin's room chat beside the chart on Trade.
+    'obsidian': ('Obsidian', FEELESS, 'Near-black, hairlines, one giant number. Calm and expensive; the trade is the whole page.', 'obsidian',
+                 {'bg': '#09090b', 's1': '#111114', 's2': '#18181c', 'line': '#1f1f23', 'lineHi': '#3a3a41', 'text': '#eeeef1', 'dim': '#86868f', **_GREEN, 'layout': 'obsidian'}),
+    'desk': ('Desk', FEELESS, 'Your HQ as the app: a menu bar with a live clock, the trade window, your rank and quests as widgets, a dock for every part of the site.', 'desk',
+             {'bg': '#07080c', 's1': '#12141b', 's2': '#191c25', 'line': '#1e2129', 'lineHi': '#3a3e4b', 'text': '#eceef4', 'dim': '#868b99', **_GREEN, 'layout': 'desk'}),
+    'pit': ('Pit', FEELESS, "The trading floor: the coin's room chat runs beside the candles, with the room's live trades. Your crew is here.", 'pit',
+            {'bg': '#08090b', 's1': '#101215', 's2': '#171a1e', 'line': '#1e2125', 'lineHi': '#3a3e45', 'text': '#ecedef', 'dim': '#858a92', **_GREEN, 'layout': 'pit'}),
     'plasma': ('Plasma', FREE, 'Violet to hot pink plasma on deep space. Liquid gradients, glowing glass.', 'plasma',
                {'bg': '#08051a', 's1': '#120b2c', 's2': '#1a1140', 'line': '#2a1f55', 'lineHi': '#4b3596', 'text': '#f2eeff', 'dim': '#aaa1c9',
                 'accent': '#9b6bff', 'hi': '#b48cff', 'deep': '#7c4dff', 'tail': '#ff6fbf', 'tint': '#c9a8ff', 'dark': '#5b33c9', 'ink': '#12081f', 'third': '#3ee7ff', 'logoHue': 145}),
@@ -33,7 +42,7 @@ LOOKS = {
     'ghost': ('Ghost', HOLDER, 'Monochrome glass: white light on graphite, nothing but form and motion.', 'ghost',
               {'bg': '#0a0a0c', 's1': '#141418', 's2': '#1c1c22', 'line': '#2c2c34', 'lineHi': '#5c5c6a', 'text': '#fafafa', 'dim': '#a6a6b0',
                'accent': '#f5f5f7', 'hi': '#ffffff', 'deep': '#d0d0d8', 'tail': '#9a9aa8', 'tint': '#e8e8ee', 'dark': '#77777f', 'ink': '#0a0a0c', 'third': '#ffffff', 'logoHue': 0, 'logoSat': 0}),
-    'obsidian': ('Obsidian', ELITE, 'Terminal black, amber signal. The trading-desk look: dense, calm, every number first.', 'obsidian',
+    'amber': ('Amber', ELITE, 'Terminal black, amber signal. The trading-desk look: dense, calm, every number first.', 'amber',
                {'bg': '#0a0a0a', 's1': '#121212', 's2': '#1a1a1a', 'line': '#262626', 'lineHi': '#4a4a4a', 'text': '#ededed', 'dim': '#8f8f8f', 'accent': '#ffb000', 'hi': '#ffc640', 'deep': '#e09a00', 'tail': '#ff8a00', 'tint': '#ffd98a', 'dark': '#a87300', 'ink': '#0a0a0a', 'third': '#4aa3ff', 'logoHue': -95, 'edition': 'elite'}),
     'carbon': ('Carbon', ELITE, 'Graphite and one indigo line. Quiet surfaces, sharp type, nothing that moves without a reason.', 'carbon',
                {'bg': '#0b0c0e', 's1': '#111216', 's2': '#17181d', 'line': '#23252b', 'lineHi': '#3d404a', 'text': '#f7f8f8', 'dim': '#8a8f98', 'accent': '#5e6ad2', 'hi': '#7c86e8', 'deep': '#4a55c0', 'tail': '#8b93ff', 'tint': '#b4baf5', 'dark': '#3a438f', 'ink': '#ffffff', 'third': '#26b5ce', 'logoHue': 75, 'edition': 'elite'}),
@@ -42,13 +51,13 @@ LOOKS = {
     'ledger': ('Ledger', ELITE, 'Private-bank navy and champagne gold. Old money on a new rail.', 'ledger',
                {'bg': '#0b0f15', 's1': '#111823', 's2': '#18212f', 'line': '#243042', 'lineHi': '#3d4f6b', 'text': '#ebeef3', 'dim': '#8d98a9', 'accent': '#c9a86a', 'hi': '#dcc08a', 'deep': '#b08f52', 'tail': '#e3cf9f', 'tint': '#efe2c2', 'dark': '#8a6f3d', 'ink': '#0b0f15', 'third': '#7fa7d9', 'logoHue': -110, 'logoSat': 0.55, 'edition': 'elite'}),
 }
-DEFAULT = 'plasma'
+DEFAULT = 'obsidian'
 
 
 def allowed(look_id, eligible):
     """May this wallet wear it? Free looks: anyone. Advanced: only an unlocked wallet."""
     row = LOOKS.get(look_id)
-    return bool(row) and (row[1] in (FREE, ELITE) or bool(eligible))
+    return bool(row) and (row[1] in (FEELESS, FREE, ELITE) or bool(eligible))
 
 
 def catalog(eligible):

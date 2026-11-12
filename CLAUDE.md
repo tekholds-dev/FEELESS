@@ -13,7 +13,7 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 2. **Every surface is ALIVE**: at least one ambient layer (light sweep, drifting glow, particles, traffic, weather), real-number
    animation (values tick / flash / count up on change, bars fill), and an entrance (stagger via `--i`). transform/opacity only;
    pause off-screen (`lib/fxPause.js`), still under `body.fx-lite` + `prefers-reduced-motion`.
-3. **Degen meta, unique per page**: its own palette + backdrop + type (PLASMA violet → pink is home / trade; Familia = noir gold + city night;
+3. **Degen meta, unique per page**: its own palette + backdrop + type (Obsidian green is home / trade; Familia = noir gold + city night;
    FeeCat = violet night; Launch = the official logo green on near-black — owner 2026-10-22, amber dusk read as mud). Glass panels with an inner highlight, neon edges, glow on the hot number, segmented
    controls, no flat boxes-in-boxes, no bare paragraph walls — meters, rings, bars and charts instead of text.
 4. **A twist, never a copy**: when the owner names a reference ("dev/null", "Pump", "X"), take the IDEA and make a FEELESS version
@@ -51,7 +51,7 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
   (e.g. `styles/fuseLab.css`), still built from m-* tokens.
 - "Meta UI" = everything below, on EVERY feature end to end (backend data → frontend surface): m-* presets, live
   numbers, hover/active/focus, animated popovers, day theme, 360px. A backend-only feature isn't done until its UI is meta.
-- Palette = **PLASMA** (owner 2026-11-11, picked from 4 live looks; the old green `#15d16a` / `#45e486` is BANNED): deep-space surfaces `#08051a` / `#120b2c` / `#1a1140`, violet `#9b6bff` accent (bright `#b48cff`), hot pink `#ff3fa4`, cyan `#3ee7ff`, glass cards with gradient edges, price up `#3cf0c5`, down `#ff5c7a`, `var(--gold)` warn. Each proof type keeps its own light. Colours come from the meta.css tokens, never a new hand-written hex.
+- Palette = **FEELESS GREEN on OBSIDIAN** (owner 2026-11-12 pick from look lab v2: Obsidian default, Desk and Pit layouts, all `#19e68c`, day `#08995a`; green ban LIFTED — only the old `#15d16a`/`#45e486` stay retired). Looks live in `lib/looks.js` + `backend/looks.py` and remap the PLASMA hexes the sheets still write, so new CSS keeps using the meta.css tokens (never a hand-written hex); Plasma and every older look sit in one Classic row of the LookPicker. Each proof type keeps its own light. Colours come from the meta.css tokens, never a new hand-written hex.
   Labels/numbers in `JetBrains Mono`, uppercase micro-labels with letter-spacing.
 - Fonts = the 6 tokens in `index.css` (owner 2026-10-27, all loaded in `public/index.html`): `--f-display` Unbounded (heroes) · `--f-ui` Sora (body) ·
   `--f-mono` JetBrains Mono (numbers, micro-labels) · `--f-tech` Chakra Petch (tickers, venue names, seg buttons) · `--f-noir` Cinzel · `--f-noir-it` Playfair. Never add a family.

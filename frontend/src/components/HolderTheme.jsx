@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
 import { getChatSession } from '../lib/chatSession';
-import { applyLook, localLook } from '../lib/looks';
+import { DEFAULT_LOOK, applyLook, localLook } from '../lib/looks';
 
 // $1k+ FEELESS holders recolor the logo and the whole site (for themselves). The server re-checks
 // holdings and the wallet session on every save; the browser only ever applies what it returns.
@@ -78,7 +78,7 @@ export function remapSite(map) { overrideSite('feeless-look', map ? css => remap
 export function applyTheme(t) {
   const root = document.documentElement;
   if (!t?.accent) { ['--accent2', '--logo-hue'].forEach(k => root.style.removeProperty(k)); root.classList.remove('holder-theme'); recolorSite(null);
-    applyLook(t?.look?.tokens ? t.look : localLook()); return; }   // 🎨 no custom colour: the saved look (or this device's), else Plasma
+    applyLook(t?.look?.tokens ? t.look : (localLook() || DEFAULT_LOOK)); return; }   // 🎨 no custom colour: the saved look (or this device's), else Obsidian green
   applyLook(null);
   root.style.setProperty('--mint', t.accent); root.style.setProperty('--accent2', t.accent2 || t.accent); root.style.setProperty('--m-accent', t.accent);
   recolorSite(t.accent);

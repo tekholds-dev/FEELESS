@@ -33,3 +33,11 @@ test('🎨 the picker shows free looks to wear and advanced ones locked with wha
   await act(async () => { q('look-save').click(); }); expect(localStorage.getItem('feeless.look')).toBe('molten');
   applyLook(null); el.remove();
 });
+
+test('🟢 the owner\'s pick: Obsidian green is the default; Desk and Pit set the layout; Plasma clears it', () => {
+  const { FEELESS_LOOKS, DEFAULT_LOOK } = require('../lib/looks'); const r = document.documentElement;
+  expect(DEFAULT_LOOK.id).toBe('obsidian'); expect(DEFAULT_LOOK.tokens.accent).toBe('#19e68c');
+  applyLook(FEELESS_LOOKS.desk); expect(r.dataset.layout).toBe('desk'); expect(r.dataset.edition).toBe('elite'); expect(r.style.getPropertyValue('--m-accent')).toBe('#19e68c');
+  applyLook(FEELESS_LOOKS.pit); expect(r.dataset.layout).toBe('pit');
+  applyLook(FREE_LOOKS.plasma); expect(r.dataset.layout).toBeUndefined();
+});
