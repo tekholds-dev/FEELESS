@@ -2,7 +2,7 @@
    an aurora backdrop (emerald top-left, violet bottom-right, ice top-right) on a deep green→navy base, a light beam that runs around the
    edge (one rotating layer, transform only — replaces the animated --swap-angle border, which repainted every frame), glass panels with a
    lit top edge, gradient amounts, glowing token pills, a spinning flip, and a sheen on the main button. Keyframes: swm* only. */
-.swap-desk { position: relative; animation: none !important; isolation: isolate; overflow: hidden;   /* relative: the beam spins INSIDE the card (on the profile it had no anchor and swept the whole layout) */
+.swap-desk { position: relative; animation: none !important; isolation: isolate; overflow: hidden; overflow: clip;   /* relative: the beam spins INSIDE the card (on the profile it had no anchor and swept the whole layout) */
   background:
     radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.22), transparent 60%),
     radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.24), transparent 62%),
@@ -31,8 +31,8 @@
 .swap-desk .jup-panel:hover { border-color: rgba(180, 140, 255, 0.3) !important; }
 .swap-desk .jup-panel:focus-within { border-color: rgba(180, 140, 255, 0.6) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(180, 140, 255, 0.12); }
 .swap-desk .jup-panel.is-receive { background: linear-gradient(180deg, rgba(124, 92, 255, 0.1), rgba(155, 107, 255, 0.05)) !important; }
-.swap-desk .jup-amount { background: linear-gradient(90deg, #ffffff, #b9ffd8) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent; }
-.swap-desk .jup-amount::placeholder { -webkit-text-fill-color: rgba(255, 255, 255, 0.28); }
+.swap-desk .jup-amount { color: #ffffff; -webkit-text-fill-color: currentColor; caret-color: #b48cff; text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
+.swap-desk .jup-amount::placeholder { color: rgba(255, 255, 255, 0.28); -webkit-text-fill-color: currentColor; text-shadow: none; }
 .swap-desk .jup-out { color: #b48cff; text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
 .swap-desk .jup-row .tkp-btn { background: rgba(255, 255, 255, 0.08) !important; border-color: rgba(255, 255, 255, 0.16) !important; transition: transform .15s, border-color .15s, box-shadow .15s !important; }
 .swap-desk .jup-row .tkp-btn:hover { transform: translateY(-1px); border-color: rgba(180, 140, 255, 0.6) !important; box-shadow: 0 0 0 3px rgba(180, 140, 255, 0.14), 0 6px 18px -8px rgba(180, 140, 255, 0.6); }
@@ -68,7 +68,8 @@ body.theme-day .swap-desk { background: linear-gradient(160deg, #dff3e8, #e2e6fb
 body.theme-day .swap-desk::after { background: radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.18), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.16), transparent 62%), linear-gradient(160deg, #eaf7f0, #eceffd 72%); }
 body.theme-day .swap-desk .jup-panel { background: rgba(255, 255, 255, 0.55) !important; border-color: rgba(11, 122, 62, 0.16) !important; }
 body.theme-day .swap-desk .jup-panel.is-receive { background: rgba(236, 232, 255, 0.6) !important; }
-body.theme-day .swap-desk .jup-amount { background: linear-gradient(90deg, #121715, #5a33bd) !important; -webkit-background-clip: text !important; background-clip: text !important; }
+body.theme-day .swap-desk .jup-amount { color: #121715; caret-color: #5a33bd; text-shadow: none; }
+body.theme-day .swap-desk .jup-amount::placeholder { color: rgba(18, 23, 21, 0.3); }
 body.theme-day .swap-desk .jup-out { color: #076a45; text-shadow: none; }
 body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px #eaf3ef, 0 8px 22px -8px rgba(124, 92, 255, 0.5); }
 @media (max-width: 640px) { .swap-desk::before { inset: -90%; } }
