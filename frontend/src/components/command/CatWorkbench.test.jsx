@@ -354,7 +354,7 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   expect(q('dsk-poi').textContent).toContain('solscan.io promoted'); expect(q('dsk-poi').querySelectorAll('.pf-print').length).toBe(2);   // one mind view, no second diagram
   await act(async () => { q('dsk-memory-1').click(); }); expect(q('dsk-memory-1').textContent).toContain('Tap again');
   await act(async () => { q('dsk-memory-1').click(); }); expect(memoryOps).toContain('memory_restore');
-  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('ws-todesk')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('img').getAttribute('src')).toContain('thumb-down');
+  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('ws-todesk')).not.toBeNull(); expect(q('dsk-x-coin-M1').querySelector('.lucide-thumbs-down')).not.toBeNull();   // 📁 FolderArt: the line icon on the folder
   expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
   await act(async () => { q('dsk-x-poi').click(); }); expect(q('poi-folder')).not.toBeNull(); expect(q('pf-mind-0')).not.toBeNull();   // 🧬 exactly one PoI child folder
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); });

@@ -8,10 +8,13 @@
 ## ✅ REMAINING (2026-11-12, after 3171b02a) — build in this order; detail = the ID's row below
 
 **Build now (Claude):**
-1. **Folder icons look bad** (owner 2026-11-12) — redraw every folder icon on the agent desks / Collective / Git folders as one drawn set (SVG, lucide-style
-   strokes, the look's accent, hover + focus, day theme, 360 px). Screenshot every desk before/after.
-2. **Watch room folder back on the agent desks** — today it only opens beside the PoB chat (`ProofTools` rail) and `/dev/hq?watch`. Roku Channel,
-   Peacock, FIFA+, DAZN and Highlights are already inside it.
+1. ✅ **Folder icons DONE 2026-11-12** (`lib/folderArt.jsx`, `styles/folderArt.css`): owner: "the classic windows folders we cool but the icons werent" →
+   classic coloured folders stay the default with one clean lucide line icon each (no 3D cartoon props); Desktop settings › **Folder look** = Classic ·
+   Outline (dark glass folder drawn in the look's accent, LED on proof folders) · Mono (classic in the accent). Desk + proof tiles + owner desk. Day-theme
+   names get a light pill (were dark on dark walls); long names wrap to 2 lines ("The Collective" was clipped). Seen in his Chrome signed in: classic,
+   outline, mono, day. Not checked: 360 px (Chrome stops at 614 px; no folder spilled there).
+2. ✅ **Watch room folder back DONE 2026-11-12**: `FOLD_INTO.watch` removed → 📺 Watch is its own desk folder again; opens the wall (1/2/4 screens,
+   Highlights 15 of 15 channels read live in his Chrome).
 3. **AGT-5 PoC watch** — he picks a target + steps + hours; it checks a few times an hour while the agent works on other things; each check is
    saved as proof; a SHORT report lands in the PoC folder at the end.
 4. **AGT-15 before/after picture** — the fix agent screenshots the broken screen and the fixed one, shown side by side in the fix record.
@@ -24,7 +27,7 @@
    SITE-17 more lending readers.
 9. **Signed-in check on 51367** of everything marked "not seen signed in" (Desk widgets, Look save, agent withdraw 2-tap, PoEco Sankey, Live ops, Cards & pay).
 
-**Owner only (Claude never moves funds):**
+**Owner only (Claude never moves funds) — 👑 owner 2026-11-12: money tests wait until Claude has finished EVERY build row above (1–9). Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →

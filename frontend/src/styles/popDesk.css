@@ -50,15 +50,7 @@ body.theme-day .pop { color: #1c1230; } body.theme-day .pop-head b { color: #b01
 
 /* 📉 the PoP desktop folder: the Familia Perps pink (--pk #ff5dbb, perpsDash.css), drawn candles under a light sweep */
 .dsk-ico.is-pop .dsk-ico-art { --f: #ff5dbb; --f2: #9c1f6c; }
-.dsk-ico.is-pop .dsk-ico-art::after { display: none; }
-.dsk-ico .dsk-pop-art { position: relative; z-index: 1; width: 42px; height: 28px; margin-top: 4px; filter: none; }
-.dsk-pop-w { stroke: #2a0618; stroke-width: 1; opacity: .75; }
-.dsk-pop-c rect.is-up { fill: #fff; } .dsk-pop-c rect.is-dn { fill: #3c0a26; }
-.dsk-pop-c { transform-box: fill-box; transform-origin: bottom; animation: popBreathe 2.8s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -.7s); }
-.dsk-pop-sweep { fill: #fff; opacity: .3; animation: popSweep 3.6s linear infinite; }
 .dsk-pop-roe { position: absolute; right: -10px; bottom: -6px; z-index: 2; padding: 1px 4px; border-radius: 5px; background: #12040c; font: 800 8.5px var(--f-mono); } .dsk-pop-roe.is-up { color: #b48cff; } .dsk-pop-roe.is-dn { color: #ff8fa3; }
-@keyframes popBreathe { from { transform: scaleY(.72); } to { transform: scaleY(1.06); } }
-@keyframes popSweep { to { transform: translateX(62px); } }
 /* 🗂 PoP folders: the PoW tiles in perps pink */
 .pop-x .dsk-xt.is-none .dsk-ico-art { --f: #ff5dbb; --f2: #9c1f6c; } .pop-x .dsk-xt.is-coin .dsk-ico-art { --f: #ff9fd2; --f2: #a84484; }
 .pop-x .pop-steps { grid-template-columns: repeat(6, minmax(0, 1fr)); } .pop-x .pop-steps li.is-done i { background: #ff5dbb; } .pop-x .pop-steps li.is-on { color: #ff9fd2; }
@@ -82,8 +74,8 @@ body.theme-day .pop { color: #1c1230; } body.theme-day .pop-head b { color: #b01
 .bs-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-self: end; } .bs-acts .m-btn { display: inline-flex; align-items: center; min-height: 34px; text-decoration: none; }
 .bs-foot { margin: 0; font: 600 10px var(--f-ui); color: #94a99c; }
 @media (max-width: 640px) { .pop-read { grid-template-columns: 1fr 1fr; } .pop-range { grid-column: 1 / -1; } .bs-list { grid-template-columns: minmax(0, 1fr); } .bs-seg { justify-self: stretch; } }
-body.fx-lite :is(.dsk-pop-c, .dsk-pop-sweep, .bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; } body.fx-lite .dsk-pop-sweep { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { :is(.dsk-pop-c, .dsk-pop-sweep, .bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; } .dsk-pop-sweep { opacity: 0; } .pop-range i, .bs-list li { transition: none; } }
+body.fx-lite :is(.bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.bd-live li, .bd-live i, .bs-list li, .bs-meter i) { animation: none; } .pop-range i, .bs-list li { transition: none; } }
 body.theme-day .bs { color: #10261a; } body.theme-day :is(.bs-head b, .bs-id b) { color: #10261a; } body.theme-day :is(.bs-head small, .bs-id small, .bs-where, .bs-foot, .pop-read em, .pop-range small) { color: #4a5f53; } body.theme-day .bs-list p { color: #1b3226; } body.theme-day li.is-people .bs-status { color: #a8324b; } body.theme-day li.is-unread .bs-status { color: #7a5a00; } body.theme-day .bs-status { color: #0b6f3c; background: #ffffffa0; }
 body.theme-day .bd-head b { color: #7a5a00; } body.theme-day .bd-head small { color: #4a4530; } body.theme-day .bd-live button { color: #1c1a10; } body.theme-day .pop-read b { color: #1c1230; }
 

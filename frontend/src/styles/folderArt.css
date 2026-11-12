@@ -1,0 +1,37 @@
+/* 📁 FolderArt (lib/folderArt.jsx). The desk's data-folders picks the look: classic (default) · mono · outline. Tokens only. */
+.fa-cl { position: relative; z-index: 1; display: grid; place-items: center; font-style: normal; color: #fff; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)); }
+:is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 22px; height: 22px; filter: none; }
+.dsk-file .fa-cl { color: #3a2f63; filter: none; }
+.fa { display: none; }
+[data-folders="mono"] :is(.dsk-ico, .dsk-xt)[class] .dsk-ico-art { --f: color-mix(in srgb, var(--m-accent) 82%, #ffffff); --f2: color-mix(in srgb, var(--m-accent) 55%, #000000); }
+[data-folders="mono"] .fa-cl { color: var(--m-accent-ink); filter: none; }
+[data-folders="outline"] :is(.dsk-ico-art, .dsk-file) { background: none; box-shadow: none; border-radius: 0; width: 56px; height: 44px; }
+[data-folders="outline"] .dsk-file { width: 38px; height: 46px; }
+[data-folders="outline"] :is(.dsk-ico-art, .dsk-file)::before, [data-folders="outline"] :is(.dsk-ico-art, .dsk-file)::after { display: none; }
+[data-folders="outline"] .fa-cl { display: none; }
+[data-folders="outline"] .fa { display: block; }
+.fa { width: 56px; height: 44px; overflow: visible; transition: transform .18s var(--m-ease); }
+.fa-file { width: 38px; height: 46px; }
+.fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 14%, var(--m-surface)); stroke: color-mix(in srgb, var(--fa, var(--m-accent)) 45%, transparent); stroke-width: 1.25; }
+.fa-paper { fill: color-mix(in srgb, var(--m-text) 10%, transparent); transition: transform .18s var(--m-ease); }
+.fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 9%, var(--m-bg)); stroke: var(--fa, var(--m-accent)); stroke-width: 1.4; stroke-linejoin: round; }
+.fa-file .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 7%, var(--m-bg)); }
+.fa-ear { fill: none; stroke: var(--fa, var(--m-accent)); stroke-width: 1.4; stroke-linejoin: round; }
+.fa-hi { stroke: color-mix(in srgb, var(--m-text) 22%, transparent); stroke-width: 1; }
+.fa-g { color: var(--fa, var(--m-accent)); }
+.fa-led { fill: var(--fa, var(--m-accent)); animation: faLed 2.6s ease-in-out infinite; }
+.dsk-ico-art .fa { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); }
+:is(.dsk-ico, .dsk-xt):hover .fa { transform: translateY(-3px); }
+:is(.dsk-ico, .dsk-xt):hover .fa-paper { transform: translateY(-3px); }
+:is(.dsk-ico, .dsk-xt):hover .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 18%, var(--m-bg)); }
+:is(.dsk-ico, .dsk-xt):active .fa { transform: translateY(0) scale(.96); }
+:is(.dsk-ico, .dsk-xt):focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 10px; }
+.dsk-xt.is-bad, .dsk-xt.is-bad-coin { --fa: var(--m-danger); } .dsk-xt.is-none { --fa: var(--m-mute); } .dsk-xt.is-live { --fa: var(--m-warn); }
+@keyframes faLed { 50% { opacity: .35; } }
+body.theme-day .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 12%, #ffffff); }
+body.theme-day .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 6%, #ffffff); }
+body.theme-day .fa-hi { stroke: #ffffffcc; }
+body.theme-day .dsk-ico-art .fa { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .14)); }
+body.fx-lite .fa-led { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fa-led { animation: none; } .fa, .fa-paper { transition: none; } }
+@media (max-width: 640px) { .fa { width: 50px; height: 39px; } :is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 18px; height: 18px; } }

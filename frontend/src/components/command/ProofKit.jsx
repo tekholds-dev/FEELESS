@@ -6,6 +6,7 @@ import { usePoolRules } from './SplitFlow';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { FolderArt } from '../../lib/folderArt';
 import { fitBox, identityOf, inkOf, ridge, segment, kindIdentity, kindOfFolder } from '../../lib/proofprint';
 import '../../styles/proofKit.css';
 import '../../styles/kitGallery.css';
@@ -160,7 +161,7 @@ export function CostTicket({ usd, rows = null, title = 'Receipt' }) {
 // 📁 One proof folder's face, in every proof: the folder, and its own print hovering on its corner.
 export function ProofTile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid, print = null, cost = null }) {
   return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
-    {kind === 'dir' ? <i className="dsk-ico-art" aria-hidden="true"><em><Ic3 e={ic} size="30px" /></em></i> : <i className="dsk-file" aria-hidden="true"><em><Ic3 e={ic} size="22px" /></em></i>}
+    <i className={kind === 'dir' ? 'dsk-ico-art' : 'dsk-file'} aria-hidden="true"><FolderArt ic={ic} file={kind !== 'dir'} lit={tone === 'live'} /></i>
     {print ? <span className="dsk-xt-print"><FolderRidge fid={print[0]} score={print[1]} kind={print[2]} /></span> : null}<span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}{cost != null ? <small className="dsk-xt-cost m-num">{shortCost(cost)}</small> : null}</button>;
 }
 // 🪜 Its steps, per proof. The last one says what it needs before it can run the whole loop on its own; until then it proposes.

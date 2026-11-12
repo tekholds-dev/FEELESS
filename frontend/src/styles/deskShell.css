@@ -4,8 +4,8 @@
 .dsk-app .dsk-wall { z-index: 0; }
 
 /* the folder stays as it always was; its 3D icon lifts on hover */
-.dsk-ico-art .ic3 { transition: transform .2s cubic-bezier(.3, 1.5, .5, 1); }
-.dsk-ico:hover .dsk-ico-art .ic3 { transform: scale(1.16) rotate(-4deg); }
+.dsk-ico-art .fa-cl { transition: transform .2s cubic-bezier(.3, 1.5, .5, 1); }
+.dsk-ico:hover .dsk-ico-art .fa-cl { transform: scale(1.12) rotate(-4deg); }
 
 /* every folder window: dark glass over the live wall, its own 3D icon floating large behind the content */
 .dsk-win { background: linear-gradient(155deg, #120d26fa, #05080bfd 62%) !important; border-color: #ffffff24 !important; box-shadow: inset 0 1px 0 #ffffff24, 0 28px 60px #000a !important; }

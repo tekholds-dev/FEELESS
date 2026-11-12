@@ -3,6 +3,7 @@ import '../../styles/boosts.css';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ic3, Ic3Text } from '../../lib/icon3d';
+import { FolderArt } from '../../lib/folderArt';
 import '../../styles/deskShell.css';
 import { apiUrl } from '../../lib/api';
 import { agentAuthQuery } from '../../lib/chatSession';
@@ -94,7 +95,7 @@ const MOODS = {
   rose: { a: [0.07, 0.015, 0.05], b: [0.4, 0.08, 0.28], c: [1, 0.45, 0.72], hex: 0 },
 };
 export const WALLS = [['agent', 'Green', '#9b6bff'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
-export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, autoFit: false, hidden: [], winOpen: 'beside', clock: '24' };
+export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, folderLook: 'classic', autoFit: false, hidden: [], winOpen: 'beside', clock: '24' };
 const prefKey = id => `feeless.deskPrefs.${id}`;
 export function useDeskPrefs(id) {
   const [p, setP] = useState(() => { try { return { ...DESK_DEFAULTS, ...JSON.parse(localStorage.getItem(prefKey(id)) || '{}') }; } catch { return DESK_DEFAULTS; } });
@@ -182,6 +183,8 @@ let deskCount = 0;
 export function useDeskOverPage() {
   useEffect(() => { const y = window.scrollY; deskCount += 1; document.body.classList.add('dsk-open'); return () => { deskCount -= 1; if (!deskCount) { document.body.classList.remove('dsk-open'); requestAnimationFrame(() => window.scrollTo(0, y)); } }; }, []);
 }
+// 📁 folder looks (owner 2026-11-12: "the classic windows folders we cool but the icons werent… style different desk folder looks")
+export const FOLDER_LOOKS = [['classic', 'Classic', 'Coloured folders, a clean line icon on each'], ['outline', 'Outline', 'Dark glass folders drawn in your look\'s colour'], ['mono', 'Mono', 'Classic folders, all in your look\'s colour']];
 const PRESETS = [['Proofs first', { iconSort: 'groups', iconFlow: 'columns', iconSide: 'left' }, 'Each kind of folder gets its own column, proofs first'], ['Right side', { iconSort: 'groups', iconFlow: 'columns', iconSide: 'right' }, 'Folders on the right, the left stays clear for windows'], ['Top rows', { iconSort: 'groups', iconFlow: 'rows', iconSide: 'left' }, 'Rows across the top'], ['A to Z', { iconSort: 'az', iconFlow: 'columns', iconSide: 'left' }, 'One list in name order']];
 const Seg = ({ label, k, rows, prefs, set }) => <section><h4>{label}</h4><span className="m-seg" role="group" aria-label={label}>{rows.map(([v, l, tip]) => <button key={v} type="button" className={prefs[k] === v ? 'active' : ''} aria-pressed={prefs[k] === v} onClick={() => set({ [k]: v })} data-tip={tip} data-testid={`dset-${k}-${v}`}>{l}</button>)}</span></section>;
 // ⚙ How its desktop looks. A look only: it is saved in this browser, and nothing here touches the agent.
@@ -194,6 +197,7 @@ export function DeskSettings({ prefs, set, mood, apps = [], onFit }) {
       <span className="dset-presets">{PRESETS.map(([l, o, tip]) => <button key={l} type="button" className="m-btn" onClick={() => look(o)} data-tip={tip} data-testid={`dset-preset-${l.toLowerCase().replace(/\W+/g, '-')}`}>{l}</button>)}</span>
       <button type="button" className="m-btn m-go" onClick={() => onFit?.(prefs)} data-tip="Puts every folder in its place on this screen" data-testid="dset-fit-now">Fit to screen</button></section>
       <Seg label="Widgets" k="widgets" rows={[[true, 'Show', 'Dashboard, CRM and finances on the wall'], [false, 'Hide', 'Just folders']]} prefs={prefs} set={o => look(o)} />
+      <Seg label="Folder look" k="folderLook" rows={FOLDER_LOOKS} prefs={prefs} set={o => look(o)} />
       <Seg label="Folder size" k="iconSize" rows={[['s', 'Small', 'Fits the most'], ['m', 'Medium', 'The usual size'], ['l', 'Large', 'Easier to hit']]} prefs={prefs} set={o => look(o)} />
       <section>{[['autoFit', 'Keep it fitted', 'Folders refit themselves when the window changes size'], ['iconLabels', 'Folder names', 'The name under each folder']].map(([k, l, t]) => <label key={k} className="dset-row" data-tip={t}><span>{l}</span><input type="checkbox" checked={!!prefs[k]} onChange={e => set({ [k]: e.target.checked })} data-testid={`dset-${k}`} /></label>)}</section>
       <details className="dset-hide"><summary data-testid="dset-hide">Hide folders{prefs.hidden?.length ? ` · ${prefs.hidden.length} hidden` : ''}</summary><div>{apps.filter(a => a[0] !== 'deskset').map(a => <label key={a[0]} className="dset-row"><span>{a[2]}</span><input type="checkbox" checked={!(prefs.hidden || []).includes(a[0])} onChange={e => set({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== a[0]) : [...(prefs.hidden || []), a[0]] })} data-testid={`dset-show-${a[0]}`} /></label>)}</div></details>
@@ -257,9 +261,6 @@ export function placeFor(keys, saved, height) {
 }
 
 // 📉 the PoP folder's face: drawn candles breathing under a light sweep; an open PoP adds its live paper return
-function PopFolderArt() {
-  return <svg className="dsk-pop-art" viewBox="0 0 40 26"><g>{[[5, 12, 8, 1], [13, 8, 10, 0], [21, 10, 9, 1], [29, 4, 14, 1]].map(([x, y, h, up], i) => <g key={x} className="dsk-pop-c" style={{ '--i': i }}><line x1={x + 2} x2={x + 2} y1={y - 3} y2={y + h + 2} className="dsk-pop-w" /><rect x={x} y={y} width="4" height={h} rx="1" className={up ? 'is-up' : 'is-dn'} /></g>)}</g><rect className="dsk-pop-sweep" x="-14" y="0" width="10" height="26" /></svg>;
-}
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 // 🪙 the owner's Collective Boost coin. `earning` makes it pulse while real money is counting.
 export function BoostCoin({ earning = false }) {
@@ -274,7 +275,7 @@ export function DeskIcon({ k, ic, label, at, onMove, onOpen, tip, badge = null, 
   const up = e => { e?.currentTarget?.parentElement?.classList.remove('is-drag'); const d = g.current; g.current = null; if (d && dragged.current) onMove(k, { x: d.px, y: d.py }); };
   return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
     onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={testid || `dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
-    <i className="dsk-ico-art" aria-hidden="true">{k === 'pop' ? <PopFolderArt /> : k === 'boost' ? <BoostCoin /> : <em><Ic3 e={ic} size="30px" /></em>}{earn ? <u className="bst-earn"><BoostCoin earning={earning} /></u> : null}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
+    <i className="dsk-ico-art" aria-hidden="true"><FolderArt k={k} ic={ic} />{earn ? <u className="bst-earn"><BoostCoin earning={earning} /></u> : null}{badge ? <b className={`dsk-pop-roe m-num ${badge.lit ? 'is-lit' : badge.up ? 'is-up' : 'is-dn'}`}>{badge.text}</b> : null}</i><span>{label}</span></button>;
 }
 
 const leadOf = t => (String(t || '').match(/^\p{Extended_Pictographic}/u) || [''])[0];
@@ -381,7 +382,7 @@ export function AppDesktop({ id, title, sub, mood = 'agent', apps: appsIn, glass
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(t); }, []);
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   const tasks = apps.filter(a => w[a.k]?.open);
-  return createPortal(<div className="dsk dsk-app" role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
+  return createPortal(<div className="dsk dsk-app" data-folders={prefs.folderLook || 'classic'} role="dialog" aria-modal="true" aria-label={title} data-testid={`dsk-app-${id}`}>
     <ShaderWall mood={mood} />
     <div className="dsk-wall" aria-hidden="true"><b>{title}</b><small>{sub}</small></div>
     <nav className="dsk-icons" aria-label="Desktop" data-size={prefs.iconSize} data-labels={prefs.iconLabels ? undefined : 'off'}><DeskGrid />{apps.filter(a => !(prefs.hidden || []).includes(a.k)).map(a => <DeskIcon key={a.k} k={a.k} ic={a.ic} label={a.label} at={pos[a.k]} onMove={moveIcon} onOpen={open} tip={a.tip} badge={a.badge} testid={`app-ico-${a.k}`} />)}</nav>

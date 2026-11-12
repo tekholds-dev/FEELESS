@@ -96,10 +96,10 @@ export default function HqHarness() {
   if (qa.has('lab')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><ModelLab call={labCall} /></div>; }   // 🧪 COMP Model Lab under the owner's look
   if (qa.has('eco')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><EcoDesk cat={{ id: 'dev' }} work={async () => ecoFix} /></div>; }   // 🧪 PoEco desk on server-built sample rows, under the owner's look
   if (DECK) return <MemoryRouter><div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
-    <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
+    <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 SAMPLE — NOT REAL</b><small>test fixtures only · no trade, wallet or money here · your real HQ is the HQ button signed in</small></span></header>
     <div className="hqp-body"><HqDeck address={FAKE} signMessage={async () => 'dev'} onClose={() => {}} startTab={DECK} /></div></div></MemoryRouter>;
   return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
-    <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
+    <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 SAMPLE — NOT REAL</b><small>test fixtures only · no trade, wallet or money here · your real HQ is the HQ button signed in</small></span></header>
     <div className="hqp-body"><div className="cc-shell" data-testid="hq-shell">{window.location.search.includes('rpc') ? <RpcKey call={call} /> : <AgentDesk call={call} isOwner />}</div></div>
   </div>;
 }

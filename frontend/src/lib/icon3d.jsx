@@ -26,6 +26,8 @@ const sub = cb => { window.addEventListener('feeless:edition', cb); return () =>
 const isElite = () => typeof document !== 'undefined' && document.documentElement.dataset.edition === 'elite';
 export const useElite = () => useSyncExternalStore(sub, isElite, () => false);
 
+// 📁 the line icon for a symbol (FolderArt draws every folder with these, in any edition)
+export const lineOf = e => { const c = clean(e); const n = MAP[c] || MAP[e]; return (n && LINE[n]) || EMO_LINE[c] || null; };
 export const ic3Name = e => MAP[clean(e)] || MAP[e] || null;
 export const ic3Src = name => `/icons3d/${name}.webp`;
 

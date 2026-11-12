@@ -24,6 +24,7 @@ import { AgentDesktop, work } from './CatWorkbench';
 import { GitFolder } from './GitFolder';
 import { AgentsDiagram, AppDesktop, PerfGlass, ShaderWall } from './DeskShell';
 import { Ic3 } from '../../lib/icon3d';
+import { FolderArt } from '../../lib/folderArt';
 import { apiUrl } from '../../lib/api';
 import '../../styles/catWorkbench.css';
 import '../../styles/feecatDesk.css';
@@ -126,7 +127,7 @@ function OwnerDesk({ cat, trades, feeApps, agentApps, call }) {
   const close = useCallback(() => setOpen(''), []);
   const monitor = (k, mood, name, sub, ics, glass) => <button type="button" className="own-m" onClick={() => setOpen(k)} data-tip={`Open the ${name} desktop`} data-testid={`own-${k}`}>
     <ShaderWall mood={mood} /><i className="own-sheen" aria-hidden="true" />
-    <span className="own-ics" aria-hidden="true">{ics.map((e, n) => <i key={e} style={{ '--i': n }}><i className="dsk-ico-art"><em><Ic3 e={e} size="30px" /></em></i></i>)}</span>
+    <span className="own-ics" aria-hidden="true">{ics.map((e, n) => <i key={e} style={{ '--i': n }}><i className="dsk-ico-art"><FolderArt ic={e} /></i></i>)}</span>
     <span className="own-go" aria-hidden="true">OPEN</span>
     <span className="own-name"><b>{name}</b><small>{sub}</small></span>
     <PerfGlass {...glass} testid={`own-glass-${k}`} /></button>;
