@@ -44,6 +44,13 @@ NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, ag
 
 # HANDOFF — THE ONE PAGE (owner 2026-11-09: every request in three blocks: AGENTS · COLLECTIVE · SITE)
 
+> ## 💵 NEXT: REAL-MONEY AGENT TESTS (owner 2026-11-12) — the build queue no longer blocks them
+> Pushed through 3171b02a, gates green. Agents block: 31 of 35 rows built/owner-only; still open (none blocks money tests): AGT-5 PoC watch,
+> AGT-15 before/after picture, AGT-17 3D, AGT-34 per-PoW mind timing. **Order:** 1) cash audit (`scripts/edge-audit.py`, card cash, gas
+> reserve short 0.006 SOL) · 2) owner T1 $1 SOL→USDC→SOL swap · T3 $1 into Happy's wallet and back · 3) AGT-25 OSSY/G4 PoWs through the Fuse card
+> (read DEGEN_PLAYBOOK, age/pool/already-ran guards, owner confirms the first buy) · 4) T2 Fuse withdraw $1 → Circle → Phantom · 5) AGT-26, AGT-24.
+> Claude never moves funds: the owner taps every real-money step.
+
 > ## 🔁 PICK UP HERE (2026-11-11 night, Opus 5.5) — conserve usage · finish everything by priority · never dead-style
 > **Built tonight (gates green, on main):** 🗂 Content editor shelf "MADE BY YOUR AGENTS" on Video / Image / 3D (`MadeLibrary` in PocEditor,
 >   op `media_library` = Happy's 9 real AI results FIRST for every user (`media_gen.made_by_happy`, public /media/samples,
