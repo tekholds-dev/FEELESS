@@ -69,12 +69,6 @@ class TokenPreview(BaseModel):
     imageUrl: Optional[str] = None
 
 
-class ChatMessageCreate(BaseModel):
-    username: str = Field(..., min_length=1, max_length=40)
-    text: str = Field(..., min_length=1, max_length=1000)
-    tokens: Optional[List[TokenPreview]] = None
-
-
 class ChatMessage(BaseModel):
     id: str
     room: str
@@ -104,40 +98,8 @@ async def list_messages(room: str, limit: int = Query(100, ge=1, le=200)):
     return {"room": room, "messages": list(reversed(msgs))}
 
 
-@api_router.post("/chat/{room}", response_model=ChatMessage)
-async def post_message(room: str, msg: ChatMessageCreate):
-    if not room or len(room) > 50:
-        raise HTTPException(status_code=400, detail="invalid room")
-    if not msg.text.strip() or not msg.username.strip():
-        raise HTTPException(status_code=400, detail="Message and username cannot be blank")
-    token_previews = None
-    address = re.search(r'\b0x[a-fA-F0-9]{40}\b|\b[1-9A-HJ-NP-Za-km-z]{32,44}\b', msg.text)
-    if address:
-        try:
-            pairs, meta = await market_router.resolve_ca(address.group(0))
-            if pairs:
-                p = pairs[0]
-                token_previews = [{'pair': p, 'provider': meta['provider'], 'fetched_at': meta['fetched_at'],
-                                   'address': p['baseToken']['address'], 'chainId': p['chainId'],
-                                   'symbol': p['baseToken'].get('symbol'), 'name': p['baseToken'].get('name')}]
-        except HTTPException:
-            pass
-    doc = {
-        "id": str(uuid.uuid4()),
-        "room": room,
-        "username": msg.username[:40],
-        "text": msg.text.strip()[:1000],
-        "tokens": token_previews,
-        "ts": int(datetime.now(timezone.utc).timestamp() * 1000),
-    }
-    await db.chat_messages.insert_one(doc)
-    doc.pop("_id", None)
-    if token_previews:
-        await intelligence.event('CHAT_CA_MENTION', f'{token_previews[0]["symbol"]} · mentioned in Trenches',
-            f'Exact contract resolved from a real message in {room}.', token_previews[0]['pair'],
-            'DexScreener + public chat', datetime.now(timezone.utc).isoformat(),
-            context=re.sub(r'-(general|alpha|launches|trading|whales|new-pools)$', '', room), unique=doc['id'])
-    return doc
+# 🔒 2026-11-11: the unsigned POST /chat/{room} is gone: the site never posted here, and anyone could write a message under any name
+# that then showed in the globe bubbles. Chat writes go through reputation_service (signed sessions).
 
 
 @api_router.get("/chat/{room}/online")

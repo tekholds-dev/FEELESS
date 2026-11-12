@@ -30459,6 +30459,7 @@ async def local_update(request: Request):
     origin = (request.headers.get('origin') or '').lower()
     if host not in ('127.0.0.1', '::1', 'localhost') or (origin and not _re.match(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$', origin)):
         raise HTTPException(403, 'Updates can only be started on the machine running FEELESS.')
+    _require_admin(request)   # 🔒 2026-11-11: the dev server proxies every LAN call from 127.0.0.1 (and curl sends no Origin), so localhost alone was not proof
     root = Path(__file__).resolve().parents[1]
     log = open('/tmp/feeless-update.log', 'w')
     await asyncio.create_subprocess_exec('bash', str(root / 'scripts' / 'update.sh'), cwd=str(root), stdout=log, stderr=log, start_new_session=True)

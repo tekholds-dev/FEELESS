@@ -27,3 +27,6 @@ def test_one_click_update_is_refused_from_anywhere_but_localhost():
     assert e.value.status_code == 403
     with pytest.raises(HTTPException):
         asyncio.run(rs.local_update(Req('127.0.0.1', 'https://evil.example')))   # a page elsewhere can't trigger it via a local proxy
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs.local_update(Req('127.0.0.1')))   # 🔒 a LAN call through the dev proxy looks local and sends no Origin: no HQ signature, no update
+    assert e.value.status_code in (401, 403)

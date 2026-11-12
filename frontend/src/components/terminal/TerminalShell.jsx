@@ -7,6 +7,7 @@ import { Menu, ArrowUpRight, X } from 'lucide-react';
 import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Wallet, Globe2, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Flame, Crown, Rss } from '../../lib/lucide3d';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { apiUrl } from '../../lib/api';
+import { hqCallFor } from '../../lib/hqCall';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
 import { useWallet } from '../../hooks/useWallet';
@@ -102,6 +103,7 @@ export const TerminalSidebar = ({ open, onClose, savedCount }) => {
 
 // Which code this machine runs vs GitHub main: a stale copy shows "N updates waiting" instead of silently lagging.
 export function BuildTag() {
+  const { wallet } = useWallet() || {};
   const [v, setV] = useState(null); const [busy, setBusy] = useState(false); const [from, setFrom] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -116,8 +118,8 @@ export function BuildTag() {
   const local = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
   const update = async () => {
     setBusy(true); setFrom(v.head);
-    try { const r = await fetch(apiUrl('/api/reputation/local/update'), { method: 'POST' }); if (!r.ok) throw new Error(); }
-    catch { setBusy(false); window.alert(`Could not start the update here. In Terminal, from the FEELESS folder: ${v.fix}`); }
+    try { await hqCallFor(wallet?.address)('/local/update', { method: 'POST' }); }   // 🔒 needs your HQ signature (open HQ once)
+    catch (e) { setBusy(false); window.alert(`${e.message || 'Could not start the update here.'} Or in Terminal, from the FEELESS folder: ${v.fix}`); }
   };
   const label = <>build {v.head}{v.branch && v.branch !== 'main' ? ` · on ${v.branch}` : ''}{v.behind > 0 ? ` · ${v.behind} update${v.behind === 1 ? '' : 's'} waiting` : stale ? '' : ' · up to date'}</>;
   return <>

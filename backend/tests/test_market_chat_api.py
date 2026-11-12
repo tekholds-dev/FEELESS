@@ -100,36 +100,13 @@ def test_market_candles_invalid_chain(api_client, base_url):
     assert "Invalid chain or pool" in str(response.json())
 
 
-def test_chat_post_and_history_order(api_client, base_url):
+def test_chat_unsigned_post_is_gone_and_history_reads(api_client, base_url):
+    """🔒 2026-11-11: anyone could post as anyone here (it showed in the globe bubbles); chat writes are signed in reputation_service."""
     room = f"general-{uuid.uuid4().hex[:8]}"
-    payload_1 = {"username": "TEST_user", "text": "first test message"}
-    payload_2 = {"username": "TEST_user", "text": "second test message"}
-
-    first = api_client.post(f"{base_url}/api/chat/{room}", json=payload_1, timeout=20)
-    assert first.status_code == 200
-    first_data = first.json()
-    assert first_data["room"] == room
-    assert first_data["text"] == payload_1["text"]
-    assert isinstance(first_data["ts"], int)
-
-    time.sleep(0.05)
-    second = api_client.post(f"{base_url}/api/chat/{room}", json=payload_2, timeout=20)
-    assert second.status_code == 200
-    second_data = second.json()
-    assert second_data["text"] == payload_2["text"]
-
+    r = api_client.post(f"{base_url}/api/chat/{room}", json={"username": "TEST_user", "text": "spoof"}, timeout=20)
+    assert r.status_code in (404, 405)
     history = api_client.get(f"{base_url}/api/chat/{room}", params={"limit": 100}, timeout=20)
-    assert history.status_code == 200
-    messages = history.json().get("messages", [])
-    assert len(messages) >= 2
-
-    ids = [m["id"] for m in messages]
-    assert first_data["id"] in ids
-    assert second_data["id"] in ids
-
-    ts_values = [m["ts"] for m in messages]
-    assert ts_values == sorted(ts_values)
-
+    assert history.status_code == 200 and history.json()["messages"] == []
 
 def test_chat_blank_message_rejected(api_client, base_url):
     response = api_client.post(
