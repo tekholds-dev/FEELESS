@@ -78,8 +78,8 @@ def test_a_watch_checks_only_asks_on_change_and_files_a_short_report(monkeypatch
     w = j['watches'][0]; assert w['status'] == 'running' and len(w['checks']) == 1 and w['checks'][0]['sha'] and len(asks) == 1
     assert len(cat()['pocWatches'][0]['checks']) == 1 and w['hours'] == 2   # the first check survives the save
     wd = cat()['pocWatches'][0]
-    asyncio.run(fs._watch_check(cat(), wd, wd['startedAt'] + 900)); assert len(asks) == 1 and wd['checks'][-1]['carried']   # 💤 same page: no model call, $0
-    asyncio.run(fs._watch_check(cat(), wd, wd['startedAt'] + 1800)); assert len(asks) == 2 and 'Friday' in asks[-1] and wd['checks'][-1]['steps'][0]['seen'] == 'yes'
+    asyncio.run(fs._pocwatch_check(cat(), wd, wd['startedAt'] + 900)); assert len(asks) == 1 and wd['checks'][-1]['carried']   # 💤 same page: no model call, $0
+    asyncio.run(fs._pocwatch_check(cat(), wd, wd['startedAt'] + 1800)); assert len(asks) == 2 and 'Friday' in asks[-1] and wd['checks'][-1]['steps'][0]['seen'] == 'yes'
     fs.keep_owned(cat())
     j = post('watch_stop', text=wd['id']).json(); wd = next(x for x in cat()['pocWatches'] if x['id'] == wd['id'])
     rep = j['pocFolders'][0]; assert rep['by'] == 'Watch' and rep['watch']['report']['steps'][0]['verdict'] == 'seen' and rep['watch']['report']['read'] == 3

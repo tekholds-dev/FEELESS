@@ -2056,8 +2056,8 @@ async def _git_pass(store, now):
     """🐙 Hourly: repos set to Auto get what changed. The Collective's is the owner's, on Fee. Once a day, new kits for Discover."""
     if now - _LIVE_AT[0] > 1800:
         _LIVE_AT[0] = now; asyncio.create_task(_live_pass(store))
-    if now - _WATCH_AT[0] > 300:
-        _WATCH_AT[0] = now; asyncio.create_task(_watch_pass(store))
+    if now - _POCWATCH_AT[0] > 300:
+        _POCWATCH_AT[0] = now; asyncio.create_task(_pocwatch_pass(store))
     if now - _ECO_CHECK_AT[0] > 3600:
         _ECO_CHECK_AT[0] = now; asyncio.create_task(_eco_check_pass(store))
     if now - _LOOK_AT[0] > 120:
@@ -4335,11 +4335,11 @@ def _live_view(cat, sites, drafts):
             'pocs': pocs[:12], 'limits': {'pages': _pw.MAX_SITES, 'draftsPerPageDay': _pw.DAY_DRAFTS}}
 
 
-_WATCH_AT = [0.0]
-_WATCH_BUSY = [False]
+_POCWATCH_AT = [0.0]
+_POCWATCH_BUSY = [False]
 
 
-async def _watch_check(cat, w, now=None):
+async def _pocwatch_check(cat, w, now=None):
     """👁 One PoC watch check: read the public page, keep its fingerprint, ask the model only when it really changed. → the check row"""
     now = round(now or time.time()); brains = _lc.minds_for(cat.get('brainsCfg'), 'poc') or (cat.get('brainsCfg') or {}).get('brains') or []
     row = {'at': now, 'ok': False}
@@ -4376,7 +4376,7 @@ async def _watch_check(cat, w, now=None):
     return row
 
 
-def _watch_file(cat, w, now=None):
+def _pocwatch_file(cat, w, now=None):
     """📋 The watch is over: the SHORT report becomes a PoC folder (proof: every check's time, page fingerprint and answers stay on it)."""
     now = round(now or time.time()); rep_ = _pw.report(w); w.update(status='done', doneAt=now, report=rep_)
     rows_ = list(cat.get('pocFolders') or [])
@@ -4390,11 +4390,11 @@ def _watch_file(cat, w, now=None):
     return rows_[-1]
 
 
-async def _watch_pass(store):
+async def _pocwatch_pass(store):
     """Every 5 minutes: each running watch that is due gets one check, one at a time; a finished one files its report."""
-    if _WATCH_BUSY[0]:
+    if _POCWATCH_BUSY[0]:
         return
-    _WATCH_BUSY[0] = True
+    _POCWATCH_BUSY[0] = True
     try:
         for cat in list((store.get('cats') or {}).values()):
             if cat.get('revoked'):
@@ -4405,17 +4405,17 @@ async def _watch_pass(store):
                     continue
                 try:
                     if now < float(w['endsAt']):
-                        await _watch_check(cat, w, now)
+                        await _pocwatch_check(cat, w, now)
                     else:
-                        _watch_file(cat, w, now)
+                        _pocwatch_file(cat, w, now)
                     keep_owned(cat); _save(store)
                 except Exception as e:   # noqa: BLE001 — one dead page never stops the rest
                     print(f'[watch] {str(e)[:120]}')
     finally:
-        _WATCH_BUSY[0] = False
+        _POCWATCH_BUSY[0] = False
 
 
-def _watch_view(cat):
+def _pocwatch_view(cat):
     brains = _lc.minds_for(cat.get('brainsCfg'), 'poc') or (cat.get('brainsCfg') or {}).get('brains') or []
     paid = [c['usd'] for w in cat.get('pocWatches') or [] for c in w.get('checks') or [] if c.get('ok') and not c.get('carried') and c.get('usd') is not None]
     return {'watches': list(cat.get('pocWatches') or [])[::-1], 'model': brains[0] if brains else None, 'perAskUsd': round(sum(paid) / len(paid), 5) if paid else None,
@@ -8998,19 +8998,19 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     raise ValueError(f'It runs {_pw.MAX_WATCHES} watches at once. Stop one first.')
                 t_ = p.tools or {}; w_ = _pw.clean_watch(t_.get('url'), t_.get('steps'), t_.get('hours', 4), t_.get('perHour', 3))
                 cat['pocWatches'] = rows_ = (rows_ + [w_])[-12:]
-                await _watch_check(cat, w_); keep_owned(cat); _save(store)   # the first check now, so he sees it work (one save: a save swaps in fresh copies)
+                await _pocwatch_check(cat, w_); keep_owned(cat); _save(store)   # the first check now, so he sees it work (one save: a save swaps in fresh copies)
             elif p.op == 'watch_stop':   # stopping early still files what it saw
                 w_ = next((w for w in rows_ if w.get('id') == p.text and w.get('status') == 'running'), None)
                 if not w_:
                     raise ValueError('That watch is not running.')
-                w_['stoppedEarly'] = True; _watch_file(cat, w_); keep_owned(cat); _save(store)
+                w_['stoppedEarly'] = True; _pocwatch_file(cat, w_); keep_owned(cat); _save(store)
             elif p.op == 'watch_drop':
                 cat['pocWatches'] = rows_ = [w for w in rows_ if not (w.get('id') == p.text and w.get('status') != 'running')]; keep_owned(cat); _save(store)
             elif p.op != 'watch_get':
                 raise ValueError('No such step.')
         except ValueError as e:
             raise HTTPException(400, str(e)[:160])
-        return {**_watch_view(cat), 'pocFolders': _poc_view(cat)}
+        return {**_pocwatch_view(cat), 'pocFolders': _poc_view(cat)}
     if p.op.startswith('live_'):   # 📡 the ongoing PoC desk: it watches, reads the room and drafts. It never posts
         rows_ = cat.setdefault('pocWatch', []); drafts_ = cat.setdefault('pocDrafts', [])
         try:
