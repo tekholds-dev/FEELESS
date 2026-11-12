@@ -34,6 +34,7 @@ import { VerifiedMark } from './terminal/VerifiedMark';
 import { ShareGifButton } from './ShareGif';
 import { getChatSession, clearChatSession } from '../lib/chatSession';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 function AuthorTrust({ chain, address }) {
   const trust = useCreatorTrust(chain, address);
@@ -151,7 +152,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
   const wallOwner = room.startsWith('wall-') ? room.slice(5) : null;
   const canDelete = m => Boolean(wallOwner && wallet && (mine.includes(wallOwner) || mine.includes(m.address) || mine.includes(m.profile?.address)));
   const removePost = async m => {
-    if (!window.confirm('Delete this post from the wall?')) return;
+    if (!twoTap('Delete this post from the wall?')) return;
     try {
       const session = await getChatSession(wallet.address, signMessage);
       const res = await fetch(apiUrl('/api/reputation/chat/delete'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, id: m.id, address: wallet.address, ts: Math.floor(Date.now() / 1000), session }) });

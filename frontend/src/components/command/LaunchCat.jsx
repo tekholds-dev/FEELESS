@@ -15,6 +15,7 @@ import '../../styles/launchCat.css';
 import { Ic3 } from '../../lib/icon3d';
 import { apiUrl } from '../../lib/api';
 import { FolderRidge } from './ProofKit';
+import { twoTap } from '../ActBtn';
 
 // 🚀 LAUNCH An AGENT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
@@ -460,7 +461,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
     {noTalk ? null : <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn"><Ic3 e="💬" /> Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}
-    <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The agent stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
+    <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => twoTap('Sell every coin and pull all funds? The agent stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
       {cat.agentWallet || cat.brainsCfg?.kind === 'general' ? <small className="lct-note">Add model credit from its wallet panel, in SOL or USDC.</small> : <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button>}</div>
     {cat.needsTopup ? <p className="lct-note"><Ic3 e="🔒" /> Funds pulled — top up to start this agent again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
     {err ? <p className="lct-err">⚠ {err}</p> : null}

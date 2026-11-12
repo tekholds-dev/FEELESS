@@ -3,6 +3,7 @@ import { MotionConfig, animate, motion } from 'motion/react';
 import { Ic3 } from '../../lib/icon3d';
 import { money } from './SplitFlow';
 import '../../styles/collectiveSetup.css';
+import { twoTap } from '../ActBtn';
 
 // 🎛 THE COLLECTIVE'S CONTROLS (owner 2026-11-05): built on Motion. Springs on real numbers, shared-layout tabs, charts drawn from the settings as they are now. Transform and opacity only.
 export const SPRING = { type: 'spring', stiffness: 380, damping: 34, mass: 0.7 };
@@ -51,7 +52,7 @@ export function PoolBuilder({ d, act, busy }) {
         <div className="cs-est"><span className="cs-amt-seg"><small>If this much trades a day</small><span className="m-seg" role="group" aria-label="Trades a day">{[1000, 5000, 25000, 100000].map(v => <button key={v} type="button" aria-pressed={vol === v} className={vol === v ? 'active' : ''} onClick={() => setVol(v)} data-tip="Your guess. Nobody promises any trading" data-testid={`colony-vol-${v}`}>${v >= 1000 ? `${v / 1000}K` : v}</button>)}</span></span><span className="cs-est-n" data-tip="What trades a day × the fee. Real only if that much really trades"><small>Pool earns about</small><Roll v={vol * fee / 10000} fmt={x => `$${x.toFixed(0)}/day`} /></span></div>
         {na > 0 && nb > 0 ? <small className="cs-px m-num" data-testid="colony-pool-px">Starts at {(nb / na).toPrecision(3)} {q} per {symA}</small> : null}<small className="cs-risk">If the price moves, the pool ends up holding more of whichever side fell.</small></li>
       <li><h6>3 · Check it, then open it</h6><div className="cs-go"><button type="button" className="m-btn" disabled={!!busy || !ready} onClick={() => act('pool_preview', body)} data-tip="Builds the real transaction and simulates it on Solana. Free. Nothing signed or sent" data-testid="colony-pool-preview">{busy === 'pool_preview' ? 'Simulating…' : 'Preview (free)'}</button>
-        <button type="button" className="m-btn m-go" disabled={!!busy || !clean} onClick={() => window.confirm(`Open this pool on Meteora with ${na.toLocaleString()} ${symA} + ${nb} ${q} from the Pool wallet? ${lock ? 'It is LOCKED: the money can never come back out.' : 'It stays unlocked.'}`) && act('pool_create', body)} data-tip="Only after a clean preview of exactly these choices. Circle signs as the Pool wallet, and it is sent" data-testid="colony-pool-create">{busy === 'pool_create' ? 'Opening…' : 'Open the pool'}</button></div>
+        <button type="button" className="m-btn m-go" disabled={!!busy || !clean} onClick={() => twoTap(`Open this pool on Meteora with ${na.toLocaleString()} ${symA} + ${nb} ${q} from the Pool wallet? ${lock ? 'It is LOCKED: the money can never come back out.' : 'It stays unlocked.'}`) && act('pool_create', body)} data-tip="Only after a clean preview of exactly these choices. Circle signs as the Pool wallet, and it is sent" data-testid="colony-pool-create">{busy === 'pool_create' ? 'Opening…' : 'Open the pool'}</button></div>
         {dr ? <small className={`cs-sim ${dr.ok ? 'is-ok' : 'is-bad'}`} data-testid="colony-pool-sim">{dr.ok ? (clean ? '✓ Simulation passed for these choices.' : 'You changed something. Preview again.') : `✗ ${simWord(dr.err)}`}</small> : null}</li>
     </ol></section></Fx>;
 }

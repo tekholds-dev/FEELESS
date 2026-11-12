@@ -53,6 +53,7 @@ import { AgentManual } from './AgentManual';
 import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
+import { twoTap } from '../ActBtn';
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
 // the cloud (Steel → Browserbase → the reader: never on this device). Each window: its model, its provider, the page it is on, a bubble top-right
@@ -138,7 +139,7 @@ export function HiveSwitch({ cat }) {
 // 🕶 incognito (owner 2026-10-31): its screens hidden from visitors — $5 once per agent from its model credit (staff free), then on / off any time
 export function IncognitoSwitch({ cat }) {
   const [on, setOn] = useState(!!cat?.incognito); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const flip = async () => { if (!on && !cat?.incognitoPaid && !window.confirm('Incognito hides this agent\'s screens from everyone but you. It costs $5 once, from its model credit. Go incognito?')) return;
+  const flip = async () => { if (!on && !cat?.incognitoPaid && !twoTap('Incognito hides this agent\'s screens from everyone but you. It costs $5 once, from its model credit. Go incognito?')) return;
     setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'incognito', on: !on }); setOn(!!r.incognito); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return <button type="button" className={`cwb-flip-btn cwb-incog${on ? ' is-on' : ''}`} aria-pressed={on} disabled={busy} onClick={flip} data-testid="incog-toggle"
     data-tip={err || (on ? '🕶 Incognito ON: visitors see no screens — only that it is working' : `🕶 Visitors watch its live screens (never its steps or what it types). Incognito hides them${cat?.incognitoPaid ? '' : ' — $5 once'}.`)}>🕶<span>{on ? 'Private' : 'Public'}</span></button>;

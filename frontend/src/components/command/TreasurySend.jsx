@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice, usd } from '../../lib/solPrice';
+import { twoTap } from '../ActBtn';
 
 const ASSETS = [['sol', 'SOL'], ['fee', '$FEE'], ['feecat', '$FEECAT'], ['rfee', '$RFEE']];
 
@@ -21,7 +22,7 @@ export function TreasurySend({ ownerWallets = [] }) {
     try {
       if (!isCreator) { await connect?.('solana'); return; }
       if (!rows.length || bad.length) throw new Error('One "address amount" per line.');
-      if (!window.confirm(`Send ${total} ${asset.toUpperCase()} to ${rows.length} wallet(s) from ${wallet.address.slice(0, 4)}…? This cannot be undone.`)) return;
+      if (!twoTap(`Send ${total} ${asset.toUpperCase()} to ${rows.length} wallet(s) from ${wallet.address.slice(0, 4)}…? This cannot be undone.`)) return;
       const assets = (await (await fetch('/api/market/assets')).json()).assets || [];
       const mint = asset === 'sol' ? null : assets.find(a => a.id === asset)?.mint;
       const { batchSend } = await import('../../lib/batchSend');

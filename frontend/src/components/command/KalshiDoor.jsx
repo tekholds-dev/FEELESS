@@ -1,3 +1,4 @@
+import { ActBtn } from '../ActBtn';
 import React, { useEffect, useState } from 'react';
 import { HqVitals } from './ccTabInfo';
 
@@ -32,7 +33,7 @@ export function KalshiTicket({ t: t0, catId, work, onDone }) {
   const act = async op => { setBusy(op); setErr(''); try { const j = await work(catId, { op, job: t.id }); setT(j.ticket); onDone?.(j); } catch (e) { setErr(e.message); } setBusy(''); };
   return <section className={`kd-ticket m-glass is-${t.status}`} data-testid="kalshi-ticket"><span className="kd-tk-h"><b>🎯 KALSHI · {t.side?.toUpperCase()} · {t.title}</b><small className="m-num">{t.ticker} · ask {t.price != null ? Number(t.price).toFixed(2) : '—'} · minds {(t.conf || []).join('% / ')}%</small></span>
     <small className="kd-tk-why">{(t.why || []).filter(Boolean).join(' · ')}</small>
-    {t.status === 'waiting' ? <span className="kd-tk-go"><button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('kalshi_bid')} data-tip="Re-reads the price and your balance, checks every cap, then sends ONE limit order on your own Kalshi key" data-testid="kd-approve">{busy === 'kalshi_bid' ? 'Sending…' : 'Approve real bid'}</button><button type="button" className="m-btn" disabled={!!busy} onClick={() => act('kalshi_skip')} data-tip="Nothing is sent" data-testid="kd-skip">Skip</button></span>
+    {t.status === 'waiting' ? <span className="kd-tk-go"><ActBtn money className="m-btn m-go" disabled={!!busy} run={() => work(catId, { op: 'kalshi_bid', job: t.id })} onDone={j => { setT(j.ticket); onDone?.(j); }} confirm={`Tap again: real bid ${t.side?.toUpperCase()} @ ${t.price != null ? Number(t.price).toFixed(2) : '—'}`} done="Sent" data-tip="Real money: two taps. Re-reads the price and your balance, checks every cap, then sends ONE limit order on your own Kalshi key" data-testid="kd-approve">Approve real bid</ActBtn><button type="button" className="m-btn" disabled={!!busy} onClick={() => act('kalshi_skip')} data-tip="Nothing is sent" data-testid="kd-skip">Skip</button></span>
       : <b className={`kd-tk-st is-${t.status}`} role="status" data-testid="kd-status">{STATUS[t.status] || t.status}{t.usd ? ` · ${t.count} × ${Number(t.price).toFixed(2)} = $${Number(t.usd).toFixed(2)}` : ''}{t.why && !t.usd ? ` · ${t.why}` : ''}</b>}
     {err ? <p className="dsk-note" role="alert">{err}</p> : null}
   </section>;

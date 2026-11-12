@@ -3,6 +3,7 @@ import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { apiUrl } from '../../lib/api';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 
 // HQ › Fuse builder: search live pools (with their meta), weight them, name the Fuse, set the creator's cut
 // of FEELESS fees on its buys, and track volume / earned / owed per Fuse. Every save is signed and audit-logged.
@@ -32,7 +33,7 @@ export function FuseBuilder({ call }) {
         <button type="button" className="m-btn" onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled === false })}>{f.enabled === false ? 'Turn on' : 'Turn off'}</button>
         <button type="button" className={`m-btn ${f.featured ? 'primary' : ''}`} data-testid={`feature-${f.id}`} onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled !== false, featured: !f.featured })}>{f.featured ? '⭐ Featured' : '☆ Feature in Lab'}</button>
         <button type="button" className={`m-btn ${f.arena ? 'primary' : ''}`} data-testid={`arena-${f.id}`} data-tip="Stage this card on the Fuse 🧬 Arena — its effects grow with real activity" onClick={() => save({ id: f.id, name: f.name, emoji: f.emoji, tagline: f.tagline, creatorBps: f.creatorBps, legs: f.legs, enabled: f.enabled !== false, featured: Boolean(f.featured), arena: !f.arena })}>{f.arena ? '🏟 On Arena' : '🏟 Show on Arena'}</button>
-        <button type="button" className="m-btn danger" onClick={() => window.confirm(`Delete ${f.name}?`) && save({ id: f.id, delete: true })}>Delete</button></div></div>)}
+        <button type="button" className="m-btn danger" onClick={() => twoTap(`Delete ${f.name}?`) && save({ id: f.id, delete: true })}>Delete</button></div></div>)}
       {d && !d.fuses.length && <p className="m-dim">No Fuses yet — build the first one below.</p>}</div>
     <div className="m-card fz-draft"><div className="m-row"><input className="m-input fz-emoji-in" value={draft.emoji} onChange={e => setDraft({ ...draft, emoji: e.target.value })} aria-label="Emoji" />
       <input className="m-input" placeholder="Fuse name (e.g. FEE Core)" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} aria-label="Name" />

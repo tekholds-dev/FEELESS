@@ -6,6 +6,7 @@ import { apiUrl } from '../../lib/api';
 import { useSolPrice } from '../../lib/solPrice';
 import '../../styles/fusePage.css';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 
 // HQ › ⚛️ Fuse › 🏦 FUSE Vault designer. One vault = up to 3 SOLANA yield pools (v2 constant-product / v3
 // concentrated) in one contract: SOL in → shares → spread by auto-scaled weights, capped per pool, fees to the vault fee
@@ -87,7 +88,7 @@ export function VaultDesigner({ call }) {
           <header className="m-row"><span className="fz-emoji"><Ic3 e={v.emoji} /></span><b>{v.name}</b><span className="m-chip">{v.status}</span>
             <small className="m-dim">{v.mgmtBps / 100}%/yr mgmt · {v.perfBps / 100}% of yield</small><span className="vd-sp" />
             <button type="button" className="m-btn" onClick={() => setDraft({ id: v.id, name: v.name, emoji: v.emoji, tagline: v.tagline || '', mgmtBps: v.mgmtBps, perfBps: v.perfBps, pools: v.pools.map(p => ({ ...p, meta: p })) })}>Edit</button>
-            <button type="button" className="m-btn danger" onClick={() => window.confirm(`Delete ${v.name}?`) && save({ id: v.id, delete: true })}>Delete</button></header>
+            <button type="button" className="m-btn danger" onClick={() => twoTap(`Delete ${v.name}?`) && save({ id: v.id, delete: true })}>Delete</button></header>
           <div className="vd-kpis">
             <span data-tip="Weighted fee APR of the pools at their live weights (capped at 400%)"><small>BLENDED APR</small><b className="m-num">{v.sim.blendedAprPct}%</b></span>
             <span data-tip={`What ${sol(dep)} would earn in pool fees over a year (before price moves)`}><small>YIELD / YEAR</small><b className="m-num m-pos">{$(v.sim.yearlyYieldSol)}</b><em>{sol(v.sim.yearlyYieldSol)} · {$(v.sim.yearlyYieldSol / 365)}/day</em></span>

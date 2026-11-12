@@ -25,6 +25,7 @@ test('a ticket sends only on Approve, then shows what Kalshi did', async () => {
   const work = async (_c, b) => { calls.push(b); return { ticket: { ...t, status: 'resting', count: 2, usd: 0.8 } }; };
   const el = await mount(<KalshiTicket t={t} catId="c" work={work} />);
   expect(calls).toHaveLength(0);
+  await act(async () => { q(el, 'kd-approve').click(); }); expect(calls).toHaveLength(0);   // real money: the first tap only arms
   await act(async () => { q(el, 'kd-approve').click(); });
   expect(calls).toEqual([{ op: 'kalshi_bid', job: 'kb1' }]); expect(q(el, 'kd-status').textContent).toContain('2 × 0.40 = $0.80'); expect(q(el, 'kd-approve')).toBeNull();
 });

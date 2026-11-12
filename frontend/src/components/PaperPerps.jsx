@@ -7,6 +7,7 @@ import { useGlide } from '../lib/useGlide';
 import { cash } from '../lib/earnStake';
 import '../styles/paperPerps.css';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 // 📉 THE PAPER DESK — the Perps building's own order ticket (docs/DECISIONS.md #1): long / short the market you picked with a margin and
 // your leverage, at the REAL mark price; the position lives here with the real funding accruing and liquidates at the real distance. Paper
@@ -53,6 +54,6 @@ export function PaperPerps({ row, lev, devAddress = '' }) {   // owner, 2026-10-
       <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'close', id: p.id })} data-testid={`pp-close-${p.id}`} data-tip="Close at the live mark">Close</button></li>)}</ol>
       : <p className="pp-none">No paper position open — pick a market above, size it, long or short.</p>}
     {(b?.closed || []).length ? <p className="pp-tape">{b.closed.slice(0, 6).map(c => <span key={c.id} className={c.pnl >= 0 ? 'up' : 'dn'} title={`${c.side} ${c.coin} ${c.lev}× · ${c.why}`}>{c.coin} {c.side === 'long' ? '▲' : '▼'} {sgn(c.pnl)}{c.why === 'liquidated' ? ' 💥' : ''}</span>)}
-      <button type="button" className="pp-reset" onClick={() => window.confirm('Reset your paper book to $10,000?') && act({ act: 'reset' })} data-testid="pp-reset">↺ reset</button></p> : null}
+      <button type="button" className="pp-reset" onClick={() => twoTap('Reset your paper book to $10,000?') && act({ act: 'reset' })} data-testid="pp-reset">↺ reset</button></p> : null}
   </div>;
 }

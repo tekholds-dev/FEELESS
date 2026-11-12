@@ -6,6 +6,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useGlide } from '../lib/useGlide';
 import '../styles/brokerDesk.css';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 // 🏦 THE BROKERAGE (docs/BROKERS.md, DECISIONS #9): YOUR own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE … via SnapTrade) linked to
 // your Familia wallet — one tap opens SnapTrade's portal where you log in to your broker (FEELESS never sees the password); then your cash,
@@ -29,10 +30,10 @@ export function BrokerDesk({ devAddress = '', venue = null }) {   // devAddress:
     catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const order = async () => { const acct = t.accountId || d?.accounts?.[0]?.id;
     const perp = acct === 'cdc' && t.market === 'perp';
-    if (!window.confirm(perp ? `${t.action === 'BUY' ? 'LONG' : 'SHORT'} ${t.symbol.toUpperCase()}-PERP · $${t.usd} margin × ${t.lev}× = $${t.usd * t.lev} on Crypto.com?` : `${t.action} $${t.usd} of ${t.symbol.toUpperCase()} in your ${d?.accounts?.find(x => x.id === acct)?.broker || 'broker'} account?`)) return;
+    if (!twoTap(perp ? `${t.action === 'BUY' ? 'LONG' : 'SHORT'} ${t.symbol.toUpperCase()}-PERP · $${t.usd} margin × ${t.lev}× = $${t.usd * t.lev} on Crypto.com?` : `${t.action} $${t.usd} of ${t.symbol.toUpperCase()} in your ${d?.accounts?.find(x => x.id === acct)?.broker || 'broker'} account?`)) return;
     setBusy('Sending to your broker…'); try { const o = await post('/api/reputation/familia/broker/order', { ...t, accountId: acct, market: perp ? 'perp' : 'spot' }); toast.success(`✅ ${o.action} ${o.symbol} — ${o.status || 'sent'}`); load(); }
     catch (e) { toast.error(e.message); } finally { setBusy(''); } };
-  const unlink = async () => { if (!window.confirm('Unlink your broker from FEELESS?')) return; try { await post('/api/reputation/familia/broker/unlink', {}); load(); } catch (e) { toast.error(e.message); } };
+  const unlink = async () => { if (!twoTap('Unlink your broker from FEELESS?')) return; try { await post('/api/reputation/familia/broker/unlink', {}); load(); } catch (e) { toast.error(e.message); } };
   const val = useGlide(d?.value ?? null, 600);
   const title = venue ? `🔑 ${VENUES[venue]?.name || 'YOUR BROKER'}`.toUpperCase() : '🏦 YOUR BROKER';
   if (!a || !s) return <section className="bk" data-testid="broker-desk"><b className="bk-t">{title}</b><p className="bk-dim">Sign in to Familia with your wallet (one signature, 7 days), then paste your keys once — they stay sealed to your wallet.</p>

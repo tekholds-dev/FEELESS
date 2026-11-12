@@ -41,6 +41,7 @@ import { FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
 import '../styles/familyInvites.css';
 import { FamiliaTradeDock } from './FamiliaTrade';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
 
@@ -254,7 +255,7 @@ export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 i
     {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onSignIn={signIn} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} mine={mine} tools={hqTools} />)}
     {famTab === 'family' && (mine ? <>
-      <FamilyTab mine={mine} addr={addr} sess={sess} onSignIn={signIn} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
+      <FamilyTab mine={mine} addr={addr} sess={sess} onSignIn={signIn} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (twoTap(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
     </> : <>
       <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
     {joinNode}

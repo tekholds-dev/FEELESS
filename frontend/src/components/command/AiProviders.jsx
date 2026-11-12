@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AiKeyBox } from './AiKeyBox';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 
 // 🧠 AI PROVIDERS (HQ › Agents › the AI chip; owner, 2026-10-12): the AI router's providers in their fallback order — local LM Studio
 // first, then Groq / OpenRouter / OpenAI / xAI / any OpenAI-compatible host. Per row: on / off, ▲▼ priority, Test, state, model, last
@@ -37,7 +38,7 @@ export function AiProviders({ call, isOwner = true, ai, close }) {
   const move = (k, dir) => { const i = order.indexOf(k); const j = i + dir; if (j < 0 || j >= order.length) return; const nx = [...order]; [nx[i], nx[j]] = [nx[j], nx[i]]; post('/admin/ai/providers', { order: nx }); };
   const toggle = r => post('/admin/ai/providers', { enabled: { [r.key]: !r.enabled } });
   const test = r => post('/admin/ai/test', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: online · ${x.ms}ms`) : toast.error(`${r.label}: ${x.state || 'failed'} — ${x.err || ''}`)));
-  const load = r => { if (window.confirm(`Load ${r.model} in ${r.label}${r.host ? ` (${r.host})` : ''}? LM Studio loads it now (a few seconds on the desktop).`)) post('/admin/ai/load', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: ${x.model} loaded · ${Math.round(x.ms / 100) / 10}s`) : toast.error(`${r.label}: ${x.err || 'load failed'}`))); };
+  const load = r => { if (twoTap(`Load ${r.model} in ${r.label}${r.host ? ` (${r.host})` : ''}? LM Studio loads it now (a few seconds on the desktop).`)) post('/admin/ai/load', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: ${x.model} loaded · ${Math.round(x.ms / 100) / 10}s`) : toast.error(`${r.label}: ${x.err || 'load failed'}`))); };
   return <div className="aip-shade" onMouseDown={e => { if (e.target === e.currentTarget) close(); }} data-testid="ai-providers-shade">
     <aside className="aip" role="dialog" aria-label="AI providers" data-testid="ai-providers">
       <header><b><Ic3 e="🧠" /> AI PROVIDERS</b><small>fallback order · advisory only</small><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="aip-close">✕</button></header>

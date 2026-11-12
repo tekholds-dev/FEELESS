@@ -21,6 +21,7 @@ import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared wit
 import { Ic3, Ic3Text } from '../../lib/icon3d';
 import { AgentDesktop } from './CatWorkbench';
 import { DeskExtras, Lamp, SetupDot, ShaderWall } from './DeskShell';
+import { twoTap } from '../ActBtn';
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the agent on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -317,7 +318,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
             <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>}
         <section className="kd-card kd-revoke"><header><b><Ic3 e="🔒" /> RETIRE IT</b><small>stops it for good · frees a slot</small></header>
-          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
+          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => twoTap(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
           {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
         {cat.brainsCfg && !tabbed ? <><ModelSwitch cat={cat} busy={busy} onAct={onAct} /><ModelVitals cat={cat} /><ProofPaths cat={cat} /></> : null}
         <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>

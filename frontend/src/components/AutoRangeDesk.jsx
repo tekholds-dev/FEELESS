@@ -9,6 +9,7 @@ import { useSolPrice } from '../lib/solPrice';
 import { getChatSession } from '../lib/chatSession';
 import '../styles/autoRange.css';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 // 🤖 AUTORANGE DESK (owner 2026-10-26 mock-up: Pool Hall / Night Vault / Launch › Pools). The ENGINE (lib/autoRange.js) on this pool's REAL data:
 // its token's 15-minute candles (FEELESS candle service), the live price (price hub, 2s), the pool's real fee rate (24h volume × fee tier ÷ TVL).
@@ -118,16 +119,16 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
       `$${amt} → ${swaps ? `${swaps} swap${swaps > 1 ? 's' : ''} for the non-SOL side, then ` : ''}a band ${p.loPct != null ? `−${p.loPct.toFixed(1)}% / +${p.hiPct.toFixed(1)}%${p.capped ? ' (capped to one position)' : ''}` : `±${w}%`} around ${p.price.toPrecision(5)}\n` +
       `Rent locked: ~${rent.toFixed(3)} SOL (≈$${(rent * solPx).toFixed(2)})${p.cost?.binArraySol ? ` — ${p.cost.binArraySol.toFixed(3)} SOL of it is a one-time bin-array cost, NOT refunded` : ' — refunded when you close'}\n` +
       `Every transaction is simulated first; your wallet signs ${swaps + 1}×.`;
-    if (!window.confirm(msg)) throw new Error('Cancelled — nothing was signed.');
+    if (!twoTap(msg)) throw new Error('Cancelled — nothing was signed.');
     const r = await ex.zapOpen({ provider, owner: me, row: vrow, usd: amt, w, solPx, xUsd, onStatus: setBusy });
     await watch(r.position, r.plan); return { ...r, what: 'OPENED' };
   });
   const recenterReal = b => run('Re-centering…', async ex => {
-    if (!window.confirm(`RE-CENTER ${vrow.name}: close the old band (its fees come with it) → open ±${w}% on the live price with what it returns. Your wallet signs each step.`)) throw new Error('Cancelled — nothing was signed.');
+    if (!twoTap(`RE-CENTER ${vrow.name}: close the old band (its fees come with it) → open ±${w}% on the live price with what it returns. Your wallet signs each step.`)) throw new Error('Cancelled — nothing was signed.');
     const r = await ex.recenter({ provider, owner: me, row: vrow, position: b.position, w, onStatus: setBusy }); await watch(r.position, r.plan); return { ...r, what: 'RE-CENTERED' };
   });
   const closeReal = b => run('Closing…', async ex => {
-    if (!window.confirm(`CLOSE this ${vrow.name} band: withdraw 100% + its fees back to your wallet, rent refunded.`)) throw new Error('Cancelled — nothing was signed.');
+    if (!twoTap(`CLOSE this ${vrow.name} band: withdraw 100% + its fees back to your wallet, rent refunded.`)) throw new Error('Cancelled — nothing was signed.');
     const r = await ex.closeBand({ provider, owner: me, row: vrow, position: b.position, onStatus: setBusy }); return { sigs: r.signatures, what: 'CLOSED' };
   });
   const arm = () => { const a = { band: dec?.band || band, strat, amt, w, at: Date.now() }; try { localStorage.setItem(ARM_KEY(pool.id), JSON.stringify(a)); } catch { /* private mode */ } setArmed(a); };

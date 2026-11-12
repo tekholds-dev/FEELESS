@@ -4,6 +4,7 @@ import { useLpPositions, lpAction } from '../lib/lpPositions';
 import { dollarsSmall as cash } from '../lib/cityPlan';   // small money keeps its cents ($12.50, not $13)
 import '../styles/lpPositions.css';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 // 🏗 YOUR LP POSITIONS (owner, 2026-10-23: "show my LP positions as live buildings — fees earned, in range or not — with claim / remove / close
 // in place"): one card per position (the family block's pop-out, the money desk's list). Value now (both sides at the pool's own price), the fees
@@ -16,7 +17,7 @@ export function LpPositionCard({ p }) {
   const { wallet, provider } = useWallet() || {}; const mine = wallet?.chain === 'solana' && wallet?.address;
   const [busy, setBusy] = useState(null); const [st, setSt] = useState(''); const [done, setDone] = useState(null); const [err, setErr] = useState('');
   const run = async act => {
-    if (act !== 'claim' && !window.confirm(act === 'close' ? `Remove everything from ${p.sym} and close the position?` : `Take all your liquidity out of ${p.sym}?`)) return;
+    if (act !== 'claim' && !twoTap(act === 'close' ? `Remove everything from ${p.sym} and close the position?` : `Take all your liquidity out of ${p.sym}?`)) return;
     setBusy(act); setErr(''); setDone(null);
     try { const r = await lpAction({ provider, owner: wallet.address, position: p.position, act, onStatus: setSt }); setDone({ act, ...r }); } catch (e) { setErr(e.code === 4001 ? 'Declined in the wallet — nothing was sent.' : e.message); }
     setSt(''); setBusy(null);

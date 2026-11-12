@@ -5,7 +5,7 @@ import { depositQuote } from '../../lib/depositQuote';
 import { getChatSession, agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
 import { apiUrl } from '../../lib/api';
-import { ActBtn, serverJson } from '../ActBtn';
+import { ActBtn, serverJson, twoTap } from '../ActBtn';
 import '../../styles/catReal.css';
 import { Ic3 } from '../../lib/icon3d';
 
@@ -153,7 +153,7 @@ export function RecoveryPin({ cat }) {
     <p className="cr-safe-why">Keep it with <b>@{cat.handle}</b>. On a new browser, My agents › Recover an agent takes this agent back. It can't move money, and FEELESS can't show it again.</p>
     <label className="cr-safe-ok"><input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} data-testid="cr-pin-saved" /><i aria-hidden="true" /><span>I saved my recovery PIN offline</span></label>
     {saved ? <button type="button" className="m-btn" onClick={() => setPin('')} data-testid="cr-pin-done">Done, hide it</button> : null}</div>;
-  if (cat?.recoverySet) return <p className="cr-pin-on" data-testid="cr-pin-on"><i aria-hidden="true"><Ic3 e="🔑" /></i>Recovery PIN set<button type="button" className="m-btn" onClick={() => window.confirm('Make a new PIN? The old one stops working.') && make(true)} data-tip="Lost it? Make a new one; the old PIN stops working" data-testid="cr-pin-new">New PIN</button></p>;
+  if (cat?.recoverySet) return <p className="cr-pin-on" data-testid="cr-pin-on"><i aria-hidden="true"><Ic3 e="🔑" /></i>Recovery PIN set<button type="button" className="m-btn" onClick={() => twoTap('Make a new PIN? The old one stops working.') && make(true)} data-tip="Lost it? Make a new one; the old PIN stops working" data-testid="cr-pin-new">New PIN</button></p>;
   return <div className="cr-safe" data-testid="cr-pin-make"><span className="cr-safe-h"><i aria-hidden="true"><Ic3 e="🔑" /></i><b>SAVE YOUR RECOVERY PIN FIRST</b><small>one step, before funding</small></span>
     <p className="cr-safe-why">This agent lives in this browser. The PIN brings it back if you clear it or change device.</p>
     <button type="button" className="m-btn m-go" onClick={() => make(false)} data-testid="cr-pin-show" data-tip="Shows it once; only a hash is kept"><Ic3 e="🔑" /> Show my recovery PIN</button>{err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div>;

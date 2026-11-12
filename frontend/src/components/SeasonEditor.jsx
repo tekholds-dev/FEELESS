@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { ImagePlus } from 'lucide-react';
 import { Sparkles } from '../lib/lucide3d';
 import { uploadImage } from '../lib/adminCall';
+import { twoTap } from './ActBtn';
 
 export const BG_FX = [['money', '💸 Money rain'], ['fire', '🔥 Embers'], ['snow', '❄️ Snow'], ['leaves', '🍂 Falling leaves'], ['stars', '✨ Starfield'], ['none', 'None']];
 
@@ -70,7 +71,7 @@ export function SeasonEditor({ season, call, onDone }) {
       toast.success('Season updated.'); onDone(true);
     } catch (err) { toast.error(err.message); } finally { setBusy(false); }
   };
-  const remove = async () => { if (!window.confirm(`Delete season "${season.name}"?`)) return; try { await call(`/admin/seasons/${season.id}`, { method: 'DELETE' }); toast.success('Season deleted.'); onDone(true); } catch (err) { toast.error(err.message); } };
+  const remove = async () => { if (!twoTap(`Delete season "${season.name}"?`)) return; try { await call(`/admin/seasons/${season.id}`, { method: 'DELETE' }); toast.success('Season deleted.'); onDone(true); } catch (err) { toast.error(err.message); } };
   return <div className="season-editor" data-testid="season-editor">
     <header><h4>Edit season</h4><button type="button" className="btn-outline" disabled={busy} onClick={generate}><Sparkles size={14} />Generate lore + art</button></header>
     <ImageDrop wide shape={CROP.seasonBanner} label="Add banner / GIF" value={f.bannerUrl} onChange={v => set('bannerUrl', v)} />

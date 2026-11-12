@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { tiny } from '../../lib/num';
 import { useChatCallouts } from '../../lib/useChatCallouts';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 const METRIC_LABEL = { price: 'Price', marketCap: 'Market cap', fdv: 'FDV' };
 
 // aside: something to sit beside the chart (the war room puts the coin chat there); the trade tools then go below
@@ -52,7 +53,7 @@ export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, e
   const fz = current.fuse ? (lf.fuse || current.fuse) : null;
   const rebuying = rebuyBusy || lf.state === 'rebuying' || lf.state === 'buying';
   const rebuy = () => { const f = fz; if (!f?.tpl || rebuying) return;
-    if (!window.confirm(`Rebuy $${f.symbol}? It is sold whole now and bought straight back at today's price: a new entry, so its stop and lock count from here. Two swaps (about 1% in costs).`)) return;
+    if (!twoTap(`Rebuy $${f.symbol}? It is sold whole now and bought straight back at today's price: a new entry, so its stop and lock count from here. Two swaps (about 1% in costs).`)) return;
     setRebuyBusy(true); lf.kick();
     adminCall('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ rebuy: { tpl: f.tpl, pairAddress: f.pairAddress } }) })
       .then(() => { toast.success(`🔄 $${f.symbol} sold — buying it back at today's price`); window.dispatchEvent(new Event('feeless:prime')); })

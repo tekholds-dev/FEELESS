@@ -5,6 +5,7 @@ import { CopyBtn } from '../CopyBtn';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
 import { chipActs } from '../../lib/coinChips';
 import '../../styles/circleCoins.css';
+import { twoTap } from '../ActBtn';
 
 // Circle ties networks to the key: TEST keys only reach testnets, LIVE keys only mainnets.
 const CHAINS = { test: [['SOL-DEVNET', 'Solana devnet'], ['BASE-SEPOLIA', 'Base Sepolia'], ['ETH-SEPOLIA', 'Ethereum Sepolia'], ['ARB-SEPOLIA', 'Arbitrum Sepolia']], live: [['SOL', 'Solana mainnet'], ['BASE', 'Base mainnet'], ['ETH', 'Ethereum mainnet'], ['ARB', 'Arbitrum mainnet'], ['MATIC', 'Polygon mainnet']] };
@@ -30,7 +31,7 @@ export function CircleWallets({ call }) {
   useEffect(() => { load(); }, [load]);
   const create = async () => {
     const main = !blockchain.includes('-');
-    if (main && !window.confirm(`Create a MAINNET ${blockchain} wallet? Real funds sent to it are real.`)) return;
+    if (main && !twoTap(`Create a MAINNET ${blockchain} wallet? Real funds sent to it are real.`)) return;
     setBusy(true);
     try { await call('/admin/circle/wallets', { method: 'POST', body: JSON.stringify({ blockchain, name: f.name || 'Creator wallet' }) }); toast.success('Wallet created'); setF(x => ({ ...x, name: '' })); load(); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
@@ -70,7 +71,7 @@ const money = v => (v == null ? '—' : v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 
 // burn = burn + close the account for its rent — only offered under 5¢ (a coin worth more is sold, never destroyed)
 export function coinAct(call, done) {
   return async (b, kind) => {
-    if (kind === 'burn' && !window.confirm(`Burn ${b.symbol} and close its account? The coins are gone for good; the rent comes back.`)) return;
+    if (kind === 'burn' && !twoTap(`Burn ${b.symbol} and close its account? The coins are gone for good; the rent comes back.`)) return;
     try {
       const r = kind === 'sell' ? await call('/admin/fuse-wallet/coin-sell', { method: 'POST', body: JSON.stringify({ mint: b.mint }) })
         : await call('/admin/fuse-wallet/close-dust', { method: 'POST', body: JSON.stringify({ confirm: true, mints: [b.mint] }) });

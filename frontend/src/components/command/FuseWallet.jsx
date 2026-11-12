@@ -9,6 +9,7 @@ import '../../styles/fuseMoney.css';
 
 import { tiny } from '../../lib/num';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 // HQ › Fuse › 👛 Fuse wallet (owner only): the Circle wallet that funds FEELESS's tier cards with REAL money.
 // 1 · pick the wallet + see its funds · 2 · hard limits · 3 · top up a tier (resets it as a new real run) or ↩ defund ·
 // 4 · 🔍 dry run = real Jupiter quotes for what a top-up would buy (never signs) · 5 · the audit trail (every order + tx).
@@ -107,9 +108,9 @@ export function FuseWallet({ call }) {
     call('/admin/fuse-wallet/topup', { method: 'POST', body: JSON.stringify({ tpl, usd: v }) }).then(x => { toast.success(x.first ? `💵 ${d.tiers[tpl]} funded with $${v} — new real run` : `💵 +$${v} — new run`); load(); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)); };
   const preview = tpl => { const v = Number(amt[tpl]) || 20; setDry({ tpl, busy: true });
     call('/admin/fuse-wallet/preview', { method: 'POST', body: JSON.stringify({ tpl, usd: v }) }).then(x => setDry({ tpl, usd: v, ...x })).catch(e => { setDry(null); toast.error(e.message); }); };
-  const cardAct = (tpl, action) => (action === 'defund' && !window.confirm(`Sell EVERY coin on ${d.tiers?.[tpl] || tpl} back to SOL and return the card to paper? This cannot be undone.`)) ? null : call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin back to SOL' : action === 'halt' ? '⏸ Card halted' : '▶ Resumed'); load(); }).catch(e => toast.error(e.message));
+  const cardAct = (tpl, action) => (action === 'defund' && !twoTap(`Sell EVERY coin on ${d.tiers?.[tpl] || tpl} back to SOL and return the card to paper? This cannot be undone.`)) ? null : call('/admin/fuse-wallet/card', { method: 'POST', body: JSON.stringify({ tpl, action }) }).then(() => { toast.success(action === 'defund' ? '↩ Selling every coin back to SOL' : action === 'halt' ? '⏸ Card halted' : '▶ Resumed'); load(); }).catch(e => toast.error(e.message));
   const recoverSell = r => {
-    if (!window.confirm(`Force sell old ${r.symbol} still held by the Fuse wallet and return the confirmed SOL to ${d.tiers?.[r.card] || r.card} card cash?`)) return;
+    if (!twoTap(`Force sell old ${r.symbol} still held by the Fuse wallet and return the confirmed SOL to ${d.tiers?.[r.card] || r.card} card cash?`)) return;
     call('/admin/fuse-wallet/recover-sell', { method: 'POST', body: JSON.stringify({ tpl: r.card, mint: r.mint }) })
       .then(() => { toast.success(`🧹 ${r.symbol} recovered — force sell running; proceeds stay in card cash`); load(); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message));

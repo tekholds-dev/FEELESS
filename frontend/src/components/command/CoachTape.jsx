@@ -6,6 +6,7 @@ import { tradeCard, tapeLine, gradeRows, coachRows, pullable, speedMeters, lineW
 import { STANCE_TONE } from '../../lib/aiRead';
 import '../../styles/coachTape.css';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 
 // 🎬 THE REAL TRADE TAPE — every real agent trade as ONE story: the fill → why the agents took it → what the model said → the exit → the
 // result → the Judge's ruling. Built server-side from the ledger, the archive, the Judge's reviews and the model's log (coach.trade_tape).
@@ -138,7 +139,7 @@ export function CoachBox({ coach, seats, tpl, call, isOwner }) {
     const s = held.find(x => x.mint === seat);
     if (!s || !key) { toast.error('Pick the seat and the reason'); return; }
     if (!tpl) { toast.error('No real card to pull from'); return; }
-    if (!window.confirm(`Pull $${s.symbol} off its seat now (sell it all to card cash) and teach the agents "${key}"? It stays off their buy list for 6 hours.`)) return;
+    if (!twoTap(`Pull $${s.symbol} off its seat now (sell it all to card cash) and teach the agents "${key}"? It stays off their buy list for 6 hours.`)) return;
     call('/admin/arena/prime', { method: 'POST', body: JSON.stringify({ manualSell: { tpl, pairAddress: s.pair, pct: 100, ack: true } }) })
       .then(() => post({ key, why, mint: s.mint, sym: s.symbol }, `✋ $${s.symbol} pulled — "${key}" is now a rule the agents rank against`)).then(() => setSeat(''))
       .catch(e => toast.error(e.message));

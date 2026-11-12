@@ -19,6 +19,7 @@ import '../../styles/brainChat.css';
 import { ChatFx, ChatThemePicker, chatTheme } from '../ChatFx';
 import { useChatPrefs } from '../../lib/chatPrefs';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
   ['case', '🔎 Case', 'The structured read of the coin on the chart (validated JSON → shown as a verdict)'],
@@ -237,7 +238,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
           <button type="button" className="cch-svopen" onClick={() => { setShowSaved(false); openConvo(c.id); }} data-testid={`cch-sv-open-${c.id}`}><i>{(CHAT_MODES.find(m => m[0] === c.mode)?.[1] || '').split(' ')[0]}</i>{c.title}<small>{c.n} msgs</small></button>
           <button type="button" className="cch-svact" onClick={() => { const t = window.prompt('Rename this chat', c.title); if (t && t.trim()) savedDo({ id: c.id, title: t.trim() }); }} aria-label="Rename" data-testid={`cch-sv-ren-${c.id}`}><Ic3 e="✏" /></button>
           <button type="button" className="cch-svact is-del" onClick={() => savedDo({ id: c.id, delete: true })} aria-label="Delete" data-testid={`cch-sv-del-${c.id}`}><Ic3 e="🗑" /></button></div>)}
-          <button type="button" className="cch-svclear" onClick={() => { if (window.confirm(`Delete all ${saved.length} saved chats?`)) savedDo({ clearAll: true }); }} data-testid="cch-sv-clear"><Ic3 e="🗑" /> clear all saved</button></div> : null}</span> : null}
+          <button type="button" className="cch-svclear" onClick={() => { if (twoTap(`Delete all ${saved.length} saved chats?`)) savedDo({ clearAll: true }); }} data-testid="cch-sv-clear"><Ic3 e="🗑" /> clear all saved</button></div> : null}</span> : null}
       <ChatSettings open={showSet} onOpen={setShowSet} testid="cch-set" panelTestid="cch-sets" label="Brain settings" placement="bottom end" tip="Brain settings: how the model answers + what it may do on its own" icon={<Ic3 e="⚙" />}>
       <em>🌡 HOW WILD</em><div className="m-seg">{[[0.1, 'exact'], [0.3, 'sharp'], [0.6, 'loose'], [0.9, 'wild']].map(([v, l]) => <button key={v} type="button" className={(sets?.temp) === v ? 'active' : ''} onClick={() => saveSet({ temp: v })} data-testid={`cch-temp-${v}`}>{l}</button>)}</div>
       <em>📏 ANSWER</em><div className="m-seg">{[['short', 'short'], ['normal', 'normal'], ['long', 'long']].map(([v, l]) => <button key={v} type="button" className={(sets?.len) === v ? 'active' : ''} onClick={() => saveSet({ len: v })} data-testid={`cch-len-${v}`}>{l}</button>)}</div>

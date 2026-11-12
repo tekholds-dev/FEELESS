@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { RiskDial, DialBoard } from '../RiskDial';
 import { FuseCard } from '../FuseCard';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 const PG_STYLE = { safe: 'steady', balanced: 'yield', degen: 'degen' };
 const PG_SL = { sell: '✂ sell', park: '🅿 park', hold: '❄ hold' };
 
@@ -189,7 +190,7 @@ export function PlaygroundBattles({ call, onPublish }) {
       <span data-tip="How many of the best scenario cards fight in the background (8 = four battles every bell)">🃏</span>{seg('cards', [2, 4, 6, 8], v => `${v}`)}
       {[['swapOnTp', '🎯 swap on TP'], ['swapOnSl', '🛑 swap on stop'], ['swapDead', '💀 swap dead']].map(([k, l]) => <label key={k} className="m-toggle" data-tip={k === 'swapDead' ? `No 5m trades or volume for ${c.deadMins} min → swapped for the best gated runner` : 'Swapped for the best gated runner not on the card'}><input type="checkbox" checked={c[k]} onChange={e => set({ cfg: { [k]: e.target.checked } })} />{l}</label>)}
       <button type="button" className="m-btn" onClick={() => set({ bell: true })} data-testid="pgb-bell" data-tip="Settle this round now"><Ic3 e="🔔" /> Ring bell</button>
-      <button type="button" className="m-btn" onClick={() => window.confirm('Reset playground battles (fresh cards + records)?') && set({ reset: true })}>♻ Reset</button>
+      <button type="button" className="m-btn" onClick={() => twoTap('Reset playground battles (fresh cards + records)?') && set({ reset: true })}>♻ Reset</button>
     </div>
     {!b.pairs.length ? <p className="m-dim">{c.on ? 'Dealing the first cards…' : 'Battles are off.'}</p>
       : <details className="hrt-fold pgb-bgfold" data-testid="pgb-bgfold"><summary><b>⚔ Background field · {b.field?.length || 0} big cards</b><span>they fight every bell — only the top {shownIds.length || 3} earn a playground seat</span></summary><div className="bf-pairs">{b.pairs.map((p, i) => { const d = (p.a.pct || 0) - (p.b.pct || 0); const share = Math.max(0.08, Math.min(0.92, 0.5 + d / 20));

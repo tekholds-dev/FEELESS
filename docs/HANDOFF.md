@@ -6,8 +6,9 @@ DONE, on main, gates green:
    · **Pit** (Trade shows the room chat + alpha tape rail beside the swap). Old amber Obsidian = `amber`. CLAUDE.md palette rule + memory updated.
 2. ✅ Old looks = ONE Classic row (scrolls) in LookPicker.
 3. 🟡 Buttons: `components/ActBtn.jsx` (press ring → money 2 taps/3.5 s → spinner → ✓ only on server OK / shake + the server's `detail`).
-   On: agent Withdraw (was window.confirm), Look save, colour save. `backend/tests/test_frontend_routes_exist.py`: every /api path the site calls has a route (0 missing).
-   NEXT: move the other server-write buttons onto ActBtn surface by surface (Fuse actions, Kalshi Approve, HQ saves).
+   On: agent Withdraw, Kalshi Approve (2 taps), Look save, colour save. `twoTap(msg)` replaced ALL 48 window.confirm in 29 files (real card sells/top-ups/
+   payouts, Fuse, LP, treasury, deletes): 1st tap arms that button amber + toast, 2nd tap on the same button within 3.5 s confirms. `backend/tests/test_frontend_routes_exist.py`: every /api path the site calls has a route (0 missing).
+   NEXT: ✓/spinner states for non-confirm server writes (HQ saves) via ActBtn, surface by surface.
 4. ✅ Quests/rank: grep found no fake rank/XP/board numbers; Desk widgets are server-only with honest empty states.
 5. 🟡 PoEco: Live books got a Recharts **Sankey money flow** (`flowOf` in EcoLive.jsx: fees in + your pocket → FeeBack / each model / kept, balanced, null if no money).
    Not seen signed in (owner-only route). Pro look sitewide under the elite edition (`styles/looks.css` end): no m-live aurora/sweep, no gradient

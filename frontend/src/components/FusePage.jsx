@@ -43,6 +43,7 @@ import '../styles/cardWindow.css';
 
 import { tiny } from '../lib/num';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 // Fuse 🧬 — the whole Fuse product in one tab: Lab (build + featured) · Runners (pick ≤3 fresh coins) · Arena (proof)
 // · My cards (live cards + every action). Runner picks and "Load" carry across tabs. Every money action is a normal
 // wallet-signed FuseGo approval; the server re-checks every signature before anything counts.
@@ -697,12 +698,12 @@ export function RealCardFixes({ addr }) {
   const load = useCallback(e => sharedJson('/api/reputation/fuses/prime', { fresh: !!e }).then(x => setCards((x?.cards || []).filter(c => c.real))).catch(() => {}), []);
   useEffect(() => { if (!addr) return undefined; load(); const t = setInterval(() => !document.hidden && load(), 30000); window.addEventListener('feeless:prime', load); return () => { clearInterval(t); window.removeEventListener('feeless:prime', load); }; }, [addr, load]);
   if (!cards.length) return null;
-  const recover = (c, r) => { if (!window.confirm(`Sell old ${r.symbol} still stuck in the Fuse wallet and return the confirmed SOL to ${c.label} card cash?`)) return;
+  const recover = (c, r) => { if (!twoTap(`Sell old ${r.symbol} still stuck in the Fuse wallet and return the confirmed SOL to ${c.label} card cash?`)) return;
     const key = `recover-${c.tpl}-${r.mint}`; setBusy(key); call('/admin/fuse-wallet/recover-sell', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, mint: r.mint }) })
       .then(() => { toast.success(`${r.symbol} recovery sell started → ${c.label} cash`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const payout = c => { const b = c.realBook || {}; const amt = Number(b.profitCashAvailableUsd || 0); if (!(amt > 0)) { toast.error('No profit cash is available yet'); return; }
-    if (!window.confirm(`Pay out ${m$(amt)} of PROFIT from ${c.label}? Your funded principal stays in the card.`)) return;
+    if (!twoTap(`Pay out ${m$(amt)} of PROFIT from ${c.label}? Your funded principal stays in the card.`)) return;
     const key = `payout-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/payout-profit', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: amt }) })
       .then(x => { toast.success(`Paid out ${m$(x.paidUsd || amt)} profit · principal untouched`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
@@ -711,7 +712,7 @@ export function RealCardFixes({ addr }) {
     if (typed == null) return; const usdNow = Number(String(typed).replace(/[$,\s]/g, ''));
     if (!(usdNow > 0) || usdNow > (cashNow || 0) + 1e-9) { toast.error(`Type an amount above $0 and at most ${m$(cashNow)}.`); return; }
     const left = Math.max(0, (c.realBook?.fundedUsd || 0) - usdNow);
-    if (!window.confirm(`Take ${m$(usdNow)} of card cash out of ${c.label}? Your principal becomes ${m$(left)} — profit is then anything the card is worth above ${m$(left)}.`)) return;
+    if (!twoTap(`Take ${m$(usdNow)} of card cash out of ${c.label}? Your principal becomes ${m$(left)} — profit is then anything the card is worth above ${m$(left)}.`)) return;
     setBusy(`wd-${c.tpl}`); call('/admin/fuse-wallet/withdraw-cash', { method: 'POST', body: JSON.stringify({ tpl: c.tpl, usd: usdNow }) })
       .then(x => { toast.success(`↗ ${m$(x.tookUsd)} out · principal now ${m$(x.principalUsd)}`); window.dispatchEvent(new Event('feeless:prime')); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const retryDead = (c, o) => { const key = `dead-${c.tpl}-${o.side}-${o.mint}`; setBusy(key);
@@ -720,7 +721,7 @@ export function RealCardFixes({ addr }) {
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const sellAllDead = c => { const holdings = [...(c.realBook?.offCard || []), ...(c.realBook?.recoverable || [])]; const n = new Set(holdings.map(x => x.mint)).size;
     const now = (c.realBook?.offCard || []).reduce((sum, x) => sum + Number(x.usd || 0), 0);
-    if (!n || !window.confirm(`Attempt to sell ${n} confirmed dead/off-card coin${n === 1 ? '' : 's'} (current quoted value ${m$(now)}) into ${c.label} card cash? Original cost cannot be restored after a coin loses market value. Failed buys with no confirmed coins are ignored. Cash and P&L update only after each sell confirms.`)) return;
+    if (!n || !twoTap(`Attempt to sell ${n} confirmed dead/off-card coin${n === 1 ? '' : 's'} (current quoted value ${m$(now)}) into ${c.label} card cash? Original cost cannot be restored after a coin loses market value. Failed buys with no confirmed coins are ignored. Cash and P&L update only after each sell confirms.`)) return;
     const key = `dead-all-${c.tpl}`; setBusy(key); call('/admin/fuse-wallet/recover-sell-all', { method: 'POST', body: JSON.stringify({ tpl: c.tpl }) })
       .then(x => { toast.success(`${x.queued || n} confirmed holding${(x.queued || n) === 1 ? '' : 's'} queued → ${c.label} cash · sells on the next keeper tick (~1 min), even while the card is paused`); window.dispatchEvent(new Event('feeless:prime')); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };

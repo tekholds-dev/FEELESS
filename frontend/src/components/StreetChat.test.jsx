@@ -25,7 +25,7 @@ test('pure: text parts, x and mcap words', () => {
 test('the street: crest plates, receipts, @you, block + pulse; react, post and a Don pulls only their own family', async () => {
   const calls = [];
   global.fetch = jest.fn((u, o) => { calls.push([String(u), o]); return Promise.resolve({ ok: true, json: () => Promise.resolve(String(u).includes('/familia/street/fee') && !o ? READ : { ok: true }) }); });
-  window.confirm = () => true;
+  window.confirm = jest.fn(() => true);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<StreetChat city="fee" name="FEE CITY" addr="ME" sess="s" />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);

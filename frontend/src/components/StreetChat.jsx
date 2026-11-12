@@ -12,6 +12,7 @@ import { sharedJson } from '../lib/sharedJson';
 import { useMarket } from '../hooks/useMarket';
 import '../styles/streetChat.css';
 import { Ic3 } from '../lib/icon3d';
+import { twoTap } from './ActBtn';
 
 // 💬 THE STREETS — the Familia city chat (backend/street_chat.py; owner: "familia chat gotta be LITTY"). A drawn street at night (skyline with
 // lit windows, the city's neon sign, rain, lamp glow) behind one room per city where every line wears its family's crest plate, the Don gets
@@ -192,7 +193,7 @@ export default function StreetChat({ city, name, addr, sess }) {
     await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: d?.room || `city-${city}`, messageId: id, emoji, ...(addr && sess ? { voter: addr, session: sess } : reactionVoter()) }) }).catch(() => {});
   };
   const mod = async (l, act) => {
-    if (!need() || ((act === 'pull' || act === 'mute') && !window.confirm(act === 'mute' ? `Pull this line and mute ${l.name} for an hour?` : 'Pull this line off the street?'))) return;
+    if (!need() || ((act === 'pull' || act === 'mute') && !twoTap(act === 'mute' ? `Pull this line and mute ${l.name} for an hour?` : 'Pull this line off the street?'))) return;
     try { const r = await fetch(apiUrl(`/api/reputation/familia/street/${city}/mod`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, id: l.id, act }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'Could not pull it'); toast.success({ mute: '🔇 pulled + muted 1h', pin: '📌 pinned for an hour', unpin: '📌 pin taken down' }[act] || '🗑 pulled'); load(); }
     catch (err) { toast.error(err.message); }

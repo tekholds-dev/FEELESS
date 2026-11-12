@@ -7,6 +7,7 @@ import { shortAddress } from '../../lib/dexscreener';
 import { useSolUsd, money } from './FeeInputs';
 import { CirclePay, useCircleWallet } from './CirclePay';
 import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
+import { twoTap } from '../ActBtn';
 
 // Badge pools: a pool is a wallet you control + how much of it goes to badge holders. The matrix sets, for every
 // badge, the exact % of each pool's pot it earns (split equally between that badge's holders). Unassigned % stays put.
@@ -64,7 +65,7 @@ export function BadgePools({ call }) {
       toast.success('Badge shares saved.'); load();
     } catch (e) { toast.error(errorText(e)); } finally { setBusy(''); }
   };
-  const remove = async id => { if (!window.confirm('Delete this pool? Past payouts stay on-chain.')) return; try { await call(`/admin/badge-pools/${id}`, { method: 'DELETE' }); load(); } catch (e) { toast.error(errorText(e)); } };
+  const remove = async id => { if (!twoTap('Delete this pool? Past payouts stay on-chain.')) return; try { await call(`/admin/badge-pools/${id}`, { method: 'DELETE' }); load(); } catch (e) { toast.error(errorText(e)); } };
   const pay = async p => {
     const plan = plans[p.id];
     try {

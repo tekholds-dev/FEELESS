@@ -13,6 +13,24 @@ export async function serverJson(r) {
   return d;
 }
 
+// 🔘 twoTap(msg): the drop-in for window.confirm(msg) on any existing button (owner 2026-11-12: no native dialogs; money = 2 taps within 3.5 s).
+// The 1st tap arms THAT button (amber pulse) and says what the 2nd tap does; the 2nd tap on the same button returns true. Keyed by the pressed
+// button + the message without its numbers, so a live price ticking between taps never blocks it and two buttons never cross. Tests that mock
+// window.confirm keep driving it.
+let lastBtn = null; let armed = null;
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', e => { lastBtn = e.target?.closest?.('button,[role="button"]') || null; }, true);
+export function twoTap(msg) {
+  if (typeof window.confirm === 'function' && 'mock' in window.confirm) return window.confirm(msg);
+  const el = (document.activeElement?.tagName === 'BUTTON' ? document.activeElement : null) || lastBtn;
+  const key = String(msg).replace(/[\d.,$~%+−-]+/g, '#');
+  if (armed && armed.el === el && armed.key === key && Date.now() - armed.at < 3500) { clearTimeout(armed.t); armed.el?.classList.remove('act-armed'); armed = null; return true; }
+  if (armed) { clearTimeout(armed.t); armed.el?.classList.remove('act-armed'); }
+  el?.classList.add('act-armed');
+  armed = { el, key, at: Date.now(), t: setTimeout(() => { el?.classList.remove('act-armed'); armed = null; }, 3500) };
+  toast.warning?.(`${msg}`, { description: 'Tap the same button again within 3.5 s to confirm.', duration: 3500 });
+  return false;
+}
+
 export function ActBtn({ run, money = false, confirm = 'Tap again to confirm', done = 'Done', okToast = '', className = 'm-btn', children, disabled, onDone, ...rest }) {
   const [st, setSt] = useState('idle'); const t = useRef(0); const live = useRef(true);
   useEffect(() => () => { live.current = false; clearTimeout(t.current); }, []);

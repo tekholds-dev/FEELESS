@@ -59,6 +59,7 @@ import { hqWrite, useHqBusy } from '../../lib/hqBusy';
 import { useRemembered } from '../../lib/remember';
 import { shaped } from '../../lib/shape';
 import { Ic3 } from '../../lib/icon3d';
+import { twoTap } from '../ActBtn';
 // 🧱 every HQ read through one shape (H01): an empty / partial reply renders an empty panel, never a crashed HQ
 const PULSE = shaped({ hourly: [], busiestRooms: [], topPosters: [], topClicks: [], top: [], messages: 0, activeWallets: 0, profiles: 0, pushSubscribers: 0, muted: 0, fee: {} });
 const TRAFFIC = shaped({ daily: [], hours: [], topPages24h: [], topPages7d: [], topClicks: [], referrers: [], topCoins: [], pairs: [] });
@@ -706,7 +707,7 @@ function BroadcastPanel({ call }) {
   const [busy, setBusy] = useState(false);
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
   const send = async () => {
-    if (!window.confirm(`Send "${f.title}"${f.push ? ' as a push notification to every subscriber' : ''}?`)) return;
+    if (!twoTap(`Send "${f.title}"${f.push ? ' as a push notification to every subscriber' : ''}?`)) return;
     setBusy(true);
     try { const r = await call('/admin/broadcast', { method: 'POST', body: JSON.stringify({ ...f, rooms: f.rooms.split(/[\s,]+/).filter(Boolean) }) }); toast.success(`Posted in ${r.rooms} room(s) · pushed to ${r.pushed}`); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
