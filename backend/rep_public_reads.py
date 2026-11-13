@@ -264,7 +264,7 @@ async def radar():
 async def notifications(address: str, session: str):
     rs = _rs()
     me = rs._session_or_401(address, session)
-    box = rs._legacy_sniper_dedupe(rs._json_load(rs.NOTIF_PATH, {}).get(me, []))
+    box = rs._legacy_sniper_dedupe(rs._notif_box(me))
     return {'unread': sum(1 for n in box if not n['read']), 'items': box[:60]}
 
 

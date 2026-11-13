@@ -4766,7 +4766,7 @@ async def fuse_pnl(address: str):
     for c in allpos:
         if c.get('copyOf'):
             k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules, champ=bool(c.get('champCopy'))), 6)
-    box = _json_load(NOTIF_PATH, {}).get(primary_of(address)) or []
+    box = _notif_box(primary_of(address))
     frz = {x['id']: x.get('frozen') or [] for x in pos}
     rows = [{**r, 'frozen': frz.get(r['id'], []), 'autos': _hq.card_autos(box, r['id'], now), 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
              'copies': (copies.get(r['id']) or {}).get('n', 0), 'copyEarnedUsd': (copies.get(r['id']) or {}).get('usd', 0.0)} for r in rows]
@@ -25871,7 +25871,7 @@ def _legal_parts(me):
     return {
         'profile': _prof().get(me),
         'follows': (_fol().get('following') or {}).get(me),
-        'notifications': _json_load(NOTIF_PATH, {}).get(me),
+        'notifications': _notif().get(me),
         'push': [{'watch': v.get('watch'), 'prefs': v.get('prefs')} for v in subs if own((v.get('prefs') or {}).get('address'))],
         'dmPrefs': _json_load(DM_PREFS_PATH, {}).get(me),
         'identities': {a: v for a, v in (_ids().get('links') or {}).items() if (v or {}).get('primary') == me and a != me},
@@ -25915,7 +25915,8 @@ async def _legal_wipe(me):
             subs.pop(sid, None)
         n['push'] = len(gone); _push_save(d)
         d = _fol(); n['follows'] = len((d.get('following') or {}).pop(me, None) or []); _json_save(FOLLOW_PATH, d)
-        d = _json_load(NOTIF_PATH, {}); n['notifications'] = len(d.pop(me, None) or []); _json_save(NOTIF_PATH, d)
+        import sql_store as _sqls
+        n['notifications'] = len(_notif().update(me, lambda box: _sqls.Result(None, box or [])) or [])
         d = _json_load(DM_PREFS_PATH, {}); n['dmPrefs'] = 0 if d.pop(me, None) is None else 1; _json_save(DM_PREFS_PATH, d)
         d = _json_load(DM_PATH, {}); k_ = 0
         for key, th in list(d.items()):
@@ -28225,6 +28226,26 @@ async def admin_feecat_set(request: Request):
 
 # ---- Notifications inbox (per identity) + push to the owner's devices ----------------------
 NOTIF_PATH = DATA_DIR / 'notifications.json'
+_notif_docs: dict = {}
+
+
+def _notif():
+    """🗄 SITE-8: the inbox, one row per wallet in SQLite (notifications.db). A new alert changes ONE wallet's row in one transaction, so
+    any number of workers can notify at once and none wipes another's (the old whole-file write rewrote 4 MB per alert and lost races).
+    notifications.json moved in once and is kept read-only."""
+    import sql_store as _sqls
+    k_ = str(NOTIF_PATH)
+    if k_ not in _notif_docs:
+        _notif_docs[k_] = _sqls.Docs(NOTIF_PATH)
+    return _notif_docs[k_]
+
+
+def _notif_box(wallet):
+    """One wallet's inbox, newest first ([] when none or the store is unreadable)."""
+    try:
+        return _notif().get(wallet) or []
+    except Exception:
+        return []
 
 
 def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', once: str = '', meta: Optional[dict] = None, push: bool = True):
@@ -28233,14 +28254,17 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', o
     to = primary_of(address)
     if not to or to in ('FEE-LEADER-CAT', 'FEELESS-HQ') or primary_of(actor or '') == to:
         return
-    d = _json_load(NOTIF_PATH, {})
-    box = d.setdefault(to, [])
-    if once and any(n.get('once') == once for n in box):
+    import sql_store as _sqls
+    row = {'id': uuid.uuid4().hex[:10], 'kind': kind, 'text': text[:200], 'url': url, 'actor': actor, 'at': time.time(), 'read': False,
+           **({'once': once} if once else {}), **({'meta': meta} if meta else {})}
+
+    def add(box):
+        box = box or []
+        if once and any(n.get('once') == once for n in box):
+            return _sqls.Result(box or None, False)
+        return _sqls.Result([row, *box][:200], True)
+    if not _notif().update(to, add):
         return
-    box.insert(0, {'id': uuid.uuid4().hex[:10], 'kind': kind, 'text': text[:200], 'url': url, 'actor': actor, 'at': time.time(), 'read': False,
-                   **({'once': once} if once else {}), **({'meta': meta} if meta else {})})
-    d[to] = box[:200]
-    _json_save(NOTIF_PATH, d)
     if not push:
         return
     try:
@@ -28276,11 +28300,7 @@ def _legacy_sniper_dedupe(box):
 @app.post('/api/reputation/notifications/read')
 async def notifications_read(payload: dict):
     me = _session_or_401(payload.get('address', ''), payload.get('session', ''))
-    async with _admin_lock:
-        d = _json_load(NOTIF_PATH, {})
-        for n in d.get(me, []):
-            n['read'] = True
-        _json_save(NOTIF_PATH, d)
+    _notif().update(me, lambda box: [{**n, 'read': True} for n in box] if box else None)
     return {'ok': True}
 
 
@@ -29277,6 +29297,16 @@ async def gas_check(address: str, sol: str = ''):
 THEME_MIN_USD = 1000.0
 POOL_BUILDER_MIN_USD = 5000.0
 THEMES_PATH = DATA_DIR / 'themes.json'
+_theme_docs: dict = {}
+
+
+def _themes():
+    """🗄 SITE-8: saved looks / colours, one row per wallet in SQLite (themes.db); themes.json moved in once and is kept read-only."""
+    import sql_store as _sqls
+    k_ = str(THEMES_PATH)
+    if k_ not in _theme_docs:
+        _theme_docs[k_] = _sqls.Docs(THEMES_PATH)
+    return _theme_docs[k_]
 _HEX = _re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
@@ -29307,7 +29337,7 @@ async def _eco_holding_usd(address: str) -> float:
 async def theme_get(address: str):
     a = primary_of(address)
     held = await _eco_holding_usd(a)
-    saved = _json_load(THEMES_PATH, {}).get(a)
+    saved = _themes().get(a)
     if held >= POOL_BUILDER_MIN_USD:
         seen = _json_load(DATA_DIR / 'perk_notices.json', {})
         if not seen.get(a):
@@ -29351,16 +29381,15 @@ async def theme_set(p: ThemePayload):
         worn = _looks.wear(p.look, ok)
         if not worn:
             raise HTTPException(403 if p.look in _looks.LOOKS else 400, f'That look unlocks at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).' if p.look in _looks.LOOKS else 'No such look.')
-        d = _json_load(THEMES_PATH, {}); d[a] = {'look': p.look, 'at': time.time()}; _json_save(THEMES_PATH, d)
-        return {'ok': True, 'theme': {**d[a], 'look': worn}}
+        row = {'look': p.look, 'at': time.time()}; _themes().put(a, row)
+        return {'ok': True, 'theme': {**row, 'look': worn}}
     if not p.accent:
         raise HTTPException(400, 'Pick a look or a colour.')
     if not ok:
         raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
-    d = _json_load(THEMES_PATH, {})
-    d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
-    _json_save(THEMES_PATH, d)
-    return {'ok': True, 'theme': d[a]}
+    row = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
+    _themes().put(a, row)
+    return {'ok': True, 'theme': row}
 
 
 # ---- Meta engine: which narratives are forming, rising or dying, across every chain ------------

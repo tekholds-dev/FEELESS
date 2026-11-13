@@ -16,7 +16,7 @@ def test_watch_alert_lands_in_inbox_with_its_source_and_no_second_push(monkeypat
     entry = {'subscription': {}, 'prefs': {'address': W}}
     w = {'chainId': 'solana', 'pairAddress': 'PoolX', 'symbol': 'WIF'}
     rs._inbox_alert(entry, 'volSpike', 'WIF volume spike: last 5m running 4.0× its daily pace', w)
-    box = rs._json_load(tmp_path / 'n.json', {})[rs.primary_of(W)]
+    box = rs._notif_box(rs.primary_of(W))
     assert box[0]['kind'] == 'alert'
     assert box[0]['meta'] == {'symbol': 'WIF', 'rule': 'volSpike', 'claim': 'WIF volume spike: last 5m running 4.0× its daily pace',
                               'source': '5m vs 24h volume (DexScreener)'}
@@ -27,4 +27,4 @@ def test_watch_alert_lands_in_inbox_with_its_source_and_no_second_push(monkeypat
 def test_subscription_without_a_wallet_writes_nothing(monkeypatch, tmp_path):
     monkeypatch.setattr(rs, 'NOTIF_PATH', tmp_path / 'n.json')
     rs._inbox_alert({'subscription': {}, 'prefs': {}}, 'up', 'WIF up 20%', {'chainId': 'solana', 'pairAddress': 'P'})
-    assert rs._json_load(tmp_path / 'n.json', {}) == {}
+    assert rs._notif().all() == {}

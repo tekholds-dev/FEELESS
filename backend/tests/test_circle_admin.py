@@ -236,7 +236,7 @@ def test_confirmed_trade_notifies_once_and_refreshes_holdings(monkeypatch, tmp_p
     body = rs.TradeLanded(wallet=W, signature=SIG, inUsd=100, feeBps=50, inputMint=rs.WSOL, outputMint='Coin1111111111111111111111111111111111111111')
     asyncio.run(rs.internal_trade(Req(), body))
     asyncio.run(rs.internal_trade(Req(), body))   # duplicate report: ignored
-    box = rs._json_load(tmp_path / 'n.json', {})[W]
+    box = rs._notif_box(W)
     assert len(box) == 1 and box[0]['text'].startswith('✅ Buy confirmed') and W not in rs._pf_cache
     assert rs._json_load(tmp_path / 'l.json', {})[W][0]['feeUsd'] == 0.5
 

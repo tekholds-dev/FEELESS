@@ -99,7 +99,7 @@ def test_service_accept_export_delete_end_to_end(monkeypatch):
     # the wallet's personal rows, spread over the stores
     rs._prof().put(ME, {'displayName': 'me'})
     rs._json_save(rs.FOLLOW_PATH, {'following': {ME: [OTHER], OTHER: [ME]}})
-    rs._json_save(rs.NOTIF_PATH, {ME: [{'id': 'n1', 'text': 'hi'}], OTHER: [{'id': 'n2'}]})
+    rs._notif().put(ME, [{'id': 'n1', 'text': 'hi'}]); rs._notif().put(OTHER, [{'id': 'n2'}])
     rs._json_save(rs.DM_PATH, {rs._dm_key(ME, OTHER): [{'from': ME, 'to': OTHER, 'text': 'mine'}, {'from': OTHER, 'to': ME, 'text': 'theirs'}]})
     rs.CHAT_PATH.write_text(json.dumps({'rooms': {'lobby': [{'identity': ME, 'address': ME, 'text': 'x'}, {'identity': OTHER, 'address': OTHER, 'text': 'y'}]}, 'lastTs': {}}))
     rs._json_save(rs.SESSIONS_PATH, {'s': {'h1': {'address': ME, 'exp': 9e12}, 'h2': {'address': OTHER, 'exp': 9e12}}})

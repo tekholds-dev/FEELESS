@@ -377,9 +377,9 @@ def test_freeze_keeps_the_engine_off_a_coin_and_card_window_lists_24h_autos(monk
     passing = [{'mint': 'MN', 'symbol': 'NEW', 'score': 80}]
     assert rs._hq.swap_suggest(r, fail, passing, 25, {'PA'})['out']['symbol'] == 'B'          # frozen A is skipped
     assert rs._hq.swap_suggest(r, fail, passing, 25, {'PA', 'PB'}) is None                     # freeze all → engine stays off
-    rs._json_save(rs.NOTIF_PATH, {me: [{'kind': 'fuse-guard', 'text': '💸 collect', 'url': '/terminal/fuse?tab=cards&collect=f1&pct=33', 'at': now - 60},
+    rs._notif().put(me, [{'kind': 'fuse-guard', 'text': '💸 collect', 'url': '/terminal/fuse?tab=cards&collect=f1&pct=33', 'at': now - 60},
                                        {'kind': 'fuse-guard', 'text': 'old', 'url': '/terminal/fuse?tab=cards&collect=f1', 'at': now - 90000},
-                                       {'kind': 'fuse-signal', 'text': 'other card', 'url': '/terminal/fuse?tab=cards&card=f12', 'at': now}]})
+                                       {'kind': 'fuse-signal', 'text': 'other card', 'url': '/terminal/fuse?tab=cards&card=f12', 'at': now}])
     async def no_px(legs): return {}
     monkeypatch.setattr(rs, '_hq_prices', no_px)
     row = asyncio.run(rs.fuse_pnl(W))['rows'][0]
