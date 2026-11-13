@@ -29,3 +29,17 @@ test('🤖 a bot hunts when it can\'t see you, fights after its reaction time, r
   expect(botBrain({ x: 0, z: 0, hp: 20 }, you, true, 0.1).mode).toBe('retreat');
   expect(xpBar({ into: 300, need: 600 })).toBe(0.5);
 });
+
+test('🗺 every map is a real place: a name, its own light, and spawns inside its own walls', () => {
+  const { MAPS, mapOf } = require('./strikeGame');
+  expect(Object.keys(MAPS)).toEqual(['yard', 'streets', 'vault']);
+  Object.values(MAPS).forEach(m => {
+    expect(m.name).toBeTruthy(); expect(m.line).toBeTruthy(); expect(m.size).toBeGreaterThan(20);
+    expect(m.sky).toMatch(/^#/); expect(m.fog[0]).toMatch(/^#/); expect(m.fog[2]).toBeGreaterThan(m.fog[1]);
+    expect(m.spawns.length).toBeGreaterThanOrEqual(6);
+    m.spawns.forEach(([x, z]) => { expect(Math.abs(x)).toBeLessThan(m.size); expect(Math.abs(z)).toBeLessThan(m.size); });
+  });
+  expect(mapOf('nope').id).toBe('yard'); expect(mapOf('vault').id).toBe('vault');
+  // the three maps do not share a sky: each is its own place, never a recolor of one box
+  expect(new Set(Object.values(MAPS).map(m => m.sky)).size).toBe(3);
+});

@@ -9,7 +9,8 @@
 .sz-title { display: grid; gap: 2px; min-width: 0; } .sz-title em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .2em; color: #ff8fa3; } .sz-title b { font: 900 26px var(--f-display); color: #fff; letter-spacing: .04em; }
 .sz-title small { font: 600 10.5px var(--f-ui); color: #b8c2c9; } .sz-title u { display: block; height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .08); overflow: hidden; max-width: 360px; }
 .sz-title u s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, #ff5d73, #f5c451); transition: transform .6s ease-out; }
-.sz-mode button, .sz-diff button { min-height: 36px; font-family: var(--f-tech); }
+.sz-mode button, .sz-diff button, .sz-maps button { min-height: 36px; font-family: var(--f-tech); }
+.sz-maps { display: flex; } .sz-maps button { flex: 1; font-size: 11px; letter-spacing: .04em; }
 .sz-main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, 1fr); gap: 12px; }
 .sz-smith, .sz-side { display: grid; gap: 10px; align-content: start; padding: 12px; border-radius: 14px; border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(160deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .35)); }
 .sz-guns { flex-wrap: wrap; } .sz-guns button { min-height: 34px; font: 700 10.5px var(--f-tech); letter-spacing: .06em; } .sz-guns button:disabled { opacity: .45; cursor: not-allowed; }

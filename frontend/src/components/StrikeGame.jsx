@@ -1,24 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../lib/api';
-import { gunStats, rayBody, damageAt, spreadNow, botBrain, BOT_DIFF, MATCH } from '../lib/strikeGame';
+import { gunStats, rayBody, damageAt, spreadNow, botBrain, BOT_DIFF, MATCH, mapOf } from '../lib/strikeGame';
 import { tgHaptic, tgApp } from '../lib/telegram';
 import '../styles/strikeZone.css';
 import { Ic3 } from '../lib/icon3d';
 
-// 🎯 STRIKE ZONE — the match (owner 2026-10-27: "the realest third-person shooter, full screen, vs bots or online — don't start from scratch").
+// 🎯 STRIKE ZONE — the match. FIRST-PERSON (owner 2026-11-12: "make the familia shooter a fps instead of third… make sumn real and different maps").
 // Built on three.js's own open-source pieces: the FPS example's Octree + Capsule physics (examples/jsm/math), GLTFLoader + SkeletonUtils, and
-// the three.js Soldier (rigged, Idle / Walk / Run — /models/soldier.glb, MIT). Over-the-shoulder camera, hitscan guns built from YOUR loadout
-// (gunStats), bots with a reaction time + accuracy by difficulty, online rooms over a WebSocket. The server deals the match token and checks the
-// result on its own clock (arena.check) before it pays XP. three.js loads only when a match starts.
+// the three.js Soldier (rigged, Idle / Walk / Run — /models/soldier.glb, MIT). Your eyes are the camera, your built gun rides in your hands
+// (hip low-right, centered when you aim, kicks on every shot), bots with a reaction time + accuracy by difficulty, online rooms over a
+// WebSocket. Three maps (lib/strikeGame MAPS): THE YARD (day containers), FEE STREETS (neon night blocks), THE VAULT (underground close
+// quarters). The server deals the match token and checks the result on its own clock (arena.check) before it pays XP.
 const GRAVITY = 30; const R = 0.35;
-const MAP = 64;   // the yard is ±64 m
-// the yard: shipping containers, crate stacks, two warehouses with open doors, ramps onto their roofs — every piece also a collider
+// THE YARD's layout: shipping containers, crate stacks, two warehouses with open doors, ramps onto their roofs — every piece also a collider
 const CONTAINERS = [[-20, -8, 0, '#1f7a4d'], [-20, -4.6, 0, '#b8322f'], [-14, 18, 1.57, '#2b5d9c'], [-7, 18, 1.57, '#d8892a'], [12, -22, 0.4, '#1f7a4d'], [18, -14, 1.2, '#7a2f8f'],
   [28, 10, 0, '#b8322f'], [28, 13.4, 0, '#2b5d9c'], [0, 34, 0, '#d8892a'], [-34, 30, 0.8, '#1f7a4d'], [36, -36, 0.3, '#2b5d9c'], [-40, -34, 1.1, '#b8322f'], [6, 6, 0.78, '#9b6bff']];
 const CRATES = [[-4, -14], [-2.6, -14], [-3.3, -14, 1], [10, 2], [10, 3.3], [22, 26], [23.3, 26], [-26, 8], [-26, 9.3], [-26, 8.6, 1], [40, 22], [-10, -32], [-8.7, -32], [30, -4]];
 const HOUSES = [[-38, 4, 16, 12], [34, -16, 14, 18]];
-const SPAWNS = [[-56, -56], [56, -56], [-56, 56], [56, 56], [0, -58], [0, 58], [-58, 0], [58, 0]];
+// FEE STREETS: city blocks with lit windows around a lamp-lit plaza, dumpsters + cars as cover
+const BLDGS = [[-42, -40, 22, 18, 16], [40, -44, 18, 18, 20], [-44, 40, 20, 20, 13], [42, 42, 18, 16, 18], [0, -44, 20, 12, 11], [-46, 2, 14, 20, 15], [46, -2, 12, 22, 12], [10, 44, 22, 12, 14], [-16, 44, 14, 12, 10]];
+const DUMPS = [[-10, -8, 0.4], [14, 10, 1.2], [-18, 14, 0.9], [18, -14, 0.2], [0, 20, 0.5], [6, -20, 1], [-24, -20, 0.6], [24, 22, 0.4], [-2, 2, 0.78], [-28, 26, 1.3], [28, -26, 0.7]];
+const LAMPS = [[-8, -20], [8, 20], [-24, 8], [24, -6], [0, -2], [-30, -34], [30, 34]];
+// THE VAULT: a pillar hall with a raised vault floor in the middle
+const PILLARS = [[-18, -18], [18, -18], [-18, 18], [18, 18], [0, -12], [0, 12], [-12, 0], [12, 0]];
+const VCRATES = [[-24, 0], [-24, 1.4], [24, 2], [8, -24], [9.4, -24], [-6, 24], [20, -8], [-20, 10]];
 
 function tex(THREE, w, h, draw, rx = 1, ry = 1) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; return t; }
 function sfx() {   // gunshots + hits synthesized with WebAudio (no files)
@@ -29,8 +35,8 @@ function sfx() {   // gunshots + hits synthesized with WebAudio (no files)
     tick() { const a = get(); if (!a) return; const o = a.createOscillator(); const g = a.createGain(); o.frequency.value = 1400; g.gain.setValueAtTime(0.12, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.08); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + 0.09); } };
 }
 
-export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', room = 'fee-city', who = {}, name = 'you', onExit }) {
-  const mount = useRef(null); const api = useRef({});
+export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', room = 'fee-city', map = 'yard', who = {}, name = 'you', onExit }) {
+  const mount = useRef(null); const api = useRef({}); const MM = mapOf(map); const miniRef = useRef([]);
   const [hud, setHud] = useState({ hp: 100, ammo: 0, mag: 0, reload: false, k: 0, d: 0, left: 0, feed: [], hit: 0, hurt: 0, ads: false, spread: 0, peers: 0, board: [], me: { x: 0, z: 0, yaw: 0 }, bots: [] });
   const [phase, setPhase] = useState('loading'); const [result, setResult] = useState(null); const [err, setErr] = useState(''); const [locked, setLocked] = useState(false);
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
@@ -46,31 +52,69 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
         const renderer = new THREE.WebGLRenderer({ antialias: !low, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, low ? 1 : 1.5));
         renderer.setSize(window.innerWidth, window.innerHeight); renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.shadowMap.enabled = !low; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         el.prepend(renderer.domElement);
-        const scene = new THREE.Scene(); scene.background = new THREE.Color('#8ec5ef'); scene.fog = new THREE.Fog('#bcdcf2', 60, 230);
-        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 400); const baseFov = 70;
-        scene.add(new THREE.HemisphereLight('#dbeeff', '#5d5a4a', 1.15));
-        const sun = new THREE.DirectionalLight('#fff2d8', 1.9); sun.position.set(40, 80, 30); sun.castShadow = !low; Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, far: 220 }); sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; scene.add(sun);
-        // ── the yard (every mesh here is a collider + blocks bullets, sight and the camera) ──
-        const world = new THREE.Group(); scene.add(world); const solids = [];
-        const concrete = tex(THREE, 256, 256, (x, w, h) => { x.fillStyle = '#9a9d98'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1600; i += 1) { x.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 2; x.strokeRect(0, 0, w, h); }, 28, 28);
-        const ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP * 2 + 20, MAP * 2 + 20), new THREE.MeshStandardMaterial({ map: concrete, roughness: 0.95 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; world.add(ground); solids.push(ground);
-        const logo = tex(THREE, 512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); x.font = '900 120px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(155, 107, 255,.55)'; x.fillText('FEE', w / 2, h / 2 - 60); x.fillText('CITY', w / 2, h / 2 + 70); });
-        const decal = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false })); decal.rotation.x = -Math.PI / 2; decal.position.y = 0.02; scene.add(decal);
+        const MAP = MM.size; const SPAWNS = MM.spawns;
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(MM.sky); scene.fog = new THREE.Fog(MM.fog[0], MM.fog[1], MM.fog[2]);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 400); const baseFov = 75;
+        scene.add(new THREE.HemisphereLight(MM.hemi[0], MM.hemi[1], MM.hemi[2] + (low && map !== 'yard' ? 0.45 : 0)));   // fx-lite skips the lamps, so the dark maps lift their base light
+        const sun = new THREE.DirectionalLight(MM.sun.color, MM.sun.int); sun.position.set(MM.sun.pos[0], MM.sun.pos[1], MM.sun.pos[2]); sun.castShadow = !low && map === 'yard'; Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, far: 220 }); sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005; scene.add(sun);
+        // ── the map (every mesh in `world` is a collider + blocks bullets, sight and the camera) ──
+        const world = new THREE.Group(); scene.add(world); const solids = []; const mini = [];
         const box = (w, h, d, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; world.add(m); solids.push(m); return m; };
-        const wallM = new THREE.MeshStandardMaterial({ map: tex(THREE, 128, 64, (x, w, h) => { x.fillStyle = '#c7b9a0'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(0,0,0,.18)'; for (let r = 0; r < 4; r += 1) for (let cc = 0; cc < 4; cc += 1) x.strokeRect(cc * 32 + (r % 2) * 16, r * 16, 32, 16); }, 20, 2), roughness: 0.9 });
-        [[0, -MAP - 0.5, MAP * 2 + 2, 1], [0, MAP + 0.5, MAP * 2 + 2, 1], [-MAP - 0.5, 0, 1, MAP * 2 + 2], [MAP + 0.5, 0, 1, MAP * 2 + 2]].forEach(([x, z, w, d]) => box(w, 5, d, wallM, x, 2.5, z));
-        const corr = color => new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.35, map: tex(THREE, 64, 64, (x, w, h) => { x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 8) { x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(i, 0, 3, h); } }, 6, 1) });
-        CONTAINERS.forEach(([x, z, ry, c]) => box(6.1, 2.6, 2.4, corr(c), x, 1.3, z, ry));
-        const wood = new THREE.MeshStandardMaterial({ map: tex(THREE, 64, 64, (x, w, h) => { x.fillStyle = '#b08a55'; x.fillRect(0, 0, w, h); x.strokeStyle = '#7d5f35'; x.lineWidth = 5; x.strokeRect(3, 3, w - 6, h - 6); x.beginPath(); x.moveTo(3, 3); x.lineTo(w - 3, h - 3); x.stroke(); }), roughness: 0.85 });
-        CRATES.forEach(([x, z, up]) => box(1.3, 1.3, 1.3, wood, x, up ? 1.95 : 0.65, z));
-        const roofM = new THREE.MeshStandardMaterial({ color: '#4c5357', roughness: 0.8 });
-        HOUSES.forEach(([x, z, w, d]) => { const t = 0.5; const hgt = 5;
-          box(w, hgt, t, wallM, x, hgt / 2, z - d / 2); box(t, hgt, d, wallM, x - w / 2, hgt / 2, z); box(t, hgt, d, wallM, x + w / 2, hgt / 2, z);
-          const door = 3.2; const side = (w - door) / 2; box(side, hgt, t, wallM, x - w / 2 + side / 2, hgt / 2, z + d / 2); box(side, hgt, t, wallM, x + w / 2 - side / 2, hgt / 2, z + d / 2); box(door, hgt - 3, t, wallM, x, hgt - (hgt - 3) / 2, z + d / 2);
-          box(w + 0.6, 0.4, d + 0.6, roofM, x, hgt + 0.2, z);
-          const ramp = box(3, 0.4, 11, roofM, x + w / 2 + 1.6, hgt / 2, z); ramp.rotation.x = Math.atan2(hgt, 11); });
-        const sign = tex(THREE, 512, 128, (x, w, h) => { x.fillStyle = '#0b120e'; x.fillRect(0, 0, w, h); x.font = '900 70px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#9b6bff'; x.fillText('STRIKE ZONE', w / 2, h / 2); });
-        const board = new THREE.Mesh(new THREE.PlaneGeometry(20, 5), new THREE.MeshBasicMaterial({ map: sign })); board.position.set(0, 9, -MAP + 0.1); scene.add(board);
+        const flat = (px, draw, size, rough = 0.9) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(MAP * 2 + 20, MAP * 2 + 20), new THREE.MeshStandardMaterial({ map: tex(THREE, px, px, draw, size, size), roughness: rough })); m.rotation.x = -Math.PI / 2; m.receiveShadow = true; world.add(m); solids.push(m); return m; };
+        const signTex = (txt, color) => tex(THREE, 512, 128, (x, w, h) => { x.fillStyle = '#07090c'; x.fillRect(0, 0, w, h); x.font = '900 64px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = color; x.shadowBlur = 24; x.fillStyle = color; x.fillText(txt, w / 2, h / 2); });
+        const plate = (txt, color, w, hgt, x, y, z, ry = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), new THREE.MeshBasicMaterial({ map: signTex(txt, color) })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m); return m; };
+        const wallM = new THREE.MeshStandardMaterial({ map: tex(THREE, 128, 64, (x, w, h) => { x.fillStyle = map === 'streets' ? '#3a3d45' : '#c7b9a0'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(0,0,0,.18)'; for (let r = 0; r < 4; r += 1) for (let cc = 0; cc < 4; cc += 1) x.strokeRect(cc * 32 + (r % 2) * 16, r * 16, 32, 16); }, 20, 2), roughness: 0.9 });
+        const logo = tex(THREE, 512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); x.font = '900 120px Unbounded, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = map === 'yard' ? 'rgba(155, 107, 255,.55)' : 'rgba(25, 230, 140,.5)'; x.fillText('FEE', w / 2, h / 2 - 60); x.fillText('CITY', w / 2, h / 2 + 70); });
+        const decal = new THREE.Mesh(new THREE.PlaneGeometry(22, 22), new THREE.MeshBasicMaterial({ map: logo, transparent: true, depthWrite: false })); decal.rotation.x = -Math.PI / 2; decal.position.y = 0.03; scene.add(decal);
+        const wallH = map === 'vault' ? 7.4 : 5;
+        [[0, -MAP - 0.5, MAP * 2 + 2, 1], [0, MAP + 0.5, MAP * 2 + 2, 1], [-MAP - 0.5, 0, 1, MAP * 2 + 2], [MAP + 0.5, 0, 1, MAP * 2 + 2]].forEach(([x, z, w, d]) => box(w, wallH, d, wallM, x, wallH / 2, z));
+        if (map === 'yard') {
+          // THE YARD — the original daylight container yard
+          flat(256, (x, w, h) => { x.fillStyle = '#9a9d98'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1600; i += 1) { x.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 2; x.strokeRect(0, 0, w, h); }, 28, 0.95);
+          const corr = color => new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.35, map: tex(THREE, 64, 64, (x, w, h) => { x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 8) { x.fillStyle = 'rgba(0,0,0,.18)'; x.fillRect(i, 0, 3, h); } }, 6, 1) });
+          CONTAINERS.forEach(([x, z, ry, c]) => { box(6.1, 2.6, 2.4, corr(c), x, 1.3, z, ry); mini.push([x, z, 6, 2.4, '']); });
+          const wood = new THREE.MeshStandardMaterial({ map: tex(THREE, 64, 64, (x, w, h) => { x.fillStyle = '#b08a55'; x.fillRect(0, 0, w, h); x.strokeStyle = '#7d5f35'; x.lineWidth = 5; x.strokeRect(3, 3, w - 6, h - 6); x.beginPath(); x.moveTo(3, 3); x.lineTo(w - 3, h - 3); x.stroke(); }), roughness: 0.85 });
+          CRATES.forEach(([x, z, up]) => box(1.3, 1.3, 1.3, wood, x, up ? 1.95 : 0.65, z));
+          const roofM = new THREE.MeshStandardMaterial({ color: '#4c5357', roughness: 0.8 });
+          HOUSES.forEach(([x, z, w, d]) => { const t = 0.5; const hgt = 5;
+            box(w, hgt, t, wallM, x, hgt / 2, z - d / 2); box(t, hgt, d, wallM, x - w / 2, hgt / 2, z); box(t, hgt, d, wallM, x + w / 2, hgt / 2, z);
+            const door = 3.2; const side = (w - door) / 2; box(side, hgt, t, wallM, x - w / 2 + side / 2, hgt / 2, z + d / 2); box(side, hgt, t, wallM, x + w / 2 - side / 2, hgt / 2, z + d / 2); box(door, hgt - 3, t, wallM, x, hgt - (hgt - 3) / 2, z + d / 2);
+            box(w + 0.6, 0.4, d + 0.6, roofM, x, hgt + 0.2, z);
+            const ramp = box(3, 0.4, 11, roofM, x + w / 2 + 1.6, hgt / 2, z); ramp.rotation.x = Math.atan2(hgt, 11); mini.push([x, z, w, d, 'is-house']); });
+          plate('STRIKE ZONE', '#9b6bff', 20, 5, 0, 9, -MAP + 0.1);
+        } else if (map === 'streets') {
+          // FEE STREETS — neon night blocks: lit windows, lamp pools, dumpsters and cars for cover
+          flat(256, (x, w, h) => { x.fillStyle = '#1d2026'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1200; i += 1) { x.fillStyle = `rgba(255,255,255,${Math.random() * 0.035})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } x.fillStyle = 'rgba(245,214,120,.5)'; x.fillRect(w / 2 - 2, 0, 4, h); }, 22, 0.85);
+          let seed = 7; const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+          const winM = () => { const t = tex(THREE, 128, 256, (x, w, h) => { x.fillStyle = '#10131b'; x.fillRect(0, 0, w, h);
+            for (let r = 10; r < h - 10; r += 24) for (let c = 10; c < w - 14; c += 22) { const on = rnd() < 0.42; x.fillStyle = on ? (rnd() < 0.3 ? '#8fd3ff' : '#ffd27a') : '#171b26'; x.fillRect(c, r, 13, 15); } }, 2, 3);
+            return new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: '#ffffff', emissiveIntensity: 0.85, roughness: 0.9 }); };
+          BLDGS.forEach(([x, z, w, d, hgt]) => { box(w, hgt, d, winM(), x, hgt / 2, z); mini.push([x, z, w, d, 'is-house']); });
+          const metal = new THREE.MeshStandardMaterial({ color: '#2c3138', metalness: 0.55, roughness: 0.5 });
+          const carM = new THREE.MeshStandardMaterial({ color: '#1d4b3a', metalness: 0.6, roughness: 0.35 });
+          DUMPS.forEach(([x, z, ry], i) => { const car = i % 3 === 0; if (car) { box(4.2, 1.1, 1.9, carM, x, 0.55, z, ry); box(2.2, 0.75, 1.7, carM, x, 1.45, z, ry); } else box(2.4, 1.2, 1.4, metal, x, 0.6, z, ry); mini.push([x, z, car ? 4.2 : 2.4, car ? 1.9 : 1.4, '']); });
+          const poleM = new THREE.MeshStandardMaterial({ color: '#15171c', roughness: 0.6 }); const bulbM = new THREE.MeshBasicMaterial({ color: '#ffd9a0' });
+          LAMPS.forEach(([x, z]) => { box(0.22, 5.6, 0.22, poleM, x, 2.8, z); const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), bulbM); b.position.set(x, 5.7, z); scene.add(b);
+            if (!low) { const pl = new THREE.PointLight('#ffd9a0', 14, 27, 1.7); pl.position.set(x, 5.4, z); scene.add(pl); } });
+          plate('FEE CITY', '#19e68c', 16, 4, -42, 11, -40 + 9.1); plate('STRIKE ZONE', '#ff5dbb', 14, 3.5, 40, 13, -44 + 9.1);
+          plate('$FEE', '#f5c451', 10, 3, -44, 9, 40 - 10.1, Math.PI); plate('RUG FREE ZONE', '#8fd3ff', 14, 3, 42, 12, 42 - 8.1, Math.PI);
+        } else {
+          // THE VAULT — an underground hall: pillar grid, a raised vault floor, green strip light
+          flat(256, (x, w, h) => { x.fillStyle = '#15181a'; x.fillRect(0, 0, w, h); x.strokeStyle = 'rgba(73,240,160,.10)'; x.lineWidth = 2; x.strokeRect(0, 0, w, h); for (let i = 0; i < 700; i += 1) { x.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }, 16, 0.8);
+          const conc = new THREE.MeshStandardMaterial({ color: '#23282c', roughness: 0.85 });
+          box(MAP * 2 + 2, 0.5, MAP * 2 + 2, conc, 0, 7.45, 0);   // the ceiling
+          const strip = new THREE.MeshBasicMaterial({ color: '#49f0a0' });
+          PILLARS.forEach(([x, z]) => { box(2.2, 7.2, 2.2, conc, x, 3.6, z); mini.push([x, z, 2.2, 2.2, '']);
+            [[1.16, 0], [-1.16, 0], [0, 1.16], [0, -1.16]].forEach(([ox, oz]) => { const s = new THREE.Mesh(new THREE.BoxGeometry(ox ? 0.08 : 1.6, 4.6, oz ? 0.08 : 1.6), strip); s.position.set(x + ox, 2.6, z + oz); s.scale.setScalar(0.999); scene.add(s); }); });
+          const steel = new THREE.MeshStandardMaterial({ color: '#2e343a', metalness: 0.7, roughness: 0.35 });
+          box(8, 0.9, 8, steel, 0, 0.45, 0); mini.push([0, 0, 8, 8, 'is-house']);
+          [6.5, -6.5].forEach((x, i) => { const r = box(5, 0.3, 3.4, steel, x, 0.42, 0); r.rotation.z = (i ? -1 : 1) * Math.atan2(0.9, 5); });
+          const wood = new THREE.MeshStandardMaterial({ color: '#6e5a3a', roughness: 0.85 });
+          VCRATES.forEach(([x, z]) => box(1.3, 1.3, 1.3, wood, x, z === 1.4 ? 1.95 : 0.65, z === 1.4 ? 0 : z));
+          plate('$FEE VAULT', '#49f0a0', 14, 3.4, 0, 4.4, -MAP + 0.6);
+          if (!low) [[0, 0], [-18, -18], [18, 18], [18, -18]].forEach(([x, z]) => { const pl = new THREE.PointLight('#49f0a0', 9, 24, 1.7); pl.position.set(x, 6.4, z); scene.add(pl); });
+        }
+        miniRef.current = mini;
         const octree = new Octree(); octree.fromGraphNode(world);
         // ── characters (the three.js Soldier, cloned; a capsule figure if the model can't load) ──
         let gltf = null; try { gltf = await new GLTFLoader().loadAsync('/models/soldier.glb'); } catch { gltf = null; }
@@ -110,7 +154,8 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           scene.add(grp); return grp;
         };
         // ── you ──
-        const me = actor(null); const myGun = gunMesh(loadout || {}, loadout?.skin);
+        const me = actor(null); me.root.visible = false;   // first person: you never see your own body, only your gun
+        const myGun = gunMesh(loadout || {}, loadout?.skin); myGun.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
         const sp0 = SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
         const cap = new Capsule(new THREE.Vector3(sp0[0], R, sp0[1]), new THREE.Vector3(sp0[0], 1.45, sp0[1]), R); const vel = new THREE.Vector3(); let onFloor = false;
         const S = { yaw: Math.atan2(-sp0[0], -sp0[1]), pitch: -0.05, hp: 100, lastHurt: 0, ammo: g.mag, reloadT: 0, fireT: 0, bloom: 0, k: 0, d: 0, heads: 0, shots: 0, hits: 0, dead: 0, ads: false, keys: new Set(), fire: false, joy: { x: 0, y: 0 }, t0: performance.now(), feed: [], hitT: 0, hurtT: 0, over: false, safeUntil: performance.now() + 2500 };
@@ -179,7 +224,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           post('/api/reputation/arena/result', { ...who, token, kills: S.k, deaths: S.d, heads: S.heads, won }).then(r => setResult({ ...base, ...r })).catch(e => setResult({ ...base, note: e.message }));
         }
         // ── the loop ──
-        const ray = new THREE.Raycaster(); const v3 = new THREE.Vector3(); const camPos = new THREE.Vector3(); let last = performance.now(); let hudAt = 0; let sendAt = 0;
+        const ray = new THREE.Raycaster(); const v3 = new THREE.Vector3(); let last = performance.now(); let hudAt = 0; let sendAt = 0;
         const fwd = () => new THREE.Vector3(Math.sin(S.yaw), 0, Math.cos(S.yaw)); const right = () => new THREE.Vector3(Math.sin(S.yaw - Math.PI / 2), 0, Math.cos(S.yaw - Math.PI / 2));
         const sightBlocked = (a, b) => { ray.set(a, v3.copy(b).sub(a).normalize()); ray.far = a.distanceTo(b); return ray.intersectObjects(solids, false).length > 0; };
         setPhase('play');
@@ -202,15 +247,19 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
           if (cap.start.y < -10) respawnAt(cap, vel);
           const feet = feetOf(cap); const moving = Math.hypot(vel.x, vel.z) > 1.2;
           me.root.position.set(feet.x, feet.y, feet.z); me.root.rotation.y = S.yaw; me.set(!onFloor ? 'Idle' : Math.hypot(vel.x, vel.z) > 6 ? 'Run' : moving ? 'Walk' : 'Idle');
-          // the over-the-shoulder camera (pulled in when a wall is behind you)
-          const head = new THREE.Vector3(feet.x, feet.y + 1.55, feet.z); const back = S.ads ? 1.7 : 3.4; const side = S.ads ? 0.55 : 0.7;
-          const want = head.clone().addScaledVector(new THREE.Vector3(-Math.sin(S.yaw) * Math.cos(S.pitch), -Math.sin(S.pitch), -Math.cos(S.yaw) * Math.cos(S.pitch)), back).addScaledVector(right(), side).add(new THREE.Vector3(0, 0.25, 0));
-          ray.set(head, v3.copy(want).sub(head).normalize()); ray.far = head.distanceTo(want); const hitCam = ray.intersectObjects(solids, false)[0];
-          camPos.copy(hitCam ? head.clone().addScaledVector(v3, Math.max(0.3, hitCam.distance - 0.25)) : want); camera.position.lerp(camPos, Math.min(1, dt * 18));
+          // 👁 the first-person camera (owner 2026-11-12: FPS instead of third person): your eyes ride the capsule
+          const head = new THREE.Vector3(feet.x, feet.y + 1.55, feet.z);
+          S.bob = (S.bob || 0) + dt * (moving && onFloor ? 9.5 : 2);
+          camera.position.set(head.x, head.y + (moving && onFloor ? Math.sin(S.bob) * 0.028 : 0), head.z);
           const aimDir = new THREE.Vector3(Math.sin(S.yaw) * Math.cos(S.pitch), Math.sin(S.pitch), Math.cos(S.yaw) * Math.cos(S.pitch));
           camera.lookAt(camera.position.clone().add(aimDir)); const fov = S.ads ? baseFov / g.zoom : baseFov; if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 12); camera.updateProjectionMatrix(); }
-          const muzzle = new THREE.Vector3(feet.x, feet.y + 1.3, feet.z).addScaledVector(right(), 0.28).addScaledVector(aimDir, 0.55);
-          myGun.position.copy(muzzle).addScaledVector(aimDir, -0.35); myGun.lookAt(myGun.position.clone().add(aimDir));
+          // the gun in your hands: low-right at the hip, centered under the crosshair when you aim, kicks back on every shot
+          S.kick = Math.max(0, (S.kick || 0) - dt * 3.2);
+          const camUp = new THREE.Vector3(0, 1, 0);
+          const gunPos = camera.position.clone().addScaledVector(aimDir, (S.ads ? 0.42 : 0.52) - S.kick * 0.09)
+            .addScaledVector(right(), S.ads ? 0.015 : 0.18).addScaledVector(camUp, (S.ads ? -0.08 : -0.16) + (moving && onFloor ? Math.sin(S.bob) * 0.008 : 0));
+          myGun.position.copy(gunPos); myGun.lookAt(gunPos.clone().add(aimDir));
+          const muzzle = gunPos.clone().addScaledVector(aimDir, 0.4);
           // shooting (hitscan from the camera's crosshair; the bullet's tracer leaves your muzzle)
           S.fireT -= dt; S.bloom = Math.max(0, S.bloom - dt * 0.05);
           if (S.reloadT > 0) { S.reloadT -= dt; if (S.reloadT <= 0) S.ammo = g.mag; }
@@ -234,7 +283,7 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
               }
               if (any) { S.hits += 1; audio.tick(); }
               send({ t: 'shot', a: muzzle.toArray().map(x => Math.round(x * 100) / 100), b: camera.position.clone().addScaledVector(aimDir, 60).toArray().map(x => Math.round(x * 100) / 100) });
-              S.pitch = Math.min(0.9, S.pitch + g.recoil * 0.018 * (S.ads ? 0.6 : 1)); S.yaw += (Math.random() - 0.5) * g.recoil * 0.01; S.bloom = Math.min(0.06, S.bloom + g.recoil * 0.004);
+              S.pitch = Math.min(0.9, S.pitch + g.recoil * 0.018 * (S.ads ? 0.6 : 1)); S.yaw += (Math.random() - 0.5) * g.recoil * 0.01; S.bloom = Math.min(0.06, S.bloom + g.recoil * 0.004); S.kick = Math.min(1, (S.kick || 0) + 0.45 + g.recoil * 0.4);
               if (!g.auto && g.rpm < 120) S.fire = touch ? S.fire : false; }
           }
           flash.intensity = Math.max(0, flash.intensity - dt * 60);
@@ -287,11 +336,11 @@ export function StrikeGame({ catalog, loadout, mode = 'bots', diff = 'normal', r
   const onStick = e => { const r = stick.current.getBoundingClientRect(); const x = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2))); const y = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2))); api.current.joy?.(x, y); stick.current.style.setProperty('--sx', x); stick.current.style.setProperty('--sy', y); };
   const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   return createPortal(<div className={`szg ${hud.ads ? 'is-ads' : ''} ${hud.hurt ? 'is-hurt' : ''}`} ref={mount} data-testid="strike-game">
-    {phase === 'loading' ? <div className="szg-load"><b>STRIKE ZONE</b><small>loading the yard + the soldiers…</small><i /></div> : null}
+    {phase === 'loading' ? <div className="szg-load"><b>STRIKE ZONE</b><small>loading {MM.name} + the soldiers…</small><i /></div> : null}
     <div className="szg-hud">
       <span className="szg-score"><b className="m-num">{hud.k}</b><em>KILLS</em><small className="m-num">{hud.d} deaths · first to {M.kills}</small></span>
       <span className="szg-clock m-num">{mmss(hud.left)}</span>
-      <svg className="szg-map" viewBox={`${-MAP} ${-MAP} ${MAP * 2} ${MAP * 2}`} aria-hidden="true">{CONTAINERS.map(([x, z], i) => <rect key={i} x={x - 3} y={z - 1.2} width="6" height="2.4" />)}{HOUSES.map(([x, z, w, d], i) => <rect key={`h${i}`} x={x - w / 2} y={z - d / 2} width={w} height={d} className="is-house" />)}
+      <svg className="szg-map" viewBox={`${-MM.size} ${-MM.size} ${MM.size * 2} ${MM.size * 2}`} aria-hidden="true">{miniRef.current.map(([x, z, w, d, cls], i) => <rect key={i} x={x - w / 2} y={z - d / 2} width={w} height={d} className={cls || undefined} />)}
         {hud.bots.map((b, i) => <circle key={i} cx={b.x} cy={b.z} r="2.4" className="is-bot" />)}<g transform={`translate(${hud.me.x} ${hud.me.z}) rotate(${(-hud.me.yaw * 180) / Math.PI})`}><path d="M0 4 L-2.6 -3 L0 -1.6 L2.6 -3 Z" className="is-me" /></g></svg>
       <ol className="szg-feed">{hud.feed.map((f, i) => <li key={f.at + i}>{f.txt}</li>)}</ol>
       <span className="szg-hp"><em>HP</em><u><s style={{ transform: `scaleX(${hud.hp / 100})` }} className={hud.hp < 35 ? 'is-low' : ''} /></u><b className="m-num">{Math.ceil(hud.hp)}</b></span>

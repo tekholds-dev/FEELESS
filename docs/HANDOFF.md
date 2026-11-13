@@ -50,15 +50,27 @@
      (an engine-to-engine checklist + the minds doing the code moves), and mod/add-on building, e.g. an agent as someone's assistant for a GTA RP
      server (scripts, configs, resources). "Jailbreaking" = only the user's own devices/games where legal; no DRM cracking, cheats for online
      games or anti-cheat bypass.
-   - 📈 **Trench chart, desktop view, new look:** the owner says the desktop TrenchChart did not change to match the look-lab preview (Obsidian
-     green). Compare `components/terminal/TrenchChart.jsx` at desktop width with the preview he picked and bring it over (TrenchChart is the one chart).
+   - ✅ 📈 **Trench chart look DONE 2026-11-12:** the canvas hard-coded the old Plasma-era green (#00e7a0) and looks.js remaps CSS only, never canvas.
+     The FEELESS chart theme now reads the worn look live (--mint night, --look-dark day; Plasma keeps its classic pair), candles/wicks/volume/line all
+     follow, applyLook broadcasts feeless:chart-theme so open charts recolor. Proven: canvas pixels read 25,230,140 = #19e68c on a real war room.
+   - ✅ 🎯 **STRIKE ZONE = FPS + 3 maps DONE 2026-11-12** (owner: "make the familia shooter a fps… that box to shoot ppl was sad… different maps"):
+     first-person camera (your eyes, gun in hand: hip low-right, centered on ADS, kicks every shot, walk bob; your own body hidden), and three real
+     maps in `lib/strikeGame.MAPS` — THE YARD (day containers), FEE STREETS (neon night blocks, lit windows, lamp pools, dumpsters + cars, 4 neon
+     signs), THE VAULT (underground pillar hall, green strips, raised vault floor, close quarters) — map picker in the lobby (saved per browser),
+     per-map minimap, fx-lite lifts base light instead of lamps. Seen in his Chrome: FEE STREETS first-person with the gun + lit blocks + minimap.
+     Tests: strikeGame MAPS (spawns inside walls, 3 distinct skies), chartShape guard. Not played online mode; the built-in pane has no WebGL (his Chrome does).
 
 7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work
    from the stash brain · COL-10 method kits + Tool Forge · COL-19 proving ground · COL-16 bids/browser wins to the Pool (needs an address) ·
    COL-18 ledger move (on hold: 3.7 KB).
 8. **SITE:** SITE-4 Live ops finish · SITE-5 code split (slices 2–7 done) · SITE-2 logo · SITE-8 city FPS + load tests · SITE-11 price-gap engine ·
    SITE-17 more lending readers.
-9. **Signed-in check on 51367** of everything marked "not seen signed in" (Desk widgets, Look save, agent withdraw 2-tap, PoEco Sankey, Live ops, Cards & pay).
+9. **Signed-in check on 51367 — swept 2026-11-12 in his Chrome:** Desk widgets ✅ (Sicario's: real PoW result, minds, CRM, finances) · Look save ✅
+   (card tap = preview only by design; Save to my wallet POSTed /api/reputation/theme → 200, his Desk pick kept on the server) · Live ops ✅ (real
+   tiles, floor, who answered, evidence quality, event river) · Cards & pay ✅ (19 cards, filters, rings, nothing clipped) · Familia city **60 fps**
+   signed in (worst frame 18 ms; an earlier 11 fps read was the gate build loading the Mac) · FeeCat page 54 fps (one 167 ms hitch). STILL UNSEEN:
+   PoEco Sankey (Sicario's has 0 filed books — needs books on a testable agent), agent withdraw 2-tap (Sicario's has no wallet; Happy is his),
+   AGT-34 Model vitals TIME column (Brains window only mounts on a real trading desk).
 
 **Owner only (Claude never moves funds) — 👑 owner 2026-11-12: money tests wait until Claude has finished EVERY build row above (1–9). Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.

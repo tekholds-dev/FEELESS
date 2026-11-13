@@ -20,7 +20,7 @@ import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
 import { CartelBoard } from './CartelBoard';
 import { CardRoom } from './CardRoom';
-const StrikeZone = lazy(() => import('./StrikeZone').then(m => ({ default: m.StrikeZone })));   // 🎯 the third-person shooter (three.js loads only when it opens)
+const StrikeZone = lazy(() => import('./StrikeZone').then(m => ({ default: m.StrikeZone })));   // 🎯 the FPS (three.js loads only when it opens)
 import { JOB_OF, openDesk } from './MoneyDesk';
 import { useGlide } from '../lib/useGlide';
 import { EarnTicker } from './EarnTicker';

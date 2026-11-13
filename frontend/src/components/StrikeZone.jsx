@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../lib/api';
-import { gunStats, xpBar, BOT_DIFF } from '../lib/strikeGame';
+import { gunStats, xpBar, BOT_DIFF, MAPS } from '../lib/strikeGame';
 import { tgInitData } from '../lib/telegram';
 import '../styles/strikeZone.css';
 import { Ic3 } from '../lib/icon3d';
@@ -29,6 +29,8 @@ function GunArt({ lo }) {   // the drawn gun — every part you pick changes the
 export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
   const [d, setD] = useState(null); const [lo, setLo] = useState(null); const [mode, setMode] = useState('bots'); const [diff, setDiff] = useState('normal');
   const [room, setRoom] = useState('fee-city'); const [playing, setPlaying] = useState(false); const [msg, setMsg] = useState(''); const [last, setLast] = useState(null);
+  const [map, setMap] = useState(() => { try { const m = localStorage.getItem('feeless:sz-map'); return MAPS[m] ? m : 'yard'; } catch { return 'yard'; } });
+  const pickMap = id => { setMap(id); try { localStorage.setItem('feeless:sz-map', id); } catch { /* private mode */ } };
   const tg = tgInitData(); const who0 = useMemo(() => (addr && sess ? { address: addr, session: sess } : tg ? { tg } : {}), [addr, sess, tg]);
   const [stale, setStale] = useState(false);   // an expired sign-in still plays — as a guest, told to sign in again
   const load = useCallback(() => { const q = !stale && addr && sess ? `?address=${addr}&session=${encodeURIComponent(sess)}` : !stale && tg ? `?tg=${encodeURIComponent(tg)}` : '';
@@ -44,7 +46,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
   return <section className="sz" data-testid="strike-zone">
     <header className="sz-top">
       <span className="sz-lvl" style={{ '--p': xpBar(me) }} data-tip={`${me.into} / ${me.need} XP to level ${me.level + 1}`}><i aria-hidden="true" /><b className="m-num">{me.level}</b><em>LEVEL</em></span>
-      <span className="sz-title"><em>FEE CITY · THIRD-PERSON</em><b>STRIKE ZONE</b><small>{guest ? (stale ? 'your sign-in expired — playing as a guest; sign in again (wallet or Telegram) to keep XP + your guns' : 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns') : `${me.staff ? '👑 CREATOR · every gun + part unlocked · ' : ''}${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
+      <span className="sz-title"><em>FEE CITY · FPS</em><b>STRIKE ZONE</b><small>{guest ? (stale ? 'your sign-in expired — playing as a guest; sign in again (wallet or Telegram) to keep XP + your guns' : 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns') : `${me.staff ? '👑 CREATOR · every gun + part unlocked · ' : ''}${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${xpBar(me)})` }} /></u></span>
       <span className="m-seg sz-mode" role="radiogroup" aria-label="Mode">{[['bots', '🤖 VS BOTS'], ['online', '🌐 ONLINE']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`sz-mode-${k}`}>{l}</button>)}</span>
     </header>
@@ -59,6 +61,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
             data-tip={ok ? p.name : `${p.name} — unlocks at level ${p.level}`} data-testid={`sz-${slot}-${p.id}`}>{ok ? '' : '🔒'}{slot === 'skin' ? <i /> : null}{p.name}</button>; })}</span></span>)}</div>
       </div>
       <aside className="sz-side">
+        <span className="m-seg sz-maps" role="radiogroup" aria-label="Map">{Object.values(MAPS).map(m => <button key={m.id} type="button" role="radio" aria-checked={map === m.id} className={map === m.id ? 'active' : ''} onClick={() => pickMap(m.id)} data-tip={m.line} data-testid={`sz-map-${m.id}`}>{m.name}</button>)}</span>
         {mode === 'bots' ? <span className="m-seg sz-diff" role="radiogroup" aria-label="Difficulty">{Object.entries(BOT_DIFF).map(([k, x]) => <button key={k} type="button" role="radio" aria-checked={diff === k} className={diff === k ? 'active' : ''} onClick={() => setDiff(k)} data-tip={`${x.n} bots · ${Math.round(x.acc * 100)}% aim · ${x.react}s to react`} data-testid={`sz-diff-${k}`}>{k.toUpperCase()}</button>)}</span>
           : <label className="sz-room"><span>ROOM</span><input value={room} onChange={e => setRoom(e.target.value.replace(/[^a-z0-9-_]/gi, '').slice(0, 24))} aria-label="Room name" data-testid="sz-room" /><small>{(d.rooms || []).find(r => r.room === room)?.n || 0} in it now · share the name with your family</small></label>}
         <button type="button" className="m-btn m-go sz-play" onClick={() => { setMsg(''); setPlaying(true); }} data-tip="Opens full screen — first to the kill target or the clock" data-testid="sz-play"><Ic3 e="🎯" /> PLAY · {mode === 'bots' ? `${BOT_DIFF[diff].n} BOTS` : room}</button>
@@ -69,7 +72,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
           {!(d.board || []).length ? <li className="sz-empty">No one on the board today — take #1.</li> : null}</ol>
       </aside>
     </div>
-    {playing ? <Suspense fallback={null}><StrikeGame catalog={d} loadout={lo} mode={mode} diff={diff} room={room} who={who} name={name}
+    {playing ? <Suspense fallback={null}><StrikeGame catalog={d} loadout={lo} mode={mode} diff={diff} room={room} map={map} who={who} name={name}
       onExit={r => { setPlaying(false); if (r) setLast(r); load(); onDone?.(); if (r?.again) setTimeout(() => setPlaying(true), 50); }} /></Suspense> : null}
   </section>;
 }

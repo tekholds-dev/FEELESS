@@ -49,3 +49,18 @@ export function botBrain(bot, you, los, dt, diff = 'normal') {
 // pure: the XP bar from the profile
 export const xpBar = me => (me?.need ? Math.max(0, Math.min(1, (me.into || 0) / me.need)) : 0);
 export const MATCH = { bots: { kills: 25, secs: 360 }, online: { kills: 30, secs: 480 } };
+
+// 🗺 the maps (owner 2026-11-12: "make sumn real and different maps"): each is a real place with its own light, not a box.
+// size = the play area is ±size m; spawns sit inside it; the geometry itself is built in StrikeGame (three.js), these are the pure facts.
+export const MAPS = {
+  yard: { id: 'yard', name: 'THE YARD', line: 'container yard · daylight · mid range', size: 64,
+    sky: '#8ec5ef', fog: ['#bcdcf2', 60, 230], hemi: ['#dbeeff', '#5d5a4a', 1.15], sun: { color: '#fff2d8', int: 1.9, pos: [40, 80, 30] },
+    spawns: [[-56, -56], [56, -56], [-56, 56], [56, 56], [0, -58], [0, 58], [-58, 0], [58, 0]] },
+  streets: { id: 'streets', name: 'FEE STREETS', line: 'neon night blocks · alleys · lamp light', size: 70,
+    sky: '#05070f', fog: ['#0a0e1a', 45, 190], hemi: ['#2a3350', '#05070a', 0.55], sun: { color: '#7a86b8', int: 0.5, pos: [-30, 70, -20] },
+    spawns: [[-60, -60], [60, -60], [-60, 60], [60, 60], [0, -62], [0, 62], [-62, 0], [62, 0]] },
+  vault: { id: 'vault', name: 'THE VAULT', line: 'underground vault · close quarters · fast', size: 34,
+    sky: '#04070a', fog: ['#071510', 12, 95], hemi: ['#23402f', '#050a07', 0.9], sun: { color: '#9ef5c8', int: 0.4, pos: [0, 30, 10] },
+    spawns: [[-28, -28], [28, -28], [-28, 28], [28, 28], [0, -30], [0, 30]] },
+};
+export const mapOf = id => MAPS[id] || MAPS.yard;
