@@ -219,9 +219,10 @@ def vitals(envelopes, calls):
         mine = [c for r in refs for c in by_ref.get((k, r), [])]
         for model in dict.fromkeys(str(c.get('model') or c.get('asked') or '?') for c in mine):
             mc = [c for c in mine if str(c.get('model') or c.get('asked') or '?') == model]
-            r = rows.setdefault((model, k), {'model': model, 'kind': k, 'proofs': 0, 'calls': 0, 'failed': 0, 'apiUsd': 0.0, 'localCalls': 0, 'q': [], 'verified': 0, 'won': 0})
+            r = rows.setdefault((model, k), {'model': model, 'kind': k, 'proofs': 0, 'calls': 0, 'failed': 0, 'apiUsd': 0.0, 'localCalls': 0, 'q': [], 'verified': 0, 'won': 0, 'secs': []})
             r['proofs'] += 1; r['calls'] += len(mc); r['failed'] += sum(1 for c in mc if not c.get('ok'))
             r['apiUsd'] += sum(_f(c.get('usd')) for c in mc if not c.get('local')); r['localCalls'] += sum(1 for c in mc if c.get('local'))
+            r['secs'].append(sum(_f(c.get('ms')) for c in mc) / 1000)   # AGT-34: this model's thinking time on this one proof, from the tagged calls
             q = (e.get('quality') or {}).get('score')
             if q is not None:
                 r['q'].append(_f(q))
@@ -231,6 +232,7 @@ def vitals(envelopes, calls):
     out = []
     for r in rows.values():
         q = r.pop('q'); r['quality'] = round(sum(q) / len(q), 1) if q else None
+        sx = sorted(r.pop('secs')); r['secsPerProof'] = round(sx[len(sx) // 2], 1) if sx else None; r['secsTotal'] = round(sum(sx), 1)   # median, so one stuck call can't set it
         r['apiUsd'] = round(r['apiUsd'], 6); r['perProofUsd'] = round(r['apiUsd'] / r['proofs'], 6) if r['proofs'] else None
         r['failRate'] = round(r['failed'] / r['calls'], 3) if r['calls'] else None
         r['winRate'] = round(r['won'] / r['verified'], 3) if r['verified'] else None

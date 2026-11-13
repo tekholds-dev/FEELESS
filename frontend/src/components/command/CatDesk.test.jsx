@@ -74,7 +74,7 @@ test('📊 model × proof: real rows per model and kind, a pick only where the r
   const { ModelVitals } = require('./CatDesk');
   globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ missions: [{}, {}], chain: { intact: true, count: 40 }, vitals: { rows: [
     { model: 'z-ai/glm-5.3-flash', kind: 'pos', proofs: 1, calls: 3, localCalls: 0, perProofUsd: 0.0061, quality: 142.1, verified: 0, winRate: null, failRate: 0, enough: false },
-    { model: 'local/ossy', kind: 'pob', proofs: 6, calls: 14, localCalls: 14, perProofUsd: 0, quality: 118.4, verified: 6, winRate: 0.667, failRate: 0.286, enough: true }],
+    { model: 'local/ossy', kind: 'pob', proofs: 6, calls: 14, localCalls: 14, perProofUsd: 0, quality: 118.4, verified: 6, winRate: 0.667, failRate: 0.286, enough: true, secsPerProof: 125, secsTotal: 900 }],
     pick: { pos: { model: null, why: 'not enough settled proofs yet' }, pob: { model: 'local/ossy', why: 'cheapest within 10 points' } } },
     contribution: { sources: [{ source: 'rugcheck.xyz', proofs: 16, won: 5, lost: 6, kinds: ['pow'], enough: true }], disagree: [{ kind: 'pop', pairs: 2, split: 2, rate: 1 }] },
     methods: [{ kit: 'read-the-record-first', v: 1, what: 'x', followed: 38, skipped: 61, followedWin: 0.625, skippedWin: 0.143, state: 'unmeasured' }] }) }));
@@ -84,6 +84,7 @@ test('📊 model × proof: real rows per model and kind, a pick only where the r
   expect(globalThis.fetch.mock.calls[0][0]).toContain('/api/cats/c1/missions?'); expect(t).toContain('2 proofs · record intact · 40 events');
   expect(t).toContain('glm-5.3-flash'); expect(t).toContain('too few to rank'); expect(t).toContain('67%'); expect(t).toContain('14 local');
   expect(el.querySelector('.kd-mv-n.is-bad')).toBeTruthy();   // 29% of calls failed
+  expect(t).toContain('TIME—per proof'); expect(t).toContain('TIME2.1mper proof');   // AGT-34: thinking time per proof, — when no timed calls
   expect(t).toContain('PoB → ossy: cheapest within 10 points'); expect(t).toContain('PoStatic : not enough settled proofs yet');
   expect(el.querySelector('[data-testid="kd-contrib"]').textContent).toContain('rugcheck.xyz5–6'); expect(t).toContain('PoP: the minds split 100% of 2');   // COL-12
   expect(el.querySelector('[data-testid="kd-methods"]').textContent).toContain('read-the-record-first63% vs 14%');   // COL-10

@@ -40,7 +40,19 @@
    (g) Icons inside folder windows follow Desktop settings › Folder look (no 3D cartoon icons). (h) PoStatic file head: the OSSY/G4 score pills
    overlap "Broken" — never a bad visual. (i) The boost flow (Proof + $ → pools/score → boost cash, React Flow + limit chart) = an elite example:
    no clipped labels ("Its limit"), no edge labels on nodes. (j) HQ › Money folder redo (owner: "the money folder ugh").
-6. **AGT-34** — tag every model call with its PoW ref so research seconds per mind are measurable.
+6. ✅ **AGT-34 DONE 2026-11-12:** every proof's model calls were already tagged with kind + ref by COL-2 (`_pow2_ask` sets `_CALL_CTX` to the open
+   PoW folder id; test_kind_minds). Added the measurement: Model vitals now shows **TIME per proof** per model × kind (median of its tagged call
+   seconds, total in the tip; `mission.vitals` secsPerProof/secsTotal; test_mission + CatDesk.test). Honest gap: no PoW has run since the log began
+   (2026-11-09 22:05), so the PoW rows today are reviews only; Sicario's missions read back 0 vitals rows. Not seen in the browser (the Brains
+   window with Model vitals sits on the trader CatDesk, not on Sicario's workbench).
+6b. **NEXT CLAUDE, from the owner 2026-11-12 (late):**
+   - 🎮 **Game studio folder (idea, build after the list):** a desk folder for game work: playtest runs filed to the Test bench, faster porting
+     (an engine-to-engine checklist + the minds doing the code moves), and mod/add-on building, e.g. an agent as someone's assistant for a GTA RP
+     server (scripts, configs, resources). "Jailbreaking" = only the user's own devices/games where legal; no DRM cracking, cheats for online
+     games or anti-cheat bypass.
+   - 📈 **Trench chart, desktop view, new look:** the owner says the desktop TrenchChart did not change to match the look-lab preview (Obsidian
+     green). Compare `components/terminal/TrenchChart.jsx` at desktop width with the preview he picked and bring it over (TrenchChart is the one chart).
+
 7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work
    from the stash brain · COL-10 method kits + Tool Forge · COL-19 proving ground · COL-16 bids/browser wins to the Pool (needs an address) ·
    COL-18 ledger move (on hold: 3.7 KB).

@@ -188,3 +188,15 @@ def test_contribution_credits_only_outside_settled_results():
     m = c['minds'][0]
     assert (m['calls'], m['apiUsd'], m['proofs'], m['won']) == (2, 0.01, 2, 1)   # a local call costs nothing
     assert c['disagree'] == [{'kind': 'pob', 'pairs': 1, 'split': 1, 'rate': 1.0}]
+
+
+def test_agt34_seconds_per_proof_per_model_come_from_the_tagged_calls():
+    envs = [{'kind': 'pow', 'id': f'pow{i}', 'artifacts': {}, 'quality': {}, 'outcome': {}} for i in range(3)]
+    calls = [{'kind': 'pow', 'ref': 'pow0', 'model': 'local/ossy', 'ok': True, 'ms': 20000}, {'kind': 'pow', 'ref': 'pow0', 'model': 'local/ossy', 'ok': True, 'ms': 10000},
+             {'kind': 'pow', 'ref': 'pow1', 'model': 'local/ossy', 'ok': True, 'ms': 12000},
+             {'kind': 'pow', 'ref': 'pow2', 'model': 'local/ossy', 'ok': False, 'ms': 600000},   # one stuck call: the median ignores it
+             {'kind': 'pow', 'ref': 'pow0', 'model': 'local/g4', 'ok': True, 'ms': 4500}]
+    v = mission.vitals(envs, calls)
+    ossy = next(r for r in v['rows'] if r['model'] == 'local/ossy'); g4 = next(r for r in v['rows'] if r['model'] == 'local/g4')
+    assert (ossy['secsPerProof'], ossy['secsTotal']) == (30.0, 642.0) and (g4['secsPerProof'], g4['secsTotal']) == (4.5, 4.5)
+    assert mission.vitals(envs, [])['rows'] == []   # no tagged calls: nothing measured, nothing invented
