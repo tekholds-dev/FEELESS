@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { assertLegal } from './legal';
 
 // 📉 FEELESS PERPS — the desk's pure math + the one wallet-signing path (Jupiter Perps; backend/jup_perps.py builds + verifies every transaction).
 // Nothing here holds money: the wallet signs, Jupiter's keeper co-signs and lands it.
@@ -41,7 +42,8 @@ export async function post(path, body) {
   const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The venue said no.'); return b;
 }
 // the wallet signs the venue's transaction (only if it is for THIS wallet); `send` posts the signed bytes to the right executor
-export async function signTx(provider, address, b64) {
+export async function signTx(provider, address, b64, feature = 'perps') {
+  await assertLegal(feature, address);   // ⚖ LEGAL-1: Jupiter Perps signs here as 'perps'; Kalshi passes 'games' (event contracts); Lend gates in lendEarn.lendSign
   const { VersionedTransaction } = await import('@solana/web3.js');
   const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
   if (tx.message.staticAccountKeys[0].toBase58() !== address) throw new Error('This transaction is not for your wallet — refused.');

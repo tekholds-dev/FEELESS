@@ -76,6 +76,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/cats') {   // 🧪 one agent's desk + REAL MODE proposals on a fixture cat (src/dev/CatHarness.jsx)
   import('./dev/CatHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/legal') {   // 🧪 LEGAL-1: accept window, Your data, HQ Legal & regions on fixtures (src/dev/LegalHarness.jsx)
+  import('./dev/LegalHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/features') {   // 🧪 an agent's Features folder on fixtures (src/dev/FeaturesHarness.jsx)
   import('./dev/FeaturesHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/perps') {   // 🧪 the Perps money read + paper desk on fixtures (src/dev/PerpsHarness.jsx)

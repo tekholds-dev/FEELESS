@@ -1,4 +1,5 @@
 import { executeMetaLaunchPlan, getLaunchMint, getLaunchProviderReadiness, getSolanaExplorerUrl, LAUNCHPADS, META_LAUNCH_PROVIDERS, META_LAUNCH_STEPS, recheckMetaLaunchSignature, requestMetaLaunchPlan } from './launchpads';
+jest.mock('./legal', () => ({ ...jest.requireActual('./legal'), assertLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
 
 let mockConnection;
 

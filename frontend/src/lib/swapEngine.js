@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { assertLegal } from './legal';
 import { keepReceipt } from './receipts';
 
 // ⚡ THE FEELESS SWAP ENGINE as two calls (the same /api/trading path the Trade tab's SwapWorkspace walks): quote → the server simulates →
@@ -24,6 +25,7 @@ export async function engineQuote({ inputMint, outputMint, amount, wallet, slipp
 }
 
 export async function engineSwap({ provider, wallet, order, onStatus }) {
+  await assertLegal('swap', wallet);   // ⚖ LEGAL-1
   if (!order.simulated) { onStatus?.('Simulating the swap…'); await request('/simulate', { order_id: order.order_id }); }
   const { VersionedTransaction } = await import('@solana/web3.js');
   if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet) throw new Error('Connected wallet changed — reconnect and zap again.');

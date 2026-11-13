@@ -1,5 +1,7 @@
 # ⚖ Lawyer checklist — the ONE read before real volume (drafted by Claude 2026-11-13; not legal advice)
 
+> The live Terms / Risk / Privacy text is `frontend/public/legal/{terms,risk,privacy}.md` (one copy: the site shows exactly these files at /terminal/terms · /terminal/risk · /terminal/privacy). Edit there; a material change bumps `LEGAL_VERSION` in `frontend/src/lib/legal.js` + `VERSION` in `backend/legal.py`.
+
 Goal: one paid hour with a crypto/fintech lawyer, not ten. Send them this page, `docs/specs/money.md` › COUNSEL_BRIEF (the detailed
 questions), and the three drafts in this folder. Answers become dated lines in `docs/RULINGS.md`.
 

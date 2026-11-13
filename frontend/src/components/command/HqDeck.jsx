@@ -6,6 +6,7 @@ import NumInput from '../NumInput';
 import { GuardPanel } from './GuardPanel';
 import { DefencePanel } from './DefencePanel';
 import { WarRoom } from './WarRoom';
+import { LegalRegions } from './LegalRegions';
 import { VaultDesigner } from './VaultDesigner';
 import { FuseBuilder } from './FuseBuilder';
 import { BotShield } from './BotShield';
@@ -178,7 +179,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
   // 🗂 six short groups (owner, 2026-10-21: "clean up HQ so I can get to stuff quicker"): ≤ 7 tools each, one line that says what lives there.
   // 🧭 THE MENU, BY THE JOB YOU ARE DOING (owner 2026-11-11: "hard to find, all over the place"): nine groups, none over six tools.
-  const TAB_GROUPS = [['Money', ['money', 'fees', 'fuse', 'collective', 'pools'], '💰', 'the treasury, every fee, Fuse, the Collective, pools'],
+  const TAB_GROUPS = [['Money', ['money', 'fees', 'fuse', 'collective', 'pools', 'legal'], '💰', 'the treasury, every fee, Fuse, the Collective, pools, legal + regions'],
     ['Agents', ['agents', 'feecat', 'familia'], '🤖', "Sicario's, Fee, Familia"],
     ['Launch', ['launch', 'verify'], '🚀', 'launch a coin, check a coin'],
     ['Insights', ['numbers', 'traffic', 'pulse'], '📈', 'who comes, from where, what they do'],
@@ -190,9 +191,9 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
-  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['war', '⚔️ War Room', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled drops', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
+  const TABS = [['looks', 'Looks', Activity], ['agents', "🎩 Sicario's", Activity], ['collective', 'Collective HQ', Activity], ['investigate', 'Intel desk', Search], ['verify', 'Verify coins', ShieldCheck], ['launch', 'Launch & setup', ShieldCheck], ['latency', 'Lag catcher', Activity], ['numbers', 'Numbers', BarChart3], ['pulse', 'Pulse', Activity], ['overview', 'Security', ShieldCheck], ['war', '⚔️ War Room', ShieldCheck], ['shield', '🛡 Bot shield', ShieldCheck], ['mod', 'Moderation', Bug], ['broadcast', 'Broadcast', Gift], ['money', 'Money', Wallet], ['legal', '⚖ Legal & regions', ShieldCheck], ['marketing', 'Marketing', Megaphone], ['holders', 'Holders', Users], ['studio', 'Airdrop Studio', Gift], ['airdrops', 'Scheduled drops', Gift], ['snapshots', 'Snapshots', Users], ['badges', 'Badges', Award], ['fuse', '⚛️ Fuse', Award], ['nfts', 'NFTs', Gift], ['feecat', 'Fee 🐱', Award], ['pools', 'Pools', Gift], ['familia', '🏙 Familia', Users], ['fees', 'Trading & fees', ShieldCheck], ['ads', 'Ads', Gift], ['seasons', 'Seasons', Award], ['access', 'Access', ShieldCheck], ['ideas', 'Ideas', Gift], ['traffic', 'Traffic', Activity], ['kols', 'KOLs', Users], ['invites', 'Invites', Users], ['bugs', `Bugs${sec?.stats?.openBugs ? ` (${sec.stats.openBugs})` : ''}`, Bug]];
   // one distinct mark per tool (the shared lucide icons repeated ⚡ on five tools — noise, not wayfinding)
-  const TAB_ICON = { looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
+  const TAB_ICON = { legal: '⚖️', looks: '🎨', agents: '🎩', collective: '💎', money: '💰', fuse: '⚛️', fees: '💲', latency: '🩺', launch: '🚀', familia: '🏙', feecat: '🐱', pools: '🌊', verify: '✅',
     numbers: '📊', traffic: '🚦', pulse: '💓', marketing: '📣', kols: '🎤', ads: '🪧', ideas: '💡', holders: '👥', studio: '🪂', airdrops: '🗓', snapshots: '📸', invites: '✉️',
     broadcast: '📡', badges: '🏅', nfts: '🖼', seasons: '🏆', investigate: '🕵️', shield: '🛡', overview: '🔐', war: '⚔️', mod: '🧹', access: '🔑', bugs: '🐞' };
   const groups = TAB_GROUPS.filter(g => g[1].some(allowed));
@@ -246,6 +247,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     </section>}
     {tab === 'overview' && <><GuardPanel call={call} /><DefencePanel call={call} /><Overview sec={sec} reload={loadSec} /></>}
     {tab === 'war' && <WarRoom call={call} />}
+    {tab === 'legal' && <LegalRegions call={call} />}
     {tab === 'investigate' && <IntelDesk call={call} />}
     {tab === 'nfts' && (isOwner ? <Suspense fallback={<p className="cc-empty">Opening the studio…</p>}><FuseCardMint call={call} /><NftStudio call={call} /></Suspense> : <p className="cc-empty">Only owner wallets can create and drop NFT collections.</p>)}
     {tab === 'holders' && <section className="cc-panel">

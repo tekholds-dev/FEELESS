@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { assertLegal } from './legal';
 import { relayConnection, signSend } from './launchRail';
 
 // 🏦 Jupiter Lend Earn, in FEELESS: the server asks Jupiter for the UNSIGNED transaction and only returns it after checking it (you pay, you
@@ -18,6 +19,7 @@ export async function lendQuote({ address, asset, side, amount }) {
 }
 
 export async function lendSign({ provider, address, quote, onStatus }) {
+  await assertLegal('perps', address);   // ⚖ LEGAL-1: Jupiter Lend + the leverage borrow (FEATURES.perps = 'Perps + leverage (Jupiter Perps / Lend)')
   const { web3, connection } = await relayConnection();
   const tx = web3.VersionedTransaction.deserialize(Uint8Array.from(atob(quote.transaction), c => c.charCodeAt(0)));
   if (tx.message.staticAccountKeys[0].toBase58() !== address) throw new Error('This transaction is not for your wallet — refused.');

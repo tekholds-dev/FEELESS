@@ -12,7 +12,7 @@ OTHER = 'B' * 32
 
 
 def test_frontend_shows_the_same_terms_version_the_server_checks():
-    src = (Path(__file__).resolve().parents[2] / 'frontend/src/components/LegalConsent.jsx').read_text()
+    src = (Path(__file__).resolve().parents[2] / 'frontend/src/lib/legal.js').read_text()
     assert re.search(r"LEGAL_VERSION = '([^']+)'", src).group(1) == L.VERSION
 
 

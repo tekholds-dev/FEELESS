@@ -62,7 +62,7 @@ import { useDuoFloor } from '../lib/duo';
 import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetector } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
 import { ReputationCenter } from '../components/command/ReputationCenter';
-import { LegalPage } from '../components/LegalConsent';
+import { LegalPage, MyDataCard } from '../components/LegalConsent';
 import { FeeCatProfile } from '../components/command/FeeCatProfile';
 import { LiveIntelStats } from '../components/command/LiveIntelStats';
 import { AdBanner } from '../components/AdBanner';
@@ -244,17 +244,17 @@ export default function Terminal() {
       {page === 'fee' && <ReserveProgress />}{page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
         {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect}><FeeCatProfile /></FeeCatCenter>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatShell tab="agents"><FeeCatsPlatform /></FeeCatShell>}
       {page === 'reputation' && <ReputationCenter />}
-      {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
+      {!page.startsWith('profile/') && !['legal', 'terms', 'risk', 'privacy'].includes(page) && <AdBanner placement="banner" />}
       <Shortcuts />
       <HubTabs page={page} />
-      {page === 'legal' && <LegalPage />}
+      {['legal', 'terms', 'risk', 'privacy'].includes(page) && <LegalPage doc={page === 'legal' ? 'terms' : page} />}
       {page.startsWith('coin/') && <CoinProfile key={page} chain={page.split('/')[2] ? page.split('/')[1] : 'solana'} pairAddress={page.split('/')[2] || page.split('/')[1]} />}
       {page.startsWith('profile/') && <WalletProfilePage key={page} address={page.split('/')[1]} />}
       {page.startsWith('reputation/') && (() => { const [, repChain, repAddress] = page.split('/'); return repChain && repAddress ? <CreatorProfilePage chain={repChain} address={repAddress} /> : null; })()}
       {page === 'alpha' && <div className="command-page-title"><span className="eyebrow">HOLDER-ONLY · $FEE</span><h1>Fee Reserve <small>FRSV</small></h1><p>Hold $FEE to unlock private rooms. Access is checked on-chain every time you read or post.</p></div>}{page === 'alpha' && <AlphaRooms />}
       {page === 'fuse' && <FusePage />}{page === 'rewards' && <RewardsDash />}{page === 'badges' && <QuestBoard />}{page === 'seasons' && <SeasonsPage />}{page === 'support' && <SupportHub />}{page === 'feed' && <div className="fd-page" data-testid="feed-page"><React.Suspense fallback={<p className="fd-page-wait">Opening FEEd…</p>}><FeedPanel onConnect={() => setWalletOpen(true)} /></React.Suspense></div>}{page === 'leaderboard' && <LeaderboardHub callers={<CallerLeague />} crew={<ParticipationBoard />} />}{page === 'whitepaper' && <div className="tab-stage has-aura" style={{ '--stage': '#7cc8ff' }}><CoinAura color="#7cc8ff" change24h={20} /><LiveProof /><CommandWhitepaper /><div className="sup-row"><SupportButton /></div></div>}{page === 'roadmap' && <div className="tab-stage has-aura" style={{ '--stage': '#b388ff' }}><CoinAura color="#b388ff" change24h={20} /><MissionRoadmap /><RoadmapVoting /><div className="sup-row"><SupportButton /></div></div>}{page === 'learn' && <><LiveIntelStats /><RadarPanel /><UnderstandFeeless /><CaseStudies /></>}
-      {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><LookPicker /><HolderThemePicker /><MyInviteCard /><NetworkStatus /></div>}
-       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'rewards', 'badges', 'fuse', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'seasons', 'alpha', 'support', 'feed', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
+      {page === 'settings' && <div className="tab-stage has-aura" style={{ '--stage': '#f5c542' }}><CoinAura color="#f5c542" change24h={14} /><TerminalConfiguration settings={settings} setSettings={setSettings} onWallet={() => setWalletOpen(true)} /><LookPicker /><HolderThemePicker /><MyInviteCard /><MyDataCard /><NetworkStatus /></div>}
+       {!isMarket && !page.startsWith('reputation') && !page.startsWith('profile/') && !page.startsWith('coin/') && !['launch', 'watchlist', 'chat', 'alerts', 'rewards', 'badges', 'fuse', 'fee', 'feeback', 'feecat', 'feecat/cats', 'feecat/agents', 'leaderboard', 'seasons', 'alpha', 'support', 'feed', 'whitepaper', 'roadmap', 'learn', 'settings', 'legal', 'terms', 'risk', 'privacy'].includes(page) && <div className="page-heading"><h1>Off the radar.</h1><Link to="/terminal" className="btn-primary" data-testid="unknown-page-home">Back to terminal</Link></div>}
        </div><TerminalFooter />
      </PanelBoundary></main></div><WalletModal open={walletOpen} onClose={() => setWalletOpen(false)} /><WalletProfileModal open={profileOpen} onClose={() => setProfileOpen(false)} /></div>;
 }

@@ -90,8 +90,8 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
-          <HolderThemeMount /><PageViews /><MobileTabBar /><DuoBar /><FeeCatWidget />
-        </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
+          <HolderThemeMount /><PageViews /><MobileTabBar /><DuoBar /><FeeCatWidget /><LegalConsent />
+        </BrowserRouter><Toaster theme="dark" position="bottom-right" /></WorkspaceProvider></WalletProvider>
       </div>
     </div>
   );

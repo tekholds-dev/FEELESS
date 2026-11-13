@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ProofFundForm } from './ProofKit';
+jest.mock('../../lib/legal', () => ({ ...jest.requireActual('../../lib/legal'), assertLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
 
 jest.mock('@solana/web3.js', () => ({ Transaction: { from: bytes => ({ bytes }) } }));
 

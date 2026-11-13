@@ -1,3 +1,4 @@
+import { assertLegal } from './legal';
 export const LAUNCHPADS = [
   { id: 'feeless-launch', name: 'Launch on FEELESS', symbol: 'F', chainId: 'solana', color: '#14F195', lat: -18, lng: 132, url: '/terminal/launch', description: 'A reviewed curve-to-pool launch with visible fee routing, community allocations, and permanent liquidity.', tag: 'FEELESS NATIVE', dexIds: [], isFeelessLaunch: true, launchProviderKey: 'feeless' },
   { id: 'pump', name: 'Pump.fun', symbol: 'P', chainId: 'solana', color: '#34efad', lat: 25, lng: -78, url: process.env.REACT_APP_PUMP_URL, logoUrl: 'https://icons.duckduckgo.com/ip3/pump.fun.ico', description: 'Fast Solana launches with a simple curve-first path into the trenches.', tag: 'MEME CULTURE', dexIds: ['pump', 'pumpswap', 'pump-fun', 'pump_fun'], launchProviderKey: 'pump' },
@@ -249,6 +250,7 @@ export async function executeMetaLaunchPlan(plan, { provider, wallet, onStep, co
   if (provider.publicKey?.toString() && provider.publicKey.toString() !== wallet.address) {
     throw new Error('Connected Phantom account changed. Reconnect and review the launch again.');
   }
+  await assertLegal('launch', wallet.address);   // ⚖ LEGAL-1
 
   const { Connection, VersionedTransaction, Transaction } = await import('@solana/web3.js');
   const config = getLaunchProviderConfig();

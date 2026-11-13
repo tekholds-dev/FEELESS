@@ -1,4 +1,5 @@
 import { useDraft } from '../../lib/useDraft';
+import { assertLegal } from '../../lib/legal';
 import NumInput from '../NumInput';
 import { ReceiptsCard } from './ReceiptsCard';
 import { ReceiptPreview } from './ReceiptPreview';
@@ -267,6 +268,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     setTl({ side: outputMint === SOL ? 'sell' : 'buy', symbol: (outputMint === SOL ? inputAsset : outputAsset).symbol, quotedAt: quotedAt || Date.now(), route: `${quote.router || 'Jupiter'} · simulated OK`, wallet: wallet.name,
       feePct: feeBps / 100, feeUsd: tUsd * feeBps / 10000, networkSol: ['signatureFeeLamports', 'prioritizationFeeLamports'].reduce((a, k) => a + Number(quote[k] || 0), 0) / 1e9 || null });
     try {
+      await assertLegal('swap', wallet.address);   // ⚖ LEGAL-1
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Connected Phantom account changed. Reconnect and request a fresh quote.');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(quote.transaction), c => c.charCodeAt(0)));
       if (tx.message.staticAccountKeys[0].toBase58() !== wallet.address) throw new Error('Wallet does not match the quoted fee payer.');

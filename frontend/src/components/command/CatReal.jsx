@@ -1,4 +1,5 @@
 import { boxRef } from '../../lib/boxRef';
+import { assertLegal } from '../../lib/legal';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { depositQuote } from '../../lib/depositQuote';
@@ -283,6 +284,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   const { wallet, connect, signMessage, provider } = useWallet() || {};
   const signTx = async b64 => {   // 💵 the funding transaction FEELESS built → your wallet signs it (never sends it) → base64 back for /fund/send
     if (!provider?.signTransaction) throw new Error('Connect a Solana wallet that can sign.');
+    if (!devAddress) await assertLegal('agents', wallet?.address);   // ⚖ LEGAL-1: funding an agent that trades on its own
     const { VersionedTransaction } = await import('@solana/web3.js');
     const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
     const out = await provider.signTransaction(tx); return btoa(String.fromCharCode(...out.serialize()));

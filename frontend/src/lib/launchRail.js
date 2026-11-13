@@ -1,4 +1,5 @@
 import { keepReceipt } from './receipts';
+import { assertLegal } from './legal';
 import { apiUrl } from './api';
 
 // FEELESS launch rail on Meteora's Dynamic Bonding Curve. Everything here builds transactions in
@@ -98,6 +99,7 @@ export async function signSend(web3, connection, provider, tx, payer, extraSigne
 
 // Owner, once: create the FEELESS launch config on-chain.
 export async function createLaunchRail({ provider, owner, feeClaimer, params, onStatus }) {
+  await assertLegal('launch', owner);   // ⚖ LEGAL-1
   const { web3, dbc, connection, client } = await sdk();
   const payer = new web3.PublicKey(owner);
   const config = web3.Keypair.generate();
@@ -154,6 +156,7 @@ export function priorityIxs(web3, prioritySol, units = 300_000) {
 }
 
 export async function launchCoin({ provider, creator, config, name, symbol, uri, firstBuySol = 0, quoteDecimals = 9, priorityFeeSol = 0, onStatus }) {
+  await assertLegal('launch', creator);   // ⚖ LEGAL-1
   const { web3, connection, client } = await sdk();
   const BN = (await import('bn.js')).default;
   const payer = new web3.PublicKey(creator);

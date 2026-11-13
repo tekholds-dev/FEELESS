@@ -1,4 +1,5 @@
 import { KitPick } from './KitPick';
+import { assertLegal } from '../../lib/legal';
 import { useSolPrice } from '../../lib/solPrice';
 import { ChatSettings } from '../chat/ChatKit';
 import { boostX, dayEarn, GRADE_BASE, limitIn, seatOf, tinyUsd, usePoolRates } from './KeepDeal';
@@ -81,6 +82,7 @@ export function ProofFundForm({ cat, work, f, signer = null }) {
   const quote = () => run('quote', async () => { const j = await work(cat.id, { op: 'fund_quote', job: f.id, cap: Number(sol) }); setQ({ ...j.quote, tx: j.tx }); });
   const send = () => run('send', async () => {
     if (!provider?.signTransaction) throw new Error('Connect the wallet that owns this agent. Nothing moved.');
+    await assertLegal('agents', w.wallet?.address || provider.publicKey?.toString());   // ⚖ LEGAL-1
     const { Transaction } = await import('@solana/web3.js');
     const signed = await provider.signTransaction(Transaction.from(Uint8Array.from(atob(q.tx), c => c.charCodeAt(0))));
     const j = await work(cat.id, { op: 'fund_send', job: f.id, text: q.id, sig: b64(signed.serialize()) }); setRcs(r => [...r, j.receipt]); setQ(null);

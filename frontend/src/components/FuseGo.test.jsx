@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FuseGo } from './FuseGo';
+jest.mock('../lib/legal', () => ({ ...jest.requireActual('../lib/legal'), assertLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mockSignAll = jest.fn(async txs => txs);

@@ -1,4 +1,5 @@
 import { PanelBoundary } from '../PanelBoundary';
+import { assertLegal } from '../../lib/legal';
 import NumInput from '../NumInput';
 import { TradeTimeline } from '../TradeTimeline';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -165,6 +166,7 @@ function QuickTradeInner({ pair }) {
     setTl({ side, symbol, quotedAt: order.at, route: `${q0.router || 'Jupiter'} · simulated OK`, wallet: wallet.name, feePct: feeBps / 100, feeUsd: tUsd * feeBps / 10000,
       networkSol: ['signatureFeeLamports', 'prioritizationFeeLamports'].reduce((a, k) => a + Number(q0[k] || 0), 0) / 1e9 || null, solUsd });
     try {
+      await assertLegal('swap', wallet.address);   // ⚖ LEGAL-1: country / 18+ / terms, right before the wallet opens
       if (!provider?.signTransaction || provider.publicKey?.toString() !== wallet.address) throw new Error('Reconnect Phantom and get a fresh quote.');
       const { VersionedTransaction } = await import('@solana/web3.js');
       const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(order.quote.transaction), c => c.charCodeAt(0)));

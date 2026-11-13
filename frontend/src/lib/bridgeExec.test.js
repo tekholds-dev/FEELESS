@@ -1,4 +1,5 @@
 import { checkSolQuote, routeVitals, spendOk, trackBridge, executeSolRoute, SOLANA_ID, SOL_NATIVE, SOL_USDC, RENT_SLACK, BRIDGE_CHAINS, tokenOf } from './bridgeExec';
+jest.mock('./legal', () => ({ ...jest.requireActual('./legal'), assertLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
 
 const mockConn = { getLatestBlockhash: jest.fn(), getBalance: jest.fn(), simulateTransaction: jest.fn(), getSignatureStatuses: jest.fn(), getBlockHeight: jest.fn() };
 const mockTx = { message: { staticAccountKeys: [{ toBase58: () => 'ME' }], recentBlockhash: 'OLD' } };

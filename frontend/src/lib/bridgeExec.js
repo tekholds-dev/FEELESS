@@ -1,4 +1,5 @@
 import { apiUrl } from './api';
+import { assertLegal } from './legal';
 import { relayConnection } from './launchRail';
 import { CHAIN_ID, NATIVE, fromUnits, samePayout } from './lifiExec';
 
@@ -78,6 +79,7 @@ export async function executeSolRoute({ quote, provider, address, payTo, onStep 
   if (sim.value.err) throw new Error(`Simulation failed — nothing was signed: ${JSON.stringify(sim.value.err)} ${(sim.value.logs || []).slice(-1).join(' ')}`.trim());
   const post = sim.value.accounts?.[0]?.lamports;
   if (!spendOk({ pre, post, fromToken: quote.action.fromToken?.address, fromAmount: quote.action.fromAmount })) throw new Error('Refused: the simulation spends more SOL than the quote.');
+  await assertLegal('swap', address);   // ⚖ LEGAL-1
   onStep('Approve in your wallet…', 'sign');
   const signed = await provider.signTransaction(tx);
   const res = await fetch(apiUrl('/api/lifi/solana/send'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ signed: bytesToB64(signed.serialize()) }) });

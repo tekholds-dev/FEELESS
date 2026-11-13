@@ -5,5 +5,5 @@
 - **Why:** to run the site, show your agents/proofs, stop abuse, and pay out rewards.
 - **Sharing:** only with the providers that run a feature you use (RPC, Jupiter, SnapTrade, Crossmint, model providers for agent chat) and when the law requires. We don't sell data.
 - **Public by default:** on-chain data is public. Proofs are private unless you debate or trade them.
-- **Your choices:** ask to export or delete your data at [SUPPORT ADDRESS]; on-chain data can't be deleted.
+- **Your choices:** export or delete your off-chain data yourself in Settings › Your data (or ask at [SUPPORT ADDRESS]). A delete removes your profile, follows, inbox, push, DMs you sent, chat posts, linked accounts and sessions. We keep proof you accepted these terms, money receipts, points/payout ledgers and security logs (the law lets us, and payouts need them). On-chain data can't be deleted by anyone.
 - **Kids:** not for under-18s.
