@@ -25,7 +25,7 @@ const PROOFS = {
     caps: [['books', '📒', 'Its books, drawn', 'Income against costs, month by month, from its real books']] },
 };
 // A proof type with graded proofs also shows them, graded by OSSY + G4; the kits it builds with are one quiet line under the stage.
-const EVERY = [['reviews', '🧑‍⚖️', 'Graded by OSSY + G4', 'Its own proofs: the five checks each reviewer made, pass or fail']];
+const EVERY = [['reviews', '🧑‍⚖️', 'Graded by The Collective', 'Its own proofs: the five checks The Collective made, pass or fail']];
 const K = n => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n || 0));
 
 const num = v => +String(v).replace(/,/g, '');
@@ -150,16 +150,23 @@ function LiveGame() {
 // 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
 const HIDDEN_SAY = { 'no-fake-data': 'made-up or sample numbers', finished: 'unfinished parts', 'has-title': 'a page title', 'has-heading': 'a main heading', 'phone-ready': 'phone fit',
   'images-load': 'pictures that load', 'links-go-somewhere': 'links that go somewhere', 'no-insecure-content': 'secure links', 'has-words': 'enough words' };
+// 🫂 Users see the judges as ONE: The Collective (owner 2026-11-13). The server renames them `collective`, `collective-2`; this draws them as one
+// section with the combined score and every check once. The owner's own agents still come back by name (he reviews OSSY + G4).
+export function judgeRows(r) {
+  const all = Object.entries(r?.by || {}); if (!all.length || !all.every(([n]) => n.startsWith('collective'))) return all;
+  const checks = [...new Set(all.flatMap(([, v]) => v.checks || []))];
+  return [['The Collective', { score: r.score, verdict: r.verdict, checks }]];
+}
 export function ReviewReel({ rows }) {
   const [i, setI] = useState(0); const r = rows?.[i % Math.max(1, rows?.length || 1)];
   const [at] = useSteps(6, 900);
-  if (!rows?.length) return <p className="dbt-none" data-testid="pdr-no-reviews">No graded proof of this kind yet. OSSY and G4 grade its first one within minutes of it closing.</p>;
+  if (!rows?.length) return <p className="dbt-none" data-testid="pdr-no-reviews">No graded proof of this kind yet. The Collective grades its first one within minutes of it closing.</p>;
   return <div className="prv" data-testid="pdr-reviews"><header><span className="m-seg" role="tablist" aria-label="Which proof">{rows.map((x, n) => <button key={x.id} type="button" role="tab" aria-selected={n === i % rows.length} className={n === i % rows.length ? 'is-on' : ''} onClick={() => setI(n)} data-tip={`Score ${x.score} · ${x.verdict}`}>{x.title}</button>)}</span>
     <b className={`prv-score is-${r.verdict || 'none'}`} data-testid="prv-score" data-tip={r.verdict ? `The judges' average; each check is worth 20.${r.oneFamily ? ` Both judges are ${r.families?.[0] || 'one'} models, so they can share a blind spot.` : ''}` : (r.why || 'No judge answered yet.')}>
       <i className="m-num">{r.score ?? '—'}</i><small>{r.verdict ? String(r.verdict).toUpperCase() : r.recused?.length ? 'NO JUDGE · IT BUILT IT' : 'NOT JUDGED'}{r.agree === false ? ' · SPLIT' : ''}{r.oneFamily ? ' · ONE FAMILY' : ''}</small></b></header>
     {r.hidden ? <p className="dbt-none" data-testid="prv-hidden" data-tip="Code tests every page against checks its builders are never shown, so no page can be written to please them.">CODE CHECKS IT NEVER SAW · <i className="m-num">{r.hidden.passed}/{r.hidden.total}</i>{r.hidden.failed?.length ? ` · missed: ${r.hidden.failed.map(x => HIDDEN_SAY[x] || x).join(', ')}` : ' · all passed'}</p> : null}
-    {r.recused?.length ? <p className="dbt-none" data-testid="prv-recused">{r.recused.map(x => x.toUpperCase()).join(' and ')} built this proof, so {r.recused.length > 1 ? 'they sit' : 'it sits'} out its review: a builder never judges its own work.</p> : null}
-    <div className="prv-minds">{Object.entries(r.by || {}).map(([n, v]) => <section key={n} className={`prv-mind is-${v.verdict}`}><h5>{n.toUpperCase()} <i className="m-num">{v.score}</i><small>{v.answeredBy || ''}</small></h5>
+    {r.recused?.length ? <p className="dbt-none" data-testid="prv-recused">{r.recused.some(x => /collective/i.test(x)) ? 'Part of The Collective built this proof, so that part sits out its review' : `${r.recused.map(x => x.toUpperCase()).join(' and ')} built this proof, so ${r.recused.length > 1 ? 'they sit' : 'it sits'} out its review`}: a builder never judges its own work.</p> : null}
+    <div className="prv-minds">{judgeRows(r).map(([n, v]) => <section key={n} className={`prv-mind is-${v.verdict}`}><h5>{n.toUpperCase()} <i className="m-num">{v.score}</i><small>{v.answeredBy || ''}</small></h5>
       <ol>{(v.checks || []).map((c, k) => <li key={k} className={`${k < at ? 'is-in' : ''} ${String(c).startsWith('✓') ? 'is-ok' : 'is-no'}`} style={{ '--i': k }}>{c}</li>)}</ol></section>)}</div></div>;
 }
 // 🧰 What it builds with: every kit for this kind, its live version, and an arrow when the daily check moved it up.
@@ -179,7 +186,7 @@ const BRIEF_DOOR = { pos: 'pos', pow: 'pow', pop: 'pop', pob: 'pob', poc: 'poc',
 // that carry today's live numbers (filed this week, graded right, review score) — the brief box and the tab row are one row now. One click per type.
 export function ProofBrief({ k, onPick }) {
   const [b, setB] = useState(null);
-  useEffect(() => { let live = true; fetch(apiUrl('/api/cats/brief/proofs')).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
+  useEffect(() => { let live = true; fetch(apiUrl(`/api/cats/brief/proofs?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
   const by = Object.fromEntries((b?.rows || []).map(r => [r.kind, r]));
   return <><nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
     return <button key={x} type="button" role="tab" aria-selected={k === x} className={`pdr-type is-${x}${k === x ? ' is-on' : ''}${b?.best === x ? ' is-best' : ''}`} style={{ '--i': i }} onClick={() => onPick?.(x)} data-testid={`pdr-${x}`}
@@ -194,7 +201,7 @@ export function ProofBrief({ k, onPick }) {
 export function JudgeMeters({ rows }) {
   if (!rows?.length) return null;
   return <div className="pdr-judges" data-testid="judge-meters">{rows.map(j => <span key={j.judge} className={`pdr-judge${j.beats ? ' is-beats' : ''}`} data-tip={j.say} aria-label={j.say} data-testid={`judge-${j.judge}`}>
-    <small className="m-label">{j.judge.toUpperCase()} · RIGHT</small><b className="m-num">{j.rightPct}%</b>
+    <small className="m-label">{j.judge === 'collective' ? 'THE COLLECTIVE' : j.judge.toUpperCase()} · RIGHT</small><b className="m-num">{j.rightPct}%</b>
     <u aria-hidden="true"><s style={{ transform: `scaleX(${j.rightPct / 100})` }} /><i style={{ left: `${j.baselinePct}%` }} /></u>
     <em>{j.beats ? 'beats a fail-everything judge' : 'no better than failing everything yet'} · {j.n} settled</em></span>)}</div>;
 }

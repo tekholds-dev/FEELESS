@@ -174,7 +174,7 @@ export function FileView({ doc, shots, marks, quoted, drawing, onDraw, items, ho
   return <pre className="gtr-text" data-testid="git-text">{doc.text}</pre>;
 }
 const USE_FOR = [['pow', 'PoW'], ['pop', 'PoP'], ['pob', 'PoB'], ['poc', 'PoC'], ['pos', 'PoStatic']];
-const MIND_NAME = { ossy: 'OSSY', g4: 'G4' };
+const MIND_NAME = { ossy: 'OSSY', g4: 'G4', collective: 'The Collective', 'collective-2': 'The Collective' };   // 🫂 users see the judges as The Collective (owner 2026-11-13)
 // 🧵 Every mark has a window beside it, wired to its spot: what the vital is, who marked it, how it was graded and why. Ticks choose what gets approved.
 function MarkWires({ rows, root, ticked, setTicked, onApprove, onTrash, pending, hot, setHot, reading, theirs = false }) {
   const [paths, setPaths] = useState([]);
@@ -212,7 +212,7 @@ function JudgeBar({ theirs = false, onAlert, onCopy, copied, path, item, onSet, 
       <form className="gtr-missed" onSubmit={e => { e.preventDefault(); if (missed.trim()) { onAddMark({ kind: 'missed', text: missed.trim() }); setMissed(''); } }}><input className="m-input" value={missed} onChange={e => setMissed(e.target.value)} maxLength={300} placeholder={folder ? 'What this whole folder is missing' : 'What did it miss that is not on here?'} aria-label="What it missed" data-testid="sort-missed" /><button type="submit" className="m-btn" disabled={!missed.trim()} data-tip="Saved as a mark. OSSY and G4 read it" data-testid="sort-missed-add">Add</button></form>
       {(item?.marks || []).length ? <ul className="gtr-marklist" data-testid="sort-marks">{item.marks.map((m, i) => <li key={i} className={m.kind ? `is-${m.kind}` : ''}><span>{m.text ? `${m.kind === 'missed' ? 'Missed: ' : ''}${m.text}` : ''}{m.text && m.label ? ' · ' : ''}{m.label || (m.text ? '' : `Mark ${i + 1}`)}</span><button type="button" onClick={() => onSet(path, { marks: item.marks.filter((_, n) => n !== i) })} aria-label={`Remove mark ${i + 1}`} data-tip="Remove this mark">✕</button></li>)}</ul> : null}
       <ChatComposer onSubmit={e => { e.preventDefault(); onSet(path, { note }); }} field={<ChatInput value={note} onChange={e => setNote(e.target.value)} enterSends={false} maxLength={2000} placeholder={folder ? 'Your notes on this folder. OSSY and G4 read them for every file inside' : 'Your notes on this file. OSSY and G4 read them'} aria-label="Owner notes" data-testid="sort-note" />} action={<ChatSend aria-label="Save note" isDisabled={note === (item?.note || '')} data-tip="Save your note" data-testid="sort-note-save" />} />
-      {folder ? null : <div className="gtr-votes">{[['ossy', 'OSSY'], ['g4', 'G4']].map(([k, l]) => <span key={k} data-testid={`sort-vote-${k}`}><small>{l}</small>{votes[k] ? <><b className={`is-${votes[k].verdict}`}>{votes[k].verdict}</b><em>{votes[k].why}</em></> : <em>Not read yet</em>}</span>)}</div>}</div> : null}
+      {folder ? null : <div className="gtr-votes">{(votes.ossy || votes.g4 ? [['ossy', 'OSSY'], ['g4', 'G4']] : [['collective', 'THE COLLECTIVE']]).map(([k, l]) => <span key={k} data-testid={`sort-vote-${k}`}><small>{l}</small>{votes[k] ? <><b className={`is-${votes[k].verdict}`}>{votes[k].verdict}</b><em>{votes[k].why}</em></> : <em>Not read yet</em>}</span>)}</div>}</div> : null}
   </section>;
 }
 const TRASH_DAYS = 7;

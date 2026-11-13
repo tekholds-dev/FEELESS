@@ -259,6 +259,36 @@ def _as_collective(obj):
     return obj
 
 
+REVIEW_KEYS = {'review', 'reviews', 'reviewers', 'by', 'recused', 'builders', 'judges', 'families', 'answeredBy', 'reviewedBy', 'gradedBy', 'oneFamily', 'votes', 'marks'}
+
+
+def _collective_names(obj, under=False):
+    """🫂 Grades and scores speak as The Collective (owner 2026-11-13: "users should see ossy and g4 scores and grades as The Collective, never
+    their individual names"). Inside any review / grade field, OSSY and G4 lose their names, as words AND as keys (a judge keyed 'ossy' becomes
+    'collective', the next 'collective-2'), and the model behind each verdict is dropped. Everything else passes untouched. The owner's own
+    (staff) agents keep the names: he reviews OSSY and G4 himself. Pure (tests)."""
+    if isinstance(obj, list):
+        return [_collective_names(x, under) for x in obj]
+    if isinstance(obj, str):
+        return _INTERNAL.sub('The Collective', obj) if under and _INTERNAL.search(obj) else obj
+    if not isinstance(obj, dict):
+        return obj
+    out, n = {}, 0
+    for k, v in obj.items():
+        inside = under or k in REVIEW_KEYS
+        if inside and k in ('answeredBy', 'families', 'oneFamily'):
+            continue
+        if inside and isinstance(k, str) and _INTERNAL.fullmatch(k.strip()):
+            n += 1; k = 'collective' if n == 1 else f'collective-{n}'
+        out[k] = _collective_names(v, inside)
+    return out
+
+
+def _for_users(cat, obj):
+    """The owner's staff agents see the judges by name; every other owner sees The Collective."""
+    return obj if (cat or {}).get('ownerStaff') else _collective_names(obj)
+
+
 def _no_keys(obj):
     """🔐 every cat on its way out: the sealed API keys stay on the server — the page gets the drawer (provider · last 4 · wired)."""
     if isinstance(obj, list):
@@ -6963,8 +6993,18 @@ async def pow_archive(q: str = '', limit: int = 20):
 
 
 @app.get('/api/cats/pow')
-async def pow_feed(limit: int = 12, cat: str = ''):
-    """⛏ The newest Proofs of Work (public research: coin, vitals + sites, the call, its honey once graded) and the rules every agent works under."""
+async def pow_feed(limit: int = 12, cat: str = '', session: str = '', ownerId: str = ''):
+    """⛏ The newest Proofs of Work and the rules every agent works under.
+    🔒 Proofs are private (owner 2026-11-13: "proofs still private to visitors and only owners can see their proofs unless in debate and proofs
+    are being traded"): a visitor gets the rules and nothing else; an owner gets their own agent's (cat=); the staff (Fee's desk) every agent's.
+    Other owners see a proof only where its owner put it: the debate table and its trades (their own doors)."""
+    store_ = _load(); w_ = _fresh_session_wallet(session) if session else None
+    staff_ = bool(w_) and await _is_creator(w_)
+    if not staff_:
+        own_ = store_['cats'].get(cat) if cat else None
+        if not own_ or owner_check(own_, w_, ownerId) not in ('ok', 'claim') or not w_:
+            return _pub({'folders': [], 'rows': [], 'private': True,
+                         'rules': {'sites': _pow.SITES_MAX, 'steps': _pow.SITE_STEPS, 'pulls': _pow.SITE_PULLS, 'everyMin': _pow.EVERY_MIN_S // 60, 'vitals': list(_pow.VITALS)}})
     rows = [c for c in reversed(_hive_cells()) if c.get('pow') and (not cat or c.get('cat') == cat)][:max(1, min(40, int(limit)))]
     # 🗄 THE FOLDER DATABASE (owner 2026-11-01: "a live snapshot database for all agents"): every agent's open PoW folder (live) + its filed ones
     live_ = [{'cat': c['id'], 'name': c.get('name'), 'live': True, 'folder': _pow.folder_public(c['powRun']['folder'])} for c in _load()['cats'].values()
@@ -7409,7 +7449,15 @@ _BRIEF: dict = {}
 
 
 @app.get('/api/cats/brief/proofs')
-async def proofs_brief():
+async def proofs_brief(session: str = ''):
+    """🫂 Everyone sees the judges as The Collective; a staff session (the owner reviewing OSSY + G4) also gets each judge."""
+    b = await _proofs_brief()
+    w_ = _fresh_session_wallet(session) if session else None
+    staff_ = bool(w_) and await _is_creator(w_)
+    return {**b, 'judges': b.get('judges') or []} if staff_ else {**b, 'judges': _review.collective_only(b.get('judges'))}
+
+
+async def _proofs_brief():
     """📰 Today's proofs brief for every desk: per proof type from the proof record (filed, reviewed, graded) + which kits moved in 24 h.
     Rebuilt at most every 10 minutes. Public: counts and scores only."""
     if _BRIEF.get('at', 0) > time.time() - 600:
@@ -7475,7 +7523,8 @@ async def cat_feed(cat_id: str, since: float = 0.0, ownerId: str = '', session: 
         pass
     rows += [x for x in _FEED.get(cat_id, []) if x['at'] > since]
     rows.sort(key=lambda x: -x['at'])
-    return {'rows': rows[:30], 'now': time.time()}
+    out_ = {'rows': rows[:30], 'now': time.time()}
+    return out_ if cat.get('ownerStaff') else _collective_names(out_, True)   # 🫂 the bell speaks as The Collective
 
 
 MEDIA_HOUSE_PATH = DATA_DIR / 'media_house.json'   # {'YYYY-MM-DD': usd booked on FEELESS's OpenRouter key}
@@ -8860,6 +8909,12 @@ async def _signin_close(cat_id):
 
 @app.post('/api/cats/{cat_id}/work')
 async def cat_work(cat_id: str, p: WorkPayload):
+    """🫂 Every workbench answer passes the Collective rule on its way out (_for_users)."""
+    out = await _cat_work(cat_id, p)
+    return _for_users((_load()['cats'].get(cat_id) or {}), out) if isinstance(out, (dict, list)) else out
+
+
+async def _cat_work(cat_id: str, p: WorkPayload):
     """🧠🧠 A general cat's workbench (the cat's OWNER only): ask · state · continue / stop (a human-needed window) · stop · cap ($ per task)."""
     store = _load()
     cat = store['cats'].get(cat_id)
@@ -11411,7 +11466,7 @@ async def cat_missions(cat_id: str, ownerId: str = '', session: str = ''):
     rec = _pev_record()
     calls_ = _calls_of(cat_id); rows = _mission.all_of(cat, time.time(), lambda k, f: _proof_view(cat, k, f), calls_, rec)
     kits_ = _mkit_measure(cat, rows)
-    return {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'methods': list(kits_.values()), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())}
+    return _for_users(cat, {'missions': rows, 'vitals': _mission.vitals(rows, calls_), 'contribution': _mission.contribution(cat, rows, calls_), 'methods': list(kits_.values()), 'chain': {k: rec[k] for k in ('intact', 'count', 'why')}, 'at': round(time.time())})
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')

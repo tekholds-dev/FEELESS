@@ -62,3 +62,44 @@ def test_the_judge_scorecard_checks_each_verdict_against_the_real_stamp():
     sc = {r['judge']: r for r in pr.scorecard(rows)}
     assert (sc['ossy']['n'], sc['ossy']['right'], sc['ossy']['baselinePct'], sc['ossy']['beats']) == (3, 3, 33, True) and sc['ossy']['say'].startswith('OSSY is right 100%')
     assert (sc['g4']['n'], sc['g4']['right'], sc['g4']['beats']) == (3, 1, False) and sc['g4']['say'].startswith('G4')
+
+
+def test_users_see_the_judges_as_the_collective_never_by_name():
+    """Owner 2026-11-13: users see OSSY and G4 scores and grades as The Collective; only the owner's staff view keeps each judge."""
+    rows = [('pow', 'a', 'stamp', {'stamp': 'proved'}), ('pow', 'b', 'stamp', {'stamp': 'not'}),
+            ('pow', 'a', 'review', {'verdict': 'pass', 'reviewers': {'ossy': {'verdict': 'pass'}, 'g4': {'verdict': 'pass'}}}),
+            ('pow', 'b', 'review', {'verdict': 'fail', 'reviewers': {'ossy': {'verdict': 'pass'}, 'g4': {'verdict': 'fail'}}})]
+    cards = pr.scorecard(rows)
+    assert [c['judge'] for c in cards] == ['collective', 'g4', 'ossy']
+    pub = pr.collective_only(cards)
+    assert [c['judge'] for c in pub] == ['collective'] and pub[0]['rightPct'] == 100 and pub[0]['say'].startswith('The Collective is right')
+    import feecat_service as fs
+    row = {'name': 'a page', 'review': {'by': {'ossy': {'score': 80, 'verdict': 'pass', 'answeredBy': 'local/ossy', 'checks': ['✓ G4 liked it']},
+                                               'g4': {'score': 60, 'verdict': 'fail'}}, 'recused': ['ossy'], 'families': ['qwen'], 'why': 'OSSY sat out'},
+           'chat': 'OSSY is my model'}
+    out = fs._for_users({'ownerStaff': False}, row)
+    assert set(out['review']['by']) == {'collective', 'collective-2'} and 'answeredBy' not in out['review']['by']['collective']
+    assert out['review']['by']['collective']['checks'] == ['✓ The Collective liked it'] and out['review']['recused'] == ['The Collective']
+    assert 'families' not in out['review'] and 'ossy' not in str(out['review']).lower() and 'g4' not in str(out['review']).lower()
+    assert out['chat'] == 'OSSY is my model'   # only grades and scores change; nothing else is touched
+    assert fs._for_users({'ownerStaff': True}, row) is row   # the owner reviews OSSY + G4 by name
+
+
+def test_proofs_stay_private_to_visitors_and_other_owners(monkeypatch):
+    """Owner 2026-11-13: visitors see no proofs; an owner sees their own; the staff (Fee's desk) every agent's."""
+    import asyncio
+    import feecat_service as fs
+    store = {'cats': {'a': {'id': 'a', 'ownerWallet': 'W1', 'name': 'A'}, 'b': {'id': 'b', 'ownerWallet': 'W2', 'name': 'B'}}}
+    monkeypatch.setattr(fs, '_load', lambda: store)
+    monkeypatch.setattr(fs, '_hive_cells', lambda: [{'id': 'x', 'cat': 'a', 'pow': {'sym': 'X'}, 'folder': {'id': 'f1'}}])
+    monkeypatch.setattr(fs, '_fresh_session_wallet', lambda s, now=None: {'s1': 'W1', 's2': 'W2', 'st': 'STAFF'}.get(s))
+
+    async def creator(w):
+        return w == 'STAFF'
+    monkeypatch.setattr(fs, '_is_creator', creator)
+    feed = lambda **k: asyncio.run(fs.pow_feed(**k))   # noqa: E731
+    visitor = feed(limit=12)
+    assert visitor['folders'] == [] and visitor['rows'] == [] and visitor['private'] and visitor['rules']['sites']
+    assert feed(limit=12, cat='a', session='s2')['rows'] == []          # another owner never reads it
+    assert len(feed(limit=12, cat='a', session='s1')['rows']) == 1      # its owner does
+    assert len(feed(limit=12, session='st')['rows']) == 1               # the staff desk sees every agent

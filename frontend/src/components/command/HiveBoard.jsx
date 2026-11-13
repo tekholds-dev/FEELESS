@@ -146,7 +146,7 @@ function ProofCards({ folders = [] }) {
 }
 export function PowEngine({ limit = 12 }) {
   const [d, setD] = useState(null); const [err, setErr] = useState('');
-  useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) fetch(apiUrl(`/api/cats/pow?limit=${limit}`)).then(r => r.json()).then(x => { if (on) { setD(x); setErr(''); } }).catch(e => on && setErr(e.message)); };
+  useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) fetch(apiUrl(`/api/cats/pow?limit=${limit}&${agentAuthQuery()}`)).then(r => r.json()).then(x => { if (on) { setD(x); setErr(''); } }).catch(e => on && setErr(e.message)); };
     go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [limit]);
   const rows = d?.rows || []; const r = d?.rules || {}; const folders = d?.folders || []; const filedN = folders.length; const won = folders.filter(x => Number(x.folder?.pnlPct) > 0).length;
   const avg = rows.length ? Math.round(rows.reduce((a, x) => a + (Number(x.strength) || 0), 0) / rows.length) : 0;

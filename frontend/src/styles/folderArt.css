@@ -1,6 +1,15 @@
-/* 📁 FolderArt (lib/folderArt.jsx). The desk's data-folders picks the look: classic (default) · mono · outline. Tokens only. */
+/* 📁 FolderArt (lib/folderArt.jsx). The desk's data-folders picks the look: classic (default, 3D icons) · line · mono · outline · night. Tokens only. */
 .fa-cl { position: relative; z-index: 1; display: grid; place-items: center; font-style: normal; color: #fff; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)); }
 :is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 22px; height: 22px; filter: none; }
+/* 🧊 Classic (default, owner 2026-11-13): the 3D icon on the coloured folder; every other look shows the line icon */
+.fa-3d { display: block; width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); transition: transform .18s var(--m-ease); }
+.fa-cl.has-3d .fa-ln { display: none; }
+[data-folders]:not([data-folders="classic"]) .fa-3d { display: none; }
+[data-folders]:not([data-folders="classic"]) .fa-cl.has-3d .fa-ln { display: block; }
+.dset-prev[data-folders="classic"] .fa-3d { display: block; }
+.dset-prev[data-folders="classic"] .fa-cl.has-3d .fa-ln { display: none; }
+:is(.dsk-ico, .dsk-xt, .own-m):hover .fa-3d { transform: translateY(-2px) scale(1.06); }
+@media (prefers-reduced-motion: reduce) { .fa-3d { transition: none; } }
 .dsk-file .fa-cl { color: #3a2f63; filter: none; }
 .fa { display: none; }
 [data-folders="mono"] :is(.dsk-ico, .dsk-xt)[class] .dsk-ico-art { --f: color-mix(in srgb, var(--m-accent) 82%, #ffffff); --f2: color-mix(in srgb, var(--m-accent) 55%, #000000); }
@@ -38,4 +47,4 @@ body.theme-day .fa-hi { stroke: #ffffffcc; }
 body.theme-day .dsk-ico-art .fa { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .14)); }
 body.fx-lite .fa-led { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fa-led { animation: none; } .fa, .fa-paper { transition: none; } }
-@media (max-width: 640px) { .fa { width: 50px; height: 39px; } :is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 18px; height: 18px; } }
+@media (max-width: 640px) { .fa-3d { width: 26px; height: 26px; } .fa { width: 50px; height: 39px; } :is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 18px; height: 18px; } }

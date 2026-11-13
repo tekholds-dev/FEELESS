@@ -2,6 +2,9 @@
 
 ## 2026-11-13
 - OSSY + G4 review EVERY agent's proofs (`FEELESS_REVIEW_SCOPE=all`) and must become very proficient until COMP is elite; the OWNER reviews what OSSY + G4 built (Sicario's — they sit out their own) and spot-checks the rest. Judge skill is measured against the real stamp vs a fail-everything baseline (judge scorecard).
+- Users see OSSY + G4 scores and grades as **The Collective**, never their names (one combined score/meter; review keys renamed server-side, `_for_users` / `_collective_names`). Only the owner's staff agents and a staff session see each judge.
+- Proofs are private: visitors see none (`/api/cats/pow` gives visitors the rules only); an owner sees their own; other owners see a proof only on the debate table and in its trades. Staff (Fee's desk) sees all.
+- Desk folders: **Classic** = coloured folder with its 3D icon again (default); **Line** keeps the line icons; Outline / Mono / Night unchanged.
 - 🔒 PROOF INTEGRITY (owner + GPT + Grok + Claude agreed): RESULTS BEAT GRADES — wherever a real result exists (PoW P&L, PoP return, PoB final scores / market settlement) it alone sets the stamp; a hand mark stays as a note (`ownerMark`). An unplayed PoB leg is VOID after the grace in the rule version the proof was FILED under (`stampRules`, never changed after the result); all legs void = NO RESULT, never a win. Corrections are new rows, history is never rewritten.
 - A builder NEVER judges its own proof (a judge whose model built it sits out; all sit out → no verdict, never a pass). Judges never see the owner's grade or the stamp. Every review records rubric version, builders, judge models + family, and an evidence hash.
 - PoStatic pages get CODE checks the builders are never shown (ps_hidden); never fed back as lessons.

@@ -10,7 +10,7 @@ import { CollectiveLanding } from '../components/command/CollectiveLanding';
 import { EcoDesk } from '../components/command/EcoDesk';
 import { EcoFolder } from '../components/command/EcoFolder';
 import { DeskWidgets } from '../components/command/DeskWidgets';
-import { DeskWinMin } from '../components/command/DeskShell';
+import { DeskWinMin, DeskIcon, FOLDER_LOOKS } from '../components/command/DeskShell';
 import PocEditor, { LiveDesk, VideoEditor } from '../components/command/PocEditor';
 import { KalshiDoor, KalshiTicket } from '../components/command/KalshiDoor';
 import { ProofFundForm, ProofSendForm } from '../components/command/ProofKit';
@@ -69,6 +69,11 @@ export default function FeaturesHarness() {
   if (/station/.test(window.location.search)) return <div style={{ minHeight: "100vh", background: "#050807", padding: 16, maxWidth: 560 }}><PocStation answered pocs={[{ id: "p1", n: 3, review: { verdict: "pass" }, graded: "", result: null }]} mind="For early risers who hate queues. Hook: your coffee is ready before your eyes are. Tap once, walk in, grab it, go." onFileAnswer={() => {}} onFile={() => {}} onSide={() => {}} onSend={() => {}} /></div>;   // ?station — the PoC launch path (fixture PoC)
   if (/golive/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes("/deploy/hosts") ? real("/dev-golive.json") : real(u, o)); return <GoLiveHarness />; }   // ?golive — Go live on the real hosts read (dev-golive.json = deploy_hosts.hosts())
   if (/paygrid/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#050807', padding: 14 }}><PayGrid /></div>;   // ?paygrid — HQ › Money › Cards & pay
+  if (/folders/.test(window.location.search)) {   // 📁 ?folders — the desk folders in every Folder look (Classic = 3D icons again, owner 2026-11-13)
+    const keys = [['pow', '⛏', 'PoW'], ['pop', '📉', 'PoP'], ['bids', '🎲', 'Bids'], ['poc', '📣', 'PoC'], ['postatic', '💻', 'PoStatic'], ['poe', '📊', 'PoEco'], ['proofs', '🏆', 'Proofs'], ['wallet', '👛', 'Wallet']];
+    return <div style={{ padding: 16 }}>{FOLDER_LOOKS.map(([v, l]) => <div key={v} className="dsk" data-folders={v} style={{ position: 'relative', height: 130, marginBottom: 8, overflow: 'hidden' }}>
+      <b className="m-label">{l}</b><nav className="dsk-icons" data-size="m">{keys.map(([k, ic, label], i) => <DeskIcon key={k} k={k} ic={ic} label={label} at={{ x: 10 + i * 96, y: 24 }} onMove={() => {}} onOpen={() => {}} />)}</nav></div>)}</div>;
+  }
   if (/revreel/.test(window.location.search)) {   // 🔒 ?revreel — two REAL review rows from the proof record (2026-11-13): Sicario's page its own minds built (they sit out) and a v5 split review
     const rows = [{ id: 'psa2c0b370bb', title: 'GLINT', score: null, verdict: null, agree: null, recused: ['ossy', 'g4'], why: 'Every judge built this proof, so none may judge it', by: {}, hidden: { passed: 8, total: 9, failed: ['no-fake-data'] } },
       { id: 'ps4231b0c2f7', title: 'GLINT v1', score: 48, verdict: 'fail', agree: false, oneFamily: true, families: ['qwen'], by: { ossy: { score: 0, verdict: 'fail', answeredBy: 'local · qwen/qwen3.5-9b', checks: ['✗ Evidence contains explicit Sample numbers text'] }, g4: { score: 95, verdict: 'pass', answeredBy: 'lan · qwen/qwen3.5-4b', checks: ['✓ It does what the plan asked'] } } }];

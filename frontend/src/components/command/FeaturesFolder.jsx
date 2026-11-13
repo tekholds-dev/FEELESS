@@ -346,7 +346,7 @@ const CARRY_IC = { pos: '💻', pow: '⛏', pob: '🏟', pop: '📈' };
 export function pocPath({ answered, pocs = [], carried }) {
   const f = pocs[0]; const rv = f?.review?.verdict;
   return [['answer', 'ANSWER', !!answered || !!f, 'Its minds wrote an answer in the chat'], ['filed', 'FILED', !!f, f ? `PoC #${f.n} filed` : 'Not filed yet'],
-    ['review', 'REVIEWED', rv === 'pass', !f ? 'OSSY and G4 review it once filed' : !rv ? 'In the review queue' : `OSSY + G4: ${rv}`], ['mark', 'YOUR MARK', !!f?.graded, f?.graded ? `You said: ${f.graded === 'right' ? 'it worked' : 'it did not'}` : 'Mark if it worked'],
+    ['review', 'REVIEWED', rv === 'pass', !f ? 'The Collective reviews it once filed' : !rv ? 'In the review queue' : `The Collective: ${rv}`], ['mark', 'YOUR MARK', !!f?.graded, f?.graded ? `You said: ${f.graded === 'right' ? 'it worked' : 'it did not'}` : 'Mark if it worked'],
     ['posted', 'POSTED', !!f?.result?.link, f?.result?.link ? `Out${f.result.earnedUsd ? ` · earned $${f.result.earnedUsd}` : ''}` : 'Report the link once it is out'], ['carry', 'CARRIED ON', !!carried, carried ? `Sent to ${carried}` : 'Carry it into the next proof']]
     .map(([id, label, done, say]) => ({ id, label, done, say }));
 }

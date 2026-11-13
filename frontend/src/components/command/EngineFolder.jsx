@@ -18,7 +18,7 @@ export function EngineFolder({ cat, work }) {
   const pr = d.proposals || {};
   const approve = async id => { setSaid(''); try { const j = await work(cat.id, { op: 'kit_method_approve', text: id }); setD(x => ({ ...x, proposals: { ...x.proposals, approved: j.approved, kits: (x.proposals?.kits || []).filter(r => r.id !== id) } })); setSaid(`Approved: every proof of its kind now follows ${id}`); } catch (e) { setSaid(e.message); } };
   return <div className="eng" data-testid="eng">
-    <section className="eng-card m-card m-live" style={{ '--i': 0 }} data-testid="eng-reviewer"><h4><Ic3 e="🧑‍⚖️" /> REVIEWER <small>OSSY + G4 grade every closed proof · one every {rv.everyS}s · {rv.scope?.join(', ')}</small></h4>
+    <section className="eng-card m-card m-live" style={{ '--i': 0 }} data-testid="eng-reviewer"><h4><Ic3 e="🧑‍⚖️" /> REVIEWER <small>The Collective grades every closed proof · one every {rv.everyS}s · {rv.scope?.join(', ')}</small></h4>
       <div className="eng-hero"><b className="m-num" data-tip="Proofs graded at the current review version">{rv.graded}</b><small>graded</small><b className="m-num">{rv.waiting}</b><small>waiting</small><b className="m-num">{rv.passPct == null ? '—' : `${rv.passPct}%`}</b><small>pass</small></div>
       <i className="eng-meter" aria-hidden="true"><u style={{ transform: `scaleX(${pct})` }} /></i>
       <ul className="eng-list">{(rv.answered || []).map(a => <li key={a.who}><span>{a.who}</span><b className="m-num">{a.calls}</b></li>)}</ul><small className="eng-foot">last grade {ago(rv.lastAt)}</small></section>
@@ -32,7 +32,7 @@ export function EngineFolder({ cat, work }) {
       <div className="eng-hero"><b className="m-num">{mk.active}</b><small>active</small><b className="m-num">{mk.unmeasured}</b><small>measuring</small><b className="m-num">{mk.quarantined}</b><small>quarantined</small></div></section>
     <section className="eng-card m-card eng-wide" style={{ '--i': 4 }} data-testid="eng-proposals"><h4>🧪 THE COLLECTIVE PROPOSES <small>from its own reviews and the asks no proof covers; nothing changes until the owner says yes</small></h4>
       <div className="eng-props">
-        <div><small className="m-label">METHOD KITS · checks OSSY + G4 keep failing</small>{(pr.kits || []).length ? <ul className="eng-list">{pr.kits.map(r => <li key={r.id} data-testid={`eng-prop-${r.id}`} data-tip={`${r.kind.toUpperCase()}: failed in ${Math.round(r.failRate * 100)}% of ${r.seen} reviewed proofs`}>
+        <div><small className="m-label">METHOD KITS · checks The Collective keeps failing</small>{(pr.kits || []).length ? <ul className="eng-list">{pr.kits.map(r => <li key={r.id} data-testid={`eng-prop-${r.id}`} data-tip={`${r.kind.toUpperCase()}: failed in ${Math.round(r.failRate * 100)}% of ${r.seen} reviewed proofs`}>
           <span>{r.kind.toUpperCase()} · {r.what}</span><i className="eng-meter is-bad" aria-hidden="true"><u style={{ transform: `scaleX(${r.failRate})` }} /></i>
           {pr.canApprove ? <button type="button" className="m-btn m-go" onClick={() => approve(r.id)} data-tip="Every proof of this kind is told to pass this check, and it is measured like the other kits" data-testid={`eng-approve-${r.id}`}>Approve</button> : <b className="m-num">{Math.round(r.failRate * 100)}%</b>}</li>)}</ul>
           : <p className="dsk-note">None yet: a check must fail in 60%+ of 4+ reviewed proofs of a kind.</p>}</div>

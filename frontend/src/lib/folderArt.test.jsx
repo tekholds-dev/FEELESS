@@ -21,8 +21,16 @@ test('📁 every desk folder key gets its own line icon, an unknown one falls ba
   expect(folderGlyph('nope', '')).toBe(folderGlyph('nope2', ''));
 });
 
-test('⚙ Folder look: classic by default, four looks (Night added 2026-11-13); 📺 Watch is its own desk folder again', () => {
+test('🧊 Classic folders wear their 3D icon again (owner 2026-11-13), the line icon rides along for the other looks', async () => {
+  const { box, done } = await paint(<><FolderArt k="postatic" ic="💻" /><FolderArt k="pow" /><FolderArt k="nope" /></>);
+  expect([...box.querySelectorAll('img.fa-3d')].map(i => i.getAttribute('src'))).toEqual(['/icons3d/computer.webp', '/icons3d/axe.webp']);
+  expect(box.querySelectorAll('.fa-cl.has-3d')).toHaveLength(2);
+  expect(box.querySelectorAll('.fa-ln')).toHaveLength(3);
+  done();
+});
+
+test('⚙ Folder look: classic by default, five looks (Night 2026-11-13, Line split from Classic when the 3D icons came back); 📺 Watch is its own desk folder again', () => {
   expect(DESK_DEFAULTS.folderLook).toBe('classic');
-  expect(FOLDER_LOOKS.map(r => r[0])).toEqual(['classic', 'outline', 'mono', 'night']);
+  expect(FOLDER_LOOKS.map(r => r[0])).toEqual(['classic', 'line', 'outline', 'mono', 'night']);
   expect(FOLD_INTO.watch).toBeUndefined();
 });

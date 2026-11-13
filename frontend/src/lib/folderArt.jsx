@@ -1,21 +1,26 @@
 import React from 'react';
 import { Folder, Pickaxe, ChartCandlestick, Dices, Megaphone, Globe, PieChart, Trophy, Swords, Tv, Fingerprint, Coins, Sparkles, UserRound, BookOpen, ShieldCheck, Briefcase, RadioTower, Activity, Database, Compass, Rss, Gem, Wallet, Mail, GitBranch, Command, Settings, Archive, FileText } from 'lucide-react';
-import { lineOf } from './icon3d';
+import { lineOf, ic3Name, ic3Src } from './icon3d';
 import '../styles/folderArt.css';
 
 // 📁 Folder art, every desk (owner 2026-11-12: "the classic windows folders we cool but the icons werent"). Each folder carries BOTH looks and the
-// desk's `data-folders` (Desktop settings › Folder look) picks one in CSS: classic / mono = the coloured folder box (its sheet) with a clean line icon,
+// desk's `data-folders` (Desktop settings › Folder look) picks one in CSS: classic = the coloured folder box with its 3D icon, line / mono = the coloured folder box (its sheet) with a clean line icon,
 // outline = a dark glass folder drawn in the look's accent with a lit LED on the proof folders. Tone (good / bad / none / live) swaps the outline stroke.
 const BY_KEY = { vault: Archive, pow: Pickaxe, pop: ChartCandlestick, bids: Dices, pob: Dices, poc: Megaphone, postatic: Globe, poe: PieChart, proofs: Trophy,
   debate: Swords, watch: Tv, print: Fingerprint, boost: Coins, features: Sparkles, character: UserRound, manual: BookOpen, terms: ShieldCheck, jobs: Briefcase,
   engines: RadioTower, command: Activity, db: Database, browser: Compass, sources: Rss, honey: Gem, collective: Gem, colony: Gem, wallet: Wallet, mail: Mail,
   github: GitBranch, cmds: Command, deskset: Settings, files: FileText };
 export const PROOF_KEYS = new Set(['pow', 'pop', 'bids', 'pob', 'poc', 'postatic', 'poe']);
+// 🧊 owner 2026-11-13 ("i want these icons back on my desk folders"): Classic is the coloured folder with its 3D icon again; Line keeps the clean line icon.
+const K3D = { vault: 'folder', pow: 'axe', pop: 'chart', bids: 'chess', pob: 'chess', poc: 'megaphone', postatic: 'computer', poe: 'chart', proofs: 'trophy', debate: 'chess', watch: 'computer',
+  boost: '3d-coin', features: 'magic-trick', character: 'magic-trick', manual: 'notebook', terms: 'shield', jobs: 'folder-fav', browser: 'explorer', sources: 'explorer', wallet: 'wallet',
+  mail: 'mail', github: 'folder-new', cmds: 'hash', deskset: 'setting', files: 'file-text' };
+export const folder3d = (k, ic) => ic3Name(ic) || K3D[k] || null;
 export const folderGlyph = (k, ic) => BY_KEY[k] || lineOf(ic) || Folder;
 
 export function FolderArt({ k = '', ic = '', lit = PROOF_KEYS.has(k), file = false }) {
-  const G = folderGlyph(k, ic);
-  return <><em className="fa-cl"><G strokeWidth={2} /></em><FolderSvg G={G} lit={lit} file={file} /></>;
+  const G = folderGlyph(k, ic); const n = folder3d(k, ic);
+  return <><em className={`fa-cl${n ? ' has-3d' : ''}`}>{n ? <img className="fa-3d" src={ic3Src(n)} alt="" width="160" height="160" loading="lazy" decoding="async" draggable="false" /> : null}<G strokeWidth={2} className="fa-ln" /></em><FolderSvg G={G} lit={lit} file={file} /></>;
 }
 function FolderSvg({ G, lit, file }) {
   if (file) return <svg className="fa fa-file" viewBox="0 0 44 52" aria-hidden="true" focusable="false">

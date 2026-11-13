@@ -966,7 +966,7 @@ function PowExplorer({ cat, d, setD }) {
   const act = async (job, extra = {}) => { setErr('');
     try { const j = await work(cat.id, { op: 'pow_folder', job, ...extra }); setD?.(x => ({ ...x, powFolders: j.powFolders })); setSure('');
       if (job === 'delete') setPath([]); else if (job === 'delete_coin') setPath(p => p.slice(0, 1)); } catch (e) { setErr(e.message); } };
-  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
+  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40&${agentAuthQuery()}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
   const all = [...(d?.powFolder ? [{ ...d.powFolder, live: true }] : []), ...(d?.powFolders || [])]   // the server sends the newest first;
   const f = path[0] && path[0] !== 'old' ? all.find(x => x.id === path[0]) : null; const c = f && path[1] ? (f.coins || []).find(x => x.mint === path[1]) : null;
   const done = all.filter(x => x.pnlPct != null); const won = done.filter(x => x.pnlPct > 0).length;

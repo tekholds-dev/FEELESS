@@ -251,6 +251,9 @@ def showcase(cats, keep=3):
     return {'reviews': {k: sorted(v, key=lambda r: -r['at'])[:keep] for k, v in out.items()}, 'books': books}
 
 
+COLLECTIVE = 'collective'
+
+
 def scorecard(rows):
     """🎯 How good each judge really is (owner 2026-11-13: "OSSY and G4 handle all and be very proficient until COMP is elite").
     rows = proof-record events in order: (kind, ref, event, data). A judge's verdict counts once its proof has a settled stamp (PROVED /
@@ -268,6 +271,8 @@ def scorecard(rows):
             for j, v in (d.get('reviewers') or {}).items():
                 if (v or {}).get('verdict') in ('pass', 'fail'):
                     last[(j, kind, ref)] = v['verdict']
+            if d.get('verdict') in ('pass', 'fail'):   # 🫂 the combined verdict: what users see, as The Collective
+                last[(COLLECTIVE, kind, ref)] = d['verdict']
     out = {}
     for (j, kind, ref), verdict in last.items():
         s = stamp.get((kind, ref))
@@ -280,6 +285,13 @@ def scorecard(rows):
     for r in out.values():
         r['rightPct'] = round(100 * r['right'] / r['n']); r['baselinePct'] = round(100 * r['notProved'] / r['n'])
         r['beats'] = r['rightPct'] > r['baselinePct']; r['passPct'] = round(100 * r['passes'] / r['n'])
-        r['say'] = (f"{r['judge'].upper()} is right {r['rightPct']}% of the time on {r['n']} settled proofs; a judge that failed everything would be right "
+        who = 'The Collective' if r['judge'] == COLLECTIVE else r['judge'].upper()
+        r['say'] = (f"{who} is right {r['rightPct']}% of the time on {r['n']} settled proofs; a judge that failed everything would be right "
                     f"{r['baselinePct']}%. " + ('It beats that.' if r['beats'] else 'It does not beat that yet.'))
-    return sorted(out.values(), key=lambda r: r['judge'])
+    return sorted(out.values(), key=lambda r: (r['judge'] != COLLECTIVE, r['judge']))
+
+
+def collective_only(cards):
+    """🫂 What users see (owner 2026-11-13: "users should see ossy and g4 scores and grades as The Collective, never their individual names"):
+    only the combined row. The owner's staff view keeps each judge. Pure."""
+    return [r for r in cards or [] if r.get('judge') == COLLECTIVE]
