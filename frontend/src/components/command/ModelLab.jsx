@@ -3,6 +3,7 @@ import { useCountUp } from '../../lib/useCountUp';
 import SegTabs from '../SegTabs';
 import { ModelComp2 } from './ModelComp2';
 import { ModelForge } from './ModelForge';
+import { CompLive, CompTools } from './CompLive';
 import '../../styles/modelLab.css';
 
 // 🧪 MODEL LAB (owner 2026-11-11: "a folder for the new AI we are creating … a full AI and human setup to build / learn how to be a new kind of
@@ -86,9 +87,11 @@ export function ModelLab({ call }) {
       {d ? <span className="mlb-stat" data-tip="Settled proofs + your grades: rows it would learn from"><Num v={d.rows} /><small>ROWS</small></span> : null}
       {d ? <span className="mlb-stat" data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>PAIRS</small></span> : null}
       <span className="mlb-ring" style={{ '--k': real / STEPS.length }} data-tip="Steps with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>STEPS</small></span></header>
+    <CompLive />
     <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
     {tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <>
     <p className="mlb-truth">Below is everything your models learn from, live, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
+    <CompTools />
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>
       <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH<small>{d.snapshots} snapshots kept as evidence, not rows</small></h4>

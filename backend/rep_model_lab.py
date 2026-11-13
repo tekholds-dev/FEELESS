@@ -518,3 +518,54 @@ async def eco_live_books(request: Request):
     inputs = await rs.asyncio.to_thread(_eco_live.read, {'ledger': rs.FEE_LEDGER_PATH, 'calls': d / 'mind_calls.jsonl',
                                                          'audit': d / 'real_audit.json', 'feeback': rs.FEEBACK_PAID_PATH})
     return _eco_live.build(*inputs)
+
+
+# ── 📡 COMP LIVE (COMP-1): one SSE stream the COMP pages watch. A frame goes out only when a real number moved (training loss, exam
+# answers, a Forge step, dataset rows); a beat every 15 s keeps the socket open; the client reconnects after STREAM_MAX_S. Owner only.
+import comp_live as _cl   # noqa: E402
+
+LIVE_TICK_S, LIVE_DATA_S, LIVE_BEAT_S, LIVE_MAX_S = 1.0, 15.0, 15.0, 1800.0
+
+
+def _live_parts(rs, with_data):
+    c2 = _c2.status()
+    jobs = _jobs(rs)
+    run = next((d for d in jobs if _alive(d)), None) or (jobs[0] if jobs else None)
+    job = _job_view(run) if run else None
+    ds = None
+    if with_data:
+        stash, calls, grades_p = _paths(rs)
+        ds = _ml.summary(rs._stash.catalog(stash), [], rs._json_load(grades_p, {}))
+    return c2, job, ds
+
+
+@router.get('/api/reputation/admin/model-lab/live')
+async def model_lab_live(request: Request):
+    """📡 COMP's realtime numbers as Server-Sent Events (fetch + the HQ session headers)."""
+    import asyncio
+    from fastapi.responses import StreamingResponse
+    rs = _rs(); rs._require_owner(request)
+
+    async def gen():
+        t0 = time.time(); last = None; ds = None; ds_at = 0.0; beat = time.time()
+        yield 'event: hello\ndata: {}\n\n'
+        while time.time() - t0 < LIVE_MAX_S:
+            if await request.is_disconnected():
+                return
+            want = time.time() - ds_at >= LIVE_DATA_S
+            try:
+                c2, job, got = await asyncio.to_thread(_live_parts, rs, want)
+            except Exception as e:   # noqa: BLE001 — one bad read never kills the stream; the page keeps the last frame
+                yield f"event: oops\ndata: {json.dumps({'error': type(e).__name__})}\n\n"
+                await asyncio.sleep(LIVE_DATA_S); continue
+            if got is not None:
+                ds, ds_at = got, time.time()
+            fr = _cl.frame(c2, job, ds, time.time())
+            if _cl.changed(last, fr):
+                last = fr; beat = time.time()
+                yield f'event: frame\ndata: {json.dumps(fr)}\n\n'
+            elif time.time() - beat >= LIVE_BEAT_S:
+                beat = time.time(); yield ': beat\n\n'
+            await asyncio.sleep(LIVE_TICK_S if fr['live'] else 3.0)
+        yield 'event: bye\ndata: {}\n\n'
+    return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no', 'Content-Encoding': 'identity'})
