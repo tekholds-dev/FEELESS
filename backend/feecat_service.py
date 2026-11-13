@@ -7415,6 +7415,10 @@ async def proofs_brief():
     if _BRIEF.get('at', 0) > time.time() - 600:
         return _BRIEF['v']
     b = await asyncio.to_thread(_pev.brief, DATA_DIR / _pev.DB_NAME)
+    try:   # 🎯 how often each judge agrees with the real result, against a judge that fails everything
+        b['judges'] = _review.scorecard(await asyncio.to_thread(_pev.rows, DATA_DIR / _pev.DB_NAME))
+    except Exception as e:   # noqa: BLE001
+        print(f'[brief] judges: {str(e)[:80]}'); b['judges'] = []
     try:
         kf = _kfresh.view(_kits.KIT_USE, KITS_DIR)
         moved = [k for k in kf.get('kits') or [] if k.get('movedAt') and float(k['movedAt']) > time.time() - 86400]

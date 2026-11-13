@@ -49,3 +49,16 @@ def test_the_hidden_checks_never_reach_a_builder():
     import pathlib
     src = pathlib.Path(pr.__file__).read_text()
     assert 'ps_hidden' not in src and 'no-fake-data' not in pr.lessons_line(['x'])
+
+
+def test_the_judge_scorecard_checks_each_verdict_against_the_real_stamp():
+    rows = [('pow', 'a', 'stamp', {'stamp': 'proved'}), ('pow', 'b', 'stamp', {'stamp': 'not'}), ('pow', 'c', 'stamp', {'stamp': 'not'}),
+            ('pow', 'a', 'review', {'reviewers': {'ossy': {'verdict': 'fail'}, 'g4': {'verdict': 'fail'}}}),
+            ('pow', 'a', 'review', {'reviewers': {'ossy': {'verdict': 'pass'}, 'g4': {'verdict': 'fail'}}}),   # the newest review counts
+            ('pow', 'b', 'review', {'reviewers': {'ossy': {'verdict': 'fail'}, 'g4': {'verdict': 'fail'}}}),
+            ('pow', 'c', 'review', {'reviewers': {'ossy': {'verdict': 'pass'}, 'g4': {'verdict': 'fail'}}}),
+            ('pow', 'c', 'correction', {'event': 'stamp', 'to': 'proved'}),                                    # a corrected stamp is the one that counts
+            ('pow', 'd', 'review', {'reviewers': {'ossy': {'verdict': 'pass'}}})]                              # no stamp yet → not counted
+    sc = {r['judge']: r for r in pr.scorecard(rows)}
+    assert (sc['ossy']['n'], sc['ossy']['right'], sc['ossy']['baselinePct'], sc['ossy']['beats']) == (3, 3, 33, True) and sc['ossy']['say'].startswith('OSSY is right 100%')
+    assert (sc['g4']['n'], sc['g4']['right'], sc['g4']['beats']) == (3, 1, False) and sc['g4']['say'].startswith('G4')

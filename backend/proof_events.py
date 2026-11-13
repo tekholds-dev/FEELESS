@@ -197,6 +197,19 @@ def counts(path):
         c.close()
 
 
+def rows(path, events=('review', 'stamp', 'correction')):
+    """(kind, ref, event, data) in record order, for the judges' scorecard. A missing file is no rows."""
+    from pathlib import Path
+    if not Path(path).exists():
+        return []
+    c = _db(path)
+    try:
+        q = f"SELECT kind, ref, event, data FROM events WHERE event IN ({','.join('?' * len(events))}) ORDER BY n"
+        return [(k, r, e, json.loads(d or '{}')) for k, r, e, d in c.execute(q, tuple(events))]
+    finally:
+        c.close()
+
+
 def history(path, kind, ref):
     """One proof's rows in order. A row a later correction fixes carries `correctedBy` (that row's n)."""
     c = _db(path)

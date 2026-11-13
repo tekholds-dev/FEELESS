@@ -15,8 +15,8 @@ kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN rou
 
 **COL-20 · Proof integrity (P0 + P1 done 2026-11-13, P2/P3 open)** · claimed: — · see RULINGS 2026-11-13
 Done + live: results beat grades (false PoB pob1793907481 corrected to NOT PROVED by rows 526-527), builders sit out, clean judge brief, review provenance, ps_hidden code checks (59 real pages: 88% avg; misses = sample numbers + our own hidden WebGL text, both fixed at the source).
-Owner 2026-11-13: HE reviews Sicario's proofs (his marks); OSSY + G4 sit out what they built; scope stays Sicario's only. Both judges are Qwen: a non-Qwen local judge would make them independent.
-Left (Claude): P2 regression checks on reused kits + "existing tools checked" note on PoStatic reviews · P3 verified missions per dollar on Fee's stash dashboard + daily chain-tip commitment.
+Owner 2026-11-13: OSSY + G4 review ALL agents (`FEELESS_REVIEW_SCOPE=all`), he reviews what they built + spot-checks. Judge scorecard live in the proofs brief: G4 44% right vs 44% fail-everything (9 settled), OSSY 50% vs 40% (10). Goal: both clearly past the line.
+Left (Claude): JUDGE SKILL — feed each judge its own misses vs the stamp, a non-Qwen third judge, fix one-issue-fails-all-five checks · P2 regression checks on reused kits + "existing tools checked" note on PoStatic reviews · P3 verified missions per dollar on Fee's stash dashboard + daily chain-tip commitment.
 
 **COL-10 · Method kits (ongoing)** · BACKFILLED 2026-11-13 · claimed: fable
 Checked: no Claude session had ever filed to the stash. Built `scripts/stash-builds.py` (+ `backend/claude_builds.py`): every Claude-made

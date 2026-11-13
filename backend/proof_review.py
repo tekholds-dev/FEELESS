@@ -249,3 +249,37 @@ def showcase(cats, keep=3):
                 books = {'at': float(f.get('closedAt') or f.get('at') or 0), 'topic': f.get('topic'), 'months': (f.get('months') or [])[-12:], 'income': f.get('income'), 'costs': f.get('costs'),
                          'net': f.get('net'), 'margin': f.get('margin'), 'taxSetAside': f.get('taxSetAside')}
     return {'reviews': {k: sorted(v, key=lambda r: -r['at'])[:keep] for k, v in out.items()}, 'books': books}
+
+
+def scorecard(rows):
+    """🎯 How good each judge really is (owner 2026-11-13: "OSSY and G4 handle all and be very proficient until COMP is elite").
+    rows = proof-record events in order: (kind, ref, event, data). A judge's verdict counts once its proof has a settled stamp (PROVED /
+    NOT PROVED, after any correction): pass on a PROVED proof or fail on a NOT PROVED one = right. `baseline` is what a lazy judge that
+    fails everything would score on the same proofs, so a judge only `beats` it by actually telling good from bad. Newest review per judge
+    per proof counts. Pure."""
+    stamp, last = {}, {}
+    for kind, ref, event, data in rows:
+        d = data if isinstance(data, dict) else {}
+        if event == 'stamp':
+            stamp[(kind, ref)] = d.get('stamp')
+        elif event == 'correction' and d.get('event') == 'stamp':
+            stamp[(kind, ref)] = d.get('to')
+        elif event == 'review':
+            for j, v in (d.get('reviewers') or {}).items():
+                if (v or {}).get('verdict') in ('pass', 'fail'):
+                    last[(j, kind, ref)] = v['verdict']
+    out = {}
+    for (j, kind, ref), verdict in last.items():
+        s = stamp.get((kind, ref))
+        if s not in ('proved', 'not'):
+            continue
+        r = out.setdefault(j, {'judge': j, 'n': 0, 'right': 0, 'passes': 0, 'notProved': 0, 'byKind': {}})
+        ok = (verdict == 'pass') == (s == 'proved')
+        r['n'] += 1; r['right'] += ok; r['passes'] += verdict == 'pass'; r['notProved'] += s == 'not'
+        k = r['byKind'].setdefault(kind, {'n': 0, 'right': 0}); k['n'] += 1; k['right'] += ok
+    for r in out.values():
+        r['rightPct'] = round(100 * r['right'] / r['n']); r['baselinePct'] = round(100 * r['notProved'] / r['n'])
+        r['beats'] = r['rightPct'] > r['baselinePct']; r['passPct'] = round(100 * r['passes'] / r['n'])
+        r['say'] = (f"{r['judge'].upper()} is right {r['rightPct']}% of the time on {r['n']} settled proofs; a judge that failed everything would be right "
+                    f"{r['baselinePct']}%. " + ('It beats that.' if r['beats'] else 'It does not beat that yet.'))
+    return sorted(out.values(), key=lambda r: r['judge'])

@@ -1,7 +1,7 @@
 import React from 'react';
 import ORCAT from '../components/command/__fixtures__/mediaModels.json';   // 🎬 the real media_models answer (OpenRouter presets + samples), from media_gen.catalog
 import { StashBoard } from '../components/command/GitFolder';
-import { ReviewReel } from '../components/command/ProofDoors';
+import { ReviewReel, ProofBrief } from '../components/command/ProofDoors';
 import { FeaturesFolder, GoLive, NextSteps, PocStation, Packages, ProofDesk } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
@@ -72,7 +72,7 @@ export default function FeaturesHarness() {
   if (/revreel/.test(window.location.search)) {   // 🔒 ?revreel — two REAL review rows from the proof record (2026-11-13): Sicario's page its own minds built (they sit out) and a v5 split review
     const rows = [{ id: 'psa2c0b370bb', title: 'GLINT', score: null, verdict: null, agree: null, recused: ['ossy', 'g4'], why: 'Every judge built this proof, so none may judge it', by: {}, hidden: { passed: 8, total: 9, failed: ['no-fake-data'] } },
       { id: 'ps4231b0c2f7', title: 'GLINT v1', score: 48, verdict: 'fail', agree: false, oneFamily: true, families: ['qwen'], by: { ossy: { score: 0, verdict: 'fail', answeredBy: 'local · qwen/qwen3.5-9b', checks: ['✗ Evidence contains explicit Sample numbers text'] }, g4: { score: 95, verdict: 'pass', answeredBy: 'lan · qwen/qwen3.5-4b', checks: ['✓ It does what the plan asked'] } } }];
-    return <div style={{ minHeight: '100vh', background: '#050807', padding: 16, maxWidth: 760 }}><ReviewReel rows={rows} /></div>;
+    return <div style={{ minHeight: '100vh', background: '#050807', padding: 16, maxWidth: 980, display: 'grid', gap: 16, alignContent: 'start' }}><ProofBrief k="pos" /><ReviewReel rows={rows} /></div>;   // the type row + judge meters read the LIVE brief
   }
   if (/livblk/.test(window.location.search)) {   // SITE-17: the five readers' REAL reads (dev/liveBlocks.json, read on mainnet 2026-11-13) drawn by the real block card
     const bl = { buildings: LIVE_BLOCKS.buildings };

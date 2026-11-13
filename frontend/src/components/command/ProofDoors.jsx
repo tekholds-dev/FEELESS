@@ -181,12 +181,22 @@ export function ProofBrief({ k, onPick }) {
   const [b, setB] = useState(null);
   useEffect(() => { let live = true; fetch(apiUrl('/api/cats/brief/proofs')).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
   const by = Object.fromEntries((b?.rows || []).map(r => [r.kind, r]));
-  return <nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
+  return <><nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
     return <button key={x} type="button" role="tab" aria-selected={k === x} className={`pdr-type is-${x}${k === x ? ' is-on' : ''}${b?.best === x ? ' is-best' : ''}`} style={{ '--i': i }} onClick={() => onPick?.(x)} data-testid={`pdr-${x}`}
       data-tip={r ? `${v.full}: ${r.filed24} filed today, ${r.filed7} this week · ${r.reviews} reviewed${r.passPct != null ? ` (${r.passPct}% passed)` : ''} · graded ${r.right} right / ${r.wrong} wrong` : v.full}>
       <span className="pdr-type-ic"><Ic3 e={v.ic} size="26px" /></span><b>{v.t}</b>
       <small className="m-num" data-testid={`proof-brief-${x}`}>{r ? `${r.filed7} this wk${r.rightPct != null ? ` · ${r.rightPct}% right` : ''}` : v.full}</small>
-      <u aria-hidden="true"><s style={{ transform: `scaleX(${(r?.avgScore || 0) / 100})` }} /></u>{b?.best === x ? <em className="pdr-type-hot" data-tip="Where the work is today: most filed this week">HOT</em> : null}</button>; })}</nav>;
+      <u aria-hidden="true"><s style={{ transform: `scaleX(${(r?.avgScore || 0) / 100})` }} /></u>{b?.best === x ? <em className="pdr-type-hot" data-tip="Where the work is today: most filed this week">HOT</em> : null}</button>; })}</nav>
+    <JudgeMeters rows={b?.judges} /></>;
+}
+// 🎯 How good the judges really are (owner 2026-11-13: "OSSY and G4 handle all and be very proficient until COMP is elite"): each judge's
+// verdicts checked against the real 24-hour stamp. The tick is a judge that fails everything; a bar past it means it can tell good from bad.
+export function JudgeMeters({ rows }) {
+  if (!rows?.length) return null;
+  return <div className="pdr-judges" data-testid="judge-meters">{rows.map(j => <span key={j.judge} className={`pdr-judge${j.beats ? ' is-beats' : ''}`} data-tip={j.say} aria-label={j.say} data-testid={`judge-${j.judge}`}>
+    <small className="m-label">{j.judge.toUpperCase()} · RIGHT</small><b className="m-num">{j.rightPct}%</b>
+    <u aria-hidden="true"><s style={{ transform: `scaleX(${j.rightPct / 100})` }} /><i style={{ left: `${j.baselinePct}%` }} /></u>
+    <em>{j.beats ? 'beats a fail-everything judge' : 'no better than failing everything yet'} · {j.n} settled</em></span>)}</div>;
 }
 export function kitLine(fresh) {   // what it builds with, one quiet line under the stage (was a whole tab)
   const moved = fresh?.kits?.filter(x => x.prev) || []; return moved.length ? `🧰 ${moved.length} kit${moved.length > 1 ? 's' : ''} updated today: ${moved.slice(0, 5).map(x => `${x.pkg || x.id} ${x.prev} → ${x.v}`).join(' · ')}` : '';
