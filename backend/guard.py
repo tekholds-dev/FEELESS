@@ -51,7 +51,17 @@ def client_ip(headers, peer, trust_proxy=False):
     if trust_proxy or (a is not None and _plain(a).is_loopback):   # the services listen on 127.0.0.1: a loopback peer is our own dev proxy (xfwd)
         fwd = (headers.get('x-forwarded-for') or '').split(',')[-1].strip()
         if fwd:
-            return fwd if _valid(fwd) else 'invalid'
+            f = _valid(fwd)
+            if f is None:
+                return 'invalid'
+            if _plain(f).is_loopback:
+                # 🔒 our dev proxy's own caller was this Mac = a cloudflared tunnel (https link for a phone). Without this every tunnel
+                # visitor counted as THIS MAC (no limits, "this machine only" doors open — 2026-11-13). Cloudflare's edge writes the real
+                # visitor in cf-connecting-ip and overwrites anything typed; a Wi-Fi device can't use it (its own IP is the last hop).
+                c = _valid((headers.get('cf-connecting-ip') or '').strip())
+                if c is not None and _plain(c).is_global:   # a real public visitor only: never loopback, LAN or special ranges
+                    return str(_plain(c))
+            return fwd
     return peer or '?'
 
 

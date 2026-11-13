@@ -186,7 +186,21 @@ def test_behind_the_dev_proxy_the_real_caller_counts(monkeypatch):
     assert g.is_local(me) and g.is_internal(g.request_ip(me))
     svc = req('127.0.0.1')                                     # one service calling another (no proxy in between)
     assert g.is_local(svc) and g.is_internal(g.request_ip(svc))
-    outside = req('203.0.113.9', '127.0.0.1')                  # a header from a non-loopback peer is never trusted
-    assert g.request_ip(outside) == '203.0.113.9' and not g.is_local(outside)
+    outside = req('9.9.9.9', '127.0.0.1')                  # a header from a non-loopback peer is never trusted
+    assert g.request_ip(outside) == '9.9.9.9' and not g.is_local(outside)
     monkeypatch.setenv('FEELESS_PRIVATE_INTERNAL', '1')
     assert g.is_internal('10.0.0.4')
+
+
+def test_tunnel_visitor_gets_their_cloudflare_ip_not_this_mac():
+    """A cloudflared tunnel reaches the dev proxy from 127.0.0.1, so the proxy's hop is loopback: the visitor is the IP Cloudflare stamped."""
+    tun = {'x-forwarded-for': '127.0.0.1', 'cf-connecting-ip': '9.9.9.9'}
+    assert g.client_ip(tun, '127.0.0.1') == '9.9.9.9' and not g.is_internal('9.9.9.9')
+    assert g.client_ip({'x-forwarded-for': '::ffff:127.0.0.1', 'cf-connecting-ip': '9.9.9.9'}, '127.0.0.1') == '9.9.9.9'
+    # this Mac's own browser (no Cloudflare header) stays this Mac
+    assert g.client_ip({'x-forwarded-for': '127.0.0.1'}, '127.0.0.1') == '127.0.0.1'
+    # a Wi-Fi device typing the header: its own LAN IP is the proxy's hop, so the header is ignored
+    assert g.client_ip({'x-forwarded-for': '10.0.0.55', 'cf-connecting-ip': '9.9.9.9'}, '127.0.0.1') == '10.0.0.55'
+    # a header claiming loopback / LAN can never make a visitor "this Mac"
+    for fake in ('127.0.0.1', '::1', '10.0.0.104', 'junk'):
+        assert g.client_ip({'x-forwarded-for': '127.0.0.1', 'cf-connecting-ip': fake}, '127.0.0.1') == '127.0.0.1'
