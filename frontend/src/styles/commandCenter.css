@@ -34,3 +34,11 @@ body.fx-lite :is(.ccx-kpi, .ccx-kpi b, .ccx-agents li, .ccx-bars li, .ccx-river 
 body.theme-day .ccx-h { background: #f3faf6; border-color: #5a33bd33; } body.theme-day .ccx-h b, body.theme-day .ccx-kpi b, body.theme-day .ccx-bars b, body.theme-day .ccx-who b { color: #10241a; } body.theme-day :is(.ccx-card, .ccx-kpi, .ccx-agents li, .ccx-river li) { background: #fff; border-color: #0000001a; } body.theme-day :is(.ccx-river span, .ccx-doing em) { color: #22332a; }
 @media (max-width: 1100px) { .ccx-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ccx-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ccx-card.is-floor, .ccx-card.is-river { grid-column: 1 / -1; grid-row: auto; } }
 @media (max-width: 640px) { .ccx-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ccx-grid { grid-template-columns: minmax(0, 1fr); } .ccx-agents li { grid-template-columns: minmax(0, 1fr); } .ccx-bars li { grid-template-columns: 70px minmax(0, 1fr) auto; } .ccx-bars li small:last-child { display: none; } }
+
+/* SITE-4 · THIS DESK lane: the desk's own wallet, bills and Pool (meta tokens) */
+.ccx-desk { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.ccx-dbox { display: grid; gap: 3px; align-content: start; padding: 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); animation: ccxIn .5s var(--m-ease) both; }
+.ccx-dbox em { font: 800 9.5px var(--m-mono); letter-spacing: .12em; font-style: normal; color: var(--m-dim); }
+.ccx-dbox b { font: 800 18px var(--m-mono); color: var(--m-accent); }
+.ccx-dbox small { font: 500 10.5px var(--m-mono); color: var(--m-mute); overflow-wrap: anywhere; }
+.ccx-dbox .ccx-addr { color: var(--m-dim); }

@@ -28,6 +28,51 @@ function useLive(cat, work) {
   }, [cat.id, work]);
   return d;
 }
+
+// 🛰 THIS DESK (SITE-4): the desk's own money and bills, read every 60 s (the wallet read touches the chain, so it runs slower than the floor).
+// Sicario's trades from the Fuse card's wallet: its books (card cash, wallet, gas reserve, outside the card). Every other desk: its own wallet,
+// what thinking cost today from its own receipts, and its place in The Pool (sent, earned, owed counting up live). Errors are said, never filled in.
+export function deskSums(w, pool, now = Date.now() / 1000) {
+  const day = now - 86400; const rc = (w?.modelReceipts || []).filter(r => (r.at || 0) >= day);
+  const p = pool?.pool || null;
+  return { fuse: !!w?.fuse, sol: w?.fuse ? w?.walletSol : w?.sol, usdc: w?.usdc, card: w?.cardSol, reserve: w?.reserveSol, outside: w?.outsideSol, addr: w?.address,
+    bills: rc.reduce((a, r) => a + (Number(r.usd) || 0), 0), calls: rc.length, last: rc[0]?.model || null,
+    sent: p?.sentUsd, earned: p?.earnedUsd, owed: p ? (p.owedUsd || 0) + (p.ratePerSecUsd || 0) * Math.max(0, now - (p.at || now)) : null, locked: p?.lockedUsd, rate: p?.ratePerSecUsd };
+}
+function useDesk(cat, work) {
+  const [d, setD] = useState({ at: 0 });
+  useEffect(() => {
+    let live = true;
+    const go = async () => {
+      if (document.hidden) return;
+      const [w, pool] = await Promise.all([work(cat.id, { op: 'wallet' }).then(x => ({ ok: x }), e => ({ err: String(e?.message || e || 'no read') })),
+        work(cat.id, { op: 'pool' }).then(x => ({ ok: x }), e => ({ err: String(e?.message || e || 'no read') }))]);
+      if (live) setD({ w, pool, at: Date.now() });
+    };
+    go(); const t = setInterval(go, 60000); return () => { live = false; clearInterval(t); };
+  }, [cat.id, work]);
+  return d;
+}
+function Ticker({ base, rate, at }) {
+  const [v, setV] = useState(base);
+  useEffect(() => { if (!rate) { setV(base); return undefined; } const t = setInterval(() => setV(base + rate * (Date.now() / 1000 - at)), 1000); return () => clearInterval(t); }, [base, rate, at]);
+  return <b className="m-num">${Number(v || 0).toFixed(v >= 1 ? 2 : 5)}</b>;
+}
+const sol = n => (n == null ? '—' : `${Number(n).toFixed(4)} SOL`);
+export function DeskLane({ cat, work }) {
+  const d = useDesk(cat, work);
+  if (!d.at) return <section className="ccx-card is-desk" data-testid="ccx-desk"><h4><Ic3 e="👛" /> THIS DESK</h4><p className="ccx-none">Reading its wallet and its Pool…</p></section>;
+  const s = deskSums(d.w.ok, d.pool.ok);
+  return <section className="ccx-card is-desk" data-testid="ccx-desk"><h4><Ic3 e="👛" /> THIS DESK <small>{s.fuse ? 'it trades from the Fuse card wallet' : 'its own wallet, bills and Pool'} · every 60 s</small></h4>
+    <div className="ccx-desk">
+      <div className="ccx-dbox"><em>{s.fuse ? 'FUSE WALLET' : 'WALLET'}</em>{d.w.err ? <p className="ccx-none" data-testid="ccx-desk-werr">{d.w.err}</p> : <>
+        <b className="m-num">{sol(s.sol)}</b>{s.fuse ? <small className="m-num">card {sol(s.card)} · gas {sol(s.reserve)} · outside {sol(s.outside)}</small> : <small className="m-num">${Number(s.usdc || 0).toFixed(2)} USDC</small>}
+        {s.addr ? <small className="m-num ccx-addr">{s.addr.slice(0, 4)}…{s.addr.slice(-4)}</small> : null}</>}</div>
+      {!s.fuse ? <div className="ccx-dbox"><em>THINKING · 24H</em>{d.w.err ? <p className="ccx-none">—</p> : <><b className="m-num">${s.bills.toFixed(s.bills < 1 ? 4 : 2)}</b><small>{s.calls} paid calls{s.last ? ` · last ${s.last}` : ''}</small></>}</div> : null}
+      <div className="ccx-dbox"><em>THE POOL</em>{d.pool.err ? <p className="ccx-none" data-testid="ccx-desk-perr">{d.pool.err}</p> : s.owed == null ? <p className="ccx-none">Not in The Pool yet.</p> : <>
+        <Ticker base={s.owed} rate={s.rate} at={Date.now() / 1000} /><small className="m-num">owed · sent ${Number(s.sent || 0).toFixed(2)} · earned ${Number(s.earned || 0).toFixed(2)} · locked ${Number(s.locked || 0).toFixed(2)}</small></>}</div>
+    </div></section>;
+}
 const Kpi = ({ k, v, sub, tone, i }) => <span className={`ccx-kpi${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }}><small>{k}</small><b className="m-num" key={String(v)}>{v}</b>{sub ? <em>{sub}</em> : null}</span>;
 export function CommandCenter({ cat, work }) {
   const d = useLive(cat, work); const agents = d.now?.agents || []; const e = d.eng || {}; const routes = e.routes || []; const rv = e.reviewer || {};
@@ -57,6 +102,7 @@ export function CommandCenter({ cat, work }) {
       <section className="ccx-card" data-testid="ccx-reads"><h4><Ic3 e="🔎" /> SHARED READS <small>one read, every agent's next proof, while fresh</small></h4>
         {reads.length ? <ul className="ccx-bars is-reads">{reads.map((r, i) => <li key={r.kind} style={{ '--i': i }} data-tip={`${r.sites} sites read · reused ${r.reused}× · fresh for ${r.freshMin} min`}><span>{BRIEF[r.kind] || r.kind}</span><u><s style={{ transform: `scaleX(${Math.max(0, 1 - r.ageMin / Math.max(1, r.freshMin))})` }} /></u><b className="m-num">{r.ageMin}m</b><small className="m-num">{r.reused}× reused</small></li>)}</ul> : <p className="ccx-none">No shared read is fresh right now.</p>}
         <h4 className="ccx-sub"><Ic3 e="🧰" /> METHOD KITS</h4><span className="ccx-kits">{kits.length ? kits.map(k => <em key={k.kit} className={`is-${k.state || 'unmeasured'}`} data-tip={`${k.state || 'unmeasured'}${k.followedWin != null ? ` · ${Math.round(k.followedWin * 100)}% right when followed` : ''}`}>{k.kit}</em>) : <small className="ccx-none">Measured when Missions opens.</small>}</span></section>
+      <DeskLane cat={cat} work={work} />
       <section className="ccx-card is-river" data-testid="ccx-river"><h4><Ic3 e="📡" /> EVENT RIVER <small>filed, graded, reviewed, ready, newest first</small></h4>
         {feed.length ? <ol className="ccx-river">{feed.slice(0, 14).map((x, i) => <li key={`${x.at}-${i}`} className={x.tone === 'look' ? 'is-look' : ''} style={{ '--i': Math.min(i, 10) }}><em className="m-num">{ago(x.at)}</em><b>{x.kind || '•'}</b><span>{x.text}</span></li>)}</ol> : <p className="ccx-none">Nothing new on this desk yet.</p>}</section>
     </div></section>;

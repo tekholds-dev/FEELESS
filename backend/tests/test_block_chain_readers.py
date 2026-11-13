@@ -47,3 +47,27 @@ def test_buildings_prove_by_chain_and_errand_on_a_risky_loan():
     assert b['state'] == 'built' and b['debt'] == 400 and [e['kind'] for e in b['errands']] == ['health']
     other = bm.view([{'key': 'save'}], {}, {'save': {'n': 1, 'usd': 50, 'debt': 400}}, mine=False)[0]
     assert 'debt' not in other and other['band']
+
+
+def test_a_spent_helius_plan_moves_the_block_reads_to_the_next_node(monkeypatch):
+    """SITE-17: Helius answering 429 'max usage reached' rests THAT node until its plan resets and the reader's getProgramAccounts lands on the
+    next one; a node that refuses getProgramAccounts on its plan (Tatum) is skipped for that method only. Live 2026-11-13: 1 × 429 + 3 refusals
+    rotated, all five readers answered."""
+    import asyncio
+    import chain_rpc as cr
+    from test_rpc_method_refusal import _Http, _Res
+    monkeypatch.setattr(cr, 'RPC_POOL', ['helius', 'tatum', 'alchemy']); monkeypatch.setattr(cr, 'KEEPER_LANES', ['helius', 'tatum', 'alchemy'])
+    monkeypatch.setattr(cr, 'RPC_MAX_RETRIES', 3); monkeypatch.setattr(cr, '_dedicated', None)
+    cr._unsupported.clear(); cr._rpc_cooldown_until.clear(); cr._quota_until.clear()
+
+    def plan(url, m):
+        if url == 'helius':
+            r = _Res(429); r.text = '{"error":{"code":-32429,"message":"max usage reached"}}'; return r
+        if url == 'tatum' and m == 'getProgramAccounts':
+            return _Res(403)
+        return _Res(200, {'result': [url]})
+    h = _Http(plan)
+    assert asyncio.run(cr._rpc(h, 'getProgramAccounts', ['MFv2', {}], scan=False)) == ['alchemy']
+    assert cr._rpc_cooldown_until.get('helius', 0) > 0 and ('tatum', 'getProgramAccounts') in cr._unsupported
+    h.calls.clear()
+    assert asyncio.run(cr._rpc(h, 'getProgramAccounts', ['MFv2', {'x': 1}], scan=False)) == ['alchemy'] and h.calls == [('alchemy', 'getProgramAccounts')]

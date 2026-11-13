@@ -5,6 +5,7 @@ import { apiUrl } from '../lib/api';
 import { FamilyDeck, deckBody } from './FamilyDeck';
 import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
 import { FuseWalletGlass } from './FuseWalletGlass';
+import { FamilyOps } from './FamilyOps';
 import { BlockArranger, MyPoolsCard, pendingAdds } from './BlockArranger';
 import { TOWN } from '../lib/cityPlan';
 import '../styles/familyBlock.css';
@@ -178,6 +179,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
         </div>
         <aside className="fbk-side">
           {mine ? <FuseWalletGlass /> : null}
+          {mine ? <FamilyOps bl={bl} onPick={setBsel} /> : null}
           <div className="fbk-card"><TownPicker bl={bl} busy={busy} mine={mine} onAct={blAct} open={room} onOpen={k => setBsel({ town: k })} /></div>
           {room ? null : <div className="fbk-card"><BlockCard bl={bl} sel={null} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>}
           {mine ? <StreetGame v={v} act={act} busy={busy} can={can} /> : null}

@@ -3,7 +3,7 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now: ≈8% left** (SITE-4, 5, 8, 17 + COL-6's stamp), then only the owner's money tests.
+> Every report says the % left. **Now: ≈5% left** (SITE-5, SITE-8 + COL-6's stamp), then only the owner's money tests.
 
 ## COLLECTIVE
 
@@ -21,9 +21,6 @@ Left: run it on every commit. Claude was blocked from adding a git hook (persist
 
 ## SITE
 
-**SITE-4 · Command centers** · OPEN · claimed: —
-Done when: Familia's own + Sicario's, Fee, FeeCat rebuilt with real telemetry only, alive, dense, phone-ready. Familia amounts: owner sets, no caps.
-
 **SITE-5 · Split the big backend file** · OPEN · claimed: — · not done 2026-11-13 overnight: money/write/admin routes move only with the owner watching the live machine
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
@@ -31,16 +28,11 @@ no resubmit, staff checks).
 **SITE-8 · Database + workers** · OPEN · claimed: — · next slice: the Pool ledger is in SQLite now (COL-18); multiple workers need the in-memory stores moved first
 Done when: hot stores in a real DB, multiple workers, no lost writes, load test proves it. (FPS + first load test done.)
 
-**SITE-17 · Familia lending readers — real work** · OPEN · claimed: —
-Done when: marginfi, Save, PumpSwap LP, Phoenix, Meteora wired into family blocks, each shown on screen from a real account read; Helius 429
-handled (rotate / fall back). No claim without a live read.
-
 ## OWNER ONLY
 **Owner only (Claude never moves funds) — 👑 owner 2026-11-12 (said twice, final): HE does ALL real-money testing himself. Claude's whole job is: finish every build row, prove it, push, tick this page, then TELL HIM it is ready to test. Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
-- 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
+- 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 10% = 950 bps at tier 0). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💸 COL-16 first real send (yours): open a filed proof → 🪙 Send to the Collective → SEND IT WITH YOUR FUNDS → Quote it → Sign and send.
-- 🏟 COL-19 proving ground verdicts (Proofs › Test bench): OSSY 33% · G4 43% → both stay on paper; reference player 100%. Making the verdict block real buys changes trading rules → your call. Re-run: `.venv/bin/python scripts/proving-ground.py --mind g4 --n 30`.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
   Circle → Phantom → AGT-26, AGT-24.
-- Decisions/keys: $FEE / FEECAT / rFEE have no pool · Q29 15% swap fee intended? · KEYS, LAWYER, HOUSE, LOOKS rows below · $ limit on the OpenRouter key.
+- Decisions/keys: KEYS, LAWYER, HOUSE, LOOKS rows below · $ limit on the OpenRouter key.

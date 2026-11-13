@@ -1,0 +1,26 @@
+/* 🏙 SITE-4 · FAMILIA OPS (meta tokens only) */
+.fop { display: grid; gap: 8px; padding: 12px; border-radius: var(--m-r); border: 1px solid var(--m-line); background: var(--m-surface); }
+.fop h4 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0; font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-text); }
+.fop h4 small { font: 500 10.5px var(--m-mono); letter-spacing: 0; color: var(--m-mute); }
+.fop-none { margin: 0; font: 500 12px var(--m-mono); color: var(--m-mute); }
+.fop-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fop-kpis span { display: grid; gap: 2px; padding: 8px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface-2); animation: fopIn .45s var(--m-ease) both; animation-delay: calc(var(--i) * 60ms); }
+.fop-kpis em { font: 800 9px var(--m-mono); letter-spacing: .1em; font-style: normal; color: var(--m-dim); }
+.fop-kpis b { font: 800 15px var(--m-mono); color: var(--m-accent); }
+.fop-kpis .is-owe b, .fop-kpis .is-bad b { color: var(--m-danger); }
+.fop-kpis .is-warn b { color: var(--m-warn); }
+.fop-meter { display: block; height: 3px; border-radius: 2px; background: var(--m-line); overflow: hidden; color: var(--m-accent); }
+.fop-meter u { display: block; height: 100%; background: currentColor; transform-origin: left; transition: transform .6s var(--m-ease); }
+.fop-kpis .is-warn .fop-meter { color: var(--m-warn); }
+.fop-kpis .is-bad .fop-meter { color: var(--m-danger); }
+.fop-rows { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.fop-rows li { animation: fopIn .45s var(--m-ease) both; animation-delay: calc(var(--i) * 50ms + 120ms); }
+.fop-rows button { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 1px 10px; width: 100%; padding: 7px 9px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: transparent; color: var(--m-text); text-align: left; cursor: pointer; transition: transform .15s var(--m-ease); }
+.fop-rows button:hover { transform: translateX(2px); border-color: var(--m-line-hi); }
+.fop-rows b { font: 700 12.5px var(--m-mono); }
+.fop-rows span { font: 700 12px var(--m-mono); color: var(--m-accent); text-align: right; }
+.fop-rows span.is-owe { color: var(--m-danger); }
+.fop-rows small { grid-column: 1 / -1; font: 500 10px var(--m-mono); color: var(--m-mute); }
+@keyframes fopIn { from { opacity: 0; transform: translateY(4px); } }
+@media (max-width: 640px) { .fop-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .fop-kpis span, .fop-rows li { animation: none; } .fop-meter u { transition: none; } }

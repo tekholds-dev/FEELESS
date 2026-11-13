@@ -1,6 +1,11 @@
 # RULINGS — every owner decision, dated. ONE place: when he changes a rule, edit it HERE (and nowhere else); newest wins.
 
 ## 2026-11-13
+- COL-19: the proving-ground score NEVER blocks real buys (record only).
+- Q29: the swap fee is 10% (platformFeeBps 1000, set in HQ › fees; holder-tier discounts still apply on top).
+- $FEE and FEECAT launch on pump, rFEE on Raydium — the owner launches them; no pools to build before that.
+- OpenRouter $ limit waits until the owner's own tests.
+- 30-min rule = never get stuck on one task; big cards are built in slices, never skipped.
 - Discover kits: with 3 picked, picking a 4th REPLACES the 3rd (never a disabled card).
 - Folder headers (every proof folder, Git, stash) are compact and alive — no giant hero titles.
 - PoB shot chart draws ITS sport's floor (hoops, gridiron, rink, pitch, diamond, cage) — never a basketball court for every sport.
