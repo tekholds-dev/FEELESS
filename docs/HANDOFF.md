@@ -21,7 +21,7 @@ Left: run it on every commit. Claude was blocked from adding a git hook (persist
 
 ## SITE
 
-**SITE-5 · Split the big backend file** · OPEN · claimed: — · not done 2026-11-13 overnight: money/write/admin routes move only with the owner watching the live machine
+**SITE-5 · Split the big backend file** · OPEN · claimed: — · money/write/admin routes move only with the owner watching the live machine · 2026-11-13: `scripts/route-table.py` (--save before a move, --check after = same 618 routes in the same order with the same params, --left = what is still inside by kind: money 26 · write 101 · admin 164 · read 131). The old AST mover was a one-off; the 131 reads left are the long / comprehension-shadow ones.
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
 
