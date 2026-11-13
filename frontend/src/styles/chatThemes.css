@@ -172,3 +172,11 @@ body.fx-lite .cfx-rise, body.fx-lite .cfx-blip, body.fx-lite .cfx-sweep { displa
 @media (prefers-reduced-motion: reduce) { .chat-fx *, .chat-fx > i, .ctp-tile { animation: none !important; } .cfx-rise, .cfx-blip, .cfx-sweep { display: none; } .ctp-tile { transition: none; } }
 body.theme-day .chat-fx { opacity: .5; } body.theme-day .ctp-tile { background: #120d26; }
 @media (max-width: 640px) { .ctp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cfx-moonart { width: min(34%, 110px); } .cfx-roll em { font-size: 12px; } }
+/* 📡 the live source chip on the market scenes (tape / radar / depth / flow): says what real feed the art is drawing, or that it is waiting */
+.cfx-src { position: absolute; right: 10px; bottom: 8px; z-index: 1; padding: 3px 8px; border-radius: 99px; text-decoration: none; font: 700 9px var(--f-mono); letter-spacing: .08em; color: var(--m-accent); background: color-mix(in srgb, var(--m-bg) 78%, transparent); border: 1px solid color-mix(in srgb, var(--m-accent) 35%, transparent); animation: cfxSrc 2.4s ease-in-out infinite alternate; }
+.cfx-blip.dn { background: var(--m-danger); box-shadow: 0 0 12px var(--m-danger); }
+.ctp-tile .cfx-src { display: none; }
+@keyframes cfxSrc { from { opacity: .55; } to { opacity: 1; } }
+body.fx-lite .cfx-src { animation: none; } @media (prefers-reduced-motion: reduce) { .cfx-src { animation: none; } }
+body.theme-day .cfx-src { background: color-mix(in srgb, var(--m-surface) 85%, transparent); }
+@media (max-width: 640px) { .cfx-src { font-size: 8px; right: 6px; bottom: 6px; } }

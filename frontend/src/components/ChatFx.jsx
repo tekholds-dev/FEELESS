@@ -1,7 +1,8 @@
 import { boxRef } from '../lib/boxRef';
 import React, { useEffect, useState } from 'react';
 import { apiUrl } from '../lib/api';
-import { useCoinMood } from '../lib/coinMood';
+import { useCoinMood, useRoomPair } from '../lib/coinMood';
+import { useMarketTape, pctText } from '../lib/marketTape';
 import { sweepable } from '../lib/cacheSweep';
 import '../styles/chatThemes.css';
 import { Ic3 } from '../lib/icon3d';
@@ -52,7 +53,28 @@ export function useFeeUsd(address) {
   return usd;
 }
 
-const TICKS = [['$SOL', '+4.2%', 1], ['$BONK', '−3.1%', 0], ['$WIF', '+12.8%', 1], ['$FEE', '+6.6%', 1], ['$POPCAT', '−8.4%', 0], ['$JUP', '+1.9%', 1], ['$MEW', '+22%', 1], ['$PNUT', '−5.2%', 0], ['$GOAT', '+3.3%', 1], ['$TRUMP', '−1.4%', 0]];
+// 📡 Live data for the market scenes (owner 2026-11-12: "as true real data"): the tape, radar, book and flow are drawn from the shared market tape
+// (lib/marketTape.js) and, in a coin room, that coin's own trades (lib/coinMood.js). No coin is drawn before the feed answers.
+const WIN = [['m5', '5M'], ['h1', '1H'], ['h6', '6H'], ['h24', '24H']];
+export const rollOf = (t, c) => { if (!t.length) return []; const r = Array.from({ length: 10 }, (_, k) => t[(c * 3 + k) % t.length]); return [...r, ...r]; };
+export function sceneData(rows, pair) {
+  const tick = rows.map(r => [`$${r.sym}`, pctText(r.ch), r.ch >= 0 ? 1 : 0]);
+  const radar = rows.slice(0, 6).map((r, i) => [Math.round(26 + Math.min(54, Math.abs(r.m5) * 6)), Math.round(i * 60 + 24), `$${r.sym}`, r.m5 >= 0]);
+  const own = pair ? WIN.map(([k, l]) => { const t = pair.txns?.[k] || {}; const b = Number(t.buys) || 0; const x = Number(t.sells) || 0; return { label: l, buys: b, sells: x, avgUsd: (Number(pair.volume?.[k]) || 0) / Math.max(1, b + x) }; }).filter(w => w.buys + w.sells > 0) : [];
+  const items = own.length ? own : rows.slice(0, 8);
+  const top = Math.max(1, ...items.flatMap(w => [w.buys, w.sells]));
+  const book = items.map(w => [Math.round(8 + (w.buys / top) * 84), Math.round(8 + (w.sells / top) * 84)]);
+  const B = items.reduce((a, w) => a + w.buys, 0); const S = items.reduce((a, w) => a + w.sells, 0);
+  const nB = B + S ? Math.min(7, Math.max(1, Math.round((8 * B) / (B + S)))) : 0; const nS = B + S ? 8 - nB : 0;
+  const size = usd => Math.round(Math.min(16, Math.max(4, 3 + Math.log10(Math.max(1, usd)) * 3)));
+  const lanes = [[16, 'b'], [28, 'b'], [40, 'b'], [60, 's'], [72, 's'], [84, 's']].map(([y, side]) => [y, side, [], []]);
+  for (let k = 0; k < nB + nS; k += 1) {
+    const buy = k < nB; const j = buy ? k : k - nB; const lane = lanes[(buy ? 0 : 3) + (j % 3)]; const w = items[k % items.length];
+    lane[2].push(Math.floor(j / 3) * 2.6 + (j % 3) * 0.7); lane[3].push(size(w.avgUsd));
+  }
+  const src = !items.length ? 'WAITING FOR THE LIVE FEED' : own.length ? `LIVE · $${String(pair.baseToken?.symbol || '').slice(0, 10)} · ${B.toLocaleString()} BUYS / ${S.toLocaleString()} SELLS` : `LIVE · ${rows.length} TRENDING POOLS · 5M TRADES`;
+  return { tick, radar, book, lanes: lanes.filter(l => l[2].length), src };
+}
 // 🎨 THE SCENES (owner, 2026-10-22: "horrible bg themes" → redrawn): each one is drawn art — a skyline, a coin, a radar, a vault — with motion
 // only on whole layers (a strip scrolling, a disk turning, a sweep, embers rising) so the compositor carries it; never a repaint loop.
 // Every scrolling strip is 4 copies of a 400-unit period in a 1600-unit SVG that slides −25% forever (seamless at any width).
@@ -76,10 +98,7 @@ const STARS = (() => { const r = prng(11); return Array.from({ length: 46 }, (_,
 const Stars = ({ odd }) => <svg className={`cfx-stars s${odd}`} viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">{STARS.filter(s => s[3] === odd).map(([x, y, r], i) => <circle key={i} cx={x} cy={y} r={r} />)}</svg>;
 const rise = (n, cls, seed) => { const r = prng(seed); return Array.from({ length: n }, (_, i) => <b key={i} className={cls} style={{ left: `${(r() * 96 + 2).toFixed(1)}%`, '--i': i, '--d': `${(5 + r() * 6).toFixed(1)}s`, '--s': `${(2 + r() * 3).toFixed(1)}px` }} />); };
 const SKY = (() => { const r = prng(5); let x = 0; const out = []; while (x < 400) { const w = 6 + r() * 10; out.push([x, w, 10 + r() * 34]); x += w + 1.5; } return out; })();
-const RADAR = [[38, 30, '$WIF'], [72, 120, '$FEE'], [55, 205, '$BONK'], [24, 290, '$MEW'], [80, 330, '$POPCAT']];
 const BOLTS = Array.from({ length: 16 }, (_, i) => [100 + 84 * Math.cos((i / 16) * Math.PI * 2), 100 + 84 * Math.sin((i / 16) * Math.PI * 2)]);
-const BOOK = [92, 74, 66, 58, 41, 37, 26, 18];
-const LANES = [[16, 'b', [0, 2.6, 5.1], [7, 5, 12]], [28, 'b', [1.2, 4.4], [5, 14]], [40, 'b', [0.6, 3.3, 6], [6, 4, 8]], [60, 's', [0.4, 3.8], [7, 14]], [72, 's', [1.8, 4.9, 6.6], [4, 7, 5]], [84, 's', [0.9, 3.1], [12, 6]]];
 // 🧠 NEURAL (owner, 2026-10-22: "the whole Brain themed, not a bs background"): a drawn net — nodes, synapses, pulses firing along them
 const NODES = [[8, 18], [26, 10], [44, 24], [64, 12], [86, 20], [14, 48], [36, 42], [58, 52], [80, 44], [22, 80], [48, 74], [72, 84], [92, 72]];
 const LINKS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [1, 6], [2, 6], [2, 7], [3, 7], [4, 8], [5, 6], [6, 7], [7, 8], [5, 9], [6, 10], [7, 10], [7, 11], [8, 12], [9, 10], [10, 11], [11, 12]];
@@ -105,24 +124,24 @@ const SCENE = {
     <svg className="cfx-run cfx-candles near" viewBox="0 0 1600 160" preserveAspectRatio="none"><Strip set={NEAR} bw={9} /></svg>
     <u className="cfx-last"><em>LAST</em></u></>,
   // 🌊 ORDER FLOW: buys stream right on the top lanes, sells left on the bottom ones — the size of each bubble is the size of the trade
-  flow: () => <><u className="cfx-mid" />{LANES.map(([top, side, delays, sizes], li) => <span key={li} className={`cfx-lane ${side}`} style={{ top: `${top}%` }}>
+  flow: d => <><u className="cfx-mid" />{d.lanes.map(([top, side, delays, sizes], li) => <span key={li} className={`cfx-lane ${side}`} style={{ top: `${top}%` }}>
     {delays.map((dl, k) => <span key={k} className="cfx-ride" style={{ '--dl': `${-dl}s`, '--t': `${7 + li}s` }}><b className={sizes[k] >= 12 ? 'whale' : ''} style={{ '--s': `${sizes[k]}px` }} /></span>)}</span>)}</>,
   // 📚 DEPTH: the book as two drawn cliffs + its ladder — bids stacked left, asks right, the spread glowing between them
-  depth: () => <><span className="cfx-book">{BOOK.map((w, i) => <i key={i} className="b" style={{ '--w': `${w}%`, '--i': i }} />)}{BOOK.map((w, i) => <i key={`a${i}`} className="a" style={{ '--w': `${BOOK[(i + 3) % 8]}%`, '--i': i }} />)}</span>
+  depth: d => <><span className="cfx-book" style={{ gridTemplateRows: `repeat(${Math.max(1, d.book.length)}, 1fr)` }}>{d.book.map(([w], i) => <i key={i} className="b" style={{ '--w': `${w}%`, '--i': i }} />)}{d.book.map(([, w], i) => <i key={`a${i}`} className="a" style={{ '--w': `${w}%`, '--i': i }} />)}</span>
     <svg className="cfx-depth" viewBox="0 0 200 60" preserveAspectRatio="none"><path className="bid" d="M0,60 V14 H18 V20 H34 V27 H50 V33 H64 V40 H78 V46 H90 V53 H98 V60 Z" />
       <path className="ask" d="M200,60 V10 H180 V18 H162 V25 H146 V32 H132 V39 H118 V46 H108 V53 H102 V60 Z" /><path className="mid" d="M100,0 V60" /></svg></>,
   // 📡 TRENCH RADAR: a real scope — rings, bearings, the sweep, and coins lighting up the moment the beam crosses them
-  radar: () => <span className="cfx-radar"><svg viewBox="0 0 300 300">
+  radar: d => <span className="cfx-radar"><svg viewBox="0 0 300 300">
     {[40, 80, 120, 146].map(r => <circle key={r} cx="150" cy="150" r={r} className="rg" />)}<path className="x" d="M150,4V296M4,150H296" />
     {Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2; const r0 = i % 3 ? 140 : 132; return <line key={i} className="tk" x1={150 + r0 * Math.sin(a)} y1={150 - r0 * Math.cos(a)} x2={150 + 146 * Math.sin(a)} y2={150 - 146 * Math.cos(a)} />; })}
-    {RADAR.map(([r, deg, sym]) => { const a = (deg * Math.PI) / 180; return <text key={sym} x={150 + r * 1.4 * Math.sin(a) + 7} y={150 - r * 1.4 * Math.cos(a) - 6}>{sym}</text>; })}</svg>
-    <i className="cfx-sweep" />{RADAR.map(([r, deg]) => { const a = (deg * Math.PI) / 180; return <u key={deg} className="cfx-blip" style={{ left: `${50 + (r * 1.4 * Math.sin(a)) / 3}%`, top: `${50 - (r * 1.4 * Math.cos(a)) / 3}%`, '--dl': `${(deg / 360) * 6}s` }} />; })}</span>,
+    {d.radar.map(([r, deg, sym]) => { const a = (deg * Math.PI) / 180; return <text key={sym} x={150 + r * 1.4 * Math.sin(a) + 7} y={150 - r * 1.4 * Math.cos(a) - 6}>{sym}</text>; })}</svg>
+    <i className="cfx-sweep" />{d.radar.map(([r, deg, , up]) => { const a = (deg * Math.PI) / 180; return <u key={deg} className={`cfx-blip${up ? '' : ' dn'}`} style={{ left: `${50 + (r * 1.4 * Math.sin(a)) / 3}%`, top: `${50 - (r * 1.4 * Math.cos(a)) / 3}%`, '--dl': `${(deg / 360) * 6}s` }} />; })}</span>,
   // 🌆 TERMINAL: a synthwave run — a striped sun setting behind a skyline of candles, the neon floor rushing toward you
   grid: () => <><svg className="cfx-sun" viewBox="0 0 200 100"><circle cx="100" cy="100" r="62" />{[64, 74, 82, 89, 95].map((y, i) => <rect key={y} x="30" y={y} width="140" height={2 + i} />)}</svg>
     <svg className="cfx-skyline" viewBox="0 0 400 50" preserveAspectRatio="none">{SKY.map(([x, w, h], i) => <rect key={i} x={x} y={50 - h} width={w} height={h} />)}</svg>
     <span className="cfx-floor"><i /></span></>,
   // 📟 TICKER TAPE: three LED boards across the room, every coin's move rolling by in dot-matrix
-  tape: () => [16, 50, 84].map((top, c) => <span key={c} className={`cfx-col${c === 1 ? ' r' : ''}`} style={{ top: `${top}%`, '--i': c }}><span className="cfx-roll">{[...TICKS, ...TICKS].slice(c * 3, c * 3 + 10).concat([...TICKS, ...TICKS].slice(c * 3, c * 3 + 10)).map(([t, p, up], k) => <em key={k} className={up ? 'up' : 'dn'}>{up ? '▲' : '▼'} {t} {p}</em>)}</span></span>),
+  tape: d => [16, 50, 84].map((top, c) => <span key={c} className={`cfx-col${c === 1 ? ' r' : ''}`} style={{ top: `${top}%`, '--i': c }}><span className="cfx-roll">{rollOf(d.tick, c).map(([t, p, up], k) => <em key={k} className={up ? 'up' : 'dn'}>{up ? '▲' : '▼'} {t} {p}</em>)}</span></span>),
   // 🌕 MOON RUN: a starfield, a cratered moon, a rocket riding its chart line up toward it over the candle mountains
   moon: () => <><Stars odd={0} /><Stars odd={1} /><svg className="cfx-moonart" viewBox="0 0 100 100"><circle className="glow" cx="50" cy="50" r="48" /><circle className="body" cx="50" cy="50" r="36" />
     <circle className="cr" cx="38" cy="40" r="7" /><circle className="cr" cx="60" cy="58" r="9" /><circle className="cr" cx="56" cy="30" r="4" /><circle className="cr" cx="34" cy="64" r="4.5" />
@@ -148,12 +167,16 @@ const SCENE = {
     <svg className="cfx-bars" viewBox="0 0 160 70">{[[10, 46], [58, 46], [106, 46], [34, 24], [82, 24], [58, 2]].map(([x, y], i) => <g key={i} className="bar"><path className="top" d={`M${x + 6},${y} H${x + 40} L${x + 46},${y + 8} H${x} Z`} /><rect className="front" x={x} y={y + 8} width="46" height="14" /><path className="lit" d={`M${x + 4},${y + 11} H${x + 30}`} /></g>)}</svg>
     {[[8, 84], [18, 78], [28, 88], [38, 80], [14, 92]].map(([l, t], i) => <u key={i} className="cfx-glint" style={{ left: `${l}%`, top: `${t}%`, '--i': i }} />)}</>,
 };
+const LIVE_SCENES = new Set(['tape', 'radar', 'depth', 'flow']);
 export function ChatFx({ theme, room }) {
   const mood = useCoinMood(theme === 'live' ? room : null);
+  const market = LIVE_SCENES.has(theme); const rows = useMarketTape(market); const pair = useRoomPair(market ? room : null);
   if (theme === 'off') return null;
+  const d = market ? sceneData(rows, pair) : null;
   return <div className={`chat-fx fx-${theme}${theme === 'live' ? ` mood-${mood}` : ''}`} aria-hidden="true" data-testid="chat-fx" data-mood={theme === 'live' ? mood : undefined}>
     <i className="chat-fx-a" /><i className="chat-fx-b" />
-    {SCENE[theme]?.()}
+    {SCENE[theme]?.(d)}
+    {d ? <u className="cfx-src" data-testid="cfx-src">{d.src}</u> : null}
     <img className="chat-fx-logo" src="/assets/feeless-logo-256.png" alt="" />
   </div>;
 }

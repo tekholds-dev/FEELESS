@@ -1,8 +1,9 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChatFx, ChatThemePicker, chatTheme, canUse, CHAT_THEMES } from './ChatFx';
+import { ChatFx, ChatThemePicker, chatTheme, canUse, CHAT_THEMES, sceneData, rollOf } from './ChatFx';
 import { moodOf, roomPair } from '../lib/coinMood';
+import { tapeRows } from '../lib/marketTape';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -39,13 +40,14 @@ test('every theme shows the FEE mark and its drawn scene; Plain shows nothing', 
   // 🎨 redrawn scenes (2026-10-22): real drawn art, motion on whole layers
   act(() => root.render(<ChatFx theme="candles" />)); expect(host.querySelectorAll('.cfx-candles.near rect').length).toBe(96);   // 24 candles × 4 seamless copies
   expect(host.querySelector('.cfx-candles.far')).not.toBeNull(); expect(host.querySelector('.cfx-last').textContent).toBe('LAST');
-  act(() => root.render(<ChatFx theme="depth" />)); expect(host.querySelector('.cfx-depth .bid')).not.toBeNull(); expect(host.querySelectorAll('.cfx-book i').length).toBe(16);
+  act(() => root.render(<ChatFx theme="depth" />)); expect(host.querySelector('.cfx-depth .bid')).not.toBeNull(); expect(host.querySelectorAll('.cfx-book i').length).toBe(0);   // no feed yet = no made-up book
+  expect(host.querySelector('[data-testid="cfx-src"]').textContent).toBe('WAITING FOR THE LIVE FEED');
   act(() => root.render(<ChatFx theme="vortex" />)); expect(host.querySelectorAll('.cfx-orbit img').length).toBe(3); expect(host.querySelectorAll('.cfx-ring').length).toBe(4);
-  act(() => root.render(<ChatFx theme="tape" />)); expect(host.querySelectorAll('.cfx-col').length).toBe(3); expect(host.querySelector('.cfx-roll em').textContent).toMatch(/^[▲▼] \$/);
-  act(() => root.render(<ChatFx theme="radar" />)); expect(host.querySelectorAll('.cfx-blip').length).toBe(5); expect(host.querySelector('.cfx-sweep')).not.toBeNull();
+  act(() => root.render(<ChatFx theme="tape" />)); expect(host.querySelectorAll('.cfx-col').length).toBe(3); expect(host.querySelector('.cfx-roll em')).toBeNull();
+  act(() => root.render(<ChatFx theme="radar" />)); expect(host.querySelectorAll('.cfx-blip').length).toBe(0); expect(host.querySelector('.cfx-sweep')).not.toBeNull();
   act(() => root.render(<ChatFx theme="moon" />)); expect(host.querySelector('.cfx-flyx .cfx-flyy .cfx-rocket svg')).not.toBeNull();
   act(() => root.render(<ChatFx theme="gold" />)); expect(host.querySelectorAll('.cfx-vault .bolt').length).toBe(16); expect(host.querySelectorAll('.cfx-bars .bar').length).toBe(6);
-  act(() => root.render(<ChatFx theme="flow" />)); expect(host.querySelectorAll('.cfx-ride b').length).toBe(15); expect(host.querySelectorAll('.cfx-ride b.whale').length).toBe(4);
+  act(() => root.render(<ChatFx theme="flow" />)); expect(host.querySelectorAll('.cfx-ride b').length).toBe(0);
   act(() => root.render(<ChatFx theme="off" />));
   expect(host.querySelector('[data-testid="chat-fx"]')).toBeNull();
 });
@@ -59,4 +61,24 @@ test('the picker: live mini rooms by tier, locked tiles say how close you are, a
   expect(host.textContent).toContain('$7 / $100 held');
   act(() => host.querySelector('[data-testid="chat-theme-radar"]').click());
   expect(saved).toEqual({ themes: { other: 'gold', brain: 'radar' } });
+});
+
+test('market scenes draw only the live feed: real symbols + moves, a book and flow from real buys/sells', () => {
+  const pairs = [
+    { baseToken: { symbol: 'FOOD' }, txns: { m5: { buys: 432, sells: 346 } }, priceChange: { m5: 2, h1: 224 }, volume: { m5: 90000 } },
+    { baseToken: { symbol: 'DEAD' }, txns: { m5: { buys: 0, sells: 0 } }, priceChange: { h1: 3 }, volume: { m5: 0 } },   // no trades in 5m: dropped
+    { baseToken: { symbol: 'AI' }, txns: { m5: { buys: 163, sells: 143 } }, priceChange: { m5: -4, h1: -30.72 }, volume: { m5: 20000 } },
+    { baseToken: { symbol: 'food' }, txns: { m5: { buys: 5, sells: 5 } }, priceChange: { h1: 1 }, volume: { m5: 10 } },   // same symbol twice: one row
+  ];
+  const rows = tapeRows(pairs); expect(rows.map(r => r.sym)).toEqual(['FOOD', 'AI']);
+  const d = sceneData(rows, null);
+  expect(d.tick).toEqual([['$FOOD', '+224%', 1], ['$AI', '−30.7%', 0]]);
+  expect(rollOf(d.tick, 0)[0][0]).toBe('$FOOD'); expect(rollOf([], 0)).toEqual([]);
+  expect(d.radar.map(r => r[2])).toEqual(['$FOOD', '$AI']); expect(d.radar[1][3]).toBe(false);
+  expect(d.book[0]).toEqual([92, Math.round(8 + (346 / 432) * 84)]);
+  const ride = d.lanes.reduce((a, l) => a + l[2].length, 0); expect(ride).toBe(8);
+  expect(d.lanes.filter(l => l[1] === 'b').reduce((a, l) => a + l[2].length, 0)).toBe(Math.round((8 * 595) / 1084));
+  expect(d.src).toBe('LIVE · 2 TRENDING POOLS · 5M TRADES');
+  const room = sceneData(rows, { baseToken: { symbol: 'NEXUS' }, txns: { m5: { buys: 77, sells: 60 }, h1: { buys: 861, sells: 587 } }, volume: { m5: 5722, h1: 54266 } });
+  expect(room.book).toHaveLength(2); expect(room.src).toBe('LIVE · $NEXUS · 938 BUYS / 647 SELLS');
 });

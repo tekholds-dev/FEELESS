@@ -21,14 +21,14 @@ function poll(key, chain, pair) {
     const p = d?.pairs?.[0]; if (!p) return;
     const intel = chain === 'solana' ? await fetchIntel(chain, p.baseToken?.address) : null;
     const mood = moodOf(p, intel);
-    if (mood !== r.mood) { r.mood = mood; r.listeners.forEach(l => l()); }
+    if (mood !== r.mood || p !== r.pair) { r.mood = mood; r.pair = p; r.listeners.forEach(l => l()); }
   }).catch(() => {});
 }
 function subscribe(room, l) {
   const rp = roomPair(room); if (!rp) return () => {};
   const key = `${rp.chain}:${rp.pair}`;
   let r = rooms.get(key);
-  if (!r) { r = { mood: 'calm', listeners: new Set(), timer: null }; rooms.set(key, r); }
+  if (!r) { r = { mood: 'calm', pair: null, listeners: new Set(), timer: null }; rooms.set(key, r); }
   r.listeners.add(l);
   if (!r.timer) { poll(key, rp.chain, rp.pair); r.timer = setInterval(() => poll(key, rp.chain, rp.pair), 30000); }
   return () => { r.listeners.delete(l); if (!r.listeners.size) { clearInterval(r.timer); rooms.delete(key); } };
@@ -36,4 +36,9 @@ function subscribe(room, l) {
 export function useCoinMood(room) {
   const sub = useCallback(l => subscribe(room, l), [room]);
   return useSyncExternalStore(sub, () => { const rp = roomPair(room); return (rp && rooms.get(`${rp.chain}:${rp.pair}`)?.mood) || 'calm'; });
+}
+// The room coin's own pair (txns, volume, price change) from the same shared poll — the flow and depth scenes draw it. null until it answers.
+export function useRoomPair(room) {
+  const sub = useCallback(l => subscribe(room, l), [room]);
+  return useSyncExternalStore(sub, () => { const rp = roomPair(room); return (rp && rooms.get(`${rp.chain}:${rp.pair}`)?.pair) || null; });
 }
