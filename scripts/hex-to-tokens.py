@@ -10,7 +10,7 @@ The look (lib/looks.js) remaps the tokens, so a converted sheet follows the site
   --check  a.css b.css   count hex per file (exit 0)
   --write  a.css b.css   rewrite in place, print before → after
   --only REGEX           only rules whose selector matches (e.g. '\\.clx-' to convert one surface inside a shared sheet)
-  --palette a.css …      STYLE-1 mode (the look must NOT change): every colour in a sheet becomes ONE named page token, declared once in a
+  --palette [--prefix X] a.css …   STYLE-1 mode (the look must NOT change): every colour in a sheet becomes ONE named page token, declared once in a
                          `:root{}` palette block at the top of that sheet (`--<pfx>-<role><n>: #hex`), and every use reads var(). Pixel-identical
                          by construction; each page keeps its own accents (RULINGS 2026-11-13); a colour is changed in one place.
 meta.css is never touched (it defines the tokens). Comments are left alone.
@@ -174,11 +174,18 @@ def palette(css, pfx):
 
 def main(argv):
     if argv and argv[0] == '--palette':
+        pfx = None
+        if '--prefix' in argv:   # a shorter prefix for a sheet whose KB budget has no room for the default one
+            i = argv.index('--prefix'); pfx = argv[i + 1]; argv = argv[:i] + argv[i + 2:]
         for f in argv[1:]:
             p = Path(f)
             if p.name == 'meta.css':
                 print(f'{f}: skipped (defines the tokens)'); continue
-            css = p.read_text(); out, pal = palette(css, prefix(p.name))
+            use = pfx or prefix(p.name)
+            clash = [o.name for o in p.parent.glob('*.css') if o != p and re.search(rf'--{re.escape(use)}-[a-z0-9]{{2}}\d+\s*:', o.read_text())]
+            if clash:   # page tokens live on :root, so two sheets sharing a prefix would overwrite each other's colours
+                print(f'{f}: prefix {use!r} already used by {", ".join(clash)} — pick another'); return 1
+            css = p.read_text(); out, pal = palette(css, use)
             p.write_text(out)
             print(f'{f}: {outside(css)} → {outside(out)} hex outside the palette · {len(pal)} page tokens')
         return 0

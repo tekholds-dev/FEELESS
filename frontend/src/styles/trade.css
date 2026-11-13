@@ -1,310 +1,305 @@
 /* Trade workspace styling is intentionally local to the execution desk.
-   It should feel like a live instrument, not inherit browser-default form chrome. */
+It should feel like a live instrument, not inherit browser-default form chrome. */
+:root { /* page tokens (STYLE-1) */ --td-ac1: #2f6948; --td-ac10: #d2f1da; --td-ac11: #c4e7cd; --td-ac12: #8db89a; --td-ac13: #d1eed9; --td-ac2: #7fd49a12; --td-ac3: #dbf5e3; --td-ac4: #43805a; --td-ac5: #9b6bff; --td-ac6: #9b6bff0d; --td-ac7: #9b6bff1c; --td-ac8: #8fb99b; --td-ac9: #a8d9b6; --td-bg1: #00000024; --td-dg1: #f5688a; --td-ln1: #3c4441; --td-mu1: #80ad8c; --td-mu2: #75a284; --td-mu3: #82ad90; --td-sf1: #161b19; --td-sf2: #0e1210; --td-sf3: #121614; --td-sf4: #0a1c11b8; --td-sf5: #151a18; --td-wn1: #e3c463; }
 .swap-desk {
-  gap: 18px;
-  margin: 22px 0 30px;
-  --swap-readable-scale: 1;
+gap: 18px;
+margin: 22px 0 30px;
+--swap-readable-scale: 1;
 }
 
 .swap-order,
 .route-intelligence {
-  min-width: 0;
-  border: 1px solid #2f6948;
-  background:
-    linear-gradient(145deg, #161b19 0%, #0e1210 52%, #121614 100%);
-  border-radius: 8px;
-  box-shadow: 0 16px 38px #00000024, inset 0 1px #7fd49a12;
+min-width: 0;
+border: 1px solid var(--td-ac1);
+background:
+linear-gradient(145deg, var(--td-sf1) 0%, var(--td-sf2) 52%, var(--td-sf3) 100%);
+border-radius: 8px;
+box-shadow: 0 16px 38px var(--td-bg1), inset 0 1px var(--td-ac2);
 }
 
 .swap-order .command-section-title,
 .route-intelligence .command-section-title {
-  min-height: 64px;
-  padding: 17px 20px;
-  border-bottom-color: #3c4441;
-  background: #0a1c11b8;
+min-height: 64px;
+padding: 17px 20px;
+border-bottom-color: var(--td-ln1);
+background: var(--td-sf4);
 }
 
 .swap-order .command-section-title > span:first-child,
 .route-intelligence .command-section-title > span:first-child {
-  color: #dbf5e3;
-  font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 1px;
+color: var(--td-ac3);
+font-size: 12px;
+font-weight: 650;
+letter-spacing: 1px;
 }
 
 .swap-order .command-section-title > small,
 .route-intelligence .command-section-title > small {
-  color: #80ad8c;
-  font-size: 8px;
-  letter-spacing: 1px;
+color: var(--td-mu1);
+font-size: 8px;
+letter-spacing: 1px;
 }
 
 .swap-reverse-button {
-  width: 38px;
-  height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #43805a;
-  border-radius: 50%;
-  color: #9b6bff;
-  background: #9b6bff0d;
-  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+width: 38px;
+height: 38px;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+border: 1px solid var(--td-ac4);
+border-radius: 50%;
+color: var(--td-ac5);
+background: var(--td-ac6);
+transition: transform .18s ease, background .18s ease, border-color .18s ease;
 }
 
 .swap-reverse-button:hover:not(:disabled) {
-  border-color: #9b6bff;
-  background: #9b6bff1c;
-  transform: rotate(180deg);
+border-color: var(--td-ac5);
+background: var(--td-ac7);
+transform: rotate(180deg);
 }
 
 .route-metrics b.impact-low {
-  color: #9b6bff;
+color: var(--td-ac5);
 }
 
 .route-metrics b.impact-medium {
-  color: #e3c463;
+color: var(--td-wn1);
 }
 
 .route-metrics b.impact-high {
-  color: #f5688a;
+color: var(--td-dg1);
 }
 
 .slippage-controls {
-  padding: 17px 20px;
-  color: #8fb99b;
-  font-size: 11px;
+padding: 17px 20px;
+color: var(--td-ac8);
+font-size: 11px;
 }
 
 .slippage-controls button {
-  color: #a8d9b6;
-  background: #161b19;
-  font-size: 9px;
+color: var(--td-ac9);
+background: var(--td-sf1);
+font-size: 9px;
 }
 
 .slippage-controls button:hover:not(:disabled) {
-  border-color: #9b6bff;
-  color: #9b6bff;
+border-color: var(--td-ac5);
+color: var(--td-ac5);
 }
 
 .swap-buttons {
-  padding: 20px;
+padding: 20px;
 }
 
 .swap-buttons button {
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-  border-radius: 5px;
-  font-size: 12px;
-  overflow-wrap: anywhere;
-  white-space: normal;
+width: 100%;
+min-width: 0;
+min-height: 44px;
+border-radius: 5px;
+font-size: 12px;
+overflow-wrap: anywhere;
+white-space: normal;
 }
 
 .swap-safety {
-  padding: 0 20px 21px;
-  color: #75a284;
-  font-size: 10px;
+padding: 0 20px 21px;
+color: var(--td-mu2);
+font-size: 10px;
 }
 
 .swap-message {
-  margin-inline: 20px;
-  font-size: 12px;
+margin-inline: 20px;
+font-size: 12px;
 }
 
 .swap-recovery-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 9px;
-  padding: 0 20px 18px;
+display: flex;
+flex-wrap: wrap;
+gap: 9px;
+padding: 0 20px 18px;
 }
 
 .swap-recovery-actions button {
-  flex: 1 1 180px;
-  min-height: 38px;
-  font-size: 11px;
+flex: 1 1 180px;
+min-height: 38px;
+font-size: 11px;
 }
 
 .route-metrics {
-  padding: 22px 20px;
-  gap: 22px 16px;
+padding: 22px 20px;
+gap: 22px 16px;
 }
 
 .route-metrics > div,
 .route-steps > div,
 .quoted-fees > span {
-  min-width: 0;
+min-width: 0;
 }
 
 .route-metrics small {
-  color: #82ad90;
-  font-size: 8px;
+color: var(--td-mu3);
+font-size: 8px;
 }
 
 .route-metrics b {
-  display: block;
-  max-width: 100%;
-  color: #d2f1da;
-  font-size: 12px;
-  overflow-wrap: anywhere;
+display: block;
+max-width: 100%;
+color: var(--td-ac10);
+font-size: 12px;
+overflow-wrap: anywhere;
 }
 
 .route-steps {
-  padding: 18px 20px;
+padding: 18px 20px;
 }
 
 .route-steps > div {
-  padding: 13px 0;
+padding: 13px 0;
 }
 
 .route-steps b {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: #c4e7cd;
-  font-size: 12px;
+min-width: 0;
+overflow-wrap: anywhere;
+color: var(--td-ac11);
+font-size: 12px;
 }
 
 .route-steps small {
-  font-size: 10px;
+font-size: 10px;
 }
 
 .quoted-fees {
-  padding: 5px 20px 20px;
+padding: 5px 20px 20px;
 }
 
 .quoted-fees > span {
-  min-width: 0;
-  color: #8db89a;
-  font-size: 10px;
-  overflow-wrap: anywhere;
+min-width: 0;
+color: var(--td-ac12);
+font-size: 10px;
+overflow-wrap: anywhere;
 }
 
 .quoted-fees > span b {
-  overflow-wrap: anywhere;
-  color: #d1eed9;
+overflow-wrap: anywhere;
+color: var(--td-ac13);
 }
 
 .fee-preview {
-  background: #151a18;
-}
-
-/* The setting deliberately affects the execution desk and route readout first:
-   these are the places where a user must read values before approving a swap. */
-.text-scale-large .swap-desk {
-  --swap-readable-scale: 1.12;
+background: var(--td-sf5);
 }
 
 .text-scale-large .swap-desk {
-  --swap-readable-scale: 1.24;
+--swap-readable-scale: 1.24;
 }
 
 .text-scale-large .swap-desk .command-section-title > span:first-child,
 .text-scale-large .swap-desk .command-section-title > span:first-child {
-  font-size: calc(12px * var(--swap-readable-scale));
+font-size: calc(12px * var(--swap-readable-scale));
 }
 
 .text-scale-large .swap-desk .route-metrics b,
 .text-scale-large .swap-desk .route-metrics b {
-  font-size: calc(12px * var(--swap-readable-scale));
+font-size: calc(12px * var(--swap-readable-scale));
 }
 
 [data-testid="swap-review-dialog"] {
-  box-sizing: border-box;
-  max-height: calc(100vh - 24px);
-  overflow-y: auto;
+box-sizing: border-box;
+max-height: calc(100vh - 24px);
+overflow-y: auto;
 }
 
 [data-testid="swap-review-dialog"] > h2 {
-  font-size: calc(18px * var(--swap-review-readable-scale, 1));
-  line-height: 1.25;
+font-size: calc(18px * var(--swap-review-readable-scale, 1));
+line-height: 1.25;
 }
 
 [data-testid="swap-review-dialog"] > p {
-  font-size: calc(12px * var(--swap-review-readable-scale, 1));
+font-size: calc(12px * var(--swap-review-readable-scale, 1));
 }
 
 [data-testid="swap-review-dialog"] .review-facts > div {
-  font-size: calc(11px * var(--swap-review-readable-scale, 1));
+font-size: calc(11px * var(--swap-review-readable-scale, 1));
 }
 
 [data-testid="swap-review-dialog"] .review-facts dd {
-  font-size: calc(10px * var(--swap-review-readable-scale, 1));
+font-size: calc(10px * var(--swap-review-readable-scale, 1));
 }
 
 [data-testid="swap-review-dialog"] > .btn-primary {
-  width: 100%;
-  min-height: calc(42px * var(--swap-review-readable-scale, 1));
-  padding: calc(12px * var(--swap-review-readable-scale, 1)) calc(19px * var(--swap-review-readable-scale, 1));
-  font-size: calc(13px * var(--swap-review-readable-scale, 1));
+width: 100%;
+min-height: calc(42px * var(--swap-review-readable-scale, 1));
+padding: calc(12px * var(--swap-review-readable-scale, 1)) calc(19px * var(--swap-review-readable-scale, 1));
+font-size: calc(13px * var(--swap-review-readable-scale, 1));
 }
 
 @media (max-width: 760px) {
-  .swap-desk {
-    grid-template-columns: 1fr;
-  }
+.swap-desk {
+grid-template-columns: 1fr;
+}
 }
 
 @media (max-width: 500px) {
-  .swap-order .command-section-title,
-  .route-intelligence .command-section-title {
-    align-items: flex-start;
-  }
+.swap-order .command-section-title,
+.route-intelligence .command-section-title {
+align-items: flex-start;
+}
 
-  .swap-order .command-section-title > small,
-  .route-intelligence .command-section-title > small {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    text-align: right;
-  }
+.swap-order .command-section-title > small,
+.route-intelligence .command-section-title > small {
+max-width: 100%;
+overflow-wrap: anywhere;
+text-align: right;
+}
 
-  .swap-reverse-button {
-    width: 32px;
-    height: 32px;
-  }
+.swap-reverse-button {
+width: 32px;
+height: 32px;
+}
 
-  .route-metrics {
-    gap: 18px 12px;
-    padding-inline: 15px;
-  }
+.route-metrics {
+gap: 18px 12px;
+padding-inline: 15px;
+}
 
-  .route-steps b {
-    flex: 1 1 auto;
-  }
+.route-steps b {
+flex: 1 1 auto;
+}
 
-  .quoted-fees > span {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-  }
+.quoted-fees > span {
+display: flex;
+flex-wrap: wrap;
+justify-content: space-between;
+}
 
-  .quoted-fees > span b {
-    text-align: right;
-  }
+.quoted-fees > span b {
+text-align: right;
+}
 
-  [data-testid="swap-review-dialog"] {
-    width: calc(100% - 20px) !important;
-    padding: 22px !important;
-  }
+[data-testid="swap-review-dialog"] {
+width: calc(100% - 20px) !important;
+padding: 22px !important;
+}
 
-  [data-testid="swap-review-dialog"] .review-facts > div {
-    align-items: flex-start;
-  }
+[data-testid="swap-review-dialog"] .review-facts > div {
+align-items: flex-start;
+}
 }
 /* Compact swap card: amount + estimate follow the text-size setting. */
 .swap-desk .jup-amount {
-  font-size: 30px;
+font-size: 30px;
 }
 
 .swap-desk .jup-out {
-  font-size: 24px;
+font-size: 24px;
 }
 
 .text-scale-large .swap-desk .jup-amount,
 .text-scale-large .swap-desk .jup-amount {
-  font-size: calc(30px * var(--swap-readable-scale));
+font-size: calc(30px * var(--swap-readable-scale));
 }
 
 .text-scale-large .swap-desk .jup-out,
 .text-scale-large .swap-desk .jup-out {
-  font-size: calc(24px * var(--swap-readable-scale));
+font-size: calc(24px * var(--swap-readable-scale));
 }
