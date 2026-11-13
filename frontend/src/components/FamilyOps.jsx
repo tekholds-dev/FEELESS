@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/familyOps.css';
 
-// 🏙 SITE-4 · FAMILIA OPS: the family's own command center, from the block's real reads only (familia-block → _fblock_reads: marginfi, Save,
+// 🏙 SITE-4 · FAMILIA OPS: the family's own ops room, from the block's real reads only (familia-block → _fblock_reads: marginfi, Save,
 // Phoenix, PumpSwap LP, Meteora, Kamino, LSTs, LP NFTs). Net in markets, what the family owes, how close the worst loan is to its liquidation
 // line, and every built position as one row with its proof. Nothing is estimated: a building with no read shows no number.
 const PROOF = { chain: 'on-chain account', api: "protocol's own API", token: 'token balance', nft: 'position NFT' };
