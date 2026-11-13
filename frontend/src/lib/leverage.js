@@ -73,7 +73,7 @@ export async function levClose({ provider, address, rec, price, onStatus }) {
   }
   onStatus?.('② Repaying + unlocking…');
   const q = await build({ address, act: 'close', vaultId: rec.vaultId, nftId: rec.nftId });
-  const sig = await lendSign({ provider, address, quote: q, onStatus: s => onStatus?.(`② ${s}`) });
+  const sig = await lendSign({ provider, address, quote: q, onStatus: s => onStatus?.(`② ${s}`), exit: true });
   writeLev(address, readLev(address).filter(r => r.nftId !== rec.nftId));
   return sig;
 }

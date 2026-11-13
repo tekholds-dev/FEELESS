@@ -37,7 +37,7 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
       window.open(`https://dflow.net/proof?wallet=${addr}&signature=${s58}&timestamp=${ts}&redirect_uri=${encodeURIComponent(window.location.href)}`, '_blank', 'noopener'); }
     catch (e) { toast.error(e.message || 'Signature declined.'); } };
   const send = async (label, body) => { if (!(await need())) return; setBusy(label);
-    try { const b = await post('/api/reputation/familia/kalshi/order', { address: addr, ...body }); const signed = await signTx(provider, addr, b.transaction, 'games');
+    try { const b = await post('/api/reputation/familia/kalshi/order', { address: addr, ...body }); const signed = await signTx(provider, addr, b.transaction, body.act === 'redeem' ? null : 'games');
       const { signature } = await post('/api/reputation/familia/kalshi/send', { signed });
       let st = 'pending';
       for (let i = 0; i < 30 && !['closed', 'failed', 'expired'].includes(st); i += 1) { await new Promise(res => setTimeout(res, 2000));

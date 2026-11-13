@@ -89,6 +89,8 @@ def test_lend_keys_try_the_read_key_then_the_keeper_lanes():
 
 
 def test_the_route_builds_verifies_and_falls_through_a_busy_key(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     from fastapi.testclient import TestClient
     me = Keypair().pubkey(); good = _tx(me, [CB, VAULTS]); bad = _tx(me, [VAULTS, Keypair().pubkey()])

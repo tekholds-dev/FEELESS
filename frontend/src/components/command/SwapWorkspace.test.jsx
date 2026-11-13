@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { VersionedTransaction } from '@solana/web3.js';
 import { SwapWorkspace } from './SwapWorkspace';
-jest.mock('../../lib/legal', () => ({ ...jest.requireActual('../../lib/legal'), assertLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
+jest.mock('../../lib/legal', () => ({ ...jest.requireActual('../../lib/legal'), assertLegal: jest.fn(async () => true), assertSwapLegal: jest.fn(async () => true) }));   // ⚖ the LEGAL-1 gate has its own tests (lib/legal.test.js); these test the signing flow after it
 jest.setTimeout(30000);   // the saved-order recovery test polls up to 5 s and ran ~7 s under the 4-worker gate (2026-10-26) — not a hang
 
 jest.mock('./ReceiptsCard', () => ({ ReceiptsCard: () => null }));

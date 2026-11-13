@@ -40,6 +40,7 @@ def _internal_ok(request):
 
 
 from fee_tx import DECIMALS, build_transaction, fee_instructions, lookup_tables, split_fee
+from legal import EXIT_MINTS as LEGAL_EXIT_MINTS   # ⚖ a sell back into SOL / USDC is an exit: never held
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
 JUPITER_API_URL = os.environ.get('JUPITER_API_URL', 'https://api.jup.ag').rstrip('/')
@@ -228,6 +229,7 @@ class TradingService:
     def __init__(self, db):
         self.db = db
         self._fills_cache = {}
+        self._legal_cache = {}   # (wallet, country) → (at, why): LEGAL-1 (d)
         self._acct_seen = {}
         self._sol_hist = {}
         self._scan_locks = {}
@@ -681,6 +683,30 @@ class TradingService:
         self._fills_cache[k] = (time.time(), out)
         return out
 
+    async def legal_why(self, wallet, request):
+        """⚖ LEGAL-1 (d): the reputation service's legal gate for a wallet about to be quoted a buy ('' = go on). A pass is kept per wallet +
+        country for 60 s; a refusal is asked again. If that service can't answer, the quote goes on (the browser's own gate still holds a wallet it never saw accept)
+        and the miss is logged."""
+        c_ = next((str(request.headers.get(h) or '').upper() for h in ('cf-ipcountry', 'x-vercel-ip-country', 'cloudfront-viewer-country') if request.headers.get(h)), '')
+        k_ = (wallet, c_); hit = self._legal_cache.get(k_)
+        if hit and time.time() - hit[0] < 60:
+            return hit[1]
+        try:
+            async with httpx.AsyncClient(timeout=4) as http:
+                r = await http.get('http://127.0.0.1:5077/api/reputation/internal/legal-gate', headers={'x-feeless-internal': _internal_key() or ''},
+                                   params={'wallet': wallet, 'feature': 'swap', 'country': c_})
+            if r.status_code != 200:
+                raise ValueError(r.status_code)
+            why_ = str(r.json().get('why') or '')
+        except Exception as e:   # noqa: BLE001
+            print(f'[legal] gate unreachable, quote goes on: {type(e).__name__} {str(e)[:60]}')
+            return ''
+        if not why_:   # only a pass is kept: a wallet that just accepted is never refused from an old answer
+            if len(self._legal_cache) > 5000:
+                self._legal_cache.clear()
+            self._legal_cache[k_] = (time.time(), '')
+        return why_
+
     async def confirm_loop(self, every=12):
         while True:
             try:
@@ -813,6 +839,10 @@ class TradingService:
                 valid_key(body.wallet)
             if body.input_mint == body.output_mint:
                 raise HTTPException(400, 'Choose different input and output tokens')
+            if body.wallet and not probe and body.output_mint not in LEGAL_EXIT_MINTS and not _internal_ok(request):   # ⚖ LEGAL-1 (d)
+                why_ = await self.legal_why(body.wallet, request)
+                if why_:
+                    raise HTTPException(403, why_)
             # Independent lookups run together: pay-coin decimals, receive-coin metadata and the FEELESS fee rule.
             meta_in, meta_out, fee, held = await asyncio.gather(self.metadata(body.input_mint), self.metadata(body.output_mint),
                                                                 self.fee_rule(body), self.balance_atoms(body.wallet, body.input_mint), return_exceptions=True)

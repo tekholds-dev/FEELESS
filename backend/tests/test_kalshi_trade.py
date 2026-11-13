@@ -77,6 +77,8 @@ def test_the_ticket_the_order_match_and_settlement_rules():
 
 
 def test_no_key_no_trading_and_proof_gates_a_buy(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     from fastapi import HTTPException
     monkeypatch.delenv('DFLOW_API_KEY', raising=False)

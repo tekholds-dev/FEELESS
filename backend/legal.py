@@ -91,6 +91,23 @@ def gate(cfg, feature, country, accepted=None):
     return {'ok': True, 'why': ''}
 
 
+# 🚪 EXITS ARE NEVER HELD (reduce-only, like the peers): a wallet whose country the owner closes later can always take its money out.
+EXIT_MINTS = ('So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')   # a sell back into SOL / USDC
+PERPS_EXITS = ('decrease-position', 'create-tpsl', 'cancel-tpsl', 'update-tpsl')   # a TP / SL only ever closes
+
+
+def hold(s, feature, wallet, country=None):
+    """⚖ The server's own check before a money route builds or sends (LEGAL-1 d): the same gate the browser runs, on the wallet's stored
+    acceptance (its stated country counts here: the server reads its own record). → '' = go on, else the words to refuse with. Pure."""
+    st = status(s, wallet) if wallet else {'accepted': False, 'row': None}
+    row = st['row'] if st['accepted'] else None
+    seen = country if country and country not in ('XX', 'T1') else None
+    g = gate(s.get('cfg'), feature, seen, row)
+    if g['ok'] and seen and row:   # both count: a header a caller can set never hides the country the wallet itself stated
+        g = gate(s.get('cfg'), feature, None, row)
+    return '' if g['ok'] else g['why']
+
+
 def new_state():
     return {'accept': {}, 'cfg': default_cfg(), 'requests': []}
 

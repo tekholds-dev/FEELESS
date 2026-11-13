@@ -9599,6 +9599,8 @@ async def familia_broker_order(request: Request):
     import brokers as _bk
     b_ = await request.json()
     me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    if str((b_ or {}).get('action') or '').upper() != 'SELL':   # ⚖ LEGAL-1 (d): a buy is checked; a sell is an exit
+        _legal_hold(me_, 'brokers', request)
     _brk_seal()
     if str((b_ or {}).get('accountId') or '') == 'cdc':   # 🔑 the user's own Crypto.com Exchange keys
         ck_ = _brk_cdc(me_)
@@ -9683,6 +9685,7 @@ async def familia_kalshi_order(request: Request):
         meta_ = {'act': 'redeem', 'ticker': m_.get('ticker')}
     else:
         coin_, side_, usd_ = str(b_.get('coin') or '').upper(), str(b_.get('side') or ''), _fuse._f(b_.get('usd'))
+        _legal_hold(addr_, 'games', request)   # ⚖ LEGAL-1 (d): a buy is checked; a redeem is an exit
         ok_, why_ = kt_.ticket(coin_, side_, usd_)
         if not ok_:
             raise HTTPException(400, why_)
@@ -10737,6 +10740,8 @@ async def familia_pools_earn(request: Request):
         side_, asset_, signer_, amt_ = _le.clean_request(body)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    if side_ != 'withdraw':   # ⚖ LEGAL-1 (d): a withdraw is an exit, never held
+        _legal_hold(signer_, 'perps', request)
     ip_ = _guard.request_ip(request); now = time.time()
     hits_ = [t_ for t_ in _fle_hits.get(ip_, []) if now - t_ < 3600]
     if len(hits_) >= 30:
@@ -10854,6 +10859,8 @@ async def familia_perps_real_build(request: Request):
     if len(_fjp_hits) > 5000:
         _fjp_hits.clear()
     act_ = str((body or {}).get('act') or 'open')
+    if act_ != 'close' and not act_.startswith('tpsl-'):   # ⚖ LEGAL-1 (d): anything that builds an open is checked; closing / TP-SL are exits
+        _legal_hold((body or {}).get('address') or (body or {}).get('wallet'), 'perps', request)
     meth_, exec_ = 'POST', None
     try:
         if act_.startswith('tpsl-'):
@@ -10892,6 +10899,8 @@ async def familia_perps_real_execute(request: Request):
     act_, tx_, me_ = str((body or {}).get('action') or ''), str((body or {}).get('signed') or ''), str((body or {}).get('address') or '')
     if act_ not in ('increase-position', 'decrease-position', 'create-tpsl', 'update-tpsl', 'cancel-tpsl'):
         raise HTTPException(400, 'Open, close or TP / SL only.')
+    if act_ not in _legal.PERPS_EXITS:   # ⚖ LEGAL-1 (d): the last stop before Jupiter lands it; closing / cancelling is never held
+        _legal_hold(me_, 'perps', request)
     ok_, bad_ = _jp.verify(tx_, me_, signed=True)
     if not ok_:
         raise HTTPException(400, f'Refused: {bad_}')
@@ -11061,6 +11070,8 @@ async def familia_leverage_build(request: Request):
         act_, signer_, vid_, pid_, col_, lev_ = _lb.clean_request(body)
     except ValueError as e:
         raise HTTPException(400, str(e))
+    if act_ != 'close':   # ⚖ LEGAL-1 (d): repaying + unlocking is an exit, never held
+        _legal_hold(signer_, 'perps', request)
     ip_ = _guard.request_ip(request); now = time.time()
     hits_ = [t_ for t_ in _flv_hits.get(ip_, []) if now - t_ < 3600]
     if len(hits_) >= 30:
@@ -25814,6 +25825,32 @@ async def legal_status(request: Request, wallet: Optional[str] = None):
             'gates': {f: _legal.gate(s['cfg'], f, c, used) for f in _legal.FEATURES}}
 
 
+def _legal_hold(wallet, feature, request=None):
+    """⚖ LEGAL-1 (d): refuse a money route for a wallet the legal gate holds, so a direct API call can't skip the browser's check. Exits
+    never come here (callers skip them). Agent wallets (FEELESS-made, gated when their owner funded them) pass."""
+    w_ = str(wallet or '')
+    if not w_:
+        return
+    why_ = _legal.hold(_legal_s(), feature, primary_of(w_), _legal.country_of(request.headers) if request is not None else None)
+    if why_ and w_ not in _any_agent_wallets():   # the agents store is read only when the answer would refuse
+        raise HTTPException(403, why_)
+
+
+@app.get('/api/reputation/internal/legal-gate')
+async def internal_legal_gate(request: Request, wallet: str = '', feature: str = 'swap', country: str = ''):
+    """Internal key only: the swap engine (server, 5001) asks before it quotes a wallet. → {'ok', 'why'}"""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    if feature not in _legal.FEATURES:
+        raise HTTPException(400, 'No such feature.')
+    c_ = country.upper() if _legal.COUNTRY_RE.match(country.upper()) else None
+    why_ = _legal.hold(_legal_s(), feature, primary_of(wallet), c_) if wallet else ''
+    if why_ and wallet in _any_agent_wallets():
+        why_ = ''
+    return {'ok': not why_, 'why': why_}
+
+
 @app.post('/api/reputation/legal/accept')
 async def legal_accept(p: LegalAccept, request: Request):
     """The wallet states 18+, not sanctioned / not restricted, and its country — stored per wallet with this terms version."""
@@ -30831,8 +30868,9 @@ class PumpCreateIn(BaseModel):
 
 
 @app.post('/api/reputation/pump/create-tx')
-async def pump_create_tx(p: PumpCreateIn):
+async def pump_create_tx(p: PumpCreateIn, request: Request):
     me = _session_or_401(p.address, p.session)
+    _legal_hold(me, 'launch', request)   # ⚖ LEGAL-1 (d)
     if not (_re.match(_B58, p.mint) and _re.match(_B58, p.address)):
         raise HTTPException(400, 'Bad address.')
     if not (0 <= p.devBuySol <= 50):

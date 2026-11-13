@@ -97,7 +97,10 @@ def engine():
             return {'value': None if state.get('closed') else {'lamports': 2039280}}
         return {'value': [{'confirmationStatus': 'confirmed'}]} if method == 'getSignatureStatuses' else 'sig'
 
-    svc.metadata, svc.jupiter, svc.fee_rule, svc.rpc = metadata, jupiter, fee_rule, rpc
+    async def legal_why(wallet, request):   # ⚖ LEGAL-1 (d): the reputation service's answer, faked (never the live service)
+        state.setdefault('legal_asked', []).append(wallet); return state.get('legal', '')
+
+    svc.metadata, svc.jupiter, svc.fee_rule, svc.rpc, svc.legal_why = metadata, jupiter, fee_rule, rpc, legal_why
     app = FastAPI()
     app.include_router(svc.router())
     return TestClient(app), state, db

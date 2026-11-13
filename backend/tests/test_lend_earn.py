@@ -54,7 +54,8 @@ def test_requests_are_cleaned():
 
 
 def test_the_route_builds_verifies_and_refuses_a_foreign_program(monkeypatch):
-    import asyncio
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     from fastapi.testclient import TestClient
     me = Keypair().pubkey(); USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'

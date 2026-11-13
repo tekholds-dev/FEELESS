@@ -100,7 +100,7 @@ async def send(http, cm_key, cat, p, now):
         raise ValueError(f'could not read the wallet ({h.status_code})')
     held = {t.get('mint'): _f(t.get('amount')) for t in (h.json() or {}).get('tokens') or []}
     i, o, amount = guard(cat, p, held.get(SOL, 0.0), held.get(p.get('mint'), 0.0), now)
-    q = await http.post(f'{TRADE}/quote', json={'input_mint': i, 'output_mint': o, 'amount': amount, 'wallet': addr, 'slippage_bps': SLIP_BPS}, timeout=20)
+    q = await http.post(f'{TRADE}/quote', json={'input_mint': i, 'output_mint': o, 'amount': amount, 'wallet': addr, 'slippage_bps': SLIP_BPS}, headers=_internal_headers(), timeout=20)   # ⚖ internal: an agent wallet was gated when its owner funded it
     if q.status_code != 200:
         raise ValueError(f"no quote: {str((q.json() or {}).get('detail') if q.headers.get('content-type', '').startswith('application/json') else q.text)[:160]}")
     qj = q.json() or {}

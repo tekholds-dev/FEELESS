@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { assertLegal } from '../lib/legal';
+import { assertLegal, isExitSwap } from '../lib/legal';
 import { toast } from 'sonner';
 import { cardChoice } from '../lib/cardChoice';
 import { apiUrl, tradingCall, b64 } from '../lib/api';
@@ -74,7 +74,7 @@ export function FuseGo({ legs, onClose, fuse, orders, side = 'buy', position, on
     if (!provider || provider.publicKey?.toString() !== addr) { toast.error('Reconnect your Solana wallet and try again.'); return; }
     seq.current++; setPhase('signing');
     try {
-      await assertLegal('swap', addr);   // ⚖ LEGAL-1
+      if (!ready.every(r => isExitSwap(r.order?.output_mint))) await assertLegal('swap', addr);   // ⚖ LEGAL-1 (sells back into SOL / USDC are exits: never held)
       const { VersionedTransaction } = await import('@solana/web3.js');
       const txs = ready.map(r => VersionedTransaction.deserialize(Uint8Array.from(atob(r.order.quote.transaction), c => c.charCodeAt(0))));
       // 💳 a NEW card's first buy also prepays its first rounds' swap fees — one SOL transfer in the SAME approval (HQ / creator: never)

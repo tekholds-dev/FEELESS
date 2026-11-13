@@ -59,3 +59,10 @@ export async function assertLegal(feature, address, opts = {}) {
   if (r.needAccept) { try { window.dispatchEvent(new CustomEvent(LEGAL_NEEDED, { detail: { feature } })); } catch { /* no window */ } }
   throw new Error(r.why);
 }
+
+// 🚪 EXITS ARE NEVER HELD (reduce-only, like the peers): selling back into SOL / USDC, closing or cancelling a perp, a Kalshi redeem, a Lend
+// withdraw, a leverage close. A wallet whose country the owner closes later can always take its money out. The server applies the same rule.
+export const EXIT_MINTS = ['So11111111111111111111111111111111111111112', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'];
+export const PERPS_EXITS = ['decrease-position', 'create-tpsl', 'cancel-tpsl', 'update-tpsl'];   // a TP / SL only ever closes
+export const isExitSwap = outputMint => EXIT_MINTS.includes(String(outputMint || ''));
+export async function assertSwapLegal(address, outputMint, opts) { return isExitSwap(outputMint) ? true : assertLegal('swap', address, opts); }

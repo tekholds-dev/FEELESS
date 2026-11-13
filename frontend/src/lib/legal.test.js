@@ -1,4 +1,4 @@
-import { LEGAL_NEEDED, LEGAL_VERSION, assertLegal, forgetLegal, legalOk, markAccepted } from './legal';
+import { LEGAL_NEEDED, LEGAL_VERSION, assertLegal, assertSwapLegal, forgetLegal, isExitSwap, legalOk, markAccepted } from './legal';
 
 jest.mock('./chatSession', () => ({ readChatSession: a => (a === 'SIGNED' ? 'sess-1' : null) }));
 
@@ -67,9 +67,24 @@ test('⚖ a HUNG status call is cut after 8 s and counts as offline — a trade 
 
 test('⚖ Kalshi / lend / bridge / proof-send sign through the gate too (perps.signTx takes the feature; lendSign is perps)', () => {
   const fs = require('fs'); const path = require('path'); const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
-  expect(read('perps.js')).toMatch(/signTx\(provider, address, b64, feature = 'perps'\) \{\n\s+await assertLegal\(feature, address\)/);
-  expect(read('lendEarn.js')).toMatch(/lendSign\([^)]*\) \{\n\s+await assertLegal\('perps', address\)/);
+  expect(read('perps.js')).toMatch(/signTx\(provider, address, b64, feature = 'perps'\) \{\n\s+if \(feature\) await assertLegal\(feature, address\)/);
+  expect(read('lendEarn.js')).toMatch(/lendSign\([^)]*\) \{\n\s+if \(!exit && quote\?\.side !== 'withdraw'\) await assertLegal\('perps', address\)/);
   expect(read('bridgeExec.js')).toMatch(/await assertLegal\('swap', address\);[^\n]*\n[^\n]*\n\s+const signed = await provider\.signTransaction\(tx\)/);
-  expect(read('../components/perps/KalshiDesk.jsx')).toContain("signTx(provider, addr, b.transaction, 'games')");
+  expect(read('../components/perps/KalshiDesk.jsx')).toContain("signTx(provider, addr, b.transaction, body.act === 'redeem' ? null : 'games')");
   expect(read('../components/command/ProofKit.jsx')).toMatch(/await assertLegal\('agents'/);
+});
+
+test('🚪 exits are never held: a sell back into SOL / USDC passes with no status read; a buy is still checked', async () => {
+  answer({ accepted: false, gates: gates({ swap: { ok: false, why: 'Swaps are closed in GB.' } }) });
+  expect(isExitSwap('So11111111111111111111111111111111111111112')).toBe(true); expect(isExitSwap('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')).toBe(true);
+  await expect(assertSwapLegal('W', 'So11111111111111111111111111111111111111112')).resolves.toBe(true);
+  expect(fetch).not.toHaveBeenCalled();
+  await expect(assertSwapLegal('W', 'BonkMint1111111111111111111111111111111111')).rejects.toThrow('closed in GB');
+});
+
+test('🚪 closing / cancelling a perp, a Kalshi redeem, a Lend withdraw and a leverage close skip the gate (the source says so)', () => {
+  const fs = require('fs'); const path = require('path'); const read = f => fs.readFileSync(path.join(__dirname, f), 'utf8');
+  expect(read('perps.js')).toContain("PERPS_EXITS.includes(built.action) ? null : 'perps'");
+  expect(read('leverage.js')).toContain("act: 'close', vaultId: rec.vaultId, nftId: rec.nftId });\n  const sig = await lendSign({ provider, address, quote: q, onStatus: s => onStatus?.(`② ${s}`), exit: true });");
+  expect(read('swapEngine.js')).toContain('assertSwapLegal(wallet, order.output_mint)');
 });

@@ -1082,7 +1082,7 @@ async def _thinking_money(cat):
             return usdc
         _THINK_AT[cat['id']] = now
         try:
-            q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': _at.SOL, 'output_mint': _cf_usdc, 'amount': f'{amount:.6f}', 'wallet': addr, 'slippage_bps': _at.SLIP_BPS}, timeout=20)
+            q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': _at.SOL, 'output_mint': _cf_usdc, 'amount': f'{amount:.6f}', 'wallet': addr, 'slippage_bps': _at.SLIP_BPS}, headers=_at._internal_headers(), timeout=20)   # ⚖ an agent wallet's own swap (gated when its owner funded it)
             qj = q_.json() if q_.status_code == 200 else {}
             if qj.get('input_mint') != _at.SOL or qj.get('output_mint') != _cf_usdc or not (qj.get('quote') or {}).get('transaction'):
                 return usdc
@@ -10556,7 +10556,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 raise HTTPException(400, str(e))
             _SWAP_BUSY.add(cat_id)
             try:
-                q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': in_, 'output_mint': out_, 'amount': f'{amt_:.6f}', 'wallet': addr_, 'slippage_bps': _at.SLIP_BPS}, timeout=20)
+                q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': in_, 'output_mint': out_, 'amount': f'{amt_:.6f}', 'wallet': addr_, 'slippage_bps': _at.SLIP_BPS}, headers=_at._internal_headers(), timeout=20)   # ⚖ an agent wallet's own swap (gated when its owner funded it)
                 qj = q_.json() if q_.status_code == 200 else {}
                 if qj.get('input_mint') != in_ or qj.get('output_mint') != out_ or not (qj.get('quote') or {}).get('transaction'):   # 🔒 signs only the exact swap asked
                     raise HTTPException(502, 'No matching quote — nothing was signed.')

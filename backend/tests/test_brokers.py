@@ -57,6 +57,8 @@ def test_the_buildings_view_of_accounts_cash_and_positions():
 
 
 def test_the_endpoints_link_read_trade_and_unlink_on_the_wallet_session(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     for k, v in ENV.items():
         monkeypatch.setenv(k, v)
@@ -143,6 +145,8 @@ def test_the_seal_key_is_made_once_and_private(tmp_path):
 
 
 def test_alpaca_keys_are_proven_live_then_sealed_and_trade_your_own_account(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     monkeypatch.delenv('SNAPTRADE_CLIENT_ID', raising=False); monkeypatch.delenv('BROKER_SECRET_KEY', raising=False)
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: 'WALLET')
@@ -193,6 +197,8 @@ def test_alpaca_keys_are_proven_live_then_sealed_and_trade_your_own_account(monk
 
 
 def test_a_personal_snaptrade_key_is_the_owners_own_broker(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     monkeypatch.setenv('SNAPTRADE_CLIENT_ID', 'PERS-TESTCLIENT'); monkeypatch.setenv('SNAPTRADE_CONSUMER_KEY', 'CKEY'); monkeypatch.setenv('BROKER_SECRET_KEY', 'k' * 40)
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)

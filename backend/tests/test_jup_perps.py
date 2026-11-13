@@ -59,6 +59,8 @@ def test_positions_are_plain_dollars_pnl_before_fees():
 
 
 def test_routes_build_verify_execute(monkeypatch):
+    import reputation_service as _rs_legal
+    monkeypatch.setattr(_rs_legal, '_legal_hold', lambda *a, **k: None)   # ⚖ LEGAL-1 (d) has its own tests (test_legal_server_gate.py); this one tests the route
     import reputation_service as rs
     from fastapi.testclient import TestClient
     me = ME.pubkey(); keeper = Keypair().pubkey(); good = _tx(me, [CB, PERPS], keeper); bad = _tx(me, [PERPS, Keypair().pubkey()]); seen = []
