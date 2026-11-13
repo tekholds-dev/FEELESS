@@ -13,18 +13,11 @@
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
 
-**COL-9 · Agents work from the shared brain** · OPEN · claimed: —
-Done when: one live run where an agent reuses another agent's fresh read (shown in its folder). Real research (cited reads) where needed, never faked.
-
 **COL-10 · Method kits (ongoing)** · BACKFILLED 2026-11-13 · claimed: fable
 Checked: no Claude session had ever filed to the stash. Built `scripts/stash-builds.py` (+ `backend/claude_builds.py`): every Claude-made
 commit → stash 'Builds', tagged by model (git can't tell accounts apart). 1,195 filed (opus-5.5, fable-5, fable-5.2), live in /api/cats/stash/web.
 Left: run it on every commit. Claude was blocked from adding a git hook (persistence rule) → owner adds `.githooks/post-commit` calling
 `.venv/bin/python scripts/stash-builds.py --rev HEAD`, or runs `.venv/bin/python scripts/stash-builds.py` any time (never files twice).
-
-**COL-19 · Proving ground** · OPEN · claimed: —
-Done when: an arena with faked volume, delays and failures gates live permission; many runs with FREE models filed on the Test bench;
-handed to the owner clean → he funds the FeeCat wallet (HQ › Circle wallets).
 
 ## SITE
 
@@ -50,6 +43,7 @@ handled (rotate / fall back). No claim without a live read.
 **Owner only (Claude never moves funds) — 👑 owner 2026-11-12 (said twice, final): HE does ALL real-money testing himself. Claude's whole job is: finish every build row, prove it, push, tick this page, then TELL HIM it is ready to test. Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💸 COL-16 first real send (yours): open a filed proof → 🪙 Send to the Collective → SEND IT WITH YOUR FUNDS → Quote it → Sign and send.
+- 🏟 COL-19 proving ground verdicts (Proofs › Test bench): OSSY 33% · G4 43% → both stay on paper; reference player 100%. Making the verdict block real buys changes trading rules → your call. Re-run: `.venv/bin/python scripts/proving-ground.py --mind g4 --n 30`.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
   Circle → Phantom → AGT-26, AGT-24.

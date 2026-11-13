@@ -139,3 +139,4 @@ body.theme-day .gpv { background: #fff; border-color: #0000001a; } body.theme-da
 .pfund-math li { display: flex; justify-content: space-between; gap: 8px; } .pfund-math li span { opacity: .75; } .pfund-math li.is-total { border-top: 1px solid color-mix(in srgb, var(--m-text) 10%, transparent); padding-top: 4px; } .pfund-math li.is-total b { color: var(--m-accent); }
 .pfund-rcs { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; } .pfund-rc { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; } .pfund-rc a { color: var(--m-accent); }
 .pfund-math li { font: 500 12px var(--m-mono); align-items: baseline; } .pfund-math li b { font: 700 13px var(--m-mono); } .pfund-rc b { font: 700 13px var(--m-mono); } .pfund-rc span { font: 500 11.5px var(--m-mono); opacity: .8; }
+.kit-used .kit-shared { color: var(--m-accent); border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }

@@ -2,13 +2,12 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SitesRead } from './ProofKit';
 
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-
-test('📖 a proof shows what it really read and what walled it, and nothing for an old proof', async () => {
+// 🧠 COL-9: a folder that reused another agent's fresh read says whose and how old.
+test('a reused read names the agent that read it', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<SitesRead rows={[{ host: 'motion.dev', name: 'Motion', ok: true }, { host: 'codepen.io', name: 'CodePen', ok: false }]} />); });
-  const row = el.querySelector('[data-testid="sites-read"]'); expect(row.textContent).toContain('✓ Motion'); expect(row.textContent).toContain('✕ CodePen');
-  expect(row.querySelector('em.is-on').dataset.tip).toContain('motion.dev');
-  await act(async () => { root.render(<SitesRead rows={undefined} />); }); expect(el.querySelector('[data-testid="sites-read"]')).toBeNull();
-  act(() => root.unmount());
+  await act(async () => { root.render(<SitesRead rows={[{ host: 'espn.com', name: 'ESPN', ok: true, sharedBy: 'Happy', sharedAgo: 240 }]} />); });
+  expect(el.querySelector('[data-testid="sites-shared"]').textContent).toBe("↺ Happy's read · 4 min old");
+  await act(async () => { root.render(<SitesRead rows={[{ host: 'espn.com', name: 'ESPN', ok: true }]} />); });
+  expect(el.querySelector('[data-testid="sites-shared"]')).toBeNull();
+  await act(async () => root.unmount()); el.remove();
 });

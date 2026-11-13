@@ -106,7 +106,8 @@ export function ProofSubmit({ cat, work, f, kind }) {
 }
 // 📖 The listed sites really opened before the minds answered, and the ones that walled us.
 export function SitesRead({ rows }) {
-  return rows?.length ? <span className="kit-used" data-testid="sites-read">{rows.map(r => <em key={r.host} className={r.ok ? 'is-on' : ''} data-tip={r.ok ? `Read ${r.host} before answering` : `${r.host} blocked a plain read, so it moved on`}>{r.ok ? '✓' : '✕'} {r.name}</em>)}</span> : null;
+  const sh = rows?.find(r => r.sharedBy);   // 🧠 COL-9: another agent's fresh read, reused, never opened twice
+  return rows?.length ? <span className="kit-used" data-testid="sites-read">{sh ? <em className="is-on kit-shared" data-testid="sites-shared" data-tip="Another agent read these sites moments ago. This proof reused that read instead of opening them again">↺ {sh.sharedBy}'s read · {Math.max(1, Math.round((sh.sharedAgo || 0) / 60))} min old</em> : null}{rows.map(r => <em key={r.host} className={r.ok ? 'is-on' : ''} data-tip={r.ok ? `Read ${r.host} before answering` : `${r.host} blocked a plain read, so it moved on`}>{r.ok ? '✓' : '✕'} {r.name}</em>)}</span> : null;
 }
 
 export function powTools(folders = []) {
