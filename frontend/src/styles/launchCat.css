@@ -338,3 +338,20 @@ body.theme-day .lct-safe { background: #f2fbf5; } body.theme-day .lct-safe-grid 
 
 /* The model picker opens over an agent's desktop too */
 body.dsk-open .lct-pop { z-index: 2700; }
+/* 🎛 MODEL-CFG: one compact knob cluster per picked model (ModelKnobs.jsx) — only the controls that model supports */
+.lct-knobs { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; margin-top: 10px; }
+.mkn { border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface-2); overflow: hidden; }
+.mkn.is-plain { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; }
+.mkn b { font-size: 12px; color: var(--m-text); }
+.mkn small { font-size: 11px; color: var(--m-dim); }
+.mkn-head { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; width: 100%; text-align: left; gap: 1px 8px; padding: 8px 10px; background: transparent; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.mkn-head i { grid-row: 1 / 3; grid-column: 2; align-self: center; font-style: normal; font-family: var(--f-mono); color: var(--m-accent); }
+.mkn-head:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
+.mkn-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 10px 10px; border-top: 1px solid var(--m-line); }
+.mkn-row { display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 11px; color: var(--m-dim); position: relative; }
+.mkn-row > span { display: flex; justify-content: space-between; gap: 8px; }
+.mkn-row em { font-style: normal; font-size: 11px; color: var(--m-accent); }
+.mkn-row input[type='range'] { width: 100%; accent-color: var(--m-accent); }
+.mkn-x { justify-self: end; background: transparent; border: 0; color: var(--m-mute); font-size: 10px; cursor: pointer; padding: 0; }
+.mkn-x:hover { color: var(--m-accent); }
+@media (max-width: 640px) { .lct-knobs { grid-template-columns: 1fr; } }

@@ -99,6 +99,61 @@ PERSONAS = {   # 🧭 the prompt generator (owner 2026-10-30: "at least 25 good,
 
 from fnum import plain as _f   # noqa: E402
 
+# 🎛 MODEL-CFG (owner 2026-11-13): the user-facing controls, keyed by OpenRouter's own `supported_parameters` name. Each model shows ONLY the
+# ones it lists — a model with none shows a clean default. reasoning effort is carried separately (row['efforts']); these are the rest.
+# kind: 'slider' (min..max, step) · 'int' (a cap). 'help' is the one-line tip. Order here = the order shown.
+KNOB_SPECS = [
+    ('temperature', {'label': 'Temperature', 'kind': 'slider', 'min': 0, 'max': 2, 'step': 0.1, 'default': 0.2, 'help': 'How loose the answers get. Desk JSON calls want it low (0.1–0.2).'}),
+    ('top_p', {'label': 'Top-p', 'kind': 'slider', 'min': 0, 'max': 1, 'step': 0.05, 'default': 1, 'help': 'Nucleus sampling: 1 = consider everything; lower = only the likeliest words.'}),
+    ('top_k', {'label': 'Top-k', 'kind': 'int', 'min': 0, 'max': 200, 'default': 0, 'help': 'Only the K most likely next tokens (0 = off).'}),
+    ('min_p', {'label': 'Min-p', 'kind': 'slider', 'min': 0, 'max': 1, 'step': 0.01, 'default': 0, 'help': 'Drop tokens below this share of the top token (0 = off).'}),
+    ('frequency_penalty', {'label': 'Frequency penalty', 'kind': 'slider', 'min': -2, 'max': 2, 'step': 0.1, 'default': 0, 'help': 'Push the model off words it has already used a lot.'}),
+    ('presence_penalty', {'label': 'Presence penalty', 'kind': 'slider', 'min': -2, 'max': 2, 'step': 0.1, 'default': 0, 'help': 'Push the model toward new topics.'}),
+    ('repetition_penalty', {'label': 'Repetition penalty', 'kind': 'slider', 'min': 0, 'max': 2, 'step': 0.05, 'default': 1, 'help': 'Penalise repeating the same text (1 = off).'}),
+    ('verbosity', {'label': 'Verbosity', 'kind': 'choice', 'options': ['low', 'medium', 'high'], 'default': 'medium', 'help': 'How long the model lets its answers run (provider-specific).'}),
+    ('max_tokens', {'label': 'Max answer tokens', 'kind': 'int', 'min': 1, 'max': 32000, 'default': OUT_TOK, 'help': 'The hardest cap on how long one answer may be.'}),
+    ('seed', {'label': 'Seed', 'kind': 'int', 'min': 0, 'max': 2147483647, 'default': 0, 'help': 'A fixed seed makes answers repeatable (0 = off / random).'}),
+]
+KNOB_KEYS = {k for k, _ in KNOB_SPECS}
+# max_completion_tokens is OpenRouter's newer name for the same cap: treat either as max_tokens.
+_KNOB_ALIAS = {'max_completion_tokens': 'max_tokens'}
+
+
+def knobs_of(sp):
+    """The subset of KNOB_SPECS a model supports, from its `supported_parameters` set (plus aliases). [] = no extra knobs → clean default."""
+    have = set(sp) | {_KNOB_ALIAS[p] for p in sp if p in _KNOB_ALIAS}
+    return [{'key': k, **spec} for k, spec in KNOB_SPECS if k in have]
+
+
+def clamp_knobs(model_knobs, cfg):
+    """Keep only values the model supports, each clamped to its spec. model_knobs = row['knobs']; cfg = what the user saved. → clean dict."""
+    spec_by = {k['key']: k for k in (model_knobs or [])}
+    out = {}
+    for key, val in (cfg or {}).items():
+        s = spec_by.get(key)
+        if not s or val is None:
+            continue
+        try:
+            if s['kind'] in ('slider',):
+                out[key] = round(min(s['max'], max(s['min'], float(val))), 4)
+            elif s['kind'] == 'int':
+                out[key] = int(min(s['max'], max(s['min'], float(val))))
+            elif s['kind'] == 'choice' and str(val) in s['options']:
+                out[key] = str(val)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def body_knobs(knobs):
+    """Turn a saved knob dict into the OpenRouter request fields (seed/top_k 0 means 'off' → dropped)."""
+    out = {}
+    for k, v in (knobs or {}).items():
+        if k in ('seed', 'top_k', 'min_p') and not v:
+            continue
+        out[k] = v
+    return out
+
 
 def slim(m):
     """One OpenRouter /models row → what the grid needs ($ per 1M tokens)."""
@@ -120,6 +175,7 @@ def slim(m):
     if reason.get('mandatory'):
         row['efforts'] = [e for e in row['efforts'] if e != 'none']
     row['defaultEffort'] = reason.get('default_effort')
+    row['knobs'] = knobs_of(sp)   # 🎛 MODEL-CFG: exactly the controls OpenRouter says this model supports
     row['free'] = row['inUsd'] == 0 and row['outUsd'] == 0
     row['cats'] = cats_of(row)
     row['perDecision'] = decision_usd(row)
@@ -232,7 +288,7 @@ def plan(models, mode):
 
 
 PROOF_KINDS = ('pow', 'pop', 'pob', 'poc', 'pos', 'poe')   # 🧠🧠 COL-2: each proof kind may have its own two minds
-OWNED = ('brains', 'brainMode', 'billing', 'prompt', 'kind', 'efforts', 'promptLocked', 'credit', 'owed', 'spent', 'asks', 'chime', 'talk',
+OWNED = ('brains', 'brainMode', 'billing', 'prompt', 'kind', 'efforts', 'knobs', 'promptLocked', 'credit', 'owed', 'spent', 'asks', 'chime', 'talk',
          'decisions', 'cloud', 'minds', 'byKind')   # the keys clean() writes itself; every other setting rides along untouched
 
 
@@ -287,6 +343,7 @@ def clean(body, prev=None, ids=None, max_models=2):
     return {**keep, 'byKind': {k: v for k, v in by.items() if v},
             'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
             'efforts': {m: e for m, e in (body.get('efforts') or prev.get('efforts') or {}).items() if m in brains},
+            'knobs': {m: dict(v) for m, v in (body.get('knobs') or prev.get('knobs') or {}).items() if m in brains and isinstance(v, dict)},
             'promptLocked': bool(prompt), 'credit': prev.get('credit', 0.0 if kind == 'general' else START_CREDIT),   # 🧭 a general agent starts at $0: only real money buys its credit (owner 2026-10-31)
             'owed': prev.get('owed', 0.0),
             'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'talk': prev.get('talk', []), 'decisions': prev.get('decisions', []), 'cloud': prev.get('cloud', []),

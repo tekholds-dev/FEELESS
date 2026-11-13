@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { ModelKnobs } from './ModelKnobs';
 import { createPortal } from 'react-dom';
 import { Panther } from '../Panther';
 import { readChatSession } from '../../lib/chatSession';
@@ -295,7 +296,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const gen = kind === 'general'; const steps = gen ? GEN_STEPS : STEPS;
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState(gen ? 'turns' : BEST_MODE); const [workMode, setWorkMode] = useState('plan'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
-  const [efforts, setEfforts] = useState({});
+  const [efforts, setEfforts] = useState({}); const [knobs, setKnobs] = useState({});   // 🎛 MODEL-CFG: per-model knobs (only what each model supports)
   const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05);
   const [persona, setPersona] = useState(''); const [fundUsd, setFundUsd] = useState('10'); const [fundToken, setFundToken] = useState('SOL');   // 💵 what goes into its wallet (owner: "enter the amount at launch")
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
@@ -312,7 +313,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, face: readMyCat()?.face, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), knobs: Object.fromEntries(picked.filter(m => Object.keys(knobs[m.id] || {}).length).map(m => [m.id, knobs[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
       try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); localStorage.setItem(`feeless.fundToken.${r.cat.id}`, fundToken); } catch { /* private window */ }   // its funding step opens on this $
       const sealed = { ...Object.fromEntries(Object.entries(keys).filter(([k, v]) => v && !k.includes('.'))), ...Object.fromEntries(Object.keys(KEY_PARTS).map(k => [k, joinParts(k, keys)]).filter(([, v]) => v)) };   // two-part keys join here
       for (const [provider, secret] of Object.entries(sealed)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
@@ -332,9 +333,9 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
           <b className="m-num" data-testid="lct-total">{picked.length ? fmtUsd(picked.slice(0, 2).reduce((t, m) => t + costOf(m, gen).task, 0)) : '—'}</b>
           <button type="button" className="m-btn m-go lct-next-top" disabled={!ready[0]} onClick={() => setStep(1)} data-testid="lct-next-top" data-tip="Next: how its models work together">Next ›</button></div>
         <MindGlass m={picked[1]} k={1} gen={gen} onPick={pick} /></div>
+      {picked.length ? <div className="lct-knobs" data-testid="lct-knobs">{picked.map(m => <ModelKnobs key={m.id} model={m} testid={`lct-knobs-${m.id}`} effort={efforts[m.id] || ''} onEffort={v => setEfforts(x => ({ ...x, [m.id]: v }))} value={knobs[m.id] || {}} onChange={v => setKnobs(x => ({ ...x, [m.id]: v }))} />)}</div> : null}
       <ModelBrowser d={d} kind={kind} picked={picked} onPick={pick} />
     </div> : null}
-    {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} mode={gen ? workMode : mode} />
       {gen ? <><div className="lct-ways" role="radiogroup" aria-label="How its two minds work">{WORK_WAYS.map(([k, ic, t, why, flow], i) => <button key={k} type="button" role="radio" aria-checked={workMode === k}
           className={`lct-way${workMode === k ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => setWorkMode(k)} data-testid={`lct-work-${k}`} data-tip={why}>

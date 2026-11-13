@@ -981,6 +981,19 @@ async def _or_models():
     return _MODELS['rows'] or _lc.catalog([])
 
 
+def _model_knobs_clean(catalog, knobs):
+    """🎛 {model: {knob: value}} → only the knobs each model's live OpenRouter row lists, each clamped to its range; empty models dropped."""
+    rows = {m['id']: m for m in (catalog or {}).get('models') or []}
+    out = {}
+    for model, cfg in (knobs or {}).items():
+        if not isinstance(cfg, dict):
+            continue
+        c = _lc.clamp_knobs((rows.get(model) or {}).get('knobs'), cfg)
+        if c:
+            out[model] = c
+    return out
+
+
 async def _est_usd(model, in_chars, out_tokens):
     """💲 What one model call should cost BEFORE it runs (owner 2026-11-10: "show price for stuff so users aren't blind"): OpenRouter's own
     $ per 1M tokens for this model, prompt at ~3.5 characters a token. A model on his own machines is free. None = no price listed."""
@@ -1207,9 +1220,12 @@ async def _singit_free(messages, max_tokens=None):
 async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=None):
     """🧠 The one door for an agent's model call. Inside a proof (COL-2) it also files who really answered: route, model, $, tokens, time."""
     ans = {}; tok = _ANSWER.set(ans); t0 = time.perf_counter()
+    ktok_ = _OR_KNOBS.set((cat.get('brainsCfg') or {}).get('knobs') or None) if isinstance(cat, dict) else None
     try:
         text, usd, via = await _think_routes(cat, model, messages, own_key, effort, max_tokens)
     finally:
+        if ktok_ is not None:
+            _OR_KNOBS.reset(ktok_)
         _ANSWER.reset(tok)
     ctx = _CALL_CTX.get()
     if ctx:
@@ -1280,6 +1296,7 @@ def _receipt_write(row):
         print(f"[receipts] write failed: {type(e).__name__}")
 
 
+_OR_KNOBS = contextvars.ContextVar('or_knobs', default=None)   # 🎛 MODEL-CFG: {model: {temperature, top_p, …}} the agent's owner saved
 _OR_PLUGINS = contextvars.ContextVar('or_plugins', default=())   # 🔌 this folder's OpenRouter plugins, for the task running it
 _ANSWER: contextvars.ContextVar = contextvars.ContextVar('mind_answer', default=None)   # 🧾 COL-2: the deepest caller says who REALLY answered
 _CALL_CTX: contextvars.ContextVar = contextvars.ContextVar('proof_call', default=None)   # 🧾 the proof a call belongs to: kind, ref, minds, mind
@@ -1401,6 +1418,11 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None, back
         async with httpx.AsyncClient(timeout=240 if (max_tokens or 0) >= LONG_WRITE_TOK else 40) as h:   # a whole page is minutes of writing: at 40 s every Sonnet ad page timed out, fell to the 1,500-token route and was stitched into broken scripts (2026-11-11)
             long_write = not effort and (max_tokens or 0) >= LONG_WRITE_TOK   # 🧾 found 2026-11-10: Hy4 spent a whole 6,000-token page budget thinking, wrote nothing and still billed; off, it wrote the full game in half the time and cost
             body = {'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {'reasoning': {'enabled': False}} if long_write else {}), 'usage': {'include': True}}
+            kn_ = _lc.body_knobs(((_OR_KNOBS.get() or {}).get(model)) or {})   # 🎛 the owner's saved knobs for THIS model (already clamped to what it supports)
+            if kn_:
+                body.update({k: v for k, v in kn_.items() if k != 'max_tokens'})
+                if kn_.get('max_tokens'):
+                    body['max_tokens'] = min(int(kn_['max_tokens']), int(body['max_tokens'])) if not long_write else body['max_tokens']
             extra = {'plugins': plugins, **({'response_format': {'type': 'json_object'}} if any(x['id'] == 'response-healing' for x in plugins) else {})} if plugins else {}
             auth = {'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"}
             r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers=auth, json={**body, **extra})
@@ -5785,6 +5807,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None, re
     _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
     _WORK[cat_id]['task']['personal'] = _feat.personal_line(cat) + ('' if pow_ else _job_brain(cat, text))   # 🧠 what its owner told it, and what it knows by itself. A PoW's job stays as it was
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
+    _OR_KNOBS.set(b.get('knobs') or None)   # 🎛 rides into the task (create_task copies this context)
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
 
@@ -6511,6 +6534,7 @@ class CreatePayload(BaseModel):
     billing: Optional[str] = None
     prompt: Optional[str] = None
     efforts: Optional[dict] = None
+    knobs: Optional[dict] = None       # 🎛 MODEL-CFG: {model: {temperature, top_p, …}} — clamped to what each model supports
     look: Optional[dict] = None
     session: Optional[str] = None
     job: str = "agent"
@@ -6726,6 +6750,7 @@ async def create_cat(payload: CreatePayload):
             row = next((m for m in cat_.get('models', []) if m['id'] == model), {})
             if effort not in row.get('efforts', []):
                 raise HTTPException(400, 'That model does not expose the selected effort level.')
+        cat['brainsCfg']['knobs'] = _model_knobs_clean(cat_, cat['brainsCfg'].get('knobs'))   # 🎛 only what each model supports, each clamped
         cat['brainLabel'] = ' + '.join(x.split('/')[-1] for x in cat['brainsCfg']['brains'])
         cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
@@ -11802,6 +11827,8 @@ class ActionPayload(BaseModel):
     brains: Optional[list] = None      # 🔁 models: switch its models (24 h after it was made)
     workMode: Optional[str] = None     # 🧭 work_mode: plan · jobs
     memory: Optional[str] = None       # 🔁 models: 'keep' its memory (cloud + decisions) or start 'fresh' with the new models
+    efforts: Optional[dict] = None     # 🎛 model_cfg: {model: effort} (only efforts that model offers)
+    knobs: Optional[dict] = None       # 🎛 model_cfg: {model: {temperature, …}} (clamped to what that model supports)
 
 
 def owner_wallets():
@@ -12304,6 +12331,22 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         elif payload.memory == 'sort':   # 🧠 the NEW lead model reads its old cloud and keeps only what still helps (the rest is deleted)
             asyncio.create_task(_sort_cloud(cat_id, cat['brainsCfg']['brains'][0]))
         _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
+    elif payload.action == 'model_cfg':   # 🎛 MODEL-CFG: tune effort + knobs for its current models any time (a tune, not a switch: no 24 h lock)
+        if not cat.get('brainsCfg'):
+            raise HTTPException(400, 'This agent has no AI models.')
+        cat_ = await _or_models(); brains_ = cat['brainsCfg'].get('brains') or []
+        rows_ = {m['id']: m for m in cat_.get('models') or []}
+        eff_ = {}
+        for model, effort in (payload.efforts or {}).items():
+            if model in brains_ and effort:
+                if effort not in (rows_.get(model) or {}).get('efforts', []):
+                    raise HTTPException(400, 'That model does not expose the selected effort level.')
+                eff_[model] = effort
+        if payload.efforts is not None:
+            cat['brainsCfg']['efforts'] = eff_
+        if payload.knobs is not None:
+            cat['brainsCfg']['knobs'] = _model_knobs_clean(cat_, {m: v for m, v in payload.knobs.items() if m in brains_})
+        _log_event(store, cat, 'LEARN', '🎛 model settings tuned')
     elif payload.action == 'kind_models':   # 🧠🧠 COL-2: one proof kind's own two minds (empty = back to the agent's pair); budgets, credit and memory stay the agent's
         left = MODEL_LOCK_SEC - (time.time() - float(cat.get('createdAt') or 0))
         if left > 0 and not cat.get('isLeader'):
