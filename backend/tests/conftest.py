@@ -131,3 +131,22 @@ def _one_read_soft_exits(monkeypatch):
     if of is not None and hasattr(of, 'AGENT_STOP_MAX'):
         monkeypatch.setattr(of, 'AGENT_STOP_MAX', 1e9)   # 🛑 the 15% agent stop cap has its own test (test_office: agent_stop_cap) at its live value
     yield
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """🔒 The per-IP limiters are module-level and keyed by the test client's address + agent id, so 90+ owner calls a minute summed
+    over DIFFERENT tests 429'd whichever test came next (the full suite failed 6–13 tests that pass alone, 2026-11-13). Each test
+    starts with empty windows; the limiters keep their own tests (rate_ok with its own store, guard.check on a new state)."""
+    import sys
+    fs = sys.modules.get('feecat_service')
+    if fs is not None and isinstance(getattr(fs, '_RATE', None), dict):
+        fs._RATE.clear()
+    for name in ('reputation_service', 'server'):
+        m = sys.modules.get(name)
+        st = getattr(m, '_guard_state', None) if m is not None else None
+        if isinstance(st, dict):
+            for v in st.values():
+                if isinstance(v, dict):
+                    v.clear()
+    yield

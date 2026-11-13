@@ -7,7 +7,7 @@
 
 ## COLLECTIVE
 
-**COL-6 · PoStatic pilot on OSSY + G4** · OPEN · claimed: —
+**COL-6 · PoStatic pilot on OSSY + G4** · OPEN · claimed: fable 2026-11-13
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
 

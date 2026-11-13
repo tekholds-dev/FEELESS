@@ -97,6 +97,7 @@ import game_scores as _scores
 import proof_demos as _demos
 import page_look as _look
 import agent_eco as _eco
+import eco_market as _ecm
 import free_browser as _fb
 import show_ads as _ads
 import voice_mirror as _vm
@@ -1190,6 +1191,9 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
     _OR_CAT.set(cat.get('id'))
+    if str(model).startswith('local/'):   # 🖥 owner 2026-11-13: OSSY and G4 answer from their own LM Studio or not at all — never a paid or free stand-in
+        text, usd = await _lm_call(model, messages, max_tokens)
+        return (text, 0.0, 'lan' if str(model).endswith('g4') else 'local') if str(text or '').strip() else ('', 0.0, '')
     wallet = _pays_itself(cat)   # 💳 owner 2026-11-10: an agent on its own OpenRouter key still falls back to SingIt from its wallet when OpenRouter runs dry
     if (cat.get('personal') or cat.get('proofNote')) and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
@@ -2871,6 +2875,19 @@ def _pow2_cost(f, mind_i, usd):
         return
     f['cost'] = round(float(f.get('cost') or 0) + float(usd), 6)
     sp_ = f.setdefault('spend', {}); sp_[str(mind_i)] = round(float(sp_.get(str(mind_i)) or 0) + float(usd), 6)
+
+
+async def _eco_pools(http, addrs=None):
+    """Live pools for a PoEco market call: the named pairs when grading, else DexScreener's boosted Solana set. Never GeckoTerminal."""
+    try:
+        if addrs:
+            r = await http.get(f"https://api.dexscreener.com/latest/dex/pairs/solana/{','.join(addrs[:30])}", timeout=12)
+            return _ecm.rows_of((r.json() or {}).get('pairs'))
+        boosts = [x['tokenAddress'] for x in (await http.get('https://api.dexscreener.com/token-boosts/top/v1', timeout=12)).json() if x.get('chainId') == 'solana'][:12]
+        pairs = (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(boosts)}", timeout=12)).json() if boosts else []
+        return _ecm.rows_of(pairs)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return []
 
 
 async def _pow2_dex(http):
@@ -9417,6 +9434,25 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if p.op != 'eco_d_get':
             _eco_desk_save(cat_id, desk_)
         return {'desk': desk_, 'view': _eco.view(desk_, today_), 'today': today_, 'said': said_, 'poeFolders': (cat.get('poeFolders') or [])[::-1]}
+    if p.op == 'eco_call':   # 📊 PoEco rebuilt (owner 2026-11-13): one sealed market call on live pools, graded by reality a day later
+        async with httpx.AsyncClient(timeout=15) as http_:
+            rows_ = await _eco_pools(http_)
+        try:
+            list_ = cat.setdefault('poeFolders', []); f_ = _ecm.make_call(rows_, len(list_) + 1)
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:160])
+        list_.append(f_); keep_owned(cat); _save(store)
+        return {'poeFolders': cat['poeFolders'][::-1]}
+    if p.op == 'eco_grade':   # grades every due market call from fresh real numbers. Pure math, no one marks it
+        due_ = [f for f in cat.get('poeFolders') or [] if f.get('kind') == 'market' and not f.get('graded') and time.time() >= float(f.get('due') or 0)]
+        if due_:
+            addrs_ = sorted({f['baseline'][k]['addr'] for f in due_ for k in ('pick', 'other')})
+            async with httpx.AsyncClient(timeout=15) as http_:
+                rows_ = await _eco_pools(http_, addrs_)
+            for f in due_:
+                _ecm.grade(f, rows_)
+            keep_owned(cat); _save(store)
+        return {'poeFolders': (cat.get('poeFolders') or [])[::-1], 'graded': len(due_)}
     if p.op == 'eco_file':   # 📊 PoEco: Python does the math, its entries are sealed, the folder keeps totals and a hash
         rows_, skipped_ = _eco.parse(p.text)
         if not rows_:
@@ -9429,6 +9465,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         f_ = next((x for x in cat.get('poeFolders') or [] if x.get('id') == p.job), None)
         if not f_ or p.text not in ('right', 'wrong'):
             raise HTTPException(400, 'Mark one of its PoEco books.')
+        if f_.get('kind') == 'market':
+            raise HTTPException(400, 'Reality grades a market call. No hand marks.')
         f_['graded'] = p.text; keep_owned(cat); _save(store)
         return {'poeFolders': cat['poeFolders'][::-1]}
     if p.op == 'eco_send':   # a receipt: totals and the hash, never an entry
@@ -9436,7 +9474,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not f_:
             raise HTTPException(400, 'Pick one of its PoEco books.')
         f_['sent'] = round(time.time()); keep_owned(cat); _save(store)
-        return {'receipt': _eco.receipt(f_), 'poeFolders': cat['poeFolders'][::-1]}
+        return {'receipt': _ecm.receipt(f_) if f_.get('kind') == 'market' else _eco.receipt(f_), 'poeFolders': cat['poeFolders'][::-1]}
     if p.op == 'desk_layout':   # 🖥 where its folders sit, kept with the agent so a refresh, a full browser or another screen never loses it
         if isinstance(p.tools, dict) and isinstance(p.tools.get('pos'), dict):
             cat['deskIcons'] = {str(k)[:24]: {'x': max(0, min(20000, int(v['x']))), 'y': max(0, min(20000, int(v['y'])))} for k, v in list(p.tools['pos'].items())[:80] if isinstance(v, dict) and isinstance(v.get('x'), (int, float)) and isinstance(v.get('y'), (int, float))}

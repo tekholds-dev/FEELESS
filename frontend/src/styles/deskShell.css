@@ -202,7 +202,12 @@ body.dsk-open .app-content > :not(section), body.dsk-open #root > :not(.app-cont
 .pdk-filed li .m-btn { min-height: 28px; padding-inline: 10px; }
 @media (prefers-reduced-motion: reduce) { .dset-map i { transition: none; } }
 body.theme-day .dset-map { background: #1f18400d; border-color: #1f18402e; }
-.dset { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px 28px; } .dset > h3, .dset > .dset-reset, .dset > :has(.dset-walls) { grid-column: 1 / -1; } .dset-fit { grid-row: span 3; } .dset-fit .m-go { justify-self: start; }
+.dset { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px 28px; }
+/* 📁 Folder look picker: each option shows the folder itself in that look (owner 2026-11-13: icon options on desk settings) */
+.dset-looks { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.dset-looks button { display: grid; justify-items: center; gap: 5px; padding: 10px 6px 8px; border-radius: 12px; border: 1px solid #ffffff1a; background: #ffffff06; color: inherit; font: 600 11px var(--f-ui); cursor: pointer; transition: transform .14s, border-color .14s; }
+.dset-looks button:hover { transform: translateY(-2px); border-color: var(--m-accent, #b48cff); } .dset-looks button.is-on { border-color: var(--m-accent, #b48cff); background: color-mix(in srgb, var(--m-accent, #b48cff) 12%, transparent); }
+.dset-prev { display: grid; place-items: center; min-height: 48px; pointer-events: none; } .dset > h3, .dset > .dset-reset, .dset > :has(.dset-walls) { grid-column: 1 / -1; } .dset-fit { grid-row: span 3; } .dset-fit .m-go { justify-self: start; }
 /* 📜 Every folder shows all it has: a clipped child grows with its content, so the window's own scrollbar reaches the end. Studios that fill the window keep their height. */
 .dsk-body :is(.fch-card, .pst, .m-card):not(.m-card .m-card):not(.fch-card .m-card) { max-height: none; }
 .dsk-body > :is(.fch-card, .pst, .m-card), .dsk-body > * > :is(.fch-card, .pst, .m-card):only-child { height: auto; overflow: visible; align-self: start; }

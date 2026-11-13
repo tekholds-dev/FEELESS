@@ -5,11 +5,15 @@
 .fa { display: none; }
 [data-folders="mono"] :is(.dsk-ico, .dsk-xt)[class] .dsk-ico-art { --f: color-mix(in srgb, var(--m-accent) 82%, #ffffff); --f2: color-mix(in srgb, var(--m-accent) 55%, #000000); }
 [data-folders="mono"] .fa-cl { color: var(--m-accent-ink); filter: none; }
-[data-folders="outline"] :is(.dsk-ico-art, .dsk-file) { background: none; box-shadow: none; border-radius: 0; width: 56px; height: 44px; }
-[data-folders="outline"] .dsk-file { width: 38px; height: 46px; }
-[data-folders="outline"] :is(.dsk-ico-art, .dsk-file)::before, [data-folders="outline"] :is(.dsk-ico-art, .dsk-file)::after { display: none; }
-[data-folders="outline"] .fa-cl { display: none; }
-[data-folders="outline"] .fa { display: block; }
+:is([data-folders="outline"], [data-folders="night"]) :is(.dsk-ico-art, .dsk-file) { background: none; box-shadow: none; border-radius: 0; width: 56px; height: 44px; }
+:is([data-folders="outline"], [data-folders="night"]) .dsk-file { width: 38px; height: 46px; }
+:is([data-folders="outline"], [data-folders="night"]) :is(.dsk-ico-art, .dsk-file)::before, :is([data-folders="outline"], [data-folders="night"]) :is(.dsk-ico-art, .dsk-file)::after { display: none; }
+:is([data-folders="outline"], [data-folders="night"]) .fa-cl { display: none; }
+:is([data-folders="outline"], [data-folders="night"]) .fa { display: block; }
+/* 🌙 night: the same drawn folder, filled dark, the glyph lit in the folder's own colour (owner 2026-11-13: icon options in Desktop settings) */
+[data-folders="night"] .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 22%, #070a10); }
+[data-folders="night"] .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 30%, #0a0d14); }
+[data-folders="night"] .fa-g { color: color-mix(in srgb, var(--fa, var(--m-accent)) 65%, #ffffff); }
 .fa { width: 56px; height: 44px; overflow: visible; transition: transform .18s var(--m-ease); }
 .fa-file { width: 38px; height: 46px; }
 .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 14%, var(--m-surface)); stroke: color-mix(in srgb, var(--fa, var(--m-accent)) 45%, transparent); stroke-width: 1.25; }

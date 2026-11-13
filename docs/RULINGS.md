@@ -1,5 +1,14 @@
 # RULINGS — every owner decision, dated. ONE place: when he changes a rule, edit it HERE (and nowhere else); newest wins.
 
+## 2026-11-13
+- Discover kits: with 3 picked, picking a 4th REPLACES the 3rd (never a disabled card).
+- Folder headers (every proof folder, Git, stash) are compact and alive — no giant hero titles.
+- PoB shot chart draws ITS sport's floor (hoops, gridiron, rink, pitch, diamond, cage) — never a basketball court for every sport.
+- PoEco: the books idea is scrapped. PoEco = a sealed market call on live DexScreener pools, graded by the real numbers 24h later (no model, no hand mark, no money). Old book proofs open read-only.
+- Desktop settings › Folder look offers icon options with a live preview of each (Classic, Outline, Mono, Night).
+- OSSY and G4 answer from their own LM Studio or not at all: no SingIt, OpenRouter, SingIt-free or Groq stand-in (test_local_minds_no_fallback).
+- Claude works through every non-money card unattended; the owner does all real-money tests.
+
 ## 2026-11-12
 - His newest chat message beats every .md. Never stop to ask mid-list; build → prove → push → tick HANDOFF → say "ready to test".
 - First try = finished: styled, real data, tested, seen in the browser, pushed, HANDOFF ticked.

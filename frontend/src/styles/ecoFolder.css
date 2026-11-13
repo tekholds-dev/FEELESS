@@ -1,5 +1,23 @@
 /* 📊 PoEco: ledger gold on near-black, built from m-* tokens */
-.phd.is-poe, .pkt:has([data-testid^="pkt-poe"]), .eco-new, .eco-book { --pk: #e8c15a; }
+.phd.is-poe, .pkt:has([data-testid^="pkt-poe"]), .eco-new, .eco-book, .eco-call { --pk: #e8c15a; }
+/* 📊 PoEco REBUILT (owner 2026-11-13): one sealed market call — question, rule, the two pools, hash, verdict */
+.eco-call { display: grid; gap: 12px; align-content: start; animation: ecoIn .2s ease-out; }
+.eco-q { margin: 0; font: 700 17px/1.3 var(--f-display); color: #fff; }
+.eco-rule { display: grid; gap: 3px; margin: 0; padding: 9px 12px; border-radius: 11px; border: 1px solid #e8c15a2e; background: #e8c15a0d; font: 500 12px/1.4 var(--f-ui); }
+.eco-rule small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #e8c15a; }
+.eco-pools { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.eco-pool { display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid #ffffff17; background: linear-gradient(150deg, #ffffff0d, #ffffff04); }
+.eco-pool.is-lead { border-color: #e8c15a66; box-shadow: inset 0 1px 0 #e8c15a2e; }
+.eco-pool header { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .eco-pool header b { font: 700 14px var(--f-tech); color: #fff; }
+.eco-pool header em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #8b95a5; } .eco-pool.is-lead header em { color: #e8c15a; }
+.eco-pool dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; } .eco-pool dl div { display: grid; gap: 1px; min-width: 0; }
+.eco-pool dt { font: 800 8px var(--f-mono); letter-spacing: .1em; opacity: .6; } .eco-pool dd { margin: 0; font: 600 13px var(--f-mono); color: #fff; overflow: hidden; text-overflow: ellipsis; }
+.eco-turn { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; } .eco-turn small { font: 800 8.5px var(--f-mono); letter-spacing: .1em; opacity: .65; }
+.eco-turn i { height: 6px; border-radius: 3px; background: #ffffff12; overflow: hidden; } .eco-turn u { display: block; height: 100%; background: #e8c15a; transform-origin: left; transition: transform .3s ease; } .eco-turn b { font-size: 12px; }
+.eco-verdict { font: 800 11px var(--f-mono); font-style: normal; letter-spacing: .1em; padding: 3px 10px; border-radius: 999px; } .eco-verdict.is-right { color: #9ff5c3; background: #3ee58a1f; } .eco-verdict.is-wrong { color: #ff8fa3; background: #ff8fa31f; }
+.eco-due { font-style: normal; font-weight: 700; color: #e8c15a; }
+.eco-after { display: grid; gap: 2px; margin: 0; padding: 9px 12px; border-radius: 11px; border: 1px solid #ffffff17; font: 600 12.5px var(--f-mono); } .eco-after small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #e8c15a; }
+body.fx-lite .eco-call { animation: none; } body.theme-day :is(.eco-q, .eco-pool header b, .eco-pool dd) { color: #10241a; } body.theme-day .eco-pool { background: #fff; border-color: #00000018; }
 .eco-new { display: grid; gap: 10px; padding: 14px; margin-top: 12px; } .eco-new h4 { display: flex; align-items: center; gap: 6px; margin: 0; font: 800 10px var(--f-mono); letter-spacing: .14em; color: #e8c15a; }
 .eco-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .eco-row .m-input { flex: 1 1 200px; } .eco-row small { flex: 1 1 240px; font: 500 11.5px/1.35 var(--f-ui); opacity: .7; }
 .eco-book { display: grid; gap: 12px; align-content: start; animation: ecoIn .2s ease-out; } .eco-bh { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; } .eco-bh b { flex: 1 1 200px; font: 700 16px var(--f-display); color: #fff; } .eco-bacts { display: flex; flex-wrap: wrap; gap: 6px; } .eco-bacts .m-btn.is-on { background: #e8c15a; color: #171204; }

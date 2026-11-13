@@ -111,7 +111,7 @@ test('a PoStatic shows its steps, waits on its plan, and approval is what builds
   await act(async () => root.unmount());
 });
 
-test('Discover keeps the kit on screen, caps picks at 3, and lets the agent choose', async () => {
+test('Discover keeps the kit on screen, a 4th pick replaces the 3rd, and lets the agent choose', async () => {
   const { KitPick } = require('./FeaturesFolder');
   const kits = ['heroui', 'shadcn', 'magicui', 'motion'].map(id => ({ id, name: id, what: 'x', site: 'https://x.y', license: 'MIT', added: id === 'heroui', vitals: { items: 2 } }));
   const state = { kits, picks: [], mode: 'auto', max: 3 }; const calls = [];
@@ -123,7 +123,9 @@ test('Discover keeps the kit on screen, caps picks at 3, and lets the agent choo
   for (const id of ['heroui', 'shadcn', 'magicui']) { await act(async () => { document.querySelector(`[data-testid="kit-pick-${id}"]`).click(); }); }
   expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'heroui,shadcn,magicui', job: 'mine' });
   expect(el.querySelector('[data-testid="kit-on-heroui"]')).not.toBeNull();
-  expect(document.querySelector('[data-testid="kit-pick-motion"]').disabled).toBe(true);
+  expect(document.querySelector('[data-testid="kit-pick-motion"]').disabled).toBe(false);
+  await act(async () => { document.querySelector('[data-testid="kit-pick-motion"]').click(); });   // 4th pick takes the 3rd's place (owner 2026-11-13)
+  expect(calls.at(-1)).toMatchObject({ op: 'kit_pick', text: 'heroui,shadcn,motion', job: 'mine' });
   await act(async () => { document.querySelector('[data-testid="kit-pick-heroui"]').click(); });
   expect(el.querySelector('[data-testid="kit-pick"]')).not.toBeNull(); expect(el.querySelector('[data-testid="kit-on-heroui"]')).toBeNull();
   await act(async () => { document.querySelector('[data-testid="kit-mode-auto"]').click(); });
@@ -238,31 +240,24 @@ test('🧰 a kit opens in full with why it is suggested, a ready set fills the p
   await act(async () => { root.unmount(); }); el.remove();
 });
 
-test('🗂 PoEco asks 8 questions on first open, then the dash shows the server numbers and says it moves no money', async () => {
-  window.matchMedia = window.matchMedia || (() => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+test('📊 PoEco rebuilt: files a sealed market call, shows both pools and the hash, and reality grades it', async () => {
   const { EcoFolder } = require('./EcoFolder');
-  const view = { cash: 4200, net: 900, overdue: 1, overdueUsd: 1400, dueSoon: 0, dueSoonUsd: 0, owed: 2600, owedLate: 0, runway: 2.1, taxPct: 25, taxSetAside: 225, months: [], cats: [], count: 3, coach: [{ tab: 'bills', level: 'bad', text: '1 past due, $1,400.' }], pipeline: [], goals: [], openUsd: 0, income: 0, costs: 0, hasSamples: true };
-  let desk = { setup: null, ledger: [], bills: [{ id: 'b1', name: 'Rent', amount: 1400, due: '2026-11-01', every: 'month', link: 'https://pay.example.com' }], people: [], invoices: [], goals: [] };
-  const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'eco_d_setup') desk = { ...desk, setup: { wants: b.tools.wants, tone: b.tools.tone, tax: 25 } }; return { desk, view, today: '2026-11-06', poeFolders: [] }; };
+  const pool = (addr, pair, liq, vol) => ({ addr, pair, priceUsd: 1, liqUsd: liq, vol24h: vol, chg24h: 0 });
+  const open = { id: 'poe1', n: 1, kind: 'market', q: 'In 24h, AAA/SOL posts more 24h volume than BBB/SOL.', rule: 'Turnover momentum.', hash: 'abc123', at: 1, due: Math.round(Date.now() / 1000) + 3600, status: 'open', baseline: { pick: pool('a', 'AAA/SOL', 10000, 9000), other: pool('b', 'BBB/SOL', 20000, 4000) } };
+  let poeFolders = [];
+  const calls = []; const fake = async (_, b) => { calls.push(b); if (b.op === 'eco_call') poeFolders = [open]; return { poeFolders }; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<EcoFolder cat={{ id: 'c' }} d={{}} setD={() => {}} work={fake} onCommand={() => {}} />); });
-  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`); const tap = async id => { await act(async () => { q(id).click(); await new Promise(r => setTimeout(r, 30)); }); };
-  expect(q('eco-step').textContent).toBe('1 of 8');
-  await tap('eco-q-who-freelance');
-  expect(q('eco-step').textContent).toBe('2 of 8');
-  await tap('eco-q-wants-coach');   // takes Coach off: the tab must go with it
-  await tap('eco-q-next'); await tap('eco-q-next'); await tap('eco-q-next'); await tap('eco-q-next');
-  expect(q('eco-step').textContent).toBe('6 of 8');
-  await tap('eco-q-tax-25'); await tap('eco-q-goal-organized'); await tap('eco-q-next'); await tap('eco-q-tone-hard');
-  expect(q('eco-step').textContent).toBe('8 of 8');
-  await tap('eco-q-done');
-  expect(calls.at(-1)).toMatchObject({ op: 'eco_d_setup', tools: { who: 'freelance', tone: 'hard', goal: 'organized' } }); expect(calls.at(-1).tools.wants).not.toContain('coach');
-  expect(q('eco-start')).toBeNull(); expect(q('eco-tab-coach')).toBeNull(); expect(q('eco-tab-money')).not.toBeNull();
-  expect(q('eco-cash').textContent).toBe('$4,200'); expect(q('eco-samples')).not.toBeNull();
-  await tap('eco-tab-bills');
-  expect(q('eco-bills-note').textContent).toContain('does not send the money'); expect(q('eco-pay-b1').getAttribute('href')).toBe('https://pay.example.com');
-  await tap('eco-bill-paid-b1'); expect(calls.at(-1)).toMatchObject({ op: 'eco_d_bill_paid', text: 'b1' });
+  let setD; const Host = () => { const [d, s] = React.useState({ poeFolders }); setD = s; return <EcoFolder cat={{ id: 'c' }} d={d} setD={s} work={fake} onCommand={() => {}} />; };
+  await act(async () => { root.render(<Host />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('eco-call-go').click(); await new Promise(r => setTimeout(r, 10)); });
+  expect(calls.at(-1)).toMatchObject({ op: 'eco_call' });
+  await act(async () => { q('eco-poe1').click(); });
+  expect(q('eco-q').textContent).toContain('AAA/SOL posts more');
+  expect(q('eco-pool-pick').textContent).toContain('ITS PICK'); expect(q('eco-pool-other')).not.toBeNull();
+  expect(q('eco-hash').textContent).toBe('abc123'); expect(q('eco-due')).not.toBeNull();
+  await act(async () => { setD({ poeFolders: [{ ...open, graded: 'right', status: 'closed', after: { pick: pool('a', 'AAA/SOL', 10000, 7000), other: pool('b', 'BBB/SOL', 20000, 6000), marginUsd: 1000 } }] }); });
+  expect(q('eco-verdict').textContent).toContain('RIGHT'); expect(q('eco-after').textContent).toContain('margin');
   await act(async () => { root.unmount(); }); el.remove();
 });
 
