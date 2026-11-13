@@ -33,6 +33,7 @@ Order of authority: **1 Hard limits** (never bend) → **the owner's newest chat
 - Make one real call to an outside service before building on it. Research free/open libraries first (shadcn/ui, Motion, Recharts, Lightweight Charts) — never hand-draw a chart.
 - Every desk test → `test_bench.file_run` (Proofs › Test bench). Every safe build/data piece → the stash (Fee's stash/Git folder).
 - Never commit `.emergent/recordings/` or `scripts/trim-mongo-caches.py`. Commits end with `Co-Authored-By: <your model> <noreply@anthropic.com>`.
+- Phone / LAN wallet tests need https (wallets ignore plain-http LAN pages): owner runs `cloudflared tunnel --config /dev/null --url http://127.0.0.1:51367 --http-host-header localhost:51367` (his old `~/.cloudflared/config.yml` 404s a bare quick tunnel; `localhost` dials ::1 and fails). keep-alive restarts only the backend: if 51367 is down, start `feeless-frontend` (launch.json).
 - Ship steps for every account: the `feeless-ship` skill (`.claude/skills/feeless-ship/SKILL.md`).
 
 ## 4 · Where everything lives (read ONLY what your task needs)

@@ -295,7 +295,7 @@ Owner 2026-10-27: "family be a telegram game" → then "a cool third-person shoo
 1. **Make the bot.** In Telegram open **@BotFather** → `/newbot` → name `FEELESS Familia` → username e.g. `FeelessFamiliaBot`. Copy the token.
 2. **Put the token in** `backend/.env`: `TELEGRAM_BOT_TOKEN=<the token>` (never paste it anywhere else).
 3. **A public https address.** Telegram only opens https pages. Production: your `PUBLIC_SITE_URL`. To test from this Mac today:
-   `cloudflared tunnel --url http://localhost:51367` → it prints `https://<random>.trycloudflare.com` (keep that terminal open).
+   `cloudflared tunnel --config /dev/null --url http://127.0.0.1:51367 --http-host-header localhost:51367` → it prints `https://<random>.trycloudflare.com` (keep that terminal open).
 4. **Make the Mini App.** @BotFather → `/newapp` → pick your bot → title `Fee City Race` → description → a 640×360 picture (a screenshot of the
    Raceway works) → skip the GIF → **Web App URL** `https://<your https address>/familia?tg=1&place=strike` → short name `strike`.
    BotFather answers with the app link `https://t.me/FeelessFamiliaBot/strike` → put it in `backend/.env` as `TELEGRAM_APP_URL=`.
