@@ -1,0 +1,33 @@
+/* 🧪 Proofs › Test bench. m-* tokens; one keyframe set (tbn*). */
+.tbn { display: grid; gap: 12px; padding: 14px; min-width: 0; }
+.tbn-top { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.tbn-ring { width: 64px; height: 64px; } .tbn-ring circle { fill: none; stroke-width: 6; stroke: color-mix(in srgb, var(--m-text) 10%, transparent); }
+.tbn-ring circle.is-fg { stroke: var(--m-accent); stroke-linecap: round; filter: drop-shadow(0 0 6px var(--m-accent)); transition: stroke-dasharray .5s var(--m-ease, ease); } .tbn-ring text { font: 700 13px var(--f-mono); fill: var(--m-text); }
+.tbn-sum { display: grid; gap: 6px; min-width: 0; }
+.tbn-stats { display: flex; flex-wrap: wrap; gap: 6px; } .tbn-stats span { display: grid; gap: 1px; min-width: 70px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 70%, transparent); }
+.tbn-stats small { font: 800 9px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mute); } .tbn-stats b { font: 700 16px var(--f-mono); color: var(--m-text); }
+.tbn-stats .is-up b { color: var(--m-accent); } .tbn-stats .is-dn b { color: var(--m-danger); }
+.tbn-lens button { min-height: 32px; }
+.tbn-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tbn-run { position: relative; display: grid; gap: 6px; padding: 10px 12px 8px 16px; border-radius: 12px; border: 1px solid var(--m-line); background: linear-gradient(160deg, color-mix(in srgb, var(--tbn) 9%, var(--m-surface)), var(--m-surface)); animation: tbnIn .3s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 45ms); --tbn: var(--m-accent); }
+.tbn-run.is-bad { --tbn: var(--m-danger); } .tbn-run::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 3px; background: var(--tbn); box-shadow: 0 0 10px var(--tbn); }
+.tbn-head { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; } .tbn-head:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; border-radius: 6px; }
+.tbn-head b { flex: 1; min-width: 0; font: 700 13px var(--f-ui); color: var(--m-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .tbn-head:hover b { color: var(--tbn); }
+.tbn-badge { padding: 2px 8px; border-radius: 6px; font: 800 9.5px var(--f-mono); letter-spacing: .08em; background: var(--tbn); color: var(--m-bg); }
+.tbn-kind { padding: 2px 7px; border-radius: 6px; font: 700 9.5px var(--f-mono); border: 1px solid var(--m-line); color: var(--m-dim); }
+.tbn-meta { font: 600 10.5px var(--f-mono); color: var(--m-mute); white-space: nowrap; }
+.tbn-why { margin: 0; font: 500 12px/1.45 var(--f-ui); color: var(--m-dim); }
+.tbn-models { display: flex; flex-wrap: wrap; gap: 4px; } .tbn-models em { padding: 1px 7px; border-radius: 99px; font: 600 10px var(--f-mono); font-style: normal; color: var(--m-text); background: color-mix(in srgb, var(--m-text) 8%, transparent); }
+.tbn-more { display: grid; gap: 8px; animation: tbnIn .2s var(--m-ease, ease) both; }
+.tbn-steps { margin: 0; padding-left: 18px; font: 500 11.5px/1.5 var(--f-ui); color: var(--m-text); } .tbn-steps li::marker { color: var(--tbn); font-family: var(--f-mono); }
+.tbn-files { flex-wrap: wrap; } .tbn-files button { min-height: 32px; font-family: var(--f-mono); font-size: 10.5px; }
+.tbn-file { display: grid; gap: 6px; } .tbn-go { justify-self: start; min-height: 32px; } .tbn-go.is-on { background: var(--m-accent); color: var(--m-accent-ink); }
+.tbn-file pre { margin: 0; max-height: 320px; overflow: auto; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-bg) 90%, var(--m-accent)); font: 500 11px/1.55 var(--f-mono); color: var(--m-text); white-space: pre; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--m-accent) 55%, transparent) transparent; }
+.tbn-file pre::-webkit-scrollbar { width: 6px; height: 6px; } .tbn-file pre::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--m-accent) 55%, transparent); border-radius: 6px; }
+.tbn-file iframe { width: 100%; height: 340px; border: 1px solid var(--m-line); border-radius: 10px; background: var(--m-bg); }
+.tbn-by { font: 600 9.5px var(--f-mono); color: var(--m-mute); justify-self: end; }
+.tbn-none { margin: 0; padding: 14px; font: 500 12px var(--f-ui); color: var(--m-mute); text-align: center; }
+@keyframes tbnIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+body.fx-lite :is(.tbn-run, .tbn-more) { animation: none; } @media (prefers-reduced-motion: reduce) { :is(.tbn-run, .tbn-more) { animation: none; } .tbn-ring circle.is-fg { transition: none; } }
+body.theme-day .tbn-run { background: var(--m-surface); } body.theme-day .tbn-file pre { background: var(--m-surface); }
+@media (max-width: 640px) { .tbn-top { grid-template-columns: 56px minmax(0, 1fr); } .tbn-lens { grid-column: 1 / -1; } .tbn-meta { display: none; } .tbn-stats span { min-width: 0; flex: 1 1 28%; } }

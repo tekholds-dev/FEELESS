@@ -56,6 +56,7 @@ import agent_sources as _src   # 🧭 the sources book: which sites work for age
 import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
 import pow as _pow   # ⛏ Proof of Work: one intake coin, ≤4 sites × ≤5 moves × ≤3 vitals, graded an hour on
 import poi as _poi   # 🧬 private, model-independent Research DNA filed from verified PoW evidence
+import test_bench as _tbench   # 🧪 every test run on a desk, filed where its owner can see it (owner 2026-11-12)
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import agent_ipfs as _ipfs   # ⛓ a file kept on IPFS, paid in SOL by the agent's own wallet (toju.network)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
@@ -9525,6 +9526,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         res_ = await _store.check(_ws_placed(cat_id, v_[-1]['html']), device=True)
         res_['version'] = len(v_); doc_['storeCheck'] = {k_: res_[k_] for k_ in ('score', 'state', 'fails', 'warns', 'line', 'version', 'at')}; _ws_save(cat_id, doc_)
         return {'check': res_}
+    if p.op == 'test_runs':   # 🧪 Proofs › Test bench: every test run on this desk, newest first, with its totals
+        rows_ = _tbench.runs(DATA_DIR, cat_id, 80)
+        return {'runs': rows_, 'stats': _tbench.stats(rows_)}
+    if p.op == 'test_run_file':   # 📄 one kept output of a test run (its code, its raw reply)
+        text_ = _tbench.read_file(DATA_DIR, cat_id, str(p.job or ''), str(p.text or ''))
+        if text_ is None:
+            raise HTTPException(404, 'That test file is not kept here.')
+        return {'text': text_[:400000]}
     if p.op == 'ws_open':
         view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or []); view_['project'] = (cat.get('projectRepo') or {}).get('full')
         if p.ver is not None and p.ver == str(view_['versions']):
