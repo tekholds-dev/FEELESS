@@ -5,18 +5,18 @@
   background: linear-gradient(90deg, transparent 0, color-mix(in srgb, var(--clx-c) 55%, transparent) 22%, var(--clx-c) 100%); }
 /* the runner: a bright dash travelling toward the price axis — only on key levels and on any level the price is at */
 .clx-run { position: absolute; left: 0; top: 0; width: 22%; height: 100%; opacity: 0;
-  background: linear-gradient(90deg, transparent, #fff 60%, transparent); transform: translateX(-100%); }   /* 🧹 a line with no tag: the price is there, the noise is not */
+  background: linear-gradient(90deg, transparent, var(--m-text) 60%, transparent); transform: translateX(-100%); }   /* 🧹 a line with no tag: the price is there, the noise is not */
 .clx-tag { position: absolute; right: 4px; top: -8px; display: inline-flex; align-items: center; gap: 5px; height: 15px; padding: 0 6px; border-radius: 4px;
   font-family: var(--m-mono); white-space: nowrap; background: rgb(8, 10, 9); border: 1px solid color-mix(in srgb, var(--clx-c) 55%, transparent); color: var(--clx-c); z-index: 1; }
 .clx-tag.is-moved { border-style: dashed; opacity: .82; }   /* pushed off its own line so nothing overlaps: the line still marks the level */
 .clx-tag small { display: none; }   /* the level's price only when the price is near it — less on the chart */
 .clx-tag b { font-size: 8.5px; font-weight: 800; letter-spacing: .04em; } .clx-tag small { font-size: 8px; font-weight: 600; color: var(--m-dim); font-variant-numeric: tabular-nums; }
-.clx-tag em { font-style: normal; font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--m-ink, #e8fff1); }
+.clx-tag em { font-style: normal; font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--m-ink, var(--m-text)); }
 .clx-tag em:empty { display: none; }
 @keyframes clxRun { to { transform: translateX(460%); } }
 @keyframes clxBeat { 50% { transform: scale(1.8); opacity: .35; } }
 @keyframes clxHit { 0% { transform: scaleY(7); opacity: 1; } 100% { transform: scaleY(1); opacity: .8; } }body.fx-lite .clx-run, body.fx-lite .clx-tag::after { animation: none; } body.fx-lite .clx-run { opacity: 0 !important; }
-@media (prefers-reduced-motion: reduce) {.clx-run, .clx-tag::after { animation: none; } .clx-run { opacity: 0 !important; } }body.theme-day .clx-tag { background: #f3faf5; } body.theme-day .clx-tag em { color: #181e1b; } body.theme-day .clx-tag small { color: #47524d; } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, #181e1b 60%, transparent); }
+@media (prefers-reduced-motion: reduce) {.clx-run, .clx-tag::after { animation: none; } .clx-run { opacity: 0 !important; } }body.theme-day .clx-tag { background: var(--m-surface); } body.theme-day .clx-tag em { color: var(--m-text); } body.theme-day .clx-tag small { color: var(--m-text); } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, var(--m-text) 60%, transparent); }
 @media (max-width: 640px) { .clx-tag small { display: none; } }/* 🦠 GERM = ALIVE on every chart: a violet runner crawls the line, the tag's microbe spins and its edge pulses like a cell membrane { background: linear-gradient(90deg, transparent, #b388ff, #e3d4ff, transparent); opacity: .9; animation: clxRun 2.6s linear infinite; }
 @keyframes clxCell { 0%, 100% { opacity: .25; transform: scale(.96); } 50% { opacity: 1; transform: scale(1.08); } }
 /* 🦠 germ levels: the tag is hoverable (its live read in the tip) { pointer-events: auto; cursor: help; transition: scale .15s ease; }
