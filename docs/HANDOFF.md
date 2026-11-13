@@ -70,11 +70,35 @@
      per-map minimap, fx-lite lifts base light instead of lamps. Seen in his Chrome: FEE STREETS first-person with the gun + lit blocks + minimap.
      Tests: strikeGame MAPS (spawns inside walls, 3 distinct skies), chartShape guard. Not played online mode; the built-in pane has no WebGL (his Chrome does).
 
-7. **COLLECTIVE:** COL-6 PoStatic pilot on OSSY + G4 (owner approves the plan) → COL-11 Evolution Lab · COL-8 finish audit · COL-9 agents work
-   from the stash brain · COL-10 method kits + Tool Forge · COL-19 proving ground · COL-16 bids/browser wins to the Pool (needs an address) ·
-   COL-18 ledger move (on hold: 3.7 KB).
-8. **SITE:** SITE-4 Live ops finish · SITE-5 code split (slices 2–7 done) · SITE-2 logo · SITE-8 database + workers (FPS + load test ✅) ·
-   SITE-17 more lending readers. **≈19% of this list left** (COL-6/11/16/18 wait on the owner or a size trigger; see 8b).
+7. **COLLECTIVE — owner's word 2026-11-12 (chat, final; build in this order, sleek, no wasted time):**
+   - **COL-6 PoStatic pilot (OSSY + G4):** run it end to end: plan → build → review → real-browser test of the page → file → stash → grade →
+     stamp → events → vitals row. G4 needs the owner's Terminal (Claude has no LAN route): Claude preps the run + one command for him.
+   - **COL-11 Evolution Lab (after COL-6):** frozen baseline vs challenger on held-out data, promotion gate, rollback, generation history,
+     shadow trades. Never call one winning trade learning.
+   - **COL-16 graded proof with funds:** the USER sends a proof WITH an amount of funds to be graded; if the agent is on AUTO, the agent sends
+     the % from ITS OWN wallet along with the proof. Wallet signs every send; amount + % shown before it goes; receipt filed on the proof.
+     Owner does the first real-money send.
+   - **COL-18 ledger → database: HOLD LIFTED (owner: "idk why on hold, do what you need to finish it").** Move the Pool ledger into the DB
+     with its HMAC trail; `audit()` must still close; old file kept read-only as the backup; tests prove totals match before + after.
+   - **COL-8 audit, fast:** no deep dig — assure no bugs, labels/text match the data, designs aligned across every Collective folder. Fix what's off.
+   - **COL-9 shared brain, smart:** prove one live run where an agent reuses another's fresh read. Where a proof needs real research, it researches
+     (cited reads), never fakes — keep it sleek.
+   - **COL-10 kits = ongoing:** first check whether the owner's Claude accounts have actually been adding to the stash. If not, build the smart
+     fix: every Claude session/agent auto-files its working methods + builds into the stash (no relying on memory to do it).
+   - **COL-19 proving ground (owner: "lit"):** arena with faked volume, delays, failures that gates live permission. Claude tests it a lot with FREE
+     models first. Then it's handed over: the owner funds the FeeCat wallet in HQ › Circle wallets himself. Clean + ready before he funds.
+8. **SITE — owner's word 2026-11-12:**
+   - **SITE-4 command centers:** Familia's own + Sicario's, Fee, FeeCat rebuilt: real telemetry only, alive, dense, phone-ready.
+     **Familia amounts: the OWNER sets them, NO limits** (no caps on Familia amounts). ⚠ Conflict to show him, not to undo: DECISIONS' anti-exploit
+     rule "payout engine can't hit one family more than 3 times in 12 h" is a raid guard, not an amount cap — kept unless he says drop it.
+   - **SITE-5 split the big file, all of it:** money 52, writes 50, admin 48, the 11 overlapping, with every safety case tested (auth, signed
+     message = quoted, no resubmit, staff checks, route table identical). Don't waste time.
+   - **SITE-2 → hardening (owner: lag isn't bad):** prove many users at once AND attacks can't stop the operation: rate limits on every public
+     write, request size caps, slow-client timeouts, one bad endpoint can't starve the rest; load test with abuse traffic (`scripts/load-test.py`).
+   - **SITE-8 scale, clean:** real database for the hot stores + multiple workers, with no lost writes; load test proves it.
+   - **SITE-17 Familia lending readers — do the real work:** every reader wired into family blocks and checked against a real account on screen
+     (marginfi, Save, PumpSwap LP, Phoenix, Meteora); no claim without a live read shown. Fix the Helius 429 path (rotate keys / fall back).
+   **≈19% of the whole list left.** Then only the owner's money tests.
 8a. ✅ **SITE-11 price-gap view DONE 2026-11-12:** the swap shows **📐 PRICE GAP · BEFORE YOU BUY** for the coin being traded (`command/CoinGap.jsx`,
    reuses the Night Vault `Rail`; `GET /api/reputation/price-gap/{mint}`, one DexScreener /token-pairs read a minute, open only on the 2nd read),
    and with an open quote says whether Jupiter's route already goes through the cheapest pool's DEX. Read-only: no order change. **Live:** JUP 6/30
@@ -409,7 +433,7 @@ authority named · L3 re-checked independently (a second reader or a replay reac
 | COL-15 | BUILT 2026-11-10 (claim slice) | **＋ I traded it** on a PoW proposal folder (`ProposalClaim` in the PoW explorer, op `pow_claim`): where (e.g. Crypto.com), the result in $, an https receipt link, a note. Kept as `manual` on the folder; the record reads it as **owner claim, strength self**, never a settled result. Not built (real money, his test): the send from the agent wallet to the Collective that would confirm a claim; the py agents scanning marked areas. Tests: `test_pow_claim.py`, `CatWorkbench.test.jsx`. |
 | COL-16 | OPEN | **BD02:** bids and browser wins sending to the Pool. Needs the agent's Polymarket or site address on file and one real read of its public record. Perps stay paper. |
 | COL-17 | BUILT 2026-11-10 | **Math auditor on real data:** `collective_auditor.laws` (nothing negative, books add up, nobody paid past its points) now runs on the REAL Pool ledger every 5-minute pool pass beside the chain audit (`auditNow.laws`, a breach prints `[pool] MATH AUDIT`). Today's real ledger: 0 members, 0 sends, chain intact, laws clean. The stress suite (zero profit, losses, rounding, stale prices) keeps running on fakes. |
-| COL-18 | OPEN | **Measured 2026-11-10: the ledger is 3.7 KB today**, so moving it now only adds risk to live fee accounting; do it when it nears ~1 MB (the HMAC trail must move with it and `audit()` must still close). **LG01:** move the Pool ledger from one sealed file to a database before ~10,000 members (each fee rewrites a 46 MB file at 100,000). |
+| COL-18 | OPEN · HOLD LIFTED 2026-11-12 (owner: do it now, REMAINING 7) | **Measured 2026-11-10: the ledger is 3.7 KB today**, earlier note: moving it now only adds risk to live fee accounting; do it when it nears ~1 MB (the HMAC trail must move with it and `audit()` must still close). **LG01:** move the Pool ledger from one sealed file to a database before ~10,000 members (each fee rewrites a 46 MB file at 100,000). |
 | COL-19 | OPEN | **Proving ground** (GPT 2026-11-06): a permanent arena with manipulated volume, latency and failures that gates live permission. Paper desk, arena and `theory-shadow.py` exist. |
 | COL-20 | BUILT 2026-11-10 (first slice) | **Data contracts** (`contracts.py`): one versioned shape, one owner and a check for each shared record: the mission envelope, a model call row, a proof event, a part; tests run every contract on records made by their real code (and on the cleaned real folders). Not yet: schemas for PoW research, trade fills, Colony contributions, memory versions; the legacy agent store migration. |
 | COL-21 | OWNER | **Pool rules he must decide:** a higher grade paying back faster (today the seat and the limit both scale with boost, so payback days are equal); a 3-boost-point effort floor for low scores; rewards speed by profit growth, not only pot size; what debate points and convo boosts buy (CC01); the boost display. |
