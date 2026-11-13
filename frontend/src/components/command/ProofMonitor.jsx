@@ -16,11 +16,11 @@ export function codeLines(code, n = 90) {
   return (at > 0 ? body.slice(at) : body).split('\n').map(l => l.replace(/\t/g, '  ')).filter(l => l.trim()).slice(0, n);
 }
 
-function PsMon({ f, catId, work }) {
+function PsMon({ f, catId, work, view }) {
   const [doc, setDoc] = useState(null); const [err, setErr] = useState('');
   useEffect(() => { let on = true; if (!f?.ws || !work) return undefined; readDoc(work, catId, f.ws).then(d => on && setDoc(d)).catch(() => on && setErr('Its page could not be read right now.')); return () => { on = false; }; }, [f?.ws, catId, work]);
   const lines = codeLines(doc?.code);
-  return <div className="pmn-ps">
+  return <div className={`pmn-ps${view ? ' is-' + view : ''}`}>
     <div className="pmn-code" aria-label="Its code"><span className="pmn-bar"><i /><i /><i /><b>index.html</b></span>
       {lines.length ? <ol style={{ '--n': lines.length }}>{[...lines, ...lines].map((l, i) => <li key={i}>{l}</li>)}</ol> : <p className="pmn-none">{err || (doc ? 'No code filed yet.' : 'Reading its code…')}</p>}</div>
     <div className="pmn-page" aria-label="Its page"><span className="pmn-bar"><i /><i /><i /><b>{String(f?.topic || 'page').slice(0, 28)}</b></span>
@@ -56,5 +56,5 @@ function PoeMon({ f }) {
 }
 const BODY = { ps: PsMon, pow: PowMon, pob: PobMon, poc: PocMon, poe: PoeMon };
 export function ProofMonitorBody({ p, catId, work }) {
-  const B = BODY[p?.k]; return B && p?.f ? <B f={p.f} catId={catId} work={work} /> : null;
+  const B = BODY[p?.k]; return B && p?.f ? <B f={p.f} catId={catId} work={work} view={p.view} /> : null;
 }

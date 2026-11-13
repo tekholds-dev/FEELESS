@@ -31,3 +31,11 @@ test('🖥 each kind shows its own folder numbers; a missing number says so, nev
 test('codeLines skips the page head and blank lines', () => {
   expect(codeLines('<head>\n<title>t</title>\n</head>\n<script>\n\nlet x = 1;\n</script>')).toEqual(['<script>', 'let x = 1;', '</script>']);
 });
+
+test('🖥 a newest PoStatic takes both monitors: code on one, page on the other', () => {
+  const { monitorProof } = require('./CatWorkbench');
+  const ps = { k: 'ps', id: 's1' }; const pow = { k: 'pow', id: 'w1' };
+  expect(monitorProof([ps, pow], 0, 2).view).toBe('code'); expect(monitorProof([ps, pow], 1, 2).view).toBe('page');
+  expect(monitorProof([ps, pow], 2, 4)).toBe(pow);
+  expect(monitorProof([pow, ps], 1, 2)).toBe(ps);   // the split only happens when the PoStatic is the newest
+});

@@ -50,3 +50,7 @@ body.theme-day .pmn-code, body.theme-day .pmn-page { background: var(--m-surface
 .cwb-proof .pmn-code li { display: block; height: 1.55em; margin: 0; padding: 0; line-height: 1.55; white-space: pre; }
 .cwb-proof .pmn-code > ol > li { min-height: 0; border: 0; background: none; }   /* a desk list rule gave every code line a 56px row with a divider */
 .pmn-code > ol { overflow: visible; align-self: start; } .pmn-code > .pmn-bar, .pmn-page > .pmn-bar { position: relative; z-index: 1; background: color-mix(in srgb, var(--m-bg) 80%, var(--m-surface)); }
+/* one monitor = the code, the other = the page (owner 2026-11-12) */
+.pmn-ps.is-code, .pmn-ps.is-page { grid-template-columns: minmax(0, 1fr); } .pmn-ps.is-code > .pmn-page, .pmn-ps.is-page > .pmn-code { display: none; }
+.pmn-ps.is-code .pmn-code ol { font-size: 11px; } .pmn-ps.is-page .pmn-page iframe { width: 160%; height: 160%; transform: scale(.625); }
+@media (max-width: 640px) { .pmn-ps.is-code > .pmn-code { display: grid; } }
