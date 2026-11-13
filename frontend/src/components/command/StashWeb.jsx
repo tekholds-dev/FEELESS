@@ -4,7 +4,7 @@ import { agentAuth } from '../../lib/chatSession';
 import '../../styles/boosts.css';
 
 // 🧊 THE STASH'S WEB (owner 2026-11-05): every dot is something it really holds, counted live. The middle is the Stash, the ring is what kind of thing, the outside is where it came from. No dot is drawn that the server did not count.
-const CAT_COLOR = { Trades: '#3ee58a', Perps: '#a06bff', Picks: '#ffc24d', Content: '#ff8bd8', Code: '#7fd0ff', Snapshots: '#4fb8ff' };
+const CAT_COLOR = { Trades: '#3ee58a', Perps: '#a06bff', Picks: '#ffc24d', Content: '#ff8bd8', Code: '#7fd0ff', Snapshots: '#4fb8ff', Builds: '#19e68c' };   // 🧰 COL-10: every Claude build
 const fmt = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n || 0));
 export const bytes = n => (n >= 1e12 ? `${(n / 1e12).toFixed(1)} TB` : n >= 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB` : n >= 1e3 ? `${Math.round(n / 1e3)} KB` : `${n || 0} B`);
 // A browser without WebGL2 cannot load the map at all: the numbers below still stand, so it gets a line instead of a crash.

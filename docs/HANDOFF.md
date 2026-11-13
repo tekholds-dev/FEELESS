@@ -13,15 +13,14 @@
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
 
-**COL-8 · Collective audit (fast)** · OPEN · claimed: —
-Done when: every Collective folder checked for bugs, text matches the data, designs aligned; fixes pushed. No deep dig.
-
 **COL-9 · Agents work from the shared brain** · OPEN · claimed: —
 Done when: one live run where an agent reuses another agent's fresh read (shown in its folder). Real research (cited reads) where needed, never faked.
 
-**COL-10 · Method kits (ongoing)** · OPEN · claimed: —
-First: check whether the owner's Claude accounts have been adding to the stash. If not, build the smart fix: every Claude session/agent
-auto-files its methods + builds into the stash. Done when: new entries from more than one account visible in the stash.
+**COL-10 · Method kits (ongoing)** · BACKFILLED 2026-11-13 · claimed: fable
+Checked: no Claude session had ever filed to the stash. Built `scripts/stash-builds.py` (+ `backend/claude_builds.py`): every Claude-made
+commit → stash 'Builds', tagged by model (git can't tell accounts apart). 1,195 filed (opus-5.5, fable-5, fable-5.2), live in /api/cats/stash/web.
+Left: run it on every commit. Claude was blocked from adding a git hook (persistence rule) → owner adds `.githooks/post-commit` calling
+`.venv/bin/python scripts/stash-builds.py --rev HEAD`, or runs `.venv/bin/python scripts/stash-builds.py` any time (never files twice).
 
 **COL-19 · Proving ground** · OPEN · claimed: —
 Done when: an arena with faked volume, delays and failures gates live permission; many runs with FREE models filed on the Test bench;
