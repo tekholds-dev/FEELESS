@@ -17,7 +17,7 @@ test('PROOFS shows the newest 5, the dropdown holds up to 20, and a sent proof c
 });
 test('stamps say what they are', async () => {
   const el = await mount(<><ProofStamp s={{ state: 'proved' }} /><ProofStamp s={{ state: 'not' }} /><ProofStamp s={{ state: 'live' }} /><ProofStamp s={{ state: 'waiting', dueAt: Date.now() / 1000 + 7200 }} /></>);
-  expect(el.textContent).toContain('PROVED'); expect(el.textContent).toContain('NOT PROVED'); expect(el.textContent).toContain('LIVE'); expect(el.textContent).toContain('STAMP IN 2h');
+  expect(el.textContent).toContain('PROVED'); expect(el.textContent).toContain('NOT PROVED'); expect(el.textContent).toContain('STILL RUNNING'); expect(el.textContent).toContain('RESULT IN 2h');
 });
 test('recovery words show once, hide after saving, and rotating asks first', async () => {
   global.fetch = jest.fn(async (u, o) => ({ ok: true, json: async () => ({ kind: JSON.parse(o.body).text, secret: 'one two three four five six seven eight nine ten eleven twelve', kit: { phrase: { set: true, at: 100 }, key: { set: false } } }) }));

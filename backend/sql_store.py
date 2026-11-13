@@ -6,7 +6,7 @@ exists inside ONE process. With two uvicorn workers, a check-in saved by worker 
 row, and `update(key, fn)` reads, changes and writes that row inside one `BEGIN IMMEDIATE` transaction (SQLite's write lock is shared by
 every process), so two workers touching the same wallet are serialized and two touching different wallets never clash.
 
-  docs = Docs(path)                       # <name>.db beside the old file; the old .json is moved in once, byte for byte, and kept read-only
+  docs = Docs(path[, inner='profiles'])  # <name>.db beside the old file; the old .json is moved in once, byte for byte, and kept read-only
   docs.get(key, default) · docs.all() · docs.put(key, value) · docs.update(key, fn) → fn's return · docs.replace_all(mapping)
 `all()` is cached per database version (`PRAGMA data_version`), so hot readers pay one tiny query until somebody writes.
 """
@@ -14,13 +14,15 @@ import json
 import os
 import sqlite3
 import threading
+import time
 from pathlib import Path
 
 BUSY_MS = 10_000
 
 
 class Docs:
-    def __init__(self, path, migrate_from=None):
+    def __init__(self, path, migrate_from=None, inner=None):
+        self.inner = inner   # the old file wraps its rows one level down, e.g. {'profiles': {wallet: {...}}} → inner='profiles'
         self.path = Path(path).with_suffix('.db')
         self.src = Path(migrate_from) if migrate_from else Path(path).with_suffix('.json')
         self._local = threading.local()
@@ -32,9 +34,20 @@ class Docs:
         if c is None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             c = sqlite3.connect(str(self.path), timeout=BUSY_MS / 1000, isolation_level=None, check_same_thread=False)
-            c.execute('PRAGMA journal_mode=WAL'); c.execute(f'PRAGMA busy_timeout={BUSY_MS}'); c.execute('PRAGMA synchronous=NORMAL')
-            c.execute('CREATE TABLE IF NOT EXISTS docs (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
-            c.execute('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
+            c.execute(f'PRAGMA busy_timeout={BUSY_MS}')
+            # Switching a NEW file to WAL takes an exclusive lock that SQLite's busy handler does not wait for: workers opening the store
+            # together get 'database is locked' at once (caught by the 4-process test). Retry until the busy budget runs out.
+            for i_ in range(400):
+                try:
+                    c.execute('PRAGMA journal_mode=WAL')
+                    c.execute('CREATE TABLE IF NOT EXISTS docs (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
+                    c.execute('CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL)')
+                    break
+                except sqlite3.OperationalError as e:
+                    if 'locked' not in str(e) or i_ == 399:
+                        raise
+                    time.sleep(0.025)
+            c.execute('PRAGMA synchronous=NORMAL')
             self._local.c = c
             try:
                 os.chmod(self.path, 0o600)
@@ -53,6 +66,8 @@ class Docs:
                 old = {}
                 if self.src.exists():
                     old = json.loads(self.src.read_text() or '{}')
+                    if self.inner and isinstance(old, dict):
+                        old = old.get(self.inner) or {}
                     if not isinstance(old, dict):
                         raise ValueError(f'{self.src.name} is not a keyed store')
                 c.executemany('INSERT OR REPLACE INTO docs (k, v) VALUES (?, ?)', [(str(k), json.dumps(v)) for k, v in old.items()])

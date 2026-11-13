@@ -17,5 +17,5 @@ def test_pick_badges_from_chat(monkeypatch, tmp_path):
     monkeypatch.setattr(rs, '_badge_limits', lambda: {'profile': 3, 'chat': 3})
     out = asyncio.run(rs.set_featured_badges(rs.FeaturedBadgesIn(address=W, session='s', badges=['whale', 'not-earned', 'og', 'whale', 'fee-holder', 'sniper-hunter'])))
     assert out == {'featuredBadges': ['whale', 'og', 'fee-holder']}
-    saved = rs._json_load(tmp_path / 'profiles.json', {})['profiles'][rs.primary_of(W)]
+    saved = rs._prof().get(rs.primary_of(W))   # 🗄 SITE-8: profiles live one row per wallet in profiles.db now
     assert saved == {'displayName': 'degen', 'featuredBadges': ['whale', 'og', 'fee-holder']}

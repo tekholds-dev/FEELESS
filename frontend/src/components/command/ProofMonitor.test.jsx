@@ -37,7 +37,9 @@ test('🖥 a newest PoStatic takes both monitors: code on one, page on the other
   const ps = { k: 'ps', id: 's1' }; const pow = { k: 'pow', id: 'w1' };
   expect(monitorProof([ps, pow], 0, 2).view).toBe('code'); expect(monitorProof([ps, pow], 1, 2).view).toBe('page');
   expect(monitorProof([ps, pow], 2, 4)).toBe(pow);
-  expect(monitorProof([pow, ps], 1, 2)).toBe(ps);   // the split only happens when the PoStatic is the newest
+  expect(monitorProof([pow, ps], 0, 2).view).toBe('code'); expect(monitorProof([pow, ps], 1, 2).view).toBe('page');   // owner 2026-11-13: an older PoStatic still splits, never squeezed into one
+  expect(monitorProof([pow, ps], 2, 3)).toBe(pow);
+  expect(monitorProof([pow, ps], 1, 2, [false, true])).toBe(ps); expect(monitorProof([pow, ps], 1, 2, [false, true]).view).toBe(undefined);   // separate jobs: one each, no split
 });
 
 test('🖥 a PoC shows its own made media first (owner 2026-11-12, Bishop), then its idea text — never a bare nothing', async () => {

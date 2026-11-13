@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { agentAuth } from '../../lib/chatSession';
 import '../../styles/mediaStudio.css';
@@ -108,4 +109,49 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
           {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</>}
       </section></div> : null}
   </>;
+}
+
+// 💬 owner 2026-11-13: "assure I can choose what video/img model when making requests in chat … still references this PoC file". A chat line that
+// asks for a picture or a clip goes to the media models (never to the text minds), on the model picked in the composer, and a short or
+// pointing ask ("make a video of him") carries this folder's own words so the model knows what it is about. Pure.
+const MEDIA_VERB = /\b(make|create|generate|render|draw|animate|shoot|film|turn|bring|give me|show me|do)\b/i;
+const MEDIA_VIDEO = /\b(video|clip|reel|tiktok|short|animation|animate|moving|motion|bring (?:him|her|it|them) to life)\b/i;
+const MEDIA_IMAGE = /\b(image|picture|pic|photo|portrait|poster|thumbnail|cover|art|illustration|render)\b/i;
+export function mediaAsk(text) {
+  const t = String(text || '').trim(); const m = t.match(/^(video|image|img|pic|photo)\s*:/i);
+  if (m) return /^video/i.test(m[1]) ? 'video' : 'image';
+  if (!MEDIA_VERB.test(t)) return null;
+  return MEDIA_VIDEO.test(t) ? 'video' : MEDIA_IMAGE.test(t) ? 'image' : null;
+}
+export function mediaPrompt(text, carry) {
+  const t = String(text || '').replace(/^(video|image|img|pic|photo)\s*:\s*/i, '').trim(); const c = String(carry || '').replace(/\s+/g, ' ').trim();
+  const pointing = /\b(this|him|her|it|them|same|that guy|the guy|the person|the character|this poc)\b/i.test(t) || t.split(/\s+/).length < 8;
+  return c && pointing ? `${t}\nFrom this PoC: ${c.slice(0, 400)}` : t;
+}
+// the composer's model chip: Auto (cheap pick) or any ready image / video model; remembered per browser
+const MPICK = 'feeless.mediaPick';
+export function useMediaPick() {
+  const [v, setV] = useState(() => { try { return JSON.parse(localStorage.getItem(MPICK) || '{}'); } catch { return {}; } });
+  const set = (kind, id) => setV(o => { const n = { ...o, [kind]: id }; try { localStorage.setItem(MPICK, JSON.stringify(n)); } catch { /* private */ } return n; });
+  return [v, set];
+}
+export function MediaModelChip({ cat, work, pick, setPick }) {
+  const [d, setD] = useState(null); const [open, setOpen] = useState(false); const btn = React.useRef(null); const [at, setAt] = useState(null);
+  useEffect(() => { if (!open || !btn.current) return; const r = btn.current.getBoundingClientRect(); const w = Math.min(420, window.innerWidth - 24);   // 📐 always inside the screen
+    setAt({ left: Math.max(12, Math.min(r.left, window.innerWidth - w - 12)), bottom: window.innerHeight - r.top + 8, width: w }); }, [open]);
+  useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
+  useEffect(() => { if (open && !d) work(cat.id, { op: 'media_models' }).then(setD).catch(() => setD({ models: [] })); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const name = k => (pick?.[k] ? ((d?.models || []).find(m => m.id === pick[k])?.label || pick[k].split('/').pop()) : 'Auto');
+  return <span className="mst-chip">
+    <button ref={btn} type="button" className={`mst-chip-btn${open ? ' is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="media-chip"
+      aria-label={`Image model ${name('image')}, video model ${name('video')}`} data-tip={`Ask for an image or a video in the chat: image on ${name('image')}, video on ${name('video')}, made from this PoC. Tap to pick.`}>🎬{pick?.image || pick?.video ? <i aria-hidden="true" /> : null}</button>
+    {open ? createPortal(<div className="mst-chip-pop m-pop" style={at || undefined} role="dialog" aria-label="Image and video models" data-testid="media-chip-pop">
+      {!d ? <p className="mst-lead">Reading your models…</p> : ['image', 'video'].map(k => <div key={k}><p className="mst-h">{k === 'image' ? '🖼 Images' : '🎬 Videos'}</p>
+        <div className="mst-chip-row">{[{ id: '', label: 'Auto', providerName: 'cheapest ready', ready: true }, ...(d.models || []).filter(m => m.kind === k)].map(m =>
+          <button key={m.id || 'auto'} type="button" disabled={!m.ready} aria-pressed={(pick?.[k] || '') === m.id} className={(pick?.[k] || '') === m.id ? 'is-on' : ''}
+            onClick={() => setPick(k, m.id)} data-testid={`media-chip-${k}-${m.id || 'auto'}`} data-tip={m.ready ? (m.why || m.providerName) : `Link ${m.providerName} to use this`}>
+            <b>{m.label}</b><small>{m.providerName}{m.usd != null ? ` · ${usd(m.usd)}` : ''}</small></button>)}</div></div>)}
+      <small className="mst-note">Then just ask in the chat: "make a video of him walking at dusk" or "image: a chrome tombstone".</small>
+    </div>, document.body) : null}
+  </span>;
 }

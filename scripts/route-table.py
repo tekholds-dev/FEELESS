@@ -49,17 +49,26 @@ def main():
         SNAP.write_text(json.dumps(rows, indent=0)); print(f'saved {len(rows)} routes → {SNAP.relative_to(ROOT)}'); return 0
     if a.check:
         old = json.loads(SNAP.read_text()); key = lambda r: (tuple(r['methods']), r['path'], tuple(r['params']))
-        same = [key(r) for r in old] == [key(r) for r in rows]
+        same = exact = [key(r) for r in old] == [key(r) for r in rows]
         if not same:
             o, n = {key(r) for r in old}, {key(r) for r in rows}
             for k in sorted(o - n):
                 print('GONE   ', *k)
             for k in sorted(n - o):
                 print('NEW    ', *k)
-            if o == n:
-                print('ORDER CHANGED: same routes, different order (a wildcard may now shadow a static path)')
+            if o == n:   # same routes, new order: only a problem when a pair that swapped places can both answer one URL
+                import reputation_service as rs
+                oi = {key(r): i for i, r in enumerate(old)}; live = [r for r in rs.app.routes if getattr(r, 'methods', None)]
+                k2 = lambda r: (tuple(sorted(r.methods)), r.path, tuple(sorted(inspect.signature(r.endpoint).parameters)))
+                url = lambda p: re.sub(r'\{[^}]+\}', 'x1y', p)
+                clash = [(a.path, b.path) for i, a in enumerate(live) for b in live[i + 1:] if oi[k2(a)] > oi[k2(b)] and set(a.methods) & set(b.methods)
+                         and (a.path_regex.match(url(b.path)) or b.path_regex.match(url(a.path)))]
+                for a, b in clash:
+                    print('SHADOW ', a, 'now answers before', b)
+                same = not clash
+                print('ORDER CHANGED: same routes; ' + (f'{len(clash)} pair(s) now shadow each other' if clash else 'no two swapped routes can answer the same URL → EQUIVALENT'))
         moved = sum(1 for x, y in zip(old, rows) if x['module'] != y['module'])
-        print(f"{'IDENTICAL' if same else 'DIFFERENT'} · {len(rows)} routes · {moved} now served from another module"); return 0 if same else 1
+        print(f"{('IDENTICAL' if exact else 'EQUIVALENT') if same else 'DIFFERENT'} · {len(rows)} routes · {moved} now served from another module"); return 0 if same else 1
     import reputation_service as rs
     left = {'money': [], 'write': [], 'admin': [], 'read': []}
     for r in rows:

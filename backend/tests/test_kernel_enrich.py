@@ -9,7 +9,8 @@ import trench_kernel.kernel as tk
 
 from kernel_helpers import row
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text() + ''.join(   # + the routes SITE-5 moved out
+    p.read_text() for p in sorted((Path(__file__).resolve().parent.parent).glob('rep_*.py')))
 P = en.PRIO
 
 

@@ -90,7 +90,7 @@ def test_stamps_come_from_results_and_time():
 
 
 def test_a_bid_on_a_game_not_finished_waits_past_24h():
-    assert st.of('PoB', {'at': 1000, 'games': [{'final': False}]}, 1e9)['state'] == 'waiting'
+    assert st.of('PoB', {'at': 1000, 'games': [{'final': False}]}, 1000 + st.DAY_S + 3600)['state'] == 'waiting'   # until GAME_GRACE_S runs out
     assert st.of('PoB', {'at': 1000, 'graded': 'wrong', 'games': [{'final': True}]}, 1e9)['state'] == 'not'
 
 
@@ -219,3 +219,13 @@ def test_a_proof_is_graded_only_when_every_game_is_final():
 def test_perp_rows_sort_by_open_interest():
     rows = pt.parse_hl([{'universe': [{'name': 'A'}, {'name': 'B'}]}, [{'markPx': '1', 'openInterest': '5', 'funding': '0.01'}, {'markPx': '10', 'openInterest': '5', 'funding': '-0.02'}]])
     assert [r['market'] for r in rows] == ['B', 'A'] and rows[0]['fundingPct'] == -2.0 and pt.parse_hl(None) == []
+
+
+def test_a_bid_on_a_game_the_scoreboard_never_finished_still_gets_its_stamp():
+    """pob1793907481 (real, 2026-11-13): one leg's game stayed 'pre' forever, so the proof sat on RESULT IN… for 86 h after it was graded."""
+    import proof_stamp as st
+    f = {'closedAt': 1000.0, 'graded': 'right', 'games': [{'final': False}, {'final': True}]}
+    due = 1000 + st.DAY_S
+    assert st.of('PoB', f, due + 3600)['state'] == 'waiting'                              # a late game still gets its time
+    assert st.of('PoB', f, due + st.GAME_GRACE_S + 1)['state'] == 'proved'                # then the grade settles it
+    assert st.of('PoB', {**f, 'graded': None}, due + st.GAME_GRACE_S + 1)['state'] == 'not'   # nothing known → not proved, never stuck

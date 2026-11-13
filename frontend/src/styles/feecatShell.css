@@ -117,3 +117,19 @@ body.fcx-focus .fcx-bar { padding: 4px 8px; gap: 8px; } body.fcx-focus .fcx-bran
 body.fcx-focus .fcx-nav a { min-height: 36px; padding: 3px 10px; } body.fcx-focus .fcx-mine { min-height: 36px; }
 body.theme-day .fcx-focus-btn { color: #3d2a66; background: #f5f0fd; }
 @media (prefers-reduced-motion: reduce) { .fcx-focus-btn { transition: none; } }
+
+/* 📐 (owner 2026-11-13: "the btn's squeezed together") — under 1500px the nav gets its own row: brand + live chips on top, the four tabs spread
+   evenly below. Wide screens keep one row. Focus mode slims both rows instead of cramming them into one. */
+.fcx-brand { grid-area: brand; } .fcx-nav { grid-area: nav; } .fcx-live { grid-area: live; }
+.fcx-bar { grid-template-areas: 'brand nav live'; }
+.fcx-mine small { max-width: 150px; }
+.fcx-face { flex: none; width: 34px; height: 34px; border-radius: 10px; object-fit: cover; object-position: 50% 20%; box-shadow: 0 0 0 1px #ff5dbb55; }
+@media (max-width: 1500px) {
+  .fcx-bar { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'brand live' 'nav nav'; row-gap: 8px; }
+  .fcx-live { justify-content: flex-end; flex-wrap: wrap; }
+  .fcx-nav a { flex: 1 1 0; justify-content: center; }
+}
+@media (max-width: 760px) {
+  .fcx-bar { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'brand' 'live' 'nav'; }
+  .fcx-live { justify-content: flex-start; }
+}

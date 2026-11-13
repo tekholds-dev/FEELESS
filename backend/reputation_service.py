@@ -585,60 +585,6 @@ async def _loop_lag_dump():
             pass
 
 
-@app.get('/api/reputation/creator/{chain}/{address}')
-async def creator_profile(chain: str, address: str):
-    store = _load()
-    ckey = _creator_key(chain, address)
-    entry = store['creators'].get(ckey)
-    if not entry:
-        raise HTTPException(404, 'No observations recorded for this creator yet.')
-
-    wallet = {'solBalance': None, 'recentSignatures': []}
-    if chain == 'solana':
-        try:
-            async with httpx.AsyncClient(timeout=8) as http:
-                balance_result = await _rpc(http, 'getBalance', [address, {'commitment': 'confirmed'}])
-                if balance_result is not None:
-                    wallet['solBalance'] = (balance_result.get('value') or 0) / 1_000_000_000
-                signatures = await _rpc(http, 'getSignaturesForAddress', [address, {'limit': 8}])
-                wallet['recentSignatures'] = [{
-                    'signature': s.get('signature'), 'blockTime': s.get('blockTime'), 'err': s.get('err') is not None,
-                } for s in (signatures or [])]
-        except Exception:
-            pass
-
-    fkey = _creator_key(chain, address)
-    async with _lock:
-        store2 = _load()
-        if fkey not in store2['funding']:
-            store2['funding'][fkey] = await resolve_funding_source(chain, address)
-            _save(store2)
-        funding_source = store2['funding'][fkey]
-    linked = []
-    if funding_source:
-        for other_ckey, other_entry in store2['creators'].items():
-            if other_ckey == ckey:
-                continue
-            other_fkey = _creator_key(other_entry['chain'], other_entry['address'])
-            if store2['funding'].get(other_fkey) == funding_source:
-                linked.append({'address': other_entry['address'], 'chain': other_entry['chain'], **score_creator(other_entry)})
-
-    tokens = sorted(entry['tokens'].values(), key=lambda t: -(t.get('firstSeenAt') or 0))
-    mints = [t['baseTokenAddress'] for t in tokens if t.get('baseTokenAddress')]
-    markets = await fetch_token_markets(chain, mints) if mints else {}
-    async with _lock:
-        store3 = _load()
-        live = store3['creators'].get(ckey) or entry
-        _apply_markets(live, markets)
-        _save(store3)
-        entry = live
-    tokens = sorted(entry['tokens'].values(), key=lambda t: -(t.get('firstSeenAt') or 0))
-    enriched = [{**t, 'outcome': token_outcome(t)} for t in tokens]
-    scoring = score_creator(entry)
-    return {**entry, 'tokens': {t['pairAddress']: t for t in enriched}, 'tokenList': enriched, 'scoring': scoring,
-            'verdict': trust_verdict(scoring, enriched, linked),
-            'feelessLaunches': [l for l in (_load().get('feelessLaunches') or {}).values() if l['wallet'] == address],
-            'wallet': wallet, 'fundingSource': funding_source, 'linkedWallets': linked}
 
 
 LEADERBOARD_VIEWS = ('trusted', 'flagged', 'serial', 'rising', 'active', 'feeless')
@@ -752,26 +698,6 @@ async def get_watchlist(ownerWallet: str):
     return {'rows': rows}
 
 
-@app.get('/api/reputation/watchlist/feed')
-async def get_watchlist_feed(ownerWallet: str, limit: int = Query(50, le=200)):
-    store = _load()
-    bucket = store['watchlists'].get(ownerWallet, {})
-    if not bucket:
-        return {'events': []}
-    events = []
-    for event in store.get('feed', []):
-        wkey = _creator_key(event['chain'], event['address'])
-        watch = bucket.get(wkey)
-        if not watch:
-            continue
-        if event['type'] == 'new_token' and not watch.get('notifyNewToken', True):
-            continue
-        if event['type'] == 'flagged' and not watch.get('notifyFlag', True):
-            continue
-        events.append(event)
-        if len(events) >= limit:
-            break
-    return {'events': events}
 
 
 CLUSTER_RESOLVE_BATCH = 8   # cap RPC calls per request so this stays fast
@@ -822,36 +748,8 @@ async def get_clusters(chain: Optional[str] = Query('solana')):
     return {'clusters': clusters, 'creatorsScanned': len(creators), 'pendingResolution': pending}
 
 
-@app.get('/api/reputation/feed')
-async def global_feed(limit: int = Query(40, ge=1, le=200)):
-    """Site-wide trust signals: known creators launching again, and fresh rug flags."""
-    store = _load()
-    events = []
-    for ev in store.get('feed', [])[:limit]:
-        entry = store['creators'].get(_creator_key(ev['chain'], ev['address']))
-        events.append({**ev, **(score_creator(entry) if entry else {})})
-    return {'events': events}
 
 
-@app.get('/api/reputation/case-studies')
-async def case_studies(limit: int = Query(6, ge=1, le=20)):
-    """Real flagged creators with the tokens that collapsed — teaching material from live data."""
-    store = _load()
-    cases = []
-    for entry in store['creators'].values():
-        rugged = [t for t in entry['tokens'].values() if t.get('status') == 'rugged']
-        scoring = score_creator(entry)
-        if not rugged and scoring['cloneCount'] < 3 and not scoring.get('serialDumper'):
-            continue
-        cases.append({
-            'chain': entry['chain'], 'address': entry['address'], **scoring,
-            'kind': 'rug' if rugged else 'dumper' if scoring.get('serialDumper') else 'clone-farm',
-            'tickers': sorted({(t.get('symbol') or '?') for t in entry['tokens'].values()}),
-            'rugged': [{'symbol': t.get('symbol'), 'pairAddress': t['pairAddress'], 'peakLiquidityUsd': t.get('peakLiquidityUsd'),
-                        'lastLiquidityUsd': t.get('lastLiquidityUsd'), 'firstSeenAt': t.get('firstSeenAt'), 'lastCheckedAt': t.get('lastCheckedAt')} for t in rugged],
-        })
-    cases.sort(key=lambda c: (-c['ruggedCount'], -c['cloneCount'], -c['tokenCount']))
-    return {'cases': cases[:limit], 'total': len(cases)}
 
 
 class VotePayload(BaseModel):
@@ -959,16 +857,6 @@ async def upload_image(payload: UploadPayload, request: Request):
     return {'url': f'/api/reputation/uploads/{name}'}
 
 
-@app.get('/api/reputation/uploads/{name}')
-async def get_upload(name: str):
-    from fastapi.responses import FileResponse
-    import re
-    if not re.match(r'^[a-f0-9]{32}\.(png|jpg|webp|gif)$', name):
-        raise HTTPException(404, 'Not found')
-    path = UPLOAD_DIR / name
-    if not path.exists():
-        raise HTTPException(404, 'Not found')
-    return FileResponse(path, headers={'Cache-Control': 'public, max-age=31536000, immutable'})
 
 
 _intel_cache: dict = {}
@@ -1930,13 +1818,25 @@ _profile_lock = asyncio.Lock()
 HEX = set('0123456789abcdefABCDEF')
 
 
+_prof_docs: dict = {}
+
+
+def _prof():
+    """🗄 SITE-8: wallet profiles, one row per wallet in SQLite (profiles.db). A save changes ONE wallet in one transaction, so any number
+    of workers can save at once and none wipes another's (the old whole-file write did). profiles.json moved in once and is kept read-only."""
+    import sql_store as _sqls
+    k_ = str(PROFILE_PATH)
+    if k_ not in _prof_docs:
+        _prof_docs[k_] = _sqls.Docs(PROFILE_PATH, inner='profiles')
+    return _prof_docs[k_]
+
+
 def _profiles_load():
-    if PROFILE_PATH.exists():
-        try:
-            return _cached_json(PROFILE_PATH)
-        except Exception:
-            pass
-    return {'profiles': {}}
+    """Read-only view {'profiles': {wallet: profile}} (cached until anybody writes). Never change it: write with _prof().update(wallet, fn)."""
+    try:
+        return {'profiles': _prof().all()}
+    except Exception:
+        return {'profiles': {}}
 
 
 def _safe_url(v, max_len=400):
@@ -2003,10 +1903,7 @@ async def set_featured_badges(payload: FeaturedBadgesIn):
     earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
     picked = [b for b in ids if b in earned][:_badge_limits()['chat']]
     async with _profile_lock:
-        d = _profiles_load()
-        prof = d['profiles'].setdefault(owner, {})
-        prof['featuredBadges'] = picked
-        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)
+        _prof().update(owner, lambda cur: {**(cur or {}), 'featuredBadges': picked})
     return {'featuredBadges': picked}
 
 
@@ -2068,9 +1965,14 @@ async def save_profile(payload: ProfileSave):
                 clean[k] = prev[k]
             if prev.get(k) and prev[k] != clean.get(k):
                 hist.append({'field': k, 'url': prev[k], 'at': time.time()})
-        d['profiles'][owner] = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time(), 'nameLock': locks_}
-        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)  # atomic: no half-written file
-    return {'ok': True, 'profile': {k: v for k, v in d['profiles'][owner].items() if k != 'nameLock'}}
+        row_ = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time(), 'nameLock': locks_}
+
+        def put_(cur):   # one transaction for this wallet: a newer save from another worker in between wins, this replay is refused
+            if (cur or {}).get('lastTs', 0) >= ts:
+                raise HTTPException(409, 'Replay rejected — sign a fresh update.')
+            return row_
+        _prof().update(owner, put_)
+    return {'ok': True, 'profile': {k: v for k, v in row_.items() if k != 'nameLock'}}
 
 
 # 𝕏 SIGN IN WITH X (owner 2026-10-26: "a true account link so they're actually signed in to X, not an API"): X's own OAuth 2.0 (PKCE). FEELESS asks
@@ -2102,30 +2004,6 @@ async def x_oauth_start(request: Request):
                                                                      'state': st_, 'code_challenge': ch_, 'code_challenge_method': 'S256'})}
 
 
-@app.get('/api/reputation/x/oauth/callback')
-async def x_oauth_callback(code: str = '', state: str = '', error: str = ''):
-    from fastapi.responses import RedirectResponse
-    st_ = _x_states.pop(state, None)
-    site_ = (os.getenv('PUBLIC_SITE_URL') or '').rstrip('/')
-    if not st_ or error or not code:
-        return RedirectResponse(f"{site_}/terminal/profile?x=failed")
-    cid_, sec_ = (os.getenv('X_CLIENT_ID') or '').strip(), (os.getenv('X_CLIENT_SECRET') or '').strip()
-    try:
-        async with httpx.AsyncClient(timeout=15) as h_:
-            tok_ = await h_.post('https://api.twitter.com/2/oauth2/token', data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': _x_redirect(), 'client_id': cid_, 'code_verifier': st_['ver']},
-                                 auth=(cid_, sec_) if sec_ else None)
-            at_ = (tok_.json() or {}).get('access_token')
-            me_ = (await h_.get('https://api.twitter.com/2/users/me', headers={'Authorization': f'Bearer {at_}'})).json().get('data') if at_ else None
-    except Exception:
-        me_ = None
-    if not me_ or not me_.get('username'):
-        return RedirectResponse(f"{site_}/terminal/profile?x=failed")
-    async with _profile_lock:
-        d_ = _profiles_load(); pr_ = d_.setdefault('profiles', {}).setdefault(st_['addr'], {})
-        pr_['xVerified'] = {'id': str(me_.get('id')), 'username': me_['username'][:40], 'at': time.time()}
-        pr_['twitter'] = '@' + me_['username'][:40]
-        tmp_ = PROFILE_PATH.with_suffix('.tmp'); tmp_.write_text(json.dumps(d_)); tmp_.replace(PROFILE_PATH)
-    return RedirectResponse(f"{site_}{st_['back']}{'&' if '?' in st_['back'] else '?'}x=linked")
 
 
 # ---- Evidence-based blocklist of snipers and bundlers ----------------------------
@@ -2623,19 +2501,6 @@ async def _rpc_busy(request: Request, exc: RuntimeError):
     raise exc
 
 
-@app.get('/api/reputation/chat/{room}')
-async def chat_room(room: str, session: str = ''):
-    if room in _ALPHA and not await _alpha_allowed(room, session_address(session) or ''):
-        raise HTTPException(403, f"{_ALPHA[room]['name']} unlocks at ${_ALPHA[room]['minUsd']:,} held in $FEE.")
-    d = _chat_load()
-    msgs = d['rooms'].get(room, [])[-120:]
-    pin = (d.get('pins') or {}).get(room)
-    pinned = None
-    if pin and time.time() - pin['at'] < PIN_SECONDS:
-        pinned = next((m for m in d['rooms'].get(room, []) if m['id'] == pin['id']), None)
-        if pinned:
-            pinned = {**pinned, 'pinnedFor': round(PIN_SECONDS - (time.time() - pin['at']))}
-    return {'room': room, 'messages': msgs, 'pinned': pinned}
 
 
 # ---- Chat security: bots, raids, floods, link spam -------------------------------------------
@@ -3540,29 +3405,6 @@ async def _why_build(mint):
     return out
 
 
-@app.get('/api/reputation/why-pump/{mint}')
-async def why_pump(mint: str, request: Request):
-    """❓ WHY DID IT PUMP? (Rep page). A coin checked in the last 30 min is free and instant for everyone; a new check costs one of the visitor's
-    5 daily checks. Read only — never advice."""
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
-        raise HTTPException(400, 'Paste a Solana contract address.')
-    hit = _why_cache.get(mint)
-    if hit and time.time() - hit[0] < WHY_TTL:
-        return {**hit[1], 'cached': True}
-    ip = _guard.request_ip(request)
-    day = time.strftime('%Y-%m-%d', time.gmtime())
-    local = ip.startswith('127.') or ip in ('::1', 'testclient')   # loopback only: a 10.x / 192.168.x peer can be a load balancer carrying everyone
-    q = _why_quota.get(ip) or [day, 0]
-    if q[0] != day:
-        q = [day, 0]
-    if not local and q[1] >= WHY_FREE_DAY:
-        raise HTTPException(429, f'{WHY_FREE_DAY} new checks a day — coins someone already checked stay free.')
-    t_ = _why_busy.get(mint)
-    if not t_ or t_.done():
-        t_ = _why_busy[mint] = asyncio.create_task(_why_build(mint))
-        q[1] += 1; _why_quota[ip] = q
-    out = await t_
-    return {**out, 'left': None if local else max(0, WHY_FREE_DAY - q[1])}
 
 
 @app.get('/api/reputation/why-pump-board')
@@ -4518,30 +4360,6 @@ async def _edge_refresh(ms):
         _edge_inflight.difference_update(ms)
 
 
-@app.get('/api/reputation/edge')
-async def coin_edge(mints: str = Query('', max_length=3000), intel: bool = False):
-    """Coin edge for up to 60 coins: pulse, snipers out, verification, forensics, runner gates + bond boxes, Fuse sources, elite
-    flow — 15s cache per coin, nothing slow on the request path. intel=1 (≤3 coins) also runs the holder scan if it isn't cached
-    (the trade tape's wallet tags need it)."""
-    ms = [m for m in dict.fromkeys(x.strip() for x in mints.split(',')) if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', m)][:60]
-    now = time.time()
-    out = {m: _edge_cache[m][1] for m in ms if now - _edge_cache.get(m, (0, None))[0] < 15 and not (intel and not _edge_cache[m][1].get('intel'))}
-    todo = [m for m in ms if m not in out]
-    if intel and todo and len(todo) <= 3:
-        await asyncio.gather(*[_runner_intel(m, _enr.PRIO['LOOK'], 'trade tape') for m in todo], return_exceptions=True)
-    # ⚡ STALE-WHILE-REVALIDATE: a record under EDGE_STALE_SEC is answered now and refreshed in the background (a cold build waited on
-    # pulses + verification for ~10s and held the browser's connection slots — every other request on the page queued behind it)
-    stale = [m for m in todo if not intel and m in _edge_cache and now - _edge_cache[m][0] < EDGE_STALE_SEC]
-    for m in stale:
-        out[m] = _edge_cache[m][1]
-    fresh = [m for m in stale if m not in _edge_inflight]
-    if fresh:
-        _edge_inflight.update(fresh)
-        asyncio.create_task(_edge_refresh(fresh))
-    cold = [m for m in todo if m not in out]
-    if cold:
-        out.update(await _edge_build(cold, now, EDGE_COLD_BUDGET))
-    return {'edge': out, 'at': now}
 
 
 @app.post('/api/reputation/admin/fuses/rules')
@@ -5335,13 +5153,6 @@ def _card_look(body, prev):
 _arena_best_cache: dict = {'at': 0.0, 'v': None}
 
 
-@app.get('/api/reputation/fuses/arena-best')
-async def fuses_arena_best():
-    """🏆 Best settings for the Fuse Arena: styles by the Arena's own score + what the top quarter of cards share (fuse_best.best), 5 min cache."""
-    import fuse_best as _fb
-    if time.time() - _arena_best_cache['at'] > 300 or _arena_best_cache['v'] is None:
-        _arena_best_cache.update(at=time.time(), v=_fb.best(_json_load(FUSE_HQ_PATH, {}).get('arena') or []))
-    return _arena_best_cache['v']
 
 
 @app.get('/api/reputation/fuses/arena')
@@ -7798,38 +7609,6 @@ def feecat_pool_rows(kernel_rows, arena_rows, limit=60, agents_max=20):
     return out
 
 
-@app.get('/api/reputation/fuses/feecat-pool')
-async def fuses_feecat_pool():
-    """🐱 FeeCat's candidate pool (public, cache-only: the kernel's last pass + the Arena's last league — no fetch here)."""
-    try:
-        kr = _agent_inherit_rows(limit=25)
-    except Exception:
-        kr = []
-    ar_ = ((_contenders_cache.get('data') or {}).get('all') or []) if isinstance(_contenders_cache.get('data'), dict) else []
-    rows_ = feecat_pool_rows(kr, ar_)
-    now = time.time()
-    log_ = list((_g4_mem.get() or {}).get('log') or [])
-    for r_ in rows_:   # 🐱 she reads every coin the way the agents + OSSY / G4 do (owner, 2026-10-18: "latest methods — HH/HL, germ")
-        try:
-            x_ = _tk.KERNEL.candidate(r_['mint']) if r_.get('mint') else None
-        except Exception:
-            x_ = None
-        if x_:
-            r_['read'] = feecat_read(x_, _oe.setups_of(x_, _uni.germ_max()), _g4_bad_entry(x_))
-        r_['duo'] = duo_word(log_, r_.get('mint'), now)
-    try:
-        tot_ = {k_: {'n': v_['n'], 'won': round(100 * v_['won'] / v_['n']) if v_['n'] else 0, 'med': round(v_['pct'] / v_['n'], 1) if v_['n'] else 0, 'usd': v_['usd']}
-                for k_, v_ in (_duo_totals() or {}).items() if k_ in ('OSSY', 'G4')}   # their REAL closed trades (ledger), all time
-    except Exception:
-        tot_ = {}
-    try:   # 🐱 the agents' own band — her agents lane judges their coins on THEIR settings (her own overrides sit on top, feecat_service)
-        mn_, mx_ = _uni.band(); lm_ = _uni.limits()
-        lim_ = {'mcMin': mn_, 'mcMax': mx_, 'minAgeH': lm_.get('minAgeH'), 'maxAgeH': lm_.get('maxAgeH'), 'minVol1h': lm_.get('minVol'),
-                'poolMin': _fuse._f((_prime_real_cfg() or {}).get('agentPoolMin')) or 8000}
-        lim_ = {k_: (None if isinstance(v_, float) and v_ in (float('inf'), float('-inf')) else v_) for k_, v_ in lim_.items()}   # JSON has no Infinity
-    except Exception:
-        lim_ = {}
-    return {'at': now, 'rows': rows_, 'duo': duo_lessons(log_, tot_), 'limits': lim_}
 
 
 def feecat_read(c, setups, bad):
@@ -8549,12 +8328,6 @@ async def admin_fees_crews(request: Request, body: dict):
     return {'crews': cfg}
 
 
-@app.get('/api/reputation/crews/{cid}')
-async def crew_public(cid: str):
-    st = _json_load(CREWS_PATH, {}); c = (st.get('crews') or {}).get(cid)
-    if not c:
-        raise HTTPException(404, 'No such family.')
-    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()))}
 
 
 class CrewCreate(BaseModel):
@@ -9696,45 +9469,8 @@ async def _cdc_instruments():
 _UPDATES_CACHE = {'at': 0.0, 'rows': []}
 
 
-@app.get('/api/reputation/updates')
-async def site_updates():
-    """📜 Settings › Updates: the last 60 shipped changes from git (NEW requested features + FIXES; SITE · BACKEND · MOBILE), private bits dropped
-    (updates_log.py). Read once per 5 min, off the event loop."""
-    import updates_log as _ul
-    if time.time() - _UPDATES_CACHE['at'] > 300:
-        def _read():
-            import subprocess as _sp
-            try:
-                r_ = _sp.run(['git', 'log', '-n', '160', f'--format={_ul.FORMAT}', '--name-only', '--date=short'], cwd=str(Path(__file__).resolve().parent.parent),
-                             capture_output=True, text=True, timeout=8)
-                return _ul.parse(r_.stdout if r_.returncode == 0 else '')
-            except Exception:
-                return []
-        rows_ = await asyncio.to_thread(_read)
-        if rows_ or not _UPDATES_CACHE['rows']:
-            _UPDATES_CACHE.update(at=time.time(), rows=rows_)
-    rows_ = _UPDATES_CACHE['rows']
-    return {'rows': rows_, 'counts': _ul.counts(rows_)}
 
 
-@app.get('/api/reputation/familia/broker/cdc-caps')
-async def familia_broker_cdc_caps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """🔑 What a Crypto.com key does in FEELESS: what the exchange lists (live) + whether THIS wallet's key reads its account."""
-    import brokers as _bk
-    caps_ = _bk.cdc_caps(await _cdc_instruments())
-    key_ = {'linked': False}
-    if address and session:
-        me_ = _session_or_401(address, session)
-        ck_ = _brk_cdc(me_)
-        if ck_:
-            try:
-                v_ = _bk.cdc_view(await _cdc_call(ck_, 'private/user-balance'))
-                key_ = {'linked': True, 'reads': True, 'valueUsd': v_['value'], 'buyingPower': v_['buyingPower']}
-            except HTTPException as e:
-                key_ = {'linked': True, 'reads': False, 'error': e.detail}
-    return {**caps_, 'key': key_, 'wired': {'spot': True, 'perps': True, 'futures': False},
-            'devKey': bool(_cdc_dev_key()),   # the Developer Platform / AI-agent key (Cronos data — it cannot trade)
-            'envPair': bool((os.getenv('CRYPTO_COM_API_KEY') or '').strip() and (os.getenv('CRYPTO_COM_API_SECRET') or '').strip())}
 
 
 @app.post('/api/reputation/familia/broker/keys')
@@ -9928,10 +9664,6 @@ async def familia_broker_unlink(request: Request):
     return {'ok': True}
 
 
-@app.get('/api/reputation/familia/kalshi/proof')
-async def familia_kalshi_proof(address: str = ''):
-    """🪪 Is this wallet Proof-verified (DFlow's free KYC)? Public check; FEELESS never sees identity data."""
-    return {'verified': await _kt_proof(_kt_addr(address))}
 
 
 @app.post('/api/reputation/familia/kalshi/order')
@@ -10019,30 +9751,8 @@ async def familia_kalshi_send(request: Request):
     return {'signature': out_['result']}
 
 
-@app.get('/api/reputation/familia/kalshi/status')
-async def familia_kalshi_status(signature: str = '', lastValidBlockHeight: int = 0):
-    """⏳ DFlow's fill status for a sent order (pending · open · closed = filled · failed · expired)."""
-    kt_ = _kt_need()
-    try:
-        r_ = await _fmk_http_get().get(f'{kt_.TRADE}/order-status', params={'signature': signature, 'lastValidBlockHeight': lastValidBlockHeight},
-                                       headers=kt_.headers(os.environ), timeout=10)
-        d_ = r_.json() if r_.status_code == 200 else {}
-    except Exception:
-        d_ = {}
-    return {'status': d_.get('status') or 'pending', 'outAmount': d_.get('outAmount'), 'reverts': d_.get('reverts')}
 
 
-@app.get('/api/reputation/familia/kalshi/positions')
-async def familia_kalshi_positions(address: str = ''):
-    """🎫 The wallet's Kalshi outcome tokens (UP / DOWN contracts), each with its market, settled / won and redeemable — read on-chain."""
-    kt_ = _kt_need()
-    addr_ = _kt_addr(address)
-    async with httpx.AsyncClient(timeout=12) as http_:
-        accs_ = await _sol_token_accounts(http_, addr_)
-    held_ = [a_ for a_ in accs_ if a_['raw'] > 0 and a_['mint'] != kt_.USDC][:40]
-    mk_ = await asyncio.gather(*[_kt_market(f"market/by-mint/{a_['mint']}", f"mint:{a_['mint']}", ttl=30, miss_ttl=600) for a_ in held_])
-    rows_ = [kt_.position(m_, a_['mint'], a_['raw'], a_['decimals']) for a_, m_ in zip(held_, mk_) if m_]
-    return {'positions': [r_ for r_ in rows_ if r_]}
 
 
 PAPER_PERPS_PATH = DATA_DIR / 'paper_perps.json'   # 📉 one paper book per wallet (paper_perps.py) — never money, never an order
@@ -10054,21 +9764,6 @@ def _pperp_board():
     return {r_['coin']: r_ for r_ in (_perps_cache.get('rows') or []) if r_.get('coin')}
 
 
-@app.get('/api/reputation/familia/paper-perps')
-async def familia_paper_perps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """📉 Your paper perps book at live marks (liquidations settle on the read). Signed in; paper only (docs/RULINGS.md #1)."""
-    import paper_perps as _pp
-    me_ = _session_or_401(address, session)
-    if not _perps_cache.get('rows'):
-        await familia_perps()
-    now_ = time.time()
-    async with _pperp_lock:
-        d_ = _json_load(PAPER_PERPS_PATH, {}) or {}
-        book_ = d_.get(me_) or _pp.blank(now_)
-        v_ = _pp.view(book_, _pperp_board(), now_)
-        if v_['liquidated'] or me_ not in d_:
-            d_[me_] = book_; _json_save(PAPER_PERPS_PATH, d_)
-    return v_
 
 
 class PaperPerpAct(BaseModel):
@@ -10125,30 +9820,6 @@ INTAKE_MAX = 20
 
 
 
-@app.get('/api/reputation/familia/intake')
-async def familia_intake():
-    """The same discovery snapshot agents receive, with their verdicts attached afterwards."""
-    now = time.time()
-    if now - _intake_cache['at'] > 30:
-        rows_ = []
-        ser_ = (_agents_mem.get() or {}).get('series') or {}
-        for r_ in _shared_intake['rows']:
-            mint = r_['mint']
-            x_ = _tk.KERNEL.candidate(mint) or {}
-            n_, d_ = x_.get('nums') or {}, _tk.KERNEL.dec.get(mint) or {}
-            chart = x_.get('chart') or {}
-            row_ = {'mint': mint, 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress') or r_.get('pair'),
-                    'mc': r_.get('mcap') or r_.get('cap'), 'liq': r_.get('liq'), 'ch': r_.get('chg5m'),
-                    'ageMin': round(_fuse._f(r_['ageH']) * 60) if r_.get('ageH') is not None else None,
-                    'status': d_.get('status') or 'UNREVIEWED', 'read': str(d_.get('why') or 'Awaiting agent review')[:90],
-                    'sources': r_.get('sources') or ['open'],
-                    'line': [p_['px'] for p_ in (ser_.get(mint) or [])[-15:] if _fuse._f(p_.get('px')) > 0],
-                    'buy': n_.get('buy'), 'v5': r_.get('vol5m'), 'tx': n_.get('tx'), 'liqD': n_.get('liqD'), 'rank': d_.get('rank'),
-                    'germ': chart.get('germDist') if chart.get('germDist') is not None else chart.get('germ5Dist')}
-            row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': r_.get('stage')})['line'][:200]
-            rows_.append(row_)
-        _intake_cache.update(at=now, rows=rows_)
-    return {'coins': _intake_cache['rows'], 'at': round(_intake_cache['at'])}
 
 
 @app.get('/api/reputation/familia/trade-center')
@@ -10164,33 +9835,6 @@ _town_live_cache: dict = {'at': 0.0, 'v': None, 'lock': None}
 TOWN_LIVE_SEC = 45
 
 
-@app.get('/api/reputation/familia-town/live')
-async def familia_town_live():
-    """🏘 Every town building's sign number (town_live.py) in ONE shared read every 45 s: each tool's own cached read, fetched in parallel
-    (a slow or failed source leaves only its sign on the plain subtitle). Public numbers only — the desk's aggregate, never a seat."""
-    import town_live as _twl
-    now = time.time(); c_ = _town_live_cache
-    if c_['v'] is not None and now - c_['at'] < TOWN_LIVE_SEC:
-        return c_['v']
-    if c_['lock'] is None:
-        c_['lock'] = asyncio.Lock()
-    async with c_['lock']:
-        if c_['v'] is not None and time.time() - c_['at'] < TOWN_LIVE_SEC:
-            return c_['v']
-
-        async def cat_():
-            r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/leader/profile', timeout=4)
-            return r_.json() if r_.status_code == 200 else None
-
-        async def board_():
-            return await asyncio.to_thread(_open_board)
-
-        jobs_ = {'tt': familia_intake(), 'perps': familia_perps(), 'pools': familia_pools(), 'vault': familia_pools_sleep(),
-                 'trades': familia_trade_center('', ''), 'rep': rep_markets(''), 'cats': cat_(), 'radar': board_()}
-        got_ = await asyncio.gather(*(asyncio.wait_for(j_, 12) for j_ in jobs_.values()), return_exceptions=True)
-        v_ = {'signs': _twl.signs(dict(zip(jobs_, got_))), 'at': round(time.time())}
-        c_.update(at=time.time(), v=v_)
-        return v_
 
 
 @app.get('/api/reputation/familia-world')
@@ -10739,27 +10383,6 @@ import sleep_money as _slm
 _slm_cache = {'at': 0.0, 'km': None}
 
 
-@app.get('/api/reputation/familia-pools/sleep')
-async def familia_pools_sleep():
-    """💤 THE NIGHT VAULT: money-while-you-sleep strategies (sleep_money.py) from the live Pool Hub + Kamino's public reserve rates (10 min):
-    LST stack · stable lend · JLP · auto-compound vaults · loops (net APY, LTV, cushion to liquidation). Each lists the hub rows it rides on."""
-    now = time.time()
-    hub_, km_ = await familia_pools(), None
-    if _slm_cache['km'] is not None and now - _slm_cache['at'] < FPL_SEC:
-        km_ = _slm_cache['km']
-    else:
-        try:
-            r_ = await _ai_http().get(f'https://api.kamino.finance/kamino-market/{_slm.KAMINO_MAIN}/reserves/metrics', timeout=12)
-            km_ = _slm.kamino_rates(r_.json() if r_.status_code == 200 else [])
-        except Exception:
-            km_ = None
-        if km_ or _slm_cache['km'] is None:
-            _slm_cache.update(at=now, km=km_ or {})
-        km_ = _slm_cache['km']
-    pools_ = (hub_ or {}).get('pools') or []
-    st_ = _slm.strategies(pools_, km_)
-    want_ = {i_ for s_ in st_ for i_ in s_.get('rows') or []} | {l_['id'] for s_ in st_ for l_ in s_.get('loops') or []}
-    return {'strategies': st_, 'rows': [r_ for r_ in pools_ if r_.get('id') in want_], 'kamino': bool(km_), 'at': round(now, 1)}
 
 
 import cat_fund as _cfund
@@ -10852,16 +10475,6 @@ async def cat_model_limit(p: CatModelLimitIn):
     return {'maxModels': 8 if staff else min(maximum, 3 if usd >= 100 else 2), 'staff': staff}
 
 
-@app.get('/api/reputation/cats/fund-rules')
-async def cat_fund_rules(address: str = Query('', max_length=64)):
-    """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
-    rules_ = _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
-    left_ = await _openrouter_left()
-    rules_['startCreditUsd'] = _cfund.START_CREDIT_USD   # 🧠 a user's new general agent: $5 credit + the $2 fee
-    rules_['creditOpen'] = True   # SingIt bills the agent wallet per call; no provider prepayment minimum   # the free backup keeps every agent working
-    if rules_['staff']:
-        rules_['modelsLeftUsd'] = left_   # the balance itself is for the creator only
-    return rules_
 
 
 @app.post('/api/reputation/cats/{cat_id}/fund')
@@ -11022,13 +10635,6 @@ _pgap_c = {'at': 0.0, 'v': None, 'book': {}}
 PGAP_SEC = 60.0
 
 
-@app.get('/api/reputation/familia-pools/gaps')
-async def familia_pools_gaps():
-    """📐 PRICE GAPS (price_gap.py, READ-ONLY): the tokens the Pool Hub's pools hold, priced across every real pool they trade in — the
-    cheap pool, the rich one, the gap after a swap's cost each side, how long it has stayed open. one DexScreener /token-pairs read per token a minute (≤ price_gap.TOKENS, in parallel)."""
-    if _pgap_c['v'] is not None and time.time() - _pgap_c['at'] < PGAP_SEC:
-        return _pgap_c['v']
-    return await _pgap_once(('vault',), _vault_gap_read)
 
 
 async def _vault_gap_read():
@@ -11066,17 +10672,6 @@ async def _pgap_once(key, make):
     return await asyncio.shield(t_)
 
 
-@app.get('/api/reputation/price-gap/{mint}')
-async def coin_price_gap(mint: str):
-    """📐 SITE-11 (Q23) — ONE coin's price gap before you buy (READ-ONLY): every real pool it trades in, the cheap one, the rich one, the gap after
-    a swap's cost each side, open only after two reads in a row (price_gap.persist). One DexScreener /token-pairs read per coin a minute. Never
-    trades; the swap still routes through Jupiter and the wallet still signs."""
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
-        raise HTTPException(400, 'Not a Solana mint.')
-    c = _pgap_coin.get(mint)
-    if c and c['v'] is not None and time.time() - c['at'] < PGAP_SEC:
-        return c['v']
-    return await _pgap_once(('coin', mint), lambda: _coin_gap_read(mint))
 
 
 async def _coin_gap_read(mint):
@@ -11238,56 +10833,11 @@ async def _jp_call(method, path, **kw):
 _fjp_stats: dict = {}   # 📊 Jupiter Perps market-stats per market, 10 s
 
 
-@app.get('/api/reputation/familia/perps-real')
-async def familia_perps_real(address: str = ''):
-    """📉 REAL PERPS (Jupiter Perps): each market's live pool (open fee, borrow rate per hour, room left long / short) + the wallet's
-    open positions in plain dollars (P&L before fees; fees apart)."""
-    import jup_perps as _jp
-    if time.time() - _fjp_pool.get('at', 0) > 60 or not _fjp_pool.get('rows'):
-        got_ = await asyncio.gather(*[_jp_call('GET', 'pool-info', params={'mint': m_}) for m_ in _jp.MARKETS.values()])
-        rows_ = {}
-        for (a_, _m), (c_, b_) in zip(_jp.MARKETS.items(), got_):
-            if c_ == 200 and isinstance(b_, dict):
-                rows_[a_] = {k_: _jp._f(b_.get(k_)) for k_ in ('openFeePercent', 'longBorrowRatePercent', 'shortBorrowRatePercent', 'longUtilizationPercent',
-                                                              'shortUtilizationPercent', 'longAvailableLiquidity', 'shortAvailableLiquidity')}
-        if rows_:
-            _fjp_pool.update(at=time.time(), rows=rows_)
-    pos_, trd_ = [], []
-    if 32 <= len(address or '') <= 44:
-        (c_, b_), (ct_, bt_) = await asyncio.gather(_jp_call('GET', 'positions', params={'walletAddress': address}),
-                                                     _jp_call('GET', 'trades', params={'walletAddress': address, 'start': 0, 'end': 20}))
-        pos_ = _jp.positions(b_) if c_ == 200 else []
-        trd_ = _jp.trades(bt_) if ct_ == 200 else []   # 🧾 the wallet's recent opens / closes / triggers (owner: "jup perps don't show my recent trades")
-    if time.time() - _fjp_stats.get('at', 0) > 10:   # 📊 Jupiter's own mark + 24 h range / volume per market (its oracle — what the trade fills at)
-        got_ = await asyncio.gather(*[_jp_call('GET', 'market-stats', params={'mint': m_}) for m_ in _jp.MARKETS.values()])
-        st_ = {a_: {'price': _jp._f(b_.get('price')), 'ch24': _jp._f(b_.get('priceChange24H')), 'hi24': _jp._f(b_.get('priceHigh24H')),
-                    'lo24': _jp._f(b_.get('priceLow24H')), 'vol24': _jp._f(b_.get('volume'))} for a_, (c_, b_) in zip(_jp.MARKETS, got_) if c_ == 200 and isinstance(b_, dict)}
-        if st_:
-            _fjp_stats.update(at=time.time(), rows=st_)
-    return {'pools': _fjp_pool.get('rows') or {}, 'stats': _fjp_stats.get('rows') or {}, 'positions': pos_, 'trades': trd_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
 
 
 _fjp_lead: dict = {}   # asset → (at, leaders) — Jupiter's weekly top traders, 5 min
 
 
-@app.get('/api/reputation/familia/perps-real/leaders')
-async def familia_perps_real_leaders(asset: str = 'SOL'):
-    """🏆 Jupiter Perps' top traders THIS week on one market (P&L + volume, plain $) — the smart money on the desk; 5-min cache."""
-    import datetime as _dt
-    import jup_perps as _jp
-    a_ = str(asset or 'SOL').upper()
-    if a_ not in _jp.MARKETS:
-        raise HTTPException(400, 'SOL, ETH or BTC.')
-    hit_ = _fjp_lead.get(a_)
-    if hit_ and time.time() - hit_[0] < 300:
-        return hit_[1]
-    y_, w_, _d = _dt.datetime.utcnow().isocalendar()
-    c_, b_ = await _jp_call('GET', 'top-traders', params={'marketMint': _jp.MARKETS[a_], 'year': y_, 'week': w_})
-    if c_ != 200:
-        return hit_[1] if hit_ else {'vol': None, 'pnl': [], 'busy': []}
-    out_ = {**_jp.leaders(b_), 'asset': a_}
-    _fjp_lead[a_] = (time.time(), out_)
-    return out_
 
 
 @app.post('/api/reputation/familia/perps-real')
@@ -11498,17 +11048,6 @@ async def familia_pools_run(address: str = ''):
         pos_ = _le.run_positions(b_, assets_, earned_) if live_ else []
     return {'assets': assets_, 'positions': pos_, 'minUsd': _le.RUN_MIN_USD, 'at': time.time()}
 
-@app.get('/api/reputation/familia/leverage')
-async def familia_leverage(address: str = ''):
-    """⚡ REAL LEVERAGE markets (Jupiter Lend: SOL · BTC · JUP against USDC — max leverage, liquidation threshold, borrow APR, room to
-    borrow) + the wallet's open Jupiter Lend positions in them."""
-    import lend_borrow as _lb
-    rows_ = await _jl_markets()
-    pos_ = []
-    if rows_ and 32 <= len(address or '') <= 44:
-        code_, b_ = await _jl_borrow('GET', 'positions', params={'users': address})
-        pos_ = _lb.positions(b_, {r_['vaultId']: r_ for r_ in rows_}) if code_ == 200 else []
-    return {'markets': rows_, 'positions': pos_, 'maxUsd': _lb.MAX_USD}
 
 
 @app.post('/api/reputation/familia/leverage')
@@ -15105,25 +14644,6 @@ async def _prime_warm():
         print('prime warm:', type(e).__name__)
 
 
-@app.get('/api/reputation/fuses/prime')
-async def fuse_prime():
-    """⭐ Arena Prime cards — single-flight + stale-while-revalidate over `_fuse_prime_build` (every viewer and poller shares ONE build)."""
-    if os.environ.get('PYTEST_CURRENT_TEST'):
-        return await _fuse_prime_build()
-    if _prime_resp['data'] is None and not _prime_resp.get('snapTried') and not _prime_resp['cleared']:
-        _prime_resp['snapTried'] = True
-        sn = _prime_snapshot()
-        if sn:
-            _prime_resp.update(at=sn[0], data=sn[1], snap=True)
-    age = time.time() - _prime_resp['at']
-    t = _prime_resp.get('task')
-    if _prime_resp['data'] is not None and age < PRIME_FRESH_SEC:
-        return _prime_resp['data']
-    if t is None or t.done():
-        t = _prime_resp['task'] = asyncio.create_task(_prime_resp_build())
-    if _prime_resp['data'] is not None and (age < PRIME_STALE_SEC or _prime_resp.get('snap')):   # a snapshot is served while ONE build runs
-        return _prime_resp['data']
-    return await asyncio.shield(t)
 
 
 async def _fuse_prime_build():
@@ -17005,10 +16525,9 @@ async def circle_profile_save(request: Request, body: dict):
         clean = _clean_profile(circle_profile_merge(prev, body.get('profile') or {}))
         if clean.get('handle') and any(a != addr and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
             raise HTTPException(409, f"@{clean['handle']} is taken.")
-        d['profiles'][addr] = {**prev, **clean, 'lastTs': time.time(), 'updatedAt': time.time(), 'editedBy': me}
-        tmp = PROFILE_PATH.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(PROFILE_PATH)
+        row_ = _prof().update(addr, lambda cur: {**(cur or {}), **clean, 'lastTs': time.time(), 'updatedAt': time.time(), 'editedBy': me})
     ad = _admin_load(); _audit(ad, me, 'circle-profile', f'{addr[:6]}… {clean.get("handle") or clean.get("name") or ""}'); _admin_save(ad)
-    return {'ok': True, 'address': addr, 'profile': d['profiles'][addr]}
+    return {'ok': True, 'address': addr, 'profile': row_}
 
 
 
@@ -20818,11 +20337,6 @@ def _evo_view(role='reaper', now=None):
     return v
 
 
-@app.get('/api/reputation/evolution/{role}')
-async def evolution_lab(role: str):
-    if role != 'reaper':
-        raise HTTPException(404, 'Only Reaper has replayable exits today.')
-    return await asyncio.to_thread(_evo_view, role)
 
 
 @app.post('/api/reputation/admin/evolution/{role}/rollback')
@@ -24666,26 +24180,6 @@ def _site(request):
     return os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/') or str(request.base_url).rstrip('/')
 
 
-@app.get('/api/reputation/fuse-card/{name}')
-async def fuse_card_public(name: str, request: Request):
-    """Public card files: collection.json, {fid}.json (Metaplex metadata), {fid}.svg (image)."""
-    if name == 'collection.json':
-        return {'name': 'FEELESS Fuse Cards', 'symbol': 'FUSE', 'description': 'Each card is one published FEELESS Fuse. Its holder earns that Fuse\'s creator cut.',
-                'image': f'{_site(request)}/api/reputation/fuse-card/collection.svg'}
-    m = _re.match(r'^([a-f0-9]{6,16}|collection)\.(json|svg)$', name)
-    store = _json_load(FUSES_PATH, {'fuses': {}})
-    if not m:
-        raise HTTPException(404, 'Not found')
-    if m.group(1) == 'collection':
-        view = {'name': 'Fuse Cards', 'score': {'grade': 'A'}, 'legs': []}
-    else:
-        f = store['fuses'].get(m.group(1))
-        if not f:
-            raise HTTPException(404, 'Not found')
-        view = await _fuse_view(m.group(1), f, store)
-    if m.group(2) == 'svg':
-        return Response(_hq.card_svg(view), media_type='image/svg+xml', headers={'Cache-Control': 'public, max-age=600'})
-    return _hq.card_meta(m.group(1), view, _site(request))
 
 
 class FuseCardIn(BaseModel):
@@ -24857,19 +24351,6 @@ async def vaults_list(deposit: float = Query(10.0, gt=0, le=100000)):
     return {'vaults': await asyncio.gather(*[_vault_view(vid, v, deposit) for vid, v in d['vaults'].items() if v.get('status') != 'off'])}
 
 
-@app.get('/api/reputation/vaults/pools')
-async def vault_pool_search(q: str = Query(..., min_length=2, max_length=60)):
-    """Pool picker for the vault designer: real pools only, tagged v2 (constant product) or v3 (concentrated)."""
-    async with httpx.AsyncClient(timeout=8) as http:
-        try:
-            pairs = ((await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})).json() or {}).get('pairs') or []
-        except Exception:
-            pairs = []
-    # Solana ONLY (DexScreener search returns every chain — Base/ETH rows are dropped here), deepest first, and the real
-    # coin flagged (✓ REAL major mint vs ⚠ lookalike ticker) the same way the Fuse Lab search does.
-    pairs = sorted((p for p in _fuse.real_pools(pairs) if p.get('chainId') == 'solana'), key=lambda p: -_fuse._f((p.get('liquidity') or {}).get('usd')))[:15]
-    rows = [{'chainId': 'solana', 'pairAddress': p.get('pairAddress'), 'kind': _vault.kind_of(p), 'venue': p.get('dexId'), **_fuse.leg_meta(p)} for p in pairs]
-    return {'pools': _fuse.mark_real(rows, q)}
 
 
 
@@ -26084,30 +25565,6 @@ async def familia_street_mod(city: str, p: StreetMod):
 _appr_hits = {}
 
 
-@app.get('/api/reputation/approvals/{address}')
-async def token_approvals(address: str, request: Request):
-    """🛡 APPROVALS CHECK (web3 defence for every user): the wallet's token accounts that let ANOTHER address move tokens (an SPL delegate —
-    what a drainer leaves behind). Read-only; the page builds the revoke and the wallet signs it. 20 checks an hour per IP."""
-    if not _re.match(_B58, address or ''):
-        raise HTTPException(400, 'Not a Solana address.')
-    ip_ = _guard.request_ip(request); now = time.time()
-    h_ = [t_ for t_ in _appr_hits.get(ip_, []) if now - t_ < 3600]
-    if len(h_) >= 20:
-        raise HTTPException(429, 'Too many checks from here — try again in a while.')
-    _appr_hits[ip_] = h_ + [now]
-    if len(_appr_hits) > 5000:
-        _appr_hits.clear()
-    out = []
-    async with httpx.AsyncClient(timeout=12) as http:
-        res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [address, {'programId': pid_}, {'encoding': 'jsonParsed'}])
-                                     for pid_ in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')], return_exceptions=True)
-    for pid_, r_ in zip(('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'), res):
-        for a_ in ((r_ or {}).get('value') or []) if isinstance(r_, dict) else []:
-            info_ = ((((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {})
-            if info_.get('delegate'):
-                out.append({'account': a_.get('pubkey'), 'mint': info_.get('mint'), 'delegate': info_['delegate'], 'program': pid_,
-                            'amount': ((info_.get('delegatedAmount') or {}).get('uiAmountString')), 'balance': ((info_.get('tokenAmount') or {}).get('uiAmountString'))})
-    return {'address': address, 'approvals': out, 'checked': len(res), 'at': now}
 
 
 
@@ -26745,12 +26202,6 @@ async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = '')
     return {k: v for k, v in out.items() if k not in ('referralAccount', 'feeAccount', 'feeAccounts')} | {'active': bool(out['bps'])}
 
 
-@app.get('/api/reputation/internal/fees')
-async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = '', bundle: int = Query(0, ge=0, le=12), amount: float = Query(0, ge=0), card: int = Query(0, ge=0, le=1), cardId: str = Query('', max_length=16)):
-    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
-        raise HTTPException(403, 'Internal only.')
-    out = await effective_fee(wallet, inputMint, outputMint, bundle, amount, card, cardId)
-    return {**out, 'bps': 0, 'notes': ['Agent wallet: a flat fee per trade instead of a % fee.']} if wallet in _agent_wallets() else out
 
 
 def _agent_wallets():
@@ -27588,36 +27039,6 @@ async def shield_admin_set(request: Request):
 _case_peak: dict = {}   # mint → peak volume $/h seen (live case files)
 
 
-@app.get('/api/reputation/case/{address}')
-async def case_file(address: str, fresh: bool = False):
-    """One case file for any Solana address: a coin (risk score, holder clusters, launch forensics, the creator's
-    case) or a wallet (verdict, cited evidence, funding trail, launches, linked wallets, caller behaviour)."""
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
-        raise HTTPException(400, 'Paste a Solana wallet or coin address.')
-    hit = _case_cache.get(address)
-    if hit and time.time() - hit[0] < (20 if fresh and hit[1].get('kind') == 'coin' else 120):
-        return hit[1]
-    if fresh and (_intel_cache.get(address) or (0,))[0] < time.time() - 30:
-        _intel_cache.pop(address, None)            # live coin case: re-read holders / snipers at most every 30s
-    async with httpx.AsyncClient(timeout=12) as http:
-        auth = await _mint_authorities(http, address)
-    out = await (_coin_case(address, auth) if auth else _wallet_case(address))
-    if out.get('kind') == 'coin':   # live until its volume dies (−85% from peak)
-        try:
-            async with httpx.AsyncClient(timeout=8) as http:
-                prs = (await http.get(f'https://api.dexscreener.com/tokens/v1/solana/{address}')).json() or []
-            top = max(prs, key=lambda p: (p.get('volume') or {}).get('h1') or 0) if prs else {}
-            vol = top.get('volume') or {}
-            st = investigate.live_state(vol.get('m5'), vol.get('h1'), _case_peak.get(address, 0))
-            _case_peak[address] = st['peakPerH']
-            out['live'] = st
-        except Exception:
-            out['live'] = {'live': False, 'pctOfPeak': None}
-    out['at'] = time.time()
-    _case_cache[address] = (time.time(), out)
-    if len(_case_cache) > 3000:
-        _case_cache.clear()
-    return out
 
 
 # ---- Copy callers: calls from wallets you follow, newest first, with each caller's record ---------------
@@ -27879,19 +27300,6 @@ def _absorb_intel(mint, out):
 _stats_cache = {'at': 0, 'data': None, 'lock': None}
 
 
-@app.get('/api/reputation/stats')
-async def live_stats():
-    # Many viewers, one computation: recompute at most every 15s (and never concurrently).
-    if _stats_cache['data'] and time.time() - _stats_cache['at'] < 15:
-        return _stats_cache['data']
-    if _stats_cache['lock'] is None:
-        _stats_cache['lock'] = asyncio.Lock()
-    async with _stats_cache['lock']:
-        if _stats_cache['data'] and time.time() - _stats_cache['at'] < 15:
-            return _stats_cache['data']
-        data = await _live_stats_compute()
-        _stats_cache.update(at=time.time(), data=data)
-        return data
 
 
 async def _live_stats_compute():
@@ -27953,15 +27361,6 @@ async def claim_referral(payload: RefIn):
     return {'ok': True, 'inviter': inviter}
 
 
-@app.get('/api/reputation/referral/{address}')
-async def referral_info(address: str):
-    a = primary_of(address)
-    d = _json_load(REF_PATH, {'by': {}, 'of': {}})
-    invited = d['by'].get(a, [])
-    earned = _json_load(REF_EARN_PATH, {}).get(a) or {}
-    return {'address': a, 'code': invite_code(a), 'handle': handle_of(a), 'invited': len(invited), 'recent': invited[-10:][::-1], 'invitedBy': d['of'].get(a),
-            'pct': float(_json_load(REF_CFG_PATH, {}).get('pct') or 0), 'earnedUsd': earned.get('usd', 0), 'earnedSol': earned.get('sol', 0),
-            'paidUsd': earned.get('paidUsd', 0), 'tradingInvitees': len(earned.get('invitees') or [])}
 
 
 @app.get('/api/reputation/admin/referrals')
@@ -28575,10 +27974,6 @@ async def dm_send(payload: DmIn):
     return {'ok': True, 'message': msg}
 
 
-@app.get('/api/reputation/dm/{peer}')
-async def dm_thread(peer: str, address: str, session: str):
-    me = _session_or_401(address, session)
-    return {'me': me, 'peer': primary_of(peer), 'messages': _json_load(DM_PATH, {}).get(_dm_key(me, peer), [])[-150:]}
 
 
 @app.get('/api/reputation/dm-inbox')
@@ -28978,25 +28373,6 @@ async def sync_helius_webhook(public_url: str):
 _pf_cache = {}
 
 
-@app.get('/api/reputation/portfolio/{address}')
-async def portfolio(address: str, fresh: int = 0):
-    a = primary_of(address)
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a):
-        return {'address': a, 'supported': False, 'tokens': [], 'totalUsd': None}
-    hit = _pf_cache.get(a)
-    if hit and time.time() - hit[0] < (8 if fresh else 90):   # fresh=1 right after a trade (still shielded from hammering)
-        return hit[1]
-    if hit and not fresh and time.time() - hit[0] < PF_STALE_SEC:   # ⚡ answer the last copy now, refresh behind it (one at a time per wallet)
-        if a not in _pf_busy:
-            _pf_busy.add(a)
-            async def _bg():
-                try:
-                    await _portfolio_build(a)
-                finally:
-                    _pf_busy.discard(a)
-            asyncio.create_task(_bg())
-        return hit[1]
-    return await _portfolio_build(a)
 
 
 PF_STALE_SEC = 900.0
@@ -30235,30 +29611,8 @@ async def wallet_trades(address: str, limit: int = 40):
     return rows
 
 
-@app.get('/api/reputation/wallet-trades/{address}')
-async def wallet_trades_ep(address: str):
-    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)):
-        raise HTTPException(400, 'Bad address.')
-    rows_ = await wallet_trades(address)
-    return {'address': address, 'trades': rows_, 'source': 'Solana RPC' if rows_ and rows_[0].get('source') == 'rpc' else 'Helius'}
 
 
-@app.get('/api/reputation/copy/check/{address}')
-async def copy_check(address: str):
-    """Is this wallet safe to mirror? Trust, sniper record, funder links and KOL dump pattern — any
-    red flag pauses copying automatically."""
-    a = primary_of(address)
-    t = await trust_score(a)
-    bl = _block_load()['wallets'].get(a)
-    fd = _funders_load(); frec = fd['funders'].get(a)
-    kol = _kol_cache.get(a, (0, None))[1]
-    reasons = []
-    if bl and _is_blocked(bl): reasons.append('blocklisted for sniping/bundling')
-    elif bl: reasons.append('caught sniping/bundling')
-    if frec and _is_flagged_funder(frec): reasons.append('bankrolls sniper wallets')
-    if kol and kol.get('danger'): reasons.append('call-and-dump pattern')
-    if (t.get('score') or 0) < 45: reasons.append(f"low trust ({t.get('score')})")
-    return {'address': a, 'trust': t.get('score'), 'safe': not reasons, 'reasons': reasons}
 
 
 # ---- Season drops: weekly badges + a lifelong vault --------------------------------------------
@@ -31168,26 +30522,6 @@ def _gold_creator(a):
 
 
 # ---- Launch radar: every coin launched through FEELESS, newest first, with its evidence ----------
-@app.get('/api/reputation/launch-radar')
-async def launch_radar(limit: int = Query(30, ge=1, le=100)):
-    launches = sorted((_load().get('feelessLaunches') or {}).values(), key=lambda l: -(l.get('at') or 0))[:limit]
-    shields = _json_load(SHIELD_PATH, {})
-    rows, queued = [], 0
-    for l in launches:
-        hit = _intel_cache.get(l['mint'])
-        intel = hit[1] if hit else None
-        if not hit and queued < 3:
-            queued += 1; asyncio.create_task(_quiet(_runner_intel(l['mint'], _enr.PRIO['HELD'], 'card leg')))
-        w = primary_of(l['wallet'])
-        t = _trust_cache.get(w)
-        if not t and w not in _trust_pending and len(_trust_pending) < 8:
-            _trust_pending.add(w); asyncio.create_task(_trust_fill(w))
-        sh = shields.get(l['mint'])
-        rows.append({'mint': l['mint'], 'symbol': l.get('symbol'), 'creator': w, 'rail': l.get('rail') or 'feeless', 'config': l.get('config'), 'at': l.get('at'),
-                     'snipers': None if not intel else len(intel.get('sniperWallets') or []) + len(intel.get('bundledWallets') or []),
-                     'shield': None if not sh else ('broken' if sh.get('broken') else 'active'),
-                     'rep': None if not t else {'score': t[1].get('score'), 'level': t[1].get('level')}, 'gold': _gold_creator(w)})
-    return {'launches': rows}
 
 
 async def _quiet(coro):
@@ -32160,28 +31494,6 @@ def _fee_totals_heal():
 
 
 
-@app.get('/api/reputation/fee-report/{address}')
-async def fee_report_get(address: str):
-    """FEELESS fees this wallet paid (7d + all time, linked accounts count once), the FeeBack accrued / paid / owed,
-    how much of the fees came back, and what the wallet earned meanwhile (XP, rep, points, badge fee perk)."""
-    if not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', address):
-        raise HTTPException(400, 'Bad address.')
-    me = primary_of(address)
-    rep = fee_report.fee_report(_json_load(FEE_LEDGER_PATH, {}).get(me) or [], time.time())
-    paid = round(float(_json_load(FEEBACK_PAID_PATH, {}).get(me, 0) or 0), 6)
-    # What you earned while paying those fees: XP/level + badge fee perk (quests), rep verdict, season points.
-    try:
-        q = await _quest_summary(me)
-        quest = {'xp': q['level']['xp'], 'level': q['level']['name'], 'badges': q['earned'], 'badgeFeeDiscountPct': q['perks']['feeDiscountPct'],
-                 'badgeFeeFrom': q['perks']['from'].get('fee'), 'seasonXp': q['season']['score']}
-    except Exception:
-        quest = {}
-    qr = _quick_rep(me)
-    fees = rep.get('feesTotalUsd') or 0
-    back = rep.get('feeBackUsd') or 0
-    return {'address': address, **rep, 'feeBackPaidUsd': paid, 'feeBackOwedUsd': round(max(0.0, back - paid), 6),
-            'paidBackPct': round(back / fees * 100, 1) if fees else 0.0,
-            'earned': {**quest, 'rep': {'score': qr.get('score'), 'label': qr.get('label')}, 'points': int((_pts().get(me) or {}).get('total') or 0)}}
 
 
 class TradeLanded(BaseModel):
@@ -32318,11 +31630,6 @@ async def watch_set(p: WatchIn):
     return {'watching': p.on, 'count': len([t for t, w in d['targets'].items() if me in w])}
 
 
-@app.get('/api/reputation/wallet-watch')
-async def watch_list(address: str, session: str):
-    me = _session_or_401(address, session)
-    d = _json_load(WATCH_PATH, {'targets': {}})
-    return {'targets': [{'address': t, **_quick_rep(t)} for t, ws in d['targets'].items() if me in ws]}
 
 
 def watch_alerts(target: str, trades: list, last_ts: float, rep: dict, name: str) -> list:
@@ -32655,14 +31962,6 @@ async def verify_batch(mints: str = Query('', max_length=4000)):
     return {'verify': out}
 
 
-@app.get('/api/reputation/verify/{mint}')
-async def verify_one(mint: str, fresh: bool = False):
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint):
-        raise HTTPException(400, 'Bad mint.')
-    hit = _verify_cache.get(mint)
-    if hit and not fresh and time.time() - hit[0] < VERIFY_TTL:
-        return hit[1]
-    return await _verify_run(mint)
 
 
 class VerifyRequest(BaseModel):
@@ -33454,14 +32753,6 @@ def _internal_ok(request):
     return bool(_internal_key()) and hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key())
 
 
-@app.get('/api/reputation/internal/circle-wallet')
-async def internal_circle_wallet(request: Request, address: str = ''):
-    if not _internal_ok(request):
-        raise HTTPException(403, 'Internal only.')
-    w_ = next((w for w in (await _circle_wallets_live()) or [] if w.get('address') == address), None)
-    if not w_:
-        raise HTTPException(404, 'Not a Circle wallet of this project.')
-    return {'id': w_.get('id'), 'address': w_.get('address')}
 
 
 @app.post('/api/reputation/internal/agent-x402-pay')
@@ -33718,3 +33009,51 @@ launch_rail = _rep_public_reads.launch_rail
 pump_profile_get = _rep_public_reads.pump_profile_get
 rugproof = _rep_public_reads.rugproof
 nft_meta = _rep_public_reads.nft_meta
+
+import rep_more_reads as _rep_more_reads   # noqa: E402  🧩 SITE-5 slice 8: plain read routes, moved by scripts/move-routes.py
+app.include_router(_rep_more_reads.router)
+creator_profile = _rep_more_reads.creator_profile
+get_watchlist_feed = _rep_more_reads.get_watchlist_feed
+global_feed = _rep_more_reads.global_feed
+case_studies = _rep_more_reads.case_studies
+get_upload = _rep_more_reads.get_upload
+x_oauth_callback = _rep_more_reads.x_oauth_callback
+chat_room = _rep_more_reads.chat_room
+why_pump = _rep_more_reads.why_pump
+coin_edge = _rep_more_reads.coin_edge
+fuses_arena_best = _rep_more_reads.fuses_arena_best
+fuses_feecat_pool = _rep_more_reads.fuses_feecat_pool
+crew_public = _rep_more_reads.crew_public
+site_updates = _rep_more_reads.site_updates
+familia_broker_cdc_caps = _rep_more_reads.familia_broker_cdc_caps
+familia_kalshi_proof = _rep_more_reads.familia_kalshi_proof
+familia_kalshi_status = _rep_more_reads.familia_kalshi_status
+familia_kalshi_positions = _rep_more_reads.familia_kalshi_positions
+familia_paper_perps = _rep_more_reads.familia_paper_perps
+familia_intake = _rep_more_reads.familia_intake
+familia_town_live = _rep_more_reads.familia_town_live
+familia_pools_sleep = _rep_more_reads.familia_pools_sleep
+cat_fund_rules = _rep_more_reads.cat_fund_rules
+familia_pools_gaps = _rep_more_reads.familia_pools_gaps
+coin_price_gap = _rep_more_reads.coin_price_gap
+familia_perps_real = _rep_more_reads.familia_perps_real
+familia_perps_real_leaders = _rep_more_reads.familia_perps_real_leaders
+familia_leverage = _rep_more_reads.familia_leverage
+fuse_prime = _rep_more_reads.fuse_prime
+evolution_lab = _rep_more_reads.evolution_lab
+fuse_card_public = _rep_more_reads.fuse_card_public
+vault_pool_search = _rep_more_reads.vault_pool_search
+token_approvals = _rep_more_reads.token_approvals
+internal_fees = _rep_more_reads.internal_fees
+case_file = _rep_more_reads.case_file
+live_stats = _rep_more_reads.live_stats
+referral_info = _rep_more_reads.referral_info
+dm_thread = _rep_more_reads.dm_thread
+portfolio = _rep_more_reads.portfolio
+wallet_trades_ep = _rep_more_reads.wallet_trades_ep
+copy_check = _rep_more_reads.copy_check
+launch_radar = _rep_more_reads.launch_radar
+fee_report_get = _rep_more_reads.fee_report_get
+watch_list = _rep_more_reads.watch_list
+verify_one = _rep_more_reads.verify_one
+internal_circle_wallet = _rep_more_reads.internal_circle_wallet

@@ -3,12 +3,17 @@ import { apiUrl } from '../../lib/api';
 import '../../styles/collective.css';
 
 // ✅ The 24-hour stamp (proof_stamp.py decides it): PROVED, NOT PROVED, a countdown, or LIVE.
-const STAMP = { proved: ['PROVED', 'is-yes'], not: ['NOT PROVED', 'is-no'], live: ['LIVE', 'is-live'] };
+// owner 2026-11-13: "make it understandable when I'm on the site" — the stamp says what it is in plain words: the result, or when the result comes.
+const STAMP = { proved: ['✓ PROVED', 'is-yes'], not: ['✕ NOT PROVED', 'is-no'], live: ['STILL RUNNING', 'is-live'] };
 const leftOf = t => { const m = Math.max(0, Math.round((t * 1000 - Date.now()) / 60000)); return m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 export function ProofStamp({ s }) {
   if (!s) return null;
-  const [t, c] = STAMP[s.state] || [`STAMP IN ${leftOf(s.dueAt)}`, 'is-wait'];
-  return <em className={`clx-stamp ${c}`} data-testid="proof-stamp" data-tip={s.state === 'waiting' ? 'Every proof gets PROVED or NOT PROVED a day after it closes. A bid on a game waits for the final score' : 'Worked out from the proof itself'}>{t}</em>;
+  const [t, c] = STAMP[s.state] || [`RESULT IN ${leftOf(s.dueAt)}`, 'is-wait'];
+  const tip = s.state === 'proved' ? 'Checked a day after it closed: what it said held up against what really happened.'
+    : s.state === 'not' ? 'Checked a day after it closed: what it said did not hold up against what really happened.'
+      : s.state === 'live' ? 'Still open. Its result is checked a day after it closes.'
+        : 'A day after a proof closes, FEELESS checks it against what really happened and stamps it PROVED or NOT PROVED. A game pick waits for the final score.';
+  return <em className={`clx-stamp ${c}`} data-testid="proof-stamp" data-tip={tip} aria-label={`${t}. ${tip}`}>{t}</em>;
 }
 
 function ProofRow({ r, i, showAgent = true }) {

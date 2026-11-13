@@ -3,7 +3,7 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now: ≈5% left** (SITE-5, SITE-8 + COL-6's stamp), then only the owner's money tests.
+> Every report says the % left. **Now: ≈4% left** (SITE-5 hand-moves, SITE-8 money stores + live workers, COL-6's stamp), then only the owner's money tests.
 
 ## COLLECTIVE
 
@@ -21,11 +21,11 @@ Left: run it on every commit. Claude was blocked from adding a git hook (persist
 
 ## SITE
 
-**SITE-5 · Split the big backend file** · OPEN · claimed: — · money/write/admin routes move only with the owner watching the live machine · 2026-11-13: `scripts/route-table.py` (--save before a move, --check after = same 618 routes in the same order with the same params, --left = what is still inside by kind: money 26 · write 101 · admin 164 · read 131). The old AST mover was a one-off; the 131 reads left are the long / comprehension-shadow ones.
+**SITE-5 · Split the big backend file** · OPEN · claimed: — · money/write/admin routes move only with the owner watching the live machine · 2026-11-13: `scripts/route-table.py` (--save before a move, --check after = same 618 routes in the same order with the same params, --left = what is still inside by kind: money 26 · write 101 · admin 164 · read 131). The old AST mover was a one-off; the 131 reads left are the long / comprehension-shadow ones. 2026-11-13 slice 8: `scripts/move-routes.py` moved 45 more plain reads → `rep_more_reads.py` (route-table --check now says EQUIVALENT when only non-overlapping order changed; it refuses a move a wildcard path would catch). Left: money 26 · write 101 · admin 164 · read 86 (59 reuse a module name as a local → hand-move).
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
 
-**SITE-8 · Database + workers** · OPEN · claimed: — · 2026-11-13: `backend/sql_store.Docs` (one row per key, `update()` = one BEGIN IMMEDIATE txn across processes) + quest state moved onto it (real 13 wallets equal, old file 0400); `scripts/load-workers.py`: uvicorn 4 workers × 3,000 concurrent writes → 0 lost, 1.9K rps, p95 45 ms. Next slices: fuse_hq.json (117 save sites, money → watched), feecats.json (_KEPT overlay), crews/runners; then in-memory limits/caches → shared; then `--workers` on the live services (owner watching).
+**SITE-8 · Database + workers** · OPEN · claimed: — · 2026-11-13: `backend/sql_store.Docs` (one row per key, `update()` = one BEGIN IMMEDIATE txn across processes) + quest state moved onto it (real 13 wallets equal, old file 0400); `scripts/load-workers.py`: uvicorn 4 workers × 3,000 concurrent writes → 0 lost, 1.9K rps, p95 45 ms. Slice 2 done: wallet profiles → profiles.db (4 write sites are per-wallet transactions, real 3 rows equal, old file 0400; 4-process test 160/160). Next slices: fuse_hq.json (117 save sites, money → watched), feecats.json (_KEPT overlay), crews/runners; then in-memory limits/caches → shared; then `--workers` on the live services (owner watching).
 Done when: hot stores in a real DB, multiple workers, no lost writes, load test proves it. (FPS + first load test done.)
 
 ## OWNER ONLY

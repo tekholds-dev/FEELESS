@@ -1,6 +1,7 @@
 """✅ THE 24-HOUR STAMP (owner 2026-11-04): every proof gets PROVED or NOT PROVED a day after it closes. A bid on a game not yet played waits for the final score. Worked out from the folder each time, so nothing can be set by hand. Pure."""
 from fnum import plain as _f
 DAY_S = 86400
+GAME_GRACE_S = 3 * DAY_S   # a game the scoreboard never finished (postponed, dropped) holds the stamp at most 3 more days
 
 
 
@@ -28,7 +29,7 @@ def of(kind, f, now):
         return {'state': 'live', 'dueAt': None, 'lean': None}
     start = _f(f.get('soldAt') or f.get('closedAt') or f.get('at')); due = start + DAY_S; won = _result(kind, f)
     games = f.get('games') or []
-    unfinished = kind == 'PoB' and games and not all(g.get('final') for g in games)
+    unfinished = kind == 'PoB' and games and not all(g.get('final') for g in games) and now < due + GAME_GRACE_S
     if now < due or unfinished:
         return {'state': 'waiting', 'dueAt': round(due), 'lean': won}
     return {'state': 'proved' if won else 'not', 'dueAt': round(due), 'lean': won}

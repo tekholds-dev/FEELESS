@@ -313,12 +313,17 @@ export function newestProofs(d) {
   return [...(d?.pobFolders || []).map(f => row('pob', f)), ...(d?.powFolders || []).map(f => row('pow', f)), ...(d?.pocFolders || []).map(f => row('poc', f)),
     ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.poeFolders || []).map(f => row('poe', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, 4);   // a Showcase ad build is not one of its proofs
 }
-// 🖥 owner 2026-11-12: "one monitor shows the code an the other the static" — a newest PoStatic takes both monitors: its code on the first, its page on the second. Pure.
-export function monitorProof(proofs, n, count) {
-  const top = proofs?.[0];
-  if (top?.k === 'ps' && count >= 2) return n < 2 ? { ...top, view: n === 0 ? 'code' : 'page' } : proofs[n - 1];
-  return proofs?.[n];
+// 🖥 owner 2026-11-12: "one monitor shows the code an the other the static" + 2026-11-13: "unless they are doing separate jobs → code on one monitor
+// and static on the other". While every monitor is idle, the newest PoStatic among its newest proofs takes the first two: its code on one, its
+// page on the other (never both squeezed into one); the other proofs follow on any further monitors. A monitor on a job of its own keeps it,
+// and the idle ones show proofs in order, one each. `idle` = which monitors are idle (all, when not given). Pure.
+export function monitorProof(proofs, n, count, idle = null) {
+  const list = proofs || []; const ps = list.find(p => p.k === 'ps');
+  const allIdle = !idle || idle.slice(0, count).every(Boolean);
+  if (ps && count >= 2 && allIdle) { const rest = list.filter(p => p !== ps); return n < 2 ? { ...ps, view: n === 0 ? 'code' : 'page' } : rest[n - 2]; }
+  return list[n];
 }
+export const monitorIdle = w => !(w?.status === 'working') && !w?.hand && w?.status !== 'human';
 function ProofScreen({ p, onOpen, catId }) {
   const [ic, nm] = PROOF_KIND[p.k] || ['🗂', 'Proof'];
   const body = <ProofMonitorBody p={p} catId={catId} work={work} />;
@@ -645,6 +650,7 @@ export function genLog(d) {
 
 // 👀 a visitor (from the leaderboard) sees its minds + what both agreed on — its live windows and chat stay private to its owner
 export function CatWorkbench({ cat, readOnly = false }) {
+  useEffect(() => { if (!readOnly && cat?.id && cat.id !== 'leader') { try { localStorage.setItem('feeless.lastAgent', cat.id); } catch { /* private window */ } } }, [cat?.id, readOnly]);   // 🎭 the FeeCat bar wears the agent you opened last
   return readOnly ? <PublicMinds cat={cat} /> : <WorkbenchLive cat={cat} />;
 }
 // 🖥 fits a dash to the screen under whatever sits above it (a visitor's view never scrolls — owner 2026-10-30)
@@ -1614,7 +1620,7 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
-    <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length)} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length, wins.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
