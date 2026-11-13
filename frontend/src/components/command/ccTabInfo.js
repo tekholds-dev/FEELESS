@@ -37,6 +37,7 @@ export const TAB_INFO = {
   looks: ['Looks', 'Pick how all of FEELESS looks: Plasma, the free looks and the advanced ones holders unlock.', ['Preview', 'Save']],
   verify: ['Verify coins', 'Run the verification checks, grant the gold check or revoke one.', ['Run checks', 'Grant', 'Revoke']],
   overview: ['Security', 'Platform health, keys and risks at a glance.', []],
+  war: ['War Room', 'Live attacks on FEELESS, decoys + canaries, auto-hardening, on-chain tracing and the bounty — all in one place.', []],
   mod: ['Moderation', 'Reports, mutes and the blocklist.', []],
   access: ['Access', 'Who can open this HQ.', []],
   bugs: ['Bugs', 'Crash reports and bug tickets, newest first.', []],

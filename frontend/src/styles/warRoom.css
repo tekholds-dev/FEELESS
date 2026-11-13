@@ -1,0 +1,73 @@
+/* ⚔️ SEC-1 WAR ROOM (WarRoom.jsx, HQ › Safety › War Room). Dense live security dashboard. Tokens only (meta.css); transform/opacity only. */
+.war { display: flex; flex-direction: column; gap: 14px; }
+.war-hero .war-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--m-mute); margin-left: auto; }
+.war-hero .war-dot.is-on { background: var(--m-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--m-accent) 20%, transparent); animation: war-pulse 1.8s var(--m-ease) infinite; }
+@keyframes war-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+
+.war-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 10px; }
+.war-kpis > span { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--m-surface-2); border: 1px solid var(--m-line); border-radius: var(--m-r-sm); }
+.war-kpis em { font-style: normal; font-family: var(--m-mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute); }
+.war-kpis .m-num { font-size: 20px; }
+.war-tl { margin-top: 4px; }
+
+.war-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.war-wide { grid-column: 1 / -1; }
+
+.war-feed, .war-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 360px; overflow: auto; }
+.war-feed li { display: grid; grid-template-columns: auto auto 1fr auto; align-items: baseline; gap: 8px; padding: 6px 8px; background: var(--m-surface-2); border: 1px solid var(--m-line); border-left: 2px solid var(--m-line-hi); border-radius: var(--m-r-sm); font-size: 12px; animation: war-in .22s var(--m-ease) both; }
+.war-feed li .war-ic { font-size: 13px; }
+.war-feed li b { font-family: var(--m-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--m-text); white-space: nowrap; }
+.war-feed li .war-src { color: var(--m-accent); font-family: var(--m-mono); font-size: 11px; }
+.war-feed li .war-what { color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.war-feed li small { color: var(--m-mute); font-size: 10px; white-space: nowrap; }
+.war-feed li.k-block, .war-feed li.k-canary-key { border-left-color: var(--m-danger); }
+.war-feed li.k-harden { border-left-color: var(--m-accent); }
+.war-feed li.k-canary, .war-feed li.k-decoy { border-left-color: var(--m-warn); }
+@keyframes war-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.war-list li { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 8px; padding: 6px 8px; background: var(--m-surface-2); border: 1px solid var(--m-line); border-radius: var(--m-r-sm); font-size: 12px; }
+.war-list li b { font-family: var(--m-mono); font-size: 11px; color: var(--m-text); white-space: nowrap; }
+.war-list li span { color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.war-list li small { color: var(--m-mute); font-size: 10px; white-space: nowrap; }
+.war-list.is-move li b { color: var(--m-accent); }
+
+.war-quiet, .war-note { font-size: 12px; margin: 10px 0 0; }
+.war-note { line-height: 1.5; }
+.war-nets { margin: 8px 0 0; font-size: 11px; color: var(--m-danger); font-family: var(--m-mono); }
+.war-cap, .war-grid details { margin-top: 10px; }
+.war-cap summary { cursor: pointer; font-size: 11px; color: var(--m-accent); font-family: var(--m-mono); }
+
+.war-trace-in { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+.war-trace-in .m-input { flex: 1 1 200px; }
+.war-trace-out { margin-top: 8px; }
+.war-trace-out > .m-num { display: block; margin-bottom: 6px; }
+
+.war-hard, .war-enc { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.war-hard li, .war-enc li { display: flex; flex-direction: column; gap: 4px; padding: 10px; background: var(--m-surface-2); border: 1px solid var(--m-line); border-radius: var(--m-r-sm); border-top: 2px solid var(--m-line-hi); }
+.war-hard li.s-done { border-top-color: var(--m-accent); }
+.war-hard li.s-partial { border-top-color: var(--m-warn); }
+.war-hard li.s-todo { border-top-color: var(--m-danger); }
+.war-hard-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.war-hard-h b, .war-enc li > b { font-size: 12px; color: var(--m-text); }
+.war-chip { font-style: normal; font-family: var(--m-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; }
+.war-chip.is-done { color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 14%, transparent); }
+.war-chip.is-partial { color: var(--m-warn); background: color-mix(in srgb, var(--m-warn) 14%, transparent); }
+.war-chip.is-todo { color: var(--m-danger); background: color-mix(in srgb, var(--m-danger) 14%, transparent); }
+.war-how { font-size: 11.5px; color: var(--m-dim); line-height: 1.45; }
+.war-fix { font-size: 11.5px; color: var(--m-text); line-height: 1.45; }
+
+.war-bounty-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 10px 0; }
+.war-bounty-cols h5 { margin: 0 0 6px; font-family: var(--m-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-accent); }
+.war-bounty-cols ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.war-bounty-cols li { font-size: 11.5px; color: var(--m-dim); line-height: 1.4; }
+.war-bounty code { font-family: var(--m-mono); font-size: 11px; color: var(--m-accent); }
+
+@media (max-width: 640px) {
+  .war-grid, .war-hard, .war-enc, .war-bounty-cols { grid-template-columns: 1fr; }
+  .war-kpis { grid-template-columns: repeat(2, 1fr); }
+  .war-feed li { grid-template-columns: auto 1fr; }
+  .war-feed li .war-src, .war-feed li small { grid-column: 2; }
+}
+body.fx-lite .war-hero .war-dot.is-on { animation: none; }
+body.fx-lite .war-feed li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .war-hero .war-dot.is-on { animation: none; } .war-feed li { animation: none; } }

@@ -24933,16 +24933,80 @@ def _def_save(force=False):
         _json_save(DEF_PATH, {k: s[k] for k in ('blocks', 'rules', 'incidents', 'uaHits')})
 
 
+# ⚔️ SEC-1 War Room: the owner-only security dashboard's state (war_room.py). Sits on top of _def; all data is observed on our own server.
+import war_room as _war          # noqa: E402
+import war_hardening as _war_hard  # noqa: E402
+WAR_PATH = DATA_DIR / 'war_room.json'
+_war_state = None
+_war_dirty = {'at': 0.0}
+
+
+def _war_s():
+    global _war_state
+    if _war_state is None:
+        _war_state = _war.new_state()
+        saved = _json_load(WAR_PATH, {})
+        for k in ('seq', 'events', 'captures', 'canaries', 'hits', 'nets', 'netSeen', 'sigs', 'revoked', 'reports', 'moves'):
+            if k in saved and isinstance(saved[k], type(_war_state[k])):
+                _war_state[k] = saved[k]
+    return _war_state
+
+
+def _war_save(force=False):
+    now = time.time()
+    if force or now - _war_dirty['at'] > 15:
+        _war_dirty['at'] = now
+        s = _war_s(); _war.prune(s, now)
+        _json_save(WAR_PATH, {k: s[k] for k in ('seq', 'events', 'captures', 'canaries', 'hits', 'nets', 'netSeen', 'sigs', 'revoked', 'reports', 'moves')})
+
+
+_BOUNTY_SCOPE = {
+    'title': 'FEELESS responsible-disclosure bounty',
+    'intro': 'Found a real security issue? Report it privately, give us time to fix, and get paid. Probing within scope is welcome — '
+             'draining, phishing real users, or hitting anyone else is not.',
+    'inScope': ['The FEELESS web app + API (reputation, candles, feecat services)', 'Fund-safety / signing / quote-integrity bugs',
+                'Admin / session / privilege-escalation bugs', 'On-chain logic that could misroute fees or funds'],
+    'outOfScope': ['Denial of service / volumetric floods', 'Automated scanner noise (our decoys handle it)', 'Anything touching other users\' funds or data',
+                   'Social engineering of staff', 'Physical / third-party (Jupiter, Helius, the RPC nodes)'],
+    'rules': ['Report privately first (this form), no public disclosure until fixed', 'No data exfiltration beyond proof-of-concept',
+              'One wallet per researcher for payout', 'The owner reviews every report and decides the reward — crypto-native, severity-based'],
+    'severity': [['Critical — funds at risk', 'top reward'], ['High — auth / privilege', 'high'], ['Medium — data / integrity', 'mid'], ['Low — hardening', 'small / swag']],
+}
+
+
 @app.middleware('http')
 async def _record_status(request: Request, call_next):
     gs = _guard_s()
     ip = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
     ua = request.headers.get('user-agent', '')
+    if not _guard.is_internal(ip) and _war.net_banned(_war_s(), ip):   # ⚔️ a subnet caught running scanners into our decoys
+        return JSONResponse({'detail': 'Blocked.'}, status_code=403)
+    auth_ = request.headers.get('authorization', '') or request.headers.get('x-api-key', '')
+    if 'sk_live_' in auth_ and _war.canary_key_hit(_war_s(), auth_, ip, ua, request.url.path):   # ⚔️ a key planted in a decoy came back at us
+        _war_save(force=True)
+        return JSONResponse({'detail': 'Unauthorized.'}, status_code=401)
     d_ = _def.check(_def_s(), ip, ua, request.method, request.url.path, internal=_guard.is_internal(ip))   # 🛡 learned defence: decoys, rules, tarpits
     if d_:
-        if d_[0] in ('block', 'honeypot'):
+        if d_[0] == 'honeypot':   # ⚔️ serve a fake page + capture the request, plant canaries, note the subnet — then study it in the War Room
             _def_save()
-            return JSONResponse({'detail': 'Not Found'}, status_code=404) if d_[0] == 'honeypot' else JSONResponse({'detail': 'Blocked.'}, status_code=403)
+            try:
+                ws = _war_s(); kind = _war.page_kind(request.url.path) or 'env'
+                body_ = ''
+                try:
+                    body_ = (await request.body()).decode('utf-8', 'replace') if request.method in ('POST', 'PUT', 'PATCH') else ''
+                except Exception:
+                    body_ = ''
+                _war.capture(ws, ip, ua, request.method, request.url.path, request.url.query, dict(request.headers), body_)
+                _, canary_url, fake_key = _war.mint_canary(ws, origin=f'{kind}-decoy', note=request.url.path)
+                _war.note_net(ws, ip, _def.fingerprint(ip, ua))
+                _war_save(force=True)
+                ctype, page = _war.decoy_page(kind, canary_url, fake_key)
+                return Response(content=page, media_type=ctype, status_code=200 if kind != 'keys' else 200)
+            except Exception:
+                return JSONResponse({'detail': 'Not Found'}, status_code=404)
+        if d_[0] == 'block':
+            _def_save()
+            return JSONResponse({'detail': 'Blocked.'}, status_code=403)
         await asyncio.sleep(d_[1])   # 🐢 tarpit: slowed, never refused
     n_sus = len(gs['suspects'])
     stop = _guard.check(gs, ip, request.method, request.url.path)
@@ -24967,8 +25031,15 @@ def _require_admin(request: Request) -> str:
                                   request.headers.get('x-admin-sig', ''), _admin_wallets(), _verify_wallet, time.time())
     try:   # 🛡 the same HQ signature from a new fingerprint = a stolen session (flagged + tarpitted, the owner sees it in Security)
         ip_ = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
-        if _def.seen_sig(_def_s(), request.headers.get('x-admin-sig', ''), ip_, request.headers.get('user-agent', ''), request.url.path):
+        sig_ = request.headers.get('x-admin-sig', ''); ua_ = request.headers.get('user-agent', '')
+        if _def.seen_sig(_def_s(), sig_, ip_, ua_, request.url.path):
             _def_save(force=True)
+        if _war.note_sig(_war_s(), sig_, ip_, ua_):   # ⚔️ same HQ signature from a second device → revoke (owner re-signs)
+            _war_save(force=True)
+        if _war.sig_revoked(_war_s(), sig_):
+            raise HTTPException(401, 'This session was used from another device and has been revoked — sign in again.')
+    except HTTPException:
+        raise
     except Exception:
         pass
     _role_gate(addr, request)
@@ -25581,6 +25652,91 @@ async def admin_defence_lift(p: DefenceLift, request: Request):
     async with _admin_lock:
         d = _admin_load(); _audit(d, admin, 'defence-lift', p.fp or p.ua); _admin_save(d)
     return _def.view(_def_s())
+
+
+# ⚔️ SEC-1 War Room -------------------------------------------------------------------------------------------------------------
+@app.get('/api/reputation/c/{tok}')
+async def war_canary(tok: str, request: Request):
+    """A planted canary token was opened → log the opener's real IP/UA. Always returns a 1×1 gif; it runs nothing anywhere."""
+    try:
+        ip = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+        if _re.fullmatch(r'[0-9a-f]{32}', tok or '') and _war.canary_open(_war_s(), tok, ip, request.headers.get('user-agent', ''), dict(request.headers)):
+            _war_save(force=True)
+    except Exception:
+        pass
+    gif = bytes.fromhex('47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b')
+    return Response(content=gif, media_type='image/gif')
+
+
+@app.get('/api/reputation/admin/security/war-room')
+async def admin_war_room(request: Request):
+    """The live War Room: feed, timeline, decoy captures, canaries + openers, banned subnets, harden moves, bounty inbox, hardening list."""
+    _require_owner(request)
+    v = _war.view(_war_s())
+    v['hardening'] = _war_hard.view()
+    v['encyclopedia'] = _war_hard.encyclopedia()
+    v['bounty'] = _BOUNTY_SCOPE
+    return v
+
+
+class WarTrace(BaseModel):
+    wallet: str = Field(..., max_length=64)
+
+
+@app.post('/api/reputation/admin/security/war-room/trace')
+async def admin_war_trace(p: WarTrace, request: Request):
+    """Read-only on-chain trace of a suspect wallet's recent outbound transfers + a plain-text evidence pack. We never touch the wallet."""
+    _require_owner(request)
+    wallet = (p.wallet or '').strip()
+    if not _re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', wallet):
+        raise HTTPException(400, 'Not a Solana address.')
+    transfers = []
+    try:
+        async with httpx.AsyncClient(timeout=20) as http:
+            sigs = await _chain._rpc(http, 'getSignaturesForAddress', [wallet, {'limit': 25}])
+            sigs = sigs if isinstance(sigs, list) else (sigs or {}).get('result') or []
+            for row in sigs[:25]:
+                tx = await _chain._rpc(http, 'getTransaction', [row['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
+                tx = tx.get('result') if isinstance(tx, dict) and 'result' in tx else tx
+                meta = (tx or {}).get('meta') or {}
+                pre, post = meta.get('preBalances') or [], meta.get('postBalances') or []
+                keys = [k.get('pubkey') if isinstance(k, dict) else k for k in ((tx or {}).get('transaction', {}).get('message', {}).get('accountKeys') or [])]
+                if keys and keys[0] == wallet and pre and post:
+                    delta = (pre[0] - post[0]) / 1e9 - (meta.get('fee') or 0) / 1e9
+                    if delta > 0 and len(keys) > 1:
+                        transfers.append({'sig': row['signature'], 'from': wallet, 'to': keys[1], 'amount': round(delta, 6), 'token': 'SOL', 'at': row.get('blockTime')})
+    except Exception as e:
+        raise HTTPException(502, f'Chain read failed: {e}')
+    tr = _war.trace_summary(transfers, wallet)
+    _war.log(_war_s(), 'trace', '', '', '', '', 'owner traced a suspect wallet', wallet); _war_save(force=True)
+    return {'trace': tr, 'pack': _war.evidence_pack(_war_s(), wallet, tr)}
+
+
+@app.post('/api/reputation/admin/security/war-room/evidence')
+async def admin_war_evidence(request: Request):
+    """The evidence pack as it stands (no wallet) for an abuse / IC3 report."""
+    _require_owner(request)
+    return {'pack': _war.evidence_pack(_war_s())}
+
+
+class BountyReport(BaseModel):
+    wallet: str = Field('', max_length=64)
+    url: str = Field('', max_length=300)
+    detail: str = Field(..., min_length=10, max_length=4000)
+    reward: str = Field('', max_length=40)
+
+
+@app.post('/api/reputation/security/bounty')
+async def war_bounty_report(p: BountyReport, request: Request):
+    """Public responsible-disclosure inbox (guard rate-limits upstream). The owner triages in the War Room. Pay-outs are the owner's call."""
+    _war.add_report(_war_s(), wallet=p.wallet, url=p.url, detail=p.detail, reward=p.reward); _war_save(force=True)
+    return {'ok': True, 'message': 'Thanks — your report reached the FEELESS security desk. No automated payout; the owner reviews every report.'}
+
+
+@app.get('/api/reputation/security/bounty')
+async def war_bounty_scope():
+    """The public bounty scope + rules (opt-in; turns probing into paid, responsible disclosure)."""
+    return _BOUNTY_SCOPE
 
 
 
