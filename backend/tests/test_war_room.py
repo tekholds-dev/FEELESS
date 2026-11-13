@@ -91,3 +91,30 @@ def test_reports_capped_and_sanitised():
     r = w.add_report(s, wallet='W' * 200, url='http://x', detail='D' * 5000)
     assert len(r['wallet']) == 64 and len(r['detail']) == 2000
     assert w.view(s)['counts']['reports'] == 1
+
+
+def test_service_canary_open_fake_key_subnet_ban_and_owner_only(monkeypatch):
+    """End to end on the real middleware: canary opened → logged; planted key used → 401 + logged; 3 scanners from one /24 → net banned."""
+    import reputation_service as rs
+    import defence as d
+    from fastapi.testclient import TestClient
+    monkeypatch.setenv('FEELESS_TRUST_PROXY', '1')
+    monkeypatch.setattr(rs, '_def_state', d.new_state())
+    monkeypatch.setattr(rs, '_war_state', w.new_state())
+    c = TestClient(rs.app)
+    page = c.get('/api/reputation/admin/export-keys', headers={'x-forwarded-for': '7.7.7.1', 'user-agent': 'scan-a'})
+    assert page.status_code == 200
+    tok = next(iter(rs._war_state['canaries']))
+    fake_key = rs._war_state['canaries'][tok]['fakeKey']
+    assert fake_key in page.text
+    gif = c.get(f'/api/reputation/c/{tok}', headers={'x-forwarded-for': '6.6.6.6', 'user-agent': 'Mozilla/5.0', 'accept-language': 'ru'})
+    assert gif.status_code == 200 and gif.headers['content-type'] == 'image/gif'
+    assert rs._war_state['hits'][-1]['ip'] == '6.6.6.6'
+    r = c.get('/api/reputation/perf/config', headers={'x-forwarded-for': '6.6.6.7', 'user-agent': 'x', 'authorization': f'Bearer {fake_key}'})
+    assert r.status_code == 401 and rs._war_state['canaries'][tok]['keyUses'] == 1
+    for i, ua in enumerate(('scan-b', 'scan-c')):
+        c.get('/api/reputation/.env', headers={'x-forwarded-for': f'7.7.7.{i + 2}', 'user-agent': ua})
+    assert c.get('/api/reputation/perf/config', headers={'x-forwarded-for': '7.7.7.99', 'user-agent': 'fresh'}).status_code == 403   # the whole /24
+    assert c.get('/api/reputation/admin/security/war-room').status_code in (401, 403)   # owner only
+    ok = c.post('/api/reputation/security/bounty', json={'detail': 'a real finding with a PoC', 'wallet': 'W'}, headers={'x-forwarded-for': '4.4.4.4'})
+    assert ok.status_code == 200 and rs._war_state['reports'][-1]['wallet'] == 'W'

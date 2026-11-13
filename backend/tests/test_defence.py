@@ -51,15 +51,19 @@ def test_internal_traffic_is_never_touched_reports_are_plain_and_memory_is_cappe
     assert v['blocks'] == [] and 'honeypots' in v
 
 
-def test_the_service_answers_a_decoy_with_a_plain_404_then_blocks_that_fingerprint(monkeypatch):
+def test_the_service_serves_a_decoy_page_then_blocks_that_fingerprint(monkeypatch):
+    """SEC-1: a decoy now answers with a canaried fake page (the War Room captures it); the fingerprint is blocked right after."""
     import reputation_service as rs
+    import war_room as w
     from fastapi.testclient import TestClient
     monkeypatch.setenv('FEELESS_TRUST_PROXY', '1')
     monkeypatch.setattr(rs, '_def_state', d.new_state())
+    monkeypatch.setattr(rs, '_war_state', w.new_state())
     c = TestClient(rs.app)
     h = {'x-forwarded-for': '1.1.1.9', 'user-agent': 'python-requests/2.31'}
     r = c.get('/api/reputation/.env', headers=h)
-    assert r.status_code == 404 and r.json() == {'detail': 'Not Found'}
+    assert r.status_code == 200 and w.CANARY_PATH in r.text   # a fake config with a planted canary, not the real one
+    assert len(rs._war_state['captures']) == 1 and len(rs._war_state['canaries']) == 1
     assert c.get('/api/reputation/perf/config', headers=h).status_code == 403
     assert c.get('/api/reputation/perf/config', headers={'x-forwarded-for': '1.1.1.10', 'user-agent': 'python-requests/2.31'}).status_code != 403
     assert c.get('/api/reputation/admin/security/defence').status_code in (401, 403)   # the view is admin-only
