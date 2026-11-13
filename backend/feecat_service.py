@@ -107,6 +107,7 @@ import evidence_marks as _marks
 import proof_stamp as _stamp
 import ps_hidden as _ps_hidden
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
+import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into the PoC as new versions
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
 import game_forge as _forge   # 🎮 AGT-35: designed, engine-built, playtested games (no more fixed templates)
@@ -10019,6 +10020,23 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         _ws_save(cat_id, doc_)
         asyncio.create_task(_media_run(cat_id, p.job, jid))
         return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'media_play':   # 🎨 POC-PLAY: a playground edit (made free in the browser) filed into the PoC folder as a NEW version; the original stays
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'Playground edits live in a PoC folder.')
+        try:
+            raw_, ext_ = _pplay.decode(p.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        t_ = p.tools or {}; src_ = str(t_.get('from') or '')[:40]
+        smd_ = ((_media_msg(doc_, src_) or {}).get('media') or {}) if src_ else {}
+        jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time())
+        (_media_dir() / cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{jid}.{ext_}').write_bytes(raw_)
+        prompt_ = str(smd_.get('prompt') or t_.get('note') or 'Made in the playground')[:300]
+        msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': 'image', 'provider': 'playground', 'model': 'Konva canvas', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
+                'usd': 0, 'prompt': prompt_, 'status': 'queued', 'at': now_, **({'from': src_} if smd_ else {}), **({'template': t_['template']} if t_.get('template') in _pplay.TEMPLATES else {})}}
+        _media_set(cat_id, p.job, jid, keep=msg_, status='done', url=f'/api/cats/media/{cat_id}/{jid}.{ext_}', doneAt=now_)   # also joins a filed PoC of this folder
+        return {'doc': _ws_view(cat_id, p.job), 'id': jid}
     if p.op == 'media_char':   # 👤 keep a made image as this folder's CHARACTER: every video from here starts from him (empty text clears him)
         doc_ = _ws_load(cat_id, p.job)
         if not doc_ or doc_.get('kind') != 'content':

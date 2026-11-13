@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { agentAuth } from '../../lib/chatSession';
 import '../../styles/mediaStudio.css';
+
+const PocPlay = lazy(() => import('./PocPlay'));   // 🎨 its own chunk: Konva loads only when a playground opens
 
 // 🎬 PoC images and video (owner 2026-11-10): they run on the owner's OWN OpenRouter, fal.ai or Replicate account (staff agents: FEELESS's
 // OpenRouter key, $2 a day). It opens IN the conversation, not over it: first the formats going viral right now, each with a real clip we
@@ -21,6 +23,10 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
   const canLife = !!(cat && doc && work && setDoc) && md.status === 'done' && md.kind === 'image' && md.kept !== false && md.url;
   const isChar = canLife && doc?.character?.mid === md.id;
   const run = async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); setDoc(j.doc); } catch (e) { setErr(e.message); } setBusy(false); };
+  // 🎨 POC-PLAY: any finished picture or video opens in the playground; Save files the edit back into this proof as a new version
+  const canPlay = !!(cat && doc && work && setDoc) && md.status === 'done' && !!md.url; const [play, setPlay] = useState(false);
+  const pics = canPlay && play ? (doc.messages || []).map(x => x.media).filter(x => x && x.status === 'done' && x.url && x.kind !== 'video' && x.id !== md.id).map(x => ({ ...x, url: apiUrl(x.url) })) : [];
+  const savePlay = async (dataUrl, template) => { const j = await work(cat.id, { op: 'media_play', job: doc.id, text: dataUrl, tools: { from: md.id, template } }); setDoc(j.doc); };
   return <figure className={`mst-card is-${md.status}${md.fromImg ? ' is-fromimg' : ''}`} data-testid={`media-${md.id}`}>
     <figcaption><b>{md.kind === 'video' ? '🎬' : '🖼'} {md.label}</b><small>{PROV[md.provider] || md.provider}{usd(md.paidUsd ?? md.usd) ? ` · ${md.paidUsd != null ? '' : 'about '}${usd(md.paidUsd ?? md.usd)}` : ''} · {md.house ? 'FEELESS key (staff)' : 'your account'}{md.fromImg ? ' · from your image' : ''}</small>{isChar ? <em className="mst-char-on" data-testid="media-ischar">👤 THE CHARACTER</em> : null}</figcaption>
     {md.status === 'done' && md.url ? (md.kind === 'video'
@@ -34,11 +40,15 @@ export function MediaCard({ m, cat, doc, work, setDoc }) {
       {canLife ? <button type="button" className="m-btn m-go" disabled={busy} data-testid="media-life"
         data-tip="Makes a video that STARTS from this exact image (Seedance): same face, same clothes, now moving. On your account."
         onClick={() => run({ op: 'media_make', job: doc.id, text: `This exact person comes alive and moves naturally — same face, same clothes, same jewelry, photoreal: ${String(md.prompt || '').slice(0, 300)}`, tools: { kind: 'video', img: md.id } })}>{busy ? 'Starting…' : '🎬 Bring to life'}</button> : null}
+      {canPlay ? <button type="button" className="m-btn" onClick={() => setPlay(true)} data-testid="media-play"
+        data-tip="Open it in the playground: move, crop, add text and badges, put it on a phone or billboard, then save a new version">🎨 Playground</button> : null}
       {canLife ? <button type="button" className="m-btn" disabled={busy} aria-pressed={isChar} data-testid="media-char"
         data-tip={isChar ? 'He stops leading this folder\'s videos' : 'Every video made in this folder starts from him: one consistent guy for all your content'}
         onClick={() => run({ op: 'media_char', job: doc.id, text: isChar ? '' : md.id })}>{isChar ? '👤 Unset character' : '👤 Make him the character'}</button> : null}
     </span> : null}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+    {play ? createPortal(<Suspense fallback={<div className="ppl ppl-wait" role="status">Opening the playground…</div>}>
+      <PocPlay src={apiUrl(md.url)} kind={md.kind} from={md.id} title={md.label || 'Picture'} media={pics} onSave={savePlay} onClose={() => setPlay(false)} /></Suspense>, document.body) : null}
     {md.status === 'done' && md.kept === false ? <small className="mst-note">{md.why}</small> : null}
   </figure>;
 }

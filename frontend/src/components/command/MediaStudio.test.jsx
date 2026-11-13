@@ -81,3 +81,22 @@ test('👤 the composer says the character leads a video, and Not this time send
   expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'Bishop walks', tools: { kind: 'video', model: 'fal-wan22-5b', noChar: true } });
   act(() => root.unmount());
 });
+
+jest.mock('./PocPlay', () => ({ __esModule: true, default: p => <div data-testid="poc-play-mock"><button type="button" data-testid="pp-save" onClick={() => p.onSave('data:image/png;base64,AAAA', 'phone')}>s</button><button type="button" data-testid="pp-close" onClick={p.onClose}>x</button><i data-testid="pp-src">{p.src}|{p.kind}|{p.media.map(m => m.id).join(',')}</i></div> }));
+
+test('🎨 POC-PLAY: a done picture or video opens the playground, and Save files a new version into the same proof', async () => {
+  const img = { id: 'mi1', kind: 'image', label: 'Flash', provider: 'fal', prompt: 'a shoe', at: 1, status: 'done', kept: true, url: '/api/cats/media/c1/mi1.png' };
+  const other = { media: { id: 'mi2', kind: 'image', status: 'done', url: '/api/cats/media/c1/mi2.png' } };
+  const work = jest.fn(async () => ({ doc: { messages: [] } })); const setDoc = jest.fn();
+  let { root } = await mount(<MediaCard m={{ media: img }} cat={{ id: 'c1' }} doc={{ id: 'w1', messages: [{ media: img }, other] }} work={work} setDoc={setDoc} />);
+  expect(q('poc-play-mock')).toBeNull();
+  await act(async () => q('media-play').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('pp-src').textContent).toMatch(/mi1\.png\|image\|mi2$/);                    // the proof's OTHER pictures ride along
+  await act(async () => q('pp-save').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_play', job: 'w1', text: 'data:image/png;base64,AAAA', tools: { from: 'mi1', template: 'phone' } });
+  expect(setDoc).toHaveBeenCalled();
+  await act(async () => q('pp-close').click()); expect(q('poc-play-mock')).toBeNull(); act(() => root.unmount());
+  ({ root } = await mount(<MediaCard m={{ media: { ...img, status: 'running' } }} cat={{ id: 'c1' }} doc={{ id: 'w1' }} work={work} setDoc={setDoc} />));
+  expect(q('media-play')).toBeNull(); act(() => root.unmount());                         // not until it is done
+  ({ root } = await mount(<MediaCard m={{ media: img }} />)); expect(q('media-play')).toBeNull(); act(() => root.unmount());   // read-only card: no playground
+});
