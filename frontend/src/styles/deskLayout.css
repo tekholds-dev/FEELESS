@@ -1,5 +1,6 @@
 /* 🖥 DESK layout (owner's pick 2026-11-12) + 🟢 PIT rail: menu bar, window bar, rank / quests / board widgets, dock. Built from m-* tokens; the green comes
    from the worn look. Hairlines, mono numbers, no glow (Pro look). One keyframe set dk*, transform/opacity only. */
+:root { /* page tokens (STYLE-1) */ --dl-ac1: #28c840; --dl-ac2: #08995a; --dl-bg1: #000; --dl-bg2: #0000001a; --dl-dg1: #ff5f57; --dl-sf1: #111114; --dl-tx1: #ffffff; --dl-tx2: #ffffffee; --dl-tx3: #fff; --dl-wn1: #febc2e; }
 .dk-top { display: grid; gap: 0; margin: -6px 0 12px; border: 1px solid var(--m-line); border-radius: 12px; overflow: hidden; background: var(--m-surface); }
 .dk-menu { display: flex; align-items: center; gap: 14px; min-height: 34px; padding: 0 14px; border-bottom: 1px solid var(--m-line); font: 500 12.5px var(--f-ui); color: var(--m-dim); }
 .dk-menu b { font: 700 13px var(--f-display); letter-spacing: -.02em; color: var(--m-text); }
@@ -8,9 +9,9 @@
 .dk-menu a:hover { color: var(--m-text); background: color-mix(in srgb, var(--m-text) 6%, transparent); } .dk-menu a:active { transform: scale(.97); } .dk-menu a:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .dk-clock { margin-left: auto; font: 500 12px var(--f-mono); color: var(--m-text); font-variant-numeric: tabular-nums; }
 .dk-win { display: flex; align-items: center; gap: 7px; padding: 9px 14px; font: 500 12px var(--f-mono); color: var(--m-dim); }
-.dk-win i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; } .dk-win i:nth-child(2) { background: #febc2e; } .dk-win i:nth-child(3) { background: #28c840; margin-right: 8px; }
+.dk-win i { width: 11px; height: 11px; border-radius: 50%; background: var(--dl-dg1); } .dk-win i:nth-child(2) { background: var(--dl-wn1); } .dk-win i:nth-child(3) { background: var(--dl-ac1); margin-right: 8px; }
 .dk-widgets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 14px; }
-.dk-w { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 14px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-surface); box-shadow: 0 18px 40px -24px #000; animation: dkIn .3s ease both; animation-delay: calc(var(--i) * 50ms); }
+.dk-w { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 14px; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-surface); box-shadow: 0 18px 40px -24px var(--dl-bg1); animation: dkIn .3s ease both; animation-delay: calc(var(--i) * 50ms); }
 .dk-big { font: 600 26px/1 var(--f-display); letter-spacing: -.04em; color: var(--m-text); font-variant-numeric: tabular-nums; } .dk-big small { font: 500 13px var(--f-ui); letter-spacing: 0; color: var(--m-dim); }
 .dk-bar { height: 4px; border-radius: 4px; background: var(--m-line); overflow: hidden; } .dk-bar i { display: block; height: 100%; background: var(--m-accent); transform-origin: 0 50%; transition: transform .6s ease; }
 .dk-q, .dk-board { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
@@ -19,7 +20,7 @@
 .dk-q li small, .dk-board li em { font: 500 12px var(--f-mono); font-style: normal; color: var(--m-dim); } .dk-q li.is-done span { color: var(--m-dim); text-decoration: line-through; } .dk-q li.is-done small { color: var(--m-accent); }
 .dk-board li b { width: 18px; font: 600 12px var(--f-mono); color: var(--m-accent); }
 .dk-more { justify-self: start; display: inline-flex; align-items: center; min-height: 32px; font-size: 12px; color: var(--m-accent); } .dk-more:hover { text-decoration: underline; } .dk-more:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 4px; }
-.dk-dock { position: fixed; z-index: 60; left: 50%; bottom: 14px; display: flex; gap: 4px; padding: 6px; border: 1px solid var(--m-line); border-radius: 20px; background: color-mix(in srgb, var(--m-bg) 92%, transparent); box-shadow: 0 20px 50px -20px #000; transform: translateX(-50%); animation: dkUp .3s ease both; }
+.dk-dock { position: fixed; z-index: 60; left: 50%; bottom: 14px; display: flex; gap: 4px; padding: 6px; border: 1px solid var(--m-line); border-radius: 20px; background: color-mix(in srgb, var(--m-bg) 92%, transparent); box-shadow: 0 20px 50px -20px var(--dl-bg1); transform: translateX(-50%); animation: dkUp .3s ease both; }
 .dk-dock button { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; color: var(--m-dim); transition: transform .15s, color .15s, background .15s; }
 .dk-dock button:hover { color: var(--m-text); background: color-mix(in srgb, var(--m-text) 7%, transparent); transform: translateY(-3px); } .dk-dock button:active { transform: scale(.94); }
 .dk-dock button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; } .dk-dock button.is-on { color: var(--m-accent-ink); background: var(--m-accent); }
@@ -30,8 +31,8 @@ html[data-layout="pit"] .page-trade .terminal-content-grid { grid-template-colum
 @keyframes dkUp { from { opacity: 0; transform: translate(-50%, 10px); } }
 body.fx-lite .dk-w, body.fx-lite .dk-dock { animation: none; }
 @media (prefers-reduced-motion: reduce) { .dk-w, .dk-dock { animation: none; } .dk-bar i, .dk-dock button { transition: none; } }
-body.theme-day .dk-top, body.theme-day .dk-w { background: #ffffff; border-color: #0000001a; } body.theme-day .dk-dock { background: #ffffffee; border-color: #0000001a; }
-body.theme-day .dk-menu b, body.theme-day .dk-menu span, body.theme-day .dk-big, body.theme-day .dk-q li, body.theme-day .dk-board li, body.theme-day .dk-clock { color: #111114; }
-body.theme-day .dk-more, body.theme-day .dk-board li b, body.theme-day .dk-q li.is-done small { color: #08995a; } body.theme-day .dk-dock button.is-on { background: #08995a; color: #fff; }
+body.theme-day .dk-top, body.theme-day .dk-w { background: var(--dl-tx1); border-color: var(--dl-bg2); } body.theme-day .dk-dock { background: var(--dl-tx2); border-color: var(--dl-bg2); }
+body.theme-day .dk-menu b, body.theme-day .dk-menu span, body.theme-day .dk-big, body.theme-day .dk-q li, body.theme-day .dk-board li, body.theme-day .dk-clock { color: var(--dl-sf1); }
+body.theme-day .dk-more, body.theme-day .dk-board li b, body.theme-day .dk-q li.is-done small { color: var(--dl-ac2); } body.theme-day .dk-dock button.is-on { background: var(--dl-ac2); color: var(--dl-tx3); }
 @media (max-width: 1100px) { html[data-layout="pit"] .page-trade .terminal-content-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 640px) { .dk-widgets { grid-template-columns: 1fr; } .dk-menu > a { display: none; } .dk-dock { display: none; } html[data-layout="desk"] .terminal-main { padding-bottom: 0; } }   /* the phone's own bottom nav is the dock there */

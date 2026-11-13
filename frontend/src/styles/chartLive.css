@@ -1,5 +1,6 @@
 /* 🟢 the trade on the candles (ChartLive.jsx, `clv2-*`): a BUY chip at the entry and a P&L tag riding the live candle. Positioned by
    transforms written from one rAF loop; nothing here animates a layout property. m-* tokens. */
+:root { /* page tokens (STYLE-1) */ --pchartliv-ac1: #5a33bd; --pchartliv-dg1: #b42346; --pchartliv-lh1: #47524d; }
 .clv2 { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
 .clv2-tag, .clv2-buy, .clv2-line { position: absolute; top: 0; opacity: 0; will-change: transform; }
 /* compact (owner, 2026-10-13: "pnl can be smaller, not blocking stuff to see"): one slim line hugging the price axis, translucent, no glow */
@@ -24,8 +25,8 @@
 @keyframes clv2Beat { 50% { transform: scale(1.7); opacity: .4; } }
 body.fx-lite .clv2-dot, body.fx-lite .clv2-ring-core { animation: none; } body.fx-lite .clv2-tag { transition: none; }
 @media (prefers-reduced-motion: reduce) { .clv2-dot, .clv2-ring-core { animation: none; } .clv2-tag { transition: none; } }
-body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: #5a33bd; color: #5a33bd; } body.theme-day .clv2-tag.is-dn { border-color: #b42346; color: #b42346; }
-body.theme-day .clv2-tag span { color: #47524d; } body.theme-day .clv2-buy { background: rgba(255, 255, 255, .85); color: #5a33bd; } body.theme-day .clv2-buy.is-dn { color: #b42346; } body.theme-day .clv2-line { background: #5a33bd; } body.theme-day .clv2-line.is-dn { background: #b42346; }
+body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: var(--pchartliv-ac1); color: var(--pchartliv-ac1); } body.theme-day .clv2-tag.is-dn { border-color: var(--pchartliv-dg1); color: var(--pchartliv-dg1); }
+body.theme-day .clv2-tag span { color: var(--pchartliv-lh1); } body.theme-day .clv2-buy { background: rgba(255, 255, 255, .85); color: var(--pchartliv-ac1); } body.theme-day .clv2-buy.is-dn { color: var(--pchartliv-dg1); } body.theme-day .clv2-line { background: var(--pchartliv-ac1); } body.theme-day .clv2-line.is-dn { background: var(--pchartliv-dg1); }
 @media (max-width: 640px) { .clv2-tag span { display: none; } }
 
 /* 📍 leader from the forming candle to the P&L tag (the tag sits GAP px off the candle) */

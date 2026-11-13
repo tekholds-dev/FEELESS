@@ -1,41 +1,42 @@
 /* ☀ DAY THEME WITH COLOUR (owner: "day mode needs more color, not just white — eye burning").
    Static only (no animation): a soft mint → sky → lavender → peach wash behind everything, tinted panels instead of #fff, and
    darker ink so coin names and numbers stay readable. Loaded after meta.css so it wins the day rules in terminal.css. */
+:root { /* page tokens (STYLE-1) */ --pdc-ac1: #d3ecdf; --pdc-ac10: #e0eee6; --pdc-ac11: #e6f2ec; --pdc-ac12: #076a45; --pdc-ac13: #dcece3; --pdc-ac14: #4c9e6a; --pdc-ac2: #cfe6ee; --pdc-ac3: #ddd8f0; --pdc-ac4: #e3f0e8; --pdc-ac5: #d8eadf; --pdc-ac6: #e2efe8; --pdc-ac7: #e4f0e9; --pdc-ac8: #bcd6c6; --pdc-ac9: #e4f2ea; --pdc-dm1: #b4cfbf; --pdc-lh1: #4a5651; --pdc-ln1: #45504b; --pdc-sf1: #131816; --pdc-tx1: #eef7f1; --pdc-tx2: #f1edff; --pdc-tx3: #f1f8f4; --pdc-tx4: #ffffff; --pdc-tx5: #e8fff1; --pdc-tx6: #eaf4ee; --pdc-wn1: #efe0d2; --pdc-wn2: #fbf5dd; }
 body.theme-day {
-  --day-wash: linear-gradient(155deg, #d3ecdf 0%, #cfe6ee 34%, #ddd8f0 68%, #efe0d2 100%);
-  --day-panel: #eef7f1;
-  --day-panel-2: #e3f0e8;
-  --day-edge: #b4cfbf;
-  --ink: #d8eadf;
+  --day-wash: linear-gradient(155deg, var(--pdc-ac1) 0%, var(--pdc-ac2) 34%, var(--pdc-ac3) 68%, var(--pdc-wn1) 100%);
+  --day-panel: var(--pdc-tx1);
+  --day-panel-2: var(--pdc-ac4);
+  --day-edge: var(--pdc-dm1);
+  --ink: var(--pdc-ac5);
   --panel: var(--day-panel);
   --line: var(--day-edge);
-  --muted: #4a5651;
-  --paper: #131816;
+  --muted: var(--pdc-lh1);
+  --paper: var(--pdc-sf1);
   /* the m-* presets were pure white in day (every card, chip and input) */
   --day-surface: rgba(236, 246, 241, 0.6); --day-surface-2: rgba(228, 240, 235, 0.72);   /* 55 legacy panels: translucent so the wash shows through */
-  --m-bg: #e2efe8; --m-surface: #f1edff; --m-surface-2: #e4f0e9; --m-line: #bcd6c6;
+  --m-bg: var(--pdc-ac6); --m-surface: var(--pdc-tx2); --m-surface-2: var(--pdc-ac7); --m-line: var(--pdc-ac8);
 }
-html:has(body.theme-day) { background: #d8eadf; }   /* no `fixed` wash: a fixed background repaints the whole page on every scroll frame (the day 'glitch') */
+html:has(body.theme-day) { background: var(--pdc-ac5); }   /* no `fixed` wash: a fixed background repaints the whole page on every scroll frame (the day 'glitch') */
 body.theme-day, body.theme-day .terminal-app, body.theme-day .globe-page { background: var(--day-wash) !important; }
-body.theme-day .terminal-header { background: #e4f2ea; }
-body.theme-day .terminal-sidebar { background: #e0eee6; }
-body.theme-day .market-ticker { background: #e6f2ec; }
+body.theme-day .terminal-header { background: var(--pdc-ac9); }
+body.theme-day .terminal-sidebar { background: var(--pdc-ac10); }
+body.theme-day .market-ticker { background: var(--pdc-ac11); }
 body.theme-day .context-bar { background: rgba(222, 238, 229, 0.97); }
-body.theme-day .terminal-search, body.theme-day .icon-btn { background: #f1f8f4; border-color: var(--day-edge); }
+body.theme-day .terminal-search, body.theme-day .icon-btn { background: var(--pdc-tx3); border-color: var(--day-edge); }
 /* the profile hero + its cards were near-white */
 body.theme-day .xp-card { background: linear-gradient(160deg, rgba(240, 249, 244, 0.96), rgba(226, 238, 247, 0.94)); }
 body.theme-day .m-card, body.theme-day .m-kv { background: var(--day-panel); border-color: var(--day-edge); }
 /* readable small text on every tinted surface */
-body.theme-day .terminal-main small, body.theme-day .terminal-main .muted, body.theme-day .terminal-main .m-dim { color: #45504b; }
+body.theme-day .terminal-main small, body.theme-day .terminal-main .muted, body.theme-day .terminal-main .m-dim { color: var(--pdc-ln1); }
 /* selected segment = deep green: every label inside it (<b>, <small>, <em>) must be white, not the muted ink (measured 1.5–3:1) */
 body.theme-day .m-seg button.active, body.theme-day .m-seg button.active *, body.theme-day .m-seg button[aria-checked="true"] *,
-body.theme-day .fp-tabs button.active small { color: #ffffff !important; }
+body.theme-day .fp-tabs button.active small { color: var(--pdc-tx4) !important; }
 /* the bright night-green tag on a league lane is unreadable on a light lane */
-body.theme-day .pls-lane u { color: #076a45; }
-body.theme-day .pls-lane.is-real { background: #fbf5dd; }
+body.theme-day .pls-lane u { color: var(--pdc-ac12); }
+body.theme-day .pls-lane.is-real { background: var(--pdc-wn2); }
 /* chat: initials were dark ink on a dark circle (1.1:1, ×120 on one page) and coin cards stayed night-dark under dark ink */
-body.theme-day .chat-avatar, body.theme-day .chat-message .chat-avatar span, body.theme-day .chat-avatar span { color: #e8fff1 !important; }
-body.theme-day .mini-token-card { background: #eaf4ee; border-color: var(--day-edge); }
-body.theme-day .mini-token-card.is-selectable:hover, body.theme-day .mini-token-card.is-selectable:focus-visible { background: #dcece3; border-color: #4c9e6a; }
+body.theme-day .chat-avatar, body.theme-day .chat-message .chat-avatar span, body.theme-day .chat-avatar span { color: var(--pdc-tx5) !important; }
+body.theme-day .mini-token-card { background: var(--pdc-tx6); border-color: var(--day-edge); }
+body.theme-day .mini-token-card.is-selectable:hover, body.theme-day .mini-token-card.is-selectable:focus-visible { background: var(--pdc-ac13); border-color: var(--pdc-ac14); }
 /* the war room (coin world) sat on a near-white sheet that hid the wash */
 body.theme-day .eco-world-inner { background: linear-gradient(160deg, rgba(211, 236, 223, 0.97), rgba(207, 228, 240, 0.97) 45%, rgba(226, 219, 242, 0.97) 80%, rgba(240, 226, 212, 0.97)) !important; }

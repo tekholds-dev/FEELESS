@@ -1,4 +1,5 @@
 /* 🫀 Card live (components/CardLive.jsx): overlay layers inside .fcd — transform / opacity only, paused off-screen (fxPause), still in lite mode. */
+:root { /* page tokens (STYLE-1) */ --pcl-ac1: #b48cff; --pcl-ac2: #5a33bd; --pcl-bg1: #000; --pcl-dg1: #ff8fa3; --pcl-dg2: #b3243f; --pcl-wn1: #f5c451; }
 .clv { position: absolute; inset: -7px; pointer-events: none; border-radius: 24px; --c: 143, 123, 255; }
 .clv.is-up { --c: 60, 240, 197; } .clv.is-down { --c: 255, 143, 163; } .clv.is-ice { --c: 159, 227, 255; }
 .clv-back { z-index: 0; } .clv-front { z-index: 5; inset: 0; overflow: hidden; border-radius: 18px; }
@@ -10,12 +11,12 @@
   animation: clvRise calc(2.2s + (var(--i) * .17s)) linear infinite; animation-delay: calc(var(--i) * -.41s); will-change: transform, opacity; }
 .clv.is-down .clv-spark { bottom: auto; top: -4px; animation-name: clvFall; }
 .clv.h3 .clv-spark { width: 4px; height: 4px; }
-.clv-scan { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold, #f5c451), transparent); opacity: .8; animation: clvScan 1.8s ease-in-out infinite alternate; }
+.clv-scan { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold, var(--pcl-wn1)), transparent); opacity: .8; animation: clvScan 1.8s ease-in-out infinite alternate; }
 .clv-tick { position: absolute; inset: 0; border-radius: inherit; opacity: 0; animation: clvTick .9s ease-out 1 both; }
 .clv-tick.up { background: linear-gradient(0deg, rgba(155, 107, 255, .34), transparent 55%); } .clv-tick.down { background: linear-gradient(180deg, rgba(255, 143, 163, .34), transparent 55%); }
 .clv-chip { position: absolute; left: 50%; bottom: calc(100% + 1px); transform: translateX(-50%); font: 700 9.5px/1.2 var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .05em; white-space: nowrap;
-  color: #b48cff; text-shadow: 0 1px 0 #000, 0 0 8px rgba(155, 107, 255, .55); animation: clvChip .32s ease-out both; }
-.clv-chip.down { color: #ff8fa3; text-shadow: 0 1px 0 #000, 0 0 8px rgba(255, 143, 163, .55); } .clv-chip small { font-size: 8px; opacity: .7; }
+  color: var(--pcl-ac1); text-shadow: 0 1px 0 var(--pcl-bg1), 0 0 8px rgba(155, 107, 255, .55); animation: clvChip .32s ease-out both; }
+.clv-chip.down { color: var(--pcl-dg1); text-shadow: 0 1px 0 var(--pcl-bg1), 0 0 8px rgba(255, 143, 163, .55); } .clv-chip small { font-size: 8px; opacity: .7; }
 @keyframes clvBeat { 0%, 100% { transform: scale(1); opacity: .3; } 45% { transform: scale(1.022); opacity: .95; } 60% { transform: scale(1.008); opacity: .6; } }
 @keyframes clvGlow { 0%, 100% { opacity: 0; transform: scale(1.15); } 50% { opacity: .9; transform: scale(1.42); } }
 @keyframes clvRise { 0% { transform: translate3d(0, 0, 0) scale(.6); opacity: 0; } 12% { opacity: 1; } 80% { opacity: .8; } 100% { transform: translate3d(calc((var(--i) - 5) * 3px), -360px, 0) scale(1); opacity: 0; } }
@@ -24,7 +25,7 @@
 @keyframes clvTick { 0% { opacity: 0; } 20% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes clvChip { from { transform: translate(-50%, 5px); } to { transform: translate(-50%, 0); } }
 body.fx-lite .clv-front, body.fx-lite .clv-glow { display: none; } body.fx-lite .clv-chip { animation: none; }
-body.theme-day .clv-chip { color: #5a33bd; text-shadow: none; } body.theme-day .clv-chip.down { color: #b3243f; text-shadow: none; } body.fx-lite .clv-ring { animation: none; opacity: .5; }
+body.theme-day .clv-chip { color: var(--pcl-ac2); text-shadow: none; } body.theme-day .clv-chip.down { color: var(--pcl-dg2); text-shadow: none; } body.fx-lite .clv-ring { animation: none; opacity: .5; }
 @media (prefers-reduced-motion: reduce) { .clv-front, .clv-glow { display: none; } .clv-ring { animation: none; opacity: .5; } }
 @media (max-width: 640px) { .clv-spark:nth-child(n + 6) { display: none; } }
 body.theme-day .clv-ring { box-shadow: 0 0 14px -4px rgba(var(--c), .6); }

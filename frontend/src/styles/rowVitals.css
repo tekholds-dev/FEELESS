@@ -1,8 +1,9 @@
 /* One line of vitals under a coin in pick lists (RowVitals.jsx). */
+:root { /* page tokens (STYLE-1) */ --rv-ac1: #9f97c2; --rv-ac2: #b48cff; --rv-ac3: #b9dcc8; --rv-ac4: #345; --rv-ac5: #5a33bd; --rv-dg1: #ff8fa3; --rv-dg2: #b4233f; --rv-tx1: #f1faf5; }
 .rv { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; grid-column: 1 / -1; }
-.rv-c { font: 500 10px "JetBrains Mono", monospace; font-style: normal; padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(155, 107, 255, .2); background: rgba(0, 0, 0, .28); color: var(--m-dim, #9f97c2); white-space: nowrap; transition: border-color .15s, color .15s; }
-.rv-c:hover { border-color: rgba(155, 107, 255, .55); color: #b48cff; }
-.rv-c.good { color: #b48cff; border-color: rgba(155, 107, 255, .4); } .rv-c.bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .45); }
-body.theme-day .rv-c { background: #f1faf5; border-color: #b9dcc8; color: #345; } body.theme-day .rv-c.good { color: #5a33bd; } body.theme-day .rv-c.bad { color: #b4233f; }
+.rv-c { font: 500 10px "JetBrains Mono", monospace; font-style: normal; padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(155, 107, 255, .2); background: rgba(0, 0, 0, .28); color: var(--m-dim, var(--rv-ac1)); white-space: nowrap; transition: border-color .15s, color .15s; }
+.rv-c:hover { border-color: rgba(155, 107, 255, .55); color: var(--rv-ac2); }
+.rv-c.good { color: var(--rv-ac2); border-color: rgba(155, 107, 255, .4); } .rv-c.bad { color: var(--rv-dg1); border-color: rgba(255, 143, 163, .45); }
+body.theme-day .rv-c { background: var(--rv-tx1); border-color: var(--rv-ac3); color: var(--rv-ac4); } body.theme-day .rv-c.good { color: var(--rv-ac5); } body.theme-day .rv-c.bad { color: var(--rv-dg2); }
 @media (prefers-reduced-motion: reduce) { .rv-c { transition: none; } }
 @media (max-width: 980px) { .sp li .rv { display: flex; } }

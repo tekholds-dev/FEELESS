@@ -1,15 +1,16 @@
 /* ✋ Grab handles (ChartGrab.jsx): drag a Fuse coin's stop / lock / take-profit / trail on its chart. */
+:root { /* page tokens (STYLE-1) */ --cg-ac1: #c4bce0; --cg-ac2: #b48cff; --cg-ac3: #9fe3ff; --cg-ac4: #0b6a8a; --cg-ac5: #5a33bd; --cg-dg1: #ff8fa3; --cg-dg2: #b3264a; --cg-sf1: #111513; --cg-sf2: #0d0b20; --cg-tx1: #fff; --cg-wn1: #f5c542; --cg-wn2: #8a6100; }
 .cgr { position: absolute; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
 .cgr-row { position: absolute; left: 0; right: 0; top: 0; height: 0; will-change: transform; }
-.cgr-tab { position: absolute; left: 40%; top: -11px; height: 22px; padding: 0 8px 0 4px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; border: 1px solid currentColor; background: rgba(9, 11, 10, .92); color: #c4bce0; font: 600 10.5px "JetBrains Mono", monospace; cursor: ns-resize; pointer-events: auto; touch-action: none; user-select: none; transition: box-shadow .15s ease, background .15s ease; }
+.cgr-tab { position: absolute; left: 40%; top: -11px; height: 22px; padding: 0 8px 0 4px; display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; border: 1px solid currentColor; background: rgba(9, 11, 10, .92); color: var(--cg-ac1); font: 600 10.5px "JetBrains Mono", monospace; cursor: ns-resize; pointer-events: auto; touch-action: none; user-select: none; transition: box-shadow .15s ease, background .15s ease; }
 .cgr-tab i { font-style: normal; opacity: .6; }
-.cgr-tab:hover { box-shadow: 0 0 12px -2px currentColor; background: #111513; } .cgr-tab:active { cursor: grabbing; } .cgr-tab:focus-visible { outline: 2px solid #b48cff; outline-offset: 1px; }
+.cgr-tab:hover { box-shadow: 0 0 12px -2px currentColor; background: var(--cg-sf1); } .cgr-tab:active { cursor: grabbing; } .cgr-tab:focus-visible { outline: 2px solid var(--cg-ac2); outline-offset: 1px; }
 .cgr-line { position: absolute; left: 0; right: 0; top: 0; height: 0; border-top: 1px dashed currentColor; opacity: 0; }
-.cgr-row.is-stop { color: #ff8fa3; } .cgr-row.is-lock { color: #9fe3ff; } .cgr-row.is-tp { color: #b48cff; } .cgr-row.is-trail { color: #f5c542; }
-.cgr-row.is-drag .cgr-line { opacity: .9; } .cgr-row.is-drag .cgr-tab { background: currentColor; box-shadow: 0 0 16px -2px currentColor; } .cgr-row.is-drag .cgr-tab > * { color: #0d0b20; }
-.cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: #0d0b20; }
-body.theme-day .cgr-tab { background: rgba(255, 255, 255, .95); } body.theme-day .cgr-row.is-stop { color: #b3264a; } body.theme-day .cgr-row.is-lock { color: #0b6a8a; } body.theme-day .cgr-row.is-tp { color: #5a33bd; } body.theme-day .cgr-row.is-trail { color: #8a6100; }
-body.theme-day .cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: #fff; }
+.cgr-row.is-stop { color: var(--cg-dg1); } .cgr-row.is-lock { color: var(--cg-ac3); } .cgr-row.is-tp { color: var(--cg-ac2); } .cgr-row.is-trail { color: var(--cg-wn1); }
+.cgr-row.is-drag .cgr-line { opacity: .9; } .cgr-row.is-drag .cgr-tab { background: currentColor; box-shadow: 0 0 16px -2px currentColor; } .cgr-row.is-drag .cgr-tab > * { color: var(--cg-sf2); }
+.cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: var(--cg-sf2); }
+body.theme-day .cgr-tab { background: rgba(255, 255, 255, .95); } body.theme-day .cgr-row.is-stop { color: var(--cg-dg2); } body.theme-day .cgr-row.is-lock { color: var(--cg-ac4); } body.theme-day .cgr-row.is-tp { color: var(--cg-ac5); } body.theme-day .cgr-row.is-trail { color: var(--cg-wn2); }
+body.theme-day .cgr-row.is-drag .cgr-tab { -webkit-text-fill-color: var(--cg-tx1); }
 @media (prefers-reduced-motion: reduce) { .cgr-tab { transition: none; } }
 body.fx-lite .cgr-tab { transition: none; }
 @media (max-width: 640px) { .cgr-tab { height: 26px; top: -13px; font-size: 11px; } }

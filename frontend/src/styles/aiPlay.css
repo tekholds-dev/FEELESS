@@ -1,4 +1,5 @@
 /* 🧩 Code lab (AiPlayground.jsx) — m-* tokens */
+:root { /* page tokens (STYLE-1) */ --pap-ac1: #0e7a43; --pap-ac10: #7fb6ff; --pap-ac11: #e3f2ea; --pap-ac12: #0b6b37; --pap-ac2: #d6f5e4; --pap-ac3: #9ff5c4; --pap-ac4: #9fe3ff; --pap-ac5: #b79bff; --pap-ac6: #1f5fa8; --pap-ac7: #9b6bff; --pap-ac8: #b48cff; --pap-ac9: #b6f5d0; --pap-bg1: #090b0a; --pap-bg2: #02060a; --pap-bg3: #090c0b; --pap-bg4: #080a09; --pap-dg1: #ff8fa3; --pap-dg2: #ffb3c0; --pap-dg3: #8a1f35; --pap-dg4: #ffc2cd; --pap-dg5: #9b1c33; --pap-dm1: #a8afac; --pap-ln1: #2d3331; --pap-s21: #0b5a2f; --pap-sf1: #181e1b; --pap-sf2: #101412; --pap-tx1: #fff; --pap-tx2: #f3f8f5; --pap-tx3: #f3faf6; --pap-wn1: #f5c95b; }
 .apg { display: grid; gap: 8px; min-width: 0; }
 .apg-empty { height: 100%; display: grid; place-items: center; font: 600 10px var(--m-mono); color: var(--m-mute); }
 .apg-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
@@ -6,65 +7,65 @@
 .apg-list button { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; font: 700 9px var(--m-mono); padding: 4px 8px; border-radius: 999px; cursor: pointer;
   color: var(--m-text); background: rgba(255, 255, 255, .04); border: 1px solid var(--m-line); transition: transform .12s ease, border-color .12s ease; }
 .apg-list button:hover { transform: translateY(-1px); border-color: var(--m-accent); } .apg-list button:active { transform: none; }
-.apg-list button.active { background: var(--m-accent); color: #090b0a; border-color: var(--m-accent); } .apg-list button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
+.apg-list button.active { background: var(--m-accent); color: var(--pap-bg1); border-color: var(--m-accent); } .apg-list button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
 .apg-note { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 @media (prefers-reduced-motion: reduce) { .apg-list button, .apg-targets button { transition: none; } }
-body.theme-day .apg-list button { background: rgba(255, 255, 255, .6); color: #181e1b; } body.theme-day .apg-list button.active { color: #fff; background: #0e7a43; }
+body.theme-day .apg-list button { background: rgba(255, 255, 255, .6); color: var(--pap-sf1); } body.theme-day .apg-list button.active { color: var(--pap-tx1); background: var(--pap-ac1); }
 @media (max-width: 640px) { .apg-ask { grid-template-columns: minmax(0, 1fr) auto; } .apg-ask .m-btn:last-child:not(:nth-child(2)) { grid-column: 1 / -1; } }
 
 .apg-targets { display: flex; flex-wrap: wrap; gap: 4px; }
-.apg-targets button { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim, #a8afac); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.apg-targets button { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim, var(--pap-dm1)); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
 .apg-targets button:hover { border-color: var(--m-accent); color: var(--m-text); } .apg-targets button:active { transform: scale(.96); } .apg-targets button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
-.apg-targets button.active { background: var(--m-accent); color: #090b0a; border-color: var(--m-accent); }
+.apg-targets button.active { background: var(--m-accent); color: var(--pap-bg1); border-color: var(--m-accent); }
 .apg-prop { display: grid; gap: 6px; padding: 10px; border-radius: var(--m-r-sm, 10px); border: 1px solid var(--m-line); background: rgba(0, 0, 0, .25); }
 .apg-prop.is-approved { border-color: rgba(155, 107, 255, .5); } .apg-prop.is-dropped { opacity: .6; }
 .apg-phead { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; } .apg-phead b { font: 800 12px var(--m-mono); color: var(--m-text); } .apg-phead em { font: 700 9px var(--m-mono); font-style: normal; color: var(--m-mute); }
 .apg-st { margin-left: auto; font: 900 8px var(--m-mono); letter-spacing: .12em; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-mute); }
-.apg-st.is-approved { color: #090b0a; background: var(--m-accent); border-color: var(--m-accent); } .apg-st.is-proposed { color: var(--gold, #f5c95b); border-color: var(--gold, #f5c95b); }
-.apg-why { margin: 0; font: 600 9.5px/1.45 var(--m-mono); color: var(--m-text); } .apg-why b { font: 900 8px var(--m-mono); letter-spacing: .12em; color: var(--m-accent); margin-right: 6px; } .apg-why.is-risk b { color: #ff8fa3; }
-.apg-code { margin: 0; max-height: 46vh; overflow: auto; scrollbar-width: thin; padding: 8px 10px; border-radius: 8px; background: #02060a; border: 1px solid rgba(255, 255, 255, .06);
-  font: 500 10.5px/1.5 'JetBrains Mono', monospace; color: #d6f5e4; white-space: pre; tab-size: 4; }
+.apg-st.is-approved { color: var(--pap-bg1); background: var(--m-accent); border-color: var(--m-accent); } .apg-st.is-proposed { color: var(--gold, var(--pap-wn1)); border-color: var(--gold, var(--pap-wn1)); }
+.apg-why { margin: 0; font: 600 9.5px/1.45 var(--m-mono); color: var(--m-text); } .apg-why b { font: 900 8px var(--m-mono); letter-spacing: .12em; color: var(--m-accent); margin-right: 6px; } .apg-why.is-risk b { color: var(--pap-dg1); }
+.apg-code { margin: 0; max-height: 46vh; overflow: auto; scrollbar-width: thin; padding: 8px 10px; border-radius: 8px; background: var(--pap-bg2); border: 1px solid rgba(255, 255, 255, .06);
+  font: 500 10.5px/1.5 'JetBrains Mono', monospace; color: var(--pap-ac2); white-space: pre; tab-size: 4; }
 .apg-code i { display: inline-block; width: 3ch; margin-right: 10px; text-align: right; font-style: normal; color: rgba(214, 245, 228, .3); user-select: none; }
 .apg-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .apg-act small { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 .apg-list button.is-approved { border-color: rgba(155, 107, 255, .5); } .apg-list button.is-dropped { opacity: .55; }
-body.theme-day .apg-code { background: #f3f8f5; color: #181e1b; border-color: rgba(24, 30, 27, .12); } body.theme-day .apg-code i { color: rgba(24, 30, 27, .35); }
-body.theme-day .apg-prop { background: rgba(255, 255, 255, .6); } body.theme-day .apg-targets button { color: #181e1b; }
+body.theme-day .apg-code { background: var(--pap-tx2); color: var(--pap-sf1); border-color: rgba(24, 30, 27, .12); } body.theme-day .apg-code i { color: rgba(24, 30, 27, .35); }
+body.theme-day .apg-prop { background: rgba(255, 255, 255, .6); } body.theme-day .apg-targets button { color: var(--pap-sf1); }
 
 /* 🔍 the preview before any change: tabs, a coloured diff, a live mock-up for UI changes */
 .apg-views { display: flex; gap: 4px; flex-wrap: wrap; }
-.apg-views button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim, #a8afac); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.apg-views button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim, var(--pap-dm1)); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
 .apg-views button:hover { border-color: var(--m-accent); color: var(--m-text); } .apg-views button:active { transform: scale(.96); } .apg-views button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 1px; }
-.apg-views button.active { background: var(--m-accent); color: #090b0a; border-color: var(--m-accent); }
-.apg-code.is-diff span { display: block; } .apg-code .is-add { background: rgba(155, 107, 255, .14); color: #9ff5c4; } .apg-code .is-del { background: rgba(255, 143, 163, .12); color: #ffb3c0; }
-.apg-code .is-h { color: #9fe3ff; font-weight: 800; } .apg-code .is-at { color: #b79bff; }
-.apg-look { width: 100%; height: clamp(320px, 55vh, 620px); border: 1px solid var(--m-line); border-radius: 8px; background: #090c0b; display: block; }
-body.theme-day .apg-code .is-add { background: rgba(21, 140, 70, .14); color: #0b5a2f; } body.theme-day .apg-code .is-del { background: rgba(192, 52, 79, .1); color: #8a1f35; }
+.apg-views button.active { background: var(--m-accent); color: var(--pap-bg1); border-color: var(--m-accent); }
+.apg-code.is-diff span { display: block; } .apg-code .is-add { background: rgba(155, 107, 255, .14); color: var(--pap-ac3); } .apg-code .is-del { background: rgba(255, 143, 163, .12); color: var(--pap-dg2); }
+.apg-code .is-h { color: var(--pap-ac4); font-weight: 800; } .apg-code .is-at { color: var(--pap-ac5); }
+.apg-look { width: 100%; height: clamp(320px, 55vh, 620px); border: 1px solid var(--m-line); border-radius: 8px; background: var(--pap-bg3); display: block; }
+body.theme-day .apg-code .is-add { background: rgba(21, 140, 70, .14); color: var(--pap-s21); } body.theme-day .apg-code .is-del { background: rgba(192, 52, 79, .1); color: var(--pap-dg3); }
 @media (prefers-reduced-motion: reduce) { .apg-views button { transition: none; } }
 
 /* ▶ the test run: each example call → what it returned, ✓ / ✗ against what was expected */
 .apg-run { display: grid; gap: 6px; } .apg-run ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .apg-run li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 7px; background: rgba(255, 255, 255, .03); border-left: 2px solid var(--m-line);
   font: 600 10px var(--m-mono); color: var(--m-text); }
-.apg-run li.is-ok { border-left-color: var(--m-accent); } .apg-run li.is-bad, .apg-run li.is-err { border-left-color: #ff8fa3; }
-.apg-run code { color: #9fe3ff; overflow-wrap: anywhere; } .apg-run span { overflow-wrap: anywhere; } .apg-run small { color: var(--m-mute); white-space: nowrap; }
-.apg-run li.is-ok small { color: var(--m-accent); } .apg-run li.is-bad small, .apg-run li.is-err span { color: #ff8fa3; } .apg-run p { margin: 0; font: 600 10px var(--m-mono); color: var(--m-mute); }
-body.theme-day .apg-run li { background: rgba(255, 255, 255, .6); } body.theme-day .apg-run code { color: #1f5fa8; }
+.apg-run li.is-ok { border-left-color: var(--m-accent); } .apg-run li.is-bad, .apg-run li.is-err { border-left-color: var(--pap-dg1); }
+.apg-run code { color: var(--pap-ac4); overflow-wrap: anywhere; } .apg-run span { overflow-wrap: anywhere; } .apg-run small { color: var(--m-mute); white-space: nowrap; }
+.apg-run li.is-ok small { color: var(--m-accent); } .apg-run li.is-bad small, .apg-run li.is-err span { color: var(--pap-dg1); } .apg-run p { margin: 0; font: 600 10px var(--m-mono); color: var(--m-mute); }
+body.theme-day .apg-run li { background: rgba(255, 255, 255, .6); } body.theme-day .apg-run code { color: var(--pap-ac6); }
 @media (max-width: 640px) { .apg-run li { grid-template-columns: 1fr; } }
 /* 🪞 side by side: the change as it will read in the file */
-.apg-side { max-height: 420px; overflow: auto; border: 1px solid rgba(155, 107, 255, .22); border-radius: 10px; background: #080a09; font: 10.5px/1.45 'JetBrains Mono', monospace; scrollbar-width: thin; scrollbar-color: #9b6bff transparent; }
-.apg-side::-webkit-scrollbar { width: 6px; height: 6px; } .apg-side::-webkit-scrollbar-thumb { background: #9b6bff; border-radius: 3px; }
+.apg-side { max-height: 420px; overflow: auto; border: 1px solid rgba(155, 107, 255, .22); border-radius: 10px; background: var(--pap-bg4); font: 10.5px/1.45 'JetBrains Mono', monospace; scrollbar-width: thin; scrollbar-color: var(--pap-ac7) transparent; }
+.apg-side::-webkit-scrollbar { width: 6px; height: 6px; } .apg-side::-webkit-scrollbar-thumb { background: var(--pap-ac7); border-radius: 3px; }
 .apg-sh, .apg-sr { display: grid; grid-template-columns: 1fr 1fr; min-width: 560px; }
-.apg-sh { position: sticky; top: 0; z-index: 1; background: #101412; }
-.apg-sh b { padding: 5px 8px; font-size: 9px; letter-spacing: .1em; color: #ff8fa3; } .apg-sh b + b { color: #b48cff; border-left: 1px solid rgba(155, 107, 255, .2); }
+.apg-sh { position: sticky; top: 0; z-index: 1; background: var(--pap-sf2); }
+.apg-sh b { padding: 5px 8px; font-size: 9px; letter-spacing: .1em; color: var(--pap-dg1); } .apg-sh b + b { color: var(--pap-ac8); border-left: 1px solid rgba(155, 107, 255, .2); }
 .apg-sr code { white-space: pre; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; color: rgba(220, 240, 228, .7); }
 .apg-sr code + code { border-left: 1px solid rgba(155, 107, 255, .12); }
 .apg-sr { animation: apgRow .16s ease-out both; animation-delay: calc(var(--i, 0) * 12ms); }
-.apg-sr.is-del code:first-child, .apg-sr.is-chg code:first-child { background: rgba(255, 143, 163, .12); color: #ffc2cd; }
-.apg-sr.is-add code + code, .apg-sr.is-chg code + code { background: rgba(155, 107, 255, .14); color: #b6f5d0; }
-.apg-sr.is-at code { color: #7fb6ff; background: rgba(127, 182, 255, .06); }
+.apg-sr.is-del code:first-child, .apg-sr.is-chg code:first-child { background: rgba(255, 143, 163, .12); color: var(--pap-dg4); }
+.apg-sr.is-add code + code, .apg-sr.is-chg code + code { background: rgba(155, 107, 255, .14); color: var(--pap-ac9); }
+.apg-sr.is-at code { color: var(--pap-ac10); background: rgba(127, 182, 255, .06); }
 @keyframes apgRow { from { transform: translateX(-4px); } to { transform: none; } }
 body.fx-lite .apg-sr { animation: none; }
 @media (prefers-reduced-motion: reduce) { .apg-sr { animation: none; } }
-body.theme-day .apg-side { background: #f3faf6; } body.theme-day .apg-sh { background: #e3f2ea; } body.theme-day .apg-sr code { color: #2d3331; }
-body.theme-day .apg-sr.is-del code:first-child, body.theme-day .apg-sr.is-chg code:first-child { color: #9b1c33; }
-body.theme-day .apg-sr.is-add code + code, body.theme-day .apg-sr.is-chg code + code { color: #0b6b37; }
+body.theme-day .apg-side { background: var(--pap-tx3); } body.theme-day .apg-sh { background: var(--pap-ac11); } body.theme-day .apg-sr code { color: var(--pap-ln1); }
+body.theme-day .apg-sr.is-del code:first-child, body.theme-day .apg-sr.is-chg code:first-child { color: var(--pap-dg5); }
+body.theme-day .apg-sr.is-add code + code, body.theme-day .apg-sr.is-chg code + code { color: var(--pap-ac12); }

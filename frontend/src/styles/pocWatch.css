@@ -1,4 +1,5 @@
 /* 👁 PoC watch (PocWatch.jsx) — built on the Live desk's look (pcl-*), m-* tokens, one keyframe set pw*. */
+:root { /* page tokens (STYLE-1) */ --pw-sf1: #111816; }
 .pw { display: grid; gap: 12px; align-content: start; }
 .pw-add { display: grid; gap: 10px; padding: 14px; }
 .pw-add label, .pw-stepin { display: grid; gap: 6px; }
@@ -33,5 +34,5 @@
 @keyframes pwIn { from { opacity: 0; transform: translateY(8px); } } @keyframes pwPulse { 50% { opacity: .45; } } @keyframes pwSweep { to { transform: translateX(100%); } }
 body.fx-lite .pw-in, body.fx-lite .pw-card.is-run .pw-dot, body.fx-lite .pw-card.is-run::after { animation: none; } body.fx-lite .pw-card.is-run::after { display: none; }
 @media (prefers-reduced-motion: reduce) { .pw-in, .pw-card.is-run .pw-dot, .pw-card.is-run::after { animation: none; } .pw-card.is-run::after { display: none; } .pw-bar u, .pw-line li { transition: none; } }
-body.theme-day .pw-head { color: #111816; }
+body.theme-day .pw-head { color: var(--pw-sf1); }
 @media (max-width: 640px) { .pw-list { grid-template-columns: minmax(0, 1fr); } .pw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pw-steps li { grid-template-columns: 74px minmax(0, 1fr); } }

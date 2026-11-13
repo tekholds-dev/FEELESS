@@ -1,7 +1,8 @@
 /* 💬 ChatKit (ckit-*): the one chat composer, on HeroUI's tokens. A chat sets --ckit-acc to its page's accent. */
+:root { /* page tokens (STYLE-1) */ --ck-ac1: #b48cff; --ck-ac2: #5a33bd; --ck-bg1: #000c; --ck-dg1: #ff8fa3; --ck-sf1: #0d0a22; --ck-sf2: #10151a; --ck-tx1: #ffffff0d; --ck-tx2: #ffffff12; --ck-tx3: #fff; }
 .ckit-composer { position: relative; z-index: 3; --ckit-a: var(--ckit-acc, var(--kd-acc, var(--accent))); display: grid; gap: 6px; min-width: 0; }
-.ckit-box { display: grid; gap: 4px; padding: 10px 10px 8px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: inset 0 1px 0 #ffffff0d; transition: border-color .15s, box-shadow .15s; }
-.ckit-box:focus-within { border-color: color-mix(in srgb, var(--ckit-a) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ckit-a) 16%, transparent), inset 0 1px 0 #ffffff0d; }
+.ckit-box { display: grid; gap: 4px; padding: 10px 10px 8px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent); background: color-mix(in srgb, var(--surface) 82%, transparent); box-shadow: inset 0 1px 0 var(--ck-tx1); transition: border-color .15s, box-shadow .15s; }
+.ckit-box:focus-within { border-color: color-mix(in srgb, var(--ckit-a) 60%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ckit-a) 16%, transparent), inset 0 1px 0 var(--ck-tx1); }
 .ckit-field { position: relative; min-width: 0; }
 .ckit-in.ckit-in { display: block; width: 100%; min-height: 30px; max-height: 168px; padding: 3px 6px; resize: none; field-sizing: content; overflow-y: auto; overflow-wrap: anywhere; white-space: pre-wrap; border: 0; outline: 0; border-radius: 8px; background: transparent; box-shadow: none; color: var(--foreground); font: 400 14px/1.5 var(--f-ui); scrollbar-width: thin; }
 .ckit-in.ckit-in:focus, .ckit-in.ckit-in:focus-visible, .ckit-in.ckit-in:hover { background: transparent; box-shadow: none; outline: 0; }
@@ -14,13 +15,13 @@
 .ckit-tool.is-on.is-on { color: var(--ckit-acc, var(--kd-acc, var(--accent))); background: color-mix(in srgb, var(--ckit-acc, var(--kd-acc, var(--accent))) 16%, transparent); }
 .ckit-tool.is-busy svg { animation: ckitSpin 1s linear infinite; }
 .ckit-send.ckit-send, .ckit-stop.ckit-stop { width: 34px; height: 34px; min-width: 34px; border-radius: 50%; }
-.ckit-send.ckit-send { background: var(--ckit-a); color: #0d0a22; box-shadow: 0 6px 16px -8px var(--ckit-a); }
+.ckit-send.ckit-send { background: var(--ckit-a); color: var(--ck-sf1); box-shadow: 0 6px 16px -8px var(--ckit-a); }
 .ckit-send.has-text { width: auto; padding: 0 14px; border-radius: 17px; font: 700 11px var(--f-mono); }
 .ckit-stop.ckit-stop { background: var(--foreground); color: var(--background); }
 .ckit-send.ckit-send:hover { transform: translateY(-1px); }
 .ckit-send.ckit-send:active { transform: scale(.94); }
 .ckit-send.ckit-send[data-disabled], .ckit-send.ckit-send:disabled { background: color-mix(in srgb, var(--foreground) 10%, transparent); color: var(--muted); box-shadow: none; opacity: 1; }
-.ckit-pop.ckit-pop { width: min(420px, calc(100vw - 24px)); max-height: min(70dvh, 480px); overflow-y: auto; scrollbar-width: thin; padding: 0; border: 1px solid var(--border); border-radius: 18px; background: var(--overlay); color: var(--overlay-foreground); box-shadow: 0 22px 50px -18px #000c, inset 0 1px 0 #ffffff12; }
+.ckit-pop.ckit-pop { width: min(420px, calc(100vw - 24px)); max-height: min(70dvh, 480px); overflow-y: auto; scrollbar-width: thin; padding: 0; border: 1px solid var(--border); border-radius: 18px; background: var(--overlay); color: var(--overlay-foreground); box-shadow: 0 22px 50px -18px var(--ck-bg1), inset 0 1px 0 var(--ck-tx2); }
 .ckit-pop-in.ckit-pop-in { display: grid; gap: 7px; padding: 14px; outline: 0; }
 .ckit-pop-in > em { margin-top: 5px; color: var(--muted); font: 800 9.5px var(--f-mono); font-style: normal; letter-spacing: .12em; }
 .ckit-pop-in .m-seg { flex-wrap: wrap; }
@@ -30,13 +31,13 @@
 body.fx-lite .ckit-box, body.fx-lite .ckit-tool.is-busy svg { animation: none; transition: none; }
 @media (prefers-reduced-motion: reduce) { .ckit-box, .ckit-send { transition: none; } .ckit-tool.is-busy svg { animation: none; } }
 body.theme-day .ckit-box { box-shadow: none; }
-body.theme-day .ckit-send.ckit-send { color: #fff; }
+body.theme-day .ckit-send.ckit-send { color: var(--ck-tx3); }
 @media (max-width: 640px) { .ckit-box { padding: 8px 8px 6px; border-radius: 16px; } .ckit-in.ckit-in { font-size: 16px; } }
 /* 🎙 AGT-6 the mic: a soft pulse ring while it listens (transform / opacity only), red-pink when the browser refused it */
-.ckit-mic.is-on { color: #b48cff; position: relative; } .ckit-mic.is-on::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid #b48cff; animation: ckitMic 1.2s ease-out infinite; pointer-events: none; }
-.ckit-mic.is-err { color: #ff8fa3; } @keyframes ckitMic { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+.ckit-mic.is-on { color: var(--ck-ac1); position: relative; } .ckit-mic.is-on::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; border: 2px solid var(--ck-ac1); animation: ckitMic 1.2s ease-out infinite; pointer-events: none; }
+.ckit-mic.is-err { color: var(--ck-dg1); } @keyframes ckitMic { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
 body.fx-lite .ckit-mic.is-on::after { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .ckit-mic.is-on::after { animation: none; opacity: .6; } }
-body.theme-day .ckit-mic.is-on { color: #5a33bd; } body.theme-day .ckit-mic.is-on::after { border-color: #5a33bd; }
+body.theme-day .ckit-mic.is-on { color: var(--ck-ac2); } body.theme-day .ckit-mic.is-on::after { border-color: var(--ck-ac2); }
 
 /* 🧭 What next: the chat offers the next step after every reply, chips + "Something else". */
 .wn { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .wn .m-label { margin-right: 2px; }
@@ -44,4 +45,4 @@ body.theme-day .ckit-mic.is-on { color: #5a33bd; } body.theme-day .ckit-mic.is-o
 .wn .is-other { border-style: dashed; }
 @keyframes wnIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .wn .m-chip { animation: none; } @media (prefers-reduced-motion: reduce) { .wn .m-chip { animation: none; transition: none; } }
-body.theme-day .wn .m-chip { background: #fff; color: #10151a; }
+body.theme-day .wn .m-chip { background: var(--ck-tx3); color: var(--ck-sf2); }

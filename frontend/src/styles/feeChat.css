@@ -1,31 +1,32 @@
 /* 🐱💅 Fee's own chat posts (EcosystemChat `is-feecat`): her girly bubble — pink-violet glass with an inner highlight, a sparkle sweep and
    the FEECAT AI ribbon. Near-opaque fill (never backdrop-filter over ChatFx). Keyframes: fcc* */
-.chat-message.is-feecat { --fcc-a: #ff8fd8; --fcc-b: #b48cff; position: relative; overflow: hidden; border-radius: 14px 14px 14px 4px; padding-top: 16px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--fcc-a) 20%, #120a16), color-mix(in srgb, var(--fcc-b) 18%, #0d0a14));
+:root { /* page tokens (STYLE-1) */ --feecha-ac1: #ff8fd8; --feecha-ac2: #b48cff; --feecha-ac3: #ffd6f3; --feecha-ac4: #a3207e; --feecha-ac5: #b388ff; --feecha-ac6: #2a1650; --feecha-bg1: #0d0a14; --feecha-bg2: #0b0614cc; --feecha-s21: #3a1240; --feecha-sf1: #120a16; --feecha-tx1: #fbe9ff; --feecha-tx2: #ffe9f8; --feecha-tx3: #f1e9ff; --feecha-tx4: #fff; }
+.chat-message.is-feecat { --fcc-a: var(--feecha-ac1); --fcc-b: var(--feecha-ac2); position: relative; overflow: hidden; border-radius: 14px 14px 14px 4px; padding-top: 16px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--fcc-a) 20%, var(--feecha-sf1)), color-mix(in srgb, var(--fcc-b) 18%, var(--feecha-bg1)));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--fcc-a) 45%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.12), 0 10px 26px -18px var(--fcc-a);
   animation: fccPop .32s cubic-bezier(.2, 1.4, .4, 1) both; }
 .chat-message.is-feecat::before { content: '🐾 FEECAT AI'; position: absolute; top: 3px; right: 10px; z-index: 1; pointer-events: none;
-  font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #ffd6f3; text-shadow: 0 0 8px var(--fcc-a); }
+  font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--feecha-ac3); text-shadow: 0 0 8px var(--fcc-a); }
 .chat-message.is-feecat::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(110deg, transparent 35%, rgba(255, 214, 243, .22) 50%, transparent 65%); transform: translateX(-110%);
   animation: fccShine 4.5s ease-in-out 1s infinite; }
 .chat-message.is-feecat > * { position: relative; z-index: 1; }
-.chat-message.is-feecat p { color: #fbe9ff; }
+.chat-message.is-feecat p { color: var(--feecha-tx1); }
 .chat-message.is-feecat:hover { box-shadow: 0 0 0 1px var(--fcc-a) inset, inset 0 1px 0 rgba(255,255,255,.16), 0 12px 30px -16px var(--fcc-a); }
 @keyframes fccPop { from { opacity: 0; transform: translateY(6px) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes fccShine { 0%, 55% { transform: translateX(-110%); } 100% { transform: translateX(110%); } }
 body.fx-lite .chat-message.is-feecat, body.fx-lite .chat-message.is-feecat::after { animation: none; }
 body.fx-lite .chat-message.is-feecat::after { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .chat-message.is-feecat, .chat-message.is-feecat::after { animation: none; } .chat-message.is-feecat::after { opacity: 0; } }
-body.theme-day .chat-message.is-feecat { background: linear-gradient(135deg, #ffe9f8, #f1e9ff); }
-body.theme-day .chat-message.is-feecat p { color: #3a1240; }
-body.theme-day .chat-message.is-feecat::before { color: #a3207e; text-shadow: none; }
+body.theme-day .chat-message.is-feecat { background: linear-gradient(135deg, var(--feecha-tx2), var(--feecha-tx3)); }
+body.theme-day .chat-message.is-feecat p { color: var(--feecha-s21); }
+body.theme-day .chat-message.is-feecat::before { color: var(--feecha-ac4); text-shadow: none; }
 @media (max-width: 640px) { .chat-message.is-feecat::before { font-size: 8px; right: 8px; } }
 
 /* 🪙 coins inside a compact chat post (Fee's wall, Fuse rooms, families, profile walls…): a slim chip each (was 3 full live coin cards per post — 3,590 nodes for 10 posts) */
 .chat-coins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
-.chat-coins .m-chip { min-height: 32px; padding: 0 11px; cursor: pointer; background: #0b0614cc; transition: border-color .15s, transform .12s; font-size: 10.5px; }
-.chat-coins .m-chip b { color: #fff; font-family: var(--f-tech, sans-serif); } .chat-coins .m-chip:hover { border-color: #b388ff; } .chat-coins .m-chip:active { transform: scale(.96); }
-.chat-coins .m-chip:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
-body.theme-day .chat-coins .m-chip { background: #fff; } body.theme-day .chat-coins .m-chip b { color: #2a1650; }
+.chat-coins .m-chip { min-height: 32px; padding: 0 11px; cursor: pointer; background: var(--feecha-bg2); transition: border-color .15s, transform .12s; font-size: 10.5px; }
+.chat-coins .m-chip b { color: var(--feecha-tx4); font-family: var(--f-tech, sans-serif); } .chat-coins .m-chip:hover { border-color: var(--feecha-ac5); } .chat-coins .m-chip:active { transform: scale(.96); }
+.chat-coins .m-chip:focus-visible { outline: 2px solid var(--feecha-ac5); outline-offset: 2px; }
+body.theme-day .chat-coins .m-chip { background: var(--feecha-tx4); } body.theme-day .chat-coins .m-chip b { color: var(--feecha-ac6); }
 @media (prefers-reduced-motion: reduce) { .chat-coins .m-chip { transition: none; } }

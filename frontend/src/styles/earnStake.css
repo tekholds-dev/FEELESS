@@ -1,10 +1,11 @@
 /* 💸 EarnStake.jsx — the one stake picker (Pool Hall) + the Pool Hall row's earn chip. m-* tokens; no motion of its own; day + 640 px at the end. */
-.es-seg { display: inline-flex; align-items: center; gap: 6px; } .es-seg > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: var(--m-dim, #9a9a9a); }
+:root { /* page tokens (STYLE-1) */ --es-ac1: #7fd8c6; --es-ac2: #45e4c8; --es-lh1: #4d5550; --es-mu1: #9a9a9a; --es-sf1: #0c2a24; --es-tx1: #fff; }
+.es-seg { display: inline-flex; align-items: center; gap: 6px; } .es-seg > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: var(--m-dim, var(--es-mu1)); }
 .es-in { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(69, 228, 200, .35); background: rgba(0, 0, 0, .35); }
-.es-in span { font: 800 11px var(--f-mono); color: #7fd8c6; } .es-in input { width: 78px; border: 0; background: none; color: #fff; font: 800 13px var(--f-mono); outline: none; } .es-in:focus-within { outline: 2px solid #45e4c8; outline-offset: 1px; }
-body.theme-day .es-in { background: #fff; } body.theme-day .es-in input { color: #0c2a24; }
+.es-in span { font: 800 11px var(--f-mono); color: var(--es-ac1); } .es-in input { width: 78px; border: 0; background: none; color: var(--es-tx1); font: 800 13px var(--f-mono); outline: none; } .es-in:focus-within { outline: 2px solid var(--es-ac2); outline-offset: 1px; }
+body.theme-day .es-in { background: var(--es-tx1); } body.theme-day .es-in input { color: var(--es-sf1); }
 .es-seg .m-seg button { min-height: 32px; min-width: 46px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
 /* the Pool Hall row's earn chip at the stake */
-.phb-24 small.es-yr { font: 700 9px 'JetBrains Mono', monospace; color: #9a9a9a; }
-body.theme-day .es-seg > em, body.theme-day .phb-24 small.es-yr { color: #4d5550; }
+.phb-24 small.es-yr { font: 700 9px 'JetBrains Mono', monospace; color: var(--es-mu1); }
+body.theme-day .es-seg > em, body.theme-day .phb-24 small.es-yr { color: var(--es-lh1); }
 @media (max-width: 640px) { .es-seg .m-seg button { min-width: 40px; } }

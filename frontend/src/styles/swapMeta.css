@@ -2,12 +2,13 @@
    an aurora backdrop (emerald top-left, violet bottom-right, ice top-right) on a deep green→navy base, a light beam that runs around the
    edge (one rotating layer, transform only — replaces the animated --swap-angle border, which repainted every frame), glass panels with a
    lit top edge, gradient amounts, glowing token pills, a spinning flip, and a sheen on the main button. Keyframes: swm* only. */
+:root { /* page tokens (STYLE-1) */ --sm-ac1: #b48cff; --sm-ac2: #9b6bff; --sm-ac3: #7c5cff; --sm-ac4: #5a33bd; --sm-ac5: #7cc8ff; --sm-ac6: #dff3e8; --sm-ac7: #076a45; --sm-ac8: #b48cff55; --sm-ac9: #b48cff10; --sm-bg1: #0d100f; --sm-bg2: #0a0d0c; --sm-bg3: #090b0a; --sm-dm1: #9fb4a8; --sm-ln1: #3b5a48; --sm-sf1: #0a1020; --sm-sf2: #0e1110; --sm-sf3: #121715; --sm-sf4: #12301f; --sm-tx1: #ffffff; --sm-tx2: #e2e6fb; --sm-tx3: #eaf7f0; --sm-tx4: #eceffd; --sm-tx5: #eaf3ef; }
 .swap-desk { position: relative; animation: none !important; isolation: isolate; overflow: hidden; overflow: clip;   /* relative: the beam spins INSIDE the card (on the profile it had no anchor and swept the whole layout) */
   background:
     radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.22), transparent 60%),
     radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.24), transparent 62%),
     radial-gradient(55% 40% at 92% 8%, rgba(124, 200, 255, 0.14), transparent 70%),
-    linear-gradient(160deg, #0d100f, #0a1020 72%) !important;
+    linear-gradient(160deg, var(--sm-bg1), var(--sm-sf1) 72%) !important;
   background-clip: padding-box !important; border: 1px solid rgba(180, 140, 255, 0.26) !important;
   box-shadow: 0 26px 70px -30px rgba(155, 107, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }
 .swap-desk::before { content: ''; position: absolute; inset: -60%; z-index: -1; pointer-events: none;
@@ -18,33 +19,33 @@
     radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.2), transparent 60%),
     radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.22), transparent 62%),
     radial-gradient(1px 1px at 1px 1px, rgba(255, 255, 255, 0.07) 1px, transparent 0) 0 0 / 18px 18px,
-    linear-gradient(160deg, #0d100f, #0a1020 72%); }
+    linear-gradient(160deg, var(--sm-bg1), var(--sm-sf1) 72%); }
 .swap-desk .jup-card { background: transparent !important; border: 0 !important; box-shadow: none !important; }
 .swap-desk .jup-title { letter-spacing: .02em; }
-.swap-desk .jup-title svg { color: #b48cff; filter: drop-shadow(0 0 6px rgba(180, 140, 255, 0.6)); }
+.swap-desk .jup-title svg { color: var(--sm-ac1); filter: drop-shadow(0 0 6px rgba(180, 140, 255, 0.6)); }
 .swap-desk .jup-chip, .swap-desk .jup-icon { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.12); transition: transform .15s, color .15s, border-color .15s, background .15s; }
 .swap-desk .jup-chip:hover, .swap-desk .jup-icon:hover:not(:disabled) { transform: translateY(-1px); background: rgba(180, 140, 255, 0.12); }
 .swap-desk .jup-chip:active, .swap-desk .jup-icon:active:not(:disabled) { transform: translateY(0) scale(.96); }
-.swap-desk .jup-chip:focus-visible, .swap-desk .jup-icon:focus-visible, .swap-desk .jup-quick button:focus-visible, .swap-desk .jup-flip:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+.swap-desk .jup-chip:focus-visible, .swap-desk .jup-icon:focus-visible, .swap-desk .jup-quick button:focus-visible, .swap-desk .jup-flip:focus-visible { outline: 2px solid var(--sm-ac1); outline-offset: 2px; }
 .swap-desk .jup-panel { position: relative; background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)) !important;
   border: 1px solid rgba(255, 255, 255, 0.09) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08); transition: border-color .2s, box-shadow .2s, transform .2s; }
 .swap-desk .jup-panel:hover { border-color: rgba(180, 140, 255, 0.3) !important; }
 .swap-desk .jup-panel:focus-within { border-color: rgba(180, 140, 255, 0.6) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 3px rgba(180, 140, 255, 0.12); }
 .swap-desk .jup-panel.is-receive { background: linear-gradient(180deg, rgba(124, 92, 255, 0.1), rgba(155, 107, 255, 0.05)) !important; }
-.swap-desk .jup-amount { color: #ffffff; -webkit-text-fill-color: currentColor; caret-color: #b48cff; text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
+.swap-desk .jup-amount { color: var(--sm-tx1); -webkit-text-fill-color: currentColor; caret-color: var(--sm-ac1); text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
 .swap-desk .jup-amount::placeholder { color: rgba(255, 255, 255, 0.28); -webkit-text-fill-color: currentColor; text-shadow: none; }
-.swap-desk .jup-out { color: #b48cff; text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
+.swap-desk .jup-out { color: var(--sm-ac1); text-shadow: 0 0 18px rgba(180, 140, 255, 0.35); }
 .swap-desk .jup-row .tkp-btn { background: rgba(255, 255, 255, 0.08) !important; border-color: rgba(255, 255, 255, 0.16) !important; transition: transform .15s, border-color .15s, box-shadow .15s !important; }
 .swap-desk .jup-row .tkp-btn:hover { transform: translateY(-1px); border-color: rgba(180, 140, 255, 0.6) !important; box-shadow: 0 0 0 3px rgba(180, 140, 255, 0.14), 0 6px 18px -8px rgba(180, 140, 255, 0.6); }
 .swap-desk .jup-row .tkp-btn:active { transform: scale(.97); }
 .swap-desk .jup-quick button { transition: transform .15s, color .15s, border-color .15s, background .15s; }
 .swap-desk .jup-quick button:hover { transform: translateY(-1px); background: rgba(180, 140, 255, 0.1); }
-.swap-desk .jup-quick button:active { background: #b48cff; color: #0a0d0c; transform: scale(.96); }
-.swap-desk .jup-flip { border: 0 !important; background: linear-gradient(135deg, #9b6bff, #7c5cff) !important; color: #0a0d0c !important; box-shadow: 0 0 0 4px #0e1110, 0 8px 22px -6px rgba(124, 92, 255, 0.6);
+.swap-desk .jup-quick button:active { background: var(--sm-ac1); color: var(--sm-bg2); transform: scale(.96); }
+.swap-desk .jup-flip { border: 0 !important; background: linear-gradient(135deg, var(--sm-ac2), var(--sm-ac3)) !important; color: var(--sm-bg2) !important; box-shadow: 0 0 0 4px var(--sm-sf2), 0 8px 22px -6px rgba(124, 92, 255, 0.6);
   transition: transform .35s cubic-bezier(.3, 1.6, .5, 1), box-shadow .2s !important; }
 .swap-desk .jup-flip:hover:not(:disabled) { transform: rotate(180deg) scale(1.06); }
 .swap-desk .jup-flip:active:not(:disabled) { transform: rotate(180deg) scale(.92); }
-.swap-desk .jup-cta .btn-primary { position: relative; overflow: hidden; background: linear-gradient(100deg, #5a33bd, #9b6bff 45%, #b48cff 70%, #7cc8ff) !important; color: #090b0a !important;
+.swap-desk .jup-cta .btn-primary { position: relative; overflow: hidden; background: linear-gradient(100deg, var(--sm-ac4), var(--sm-ac2) 45%, var(--sm-ac1) 70%, var(--sm-ac5)) !important; color: var(--sm-bg3) !important;
   box-shadow: 0 14px 30px -14px rgba(155, 107, 255, 0.8); transition: transform .15s, box-shadow .15s !important; }
 .swap-desk .jup-cta .btn-primary::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.45) 50%, transparent 65%); transform: translateX(-120%); pointer-events: none; }
 .swap-desk .jup-cta .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 18px 36px -14px rgba(155, 107, 255, 0.95); }
@@ -55,7 +56,7 @@
 /* fee chips under the card are buttons now (td-fee) */
 button.td-fee { text-align: left; cursor: pointer; font: inherit; color: inherit; transition: transform .15s, border-color .15s, background .15s; }
 button.td-fee:hover { transform: translateY(-1px); border-color: rgba(180, 140, 255, 0.45); }
-button.td-fee:active { transform: scale(.98); } button.td-fee:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+button.td-fee:active { transform: scale(.98); } button.td-fee:focus-visible { outline: 2px solid var(--sm-ac1); outline-offset: 2px; }
 .td-fee-more { margin: 2px 0 0; font-size: 11.5px; color: var(--muted); animation: swmIn .18s ease both; }
 /* off-screen: the edge beam pauses (lib/fxPause FX_SURFACES) */
 .swap-desk.fx-off::before { animation-play-state: paused; }
@@ -64,14 +65,14 @@ button.td-fee:active { transform: scale(.98); } button.td-fee:focus-visible { ou
 @keyframes swmIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 body.fx-lite .swap-desk::before { animation: none; opacity: .35; }
 @media (prefers-reduced-motion: reduce) { .swap-desk::before { animation: none; opacity: .35; } .swap-desk .jup-cta .btn-primary:hover::after { animation: none; } .td-fee-more { animation: none; } }
-body.theme-day .swap-desk { background: linear-gradient(160deg, #dff3e8, #e2e6fb 72%) !important; border-color: rgba(11, 122, 62, 0.3) !important; box-shadow: 0 22px 50px -30px rgba(11, 122, 62, 0.45) !important; }
-body.theme-day .swap-desk::after { background: radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.18), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.16), transparent 62%), linear-gradient(160deg, #eaf7f0, #eceffd 72%); }
+body.theme-day .swap-desk { background: linear-gradient(160deg, var(--sm-ac6), var(--sm-tx2) 72%) !important; border-color: rgba(11, 122, 62, 0.3) !important; box-shadow: 0 22px 50px -30px rgba(11, 122, 62, 0.45) !important; }
+body.theme-day .swap-desk::after { background: radial-gradient(120% 70% at 12% 0%, rgba(155, 107, 255, 0.18), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.16), transparent 62%), linear-gradient(160deg, var(--sm-tx3), var(--sm-tx4) 72%); }
 body.theme-day .swap-desk .jup-panel { background: rgba(255, 255, 255, 0.55) !important; border-color: rgba(11, 122, 62, 0.16) !important; }
 body.theme-day .swap-desk .jup-panel.is-receive { background: rgba(236, 232, 255, 0.6) !important; }
-body.theme-day .swap-desk .jup-amount { color: #121715; caret-color: #5a33bd; text-shadow: none; }
+body.theme-day .swap-desk .jup-amount { color: var(--sm-sf3); caret-color: var(--sm-ac4); text-shadow: none; }
 body.theme-day .swap-desk .jup-amount::placeholder { color: rgba(18, 23, 21, 0.3); }
-body.theme-day .swap-desk .jup-out { color: #076a45; text-shadow: none; }
-body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px #eaf3ef, 0 8px 22px -8px rgba(124, 92, 255, 0.5); }
+body.theme-day .swap-desk .jup-out { color: var(--sm-ac7); text-shadow: none; }
+body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px var(--sm-tx5), 0 8px 22px -8px rgba(124, 92, 255, 0.5); }
 @media (max-width: 640px) { .swap-desk::before { inset: -90%; } }
 /* one column (under 1180px): the Top 10 column must scroll with the page — sticky made it slide OVER the swap card */
 @media (max-width: 1179px) { .trade-left { position: static !important; } }
@@ -83,11 +84,11 @@ body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px #eaf3ef, 0 8px 22px 
 .jup-mode { padding: 3px; } .jup-mode button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 12px; }
 .jup-send { display: grid; gap: 8px; } .jup-send .jup-panel { display: grid; gap: 6px; } .jup-send-tok { width: auto; min-width: 96px; min-height: 40px; }
 .jup-send select.m-input, .jup-send input.m-input { min-height: 40px; }
-.jup-send-why { margin: 0; color: #9fb4a8; font: 600 11px var(--f-ui); } .jup-send-go { min-height: 44px; }
-.jup-send-review { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid #b48cff55; background: #b48cff10; animation: jupSend .18s ease-out both; }
-.jup-send-review span { flex: 1 1 220px; color: #dff3e8; font: 500 12px/1.45 var(--f-ui); } .jup-send-review code { color: #b48cff; font: 700 11px var(--f-mono); }
-.jup-send-status { margin: 0; font: 700 11.5px var(--f-mono); color: #dff3e8; }
+.jup-send-why { margin: 0; color: var(--sm-dm1); font: 600 11px var(--f-ui); } .jup-send-go { min-height: 44px; }
+.jup-send-review { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--sm-ac8); background: var(--sm-ac9); animation: jupSend .18s ease-out both; }
+.jup-send-review span { flex: 1 1 220px; color: var(--sm-ac6); font: 500 12px/1.45 var(--f-ui); } .jup-send-review code { color: var(--sm-ac1); font: 700 11px var(--f-mono); }
+.jup-send-status { margin: 0; font: 700 11.5px var(--f-mono); color: var(--sm-ac6); }
 @keyframes jupSend { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .jup-send-review { animation: none; } } body.fx-lite .jup-send-review { animation: none; }
-body.theme-day .jup-send-review span, body.theme-day .jup-send-status { color: #12301f; } body.theme-day .jup-send-why { color: #3b5a48; }
+body.theme-day .jup-send-review span, body.theme-day .jup-send-status { color: var(--sm-sf4); } body.theme-day .jup-send-why { color: var(--sm-ln1); }
 @media (max-width: 640px) { .jup-send-review { flex-direction: column; align-items: stretch; } }

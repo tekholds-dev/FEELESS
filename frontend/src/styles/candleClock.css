@@ -1,8 +1,9 @@
 /* ⏱ candle clock — the countdown under the live price on the axis (CandleClock.jsx) */
+:root { /* page tokens (STYLE-1) */ --pcc-ac1: #cfe9da; --pcc-ac2: #b48cff; --pcc-ac3: #0f8f4a; --pcc-s21: #123a26; --pcc-sf1: #101412; --pcc-tx1: #fff; }
 .cck { position: absolute; left: 0; top: 0; z-index: 4; opacity: 0; pointer-events: none; text-align: center; box-sizing: border-box;
-  font: 700 9.5px/14px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; color: #cfe9da; background: rgba(13, 15, 14, .86);
+  font: 700 9.5px/14px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; color: var(--pcc-ac1); background: rgba(13, 15, 14, .86);
   border-radius: 0 0 3px 3px; will-change: transform; }
-.cck.is-end { color: #101412; background: #b48cff; }
-body.theme-day .cck { color: #123a26; background: rgba(236, 246, 240, .94); }
-body.theme-day .cck.is-end { color: #fff; background: #0f8f4a; }
+.cck.is-end { color: var(--pcc-sf1); background: var(--pcc-ac2); }
+body.theme-day .cck { color: var(--pcc-s21); background: rgba(236, 246, 240, .94); }
+body.theme-day .cck.is-end { color: var(--pcc-tx1); background: var(--pcc-ac3); }
 @media (max-width: 640px) { .cck { font-size: 8.5px; line-height: 12px; } }

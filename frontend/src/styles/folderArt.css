@@ -1,5 +1,6 @@
 /* 📁 FolderArt (lib/folderArt.jsx). The desk's data-folders picks the look: classic (default, 3D icons) · line · mono · outline · night. Tokens only. */
-.fa-cl { position: relative; z-index: 1; display: grid; place-items: center; font-style: normal; color: #fff; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)); }
+:root { /* page tokens (STYLE-1) */ --folder-ac1: #3a2f63; --folder-bg1: #000000; --folder-bg2: #070a10; --folder-bg3: #0a0d14; --folder-tx1: #fff; --folder-tx2: #ffffff; --folder-tx3: #ffffffcc; }
+.fa-cl { position: relative; z-index: 1; display: grid; place-items: center; font-style: normal; color: var(--folder-tx1); filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .45)); }
 :is(.dsk-ico-art, .dsk-file) .fa-cl svg { width: 22px; height: 22px; filter: none; }
 /* 🧊 Classic (default, owner 2026-11-13): the 3D icon on the coloured folder; every other look shows the line icon */
 .fa-3d { display: block; width: 30px; height: 30px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); transition: transform .18s var(--m-ease); }
@@ -10,9 +11,9 @@
 .dset-prev[data-folders="classic"] .fa-cl.has-3d .fa-ln { display: none; }
 :is(.dsk-ico, .dsk-xt, .own-m):hover .fa-3d { transform: translateY(-2px) scale(1.06); }
 @media (prefers-reduced-motion: reduce) { .fa-3d { transition: none; } }
-.dsk-file .fa-cl { color: #3a2f63; filter: none; }
+.dsk-file .fa-cl { color: var(--folder-ac1); filter: none; }
 .fa { display: none; }
-[data-folders="mono"] :is(.dsk-ico, .dsk-xt)[class] .dsk-ico-art { --f: color-mix(in srgb, var(--m-accent) 82%, #ffffff); --f2: color-mix(in srgb, var(--m-accent) 55%, #000000); }
+[data-folders="mono"] :is(.dsk-ico, .dsk-xt)[class] .dsk-ico-art { --f: color-mix(in srgb, var(--m-accent) 82%, var(--folder-tx2)); --f2: color-mix(in srgb, var(--m-accent) 55%, var(--folder-bg1)); }
 [data-folders="mono"] .fa-cl { color: var(--m-accent-ink); filter: none; }
 :is([data-folders="outline"], [data-folders="night"]) :is(.dsk-ico-art, .dsk-file) { background: none; box-shadow: none; border-radius: 0; width: 56px; height: 44px; }
 :is([data-folders="outline"], [data-folders="night"]) .dsk-file { width: 38px; height: 46px; }
@@ -20,9 +21,9 @@
 :is([data-folders="outline"], [data-folders="night"]) .fa-cl { display: none; }
 :is([data-folders="outline"], [data-folders="night"]) .fa { display: block; }
 /* 🌙 night: the same drawn folder, filled dark, the glyph lit in the folder's own colour (owner 2026-11-13: icon options in Desktop settings) */
-[data-folders="night"] .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 22%, #070a10); }
-[data-folders="night"] .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 30%, #0a0d14); }
-[data-folders="night"] .fa-g { color: color-mix(in srgb, var(--fa, var(--m-accent)) 65%, #ffffff); }
+[data-folders="night"] .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 22%, var(--folder-bg2)); }
+[data-folders="night"] .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 30%, var(--folder-bg3)); }
+[data-folders="night"] .fa-g { color: color-mix(in srgb, var(--fa, var(--m-accent)) 65%, var(--folder-tx2)); }
 .fa { width: 56px; height: 44px; overflow: visible; transition: transform .18s var(--m-ease); }
 .fa-file { width: 38px; height: 46px; }
 .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 14%, var(--m-surface)); stroke: color-mix(in srgb, var(--fa, var(--m-accent)) 45%, transparent); stroke-width: 1.25; }
@@ -41,9 +42,9 @@
 :is(.dsk-ico, .dsk-xt):focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 10px; }
 .dsk-xt.is-bad, .dsk-xt.is-bad-coin { --fa: var(--m-danger); } .dsk-xt.is-none { --fa: var(--m-mute); } .dsk-xt.is-live { --fa: var(--m-warn); }
 @keyframes faLed { 50% { opacity: .35; } }
-body.theme-day .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 12%, #ffffff); }
-body.theme-day .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 6%, #ffffff); }
-body.theme-day .fa-hi { stroke: #ffffffcc; }
+body.theme-day .fa-back { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 12%, var(--folder-tx2)); }
+body.theme-day .fa-front { fill: color-mix(in srgb, var(--fa, var(--m-accent)) 6%, var(--folder-tx2)); }
+body.theme-day .fa-hi { stroke: var(--folder-tx3); }
 body.theme-day .dsk-ico-art .fa { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .14)); }
 body.fx-lite .fa-led { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fa-led { animation: none; } .fa, .fa-paper { transition: none; } }

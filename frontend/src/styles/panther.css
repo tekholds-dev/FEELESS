@@ -1,4 +1,5 @@
 /* 🐆 Panther.jsx — every part its own group, transform / opacity only, one keyframe set (pt*) */
+:root { /* page tokens (STYLE-1) */ --pan-ac1: #cfe9da; --pan-ac2: #b48cff; --pan-sf1: #0b2a19; }
 .pt { overflow: visible; cursor: pointer; filter: drop-shadow(0 0 10px var(--pt-glow, rgba(180, 140, 255,.4))); }
 .pt.is-head { cursor: default; filter: drop-shadow(0 0 4px var(--pt-glow)); }
 .pt g, .pt path, .pt text { transform-box: fill-box; }
@@ -27,15 +28,15 @@
 @keyframes ptJump { 0%, 100% { transform: none; } 40% { transform: translateY(-24px) scale(1.04); } }
 @keyframes ptBurst { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } } @keyframes ptThink { 50% { transform: rotate(-7deg); } }
 .pt-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
-.pt-pick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe9da; cursor: pointer; transition: transform .15s, border-color .15s; }
-.pt-pick button:hover { transform: translateY(-2px); border-color: rgba(180, 140, 255, .5); } .pt-pick button:focus-visible { outline: 2px solid #b48cff; }
-.pt-pick button.is-on { border-color: #b48cff; background: rgba(155, 107, 255, .15); } .pt-pick small { font: 700 9.5px 'JetBrains Mono', monospace; text-align: center; }
+.pt-pick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: var(--pan-ac1); cursor: pointer; transition: transform .15s, border-color .15s; }
+.pt-pick button:hover { transform: translateY(-2px); border-color: rgba(180, 140, 255, .5); } .pt-pick button:focus-visible { outline: 2px solid var(--pan-ac2); }
+.pt-pick button.is-on { border-color: var(--pan-ac2); background: rgba(155, 107, 255, .15); } .pt-pick small { font: 700 9.5px 'JetBrains Mono', monospace; text-align: center; }
 .pt-stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .pt-gest { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
-.pt-gest button { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(180, 140, 255, .3); background: none; color: #cfe9da; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
+.pt-gest button { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(180, 140, 255, .3); background: none; color: var(--pan-ac1); font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
 .pt-gest button:hover { background: rgba(155, 107, 255, .15); } .pt-gest button:active { transform: scale(.95); }
 body.fx-lite .pt *, body.reduced-motion-setting .pt * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .pt * { animation: none !important; transition: none !important; } }
-body.theme-day .pt-pick button, body.theme-day .pt-gest button { color: #0b2a19; }
+body.theme-day .pt-pick button, body.theme-day .pt-gest button { color: var(--pan-sf1); }
 @media (max-width: 640px) { .pt-pick { grid-template-columns: repeat(4, 1fr); } }
 .pt.is-still * { animation: none !important; }

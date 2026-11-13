@@ -1,9 +1,10 @@
 /* ⚛ FUSE FORGE (HomeEngine.jsx) — coins orbit → spiral into the core → flash → the Fuse card is forged. transform / opacity only. */
-.frg { --c1: #ff8a3c; --c2: #ff4f8b; --c3: #ffd36b; position: relative; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: center;
+:root { /* page tokens (STYLE-1) */ --he-ac1: #9e7bff; --he-ac10: #b48cff; --he-ac11: #9f97c2; --he-ac12: #c4bce0; --he-ac2: #5ec8ff; --he-ac3: #e4d4ff; --he-ac4: #3ee7ff; --he-ac5: #9fe3ff; --he-ac6: #b388ff; --he-ac7: #ff7ad9; --he-ac8: #d6c8ff; --he-ac9: #9b6bff; --he-bg1: #07060c; --he-bg2: #050606; --he-bg3: #05070a; --he-bg4: #0a0812; --he-bg5: #090b0a; --he-dg1: #ff4f8b; --he-dg2: #ff8fa3; --he-ln1: #3f4a55; --he-sf1: #14101f; --he-sf2: #181e1b; --he-tx1: #ffffff; --he-tx2: #fff; --he-tx3: #f3eeff; --he-tx4: #f2eefb; --he-tx5: #eaf5ef; --he-wn1: #ff8a3c; --he-wn2: #ffd36b; --he-wn3: #f5c95b; --he-wn4: #ff9a3c; --he-wn5: #fff1c2; }
+.frg { --c1: var(--he-wn1); --c2: var(--he-dg1); --c3: var(--he-wn2); position: relative; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: center;
   padding: 18px; margin: 0 0 14px; overflow: hidden; isolation: isolate; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c1) 35%, transparent);
-  background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--c1) 16%, transparent), transparent 60%), linear-gradient(160deg, #07060c, #050606 70%); }
-.frg.is-plasma { --c1: #9e7bff; --c2: #5ec8ff; --c3: #e4d4ff; } .frg.is-gold { --c1: #f5c95b; --c2: #ff9a3c; --c3: #fff1c2; }
-.frg.is-prism { --c1: #3ee7ff; --c2: #9fe3ff; --c3: #ffffff; } .frg.is-nebula { --c1: #b388ff; --c2: #ff7ad9; --c3: #d6c8ff; }
+  background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--c1) 16%, transparent), transparent 60%), linear-gradient(160deg, var(--he-bg1), var(--he-bg2) 70%); }
+.frg.is-plasma { --c1: var(--he-ac1); --c2: var(--he-ac2); --c3: var(--he-ac3); } .frg.is-gold { --c1: var(--he-wn3); --c2: var(--he-wn4); --c3: var(--he-wn5); }
+.frg.is-prism { --c1: var(--he-ac4); --c2: var(--he-ac5); --c3: var(--he-tx1); } .frg.is-nebula { --c1: var(--he-ac6); --c2: var(--he-ac7); --c3: var(--he-ac8); }
 /* the forge stage */
 .frg-stage { position: relative; height: 330px; display: grid; place-items: center; perspective: 900px; }
 .frg-floor { position: absolute; left: 6%; right: 6%; bottom: 8%; height: 34%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c1) 30%, transparent), transparent);
@@ -11,40 +12,40 @@
 .frg-halo { position: absolute; width: 300px; height: 300px; border-radius: 50%; border: 1px dashed color-mix(in srgb, var(--c1) 45%, transparent); animation: frgSpin 22s linear infinite; }
 .frg-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 .frg-coin { position: absolute; left: -22px; top: -22px; width: 44px; height: 44px; animation: frgSpiral 8s cubic-bezier(.5, 0, .3, 1) both; }
-.frg-coin-in { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #05070a;
+.frg-coin-in { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--he-bg3);
   box-shadow: 0 0 0 2px var(--c1), 0 0 18px color-mix(in srgb, var(--c1) 70%, transparent); overflow: hidden; animation: frgCounter 8s cubic-bezier(.5, 0, .3, 1) both; }
-.frg-burst { position: absolute; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, #fff, var(--c3) 30%, var(--c1) 55%, transparent 70%); opacity: 0; animation: frgBurst 8s ease-out both; }
+.frg-burst { position: absolute; width: 90px; height: 90px; border-radius: 50%; background: radial-gradient(circle, var(--he-tx2), var(--c3) 30%, var(--c1) 55%, transparent 70%); opacity: 0; animation: frgBurst 8s ease-out both; }
 .frg-shard { position: absolute; width: 4px; height: 26px; border-radius: 2px; background: linear-gradient(var(--c3), var(--c1)); opacity: 0; transform: rotate(var(--s)); animation: frgShard 8s ease-out both; }
 /* the card itself: forged at the flash, then tilts forever */
 .frg-card { position: relative; z-index: 2; width: 220px; transform-style: preserve-3d; animation: frgForge 8s cubic-bezier(.2, 1.3, .4, 1) both; }
 .frg-tilt { position: relative; overflow: hidden; display: grid; gap: 8px; padding: 14px 14px 12px; border-radius: 14px; transform-style: preserve-3d;
-  background: linear-gradient(150deg, color-mix(in srgb, var(--c1) 28%, #0a0812), #07060c 55%, color-mix(in srgb, var(--c2) 22%, #07060c));
+  background: linear-gradient(150deg, color-mix(in srgb, var(--c1) 28%, var(--he-bg4)), var(--he-bg1) 55%, color-mix(in srgb, var(--c2) 22%, var(--he-bg1)));
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c1) 70%, transparent), 0 20px 40px rgba(0, 0, 0, .6), 0 0 40px color-mix(in srgb, var(--c1) 30%, transparent);
   animation: frgTilt 6s ease-in-out 5.2s infinite; }
 .frg-holo { position: absolute; inset: 0; pointer-events: none; opacity: .22; background: conic-gradient(from 210deg, var(--c1), var(--c2), var(--c3), var(--c1)); mix-blend-mode: normal; }
 .frg-sheen { position: absolute; top: -40%; bottom: -40%; left: 0; width: 40%; pointer-events: none; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .28), transparent); animation: frgSheen 3.2s ease-in-out 5.4s infinite; }
-.frg-tilt header { position: relative; display: grid; gap: 4px; } .frg-tilt header b { font: 900 13px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #fff; }
-.frg-tilt header em { justify-self: start; font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; padding: 2px 7px; border-radius: 999px; color: #fff; border: 1px solid rgba(255, 255, 255, .3); }
-.frg-tilt header em.frg-real { color: #090b0a; background: #9b6bff; border-color: #9b6bff; }
+.frg-tilt header { position: relative; display: grid; gap: 4px; } .frg-tilt header b { font: 900 13px 'JetBrains Mono', monospace; letter-spacing: .06em; color: var(--he-tx2); }
+.frg-tilt header em { justify-self: start; font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; padding: 2px 7px; border-radius: 999px; color: var(--he-tx2); border: 1px solid rgba(255, 255, 255, .3); }
+.frg-tilt header em.frg-real { color: var(--he-bg5); background: var(--he-ac9); border-color: var(--he-ac9); }
 .frg-tilt ul { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.frg-tilt li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 7px; align-items: center; font: 700 10px 'JetBrains Mono', monospace; color: #f3eeff; }
+.frg-tilt li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 7px; align-items: center; font: 700 10px 'JetBrains Mono', monospace; color: var(--he-tx3); }
 .frg-tilt li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .frg-tilt footer { position: relative; display: flex; justify-content: space-between; align-items: center; font: 900 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: rgba(255, 255, 255, .7); }
 .frg-tilt footer i { font-style: normal; font-size: 14px; color: var(--c3); }
-.frg .up { color: #b48cff; } .frg .dn { color: #ff8fa3; }
+.frg .up { color: var(--he-ac10); } .frg .dn { color: var(--he-dg2); }
 /* the side: what it is, which card, its coins */
 .frg-side { display: grid; gap: 10px; align-content: center; min-width: 0; }
 .frg-kick { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .2em; color: var(--c1); }
-.frg-live { font-style: normal; margin-left: 6px; padding: 1px 6px; border-radius: 999px; color: #090b0a; background: #9b6bff; animation: frgPulse 1.6s ease-in-out infinite; }
-.frg-side h2 { margin: 0; font: 900 clamp(24px, 3.4vw, 38px)/1.05 'JetBrains Mono', monospace; color: #fff; letter-spacing: -.01em; } .frg-side h2 b { color: var(--c1); }
-.frg-side p { margin: 0; font: 500 11px/1.5 'JetBrains Mono', monospace; color: var(--m-mute, #9f97c2); max-width: 44ch; }
+.frg-live { font-style: normal; margin-left: 6px; padding: 1px 6px; border-radius: 999px; color: var(--he-bg5); background: var(--he-ac9); animation: frgPulse 1.6s ease-in-out infinite; }
+.frg-side h2 { margin: 0; font: 900 clamp(24px, 3.4vw, 38px)/1.05 'JetBrains Mono', monospace; color: var(--he-tx2); letter-spacing: -.01em; } .frg-side h2 b { color: var(--c1); }
+.frg-side p { margin: 0; font: 500 11px/1.5 'JetBrains Mono', monospace; color: var(--m-mute, var(--he-ac11)); max-width: 44ch; }
 .frg-tiers { display: flex; flex-wrap: wrap; gap: 5px; }
-.frg-tiers button { padding: 4px 10px; border-radius: 999px; cursor: pointer; font: 700 9px 'JetBrains Mono', monospace; color: var(--m-dim, #c4bce0); background: rgba(255, 255, 255, .04);
+.frg-tiers button { padding: 4px 10px; border-radius: 999px; cursor: pointer; font: 700 9px 'JetBrains Mono', monospace; color: var(--m-dim, var(--he-ac12)); background: rgba(255, 255, 255, .04);
   border: 1px solid rgba(255, 255, 255, .1); transition: transform .12s ease, border-color .12s ease; }
 .frg-tiers button:hover, .frg-tiers button:focus-visible { border-color: var(--c1); transform: translateY(-1px); outline: none; } .frg-tiers button:active { transform: none; }
-.frg-tiers button.active { color: #07060c; background: var(--c1); border-color: var(--c1); }
+.frg-tiers button.active { color: var(--he-bg1); background: var(--c1); border-color: var(--c1); }
 .frg-legs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
 .frg-legs button { width: 100%; display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 5px 8px; border-radius: 8px; cursor: pointer; text-align: left;
-  font: 700 10px 'JetBrains Mono', monospace; color: #f3eeff; background: rgba(255, 255, 255, .03); border: 1px solid transparent; transition: transform .12s ease, border-color .12s ease; }
+  font: 700 10px 'JetBrains Mono', monospace; color: var(--he-tx3); background: rgba(255, 255, 255, .03); border: 1px solid transparent; transition: transform .12s ease, border-color .12s ease; }
 .frg-legs button:hover, .frg-legs button:focus-visible { border-color: var(--c1); transform: translateX(2px); outline: none; } .frg-legs button:active { transform: none; }
 .frg-legs b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .frg-go { justify-self: start; }
 
@@ -64,9 +65,9 @@ body.fx-lite .frg-halo, body.fx-lite .frg-floor, body.fx-lite .frg-tilt, body.fx
 body.fx-lite .frg-coin, body.fx-lite .frg-coin-in, body.fx-lite .frg-burst, body.fx-lite .frg-shard, body.fx-lite .frg-card { animation: none; }
 body.fx-lite .frg-orbit, body.fx-lite .frg-burst, body.fx-lite .frg-shard { display: none; }
 @media (prefers-reduced-motion: reduce) { .frg-halo, .frg-floor, .frg-tilt, .frg-sheen, .frg-live, .frg-coin, .frg-coin-in, .frg-burst, .frg-shard, .frg-card { animation: none; } .frg-orbit, .frg-burst, .frg-shard { display: none; } .frg-tiers button, .frg-legs button { transition: none; } }
-body.theme-day .frg { background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--c1) 18%, transparent), transparent 60%), linear-gradient(160deg, #f2eefb, #eaf5ef 70%); }
-body.theme-day .frg-side h2 { color: #14101f; } body.theme-day .frg-side p { color: #3f4a55; } body.theme-day .frg-legs button { color: #181e1b; background: rgba(255, 255, 255, .6); }
-body.theme-day .frg-tiers button { color: #181e1b; background: rgba(255, 255, 255, .6); }   /* the forged card keeps its dark face: it is art */
+body.theme-day .frg { background: radial-gradient(ellipse at 30% 50%, color-mix(in srgb, var(--c1) 18%, transparent), transparent 60%), linear-gradient(160deg, var(--he-tx4), var(--he-tx5) 70%); }
+body.theme-day .frg-side h2 { color: var(--he-sf1); } body.theme-day .frg-side p { color: var(--he-ln1); } body.theme-day .frg-legs button { color: var(--he-sf2); background: rgba(255, 255, 255, .6); }
+body.theme-day .frg-tiers button { color: var(--he-sf2); background: rgba(255, 255, 255, .6); }   /* the forged card keeps its dark face: it is art */
 @media (max-width: 980px) { .frg { grid-template-columns: minmax(0, 1fr); } .frg-stage { height: 290px; } }
 @media (max-width: 640px) { .frg { padding: 12px; } .frg-stage { height: 250px; } .frg-halo { width: 220px; height: 220px; } .frg-legs { grid-template-columns: 1fr; } .frg-card { width: 190px; } }
 

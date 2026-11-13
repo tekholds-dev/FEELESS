@@ -1,11 +1,12 @@
 /* 🪙 Circle wallet coins with real logos + the Fuse wallet clean bar (CircleWallets.jsx). m-* tokens, transform / opacity only. */
+:root { /* page tokens (STYLE-1) */ --circle-ac1: #b48cff; --circle-ac2: #9945ff; --circle-ac3: #14f195; --circle-ac4: #0e8a4a; --circle-ac5: #9b6bff; --circle-bg1: #000; --circle-dg1: #ff8fa3; --circle-sf1: #0c0a1e; --circle-tx1: #f1edff; }
 .cwc { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; min-width: 0; flex: 1; }
 .cwc-c { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 3px; border-radius: 999px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .25);
   font: 700 10px var(--m-mono); transition: transform .15s, border-color .15s; }
 .cwc-c:hover { transform: translateY(-1px); border-color: var(--m-line-hi); }
-.cwc-c b { color: var(--m-text); } .cwc-c small { color: #b48cff; font-weight: 700; }
+.cwc-c b { color: var(--m-text); } .cwc-c small { color: var(--circle-ac1); font-weight: 700; }
 .cwc-c.is-dust { opacity: .6; } .cwc-c.is-dust small { color: var(--m-mute); }
-.cwc-sol { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, #9945ff, #14f195); color: #000; font-size: 11px; }
+.cwc-sol { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(135deg, var(--circle-ac2), var(--circle-ac3)); color: var(--circle-bg1); font-size: 11px; }
 .cwc-total { font: 800 10px var(--m-mono); font-style: normal; color: var(--m-text); }
 .cwc-none { font: 600 10px var(--m-mono); color: var(--m-mute); }
 .cwc-clean { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; padding: 6px 9px; border-radius: 9px; border: 1px dashed var(--m-line-hi);
@@ -14,18 +15,18 @@
 @keyframes cwcIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .cwc-clean { animation: none; } .cwc-c { transition: none; } }
 body.fx-lite .cwc-clean { animation: none; }
-body.theme-day .cwc-c { background: rgba(236, 246, 240, .8); } body.theme-day .cwc-c small { color: #0e8a4a; }
+body.theme-day .cwc-c { background: rgba(236, 246, 240, .8); } body.theme-day .cwc-c small { color: var(--circle-ac4); }
 @media (max-width: 640px) { .cwc-clean span { min-width: 0; } }
 
 /* ↩ / 🔥 a coin chip on the Fuse wallet opens Sell / Burn */
 .cwc-c.is-act { position: relative; cursor: pointer; transition: border-color .15s, transform .15s; }
-.cwc-c.is-act:hover, .cwc-c.is-open { border-color: #9b6bff; transform: translateY(-1px); }
+.cwc-c.is-act:hover, .cwc-c.is-open { border-color: var(--circle-ac5); transform: translateY(-1px); }
 .cwc-hit { position: absolute; inset: 0; z-index: 1; background: none; border: 0; border-radius: inherit; cursor: pointer; }
-.cwc-hit:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
-.cwc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: #0c0a1e;
-  border: 1px solid rgba(180, 140, 255, .4); box-shadow: 0 10px 24px -10px #000; animation: cwcIn .15s ease-out both; }
+.cwc-hit:focus-visible { outline: 2px solid var(--circle-ac1); outline-offset: 2px; }
+.cwc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: var(--circle-sf1);
+  border: 1px solid rgba(180, 140, 255, .4); box-shadow: 0 10px 24px -10px var(--circle-bg1); animation: cwcIn .15s ease-out both; }
 .cwc-menu .m-btn { padding: 4px 10px; font-size: 11px; white-space: nowrap; }
-.cwc-menu .is-burn { border-color: #ff8fa3; color: #ff8fa3; }
+.cwc-menu .is-burn { border-color: var(--circle-dg1); color: var(--circle-dg1); }
 @keyframes cwcIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .cwc-menu { animation: none; } .cwc-c.is-act { transition: none; } }
-body.theme-day .cwc-menu { background: #f1edff; }
+body.theme-day .cwc-menu { background: var(--circle-tx1); }

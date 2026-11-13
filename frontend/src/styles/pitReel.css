@@ -1,6 +1,7 @@
 /* 🎬 Pit reel (PitReel.jsx): a looping cycle of battle scenes in the middle of every fight. One keyframe set (pr*),
    transform/opacity only, list stagger via --i, static VS under fx-lite / reduced motion. Built from m-* tokens. */
-.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, #9b6bff); --pr-b: #ff8fa3; --pr-v: #c08bff; }
+:root { /* page tokens (STYLE-1) */ --ppr-ac1: #9b6bff; --ppr-ac2: #c08bff; --ppr-ac3: #4a3a66; --ppr-ac4: #5a1fd1; --ppr-ac5: #9b5cff; --ppr-ac6: #0b6b45; --ppr-ac7: #2d1d4c; --ppr-bg1: #000; --ppr-dg1: #ff8fa3; --ppr-dg2: #b0233d; --ppr-s21: #2a0f4a; --ppr-tx1: #fff; --ppr-wn1: #f5c451; --ppr-wn2: #ff9a3c; }
+.pr { position: relative; width: 100%; display: grid; justify-items: center; gap: 6px; --pr-a: var(--m-accent, var(--ppr-ac1)); --pr-b: var(--ppr-dg1); --pr-v: var(--ppr-ac2); }
 .pr-stage { position: relative; width: 100%; height: 170px; overflow: hidden; border-radius: 16px; isolation: isolate;
   background: radial-gradient(60% 70% at 50% 55%, rgba(155, 92, 255, .16), transparent 70%); }
 .pr-stage i { position: absolute; display: block; pointer-events: none; }
@@ -14,18 +15,18 @@
 
 /* ⚔ blade clash: two blades swing in and cross, rings + sparks fly from the hit */
 .pr-blade { left: 50%; top: 18%; width: 6px; height: 62%; margin-left: -3px; border-radius: 3px; transform-origin: 50% 100%; opacity: 0;
-  background: linear-gradient(180deg, #fff, var(--pr-a) 40%, transparent); box-shadow: 0 0 12px var(--pr-a); animation: prBladeA 3.4s ease-out both; }
-.pr-blade.b { background: linear-gradient(180deg, #fff, var(--pr-b) 40%, transparent); box-shadow: 0 0 12px var(--pr-b); animation-name: prBladeB; }
+  background: linear-gradient(180deg, var(--ppr-tx1), var(--pr-a) 40%, transparent); box-shadow: 0 0 12px var(--pr-a); animation: prBladeA 3.4s ease-out both; }
+.pr-blade.b { background: linear-gradient(180deg, var(--ppr-tx1), var(--pr-b) 40%, transparent); box-shadow: 0 0 12px var(--pr-b); animation-name: prBladeB; }
 .pr-ring { left: 50%; top: 50%; width: 80px; height: 80px; margin: -40px; border-radius: 50%; border: 2px solid var(--pr-v); opacity: 0; animation: prRing 3.4s ease-out .5s both; }
 .pr-ring.r2 { border-color: var(--pr-a); animation-delay: .75s; }
-.pr-spark { left: 50%; top: 50%; width: 3px; height: 16px; margin: -8px -1.5px; border-radius: 2px; background: #f5c451; opacity: 0;
+.pr-spark { left: 50%; top: 50%; width: 3px; height: 16px; margin: -8px -1.5px; border-radius: 2px; background: var(--ppr-wn1); opacity: 0;
   transform: rotate(calc(var(--i, 0) * 60deg)); animation: prSpark 3.4s ease-out calc(.45s + var(--i, 0) * 50ms) both; }
 .pr-spark:nth-child(odd) { background: var(--pr-a); }
 
 /* ⚡ lightning duel: a bolt from each corner, the stage flashes */
-.pr-bolt { top: -4%; width: 34px; height: 64%; opacity: 0; transform-origin: 50% 0; background: linear-gradient(180deg, #fff, var(--pr-v));
-  clip-path: polygon(40% 0, 70% 0, 52% 38%, 78% 38%, 30% 100%, 44% 52%, 20% 52%); filter: drop-shadow(0 0 6px #c08bff); animation: prBolt 3.4s ease-out both; }
-.pr-bolt.a { left: 34%; transform: rotate(-14deg); } .pr-bolt.b { right: 34%; transform: rotate(14deg); animation-delay: .5s; background: linear-gradient(180deg, #fff, var(--pr-a)); }
+.pr-bolt { top: -4%; width: 34px; height: 64%; opacity: 0; transform-origin: 50% 0; background: linear-gradient(180deg, var(--ppr-tx1), var(--pr-v));
+  clip-path: polygon(40% 0, 70% 0, 52% 38%, 78% 38%, 30% 100%, 44% 52%, 20% 52%); filter: drop-shadow(0 0 6px var(--ppr-ac2)); animation: prBolt 3.4s ease-out both; }
+.pr-bolt.a { left: 34%; transform: rotate(-14deg); } .pr-bolt.b { right: 34%; transform: rotate(14deg); animation-delay: .5s; background: linear-gradient(180deg, var(--ppr-tx1), var(--pr-a)); }
 .pr-flash { inset: 0; background: radial-gradient(50% 60% at 50% 50%, rgba(255, 255, 255, .35), transparent 70%); opacity: 0; animation: prFlash 3.4s ease-out .2s both; }
 
 /* 🔥 beam struggle: two energy beams meet; the core leans toward the side that is losing */
@@ -33,13 +34,13 @@
 .pr-beam.a { left: 10%; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, var(--pr-a)); box-shadow: 0 0 14px var(--pr-a); }
 .pr-beam.b { right: 10%; transform-origin: 100% 50%; background: linear-gradient(270deg, transparent, var(--pr-b)); box-shadow: 0 0 14px var(--pr-b); }
 .pr-core { left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%; opacity: 0;
-  background: radial-gradient(circle, #fff, var(--pr-v) 55%, transparent 72%); animation: prCore 3.4s ease-in-out .5s both; }
+  background: radial-gradient(circle, var(--ppr-tx1), var(--pr-v) 55%, transparent 72%); animation: prCore 3.4s ease-in-out .5s both; }
 
 /* 🥊 haymaker: the leader's fist flies across, POW at the other corner */
 .pr-fist { top: 50%; left: 14%; width: 34px; height: 34px; margin-top: -17px; opacity: 0; animation: prFistA 3.4s cubic-bezier(.5, 0, .2, 1) both; }
 .pr-fist::before { content: '👊'; font-size: 30px; line-height: 34px; display: block; }
 .pr.lead-b .pr-fist { left: auto; right: 14%; animation-name: prFistB; } .pr.lead-b .pr-fist::before { content: '🤛'; }
-.pr-pow { top: 50%; right: 12%; width: 64px; height: 64px; margin-top: -32px; opacity: 0; background: #f5c451;
+.pr-pow { top: 50%; right: 12%; width: 64px; height: 64px; margin-top: -32px; opacity: 0; background: var(--ppr-wn1);
   clip-path: polygon(50% 0, 61% 32%, 98% 22%, 70% 50%, 98% 80%, 60% 68%, 50% 100%, 40% 68%, 2% 80%, 30% 50%, 2% 22%, 39% 32%); animation: prPow 3.4s ease-out .7s both; }
 .pr.lead-b .pr-pow { right: auto; left: 12%; }
 .prs-punch .pr-ring { left: 82%; } .prs-punch.lead-b .pr-ring { left: 18%; }
@@ -50,11 +51,11 @@
 .pr.lead-b .pr-shield { border-color: var(--pr-b); background: radial-gradient(circle at 50% 35%, rgba(255, 143, 163, .35), transparent 70%); }
 
 /* ☄ meteor: falls on the trailing corner, crater + sparks */
-.pr-meteor { top: 0; left: 30%; width: 22px; height: 22px; border-radius: 50%; opacity: 0; background: radial-gradient(circle, #fff, #ff9a3c 60%, transparent 72%);
-  box-shadow: 0 0 18px #ff9a3c; animation: prMeteor 3.4s ease-in both; }
+.pr-meteor { top: 0; left: 30%; width: 22px; height: 22px; border-radius: 50%; opacity: 0; background: radial-gradient(circle, var(--ppr-tx1), var(--ppr-wn2) 60%, transparent 72%);
+  box-shadow: 0 0 18px var(--ppr-wn2); animation: prMeteor 3.4s ease-in both; }
 .pr.lead-b .pr-meteor { left: 60%; animation-name: prMeteorB; }
-.pr-crater { top: 72%; left: 50%; width: 90px; height: 22px; margin: -11px -45px; border-radius: 50%; border: 2px solid #ff9a3c; opacity: 0; animation: prRing 3.4s ease-out 1s both; }
-.pr-meteor ~ .pr-spark { top: 72%; animation-delay: calc(1s + var(--i, 0) * 50ms); background: #ff9a3c; }
+.pr-crater { top: 72%; left: 50%; width: 90px; height: 22px; margin: -11px -45px; border-radius: 50%; border: 2px solid var(--ppr-wn2); opacity: 0; animation: prRing 3.4s ease-out 1s both; }
+.pr-meteor ~ .pr-spark { top: 72%; animation-delay: calc(1s + var(--i, 0) * 50ms); background: var(--ppr-wn2); }
 
 @keyframes prBob { 50% { transform: translateY(-5px); } }
 @keyframes prVs { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 15% { transform: translate(-50%, -50%) scale(1.25); } 30% { transform: translate(-50%, -50%) scale(.95); } }
@@ -74,8 +75,8 @@
 
 /* 🔔 every new bell opens with a round card slamming in — transform/opacity only, gone after 1.8s */
 .bf-intro { position: absolute; inset: 0; z-index: 7; display: grid; place-content: center; justify-items: center; gap: 2px; pointer-events: none; animation: prIntro 1.8s var(--m-ease, ease) forwards; }
-.bf-intro b { font: 800 16px var(--fz-font, var(--m-mono)); letter-spacing: .3em; color: var(--gold, #f5c451); }
-.bf-intro em { font: 800 64px/1 var(--fz-font, var(--m-mono)); font-style: normal; color: #fff; text-shadow: 0 0 24px var(--m-accent), 0 4px 0 #2a0f4a; animation: prSlam 1.8s var(--m-ease, ease) forwards; }
+.bf-intro b { font: 800 16px var(--fz-font, var(--m-mono)); letter-spacing: .3em; color: var(--gold, var(--ppr-wn1)); }
+.bf-intro em { font: 800 64px/1 var(--fz-font, var(--m-mono)); font-style: normal; color: var(--ppr-tx1); text-shadow: 0 0 24px var(--m-accent), 0 4px 0 var(--ppr-s21); animation: prSlam 1.8s var(--m-ease, ease) forwards; }
 .bf-intro-flash { position: absolute; inset: 0; background: radial-gradient(50% 40% at 50% 50%, color-mix(in srgb, var(--m-accent) 45%, transparent), transparent 70%); animation: prFlash 1.8s ease-out forwards; }
 @keyframes prIntro { 0%, 82% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 @keyframes prSlam { 0% { transform: scale(2.6); opacity: 0; } 18% { transform: scale(.92); opacity: 1; } 28% { transform: scale(1.04); } 36%, 80% { transform: scale(1); } 100% { transform: scale(1.3); opacity: 0; } }
@@ -85,35 +86,35 @@ body.fx-lite .bf-intro { display: none; }
 @media (max-width: 640px) { .bf-intro em { font-size: 40px; } }
 body.fx-lite .pr-stage i, body.fx-lite .pr-stage .pr-fist { display: none; } body.fx-lite .pr-f, body.fx-lite .pr .pr-vs, body.fx-lite .pr-cap { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pr-stage i { display: none; } .pr-f, .pr .pr-vs, .pr-cap { animation: none; } }
-body.theme-day .pr-cap { color: #4a3a66; } body.theme-day .pr-cap b { color: #5a1fd1; } body.theme-day .pr-bolt { background: linear-gradient(180deg, #5a1fd1, #9b5cff); } body.theme-day .pr-blade { background: linear-gradient(180deg, #0b6b45, var(--pr-a) 40%, transparent); }
+body.theme-day .pr-cap { color: var(--ppr-ac3); } body.theme-day .pr-cap b { color: var(--ppr-ac4); } body.theme-day .pr-bolt { background: linear-gradient(180deg, var(--ppr-ac4), var(--ppr-ac5)); } body.theme-day .pr-blade { background: linear-gradient(180deg, var(--ppr-ac6), var(--pr-a) 40%, transparent); }
 @media (max-width: 640px) { .pr-stage { height: 120px; } .pr-vs { top: 60px; } .pr-f { font-size: 22px; margin-top: -11px; } }
 
 /* 📈 Pit live: race line + coin ticker (PitLive.jsx) */
 .pl-race { position: relative; width: 100%; height: 86px; display: grid; grid-template-rows: 64px auto; gap: 2px; }
 .pl-plot { position: relative; height: 64px; } .pl-race svg { width: 100%; height: 100%; overflow: visible; display: block; }
 .pl-race polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.pl-a { stroke: var(--m-accent, #9b6bff); filter: drop-shadow(0 0 4px rgba(155, 107, 255, .6)); } .pl-b { stroke: #ff8fa3; opacity: .9; }
-.pl-zero { stroke: var(--m-line-hi, #2d1d4c); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+.pl-a { stroke: var(--m-accent, var(--ppr-ac1)); filter: drop-shadow(0 0 4px rgba(155, 107, 255, .6)); } .pl-b { stroke: var(--ppr-dg1); opacity: .9; }
+.pl-zero { stroke: var(--m-line-hi, var(--ppr-ac7)); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
 .pl-dot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; pointer-events: none; animation: plPulse 1.4s ease-in-out infinite; }
-.pl-dot.a { background: var(--m-accent, #9b6bff); box-shadow: 0 0 10px var(--m-accent, #9b6bff); } .pl-dot.b { background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3; animation-delay: -.7s; }
+.pl-dot.a { background: var(--m-accent, var(--ppr-ac1)); box-shadow: 0 0 10px var(--m-accent, var(--ppr-ac1)); } .pl-dot.b { background: var(--ppr-dg1); box-shadow: 0 0 10px var(--ppr-dg1); animation-delay: -.7s; }
 .pl-race small { display: flex; justify-content: space-between; gap: 6px; font: 10px var(--m-mono, monospace); letter-spacing: .04em; } .pl-race small em { font-style: normal; color: var(--m-dim); }
 .pl-ticker { position: relative; z-index: 2; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; margin-top: 10px; padding: 6px 10px;
-  border-radius: 999px; border: 1px solid var(--m-line-hi, #2d1d4c); background: rgba(0, 0, 0, .35); }
-.pl-live { display: inline-flex; gap: 6px; align-items: center; font: 700 9.5px var(--m-mono, monospace); letter-spacing: .14em; color: #ff8fa3; }
-.pl-live i { width: 7px; height: 7px; border-radius: 50%; background: #ff8fa3; animation: plPulse 1.2s ease-in-out infinite; }
-.pl-belt { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+  border-radius: 999px; border: 1px solid var(--m-line-hi, var(--ppr-ac7)); background: rgba(0, 0, 0, .35); }
+.pl-live { display: inline-flex; gap: 6px; align-items: center; font: 700 9.5px var(--m-mono, monospace); letter-spacing: .14em; color: var(--ppr-dg1); }
+.pl-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ppr-dg1); animation: plPulse 1.2s ease-in-out infinite; }
+.pl-belt { overflow: hidden; mask-image: linear-gradient(90deg, transparent, var(--ppr-bg1) 6%, var(--ppr-bg1) 94%, transparent); }
 .pl-track { display: flex; gap: 14px; width: max-content; animation: plBelt 28s linear infinite; }
 .pl-ticker:hover .pl-track { animation-play-state: paused; }
 .pl-tick { display: inline-flex; gap: 5px; align-items: baseline; font-size: 11.5px; white-space: nowrap; } .pl-tick b { font-weight: 600; }
-.pl-tick.s-a b { color: var(--m-accent, #9b6bff); } .pl-tick.s-b b { color: #ff8fa3; } .pl-tick em { font-style: normal; font-size: 11px; }
+.pl-tick.s-a b { color: var(--m-accent, var(--ppr-ac1)); } .pl-tick.s-b b { color: var(--ppr-dg1); } .pl-tick em { font-style: normal; font-size: 11px; }
 @keyframes plPulse { 50% { opacity: .35; transform: scale(.7); } }
 @keyframes plBelt { to { transform: translateX(-50%); } }
 body.fx-lite .pl-dot, body.fx-lite .pl-live i, body.fx-lite .pl-track { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pl-dot, .pl-live i, .pl-track { animation: none; } }
-body.theme-day .pl-ticker { background: rgba(255, 255, 255, .85); } body.theme-day .pl-tick.s-a b { color: #0b6b45; } body.theme-day .pl-tick.s-b b { color: #b0233d; }
+body.theme-day .pl-ticker { background: rgba(255, 255, 255, .85); } body.theme-day .pl-tick.s-a b { color: var(--ppr-ac6); } body.theme-day .pl-tick.s-b b { color: var(--ppr-dg2); }
 @media (max-width: 640px) { .pl-race { height: 70px; grid-template-rows: 50px auto; } .pl-plot { height: 50px; } }
 .bf-tickrow { grid-column: 1 / -1; min-width: 0; order: 4; }
-.bf-cycled { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 11.5px; } .bf-cycled em { font-style: normal; color: #ff8fa3; font-size: 10.5px; }
+.bf-cycled { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; font-size: 11.5px; } .bf-cycled em { font-style: normal; color: var(--ppr-dg1); font-size: 10.5px; }
 
 /* ⚡ six-duel scoreboard */
 .pl-duel { display: grid; gap: 6px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-surface) 80%, transparent); }
@@ -132,5 +133,5 @@ body.theme-day .pl-ticker { background: rgba(255, 255, 255, .85); } body.theme-d
 @keyframes plSeatIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 body.fx-lite .pl-seats li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .pl-seats li { animation: none; } }
-body.theme-day .pl-duel { background: #fff; }
+body.theme-day .pl-duel { background: var(--ppr-tx1); }
 @media (max-width: 640px) { .pl-score b { font-size: 16px; } .pl-seats li { font-size: 10px; } }

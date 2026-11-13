@@ -1,8 +1,9 @@
 /* Keep sibling tabs visually distinguishable instead of giving every active tab the same state color. */
-.paper-platform-tabs button:nth-child(1).active {color:#6fd7a0;border-color:#287c51;background:#123b28}
-.paper-platform-tabs button:nth-child(2).active {color:#8fb8ff;border-color:#426fab;background:#142d50}
-.paper-platform-tabs button:nth-child(3).active {color:#f0c878;border-color:#8c6c29;background:#3c2d11}
+:root { /* page tokens (STYLE-1) */ --tab-ac1: #6fd7a0; --tab-ac2: #287c51; --tab-ac3: #8fb8ff; --tab-ac4: #426fab; --tab-ac5: #48a873; --tab-ac6: #174b87; --tab-ac7: #79a7df; --tab-s21: #123b28; --tab-s22: #142d50; --tab-s23: #3c2d11; --tab-s24: #07583c; --tab-tx1: #e8f7ed; --tab-tx2: #e8f0ff; --tab-tx3: #fff3df; --tab-wn1: #f0c878; --tab-wn2: #8c6c29; --tab-wn3: #805b00; --tab-wn4: #d2a754; }
+.paper-platform-tabs button:nth-child(1).active {color:var(--tab-ac1);border-color:var(--tab-ac2);background:var(--tab-s21)}
+.paper-platform-tabs button:nth-child(2).active {color:var(--tab-ac3);border-color:var(--tab-ac4);background:var(--tab-s22)}
+.paper-platform-tabs button:nth-child(3).active {color:var(--tab-wn1);border-color:var(--tab-wn2);background:var(--tab-s23)}
 
-body.theme-day .paper-platform-tabs button:nth-child(1).active {color:#07583c;border-color:#48a873;background:#e8f7ed}
-body.theme-day .paper-platform-tabs button:nth-child(2).active {color:#174b87;border-color:#79a7df;background:#e8f0ff}
-body.theme-day .paper-platform-tabs button:nth-child(3).active {color:#805b00;border-color:#d2a754;background:#fff3df}
+body.theme-day .paper-platform-tabs button:nth-child(1).active {color:var(--tab-s24);border-color:var(--tab-ac5);background:var(--tab-tx1)}
+body.theme-day .paper-platform-tabs button:nth-child(2).active {color:var(--tab-ac6);border-color:var(--tab-ac7);background:var(--tab-tx2)}
+body.theme-day .paper-platform-tabs button:nth-child(3).active {color:var(--tab-wn3);border-color:var(--tab-wn4);background:var(--tab-tx3)}

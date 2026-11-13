@@ -1,5 +1,6 @@
 /* 🎨 THE LOOK'S AMBIENT LAYER (owner 2026-11-11: "dull, dead … no live animations"): one fixed layer behind every page, its motion set by
    <html data-look> (lib/looks.js); no attribute = PLASMA. Transform / opacity only, no blur filters, still under fx-lite and reduced motion. */
+:root { /* page tokens (STYLE-1) */ --loo-ac1: #9b6bff; --loo-ac2: #08995a; --loo-bg1: #04140c; --loo-sf1: #111116; --loo-sf2: #0e1110; --loo-tx1: #fff; --loo-tx2: #ffffff12; --loo-tx3: #ffffff05; --loo-wn1: #ffd27a; --loo-wn2: #ff8a1f; }
 .look-amb { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict; }
 .look-amb i { position: absolute; display: block; will-change: transform, opacity; }
 
@@ -13,7 +14,7 @@
 /* MOLTEN: a heat glow rises from the floor, embers climb */
 html[data-look="molten"] .look-amb .la-a { left: 10%; top: auto; bottom: -40vmax; width: 80vmax; background: radial-gradient(closest-side, rgba(255, 90, 31, .26), transparent 70%); animation: laHeat 5s ease-in-out infinite alternate; }
 html[data-look="molten"] .look-amb .la-b { right: -10vmax; bottom: auto; top: -40vmax; background: radial-gradient(closest-side, rgba(255, 176, 32, .14), transparent 70%); }
-html[data-look="molten"] .look-amb .la-c, html[data-look="molten"] .look-amb .la-d, html[data-look="molten"] .look-amb .la-e { display: block; top: auto; bottom: -8px; width: 4px; height: 4px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 10px 2px #ff8a1f; opacity: 0; animation: laEmber 7s linear infinite; }
+html[data-look="molten"] .look-amb .la-c, html[data-look="molten"] .look-amb .la-d, html[data-look="molten"] .look-amb .la-e { display: block; top: auto; bottom: -8px; width: 4px; height: 4px; border-radius: 50%; background: var(--loo-wn1); box-shadow: 0 0 10px 2px var(--loo-wn2); opacity: 0; animation: laEmber 7s linear infinite; }
 html[data-look="molten"] .look-amb .la-c { left: 22%; } html[data-look="molten"] .look-amb .la-d { left: 58%; animation-delay: -2.4s; animation-duration: 9s; } html[data-look="molten"] .look-amb .la-e { left: 81%; animation-delay: -4.8s; animation-duration: 8s; }
 
 /* NEON GRID: a grid floor rolls toward you, a scan line falls */
@@ -61,26 +62,26 @@ body.fx-lite .look-amb i { animation: none !important; } body.theme-day .look-am
 /* 🎩 ELITE EDITION (owner 2026-11-11: "grown man options, no kiddy cartoon"): plain display type, line icons in the accent, no ambient blobs */
 html[data-edition="elite"] { --f-display: 'Sora', system-ui, sans-serif; }
 html[data-edition="elite"] .look-amb { display: none; }
-html[data-edition="elite"] .ic3-line { color: var(--m-accent, #9b6bff); vertical-align: -0.18em; flex: none; }
+html[data-edition="elite"] .ic3-line { color: var(--m-accent, var(--loo-ac1)); vertical-align: -0.18em; flex: none; }
 /* 🟢 PRO LOOK sitewide (owner pick 2026-11-12, Obsidian / Desk / Pit all wear the elite edition): hairlines, one solid accent, no glow, no sweep, no
    cursor glow or flakes. The live NUMBERS still move (count-ups, bars, tickers); only decoration goes. */
 html[data-edition="elite"] .m-live { border-color: var(--m-line) !important; box-shadow: none !important; } html[data-edition="elite"] .m-live::before, html[data-edition="elite"] .m-live::after { display: none; }
 html[data-edition="elite"] .live-gradient-text { background: none !important; color: var(--m-accent) !important; -webkit-text-fill-color: currentColor; animation: none; }
 html[data-edition="elite"] :is(.mouse-glow, .ambient-flakes) { display: none; }
-html[data-edition="elite"] body.theme-day .live-gradient-text { color: #08995a !important; }
+html[data-edition="elite"] body.theme-day .live-gradient-text { color: var(--loo-ac2) !important; }
 html[data-edition="elite"] :is(.m-go, .btn-primary):not(:disabled) { background: var(--m-accent) !important; color: var(--m-accent-ink) !important; box-shadow: none !important; }   /* one solid accent, no multi-stop gradient */
-html[data-edition="elite"] body.theme-day :is(.m-go, .btn-primary):not(:disabled) { background: #08995a !important; color: #fff !important; }
+html[data-edition="elite"] body.theme-day :is(.m-go, .btn-primary):not(:disabled) { background: var(--loo-ac2) !important; color: var(--loo-tx1) !important; }
 /* 🖤 PRO HQ (owner 2026-11-12): every HQ glass panel (m-glass + the HQ desk list in meta.css) goes flat — #111116 on a hairline, no tinted
    radial wash, no coloured drop glow. Night only; the day theme keeps its own cards. */
 html[data-edition="elite"] body:not(.theme-day) :is(.m-glass, .kd .kd-hero, .kd .kd-tile, .kd .kd-card, .kd .ck-vitals, .kd .ck-chat, .kd .ck-log, .kd .agd, .kd .cwb, .kd .lct-brains, .kd .paper-panel, .kd .fcv-card, .kd .fcp, .kd .cr-agent, .kd .cr-wallet, .kd .cr-safe, .kd .cr-strip > span, .kd .col-head) {
-  background: #111116; border-color: #ffffff12; box-shadow: none; }
+  background: var(--loo-sf1); border-color: var(--loo-tx2); box-shadow: none; }
 /* 🖤 PRO TERMINAL (owner 2026-11-12): the home's Fuse Forge drops its cycling plasma/gold/prism/nebula palettes for the look's own colours
    (the headline word was purple), and the page backdrop's drifting colour blobs go — a flat obsidian floor like the look lab. Fuse card art keeps
    its rarity sheen (that is the card, not decoration). */
-html[data-edition="elite"] .frg:is(.is-plasma, .is-gold, .is-prism, .is-nebula) { --c1: var(--m-accent); --c2: var(--look-tail, var(--m-accent)); --c3: var(--look-hi, #fff); }
+html[data-edition="elite"] .frg:is(.is-plasma, .is-gold, .is-prism, .is-nebula) { --c1: var(--m-accent); --c2: var(--look-tail, var(--m-accent)); --c3: var(--look-hi, var(--loo-tx1)); }
 html[data-edition="elite"] .pgb-glow { display: none; }
 /* 🖤 PRO SWAP: the swap desk loses its green/violet aurora + drop glow (flat card, hairline); the flip button is a solid accent disc. */
-html[data-edition="elite"] body:not(.theme-day) .swap-desk { background: #111116 !important; border-color: #ffffff12 !important; box-shadow: none !important; }
+html[data-edition="elite"] body:not(.theme-day) .swap-desk { background: var(--loo-sf1) !important; border-color: var(--loo-tx2) !important; box-shadow: none !important; }
 html[data-edition="elite"] .swap-desk::before, html[data-edition="elite"] .swap-desk::after { display: none; }   /* the spinning violet beam + aurora */
-html[data-edition="elite"] :is(.swap-reverse-button, .swap-desk .jup-flip) { background: var(--m-accent) !important; color: var(--m-accent-ink, #04140c) !important; box-shadow: 0 0 0 4px var(--m-bg, #0e1110) !important; }
-html[data-edition="elite"] body:not(.theme-day) .swap-desk .jup-panel.is-receive { background: #ffffff05 !important; }
+html[data-edition="elite"] :is(.swap-reverse-button, .swap-desk .jup-flip) { background: var(--m-accent) !important; color: var(--m-accent-ink, var(--loo-bg1)) !important; box-shadow: 0 0 0 4px var(--m-bg, var(--loo-sf2)) !important; }
+html[data-edition="elite"] body:not(.theme-day) .swap-desk .jup-panel.is-receive { background: var(--loo-tx3) !important; }

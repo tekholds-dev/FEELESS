@@ -1,24 +1,25 @@
 /* ✉ Family invites (FamilyInvites.jsx, fiv-*): noir + gold like the rest of La Familia. transform / opacity only. */
-.fiv-h { display: block; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: 1.8px; color: #d4af37; }
-.fiv-inbox { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid #d4af3766; background: radial-gradient(120% 120% at 0% 0%, #2a1a0a, #0b0704 70%); }
-.fiv-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #00000055; border: 1px solid #d4af3733;
+:root { /* page tokens (STYLE-1) */ --fi-bg1: #0b0704; --fi-bg2: #00000055; --fi-bg3: #0d0905; --fi-bg4: #160f05; --fi-dg1: #b3122e; --fi-dg2: #ff8fa3; --fi-s21: #4a0010; --fi-sf1: #2a1a0a; --fi-sf2: #1a1208; --fi-sf3: #3a2a0a; --fi-tx1: #fbf4e6; --fi-tx2: #fff8ea; --fi-wn1: #d4af37; --fi-wn10: #e9d3a0; --fi-wn11: #8a7556; --fi-wn12: #c9a24a66; --fi-wn13: #f4e8cf; --fi-wn2: #d4af3766; --fi-wn3: #d4af3733; --fi-wn4: #d4af3755; --fi-wn5: #f5e2b0; --fi-wn6: #b89b5e; --fi-wn7: #d4af3740; --fi-wn8: #c9b38a; --fi-wn9: #ffd36b; }
+.fiv-h { display: block; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: 1.8px; color: var(--fi-wn1); }
+.fiv-inbox { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--fi-wn2); background: radial-gradient(120% 120% at 0% 0%, var(--fi-sf1), var(--fi-bg1) 70%); }
+.fiv-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--fi-bg2); border: 1px solid var(--fi-wn3);
   animation: fivIn .35s ease both; animation-delay: calc(var(--i) * 60ms); }
-.fiv-seal { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(circle, #b3122e, #4a0010); box-shadow: 0 0 0 2px #d4af3755; font-size: 18px; animation: fivSeal 2.8s ease-in-out infinite; }
-.fiv-card b { display: block; color: #f5e2b0; font: 700 14px Georgia, serif; } .fiv-card small { color: #b89b5e; font-size: 11px; }
+.fiv-seal { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(circle, var(--fi-dg1), var(--fi-s21)); box-shadow: 0 0 0 2px var(--fi-wn4); font-size: 18px; animation: fivSeal 2.8s ease-in-out infinite; }
+.fiv-card b { display: block; color: var(--fi-wn5); font: 700 14px Georgia, serif; } .fiv-card small { color: var(--fi-wn6); font-size: 11px; }
 .fiv-acts { display: flex; gap: 6px; }
-.fiv-box { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid #d4af3740; background: #0d0905; }
-.fiv-sub { margin: 0; font-size: 12px; color: #c9b38a; }
+.fiv-box { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--fi-wn7); background: var(--fi-bg3); }
+.fiv-sub { margin: 0; font-size: 12px; color: var(--fi-wn8); }
 .fiv-box form { display: flex; flex-wrap: wrap; gap: 6px; } .fiv-box form .m-input { flex: 1 1 260px; min-width: 0; }
-.fiv-add { border-color: #d4af37; color: #ffd36b; }
-.fiv-add:hover:not(:disabled) { background: #d4af37; color: #160f05; }
-.fiv-bad { color: #ff8fa3; font-size: 11px; }
+.fiv-add { border-color: var(--fi-wn1); color: var(--fi-wn9); }
+.fiv-add:hover:not(:disabled) { background: var(--fi-wn1); color: var(--fi-bg4); }
+.fiv-bad { color: var(--fi-dg2); font-size: 11px; }
 .fiv-sent { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.fiv-sent li { display: flex; justify-content: space-between; gap: 8px; font: 11px 'JetBrains Mono', monospace; color: #e9d3a0; padding: 5px 8px; border-radius: 8px; background: #1a1208; }
-.fiv-sent small { color: #8a7556; }
+.fiv-sent li { display: flex; justify-content: space-between; gap: 8px; font: 11px 'JetBrains Mono', monospace; color: var(--fi-wn10); padding: 5px 8px; border-radius: 8px; background: var(--fi-sf2); }
+.fiv-sent small { color: var(--fi-wn11); }
 @keyframes fivIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes fivSeal { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
 body.fx-lite .fiv-seal { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fiv-card, .fiv-seal { animation: none; } }
-body.theme-day .fiv-inbox, body.theme-day .fiv-box { background: #fbf4e6; border-color: #c9a24a66; }
-body.theme-day .fiv-card { background: #fff8ea; } body.theme-day .fiv-card b { color: #3a2a0a; } body.theme-day .fiv-sent li { background: #f4e8cf; color: #3a2a0a; }
+body.theme-day .fiv-inbox, body.theme-day .fiv-box { background: var(--fi-tx1); border-color: var(--fi-wn12); }
+body.theme-day .fiv-card { background: var(--fi-tx2); } body.theme-day .fiv-card b { color: var(--fi-sf3); } body.theme-day .fiv-sent li { background: var(--fi-wn13); color: var(--fi-sf3); }
 @media (max-width: 640px) { .fiv-card { grid-template-columns: auto minmax(0, 1fr); } .fiv-acts { grid-column: 1 / -1; } }

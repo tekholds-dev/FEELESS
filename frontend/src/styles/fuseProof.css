@@ -1,4 +1,5 @@
 /* 🧾 Fuse proof (FuseProof.jsx): setups side by side · live proof feed · real duels. Built from m-* tokens. */
+:root { /* page tokens (STYLE-1) */ --fusepr-ac1: #b48cff; --fusepr-ac2: #9b6bff; --fusepr-ac3: #b9dcc8; --fusepr-ac4: #5a33bd; --fusepr-dg1: #ff8fa3; --fusepr-dg2: #b3264a; --fusepr-tx1: #f1faf5; --fusepr-wn1: #8a6100; }
 .fpf { display: grid; gap: 12px; margin: 22px 0 6px; }
 .fpf > header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .fpf > header h3 { margin: 0; font: 800 16px var(--fz-font, "Unbounded"), sans-serif; letter-spacing: .06em; }
@@ -10,19 +11,19 @@
 .fpf-setups .m-label { font-size: 9px; } .fpf-name { font-size: 17px; }
 .fpf-big { display: flex; align-items: baseline; gap: 8px; } .fpf-big .m-num { font-size: 30px; font-style: normal; line-height: 1; } .fpf-big small { font-size: 10.5px; opacity: .7; }
 .fpf-kv { display: grid; gap: 2px; font-size: 11.5px; opacity: .9; } .fpf-kv b { font-family: var(--m-mono, "JetBrains Mono"), monospace; }
-.fpf-setups .m-btn { justify-self: start; margin-top: 4px; } .fpf-setups .m-btn:focus-visible, .fpf-coin:focus-visible, .fpf-tx:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+.fpf-setups .m-btn { justify-self: start; margin-top: 4px; } .fpf-setups .m-btn:focus-visible, .fpf-coin:focus-visible, .fpf-tx:focus-visible { outline: 2px solid var(--fusepr-ac1); outline-offset: 2px; }
 .fpf-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fpf-feed li { display: grid; grid-template-columns: 38px 96px 62px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 9px; border: 1px solid rgba(155, 107, 255, .12); background: rgba(0, 0, 0, .28); font-size: 12px; animation: fpfIn .28s ease both; animation-delay: calc(var(--i) * 45ms); }
 .fpf-feed li:hover { border-color: rgba(155, 107, 255, .4); }
-.fpf-side { font: 9px var(--m-mono, "JetBrains Mono"), monospace; font-style: normal; letter-spacing: .1em; color: #ff8fa3; } .fpf-feed li.buy .fpf-side { color: #b48cff; }
-.fpf-coin { all: unset; cursor: pointer; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fpf-coin:hover { color: #b48cff; }
+.fpf-side { font: 9px var(--m-mono, "JetBrains Mono"), monospace; font-style: normal; letter-spacing: .1em; color: var(--fusepr-dg1); } .fpf-feed li.buy .fpf-side { color: var(--fusepr-ac1); }
+.fpf-coin { all: unset; cursor: pointer; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fpf-coin:hover { color: var(--fusepr-ac1); }
 .fpf-feed em { font-style: normal; font-size: 12px; } .fpf-feed .m-num { font-size: 12.5px; }
 .fpf-why { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .85; } .fpf-feed small { font-size: 10.5px; white-space: nowrap; }
-.fpf-tx { font: 10px var(--m-mono, "JetBrains Mono"), monospace; color: #b48cff; text-decoration: none; } .fpf-tx:hover { text-decoration: underline; }
+.fpf-tx { font: 10px var(--m-mono, "JetBrains Mono"), monospace; color: var(--fusepr-ac1); text-decoration: none; } .fpf-tx:hover { text-decoration: underline; }
 .fpf-duels { display: grid; gap: 10px; }
 .fpf-duel { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 14px; overflow: hidden; }
 .fpf-side-card { display: grid; gap: 3px; padding: 10px; border-radius: 10px; border: 1px solid rgba(155, 107, 255, .16); background: rgba(0, 0, 0, .3); transition: border-color .2s ease, transform .2s ease; }
-.fpf-side-card.is-lead { border-color: #9b6bff; transform: scale(1.02); } .fpf-side-card .m-num { font-size: 24px; font-style: normal; } .fpf-side-card .m-label { font-size: 9px; }
+.fpf-side-card.is-lead { border-color: var(--fusepr-ac2); transform: scale(1.02); } .fpf-side-card .m-num { font-size: 24px; font-style: normal; } .fpf-side-card .m-label { font-size: 9px; }
 .fpf-vs { display: grid; justify-items: center; gap: 2px; } .fpf-vs b { font: 800 20px var(--fz-font, "Unbounded"), sans-serif; color: var(--gold); animation: fpfPulse 1.8s ease-in-out infinite; } .fpf-vs small { font-size: 10px; opacity: .7; white-space: nowrap; }
 .fpf-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11.5px; } .fpf-log li { display: flex; gap: 10px; flex-wrap: wrap; } .fpf-log span { opacity: .75; }
 /* transform only: an entrance that starts at opacity 0 leaves the content INVISIBLE wherever the animation clock is not running (a background pane) */
@@ -30,6 +31,6 @@
 @keyframes fpfPulse { 50% { transform: scale(1.15); opacity: .7; } }
 body.fx-lite :is(.fpf-setups > li, .fpf-feed li, .fpf-vs b) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.fpf-setups > li, .fpf-feed li, .fpf-vs b) { animation: none; } .fpf-setups > li:hover, .fpf-side-card.is-lead { transform: none; } }
-body.theme-day :is(.fpf-feed li, .fpf-side-card) { background: #f1faf5; border-color: #b9dcc8; } body.theme-day :is(.fpf-tx, .fpf-coin:hover, .fpf-feed li.buy .fpf-side) { color: #5a33bd; } body.theme-day .fpf-side { color: #b3264a; }
-body.theme-day .fpf-side-card.is-lead { border-color: #5a33bd; } body.theme-day .fpf-vs b { color: #8a6100; }
+body.theme-day :is(.fpf-feed li, .fpf-side-card) { background: var(--fusepr-tx1); border-color: var(--fusepr-ac3); } body.theme-day :is(.fpf-tx, .fpf-coin:hover, .fpf-feed li.buy .fpf-side) { color: var(--fusepr-ac4); } body.theme-day .fpf-side { color: var(--fusepr-dg2); }
+body.theme-day .fpf-side-card.is-lead { border-color: var(--fusepr-ac4); } body.theme-day .fpf-vs b { color: var(--fusepr-wn1); }
 @media (max-width: 640px) { .fpf-feed li { grid-template-columns: 34px minmax(0, 1fr) auto auto; } .fpf-why, .fpf-feed small { display: none; } .fpf-duel { grid-template-columns: 1fr; } .fpf-big .m-num { font-size: 24px; } }

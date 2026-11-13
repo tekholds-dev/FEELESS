@@ -1,6 +1,7 @@
 /* ⚡ AGENTS TAB MOTION (owner, 2026-10-16: "more beautiful visual animations of what's going on — clean"): a light sheen sweeps a seat / vital
    tile on hover, a press throws a ring, a held winner's seat breathes a soft green glow. ::after layers only, transform / opacity only,
    off in fx-lite / reduced motion. Long panes are paint-contained so scrolling the tab redraws only what is on screen. */
+:root { /* page tokens (STYLE-1) */ --af-ac1: #b79bff; --af-ac2: #9b6bff; --af-ac3: #b48cff; --af-ac4: #5a33bd; --af-bg1: #0c0e0d; }
 .ack-seat, .vbd-tile { position: relative; overflow: hidden; }
 .ack-seat::after, .vbd-tile::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
   background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, .10) 50%, transparent 65%); transform: translateX(-120%); opacity: 0; }
@@ -20,9 +21,9 @@ body.theme-day .ack-seat::after, body.theme-day .vbd-tile::after { background: l
 @media (max-width: 640px) { .ack-seat.is-up .ack-pnl { animation: none; } }
 /* 🧠 G4's own seat */
 .ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(183, 155, 255, .55); }
-.ack-g4tag { margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .08em; color: #0c0e0d; background: linear-gradient(120deg, #b79bff, #9b6bff); }
+.ack-g4tag { margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .08em; color: var(--af-bg1); background: linear-gradient(120deg, var(--af-ac1), var(--af-ac2)); }
 body.theme-day .ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(110, 80, 200, .5); }
 /* 🪙 a bare $TICKER in the cockpit opens its chart (lib/symTap.js) */
 .ack .ack-symtap { cursor: pointer; text-decoration: underline dotted rgba(180, 140, 255, .7); text-underline-offset: 3px; transition: color .12s ease; }
-.ack .ack-symtap:hover { color: #b48cff; } .ack .ack-symtap:active { opacity: .7; }
-body.theme-day .ack .ack-symtap:hover { color: #5a33bd; }
+.ack .ack-symtap:hover { color: var(--af-ac3); } .ack .ack-symtap:active { opacity: .7; }
+body.theme-day .ack .ack-symtap:hover { color: var(--af-ac4); }

@@ -1,27 +1,28 @@
 /* 📜 FeeCatLore.jsx — violet night: a drawn rooftop, Fee's silhouette with blinking eyes, nine life lanterns, chapter cards with live numbers.
    One keyframe set `fcl*`, transform / opacity only; still under fx-lite + reduced motion; day theme + 640px below. */
-.fcl { --fcl-a: #b388ff; --fcl-a2: #e2d4ff; --fcl-gold: #ffd36b; display: grid; gap: 12px; color: #efe8ff; }
+:root { /* page tokens (STYLE-1) */ --pfcl-ac1: #b388ff; --pfcl-ac10: #b48cff; --pfcl-ac11: #d9d1f2; --pfcl-ac12: #c6b8ec; --pfcl-ac13: #b9b0d6; --pfcl-ac14: #a99bd0; --pfcl-ac15: #2d2150; --pfcl-ac16: #0f7a40; --pfcl-ac2: #e2d4ff; --pfcl-ac3: #3a2475; --pfcl-ac4: #2a1c55; --pfcl-ac5: #2a1d52; --pfcl-ac6: #3a2a6e; --pfcl-ac7: #e4d8ff; --pfcl-ac8: #c9b6f5; --pfcl-ac9: #a993e6; --pfcl-bg1: #08041a; --pfcl-bg2: #05020f; --pfcl-bg3: #07050d; --pfcl-dg1: #ff8fa3; --pfcl-mu1: #6f6590; --pfcl-mu2: #8f84ad; --pfcl-s21: #1d1240; --pfcl-s22: #24164a; --pfcl-s23: #1e1240; --pfcl-sf1: #170c3a; --pfcl-sf2: #120a2c; --pfcl-sf3: #0d0a18; --pfcl-tx1: #efe8ff; --pfcl-tx2: #fff; --pfcl-tx3: #fbf9ff; --pfcl-wn1: #ffd36b; --pfcl-wn2: #fff6da; --pfcl-wn3: #ffb84d; --pfcl-wn4: #fff3c4; }
+.fcl { --fcl-a: var(--pfcl-ac1); --fcl-a2: var(--pfcl-ac2); --fcl-gold: var(--pfcl-wn1); display: grid; gap: 12px; color: var(--pfcl-tx1); }
 .fcl-hero { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: end; min-height: 250px; border-radius: 18px;
-  background: radial-gradient(120% 120% at 80% 0%, #3a2475 0%, #170c3a 50%, #08041a 100%); border: 1px solid rgba(179, 136, 255, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .5); }
+  background: radial-gradient(120% 120% at 80% 0%, var(--pfcl-ac3) 0%, var(--pfcl-sf1) 50%, var(--pfcl-bg1) 100%); border: 1px solid rgba(179, 136, 255, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 40px rgba(0, 0, 0, .5); }
 .fcl-roof { position: relative; height: 100%; min-height: 250px; }
-.fcl-moon { position: absolute; top: 18px; left: 22px; width: 54px; height: 54px; border-radius: 50%; background: #fff6da; box-shadow: 0 0 40px rgba(255, 240, 200, .5); animation: fclMoon 10s ease-in-out infinite; }
-.fcl-stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; top: calc(6% + (var(--i) * 29 % 50) * 1%); left: calc(3% + (var(--i) * 47 % 94) * 1%); animation: fclTwinkle 3s ease-in-out infinite; animation-delay: calc(var(--i) * -.31s); }
+.fcl-moon { position: absolute; top: 18px; left: 22px; width: 54px; height: 54px; border-radius: 50%; background: var(--pfcl-wn2); box-shadow: 0 0 40px rgba(255, 240, 200, .5); animation: fclMoon 10s ease-in-out infinite; }
+.fcl-stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--pfcl-tx2); top: calc(6% + (var(--i) * 29 % 50) * 1%); left: calc(3% + (var(--i) * 47 % 94) * 1%); animation: fclTwinkle 3s ease-in-out infinite; animation-delay: calc(var(--i) * -.31s); }
 .fcl-city { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 55%; opacity: .7; }
-.fcl-bld { fill: #120a2c; } .fcl-win { fill: #2a1c55; } .fcl-win.is-on { fill: #ffd36b; opacity: .7; }
-.fcl-ledge { position: absolute; left: 6%; right: 14%; bottom: 34px; height: 12px; border-radius: 3px; background: linear-gradient(180deg, #2a1d52, #120a2c); box-shadow: 0 -1px 0 rgba(179, 136, 255, .5); }
+.fcl-bld { fill: var(--pfcl-sf2); } .fcl-win { fill: var(--pfcl-ac4); } .fcl-win.is-on { fill: var(--pfcl-wn1); opacity: .7; }
+.fcl-ledge { position: absolute; left: 6%; right: 14%; bottom: 34px; height: 12px; border-radius: 3px; background: linear-gradient(180deg, var(--pfcl-ac5), var(--pfcl-sf2)); box-shadow: 0 -1px 0 rgba(179, 136, 255, .5); }
 .fcl-cat { position: absolute; left: 30%; bottom: 44px; width: 120px; height: 110px; filter: drop-shadow(0 0 14px rgba(179, 136, 255, .45)); }
-.fcl-body { fill: #05020f; } .fcl-tail { fill: none; stroke: #05020f; stroke-width: 9; stroke-linecap: round; transform-origin: 104px 100px; animation: fclTail 4s ease-in-out infinite; }
-.fcl-eye { fill: #ffd36b; transform-box: fill-box; transform-origin: center; animation: fclBlink 5s ease-in-out infinite; filter: drop-shadow(0 0 4px #ffd36b); }
+.fcl-body { fill: var(--pfcl-bg2); } .fcl-tail { fill: none; stroke: var(--pfcl-bg2); stroke-width: 9; stroke-linecap: round; transform-origin: 104px 100px; animation: fclTail 4s ease-in-out infinite; }
+.fcl-eye { fill: var(--pfcl-wn1); transform-box: fill-box; transform-origin: center; animation: fclBlink 5s ease-in-out infinite; filter: drop-shadow(0 0 4px var(--pfcl-wn1)); }
 .fcl-roof.is-nap .fcl-eye { transform: scaleY(.12); animation: none; }
 .fcl-lanterns { position: absolute; left: 6%; right: 14%; bottom: 8px; display: flex; justify-content: space-between; }
-.fcl-lanterns i { position: relative; width: 14px; height: 20px; border-radius: 4px 4px 6px 6px; background: #1d1240; border: 1px solid #3a2a6e; animation: fclIn .4s ease-out both; animation-delay: calc(var(--i) * 70ms); }
-.fcl-lanterns i::before { content: ''; position: absolute; top: -6px; left: 6px; width: 2px; height: 6px; background: #3a2a6e; }
+.fcl-lanterns i { position: relative; width: 14px; height: 20px; border-radius: 4px 4px 6px 6px; background: var(--pfcl-s21); border: 1px solid var(--pfcl-ac6); animation: fclIn .4s ease-out both; animation-delay: calc(var(--i) * 70ms); }
+.fcl-lanterns i::before { content: ''; position: absolute; top: -6px; left: 6px; width: 2px; height: 6px; background: var(--pfcl-ac6); }
 .fcl-lanterns i b { position: absolute; inset: 3px; border-radius: 3px; background: transparent; }
-.fcl-lanterns i.is-lit { border-color: #ffb84d; box-shadow: 0 0 14px rgba(255, 184, 77, .6); } .fcl-lanterns i.is-lit b { background: radial-gradient(circle, #fff3c4, #ffb84d 70%); animation: fclFlame 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.27s); }
+.fcl-lanterns i.is-lit { border-color: var(--pfcl-wn3); box-shadow: 0 0 14px rgba(255, 184, 77, .6); } .fcl-lanterns i.is-lit b { background: radial-gradient(circle, var(--pfcl-wn4), var(--pfcl-wn3) 70%); animation: fclFlame 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * -.27s); }
 .fcl-zz { position: absolute; left: calc(30% + 96px); bottom: 150px; font: 800 14px 'JetBrains Mono', monospace; color: var(--fcl-a2); animation: fclZ 3s ease-in-out infinite; }
 .fcl-copy { position: relative; display: grid; gap: 8px; padding: 22px 22px 22px 0; }
 .fcl-eyebrow { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .26em; color: var(--fcl-a2); }
-.fcl-copy h1 { margin: 0; font: 700 30px/1.05 'Cinzel', Georgia, serif; color: #fff; text-shadow: 0 0 22px rgba(179, 136, 255, .7); }
+.fcl-copy h1 { margin: 0; font: 700 30px/1.05 'Cinzel', Georgia, serif; color: var(--pfcl-tx2); text-shadow: 0 0 22px rgba(179, 136, 255, .7); }
 .fcl-tag { justify-self: start; margin: 0; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255, 211, 107, .5); background: rgba(255, 211, 107, .1); color: var(--fcl-gold); font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .1em; }
 .fcl-ctas { display: flex; flex-wrap: wrap; gap: 6px; } .fcl-ctas .m-btn { min-height: 36px; text-decoration: none; display: inline-flex; align-items: center; }
 .fcl-go { justify-self: start; margin-top: 4px; min-height: 32px; display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(179, 136, 255, .45); color: var(--fcl-a2); text-decoration: none; font: 700 10px 'JetBrains Mono', monospace; }
@@ -36,8 +37,8 @@
 @keyframes fclIn { from { opacity: 0; transform: translateY(8px); } }
 body.fx-lite .fcl *, body.fx-lite .fcl *::before { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .fcl *, .fcl *::before { animation: none !important; transition: none !important; } }
-body.theme-day .fcl { color: #24164a; } body.theme-day .fcl-hero { background: radial-gradient(120% 120% at 80% 0%, #e4d8ff 0%, #c9b6f5 55%, #a993e6 100%); }
-body.theme-day .fcl-copy h1 { color: #1e1240; text-shadow: none; } 
+body.theme-day .fcl { color: var(--pfcl-s22); } body.theme-day .fcl-hero { background: radial-gradient(120% 120% at 80% 0%, var(--pfcl-ac7) 0%, var(--pfcl-ac8) 55%, var(--pfcl-ac9) 100%); }
+body.theme-day .fcl-copy h1 { color: var(--pfcl-s23); text-shadow: none; } 
  
 
 @media (max-width: 640px) { .fcl-hero { grid-template-columns: 1fr; } .fcl-roof { min-height: 210px; } .fcl-copy { padding: 0 16px 16px; } .fcl-copy h1 { font-size: 24px; } }
@@ -47,26 +48,26 @@ body.theme-day .fcl-copy h1 { color: #1e1240; text-shadow: none; }
 
 /* 📖 man fee (owner 2026-11-02: "anything under the header should look like a manual, with more tutorial details", like colony --flow): one
    terminal frame; NAME · SYNOPSIS (the 5-step tutorial) · the five chapters with live numbers + meters + how it works · COMMANDS · STATUS */
-.fcl-man { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid rgba(179, 136, 255, .28); background: linear-gradient(170deg, #0d0a18, #07050d); box-shadow: inset 0 1px rgba(255, 255, 255, .06); font-family: var(--f-mono); }
-.fcl-man-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; } .fcl-man-h b { color: #b48cff; font: 700 14px var(--f-mono); } .fcl-man-h b i { color: #6f6590; font-style: normal; margin: 0 4px; }
-.fcl-man-h small { color: #8f84ad; font: 500 11px var(--f-mono); }
+.fcl-man { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid rgba(179, 136, 255, .28); background: linear-gradient(170deg, var(--pfcl-sf3), var(--pfcl-bg3)); box-shadow: inset 0 1px rgba(255, 255, 255, .06); font-family: var(--f-mono); }
+.fcl-man-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; } .fcl-man-h b { color: var(--pfcl-ac10); font: 700 14px var(--f-mono); } .fcl-man-h b i { color: var(--pfcl-mu1); font-style: normal; margin: 0 4px; }
+.fcl-man-h small { color: var(--pfcl-mu2); font: 500 11px var(--f-mono); }
 .fcl-mp { display: grid; gap: 0; border-top: 1px solid rgba(255, 255, 255, .08); }
 .fcl-mp-sec { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; padding: 12px 4px; border-bottom: 1px solid rgba(255, 255, 255, .06); animation: fclMp .35s both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fcl-mp-sec h3 { margin: 0; color: var(--fcl-a); font: 800 11px var(--f-mono); letter-spacing: .1em; } .fcl-mp-sec > div { display: grid; gap: 6px; align-content: start; }
-.fcl-mp-sec p { margin: 0; color: #d9d1f2; font: 500 12px/1.55 var(--f-mono); } .fcl-mp-sec p b { color: #fff; } .fcl-mp-sec p:not(.fcl-mp-big) .m-num { color: var(--fcl-gold); font: 700 11px var(--f-mono); margin-left: 6px; }
-.fcl-mp-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; } .fcl-mp-big b { color: #fff; font: 800 20px var(--f-mono); text-shadow: 0 0 14px rgba(179, 136, 255, .6); } .fcl-mp-big small { color: #c6b8ec; font: 600 11px var(--f-mono); }
-.fcl-mp-how { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; } .fcl-mp-how li { color: #b9b0d6; font: 500 11.5px/1.5 var(--f-mono); } .fcl-mp-how li::before { content: '› '; color: #b48cff; }
+.fcl-mp-sec p { margin: 0; color: var(--pfcl-ac11); font: 500 12px/1.55 var(--f-mono); } .fcl-mp-sec p b { color: var(--pfcl-tx2); } .fcl-mp-sec p:not(.fcl-mp-big) .m-num { color: var(--fcl-gold); font: 700 11px var(--f-mono); margin-left: 6px; }
+.fcl-mp-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; } .fcl-mp-big b { color: var(--pfcl-tx2); font: 800 20px var(--f-mono); text-shadow: 0 0 14px rgba(179, 136, 255, .6); } .fcl-mp-big small { color: var(--pfcl-ac12); font: 600 11px var(--f-mono); }
+.fcl-mp-how { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; } .fcl-mp-how li { color: var(--pfcl-ac13); font: 500 11.5px/1.5 var(--f-mono); } .fcl-mp-how li::before { content: '› '; color: var(--pfcl-ac10); }
 .fcl-mp-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; } .fcl-mp-steps li { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); align-items: center; gap: 10px; animation: fclMp .35s both; animation-delay: calc(var(--i, 0) * 60ms); }
 .fcl-mp-n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--fcl-a); color: var(--fcl-a2); font: 800 10px var(--f-mono); }
-.fcl-mp-cmd { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(180, 140, 255, .4); background: rgba(180, 140, 255, .08); color: #b48cff; font: 700 11.5px var(--f-mono); text-decoration: none; white-space: nowrap; }
-a.fcl-mp-cmd:hover { background: rgba(180, 140, 255, .18); color: #fff; } a.fcl-mp-cmd:active { transform: scale(.97); } a.fcl-mp-cmd:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
-.fcl-mp-steps small { color: #b9b0d6; font: 500 11px var(--f-mono); }
+.fcl-mp-cmd { display: inline-flex; align-items: center; min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(180, 140, 255, .4); background: rgba(180, 140, 255, .08); color: var(--pfcl-ac10); font: 700 11.5px var(--f-mono); text-decoration: none; white-space: nowrap; }
+a.fcl-mp-cmd:hover { background: rgba(180, 140, 255, .18); color: var(--pfcl-tx2); } a.fcl-mp-cmd:active { transform: scale(.97); } a.fcl-mp-cmd:focus-visible { outline: 2px solid var(--pfcl-ac10); outline-offset: 2px; }
+.fcl-mp-steps small { color: var(--pfcl-ac13); font: 500 11px var(--f-mono); }
 .fcl-mp-meter { display: flex; gap: 4px; } .fcl-mp-meter i { flex: 0 0 18px; height: 8px; border-radius: 2px; background: rgba(255, 255, 255, .1); } .fcl-mp-meter i.is-on { background: var(--fcl-gold); box-shadow: 0 0 8px rgba(255, 211, 107, .6); }
-.fcl-mp-wl { display: block; width: min(320px, 100%); height: 8px; border-radius: 4px; background: #ff8fa3; overflow: hidden; } .fcl-mp-wl s { display: block; height: 100%; background: #b48cff; transform-origin: left; transition: transform .6s; }
-.fcl-mp-cmds, .fcl-mp-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; } .fcl-mp-cmds dd, .fcl-mp-kv dd { margin: 0; color: #d9d1f2; font: 500 11.5px var(--f-mono); }
-.fcl-mp-cmds code { color: #b48cff; font: 700 11.5px var(--f-mono); } .fcl-mp-kv dt { color: #a99bd0; font: 700 10px var(--f-mono); letter-spacing: .1em; }
+.fcl-mp-wl { display: block; width: min(320px, 100%); height: 8px; border-radius: 4px; background: var(--pfcl-dg1); overflow: hidden; } .fcl-mp-wl s { display: block; height: 100%; background: var(--pfcl-ac10); transform-origin: left; transition: transform .6s; }
+.fcl-mp-cmds, .fcl-mp-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; } .fcl-mp-cmds dd, .fcl-mp-kv dd { margin: 0; color: var(--pfcl-ac11); font: 500 11.5px var(--f-mono); }
+.fcl-mp-cmds code { color: var(--pfcl-ac10); font: 700 11.5px var(--f-mono); } .fcl-mp-kv dt { color: var(--pfcl-ac14); font: 700 10px var(--f-mono); letter-spacing: .1em; }
 @keyframes fclMp { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .fcl-mp-sec, body.fx-lite .fcl-mp-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .fcl-mp-sec, .fcl-mp-steps li { animation: none; } .fcl-mp-wl s { transition: none; } }
-body.theme-day .fcl-man { background: #fbf9ff; border-color: rgba(120, 80, 200, .25); } body.theme-day .fcl-mp-sec p, body.theme-day .fcl-mp-cmds dd, body.theme-day .fcl-mp-kv dd, body.theme-day .fcl-mp-how li, body.theme-day .fcl-mp-steps small { color: #2d2150; }
-body.theme-day .fcl-mp-sec p b, body.theme-day .fcl-mp-big b { color: #1e1240; text-shadow: none; } body.theme-day .fcl-man-h b, body.theme-day .fcl-mp-cmds code, body.theme-day .fcl-mp-cmd { color: #0f7a40; }
+body.theme-day .fcl-man { background: var(--pfcl-tx3); border-color: rgba(120, 80, 200, .25); } body.theme-day .fcl-mp-sec p, body.theme-day .fcl-mp-cmds dd, body.theme-day .fcl-mp-kv dd, body.theme-day .fcl-mp-how li, body.theme-day .fcl-mp-steps small { color: var(--pfcl-ac15); }
+body.theme-day .fcl-mp-sec p b, body.theme-day .fcl-mp-big b { color: var(--pfcl-s23); text-shadow: none; } body.theme-day .fcl-man-h b, body.theme-day .fcl-mp-cmds code, body.theme-day .fcl-mp-cmd { color: var(--pfcl-ac16); }
 @media (max-width: 640px) { .fcl-mp-sec { grid-template-columns: 1fr; gap: 6px; } .fcl-mp-steps li { grid-template-columns: 24px minmax(0, 1fr); } .fcl-mp-steps small { grid-column: 2; } .fcl-man { padding: 10px; } .fcl-man-h small { display: none; } }

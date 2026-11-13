@@ -1,5 +1,6 @@
 /* ✦ MetaCard live designs (MetaCard `Pattern`): nebula · prism · plasma · matrix · vapor. Transform / opacity only, 3D-feel via
    layered depth; every loop stops in fx-lite / reduced motion. Card faces stay dark in day theme (art). Keyframes: pd*. */
+:root { /* page tokens (STYLE-1) */ --pcd-bg1: #05030c; --pcd-bg2: #0b0a14; --pcd-bg3: #07050c; --pcd-bg4: #0d0816; --pcd-bg5: #04060c; --pcd-bg6: #030404; --pcd-bg7: #080a09; --pcd-sf1: #120428; --pcd-sf2: #2a0a3a; }
 .pd-nebula .pdn-swirl { transform-origin: 50% 46%; animation: pdSpin 38s linear infinite; }
 .pd-nebula .pdn-stars { animation: pdDrift 14s ease-in-out infinite alternate; }
 .pd-prism .pdp-shard { animation: pdShard 4.8s ease-in-out infinite; animation-delay: calc(var(--i) * -.7s); }
@@ -8,11 +9,11 @@
 .pd-matrix .pdm-col { animation: pdRain 5s linear infinite; animation-delay: calc(var(--i) * -.45s); }
 .pd-vapor .pdv-grid { animation: pdFloor 2.4s linear infinite; }
 .pd-vapor .pdv-sun { transform-origin: 50% 54%; animation: pdSun 6s ease-in-out infinite; }
-.d-nebula .mc-bg { background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--a) 22%, transparent), transparent 55%), radial-gradient(circle at 75% 80%, color-mix(in srgb, var(--b) 25%, transparent), transparent 60%), #05030c; }
-.d-prism .mc-bg { background: linear-gradient(160deg, #0b0a14, #07050c 60%, #0d0816); }
-.d-plasma .mc-bg { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--a) 28%, transparent), transparent 62%), #04060c; }
-.d-matrix .mc-bg { background: linear-gradient(180deg, #030404, #080a09); }
-.d-vapor .mc-bg { background: linear-gradient(180deg, #120428 0%, #2a0a3a 52%, #07050c 70%); }
+.d-nebula .mc-bg { background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--a) 22%, transparent), transparent 55%), radial-gradient(circle at 75% 80%, color-mix(in srgb, var(--b) 25%, transparent), transparent 60%), var(--pcd-bg1); }
+.d-prism .mc-bg { background: linear-gradient(160deg, var(--pcd-bg2), var(--pcd-bg3) 60%, var(--pcd-bg4)); }
+.d-plasma .mc-bg { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--a) 28%, transparent), transparent 62%), var(--pcd-bg5); }
+.d-matrix .mc-bg { background: linear-gradient(180deg, var(--pcd-bg6), var(--pcd-bg7)); }
+.d-vapor .mc-bg { background: linear-gradient(180deg, var(--pcd-sf1) 0%, var(--pcd-sf2) 52%, var(--pcd-bg3) 70%); }
 @keyframes pdSpin { to { transform: rotate(360deg); } }
 @keyframes pdDrift { to { transform: translate(-6px, 8px); } }
 @keyframes pdShard { 50% { opacity: .35; } }

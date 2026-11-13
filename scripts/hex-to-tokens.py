@@ -10,6 +10,9 @@ The look (lib/looks.js) remaps the tokens, so a converted sheet follows the site
   --check  a.css b.css   count hex per file (exit 0)
   --write  a.css b.css   rewrite in place, print before → after
   --only REGEX           only rules whose selector matches (e.g. '\\.clx-' to convert one surface inside a shared sheet)
+  --palette a.css …      STYLE-1 mode (the look must NOT change): every colour in a sheet becomes ONE named page token, declared once in a
+                         `:root{}` palette block at the top of that sheet (`--<pfx>-<role><n>: #hex`), and every use reads var(). Pixel-identical
+                         by construction; each page keeps its own accents (RULINGS 2026-11-13); a colour is changed in one place.
 meta.css is never touched (it defines the tokens). Comments are left alone.
 """
 import colorsys
@@ -97,7 +100,88 @@ def count(css):
     return len(HEX.findall(COMMENT.sub('', css)))
 
 
+PALETTE = re.compile(r':root\s*\{\s*/\* page tokens \(STYLE-1\) \*/[^{}]*\}\s*', re.S)
+ABBR = {'--m-bg': 'bg', '--m-surface': 'sf', '--m-surface-2': 's2', '--m-line': 'ln', '--m-line-hi': 'lh', '--m-mute': 'mu', '--m-dim': 'dm',
+        '--m-text': 'tx', '--m-accent': 'ac', '--m-danger': 'dg', '--m-warn': 'wn'}
+URL = re.compile(r'url\([^)]*\)', re.I)
+
+
+def prefix(name):
+    """catWorkbench.css → 'cw'; a plain lowercase name → its first 3 letters. Short so the sheet does not grow much."""
+    stem = name.rsplit('.', 1)[0]
+    caps = re.findall(r'[A-Z]', stem)
+    return (stem[0] + ''.join(caps)).lower()[:4] if caps else stem[:3].lower()
+
+
+def outside(css):
+    """Hex values outside a STYLE-1 palette block and outside comments (what the sweep is measured on)."""
+    return count(URL.sub('', PALETTE.sub('', css)))
+
+
+def unpalette(css):
+    """The inverse (for the proof): var(--x) → its hex from the palette block, block removed. palette() then unpalette() == the original."""
+    m0 = PALETTE.search(css)
+    if not m0:
+        return css
+    pal = dict(re.findall(r'(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{3,8})', m0.group(0)))
+    body = css[:m0.start()] + css[m0.end():]
+    return re.sub(r'var\((--[\w-]+)\)', lambda m: pal.get(m.group(1), m.group(0)), body)
+
+
+def palette(css, pfx):
+    """→ (new css, {var: hex}). Idempotent: an existing palette block is read and extended, never duplicated."""
+    keep = {}
+
+    def stash(m):
+        k = f'\0{len(keep)}\0'
+        keep[k] = m.group(0)
+        return k
+    old = {}
+    m0 = PALETTE.search(css)
+    if m0:
+        for name, val in re.findall(r'(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{3,8})', m0.group(0)):
+            old[val.lower()] = name
+        css = css[:m0.start()] + css[m0.end():]
+    body = COMMENT.sub(stash, css)
+    body = URL.sub(stash, body)
+    names = dict(old); used = {}
+
+    def name_of(h):
+        h = '#' + h.lower()
+        if h in names:
+            return names[h]
+        r, g, b, _ = parse(h[1:])
+        ab = ABBR[role(r, g, b)]
+        used[ab] = used.get(ab, sum(1 for v in names.values() if re.match(rf'--{pfx}-{ab}\d+$', v))) + 1
+        n = f'--{pfx}-{ab}{used[ab]}'
+        while n in names.values():
+            used[ab] += 1; n = f'--{pfx}-{ab}{used[ab]}'
+        names[h] = n
+        return n
+
+    def rule(m):
+        sel, decl = m.group(1), m.group(2)
+        return sel + '{' + HEX.sub(lambda x: f'var({name_of(x.group(1))})', decl) + '}'
+    body = RULE.sub(rule, body)
+    for k in sorted(keep, key=lambda k: -int(k.strip('\0'))):
+        body = body.replace(k, keep[k])
+    if not names:
+        return body, {}
+    block = ':root { /* page tokens (STYLE-1) */ ' + ' '.join(f'{v}: {h};' for h, v in sorted(names.items(), key=lambda kv: kv[1])) + ' }\n'
+    lead = re.match(r'(\s*(?:/\*.*?\*/\s*)*(?:@(?:charset|import)[^;]*;\s*)*)', body, re.S).group(1)
+    return lead + block + body[len(lead):], {v: h for h, v in names.items()}
+
+
 def main(argv):
+    if argv and argv[0] == '--palette':
+        for f in argv[1:]:
+            p = Path(f)
+            if p.name == 'meta.css':
+                print(f'{f}: skipped (defines the tokens)'); continue
+            css = p.read_text(); out, pal = palette(css, prefix(p.name))
+            p.write_text(out)
+            print(f'{f}: {outside(css)} → {outside(out)} hex outside the palette · {len(pal)} page tokens')
+        return 0
     if len(argv) < 2 or argv[0] not in ('--check', '--write'):
         print(__doc__)
         return 2

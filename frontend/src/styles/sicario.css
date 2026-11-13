@@ -1,11 +1,12 @@
 /* 🎩 The Sicario tab: noir gold, one clean column of what matters. Real trades run from the Fuse card; the desk above researches. */
-.agd.is-sic { --m-accent: #e7c36a; position: relative; border-color: #e7c36a44; background: radial-gradient(80% 40% at 50% 0%, #e7c36a14, transparent 70%), #060507; }
-.agd.is-sic .m-seg button.active, .agd.is-sic [role='tab'][aria-selected='true'] { background: #e7c36a; color: #120d03; }
+:root { /* page tokens (STYLE-1) */ --sic-bg1: #060507; --sic-bg2: #120d03; --sic-sf1: #3a2a06; --sic-tx1: #fffaf3; --sic-tx2: #fff; --sic-wn1: #e7c36a; --sic-wn10: #a9822a44; --sic-wn2: #e7c36a44; --sic-wn3: #e7c36a14; --sic-wn4: #b89a52; --sic-wn5: #e7c36a66; --sic-wn6: #f3dfa8; --sic-wn7: #e7c36a1a; --sic-wn8: #e7c36a2e; --sic-wn9: #8a6a1c; }
+.agd.is-sic { --m-accent: var(--sic-wn1); position: relative; border-color: var(--sic-wn2); background: radial-gradient(80% 40% at 50% 0%, var(--sic-wn3), transparent 70%), var(--sic-bg1); }
+.agd.is-sic .m-seg button.active, .agd.is-sic [role='tab'][aria-selected='true'] { background: var(--sic-wn1); color: var(--sic-bg2); }
 .ack-sicmain { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 12px; align-items: start; min-width: 0; } .ack-sicmain > * { min-width: 0; display: grid; gap: 8px; }
-.ack-rhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 0 2px; } .ack-rhead small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #b89a52; }
-.ack-opencoin { min-height: 32px; padding: 0 12px; border-color: #e7c36a66; color: #f3dfa8; font: 700 11.5px var(--f-ui); } .ack-opencoin:hover { border-color: #e7c36a; background: #e7c36a1a; }
+.ack-rhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 0 2px; } .ack-rhead small { font: 800 9px var(--f-mono); letter-spacing: .14em; color: var(--sic-wn4); }
+.ack-opencoin { min-height: 32px; padding: 0 12px; border-color: var(--sic-wn5); color: var(--sic-wn6); font: 700 11.5px var(--f-ui); } .ack-opencoin:hover { border-color: var(--sic-wn1); background: var(--sic-wn7); }
 .ack-sicdesk { display: grid; align-content: start; overflow-y: auto; min-height: 0; padding: 8px; }
-.agd.is-sic :is(.ack-seatwrap > *, .ack-deckwrap) { border-color: #e7c36a2e; }
-body.theme-day .ack-rhead small { color: #8a6a1c; } body.theme-day .ack-opencoin { color: #3a2a06; }
-body.theme-day .agd.is-sic { background: #fffaf3; border-color: #a9822a44; } body.theme-day .agd.is-sic .m-seg button.active { background: #8a6a1c; color: #fff; }
+.agd.is-sic :is(.ack-seatwrap > *, .ack-deckwrap) { border-color: var(--sic-wn8); }
+body.theme-day .ack-rhead small { color: var(--sic-wn9); } body.theme-day .ack-opencoin { color: var(--sic-sf1); }
+body.theme-day .agd.is-sic { background: var(--sic-tx1); border-color: var(--sic-wn10); } body.theme-day .agd.is-sic .m-seg button.active { background: var(--sic-wn9); color: var(--sic-tx2); }
 @media (max-width: 900px) { .ack-sicmain { grid-template-columns: minmax(0, 1fr); } }

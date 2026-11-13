@@ -1,28 +1,29 @@
 /* 🐱 Fee live tab (FeeLiveTab.jsx, `fcv-*`): her scan funnel, a chart with her call bubbles, her calls. m-* tokens, transform / opacity only. */
+:root { /* page tokens (STYLE-1) */ --fl-ac1: #e08cff; --fl-ac2: #8a2fb0; --fl-dg1: #ff8fa3; --fl-wn1: #ffd36b; --fl-wn2: #8a6100; }
 .fcv { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .fcv-card { position: relative; display: grid; gap: 8px; align-content: start; padding: 12px 14px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); animation: fcvIn .22s ease-out both; }
-.fcv-card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; font: 800 11px var(--m-mono); letter-spacing: .12em; color: #ffd36b; }
+.fcv-card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; font: 800 11px var(--m-mono); letter-spacing: .12em; color: var(--fl-wn1); }
 .fcv-card h3 small { font-weight: 600; letter-spacing: 0; color: var(--m-mute); }
 .fcv-flow { display: flex; align-items: center; gap: 8px; margin: 0; } .fcv-flow span { display: grid; justify-items: center; flex: 1; padding: 6px; border-radius: 10px; background: rgba(255, 255, 255, .03); }
 .fcv-flow b { font: 900 20px var(--m-mono); animation: fcvPop .4s ease-out; } .fcv-flow small { font: 600 9px var(--m-mono); color: var(--m-mute); } .fcv-flow span.is-good b { color: var(--m-accent); } .fcv-flow i { font-style: normal; color: var(--m-mute); }
 .fcv-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fcv-bars li { display: grid; grid-template-columns: minmax(0, 1.3fr) 1fr 24px; gap: 6px; align-items: center; font: 600 10px var(--m-mono); animation: fcvIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fcv-bars span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fcv-bars i { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
-.fcv-bars u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ff8fa3, #ffd36b); transition: transform .5s ease; } .fcv-bars b { text-align: right; }
+.fcv-bars u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, var(--fl-dg1), var(--fl-wn1)); transition: transform .5s ease; } .fcv-bars b { text-align: right; }
 /* 💬 chips, not sentences: scan reasons (icon + short label), her calls (coin · SOL · move · P&L · AI · tag), the source flow, the chart legend */
 .fcv-rc { display: inline-flex; align-items: center; gap: 5px; min-width: 0; } .fcv-rc i { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 6px; background: rgba(255, 211, 107, .1); }
 .fcv-bars li { cursor: help; } .fcv-bars li:hover span { color: var(--m-text); }
 .fcv-src { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font: 700 10px var(--m-mono); }
 .fcv-src span { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); color: var(--m-dim); background: rgba(255, 255, 255, .03); }
 .fcv-src i { font-style: normal; color: var(--m-mute); }
-.fcv-src .is-ai { color: #e08cff; border-color: rgba(224, 140, 255, .45); background: rgba(224, 140, 255, .08); }
-.fcv-src .is-fee { color: #ffd36b; border-color: rgba(255, 211, 107, .45); background: rgba(255, 211, 107, .08); }
+.fcv-src .is-ai { color: var(--fl-ac1); border-color: rgba(224, 140, 255, .45); background: rgba(224, 140, 255, .08); }
+.fcv-src .is-fee { color: var(--fl-wn1); border-color: rgba(255, 211, 107, .45); background: rgba(255, 211, 107, .08); }
 @keyframes fcvIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes fcvPop { from { transform: scale(1.18); } to { transform: none; } }
 body.fx-lite .fcv-card, body.fx-lite .fcv-bars li, body.fx-lite .fcv-flow b { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fcv-card, .fcv-bars li, .fcv-flow b { animation: none; } .fcv-bars u { transition: none; } }
-body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: #8a6100; } body.theme-day .fcv-flow span, body.theme-day
-body.theme-day .fcv-src .is-ai { color: #8a2fb0; } body.theme-day .fcv-src .is-fee { color: #8a6100; }
+body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: var(--fl-wn2); } body.theme-day .fcv-flow span, body.theme-day
+body.theme-day .fcv-src .is-ai { color: var(--fl-ac2); } body.theme-day .fcv-src .is-fee { color: var(--fl-wn2); }
 @media (max-width: 900px) { .fcv { grid-template-columns: minmax(0, 1fr); } }
 /* 🐱 THE FEECAT LANDING (owner 2026-10-31: one screen, no heavy scroll): her stage, a segmented switch, then ONE pane sized to what is left of the screen */
 .fcl { --fcl-h: clamp(240px, calc(100dvh - 580px), 560px); display: grid; gap: 10px; }

@@ -2,9 +2,10 @@
    rest are ass — make them cool and live animated, no lag"). ONE accent `--c` that SWITCHES green ↔ pink on each REAL tick (CandleFx's
    cfk-up / cfk-dn on the chart area; never animated), marks faint enough that the candles lead, few elements, transform / opacity only,
    hidden in fx-lite / reduced motion, paused off-screen (`.cbg` is an fxPause surface). Keyframes: cbg* only. */
-.cbg { --c: #9b6bff; --c2: #b48cff; --c3: #8fd3ff; --v: #b48cff; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 900px;
-  background: radial-gradient(120% 80% at 50% 110%, rgba(155, 107, 255, .07), transparent 60%), linear-gradient(180deg, #070808 0%, #040605 100%); }
-.cfk-dn .cbg { --c: #ff8fa3; --c2: #ffb3c1; }
+:root { /* page tokens (STYLE-1) */ --chartb-ac1: #9b6bff; --chartb-ac10: #dfeee6; --chartb-ac2: #b48cff; --chartb-ac3: #8fd3ff; --chartb-ac4: #c4bce0; --chartb-ac5: #9b6bff88; --chartb-ac6: #5a33bd; --chartb-ac7: #13924f; --chartb-ac8: #1f5fa8; --chartb-ac9: #6b3fc4; --chartb-bg1: #070808; --chartb-bg2: #040605; --chartb-bg3: #000; --chartb-bg4: #0d0f0e; --chartb-dg1: #ff8fa3; --chartb-dg2: #ffb3c1; --chartb-dg3: #b42346; --chartb-dg4: #c8455f; --chartb-s21: #262b29; --chartb-tx1: #f3eeff; --chartb-tx2: #ffe2e8; --chartb-tx3: #e7fff3; --chartb-tx4: #eef5f1; --chartb-wn1: #ffb547; --chartb-wn2: #9a5a00; }
+.cbg { --c: var(--chartb-ac1); --c2: var(--chartb-ac2); --c3: var(--chartb-ac3); --v: var(--chartb-ac2); position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 900px;
+  background: radial-gradient(120% 80% at 50% 110%, rgba(155, 107, 255, .07), transparent 60%), linear-gradient(180deg, var(--chartb-bg1) 0%, var(--chartb-bg2) 100%); }
+.cfk-dn .cbg { --c: var(--chartb-dg1); --c2: var(--chartb-dg2); }
 .chart-area.has-bg .candle-canvas { position: relative; z-index: 1; }
 .cbg-stage { position: absolute; inset: 0; transform-style: preserve-3d; }
 .cbg i, .cbg b, .cbg u { position: absolute; display: block; font-style: normal; text-decoration: none; }
@@ -20,16 +21,16 @@
 .cbg-neon .cbg-horizon { left: 0; right: 0; top: 48%; height: 1px; background: linear-gradient(90deg, transparent, var(--c) 30%, var(--c) 70%, transparent); opacity: .35; }
 .cbg-neon .cbg-sunglow { left: 50%; top: 48%; width: 46%; aspect-ratio: 1; margin: -23% 0 0 -23%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 26%, transparent), transparent); opacity: .7; }
 .cbg-neon .cbg-sun { position: absolute; left: 50%; top: 48%; width: 112px; height: 112px; margin: -86px 0 0 -56px; opacity: .2; will-change: transform; animation: cbgSun 7s ease-in-out infinite;
-  -webkit-mask: linear-gradient(#000 62%, transparent 63%, transparent 68%, #000 69%, #000 76%, transparent 77%, transparent 81%, #000 82%); mask: linear-gradient(#000 62%, transparent 63%, transparent 68%, #000 69%, #000 76%, transparent 77%, transparent 81%, #000 82%); }
+  -webkit-mask: linear-gradient(var(--chartb-bg3) 62%, transparent 63%, transparent 68%, var(--chartb-bg3) 69%, var(--chartb-bg3) 76%, transparent 77%, transparent 81%, var(--chartb-bg3) 82%); mask: linear-gradient(var(--chartb-bg3) 62%, transparent 63%, transparent 68%, var(--chartb-bg3) 69%, var(--chartb-bg3) 76%, transparent 77%, transparent 81%, var(--chartb-bg3) 82%); }
 .cbg-neon .cbg-sun img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 18px var(--c)); }
 .cbg-neon .cbg-word { left: 0; right: 0; top: calc(48% + 6px); text-align: center; font: 900 26px/1 'Unbounded', 'JetBrains Mono', monospace; letter-spacing: .5em; color: var(--c); opacity: .09; }
 
 /* 🟩 Matrix rain v3: 18 glyph streams in three depths, each fading out at its tail, a bright head; bear words on a red tick */
 .cbg-glow { left: -10%; right: -10%; bottom: -20%; height: 50%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
 .cbg-col { top: 0; width: 14px; font: 700 12px/1.1 'JetBrains Mono', monospace; color: var(--c); opacity: .22; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap;
-  text-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); -webkit-mask: linear-gradient(transparent, #000 75%); mask: linear-gradient(transparent, #000 75%);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--c) 60%, transparent); -webkit-mask: linear-gradient(transparent, var(--chartb-bg3) 75%); mask: linear-gradient(transparent, var(--chartb-bg3) 75%);
   will-change: transform; animation: cbgFall calc(8s + (var(--i) % 4) * 2s) linear infinite; animation-delay: calc(var(--i) * -1.13s); }
-.cbg-col::after { content: ''; position: absolute; left: 1px; bottom: -6px; width: 12px; height: 12px; border-radius: 3px; background: #f3eeff; box-shadow: 0 0 10px var(--c2); }
+.cbg-col::after { content: ''; position: absolute; left: 1px; bottom: -6px; width: 12px; height: 12px; border-radius: 3px; background: var(--chartb-tx1); box-shadow: 0 0 10px var(--c2); }
 .cbg-col.is-z0 { font-size: 9px; opacity: .1; animation-duration: calc(13s + (var(--i) % 3) * 2s); } .cbg-col.is-z0::after { width: 8px; height: 8px; opacity: .5; }
 .cbg-col.is-z2 { font-size: 14px; opacity: .3; animation-duration: calc(6s + (var(--i) % 3) * 1.2s); }
 .cbg-col > span { display: block; transition: opacity .5s ease; } .cbg-col > .is-bear { position: absolute; inset: 0; opacity: 0; }
@@ -52,10 +53,10 @@
 
 /* 💊 Pump pit (pump.fun's own look): green pills bubbling up from the pit, a slime glow at the bottom, every trade pops a pill */
 .cbg-pit .cbg-slime { left: -10%; right: -10%; bottom: -18%; height: 46%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 32%, transparent), transparent); opacity: .7; }
-.cbg-pill { bottom: -30px; width: 14px; height: 30px; border-radius: 8px; background: linear-gradient(180deg, #f3eeff 0 50%, var(--c) 50%); opacity: .16; will-change: transform;
+.cbg-pill { bottom: -30px; width: 14px; height: 30px; border-radius: 8px; background: linear-gradient(180deg, var(--chartb-tx1) 0 50%, var(--c) 50%); opacity: .16; will-change: transform;
   animation: cbgPill calc(9s + (var(--i) % 5) * 1.6s) linear infinite; animation-delay: calc(var(--i) * -1.37s); }
 .cbg-pill:nth-of-type(3n) { width: 10px; height: 22px; opacity: .1; }
-.cfk-dn .cbg-pill { background: linear-gradient(180deg, #ffe2e8 0 50%, var(--c) 50%); }
+.cfk-dn .cbg-pill { background: linear-gradient(180deg, var(--chartb-tx2) 0 50%, var(--c) 50%); }
 .cbg-pit .cbg-pop { left: 50%; bottom: 18%; width: 60px; height: 60px; margin-left: -30px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; }
 .cbg-pit.is-tick .cbg-pop { animation: cbgPop .6s ease-out; }
 .cbg-pit .cbg-pumpword { left: 0; right: 0; top: 40%; text-align: center; font: 900 34px/1 'Unbounded', monospace; letter-spacing: .14em; color: var(--c); opacity: .06; }
@@ -63,11 +64,11 @@
 
 /* 📟 Terminal tape (the Bloomberg screen): rows of amber tickers scrolling past at three speeds, a cursor bar, every trade flashes a row */
 .cbg-tape .cbg-crt { inset: 0; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); }
-.cbg-trow { left: 0; white-space: nowrap; font: 700 11px/1 'JetBrains Mono', monospace; letter-spacing: .08em; color: #ffb547; opacity: .16; will-change: transform;
+.cbg-trow { left: 0; white-space: nowrap; font: 700 11px/1 'JetBrains Mono', monospace; letter-spacing: .08em; color: var(--chartb-wn1); opacity: .16; will-change: transform;
   animation: cbgTape calc(26s + (var(--i) % 3) * 9s) linear infinite; animation-delay: calc(var(--i) * -4.1s); }
 .cbg-trow:nth-of-type(2n) { animation-direction: reverse; opacity: .1; }
 .cbg-tape.is-tick .cbg-trow:nth-of-type(3) { animation: cbgTape 30s linear infinite, cbgRowFlash .5s ease-out; }
-.cbg-tape .cbg-cursor { left: 6%; bottom: 10%; width: 9px; height: 15px; background: #ffb547; opacity: .3; animation: cbgCursor 2.6s ease-in-out infinite; }
+.cbg-tape .cbg-cursor { left: 6%; bottom: 10%; width: 9px; height: 15px; background: var(--chartb-wn1); opacity: .3; animation: cbgCursor 2.6s ease-in-out infinite; }
 
 @keyframes cbgHz { 0% { transform: scaleY(5); opacity: 1; } 100% { transform: none; } }
 @keyframes cbgSunKick { 30% { transform: scale(1.12); opacity: .34; } }
@@ -83,8 +84,8 @@
 @keyframes cbgCursor { 50% { opacity: .05; } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines — it shows the scene's icon, the list shows the names */
-.chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #262b29; background: #0d0f0e; color: #c4bce0; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
-.chart-bg-pick:hover { border-color: #9b6bff88; color: #e7fff3; } .chart-bg-pick:active { border-color: #9b6bff; } .chart-bg-pick:focus-visible { outline: 2px solid #b48cff; outline-offset: 1px; }
+.chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid var(--chartb-s21); background: var(--chartb-bg4); color: var(--chartb-ac4); font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+.chart-bg-pick:hover { border-color: var(--chartb-ac5); color: var(--chartb-tx3); } .chart-bg-pick:active { border-color: var(--chartb-ac1); } .chart-bg-pick:focus-visible { outline: 2px solid var(--chartb-ac2); outline-offset: 1px; }
 
 /* ⚡ LIVE TIDE on every scene: a green swell from below while the last real tick was up, a red one from above when it was down (opacity only) */
 .cbg-tide { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s ease; z-index: 0; }
@@ -94,11 +95,11 @@
 
 body.fx-lite .cbg { display: none; }
 @media (prefers-reduced-motion: reduce) { .cbg { display: none; } .cbg-tide { transition: none; } }
-body.theme-day .cbg { --c: #5a33bd; --c2: #13924f; --c3: #1f5fa8; --v: #6b3fc4; background: linear-gradient(180deg, #eef5f1 0%, #dfeee6 100%); }
-body.theme-day .cfk-dn .cbg { --c: #b42346; --c2: #c8455f; }
+body.theme-day .cbg { --c: var(--chartb-ac6); --c2: var(--chartb-ac7); --c3: var(--chartb-ac8); --v: var(--chartb-ac9); background: linear-gradient(180deg, var(--chartb-tx4) 0%, var(--chartb-ac10) 100%); }
+body.theme-day .cfk-dn .cbg { --c: var(--chartb-dg3); --c2: var(--chartb-dg4); }
 body.theme-day .cbg-vignette { background: radial-gradient(120% 90% at 50% 50%, transparent 60%, rgba(13, 60, 35, .12) 100%); }
 body.theme-day .cbg-neon .cbg-grid { background-image: linear-gradient(rgba(13, 122, 65, .18) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 122, 65, .12) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-grid.is-dn { background-image: linear-gradient(rgba(180, 35, 70, .16) 1px, transparent 1px), linear-gradient(90deg, rgba(180, 35, 70, .1) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-sun { opacity: .14; }
-body.theme-day .cbg-trow { color: #9a5a00; } body.theme-day .cbg-col::after { background: var(--c); }
+body.theme-day .cbg-trow { color: var(--chartb-wn2); } body.theme-day .cbg-col::after { background: var(--c); }
 @media (max-width: 640px) { .cbg-pill:nth-of-type(2n), .cbg-trow:nth-of-type(n + 7), .cbg-col:nth-of-type(n + 11) { display: none; } .cbg-neon .cbg-sun { width: 80px; height: 80px; margin: -62px 0 0 -40px; } }

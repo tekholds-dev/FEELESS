@@ -1,42 +1,43 @@
 /* 🌃 FEE CITY IN 3D (components/FeeCity3D.jsx + lib/cityEngine.js) — the stage around the WebGL city: a noir-gold frame, the "drawing the city"
    skyline while the models load, the hover tag, the 📍 Places menu, the legend. Controls reuse .fcy-ctl / .fcy-key (familyCity3d.css).
    One keyframe set (fc3*), transform / opacity only; fx-lite + reduced motion still; day theme; 640px. */
+:root { /* page tokens (STYLE-1) */ --pfeecity3-ac1: #b48cff; --pfeecity3-ac2: #6ad7ff; --pfeecity3-ac3: #b48cff66; --pfeecity3-ac4: #b48cff55; --pfeecity3-ac5: #5a33bd; --pfeecity3-ac6: #5a33bd55; --pfeecity3-ac7: #7fb6ea; --pfeecity3-ac8: #cfe3f4; --pfeecity3-bg1: #05060c; --pfeecity3-bg10: #140c06e6; --pfeecity3-bg11: #08070ce6; --pfeecity3-bg12: #08160e; --pfeecity3-bg13: #000c; --pfeecity3-bg14: #0000003a; --pfeecity3-bg2: #00000080; --pfeecity3-bg3: #000000a6; --pfeecity3-bg4: #05060f; --pfeecity3-bg5: #0b0a12ee; --pfeecity3-bg6: #000; --pfeecity3-bg7: #0a0910f2; --pfeecity3-bg8: #0b0a12cc; --pfeecity3-bg9: #0b0a12; --pfeecity3-dg1: #5a3a2e; --pfeecity3-s21: #1a1436; --pfeecity3-s22: #2a1d3e; --pfeecity3-s23: #3a2a00; --pfeecity3-sf1: #0a0b18; --pfeecity3-sf10: #08061a; --pfeecity3-sf2: #0d1434; --pfeecity3-sf3: #141a2e; --pfeecity3-sf4: #0a0d18; --pfeecity3-sf5: #0e1324; --pfeecity3-sf6: #15101fee; --pfeecity3-sf7: #2a1a0a; --pfeecity3-sf8: #120d1ae6; --pfeecity3-sf9: #0c3a20; --pfeecity3-tx1: #ffffff14; --pfeecity3-tx10: #f7faf8; --pfeecity3-tx2: #ffffff12; --pfeecity3-tx3: #ffffff06; --pfeecity3-tx4: #fffaf0f5; --pfeecity3-tx5: #fffaf0f2; --pfeecity3-tx6: #e6f8ec; --pfeecity3-tx7: #f4fff8; --pfeecity3-tx8: #fffaf0e6; --pfeecity3-tx9: #fff; --pfeecity3-wn1: #d4af3740; --pfeecity3-wn10: #c9b47c; --pfeecity3-wn11: #b8952a66; --pfeecity3-wn12: #8a6a1a80; --pfeecity3-wn13: #b8952a88; --pfeecity3-wn14: #6a4a00; --pfeecity3-wn15: #6a5a3a; --pfeecity3-wn16: #ffd36b; --pfeecity3-wn17: #b9a983; --pfeecity3-wn18: #8a7a52; --pfeecity3-wn19: #b8952a55; --pfeecity3-wn2: #d4af3755; --pfeecity3-wn3: #d4af3722; --pfeecity3-wn4: #ffcf7a; --pfeecity3-wn5: #f1d27a; --pfeecity3-wn6: #d4af37aa; --pfeecity3-wn7: #ffe9b0; --pfeecity3-wn8: #d4af37; --pfeecity3-wn9: #d4af3766; }
 .fc3 { position: relative; height: clamp(600px, 88vh, 1180px); overflow: hidden; border-radius: 18px; isolation: isolate;
-  background: radial-gradient(120% 90% at 50% 0%, #1a1436 0%, #0a0b18 55%, #05060c 100%); border: 1px solid #d4af3740;
-  box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #00000080, 0 30px 80px -40px #d4af3755; }
+  background: radial-gradient(120% 90% at 50% 0%, var(--pfeecity3-s21) 0%, var(--pfeecity3-sf1) 55%, var(--pfeecity3-bg1) 100%); border: 1px solid var(--pfeecity3-wn1);
+  box-shadow: inset 0 1px 0 var(--pfeecity3-tx1), 0 0 0 1px var(--pfeecity3-bg2), 0 30px 80px -40px var(--pfeecity3-wn2); }
 .fc3-host { position: absolute; inset: 0; } .fc3-host canvas.fc3-canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; outline: none; }
 .fc3::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit;
-  background: radial-gradient(120% 100% at 50% 40%, transparent 62%, #000000a6 100%); }
+  background: radial-gradient(120% 100% at 50% 40%, transparent 62%, var(--pfeecity3-bg3) 100%); }
 .fc3-load { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; align-content: end; padding-bottom: 22%; }
-.fc3-sky { position: absolute; inset: 0; background: linear-gradient(180deg, #05060f 0%, #0d1434 55%, #2a1d3e 82%, #5a3a2e 100%); }
+.fc3-sky { position: absolute; inset: 0; background: linear-gradient(180deg, var(--pfeecity3-bg4) 0%, var(--pfeecity3-sf2) 55%, var(--pfeecity3-s22) 82%, var(--pfeecity3-dg1) 100%); }
 .fc3-skyline { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 110px; }
-.fc3-skyline b { width: 22px; height: var(--h); border-radius: 3px 3px 0 0; transform-origin: bottom; background: linear-gradient(#141a2e, #0a0d18);
-  box-shadow: inset 0 0 0 1px #d4af3722; animation: fc3Rise .9s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 60ms) both;
-  background-image: radial-gradient(circle, #ffcf7a 0 1.2px, transparent 1.6px); background-size: 7px 9px; background-color: #0e1324; }
-.fc3-load small { position: relative; margin-top: 14px; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: #f1d27a; animation: fc3Pulse 1.2s ease-in-out infinite alternate; }
+.fc3-skyline b { width: 22px; height: var(--h); border-radius: 3px 3px 0 0; transform-origin: bottom; background: linear-gradient(var(--pfeecity3-sf3), var(--pfeecity3-sf4));
+  box-shadow: inset 0 0 0 1px var(--pfeecity3-wn3); animation: fc3Rise .9s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 60ms) both;
+  background-image: radial-gradient(circle, var(--pfeecity3-wn4) 0 1.2px, transparent 1.6px); background-size: 7px 9px; background-color: var(--pfeecity3-sf5); }
+.fc3-load small { position: relative; margin-top: 14px; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: var(--pfeecity3-wn5); animation: fc3Pulse 1.2s ease-in-out infinite alternate; }
 @keyframes fc3Rise { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
 @keyframes fc3Pulse { from { opacity: .45; } to { opacity: 1; } }
 @keyframes fc3In { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
 .fc3.is-ready .fc3-host { animation: fc3In .5s ease-out both; }
-.fc3-tip { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; padding: 4px 9px; border-radius: 8px; border: 1px solid #d4af37aa; background: #0b0a12ee;
-  color: #ffe9b0; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .04em; white-space: nowrap; box-shadow: 0 6px 18px -8px #000, 0 0 12px -4px #d4af37; }
+.fc3-tip { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; padding: 4px 9px; border-radius: 8px; border: 1px solid var(--pfeecity3-wn6); background: var(--pfeecity3-bg5);
+  color: var(--pfeecity3-wn7); font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .04em; white-space: nowrap; box-shadow: 0 6px 18px -8px var(--pfeecity3-bg6), 0 0 12px -4px var(--pfeecity3-wn8); }
 .fc3-ctl { z-index: 5; flex-wrap: wrap; max-width: calc(100% - 24px); }
 .fc3-places { position: relative; }
 .fc3-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: 250px; margin: 0; padding: 6px; list-style: none; display: grid; gap: 4px; border-radius: 12px;
-  border: 1px solid #d4af3766; background: linear-gradient(160deg, #15101fee, #0a0910f2); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -16px #000; animation: fc3In .16s ease-out both; }
+  border: 1px solid var(--pfeecity3-wn9); background: linear-gradient(160deg, var(--pfeecity3-sf6), var(--pfeecity3-bg7)); box-shadow: inset 0 1px 0 var(--pfeecity3-tx2), 0 18px 40px -16px var(--pfeecity3-bg6); animation: fc3In .16s ease-out both; }
 .fc3-menu li { animation: fc3In .2s ease-out calc(var(--i) * 45ms) both; }
 .fcy-ctl .fc3-menu button { width: 100%; height: auto; min-height: 38px; display: grid; gap: 1px; justify-items: start; padding: 6px 10px; text-align: left; border-color: transparent;
-  border-left: 3px solid var(--pc, #d4af37); background: #ffffff06; }
-.fcy-ctl .fc3-menu button b { font: 800 11.5px 'JetBrains Mono', monospace; color: var(--pc, #f1d27a); letter-spacing: .06em; }
-.fcy-ctl .fc3-menu button small { font: 600 10px 'JetBrains Mono', monospace; color: #c9b47c; }
-.fcy-ctl .fc3-menu button:hover, .fcy-ctl .fc3-menu button:focus-visible { background: #ffffff12; transform: translateX(2px); }
-.fc3-key { z-index: 5; } .fcy-key .t-mk { --glow: #b48cff; } .fcy-key .t-place { --glow: #6ad7ff; }
-.fc3 .fc-vpanel { z-index: 6; } .fc-vpanel.t-mk { --vc: #b48cff; }
+  border-left: 3px solid var(--pc, var(--pfeecity3-wn8)); background: var(--pfeecity3-tx3); }
+.fcy-ctl .fc3-menu button b { font: 800 11.5px 'JetBrains Mono', monospace; color: var(--pc, var(--pfeecity3-wn5)); letter-spacing: .06em; }
+.fcy-ctl .fc3-menu button small { font: 600 10px 'JetBrains Mono', monospace; color: var(--pfeecity3-wn10); }
+.fcy-ctl .fc3-menu button:hover, .fcy-ctl .fc3-menu button:focus-visible { background: var(--pfeecity3-tx2); transform: translateX(2px); }
+.fc3-key { z-index: 5; } .fcy-key .t-mk { --glow: var(--pfeecity3-ac1); } .fcy-key .t-place { --glow: var(--pfeecity3-ac2); }
+.fc3 .fc-vpanel { z-index: 6; } .fc-vpanel.t-mk { --vc: var(--pfeecity3-ac1); }
 body.fx-lite .fc3-skyline b, body.fx-lite .fc3-load small, body.fx-lite .fc3.is-ready .fc3-host, body.fx-lite .fc3-menu, body.fx-lite .fc3-menu li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fc3-skyline b, .fc3-load small, .fc3.is-ready .fc3-host, .fc3-menu, .fc3-menu li { animation: none; } }
-body.theme-day .fc3 { border-color: #b8952a66; box-shadow: 0 20px 50px -30px #8a6a1a80; }
-body.theme-day .fc3-menu { background: #fffaf0f5; border-color: #b8952a88; } body.theme-day .fcy-ctl .fc3-menu button b { color: #6a4a00; } body.theme-day .fcy-ctl .fc3-menu button small { color: #6a5a3a; }
-body.theme-day .fc3-tip { background: #fffaf0f2; color: #3a2a00; }
+body.theme-day .fc3 { border-color: var(--pfeecity3-wn11); box-shadow: 0 20px 50px -30px var(--pfeecity3-wn12); }
+body.theme-day .fc3-menu { background: var(--pfeecity3-tx4); border-color: var(--pfeecity3-wn13); } body.theme-day .fcy-ctl .fc3-menu button b { color: var(--pfeecity3-wn14); } body.theme-day .fcy-ctl .fc3-menu button small { color: var(--pfeecity3-wn15); }
+body.theme-day .fc3-tip { background: var(--pfeecity3-tx5); color: var(--pfeecity3-s23); }
 @media (max-width: 640px) { .fc3 { height: 74vh; min-height: 460px; border-radius: 14px; } .fc3-ctl small { display: none; } .fc3-key { display: none; } .fc3-menu { width: min(250px, 80vw); } }
 
 /* ⤢ expanded: the city takes the whole window (Esc / the button brings it back) */
@@ -44,20 +45,20 @@ body.theme-day .fc3-tip { background: #fffaf0f2; color: #3a2a00; }
 body.fc3-lock { overflow: hidden; }
 /* 🧭 districts: fly the camera to an island */
 .fc3-isl { position: absolute; top: 12px; left: 50%; z-index: 5; display: flex; gap: 5px; transform: translateX(-50%); max-width: calc(100% - 340px); flex-wrap: wrap; justify-content: center; }
-.fc3-isl button { min-height: 30px; padding: 4px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--dc) 55%, transparent); background: #0b0a12cc; color: var(--dc);
+.fc3-isl button { min-height: 30px; padding: 4px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--dc) 55%, transparent); background: var(--pfeecity3-bg8); color: var(--dc);
   font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .1em; cursor: pointer; animation: fc3In .3s ease-out calc(var(--i) * 50ms) both; transition: background .15s, transform .15s; }
-.fc3-isl button:hover { background: color-mix(in srgb, var(--dc) 18%, #0b0a12); transform: translateY(-1px); } .fc3-isl button:active { transform: scale(.96); }
+.fc3-isl button:hover { background: color-mix(in srgb, var(--dc) 18%, var(--pfeecity3-bg9)); transform: translateY(-1px); } .fc3-isl button:active { transform: scale(.96); }
 .fc3-isl button:focus-visible { outline: 2px solid var(--dc); outline-offset: 2px; }
 /* 📍 the CITY DIRECTORY dock: every place (the old tabs) one tap away */
 .fc3-dir { position: absolute; left: 12px; top: 12px; bottom: 60px; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; width: 46px; transition: width .2s ease; }
 .fc3-dir.is-open { width: 226px; }
-.fc3-dirtoggle { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid #d4af3766; background: #140c06e6; color: #f1d27a;
+.fc3-dirtoggle { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid var(--pfeecity3-wn9); background: var(--pfeecity3-bg10); color: var(--pfeecity3-wn5);
   font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em; cursor: pointer; overflow: hidden; white-space: nowrap; }
 .fc3-dir:not(.is-open) .fc3-dirtoggle span { display: none; }
-.fc3-dirtoggle:hover { background: #2a1a0a; } .fc3-dirtoggle:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
-.fc3-dir ul { margin: 0; padding: 4px; list-style: none; display: grid; align-content: start; gap: 3px; overflow-y: auto; overflow-x: hidden; border-radius: 12px; border: 1px solid #ffffff14;
-  background: linear-gradient(170deg, #120d1ae6, #08070ce6); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -20px #000; scrollbar-width: thin; scrollbar-color: #d4af37 transparent; }
-.fc3-dir ul::-webkit-scrollbar { width: 6px; } .fc3-dir ul::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 6px; }
+.fc3-dirtoggle:hover { background: var(--pfeecity3-sf7); } .fc3-dirtoggle:focus-visible { outline: 2px solid var(--pfeecity3-wn16); outline-offset: 2px; }
+.fc3-dir ul { margin: 0; padding: 4px; list-style: none; display: grid; align-content: start; gap: 3px; overflow-y: auto; overflow-x: hidden; border-radius: 12px; border: 1px solid var(--pfeecity3-tx1);
+  background: linear-gradient(170deg, var(--pfeecity3-sf8), var(--pfeecity3-bg11)); box-shadow: inset 0 1px 0 var(--pfeecity3-tx2), 0 18px 40px -20px var(--pfeecity3-bg6); scrollbar-width: thin; scrollbar-color: var(--pfeecity3-wn8) transparent; }
+.fc3-dir ul::-webkit-scrollbar { width: 6px; } .fc3-dir ul::-webkit-scrollbar-thumb { background: var(--pfeecity3-wn8); border-radius: 6px; }
 .fc3-dir li { animation: fc3In .25s ease-out calc(var(--i) * 35ms) both; }
 .fc3-dir li button { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 9px; padding: 4px 8px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--pc);
   cursor: pointer; text-align: left; transition: background .15s, border-color .15s, transform .15s; }
@@ -65,38 +66,38 @@ body.fc3-lock { overflow: hidden; }
 .fc3-dir li button span { display: grid; min-width: 0; } .fc3-dir:not(.is-open) li button span { display: none; }
 .fc3-dir li button { box-sizing: border-box; } .fc3-dir:not(.is-open) li button { justify-content: center; padding: 4px 0; }   /* 100% + 16 px padding spilled 4 px out of the 46 px rail (E06 sweep) */
 .fc3-dir li button b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fc3-dir li button small { font: 600 9.5px 'JetBrains Mono', monospace; color: #b9a983; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc3-dir li button small { font: 600 9.5px 'JetBrains Mono', monospace; color: var(--pfeecity3-wn17); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc3-dir li button:hover { background: color-mix(in srgb, var(--pc) 14%, transparent); border-color: color-mix(in srgb, var(--pc) 40%, transparent); transform: translateX(2px); }
 .fc3-dir li button:active { transform: scale(.97); } .fc3-dir li button:focus-visible { outline: 2px solid var(--pc); outline-offset: 1px; }
 .fc3-dir li button.active { background: color-mix(in srgb, var(--pc) 22%, transparent); border-color: var(--pc); box-shadow: 0 0 14px -6px var(--pc); }
 /* 💸 the directory leads with money: ⚡ START COMPOUNDING (a lit green door), group headers, money rows with a green edge */
-.fc3-dirh { padding: 8px 8px 2px; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #8a7a52; } .fc3-dir:not(.is-open) .fc3-dirh { display: none; }
-.fc3-dirgo button { min-height: 44px; border-color: #b48cff66 !important; background: linear-gradient(120deg, #0c3a20, #08160e) !important; box-shadow: 0 0 18px -8px #b48cff; }
-.fc3-dirgo button b { color: #b48cff; } .fc3-dirgo button svg { animation: fc3Zap 2.4s ease-in-out infinite; }
+.fc3-dirh { padding: 8px 8px 2px; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--pfeecity3-wn18); } .fc3-dir:not(.is-open) .fc3-dirh { display: none; }
+.fc3-dirgo button { min-height: 44px; border-color: var(--pfeecity3-ac3) !important; background: linear-gradient(120deg, var(--pfeecity3-sf9), var(--pfeecity3-bg12)) !important; box-shadow: 0 0 18px -8px var(--pfeecity3-ac1); }
+.fc3-dirgo button b { color: var(--pfeecity3-ac1); } .fc3-dirgo button svg { animation: fc3Zap 2.4s ease-in-out infinite; }
 .fc3-dir li.is-money button { border-left: 2px solid color-mix(in srgb, var(--pc) 60%, transparent); }
-.fc3-dirmore button { justify-content: center; border: 1px dashed #d4af3755 !important; color: #c9b47c; } .fc3-dir:not(.is-open) .fc3-dirmore { display: none; }
+.fc3-dirmore button { justify-content: center; border: 1px dashed var(--pfeecity3-wn2) !important; color: var(--pfeecity3-wn10); } .fc3-dir:not(.is-open) .fc3-dirmore { display: none; }
 .fc3-desk { position: absolute; top: 12px; right: 12px; bottom: 60px; z-index: 6; width: min(440px, calc(100% - 24px)); overflow-y: auto; padding: 10px; border-radius: 18px;
-  background: rgba(8, 7, 5, .9); border: 1px solid #b48cff55; box-shadow: 0 30px 60px -30px #000; scrollbar-width: thin; scrollbar-color: #b48cff transparent; animation: fc3DeskIn .2s ease-out both; }
-.fc3-desk::-webkit-scrollbar { width: 6px; } .fc3-desk::-webkit-scrollbar-thumb { background: #b48cff; border-radius: 6px; }
-.fc3-deskx { position: sticky; top: 0; float: right; z-index: 2; width: 32px; height: 32px; margin: 0 0 4px 6px; border-radius: 10px; border: 1px solid #b48cff66; background: #08160e; color: #b48cff; cursor: pointer; transition: transform .15s ease; }
-.fc3-deskx:hover { transform: rotate(90deg); } .fc3-deskx:active { transform: scale(.92); } .fc3-deskx:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+  background: rgba(8, 7, 5, .9); border: 1px solid var(--pfeecity3-ac4); box-shadow: 0 30px 60px -30px var(--pfeecity3-bg6); scrollbar-width: thin; scrollbar-color: var(--pfeecity3-ac1) transparent; animation: fc3DeskIn .2s ease-out both; }
+.fc3-desk::-webkit-scrollbar { width: 6px; } .fc3-desk::-webkit-scrollbar-thumb { background: var(--pfeecity3-ac1); border-radius: 6px; }
+.fc3-deskx { position: sticky; top: 0; float: right; z-index: 2; width: 32px; height: 32px; margin: 0 0 4px 6px; border-radius: 10px; border: 1px solid var(--pfeecity3-ac3); background: var(--pfeecity3-bg12); color: var(--pfeecity3-ac1); cursor: pointer; transition: transform .15s ease; }
+.fc3-deskx:hover { transform: rotate(90deg); } .fc3-deskx:active { transform: scale(.92); } .fc3-deskx:focus-visible { outline: 2px solid var(--pfeecity3-ac1); outline-offset: 2px; }
 @keyframes fc3Zap { 50% { transform: scale(1.18); } }
 @keyframes fc3DeskIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 body.fx-lite .fc3-dirgo button svg, body.fx-lite .fc3-desk { animation: none; } @media (prefers-reduced-motion: reduce) { .fc3-dirgo button svg, .fc3-desk { animation: none; } .fc3-deskx { transition: none; } }
-body.theme-day .fc3-dirgo button { background: linear-gradient(120deg, #e6f8ec, #f4fff8) !important; } body.theme-day .fc3-dirgo button b { color: #5a33bd; } body.theme-day .fc3-dirh { color: #6a5a3a; }
-body.theme-day .fc3-desk { background: #fffaf0f2; border-color: #5a33bd55; }
+body.theme-day .fc3-dirgo button { background: linear-gradient(120deg, var(--pfeecity3-tx6), var(--pfeecity3-tx7)) !important; } body.theme-day .fc3-dirgo button b { color: var(--pfeecity3-ac5); } body.theme-day .fc3-dirh { color: var(--pfeecity3-wn15); }
+body.theme-day .fc3-desk { background: var(--pfeecity3-tx5); border-color: var(--pfeecity3-ac6); }
 @media (max-width: 640px) { .fc3-desk { left: 8px; right: 8px; top: auto; width: auto; max-height: 76%; } }
 .fc3 .fc-vpanel { left: 70px; } .fc3-dir.is-open ~ .fc-vpanel { left: 250px; }
 /* ⚔ the real Fuse cards standing over the stadium pitch (positioned by the engine every frame — transform / opacity only) */
 .fc3-cards { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
 .fc3-card { position: absolute; left: 0; top: 0; width: 150px; pointer-events: auto; transform-origin: 50% 100%; opacity: 0; transition: opacity .3s ease; text-decoration: none; will-change: transform;
-  filter: drop-shadow(0 14px 24px #000c); }
-.fc3-card:hover { z-index: 2; } .fc3-card:focus-visible { outline: 2px solid #ffd36b; outline-offset: 4px; border-radius: 14px; }
+  filter: drop-shadow(0 14px 24px var(--pfeecity3-bg13)); }
+.fc3-card:hover { z-index: 2; } .fc3-card:focus-visible { outline: 2px solid var(--pfeecity3-wn16); outline-offset: 4px; border-radius: 14px; }
 /* ☀ the stage by day */
-.fc3.is-day { background: linear-gradient(180deg, #7fb6ea, #cfe3f4); border-color: #b8952a66; } .fc3.is-day::after { background: radial-gradient(120% 100% at 50% 40%, transparent 70%, #0000003a 100%); }
+.fc3.is-day { background: linear-gradient(180deg, var(--pfeecity3-ac7), var(--pfeecity3-ac8)); border-color: var(--pfeecity3-wn11); } .fc3.is-day::after { background: radial-gradient(120% 100% at 50% 40%, transparent 70%, var(--pfeecity3-bg14) 100%); }
 body.fx-lite .fc3-isl button, body.fx-lite .fc3-dir li, body.fx-lite .fc3.is-full { animation: none; } body.fx-lite .fc3-card { filter: none; }
 @media (prefers-reduced-motion: reduce) { .fc3-isl button, .fc3-dir li, .fc3.is-full { animation: none; } .fc3-dir, .fc3-card { transition: none; } }
-body.theme-day .fc3-dir ul { background: #fffaf0f2; border-color: #b8952a55; } body.theme-day .fc3-dir li button small { color: #6a5a3a; } body.theme-day .fc3-isl button { background: #fffaf0e6; }
+body.theme-day .fc3-dir ul { background: var(--pfeecity3-tx5); border-color: var(--pfeecity3-wn19); } body.theme-day .fc3-dir li button small { color: var(--pfeecity3-wn15); } body.theme-day .fc3-isl button { background: var(--pfeecity3-tx8); }
 @media (max-width: 640px) { .fc3-dir { bottom: 104px; } .fc3-dir.is-open { width: 200px; } .fc3-isl { top: auto; bottom: 104px; left: 60px; right: 10px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; }
   .fc3-card { width: 110px; } .fc3 .fc-vpanel, .fc3-dir.is-open ~ .fc-vpanel { left: 62px; right: 10px; width: auto; } }
 /* 🐛 dead clicks from HQ › Bugs (2026-10-22): an open room panel sat over the directory dock ("b / div.rn-lane sits over button[dir-…]") and the
@@ -105,7 +106,7 @@ body.theme-day .fc3-dir ul { background: #fffaf0f2; border-color: #b8952a55; } b
 .fc3-dir { z-index: 8; }
 body.fc3-lock .terminal-footer { visibility: hidden; pointer-events: none; }
 /* 🚪 a room inside another building (Fee City breathes): indented, its host named */
-.fc3-dir li.is-room button { padding-left: 18px; opacity: .86; } .fc3-dir li.is-room small { color: color-mix(in srgb, var(--pc) 70%, #fff); }
+.fc3-dir li.is-room button { padding-left: 18px; opacity: .86; } .fc3-dir li.is-room small { color: color-mix(in srgb, var(--pc) 70%, var(--pfeecity3-tx9)); }
 /* 🖥 START COMPOUNDING fills the whole city map (owner, 2026-10-23: "small ass popout") — never a fixed overlay: a page that scrolls sideways
    clipped it off the left edge. The directory dock (70 px) stays free. */
-@media (min-width: 641px) { .fc3 .fc3-desk { inset: 12px 12px 60px 70px; width: auto; padding: 16px; background: #08061a; } body.theme-day .fc3 .fc3-desk { background: #f7faf8; } }
+@media (min-width: 641px) { .fc3 .fc3-desk { inset: 12px 12px 60px 70px; width: auto; padding: 16px; background: var(--pfeecity3-sf10); } body.theme-day .fc3 .fc3-desk { background: var(--pfeecity3-tx10); } }

@@ -1,5 +1,6 @@
 /* ⚙ Chat settings (EcosystemChat) — built from m-* tokens. */
 
+:root { /* page tokens (STYLE-1) */ --chatpr-ac1: #8fe3b4; --chatpr-ac2: #9b6bff; --chatpr-ac3: #0a6b3c; --chatpr-tx1: #eefaf3; }
 @keyframes cpIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
 .cp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .cp-head small { color: var(--m-dim); font: 10px var(--m-mono); letter-spacing: .06em; }
 .cp-sec { display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid var(--m-line); }
@@ -10,6 +11,6 @@
 
 @media (max-width: 640px) { .cp-range { grid-template-columns: 1fr auto; } .cp-range span { grid-column: 1 / -1; } }
 /* ↑ older messages load on tap (the room keeps the latest 40 on the page — 2026-10-26 lag fix) */
-.chat-older { display: block; width: 100%; min-height: 34px; margin: 6px 0; border-radius: 10px; border: 1px dashed rgba(155, 107, 255, .35); background: rgba(155, 107, 255, .06); color: #8fe3b4; font: 700 10.5px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s, border-color .15s; }
-.chat-older:hover { background: rgba(155, 107, 255, .12); border-color: #9b6bff; } .chat-older:active { transform: scale(.99); } .chat-older:focus-visible { outline: 2px solid #9b6bff; outline-offset: 2px; }
-body.theme-day .chat-older { background: #eefaf3; color: #0a6b3c; }
+.chat-older { display: block; width: 100%; min-height: 34px; margin: 6px 0; border-radius: 10px; border: 1px dashed rgba(155, 107, 255, .35); background: rgba(155, 107, 255, .06); color: var(--chatpr-ac1); font: 700 10.5px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s, border-color .15s; }
+.chat-older:hover { background: rgba(155, 107, 255, .12); border-color: var(--chatpr-ac2); } .chat-older:active { transform: scale(.99); } .chat-older:focus-visible { outline: 2px solid var(--chatpr-ac2); outline-offset: 2px; }
+body.theme-day .chat-older { background: var(--chatpr-tx1); color: var(--chatpr-ac3); }

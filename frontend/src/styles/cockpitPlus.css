@@ -1,27 +1,28 @@
 /* 🧩 cockpit add-ons: seats on top · right column Decision | Live desk · Brain drawer · rug marker · ride share · today cells. transform / opacity only */
+:root { /* page tokens (STYLE-1) */ --pcockpitp-ac1: #b79bff; --pcockpitp-ac2: #9b6bff; --pcockpitp-ac3: #e6d6ff; --pcockpitp-ac4: #c49bff; --pcockpitp-ac5: #a259ff; --pcockpitp-ac6: #4b2a85; --pcockpitp-bg1: #050806; --pcockpitp-dg1: #ff4d6d; --pcockpitp-s21: #2a2340; --pcockpitp-sf1: #12081f; --pcockpitp-sf2: #0c0a1e; --pcockpitp-sf3: #181e1b; --pcockpitp-tx1: #e9fff3; --pcockpitp-tx2: #f1edff; --pcockpitp-tx3: #fff; --pcockpitp-tx4: #cfe0d6; --pcockpitp-tx5: #f4f8f6; --pcockpitp-tx6: #f6f0ff; --pcockpitp-wn1: #f5c451; }
 .ack-topseats { margin: 0 0 var(--ack-gap, 10px); }
 .ack-right { display: grid; gap: 8px; align-content: start; min-width: 0; }
 
 /* 🧠 Brain drawer */
 .ack-brainbtn { align-self: center; padding: 6px 12px; border-radius: 9px; border: 1px solid rgba(183, 155, 255, .45); background: linear-gradient(120deg, rgba(183, 155, 255, .18), rgba(155, 107, 255, .12));
-  color: #e9fff3; font: 800 10px var(--m-mono); letter-spacing: .12em; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
-.ack-brainbtn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px #b79bff; } .ack-brainbtn:active { transform: scale(.97); }
-.ack-brainbtn:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; } .ack-brainbtn.is-on { background: #b79bff; color: #12081f; }
+  color: var(--pcockpitp-tx1); font: 800 10px var(--m-mono); letter-spacing: .12em; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.ack-brainbtn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px var(--pcockpitp-ac1); } .ack-brainbtn:active { transform: scale(.97); }
+.ack-brainbtn:focus-visible { outline: 2px solid var(--pcockpitp-ac1); outline-offset: 2px; } .ack-brainbtn.is-on { background: var(--pcockpitp-ac1); color: var(--pcockpitp-sf1); }
 .ack-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 5200; width: min(620px, 96vw); display: grid; grid-template-rows: minmax(0, 1fr);
-  background: #0c0a1e; border-left: 1px solid rgba(183, 155, 255, .35); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .8); animation: ackDrawerIn .2s ease both; }
-.ack-drawerbody { min-height: 0; overflow: hidden; padding: 0; display: flex; scrollbar-width: thin; scrollbar-color: #9b6bff transparent; }
-.ack-drawerbody::-webkit-scrollbar { width: 6px; } .ack-drawerbody::-webkit-scrollbar-thumb { background: #9b6bff; border-radius: 3px; }
+  background: var(--pcockpitp-sf2); border-left: 1px solid rgba(183, 155, 255, .35); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .8); animation: ackDrawerIn .2s ease both; }
+.ack-drawerbody { min-height: 0; overflow: hidden; padding: 0; display: flex; scrollbar-width: thin; scrollbar-color: var(--pcockpitp-ac2) transparent; }
+.ack-drawerbody::-webkit-scrollbar { width: 6px; } .ack-drawerbody::-webkit-scrollbar-thumb { background: var(--pcockpitp-ac2); border-radius: 3px; }
 @keyframes ackDrawerIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 
 /* 🩸 rug light: a blinking dot (red = draining, amber = thinning) — the why lives in the tip; it re-reads with every live update */
-.ack-rugdot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; vertical-align: middle; background: #ff4d6d; box-shadow: 0 0 6px 1px rgba(255, 77, 109, .7); animation: ackRugBlink 2.6s ease-in-out infinite; }
-.ack-rugdot.is-warn { background: #f5c451; box-shadow: 0 0 6px 1px rgba(245, 196, 81, .6); animation-duration: 1.8s; }
+.ack-rugdot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; vertical-align: middle; background: var(--pcockpitp-dg1); box-shadow: 0 0 6px 1px rgba(255, 77, 109, .7); animation: ackRugBlink 2.6s ease-in-out infinite; }
+.ack-rugdot.is-warn { background: var(--pcockpitp-wn1); box-shadow: 0 0 6px 1px rgba(245, 196, 81, .6); animation-duration: 1.8s; }
 
  
 @keyframes ackRugBlink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 /* 🎞 ride bar */
-.ack-ride { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); font: 700 10px var(--m-mono); color: #e9fff3; }
+.ack-ride { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); font: 700 10px var(--m-mono); color: var(--pcockpitp-tx1); }
 .ack-ride > span { flex: 1 1 auto; min-width: 0; }
 
   
@@ -32,7 +33,7 @@
 
 body.fx-lite .ack-drawer { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ack-rugdot, .ack-drawer { animation: none; } .ack-brainbtn, .ack-drawer header button { transition: none; } }
-body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, body.theme-day .ack-brainbtn { color: #181e1b; }
+body.theme-day .ack-drawer { background: var(--pcockpitp-tx2); } body.theme-day .ack-ride, body.theme-day .ack-brainbtn { color: var(--pcockpitp-sf3); }
 @media (max-width: 640px) { .ack-drawer { width: 100vw; } .ack-ride { font-size: 9px; } }
 
 /* 📐 BIGGER CHART + SIDE BOX (owner, 2026-10-18: "chart and side box can be bigger"): the chart takes most of the screen height and the
@@ -45,9 +46,9 @@ body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, bo
 /* 💬 OSSY × G4 beside the chart (owner 2026-10-28): the Decision card's button swaps the right column to their live conversation; on a phone it is a
    bottom sheet over the cockpit (grip, 72 dvh, slides up). transform / opacity only; fx-lite + reduced motion + day theme below. */
 .ack-talkbtn { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; margin-left: auto; padding: 0 10px; border-radius: 999px; border: 1px solid rgba(162, 89, 255, .55);
-  background: linear-gradient(180deg, rgba(162, 89, 255, .18), rgba(162, 89, 255, .06)); color: #e6d6ff; font: 800 9.5px var(--f-mono); letter-spacing: .08em; cursor: pointer; transition: transform .12s ease, background .12s ease; }
-.ack-talkbtn:hover { background: rgba(162, 89, 255, .28); } .ack-talkbtn:active { transform: scale(.95); } .ack-talkbtn:focus-visible{ outline: 2px solid #c49bff; outline-offset: 2px; }
-.ack-talkbtn i { min-width: 16px; padding: 0 4px; border-radius: 8px; background: #a259ff; color: #fff; font-style: normal; font-size: 9px; text-align: center; }
+  background: linear-gradient(180deg, rgba(162, 89, 255, .18), rgba(162, 89, 255, .06)); color: var(--pcockpitp-ac3); font: 800 9.5px var(--f-mono); letter-spacing: .08em; cursor: pointer; transition: transform .12s ease, background .12s ease; }
+.ack-talkbtn:hover { background: rgba(162, 89, 255, .28); } .ack-talkbtn:active { transform: scale(.95); } .ack-talkbtn:focus-visible{ outline: 2px solid var(--pcockpitp-ac4); outline-offset: 2px; }
+.ack-talkbtn i { min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--pcockpitp-ac5); color: var(--pcockpitp-tx3); font-style: normal; font-size: 9px; text-align: center; }
 
 
  
@@ -57,7 +58,7 @@ body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, bo
 
 @keyframes ackTalkIn { from { opacity: 0; transform: translateX(10px); } }
  @media (prefers-reduced-motion: reduce) {  .ack-talkbtn { transition: none; } }
- body.theme-day .ack-talkbtn { color: #4b2a85; }
+ body.theme-day .ack-talkbtn { color: var(--pcockpitp-ac6); }
 
 @keyframes ackTalkUp { from { opacity: 0; transform: translateY(40px); } }
 /* 📱📱 HQ › AGENTS DUO FLOOR (AgentCockpit duo branch): the Trenches floor's shell (duoFloor.css `dfl-*`: rail | chart half | desk half at the crease,
@@ -65,8 +66,8 @@ body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, bo
    under the Brain drawer 5200 + AI panel 9000), Safari's visible viewport, the cockpit chart filling its measured --dfl-h, the money strip leading the
    desk half. Contract: docs/specs/site.md › Duo floors. */
 .dfl.dfl-agents { z-index: 4500; top: var(--adf-top, 0px); bottom: auto; height: var(--adf-vh, 100dvh); }
-.dfl.dfl-agents { background: radial-gradient(120% 80% at 80% 0%, rgba(162, 89, 255, .1), transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(155, 107, 255, .08), transparent 60%), #050806; }
-.dfl-agents .dfl-rb.is-on { background: rgba(162, 89, 255, .25); border-color: #a259ff; }
+.dfl.dfl-agents { background: radial-gradient(120% 80% at 80% 0%, rgba(162, 89, 255, .1), transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(155, 107, 255, .08), transparent 60%), var(--pcockpitp-bg1); }
+.dfl-agents .dfl-rb.is-on { background: rgba(162, 89, 255, .25); border-color: var(--pcockpitp-ac5); }
 .ack-duo.dfl-chart, .ack-duo.dfl-side { margin: 0; min-width: 0; gap: 0; }   /* the cockpit's own sections inside the floor's grid — the floor spaces with margins; .ack's 8px gap pushed the desk 6px off screen */
 
 
@@ -101,8 +102,8 @@ body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, bo
 .ack-duoseats { display: grid; gap: 8px; }
 /* ☰ HQ: the floor stepped aside — one card in the Agents tab brings it back */
 .ack-duo-away { display: grid; gap: 8px; justify-items: start; padding: 14px; border-radius: 14px; border: 1px solid rgba(162, 89, 255, .35); background: linear-gradient(135deg, rgba(162, 89, 255, .1), rgba(0, 0, 0, .3)); }
-.ack-duo-away p { margin: 0; font-size: 13px; color: #cfe0d6; }
-body.theme-day .dfl.dfl-agents { background: #f4f8f6; } body.theme-day .ack-duo-away { background: #f6f0ff; } body.theme-day .ack-duo-away p { color: #2a2340; }
+.ack-duo-away p { margin: 0; font-size: 13px; color: var(--pcockpitp-tx4); }
+body.theme-day .dfl.dfl-agents { background: var(--pcockpitp-tx5); } body.theme-day .ack-duo-away { background: var(--pcockpitp-tx6); } body.theme-day .ack-duo-away p { color: var(--pcockpitp-s21); }
 @media (max-width: 640px) { .dfl-agents .dfl-tabs button { font-size: 8.5px; } .dfl-agents .ack-chead { gap: 3px 8px; } }
 /* short landscape (a phone / folded Duo on its side, ≤ 520 px tall): the candles get the height — the ride bar under the chart already carries the seat's
    live P&L, so the tall P&L block steps aside, and the money strip is one row */

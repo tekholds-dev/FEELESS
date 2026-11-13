@@ -1,27 +1,28 @@
 /* ✨ Card pops (CardPops.jsx): a number floats off the card when money compounds / profit is taken; a coin near its lock charges up. */
+:root { /* page tokens (STYLE-1) */ --cp-ac1: #b48cff; --cp-ac2: #d9ffe9; --cp-ac3: #9fe3ff; --cp-ac4: #9b6bff; --cp-ac5: #a06eff; --cp-bg1: #000; --cp-dg1: #ff6b86; --cp-dg2: #ffc2cd; --cp-s21: #1d3b2b; --cp-tx1: #fff; --cp-wn1: #f5c451; --cp-wn2: #fff3cf; --cp-wn3: #c79a1e; }
 .cpop-wrap { position: relative; display: block; }
 .cpop { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
 /* small, and OUTSIDE the card at its top-right corner — it never covers the card's own numbers */
 .cpop-num { position: absolute; left: 100%; top: -4px; margin-left: 6px; display: grid; justify-items: start; gap: 2px; animation: cpopRise 2.5s cubic-bezier(.2, .8, .2, 1) both; white-space: nowrap; }
-.cpop-num b { font: 700 14px "JetBrains Mono", monospace; color: #b48cff; text-shadow: 0 0 10px rgba(155, 107, 255, .7); }
-.cpop-num small { font: 700 8px "JetBrains Mono", monospace; letter-spacing: .1em; color: #d9ffe9; padding: 1px 5px; border-radius: 999px; background: rgba(11, 13, 12, .85); border: 1px solid rgba(155, 107, 255, .45); }
-.cpop-num.is-out b { color: var(--gold, #f5c451); text-shadow: 0 0 10px rgba(245, 196, 81, .7); } .cpop-num.is-out small { border-color: rgba(245, 196, 81, .5); }
-.cpop-num.is-lock b { color: #9fe3ff; text-shadow: 0 0 10px rgba(120, 220, 255, .7); } .cpop-num.is-lock small { border-color: rgba(159, 227, 255, .5); }
+.cpop-num b { font: 700 14px "JetBrains Mono", monospace; color: var(--cp-ac1); text-shadow: 0 0 10px rgba(155, 107, 255, .7); }
+.cpop-num small { font: 700 8px "JetBrains Mono", monospace; letter-spacing: .1em; color: var(--cp-ac2); padding: 1px 5px; border-radius: 999px; background: rgba(11, 13, 12, .85); border: 1px solid rgba(155, 107, 255, .45); }
+.cpop-num.is-out b { color: var(--gold, var(--cp-wn1)); text-shadow: 0 0 10px rgba(245, 196, 81, .7); } .cpop-num.is-out small { border-color: rgba(245, 196, 81, .5); }
+.cpop-num.is-lock b { color: var(--cp-ac3); text-shadow: 0 0 10px rgba(120, 220, 255, .7); } .cpop-num.is-lock small { border-color: rgba(159, 227, 255, .5); }
 .cpop-near { position: absolute; left: 8px; right: 8px; bottom: 8px; display: grid; gap: 4px; }
 .cpop-charge { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 8px; overflow: hidden; background: rgba(7, 9, 8, .88); border: 1px solid rgba(245, 196, 81, .55); animation: cpopPulse 1.2s ease-in-out infinite; }
 .cpop-charge i { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(155, 107, 255, .35), rgba(245, 196, 81, .45)); transition: transform .5s ease; }
-.cpop-charge b, .cpop-charge small { position: relative; font: 700 10.5px "JetBrains Mono", monospace; color: #fff; white-space: nowrap; } .cpop-charge small { font-weight: 500; opacity: .85; }
+.cpop-charge b, .cpop-charge small { position: relative; font: 700 10.5px "JetBrains Mono", monospace; color: var(--cp-tx1); white-space: nowrap; } .cpop-charge small { font-weight: 500; opacity: .85; }
 /* 🎚 tiers: the effect grows with the money. t1 20c+ (the plain number) · t2 $1+ sparks · t3 $5+ gold burst + ring · t4 $20+ jackpot */
 .cpop-num.t1 b { font-size: 14px; } .cpop-num.t2 b { font-size: 17px; } .cpop-num.t3 b { font-size: 21px; } .cpop-num.t4 b { font: 800 26px var(--fz-font, "Unbounded"), sans-serif; }
-.cpop-num.t3 b, .cpop-num.t4 b { color: var(--gold, #f5c451); text-shadow: 0 0 14px rgba(245, 196, 81, .9), 0 0 30px rgba(245, 196, 81, .45); }
-.cpop-num.t3 small, .cpop-num.t4 small { border-color: rgba(245, 196, 81, .7); color: #fff3cf; }
+.cpop-num.t3 b, .cpop-num.t4 b { color: var(--gold, var(--cp-wn1)); text-shadow: 0 0 14px rgba(245, 196, 81, .9), 0 0 30px rgba(245, 196, 81, .45); }
+.cpop-num.t3 small, .cpop-num.t4 small { border-color: rgba(245, 196, 81, .7); color: var(--cp-wn2); }
 .cpop-num.t3 { animation-duration: 3.4s; } .cpop-num.t4 { animation-duration: 4s; }
-.cpop-bit { position: absolute; left: 22px; top: 10px; width: 4px; height: 4px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 6px #9b6bff; opacity: 0; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(0); animation: cpopBit 1s ease-out .12s both; }
-.cpop-num.t3 .cpop-bit { width: 7px; height: 7px; background: #f5c451; box-shadow: 0 0 8px #f5c451; border: 1px solid #fff3cf; animation-name: cpopBit3; animation-duration: 1.3s; }
-.cpop-num.t4 .cpop-bit { width: 5px; height: 9px; border-radius: 1px; background: #f5c451; box-shadow: none; animation-name: cpopBit4; animation-duration: 1.9s; }
-.cpop-num.t4 .cpop-bit:nth-child(3n) { background: #b48cff; } .cpop-num.t4 .cpop-bit:nth-child(3n + 1) { background: #a06eff; }
+.cpop-bit { position: absolute; left: 22px; top: 10px; width: 4px; height: 4px; border-radius: 50%; background: var(--cp-ac1); box-shadow: 0 0 6px var(--cp-ac4); opacity: 0; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(0); animation: cpopBit 1s ease-out .12s both; }
+.cpop-num.t3 .cpop-bit { width: 7px; height: 7px; background: var(--cp-wn1); box-shadow: 0 0 8px var(--cp-wn1); border: 1px solid var(--cp-wn2); animation-name: cpopBit3; animation-duration: 1.3s; }
+.cpop-num.t4 .cpop-bit { width: 5px; height: 9px; border-radius: 1px; background: var(--cp-wn1); box-shadow: none; animation-name: cpopBit4; animation-duration: 1.9s; }
+.cpop-num.t4 .cpop-bit:nth-child(3n) { background: var(--cp-ac1); } .cpop-num.t4 .cpop-bit:nth-child(3n + 1) { background: var(--cp-ac5); }
 .cpop-ring { position: absolute; left: 24px; top: 12px; width: 10px; height: 10px; margin: -5px; border-radius: 50%; border: 2px solid rgba(245, 196, 81, .9); opacity: 0; animation: cpopRing 1.1s ease-out .1s both; }
-.cpop-rays { position: absolute; left: 24px; top: 12px; width: 150px; height: 150px; margin: -75px; border-radius: 50%; opacity: 0; background: repeating-conic-gradient(rgba(245, 196, 81, .5) 0 8deg, transparent 8deg 24deg); -webkit-mask-image: radial-gradient(circle, #000 20%, transparent 68%); mask-image: radial-gradient(circle, #000 20%, transparent 68%); animation: cpopRays 3.6s linear both; }
+.cpop-rays { position: absolute; left: 24px; top: 12px; width: 150px; height: 150px; margin: -75px; border-radius: 50%; opacity: 0; background: repeating-conic-gradient(rgba(245, 196, 81, .5) 0 8deg, transparent 8deg 24deg); -webkit-mask-image: radial-gradient(circle, var(--cp-bg1) 20%, transparent 68%); mask-image: radial-gradient(circle, var(--cp-bg1) 20%, transparent 68%); animation: cpopRays 3.6s linear both; }
 .cpop-num b, .cpop-num small { position: relative; }
 @keyframes cpopBit3 { 0% { opacity: 1; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(6px) scale(1); } 100% { opacity: 0; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(52px) scale(.5); } }
 @keyframes cpopBit4 { 0% { opacity: 1; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(8px) rotate(0); } 100% { opacity: 0; transform: rotate(calc(var(--n) * 360deg / var(--of))) translateX(84px) rotate(540deg); } }
@@ -32,14 +33,14 @@
    under it (what · which coin · why). No pill, no box; the spark / coin effects stay for $5+ only. */
 .cpop-num, .cpop-num.t3, .cpop-num.t4 { animation: cpopHp 4s cubic-bezier(.2, .8, .2, 1) both; gap: 0; }
 .cpop-num.t1 b, .cpop-num.t2 b { font: 800 13px "JetBrains Mono", monospace; } .cpop-num.t3 b { font-size: 15px; } .cpop-num.t4 b { font-size: 18px; }
-.cpop-num b { text-shadow: 0 1px 0 #000, 0 0 8px rgba(155, 107, 255, .6); }
-.cpop-num small, .cpop-num.t3 small, .cpop-num.t4 small { padding: 0; border: 0; background: none; border-radius: 0; font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: .08em; color: #d9ffe9; opacity: .92; text-shadow: 0 1px 0 #000, 0 0 6px #000; }
-.cpop-num.is-neg b { color: #ff6b86; text-shadow: 0 1px 0 #000, 0 0 8px rgba(255, 107, 134, .7); } .cpop-num.is-neg small { color: #ffc2cd; } .cpop-num.is-neg { animation-name: cpopHit; }
+.cpop-num b { text-shadow: 0 1px 0 var(--cp-bg1), 0 0 8px rgba(155, 107, 255, .6); }
+.cpop-num small, .cpop-num.t3 small, .cpop-num.t4 small { padding: 0; border: 0; background: none; border-radius: 0; font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: .08em; color: var(--cp-ac2); opacity: .92; text-shadow: 0 1px 0 var(--cp-bg1), 0 0 6px var(--cp-bg1); }
+.cpop-num.is-neg b { color: var(--cp-dg1); text-shadow: 0 1px 0 var(--cp-bg1), 0 0 8px rgba(255, 107, 134, .7); } .cpop-num.is-neg small { color: var(--cp-dg2); } .cpop-num.is-neg { animation-name: cpopHit; }
 .cpop-num.t1 .cpop-bit, .cpop-num.t2 .cpop-bit { display: none; }
 @keyframes cpopHp { 0% { transform: translateY(8px) scale(.8); opacity: 0; } 6% { transform: translateY(0) scale(1.18); opacity: 1; } 12% { transform: translateY(-2px) scale(1); } 80% { opacity: 1; } 100% { transform: translateY(-34px) scale(1); opacity: 0; } }
 @keyframes cpopHit { 0% { transform: translate(0, 4px) scale(.8); opacity: 0; } 5% { transform: translate(-3px, 0) scale(1.2); opacity: 1; } 9% { transform: translate(3px, 0) scale(1.1); } 13% { transform: translate(0, 0) scale(1); } 80% { opacity: 1; } 100% { transform: translate(0, 26px) scale(1); opacity: 0; } }
 @keyframes cpopPulse { 50% { transform: scale(1.03); } }
 body.fx-lite .cpop-num { display: none; } body.fx-lite .cpop-charge { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cpop-num { display: none; } .cpop-charge { animation: none; } }
-body.theme-day .cpop-charge { background: rgba(255, 255, 255, .94); border-color: #c79a1e; } body.theme-day .cpop-charge b, body.theme-day .cpop-charge small { color: #1d3b2b; }
+body.theme-day .cpop-charge { background: rgba(255, 255, 255, .94); border-color: var(--cp-wn3); } body.theme-day .cpop-charge b, body.theme-day .cpop-charge small { color: var(--cp-s21); }
 @media (max-width: 640px) { .cpop-num { left: auto; right: 0; top: -22px; margin: 0; justify-items: end; } }

@@ -21,3 +21,15 @@ def test_roles_alpha_day_and_comments():
 def test_only_filter_leaves_other_rules():
     out = h2t.convert('.clx-a{color:#fff} .other{color:#fff}', only=r'\.clx-')
     assert out == '.clx-a{color:var(--m-text)} .other{color:#fff}'
+
+
+def test_palette_mode_is_pixel_identical_and_idempotent():
+    """STYLE-1: every colour → one page token declared once; putting the hex back gives the original exactly; url()/comments untouched."""
+    css = "/* keep #123 */\n.a{color:#FF0000;background:#111;border:1px solid #ff0000}\n.b{background:url('x#fff.png');box-shadow:0 0 0 #19e68c80}\n@media (max-width:640px){.c{color:#111}}\n"
+    H = h2t
+    out, pal = H.palette(css, 'xy')
+    assert H.outside(out) == 0 and len(pal) == 3                     # #FF0000 / #ff0000 are one token
+    assert "url('x#fff.png')" in out and '/* keep #123 */' in out
+    assert H.unpalette(out).replace('#ff0000', '#FF0000', 1) == css or H.unpalette(out).lower() == css.lower()
+    assert H.palette(out, 'xy')[0] == out                             # a second run changes nothing
+    assert H.prefix('catWorkbench.css') == 'cw' and H.prefix('boosts.css') == 'boo'

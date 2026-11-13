@@ -1,4 +1,5 @@
 /* 🧰 Mini box panes (FeeCat widget): Mine + Top 10. Built from m-* tokens; rows stagger in via --i. */
+:root { /* page tokens (STYLE-1) */ --md-ac1: #c9a8ff; --md-ac2: #cfe6da; --md-ac3: #5a33bd; --md-sf1: #0c0a1e; --md-tx1: #eaf7f0; --md-tx2: #f1faf5; --md-tx3: #fff; }
 .md { display: grid; gap: 8px; padding: 12px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--m-accent) 40%, transparent) transparent; }
 .md::-webkit-scrollbar { width: 6px; } .md::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--m-accent) 40%, transparent); border-radius: 6px; }
 .md.is-ghost { min-height: 120px; opacity: .4; }
@@ -19,12 +20,12 @@
 .mini-bar b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
 .mini-bar button { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); background: none; color: inherit; cursor: pointer; transition: background .15s, transform .15s; }
 .mini-bar button:hover { background: color-mix(in srgb, var(--m-accent) 15%, transparent); } .mini-bar button:active { transform: scale(.92); } .mini-bar button:focus-visible { outline: 1px solid var(--m-accent); outline-offset: 2px; }
-.mini-bar .is-play { background: var(--m-accent); color: #0c0a1e; border-color: var(--m-accent); }
+.mini-bar .is-play { background: var(--m-accent); color: var(--md-sf1); border-color: var(--m-accent); }
 @keyframes mdIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .md-list li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .md-list li { animation: none; } .md-list button, .md-fuse, .mini-bar button { transition: none; } }
-body.theme-day .md-list button:hover { background: #eaf7f0; border-color: #c9a8ff; } body.theme-day .md-fuse { background: #f1faf5; border-color: #c9a8ff; }
-body.theme-day .mini-bar { border-top-color: #cfe6da; } body.theme-day .mini-bar button { border-color: #c9a8ff; } body.theme-day .mini-bar .is-play { background: #5a33bd; color: #fff; border-color: #5a33bd; }
+body.theme-day .md-list button:hover { background: var(--md-tx1); border-color: var(--md-ac1); } body.theme-day .md-fuse { background: var(--md-tx2); border-color: var(--md-ac1); }
+body.theme-day .mini-bar { border-top-color: var(--md-ac2); } body.theme-day .mini-bar button { border-color: var(--md-ac1); } body.theme-day .mini-bar .is-play { background: var(--md-ac3); color: var(--md-tx3); border-color: var(--md-ac3); }
 @media (max-width: 640px) { .md { padding: 10px; } .md-list button { grid-template-columns: 14px auto minmax(0, 1fr) auto 50px; gap: 6px; } }
 
 /* 🧠 the creator's Brain tab: a wider panel + a tab row that scrolls instead of squeezing (five tabs) */

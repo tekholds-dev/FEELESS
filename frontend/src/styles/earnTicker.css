@@ -1,12 +1,13 @@
 /* 💸 EarnTicker.jsx (`etk`) — the money ticking up every second: a green digit roll + a pulsing coin dot. m-* tokens; transform / opacity only. */
+:root { /* page tokens (STYLE-1) */ --et-ac1: #b48cff; --et-ac2: #9bc7ad; --et-ac3: #0a8a44; --et-ac4: #3f6b52; --et-dm1: #8fb39f; --et-tx1: #eefaf2; }
 .etk { position: relative; display: inline-grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; padding: 6px 10px 6px 22px; border-radius: 10px;
   background: rgba(155, 107, 255, .07); border: 1px solid rgba(180, 140, 255, .25); line-height: 1.1; }
-.etk::before { content: ''; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: #b48cff; box-shadow: 0 0 8px #b48cff; animation: etkBeat 1s ease-in-out infinite; }
-.etk em { grid-column: 1 / -1; font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #9bc7ad; }
-.etk b { font: 900 16px 'JetBrains Mono', monospace; color: #b48cff; text-shadow: 0 0 12px rgba(180, 140, 255, .45); animation: etkRoll .5s ease-out; }
-.etk small { font: 700 9px 'JetBrains Mono', monospace; color: #8fb39f; } .etk:not(.is-on) b { color: #8fb39f; text-shadow: none; } .etk:not(.is-on)::before { animation: none; opacity: .4; }
+.etk::before { content: ''; position: absolute; left: 8px; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; background: var(--et-ac1); box-shadow: 0 0 8px var(--et-ac1); animation: etkBeat 1s ease-in-out infinite; }
+.etk em { grid-column: 1 / -1; font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: var(--et-ac2); }
+.etk b { font: 900 16px 'JetBrains Mono', monospace; color: var(--et-ac1); text-shadow: 0 0 12px rgba(180, 140, 255, .45); animation: etkRoll .5s ease-out; }
+.etk small { font: 700 9px 'JetBrains Mono', monospace; color: var(--et-dm1); } .etk:not(.is-on) b { color: var(--et-dm1); text-shadow: none; } .etk:not(.is-on)::before { animation: none; opacity: .4; }
 @keyframes etkRoll { from { opacity: .35; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 @keyframes etkBeat { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.7); } }
 body.fx-lite .etk b, body.fx-lite .etk::before { animation: none; } @media (prefers-reduced-motion: reduce) { .etk b, .etk::before { animation: none; } }
-body.theme-day .etk { background: #eefaf2; } body.theme-day .etk b { color: #0a8a44; text-shadow: none; } body.theme-day .etk em, body.theme-day .etk small { color: #3f6b52; }
+body.theme-day .etk { background: var(--et-tx1); } body.theme-day .etk b { color: var(--et-ac3); text-shadow: none; } body.theme-day .etk em, body.theme-day .etk small { color: var(--et-ac4); }
 @media (max-width: 640px) { .etk b { font-size: 14px; } }

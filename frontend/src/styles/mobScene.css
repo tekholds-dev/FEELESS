@@ -1,36 +1,37 @@
 /* 🌃 MobScene (mob-*): the family's city at night behind La Familia. Static skylines (gradients), moving bits = transform / opacity only. */
-.mob { position: absolute; inset: 0 0 auto 0; height: 300px; -webkit-mask-image: linear-gradient(#000 88%, transparent); mask-image: linear-gradient(#000 88%, transparent); z-index: -1; overflow: hidden; pointer-events: none; border-radius: 18px; contain: paint; --mob-heat: .3; --mob-rain: 1.3s; }
-.mob-sky { position: absolute; inset: 0; background: radial-gradient(70% 38% at 50% 72%, #7a3220 0%, #3a1622 40%, transparent 75%), radial-gradient(90% 60% at 70% 0%, #2b1a3a 0%, #120a18 45%, #0a0610 100%); }
-.mob-moon { position: absolute; top: 10%; right: 12%; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, #fff3d6, #d8b98a 55%, #d8b98a00 72%);
-  opacity: .55; box-shadow: 0 0 80px 30px #f1d27a18; }
+:root { /* page tokens (STYLE-1) */ --pms-ac1: #9fd8ff; --pms-ac2: #9fd8ff66; --pms-ac3: #c9d6ff55; --pms-bg1: #000; --pms-bg2: #0a0610; --pms-bg3: #0d0911; --pms-bg4: #060407; --pms-bg5: #050305; --pms-bg6: #070508; --pms-bg7: #0a0709; --pms-bg8: #030203; --pms-bg9: #000000b0; --pms-dg1: #7a3220; --pms-dg2: #ff4d6d; --pms-dg3: #ffd6de; --pms-dg4: #ff4d6d30; --pms-dg5: #ff4d6d99; --pms-dg6: #ff4d6d00; --pms-s21: #3a1622; --pms-s22: #2b1a3a; --pms-s23: #2a2026; --pms-sf1: #120a18; --pms-sf2: #1b1418; --pms-wn1: #fff3d6; --pms-wn10: #fff6d800; --pms-wn11: #d9c9a81c; --pms-wn2: #d8b98a; --pms-wn3: #d8b98a00; --pms-wn4: #f1d27a18; --pms-wn5: #ffd36b; --pms-wn6: #ffd36b88; --pms-wn7: #ff9f45; --pms-wn8: #ffd36b33; --pms-wn9: #fff6d8cc; }
+.mob { position: absolute; inset: 0 0 auto 0; height: 300px; -webkit-mask-image: linear-gradient(var(--pms-bg1) 88%, transparent); mask-image: linear-gradient(var(--pms-bg1) 88%, transparent); z-index: -1; overflow: hidden; pointer-events: none; border-radius: 18px; contain: paint; --mob-heat: .3; --mob-rain: 1.3s; }
+.mob-sky { position: absolute; inset: 0; background: radial-gradient(70% 38% at 50% 72%, var(--pms-dg1) 0%, var(--pms-s21) 40%, transparent 75%), radial-gradient(90% 60% at 70% 0%, var(--pms-s22) 0%, var(--pms-sf1) 45%, var(--pms-bg2) 100%); }
+.mob-moon { position: absolute; top: 10%; right: 12%; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 40% 40%, var(--pms-wn1), var(--pms-wn2) 55%, var(--pms-wn3) 72%);
+  opacity: .55; box-shadow: 0 0 80px 30px var(--pms-wn4); }
 .mob-city { position: absolute; left: 0; right: 0; bottom: 28%; }
 /* skylines: hard-edged gradient columns of different heights */
 .mob-far { height: 46%; opacity: .8; background:
-  linear-gradient(90deg, #0d0911 0 6%, transparent 6% 8%, #0d0911 8% 15%, transparent 15% 17%, #0d0911 17% 21%, transparent 21% 24%, #0d0911 24% 33%, transparent 33% 35%, #0d0911 35% 41%,
-    transparent 41% 44%, #0d0911 44% 52%, transparent 52% 54%, #0d0911 54% 62%, transparent 62% 65%, #0d0911 65% 73%, transparent 73% 75%, #0d0911 75% 84%, transparent 84% 86%, #0d0911 86% 100%) bottom / 100% 70% no-repeat,
-  linear-gradient(90deg, transparent 0 10%, #0d0911 10% 13%, transparent 13% 37%, #0d0911 37% 39%, transparent 39% 67%, #0d0911 67% 70%, transparent 70%) bottom / 100% 100% no-repeat; }
+  linear-gradient(90deg, var(--pms-bg3) 0 6%, transparent 6% 8%, var(--pms-bg3) 8% 15%, transparent 15% 17%, var(--pms-bg3) 17% 21%, transparent 21% 24%, var(--pms-bg3) 24% 33%, transparent 33% 35%, var(--pms-bg3) 35% 41%,
+    transparent 41% 44%, var(--pms-bg3) 44% 52%, transparent 52% 54%, var(--pms-bg3) 54% 62%, transparent 62% 65%, var(--pms-bg3) 65% 73%, transparent 73% 75%, var(--pms-bg3) 75% 84%, transparent 84% 86%, var(--pms-bg3) 86% 100%) bottom / 100% 70% no-repeat,
+  linear-gradient(90deg, transparent 0 10%, var(--pms-bg3) 10% 13%, transparent 13% 37%, var(--pms-bg3) 37% 39%, transparent 39% 67%, var(--pms-bg3) 67% 70%, transparent 70%) bottom / 100% 100% no-repeat; }
 .mob-mid { height: 36%; opacity: .85; background:
-  linear-gradient(90deg, #060407 0 9%, transparent 9% 11%, #060407 11% 19%, transparent 19% 22%, #060407 22% 30%, transparent 30% 31%, #060407 31% 43%, transparent 43% 46%, #060407 46% 55%,
-    transparent 55% 57%, #060407 57% 69%, transparent 69% 72%, #060407 72% 80%, transparent 80% 82%, #060407 82% 100%) bottom / 100% 78% no-repeat,
-  linear-gradient(90deg, transparent 0 25%, #060407 25% 28%, transparent 28% 60%, #060407 60% 64%, transparent 64%) bottom / 100% 100% no-repeat; }
-.mob-near { bottom: 18% !important; height: 18%; background: linear-gradient(180deg, transparent, #050305 40%), linear-gradient(90deg, #070508 0 30%, transparent 30% 33%, #070508 33% 70%, transparent 70% 72%, #070508 72%) bottom / 100% 70% no-repeat; }
-.mob-wins i { position: absolute; width: 6px; height: 8px; border-radius: 1px; background: #ffd36b; box-shadow: 0 0 8px #ffd36b88; opacity: calc(.15 + var(--mob-heat) * .6);
+  linear-gradient(90deg, var(--pms-bg4) 0 9%, transparent 9% 11%, var(--pms-bg4) 11% 19%, transparent 19% 22%, var(--pms-bg4) 22% 30%, transparent 30% 31%, var(--pms-bg4) 31% 43%, transparent 43% 46%, var(--pms-bg4) 46% 55%,
+    transparent 55% 57%, var(--pms-bg4) 57% 69%, transparent 69% 72%, var(--pms-bg4) 72% 80%, transparent 80% 82%, var(--pms-bg4) 82% 100%) bottom / 100% 78% no-repeat,
+  linear-gradient(90deg, transparent 0 25%, var(--pms-bg4) 25% 28%, transparent 28% 60%, var(--pms-bg4) 60% 64%, transparent 64%) bottom / 100% 100% no-repeat; }
+.mob-near { bottom: 18% !important; height: 18%; background: linear-gradient(180deg, transparent, var(--pms-bg5) 40%), linear-gradient(90deg, var(--pms-bg6) 0 30%, transparent 30% 33%, var(--pms-bg6) 33% 70%, transparent 70% 72%, var(--pms-bg6) 72%) bottom / 100% 70% no-repeat; }
+.mob-wins i { position: absolute; width: 6px; height: 8px; border-radius: 1px; background: var(--pms-wn5); box-shadow: 0 0 8px var(--pms-wn6); opacity: calc(.15 + var(--mob-heat) * .6);
   animation: mobWin 7s ease-in-out infinite; animation-delay: calc(var(--i) * -.83s); }
-.mob-wins i:nth-child(3n) { background: #ff9f45; } .mob-wins i:nth-child(5n) { background: #9fd8ff; box-shadow: 0 0 8px #9fd8ff66; }
-.mob-sign { position: absolute; left: 6%; bottom: 40%; padding: 4px 10px; border: 2px solid #ff4d6d; border-radius: 6px; transform: rotate(-3deg); }
-.mob-sign span { display: block; font: 700 15px 'Cinzel', Georgia, serif; letter-spacing: 4px; color: #ffd6de; text-shadow: 0 0 6px #ff4d6d, 0 0 18px #ff4d6d; animation: mobFlick 6s ease-in-out infinite; }
-.mob-sign::after { content: ''; position: absolute; inset: -14px; border-radius: 12px; background: radial-gradient(closest-side, #ff4d6d30, transparent); animation: mobFlick 6s ease-in-out infinite; }
-.mob-lamp { position: absolute; right: 18%; bottom: 28%; width: 4px; height: 30%; background: #1b1418; }
-.mob-lamp::before { content: ''; position: absolute; top: -6px; left: -10px; width: 24px; height: 8px; border-radius: 6px 6px 2px 2px; background: #2a2026; }
-.mob-lamp i { position: absolute; top: 2px; left: -70px; width: 144px; height: 220px; background: radial-gradient(60% 100% at 50% 0%, #ffd36b33, transparent 70%); transform-origin: top; animation: mobLamp 5s ease-in-out infinite; }
-.mob-street { position: absolute; left: 0; right: 0; bottom: 22%; height: 7%; background: linear-gradient(180deg, #0a0709, #030203); }
-.mob-car { position: absolute; bottom: 30%; left: 0; width: 160px; height: 14px; border-radius: 50%; background: radial-gradient(closest-side, #fff6d8cc, #fff6d800); animation: mobCar 14s linear infinite; }
-.mob-car.is-back { width: 70px; height: 8px; background: radial-gradient(closest-side, #ff4d6d99, #ff4d6d00); animation-duration: 19s; animation-delay: -7s; animation-direction: reverse; }
-.mob-rain i { position: absolute; top: -20%; width: 1px; height: 60px; background: linear-gradient(180deg, transparent, #c9d6ff55); opacity: .5;
+.mob-wins i:nth-child(3n) { background: var(--pms-wn7); } .mob-wins i:nth-child(5n) { background: var(--pms-ac1); box-shadow: 0 0 8px var(--pms-ac2); }
+.mob-sign { position: absolute; left: 6%; bottom: 40%; padding: 4px 10px; border: 2px solid var(--pms-dg2); border-radius: 6px; transform: rotate(-3deg); }
+.mob-sign span { display: block; font: 700 15px 'Cinzel', Georgia, serif; letter-spacing: 4px; color: var(--pms-dg3); text-shadow: 0 0 6px var(--pms-dg2), 0 0 18px var(--pms-dg2); animation: mobFlick 6s ease-in-out infinite; }
+.mob-sign::after { content: ''; position: absolute; inset: -14px; border-radius: 12px; background: radial-gradient(closest-side, var(--pms-dg4), transparent); animation: mobFlick 6s ease-in-out infinite; }
+.mob-lamp { position: absolute; right: 18%; bottom: 28%; width: 4px; height: 30%; background: var(--pms-sf2); }
+.mob-lamp::before { content: ''; position: absolute; top: -6px; left: -10px; width: 24px; height: 8px; border-radius: 6px 6px 2px 2px; background: var(--pms-s23); }
+.mob-lamp i { position: absolute; top: 2px; left: -70px; width: 144px; height: 220px; background: radial-gradient(60% 100% at 50% 0%, var(--pms-wn8), transparent 70%); transform-origin: top; animation: mobLamp 5s ease-in-out infinite; }
+.mob-street { position: absolute; left: 0; right: 0; bottom: 22%; height: 7%; background: linear-gradient(180deg, var(--pms-bg7), var(--pms-bg8)); }
+.mob-car { position: absolute; bottom: 30%; left: 0; width: 160px; height: 14px; border-radius: 50%; background: radial-gradient(closest-side, var(--pms-wn9), var(--pms-wn10)); animation: mobCar 14s linear infinite; }
+.mob-car.is-back { width: 70px; height: 8px; background: radial-gradient(closest-side, var(--pms-dg5), var(--pms-dg6)); animation-duration: 19s; animation-delay: -7s; animation-direction: reverse; }
+.mob-rain i { position: absolute; top: -20%; width: 1px; height: 60px; background: linear-gradient(180deg, transparent, var(--pms-ac3)); opacity: .5;
   animation: mobRain var(--mob-rain) linear infinite; animation-delay: calc(var(--i) * -.17s); }
-.mob-smoke i { position: absolute; bottom: -10%; width: 38%; height: 50%; border-radius: 50%; background: radial-gradient(circle, #d9c9a81c, transparent 65%); animation: mobSmoke 18s ease-in-out infinite; }
+.mob-smoke i { position: absolute; bottom: -10%; width: 38%; height: 50%; border-radius: 50%; background: radial-gradient(circle, var(--pms-wn11), transparent 65%); animation: mobSmoke 18s ease-in-out infinite; }
 .mob-smoke i:nth-child(1) { left: 2%; } .mob-smoke i:nth-child(2) { left: 38%; animation-delay: -6s; } .mob-smoke i:nth-child(3) { left: 68%; animation-delay: -12s; }
-.mob-vignette { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 40%, transparent 50%, #000000b0 100%); }
+.mob-vignette { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 40%, transparent 50%, var(--pms-bg9) 100%); }
 @keyframes mobWin { 0%, 40% { opacity: calc(.15 + var(--mob-heat) * .6); } 50%, 70% { opacity: .04; } 80%, 100% { opacity: calc(.15 + var(--mob-heat) * .6); } }
 @keyframes mobFlick { 0%, 100% { opacity: 1; } 50% { opacity: .78; } }   /* calm: the neon breathes, no seizure flicker */
 @keyframes mobLamp { 0%, 100% { opacity: .85; } 50% { opacity: 1; } }

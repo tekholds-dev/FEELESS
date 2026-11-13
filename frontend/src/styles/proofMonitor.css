@@ -1,4 +1,5 @@
 /* 🖥 Proofs on the desk monitors, each kind its own live view (ProofMonitor.jsx). m-* tokens; transform/opacity motion only. */
+:root { /* page tokens (STYLE-1) */ --ppm-ac1: #19e68c; --ppm-bg1: #000; }
 .cwb-proof.is-rich { align-content: stretch; justify-items: stretch; grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px; text-align: left; }
 .cwb-proof-h { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cwb-proof-h > i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-style: normal; background: color-mix(in srgb, var(--m-text) 8%, transparent); }
@@ -12,7 +13,7 @@
 .pmn-ps { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 8px; height: 100%; }
 .pmn-code, .pmn-page { position: relative; display: grid; grid-template-rows: 20px minmax(0, 1fr); min-height: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-bg) 88%, var(--m-accent)); }
 .pmn-code ol { margin: 0; padding: 6px 8px; list-style: none; font: 500 9.5px/1.55 var(--f-mono); color: color-mix(in srgb, var(--m-accent) 55%, var(--m-text)); white-space: pre; overflow: hidden; animation: pmnScroll calc(var(--n, 60) * .9s) linear infinite; }
-.pmn-code { mask-image: linear-gradient(180deg, #000 80%, transparent); } .pmn-code li { overflow: hidden; text-overflow: ellipsis; }
+.pmn-code { mask-image: linear-gradient(180deg, var(--ppm-bg1) 80%, transparent); } .pmn-code li { overflow: hidden; text-overflow: ellipsis; }
 .cwb-proof:hover .pmn-code ol { animation-play-state: paused; }
 .pmn-page iframe { width: 200%; height: 200%; border: 0; transform: scale(.5); transform-origin: 0 0; pointer-events: none; background: var(--m-bg); }
 /* PoW: the coin, its P&L, the minds */
@@ -31,8 +32,8 @@
 .pmn-sites li.is-read { color: var(--m-accent); border-style: solid; border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
 /* PoC: the page it read and the words it found */
 .pmn-poc { position: relative; height: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--m-line); } .pmn-poc img { width: 100%; height: 100%; object-fit: cover; object-position: top; animation: pmnPan 18s ease-in-out infinite alternate; }
-.pmn-poc video { width: 100%; height: 100%; object-fit: cover; } .pmn-made { font: 700 9.5px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mint, #19e68c); }
-.pmn-idea { margin: 0; display: grid; place-items: center; height: 100%; padding: 12px 14px 44px; font: 600 12.5px/1.5 var(--f-ui); color: var(--m-text); text-align: center; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--m-mint, #19e68c) 12%, transparent), transparent 70%); }
+.pmn-poc video { width: 100%; height: 100%; object-fit: cover; } .pmn-made { font: 700 9.5px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--m-mint, var(--ppm-ac1)); }
+.pmn-idea { margin: 0; display: grid; place-items: center; height: 100%; padding: 12px 14px 44px; font: 600 12.5px/1.5 var(--f-ui); color: var(--m-text); text-align: center; background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--m-mint, var(--ppm-ac1)) 12%, transparent), transparent 70%); }
 .pmn-poc-say { position: absolute; inset: auto 0 0; display: grid; gap: 4px; padding: 18px 10px 8px; background: linear-gradient(0deg, color-mix(in srgb, var(--m-bg) 92%, transparent), transparent); } .pmn-poc-say b { font: 800 12.5px var(--f-display); color: var(--m-text); }
 .pmn-words { display: flex; flex-wrap: wrap; gap: 4px; } .pmn-words em { padding: 1px 7px; border-radius: 99px; font: 700 9.5px var(--f-mono); font-style: normal; color: var(--m-accent-ink); background: var(--m-accent); }
 /* PoEco: its months in and out */

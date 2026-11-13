@@ -1,4 +1,5 @@
 /* 🪪 WalletPfp (wpf-*): a round wallet picture — the profile image, else the address's own mark. Static (no animation). */
-.wpf { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: #111; vertical-align: middle; }
+:root { /* page tokens (STYLE-1) */ --pwp-ac1: #9b6bff; --pwp-sf1: #111; }
+.wpf { position: relative; display: inline-grid; place-items: center; flex: none; border-radius: 50%; overflow: hidden; background: var(--pwp-sf1); vertical-align: middle; }
 .wpf img, .wpf .wpf-mark { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 50%; }
-.wpf.has-ring { box-shadow: 0 0 0 2px var(--ring, #9b6bff); }
+.wpf.has-ring { box-shadow: 0 0 0 2px var(--ring, var(--pwp-ac1)); }

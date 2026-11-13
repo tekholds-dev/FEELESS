@@ -2,11 +2,12 @@
    (`.token-avatar` — TokenAvatar is the logo everywhere) and every card stage (`.mc-stage` — MetaCard, so Fuse / badge / tier cards): on
    hover / focus a soft glow plus thin light rays that fan out and turn slowly behind it. Pseudo-layers only, transform / opacity only, the
    rays exist only while hovered (no idle cost), gone in fx-lite / reduced motion. New surface ⇒ add its root class to these selectors. */
+:root { /* page tokens (STYLE-1) */ --hr-bg1: #000; }
 .token-avatar { overflow: visible; }
 .token-avatar::after, .mc-stage::after { content: ''; position: absolute; pointer-events: none; z-index: -1; border-radius: 50%; opacity: 0;
   background: radial-gradient(circle, rgba(180, 140, 255, .55) 0 18%, rgba(180, 140, 255, .14) 34%, transparent 62%),
     repeating-conic-gradient(from 0deg, rgba(180, 255, 214, .55) 0deg 1.4deg, transparent 1.4deg 14deg);
-  -webkit-mask: radial-gradient(circle, #000 28%, rgba(0, 0, 0, .55) 46%, transparent 70%); mask: radial-gradient(circle, #000 28%, rgba(0, 0, 0, .55) 46%, transparent 70%);
+  -webkit-mask: radial-gradient(circle, var(--hr-bg1) 28%, rgba(0, 0, 0, .55) 46%, transparent 70%); mask: radial-gradient(circle, var(--hr-bg1) 28%, rgba(0, 0, 0, .55) 46%, transparent 70%);
   transform: scale(.55) rotate(0deg); transition: opacity .2s ease, transform .35s cubic-bezier(.2, .8, .2, 1); }
 .token-avatar::after { inset: -85%; }
 .mc-stage { position: relative; isolation: isolate; }

@@ -1,4 +1,5 @@
 /* 🧹 HQ › Lag catcher › Code health (CodeHealth.jsx) — built from m-* tokens */
+:root { /* page tokens (STYLE-1) */ --ch-dg1: #ff8fa3; --ch-wn1: #ffd36b; }
 .chl { margin-top: 10px; display: grid; gap: 8px; }
 .chl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .chl-head h4 { margin: 0; }
@@ -36,5 +37,5 @@ body.theme-day .chl-bar i { opacity: .4; }
   .chl-bar, .chl-fix { grid-column: 1 / -1; }
 }
 /* 🗑 queue a removal (never deletes from here: build queue → a gated commit) */
-.chl-rm { min-height: 32px; font-size: 11px; white-space: nowrap; } .chl-rm:hover { border-color: #ff8fa3; color: #ff8fa3; }
-.chl-q { font: 700 10px 'JetBrains Mono', monospace; color: var(--gold, #ffd36b); white-space: nowrap; }
+.chl-rm { min-height: 32px; font-size: 11px; white-space: nowrap; } .chl-rm:hover { border-color: var(--ch-dg1); color: var(--ch-dg1); }
+.chl-q { font: 700 10px 'JetBrains Mono', monospace; color: var(--gold, var(--ch-wn1)); white-space: nowrap; }

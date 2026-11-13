@@ -1,5 +1,6 @@
 /* FEELESS palette on HeroUI's tokens. Night is the default; the day theme sets `.light` on <html> (lib/theme sync).
    Same selectors HeroUI uses, unlayered, so its own colour-mix hover tokens recompute from these values. */
+:root { /* page tokens (STYLE-1) */ --ht-ac1: #9b6bff; --ht-ac2: #b48cff; --ht-ac3: #6a3fd0; --ht-ac4: #5a33bd; --ht-bg1: #03140a; --ht-bg2: #050b08; --ht-dg1: #ff8fa3; --ht-dg2: #d6324f; --ht-mu1: #8aa396; --ht-mu2: #6f8a7c; --ht-s21: #15241c; --ht-s22: #16241d; --ht-s23: #1c2e24; --ht-sf1: #120d26; --ht-sf2: #101c16; --ht-sf3: #0c1612; --ht-sf4: #0e1913; --ht-sf5: #1b2c23; --ht-sf6: #2a0710; --ht-sf7: #1d1503; --ht-tx1: #e9f7ef; --ht-tx2: #ffffff; --ht-wn1: #f0c75e; }
 @theme {
   --color-muted-foreground: var(--muted);
   --color-card: var(--surface);
@@ -14,49 +15,49 @@
 
 :root,
 .dark {
-  --accent: #9b6bff;
-  --accent-foreground: #03140a;
-  --success: #9b6bff;
-  --success-foreground: #03140a;
+  --accent: var(--ht-ac1);
+  --accent-foreground: var(--ht-bg1);
+  --success: var(--ht-ac1);
+  --success-foreground: var(--ht-bg1);
   --radius: 0.625rem;
 }
 
 .dark {
-  --background: #050b08;
-  --foreground: #e9f7ef;
-  --surface: #120d26;
-  --surface-foreground: #e9f7ef;
-  --surface-secondary: #101c16;
-  --surface-secondary-foreground: #e9f7ef;
-  --surface-tertiary: #15241c;
-  --surface-tertiary-foreground: #e9f7ef;
-  --overlay: #0c1612;
-  --overlay-foreground: #e9f7ef;
-  --muted: #8aa396;
-  --default: #16241d;
-  --default-foreground: #e9f7ef;
-  --field-background: #0e1913;
-  --field-foreground: #e9f7ef;
-  --field-placeholder: #6f8a7c;
-  --segment: #1c2e24;
-  --segment-foreground: #e9f7ef;
-  --border: #1b2c23;
-  --separator: #16241d;
-  --focus: #b48cff;
-  --link: #b48cff;
-  --danger: #ff8fa3;
-  --danger-foreground: #2a0710;
-  --warning: #f0c75e;
-  --warning-foreground: #1d1503;
+  --background: var(--ht-bg2);
+  --foreground: var(--ht-tx1);
+  --surface: var(--ht-sf1);
+  --surface-foreground: var(--ht-tx1);
+  --surface-secondary: var(--ht-sf2);
+  --surface-secondary-foreground: var(--ht-tx1);
+  --surface-tertiary: var(--ht-s21);
+  --surface-tertiary-foreground: var(--ht-tx1);
+  --overlay: var(--ht-sf3);
+  --overlay-foreground: var(--ht-tx1);
+  --muted: var(--ht-mu1);
+  --default: var(--ht-s22);
+  --default-foreground: var(--ht-tx1);
+  --field-background: var(--ht-sf4);
+  --field-foreground: var(--ht-tx1);
+  --field-placeholder: var(--ht-mu2);
+  --segment: var(--ht-s23);
+  --segment-foreground: var(--ht-tx1);
+  --border: var(--ht-sf5);
+  --separator: var(--ht-s22);
+  --focus: var(--ht-ac2);
+  --link: var(--ht-ac2);
+  --danger: var(--ht-dg1);
+  --danger-foreground: var(--ht-sf6);
+  --warning: var(--ht-wn1);
+  --warning-foreground: var(--ht-sf7);
 }
 
 .light {
-  --accent: #6a3fd0;
-  --accent-foreground: #ffffff;
-  --success: #6a3fd0;
-  --success-foreground: #ffffff;
-  --focus: #6a3fd0;
-  --link: #5a33bd;
-  --danger: #d6324f;
-  --danger-foreground: #ffffff;
+  --accent: var(--ht-ac3);
+  --accent-foreground: var(--ht-tx2);
+  --success: var(--ht-ac3);
+  --success-foreground: var(--ht-tx2);
+  --focus: var(--ht-ac3);
+  --link: var(--ht-ac4);
+  --danger: var(--ht-dg2);
+  --danger-foreground: var(--ht-tx2);
 }

@@ -1,9 +1,10 @@
 /* 🔍 One zoom for every marked picture and the big print. */
+:root { /* page tokens (STYLE-1) */ --zp-ac1: #5bb8ff; --zp-bg1: #070b12e6; --zp-bg2: #00000026; --zp-sf1: #101826; --zp-tx1: #ffffff2b; --zp-tx2: #e6edf8; --zp-tx3: #ffffff1a; --zp-tx4: #ffffffec; }
 .zmp { position: relative; overflow: hidden; width: 100%; min-width: 0; cursor: zoom-in; } .zmp.is-in { cursor: grab; touch-action: none; } .zmp.is-in:active { cursor: grabbing; } .zmp.is-still { cursor: crosshair; }
 .zmp-in { transform-origin: 0 0; will-change: transform; } .zmp-in.is-glide { transition: transform .34s cubic-bezier(.22, .8, .25, 1); }
-.zmp-ctl { position: absolute; right: 8px; bottom: 8px; z-index: 3; display: flex; border-radius: 9px; border: 1px solid #ffffff2b; background: #070b12e6; opacity: .72; transition: opacity .15s; } .zmp:hover .zmp-ctl, .zmp-ctl:focus-within { opacity: 1; }
-.zmp-ctl button { min-width: 32px; height: 32px; padding: 0 6px; border: 0; background: none; color: #e6edf8; font-size: 12px; cursor: pointer; } .zmp-ctl button:hover:not(:disabled) { background: #ffffff1a; } .zmp-ctl button:active:not(:disabled) { background: #ffffff2b; } .zmp-ctl button:disabled { opacity: .35; cursor: default; } .zmp-ctl button:focus-visible { outline: 2px solid #5bb8ff; outline-offset: -2px; }
-body.theme-day .zmp-ctl { background: #ffffffec; border-color: #00000026; } body.theme-day .zmp-ctl button { color: #101826; }
+.zmp-ctl { position: absolute; right: 8px; bottom: 8px; z-index: 3; display: flex; border-radius: 9px; border: 1px solid var(--zp-tx1); background: var(--zp-bg1); opacity: .72; transition: opacity .15s; } .zmp:hover .zmp-ctl, .zmp-ctl:focus-within { opacity: 1; }
+.zmp-ctl button { min-width: 32px; height: 32px; padding: 0 6px; border: 0; background: none; color: var(--zp-tx2); font-size: 12px; cursor: pointer; } .zmp-ctl button:hover:not(:disabled) { background: var(--zp-tx3); } .zmp-ctl button:active:not(:disabled) { background: var(--zp-tx1); } .zmp-ctl button:disabled { opacity: .35; cursor: default; } .zmp-ctl button:focus-visible { outline: 2px solid var(--zp-ac1); outline-offset: -2px; }
+body.theme-day .zmp-ctl { background: var(--zp-tx4); border-color: var(--zp-bg2); } body.theme-day .zmp-ctl button { color: var(--zp-sf1); }
 body.fx-lite .zmp-in.is-glide { transition: none; }
 @media (prefers-reduced-motion: reduce) { .zmp-in.is-glide { transition: none; } }
 @media (max-width: 640px) { .zmp-ctl { opacity: 1; } }
