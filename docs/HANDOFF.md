@@ -28,10 +28,6 @@ Done when: Familia's own + Sicario's, Fee, FeeCat rebuilt with real telemetry on
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
 
-**SITE-2 · Hardening (users + attacks)** · OPEN · claimed: —
-Done when: rate limits on every public write, request size caps, slow-client timeouts, one bad endpoint can't starve the rest; abuse load test
-(`scripts/load-test.py`) passes.
-
 **SITE-8 · Database + workers** · OPEN · claimed: —
 Done when: hot stores in a real DB, multiple workers, no lost writes, load test proves it. (FPS + first load test done.)
 

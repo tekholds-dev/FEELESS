@@ -142,6 +142,9 @@ def _fresh_rate_limits():
     fs = sys.modules.get('feecat_service')
     if fs is not None and isinstance(getattr(fs, '_RATE', None), dict):
         fs._RATE.clear()
+    for v in (getattr(fs, '_FC_GUARD', None) or {}).values() if fs is not None else ():
+        if isinstance(v, dict):
+            v.clear()
     for name in ('reputation_service', 'server'):
         m = sys.modules.get(name)
         st = getattr(m, '_guard_state', None) if m is not None else None

@@ -124,6 +124,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(__import__('http_armor').HttpArmor, is_internal=__import__('guard').is_internal)   # 🛡 SITE-2: body caps, slow-client 408, per-route bulkhead (outermost)
 
 # 🛡 Same request guard as the reputation service (backend/guard.py): write floods get a 429 breather per IP; reads and our
 # own services are never limited; nobody is blocked automatically.

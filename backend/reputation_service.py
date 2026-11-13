@@ -332,6 +332,7 @@ app.middleware('http')(http_ctx.sec_headers)   # 🔒 nosniff + no-referrer on e
 from starlette.middleware.gzip import GZipMiddleware as _GZip
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 app.add_middleware(CORSMiddleware, **__import__('guard').cors_kwargs(), allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(__import__('http_armor').HttpArmor, is_internal=__import__('guard').is_internal)   # 🛡 SITE-2: body caps, slow-client 408, per-route bulkhead (outermost)
 
 
 @app.post('/api/reputation/observe')

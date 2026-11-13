@@ -25,7 +25,7 @@ def test_a_thin_pob_is_not_bid_and_says_why(monkeypatch):
     import feecat_service as fs
     filed, staked = [], []
     async def board(http, cat, now): return [{'id': 'm1', 'q': 'Who wins?', 'crowd': 0.5}, {'id': 'm2', 'q': 'Over 200?', 'crowd': 0.4}]
-    async def reads(kind): return '', [{'host': 'espn.com', 'ok': True}]
+    async def reads(kind, by=None): return '', [{'host': 'espn.com', 'ok': True}]
     async def ask(cat, i, sys_, user_, tok, box): return 'call'
     async def rep(http, body): staked.append(body); return {}
     monkeypatch.setattr(fs, '_pob_board', board); monkeypatch.setattr(fs, '_site_reads', reads); monkeypatch.setattr(fs, '_pow2_ask', ask); monkeypatch.setattr(fs, '_pob_rep', rep)
@@ -34,7 +34,7 @@ def test_a_thin_pob_is_not_bid_and_says_why(monkeypatch):
     cat = {'id': 'c', 'brainsCfg': {'brains': ['a/x', 'b/y']}}
     asyncio.run(fs._pob_call(None, cat, {}, 1000.0, {}, ''))
     assert not staked and filed[-1]['noTrade'] and 'compared 1 of 4 sources' in filed[-1]['why'] and filed[-1]['compare']['ok'] is False
-    async def reads4(kind): return '', [{'host': h, 'ok': True} for h in ('espn.com', 'nba.com', 'covers.com', 'oddsshark.com')]
+    async def reads4(kind, by=None): return '', [{'host': h, 'ok': True} for h in ('espn.com', 'nba.com', 'covers.com', 'oddsshark.com')]
     monkeypatch.setattr(fs, '_site_reads', reads4)
     asyncio.run(fs._pob_call(None, cat, {}, 1001.0, {}, ''))
     assert staked and staked[-1]['market'] == 'm1' and cat['pobRun']['compare']['ok']   # compared enough: it bids

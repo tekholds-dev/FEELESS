@@ -6163,6 +6163,9 @@ def rate_ok(key, now=None, store=None):
     return ok
 
 
+_FC_GUARD = _guard.new_state()
+
+
 @app.middleware('http')
 async def _armor(request, call_next):
     """🔒 Every response: no sniffing, no framing, no referrer, never cached when it is an owner's. Owner doors are rate-limited per IP."""
@@ -6171,6 +6174,10 @@ async def _armor(request, call_next):
     owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet', 'treasury') and not _internal_ok(request)
     if owner_door and not rate_ok((_guard.request_ip(request), parts[3])):   # the real caller, not the dev proxy's 127.0.0.1 (audit #4)
         return Response('{"detail":"Too many requests — slow down."}', status_code=429, media_type='application/json')
+    if not owner_door and request.method in ('POST', 'PUT', 'PATCH', 'DELETE') and not _internal_ok(request):   # 🛡 SITE-2: every other public write has the same per-IP limit as 5001 / 5077
+        stop_ = _guard.check(_FC_GUARD, _guard.request_ip(request), request.method, path)
+        if stop_:
+            return Response(json.dumps({'detail': stop_[1]}), status_code=stop_[0], media_type='application/json')
     resp = await call_next(request)
     resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
     resp.headers.setdefault('X-Frame-Options', 'DENY')
@@ -6183,6 +6190,7 @@ async def _armor(request, call_next):
 
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 app.add_middleware(CORSMiddleware, **__import__('guard').cors_kwargs(), allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(__import__('http_armor').HttpArmor, is_internal=__import__('guard').is_internal)   # 🛡 SITE-2: body caps, slow-client 408, per-route bulkhead (outermost)
 
 
 @app.on_event('startup')

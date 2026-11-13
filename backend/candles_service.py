@@ -303,6 +303,7 @@ async def _stop_flush():
     except Exception:
         pass
 app.add_middleware(CORSMiddleware, **__import__('guard').cors_kwargs(), allow_methods=['*'], allow_headers=['*'])
+app.add_middleware(__import__('http_armor').HttpArmor, is_internal=__import__('guard').is_internal)   # 🛡 SITE-2: body caps, slow-client 408, per-route bulkhead (outermost)
 
 
 @app.post('/api/candles/observe')
