@@ -3,7 +3,7 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now: ≈19% left**, then only the owner's money tests.
+> Every report says the % left. **Now: ≈8% left** (SITE-4, 5, 8, 17 + COL-6's stamp), then only the owner's money tests.
 
 ## COLLECTIVE
 
@@ -24,11 +24,11 @@ Left: run it on every commit. Claude was blocked from adding a git hook (persist
 **SITE-4 · Command centers** · OPEN · claimed: —
 Done when: Familia's own + Sicario's, Fee, FeeCat rebuilt with real telemetry only, alive, dense, phone-ready. Familia amounts: owner sets, no caps.
 
-**SITE-5 · Split the big backend file** · OPEN · claimed: —
+**SITE-5 · Split the big backend file** · OPEN · claimed: — · not done 2026-11-13 overnight: money/write/admin routes move only with the owner watching the live machine
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
 
-**SITE-8 · Database + workers** · OPEN · claimed: —
+**SITE-8 · Database + workers** · OPEN · claimed: — · next slice: the Pool ledger is in SQLite now (COL-18); multiple workers need the in-memory stores moved first
 Done when: hot stores in a real DB, multiple workers, no lost writes, load test proves it. (FPS + first load test done.)
 
 **SITE-17 · Familia lending readers — real work** · OPEN · claimed: —
