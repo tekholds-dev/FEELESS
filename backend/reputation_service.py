@@ -24903,7 +24903,17 @@ async def admin_vaults_save(request: Request):
 # ---- Quest engine: 40 animated badges (FEELESS + Fee Reserve), daily/weekly quests, levels (backend/quests.py) ----
 import quests as _quests
 QUESTS_PATH = DATA_DIR / 'quests.json'            # admin: {'badges': {id: override}, 'manual': {wallet: {grant, revoke}}}
-QUEST_STATE_PATH = DATA_DIR / 'quest_state.json'  # {wallet: {'days': [YYYY-MM-DD], 'first': ts}}
+QUEST_STATE_PATH = DATA_DIR / 'quest_state.json'  # {wallet: {'days': [YYYY-MM-DD], 'first': ts}} — moved into quest_state.db (SITE-8), kept read-only
+_qs_docs: dict = {}
+
+
+def _qs():
+    """🗄 SITE-8: quest state as one row per wallet in SQLite: any number of workers check in at once without wiping each other (sql_store)."""
+    import sql_store as _sqls
+    k_ = str(QUEST_STATE_PATH)
+    if k_ not in _qs_docs:
+        _qs_docs[k_] = _sqls.Docs(QUEST_STATE_PATH)
+    return _qs_docs[k_]
 EDITIONS_PATH = DATA_DIR / 'quest_editions.json'  # {badge: [wallets in earn order]} — first EDITION_CAP are numbered
 EDITION_CAP = 100
 _quest_cache: dict = {}
@@ -24951,7 +24961,7 @@ async def _quest_raw(me, board=None):
     board = board or await caller_board(days=90)
     hits = sum(r.get('hits', 0) for r in board['rows'] if r.get('callerAddress') in mine)
     pts = _pts().get(me) or {}
-    st = _json_load(QUEST_STATE_PATH, {}).get(me) or {}
+    st = _qs().get(me) or {}
     days = set(st.get('days') or []) | ({pts['claims']['daily']} if (pts.get('claims') or {}).get('daily') else set())
     creator = _load()['creators'].get(_creator_key('solana', me))
     return {'trades': trades, 'chat': chat, 'call_ts': [c.get('at') or 0 for c in calls], 'call_hits': hits,
@@ -24984,7 +24994,7 @@ async def _quest_summary(address):
     raw = await _quest_raw(me)
     out = {'address': me, **_quests.summary(_quest_defs(), raw, manual)}
     # First time each badge shows as earned is its earn date (season scoring + "new" flags). Written only on change.
-    st_all = _json_load(QUEST_STATE_PATH, {}); st = st_all.get(me) or {}
+    st = _qs().get(me) or {}
     earned_at = dict(st.get('earned') or {})
     new = [b['id'] for b in out['badges'] if b['earned'] and b['id'] not in earned_at]
     if new:
@@ -24997,8 +25007,7 @@ async def _quest_summary(address):
             if real and me not in lst and len(lst) < EDITION_CAP:
                 lst.append(me)
         _json_save(EDITIONS_PATH, eds)
-        st_all[me] = {**st, 'earned': earned_at, 'first': st.get('first') or time.time(), 'days': st.get('days') or []}
-        _json_save(QUEST_STATE_PATH, st_all)
+        _qs().update(me, lambda cur: {**(cur or {}), 'earned': {**earned_at, **((cur or {}).get('earned') or {})}, 'first': (cur or {}).get('first') or time.time(), 'days': (cur or {}).get('days') or []})
     season = _quest_season()
     eds = _json_load(EDITIONS_PATH, {})
     out['editions'] = {bid: lst.index(me) + 1 for bid, lst in eds.items() if me in lst}
@@ -25016,7 +25025,7 @@ async def _quest_rarity():
     """Share of active wallets holding each badge, recomputed at most every 10 minutes (one caller-board read)."""
     if _rarity_cache.get('at', 0) > time.time() - 600:
         return _rarity_cache['data']
-    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_json_load(QUEST_STATE_PATH, {}))
+    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_qs().all())
     board = await caller_board(days=90); defs = _quest_defs(); held = {}
     for w in list(wallets)[:2000]:
         try:
@@ -25040,19 +25049,15 @@ class QuestCheckin(BaseModel):
 async def quest_checkin(payload: QuestCheckin):
     me = _session_or_401(payload.address, payload.session)
     day = time.strftime('%Y-%m-%d', time.gmtime())
-    async with _admin_lock:
-        d = _json_load(QUEST_STATE_PATH, {})
-        st = d.setdefault(me, {'days': [], 'first': time.time()})
-        st['checkinAt'] = ((st.get('checkinAt') or []) + [time.time()])[-60:]   # Bot shield: clockwork / batch engines
-        if (await _shield_of(me))['verdict'] == 'bot':   # bots don't earn daily rewards
-            _json_save(QUEST_STATE_PATH, d)
-            return {'ok': True, 'fresh': False, 'streak': _streak(st['days']), 'days': len(st['days']), 'shield': 'bot'}
-        fresh = day not in st['days']
-        if fresh:
-            st['days'] = (st['days'] + [day])[-400:]
-            _json_save(QUEST_STATE_PATH, d)
+    now_ = time.time()
+    st = _qs().update(me, lambda cur: {**(cur or {'days': [], 'first': now_}), 'checkinAt': (((cur or {}).get('checkinAt') or []) + [now_])[-60:]})   # Bot shield: clockwork / batch engines
+    if (await _shield_of(me))['verdict'] == 'bot':   # bots don't earn daily rewards
+        return {'ok': True, 'fresh': False, 'streak': _streak(st.get('days') or []), 'days': len(st.get('days') or []), 'shield': 'bot'}
+    fresh = day not in (st.get('days') or [])
+    if fresh:   # one transaction per wallet: two workers checking two wallets in never wipe each other (SITE-8)
+        st = _qs().update(me, lambda cur: {**cur, 'days': ((cur.get('days') or []) + ([day] if day not in (cur.get('days') or []) else []))[-400:]})
     _quest_cache.pop(me, None); _badge_cache.pop(me, None)
-    return {'ok': True, 'fresh': fresh, 'streak': _streak(st['days']), 'days': len(st['days'])}
+    return {'ok': True, 'fresh': fresh, 'streak': _streak(st.get('days') or []), 'days': len(st.get('days') or [])}
 
 
 class QuestEvent(BaseModel):
@@ -25074,19 +25079,21 @@ async def quest_event(payload: QuestEvent):
         if not any(x.get('tx') == payload.ref for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []):
             raise HTTPException(400, 'That trade is not a confirmed FEELESS trade from your wallet (yet).')
     now = time.time(); day = time.strftime('%Y-%m-%d', time.gmtime(now))
-    async with _admin_lock:
-        d = _json_load(QUEST_STATE_PATH, {})
-        st = d.setdefault(me, {'days': [], 'first': now})
+    import sql_store as _sqls
+    key = f'{payload.kind}:{payload.ref}' + (f':{day}' if payload.kind == 'case_open' else '')
+
+    def ev_(cur):   # one transaction: the count and the dedupe can't race across workers (SITE-8)
+        st = cur or {'days': [], 'first': now}
         ev = st.setdefault('events', {}); refs = st.setdefault('eventRefs', {})
-        key = f'{payload.kind}:{payload.ref}' + (f':{day}' if payload.kind == 'case_open' else '')
         today = sum(1 for x in ev.get(payload.kind, []) if x >= now // 86400 * 86400)
-        counted = key not in refs and not (payload.kind == 'case_open' and today >= 30)
-        if counted:
+        ok_ = key not in refs and not (payload.kind == 'case_open' and today >= 30)
+        if ok_:
             ev.setdefault(payload.kind, []).append(now); ev[payload.kind] = ev[payload.kind][-2000:]
             refs[key] = now
             if len(refs) > 4000:
                 st['eventRefs'] = dict(sorted(refs.items(), key=lambda kv: kv[1])[-3000:])
-            _json_save(QUEST_STATE_PATH, d)
+        return _sqls.Result(st, ok_)
+    counted = _qs().update(me, ev_)
     _quest_cache.pop(me, None)
     return {'ok': True, 'counted': counted}
 
@@ -25102,7 +25109,7 @@ async def quest_leaderboard():
         return {'season': season, 'rows': [], 'paused': True}
     if _quest_board_cache.get('at', 0) > time.time() - 600:
         return _quest_board_cache['data']
-    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_json_load(QUEST_STATE_PATH, {}))
+    wallets = set(_json_load(FEELESS_TRADES_PATH, {})) | set(_pts()) | set(_qs().all())
     rows = []
     for w in list(wallets)[:2000]:
         try:
@@ -27480,7 +27487,7 @@ def _shield_features(me, ck_all=None, trades_all=None, chat_all=None):
               for w, rows in trades_all.items() if w in mine for x in rows or []]
     chat_all = chat_all if chat_all is not None else [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
     chat = [{'ts': _ts_num(m.get('ts')), 'text': m.get('text')} for m in chat_all if (m.get('identity') or m.get('address')) in mine]
-    qs = _json_load(QUEST_STATE_PATH, {})
+    qs = _qs().all()
     st = qs.get(me) or {}
     ck_all = ck_all if ck_all is not None else {w: v.get('checkinAt') or [] for w, v in qs.items()}
     inv = _json_load(REF_PATH, {'by': {}})['by'].get(me, [])
@@ -27531,7 +27538,7 @@ def _fuse_rep(a):
 
 def _shield_scan_all():
     """Every known wallet through every engine, data loaded once (HQ list + hourly alerts)."""
-    qs = _json_load(QUEST_STATE_PATH, {})
+    qs = _qs().all()
     trades_all = _json_load(FEELESS_TRADES_PATH, {})
     chat_all = [m for ms in _chat_load()['rooms'].values() for m in ms if isinstance(m, dict) and not m.get('system')]
     ck_all = {w: v.get('checkinAt') or [] for w, v in qs.items()}

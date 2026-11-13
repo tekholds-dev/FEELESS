@@ -153,7 +153,7 @@ def test_autopilot_tick_enters_each_style_once_and_alerts_bots(monkeypatch):
     monkeypatch.setattr(rs, '_admin_wallets', lambda: ['ADMINWALLET'])
     monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
     farm = 'Farm222222222222222222222222222222222222222'
-    rs._json_save(rs.QUEST_STATE_PATH, {farm: {'days': [f'2026-08-{d:02d}' for d in range(1, 20)], 'first': 1}})
+    rs._qs().replace_all({farm: {'days': [f'2026-08-{d:02d}' for d in range(1, 20)], 'first': 1}})
     asyncio.run(rs._fuse_autopilot_tick(now=1_000_000))
     asyncio.run(rs._fuse_autopilot_tick(now=1_000_100))      # same hour → no duplicates, no repeat alert
     arena = rs._json_load(rs.FUSE_HQ_PATH, {})['arena']

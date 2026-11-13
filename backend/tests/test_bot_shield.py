@@ -40,7 +40,7 @@ def test_service_gates_rewards_case_and_fuse_cut(monkeypatch):
     import pytest
     rs = pytest.importorskip('reputation_service')
     farm = 'Farm111111111111111111111111111111111111111'
-    rs._json_save(rs.QUEST_STATE_PATH, {farm: {'days': [f'2026-09-{d:02d}' for d in range(1, 20)], 'checkinAt': [], 'first': 1}})
+    rs._qs().replace_all({farm: {'days': [f'2026-09-{d:02d}' for d in range(1, 20)], 'checkinAt': [], 'first': 1}})
     monkeypatch.setattr(rs, '_session_or_401', lambda a, s: rs.primary_of(a))
     rs._shield_cache.clear()
     assert asyncio.run(rs._shield_of(farm))['verdict'] == 'bot'                       # 19 check-ins, never traded

@@ -25,7 +25,7 @@ Left: run it on every commit. Claude was blocked from adding a git hook (persist
 Done when: money 52, writes 50, admin 48 and the 11 overlapping routes moved; route table identical; safety cases tested (auth, signed = quoted,
 no resubmit, staff checks).
 
-**SITE-8 · Database + workers** · OPEN · claimed: — · next slice: the Pool ledger is in SQLite now (COL-18); multiple workers need the in-memory stores moved first
+**SITE-8 · Database + workers** · OPEN · claimed: — · 2026-11-13: `backend/sql_store.Docs` (one row per key, `update()` = one BEGIN IMMEDIATE txn across processes) + quest state moved onto it (real 13 wallets equal, old file 0400); `scripts/load-workers.py`: uvicorn 4 workers × 3,000 concurrent writes → 0 lost, 1.9K rps, p95 45 ms. Next slices: fuse_hq.json (117 save sites, money → watched), feecats.json (_KEPT overlay), crews/runners; then in-memory limits/caches → shared; then `--workers` on the live services (owner watching).
 Done when: hot stores in a real DB, multiple workers, no lost writes, load test proves it. (FPS + first load test done.)
 
 ## OWNER ONLY

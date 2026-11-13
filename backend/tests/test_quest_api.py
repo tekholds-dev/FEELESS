@@ -29,7 +29,7 @@ def _iso(monkeypatch, tmp_path):
 def test_checkin_once_a_day_and_streak(monkeypatch, tmp_path):
     _iso(monkeypatch, tmp_path)
     yday = time.strftime('%Y-%m-%d', time.gmtime(time.time() - 86400))
-    rs._json_save(rs.QUEST_STATE_PATH, {rs.primary_of(W): {'days': [yday], 'first': time.time() - 2 * 86400}})
+    rs._qs().replace_all({rs.primary_of(W): {'days': [yday], 'first': time.time() - 2 * 86400}})
     a = asyncio.run(rs.quest_checkin(rs.QuestCheckin(address=W, session='s')))
     b = asyncio.run(rs.quest_checkin(rs.QuestCheckin(address=W, session='s')))
     assert a['fresh'] and a['streak'] == 2 and not b['fresh'] and b['days'] == 2
@@ -108,7 +108,7 @@ def test_first_earners_get_numbered_editions(monkeypatch, tmp_path):
     monkeypatch.setattr(rs, 'EDITIONS_PATH', tmp_path / 'ed.json')
     A, B = W, 'Bbbb1111111111111111111111111111111111111111'
     for who in (A, B):
-        rs._json_save(rs.QUEST_STATE_PATH, {**rs._json_load(rs.QUEST_STATE_PATH, {}), rs.primary_of(who): {'days': [time.strftime('%Y-%m-%d', time.gmtime())], 'first': time.time()}})
+        rs._qs().replace_all({**rs._qs().all(), rs.primary_of(who): {'days': [time.strftime('%Y-%m-%d', time.gmtime())], 'first': time.time()}})
     rs._json_save(rs.FEELESS_TRADES_PATH, {rs.primary_of(x): [{'tx': f'S{x[:4]}', 'side': 'buy', 'usd': 5, 'token': 'X', 'ts': time.time()}] for x in (A, B)})
     monkeypatch.setattr(rs, '_chat_load', lambda: {'rooms': {'r': [{'address': rs.primary_of(x), 'room': 'r', 'chain': 'solana', 'ts': time.time()} for x in (A, B)]}})
     a = asyncio.run(rs.quest_board(A)); b = asyncio.run(rs.quest_board(B))
