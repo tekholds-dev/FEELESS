@@ -45,6 +45,16 @@
    seconds, total in the tip; `mission.vitals` secsPerProof/secsTotal; test_mission + CatDesk.test). Honest gap: no PoW has run since the log began
    (2026-11-09 22:05), so the PoW rows today are reviews only; Sicario's missions read back 0 vitals rows. Not seen in the browser (the Brains
    window with Model vitals sits on the trader CatDesk, not on Sicario's workbench).
+6c. ✅ **Bishop → living character DONE 2026-11-12** (owner: PoC "bishop" showed nothing on desk chat / monitors; "can seedance make this img an actual
+   guy we use for content?" → YES, live): image → video shipped (`media_gen.I2V`/`i2v_model`/`submit_req(image=…)`, OpenRouter /videos `image_url` +
+   fal/Replicate i2v twins). Every done image card: **🎬 Bring to life** (i2v on his key) + **👤 Make him the character** (op `media_char`; every video
+   from that folder then starts from him, composer shows it with a Not-this-time toggle). PoC filed from a folder chat (`poc_answer`) now writes the
+   desk-chat line + bell and carries its made files (`folder.media`); a media file finishing later lands on the already-filed folder (`_media_set`);
+   folders filed before this (Bishop) get media joined at view time (`_poc_view`). Monitor: PocMon shows made media first (video plays muted), then
+   snapshot, then the idea text — never a bare "No snapshot filed". **Real run:** Seedance 2.0 fast i2v from Bishop's real image on the owner's
+   OpenRouter — 202 accepted, 91 s, 2.9 MB mp4, filed into his folder chat, served live by 5088 (~$0.46, his key). Seen in the browser (dev harness
+   `?pdk&poc&or&char`): badge, both buttons, charline. Tests: test_media_character.py (5), MediaStudio.test +2, ProofMonitor.test +1. Not seen:
+   fal/Replicate i2v with a real key (request shapes tested with fakes only).
 6b. **NEXT CLAUDE, from the owner 2026-11-12 (late):**
    - 🎮 **Game studio folder (idea, build after the list):** a desk folder for game work: playtest runs filed to the Test bench, faster porting
      (an engine-to-engine checklist + the minds doing the code moves), and mod/add-on building, e.g. an agent as someone's assistant for a GTA RP
@@ -72,7 +82,7 @@
    PoEco Sankey (Sicario's has 0 filed books — needs books on a testable agent), agent withdraw 2-tap (Sicario's has no wallet; Happy is his),
    AGT-34 Model vitals TIME column (Brains window only mounts on a real trading desk).
 
-**Owner only (Claude never moves funds) — 👑 owner 2026-11-12: money tests wait until Claude has finished EVERY build row above (1–9). Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
+**Owner only (Claude never moves funds) — 👑 owner 2026-11-12 (said twice, final): HE does ALL real-money testing himself. Claude's whole job is: finish every build row, prove it, push, tick this page, then TELL HIM it is ready to test. Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →

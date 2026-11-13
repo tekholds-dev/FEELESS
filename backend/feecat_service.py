@@ -7253,7 +7253,7 @@ def _ws_view(cat_id, ws_id):
         d_['busy'] = None; d_['messages'] = list(d_.get('messages') or []) + [{'by': 'Working', 'text': 'That run stopped before it finished, so nothing was filed.', 'at': round(time.time())}]; _ws_save(cat_id, d_)
     _media_resume(cat_id, d_)
     v_ = d_.get('versions') or []
-    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None, 'storeCheck': d_.get('storeCheck')}
+    return {**{k: d_.get(k) for k in ('id', 'kind', 'name', 'messages', 'busy', 'stage', 'plan', 'complete', 'pending', 'cost', 'lastCost', 'character')}, 'unfinished': _feat.unfinished_of(d_), 'cfg': _feat.build_cfg(d_), 'versions': len(v_), 'code': v_[-1]['html'] if v_ else '', 'previousCode': v_[-2]['html'] if len(v_) > 1 else '', 'preview': _feat.preview(_ws_placed(cat_id, v_[-1]['html'])) if v_ else '', 'source': d_.get('source') or [], 'cut': bool(v_) and not _feat.page_complete(v_[-1]['html']), 'by': v_[-1].get('by') if v_ else None, 'storeCheck': d_.get('storeCheck')}
 
 
 def _media_dir():
@@ -7280,6 +7280,16 @@ def _media_set(cat_id, ws_id, mid, keep=None, **fields):
     m_['media'] = {**(m_.get('media') or {}), **fields}
     _ws_save(cat_id, d_)
     md_ = m_['media']
+    if fields.get('status') == 'done' and fields.get('url'):   # 🎬 a filed PoC of this folder gets the new file too (made after filing, it still shows)
+        try:
+            st_ = _load(); c_ = st_['cats'].get(cat_id)
+            f_ = next((f for f in (c_ or {}).get('pocFolders') or [] if f.get('ws') == ws_id), None)
+            if f_ is not None:
+                f_['media'] = ([x for x in f_.get('media') or [] if x.get('id') != str(mid)]
+                               + [{'id': str(mid), 'kind': md_.get('kind'), 'url': md_.get('url'), 'label': md_.get('label'), 'prompt': str(md_.get('prompt') or '')[:200]}])[-8:]
+                _save(st_)
+        except (KeyError, OSError, ValueError) as e:
+            print(f'[media] folder not updated: {e}')
     if fields.get('status') == 'done' and (md_.get('paidUsd') or md_.get('usd')):   # 🧾 a made image / video is a bill too (provider's own cost, else its list price)
         _receipt_write({'id': str(mid), 'cat': cat_id, 'at': time.time(), 'provider': (_mg.PROVIDERS.get(md_.get('provider')) or {}).get('name') or md_.get('provider'),
                         'model': md_.get('model'), 'usd': float(md_.get('paidUsd') or md_.get('usd') or 0), 'tokens': None,
@@ -7482,7 +7492,16 @@ async def _media_run(cat_id, ws_id, mid):
                 return
             hd = md.get('handle')
             if not hd:
-                meth, url, heads, body = _mg.submit_req(md['provider'], md['model'], md['prompt'], key, md.get('modelId'))
+                img_du = None; model_sub = md['model']
+                if (md.get('fromImg') or {}).get('url'):   # 👤 image → video: the made image rides as a data URL, read fresh from disk, never stored in the sealed doc
+                    f_src = _media_dir() / cat_id / str(md['fromImg']['url']).rsplit('/', 1)[-1]
+                    try:
+                        ext_i = f_src.suffix.lstrip('.').lower()
+                        img_du = f"data:image/{'jpeg' if ext_i in ('jpg', 'jpeg') else ext_i or 'png'};base64,{base64.b64encode(f_src.read_bytes()).decode()}"
+                        model_sub = _mg.i2v_model(md['modelId'])
+                    except (OSError, ValueError) as e:
+                        _media_set(cat_id, ws_id, mid, keep, status='failed', why=f'Its start image could not be used: {str(e)[:120]}'); return
+                meth, url, heads, body = _mg.submit_req(md['provider'], model_sub, md['prompt'], key, md.get('modelId'), image=img_du)
                 r = await h.request(meth, url, headers=heads, json=body)
                 try:
                     hd = _mg.handle_of(md['provider'], r.json() if r.headers.get('content-type', '').startswith('application/json') else {})
@@ -8030,8 +8049,30 @@ async def _ws_run(cat_id, ws_id, to, text, region):
         _WS_DONE.append({'cat': cat_id, 'cost': cost, 'own': paid_own, 'doc': json.loads(json.dumps(doc)) if built else None}); _POW_WAKE.set()
 
 
+def _poc_media(doc):
+    """🎬 The finished images / videos of a PoC folder's chat, light enough to live on its filed proof. Pure."""
+    out = []
+    for m in (doc or {}).get('messages') or []:
+        md = m.get('media') or {}
+        if md.get('status') == 'done' and md.get('url'):
+            out.append({'id': md.get('id'), 'kind': md.get('kind'), 'url': md.get('url'), 'label': md.get('label'), 'prompt': str(md.get('prompt') or '')[:200]})
+    return out[:8]
+
+
+_POC_MEDIA_SEEN: dict = {}   # ws → (at, media): folders filed before media rode on them (Bishop, 2026-11-12) get theirs joined at view time
+
+
 def _poc_view(cat):
-    return [{**f, 'stamp': _stamp.of('PoC', f, time.time())} for f in (cat.get('pocFolders') or [])[::-1]]
+    rows = []
+    for f in (cat.get('pocFolders') or [])[::-1]:
+        if f.get('ws') and 'media' not in f:
+            hit = _POC_MEDIA_SEEN.get(f['ws'])
+            if hit is None or time.time() - hit[0] > 300:
+                hit = (time.time(), _poc_media(_ws_load(cat.get('id'), f['ws']) or {})); _POC_MEDIA_SEEN[f['ws']] = hit
+            if hit[1]:
+                f = {**f, 'media': hit[1]}
+        rows.append({**f, 'stamp': _stamp.of('PoC', f, time.time())})
+    return rows
 
 
 async def _poc_file(cat_id, topic, ws=None):
@@ -9618,16 +9659,45 @@ async def cat_work(cat_id: str, p: WorkPayload):
         on_house = prov_ == 'openrouter' and 'openrouter' not in linked
         if on_house and _media_house_spent() + float(_mg.MODELS[mid_][5] or 0.5) > _mg.HOUSE_DAILY_USD:
             raise HTTPException(429, f'FEELESS\'s ${_mg.HOUSE_DAILY_USD:.0f} a day for media is used up. Link your own OpenRouter key, or try tomorrow.')
+        img_ = str(t_.get('img') or '').strip()   # 👤 a made image becomes the video's first frame (owner 2026-11-12: "make this img an actual guy")
+        if not img_ and kind_ == 'video' and (doc_.get('character') or {}).get('mid') and not t_.get('noChar'):
+            img_ = str(doc_['character']['mid'])   # the folder's character leads its videos unless this make says no
+        from_ = None
+        if img_:
+            smd_ = (_media_msg(doc_, img_) or {}).get('media') or {}
+            if smd_.get('status') != 'done' or smd_.get('kind') != 'image' or not str(smd_.get('url') or '').startswith('/api/cats/media/'):
+                raise HTTPException(400, 'Pick a finished image from this folder to start from.')
+            if kind_ != 'video':
+                raise HTTPException(400, 'An image starts a video.')
+            try:
+                _mg.i2v_model(mid_)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            from_ = {'mid': img_, 'url': smd_['url']}
         if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
             raise HTTPException(429, 'Three are already making. Wait for one to finish.')
         jid = 'm' + uuid.uuid4().hex[:12]; row_ = _mg.MODELS[mid_]
         doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': prompt_, 'at': round(time.time()),
             'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(time.time()),
-                      **({'house': True} if on_house else {}), **({'preset': str(t_['preset'])} if t_.get('preset') else {})}}]
+                      **({'house': True} if on_house else {}), **({'preset': str(t_['preset'])} if t_.get('preset') else {}), **({'fromImg': from_} if from_ else {})}}]
         if on_house:
             _media_house_add(float(row_[5] or 0.5))   # booked up front at the list price, so two clicks can't both slip under the cap
         _ws_save(cat_id, doc_)
         asyncio.create_task(_media_run(cat_id, p.job, jid))
+        return {'doc': _ws_view(cat_id, p.job)}
+    if p.op == 'media_char':   # 👤 keep a made image as this folder's CHARACTER: every video from here starts from him (empty text clears him)
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'Characters live in a PoC folder.')
+        mid_ = str(p.text or '').strip()
+        if not mid_:
+            doc_.pop('character', None)
+        else:
+            smd_ = (_media_msg(doc_, mid_) or {}).get('media') or {}
+            if smd_.get('status') != 'done' or smd_.get('kind') != 'image' or not smd_.get('url'):
+                raise HTTPException(400, 'Pick a finished image.')
+            doc_['character'] = {'mid': mid_, 'url': smd_['url'], 'prompt': str(smd_.get('prompt') or '')[:200], 'at': round(time.time())}
+        _ws_save(cat_id, doc_)
         return {'doc': _ws_view(cat_id, p.job)}
     if p.op == 'ws_build':   # 🛠 its minds work in the background; the page polls ws_open
         doc_ = _ws_load(cat_id, p.job)
@@ -9699,7 +9769,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not calls_:
             raise HTTPException(400, 'No answer from its minds in this folder yet.')
         rows_ = list(cat.get('pocFolders') or [])
-        rows_.append({'id': f'poc{int(time.time())}', 'ws': doc_.get('id'), 'n': _next_n(rows_), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True})
+        media_ = _poc_media(doc_)   # 🎬 the images / video made in this folder ride on the filed proof (owner 2026-11-12: Bishop filed with nothing to see)
+        rows_.append({'id': f'poc{int(time.time())}', 'ws': doc_.get('id'), 'n': _next_n(rows_), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True, 'topic': str(doc_.get('name') or 'Its answer')[:120], 'calls': calls_, 'cost': doc_.get('cost'), 'fromChat': True, **({'media': media_} if media_ else {})})
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"📣 PoC #{len(rows_)} “{str(doc_.get('name') or 'Its answer')[:40]}” is filed from its folder chat" + (f' with {len(media_)} made file{"s" if len(media_) > 1 else ""}' if media_ else '') + '. Nothing was posted.', 'at': time.time(), 'open': 'features'}])[-200:]
+        _feed_push(cat['id'], {'tone': 'done', 'kind': 'PoC', 'text': f"PoC filed: {str(doc_.get('name') or 'its folder')[:40]}", 'ref': doc_.get('id')})
         cat['pocFolders'] = rows_[-60:]; keep_owned(cat); _save(store)
         return {'pocFolders': _poc_view(cat)}
     if p.op == 'proof_cfg':   # 🔁 ask first, or just do it, per kind of proof

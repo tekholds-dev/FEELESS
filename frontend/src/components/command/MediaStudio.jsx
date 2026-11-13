@@ -11,19 +11,33 @@ const STEP_WORD = { queued: 'waiting for its turn', in_queue: 'in line at the pr
 const PROV = { fal: 'fal.ai', replicate: 'Replicate', openrouter: 'OpenRouter' };
 const usd = v => (v == null ? null : `$${Number(v).toFixed(v < 0.1 ? 3 : 2)}`);
 
-export function MediaCard({ m }) {
+export function MediaCard({ m, cat, doc, work, setDoc }) {
   const md = m.media || {}; const live = md.status === 'queued' || md.status === 'running'; const [, tick] = useState(0);
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   useEffect(() => { if (!live) return undefined; const t = setInterval(() => { if (!document.hidden) tick(n => n + 1); }, 1000); return () => clearInterval(t); }, [live]);
   const secs = Math.max(0, Math.round(Date.now() / 1000 - Number(md.at || 0)));
-  return <figure className={`mst-card is-${md.status}`} data-testid={`media-${md.id}`}>
-    <figcaption><b>{md.kind === 'video' ? '🎬' : '🖼'} {md.label}</b><small>{PROV[md.provider] || md.provider}{usd(md.paidUsd ?? md.usd) ? ` · ${md.paidUsd != null ? '' : 'about '}${usd(md.paidUsd ?? md.usd)}` : ''} · {md.house ? 'FEELESS key (staff)' : 'your account'}</small></figcaption>
+  // 👤 a finished image becomes a person: one tap animates him (Seedance-grade i2v), one keeps him as the folder's character for every video after
+  const canLife = !!(cat && doc && work && setDoc) && md.status === 'done' && md.kind === 'image' && md.kept !== false && md.url;
+  const isChar = canLife && doc?.character?.mid === md.id;
+  const run = async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); setDoc(j.doc); } catch (e) { setErr(e.message); } setBusy(false); };
+  return <figure className={`mst-card is-${md.status}${md.fromImg ? ' is-fromimg' : ''}`} data-testid={`media-${md.id}`}>
+    <figcaption><b>{md.kind === 'video' ? '🎬' : '🖼'} {md.label}</b><small>{PROV[md.provider] || md.provider}{usd(md.paidUsd ?? md.usd) ? ` · ${md.paidUsd != null ? '' : 'about '}${usd(md.paidUsd ?? md.usd)}` : ''} · {md.house ? 'FEELESS key (staff)' : 'your account'}{md.fromImg ? ' · from your image' : ''}</small>{isChar ? <em className="mst-char-on" data-testid="media-ischar">👤 THE CHARACTER</em> : null}</figcaption>
     {md.status === 'done' && md.url ? (md.kind === 'video'
       ? <video src={apiUrl(md.url)} controls playsInline preload="metadata" data-testid="media-video" />
       : <img src={apiUrl(md.url)} alt={md.prompt} loading="lazy" data-testid="media-image" />) : null}
     {live ? <div className="mst-wait" role="status"><span>{STEP_WORD[md.step] || STEP_WORD[md.status] || md.step || 'working'} · {secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</span><i aria-hidden="true"><u /></i></div> : null}
     {md.status === 'failed' ? <p className="kd-err" role="alert">⚠ {md.why || 'It did not finish.'} Nothing more is charged.</p> : null}
     <p className="mst-prompt">{md.prompt}</p>
-    {md.status === 'done' && md.url ? <a className="m-btn" href={apiUrl(md.url)} download target="_blank" rel="noopener noreferrer" data-tip="Save the file" data-testid="media-save">Save</a> : null}
+    {md.status === 'done' && md.url ? <span className="mst-acts">
+      <a className="m-btn" href={apiUrl(md.url)} download target="_blank" rel="noopener noreferrer" data-tip="Save the file" data-testid="media-save">Save</a>
+      {canLife ? <button type="button" className="m-btn m-go" disabled={busy} data-testid="media-life"
+        data-tip="Makes a video that STARTS from this exact image (Seedance): same face, same clothes, now moving. On your account."
+        onClick={() => run({ op: 'media_make', job: doc.id, text: `This exact person comes alive and moves naturally — same face, same clothes, same jewelry, photoreal: ${String(md.prompt || '').slice(0, 300)}`, tools: { kind: 'video', img: md.id } })}>{busy ? 'Starting…' : '🎬 Bring to life'}</button> : null}
+      {canLife ? <button type="button" className="m-btn" disabled={busy} aria-pressed={isChar} data-testid="media-char"
+        data-tip={isChar ? 'He stops leading this folder\'s videos' : 'Every video made in this folder starts from him: one consistent guy for all your content'}
+        onClick={() => run({ op: 'media_char', job: doc.id, text: isChar ? '' : md.id })}>{isChar ? '👤 Unset character' : '👤 Make him the character'}</button> : null}
+    </span> : null}
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
     {md.status === 'done' && md.kept === false ? <small className="mst-note">{md.why}</small> : null}
   </figure>;
 }
@@ -69,7 +83,9 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
   useEffect(() => { if (open) { load(); if (!text && seed) setText(seed.slice(0, 600)); } }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!open) return undefined; const k = e => e.key === 'Escape' && setOpen(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [open]);
   const rows = (d?.models || []).filter(m => m.kind === kind).sort((a, b) => Number(b.ready) - Number(a.ready)); /* what runs now first */ const pick = model && rows.some(m => m.id === model && m.ready) ? model : d?.pick?.[kind];
-  const make = async () => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text, tools: { kind, model: pick } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
+  const [noChar, setNoChar] = useState(false);   // 👤 the folder's character leads its videos unless this make says no
+  const charOn = kind === 'video' && doc?.character?.mid && !noChar;
+  const make = async () => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text, tools: { kind, model: pick, ...(kind === 'video' && noChar ? { noChar: true } : {}) } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const makePreset = async x => { setBusy(true); setErr(''); try { const j = await work(cat.id, { op: 'media_make', job: row.id, text: text || seed || '', tools: { preset: x.id } }); setDoc(j.doc); setOpen(false); } catch (e) { setErr(e.message); } setBusy(false); };
   const making = (doc?.messages || []).filter(m => ['queued', 'running'].includes(m.media?.status)).length;
   return <>
@@ -85,6 +101,8 @@ export function MediaButton({ cat, row, work, doc, setDoc, seed = '' }) {
           <ul className="mst-models">{rows.map((m, i) => <li key={m.id} style={{ '--i': i }}><button type="button" disabled={!m.ready} aria-pressed={pick === m.id} className={pick === m.id ? 'is-on' : ''} onClick={() => setModel(m.id)} data-testid={`media-model-${m.id}`}
             data-tip={m.ready ? m.why : `Link ${m.providerName} to use this`}><b>{m.label}</b><small>{m.providerName}{m.id === d.pick?.[kind] ? ' · cheap pick' : ''}</small><em>{usd(m.usd) || `price on ${m.providerName}`}</em></button></li>)}</ul>
           <textarea className="m-input" rows={4} value={text} onChange={e => setText(e.target.value)} placeholder={kind === 'video' ? 'A chrome rat dances on a tombstone at night, slow camera push, neon green rim light' : 'A chrome tombstone that reads GONE, studio light, black background'} aria-label="What to make" data-testid="media-prompt" />
+          {kind === 'video' && doc?.character?.mid ? <p className={`mst-charline${charOn ? ' is-on' : ''}`} data-testid="media-charline"><img src={apiUrl(doc.character.url)} alt="The folder's character" loading="lazy" /><b>{charOn ? 'Starts from your character' : 'Your character sits this one out'}</b>
+            <button type="button" className="m-btn" onClick={() => setNoChar(v => !v)} data-tip={charOn ? 'This video is made from the words alone' : 'This video starts from his image again'} data-testid="media-nochar">{charOn ? 'Not this time' : 'Use him'}</button></p> : null}
           <div className="mst-go"><small>{(d.linked || []).length < 2 ? <>Also have the other one? <button type="button" className="fea-back-btn" onClick={() => setD({ ...d, linked: [] })}>Link it</button></> : 'Both linked'}</small>
             <button type="button" className="m-btn m-go" disabled={busy || !pick || text.trim().length < 3} onClick={make} data-testid="media-make">{busy ? 'Starting…' : `Make the ${kind}`}</button></div>
           {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</>}

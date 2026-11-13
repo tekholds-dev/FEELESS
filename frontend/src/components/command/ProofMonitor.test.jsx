@@ -39,3 +39,17 @@ test('🖥 a newest PoStatic takes both monitors: code on one, page on the other
   expect(monitorProof([ps, pow], 2, 4)).toBe(pow);
   expect(monitorProof([pow, ps], 1, 2)).toBe(ps);   // the split only happens when the PoStatic is the newest
 });
+
+test('🖥 a PoC shows its own made media first (owner 2026-11-12, Bishop), then its idea text — never a bare nothing', async () => {
+  // made image leads
+  let { el, root } = await mount(<ProofMonitorBody p={{ k: 'poc', f: { topic: 'BishopRealistic', media: [{ id: 'm1', kind: 'image', url: '/api/cats/media/c/m1.png', label: 'Flash Image', prompt: 'Bishop' }], calls: [{ post: 'Create Bishop' }] } }} catId="c" />);
+  expect(el.querySelector('[data-testid="pmn-poc-media"]').getAttribute('src')).toContain('/api/cats/media/c/m1.png');
+  expect(el.textContent).toContain('Flash Image'); act(() => root.unmount());
+  // a made video plays silently
+  ({ el, root } = await mount(<ProofMonitorBody p={{ k: 'poc', f: { topic: 'B', media: [{ id: 'm2', kind: 'video', url: '/api/cats/media/c/m2.mp4', label: 'Seedance 2.0 fast' }] } }} catId="c" />));
+  const v = el.querySelector('[data-testid="pmn-poc-video"]'); expect(v.getAttribute('src')).toContain('m2.mp4'); expect(v.muted).toBe(true); act(() => root.unmount());
+  // no media, no shot: the idea itself is drawn
+  ({ el, root } = await mount(<ProofMonitorBody p={{ k: 'poc', f: { topic: 'BishopRealistic', calls: [{ post: 'Create a Black dude named Bishop in the latest gear' }] } }} catId="c" />));
+  expect(el.querySelector('[data-testid="pmn-poc-idea"]').textContent).toContain('named Bishop');
+  act(() => root.unmount());
+});

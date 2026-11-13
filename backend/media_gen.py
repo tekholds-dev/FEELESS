@@ -69,6 +69,23 @@ PRESETS = [
 ]
 DEFAULT = {('fal', 'image'): 'fal-flux-schnell', ('fal', 'video'): 'fal-wan22-5b', ('replicate', 'image'): 'rep-flux-schnell', ('replicate', 'video'): 'rep-wan22-fast',
            ('openrouter', 'image'): 'or-gpt-image-mini', ('openrouter', 'video'): 'or-seedance-fast'}
+# 👤 image → video ("bring him to life", owner 2026-11-12: a made image becomes a character that moves). The value is the model that takes a start
+# image: OpenRouter's /videos takes image_url on the same model; fal and Replicate have an image-to-video twin per family. None here = cannot.
+I2V = {
+    'or-seedance-fast': 'bytedance/seedance-2.0-fast', 'or-kling3': 'kwaivgi/kling-v3.0-std', 'or-kling3-pro': 'kwaivgi/kling-v3.0-pro',
+    'or-veo-fast': 'google/veo-3.1-fast', 'or-veo-lite': 'google/veo-3.1-lite', 'or-wan3': 'alibaba/wan-3.0',
+    'fal-wan22-5b': 'fal-ai/wan/v2.2-5b/image-to-video', 'fal-wan22-a14b': 'fal-ai/wan/v2.2-a14b/image-to-video',
+    'fal-wan25': 'fal-ai/wan-25-preview/image-to-video', 'fal-kling25': 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
+    'rep-seedance-lite': 'bytedance/seedance-1-lite', 'rep-wan22-fast': 'wan-video/wan-2.2-i2v-fast', 'rep-wan25': 'wan-video/wan-2.5-i2v',
+}
+
+
+def i2v_model(model_id):
+    """The model that runs this pick FROM an image, or ValueError. Pure."""
+    m = I2V.get(model_id)
+    if not m:
+        raise ValueError(f"{(MODELS.get(model_id) or ['', '', '', model_id])[3]} cannot start from an image. Pick Seedance, Kling, Veo or Wan.")
+    return m
 ORDER = ('fal', 'replicate', 'openrouter')
 HOUSE_DAILY_USD = 2.0   # 🔒 staff agents on FEELESS's own OpenRouter key: at most this much a day, then it refuses
 KINDS = ('image', 'video')
@@ -126,13 +143,13 @@ def clean_prompt(text):
     return t[:MAX_PROMPT]
 
 
-def submit_req(provider, model, prompt, key, model_id=None):
-    """→ (method, url, headers, json) for the first call. Pure."""
+def submit_req(provider, model, prompt, key, model_id=None, image=None):
+    """→ (method, url, headers, json) for the first call. `image` = a data URL or https URL that becomes the first frame (image → video). Pure."""
     if provider == 'openrouter':
-        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'model': model, 'prompt': prompt, **OR_VIDEO.get(model_id, {})}
+        return 'POST', 'https://openrouter.ai/api/v1/videos', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'model': model, 'prompt': prompt, **({'image_url': image} if image else {}), **OR_VIDEO.get(model_id, {})}
     if provider == 'fal':
-        return 'POST', f'https://queue.fal.run/{model}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, {'prompt': prompt}
-    return 'POST', f'https://api.replicate.com/v1/models/{model}/predictions', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'input': {'prompt': prompt}}
+        return 'POST', f'https://queue.fal.run/{model}', {'Authorization': f'Key {key}', 'Content-Type': 'application/json'}, {'prompt': prompt, **({'image_url': image} if image else {})}
+    return 'POST', f'https://api.replicate.com/v1/models/{model}/predictions', {'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'}, {'input': {'prompt': prompt, **({'image': image} if image else {})}}
 
 
 def handle_of(provider, body):

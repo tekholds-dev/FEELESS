@@ -43,9 +43,15 @@ function PobMon({ f }) {
     <small className={calls.length ? 'is-up' : 'is-dn'}>{calls.length ? `${calls.length} call${calls.length > 1 ? 's' : ''} made` : f?.noTrade ? 'No call: nothing was read, so nothing staked' : 'Reading the games'}</small></div>;
 }
 function PocMon({ f, catId }) {
-  const shot = (f?.shots || []).find(x => x.file); const found = (shot?.found || []).slice(0, 5);
-  return <div className="pmn-poc">{shot ? <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${shot.file}?${agentAuthQuery()}`)} alt={`What it read on ${shot.site}`} loading="lazy" /> : <p className="pmn-none">No snapshot filed.</p>}
-    <span className="pmn-poc-say"><b>{String(f?.topic || 'PoC').slice(0, 50)}</b>{found.length ? <span className="pmn-words">{found.map(w => <em key={w}>{w}</em>)}</span> : null}</span></div>;
+  // 🎬 its OWN made media first (owner 2026-11-12: Bishop's image never reached a monitor), then its snapshot, then the idea itself — never a bare "nothing"
+  const made = (f?.media || []).find(x => x.url); const shot = (f?.shots || []).find(x => x.file); const found = (shot?.found || []).slice(0, 5);
+  const idea = String((f?.calls || []).find(c => c.post)?.post || '').slice(0, 180);
+  return <div className="pmn-poc">{made ? (made.kind === 'video'
+    ? <video src={apiUrl(made.url)} muted loop autoPlay playsInline preload="metadata" data-testid="pmn-poc-video" />
+    : <img src={apiUrl(made.url)} alt={made.prompt || 'What it made'} loading="lazy" data-testid="pmn-poc-media" />)
+    : shot ? <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${shot.file}?${agentAuthQuery()}`)} alt={`What it read on ${shot.site}`} loading="lazy" />
+      : idea ? <blockquote className="pmn-idea" data-testid="pmn-poc-idea">{idea}</blockquote> : <p className="pmn-none">No snapshot filed.</p>}
+    <span className="pmn-poc-say"><b>{String(f?.topic || 'PoC').slice(0, 50)}</b>{made ? <small className="pmn-made">{made.kind === 'video' ? '🎬' : '🖼'} {made.label || 'made here'}</small> : null}{found.length ? <span className="pmn-words">{found.map(w => <em key={w}>{w}</em>)}</span> : null}</span></div>;
 }
 function PoeMon({ f }) {
   const months = (f?.months || []).slice(-6); const top = Math.max(1, ...months.flatMap(m => [Number(m.income) || 0, Number(m.costs) || 0]));

@@ -45,3 +45,39 @@ test('🎬 the card shows the real state: making, done with the file, failed wit
   ({ root, box } = await mount(<MediaCard m={{ media: { ...base, status: 'failed', why: '401: no credit' } }} />));
   expect(box.textContent).toContain('401: no credit'); expect(box.querySelector('video')).toBeNull(); act(() => root.unmount());
 });
+
+test('👤 a done image animates and becomes the character; the character badge rides the card (owner 2026-11-12, Bishop)', async () => {
+  const img = { id: 'mi1', kind: 'image', label: 'Flash Image', provider: 'openrouter', prompt: 'Bishop in the latest gear', at: 1, status: 'done', kept: true, url: '/api/cats/media/c1/mi1.png' };
+  const work = jest.fn(async () => ({ doc: { messages: [] } }));
+  const setDoc = jest.fn();
+  let { root } = await mount(<MediaCard m={{ media: img }} cat={{ id: 'c1' }} doc={{ id: 'w1', character: null }} work={work} setDoc={setDoc} />);
+  await act(async () => q('media-life').click());
+  expect(work).toHaveBeenLastCalledWith('c1', expect.objectContaining({ op: 'media_make', job: 'w1', tools: { kind: 'video', img: 'mi1' } }));
+  expect(work.mock.calls.at(-1)[1].text).toContain('This exact person comes alive');
+  await act(async () => q('media-char').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_char', job: 'w1', text: 'mi1' });
+  expect(setDoc).toHaveBeenCalled(); act(() => root.unmount());
+  // already the character: badge on, button unsets
+  ({ root } = await mount(<MediaCard m={{ media: img }} cat={{ id: 'c1' }} doc={{ id: 'w1', character: { mid: 'mi1', url: img.url } }} work={work} setDoc={setDoc} />));
+  expect(q('media-ischar').textContent).toContain('THE CHARACTER');
+  await act(async () => q('media-char').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_char', job: 'w1', text: '' });
+  act(() => root.unmount());
+  // a video card never offers it
+  ({ root } = await mount(<MediaCard m={{ media: { ...img, id: 'mv1', kind: 'video', url: '/api/cats/media/c1/mv1.mp4' } }} cat={{ id: 'c1' }} doc={{ id: 'w1' }} work={work} setDoc={setDoc} />));
+  expect(q('media-life')).toBeNull(); expect(q('media-char')).toBeNull();
+  act(() => root.unmount());
+});
+
+test('👤 the composer says the character leads a video, and Not this time sends noChar', async () => {
+  const work = jest.fn(async (_id, b) => (b.op === 'media_models' ? { models: MODELS, linked: ['fal'], pick: { image: 'fal-flux-schnell', video: 'fal-wan22-5b' }, providers: PROV } : { doc: { messages: [] } }));
+  const doc = { messages: [], character: { mid: 'mi1', url: '/api/cats/media/c1/mi1.png' } };
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} seed="Bishop walks" />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  expect(q('media-charline').textContent).toContain('Starts from your character');
+  await act(async () => q('media-nochar').click());
+  expect(q('media-charline').textContent).toContain('sits this one out');
+  await act(async () => q('media-make').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'Bishop walks', tools: { kind: 'video', model: 'fal-wan22-5b', noChar: true } });
+  act(() => root.unmount());
+});
