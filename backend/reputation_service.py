@@ -25739,6 +25739,204 @@ async def war_bounty_scope():
     return _BOUNTY_SCOPE
 
 
+# ⚖ LEGAL-1: versioned terms acceptance per wallet, a per-feature country / age gate (the owner switches it in HQ › Legal & regions),
+# and a self-serve export / delete of a wallet's off-chain data. legal.py holds every rule; this only feeds it.
+import legal as _legal   # noqa: E402
+LEGAL_PATH = DATA_DIR / 'legal.json'
+_legal_state = None
+
+
+def _legal_s():
+    global _legal_state
+    if _legal_state is None:
+        st = _legal.new_state(); saved = _json_load(LEGAL_PATH, {})
+        if isinstance(saved.get('accept'), dict):
+            st['accept'] = saved['accept']
+        if isinstance(saved.get('cfg'), dict):
+            st['cfg'] = _legal.clean_cfg(saved['cfg'])
+        if isinstance(saved.get('requests'), list):
+            st['requests'] = saved['requests']
+        _legal_state = st
+    return _legal_state
+
+
+def _legal_save():
+    s = _legal_s(); _json_save(LEGAL_PATH, {k: s[k] for k in ('accept', 'cfg', 'requests')})
+
+
+def _legal_me(wallet, session, fresh=False):
+    """The signed wallet (its primary). fresh=True: signed in within the last 24 h (a delete can't ride a week-old session)."""
+    me = _session_or_401(wallet, session)
+    if fresh:
+        rec = _sess()['s'].get(hashlib.sha256((session or '').encode()).hexdigest()) or {}
+        if rec.get('exp', 0) - SESSION_TTL < time.time() - 86400:
+            raise HTTPException(401, 'Sign in again first (a delete needs a sign-in from the last 24 hours).')
+    return me
+
+
+class LegalAccept(BaseModel):
+    wallet: str = Field(..., min_length=20, max_length=64)
+    session: str = Field(..., max_length=200)
+    version: str = Field(..., max_length=20)
+    country: str = Field(..., min_length=2, max_length=2)
+    adult: bool = False
+    notRestricted: bool = False
+
+
+class LegalMine(BaseModel):
+    wallet: str = Field(..., min_length=20, max_length=64)
+    session: str = Field(..., max_length=200)
+    confirm: Optional[str] = Field(None, max_length=20)
+
+
+class LegalCfg(BaseModel):
+    cfg: dict
+
+
+@app.get('/api/reputation/legal/status')
+async def legal_status(request: Request, wallet: Optional[str] = None):
+    """Public: the terms version, the country a CDN saw (none on the bare Mac), whether this wallet accepted THIS version, and every
+    feature's gate. The stated country only comes back (and only counts) with the wallet's own session (x-feeless-session header)."""
+    s = _legal_s(); c = _legal.country_of(request.headers)
+    me = primary_of(wallet) if wallet and 20 <= len(wallet) <= 64 else None
+    mine = False
+    sess = request.headers.get('x-feeless-session') or ''
+    if me and sess:
+        try:
+            mine = _session_or_401(me, sess) == me
+        except HTTPException:
+            mine = False
+    st = _legal.status(s, me) if me else {'accepted': False, 'row': None}
+    row = (st['row'] or {}) if st['accepted'] else {}
+    used = row if mine else ({'adult': True} if st['accepted'] else None)
+    return {'version': _legal.VERSION, 'accepted': st['accepted'], 'country': c, 'stated': row.get('country') if mine else None,
+            'minAge': s['cfg'].get('minAge'), 'features': _legal.FEATURES, 'sanctioned': s['cfg'].get('everywhere'),
+            'gates': {f: _legal.gate(s['cfg'], f, c, used) for f in _legal.FEATURES}}
+
+
+@app.post('/api/reputation/legal/accept')
+async def legal_accept(p: LegalAccept, request: Request):
+    """The wallet states 18+, not sanctioned / not restricted, and its country — stored per wallet with this terms version."""
+    me = _legal_me(p.wallet, p.session)
+    try:
+        row = _legal.accept(_legal_s(), me, p.version, p.country, p.adult, p.notRestricted, ip_country=_legal.country_of(request.headers))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _legal_save()
+    return {'ok': True, 'version': row['v'], 'country': row['country']}
+
+
+def _legal_parts(me):
+    """Every off-chain store holding this wallet's rows (read-only). Secrets are scrubbed later by legal.scrub."""
+    def own(a):
+        return bool(a) and primary_of(str(a)) == me
+    subs = (_push_load().get('subs') or {}).values()
+    return {
+        'profile': _prof().get(me),
+        'follows': (_fol().get('following') or {}).get(me),
+        'notifications': _json_load(NOTIF_PATH, {}).get(me),
+        'push': [{'watch': v.get('watch'), 'prefs': v.get('prefs')} for v in subs if own((v.get('prefs') or {}).get('address'))],
+        'dmPrefs': _json_load(DM_PREFS_PATH, {}).get(me),
+        'identities': {a: v for a, v in (_ids().get('links') or {}).items() if (v or {}).get('primary') == me and a != me},
+        'dms': [m for th in _json_load(DM_PATH, {}).values() if isinstance(th, list) for m in th if me in (m.get('from'), m.get('to'))][-2000:],
+        'chat': [m for msgs in (_chat_load().get('rooms') or {}).values() if isinstance(msgs, list) for m in msgs
+                 if m.get('identity') == me or own(m.get('address'))][-2000:],
+        'sessions': {'signedIn': sum(1 for v in (_sess().get('s') or {}).values() if own(v.get('address')))},
+        'consent': (_legal_s().get('accept') or {}).get(me),
+        'receipts': [r for r in _receipt_rows() if isinstance(r, list) and len(r) > 2 and own(r[2])][-2000:],
+        'points': _pts().get(me),
+        'quests': _qs().get(me),
+        'referrals': {'invited': (_json_load(REF_PATH, {'by': {}}).get('by') or {}).get(me)},
+    }
+
+
+@app.post('/api/reputation/legal/export')
+async def legal_export(p: LegalMine):
+    """Everything FEELESS holds off-chain for this wallet, as one JSON file (tokens / sealed secrets / push keys scrubbed)."""
+    me = _legal_me(p.wallet, p.session)
+    parts = _legal_parts(me)
+    bundle = _legal.export_bundle(me, parts)
+    _legal.note_request(_legal_s(), me, 'export', {k: (len(v) if isinstance(v, (list, dict)) else 1) for k, v in bundle['data'].items()})
+    _legal_save()
+    return bundle
+
+
+async def _legal_wipe(me):
+    """Delete the personal / social rows (legal.DELETE). Sessions + push go first: they're matched through linked accounts."""
+    def own(a):
+        return bool(a) and primary_of(str(a)) == me
+    n = {}
+    async with _admin_lock:
+        d = _sess(); s_ = d.get('s') or {}
+        gone = [t for t, v in s_.items() if own(v.get('address'))]
+        for t in gone:
+            s_.pop(t, None)
+        n['sessions'] = len(gone); _json_save(SESSIONS_PATH, d)
+        d = _push_load(); subs = d.get('subs') or {}
+        gone = [sid for sid, v in subs.items() if own(((v or {}).get('prefs') or {}).get('address'))]
+        for sid in gone:
+            subs.pop(sid, None)
+        n['push'] = len(gone); _push_save(d)
+        d = _fol(); n['follows'] = len((d.get('following') or {}).pop(me, None) or []); _json_save(FOLLOW_PATH, d)
+        d = _json_load(NOTIF_PATH, {}); n['notifications'] = len(d.pop(me, None) or []); _json_save(NOTIF_PATH, d)
+        d = _json_load(DM_PREFS_PATH, {}); n['dmPrefs'] = 0 if d.pop(me, None) is None else 1; _json_save(DM_PREFS_PATH, d)
+        d = _json_load(DM_PATH, {}); k_ = 0
+        for key, th in list(d.items()):
+            if not isinstance(th, list):
+                continue
+            keep = [m for m in th if m.get('from') != me]
+            k_ += len(th) - len(keep)
+            if keep:
+                d[key] = keep
+            else:
+                d.pop(key, None)
+        n['dms'] = k_; _json_save(DM_PATH, d)
+        d = _ids(); links = d.get('links') or {}
+        gone = [a for a, v in links.items() if (v or {}).get('primary') == me]
+        for a in gone:
+            links.pop(a, None)
+        n['identities'] = len([a for a in gone if a != me]); _json_save(IDENTITY_PATH, d)
+    async with _chat_lock:
+        d = _chat_load(); k_ = 0
+        for room, msgs in list((d.get('rooms') or {}).items()):
+            if not isinstance(msgs, list):
+                continue
+            keep = [m for m in msgs if not (m.get('identity') == me or m.get('address') == me)]
+            k_ += len(msgs) - len(keep)
+            d['rooms'][room] = keep
+        n['chat'] = k_; CHAT_PATH.write_text(json.dumps(d))
+    had = _prof().get(me) is not None
+    _prof().update(me, lambda _old: None)
+    n['profile'] = 1 if had else 0
+    return n
+
+
+@app.post('/api/reputation/legal/delete')
+async def legal_delete(p: LegalMine):
+    """Delete this wallet's personal / social data (profile, follows, inbox, push, DMs sent, chat posted, linked accounts, sessions).
+    Kept, with the reason shown: proof of consent, money receipts, points/payout ledgers, security logs, and everything on-chain."""
+    if (p.confirm or '') != 'DELETE':
+        raise HTTPException(400, 'Type DELETE to confirm.')
+    me = _legal_me(p.wallet, p.session, fresh=True)
+    n = await _legal_wipe(me)
+    _legal.note_request(_legal_s(), me, 'delete', n); _legal_save()
+    return {'ok': True, 'removed': n, 'kept': _legal.KEEP, 'signedOut': True}
+
+
+@app.get('/api/reputation/admin/legal')
+async def legal_admin(request: Request):
+    """Owner: the gate switches, how many wallets accepted this version (by stated country), and the export / delete log (counts only)."""
+    _require_owner(request)
+    return _legal.view(_legal_s())
+
+
+@app.post('/api/reputation/admin/legal')
+async def legal_admin_save(p: LegalCfg, request: Request):
+    _require_owner(request)
+    s = _legal_s(); s['cfg'] = _legal.clean_cfg(p.cfg, s['cfg']); _legal_save()
+    return _legal.view(s)
+
+
 
 
 class GuardDecision(BaseModel):

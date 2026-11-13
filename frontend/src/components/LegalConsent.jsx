@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 // Bump this only when the terms/privacy text materially changes — returning users are asked again only then.
-export const LEGAL_VERSION = '2026-09-26';
+export const LEGAL_VERSION = '2026-11-13';
 export const LEGAL_CONTACT = 'the FEELESS team via the official FEELESS channels';
 const KEY = 'feeless:legal-consent';
 let memoryAccepted = false; // fallback when browser storage is blocked, so we never nag within a visit

@@ -473,9 +473,9 @@ def test_the_service_sizes_real_seats_through_the_warden_and_reapers_requests_us
     assert rs._office_warden(cur, t, 0.80, {'coins': 4}, 1001, 'fill')['veto'] and cur['events'][-1]['move'] == 'veto' and '🛡 Warden vetoed $N' in cur['events'][-1]['why']
     rs._office_warden(cur, t, 0.80, {'coins': 4}, 1002, 'fill')
     assert sum(1 for e in cur['events'] if e.get('move') == 'veto') == 1                                         # a veto re-checked every tick is one line, not a flood
-    monkeypatch.setattr(of, 'warden', lambda *a, **k: 1 / 0)
-    assert rs._office_warden(cur, t, 0.80, {'coins': 4}, 2000, 'fill')['allowed'] == 0.80                        # if the Warden breaks, the card's own size stands — never more
-    monkeypatch.undo()
+    with monkeypatch.context() as m:   # ⚠ never monkeypatch.undo(): it also undid conftest's data sandbox, so the rest of this test ran on backend/data
+        m.setattr(of, 'warden', lambda *a, **k: 1 / 0)
+        assert rs._office_warden(cur, t, 0.80, {'coins': 4}, 2000, 'fill')['allowed'] == 0.80                    # if the Warden breaks, the card's own size stands — never more
     card = {'legs': [leg('A', at=1), leg('B', at=1)], 'events': [], 'cash': 0}
     rs._agents['table'] = [trow('A'), trow('B')]
     dec = [{'pair': 'PA', 'symbol': 'A', 'action': 'hold', 'why': 'h'}, {'pair': 'PB', 'symbol': 'B', 'action': 'hold', 'why': 'h'}]
