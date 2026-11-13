@@ -26,7 +26,7 @@ test('shows what is wired, previews the split and signs it from the fee account 
   const el = document.createElement('div');
   await act(async () => { createRoot(el).render(<TreasuryHub call={call} />); });
   expect(el.textContent).toContain('USDC fee account exists');
-  expect(el.querySelector('.pulse-checks li.bad').textContent).toContain('USDC fee account exists');
+  expect(el.querySelector('.trh-checks li.is-bad').textContent).toContain('USDC fee account exists');
   await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent.startsWith('wSOL')).click(); });
   await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Max 2').click(); });
   expect(el.querySelector('.m-kv').textContent).toContain('1.2 SOL');
@@ -34,4 +34,14 @@ test('shows what is wired, previews the split and signs it from the fee account 
   await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent.startsWith('Split 2 wSOL')).click(); });
   expect(mockSend.mock.calls[0][0]).toMatchObject({ owner: OWNER, source: 'FeeSol111', mint: 'So11111111111111111111111111111111111111112' });
   expect(call).toHaveBeenCalledWith('/admin/treasury/split', expect.objectContaining({ body: JSON.stringify({ sigs: ['sig1'], asset: 'wSOL' }) }));
+});
+
+test('💰 the treasury mix adds every wallet at its live $ value, nothing invented', () => {
+  const { walletRows } = require('./TreasuryHub');
+  const { rows, total } = walletRows({ feeAccounts: [{ asset: 'USDC', label: 'USDC fee', ok: true, amount: 3 }, { asset: 'wSOL', label: 'SOL fee', ok: false, amount: 0 }], adminSol: 0.5, reserves: [{ label: 'Reserve', address: 'R', sol: null }] }, 100);
+  expect(total).toBe(53);
+  expect(rows.find(r => r.key === 'admin').share).toBeCloseTo(50 / 53);
+  expect(rows.find(r => r.key === 'wSOL').usd).toBe(null);           // not set up = no number, not $0
+  expect(rows.find(r => r.label === 'Reserve').usd).toBe(null);       // unread balance stays unread
+  expect(walletRows({ feeAccounts: [], adminSol: 1, reserves: [] }, null).total).toBe(0);   // no SOL price = no $ guess
 });
