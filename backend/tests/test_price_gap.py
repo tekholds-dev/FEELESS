@@ -40,3 +40,59 @@ def test_only_pools_against_sol_usdc_or_usdt_count_an_exotic_stable_invents_no_g
     ps = [pair('raydium', 1.0), pair('orca', 1.001), pair('orca', 1.05, quote=ONE, addr='PX')]
     g = pg.gaps(ps, [M])[0]
     assert g['n'] == 2 and g['hi']['dex'] == 'orca' and g['gapPct'] == 0.1
+
+
+def test_site11_one_coins_gap_before_buying_reads_once_a_minute_keeps_the_last_good_answer_and_refuses_junk(monkeypatch):
+    """SITE-11 (Q23): GET /api/reputation/price-gap/{mint} = one coin's gap board, faked DexScreener (never the network)."""
+    import asyncio
+    import pytest
+    import reputation_service as rs
+    mint = 'So11111111111111111111111111111111111111112'[:-1] + '3'
+    calls = []
+
+    class R:
+        def __init__(self, body, code=200): self.body, self.status_code = body, code
+        def json(self): return self.body
+
+    answers = [[pair('raydium', 1.0, base=mint), pair('orca', 1.02, base=mint), pair('meteora', 1.5, base=mint, liq=10)], [], [pair('raydium', 1.0, base=mint)]]
+
+    class H:
+        async def get(self, url, timeout=None):
+            calls.append(url); return R(answers[min(len(calls) - 1, 2)])
+    monkeypatch.setattr(rs, '_ai_http', lambda: H())
+    rs._pgap_coin.clear()
+    now = [1000.0]
+    monkeypatch.setattr(rs.time, 'time', lambda: now[0])
+    v = asyncio.run(rs.coin_price_gap(mint))
+    assert v['gap']['lo']['dex'] == 'raydium' and v['gap']['hi']['dex'] == 'orca' and v['realPools'] == 2 and v['pools'] == 3 and v['gap']['open'] is False
+    assert asyncio.run(rs.coin_price_gap(mint)) is v and len(calls) == 1              # cached for a minute
+    now[0] += 61
+    assert asyncio.run(rs.coin_price_gap(mint)) is v and len(calls) == 2              # a failed read keeps the last good board
+    now[0] += 61
+    one = asyncio.run(rs.coin_price_gap(mint))
+    assert one['gap'] is None and one['realPools'] == 1 and one['answered'] is True    # one pool = no gap to measure
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.coin_price_gap('not-a-mint/../x'))
+
+
+def test_site8_ten_callers_missing_the_cache_together_share_one_dexscreener_read(monkeypatch):
+    """Load test finding (SITE-8): concurrent cache misses used to fire one outside read each."""
+    import asyncio
+    import reputation_service as rs
+    mint = 'So11111111111111111111111111111111111111112'[:-1] + '4'
+    calls = []
+
+    class R:
+        status_code = 200
+        def json(self): return [pair('raydium', 1.0, base=mint), pair('orca', 1.01, base=mint)]
+
+    class H:
+        async def get(self, url, timeout=None):
+            calls.append(url); await asyncio.sleep(0.05); return R()
+    monkeypatch.setattr(rs, '_ai_http', lambda: H())
+    rs._pgap_coin.clear()
+
+    async def many():
+        return await asyncio.gather(*(rs.coin_price_gap(mint) for _ in range(10)))
+    out = asyncio.run(many())
+    assert len(calls) == 1 and all(o is out[0] for o in out) and out[0]['gap']['n'] == 2 and not rs._pgap_fly

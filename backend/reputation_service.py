@@ -11025,9 +11025,13 @@ PGAP_SEC = 60.0
 async def familia_pools_gaps():
     """📐 PRICE GAPS (price_gap.py, READ-ONLY): the tokens the Pool Hub's pools hold, priced across every real pool they trade in — the
     cheap pool, the rich one, the gap after a swap's cost each side, how long it has stayed open. one DexScreener /token-pairs read per token a minute (≤ price_gap.TOKENS, in parallel)."""
+    if _pgap_c['v'] is not None and time.time() - _pgap_c['at'] < PGAP_SEC:
+        return _pgap_c['v']
+    return await _pgap_once(('vault',), _vault_gap_read)
+
+
+async def _vault_gap_read():
     now = time.time(); c = _pgap_c
-    if c['v'] is not None and now - c['at'] < PGAP_SEC:
-        return c['v']
     pools_ = sorted(((await familia_pools()) or {}).get('pools') or [], key=lambda r_: -_fuse._f(r_.get('tvl')))
     mints_ = list(dict.fromkeys(m_ for r_ in pools_ for m_ in (r_.get('mints') or []) if isinstance(m_, str) and 32 <= len(m_) <= 44))[:_pgap.TOKENS]
 
@@ -11044,6 +11048,55 @@ async def familia_pools_gaps():
         return c['v']
     rows_ = _pgap.persist(c['book'], _pgap.gaps(pairs_, mints_), now)
     c.update(at=now, v={'gaps': rows_, 'tokens': len(mints_), 'open': sum(1 for g_ in rows_ if g_.get('open')), 'cost': _pgap.COST_PCT, 'at': round(now, 1)})
+    return c['v']
+
+
+_pgap_coin = {}   # mint → {'at', 'v', 'book'} — one coin's gap board (SITE-11), ≤ 400 coins kept
+
+
+_pgap_fly = {}   # key → the one running read; callers that miss the cache together share it (no stampede on DexScreener)
+
+
+async def _pgap_once(key, make):
+    t_ = _pgap_fly.get(key)
+    if t_ is None:
+        t_ = _pgap_fly[key] = asyncio.ensure_future(make())
+        t_.add_done_callback(lambda _t, k_=key: _pgap_fly.pop(k_, None))
+    return await asyncio.shield(t_)
+
+
+@app.get('/api/reputation/price-gap/{mint}')
+async def coin_price_gap(mint: str):
+    """📐 SITE-11 (Q23) — ONE coin's price gap before you buy (READ-ONLY): every real pool it trades in, the cheap one, the rich one, the gap after
+    a swap's cost each side, open only after two reads in a row (price_gap.persist). One DexScreener /token-pairs read per coin a minute. Never
+    trades; the swap still routes through Jupiter and the wallet still signs."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
+        raise HTTPException(400, 'Not a Solana mint.')
+    c = _pgap_coin.get(mint)
+    if c and c['v'] is not None and time.time() - c['at'] < PGAP_SEC:
+        return c['v']
+    return await _pgap_once(('coin', mint), lambda: _coin_gap_read(mint))
+
+
+async def _coin_gap_read(mint):
+    now = time.time(); c = _pgap_coin.get(mint)
+    try:
+        r_ = await _ai_http().get(f'https://api.dexscreener.com/token-pairs/v1/solana/{mint}', timeout=10)
+        pairs_ = r_.json() if r_.status_code == 200 else []
+        pairs_ = pairs_ if isinstance(pairs_, list) else []
+    except Exception as e_:
+        print(f'[coin gap] {mint[:6]}: {e_}')
+        pairs_ = []
+    if not pairs_ and c and c['v'] is not None:   # a failed read keeps the last good answer
+        return c['v']
+    if c is None:
+        if len(_pgap_coin) >= 400:
+            _pgap_coin.pop(min(_pgap_coin, key=lambda k_: _pgap_coin[k_]['at']), None)
+        c = _pgap_coin[mint] = {'at': 0.0, 'v': None, 'book': {}}
+    rows_ = _pgap.persist(c['book'], _pgap.gaps(pairs_, [mint]), now)
+    real_ = sum(1 for p_ in pairs_ if isinstance(p_, dict) and p_.get('chainId', 'solana') == 'solana' and _pgap._ok(p_))
+    c.update(at=now, v={'mint': mint, 'gap': rows_[0] if rows_ else None, 'pools': len(pairs_), 'realPools': real_, 'cost': _pgap.COST_PCT,
+                        'answered': bool(pairs_), 'at': round(now, 1)})
     return c['v']
 
 

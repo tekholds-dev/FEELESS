@@ -68,7 +68,7 @@ const scripted = (...responses) => {
         : String(url).includes('/api/trading/') ? (r => (r instanceof Error ? Promise.reject(r) : Promise.resolve(r)))(queue.shift())   // an Error = that call fails
           : Promise.resolve({ ok: true, json: async () => ({}) })));
 };
-const SIDE = ['/holdings/', '/rugshield/', '/points/', '/api/reputation/edge'];   // + the shared coin-edge poller (it fires on its own clock)
+const SIDE = ['/holdings/', '/rugshield/', '/points/', '/api/reputation/edge', '/api/reputation/price-gap/'];   // + the shared coin-edge poller (it fires on its own clock)
 const tradeCalls = () => global.fetch.mock.calls.filter(([url]) => !SIDE.some(k => String(url).includes(k)));
 
 test('restores a saved submitted order and checks its status without storing transaction data', async () => {

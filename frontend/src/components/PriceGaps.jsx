@@ -16,7 +16,7 @@ export const gapWord = g => (g.open ? `open ${clock(g.openSec)} — buy side ${g
 
 function Num({ v, cls }) { const g = useGlide(v); return <b className={`m-num ${cls || ''}`}>{pct(g)}</b>; }
 
-function Rail({ g, i, age }) {
+export function Rail({ g, i, age }) {
   const span = Math.max(g.gapPct, 0.05);
   const cost = Math.min(100, ((g.gapPct - g.netPct) / span) * 100);
   return <li className={`gp-row${g.open ? ' is-open' : g.netPct > 0 ? ' is-maybe' : ''}`} style={{ '--i': i }} data-testid="gp-row"

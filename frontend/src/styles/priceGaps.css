@@ -42,3 +42,10 @@ body.theme-day .gp-k, body.theme-day .gp-row { background: rgba(60, 40, 160, .05
 body.theme-day .gp-side small { color: #4d3fa3; } body.theme-day .gp-wait, body.theme-day .gp-use, body.theme-day .gp-sym small, body.theme-day .gp-nums small, body.theme-day .gp-k small { color: #5d5683; }
 body.theme-day .gp-rail em { box-shadow: 0 0 0 2px #fff; } body.theme-day .gp-bridge { background: rgba(60, 40, 160, .1); }
 @media (max-width: 640px) { .gp-row { grid-template-columns: minmax(56px, 72px) minmax(0, 1fr) 66px; gap: 6px; } .gp-side { grid-column: 1 / -1; justify-items: start; grid-auto-flow: column; gap: 8px; justify-content: start; } .gp-k { min-width: 50px; } }
+/* 📐 CoinGap (SITE-11, the swap): the same rail in the Trade page's own light — Obsidian green cheap side, gold rich side, meta glass. */
+.cg { --gp-lo: var(--m-accent, #19e68c); --gp-hi: var(--m-warn, #f5c451); --gp-a: var(--m-accent, #19e68c); margin-top: 8px; padding: 10px; color: var(--m-text, #e8fff4);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(0, 0, 0, .35)); border-color: var(--m-line, rgba(255, 255, 255, .12)); }
+.cg .gp-row { grid-template-columns: minmax(56px, 72px) minmax(0, 1fr) 70px 104px; }
+.cg-route { margin: 0; font: 700 9.5px/1.4 var(--f-mono, monospace); color: var(--m-dim, #9fb5aa); } .cg-route.is-ok { color: var(--gp-lo); }
+body.theme-day .cg { background: linear-gradient(180deg, #f6fbf8, #fff); color: #10251a; border-color: rgba(8, 153, 90, .25); --gp-lo: #08995a; --gp-hi: #a2700a; --gp-a: #08995a; }
+@media (max-width: 640px) { .cg .gp-row { grid-template-columns: minmax(50px, 64px) minmax(0, 1fr) 62px; } }
