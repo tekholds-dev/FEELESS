@@ -51,16 +51,17 @@ export function lookMap(t) {
 export function applyLook(look) {
   const root = document.documentElement; const t = look?.tokens;
   const VARS = { '--m-bg': 'bg', '--m-surface': 's1', '--m-surface-2': 's2', '--m-line': 'line', '--m-line-hi': 'lineHi', '--m-text': 'text', '--m-dim': 'dim', '--m-accent': 'accent', '--m-accent-ink': 'ink',
-    '--ink': 'bg', '--mint': 'accent', '--look-hi': 'hi', '--look-tail': 'tail', '--look-third': 'third' };
+    '--ink': 'bg', '--mint': 'accent', '--look-hi': 'hi', '--look-tail': 'tail', '--look-third': 'third', '--look-dark': 'dark' };
   if (t?.edition === 'elite') root.dataset.edition = 'elite'; else delete root.dataset.edition;
   if (t?.layout) root.dataset.layout = t.layout; else delete root.dataset.layout;   // Obsidian / Desk / Pit arrange the terminal (styles/looks.css + DeskLayout)
   window.dispatchEvent(new Event('feeless:layout'));
   window.dispatchEvent(new Event('feeless:edition'));
-  if (!t || look.id === 'plasma') { [...Object.keys(VARS), '--logo-hue', '--logo-sat'].forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); return; }
+  if (!t || look.id === 'plasma') { [...Object.keys(VARS), '--logo-hue', '--logo-sat'].forEach(k => root.style.removeProperty(k)); delete root.dataset.look; remapSite(null); window.dispatchEvent(new Event('feeless:chart-theme')); return; }
   for (const [k, v] of Object.entries(VARS)) root.style.setProperty(k, t[v]);
   root.style.setProperty('--logo-hue', `${t.logoHue ?? 145}deg`); root.style.setProperty('--logo-sat', String(t.logoSat ?? 1.15));   // the green logo art wears this look's accent (CSS hue-rotate is not linear: each look carries its measured angle)
   root.dataset.look = look.ambient || look.id;
   remapSite(lookMap(t));
+  window.dispatchEvent(new Event('feeless:chart-theme'));   // open candle charts re-read the FEELESS theme (it wears this look's green)
 }
 
 export function localLook() { try { const k = localStorage.getItem(LOOK_KEY); return LOCAL_LOOKS[k] || null; } catch { return null; } }

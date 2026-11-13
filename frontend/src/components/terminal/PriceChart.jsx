@@ -45,7 +45,7 @@ export function chartShape(candles, trail, { pair, interval, ratio }) {
   const px = Math.abs(Number(candles.length ? candles[candles.length - 1][4] : trail[trail.length - 1]?.value) || 1);
   return [pair, interval, ratio, candles.length ? (candles.length < 3 ? 'few' : 'candles') : 'trail', Math.floor(Math.log10(px))].join('|');
 }
-const volumeRows = (candles, dayMode) => candles.map(([time, open, , , close, value]) => ({ time, value, color: close >= open ? (dayMode ? '#08764e55' : '#00e7a042') : (dayMode ? '#b4234655' : '#f5688050') }));
+const volumeRows = (candles, dayMode, up) => candles.map(([time, open, , , close, value]) => ({ time, value, color: close >= open ? `${up}${dayMode ? '55' : '42'}` : (dayMode ? '#b4234655' : '#f5688050') }));
 
 export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true, fee = true }) => {
   // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
@@ -99,6 +99,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
   const bgOn = bgKind !== 'default' && !fxLite && !plain;   /* `plain` = a working chart (the Agents cockpit): candles + levels only, no scene */   /* lite mode / reduced motion = the plain chart, whatever was picked */
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
   const [chartTheme] = useChartTheme();
+  const themeColors = chartColors(dayMode, chartTheme);   // the FEELESS theme wears the worn look's green (Obsidian #19e68c by default) — read each render so a look change recolors the canvas
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
   const { data, loading } = useMarket(null);
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
@@ -219,10 +220,10 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     const lineData = sparse ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
     if (displayCandles.length && !sparse) {
       const series = chart.addSeries(CandlestickSeries, {
-        upColor: chartColors(dayMode, chartTheme).up,
-        downColor: chartColors(dayMode, chartTheme).down,
-        wickUpColor: chartColors(dayMode, chartTheme).up,
-        wickDownColor: chartColors(dayMode, chartTheme).down,
+        upColor: themeColors.up,
+        downColor: themeColors.down,
+        wickUpColor: themeColors.up,
+        wickDownColor: themeColors.down,
         borderVisible: false,
         priceFormat: { type: 'custom', formatter: axisFormat, minMove }, autoscaleInfoProvider: keepScale,
       });
@@ -234,12 +235,12 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
       if (showVolume) {
         const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
         volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
-        volume.setData(volumeRows(displayCandles, dayMode));
+        volume.setData(volumeRows(displayCandles, dayMode, themeColors.up));
         volumeRef.current = volume;
       }
     } else {
       const line = chart.addSeries(LineSeries, {
-        color: dayMode ? '#08764e' : '#00e7a0', lineWidth: 2,
+        color: themeColors.up, lineWidth: 2,
         priceFormat: { type: 'custom', formatter: axisFormat, minMove }, autoscaleInfoProvider: keepScale,
       });
       line.setData(lineData);
@@ -287,7 +288,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
     ro?.observe(box_);
     bumpChart(box_);   // new data drawn
     return () => { ro?.disconnect(); ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; volumeRef.current = null; chart.remove(); };
-  }, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme, themeColors.up, themeColors.down]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // new history on the chart that is already up: same series, same view, the live forming candle kept
   useEffect(() => {
@@ -299,7 +300,7 @@ export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'p
         const bars = displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
         ref.series.setData(mergeLiveBar(bars, liveBarRef.current, interval, pair?.pairAddress));
         lastBarRef.current = bars[bars.length - 1] || null;
-        volumeRef.current?.setData(volumeRows(displayCandles, dayMode));
+        volumeRef.current?.setData(volumeRows(displayCandles, dayMode, themeColors.up));
       } else {
         const line = sparseRef.current ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
         ref.series.setData(line);
