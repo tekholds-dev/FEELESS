@@ -2,13 +2,18 @@
 How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below "History" nothing is a live rule unless restated above it.
 
 ## Open questions (the owner answers; Claude never decides these alone)
-- **Q1 · Legal entity + counsel:** pick the entity/jurisdiction and book one lawyer read of `docs/legal/LAWYER_CHECKLIST.md` before real volume.
-- **Q2 · Agent wallets = custody?** Crossmint agent wallets that trade on `auto` (and COL-16 sends from an agent wallet) are custody, which the counsel brief calls "non-custodial". Keep `auto`, or make every agent move user-signed until counsel reads it?
-- **Q3 · Real perps for US users** (RULINGS history #8, owner's call + risk): keep open to US users, or geo-gate until counsel answers?
+- **Q1 · Legal entity:** pick the entity/jurisdiction (an LLC caps personal risk). CLOSED on lawyer — owner 2026-11-13: no lawyer; match how peer sites word terms/risk/gates (LEGAL-1).
+- **Q2 · ANSWERED → AGENT-AUTO card.** Owner 2026-11-13: agents run their own moves only after the owner says go, via encrypted/legal configs; a desk command (one-off or `auto …`) triggers a 3-question-per-proof-type setup gate + kill-switch before anything runs. Research safe delegated-signing (session keys / spend caps / time bounds). Claude still never moves real funds.
+- **Q3 · CLOSED.** Owner 2026-11-13: using Jupiter perps / wiring keys is the user's own legal discretion; FEELESS stays an interface, no geo-gate forced on it.
 - **Q4 · More venues past Jupiter** (owner note under #7): other US-reachable lend/perps ecosystems with less entry — research card, nothing ships unasked.
 - **Q5 · Easier broker sign-up than SnapTrade** (owner note under #9): an OAuth / redirect broker a wallet user can join fast.
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
+
+## 2026-11-13 · Owner's flagged next-build list (screenshots of the Collective + COMP desk)
+- Build order: **LOOK-1** (brand-new Collective/COMP look, asked ~20×) → **COMP-1** (better COMP tooling + live realtime visuals, asked 5×) → **AGENT-AUTO** (safe agent auto-run, Q2) → **SEC-1** + SITE-8 (security hub + hardening) → **STYLE-1** (token sweep, owner calls it a priority) → **LEGAL-1** (self-serve, no lawyer) → **JUDGE** (COL-20, explicitly LAST — owner: "fix and make it perfect once we finish all the work").
+- Owner is not real-money testing until all the above works AND OSSY+G4 can file easy live proofs with a working realtime chat design.
+- Perps/keys = user's legal discretion. No lawyer. Hack-back is OFF (illegal) — SEC-1 is defensive only.
 
 ## 2026-11-13 · Rule stack rebuilt (conflicts settled — these replace every older wording)
 - **One rulebook:** `CLAUDE.md` (in git) binds every account; `~/.claude/CLAUDE.md` + the claude.ai profile are 4-line pointers (`docs/CLAUDE_ACCOUNT_PROMPT.md`); memory notes hold no rule that is not also in git.
