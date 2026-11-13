@@ -14,7 +14,7 @@
 | `docs/specs/agents.md` | Agent brain, kernel, real cats, trench crew, Supreme Intelligence. |
 | `docs/specs/site.md` | Architecture, always-on, speed list, **mobile layout (before any phone/Duo change)**, Telegram, LM Studio, staff + safety nets. |
 | `docs/specs/familia.md` | Familia (older spec — check the code first). |
-| `docs/FEELESS_HISTORY.md`, `docs/archive/` | GREP only, never load whole. Done cards become one line in HISTORY. |
+| `docs/history/<month>.md`, `docs/archive/` | GREP only, never load whole. Done cards become one line in `docs/history/<month>.md`. |
 
 ## Before every push (all must pass, gate on real exit codes — never `| tail`)
 1. `cd frontend && CI=true yarn test --watchAll=false`

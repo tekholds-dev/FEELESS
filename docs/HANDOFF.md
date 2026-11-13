@@ -1,7 +1,7 @@
 # HANDOFF — OPEN CARDS ONLY (reorganized 2026-11-12). The only to-do list.
 
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
-> Done = the "Done when" is proven → push → delete the card here → one line in `docs/FEELESS_HISTORY.md`.
+> Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
 > Every report says the % left. **Now: ≈19% left**, then only the owner's money tests.
 
