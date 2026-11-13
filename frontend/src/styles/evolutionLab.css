@@ -1,0 +1,25 @@
+/* 🧪 Evolution Lab (COL-11) — data, not art: verdict, two duels, shadow trades, history. m-* tokens only. */
+.evo { display: grid; gap: 10px; min-width: 0; }
+.evo-h { display: grid; gap: 4px; } .evo-h > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.evo-h small { font: 700 9.5px var(--m-mono); letter-spacing: .1em; opacity: .7; } .evo-h code { font: 600 10px var(--m-mono); opacity: .85; }
+.evo-h p { margin: 0; font: 500 12px/1.4 var(--f-ui); }
+.evo-v { padding: 2px 10px; border-radius: 999px; font: 800 11px var(--m-mono); letter-spacing: .12em; border: 1px solid currentColor; }
+.evo .is-up { color: var(--m-accent); } .evo .is-dn { color: var(--m-danger); } .evo .is-wait { color: var(--m-warn); }
+.evo-duels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px; }
+.evo-duel { display: grid; gap: 5px; padding: 9px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--m-text) 12%, transparent); background: color-mix(in srgb, var(--m-text) 3%, transparent); }
+.evo-duel > small { font: 700 9px var(--m-mono); letter-spacing: .1em; opacity: .7; }
+.evo-duel > span { display: grid; grid-template-columns: 72px minmax(0, 1fr) 64px; align-items: center; gap: 8px; }
+.evo-duel em { font: 600 11px var(--f-ui); font-style: normal; opacity: .8; } .evo-duel b { font-size: 12px; text-align: right; }
+.evo-duel i { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--m-text) 10%, transparent); overflow: hidden; }
+.evo-duel u { display: block; height: 100%; transform-origin: left; background: var(--m-mute); transition: transform .4s var(--m-ease); }
+.evo-duel .is-chall u { background: var(--m-accent); } .evo-duel u.is-neg { background: var(--m-danger); opacity: .8; }
+.evo-duel strong { justify-self: end; font-size: 12px; }
+.evo-gate { margin: 0; font: 500 11px/1.4 var(--f-ui); opacity: .7; }
+.evo-shadow td.is-up, .evo-shadow td.is-dn { font-weight: 700; }
+.evo-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.evo-hist li { display: grid; grid-template-columns: 52px 76px minmax(0, 1fr); gap: 8px; align-items: baseline; font: 500 11.5px/1.35 var(--f-ui); }
+.evo-hist em { font: 800 10px var(--m-mono); font-style: normal; letter-spacing: .08em; }
+@media (prefers-reduced-motion: reduce) { .evo-duel u { transition: none; } }
+.evo .evo-shadow { font: 500 11px var(--m-mono); } .evo .evo-shadow th { font: 700 9px var(--m-mono); letter-spacing: .08em; opacity: .65; text-align: left; padding: 4px 8px 4px 0; }
+.evo .evo-shadow td { font: 600 11.5px var(--m-mono); padding: 4px 8px 4px 0; border-top: 1px solid color-mix(in srgb, var(--m-text) 8%, transparent); }
+.evo .evo-hist small { font: 700 10px var(--m-mono); white-space: nowrap; opacity: .75; }

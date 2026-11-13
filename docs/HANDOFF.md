@@ -7,13 +7,11 @@
 
 ## COLLECTIVE
 
-**COL-6 · PoStatic pilot on OSSY + G4** · OPEN · claimed: fable 2026-11-13
+**COL-6 · PoStatic pilot on OSSY + G4** · WAITING ON THE 24h STAMP · claimed: fable 2026-11-13
+2026-11-13: Sicario's real proof ps0801357a62 keeps plan, build, OSSY + G4 reviews, file, grade, stash, events, vitals. Only the stamp is left
+(lands 2026-11-14 05:43 UTC). Check: `bash scripts/postatic-pilot.sh --check` → all ✅ = close this card.
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
-
-**COL-11 · Evolution Lab** · OPEN (after COL-6) · claimed: —
-Done when: frozen baseline vs challenger on held-out data, promotion gate, rollback, generation history, shadow trades — shown on a real
-agent. Never call one winning trade learning. Source: `docs/specs/agents.md` (SUPREME_INTELLIGENCE_REQUEST).
 
 **COL-16 · Graded proof with funds** · OPEN · claimed: —
 Owner: the user sends a proof WITH an amount of funds to be graded; on AUTO the agent sends the % from its own wallet with the proof.

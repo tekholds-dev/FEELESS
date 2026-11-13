@@ -4,6 +4,7 @@ import { AgentDesk } from '../components/command/AgentDesk';
 import { RpcKey } from '../components/command/FuseWallet';
 import { D } from '../components/command/__fixtures__/cockpit';
 import office from '../components/command/__fixtures__/office.json';
+import { EvolutionLab } from '../components/command/EvolutionLab';
 import { hubLoad } from '../lib/agentHub';
 import { HqDeck } from '../components/command/HqDeck';
 import '../styles/hqPop.css';
@@ -93,6 +94,7 @@ if (DECK) {
 
 export default function HqHarness() {
   if (qa.has('watch')) return <div className="hqp-body" style={{ padding: 16, maxWidth: 900 }}><WatchRoom onBrowse={() => {}} /></div>;   // 🧪 the Watch room on live official feeds
+  if (qa.has('evo')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16, maxWidth: 820 }}><EvolutionLab role="reaper" /></div>; }   // 🧪 COL-11 Evolution Lab on the LIVE 5077 route (real archive)
   if (qa.has('lab')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><ModelLab call={labCall} /></div>; }   // 🧪 COMP Model Lab under the owner's look
   if (qa.has('eco')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><EcoDesk cat={{ id: 'dev' }} work={async () => ecoFix} /></div>; }   // 🧪 PoEco desk on server-built sample rows, under the owner's look
   if (DECK) return <MemoryRouter><div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">

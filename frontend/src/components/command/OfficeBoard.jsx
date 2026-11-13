@@ -4,6 +4,7 @@ import { devilOf, rowState, VERD } from '../../lib/agentRead';
 import { useOffice } from '../../lib/agentHub';
 import '../../styles/officeBoard.css';
 import { Ic3 } from '../../lib/icon3d';
+import { EvolutionLab } from './EvolutionLab';
 
 // 🏢 THE OFFICE (HQ › Agents › 🏢 Office): the ten desks of the real-money chain as DATA — the mission from the real card's own numbers,
 // the current candidate moving through the line, one live card per agent (state, record, latency) and, on a tap, everything that
@@ -179,6 +180,7 @@ export function AgentDetail({ a, learning }) {
         <p className="ofb-lat">runtime: last {ms(c.latency?.last)} · p50 {ms(c.latency?.p50)} · p95 {ms(c.latency?.p95)} · max {ms(c.latency?.max)} ({c.latency?.n || 0} passes)</p></Sec>
       <Sec title="GENERATION HISTORY" id="sec-gen">{lin.length || cands.length ? <ul className="ofb-recent">{cands.map(x => <li key={x.id}><small>{x.status}</small>{x.key} {x.live} → {x.value} · shadow {x.eval?.n ?? 0}/{x.eval?.need ?? learning?.needShadow}{x.eval?.n ? ` · live ${sgn(x.eval.live, 2)} vs candidate ${sgn(x.eval.cand, 2)}` : ''}</li>)}
         {lin.map((x, i) => <li key={i}><small>gen {x.gen}</small>{x.why}</li>)}</ul> : <span className="ofb-nil">generation {c.gen ?? 1} — no change promoted, never replaced</span>}</Sec>
+      {a.key === 'reaper' ? <Sec title="EVOLUTION LAB · frozen baseline vs a challenger, judged on exits it never saw" id="sec-evo"><EvolutionLab role="reaper" /></Sec> : null}
       <Sec title="SOURCE CODE" id="sec-code"><ul className="ofb-code">{(a.code || []).map(k => <li key={k.file}><code>{k.file}</code>{k.fn.map(f => <code key={f} className="ofb-fn">{f}()</code>)}</li>)}</ul></Sec>
     </div>
   </div>;

@@ -20787,6 +20787,54 @@ def _lc_shadows_raw():
     return out
 
 
+import evolution_lab as _evo
+EVO_PATH = DATA_DIR / 'evolution_lab.json'   # 🧪 COL-11: the lab's OWN append-only ledger. It never writes the live trading tunables.
+_evo_memo: dict = {}
+
+
+def _evo_view(role='reaper', now=None):
+    """🧪 One Evolution Lab pass on Reaper's REAL closed exits: frozen baseline vs a challenger fit on the oldest 60%, judged on the newest
+    40%, gated, with its shadow trades and generation history. A new pass is appended only when new exits arrived; cached 10 min."""
+    now = now or time.time()
+    if _evo_memo.get('at', 0) > now - 600 and _evo_memo.get('v'):
+        return _evo_memo['v']
+    led = _json_load(EVO_PATH, {}).get(role) or []
+    pos_ = [p for p in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p.get('path')]
+    take_ = _of.take_line(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), None)
+    base_ = _evo.baseline(led)
+    current_ = {k: v[0] for k, v in _of.TUNABLE[role].items()} if not base_ else base_['params']
+    last_ = next((e for e in reversed(led) if e.get('action') == 'challenge'), None)
+    if not last_ or (last_.get('held') or {}).get('n', 0) + (last_.get('learn') or {}).get('n', 0) != len(pos_):
+        j = _evo.run(led, role, current_, _of.TUNABLE[role], pos_, _of.reaper_replay, take_, now)
+        book_ = _json_load(EVO_PATH, {}); book_[role] = led; _json_save(EVO_PATH, book_)
+    else:
+        j = _evo.judge(current_, last_['params'], pos_, _of.reaper_replay, take_)
+    base_ = _evo.baseline(led)
+    v = {'role': role, 'baseline': base_, 'judge': j, 'history': _evo.history(led), 'exits': len(pos_), 'take': take_,
+         'gate': {'heldFrac': _evo.HELD_FRAC, 'minHeld': _evo.MIN_HELD, 'minChanged': _evo.MIN_CHANGED, 'edgePts': _evo.EDGE_PTS},
+         'live': {k: v_[0] for k, v_ in _of.TUNABLE[role].items()}, 'note': 'The lab keeps its own ledger. Applying a promoted generation to live trading is the owner\'s call.'}
+    _evo_memo.update(at=now, v=v)
+    return v
+
+
+@app.get('/api/reputation/evolution/{role}')
+async def evolution_lab(role: str):
+    if role != 'reaper':
+        raise HTTPException(404, 'Only Reaper has replayable exits today.')
+    return await asyncio.to_thread(_evo_view, role)
+
+
+@app.post('/api/reputation/admin/evolution/{role}/rollback')
+async def evolution_rollback(role: str, request: Request):
+    _require_admin(request)
+    book_ = _json_load(EVO_PATH, {}); led = book_.get(role) or []
+    row = _evo.rollback(led, time.time())
+    if not row:
+        raise HTTPException(400, 'Generation 1 has nothing to roll back to.')
+    book_[role] = led; _json_save(EVO_PATH, book_); _evo_memo.clear()
+    return {'rolledBack': row, 'history': _evo.history(led)}
+
+
 def _lifecycle(now):
     """🧬 The page's per-role view of the ONE book: the generation in control + the ones it replaced (SHADOW 24h, then RETIRED)."""
     gens = _tkl.generations(_lc_book(now), now, _lc_shadows())
