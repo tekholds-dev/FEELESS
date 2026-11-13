@@ -1,5 +1,5 @@
 /* 🗺 The stake's road map and its two charts. Built from m-* tokens. */
-.skf { width: 100%; height: 400px; border-radius: 14px; border: 1px solid #ffffff14; background: radial-gradient(70% 90% at 50% 40%, #162033, #080c14); box-shadow: inset 0 1px 0 #ffffff14; overflow: hidden; } .skf.is-tall { height: 560px; }
+.skf { width: 100%; height: 400px; border-radius: 14px; border: 1px solid #ffffff14; background: radial-gradient(70% 90% at 50% 40%, #162033, #080c14); box-shadow: inset 0 1px 0 #ffffff14; overflow: hidden; } .skf.is-tall { height: 700px; }
 .skf { --xy-background-color: transparent; --xy-background-color-default: transparent; } .skf .react-flow__renderer { background: transparent; } .skf .react-flow__node { cursor: default; padding: 0; border: 0; background: none; width: 186px; } .skf .react-flow__handle { opacity: 0; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; } .skf .react-flow__attribution { background: none; opacity: .4; font-size: 8px; }
 .skf-n { --ink: #ffc24d; position: relative; display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 6px 8px; box-sizing: border-box; height: 70px; overflow: hidden; padding: 9px 11px; border-radius: 13px; border: 1px solid color-mix(in srgb, var(--ink) 50%, transparent); background: linear-gradient(150deg, color-mix(in srgb, var(--ink) 16%, #101826), #0a0f18); color: #eef3ff; box-shadow: 0 8px 22px #0007, inset 0 1px 0 #ffffff1c; transition: transform .14s ease, box-shadow .14s ease; }
 .skf-n:hover { transform: translateY(-2px); box-shadow: 0 8px 26px color-mix(in srgb, var(--ink) 34%, transparent), inset 0 1px 0 #ffffff2b; } .skf-n.is-green { --ink: #b48cff; } .skf-n.is-blue { --ink: #57c7ff; }
@@ -11,3 +11,7 @@ body.theme-day .skf { background: #f1f5fb; border-color: #0f1f3a22; } body.theme
 body.fx-lite .skf .react-flow__edge-path { animation: none !important; stroke-dasharray: none !important; } body.fx-lite .skf-n { transition: none; }
 @media (prefers-reduced-motion: reduce) { .skf .react-flow__edge-path { animation: none !important; stroke-dasharray: none !important; } .skf-n, .skf-n > i u { transition: none; } }
 .skf-n > svg { color: var(--ink); }
+/* edge labels read as small chips in the gap between columns, never on a node (owner 2026-11-12) */
+.skf .react-flow__edge-textbg { stroke: #ffffff26; stroke-width: 1; } .skf .react-flow__edge-text { font-family: var(--f-mono); letter-spacing: .04em; text-transform: uppercase; font-size: 9.5px !important; }
+.skf { height: 430px; }
+body.theme-day .skf .react-flow__edge-textbg { fill: #fff !important; stroke: #0f1f3a22; } body.theme-day .skf .react-flow__edge-text { fill: #1d2b3a !important; }

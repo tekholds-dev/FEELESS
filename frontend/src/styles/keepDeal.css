@@ -28,3 +28,11 @@ body.theme-day .ksl { background: #fff; border-color: #0f1f3a22; } body.theme-da
 @media (max-width: 460px) { .kpd-out { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kpd-table { overflow-x: auto; } }
 body.fx-lite .kpd-table tbody tr, body.fx-lite .kpd-box { transition: none; } @media (prefers-reduced-motion: reduce) { .kpd-table tbody tr, .kpd-box { transition: none; } }
 body.theme-day .kpd-in, body.theme-day .kpd-table { background: #fff; border-color: #0f1f3a22; } body.theme-day .kpd-box { background: #f4f6fa; border-color: #0f1f3a26; } body.theme-day .kpd-out { background: #0f1f3a1a; border-color: #0f1f3a22; } body.theme-day .kpd-out li { background: #fff; } body.theme-day .kpd-out b { color: #14202c; } body.theme-day .kpd-out li:nth-child(4) b { color: #5a33bd; text-shadow: none; } body.theme-day .kpd-table td { border-color: #0f1f3a14; } body.theme-day .kpd-table tr.is-on td:first-child { color: #8a6a14; }
+/* 🧭 owner 2026-11-12 'better elite examples': the table and its earnings curve side by side, the money's road map full width under them —
+   the map had grown past its column and left a dead block beside it. */
+.kpd-grid { grid-template-areas: 'table chart' 'map map'; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.kpd-grid > .kpd-table { grid-area: table; } .kpd-grid > .kpd-right { display: contents; }
+.kpd-grid .kpd-right > .skf, .kpd-grid .kpd-right > .skf.is-tall { grid-area: map; height: 440px; min-height: 0; }
+.kpd-grid .kpd-right > .skf.is-tall { height: 720px; }
+.kpd-grid .kpd-right > .skc { grid-area: chart; display: flex; flex-direction: column; min-height: 240px; } .kpd-grid .kpd-right > .skc .skc-plot { flex: 1; min-height: 220px; }
+@media (max-width: 1040px) { .kpd-grid { grid-template-areas: 'table' 'chart' 'map'; grid-template-columns: minmax(0, 1fr); } }
