@@ -566,12 +566,31 @@ def _trail_path(path):
     return path.with_suffix('.trail')
 
 
-def load(path):
-    """No file yet: a new ledger. A file that fails its seal raises Tampered: it never quietly starts again from zero."""
+def _db_path(path):
+    return path.with_suffix('.db')
+
+
+def _connect(path):
+    import sqlite3
+    new = not _db_path(path).exists()
+    db = sqlite3.connect(str(_db_path(path)), timeout=30, isolation_level=None)
+    if new:
+        os.chmod(_db_path(path), 0o600)
+    db.execute('PRAGMA journal_mode=WAL'); db.execute('PRAGMA synchronous=FULL')
+    db.execute('CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY CHECK (id = 1), blob BLOB NOT NULL)')
+    db.execute('CREATE TABLE IF NOT EXISTS trail (n INTEGER PRIMARY KEY, row BLOB NOT NULL)')
+    return db
+
+
+def _legacy_raw(path):
     try:
-        raw = path.read_bytes()
+        return path.read_bytes()
     except OSError:
-        return new_state()
+        return None
+
+
+def _parse(raw):
+    """The sealed (or first plain) ledger bytes → the state. A failed seal raises Tampered: it never quietly starts again from zero."""
     base = new_state()
     if not raw.startswith(b'FP1:'):   # the first plain version, sealed on its next write
         try:
@@ -590,13 +609,63 @@ def load(path):
     return {**base, **d, 'cfg': clean_cfg(d.get('cfg')), 'trailNew': []}
 
 
-def audit(path):
-    """Walk the whole chain from the first dollar. It must end on the ledger's head, and the money it counted must equal what the ledger holds. → {ok, links, head, why}"""
-    st = load(path); head = GENESIS; n = 0; moved = {t: 0 for t in TOKENS}
+def migrate(path):
+    """🗄 COL-18 (owner 2026-11-12): the ledger + its HMAC trail move from the sealed file into SQLite (`<name>.db`), byte for byte: the same
+    sealed state blob, the same sealed trail rows. The old file and trail stay as a READ-ONLY backup and are never written again.
+    Runs once under the ledger lock; a ledger already in the DB is left alone. → True when it moved one."""
+    if _db_path(path).exists():
+        return False
+    raw = _legacy_raw(path)
+    if raw is None:
+        return False
+    _parse(raw)   # a tampered file never moves
     try:
         rows = _trail_path(path).read_bytes().splitlines()
     except OSError:
         rows = []
+    tmp = _db_path(path).with_name(f'{_db_path(path).name}.{uuid.uuid4().hex}.tmp')
+    import sqlite3
+    db = sqlite3.connect(str(tmp), isolation_level=None)
+    try:
+        db.execute('CREATE TABLE state (id INTEGER PRIMARY KEY CHECK (id = 1), blob BLOB NOT NULL)'); db.execute('CREATE TABLE trail (n INTEGER PRIMARY KEY, row BLOB NOT NULL)')
+        db.execute('BEGIN'); db.execute('INSERT INTO state (id, blob) VALUES (1, ?)', (raw if raw.startswith(b'FP1:') else _seal(raw),))
+        db.executemany('INSERT INTO trail (n, row) VALUES (?, ?)', [(i + 1, r) for i, r in enumerate(x for x in rows if x)]); db.execute('COMMIT')
+    finally:
+        db.close()
+    os.chmod(tmp, 0o600); os.replace(tmp, _db_path(path))
+    for f in (path, _trail_path(path)):
+        try:
+            os.chmod(f, 0o400)
+        except OSError:
+            pass
+    return True
+
+
+def _read(path):
+    """→ (state bytes or None, [sealed trail rows]). The DB once it exists; the old file only before the move."""
+    if _db_path(path).exists():
+        db = _connect(path)
+        try:
+            row = db.execute('SELECT blob FROM state WHERE id = 1').fetchone()
+            return (bytes(row[0]) if row else None), [bytes(r[0]) for r in db.execute('SELECT row FROM trail ORDER BY n')]
+        finally:
+            db.close()
+    try:
+        rows = _trail_path(path).read_bytes().splitlines()
+    except OSError:
+        rows = []
+    return _legacy_raw(path), [r for r in rows if r]
+
+
+def load(path):
+    """No ledger yet: a new one. A ledger that fails its seal raises Tampered: it never quietly starts again from zero."""
+    raw, _rows = _read(path)
+    return new_state() if raw is None else _parse(raw)
+
+
+def audit(path):
+    """Walk the whole chain from the first dollar. It must end on the ledger's head, and the money it counted must equal what the ledger holds. → {ok, links, head, why}"""
+    raw, rows = _read(path); st = new_state() if raw is None else _parse(raw); head = GENESIS; n = 0; moved = {t: 0 for t in TOKENS}
     for row in rows:
         try:
             ev = json.loads(_unseal(row))
@@ -617,24 +686,27 @@ def audit(path):
 
 
 def update(path, fn):
-    """Read, change and write under one lock, across both services. fn(state) → its result. A failed fn writes nothing."""
+    """Read, change and write under one lock, across both services. fn(state) → its result. A failed fn writes nothing.
+    The new trail links and the new state commit in ONE database transaction: both land or neither does."""
     with path.with_suffix('.lock').open('a+') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
+            migrate(path)
             state = load(path); out = fn(state); fresh = state.pop('trailNew', [])
-            if fresh:   # the trail first: a crash here leaves a link the ledger never counted, which audit() reports
-                with _trail_path(path).open('ab') as fh:
-                    for ev in fresh:
-                        fh.write(_seal(json.dumps(ev, sort_keys=True).encode()) + b'\n')
-                    fh.flush(); os.fsync(fh.fileno())
-            tmp = path.with_name(f'{path.name}.{uuid.uuid4().hex}.tmp')
+            db = _connect(path)
             try:
-                with tmp.open('wb') as fh:
-                    fh.write(_seal(json.dumps(state, separators=(',', ':')).encode()))
-                    fh.flush(); os.fsync(fh.fileno())
-                os.replace(tmp, path)
+                db.execute('BEGIN IMMEDIATE')
+                n0 = db.execute('SELECT COALESCE(MAX(n), 0) FROM trail').fetchone()[0]
+                db.executemany('INSERT INTO trail (n, row) VALUES (?, ?)', [(n0 + i + 1, _seal(json.dumps(ev, sort_keys=True).encode())) for i, ev in enumerate(fresh)])
+                db.execute('INSERT OR REPLACE INTO state (id, blob) VALUES (1, ?)', (_seal(json.dumps(state, separators=(',', ':')).encode()),))
+                db.execute('COMMIT')
+            except BaseException:
+                if db.in_transaction:
+                    db.execute('ROLLBACK')
+                raise
             finally:
-                tmp.unlink(missing_ok=True)
+                db.close()
             return out
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
+

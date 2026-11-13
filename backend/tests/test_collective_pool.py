@@ -189,11 +189,21 @@ def test_with_new_people_stopped_members_still_earn_while_members_trade():
     assert held(s, 'USDC') == 200 * USDC + 300 * USDC
 
 
+def _db_exec(p, sql, *a):
+    import sqlite3
+    db = sqlite3.connect(str(p.with_suffix('.db')), isolation_level=None)
+    try:
+        return db.execute(sql, *a).fetchall()
+    finally:
+        db.close()
+
+
 def test_an_edited_ledger_refuses_to_load_and_never_resets(tmp_path):
     p = tmp_path / 'pool.json'
     cp.update(p, lambda s: cp.income(s, 'a', 'USDC', 100, 'txn'))
-    assert p.read_bytes().startswith(b'FP1:') and b'keep' not in p.read_bytes()    # sealed, nothing readable
-    raw = bytearray(p.read_bytes()); raw[20] ^= 1; p.write_bytes(bytes(raw))
+    blob = bytes(_db_exec(p, 'SELECT blob FROM state')[0][0])
+    assert blob.startswith(b'FP1:') and b'keep' not in blob    # sealed in the DB, nothing readable
+    raw = bytearray(blob); raw[20] ^= 1; _db_exec(p, 'UPDATE state SET blob = ? WHERE id = 1', (bytes(raw),))
     with pytest.raises(cp.Tampered):
         cp.load(p)
     with pytest.raises(cp.Tampered):
@@ -208,10 +218,46 @@ def test_the_chain_counts_every_dollar_and_catches_a_cut_link(tmp_path):
     cp.update(p, lambda s: (s.update(at=1), cp.tick(s, 90 * D, SOL)))
     r = cp.audit(p)
     assert r['ok'] and r['links'] == 3
-    trail = p.with_suffix('.trail'); rows = trail.read_bytes().splitlines()
-    trail.write_bytes(b'\n'.join(rows[:1] + rows[2:]) + b'\n')                   # someone removes a dollar
+    _db_exec(p, 'DELETE FROM trail WHERE n = 2')                                  # someone removes a dollar
     r = cp.audit(p)
     assert not r['ok'] and 'match' in r['why']
+
+
+def _legacy(p, ops):
+    """The ledger as the old sealed file + .trail wrote it (before COL-18)."""
+    st = cp.new_state()
+    for op in ops:
+        op(st)
+    trail = st.pop('trailNew', [])
+    p.write_bytes(cp._seal(__import__('json').dumps(st, separators=(',', ':')).encode()))
+    p.with_suffix('.trail').write_bytes(b''.join(cp._seal(__import__('json').dumps(ev, sort_keys=True).encode()) + b'\n' for ev in trail))
+    return st
+
+
+def test_col18_the_file_ledger_moves_to_the_db_with_equal_totals_and_the_old_file_stays_read_only(tmp_path):
+    import os
+    import stat
+    p = tmp_path / 'pool.json'
+    _legacy(p, [lambda s: cp.income(s, 'a', 'USDC', 100, 'txn'), lambda s: cp.send(s, 'b', 'x', 'o', 'USDC', 50 * USDC, 50, 1), lambda s: cp.income(s, 'c', 'SOL', 7, 'deposit')])
+    before = cp.load(p); before_audit = cp.audit(p); file_bytes = p.read_bytes(); trail_bytes = p.with_suffix('.trail').read_bytes()
+    assert before_audit['ok'] and before_audit['links'] == 3 and not p.with_suffix('.db').exists()
+    assert cp.migrate(p) and not cp.migrate(p)                                     # once
+    after = cp.load(p); after_audit = cp.audit(p)
+    assert after == before and cp.totals(after, SOL) == cp.totals(before, SOL)       # totals equal before / after
+    assert after_audit == before_audit                                             # the HMAC chain still closes on the same head
+    assert p.read_bytes() == file_bytes and p.with_suffix('.trail').read_bytes() == trail_bytes
+    assert not (os.stat(p).st_mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH))   # the backup is read-only
+    cp.update(p, lambda s: cp.income(s, 'd', 'USDC', 5, 'txn'))                    # new money lands in the DB only
+    assert cp.audit(p)['ok'] and cp.audit(p)['links'] == 4 and p.read_bytes() == file_bytes
+
+
+def test_col18_a_tampered_file_never_moves(tmp_path):
+    p = tmp_path / 'pool.json'
+    _legacy(p, [lambda s: cp.income(s, 'a', 'USDC', 100, 'txn')])
+    raw = bytearray(p.read_bytes()); raw[20] ^= 1; p.write_bytes(bytes(raw))
+    with pytest.raises(cp.Tampered):
+        cp.update(p, lambda s: None)
+    assert not p.with_suffix('.db').exists()
 
 
 def test_a_print_seed_is_stable_unique_and_cannot_be_chosen():

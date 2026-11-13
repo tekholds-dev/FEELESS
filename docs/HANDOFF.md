@@ -13,13 +13,6 @@
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
 
-**COL-16 · Graded proof with funds** · OPEN · claimed: —
-Owner: the user sends a proof WITH an amount of funds to be graded; on AUTO the agent sends the % from its own wallet with the proof.
-Done when: amount + % shown before send, wallet signs, receipt filed on the proof, tested with fakes; owner does the first real send.
-
-**COL-18 · Pool ledger → database** · OPEN (hold lifted by owner) · claimed: —
-Done when: ledger + HMAC trail in the DB, `audit()` still closes, old file kept read-only as backup, test proves totals equal before/after.
-
 **COL-8 · Collective audit (fast)** · OPEN · claimed: —
 Done when: every Collective folder checked for bugs, text matches the data, designs aligned; fixes pushed. No deep dig.
 
@@ -57,6 +50,7 @@ handled (rotate / fall back). No claim without a live read.
 ## OWNER ONLY
 **Owner only (Claude never moves funds) — 👑 owner 2026-11-12 (said twice, final): HE does ALL real-money testing himself. Claude's whole job is: finish every build row, prove it, push, tick this page, then TELL HIM it is ready to test. Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 1425 bps = Q29). His wallet: 0.1378 SOL + 1.03 USDC.
+- 💸 COL-16 first real send (yours): open a filed proof → 🪙 Send to the Collective → SEND IT WITH YOUR FUNDS → Quote it → Sign and send.
 - 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
   Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
   Circle → Phantom → AGT-26, AGT-24.
