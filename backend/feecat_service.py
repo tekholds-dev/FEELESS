@@ -16,6 +16,7 @@ import agent_wallet as _aw
 import agent_trade as _at
 import agent_commands as _ac
 import proof_commands as _pc
+import proof_funds as _pf
 import agent_knows as _know
 import cat_agent as _ca
 import cat_browser as _cb
@@ -10317,6 +10318,77 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'keep, delete or delete_coin.')
         keep_owned(cat); _save(store)
         return {'powFolders': list(reversed(cat.get('powFolders') or []))[:12]}
+    if p.op in ('fund_cfg', 'fund_quote', 'fund_send'):   # 💸 COL-16: the owner sends a proof WITH funds; on AUTO its agent adds its % from its own wallet
+        cfg_ = cat.setdefault('fundGrade', {'auto': False, 'pct': 10.0})
+        if p.op == 'fund_cfg':
+            t_ = p.tools if isinstance(p.tools, dict) else {}
+            if 'auto' in t_:
+                cfg_['auto'] = bool(t_['auto'])
+            if 'pct' in t_:
+                cfg_['pct'] = max(1.0, min(_pf.PCT_MAX, round(float(t_['pct'] or 0), 2)))
+            keep_owned(cat); _save(store)
+            return {'fundGrade': cfg_}
+        kind_, f_ = _proof_folder(cat, p.job)
+        if not f_:
+            raise HTTPException(400, 'Pick one of its filed proofs.')
+        me_ = owner_wallet(cat)
+        if not me_:
+            raise HTTPException(400, 'Sign in with the wallet that owns this agent first.')
+        try:
+            pot_ = ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
+        except (OSError, ValueError):
+            pot_ = None
+        if not pot_:
+            raise HTTPException(400, 'The colony pot is not opened yet.')
+        agent_ = (cat.get('agentWallet') or {}).get('address') if _pays_itself(cat) else None
+        if p.op == 'fund_quote':
+            auto_ = bool(cfg_.get('auto')) and bool(agent_)
+            async with httpx.AsyncClient(timeout=20) as http:
+                free_ = 0.0
+                if auto_:
+                    _u, bal_ = await _agent_usdc(http, agent_); free_ = max(0.0, bal_ - _at.GAS_SOL)
+                try:
+                    q_ = _pf.quote(p.cap, cfg_.get('pct'), auto_, free_)
+                except (ValueError, TypeError) as e:
+                    raise HTTPException(400, str(e))
+                bh_ = ((await _crpc._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            if not bh_:
+                raise HTTPException(503, 'No blockhash from the chain. Nothing was quoted.')
+            tx_ = pot_transfer_tx(me_, pot_, int(q_['userSol'] * 1e9), bh_); qh_ = _pf.qhash(cat_id, f_['id'], q_, tx_)
+            cat['fundQuote'] = {'id': qh_, 'proof': f_['id'], 'kind': kind_, 'q': q_, 'tx': tx_, 'exp': round(time.time()) + _pf.QUOTE_TTL}
+            keep_owned(cat); _save(store)
+            return {'quote': {**q_, 'id': qh_, 'to': pot_, 'from': me_, 'exp': cat['fundQuote']['exp']}, 'tx': tx_}
+        fq_ = cat.get('fundQuote') or {}
+        if not fq_ or fq_.get('id') != p.text or fq_.get('proof') != f_['id']:
+            raise HTTPException(400, 'That quote is gone. Quote again. Nothing moved.')
+        if time.time() > float(fq_.get('exp') or 0):
+            cat.pop('fundQuote', None); keep_owned(cat); _save(store)
+            raise HTTPException(400, 'The quote expired. Quote again. Nothing moved.')
+        if not _pf.signed_matches(p.sig or '', fq_['tx'], me_):
+            raise HTTPException(400, 'The signed transfer is not the one quoted. Nothing was sent.')
+        cat.pop('fundQuote', None); keep_owned(cat); _save(store)   # used once: a retry can never send it twice
+        q_ = fq_['q']; agent_sig_ = None
+        async with httpx.AsyncClient(timeout=30) as http:
+            user_sig_ = await _crpc._rpc(http, 'sendTransaction', [p.sig, {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}], scan=False)
+            if not user_sig_:
+                raise HTTPException(502, 'The chain did not take your transfer. Nothing moved.')
+            if q_.get('auto') and q_.get('agentSol') and agent_ and cat_id not in _SWAP_BUSY:
+                _SWAP_BUSY.add(cat_id)
+                try:
+                    bh_ = ((await _crpc._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+                    rec_ = {'key': f"feeless-{cat_id}-fund-{fq_['id']}", 'tx': pot_transfer_tx(agent_, pot_, int(q_['agentSol'] * 1e9), bh_)}   # the key is the quote: it can't pay twice
+                    await _at._circle_post(http, cat, rec_); agent_sig_ = rec_.get('sig')
+                except (ValueError, httpx.HTTPError) as e:
+                    print(f'[fund] agent share not sent: {str(e)[:100]}')
+                finally:
+                    _SWAP_BUSY.discard(cat_id)
+        rc_ = _pf.receipt(q_, f_['id'], user_sig_, agent_sig_, fq_['id'], time.time())
+        f_.setdefault('funds', []).append(rc_)
+        _share_append({'cat': cat_id, 'owner': me_, 'sol': q_['userSol'], 'pct': None, 'sym': None, 'ref': user_sig_, 'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': user_sig_, 'by': 'owner', 'proof': {'id': f_['id'], 'kind': fq_.get('kind')}}, (user_sig_, cat_id))
+        if agent_sig_:
+            _share_append({'cat': cat_id, 'owner': me_, 'sol': rc_['agentSol'], 'pct': q_['pct'], 'sym': None, 'ref': agent_sig_, 'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': agent_sig_, 'by': 'agent', 'proof': {'id': f_['id'], 'kind': fq_.get('kind')}}, (agent_sig_, cat_id))
+        keep_owned(cat); _save(store)
+        return {'receipt': rc_}
     if p.op == 'pot_send':   # 🏺 owner 2026-11-02: send SOL from ITS OWN wallet to the colony pot — the pot address is the server's (no destination input), gas stays
         addr_ = (cat.get('agentWallet') or {}).get('address')
         if not addr_ or not _pays_itself(cat):

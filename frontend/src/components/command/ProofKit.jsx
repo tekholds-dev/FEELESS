@@ -5,6 +5,7 @@ import { boostX, dayEarn, GRADE_BASE, limitIn, seatOf, tinyUsd, usePoolRates } f
 import { usePoolRules } from './SplitFlow';
 import React, { Suspense, createContext, lazy, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { useWallet } from '../../hooks/useWallet';
 import { Ic3 } from '../../lib/icon3d';
 import { FolderArt } from '../../lib/folderArt';
 import { fitBox, identityOf, inkOf, ridge, segment, kindIdentity, kindOfFolder } from '../../lib/proofprint';
@@ -69,11 +70,39 @@ export function ProofSendForm({ cat, work, f, kind, coin = true, onSent = null, 
     <button type="button" className={`m-btn m-go${sure ? ' is-sure' : ''}`} disabled={busy || !px || n <= 0 || n < least || !!blocked} onClick={go} data-tip={blocked || "Its own wallet signs one transfer. It can't be undone, and a stake can lose money"} data-testid="proof-send">{busy ? 'Sending…' : sure ? `Yes, send $${n}` : blocked ? 'Not a +50% win' : n < least ? '$1 minimum' : `Send $${n}`}</button>
     {err ? <small className="kd-err" role="alert" data-testid="proof-send-err">⚠ {err}</small> : null}{f?.id ? <GradePreview cat={cat} work={work} f={f} usdIn={n} /> : null}</section>;
 }
+// 💸 COL-16: the owner sends this proof WITH his own funds to be graded; on AUTO its agent adds its % from its own wallet. Amounts first, his wallet signs the quote.
+const b64 = u8 => btoa(String.fromCharCode(...u8));
+export const FundReceipt = ({ r }) => <li className="pfund-rc" data-testid="fund-receipt"><b className="m-num">{Number(r.totalSol).toFixed(4)} SOL</b><span>You {Number(r.userSol).toFixed(4)}{r.agentSig ? ` · its ${r.pct}% ${Number(r.agentSol).toFixed(4)}` : r.agentMissed ? ' · its share did not go' : ''}</span>{r.userSig ? <a href={`https://solscan.io/tx/${r.userSig}`} target="_blank" rel="noopener noreferrer">Yours ↗</a> : null}{r.agentSig ? <a href={`https://solscan.io/tx/${r.agentSig}`} target="_blank" rel="noopener noreferrer">Its ↗</a> : null}</li>;
+export function ProofFundForm({ cat, work, f, signer = null }) {
+  const w = useWallet() || {}; const provider = signer || w.provider;
+  const [sol, setSol] = useState(0.01); const [cfg, setCfg] = useState(cat?.fundGrade || { auto: false, pct: 10 }); const [q, setQ] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [rcs, setRcs] = useState(f?.funds || []);
+  const run = async (what, fn) => { setBusy(what); setErr(''); try { await fn(); } catch (e) { setErr(e.message || 'Nothing moved.'); } setBusy(''); };
+  const setAuto = patch => run('cfg', async () => { const j = await work(cat.id, { op: 'fund_cfg', tools: patch }); setCfg(j.fundGrade); setQ(null); });
+  const quote = () => run('quote', async () => { const j = await work(cat.id, { op: 'fund_quote', job: f.id, cap: Number(sol) }); setQ({ ...j.quote, tx: j.tx }); });
+  const send = () => run('send', async () => {
+    if (!provider?.signTransaction) throw new Error('Connect the wallet that owns this agent. Nothing moved.');
+    const { Transaction } = await import('@solana/web3.js');
+    const signed = await provider.signTransaction(Transaction.from(Uint8Array.from(atob(q.tx), c => c.charCodeAt(0))));
+    const j = await work(cat.id, { op: 'fund_send', job: f.id, text: q.id, sig: b64(signed.serialize()) }); setRcs(r => [...r, j.receipt]); setQ(null);
+  });
+  const n = Number(sol) || 0; const share = cfg.auto ? Math.round(n * cfg.pct * 1e4) / 1e6 : 0;
+  return <section className="psub pfund" data-testid="proof-fund">
+    <span className="psub-body"><b>SEND IT WITH YOUR FUNDS TO BE GRADED</b>
+      <input className="m-input m-num" type="number" min="0.001" step="any" value={sol} onChange={e => { setSol(e.target.value === '' ? '' : Number(e.target.value)); setQ(null); }} aria-label="SOL you send" data-testid="fund-sol" /><small>SOL from your wallet</small></span>
+    <span className="pfund-auto"><button type="button" className={`m-btn${cfg.auto ? ' is-on' : ''}`} aria-pressed={!!cfg.auto} disabled={!!busy} onClick={() => setAuto({ auto: !cfg.auto })} data-testid="fund-auto" data-tip="On AUTO its agent adds its % from its own wallet, with the same proof">AUTO {cfg.auto ? 'on' : 'off'}</button>
+      {cfg.auto ? <label>its share <input className="m-input m-num" type="number" min="1" max="100" step="1" defaultValue={cfg.pct} onBlur={e => Number(e.target.value) !== cfg.pct && setAuto({ pct: Number(e.target.value) })} aria-label="Its share in percent" data-testid="fund-pct" />%</label> : null}</span>
+    <ul className="pfund-math" data-testid="fund-math"><li><span>You send</span><b className="m-num">{(q ? q.userSol : n).toFixed(4)} SOL</b></li><li><span>{cfg.auto ? `Its wallet adds ${cfg.pct}%` : 'Its wallet adds'}</span><b className="m-num">{cfg.auto ? `${(q ? q.agentSol : share).toFixed(4)} SOL` : 'nothing (AUTO off)'}</b></li><li className="is-total"><span>To the Collective pot</span><b className="m-num">{(q ? q.totalSol : n + share).toFixed(4)} SOL</b></li></ul>
+    {q ? <button type="button" className="m-btn m-go is-sure" disabled={!!busy} onClick={send} data-testid="fund-send" data-tip="Your wallet signs ONE transfer to the pot. It can't be undone, and a stake can lose money">{busy === 'send' ? 'Signing…' : `Sign and send ${q.totalSol.toFixed(4)} SOL`}</button>
+      : <button type="button" className="m-btn m-go" disabled={!!busy || n < 0.001} onClick={quote} data-testid="fund-quote">{busy === 'quote' ? 'Quoting…' : 'Quote it'}</button>}
+    {err ? <small className="kd-err" role="alert" data-testid="fund-err">⚠ {err}</small> : null}
+    {rcs.length ? <ul className="pfund-rcs" aria-label="Sent with funds">{rcs.map(r => <FundReceipt key={r.quote} r={r} />)}</ul> : null}
+  </section>;
+}
 export function ProofSubmit({ cat, work, f, kind }) {
   const [open, setOpen] = useState(false);
   if (!f?.id || f.live) return null;
   if (f.sent) return <SentCard sent={f.sent} f={f} />;
-  return <span className="psub-open" data-testid="proof-submit"><ChatSettings open={open} onOpen={setOpen} label="Send this proof to the Collective" tip={cat?.ownerStaff ? 'Send this proof to the Collective. Any amount, to test' : 'Send this proof to the Collective with $1 or more'} testid="proof-open" panelTestid="proof-panel" placement="bottom start" icon={<Ic3 e="🪙" size="22px" />}>{open ? <ProofSendForm cat={cat} work={work} f={f} kind={kind} /> : null}</ChatSettings><small>Send to the Collective</small></span>;
+  return <span className="psub-open" data-testid="proof-submit"><ChatSettings open={open} onOpen={setOpen} label="Send this proof to the Collective" tip={cat?.ownerStaff ? 'Send this proof to the Collective. Any amount, to test' : 'Send this proof to the Collective with $1 or more'} testid="proof-open" panelTestid="proof-panel" placement="bottom start" icon={<Ic3 e="🪙" size="22px" />}>{open ? <><ProofSendForm cat={cat} work={work} f={f} kind={kind} /><ProofFundForm cat={cat} work={work} f={f} /></> : null}</ChatSettings><small>Send to the Collective</small></span>;
 }
 // 📖 The listed sites really opened before the minds answered, and the ones that walled us.
 export function SitesRead({ rows }) {
