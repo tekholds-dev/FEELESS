@@ -647,7 +647,7 @@ def tier_cfg(cfg, tid):
 # A real round trip costs ~2% (impact + slippage + network fee), so a rule that swaps on a 5% dip turns noise into loss:
 # a $7 card once made 350 real swaps in 39h on a 5-min clock with no hold time and a −5% instant swap. The 5-min clock stays
 # (protection + rides still run every tick); what is floored is how fast a coin may be flipped back out.
-REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a ROUND rotation may sell it (clocks ≤ 15 min) = 3 rounds of 5 min — owner 2026-10-22: "15 minutes" (real card: exits < 15 min won ~14 %, docs/TRENCH_THEORY.md)
+REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a ROUND rotation may sell it (clocks ≤ 15 min) = 3 rounds of 5 min — owner 2026-10-22: "15 minutes" (real card: exits < 15 min won ~14 %, docs/specs/agents.md)
                           # ⚡ instant swap, stops and the rug shield are never delayed by it.
 # 🕰 AGENT MIN HOLD (owner 2026-10-22, "15 minutes not 30"; theory BAIL: 78 agent exits, median 13 min held, 12 % won, −6.9 %): on the real card an
 # agent's / model's OWN exit of a RED coin (dead coin, thesis, momentum, time, "I said sell") waits until the buy has been held 15 min.

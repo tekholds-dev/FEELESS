@@ -1,4 +1,4 @@
-"""📉 PAPER PERPS — the Perps building's own order desk (docs/DECISIONS.md #1: FEELESS never places, routes or holds a perps order or margin;
+"""📉 PAPER PERPS — the Perps building's own order desk (docs/RULINGS.md #1: FEELESS never places, routes or holds a perps order or margin;
 the real order is a one-tap handoff to a regulated venue). Pure + tested; the service keeps one paper book per wallet and the live board.
 
 A paper book starts with START paper dollars. Open a LONG / SHORT on a live market (its real mark price) with a margin and a leverage up to

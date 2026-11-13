@@ -10055,7 +10055,7 @@ def _pperp_board():
 
 @app.get('/api/reputation/familia/paper-perps')
 async def familia_paper_perps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """📉 Your paper perps book at live marks (liquidations settle on the read). Signed in; paper only (docs/DECISIONS.md #1)."""
+    """📉 Your paper perps book at live marks (liquidations settle on the read). Signed in; paper only (docs/RULINGS.md #1)."""
     import paper_perps as _pp
     me_ = _session_or_401(address, session)
     if not _perps_cache.get('rows'):
@@ -28698,7 +28698,7 @@ SHOP = [
     {'id': 'boost-3', 'label': '3 chat boosts (any tier)', 'cost': 150, 'kind': 'boost', 'grant': {'boosts': 3}},
     {'id': 'raffle', 'label': 'Airdrop raffle ticket', 'cost': 100, 'kind': 'raffle', 'grant': {'tickets': 1}},
     {'id': 'badge-og', 'label': '"Points OG" badge (permanent)', 'cost': 2000, 'kind': 'badge', 'grant': {'badge': 'points-og'}},
-    # 💎 ONE points system (docs/DECISIONS.md #3): points power your family — 1 point = 100 MP into its bank, ≤ PTS_TO_MP_WEEK points a week
+    # 💎 ONE points system (docs/RULINGS.md #3): points power your family — 1 point = 100 MP into its bank, ≤ PTS_TO_MP_WEEK points a week
     {'id': 'family-mp', 'label': '10,000 MP into your family bank', 'cost': 100, 'kind': 'mp', 'grant': {'mp': 10_000}},
 ]
 MP_PER_PT, PTS_TO_MP_WEEK = 100, 1000
@@ -30628,7 +30628,7 @@ SETUP_KEYS = [
     ('LIFI_API_KEY', 'LI.FI', 'Higher rate limits for EVM swaps, bridges and gas', False),
     ('ETHERSCAN_API_KEY', 'Etherscan', 'EVM contract + holder reads', False),
     ('PUMPPORTAL_API_KEY', 'PumpPortal', 'Paid live Pump trade stream (instant new-coin flow)', False),
-    ('TELEGRAM_BOT_TOKEN', 'Telegram bot', 'Strike Zone inside Telegram: players shoot under their Telegram name + the bot posts level-ups to your group (docs/TELEGRAM.md)', False),
+    ('TELEGRAM_BOT_TOKEN', 'Telegram bot', 'Strike Zone inside Telegram: players shoot under their Telegram name + the bot posts level-ups to your group (docs/specs/site.md)', False),
     ('TELEGRAM_GROUP_ID', 'Telegram group', 'Where the bot posts level-ups (-100… id)', False),
     ('TELEGRAM_APP_URL', 'Telegram app link', 'https://t.me/<bot>/strike — the PLAY button on group posts', False),
 ]

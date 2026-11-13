@@ -9,7 +9,7 @@ import { ActBtn, serverJson, twoTap } from '../ActBtn';
 import '../../styles/catReal.css';
 import { Ic3 } from '../../lib/icon3d';
 
-// 💵 REAL MODE (docs/DECISIONS.md #2 — option A, the owner's go 2026-10-23): your agent keeps hunting on its paper ledger and every buy it makes
+// 💵 REAL MODE (docs/RULINGS.md #2 — option A, the owner's go 2026-10-23): your agent keeps hunting on its paper ledger and every buy it makes
 // (and every exit of a coin you really bought through it) arrives here as a PROPOSAL — coin, size (never above your per-buy budget), its reason
 // and its own paper record. ✍ Sign it opens the swap with the coins + amount set (you press Get quote; your wallet signs, normal swap fee);
 // Skip lets it pass; after 15 min it expires (prices moved). FEELESS never holds your SOL or a key. The same proposal reaches your inbox.

@@ -1,4 +1,4 @@
-"""💵 Real-money cats = option A (docs/DECISIONS.md #2): the cat proposes, the user's wallet signs every trade; FEELESS never holds funds."""
+"""💵 Real-money cats = option A (docs/RULINGS.md #2): the cat proposes, the user's wallet signs every trade; FEELESS never holds funds."""
 import hashlib
 import json
 

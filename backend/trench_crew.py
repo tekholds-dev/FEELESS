@@ -1,6 +1,6 @@
 """🪖 THE TRENCH CREW — hard-coded roles for TRENCHING (open mode) (owner, 2026-10-12: "a trench crew that keeps digging until it understands
 what's happening, then lets Warden / Courier enforce only the few things that can actually blow up execution"). Pure + tested
-(`tests/test_trench_crew.py`). The plain-words version is docs/TRENCH_CREW.md — change both together.
+(`tests/test_trench_crew.py`). The plain-words version is docs/specs/agents.md — change both together.
 
 Tally discovers · Sherlock investigates · Weather contextualizes · Trigger times · Devil challenges · Warden sizes · Courier executes ·
 Reaper manages · Archivist remembers · Judge improves.

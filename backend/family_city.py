@@ -1,6 +1,6 @@
 """🏙 LA FAMILIA CITY — every family's HOME BLOCK (owner, 2026-10-21: "named stores that represent crypto, unlock big stores that generate more MP,
 CPU goons to protect / rob / boost … MP should grow so fast, all stores have real function … each recruit has levels"). Pure + tested; the service
-holds the store and the clock. The bigger world (districts, bridges, turf, chess raids, the shop) is planned in docs/FAMILIA_PLAN.md.
+holds the store and the clock. The bigger world (districts, bridges, turf, chess raids, the shop) is planned in docs/specs/familia.md.
 
 MOB POINTS (MP) are points. BANK = MP the family EARNED (stores, robberies, dice) — it builds, hires and robs. GOLD = MP bought with SOL (shop,
 planned) — only GOLD_WEEK_CAP of it a week may move into the bank, so time always beats money (no pay-to-win).

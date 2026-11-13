@@ -1,5 +1,5 @@
 """🧬 Card DNA — every card (Arena, engine, HQ, user) carries its OWN automation config, so no two cards play alike.
-Pure, tested. The same fields are what the FUSE Card program will execute once the owner signs (see docs/GO_LIVE.md):
+Pure, tested. The same fields are what the FUSE Card program will execute once the owner signs (see docs/specs/money.md):
 
   cycle     off · classic (anchor→degen→anchor→mixed) · adaptive (losing → majors, winning → runners) · safe · press
   compound  smart (gains go to the strongest coins — momentum-weighted, never into fading ones) · even · off

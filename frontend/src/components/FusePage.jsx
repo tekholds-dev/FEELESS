@@ -635,7 +635,7 @@ export function MegaCard({ c, i, onPicks, onLoad, onChat, chatOpen, onReplay }) 
 const balancesOf = async (addr, legs) => Object.fromEntries(await Promise.all(legs.filter(l => l.mint && l.soldUsd == null).map(l => fetch(apiUrl(`/api/reputation/balance/${addr}/${l.mint}`)).then(x => (x.ok ? x.json() : null)).catch(() => null).then(b => [l.mint, b]))));
 const solPrice = () => fetch(`/api/candles/prices?mints=${SOL_MINT}`).then(r => r.json()).then(d => Number(d?.[SOL_MINT]) || 0).catch(() => 0);
 
-// 🤖 What this card's settings ask for — exactly what the FUSE Card program will run on its own once you sign (docs/GO_LIVE.md).
+// 🤖 What this card's settings ask for — exactly what the FUSE Card program will run on its own once you sign (docs/specs/money.md).
 // Today every step is a one-tap alert you approve; nothing sells by itself yet.
 export function AutoSpec({ r }) {
   const clk = h => (h >= 1 ? `${h}h` : `${Math.round(h * 60)}m`);

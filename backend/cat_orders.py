@@ -1,6 +1,6 @@
 """🧭 GENERAL AI CAT — YOUR ORDERS (owner, 2026-10-23: "TWO KINDS OF AI CAT … (b) GENERAL — 1-2 all-round models that do anything the user
 asks with the AI wallet they fund"). You write an order in plain words; the agent turns it into ONE proposal and your own wallet signs it
-(docs/DECISIONS.md #2, option A — FEELESS never holds a key or pooled funds). Today an order is a Solana swap: buy a coin with SOL, or sell
+(docs/RULINGS.md #2, option A — FEELESS never holds a key or pooled funds). Today an order is a Solana swap: buy a coin with SOL, or sell
 part / all of a coin the cat holds. LP / lend / DCA orders come later, each through its own verified builder.
 
 Every buy is a NEW BUY DOOR, so it ships with the guards (memory: new-buy-doors-need-guards): a real pool (≥ $5K), not born minutes ago

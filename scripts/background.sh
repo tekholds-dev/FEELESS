@@ -5,7 +5,7 @@
 #   bash scripts/background.sh status   which services answer, is the watcher running
 #   bash scripts/background.sh stop     stop the watcher (services keep running until you stop them or reboot)
 # Limits (it is still your Mac): closing the lid sleeps a MacBook unless it is plugged in with an external display, and a reboot
-# stops everything — run `start` again after one. A real always-on host is docs/ALWAYS_ON.md (deploy/Dockerfile).
+# stops everything — run `start` again after one. A real always-on host is docs/specs/site.md (deploy/Dockerfile).
 root="$(cd "$(dirname "$0")/.." && pwd)"
 pidfile="/tmp/feeless-background.pid"
 running() { [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null; }

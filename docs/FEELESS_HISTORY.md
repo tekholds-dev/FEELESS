@@ -7749,3 +7749,6 @@ NOT TESTED: signed-in flows (Desk widgets with a wallet, Look save to wallet, ag
 > **2. Finish everything in priority order** (never leave a surface half done; keep going through the whole queue, proof on each).
 > **3. Never dead-style** (prove no component renders a class before deleting it; every new box gets real styling and a live visual).
 
+
+- 2026-11-12 SITE-11 price-gap view (CoinGap on the swap, live JUP gap) + SITE-8 live load test (100% ok, p95 ≤146 ms) + gap stampede guard — 91774f87.
+- 2026-11-12 Docs reorganized: slim CLAUDE.md, HANDOFF = open cards, docs/specs/{agents,money,site,familia,style}.md, RULINGS.md, docs/archive/.

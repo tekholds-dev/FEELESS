@@ -48,7 +48,7 @@ import launch_cat as _lc
 import cat_policy as _cp
 import cat_recovery as _recovery
 import agent_pay as _ap
-import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
+import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/RULINGS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)

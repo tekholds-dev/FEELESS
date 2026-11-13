@@ -1,4 +1,4 @@
-"""📉 Paper perps (docs/DECISIONS.md #1): live mark, real funding, liquidation at the real distance — paper only, never an order."""
+"""📉 Paper perps (docs/RULINGS.md #1): live mark, real funding, liquidation at the real distance — paper only, never an order."""
 import asyncio
 import json
 

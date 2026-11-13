@@ -15,7 +15,7 @@ def row(**k):
 
 def test_ten_roles_and_the_doc_say_the_same_thing():
     assert list(crew.CREW) == ['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge']
-    doc = (ROOT / 'docs' / 'TRENCH_CREW.md').read_text()
+    doc = (ROOT / 'docs' / 'specs' / 'agents.md').read_text()
     assert all(role in doc for role, _does, _never in crew.CREW.values()) and 'HARD WALL' in doc
 
 

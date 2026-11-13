@@ -1,4 +1,4 @@
-"""💵 REAL-MONEY CATS — option A of docs/REAL_CATS.md, decided in docs/DECISIONS.md #2: the user's own wallet signs every trade; FEELESS never
+"""💵 REAL-MONEY CATS — option A of docs/specs/agents.md, decided in docs/RULINGS.md #2: the user's own wallet signs every trade; FEELESS never
 holds a cat's money or keys. Pure + tested; feecat_service wires it.
 
 A cat switched to REAL by a signed-in wallet keeps running its engine on its paper ledger (its shadow record, shown with every proposal) —

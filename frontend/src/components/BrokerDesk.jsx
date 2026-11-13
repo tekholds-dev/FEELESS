@@ -8,7 +8,7 @@ import '../styles/brokerDesk.css';
 import { Ic3 } from '../lib/icon3d';
 import { twoTap } from './ActBtn';
 
-// 🏦 THE BROKERAGE (docs/BROKERS.md, DECISIONS #9): YOUR own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE … via SnapTrade) linked to
+// 🏦 THE BROKERAGE (docs/specs/money.md, DECISIONS #9): YOUR own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE … via SnapTrade) linked to
 // your Familia wallet — one tap opens SnapTrade's portal where you log in to your broker (FEELESS never sees the password); then your cash,
 // buying power and positions live here, and BUY / SELL stocks · ETFs · crypto from $1 in your own account. 🔑 No SnapTrade needed: paste your
 // own FREE Alpaca keys ($0 to start, no minimum, commission-free) — checked live, sealed to your wallet (`AlpacaKeys`).

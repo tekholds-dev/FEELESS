@@ -32,3 +32,5 @@ STASH (owner order 2026-11-12)
 MONEY
 - Never move funds, hit mainnet in tests, or change trading rules I didn't ask to change.
 ```
+
+DOCS (2026-11-12): read CLAUDE.md, then docs/HANDOFF.md (open cards — claim one before starting). Rules live in docs/RULINGS.md; topic detail in docs/specs/; never load docs/archive or FEELESS_HISTORY whole.

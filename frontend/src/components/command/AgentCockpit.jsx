@@ -718,7 +718,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   // trade chart for duo / folds, do the same in agt tab"). A full-screen app portaled to <body> on the SAME dfl-* grid: WIDE = rail | chart half |
   // desk half, split exactly at the crease · UPRIGHT = chart over the desk. Nothing is squeezed inside the HQ pop-out any more (that was the bad
   // containment). The money strip + nav lead the desk half, so every control stays; the dock = DECISION · OSSY×G4 · SEATS · INTAKE · DESK (whatever the
-  // nav opens lands in DESK). ☰ HQ steps the floor aside for the other HQ tabs; ⤢ brings it back. Contract: docs/MOBILE_LAYOUT.md › Duo floors.
+  // nav opens lands in DESK). ☰ HQ steps the floor aside for the other HQ tabs; ⤢ brings it back. Contract: docs/specs/site.md › Duo floors.
   if (duo.on) {
     const paneK = nav === 'chart' ? navPane : nav; const paneL = String((navTabs.find(t => t[0] === paneK) || [])[1] || 'DESK').replace(/^\S+\s/, '').toUpperCase();
     const DK = [['decision', 'DECISION'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ...(isOwner ? [['fee', 'FEE']] : []), ['desk', paneL === 'FEE' ? 'DESK' : paneL]];

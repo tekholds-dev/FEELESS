@@ -3,7 +3,7 @@ import { lendSign } from './lendEarn';
 import { engineQuote, engineSwap } from './swapEngine';
 import { USDC_MINT } from './launchRail';
 
-// ⚡ REAL LEVERAGE (backend/lend_borrow.py · docs/DECISIONS.md #7): a Jupiter Lend loan opened from the user's OWN wallet — ① lock the coin
+// ⚡ REAL LEVERAGE (backend/lend_borrow.py · docs/RULINGS.md #7): a Jupiter Lend loan opened from the user's OWN wallet — ① lock the coin
 // + borrow USDC (one transaction Jupiter builds, the server checks, the chain simulates, the wallet signs) → ② the borrowed USDC buys more of
 // the coin through the FEELESS swap engine. Close = ① sell enough to repay → ② repay all + unlock all. FEELESS never holds funds or keys.
 // Each open is remembered on this device (Jupiter's own position list is read too) so the desk can show its P&L and close it.

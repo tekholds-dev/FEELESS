@@ -131,7 +131,7 @@ export function FuseWallet({ call }) {
   return <section className="m-card m-live fw" data-testid="fuse-wallet">
     <header className="m-row"><span className="m-label"><Ic3 e="👛" /> FUSE WALLET · REAL MONEY FOR TIER CARDS</span><small className="m-dim">owner only · every change audited</small></header>
     {!d.signer && <div className="fw-lock" data-testid="fw-lock"><b><Ic3 e="🔒" /> Signing is not enabled yet.</b> Everything here works except sending: pick the wallet, see its funds, set limits and run <Ic3 e="🔍" /> dry runs with real Jupiter quotes.
-      Turning on signing (Circle signs each swap the keeper builds) is docs/GO_LIVE.md step 2 — it needs your go-ahead. Until then tier cards stay paper at true fills.</div>}
+      Turning on signing (Circle signs each swap the keeper builds) is docs/specs/money.md step 2 — it needs your go-ahead. Until then tier cards stay paper at true fills.</div>}
     {d.error && <small className="m-note warn">{d.error}</small>}
     <RpcKey call={call} />
     <div className="fw-kpis">

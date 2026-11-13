@@ -14,7 +14,7 @@ import { PaperPerps } from './PaperPerps';
 import '../styles/perpsDash.css';
 
 // 📉 FEELESS PERPS — the trading terminal (owner, 2026-10-23: "all mechanics a real perps desk has … only realtime vitals … true chart data
-// ALWAYS … live TP / SL before the trade on the chart"). Docs: docs/PERPS.md.
+// ALWAYS … live TP / SL before the trade on the chart"). Docs: docs/specs/money.md.
 // · TOP — the brand, the three markets (true price ticking on every trade, 24 h, prints / min), LIVE / PRACTICE, your open P&L.
 // · THE STRIP — the picked market's live vitals: true MARK (Coinbase prints) · Jupiter's ORACLE + the basis · 24 h change + RANGE · VOLUME ·
 //   SPREAD · BORROW / HR long vs short · WHO'S CROWDED · OI + FUNDING.

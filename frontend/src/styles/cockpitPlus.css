@@ -63,7 +63,7 @@ body.theme-day .ack-drawer { background: #f1edff; } body.theme-day .ack-ride, bo
 /* 📱📱 HQ › AGENTS DUO FLOOR (AgentCockpit duo branch): the Trenches floor's shell (duoFloor.css `dfl-*`: rail | chart half | desk half at the crease,
    chart over desk upright) portaled to <body> — never squeezed inside the HQ pop-out. Here only what is Agents-specific: the layer (above HQ 4000,
    under the Brain drawer 5200 + AI panel 9000), Safari's visible viewport, the cockpit chart filling its measured --dfl-h, the money strip leading the
-   desk half. Contract: docs/MOBILE_LAYOUT.md › Duo floors. */
+   desk half. Contract: docs/specs/site.md › Duo floors. */
 .dfl.dfl-agents { z-index: 4500; top: var(--adf-top, 0px); bottom: auto; height: var(--adf-vh, 100dvh); }
 .dfl.dfl-agents { background: radial-gradient(120% 80% at 80% 0%, rgba(162, 89, 255, .1), transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(155, 107, 255, .08), transparent 60%), #050806; }
 .dfl-agents .dfl-rb.is-on { background: rgba(162, 89, 255, .25); border-color: #a259ff; }

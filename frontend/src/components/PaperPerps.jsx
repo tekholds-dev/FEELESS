@@ -9,7 +9,7 @@ import '../styles/paperPerps.css';
 import { Ic3 } from '../lib/icon3d';
 import { twoTap } from './ActBtn';
 
-// 📉 THE PAPER DESK — the Perps building's own order ticket (docs/DECISIONS.md #1): long / short the market you picked with a margin and
+// 📉 THE PAPER DESK — the Perps building's own order ticket (docs/RULINGS.md #1): long / short the market you picked with a margin and
 // your leverage, at the REAL mark price; the position lives here with the real funding accruing and liquidates at the real distance. Paper
 // dollars only — FEELESS never places, routes or holds a perps order. When the setup is right, "Take it real" opens the regulated venue.
 const MARGINS = [25, 100, 500, 1000];

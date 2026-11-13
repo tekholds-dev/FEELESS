@@ -2,7 +2,7 @@
 
 Not a perp: a Jupiter Lend loan the user opens from their OWN wallet — lock a coin, borrow USDC against it, buy more of the coin with the
 USDC. Same shape as a long perp (1.3–1.7× exposure, a liquidation price on screen), borrow interest instead of funding, no account, no KYC,
-no venue hand-off. FEELESS never holds the collateral, the loan or a key (docs/DECISIONS.md #7).
+no venue hand-off. FEELESS never holds the collateral, the loan or a key (docs/RULINGS.md #7).
 
 Jupiter's Borrow API builds the UNSIGNED transaction (POST /lend/v1/borrow/operate {signer, vaultId, positionId (0 = new), colAmount,
 debtAmount in base units} → {nftId, transaction}); `lend_earn.verify` opens it and refuses it unless the user pays + signs alone and only

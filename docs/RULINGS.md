@@ -1,3 +1,21 @@
+# RULINGS — every owner decision, dated. ONE place: when he changes a rule, edit it HERE (and nowhere else); newest wins.
+
+## 2026-11-12
+- His newest chat message beats every .md. Never stop to ask mid-list; build → prove → push → tick HANDOFF → say "ready to test".
+- First try = finished: styled, real data, tested, seen in the browser, pushed, HANDOFF ticked.
+- Stash: every safe, clean piece of data/build goes into the stash + Fee's stash/Git folder (a proof-stats dashboard).
+- Think past the ask: build the elite piece he didn't name; every proof chat ends with "what next?" options.
+- He does ALL real-money testing; Claude never moves funds.
+- Look = Obsidian green #19e68c (day #08995a); Plasma is a Classic look.
+- COL-18 ledger → DB: hold LIFTED, do it now.
+- COL-16: user sends a proof WITH funds to be graded; on AUTO the agent sends the % from its own wallet with the proof.
+- COL-19: test with free models first; he funds the FeeCat Circle wallet after.
+- Familia amounts: the owner sets them, NO caps. (The older raid guard "max 3 hits on one family per 12 h" below is an anti-exploit rule, kept unless he drops it.)
+- SITE-2 is now hardening: many users + attacks must never stop the operation.
+- Docs layout (this reorg): CLAUDE.md slim · HANDOFF = open cards only · specs/ by topic · RULINGS here · archive/ never loaded whole.
+
+## Older decisions (was docs/DECISIONS.md, word for word)
+
 # 🧭 DECISIONS — made 2026-10-23 on the owner's go ("you got my ok and do all decisions")
 
 > Planning status and remaining requests: [HANDOFF.md](HANDOFF.md) `## TASKS`. This file retains the technical specification/history; do not maintain a second active backlog here.
@@ -12,7 +30,7 @@ venues stay blocked for US users (rule 1c). So the Perps building now trades **p
 a live position with the real mark price, real funding accruing, liquidation at the real distance, P&L ticking — then "Take it real on
 Kraken Pro / Coinbase ↗" opens the venue with your setup in hand. LATER: a venue's official partner API (OAuth on the user's own account).
 
-## 2 · Real-money cats (custody + pricing — docs/REAL_CATS.md)
+## 2 · Real-money cats (custody + pricing — docs/specs/agents.md)
 **⚠ CHANGED 2026-10-29 (owner): AGENT WALLETS on Crossmint.** "purchased family and purchased cats can have a wallet assigned and the user
 doesn't sign every txn — one trade agent made and funded, that's it, it rides; general can be switched anytime for the user to approve general AI
 moves or have them do their thing." Provider: Crossmint smart wallets, API-key admin signer (`backend/agent_wallet.py`, `CROSSMINT_API_KEY`);
@@ -53,7 +71,7 @@ money is worse than "no reader yet". Until then those buildings say so and stay 
 **Decided: every money desk has a SAFE · DEGEN · MOON dial; Familia's START COMPOUNDING opens on MOON** (tight v3 / DLMM bands on the busiest
 pools) with the risk written next to the number (impermanent loss, out-of-range = 0, memecoins can halve in an hour). SAFE = staking +
 Jupiter Lend. Tokenized treasuries (USDY, ONyc, BUIDL…) are never routed — their issuers exclude US persons and FEELESS has no geo check.
-Perps: paper only in FEELESS; no link-outs to venues (owner); real orders wait on counsel (#1). Questions for counsel: `docs/COUNSEL_BRIEF.md`.
+Perps: paper only in FEELESS; no link-outs to venues (owner); real orders wait on counsel (#1). Questions for counsel: `docs/specs/money.md`.
 
 ## 7 · Real leverage without a broker account (owner, 2026-10-23: "too many damn steps to do perps with coinbase — find another way")
 **Decided: ⚡ REAL LEVERAGE on Jupiter Lend Borrow, from the user's own wallet; Coinbase / Kraken API orders dropped.** Lock SOL / BTC / JUP
@@ -62,7 +80,7 @@ points under the vault's max loan-to-value) with the liquidation price on screen
 loophole (it is a loan in a protocol, not an offshore perps venue). FEELESS never lends, holds the collateral or signs; Jupiter builds every
 transaction and `lend_borrow.verify` refuses it unless the user pays + signs alone and only Jupiter Lend's vaults program + Solana's own run.
 Longs only (Jupiter has no stable-collateral vault to short with); shorts + 50× stay on the paper desk. Guards: SOL · BTC · JUP vs USDC only,
-$2,000 per open, Jupiter's own minimum loan, every transaction simulated before the wallet sees it. Counsel question: `COUNSEL_BRIEF.md` §6.
+$2,000 per open, Jupiter's own minimum loan, every transaction simulated before the wallet sees it. Counsel question: `docs/specs/money.md` §6.
 Code: `backend/lend_borrow.py` · GET/POST `/api/reputation/familia/leverage` · `lib/leverage.js` · `components/RealLeverage.jsx` (Perps desk + MOON).
 *owner- im sure theres other ecosystems than jupiter that does what jup does thats legal in usa and less entry!!!*
 
@@ -78,13 +96,13 @@ NEXT (owner): more venues, any chain, more leverage (gTrade and others) · the o
 ## 9 · Brokers linked to the Familia wallet (owner, 2026-10-24: "find easy setup brokers … make it happen … smooth for users to hook up a broker via their crypto wallet in fam, log in and get to it, see all data in the buildings")
 **Decided by the owner: FEELESS connects a user's OWN broker account through SnapTrade (Webull · Coinbase · Kraken · Alpaca · E*TRADE …;
 trading where the broker allows it, read-only elsewhere), keyed to their Familia wallet session.** This is the "official partner API on the
-user's own account" item that `CLAUDE.md › LATER` had parked behind a lawyer — the owner chose to ship it; it goes on `COUNSEL_BRIEF.md`.
+user's own account" item that `CLAUDE.md › LATER` had parked behind a lawyer — the owner chose to ship it; it goes on `docs/specs/money.md`.
 - FEELESS never sees a broker password: the user logs in on SnapTrade's Connection Portal. FEELESS keeps ONE thing per wallet — SnapTrade's
   per-user secret, sealed with Fernet (`BROKER_SECRET_KEY`); without that key nothing is stored. Unlink deletes the SnapTrade user + connections.
 - Orders: only in the user's own linked accounts, a real ticker, BUY / SELL, Market ($1–$2,500 notional or units) or Limit (≤ $2,500), each
   confirmed on screen, every call on the signed Familia session (`brokers.order_body`, `/familia/broker/order`).
 - US-legal by construction: the user trades their own regulated broker account (stocks, ETFs, crypto, options later) — no geo loophole.
 - Owner setup: a SnapTrade account (free Build tier = 5 connections with trading; Launch $100 / mo + $1–2 per connected user) →
-  `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY` and a long random `BROKER_SECRET_KEY` in `backend/.env`. Doc: `docs/BROKERS.md`.
+  `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY` and a long random `BROKER_SECRET_KEY` in `backend/.env`. Doc: `docs/specs/money.md`.
 
 *brokers is cool for wwebull,snaptrade trype but im looking for better easier oath signup brokers or redirect idk but easy for user wallet to signup and go*

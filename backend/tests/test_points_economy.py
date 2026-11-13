@@ -1,4 +1,4 @@
-"""💎 ONE points system (docs/DECISIONS.md #3): points → your family's bank at 1 : 100, ≤ 1,000 points a week, never without a family."""
+"""💎 ONE points system (docs/RULINGS.md #3): points → your family's bank at 1 : 100, ≤ 1,000 points a week, never without a family."""
 import asyncio
 import json
 

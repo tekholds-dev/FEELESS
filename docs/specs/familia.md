@@ -1,3 +1,12 @@
+# FAMILIA — plan (merged 2026-11-12). Older spec: check against the code before building.
+
+Sections: [FAMILIA_PLAN](#familia_plan)
+
+
+---
+<a id="familia_plan"></a>
+## ⟪FAMILIA_PLAN⟫ (was docs/FAMILIA_PLAN.md)
+
 # La Familia v2 — build plan (owner's ask, 2026-10-21, not built yet)
 
 > Planning status and remaining requests: [HANDOFF.md](HANDOFF.md) `## TASKS`. This file retains the technical specification/history; do not maintain a second active backlog here.
