@@ -503,3 +503,18 @@ Re-run: `.venv/bin/python scripts/edge-audit.py` → update `EVIDENCE` in `trenc
 - ✅ OWNER DECIDED 2026-10-22 "15 minutes not 30": `arena_prime.AGENT_MIN_HOLD` = 15 — on the real card an agent's / model's own exit of a
   RED coin waits until the buy is 15 min old (stops, rug / drain / dump, the catastrophic line and any green sale never wait); round
   rotations floor at `REAL_MIN_HOLD` = 15 too. The 5-min clock stays. Re-check the BAIL row after a week of lots.
+
+## 🤖 AGENT-AUTO — safe agent auto-run (built 2026-11-13, `backend/agent_auto.py` + `_auto_*` in feecat_service)
+**How it works.** In an agent's desk chat the owner types `auto pob` (pow · pop · poc · pos · poeco). The brain asks 3 questions, one at a time: (1) how much per proof, (2) how often (15 min … weekly), (3) total budget and/or number of proofs and/or a time window. It shows a summary; only `confirm` switches it on. `stop auto` / `kill` / `auto off` is the kill-switch; `auto status` shows spent / left. `FEELESS_AUTO=0` stops every auto loop on the machine.
+**The safe pattern, copied from delegated-signing wallets** (Solana session keys as used by on-chain games and trading UIs; smart-wallet spend policies such as Squads / Safe modules; exchange API keys with trade-only scopes):
+| Pattern in the wild | FEELESS AGENT-AUTO |
+|---|---|
+| Session key with a spend limit per tx | `perUsd` — refused above it (max $100) |
+| Allowance / total spend cap | `totalUsd` — the next fire is refused if it would cross it (max $1,000) |
+| Expiry on the session | `forS` time window; setup questions also expire (30 min) |
+| Rate limit | `everyS` ≥ 15 min, and never a second fire while the last of its kind runs |
+| Revocation | kill-switch command + env switch; a sealed config that fails to open never runs |
+| Owner still signs value transfers | every real PoW buy still waits for the owner's wallet signature (pow.SIGN_WAIT_S); the auto loop has no key |
+| Encrypted at rest | config sealed with the per-agent Fernet key (`cat_keys.seal`) |
+| Book before spend | a fire is booked against the bounds BEFORE it runs, so a crash never spends twice |
+**What it is not:** no custody, no new signing path, no money moved by Claude. It fires the owner's own chat path (`_cat_work`, op ask) with an in-process token only the scheduler holds; a forged `auto` flag from outside is dropped and the owner gate runs. Spend is booked at the per-proof cap (an upper bound), not the measured cost.

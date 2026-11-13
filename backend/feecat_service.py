@@ -8756,6 +8756,7 @@ class WorkPayload(BaseModel):
     job: Optional[str] = None
     tools: Optional[dict] = None
     on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
+    auto: bool = False                 # 🤖 AGENT-AUTO: a scheduled fire (honoured only with the in-process _AUTO_TOKEN session)
     user: Optional[str] = None         # 🔑 op 'login': the owner's own username …
     secret: Optional[str] = None       # … and password — sealed at once, typed only as placeholders, never echoed or logged
     sig: Optional[str] = None          # 🔐 op 'reveal': the owner wallet's fresh signature of reveal_message(…)
@@ -8907,6 +8908,115 @@ async def _signin_close(cat_id):
         await _cb.close_session(http, os.environ, {'provider': 'steel', 'id': si_['sid']})
 
 
+# ── 🤖 AGENT-AUTO (agent_auto.py): the owner's `auto <proof>` setup, the sealed config, the scheduler and the kill-switch ─────────────────────────────
+import agent_auto as _aa   # noqa: E402
+_AUTO_TOKEN = secrets.token_hex(32)   # in-process only: lets the scheduler fire the SAME path the owner's chat takes (never sent anywhere)
+AUTO_TICK_S = 30
+_AUTO_RUNKEY = {'pow': 'powRun', 'pop': 'popRun', 'pob': 'pobRun'}
+
+
+def _auto_cfg(cat, cat_id):
+    raw = cat.get('autoRun')
+    if not raw:
+        return None
+    try:
+        return json.loads(_ck.unseal(raw, cat_id, data_dir=DATA_DIR))
+    except Exception:   # noqa: BLE001 — a config that will not open never runs
+        return None
+
+
+def _auto_put(cat, cat_id, cfg):
+    if cfg is None:
+        cat.pop('autoRun', None)
+    else:
+        cat['autoRun'] = _ck.seal(json.dumps(cfg), cat_id)
+
+
+def _auto_busy(cat, cat_id, kind):
+    k = _AUTO_RUNKEY.get(kind)
+    if k and (cat.get(k) or (kind == 'pob' and cat.get('pobRead'))):
+        return True
+    return (kind == 'poc' and cat_id in _POC_BUSY) or cat_id in _POW_WANT or cat_id in _POP_WANT or cat_id in _POB_WANT
+
+
+def _auto_chat(cat, cat_id, text):
+    """→ what to say when the line is an auto command or the answer to the auto setup, else None (the line goes on as usual)."""
+    now = time.time(); cmd = _aa.command(text); pend = cat.get('autoAsk')
+    if cmd and cmd[0] == 'stop':
+        cfg = _auto_cfg(cat, cat_id); cat.pop('autoAsk', None)
+        if not cfg or not cfg.get('on'):
+            return '🛑 No auto run is on for this agent. Nothing will run.'
+        _auto_put(cat, cat_id, _aa.kill(cfg, now)); return f"🛑 Kill-switch: auto {_aa.KINDS[cfg['kind']]} is OFF. Nothing else will run until you set it again."
+    if cmd and cmd[0] == 'status':
+        cfg = _auto_cfg(cat, cat_id)
+        if not cfg:
+            return 'No auto run set. Type `auto pob` (or pow · pop · poc · pos · poeco) to set one up.'
+        return (('🟢 ON · ' if cfg.get('on') else f"⚪ OFF ({cfg.get('stopped') or 'stopped'}) · ") + _aa.summary(cfg, now))
+    if cmd and cmd[0] == 'auto':
+        if not (cat.get('brainsCfg') or {}).get('brains'):
+            return 'Give this agent its models first: an auto run uses them for every proof.'
+        cur = _auto_cfg(cat, cat_id)
+        if cur and cur.get('on'):
+            return f"An auto {_aa.KINDS[cur['kind']]} run is already ON ({_aa.summary(cur, now)}). Say `stop auto` first."
+        pend, say = _aa.start(cmd[1], now); cat['autoAsk'] = pend; return say
+    if pend:
+        pend2, cfg, say = _aa.answer(pend, text, now)
+        if pend2:
+            cat['autoAsk'] = pend2
+        else:
+            cat.pop('autoAsk', None)
+        if cfg:
+            _auto_put(cat, cat_id, cfg); _POW_WAKE.set()
+        return say
+    return None
+
+
+async def _auto_fire(cat_id, cfg):
+    """One scheduled proof, through the owner's own chat path (same guards, same wallet signature for any real buy)."""
+    return await _cat_work(cat_id, WorkPayload(op='ask', text=cfg['line'], session=_AUTO_TOKEN, auto=True))
+
+
+async def _auto_tick(now=None):
+    """Every agent with an auto run ON: book the fire against its bounds FIRST (sealed), then fire it. → fired cat ids."""
+    now = now or time.time(); out = []
+    store = _load()
+    for cid, c in list((store.get('cats') or {}).items()):
+        cfg = _auto_cfg(c, cid)
+        if not cfg or not cfg.get('on'):
+            continue
+        ok, why = _aa.due(cfg, now, busy=_auto_busy(c, cid, cfg['kind']))
+        if not ok:
+            if why not in ('waiting', 'the last one is still running'):
+                _auto_put(c, cid, _aa.kill(cfg, now, why)); _save(store)
+            continue
+        _auto_put(c, cid, _aa.fired(cfg, now)); _save(store)
+        try:
+            await _auto_fire(cid, cfg); out.append(cid)
+        except HTTPException as e:   # it could not file (no credit, a model missing…): say so in its chat, the run stays booked
+            s2 = _load(); c2 = s2['cats'].get(cid)
+            if c2:
+                c2['chat'] = (list(c2.get('chat') or []) + [{'by': 'cats', 'text': f"🤖 Auto {_aa.KINDS[cfg['kind']]} could not file: {e.detail}", 'at': time.time()}])[-200:]
+                keep_owned(c2); _save(s2)
+        store = _load()
+    return out
+
+
+async def _auto_loop():
+    await asyncio.sleep(60)
+    while True:
+        try:
+            await _auto_tick()
+        except Exception:   # noqa: BLE001 — the next tick tries again
+            pass
+        await asyncio.sleep(AUTO_TICK_S)
+
+
+@app.on_event('startup')
+async def _start_auto():
+    if os.environ.get('FEELESS_AUTO', '1') != '0':
+        asyncio.create_task(_auto_loop())
+
+
 @app.post('/api/cats/{cat_id}/work')
 async def cat_work(cat_id: str, p: WorkPayload):
     """🫂 Every workbench answer passes the Collective rule on its way out (_for_users)."""
@@ -8920,7 +9030,10 @@ async def _cat_work(cat_id: str, p: WorkPayload):
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
-    _owner_gate(store, cat, p.session, p.ownerId)
+    internal_ = bool(p.session) and secrets.compare_digest(str(p.session), _AUTO_TOKEN)   # 🤖 only the auto loop in THIS process holds it
+    if not internal_:
+        p.auto = False
+        _owner_gate(store, cat, p.session, p.ownerId)
     if _sicario_paused(cat) and p.op in SICARIO_PAUSE_OPS and p.on is not False:
         raise HTTPException(409, "Sicario's only works when you ask it, so it never loads your machines by itself. This one stays off.")
     b = cat.get('brainsCfg') or {}
@@ -10712,7 +10825,12 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': f"🎯 Told the minds working on {desk_['name']}. They use it from their next step.", 'at': time.time(), 'open': desk_['open']}])[-200:]
                 keep_owned(cat); _save(store)
                 return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
-        pend_ = cat.get('proofAsk'); asked_go_ = bool(made_ and made_.get('name'))   # a proof named by its owner has been told what to do: no question first
+        auto_say_ = None if p.auto else _auto_chat(cat, cat_id, p.text)   # 🤖 AGENT-AUTO: `auto pob` → 3 questions → confirm; `stop auto` = kill-switch
+        if auto_say_:
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': auto_say_, 'at': time.time()}])[-200:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
+        pend_ = cat.get('proofAsk'); asked_go_ = bool(made_ and made_.get('name')) or bool(p.auto)   # a proof named by its owner (or a confirmed auto run) has been told what to do: no question first
         if pend_:   # 🔁 its answer to the question it asked before filing
             how_, line_, note_ = _plan.answer(pend_, p.text, time.time()); cat.pop('proofAsk', None)
             if how_ == 'cancel':
