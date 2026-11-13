@@ -9,6 +9,7 @@ const screenBox = boxRef([], { vars: true });   // 📐 --box-w/--box-h for the 
 const poiBox = boxRef([620]);
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
+import { ProofMonitorBody } from './ProofMonitor';
 import { startOpenRouterConnect, takeConnectResult } from '../../lib/openrouterConnect';
 import { AgentLog, MindVitals, PowCard, SafeGate, safeOk } from './CatCockpit';
 import { HeadCloud, McapChart, asModel } from './AgentLive';
@@ -307,15 +308,17 @@ function useHereWhileWaiting(on, catId, i) {
 // shows one of its agent's newest filed proofs — type, what it was on, its grade, when — and opens the Desktop where the folder lives. Pure.
 const PROOF_KIND = { pob: ['🎲', 'PoB'], pow: ['⛏', 'PoW'], poc: ['📣', 'PoC'], ps: ['💻', 'PoStatic'], pop: ['📉', 'PoP'], poe: ['📊', 'PoEco'] };
 export function newestProofs(d) {
-  const row = (k, f) => f && { k, id: f.id, at: Number(f.closedAt || f.at || 0), title: String(f.topic || (f.sym ? '$' + f.sym : '') || f.name || f.title || PROOF_KIND[k][1]).slice(0, 80), grade: f.graded || f.grade || null, live: !!f.live || f.status === 'open' };
+  const row = (k, f) => f && { k, id: f.id, at: Number(f.closedAt || f.at || 0), title: String(f.topic || (f.sym ? '$' + f.sym : '') || f.name || f.title || PROOF_KIND[k][1]).slice(0, 80), grade: f.graded || f.grade || null, live: !!f.live || f.status === 'open', f };
   return [...(d?.pobFolders || []).map(f => row('pob', f)), ...(d?.powFolders || []).map(f => row('pow', f)), ...(d?.pocFolders || []).map(f => row('poc', f)),
-    ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, 4);   // a Showcase ad build is not one of its proofs
+    ...(d?.psFolders || []).map(f => row('ps', f)), ...(d?.poeFolders || []).map(f => row('poe', f)), ...(d?.popFolder ? [row('pop', d.popFolder)] : [])].filter(r => r && !/^ad\s|\sad$/i.test(r.title)).sort((x, y) => y.at - x.at).slice(0, 4);   // a Showcase ad build is not one of its proofs
 }
-function ProofScreen({ p, onOpen }) {
+function ProofScreen({ p, onOpen, catId }) {
   const [ic, nm] = PROOF_KIND[p.k] || ['🗂', 'Proof'];
-  return <button type="button" className={'cwb-proof is-' + (p.grade === 'right' ? 'good' : p.grade === 'wrong' ? 'bad' : 'none')} onClick={onOpen} data-tip="Its newest proof. Opens its Desktop, where every proof folder is" data-testid="cwb-proof">
-    <span className="cwb-proof-glow" aria-hidden="true" /><i aria-hidden="true"><Ic3 e={ic} /></i><em>{nm} · {p.live ? 'RUNNING' : p.grade ? 'GRADED ' + String(p.grade).toUpperCase() : 'FILED'}</em>
-    <b>{p.title}</b><small>{p.at ? ago(p.at) : ''}</small></button>;
+  const body = <ProofMonitorBody p={p} catId={catId} work={work} />;
+  const status = p.live ? 'RUNNING' : p.grade ? 'GRADED ' + String(p.grade).toUpperCase() : 'FILED';
+  return <button type="button" className={`cwb-proof is-${p.grade === 'right' || p.grade === 'good' ? 'good' : p.grade === 'wrong' || p.grade === 'bad' ? 'bad' : 'none'}${body ? ' is-rich is-' + p.k : ''}`} onClick={onOpen} data-tip="Its newest proof. Opens its Desktop, where every proof folder is" data-testid="cwb-proof">
+    <span className="cwb-proof-glow" aria-hidden="true" />{body ? <><span className="cwb-proof-h"><i aria-hidden="true"><Ic3 e={ic} /></i><em>{nm} · {status}</em><small>{p.at ? ago(p.at) : ''}</small></span><span className="cwb-proof-body">{body}</span></>
+      : <><i aria-hidden="true"><Ic3 e={ic} /></i><em>{nm} · {status}</em><b>{p.title}</b><small>{p.at ? ago(p.at) : ''}</small></>}</button>;
 }
 
 export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null, d = null, proof = null, onProof }) {
@@ -362,7 +365,7 @@ export function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', 
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
         : !working && !w?.hand && w?.status !== 'human' && folder?.coins?.length ? <PowScreen f={folder} slot={sl} />
-        : !working && !w?.hand && w?.status !== 'human' && proof ? <ProofScreen p={proof} onOpen={onProof} />
+        : !working && !w?.hand && w?.status !== 'human' && proof ? <ProofScreen p={proof} onOpen={onProof} catId={catId} />
         : !working && !w?.hand && w?.status !== 'human' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/last/${sl}?v=${w?.status}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>

@@ -1,0 +1,52 @@
+/* 🖥 Proofs on the desk monitors, each kind its own live view (ProofMonitor.jsx). m-* tokens; transform/opacity motion only. */
+.cwb-proof.is-rich { align-content: stretch; justify-items: stretch; grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px; text-align: left; }
+.cwb-proof-h { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cwb-proof-h > i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; font-style: normal; background: color-mix(in srgb, var(--m-text) 8%, transparent); }
+.cwb-proof-h > em { padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--m-text) 7%, transparent); color: var(--m-accent); font: 800 9.5px var(--f-mono); font-style: normal; letter-spacing: .08em; }
+.cwb-proof.is-bad .cwb-proof-h > em { color: var(--m-danger); } .cwb-proof-h > small { margin-left: auto; font: 600 10px var(--f-mono); color: var(--m-mute); }
+.cwb-proof-body { position: relative; display: block; min-height: 0; min-width: 0; height: 100%; }
+.pmn-none { margin: 0; display: grid; place-items: center; height: 100%; font: 600 11px var(--f-ui); color: var(--m-mute); text-align: center; }
+.pmn-bar { display: flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; background: color-mix(in srgb, var(--m-text) 6%, transparent); border-bottom: 1px solid var(--m-line); }
+.pmn-bar i { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--m-text) 28%, transparent); } .pmn-bar b { margin-left: 6px; font: 600 9.5px var(--f-mono); color: var(--m-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* PoStatic: its code scrolling beside its running page */
+.pmn-ps { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 8px; height: 100%; }
+.pmn-code, .pmn-page { position: relative; display: grid; grid-template-rows: 20px minmax(0, 1fr); min-height: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-bg) 88%, var(--m-accent)); }
+.pmn-code ol { margin: 0; padding: 6px 8px; list-style: none; font: 500 9.5px/1.55 var(--f-mono); color: color-mix(in srgb, var(--m-accent) 55%, var(--m-text)); white-space: pre; overflow: hidden; animation: pmnScroll calc(var(--n, 60) * .9s) linear infinite; }
+.pmn-code { mask-image: linear-gradient(180deg, #000 80%, transparent); } .pmn-code li { overflow: hidden; text-overflow: ellipsis; }
+.cwb-proof:hover .pmn-code ol { animation-play-state: paused; }
+.pmn-page iframe { width: 200%; height: 200%; border: 0; transform: scale(.5); transform-origin: 0 0; pointer-events: none; background: var(--m-bg); }
+/* PoW: the coin, its P&L, the minds */
+.pmn-pow { display: grid; align-content: center; justify-items: center; gap: 6px; height: 100%; text-align: center; }
+.pmn-sym { font: 800 clamp(18px, calc(var(--box-w, 640px) * .04), 30px)/1 var(--f-tech); color: var(--m-text); letter-spacing: .02em; }
+.pmn-pnl { font: 800 clamp(22px, calc(var(--box-w, 640px) * .055), 40px)/1 var(--f-mono); } .pmn-pnl.is-up, .is-up { color: var(--m-accent); } .pmn-pnl.is-dn, .is-dn { color: var(--m-danger); }
+.pmn-pnl.is-up { text-shadow: 0 0 22px color-mix(in srgb, var(--m-accent) 50%, transparent); } .pmn-pnl.is-dn { text-shadow: 0 0 22px color-mix(in srgb, var(--m-danger) 45%, transparent); }
+.pmn-meter { display: block; width: min(70%, 260px); height: 6px; border-radius: 6px; overflow: hidden; background: color-mix(in srgb, var(--m-text) 10%, transparent); } .pmn-meter u { display: block; height: 100%; transform-origin: left; transition: transform .5s var(--m-ease, ease); background: currentColor; } .pmn-meter u.is-up { color: var(--m-accent); } .pmn-meter u.is-dn { color: var(--m-danger); }
+.pmn-pow small, .pmn-pob small, .pmn-poe small { font: 600 10.5px var(--f-mono); color: var(--m-dim); }
+.pmn-coins { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin: 2px 0 0; padding: 0; list-style: none; } .pmn-coins li { padding: 2px 7px; border-radius: 99px; font: 700 9.5px var(--f-mono); background: color-mix(in srgb, currentColor 12%, transparent); } .pmn-coins em { font-style: normal; margin-left: 4px; }
+/* PoB: what it read, what it called */
+.pmn-pob { display: grid; align-content: center; justify-items: center; gap: 8px; height: 100%; text-align: center; }
+.pmn-topic { font: 800 clamp(13px, calc(var(--box-w, 640px) * .026), 18px)/1.25 var(--f-display); color: var(--m-text); max-width: 92%; }
+.pmn-sites { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin: 0; padding: 0; list-style: none; max-width: 92%; }
+.pmn-sites li { padding: 3px 9px; border-radius: 8px; font: 600 10px var(--f-mono); color: var(--m-dim); border: 1px dashed var(--m-line); animation: pmnIn .3s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 70ms); }
+.pmn-sites li.is-read { color: var(--m-accent); border-style: solid; border-color: color-mix(in srgb, var(--m-accent) 50%, transparent); }
+/* PoC: the page it read and the words it found */
+.pmn-poc { position: relative; height: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--m-line); } .pmn-poc img { width: 100%; height: 100%; object-fit: cover; object-position: top; animation: pmnPan 18s ease-in-out infinite alternate; }
+.pmn-poc-say { position: absolute; inset: auto 0 0; display: grid; gap: 4px; padding: 18px 10px 8px; background: linear-gradient(0deg, color-mix(in srgb, var(--m-bg) 92%, transparent), transparent); } .pmn-poc-say b { font: 800 12.5px var(--f-display); color: var(--m-text); }
+.pmn-words { display: flex; flex-wrap: wrap; gap: 4px; } .pmn-words em { padding: 1px 7px; border-radius: 99px; font: 700 9.5px var(--f-mono); font-style: normal; color: var(--m-accent-ink); background: var(--m-accent); }
+/* PoEco: its months in and out */
+.pmn-poe { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 6px; height: 100%; text-align: center; }
+.pmn-bars { display: flex; align-items: flex-end; justify-content: center; gap: 10px; width: 92%; height: 100%; min-height: 60px; }
+.pmn-bars > span { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; align-items: end; width: min(54px, 18%); height: calc(100% - 14px); cursor: help; }
+.pmn-bars u { display: block; height: 100%; border-radius: 4px 4px 0 0; transform-origin: bottom; animation: pmnRise .6s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 80ms); } .pmn-bars u.is-in { background: var(--m-accent); } .pmn-bars u.is-out { background: var(--m-warn); }
+.pmn-bars small { position: absolute; bottom: -14px; left: 0; right: 0; font: 600 9px var(--f-mono); color: var(--m-mute); }
+@keyframes pmnScroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+@keyframes pmnPan { from { transform: translateY(0) scale(1.02); } to { transform: translateY(-8%) scale(1.06); } }
+@keyframes pmnIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes pmnRise { from { transform: scaleY(0); } }
+body.fx-lite :is(.pmn-code ol, .pmn-poc img, .pmn-sites li, .pmn-bars u) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.pmn-code ol, .pmn-poc img, .pmn-sites li, .pmn-bars u) { animation: none; } .pmn-meter u { transition: none; } }
+body.theme-day .pmn-code, body.theme-day .pmn-page { background: var(--m-surface); } body.theme-day .pmn-code ol { color: var(--m-text); }
+@media (max-width: 640px) { .pmn-ps { grid-template-columns: minmax(0, 1fr); } .pmn-code { display: none; } }
+.cwb-proof .pmn-code li { display: block; height: 1.55em; margin: 0; padding: 0; line-height: 1.55; white-space: pre; }
+.cwb-proof .pmn-code > ol > li { min-height: 0; border: 0; background: none; }   /* a desk list rule gave every code line a 56px row with a divider */
+.pmn-code > ol { overflow: visible; align-self: start; } .pmn-code > .pmn-bar, .pmn-page > .pmn-bar { position: relative; z-index: 1; background: color-mix(in srgb, var(--m-bg) 80%, var(--m-surface)); }
