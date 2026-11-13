@@ -94,7 +94,7 @@ const MOODS = {
   mono: { a: [0.03, 0.03, 0.035], b: [0.16, 0.16, 0.18], c: [0.72, 0.74, 0.8], hex: 0 },
   rose: { a: [0.07, 0.015, 0.05], b: [0.4, 0.08, 0.28], c: [1, 0.45, 0.72], hex: 0 },
 };
-export const WALLS = [['agent', 'Green', '#9b6bff'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
+export const WALLS = [['agent', 'Green', '#19e68c'], ['colony', 'Blue', '#6b8cff'], ['fee', 'Violet', '#b388ff'], ['ember', 'Ember', '#ff8c33'], ['rose', 'Rose', '#ff73b8'], ['mono', 'Steel', '#b8bcc8']];
 export const DESK_DEFAULTS = { wall: null, motion: 'full', light: 100, print: true, title: true, glass: true, iconSort: 'groups', iconFlow: 'columns', iconSide: 'left', iconSize: 'm', iconLabels: true, folderLook: 'classic', autoFit: false, hidden: [], winOpen: 'beside', clock: '24' };
 const prefKey = id => `feeless.deskPrefs.${id}`;
 export function useDeskPrefs(id) {

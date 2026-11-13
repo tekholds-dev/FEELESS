@@ -105,8 +105,6 @@ def rewrite(fn, lines, glob):
             if any(n is x for x in ast.walk(fn.decorator_list[0])):
                 continue
             hits.append((n.lineno - 1 - start, n.col_offset, n.id))
-    for li, col, name in sorted(hits, key=lambda h: (h[0], -h[1])):
-        pass
     by_line = {}
     for li, col, name in hits:
         by_line.setdefault(li, []).append((col, name))
@@ -128,7 +126,6 @@ def rewrite(fn, lines, glob):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--apply', action='store_true'); ap.add_argument('--max', type=int, default=400); a = ap.parse_args()
     text = SRC.read_text(); lines = text.splitlines(keepends=True); tree = ast.parse(text); glob = module_globals(tree)
-    called = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
     moves, skips = [], {}
     pats = []   # every GET path in the app, as a regex: a moved route lands LAST, so it must not be catchable by any other path pattern
     for n in ast.walk(tree):
@@ -168,7 +165,7 @@ def main():
     for s, e in sorted(cut, reverse=True):
         del lines[s:e]
     names = [fn.name for fn in moves]
-    alias = [f'{n} = _rep_more_reads.{n}\n' for n in names if n in called or True]
+    alias = [f'{n} = _rep_more_reads.{n}\n' for n in names]
     tail = ('\nimport rep_more_reads as _rep_more_reads   # noqa: E402  🧩 SITE-5 slice 8: plain read routes, moved by scripts/move-routes.py\n'
             'app.include_router(_rep_more_reads.router)\n' + ''.join(alias))
     SRC.write_text(''.join(lines).rstrip('\n') + '\n' + tail)

@@ -1,4 +1,30 @@
-# RULINGS — every owner decision, dated. ONE place: when he changes a rule, edit it HERE (and nowhere else); newest wins.
+# RULINGS — the owner's live decisions, dated, newest wins. ONE place: a changed rule is edited HERE and nowhere else.
+How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below "History" nothing is a live rule unless restated above it.
+
+## Open questions (the owner answers; Claude never decides these alone)
+- **Q1 · Legal entity + counsel:** pick the entity/jurisdiction and book one lawyer read of `docs/legal/LAWYER_CHECKLIST.md` before real volume.
+- **Q2 · Agent wallets = custody?** Crossmint agent wallets that trade on `auto` (and COL-16 sends from an agent wallet) are custody, which the counsel brief calls "non-custodial". Keep `auto`, or make every agent move user-signed until counsel reads it?
+- **Q3 · Real perps for US users** (RULINGS history #8, owner's call + risk): keep open to US users, or geo-gate until counsel answers?
+- **Q4 · More venues past Jupiter** (owner note under #7): other US-reachable lend/perps ecosystems with less entry — research card, nothing ships unasked.
+- **Q5 · Easier broker sign-up than SnapTrade** (owner note under #9): an OAuth / redirect broker a wallet user can join fast.
+- **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
+- **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
+
+## 2026-11-13 · Rule stack rebuilt (conflicts settled — these replace every older wording)
+- **One rulebook:** `CLAUDE.md` (in git) binds every account; `~/.claude/CLAUDE.md` + the claude.ai profile are 4-line pointers (`docs/CLAUDE_ACCOUNT_PROMPT.md`); memory notes hold no rule that is not also in git.
+- **Hard limits beat "newest message wins"** (money, keys, signing, legal); everything else, his newest message wins.
+- **Scope beats "think past the ask":** build exactly the ask, fully; extras go under "Proposed", never built unasked.
+- **"Never ask mid-list" kept, made visible:** unclear → safest reading, built, listed under "Judgment calls".
+- **"First try = finished" → the Done checklist** in CLAUDE.md §2 (the cursing line is retired; the checklist is the rule).
+- **30-min rule + finished:** big cards ship in finished slices; each slice meets Done.
+- **Cash check:** only when a task touches real-money buying, and read-only (`scripts/cash-check.py`, `scripts/edge-audit.py`); never every task, never a fix that moves money.
+- **Real card hold time:** report the ledger once if asked (30+ min holds won, <15 min lost); never re-argue the owner's 5-min rounds, never change his config.
+- **Worktrees:** the owner sees only 51367 from the main folder; the private gate snapshot `.claude/worktrees/gate` is allowed (never handed over).
+- **Libraries beat hand-drawn:** charts/controls from shadcn, Motion, Recharts, Lightweight Charts; "drawn, alive, a FEELESS twist" = the look on top.
+- **Names:** judges = The Collective (users) · Fee's public trade brain = FeeCat AI (visitors) · funds = The Pool. Two names, two different things.
+- **Look:** Obsidian green #19e68c is the site colour; Plasma survives only as an optional look. The desk wall called "Green" is green again.
+- **Taste rulings carry a why** so they don't flip-flop (e.g. Classic folders: 3D icons because they read at a glance; Line look for the minimal view).
+- **Legal:** Claude drafts terms, risk, privacy and the lawyer checklist (`docs/legal/`); the owner signs off; one lawyer read before real volume. Legal is the LAST card.
 
 ## 2026-11-13
 - OSSY + G4 review EVERY agent's proofs (`FEELESS_REVIEW_SCOPE=all`) and must become very proficient until COMP is elite; the OWNER reviews what OSSY + G4 built (Sicario's — they sit out their own) and spot-checks the rest. Judge skill is measured against the real stamp vs a fail-everything baseline (judge scorecard).
@@ -24,20 +50,17 @@
 - Claude works through every non-money card unattended; the owner does all real-money tests.
 
 ## 2026-11-12
-- His newest chat message beats every .md. Never stop to ask mid-list; build → prove → push → tick HANDOFF → say "ready to test".
-- First try = finished: styled, real data, tested, seen in the browser, pushed, HANDOFF ticked.
+- The owner does ALL real-money testing; Claude never moves funds. Claude builds → proves → pushes → ticks HANDOFF → says "ready to test".
 - Stash: every safe, clean piece of data/build goes into the stash + Fee's stash/Git folder (a proof-stats dashboard).
-- Think past the ask: build the elite piece he didn't name; every proof chat ends with "what next?" options.
-- He does ALL real-money testing; Claude never moves funds.
-- Look = Obsidian green #19e68c (day #08995a); Plasma is a Classic look.
+- Every proof chat ends with "what next?" options.
 - COL-18 ledger → DB: hold LIFTED, do it now.
-- COL-16: user sends a proof WITH funds to be graded; on AUTO the agent sends the % from its own wallet with the proof.
+- COL-16: user sends a proof WITH funds to be graded; on AUTO the agent sends the % from its own wallet with the proof (see Q2).
 - COL-19: test with free models first; he funds the FeeCat Circle wallet after.
-- Familia amounts: the owner sets them, NO caps. (The older raid guard "max 3 hits on one family per 12 h" below is an anti-exploit rule, kept unless he drops it.)
+- Familia amounts: the owner sets them, NO caps. (The raid guard "max 3 hits on one family per 12 h" is an anti-exploit rule, kept.)
 - SITE-2 is now hardening: many users + attacks must never stop the operation.
-- Docs layout (this reorg): CLAUDE.md slim · HANDOFF = open cards only · specs/ by topic · RULINGS here · archive/ never loaded whole.
+- Docs layout: CLAUDE.md = the rulebook · HANDOFF = open cards only · specs/ by topic · RULINGS here · archive/ never loaded whole.
 
-## Older decisions (was docs/DECISIONS.md, word for word)
+## History (decisions of 2026-10-23 → 10-24, word for word; live only where restated above)
 
 # 🧭 DECISIONS — made 2026-10-23 on the owner's go ("you got my ok and do all decisions")
 
