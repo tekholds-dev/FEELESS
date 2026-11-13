@@ -3,13 +3,13 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now (2026-11-13, owner flagged): build order = ~~LOOK-1~~ ✅ → ~~COMP-1~~ ✅ → ~~AGENT-AUTO~~ ✅ → ~~SEC-1~~ ✅ (SITE-8 stays open) → ~~MODEL-CFG~~ ✅ → STYLE-1 (slice 1 ✅) → LEGAL-1 (slices 1+2 ✅, owner fills blanks + $1 test) → JUDGE (COL-20) → POC-PLAY + the PoC reference check → free readiness run (LAST). Owner is NOT testing real money until all of this works and OSSY+G4 can file easy live proofs with working realtime chat.**
+> Every report says the % left. **Now (2026-11-13, owner flagged): build order = ~~LOOK-1~~ ✅ → ~~COMP-1~~ ✅ → ~~AGENT-AUTO~~ ✅ → ~~SEC-1~~ ✅ (SITE-8 stays open) → ~~MODEL-CFG~~ ✅ → STYLE-1 (slice 1 ✅) → LEGAL-1 (slices 1+2 ✅, owner fills blanks + $1 test) → ~~JUDGE (COL-20)~~ ✅ → POC-PLAY + the PoC reference check → free readiness run (LAST). Owner is NOT testing real money until all of this works and OSSY+G4 can file easy live proofs with working realtime chat.**
 > How to work: `CLAUDE.md` (the one rulebook) · ship with the `feeless-ship` skill. These cards came straight from the owner on 2026-11-13 with screenshots — build the full ask, don't re-litigate.
 
 > ## ▶ START HERE (next account — the owner does NOT want to paste instructions)
 > 1. Read `CLAUDE.md` then this file. Work the build order above, **one card at a time, full build, shown LIVE to the owner before moving to the next** (this is the fix for the surfaces he re-asked 20× that only got half-done).
 > 2. Before building a card, give the owner the shortlist of the best free tools/services for it, then build.
-> 3. **Next = JUDGE (COL-20)** (LEGAL-1 slice 2 shipped 2026-11-13; only owner items left on its card). Then POC-PLAY (full 8-part brief in its card). The owner should not have to paste a prompt.
+> 3. **Next = LEGAL-1 (d) server-side gate** (JUDGE/COL-20 built 2026-11-13; owner downloads a Gemma for ZED). Then POC-PLAY (full 8-part brief in its card), STYLE-1, SITE-8, SITE-5, free readiness run. The owner should not have to paste a prompt.
 > 4. Never move real funds / hit mainnet; the owner does all real-money tests.
 
 ## COLLECTIVE
@@ -20,10 +20,9 @@
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
 
-**COL-20 · Proof integrity (P0 + P1 done 2026-11-13, P2/P3 open)** · claimed: — · see RULINGS 2026-11-13
-Done + live: results beat grades (false PoB pob1793907481 corrected to NOT PROVED by rows 526-527), builders sit out, clean judge brief, review provenance, ps_hidden code checks (59 real pages: 88% avg; misses = sample numbers + our own hidden WebGL text, both fixed at the source).
-Owner 2026-11-13: OSSY + G4 review ALL agents (`FEELESS_REVIEW_SCOPE=all`), he reviews what they built + spot-checks. Judge scorecard live in the proofs brief: G4 44% right vs 44% fail-everything (9 settled), OSSY 50% vs 40% (10). Goal: both clearly past the line.
-Left (Claude): JUDGE SKILL — feed each judge its own misses vs the stamp, a non-Qwen third judge, fix one-issue-fails-all-five checks · P2 regression checks on reused kits + "existing tools checked" note on PoStatic reviews · P3 verified missions per dollar on Fee's stash dashboard + daily chain-tip commitment.
+**COL-20 · Proof integrity** · BUILT 2026-11-13 (opus-5.5) · only the owner's Gemma download left
+Live: each judge reads its OWN misses vs the real stamp + its record vs fail-everything (`proof_review.misses`); a 3rd judge **ZED** (`local/zed`) answers only from a Gemma (or `ZED_LLM_MODEL`) on the owner's LM Studio, never a Qwen stand-in (a Qwen-voiced ZED vote is re-judged); one issue written into several checks counts once (rubric v7, the backlog re-reviews newest first); P2 `ps_hidden` v2 `kits-current` + "EXISTING TOOLS CHECKED" on PoStatic reviews; P3 `/api/cats/proofs/value` (verified missions per $, per kind) + daily chain tip in `data/proof_anchors.jsonl`, both on the Stash (`/dev/stash`).
+LEFT (owner): `lms get google/gemma-3-4b` on this Mac (ZED sits out until a Gemma is downloaded; LM Studio JIT-loads it on the first review).
 
 **COL-10 · Method kits (ongoing)** · BACKFILLED 2026-11-13 · claimed: fable
 Checked: no Claude session had ever filed to the stash. Built `scripts/stash-builds.py` (+ `backend/claude_builds.py`): every Claude-made

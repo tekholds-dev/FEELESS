@@ -29,8 +29,26 @@ export function WebFeed({ d, empty = 'No agent is working right now.' }) {
   return <ul className="stw-feed" data-testid="web-feed" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.who}-${i}`} className={r.on ? 'is-on' : ''}><i aria-hidden="true" /><b>{r.who}</b><span>{r.what}</span>{r.where ? <small className="m-num">{r.where}</small> : null}</li>) : <li className="is-empty">{empty}</li>}</ul>;
 }
 const firstBy = (rows, keyOf) => { const seen = {}; return rows.filter(r => { const k = keyOf(r); if (!k || seen[k]) return false; seen[k] = 1; return true; }); };
+// 💵📌 COL-20 P3: what the money bought and whether the record still holds. Verified = a proof whose real stamp said PROVED; every settled
+// proof's model spend counts (a NOT PROVED one cost money too). The chain tip is kept once a day outside the record; today's check says the
+// record still holds every row up to it.
+const KIND_NAME = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poe: 'PoE', pos: 'PoStatic', poc: 'PoC', pod: 'PoD' };
+const perUsd = r => (r.perDollar != null ? `${r.perDollar >= 1000 ? fmt(r.perDollar) : r.perDollar} / $1` : r.settled ? 'free' : '—');
+export function ProofValue({ v }) {
+  if (!v?.total) return null;
+  const kinds = Object.entries(v.byKind || {}).sort((a, b) => b[1].settled - a[1].settled).slice(0, 6); const a = v.anchor || {};
+  return <div className="stw-val" data-testid="stw-value">
+    <span className="stw-val-top" data-tip="Proofs whose real result came back PROVED, for every dollar of model calls spent on settled proofs. Machines at home cost nothing."><small>VERIFIED MISSIONS PER DOLLAR</small><b className="m-num" data-testid="stw-per-dollar">{perUsd(v.total)}</b><i className="m-num">{v.total.proved} proved of {v.total.settled} settled · ${v.total.usd.toFixed(2)} spent</i></span>
+    <ol className="stw-val-kinds">{kinds.map(([k, r], i) => <li key={k} style={{ '--i': i }} data-tip={`${KIND_NAME[k] || k}: ${r.proved} of ${r.settled} settled proofs proved · $${r.usd.toFixed(2)} spent`}><b>{KIND_NAME[k] || k}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.settled ? r.proved / r.settled : 0})` }} /></u><i className="m-num">{perUsd(r)}</i></li>)}</ol>
+    <span className={`stw-val-tip is-${a.ok === true ? 'ok' : a.ok === false ? 'bad' : 'wait'}`} data-testid="stw-anchor" data-tip={a.ok === false ? `The record no longer matches the tip kept ${a.day}: ${a.why}` : 'Once a day the newest link of the proof record is kept outside it. If any row before it were cut or changed, this turns red.'}>
+      <small>RECORD CHECK</small><b>{a.ok === true ? 'HOLDS' : a.ok === false ? 'BROKEN' : 'FIRST TIP TONIGHT'}</b>{a.day ? <i className="m-num">tip {a.tip} · row {a.n} · {a.day} · {a.days} {a.days === 1 ? 'day' : 'days'} kept</i> : null}</span>
+  </div>;
+}
+
 export function StashWeb({ call = null, onClose = null, testid = 'stash-web' }) {
   const [d, setD] = useState(null); const [pick, setPick] = useState(null); const seen = useRef(0);
+  const [val, setVal] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl('/api/cats/proofs/value')).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setVal(j); }).catch(() => {}); return () => { on = false; }; }, []);
   useEffect(() => { let on = true; const go = () => { if (document.hidden) return; const p = call ? call('/admin/stash') : fetch(apiUrl('/api/cats/stash/web')).then(r => (r.ok ? r.json() : null)); Promise.resolve(p).then(j => { if (on && j) { setD(j); } }).catch(() => {}); }; go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
   const { nodes, edges } = useMemo(() => layoutWeb(d?.web), [d]); const st = d?.stats; const grew = st ? st.items - seen.current : 0; useEffect(() => { if (st) seen.current = st.items; }, [st]);
   const [over, setOver] = useState(null); const on = pick && nodes.find(n => n.id === pick); const shown = (over && nodes.find(n => n.id === over)) || on; const wl = useWebLive(); const ids = new Set(nodes.map(n => n.id));
@@ -39,7 +57,7 @@ export function StashWeb({ call = null, onClose = null, testid = 'stash-web' }) 
     <div className="stw-map"><Suspense fallback={<div className="stw-sigma" />}><StashMap nodes={nodes} edges={edges} onPick={setPick} onHover={setOver} live={live} /></Suspense>
       {st && !st.items ? <p className="stw-none">Its first hourly pass fills this in. It only draws what it really holds.</p> : null}
       {shown ? <div className="stw-card" data-testid="stw-card"><b>{shown.label || (shown.kind === 'dot' ? 'One proof' : `A source in ${shown.home || 'the record'}`)}</b><small className="m-num">{fmt(shown.n)} kept{shown.kind === 'cat' ? ` · routes to ${edges.filter(([a, b]) => a.id === shown.id && b.kind === 'src').length} sources` : ''}</small></div> : null}</div><WebFeed d={wl} />
-    {st ? <div className="stw-tiles">{[['AGENTS', st.agents, 'Agents whose proofs are in it'], ['SOURCES', st.sources, 'Different sites its proofs read'], ['WON', st.outcomes?.won || 0, 'Kept'], ['LOST', st.outcomes?.lost || 0, 'Kept too. Losses teach as much as wins'], ['TODAY', st.lastDay, 'Added in the last 24 hours'], ...(st.storedBytes != null ? [['ON DISK', bytes(st.storedBytes), `From ${bytes(st.rawBytes)} before compressing`], ['ROOM LEFT', bytes(st.freeBytes), 'On this machine. It can mirror to free cloud storage once you add an account']] : [])].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div> : null}</section>;
+    {st ? <div className="stw-tiles">{[['AGENTS', st.agents, 'Agents whose proofs are in it'], ['SOURCES', st.sources, 'Different sites its proofs read'], ['WON', st.outcomes?.won || 0, 'Kept'], ['LOST', st.outcomes?.lost || 0, 'Kept too. Losses teach as much as wins'], ['TODAY', st.lastDay, 'Added in the last 24 hours'], ...(st.storedBytes != null ? [['ON DISK', bytes(st.storedBytes), `From ${bytes(st.rawBytes)} before compressing`], ['ROOM LEFT', bytes(st.freeBytes), 'On this machine. It can mirror to free cloud storage once you add an account']] : [])].map(([k, v, t]) => <span key={k} data-tip={t}><small>{k}</small><b className="m-num">{v}</b></span>)}</div> : null}<ProofValue v={val} /></section>;
 }
 
 // 🕸 WHAT THE COLLECTIVE OFFERS (owner 2026-11-05): folders, and the kinds of feature in each. Every site is one unnamed dot, and nothing here can be clicked. When an agent codes or reads, its name rides on the feature it is using.

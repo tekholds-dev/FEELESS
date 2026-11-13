@@ -236,7 +236,7 @@ def _save(store: dict):
 
 
 _ECHO_OLD = re.compile(r':?\s*under \d{1,2} words(?:, numbers)?')
-_INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4)\b', re.I)
+_INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4|ZED)\b', re.I)   # ZED = the third judge (COL-20): users only ever see The Collective
 
 
 def public_words(text):
@@ -1241,7 +1241,7 @@ async def _think_routes(cat, model, messages, own_key=None, effort=None, max_tok
     _OR_CAT.set(cat.get('id'))
     if str(model).startswith('local/'):   # 🖥 owner 2026-11-13: OSSY and G4 answer from their own LM Studio or not at all — never a paid or free stand-in
         text, usd = await _lm_call(model, messages, max_tokens)
-        return (text, 0.0, 'lan' if str(model).endswith('g4') else 'local') if str(text or '').strip() else ('', 0.0, '')
+        return (text, 0.0, 'lan' if _lm_which(model) == 'LAN' else 'local') if str(text or '').strip() else ('', 0.0, '')
     wallet = _pays_itself(cat)   # 💳 owner 2026-11-10: an agent on its own OpenRouter key still falls back to SingIt from its wallet when OpenRouter runs dry
     if (cat.get('personal') or cat.get('proofNote')) and messages and messages[0].get('role') == 'system':   # 🧠 what its owner told it about themselves
         messages = [{**messages[0], 'content': str(messages[0].get('content')) + _feat.personal_line(cat)}, *messages[1:]]
@@ -1358,8 +1358,26 @@ async def _mac_cool(step=5.0):
     return waited
 
 
+def _lm_which(model):
+    """Which LM Studio answers: local/g4 = the LAN desktop, local/zed = the third judge (its own model on this Mac unless ZED_LLM_BASE_URL says
+    otherwise), anything else = this Mac's OSSY."""
+    m = str(model)
+    return 'LAN' if m.endswith('g4') else 'ZED' if m.endswith('zed') else 'LOCAL'
+
+
+def _lm_pick(which, ids):
+    """The model to ask for. OSSY / G4: their set model if loaded, else what is loaded. ZED: its set model, else a loaded Gemma — NEVER another
+    family's model (a Qwen answering as ZED would give two Qwens three votes). None = ZED has nothing it may use."""
+    want = os.environ.get(f'{which}_LLM_MODEL')
+    if which == 'ZED':
+        return want if want and want in ids else next((i for i in ids if 'gemma' in str(i).lower()), None)
+    return want if want in ids else (ids[0] if ids else want)
+
+
 async def _lm_call(model, messages, max_tokens):
-    which_ = 'LAN' if str(model).endswith('g4') else 'LOCAL'; asked = time.time()
+    which_ = _lm_which(model); asked = time.time()
+    if which_ == 'ZED' and not os.environ.get('ZED_LLM_BASE_URL'):
+        which_ = 'LOCAL'   # same Mac, same one-at-a-time gate and cool-down as OSSY
     if not _SORT_CALL.get():
         _LM_ASKED['at'] = asked
     async with _LM_GATE.setdefault(which_, asyncio.Semaphore(1)):
@@ -1382,17 +1400,22 @@ async def _lm_call(model, messages, max_tokens):
 
 async def _lm_call_one(model, messages, max_tokens):
     """🖥 One answer from the owner's own LM Studio: local/ossy = this Mac, local/g4 = the desktop on the LAN. Free. → (text, 0.0); '' when it is off. The loaded model is asked for by name, so a stale setting cannot fail it."""
-    which = 'LAN' if str(model).endswith('g4') else 'LOCAL'; base = (os.environ.get(f'{which}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which == 'LOCAL' else '')).rstrip('/')
+    which = _lm_which(model); who = {'LAN': 'G4', 'ZED': 'ZED'}.get(which, 'OSSY')
+    base = (os.environ.get(f'{which}_LLM_BASE_URL') or (os.environ.get('LOCAL_LLM_BASE_URL') or 'http://127.0.0.1:1234/v1' if which in ('LOCAL', 'ZED') else '')).rstrip('/')
     if not base:
-        _OR_LAST['err'] = f'{"G4" if which == "LAN" else "OSSY"} has no LM Studio address.'
+        _OR_LAST['err'] = f'{who} has no LM Studio address.'
         return '', 0.0
-    auth = {'Authorization': f"Bearer {os.environ.get(f'{which}_LLM_API_KEY') or 'lm-studio'}"}
+    auth = {'Authorization': f"Bearer {os.environ.get(f'{which}_LLM_API_KEY') or (os.environ.get('LOCAL_LLM_API_KEY') if which == 'ZED' else None) or 'lm-studio'}"}
     try:
         async with httpx.AsyncClient(timeout=LOCAL_CALL_S) as h:   # 🕰 a local mind that cannot finish in time is timed out, and the folder says so
             name = (_LM_SEEN.get(which) or {}).get('id')
             if not name or time.time() - _LM_SEEN[which]['at'] > 300:
                 ids = [m.get('id') for m in (await h.get(f'{base}/models', headers=auth, timeout=8)).json().get('data') or [] if 'embed' not in str(m.get('id'))]
-                want = os.environ.get(f'{which}_LLM_MODEL'); name = want if want in ids else (ids[0] if ids else want); _LM_SEEN[which] = {'id': name, 'at': time.time()}
+                name = _lm_pick(which, ids)
+                if not name:
+                    _OR_LAST['err'] = 'ZED needs a Gemma model loaded in LM Studio.'
+                    return '', 0.0
+                _LM_SEEN[which] = {'id': name, 'at': time.time()}
             r = await h.post(f'{base}/chat/completions', headers=auth, json={'model': name, 'messages': messages, 'max_tokens': min(int(max_tokens or 1200), 8000), 'temperature': 0.4, 'stream': False, 'reasoning_effort': 'none'})
         if r.status_code != 200:
             _OR_LAST['err'] = f'LM Studio answered {r.status_code}.'
@@ -1400,7 +1423,7 @@ async def _lm_call_one(model, messages, max_tokens):
         j_ = r.json(); _heard(route='lan' if which == 'LAN' else 'local', model=j_.get('model') or name, tokens=(j_.get('usage') or {}).get('total_tokens'))
         return ((j_.get('choices') or [{}])[0].get('message') or {}).get('content') or '', 0.0
     except Exception as e:
-        _OR_LAST['err'] = f'{"G4" if which == "LAN" else "OSSY"} timed out.' if isinstance(e, httpx.TimeoutException) else f'LM Studio did not answer ({type(e).__name__}).'
+        _OR_LAST['err'] = f'{who} timed out.' if isinstance(e, httpx.TimeoutException) else f'LM Studio did not answer ({type(e).__name__}).'
         return '', 0.0
 
 
@@ -6260,6 +6283,33 @@ _REVIEWED = set()          # (cat, folder) already asked this run, so a failing 
 REVIEW_EVERY_S = 90
 
 
+def _kit_pins():
+    """{npm package: (pinned version, 'major' | 'exact')} for every tracked kit, from the live pins kit_fresh keeps fresh."""
+    try:
+        return {pkg: (_kfresh.current(_kits.KIT_USE, kid), mode) for kid, (pkg, mode, _t) in _kfresh.TRACK.items() if _kfresh.current(_kits.KIT_USE, kid)}
+    except Exception as e:   # noqa: BLE001
+        print(f'[review] kit pins: {str(e)[:80]}'); return {}
+
+
+_REVIEW_ROWS = {'at': 0, 'v': []}
+
+
+async def _review_rows():
+    """The proof record, read at most every 10 minutes for the judges' own-miss lines. [] when it can't be read (a judge still judges)."""
+    if _REVIEW_ROWS['at'] < time.time() - 600:
+        try:
+            _REVIEW_ROWS['v'] = await asyncio.to_thread(_pev.rows, DATA_DIR / _pev.DB_NAME)
+        except Exception as e:   # noqa: BLE001
+            print(f'[review] record: {str(e)[:80]}')
+        _REVIEW_ROWS['at'] = time.time()
+    return _REVIEW_ROWS['v']
+
+
+def _review_titles(store):
+    """{(kind, proof id): title} so a judge's miss names the proof it got wrong."""
+    return {(k, f.get('id')): f.get('topic') or f.get('sym') or f.get('name') for c in store['cats'].values() for k, (_c, key) in _mission.KINDS.items() for f in c.get(key) or []}
+
+
 async def _review_one(store):
     """OSSY then G4 read the newest unreviewed proof and each gives its own verdict. Every call is logged with the model that really answered."""
     due = _review.next_due(store, _REVIEWED, handles=REVIEW_SCOPE or None)
@@ -6274,12 +6324,13 @@ async def _review_one(store):
     body = _review.brief(kind, f_, env); by = {}
     builders_ = _review.builders_of(f, cat.get('brainsCfg'), kind); out_ = _review.recused(builders_)   # 🔒 a builder never judges its own proof
     sic = next((c for c in store['cats'].values() if c.get('handle') == 'sicarios'), None) or {'id': 'collective', 'ownerStaff': True}
+    rows_ = await _review_rows(); titles_ = _review_titles(store)
     for key, model, name in _review.REVIEWERS:
         if key in out_:
             by[key] = None; continue
         tok = _CALL_CTX.set({'kind': kind, 'ref': f'review:{f.get("id")}', 'minds': [m for _k, m, _n in _review.REVIEWERS]})
         try:
-            raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body}], max_tokens=700), 240)
+            raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body + _review.misses_line(_review.misses(rows_, key, titles_), name)}], max_tokens=700), 240)   # 🎯 COL-20: each judge reads its OWN misses (the evidence hash stays on the proof alone)
             by[key] = _review.verdict_of(raw, time.strftime('%Y-%m-%d', time.gmtime()))
             if by[key]:
                 row_ = next((r for r in reversed(_calls_of(sic.get('id'), 50)) if r.get('ref') == f'review:{f.get("id")}' and r.get('asked') == model), {})
@@ -6291,7 +6342,7 @@ async def _review_one(store):
             _CALL_CTX.reset(tok)
     rv = {**_review.combine(by, out_, builders_, body), 'at': round(time.time())}
     if kind == 'pos' and f_.get('_page'):   # 🕵 P1: code-run checks the builders are never shown; independent of any judge (they still run when every judge sat out)
-        rv['hidden'] = _ps_hidden.run(f_['_page'])
+        rv['hidden'] = _ps_hidden.run(f_['_page'], _kit_pins())   # P2: + every reused kit on today's tested pin (the review lists the kits it checked)
     _REVIEW_DONE.append((cid, kind, f.get('id'), rv)); _POW_WAKE.set()
     return rv
 
@@ -6347,14 +6398,14 @@ def _review_apply(store):
         cid, kind, fid, rv = _REVIEW_DONE.pop(0)
         key = _mission.KINDS[kind][1]
         f = next((x for x in (store['cats'].get(cid) or {}).get(key) or [] if x.get('id') == fid), None)
-        if f is None or ((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0):   # an older version's review is replaced
+        if f is None or (((f.get('review') or {}).get('v') or 0) >= rv.get('v', 0) and not _review.stand_in(f.get('review'))):   # an older version's review is replaced (and a Qwen-voiced ZED one)
             continue
         f['review'] = rv; n += 1
         _REVIEW_LESSONS[kind] = _review.lessons(store, kind)
         try:
-            _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy')} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict'],
+            _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy'), 'why': str(v.get('why') or '')[:120]} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict'],
                                                                      **{k: rv.get(k) for k in ('rubric', 'builders', 'recused', 'families', 'oneFamily', 'evidenceSha', 'independent') if rv.get(k) not in (None, [], '')},
-                                                                     **({'hidden': {k: rv['hidden'][k] for k in ('v', 'passed', 'total', 'failed')}} if rv.get('hidden') else {})}, cat=cid)   # 🧾 reproducible: rubric, builders, judges, evidence hash
+                                                                     **({'hidden': {**{k: rv['hidden'][k] for k in ('v', 'passed', 'total', 'failed')}, 'kits': [f"{x['pkg']}@{x['used']}{'' if x['ok'] else ' (stale, pin ' + x['pin'] + ')'}" for x in rv['hidden'].get('kits') or []][:8]}} if rv.get('hidden') else {})}, cat=cid)   # 🧾 reproducible: rubric, builders, judges, evidence hash
         except Exception as e:   # noqa: BLE001
             print(f'[review] history: {str(e)[:80]}')
     return n
@@ -6371,6 +6422,11 @@ async def _review_loop():
             await _review_one(st_)
         except Exception as e:   # noqa: BLE001
             print(f'[review] {type(e).__name__}: {str(e)[:120]}')
+        try:   # 📌 COL-20 P3: once a UTC day, keep the proof record's chain tip outside the database
+            if await asyncio.to_thread(_pev.anchor, DATA_DIR / _pev.DB_NAME, DATA_DIR / _pev.ANCHORS):
+                _VALUE['at'] = 0
+        except Exception as e:   # noqa: BLE001
+            print(f'[anchor] {str(e)[:100]}')
         await asyncio.sleep(REVIEW_EVERY_S)
 
 
@@ -8302,6 +8358,21 @@ async def cat_receipt_explorer(sig: str):
     if not f_.exists():
         raise HTTPException(404, 'No picture yet.')
     return Response(f_.read_bytes(), media_type='image/jpeg')
+
+
+_VALUE = {'at': 0, 'v': None}
+
+
+@app.get('/api/cats/proofs/value')
+async def proofs_value():
+    """💵📌 COL-20 P3, public: verified missions per dollar (settled proofs only, counts and $ only) and the newest daily chain tip of the proof
+    record, checked against the record now. Rebuilt at most every 10 minutes."""
+    if _VALUE['v'] is None or _VALUE['at'] < time.time() - 600:
+        store = _load(); ws_ = {(k, f.get('id')): f.get('ws') for c in store['cats'].values() for k, (_c, key) in _mission.KINDS.items() for f in c.get(key) or [] if f.get('ws')}
+        rows_ = await asyncio.to_thread(_pev.rows, DATA_DIR / _pev.DB_NAME)
+        _VALUE['v'] = {**_review.per_dollar(rows_, _call_tally(), ws_), 'anchor': await asyncio.to_thread(_pev.anchor_check, DATA_DIR / _pev.DB_NAME, DATA_DIR / _pev.ANCHORS)}
+        _VALUE['at'] = time.time()
+    return _VALUE['v']
 
 
 @app.get('/api/cats/stash/web')

@@ -397,3 +397,45 @@ class Watcher:
         for kind, ref, _c, _fx, fp in todo:
             self.seen[(kind, ref)] = fp
         return out
+
+
+ANCHORS = 'proof_anchors.jsonl'   # 📌 COL-20 P3: one chain tip a day, kept outside the database (and shown publicly), so a cut-back history shows
+
+
+def anchors(anchors_path):
+    """Every kept chain tip, oldest first. A missing file is none."""
+    from pathlib import Path
+    p = Path(anchors_path)
+    if not p.exists():
+        return []
+    out = []
+    for ln in p.read_text().splitlines():
+        try:
+            out.append(json.loads(ln))
+        except ValueError:
+            pass
+    return out
+
+
+def anchor(path, anchors_path, now=None):
+    """Keeps today's chain tip (UTC day) once. → the new row, or None when today's is kept already or the record is empty. Log only."""
+    now = time.time() if now is None else now
+    day = time.strftime('%Y-%m-%d', time.gmtime(now)); kept = anchors(anchors_path)
+    if kept and kept[-1].get('day') == day:
+        return None
+    h = head(path)
+    if not h:
+        return None
+    row = {'day': day, 'n': h[0], 'mac': h[1], 'at': round(now)}
+    with open(anchors_path, 'a') as fh:
+        fh.write(json.dumps(row, sort_keys=True) + '\n')
+    return row
+
+
+def anchor_check(path, anchors_path, key=None):
+    """The newest kept tip against the record now: ok = every row up to it is still there, unchanged. → {'ok', 'why', 'day', 'n', 'tip', 'days'}"""
+    kept = anchors(anchors_path)
+    if not kept:
+        return {'ok': None, 'why': 'No chain tip kept yet.', 'day': None, 'n': None, 'tip': None, 'days': 0}
+    last = kept[-1]; v = verify(path, key=key, expect=[last['n'], last['mac']])
+    return {'ok': v['ok'], 'why': v['why'], 'day': last['day'], 'n': last['n'], 'tip': str(last['mac'])[:16], 'days': len(kept)}

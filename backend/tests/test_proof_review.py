@@ -31,7 +31,7 @@ def test_a_review_is_filed_with_who_answered(monkeypatch):
     store = {'cats': {'s': {'id': 's', 'handle': 'sicarios', 'pobFolders': [{'id': 'b1', 'status': 'closed', 'closedAt': 5, 'sites': ['espn.com']}]}}}
     fs._REVIEWED.clear(); fs._REVIEW_DONE.clear()
     rv = asyncio.run(fs._review_one(store))
-    assert asked == ['local/ossy', 'local/g4'] and (rv['score'], rv['verdict'], rv['agree']) == (60, 'fail', False)
+    assert asked == ['local/ossy', 'local/g4', 'local/zed'] and (rv['score'], rv['verdict'], rv['agree']) == (57, 'fail', False)   # COL-20: ZED is the third judge
     assert fs._review_apply(store) == 1 and store['cats']['s']['pobFolders'][0]['review']['by']['ossy']['score'] == 70
     assert asyncio.run(fs._review_one(store)) is None   # reviewed once
 
