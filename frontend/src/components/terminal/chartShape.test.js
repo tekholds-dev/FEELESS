@@ -22,7 +22,7 @@ test('⚡ a candle refresh keeps the chart: only another coin, timeframe, scale,
 
 test('⚡ the build effect never hangs on candle identity again', () => {
   const src = fs.readFileSync(path.join(__dirname, 'PriceChart.jsx'), 'utf8');
-  expect(src).toContain('}, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]);');
+  expect(src).toContain('}, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme, themeColors.up, themeColors.down]);');
   expect(src).not.toContain('}, [displayCandles, trail, hasChart,');
 });
 
