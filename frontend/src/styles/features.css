@@ -533,9 +533,10 @@ body.fx-lite .fea-side-pane { animation: none; } @media (prefers-reduced-motion:
 .fea-posmark > :is(em, small) { white-space: nowrap; } .fea-posmark > .fea-progress { flex: 1 1 40px; min-width: 40px; }
 
 /* 🎯 JUDGE METERS (2026-11-13): each judge's verdicts vs the real stamp; the tick = a judge that fails everything */
-.pdr-judges { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 8px; }
-.pdr-judge { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 8px 12px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); }
-.pdr-judge b { font-size: 18px; color: var(--m-warn); }
+.pdr-brief { display: grid; gap: 6px; min-width: 0; }   /* the type row + its judge meters are ONE grid child of .pdr, so the stage keeps its 1fr row */
+.pdr-judges { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
+.pdr-judge { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 10px; padding: 5px 12px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: var(--m-surface); }
+.pdr-judge b { font-size: 15px; color: var(--m-warn); }
 .pdr-judge.is-beats b { color: var(--m-accent); }
 .pdr-judge u { grid-column: 1 / -1; position: relative; height: 6px; border-radius: 9px; background: var(--m-line); overflow: visible; }
 .pdr-judge u s { position: absolute; inset: 0; border-radius: 9px; background: var(--m-warn); transform-origin: left; transition: transform .6s var(--m-ease); }

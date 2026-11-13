@@ -188,13 +188,13 @@ export function ProofBrief({ k, onPick }) {
   const [b, setB] = useState(null);
   useEffect(() => { let live = true; fetch(apiUrl(`/api/cats/brief/proofs?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : null)).then(j => live && setB(j || { rows: [] })).catch(() => live && setB({ rows: [] })); return () => { live = false; }; }, []);
   const by = Object.fromEntries((b?.rows || []).map(r => [r.kind, r]));
-  return <><nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
+  return <div className="pdr-brief"><nav className="pdr-types" role="tablist" aria-label="Proof types" data-testid="proof-brief">{Object.entries(PROOFS).map(([x, v], i) => { const r = by[x];
     return <button key={x} type="button" role="tab" aria-selected={k === x} className={`pdr-type is-${x}${k === x ? ' is-on' : ''}${b?.best === x ? ' is-best' : ''}`} style={{ '--i': i }} onClick={() => onPick?.(x)} data-testid={`pdr-${x}`}
       data-tip={r ? `${v.full}: ${r.filed24} filed today, ${r.filed7} this week · ${r.reviews} reviewed${r.passPct != null ? ` (${r.passPct}% passed)` : ''} · graded ${r.right} right / ${r.wrong} wrong` : v.full}>
       <span className="pdr-type-ic"><Ic3 e={v.ic} size="26px" /></span><b>{v.t}</b>
       <small className="m-num" data-testid={`proof-brief-${x}`}>{r ? `${r.filed7} this wk${r.rightPct != null ? ` · ${r.rightPct}% right` : ''}` : v.full}</small>
       <u aria-hidden="true"><s style={{ transform: `scaleX(${(r?.avgScore || 0) / 100})` }} /></u>{b?.best === x ? <em className="pdr-type-hot" data-tip="Where the work is today: most filed this week">HOT</em> : null}</button>; })}</nav>
-    <JudgeMeters rows={b?.judges} /></>;
+    <JudgeMeters rows={b?.judges} /></div>;
 }
 // 🎯 How good the judges really are (owner 2026-11-13: "OSSY and G4 handle all and be very proficient until COMP is elite"): each judge's
 // verdicts checked against the real 24-hour stamp. The tick is a judge that fails everything; a bar past it means it can tell good from bad.
