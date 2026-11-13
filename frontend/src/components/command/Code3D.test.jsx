@@ -20,3 +20,16 @@ test('🛡 a black page says why and one tap sends that exact error to its minds
   const sent = work.mock.calls[0][1]; expect(sent.op).toBe('play3d_code'); expect(sent.text).toContain('the page looks black'); expect(sent.job).toBe('const a = 1;');
   act(() => root.unmount());
 });
+
+test('⏱ the run bar shows the real frame rate the page measured, coloured by how smooth it is (AGT-17 real FPS)', async () => {
+  expect(pageOf('x')).toContain("say('p3c-fps'");
+  const box = document.createElement('div'); document.body.appendChild(box); const root = createRoot(box);
+  await act(async () => root.render(<Code3D cat={{ id: 'c' }} work={jest.fn()} initial="const a = 1;" minds={[]} />));
+  expect(box.querySelector('[data-testid="p3c-fps"]')).toBeNull();   // nothing until the page measures
+  const src = box.querySelector('[data-testid="p3c-frame"]').contentWindow;
+  await act(async () => { window.dispatchEvent(new MessageEvent('message', { data: { t: 'p3c-fps', m: '58|21' }, source: src })); });
+  const chip = box.querySelector('[data-testid="p3c-fps"]'); expect(chip.textContent).toBe('58 FPS'); expect(chip.className).toContain('is-ok'); expect(chip.getAttribute('data-tip')).toContain('21 ms');
+  await act(async () => { window.dispatchEvent(new MessageEvent('message', { data: { t: 'p3c-fps', m: '24|90' }, source: src })); });
+  expect(box.querySelector('[data-testid="p3c-fps"]').className).toContain('is-bad');
+  act(() => root.unmount());
+});

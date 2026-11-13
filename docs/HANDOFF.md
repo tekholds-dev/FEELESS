@@ -28,10 +28,14 @@
    the fix record (click = big), Retake pictures, pictures deleted on Drop, owner-only `/admin/fix/pictures/{id}`. **Real run:** before 9 s + after 24 s on
    /familia from a throwaway worktree (renders live data through its proxy). First real run found: Playwright had no matching Chromium → uses the
    installed one (`free_browser.chromium_path`). Not seen: a full crash → model fix → pictures run (needs a real crash case).
-5. **AGT-17 3D world** — NOVA opens black (fix that), run G4 + one paid model on it (owner tests OSSY/G4 more later), PoC + PoEco bigger worlds, real FPS.
-5b. **Owner 2026-11-12 (chat):** (a) PoStatic file: the code pane cannot scroll to its last lines — fix. (b) Every proof shows on the desk
+5. ✅ **AGT-17 3D world DONE 2026-11-12:** NOVA's black page = a cut-off html reply whose prose was run as code → new reader (`play_studio.code_reply/code_cut`),
+   a cut reply is refused and the old code kept, the preview reports a black page and one tap sends the error to its minds (Code3D). G4 + the "paid"
+   pick were run on NOVA: both honest FAILS, filed on the Test bench (the paid pick was a free stand-in; the chat now names it). **Real FPS:** measured
+   in his Chrome on the M3 GPU: GLINT 90 fps at 1280×720 (p95 17 ms), 120 fps at 466×678; the playground now shows a live FPS chip. PoC + PoEco
+   "bigger worlds" read as: each gets its own live view on the desk monitors (PoC = its real snapshot panning + the words found, PoEco = month bars) — 5b(b).
+5b. ✅ **Owner 2026-11-12 (chat) DONE:** (a) PoStatic file: the code pane cannot scroll to its last lines — fix. (b) Every proof shows on the desk
    monitors in its own way (PoStatic = code window + the live page side by side; PoW/PoP/PoB/PoC/PoEco each their own view). (c) Every test run on
-   Sicario's desk files into a folder he can open (no invisible tests). (d) Chat effects/animations driven by real live data, never decorative fakes.
+   Sicario's desk files into a folder he can open (no invisible tests). (d) Chat effects/animations driven by real live data, never decorative fakes — DONE: Ticker tape / Trench radar / Depth / Order flow draw one shared 60s poll of Solana trending pools (`lib/marketTape.js`) or the room coin's own buys/sells, with a LIVE source chip; nothing drawn before the feed answers.
    (e) Every report gives the % of this list left. (f) Every folder window fits its window: one scroll region, never a window-long page.
    (g) Icons inside folder windows follow Desktop settings › Folder look (no 3D cartoon icons). (h) PoStatic file head: the OSSY/G4 score pills
    overlap "Broken" — never a bad visual. (i) The boost flow (Proof + $ → pools/score → boost cash, React Flow + limit chart) = an elite example:

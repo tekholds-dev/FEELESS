@@ -33,3 +33,9 @@ body.fx-lite .p3c, body.fx-lite .p3c-dot.is-ok, body.fx-lite .p3c-err { animatio
 body.fx-lite .p3c-chat li { animation: none; } @media (prefers-reduced-motion: reduce) { .p3c-chat li { animation: none; } }
 body.theme-day .p3c-chat li { background: #7c4dff12; } body.theme-day .p3c-chat p { color: #1b1236; }
 .p3c-err .m-btn { min-height: 32px; flex: none; }
+/* ⏱ live frame rate chip (measured inside the page) */
+.p3c-fps { padding: 2px 8px; border-radius: 99px; font: 800 10px var(--f-mono); letter-spacing: .06em; color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); transition: color .3s, border-color .3s; cursor: help; }
+.p3c-fps.is-warn { color: var(--m-warn); border-color: color-mix(in srgb, var(--m-warn) 45%, transparent); background: color-mix(in srgb, var(--m-warn) 12%, transparent); }
+.p3c-fps.is-bad { color: var(--m-danger); border-color: color-mix(in srgb, var(--m-danger) 45%, transparent); background: color-mix(in srgb, var(--m-danger) 12%, transparent); }
+@media (prefers-reduced-motion: reduce) { .p3c-fps { transition: none; } }
+body.theme-day .p3c-fps { background: var(--m-surface); }
