@@ -149,7 +149,7 @@ export function MyDataCard() {
     setBusy(kind); setMsg(''); setGone(null);
     try {
       const session = await getChatSession(address, signMessage, kind === 'delete' ? { own: true, fresh: true } : {});
-      const r = await fetch(apiUrl(`/api/reputation/legal/${kind}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: address, session, ...(kind === 'delete' ? { confirm: typed } : {}) }) });
+      const r = await fetch(apiUrl(kind === 'delete' ? '/api/reputation/legal/delete' : '/api/reputation/legal/export'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wallet: address, session, ...(kind === 'delete' ? { confirm: typed } : {}) }) });
       const b = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(b.detail || `Failed (${r.status}).`);
       if (kind === 'export') {
