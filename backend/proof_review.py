@@ -9,7 +9,7 @@ import re
 import compare_gate as _cmp
 
 REVIEWERS = (('ossy', 'local/ossy', 'OSSY'), ('g4', 'local/g4', 'G4'))
-VERSION = 5   # v5: the bought coin's read first, each read labelled · v4: code overturns a "future" date on or before today · v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
+VERSION = 6   # v6 (2026-11-13): a builder never judges its own proof (recused), the judges no longer see the owner's grade or the stamp, every review records its rubric, builders, judge models and an evidence hash · v5: the bought coin's read first, each read labelled · v4: code overturns a "future" date on or before today · v3: five fixed checks per kind · v2: today's date, the kind's own evidence (a trade's prices and times, the books' numbers), no source rule on books
 COMPARE_SINCE = 1794182400   # 2026-11-09 00:00 UTC: COL-13's 4-source rule; a proof filed before it was never asked for it
 PASS_AT = 60
 MAX_BRIEF = 6000
@@ -81,8 +81,7 @@ def brief(kind, folder, envelope=None, now=None):
         'compareRule': ({k: v for k, v in _cmp.check(kind, f).items() if k != 'hosts'} if float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0) >= COMPARE_SINCE else 'filed before the 4-source rule existed') if kind != 'poe' else None,
         'calls': [{k: c.get(k) for k in ('name', 'market', 'side', 'pick', 'why', 'picks') if c.get(k)} for c in (f.get('calls') or [])[:4] if isinstance(c, dict)],
         'games': [{k: g.get(k) for k in ('name', 'start', 'final', 'score') if g.get(k)} for g in (f.get('games') or [])[:6] if isinstance(g, dict)],
-        'result': {k: f.get(k) for k in ('pnlPct', 'roePct', 'graded', 'net') if f.get(k) is not None},
-        'outcome': {k: (e.get('outcome') or {}).get(k) for k in ('state', 'authority')} if e else None,
+        'result': {k: f.get(k) for k in ('pnlPct', 'roePct', 'net') if f.get(k) is not None},   # 🔒 v6: never the owner's grade or the stamp: judges read the work, not other verdicts
         'playtest': (f.get('game') or {}).get('playtest') if isinstance(f.get('game'), dict) else None,
         'page': _page_text(ws_page) if ws_page else None,
     }
@@ -100,7 +99,7 @@ def brief(kind, folder, envelope=None, now=None):
 
 def _page_text(html):
     """A page's words and structure, small: the reviewer judges what a visitor would see."""
-    h = str(html or '')
+    h = re.sub(r'<div id="none">.*?</div>', ' ', str(html or ''), flags=re.S)   # the hidden no-WebGL fallback: a visitor never sees it (v6: judges failed pages for it)
     title = re.search(r'<title>(.*?)</title>', h, re.I | re.S)
     heads = re.findall(r'<h[1-3][^>]*>(.*?)</h[1-3]>', h, re.I | re.S)[:8]
     text = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', re.sub(r'<(script|style)[^>]*>.*?</\1>', ' ', h, flags=re.I | re.S))).strip()
@@ -144,12 +143,41 @@ def verdict_of(raw, today=None):
     return {'score': score, 'verdict': v, 'checks': checks, 'why': str(d.get('why') or '')[:200]}
 
 
-def combine(by):
-    """Both reviewers' verdicts → the folder's review. Pure."""
-    got = {k: v for k, v in by.items() if v}
+def builders_of(f, cfg, kind):
+    """The models that MADE this proof: the folder's own record when it kept one, else the agent's minds for this kind. Pure."""
+    import launch_cat
+    own = [str(m) for m in (f or {}).get('minds') or [] if m] if isinstance((f or {}).get('minds'), list) else []
+    return own or launch_cat.minds_for(cfg or {}, kind)
+
+
+def recused(builders):
+    """🔒 owner 2026-11-13: a builder never judges its own work. → the reviewer keys whose model built this proof. Pure."""
+    b = {str(m) for m in builders or []}
+    return [key for key, model, _n in REVIEWERS if model in b]
+
+
+def family(answered_by):
+    """'lan · qwen/qwen3.5-4b' → 'qwen'. Two judges of one family can share one blind spot. Pure."""
+    m = str(answered_by or '').split('·')[-1].strip()
+    return (m.split('/')[0] if '/' in m else m.split('-')[0]).lower() or None
+
+
+def evidence_sha(body):
+    import hashlib
+    return hashlib.sha256(str(body or '').encode()).hexdigest()
+
+
+def combine(by, recused_=(), builders=(), body=None):
+    """The judges' verdicts → the folder's review, with what makes it reproducible: rubric version, who built it, who sat out, which model
+    families judged, and the hash of exactly what they read. Every judge sat out → no verdict (never a pass). Pure."""
+    got = {k: v for k, v in by.items() if v and k not in recused_}
     scores = [v['score'] for v in got.values()]
-    return {'v': VERSION, 'by': got, 'score': round(sum(scores) / len(scores)) if scores else None, 'agree': len({v['verdict'] for v in got.values()}) <= 1 if got else None,
-            'verdict': ('pass' if all(v['verdict'] == 'pass' for v in got.values()) else 'fail') if got else None, 'missing': [k for k, v in by.items() if not v]}
+    fams = sorted({f for f in (family(v.get('answeredBy')) for v in got.values()) if f})
+    return {'v': VERSION, 'rubric': VERSION, 'by': got, 'score': round(sum(scores) / len(scores)) if scores else None, 'agree': len({v['verdict'] for v in got.values()}) <= 1 if got else None,
+            'verdict': ('pass' if all(v['verdict'] == 'pass' for v in got.values()) else 'fail') if got else None,
+            'missing': [k for k, v in by.items() if not v and k not in recused_], 'recused': list(recused_), 'builders': list(builders or [])[:4],
+            'families': fams, 'oneFamily': len(fams) == 1 and len(got) > 1, 'evidenceSha': evidence_sha(body) if body is not None else None,
+            'independent': bool(got), **({} if got else {'why': 'Every judge built this proof, so none may judge it' if recused_ else 'No judge answered'})}
 
 
 def next_due(store, done=(), kinds=None, handles=None):
@@ -211,9 +239,10 @@ def showcase(cats, keep=3):
         for k, (_code, key) in mission.KINDS.items():
             for f in c.get(key) or []:
                 rv = f.get('review') or {}
-                if rv.get('by'):
+                if rv.get('by') or rv.get('recused'):
                     out[k].append({'id': f.get('id'), 'title': str(f.get('topic') or f.get('sym') or f.get('name') or f.get('id'))[:80], 'at': float(f.get('closedAt') or f.get('soldAt') or f.get('at') or 0),
-                                   'score': rv.get('score'), 'verdict': rv.get('verdict'), 'agree': rv.get('agree'),
+                                   'score': rv.get('score'), 'verdict': rv.get('verdict'), 'agree': rv.get('agree'), 'recused': rv.get('recused') or [], 'oneFamily': bool(rv.get('oneFamily')),
+                                   'families': rv.get('families') or [], 'why': rv.get('why'), 'hidden': rv.get('hidden'),
                                    'by': {n: {'score': v.get('score'), 'verdict': v.get('verdict'), 'checks': (v.get('checks') or [])[:5], 'answeredBy': v.get('answeredBy')} for n, v in rv['by'].items()}})
         for f in c.get('poeFolders') or []:
             if f.get('months') and (books is None or float(f.get('closedAt') or f.get('at') or 0) > books['at']):

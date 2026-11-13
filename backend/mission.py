@@ -59,6 +59,8 @@ def _authority(k, f):
         return 'true prices', 'outside', 'A practice trade measured against true prices: the call is checkable, no money moved', []
     if k == 'poe':
         return 'none', 'none', "A hash of the owner's own books: it proves the numbers were not changed, not that anything happened", []
+    if k == 'pob' and f.get('games') and f.get('gradedBy') not in ('scoreboard', 'polymarket'):   # 🔒 the scores settle it, a hand mark never does
+        return 'scoreboard', 'outside', 'Settled by the final scores (an unfinished game is void after its grace), never by a hand mark', []
     if f.get('gradedBy') == 'scoreboard':
         return 'scoreboard', 'outside', 'Graded from the final score or the market settlement', []
     if f.get('graded') in ('right', 'wrong'):
@@ -74,6 +76,8 @@ def outcome(k, f, now):
     if k == 'pow' and strength == 'paper':
         return {'state': 'none', 'won': None, 'dueAt': None, 'value': value, 'authority': who, 'strength': strength, 'why': why, 'sigs': []}
     st = _stamp.of(KINDS[k][0], f, now); state = st['state']; won = st.get('lean')
+    if state == 'void':   # every game it named was never played: no result, never a win
+        state, won = 'unsettled', None
     if state in ('proved', 'not') and (won is None or strength == 'none'):   # the stamp says NOT PROVED once a day passes with no result; here that is no result
         state, won = 'unsettled', None
     return {'state': state, 'won': won if strength != 'none' else None, 'dueAt': st.get('dueAt'), 'value': value,

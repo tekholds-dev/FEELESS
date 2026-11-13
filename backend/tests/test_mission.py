@@ -91,7 +91,10 @@ def test_who_verified_each_outcome():
     k, f = _fx('pob_scoreboard')
     e = mission.envelope(k, f, _later(f), CAT)
     assert (e['outcome']['authority'], e['outcome']['strength'], e['evidence']['level']) == ('scoreboard', 'outside', 'L2')
-    for label in ('pob_owner_mark', 'poc_marked', 'pos_right'):
+    k, f = _fx('pob_owner_mark')   # 🔒 results beat grades (2026-11-13): a hand mark on a bid with real games is a note, the scores settle it
+    e = mission.envelope(k, f, _later(f), CAT)
+    assert (e['outcome']['authority'], e['outcome']['strength'], e['outcome']['state'], e['evidence']['level']) == ('scoreboard', 'outside', 'not', 'L2')
+    for label in ('poc_marked', 'pos_right'):
         k, f = _fx(label); e = mission.envelope(k, f, _later(f), CAT)
         assert (e['outcome']['authority'], e['outcome']['strength'], e['evidence']['level']) == ('owner mark', 'self', 'L1'), label
         assert e['markedBy'] == 'owner'

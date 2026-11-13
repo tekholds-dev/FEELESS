@@ -221,11 +221,29 @@ def test_perp_rows_sort_by_open_interest():
     assert [r['market'] for r in rows] == ['B', 'A'] and rows[0]['fundingPct'] == -2.0 and pt.parse_hl(None) == []
 
 
-def test_a_bid_on_a_game_the_scoreboard_never_finished_still_gets_its_stamp():
-    """pob1793907481 (real, 2026-11-13): one leg's game stayed 'pre' forever, so the proof sat on RESULT IN… for 86 h after it was graded."""
+def test_results_beat_grades_a_hand_mark_never_settles_a_bid_on_real_games():
+    """🔒 owner 2026-11-13: pob1793907481 was hand-marked 'right' before its games ended; one leg lost. The scores decide, the mark stays a note."""
     import proof_stamp as st
-    f = {'closedAt': 1000.0, 'graded': 'right', 'games': [{'final': False}, {'final': True}]}
     due = 1000 + st.DAY_S
-    assert st.of('PoB', f, due + 3600)['state'] == 'waiting'                              # a late game still gets its time
-    assert st.of('PoB', f, due + st.GAME_GRACE_S + 1)['state'] == 'proved'                # then the grade settles it
-    assert st.of('PoB', {**f, 'graded': None}, due + st.GAME_GRACE_S + 1)['state'] == 'not'   # nothing known → not proved, never stuck
+    lost = {'closedAt': 1000.0, 'graded': 'right', 'games': [{'final': False}, {'final': True, 'won': False}]}
+    assert st.of('PoB', lost, due + 1)['state'] == 'not'                                   # a lost leg loses it at once, whatever the mark says
+    won = {'closedAt': 1000.0, 'graded': 'wrong', 'games': [{'final': True, 'won': True}, {'final': False}]}
+    assert st.of('PoB', won, due + 1)['state'] == 'waiting'                                # the open leg still gets its time
+    assert st.of('PoB', won, due + st.GAME_GRACE_S + 1)['state'] == 'proved'               # then it is void and the played leg decides
+    never = {'closedAt': 1000.0, 'graded': 'right', 'games': [{'final': False}]}
+    assert st.of('PoB', never, due + st.GAME_GRACE_S + 1)['state'] == 'void'               # nothing played: no result, never a win
+    assert st.of('PoB', {'closedAt': 1000.0, 'graded': 'right', 'gradedBy': 'polymarket', 'games': [{'final': False}]}, due + 1)['state'] == 'proved'   # an outside settlement counts
+    assert st.of('PoB', {'closedAt': 1000.0, 'graded': 'right', 'topic': 'research only'}, due + 1)['state'] == 'proved'   # no outside result → the mark decides
+
+
+def test_a_bid_settles_by_the_rule_version_it_was_filed_under():
+    import proof_stamp as st
+    assert st.rules_of({}) is st.RULES[1] and st.rules_of({'stampRules': 1}) is st.RULES[1] and st.rules_of({'stampRules': 99}) is st.RULES[1]
+    assert all('gameGraceS' in r and r.get('since') for r in st.RULES.values())
+
+
+def test_a_void_bid_reads_as_no_result_on_the_mission_card():
+    import mission
+    f = {'id': 'b', 'closedAt': 1000.0, 'graded': 'right', 'games': [{'final': False}]}
+    out = mission.outcome('pob', f, 1000 + 5 * 86400)
+    assert out['state'] == 'unsettled' and out['won'] is None and out['authority'] == 'scoreboard'

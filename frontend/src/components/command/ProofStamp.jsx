@@ -4,7 +4,7 @@ import '../../styles/collective.css';
 
 // ✅ The 24-hour stamp (proof_stamp.py decides it): PROVED, NOT PROVED, a countdown, or LIVE.
 // owner 2026-11-13: "make it understandable when I'm on the site" — the stamp says what it is in plain words: the result, or when the result comes.
-const STAMP = { proved: ['✓ PROVED', 'is-yes'], not: ['✕ NOT PROVED', 'is-no'], live: ['STILL RUNNING', 'is-live'] };
+const STAMP = { proved: ['✓ PROVED', 'is-yes'], not: ['✕ NOT PROVED', 'is-no'], live: ['STILL RUNNING', 'is-live'], void: ['NO RESULT', 'is-wait'] };
 const leftOf = t => { const m = Math.max(0, Math.round((t * 1000 - Date.now()) / 60000)); return m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 export function ProofStamp({ s }) {
   if (!s) return null;
@@ -12,6 +12,7 @@ export function ProofStamp({ s }) {
   const tip = s.state === 'proved' ? 'Checked a day after it closed: what it said held up against what really happened.'
     : s.state === 'not' ? 'Checked a day after it closed: what it said did not hold up against what really happened.'
       : s.state === 'live' ? 'Still open. Its result is checked a day after it closes.'
+        : s.state === 'void' ? 'Every game it picked was never played (postponed or dropped), so there is nothing to check it against. Not a win, not a loss.'
         : 'A day after a proof closes, FEELESS checks it against what really happened and stamps it PROVED or NOT PROVED. A game pick waits for the final score.';
   return <em className={`clx-stamp ${c}`} data-testid="proof-stamp" data-tip={tip} aria-label={`${t}. ${tip}`}>{t}</em>;
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import ORCAT from '../components/command/__fixtures__/mediaModels.json';   // 🎬 the real media_models answer (OpenRouter presets + samples), from media_gen.catalog
 import { StashBoard } from '../components/command/GitFolder';
+import { ReviewReel } from '../components/command/ProofDoors';
 import { FeaturesFolder, GoLive, NextSteps, PocStation, Packages, ProofDesk } from '../components/command/FeaturesFolder';
 import Playground3D from '../components/command/Playground3D';
 import { ModelPop } from '../components/command/LaunchCat';
@@ -68,6 +69,11 @@ export default function FeaturesHarness() {
   if (/station/.test(window.location.search)) return <div style={{ minHeight: "100vh", background: "#050807", padding: 16, maxWidth: 560 }}><PocStation answered pocs={[{ id: "p1", n: 3, review: { verdict: "pass" }, graded: "", result: null }]} mind="For early risers who hate queues. Hook: your coffee is ready before your eyes are. Tap once, walk in, grab it, go." onFileAnswer={() => {}} onFile={() => {}} onSide={() => {}} onSend={() => {}} /></div>;   // ?station — the PoC launch path (fixture PoC)
   if (/golive/.test(window.location.search)) { const real = window.fetch; window.fetch = (u, o) => (String(u).includes("/deploy/hosts") ? real("/dev-golive.json") : real(u, o)); return <GoLiveHarness />; }   // ?golive — Go live on the real hosts read (dev-golive.json = deploy_hosts.hosts())
   if (/paygrid/.test(window.location.search)) return <div style={{ minHeight: '100vh', background: '#050807', padding: 14 }}><PayGrid /></div>;   // ?paygrid — HQ › Money › Cards & pay
+  if (/revreel/.test(window.location.search)) {   // 🔒 ?revreel — two REAL review rows from the proof record (2026-11-13): Sicario's page its own minds built (they sit out) and a v5 split review
+    const rows = [{ id: 'psa2c0b370bb', title: 'GLINT', score: null, verdict: null, agree: null, recused: ['ossy', 'g4'], why: 'Every judge built this proof, so none may judge it', by: {}, hidden: { passed: 8, total: 9, failed: ['no-fake-data'] } },
+      { id: 'ps4231b0c2f7', title: 'GLINT v1', score: 48, verdict: 'fail', agree: false, oneFamily: true, families: ['qwen'], by: { ossy: { score: 0, verdict: 'fail', answeredBy: 'local · qwen/qwen3.5-9b', checks: ['✗ Evidence contains explicit Sample numbers text'] }, g4: { score: 95, verdict: 'pass', answeredBy: 'lan · qwen/qwen3.5-4b', checks: ['✓ It does what the plan asked'] } } }];
+    return <div style={{ minHeight: '100vh', background: '#050807', padding: 16, maxWidth: 760 }}><ReviewReel rows={rows} /></div>;
+  }
   if (/livblk/.test(window.location.search)) {   // SITE-17: the five readers' REAL reads (dev/liveBlocks.json, read on mainnet 2026-11-13) drawn by the real block card
     const bl = { buildings: LIVE_BLOCKS.buildings };
     return <div style={{ minHeight: '100vh', background: '#050807', padding: 14, display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', alignItems: 'start' }}>

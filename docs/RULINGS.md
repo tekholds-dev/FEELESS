@@ -1,6 +1,11 @@
 # RULINGS — every owner decision, dated. ONE place: when he changes a rule, edit it HERE (and nowhere else); newest wins.
 
 ## 2026-11-13
+- 🔒 PROOF INTEGRITY (owner + GPT + Grok + Claude agreed): RESULTS BEAT GRADES — wherever a real result exists (PoW P&L, PoP return, PoB final scores / market settlement) it alone sets the stamp; a hand mark stays as a note (`ownerMark`). An unplayed PoB leg is VOID after the grace in the rule version the proof was FILED under (`stampRules`, never changed after the result); all legs void = NO RESULT, never a win. Corrections are new rows, history is never rewritten.
+- A builder NEVER judges its own proof (a judge whose model built it sits out; all sit out → no verdict, never a pass). Judges never see the owner's grade or the stamp. Every review records rubric version, builders, judge models + family, and an evidence hash.
+- PoStatic pages get CODE checks the builders are never shown (ps_hidden); never fed back as lessons.
+- Agent pages never invent a number: a missing value is "—" and no chart is drawn until real prices exist. Labelled sample numbers only when the ask itself says fake / sample / mock.
+- Payouts, boosts and the send-time review are NOT changed by any of the above.
 - COL-19: the proving-ground score NEVER blocks real buys (record only).
 - Q29: the swap fee is 10% (platformFeeBps 1000, set in HQ › fees; holder-tier discounts still apply on top).
 - $FEE and FEECAT launch on pump, rFEE on Raydium — the owner launches them; no pools to build before that.

@@ -3,7 +3,7 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now: ≈4% left** (SITE-5 hand-moves, SITE-8 money stores + live workers, COL-6's stamp), then only the owner's money tests.
+> Every report says the % left. **Now: ≈5% left** (COL-20 P2/P3, SITE-5 hand-moves, SITE-8 money stores + live workers, COL-6's stamp), then only the owner's money tests.
 
 ## COLLECTIVE
 
@@ -12,6 +12,11 @@
 (lands 2026-11-14 05:43 UTC). Check: `bash scripts/postatic-pilot.sh --check` → all ✅ = close this card.
 Owner: run it end to end. Done when: plan → build → review → real-browser test → file → stash → grade → stamp → events → vitals row, all
 kept on one real proof. G4 runs from the owner's Terminal (Claude has no LAN route) → Claude preps one command for him. No money.
+
+**COL-20 · Proof integrity (P0 + P1 done 2026-11-13, P2/P3 open)** · claimed: — · see RULINGS 2026-11-13
+Done + live: results beat grades (false PoB pob1793907481 corrected to NOT PROVED by rows 526-527), builders sit out, clean judge brief, review provenance, ps_hidden code checks (59 real pages: 88% avg; misses = sample numbers + our own hidden WebGL text, both fixed at the source).
+👑 Owner call: Sicario's builds AND judges with local/ossy + local/g4, so every Sicario's review is now "no judge". Pick one: give Sicario's other build minds, or open reviews to all agents (`FEELESS_REVIEW_SCOPE=all` in backend/.env — Happy's builds with cloud models, so OSSY/G4 can judge it). Both judges are Qwen (one family): a non-Qwen local judge would make them independent.
+Left (Claude): P2 regression checks on reused kits + "existing tools checked" note on PoStatic reviews · P3 verified missions per dollar on Fee's stash dashboard + daily chain-tip commitment.
 
 **COL-10 · Method kits (ongoing)** · BACKFILLED 2026-11-13 · claimed: fable
 Checked: no Claude session had ever filed to the stash. Built `scripts/stash-builds.py` (+ `backend/claude_builds.py`): every Claude-made

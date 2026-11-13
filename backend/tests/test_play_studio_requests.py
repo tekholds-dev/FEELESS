@@ -17,10 +17,12 @@ def test_a_reply_that_leaves_things_out_never_wipes_them():
 
 
 def test_asking_for_a_chart_always_lands_one_and_says_what_is_there():
-    got = ps.ensure_asks(GLINT_HOME, 'still no charts and real number data')
-    d = got['page']['dash']; assert len(d['points']) > 10 and len(d['stats']) == 4 and 'Sample' in d['note'] and got['page']['cta'] == 'Enter the room'
+    got = ps.ensure_asks(GLINT_HOME, 'still no charts and real number data')   # 🔒 2026-11-13: nothing invented — "—" values, no chart until real prices
+    d = got['page']['dash']; assert d['points'] == [] and len(d['stats']) == 4 and all(x['value'] == '—' for x in d['stats']) and 'once the coin trades' in d['note'] and got['page']['cta'] == 'Enter the room'
     assert ps.ensure_asks(ROOM, 'a chart') is ROOM and ps.ensure_asks(GLINT_HOME, 'make it darker') is GLINT_HOME
-    assert ps.page_facts(got, ROOM) == 'Home page: a chart and 4 numbers; Room: a chart and 3 numbers, a back button.'
+    assert ps.page_facts(got, ROOM) == 'Home page: no chart; Room: a chart and 3 numbers, a back button.'
+    asked = ps.ensure_asks(GLINT_HOME, 'add fake numbers and a chart')['page']['dash']   # the owner asked for sample numbers by name: labelled, as before
+    assert len(asked['points']) > 10 and 'Sample' in asked['note']
     assert ps.page_facts(GLINT_HOME, None) == 'Home page: no chart.'
 
 
@@ -66,7 +68,8 @@ def test_a_chart_request_needs_no_model_and_a_thin_dash_gets_filled():
     assert not ps.chart_only('add a chart and a brass lamp to the room', built, 'GLINT')
     assert not ps.chart_only('add a chart and a brass lamp on the desk', built) and not ps.chart_only('a chart', {'objects': []}) and not ps.chart_only('make it darker', built)
     thin = {'objects': [], 'page': {'headline': 'G', 'dash': {'stats': [{'label': 'Price', 'value': '$0.042'}], 'points': [1, 2]}}}
-    d = ps.ensure_asks(thin, 'a chart')['page']['dash']; assert d['stats'][0]['value'] == '$0.042' and len(d['stats']) == 4 and len(d['points']) > 8
+    d = ps.ensure_asks(thin, 'a chart')['page']['dash']; assert d['stats'][0]['value'] == '$0.042' and len(d['stats']) == 4 and d['points'] == [1, 2] and d['stats'][1]['value'] == '—'
+    assert '<svg' not in ps._dash_html({'stats': [], 'points': []}, str) and 'once the coin trades' in ps._dash_html({'stats': [], 'points': []}, str)   # no made-up curve
 
 
 def test_moving_the_monitors_never_loses_them_and_they_sit_on_the_real_desk():

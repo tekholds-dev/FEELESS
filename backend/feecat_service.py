@@ -105,6 +105,7 @@ import voice_mirror as _vm
 import store_check as _store
 import evidence_marks as _marks
 import proof_stamp as _stamp
+import ps_hidden as _ps_hidden
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
@@ -4892,7 +4893,7 @@ def _kalshi_view(cat):
 
 
 def _pob_file(cat, rec, line):
-    cat['pobFolders'] = _pob.trim(list(cat.get('pobFolders') or []) + [{**rec, 'n': _pob.number(cat), 'kits': _KIT_LAST.get((cat.get('id'), 'pob')) or []}])
+    cat['pobFolders'] = _pob.trim(list(cat.get('pobFolders') or []) + [{**rec, 'n': _pob.number(cat), 'kits': _KIT_LAST.get((cat.get('id'), 'pob')) or [], 'stampRules': _stamp.CURRENT_RULES}])   # 📜 settles by the rules it was filed under
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': line, 'at': time.time(), 'open': 'bids'}])[-200:]
 
 
@@ -6218,8 +6219,11 @@ async def _review_one(store):
         f_['_page'] = (vs[v] if 0 <= v < len(vs) else (vs[-1] if vs else {})).get('html') or ''
     env = _mission.envelope(kind, f, time.time(), cat)
     body = _review.brief(kind, f_, env); by = {}
+    builders_ = _review.builders_of(f, cat.get('brainsCfg'), kind); out_ = _review.recused(builders_)   # 🔒 a builder never judges its own proof
     sic = next((c for c in store['cats'].values() if c.get('handle') == 'sicarios'), None) or {'id': 'collective', 'ownerStaff': True}
     for key, model, name in _review.REVIEWERS:
+        if key in out_:
+            by[key] = None; continue
         tok = _CALL_CTX.set({'kind': kind, 'ref': f'review:{f.get("id")}', 'minds': [m for _k, m, _n in _review.REVIEWERS]})
         try:
             raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body}], max_tokens=700), 240)
@@ -6232,7 +6236,9 @@ async def _review_one(store):
             by[key] = None
         finally:
             _CALL_CTX.reset(tok)
-    rv = {**_review.combine(by), 'at': round(time.time())}
+    rv = {**_review.combine(by, out_, builders_, body), 'at': round(time.time())}
+    if kind == 'pos' and f_.get('_page'):   # 🕵 P1: code-run checks the builders are never shown; independent of any judge (they still run when every judge sat out)
+        rv['hidden'] = _ps_hidden.run(f_['_page'])
     _REVIEW_DONE.append((cid, kind, f.get('id'), rv)); _POW_WAKE.set()
     return rv
 
@@ -6293,7 +6299,9 @@ def _review_apply(store):
         f['review'] = rv; n += 1
         _REVIEW_LESSONS[kind] = _review.lessons(store, kind)
         try:
-            _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy')} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict']}, cat=cid)
+            _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {k: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v.get('answeredBy')} for k, v in rv['by'].items()}, 'score': rv['score'], 'verdict': rv['verdict'],
+                                                                     **{k: rv.get(k) for k in ('rubric', 'builders', 'recused', 'families', 'oneFamily', 'evidenceSha', 'independent') if rv.get(k) not in (None, [], '')},
+                                                                     **({'hidden': {k: rv['hidden'][k] for k in ('v', 'passed', 'total', 'failed')}} if rv.get('hidden') else {})}, cat=cid)   # 🧾 reproducible: rubric, builders, judges, evidence hash
         except Exception as e:   # noqa: BLE001
             print(f'[review] history: {str(e)[:80]}')
     return n
@@ -8496,7 +8504,7 @@ async def _pob_grade_pass(http, store, now):
     if now - float(store.get('pobGradeAt') or 0) < 300:
         return
     store['pobGradeAt'] = now
-    open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and not f.get('graded')]
+    open_ = [f for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:] if f.get('games') and f.get('gradedBy') not in _stamp.OUTSIDE]   # 🔒 a hand mark never stops the scoreboard
     owner_of = {id(f): c for c in store['cats'].values() for f in (c.get('pobFolders') or [])[-20:]}
     for sport in {g.get('sport') for f in open_ for g in f['games'] if g.get('sport')}:
         board = (await _tools.sport_board(http, sport)).get('games') or []
@@ -8504,6 +8512,8 @@ async def _pob_grade_pass(http, store, now):
             if any(g.get('sport') == sport for g in f['games']):
                 f['games'], grade = _tools.grade_games(f['games'], board)
                 if grade:
+                    if f.get('graded') in ('right', 'wrong') and not f.get('gradedBy'):
+                        f.setdefault('ownerMark', f['graded'])   # the hand mark from before the results stays, as a note
                     f['graded'], f['gradedBy'] = grade, 'scoreboard'
                 for g_ in f['games']:   # 🏀 once a quarter or period, the score lands in its chat
                     per_ = str(g_.get('status') or '').split(' ')[0]
@@ -8511,13 +8521,15 @@ async def _pob_grade_pass(http, store, now):
                         g_['said'] = per_; c_ = owner_of.get(id(f))
                         if c_ is not None:
                             c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': f"🏟 {g_.get('name') or g_.get('side') or 'Its game'}: {g_.get('score')} · {g_.get('status')}. From your PoB on {str(f.get('topic') or '')[:50]}.", 'at': now, 'open': 'bids'}])[-200:]
-    for f in [x for c in store['cats'].values() for x in (c.get('pobFolders') or [])[-20:] if x.get('poly') and not x.get('graded')]:   # 🗳 graded when the market itself settles
+    for f in [x for c in store['cats'].values() for x in (c.get('pobFolders') or [])[-20:] if x.get('poly') and x.get('gradedBy') not in _stamp.OUTSIDE]:   # 🗳 graded when the market itself settles
         ev = await _tools._get(http, f"https://gamma-api.polymarket.com/events/{f['poly'].get('id')}")
         won = _tools.poly_winner(ev)
         if won:
             picks = ' '.join(str(p.get('pick') if isinstance(p, dict) else p) for c_ in f.get('calls') or [] for p in c_.get('picks') or []).lower()
             f['poly']['winner'] = won
             if picks:
+                if f.get('graded') in ('right', 'wrong') and not f.get('gradedBy'):
+                    f.setdefault('ownerMark', f['graded'])
                 f['graded'], f['gradedBy'] = ('right' if won.lower() in picks else 'wrong'), 'polymarket'
 
 
@@ -8988,7 +9000,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if p.job in ('right', 'wrong', 'clear'):
             if not f_.get('topic'):
                 raise HTTPException(400, 'The market grades this one.')
-            f_['graded'] = None if p.job == 'clear' else p.job
+            if f_.get('games') or f_.get('poly'):   # 🔒 results beat grades: the scores settle it, your mark is kept as your read of it
+                f_['ownerMark'] = None if p.job == 'clear' else p.job
+            else:
+                f_['graded'] = None if p.job == 'clear' else p.job
         elif p.job == 'delete':
             for x_ in f_.get('shots') or []:
                 (POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f_['id']) / re.sub(r'[^a-z0-9._]', '', x_.get('file') or 'x')).unlink(missing_ok=True)

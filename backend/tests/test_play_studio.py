@@ -374,7 +374,7 @@ def test_asking_for_more_keeps_the_look_and_the_second_page(monkeypatch, tmp_pat
         return ('{"say":"Matches the prompt"}' if 'You check' in sys_ else json.dumps({'say': 'Added', 'page': {'headline': 'Inside', 'dash': {'title': 'Live', 'note': 'Sample', 'stats': [{'label': 'Price', 'value': '$1'}], 'points': [1, 2]}}})), 0, False
     monkeypatch.setattr(fs, '_ws_ask', fake)
     asyncio.run(fs._ws_run('g', row['id'], 'a', 'add a transparent chart to the room', None)); got = fs._ws_load('g', row['id'])
-    assert not seen and got['scene3d']['page']['headline'] == 'GLINT' and len(got['scene3dNext']['page']['dash']['points']) > 8 and 'dash' not in got['scene3d']['page']   # a chart alone needs no model, and only the room changes
+    assert not seen and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['points'] == [] and 'once the coin trades' in got['scene3dNext']['page']['dash']['note'] and 'dash' not in got['scene3d']['page']   # a chart alone needs no model, only the room changes, and no price is made up (2026-11-13)
     page = got['versions'][-1]['html']; assert 'Enter the room' in page and 'data-go="1"' in page and 'page-back' in page
     asyncio.run(fs._ws_run('g', row['id'], 'a', 'add a chart and a brass lamp to the room', None)); got = fs._ws_load('g', row['id'])
     assert 'look its owner loves' in seen[0] and got['scene3d']['page']['headline'] == 'GLINT' and got['scene3dNext']['page']['dash']['stats'][0]['value'] == '$1'; fs._WS_DONE.clear()

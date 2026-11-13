@@ -148,12 +148,17 @@ function LiveGame() {
 // watcher, its agent searches the stash, the best fit is forked (v1.00 → v1.01 in its git folder) and the tool runs. The parts are the real kits
 // for this proof kind; the fit numbers and the tool's readings are a sample run.
 // 🧑‍⚖️ Its own proofs, graded: each reviewer's five checks light up one by one, pass or fail. Real rows only.
+const HIDDEN_SAY = { 'no-fake-data': 'made-up or sample numbers', finished: 'unfinished parts', 'has-title': 'a page title', 'has-heading': 'a main heading', 'phone-ready': 'phone fit',
+  'images-load': 'pictures that load', 'links-go-somewhere': 'links that go somewhere', 'no-insecure-content': 'secure links', 'has-words': 'enough words' };
 export function ReviewReel({ rows }) {
   const [i, setI] = useState(0); const r = rows?.[i % Math.max(1, rows?.length || 1)];
   const [at] = useSteps(6, 900);
   if (!rows?.length) return <p className="dbt-none" data-testid="pdr-no-reviews">No graded proof of this kind yet. OSSY and G4 grade its first one within minutes of it closing.</p>;
   return <div className="prv" data-testid="pdr-reviews"><header><span className="m-seg" role="tablist" aria-label="Which proof">{rows.map((x, n) => <button key={x.id} type="button" role="tab" aria-selected={n === i % rows.length} className={n === i % rows.length ? 'is-on' : ''} onClick={() => setI(n)} data-tip={`Score ${x.score} · ${x.verdict}`}>{x.title}</button>)}</span>
-    <b className={`prv-score is-${r.verdict}`} data-tip="The two reviewers' average; each check is worth 20"><i className="m-num">{r.score ?? '—'}</i><small>{String(r.verdict || '').toUpperCase()}{r.agree === false ? ' · SPLIT' : ''}</small></b></header>
+    <b className={`prv-score is-${r.verdict || 'none'}`} data-testid="prv-score" data-tip={r.verdict ? `The judges' average; each check is worth 20.${r.oneFamily ? ` Both judges are ${r.families?.[0] || 'one'} models, so they can share a blind spot.` : ''}` : (r.why || 'No judge answered yet.')}>
+      <i className="m-num">{r.score ?? '—'}</i><small>{r.verdict ? String(r.verdict).toUpperCase() : r.recused?.length ? 'NO JUDGE · IT BUILT IT' : 'NOT JUDGED'}{r.agree === false ? ' · SPLIT' : ''}{r.oneFamily ? ' · ONE FAMILY' : ''}</small></b></header>
+    {r.hidden ? <p className="dbt-none" data-testid="prv-hidden" data-tip="Code tests every page against checks its builders are never shown, so no page can be written to please them.">CODE CHECKS IT NEVER SAW · <i className="m-num">{r.hidden.passed}/{r.hidden.total}</i>{r.hidden.failed?.length ? ` · missed: ${r.hidden.failed.map(x => HIDDEN_SAY[x] || x).join(', ')}` : ' · all passed'}</p> : null}
+    {r.recused?.length ? <p className="dbt-none" data-testid="prv-recused">{r.recused.map(x => x.toUpperCase()).join(' and ')} built this proof, so {r.recused.length > 1 ? 'they sit' : 'it sits'} out its review: a builder never judges its own work.</p> : null}
     <div className="prv-minds">{Object.entries(r.by || {}).map(([n, v]) => <section key={n} className={`prv-mind is-${v.verdict}`}><h5>{n.toUpperCase()} <i className="m-num">{v.score}</i><small>{v.answeredBy || ''}</small></h5>
       <ol>{(v.checks || []).map((c, k) => <li key={k} className={`${k < at ? 'is-in' : ''} ${String(c).startsWith('✓') ? 'is-ok' : 'is-no'}`} style={{ '--i': k }}>{c}</li>)}</ol></section>)}</div></div>;
 }
