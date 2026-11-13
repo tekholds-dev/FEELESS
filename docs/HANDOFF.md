@@ -6,6 +6,12 @@
 > Every report says the % left. **Now (2026-11-13, owner flagged): build order = LOOK-1 → COMP-1 → AGENT-AUTO → SEC-1 (+ SITE-8) → STYLE-1 → LEGAL-1 → JUDGE (COL-20, LAST). Owner is NOT testing real money until all of this works and OSSY+G4 can file easy live proofs with working realtime chat.**
 > How to work: `CLAUDE.md` (the one rulebook) · ship with the `feeless-ship` skill. These cards came straight from the owner on 2026-11-13 with screenshots — build the full ask, don't re-litigate.
 
+> ## ▶ START HERE (next account — the owner does NOT want to paste instructions)
+> 1. Read `CLAUDE.md` then this file. Work the build order above, **one card at a time, full build, shown LIVE to the owner before moving to the next** (this is the fix for the surfaces he re-asked 20× that only got half-done).
+> 2. Before building a card, give the owner the shortlist of the best free tools/services for it, then build.
+> 3. **SEC-1's full brief is already written in its card below** — build to that spec exactly; the owner should not have to paste a prompt. Push the defensive edge as far as the law allows; the "OFF THE TABLE" line in that card is the one boundary.
+> 4. Never move real funds / hit mainnet; the owner does all real-money tests.
+
 ## COLLECTIVE
 
 **COL-6 · PoStatic pilot on OSSY + G4** · WAITING ON THE 24h STAMP · claimed: fable 2026-11-13
@@ -59,6 +65,9 @@ Everything below lives in ONE owner-only tab, as a big always-live dashboard (ga
 7. **Exploit research → hardening writeup:** deep web research of the biggest + most recent crypto attacks/scams/exploits (how the white/black hats did it, incl. the ~15%-kept-BTC crews), each turned into a concrete FEELESS hardening item, tracked on the dash.
 ⚠ OFF THE TABLE (illegal — CFAA etc., do NOT build): sending any attack/code to run on the attacker's machine, flooding/damaging their systems, "the same attack back stronger", or a downloadable offensive kit to use on others. The defensive stack above is the legal maximum — build that, and tell the owner plainly if anyone asks for the hack-back part again.
 Pairs with SITE-8 (many users + attacks never stop the operation). Done when: the War Room tab is live with real tracked attempts, honeypots capture + the auto-harden/ban loop works on real probes, canary beacons log openers, on-chain tracing + evidence pack generate, the bounty page is up, the exploit→hardening list is written, and `/security-review` passes clean.
+
+**MODEL-CFG · Per-model effort + tooling controls when a user picks a model (owner 2026-11-13)** · OPEN · claimed: —
+After a user chooses a model (OpenRouter-backed) for an agent brain / chat, surface whatever that model + provider actually exposes — reasoning **effort** (e.g. low/medium/high), max-tokens, temperature, and any provider-specific toggles — read live from OpenRouter's model metadata, not hard-coded, so each model only shows the knobs it really supports (a model with one effort shows none; a reasoning model shows its efforts). If a control is Anthropic-only or provider-only, that's fine — show it only for those models. Keep it one compact control cluster by the model chip (game-window density, tokens). Note: "ultracode"/`/code-review ultra` is a Claude Code harness feature, not an API model param — not exposed to FEELESS users; don't fake it. Done when: picking a model shows exactly the controls that model supports (verified against a live OpenRouter metadata call), the settings ride with the agent's requests, and a model with no extra knobs shows a clean default.
 
 ## OWNER ONLY
 - 🔧 **One-time setup (2 min):** post-commit stash hook (hooks already live in `.githooks`) — `printf '#!/bin/sh\n.venv/bin/python scripts/stash-builds.py --rev HEAD >/dev/null 2>&1 &\n' > .githooks/post-commit && chmod +x .githooks/post-commit`. Paste the 4-line block from `docs/CLAUDE_ACCOUNT_PROMPT.md` into every Claude account's profile. Authorize GitHub in `/mcp`.

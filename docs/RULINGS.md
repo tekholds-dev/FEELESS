@@ -11,7 +11,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
 ## 2026-11-13 · Owner's flagged next-build list (screenshots of the Collective + COMP desk)
-- Build order: **LOOK-1** (brand-new Collective/COMP look, asked ~20×) → **COMP-1** (better COMP tooling + live realtime visuals, asked 5×) → **AGENT-AUTO** (safe agent auto-run, Q2) → **SEC-1** War Room + SITE-8 (one live security dashboard + hardening) → **STYLE-1** (token sweep, owner calls it a priority) → **LEGAL-1** (self-serve, no lawyer) → **JUDGE** (COL-20, explicitly LAST — owner: "fix and make it perfect once we finish all the work").
+- Build order: **LOOK-1** (brand-new Collective/COMP look, asked ~20×) → **COMP-1** (better COMP tooling + live realtime visuals, asked 5×) → **AGENT-AUTO** (safe agent auto-run, Q2) → **SEC-1** War Room + SITE-8 (one live security dashboard + hardening) → **MODEL-CFG** (per-model effort/tooling controls) → **STYLE-1** (token sweep, owner calls it a priority) → **LEGAL-1** (self-serve, no lawyer) → **JUDGE** (COL-20, explicitly LAST — owner: "fix and make it perfect once we finish all the work").
 - Owner is not real-money testing until all the above works AND OSSY+G4 can file easy live proofs with a working realtime chat design.
 - Perps/keys = user's legal discretion. No lawyer. Hack-back is OFF (illegal) — SEC-1 is defensive only.
 
