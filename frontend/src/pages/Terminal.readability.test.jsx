@@ -191,13 +191,14 @@ function installTradeStyles() {
   return style;
 }
 
-function tradeRule(selector) {
+function tradeRule(selector) {   // the LAST matching rule: the one the browser paints (an earlier copy is overridden)
+  let found = null;
   for (const sheet of document.styleSheets) {
     for (const rule of sheet.cssRules || []) {
-      if (rule.selectorText?.split(',').some(candidate => candidate.trim() === selector)) return rule;
+      if (rule.selectorText?.split(',').some(candidate => candidate.trim() === selector)) found = rule;
     }
   }
-  return null;
+  return found;
 }
 
 function narrowTradeRule(selector) {
@@ -388,7 +389,7 @@ test('updates the trade readout for every text size and restores the choice afte
   [
     ['small', 'text-scale-small', null],
     ['normal', 'text-scale-normal', null],
-    ['large', 'text-scale-large', '1.12'],
+    ['large', 'text-scale-large', '1.24'],   // what Large has always painted (trade.css set 1.12 then overrode it with 1.24; STYLE-1 cut the dead copy)
   ].forEach(([value, terminalClass, expectedScale]) => {
     const select = selectTextSize(container, value);
     expect(select.value).toBe(value);
