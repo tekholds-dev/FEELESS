@@ -11,6 +11,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
 ## 2026-11-14
+- **Rules cleaned** (owner: "clean md and handoff to not be restricting and or conflicting"): the owner's ask needs no card or claim; HANDOFF = open work only; the "show live before the next card" and "tool shortlist before building" steps are gone (they clashed with "keep going"); §1 Hard limits untouched.
 - **Fee has no engine** (owner: "remove her engine as fee will act as a trader agent and the 2 brains i pick will get it together"). `run_engine` never trades for her (`_engine_cats`); she trades like any trader agent through the two brains HE picks, and her stash seat holds that record.
 - **Agents' self-started usage is discontinued** ("like hive"): the hive, scheduled auto runs (AGENT-AUTO), Sicario's own loop and the debate grader never start model work by themselves (`SELF_START = False`). Usage runs only on the owner's ask or his Approve tap (AGX-10 inbox).
 - terminal.css budget = 497 KB + its STYLE-1 colour palette (516) — owner "yes" to raising it for the tokens. Every other budget still only goes down.
@@ -38,7 +39,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Names:** judges = The Collective (users) · Fee's public trade brain = FeeCat AI (visitors) · funds = The Pool. Two names, two different things.
 - **Look:** Obsidian green #19e68c is the site colour; Plasma survives only as an optional look. The desk wall called "Green" is green again.
 - **Taste rulings carry a why** so they don't flip-flop (e.g. Classic folders: 3D icons because they read at a glance; Line look for the minimal view).
-- **Legal:** Claude drafts terms, risk, privacy and the lawyer checklist (`docs/legal/`); the owner signs off; one lawyer read before real volume. Legal is the LAST card.
+- **Legal:** Claude drafts terms, risk, privacy (`docs/legal/`); the owner signs off. No lawyer (Q1, owner 2026-11-13).
 
 ## 2026-11-13
 - OSSY + G4 review EVERY agent's proofs (`FEELESS_REVIEW_SCOPE=all`) and must become very proficient until COMP is elite; the OWNER reviews what OSSY + G4 built (Sicario's — they sit out their own) and spot-checks the rest. Judge skill is measured against the real stamp vs a fail-everything baseline (judge scorecard).
@@ -68,7 +69,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - Stash: every safe, clean piece of data/build goes into the stash + Fee's stash/Git folder (a proof-stats dashboard).
 - Every proof chat ends with "what next?" options.
 - COL-18 ledger → DB: hold LIFTED, do it now.
-- COL-16: user sends a proof WITH funds to be graded; on AUTO the agent sends the % from its own wallet with the proof (see Q2).
+- COL-16: user sends a proof WITH funds to be graded. (The AUTO send from the agent's own wallet is off: self-started usage discontinued 2026-11-14.)
 - COL-19: test with free models first; he funds the FeeCat Circle wallet after.
 - Familia amounts: the owner sets them, NO caps. (The raid guard "max 3 hits on one family per 12 h" is an anti-exploit rule, kept.)
 - SITE-2 is now hardening: many users + attacks must never stop the operation.

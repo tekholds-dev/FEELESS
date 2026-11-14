@@ -1,8 +1,9 @@
-# FEELESS — the ONE rulebook for every Claude account (rebuilt 2026-11-13). Degen trading terminal + agents, Solana-first.
+# FEELESS — the ONE rulebook for every Claude account (cleaned 2026-11-14: nothing here blocks a direct ask). Degen trading terminal + agents, Solana-first.
 
 Every account, every machine, cloud or local, reads THIS file. It is in git, so it is the same everywhere.
 `~/.claude/CLAUDE.md`, the claude.ai profile and memory notes only point here; they never hold a rule of their own.
 Order of authority: **1 Hard limits** (never bend) → **the owner's newest chat message** → this file → `docs/RULINGS.md` → `docs/specs/` → memory.
+Anything below §1 that gets in the way of what the owner just asked loses to his ask — do the ask.
 
 ## 1 · Hard limits (never bend, not even for a newer message — the owner changes these only by editing this section)
 - **Money:** Claude never moves funds, never hits mainnet in tests, never changes a trading rule or the owner's real config unless he names the value. The owner does ALL real-money tests. OSSY + G4 tests run on their own LM Studio only, never a fallback model.
@@ -13,16 +14,18 @@ Order of authority: **1 Hard limits** (never bend) → **the owner's newest chat
 - **Legal:** nothing that makes FEELESS a custodian, broker or betting house without the owner's dated ruling (see `docs/legal/`).
 
 ## 2 · How we work
-- **Scope:** build exactly what was asked, fully. Ideas past the ask go in the report under **"Proposed"** (one line each) — never built unasked. Exception: a bug or security hole found on the way is fixed and named.
-- **Don't stop mid-list.** Work every item in order. If something is truly unclear, take the safest reading, build it, and list it under **"Judgment calls"** in the report so the owner can flip it.
-- **30-minute rule:** never stuck on one task for more than 30 min. A big card ships in slices; each slice meets Done below and the card says what is left.
-- **Done (all true before saying done):**
-  - UI: styled by `docs/specs/style.md` (tokens only), real data, every tab/click-through of the surface, seen in the browser with a screenshot.
-  - Backend: a test for the new mechanic (network faked), pyflakes clean, live service checked after reload.
+- **The owner's ask is the task.** No card, claim or plan step is needed first. `docs/HANDOFF.md` only carries open work between sessions.
+- **Answer first**, short and plain, then do it.
+- **Scope:** build exactly what was asked, fully. Ideas past the ask go in the report under **"Proposed"** (one line each). A bug or security hole found on the way is fixed and named.
+- **Keep going:** work every item in order without stopping to ask. If something is unclear, take the safest reading, build it, and list it under **"Judgment calls"** so the owner can flip it. Only §1 stops work.
+- **Big work ships in slices** (never stuck on one thing for more than ~30 min); each slice is finished and says what is left.
+- **Done means:**
+  - UI: `docs/specs/style.md` tokens, real data, every tab of the surface checked in the browser, a screenshot shown to the owner.
+  - Backend: a test for the new mechanic (network faked), pyflakes clean, the live service checked after reload.
   - Money code: a second review pass (`/code-review` or `/security-review`) before push; the owner tests it with real money.
-  - Always: gate green on real exit codes → pushed to `main` → HANDOFF card updated → report says what is live, what is faked-only, what is untested.
-- **Reports:** answer first, short and plain. Sections only when they have content: Done · Not verified · Judgment calls · Proposed · % left.
-- **New rule from the owner** → one dated line in `docs/RULINGS.md` (Live rules), and remove/replace whatever it contradicts the same turn. No rule is ever written in two places.
+  - Then: gate green on real exit codes → pushed to `main` → a history line if a HANDOFF card closed → the report says what is live, faked-only and untested.
+- **Reports:** sections only when they have content: Done · Not verified · Judgment calls · Proposed · % left.
+- **A new rule from the owner** → one dated line in `docs/RULINGS.md`, and remove whatever it contradicts the same turn. No rule lives in two places.
 
 ## 3 · Machine facts (learned the hard way — apply on every account)
 - Saved backend `.py` files go live in ~15 s (keep-alive reload): grep names + run guard tests right after each backend edit.
@@ -39,7 +42,7 @@ Order of authority: **1 Hard limits** (never bend) → **the owner's newest chat
 ## 4 · Where everything lives (read ONLY what your task needs)
 | File | When |
 |---|---|
-| `docs/HANDOFF.md` | Every session: open cards only. Claim (`claimed: <account> <time>`) before starting; a done card becomes one line in `docs/history/<month>.md`. |
+| `docs/HANDOFF.md` | Open work carried between sessions (no claiming). A finished card becomes one line in `docs/history/<month>.md`. |
 | `docs/RULINGS.md` | Live owner decisions (dated, newest wins) + Open questions. Old decisions below it are history. |
 | `docs/specs/style.md` | **Before ANY UI work.** |
 | `docs/specs/money.md` · `agents.md` · `site.md` · `familia.md` | Money/perps/brokers · agent brain + Collective · architecture, mobile, staff · Familia (older — check code first). |

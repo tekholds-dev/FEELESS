@@ -14,5 +14,5 @@ description: Ship a finished FEELESS change the same way on every Claude account
    ```
    If the gate worktree is missing, run the 3 gate commands in CLAUDE.md §5 with `set -e`, then `git push origin main`.
 5. **Stash:** `.venv/bin/python scripts/stash-builds.py --rev HEAD` (never files twice).
-6. **HANDOFF:** update or delete the card; a done card → one line in `docs/history/<YYYY-MM>.md`. Update the "% left" line.
+6. **HANDOFF (only if the work was a card there):** a done card leaves the page → one line in `docs/history/<YYYY-MM>.md`.
 7. **Report:** Done · Not verified · Judgment calls · Proposed · % left. Money work ends with "ready to test" for the owner.
