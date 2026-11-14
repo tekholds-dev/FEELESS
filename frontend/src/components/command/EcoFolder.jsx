@@ -57,7 +57,7 @@ function OldBook({ f, onBack }) {
 
 export function EcoFolder({ cat, d, setD, work, pool, onCommand, onBrowse, focus = null }) {
   const rows = useMemo(() => d?.poeFolders || [], [d?.poeFolders]); const [open, setOpen] = useState(null);
-  useEffect(() => { const f = focus?.id && rows.find(x => x.id === focus.id); if (f) setOpen(f); }, [focus?.at, rows.length]);   // eslint-disable-line react-hooks/exhaustive-deps   // 🎯 AGX-1: the picker opens this very proof
+  useEffect(() => { const f = focus?.id && rows.find(x => x.id === focus.id); if (f) setOpen(f); }, [focus?.at, rows.length]);   // eslint-disable-line react-hooks/exhaustive-deps -- 🎯 AGX-1: the picker opens this very proof
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const onRows = useCallback(poeFolders => setD?.(x => ({ ...x, poeFolders })), [setD]);
   const act = useCallback(async body => { setBusy(true); setErr(''); try { const j = await work(cat.id, body); if (j.poeFolders) onRows(j.poeFolders); } catch (e) { setErr(e.message); } finally { setBusy(false); } }, [work, cat.id, onRows]);
