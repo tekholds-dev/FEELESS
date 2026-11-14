@@ -136,7 +136,7 @@ def openai_style(rows, key, base, model, timeout=60):
             res = h.post(f'{base}/chat/completions', json={'model': model, 'messages': [
                 {'role': 'system', 'content': cv.SYSTEM}, {'role': 'user', 'content': cv.prompt_of(r)}],
                 # 🧠 Qwen 3.5 thinks out loud by default: 28 questions × minutes of thinking hit the timeout (2026-11-14 race: OSSY + G4 ReadTimeout). Off = ~1 s an answer.
-                'max_tokens': 300, 'chat_template_kwargs': {'enable_thinking': False}})
+                'max_tokens': 300, 'chat_template_kwargs': {'enable_thinking': False}, 'reasoning_effort': 'none'})   # the desktop's LM Studio only honours reasoning_effort
             res.raise_for_status()
             out.append(cv.answer_of(res.json()['choices'][0]['message']['content']))
     return out

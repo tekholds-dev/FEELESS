@@ -24,4 +24,4 @@ def test_own_minds_ask_without_thinking(monkeypatch):
     monkeypatch.setattr(ex.cv, 'prompt_of', lambda r: 'q')
     out = ex.openai_style([{}, {}], 'k', 'http://x/v1', 'qwen/qwen3.5-9b')
     assert len(out) == 2 and len(sent) == 2
-    assert all(b['chat_template_kwargs'] == {'enable_thinking': False} and b['max_tokens'] == 300 for b in sent)
+    assert all(b['chat_template_kwargs'] == {'enable_thinking': False} and b['max_tokens'] == 300 and b['reasoning_effort'] == 'none' for b in sent)
