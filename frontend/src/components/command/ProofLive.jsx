@@ -54,7 +54,7 @@ function useRunData(kind, d, wins, spent, steps) {
   }, [f?.pair, f?.mint]);
   const series = useRef([]); const roe = useRef([]);
   const lastS = series.current[series.current.length - 1];
-  if (!lastS || lastS.spent !== spent || lastS.steps !== steps) series.current = [...series.current, { spent: Number(spent) || 0, steps }].slice(-60);
+  if (!lastS || lastS.spent !== spent || lastS.steps !== steps) series.current = [...series.current, { spent: Number(spent) || 0, steps, at: Date.now() }].slice(-60);
   const r = num(pop?.roePct); if (r != null && roe.current[roe.current.length - 1] !== r) roe.current = [...roe.current, r].slice(-80);
   const brains = wins.map(w => String(w?.model || '').split('/').pop());
   const mindOf = by => { const b = String(by || ''); if (/^B\b/.test(b)) return 1; if (/^A\b/.test(b)) return 0; const i = brains.findIndex(x => x && b.includes(x.slice(0, 10))); return i < 0 ? 0 : i; };
@@ -69,6 +69,8 @@ function useRunData(kind, d, wins, spent, steps) {
     tp: e0 && num(f?.tp) ? e0 * (1 + num(f.tp) / 100) : null, sl: e0 && num(f?.sl) ? e0 * (1 - Math.abs(num(f.sl)) / 100) : null,
     coins: (f?.coins || []).map(c => ({ sym: c.sym || '?', picked: !!(c.pick || (f?.mint && c.mint === f.mint)), chg: num(c.chg ?? c.priceChange ?? c.change) })),
     talk, steps: stepRows, series: series.current, roe: roe.current,
+    pages: wins.map((w, i) => ({ mind: i, host: w?.host || w?.url || '' })).filter(x => x.host),
+    pos: pop ? { market: pop.market, side: pop.side, lev: num(pop.lev ?? pop.leverage) } : null,
     game: pob && (pob.home || pob.homeScore != null) ? { home: pob.home, away: pob.away, hs: pob.homeScore, as: pob.awayScore, clock: pob.clock, pick: pob.pick } : null,
   };
 }
