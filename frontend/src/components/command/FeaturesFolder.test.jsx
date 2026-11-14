@@ -607,9 +607,9 @@ test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guar
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelForge call={call} />); });
   await act(async () => { jest.advanceTimersByTime(300); });
-  expect(el.querySelector('[data-testid="mlf-specs"]').textContent).toContain('PARAMETERS'); expect(el.querySelectorAll('.mlf-slab.is-block').length).toBe(2);
+  expect(el.querySelector('[data-testid="mlf-specs"]').textContent).toContain('PARAMETERS'); expect(el.querySelectorAll('.frg-anat-bar .frg-blk').length).toBe(2);   // one bar segment per block
   await act(async () => { el.querySelector('[data-testid="mlf-layers-up"]').click(); }); await act(async () => { jest.advanceTimersByTime(300); });
-  expect(el.querySelectorAll('.mlf-slab.is-block').length).toBe(3); expect(sent.filter(x => x[0].endsWith('/spec')).at(-1)[1].cfg.layers).toBe(3);
+  expect(el.querySelectorAll('.frg-anat-bar .frg-blk').length).toBe(3); expect(sent.filter(x => x[0].endsWith('/spec')).at(-1)[1].cfg.layers).toBe(3);
   await act(async () => { el.querySelector('[data-testid="mlf-build"]').click(); });
   const b = sent.find(x => x[0].endsWith('/build'))[1]; expect(b.cfg.layers).toBe(3); expect(b.rails.refuse).toEqual(['seed phrase']); expect(b.sources).toEqual(['proofs', 'docs']);
   await act(async () => { jest.advanceTimersByTime(1600); });

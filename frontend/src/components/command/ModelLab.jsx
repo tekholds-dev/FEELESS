@@ -36,26 +36,25 @@ const STATE = { have: ['Data exists', 'is-have'], ready: ['Ready to run', 'is-ha
 const pct = v => `${Math.round((v || 0) * 100)}%`;
 function Num({ v, d = 0 }) { const n = useCountUp(Number(v) || 0); return <b className="m-num">{n.toFixed(d)}</b>; }
 
-function KindCard({ k, goals, i }) {
-  const n = k.won + k.lost; const won = n ? (k.won / n) * 100 : 0;
-  return <li className="mlb-kind" style={{ '--i': i }} data-testid={`mlb-kind-${k.kind}`}>
-    <header><b>{k.kind}</b><span className={`m-chip${k.open ? ' warn' : ''}`} data-tip="Open proofs nothing has settled: grade them below">{k.open} open</span></header>
-    <span className="mlb-big"><Num v={k.rows} /><small>rows · goal {goals.rows.toLocaleString()}</small></span>
-    <i className="mlb-bar" data-tip={`${k.rows} settled rows. A fine-tune is worth renting a GPU near ${goals.rows}`}><u style={{ transform: `scaleX(${k.rowsPct})` }} /></i>
-    <span className="mlb-split" role="img" aria-label={`${k.won} right, ${k.lost} wrong`} data-tip={`${k.won} right · ${k.lost} wrong${k.flat ? ` · ${k.flat} flat` : ''}${k.graded ? ` · ${k.graded} graded by you` : ''}`}>
-      {n ? <><i className="is-won" style={{ width: `${won}%` }} /><i className="is-lost" style={{ width: `${100 - won}%` }} /></> : null}</span>
-    <small className="mlb-pairs"><b className="m-num">{k.pairs}</b> right-vs-wrong pairs · {pct(k.pairsPct)} of {goals.pairs}</small>
+// 📊 THE DATASET, one row per proof type: rows toward the goal, right vs wrong, the pairs preference training needs, and what is still open
+function KindRow({ k, goals, i }) {
+  return <li style={{ '--i': i }} data-testid={`mlb-kind-${k.kind}`}>
+    <b className="ml-k">{k.kind}</b>
+    <span className="ml-rows" data-tip={`${k.rows} settled rows. A fine-tune is worth renting a GPU near ${goals.rows}`}><b className="m-num">{k.rows}</b><i className="c2-bar"><u style={{ transform: `scaleX(${Math.max(0.02, k.rowsPct)})` }} /></i></span>
+    <span className="ml-split" data-tip={`${k.won} right · ${k.lost} wrong${k.flat ? ` · ${k.flat} flat` : ''}${k.graded ? ` · ${k.graded} graded by you` : ''}`}><b className="m-num is-won">{k.won}</b> right · <b className="m-num is-lost">{k.lost}</b> wrong{k.graded ? ` · ${k.graded} yours` : ''}</span>
+    <small className="ml-pairs" data-tip={`${pct(k.pairsPct)} of the ${goals.pairs} pairs preference training wants`}><b className="m-num">{k.pairs}</b> right-vs-wrong pairs</small>
+    {k.open ? <span className="m-chip warn" data-tip="Open proofs nothing has settled: grade them below">{k.open} open</span> : <span className="m-chip">0 open</span>}
   </li>;
 }
 
 function Review({ q, i, busy, onGrade }) {
   const [note, setNote] = useState('');
-  return <li className="mlb-q" style={{ '--i': i }} data-testid={`mlb-q-${q.key}`}>
-    <span className="mlb-q-say"><span className="m-chip">{q.kind}</span><b title={q.title}>{q.title}</b><small>{q.source || 'its own read'}</small></span>
-    <input className="m-input mlb-q-note" value={note} maxLength={300} onChange={e => setNote(e.target.value)} placeholder="Why (optional)" aria-label={`Why, for ${q.title}`} />
-    <span className="mlb-q-do">
-      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGrade(q.key, 'good', note)} data-tip="It did the job: a row the model learns to copy" data-testid={`mlb-good-${q.key}`}>👍 Good</button>
-      <button type="button" className="m-btn mlb-bad" disabled={busy} onClick={() => onGrade(q.key, 'bad', note)} data-tip="It got it wrong: a row the model learns to avoid" data-testid={`mlb-bad-${q.key}`}>👎 Bad</button>
+  return <li className="ml-q" style={{ '--i': i }} data-testid={`mlb-q-${q.key}`}>
+    <span className="ml-q-say"><span className="m-chip">{q.kind}</span><b title={q.title}>{q.title}</b><small>{q.source || 'its own read'}</small></span>
+    <input className="m-input" value={note} maxLength={300} onChange={e => setNote(e.target.value)} placeholder="Why (optional)" aria-label={`Why, for ${q.title}`} />
+    <span className="ml-q-do">
+      <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGrade(q.key, 'good', note)} data-tip="It did the job: a row the model learns to copy" data-testid={`mlb-good-${q.key}`}>Good</button>
+      <button type="button" className="m-btn danger" disabled={busy} onClick={() => onGrade(q.key, 'bad', note)} data-tip="It got it wrong: a row the model learns to avoid" data-testid={`mlb-bad-${q.key}`}>Bad</button>
       <button type="button" className="m-btn" disabled={busy} onClick={() => onGrade(q.key, 'skip', note)} data-tip="Not a fair test: leave it out" data-testid={`mlb-skip-${q.key}`}>Skip</button></span>
   </li>;
 }
@@ -86,37 +85,42 @@ export const ModelLab = React.memo(function ModelLab({ call }) {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const steps = d?.steps || {}; const real = STEPS.filter(s => (steps[s[0]] || 'todo') !== 'todo').length;
+  const topFail = Math.max(0.01, ...(d?.minds || []).map(m => m.failRate));
   return <div className="mlb" data-testid="model-lab">
-    <header className="mlb-head"><span><small>COMPAI · OWNER ONLY{saidName && name.trim() !== saidName ? ' · saving…' : ''}</small><input className="mlb-name" value={name} maxLength={32} onChange={e => keep(e.target.value)} placeholder="Name your model" aria-label="Model name (every version is built under it)" data-tip="The model's one name: every build becomes its next version" data-testid="mlb-name" /></span>
-      {d ? <span className="mlb-stat" data-tip="Settled proofs + your grades: rows it would learn from"><Num v={d.rows} /><small>ROWS</small></span> : null}
-      {d ? <span className="mlb-stat" data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>PAIRS</small></span> : null}
-      <span className="mlb-ring" style={{ '--k': real / STEPS.length }} data-tip="Steps with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>STEPS</small></span></header>
+    <header className="ml-head m-card">
+      <span className="ml-id"><small className="m-label">COMPAI · OWNER ONLY{saidName && name.trim() !== saidName ? ' · saving…' : ''}</small><input className="mlb-name" value={name} maxLength={32} onChange={e => keep(e.target.value)} placeholder="Name your model" aria-label="Model name (every version is built under it)" data-tip="The model's one name: every build becomes its next version" data-testid="mlb-name" /></span>
+      <span className="ml-stats">
+        {d ? <span data-tip="Settled proofs + your grades: rows it would learn from"><Num v={d.rows} /><small>rows</small></span> : null}
+        {d ? <span data-tip="Right-vs-wrong pairs: what preference training needs"><Num v={d.pairs} /><small>pairs</small></span> : null}
+        <span data-tip="Steps on the road to a big fine-tune with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>steps</small><i className="c2-prog"><u style={{ transform: `scaleX(${Math.max(0.02, real / STEPS.length)})` }} /></i></span></span></header>
     <CompLive />
     <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
-    {tab === 'grow' ? <CompGrow call={call} onGo={pickTab} /> : tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <>
-    <p className="mlb-truth">Below is everything your models learn from, live, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
-    <CompTools />
+    {tab === 'grow' ? <CompGrow call={call} onGo={pickTab} /> : tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <div className="mc2">
+    <p className="c2-what">Below is everything your models learn from, live, your grades, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>
-      <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH<small>{d.snapshots} snapshots kept as evidence, not rows</small></h4>
+      <section className="c2-card m-card" data-testid="ml-dataset"><h4 className="c2-h">THE DATASET <small>live from the stash · {d.snapshots} snapshots kept as evidence, not rows</small></h4>
         <DatasetPulse d={d} />
-        <ul className="mlb-kinds">{d.kinds.map((k, i) => <KindCard key={k.kind} k={k} goals={d.goals} i={i} />)}
-          <li className="mlb-kind mlb-duels" style={{ '--i': d.kinds.length }} data-testid="mlb-kind-Duels" data-tip="⚔ Duels: both minds answered one ask in an agent's chat and you tapped the better one. Each is a right-vs-wrong pair, picked by a person">
-            <header><b>⚔ Duels</b><span className="m-chip">your picks</span></header>
-            <span className="mlb-big"><Num v={d.duels || 0} /><small>pairs you judged · goal {d.goals.pairs}</small></span>
-            <i className="mlb-bar"><u style={{ transform: `scaleX(${Math.min(1, (d.duels || 0) / d.goals.pairs)})` }} /></i>
-            <small className="mlb-pairs">With <b>Both</b> on in an agent's chat, tap 👑 on the better answer</small></li></ul></section>
-      <section className="mlb-sec"><h4>YOU GRADE · THE HUMAN HALF<small>{d.graded} graded · {d.open} open proofs nothing settled</small></h4>
-        {d.queue.length ? <ul className="mlb-qs">{d.queue.map((q, i) => <Review key={q.key} q={q} i={i} busy={busy} onGrade={onGrade} />)}</ul> : <p className="mlb-none">Nothing open to grade: every kept proof has a result.</p>}</section>
-      <section className="mlb-sec"><h4>THE MINDS TO BEAT · THEIR REAL RECORD<small>${d.spentUsd.toFixed(3)} spent on rented minds so far</small></h4>
-        {d.minds.length ? <ul className="mlb-minds">{d.minds.map((m, i) => <li key={m.model} style={{ '--i': i }} data-testid={`mlb-mind-${m.model}`}><span><b>{m.model}</b><small>{m.local ? 'on this Mac' : 'rented'} · {Object.entries(m.kinds).map(([k, n]) => `${k} ${n}`).join(' · ')}</small></span>
-          <span className="m-num mlb-mn">{m.calls}<small>calls</small></span><span className="mlb-fail" data-tip={`${m.failed} of ${m.calls} calls failed`}><i className="mlb-bar is-bad"><u style={{ transform: `scaleX(${m.failRate})` }} /></i><small>{pct(m.failRate)} failed</small></span>
-          <span className="m-num mlb-mn">{(m.avgMs / 1000).toFixed(1)}s<small>avg</small></span><span className="m-num mlb-mn">${m.usd.toFixed(3)}<small>spent</small></span></li>)}</ul> : <p className="mlb-none">No model calls logged yet.</p>}</section>
-      <div className="mlb-export"><button type="button" className="m-btn m-go" disabled={busy || !d.rows} onClick={exportRows} data-tip="Every settled or graded proof as one row, scrubbed of wallets, addresses, emails, phones and keys. Saved to this computer only" data-testid="mlb-export">⬇ Export {d.rows} clean rows (.jsonl)</button>{saved ? <small className="m-num">{saved}</small> : null}</div>
+        <ul className="ml-kinds"><li className="ml-kinds-head" aria-hidden="true"><span>TYPE</span><span>ROWS · GOAL {d.goals.rows.toLocaleString()}</span><span>RIGHT / WRONG</span><span>PAIRS</span><span /></li>
+          {d.kinds.map((k, i) => <KindRow key={k.kind} k={k} goals={d.goals} i={i} />)}
+          <li className="is-duels" style={{ '--i': d.kinds.length }} data-testid="mlb-kind-Duels" data-tip="Duels: both minds answered one ask in an agent's chat and you tapped the better one. Each is a right-vs-wrong pair, picked by a person">
+            <b className="ml-k">Duels</b><span className="ml-rows"><b className="m-num">{d.duels || 0}</b><i className="c2-bar"><u style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (d.duels || 0) / d.goals.pairs))})` }} /></i></span>
+            <small className="ml-how">With Both on in an agent's chat, tap the crown on the better answer</small><small className="ml-pairs"><b className="m-num">{d.duels || 0}</b> pairs you judged</small><span className="m-chip">your picks</span></li></ul>
+        <div className="c2-go"><button type="button" className="m-btn m-go" disabled={busy || !d.rows} onClick={exportRows} data-tip="Every settled or graded proof as one row, scrubbed of wallets, addresses, emails, phones and keys. Saved to this computer only" data-testid="mlb-export">Export {d.rows} clean rows (.jsonl)</button>{saved ? <small className="m-num">{saved}</small> : null}</div></section>
+      <section className="c2-card m-card" data-testid="ml-grade"><h4 className="c2-h">YOU GRADE <small>{d.graded} graded · {d.open} open proofs nothing settled · each grade becomes a row</small></h4>
+        {d.queue.length ? <ul className="ml-qs">{d.queue.map((q, i) => <Review key={q.key} q={q} i={i} busy={busy} onGrade={onGrade} />)}</ul> : <p className="mlb-none">Nothing open to grade: every kept proof has a result.</p>}</section>
+      <section className="c2-card m-card" data-testid="ml-minds"><h4 className="c2-h">THE MINDS TO BEAT <small>their real record · ${d.spentUsd.toFixed(3)} spent on rented minds so far</small></h4>
+        {d.minds.length ? <ul className="ml-minds"><li className="ml-minds-head" aria-hidden="true"><span>MODEL</span><span>CALLS</span><span>FAILED</span><span>AVG</span><span>SPENT</span></li>
+          {d.minds.map((m, i) => <li key={m.model} style={{ '--i': i }} data-testid={`mlb-mind-${m.model}`}><span className="ml-who"><b>{m.model}</b><small>{m.local ? 'on this Mac' : 'rented'} · {Object.entries(m.kinds).map(([k, n]) => `${k} ${n}`).join(' · ')}</small></span>
+            <b className="m-num">{m.calls}</b><span className="ml-fail" data-tip={`${m.failed} of ${m.calls} calls failed`}><i className="c2-bar is-bad"><u style={{ transform: `scaleX(${Math.max(0.02, m.failRate / topFail)})` }} /></i><small className="m-num">{pct(m.failRate)} failed</small></span>
+            <b className="m-num">{(m.avgMs / 1000).toFixed(1)}s</b><b className="m-num">${m.usd.toFixed(3)}</b></li>)}</ul> : <p className="mlb-none">No model calls logged yet.</p>}</section>
     </> : !err ? <p className="mlb-none">Reading the stash…</p> : null}
-    <ol className="mlb-steps">{STEPS.map(([k, t, say, need], i) => { const st = steps[k] || 'todo'; return <li key={k} className={STATE[st][1]} style={{ '--i': i }} data-testid={`mlb-step-${k}`}><i className="m-num">{i + 1}</i><span><b>{t}</b><small>{say}</small><em>{need}</em></span><u>{STATE[st][0]}</u></li>; })}</ol>
-    <section className="mlb-two"><div className="mlb-card"><h4>WHERE THE BIG MODELS FALL SHORT</h4><ul>{GAPS.map(([t, say], i) => <li key={t} style={{ '--i': i }}><b>{t}</b><small>{say}</small></li>)}</ul></div>
-      <div className="mlb-card"><h4>THE GAP HUNT · NEXT</h4><ul className="mlb-hunt">{HUNT.map((t, i) => <li key={t} style={{ '--i': i }}>{t}</li>)}</ul><small className="mlb-note">Public sources only. Nothing here copies another company’s model or data.</small></div></section>
-    </>}
+    <section className="c2-card m-card" data-testid="ml-road"><h4 className="c2-h">THE ROAD TO A BIG FINE-TUNE <small>{real} of {STEPS.length} with real progress · hover a step for what it takes</small></h4>
+      <ol className="mlb-steps">{STEPS.map(([k, t, say, need], i) => { const st = steps[k] || 'todo'; return <li key={k} className={STATE[st][1]} style={{ '--i': i }} data-testid={`mlb-step-${k}`} data-tip={`${say} · ${need}`}><i className="m-num">{i + 1}</i><b>{t}</b><small>{need}</small><em className={`m-chip${st === 'todo' ? '' : ' ok'}`}>{STATE[st][0]}</em></li>; })}</ol></section>
+    <CompTools />
+    <details className="c2-card m-card ml-why"><summary className="c2-h">WHY OUR OWN MODEL · THE GAP HUNT <small>where the big models fall short, and how we find more</small></summary>
+      <div className="c2-two"><ul className="ml-gaps">{GAPS.map(([t, say]) => <li key={t}><b>{t}</b><small>{say}</small></li>)}</ul>
+        <div><ol className="ml-hunt">{HUNT.map(t => <li key={t}>{t}</li>)}</ol><small className="ml-note">Public sources only. Nothing here copies another company’s model or data.</small></div></div></details>
+    </div>}
   </div>;
 });

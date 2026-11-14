@@ -67,6 +67,7 @@ body.fx-lite :is(.c2-card, .c2-hero, .c2-board li, .c2-ways li) { animation: non
 @media (prefers-reduced-motion: reduce) { :is(.c2-card, .c2-hero, .c2-board li, .c2-ways li) { animation: none; } :is(.c2-bar u, .c2-prog u) { transition: none; } }
 body.theme-day .c2-pct b { text-shadow: none; } body.theme-day .c2-facts > span { background: var(--m-surface); }
 @media (max-width: 640px) {
+  .c2-h { flex-wrap: wrap; row-gap: 2px; } .c2-h small { flex-basis: 100%; }
   .c2-hero { grid-template-columns: minmax(0, 1fr); } .c2-big { padding: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--m-line); } .c2-blocked { grid-column: 1; }
   .c2-board li { grid-template-columns: minmax(0, 1fr) 48px; } .c2-board li .c2-bar { grid-column: 1 / -1; grid-row: 2; }
   .c2-train-head { grid-template-columns: auto 1fr; } .c2-prog { grid-column: 1 / -1; } .c2-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); } .c2-facts > span:first-child { grid-column: 1 / -1; }

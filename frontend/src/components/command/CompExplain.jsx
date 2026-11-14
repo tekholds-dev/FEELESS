@@ -46,8 +46,8 @@ function Strip({ tokens, w, last, testid }) {
 export function AttnExplained({ peek }) {
   const r = useMemo(() => attnRead(peek?.attn), [peek]); const [split, setSplit] = useState(false);
   if (!r) return null;
-  return <div className="cex-attn mlf-attn" data-testid="mlf-attn">
-    <div className="mlf-attn-head"><small className="m-label">WHERE IT LOOKS · STEP {peek.step}</small>
+  return <div className="cex-attn frg-attn" data-testid="mlf-attn">
+    <div className="frg-attn-head"><small className="m-label">WHERE IT LOOKS · STEP {peek.step}</small>
       {r.heads.length > 1 ? <button type="button" className="m-btn cex-split" aria-pressed={split} onClick={() => setSplit(!split)} data-tip="Each head learns its own way to look back. Blended = what they do together" data-testid="cex-split">{split ? 'Blend the heads' : `Split ${r.heads.length} heads`}</button> : null}</div>
     <p className="cex-say" data-testid="cex-say">{attnSay(r)}</p>
     <Strip tokens={r.tokens} w={r.w} last={r.last} testid="cex-blend" />

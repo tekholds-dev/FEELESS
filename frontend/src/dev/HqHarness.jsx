@@ -57,8 +57,8 @@ const RPC = { needsKey: false, slots: [1, 2, 3, 4, 5, 6].map(n => ({ slot: n, se
   lanes: [{ lane: 1, slot: 1, provider: 'helius-rpc.com', spent: true, backInMin: 420 }, { lane: 2, slot: 2, provider: 'quiknode.pro', spent: false, backInMin: 0 }] };
 // 📸 ?snap = the LIVE desk: copy backend/data/agents_view.json → frontend/public/dev-agents.json (gitignored) to see the owner's real cockpit
 const SNAP = new URLSearchParams(window.location.search).has('snap');
-// 🧪 ?lab reads a local snapshot of the owner's Model Lab views (public/dev-lab.json, written from the server handlers, never committed); writes do nothing
-let labSnap = null; const labCall = async (path, opt) => { labSnap = labSnap || await (await fetch('/dev-lab.json')).json(); if (opt?.method === 'POST') return {}; if (labSnap[path]) return labSnap[path]; throw new Error('Not in the dev snapshot.'); };
+// 🧪 ?lab (the forge's specs panel shows the newest build's real specs) reads a local snapshot of the owner's Model Lab views (public/dev-lab.json, written from the server handlers, never committed); writes do nothing
+let labSnap = null; const labCall = async (path, opt) => { labSnap = labSnap || await (await fetch('/dev-lab.json')).json(); if (path.endsWith('/forge/spec')) return labSnap['/admin/model-lab/forge']?.jobs?.[0]?.spec || {}; if (opt?.method === 'POST') return {}; if (labSnap[path]) return labSnap[path]; throw new Error('Not in the dev snapshot.'); };
 const call = async path => (path === '/admin/agents' ? (SNAP ? (await fetch('/dev-agents.json')).json() : live()) : path === '/admin/rpc' ? RPC : { ok: true });
 window.__hubLoad = hubLoad;
 

@@ -19,7 +19,7 @@ test('📡 COMP LIVE shows only streamed numbers: loss, exam, forge, rows per ki
   expect(q('cplv-state').textContent).toMatch(/RUNNING/); expect(q('cplv-loss').textContent).toBe('1.400'); expect(q('cplv-exam').textContent).toBe('2/3');
   expect(q('cplv-forge').textContent).toBe('3.610'); expect(q('cplv-rows').textContent).toBe('144'); expect(q('cplv-market').textContent).toBe('12');
   expect(el.textContent).toContain('1.2K tok/s'); expect(el.textContent).toContain('61%'); expect(el.querySelectorAll('.cplv-kinds li').length).toBe(2);
-  await act(async () => { root.render(<CompTools />); }); expect(q('comp-tools').querySelectorAll('li').length).toBe(TOOLS.length); expect(q('comp-tools').textContent).toMatch(/NOTHING INSTALLED OR SPENT/);
+  await act(async () => { root.render(<CompTools />); }); expect(q('comp-tools').querySelectorAll('li').length).toBe(TOOLS.length); expect(q('comp-tools').textContent).toMatch(/nothing installed or spent/);
   el.remove(); document.body.classList.remove('fx-lite');
 });
 

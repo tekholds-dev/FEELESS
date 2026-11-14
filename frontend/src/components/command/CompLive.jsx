@@ -61,6 +61,6 @@ export const TOOLS = [
   ['Big run', 'Unsloth on a rented GPU (RunPod / Modal, pay per hour)', 'For the full fine-tune once the dataset passes ~1,000 rows a type. Owner approves any spend first.'],
 ];
 export function CompTools() {
-  return <section className="cplv-tools" data-testid="comp-tools"><h4>TOOLING SHORTLIST · PROPOSED, NOTHING INSTALLED OR SPENT</h4>
-    <ol>{TOOLS.map(([k, what, why], i) => <li key={k} style={{ '--i': i }}><small>{k}</small><b>{what}</b><span>{why}</span></li>)}</ol></section>;
+  return <section className="c2-card m-card cplv-tools" data-testid="comp-tools"><h4 className="c2-h">TOOLING SHORTLIST <small>proposed: nothing installed or spent until you pick</small></h4>
+    <ol>{TOOLS.map(([k, what, why], i) => <li key={k} style={{ '--i': i }} data-tip={why}><small>{k}</small><b>{what}</b><span>{why}</span></li>)}</ol></section>;
 }
