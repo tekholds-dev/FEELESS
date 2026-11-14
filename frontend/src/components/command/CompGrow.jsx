@@ -16,10 +16,10 @@ const usd = (n, d = 4) => `$${(Number(n) || 0).toFixed(d)}`;
 /** Pure: forge + teach views → what the Grow page says. */
 export function growRead(forge, teach) {
   const builds = (forge?.jobs || []).filter(j => j.card && j.status === 'done').map(j => ({ v: j.version || j.name || j.id.slice(9, 15), params: Number(j.card?.spec?.paramsTotal) || 0,
-    val: Number(j.card?.val ?? j.val) || null, ppl: Number(j.card?.perplexity) || null, base: Number(j.card?.baselinePerplexity) || null, at: j.card?.built || 0 }))
+    read: Number((j.files || []).find(f => f.name === 'corpus.txt')?.bytes) || 0, val: Number(j.card?.val ?? j.val) || null, ppl: Number(j.card?.perplexity) || null, base: Number(j.card?.baselinePerplexity) || null, at: j.card?.built || 0 }))
     .filter(b => b.params).sort((a, b) => (a.at || 0) - (b.at || 0));
   const last = builds[builds.length - 1] || null;
-  const chars = Number(forge?.corpus?.chars) || 0; const params = last?.params || 0;
+  const chars = last?.read || Number(forge?.corpus?.chars) || 0; const params = last?.params || 0;   // what the newest version really read (its corpus.txt), else today's sources
   const ratio = params ? chars / params : null;
   const lessons = Number(teach?.lessons) || 0; const untaught = Number(teach?.untaught) || 0;
   const newLessons = (teach?.recent || []).filter(x => !last?.at || Number(x.at) > Number(last.at)).length;

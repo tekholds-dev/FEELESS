@@ -96,3 +96,11 @@ def test_a_new_version_continues_from_the_last_versions_weights_and_shows_what_i
 def test_the_speed_estimate_matches_the_two_real_builds():
     assert abs(mf.flops_rate(136_384) / 1e9 - 47.7) < 0.5 and abs(mf.flops_rate(874_112) / 1e9 - 77.6) < 4
     assert mf.n_params(mf.clean_cfg(mf.PRESETS['flagship']), 2048)['total'] < mf.LIMITS['params']
+
+
+def test_a_timed_lesson_ends_on_its_clock_as_done_with_a_fresh_held_out_loss(tmp_path):
+    (tmp_path / 'corpus.txt').write_text('PoW won: bought the dip, sold at +40%. ' * 60)
+    (tmp_path / 'job.json').write_text(json.dumps({'cfg': {**TINY, 'steps': 5000}, 'maxSeconds': 0.5}))
+    prog = mf.train(tmp_path)
+    card = json.loads((tmp_path / 'card.json').read_text())
+    assert prog['status'] == 'done' and card['timeBoxed'] and 0 < card['steps'] < 5000 and card['val'] > 0

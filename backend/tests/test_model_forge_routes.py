@@ -77,3 +77,33 @@ def test_the_guardrail_suite_passes_on_good_rails_and_catches_a_missing_one(lab)
     assert {t['rule'] for t in good} == {'refuse', 'block', 'scrub', 'max_chars', 'footer'} and all(t['pass'] for t in good)
     off = lab.rail_suite({'refuse': [], 'block': [], 'scrub': False, 'max_chars': 100, 'footer': ''})
     assert [t['rule'] for t in off] == ['max_chars']
+
+
+def test_flagship_rebuild_archives_every_build_and_continues_from_the_best_one_on_a_clock(lab, tmp_path, monkeypatch):
+    small = {'tok': 'char', 'd': 32, 'layers': 1, 'heads': 2, 'ctx': 16, 'steps': 20, 'batch': 4}
+    a = asyncio.run(lab.forge_build(Req(), lab.ForgeBuild(cfg=small))); mf.train(tmp_path / a['id'])
+    b = asyncio.run(lab.forge_build(Req(), lab.ForgeBuild(cfg=small))); mf.train(tmp_path / b['id'])
+    for jid, val in ((a['id'], 2.0), (b['id'], 3.0)):   # v1.00 is the best: its held-out loss is lower
+        cp = tmp_path / jid / 'card.json'; card = json.loads(cp.read_text()); card['val'] = val; cp.write_text(json.dumps(card))
+    (tmp_path / a['id'] / 'corpus.txt').write_text('### old doc\nwhat v1.00 read before the docs were trimmed\n')
+    seen = {}
+    monkeypatch.setattr(lab, '_corpus', lambda rs_, sources=(), *x: seen.setdefault('sources', list(sources)) and 'PoW won: bought the dip. ' * 80)
+    out = asyncio.run(lab.forge_flagship(Req(), lab.Flagship(seconds=5)))
+    assert out['version'] == 'v0.01' and out['from'] == 'v1.00' and out['seconds'] == 30          # clamped to 30 s at least
+    assert seen['sources'] == ['proofs', 'pow', 'docs', 'teacher']                                 # every source, the teacher's lessons too
+    arch = tmp_path / '_archive'; kept = [p.name for p in next(arch.iterdir()).iterdir()]
+    assert sorted(kept) == sorted([a['id'], b['id']])                                               # moved, never deleted
+    assert [d.name for d in lab._jobs(None)] == [out['id']]                                         # ONE Flagship left on the board
+    job = json.loads((tmp_path / out['id'] / 'job.json').read_text())
+    assert 'what v1.00 read before the docs were trimmed' in (tmp_path / out['id'] / 'corpus.txt').read_text()   # nothing it knew is dropped
+    assert job['maxSeconds'] == 30.0 and job['from'].endswith(a['id']) and job['cfg']['name'] == 'COMP Flagship v0.01'
+    assert lab._next_version([lab._job_view(d) for d in lab._jobs(None)]) == 'v0.02'
+
+
+def test_the_sources_are_read_once_and_shared_until_reset(monkeypatch):
+    import rep_model_lab as lab
+    lab.sources_reset(); n = []
+    monkeypatch.setattr(lab, '_sources_read', lambda rs_: n.append(1) or {'proofs': 'x'})
+    assert lab._sources(None) == {'proofs': 'x'} and lab._sources(None) == {'proofs': 'x'} and len(n) == 1
+    lab.sources_reset(); lab._sources(None); assert len(n) == 2
+    lab.sources_reset()

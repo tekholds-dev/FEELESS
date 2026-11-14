@@ -2,6 +2,7 @@
 The logic is `model_lab` (pure); this file only reads the stash, the model-call log and the owner's grades, and saves a grade.
 Nothing here spends anything except the 🎓 teacher, which runs only when the owner presses Pay (live price shown, hard cap). The export comes back to the owner's own browser as a file."""
 import json
+import threading
 import time
 
 from fastapi import APIRouter, Request
@@ -75,6 +76,7 @@ async def model_lab_grade(request: Request, g: Grade):
     except ValueError as e:
         raise rs.HTTPException(400, str(e))
     await rs.asyncio.to_thread(rs._json_save, grades_p, nxt)
+    sources_reset()   # the grade note is part of what COMP reads
     return await rs.asyncio.to_thread(_view, rs)
 
 
@@ -120,7 +122,42 @@ SOURCES = {'proofs': 'Your proofs (every kept proof, open ones too)', 'pow': 'Po
 DOCS_MAX = 1_500_000
 
 
+# 🧊 COMP freeze fix (owner 2026-11-14: "comp freezes when stuff folder opens and tabs load"): opening COMP fired 3–4 reads (forge on Grow AND
+# Build, spec, teach) that each re-read + re-scrubbed every proof, PoW note and doc — ~0.75 s of CPU each, holding the GIL of this one-worker
+# service, so every other desk call waited behind them. One read now serves them all for SOURCES_TTL; concurrent opens wait on ONE scan.
+SOURCES_TTL = 60.0
+_SRC = {'at': 0.0, 'val': None, 'proofs_at': 0.0, 'proofs': None}
+_SRC_LOCK = threading.Lock()
+_SRC_SCAN = threading.Lock()
+
+
+def sources_reset():
+    """Forget the cached read (a new build, a grade or a lesson changes what COMP would read)."""
+    with _SRC_LOCK:
+        _SRC.update(at=0.0, val=None, proofs_at=0.0, proofs=None)
+
+
+def _proof_text(rs):
+    with _SRC_LOCK:
+        if _SRC['proofs'] is None or time.time() - _SRC['proofs_at'] > SOURCES_TTL:
+            _SRC['proofs'] = _proof_text_read(rs); _SRC['proofs_at'] = time.time()
+        return _SRC['proofs']
+
+
 def _sources(rs):
+    """→ {source: text}, cached SOURCES_TTL (see above). Callers get their own dict; the strings are shared (immutable)."""
+    fresh = lambda: _SRC['val'] is not None and time.time() - _SRC['at'] <= SOURCES_TTL
+    if not fresh():
+        with _SRC_SCAN:              # one scan at a time: the second caller finds it fresh and returns the first one's read
+            if not fresh():
+                val = _sources_read(rs)
+                with _SRC_LOCK:
+                    _SRC['val'] = val; _SRC['at'] = time.time()
+    with _SRC_LOCK:
+        return dict(_SRC['val'] or {})
+
+
+def _sources_read(rs):
     """→ {source: text}. Everything is scrubbed (wallets, keys, emails, phones); the agents' sealed workspaces are never read."""
     out = {'proofs': _proof_text(rs), 'pow': '', 'docs': '', 'teacher': _ct.corpus(_ct.load(rs.DATA_DIR))}
     rows = []
@@ -154,7 +191,7 @@ def _corpus(rs, sources=('proofs', 'pow', 'docs')):
     return '\n'.join(got[k] for k in SOURCES if k in (sources or ()) and got.get(k))
 
 
-def _proof_text(rs):
+def _proof_text_read(rs):
     """Every kept proof's own words (settled or open, scrubbed) and the owner's grade notes, one block per proof."""
     stash, _, grades_p = _paths(rs); grades = rs._json_load(grades_p, {}); blocks = []
     for it in rs._stash.catalog(stash):
@@ -230,10 +267,10 @@ async def forge_view(request: Request):
     """🏗 What a build would learn from (live), the presets and limits, and every build with its progress or model card."""
     rs = _rs(); rs._require_owner(request)
     def go():
-        got = _sources(rs); text = '\n'.join(got.values()); tok = _mf().CharTok.train(text)
+        got = _sources(rs); text = '\n'.join(got.values())
         jobs = [_job_view(d) for d in _jobs(rs)]
         return {'family': _family(rs), 'folder': str(_forge_dir(rs)), 'probe': _mf().PROBE,
-                'corpus': {'chars': len(text), 'charVocab': tok.size, 'blocks': text.count('### '), 'preview': text[:600]},
+                'corpus': {'chars': len(text), 'charVocab': len(set(text)) + 1, 'blocks': text.count('### '), 'preview': text[:600]},
                 'sources': [{'k': k, 'label': SOURCES[k], 'chars': len(got[k]), 'blocks': got[k].count('### ')} for k in SOURCES],
                 'presets': _mf().PRESETS, 'limits': _mf().LIMITS, 'rails': _mf().RAILS_DEFAULT,
                 'jobs': jobs, 'running': next((d.name for d in _jobs(rs) if _alive(d)), None),
@@ -306,9 +343,25 @@ async def forge_build(request: Request, p: ForgeBuild):
     rs = _rs(); rs._require_owner(request)
     if any(_alive(d) for d in _jobs(rs)):
         raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
-    jobs = [_job_view(d) for d in _jobs(rs)]; fam = _family(rs); ver = _next_version(jobs)
-    c = _mf().clean_cfg({**p.cfg, 'name': f"{fam['name']} {ver}"}); text = _corpus(rs, p.sources) + '\n' + p.extra[:EXTRA_MAX]
-    base = _base_for(jobs, c) if p.cont else None
+    return _start_build(rs, p.cfg, p.rails, p.extra, p.sources, p.cont)
+
+
+def _start_build(rs, cfg, rails, extra, sources, cont=True, version=None, base_dir=None, max_seconds=None, prior_text=''):
+    """One build as its own niced process. `version` / `base_dir` / `max_seconds` are for the Flagship rebuild (a named version, continued
+    from a chosen version's weights, trained on a clock)."""
+    if any(_alive(d) for d in _jobs(rs)):
+        raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
+    sources_reset()   # a build reads exactly what is there now (new proofs, lessons)
+    jobs = [_job_view(d) for d in _jobs(rs)]; fam = _family(rs); ver = version or _next_version(jobs)
+    c = _mf().clean_cfg({**cfg, 'name': f"{fam['name']} {ver}"}); text = _corpus(rs, sources) + '\n' + (extra or '')[:EXTRA_MAX]
+    if prior_text:
+        now = set(text.split('\n### ')); text += '\n' + '\n### '.join(b for b in prior_text.split('\n### ') if b not in now)   # no block twice
+    if base_dir is not None:
+        card = rs_json(base_dir / 'card.json'); base = {'version': card.get('version') or base_dir.name, 'card': card, 'path': base_dir}
+    else:
+        base = _base_for(jobs, c) if cont else None
+        if base:
+            base = {**base, 'path': _forge_dir(rs) / base['id']}
     if base:
         c['vocab'] = base['card']['cfg']['vocab']
     vocab = base['card']['vocab'] if base else _mf().CharTok.train(text).size if c['tok'] == 'char' else c['vocab']
@@ -317,8 +370,9 @@ async def forge_build(request: Request, p: ForgeBuild):
     jid = time.strftime('%Y%m%d-%H%M%S') + '-' + re.sub(r'[^a-z0-9]+', '-', f"comp-{ver}").strip('-')[:20]
     d = _forge_dir(rs) / jid; d.mkdir()
     (d / 'corpus.txt').write_text(text)
-    (d / 'job.json').write_text(json.dumps({'cfg': c, 'rails': _mf().clean_rails(p.rails), 'sample_prompt': _mf().PROBE, 'family': fam['name'], 'version': ver,
-                                            'base': base['version'] if base else None, 'from': str(_forge_dir(rs) / base['id']) if base else None}))
+    (d / 'job.json').write_text(json.dumps({'cfg': c, 'rails': _mf().clean_rails(rails), 'sample_prompt': _mf().PROBE, 'family': fam['name'], 'version': ver,
+                                            'base': base['version'] if base else None, 'from': str(base['path']) if base else None,
+                                            'maxSeconds': max_seconds, 'sources': list(sources or [])}))
     env = {**os.environ, 'VECLIB_MAXIMUM_THREADS': '4', 'OMP_NUM_THREADS': '4', 'OPENBLAS_NUM_THREADS': '4'}
     subprocess.Popen([sys.executable, str(rs.Path(_mf().__file__)), 'train', str(d)], cwd=str(rs.Path(_mf().__file__).parent), env=env,
                      stdout=subprocess.DEVNULL, stderr=open(d / 'build.log', 'w'), start_new_session=True, preexec_fn=lambda: os.nice(10))
@@ -326,6 +380,54 @@ async def forge_build(request: Request, p: ForgeBuild):
     for old in done[FORGE_MAX_KEEP:]:
         rs.shutil.rmtree(old, ignore_errors=True)
     return {'id': jid, 'version': ver, 'base': base['version'] if base else None, 'spec': _mf().spec(c, vocab, len(text))}
+
+
+FLAGSHIP_VERSION = 'v0.01'
+FLAGSHIP_SECONDS = 150          # owner 2026-11-14: "teach it for 2.5 min"
+ALL_SOURCES = ['proofs', 'pow', 'docs', 'teacher']
+
+
+def best_version(rs):
+    """The finished version with the lowest held-out loss, on the board or in the archive, or (None, None)."""
+    arch = _forge_dir(rs) / '_archive'
+    dirs = list(_jobs(rs)) + ([d for a in arch.iterdir() if a.is_dir() for d in a.iterdir() if d.is_dir()] if arch.exists() else [])
+    ok = [(d, rs_json(d / 'card.json')) for d in dirs]
+    ok = [(d, c) for d, c in ok if c.get('version') and (d / 'weights.npz').exists() and (c.get('bestVal') or c.get('val')) is not None]
+    return min(ok, key=lambda x: float(x[1].get('val') if x[1].get('val') is not None else x[1]['bestVal']), default=(None, None))
+
+
+def flagship_rebuild(rs, seconds=FLAGSHIP_SECONDS, version=FLAGSHIP_VERSION):
+    """🏁 ONE new Flagship (owner 2026-11-14): every old build moves to model_forge/_archive/<stamp>/ (kept, never deleted), and the new
+    version starts from the BEST version's weights (lowest held-out loss), reads every source (proofs, PoW notes, docs, teacher lessons) and
+    trains for `seconds` on this Mac. Nothing is rented or spent."""
+    if any(_alive(d) for d in _jobs(rs)):
+        raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
+    bd, card = best_version(rs)
+    if bd is None:
+        raise rs.HTTPException(409, 'No finished version to start from.')
+    arch = _forge_dir(rs) / '_archive' / time.strftime('%Y%m%d-%H%M%S'); arch.mkdir(parents=True)
+    for d in _jobs(rs):
+        rs.shutil.move(str(d), str(arch / d.name))
+    if bd.parent == _forge_dir(rs):
+        bd = arch / bd.name
+    try:   # it also reads the exact text the best version learned from (the docs folder was trimmed since): nothing it knew is dropped
+        before = (bd / 'corpus.txt').read_text(errors='ignore')
+    except OSError:
+        before = ''
+    cfg = {**card['cfg'], 'steps': _mf().LIMITS['steps'][1]}   # the clock ends it; the learning-rate schedule follows the clock
+    out = _start_build(rs, cfg, card.get('rails') or {}, '', ALL_SOURCES, version=version, base_dir=bd, max_seconds=float(seconds), prior_text=before)
+    return {**out, 'archived': str(arch), 'from': card.get('version'), 'fromVal': card.get('val'), 'seconds': seconds}
+
+
+class Flagship(BaseModel):
+    seconds: int = FLAGSHIP_SECONDS
+
+
+@router.post('/api/reputation/admin/model-lab/forge/flagship')
+async def forge_flagship(request: Request, p: Flagship):
+    """🏁 Rebuild as ONE Flagship v0.01 from the best version, every source, on a clock (30 s – 30 min). Owner only; nothing is spent."""
+    rs = _rs(); rs._require_owner(request)
+    return await rs.asyncio.to_thread(flagship_rebuild, rs, max(30, min(1800, int(p.seconds))))
 
 
 @router.get('/api/reputation/admin/model-lab/forge/{jid}')

@@ -60,7 +60,9 @@ function Review({ q, i, busy, onGrade }) {
   </li>;
 }
 
-export function ModelLab({ call }) {
+// 🧊 memo (owner 2026-11-14 "COMP freezes"): Fee's desk reloads every 6 s and re-rendered all of COMP (charts, heatmaps) each time; now only
+// a new `call` re-renders it.
+export const ModelLab = React.memo(function ModelLab({ call }) {
   const [name, setName] = useState(''); const [saidName, setSaidName] = useState('');
   useEffect(() => { if (call) call('/admin/model-lab/forge/family').then(x => { const n = String(x?.name || ''); setName(n); setSaidName(n); }).catch(() => {}); }, [call]);
   useEffect(() => {   // the name saves itself after typing settles (one write), and the forge's versions follow it
@@ -117,4 +119,4 @@ export function ModelLab({ call }) {
       <div className="mlb-card"><h4>THE GAP HUNT · NEXT</h4><ul className="mlb-hunt">{HUNT.map((t, i) => <li key={t} style={{ '--i': i }}>{t}</li>)}</ul><small className="mlb-note">Public sources only. Nothing here copies another company’s model or data.</small></div></section>
     </>}
   </div>;
-}
+});

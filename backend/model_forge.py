@@ -319,6 +319,7 @@ def train(job_dir, max_seconds=None):
     """Reads job.json + corpus.txt, trains, and keeps progress.json current (status, step, losses, tokens/s, ETA). A `stop` file ends it early;
     the weights it reached are still saved, so a stopped build can still be tried."""
     job_dir = Path(job_dir); job = json.loads((job_dir / 'job.json').read_text()); c = clean_cfg(job['cfg']); text = (job_dir / 'corpus.txt').read_text()
+    max_seconds = max_seconds or (float(job['maxSeconds']) if job.get('maxSeconds') else None)
     prog = {'status': 'tokenizing', 'step': 0, 'steps': c['steps'], 'history': [], 'started': time.time(), 'pid': os.getpid()}
     _write(job_dir / 'progress.json', prog)
     try:
@@ -342,13 +343,16 @@ def train(job_dir, max_seconds=None):
             r.integers(0, len(src) - c['ctx'] - 1, c['batch']))
         t0 = time.time(); every = max(1, c['steps'] // 60); best = None; look = max(1, c['steps'] // 8)
         for s in range(c['steps']):
-            if (job_dir / 'stop').exists() or (max_seconds and time.time() - t0 > max_seconds):
+            if (job_dir / 'stop').exists():
                 prog['status'] = 'stopped'; break
+            if max_seconds and time.time() - t0 > max_seconds:   # ⏱ a timed lesson ends on its clock: that is done, not stopped
+                prog['timeBoxed'] = True; prog['step'] = s; break
             xb, yb = batch(tr); _, loss, fw = forward(P, c, xb, yb); G = backward(P, c, fw)
             norm = math.sqrt(sum(float((g * g).sum()) for g in G.values()))
             if norm > 1.0:
                 G = {k: g / norm for k, g in G.items()}
-            lr_ = lr_at(s, c['steps'], c['lr']); opt.step(P, G, lr_)
+            frac_s = s if not max_seconds else max(s, int(c['steps'] * min(1.0, (time.time() - t0) / max_seconds)))   # the schedule follows the clock
+            lr_ = lr_at(frac_s, c['steps'], c['lr']); opt.step(P, G, lr_)
             if s % look == 0 or s == c['steps'] - 1:   # 🔬 the live view: what it writes, its top guesses, where it looks
                 pk = peek(P, c, tok)
                 prog['peek'] = {'step': s + 1, **pk}
@@ -358,15 +362,18 @@ def train(job_dir, max_seconds=None):
                 best = vl if best is None else min(best, vl)
                 prog['history'].append([s, round(loss, 4), round(vl, 4), float(f'{lr_:.3g}'), round(norm, 3)]); prog['history'] = prog['history'][-200:]
                 prog.update(step=s + 1, loss=round(loss, 4), val=round(vl, 4), tps=round(tps), elapsed=round(el, 1),
-                            eta=round((c['steps'] - s - 1) * c['batch'] * c['ctx'] / max(1, tps), 1), gradNorm=round(norm, 3))
+                            eta=round(min((c['steps'] - s - 1) * c['batch'] * c['ctx'] / max(1, tps), (max_seconds - el) if max_seconds else 1e12), 1), gradNorm=round(norm, 3))
                 _write(job_dir / 'progress.json', prog)
+        if prog.get('timeBoxed') and prog['step']:   # the card's held-out loss is measured at the end, not at the last checkpoint
+            prog['val'] = round(float(np.mean([forward(P, c, *batch(va))[1] for _ in range(4)])), 4); best = prog['val'] if best is None else min(best, prog['val'])
         np.savez(job_dir / 'weights.npz', **P); (job_dir / 'tokenizer.json').write_text(json.dumps(tok.dump()))
         sample = generate(P, c, tok, job.get('sample_prompt') or 'PoW ', max_new=160, seed=0)
         card = {'name': c['name'], 'cfg': c, 'spec': sp, 'vocab': tok.size, 'tokens': len(data), 'steps': prog['step'], 'loss': prog.get('loss'),
                 'val': prog.get('val'), 'bestVal': best, 'perplexity': round(math.exp(min(20, prog.get('val') or 20)), 2),
                 'baselinePerplexity': tok.size, 'seconds': round(time.time() - t0, 1), 'sample': sample, 'rails': clean_rails(job.get('rails')),
                 'built': time.time(), 'family': job.get('family'), 'version': job.get('version'), 'base': prog.get('base'),
-                'totalSteps': prior + int(prog['step'])}
+                'totalSteps': prior + int(prog['step']), 'timeBoxed': bool(prog.get('timeBoxed')), 'maxSeconds': max_seconds,
+                'sources': job.get('sources')}
         (job_dir / 'card.json').write_text(json.dumps(card))
         prog.update(status='stopped' if prog['status'] == 'stopped' else 'done', card=card)
     except Exception as e:   # noqa: BLE001 — a failed build says why on the page

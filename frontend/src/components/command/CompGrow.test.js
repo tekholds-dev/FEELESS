@@ -14,6 +14,8 @@ test('the next move follows the numbers: feed it, rebuild, build, teach, exam', 
   expect(growRead({ corpus: { chars: 9e6 }, jobs: [job('v1.00', 1e5, 2.4, 1)] }, { recent: [{ at: 5 }] }).next.t).toBe('Build the next version');
   expect(growRead({ corpus: { chars: 9e6 }, jobs: [job('v1.00', 1e5, 2.4, 9)] }, { untaught: 3, recent: [{ at: 5 }] }).next.k).toBe('teach');
   expect(growRead({ corpus: { chars: 9e6 }, jobs: [job('v1.00', 1e5, 2.4, 9)] }, { untaught: 0 }).next.k).toBe('v2');
+  const read = growRead({ corpus: { chars: 59e3 }, jobs: [{ ...job('v0.01', 5e6, 4.2, 9), files: [{ name: 'corpus.txt', bytes: 1.7e6 }] }] }, {});
+  expect(read.chars).toBe(1.7e6); expect(read.ratio).toBeCloseTo(0.34);   // what the version really read, not today's trimmed sources
 });
 
 test('the teacher shows the live price, sends the exact quote with Pay, and never more lessons than proofs left', async () => {
