@@ -37,7 +37,7 @@ LEFT: (a) OWNER fills [ENTITY] / [STATE] / [SUPPORT ADDRESS] / the [IF Q2…] ag
 **Owner only (Claude never moves funds) — 👑 owner 2026-11-12 (said twice, final): HE does ALL real-money testing himself. Claude's whole job is: finish every build row, prove it, push, tick this page, then TELL HIM it is ready to test. Claude never asks him anything mid-list; it builds, proves and pushes straight through.**
 - 💵 **T1 READY (checked 2026-11-12 16:55):** cash-check covered (30 swaps match, gas reserve short 0.005982 SOL) · edge gate TRADE (1/994 rules pass unseen, n 35, thin) · live quotes with his admin wallet: 0.0123 SOL → $1.0008 USDC and $1 → 0.01229 SOL, engine Swap API, 0 FEELESS fee (non-staff wallets pay 10% = 950 bps at tier 0). His wallet: 0.1378 SOL + 1.03 USDC.
 - 💸 COL-16 first real send (yours): open a filed proof → 🪙 Send to the Collective → SEND IT WITH YOUR FUNDS → Quote it → Sign and send.
-- 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · T3 $1 into
-  Happy's wallet and back → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
+- 💵 Real-money agent tests, in order: cash audit (`scripts/edge-audit.py`; Fuse gas reserve short 0.006 SOL) → T1 $1 SOL→USDC→SOL · ~~T3 $1 into
+  Happy's wallet and back~~ ✅ 2026-11-14 (fund 09:37, withdraw landed 09:44 after the landing fix) → AGT-25 OSSY/G4 PoWs through the Fuse card (DEGEN_PLAYBOOK, guards, he confirms the first buy) → T2 Fuse withdraw $1 →
   Circle → Phantom → AGT-26, AGT-24.
 - Decisions/keys: KEYS, LAWYER, HOUSE, LOOKS rows below · $ limit on the OpenRouter key.
