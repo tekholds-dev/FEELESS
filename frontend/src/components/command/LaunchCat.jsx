@@ -81,6 +81,7 @@ export const VENUES = [['trench', '🫧 Trench', 'Solana coins on the FEELESS sw
 export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', true, 'sk-or-v1-…'],
   ['fal', 'fal.ai', 'AI images and video in PoC run on YOUR fal.ai account (Wan, FLUX, Kling)', true, 'key-id:secret'], ['replicate', 'Replicate', 'AI images and video in PoC run on YOUR Replicate account (Wan, FLUX, Seedance)', true, 'r8_…'],
   ['kalshi', 'Kalshi', 'real bids from its PoB on YOUR Kalshi account, only inside your caps (Bids › Real bids on Kalshi). Paste the key id, a space, then the private key', true, 'key id, a space, then the private key'],
+  ['postiz', 'Postiz', 'posts its saved week board to YOUR connected X / Instagram / TikTok / YouTube / LinkedIn / Threads (Postiz holds those logins)', true, 'api key (self-hosted: https url, space, key)'],
   ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
   ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
   ['webhook', 'Signal webhook', 'your own signal URL (https) it reads before a buy', false, 'https://…']];

@@ -1,6 +1,6 @@
 """🧩 Q02 / SITE-5 slice 5 (2026-11-10): small public read routes (no admin, no money, no writes), moved out of reputation_service.
 Helpers stay there and are looked up when a route runs (no import cycle), so a test that patches them still works."""
-from fastapi import APIRouter, HTTPException, Query, Request  # noqa: F401
+from fastapi import APIRouter, Query, Request  # noqa: F401
 from typing import Optional  # noqa: F401
 
 router = APIRouter()

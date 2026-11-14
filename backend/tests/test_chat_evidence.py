@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import json
 import time
 import chat_evidence as ce
@@ -51,7 +52,7 @@ def test_general_talk_is_not_treated_as_a_history_question():
 
 
 def test_the_chat_reads_evidence_in_a_worker_thread_and_the_local_model_gets_its_own_time():
-    src = open(air.__file__.replace('ai_router.py', 'reputation_service.py')).read()
+    src = service_src()
     assert 'await asyncio.to_thread(_chat_evidence, text, now)' in src                      # never on the event loop: trading / UI never wait on it
     asrc = open(air.__file__).read()
     assert "{'timeout': tout + 2}" in asrc and 'OWNER_LOCAL_SEC' in asrc                       # the shared 20s client cut the local model off

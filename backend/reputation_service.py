@@ -620,40 +620,6 @@ async def _ip_hit(store, request, n, win):
 _IP_HIT_LOCAL: dict = {}
 
 
-@app.post('/api/reputation/uploads')
-async def upload_image(payload: UploadPayload, request: Request):
-    """Images for profiles, launches and seasons. Everyone: 15 MB (animated GIFs: 40 MB). A signed-in creator/admin
-    (HQ session) may upload big GIFs/art up to 25 MB; the creator wallet's GIFs are not size-limited (250 MB memory guard)."""
-    import base64
-    import re
-    head = (payload.dataUrl or '')[:40]
-    mt = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,', head)
-    if not mt:
-        raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
-    role = 'user'
-    try:
-        role = 'owner' if _require_admin(request) in _owner_wallets() else 'admin'
-    except HTTPException:
-        pass
-    cap = upload_cap(mt.group(1), role)
-    if role == 'user':
-        # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
-        if not await _ip_hit(_upload_ip, request, 20, 3600):
-            raise HTTPException(429, 'Upload limit reached — try again in an hour.')
-    if len(payload.dataUrl) > cap * 4 // 3 + 64:   # 🔒 audit #8: refuse an oversized body BEFORE the regex and the base64 decode
-        raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
-    m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl)
-    if not m:
-        raise HTTPException(400, 'Only PNG, JPG, WEBP or GIF images are supported.')
-    raw = base64.b64decode(m.group(2))
-    if len(raw) > cap:
-        raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
-    sig = raw[:12]
-    if not (sig.startswith(b'\x89PNG') or sig.startswith(b'\xff\xd8') or sig[:4] == b'RIFF' or sig[:3] == b'GIF'):
-        raise HTTPException(400, 'File is not a valid image.')
-    name = f"{uuid.uuid4().hex}.{UPLOAD_TYPES[m.group(1)]}"
-    (UPLOAD_DIR / name).write_bytes(raw)
-    return {'url': f'/api/reputation/uploads/{name}'}
 
 
 
@@ -1321,72 +1287,6 @@ class FeaturedBadgesIn(BaseModel):
 
 
 
-@app.post('/api/reputation/profile')
-async def save_profile(payload: ProfileSave):
-    if payload.session:
-        who = session_address(payload.session)
-        if not who or primary_of(who) != primary_of(payload.address):
-            raise HTTPException(401, 'Session expired — sign once to continue.')
-        ts = time.time()
-    else:
-        expected_prefix = f'FEELESS profile update\naddress:{payload.address}\nts:'
-        if not payload.message.startswith(expected_prefix):
-            raise HTTPException(400, 'Unexpected message.')
-        try:
-            ts = int(payload.message[len(expected_prefix):])
-        except ValueError:
-            raise HTTPException(400, 'Bad timestamp.')
-        if abs(time.time() - ts) > 300:
-            raise HTTPException(401, 'Signature expired — sign again.')
-        if not _verify_wallet(payload.address, payload.message, payload.signature):
-            raise HTTPException(401, 'Signature does not match this wallet.')
-    tier = (await _perk_tier(payload.address))[0]
-    owner = primary_of(payload.address)
-    if payload.target and primary_of(payload.target) != owner:
-        raise HTTPException(403, 'This wallet is not linked to that profile.')
-    async with _profile_lock:
-        d = _profiles_load()
-        prev = d['profiles'].get(owner, {})
-        if prev.get('lastTs', 0) >= ts:
-            raise HTTPException(409, 'Replay rejected — sign a fresh update.')
-        clean = _clean_profile(payload.profile)
-        if clean['handle'] and any(a != owner and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
-            raise HTTPException(409, f"@{clean['handle']} is taken.")
-        if clean['featuredBadges']:
-            earned = {b['id'] for b in (await wallet_badges(owner))['badges']}
-            clean['featuredBadges'] = [b for b in clean['featuredBadges'] if b in earned]
-        locks_ = dict(prev.get('nameLock') or {})   # 🪪 a name changes once every 7 days, staff any time; each change is stamped and past names are sealed
-        for k_ in ('displayName', 'handle'):
-            if not locks_.get(k_) and prev.get(k_) == clean[k_]:   # a name from before the rule stays, unstamped, until it changes
-                continue
-            ok_, rec_, why_ = _name_lock.check(locks_.get(k_), owner, clean[k_], _is_staff(owner))
-            if not ok_:
-                raise HTTPException(429, why_)
-            if rec_:
-                locks_[k_] = rec_
-        un, _r = _unlocks(owner)
-        if (RING_TIERS[clean['ring']] > tier and f"ring:{clean['ring']}" not in un) or (NAMEFX_TIERS[clean['nameFx']] > tier and f"nameFx:{clean['nameFx']}" not in un):
-            raise HTTPException(403, 'That style is a $FEE holder perk — hold more $FEE to unlock it.')
-        if TIER_THEMES.get(clean['theme'], 0) > tier:
-            raise HTTPException(403, {1: 'That backdrop is a $FEE holder perk: hold $10+ of $FEE.', 2: 'That backdrop is an Alpha perk: reach Fee Insider tier.',
-                                      3: 'That backdrop is a Whale perk: reach Fee Whale tier.'}[TIER_THEMES[clean['theme']]])
-        # Pictures never disappear by accident: an empty avatar/cover keeps the previous one unless
-        # the owner explicitly removed it; every image ever set is kept in mediaHistory.
-        cleared = set((payload.profile or {}).get('cleared') or [])
-        hist = list(prev.get('mediaHistory') or [])
-        for k in ('avatarUrl', 'bannerUrl'):
-            if not clean.get(k) and prev.get(k) and k not in cleared:
-                clean[k] = prev[k]
-            if prev.get(k) and prev[k] != clean.get(k):
-                hist.append({'field': k, 'url': prev[k], 'at': time.time()})
-        row_ = {**clean, 'mediaHistory': hist[-20:], 'lastTs': ts, 'updatedAt': time.time(), 'nameLock': locks_}
-
-        def put_(cur):   # one transaction for this wallet: a newer save from another worker in between wins, this replay is refused
-            if (cur or {}).get('lastTs', 0) >= ts:
-                raise HTTPException(409, 'Replay rejected — sign a fresh update.')
-            return row_
-        _prof().update(owner, put_)
-    return {'ok': True, 'profile': {k: v for k, v in row_.items() if k != 'nameLock'}}
 
 
 # 𝕏 SIGN IN WITH X (owner 2026-10-26: "a true account link so they're actually signed in to X, not an API"): X's own OAuth 2.0 (PKCE). FEELESS asks
@@ -1677,116 +1577,6 @@ def _chat_message_to_sign(room, address, ts, text):
     return f'FEELESS chat\nroom:{room}\naddress:{address}\nts:{ts}\nhash:{hashlib.sha256(text.encode()).hexdigest()[:16]}'
 
 
-@app.post('/api/reputation/chat')
-async def chat_post(payload: ChatPost):
-    text = payload.text.strip()
-    if not text or len(text) > 500:
-        raise HTTPException(400, 'Messages must be 1–500 characters.')
-    if not _re.match(r'^[a-z0-9-]{3,120}$', payload.room) and not payload.room.startswith('coin-') and not _re.match(r'^wall-([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', payload.room):
-        raise HTTPException(400, 'Unknown room.')
-    if abs(time.time() - payload.ts) > 120:
-        raise HTTPException(401, 'Signature expired — try again.')
-    if payload.session:
-        if primary_of(session_address(payload.session) or "") != primary_of(payload.address) or not session_address(payload.session):
-            raise HTTPException(401, 'Chat session expired — sign in to chat again.')
-    elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
-        raise HTTPException(401, 'Signature does not match this wallet.')
-    is_admin = _is_staff(payload.address)  # admins / the creator's linked wallets post anywhere, unthrottled (0c: staff unlock everything)
-    _is_crew, _crew_ok = _crew_room_ok(payload.room, payload.address)
-    if _is_crew and not _crew_ok and not is_admin:
-        raise HTTPException(403, 'Only family members can post in a family room.')
-    if payload.room == 'feeless-updates' and not is_admin:
-        raise HTTPException(403, 'Updates is read-only — only FEELESS admins post here.')
-    if not is_admin and payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
-        raise HTTPException(403, f"{_ALPHA[payload.room]['name']} unlocks at ${_ALPHA[payload.room]['minUsd']:,} held in $FEE.")
-    eg = None if is_admin else await evm_gate(payload.room, payload.address)
-    if eg and not eg['allowed']:
-        raise HTTPException(403, f"{eg['symbol']} is an EVM coin — link or switch to your 0x account." if eg.get('needsChain') else f"Hold at least ${MIN_HOLD_USD:.0f} of {eg['symbol']} to chat here (you hold ${eg['holdingUsd'] or 0:.2f}).")
-    coin = None if is_admin else await _room_mint(payload.room)
-    if coin and payload.address.startswith('0x'):
-        raise HTTPException(403, f'{coin[1]} lives on Solana — switch your wallet to its Solana account to chat here.')
-    if coin:
-        value = await _holding_usd(payload.address, coin[0])
-        if value < MIN_HOLD_USD:
-            raise HTTPException(403, f'Hold at least ${MIN_HOLD_USD:.0f} of {coin[1]} to chat here (you hold ${value:.2f}).')
-    tokens = []
-    for ca in CA_RE.findall(text)[:2]:
-        try:
-            async with httpx.AsyncClient(timeout=8) as http:
-                r = await http.get(f'https://api.dexscreener.com/latest/dex/search?q={ca}')
-                pairs = sorted((r.json() or {}).get('pairs') or [], key=lambda p: -(((p.get('liquidity') or {}).get('usd')) or 0))
-            if pairs:
-                tokens.append({'address': ca, 'chainId': pairs[0].get('chainId'), 'pairAddress': pairs[0].get('pairAddress'),
-                               'symbol': (pairs[0].get('baseToken') or {}).get('symbol'), 'pair': pairs[0], 'fetched_at': time.time()})
-        except Exception:
-            pass
-    if is_muted(payload.address):
-        raise HTTPException(403, 'You are muted by FEELESS moderators for now.')
-    tier = (await _perk_tier(payload.address))[0]
-    boosted = False
-    if payload.boost:
-        credits = (_pts().get(primary_of(payload.address)) or {}).get('boostCredits', 0)
-        if tier < 2 and credits <= 0:
-            raise HTTPException(403, 'Boosting is a Fee Insider perk — hold $100+ of $FEE or buy boosts with points.')
-        if tier < 2:
-            d_ = _pts(); d_[primary_of(payload.address)]['boostCredits'] = credits - 1; _json_save(POINTS_PATH, d_)
-        if time.time() - _boost_last.get(payload.address, 0) < 600:
-            raise HTTPException(429, 'One boost every 10 minutes.')
-        boosted = True
-    async with _chat_lock:
-        d = _chat_load()
-        last = d['lastTs'].get(payload.address, 0)
-        if payload.ts <= last:
-            raise HTTPException(409, 'Replay rejected — sign a fresh message.')
-        if not is_admin and time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
-            raise HTTPException(429, 'Slow down — one message every 3 seconds.')
-        if payload.room.startswith('city-') and not is_admin and (d.get('streetSlow') or {}).get(payload.room):   # 🐢 a Don / staff slowed this street
-            _fam_ = _street_fams()(payload.address) or {}
-            wait_ = _stc.slow_wait(d['streetSlow'][payload.room], ((d.get('streetLastAt') or {}).get(payload.room) or {}).get(primary_of(payload.address)), time.time(),
-                                   _is_staff(payload.address) or bool(_fam_.get('don')))
-            if wait_:
-                raise HTTPException(429, f"🐢 Slow mode on this street — your next line in {wait_}s.")
-        verdict = None if is_admin else _spam_check(d, payload.room, payload.address, text, tier)
-        if verdict:
-            CHAT_PATH.write_text(json.dumps(d))
-            raise HTTPException(429 if verdict.startswith('Slow') else 403, verdict)
-        d['lastTs'][payload.address] = payload.ts
-        d.setdefault('lastAt', {})[payload.address] = time.time()
-        if payload.room.startswith('city-'):   # 🐢 per-street last line (slow mode reads it); ≤ 400 wallets per street
-            sla_ = d.setdefault('streetLastAt', {}).setdefault(payload.room, {})
-            sla_[primary_of(payload.address)] = time.time()
-            if len(sla_) > 400:
-                for w_, _t in sorted(sla_.items(), key=lambda kv: kv[1])[:len(sla_) - 400]:
-                    sla_.pop(w_, None)
-        if boosted:
-            _boost_last[payload.address] = time.time()
-        msg = {'id': uuid.uuid4().hex[:16], 'handle': handle_of(primary_of(payload.address)), 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
-               'tier': tier, 'boosted': boosted,
-               'username': _display_name(primary_of(payload.address)), 'identity': primary_of(payload.address), 'text': text, 'ts': int(time.time() * 1000),
-               'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
-               'profile': {'address': primary_of(payload.address), 'chain': 'solana' if not primary_of(payload.address).startswith('0x') else 'evm'}}
-        if payload.room.startswith('city-'):   # 👑 the Familia city chats: every line wears the poster's family tag + colour
-            import crews as _cr
-            c_ = _cr.crew_of(_json_load(CREWS_PATH, {}), payload.address)
-            if c_:
-                msg['fam'] = {'tag': c_.get('tag'), 'color': ((c_.get('badge') or {}).get('colors') or [None])[0]}
-        room = d['rooms'].setdefault(payload.room, [])
-        room.append(msg)
-        _track_pin(d, payload.room, room, payload.parentId)
-        try:
-            if payload.room.startswith('wall-'):
-                notify(payload.room[5:], 'wall', f"@{handle_of(primary_of(payload.address))} wrote on your wall: {text[:80]}", f"/terminal/profile/{primary_of(payload.room[5:])}", payload.address)
-            for h in msg['mentions']:
-                who = next((a for a, v in _profiles_load()['profiles'].items() if (v or {}).get('handle') == h.lower()), None)
-                if who:
-                    notify(who, 'mention', f"@{handle_of(primary_of(payload.address))} mentioned you: {text[:80]}", '/terminal/chat', payload.address)
-        except Exception:
-            pass
-        d['rooms'][payload.room] = room[-300:]
-        CHAT_PATH.write_text(json.dumps(d))
-    if payload.room.startswith(('feed-', 'city-')) and tokens:   # 📞 a coin pasted on a Familia street gets a receipt too (points stay FEEd-only)
-        _record_feed_calls(msg)
-    return {'ok': True, 'message': msg}
 
 
 def feeless_post(room: str, text: str):
@@ -1841,12 +1631,6 @@ async def _alpha_allowed(room: str, address: str) -> bool:
     return bool(a) and (_is_staff(a) or await _fee_usd(a) >= r['minUsd'])
 
 
-@app.get('/api/reputation/alpha-rooms')
-async def alpha_rooms(address: str = ''):
-    held = await _fee_usd(primary_of(address)) if address else 0.0
-    admin = _is_staff(address) if address else False
-    d = _chat_load()
-    return {'holdingUsd': held, 'rooms': [{**r, 'unlocked': admin or held >= r['minUsd'], 'messages': len(d['rooms'].get(r['id'], []))} for r in ALPHA_ROOMS]}
 
 
 @app.exception_handler(RuntimeError)
@@ -1928,12 +1712,6 @@ def _track_pin(d, room, msgs, parent_id):
         pins[room] = {'id': parent_id, 'at': time.time(), 'replies': replies}
 
 
-@app.get('/api/reputation/admin/chat-guard')
-async def admin_chat_guard(request: Request):
-    _require_admin(request)
-    g = _chat_load().get('guard') or {}
-    now = time.time()
-    return {'log': g.get('log', [])[:100], 'cooling': sorted(({'address': a, 'secondsLeft': int(t - now)} for a, t in (g.get('cool') or {}).items() if t > now), key=lambda x: -x['secondsLeft'])}
 
 
 FEE_ADDRESS = 'FEE-LEADER-CAT'
@@ -2780,24 +2558,6 @@ class FuseEvolveIn(BaseModel):
     bloodline: bool = False
 
 
-@app.post('/api/reputation/admin/fuses/evolve')
-async def fuses_evolve(request: Request, p: FuseEvolveIn):
-    """🧬 HQ: breed Fuse baskets from the chain's live pools (best 40 across popular/yield/deep/new) over generations.
-    Read-only ranking — the champion is loaded into the Lab, where Fuse in still needs your wallet."""
-    _require_admin(request)
-    raw = await _fuse_discover_pairs(p.chain)
-    cands = {}
-    for lens in _fuse.LENSES:
-        for r in _fuse.discover(raw, lens, p.chain, now_ms=time.time() * 1000, limit=12):
-            cands.setdefault(r['pairAddress'], r)
-    metas = dict(list(cands.items())[:40])
-    sol_usd = await _sol_usd_live()
-    seeds = _hq.bloodline_seeds(_json_load(FUSE_HQ_PATH, {}).get('bloodline') or [], set(metas), p.legs) if p.bloodline else []
-    out = await asyncio.to_thread(_fuse.evolve, metas, p.legs, p.generations, p.population, p.style if p.style in _fuse.STYLES else 'yield',
-                                  p.sol, sol_usd, p.seed or int(time.time()), seeds)
-    out['seeded'] = len(seeds)
-    out['champions'] = [_champ_view(c, metas, p.chain) for c in out['champions']]
-    return {**out, 'solUsd': sol_usd, 'styles': list(_fuse.STYLES)}
 
 
 # ---- FUSE HQ (backend/fuse_hq.py): real Fuse P&L, paper arena, bloodlines, health, trader "Find my best 3" -------------
@@ -2834,85 +2594,6 @@ class FusePositionIn(BaseModel):
     expected: list = []  # every pairAddress the buyer approved — any that didn't land is kept as `missing` (retry or sell back)
 
 
-@app.post('/api/reputation/fuses/position')
-async def fuse_position(p: FusePositionIn):
-    """A one-click Fuse in landed: each leg counts only if its signature is one of YOUR confirmed FEELESS buys (cost and
-    tokens come from that trade record, never from the client)."""
-    me = _session_or_401(p.address, p.session)
-    mine = set(linked_of(me)) | {me}
-    trades = {x.get('tx'): x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []}
-    legs = []
-    for leg in (p.legs or [])[:_fuse.MAX_LEGS]:
-        t = trades.get(str(leg.get('signature') or ''))
-        if t and t.get('side', 'buy') == 'buy' and _fuse._f(t.get('tokens')) > 0:
-            legs.append({'pairAddress': str(leg.get('pairAddress'))[:64], 'chainId': str(leg.get('chainId') or 'solana')[:16], 'symbol': str(leg.get('symbol') or '')[:16],
-                         'mint': t.get('token'), 'sig': t['tx'], 'usd': _hq.pool_usd(t), 'tokens': _fuse._f(t.get('tokens')), 'tokens0': _fuse._f(t.get('tokens')),
-                         'role': 'runner' if leg.get('role') == 'runner' else 'pool'})
-    if not legs:
-        raise HTTPException(400, 'None of those legs is a confirmed FEELESS buy from your wallet (yet).')
-    prepaid_usd = 0.0
-    held_ = False
-    if p.prepaySig and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.prepaySig) and not _pay_sig_used(p.prepaySig):
-        await _pay_hold(p.prepaySig); held_ = True
-        to = await _rounds_pay_to()
-        tx = None
-        if to:
-            async with httpx.AsyncClient(timeout=20) as http:
-                for _ in range(4):
-                    tx = await _rpc(http, 'getTransaction', [p.prepaySig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1, 'commitment': 'confirmed'}])
-                    if tx:
-                        break
-                    await asyncio.sleep(2)
-            prepaid_usd = max((_hq.paid_lamports(tx, w, to) for w in mine), default=0) / 1e9 * (await _sol_usd_live() or 0)
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        used = {leg['sig'] for pos in d.get('positions') or [] for leg in pos['legs']}
-        legs = [leg for leg in legs if leg['sig'] not in used]
-        if not legs:
-            if held_:
-                _PAY_HELD.discard(p.prepaySig)   # nothing was credited: the payment stays spendable
-            return {'ok': True, 'counted': False}
-        pos = {'id': uuid.uuid4().hex[:10], 'wallet': me, 'name': p.name.strip() or 'Lab fuse', 'fuseId': p.fuseId[:16], 'at': time.time(), 'legs': legs}
-        choice = _hq.card_choice(p.plan, _fee_cfg().get('prepay'), _rounds_cfg())   # 🎟 the buyer's rounds · swaps per round · pay now or not
-        credited = _hq.choice_credit(pos, prepaid_usd, choice) if choice['chosen'] else (prepaid_usd > 0 and _hq.prepay_credit(pos, prepaid_usd, _fee_cfg().get('prepay')))
-        if credited and p.prepaySig and held_:
-            d['roundSigs'] = (d.get('roundSigs') or [])[-500:] + [p.prepaySig]   # a payment is never reused
-        elif held_:
-            _PAY_HELD.discard(p.prepaySig)
-        planned = [str(x)[:64] for x in (p.expected or [])[:_fuse.MAX_LEGS]]
-        pos['missing'] = _hq.missing_legs(planned, legs)   # ⚠ approved but not landed — never hidden, never counted
-        try:
-            plan = _hq.clean_plan(p.plan, _json_load(FUSE_HQ_PATH, {}).get('cardRules'), [leg['pairAddress'] for leg in legs], [leg['pairAddress'] for leg in legs if leg.get('role') == 'runner']) if p.plan else None
-        except ValueError:
-            plan = None   # a bad plan never blocks recording a real buy
-        if plan:
-            pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'), payoutPct=plan.get('payoutPct', 100), compoundStyle=plan.get('compoundStyle', 'smart'), autoFees=plan.get('autoFees', True),
-                       frozen=plan.get('frozen') or [], coinRotate=plan.get('coinRotate') or {}, coinModes=plan.get('coinModes') or {})
-            if plan['legs']:
-                pos['legGuard'] = {pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()}
-            if plan['at']:
-                pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
-        src = next((x for x in d.get('positions') or [] if p.copyOf and x['id'] == p.copyOf), None)
-        if src and primary_of(src['wallet']) != primary_of(me) and src['wallet'] not in set(linked_of(me)):   # never a self-copy
-            pos.update(copyOf=src['id'], copyOwner=src['wallet'])
-            reign = ((d.get('bracket') or {}).get('champions') or [{}])[-1].get('key')
-            if p.champ and reign == f"user:{src['id']}":   # 👑 champion's share: double copy cut for the reigning champion's owner
-                pos['champCopy'] = True
-        dflt = d.get('autoYieldDefault') or {}
-        if dflt.get('on'):   # HQ default: new cards arm 💸 collect-profit at +at% of what was put in
-            pos['autoYield'] = {'at': float(dflt.get('at') or _hq.YIELD_DEFAULT_AT), 'base': round(sum(_fuse._f(x.get('usd')) for x in legs), 6), 'armedAt': time.time(), 'firedAt': None}
-        d.setdefault('positions', []).append(pos)
-        bt = d.get('battles') or {}
-        if p.back and any(p.back in (x['a']['key'], x['b']['key']) for x in bt.get('pairs') or []):
-            bt.setdefault('paid', {})[pos['id']] = {'key': p.back, 'wallet': me, 'usd': round(sum(_fuse._f(x.get('usd')) for x in legs), 2)}
-            pos['backKey'] = p.back
-        _json_save(FUSE_HQ_PATH, d)
-    # AFTER notice (inbox + phone): the card is recorded. Never P&L here — numbers live in Fuse › My cards / the profile.
-    miss = pos.get('missing') or []
-    notify(me, 'fuse-card', (f"⚠ {pos['name']}: {len(legs)}/{len(legs) + len(miss)} coins landed — retry the other {len(miss)} or sell back, from My cards." if miss else
-                             f"🧬 Card bought in one approval: {pos['name']} — {', '.join('$' + (leg.get('symbol') or '?') for leg in legs[:4])}{f' +{len(legs) - 4}' if len(legs) > 4 else ''}{' · ' + _hq.RISK_DIALS[pos['risk']]['label'] if pos.get('risk') in _hq.RISK_DIALS else ''}. Receipt + live P&L in My cards."),
-           url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-open-{pos['id']}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
-    return {'ok': True, 'counted': True, 'legs': len(legs), 'id': pos['id'], 'missing': miss}
 
 
 class FuseReceiptIn(BaseModel):
@@ -2920,13 +2601,6 @@ class FuseReceiptIn(BaseModel):
     legs: list          # [{sig, symbol, usd, tokens, feeUsd, networkUsd}] as quoted on the review screen
 
 
-@app.post('/api/reputation/fuses/receipt')
-async def fuse_receipt(p: FuseReceiptIn):
-    """Before vs after: what the review screen quoted vs what each confirmed FEELESS trade actually cost (exact fill)."""
-    mine = set(linked_of(primary_of(p.address))) | {primary_of(p.address), p.address}
-    sigs = {str(x.get('sig') or '') for x in (p.legs or [])[:_fuse.MAX_LEGS]}
-    actual = {x['tx']: x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') in sigs}
-    return _hq.receipt((p.legs or [])[:_fuse.MAX_LEGS], actual)
 
 
 class FuseCloseIn(BaseModel):
@@ -2936,33 +2610,6 @@ class FuseCloseIn(BaseModel):
     signatures: list
 
 
-@app.post('/api/reputation/fuses/position/close')
-async def fuse_position_close(p: FuseCloseIn):
-    """Unfuse: each leg is closed only by one of YOUR confirmed FEELESS sells of that leg's coin (realized $ from that record)."""
-    me = _session_or_401(p.address, p.session)
-    mine = set(linked_of(me)) | {me}
-    sigs = {str(x) for x in (p.signatures or [])[:_fuse.MAX_LEGS]}
-    sells = [x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') in sigs and x.get('side') == 'sell']
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine), None)
-        if not pos:
-            raise HTTPException(404, 'No such Fuse position for this wallet.')
-        used = {sg for x in d.get('positions') or [] for leg in x['legs'] for sg in (leg.get('sellSigs') or [leg.get('sellSig')])}
-        pos, n = _hq.close_legs(pos, [t for t in sells if t['tx'] not in used], now=time.time())
-        if n and all(leg.get('soldUsd') is not None for leg in pos['legs']):
-            pos['closedAt'] = time.time()
-        if n and pos.get('autoYield') and not pos.get('closedAt'):   # collected → re-arm from the new held value (next tick)
-            pos['autoYield'].update(firedAt=None, rebase=True)
-        if n:
-            _hq.use_prepaid(pos, n)   # 💳 prepaid swaps cover these sells first
-        _json_save(FUSE_HQ_PATH, d)
-    if n:   # AFTER notice — no P&L in the text
-        closed = bool(pos.get('closedAt'))
-        notify(me, 'fuse-card', f"{'↩ Card withdrawn' if closed else '💰 Profit taken'}: {pos.get('name') or 'your Fuse card'} — {n} coin sell{'s' if n != 1 else ''} confirmed. {'Receipt on your profile.' if closed else 'Live P&L in My cards.'}",
-               url=f"/terminal/profile/{me}" if closed else f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-sell-{pos['id']}-{sorted(sigs)[0] if sigs else ''}",
-               meta={'claim': 'Confirmed FEELESS sells from your wallet', 'source': 'Fuse cards'})
-    return {'ok': True, 'closedLegs': n}
 
 
 class FuseGuardIn(BaseModel):
@@ -3205,28 +2852,6 @@ class FusePlanIn(BaseModel):
     plan: dict
 
 
-@app.post('/api/reputation/fuses/plan')
-async def fuse_plan(p: FusePlanIn):
-    """Edit an open card's plan: per-coin TP / SL (re-arms them), collect vs compound, hold vs swap."""
-    me = _session_or_401(p.address, p.session)
-    mine = set(linked_of(me)) | {me}
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
-        if not pos:
-            raise HTTPException(404, 'No such open Fuse card for this wallet.')
-        try:
-            plan = _hq.clean_plan({**p.plan, 'at': None} if p.plan.get('risk') not in _hq.RISK_DIALS else p.plan, d.get('cardRules'),
-                                  [leg['pairAddress'] for leg in pos['legs'] if leg.get('soldUsd') is None], [leg['pairAddress'] for leg in pos['legs'] if leg.get('role') == 'runner'])
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        pos.update(mode=plan['mode'], onProfit=plan['onProfit'], risk=plan.get('risk', 'custom'), rotateHours=plan.get('rotateHours', 24), slMode=plan.get('slMode', 'sell'), cycle=plan.get('cycle', 'steady'), payoutPct=plan.get('payoutPct', 100), compoundStyle=plan.get('compoundStyle', 'smart'), autoFees=plan.get('autoFees', True),
-                   rideAt=plan.get('rideAt', 0.0), rideTrail=plan.get('rideTrail', 10.0), legGuard={pa: {**g, 'firedAt': None} for pa, g in plan['legs'].items()},
-                   **({k: plan[k] for k in ('frozen', 'coinRotate', 'coinModes')} if (p.plan or {}).get('coins') else {}))
-        if plan.get('risk') in _hq.RISK_DIALS and plan.get('at'):   # the dial also re-arms the card's profit level
-            pos['autoYield'] = {'at': plan['at'], 'base': round(sum(_fuse._f(x.get('heldUsd') or x.get('usd')) for x in pos['legs'] if x.get('soldUsd') is None), 6), 'armedAt': time.time(), 'firedAt': None, 'rebase': True}
-        _json_save(FUSE_HQ_PATH, d)
-    return {'ok': True, 'plan': {k: plan.get(k) for k in ('risk', 'mode', 'onProfit', 'legs', 'at', 'rotateHours', 'slMode')}}
 
 
 class FuseModeIn(BaseModel):
@@ -3238,20 +2863,6 @@ class FuseModeIn(BaseModel):
 
 
 
-@app.get('/api/reputation/admin/fuses/payouts/plan')
-async def admin_fuse_payout_plan(request: Request):
-    """💸 This week's Fuse payout: every wallet owed Fee-Back + copy cuts, in SOL at today's price (FEELESS wallets and bots
-    excluded, dust waits). The plan is frozen so the paid record uses the same price."""
-    _require_admin(request)
-    book = await _feeback_book()
-    wallets = [r['wallet'] for r in book['rows'] if r['owedUsd'] > 0]
-    verdicts = await asyncio.gather(*[_shield_of(w) for w in wallets], return_exceptions=True)
-    bots = {w for w, v in zip(wallets, verdicts) if isinstance(v, dict) and v.get('verdict') == 'bot'}
-    plan = _hq.payout_plan(book['rows'], await _sol_usd_live(), exclude=set(_protected_wallets()) | bots)
-    plan = {**plan, 'id': uuid.uuid4().hex[:10], 'at': time.time(), 'bots': len(bots)}
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); d['payoutPlan'] = plan; _json_save(FUSE_HQ_PATH, d)
-    return {**plan, 'history': (d.get('payouts') or [])[-8:][::-1]}
 
 
 class FusePaidIn(BaseModel):
@@ -3259,49 +2870,6 @@ class FusePaidIn(BaseModel):
     sigs: list
 
 
-@app.post('/api/reputation/admin/fuses/payouts/paid')
-async def admin_fuse_payout_paid(request: Request, p: FusePaidIn):
-    """Record a payout the fee wallet signed. Every signature must be on-chain and succeeded; only SOL transfers whose
-    SOURCE signed the transaction count, and each wallet is credited what actually moved (× the plan's price, ≤ owed)."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    sigs = [str(x) for x in (p.sigs or [])][:20]
-    if not sigs or not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in sigs):
-        raise HTTPException(400, 'Bad transaction signature.')
-    d = _json_load(FUSE_HQ_PATH, {})
-    plan = d.get('payoutPlan') or {}
-    if plan.get('id') != p.planId or time.time() - _fuse._f(plan.get('at')) > 2 * 3600:
-        raise HTTPException(409, 'That payout plan expired — open Pay again for fresh amounts.')
-    used = {s for x in d.get('payouts') or [] for s in x.get('sigs') or []}
-    if used & set(sigs):
-        raise HTTPException(409, 'Those transactions were already recorded.')
-    async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in sigs))
-    paid_sol: dict = {}
-    for sig, tx in zip(sigs, txs):
-        if not tx or (tx.get('meta') or {}).get('err'):
-            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
-        signers = {k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')}
-        for ix in tx['transaction']['message'].get('instructions') or []:
-            info = (ix.get('parsed') or {}).get('info') or {}
-            if ix.get('program') == 'system' and (ix.get('parsed') or {}).get('type') == 'transfer' and info.get('source') in signers:
-                paid_sol[info['destination']] = round(paid_sol.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
-    credit = _hq.credit_paid(paid_sol, plan)
-    if not credit:
-        raise HTTPException(400, 'None of those transfers went to a wallet in this payout plan.')
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        fb = d.setdefault('feebackPaid', {})
-        for w, usd in credit.items():
-            fb[w] = round(_fuse._f(fb.get(w)) + usd, 6)
-        d.setdefault('payouts', []).append({'at': time.time(), 'by': admin, 'sigs': sigs, 'planId': plan['id'], 'solUsd': plan['solUsd'],
-                                            'rows': [{'wallet': w, 'usd': u, 'sol': paid_sol.get(w)} for w, u in credit.items()]})
-        d['payouts'] = d['payouts'][-200:]; d.pop('payoutPlan', None)
-        _json_save(FUSE_HQ_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'fuse-payout', f"${sum(credit.values()):,.2f} to {len(credit)} wallets"); _admin_save(ad)
-    for w, usd in credit.items():
-        notify(w, 'fuse-guard', f"💸 You were paid ${usd:,.2f} in Fuse Fee-Back + copy cuts ({paid_sol[w]:.4f} SOL).", url='/terminal/fuse?tab=cards',
-               once=f"fuse-paid-{sigs[0][:16]}-{w}", meta={'claim': 'SOL transfer confirmed on-chain', 'source': 'Fuse payout'})
-    return {'ok': True, 'paidUsd': round(sum(credit.values()), 6), 'wallets': len(credit)}
 
 
 # ---- 🧠 Crowd edge: FeeCat learns from FEELESS traders (verified buys only) ------------------------------------------
@@ -3416,23 +2984,6 @@ async def _edge_refresh(ms):
 
 
 
-@app.post('/api/reputation/admin/fuses/rules')
-async def admin_fuse_rules_set(request: Request):
-    """HQ › Fuse › Card rules: auto-profit levels, swap trigger, Arena top tier, Fee-Back shares. 'paidUsd' + 'wallet'
-    records a Fee-Back payout."""
-    admin = _require_admin(request)
-    body = await request.json()
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        if body.get('wallet') and body.get('paidUsd') is not None:
-            fb = d.setdefault('feebackPaid', {})
-            fb[body['wallet']] = round(_fuse._f(fb.get(body['wallet'])) + max(0.0, _fuse._f(body['paidUsd'])), 6)
-        else:
-            d['cardRules'] = _hq.clean_rules(body)
-        _json_save(FUSE_HQ_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'fuse-rules', json.dumps(body)[:200]); _admin_save(ad)
-    _arena_mega_cache.update(at=0.0, data=None)
-    return {'rules': _card_rules(), 'feeback': await _feeback_book()}
 
 
 async def _feeback_book():
@@ -3469,21 +3020,6 @@ class FuseYieldIn(BaseModel):
 
 
 
-@app.post('/api/reputation/admin/fuses/auto-yield')
-async def admin_auto_yield_set(request: Request):
-    """HQ default for NEW Fuse cards (users can still turn it off per card)."""
-    admin = _require_admin(request)
-    body = await request.json()
-    try:
-        at = _hq.clean_yield_at(body.get('at') or _hq.YIELD_DEFAULT_AT)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        d['autoYieldDefault'] = {'on': bool(body.get('on')), 'at': at}
-        _json_save(FUSE_HQ_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'fuse-auto-yield', json.dumps(d['autoYieldDefault'])); _admin_save(ad)
-    return d['autoYieldDefault']
 
 
 async def _fuse_guard_tick():
@@ -3600,37 +3136,6 @@ class FuseSwitchIn(BaseModel):
     legs: list          # [{pairAddress, symbol, role, signature}] — the BUYS that land in this card
 
 
-@app.post('/api/reputation/fuses/position/switch')
-async def fuse_position_switch(p: FuseSwitchIn):
-    """Switch-in / top-up: new legs join YOUR card only from your verified FEELESS buys, within 3 pools + 3 runners."""
-    me = _session_or_401(p.address, p.session)
-    mine = set(linked_of(me)) | {me}
-    metas = [x for x in (p.legs or [])[:6] if isinstance(x, dict)]
-    trades = {x.get('tx'): x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or []}
-    pairs = [(trades[str(m.get('signature'))], m) for m in metas if str(m.get('signature')) in trades and trades[str(m.get('signature'))].get('side', 'buy') == 'buy']
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        pos = next((x for x in d.get('positions') or [] if x['id'] == p.id and x['wallet'] in mine and not x.get('closedAt')), None)
-        if not pos:
-            raise HTTPException(404, 'No open Fuse card with that id for this wallet.')
-        used = {leg.get('sig') for x in d.get('positions') or [] for leg in x['legs']}
-        pairs = [(t, m) for t, m in pairs if t['tx'] not in used]
-        buys_before = sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy')
-        pos, n = _hq.add_legs(pos, [t for t, _ in pairs], [m for _, m in pairs], now=time.time())
-        filled = [m.get('pairAddress') for _, m in pairs if m.get('pairAddress') in (pos.get('missing') or [])]
-        if filled:   # ↻ a retry completed the original buy — not a switch, the 24h clock is untouched
-            pos['missing'] = [x for x in pos.get('missing') or [] if x not in filled]
-        switched = not filled and sum(1 for e in pos.get('events') or [] if e.get('kind') == 'buy') > buys_before
-        if switched:   # a real switch-in (not a top-up)
-            pos['lastSwitchAt'] = time.time()
-            pos['switchTimes'] = (pos.get('switchTimes') or [])[-9:] + [pos['lastSwitchAt']]
-        if n and not filled:
-            _hq.use_prepaid(pos, n)   # 💳 prepaid swaps cover these buys first
-        _json_save(FUSE_HQ_PATH, d)
-    if n:
-        notify(me, 'fuse-card', f"{'⇄ Switched in' if switched else '⚖ Topped up'}: {', '.join('$' + (m.get('symbol') or '?') for _, m in pairs[:3])} on {pos.get('name') or 'your Fuse card'}.{' Next switch in 24h.' if switched and not _is_staff(me) else ''}",
-               url=f"/terminal/fuse?tab=cards&card={pos['id']}", once=f"card-in-{pos['id']}-{pairs[0][0]['tx'] if pairs else ''}", meta={'claim': 'Confirmed FEELESS buys from your wallet', 'source': 'Fuse cards'})
-    return {'ok': True, 'added': n, 'nextSwitchAt': _hq.next_switch_at(pos, _is_staff(me))}
 
 
 class FuseFreezeIn(BaseModel):
@@ -3655,33 +3160,8 @@ class CoinModeIn(BaseModel):
 
 
 
-@app.get('/api/reputation/fuses/limits/{address}')
-async def fuse_limits(address: str):
-    """How many Fuse cards this wallet may hold open: 2, or 3 with ≥ $200 of $FEE. Each card: 3 pools + 3 runners."""
-    me = primary_of(address)
-    mine = set(linked_of(me)) | {me}
-    open_n = sum(1 for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and not x.get('closedAt'))
-    try:
-        fee = await _fee_usd(me)
-    except Exception:
-        fee = 0.0
-    mx = _hq.card_limit(fee, _is_staff(me))
-    return {'open': open_n, 'max': mx, 'canOpen': open_n < mx, 'feeUsd': round(fee, 2), 'feeFor3rd': _hq.FEE_FOR_3RD_CARD,
-            'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}
 
 
-@app.get('/api/reputation/fuses/receipts/{address}')
-async def fuse_receipts(address: str):
-    """Profile › Fuse receipts: every withdrawn (closed) card with its whole lifecycle — legs in, take-profits, switches, out."""
-    me = primary_of(address)
-    mine = set(linked_of(me)) | {me}
-    by, rl = _ledger_by_sig(), _card_rules()
-    # each receipt carries its moves (buys / sells / switches / top-ups) and the FEELESS fees actually paid (fee ledger) +
-    # a network estimate — shown on the receipt, never inside P&L
-    rows = [{**_hq.position_pnl(x, {}), 'events': (x.get('events') or [])[-30:], 'feesUsd': _card_fees(x, by),
-             'netUsd': round(rl['netFeeUsdPerLeg'] * 2 * len(x.get('legs') or []), 4)}
-            for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine and x.get('closedAt')]
-    return {'receipts': sorted(rows, key=lambda r: -(r.get('closedAt') or 0))[:30]}
 
 
 async def _hq_prices(legs):
@@ -3714,42 +3194,6 @@ async def _wallet_held(wallets, mints):
     return held
 
 
-@app.get('/api/reputation/fuses/pnl/{address}')
-async def fuse_pnl(address: str):
-    mine = set(linked_of(primary_of(address))) | {primary_of(address), address}
-    pos = [x for x in _json_load(FUSE_HQ_PATH, {}).get('positions') or [] if x['wallet'] in mine]
-    open_mints = {l.get('mint') for x in pos if not x.get('closedAt') for l in x['legs'] if l.get('soldUsd') is None and l.get('mint')}
-    if open_mints:   # 🔗 a card never counts coins the wallet doesn't REALLY hold (on-chain balances, all linked wallets, 60s cache)
-        held = await _wallet_held(sorted(mine), open_mints)
-        if held is not None:
-            capped = {x['id']: x for x in _hq.cap_to_wallet([x for x in pos if not x.get('closedAt')], held)}
-            pos = [capped.get(x['id'], x) for x in pos]
-    px = await _hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
-    by, rules, now = _ledger_by_sig(), _card_rules(), time.time()
-    hot = {c['id'] for c in (_arena_mega_cache.get('data') or []) if c.get('kind') == 'user' and c['activity']['tier'] in ('hot', 'blazing')}
-    wins = _season_wins()
-    by_ = _ledger_by_sig()   # FEELESS fees already paid on each card (for the profit trail's book)
-    rows = sorted(({**_hq.position_pnl(x, px), 'guard': x.get('guard'), 'autoRebalance': x.get('autoRebalance'), 'autoYield': x.get('autoYield'), 'mode': x.get('mode') or 'hold', 'nextSwitchAt': _hq.next_switch_at(x), 'rotateHours': x.get('rotateHours') or 24, 'slMode': x.get('slMode') or 'sell', 'coinModes': x.get('coinModes') or {}, 'coinRotate': x.get('coinRotate') or {}, 'cycle': x.get('cycle') or 'steady', 'payoutPct': x.get('payoutPct', 100 if (x.get('onProfit') or 'collect') == 'collect' else 0), 'compoundStyle': x.get('compoundStyle') or 'smart', 'autoFees': x.get('autoFees', True), 'missing': x.get('missing') or [],
-                  'heldShort': [l['pairAddress'] for l in x['legs'] if l.get('heldShort')],
-                  'roundsLeft': _hq.rounds_left(x, _is_staff(x['wallet'])), 'roundsUsed': x.get('roundsUsed') or 0, 'roundsOwedUsd': x.get('roundsOwedUsd') or 0,
-                  'feesPaidUsd': _card_fees(x, by_), 'roundsPaidUsd': round(sum(_fuse._f(rb.get('usd')) for rb in x.get('roundBuys') or [] if rb.get('mode') == 'pay'), 4), 'roundPacks': len(x.get('roundBuys') or []), 'parked': x.get('parked') or {}, 'risk': x.get('risk') or 'custom',
-                    'onProfit': x.get('onProfit') or 'collect', 'legGuard': x.get('legGuard') or {},
-                    'feeback': _hq.card_feeback(_card_fees(x, by), (x.get('closedAt') or now) - _fuse._f(x.get('at')), x['id'] in hot, rules, x['id'] in wins), 'onArena': x['id'] in hot,
-                    'seasonWin': wins.get(x['id']), 'beatCat': [w['week'] for w in _json_load(FUSE_HQ_PATH, {}).get('catChallenge') or [] if x['id'] in (w.get('ids') or [])]} for x in pos), key=lambda r: -(r['at'] or 0))
-    allpos = _json_load(FUSE_HQ_PATH, {}).get('positions') or []
-    copies = {}
-    for c in allpos:
-        if c.get('copyOf'):
-            k = copies.setdefault(c['copyOf'], {'n': 0, 'usd': 0.0}); k['n'] += 1; k['usd'] = round(k['usd'] + _hq.copy_cut(_card_fees(c, by), rules, champ=bool(c.get('champCopy'))), 6)
-    box = _notif_box(primary_of(address))
-    frz = {x['id']: x.get('frozen') or [] for x in pos}
-    rows = [{**r, 'frozen': frz.get(r['id'], []), 'autos': _hq.card_autos(box, r['id'], now), 'drift': _hq.drift(r), 'exitFeeUsd': 0.0 if r['closed'] else _exit_fee(r), 'streak': _hq.swap_streak(r), 'compound': _hq.compound_streak(r),
-             'copies': (copies.get(r['id']) or {}).get('n', 0), 'copyEarnedUsd': (copies.get(r['id']) or {}).get('usd', 0.0)} for r in rows]
-    held = [r for r in rows if not r['closed']]
-    return {**_hq.book(rows), 'rows': rows[:20], 'rules': {k: rules[k] for k in ('yieldLevels', 'yieldDefault', 'swapDropPct')},
-            'held': {'cards': len(held), 'costUsd': round(sum(r['costUsd'] for r in held), 4), 'valueUsd': round(sum(r['valueUsd'] for r in held), 4),
-                     'pnlUsd': round(sum(r['pnlUsd'] for r in held), 4), 'pnlPct': round((sum(r['valueUsd'] for r in held) / max(1e-9, sum(r['costUsd'] for r in held)) - 1) * 100, 2) if held else 0.0},
-            'feebackUsd': round(sum(r['feeback']['usd'] for r in rows), 6)}
 
 
 _fuse_holders_cache: dict = {}
@@ -4619,50 +4063,8 @@ async def _card_dna_tag(cards, rd):
     return [{**c, 'dna': assigned[f"{c['kind']}:{c['id']}"], 'dnaLabel': _dna.label(assigned[f"{c['kind']}:{c['id']}"])} for c in cards]
 
 
-@app.get('/api/reputation/admin/fuses/hq')
-async def fuse_hq_admin(request: Request):
-    """HQ › Fuse HQ: everyone's Fuse P&L, the paper arena (settles at 24h), bloodlines, published-Fuse health."""
-    _require_admin(request)
-    d = _json_load(FUSE_HQ_PATH, {})
-    now = time.time()
-    pos, arena = d.get('positions') or [], d.get('arena') or []
-    px = await _hq_prices([leg for x in pos for leg in x['legs']] + [leg for e in arena if not e.get('close') for leg in e['legs']])
-    vals = [_hq.arena_value(e, px, now) for e in arena]
-    if any(v['due'] for v in vals):
-        d = await _arena_settle(px, now)
-        vals = [_hq.arena_value(e, px, now) for e in d.get('arena') or []]
-    rows = [_hq.position_pnl(x, px) for x in pos]
-    board = _hq.arena_board(vals)
-    return {'book': _hq.book(rows), 'rows': sorted(rows, key=lambda r: -r['pnlUsd'])[:50], 'arena': sorted(vals, key=lambda v: -v['at'])[:40],
-            'board': board, 'bestStyle': _hq.best_style(board), 'bloodline': d.get('bloodline') or [], 'minSettled': _hq.MIN_SETTLED,
-            'outlook': _hq.outlook(board), 'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses']),
-            'blockedCuts': sum(1 for b in _json_load(FUSES_PATH, {}).get('buys') or [] if b.get('selfDeal') or b.get('bot'))}
 
 
-@app.post('/api/reputation/admin/fuses/hq')
-async def fuse_hq_admin_save(request: Request):
-    """Enter a champion in the paper arena, save / drop it from the bloodline."""
-    admin = _require_admin(request)
-    body = await request.json()
-    champ = body.get('champion') or {}
-    legs = [leg for leg in champ.get('legs') or [] if leg.get('pairAddress')][:_fuse.MAX_LEGS]
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {})
-        if body.get('action') == 'arena' and len(legs) >= 2:
-            e = _hq.arena_entry({**champ, 'legs': legs}, str(body.get('style') or 'yield')[:12], await _hq_prices(legs), time.time(), uuid.uuid4().hex[:10])
-            d['arena'] = ((d.get('arena') or []) + [e])[-ARENA_KEEP:]
-        elif body.get('action') == 'bloodline' and len(legs) >= 2:
-            pools = sorted(leg['pairAddress'] for leg in legs)
-            if not any(b['pools'] == pools for b in d.get('bloodline') or []):
-                d['bloodline'] = ((d.get('bloodline') or []) + [{'pools': pools, 'symbols': [leg.get('symbol') for leg in legs], 'fitness': champ.get('fitness'),
-                                                                 'style': body.get('style'), 'at': time.time()}])[-30:]
-        elif body.get('action') == 'unbloodline':
-            d['bloodline'] = [b for b in d.get('bloodline') or [] if b['pools'] != sorted(body.get('pools') or [])]
-        else:
-            raise HTTPException(400, 'arena | bloodline | unbloodline with a champion.')
-        _json_save(FUSE_HQ_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, f"fuse-{body.get('action')}", ','.join(leg.get('symbol') or '' for leg in legs)[:120]); _admin_save(ad)
-    return {'ok': True}
 
 
 
@@ -5607,36 +5009,6 @@ class FeedXShare(BaseModel):
     url: str = Field(..., max_length=200)
 
 
-@app.post('/api/reputation/social-feed/x')
-async def social_feed_x(p: FeedXShare):
-    """𝕏 INTO FEEd (owner, 2026-10-19: "should be a way to get X in, or have users do it"): reading X needs a paid API app, so people bring it in —
-    paste an X post link, FEELESS reads X's PUBLIC oEmbed (publish.twitter.com, no key, no login) and the post joins the timeline with who
-    shared it. ≤ 20 shares a wallet a day; one copy of each post."""
-    me = _session_or_401(p.address, p.session)
-    if _is_blocked(_block_load()['wallets'].get(me)):
-        raise HTTPException(403, 'This wallet cannot post here.')
-    st_ = _sfeed.x_status(p.url)
-    if not st_:
-        raise HTTPException(400, 'Paste an X post link (x.com/<name>/status/<id>).')
-    try:
-        r_ = await _sf_client().get('https://publish.twitter.com/oembed', params={'url': f'https://twitter.com/{st_[0]}/status/{st_[1]}', 'omit_script': '1', 'dnt': 'true'}, timeout=8)
-    except Exception:
-        raise HTTPException(502, 'X did not answer — try again.')
-    if r_.status_code != 200:
-        raise HTTPException(404, 'X has no public post at that link (deleted, private or age-gated).')
-    post_ = _sfeed.from_x_oembed(r_.json(), p.url, _crew_name(me) or (me[:4] + '…' + me[-4:]), time.time())
-    if not post_:
-        raise HTTPException(404, 'That post has no text to show.')
-    async with _fsoc_lock:
-        d_ = _json_load(FEED_X_PATH, {}) or {}
-        posts_ = [x for x in d_.get('posts') or [] if x.get('id') != post_['id']]
-        day_ = time.time() - 86400
-        if sum(1 for x in posts_ if x.get('by') == me and _fuse._f(x.get('at')) > day_) >= X_SHARE_DAY and not _is_staff(me):
-            raise HTTPException(429, f'{X_SHARE_DAY} X shares a day.')
-        d_['posts'] = ([{**post_, 'by': me}] + posts_)[:_sfeed.X_MAX]
-        _json_save(FEED_X_PATH, d_)
-    _SF_CACHE.pop('x', None)
-    return {'post': {k: v for k, v in post_.items()}}
 
 
 _SF_FIRST: dict = {}   # 🧾 post id → the cap FEELESS first saw it at (memory, newest 4,000)
@@ -6963,18 +6335,6 @@ async def crews_live():
     return {'events': _cr.events(st_, now_), 'vitals': _cr.vitals(st_, now_), 'at': round(now_)}
 
 
-@app.get('/api/reputation/crews')
-async def crews_board():
-    """🛡 Public: the weekly crew board — crews ranked by their members' VERIFIED FEELESS trade results over 7 days (needs ≥ 2 members and ≥ 5 closed trades to rank). 60s cache."""
-    import crews as _cr
-    now = time.time()
-    if _crew_cache['data'] and now - _crew_cache['at'] < 60:
-        return _crew_cache['data']
-    st = _json_load(CREWS_PATH, {})
-    members = [m for c in (st.get('crews') or {}).values() for m in c['members']]
-    out = {'board': _cr.board(st, _crew_pieces(members, now), now, _crew_cfg(), _is_staff)[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A family ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
-    _crew_cache.update(at=now, data=out)
-    return out
 
 
 @app.get('/api/reputation/crews/mine')
@@ -6998,51 +6358,10 @@ class CrewSwitch(BaseModel):
 
 
 
-@app.get('/api/reputation/crews/of/{address}')
-async def crew_of_wallet(address: str):
-    """🛡 Public: the crew a wallet is in (tag + name) — for the chip beside names. Nothing else."""
-    import crews as _cr
-    c = _cr.crew_of(_json_load(CREWS_PATH, {}), primary_of(address))
-    st_ = _json_load(CREWS_PATH, {})
-    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name'], 'badge': _cr.badge_view(c, st_.get('awards'), _crew_cfg(), _is_staff(c.get('owner')))} if c else None}
 
 
-@app.get('/api/reputation/admin/crews/revenue')
-async def admin_crews_revenue(request: Request):
-    """💳 Owner only: what crews have paid the fee wallet — total, count and the last payments (every one links to its on-chain tx)."""
-    _require_owner(request)
-    st = _json_load(CREWS_PATH, {}); rows = []
-    for c in (st.get('crews') or {}).values():
-        for x in c.get('paid') or []:
-            rows.append({'crew': c['name'], 'tag': c['tag'], 'kind': x.get('kind'), 'usd': x.get('usd'), 'at': x.get('at'), 'sig': x.get('sig'), 'by': x.get('by'), 'staff': bool(x.get('staff'))})
-    rows.sort(key=lambda r: -(r['at'] or 0))
-    return {'totalUsd': round(sum(r['usd'] or 0 for r in rows), 2), 'payments': len([r for r in rows if r['usd']]), 'crews': len(st.get('crews') or {}), 'recent': rows[:25]}
 
 
-@app.post('/api/reputation/admin/fees/crews')
-async def admin_fees_crews(request: Request, body: dict):
-    """Core › Fees: what a crew costs ($ to start, 5 seats incl. the owner) and what +5 seats cost (owner only; 0–500)."""
-    import crews as _cr
-    admin = _require_owner(request)
-    def num(v, d):
-        try:
-            return max(0.0, min(500.0, round(float(v), 2)))
-        except (TypeError, ValueError):
-            return d
-    prev = _crew_cfg()
-    unl = {}
-    for k, v in ((body.get('unlocks') if isinstance(body.get('unlocks'), dict) else prev.get('unlocks')) or {}).items():   # 🌹 the creator's unlock lines
-        part, _, opt = str(k).partition('.')
-        if part in _cr.PARTS and opt in _cr.PARTS[part] and isinstance(v, dict) and (v.get('metric') in _cr.METRICS or v.get('metric') in (None, '')):
-            unl[k] = {'metric': v.get('metric') or None, 'min': max(0.0, min(100000.0, float(v.get('min') or 0)))}
-    cfg = {'createUsd': num(body.get('createUsd'), _cr.CREATE_USD), 'packUsd': num(body.get('packUsd'), _cr.PACK_USD),
-           'badgeUsd': num(body.get('badgeUsd', prev.get('badgeUsd', _cr.BADGE_USD)), _cr.BADGE_USD), 'unlocks': unl,
-           'houseTaxPct': max(0.0, min(20.0, float(body.get('houseTaxPct', prev.get('houseTaxPct', 5)) or 0)))}   # 🏦 the city's house tax
-    async with _admin_lock:
-        d = _admin_load(); d.setdefault('fees', {})['crews'] = cfg
-        _audit(d, admin, 'fees', f"familia · ${cfg['createUsd']:g} to start · ${cfg['packUsd']:g} per +{_cr.PACK_SEATS} seats · ${cfg['badgeUsd']:g} badge restyle · {len(unl)} unlock lines")
-        _admin_save(d)
-    return {'crews': cfg}
 
 
 
@@ -7245,32 +6564,8 @@ def _city_tax():
         return _fcity.HOUSE_TAX
 
 
-@app.get('/api/reputation/familia-city')
-async def familia_city(address: str, session: str):
-    """🏙 My family's block (members): lots, MP, stash, goons, the catalog with locks, the log, and rival stashes to rob."""
-    import crews as _cr
-    me = _session_or_401(address, session); now = time.time()
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
-        if not c:
-            raise HTTPException(404, 'Join a family to build a block.')
-        boost_, rk_ = _city_ctx(c, me, now)
-        v_ = _fcity.view(c, now, staff=_is_staff(me), boost=boost_, mine=True, tax=_city_tax())
-        v_['rivals'] = _city_rivals(st, c, now)
-        v_['canBuild'] = _is_staff(me) or me == c.get('owner') or rk_.get(me) == 'underboss'
-        v_['house'] = int(st.get('house') or 0)
-        _json_save(CREWS_PATH, st)
-    return v_
 
 
-@app.get('/api/reputation/familia-city/{cid}')
-async def familia_city_visit(cid: str):
-    """🏙 Visit any family's block (public): its stores, levels, rate, goons and power — never its log."""
-    import crews as _cr
-    st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
-    if not c:
-        raise HTTPException(404, 'No such family.')
-    return _fcity.view(c, time.time(), staff=_is_staff(c.get('owner')))
 
 
 class CityAct(BaseModel):
@@ -7519,16 +6814,6 @@ async def _fblock_view(c, me=None, staff=False, rank=None):
     return out_
 
 
-@app.get('/api/reputation/familia-block')
-async def familia_block(address: str, session: str):
-    """🏙 My family's block of REAL market buildings: built (a real position, its $ value, APY, errands) or under construction, + the catalog."""
-    import crews as _cr
-    me = _session_or_401(address, session); now = time.time()
-    st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
-    if not c:
-        raise HTTPException(404, 'Join a family to build a block.')
-    _b, rk_ = _city_ctx(c, me, now)
-    return await _fblock_view(c, me, _is_staff(me), rk_)
 
 
 class BlockAct(BaseModel):
@@ -7812,47 +7097,6 @@ def _world_view(st, c, me, now, cartels_):
     return v
 
 
-@app.get('/api/reputation/admin/familia/overwatch')
-async def admin_familia_overwatch(request: Request):
-    """👑 OVERWATCH — the creator's eye on EVERY family (owner, 2026-10-22: "every family's wallet, bank, trades, pools, members, plus Familia
-    pricing / limits / fees"). Owner only, read-only: each family's members (wallets + their verified FEELESS trades this week), MP bank, war
-    chest + record, turf + home, buildings set to real pools (live APY), the fees it paid, its pinned launch; totals; the prices and limits HQ
-    sets. Family wallets with real money wait on the custody pick (P5) — this shows what exists today."""
-    _require_owner(request)
-    import crews as _cr
-    now = time.time(); st = _json_load(CREWS_PATH, {}); _cr._norm(st); w = st.get('world') or _fworld.blank()
-    crews_ = list((st.get('crews') or {}).values())
-    pieces_ = await asyncio.to_thread(_crew_pieces, sorted({m for c in crews_ for m in c.get('members') or []}), now)
-    links_ = w.get('links') or {}
-    live_p = {r['id']: r for r in ((_fpl_cache.get('v') or {}).get('pools') or [])}
-    fams = []
-    for c in crews_:
-        city_ = _fcity.city_of(c, now)
-        mem_ = []
-        for m in c.get('members') or []:
-            s_ = _cr.stats(pieces_.get(m, []))
-            mem_.append({'address': m, 'name': _crew_name(m), 'don': m == c.get('owner'), 'staff': _is_staff(m), **s_})
-        wk_ = _cr.stats([p_ for m in c.get('members') or [] for p_ in pieces_.get(m, [])])
-        turf_ = _fworld.turf_of(w, c['id'])
-        pools_ = [{'block': b_, 'name': ln_.get('name') or ln_.get('pool'), 'apy': (live_p.get(ln_.get('pool')) or {}).get('apy'), 'tvl': (live_p.get(ln_.get('pool')) or {}).get('tvl')}
-                  for b_, ln_ in links_.items() if (w.get('own') or {}).get(b_) == c['id']]
-        paid_ = [x for x in c.get('paid') or [] if isinstance(x, dict)]
-        fams.append({'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
-                     'owner': {'address': c.get('owner'), 'name': _crew_name(c.get('owner') or '')}, 'creator': _is_staff(c.get('owner')),
-                     'seats': c.get('seats'), 'members': mem_, 'bankMp': int(city_['bank']), 'power': _fcity.power(city_), 'chest': _fwar.chest(c),
-                     'record': _fwar.record(c), 'home': (w.get('home') or {}).get(c['id']), 'turf': turf_, 'pools': pools_, 'week': wk_,
-                     'paidUsd': round(sum(float(x.get('usd') or 0) for x in paid_), 2), 'payments': len([x for x in paid_ if x.get('usd')]),
-                     'launch': {'symbol': (c.get('launch') or {}).get('symbol'), 'mint': (c.get('launch') or {}).get('mint')} if (c.get('launch') or {}).get('mint') else None,
-                     'created': c.get('created'), 'code': bool(c.get('codeHash') or c.get('code'))})
-    fams.sort(key=lambda f: (-f['creator'], -f['power']))
-    cfg_ = _crew_cfg()
-    return {'families': fams, 'at': round(now, 1),
-            'totals': {'families': len(fams), 'members': sum(len(f['members']) for f in fams), 'bankMp': sum(f['bankMp'] for f in fams),
-                       'trades7d': sum(f['week']['trades'] for f in fams), 'usd7d': round(sum(f['week']['usd'] for f in fams), 2), 'paidUsd': round(sum(f['paidUsd'] for f in fams), 2),
-                       'turf': sum(len(f['turf']) for f in fams), 'pools': sum(len(f['pools']) for f in fams), 'houseMp': int(st.get('house') or 0)},
-            'pricing': {'createUsd': _cr.price('create', cfg_), 'packUsd': _cr.price('seats', cfg_), 'badgeUsd': _crew_badge_usd(), 'baseSeats': _cr.BASE_SEATS},
-            'limits': {k_: v_ for k_, v_ in _familia_rules().items() if k_ in ('familiesPerWallet', 'upkeepMp', 'fuseMinMp', 'hitCapPct', 'raidCooldownH', 'maxTurf')},
-            'custody': 'Family wallets that hold real money wait on the custody pick (CLAUDE.md P5) — every member trades from their own wallet today.'}
 
 
 @app.on_event('startup')
@@ -7862,19 +7106,6 @@ async def _familia_prices_load():
 
 
 
-@app.post('/api/reputation/admin/familia/rules')
-async def admin_familia_rules_set(request: Request, body: dict):
-    """🏙 Owner only: save the Familia rules (clamped). Live ones change the engine at once; planned ones wait for the real-money custody pick."""
-    admin = _require_owner(request)
-    async with _admin_lock:
-        d = _admin_load(); d['familiaRules'] = _fworld.clean_rules(body if isinstance(body, dict) else {}, d.get('familiaRules'))
-        if isinstance(body, dict) and 'prices' in body:
-            d['familiaPrices'] = _fcity.clean_prices(body.get('prices') if isinstance(body.get('prices'), dict) else {}, _bmk.ISLAND_MP)
-            _fcity.set_prices(d['familiaPrices'])
-        _audit(d, admin, 'familia', f"rules · block {d['familiaRules']['blockMp']:g} MP · Fee City ×{d['familiaRules']['feeTier']:g} · Family Fuse {d['familiaRules']['fuseMinMp']:g} MP")
-        _admin_save(d)
-    _fworld.set_rules(d['familiaRules'])
-    return await admin_familia_rules(request)
 
 
 _perps_cache: dict = {'at': 0.0, 'rows': []}
@@ -8177,86 +7408,6 @@ _UPDATES_CACHE = {'at': 0.0, 'rows': []}
 
 
 
-@app.get('/api/reputation/familia/broker')
-async def familia_broker(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """🏦 Your linked broker accounts, live: cash, buying power, value, positions with P&L (one read / 20 s). `ready` = SnapTrade is set up."""
-    import brokers as _bk
-    snap_ = bool(_bk.keys(os.environ)[0])
-    if not address or not session:
-        return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
-    me_ = _session_or_401(address, session)
-    _brk_seal()
-    snap_ = snap_ and (not _bk.personal(_bk.keys(os.environ)[0]) or _is_staff(me_))   # a PERSONAL key = the owner's own accounts only
-    q_ = _brk_q(me_) if snap_ else None
-    ak_ = _brk_alpaca(me_)
-    ck_ = _brk_cdc(me_)
-    if q_ is None and not ak_ and not ck_:
-        return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
-    hit_ = _brk_cache.get(me_)
-    if hit_ and time.time() - hit_[0] < 20:
-        return hit_[1]
-    accts_, pos_, bal_ = [], {}, {}
-    if q_ is not None:
-        accts_ = await _brk_call('GET', '/accounts', q_) or []
-        if not accts_ and not ak_ and not ck_:   # set up, nothing linked yet → the LINK MY BROKER door
-            return {'ready': True, 'snaptrade': True, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
-        ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
-        got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
-        pos_ = {i_: (g_[0] if isinstance(g_[0], list) else []) for i_, g_ in zip(ids_, got_)}
-        bal_ = {i_: (g_[1] if isinstance(g_[1], list) else []) for i_, g_ in zip(ids_, got_)}
-    v_ = _bk.view(accts_, pos_, bal_)
-    if ak_:
-        try:
-            a_, p_ = await asyncio.gather(_alpaca_call(ak_, 'GET', '/v2/account'), _alpaca_call(ak_, 'GET', '/v2/positions'))
-            av_ = _bk.alpaca_view(a_, p_ if isinstance(p_, list) else [], ak_['paper'])
-            v_['accounts'] = [av_] + v_['accounts']; v_['value'] = round(v_['value'] + av_['value'], 2); v_['pnl'] = round(v_['pnl'] + sum(x['pnl'] for x in av_['positions']), 2)
-        except HTTPException as e:
-            v_['alpacaError'] = e.detail
-    if ck_:
-        try:
-            cv_ = _bk.cdc_view(await _cdc_call(ck_, 'private/user-balance'))
-            v_['accounts'] = v_['accounts'] + [cv_]; v_['value'] = round(v_['value'] + cv_['value'], 2)
-        except HTTPException as e:
-            v_['cdcError'] = e.detail
-    out_ = {'ready': True, 'snaptrade': snap_, 'linked': True, **v_, 'at': round(time.time())}
-    _brk_cache[me_] = (time.time(), out_)
-    return out_
-
-
-@app.post('/api/reputation/familia/broker/link')
-async def familia_broker_link(request: Request):
-    """🔗 Link a broker: one SnapTrade user per wallet (its secret sealed at rest) → SnapTrade's Connection Portal URL (5 min) where the user
-    logs in to THEIR broker — FEELESS never sees a broker password. Trading is asked for (`trade-if-available`; read-only where a broker can't)."""
-    import brokers as _bk
-    b_ = await request.json()
-    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
-    _brk_need()
-    if _bk.personal(_bk.keys(os.environ)[0]):   # 🔑 PERSONAL key: the owner links THEIR broker in SnapTrade's portal (no SnapTrade user to make)
-        if not _is_staff(me_):
-            raise HTTPException(403, 'Linking any broker is the owner\'s own for now — add your free Alpaca keys instead.')
-        d_ = await _brk_call('POST', '/snapTrade/login', None, {'connectionType': 'trade-if-available', 'darkMode': True})
-        if not d_.get('redirectURI'):
-            raise HTTPException(502, 'SnapTrade gave no portal link.')
-        _brk_cache.pop(me_, None)
-        return {'url': d_['redirectURI']}
-    async with _brk_lock:
-        u_ = _brk_user(me_)
-        if not u_:
-            d_ = await _brk_call('POST', '/snapTrade/registerUser', None, {'userId': _bk.user_id(me_)})
-            if not d_.get('userSecret'):
-                raise HTTPException(502, 'SnapTrade did not register the user.')
-            st_ = _json_load(BROKERS_PATH, {}) or {}
-            st_[me_] = {'uid': d_.get('userId') or _bk.user_id(me_), 'sec': _bk.seal(d_['userSecret'], os.environ), 'at': time.time()}
-            _json_save(BROKERS_PATH, st_)
-            u_ = (st_[me_]['uid'], d_['userSecret'])
-    back_ = str((b_ or {}).get('back') or '')
-    body_ = {'connectionType': 'trade-if-available', 'darkMode': True, **({'broker': str(b_['broker'])[:40]} if (b_ or {}).get('broker') else {}),
-             **({'customRedirect': back_, 'immediateRedirect': True} if _re.match(r'^https?://(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|[a-z0-9.-]*feeless[a-z0-9.-]*)(/|$)', back_) else {})}
-    d_ = await _brk_call('POST', '/snapTrade/login', {'userId': u_[0], 'userSecret': u_[1]}, body_)
-    if not d_.get('redirectURI'):
-        raise HTTPException(502, 'SnapTrade gave no portal link.')
-    _brk_cache.pop(me_, None)
-    return {'url': d_['redirectURI']}
 
 
 
@@ -8267,32 +7418,8 @@ async def familia_broker_link(request: Request):
 
 
 
-@app.post('/api/reputation/familia/kalshi/send')
-async def familia_kalshi_send(request: Request):
-    """✍ A wallet-signed Kalshi order → checked again (signed, a fingerprint FEELESS built, once) → broadcast through the RPC relay."""
-    kt_ = _kt_need()
-    signed_ = str(((await request.json()) or {}).get('signed') or '')
-    try:
-        from solders.transaction import VersionedTransaction
-        payer_ = str(VersionedTransaction.from_bytes(base64.b64decode(signed_, validate=True)).message.account_keys[0])
-    except Exception:
-        raise HTTPException(400, 'Not a transaction.')
-    ok_, why_, fp_ = kt_.verify(signed_, payer_, signed=True)
-    if not ok_:
-        raise HTTPException(400, f'Refused: {why_}')
-    if not kt_.take(fp_, payer_):
-        raise HTTPException(409, 'This order was not built by FEELESS, expired, or was already sent — get a fresh one.')
-    try:
-        r_ = await _fmk_http_get().post('http://127.0.0.1:5077/api/reputation/rpc', json={'jsonrpc': '2.0', 'id': 1, 'method': 'sendTransaction',
-                                        'params': [signed_, {'encoding': 'base64', 'skipPreflight': False, 'preflightCommitment': 'confirmed', 'maxRetries': 3}]}, timeout=25)
-        out_ = r_.json()
-    except Exception:
-        kt_.remember(fp_, payer_)   # the same signed bytes may go again (same signature — never a second order)
-        raise HTTPException(503, 'Solana did not answer — try again.')
-    if out_.get('error') or not out_.get('result'):
-        kt_.remember(fp_, payer_)
-        raise HTTPException(400, f"Solana refused it: {str((out_.get('error') or {}).get('message') or 'no signature')[:200]}")
-    return {'signature': out_['result']}
+
+
 
 
 
@@ -8333,13 +7460,6 @@ INTAKE_MAX = 20
 
 
 
-@app.get('/api/reputation/familia/trade-center')
-async def familia_trade_center(address: str = '', session: str = ''):
-    """📈 The Trade Center building: the agents' real card live — the aggregate for everyone, every seat (coin · model · live %) for staff."""
-    import trade_center as _tcn
-    me = _session_or_401(address, session) if address and session else None
-    return {**_tcn.summary(_agents.get('card') or (_agents.get('view') or {}).get('card'), staff=bool(me and _is_staff(address))),
-            'closed': _tcn.closed_view((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [])}
 
 
 _town_live_cache: dict = {'at': 0.0, 'v': None, 'lock': None}
@@ -8366,146 +7486,6 @@ class WorldAct(BaseModel):
     mint: str = Field(default='', max_length=44)
 
 
-@app.post('/api/reputation/familia-world/act')
-async def familia_world_act(p: WorldAct):
-    """🗺 buy · sell · move · raid · attack · defend · errand · challenge · reward · redeem — points only. Don / Underboss buy, sell, move, raid
-    and spend on rewards; any member runs errands; the raid's sender makes the attack moves, any member of the target answers."""
-    import crews as _cr
-    me = _session_or_401(p.address, p.session); now = time.time(); res_ = None
-    cartels_ = await asyncio.to_thread(_cartels_now, now)
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
-        me = _seat_of(st, me); c = _cr.crew_of(st, me)
-        if not c:
-            raise HTTPException(404, 'Join a family first.')
-        w = st.setdefault('world', _fworld.blank())
-        _world_tick(st, w, now)
-        _fworld.ensure_home(w, c['id'])
-        staff_ = _is_staff(me)
-        boost_, rk_ = _city_ctx(c, me, now)
-        city = _fcity.accrue(_fcity.city_of(c, now), now, boost_)
-        boss = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
-        m = c.setdefault('world', {})
-        lv = {}
-        for l in city['lots'].values():
-            lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
-        try:
-            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem', 'link', 'unlink', 'billboard') and not boss:
-                raise ValueError('Only the Don or the Underboss does that.')
-            if p.act == 'fund':   # 💡 keep a turf block ACTIVE: any member from their own points, the Don / Underboss from the bank
-                up_ = int(_familia_rules().get('upkeepMp') or _fworld.UPKEEP_MP) or _fworld.UPKEEP_MP
-                if p.source == 'bank':
-                    if not boss:
-                        raise ValueError('Only the Don or the Underboss spends the bank.')
-                    take_, hrs_ = _fworld.fund_block(w, c['id'], p.block, min(p.mp, int(city['bank'])), now, up_)
-                    city['bank'] -= take_
-                else:
-                    pm_ = m.setdefault('pts', {}); have_ = int(pm_.get(me) or 0)
-                    take_, hrs_ = _fworld.fund_block(w, c['id'], p.block, min(p.mp, have_), now, up_)
-                    pm_[me] = have_ - take_
-                res_ = {'fund': {'block': p.block, 'mp': take_, 'hours': hrs_, 'state': 'active'}}
-            elif p.act in ('link', 'unlink'):   # 🏦 set a held building to a real pool from the Pool Hub (display only, no funds)
-                row_ = None
-                if p.act == 'link':
-                    hub_ = (_fpl_cache.get('v') or {}).get('pools') or []
-                    row_ = next((r for r in hub_ if r['id'] == p.pool), None)
-                    if not row_:
-                        raise ValueError('That pool is not in the hub right now — refresh the Pool Hub.')
-                    row_ = _fpl.link_row(row_)
-                res_ = {'link': _fworld.link_block(w, c['id'], p.block, row_)}
-            elif p.act == 'billboard':   # 📺 a 24 h billboard slot from the family bank (Don / Underboss)
-                city['bank'] -= _fworld.billboard(w, {'id': c['id'], 'tag': c.get('tag')}, city['bank'], p.text, p.mint, now)
-                res_ = {'billboard': True}
-            elif p.act == 'buy':
-                city['bank'] -= _fworld.buy_block(w, c['id'], city['bank'], p.block, staff_)
-            elif p.act == 'sell':
-                city['bank'] += _fworld.sell_block(w, c['id'], p.block)
-            elif p.act == 'move':
-                city['bank'] -= _fworld.relocate(w, c['id'], city['bank'], p.block, 0.05 * lv.get('gas', 0), staff_)
-            elif p.act == 'raid':
-                if float(m.get('shieldUntil') or 0) > now:
-                    m['shieldUntil'] = 0      # raiding drops your own truce flag
-                t, bor, kind, stash = _world_target(st, w, p.vs, now, cartels_)
-                if kind == 'family' and float(((st['crews'].get(p.vs) or {}).get('world') or {}).get('shieldUntil') or 0) > now:
-                    raise ValueError('They are under a truce flag right now.')
-                if kind == 'family' and _fworld.newcomer_shielded(st['crews'].get(p.vs), now):
-                    raise ValueError('That family is new: it cannot be raided for its first 24 hours.')
-                if not staff_ and not _fworld.can_raid(w, c['id'], bor, kind, lv.get('docks', 0)):   # ⚖ cartels: from any city
-                    raise ValueError('Out of reach — hold a block in that borough or one bridge away (docks add reach).')
-                hit = [r['lvl'] for r in _fcity.ready(city, now, 'hitter')]
-                rank = 'don' if (staff_ or me == c.get('owner')) else rk_.get(me, 'soldier')
-                rounds = 2 + lv.get('tower', 0) // 3
-                res_ = _fworld.raid_view(_fworld.start(w, {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name')}, t, me, rank, hit, stash, now,
-                                                       rounds, kind), 'a')
-            elif p.act in ('attack', 'defend'):
-                r = w['raids'].get(p.raid)
-                if not r:
-                    raise ValueError('No such raid.')
-                if p.act == 'attack':
-                    if r['a']['id'] != c['id'] or (r['sender'] != me and not boss):
-                        raise ValueError('Only the member who led the raid moves.')
-                    _fworld.attack(r, p.kind, p.lot, now)
-                    if r['kind'] in ('cpu', 'cartel'):
-                        _fworld.tick(r, now)
-                else:
-                    if r['b']['id'] != c['id']:
-                        raise ValueError('That raid is not on your block.')
-                    _fworld.defend(r, p.kind, p.lot, now)
-                _world_settle(st, w, r, now)
-                res_ = _fworld.raid_view(r, 'a' if p.act == 'attack' else 'b')
-            elif p.act == 'errand':
-                cd = m.setdefault('errandAt', {}).setdefault(me, {})
-                mp, pts, _n = _fworld.errand(lv, cd, p.kind, now, _fcity.rate(city, boost_, now))
-                city['bank'] += mp
-                city['mpEver'] = city.get('mpEver', 0) + mp
-                m['errands'] = int(m.get('errands') or 0) + 1
-                pm_ = m.setdefault('pts', {}); pm_[me] = int(pm_.get(me) or 0) + pts   # setdefault FIRST: the right side ran before it and raised KeyError on a family's first errand
-                res_ = {'mp': mp, 'pts': pts}
-            elif p.act == 'challenge':
-                done = m.setdefault('done', [])
-                row = _fworld.claim_challenge(p.kind, _world_metrics(st, c, now), done)
-                done.append(row['key'])
-                city['crew'].append({'id': city['nextId'], 'k': row['recruit']['k'], 'lvl': row['recruit']['lvl'], 'xp': 0.0, 'hurt': 0, 'special': row['key']})
-                city['nextId'] += 1
-                city['bank'] += row['mp']
-                res_ = {'recruit': row['recruit'], 'mp': row['mp']}
-            elif p.act == 'reward':
-                cost = 0 if staff_ else _fworld.reward(p.kind, city['bank'])
-                if p.kind not in _fworld.REWARDS:
-                    raise ValueError('No such reward.')
-                city['bank'] -= cost
-                if p.kind == 'rush':
-                    m['rushUntil'] = max(now, float(m.get('rushUntil') or 0)) + 3600
-                elif p.kind == 'shield':
-                    m['shieldUntil'] = max(now, float(m.get('shieldUntil') or 0)) + 7200
-                elif p.kind.startswith('title-'):
-                    m.setdefault('titles', {})[me] = _fworld.REWARDS[p.kind][0].split(': ', 1)[-1]
-                elif p.kind == 'badge-boost':
-                    m['glowUntil'] = now + 86400
-                elif p.kind == 'season':
-                    m.setdefault('pts', {})[me] = int(m.setdefault('pts', {}).get(me) or 0) + 500
-                res_ = {'reward': p.kind, 'cost': cost}
-            elif p.act == 'redeem':
-                if me != c.get('owner') and not staff_:
-                    raise ValueError('Only the Don files a redeem.')
-                spend, fc = _fworld.redeem_feecat(int(city['bank']), _world_feecat_rate())
-                city['bank'] -= spend
-                rq = {'id': f"rd{int(now)}", 'cid': c['id'], 'tag': c.get('tag'), 'by': me, 'mp': spend, 'feecat': fc, 'at': now, 'status': 'pending'}
-                st['redeems'] = ([rq] + (st.get('redeems') or []))[:200]
-                for ow_ in _owner_wallets():
-                    try:
-                        notify(ow_, 'familia', f"🎁 {c.get('tag')} filed a redeem: {spend:,} MP → {fc:,} FEECAT — pay it by hand", push=False)
-                    except Exception:
-                        pass
-                res_ = rq
-            else:
-                raise ValueError('Unknown city action.')
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        v = _world_view(st, c, me, now, cartels_)
-        _json_save(CREWS_PATH, st)
-    _crew_cache['data'] = None
-    return {**v, 'result': res_}
 
 
 # 🎯 STRIKE ZONE (arena.py, owner 2026-10-27: "a third-person shooter instead of the raceway — bots or online, real levelling + gun customisation"):
@@ -8850,23 +7830,6 @@ async def _fpl_fetch():
     return ll, tr + nw
 
 
-@app.get('/api/reputation/familia-pools')
-async def familia_pools():
-    """🏦 The Pool Hub: every top + rising Solana pool (v2 · v3 · DLMM · vaults · lending · staking · perps · RWA) with TVL / APY / 7-day move,
-    each with its exact deposit page and, for DEX pools, the exact pool for our war room; + each outer city's real-money district. ≤ 10 min old."""
-    now = time.time(); c = _fpl_cache
-    if c['v'] and now - c['at'] < FPL_SEC:
-        return c['v']
-    if c['lock'] is None:
-        c['lock'] = asyncio.Lock()
-    async with c['lock']:
-        if c['v'] and now - c['at'] < FPL_SEC:
-            return c['v']
-        ll, pairs = await _fpl_fetch()
-        v = _fpl.hub(ll, pairs, now)
-        if v['pools'] or not c['v']:   # a failed read keeps the last good hub
-            c.update(at=now, v=v)
-        return c['v']
 import sleep_money as _slm
 _slm_cache = {'at': 0.0, 'km': None}
 
@@ -8949,56 +7912,10 @@ class CatModelLimitIn(BaseModel):
     session: str = ''
 
 
-@app.post('/api/reputation/cats/model-limit')
-async def cat_model_limit(p: CatModelLimitIn):
-    me = session_address(p.session)
-    maximum = max(1, min(8, int(_fee_cfg().get('catMaxModels', 3))))
-    staff = bool(me and _is_staff(me))
-    usd = (await _perk_tier(me))[1] if me and not staff else 0
-    return {'maxModels': 8 if staff else min(maximum, 3 if usd >= 100 else 2), 'staff': staff}
 
 
 
 
-@app.post('/api/reputation/cats/{cat_id}/fund')
-async def cat_fund_build(cat_id: str, p: CatFundIn):
-    """💵 FUND A CAT (cat_fund.py, DECISIONS #2): the receipt + ONE unsigned transaction — the one-time FEELESS fee ($2, first funding only)
-    to the FEELESS fee wallet and the rest to the cat's own wallet. Your wallet signs it; /fund/send sends only that exact transaction."""
-    me = session_address(p.session)
-    if not me or me != p.address:
-        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
-    if p.token not in ('SOL', 'USDC') or p.creditUsd < 0 or p.creditUsd > p.usd:
-        raise HTTPException(400, 'Pay in SOL or USDC, and split no more than the amount.')
-    cat, w = await _cat_for_fund(cat_id, me)
-    if p.creditUsd and not cat.get('brainsCfg'):
-        raise HTTPException(400, 'This agent runs no paid models.')
-    rules_ = _cat_fund_rules(me)
-    free_credit = bool(rules_.get('staff')) and (cat.get('brainsCfg') or {}).get('kind') != 'general'   # 🧭 a general agent's credit is always real money (owner 2026-10-31)
-    first = _deposit.is_first(cat)
-    try:
-        dq = _deposit.quote(p.usd, first, bool(rules_.get('staff')), rules_.get('depositPct', _deposit.RATE_PCT), rules_.get('minUsd', _deposit.FIRST_MIN_USD))   # 💵 all of it to the Collective wallet
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    need_fee = dq['ratePct'] > 0
-    colony_w = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address') if need_fee else ''
-    if need_fee and not colony_w:
-        raise HTTPException(503, 'The Pool wallet is not open yet, so deposits are paused. Nothing was charged.')
-    async with httpx.AsyncClient(timeout=10) as http:
-        try:
-            pl = _deposit.apply(_cfund.plan(p.usd, await _sol_usd(), False, fee_usd=0, min_usd=_cfund.TOPUP_MIN_USD, token=p.token, credit_usd=p.creditUsd, free_credit=free_credit, credit_to_wallet=True), dq)
-            if not pl['totalLamports']:   # a creator's credit alone: nothing to pay or sign
-                await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
-                                      json={'action': 'agent_funded', 'sig': f'creator-{uuid.uuid4().hex[:16]}', 'result': 'confirmed', 'amount': {'token': pl['token'], 'usd': pl['usd'], 'creditUsd': pl['creditUsd'], 'feeUsd': 0, 'catLamports': 0, 'feeLamports': 0, 'solUsd': pl['solUsd']}})
-                return {'plan': pl, 'granted': True}
-            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-            tx = _cfund.build(me, w['address'], w['address'], pl, bh, colony_w)
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    now = time.time()
-    for k_ in [k_ for k_, v_ in _cfund_plans.items() if now - v_['at'] > _cfund.PLAN_SEC]:
-        _cfund_plans.pop(k_, None)
-    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'colonyWallet': colony_w, 'first': first}
-    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'colonyWallet': colony_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
 
 
 class CatWithdrawIn(BaseModel):
@@ -9012,105 +7929,8 @@ class CatWithdrawIn(BaseModel):
 _cat_out_busy: set = set()
 
 
-@app.post('/api/reputation/cats/{cat_id}/withdraw')
-async def cat_withdraw(cat_id: str, p: CatWithdrawIn):
-    """↩ REAL WITHDRAW: SOL or USDC from the agent's own wallet back to its owner's wallet, and nowhere else. Your wallet's session proves it is you; Circle signs; a send the network refuses moves nothing."""
-    me = session_address(p.session)
-    if not me or me != p.address:
-        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
-    if p.token not in ('SOL', 'USDC') or p.amount < 0:
-        raise HTTPException(400, 'Withdraw SOL or USDC.')
-    cat, w = await _cat_for_fund(cat_id, me)
-    if time.time() < float(cat.get('recoveredAt') or 0) + 72 * 3600:   # 🔑 after a recovery its wallet cannot pay out for 3 days: a stolen phrase can't empty it at once
-        raise HTTPException(423, 'This agent was recovered in the last 3 days. Its wallet can pay out after that.')
-    if w.get('provider') != 'circle' or w.get('circleAcct') != 'agent' or not w.get('circleId'):
-        raise HTTPException(400, 'Withdrawals work on its Circle wallet.')
-    if cat_id in _cat_out_busy:
-        raise HTTPException(409, 'A withdrawal is already on its way.')
-    _cat_out_busy.add(cat_id)
-    try:
-        async with httpx.AsyncClient(timeout=15) as http:
-            if p.token == 'SOL':
-                have = int(((await _rpc(http, 'getBalance', [w['address'], {'commitment': 'confirmed'}])) or {}).get('value') or 0) - _cfund.FEE_RESERVE; scale = _cfund.LAMPORTS
-            else:
-                try:
-                    have = int((((await _rpc(http, 'getTokenAccountBalance', [str(_cfund.ata(w['address'])), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
-                except Exception:
-                    have = 0
-                scale = _cfund.USDC_UNITS
-            units = have if not p.amount else int(p.amount * scale)
-            if units <= 0 or units > have:
-                raise HTTPException(400, f'It has {max(0, have) / scale:.6g} {p.token} available.')
-            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-            try:
-                tx = _cfund.build_out(w['address'], w['owner'], p.token, units, bh)
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            signed_ = await _circle('POST', '/sign', {'walletId': w['circleId'], 'rawTransaction': tx, 'memo': f'FEELESS withdraw {cat_id[:20]}'}, agent=True)
-            sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
-            if not signed_.get('signedTransaction') or not sig_:
-                raise HTTPException(502, 'Circle did not sign it. Nothing moved.')
-            try:
-                await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
-            except HTTPException:
-                raise
-            except Exception as e:
-                raise HTTPException(400, f'The network refused it, nothing moved: {str(e)[:160]}')
-    finally:
-        _cat_out_busy.discard(cat_id)
-    try:
-        await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
-                              json={'action': 'agent_withdrew', 'sig': sig_, 'amount': {'amount': units / scale, 'token': p.token}})
-    except Exception as e:
-        print(f'[cat withdraw] record {cat_id}: {e}')
-    return {'signature': sig_, 'amount': units / scale, 'token': p.token, 'to': w['owner']}
 
 
-@app.post('/api/reputation/cats/{cat_id}/fund/send')
-async def cat_fund_send(cat_id: str, p: CatFundIn):
-    """💵 Send the signed funding: it must be EXACTLY the transaction /fund built for this owner (one use — never a resubmit), then confirm it
-    on-chain and tell the cat service (its `agentFunded` record: the first funding paid the fee)."""
-    me = session_address(p.session)
-    if not me or me != p.address:
-        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
-    rec = _cfund_plans.pop(f'{cat_id}:{me}', None)
-    if not rec or time.time() - rec['at'] > _cfund.PLAN_SEC:
-        raise HTTPException(409, 'That receipt expired — build a fresh one (prices move).')
-    try:
-        sig = _cfund.verify(p.signed, rec['tx'], me)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    async with httpx.AsyncClient(timeout=15) as http:
-        try:
-            await _rpc(http, 'sendTransaction', [p.signed, {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
-        except Exception as e:
-            raise HTTPException(400, f'The network refused it — nothing moved: {str(e)[:160]}')
-        ok = None
-        for _i in range(20):
-            await asyncio.sleep(1.5)
-            try:
-                st_ = (((await _rpc(http, 'getSignatureStatuses', [[sig]])) or {}).get('value') or [None])[0]
-            except Exception:
-                st_ = None
-            if st_ and st_.get('err'):
-                ok = False; break
-            if st_ and st_.get('confirmationStatus') in ('confirmed', 'finalized'):
-                ok = True; break
-    if ok is False:
-        raise HTTPException(400, f'It failed on-chain — nothing moved ({sig[:10]}…).')
-    pl = rec['plan']
-    if ok is True:   # only a confirmed on-chain transfer buys model credit or pays the first fee
-        if pl.get('colonyLamports'):   # 🪙 it landed: the Pool ledger counts it, once
-            try:
-                _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'deposit:{sig}', pl.get('token') or 'SOL', pl['colonyLamports'], 'deposit' if rec.get('first') else 'topup'))
-            except Exception as e:
-                print(f'[pool] deposit {sig[:10]}: {e}')
-        try:
-            await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
-                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'creditUsd': pl.get('creditUsd'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'deposit': pl.get('deposit'), 'colonyLamports': pl.get('colonyLamports'), 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
-        except Exception as e:
-            print(f'[cat fund] record {cat_id}: {e}')
-    return {'state': 'confirmed' if ok else 'submitted', 'signature': sig, 'plan': pl}
 
 
 import price_gap as _pgap
@@ -9187,50 +8007,6 @@ _fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
 _fle_hits = _HITS('fle')   # ip → [times] (the deposit builder: 30 an hour per IP)
 
 
-@app.post('/api/reputation/familia-pools/earn')
-async def familia_pools_earn(request: Request):
-    """🏦 Deposit / withdraw in a Jupiter Lend market WITHOUT leaving FEELESS: Jupiter builds the unsigned transaction, `lend_earn.verify`
-    opens it (the user pays + signs alone, only Jupiter Lend + Solana's own programs) and only then hands it back for the wallet to sign.
-    FEELESS never holds funds and never signs. The market must be a Jupiter Lend row on the Pool Hub."""
-    import lend_earn as _le
-    body = await request.json()
-    try:
-        side_, asset_, signer_, amt_ = _le.clean_request(body)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    if side_ != 'withdraw':   # ⚖ LEGAL-1 (d): a withdraw is an exit, never held
-        _legal_hold(signer_, 'perps', request)
-    if not await _ip_hit(_fle_hits, request, 30, 3600):
-        raise HTTPException(429, 'Too many deposit builds from here — try again in a while.')
-    hub_ = await familia_pools()
-    row_ = next((r_ for r_ in (hub_ or {}).get('pools') or [] if r_.get('project') == 'jupiter-lend' and asset_ in (r_.get('mints') or [])), None)
-    if not row_:
-        raise HTTPException(400, 'Only Jupiter Lend markets on the Pool Hub can be deposited from here.')
-    dec_ = await _mint_decimals(asset_)
-    units_ = _le.base_units(amt_, dec_) if dec_ is not None else None
-    if not units_:
-        raise HTTPException(400, 'Type an amount above zero.')
-    hosts_ = [(_le.EARN, {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [(_le.EARN_PUBLIC, {})]   # a key at its limit never blocks a deposit
-    why_ = 'Jupiter did not answer.'
-    for base_, hdr_ in hosts_:
-        try:
-            r_ = await _ai_http().post(f"{base_}/{side_}", json={'asset': asset_, 'signer': signer_, 'amount': units_}, headers=hdr_, timeout=12)
-        except Exception:
-            continue
-        if r_.status_code == 429:
-            why_ = 'Jupiter is busy right now — try again in a minute.'
-            continue
-        tx_ = (r_.json() or {}).get('transaction') if r_.status_code == 200 else None
-        if not tx_:
-            why_ = f"Jupiter refused it: {str((r_.json() if r_.headers.get('content-type', '').startswith('application/json') else {}).get('error') or r_.status_code)[:120]}"
-            continue
-        ok_, bad_, progs_ = _le.verify(tx_, signer_)
-        if not ok_:
-            print('lend earn refused:', bad_, progs_)
-            raise HTTPException(502, f"Refused before your wallet saw it: {bad_}")
-        return {'transaction': tx_, 'side': side_, 'asset': asset_, 'units': units_, 'decimals': dec_, 'sym': row_.get('sym'), 'apy': row_.get('apy'),
-                'programs': sorted({_le.ALLOW[p_] for p_ in progs_})}
-    raise HTTPException(503, why_)
 
 
 _flv_hits = _HITS('flv')     # ip → [times] (the leverage builder: 30 an hour per IP)
@@ -9298,40 +8074,6 @@ _fjp_lead: dict = {}   # asset → (at, leaders) — Jupiter's weekly top trader
 
 
 
-@app.post('/api/reputation/familia/perps-real')
-async def familia_perps_real_build(request: Request):
-    """📉 Open (increase) or close (decrease the entire position, paid out in USDC) a Jupiter Perps position: Jupiter builds it with its own
-    quote (entry, liquidation, fees), `jup_perps.verify` opens it, the wallet signs it next."""
-    import jup_perps as _jp
-    body = await request.json()
-    if not await _ip_hit(_fjp_hits, request, 60, 3600):
-        raise HTTPException(429, 'Too many perps builds from here — try again in a while.')
-    act_ = str((body or {}).get('act') or 'open')
-    if act_ != 'close' and not act_.startswith('tpsl-'):   # ⚖ LEGAL-1 (d): anything that builds an open is checked; closing / TP-SL are exits
-        _legal_hold((body or {}).get('address') or (body or {}).get('wallet'), 'perps', request)
-    meth_, exec_ = 'POST', None
-    try:
-        if act_.startswith('tpsl-'):
-            meth_, path_, req_, exec_ = _jp.tpsl_body(body)
-            what_ = {'act': act_}
-        elif act_ == 'close':
-            req_, what_, path_ = _jp.close_body(body), {'act': 'close', 'pct': _jp._f(body.get('pct')) or 100}, 'positions/decrease'
-        else:
-            req_, what_ = _jp.clean_open(body, await _sol_usd() if str((body or {}).get('input') or '').upper() == 'SOL' else None)
-            path_ = 'positions/increase'
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    c_, b_ = await _jp_call(meth_, path_, json=req_)
-    tx_ = (b_ or {}).get('serializedTxBase64') if c_ == 200 else None
-    if not tx_:
-        raise HTTPException(400 if c_ in (400, 422) else 502, f"Jupiter said no: {str((b_ or {}).get('message') or c_)[:160]}")
-    ok_, bad_ = _jp.verify(tx_, str((body or {}).get('address') or ''))
-    if not ok_:
-        print('perps refused:', bad_)
-        raise HTTPException(502, f'Refused before your wallet saw it: {bad_}')
-    return {'transaction': tx_, 'action': exec_ or ('decrease-position' if act_ == 'close' else 'increase-position'), 'quote': (b_ or {}).get('quote') or {},
-            'positionPubkey': (b_ or {}).get('positionPubkey'), 'tpsl': [{'kind': r_.get('requestType'), 'pnl': _jp._usd(r_.get('estimatedPnlUsd')),
-            'pnlPct': _jp._f(r_.get('estimatedPnlPercent'))} for r_ in (b_ or {}).get('tpslRequests') or []], **what_}
 
 
 _fjx_hits = _HITS('fjx')
@@ -9416,92 +8158,11 @@ async def _autorange_boot():
     asyncio.create_task(_autorange_watch())
 
 
-@app.get('/api/reputation/familia-pools/ranges')
-async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str = Query('', max_length=64), top: int = 0, reads: int = 0):
-    """🤖 The concentrated pools AutoRange can really open in — Raydium CLMM + Meteora DLMM, read from each venue's own API (fees ÷ TVL over 24h,
-    fee tier, tick spacing / bin step). `mint` = the pools holding that token (deepest first); `top=1` = the busiest fee payers right now."""
-    import range_pools as _rp
-    ray_ = lambda d_: _rp.raydium(((d_ or {}).get('data') or {}).get('data') or [])
-    met_ = lambda d_: _rp.meteora((d_ or {}).get('data') or [])
-    orc_ = lambda d_: _rp.orca((d_ or {}).get('data') or [])
-    if reads:   # 🐋 reads=1: the pool lists that only read also show Orca. AutoRange's own picker never asks for it, because it cannot open there
-        q_ = {'size': 50, 'sortBy': 'volume24h', 'sortDirection': 'desc'} if top else {'size': 10, 'token': mint, 'sortBy': 'tvl', 'sortDirection': 'desc'}
-        extra_ = await _rng_get('orca:top' if top else f'orca:{mint}', 'https://api.orca.so/v2/solana/pools', q_, orc_) if top or 32 <= len(mint) <= 44 else []
-    else:
-        extra_ = []
-    if top:
-        a_, b_ = await asyncio.gather(
-            _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 100, 'page': 1}, ray_),
-            _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 100, 'sort_by': 'volume_24h:desc'}, met_))
-        seen_ = _rp.busiest(a_ + b_ + extra_, 30); deep_ = sorted(a_ + b_ + extra_, key=lambda r_: -r_['tvl'])[:15] if reads else []   # the lists that only read also get the deepest, not just the busiest
-        return {'pools': seen_ + [r_ for r_ in deep_ if r_ not in seen_], 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
-    if not 32 <= len(mint) <= 44:
-        raise HTTPException(400, 'A token mint, or top=1.')
-    a_, b_ = await asyncio.gather(
-        _rng_get(f'ray:{mint}', 'https://api-v3.raydium.io/pools/info/mint', {'mint1': mint, 'poolType': 'concentrated', 'poolSortField': 'liquidity', 'sortType': 'desc', 'pageSize': 10, 'page': 1}, ray_),
-        _rng_get(f'met:{mint}', 'https://dlmm.datapi.meteora.ag/pools', {'query': mint, 'page_size': 10}, met_))
-    return {'pools': _rp.for_token(a_ + b_ + extra_, mint, quote or None)[:8], 'at': round(time.time())}
-
-
-@app.get('/api/reputation/familia-pools/run')
-async def familia_pools_run(address: str = ''):
-    """💵 THE $5 RUN: the two Jupiter Lend Earn doors (USDC · SOL, live APY) + the wallet's own deposits in them — what each is worth NOW
-    (on-chain, compounding every block) and Jupiter's own earnings count. Deposits / withdrawals go through /familia-pools/earn."""
-    import lend_earn as _le
-    if time.time() - _frun_tok.get('at', 0) > 60 or not _frun_tok.get('rows'):
-        code_, b_ = await _jl_lend('GET', 'earn/tokens')
-        rows_ = _le.run_assets(b_) if code_ == 200 else []
-        if rows_:
-            _frun_tok.update(at=time.time(), rows=rows_)
-    assets_ = _frun_tok.get('rows') or []
-    pos_ = []
-    if assets_ and 32 <= len(address or '') <= 44:
-        code_, b_ = await _jl_lend('GET', 'earn/positions', params={'users': address})
-        live_ = _le.run_positions(b_, assets_) if code_ == 200 else []
-        earned_ = {}
-        for r_ in await asyncio.gather(*[_jl_lend('GET', 'earn/earnings', params={'user': address, 'positions': p_['jl']}) for p_ in live_]):
-            row_ = (r_[1] or [None])[0] if r_[0] == 200 and isinstance(r_[1], list) else None
-            if isinstance(row_, dict):
-                earned_[row_.get('address')] = row_.get('earnings')
-        pos_ = _le.run_positions(b_, assets_, earned_) if live_ else []
-    return {'assets': assets_, 'positions': pos_, 'minUsd': _le.RUN_MIN_USD, 'at': time.time()}
 
 
 
-@app.post('/api/reputation/familia/leverage')
-async def familia_leverage_build(request: Request):
-    """⚡ Open (lock + borrow) or close (repay all + withdraw all) a Jupiter Lend position WITHOUT leaving FEELESS: Jupiter builds the
-    unsigned transaction, `lend_borrow.verify` opens it (the user pays + signs alone, only Jupiter Lend + Solana's own programs) and only
-    then hands it back for the wallet to sign. FEELESS never holds the collateral, the loan or a key."""
-    import lend_borrow as _lb
-    body = await request.json()
-    try:
-        act_, signer_, vid_, pid_, col_, lev_ = _lb.clean_request(body)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    if act_ != 'close':   # ⚖ LEGAL-1 (d): repaying + unlocking is an exit, never held
-        _legal_hold(signer_, 'perps', request)
-    if not await _ip_hit(_flv_hits, request, 30, 3600):
-        raise HTTPException(429, 'Too many leverage builds from here — try again in a while.')
-    m_ = next((r_ for r_ in await _jl_markets() if r_['vaultId'] == vid_), None)
-    if not m_:
-        raise HTTPException(400, 'Only the SOL · BTC · JUP leverage markets open from here.')
-    plan_ = None
-    if act_ == 'open':
-        try:
-            plan_ = _lb.plan(m_, col_, lev_)
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    code_, b_ = await _jl_borrow('POST', 'operate', json=_lb.body_for(act_, signer_, vid_, pid_, plan_))
-    tx_ = (b_ or {}).get('transaction') if code_ == 200 else None
-    if not tx_:
-        raise HTTPException(503 if code_ in (429, 503) else 502, f"Jupiter refused it: {str((b_ or {}).get('error') or (b_ or {}).get('message') or code_)[:120]}")
-    ok_, bad_, progs_ = _lb.verify(tx_, signer_)
-    if not ok_:
-        print('leverage refused:', bad_, progs_)
-        raise HTTPException(502, f"Refused before your wallet saw it: {bad_}")
-    return {'transaction': tx_, 'act': act_, 'nftId': (b_ or {}).get('nftId') or pid_, 'vaultId': vid_, 'coin': m_['coin'], 'plan': plan_,
-            'programs': sorted({_lb.ALLOW[p_] for p_ in progs_})}
+
+
 
 
 _fmk_http = None
@@ -9599,92 +8260,6 @@ class FamFuseAct(BaseModel):
     amount: int = Field(default=0, ge=0, le=10_000_000)
 
 
-@app.post('/api/reputation/familia-fuse/act')
-async def familia_fuse_act(p: FamFuseAct):
-    """⚔ challenge · accept · decline · cancel · bid. Don / Underboss challenge, accept, decline and cancel; any family member bids their
-    own points. Points only."""
-    import crews as _cr
-    me = _session_or_401(p.address, p.session); now = time.time()
-    st0 = _json_load(CREWS_PATH, {}); c0 = _cr.crew_of(st0, me)
-    if not c0:
-        raise HTTPException(404, 'Join a family first.')
-    pre = {}
-    if p.act == 'accept':   # 🔔 the bell needs live prices for both cards — fetched before the lock
-        f0 = (((st0.get('world') or {}).get('ffuse') or {}).get(p.fight)) or {}
-        mine_ = next((x for x in _ffuse_cards(st0, c0) if x['key'] == p.card), None)
-        if f0 and mine_:
-            pre['card'] = mine_
-            pre['px'] = await _ffuse_prices([f0['a']['card'], mine_])
-    async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); _cr._norm(st); me = _seat_of(st, me); c = _cr.crew_of(st, me)
-        if not c:
-            raise HTTPException(404, 'Join a family first.')
-        w = st.setdefault('world', _fworld.blank()); store = w.setdefault('ffuse', {})
-        staff_ = _is_staff(me); boost_, rk_ = _city_ctx(c, me, now)
-        boss = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
-        city = _fcity.city_of(c, now); min_mp = _familia_rules()['fuseMinMp']
-        def me_(o):
-            r_ = int(((o.get('world') or {}).get('fuseElo')) or _ffuse.ELO0)
-            b_ = o.get('badge') or {}
-            lum_ = lambda h_: sum(int(str(h_)[i_:i_ + 2], 16) * w_ for i_, w_ in ((1, .299), (3, .587), (5, .114))) if isinstance(h_, str) and len(h_) == 7 else -1
-            col_ = max((b_.get(k_) for k_ in ('c1', 'c2', 'c3')), key=lum_, default=None) if b_ else None   # the family's brightest colour (a black c1 vanishes on the board)
-            return {'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'color': col_ if lum_(col_) > 60 else None, 'rating': r_, 'bracket': _ffuse.bracket(r_)[1]}
-        try:
-            if p.act == 'challenge':
-                _ffuse.may_run(p.stake, boss)   # 🎖 any member calls a PAPER fight; the bank (MP) stays the Don's / Underboss's
-                o = (st.get('crews') or {}).get(p.vs)
-                if not o:
-                    raise ValueError('No such family.')
-                card = next((x for x in _ffuse_cards(st, c) if x['key'] == p.card), None)
-                if not card:
-                    raise ValueError('Pick one of your family\'s Fuse cards (build one in the Fuse tab).')
-                f, hold = _ffuse.challenge(store, f"ff{int(now * 1000) % 10**10}", me_(c), me_(o), card, p.stake, p.mp, p.mins, now, city['bank'], min_mp)
-                f.update(ranked=_ffuse.ranked(f['a']['rating'], f['b']['rating']), by=me, byName=_display_name(me))
-                city['bank'] -= hold
-                for m_ in o.get('members') or []:
-                    a_ = m_.get('address') if isinstance(m_, dict) else m_
-                    try:
-                        notify(a_, 'familia', f"⚔ [{c.get('tag')}] called your family out to a Family Fuse ({p.stake.upper()}{f' · {hold:,} MP' if hold else ''}) — answer in Fee City", push=False)
-                    except Exception:
-                        pass
-                res_ = _ffuse.view(f, now)
-            elif p.act == 'accept':
-                f = store.get(p.fight)
-                if not f or f['b']['id'] != c['id']:
-                    raise ValueError('No such challenge for your family.')
-                if not pre.get('card'):
-                    raise ValueError('Pick one of your family\'s Fuse cards.')
-                _ffuse.may_run(f['stake'], boss)
-                hold = _ffuse.accept(f, pre['card'], now, city['bank'], min_mp)
-                prices, liqs = pre['px']
-                books = {s_: _ffuse_book(f, s_, prices, liqs, now) for s_ in ('a', 'b')}
-                if not all(books.values()):
-                    f.update(status='open', bell_at=None, ends=None); f['b']['card'] = None
-                    raise ValueError('Live prices for one of the cards are not answering — try again in a minute.')
-                city['bank'] -= hold
-                f['books'] = books; f['bell'] = {s_: _pgb.seat_prices(books[s_], prices) for s_ in ('a', 'b')}
-                res_ = _ffuse.view(f, now)
-            elif p.act in ('decline', 'cancel'):
-                f = store.get(p.fight)
-                if not f or f['status'] != 'open' or (p.act == 'decline' and f['b']['id'] != c['id']) or (p.act == 'cancel' and f['a']['id'] != c['id']):
-                    raise ValueError('No such open challenge.')
-                if not boss and not (p.act == 'cancel' and f.get('by') == me) and f['stake'] == 'mp':
-                    raise ValueError('Only the Don, the Underboss or whoever called it can cancel it.')
-                f.update(status='expired', endAt=now); _ffuse_pay(st, f, now); res_ = _ffuse.view(f, now)
-            elif p.act == 'bid':
-                f = store.get(p.fight)
-                if not f:
-                    raise ValueError('No such fight.')
-                pm = c.setdefault('world', {}).setdefault('pts', {})
-                take = _ffuse.bid(f, me, p.side, p.amount, int(pm.get(me) or 0), now, c['id'])
-                pm[me] = int(pm.get(me) or 0) - take
-                res_ = _ffuse.view(f, now)
-            else:
-                raise ValueError('Unknown Family Fuse action.')
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        _json_save(CREWS_PATH, st)
-    return {'result': res_, **_ffuse_view(st, c, now)}
 
 
 class CrewBadge(BaseModel):
@@ -9694,17 +8269,6 @@ class CrewBadge(BaseModel):
     signature: str = Field(default='', max_length=100)
 
 
-@app.get('/api/reputation/crews/badge/catalog')
-async def crew_badge_catalog(address: str, session: str):
-    """🌹 The badge builder for MY family: every part with locked / unlocked from the family's TRACKED numbers + what the restyle costs."""
-    import crews as _cr
-    me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
-    if not c:
-        raise HTTPException(404, 'You are not in a family.')
-    met = _cr.family_metrics(c, st.get('awards'), _is_staff(c.get('owner')))
-    return {'metrics': met, 'metricWords': _cr.METRICS, 'parts': _cr.catalog(met, _crew_cfg()), 'colors': list(_cr.COLORS), 'mottoMax': _cr.MOTTO_MAX,
-            'adjust': {k: {'min': lo, 'max': hi, 'default': d} for k, (lo, hi, d) in _cr.ADJUST.items()},
-            'owner': c['owner'] == me, 'built': bool(c.get('badge')), 'restyleUsd': _crew_badge_usd(), 'free': _is_staff(me), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg(), _is_staff(c.get('owner')))}
 
 
 @app.post('/api/reputation/crews/badge')
@@ -12854,355 +11418,6 @@ async def _fuse_prime_build():
                            'moves': _om.summary(next((v for k, v in _json_load(OWNER_MOVES_PATH, {}).items() if isinstance(v, dict)), {}))}, 'renewed': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('renewed') or {}), 'scrapped': [{k: x.get(k) for k in ('tpl', 'at', 'label', 'text', 'valueUsd', 'putInUsd', 'rounds')} for x in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('scrapped') or [])[-12:]], 'cfg': _prime_cfg(), 'templates': _prime.TEMPLATES, 'weather': _real_weather(), 'suggest': _json_load(PG_SIM_PATH, {}).get('byClock') or {}, 'realGuard': _prime.real_guard({**_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), 'instantSwapPct': _fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('instantSwapPct'))}, (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or ())[1], 'paperMatch': _fw.paper_match(_fw_peek().get('quoteAudit')), 'locks': {k: v.get('lockedAt') for k, v in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}).items()}, 'lockCfg': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('locks') or {}), 'roundWinner': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('roundWinner'), 'realOwnerSet': (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realOwnerSet') or []}
 
 
-@app.post('/api/reputation/admin/arena/prime')
-async def fuse_prime_admin(request: Request):
-    """HQ › Arena: turn Prime on/off, set size, rotation (hours / coins), compound; reset deals 3 fresh cards."""
-    admin = _require_admin(request)
-    body = await request.json()
-    kick_real_keeper = False
-    _prime_resp_clear()   # an owner write is never answered from a cached /fuses/prime
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-        was = {t: (_prime.clean_cfg(pr.get('cfg') or {}).get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
-        was.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
-        inc = dict(body.get('cfg') or {})
-        tc = {t: dict(v) for t, v in (_prime.clean_cfg(pr.get('cfg') or {}).get('tierCfg') or {}).items()}
-        for t, row_ in (inc.pop('tierCfg', None) or {}).items() if isinstance(inc.get('tierCfg'), dict) else ():   # 🃏 one card's own exits
-            if t in tc and isinstance(row_, dict):
-                tc[t].update(row_)
-        for k_ in _prime.TIER_KEYS:   # 🃏 exits are each card's OWN: a shared edit never overwrites them (no "all cards at once")
-            inc.pop(k_, None)
-        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **inc, 'tierCfg': tc})
-        if isinstance(body.get('realCfg'), dict):   # 💵 the real card's own config (paper untouched); first edit copies today's paper config
-            base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr['cfg']
-            pr['realCfg'] = _prime.clean_cfg({**base, **body['realCfg']})
-            # 🪙 THE OWNER PICKS: every setting saved here is the owner's — the engine's self-fix never changes it afterwards
-            pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {k for k in body['realCfg'] if isinstance(k, str)})[:60]
-            # 🪜 switching the ladder ON starts a fresh climb (it sets every stage key); a setting tapped while it is on stays the owner's
-            if body['realCfg'].get('ladder') is True:
-                pr['ladderKeep'] = []
-            elif pr['realCfg'].get('ladder'):
-                pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | {k for k in body['realCfg'] if k != 'ladder'})[:60]
-        if body.get('lock') in _prime.TEMPLATES:   # 🔒 lock a tier's FULL config as it is now (engine, tunes and meta config never change it)
-            locks = dict(pr.get('locks') or {})
-            if isinstance(body.get('patch'), dict) and locks.get(body['lock']):   # ⚙ edit a LOCKED tier: change only its own frozen config
-                base = {k: v for k, v in locks[body['lock']].items() if k != 'lockedAt'}
-                locks[body['lock']] = {**_prime.clean_cfg({**base, **body['patch']}), 'lockedAt': time.time()}
-            elif body.get('on', True):
-                if not locks.get(body['lock']):   # locking keeps an existing lock as it is (never overwritten by the shared config)
-                    locks[body['lock']] = {**_prime.clean_cfg(_prime.tier_cfg(pr['cfg'], body['lock'])), 'lockedAt': time.time()}   # its OWN exits + clock
-            else:
-                locks.pop(body['lock'], None)
-            pr['locks'] = locks
-        now_c = {t: (pr['cfg'].get('cycles') or {}).get(t) for t in _prime.TEMPLATES}
-        now_c.update({t: (l.get('cycles') or {}).get(t) for t, l in (pr.get('locks') or {}).items()})
-        for t, cards_ in [(t, pr.get('cards') or {}) for t in _prime.TEMPLATES if now_c.get(t) != was.get(t) and t in (pr.get('cards') or {})]:
-            cards_[t] = _prime.owner_cycle(cards_[t], now_c[t], time.time())   # 🎛 the owner's new cycle beats any auto safe / rescue fix
-        hd = body.get('hold') or {}
-        if hd.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(hd['tpl']):   # ✋ hold all: no swaps / re-shapes (stops + rug shield still run)
-            c_ = pr['cards'][hd['tpl']]; c_['holdAll'] = bool(hd.get('on'))
-            by_ = c_.pop('holdBy', None) if not hd.get('on') else None
-            if by_ in ('proof', 'agents') and c_.get('real'):   # ▶ the owner releases a proof-gate / agent-control hold = their call: that switch goes off
-                pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), 'proofGate' if by_ == 'proof' else 'agentControl': False})
-            elif hd.get('on'):
-                c_.pop('holdBy', None)   # a hold set by hand is the owner's — the gate never lifts it
-            c_['events'] = (list(c_.get('events') or []) + [{'kind': 'hold', 'at': time.time(), 'why': '✋ hold all — no swaps or re-shapes until released' if hd.get('on') else '▶ released — the engine swaps and re-shapes again'}])[-60:]
-        ho = body.get('handsOff') or {}
-        if ho.get('tpl') in _prime.TEMPLATES and (pr.get('cards') or {}).get(ho['tpl']):   # 🔒 hands-off lock (owner's own picks / hand swaps wait)
-            pr['cards'][ho['tpl']] = _prime.set_hands_off(pr['cards'][ho['tpl']], ho.get('hours'), time.time())
-        if body.get('reset'):
-            pr['cards'] = {}
-        if body.get('fix') in _prime.TEMPLATES and ((pr.get('cards') or {}).get(body['fix']) or {}).get('real'):
-            c_ = pr['cards'][body['fix']]   # 🔧 manual fix: re-fund every waiting buy from the SOL anchor NOW + fresh retries (no 60s / round wait)
-            c_['rebuyAt'], c_['rebuyRound'] = 0, -1
-            c_['events'] = (list(c_.get('events') or []) + [{'kind': 'fix', 'at': time.time(), 'why': '🔧 fix buys/sells — waiting coins re-funded, fresh retries'}])[-60:]
-        if body.get('redeal') in _prime.TEMPLATES:          # one tier fresh
-            cur_ = (pr.get('cards') or {}).get(body['redeal'])
-            if cur_ and cur_.get('real'):   # 💵 a real card re-deals its coins in place (same money, same run) — never a fresh $100 paper card
-                cur_['redealNow'] = True
-            else:
-                (pr.get('cards') or {}).pop(body['redeal'], None)
-        _json_save(FUSE_HQ_PATH, d)
-    if body.get('fix') in _prime.TEMPLATES:   # 🔧 (outside the HQ lock — never hold both locks at once)
-        async with _fw_tick_lock, _fw_lock:
-            fd = _fw_load(); b_ = fd['books'].get(body['fix'])
-            if b_ is not None:
-                b_['misses'] = {}   # every coin gets fresh retries (benched coins stay benched — they really failed the safety checks)
-                b_['manualCashSol'] = 0.0   # 🔧 held cash goes back to work: Fix = "use this card's money" (✂ again to hold some apart)
-                _fw_save(fd)
-    if isinstance(body.get('callAlert'), dict):   # 🔔 the owner's early-caller alert: off (0) or the cap (in $K) a coin must be under
-        ck_ = int(_fuse._f(body['callAlert'].get('capK')))
-        if ck_ not in _pc.RUSH_CAPS_K:
-            raise HTTPException(400, 'Pick one of the listed caps.')
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['callAlert'] = {'capK': ck_}; _json_save(FUSE_HQ_PATH, d)
-    if isinstance(body.get('trenchCfg'), dict):   # 🎛 the owner's trench settings (auto = engine widens by itself · own = these numbers)
-        async with _admin_lock:
-            # a PATCH: only the keys sent change (the editor used to post its whole, up-to-30s-old copy and put an old mode back)
-            d = _json_load(FUSE_HQ_PATH, {}); d.setdefault('prime', {})['trenchCfg'] = _trench.clean_own({**((d.get('prime') or {}).get('trenchCfg') or {}), **body['trenchCfg']})
-            _json_save(FUSE_HQ_PATH, d)
-        _trench_judge()             # the finalists already scanned are re-judged NOW by the new rules
-        _trench_cache['at'] = 0.0   # … and a fresh scan runs on the next warm pass
-    pk = body.get('pickSwap') or {}
-    if not pk and (body.get('fillSeat') or {}).get('tpl'):   # 🪑 the owner's pick for the card's EMPTY seat: same checks as a swap pick
-        pk = {**body['fillSeat'], 'pairAddress': '__seat__'}
-    if pk.get('tpl') in _prime.TEMPLATES and pk.get('pairAddress'):   # 🎯 the owner picks WHICH coin comes in at the next round (or cancels)
-        cand = None
-        why_pick = ''
-        if pk.get('to'):
-            # only a coin the Gauntlet ranks RIGHT NOW (live price, real pool, not a dollar coin) can be picked
-            ct_ = await _contenders_build()
-            row = next((r for dv in (ct_.get('divisions') or []) for r in dv.get('rows') or [] if r.get('mint') == pk['to']), None)
-            row = row or next((r for r in ct_.get('all') or [] if r.get('mint') == pk['to']), None)   # 🏁 any coin the Gauntlet ranks (Arena lens)
-            row = row or next((r for r in _trench_cache.get('rows') or [] if r.get('mint') == pk['to']), None)   # 🗑 a passing trench coin
-            if not row and not pk.get('toPair'):   # 📋 a pasted contract address alone: its deepest live pool is looked up (Jupiter search knows every pool)
-                try:
-                    async with httpx.AsyncClient(timeout=8) as http_:
-                        jp_ = await _launchpad_board.jup_lookup(http_, pk['to'])
-                    if jp_ and jp_.get('pairAddress'):
-                        pk['toPair'] = jp_['pairAddress']
-                except Exception as e:
-                    print('pick lookup:', str(e)[:80])
-                if not pk.get('toPair'):
-                    raw_ = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == pk['to']), None)
-                    pk['toPair'] = (raw_ or {}).get('pairAddress')
-            if not row and pk.get('toPair'):   # 🔎 any coin from the Lab lenses / search: verified LIVE on its own pool right now
-                lp = (await _fuse_pairs([{'chainId': 'solana', 'pairAddress': pk['toPair'], 'mint': pk.get('to')}])).get(pk['toPair']) or {}
-                lp = _fuse.with_curve(lp)   # 🆕 the owner may pick a coin still on Pump's curve (the keeper's quote checks still decide)
-                fcfg_ = _fw.clean_cfg(_fw_peek().get('cfg') or {})
-                raw_ = next((p_ for p_ in _open_pairs if (p_.get('baseToken') or {}).get('address') == pk['to']), None)   # 🚪 a launch coin the open list shows
-                if raw_ is not None and (lp.get('baseToken') or {}).get('address') != pk['to']:
-                    lp = _fuse.with_curve(raw_)   # the live lookup missed (busy source / pool not indexed yet): the feed's own pair for this coin stands in
-                # 🗑 a launch coin is held to the lower of the owner's pick floor and the trench floor — and keeps that floor at the keeper
-                floor_ = min(fcfg_['pickMinLiqUsd'], fcfg_['trenchMinLiqUsd']) if raw_ is not None else fcfg_['pickMinLiqUsd']
-                row = _pick_row(lp, pk['to'], floor_)
-                if row and raw_ is not None and row['liq'] < fcfg_['pickMinLiqUsd']:
-                    row['trenchOnly'] = True
-                why_pick = '' if row else _pick_why(lp, pk['to'], floor_)
-            if not row:
-                raise HTTPException(400, why_pick or 'That coin is not on any live list right now — search it by ticker or paste its address.')
-            _age_c = next((r.get('ageH') for r in _runner_cands if r.get('mint') == row['mint'] and r.get('ageH') is not None), row.get('ageH'))
-            cand = {'mint': row['mint'], 'pairAddress': row['pairAddress'], 'symbol': row.get('symbol'), 'price': row.get('price'), 'liquidityUsd': row.get('liq'),
-                    **({'ageH': round(_fuse._f(_age_c), 2)} if _age_c is not None else {}),
-                    **({'trenchOnly': True} if row.get('trenchOnly') else {}),
-                    **({'now': True} if pk.get('now') and pk['pairAddress'] != '__seat__' else {}),
-                    **({'tag': '🤝 agents suggested · your pick'} if pk.get('via') == 'agents' else {}),   # 🤝 a coin taken from the agents' alert: its own record
-                    'division': next((dv['key'] for dv in (_contenders_cache.get('data') or {}).get('divisions') or [] if any(r.get('mint') == row['mint'] for r in dv.get('rows') or [])), None)}
-        # ✅ VERIFIED PICKS (real cards, on by default): a hand-picked coin is queued only once it passes every safety check.
-        # 2026-10-06: a hand pick rugged 3.5 minutes after the bell (−98%) — picks used to skip every engine check.
-        _pv_miss = []
-        _pr = _json_load(FUSE_HQ_PATH, {}).get('prime') or {}
-        if cand and ((_pr.get('cards') or {}).get(pk['tpl']) or {}).get('real') and _prime.clean_cfg(_pr.get('realCfg') or {})['pickVerify']:
-            _pv_ok, _pv_miss, _pv_c = await _pick_verify(cand['mint'], cand['pairAddress'])
-            _pv_miss = list(_pv_miss or []) + _prime.chase_why(_pv_c)   # 🔥 a warning, never a block: you can still pick it
-            _eg = _prime.entry_gate({**(_pv_c or {}), 'pairAddress': cand.get('pairAddress')}) if not cand.get('trenchOnly') else None
-            if _eg and _eg not in ' '.join(_pv_miss):
-                _pv_miss.append(f"not a clean entry: {_eg}")   # 🎯 the same gate the engine uses — a warning on your picks, never a block
-            try:   # 🎯 … quoting the owner's OWN record on this kind of entry (only when it lost, ≥ 8 picks)
-                import owner_edge as _oe
-                _pv_miss += _oe.warnings({'chg5m': (_pv_c or {}).get('chg5m'), 'vol1h': (_pv_c or {}).get('vol1h'), 'liq': (_pv_c or {}).get('liq')}, _owner_edge_rec())
-            except Exception:
-                pass
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            card = cards.get(pk['tpl'])
-            if not card:
-                raise HTTPException(404, 'No card for that tier yet.')
-            if cand and card.get('real'):   # 💵 real money keeps its own floor: the pick must be buyable
-                floor = _fw.liq_floor(_fw_peek().get('cfg') or {}, trench=bool(cand.get('trenchOnly')), picked=True)   # 🗑 trench picks use the trench floor
-                if _fuse._f(cand.get('liquidityUsd')) < floor:
-                    raise HTTPException(400, f"${cand['symbol']} pool is ${_fuse._f(cand.get('liquidityUsd')):,.0f} — under the ${floor:,.0f} real-buy floor (Edit Fuse › Limits).")
-            # ⚠ WARN, NEVER BLOCK (owner's rule: "warn users, don't stop them"): a pick that fails a check comes back as a warning
-            # (HTTP 409 + the list); the owner taps "pick anyway" and the same pick is sent again with `ack` → it goes through,
-            # marked `ack` so the pre-bell re-check leaves it alone. Nothing is ever silently refused.
-            if cand and card.get('real') and _pv_miss and not pk.get('ack'):
-                raise HTTPException(409, f"⚠ ${cand['symbol']} did not pass: {'; '.join(_pv_miss[:5])}.")
-            if cand and pk.get('ack') and _pv_miss:
-                cand['ack'] = True
-            if cand and _prime.hands_off_left(card, time.time()):
-                raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — picks wait. The engine and your stops keep working.")
-            # 🎯 THE OWNER'S PICK IS NEVER COOLED: cool-downs (no back-to-back, left at a loss, removed by the owner) limit the ENGINE
-            # only — the owner sells off a peak and buys the same coin back at its new level whenever they choose
-            if cand and pk['pairAddress'] != '__seat__':
-                _cook_warn(card, pk['pairAddress'], pk.get('ack'))   # ⏳ swapping out a coin you bought minutes ago asks first
-            if cand and _fuse._f(pk.get('limitPx')) > 0:   # 🎯 BUY LIMIT: every check above already ran — it waits for the price, then takes this same path
-                try:
-                    cards[pk['tpl']] = _lim.add(card, _lim.make('buy', pk['limitPx'], time.time(), pk.get('hours') or 24, mint=cand['mint'], pair=cand['pairAddress'],
-                                                                symbol=cand.get('symbol'), target=pk['pairAddress'], cand={k_: v_ for k_, v_ in cand.items() if k_ != 'now'}))
-                except ValueError as e:
-                    raise HTTPException(400, str(e))
-                _json_save(FUSE_HQ_PATH, d)
-                return {'ok': True, 'limit': _lim.word(cards[pk['tpl']]['limits'][-1])}
-            try:
-                cards[pk['tpl']] = _prime.queue_seat(card, cand, more=bool(pk.get('more'))) if pk['pairAddress'] == '__seat__' else _prime.queue_swap(card, pk['pairAddress'], cand)
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-        if cand and (cand.get('now') or pk['pairAddress'] == '__seat__'):   # ⚡ swap in NOW / 🪑 your seat pick: run the engine pass at once (it is locked — never two at a time)
-            asyncio.create_task(_prime_tick(time.time()))
-        if cand:   # 👤 the pick is in: note what the coin looked like (teaches the paper cards that pick like the owner)
-            await _pick_style_note(cand['mint'], cand.get('symbol'), cand.get('pairAddress'))
-    ls_ = body.get('limitSell') or {}; lc_ = body.get('limitCancel') or {}
-    if ls_.get('tpl') in _prime.TEMPLATES or lc_.get('tpl') in _prime.TEMPLATES:   # 🎯 SELL LIMIT (take ≥ / stop ≤) on a coin of the card · cancel any limit
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            tpl_ = ls_.get('tpl') or lc_.get('tpl'); card = cards.get(tpl_)
-            if not card:
-                raise HTTPException(404, 'No card for that tier yet.')
-            try:
-                if lc_:
-                    cards[tpl_] = _lim.cancel(card, lc_.get('id'))
-                else:
-                    l_ = next((x for x in card.get('legs') or [] if x.get('pairAddress') == ls_.get('pairAddress') and not x.get('placeholder')), None)
-                    if not l_:
-                        raise ValueError('That coin is not on this card.')
-                    cards[tpl_] = _lim.add(card, _lim.make('sell', ls_.get('px'), time.time(), ls_.get('hours') or 24, mint=l_.get('mint'), pair=l_['pairAddress'],
-                                                           symbol=l_.get('symbol'), pct=ls_.get('pct'), stop=ls_.get('stop')))
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-        return {'ok': True, 'limits': [_lim.word(x) for x in cards[tpl_].get('limits') or []]}
-    hm = body.get('human') or {}
-    if hm.get('tpl') in _prime.TEMPLATES:   # 👤 switch a PAPER card to / from the owner's pick style
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); pr_ = d.setdefault('prime', {})
-            cur_ = set(HUMAN_TIERS_DEFAULT if pr_.get('humanTiers') is None else pr_['humanTiers'])
-            (cur_.add if hm.get('on') else cur_.discard)(hm['tpl'])
-            pr_['humanTiers'] = sorted(cur_); _json_save(FUSE_HQ_PATH, d)
-    rb = body.get('rebuy') or {}
-    if rb.get('tpl') in _prime.TEMPLATES and rb.get('pairAddress'):   # 🔄 sell this coin and buy it straight back at today's price (new entry)
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            card = cards.get(rb['tpl'])
-            if not card:
-                raise HTTPException(404, 'No card for that tier yet.')
-            px_rb = await _hq_prices([{'chainId': 'solana', 'pairAddress': rb['pairAddress']}])
-            try:
-                cards[rb['tpl']] = _prime.rebuy_out(card, rb['pairAddress'], px_rb, {}, time.time())
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-            kick_real_keeper = bool(card.get('real'))
-    rep = body.get('replace') or {}
-    if rep.get('tpl') in _prime.TEMPLATES and rep.get('pairAddress'):   # ⇄ one coin on one Prime card
-        pools, runners, anchors = await _prime_candidates()
-        # ⇄ a manual swap picks only BUYABLE coins (same gates as the engine): pool ≥ the real-buy floor, not benched, not on another tier
-        fw_cfg = _fw_load().get('cfg') or {}
-        bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_peek().get('books') or {}).values()] or [set()])
-        def _lq(x):
-            v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or _fuse._f(x.get('liquidityUsd'))
-        other = {l.get('mint') for t, cc in _prime_cards().items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
-        ok_ = lambda xs: [x for x in xs if _lq(x) >= _fw.liq_floor(fw_cfg, x.get('arena')) and x.get('mint') not in bench]
-        pools, runners = ok_(pools), sorted(ok_(runners), key=lambda x: x.get('mint') in other)
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            card = cards.get(rep['tpl'])
-            _cook_warn(card, rep['pairAddress'], rep.get('ack'))   # ⏳ a hand swap of a fresh coin asks first
-            if not card:
-                raise HTTPException(404, 'No card for that tier yet.')
-            if _prime.hands_off_left(card, time.time()):
-                raise HTTPException(400, f"🔒 Hands-off lock: {int(_prime.hands_off_left(card, time.time()) // 60) + 1} min left — hand swaps wait. The engine and your stops keep working.")
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card['legs']])
-            try:
-                old_m = {l.get('mint') for l in card['legs']}
-                cfg_r = _prime_real_cfg(d.get('prime') or {}) if card.get('real') else pr['cfg']
-                cool_r = _prime.cooling(card, time.time(), cfg_r['rotateHours'], px)   # 🧊 a hand swap never brings back a coin that just left
-                pools, runners = [x for x in pools if x.get('mint') not in cool_r], [x for x in runners if x.get('mint') not in cool_r]
-                anchors_r = anchors
-                if card.get('real'):   # ⏳ the hand swap is a door too: the card's min age and no dollar-named tickers
-                    lim_ = _fuse._f(cfg_r.get('runnerMinAgeH'))
-                    runners = [x for x in runners if not _fw.dollar_named(x.get('symbol')) and not (lim_ > 0 and x.get('ageH') is not None and _fuse._f(x.get('ageH')) < lim_)]
-                if card.get('real'):   # 🧹 ⇄ takes CLEAN coins only: the engine's 🏆 Best list first, then coins with no rug / wash / blow-off read
-                    runners = _swap_clean(runners)
-                if card.get('real') and cfg_r.get('newOnly'):
-                    # 🆕 NEW COINS ONLY: ⇄ on ANY seat brings a launch coin — it used to replace a coin with the best of the SAME KIND
-                    # ($ORCA / $TRUMP again and again), then the biggest 1h pump (washed / already-ran coins, owner 2026-10-09)
-                    pools, anchors_r = runners, runners
-                cards[rep['tpl']] = _prime.note_dropped(card, _prime.replace_leg(card, rep['pairAddress'], px, pools, runners, anchors_r, cfg_r, time.time()), time.time(), cfg_r['rotateHours'], px)
-                if card.get('real') and cfg_r.get('newOnly'):
-                    for l in cards[rep['tpl']]['legs']:
-                        if l.get('mint') not in old_m:
-                            l['role'] = 'runner'   # a launch coin is never a "major": it keeps its stop, rug shield and rotation
-                kick_real_keeper = bool(card.get('real'))   # manual ⇄ on real money runs NOW; keeper enforces sell-confirm-before-buy
-                for l in cards[rep['tpl']]['legs']:   # 👆 YOUR pick: carried through the next re-shape (it once got sold 4 min later)
-                    if l.get('mint') not in old_m:
-                        l['picked'] = True
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-    rh = body.get('releaseHeld') or {}
-    if rh.get('tpl') in _prime.TEMPLATES:   # ↩ the owner's held-for-you cash goes back into the card's coins
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            if not cards.get(rh['tpl']):
-                raise HTTPException(400, 'No such card.')
-            try:
-                px_h = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in cards[rh['tpl']].get('legs') or [] if l.get('pairAddress') == rh.get('pairAddress')]) if rh.get('pairAddress') else {}
-                cards[rh['tpl']], _held = _prime.release_held(cards[rh['tpl']], time.time(), rh.get('pairAddress'), px_h)
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-            kick_real_keeper = kick_real_keeper or bool(cards[rh['tpl']].get('real'))
-    ms = body.get('manualSell') or {}
-    if ms.get('tpl') in _prime.TEMPLATES and (ms.get('pairAddress') or ms.get('all')):
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            card = cards.get(ms['tpl'])
-            if not card or not card.get('real'):
-                raise HTTPException(400, 'Manual sell-to-cash is only available on a real card.')
-            if not ms.get('all') and _fuse._f(ms.get('pct') or 100) >= 100:
-                _cook_warn(card, ms['pairAddress'], ms.get('ack'))   # ⏳ selling a fresh coin WHOLE asks first (trims never do)
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
-            try:
-                # ✂ the owner's manual sell: one coin or every coin, any % (25 / 50 / 100) — the only way principal ever leaves a card
-                pairs_ms = [l['pairAddress'] for l in card.get('legs') or [] if l.get('mint') != _fw.SOL_MINT and _fuse._f(l.get('units')) > 0] if ms.get('all') else [ms['pairAddress']]
-                for pa in pairs_ms:
-                    card = _prime.sell_leg_to_cash(card, pa, px, time.time(), ms.get('pct') or 100)
-                cards[ms['tpl']] = card
-                kick_real_keeper = True
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-    du = body.get('duel') or {}
-    if du.get('tpl') in _prime.TEMPLATES:   # ⚔ the owner picks who their real card duels next (None = the best other card); the running duel is called off
-        st_ = _json_load(DUELS_PATH, {}); pk_ = dict(st_.get('pick') or {})
-        if du.get('vs') in _prime.TEMPLATES and du['vs'] != du['tpl']:
-            pk_[f"prime:{du['tpl']}"] = f"prime:{du['vs']}"
-        else:
-            pk_.pop(f"prime:{du['tpl']}", None)
-        _json_save(DUELS_PATH, {**st_, 'pick': pk_}); _proof_cache['at'] = 0.0
-    sk = body.get('skim') or {}
-    if sk.get('tpl') in _prime.TEMPLATES and sk.get('pairAddress'):   # 💰 take ONE coin's profit now (stake keeps riding) → other coins, or held as cash
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            card = cards.get(sk['tpl'])
-            if not card:
-                raise HTTPException(404, 'No card for that tier yet.')
-            px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
-            try:
-                cards[sk['tpl']] = (_prime.stake_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'cash') if sk.get('stake')   # 🏠 the initial out, profit rides
-                                    else _prime.skim_leg(card, sk['pairAddress'], px, {}, time.time(), sk.get('to') or 'card', hold=sk.get('rounds')))
-                kick_real_keeper = bool(card.get('real'))
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-    lg = body.get('leg') or {}
-    if lg.get('tpl') in _prime.TEMPLATES and lg.get('pairAddress'):   # ❄ freeze / own stop mode for one coin on one tier card
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.get('prime') or {}).get('cards') or {}
-            if not cards.get(lg['tpl']):
-                raise HTTPException(404, 'No card for that tier yet.')
-            try:
-                cards[lg['tpl']] = _prime.set_leg(cards[lg['tpl']], lg['pairAddress'], lg.get('frozen'), lg.get('slMode'), lg.get('tp'), lg.get('sl'), lg.get('flowExit'), now=time.time(), certified=lg.get('certified'), gstop=lg.get('gstop'), pick_lock=lg.get('pickLock'))
-            except ValueError as e:
-                raise HTTPException(400, str(e))
-            _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'arena-prime', json.dumps(pr['cfg'])[:120] + (' reset' if body.get('reset') else '') + (f" manualSell {json.dumps(ms)[:60]}" if ms else '') + (f" leg {json.dumps(lg)[:60]}" if lg else '')); _admin_save(ad)
-    if body.get('reset') or body.get('redeal'):
-        await _prime_tick(time.time())
-    if kick_real_keeper:
-        _fw_kick_now()   # manual real-money ⇄ / ✂: the keeper starts NOW in the background — the button answers at once (it used to wait for every sell to confirm)
-    return {'cfg': pr['cfg'], 'cards': await _prime_view()}
 
 
 # ---- 👛 FUSE WALLET (backend/fuse_wallet.py): the owner's Fuse Circle wallet funds the tier cards with REAL money ----
@@ -14703,23 +12918,6 @@ def circle_profile_merge(prev: dict, edit: dict) -> dict:
 
 
 
-@app.post('/api/reputation/admin/circle/profile')
-async def circle_profile_save(request: Request, body: dict):
-    """Owner: edit the public profile of one of YOUR Circle wallets (name, @handle, bio, avatar, banner). Audited."""
-    me = _require_owner(request)
-    addr = str(body.get('address') or '')
-    ws = (await _circle('GET', '/wallets')).get('wallets') or []
-    if addr not in {w.get('address') for w in ws}:
-        raise HTTPException(403, 'Only your own Circle wallets can be edited here.')
-    async with _profile_lock:
-        d = _profiles_load()
-        prev = d['profiles'].get(addr, {})
-        clean = _clean_profile(circle_profile_merge(prev, body.get('profile') or {}))
-        if clean.get('handle') and any(a != addr and (v or {}).get('handle') == clean['handle'] for a, v in d['profiles'].items()):
-            raise HTTPException(409, f"@{clean['handle']} is taken.")
-        row_ = _prof().update(addr, lambda cur: {**(cur or {}), **clean, 'lastTs': time.time(), 'updatedAt': time.time(), 'editedBy': me})
-    ad = _admin_load(); _audit(ad, me, 'circle-profile', f'{addr[:6]}… {clean.get("handle") or clean.get("name") or ""}'); _admin_save(ad)
-    return {'ok': True, 'address': addr, 'profile': row_}
 
 
 
@@ -14741,94 +12939,10 @@ async def _fw_reports(card=''):
     return out
 
 
-@app.get('/api/reputation/admin/fuse-wallet')
-async def fuse_wallet_view(request: Request):
-    """HQ › Fuse › 👛 Fuse wallet: the wallet's funds, each funded tier card's real book, caps, calibration and the audit trail."""
-    _require_owner(request)
-    await _fw_signer_check()
-    d = _fw_load(); cfg = _fw.clean_cfg(d.get('cfg') or {})
-    wallets, bal, err = [], None, None
-    try:
-        wallets = [w for w in await _circle_wallets_live() if str(w.get('blockchain', '')).startswith('SOL')]
-    except HTTPException as e:
-        err = str(e.detail)
-    if cfg['address']:
-        try:
-            bal = await _fw_balances(cfg['address'])
-            _FW_BAL.update(bal=bal, at=time.time(), addr=cfg['address'])
-        except Exception as e:   # 🛟 RPC busy (rate limit): never show an EMPTY wallet — last good read, else Circle's own balances
-            bal = _FW_BAL.get('bal') if _FW_BAL.get('addr') == cfg['address'] else None
-            if bal is None:
-                bal = _fw.circle_balances(wallets, cfg['address'])
-            if bal is None:
-                err = err or f'balance read failed: {str(e)[:80]}'
-            else:
-                bal = {**bal, 'stale': True}
-    sol_px = await _sol_usd_live()
-    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    market_rows = _fw_market_rows(cards, d.get('books') or {})
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
-    jup = await _jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
-    px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
-    full_hq = _fw_full_ledger()   # 🧾 every row, not the trimmed KV copy
-    books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw_led_memo('tot', tid, lambda L: _fw.totals(L, tid))} for tid, b in d['books'].items()}
-    recoverable = []
-    if bal and bal.get('source') != 'circle':
-        booked = {}
-        for b in d['books'].values():
-            for mint, leg in (b.get('legs') or {}).items():
-                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
-        for mint, held in (bal.get('tokens') or {}).items():
-            excess = int(_fuse._f(held)) - int(booked.get(mint, 0))
-            if excess <= 0:
-                continue
-            hist = [r for r in d['ledger'] if r.get('mint') == mint and r.get('card') in d['books'] and r.get('pair')]
-            if not hist:
-                continue   # never offer unrelated wallet tokens
-            last = hist[-1]
-            recoverable.append({'card': last['card'], 'mint': mint, 'symbol': last.get('symbol') or mint[:6],
-                                'pair': last.get('pair'), 'atoms': excess, 'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
-                                'lastStatus': last.get('status'), 'lastErr': (last.get('err') or '')[:100], 'lastAt': last.get('at')})
-    rent_returned = round(sum(_fuse._f(r.get('sol')) for r in full_hq
-                              if r.get('side') == 'close' and r.get('status') == 'sent'), 9)
-    funded_sol = round(sum(_fuse._f(r.get('sol')) for r in full_hq
-                           if r.get('side') == 'topup' and r.get('status') == 'done'), 9)
-    dep_doc = _json_load(FUSE_DEPOSITS_PATH, {})
-    dep_rows = (dep_doc.get('rows') or []) if dep_doc.get('address') == cfg.get('address') else []
-    return {'cfg': cfg, 'signer': _fw_signer_ready(), 'wallets': wallets, 'balances': bal, 'solUsd': sol_px, 'error': err,
-            'freeSol': _fw.free_sol((bal or {}).get('sol'), d['books'], cfg['reserveSol']) if bal else None,
-            'topupSol': _fw.free_for_topup((bal or {}).get('sol'), d['books'], cfg['reserveSol'], _fuse._f((_fw_rent_parked or {}).get('sol'))) if bal else None,   # what a top-up may assign: free SOL + the part of the reserve parked as refundable rent
-            # Unassigned SOL is fungible: it can include owner deposits and token-account rent returned after card sells.
-            # Expose both audit totals so the UI never presents it as known-new owner funding or card profit.
-            'solProvenance': {'cardFundedSol': funded_sol, 'rentReturnedSol': rent_returned,
-                              **(_fw.sol_story(dep_rows, d['books'], cfg['reserveSol'], bal.get('sol'), sum(_fuse._f(b.get('valueUsd')) for b in books.values()) / sol_px - sum(_fuse._f(b.get('sol')) + _fuse._f(b.get('bankSol')) for b in d['books'].values())) if bal and sol_px and dep_rows else {}),
-                              'deposits': dep_rows[-12:][::-1]},
-            'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
-            'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
-            'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
-            'totals': _fw_led_memo('tot', None, lambda L: _fw.totals(L)), 'ledger': d['ledger'][-200:][::-1]}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/recover-sell')
-async def fuse_wallet_recover_sell(request: Request):
-    """Owner rescue: sell an old keeper token still physically in the Fuse wallet but no longer booked on a card.
-    Only excess atoms with matching keeper history are adopted; unrelated wallet tokens are refused.
-    Confirmed proceeds stay inside the original card as active cash/SOL."""
-    me = _require_owner(request)
-    body = await request.json()
-    return await _fw_recover_sell(me, body.get('tpl'), str(body.get('mint') or '').strip())
 
 
-@app.post('/api/reputation/admin/fuse-wallet/coin-sell')
-async def fuse_wallet_coin_sell(request: Request):
-    """↩ One coin chip on the Fuse wallet → sell it (owner, 2026-10-18: "should be able to sell / burn"): the card that last traded this coin
-    is found from the ledger, then the same recover-sell path runs (the keeper sells it back to SOL into that card's cash)."""
-    me = _require_owner(request)
-    mint = str((await request.json() or {}).get('mint') or '').strip()
-    tid = next((r.get('card') for r in reversed(_fw_full_ledger()) if r.get('mint') == mint and r.get('pair') and r.get('card') in _prime.TEMPLATES), None)
-    if not tid:
-        raise HTTPException(400, 'No card ever traded this coin — sell it from your own wallet (Trade › 🧹 Dust).')
-    return await _fw_recover_sell(me, tid, mint)
 
 
 async def _fw_recover_sell(me, tid, mint):
@@ -14867,104 +12981,12 @@ async def _fw_recover_sell(me, tid, mint):
     return {'ok': True, 'card': tid, 'symbol': st['symbol'], 'atoms': excess, 'status': 'sell queued/running'}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/recover-sell-all')
-async def fuse_wallet_recover_sell_all(request: Request):
-    """Queue every confirmed dead/off-card keeper holding for sale into its card cash.
-    Failed buys have no confirmed atoms and are deliberately ignored. Nothing is removed or credited until its sell confirms."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid = body.get('tpl')
-    if tid not in _prime.TEMPLATES:
-        raise HTTPException(400, 'Pick a funded real tier card.')
-    cfg = _fw_cfg()
-    if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
-        raise HTTPException(400, 'Fuse wallet must be armed and running.')
-    cards = _prime_cards()
-    card = cards.get(tid)
-    if not card or not card.get('real'):
-        raise HTTPException(400, 'That tier is not a real card.')
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        # 👻 the wallet is read INSIDE the lock: read before it, a sale the keeper confirmed while we waited still showed as held
-        # and was booked back as a leftover (2026-10-09, $UP: $0.48 of phantom value + a halt)
-        bal = await _fw_balances(cfg['address'])
-        d = _fw_load(); book = d['books'].get(tid)
-        if not book:
-            raise HTTPException(400, 'That tier is not funded.')
-        if book.get('pending'):
-            raise HTTPException(409, 'Wait for the current transaction to settle first.')
-        book, marked = _fw.mark_off_card_cash(book, card)
-        just_sold = {r.get('mint') for r in d['ledger'][-200:] if r.get('side') == 'sell' and r.get('status') == 'filled' and time.time() - _fuse._f(r.get('at')) < 120}
-        booked = {}
-        for bb in d['books'].values():
-            for mint, leg in (bb.get('legs') or {}).items():
-                booked[mint] = booked.get(mint, 0) + int(_fuse._f(leg.get('atoms')))
-        adopted = []
-        for mint, held_raw in (bal.get('tokens') or {}).items():
-            excess = int(_fuse._f(held_raw)) - int(booked.get(mint, 0))
-            if excess <= 0 or mint in just_sold:   # a coin sold in the last 2 min may still show in a lagging balance read
-                continue
-            hist = [r for r in d['ledger'] if r.get('card') == tid and r.get('mint') == mint and r.get('pair')]
-            if not hist:
-                continue
-            last = hist[-1]
-            if last.get('side') == 'writeoff':   # 🩸 a written-off drained / dead coin is never re-booked (it jammed every buy behind a refused sell)
-                continue
-            st = {'card': tid, 'mint': mint, 'atoms': excess,
-                  'decimals': int((bal.get('decimals') or {}).get(mint) or last.get('decimals') or 0),
-                  'pair': last.get('pair'), 'symbol': last.get('symbol') or mint[:6]}
-            book = _fw.adopt(book, st)
-            book['legs'][mint] = {**book['legs'][mint], 'manualCash': True, 'recovered': True}
-            adopted.append(mint)
-        queued = list(dict.fromkeys(marked + adopted))
-        if not queued:
-            raise HTTPException(400, 'No confirmed dead/off-card holdings need selling.')
-        d['books'][tid] = book
-        _fw_record(d, {'card': tid, 'side': 'repair-sell-all', 'mints': queued, 'n': len(queued), 'at': time.time(), 'status': 'done',
-                       'why': 'owner queued every confirmed dead/off-card holding -> proceeds stay in card cash'})
-        _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-recover-sell-all', f'{tid} {len(queued)} confirmed holdings'); _admin_save(ad)
-    _fw_kick_now()
-    return {'ok': True, 'tpl': tid, 'queued': len(queued), 'mints': queued, 'status': 'confirmed holdings queued/running'}
-
-
-@app.post('/api/reputation/admin/fuse-wallet/cfg')
-async def fuse_wallet_cfg(request: Request):
-    """Owner only: pick the Fuse Circle wallet and set the hard limits. Arming needs signing enabled + a picked wallet."""
-    me = _require_owner(request)
-    body = await request.json()
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load()
-        cfg = _fw.clean_cfg({**(d.get('cfg') or {}), **{k: v for k, v in body.items() if k in _fw.DEFAULT_CFG}})
-        if cfg['armed'] and (not cfg['address'] or not _fw_signer_ready()):
-            raise HTTPException(400, 'Pick the Fuse wallet first (and the Circle service must be running) before arming real money.')
-        d['cfg'] = cfg; _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-cfg', json.dumps({k: cfg[k] for k in cfg if k != 'walletId'})[:160]); _admin_save(ad)
-    return {'cfg': cfg}
 
 
 
 
-@app.post('/api/reputation/admin/rpc')
-async def admin_rpc_set(request: Request):
-    """Owner only: put a new keyed RPC URL on lane 1 or 2. It is TESTED first (answers + holder lookup), saved to backend/.env as
-    the one active line of its key, and used by the keeper at once — no restart. The URL is never returned, logged or audited."""
-    me = _require_owner(request)
-    body = await request.json()
-    slot = int(_fuse._f(body.get('slot'))) if int(_fuse._f(body.get('slot'))) in _chain.LANE_KEYS else 1
-    try:
-        url = _chain.clean_rpc_url(body.get('url'))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    async with httpx.AsyncClient(timeout=10) as http:
-        res = await _chain.probe(http, url)
-    if not res.get('ok'):
-        raise HTTPException(400, f"Not saved — {res.get('err')}.")
-    env = Path(__file__).parent / '.env'
-    if not os.environ.get('PYTEST_CURRENT_TEST'):
-        env.write_text(_chain.env_with_key(env.read_text() if env.exists() else '', _chain.LANE_KEYS[slot], url))
-    _chain.set_lane(slot, url)
-    ad = _admin_load(); _audit(ad, me, 'rpc-lane', f"lane {slot} → {_chain.provider_of(url)}"); _admin_save(ad)
-    return {'ok': True, 'slot': slot, 'provider': _chain.provider_of(url), 'holders': bool(res.get('holders')), 'ms': res.get('ms'), 'lanes': _rpc_quota_state()}
+
+
 
 
 
@@ -14981,97 +13003,15 @@ def _alliance_view(wallet=''):
 
 
 
-@app.post('/api/reputation/admin/alliance-days')
-async def admin_alliance_days(request: Request):
-    """🤝 Owner only: how many days an alliance waits before it can found a Union."""
-    me = _require_owner(request); b = await request.json()
-    try:
-        days = int(b.get('days'))
-    except (TypeError, ValueError):
-        raise HTTPException(400, 'Give a number of days.')
-    if not 0 <= days <= 3650:
-        raise HTTPException(400, '0 to 3,650 days.')
-    async with _alliance_lock:
-        st = _json_load(ALLIANCES_PATH, {}) or {}; st['days'] = days; _json_save(ALLIANCES_PATH, st)
-    ad = _admin_load(); _audit(ad, me, 'alliance-days', str(days)); _admin_save(ad)
-    return _alliance_view()
 
 
 COLLECTIVE_THEMES = ('NEBULA', 'TOXIC', 'INFERNO', 'GLACIER', 'VOID', 'SOLAR', 'MATRIX', 'ULTRA')
-@app.post('/api/reputation/admin/collective-look')
-async def admin_collective_look(request: Request):
-    """🎨 Owner only: the Collective's colors and glow, for everyone who opens it."""
-    me = _require_owner(request); b = await request.json()
-    if b.get('theme') not in COLLECTIVE_THEMES:
-        raise HTTPException(400, 'Pick one of the themes.')
-    look = {'theme': b['theme'], 'glow': max(0, min(100, int(b.get('glow') if isinstance(b.get('glow'), (int, float)) else 70)))}
-    _json_save(DATA_DIR / 'collective_look.json', look)
-    ad = _admin_load(); _audit(ad, me, 'collective-look', look['theme']); _admin_save(ad)
-    return look
-
-
-@app.post('/api/reputation/admin/provider-key')
-async def admin_provider_key(request: Request):
-    """🔑 Owner only: save one provider key to backend/.env and this process. The value is never returned, logged or audited: only its name."""
-    me = _require_owner(request)
-    import provider_ready as _pr
-    body = await request.json()
-    try:
-        name, value = _pr.clean_key(body.get('name'), body.get('value'))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    env = Path(__file__).parent / '.env'
-    if not os.environ.get('PYTEST_CURRENT_TEST'):
-        env.write_text(_chain.env_with_key(env.read_text() if env.exists() else '', name, value))
-    os.environ[name] = value
-    ad = _admin_load(); _audit(ad, me, 'provider-key', name); _admin_save(ad)
-    return _pr.status(os.environ)
 
 
 
 
-@app.post('/api/reputation/admin/ai-key')
-async def admin_ai_key_set(request: Request):
-    """🔑 Owner only: save an AI API key (OpenAI · Anthropic · Gemini · OpenRouter · Groq · xAI · any OpenAI-compatible https base).
-    It is TESTED first (one read-only list-models request — no tokens spent), saved to backend/.env as the one active line of its
-    variable and set in this process. `{provider, clear: true}` removes it. The key is never returned, logged, audited or echoed in
-    an error. Storing a key does not make any agent call a model (ai_keys.py)."""
-    me = _require_owner(request)
-    body = await request.json()
-    env = Path(__file__).parent / '.env'
-    prov = str(body.get('provider') or '')
-    if body.get('clear'):
-        if prov not in _aik.PROVIDERS:
-            raise HTTPException(400, 'Pick a provider.')
-        var = _aik.PROVIDERS[prov][1]
-        if not os.environ.get('PYTEST_CURRENT_TEST') and env.exists():
-            txt = _aik.env_without(env.read_text(), var)
-            if os.environ.get(_aik.ACTIVE_VAR) == prov:
-                txt = _aik.env_without(txt, _aik.ACTIVE_VAR)
-            env.write_text(txt)
-        os.environ.pop(var, None)
-        if os.environ.get(_aik.ACTIVE_VAR) == prov:
-            os.environ.pop(_aik.ACTIVE_VAR, None)
-        ad = _admin_load(); _audit(ad, me, 'ai-key', f'{prov} cleared'); _admin_save(ad)
-        return {'ok': True, **_aik.status(os.environ)}
-    try:
-        c = _aik.clean(prov, body.get('key'), body.get('base'), body.get('model'))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    async with httpx.AsyncClient(timeout=10) as http:
-        res = await _aik.probe(http, c)
-    if not res.get('ok'):
-        raise HTTPException(400, f"Not saved — {res.get('err')}.")
-    lines = _aik.env_lines(c)
-    if not os.environ.get('PYTEST_CURRENT_TEST'):
-        txt = env.read_text() if env.exists() else ''
-        for var, val in lines:
-            txt = _chain.env_with_key(txt, var, val)
-        env.write_text(txt)
-    for var, val in lines:
-        os.environ[var] = val
-    ad = _admin_load(); _audit(ad, me, 'ai-key', f"{c['provider']} saved"); _admin_save(ad)   # the provider only — never the key
-    return {'ok': True, 'ms': res.get('ms'), 'models': res.get('models') or [], **_aik.status(os.environ)}
+
+
 
 
 # ---- 🧠 THE AI ROUTER (backend/ai_router.py): optional, advisory, never in a hot loop or at the money boundary ----
@@ -16238,60 +14178,6 @@ def _g4_view():
 
 
 
-@app.post('/api/reputation/admin/ai/seat')
-async def admin_ai_seat_post(request: Request):
-    """👍👎 / 💬 Owner on the duo's trade room: vote on a call ({vote: {key, v: 1 | -1 | 0}}) or chime in ({comment: text}) — the holder reads it
-    next minute. A comment that says buy / hold / sell is graded by the market like theirs."""
-    admin = _require_owner(request)
-    body = await request.json()
-    now = time.time()
-    if 'guards' in body:   # 🔁 strict turns (off) · or the streak brake + proof bench may skip a losing model's turn (on)
-        _g4_mem.put({**(_g4_mem.get() or {}), 'guards': bool(body.get('guards'))}, time.time())
-        _duo_push()
-        return {'ok': True, 'guards': bool(body.get('guards')), **_duo_view()}
-    if body.get('vote'):
-        vt_ = body['vote'] or {}
-        st_, ok_ = _dv.vote(_dv_mem.get() or {}, str(vt_.get('key') or ''), 'owner', int(_fuse._f(vt_.get('v'))))
-        if not ok_:
-            raise HTTPException(400, 'That call can\'t be voted on (too old, no coin, or it is your own).')
-        _dv_mem.put(st_, now)
-    txt_ = _re.sub(r'\s+', ' ', str(body.get('comment') or '')).strip()[:800]
-    if txt_:
-        st_ = _g4_state()
-        legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
-        m_ = str(body.get('mint') or '') or (legs_[0].get('mint') if legs_ else None) or None   # 💬 a coin room's chime-in is about THAT coin
-        lc_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), None) if body.get('mint') else None
-        od_ = _seat.owner_order(txt_)   # 🫡 "sell it / get out / should've been sold" = an ORDER on the seat's coin, not a suggestion
-        act_ = 'SELL' if od_ else 'HOLD' if _re.search(r"\b(hold|moon|send|buy|ride)\b|\b(?:don'?t|do not|never)\s+sell\b", txt_, _re.I) else 'NOTE'
-        row_ = {'at': round(now), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': act_ if act_ != 'NOTE' else None, 'why': txt_, 'mint': m_,
-                'symbol': (lc_ or {}).get('symbol') or (legs_[0].get('symbol') if legs_ else None), **({'coinTalk': True} if lc_ and not (legs_ and legs_[0].get('mint') == m_) else {})}
-        sl_ = next((l_ for l_ in legs_ if l_.get('mint') == m_), None) if (od_ and m_) else None
-        if sl_:   # 🫡 owner, 2026-10-23: "I told him to sell … he won't do what I want" — the seat's coin is sold (or trimmed) on the next tier tick, no model vote
-            _g4['want'] = {'action': od_['action'], **({'trim': od_['pct']} if od_['action'] == 'TRIM' else {}), 'pair': sl_.get('pairAddress'), 'mint': m_, 'symbol': sl_.get('symbol'),
-                           'by': 'owner', 'model': 'YOU', 'why': f"your order in the trade room — “{txt_[:80]}”", 'thinkAt': now, 'at': time.time()}
-            row_['why'] = f"{txt_} · 🫡 " + ('selling it now' if od_['action'] == 'SELL' else f"trimming {od_['pct']}% now") + ' — your order, the seat acts on the next tick'
-        ln_ = _seat.owner_lines(txt_)
-        if ln_ and m_:   # ✋ "tp 80 · sl 20 · trail 35" in the chat = YOUR line on that coin, set now (the same path as a drag on the chart)
-            async with _admin_lock:
-                d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = (d_.get('prime') or {}).get('cards') or {}
-                tp_ = next((k_ for k_, c_ in cs_.items() if (c_ or {}).get('real')), None)
-                lg_ = next((l_ for l_ in (cs_.get(tp_) or {}).get('legs') or [] if l_.get('mint') == m_ and not l_.get('placeholder')), None) if tp_ else None
-                if lg_:
-                    try:
-                        cs_[tp_] = _prime.set_leg(cs_[tp_], lg_['pairAddress'], tp=ln_.get('tp'), sl=ln_.get('sl'), trail=ln_.get('trail'), now=now)
-                        _json_save(FUSE_HQ_PATH, d_)
-                        row_['why'] = f"{txt_} · ✅ set " + ' · '.join(f"{ {'tp': 'TP +', 'sl': 'SL −', 'trail': 'trail ↩'}[k_]}{v_:g}%" for k_, v_ in ln_.items())
-                        row_['lineView'] = _seat.lines_view(ln_, lg_)   # 📏 your line move is graded too
-                    except ValueError as e_:
-                        row_['why'] = f"{txt_} · ⚠ not set: {e_}"
-            row_['view'] = row_.pop('lineView', None) or 'LINES'
-        _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], row_)}, now)
-        if m_ and ((act_ != 'NOTE' and not ln_) or (ln_ and row_['view'] in ('HOLD', 'SELL'))):
-            pm_ = await _live_px([m_])
-            _dv_note(row_, _fuse._f(pm_.get(m_)), now)
-    _audit_ad = _admin_load(); _audit(_audit_ad, admin, 'duo-room', json.dumps({k_: body.get(k_) for k_ in ('vote',)} | ({'comment': txt_[:60]} if txt_ else {}))[:160]); _admin_save(_audit_ad)
-    _duo_push()
-    return _duo_view()
 
 
 
@@ -16587,17 +14473,6 @@ async def _ai_loop():
 
 
 
-@app.post('/api/reputation/admin/ai/providers')
-async def admin_ai_providers_set(request: Request):
-    """🧠 Owner only: the provider ORDER and ON / OFF (`{order: [...], enabled: {key: bool}}`). Keys are never sent here."""
-    me = _require_owner(request)
-    body = await request.json()
-    cfg = _air.clean_cfg(body if isinstance(body, dict) else {}, _ai_cfg())
-    _json_save(AI_CFG_PATH, cfg)
-    ad = _admin_load(); _audit(ad, me, 'ai-providers', f"order {','.join(cfg['order']) or 'default'}"); _admin_save(ad)
-    if _office.get('payload') is not None:
-        _office['payload']['ai'] = _ai_view(light=True)
-    return _ai_view()
 
 
 def _ai_general_context():
@@ -16612,74 +14487,10 @@ def _ai_general_context():
         return {}
 
 
-@app.post('/api/reputation/admin/ai/ask')
-async def admin_ai_ask(request: Request):
-    """🧠 Owner only: ASK THE MODEL about one coin now (`{input: CA | link | mint, role: sherlock | devil | owner}`). The case is the
-    kernel's own row for that coin (nothing typed by hand reaches the model except the address). The answer is DISPLAYED — in the
-    decision log and beside the coin; it never places, sizes, blocks or sells anything; a stance moves the ranking (±10% at most) only once it is proven on its own judged record."""
-    _require_owner(request)
-    body = await request.json()
-    ref = _owr.parse(str((body or {}).get('input') or ''))
-    if not ref:   # 🧭 not a coin: a GENERAL question — a normal answer in normal language, with a few desk facts as context (never the trench schema)
-        q_ = str((body or {}).get('question') or (body or {}).get('input') or '').strip()
-        if len(q_) < 3:
-            raise HTTPException(400, 'Paste a coin (CA / pump.fun · dexscreener link) or type a question.')
-        res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_[:2000], context=_ai_general_context(), role='owner')
-        return {'ok': bool(res.get('text')), 'mode': 'general', 'answer': {k_: res.get(k_) for k_ in ('source', 'label', 'text', 'ms', 'why')}, 'ai': _ai_view(light=True)}
-    role = str((body or {}).get('role') or 'owner').lower()
-    if role not in ('sherlock', 'devil', 'owner'):
-        raise HTTPException(400, 'Pick sherlock, devil or owner.')
-    mint = ref['address']
-    p = _office.get('payload') or {}
-    c = next((c_ for c_ in ((p.get('kernel') or {}).get('candidates') or []) if c_.get('mint') == mint or c_.get('pair') == mint), None)
-    if not c:   # held coins and the owner's own list are cases too
-        pos_ = next((x_ for x_ in (p.get('positions') or []) if x_.get('mint') == mint), None)
-        own_ = next((x_ for x_ in (p.get('ownerReview') or []) if x_.get('mint') == mint), None)
-        if pos_:
-            c = {'mint': mint, 'symbol': pos_.get('symbol'), 'status': 'HELD', 'state': pos_.get('decision') or pos_.get('state'), 'why': pos_.get('evidence'), 'cap': pos_.get('mc'),
-                 'liq': pos_.get('liq'), 'structure': pos_.get('structure'), 'phase': pos_.get('phase'), 'result': pos_.get('pct'), 'heldMin': pos_.get('heldMin'), 'rule': pos_.get('rule')}
-        elif own_:
-            c = {'mint': mint, 'symbol': own_.get('symbol'), 'state': own_.get('state'), 'why': own_.get('why'), 'cap': own_.get('mc'), 'trigger': (own_.get('trigger') or {}).get('state'),
-                 'devil': (own_.get('devil') or {}).get('severity'), 'pending': own_.get('pending')}
-    if not c:
-        raise HTTPException(400, 'That coin is not on the desk yet — 🔎 Review it first, the agents read it on their next pass and the model can then be asked.')
-    case = _ai_case(c)
-    res = await _air.ROUTER.reason(_ai_http(), os.environ, _ai_cfg(), case, role, 'force', mode='case')
-    if res.get('advice'):
-        _ai['notes'].setdefault(c['mint'], {})[role] = {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'at', 'tried', 'why', 'cached')} | {'symbol': c.get('symbol')}
-    _ai_log(role, case, res, asked=True)
-    _ai_learn_note(role, c, res, time.time())
-    if _office.get('payload') is not None:
-        _office['payload']['ai'] = _ai_view(light=True)
-        try:
-            _tke.HUB.publish('ai_update', 'ai', _office['payload']['ai'], time.time())
-        except Exception:
-            pass
-    return {'ok': bool(res.get('advice')), 'mint': c['mint'], 'symbol': c.get('symbol'), 'role': role, 'answer': {k_: res.get(k_) for k_ in ('source', 'label', 'advice', 'ms', 'why')},
-            'ai': _ai_view(light=True)}
 
 
-@app.post('/api/reputation/admin/ai/test')
-async def admin_ai_test(request: Request):
-    """🧠 Owner only: one tiny request to ONE provider (≈ 10 tokens) → online / offline / rate limited + its latency. Never a key."""
-    _require_owner(request)
-    body = await request.json()
-    key = str((body or {}).get('provider') or '')
-    if key not in _air.PROVIDERS:
-        raise HTTPException(400, 'Pick a provider.')
-    res = await _air.ROUTER.test(_ai_http(), os.environ, _ai_cfg(), key)
-    return {**res, **_ai_view()}
 
 
-@app.post('/api/reputation/admin/ai/load')
-async def admin_ai_load(request: Request):
-    """⚡ Owner only: load G4 / OSSY's configured model in its LM Studio (the desktop dropped G4's model → "not connected", 2026-10-22).
-    One tap = the owner's approval; nothing loads a model on its own."""
-    _require_owner(request)
-    body = await request.json()
-    key = str((body or {}).get('provider') or '')
-    res = await _air.ROUTER.load_model(_ai_http(), os.environ, _ai_cfg(), key)
-    return {**res, **_ai_view()}
 
 
 # ── 💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (ai_chat.py) ────────────────────────────────────────────────────────────────────
@@ -17108,18 +14919,6 @@ async def _studio_boot():
 
 
 
-@app.post('/api/reputation/admin/agent-slots')
-async def admin_agent_slots_set(request: Request):
-    """🎟 Owner: open more agent slots for new buyers (never past 1,000, never below what is taken)."""
-    me_ = _require_owner(request)
-    body = await request.json()
-    try:
-        r_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/supply', headers={'x-feeless-internal': _internal_key()}, json={'open': (body or {}).get('open'), 'by': str(me_)[:44]}, timeout=8)
-    except Exception:
-        raise HTTPException(503, 'Fee service did not answer.')
-    if r_.status_code != 200:
-        raise HTTPException(r_.status_code, (r_.json() or {}).get('detail') or 'Fee service rejected the change.')
-    return r_.json()
 
 
 COLONY_PATH = DATA_DIR / 'colony.json'
@@ -17205,418 +15004,30 @@ async def _colony_pool_build(d, body):
 
 
 
-@app.post('/api/reputation/admin/colony')
-async def admin_colony_set(request: Request):
-    """🐝 Owner: create the pot's Circle wallet (one, ever) · lock today's value in as principal (only ever up) · set the guards.
-    Nothing here sends money: payouts are a proposal the owner approves after the timelock."""
-    import colony as _col
-    me_ = _require_owner(request)
-    body = await request.json() or {}
-    act = str(body.get('action') or '')
-    d = _json_load(COLONY_PATH, {}); now = int(time.time())
-    if act == 'create':
-        if not (d.get('wallet') or {}).get('address'):
-            import uuid as _uuid
-            r_ = await _circle('POST', '/wallets', {'blockchain': 'SOL', 'name': 'FEELESS colony pot', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, 'feeless-colony-pot'))}, agent=True)
-            w_ = (r_ or {}).get('wallet') or {}
-            if not w_.get('address'):
-                raise HTTPException(502, 'Circle did not make the wallet.')
-            d['wallet'] = {'address': w_['address'], 'id': w_.get('id'), 'at': now, 'by': str(me_)[:44]}
-    elif act == 'lock':
-        if not (d.get('wallet') or {}).get('address'):
-            raise HTTPException(400, 'Create the pot wallet first.')
-        val = await _colony_value(d['wallet']['address'])
-        if not val:
-            raise HTTPException(503, "Couldn't read the pot's balance — nothing changed.")
-        d['principalUsd'] = _col.raise_floor(d.get('principalUsd'), val['usd'])
-    elif act == 'policy':
-        d['policy'] = _col.clean_policy({**(d.get('policy') or {}), **(body.get('policy') or {})})
-    elif act == 'pool_preview':   # 🌊 build + simulate the Meteora pool (free) — remembered so 'pool_create' may follow with the SAME amounts
-        args_, r_ = await _colony_pool_build(d, body)
-        d['poolDraft'] = {k: args_[k] for k in ('mintA', 'mintB', 'amountA', 'amountB', 'feeBps', 'compoundingBps', 'lock')} | {'at': now, 'ok': bool(r_.get('ok')) and r_.get('sim', {}).get('err') is None,
-                          'pool': r_.get('pool'), 'price': r_.get('price'), 'err': r_.get('error') or (r_.get('sim') or {}).get('err'), 'logs': (r_.get('sim') or {}).get('logs')}
-    elif act == 'pool_create':   # 🌊 the real thing: only after a clean preview of the same amounts in the last 10 min — Circle signs as the colony wallet, we broadcast
-        dr_ = d.get('poolDraft') or {}
-        same_ = dr_.get('amountA') == float(body.get('amountA', body.get('feecat')) or 0) and dr_.get('amountB') == float(body.get('amountB', body.get('sol')) or 0) and dr_.get('mintA') == str(body.get('mintA') or dr_.get('mintA')) and dr_.get('mintB') == POOL_QUOTES.get(str(body.get('quote') or 'SOL').upper(), ('',))[0] and dr_.get('feeBps') == int(body.get('feeBps') or 100) and dr_.get('lock') == (body.get('lock') is True)
-        if not (dr_.get('ok') and same_ and now - int(dr_.get('at') or 0) < 600):
-            raise HTTPException(400, 'Preview these exact amounts first (the simulation must pass) — then create within 10 minutes.')
-        args_, r_ = await _colony_pool_build(d, body)
-        if not r_.get('ok') or (r_.get('sim') or {}).get('err') is not None:
-            raise HTTPException(400, f"The fresh simulation failed — nothing was sent ({str(r_.get('error') or r_.get('sim', {}).get('err'))[:120]}).")
-        sg_ = await _circle('POST', '/sign', {'walletId': d['wallet']['id'], 'rawTransaction': r_['tx'], 'memo': 'FEELESS colony pool (Meteora)'}, agent=True)
-        if not (sg_ or {}).get('signedTransaction'):
-            raise HTTPException(502, 'Circle did not sign the pool — nothing was sent.')
-        async with httpx.AsyncClient(timeout=20) as http_:
-            took_ = await _rpc_broadcast(http_, sg_['signedTransaction'])
-        made_ = {'address': r_['pool'], 'platform': 'Meteora DAMM v2', 'at': now, 'sig': sg_.get('signature') or sg_.get('txHash'), 'nodes': took_,
-                 'mintA': args_['mintA'], 'mintB': args_['mintB'], 'amountA': args_['amountA'], 'amountB': args_['amountB'], 'feeBps': args_['feeBps'], 'lock': args_['lock']}
-        if (d.get('pool') or {}).get('address'):   # the first stays the Collective's main pool
-            d['poolsMore'] = (d.get('poolsMore') or []) + [made_]
-        else:
-            d['pool'] = made_
-        _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, 'meteora', str(body.get('name') or 'New pool')[:32], r_['pool'], f"Opened {args_['amountA']} + {args_['amountB']}", time.time()))
-        d.pop('poolDraft', None)
-    else:
-        raise HTTPException(400, 'Unknown colony action.')
-    d['log'] = (d.get('log') or [])[-40:] + [{'at': now, 'what': act, 'by': str(me_)[:8], 'principalUsd': d.get('principalUsd'), 'policy': d.get('policy')}]
-    _json_save(COLONY_PATH, d)
-    return await _colony_view()
 
 
 
 
-@app.post('/api/reputation/admin/ai/prompts')
-async def admin_ai_prompts_set(request: Request):
-    """🎭 Owner: apply a set to a model ({key, set, text?} — text = the owner's edit of that set) or revert it ({key, revert: true})."""
-    me_ = _require_owner(request)
-    body = await request.json()
-    body = body if isinstance(body, dict) else {}
-    k_ = body.get('key')
-    if k_ == 'fee':   # 🐱 her versions live with her (feecat_service) — the owner approves each, no auto switch
-        await _studio_fee({**{x_: body[x_] for x_ in ('set', 'text', 'revert', 'general') if x_ in body}, 'by': str(me_)[:44]})
-        return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
-    if k_ not in _pstu.KEYS:
-        raise HTTPException(400, 'unknown model')
-    raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})
-    if 'auto' in body:   # 🤖 the auto-tune switch for this model
-        raw_['auto'] = {**(raw_.get('auto') or {}), k_: bool(body.get('auto'))}
-        _json_save(PROMPT_STUDIO_PATH, raw_)
-        _studio_auto_at['t'] = 0.0   # judged on the next AI round, not in 5 min
-        return {**(await _studio_view()), 'applied': None}
-    if body.get('revert'):
-        raw_.pop(k_, None)
-        raw_['history'] = _pstu.hist_add(raw_.get('history'), k_, None, time.time(), me_)
-    else:
-        set_ = body.get('set')
-        if set_ not in _pstu.SETS:
-            raise HTTPException(400, 'unknown prompt set')
-        gen_ = next((x_ for m_ in (await _studio_view())['models'] if m_['key'] == k_ for x_ in m_['sets'] if x_['set'] == set_), None) or {}
-        txt_ = ' '.join(str(body.get('text') or '').split()) or gen_.get('text') or ''
-        if not txt_:
-            raise HTTPException(400, 'empty prompt')
-        raw_[k_] = {'set': set_, 'text': txt_, 'at': time.time(), 'by': str(me_)[:44], 'edited': txt_ != gen_.get('text')}
-        raw_['history'] = _pstu.hist_add(raw_.get('history'), k_, set_, time.time(), me_)
-    _json_save(PROMPT_STUDIO_PATH, raw_)
-    return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
 
 
 
 
-@app.post('/api/reputation/admin/ai/rig/preset')
-async def admin_ai_rig_preset(request: Request):
-    """🔖 Owner: a model's presets — `save` (snapshot its rig now under a name), `apply` (that snapshot → the rig, listed values only; G4 / OSSY
-    reload only on the ⚡ tap), `drop`."""
-    admin = _require_owner(request)
-    import ai_rig as _rg
-    body = await request.json(); body = body if isinstance(body, dict) else {}
-    key_, name_, act_ = body.get('key'), body.get('name'), body.get('act')
-    store_ = _json_load(AI_PRESETS_PATH, {}); rig_ = _rg.clean({}, _json_load(AI_RIG_PATH, {}))
-    try:
-        if act_ == 'save':
-            _rg.preset_save(store_, key_, name_, rig_.get(key_) or {}, time.time())
-        elif act_ == 'drop':
-            _rg.preset_drop(store_, key_, name_)
-        elif act_ == 'apply':
-            row_ = _rg.preset_get(store_, key_, name_)
-            if row_ is None:
-                raise ValueError('No such preset.')
-            _json_save(AI_RIG_PATH, _rg.clean({key_: row_}, rig_)); _rig_apply()
-        else:
-            raise ValueError('save, apply or drop.')
-    except ValueError as e_:
-        raise HTTPException(400, str(e_))
-    _json_save(AI_PRESETS_PATH, store_)
-    ad_ = _admin_load(); _audit(ad_, admin, 'ai-preset', f'{act_} {key_} {str(name_)[:32]}'); _admin_save(ad_)
-    return await admin_ai_rig(request)
-
-
-@app.post('/api/reputation/admin/ai/rig')
-async def admin_ai_rig_set(request: Request):
-    """🎛 Owner: save the rig (listed values only) — live at once for what FEELESS sends. G4 / OSSY are never reloaded."""
-    admin = _require_owner(request)
-    import ai_rig as _rg
-    body = await request.json()
-    body = body if isinstance(body, dict) else {}
-    new_ = _rg.clean(body, _json_load(AI_RIG_PATH, {}))
-    _json_save(AI_RIG_PATH, new_)
-    _rig_apply()
-    ad_ = _admin_load(); _audit(ad_, admin, 'ai-rig', str({k_: new_[k_] for k_ in _rg.KEYS})[:300]); _admin_save(ad_)
-    rl_ = body.get('reload')
-    if rl_ in _rg.LM_KEYS:   # ⚡ the owner's tap = the approval: reload THAT model with its wanted load (never automatic)
-        if rl_ in _lms_reloading:
-            raise HTTPException(429, f'{_rg.NAMES[rl_]} is already reloading.')
-        _lms_reloading.add(rl_)
-        try:
-            res_ = await _lms_reload(rl_, new_[rl_]['load'])
-        finally:
-            _lms_reloading.discard(rl_)
-        _lms_seen.pop(rl_, None)
-        ad_ = _admin_load(); _audit(ad_, admin, 'lms-reload', f"{rl_} {_rg.load_value(new_[rl_]['load'])} → {'ok' if res_.get('ok') else res_.get('err')}"[:200]); _admin_save(ad_)
-        out_ = await admin_ai_rig(request)
-        return {**out_, 'reload': res_}
-    return await admin_ai_rig(request)
-
-
-@app.get('/api/reputation/admin/ai/calls')
-async def admin_ai_calls(request: Request):
-    """🧠 Owner: the models' calls LIVE — each one in flight with its % (elapsed ÷ that model's own average) + the last 30 prompts / answers."""
-    _require_owner(request)
-    by_ = {}
-    for _t, ms_, k_ in list(getattr(_air.ROUTER, 'recent', []) or []):
-        by_.setdefault(k_, []).append(ms_)
-    avg_ = {k_: sum(v_) / len(v_) for k_, v_ in by_.items() if v_}
-    names_ = {k_: _air.NAME_DEFAULT.get(k_) for k_ in ('lan', 'local')} if isinstance(getattr(_air, 'NAME_DEFAULT', None), dict) else {}
-    lim_ = {k_: _air.rig(k_, 'timeout', (_air.PROVIDERS.get(k_) or (0,) * 7)[6] or 90) for k_ in ('lan', 'local')}   # ⏱ the real deadline per model
-    return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}, 'limits': lim_}
 
 
 
 
-@app.get('/api/reputation/admin/ai/learned')
-async def admin_ai_learned(request: Request):
-    """🎓 Owner: what the desk has LEARNED, in one read — your standing words from the chat log, hold lessons + taught notes, live rules /
-    repeat causes, the germ entry's own real record (agents) + your entries vs the germ, and the fixes waiting for your ✅. Read only."""
-    _require_owner(request)
-    now = time.time(); mem_ = _aim.prune(_aim_mem.get() or {}, now)
-    pick_ = lambda d_, n_: [{'t': x.get('t'), 'at': x.get('at')} for x in reversed(mem_.get(d_) or [])][:n_]
-    pos_ = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
-    try:
-        yours_ = _co.germ_record(pos_)
-    except Exception:
-        yours_ = {}
-    pend_ = [{k_: x.get(k_) for k_ in ('id', 'agent', 'kind', 'key', 'new', 'reason')} for x in (_chat_props().get('items') or []) if x.get('status') == 'pending'][:8]
-    return {'owner': pick_('owner', 12), 'lessons': pick_('lessons', 12), 'rules': pick_('rules', 10), 'germAgents': _aic.germ_record(_real_trades()),
-            'germYours': yours_, 'pending': pend_, 'size': _aim.size(mem_), 'at': round(now, 1)}
 
 
 
 
-@app.post('/api/reputation/admin/ai/playground')
-async def admin_ai_playground_make(request: Request):
-    """🧩 Owner: a model proposes ONE code change for a real part of FEELESS (it is shown that file's real outline). Nothing is written to
-    the repo: ✅ files it to the build queue, Claude Code applies it with tests. `from` = an earlier proposal to change."""
-    _require_owner(request)
-    body = await request.json() or {}
-    ask = _aic.clean(body.get('prompt'), 900)
-    target = str(body.get('target') or 'agents')
-    if len(ask) < 3:
-        raise HTTPException(400, 'Say what to change.')
-    if target not in _play.TARGETS:
-        raise HTTPException(400, 'Pick a part of FEELESS.')
-    if _chat['busy']:
-        raise HTTPException(429, 'The model is still answering.')
-    d_ = _json_load(AI_PLAY_PATH, {}) or {}
-    prev = next((x for x in (d_.get('items') or []) if x.get('id') == body.get('from')), None)
-    try:
-        src_ = (Path(__file__).resolve().parent.parent / _play.TARGETS[target][0]).read_text()
-    except OSError:
-        src_ = ''
-    prov_ = str(body.get('provider') or 'auto')
-    only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
-    _chat['busy'] = True
-    raw_ = _air.RAW.set(True)
-    q_ = _play.prompt(ask, target, _play.outline(src_, _play.TARGETS[target][0]), prev)
-    tried_ = []
-    try:
-        prop, res = None, {}
-        for o_ in ([only_] if only_ and prov_ != 'duet' else [only_, (_duet.SECOND,)]):   # 🧩 no code from the first model → the other one gets a try
-            res = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), q_, role='owner', system=_play.ASK, only=o_, tune={'temp': 0.3, 'maxTok': 4000}, only_system=True)
-            prop = _play.parse(res.get('raw') or res.get('text'))
-            tried_.append(f"{res.get('label') or res.get('source')}: {'code' if prop else (str(res.get('text') or res.get('why') or 'no answer')[:60])}")
-            if prop:
-                break
-        if prop and not prop.get('preview'):   # 🖼 no mock-up in the answer -> one more call that only builds the live, clickable preview
-            pq_ = f"THE CHANGE: {prop['title']} — {prop['why'][:400]}\nWHAT THE OWNER ASKED: {ask[:400]}\nTHE CODE:\n{prop['code'][:3500]}"
-            pr_ = await _air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), pq_, role='owner', system=_play.PREVIEW_ASK, only=only_ if only_ and prov_ != 'duet' else None, tune={'temp': 0.4, 'maxTok': 3500}, only_system=True)
-            pv_ = _play.html_of(pr_.get('raw') or pr_.get('text'))
-            if pv_:
-                prop['preview'] = pv_
-    finally:
-        _air.RAW.reset(raw_)
-        _chat['busy'] = False
-    if not prop:
-        raise HTTPException(502, "No model returned a code proposal — " + ' · '.join(tried_ or ['no provider answered']))
-    prop = {**prop, **_play.preview_diff(src_, prop['code'], _play.TARGETS[target][0])}   # 🔍 before → after against the real file
-    if _play.TARGETS[target][0].endswith('.py') and prop.get('examples'):   # ▶ the proposal WORKING: its own examples, run in a locked-down sandbox
-        prop['run'] = await asyncio.to_thread(_play.test_run, prop['code'], prop['examples'])
-    d_['items'], it = _play.add(d_.get('items'), ask, prop, target, res.get('label'))
-    _json_save(AI_PLAY_PATH, d_)
-    return {'item': it, 'items': d_['items'], 'ms': res.get('ms')}
 
 
-@app.post('/api/reputation/admin/ai/playground/decide')
-async def admin_ai_playground_decide(request: Request):
-    """🧩 Owner: ✅ approve (→ the build queue, pointing back at the proposal's code) or ✕ drop a code proposal. Writes no code."""
-    _require_owner(request)
-    body = await request.json() or {}
-    now = time.time()
-    d_ = _json_load(AI_PLAY_PATH, {}) or {}
-    d_['items'], it = _play.decide(d_.get('items'), str(body.get('id') or ''), bool(body.get('approve')), now)
-    if not it:
-        raise HTTPException(404, 'No open proposal with that id.')
-    if it['status'] == 'approved':
-        try:
-            _chat['build'], b_ = _aic.build_add(_build_state(), it['title'], f"code lab {it['id']} → {it['file']}: {it['why']} (code in data/ai_playground.json)", 'code lab · approved', now)
-            _json_save(BUILD_QUEUE_PATH, _chat['build']); it['build'] = b_['id']
-        except ValueError as e:
-            it['build'] = str(e)
-    _json_save(AI_PLAY_PATH, d_)
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'code-lab', f"{it['status']} {it['id']} {it['file']}"[:200]); _admin_save(ad_)
-    return {'item': it, 'items': d_['items']}
 
 
-@app.post('/api/reputation/admin/ai/chat')
-async def admin_ai_chat(request: Request):
-    """💬 Owner only: talk to the current model. `mode` chat (normal language) · case (the structured coin read of `focus`) · improve (the model
-    may PROPOSE agent changes — nothing is applied here). One chat inference at a time; the history is short and in memory."""
-    _require_owner(request)
-    body = await request.json()
-    text = _aic.clean((body or {}).get('text'), 2000)
-    mode = str((body or {}).get('mode') or 'chat').lower()
-    focus = str((body or {}).get('focus') or '')[:60] or None
-    if mode not in _aic.MODES:
-        raise HTTPException(400, 'Pick chat, case, improve or build.')
-    asked, mode = mode, _aic.route_mode(mode, text)   # a chat message that asks for a change becomes proposals the owner approves
-    if len(text) < 2 and mode != 'case':
-        raise HTTPException(400, 'Type a message.')
-    if asked in ('chat', 'improve') and not (body or {}).get('image'):   # 🎛 "ossy context 16k, temp 0.6" = a SETTINGS LINE: read straight from your words
-        rig_items_ = _aic.rig_items(text)                              # → proposals at once (no model call); nothing applies before ✅
-        if rig_items_:
-            now = time.time(); _brain_load()
-            if any(x_['key'].endswith('.load') for x_ in rig_items_):
-                await _lms_states(fresh=True)
-            _chat['props'], new = _aic.propose(_chat_props(), rig_items_, _chat_olds(), now, '👤 your line')
-            _json_save(AI_PROPOSALS_PATH, _chat['props'])
-            reply = ('🎛 ' + (f"{len(new)} model change{'s' if len(new) != 1 else ''} waiting for your ✅: " if new else 'Already waiting for your ✅: ')
-                     + ' · '.join(p_['effect'].split(' — ')[0] for p_ in (new or rig_items_))
-                     + ('. A load change reloads that model once you approve it.' if any(x_['key'].endswith('.load') for x_ in rig_items_) else '. Live the moment you approve.'))
-            _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], asked, 'user', text), asked, 'assistant', reply, {'mode': asked, 'provider': '🎛 rig'})
-            _chat_persist()
-            ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} rig change(s) from your line: " + ' · '.join(f"{p_['key']}={p_['new']}" for p_ in new)[:200]); _admin_save(ad_)
-            return {'ok': True, 'mode': asked, 'routed': False, 'reply': reply, 'provider': '🎛 rig', 'model': None, 'ms': 0, 'history': _chat['th'].get(asked) or [], **_chat_extra(),
-                    'new': [p_['id'] for p_ in new], 'refused': [], 'proposals': _aic.view(_chat_props()), 'rig': True}
-    if _chat['busy']:
-        raise HTTPException(429, 'The model is still answering your last message.')
-    _chat['busy'] = True
-    now = time.time()
-    _brain_load()
-    try:
-        env, cfg = os.environ, _ai_cfg()
-        try:
-            await _air.ROUTER.heartbeat(_ai_http(), env, cfg, now, every=0)   # 💓 a chat never waits on a stale OFFLINE: LM Studio is re-checked first (one cheap read)
-        except Exception:
-            pass
-        if mode == 'case':   # 🔎 CASE REVIEW: the kernel's own case for the selected coin → the validated structured answer
-            c = next((c_ for c_ in (((_office.get('payload') or {}).get('kernel') or {}).get('candidates') or []) if focus and focus in (c_.get('mint'), c_.get('pair'), c_.get('symbol'))), None)
-            if not c:
-                raise HTTPException(400, 'Pick a coin that is on the desk (the one on the chart) for a case review.')
-            res = await _air.ROUTER.reason(_ai_http(), env, cfg, _ai_case(c), 'owner', 'force', mode='case')
-            ad = res.get('advice') or {}
-            if ad:
-                _ai_keep('owner', c, res, now)
-            reply = (f"{ad.get('call') or ad.get('stance')} · {ad.get('summary')}" + (f" · risks: {'; '.join(ad.get('risk_flags') or [])}" if ad.get('risk_flags') else '')) if ad else None
-            _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], 'case', 'user', f"[case review] ${c.get('symbol')} {text}".strip()), 'case', 'assistant', reply or 'no provider answered', {'mode': 'case'})
-            return {'ok': bool(ad), 'mode': 'case', 'reply': reply, 'advice': ad or None, 'symbol': c.get('symbol'), 'provider': res.get('label'), 'model': _air.provider(env, res['source'], cfg)['model'] if res.get('source') in _air.PROVIDERS else None,
-                    'ms': res.get('ms'), 'tokens': _air.ROUTER.lastUsage.get(res.get('source')), 'history': _chat['th'].get('case') or [], 'threads': _aic.threads_view(_chat['th']), 'proposals': _aic.view(_chat_props()), 'why': res.get('why')}
-        ctx, data_ = _chat_context(focus, now), None
-        if mode == 'chat' and _cev.wants(text):   # 📚 a question about what HAPPENED: the model reads FEELESS's own records for the window, not a guess
-            try:
-                pk_, st_ = await asyncio.to_thread(_chat_evidence, text, now)
-                ctx = {'evidence': pk_, 'rules': _cev.RULES, 'live': (ctx or {}).get('live'), 'germRecord': (ctx or {}).get('germRecord')}   # 🧠 what is live keeps riding along
-                data_ = {'state': st_, 'window': (pk_.get('time_window') or {}).get('label'), 'exits': (pk_.get('summary') or {}).get('exits', 0), 'gaps': pk_.get('known_gaps') or []}
-            except Exception as e_:
-                print('chat evidence:', str(e_)[:120])
-                data_ = {'state': 'NO HISTORY', 'window': None, 'exits': 0, 'gaps': ['the evidence reader failed — answered without records']}
-        set_ = _chat.get('settings') or {}
-        try:   # 👤 THE OWNER'S OWN RECORD rides on EVERY chat answer (owner, 2026-10-15: "they aren't learning from my moves, they think it's all the agents")
-            ob_ = _owner_brief() if set_.get('memory', 'on') == 'on' else None
-            if ob_:
-                ctx = {**(ctx or {}), 'owner': ob_, 'ownerRule': _aic.OWNER_RULE}
-        except Exception as e_:
-            print('chat owner brief:', str(e_)[:80])
-        try:   # 🗄 the filed memory that fits this question (owner notes first, then lessons / rules / coins / site) — never the whole store
-            mm_ = _aim.recall(_aim.seed_site(_aim_mem.get() or {}, now), text, 8) if set_.get('memory', 'on') == 'on' else None
-            if mm_:
-                ctx = {**(ctx or {}), 'memory': mm_}
-        except Exception as e_:
-            print('chat memory:', str(e_)[:80])
-        try:   # 🪙 a coin the owner NAMES ("ELON", "$BUBBLE"): its own trade record — seat, what the agents would have done, his moves, past exits
-            cr_ = _chat_coin(text)
-            if cr_:
-                ctx = {**(ctx or {}), 'coin': cr_, 'coinRule': 'The owner named this coin: answer from `coin` FIRST, with its numbers — entry, now, peak, '
-                       'every moment the agents would have sold and what the coin did after, his own moves on it. No web, no generic lessons.'}
-        except Exception as e_:
-            print('chat coin:', str(e_)[:80])
-        prov_ = str((body or {}).get('provider') or 'auto')   # resolve model before optional web research
-        web_ = None
-        if mode == 'chat' and (body or {}).get('web', True) is not False and set_.get('search', 'deep') != 'off' and _aic.should_search(text, _chat_syms()) and (prov_ != 'win' or _aic.FORCE_WEB.search(text)):   # (records AND the web — owner: "always research before responding")   # 🌐 a quick search before EVERY real question (model memory may be out of date)
-            try:
-                import feeless_mcp as _mcp
-                rows_ = await asyncio.wait_for(asyncio.to_thread(_mcp._search_rows, _aic.web_query(text), 5), timeout=8)
-                web_ = [{'title': str(x_.get('title') or '')[:120], 'url': str(x_.get('url') or '')[:300], 'snippet': str(x_.get('snippet') or '')[:240]} for x_ in rows_ or [] if x_.get('url')][:5]
-                if web_:
-                    ctx = {**(ctx or {}), 'web': web_, 'webRule': _aic.WEB_RULE}
-                    try:   # 📚 READ the 2 most solid results (owner: "back every answer — Google + 2 prominent sources"), in parallel, ≤ 8s — research setting 'deep'
-                        if set_.get('search', 'deep') != 'deep':
-                            raise StopIteration
-                        import fee_voice as _fv_
-                        pick_ = _fv_.pick_sources(web_, 2)
-                        txt_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp.t_web_fetch, {'url': x_['url'], 'max_chars': 1800}) for x_ in pick_], return_exceptions=True), timeout=8)
-                        src_ = [{'title': x_.get('title'), 'url': x_['url'], 'text': str(t_)[:1800]} for x_, t_ in zip(pick_, txt_) if isinstance(t_, str) and not t_.startswith('Could not read')]
-                        if src_:
-                            ctx['sources'] = src_
-                    except StopIteration:
-                        pass
-                    except Exception as e2_:
-                        print('chat sources:', str(e2_)[:80])
-            except Exception as e_:
-                print('chat web:', str(e_)[:100])
-        only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
-        if prov_ == 'auto':   # 💬 your chat asks the STRONGER local model first (OSSY = gpt-oss-20b; G4 is a 2B model on the desktop today) — CHAT_FIRST overrides
-            only_ = tuple(dict.fromkeys([str(env.get('CHAT_FIRST') or 'local')] + list(_air.order_of(env, cfg))))
-        img_ = _chat_image((body or {}).get('image'))
-        hist_ = _aic.as_messages(_chat['th'].get(mode))
-        vl_ = _aic.VOICE_LINE.get(set_.get('voice', 'degen')) or ''
-        res = await _air.ROUTER.ask(_ai_http(), env, cfg, text, context=ctx, role='owner', history=hist_, system=((_aic.system_for(mode) or '') + ('\n' + vl_ if vl_ else '')) or None,
-                                    only=only_, images=[img_[1]] if img_ else None, tune=_aic.tune_of(_chat['settings']))
-        if prov_ == 'duet' and not img_:   # 🤝 THE DUET IN CHAT: Gemma answers, Qwen reads Gemma's answer and agrees or pushes back — both shown
-            lead_t = res.get('text')
-            r2 = await _air.ROUTER.ask(_ai_http(), env, cfg, _duet.second_prompt(text, lead_t) if lead_t else text, context=ctx, role='owner', history=hist_,
-                                       system=_aic.system_for(mode), only=(_duet.SECOND,), tune=_aic.tune_of(_chat['settings']))
-            both_ = _duet.combine(lead_t, r2.get('text'), {k_: _air.model_name(env, k_) for k_ in (_duet.LEAD, _duet.SECOND)})
-            res = {**res, 'text': both_, 'label': ' + '.join(x for x in (res.get('label') if lead_t else None, r2.get('label') if r2.get('text') else None) if x) or res.get('label'),
-                   'ms': (res.get('ms') or 0) + (r2.get('ms') or 0), 'model': ' + '.join(x for x in (res.get('model'), r2.get('model')) if x)}
-        reply, new, refused = res.get('text'), [], []
-        if reply and mode in ('improve', 'build'):   # 🛠 the model's suggestions become PENDING records — nothing is applied until the owner approves each one
-            reply, items, refused = _aic.parse_improve(reply, tuple(_co.CAUSES), only=('idea',) if mode == 'build' else None)
-            if items:
-                _chat['props'], new = _aic.propose(_chat_props(), items, _chat_olds(), now, res.get('label'))
-                if _chat['settings'].get('allowSmall'):   # 🤝 the owner's allowance: lessons + build ideas apply at once (marked auto); everything else still waits for ✅
-                    for p_ in [x for x in new if x['kind'] in _aic.SMALL_KINDS]:
-                        try:
-                            _chat['props'], d_, er_ = _aic.decide(_chat['props'], p_['id'], True, now)
-                            if er_ or not d_:
-                                continue
-                            _chat['props'] = _aic.applied(_chat['props'], p_['id'], '🤝 auto (small thing allowed) · ' + await _ai_proposal_apply(d_, now))
-                        except Exception as e_:
-                            print('ai auto-small:', str(e_)[:80])
-                _json_save(AI_PROPOSALS_PATH, _chat['props'])
-                ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} proposed by {res.get('label')}: " + ' · '.join(f"{p_['kind']} {p_['key']}" for p_ in new)[:200]); _admin_save(ad_)
-        if not reply and data_ and data_['state'] == 'NO HISTORY':
-            reply = f"Insufficient evidence: FEELESS has no records for {data_.get('window') or 'that window'} — " + '; '.join(data_['gaps'][:3])
-        try:   # 💬 what you STATE in chat (how you trade, what you want) becomes a standing owner note every later answer recalls
-            mem_c = _aim_mem.get() or {}
-            for n_ in _aim.chat_notes(text):
-                mem_c = _aim.file(mem_c, 'owner', 'chat:' + hashlib.sha1(n_.lower().encode()).hexdigest()[:10], '💬 owner said: ' + n_, now)
-            _aim_mem.put(mem_c, now)
-        except Exception as e_:
-            print('chat memory note:', str(e_)[:80])
-        _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], mode, 'user', text, {'img': img_[0]} if img_ else None), mode, 'assistant', reply or 'no provider answered', {'mode': mode, 'ms': res.get('ms'), 'provider': res.get('label'), **({'data': data_} if data_ else {}), **({'web': [{'title': x_['title'], 'url': x_['url']} for x_ in web_]} if web_ else {})})
-        _chat_persist()
-        return {'ok': bool(reply), 'mode': mode, 'routed': mode != asked, 'reply': reply, 'data': data_, 'web': web_, 'provider': res.get('label'), 'model': res.get('model'), 'ms': res.get('ms'), 'tokens': res.get('usage'), 'history': _chat['th'].get(mode) or [], **_chat_extra(),
-                'new': [p_['id'] for p_ in new], 'refused': refused, 'proposals': _aic.view(_chat_props()), 'why': res.get('why'), 'learned': _chat_learned()}
-    finally:
-        _chat['busy'] = False
+
+
+
+
 
 
 import chat_evidence as _cev
@@ -17716,110 +15127,14 @@ def _chat_learned():
     return len((_teach_state() or {}).get('items') or [])
 
 
-@app.post('/api/reputation/admin/ai/chat/clear')
-async def admin_ai_chat_clear(request: Request):
-    """💬 Owner only: forget the conversation — or ONE message of it (`{index}`). The proposals stay: they are the audit record."""
-    _require_owner(request)
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    _brain_load()
-    i = (body or {}).get('index'); m_ = str((body or {}).get('mode') or 'chat')
-    if m_ not in _aic.MODES:
-        raise HTTPException(400, 'Unknown mode.')
-    h_ = list(_chat['th'].get(m_) or [])
-    if i is None and (body or {}).get('from') is None and h_:   # ＋ New chat: the current thread is SAVED first (🗂 reopens it)
-        _chat['saved'] = _aic.save_convo(_chat['saved'], m_, h_, time.time())
-    f_ = (body or {}).get('from')   # ✏ edit = rewind the thread to this message (it and everything after it go; the page puts the text back in the box)
-    if isinstance(f_, int) and not isinstance(f_, bool) and 0 <= f_ < len(h_):
-        _chat['th'] = {**_chat['th'], m_: h_[:f_]}
-    else:
-        _chat['th'] = {**_chat['th'], m_: (h_[:i] + h_[i + 1:]) if isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(h_) else []}
-    _chat_persist()
-    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra(), 'proposals': _aic.view(_chat_props()), 'learned': _chat_learned()}
 
 
-@app.post('/api/reputation/admin/ai/image')
-async def admin_ai_image(request: Request):
-    """🎨 Owner only: the Brain GENERATES a picture from {prompt} (OpenRouter image model, inside its daily spend cap). The picture is saved in
-    our upload store and lands in the {mode} thread as the Brain's answer. Never posted anywhere by itself."""
-    _require_owner(request); _brain_load()
-    body = await request.json() or {}
-    prompt = _aic.clean(body.get('prompt'), 1200); m_ = str(body.get('mode') or 'chat')
-    if len(prompt) < 3 or m_ not in _aic.MODES:
-        raise HTTPException(400, 'Describe the picture.')
-    if _chat['busy']:
-        raise HTTPException(429, 'The model is still answering.')
-    _chat['busy'] = True
-    try:
-        res = await _air.ROUTER.gen_image(_ai_http(), os.environ, _ai_cfg(), prompt)
-    finally:
-        _chat['busy'] = False
-    if not res.get('ok'):
-        raise HTTPException(402 if res.get('status') == 402 else 502, f"🎨 {res.get('why')}")
-    m2 = _re.match(r'^data:image/(png|jpeg|webp);base64,(.+)$', res['url'], _re.S)
-    if not m2:
-        raise HTTPException(502, 'The picture came back in a format we do not keep.')
-    raw = base64.b64decode(m2.group(2))
-    if len(raw) > 8_000_000:
-        raise HTTPException(502, 'The picture is too big to keep.')
-    name = f"{uuid.uuid4().hex}.{'jpg' if m2.group(1) == 'jpeg' else m2.group(1)}"
-    (UPLOAD_DIR / name).write_bytes(raw)
-    url = f'/api/reputation/uploads/{name}'
-    _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], m_, 'user', f"🎨 {prompt}"), m_, 'assistant', res.get('text') or '🎨 here it is', {'img': url, 'provider': 'OPENROUTER', 'ms': res.get('ms')})
-    _chat_persist()
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-image', f"{res.get('model')} · ${res.get('usd') or 0:.3f} · {prompt[:80]}"); _admin_save(ad_)
-    return {'ok': True, 'url': url, 'mode': m_, 'model': res.get('model'), 'usd': res.get('usd'), 'ms': res.get('ms'), 'history': _chat['th'][m_], **_chat_extra()}
 
 
-@app.post('/api/reputation/admin/ai/chat/open')
-async def admin_ai_chat_open(request: Request):
-    """🗂 Owner only: reopen a saved conversation into its mode's thread (the thread there now is saved first)."""
-    _require_owner(request); _brain_load()
-    cid = str((await request.json() or {}).get('id') or '')
-    hit = next((x for x in _chat['saved'] if x['id'] == cid), None)
-    if not hit:
-        raise HTTPException(404, 'No such conversation.')
-    now_ = time.time(); m_ = hit['mode'] if hit['mode'] in _aic.MODES else 'chat'
-    rest = [x for x in _chat['saved'] if x['id'] != cid]
-    _chat['saved'] = _aic.save_convo(rest, m_, _chat['th'].get(m_), now_)
-    _chat['th'] = {**_chat['th'], m_: list(hit.get('msgs') or [])}
-    _chat_persist()
-    return {'ok': True, 'mode': m_, 'history': _chat['th'][m_], **_chat_extra()}
 
 
-@app.post('/api/reputation/admin/ai/chat/saved')
-async def admin_ai_chat_saved(request: Request):
-    """🗂 Owner only: rename a saved conversation ({id, title}), delete one ({id, delete: true}) or clear them all ({clearAll: true})."""
-    _require_owner(request); _brain_load()
-    b = await request.json() or {}
-    if b.get('clearAll'):
-        _chat['saved'] = []
-    else:
-        cid = str(b.get('id') or '')
-        if not any(x['id'] == cid for x in _chat['saved']):
-            raise HTTPException(404, 'No such conversation.')
-        if b.get('delete'):
-            _chat['saved'] = [x for x in _chat['saved'] if x['id'] != cid]
-        else:
-            t_ = _aic.clean(str(b.get('title') or ''), 60)
-            if not t_:
-                raise HTTPException(400, 'Give it a name.')
-            _chat['saved'] = [({**x, 'title': t_} if x['id'] == cid else x) for x in _chat['saved']]
-    _chat_persist()
-    return {'ok': True, **_chat_extra()}
 
 
-@app.post('/api/reputation/admin/ai/chat/settings')
-async def admin_ai_chat_settings(request: Request):
-    """⚙ Owner only: the Brain's chat tuning (temperature · answer length) + the small-things allowance. Listed values only; audited."""
-    _require_owner(request); _brain_load()
-    body_ = {k_: v_ for k_, v_ in (await request.json() or {}).items() if k_ != 'localBoostUntil'}   # the boost's end is set by the server only (now + 24h)
-    _chat['settings'] = _aic.clean_settings({**body_, 'now': time.time()}, _chat['settings'])
-    _chat_persist()
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-chat-settings', json.dumps(_chat['settings'])[:160]); _admin_save(ad_)
-    return {'ok': True, **_chat_extra()}
 
 
 _CHAT_IMG = _re.compile(r'^/api/reputation/uploads/([0-9a-f]{32}\.(png|jpg|webp|gif))$')
@@ -17845,69 +15160,12 @@ def _build_state():
     return _chat['build']
 
 
-@app.post('/api/reputation/admin/ai/build')
-async def admin_ai_build(request: Request):
-    """📋 Owner only: {text, title?} → QUEUE it for the build (the owner's tap is the permission) · {id, status} → move it (queued / building /
-    shipped / dropped). The model never writes code in the app: the next engineering session reads data/build_queue.json first."""
-    _require_owner(request)
-    body = await request.json() or {}
-    now = time.time()
-    try:
-        if body.get('id'):
-            _chat['build'] = _aic.build_set(_build_state(), str(body['id']), str(body.get('status') or ''), now); what = f"{body['id']} → {body.get('status')}"
-        else:
-            _chat['build'], it_ = _aic.build_add(_build_state(), body.get('title'), body.get('text'), body.get('src') or 'chat', now); what = f"queued {it_['id']}: {it_['title']}"
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    _json_save(BUILD_QUEUE_PATH, _chat['build'])
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-build', what[:160]); _admin_save(ad_)
-    return {'ok': True, 'build': _aic.build_view(_chat['build'])}
-
-
-@app.post('/api/reputation/admin/ai/chat/remember')
-async def admin_ai_chat_remember(request: Request):
-    """🧠 Owner only: REMEMBER THIS — the owner taps a line of the chat and it becomes a lesson (teach.py `note`) that every fitting model
-    case reads from now on. The owner's own tap is the approval; a lesson is advice for the model, never an order, a size or a setting."""
-    _require_owner(request)
-    body = await request.json()
-    text = _aic.clean((body or {}).get('text'), 400)
-    if len(text) < 8:
-        raise HTTPException(400, 'Nothing to remember.')
-    try:
-        _teach['st'] = _tch.add(_teach_state(), {'kind': 'note', 'text': text}, time.time())
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    _json_save(TEACH_PATH, _teach['st'])
-    if _office.get('payload') is not None:
-        _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-remember', text[:160]); _admin_save(ad_)
-    return {'ok': True, 'learned': _chat_learned()}
 
 
 
 
-@app.post('/api/reputation/admin/ai/proposals/decide')
-async def admin_ai_proposal_decide(request: Request):
-    """✅ / ✕ Owner only: APPROVE or REJECT one pending proposal. Approve is the ONLY call that applies anything (`_ai_proposal_apply`,
-    safe kinds only); reject changes nothing. Decided once, audited."""
-    _require_owner(request)
-    body = await request.json()
-    now = time.time()
-    st, todo, err = _aic.decide(_chat_props(), str((body or {}).get('id') or ''), bool((body or {}).get('approve')), now)
-    if err:
-        _chat['props'] = st; _json_save(AI_PROPOSALS_PATH, st)
-        raise HTTPException(400, err)
-    note = None
-    if todo:
-        try:
-            note = await _ai_proposal_apply(todo, now)
-        except (ValueError, KeyError) as e:
-            note = f'not applied: {str(e)[:120]}'
-        st = _aic.applied(st, todo['id'], note)
-        _tk.KERNEL.note('owner', 'AI PROPOSAL ✅', f"{todo['agent']} · {todo['kind']} {todo['key']} — {note}", now, key=f"aiprop:{todo['id']}")
-    _chat['props'] = st; _json_save(AI_PROPOSALS_PATH, st)
-    ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposal-decide', f"{'approved' if todo else 'rejected'} {(body or {}).get('id')}" + (f": {note}" if note else '')); _admin_save(ad_)
-    return {'ok': True, 'applied': note, 'proposals': _aic.view(st)}
+
+
 
 
 _rpc_warned = {'day': ''}
@@ -17927,305 +15185,18 @@ def _rpc_quota_notice():
     return True
 
 
-@app.post('/api/reputation/admin/fuse-wallet/preview')
-async def fuse_wallet_preview(request: Request):
-    """Dry run: the swaps a $ amount on one tier would need right now, each with a REAL Jupiter quote. Never signs or sends."""
-    _require_owner(request)
-    body = await request.json()
-    tid, usd = body.get('tpl'), _fuse._f(body.get('usd'))
-    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    if tid not in _prime.TEMPLATES or not cards.get(tid) or not 1 <= usd <= 50000:
-        raise HTTPException(400, 'Pick a dealt tier and $1–$50,000.')
-    card, sol_px = cards[tid], await _sol_usd_live()
-    px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card['legs']])
-    scale = usd / (_prime.value({**card, 'walletUsd': 0, 'parked': {}}, px) or 1)
-    want = {**card, 'legs': [{**l, 'units': l['units'] * scale} for l in card['legs']]}
-    cfg = {**_fw_cfg(), 'maxSwapUsd': 10000, 'minOrderUsd': 0.25}
-    status = _fw.paper_status(card, px, usd)
-    rows = []
-    for o in _fw.orders(tid, want, _fw.new_book(usd, sol_px, time.time()), px, sol_px, cfg, time.time()):
-        try:
-            q = await _fw_quote(o, cfg)
-            out = int(q.get('outAmount') or 0)
-            rows.append({**o, 'impactPct': round(_fuse._f(q.get('priceImpactPct')) * 100, 3), 'outAmount': out, 'route': [r.get('swapInfo', {}).get('label') for r in q.get('routePlan') or []][:3]})
-        except HTTPException as e:
-            rows.append({**o, 'err': str(e.detail)[:120]})
-    held_mints = set()
-    if _fw_cfg()['address']:
-        try:
-            held_mints = set((await _fw_balances(_fw_cfg()['address']))['tokens'])
-        except Exception:
-            pass
-    new_coins = len({o['mint'] for o in rows if o.get('side') == 'buy' and o['mint'] not in held_mints})
-    net_usd, rent_usd = round(len(rows) * 0.00006 * sol_px, 4), round(new_coins * 0.00204 * sol_px, 4)
-    return {'orders': rows, 'card': status, 'solUsd': sol_px, 'networkUsdEst': net_usd, 'rentUsdEst': rent_usd, 'newCoins': new_coins,
-            'feesUsdEst': round(net_usd + rent_usd, 4), 'cardUsd': usd,
-            'note': 'Fund continues THIS card with real money: same coins, same phase, same clock and config — only the $ and the start time change.'}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/topup')
-async def fuse_wallet_topup(request: Request):
-    """Owner only: fund (or add to) one tier card from the Fuse wallet's free SOL. A top-up RESETS the card as a new real run."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid, usd = body.get('tpl'), round(_fuse._f(body.get('usd')), 2)
-    cfg = _fw_cfg()
-    if tid not in _prime.TEMPLATES or usd < 1:
-        raise HTTPException(400, 'Pick a tier and at least $1.')
-    if not cfg['armed'] or not _fw_signer_ready():
-        raise HTTPException(400, 'Arm the Fuse wallet first (signing must be enabled).')
-    bal, sol_px = await _fw_balances(cfg['address']), await _sol_usd_live()
-    now = time.time()
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load()
-        parked_ = _fuse._f((_fw_rent_parked or {}).get('sol'))   # rent parked in coin accounts = the reserve's own money, back on the next sweep
-        free0_ = _fw.free_for_topup(bal['sol'], d['books'], cfg['reserveSol'], parked_)
-        if usd / sol_px > free0_ + 1e-6:
-            raise HTTPException(400, f"Only ${free0_ * sol_px:.2f} of SOL in the Fuse wallet is free to assign right now (wallet {bal['sol']:.4f} SOL · cards hold {sum(_fuse._f(b_.get('sol')) + _fuse._f(b_.get('bankSol')) for b_ in d['books'].values()):.4f} · fee reserve {cfg['reserveSol']} of which {parked_:.4f} is parked as refundable rent).")
-        cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-        card = cards.get(tid)
-        px = await _hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in (card or {}).get('legs') or []]) if card else {}
-        jup = await _jup_prices([l.get('mint') for l in (card or {}).get('legs') or []]) if card else {}
-        if card:
-            px.update({l['pairAddress']: jup[l['mint']] for l in card.get('legs') or [] if jup.get(l.get('mint'))})
-        first = tid not in d['books']
-        cur = _fw.book_value(d['books'][tid], px, sol_px) if not first else 0
-        if cur + usd > cfg['maxCardUsd']:
-            raise HTTPException(400, f"Over the ${cfg['maxCardUsd']:g} per-card cap (card holds ${cur:.2f}).")
-        if _FW_GAS.get('sol') is not None and sol_px > 0:   # 💵 a top-up only ASSIGNS SOL already in the wallet — never more than is unassigned
-            free = _fw.free_for_topup(_FW_GAS['sol'], d['books'], cfg['reserveSol'], parked_)
-            if usd / sol_px > free + 1e-6:
-                raise HTTPException(400, f"Only ${free * sol_px:.2f} unassigned SOL in the Fuse wallet (fee reserve kept apart) — send SOL to it first.")
-        if first:   # the SAME card goes real: same coins, phase, clock and config — scaled to the $, time + P&L start over
-            if not card or not card.get('legs'):
-                raise HTTPException(503, 'That tier has no card dealt yet — try again in a minute.')
-            new = _fw.topup_card(card, usd, px, now, first=True)
-            d['books'][tid] = _fw.new_book(usd, sol_px, now)
-        else:
-            b = d['books'][tid]
-            truth = _fw.sync_card(card, b, px, sol_px)
-            current = _prime.value(truth, px)
-            new = _fw.topup_card(truth, usd, px, now, current_usd=current)
-            d['books'][tid] = _fw.owner_add(b, usd, usd / sol_px, now)   # journalled: a keeper pass in flight can't save over it
-        _fw_record(d, {'card': tid, 'side': 'topup', 'usd': usd, 'sol': round(usd / sol_px, 9), 'at': now, 'by': me, 'status': 'done',
-                       'why': 'funded — new real run' if first else 'new money top-up — new run'})
-        _fw_save(d)
-    async with _admin_lock:
-        h = _json_load(FUSE_HQ_PATH, {}); h.setdefault('prime', {}).setdefault('cards', {})[tid] = new; _json_save(FUSE_HQ_PATH, h)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-topup', f'{tid} ${usd:.2f}{" (first funding)" if first else ""}'); _admin_save(ad)
-    asyncio.create_task(_fw_tick(time.time()))
-    return {'ok': True, 'tpl': tid, 'usd': usd, 'first': first}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/retry-dead')
-async def fuse_wallet_retry_dead(request: Request):
-    """Owner repair for a failed/skipped keeper order.
-    Sell repairs are prioritized and return confirmed SOL to the card.
-    Buy repairs simply clear the bench/miss state and wake the keeper to spend only existing card cash."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid, side, mint = body.get('tpl'), body.get('side'), str(body.get('mint') or '').strip()
-    if tid not in _prime.TEMPLATES or side not in ('buy', 'sell') or not mint:
-        raise HTTPException(400, 'Pick a failed buy/sell on a funded card.')
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load(); b = d['books'].get(tid)
-        if not b:
-            raise HTTPException(400, 'That tier is not funded.')
-        if b.get('pending'):
-            raise HTTPException(409, 'Wait for the current transaction to settle first.')
-        if side == 'buy':
-            misses = dict(b.get('misses') or {}); misses.pop(mint, None)
-            bench = dict(b.get('benched') or {}); bench.pop(mint, None)
-            b = {**b, 'misses': misses, 'benched': bench}
-            d['books'][tid] = b
-            _fw_record(d, {'card': tid, 'side': 'repair-buy', 'mint': mint, 'at': time.time(), 'status': 'done',
-                           'why': 'owner retried dead buy from available card cash'})
-        else:
-            leg = (b.get('legs') or {}).get(mint)
-            if not leg or int(_fuse._f(leg.get('atoms'))) <= 0:
-                raise HTTPException(400, 'No held balance remains for that failed sell.')
-            b = {**b, 'legs': {**(b.get('legs') or {}), mint: {**leg, 'manualCash': True, 'recovered': True}}}
-            d['books'][tid] = b
-            _fw_record(d, {'card': tid, 'side': 'repair-sell', 'mint': mint, 'symbol': leg.get('symbol'), 'at': time.time(), 'status': 'done',
-                           'why': 'owner retried dead sell -> proceeds stay in card cash'})
-        _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-retry-dead', f'{tid} {side} {mint[:8]}'); _admin_save(ad)
-    _fw_kick_now()
-    return {'ok': True, 'tpl': tid, 'side': side, 'mint': mint}
-
-@app.post('/api/reputation/admin/fuse-wallet/payout-profit')
-async def fuse_wallet_payout_profit(request: Request):
-    """Owner only: move currently available PROFIT cash from the card into paid-out SOL.
-    Funded principal is a hard floor; this never sells a coin and never touches principal."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid = body.get('tpl')
-    ask = body.get('usd')
-    if tid not in _prime.TEMPLATES:
-        raise HTTPException(400, 'Pick a funded tier.')
-    sol_px = await _sol_usd_live()
-    cards = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
-    card = cards.get(tid)
-    if not card:
-        raise HTTPException(404, 'Card not found.')
-    pairs_ = await _fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in card.get('legs') or []])
-    px = {k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}
-    jup = await _jup_prices([l.get('mint') for l in card.get('legs') or []])
-    for l in card.get('legs') or []:
-        if jup.get(l.get('mint')):
-            px[l['pairAddress']] = jup[l['mint']]
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load(); b = d['books'].get(tid)
-        if not b:
-            raise HTTPException(400, 'That tier is not funded.')
-        if b.get('pending'):
-            raise HTTPException(409, 'Wait for the current transaction to settle first.')
-        equity = _fw.book_value(b, px, sol_px)
-        avail = _fw.profit_available(b, equity, sol_px)
-        nb, paid = _fw.payout_profit_cash(b, equity, sol_px, ask)
-        if paid <= 0:
-            raise HTTPException(400, 'No profit cash is available to pay out right now.')
-        d['books'][tid] = nb
-        _fw_record(d, {'card': tid, 'side': 'payout', 'usd': paid, 'sol': round(paid / sol_px, 9), 'at': time.time(), 'by': me,
-                       'status': 'done', 'why': 'owner payout - profit only; funded principal protected'})
-        _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-payout-profit', f'{tid} ${paid:.2f}'); _admin_save(ad)
-    return {'ok': True, 'tpl': tid, 'paidUsd': paid, 'availableBeforeUsd': avail, 'fundedUsd': b.get('fundedUsd')}
-
-@app.post('/api/reputation/admin/fuse-wallet/close-dust')
-async def fuse_wallet_close_dust(request: Request):
-    """♻ Owner only — FREE THE RENT OF DEAD COINS: every Fuse-wallet coin account no card holds whose leftover is worth under $0.05 at
-    Jupiter's live price (or was written off) gets its leftover BURNED and the account CLOSED in one transaction, so the rent comes back
-    to the wallet. `{confirm: false}` = the dry run (which coins, their $ value, the rent). `{confirm: true}` = Circle signs ONE Burn +
-    CloseAccount transaction for ≤ 8 accounts; it is booked as a 'close' row and credited like every sweep once it lands. The keeper
-    never burns anything by itself — this button is the owner's approval. Nothing here can touch a coin a card holds."""
-    _require_owner(request)
-    body = await request.json() or {}
-    cfg = _fw_cfg()
-    if not cfg.get('address'):
-        raise HTTPException(400, 'Pick the Fuse wallet first.')
-    d = _fw_peek()
-    keep = {m for b in (d.get('books') or {}).values() for m in (b.get('legs') or {})} | {(b.get('pending') or {}).get(k_) for b in (d.get('books') or {}).values() for k_ in ('mint', 'toMint')}
-    off = {r.get('mint'): _fuse._f(r.get('usd')) for r in _fw_full_ledger() if r.get('side') == 'writeoff' and r.get('mint')}   # the newest write-off's own $ value
-    never = set(_fuse.ALL_MAJORS) | {_fw.SOL_MINT, 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'}   # majors, SOL, USDC, USDT: never burned
-    async with httpx.AsyncClient(timeout=15) as http:
-        res = await asyncio.gather(*[_krpc(http, 'getTokenAccountsByOwner', [cfg['address'], {'programId': pg}, {'encoding': 'jsonParsed', 'commitment': 'confirmed'}]) for pg in _FW_TOKEN_PROGRAMS])
-        rows = [{'pubkey': a.get('pubkey'), 'program': pg, 'lamports': (a.get('account') or {}).get('lamports'), 'info': _parsed_info(a.get('account'))}
-                for pg, r in zip(_FW_TOKEN_PROGRAMS, res) for a in (r or {}).get('value') or []]
-        mints = [r_['info'].get('mint') for r_ in rows if (r_.get('info') or {}).get('mint') and r_['info']['mint'] not in keep]
-        px = await _jup_prices(mints) if mints else {}
-        dead = _fw.dead_accounts(rows, keep, px, off, never=never)
-        if body.get('mints'):   # 🔥 one chip's Burn: only the coins asked for (still only dead ones — a coin worth 5¢+ is sold, never burned)
-            want_ = {str(m_) for m_ in body['mints']}
-            dead = [x_ for x_ in dead if x_['mint'] in want_]
-        sol_px = await _sol_usd_live()
-        plan = {'accounts': [{**x_, 'symbol': next((r_.get('symbol') for r_ in reversed(_fw_full_ledger()) if r_.get('mint') == x_['mint'] and r_.get('symbol')), None)} for x_ in dead],
-                'rentSol': round(sum(x_['rentSol'] for x_ in dead), 9), 'dustUsd': round(sum(x_['usd'] or 0 for x_ in dead), 4), 'solUsd': sol_px,
-                'held': len(rows), 'kept': len(rows) - len(dead)}
-        plan['rentUsd'] = round(plan['rentSol'] * sol_px, 2) if sol_px > 0 else None
-        if not body.get('confirm') or not dead:
-            return {'ok': True, 'dry': True, **plan}
-        if not _fw_signer_ready():
-            raise HTTPException(400, 'Signing is not enabled for the Fuse wallet.')
-        if any(b.get('pending') for b in (d.get('books') or {}).values()):
-            raise HTTPException(409, 'An order is in flight — try again in a minute.')
-        bh = ((await _krpc(http, 'getLatestBlockhash', [{'commitment': 'finalized'}])) or {}).get('value', {}).get('blockhash')
-        signed = await _fw_sign(cfg, _dust.burn_close_tx(cfg['address'], dead, bh), f'FEELESS free rent of {len(dead)} dead coins')
-        sig = signed.get('signature') or signed.get('txHash')
-        await _krpc(http, 'sendTransaction', [signed.get('signedTransaction'), {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
-    now = time.time()
-    row = {'id': f'close:dust:{now:.0f}', 'card': 'wallet', 'side': 'close', 'burn': True, 'n': len(dead), 'sol': plan['rentSol'], 'sig': sig, 'at': now, 'status': 'sent',
-           'closed': [{'mint': x_['mint'], 'lamports': int(x_['rentSol'] * 1e9)} for x_ in dead],
-           'why': f"♻ owner freed the rent of {len(dead)} dead coin accounts (leftovers worth ${plan['dustUsd']:.3f} burned) — the rent comes back to the wallet once confirmed"}
-    async with _fw_lock:
-        d2 = _fw_load(); _fw_record(d2, row); _fw_save(d2)
-    _fw_notify(row)
-    ad = _admin_load(); _audit(ad, 'owner', 'fuse-close-dust', f"{len(dead)} accounts · rent {plan['rentSol']:.6f} SOL · sig {str(sig)[:12]}"); _admin_save(ad)
-    return {'ok': True, 'dry': False, 'sig': sig, **plan}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/withdraw-cash')
-async def fuse_wallet_withdraw_cash(request: Request):
-    """Owner only: take card cash OUT of a real card (all of it, or `usd`). The principal drops by what was taken, so profit is
-    measured above what is still in. An internal reallocation — no coin sold, nothing sent: the SOL becomes unassigned wallet SOL."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid = body.get('tpl')
-    if tid not in _prime.TEMPLATES:
-        raise HTTPException(400, 'Pick a funded tier.')
-    sol_px = await _sol_usd_live()
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load(); b = d['books'].get(tid)
-        if not b:
-            raise HTTPException(400, 'That tier is not funded.')
-        if b.get('pending') or b.get('defund'):
-            raise HTTPException(409, 'Wait for the current Fuse transaction to settle, then withdraw.')
-        nb, took = _fw.withdraw_cash(b, sol_px, body.get('usd'))
-        if took <= 0:
-            raise HTTPException(400, 'This card has no cash to withdraw — sell part of a coin to card cash first.')
-        d['books'][tid] = nb
-        _fw_record(d, {'card': tid, 'side': 'withdraw', 'sol': round(took / sol_px, 9), 'usd': round(took, 4), 'at': time.time(), 'by': me, 'status': 'done',
-                       'why': f"owner took ${took:.2f} out — principal is now ${nb['fundedUsd']:.2f}"})
-        _fw_save(d)
-    async with _admin_lock:   # the paper side stops holding that cash for the owner
-        hd = _json_load(FUSE_HQ_PATH, {}); cd = ((hd.get('prime') or {}).get('cards') or {}).get(tid)
-        if cd:
-            cd['holdCashUsd'] = round(max(0.0, _fuse._f(cd.get('holdCashUsd')) - took), 6); _json_save(FUSE_HQ_PATH, hd)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-withdraw', f"{tid} ${took:.2f} principal→${nb['fundedUsd']:.2f}"); _admin_save(ad)
-    return {'ok': True, 'tookUsd': took, 'principalUsd': nb['fundedUsd']}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/reinvest-paid')
-async def fuse_wallet_reinvest_paid(request: Request):
-    """Owner only: move this card's currently segregated paid-out SOL back into active card capital.
-    This is an internal reallocation, not new funding: fundedUsd never changes and the historical bankUsd trail is preserved."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid = body.get('tpl')
-    if tid not in _prime.TEMPLATES:
-        raise HTTPException(400, 'Pick a funded tier.')
-    now = time.time()
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load(); b = d['books'].get(tid)
-        if not b:
-            raise HTTPException(400, 'That tier is not funded.')
-        if b.get('pending'):
-            raise HTTPException(409, 'Wait for the current Fuse transaction to settle, then reinvest paid out.')
-        if b.get('defund'):
-            raise HTTPException(409, 'This card is selling out right now.')
-        nb, sol = _fw.reinvest_bank(b)
-        if sol <= 0:
-            raise HTTPException(400, 'This card has no paid-out SOL available to reinvest.')
-        d['books'][tid] = nb
-        _fw_record(d, {'card': tid, 'side': 'reinvest', 'sol': sol, 'usd': round(sol * (await _sol_usd_live()), 4), 'at': now, 'by': me, 'status': 'done',
-                       'why': 'paid-out SOL moved back into active card capital — not new funding'})
-        _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-wallet-reinvest-paid', f'{tid} {sol:.9f} SOL'); _admin_save(ad)
-    asyncio.create_task(_fw_tick(time.time()))
-    return {'ok': True, 'tpl': tid, 'sol': sol, 'fundedUsd': nb.get('fundedUsd'), 'bankUsd': nb.get('bankUsd')}
 
 
-@app.post('/api/reputation/admin/fuse-wallet/card')
-async def fuse_wallet_card(request: Request):
-    """Owner only: ↩ defund a tier (every coin sold back to SOL, the card returns to paper) or ▶ resume a halted card."""
-    me = _require_owner(request)
-    body = await request.json()
-    tid, act = body.get('tpl'), body.get('action')
-    async with _fw_tick_lock, _fw_lock:   # 🧷 waits for a keeper pass in flight: an owner write and a swap pass never interleave
-        d = _fw_load(); b = d['books'].get(tid)
-        if not b or act not in ('defund', 'resume', 'halt'):
-            raise HTTPException(400, 'Pick a funded tier and defund / halt / resume.')
-        d['books'][tid] = {**b, 'defund': True} if act == 'defund' else {**b, 'halt': act == 'halt'}
-        if act == 'defund':   # freeze the paper card to come back to BEFORE the selling changes the coins
-            async with _admin_lock:
-                h = _json_load(FUSE_HQ_PATH, {}); cs = (h.get('prime') or {}).get('cards') or {}
-                if cs.get(tid) and not cs[tid].get('paperBefore'):
-                    cs[tid]['paperBefore'] = _fw.paper_snapshot(cs[tid]); _json_save(FUSE_HQ_PATH, h)
-        _fw_save(d)
-    ad = _admin_load(); _audit(ad, me, f'fuse-wallet-{act}', tid); _admin_save(ad)
-    if act in ('defund', 'resume'):
-        _fw_kick_now()   # ↩ sell all / ▶ resume start NOW (they waited for the keeper's next scheduled pass)
-    return {'ok': True}
+
+
 
 
 async def _agents_loop():
@@ -18298,17 +15269,6 @@ async def _data_clean(now):
     return st
 
 
-@app.get('/api/reputation/admin/data-cleaner')
-async def admin_data_cleaner(request: Request):
-    """HQ: what the cleaner freed on its last run."""
-    _require_admin(request)
-    return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)',
-                                                f'Logo cache ≤ {_strim.LOGO_MAX_BYTES // 2**20} MB (oldest first, nothing under a day old); a logo over {_strim.LOGO_FILE_MAX // 2**20:.1f} MB is not cached',
-                                                f'Service logs in /tmp over {_strim.LOG_MAX_BYTES // 2**20} MB keep their newest {_strim.LOG_KEEP_BYTES // 2**20} MB',
-                                                'Blocklist: a wallet never blocked and idle 2 weeks is forgotten; a blocked wallet keeps 40 strikes',
-                                                'Meme terms: a word out of every kept day drops its refs / sources',
-                                                'Pump callers: ≤ 8,000 callers, one number per judged call',
-                                                'Never touched: ledgers, .db files, records, archives, agent lineage']}
 
 
 INTEL_DISK = DATA_DIR / 'intel_cache.json'
@@ -18472,15 +15432,6 @@ def _evo_view(role='reaper', now=None):
 
 
 
-@app.post('/api/reputation/admin/evolution/{role}/rollback')
-async def evolution_rollback(role: str, request: Request):
-    _require_admin(request)
-    book_ = _json_load(EVO_PATH, {}); led = book_.get(role) or []
-    row = _evo.rollback(led, time.time())
-    if not row:
-        raise HTTPException(400, 'Generation 1 has nothing to roll back to.')
-    book_[role] = led; _json_save(EVO_PATH, book_); _evo_memo.clear()
-    return {'rolledBack': row, 'history': _evo.history(led)}
 
 
 def _lifecycle(now):
@@ -20579,48 +17530,6 @@ STREAM_MAX_SEC = 1800.0     # a stream ends after 30 min (the page reconnects wi
 STREAM_BEAT_SEC = 15.0
 
 
-@app.get('/api/reputation/admin/agents/stream')
-async def admin_agents_stream(request: Request, since: int = 0):
-    """📡 The office's live DELTAS as Server-Sent Events (creator / admin wallets): the page loads the snapshot once (GET /admin/agents)
-    and then applies these — `candidate_update` · `hunter_update` · `position_update` · `agent_update` · `lifecycle_update` ·
-    `execution_update` · `metric_update` · `mint_update` (a live price) · `snapshot` (a pass ended). `resync` = the page fell behind (or
-    the service restarted): reload the snapshot once. Read-only: a stream runs no desk, no scan, no quote and no wallet call."""
-    _require_admin(request)
-    H = _tke.HUB
-    if len(H.subs) >= _tke.MAX_SUBS:
-        raise HTTPException(429, 'Too many live office streams are open — close another HQ tab.')
-
-    async def gen():
-        seq, t0 = int(since or 0), time.time()
-        _SSE['connects'] += 1; _SSE['active'] += 1
-        try:
-            async for chunk in _sse_body(seq, t0):
-                yield chunk
-        finally:
-            _SSE['active'] -= 1; _SSE['disconnects'] += 1
-
-    async def _sse_body(seq, t0):
-        evs, gap = H.since(seq)
-        if gap:
-            _SSE['resyncs'] += 1
-        yield f"event: hello\ndata: {json.dumps({'seq': H.seq, 'resync': bool(gap), 'snapshotAt': (_office.get('payload') or {}).get('at')})}\n\n"
-        if gap:
-            seq = H.seq
-        while time.time() - t0 < STREAM_MAX_SEC:
-            if await request.is_disconnected():
-                return
-            evs, gap = H.since(seq)
-            if gap:
-                seq = H.seq; _SSE['resyncs'] += 1
-                yield f"event: resync\ndata: {json.dumps({'seq': seq})}\n\n"
-                continue
-            for e_ in evs:
-                yield _tke.sse(e_)
-                seq = e_['seq']
-            if not await H.wait(seq, STREAM_BEAT_SEC):
-                yield ': beat\n\n'
-        yield f"event: bye\ndata: {json.dumps({'seq': seq})}\n\n"
-    return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no', 'Content-Encoding': 'identity', 'Connection': 'keep-alive'})
 
 
 def _office_light(tid, cur, now):
@@ -21248,161 +18157,6 @@ def _agents_page_body(now=None):
 
 
 
-@app.post('/api/reputation/admin/agents')
-async def admin_agents_set(request: Request):
-    """🤖 Creator: the agents' controls for the real Fuse card — `feed` (their GO coins in the rush; honoured only once the 5-min stage is
-    conquered), `cfg` {agentTakePct, agentMode, agentSeats, … + the creator's limits office_edge.POLICY_KEYS (validated by clean_cfg)},
-    `idea` {id, action: approve | reject} on a tactic they proposed, and `review` {key, mark: agree | disagree | seen | clear, note} on a
-    review item (display state — the office never reads it back, so a review never holds the agents up)."""
-    _require_owner(request)
-    body = await request.json()
-    ch = {}
-    if 'feed' in body:
-        ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'deskBuysOff', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung', 'aiSeatPicksOnly') + _oe.POLICY_KEYS:
-        if k in (body.get('cfg') or {}):
-            ch[k] = body['cfg'][k]
-    if ch:
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-            pr['realCfg'] = _prime.clean_cfg({**(pr.get('realCfg') or {}), **ch})
-            pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
-            pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
-            _json_save(FUSE_HQ_PATH, d)
-            _uni.set_band(pr['realCfg'])   # 🎯 a new MC band applies on the very next tick, not the next agents' pass
-        if 'agentControl' in ch:   # 🎮 the hold on the card follows the switch at once
-            await _agent_control_set(bool(ch['agentControl']), time.time())
-    rv = body.get('review') or {}
-    marked = None
-    if rv.get('key'):   # 📝 the creator's mark on a review item — display state only: no desk reads it back, nothing waits on it
-        try:
-            of_ = _office_state()
-            of_['reviewMarks'] = _oe.mark_review(of_.get('reviewMarks'), str(rv['key']), rv.get('mark'), rv.get('note'), time.time())
-            _json_save(OFFICE_PATH, of_)
-            marked = of_['reviewMarks'].get(str(rv['key'])[:160])
-            p_ = (_office.get('payload') or {}).get('review')
-            if p_:   # the open page sees the mark at once (the next pass rebuilds the queue with it anyway)
-                for its in (p_.get('items') or {}).values():
-                    for it in its:
-                        if it.get('key') == str(rv['key']):
-                            it['mark'] = marked
-                p_['open'] = {k: sum(1 for it in v if not it.get('mark')) for k, v in (p_.get('items') or {}).items()}
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    sh_ = body.get('seatHint') or {}
-    if sh_.get('mint') and sh_.get('kind') in ('hold', 'good', 'clear'):   # ✋ / 👍 your one click on a seat: Reaper holds its soft exits 30 min; graded 30 min later, the agents + models learn it
-        now_ = time.time(); m_ = str(sh_['mint'])
-        p_ = (_office.get('pos') or {}).get(m_)
-        if not p_:
-            raise HTTPException(409, 'That coin is not on a seat any more.')
-        if sh_['kind'] == 'clear':
-            p_.pop('hint', None)
-        else:
-            px_ = _fuse._f((await _live_px([m_])).get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
-            hs_, hw_ = _of.hint_sec(_study.get('hints'))   # ✋ your record decides how long your hold holds
-            p_['hint'] = {'kind': sh_['kind'], 'at': now_, 'until': now_ + hs_, 'why': hw_}
-            of_ = _office_state()
-            of_['hintLog'] = (list(of_.get('hintLog') or []) + [{'mint': m_, 'sym': p_.get('sym'), 'kind': sh_['kind'], 'px': px_, 'at': now_, 'pct': p_.get('pct'), 'peak': p_.get('peak'),
-                                                                    'reaper': next((r_.get('rule') for r_ in _office.get('reports') or [] if r_.get('mint') == m_), None), 'base': _of.base_of((_office.get('charts') or {}).get(m_))}])[-200:]
-            _json_save(OFFICE_PATH, of_)
-            ai_l = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), {})   # 💬 it lands in the duo chat too: the models read it (ownerSays) and the market grades it
-            hrow_ = {'at': round(now_), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': 'HOLD', 'mint': m_, 'symbol': p_.get('sym'),
-                     'why': (f"✋ HOLD this — give it time ({hw_}); still sell it if it really breaks" if sh_['kind'] == 'hold' else f"👍 good entry — trust it through the noise ({hw_}); this is NOT a buy signal"),
-                     **({} if ai_l.get('aiSeat') else {'coinTalk': True})}
-            _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note((_g4_mem.get() or {}).get('log') or [], hrow_)}, now_)
-            _dv_note(hrow_, px_, now_)
-        ad_ = _admin_load(); _audit(ad_, 'owner', 'seat-hint', f"{sh_['kind']} ${p_.get('sym')}"); _admin_save(ad_)
-        _agents['wake'] = now_
-        return {'ok': True, 'hint': p_.get('hint')}
-    ra_ = body.get('reaperAsk') or {}
-    if ra_.get('mint'):   # ✋ your answer to Reaper's question on a coin with YOUR line: approve (it sells next tick) or keep your line (quiet 10 min)
-        p_ = (_office.get('pos') or {}).get(str(ra_['mint']))
-        q_ = (p_ or {}).get('ask')
-        if not q_:
-            raise HTTPException(409, 'Reaper has no question open on that coin any more.')
-        now_ = time.time(); ok_ = bool(ra_.get('ok'))
-        p_['askOk' if ok_ else 'askNo'] = {'rule': q_['rule'], 'at': now_}
-        p_.pop('ask', None)
-        of_ = _office_state()
-        of_['askLog'] = (list(of_.get('askLog') or []) + [{'mint': str(ra_['mint']), 'sym': p_.get('sym'), 'rule': q_['rule'], 'choice': 'approve' if ok_ else 'keep',
-                                                         'pct': q_.get('pct'), 'px': q_.get('px'), 'at': now_}])[-200:]
-        _json_save(OFFICE_PATH, of_)
-        ad_ = _admin_load(); _audit(ad_, 'owner', 'reaper-ask', f"{'approved' if ok_ else 'kept your line on'} ${p_.get('sym')} ({q_['rule']})"); _admin_save(ad_)
-        _agents['wake'] = now_
-    ow = body.get('owner') or {}
-    owned = None
-    if ow.get('input') or ow.get('mint'):   # 👤 owner coin review: REVIEW · TRACK · ARM · IGNORE — it edits the owner's list only (no order, no quote, no wallet call)
-        try:
-            owned = await _owner_act(str(ow.get('input') or ow.get('mint')), str(ow.get('action') or 'review').lower(), time.time())
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        if _office.get('payload') is not None:
-            _office['payload']['ownerReview'] = _owner_view(time.time())
-    tr_ = body.get('taughtRule') or {}
-    if tr_.get('key'):   # 🎓 the creator tunes one lesson-rule: mode (off · flag · rank · skip), strength, its knob
-        try:
-            _teach['st'] = {**_teach_state(), 'rules': _trl.patch(_teach_state().get('rules'), str(tr_['key']), {k_: tr_[k_] for k_ in ('mode', 'strength', 'run', 'hours') if k_ in tr_})}
-            _json_save(TEACH_PATH, _teach['st'])
-            _taught_stamp(_agents.get('table') or [], time.time())
-            if _office.get('payload') is not None:
-                _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
-            ad_ = _admin_load(); _audit(ad_, 'owner', 'agent-rule', f"{tr_['key']} → {_taught_rules()[str(tr_['key'])]}"); _admin_save(ad_)
-            _agents['wake'] = time.time()
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    tc = body.get('teach') or {}
-    taught = None
-    if tc:   # 🎓 the creator teaches the desk: a note, a narrative or a chart lesson (with a FEELESS-uploaded image) — read by every fitting model case
-        try:
-            _teach['st'] = _tch.remove(_teach_state(), str(tc['remove'])) if tc.get('remove') else _tch.add(_teach_state(), tc, time.time())
-            _json_save(TEACH_PATH, _teach['st'])
-            taught = (_teach['st'].get('items') or [None])[0]
-            if _office.get('payload') is not None:
-                _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
-            if not tc.get('remove') and taught:
-                _tk.KERNEL.note('owner', 'TEACH', f"🎓 {taught['kind']}: {taught['text'][:120]}", time.time(), mint=taught.get('mint'), key=f"teach:{taught['id']}")
-                wired_ = _trl.from_text(taught['text'])   # 🎓 a lesson that names a rule switches that rule ON (rank down) — your words now act, not only the model's prompt
-                if wired_:
-                    rl_ = _teach_state().get('rules')
-                    for k_ in wired_:
-                        if _trl.clean(rl_)[k_]['mode'] in ('off', 'flag'):
-                            rl_ = _trl.patch(rl_, k_, {'mode': 'rank'})
-                    _teach['st'] = {**_teach_state(), 'rules': _trl.clean(rl_)}
-                    _json_save(TEACH_PATH, _teach['st'])
-                    if _office.get('payload') is not None:
-                        _office['payload']['teach'] = {**_tch.view(_teach['st']), 'rules': _taught_view()}
-                    _tk.KERNEL.note('owner', 'TEACH', f"🎓 wired to rule: {', '.join(wired_)}", time.time(), key=f"teachwire:{taught['id']}")
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    idea = body.get('idea') or {}
-    if idea.get('id'):
-        try:
-            _agents_mem.put(_pd.review(_agents_mem.get(), str(idea['id']), idea.get('action')), force=True)   # the creator's click is written at once
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-    cb = body.get('coach') or {}
-    coached = None
-    if cb:   # 👑 the creator strengthens the agents: a directive from the fixed vocabulary (a ranking weight the kernel reads on its next pass) — never an order, a size or a sell
-        now_ = time.time()
-        st_ = _coach_state()
-        if cb.get('strengthen') is not None:
-            st_, coached = _co.strengthen(st_, cb['strengthen'], now_)
-        elif cb.get('kill') is not None:
-            st_, coached = _co.kill(st_, cb['kill'], now_)
-        else:   # add {key, why, strong} · pull-and-teach adds {mint, sym}: the coin is off the agents' buy list for 6h (the SELL is the card's own ✂ path)
-            mint_ = str(cb.get('mint') or '')[:64] or None
-            st_, coached = _co.add(st_, cb.get('key'), 'owner', cb.get('why'), now_, mint=mint_, sym=str(cb.get('sym') or '')[:24] or None, strong=bool(cb.get('strong')))
-        if not coached:
-            raise HTTPException(400, 'Pick a cause from the list (or that directive is gone).')
-        _coach_put(st_)
-        try:
-            ad_ = _admin_load(); _audit(ad_, 'owner', 'agent-coach', f"{'strengthen' if cb.get('strengthen') is not None else 'kill' if cb.get('kill') is not None else 'pull+teach' if cb.get('mint') else 'add'} {coached.get('key')}"); _admin_save(ad_)
-        except Exception as e:
-            print('coach audit:', str(e)[:100])
-        _tk.KERNEL.note('judge', 'COACHED', f"👑 {coached.get('key')} {coached.get('points', 0):+.0f} — {coached.get('why') or 'the creator said so'}", now_, key=f"coach:{int(now_)}")
-        _agents['wake'] = now_
-    _agents['view'] = None
-    return {'ok': True, **({'coach': _coach_view(time.time())} if cb else {}), **ch, **({'review': marked} if rv.get('key') else {}), **({'owner': {'mint': owned, 'list': _owner_view(time.time())}} if owned else {})}
 
 
 async def _fuse_warm():
@@ -21553,22 +18307,6 @@ def _pg_pick_ok(rd, sid):
     return len(ids) < _pgb.SHOWN or sid in _pgb.shown(b.get('record'), b.get('pcts'), ids)
 
 
-@app.post('/api/reputation/admin/fuses/scenario-pick')
-async def scenario_pick(request: Request, body: dict):
-    """🎨 Creator's pick: HQ puts an engine runner-up on the Arena (or takes it off). Dealt right away. Audited."""
-    admin = _require_admin(request)
-    sid = str(body.get('id') or '')[:40]
-    if not sid:
-        raise HTTPException(400, 'Pick a scenario card.')
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
-        if body.get('on', True) and sid not in (d.get('creatorPicks') or []) and not _pg_pick_ok(d, sid):
-            raise HTTPException(400, f"Only the playground's top {_pgb.SHOWN} big cards can be picked — this one is still competing in the background.")
-        cur = [x for x in d.get('creatorPicks') or [] if x != sid] + ([sid] if body.get('on', True) else [])
-        d['creatorPicks'] = cur[-4:]; _json_save(RUNNERS_PATH, d)   # max 4 big engine cards on the Arena
-        ad = _admin_load(); _audit(ad, admin, 'creator-pick', f"{sid} {'on' if body.get('on', True) else 'off'}"); _admin_save(ad)
-    await _scenario_stage(_json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}), time.time())
-    return {'creatorPicks': _json_load(RUNNERS_PATH, {}).get('creatorPicks') or []}
 
 
 async def _engine_auto(now):
@@ -21628,42 +18366,8 @@ def _engine_nudge(now):
 
 
 
-@app.post('/api/reputation/admin/runners/autotune')
-async def runners_autotune(request: Request):
-    admin = _require_admin(request); on = bool((await request.json()).get('on'))
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['autoTune'] = on; _json_save(RUNNERS_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'runners-autotune', 'on' if on else 'off'); _admin_save(ad)
-    return {'autoTune': on}
 
 
-@app.get('/api/reputation/admin/fuses/playground')
-async def fuse_playground(request: Request):
-    """🧪 Engine playground: every scenario the engines are testing — strategy runs, bloodline, dial proofs over 6h/24h/72h,
-    top-tier cards, runner rounds + lit cards, auto-tune log — and what's proven + ready for the Arena."""
-    _require_admin(request)
-    now = time.time()
-    d = _json_load(FUSE_HQ_PATH, {}); rd = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}})
-    vals = [_hq.arena_value(e, {}, now) for e in d.get('arena') or []]
-    board = _hq.arena_board(vals)
-    dials = {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
-    prime = await _prime_view()
-    auto = [a for a in (_admin_load().get('audit') or []) if a.get('action') in ('runners-config', 'runners-autotune', 'arena-prime')][-12:][::-1]
-    return {'counts': {'arenaRuns': len(vals), 'settled': sum(1 for v in vals if v.get('settled')), 'open': sum(1 for v in vals if not v.get('settled')),
-                       'bloodline': len(d.get('bloodline') or []), 'runnerRounds': len(rd.get('rounds') or []), 'litCards': len(rd.get('litCards') or []),
-                       'dialScenarios': sum(p.get('rounds', 0) for proof in dials.values() for p in proof.values()), 'tierCards': len(prime),
-                       'published': len(_json_load(FUSES_PATH, {'fuses': {}})['fuses'])},
-            'board': board, 'dials': dials, 'bloodline': (d.get('bloodline') or [])[-12:][::-1], 'prime': [{k: c.get(k) for k in ('label', 'tier', 'pnlPct', 'lowPct', 'goodDays', 'loggedDays')} for c in prime],
-            'autoLog': auto, 'engineDial': rd.get('cfgDial') or 'custom', 'autoTune': rd.get('autoTune') is not False,
-            'gateRegret': _rn.gate_regret(rd.get('dropLog') or [], await _hq_prices([{'chainId': 'solana', 'pairAddress': e['pairAddress']} for e in (rd.get('dropLog') or [])[-120:] if e.get('pairAddress')]), now),
-            'scenarios': (scen := _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS)),
-            'scenarioCards': await _pg_scenario_cards(rd, scen, now, coins=_pgb.REGULAR_COINS),
-            'shownIds': _pgb.shown((rd.get('pgBattle') or {}).get('record'), (rd.get('pgBattle') or {}).get('pcts'), list(((rd.get('pgBattle') or {}).get('cards') or {}))),
-            'filters': {'24h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 24 * 3600),
-                        '72h': _rn.filter_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _rn.clean_cfg(rd.get('cfg') or {}), 72 * 3600)},
-            'doctor': {'filter': rd.get('pickFilter'), 'sitOut': bool(rd.get('sitOut')), 'why': rd.get('doctorWhy'), 'at': rd.get('doctorAt')},
-            'pgBattle': _pg_battle_view(rd),
-            **_hq.playground_ready(board, dials, prime, battle_rows=_pgb.ready_rows((rd.get('pgBattle') or {}).get('record'), {k: c.get('name') for k, c in ((rd.get('pgBattle') or {}).get('cards') or {}).items()}))}
 
 async def _top_anchor():
     """⚓ The engine cards' anchor: the most ACTIVE major right now (`fuse.rank_anchors`), never SOL by name."""
@@ -22006,152 +18710,22 @@ class VerdictActIn(BaseModel):
     tier: str = ''
 
 
-@app.post('/api/reputation/admin/fuses/verdict/act')
-async def fuse_verdict_act(request: Request, p: VerdictActIn):
-    """🧾 One click on a verdict row (owner, audited): ➕ add a proven sim setting to ALL paper cards (a shared edit — every card follows
-    it), to ONE tier card, or to the 💵 real card · 🗑 scrap / 📌 keep a strategy on the trader rails · 🎚 use a proven engine dial ·
-    🃏 re-deal a losing tier card."""
-    me = _require_owner(request)
-    now = time.time(); done = ''
-    if p.area == '🧠 Sim config':
-        word, _, val = p.name.partition(' = ')
-        key = next((SIM_KEYS[k] for k in SIM_KEYS if _verdict.TRAIT_WORDS.get(k, k) == word), None)
-        if not key:
-            raise HTTPException(400, 'That setting has no card equivalent.')
-        v = _prime.clean_exit(key, val)
-        if v is None:
-            raise HTTPException(400, f'{val} is not an option for {word}.')
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
-            if p.act == 'apply-one' and p.tier in _prime.TEMPLATES:
-                cfg = _prime.clean_cfg(pr.get('cfg') or {}); tc = cfg['tierCfg']; tc.setdefault(p.tier, {})[key] = v
-                pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'tierCfg': tc}); done = f'{key} = {v:g} on {p.tier}'
-            elif p.act == 'apply-real':
-                base = pr.get('realCfg') if isinstance(pr.get('realCfg'), dict) and pr.get('realCfg') else pr.get('cfg') or {}
-                pr['realCfg'] = _prime.clean_cfg({**base, key: v})
-                pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | {key})[:60]; done = f'{key} = {v:g} on the real card'
-            else:
-                raise HTTPException(400, 'Every card keeps its own config — pick one card or the real card.')
-            _json_save(FUSE_HQ_PATH, d)
-    elif p.area == '🏟 Strategy' and p.act in ('scrap', 'keep'):
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {})
-            scr = set(d.get('scrappedStyles') or []); kept = set(d.get('keptStyles') or [])
-            (scr.add if p.act == 'scrap' else scr.discard)(p.name); (kept.add if p.act == 'keep' else kept.discard)(p.name)
-            d['scrappedStyles'] = sorted(scr); d['keptStyles'] = sorted(kept); _json_save(FUSE_HQ_PATH, d)
-        done = f"strategy {p.name} {'scrapped' if p.act == 'scrap' else 'kept'}"
-    elif p.area == '🎚 Engine dial' and p.act == 'apply':
-        dial = p.name.split(' · ')[0]
-        try:
-            dialed = _rn.engine_dial(dial, _runner_cfg())
-        except ValueError:
-            raise HTTPException(400, 'Unknown dial.')
-        dial, cfg = dialed.pop('dial'), _rn.clean_cfg(dialed)
-        async with _admin_lock:
-            d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
-        done = f'engine dial {dial}'
-    elif p.area == '⭐ Tier card' and p.act == 'redeal':
-        tpl = next((t for t, x in _prime.TEMPLATES.items() if x.get('label') == p.name), None)
-        if not tpl:
-            raise HTTPException(400, 'Unknown tier card.')
-        async with _admin_lock:
-            d = _json_load(FUSE_HQ_PATH, {}); cards = (d.setdefault('prime', {}).setdefault('cards', {}))
-            if (cards.get(tpl) or {}).get('real'):
-                raise HTTPException(400, 'That is the real-money card — withdraw it from HQ › Fuse wallet instead.')
-            cards.pop(tpl, None); _json_save(FUSE_HQ_PATH, d)
-        done = f'{p.name} re-dealt'
-    else:
-        raise HTTPException(400, 'Nothing to do for that row.')
-    ad = _admin_load(); _audit(ad, me, 'verdict-act', f'{p.area} {p.name}: {done}'[:200]); _admin_save(ad)
-    return {'ok': True, 'done': done, 'at': now}
 
 
 
 
-@app.post('/api/reputation/admin/fuses/sim/apply')
-async def pg_sim_apply(request: Request):
-    """Apply the brain's pick (round clock + rotate-only-losers threshold) to the tier engine. Audited."""
-    me = _require_admin(request)
-    b = (_json_load(PG_SIM_PATH, {}).get('best') or {})
-    patch = {}
-    if b.get('clock'):
-        patch['rotateHours'] = int(b['clock']['value']) / 60
-    if b.get('minDrop'):
-        patch['rotateMinDrop'] = float(b['minDrop']['value'])
-    if not patch:
-        raise HTTPException(400, 'The brain needs more sims first.')
-    async with _admin_lock:
-        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {}); pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), **patch}); _json_save(FUSE_HQ_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'sim-apply', json.dumps(patch)); _admin_save(ad)
-    return {'ok': True, 'applied': patch, 'cfg': pr['cfg']}
-
-
-@app.post('/api/reputation/admin/runners/pick-filter')
-async def runners_pick_filter(request: Request, body: dict):
-    """HQ overrides the doctor: set a pick filter ('' = none) and/or sit out. Audited; the doctor may change it next round."""
-    admin = _require_admin(request)
-    fid = body.get('filter') or None
-    if fid and fid not in _rn.PICK_FILTERS:
-        raise HTTPException(400, 'Unknown pick filter.')
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['pickFilter'] = fid
-        if 'sitOut' in body:
-            d['sitOut'] = bool(body['sitOut'])
-        d['doctorWhy'] = 'set from HQ'; d['doctorAt'] = time.time(); _json_save(RUNNERS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'runners-config', f"pick filter {fid or 'none'} · sit out {d.get('sitOut')}"); _admin_save(ad)
-    return {'filter': fid, 'sitOut': bool(_json_load(RUNNERS_PATH, {}).get('sitOut'))}
 
 
 
 
-@app.post('/api/reputation/admin/fuses/pg-battles')
-async def pg_battles_set(request: Request, body: dict):
-    """HQ controls for playground battles: on/off, round length (5/15/30/60 min), cards (2/4/6), $ size, swap rules, or
-    `reset` (fresh cards + records). Audited."""
-    admin = _require_admin(request)
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); b = d.get('pgBattle') or {}
-        b['cfg'] = _pgb.clean_cfg({**(b.get('cfg') or {}), **(body.get('cfg') or {})})
-        if body.get('lock'):   # 🔒 lock / unlock one playground card's configs (coins + DNA survive a loss, the brain never re-breeds it)
-            lk = set(b.get('locked') or [])
-            (lk.add if body.get('on', True) else lk.discard)(str(body['lock'])[:60])
-            b['locked'] = sorted(lk)
-        if body.get('reset'):
-            b = {'cfg': b['cfg'], 'locked': b.get('locked') or []}
-        elif body.get('bell'):
-            b['endsAt'] = 0
-        d['pgBattle'] = b; _json_save(RUNNERS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'pg-battles', json.dumps({**b['cfg'], 'reset': bool(body.get('reset')), 'bell': bool(body.get('bell'))})[:160]); _admin_save(ad)
-    await _pg_battle_tick(time.time())
-    return _pg_battle_view(_json_load(RUNNERS_PATH, {}))
 
 
 
 
-@app.post('/api/reputation/admin/runners/config')
-async def runners_cfg_set(request: Request):
-    """HQ › Runners settings: gates, round size, each lane's exits, rounds needed to light up. Range-checked; reset = defaults."""
-    admin = _require_admin(request)
-    body = await request.json()
-    if body.get('dial'):   # 🎚 Engine dial: Safe / Balanced / Degen sets gates + lanes together
-        try:
-            dialed = _rn.engine_dial(str(body['dial']), _runner_cfg())
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        dial, cfg = dialed.pop('dial'), _rn.clean_cfg(dialed)
-    else:
-        dial, cfg = 'custom', (_rn.DEFAULT_CFG if body.get('reset') else _rn.clean_cfg({**_runner_cfg(), **(body.get('cfg') or {})}))
-    async with _admin_lock:
-        d = _json_load(RUNNERS_PATH, {'rounds': [], 'paths': {}}); d['cfg'] = cfg; d['cfgDial'] = dial; _json_save(RUNNERS_PATH, d)
-    _runner_live_cache.update(at=0, data=None)
-    ad = _admin_load(); _audit(ad, admin, 'runners-config', json.dumps(cfg)[:160]); _admin_save(ad)
-    return {'cfg': cfg, 'dial': dial}
 
 
-@app.post('/api/reputation/admin/runners/round')
-async def runners_force_round(request: Request):
-    _require_admin(request)
-    return {'round': await _runner_tick(force=True)}
+
+
 
 
 class FuseLiteIn(BaseModel):
@@ -22199,53 +18773,10 @@ class FuseCardIn(BaseModel):
     asset: str = ''
 
 
-@app.post('/api/reputation/admin/fuses/card-collection')
-async def fuse_card_collection(request: Request, p: FuseCardIn):
-    """Record the Fuse Cards collection the owner's wallet created (verified on-chain)."""
-    me = _require_owner(request)
-    if not _re.match(_B58, p.collection):
-        raise HTTPException(400, 'Bad collection address.')
-    await _nft_verify(p.signature, me, [p.collection])
-    async with _admin_lock:
-        d = _json_load(FUSES_PATH, {'fuses': {}}); d['cardCollection'] = {'address': p.collection, 'sig': p.signature, 'at': time.time()}; _json_save(FUSES_PATH, d)
-    return {'ok': True}
 
 
-@app.post('/api/reputation/admin/fuses/{fid}/card')
-async def fuse_card_minted(request: Request, fid: str, p: FuseCardIn):
-    """Record a minted Fuse card (verified on-chain). From now on the card's holder is paid the creator cut."""
-    me = _require_owner(request)
-    if not _re.match(_B58, p.asset):
-        raise HTTPException(400, 'Bad asset address.')
-    d = _json_load(FUSES_PATH, {'fuses': {}})
-    col = (d.get('cardCollection') or {}).get('address')
-    if not col or fid not in d['fuses']:
-        raise HTTPException(404, 'Create the Fuse Cards collection and publish this Fuse first.')
-    if (d['fuses'][fid].get('card') or {}).get('asset'):
-        raise HTTPException(400, 'This Fuse already has its card (1 of 1).')
-    await _nft_verify(p.signature, me, [p.asset, col])
-    async with _admin_lock:
-        d = _json_load(FUSES_PATH, {'fuses': {}})
-        d['fuses'][fid]['card'] = {'asset': p.asset, 'sig': p.signature, 'at': time.time()}
-        _json_save(FUSES_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'fuse-card', f'{fid} → {p.asset[:8]}…'); _admin_save(ad)
-    return {'ok': True}
 
 
-@app.post('/api/reputation/admin/fuses/{fid}/aura')
-async def fuse_aura(request: Request, fid: str):
-    """Pick the live aura (outside-the-card effect) a Fuse's card shows everywhere."""
-    admin = _require_admin(request)
-    aura = str((await request.json()).get('aura') or '')
-    if aura not in ('', *badge_cards.AURAS):
-        raise HTTPException(400, 'Unknown aura.')
-    async with _admin_lock:
-        d = _json_load(FUSES_PATH, {'fuses': {}})
-        if fid not in d['fuses']:
-            raise HTTPException(404, 'No such Fuse.')
-        d['fuses'][fid]['aura'] = aura; _json_save(FUSES_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'fuse-aura', f'{fid} {aura or "none"}'); _admin_save(ad)
-    return {'ok': True, 'aura': aura}
 
 
 
@@ -22256,65 +18787,10 @@ class FuseBuy(BaseModel):
     signature: str
 
 
-@app.post('/api/reputation/fuses/{fid}/buy')
-async def fuse_buy(fid: str, payload: FuseBuy):
-    """A Fuse leg bought: counted once, only if the signature is already one of YOUR confirmed FEELESS trades.
-    The creator's share of that trade's FEELESS fee is recorded for payout."""
-    me = _session_or_401(payload.address, payload.session)
-    mine = set(linked_of(me)) | {me}
-    trade = next((x for w, rows in _json_load(FEELESS_TRADES_PATH, {}).items() if w in mine for x in rows or [] if x.get('tx') == payload.signature), None)
-    if not trade:
-        raise HTTPException(400, 'That trade is not a confirmed FEELESS trade from your wallet (yet).')
-    async with _admin_lock:
-        store = _json_load(FUSES_PATH, {'fuses': {}})
-        f = store['fuses'].get(fid)
-        if not f:
-            raise HTTPException(404, 'No such Fuse.')
-        if any(b['sig'] == payload.signature for b in store.get('buys', [])):
-            return {'ok': True, 'counted': False}
-        fee = float(trade.get('feelessFeeUsd') or 0)
-        self_deal = primary_of(f.get('creator') or '') == me or me in set(linked_of(primary_of(f.get('creator') or '')))
-        bot = (await _shield_of(me))['verdict'] == 'bot'
-        store.setdefault('buys', []).append({'fuse': fid, 'sig': payload.signature, 'wallet': me, 'usd': float(trade.get('usd') or trade.get('poolUsd') or 0),
-                                             'feeUsd': fee, 'creatorUsd': 0.0 if self_deal or bot else _fuse.creator_cut(fee, f.get('creatorBps', 0), _house()['fuseCreatorMaxBps']),
-                                             'selfDeal': self_deal, 'bot': bot, 'at': time.time()})
-        _json_save(FUSES_PATH, store)
-    return {'ok': True, 'counted': True}
 
 
 
 
-@app.post('/api/reputation/admin/fuses')
-async def admin_fuses_save(request: Request):
-    """Create / edit / delete a Fuse, or record a creator payout. Launch prices are captured on create (index = 100)."""
-    admin = _require_admin(request)
-    body = await request.json()
-    async with _admin_lock:
-        store = _json_load(FUSES_PATH, {'fuses': {}})
-        fid = body.get('id') or uuid.uuid4().hex[:10]
-        if body.get('delete'):
-            store['fuses'].pop(fid, None)
-        elif body.get('paidUsd') is not None:
-            store.setdefault('paid', {})[fid] = round(float((store.get('paid') or {}).get(fid, 0)) + max(0.0, float(body['paidUsd'])), 6)
-        else:
-            legs = _fuse.clean_legs(body.get('legs'))
-            name = str(body.get('name') or '').strip()[:40]
-            if not name or len(legs) < 2:
-                raise HTTPException(400, 'A Fuse needs a name and at least 2 pools.')
-            prev = store['fuses'].get(fid) or {}
-            pairs = await _fuse_pairs(legs)
-            base = {**(prev.get('basePrices') or {}), **{leg['pairAddress']: float(pairs[leg['pairAddress']].get('priceUsd') or 0) for leg in legs
-                                                         if pairs.get(leg['pairAddress']) and leg['pairAddress'] not in (prev.get('basePrices') or {})}}
-            store['fuses'][fid] = {'name': name, 'emoji': str(body.get('emoji') or '⚛️')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'legs': legs,
-                                   'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_house()['fuseCreatorMaxBps'], int(body.get('creatorBps') or 0))),
-                                   'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
-                                   'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
-                                   'arena': bool(body.get('arena', prev.get('arena', not prev))),   # a NEW HQ card goes on the Arena by default
-                                   **_card_look(body, prev)}
-            _arena_mega_cache.update(at=0.0, data=None)
-        _json_save(FUSES_PATH, store)
-        ad = _admin_load(); _audit(ad, admin, 'fuse', json.dumps({'id': fid, **{k: body.get(k) for k in ('name', 'delete', 'paidUsd') if k in body}})[:160]); _admin_save(ad)
-    return {'ok': True, 'id': fid}
 
 
 # ---- FUSE Vault (backend/fuse_vault.py; on-chain program in programs/fuse_vault) ----------------------------------
@@ -22356,40 +18832,12 @@ async def _vault_view(vid, v, deposit_sol=10.0):
             'solUsd': sol_usd, 'sim': sim, 'feeWallet': _fee_cfg().get('vaultFeeWallet') or ''}
 
 
-@app.get('/api/reputation/vaults')
-async def vaults_list(deposit: float = Query(10.0, gt=0, le=100000)):
-    d = _json_load(VAULTS_PATH, {'vaults': {}})
-    return {'vaults': await asyncio.gather(*[_vault_view(vid, v, deposit) for vid, v in d['vaults'].items() if v.get('status') != 'off'])}
 
 
 
 
 
 
-@app.post('/api/reputation/admin/vaults')
-async def admin_vaults_save(request: Request):
-    """Design a vault: up to 3 pools (v2/v3), base weights, per-pool caps (% of pool TVL), v3 range widths, fees.
-    Status stays 'design' until the on-chain program is deployed and audited — nothing here moves funds."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    body = await request.json()
-    async with _admin_lock:
-        d = _json_load(VAULTS_PATH, {'vaults': {}})
-        vid = body.get('id') or uuid.uuid4().hex[:10]
-        if body.get('delete'):
-            d['vaults'].pop(vid, None)
-        else:
-            pools = _vault.clean_pools(body.get('pools'))
-            name = str(body.get('name') or '').strip()[:40]
-            if not name or not 1 <= len(pools) <= _vault.MAX_POOLS:
-                raise HTTPException(400, f'A vault needs a name and 1–{_vault.MAX_POOLS} pools.')
-            prev = d['vaults'].get(vid) or {}
-            d['vaults'][vid] = {'name': name, 'emoji': str(body.get('emoji') or '🏦')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'pools': pools,
-                                'mgmtBps': max(0, min(VAULT_MAX_MGMT_BPS, int(body.get('mgmtBps') or 0))), 'perfBps': max(0, min(VAULT_MAX_PERF_BPS, int(body.get('perfBps') or 0))),
-                                'status': prev.get('status', 'design') if body.get('status') not in ('design', 'off') else body['status'],
-                                'programId': prev.get('programId'), 'createdAt': prev.get('createdAt') or time.time()}
-        _json_save(VAULTS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'vault', json.dumps({'id': vid, 'name': body.get('name'), 'delete': body.get('delete')})[:160]); _admin_save(ad)
-    return {'ok': True, 'id': vid}
 
 
 # ---- Quest engine: 40 animated badges (FEELESS + Fee Reserve), daily/weekly quests, levels (backend/quests.py) ----
@@ -22553,176 +19001,14 @@ _quest_board_cache: dict = {}
 
 
 
-@app.post('/api/reputation/admin/quests/season')
-async def admin_quest_season(request: Request):
-    """Name the season, set its start, pause/unpause (paused until launch), or award the week's top 3 a trophy."""
-    admin = _require_admin(request)
-    body = await request.json()
-    async with _admin_lock:
-        d = _json_load(QUESTS_PATH, {})
-        s = {**QUEST_SEASON_DEFAULT, **(d.get('season') or {})}
-        for k in ('name', 'paused', 'start'):
-            if k in body:
-                s[k] = body[k]
-        if body.get('paused') is False and not s.get('start'):
-            s['start'] = time.time()
-        d['season'] = s
-        awarded = []
-        if body.get('awardWeek'):
-            if s.get('paused') or not s.get('start'):
-                raise HTTPException(400, 'Season is paused — unpause it (at launch) before awarding weeks.')
-            _quest_board_cache.clear()
-            top = (await quest_leaderboard())['rows'][:3]
-            week = int((time.time() - float(s['start'])) // (7 * 86400)) + 1
-            col = _json_load(COLLECTION_PATH, {})
-            for rank, row in enumerate(top, 1):
-                iid = f"quest:{s['id']}:w{week}:{rank}"
-                items = col.setdefault(row['address'], [])
-                if not any(it.get('id') == iid for it in items):
-                    items.append({'id': iid, 'kind': 'quest', 'season': s['id'], 'week': week, 'rank': rank, 'name': f"{s['name']} · Week {week} #{rank}",
-                                  'glyph': ['🥇', '🥈', '🥉'][rank - 1], 'rarity': ['mythic', 'legendary', 'epic'][rank - 1], 'xp': row['xp'], 'at': time.time()})
-                    awarded.append(row['address'])
-            _json_save(COLLECTION_PATH, col)
-        _json_save(QUESTS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'quest-season', json.dumps({k: s.get(k) for k in ('name', 'paused')} | {'awarded': len(awarded)})[:160]); _admin_save(ad)
-    _quest_cache.clear(); _quest_board_cache.clear()
-    return {'ok': True, 'season': s, 'awarded': awarded}
 
 
 
 
-@app.post('/api/reputation/admin/quests')
-async def admin_quests_save(request: Request):
-    """Edit any badge (name, tier, tasks/targets, on/off) or add one. Invalid task lists are refused."""
-    admin = _require_admin(request)
-    body = await request.json()
-    edits = body.get('badges') or {}
-    for bid, o in edits.items():
-        if not _re.match(r'^[a-z0-9-]{2,40}$', bid) or (o.get('tasks') is not None and not _quests.is_valid_def({'name': o.get('name') or bid, 'tasks': o['tasks']})):
-            raise HTTPException(400, f'Badge {bid}: every task needs a known metric and a positive target.')
-        if o.get('tier') and o['tier'] not in _quests.TIER_XP:
-            raise HTTPException(400, f'Badge {bid}: unknown tier.')
-        if 'aura' in o and o['aura'] not in ('', *badge_cards.AURAS):
-            raise HTTPException(400, f'Badge {bid}: unknown aura.')
-    async with _admin_lock:
-        d = _json_load(QUESTS_PATH, {})
-        for bid, o in edits.items():
-            if o.get('reset'):
-                (d.get('badges') or {}).pop(bid, None)
-            else:
-                d.setdefault('badges', {})[bid] = {**(d.get('badges') or {}).get(bid, {}), **{k: v for k, v in o.items() if k in ('name', 'tier', 'enabled', 'tasks', 'art', 'set', 'perks', 'aura')}}
-        _json_save(QUESTS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'quests', ','.join(edits)[:160]); _admin_save(ad)
-    _quest_cache.clear(); _badge_cache.clear(); _rarity_cache.clear()
-    return {'ok': True, 'badges': _quest_defs()}
 
 
-@app.post('/api/reputation/admin/quests/grant')
-async def admin_quests_grant(request: Request):
-    admin = _require_admin(request)
-    body = await request.json()
-    who, bid, action = primary_of(body.get('address', '')), body.get('badge', ''), body.get('action', 'grant')
-    if not who or not any(b['id'] == bid for b in _quest_defs()) or action not in ('grant', 'revoke', 'clear'):
-        raise HTTPException(400, 'Pick a wallet, a badge and grant / revoke / clear.')
-    async with _admin_lock:
-        d = _json_load(QUESTS_PATH, {})
-        m = d.setdefault('manual', {}).setdefault(who, {'grant': [], 'revoke': []})
-        m['grant'] = [x for x in m.get('grant', []) if x != bid]; m['revoke'] = [x for x in m.get('revoke', []) if x != bid]
-        if action != 'clear':
-            m[action].append(bid)
-        _json_save(QUESTS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, f'quest-{action}', f'{bid} {who[:8]}'); _admin_save(ad)
-    _quest_cache.pop(who, None); _badge_cache.pop(who, None)
-    return {'ok': True, 'manual': m}
 
 
-@app.get('/api/reputation/badges/{address}')
-async def wallet_badges(address: str):
-    """Automatic, data-backed badges. Every badge states the evidence behind it."""
-    hit = _badge_cache.get(address)
-    if hit and time.time() - hit[0] < 300:
-        return hit[1]
-    badges = []
-    mints = await _ecosystem_mints()
-    labels = {'fee': '$FEE', 'feecat': 'FEECAT', 'rfee': 'rFEE'}
-    fee_usd = 0.0
-    for aid, mint in mints.items():
-        try:
-            value = await _holding_usd(address, mint)
-        except Exception:
-            continue
-        if aid == 'fee':
-            fee_usd = value
-        if value >= 1:
-            label = labels.get(aid, aid.upper())
-            if aid == 'fee' and value >= 1000:
-                badges.append({'id': 'fee-whale', 'label': '$FEE Whale', 'icon': '🐋', 'tone': 'gold', 'why': f'Holds ${value:,.0f} of $FEE'})
-            badges.append({'id': f'{aid}-holder', 'label': f'{label} Holder', 'icon': '🌿' if aid == 'fee' else '🐱' if aid == 'feecat' else '💠', 'tone': 'mint', 'why': f'Holds ${value:,.2f} of {label}'})
-    try:
-        async with httpx.AsyncClient(timeout=6) as http:
-            leader = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json().get('cat') or {}
-        for pos in leader.get('positions', []):
-            if pos.get('mint') and await _holding_usd(address, pos['mint']) >= 1:
-                badges.append({'id': 'rides-with-fee', 'label': 'Rides with Fee', 'icon': '🐾', 'tone': 'mint', 'why': f"Holds {pos['symbol']}, which Fee is in right now"})
-                break
-    except Exception:
-        pass
-    board = await caller_board(days=30)
-    me = next((r for r in board['rows'] if r.get('callerAddress') == address), None)
-    if me:
-        sharp = me['calls'] >= 5 and me['hitRate'] >= 0.5
-        badges.append({'id': 'sharp-caller' if sharp else 'caller', 'label': 'Sharp Caller' if sharp else 'Caller', 'icon': '🏹' if sharp else '🎯', 'tone': 'gold' if sharp else 'plain',
-                       'why': f"{me['calls']} calls, {round(me['hitRate'] * 100)}% hit 2× (30d)"})
-    creator = _load()['creators'].get(_creator_key('solana', address))
-    if creator:
-        sc = score_creator(creator)
-        if sc['badge'] == 'trusted':
-            badges.append({'id': 'trusted-creator', 'label': 'Trusted Creator', 'icon': '🛡️', 'tone': 'mint', 'why': f"{sc['tokenCount']} launches, none dumped"})
-        elif sc['badge'] == 'flagged':
-            badges.append({'id': 'flagged-creator', 'label': 'Flagged Creator', 'icon': '⚠️', 'tone': 'bad', 'why': f"{sc['dumpedCount'] + sc['ruggedCount']} launches dumped or rugged"})
-    if any(l['wallet'] == address for l in (_load().get('feelessLaunches') or {}).values()):
-        badges.append({'id': 'feeless-launcher', 'label': 'FEELESS Launcher', 'icon': '🚀', 'tone': 'mint', 'why': 'Launched a token on FEELESS (verified on-chain)'})
-    rec = _block_load()['wallets'].get(address)
-    if _is_blocked(rec):
-        badges.append({'id': 'blocklisted', 'label': 'Blocklisted', 'icon': '⛔', 'tone': 'bad', 'why': f"Caught bundling/sniping {len(rec['mints'])} launch(es)"})
-    invited = len(_json_load(REF_PATH, {'by': {}})['by'].get(address, []))
-    if invited >= 3:
-        badges.append({'id': 'recruiter', 'label': 'Recruiter' if invited < 10 else 'Legendary Recruiter', 'icon': '📣', 'tone': 'gold' if invited >= 10 else 'mint', 'why': f'Invited {invited} wallets to FEELESS'})
-    if 'badge:points-og' in _unlocks(address)[0]:
-        badges.append({'id': 'points-og', 'label': 'Points OG', 'icon': '🏅', 'tone': 'gold', 'why': 'Spent 2,000 earned points on it'})
-    badges.extend(_admin_load()['badges'].get(address, {}).values())
-    try:   # earned quest badges (animated art) join chat + profile badges, rarest first
-        rank_q = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
-        qs = [b for b in (await _quest_summary(address))['badges'] if b['earned']]
-        for b in sorted(qs, key=lambda b: -rank_q.get(b['tier'], 0)):
-            badges.append({'id': b['id'], 'label': b['name'], 'icon': '', 'art': b['art'], 'rarity': b['tier'], 'tone': 'gold' if rank_q.get(b['tier'], 0) >= 4 else 'mint',
-                           'why': ' · '.join(t['label'] for t in b['tasks']) + (' (granted by FEELESS HQ)' if b.get('granted') else '')})
-    except Exception:
-        pass
-    if address and _is_staff(address):
-        badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS HQ'})
-    # Season cards count as badges too (best rarity first), so chat + profiles show them.
-    rank = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
-    seasonal = sorted((it for it in _json_load(COLLECTION_PATH, {}).get(primary_of(address), []) if it.get('kind') in ('season', 'weekly')),
-                      key=lambda it: (-rank.get(it.get('rarity'), 0), -(it.get('at') or 0)))
-    for it in seasonal[:2]:
-        key = f"season:{it['season']}" if it['kind'] == 'season' else f"week:{it['season']}:w{it.get('week')}"
-        badges.append({'id': key.replace(':', '-'), 'card': key, 'label': it.get('name') or 'Season card', 'icon': it.get('glyph') or '🏅',
-                       'tone': 'gold' if rank.get(it.get('rarity'), 0) >= 3 else 'mint', 'rarity': it.get('rarity'), 'why': it.get('how') or 'Season card'})
-    # Card edits (HQ › Badges › Cards) change the name + glyph everywhere, chat included.
-    edits = _json_load(CARDS_PATH, {})
-    for b in badges:
-        e = edits.get(b.get('card') or f"badge:{b['id']}") or {}
-        if e.get('title'):
-            b['label'] = e['title']
-        if e.get('glyph'):
-            b['icon'] = e['glyph']
-        if e.get('rarity'):
-            b['rarity'] = e['rarity']
-    progress = {'feeUsd': round(fee_usd, 2), 'calls': me['calls'] if me else 0, 'hitRate': me['hitRate'] if me else 0}
-    out = {'address': address, 'badges': badges, 'progress': progress, 'at': time.time()}
-    _badge_cache[address] = (time.time(), out)
-    return out
 
 
 import chain_rpc as _chain_rpc_mod   # noqa: E402,F401  (provider names for /health, read as rs._chain_rpc_mod)
@@ -23009,9 +19295,6 @@ def _audit(d, admin, action, detail):
     d['audit'] = d['audit'][-300:]
 
 
-@app.get('/api/reputation/admin/whoami')
-async def admin_whoami(address: str = ''):
-    return {'isAdmin': bool(address) and _is_staff(address), 'isOwner': address in _owner_wallets()}   # two yes/no only (isOwner = show the creator's HQ pop-out button) — every HQ action still needs a signed admin session
 
 
 async def _token_holders(mint: str):
@@ -23068,21 +19351,6 @@ class BadgeLimits(BaseModel):
 
 
 
-@app.get('/api/reputation/admin/badges')
-async def badge_awards_admin_get(request: Request):
-    _require_admin(request)
-    d = _admin_load()
-    rows = [{'address': address, 'badges': list(items.values())} for address, items in d['badges'].items() if items]
-    rows.sort(key=lambda row: -max((b.get('at', 0) for b in row['badges']), default=0))
-    seen = {}
-    for a, (at, rec) in list(_badge_cache.items()):
-        if time.time() - at < 86400:
-            for b in (rec or {}).get('badges', []):
-                x = seen.setdefault(b['id'], {'id': b['id'], 'label': b.get('label'), 'icon': b.get('icon'), 'tone': b.get('tone'), 'why': b.get('why'), 'holders': 0, 'builtin': True})
-                x['holders'] += 1
-    custom = {b['id'] for row in rows for b in row['badges']}
-    builtin = sorted((v for k, v in seen.items() if k not in custom), key=lambda v: -v['holders'])
-    return {'rows': rows[:500], 'limits': _badge_limits(), 'wallets': len(rows), 'awards': sum(len(row['badges']) for row in rows), 'builtin': builtin}
 
 
 @app.put('/api/reputation/admin/badges/limits')
@@ -23096,35 +19364,8 @@ async def badge_limits_admin_put(request: Request, payload: BadgeLimits):
     return _badge_limits()
 
 
-@app.post('/api/reputation/admin/badges')
-async def admin_award(request: Request, payload: AdminBadge):
-    admin = _require_admin(request)
-    addrs = [a for a in payload.addresses[:500] if _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', str(a))]
-    if not addrs:
-        raise HTTPException(400, 'No valid addresses.')
-    bid = 'custom-' + _re.sub(r'[^a-z0-9]+', '-', payload.label.lower()).strip('-')[:28]
-    tone = payload.tone if payload.tone in ('mint', 'gold', 'plain', 'bad') else 'gold'
-    async with _admin_lock:
-        d = _admin_load()
-        for a in addrs:
-            d['badges'].setdefault(a, {})[bid] = {'id': bid, 'label': payload.label, 'icon': payload.icon, 'tone': tone,
-                                                  'why': payload.why or 'Awarded by FEELESS', 'awardedBy': 'FEELESS', 'at': time.time()}
-            _badge_cache.pop(a, None)
-        _audit(d, admin, 'award-badge', f'{payload.label} → {len(addrs)} wallet(s)')
-        _admin_save(d)
-    return {'ok': True, 'awarded': len(addrs), 'id': bid}
 
 
-@app.delete('/api/reputation/admin/badges/{address}/{bid}')
-async def admin_revoke(request: Request, address: str, bid: str):
-    admin = _require_admin(request)
-    async with _admin_lock:
-        d = _admin_load()
-        removed = d['badges'].get(address, {}).pop(bid, None)
-        _badge_cache.pop(address, None)
-        _audit(d, admin, 'revoke-badge', f'{bid} ✕ {address[:6]}…')
-        _admin_save(d)
-    return {'ok': bool(removed)}
 
 
 class Airdrop(BaseModel):
@@ -23135,34 +19376,8 @@ class Airdrop(BaseModel):
     note: str = Field(default='', max_length=280)
 
 
-@app.get('/api/reputation/admin/airdrops')
-async def admin_airdrops(request: Request):
-    _require_admin(request)
-    return {'airdrops': sorted(_admin_load()['airdrops'], key=lambda a: -a['scheduledAt'])}
 
 
-@app.post('/api/reputation/admin/airdrops')
-async def admin_schedule(request: Request, payload: Airdrop):
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    recips = []
-    for r in payload.recipients[:1000]:
-        a = str((r or {}).get('address', ''))
-        try:
-            amt = float((r or {}).get('amount'))
-        except (TypeError, ValueError):
-            continue
-        if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a) and amt > 0:
-            recips.append({'address': a, 'amount': amt})
-    if not recips:
-        raise HTTPException(400, 'Add at least one valid Solana recipient with an amount.')
-    drop = {'id': uuid.uuid4().hex[:12], 'name': payload.name, 'asset': payload.asset, 'recipients': recips,
-            'total': sum(r['amount'] for r in recips), 'scheduledAt': payload.scheduledAt, 'note': payload.note,
-            'status': 'scheduled', 'createdAt': time.time(), 'createdBy': admin, 'txs': []}
-    async with _admin_lock:
-        d = _admin_load(); d['airdrops'].append(drop)
-        _audit(d, admin, 'schedule-airdrop', f"{payload.name}: {len(recips)} wallets, {drop['total']:,.2f} {payload.asset.upper()}")
-        _admin_save(d)
-    return {'ok': True, 'airdrop': drop}
 
 
 class AirdropStatus(BaseModel):
@@ -23170,41 +19385,6 @@ class AirdropStatus(BaseModel):
     txSig: Optional[str] = None
 
 
-@app.post('/api/reputation/admin/airdrops/{drop_id}')
-async def admin_airdrop_status(request: Request, drop_id: str, payload: AirdropStatus):
-    admin = _require_admin(request)
-    if payload.status not in ('sent', 'cancelled', 'scheduled'):
-        raise HTTPException(400, 'Bad status.')
-    verified = None
-    if payload.status == 'sent':
-        if not payload.txSig or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.txSig):
-            raise HTTPException(400, 'Paste the on-chain transaction signature to mark an airdrop sent.')
-        async with httpx.AsyncClient(timeout=20) as http:
-            tx = await _rpc(http, 'getTransaction', [payload.txSig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
-        if not tx:
-            raise HTTPException(404, 'That transaction is not on-chain (yet).')
-        if (tx.get('meta') or {}).get('err'):
-            raise HTTPException(400, 'That transaction failed on-chain.')
-        signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
-        if admin not in signers:
-            raise HTTPException(400, 'That transaction was not signed by your HQ wallet.')
-        verified = {'sig': payload.txSig, 'slot': tx.get('slot'), 'blockTime': tx.get('blockTime')}
-    async with _admin_lock:
-        d = _admin_load()
-        drop = next((x for x in d['airdrops'] if x['id'] == drop_id), None)
-        if not drop:
-            raise HTTPException(404, 'Airdrop not found.')
-        drop['status'] = payload.status
-        if verified:
-            drop['txs'].append(verified)
-            for r in drop['recipients']:
-                d['badges'].setdefault(r['address'], {})['airdrop-recipient'] = {
-                    'id': 'airdrop-recipient', 'label': 'Airdropped', 'icon': '🪂', 'tone': 'gold',
-                    'why': f"Received the {drop['name']} airdrop", 'awardedBy': 'FEELESS', 'at': time.time()}
-                _badge_cache.pop(r['address'], None)
-        _audit(d, admin, f'airdrop-{payload.status}', drop['name'])
-        _admin_save(d)
-    return {'ok': True, 'airdrop': drop}
 
 
 class BugReport(BaseModel):
@@ -23225,19 +19405,6 @@ def _bug_key(text, page):
 
 
 
-@app.post('/api/reputation/admin/bugs/{bug_id}')
-async def admin_bug_status(request: Request, bug_id: str, status: str = Query(...)):
-    admin = _require_admin(request)
-    if status not in ('open', 'fixing', 'fixed', 'wontfix'):
-        raise HTTPException(400, 'Bad status.')
-    async with _admin_lock:
-        d = _json_load(BUGS_PATH, {'bugs': []})
-        for b in d['bugs']:
-            if b['id'] == bug_id:
-                b['status'] = status; b['updatedAt'] = time.time()
-        _json_save(BUGS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'bug-status', f'{bug_id} → {status}'); _admin_save(ad)
-    return {'ok': True}
 
 
 SUPPORT_PATH = DATA_DIR / 'support.json'   # 🛟 polls + "me too" marks (support.py); the reports themselves stay in bugs.json
@@ -23260,25 +19427,6 @@ class SupportAct(BaseModel):
 
 
 
-@app.post('/api/reputation/admin/support/poll')
-async def admin_support_poll(request: Request):
-    """🛟 Owner: move a poll onto the roadmap / building / shipped / declined (or back to the ladder with status ''), with a note. Audited."""
-    admin = _require_owner(request)
-    import support as _sp
-    body = await request.json()
-    st_k = str(body.get('status') or '')
-    if st_k and st_k not in _sp.OWNER_STATES:
-        raise HTTPException(400, 'Bad status.')
-    async with _admin_lock:
-        st_ = _json_load(SUPPORT_PATH, {'polls': [], 'plus': {}})
-        pl_ = next((x_ for x_ in st_.get('polls') or [] if x_.get('id') == body.get('id')), None)
-        if not pl_:
-            raise HTTPException(404, 'No such poll.')
-        pl_['status'] = st_k or None
-        pl_['note'] = str(body.get('note') or '')[:200] or None
-        _json_save(SUPPORT_PATH, st_)
-        ad_ = _admin_load(); _audit(ad_, admin, 'support-poll', f"{pl_['id']} → {st_k or 'ladder'}"); _admin_save(ad_)
-    return {'ok': True}
 
 
 BUG_FRESH_S = 3 * 86400   # 🐞 HQ's open-bug count: reports seen in 3 days (a dev-reload crash from weeks ago is not news)
@@ -23291,59 +19439,6 @@ def _bug_seen(b):
 
 
 
-@app.get('/api/reputation/admin/security')
-async def admin_security(request: Request):
-    _require_admin(request)
-    root = Path(__file__).parent
-    checks = []
-
-    def check(name, ok, detail, sev='high'):
-        checks.append({'name': name, 'ok': bool(ok), 'detail': detail, 'severity': 'ok' if ok else sev})
-
-    for f, label in ((root / 'data' / 'internal.key', 'Internal service key'), (root / '.env', 'Backend .env secrets')):
-        if f.exists():
-            mode = oct(f.stat().st_mode & 0o777)
-            check(f'{label} permissions', (f.stat().st_mode & 0o077) == 0, f'{f.name} is {mode} (should be 0o600)', 'high')
-    gi = (root.parent / '.gitignore')
-    gtxt = gi.read_text() if gi.exists() else ''
-    check('Secrets kept out of git', all(x in gtxt for x in ('.env', 'data/')), '.gitignore covers .env and backend/data/' if gtxt else 'No .gitignore found')
-    fe_env = root.parent / 'frontend' / '.env'
-    leak = fe_env.exists() and _re.search(r'REACT_APP_[A-Z_]*=.*(api-key|apikey|secret)', fe_env.read_text(), _re.I)
-    check('No API keys shipped to the browser', not leak, 'A REACT_APP_ variable contains a key — it is public in the bundle.' if leak else 'No REACT_APP_ secrets found')
-    check('RPC key stays server-side', bool(os.environ.get('SOLANA_RPC_URL')), 'Helius RPC is read from backend/.env only', 'medium')
-    check('CORS scope', False, "Services allow any origin ('*'). Lock to your domain before launch.", 'medium')
-    services = []
-    async with httpx.AsyncClient(timeout=4) as http:
-        for name, url in (('Market API', 'http://127.0.0.1:5001/api/market/assets'), ('Reputation', 'http://127.0.0.1:5077/api/reputation/health'),
-                          ('FeeCats', 'http://127.0.0.1:5088/api/cats/leader'), ('Candles', 'http://127.0.0.1:5099/api/candles/health')):
-            t0 = time.time()
-            try:
-                r = await http.get(url); up = r.status_code < 500
-            except Exception:
-                up = False
-            services.append({'name': name, 'up': up, 'ms': round((time.time() - t0) * 1000)})
-    now = time.time()
-    recent = [s for s in _status_log if now - s[0] < 3600]
-    by = {}
-    for _, m, p, st in recent:
-        if st == 404 and m == 'GET' and p.startswith(EXPECTED_404_PREFIXES):
-            continue  # 'not observed yet' answers, not failures
-        k = f'{st} {m} {_re.sub(r"/[1-9A-HJ-NP-Za-km-z]{32,}|/0x[0-9a-fA-F]{40}", "/:addr", p)}'
-        by[k] = by.get(k, 0) + 1
-    signals = {'forgedSignatures': sum(1 for s in recent if s[3] == 401), 'replays': sum(1 for s in recent if s[3] == 409),
-               'rateLimited': sum(1 for s in recent if s[3] == 429), 'forbidden': sum(1 for s in recent if s[3] == 403),
-               'serverErrors': sum(1 for s in recent if s[3] >= 500)}
-    chat = _json_load(CHAT_PATH, {})
-    rooms = chat.get('rooms', chat) if isinstance(chat, dict) else {}
-    msgs24 = sum(1 for msgs in rooms.values() if isinstance(msgs, list) for m in msgs if isinstance(m, dict) and now - (m.get('ts', 0) / (1000 if m.get('ts', 0) > 1e12 else 1)) < 86400)
-    bl = _block_load()['wallets']
-    bugs = _json_load(BUGS_PATH, {'bugs': []})['bugs']
-    score = max(0, 100 - sum(25 if c['severity'] == 'high' else 8 for c in checks if not c['ok']) - (10 if signals['serverErrors'] else 0) - 10 * sum(1 for s in services if not s['up']))
-    return {'score': score, 'checks': checks, 'services': services, 'signals': signals,
-            'topErrors': sorted(({'key': k, 'count': v} for k, v in by.items()), key=lambda x: -x['count'])[:12],
-            'stats': {'chat24h': msgs24, 'chatRooms': len(rooms), 'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)),
-                      'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing') and time.time() - _bug_seen(b) < BUG_FRESH_S), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
-            'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
 
 
 import presence as _pres
@@ -23382,38 +19477,6 @@ def _street_fams():
     return fam
 
 
-@app.get('/api/reputation/familia/street/{city}')
-async def familia_street(city: str, viewer: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """💬 One street read: the last 60 lines dressed (family crest · Don · receipts · reactions · @you), who is on the block, the street's vitals,
-    and whether the viewer may pull lines. A signed-in viewer's read also counts as their heartbeat on this block."""
-    room_ = _stc.room_of(city)
-    if not room_:
-        raise HTTPException(400, 'No such city.')
-    now = time.time()
-    me_ = primary_of(session_address(session) or '') if session else ''
-    me_ = me_ if me_ and viewer and primary_of(viewer) == me_ else ''
-    seen_ = lambda w: (_presence.get(w) or ('online', 0))[0] != 'invisible'   # 🟢 invisible (profile › online status) never shows on the block
-    if me_ and seen_(me_):
-        _stc.here_beat(_street_here, city, me_, now)
-    d_ = _chat_load()
-    fam = _street_fams()
-    reacts_ = (_react_load().get('rooms') or {}).get(room_) or {}
-    handles_ = [handle_of(me_)] if me_ else []
-    lines_ = _stc.dress(d_['rooms'].get(room_, [])[-60:], fam, _stc.receipts(_calls_load().get('calls'), room_), reacts_, me_ or None, handles_, linked_of(me_) if me_ else ())
-    here_ = _stc.here_list(_street_here, city, now, seen_)
-    vf_ = fam(me_) if me_ else None
-    staff_ = bool(me_) and _is_staff(me_)
-    pin_ = _stc.pin_view(((d_.get('streetPins') or {}).get(room_)), lines_, now)
-    v_ = _stc.vitals(lines_, now * 1000)
-    v_['heat'] = _stc.heat(v_, sum(r_.get('n', 0) for l_ in lines_[-20:] for r_ in (l_.get('reacts') or {}).values()))
-    slow_ = _stc.slow_view((d_.get('streetSlow') or {}).get(room_), now)
-    wait_ = _stc.slow_wait((d_.get('streetSlow') or {}).get(room_), ((d_.get('streetLastAt') or {}).get(room_) or {}).get(me_), now,
-                           staff_ or bool(vf_ and vf_.get('don'))) if me_ else 0
-    return {'room': room_, 'lines': lines_, 'vitals': v_, 'reacts': list(_stc.REACTS), 'pinned': pin_,
-            'hits': _stc.hits(_calls_load().get('calls'), room_, now, fam), 'slow': slow_ and {**slow_, 'wait': wait_}, 'slowChoices': list(_stc.SLOW_CHOICES),
-            'here': [{'address': w_, 'name': _display_name(w_), 'fam': fam(w_)} for w_ in here_[:40]], 'hereN': len(here_),
-            'typing': [_display_name(w_) for w_ in _stc.typing_list(_street_typing, city, now, me_ or None, seen_)[:4]],
-            'mod': {'staff': staff_, 'don': bool(vf_ and vf_.get('don')), 'famId': (vf_ or {}).get('id')}, 'me': {'fam': vf_, 'handle': handles_[0] if handles_ else None} if me_ else None}
 
 
 class StreetTyping(BaseModel):
@@ -23431,57 +19494,6 @@ class StreetMod(BaseModel):
     sec: int = Field(0, ge=0, le=600)
 
 
-@app.post('/api/reputation/familia/street/{city}/mod')
-async def familia_street_mod(city: str, p: StreetMod):
-    """🛡 Pull a line off the street (staff: any line · a Don: their own family's lines) or mute its poster for an hour (staff only). Audited."""
-    room_ = _stc.room_of(city)
-    if not room_ or p.act not in ('pull', 'mute', 'pin', 'unpin', 'slow'):
-        raise HTTPException(400, 'Pull, mute or pin a line on a real street.')
-    me_ = _session_or_401(p.address, p.session)
-    fam = _street_fams()
-    vf_ = fam(me_) or {}
-    staff_ = _is_staff(me_)
-    async with _chat_lock:
-        d_ = _chat_load()
-        if p.act == 'slow':   # 🐢 staff or a Don slows the street (one line per wallet every N s, lifts after 30 min; staff + Dons exempt)
-            if not _stc.can_pin(staff_, vf_.get('don')):
-                raise HTTPException(403, 'Only a Don (or FEELESS staff) sets slow mode on the street.')
-            if p.sec not in _stc.SLOW_CHOICES:
-                raise HTTPException(400, f'Slow mode is one of {", ".join(map(str, _stc.SLOW_CHOICES))} seconds.')
-            sl_ = d_.setdefault('streetSlow', {})
-            if p.sec:
-                sl_[room_] = {'sec': p.sec, 'by': f"[{vf_.get('tag')}] {_display_name(me_)}" if vf_.get('tag') else _display_name(me_), 'at': time.time()}
-            else:
-                sl_.pop(room_, None)
-            CHAT_PATH.write_text(json.dumps(d_))
-            ad_ = _admin_load(); _audit(ad_, me_, 'street-slow', f'{room_} {p.sec}s'); _admin_save(ad_)
-            return {'ok': True, 'slow': _stc.slow_view(sl_.get(room_), time.time())}
-        msgs_ = d_['rooms'].get(room_, [])
-        m_ = next((x for x in msgs_ if x.get('id') == p.id), None)
-        if not m_:
-            raise HTTPException(404, 'That line is gone already.')
-        lf_ = fam(m_.get('address')) or {}
-        if p.act in ('pin', 'unpin'):   # 📌 staff or a Don pins one call on top of the street for an hour (the last pin wins)
-            if not _stc.can_pin(staff_, vf_.get('don')):
-                raise HTTPException(403, 'Only a Don (or FEELESS staff) pins a line on the street.')
-            pins_ = d_.setdefault('streetPins', {})
-            if p.act == 'pin':
-                pins_[room_] = {'id': p.id, 'by': f"[{vf_.get('tag')}] {_display_name(me_)}" if vf_.get('tag') else _display_name(me_), 'at': time.time()}
-            else:
-                pins_.pop(room_, None)
-            CHAT_PATH.write_text(json.dumps(d_))
-            return {'ok': True}
-        if p.act == 'mute' and not staff_:
-            raise HTTPException(403, 'Only FEELESS staff can mute.')
-        if not _stc.can_pull(staff_, vf_.get('id'), vf_.get('don'), lf_.get('id')):
-            raise HTTPException(403, "A Don can only pull their own family's lines.")
-        d_['rooms'][room_] = [x for x in msgs_ if x.get('id') != p.id]
-        CHAT_PATH.write_text(json.dumps(d_))
-    if p.act == 'mute' and staff_ and primary_of(m_.get('address') or '') not in _admin_wallets():
-        async with _admin_lock:
-            mu_ = _json_load(MUTES_PATH, {}); mu_[primary_of(m_['address'])] = time.time() + 3600; _json_save(MUTES_PATH, mu_)
-    ad_ = _admin_load(); _audit(ad_, me_, f'street-{p.act}', f"{room_} {p.id} @{handle_of(primary_of(m_.get('address') or ''))}: {str(m_.get('text') or '')[:80]}"); _admin_save(ad_)
-    return {'ok': True}
 
 
 
@@ -23498,67 +19510,19 @@ class DefenceLift(BaseModel):
     ua: str = Field('', max_length=40)
 
 
-@app.post('/api/reputation/admin/security/defence/lift')
-async def admin_defence_lift(p: DefenceLift, request: Request):
-    admin = _require_admin(request)
-    _def.lift(_def_s(), p.fp or None, p.ua or None); _def_save(force=True)
-    async with _admin_lock:
-        d = _admin_load(); _audit(d, admin, 'defence-lift', p.fp or p.ua); _admin_save(d)
-    return _def.view(_def_s())
 
 
 # ⚔️ SEC-1 War Room -------------------------------------------------------------------------------------------------------------
 
 
-@app.get('/api/reputation/admin/security/war-room')
-async def admin_war_room(request: Request):
-    """The live War Room: feed, timeline, decoy captures, canaries + openers, banned subnets, harden moves, bounty inbox, hardening list."""
-    _require_owner(request)
-    v = _war.view(_war_s())
-    v['hardening'] = _war_hard.view()
-    v['encyclopedia'] = _war_hard.encyclopedia()
-    v['bounty'] = _BOUNTY_SCOPE
-    return v
 
 
 class WarTrace(BaseModel):
     wallet: str = Field(..., max_length=64)
 
 
-@app.post('/api/reputation/admin/security/war-room/trace')
-async def admin_war_trace(p: WarTrace, request: Request):
-    """Read-only on-chain trace of a suspect wallet's recent outbound transfers + a plain-text evidence pack. We never touch the wallet."""
-    _require_owner(request)
-    wallet = (p.wallet or '').strip()
-    if not _re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', wallet):
-        raise HTTPException(400, 'Not a Solana address.')
-    transfers = []
-    try:
-        async with httpx.AsyncClient(timeout=20) as http:
-            sigs = await _chain._rpc(http, 'getSignaturesForAddress', [wallet, {'limit': 25}])
-            sigs = sigs if isinstance(sigs, list) else (sigs or {}).get('result') or []
-            for row in sigs[:25]:
-                tx = await _chain._rpc(http, 'getTransaction', [row['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0}])
-                tx = tx.get('result') if isinstance(tx, dict) and 'result' in tx else tx
-                meta = (tx or {}).get('meta') or {}
-                pre, post = meta.get('preBalances') or [], meta.get('postBalances') or []
-                keys = [k.get('pubkey') if isinstance(k, dict) else k for k in ((tx or {}).get('transaction', {}).get('message', {}).get('accountKeys') or [])]
-                if keys and keys[0] == wallet and pre and post:
-                    delta = (pre[0] - post[0]) / 1e9 - (meta.get('fee') or 0) / 1e9
-                    if delta > 0 and len(keys) > 1:
-                        transfers.append({'sig': row['signature'], 'from': wallet, 'to': keys[1], 'amount': round(delta, 6), 'token': 'SOL', 'at': row.get('blockTime')})
-    except Exception as e:
-        raise HTTPException(502, f'Chain read failed: {e}')
-    tr = _war.trace_summary(transfers, wallet)
-    _war.log(_war_s(), 'trace', '', '', '', '', 'owner traced a suspect wallet', wallet); _war_save(force=True)
-    return {'trace': tr, 'pack': _war.evidence_pack(_war_s(), wallet, tr)}
 
 
-@app.post('/api/reputation/admin/security/war-room/evidence')
-async def admin_war_evidence(request: Request):
-    """The evidence pack as it stands (no wallet) for an abuse / IC3 report."""
-    _require_owner(request)
-    return {'pack': _war.evidence_pack(_war_s())}
 
 
 class BountyReport(BaseModel):
@@ -23568,11 +19532,6 @@ class BountyReport(BaseModel):
     reward: str = Field('', max_length=40)
 
 
-@app.post('/api/reputation/security/bounty')
-async def war_bounty_report(p: BountyReport, request: Request):
-    """Public responsible-disclosure inbox (guard rate-limits upstream). The owner triages in the War Room. Pay-outs are the owner's call."""
-    _war.add_report(_war_s(), wallet=p.wallet, url=p.url, detail=p.detail, reward=p.reward); _war_save(force=True)
-    return {'ok': True, 'message': 'Thanks — your report reached the FEELESS security desk. No automated payout; the owner reviews every report.'}
 
 
 
@@ -23644,19 +19603,6 @@ def _legal_hold(wallet, feature, request=None):
         raise HTTPException(403, why_)
 
 
-@app.get('/api/reputation/internal/legal-gate')
-async def internal_legal_gate(request: Request, wallet: str = '', feature: str = 'swap', country: str = ''):
-    """Internal key only: the swap engine (server, 5001) asks before it quotes a wallet. → {'ok', 'why'}"""
-    import hmac
-    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
-        raise HTTPException(403, 'Internal endpoint.')
-    if feature not in _legal.FEATURES:
-        raise HTTPException(400, 'No such feature.')
-    c_ = country.upper() if _legal.COUNTRY_RE.match(country.upper()) else None
-    why_ = _legal.hold(_legal_s(), feature, primary_of(wallet), c_) if wallet else ''
-    if why_ and wallet in _any_agent_wallets():
-        why_ = ''
-    return {'ok': not why_, 'why': why_}
 
 
 
@@ -23738,30 +19684,10 @@ async def _legal_wipe(me):
     return n
 
 
-@app.post('/api/reputation/legal/delete')
-async def legal_delete(p: LegalMine):
-    """Delete this wallet's personal / social data (profile, follows, inbox, push, DMs sent, chat posted, linked accounts, sessions).
-    Kept, with the reason shown: proof of consent, money receipts, points/payout ledgers, security logs, and everything on-chain."""
-    if (p.confirm or '') != 'DELETE':
-        raise HTTPException(400, 'Type DELETE to confirm.')
-    me = _legal_me(p.wallet, p.session, fresh=True)
-    n = await _legal_wipe(me)
-    _legal.note_request(_legal_s(), me, 'delete', n); _legal_save()
-    return {'ok': True, 'removed': n, 'kept': _legal.KEEP, 'signedOut': True}
 
 
-@app.get('/api/reputation/admin/legal')
-async def legal_admin(request: Request):
-    """Owner: the gate switches, how many wallets accepted this version (by stated country), and the export / delete log (counts only)."""
-    _require_owner(request)
-    return _legal.view(_legal_s())
 
 
-@app.post('/api/reputation/admin/legal')
-async def legal_admin_save(p: LegalCfg, request: Request):
-    _require_owner(request)
-    s = _legal_s(); s['cfg'] = _legal.clean_cfg(p.cfg, s['cfg']); _legal_save()
-    return _legal.view(s)
 
 
 
@@ -23772,18 +19698,6 @@ class GuardDecision(BaseModel):
     note: str = Field('', max_length=200)
 
 
-@app.post('/api/reputation/admin/security/guard')
-async def admin_guard_decide(payload: GuardDecision, request: Request):
-    """Every block is an admin approval (audited). The guard itself only slows floods and flags suspects."""
-    admin = _require_admin(request)
-    try:
-        _guard.decide(_guard_s(), payload.ip.strip(), payload.action, admin, note=payload.note)
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    _guard_save()
-    async with _admin_lock:
-        d = _admin_load(); _audit(d, admin, f'guard-{payload.action}', payload.ip.strip()); _admin_save(d)
-    return _guard.view(_guard_s())
 
 
 # ⛓ Contract go-live checklist (HQ › Fuse › Contract): the owner records each real-money gate; READY only when all pass.
@@ -23792,21 +19706,6 @@ GOLIVE_STEPS = ('adapter', 'twap', 'devnet', 'audit', 'multisig')
 
 
 
-@app.post('/api/reputation/admin/contract/golive')
-async def contract_golive_set(request: Request):
-    admin = _require_owner(request)   # only the creator wallet can mark a real-money gate passed
-    body = await request.json()
-    step = str(body.get('step') or '')
-    if step not in GOLIVE_STEPS:
-        raise HTTPException(400, 'Unknown step.')
-    proof = str(body.get('proof') or '')[:200]
-    done = bool(body.get('done'))
-    if done and step in ('devnet', 'audit', 'multisig') and not proof:
-        raise HTTPException(400, 'Add the proof (tx / report link / Circle authority address) before marking this passed.')
-    async with _admin_lock:
-        d = _admin_load(); d.setdefault('golive', {})[step] = {'done': done, 'proof': proof, 'at': time.time(), 'by': admin}
-        _audit(d, admin, 'contract-golive', f'{step} → {"passed" if done else "open"} {proof[:60]}'); _admin_save(d)
-    return await contract_golive(request)
 
 BADGE_CATALOG = [
     {'id': 'fee-holder', 'label': '$FEE Holder', 'icon': '🌿', 'tone': 'mint', 'tier': 1, 'how': 'Hold at least $1 of $FEE in your wallet.'},
@@ -23939,66 +19838,16 @@ async def _first_active(http, account: str):
     return oldest
 
 
-@app.get('/api/reputation/admin/holders/ages')
-async def admin_holder_ages(request: Request, asset: str = 'fee', limit: int = 150):
-    _require_admin(request)
-    mints = await _ecosystem_mints()
-    mint = mints.get(asset)
-    if not mint:
-        raise HTTPException(404, 'Unknown asset.')
-    data = await _token_holders(mint)
-    rows = [r for r in data['rows'] if r.get('tokenAccount')][:max(1, min(limit, 300))]
-    sem = asyncio.Semaphore(6)
-    out = {}
-    async with httpx.AsyncClient(timeout=30) as http:
-        async def one(r):
-            async with sem:
-                out[r['owner']] = await _first_active(http, r['tokenAccount'])
-        await asyncio.gather(*(one(r) for r in rows))
-    return {'asset': asset, 'since': out, 'note': 'Earliest on-chain activity of each holder\'s token account.'}
 
 
 def _snaps():
     return _json_load(SNAP_PATH, {'snaps': []})
 
 
-@app.post('/api/reputation/admin/snapshots')
-async def admin_snapshot(request: Request, asset: str = 'fee', label: str = ''):
-    admin = _require_admin(request)
-    mints = await _ecosystem_mints()
-    mint = mints.get(asset)
-    if not mint:
-        raise HTTPException(404, 'Unknown asset.')
-    _holder_cache.pop(mint, None)
-    data = await _token_holders(mint)
-    snap = {'id': uuid.uuid4().hex[:10], 'asset': asset, 'label': label[:60], 'at': time.time(), 'price': data['price'],
-            'rows': [[r['owner'], float(f"{r['amount']:.9g}")] for r in data['rows']]}
-    async with _admin_lock:
-        d = _snaps(); d['snaps'].append(snap); d['snaps'] = d['snaps'][-60:]; _json_save(SNAP_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'snapshot', f"{asset.upper()} · {len(snap['rows'])} holders"); _admin_save(ad)
-    return {'ok': True, 'id': snap['id'], 'holders': len(snap['rows'])}
 
 
 
 
-@app.get('/api/reputation/admin/snapshots/{snap_id}/diff')
-async def admin_snapshot_diff(request: Request, snap_id: str):
-    _require_admin(request)
-    snap = next((s for s in _snaps()['snaps'] if s['id'] == snap_id), None)
-    if not snap:
-        raise HTTPException(404, 'Snapshot not found.')
-    mints = await _ecosystem_mints()
-    now = {r['owner']: r['amount'] for r in (await _token_holders(mints[snap['asset']]))['rows']}
-    then = dict((o, a) for o, a in snap['rows'])
-    rows = []
-    for o in set(now) | set(then):
-        a, b = then.get(o, 0), now.get(o, 0)
-        kind = 'new' if not a else 'exited' if not b else 'grew' if b > a * 1.01 else 'shrank' if b < a * 0.99 else 'held'
-        rows.append({'owner': o, 'then': a, 'now': b, 'delta': b - a, 'kind': kind})
-    rows.sort(key=lambda r: -abs(r['delta']))
-    counts = {k: sum(1 for r in rows if r['kind'] == k) for k in ('new', 'exited', 'grew', 'shrank', 'held')}
-    return {'snap': {k: v for k, v in snap.items() if k != 'rows'}, 'counts': counts, 'rows': rows[:500],
-            'diamondHands': [r['owner'] for r in rows if r['kind'] in ('held', 'grew')]}
 
 
 # ---- Holder perks: hold $FEE, unlock more FEELESS (no subscriptions) ----------------------
@@ -24258,10 +20107,6 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     return out
 
 
-@app.get('/api/reputation/fees/quote')
-async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = ''):
-    out = await effective_fee(wallet, inputMint, outputMint)
-    return {k: v for k, v in out.items() if k not in ('referralAccount', 'feeAccount', 'feeAccounts')} | {'active': bool(out['bps'])}
 
 
 
@@ -24273,47 +20118,6 @@ def _agent_wallets():
 AGENT_FEES_SENT = DATA_DIR / 'agent_fees_sent.json'
 
 
-@app.post('/api/reputation/internal/agent-fee')
-async def internal_agent_fee(request: Request, body: dict):
-    """🤖 One agent fee, from its own wallet to the Collective wallet and nowhere else: a % of a trade by its size, or the flat task fee. One key = one charge, ever. Staff-owned agents pay nothing."""
-    if not _internal_ok(request):
-        raise HTTPException(403, 'Internal only.')
-    key_, wid_, addr_, owner_ = str(body.get('key') or ''), str(body.get('walletId') or ''), str(body.get('address') or ''), str(body.get('owner') or '')
-    if not (key_ and wid_ and addr_) or body.get('kind') not in ('trade', 'other'):
-        raise HTTPException(400, 'key, wallet and kind are required.')
-    book_ = _json_load(AGENT_FEES_SENT, {})
-    if book_.get(key_):
-        return {'signature': book_[key_], 'again': True}
-    cfg = _fee_cfg(); usd_ = _cpool.txn_fee_usd(_cpool.load(POOL_PATH)['cfg'], body.get('usd'))[0] if body['kind'] == 'trade' else max(0.0, _fuse._f(cfg.get('agentOtherFeeUsd')))
-    if usd_ <= 0 or (owner_ and _is_staff(owner_)):
-        return {'skipped': True}
-    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet')
-    if not w_ or w_.get('address') != addr_:
-        raise HTTPException(403, "That is not this agent's wallet.")
-    async with httpx.AsyncClient(timeout=15) as http:
-        fee_w = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
-        if not fee_w:
-            raise HTTPException(503, 'The Collective wallet is not open.')
-        try:
-            usdc = int((((await _rpc(http, 'getTokenAccountBalance', [str(_cfund.ata(addr_)), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
-        except Exception:
-            usdc = 0
-        units = int(usd_ * _cfund.USDC_UNITS); token = 'USDC'
-        if usdc < units + int(_apay.RESERVE_USD * _cfund.USDC_UNITS):
-            px = await _sol_usd(); token = 'SOL'; units = int(usd_ / px * _cfund.LAMPORTS) if px > 0 else 0
-            sol = int(((await _rpc(http, 'getBalance', [addr_, {'commitment': 'confirmed'}])) or {}).get('value') or 0)
-            if not units or sol < units + 2_000_000:
-                raise HTTPException(409, 'Not enough in its wallet for the fee yet.')
-        bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-        tx = _cfund.build_out(addr_, fee_w, token, units, bh)
-        signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS agent fee {str(body.get('catId') or '')[:16]}"}, agent=True)
-        sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
-        if not signed_.get('signedTransaction') or not sig_:
-            raise HTTPException(502, 'Circle did not sign it.')
-        _json_save(AGENT_FEES_SENT, {**book_, key_: sig_})   # written BEFORE the send: never a second charge
-        await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
-    _cpool.update(POOL_PATH, lambda st: _cpool.income(st, f'fee:{key_}', token, units, 'txn' if body['kind'] == 'trade' else 'task'))
-    return {'signature': sig_, 'usd': usd_, 'token': token}
 
 
 
@@ -24351,151 +20155,14 @@ async def _grow_rows():
 
 
 
-@app.get('/api/reputation/admin/grow/detail')
-async def admin_grow_detail(request: Request, id: str = Query('', max_length=128)):
-    """💰 Owner: one option's hourly points. Only a row the board itself read, so the fee and depth are the venue's, never the page's."""
-    _require_owner(request)
-    import grow_board as _gb
-    row_ = next((r_ for r_ in await _grow_rows() if r_['id'] == id), None)
-    if not row_:
-        raise HTTPException(404, 'That option is not on the board any more.')
-    hit_ = _GROW['detail'].get(id)
-    if hit_:
-        return hit_
-
-    async def bars(pair_):
-        r_ = await _fmk_http_get().get(f'http://127.0.0.1:5099/api/candles/solana/{pair_}', params={'interval': '1h'}, timeout=20)
-        return r_.json().get('candles') or [] if r_.status_code == 200 else []
-    try:
-        if row_['kind'] == 'pool':
-            own_, sol_ = await asyncio.gather(bars(row_['id']), bars(GROW_SOL_POOL))
-            pts_, why_ = _gb.pool_points(row_, own_, sol_)
-        elif row_['kind'] == 'stock':
-            pts_, why_ = _gb.stock_points(await bars(row_['pair']))
-        else:
-            r_, sol_ = await asyncio.gather(_fmk_http_get().get(f"https://yields.llama.fi/chart/{row_['llama']}", timeout=20), bars(GROW_SOL_POOL) if row_['kind'] == 'stake' else asyncio.sleep(0, []))
-            pts_, why_ = _gb.lend_points(row_, (r_.json().get('data') or []) if r_.status_code == 200 else [], sol_, time.time())
-    except (httpx.HTTPError, ValueError) as e:
-        raise HTTPException(502, f'Its history could not be read: {str(e)[:80]}')
-    import range_sim as _rs
-    out_ = {'id': id, 'points': pts_, 'single': row_['kind'] != 'pool', 'why': why_, 'ranges': {'bands': [next(x_ for x_ in _rs.sweep(pts_, widths=(w_,)) if x_) for w_ in _rs.WIDTHS] if row_['kind'] == 'pool' and len(pts_) >= 30 else [], 'test': _rs.walk_forward(pts_) if row_['kind'] == 'pool' else None}}
-    _GROW['detail'][id] = out_
-    return out_
 
 
 
 
-@app.post('/api/reputation/admin/py-agents')
-async def admin_py_agents_ask(request: Request):
-    """🐍 Owner: one local mind reads the validators' code and record, and proposes. Free, on his own machines. Saved for him to read; nothing is applied."""
-    _require_owner(request)
-    import py_agents as _pa
-    body = await request.json() or {}
-    if body.get('apply'):   # ⚖ his word: a kind moves to the weights it learned from OSSY and G4, only if they beat proofs they never saw
-        sort_ = _json_load(DATA_DIR / 'git_manifests' / 'collective_sort.json', {})
-        if not _pa.apply_learned(DATA_DIR, sort_, str(body['apply'])):
-            raise HTTPException(400, 'Those weights are not ready.')
-        return {'seats': _pa.record(_cpool.load(POOL_PATH), _pa.filed(_json_load(DATA_DIR / 'feecats.json', {}))), 'learned': _pa.learned(DATA_DIR, sort_), **_pa.load(DATA_DIR)}
-    who_ = 'g4' if body.get('who') == 'g4' else 'ossy'; which_ = 'LAN' if who_ == 'g4' else 'LOCAL'; base_ = (os.environ.get(f'{which_}_LLM_BASE_URL') or ('http://127.0.0.1:1234/v1' if which_ == 'LOCAL' else '')).rstrip('/')
-    if not base_:
-        raise HTTPException(400, f'{who_.upper()} has no address set.')
-    auth_ = {'Authorization': f"Bearer {os.environ.get(f'{which_}_LLM_API_KEY') or 'lm-studio'}"}
-    try:
-        async with httpx.AsyncClient(timeout=600) as http:
-            ids_ = [m_.get('id') for m_ in (await http.get(f'{base_}/models', headers=auth_, timeout=8)).json().get('data') or [] if 'embed' not in str(m_.get('id'))]
-            r_ = await http.post(f'{base_}/chat/completions', headers=auth_, json={'model': ids_[0], 'messages': [{'role': 'system', 'content': _pa.SYS}, {'role': 'user', 'content': _pa.prompt(_pa.record(_cpool.load(POOL_PATH)))}], 'max_tokens': 1200, 'temperature': 0.3, 'reasoning_effort': 'none'})
-        rows_ = _pa.parse(r_.json()['choices'][0]['message']['content'])
-    except (httpx.HTTPError, KeyError, IndexError, ValueError) as e:
-        raise HTTPException(502, f'{who_.upper()} did not answer: {str(e)[:100]}')
-    if not rows_:
-        raise HTTPException(502, f'{who_.upper()} answered with no usable proposal. Try again.')
-    return {'seats': _pa.record(_cpool.load(POOL_PATH)), **_pa.add(DATA_DIR, who_, rows_, time.time())}
 
 
 
 
-@app.post('/api/reputation/admin/collective')
-async def admin_collective_set(request: Request):
-    """🪙 Owner: change the settings, inside their limits. New money and the next tick use them; nothing already owed shrinks."""
-    me_ = _require_owner(request)
-    body = await request.json() or {}
-    if body.get('clear'):   # ⚖ the owner clears a held proof
-        ok_ = _cpool.update(POOL_PATH, lambda st: _cpool.clear_review(st, str(body['clear'].get('cat')), str(body['clear'].get('id'))))
-        if not ok_:
-            raise HTTPException(404, 'No held proof like that.')
-        return await _collective_view()
-    if body.get('siteSig'):   # 🌍 the owner moved the site's share to the Collective wallet: it counts only once the chain shows it landed
-        sig_ = str(body['siteSig']).strip(); pot_ = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
-        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', sig_) or not pot_:
-            raise HTTPException(400, 'That is not a transaction.')
-        async with httpx.AsyncClient(timeout=15) as http:
-            tx_ = await _rpc(http, 'getTransaction', [sig_, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
-        got_ = _site_landed(tx_, pot_)
-        if not got_:
-            raise HTTPException(400, 'That transaction did not put SOL or USDC into the Collective wallet.')
-        px_ = float(await _sol_usd() or 0); st_tok, units_ = got_
-        def go_site(st):
-            if _cpool.income(st, f'site:{sig_}', st_tok, units_, 'site'):
-                st['siteMovedUsd'] = round(float(st.get('siteMovedUsd') or 0) + units_ / _cpool.UNITS[st_tok] * (px_ if st_tok == 'SOL' else 1), 6)
-                return True
-            return False
-        if not _cpool.update(POOL_PATH, go_site):
-            raise HTTPException(409, 'That transaction was already counted.')
-        return await _collective_view()
-    if body.get('poolAdd') or body.get('poolSet'):   # 🏊 the owner lists a pool he opened. It only records a label: it moves nothing
-        try:
-            if body.get('poolAdd'):
-                a_ = body['poolAdd']; _cpool.update(POOL_PATH, lambda st: _stake.add_pool(st, a_.get('platform'), a_.get('pair'), a_.get('address'), a_.get('note'), time.time(), a_.get('mint')))
-            else:
-                a_ = body['poolSet']; _cpool.update(POOL_PATH, lambda st: _stake.set_pool(st, str(a_.get('id')), {k: v for k, v in a_.items() if k != 'id'}))
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        return await _collective_view()
-    if 'payPaused' in body:   # 🛑 the owner's stop: profit keeps compounding, and no cut is paid until he turns it back on
-        _cpool.update(POOL_PATH, lambda st: st.__setitem__('payPaused', bool(body['payPaused'])))
-        return await _collective_view()
-    if body.get('payEarly') or body.get('bonus'):   # 💸 ledger only: withdrawals stay off, so this moves no money on the chain. A stake can never be spent here
-        a_ = body.get('payEarly') or body.get('bonus'); tok_ = str(a_.get('token') or 'USDC'); px_ = float(await _sol_usd() or 0)
-        if tok_ not in _cpool.TOKENS or (tok_ == 'SOL' and px_ <= 0):
-            raise HTTPException(400, 'That token cannot be priced right now.')
-        try:
-            usd_ = float(a_.get('usd') or 0)
-        except (TypeError, ValueError):
-            raise HTTPException(400, 'Pick an amount.')
-        rate_ = (px_ if tok_ == 'SOL' else 1) / _cpool.UNITS[tok_]; units_ = int(usd_ / rate_) if rate_ else 0; key_ = f"owner:{a_.get('nonce') or ''}"
-        if not a_.get('nonce'):
-            raise HTTPException(400, 'Missing nonce.')
-        try:
-            done_ = _cpool.update(POOL_PATH, (lambda st: _stake.pay_early(st, key_, str(a_.get('source')), tok_, units_, rate_, time.time())) if body.get('payEarly') else (lambda st: _stake.bonus(st, key_, str(a_.get('cat')), tok_, units_, rate_, a_.get('why'), time.time())))
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        if not done_:
-            raise HTTPException(409, 'That was already done.')
-        return await _collective_view()
-    if body.get('profitSig'):   # 💧 a real pool profit: it counts only when the chain shows it landed in the Collective wallet, and once
-        sig_ = str(body['profitSig']).strip(); pot_ = ((_json_load(COLONY_PATH, {}) or {}).get('wallet') or {}).get('address')
-        if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', sig_) or not pot_:
-            raise HTTPException(400, 'That is not a transaction.')
-        async with httpx.AsyncClient(timeout=15) as http:
-            tx_ = await _rpc(http, 'getTransaction', [sig_, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
-        got_ = _site_landed(tx_, pot_)
-        if not got_:
-            raise HTTPException(400, 'That transaction did not put SOL or USDC into the Collective wallet.')
-        px_ = float(await _sol_usd() or 0); tok_, units_ = got_; unit_ = (px_ if tok_ == 'SOL' else 1) / _cpool.UNITS[tok_]
-        if not _cpool.update(POOL_PATH, lambda st: _stake.pay_profit(st, f'profit:{sig_}', tok_, units_, unit_, time.time(), str(body.get('pool') or ''))):
-            raise HTTPException(409, 'That transaction was already counted.')
-        return await _collective_view()
-    if not isinstance(body.get('cfg'), dict):
-        raise HTTPException(400, 'cfg is required.')
-
-    def go(st):
-        before = st['cfg']; after = _cpool.clean_cfg({**before, **{k: v for k, v in body['cfg'].items() if k in _cpool.DEFAULTS}})
-        changed = {k: [before[k], after[k]] for k in after if before[k] != after[k]}
-        st['cfg'] = after
-        if changed:
-            st['cfgLog'] = (st.get('cfgLog') or [])[-19:] + [{'at': round(time.time()), 'by': me_[:6], 'changed': changed}]
-    _cpool.update(POOL_PATH, go)
-    return await _collective_view()
 
 
 def _site_landed(tx, pot):
@@ -24529,16 +20196,6 @@ async def _collective_view():
             'agents': [{'id': c, 'name': a.get('name'), 'owner': (a.get('owner') or '')[:6], **{k: v for k, v in _cpool.view(st, c, st.get('at') or 0, px).items() if k in ('lockedUsd', 'owedUsd', 'sentUsd', 'earnedUsd', 'boost', 'levers')}} for _, c, a in rows], 'log': (st.get('cfgLog') or [])[::-1], 'withdrawals': False, 'site': {'feesUsd': round(_site_fees_total(), 4), 'movedUsd': round(float(st.get('siteMovedUsd') or 0), 4), 'owedUsd': _cpool.site_owed(st['cfg'], _site_fees_total(), st.get('siteMovedUsd'))}, 'held': [{'cat': c, 'name': a.get('name'), **{k: r.get(k) for k in ('id', 'sym', 'at', 'review', 'sig')}} for c, a in st['agents'].items() for r in a.get('streams') or [] if r.get('held')][:30], 'reviewed': sum(1 for a in st['agents'].values() for r in a.get('streams') or [] if r.get('review')), 'hist': (st.get('hist') or [])[-180:], 'audit': st.get('auditNow'), 'head': st.get('head'), 'links': st.get('links') or 0, 'potKinds': list(_cpool.POT_KINDS)}
 
 
-@app.get('/api/reputation/fees/pricing')
-async def fee_pricing(coins: int = Query(3, ge=1, le=12), usd: float = Query(20, ge=0, le=1e6), rounds: int = Query(5, ge=1, le=500), wallet: str = Query('', max_length=64)):
-    """Public pricing: the % fee on a normal swap, the bundle price for cards bought all at once, card swaps, round packs —
-    plus `plan` = what a card of `coins` coins / $`usd` costs over `rounds` rounds (the Lab's cost receipt)."""
-    cfg = _fee_cfg()
-    return {'swapBps': int(cfg['platformFeeBps'] or 0), 'bundle': _hq.clean_bundle(cfg.get('bundle')), 'rounds': {**_rounds_cfg(), 'payTo': await _rounds_pay_to()},
-            'plan': _hq.fee_plan(cfg.get('bundle'), _rounds_cfg(), coins, usd, rounds),
-            'prepay': _hq.clean_prepay(cfg.get('prepay')), 'staff': bool(wallet and _is_staff(wallet)),
-            'choice': {'rounds': list(_hq.PLAN_ROUNDS), 'swaps': list(_hq.PLAN_SWAPS), 'free': _hq.ROUNDS_DEFAULT, 'step': _hq.ROUNDS_STEP},
-            'cardLegs': {'pools': _hq.CARD_POOLS, 'runners': _hq.CARD_RUNNERS}, 'freeBuys': ['$FEE', 'FEECAT', 'rFEE']}
 
 
 class FeeCfg(BaseModel):
@@ -24609,31 +20266,10 @@ class FeeCfg(BaseModel):
 
 
 
-@app.post('/api/reputation/admin/fees/prepay')
-async def admin_fees_prepay(request: Request, body: dict):
-    """HQ › Fees › 💳 Prepaid swaps: $ per swap × swaps per round × rounds, paid up front with a card's first buy (owner only)."""
-    admin = _require_owner(request)
-    async with _admin_lock:
-        d = _admin_load(); pp = _hq.clean_prepay(body)
-        d.setdefault('fees', {})['prepay'] = {k: pp[k] for k in ('on', 'perSwapUsd', 'swapsPerRound', 'rounds')}
-        _audit(d, admin, 'fees', f"prepaid swaps {'on' if pp['on'] else 'off'} · ${pp['perSwapUsd']:.2f} × {pp['swapsPerRound']}/round × {pp['rounds']} = ${pp['usd']:.2f}")
-        _admin_save(d)
-    return {'prepay': pp}
 
 
 
 
-@app.post('/api/reputation/admin/fees/bundle')
-async def admin_fees_bundle(request: Request, body: dict):
-    """Core › Fees › Bundle pricing: flat $ per coin for cards bought all at once (Fuse / runners)."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    async with _admin_lock:
-        d = _admin_load()
-        b = _hq.clean_bundle(body)
-        d.setdefault('fees', {})['bundle'] = b
-        _audit(d, admin, 'fees', f"bundle pricing {'on' if b['on'] else 'off'} · ${b['perLegUsd']:.2f}/coin · max {b['maxPct']:g}% · legs ≤ ${b['maxLegUsd']:g}")
-        _admin_save(d)
-    return {'bundle': b}
 
 
 def _rounds_cfg():
@@ -24656,17 +20292,6 @@ async def _rounds_pay_to():
     return to
 
 
-@app.post('/api/reputation/admin/fees/rounds')
-async def admin_fees_rounds(request: Request, body: dict):
-    """Core › Fees › 🔁 Card rounds: $ per +5 rounds, and whether a card's compound may pay for them (owner only)."""
-    admin = _require_owner(request)
-    async with _admin_lock:
-        d = _admin_load()
-        r = _hq.clean_rounds_cfg(body)
-        d.setdefault('fees', {})['rounds'] = {'per5Usd': r['per5Usd'], 'compoundPay': r['compoundPay']}
-        _audit(d, admin, 'fees', f"card rounds · ${r['per5Usd']:.2f} per {r['step']} · compound pays {'on' if r['compoundPay'] else 'off'}")
-        _admin_save(d)
-    return {'rounds': r}
 
 
 class RoundsIn(BaseModel):
@@ -24737,22 +20362,6 @@ class HouseFees(BaseModel):
     redeemFeecat: int = Field(10_000, ge=1, le=1_000_000_000)
 
 
-@app.post('/api/reputation/admin/fees/house')
-async def admin_fees_house(request: Request, p: HouseFees):
-    """🏠 Save the house fees (audited); FeeCat's paper fee is pushed to her service right away (a failed push says so — her old fee stays)."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    async with _admin_lock:
-        d = _admin_load()
-        d.setdefault('fees', {})['house'] = p.dict()
-        _audit(d, admin, 'fees-house', f"Fuse creator cap {p.fuseCreatorMaxBps / 100:g}% · FeeCat paper fee {p.feecatFeePct:g}%/side · {p.redeemMp:,} MP → {p.redeemFeecat:,} FEECAT")
-        _admin_save(d)
-    synced = False
-    try:
-        r_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': {'feePerSidePct': p.feecatFeePct}}, timeout=5)
-        synced = r_.status_code == 200
-    except Exception:
-        synced = False
-    return {'ok': True, 'house': _house(), 'feecatSynced': synced}
 
 
 
@@ -24763,43 +20372,6 @@ JUP_ULTRA_REFERRAL_PROJECT = 'DkiqsTrw1u1bYFumumC7sCG2S8K25qc2vemJFHyW2wJc'
 JUP_REFERRAL_PROGRAM = 'REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3'
 
 
-@app.get('/api/reputation/admin/fees/health')
-async def admin_fee_health(request: Request):
-    """Will Jupiter actually pay the FEELESS fee? Checks the referral account on-chain: it must belong to the
-    Jupiter Ultra referral project (the one /swap/v2 pays into) and have SOL + USDC fee token accounts."""
-    _require_admin(request)
-    if _engine_cfg(_fee_cfg())['engine'] == 'swap':
-        return await _swap_fee_health()
-    import base64
-    from solders.pubkey import Pubkey
-    referral = str(_fee_cfg().get('referralAccount') or '').strip()
-    if not referral:
-        return {'ok': False, 'problem': 'No referral account configured.', 'fix': 'Create one under the Jupiter Ultra project at referral.jup.ag and paste it here.'}
-    async with httpx.AsyncClient(timeout=20) as http:
-        info = await _rpc(http, 'getAccountInfo', [referral, {'encoding': 'base64'}])
-        value = (info or {}).get('value')
-        if not value or value.get('owner') != JUP_REFERRAL_PROGRAM:
-            return {'ok': False, 'problem': 'This address is not a Jupiter referral account.', 'fix': 'Create a referral account at referral.jup.ag (Jupiter Ultra project).'}
-        raw = base64.b64decode(value['data'][0])
-        project = str(Pubkey.from_bytes(raw[40:72]))
-        partner = str(Pubkey.from_bytes(raw[8:40]))
-        # Fee vaults = token accounts owned by the referral account (Jupiter Ultra creates regular token
-        # accounts for it; the legacy referral_ata PDA layout is not guaranteed), so look them up by owner.
-        held = set()
-        for program in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
-            res = await _rpc(http, 'getTokenAccountsByOwner', [referral, {'programId': program}, {'encoding': 'jsonParsed'}])
-            for row in (res or {}).get('value', []):
-                held.add(_parsed_info(row.get('account')).get('mint'))
-        vaults = {'SOL': 'So11111111111111111111111111111111111111112' in held, 'USDC': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' in held}
-    if project != JUP_ULTRA_REFERRAL_PROJECT:
-        return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
-                'problem': 'Referral account was created under an older Jupiter referral project, so Jupiter rejects the fee and every swap runs fee-free.',
-                'fix': f'At referral.jup.ag, connect the partner wallet {partner[:4]}…{partner[-4:]}, choose the Jupiter Ultra project, create a referral account, create SOL and USDC token accounts, then paste the new referral account here.'}
-    missing = [k for k, ok in vaults.items() if not ok]
-    if missing:
-        return {'ok': False, 'project': project, 'partner': partner, 'vaults': vaults,
-                'problem': f"Missing fee token account for {', '.join(missing)}.", 'fix': 'Create the missing token accounts for this referral account at referral.jup.ag.'}
-    return {'ok': True, 'project': project, 'partner': partner, 'vaults': vaults, 'note': 'Jupiter will pay the FEELESS fee into this referral account (SOL/USDC vaults ready).'}
 
 
 TOKEN_PROGRAMS = {'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'}
@@ -24824,38 +20396,6 @@ async def _swap_fee_health():
     return {'ok': True, 'note': f"Swap engine ready: fees land in your {' + '.join(l for l, _, _ in wanted)} fee account(s). Ultra fallback {fallback}."}
 
 
-@app.get('/api/reputation/admin/fees/earnings')
-async def admin_fee_earnings(request: Request):
-    """Live money: what sits in the fee accounts on-chain right now, plus fees from confirmed trades
-    (last hour / 24h / 7d, top coins)."""
-    _require_admin(request)
-    cfg = _fee_cfg()
-    accounts = [(label, acct) for label, acct in (('SOL', cfg.get('feeAccountSol')), ('USDC', cfg.get('feeAccountUsdc'))) if acct]
-    async with httpx.AsyncClient(timeout=15) as http:
-        async def balances():
-            if not accounts:
-                return []
-            info = await _rpc(http, 'getMultipleAccounts', [[a for _, a in accounts], {'encoding': 'jsonParsed'}])
-            rows = []
-            for (label, acct), value in zip(accounts, (info or {}).get('value') or []):
-                amt = ((((value or {}).get('data') or {}).get('parsed') or {}).get('info') or {}).get('tokenAmount') or {} if isinstance((value or {}).get('data'), dict) else {}
-                rows.append({'label': label, 'account': acct, 'amount': float(amt.get('uiAmountString') or 0)})
-            return rows
-
-        async def trades():
-            try:
-                r = await http.get('http://127.0.0.1:5001/api/trading/internal/earnings', headers={'x-feeless-internal': _internal_key()})
-                return r.json() if r.status_code == 200 else None
-            except Exception:
-                return None
-        bal, stats = await asyncio.gather(balances(), trades())
-    for c in (stats or {}).get('coins', []):
-        card = _fee_coin_names.get(c['mint'])
-        if card is None:
-            async with httpx.AsyncClient(timeout=6) as http:
-                card = _fee_coin_names[c['mint']] = (await _coin_card(http, c['mint']))['symbol']
-        c['symbol'] = card
-    return {'balances': bal, 'trades': stats, 'at': time.time()}
 
 
 _fee_coin_names: dict = {}
@@ -25058,35 +20598,8 @@ def _shield_scan_all():
     return rows
 
 
-@app.get('/api/reputation/admin/shield')
-async def shield_admin(request: Request, verdict: str = Query('flagged')):
-    """HQ › Security › Bot shield: scan every known wallet with every engine."""
-    _require_admin(request)
-    rows = _shield_scan_all()
-    counts = {k: sum(1 for r in rows if r['verdict'] == k) for k in ('bot', 'watch', 'clean')}
-    engines = {e.__name__: sum(1 for r in rows for h in r['hits'] if h['engine'] == e.__name__) for e in _shield.ENGINES}
-    shown = [r for r in rows if verdict == 'all' or (verdict == 'flagged' and r['verdict'] != 'clean') or r['verdict'] == verdict]
-    return {'scanned': len(rows), 'counts': counts, 'engines': engines, 'rows': sorted(shown, key=lambda r: -r['score'])[:200]}
 
 
-@app.post('/api/reputation/admin/shield')
-async def shield_admin_set(request: Request):
-    admin = _require_admin(request)
-    body = await request.json()
-    a, act = primary_of(str(body.get('address') or '')), body.get('action')
-    if act not in ('cleared', 'bot', 'reset') or not a:
-        raise HTTPException(400, 'address + cleared | bot | reset')
-    async with _admin_lock:
-        d = _json_load(SHIELD_PATH, {})
-        m = d.setdefault('manual', {})
-        if act == 'reset':
-            m.pop(a, None)
-        else:
-            m[a] = act
-        _json_save(SHIELD_PATH, d)
-    _shield_cache.pop(a, None); _case_cache.pop(a, None)
-    ad = _admin_load(); _audit(ad, admin, f'shield-{act}', a); _admin_save(ad)
-    return {'ok': True}
 
 
 _case_peak: dict = {}   # mint → peak volume $/h seen (live case files)
@@ -25117,124 +20630,8 @@ def _quote_fee_bps(q):
     return int((q.get('platformFee') or {}).get('feeBps') or q.get('feeBps') or 0)
 
 
-@app.get('/api/reputation/admin/fees/selftest')
-async def admin_fee_selftest(request: Request):
-    """Prove FEELESS gets paid: quotes go through the SAME server endpoints the swap boxes use
-    (/api/trading/quote for Solana, /api/lifi/quote for EVM swaps + bridges). Nothing is signed or sent."""
-    _require_admin(request)
-    cfg = _fee_cfg()
-    usdc = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
-    mints = await _ecosystem_mints()
-    checks = []
-    async with httpx.AsyncClient(timeout=40) as http:
-        pump = None
-        try:
-            board = (await http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1, 'scope': 'pump'})).json().get('pairs') or []
-            pump = next(((p.get('baseToken') or {}).get('address') for p in board if (p.get('baseToken') or {}).get('address', '').endswith('pump')), None)
-        except Exception:
-            pump = None
-        cases = [('SOL → USDC', WSOL, usdc, '0.01'), ('SOL → top Pump coin', WSOL, pump, '0.01'), ('Top Pump coin → SOL (sell)', pump, WSOL, '1000')]
-        if mints.get('fee'):
-            cases += [('SOL → $FEE (free buy)', WSOL, mints['fee'], '0.01'), ('$FEE → SOL (sell pays fee)', mints['fee'], WSOL, '10000')]
-        # Build the real transaction (not just a price) so Jupiter validates the fee account exactly as it does
-        # for traders. The fee wallet is the test signer; nothing is signed or sent.
-        test_wallet = await _fee_wallet_owner(http, cfg)
-        for label, a, b, amount in cases:
-            if not a or not b:
-                checks.append({'label': label, 'ok': False, 'detail': 'No live Pump coin found to test with.'})
-                continue
-            # Same wallet as the quote below, so holder-tier discounts match.
-            expected = int((await effective_fee(test_wallet or '', a, b))['bps'])
-            try:
-                r = await http.post('http://127.0.0.1:5001/api/trading/quote', headers={'x-feeless-internal': _internal_key()},
-                                  json={'input_mint': a, 'output_mint': b, 'amount': amount, 'slippage_bps': 50, 'wallet': test_wallet, 'probe': True})
-                d = r.json()
-            except Exception as exc:
-                checks.append({'label': label, 'ok': False, 'detail': f'Swap server unreachable: {exc}'})
-                continue
-            if r.status_code != 200 or not (d.get('quote') or {}).get('outAmount'):
-                checks.append({'label': label, 'ok': False, 'detail': f"Quote failed ({r.status_code}): {str(d.get('detail') or d)[:140]}"})
-                continue
-            q = d['quote']
-            charged = _quote_fee_bps(q)
-            ff = d.get('feeless_fee') or {}
-            fee_note = '; '.join(ff.get('notes') or [])
-            engine = 'Swap API' if d.get('engine') == 'swap' else 'Ultra'
-            if expected:
-                ok = charged >= expected and not ff.get('fallback')
-                detail = (f'✓ {engine} · Jupiter confirms your {charged / 100:.2f}% fee on this trade' if ok
-                          else f'FEELESS fee NOT applied ({engine}) — Jupiter confirmed {charged / 100:.2f}%. {fee_note}')
-            else:
-                ok = True
-                detail = 'Free by rule' + (f" · Jupiter's own fee {charged / 100:.2f}%" if charged else '')
-            checks.append({'label': label, 'ok': ok, 'rule': expected, 'charged': charged, 'detail': detail})
-            await asyncio.sleep(1.2)   # stay under Jupiter's per-key rate limit
-        lifi_bps = int(cfg.get('lifiFeeBps') or 0)
-        integrator = cfg.get('lifiIntegrator') or os.environ.get('LIFI_INTEGRATOR', '')
-        lifi = []
-        for label, fc, tc in (('Base swap ETH → USDC', 8453, 8453), ('Bridge Arbitrum → Base', 42161, 8453)):
-            if not integrator or not lifi_bps:
-                lifi.append({'label': label, 'ok': None, 'skipped': True, 'detail': 'Skipped: no LI.FI fee set, so EVM swaps and bridges are free (set one below to charge).'})
-                continue
-            to_token = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' if tc == fc else '0x0000000000000000000000000000000000000000'
-            try:
-                r = await http.get('http://127.0.0.1:5001/api/lifi/quote', params={'fromChain': fc, 'toChain': tc, 'fromToken': '0x0000000000000000000000000000000000000000',
-                                   'toToken': to_token, 'fromAmount': '10000000000000000', 'fromAddress': '0x552008c0f6870c2f77e5cC1d2eb9bdff03e30Ea0'})
-                d = r.json()
-            except Exception as exc:
-                lifi.append({'label': label, 'ok': False, 'detail': f'LI.FI proxy unreachable: {exc}'})
-                continue
-            if r.status_code != 200:
-                lifi.append({'label': label, 'ok': False, 'detail': f"Quote failed: {str(d.get('detail'))[:140]}"})
-                continue
-            ours = int((d.get('feeless') or {}).get('feeBps') or 0)
-            total = sum(float(f.get('percentage') or 0) for f in (d.get('estimate') or {}).get('feeCosts') or [])
-            ok = ours == lifi_bps and total >= 0.0025 + lifi_bps / 10000 - 1e-6
-            lifi.append({'label': label, 'ok': ok, 'detail': (f"FEELESS fee {ours / 100:.2f}% applied (LI.FI total {total * 100:.2f}% incl. its own 0.25%)" if ok
-                                                         else (d.get('feeless') or {}).get('note') or f'FEELESS fee not applied (got {ours / 100:.2f}%)')})
-    live = [x for x in lifi if not x.get('skipped')]
-    return {'checks': checks, 'lifiChecks': lifi, 'lifi': {'ok': all(x['ok'] for x in live) if live else None, 'skipped': not live, 'detail': ' · '.join(x['detail'] for x in lifi)}, 'at': time.time(),
-            'note': 'Quotes only through the real swap endpoints — nothing is signed or sent. A pass means FEELESS is paid on real trades.'}
 
 
-@app.post('/api/reputation/admin/fees')
-async def admin_fees_set(request: Request, payload: FeeCfg):
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    addr = r'^[1-9A-HJ-NP-Za-km-z]{32,44}$'
-    if payload.engine not in ('swap', 'ultra'):
-        raise HTTPException(400, 'Engine must be swap or ultra.')
-    for label, v in (('Referral account', payload.referralAccount), ('SOL fee account', payload.feeAccountSol), ('USDC fee account', payload.feeAccountUsdc)):
-        if v and not _re.match(addr, v):
-            raise HTTPException(400, f'{label} must be a Solana address.')
-    uses_ultra = payload.engine == 'ultra' or payload.ultraFallback
-    if payload.platformFeeBps and payload.engine == 'swap' and not (payload.feeAccountSol or payload.feeAccountUsdc):
-        raise HTTPException(400, 'Add a SOL (wSOL) or USDC fee token account: the Swap API pays your fee into it.')
-    if payload.platformFeeBps and uses_ultra and not payload.referralAccount:
-        raise HTTPException(400, 'Ultra needs a Jupiter referral account (referral.jup.ag) to pay your fee.')
-    if payload.engine == 'ultra' and payload.platformFeeBps and not JUP_MIN_BPS <= payload.platformFeeBps <= JUP_MAX_BPS:
-        raise HTTPException(400, f'Ultra charges {JUP_MIN_BPS}–{JUP_MAX_BPS} bps (0.5–2.55%). Use the Swap engine for other fees.')
-    # Discounts lower the fee, never remove it: at most 90% off.
-    tiers = {str(k): max(0.0, min(90.0, float(v))) for k, v in (payload.tierDiscountPct or {}).items() if str(k) in ('0', '1', '2', '3')}
-    zero = []  # no fee-free list: only FEELESS coin buys are exempt (see effective_fee)
-    promo = {'label': str((payload.promo or {}).get('label') or '')[:40], 'discountPct': max(0.0, min(90.0, float((payload.promo or {}).get('discountPct') or 0))),
-             'until': float((payload.promo or {}).get('until') or 0)}
-    integrator = (payload.lifiIntegrator or '').strip() or os.environ.get('LIFI_INTEGRATOR', '').strip()
-    if integrator and not _re.match(r'^[A-Za-z0-9_.-]{2,40}$', integrator):
-        raise HTTPException(400, 'LI.FI integrator name: 2–40 letters, numbers, dot, dash or underscore (as registered at portal.li.fi).')
-    if payload.lifiFeeBps and not integrator:
-        raise HTTPException(400, 'Register an integrator at portal.li.fi and enter its name before setting a LI.FI fee.')
-    async with _admin_lock:
-        d = _admin_load()
-        d['fees'] = {'platformFeeBps': payload.platformFeeBps, 'referralAccount': payload.referralAccount, 'tierDiscountPct': tiers, 'zeroFeeMints': zero, 'promo': promo,
-                     'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
-                     'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
-                     'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, 'catMaxModels': payload.catMaxModels, 'catFeeUsd': payload.catFeeUsd, 'agentTradeFeeUsd': payload.agentTradeFeeUsd, 'agentOtherFeeUsd': payload.agentOtherFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
-        tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
-        _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
-                                 f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
-        _admin_save(d)
-    return {'ok': True, 'fees': _fee_cfg()}
 
 
 # ---- Chat sessions: sign once, chat for 7 days --------------------------------------------
@@ -25350,28 +20747,12 @@ class RefIn(BaseModel):
 
 
 
-@app.get('/api/reputation/admin/referrals')
-async def admin_referrals(request: Request):
-    _require_admin(request)
-    d = _json_load(REF_PATH, {'by': {}, 'of': {}})
-    earn = _json_load(REF_EARN_PATH, {})
-    rows = sorted(({'address': a, 'handle': handle_of(a), 'invited': len(v), 'earnedUsd': (earn.get(a) or {}).get('usd', 0), 'earnedSol': (earn.get(a) or {}).get('sol', 0)}
-                   for a, v in d['by'].items()), key=lambda r: (-r['earnedUsd'], -r['invited']))
-    return {'total': len(d['of']), 'top': rows[:50], 'pct': float(_json_load(REF_CFG_PATH, {}).get('pct') or 0),
-            'owedUsd': round(sum((r.get('usd') or 0) - (r.get('paidUsd') or 0) for r in earn.values()), 4)}
 
 
 class RefCfgIn(BaseModel):
     pct: float = Field(ge=0, le=50)
 
 
-@app.put('/api/reputation/admin/referrals/config')
-async def admin_referral_cfg(request: Request, p: RefCfgIn):
-    """Every inviter earns this % of the FEELESS fees their invitees pay (accrues on each confirmed trade)."""
-    me = _require_owner(request)
-    _json_save(REF_CFG_PATH, {'pct': round(p.pct, 2), 'by': me, 'at': time.time()})
-    ad = _admin_load(); _audit(ad, me, 'referral-pct', f'{p.pct}% of invitee fees'); _admin_save(ad)
-    return {'pct': round(p.pct, 2)}
 
 
 # ---- Ads & announcements (creator wallet only) ----------------------------------------------
@@ -25399,35 +20780,8 @@ _ad_ev_ip = _HITS('adev')
 
 
 
-@app.post('/api/reputation/admin/ads')
-async def admin_ad_save(request: Request, payload: AdIn):
-    admin = _require_admin(request)
-    if payload.placement not in AD_PLACEMENTS:
-        raise HTTPException(400, 'Unknown placement.')
-    url = payload.url if payload.url.startswith('https://') or payload.url.startswith('/') else ''
-    ad = {'id': payload.id or uuid.uuid4().hex[:10], 'title': payload.title, 'text': payload.text, 'url': url, 'imageUrl': _safe_url(payload.imageUrl),
-          'placement': payload.placement, 'startsAt': payload.startsAt, 'endsAt': payload.endsAt, 'active': payload.active, 'sponsor': payload.sponsor}
-    async with _admin_lock:
-        d = _json_load(ADS_PATH, {'ads': []})
-        old = next((a for a in d['ads'] if a['id'] == ad['id']), None)
-        if old:
-            ad['views'], ad['clicks'] = old.get('views', 0), old.get('clicks', 0)
-            d['ads'] = [ad if a['id'] == ad['id'] else a for a in d['ads']]
-        else:
-            d['ads'].append(ad)
-        _json_save(ADS_PATH, d)
-        ad_log = _admin_load(); _audit(ad_log, admin, 'ad', f"{ad['title']} · {ad['placement']} · {'on' if ad['active'] else 'off'}"); _admin_save(ad_log)
-    return {'ok': True, 'ad': ad}
 
 
-@app.delete('/api/reputation/admin/ads/{ad_id}')
-async def admin_ad_delete(request: Request, ad_id: str):
-    _require_admin(request)
-    async with _admin_lock:
-        d = _json_load(ADS_PATH, {'ads': []})
-        d['ads'] = [a for a in d['ads'] if a['id'] != ad_id]
-        _json_save(ADS_PATH, d)
-    return {'ok': True}
 
 
 # ---- HQ: pulse, moderation, broadcast, treasury ---------------------------------
@@ -25439,49 +20793,12 @@ def is_muted(address: str) -> float:
     return until if until > time.time() else 0
 
 
-@app.get('/api/reputation/admin/pulse')
-async def admin_pulse(request: Request):
-    _require_admin(request)
-    now = time.time() * 1000
-    rooms = _chat_load()['rooms']
-    msgs = [m for ms in rooms.values() for m in ms if isinstance(m, dict)]
-    last24 = [m for m in msgs if now - m.get('ts', 0) < 86400e3]
-    hourly = [0] * 24
-    for m in last24:
-        hourly[23 - min(23, int((now - m['ts']) // 3600e3))] += 1
-    busiest = sorted(((r, sum(1 for m in ms if now - m.get('ts', 0) < 86400e3)) for r, ms in rooms.items()), key=lambda x: -x[1])[:8]
-    posters = {}
-    for m in last24:
-        if not m.get('system'):
-            posters[m.get('identity') or m.get('address')] = posters.get(m.get('identity') or m.get('address'), 0) + 1
-    profiles = _profiles_load()['profiles']
-    fee = {}
-    try:
-        async with httpx.AsyncClient(timeout=6) as http:
-            fee = (await http.get('http://127.0.0.1:5088/api/cats/leader')).json().get('cat') or {}
-    except Exception:
-        pass
-    clicks = sorted(_json_load(CLICKS_PATH, {}).items(), key=lambda kv: -kv[1][0])[:6]
-    return {'messages24h': len(last24), 'hourly': hourly, 'activeWallets24h': len(posters), 'profiles': len(profiles),
-            'newProfiles24h': sum(1 for v in profiles.values() if time.time() - (v or {}).get('updatedAt', 0) < 86400),
-            'busiestRooms': [{'room': r, 'messages': n} for r, n in busiest if n],
-            'topPosters': [{'address': a, 'handle': handle_of(a), 'messages': n} for a, n in sorted(posters.items(), key=lambda x: -x[1])[:8]],
-            'fee': {k: fee.get(k) for k in ('balanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses')} | {'open': len(fee.get('positions') or [])},
-            'topClicks': [{'key': k, 'count': v[0]} for k, v in clicks],
-            'pushSubscribers': len(_push_load()['subs']), 'muted': sum(1 for v in _json_load(MUTES_PATH, {}).values() if v > time.time())}
 
 
 # 🛠 old service-health pings posted into rooms ("Jupiter price … degraded for 3+ min", "recovered (124 ms)"): never social, never mod work
 _OPS_PING = _re.compile(r'(recovered \(\d+ ms\)|degraded for \d+\+ min|Fallbacks are serving)')
 
 
-@app.get('/api/reputation/admin/chat-feed')
-async def admin_chat_feed(request: Request, limit: int = 80):
-    _require_admin(request)
-    msgs = [m for r, ms in _chat_load()['rooms'].items() for m in ms if isinstance(m, dict) and not m.get('system') and not _OPS_PING.search(str(m.get('text') or ''))]
-    msgs.sort(key=lambda m: -m.get('ts', 0))
-    mutes = _json_load(MUTES_PATH, {})
-    return {'messages': [{**{k: m.get(k) for k in ('id', 'room', 'address', 'username', 'handle', 'text', 'ts')}, 'muted': mutes.get(primary_of(m.get('address', '')), 0) > time.time()} for m in msgs[:max(1, min(limit, 300))]]}
 
 
 class ModIn(BaseModel):
@@ -25491,30 +20808,8 @@ class ModIn(BaseModel):
     hours: float = 24
 
 
-@app.post('/api/reputation/admin/moderate/delete')
-async def admin_delete_msg(request: Request, payload: ModIn):
-    admin = _require_admin(request)
-    async with _chat_lock:
-        d = _chat_load()
-        before = len(d['rooms'].get(payload.room, []))
-        d['rooms'][payload.room] = [m for m in d['rooms'].get(payload.room, []) if m['id'] != payload.id]
-        CHAT_PATH.write_text(json.dumps(d))
-    ad = _admin_load(); _audit(ad, admin, 'mod-delete', f'{payload.room} #{payload.id}'); _admin_save(ad)
-    return {'ok': before != len(d['rooms'].get(payload.room, []))}
 
 
-@app.post('/api/reputation/admin/moderate/mute')
-async def admin_mute(request: Request, payload: ModIn):
-    admin = _require_admin(request)
-    target = primary_of(payload.address)
-    if _is_staff(target):
-        raise HTTPException(400, "Can't mute the HQ wallet.")
-    async with _admin_lock:
-        d = _json_load(MUTES_PATH, {})
-        d[target] = time.time() + max(0, min(payload.hours, 24 * 30)) * 3600 if payload.hours > 0 else 0
-        _json_save(MUTES_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'mute' if payload.hours > 0 else 'unmute', f'@{handle_of(target)} {payload.hours:g}h'); _admin_save(ad)
-    return {'ok': True, 'until': d[target]}
 
 
 class BroadcastIn(BaseModel):
@@ -25525,23 +20820,6 @@ class BroadcastIn(BaseModel):
     rooms: list = []
 
 
-@app.post('/api/reputation/admin/broadcast')
-async def admin_broadcast(request: Request, payload: BroadcastIn):
-    admin = _require_admin(request)
-    url = payload.url if payload.url.startswith('/') or payload.url.startswith('https://') else '/terminal'
-    posted = 0
-    for room in [r for r in payload.rooms[:20] if _re.match(r'^[A-Za-z0-9_-]{3,160}$', str(r))]:
-        feeless_post(room, f'📢 {payload.title}\n{payload.body}')
-        posted += 1
-    sent = gone = 0
-    if payload.push:
-        subs = _push_load()['subs']
-        for sid, entry in list(subs.items()):
-            res = await asyncio.to_thread(_send_push, entry['subscription'], payload.title, payload.body, url, 'feeless-broadcast')
-            sent += res == 'ok'
-            gone += res == 'gone'
-    ad = _admin_load(); _audit(ad, admin, 'broadcast', f"{payload.title} · {posted} rooms · push {sent}"); _admin_save(ad)
-    return {'ok': True, 'rooms': posted, 'pushed': sent, 'stale': gone}
 
 
 
@@ -25739,25 +21017,6 @@ def _feecat_pins(positions, top, now=None):
 
 
 
-@app.get('/api/reputation/admin/feecat')
-async def admin_feecat_get(request: Request):
-    _require_admin(request)
-    async with httpx.AsyncClient(timeout=10) as http:
-        r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
-        prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
-        activity = (await http.get('http://127.0.0.1:5088/api/cats/activity?catId=leader')).json()
-    st_fc = _json_load(DATA_DIR / 'feecats.json', {}) or {}
-    sc_ = st_fc.get('scan') or {}   # 🔎 why she is / isn't trading: her own last scan (scanned → passed → rejections)
-    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:30],
-            'duoLearn': st_fc.get('duoLearn') or {},   # 🎓 what she takes from OSSY / G4: their record + final-review lessons
-            'discipline': prof.get('discipline'), 'strength': prof.get('strength'), 'exits': (prof.get('exits') or [])[-12:],
-            'pins': _feecat_pins((prof.get('cat') or {}).get('positions') or [], sc_.get('top') or []),   # 🤖🔁 the agents' + OSSY / G4's word on HER coins (HQ only)
-            'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
-            'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min
-            'cat': {**{k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')},
-                    # 👛 her wallet panel reads these: the slim record above had none, so the wallet you'd just assigned vanished on the next 6 s poll (owner 2026-10-31)
-                    **{k: ((st_fc.get('cats') or {}).get('leader') or {}).get(k) for k in ('id', 'name', 'isLeader', 'agentWallet', 'mode', 'realWallet', 'budgetSol', 'proposals', 'agentFunded', 'revoked')}},
-            'fastTrench': _feecat_fast_trench()}
 
 
 def _feecat_fast_trench():
@@ -25772,21 +21031,6 @@ def _feecat_fast_trench():
             'from': {k_: c_.get(k_) for k_ in ('agentMcMin', 'agentMcMax', 'agentMinAgeH', 'agentPoolMin', 'agentMinVol1h', 'agentTp', 'agentSl')}}
 
 
-@app.post('/api/reputation/admin/feecat')
-async def admin_feecat_set(request: Request):
-    admin = _require_admin(request)
-    body = await request.json()
-    action = body.pop('action', None)
-    async with httpx.AsyncClient(timeout=30) as http:
-        if action == 'run':
-            run = await http.post('http://127.0.0.1:5088/api/cats/leader/action', headers={'x-feeless-internal': _internal_key()}, json={'action': 'run'})
-            if run.status_code != 200:
-                raise HTTPException(run.status_code, 'Fee service could not run the intelligence cycle.')
-        r = await http.post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json=body)
-    if r.status_code != 200:
-        raise HTTPException(r.status_code, 'Fee service rejected the change.')
-    ad = _admin_load(); _audit(ad, admin, 'feecat', json.dumps({k: v for k, v in body.items() if k != 'rules'} | {'rules': list((body.get('rules') or {}).keys())})[:160]); _admin_save(ad)
-    return r.json()
 
 
 # ---- Notifications inbox (per identity) + push to the owner's devices ----------------------
@@ -25899,37 +21143,6 @@ class DmPrefsIn(BaseModel):
 
 
 
-@app.post('/api/reputation/dm')
-async def dm_send(payload: DmIn):
-    me = _session_or_401(payload.address, payload.session)
-    to = primary_of(payload.to)
-    if not _re.match(r'^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$', to) or to == me:
-        raise HTTPException(400, 'Pick another wallet to message.')
-    if is_muted(me):
-        raise HTTPException(403, 'You are muted for now.')
-    if time.time() - _dm_last.get(me, 0) < 2:
-        raise HTTPException(429, 'Slow down.')
-    pref = _dm_pref(to)
-    thread = _json_load(DM_PATH, {}).get(_dm_key(me, to), [])
-    replied = any(m['from'] == to for m in thread)  # they've written to me: the thread is open both ways
-    is_admin = _is_staff(me)
-    request = False
-    if not is_admin and not replied and me not in pref['accepted']:
-        if pref['policy'] == 'nobody':
-            raise HTTPException(403, "This wallet isn't accepting messages.")
-        if pref['policy'] == 'requests':
-            if thread:
-                raise HTTPException(403, 'Your message request is waiting — you can write again once they accept.')
-            request = True
-    _dm_last[me] = time.time()
-    msg = {'id': uuid.uuid4().hex[:12], 'from': me, 'to': to, 'text': payload.text.strip(), 'at': time.time(), **({'request': True} if request else {})}
-    async with _admin_lock:
-        d = _json_load(DM_PATH, {})
-        d.setdefault(_dm_key(me, to), []).append(msg)
-        d[_dm_key(me, to)] = d[_dm_key(me, to)][-300:]
-        _json_save(DM_PATH, d)
-    notify(to, 'dm', f"{'📨 Message request from ' if request else ''}@{handle_of(me)}: {payload.text.strip()}", f'/terminal/profile/{to}?dm=1', me)
-    return {'ok': True, 'message': msg}
 
 
 
@@ -26006,18 +21219,6 @@ def is_verified(address: str) -> bool:
     return bool(a) and (_is_staff(a) or a == FEE_RESERVE_WALLET or a in (_admin_load().get('verified') or []))
 
 
-@app.post('/api/reputation/admin/verify')
-async def admin_verify(request: Request, payload: ModIn):
-    admin = _require_admin(request)
-    a = primary_of(payload.address)
-    async with _admin_lock:
-        d = _admin_load()
-        v = set(d.get('verified') or [])
-        v.add(a) if payload.hours >= 0 else v.discard(a)
-        d['verified'] = sorted(v)
-        _audit(d, admin, 'verify' if payload.hours >= 0 else 'unverify', f'@{handle_of(a)}')
-        _admin_save(d)
-    return {'ok': True, 'verified': is_verified(a)}
 
 
 # ---- Unique invite codes + public site URL ---------------------------------------------------
@@ -26039,16 +21240,6 @@ class SiteIn(BaseModel):
     publicUrl: str
 
 
-@app.post('/api/reputation/admin/site')
-async def admin_site(request: Request, payload: SiteIn):
-    admin = _require_admin(request)
-    url = payload.publicUrl.strip().rstrip('/')
-    if url and not _re.match(r'^https://[a-z0-9.-]+\.[a-z]{2,}(/[\w./-]*)?$', url, _re.I):
-        raise HTTPException(400, 'Use your public https:// domain (e.g. https://feeless.app).')
-    async with _admin_lock:
-        d = _admin_load(); d['site'] = {'publicUrl': url}; _audit(d, admin, 'site-url', url or '(cleared)'); _admin_save(d)
-    hook = await sync_helius_webhook(url) if url else {'ok': False, 'reason': 'No domain'}
-    return {'ok': True, 'publicUrl': url, 'webhook': hook}
 
 
 # ---- Points shop: spend what you earn --------------------------------------------------------
@@ -26077,55 +21268,6 @@ class BuyIn(BaseModel):
     item: str
 
 
-@app.post('/api/reputation/shop/buy')
-async def shop_buy(payload: BuyIn):
-    me = _session_or_401(payload.address, payload.session)
-    it = next((x for x in SHOP if x['id'] == payload.item), None)
-    if not it:
-        raise HTTPException(404, 'Unknown item.')
-    week_ = time.strftime('%G-W%V', time.gmtime())
-    if it['kind'] == 'mp':   # 💎 points → your family's bank: a family first, and the weekly cap
-        import crews as _cr
-        if not _cr.crew_of(_json_load(CREWS_PATH, {}), _seat_of(_json_load(CREWS_PATH, {}), me)):
-            raise HTTPException(400, 'Join a family first — the MP goes into its bank.')
-        wk_ = (_pts().get(me) or {}).get('mpWeek') or {}
-        if (wk_.get('pts', 0) if wk_.get('wk') == week_ else 0) + it['cost'] > PTS_TO_MP_WEEK:
-            raise HTTPException(400, f'{PTS_TO_MP_WEEK:,} points a week can go into the family bank — the rest waits for next week.')
-    async with _admin_lock:
-        d = _pts(); rec = d.get(me) or {'total': 0, 'claims': {}, 'log': []}
-        balance = rec.get('total', 0) - rec.get('spent', 0)
-        if balance < it['cost']:
-            raise HTTPException(400, f"Need {it['cost'] - balance} more points.")
-        rec['spent'] = rec.get('spent', 0) + it['cost']
-        un = rec.setdefault('unlocks', {})
-        g = it['grant']
-        if it['kind'] == 'style':
-            for k, v in g.items():
-                un[f'{k}:{v}'] = time.time() + it['days'] * 86400
-        elif it['kind'] == 'boost':
-            rec['boostCredits'] = rec.get('boostCredits', 0) + g['boosts']
-        elif it['kind'] == 'raffle':
-            rec['tickets'] = rec.get('tickets', 0) + 1
-        elif it['kind'] == 'mp':
-            wk_ = rec.get('mpWeek') or {}
-            rec['mpWeek'] = {'wk': week_, 'pts': (wk_.get('pts', 0) if wk_.get('wk') == week_ else 0) + it['cost']}
-        else:
-            un[f"badge:{g['badge']}"] = 'forever'
-        rec.setdefault('log', []).insert(0, {'id': it['id'], 'label': f"Bought {it['label']}", 'points': -it['cost'], 'at': time.time()})
-        d[me] = rec; _json_save(POINTS_PATH, d)
-    _badge_cache.pop(me, None)
-    if it['kind'] == 'mp':   # the points are spent → the MP lands in the family bank (refunded if the family vanished meanwhile)
-        import crews as _cr
-        async with _crews_lock:
-            st_ = _json_load(CREWS_PATH, {}); c_ = _cr.crew_of(st_, _seat_of(st_, me))
-            if c_:
-                city_ = _fcity.city_of(c_, time.time()); city_['bank'] += it['grant']['mp']
-                _json_save(CREWS_PATH, st_)
-        if not c_:
-            async with _admin_lock:
-                d = _pts(); rec = d.get(me) or rec; rec['spent'] = max(0, rec.get('spent', 0) - it['cost']); d[me] = rec; _json_save(POINTS_PATH, d)
-            raise HTTPException(409, 'Your family was not found — the points are back.')
-    return {'ok': True, 'balance': rec['total'] - rec['spent']}
 
 
 # ---- Trench Wars: weekly faction battle --------------------------------------------------------
@@ -26157,25 +21299,6 @@ _mm_cache: dict = {}   # wallet → (at, view) — 45 s
 
 
 # ---- Helius webhooks: instant whale / dev-sell events (needs HELIUS_WEBHOOK_SECRET) -----------
-@app.post('/api/reputation/webhooks/helius')
-async def helius_webhook(request: Request):
-    secret = os.environ.get('HELIUS_WEBHOOK_SECRET') or (_admin_load().get('helius') or {}).get('secret', '')
-    if not secret or not hmac.compare_digest(request.headers.get('authorization', ''), secret):
-        raise HTTPException(403, 'Bad webhook secret.')
-    events = await request.json()
-    n = 0
-    for ev in events if isinstance(events, list) else [events]:
-        for tt in (ev.get('tokenTransfers') or [])[:20]:
-            usd = None
-            amt = float(tt.get('tokenAmount') or 0)
-            mint = tt.get('mint')
-            if not mint or amt <= 0:
-                continue
-            _radar['whales'].insert(0, {'pair': None, 'mint': mint, 'symbol': None, 'kind': 'transfer', 'usd': usd, 'wallet': tt.get('fromUserAccount'),
-                                        'tx': ev.get('signature'), 'at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ev.get('timestamp') or time.time()))})
-            n += 1
-        _radar['whales'] = _radar['whales'][:120]
-    return {'ok': True, 'ingested': n}
 
 
 # ---- Auto-managed Helius webhook: follows the public domain set in the HQ ---------
@@ -26569,30 +21692,8 @@ async def _eco_holding_usd(address: str) -> float:
     return total
 
 
-@app.get('/api/reputation/theme/{address}')
-async def theme_get(address: str):
-    a = primary_of(address)
-    held = await _eco_holding_usd(a)
-    saved = _themes().get(a)
-    if held >= POOL_BUILDER_MIN_USD:
-        seen = _json_load(DATA_DIR / 'perk_notices.json', {})
-        if not seen.get(a):
-            seen[a] = time.time(); _json_save(DATA_DIR / 'perk_notices.json', seen)
-            notify(a, 'perk', f'🏗 Pool builder unlocked — you hold ${held:,.0f} of $FEE coins. Open your profile to build pools.', f'/terminal/profile/{a}', a)
-    staff = _is_staff(a)   # the creator / admin wallets always get their colors
-    ok = staff or held >= THEME_MIN_USD
-    worn = _looks.wear((saved or {}).get('look'), ok) if saved else None   # 🎨 a free look anyone may wear; an advanced one only while unlocked
-    theme = ({**saved, 'look': worn} if ok else ({'look': worn} if worn else None)) if saved else None
-    return {'address': a, 'holdingUsd': held, 'poolBuilder': held >= POOL_BUILDER_MIN_USD, 'minUsd': THEME_MIN_USD, 'eligible': ok, 'staff': staff,
-            'theme': theme}
 
 
-@app.get('/api/reputation/looks')
-async def looks_catalog(address: str = ''):
-    """🎨 Every look's card; the full colour set of an ADVANCED look only for a wallet that unlocked it (staff, or $1,000+ across $FEE coins)."""
-    a = primary_of(address) if address else ''
-    ok = bool(a) and (_is_staff(a) or (await _eco_holding_usd(a)) >= THEME_MIN_USD)
-    return {'looks': _looks.catalog(ok), 'eligible': ok, 'minUsd': THEME_MIN_USD, 'default': _looks.DEFAULT}
 
 
 class ThemePayload(BaseModel):
@@ -26604,28 +21705,6 @@ class ThemePayload(BaseModel):
     look: Optional[str] = None   # 🎨 a look id (looks.py); with no accent it is the whole theme
 
 
-@app.post('/api/reputation/theme')
-async def theme_set(p: ThemePayload):
-    if primary_of(session_address(p.session) or '') != primary_of(p.address):
-        raise HTTPException(401, 'Sign in again to change your theme.')
-    for c in (p.accent, p.accent2, p.logo):
-        if c is not None and not _HEX.match(c):
-            raise HTTPException(400, 'Colors must be #RRGGBB.')
-    a = primary_of(p.address)
-    held = await _eco_holding_usd(a); ok = held >= THEME_MIN_USD or _is_staff(a)
-    if p.look is not None and p.accent is None:   # 🎨 a look: the four free ones for anyone signed in, the advanced ones once unlocked
-        worn = _looks.wear(p.look, ok)
-        if not worn:
-            raise HTTPException(403 if p.look in _looks.LOOKS else 400, f'That look unlocks at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).' if p.look in _looks.LOOKS else 'No such look.')
-        row = {'look': p.look, 'at': time.time()}; _themes().put(a, row)
-        return {'ok': True, 'theme': {**row, 'look': worn}}
-    if not p.accent:
-        raise HTTPException(400, 'Pick a look or a colour.')
-    if not ok:
-        raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
-    row = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
-    _themes().put(a, row)
-    return {'ok': True, 'theme': row}
 
 
 # ---- Meta engine: which narratives are forming, rising or dying, across every chain ------------
@@ -26823,22 +21902,8 @@ class KolPayload(BaseModel):
     chain: str = 'solana'
 
 
-@app.post('/api/reputation/admin/kols')
-async def admin_kol_add(request: Request, p: KolPayload):
-    admin = _require_admin(request)
-    if p.chain != 'solana' or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address):
-        raise HTTPException(400, 'KOL tracking reads Solana wallets — enter a valid Solana address.')
-    d = _json_load(KOLS_PATH, {})
-    d[p.address] = {'name': p.name[:40], 'x': (p.x or '').lstrip('@')[:30], 'chain': p.chain, 'addedBy': admin, 'at': time.time()}
-    _json_save(KOLS_PATH, d)
-    return {'ok': True}
 
 
-@app.delete('/api/reputation/admin/kols/{address}')
-async def admin_kol_remove(request: Request, address: str):
-    _require_admin(request)
-    d = _json_load(KOLS_PATH, {}); d.pop(address, None); _json_save(KOLS_PATH, d)
-    return {'ok': True}
 
 
 async def _kol_stats(address, chain):
@@ -26941,22 +22006,6 @@ async def _start_traffic():
     asyncio.create_task(_flush_traffic())
 
 
-@app.get('/api/reputation/admin/traffic')
-async def admin_traffic(request: Request):
-    _require_admin(request)
-    d = _json_load(TRAFFIC_PATH, {'views': {}, 'uniques': {}, 'coins': {}, 'refs': {}, 'hours': {}})
-    days = sorted(d['views'])[-14:]
-    def top(pages_by_day, n=12):
-        agg = {}
-        for day in pages_by_day:
-            for pg, c in d['views'].get(day, {}).items():
-                agg[pg] = agg.get(pg, 0) + c
-        return sorted(({'page': k, 'views': v} for k, v in agg.items()), key=lambda x: -x['views'])[:n]
-    return {'daily': [{'day': k, 'views': sum(d['views'][k].values()), 'uniques': d['uniques'].get(k, 0)} for k in days],
-            'topPages24h': top(days[-1:]), 'topPages7d': top(days[-7:]),
-            'topCoins': sorted(({'pair': k, 'views': v} for k, v in d['coins'].items()), key=lambda x: -x['views'])[:12],
-            'referrers': sorted(({'host': k, 'visits': v} for k, v in d['refs'].items()), key=lambda x: -x['visits'])[:10],
-            'hours': [d['hours'].get(str(h), 0) for h in range(24)], 'topClicks': (await top_clicks(limit=10))['rows']}
 
 
 # ================================================================================================
@@ -27090,22 +22139,6 @@ class SeasonPayload(BaseModel):
     badgeRewardPct: float = Field(default=0, ge=0, le=100)
 
 
-@app.post('/api/reputation/admin/seasons')
-async def admin_season_upsert(request: Request, p: SeasonPayload):
-    admin = _require_admin(request)
-    if p.end <= p.start or p.end - p.start > 120 * 86400 or not _re.match(r'^#[0-9a-fA-F]{6}$', p.accent) or not (0.5 <= p.multiplier <= 5):
-        raise HTTPException(400, 'Invalid season (end after start, ≤120 days, #hex accent, multiplier 0.5–5).')
-    d = _seasons()
-    if any(not (p.end <= s['start'] or p.start >= s['end']) for s in d['seasons']):
-        raise HTTPException(409, 'Seasons cannot overlap.')
-    sid = f"s{len(d['seasons']) + 1}"
-    if p.reserveWallet and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.reserveWallet):
-        raise HTTPException(400, 'Fee Reserve wallet must be a valid Solana address.')
-    d['seasons'].append({'id': sid, 'name': p.name[:40], 'theme': p.theme[:160], 'start': p.start, 'end': p.end, 'prize': p.prize[:160],
-                         'multiplier': p.multiplier, 'accent': p.accent, 'reserveWallet': p.reserveWallet,
-                         'badgeRewardPct': p.badgeRewardPct, 'createdBy': admin})
-    _json_save(SEASONS_PATH, d)
-    return {'ok': True, 'id': sid}
 
 
 
@@ -27137,31 +22170,8 @@ grant_message = _hq_auth.grant_message
 
 
 
-@app.post('/api/reputation/admin/roles')
-async def admin_role_grant(request: Request, p: RolePayload):
-    me = _require_admin(request)
-    if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the FEELESS owner wallet can grant HQ access.')
-    if p.role not in ROLE_NAMES or not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
-        raise HTTPException(400, 'Valid wallet + role (admin, moderator, marketing) required.')
-    # The creator signs THIS grant (wallet, role, time) — a leaked HQ session alone can never hand out access.
-    if abs(time.time() - p.ts) > 600 or not _verify_wallet(me, grant_message(p.address, p.role, p.ts), p.sig):
-        raise HTTPException(401, 'Sign the grant with the owner wallet (signature missing, expired or wrong).')
-    d = _json_load(ROLES_PATH, {'grants': {}})
-    d['grants'][p.address] = {'role': p.role, 'by': me, 'at': time.time(), 'sig': p.sig[:120]}
-    _json_save(ROLES_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'role-grant', f'{p.address[:6]}… → {p.role}'); _admin_save(ad)
-    return {'ok': True}
 
 
-@app.delete('/api/reputation/admin/roles/{address}')
-async def admin_role_revoke(request: Request, address: str):
-    me = _require_admin(request)
-    if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the owner wallet can revoke access.')
-    d = _json_load(ROLES_PATH, {'grants': {}}); d['grants'].pop(address, None); _json_save(ROLES_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'role-revoke', address[:10]); _admin_save(ad)
-    return {'ok': True}
 
 
 IDEAS_PATH = DATA_DIR / 'ideas.json'
@@ -27177,13 +22187,6 @@ class IdeaPayload(BaseModel):
     status: str = 'saved'
 
 
-@app.post('/api/reputation/admin/ideas')
-async def admin_idea_add(request: Request, p: IdeaPayload):
-    me = _require_admin(request)
-    d = _json_load(IDEAS_PATH, {'ideas': list(_IDEA_SEED)})
-    d['ideas'].insert(0, {'id': uuid.uuid4().hex[:8], 'title': p.title[:80], 'body': p.body[:1000], 'status': p.status[:20], 'by': me, 'at': time.time()})
-    _json_save(IDEAS_PATH, d)
-    return {'ok': True}
 
 
 # ---- Wallet swaps (profile activity + copy trading) ---------------------------------------------
@@ -27333,51 +22336,8 @@ def _is_upload_url(u):
     return u in (None, '') or bool(_re.match(r'^/api/reputation/uploads/[0-9a-f]{32}\.(png|jpg|webp|gif)$', u))
 
 
-@app.put('/api/reputation/admin/seasons/{sid}')
-async def admin_season_edit(request: Request, sid: str, p: SeasonEdit):
-    admin = _require_admin(request)
-    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
-    if not s:
-        raise HTTPException(404, 'Season not found.')
-    new = {**s, **{k: v for k, v in p.dict().items() if v is not None and k != 'weeks'}}
-    if new['end'] <= new['start'] or new['end'] - new['start'] > 120 * 86400 or not _re.match(r'^#[0-9a-fA-F]{6}$', new['accent']) or not (0.5 <= float(new['multiplier']) <= 5):
-        raise HTTPException(400, 'Invalid season (end after start, ≤120 days, #hex accent, multiplier 0.5–5).')
-    if any(x['id'] != sid and not (new['end'] <= x['start'] or new['start'] >= x['end']) for x in d['seasons']):
-        raise HTTPException(409, 'Seasons cannot overlap.')
-    if not all(_is_upload_url(new.get(k)) for k in ('bannerUrl', 'badgeUrl')):
-        raise HTTPException(400, 'Upload images through FEELESS (png, jpg, webp or gif).')
-    if new.get('bgFx') not in (None, 'money', 'snow', 'leaves', 'fire', 'stars', 'none'):
-        raise HTTPException(400, 'Unknown background effect.')
-    if new.get('accent2') and not _re.match(r'^#[0-9a-fA-F]{6}$', new['accent2']):
-        raise HTTPException(400, 'Second color must be #hex.')
-    if new.get('reserveWallet') and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', new['reserveWallet']):
-        raise HTTPException(400, 'Fee Reserve wallet must be a valid Solana address.')
-    if p.weeks is not None:
-        clean = {}
-        for wk, ov in list(p.weeks.items())[:20]:
-            if not str(wk).isdigit() or not isinstance(ov, dict) or not _is_upload_url(ov.get('imageUrl')):
-                raise HTTPException(400, f'Bad week {wk} override.')
-            clean[str(int(wk))] = {k: str(ov[k])[:200] for k in ('name', 'glyph', 'story', 'imageUrl') if ov.get(k)}
-        new['weeks'] = clean
-    new['name'] = new['name'][:40]; new['theme'] = new.get('theme', '')[:160]; new['prize'] = new.get('prize', '')[:160]
-    d['seasons'] = [new if x['id'] == sid else x for x in d['seasons']]
-    _json_save(SEASONS_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'season-edit', sid); _admin_save(ad)
-    return {'ok': True, 'season': new}
 
 
-@app.delete('/api/reputation/admin/seasons/{sid}')
-async def admin_season_delete(request: Request, sid: str):
-    admin = _require_admin(request)
-    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
-    if not s:
-        raise HTTPException(404, 'Season not found.')
-    if s['start'] <= time.time() and d['scores'].get(sid):
-        raise HTTPException(409, 'This season already has players — end it early by editing its end date instead.')
-    d['seasons'] = [x for x in d['seasons'] if x['id'] != sid]
-    _json_save(SEASONS_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'season-delete', sid); _admin_save(ad)
-    return {'ok': True}
 
 
 # ---- Token search for the swap box: every Solana token Jupiter knows ----------------------------
@@ -27386,14 +22346,6 @@ _tok_search_cache = {}
 
 
 
-@app.get('/api/reputation/admin/is-admin/{address}')
-async def is_admin(address: str):
-    """Public yes/no so the UI can show admin controls. Every admin action still needs a signed session."""
-    try:
-        staff_ = bool(_is_staff(address))
-    except Exception:
-        staff_ = False
-    return {'admin': address in _admin_wallets(), 'owner': address in _owner_wallets(), 'staff': staff_}   # staff = the creator via ANY linked wallet
 
 
 _fills_cache: dict = {}
@@ -27497,20 +22449,6 @@ async def _git(*args, timeout=8):
     return out.decode().strip() if proc.returncode == 0 else ''
 
 
-@app.post('/api/reputation/local/update')
-async def local_update(request: Request):
-    """One-click update from the footer, for the machine running FEELESS itself: runs scripts/update.sh detached
-    (it restarts this service). Refused from anywhere but localhost, so a public site can never be poked."""
-    origin = (request.headers.get('origin') or '').lower()
-    if not _guard.is_local(request) or (origin and not _re.match(r'^https?://(localhost|127\.0\.0\.1)(:\d+)?$', origin)):
-        raise HTTPException(403, 'Updates can only be started on the machine running FEELESS.')
-    _require_admin(request)   # 🔒 2026-11-11: the dev server proxies every LAN call from 127.0.0.1 (and curl sends no Origin), so localhost alone was not proof
-    root = Path(__file__).resolve().parents[1]
-    log_path = DATA_DIR / 'feeless-update.log'   # 🔒 audit B: never a predictable /tmp path (a planted symlink)
-    log = open(log_path, 'w')
-    await asyncio.create_subprocess_exec('bash', str(root / 'scripts' / 'update.sh'), cwd=str(root), stdout=log, stderr=log, start_new_session=True)
-    _version_cache.clear()
-    return {'ok': True, 'log': str(log_path)}
 
 
 # ---- Setup checklist for the HQ: which keys/URLs are configured (never the values) ----
@@ -27546,22 +22484,6 @@ class RoutesPayload(BaseModel):
 
 
 
-@app.put('/api/reputation/admin/treasury/routes')
-async def routes_set(request: Request, p: RoutesPayload):
-    me = _require_admin(request)
-    if me not in _owner_wallets():
-        raise HTTPException(403, 'Only the FEELESS owner wallet can change treasury routing.')
-    clean = []
-    for r in p.routes[:10]:
-        addr = str(r.get('address', '')).strip(); pct = float(r.get('pct') or 0)
-        if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', addr) or _re.match(r'^0x[0-9a-fA-F]{40}$', addr)) or not (0 < pct <= 100):
-            raise HTTPException(400, 'Each route needs a valid wallet address and a % between 0 and 100.')
-        clean.append({'label': str(r.get('label', ''))[:40], 'address': addr, 'pct': round(pct, 2)})
-    if clean and abs(sum(r['pct'] for r in clean) - 100) > 0.01:
-        raise HTTPException(400, 'Route percentages must add up to 100%.')
-    _json_save(ROUTES_PATH, {'routes': clean, 'updatedBy': me, 'at': time.time()})
-    ad = _admin_load(); _audit(ad, me, 'treasury-routes', f"{len(clean)} routes"); _admin_save(ad)
-    return {'ok': True, 'routes': clean}
 
 
 # ---- Shield leaderboard + weekly Rug Report ----------------------------------------------------
@@ -27585,32 +22507,6 @@ class LaunchRailIn(BaseModel):
     label: str = ''
 
 
-@app.put('/api/reputation/admin/launch-rail')
-async def launch_rail_set(request: Request, p: LaunchRailIn):
-    me = _require_admin(request)   # owner and admins: the config is verified on-chain below, and every change is audited
-    if not (_re.match(_B58, p.config) and _re.match(_B58, p.feeClaimer)):
-        raise HTTPException(400, 'Config and fee claimer must be Solana addresses.')
-    # Only accept a config that really exists on-chain and belongs to the DBC program.
-    async with httpx.AsyncClient(timeout=10) as http:
-        info = await _rpc(http, 'getAccountInfo', [p.config, {'encoding': 'base64'}])
-    owner = ((info or {}).get('value') or {}).get('owner')
-    if owner != DBC_PROGRAM:
-        raise HTTPException(409, 'That config is not on-chain yet (or is not a Meteora DBC config). Wait for confirmation and retry.')
-    keep = {k: p.params[k] for k in ('initialMarketCap', 'migrationMarketCap', 'startingFeeBps', 'endingFeeBps', 'feeDecayMin', 'creatorFeePct', 'lockedLpPct', 'supply', 'quote', 'preset', 'buyBurn', 'poolCreationFeeSol') if k in p.params}
-    rec = {'config': p.config, 'feeClaimer': p.feeClaimer, 'params': keep, 'setBy': me, 'at': time.time()}
-    d = _json_load(LAUNCH_RAIL_PATH, {})
-    if p.scope == 'house':
-        # House configs never replace the public one; they sit beside it for owner-only launches.
-        house = [h for h in d.get('house') or [] if h['config'] != p.config]
-        house.append({**rec, 'id': p.config[:8], 'label': (p.label or 'House config')[:40]})
-        d['house'] = house[-8:]
-    elif p.scope == 'public':
-        d = {**d, **rec}
-    else:
-        raise HTTPException(400, 'Scope must be public or house.')
-    _json_save(LAUNCH_RAIL_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'launch-rail', f"{p.scope} config {p.config[:8]}"); _admin_save(ad)
-    return d
 
 
 class LaunchCostsIn(BaseModel):
@@ -27619,14 +22515,6 @@ class LaunchCostsIn(BaseModel):
     feelessPriorityFeeSol: float = 0.0001
 
 
-@app.put('/api/reputation/admin/launch-costs')
-async def launch_costs_set(request: Request, p: LaunchCostsIn):
-    """Owner/admin: slippage + priority fee for pump.fun launches and priority fee for FEELESS / House launches.
-    Stored beside the launch rules (nothing else in that file changes)."""
-    me = _require_admin(request)
-    d = _json_load(LAUNCH_RAIL_PATH, {}); d['costs'] = launch_meta.clean_costs(p.model_dump()); _json_save(LAUNCH_RAIL_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'launch-costs', ', '.join(f'{k} {v}' for k, v in d['costs'].items())); _admin_save(ad)
-    return d['costs']
 
 
 class LaunchTabIn(BaseModel):
@@ -27636,13 +22524,6 @@ class LaunchTabIn(BaseModel):
     banner: bool = True
 
 
-@app.put('/api/reputation/admin/launch-tab')
-async def launch_tab_set(request: Request, p: LaunchTabIn):
-    """Owner picks what the public Launch tab offers. Owners themselves always see every rail."""
-    me = _require_owner(request)
-    d = _json_load(LAUNCH_RAIL_PATH, {}); d['tab'] = launch_meta.clean_tab(p.model_dump()); _json_save(LAUNCH_RAIL_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'launch-tab', f"rails {','.join(d['tab']['rails'])} · first buy {'≤ ' + str(d['tab']['maxDevBuySol']) + ' SOL' if d['tab']['devBuy'] else 'off'}"); _admin_save(ad)
-    return d['tab']
 
 
 
@@ -27759,22 +22640,6 @@ async def _chart_fill(rows, now, limit=14):
 _PUMP_PROFILE = {}   # mint → (at, profile | None)
 
 
-@app.post('/api/reputation/coin-profile')
-async def coin_profile_set(p: CoinProfileIn):
-    me = primary_of(_session_or_401(p.address, p.session))
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint):
-        raise HTTPException(400, 'Bad coin address.')
-    creator = await resolve_creator('solana', p.mint)
-    is_admin = _is_staff(me)
-    if not is_admin and (not creator or primary_of(creator) != me):
-        raise HTTPException(403, "Only this coin's creator wallet can claim and edit its profile.")
-    link = lambda v: v.strip()[:200] if v.strip().startswith('https://') else ''
-    banner = p.bannerUrl.strip()[:300]
-    rec = {'description': p.description.strip()[:600], 'bannerUrl': banner if banner.startswith(('https://', '/api/reputation/uploads/')) else '',
-           'website': link(p.website), 'twitter': link(p.twitter), 'telegram': link(p.telegram), 'claimedBy': me, 'updatedAt': time.time()}
-    async with _admin_lock:
-        d = _json_load(COIN_PROFILES_PATH, {}); d[p.mint] = rec; _json_save(COIN_PROFILES_PATH, d)
-    return rec
 
 
 # Browser-side Solana RPC relay for wallet-signed launches: the Helius key stays on the server and
@@ -27831,41 +22696,6 @@ class PumpCreateIn(BaseModel):
     devBuySol: float = 0
 
 
-@app.post('/api/reputation/pump/create-tx')
-async def pump_create_tx(p: PumpCreateIn, request: Request):
-    me = _session_or_401(p.address, p.session)
-    _legal_hold(me, 'launch', request)   # ⚖ LEGAL-1 (d)
-    if not (_re.match(_B58, p.mint) and _re.match(_B58, p.address)):
-        raise HTTPException(400, 'Bad address.')
-    if not (0 <= p.devBuySol <= 50):
-        raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
-    if not (primary_of(me) in {primary_of(w) for w in _owner_wallets()} or _is_staff(me)):   # owner + staff (any linked wallet) launch freely
-        tab = launch_meta.clean_tab(_json_load(LAUNCH_RAIL_PATH, {}).get('tab') or launch_meta.TAB_DEFAULT)
-        if 'pump' not in tab['rails']:
-            raise HTTPException(403, 'Pump.fun launches are switched off on FEELESS right now.')
-        if not launch_meta.dev_buy_ok(tab, p.devBuySol):
-            raise HTTPException(400, f"First buy is capped at {tab['maxDevBuySol']} SOL." if tab['devBuy'] else 'First buys are switched off right now.')
-    m = _re.match(r'^/api/reputation/uploads/([a-f0-9]{32}\.(png|jpg|webp|gif))$', launch_meta.upload_path(p.image))
-    if not m or not (UPLOAD_DIR / m.group(1)).exists():
-        raise HTTPException(400, 'Upload the coin image first.')
-    img = (UPLOAD_DIR / m.group(1)).read_bytes()
-    mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'webp': 'image/webp', 'gif': 'image/gif'}[m.group(2)]
-    form = launch_meta.pump_form(p.name, p.symbol, p.description, p.website, p.twitter, p.telegram)
-    costs = launch_meta.clean_costs(_json_load(LAUNCH_RAIL_PATH, {}).get('costs'))   # HQ › Launch › Costs
-    async with httpx.AsyncClient(timeout=30, headers={'User-Agent': 'Mozilla/5.0'}) as http:
-        r = await http.post('https://pump.fun/api/ipfs', data=form, files={'file': (m.group(1), img, mime)})
-        if r.status_code != 200:
-            raise HTTPException(502, 'Pump.fun metadata upload failed — try again.')
-        uri = (r.json() or {}).get('metadataUri')
-        t = await http.post('https://pumpportal.fun/api/trade-local', json={'publicKey': p.address, 'action': 'create', 'tokenMetadata': {'name': form['name'], 'symbol': form['symbol'], 'uri': uri},
-                                                                           'mint': p.mint, 'denominatedInSol': 'true', 'amount': p.devBuySol,
-                                                                           # the dev buy is the very first buy on a brand-new curve in the same tx: nobody can move
-                                                                           # the price in between, so 1% slippage is plenty (10% made wallets preview a 10% bigger spend)
-                                                                           'slippage': costs['pumpSlippagePct'], 'priorityFee': costs['pumpPriorityFeeSol'], 'pool': 'pump'})
-    if t.status_code != 200:
-        raise HTTPException(502, f'Pump.fun could not build the launch ({t.text[:120]}).')
-    import base64 as _b64
-    return {'tx': _b64.b64encode(t.content).decode(), 'uri': uri}
 
 
 def _gold_creator(a):
@@ -27899,21 +22729,6 @@ class PoolRegIn(BaseModel):
     locked: bool = True
 
 
-@app.post('/api/reputation/admin/pools/register')
-async def pools_register(request: Request, p: PoolRegIn):
-    """Record a pool created from the HQ. Verified on-chain: succeeded, signed by this admin."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    async with httpx.AsyncClient(timeout=20) as http:
-        tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
-    if not tx or (tx.get('meta') or {}).get('err'):
-        raise HTTPException(409, 'Transaction not confirmed yet.')
-    keys = tx['transaction']['message']['accountKeys']
-    if admin not in [k['pubkey'] for k in keys if k.get('signer')] or p.pool not in [k['pubkey'] for k in keys]:
-        raise HTTPException(400, 'That transaction did not create this pool from your wallet.')
-    d = _json_load(POOLS_REG_PATH, {'pools': []})
-    d['pools'] = [x for x in d['pools'] if x['pool'] != p.pool] + [{'pool': p.pool, 'mint': p.mint, 'locked': p.locked, 'signature': p.signature, 'by': admin, 'at': time.time()}]
-    _json_save(POOLS_REG_PATH, d); _rugproof_cache.pop(p.mint, None)
-    return {'ok': True}
 
 
 # ---- Coin logos: find once, cache on disk, serve fast -----------------------------------------------
@@ -27933,25 +22748,6 @@ class LogoIn(BaseModel):
     image: str = ''       # an upload path; empty clears the override
 
 
-@app.post('/api/reputation/admin/token-logo')
-async def admin_token_logo(request: Request, p: LogoIn):
-    """Owner sets a coin's logo by hand (FEELESS coins first). Clears the cached lookup so it shows everywhere now."""
-    me = _require_admin(request)
-    if not _re.match(_B58, p.mint):
-        raise HTTPException(400, 'Solana mint required.')
-    if p.image and not _re.match(r'^/api/reputation/uploads/[a-f0-9]{32}\.(png|jpg|webp|gif)$', p.image):
-        raise HTTPException(400, 'Upload the image first.')
-    d = _json_load(LOGO_OVERRIDE_PATH, {})
-    if p.image:
-        d[p.mint] = p.image
-    else:
-        d.pop(p.mint, None)
-    _json_save(LOGO_OVERRIDE_PATH, d)
-    for f in LOGO_DIR.glob(f'{p.mint}.*'):
-        f.unlink(missing_ok=True)
-    _logo_miss.pop(p.mint, None)
-    ad = _admin_load(); _audit(ad, me, 'token-logo', f"{p.mint[:6]}… {'set' if p.image else 'cleared'}"); _admin_save(ad)
-    return {'ok': True, 'mint': p.mint, 'image': p.image}
 _logo_locks: dict = {}
 
 
@@ -28204,21 +23000,6 @@ def _post_text(r):
             f"Chart it, chat it and trade it fee-free on FEELESS — every call on the record.\n#{r['chain']} #memecoins #FEELESS")
 
 
-@app.get('/api/reputation/admin/marketing')
-async def admin_marketing(request: Request):
-    _require_admin(request)
-    rows = await _three_day_movers()
-    d = _json_load(MARKETING_PATH, {'snapshots': []})
-    # A dated snapshot every 3 days, kept, so past windows stay reviewable.
-    if rows and (not d['snapshots'] or time.time() - d['snapshots'][-1]['at'] >= 3 * 86400):
-        d['snapshots'] = (d['snapshots'] + [{'at': time.time(), 'up': rows[:10], 'down': rows[::-1][:10]}])[-60:]
-        _json_save(MARKETING_PATH, d)
-    keys = ('chain', 'address', 'score', 'badge', 'tokenCount', 'bigWinners', 'dumpedCount', 'ruggedCount')
-    good, bad = [[{k: r.get(k) for k in keys} for r in (await leaderboard(chain=None, view=v))['rows'][:10]] for v in ('trusted', 'flagged')]
-    return {'movers': {'up': [{**r, 'post': _post_text(r)} for r in rows[:10]], 'down': [{**r, 'post': _post_text(r)} for r in rows[::-1][:10] if r['move3d'] < 0]},
-            'reps': {'good': [{**r, 'post': f"🟢 Trusted creator {r['address'][:4]}…{r['address'][-4:]} — {r['bigWinners']} big winner(s), {r['dumpedCount']} dumps. Receipts on FEELESS."} for r in good],
-                     'bad': [{**r, 'post': f"🚩 Flagged creator {r['address'][:4]}…{r['address'][-4:]} — {r['ruggedCount']} rug(s), {r['dumpedCount']} dumps. Check any wallet before you ape: FEELESS."} for r in bad]},
-            'snapshots': [{'at': x['at'], 'top': (x['up'][:1] or [{}])[0].get('symbol')} for x in d['snapshots'][-20:]]}
 
 
 # ---- Circle developer-controlled wallets (creator/owner only) -------------------------------------
@@ -28278,12 +23059,6 @@ def _require_owner(request: Request):
 
 
 
-@app.post('/api/reputation/admin/circle/wallets')
-async def circle_create_wallet(request: Request, p: CircleWalletIn):
-    me = _require_owner(request)
-    out = await _circle('POST', '/wallets', {'blockchain': p.blockchain, 'name': p.name[:40]})
-    ad = _admin_load(); _audit(ad, me, 'circle-wallet', f"{p.blockchain} {(out.get('wallet') or {}).get('address', '')}"); _admin_save(ad)
-    return out
 
 
 # ================================================================================================
@@ -28315,50 +23090,6 @@ class ReservePaid(BaseModel):
     plannedSol: float = 0
 
 
-@app.post('/api/reputation/admin/reserve/{sid}/paid')
-async def admin_reserve_paid(request: Request, sid: str, p: ReservePaid):
-    """Record a payout the reserve wallet signed. Every signature must be on-chain, succeeded and signed by the reserve wallet."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
-    if not s:
-        raise HTTPException(404, 'Season not found.')
-    if (d.get('reservePayouts') or {}).get(sid):
-        raise HTTPException(409, 'This season was already paid out.')
-    wallet = s.get('reserveWallet')
-    if not wallet:
-        raise HTTPException(400, 'Assign a Fee Reserve wallet to this season first.')
-    if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
-        raise HTTPException(400, 'Bad transaction signature.')
-    plan = await _reserve_plan(s, d)
-    async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
-    for sig, tx in zip(p.sigs, txs):
-        if not tx or (tx.get('meta') or {}).get('err'):
-            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
-        if wallet not in [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]:
-            raise HTTPException(400, 'Payout must be signed by the season Fee Reserve wallet.')
-    paid = {}  # record what actually moved on-chain, not what was planned
-    for tx in txs:
-        for ix in tx['transaction']['message'].get('instructions') or []:
-            info = (ix.get('parsed') or {}).get('info') or {}
-            if ix.get('program') == 'system' and (ix.get('parsed') or {}).get('type') == 'transfer' and info.get('source') == wallet:
-                paid[info['destination']] = round(paid.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
-    if not paid:
-        raise HTTPException(400, 'No SOL transfers from the reserve wallet in those transactions.')
-    tiers = {r['address']: r['tier'] for r in plan['rows']}
-    d = _seasons()
-    d.setdefault('reservePayouts', {})[sid] = {'sigs': p.sigs, 'at': time.time(), 'by': admin, 'potSol': plan['potSol'],
-                                               'rows': [{'address': a, 'tier': tiers.get(a, ''), 'sol': v} for a, v in paid.items()]}
-    _json_save(SEASONS_PATH, d)
-    col = _json_load(COLLECTION_PATH, {})
-    for a, items in col.items():
-        for it in items:
-            if it.get('id') == f'{sid}:season' and a in paid:
-                it['rewardStatus'] = 'paid'; it['rewardSol'] = paid[a]; it['rewardSig'] = p.sigs[0]
-    _json_save(COLLECTION_PATH, col)
-    total = round(sum(paid.values()), 6)
-    ad = _admin_load(); _audit(ad, admin, 'reserve-payout', f"{sid} {total} SOL to {len(paid)}"); _admin_save(ad)
-    return {'ok': True, 'paidSol': total, 'wallets': len(paid)}
 
 
 class CirclePayIn(BaseModel):
@@ -28398,70 +23129,8 @@ async def _circle_pay(wallet_addr: str, rows: list, scope: str, confirm: str) ->
     return list(await asyncio.gather(*(one(r) for r in rows)))
 
 
-@app.post('/api/reputation/admin/reserve/{sid}/pay-circle')
-async def admin_reserve_pay_circle(request: Request, sid: str, p: CirclePayIn):
-    """Season reserve held in a Circle wallet: Circle sends each badge holder's share. Retries only the rows that failed."""
-    me = _require_owner(request)
-    async with _circle_pay_lock:
-        d = _seasons(); s = next((x for x in d['seasons'] if x['id'] == sid), None)
-        if not s or not s.get('reserveWallet'):
-            raise HTTPException(404, 'Season or reserve wallet not found.')
-        prev = (d.get('reservePayouts') or {}).get(sid)
-        if prev and prev.get('via') != 'circle':
-            raise HTTPException(409, 'This season was already paid out.')
-        if prev:
-            todo = prev.get('failed') or []
-        else:
-            plan = await _reserve_plan(s, d)
-            todo = [{'address': r['address'], 'tier': r['tier'], 'sol': r['sol']} for r in plan['rows']]
-        todo = [{k: r[k] for k in ('address', 'tier', 'sol') if k in r} for r in todo]
-        if not todo:
-            raise HTTPException(409, 'Nothing left to pay for this season.')
-        res = await _circle_pay(s['reserveWallet'], todo, f'reserve:{sid}', p.confirm)
-        ok, bad = [r for r in res if r.get('circleTx')], [r for r in res if not r.get('circleTx')]
-        d = _seasons()
-        rec = d.setdefault('reservePayouts', {}).get(sid) or {'via': 'circle', 'sigs': [], 'at': time.time(), 'by': me, 'rows': []}
-        rec['rows'] = (rec.get('rows') or []) + ok; rec['failed'] = bad; rec['updatedAt'] = time.time()
-        if ok or prev:
-            d['reservePayouts'][sid] = rec
-            _json_save(SEASONS_PATH, d)
-        if ok:
-            col = _json_load(COLLECTION_PATH, {}); sent = {r['address']: r for r in ok}
-            for a, items in col.items():
-                for it in items:
-                    if it.get('id') == f'{sid}:season' and a in sent:
-                        it['rewardStatus'] = 'paid'; it['rewardSol'] = sent[a]['sol']; it['rewardCircleTx'] = sent[a]['circleTx']
-            _json_save(COLLECTION_PATH, col)
-        ad = _admin_load(); _audit(ad, me, 'reserve-payout-circle', f"{sid} {round(sum(r['sol'] for r in ok), 6)} SOL to {len(ok)}, {len(bad)} failed"); _admin_save(ad)
-    return {'ok': not bad, 'paidSol': round(sum(r['sol'] for r in ok), 6), 'wallets': len(ok), 'failed': bad}
 
 
-@app.post('/api/reputation/admin/badge-pools/{pid}/pay-circle')
-async def admin_badge_pool_pay_circle(request: Request, pid: str, p: CirclePayIn):
-    """Badge pool held in a Circle wallet: Circle sends each holder's share of the current plan."""
-    me = _require_owner(request)
-    async with _circle_pay_lock:
-        pool = next((x for x in _pools()['pools'] if x['id'] == pid), None)
-        if not pool:
-            raise HTTPException(404, 'Pool not found.')
-        plan = await _pool_plan(pool)
-        if (plan.get('cooldownLeft') or 0) > 0:
-            raise HTTPException(409, 'This pool was paid within the last hour.')
-        rows = [{'address': r['address'], 'sol': r['sol']} for r in plan['rows'] if r.get('sol', 0) > 0]
-        if not rows:
-            raise HTTPException(400, 'Nothing to pay from this pool yet.')
-        res = await _circle_pay(pool['wallet'], rows, f"pool:{pid}:{len(pool.get('payouts') or [])}", p.confirm)
-        ok, bad = [r for r in res if r.get('circleTx')], [r for r in res if not r.get('circleTx')]
-        d = _pools(); pool = next((x for x in d['pools'] if x['id'] == pid), None)
-        if ok and pool:
-            scale = sum(r['sol'] for r in ok) / plan['paidSol'] if plan.get('paidSol') else 0
-            pool.setdefault('payouts', []).append({'via': 'circle', 'sigs': [], 'at': time.time(), 'by': me, 'rows': ok, 'failed': bad,
-                                                   'perKey': {k: int(v * scale * 1e6) / 1e6 for k, v in (plan.get('perKey') or {}).items()},
-                                                   'totalSol': round(sum(r['sol'] for r in ok), 6)})
-            pool['payouts'] = pool['payouts'][-50:]
-            _json_save(BADGE_POOLS_PATH, d)
-        ad = _admin_load(); _audit(ad, me, 'badge-pool-payout-circle', f"{pid} {round(sum(r['sol'] for r in ok), 6)} SOL to {len(ok)}, {len(bad)} failed"); _admin_save(ad)
-    return {'ok': not bad, 'paidSol': round(sum(r['sol'] for r in ok), 6), 'wallets': len(ok), 'failed': bad}
 
 
 _reserve_pub_cache = {}
@@ -28540,102 +23209,14 @@ async def _pool_plan(pool, bal=None):
             'cooldownLeft': max(0, round(POOL_COOLDOWN - (time.time() - last['at']))) if last else 0}
 
 
-@app.get('/api/reputation/admin/badge-pools')
-async def admin_badge_pools(request: Request):
-    _require_admin(request)
-    ad = _admin_load(); seen = {}
-    for items in (ad.get('badges') or {}).values():
-        for b in items.values():
-            x = seen.setdefault(b['id'], {'id': b['id'], 'label': b.get('label'), 'icon': b.get('icon'), 'count': 0}); x['count'] += 1
-    return {'pools': [{**p, 'payouts': (p.get('payouts') or [])[-5:]} for p in _pools()['pools']], 'badges': sorted(seen.values(), key=lambda b: -b['count']),
-            'tiers': [t for t, _ in SEASON_TIERS], 'seasons': [{'id': s['id'], 'name': s['name']} for s in _seasons()['seasons']]}
-
-
-@app.post('/api/reputation/admin/badge-pools')
-async def admin_badge_pool_save(request: Request, p: BadgePoolIn):
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    if not _re.match(_ADDR_RE, p.wallet):
-        raise HTTPException(400, 'Pool wallet must be a Solana address.')
-    weights = {}
-    for k, v in list(p.weights.items())[:60]:
-        if not _re.match(r'^(tier|badge):[A-Za-z0-9_-]{1,40}$', str(k)):
-            raise HTTPException(400, f'Bad weight key {k}.')
-        try:
-            w = float(v)
-        except (TypeError, ValueError):
-            raise HTTPException(400, f'Weight for {k} must be a number.')
-        if not 0 <= w <= 100:
-            raise HTTPException(400, 'Each badge share is 0–100.')
-        if w:
-            weights[k] = w
-    if p.mode not in ('pct', 'weight'):
-        raise HTTPException(400, 'Unknown pool mode.')
-    if p.mode == 'pct' and sum(weights.values()) > 100.0001:
-        raise HTTPException(400, f'Badge shares add up to {round(sum(weights.values()), 2)}% — keep the total at 100% or less.')
-    d = _pools()
-    pid = p.id or f"pool{int(time.time())}"
-    prev = next((x for x in d['pools'] if x['id'] == pid), {})
-    fixed = {}
-    for k, v in list(p.fixed.items())[:60]:
-        if not _re.match(r'^(tier|badge):[A-Za-z0-9_-]{1,40}$', str(k)):
-            raise HTTPException(400, f'Bad key {k}.')
-        try:
-            v = float(v)
-        except (TypeError, ValueError):
-            raise HTTPException(400, f'SOL each for {k} must be a number.')
-        if not 0 <= v <= 100:
-            raise HTTPException(400, 'SOL each must be 0–100.')
-        if v:
-            fixed[k] = v
-    rec = {**prev, 'id': pid, 'name': p.name, 'wallet': p.wallet, 'pct': p.pct, 'seasonId': p.seasonId, 'weights': weights, 'mode': p.mode, 'fixed': fixed}
-    d['pools'] = [x for x in d['pools'] if x['id'] != pid] + [rec]
-    _json_save(BADGE_POOLS_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'badge-pool', f'{p.name} {p.pct}% of {p.wallet[:6]}'); _admin_save(ad)
-    return {'ok': True, 'pool': rec}
-
-
-@app.delete('/api/reputation/admin/badge-pools/{pid}')
-async def admin_badge_pool_delete(request: Request, pid: str):
-    _require_admin(request)
-    d = _pools(); d['pools'] = [x for x in d['pools'] if x['id'] != pid]; _json_save(BADGE_POOLS_PATH, d)
-    return {'ok': True}
 
 
 
 
-@app.post('/api/reputation/admin/badge-pools/{pid}/paid')
-async def admin_badge_pool_paid(request: Request, pid: str, p: ReservePaid):
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    d = _pools(); pool = next((x for x in d['pools'] if x['id'] == pid), None)
-    if not pool:
-        raise HTTPException(404, 'Pool not found.')
-    used = {s for x in d['pools'] for po in x.get('payouts') or [] for s in po['sigs']}
-    if used & set(p.sigs):
-        raise HTTPException(409, 'Those transactions were already recorded.')
-    if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
-        raise HTTPException(400, 'Bad transaction signature.')
-    async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
-    paid = {}
-    for sig, tx in zip(p.sigs, txs):
-        if not tx or (tx.get('meta') or {}).get('err'):
-            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
-        if pool['wallet'] not in [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]:
-            raise HTTPException(400, 'Payout must be signed by the pool wallet.')
-        for ix in tx['transaction']['message'].get('instructions') or []:
-            info = (ix.get('parsed') or {}).get('info') or {}
-            if ix.get('program') == 'system' and (ix.get('parsed') or {}).get('type') == 'transfer' and info.get('source') == pool['wallet']:
-                paid[info['destination']] = round(paid.get(info['destination'], 0) + info['lamports'] / 1e9, 9)
-    if not paid:
-        raise HTTPException(400, 'No SOL transfers from the pool wallet in those transactions.')
-    moved = sum(paid.values()); scale = min(1.0, moved / p.plannedSol) if p.plannedSol > 0 else 0
-    per_key = {str(k)[:60]: int(float(v) * scale * 1e6) / 1e6 for k, v in list((p.perKey or {}).items())[:200] if isinstance(v, (int, float)) and v > 0}
-    pool.setdefault('payouts', []).append({'sigs': p.sigs, 'at': time.time(), 'by': admin, 'rows': [{'address': a, 'sol': v} for a, v in paid.items()], 'perKey': per_key,
-                                           'totalSol': round(sum(paid.values()), 6)})
-    pool['payouts'] = pool['payouts'][-50:]
-    _json_save(BADGE_POOLS_PATH, d)
-    ad = _admin_load(); _audit(ad, admin, 'badge-pool-payout', f"{pool['name']} {round(sum(paid.values()), 6)} SOL to {len(paid)}"); _admin_save(ad)
-    return {'ok': True, 'paidSol': round(sum(paid.values()), 6), 'wallets': len(paid)}
+
+
+
+
 
 
 _pool_pub_cache = {}
@@ -28665,12 +23246,6 @@ class PerfCfgIn(BaseModel):
     forceLite: bool
 
 
-@app.put('/api/reputation/admin/perf/config')
-async def perf_config_set(request: Request, p: PerfCfgIn):
-    admin = _require_admin(request)
-    _json_save(PERF_CFG_PATH, {'forceLite': p.forceLite})
-    ad = _admin_load(); _audit(ad, admin, 'perf-lite', str(p.forceLite)); _admin_save(ad)
-    return {'forceLite': p.forceLite}
 
 
 CODE_HEALTH_PATH = DATA_DIR / 'code_health.json'
@@ -28715,28 +23290,8 @@ class ChQueue(BaseModel):
     fix: str = Field('', max_length=300)
 
 
-@app.post('/api/reputation/admin/perf/code-health/queue')
-async def perf_code_health_queue(p: ChQueue, request: Request):
-    """🧹 Queue a removal — it NEVER deletes anything from here: the item joins the build queue, and an engineering session applies it in a gated
-    commit (frontend + backend tests and the build green) or says why it must stay."""
-    admin = _require_owner(request)
-    if '..' in p.file or p.file.startswith('/') or not p.file.startswith(('frontend/src/', 'backend/')):
-        raise HTTPException(400, 'Only a source file in frontend/src or backend.')
-    what_ = f"{p.file}" + (f" · {p.name}" if p.name and p.kind != 'dead_file' else '')
-    try:
-        _chat['build'], it_ = _aic.build_add(_build_state(), f"{CH_QUEUE_TAG}{what_}", f"Code health says: {p.fix or 'unused'} ({p.kind}). Delete it only if nothing really "
-                                             f"uses it, in a commit with the full gate green; otherwise mark why it stays.", f'code health · {admin[:6]}', time.time())
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    _json_save(BUILD_QUEUE_PATH, _chat['build'])
-    return {'queued': it_['id'], 'title': it_.get('title')}
 
 
-@app.post('/api/reputation/admin/perf/code-health/scan')
-async def perf_code_health_scan(request: Request):
-    _require_admin(request)
-    asyncio.create_task(_code_health_run())
-    return {'scanning': True}
 
 
 
@@ -28959,38 +23514,6 @@ def after_sell_lessons(trades: list, prices: dict) -> list:
 USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 
 
-@app.get('/api/reputation/admin/treasury/money')
-async def treasury_money(request: Request):
-    """Every wallet that holds FEELESS money, read live: fee accounts (wSOL / USDC), the admin wallet,
-    season reserves and badge pools. Read-only; nothing here can move funds."""
-    admin = _require_admin(request)
-    cfg = _fee_cfg()
-    fee_accts = [('SOL fee account (wSOL)', cfg.get('feeAccountSol') or '', 'wSOL'), ('USDC fee account', cfg.get('feeAccountUsdc') or '', 'USDC')]
-    reserves = [(f"Season reserve · {s['name']}", s['reserveWallet']) for s in _seasons()['seasons'] if s.get('reserveWallet')]
-    reserves += [(f"Badge pool · {p['name']}", p['wallet']) for p in _pools()['pools']]
-
-    async with httpx.AsyncClient(timeout=10) as http:
-        async def token(addr):
-            if not addr:
-                return None
-            try:
-                v = ((await _rpc(http, 'getAccountInfo', [addr, {'encoding': 'jsonParsed'}])) or {}).get('value') or {}
-                info = _parsed_info(v)
-                return {'owner': info.get('owner'), 'mint': info.get('mint'), 'amount': float((info.get('tokenAmount') or {}).get('uiAmount') or 0)}
-            except Exception:
-                return None
-
-        async def sol(addr):
-            try:
-                return ((await _rpc(http, 'getBalance', [addr])) or {}).get('value', 0) / 1e9
-            except Exception:
-                return None
-        results = await asyncio.gather(*(token(a) for _, a, _ in fee_accts), sol(admin), *(sol(a) for _, a in reserves))
-    fee_rows = [{'label': l, 'address': a, 'asset': asset, **(r or {}), 'ok': bool(r)} for (l, a, asset), r in zip(fee_accts, results[:2])]
-    return {'admin': admin, 'adminSol': results[2], 'feeAccounts': fee_rows,
-            'reserves': [{'label': l, 'address': a, 'sol': b} for (l, a), b in zip(reserves, results[3:])],
-            'routes': _json_load(ROUTES_PATH, {'routes': []}).get('routes', []), 'splits': (_admin_load().get('splits') or [])[-10:][::-1],
-            'owners': list(_owner_wallets())}
 
 
 _pulse_cache: dict = {}
@@ -29089,34 +23612,6 @@ class SplitRecord(BaseModel):
     asset: str = 'SOL'
 
 
-@app.post('/api/reputation/admin/treasury/split')
-async def treasury_split_record(request: Request, p: SplitRecord):
-    """Record a split the owner signed from their own wallet. Every signature is re-read on-chain and only the
-    transfers the signer really made are stored."""
-    admin = _require_owner(request)   # 🔒 owner only: it decides where money goes (audit 2026-11-12 #2)
-    if not all(_re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', x) for x in p.sigs):
-        raise HTTPException(400, 'Bad transaction signature.')
-    ad = _admin_load()
-    if {s for sp in ad.get('splits') or [] for s in sp['sigs']} & set(p.sigs):
-        raise HTTPException(409, 'Already recorded.')
-    async with httpx.AsyncClient(timeout=20) as http:
-        txs = await asyncio.gather(*(_rpc(http, 'getTransaction', [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}]) for x in p.sigs))
-    moved, signer = [], None
-    allowed = set(_owner_wallets()) | set(_admin_wallets())
-    for sig, tx in zip(p.sigs, txs):
-        if not tx or (tx.get('meta') or {}).get('err'):
-            raise HTTPException(400, f'Transaction {sig[:8]}… is not on-chain or failed.')
-        signers = [k['pubkey'] for k in tx['transaction']['message']['accountKeys'] if k.get('signer')]
-        signer = next((s for s in signers if s in allowed), None)
-        if not signer:
-            raise HTTPException(400, 'Splits must be signed by a FEELESS owner/admin wallet.')
-        moved += reserve_pool.parsed_transfers(tx, signer)
-    if not moved:
-        raise HTTPException(400, 'No transfers found in those transactions.')
-    rec = {'sigs': p.sigs, 'asset': p.asset[:10], 'by': signer, 'at': time.time(), 'moved': moved[:60], 'total': round(sum(m['amount'] for m in moved), 6)}
-    ad.setdefault('splits', []).append(rec); ad['splits'] = ad['splits'][-50:]
-    _audit(ad, admin, 'treasury-split', f"{rec['total']} {p.asset} in {len(p.sigs)} tx"); _admin_save(ad)
-    return {'ok': True, 'total': rec['total'], 'transfers': len(moved)}
 
 
 # ================================================================================================
@@ -29242,32 +23737,8 @@ class VerifyAdminIn(BaseModel):
     note: str = Field(default='', max_length=200)
 
 
-@app.post('/api/reputation/admin/coin-verify')
-async def verify_admin(request: Request, p: VerifyAdminIn):
-    admin = _require_admin(request)
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint) or p.action not in ('grant', 'revoke', 'clear'):
-        raise HTTPException(400, 'Mint + grant / revoke / clear.')
-    d = _verify_store()
-    if p.action == 'clear':
-        d['mints'].pop(p.mint, None)
-    else:
-        d['mints'][p.mint] = {'state': 'granted' if p.action == 'grant' else 'revoked', 'note': p.note, 'by': admin, 'at': time.time()}
-    for r in d['requests']:
-        if r['mint'] == p.mint and r.get('status') == 'open':
-            r['status'] = {'grant': 'granted', 'revoke': 'denied', 'clear': 'closed'}[p.action]
-    _json_save(VERIFY_PATH, d)
-    _verify_cache.pop(p.mint, None)
-    ad = _admin_load(); _audit(ad, admin, f'verify-{p.action}', p.mint); _admin_save(ad)
-    return {'ok': True, 'state': d['mints'].get(p.mint)}
 
 
-@app.get('/api/reputation/admin/coin-verify')
-async def verify_admin_list(request: Request):
-    _require_admin(request)
-    d = _verify_store()
-    auto = sorted((r for _, r in _verify_cache.values() if r.get('level') == 'verified'), key=lambda r: -r['score'])[:40]
-    return {'manual': [{'mint': m, **v} for m, v in d['mints'].items()], 'requests': [r for r in d['requests'] if r.get('status') == 'open'][-50:],
-            'auto': [{k: r.get(k) for k in ('mint', 'symbol', 'score', 'level', 'at')} for r in auto]}
 
 
 class BadgeEdit(BaseModel):
@@ -29277,23 +23748,6 @@ class BadgeEdit(BaseModel):
     why: str = Field(default='', max_length=140)
 
 
-@app.put('/api/reputation/admin/badges/{bid}')
-async def admin_badge_edit(request: Request, bid: str, p: BadgeEdit):
-    """Edit a badge everywhere it's held (label, icon, tone, why). Holders keep it; only the look changes."""
-    admin = _require_admin(request)
-    tone = p.tone if p.tone in ('mint', 'gold', 'plain', 'bad') else 'gold'
-    n = 0
-    async with _admin_lock:
-        d = _admin_load()
-        for a, items in d['badges'].items():
-            if bid in items:
-                items[bid].update({'label': p.label, 'icon': p.icon, 'tone': tone, 'why': p.why or items[bid].get('why', '')}); n += 1
-                _badge_cache.pop(a, None)
-        if not n:
-            raise HTTPException(404, 'No one holds that badge.')
-        _audit(d, admin, 'badge-edit', f'{bid} → {p.label}')
-        _admin_save(d)
-    return {'ok': True, 'holders': n}
 
 
 # ---- NFT studio: FEELESS cards → NFT collections (Metaplex Core / Crossmint / Underdog) + drops ---------------------
@@ -29343,35 +23797,8 @@ async def _nft_api(platform: str, method: str, path: str, body=None):
     return data
 
 
-@app.get('/api/reputation/admin/nft')
-async def nft_home(request: Request):
-    _require_admin(request)
-    return {'platforms': _nft_platforms(), 'collections': sorted(_nft_load()['collections'], key=lambda c: -c.get('createdAt', 0))}
 
 
-@app.post('/api/reputation/admin/nft/collections')
-async def nft_create(request: Request):
-    """Create a collection. Crossmint / Underdog are created here via their API; Metaplex Core is created in the
-    browser (your wallet signs) and recorded with /onchain."""
-    me = _require_owner(request)
-    try:
-        c = nft_studio.clean_collection(await request.json())
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    site = _public_site(request)
-    cid = uuid.uuid4().hex[:12]
-    c.update({'id': cid, 'createdAt': time.time(), 'by': me, 'drops': [], 'status': 'draft', 'address': None,
-              'uri': f'{site}/api/reputation/nft-meta/{cid}.json'})
-    if c['platform'] == 'crossmint':
-        out = await _nft_api('crossmint', 'POST', '/api/2022-06-09/collections', nft_studio.crossmint_collection_body(c, site))
-        c.update({'address': out.get('id'), 'status': 'live'})
-    elif c['platform'] == 'underdog':
-        out = await _nft_api('underdog', 'POST', '/v2/projects', nft_studio.underdog_project_body(c, site))
-        c.update({'address': str(out.get('projectId') or out.get('id') or ''), 'mint': out.get('mintAddress'), 'status': 'live'})
-    async with _nft_lock:
-        d = _nft_load(); d['collections'].append(c); _json_save(NFT_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'nft-collection', f"{c['platform']} {c['name']} ({c['symbol']})"); _admin_save(ad)
-    return c
 
 
 class NftOnchainIn(BaseModel):
@@ -29392,26 +23819,6 @@ async def _nft_verify(sig: str, signer: str, must_touch: list):
         raise HTTPException(400, 'That transaction does not create this collection / these NFTs.')
 
 
-@app.post('/api/reputation/admin/nft/collections/{cid}/onchain')
-async def nft_onchain(request: Request, cid: str, p: NftOnchainIn):
-    """Metaplex Core: record what the owner's wallet created (collection) or minted (a drop), verified on-chain."""
-    me = _require_owner(request)
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature) or not _re.match(_B58, p.address):
-        raise HTTPException(400, 'Bad signature or address.')
-    assets = [a for a in p.assets if isinstance(a, dict) and _re.match(_B58, str(a.get('address') or '')) and _re.match(_B58, str(a.get('owner') or ''))][:nft_studio.MAX_DROP]
-    await _nft_verify(p.signature, me, [p.address] + [a['address'] for a in assets])
-    async with _nft_lock:
-        d = _nft_load(); c = next((x for x in d['collections'] if x['id'] == cid), None)
-        if not c or c['platform'] != 'metaplex':
-            raise HTTPException(404, 'Metaplex collection not found.')
-        if not assets:
-            c.update({'address': p.address, 'status': 'live', 'createSig': p.signature})
-        else:
-            if c.get('address') != p.address:
-                raise HTTPException(400, 'Those NFTs belong to a different collection.')
-            c['drops'].append({'at': time.time(), 'ok': [{'to': a['owner'], 'asset': a['address'], 'sig': p.signature} for a in assets], 'failed': []})
-        _json_save(NFT_PATH, d)
-    return c
 
 
 class NftDropIn(BaseModel):
@@ -29419,39 +23826,6 @@ class NftDropIn(BaseModel):
     confirm: str = ''
 
 
-@app.post('/api/reputation/admin/nft/collections/{cid}/drop')
-async def nft_drop(request: Request, cid: str, p: NftDropIn):
-    """Crossmint / Underdog: mint one NFT to each wallet via the platform API. Type DROP <count> to confirm."""
-    me = _require_owner(request)
-    site = _public_site(request)
-    c = next((x for x in _nft_load()['collections'] if x['id'] == cid), None)
-    if not c or c['platform'] == 'metaplex' or c.get('status') != 'live':
-        raise HTTPException(404, 'Live Crossmint / Underdog collection not found.')
-    to = nft_studio.recipients(p.to)[:nft_studio.room_left(c)]
-    if not to:
-        raise HTTPException(400, 'No valid Solana wallets (or the supply cap is reached).')
-    if p.confirm.strip() != f'DROP {len(to)}':
-        raise HTTPException(400, f'Type "DROP {len(to)}" to confirm.')
-    start = sum(len(x.get('ok') or []) for x in c['drops']) + 1
-    sem = asyncio.Semaphore(4)
-
-    async def one(i, w):
-        async with sem:
-            try:
-                if c['platform'] == 'crossmint':
-                    out = await _nft_api('crossmint', 'POST', f"/api/2022-06-09/collections/{c['address']}/nfts", nft_studio.crossmint_mint_body(c, site, w, start + i))
-                else:
-                    out = await _nft_api('underdog', 'POST', f"/v2/projects/{c['address']}/nfts", nft_studio.underdog_nft_body(c, site, w, start + i))
-                return {'to': w, 'asset': str(out.get('id') or out.get('nftId') or out.get('mintAddress') or ''), 'ok': True}
-            except HTTPException as e:
-                return {'to': w, 'error': str(e.detail)[:160], 'ok': False}
-    res = await asyncio.gather(*(one(i, w) for i, w in enumerate(to)))
-    ok, bad = [r for r in res if r['ok']], [r for r in res if not r['ok']]
-    async with _nft_lock:
-        d = _nft_load(); cc = next(x for x in d['collections'] if x['id'] == cid)
-        cc['drops'].append({'at': time.time(), 'by': me, 'ok': ok, 'failed': bad}); _json_save(NFT_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'nft-drop', f"{c['name']}: {len(ok)} minted, {len(bad)} failed"); _admin_save(ad)
-    return {'minted': len(ok), 'failed': bad}
 
 
 
@@ -29529,11 +23903,6 @@ async def _desk_start():
 
 
 
-@app.post('/api/reputation/admin/intel-desk/sweep')
-async def intel_desk_sweep(request: Request):
-    _require_admin(request)
-    d = await _desk_get(force=True)
-    return {'ok': True, 'totals': d['snap']['totals']}
 
 
 
@@ -29594,54 +23963,8 @@ def _cards_all() -> dict:
     return cards
 
 
-@app.get('/api/reputation/cards/{address}')
-async def cards_of(address: str):
-    """The cards this wallet holds, with what THIS wallet has earned from each."""
-    me = primary_of(address)
-    cards = _cards_all()
-    held = {}
-    try:
-        for b in (await wallet_badges(address)).get('badges', []):
-            held[f"badge:{b['id']}"] = {'why': b.get('why')}
-    except Exception:
-        pass
-    for bid, b in ((_admin_load().get('badges') or {}).get(address) or {}).items():
-        held[f'badge:{bid}'] = {'why': b.get('why')}
-    for it in _json_load(COLLECTION_PATH, {}).get(me, []):
-        k = _collection_card_key(it)
-        if k:
-            held[k] = {'why': it.get('how'), 'rarity': it.get('rarity'), 'rank': it.get('rank'), 'tier': it.get('tier'), 'rewardSol': it.get('rewardSol'), 'at': it.get('at')}
-    mine_paid = {}
-    for p in _pools()['pools']:
-        for po in p.get('payouts') or []:
-            if any(r.get('address') == me for r in po.get('rows') or []):
-                for k, v in (po.get('perKey') or {}).items():
-                    mine_paid[k] = mine_paid.get(k, 0) + v
-    out = []
-    for k, h in held.items():
-        c = cards.get(k)
-        if not c:
-            continue
-        mine = h.get('rewardSol') if k.startswith('season:') and h.get('rewardSol') else mine_paid.get(k, 0)
-        out.append({**c, **({'rarity': h['rarity']} if h.get('rarity') else {}), 'why': h.get('why'), 'rank': h.get('rank'), 'tier': h.get('tier'), 'earnedMine': round(float(mine or 0), 6)})
-    order = {r: i for i, r in enumerate(reversed(badge_cards.RARITIES))}
-    out.sort(key=lambda c: (order.get(c['rarity'], 9), c['title']))
-    return {'address': me, 'cards': out}
 
 
-@app.put('/api/reputation/admin/cards/{key:path}')
-async def admin_card_edit(request: Request, key: str):
-    """Edit a card's look + lore everywhere it shows. Holders keep it; money rules stay in pools / reserve."""
-    admin = _require_admin(request)
-    if not _re.match(r'^(badge:[a-z0-9-]{1,40}|season:[\w-]{1,20}|week:[\w-]{1,20}:w\d{1,2})$', key):
-        raise HTTPException(400, 'Unknown card.')
-    edit = badge_cards.clean_edit(await request.json())
-    async with _admin_lock:
-        d = _json_load(CARDS_PATH, {}); d[key] = {**(d.get(key) or {}), **edit}; _json_save(CARDS_PATH, d)
-        ad = _admin_load(); _audit(ad, admin, 'card-edit', f"{key} → {edit.get('title', '')} {edit.get('design', '')}".strip()); _admin_save(ad)
-    _cards_cache.pop('all', None)
-    _badge_cache.clear()   # chat + profile badges pick up the new name / glyph
-    return _cards_all().get(key) or {'key': key, **edit}
 
 
 # ---- Circle wallets: names, descriptions, sends (owner-only, audited) -----------------------------------
@@ -29653,18 +23976,6 @@ class CircleMetaIn(BaseModel):
     description: str = Field(default='', max_length=200)
 
 
-@app.put('/api/reputation/admin/circle/wallets/{wid}')
-async def circle_wallet_meta(request: Request, wid: str, p: CircleMetaIn):
-    me = _require_owner(request)
-    try:
-        await _circle('POST', '/wallets/rename', {'id': wid, 'name': p.name})
-    except HTTPException:
-        pass  # Circle rename is best effort; the FEELESS label below is what the HQ shows
-    d = _json_load(CIRCLE_META_PATH, {})
-    d[wid] = {'name': p.name, 'description': p.description, 'at': time.time()}
-    _json_save(CIRCLE_META_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'circle-meta', f'{wid[:8]} → {p.name}'); _admin_save(ad)
-    return {'ok': True, **d[wid]}
 
 
 CIRCLE_DEST_PATH = DATA_DIR / 'circle_destinations.json'
@@ -29694,18 +24005,6 @@ class CircleDestIn(BaseModel):
     remove: bool = False
 
 
-@app.post('/api/reputation/admin/circle/destinations')
-async def circle_destination_save(request: Request, p: CircleDestIn):
-    me = _require_owner(request)
-    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.address) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.address)):
-        raise HTTPException(400, 'That is not a wallet address.')
-    d = _json_load(CIRCLE_DEST_PATH, {'saved': []})
-    d['saved'] = [x for x in d.get('saved', []) if x['address'] != p.address]
-    if not p.remove:
-        d['saved'] = (d['saved'] + [{'address': p.address, 'label': (p.label or 'Saved wallet')[:40], 'by': me, 'at': time.time()}])[-50:]
-    _json_save(CIRCLE_DEST_PATH, d)
-    ad = _admin_load(); _audit(ad, me, 'circle-dest', f"{'removed' if p.remove else 'saved'} {p.address[:6]}… {p.label[:20]}"); _admin_save(ad)
-    return {'saved': d['saved']}
 
 
 
@@ -29747,22 +24046,6 @@ async def _fuse_send_guard(wallet_id, token_id, amount):
         return
 
 
-@app.post('/api/reputation/admin/circle/transfer')
-async def circle_transfer(request: Request, p: CircleSendIn):
-    me = _require_owner(request)
-    if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.to) or _re.match(r'^0x[0-9a-fA-F]{40}$', p.to)):
-        raise HTTPException(400, 'Destination must be a wallet address.')
-    if p.confirm != p.to[-4:]:
-        raise HTTPException(400, 'Type the last 4 characters of the destination to confirm.')
-    dest = {x['address'] for x in await _circle_destinations()}
-    if p.to not in dest:
-        raise HTTPException(403, 'Circle wallets only send to FEELESS wallets or wallets you saved. Save this address first.')
-    if not _re.match(r'^\d+(\.\d+)?$', p.amount) or float(p.amount) <= 0:
-        raise HTTPException(400, 'Amount must be a positive number.')
-    await _fuse_send_guard(p.walletId, p.tokenId, float(p.amount))
-    out = await _circle('POST', '/transfer', {'walletId': p.walletId, 'tokenId': p.tokenId, 'to': p.to, 'amount': p.amount, 'idempotencyKey': str(uuid.uuid4())})
-    ad = _admin_load(); _audit(ad, me, 'circle-send', f'{p.amount} from {p.walletId[:8]} to {p.to[:6]}…'); _admin_save(ad)
-    return out
 
 
 # ---- 🧹 WALLET DUST CLEANUP (Trade › 🧹 Dust): read every coin a USER's wallet holds; they choose swap / burn + close; THEY sign ----
@@ -29926,40 +24209,8 @@ def _internal_ok(request):
 
 
 
-@app.post('/api/reputation/internal/agent-x402-pay')
-async def internal_agent_x402_pay(request: Request, body: dict):
-    """💳 Sign one model-call payment for an agent's own wallet (agent_pay.py checks asset, size and fee payer). Signs only: the provider settles it."""
-    if not _internal_ok(request):
-        raise HTTPException(403, 'Internal only.')
-    wid_, addr_, entry_ = str(body.get('walletId') or ''), str(body.get('address') or ''), body.get('entry') or {}
-    creator_ = bool(body.get('creator')) and body.get('catId') == 'leader'   # 🐱 only FEE's wallet may sit in the creator's Circle project (owner 2026-10-31)
-    if body.get('creator') and not creator_:
-        raise HTTPException(403, "Only Fee's wallet pays from the creator's Circle project.")
-    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=not creator_)).get('wallet')
-    if not w_ or w_.get('address') != addr_:
-        raise HTTPException(403, "That is not this agent's wallet.")
-    async with httpx.AsyncClient(timeout=15) as http:
-        bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
-    try:
-        tx = _apay.build_payment(addr_, entry_, bh)
-    except (ValueError, KeyError) as e:
-        raise HTTPException(400, str(e)[:160])
-    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS model call {str(body.get('catId') or '')[:20]}"}, agent=not creator_)
-    if not signed_.get('signedTransaction'):
-        raise HTTPException(502, 'Circle did not sign it.')
-    return {'signedTransaction': signed_['signedTransaction']}
 
 
-@app.post('/api/reputation/internal/agent-circle-wallet')
-async def internal_agent_circle_wallet(request: Request, body: dict):
-    """🟦 One Solana wallet for one agent, on the family + agent Circle account. The same cat always gets the same request key, so a double click can't make two."""
-    if not _internal_ok(request):
-        raise HTTPException(403, 'Internal only.')
-    cid_ = str(body.get('catId') or '')
-    if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cid_):
-        raise HTTPException(400, 'Not an agent id.')
-    import uuid as _uuid
-    return await _circle('POST', '/wallets', {'blockchain': 'SOL', 'name': f'agent {cid_[:30]}', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, f'feeless-cat-{cid_}'))}, agent=True)
 
 
 
@@ -30332,3 +24583,232 @@ verify_request = _rep_more_writes.verify_request
 wallet_dust_close_tx = _rep_more_writes.wallet_dust_close_tx
 internal_agent_circle_send = _rep_more_writes.internal_agent_circle_send
 internal_agent_close_empty = _rep_more_writes.internal_agent_close_empty
+
+import rep_admin_routes as _rep_admin_routes   # noqa: E402  🧩 SITE-5: admin routes, moved by scripts/move-routes.py
+app.include_router(_rep_admin_routes.router)
+upload_image = _rep_admin_routes.upload_image
+save_profile = _rep_admin_routes.save_profile
+chat_post = _rep_admin_routes.chat_post
+alpha_rooms = _rep_admin_routes.alpha_rooms
+admin_chat_guard = _rep_admin_routes.admin_chat_guard
+fuses_evolve = _rep_admin_routes.fuses_evolve
+admin_auto_yield_set = _rep_admin_routes.admin_auto_yield_set
+fuse_position_switch = _rep_admin_routes.fuse_position_switch
+fuse_limits = _rep_admin_routes.fuse_limits
+fuse_hq_admin = _rep_admin_routes.fuse_hq_admin
+fuse_hq_admin_save = _rep_admin_routes.fuse_hq_admin_save
+social_feed_x = _rep_admin_routes.social_feed_x
+crews_board = _rep_admin_routes.crews_board
+crew_of_wallet = _rep_admin_routes.crew_of_wallet
+admin_crews_revenue = _rep_admin_routes.admin_crews_revenue
+admin_fees_crews = _rep_admin_routes.admin_fees_crews
+familia_city = _rep_admin_routes.familia_city
+familia_city_visit = _rep_admin_routes.familia_city_visit
+familia_block = _rep_admin_routes.familia_block
+admin_familia_overwatch = _rep_admin_routes.admin_familia_overwatch
+admin_familia_rules_set = _rep_admin_routes.admin_familia_rules_set
+familia_broker = _rep_admin_routes.familia_broker
+familia_broker_link = _rep_admin_routes.familia_broker_link
+familia_trade_center = _rep_admin_routes.familia_trade_center
+familia_world_act = _rep_admin_routes.familia_world_act
+cat_model_limit = _rep_admin_routes.cat_model_limit
+familia_fuse_act = _rep_admin_routes.familia_fuse_act
+crew_badge_catalog = _rep_admin_routes.crew_badge_catalog
+fuse_wallet_recover_sell = _rep_admin_routes.fuse_wallet_recover_sell
+fuse_wallet_coin_sell = _rep_admin_routes.fuse_wallet_coin_sell
+fuse_wallet_recover_sell_all = _rep_admin_routes.fuse_wallet_recover_sell_all
+fuse_wallet_cfg = _rep_admin_routes.fuse_wallet_cfg
+admin_rpc_set = _rep_admin_routes.admin_rpc_set
+admin_alliance_days = _rep_admin_routes.admin_alliance_days
+admin_collective_look = _rep_admin_routes.admin_collective_look
+admin_provider_key = _rep_admin_routes.admin_provider_key
+admin_ai_key_set = _rep_admin_routes.admin_ai_key_set
+admin_ai_seat_post = _rep_admin_routes.admin_ai_seat_post
+admin_ai_providers_set = _rep_admin_routes.admin_ai_providers_set
+admin_ai_ask = _rep_admin_routes.admin_ai_ask
+admin_ai_test = _rep_admin_routes.admin_ai_test
+admin_ai_load = _rep_admin_routes.admin_ai_load
+admin_agent_slots_set = _rep_admin_routes.admin_agent_slots_set
+admin_ai_prompts_set = _rep_admin_routes.admin_ai_prompts_set
+admin_ai_rig_preset = _rep_admin_routes.admin_ai_rig_preset
+admin_ai_rig_set = _rep_admin_routes.admin_ai_rig_set
+admin_ai_calls = _rep_admin_routes.admin_ai_calls
+admin_ai_learned = _rep_admin_routes.admin_ai_learned
+admin_ai_playground_make = _rep_admin_routes.admin_ai_playground_make
+admin_ai_playground_decide = _rep_admin_routes.admin_ai_playground_decide
+admin_ai_chat = _rep_admin_routes.admin_ai_chat
+admin_ai_chat_clear = _rep_admin_routes.admin_ai_chat_clear
+admin_ai_image = _rep_admin_routes.admin_ai_image
+admin_ai_chat_open = _rep_admin_routes.admin_ai_chat_open
+admin_ai_chat_saved = _rep_admin_routes.admin_ai_chat_saved
+admin_ai_chat_settings = _rep_admin_routes.admin_ai_chat_settings
+admin_ai_build = _rep_admin_routes.admin_ai_build
+admin_ai_chat_remember = _rep_admin_routes.admin_ai_chat_remember
+admin_ai_proposal_decide = _rep_admin_routes.admin_ai_proposal_decide
+fuse_wallet_retry_dead = _rep_admin_routes.fuse_wallet_retry_dead
+fuse_wallet_reinvest_paid = _rep_admin_routes.fuse_wallet_reinvest_paid
+fuse_wallet_card = _rep_admin_routes.fuse_wallet_card
+admin_data_cleaner = _rep_admin_routes.admin_data_cleaner
+evolution_rollback = _rep_admin_routes.evolution_rollback
+scenario_pick = _rep_admin_routes.scenario_pick
+runners_autotune = _rep_admin_routes.runners_autotune
+fuse_playground = _rep_admin_routes.fuse_playground
+pg_sim_apply = _rep_admin_routes.pg_sim_apply
+runners_pick_filter = _rep_admin_routes.runners_pick_filter
+pg_battles_set = _rep_admin_routes.pg_battles_set
+runners_cfg_set = _rep_admin_routes.runners_cfg_set
+runners_force_round = _rep_admin_routes.runners_force_round
+fuse_card_collection = _rep_admin_routes.fuse_card_collection
+fuse_card_minted = _rep_admin_routes.fuse_card_minted
+fuse_aura = _rep_admin_routes.fuse_aura
+admin_vaults_save = _rep_admin_routes.admin_vaults_save
+admin_quest_season = _rep_admin_routes.admin_quest_season
+admin_quests_save = _rep_admin_routes.admin_quests_save
+admin_quests_grant = _rep_admin_routes.admin_quests_grant
+wallet_badges = _rep_admin_routes.wallet_badges
+admin_whoami = _rep_admin_routes.admin_whoami
+badge_awards_admin_get = _rep_admin_routes.badge_awards_admin_get
+admin_award = _rep_admin_routes.admin_award
+admin_revoke = _rep_admin_routes.admin_revoke
+admin_airdrops = _rep_admin_routes.admin_airdrops
+admin_schedule = _rep_admin_routes.admin_schedule
+admin_airdrop_status = _rep_admin_routes.admin_airdrop_status
+admin_bug_status = _rep_admin_routes.admin_bug_status
+admin_support_poll = _rep_admin_routes.admin_support_poll
+admin_security = _rep_admin_routes.admin_security
+familia_street = _rep_admin_routes.familia_street
+familia_street_mod = _rep_admin_routes.familia_street_mod
+admin_defence_lift = _rep_admin_routes.admin_defence_lift
+admin_war_room = _rep_admin_routes.admin_war_room
+admin_war_evidence = _rep_admin_routes.admin_war_evidence
+legal_admin = _rep_admin_routes.legal_admin
+legal_admin_save = _rep_admin_routes.legal_admin_save
+admin_guard_decide = _rep_admin_routes.admin_guard_decide
+contract_golive_set = _rep_admin_routes.contract_golive_set
+admin_holder_ages = _rep_admin_routes.admin_holder_ages
+admin_snapshot = _rep_admin_routes.admin_snapshot
+admin_snapshot_diff = _rep_admin_routes.admin_snapshot_diff
+admin_grow_detail = _rep_admin_routes.admin_grow_detail
+admin_py_agents_ask = _rep_admin_routes.admin_py_agents_ask
+fee_pricing = _rep_admin_routes.fee_pricing
+admin_fees_prepay = _rep_admin_routes.admin_fees_prepay
+admin_fees_bundle = _rep_admin_routes.admin_fees_bundle
+admin_fees_rounds = _rep_admin_routes.admin_fees_rounds
+admin_fees_house = _rep_admin_routes.admin_fees_house
+admin_fee_earnings = _rep_admin_routes.admin_fee_earnings
+shield_admin = _rep_admin_routes.shield_admin
+shield_admin_set = _rep_admin_routes.shield_admin_set
+admin_fees_set = _rep_admin_routes.admin_fees_set
+admin_referrals = _rep_admin_routes.admin_referrals
+admin_referral_cfg = _rep_admin_routes.admin_referral_cfg
+admin_ad_save = _rep_admin_routes.admin_ad_save
+admin_ad_delete = _rep_admin_routes.admin_ad_delete
+admin_pulse = _rep_admin_routes.admin_pulse
+admin_chat_feed = _rep_admin_routes.admin_chat_feed
+admin_delete_msg = _rep_admin_routes.admin_delete_msg
+admin_mute = _rep_admin_routes.admin_mute
+admin_feecat_get = _rep_admin_routes.admin_feecat_get
+admin_feecat_set = _rep_admin_routes.admin_feecat_set
+dm_send = _rep_admin_routes.dm_send
+admin_verify = _rep_admin_routes.admin_verify
+admin_site = _rep_admin_routes.admin_site
+theme_get = _rep_admin_routes.theme_get
+looks_catalog = _rep_admin_routes.looks_catalog
+theme_set = _rep_admin_routes.theme_set
+admin_kol_add = _rep_admin_routes.admin_kol_add
+admin_kol_remove = _rep_admin_routes.admin_kol_remove
+admin_traffic = _rep_admin_routes.admin_traffic
+admin_season_upsert = _rep_admin_routes.admin_season_upsert
+admin_role_grant = _rep_admin_routes.admin_role_grant
+admin_role_revoke = _rep_admin_routes.admin_role_revoke
+admin_idea_add = _rep_admin_routes.admin_idea_add
+admin_season_edit = _rep_admin_routes.admin_season_edit
+admin_season_delete = _rep_admin_routes.admin_season_delete
+is_admin = _rep_admin_routes.is_admin
+local_update = _rep_admin_routes.local_update
+routes_set = _rep_admin_routes.routes_set
+launch_costs_set = _rep_admin_routes.launch_costs_set
+launch_tab_set = _rep_admin_routes.launch_tab_set
+coin_profile_set = _rep_admin_routes.coin_profile_set
+pump_create_tx = _rep_admin_routes.pump_create_tx
+pools_register = _rep_admin_routes.pools_register
+admin_token_logo = _rep_admin_routes.admin_token_logo
+admin_marketing = _rep_admin_routes.admin_marketing
+admin_badge_pool_save = _rep_admin_routes.admin_badge_pool_save
+admin_badge_pool_delete = _rep_admin_routes.admin_badge_pool_delete
+perf_config_set = _rep_admin_routes.perf_config_set
+perf_code_health_queue = _rep_admin_routes.perf_code_health_queue
+perf_code_health_scan = _rep_admin_routes.perf_code_health_scan
+treasury_money = _rep_admin_routes.treasury_money
+verify_admin = _rep_admin_routes.verify_admin
+verify_admin_list = _rep_admin_routes.verify_admin_list
+admin_badge_edit = _rep_admin_routes.admin_badge_edit
+nft_home = _rep_admin_routes.nft_home
+nft_create = _rep_admin_routes.nft_create
+nft_onchain = _rep_admin_routes.nft_onchain
+nft_drop = _rep_admin_routes.nft_drop
+intel_desk_sweep = _rep_admin_routes.intel_desk_sweep
+admin_card_edit = _rep_admin_routes.admin_card_edit
+circle_destination_save = _rep_admin_routes.circle_destination_save
+
+import rep_money_routes as _rep_money_routes   # noqa: E402  🧩 SITE-5: money routes, moved by scripts/move-routes.py
+app.include_router(_rep_money_routes.router)
+fuse_position = _rep_money_routes.fuse_position
+fuse_receipt = _rep_money_routes.fuse_receipt
+fuse_position_close = _rep_money_routes.fuse_position_close
+fuse_plan = _rep_money_routes.fuse_plan
+admin_fuse_payout_plan = _rep_money_routes.admin_fuse_payout_plan
+admin_fuse_payout_paid = _rep_money_routes.admin_fuse_payout_paid
+admin_fuse_rules_set = _rep_money_routes.admin_fuse_rules_set
+fuse_receipts = _rep_money_routes.fuse_receipts
+fuse_pnl = _rep_money_routes.fuse_pnl
+familia_kalshi_send = _rep_money_routes.familia_kalshi_send
+familia_pools = _rep_money_routes.familia_pools
+cat_fund_build = _rep_money_routes.cat_fund_build
+cat_withdraw = _rep_money_routes.cat_withdraw
+cat_fund_send = _rep_money_routes.cat_fund_send
+familia_pools_earn = _rep_money_routes.familia_pools_earn
+familia_perps_real_build = _rep_money_routes.familia_perps_real_build
+familia_pools_ranges = _rep_money_routes.familia_pools_ranges
+familia_pools_run = _rep_money_routes.familia_pools_run
+familia_leverage_build = _rep_money_routes.familia_leverage_build
+fuse_prime_admin = _rep_money_routes.fuse_prime_admin
+circle_profile_save = _rep_money_routes.circle_profile_save
+fuse_wallet_view = _rep_money_routes.fuse_wallet_view
+admin_colony_set = _rep_money_routes.admin_colony_set
+fuse_wallet_preview = _rep_money_routes.fuse_wallet_preview
+fuse_wallet_topup = _rep_money_routes.fuse_wallet_topup
+fuse_wallet_payout_profit = _rep_money_routes.fuse_wallet_payout_profit
+fuse_wallet_close_dust = _rep_money_routes.fuse_wallet_close_dust
+fuse_wallet_withdraw_cash = _rep_money_routes.fuse_wallet_withdraw_cash
+admin_agents_stream = _rep_money_routes.admin_agents_stream
+admin_agents_set = _rep_money_routes.admin_agents_set
+fuse_verdict_act = _rep_money_routes.fuse_verdict_act
+fuse_buy = _rep_money_routes.fuse_buy
+admin_fuses_save = _rep_money_routes.admin_fuses_save
+vaults_list = _rep_money_routes.vaults_list
+admin_war_trace = _rep_money_routes.admin_war_trace
+war_bounty_report = _rep_money_routes.war_bounty_report
+internal_legal_gate = _rep_money_routes.internal_legal_gate
+legal_delete = _rep_money_routes.legal_delete
+fee_quote = _rep_money_routes.fee_quote
+internal_agent_fee = _rep_money_routes.internal_agent_fee
+admin_collective_set = _rep_money_routes.admin_collective_set
+admin_fee_health = _rep_money_routes.admin_fee_health
+admin_fee_selftest = _rep_money_routes.admin_fee_selftest
+admin_broadcast = _rep_money_routes.admin_broadcast
+shop_buy = _rep_money_routes.shop_buy
+helius_webhook = _rep_money_routes.helius_webhook
+launch_rail_set = _rep_money_routes.launch_rail_set
+circle_create_wallet = _rep_money_routes.circle_create_wallet
+admin_reserve_paid = _rep_money_routes.admin_reserve_paid
+admin_reserve_pay_circle = _rep_money_routes.admin_reserve_pay_circle
+admin_badge_pool_pay_circle = _rep_money_routes.admin_badge_pool_pay_circle
+admin_badge_pools = _rep_money_routes.admin_badge_pools
+admin_badge_pool_paid = _rep_money_routes.admin_badge_pool_paid
+treasury_split_record = _rep_money_routes.treasury_split_record
+cards_of = _rep_money_routes.cards_of
+circle_wallet_meta = _rep_money_routes.circle_wallet_meta
+circle_transfer = _rep_money_routes.circle_transfer
+internal_agent_x402_pay = _rep_money_routes.internal_agent_x402_pay
+internal_agent_circle_wallet = _rep_money_routes.internal_agent_circle_wallet

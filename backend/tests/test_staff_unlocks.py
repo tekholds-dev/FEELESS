@@ -1,11 +1,12 @@
 """0c (owner): the creator wallet unlocks EVERY feature everywhere — feature gates use _is_staff (any linked wallet), never a hand-rolled
 `in _admin_wallets()`. Security checks (HQ sign-in, money-move signers) stay strict on purpose."""
+from _svc_src import service_src
 import re
 
 
 def test_feature_gates_use_is_staff():
     import reputation_service as rs
-    src = open(rs.__file__).read()
+    src = service_src()
     for fn, needle in (('chat_post', '_is_staff(payload.address)'), ('alpha_rooms', '_is_staff(address)'), ('admin_whoami', '_is_staff(address)'),
                        ('is_verified', '_is_staff(a)')):
         i = src.index(f'def {fn}(')

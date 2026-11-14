@@ -1,4 +1,5 @@
 """📡 The kernel's delta stream: only what changed is sent, a subscriber that fell behind resyncs once, the endpoint is HQ-only and runs nothing."""
+from _svc_src import service_src
 import asyncio
 import json
 from pathlib import Path
@@ -7,7 +8,7 @@ import pytest
 
 import trench_kernel.events as ev
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def test_an_unchanged_thing_sends_nothing_and_a_changed_one_sends_one_delta():
@@ -89,7 +90,7 @@ def test_the_stream_is_hq_only_and_runs_nothing():
     import reputation_service as rs
     r = TestClient(rs.app).get('/api/reputation/admin/agents/stream')
     assert r.status_code in (401, 403)                                              # no HQ signature, no stream
-    body = SRC[SRC.index('async def admin_agents_stream('):SRC.index('def _office_light(tid, cur, now):')]
+    i_ = SRC.index('async def admin_agents_stream('); body = SRC[i_:SRC.index('\n\n\n', i_)]
     assert '_require_admin(request)' in body
     for forbidden in ('_runner_intel', 'token_intel', '_jup_prices', '_fw_', '_prime_tick', '_agents_tick', '_rpc(', '_krpc('):
         assert forbidden not in body, forbidden

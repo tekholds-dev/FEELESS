@@ -1,9 +1,10 @@
 """🔒 Audit 2026-11-12 #2: a granted "admin" wallet could point every swap fee at itself. Each route that decides where money goes, or marks
 money paid, must check the OWNER (the creator wallets), not the lower admin role."""
+from _svc_src import service_src
 import re
 import pathlib
 
-SRC = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text().split('\n')
+SRC = service_src().split('\n')
 MONEY = ['/api/reputation/admin/fees', '/api/reputation/admin/fees/house', '/api/reputation/admin/fees/bundle', '/api/reputation/admin/treasury/split',
          '/api/reputation/admin/pools/register', '/api/reputation/admin/vaults', '/api/reputation/admin/airdrops', '/api/reputation/admin/badge-pools',
          '/api/reputation/admin/badge-pools/{pid}/paid', '/api/reputation/admin/fuses/payouts/paid', '/api/reputation/admin/reserve/{sid}/paid']

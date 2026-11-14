@@ -1,4 +1,5 @@
 """💬 Direct LM chat + owner-approved agent updates: chat is normal language, a proposal changes NOTHING until approved, execution stays out of reach."""
+from _svc_src import service_src
 import asyncio
 import json
 
@@ -96,7 +97,7 @@ def test_reject_changes_nothing_approve_hands_back_only_that_one_safe_proposal_o
 
 def test_the_service_applies_only_safe_kinds_through_owner_routes():
     import reputation_service as rs
-    src = open(rs.__file__).read()
+    src = service_src()
     for route in ("'/api/reputation/admin/ai/chat'", "'/api/reputation/admin/ai/chat/clear'", "'/api/reputation/admin/ai/chat/remember'", "'/api/reputation/admin/ai/proposals/decide'"):
         i = src.index(route)
         assert '_require_owner(request)' in src[i:i + 900]

@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import asyncio
 
 import pytest
@@ -31,7 +32,7 @@ def test_house_fees_default_save_and_feed_every_reader(monkeypatch):
 
 def test_saving_the_main_fee_panel_keeps_the_house_fees():
     import reputation_service as rs
-    src = open(rs.__file__).read()
+    src = service_src()
     i = src.index('async def admin_fees_set(')
     assert "'crews', 'house')" in src[i:src.index('\n\n\n', i)]
 

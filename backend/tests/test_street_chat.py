@@ -1,3 +1,4 @@
+from _svc_src import service_src
 import pytest
 import street_chat as sc
 
@@ -52,7 +53,7 @@ def test_who_may_pull_a_line():
 
 def test_the_street_routes_are_signed_and_the_mod_rules_hold():
     import reputation_service as rs
-    src = open(rs.__file__).read()
+    src = service_src()
     i = src.index('async def familia_street_mod(')
     body = src[i:src.index('\n\n\n', i)]
     assert '_session_or_401(p.address, p.session)' in body and '_stc.can_pull(' in body and "Only FEELESS staff can mute." in body
@@ -220,7 +221,7 @@ def test_slow_mode_through_the_service(monkeypatch):
     d = rs._chat_load()
     d.setdefault('streetLastAt', {})['city-fee'] = {rs.primary_of(kid): time.time() - 5}
     rs.CHAT_PATH.write_text(json.dumps(d))
-    src = open(rs.__file__).read()
+    src = service_src()
     i = src.index('async def chat_post(')
     assert "_stc.slow_wait(d['streetSlow'][payload.room]" in src[i:src.index('\n\n\n', i)]   # the post path enforces it
     assert rs._stc.slow_wait(rs._chat_load()['streetSlow']['city-fee'], time.time() - 5, time.time()) >= 24

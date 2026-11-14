@@ -2,8 +2,7 @@
 scripts/move-routes.py --writes. Helpers stay there and are looked up on reputation_service when a route runs; body models are read
 off the loaded service (this module is imported at the END of reputation_service, after every model is defined)."""
 import reputation_service as _RSM  # noqa: E402
-from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
-from typing import Optional  # noqa: F401
+from fastapi import APIRouter, Query, Request  # noqa: F401
 
 router = APIRouter()
 

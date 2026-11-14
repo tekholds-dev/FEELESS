@@ -1,5 +1,6 @@
 """🧪 A06 THE PICK: a coin on the one intake that matches a proven edge rule, survived its own 1 / 5-minute watch and sits on its germ is
 READY on its own — and every wall (hard wall, sellers, the gun line, already ran, washed, the owner's switch, no proven rule) still stops it."""
+from _svc_src import service_src
 import trench_kernel.kernel as tk
 from trench_kernel import brain, universe as uni
 from kernel_helpers import row
@@ -100,7 +101,7 @@ def test_n04_the_ai_seat_buys_only_desk_picks_offered_and_hard_stopped():
     import arena_prime as ap
     assert ap.clean_cfg({})['aiSeatPicksOnly'] is True and ap.clean_cfg({'aiSeatPicksOnly': False})['aiSeatPicksOnly'] is False
     import pathlib
-    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    src = service_src()
     offer = src.index("if _g4_picks_only():   # 🧪 N04")
     assert "cands_ = [c_ for c_ in cands_ if c_.get('pick')]" in src[offer:offer + 300]              # the models only SEE picks
     stop = src.index("elif gt_ and _g4_picks_only() and not gt_.get('pick'):")

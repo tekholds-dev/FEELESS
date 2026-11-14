@@ -1,4 +1,5 @@
 """🩹 Why the real card kept losing, 2026-10-13 — the leaks found in the overnight ledger, each with its fix."""
+from _svc_src import service_src
 import asyncio
 import time
 from pathlib import Path
@@ -6,7 +7,7 @@ from pathlib import Path
 import fuse_wallet as fw
 import office as of
 
-SRC = (Path(__file__).resolve().parent.parent / 'reputation_service.py').read_text()
+SRC = service_src()
 
 
 def test_a_buy_quoted_far_below_the_market_reading_is_a_crashed_coin_and_is_refused():

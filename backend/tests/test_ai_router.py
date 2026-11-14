@@ -1,5 +1,6 @@
 """🧠 The AI router: local LM Studio first, then the keyed fallbacks; advisory only, never a hot loop or the money boundary; keys never leave
 the server. Fake HTTP only — nothing here reaches a model."""
+from _svc_src import service_src
 import asyncio
 import json
 
@@ -544,7 +545,7 @@ def test_a_provider_health_check_is_a_general_ping_not_a_coin_case():
 
 
 def test_every_trading_call_in_the_service_says_mode_case_explicitly_and_the_ask_route_has_a_general_path():
-    src = open(rs.__file__).read()
+    src = service_src()
     calls = [src[i:i + 420] for i in range(len(src)) if src.startswith('_air.ROUTER.reason(', i)]
     assert len(calls) >= 6 and all("mode='case'" in c.split('\n')[0] + c.split('\n')[1] if '\n' in c else "mode='case'" in c for c in calls)
     i = src.index('async def admin_ai_ask(')

@@ -23,6 +23,9 @@ DST = ROOT / 'backend' / 'rep_more_reads.py'
 MONEY = re.compile(r'sendTransaction|_circle\(|_circle_post|signedTransaction|/swap|withdraw|_rpc_broadcast|broadcast\(|payout|refund|deposit|transfer|quote|_require_owner|_require_admin|_is_staff', re.I)
 OK_ANN = {'str', 'int', 'float', 'bool', 'dict', 'list', 'Optional', 'Query', 'Header', 'Request', 'None'}
 BUILTINS = set(dir(builtins))
+# --kind admin: staff / admin routes that touch no money; --kind money: the rest (signing, sends, quotes, payouts). Same safety checks, own module.
+MONEY_ONLY = re.compile(r'sendTransaction|_circle\(|_circle_post|signedTransaction|/swap|withdraw|_rpc_broadcast|broadcast\(|payout|refund|deposit|transfer|quote', re.I)
+ALL_VERBS = ('get', 'post', 'put', 'delete', 'patch')
 
 
 def bound_names(fn):
@@ -129,14 +132,14 @@ def module_globals(tree):
     return g
 
 
-def check(fn, src, glob, writes=False, models=frozenset()):
+def check(fn, src, glob, writes=False, models=frozenset(), kind=None):
     if len(fn.decorator_list) != 1:
         return 'not exactly one decorator'
     d = fn.decorator_list[0]
-    verbs = ('post', 'put', 'delete', 'patch') if writes else ('get',)
+    verbs = ALL_VERBS if kind else ('post', 'put', 'delete', 'patch') if writes else ('get',)
     if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and isinstance(d.func.value, ast.Name) and d.func.value.id == 'app' and d.func.attr in verbs):
         return f"not @app.{'/'.join(verbs)}"
-    if not d.args or not isinstance(d.args[0], ast.Constant) or 'admin' in str(d.args[0].value):
+    if not d.args or not isinstance(d.args[0], ast.Constant) or (not kind and 'admin' in str(d.args[0].value)):
         return 'admin path or computed path'
     if any(isinstance(n, ast.Name) for a in d.args[1:] + [k.value for k in d.keywords] for n in ast.walk(a)):
         return 'decorator names module values'
@@ -152,11 +155,13 @@ def check(fn, src, glob, writes=False, models=frozenset()):
         return 'return annotation'
     if any(isinstance(n, (ast.Global, ast.Nonlocal)) for n in ast.walk(fn)):
         return 'global / nonlocal'
-    if MONEY.search(src):
+    if kind == 'admin' and MONEY_ONLY.search(src):
+        return 'money words (the --kind money run)'
+    if not kind and MONEY.search(src):
         return 'money / staff words'
     b = bound_names(fn)
-    if 'rs' in b or any(isinstance(n, ast.Name) and n.id == 'rs' for n in ast.walk(fn)):
-        return 'uses the name rs'
+    if b & {'rs', '_rs', '_RSM'} or any(isinstance(n, ast.Name) and n.id in ('rs', '_rs', '_RSM') for n in ast.walk(fn)):
+        return 'uses the name rs'   # 2026-11-14: `import range_sim as _rs` hid the module's _rs() → 500; imports count too
     # a local that shadows a module name is fine now: global_loads() follows Python's scopes. Only the shapes it does not model are refused.
     if any(isinstance(n, (ast.ClassDef, ast.Match)) for n in ast.walk(fn)):
         return 'class or match inside'
@@ -194,11 +199,14 @@ def rewrite(fn, lines, glob, models=frozenset()):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--apply', action='store_true'); ap.add_argument('--max', type=int, default=400)
     ap.add_argument('--writes', action='store_true', help='move plain WRITE routes (POST/PUT/DELETE/PATCH; no admin, money or staff words) to rep_more_writes.py')
+    ap.add_argument('--kind', choices=('admin', 'money'), help='move staff/admin routes (no money words) → rep_admin_routes.py, or the money routes → rep_money_routes.py')
     a = ap.parse_args()
-    dst = ROOT / 'backend' / ('rep_more_writes.py' if a.writes else 'rep_more_reads.py'); mod = dst.stem
+    if a.kind:
+        a.writes = True   # body models read as _RSM.Model, the same as the write run
+    dst = ROOT / 'backend' / (f'rep_{a.kind}_routes.py' if a.kind else 'rep_more_writes.py' if a.writes else 'rep_more_reads.py'); mod = dst.stem
     text = SRC.read_text(); lines = text.splitlines(keepends=True); tree = ast.parse(text); glob = module_globals(tree)
     models = frozenset(n.name for n in tree.body if isinstance(n, ast.ClassDef) and any(getattr(b, 'id', '') == 'BaseModel' for b in n.bases)) if a.writes else frozenset()
-    verbs = ('post', 'put', 'delete', 'patch') if a.writes else ('get', 'api_route')
+    verbs = ALL_VERBS if a.kind else ('post', 'put', 'delete', 'patch') if a.writes else ('get', 'api_route')
     moves, skips = [], {}
     pats = []   # every GET path in the app, as a regex: a moved route lands LAST, so it must not be catchable by any other path pattern
     for n in ast.walk(tree):
@@ -217,7 +225,7 @@ def main():
         if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and getattr(d.func.value, 'id', '') == 'app'):
             continue
         src = ''.join(lines[d.lineno - 1:fn.end_lineno])
-        why = check(fn, src, glob - {fn.name}, a.writes, models)
+        why = check(fn, src, glob - {fn.name}, a.writes, models, a.kind)
         me = d.args[0].value if d.args and isinstance(d.args[0], ast.Constant) else ''
         if not why and any(o != me and rx.match(re.sub(r'\{[^}]+\}', 'x1y', me)) for o, rx in pats):
             why = 'another path pattern could catch it once it moves last'
@@ -226,7 +234,7 @@ def main():
             continue
         moves.append(fn)
     moves = moves[:a.max]
-    print(f"move {len(moves)} {'write' if a.writes else 'read'} routes")
+    print(f"move {len(moves)} {a.kind or ('write' if a.writes else 'read')} routes")
     for k, v in sorted(skips.items(), key=lambda kv: -len(kv[1])):
         print(f'  skip {len(v):>3}  {k}')
     if not a.apply:
@@ -241,13 +249,18 @@ def main():
     alias = [f'{n} = _{mod}.{n}\n' for n in names]
     body = ''.join(lines)
     wired = f'app.include_router(_{mod}.router)' in body   # a later run adds to the same module and the same router
-    tail = ('' if wired else f'\nimport {mod} as _{mod}   # noqa: E402  🧩 SITE-5: plain {"write" if a.writes else "read"} routes, moved by scripts/move-routes.py\n'
+    tail = ('' if wired else f'\nimport {mod} as _{mod}   # noqa: E402  🧩 SITE-5: {a.kind or ("plain write" if a.writes else "plain read")} routes, moved by scripts/move-routes.py\n'
             f'app.include_router(_{mod}.router)\n') + ''.join(alias)
     head = ('"""🧩 SITE-5 slice 8 (2026-11-13): plain read routes (GET, no admin, no money, no staff checks), moved out of reputation_service by\n'
             'scripts/move-routes.py. Helpers stay there and are looked up on reputation_service when a route runs, so a test that patches them still works."""\n'
             'from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\n'
             'from typing import Optional  # noqa: F401\n\nrouter = APIRouter()\n\n\ndef _rs():\n    import reputation_service\n    return reputation_service\n\n\n')
-    if a.writes:
+    if a.kind:
+        head = (f'"""🧩 SITE-5 slice 11 (2026-11-14): {a.kind.upper()} routes ({"staff / admin, no money words" if a.kind == "admin" else "signing, sends, quotes, payouts"}), moved out of\n'
+                f'reputation_service by scripts/move-routes.py --kind {a.kind}: byte-for-byte the same bodies (every auth / staff / signed = quoted check kept), helpers\n'
+                'looked up on reputation_service when a route runs, body models read off the loaded service (imported at the END of it)."""\n'
+                'import reputation_service as _RSM  # noqa: E402\n' + head.split('"""\n', 1)[1])
+    elif a.writes:
         head = ('"""🧩 SITE-5 slice 10 (2026-11-13): plain WRITE routes (POST/PUT/DELETE; no admin, money or staff words), moved out of reputation_service by\n'
                 'scripts/move-routes.py --writes. Helpers stay there and are looked up on reputation_service when a route runs; body models are read\n'
                 'off the loaded service (this module is imported at the END of reputation_service, after every model is defined)."""\n'

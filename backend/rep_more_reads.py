@@ -1,6 +1,6 @@
 """🧩 SITE-5 slice 8 (2026-11-13): plain read routes (GET, no admin, no money, no staff checks), moved out of reputation_service by
 scripts/move-routes.py. Helpers stay there and are looked up on reputation_service when a route runs, so a test that patches them still works."""
-from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401
+from fastapi import APIRouter, Query, Request  # noqa: F401
 from typing import Optional  # noqa: F401
 
 router = APIRouter()
