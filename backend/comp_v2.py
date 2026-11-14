@@ -201,7 +201,45 @@ def status(folder=None):
                      'mlx': MLX_PY.exists()},
             'dataset': j('dataset.json'), 'run': {**run, 'running': running, 'done': done, 'curve': curve,
                                                   'error': '' if running else _say(err)},
-            'exam': j('exam.json'), 'market': j('market.json'), 'examRunning': bool((j('exam_run.json', {}) or {}).get('pid')) and alive(j('exam_run.json', {}).get('pid'))}
+            'exam': j('exam.json'), 'race': history(folder, j('exam.json')), 'market': j('market.json'), 'examRunning': bool((j('exam_run.json', {}) or {}).get('pid')) and alive(j('exam_run.json', {}).get('pid'))}
+
+
+def race_row(exam):
+    """🏁 AGX-6: one finished exam → one point per examinee on the race: {at, n, scores: {id: acc}, names: {id: name}, kinds: {id: kind}}."""
+    ex = [e for e in (exam or {}).get('examinees') or [] if (e.get('score') or {}).get('n')]
+    return {'at': int((exam or {}).get('done') or (exam or {}).get('at') or 0), 'n': int((exam or {}).get('n') or 0),
+            'scores': {e['id']: e['score']['acc'] for e in ex}, 'names': {e['id']: str(e.get('name') or e['id'])[:40] for e in ex},
+            'kinds': {e['id']: e.get('kind') or '' for e in ex}}
+
+
+def keep_history(folder, exam):
+    """Appends a finished exam to exam_history.jsonl (once per exam: same `at` never twice)."""
+    row = race_row(exam)
+    if not row['scores']:
+        return False
+    p = Path(folder) / 'exam_history.jsonl'
+    if any(r.get('at') == row['at'] for r in history(folder)):
+        return False
+    with open(p, 'a') as f:
+        f.write(json.dumps(row) + '\n')
+    return True
+
+
+def history(folder=None, exam=None):
+    """Every exam so far, oldest first. An exam that finished before the history existed counts as the first point."""
+    out = []
+    try:
+        for ln in (Path(folder or DATA) / 'exam_history.jsonl').read_text().splitlines():
+            try:
+                out.append(json.loads(ln))
+            except ValueError:
+                continue
+    except OSError:
+        pass
+    if not out and exam and exam.get('done'):
+        r = race_row(exam)
+        out = [r] if r['scores'] else []
+    return sorted(out, key=lambda r: r.get('at') or 0)
 
 
 def _say(err):

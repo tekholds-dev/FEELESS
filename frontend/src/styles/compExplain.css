@@ -17,3 +17,16 @@
 @media (max-width: 640px) { .cex-heads li { grid-template-columns: 26px minmax(0, 1fr); } .cex-heads li small { grid-column: 2; } }
 body.fx-lite .cex-heads li { animation: none; } body.fx-lite .cex-strip span { transition: none; box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .cex-heads li { animation: none; } .cex-strip span { transition: none; } }
+/* 🏁 AGX-6 the race */
+.crc { display: grid; gap: 8px; margin-bottom: 10px; }
+.crc-say { display: flex; align-items: center; gap: 10px; margin: 0; font: 600 13px/1.45 var(--f-ui); color: var(--m-text); }
+.crc-crown { flex: none; display: grid; place-items: center; min-width: 40px; height: 40px; border-radius: 12px; font: 800 15px var(--f-display); color: var(--m-bg); background: var(--m-accent); box-shadow: 0 0 20px color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.crc-crown.is-off { color: var(--m-text); background: var(--m-surface-2); border: 1px solid var(--m-line-hi); box-shadow: none; }
+.crc.is-live .crc-crown { animation: crcPulse 1.6s ease-in-out infinite; }
+.crc-chart { min-width: 0; }
+.crc-key { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.crc-key li { display: inline-flex; align-items: center; gap: 6px; font: 400 11px var(--f-ui); color: var(--m-dim); } .crc-key li.is-comp { color: var(--m-text); font-weight: 700; }
+.crc-key i { width: 14px; height: 3px; border-radius: 3px; background: var(--c); }
+@keyframes crcPulse { 50% { box-shadow: 0 0 4px color-mix(in srgb, var(--m-accent) 20%, transparent); } }
+body.fx-lite .crc.is-live .crc-crown { animation: none; }
+@media (prefers-reduced-motion: reduce) { .crc.is-live .crc-crown { animation: none; } }

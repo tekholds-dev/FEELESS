@@ -4,6 +4,8 @@ import { ProgressCircle } from '@heroui/react';
 import { Brain, Globe, GraduationCap, RefreshCw, Scale, Target, ThumbsUp } from 'lucide-react';
 import { useCountUp } from '../../lib/useCountUp';
 import { examVerdict } from './CompExplain';
+import { CompRace } from './CompRace';
+import '../../styles/compExplain.css';
 
 // 🚀 COMP v2 · 9B (owner 2026-11-12: "see how close or farther it is from being better or same as claude and gpt"). LIVE: Qwen3.5-9B on this
 // Mac, LoRA fine-tuned with MLX on the owner's settled proofs (only what each proof said BEFORE it settled), then examined on held-out proofs
@@ -11,7 +13,7 @@ import { examVerdict } from './CompExplain';
 // unless a flagship key is saved (then at most 40 questions each).
 const tipStyle = { background: '#0e0e12', border: '1px solid #ffffff1f', borderRadius: 8, fontSize: 11, color: '#ececf1' };
 const axis = { fontSize: 10, fill: '#8b8b95' };
-const KIND = { local: 'ON THIS MAC', baseline: 'BASELINE', flagship: 'FLAGSHIP API' };
+const KIND = { local: 'ON THIS MAC', baseline: 'BASELINE', flagship: 'FLAGSHIP API', own: 'ITS OWN LM STUDIO' };
 const pct = v => `${Math.round((v || 0) * 100)}%`;
 function Num({ v, d = 0, suf = '' }) { const n = useCountUp(Number(v) || 0); return <b className="m-num">{n.toFixed(d)}{suf}</b>; }
 
@@ -109,7 +111,7 @@ export function ModelComp2({ call }) {
         <label className="mc2-iters" data-tip="Proofs it studies, one at a time (99 = one pass). More = fits them tighter (and risks memorising)"><small className="m-label">ITERS</small>
           <span className="m-seg" role="group" aria-label="Iterations">{[100, 200, 400].map(n => <button key={n} type="button" className={iters === n ? 'active' : ''} aria-pressed={iters === n} data-tip={`${n} iterations`} onClick={() => setIters(n)} data-testid={`mc2-iters-${n}`}>{n}</button>)}</span></label>
         <button type="button" className="m-btn m-go" disabled={busy || live || !d.base.ready} onClick={() => go('/admin/model-lab/comp2/train', { iters })} data-tip="Rebuilds the rows from your live proofs (same held-out exam) and trains a new adapter here. Takes minutes, costs nothing" data-testid="mc2-train">Train COMP v2</button>
-        <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="Base vs COMP v2 vs baseline vs every flagship whose key is saved, on the same held-out proofs" data-testid="mc2-exam">Run the exam</button>
+        <button type="button" className="m-btn" disabled={busy || live || !ds} onClick={() => go('/admin/model-lab/comp2/exam')} data-tip="Base vs COMP v2 vs baseline vs your OSSY + G4 (each on its own LM Studio, free) vs every flagship whose key is saved, on the same held-out proofs" data-testid="mc2-exam">Run the exam</button>
         {run.running ? <i className="mlb-bar mc2-run" data-tip={`${pct(at)} of the run`}><u style={{ transform: `scaleX(${Math.max(0.02, at)})` }} /></i> : null}
       </div>
       {run.error ? <p className="kd-err">⚠ {run.error}</p> : null}
@@ -119,7 +121,7 @@ export function ModelComp2({ call }) {
     </section>
     <Ways d={d} busy={busy} collect={() => go('/admin/model-lab/comp2/collect')} />
     <section className="mlb-sec"><h4>THE EXAM · SAME HELD-OUT PROOFS FOR EVERYONE<small>{d.examRunning ? 'sitting it now…' : d.exam ? `${d.exam.n} questions · ${new Date(d.exam.at * 1000).toLocaleString()}` : 'not sat yet'}</small></h4>
-      {d.exam ? <>{examVerdict(d.exam) ? <p className="cex-verdict" data-testid="mc2-verdict">{examVerdict(d.exam)}</p> : null}<Board exam={d.exam} /><Kinds exam={d.exam} /></> : <p className="mlb-none">Train it, then run the exam: every examinee answers the same proofs.</p>}
+      <CompRace race={d.race} exam={d.exam} running={d.examRunning} />{d.exam ? <>{examVerdict(d.exam) ? <p className="cex-verdict" data-testid="mc2-verdict">{examVerdict(d.exam)}</p> : null}<Board exam={d.exam} /><Kinds exam={d.exam} /></> : <p className="mlb-none">Train it, then run the exam: every examinee answers the same proofs.</p>}
       <small className="mlb-note">A flagship with no key is blocked, never guessed. Save one in HQ › Agents and run the exam again; it asks at most 40 questions.</small>
     </section>
   </div>;

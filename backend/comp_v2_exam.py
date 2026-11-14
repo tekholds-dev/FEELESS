@@ -1,7 +1,7 @@
 """🎓 COMP v2 exam — run under .venv-mlx: `.venv-mlx/bin/python backend/comp_v2_exam.py backend/data/comp_v2`.
 
 Every examinee answers the same held-out proofs (test_rows.json, never trained on): the base Qwen3.5-9B, COMP v2 (base + the owner's
-LoRA adapter), the always-the-majority baseline, and the flagship APIs when their key is in backend/.env (Claude via the Anthropic SDK,
+LoRA adapter), the always-the-majority baseline, the owner's own OSSY + G4 (each on its own LM Studio, never a fallback), and the flagship APIs when their key is in backend/.env (Claude via the Anthropic SDK,
 GPT and Grok via their HTTP APIs). A flagship with no key is listed as blocked, never scored. exam.json is rewritten after each examinee.
 """
 import json
@@ -27,7 +27,21 @@ def env_keys():
                 keys[k.strip()] = v.strip().strip('"').strip("'")
     except OSError:
         pass
-    return {k: (keys.get(k) or os.environ.get(k) or '') for k in ('ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'OPENAI_MODEL', 'XAI_MODEL')}
+    return {k: (keys.get(k) or os.environ.get(k) or '') for k in ('ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'OPENAI_MODEL', 'XAI_MODEL',
+                                                               'LOCAL_LLM_ENABLED', 'LOCAL_LLM_BASE_URL', 'LOCAL_LLM_MODEL', 'LOCAL_LLM_API_KEY',
+                                                               'LAN_LLM_BASE_URL', 'LAN_LLM_MODEL', 'LAN_LLM_API_KEY')}
+
+
+def own_minds(keys):
+    """🖥 AGX-6: the owner's two judges sit the same exam, each on ITS OWN LM Studio only (never a fallback model, never a paid API):
+    OSSY = LM Studio on this Mac, G4 = LM Studio on the desktop Mac (LAN). → [(id, name, base, model, key, why_blocked)]"""
+    on = str(keys.get('LOCAL_LLM_ENABLED') or '').strip().lower() in ('1', 'true', 'yes', 'on')
+    ossy_base = (keys.get('LOCAL_LLM_BASE_URL') or 'http://127.0.0.1:1234/v1').rstrip('/')
+    g4_base = (keys.get('LAN_LLM_BASE_URL') or '').rstrip('/')
+    return [('ossy', f"OSSY · {(keys.get('LOCAL_LLM_MODEL') or 'qwen2.5-7b-instruct-mlx').split('/')[-1]}", ossy_base, keys.get('LOCAL_LLM_MODEL') or 'qwen2.5-7b-instruct-mlx',
+             keys.get('LOCAL_LLM_API_KEY') or '', None if on else 'off: LOCAL_LLM_ENABLED is not true'),
+            ('g4', f"G4 · {(keys.get('LAN_LLM_MODEL') or 'qwen/qwen3.5-4b').split('/')[-1]}", g4_base, keys.get('LAN_LLM_MODEL') or 'qwen/qwen3.5-4b',
+             keys.get('LAN_LLM_API_KEY') or '', None if g4_base else 'off: LAN_LLM_BASE_URL is not set')]
 
 
 def local_margins(rows_sets, adapter=None, makers=(cv.prompt_of,)):
@@ -113,10 +127,10 @@ def claude_answers(rows, key):
     return out
 
 
-def openai_style(rows, key, base, model):
+def openai_style(rows, key, base, model, timeout=60):
     import httpx
     out = []
-    with httpx.Client(timeout=60, headers={'Authorization': f'Bearer {key}'}) as h:
+    with httpx.Client(timeout=timeout, headers={'Authorization': f'Bearer {key}'} if key else {}) as h:
         for r in rows:
             res = h.post(f'{base}/chat/completions', json={'model': model, 'messages': [
                 {'role': 'system', 'content': cv.SYSTEM}, {'role': 'user', 'content': cv.prompt_of(r)}]})
@@ -166,6 +180,13 @@ def main(folder):
         if len(outs) > 1:
             put_local('comp_mem', 'COMP v2 + memory', outs[1][0], outs[1][1], sec)
     keys = env_keys(); qs = rows[:MAX_FLAGSHIP_Q]
+    for eid, name, base, model, key, why in own_minds(keys):   # 🖥 OSSY + G4: free, on the owner's own machines
+        if why:
+            put({'id': eid, 'name': name, 'kind': 'own', 'blocked': why}); continue
+        try:
+            t0 = time.time(); put({'id': eid, 'name': name, 'kind': 'own', 'score': cv.score(qs, openai_style(qs, key, base, model, timeout=120)), 'seconds': round(time.time() - t0)})
+        except Exception as e:   # noqa: BLE001 — an unreachable desktop never stops the exam
+            put({'id': eid, 'name': name, 'kind': 'own', 'blocked': f'its LM Studio did not answer ({type(e).__name__})'})
     flag = (('claude', 'Claude Opus 5.5', 'ANTHROPIC_API_KEY', lambda k: claude_answers(qs, k)),
             ('gpt', keys['OPENAI_MODEL'] or 'gpt-4o-mini', 'OPENAI_API_KEY',
              lambda k: openai_style(qs, k, 'https://api.openai.com/v1', keys['OPENAI_MODEL'] or 'gpt-4o-mini')),
@@ -180,6 +201,7 @@ def main(folder):
             put({'id': eid, 'name': name, 'kind': 'flagship', 'blocked': f'call failed: {type(e).__name__}'})
     exam['done'] = round(time.time())
     (folder / 'exam.json').write_text(json.dumps(exam))
+    cv.keep_history(folder, exam)   # 🏁 AGX-6: every finished exam joins the race
 
 
 if __name__ == '__main__':
