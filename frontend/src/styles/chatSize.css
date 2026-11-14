@@ -1,0 +1,25 @@
+/* ↕ AGX-3 chat sizes (2026-11-14): Dock · Half (default) · Focus · dragged. Tokens only. */
+.cwb-dash[data-chat='dock'] .cwb-flip-in { height: clamp(300px, 38dvh, 420px); }
+.cwb-dash[data-chat='focus'] .cwb-flip-in { height: max(460px, calc(100dvh - 190px)); }
+.cwb-dash[data-chat='custom'] .cwb-flip-in { height: var(--cwb-h, 480px); }
+.cwb-dash[data-chat='focus'] .cwb-stage { max-height: 64px; overflow: hidden; opacity: .55; transition: opacity .2s; mask-image: linear-gradient(180deg, var(--m-bg) 40%, transparent); }
+.cwb-dash[data-chat='focus'] .cwb-stage:hover { opacity: .9; }
+.cwb-dash[data-chat='focus'] .cwb-deck { grid-template-columns: minmax(0, 1fr); } .cwb-dash[data-chat='focus'] .cwb-deck > :not(.cwb-mid) { display: none; }
+.cwb-talk { position: relative; }
+.csz-grip { position: absolute; z-index: 3; left: 50%; top: 0; width: min(220px, 60%); height: 14px; transform: translateX(-50%); display: grid; place-items: center; cursor: ns-resize; touch-action: none; border-radius: 99px; outline: none; }
+.csz-grip i { display: block; width: 56px; height: 5px; border-radius: 99px; background: color-mix(in srgb, var(--m-accent) 45%, var(--m-line-hi)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-bg) 60%, transparent); transition: transform .16s, background .16s; }
+.csz-grip:hover i, .csz-grip:focus-visible i, .csz-grip.is-drag i { transform: scaleX(1.5); background: var(--m-accent); box-shadow: 0 0 12px color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.csz-grip:focus-visible { box-shadow: 0 0 0 2px var(--m-accent); }
+.csz-grip b { position: absolute; top: 14px; padding: 1px 6px; border-radius: 6px; background: var(--m-surface); border: 1px solid var(--m-line-hi); font-size: 10px; color: var(--m-accent); }
+.csz-seg { display: inline-flex; flex: none; flex-wrap: nowrap; white-space: nowrap; }
+.csz-seg button { min-height: 32px; padding-inline: 8px; font: 600 10px var(--f-tech); letter-spacing: .06em; }
+.cwb-talk-h { user-select: none; }
+@media (max-width: 1100px) {
+  .cwb-dash[data-chat='dock'] .cwb-deck .cwb-talk { height: clamp(300px, 40dvh, 420px); }
+  .cwb-dash[data-chat='focus'] .cwb-deck .cwb-talk { height: max(440px, calc(100dvh - 170px)); }
+  .cwb-dash[data-chat='custom'] .cwb-deck .cwb-talk { height: var(--cwb-h, 480px); }
+}
+@media (max-width: 640px) { .csz-seg button { padding-inline: 8px; } .csz-grip { height: 24px; } .csz-grip i { width: 72px; } }
+body.fx-lite .cwb-dash[data-chat='focus'] .cwb-stage { transition: none; }
+@media (prefers-reduced-motion: reduce) { .csz-grip i, .cwb-dash[data-chat='focus'] .cwb-stage { transition: none; } }
+body.theme-day .csz-grip i { box-shadow: none; }

@@ -41,6 +41,7 @@ import { proofRows } from './ProofsFolder';
 import { MailApp, SiteDoor, SignInFrame, SignInView, SiteTradeCard, TopupCard, TypeBar, WatchFolders } from './SiteDoor';
 import { ProofsFolder, visitorProofs } from './ProofsFolder';
 import ProofPicker from './ProofPicker';
+import { ChatGrip, ChatSizeSeg, useChatSize } from './ChatSize';
 import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { LiveCount, useAgentPool } from './BoostFolder';
@@ -147,16 +148,18 @@ export function IncognitoSwitch({ cat }) {
     data-tip={err || (on ? '🕶 Incognito ON: visitors see no screens — only that it is working' : `🕶 Visitors watch its live screens (never its steps or what it types). Incognito hides them${cat?.incognitoPaid ? '' : ' — $5 once'}.`)}>🕶<span>{on ? 'Private' : 'Public'}</span></button>;
 }
 
-export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat }) {
+export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat, size = null }) {
+  const flipIn = useRef(null); const talk = useRef(null);   // ↕ AGX-3: the box a drag sizes (the talk column below 1100 px, the whole deck above)
+  const measure = () => ((window.innerWidth <= 1100 ? talk.current : flipIn.current)?.offsetHeight || 0);   // ↕ layout px: the desk may be drawn scaled (0.9), a drag must not shrink it
   useEffect(() => { if (!flip) return undefined; const k = e => { if (e.key === 'Escape') setFlip(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [flip, setFlip]);
-  return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div className="cwb-flip-in">
+  return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div ref={flipIn} className="cwb-flip-in">
     <div className="cwb-face ck-cockpit cwb-deck" inert={flip}>
       {left}
       <div className="ck-center cwb-mid">
-        <div className="cwb-talk" data-testid="cwb-cockpit">
-          <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
+        <div ref={talk} className="cwb-talk" data-testid="cwb-cockpit">{size ? <ChatGrip measure={measure} onDrag={size.drag} /> : null}
+          <header className="cwb-talk-h" onDoubleClick={e => { if (size && !e.target.closest('button, input, select, a')) size.toggleFocus(); }} data-tip={size ? 'Double-click: focus the chat (again: back)' : undefined}><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
             <b>Chat with {name || 'its minds'}</b>
-            {cat ? <HiveSwitch cat={cat} /> : null}{cat ? <IncognitoSwitch cat={cat} /> : null}
+            {size ? <ChatSizeSeg size={size.size} pick={size.pick} /> : null}{cat ? <HiveSwitch cat={cat} /> : null}{cat ? <IncognitoSwitch cat={cat} /> : null}
             <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, API keys" data-testid="cwb-flip">
               {FILES_ICON}<span>Files</span><b className="m-num">{count}</b></button></header>
           {children}</div></div>
@@ -1623,7 +1626,8 @@ function WorkbenchLive({ cat }) {
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
-  return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
+  const chatSize = useChatSize();
+  return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench" {...chatSize.attrs}>
     <header className="cwb-head"><span><b><Ic3 e="🧠" />🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
@@ -1635,7 +1639,7 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length, wins.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
+    <DeskFlip cat={cat} size={chatSize} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
         extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <MindNow d={d} w={wins[1]} p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
