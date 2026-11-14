@@ -10,6 +10,9 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q6 · Family pot wallet** (owner note under #4): a pot wallet FEELESS pays raids/hits from (anti-exploit: max 3 hits per family per 12 h) — needs Q2's answer first.
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
+## 2026-11-14
+- terminal.css budget = 497 KB + its STYLE-1 colour palette (516) — owner "yes" to raising it for the tokens. Every other budget still only goes down.
+
 ## 2026-11-13 · Never stop (owner, said twice today)
 - Make the smartest call yourself and keep going: no "should I?" questions mid-run, no pausing between cards. Every call goes under "Judgment calls" in the report so the owner can flip it. Only Hard limits (§1) stop work. Finish the whole build order, then run the free readiness check (FeeCat + OSSY/G4 basic asks, chat + monitors per proof type, PoC image/video reference), then tell the owner it is ready to watch him test.
 - STYLE-1 call: the sweep keeps each page's own accent (page tokens), it does not repaint pages to one palette.

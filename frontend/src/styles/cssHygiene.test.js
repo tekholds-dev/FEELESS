@@ -12,8 +12,8 @@ const dynamic = [...code.matchAll(/([A-Za-z_][\w-]*-)\$\{/g), ...code.matchAll(/
 const used = c => tokens.has(c) || dynamic.some(d => c.startsWith(d));
 
 // KB budgets. Legacy sheets: lower them when you delete CSS, never raise them. meta.css is where new UI lives, so it
-// has its own ceiling — keep presets generic so it stays small.
-const BUDGET = { 'terminal.css': 497, 'command.css': 84, 'trade.css': 6.2, 'meta.css': 68 };
+// has its own ceiling — keep presets generic so it stays small. terminal.css: 497 + its STYLE-1 colour palette (owner yes, 2026-11-14).
+const BUDGET = { 'terminal.css': 516, 'command.css': 84, 'trade.css': 6.2, 'meta.css': 68 };
 
 test.each(fs.readdirSync(__dirname).filter(f => f.endsWith('.css')))('%s has no dead class rules', file => {
   const css = fs.readFileSync(path.join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)|\d+\.\d+/g, '');

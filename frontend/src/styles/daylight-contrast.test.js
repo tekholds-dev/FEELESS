@@ -1,7 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
-const css = fs.readFileSync(path.join(__dirname, 'terminal.css'), 'utf8');
+// STYLE-1: colours live in the sheet's page-token palette (`:root{/* page tokens (STYLE-1) */--T0:#hex;…}`); read the sheet with them resolved
+const raw = fs.readFileSync(path.join(__dirname, 'terminal.css'), 'utf8');
+const pal = Object.fromEntries([...((raw.match(/:root\s*\{\s*\/\* page tokens \(STYLE-1\) \*\/[^}]*\}/) || [''])[0]).matchAll(/(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{3,8})/g)].map(m => [m[1], m[2]]));
+const css = raw.replace(/var\((--[\w-]+)\)/g, (m, k) => pal[k] || m);
 
 function hexRgb(hex) {
   const value = hex.replace('#', '');

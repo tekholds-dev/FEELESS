@@ -39,3 +39,13 @@ def test_palette_lands_after_an_import_whose_url_holds_semicolons():
     css = "@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');\n.a{color:#123456}"
     out, _ = h2t.palette(css, 'q')
     assert out.startswith("@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');\n:root {")
+
+
+def test_compact_palette_short_names_by_use_and_keeps_token_definitions():
+    """terminal.css (2026-11-14): most-used colour gets the shortest name; `--x:#hex` definitions are already tokens and stay literal."""
+    css = ":root{--mint:#9b6bff}\n.a{color:#111;background:#111;border-color:#222}\n.b{color:#111}\n"
+    out, pal = h2t.palette(css, 'T', compact=True)
+    assert pal == {'--T0': '#111', '--T1': '#222'}
+    assert '--mint:#9b6bff' in out and '.a{color:var(--T0);background:var(--T0);border-color:var(--T1)}' in out
+    assert h2t.unpalette(out) == css
+    assert h2t.palette(out, 'T', compact=True)[0] == out

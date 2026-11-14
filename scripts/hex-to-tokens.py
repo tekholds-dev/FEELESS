@@ -10,7 +10,7 @@ The look (lib/looks.js) remaps the tokens, so a converted sheet follows the site
   --check  a.css b.css   count hex per file (exit 0)
   --write  a.css b.css   rewrite in place, print before → after
   --only REGEX           only rules whose selector matches (e.g. '\\.clx-' to convert one surface inside a shared sheet)
-  --palette [--prefix X] a.css …   STYLE-1 mode (the look must NOT change): every colour in a sheet becomes ONE named page token, declared once in a
+  --palette [--prefix X] [--compact] a.css …   STYLE-1 mode (the look must NOT change): every colour in a sheet becomes ONE named page token, declared once in a
                          `:root{}` palette block at the top of that sheet (`--<pfx>-<role><n>: #hex`), and every use reads var(). Pixel-identical
                          by construction; each page keeps its own accents (RULINGS 2026-11-13); a colour is changed in one place.
 meta.css is never touched (it defines the tokens). Comments are left alone.
@@ -130,8 +130,26 @@ def unpalette(css):
 
 LEAD = re.compile(r'''(\s*(?:/\*.*?\*/\s*)*(?:@(?:charset|import)(?:'[^']*'|"[^"]*"|\([^)]*\)|[^;'"(])*;\s*)*)''', re.S)   # a ';' inside url('…wght@400;700') is not the end of the @import
 
-def palette(css, pfx):
-    """→ (new css, {var: hex}). Idempotent: an existing palette block is read and extended, never duplicated."""
+B36 = '0123456789abcdefghijklmnopqrstuvwxyz'
+DECL = re.compile(r'\s*([-\w]+)\s*:[^;]*;?')   # one declaration; group 1 = its property
+
+
+def uses_only(decl):
+    """A rule body minus the custom-property definitions (`--x: #hex` already IS a token; only uses get a page token)."""
+    return DECL.sub(lambda d: '' if d.group(1).startswith('--') else d.group(0), decl)
+
+
+def b36(n):
+    o = ''
+    while True:
+        o = B36[n % 36] + o; n //= 36
+        if not n:
+            return o
+
+
+def palette(css, pfx, compact=False):
+    """→ (new css, {var: hex}). Idempotent: an existing palette block is read and extended, never duplicated.
+    compact: names are `--<pfx><base36>` handed out by use count (most used = shortest) — for a sheet with no KB room for role names."""
     keep = {}
 
     def stash(m):
@@ -147,6 +165,18 @@ def palette(css, pfx):
     body = COMMENT.sub(stash, css)
     body = URL.sub(stash, body)
     names = dict(old); used = {}
+    if compact:
+        freq = {}
+        for m in RULE.finditer(body):
+            for x in HEX.finditer(uses_only(m.group(2))):
+                k = '#' + x.group(1).lower(); freq[k] = freq.get(k, 0) + 1
+        taken = set(names.values()); i = 0
+        for k in sorted(freq, key=lambda k: (-freq[k], k)):
+            if k in names:
+                continue
+            while f'--{pfx}{b36(i)}' in taken:
+                i += 1
+            names[k] = f'--{pfx}{b36(i)}'; taken.add(names[k]); i += 1
 
     def name_of(h):
         h = '#' + h.lower()
@@ -163,20 +193,23 @@ def palette(css, pfx):
 
     def rule(m):
         sel, decl = m.group(1), m.group(2)
-        return sel + '{' + HEX.sub(lambda x: f'var({name_of(x.group(1))})', decl) + '}'
+        if not compact:
+            return sel + '{' + HEX.sub(lambda x: f'var({name_of(x.group(1))})', decl) + '}'
+        return sel + '{' + DECL.sub(lambda d: d.group(0) if d.group(1).startswith('--') else HEX.sub(lambda x: f'var({name_of(x.group(1))})', d.group(0)), decl) + '}'
     body = RULE.sub(rule, body)
     for k in sorted(keep, key=lambda k: -int(k.strip('\0'))):
         body = body.replace(k, keep[k])
     if not names:
         return body, {}
-    block = ':root { /* page tokens (STYLE-1) */ ' + ' '.join(f'{v}: {h};' for h, v in sorted(names.items(), key=lambda kv: kv[1])) + ' }\n'
+    sep, gap = ('', '') if compact else (' ', ' ')
+    block = ':root {' + gap + '/* page tokens (STYLE-1) */' + gap + sep.join(f'{v}:{gap}{h};' for h, v in sorted(names.items(), key=lambda kv: kv[1])) + gap + '}\n'
     lead = LEAD.match(body).group(1)
     return lead + block + body[len(lead):], {v: h for h, v in names.items()}
 
 
 def main(argv):
     if argv and argv[0] == '--palette':
-        pfx = None
+        pfx = None; compact = '--compact' in argv; argv = [a for a in argv if a != '--compact']
         if '--prefix' in argv:   # a shorter prefix for a sheet whose KB budget has no room for the default one
             i = argv.index('--prefix'); pfx = argv[i + 1]; argv = argv[:i] + argv[i + 2:]
         for f in argv[1:]:
@@ -184,10 +217,11 @@ def main(argv):
             if p.name == 'meta.css':
                 print(f'{f}: skipped (defines the tokens)'); continue
             use = pfx or prefix(p.name)
-            clash = [o.name for o in p.parent.glob('*.css') if o != p and re.search(rf'--{re.escape(use)}-[a-z0-9]{{2}}\d+\s*:', o.read_text())]
+            pat = rf'--{re.escape(use)}[0-9a-z]+\s*:' if compact else rf'--{re.escape(use)}-[a-z0-9]{{2}}\d+\s*:'
+            clash = [o.name for o in p.parent.glob('*.css') if o != p and re.search(pat, o.read_text())]
             if clash:   # page tokens live on :root, so two sheets sharing a prefix would overwrite each other's colours
                 print(f'{f}: prefix {use!r} already used by {", ".join(clash)} — pick another'); return 1
-            css = p.read_text(); out, pal = palette(css, use)
+            css = p.read_text(); out, pal = palette(css, use, compact)
             p.write_text(out)
             print(f'{f}: {outside(css)} → {outside(out)} hex outside the palette · {len(pal)} page tokens')
         return 0
