@@ -90,11 +90,14 @@ export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, on
     const c = cv.current; if (!c) return undefined; const ctx = c.getContext?.('2d'); if (!ctx) return undefined;
     let raf = 0; let alive = true; const start = performance.now() - ((Date.now() - t0) || 0);
     const size = () => { const r = c.getBoundingClientRect(); const dpr = Math.min(2, window.devicePixelRatio || 1); c.width = Math.max(1, r.width * dpr); c.height = Math.max(1, r.height * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); return r; };
+    // the open band (canvas px) between the step row and the vitals — the data scene draws only there, never under a panel
+    const band = () => { const b = box.current; const top = b?.querySelector('.pl-steps') || b?.querySelector('.pl-top'); const vit = b?.querySelector('.pl-vitals');
+      if (!top || !vit) return null; const c0 = c.getBoundingClientRect().top; return [top.getBoundingClientRect().bottom - c0 + 6, vit.getBoundingClientRect().top - c0 - 6]; };
     let r = size(); const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { r = size(); }) : null; ro?.observe(c);
     let shownScene = '';
     const frame = now_ => { if (!alive) return; const t = (now_ - start) / 1000;
       energy.current = Math.max(0, energy.current - 0.012);
-      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd, data: dataRef.current });
+      const out = drawFrame(ctx, { w: r.width, h: r.height, t, kind, look, energy: energy.current, rnd, data: dataRef.current, band: band() });
       if (out.scene !== shownScene) { shownScene = out.scene; setScene(out.scene); }
       if (!isCalm() && on && !document.hidden) raf = requestAnimationFrame(frame); };
     frame(performance.now());

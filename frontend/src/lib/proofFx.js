@@ -107,9 +107,9 @@ function talk(c, s) {   // both minds' own words, newest rising from the bottom,
 talk.ready = d => (d.talk || []).length > 0;
 
 function steps(c, s) {   // the real steps its windows took, as a scanning log; the newest step is lit
-  const { w, h, t, p, e, data } = s; const rows = data.steps.slice(-10); c.font = '11px "JetBrains Mono", monospace';
+  const { w, h, t, p, e, data } = s; const rh = Math.max(15, (h - 30) / 10); const rows = data.steps.slice(-Math.max(1, Math.min(10, Math.floor((h - 8) / rh)))); c.font = '11px "JetBrains Mono", monospace';
   const by = ((t * 0.3) % 1) * h;
-  rows.forEach((r, i) => { const y = 22 + i * ((h - 30) / 10); const last = i === rows.length - 1; const read = y < by || last;
+  rows.forEach((r, i) => { const y = 16 + i * rh; const last = i === rows.length - 1; const read = y < by || last;
     c.fillStyle = a(last ? p[1] : '#ffffff', last ? 0.95 : read ? 0.6 : 0.3); const txt = `${r.mind != null ? 'AB'[r.mind] || '·' : '·'}  ${String(r.text || '').replace(/\s+/g, ' ')}`;
     c.fillText(txt.length > (w - 20) / 6.6 ? `${txt.slice(0, Math.floor((w - 20) / 6.6) - 1)}…` : txt, 12, y);
     if (last) { c.fillStyle = a(p[1], 0.18 + e * 0.4); c.fillRect(4, y - 12, w - 8, 17); } });
@@ -194,16 +194,21 @@ export function pickLook(kind, seed) {
 export const readyScenes = (kind, data) => (SCENES[kind] || SCENES.work).filter(f => f.ready(data || {}));
 export function sceneName(kind, look, t, data) { const list = readyScenes(kind, data); return list.length ? list[(look.scene + Math.floor(t / ROTATE)) % list.length].name : ''; }
 
-export function drawFrame(ctx, { w, h, t, kind, look, energy = 0, rnd, data = {} }) {
+export function drawFrame(ctx, { w, h, t, kind, look, energy = 0, rnd, data = {}, band = null }) {
   const k = SCENES[kind] ? kind : 'work'; const p = PALETTES[k][look.pal % PALETTES[k].length];
   const s = { w, h, t, p, e: energy, r: rnd, data };
   if (!(w > 4 && h > 4)) return { scene: '', bg: '', fg: '' };   // a 0px canvas (hidden / still opening) makes x % w = NaN and the gradients throw
   ctx.clearRect(0, 0, w, h);
   BG[look.bg % BG.length](ctx, s);
   const list = readyScenes(k, data); let name = '';
+  // 🐞 2026-11-14: the data scene draws only in the open band between the step row and the vitals (its ENTRY / price labels used to land
+  // under the vitals and the chat line); backgrounds + foregrounds still fill the whole stage
+  const [y0, y1] = band && band[1] - band[0] >= 60 ? band : [0, h];
+  ctx.save(); if (y0 > 0 || y1 < h) { ctx.translate(0, y0); ctx.beginPath(); ctx.rect(0, 0, w, y1 - y0); ctx.clip(); s.h = y1 - y0; }
   if (list.length) { const step = Math.floor(t / ROTATE); const into = (t % ROTATE) / ROTATE; const cur = list[(look.scene + step) % list.length];
     if (into < 0.06 && step > 0 && list.length > 1) { ctx.globalAlpha = 1 - into / 0.06; list[(look.scene + step - 1) % list.length](ctx, s); ctx.globalAlpha = into / 0.06; }
     cur(ctx, s); ctx.globalAlpha = 1; name = cur.name; }
+  ctx.restore(); s.h = h;
   FG[look.fg % FG.length](ctx, s);
   return { scene: name, bg: BG[look.bg % BG.length].name, fg: FG[look.fg % FG.length].name };
 }

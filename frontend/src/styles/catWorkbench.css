@@ -374,6 +374,12 @@ body.fx-lite .dsk-src li { animation: none; } @media (prefers-reduced-motion: re
 .cwb-powpnl-band { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px !important; } .cwb-powpnl-band u { position: relative; height: 6px; border-radius: 6px; background: linear-gradient(90deg, var(--pcw-dg1), var(--pcw-wn6) 29%, var(--pcw-ac22)); }
 .cwb-powpnl-band s { position: absolute; left: -5px; top: -3px; width: 12px; height: 12px; border-radius: 50%; background: var(--pcw-tx3); box-shadow: 0 0 8px var(--pcw-tx3); transition: transform .6s; }
 @media (max-width: 640px) { .cwb-powpnl { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cwb-powpnl-band { grid-column: 1 / -1; } }
+/* 🐞 2026-11-14: the monitor is narrower than the window — 6 auto columns in a ~500px monitor spilled every value into its neighbour. The grid
+   is 3 columns at every monitor width (entry → now takes two, the stop/target band its own row); nothing spills. */
+.cwb-powpnl { right: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cwb-powpnl > span:nth-child(2) { grid-column: span 2; }
+.cwb-powpnl-band { grid-column: 1 / -1; }
+.cwb-powpnl b, .cwb-powpnl small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .cwb-powpnl-band s { transition: none; } }
 .cwb-powscr-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .cwb-powscr-h b { color: var(--pcw-tx3); font: 700 12px var(--f-ui); } .cwb-powscr-h em { padding: 2px 8px; border-radius: 99px; background: var(--pcw-ac21); color: var(--pcw-ac22); font: 800 9px var(--f-mono); letter-spacing: .12em; font-style: normal; animation: dskStep 1.4s ease-in-out infinite; }
 .cwb-powscr-h { padding: 4px 8px; border-radius: 9px; background: var(--pcw-bg25); } .cwb-powscr-h strong { color: var(--pcw-wn16); font: 800 12px var(--f-tech); } .cwb-powscr-h small { color: var(--pcw-ac17); font: 700 9.5px var(--f-mono); }
