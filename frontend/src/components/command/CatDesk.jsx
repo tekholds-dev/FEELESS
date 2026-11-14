@@ -213,7 +213,7 @@ function RuleWindows({ cat, canEdit = false }) {
 }
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
 // A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
-function LiveMinds({ cat, onAct, busy, canEdit = true, onBrains }) {
+function LiveMinds({ cat, onAct, busy, canEdit = true, onBrains, onProofs }) {
   const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
   const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running'; const ev = useCatEvents(gen ? null : cat.id);
   const log = useMemo(() => catLogItems(cat, ev), [cat, ev]);
@@ -222,7 +222,7 @@ function LiveMinds({ cat, onAct, busy, canEdit = true, onBrains }) {
   const chat = <TradeChat cat={cat} busy={busy} onSend={canEdit ? async (t, to) => { await onAct('talk', { text: t, to: to || 'both' }); return true; } : null} />;
   return <>
     <AgentLive locked={!canEdit} title={`LIVE · ${cat.name}'s two brains`} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />
-    {canEdit ? <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={on} count={log.length} cloud={<HeadCloud items={x.cloud} />}
+    {canEdit ? <DeskFlip cat={cat} onProofs={onProofs} flip={flip} setFlip={setFlip} name={cat.name} live={on} count={log.length} cloud={<HeadCloud items={x.cloud} />}
       left={<MindVitals cat={cat} model={x.brains[0]} i={0} live={on} onOpen={onBrains} />} right={<MindVitals cat={cat} model={x.brains[1]} i={1} live={on} onOpen={onBrains} />}
       back={<TraderCabinet cat={cat} items={log} />}>{chat}</DeskFlip>
       : <><div className="ck-cockpit" data-testid="kd-cockpit">
@@ -363,7 +363,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     {pubTabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['live', '📡 LIVE', 'Its windows and what it is doing now'], ['record', '📒 RECORD', 'Its trades and its record'], ...(Tools ? [['tools', '🧰 TOOLS', 'What it runs for everyone']] : [])].map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={pubTab === k} className={pubTab === k ? 'active' : ''} onClick={() => setPubTab(k)} data-tip={tip} data-testid={`kd-pub-${k}`}><Ic3Text text={l} /></button>)}</nav> : null}
     {visitor ? <PublicVitals cat={cat} /> : null}
-    {!on('desk') || (pubTabbed && pubTab !== 'live') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
+    {!on('desk') || (pubTabbed && pubTab !== 'live') ? null : <div className="kd-lit"><Lamp active={lampOn} />{cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} onBrains={tabbed ? () => setDeskAt('brains') : undefined} onProofs={tabbed ? () => setDeskAt('picker') : undefined} /> : <RuleWindows cat={cat} canEdit={canEdit} />}</div>}
     {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
     {visitor || tabbed || (pubTabbed && pubTab !== 'record') ? null : <div className={`kd-grid${runs ? '' : ' is-solo'}`}>{mainPane}{sidePane}</div>}
     {pubTabbed && pubTab !== 'tools' ? null : Tools}

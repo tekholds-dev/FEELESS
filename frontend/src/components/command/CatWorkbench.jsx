@@ -149,7 +149,7 @@ export function IncognitoSwitch({ cat }) {
     data-tip={err || (on ? '🕶 Incognito ON: visitors see no screens — only that it is working' : `🕶 Visitors watch its live screens (never its steps or what it types). Incognito hides them${cat?.incognitoPaid ? '' : ' — $5 once'}.`)}>🕶<span>{on ? 'Private' : 'Public'}</span></button>;
 }
 
-export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat, size = null }) {
+export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat, size = null, onProofs = null }) {
   const flipIn = useRef(null); const talk = useRef(null);   // ↕ AGX-3: the box a drag sizes (the talk column below 1100 px, the whole deck above)
   const measure = () => ((window.innerWidth <= 1100 ? talk.current : flipIn.current)?.offsetHeight || 0);   // ↕ layout px: the desk may be drawn scaled (0.9), a drag must not shrink it
   useEffect(() => { if (!flip) return undefined; const k = e => { if (e.key === 'Escape') setFlip(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [flip, setFlip]);
@@ -161,6 +161,7 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
           <header className="cwb-talk-h" onDoubleClick={e => { if (size && !e.target.closest('button, input, select, a')) size.toggleFocus(); }} data-tip={size ? 'Double-click: focus the chat (again: back)' : undefined}><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
             <b>Chat with {name || 'its minds'}</b>
             {size ? <ChatSizeSeg size={size.size} pick={size.pick} /> : null}{cat ? <HiveSwitch cat={cat} /> : null}{cat ? <IncognitoSwitch cat={cat} /> : null}
+            {onProofs ? <button type="button" className="cwb-flip-btn cwb-proofs" onClick={onProofs} aria-label="Pick any proof it filed" data-tip="Every proof it filed, by type (PoW · PoP · PoB · PoC · PoStatic · PoEco): pick one and it opens in its desk window" data-testid="cwb-proofs"><Ic3 e="🎯" /><span>Proofs</span></button> : null}
             <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, API keys" data-testid="cwb-flip">
               {FILES_ICON}<span>Files</span><b className="m-num">{count}</b></button></header>
           {children}</div></div>
@@ -1360,7 +1361,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   useEffect(() => { let on = true; Promise.resolve().then(() => work(cat.id, { op: 'desk_apps' })).then(j => on && setDeskApps(j?.apps || [])).catch(() => {}); return () => { on = false; }; }, [cat.id, work]);   // 📲 builds and games kept on the desktop
   const appTiles = deskApps.map(a => ({ k: `app-${a.ws}`, ic: '🎮', label: a.name, tip: `Opens ${a.name}, running`, ws: a.ws }));
   const extra = [...pageApps.filter(a => a.k !== 'wallet'), ...extraProp, ...appTiles]; const apps = [...ICONS, ...extra.map(a => [a.k, a.ic, a.label])];
-  const [tour, setTour] = useState(() => !live && process.env.NODE_ENV !== 'test' && !tourSeen());
+  const [tour, setTour] = useState(() => !live && start !== 'picker' && process.env.NODE_ENV !== 'test' && !tourSeen());   // came for a proof: no tour on top of the picker
   useEffect(() => { const go = () => setTour(true); window.addEventListener('feeless:desk-tour', go); return () => window.removeEventListener('feeless:desk-tour', go); }, []);
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
     debate: { open: false, min: false, max: false, x: 150, y: 40 }, tests: { open: false, min: false, max: false, x: 150, y: 40 }, watch: { open: false, min: false, max: false, x: 130, y: 36 }, app: { open: false, min: false, max: false, x: 120, y: 30 },
@@ -1374,9 +1375,9 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const set = useCallback((k, p) => setW(x => deskSet(x, k, p)), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  useEffect(() => { if (start && typeof start === 'object') openProof(start); else if (start && start !== 'none' && start !== 'approve') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (start && typeof start === 'object') openProof(start); else if (start && start !== 'none' && start !== 'approve' && start !== 'picker') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   // 🎯 AGX-1: ⌘K / Ctrl+K opens the proof picker; a picked proof opens IN its desk window (focus = which file, `at` re-fires the same one)
-  const [picker, setPicker] = useState(false); const [focus, setFocus] = useState(null); const [replay, setReplay] = useState(false);   // ⏪ AGX-8
+  const [picker, setPicker] = useState(start === 'picker'); const [focus, setFocus] = useState(null); const [replay, setReplay] = useState(false);   // ⏪ AGX-8
   const [inbox, setInbox] = useState(start === 'approve'); const [apRows, apDecide, apErr] = useApprovals(cat?.id, work);   // ✅ AGX-10
   const openProof = useCallback(({ win, id }) => { setPicker(false); setFocus({ win, id, at: Date.now() }); openWin(win); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setPicker(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
@@ -1646,7 +1647,7 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length, wins.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <DeskFlip cat={cat} size={chatSize} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
+    <DeskFlip cat={cat} size={chatSize} onProofs={() => setDesk('picker')} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
         extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <MindNow d={d} w={wins[1]} p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked

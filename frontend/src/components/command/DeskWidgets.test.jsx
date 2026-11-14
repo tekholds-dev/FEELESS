@@ -23,3 +23,17 @@ test('🧾 the desk vitals: every widget opens a real window, and the minds show
   expect(kindRows({ psFolders: [{ graded: 'right' }, { graded: 'wrong' }, { hidden: true }], poeFolders: [{ net: 5 }] })).toEqual([{ k: 'PoStatic', n: 2, w: 1, l: 1 }, { k: 'PoEco', n: 1, w: 1, l: 0 }]);
   act(() => root.unmount()); el.remove();
 });
+
+test('🎯 the chat desk Proofs button opens the desktop straight on the proof picker', async () => {
+  const { AgentDesktop, DeskFlip } = require('./CatWorkbench');
+  global.fetch = async () => ({ ok: true, json: async () => ({}) }); window.matchMedia = window.matchMedia || (() => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onProofs = jest.fn();
+  await act(async () => { root.render(<DeskFlip flip={false} setFlip={() => {}} name="Fee" count={3} onProofs={onProofs}><p>chat</p></DeskFlip>); });
+  await act(async () => { el.querySelector('[data-testid="cwb-proofs"]').click(); });
+  expect(onProofs).toHaveBeenCalled();
+  await act(async () => { root.render(<DeskFlip flip={false} setFlip={() => {}} name="Fee" count={3}><p>chat</p></DeskFlip>); });
+  expect(el.querySelector('[data-testid="cwb-proofs"]')).toBeNull();   // visitors: no button
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['a', 'b'] } }} start="picker" onClose={() => {}} />); });
+  expect(document.querySelector('[data-testid="proof-picker"]')).not.toBeNull();
+  act(() => root.unmount()); el.remove();
+});
