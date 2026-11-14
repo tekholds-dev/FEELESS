@@ -128,6 +128,8 @@ def unpalette(css):
     return re.sub(r'var\((--[\w-]+)\)', lambda m: pal.get(m.group(1), m.group(0)), body)
 
 
+LEAD = re.compile(r'''(\s*(?:/\*.*?\*/\s*)*(?:@(?:charset|import)(?:'[^']*'|"[^"]*"|\([^)]*\)|[^;'"(])*;\s*)*)''', re.S)   # a ';' inside url('…wght@400;700') is not the end of the @import
+
 def palette(css, pfx):
     """→ (new css, {var: hex}). Idempotent: an existing palette block is read and extended, never duplicated."""
     keep = {}
@@ -168,7 +170,7 @@ def palette(css, pfx):
     if not names:
         return body, {}
     block = ':root { /* page tokens (STYLE-1) */ ' + ' '.join(f'{v}: {h};' for h, v in sorted(names.items(), key=lambda kv: kv[1])) + ' }\n'
-    lead = re.match(r'(\s*(?:/\*.*?\*/\s*)*(?:@(?:charset|import)[^;]*;\s*)*)', body, re.S).group(1)
+    lead = LEAD.match(body).group(1)
     return lead + block + body[len(lead):], {v: h for h, v in names.items()}
 
 

@@ -33,3 +33,9 @@ def test_palette_mode_is_pixel_identical_and_idempotent():
     assert H.unpalette(out).replace('#ff0000', '#FF0000', 1) == css or H.unpalette(out).lower() == css.lower()
     assert H.palette(out, 'xy')[0] == out                             # a second run changes nothing
     assert H.prefix('catWorkbench.css') == 'cw' and H.prefix('boosts.css') == 'boo'
+
+
+def test_palette_lands_after_an_import_whose_url_holds_semicolons():
+    css = "@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');\n.a{color:#123456}"
+    out, _ = h2t.palette(css, 'q')
+    assert out.startswith("@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&display=swap');\n:root {")
