@@ -100,3 +100,20 @@ test('🎨 POC-PLAY: a done picture or video opens the playground, and Save file
   expect(q('media-play')).toBeNull(); act(() => root.unmount());                         // not until it is done
   ({ root } = await mount(<MediaCard m={{ media: img }} />)); expect(q('media-play')).toBeNull(); act(() => root.unmount());   // read-only card: no playground
 });
+
+test('📎 a reference is added by link and an image keeps the picked reference', async () => {
+  const doc = { id: 'w1', messages: [{ media: { id: 'mref1', kind: 'image', status: 'done', url: '/api/cats/media/c1/mref1.png', prompt: 'my mascot' } }] };
+  const work = jest.fn(async (_id, p) => (p.op === 'media_models' ? { models: MODELS, linked: ['fal'], pick: { image: 'fal-flux-schnell', video: 'fal-wan22-5b' }, providers: PROV } : { doc, id: 'mref2' }));
+  const { root } = await mount(<MediaButton cat={{ id: 'c1' }} row={{ id: 'w1' }} work={work} doc={doc} setDoc={() => {}} />);
+  await act(async () => q('media-open').click()); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const link = q('media-ref-link'); await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(link, 'https://x.example/hero.png'); link.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => link.form.requestSubmit());
+  expect(work).toHaveBeenCalledWith('c1', { op: 'media_ref', job: 'w1', text: 'https://x.example/hero.png' });
+  await act(async () => q('media-kind-image').click());
+  await act(async () => q('media-ref-mref1').click());
+  const ta = q('media-text') || document.querySelector('[aria-label="What to make"]');
+  await act(async () => { Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, 'him on a beach'); ta.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => q('media-make').click());
+  expect(work).toHaveBeenLastCalledWith('c1', { op: 'media_make', job: 'w1', text: 'him on a beach', tools: { kind: 'image', model: 'fal-flux-schnell', ref: 'mref1' } });
+  act(() => root.unmount());
+});

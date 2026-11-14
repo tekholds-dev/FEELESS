@@ -80,3 +80,36 @@ def test_a_recorded_clip_is_checked_and_files_as_a_video_version(monkeypatch, tm
     md = doc['messages'][-1]['media']
     assert md['kind'] == 'video' and md['url'].endswith('.mp4') and md['from'] == 'mv' and md['usd'] == 0
     assert (tmp_path / 'c1' / f"{out['id']}.mp4").read_bytes() == mp4 and doc['messages'][0]['media']['id'] == 'mv'
+
+
+def test_references_join_the_folder_and_images_keep_the_exact_character(monkeypatch, tmp_path):
+    """POC-PLAY item 6: upload a reference ($0) → make it the character → an image make sends it to the model with the keep-exact rule."""
+    import feecat_service as fs
+    import media_gen as mg
+    cat = {'id': 'c1', 'pocFolders': []}; store = {'cats': {'c1': cat}}
+    doc = {'id': 'w1', 'kind': 'content', 'messages': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs, '_owner_gate', lambda *a, **k: None)
+    monkeypatch.setattr(fs, '_ws_load', lambda cid, ws: doc if ws == 'w1' else None)
+    monkeypatch.setattr(fs, '_ws_save', lambda cid, d: doc.update(d))
+    monkeypatch.setattr(fs, '_ws_view', lambda cid, ws: {'messages': doc['messages']})
+    monkeypatch.setattr(fs, '_media_dir', lambda: tmp_path)
+    W = lambda **k: asyncio.run(fs._cat_work('c1', fs.WorkPayload(job='w1', session='s', **k)))
+    out = W(op='media_ref', text='data:image/png;base64,' + base64.b64encode(_png()).decode(), tools={'note': 'my mascot'})
+    md = doc['messages'][-1]['media']
+    assert md['provider'] == 'reference' and md['status'] == 'done' and md['usd'] == 0 and md['prompt'] == 'my mascot' and (tmp_path / 'c1' / f"{out['id']}.png").is_file()
+    for bad in ('data:text/html;base64,PGgxPg==', 'http://127.0.0.1/x.png'):
+        with pytest.raises(fs.HTTPException):
+            W(op='media_ref', text=bad)
+    with pytest.raises(fs.HTTPException):                                   # a private address is never fetched
+        W(op='media_ref', text='https://127.0.0.1/x.png')
+    W(op='media_char', text=out['id'])
+    monkeypatch.setattr(fs._ck, 'public', lambda c: [{'provider': 'openrouter', 'saved': True}])
+    monkeypatch.setattr(fs.asyncio, 'create_task', lambda c: c.close())
+    W(op='media_make', text='him on a beach', tools={'kind': 'image', 'model': 'or-nano-banana'})
+    made = doc['messages'][-1]['media']
+    assert made['refs'] == [{'mid': out['id'], 'url': md['url']}]                    # the folder's character rides on the image
+    sent = mg.ref_content(made['prompt'], fs._media_refs('c1', made))
+    assert sent[0]['text'].startswith('him on a beach') and 'EXACT same character' in sent[0]['text'] and sent[1]['image_url']['url'].startswith('data:image/png;base64,')
+    W(op='media_make', text='just a beach', tools={'kind': 'image', 'model': 'or-nano-banana', 'noChar': True})
+    assert 'refs' not in doc['messages'][-1]['media'] and mg.ref_content('x', []) == 'x'

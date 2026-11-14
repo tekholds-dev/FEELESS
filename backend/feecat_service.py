@@ -7704,6 +7704,17 @@ def _media_house_add(usd):
     book[d] = round(float(book.get(d, 0)) + usd, 4); MEDIA_HOUSE_PATH.write_text(json.dumps(book))
 
 
+def _media_refs(cat_id, md):
+    """The make's reference pictures as data URLs, read fresh from disk (never stored in the sealed doc)."""
+    out = []
+    for r_ in md.get('refs') or []:
+        f_ = _media_dir() / cat_id / str(r_.get('url') or '').rsplit('/', 1)[-1]
+        if _mg.NAME.fullmatch(f_.name) and f_.is_file():
+            e_ = f_.suffix.lstrip('.').lower()
+            out.append(f"data:image/{'jpeg' if e_ in ('jpg', 'jpeg') else e_};base64,{base64.b64encode(f_.read_bytes()).decode()}")
+    return out
+
+
 async def _media_run(cat_id, ws_id, mid):
     """🎬 One image or video: submit on the owner's own key, poll, keep the file. Every step is written to the folder, so the page shows the truth."""
     if mid in _MEDIA_LIVE:
@@ -7721,7 +7732,7 @@ async def _media_run(cat_id, ws_id, mid):
         async with httpx.AsyncClient(timeout=60, follow_redirects=True) as h:
             if md['provider'] == 'openrouter' and md['kind'] == 'image':   # 🖼 OpenRouter images come back in one answer (base64), no job to poll
                 r = await h.post('https://openrouter.ai/api/v1/chat/completions', timeout=180, headers={'Authorization': f'Bearer {key}', 'Content-Type': 'application/json'},
-                                 json={'model': md['model'], 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': md['prompt']}]})
+                                 json={'model': md['model'], 'modalities': ['image', 'text'], 'messages': [{'role': 'user', 'content': _mg.ref_content(md['prompt'], _media_refs(cat_id, md))}]})
                 j_ = r.json() if r.headers.get('content-type', '').startswith('application/json') else {}
                 im_ = (((j_.get('choices') or [{}])[0].get('message') or {}).get('images') or [{}])[0].get('image_url', {}).get('url', '')
                 mt_ = re.match(r'data:image/(png|jpe?g|webp);base64,(.+)', im_, re.S)
@@ -10133,12 +10144,24 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             from_ = {'mid': img_, 'url': smd_['url']}
+        refs_ = []   # 👤 POC-PLAY item 6: an IMAGE keeps a reference's exact look — a picked reference, else the folder's character
+        if kind_ == 'image':
+            want_ = [str(x) for x in (t_.get('refs') or ([t_['ref']] if t_.get('ref') else [])) if x][:3]
+            if not want_ and (doc_.get('character') or {}).get('mid') and not t_.get('noChar'):
+                want_ = [str(doc_['character']['mid'])]
+            for r_ in want_:
+                rmd_ = (_media_msg(doc_, r_) or {}).get('media') or {}
+                if rmd_.get('status') != 'done' or rmd_.get('kind') != 'image' or not str(rmd_.get('url') or '').startswith('/api/cats/media/'):
+                    raise HTTPException(400, 'A reference must be a finished picture in this folder.')
+                refs_.append({'mid': r_, 'url': rmd_['url']})
+            if refs_ and prov_ != 'openrouter':
+                raise HTTPException(400, 'Only the OpenRouter picture models keep a reference. Pick Nano Banana, Gemini Flash Image or GPT-5 Image.')
         if sum(1 for m in doc_.get('messages') or [] if (m.get('media') or {}).get('status') in ('queued', 'running')) >= 3:
             raise HTTPException(429, 'Three are already making. Wait for one to finish.')
         jid = 'm' + uuid.uuid4().hex[:12]; row_ = _mg.MODELS[mid_]
         doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': prompt_, 'at': round(time.time()),
             'media': {'id': jid, 'kind': kind_, 'provider': prov_, 'model': model_, 'modelId': mid_, 'label': row_[3], 'usd': row_[5], 'prompt': prompt_, 'status': 'queued', 'at': round(time.time()),
-                      **({'house': True} if on_house else {}), **({'preset': str(t_['preset'])} if t_.get('preset') else {}), **({'fromImg': from_} if from_ else {})}}]
+                      **({'house': True} if on_house else {}), **({'preset': str(t_['preset'])} if t_.get('preset') else {}), **({'fromImg': from_} if from_ else {}), **({'refs': refs_} if refs_ else {})}}]
         if on_house:
             _media_house_add(float(row_[5] or 0.5))   # booked up front at the list price, so two clicks can't both slip under the cap
         _ws_save(cat_id, doc_)
@@ -10160,6 +10183,35 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         msg_ = {'by': 'Media', 'text': prompt_, 'at': now_, 'media': {'id': jid, 'kind': _pplay.kind_of(ext_), 'provider': 'playground', 'model': 'Konva canvas' if _pplay.kind_of(ext_) == 'image' else 'Konva canvas + browser recorder', 'label': _pplay.version_label(doc_.get('messages'), t_.get('template')),
                 'usd': 0, 'prompt': prompt_, 'status': 'queued', 'at': now_, **({'from': src_} if smd_ else {}), **({'template': t_['template']} if t_.get('template') in _pplay.TEMPLATES else {})}}
         _media_set(cat_id, p.job, jid, keep=msg_, status='done', url=f'/api/cats/media/{cat_id}/{jid}.{ext_}', doneAt=now_)   # also joins a filed PoC of this folder
+        return {'doc': _ws_view(cat_id, p.job), 'id': jid}
+    if p.op == 'media_ref':   # 📎 POC-PLAY item 6: a reference picture / video (upload or https link) joins this PoC folder, $0, nothing made
+        doc_ = _ws_load(cat_id, p.job)
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'References live in a PoC folder.')
+        src_ = str(p.text or '').strip(); t_ = p.tools if isinstance(p.tools, dict) else {}
+        if re.match(r'^https://', src_):
+            try:
+                await _cp.public_url(src_)
+                async with httpx.AsyncClient(timeout=20, follow_redirects=False) as h_:
+                    r_ = await h_.get(src_, headers={'User-Agent': 'FEELESS-reference/1.0'})
+                ct_ = r_.headers.get('content-type', '').split(';')[0].strip().lower()
+                if r_.status_code != 200 or not re.fullmatch(r'image/(png|jpeg|webp)|video/(mp4|webm)', ct_):
+                    raise ValueError('That link is not a PNG, JPG, WebP, MP4 or WebM file.')
+                if len(r_.content) > _pplay.MAX_CLIP:
+                    raise ValueError('That file is too big.')
+                src_ = f'data:{ct_};base64,{base64.b64encode(r_.content).decode()}'
+            except (ValueError, httpx.HTTPError) as e:
+                raise HTTPException(400, str(e) if isinstance(e, ValueError) else 'That link did not answer.')
+        try:
+            raw_, ext_ = _pplay.decode(src_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        jid = 'm' + uuid.uuid4().hex[:12]; now_ = round(time.time()); kind_ = _pplay.kind_of(ext_)
+        (_media_dir() / cat_id).mkdir(parents=True, exist_ok=True); (_media_dir() / cat_id / f'{jid}.{ext_}').write_bytes(raw_)
+        note_ = re.sub(r'\s+', ' ', str(t_.get('note') or '')).strip()[:200] or ('Your reference' if not str(p.text).startswith('https://') else f'Reference from {str(p.text)[8:60]}')
+        doc_['messages'] = list(doc_.get('messages') or []) + [{'by': 'Media', 'text': note_, 'at': now_, 'media': {'id': jid, 'kind': kind_, 'provider': 'reference', 'model': 'Reference', 'label': '📎 Reference',
+            'usd': 0, 'prompt': note_, 'status': 'done', 'ref': True, 'url': f'/api/cats/media/{cat_id}/{jid}.{ext_}', 'kept': True, 'bytes': len(raw_), 'at': now_, 'doneAt': now_}}]
+        _ws_save(cat_id, doc_)
         return {'doc': _ws_view(cat_id, p.job), 'id': jid}
     if p.op == 'media_char':   # 👤 keep a made image as this folder's CHARACTER: every video from here starts from him (empty text clears him)
         doc_ = _ws_load(cat_id, p.job)

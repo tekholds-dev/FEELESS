@@ -230,3 +230,15 @@ def made_by_happy():
     return [{'id': f'happy-{k}', 'type': 'video' if src.endswith('.mp4') else 'image', 'proof': 'AI', 'title': name_.get(k) or MODELS[k][3], 'src': src, 'q': '', 'pub': True,
              'at': 0, 'cat': 'happy', 'agent': 'Happy', 'happy': True, 'from': f"{MODELS[k][3]} · ${MODELS[k][5]:.2f} · {secs}s to make"}
             for k, (src, secs) in TESTED.items() if k in MODELS]
+
+
+REF_RULE = ('\n\nUse the attached reference image(s) as the subject: keep the EXACT same character or product — same face, hair, skin, '
+            'outfit, logo, colours and proportions. Change only what the words above ask for.')
+
+
+def ref_content(prompt, images):
+    """👤 POC-PLAY item 6: an image make that carries references (the folder's character, or a picked reference) → the chat `content`
+    OpenRouter's image models read (text first, then each picture as a data URL). No references → the plain prompt. Pure."""
+    if not images:
+        return prompt
+    return [{'type': 'text', 'text': prompt + REF_RULE}] + [{'type': 'image_url', 'image_url': {'url': u}} for u in images[:3]]

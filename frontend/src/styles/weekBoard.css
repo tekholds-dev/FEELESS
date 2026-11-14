@@ -7,7 +7,7 @@
 .wkb-tabs { overflow-x: auto; max-width: 100%; }
 .wkb-idea { margin: 0; font-size: 13px; color: var(--m-text); display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
 .wkb-idea small { color: var(--m-dim); }
-.wkb-grid { display: grid; grid-template-columns: 74px repeat(7, minmax(112px, 1fr)); gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.wkb-grid { display: grid; grid-template-columns: 96px repeat(7, minmax(112px, 1fr)); gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
 .wkb-day, .wkb-plat { font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); padding: 4px 6px; }
 .wkb-day { text-align: center; border-bottom: 1px solid var(--m-line); }
 .wkb-plat { align-self: start; padding-top: 10px; color: var(--m-text); }
@@ -25,3 +25,6 @@
 .wkb-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 @keyframes wkbIn { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .wkb-post { animation: none; } }
+.wkb .m-num { font-size: 11px; line-height: 1.2; }
+.wkb-tabs .m-num { margin-left: 4px; opacity: .75; }
+.wkb-post small.m-num { font-size: 11px; letter-spacing: .04em; }

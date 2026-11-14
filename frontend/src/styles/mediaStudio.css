@@ -60,3 +60,13 @@ body.theme-day .mst-card { background: var(--ms-tx9); border-color: var(--ms-ac1
 @keyframes mstChipIn { from { opacity: 0; transform: translateY(4px); } }
 @media (prefers-reduced-motion: reduce) { .mst-chip-pop { animation: none; } .mst-chip-btn { transition: none; } }
 .mst-chip-btn i { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--m-accent); }
+/* 📎 references (POC-PLAY item 6): pick one for an image, or add one by upload / link */
+.mst-refs { display: grid; gap: 6px; }
+.mst-refpick { display: flex; gap: 6px; flex-wrap: wrap; }
+.mst-refpick button { width: 46px; height: 46px; padding: 0; border-radius: 10px; border: 1px solid var(--ms-bg3); background: var(--ms-bg3); overflow: hidden; cursor: pointer; transition: transform .12s var(--m-ease), border-color .15s; }
+.mst-refpick button:hover { transform: translateY(-1px); border-color: var(--ms-ac7); }
+.mst-refpick button.is-on { border: 2px solid var(--ms-ac5); box-shadow: 0 0 12px var(--ms-ac14); }
+.mst-refpick img { width: 100%; height: 100%; object-fit: cover; }
+.mst-refadd { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.mst-refadd form { display: flex; gap: 6px; flex: 1; min-width: 0; }
+.mst-refadd .m-input { flex: 1; min-width: 0; }

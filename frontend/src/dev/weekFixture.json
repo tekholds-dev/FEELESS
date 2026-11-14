@@ -1,0 +1,197 @@
+[
+ {
+  "id": "poc17946215110",
+  "n": 2,
+  "topic": "Week plan \u00b7 Launch week \u00b7 GLINT coin launch",
+  "week": {
+   "idea": "Build anticipation for the GLINT coin launch with a mid-week reveal, culminating in the official listing and community proof.",
+   "posts": [
+    {
+     "day": "Mon",
+     "platform": "x",
+     "time": "09:30",
+     "caption": "Something is brewing in the Collective. Keep an eye on your feeds this week."
+    },
+    {
+     "day": "Tue",
+     "platform": "threads",
+     "time": "14:00",
+     "caption": "The research phase is complete. We are finalizing the structure for what comes next."
+    },
+    {
+     "day": "Wed",
+     "platform": "x",
+     "time": "10:00",
+     "caption": "GLINT is arriving. The wait is almost over."
+    },
+    {
+     "day": "Thu",
+     "platform": "linkedin",
+     "time": "11:00",
+     "caption": "We are thrilled to announce the upcoming launch of the GLINT coin within the FEELESS ecosystem."
+    },
+    {
+     "day": "Fri",
+     "platform": "x",
+     "time": "09:30",
+     "caption": "THE REVEAL: GLINT is live. The coin has landed."
+    },
+    {
+     "day": "Fri",
+     "platform": "instagram",
+     "time": "13:00",
+     "caption": "GLINT is officially here. Join the Collective today."
+    },
+    {
+     "day": "Sat",
+     "platform": "tiktok",
+     "time": "15:00",
+     "caption": "Did you catch the launch? GLINT is now trading on FEELESS."
+    },
+    {
+     "day": "Sun",
+     "platform": "youtube",
+     "time": "12:00",
+     "caption": "A deep dive into the GLINT coin mechanics and how to get started."
+    }
+   ],
+   "style": "launch"
+  }
+ },
+ {
+  "id": "poc17946215111",
+  "n": 3,
+  "topic": "Week plan \u00b7 Steady drip \u00b7 GLINT coin launch",
+  "week": {
+   "idea": "A week-long steady drip building trust and clarity around the GLINT coin launch, focusing on the 'why' and 'how' without hype.",
+   "posts": [
+    {
+     "day": "Mon",
+     "platform": "threads",
+     "time": "09:30",
+     "caption": "The GLINT launch isn't about a flash in the pan. It's about a steady drip of clarity in a noisy market. This week, we strip away the noise and show you exactly how GLINT works on Solana. No promises, just proof. #GLINT #Solana"
+    },
+    {
+     "day": "Tue",
+     "platform": "linkedin",
+     "time": "09:30",
+     "caption": "Why steady wins the race. In crypto, volatility is the norm, but consistency is the rare skill. GLINT is built for the long game, focusing on real utility and transparent mechanics. We are one week away from the official launch. #GLINT #Solana #Crypto"
+    },
+    {
+     "day": "Wed",
+     "platform": "instagram",
+     "time": "09:30",
+     "caption": "Visualizing the drip. Imagine a stream that never runs dry, delivering value consistently. That's the vision behind GLINT. We are building the infrastructure for this steady flow. Stay tuned for the next step. #GLINT #Solana #Web3"
+    },
+    {
+     "day": "Thu",
+     "platform": "x",
+     "time": "09:30",
+     "caption": "Clarity over hype. We don't need more noise to get attention. We need clarity on what GLINT does and why it matters. This week, we break down the core mechanics that make GLINT different. #GLINT #Solana"
+    },
+    {
+     "day": "Fri",
+     "platform": "threads",
+     "time": "09:30",
+     "caption": "Friday focus: The 'How'. How does GLINT integrate with Solana? How does it serve the user? We are simplifying the complex into one clear narrative. The launch is closer than you think. #GLINT #Solana"
+    },
+    {
+     "day": "Sat",
+     "platform": "tiktok",
+     "time": "09:30",
+     "caption": "The rhythm of the drip. \ud83d\udcc9 Consistency is the new currency. GLINT is all about that steady, reliable beat. Join us as we count down to the official launch. #GLINT #Solana #CryptoLife"
+    },
+    {
+     "day": "Sun",
+     "platform": "linkedin",
+     "time": "09:30",
+     "caption": "Sunday reflection: The goal isn't just to launch, but to build a community that trusts the process. GLINT represents a shift towards steady, reliable growth in the Solana ecosystem. See you next week. #GLINT #Solana"
+    }
+   ],
+   "style": "drip"
+  }
+ },
+ {
+  "id": "poc17946215112",
+  "n": 4,
+  "topic": "Week plan \u00b7 Hype into event \u00b7 GLINT coin launch",
+  "week": {
+   "idea": "Quiet teaser Mon-Wed, hype builds Thu-Fri, peak launch Sat, gratitude Sun",
+   "posts": [
+    {
+     "day": "Mon",
+     "platform": "threads",
+     "time": "09:30",
+     "caption": "Something is coming. Stay tuned."
+    },
+    {
+     "day": "Tue",
+     "platform": "x",
+     "time": "10:00",
+     "caption": "The wait is almost over. #GLINT"
+    },
+    {
+     "day": "Wed",
+     "platform": "instagram",
+     "time": "11:00",
+     "caption": "Are you ready for the shift? \ud83c\udf11"
+    },
+    {
+     "day": "Thu",
+     "platform": "tiktok",
+     "time": "12:00",
+     "caption": "The storm is gathering. GLINT incoming."
+    },
+    {
+     "day": "Thu",
+     "platform": "linkedin",
+     "time": "14:00",
+     "caption": "A new era for the Collective begins Thursday."
+    },
+    {
+     "day": "Fri",
+     "platform": "x",
+     "time": "08:00",
+     "caption": "IT IS HERE. GLINT IS LIVE. $GLINT"
+    },
+    {
+     "day": "Fri",
+     "platform": "threads",
+     "time": "09:00",
+     "caption": "The moment we waited for. GLINT."
+    },
+    {
+     "day": "Fri",
+     "platform": "instagram",
+     "time": "10:00",
+     "caption": "Launch day has arrived. Welcome to GLINT."
+    },
+    {
+     "day": "Sat",
+     "platform": "tiktok",
+     "time": "13:00",
+     "caption": "The energy is undeniable. GLINT is taking over."
+    },
+    {
+     "day": "Sat",
+     "platform": "x",
+     "time": "15:00",
+     "caption": "Volume is up. GLINT is moving."
+    },
+    {
+     "day": "Sun",
+     "platform": "linkedin",
+     "time": "09:00",
+     "caption": "Thank you to the Collective for making GLINT a reality."
+    },
+    {
+     "day": "Sun",
+     "platform": "threads",
+     "time": "10:00",
+     "caption": "Grateful for the community that built this."
+    }
+   ],
+   "style": "hype"
+  }
+ }
+]
