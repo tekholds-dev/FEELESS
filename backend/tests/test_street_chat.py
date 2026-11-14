@@ -86,9 +86,11 @@ def test_the_creator_sees_their_family_from_any_linked_or_hq_wallet(monkeypatch)
     assert rs._seat_of(st, 'ME') == 'SEATED'                      # a linked wallet holds the seat
     assert rs._seat_of(st, 'HQ2') == 'SEATED'                     # staff: the creator's account is every HQ wallet
     assert rs._seat_of(st, 'RANDO') == 'RANDO' and rs._seat_of(st, None) is None   # nobody else borrows a seat
-    src = open(rs.__file__).read()
-    i = src.index('async def familia_world(')
-    assert 'me = _seat_of(st, me) if me else None' in src[i:i + 1200]
+    import inspect
+    import re
+    import rep_more_reads                                          # SITE-5 slice 9 moved the route here
+    src = inspect.getsource(rep_more_reads.familia_world)
+    assert re.search(r'me = (rs\.)?_seat_of\(st, me\) if me else None', src)
 
 
 def test_overwatch_shows_every_family_to_the_owner_only(monkeypatch):
