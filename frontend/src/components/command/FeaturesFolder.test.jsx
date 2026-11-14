@@ -541,7 +541,7 @@ test('🧪 Model Lab opens on Build, and its Data tab shows the road to a fine-t
 test('🧪 Model Lab live: the dataset per proof type, the owner grades an open proof, the minds to beat, and a clean export', async () => {
   const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'data');
   const kind = (k, rows, won, lost, open) => ({ kind: k, rows, won, lost, flat: 0, open, graded: 0, pairs: Math.min(won, lost), rowsPct: rows / 1000, pairsPct: Math.min(won, lost) / 200 });
-  const view = graded => ({ kinds: [kind('PoB', 71, 40, 31, 2), kind('PoW', 59, 30, 29, graded ? 0 : 1)], rows: 130 + graded, pairs: 60, graded, open: graded ? 2 : 3, snapshots: 41,
+  const view = graded => ({ kinds: [kind('PoB', 71, 40, 31, 2), kind('PoW', 59, 30, 29, graded ? 0 : 1)], rows: 130 + graded, pairs: 60, graded, open: graded ? 2 : 3, snapshots: 41, duels: 3,
     minds: [{ model: 'hy4', calls: 60, failed: 3, failRate: 0.05, avgMs: 17000, usd: 0.17, local: false, kinds: { poc: 40, pos: 20 } }], spentUsd: 0.17,
     steps: { data: 'have', clean: 'ready', base: 'todo', sft: 'todo', pref: 'have', eval: 'have', serve: 'todo' }, goals: { rows: 1000, pairs: 200 },
     queue: graded ? [] : [{ key: 'k1', kind: 'PoW', title: 'Pump coin [wallet]', source: 'pump.fun', at: 1 }] });
@@ -551,6 +551,7 @@ test('🧪 Model Lab live: the dataset per proof type, the owner grades an open 
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab call={call} />); });
   expect(el.querySelector('[data-testid="mlb-kind-PoB"]').textContent).toContain('31 right-vs-wrong pairs');   // min(40 right, 31 wrong)
+  expect(el.querySelector('[data-testid="mlb-kind-Duels"]').textContent).toContain('pairs you judged');   // ⚔ AGX-4: the owner's duel picks are pairs too
   expect(el.querySelectorAll('.mlb-steps li.is-have').length).toBe(4); expect(el.querySelector('[data-testid="mlb-mind-hy4"]').textContent).toContain('5% failed');
   await act(async () => { el.querySelector('[data-testid="mlb-bad-k1"]').click(); });
   expect(sent.find(x => x[0] === '/admin/model-lab/grade')[1]).toEqual({ key: 'k1', verdict: 'bad', note: '' }); expect(el.textContent).toContain('Nothing open to grade');

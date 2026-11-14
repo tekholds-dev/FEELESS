@@ -42,6 +42,7 @@ import { MailApp, SiteDoor, SignInFrame, SignInView, SiteTradeCard, TopupCard, T
 import { ProofsFolder, visitorProofs } from './ProofsFolder';
 import ProofPicker from './ProofPicker';
 import { ChatGrip, ChatSizeSeg, useChatSize } from './ChatSize';
+import Duel from './Duel';
 import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { LiveCount, useAgentPool } from './BoostFolder';
@@ -620,12 +621,13 @@ function useTypeIn(text, on) {
     raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [text, on]);
   return text.slice(0, n);
 }
-function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip, job = null }) {
+function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate, onChip, job = null, duel, onDuel }) {
   const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]); const tags = parts.tags;
   const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
     <div><header><b>{you ? 'You' : (name || 'Its minds')}</b>{tags.map(t => <em key={t} className="cwb-tag">{t}</em>)}{m.at ? <time>{ago(m.at)} ago</time> : null}{m.cost != null && !you ? <CostTicket usd={m.cost} title="This answer" rows={[...(job?.minds || []).map((x, i) => [`Mind ${'AB'[i]} · ${String(x.model || '').split('/').pop()}`, x.cost ? shortCost(x.cost) : `${(x.steps || []).length} steps`]), ...(m.cost === 0 ? [['Paid by', 'Free, its own model']] : [])]} /> : null}</header>
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p>
+      {!you && (job?.minds || []).length === 2 && job.minds.every(x => String(x.answer || '').trim()) ? <Duel job={job} pick={duel} onPick={onDuel} /> : null}
       {m.tid && onRate ? <span className="cwb-rate" role="group" aria-label="Rate this answer — it goes into both minds' memory">{[['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
         <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}><Ic3 e={ic} /></button>)}{rate ? <em>in memory · <Ic3 e="🗂" /> Jobs</em> : null}</span> : null}
       {m.img ? <img className="ast-chat-img" src={apiUrl(m.img)} alt={text} loading="lazy" data-testid="cwb-img" /> : null}
@@ -1661,7 +1663,7 @@ function WorkbenchLive({ cat }) {
     : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
-      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} duel={d?.duels?.[m.tid]} onDuel={i => act('duel', { text: m.tid, job: String(i) })} onChip={c => act('ask', { text: c, to })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>

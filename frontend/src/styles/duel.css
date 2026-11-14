@@ -1,0 +1,28 @@
+/* ⚔ AGX-4 two-mind duel (2026-11-14): A | the gap | B. Tokens only. */
+.dsl { display: grid; grid-template-columns: minmax(0, 1fr) 128px minmax(0, 1fr); gap: 8px; margin-top: 8px; width: min(100%, 760px); }
+.dsl-mind { display: grid; grid-template-rows: auto 1fr auto; gap: 6px; min-width: 0; padding: 10px; border-radius: 12px; border: 1px solid var(--m-line-hi); background: var(--m-surface-2); transition: opacity .2s, border-color .2s, box-shadow .2s; animation: dslIn .3s ease both; }
+.dsl-mind.is-m1 { animation-delay: 60ms; }
+.dsl-mind header { display: flex; align-items: baseline; gap: 6px; min-width: 0; } .dsl-mind header b { font: 700 10px var(--f-mono); letter-spacing: .18em; color: var(--m-accent); }
+.dsl-mind.is-m1 header b { color: var(--m-warn); }
+.dsl-mind header small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 10px var(--f-mono); color: var(--m-dim); }
+.dsl-mind p { margin: 0; max-height: 220px; overflow: auto; font: 400 12px/1.5 var(--f-ui); color: var(--m-text); white-space: pre-wrap; overflow-wrap: anywhere; scrollbar-width: thin; }
+.dsl-pick { min-height: 34px; justify-self: start; } .dsl-pick:hover { border-color: var(--m-accent); color: var(--m-accent); }
+.dsl-mind.is-won { border-color: var(--m-accent); box-shadow: 0 0 0 1px var(--m-accent), 0 0 22px color-mix(in srgb, var(--m-accent) 25%, transparent); }
+.dsl-mind.is-lost { opacity: .55; }
+.dsl-tag { margin-left: auto; padding: 1px 7px; border-radius: 99px; border: 1px solid currentColor; font: 700 9px var(--f-mono); letter-spacing: .12em; font-style: normal; }
+.dsl-tag.is-good { color: var(--m-accent); } .dsl-tag.is-bad { color: var(--m-danger); }
+.dsl-gap { position: relative; display: grid; justify-items: center; align-content: start; gap: 4px; padding: 8px 6px; border-radius: 12px; border: 1px dashed var(--m-line-hi); background: color-mix(in srgb, var(--m-danger) 5%, transparent); text-align: center; }
+.dsl-gap > small { font: 700 9px var(--f-mono); letter-spacing: .2em; color: var(--m-dim); } .dsl-gap > b { font-size: 20px; color: var(--m-text); }
+.dsl-meter { display: block; width: 6px; height: 46px; border-radius: 6px; background: color-mix(in srgb, var(--m-danger) 35%, var(--m-surface)); overflow: hidden; transform: rotate(180deg); }
+.dsl-meter u { display: block; width: 100%; height: 100%; background: var(--m-accent); transform-origin: top; transition: transform .5s ease; }
+.dsl-gap ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; width: 100%; }
+.dsl-gap li { display: grid; gap: 2px; animation: dslIn .3s ease both; animation-delay: calc(120ms + var(--i, 0) * 60ms); }
+.dsl-gap li em { font: 700 9px var(--f-mono); letter-spacing: .12em; text-transform: uppercase; font-style: normal; color: var(--m-danger); }
+.dsl-gap li span { display: grid; gap: 2px; } .dsl-gap s { text-decoration: none; font: 600 11px var(--f-ui); overflow-wrap: anywhere; } .dsl-gap s.is-a { color: var(--m-accent); } .dsl-gap s.is-b { color: var(--m-warn); }
+.dsl-gap s.is-a::before { content: 'A '; font: 700 9px var(--f-mono); opacity: .7; } .dsl-gap s.is-b::before { content: 'B '; font: 700 9px var(--f-mono); opacity: .7; }
+.dsl-gap p { margin: 0; font: 400 11px var(--f-ui); color: var(--m-dim); }
+.dsl-filed { font: 600 10px var(--f-ui); color: var(--m-accent); } .dsl-err { font: 600 10px var(--f-ui); color: var(--m-danger); }
+@keyframes dslIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .dsl { grid-template-columns: minmax(0, 1fr); } .dsl-gap { grid-template-columns: auto auto 1fr; justify-items: start; align-items: center; } .dsl-meter { display: none; } .dsl-gap ul, .dsl-filed, .dsl-err { grid-column: 1 / -1; } }
+body.fx-lite .dsl-mind, body.fx-lite .dsl-gap li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .dsl-mind, .dsl-gap li { animation: none; } .dsl-meter u { transition: none; } }

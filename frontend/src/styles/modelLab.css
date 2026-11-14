@@ -231,3 +231,4 @@ body.fx-lite :is(.cplv-dot, .cplv-tools li) { animation: none; } body.fx-lite .c
 @media (prefers-reduced-motion: reduce) { .cplv.is-moving::after { display: none; } .cplv-dot, .cplv-tools li { animation: none; } }
 @media (max-width: 1100px) { .cplv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .cplv-grid { grid-template-columns: minmax(0, 1fr); } }
+.mlb-duels { border-style: dashed; } .mlb-duels header b { color: var(--m-warn); }

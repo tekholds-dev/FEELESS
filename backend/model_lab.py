@@ -16,6 +16,7 @@ FIELDS = ('ask', 'topic', 'plan', 'why', 'summary', 'report', 'angle', 'result',
 PAIRS_GOAL = 200      # graded right-vs-wrong pairs per proof type before preference training is worth a run (a planning number, not a law)
 ROWS_GOAL = 1000      # settled rows per proof type before a fine-tune is worth renting a GPU for
 VERDICTS = ('good', 'bad', 'skip')
+DUELS = 'Duels'       # ⚔ AGX-4: the owner tapped the better of two minds' answers to one ask — a right-vs-wrong pair by a person's hand
 
 _SCRUB = (
     (re.compile(r'\b0x[a-fA-F0-9]{40}\b'), '[address]'),
@@ -74,6 +75,20 @@ def graded_row(item, grade):
             'by': 'owner', 'note': scrub(grade.get('note'))[:300], 'at': round(item.get('at') or 0)}
 
 
+def duel_row(item, raw):
+    """⚔ One duel the owner judged → a preference row (prompt, chosen, rejected), scrubbed. None when it will not open."""
+    if item.get('category') != DUELS:
+        return None
+    try:
+        d = json.loads(zlib.decompress(raw) if raw[:1] == b'x' else raw) if raw else {}
+    except (ValueError, zlib.error, TypeError):
+        return None
+    if not isinstance(d, dict) or not all(isinstance(d.get(k), str) and d[k].strip() for k in ('prompt', 'chosen', 'rejected')):
+        return None
+    return {'kind': 'Duel', 'prompt': scrub(d['prompt'])[:1500], 'chosen': scrub(d['chosen'])[:3000], 'rejected': scrub(d['rejected'])[:3000],
+            'chosenModel': str(d.get('chosenModel') or '')[:60], 'rejectedModel': str(d.get('rejectedModel') or '')[:60], 'by': 'owner', 'at': round(item.get('at') or 0)}
+
+
 def _minds(calls):
     out = {}
     for c in calls or []:
@@ -92,9 +107,12 @@ def summary(items, calls, grades):
     """→ the live dataset: per proof type its settled rows, open ones, owner grades and right-vs-wrong pairs; the rented minds' record; each
     plan step's real state. Numbers only, never a proof's content."""
     kinds = {k: {'kind': k, 'rows': 0, 'won': 0, 'lost': 0, 'flat': 0, 'open': 0, 'graded': 0} for k in KINDS.values()}
-    shots = 0
+    shots = 0; duels = 0
     for it in items or []:
         k = KINDS.get(it.get('category'))
+        if it.get('category') == DUELS:
+            duels += 1
+            continue
         if not k:
             shots += it.get('category') == 'Snapshots'
             continue
@@ -110,7 +128,7 @@ def summary(items, calls, grades):
     for r in kinds.values():
         r['pairs'] = min(r['won'], r['lost'])
         r['rowsPct'] = round(min(1.0, r['rows'] / ROWS_GOAL), 3); r['pairsPct'] = round(min(1.0, r['pairs'] / PAIRS_GOAL), 3)
-    rows = sum(r['rows'] for r in kinds.values()); pairs = sum(r['pairs'] for r in kinds.values()); graded = sum(1 for g in (grades or {}).values() if g.get('verdict') in ('good', 'bad'))
+    rows = sum(r['rows'] for r in kinds.values()); pairs = sum(r['pairs'] for r in kinds.values()) + duels; graded = sum(1 for g in (grades or {}).values() if g.get('verdict') in ('good', 'bad'))
     minds = _minds(calls)
     steps = {
         'data': 'have' if rows else 'todo',
@@ -120,7 +138,7 @@ def summary(items, calls, grades):
         'eval': 'have' if minds else 'todo',                         # the rented minds' real record is the bar to beat
         'serve': 'todo',
     }
-    return {'kinds': list(kinds.values()), 'rows': rows, 'pairs': pairs, 'graded': graded, 'open': sum(r['open'] for r in kinds.values()), 'snapshots': shots,
+    return {'kinds': list(kinds.values()), 'rows': rows, 'pairs': pairs, 'graded': graded, 'open': sum(r['open'] for r in kinds.values()), 'snapshots': shots, 'duels': duels,
             'minds': minds, 'spentUsd': round(sum(m['usd'] for m in minds), 4), 'steps': steps, 'goals': {'rows': ROWS_GOAL, 'pairs': PAIRS_GOAL}}
 
 
@@ -146,7 +164,12 @@ def export_lines(items, read_raw, grades):
     """→ JSONL training rows: every settled proof, then every one the owner graded. `read_raw(key)` opens one kept proof; one that will not
     open still gives its title and result."""
     for it in items or []:
-        if it.get('outcome') in SETTLED:
+        if it.get('category') == DUELS:
+            try:
+                r = duel_row(it, read_raw(it['key']) or b'')
+            except Exception:   # noqa: BLE001 — a duel that will not open is skipped, never guessed
+                r = None
+        elif it.get('outcome') in SETTLED:
             try:
                 raw = read_raw(it['key']) or b''
             except Exception:   # noqa: BLE001 — a sealed item that will not open still counts by its title

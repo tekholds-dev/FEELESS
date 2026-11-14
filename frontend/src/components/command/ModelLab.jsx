@@ -95,7 +95,12 @@ export function ModelLab({ call }) {
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>
       <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH<small>{d.snapshots} snapshots kept as evidence, not rows</small></h4>
-        <ul className="mlb-kinds">{d.kinds.map((k, i) => <KindCard key={k.kind} k={k} goals={d.goals} i={i} />)}</ul></section>
+        <ul className="mlb-kinds">{d.kinds.map((k, i) => <KindCard key={k.kind} k={k} goals={d.goals} i={i} />)}
+          <li className="mlb-kind mlb-duels" style={{ '--i': d.kinds.length }} data-testid="mlb-kind-Duels" data-tip="⚔ Duels: both minds answered one ask in an agent's chat and you tapped the better one. Each is a right-vs-wrong pair, picked by a person">
+            <header><b>⚔ Duels</b><span className="m-chip">your picks</span></header>
+            <span className="mlb-big"><Num v={d.duels || 0} /><small>pairs you judged · goal {d.goals.pairs}</small></span>
+            <i className="mlb-bar"><u style={{ transform: `scaleX(${Math.min(1, (d.duels || 0) / d.goals.pairs)})` }} /></i>
+            <small className="mlb-pairs">With <b>Both</b> on in an agent's chat, tap 👑 on the better answer</small></li></ul></section>
       <section className="mlb-sec"><h4>YOU GRADE · THE HUMAN HALF<small>{d.graded} graded · {d.open} open proofs nothing settled</small></h4>
         {d.queue.length ? <ul className="mlb-qs">{d.queue.map((q, i) => <Review key={q.key} q={q} i={i} busy={busy} onGrade={onGrade} />)}</ul> : <p className="mlb-none">Nothing open to grade: every kept proof has a result.</p>}</section>
       <section className="mlb-sec"><h4>THE MINDS TO BEAT · THEIR REAL RECORD<small>${d.spentUsd.toFixed(3)} spent on rented minds so far</small></h4>

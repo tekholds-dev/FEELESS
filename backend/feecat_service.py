@@ -194,7 +194,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('siteBook', 'pocWatch', 'pocWatches', 'pocDrafts', 'deskApps', 'playNotes', 'cardLink', 'poeFolders', 'gitLink', 'collectiveGit', 'refsMine', 'deposits', 'workspaces', 'personal', 'memoryCleanedAt', 'memoryFreshAt', 'rentSweep', 'jobRates', 'duels', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 _NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
 _DELETED_CATS: set = set()
@@ -10499,6 +10499,20 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             cat.setdefault('brainsCfg', {})['cardSeat'] = True
         keep_owned(cat); _save(store)
         return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
+    if p.op == 'duel':   # ⚔ AGX-4: both minds answered one ask; the owner taps the better one → a right-vs-wrong pair in COMP's dataset (the stash)
+        tid_ = str(p.text or '')[:20]; job_ = next((j for j in cat.get('jobs') or [] if j.get('id') == tid_), None)
+        ms_ = (job_ or {}).get('minds') or []
+        if str(p.job) not in ('0', '1') or len(ms_) != 2 or not all(str(m.get('answer') or '').strip() for m in ms_):
+            raise HTTPException(400, 'A duel needs a finished ask both minds answered, and a winner: A or B.')
+        won_ = int(p.job); had_ = (cat.get('duels') or {}).get(tid_)
+        if had_ is not None:   # a pick is final: it is already a training pair
+            return {'duels': cat.get('duels') or {}, 'stashed': False}
+        pair_ = {'prompt': str(job_.get('request') or '')[:1500], 'chosen': str(ms_[won_].get('answer'))[:3000], 'rejected': str(ms_[1 - won_].get('answer'))[:3000],
+                 'chosenModel': str(ms_[won_].get('model') or '').split('/')[-1][:60], 'rejectedModel': str(ms_[1 - won_].get('model') or '').split('/')[-1][:60], 'at': round(time.time())}
+        stashed_ = await asyncio.to_thread(_stash.put, STASH_DIR, f"duel:{cat['id']}:{tid_}", 'Duels', 'chat', cat['id'], 'won', pair_['prompt'][:160] or 'a duel', json.dumps(pair_).encode())
+        cat['duels'] = {**{k: v for k, v in (cat.get('duels') or {}).items() if any(j.get('id') == k for j in cat.get('jobs') or [])}, tid_: won_}
+        keep_owned(cat); _save(store)
+        return {'duels': cat['duels'], 'stashed': bool(stashed_)}
     if p.op == 'rate':   # 👍 / 👎 a finished request — the engine files it into both minds' memory on its next pass
         tid_, r_ = str(p.text or '')[:20], str(p.job or '')
         if r_ not in ('up', 'down') or not any(j.get('id') == tid_ for j in cat.get('jobs') or []):
@@ -11393,7 +11407,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             'commands': _ac.commands_for((cat.get('brainsCfg') or {}).get('kind'), _pow.COMMANDS + _pop.COMMANDS + _pob.COMMANDS + _ss.commands(cat.get('siteManuals'), set(cat.get('siteSessions') or {}))),   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
-            'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
+            'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {}, 'duels': cat.get('duels') or {},   # 🗂 each request's log tree + your 👍 / 👎
             'powFolder': ({**_pow.folder_public((cat.get('powRun') or {}).get('folder') or {}), 'poiTrace': ((cat.get('powRun') or {}).get('folder') or {}).get('poiTrace'), 'owner': ((cat.get('powRun') or {}).get('folder') or {}).get('owner'), 'usedBy': ((cat.get('powRun') or {}).get('folder') or {}).get('usedBy')} if (cat.get('powRun') or {}).get('folder') else None),
             **({} if p.ver and p.ver == _pow_ver(cat) else {'powVer': _pow_ver(cat), 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:40]]}),   # ⛏ the filed folders (~90 KB) only when they changed — the desk polls every 1.5 s
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
@@ -12081,7 +12095,7 @@ async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', sessi
 
 # 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
-LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
+LEADER_PRIVATE = ('chat', 'logins', 'apiDrawer', 'signedIn', 'vaultLog', 'ownerStaff', 'jobs', 'jobRates', 'duels', 'orders', 'proposals', 'workParked', 'walletSwaps', 'secrets', 'cloudLink')
 PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'face', 'boosts', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
                    'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')
