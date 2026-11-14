@@ -638,6 +638,15 @@ const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the si
   ['[data-testid="cwb-go"]', 'Let it go', 'ON: long tasks and queued asks run back to back until a person is needed.'],
   ['[data-testid="agent-log"] .ck-folders', 'Its file cabinet', 'Credentials, storage, earn plays and every log line — a drawer each; hide the ones you never use.']];
 // pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
+// 🗂 AGX-2: a chat line's "Open the … desk" opens the proof that line is about IN the desk: the newest folder of its kind filed by the time of
+// the line (+10 min for the filing to land), else its newest. Nothing filed → just the window. Pure.
+const CHAT_KEYS = { pow: 'powFolders', bids: 'pobFolders', pop: 'popFolders' };
+export function chatProof(d, win, at) {
+  const rows = [...(d?.[CHAT_KEYS[win]] || [])].filter(f => f?.id).sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+  if (!rows.length) return win;
+  const t = Number(at) || 0; const hit = t ? rows.find(f => (Number(f.at) || 0) <= t + 600) : null;
+  return { win, id: (hit || rows[0]).id };
+}
 export function genLog(d) {
   const now = Date.now() / 1000;
   return foldAll([...(d?.chat || []).map(m => ({ f: 'tasks', at: m.at, text: m.by === 'you' ? `You: ${m.text}` : String(m.text), tone: m.by === 'you' ? 'acc' : 'up' })),
@@ -1359,7 +1368,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   const set = useCallback((k, p) => setW(x => deskSet(x, k, p)), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  useEffect(() => { if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (start && typeof start === 'object') openProof(start); else if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   // 🎯 AGX-1: ⌘K / Ctrl+K opens the proof picker; a picked proof opens IN its desk window (focus = which file, `at` re-fires the same one)
   const [picker, setPicker] = useState(false); const [focus, setFocus] = useState(null);
   const openProof = useCallback(({ win, id }) => { setPicker(false); setFocus({ win, id, at: Date.now() }); openWin(win); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -1648,7 +1657,7 @@ function WorkbenchLive({ cat }) {
     : <>{liveKind ? <button type="button" className="m-chip pl-back" onClick={() => setPeek(false)} data-tip="Back to the live stage of this proof" data-testid="proof-live-back">● Back to live</button> : null}
     {chatLook.style === 'agent' ? <AgentStage cat={cat} msgs={msgs} working={live} onChip={c => act('ask', { text: c, to })} /> : <ol ref={chatRef} className={`cwb-chat ${chatClass(chatLook)}`} aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
-      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} job={m.tid ? (d?.jobs || []).find(j => j.id === m.tid) : null} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(chatProof(d, k, m.at))} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} onChip={c => act('ask', { text: c, to })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true"><Ic3 e="🧠" /></i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
@@ -1698,7 +1707,7 @@ function WorkbenchLive({ cat }) {
         : live ? <ChatStop onPress={() => act('stop')} isDisabled={busy} data-tip="Stop it" data-testid="cwb-stop" />
         : <ChatSend isDisabled={busy || !text.trim()} data-tip="Send (Enter ↵)" data-testid="cwb-send" />} />
     </DeskFlip>
-    {desk ? <AgentDesktop cat={cat} start={typeof desk === 'string' ? desk : null} onClose={() => setDesk(false)} onCommand={t => { setText(t); setDesk(false); }} /> : null}
+    {desk ? <AgentDesktop cat={cat} start={typeof desk === 'string' || (desk && typeof desk === 'object') ? desk : null} onClose={() => setDesk(false)} onCommand={t => { setText(t); setDesk(false); }} /> : null}
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
