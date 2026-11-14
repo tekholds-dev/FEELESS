@@ -1,12 +1,13 @@
 """🧪 MODEL LAB routes (owner only): the live dataset for FEELESS's own model, the human review queue, and the clean export.
 The logic is `model_lab` (pure); this file only reads the stash, the model-call log and the owner's grades, and saves a grade.
-Nothing here trains, spends or sends anything: the export comes back to the owner's own browser as a file."""
+Nothing here spends anything except the 🎓 teacher, which runs only when the owner presses Pay (live price shown, hard cap). The export comes back to the owner's own browser as a file."""
 import json
 import time
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+import comp_teacher as _ct
 import model_lab as _ml
 
 router = APIRouter()
@@ -114,13 +115,14 @@ def _forge_dir(rs):
     d = rs.DATA_DIR / 'model_forge'; d.mkdir(parents=True, exist_ok=True); return d
 
 
-SOURCES = {'proofs': 'Your proofs (every kept proof, open ones too)', 'pow': 'PoW research notes (plans, reasons, calls)', 'docs': 'FEELESS docs (plans, decisions, the build history)'}
+SOURCES = {'proofs': 'Your proofs (every kept proof, open ones too)', 'pow': 'PoW research notes (plans, reasons, calls)', 'docs': 'FEELESS docs (plans, decisions, the build history)',
+           'teacher': 'Teacher lessons (a top AI on your proofs)'}
 DOCS_MAX = 1_500_000
 
 
 def _sources(rs):
     """→ {source: text}. Everything is scrubbed (wallets, keys, emails, phones); the agents' sealed workspaces are never read."""
-    out = {'proofs': _proof_text(rs), 'pow': '', 'docs': ''}
+    out = {'proofs': _proof_text(rs), 'pow': '', 'docs': '', 'teacher': _ct.corpus(_ct.load(rs.DATA_DIR))}
     rows = []
     try:
         for ln in (rs.DATA_DIR / 'pow_archive.jsonl').read_text(errors='ignore').splitlines():
@@ -578,3 +580,72 @@ async def model_lab_live(request: Request):
             await asyncio.sleep(LIVE_TICK_S if fr['live'] else 3.0)
         yield 'event: bye\ndata: {}\n\n'
     return StreamingResponse(gen(), media_type='text/event-stream', headers={'Cache-Control': 'no-cache, no-transform', 'X-Accel-Buffering': 'no', 'Content-Encoding': 'identity'})
+
+
+
+# 🎓 COMP's teacher (owner 2026-11-14): pay a top AI, cheaply, to write COMP lessons on your own proofs. Owner only; it runs only on his Pay
+# press, with the live price shown first and a hard cap; OpenRouter with FEELESS's key, never a wallet.
+_TEACH = {'job': None, 'models': None, 'at': 0.0}
+
+
+def _teachers_live(rs):
+    if _TEACH['models'] is None or time.time() - _TEACH['at'] > 600:
+        import httpx
+        try:
+            _TEACH['models'] = _ct.teachers(httpx.get('https://openrouter.ai/api/v1/models', timeout=15).json().get('data') or []); _TEACH['at'] = time.time()
+        except Exception:   # noqa: BLE001 — the last good list stays
+            _TEACH['models'] = _TEACH['models'] or []
+    return _TEACH['models']
+
+
+def _teach_view(rs):
+    lessons = _ct.load(rs.DATA_DIR); todo = _ct.untaught(_ct.blocks(_proof_text(rs)), lessons)
+    import os
+    return {'teachers': _teachers_live(rs), 'untaught': len(todo), **_ct.summary(lessons), 'recent': [{k: x.get(k) for k in ('model', 'usd', 'at', 'proofHead', 'lesson')} for x in lessons[-6:]][::-1],
+            'job': _TEACH['job'], 'keyOk': bool(os.environ.get('OPENROUTER_API_KEY', '').strip()), 'maxUsd': _ct.MAX_USD, 'maxN': _ct.MAX_N}
+
+
+@router.get('/api/reputation/admin/model-lab/teach')
+async def teach_view(request: Request):
+    rs = _rs(); rs._require_owner(request)
+    return await rs.asyncio.to_thread(_teach_view, rs)
+
+
+class Teach(BaseModel):
+    model: str
+    n: int = 25
+    quoteUsd: float = 0.0   # the estimate the owner saw on the Pay button: the run refuses if today's price moved above it
+
+
+@router.post('/api/reputation/admin/model-lab/teach')
+async def teach_start(request: Request, p: Teach):
+    """The owner's Pay press: teach n lessons with this model, never past the cap. 409 while one runs or when the price moved."""
+    rs = _rs(); rs._require_owner(request)
+    import os
+    from fastapi import HTTPException
+    key = os.environ.get('OPENROUTER_API_KEY', '').strip()
+    if not key:
+        raise HTTPException(409, 'No OpenRouter key on the server: add it in HQ › Core first. Nothing was charged.')
+    if (_TEACH['job'] or {}).get('state') == 'running':
+        raise HTTPException(409, 'A lesson run is already going.')
+    t = next((x for x in await rs.asyncio.to_thread(_teachers_live, rs) if x['id'] == p.model), None)
+    if not t:
+        raise HTTPException(400, 'Pick one of the listed teachers.')
+    todo = await rs.asyncio.to_thread(lambda: _ct.untaught(_ct.blocks(_proof_text(rs)), _ct.load(rs.DATA_DIR)))
+    if not todo:
+        raise HTTPException(409, 'Every proof already has a lesson. File more proofs first.')
+    pl = _ct.plan(t, p.n, len(todo))
+    if p.quoteUsd and pl['estUsd'] > float(p.quoteUsd) + 1e-6:
+        raise HTTPException(409, f"The price moved: now ${pl['estUsd']:.4f}. Nothing was charged; check it and press Pay again.")
+    job = {'state': 'running', 'model': t['id'], 'family': t['family'], 'n': pl['n'], 'done': 0, 'spentUsd': 0.0, 'estUsd': pl['estUsd'], 'capUsd': pl['capUsd'], 'at': round(time.time())}
+    _TEACH['job'] = job
+    rs.asyncio.get_running_loop().run_in_executor(None, _ct.run, rs.DATA_DIR, key, t, todo[-pl['n']:][::-1], pl['capUsd'], job)
+    return {'job': job}
+
+
+@router.post('/api/reputation/admin/model-lab/teach/stop')
+async def teach_stop(request: Request):
+    rs = _rs(); rs._require_owner(request)
+    if _TEACH['job']:
+        _TEACH['job']['stop'] = True
+    return {'job': _TEACH['job']}

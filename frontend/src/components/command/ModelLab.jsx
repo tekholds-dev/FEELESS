@@ -4,6 +4,7 @@ import SegTabs from '../SegTabs';
 import { ModelComp2 } from './ModelComp2';
 import { DatasetPulse } from './CompExplain';
 import { ModelForge } from './ModelForge';
+import CompGrow from './CompGrow';
 import { CompLive, CompTools } from './CompLive';
 import '../../styles/modelLab.css';
 
@@ -12,8 +13,8 @@ import '../../styles/modelLab.css';
 // log (the rented minds' real record: the bar to beat) and the owner's own grades on proofs nothing settled (the human half). No model is
 // trained here and nothing is spent or sent: Export gives the owner a scrubbed .jsonl file. 🏷 COMPAI (owner 2026-11-12): the header name is THE
 // model's name, kept on the server (forge/family), and every build is a version of it (COMP Flagship v1.00, v1.01 …).
-const TAB_KEY = 'feeless.modelLab.tab';
-const TABS = [['build', '🏗 Build your model', 'Design it, see its specs, set its guardrails, press Build: it trains on this Mac'], ['v2', '🚀 COMP v2 · 9B', 'A real 9B open model fine-tuned on your proofs, examined against the base, a baseline and the flagships'], ['data', '📊 Data & grades', 'What it learns from, your grades, the minds to beat, the road to a big fine-tune']];
+const TAB_KEY = 'feeless.modelLab.tab2';   // 2026-11-14: a new key so everyone lands on Grow once
+const TABS = [['grow', '🌱 Grow COMP', 'Where COMP stands, its next move, and a top AI to teach it cheaply'], ['build', '🏗 Build your model', 'Design it, see its specs, set its guardrails, press Build: it trains on this Mac'], ['v2', '🚀 COMP v2 · 9B', 'A real 9B open model fine-tuned on your proofs, examined against the base, a baseline and the flagships'], ['data', '📊 Data & grades', 'What it learns from, your grades, the minds to beat, the road to a big fine-tune']];
 const STEPS = [
   ['data', 'Collect the data we own', 'Every graded proof (PoW, PoP, PoB, PoC, PoStatic, PoEco), every 👍 / 👎 the owners gave, the kits and the fixes that made a page pass the store check. Ours, labelled by real results, not scraped text.', 'Proof folders, review grades and kit library already store this'],
   ['clean', 'Clean it into training rows', 'One row = the ask, what the agent read, what it did, the grade. Strip wallets, keys and personal data. Drop proofs with no result.', 'A script over the proof store; no model needed yet'],
@@ -68,7 +69,7 @@ export function ModelLab({ call }) {
     return () => clearTimeout(t);
   }, [name, saidName, call]);
   const keep = v => setName(v);
-  const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'build'; } catch { return 'build'; } });
+  const [tab, setTab] = useState(() => { try { return localStorage.getItem(TAB_KEY) || 'grow'; } catch { return 'build'; } });
   const pickTab = k => { setTab(k); try { localStorage.setItem(TAB_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState('');
   const load = useCallback(() => (call ? call('/admin/model-lab').then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)) : Promise.resolve()), [call]);
@@ -90,7 +91,7 @@ export function ModelLab({ call }) {
       <span className="mlb-ring" style={{ '--k': real / STEPS.length }} data-tip="Steps with real progress"><b className="m-num">{real}/{STEPS.length}</b><small>STEPS</small></span></header>
     <CompLive />
     <SegTabs items={TABS} value={tab} onChange={pickTab} label="Model Lab" testid={k => `mlb-tab-${k}`} className="mlb-tabs" />
-    {tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <>
+    {tab === 'grow' ? <CompGrow call={call} onGo={pickTab} /> : tab === 'build' ? <ModelForge call={call} family={saidName} /> : tab === 'v2' ? <ModelComp2 call={call} /> : <>
     <p className="mlb-truth">Below is everything your models learn from, live, the minds they have to beat, and the road to a big fine-tune on a rented GPU.</p>
     <CompTools />
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}

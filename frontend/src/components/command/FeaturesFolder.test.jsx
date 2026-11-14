@@ -529,17 +529,19 @@ test('🎬 its ad: the owner starts the run, sees each ad’s state, and a ready
   await act(async () => { el2.querySelector('[data-testid="adr-redo"]').click(); }); expect(work).toHaveBeenCalledWith('c', { op: 'show_ads', text: 'redo:pos' });   // ↻ one bad ad, built again
 });
 
-test('🧪 Model Lab opens on Build, and its Data tab shows the road to a fine-tune', async () => {
-  const { ModelLab } = require('./ModelLab'); localStorage.removeItem('feeless.modelLab.tab');
+test('🧪 Model Lab opens on Grow, Build asks for the owner, and its Data tab shows the road to a fine-tune', async () => {
+  const { ModelLab } = require('./ModelLab'); localStorage.removeItem('feeless.modelLab.tab2');
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ModelLab />); });
+  expect(el.querySelector('[data-testid="comp-grow"]')).not.toBeNull();
+  await act(async () => { el.querySelector('[data-testid="mlb-tab-build"]').click(); });
   expect(el.textContent).toContain('Sign in as the owner to build a model');
   await act(async () => { el.querySelector('[data-testid="mlb-tab-data"]').click(); });
   expect(el.textContent).toContain('everything your models learn from'); expect(el.querySelectorAll('[data-testid^="mlb-step-"]').length).toBe(7);
 });
 
 test('🧪 Model Lab live: the dataset per proof type, the owner grades an open proof, the minds to beat, and a clean export', async () => {
-  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'data');
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab2', 'data');
   const kind = (k, rows, won, lost, open) => ({ kind: k, rows, won, lost, flat: 0, open, graded: 0, pairs: Math.min(won, lost), rowsPct: rows / 1000, pairsPct: Math.min(won, lost) / 200 });
   const view = graded => ({ kinds: [kind('PoB', 71, 40, 31, 2), kind('PoW', 59, 30, 29, graded ? 0 : 1)], rows: 130 + graded, pairs: 60, graded, open: graded ? 2 : 3, snapshots: 41, duels: 3,
     minds: [{ model: 'hy4', calls: 60, failed: 3, failRate: 0.05, avgMs: 17000, usd: 0.17, local: false, kinds: { poc: 40, pos: 20 } }], spentUsd: 0.17,
@@ -619,7 +621,7 @@ test('🏗 Model Forge: specs follow the blueprint, Build sends it with the guar
 
 test('🧠 COMPAI: the header name is the model, Build trains its next version from the last one, and the live view shows what it learns', async () => {
   jest.useFakeTimers();
-  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'build');
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab2', 'build');
   const card = v => ({ name: `COMP Flagship ${v}`, version: v, cfg: { d: 64, layers: 2, heads: 4, ctx: 64, tok: 'char', vocab: 256 }, spec: { paramsTotal: 136000 }, val: v === 'v1.01' ? 2.1 : 2.4, perplexity: 8, baselinePerplexity: 90, seconds: 6, totalSteps: v === 'v1.01' ? 600 : 300, base: v === 'v1.01' ? 'v1.00' : null, sample: 'PoW won' });
   const job = (id, v) => ({ id, version: v, status: 'done', history: [[0, 4.4, 4.4, 0.0003, 0.9], [299, 1.8, 1.9, 0.0001, 0.4]], steps: 300, step: 300, card: card(v), files: [{ name: 'weights.npz', bytes: 552342, say: 'every learned number' }] });
   const view = { family: { name: 'COMP Flagship', company: 'COMPAI' }, folder: '/x/model_forge', next: 'v1.02', sources: [{ k: 'proofs', label: 'Your proofs', chars: 17000, blocks: 250 }],
@@ -663,7 +665,7 @@ test('🧠 COMPAI: the header name is the model, Build trains its next version f
 });
 
 test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where a flagship with no key is blocked, not guessed', async () => {
-  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab', 'v2');
+  const { ModelLab } = require('./ModelLab'); localStorage.setItem('feeless.modelLab.tab2', 'v2');
   const sc = (right, n = 28) => ({ n, right, acc: right / n, unsure: 0, kinds: { PoB: { n: 12, right: Math.round(right / 2) }, PoW: { n: 8, right: 3 } } });
   const st = { base: { name: 'Qwen3.5-9B (4-bit, MLX)', ready: true, params: '9B', bits: 4, engine: 'MLX LoRA', mlx: true },
     dataset: { train: 99, valid: 15, test: 28, won: 75, lost: 67, net: 0 }, market: { collects: 2, rows: 3, open: 23 }, run: { iters: 150, running: false, done: true, curve: { train: [[5, 2.4], [10, 1.1]], val: [[1, 3.6], [25, 0.9]], last: 150 }, error: '' },
@@ -684,7 +686,7 @@ test('🚀 COMP v2: the 9B tab shows the base, the run, and an exam board where 
   await act(async () => { el.querySelector('[data-testid="mc2-iters-400"]').click(); });
   await act(async () => { el.querySelector('[data-testid="mc2-train"]').click(); });
   expect(sent.find(x => x[0].endsWith('/comp2/train'))[1]).toEqual({ iters: 400 });
-  el.remove(); localStorage.removeItem('feeless.modelLab.tab');
+  el.remove(); localStorage.removeItem('feeless.modelLab.tab2');
 });
 
 test('🧭 what next: the reply’s own choices become the options; otherwise steps that fit the stage + one carry into the next proof', () => {
@@ -731,3 +733,5 @@ test('🛰 PoC station: the launch path reads the PoC record, offers the one nex
   expect(el.querySelector('[data-testid="poc-door-pos"]').disabled).toBe(true);
   act(() => root.unmount()); el.remove();
 });
+
+beforeEach(() => { try { localStorage.setItem('feeless.modelLab.tab2', 'build'); } catch { /* none */ } });   // these Model Lab tests start on Build (Grow is the default, tested in CompGrow.test.js)

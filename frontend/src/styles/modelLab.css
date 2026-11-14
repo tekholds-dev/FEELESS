@@ -194,7 +194,7 @@ body.theme-day .mc2-board li.is-comp { background: var(--m-surface); } body.them
 @media (max-width: 640px) { .mc2-live { grid-template-columns: minmax(0, 1fr); } .mc2-top { grid-template-columns: repeat(3, minmax(0, 1fr)); } .mc2-base { grid-column: 1 / -1; } .mc2-board li { grid-template-columns: minmax(0, 1fr) 48px; } .mc2-board li .mc2-bar { grid-column: 1 / -1; grid-row: 2; } }
 /* 🖤 PRO under the owner's look (2026-11-12): Build + Data tabs wear the COMP v2 tokens — flat #111116 cards on hairlines, the look's accent,
    no purple gradients, sweeps or glow. Night only; the day theme keeps its own white cards. */
-html[data-edition="elite"] body:not(.theme-day) :is(.mlb, .mlf) { --p-card: var(--m-text); --p-line: color-mix(in srgb, var(--m-surface) 7%, transparent); --p-text: var(--m-surface); --p-mute: var(--m-line-hi); color: var(--p-text); }
+html[data-edition="elite"] body:not(.theme-day) :is(.mlb, .mlf) { --p-card: var(--m-surface); --p-line: color-mix(in srgb, var(--m-text) 8%, transparent); --p-text: var(--m-text); --p-mute: var(--m-dim); color: var(--p-text); }   /* 2026-11-14: was inverted (card = the text colour) → white cards, invisible numbers */
 html[data-edition="elite"] body:not(.theme-day) :is(.mlb-head, .mlb-steps li, .mlb-card, .mlb-stat, .mlb-kind, .mlb-q, .mlb-minds li, .mlf-card, .mlf-slab, .mlf-pipe li, .mlf-model) { background: var(--p-card); border-color: var(--p-line); box-shadow: none; }
 html[data-edition="elite"] body:not(.theme-day) :is(.mlf-slab.is-block, .mlf-slab.is-emb, .mlf-slab.is-tok, .mlf-slab.is-out) { border-color: var(--p-line); background: var(--p-card); }
 html[data-edition="elite"] body:not(.theme-day) .mlf-slab.is-block { border-left: 2px solid var(--m-accent); }
