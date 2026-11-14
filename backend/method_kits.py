@@ -109,6 +109,18 @@ def all_kits(extra=None):
     return out
 
 
+def _examples(cats, key, i, n=3):
+    """🔎 owner 2026-11-14 ("cant open these to see, review and approve"): the newest proofs that failed check i, with what each reviewer said. Pure."""
+    out = []
+    for c in cats:
+        for f in c.get(key) or []:
+            if _check_failed(f, i):
+                said = [{'who': str(w).upper(), 'note': str((v.get('checks') or [''] * (i + 1))[i] or '').lstrip('✗✓ ').strip()[:240]}
+                        for w, v in ((f.get('review') or {}).get('by') or {}).items() if len(v.get('checks') or []) > i and str(v['checks'][i]).startswith('✗')]
+                out.append({'agent': str(c.get('name') or 'an agent')[:40], 'n': f.get('n'), 'title': str(f.get('topic') or f.get('name') or f.get('q') or '')[:90], 'at': f.get('at') or 0, 'said': said[:2]})
+    return sorted(out, key=lambda r: -(r['at'] or 0))[:n]
+
+
 def proposals(cats, rubric, extra=None):
     """Per kind, the rubric checks OSSY + G4 fail most across every agent's reviewed proofs. → rows to approve. Pure."""
     import mission
@@ -121,7 +133,8 @@ def proposals(cats, rubric, extra=None):
                 continue
             rate = sum(seen) / len(seen)
             if rate >= PROPOSE_FAIL:
-                rows.append({'id': f'fix-{k}-{i + 1}', 'kind': k, 'check': i, 'what': what.split('. ', 1)[-1], 'failRate': round(rate, 2), 'seen': len(seen)})
+                rows.append({'id': f'fix-{k}-{i + 1}', 'kind': k, 'check': i, 'what': what.split('. ', 1)[-1], 'full': what, 'failRate': round(rate, 2), 'seen': len(seen),
+                             'failed': sum(seen), 'examples': _examples(cats, key, i)})
     return sorted(rows, key=lambda r: -r['failRate'])
 
 

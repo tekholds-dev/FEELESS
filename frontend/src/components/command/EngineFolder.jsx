@@ -1,10 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { Ic3 } from '../../lib/icon3d';
+import '../../styles/proposals.css';
 
 // 📡 AGT-12 Engines (owner: "live data showing what each engine does for agents and the Collective"): every engine that runs on its own,
 // as live counts from the server (op engines), refreshed every 15 s while the window is visible. No wallet, prompt or page.
 const ago = t => (t ? `${Math.max(0, Math.round((Date.now() / 1000 - t) / 60))} min ago` : 'not yet');
 const usd = n => (n ? `$${n < 0.01 ? n.toFixed(4) : n.toFixed(2)}` : '$0');
+
+// 🔎 owner 2026-11-14 ("cant open these to see, review and approve"): every proposal opens — the full check, how often it failed, the real
+// proofs that failed it with what OSSY / G4 said, and exactly what a yes changes. Approve stays one tap, inside and outside the open row.
+export function PropRow({ id, title, meter, bad = false, side, children, onApprove, approveTip, testid }) {
+  const [open, setOpen] = useState(false);
+  return <li className={`eng-prop${open ? ' is-open' : ''}`} data-testid={testid}>
+    <button type="button" className="eng-prop-h" aria-expanded={open} onClick={() => setOpen(o => !o)} data-tip={open ? 'Close it' : 'Open it: the evidence and what a yes changes'} data-testid={`${testid}-open`}>
+      <span>{title}</span><em aria-hidden="true">{open ? '−' : '+'}</em></button>
+    {meter != null ? <i className={`eng-meter${bad ? ' is-bad' : ''}`} aria-hidden="true"><u style={{ transform: `scaleX(${meter})` }} /></i> : null}
+    {open ? <div className="eng-prop-body" data-testid={`${testid}-body`}>{children}</div> : null}
+    {onApprove ? <button type="button" className="m-btn m-go" onClick={() => onApprove(id)} data-tip={approveTip} data-testid={`eng-approve-${id}`}>Approve</button> : side}
+  </li>;
+}
+const Said = ({ ex }) => (ex || []).length ? <ol className="eng-ex">{ex.map((e, i) => <li key={i}><b>{e.agent}{e.n ? ` · #${e.n}` : ''}</b>{e.title ? <small>{e.title}</small> : null}
+  {(e.said || []).map((s, k) => <q key={k}><i>{s.who}</i>{s.note || 'failed it, no note'}</q>)}</li>)}</ol> : null;
 
 export function EngineFolder({ cat, work }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [said, setSaid] = useState('');
@@ -32,15 +48,25 @@ export function EngineFolder({ cat, work }) {
       <div className="eng-hero"><b className="m-num">{mk.active}</b><small>active</small><b className="m-num">{mk.unmeasured}</b><small>measuring</small><b className="m-num">{mk.quarantined}</b><small>quarantined</small></div></section>
     <section className="eng-card m-card eng-wide" style={{ '--i': 4 }} data-testid="eng-proposals"><h4>🧪 THE COLLECTIVE PROPOSES <small>from its own reviews and the asks no proof covers; nothing changes until the owner says yes</small></h4>
       <div className="eng-props">
-        <div><small className="m-label">METHOD KITS · checks The Collective keeps failing</small>{(pr.kits || []).length ? <ul className="eng-list">{pr.kits.map(r => <li key={r.id} data-testid={`eng-prop-${r.id}`} data-tip={`${r.kind.toUpperCase()}: failed in ${Math.round(r.failRate * 100)}% of ${r.seen} reviewed proofs`}>
-          <span>{r.kind.toUpperCase()} · {r.what}</span><i className="eng-meter is-bad" aria-hidden="true"><u style={{ transform: `scaleX(${r.failRate})` }} /></i>
-          {pr.canApprove ? <button type="button" className="m-btn m-go" onClick={() => approve(r.id)} data-tip="Every proof of this kind is told to pass this check, and it is measured like the other kits" data-testid={`eng-approve-${r.id}`}>Approve</button> : <b className="m-num">{Math.round(r.failRate * 100)}%</b>}</li>)}</ul>
+        <div><small className="m-label">METHOD KITS · checks The Collective keeps failing</small>{(pr.kits || []).length ? <ul className="eng-list">{pr.kits.map(r => <PropRow key={r.id} id={r.id} testid={`eng-prop-${r.id}`} title={`${r.kind.toUpperCase()} · ${r.what}`} meter={r.failRate} bad
+          onApprove={pr.canApprove ? approve : null} approveTip="Every proof of this kind is told to pass this check, and it is measured like the other kits" side={<b className="m-num">{Math.round(r.failRate * 100)}%</b>}>
+          <p className="eng-prop-q">{r.full || r.what}</p>
+          <p className="eng-prop-n"><b className="m-num">{r.failed ?? Math.round(r.failRate * r.seen)}</b> of <b className="m-num">{r.seen}</b> reviewed {r.kind.toUpperCase()}s failed this check ({Math.round(r.failRate * 100)}%).</p>
+          <Said ex={r.examples} />
+          <p className="eng-prop-yes"><b>If you approve:</b> every new {r.kind.toUpperCase()} brief is told to pass this check. It is scored like the other kits (followed vs skipped, settled from outside) and quarantined if proofs that follow it do worse. Nothing about money or limits changes.</p>
+        </PropRow>)}</ul>
           : <p className="dsk-note">None yet: a check must fail in 60%+ of 4+ reviewed proofs of a kind.</p>}</div>
-        <div data-testid="eng-combos"><small className="m-label">🧩 KITS THAT WORK BETTER TOGETHER · settled proofs that followed both</small>{(pr.combos || []).filter(r => r.settled).length ? <ul className="eng-list">{pr.combos.filter(r => r.settled).slice(0, 5).map(r => <li key={r.id} data-testid={`eng-combo-${r.id}`} data-tip={`${r.settled} settled proofs followed both: ${r.bothWin == null ? '–' : `${Math.round(r.bothWin * 100)}%`} right · the better one alone: ${r.bestAlone == null ? '–' : `${Math.round(r.bestAlone * 100)}%`}. Proposed at ${10}+ settled and 5 points better`}>
-          <span>{r.combo.join(' + ')}</span><i className="eng-meter" aria-hidden="true"><u style={{ transform: `scaleX(${r.bothWin || 0})` }} /></i>
-          {r.approved ? <b>✓ ON</b> : r.proposed && pr.canApprove ? <button type="button" className="m-btn m-go" onClick={() => approve(r.id)} data-tip="Both kits together join every brief of these kinds, measured like any kit" data-testid={`eng-approve-${r.id}`}>Approve</button> : <b className="m-num">{r.settled}/10</b>}</li>)}</ul>
+        <div data-testid="eng-combos"><small className="m-label">🧩 KITS THAT WORK BETTER TOGETHER · settled proofs that followed both</small>{(pr.combos || []).filter(r => r.settled).length ? <ul className="eng-list">{pr.combos.filter(r => r.settled).slice(0, 5).map(r => <PropRow key={r.id} id={r.id} testid={`eng-combo-${r.id}`} title={r.combo.join(' + ')} meter={r.bothWin || 0}
+          onApprove={!r.approved && r.proposed && pr.canApprove ? approve : null} approveTip="Both kits together join every brief of these kinds, measured like any kit" side={r.approved ? <b>✓ ON</b> : <b className="m-num">{r.settled}/10</b>}>
+          <p className="eng-prop-n"><b className="m-num">{r.settled}</b> settled proofs followed both: <b className="m-num">{r.bothWin == null ? '–' : `${Math.round(r.bothWin * 100)}%`}</b> right. The better kit alone: <b className="m-num">{r.bestAlone == null ? '–' : `${Math.round(r.bestAlone * 100)}%`}</b>.</p>
+          <p className="eng-prop-yes"><b>{r.approved ? 'On:' : r.proposed ? 'If you approve:' : 'Not proposed yet:'}</b> {r.approved ? 'both kits join every brief of these kinds together.' : r.proposed ? 'both kits join every brief of these kinds together, measured like any kit and quarantined if worse.' : 'it needs 10+ settled proofs and 5 points better than the better kit alone.'}</p>
+        </PropRow>)}</ul>
           : <p className="dsk-note">None measured yet: pairs show once settled proofs followed both.</p>}</div>
-        <div><small className="m-label">NEW PROOF TYPES · asks no proof covers</small>{(pr.proofs || []).length ? <ul className="eng-list">{pr.proofs.map(g => <li key={g.word} data-tip={g.examples.join(' · ')}><span>{g.name}</span><b className="m-num">{g.asks} asks</b></li>)}</ul>
+        <div><small className="m-label">NEW PROOF TYPES · asks no proof covers</small>{(pr.proofs || []).length ? <ul className="eng-list">{pr.proofs.map(g => <PropRow key={g.word} id={g.word} testid={`eng-gap-${g.word}`} title={g.name} side={<b className="m-num">{g.asks} asks</b>}>
+          <p className="eng-prop-n"><b className="m-num">{g.asks}</b> asks with no proof type for them. What people asked:</p>
+          <ol className="eng-ex">{(g.examples || []).map((x, i) => <li key={i}><q>{x}</q></li>)}</ol>
+          <p className="eng-prop-yes"><b>To act on it:</b> this is a new proof type to build, not a switch. Ask a Claude to build it.</p>
+        </PropRow>)}</ul>
           : <p className="dsk-note">None yet: the same kind of ask, 3+ times, with no proof for it.</p>}</div>
         <div><small className="m-label">APPROVED · HISTORY</small><ul className="eng-list">{(pr.approved || []).map(a => <li key={a.id}><span>✓ {a.id}</span><b>{a.kind?.toUpperCase()}</b></li>)}
           {(pr.history || []).slice(0, 5).map((h, i) => <li key={`h${i}`}><span>{h.kit}: {h.from || 'new'} → {h.to}</span><b className="m-num">{ago(h.at)}</b></li>)}

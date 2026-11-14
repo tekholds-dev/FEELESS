@@ -58,3 +58,15 @@ def test_the_trader_chat_knows_what_feeless_proofs_are():
     for word in ('PoStatic = Proof of Static', 'PoEco = Proof of Eco', 'PoB = Proof of Bids', 'Proofing = filing a proof', 'never guess'):
         assert word in sys_
     assert len(sys_) < 1800 and fs._know.asks_about('whats a PoEco')     # short enough for a small local model
+
+
+def test_a_proposal_opens_to_its_evidence_full_check_counts_and_what_the_reviewers_said():
+    """owner 2026-11-14: "cant open these to see, review and approve" — each proposal carries the proofs that failed it, newest first."""
+    import method_kits as mk
+    import proof_review as pr
+    rv = lambda fail, n: {'n': n, 'topic': f'proof {n}', 'at': n, 'review': {'by': {'ossy': {'checks': ['✓ a', f'✗ no source for pick {n}' if fail else '✓ b', '✓ c', '✓ d', '✓ e']}, 'g4': {'checks': ['✓ a', '✓ b']}}}}
+    cats = [{'name': 'Happy', 'powFolders': [{'id': str(i), **rv(i < 4, i)} for i in range(5)]}]
+    r = mk.proposals(cats, pr.RUBRIC)[0]
+    assert r['failed'] == 4 and r['seen'] == 5 and r['full'] == pr.RUBRIC['pow'][1]
+    assert [e['n'] for e in r['examples']] == [3, 2, 1]                        # newest three
+    assert r['examples'][0] == {'agent': 'Happy', 'n': 3, 'title': 'proof 3', 'at': 3, 'said': [{'who': 'OSSY', 'note': 'no source for pick 3'}]}   # G4 passed it: not quoted

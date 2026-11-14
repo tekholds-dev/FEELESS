@@ -1,0 +1,21 @@
+/* 🔎 The Collective proposes (owner 2026-11-14: "cant open these to see, review and approve"): each row opens to its evidence. Tokens only. */
+.eng-props li.eng-prop { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 8px; align-items: center; }
+.eng-prop-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 32px; padding: 0; border: 0; background: none; color: var(--m-text); font: 600 12px/1.35 var(--f-ui); text-align: left; cursor: pointer; grid-column: 1 / -1; }
+.eng-prop-h em { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--m-line-hi); font: 700 13px var(--f-mono); font-style: normal; color: var(--m-accent); transition: transform .16s, background .16s; }
+.eng-prop-h:hover em, .eng-prop-h:focus-visible em { background: color-mix(in srgb, var(--m-accent) 18%, transparent); } .eng-prop-h:active em { transform: scale(.9); }
+.eng-prop-h:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; border-radius: 6px; }
+.eng-prop.is-open { border: 1px solid var(--m-line-hi); background: color-mix(in srgb, var(--m-accent) 5%, var(--m-surface-2)); }
+.eng-prop > .m-btn { grid-column: 1 / -1; min-height: 34px; } .eng-prop > b { grid-column: 2; }
+.eng-prop-body { grid-column: 1 / -1; display: grid; gap: 8px; padding: 4px 2px 2px; animation: epIn .18s ease both; }
+.eng-prop-body p { margin: 0; font: 400 12px/1.45 var(--f-ui); color: var(--m-dim); } .eng-prop-body p b { color: var(--m-text); }
+.eng-prop-q { padding: 8px 10px; border-left: 3px solid var(--m-accent); border-radius: 4px 8px 8px 4px; background: var(--m-surface); color: var(--m-text) !important; }
+.eng-prop-yes { padding: 8px 10px; border-radius: 8px; border: 1px dashed var(--m-line-hi); }
+.eng-ex { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.eng-props .eng-ex li { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; align-items: start; gap: 3px; padding: 7px 9px; border-radius: 8px; background: var(--m-surface); min-height: 0; } .eng-ex li b { font: 700 11px var(--f-tech); color: var(--m-text); }
+.eng-ex li small { font: 400 11px var(--f-ui); color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eng-props .eng-ex q { display: block; font: 400 12px/1.4 var(--f-ui); color: var(--m-text); quotes: none; } .eng-ex q i { margin-right: 6px; font: 700 9px var(--f-mono); font-style: normal; letter-spacing: .14em; color: var(--m-danger); }
+@keyframes epIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .eng-prop-h { font-size: 13px; } }
+body.fx-lite .eng-prop-body { animation: none; }
+@media (prefers-reduced-motion: reduce) { .eng-prop-body { animation: none; } .eng-prop-h em { transition: none; } }
+body.theme-day .eng-prop.is-open { background: color-mix(in srgb, var(--m-accent) 7%, var(--m-surface)); }

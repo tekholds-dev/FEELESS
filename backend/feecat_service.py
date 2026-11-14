@@ -10106,6 +10106,15 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         if text_ is None:
             raise HTTPException(404, 'That test file is not kept here.')
         return {'text': text_[:400000]}
+    if p.op == 'ws_version':   # 🗂 AGX-2: one saved version of a page, to set beside another (the drawer's compare). Read only; i is 1-based
+        d_ = _ws_load(cat_id, p.text)
+        if not d_:
+            raise HTTPException(404, 'No such folder.')
+        v_ = d_.get('versions') or []
+        if not v_ or p.i is None or not 1 <= int(p.i) <= len(v_):
+            raise HTTPException(400, f'Pick a version from 1 to {len(v_)}.')
+        r_ = v_[int(p.i) - 1]
+        return {'version': {'i': int(p.i), 'of': len(v_), 'by': r_.get('by'), 'at': r_.get('at'), 'lines': len(str(r_.get('html') or '').splitlines()), 'html': str(r_.get('html') or ''), 'preview': _feat.preview(_ws_placed(cat_id, r_.get('html') or ''))}}
     if p.op == 'ws_open':
         view_ = _ws_view(cat_id, p.text); view_['savedToRepo'] = p.text in (cat.get('savedPages') or []); view_['project'] = (cat.get('projectRepo') or {}).get('full')
         if p.ver is not None and p.ver == str(view_['versions']):
@@ -10417,7 +10426,13 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         f_ = next((x for x in cat.get('psFolders') or [] if x.get('id') == p.job), None)
         if not f_ or p.text not in ('right', 'wrong'):
             raise HTTPException(400, 'Mark one of its PoStatics.')
-        f_['graded'] = p.text; _save(store)
+        f_['graded'] = p.text
+        why_ = ' '.join(str((p.tools or {}).get('why') or '').split())[:280]   # 🗂 AGX-2: the owner's reason travels with the grade (the next build reads it from the chat, not from here)
+        if why_:
+            f_['gradeWhy'] = why_
+        elif 'why' in (p.tools or {}):
+            f_.pop('gradeWhy', None)
+        _save(store)
         return {'poeFolders': (cat.get('poeFolders') or [])[::-1], 'psFolders': (cat.get('psFolders') or [])[::-1]}
     if p.op == 'ws_complete':
         doc_ = _ws_load(cat_id, p.job)
