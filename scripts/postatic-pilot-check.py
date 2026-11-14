@@ -1,5 +1,5 @@
 """COL-6 · PoStatic pilot checker: reads the newest PoStatic proof (Sicario's first) READ-ONLY and ticks every
-piece the card demands kept on one real proof: plan, build, OSSY+G4 review, playtest/browser test, file, stash,
+piece the card demands kept on one real proof: plan, build, an independent review (OSSY/G4, or the owner/Claude when they built it), playtest/browser test, file, stash,
 grade, stamp, events, vitals row. No writes, no network, no money."""
 import json
 import sqlite3
@@ -33,8 +33,16 @@ def main():
     by = rv.get('by') or {}
     good &= tick('Plan kept', f.get('plan') or (DATA / 'agent_workspaces').glob(f'*/{ws}.seal'), 'on the folder or its sealed workspace')
     good &= tick('Build kept', ws and any((DATA / 'agent_workspaces').glob(f'*/{ws}.seal')), f'workspace {ws}')
-    good &= tick('OSSY review', (by.get('ossy') or {}).get('verdict'), (by.get('ossy') or {}).get('answeredBy', ''))
-    good &= tick('G4 review', (by.get('g4') or {}).get('verdict'), (by.get('g4') or {}).get('answeredBy', ''))
+    rec = set(rv.get('recused') or [])
+    for key, name in (('ossy', 'OSSY'), ('g4', 'G4')):   # a builder sits out its own proof's review: that is the rule working, not a gap
+        if key in rec:
+            print(f"  ↷ {name} review — sat out: {name} built this proof")
+        else:
+            good &= tick(f'{name} review', (by.get(key) or {}).get('verdict'), (by.get(key) or {}).get('answeredBy', ''))
+    outs = [k for k, v in by.items() if (v or {}).get('outside')]
+    good &= tick('Independent verdict', rv.get('independent') and rv.get('verdict'),
+                 f"{rv.get('verdict')} {rv.get('score')} by {', '.join(sorted(k for k, v in by.items() if v))}" if rv.get('verdict') else
+                 'every model judge built it — the owner (HQ › review by hand) or Claude (scripts/grade-proof.py) reviews it')
     good &= tick('Filed', f.get('status') == 'closed', f.get('status') or 'open')
     good &= tick('Graded', f.get('graded') in ('right', 'wrong'), f.get('graded') or 'not yet')
     con = sqlite3.connect(DATA / 'stash' / 'index.db')
@@ -52,7 +60,7 @@ def main():
         print(f"  ⏳ Stamp — waiting on the 24h clock, lands {due} (in {max(0, st['dueAt'] - time.time()) / 3600:.1f} h)")
     else:
         good &= tick('Stamp', 'stamp' in evs or f.get('stamp'), 'the 24h stamp event')
-    good &= tick('Vitals row', f.get('graded') and (by.get('ossy') or by.get('g4')), 'model × proof vitals build from this folder live')
+    good &= tick('Vitals row', f.get('graded') and any(by.values()), 'model × proof vitals build from this folder live')
     if good and waiting:
         print('\nPILOT KEPT — every piece is on one real proof; only the 24h stamp is still on its clock. Re-run --check after ' + due + '.')
         return 2

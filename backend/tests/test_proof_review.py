@@ -1,4 +1,5 @@
 """OSSY and G4 review every filed proof: a verdict each, who really answered, filed on the folder and in the history; never the boost grade."""
+import pytest
 import asyncio
 import json
 
@@ -104,3 +105,18 @@ def test_the_bought_coins_read_comes_first_and_is_labelled():
     f = {'id': 'w', 'status': 'closed', 'sym': 'DEMO', 'mint': 'M2', 'coins': [{'sym': 'COGE', 'mint': 'M1', 'read': 'coge read'}, {'sym': 'DEMO', 'mint': 'M2', 'read': 'demo read'}]}
     reads = json.loads(pr.brief('pow', f, now=1794336000).split('\n', 1)[1])['evidence']['whatWasRead']
     assert reads[0] == 'DEMO (BOUGHT): demo read' and reads[1].startswith('COGE: ')
+
+
+def test_an_outside_judge_reviews_a_proof_every_model_judge_built():
+    """owner 2026-11-14: OSSY + G4 built it (recused) → the owner or Claude reviews it; no Gemma needed. Never overrides a model's vote."""
+    import proof_review as pr
+    rv = pr.combine({'ossy': None, 'g4': None, 'zed': None}, ['ossy', 'g4'], ['local/ossy', 'local/g4'], body='x')
+    assert rv['verdict'] is None and not rv['independent']
+    out = pr.outside({**rv, 'hidden': {'passed': 9}}, 'claude', 'pass', 82, 'works on a phone', ['✓ loads'], now=1)
+    assert out['verdict'] == 'pass' and out['score'] == 82 and out['independent'] and out['recused'] == ['ossy', 'g4']
+    assert out['by']['claude']['answeredBy'].startswith('claude') and out['outside'] == ['claude'] and out['hidden'] == {'passed': 9}
+    both = pr.outside(out, 'owner', 'fail', 40, 'a link is dead')
+    assert both['verdict'] == 'fail' and both['score'] == 61 and both['outside'] == ['claude', 'owner'] and both['agree'] is False
+    for bad in (('ossy', 'pass', 90), ('owner', 'maybe', 90), ('owner', 'pass', 30), ('owner', 'fail', 80)):
+        with pytest.raises(ValueError):
+            pr.outside(rv, *bad)

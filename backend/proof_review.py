@@ -388,3 +388,28 @@ def per_dollar(rows, tally, ws_of=None):
     for r in (total, *by.values()):
         r['usd'] = round(r['usd'], 4); r['perDollar'] = round(r['proved'] / r['usd'], 1) if r['usd'] > 0 else None
     return {'total': total, 'byKind': by}
+
+
+OUTSIDE = {'owner': 'The owner (by hand)', 'claude': 'Claude (outside judge)'}   # owner 2026-11-14: "I or you can grade the proof" — no extra model needed
+
+
+def outside(rv, judge, verdict, score, why='', checks=(), now=None):
+    """🧑‍⚖️ An outside judge (the owner, or Claude) reviews a proof the model judges had to sit out (or adds a read beside theirs). It never
+    replaces a model's vote; the recused stay recused; the folder's verdict/score are recomputed with it in. Pure."""
+    import time as _t
+    if judge not in OUTSIDE:
+        raise ValueError('Only the owner or Claude can file an outside review.')
+    if verdict not in ('pass', 'fail'):
+        raise ValueError('Pick pass or fail.')
+    score = max(0, min(100, int(score)))
+    if (verdict == 'pass') != (score >= PASS_AT):
+        raise ValueError(f'A pass scores {PASS_AT} or more; a fail scores under {PASS_AT}.')
+    rv = dict(rv or {}); rec = list(rv.get('recused') or [])
+    by = {k: v for k, v in (rv.get('by') or {}).items()}
+    for k in rec:
+        by.setdefault(k, None)
+    by[judge] = {'score': score, 'verdict': verdict, 'why': str(why or '')[:600], 'checks': [str(c)[:200] for c in checks or []][:10],
+                 'answeredBy': f'{judge} · {OUTSIDE[judge]}', 'outside': True, 'at': round(now or _t.time())}
+    out = combine(by, rec, rv.get('builders') or [])
+    keep = {k: rv[k] for k in ('hidden', 'evidenceSha', 'at') if rv.get(k) is not None}
+    return {**out, **keep, 'outside': sorted(k for k, v in out['by'].items() if (v or {}).get('outside'))}

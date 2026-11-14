@@ -68,7 +68,7 @@ test('a video clip paints the frame decor under the playing video and the edit o
 });
 
 test('the clip is MP4 where the browser records it, else WebM, else none', () => {
-  expect(clipType(t => t.startsWith('video/mp4'))).toEqual({ type: 'video/mp4;codecs=avc1', ext: 'mp4' });
+  expect(clipType(t => t.startsWith('video/mp4'))).toEqual({ type: 'video/mp4;codecs=avc3', ext: 'mp4' });
   expect(clipType(t => t === 'video/webm')).toEqual({ type: 'video/webm', ext: 'webm' });
   expect(clipType(() => false)).toBeNull();
 });

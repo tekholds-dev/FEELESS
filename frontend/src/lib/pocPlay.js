@@ -122,7 +122,7 @@ export function splitAroundMain(layers) {
 
 // pure: the best clip type this browser records (Chrome 126+ writes MP4 itself; others WebM). → { type, ext } or null
 export function clipType(supports) {
-  const want = [['video/mp4;codecs=avc1', 'mp4'], ['video/mp4', 'mp4'], ['video/webm;codecs=vp9', 'webm'], ['video/webm', 'webm']];
+  const want = [['video/mp4;codecs=avc3', 'mp4'], ['video/mp4;codecs=avc1', 'mp4'], ['video/mp4', 'mp4'], ['video/webm;codecs=vp9', 'webm'], ['video/webm', 'webm']];
   const hit = want.find(([t]) => supports(t)); return hit ? { type: hit[0], ext: hit[1] } : null;
 }
 export const CLIP_MAX_SEC = 60;

@@ -6412,6 +6412,45 @@ def _review_apply(store):
     return n
 
 
+def _outside_review_apply(store, cat_id, kind, fid, judge, t_):
+    """File an outside judge's review (owner or Claude) on one proof folder + its proof-history event. → the folder's new review."""
+    if kind not in _mission.KINDS:
+        raise HTTPException(400, 'Unknown proof kind.')
+    cat = (store.get('cats') or {}).get(cat_id) or {}
+    f = next((x for x in cat.get(_mission.KINDS[kind][1]) or [] if x.get('id') == fid), None)
+    if f is None:
+        raise HTTPException(404, 'No such proof.')
+    try:
+        rv = _review.outside(f.get('review'), judge, str(t_.get('verdict') or ''), t_.get('score') if t_.get('score') is not None else -1, t_.get('why'), t_.get('checks') or [])
+    except (ValueError, TypeError) as e:
+        raise HTTPException(400, str(e))
+    f['review'] = rv; keep_owned(cat); _save(store)
+    try:
+        v = rv['by'][judge]
+        _pev.append(DATA_DIR / _pev.DB_NAME, kind, fid, 'review', {'reviewers': {judge: {'score': v['score'], 'verdict': v['verdict'], 'answeredBy': v['answeredBy'], 'why': v['why'][:120]}},
+                                                                   'score': rv['score'], 'verdict': rv['verdict'], 'outside': judge, 'recused': rv.get('recused') or []}, cat=cat_id)
+    except Exception as e:   # noqa: BLE001
+        print(f'[review] outside history: {str(e)[:80]}')
+    return {'review': rv}
+
+
+class OutsideReviewIn(BaseModel):
+    cat: str
+    kind: str
+    fid: str
+    verdict: str
+    score: int
+    why: str = ''
+    checks: list = []
+
+
+@app.post('/api/cats/internal/review-outside')
+async def review_outside_internal(p: OutsideReviewIn, request: Request):
+    """🧑‍⚖️ Claude's outside review (owner 2026-11-14: "I or you can grade the proof"): internal key only, filed as judge `claude`."""
+    _internal(request)
+    return _outside_review_apply(_load(), p.cat, p.kind, p.fid, 'claude', p.model_dump())
+
+
 async def _review_loop():
     """🧑‍⚖️ Every REVIEW_EVERY_S, one proof: OSSY and G4 review the newest one nobody reviewed. Off with FEELESS_REVIEW=0."""
     await asyncio.sleep(45)
@@ -9262,6 +9301,11 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         if not ok_:
             raise HTTPException(409, say_)
         return {'ok': True, 'say': say_}
+    if p.op == 'proof_review_outside':   # 🧑‍⚖️ owner 2026-11-14: the owner reviews a proof by hand (staff only), e.g. when OSSY + G4 built it
+        if not await _session_staff(p.session or ''):
+            raise HTTPException(403, 'Only staff can file a review by hand.')
+        t_ = p.tools or {}
+        return _outside_review_apply(store, cat_id, str(t_.get('kind') or ''), str(p.text or ''), 'owner', t_)
     if p.op == 'pob_folder':   # 🎲 the owner's own mark on a research folder, or removing it
         rows_ = cat.get('pobFolders') or []; f_ = next((x for x in rows_ if x.get('id') == p.text), None)
         if not f_:
