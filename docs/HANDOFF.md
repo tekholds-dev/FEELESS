@@ -10,13 +10,12 @@
 > 1. Read `CLAUDE.md` then this file. Work the build order above, **one card at a time, full build, shown LIVE to the owner before moving to the next** (this is the fix for the surfaces he re-asked 20× that only got half-done).
 > 2. Before building a card, give the owner the shortlist of the best free tools/services for it, then build.
 > 3. **State 2026-11-14 02:30 UTC (opus-5.5, pushed):** POC-PLAY DONE (cut-out, week board, 3 brain weeks filed, references, Postiz posting) · COL-6 needs no Gemma (outside judge; only the stamp clock left) · SITE-5 DONE (613/632 routes outside; 19 stay on purpose) · SITE-8 `--workers` NOT flipped (see card: 61 background loops have no leader).
-> 4. **Next:** the AGX-1…10 cards below, in order (Collective How it pays + Its pot redone 2026-11-14) · OWNER real-money tests (everything else he asked for is built) · LEGAL-1 owner blanks · SITE-8 multi-worker (scale work, see card — not needed for today's load).
+> 4. **Next:** the AGX-2…10 cards below, in order (AGX-1 proof picker ✅ 2026-11-14) (Collective How it pays + Its pot redone 2026-11-14) · OWNER real-money tests (everything else he asked for is built) · LEGAL-1 owner blanks · SITE-8 multi-worker (scale work, see card — not needed for today's load).
 > 4. Never move real funds / hit mainnet; the owner does all real-money tests.
 
 ## AGENTS + COLLECTIVE NEXT (owner 2026-11-14: "DO 1–10") — work in order, one card at a time, shown live
 Styling: `docs/specs/style.md` tokens only · libraries first (shadcn, Motion, Recharts) · real data · every tab clicked + screenshot. Agent desk = `frontend/src/components/command/CatWorkbench.jsx`; Collective = `CollectiveLanding.jsx`; COMP = the COMP window on `/terminal/feecat/agents`.
 
-**AGX-1 · Proof picker** · OPEN · claimed: — · ⌘K (and a button) opens a radial wheel, one slice per proof type (PoW/PoP/PoB/PoC/PoStatic/PoEco); a slice fans out that type's files as cards, newest first, coloured by pot score (`AgentPot.potBoard` has the scores). Picking one opens it in the desk window. Done when: every type opens a real file in the desk, keyboard + touch.
 **AGX-2 · All proof steps in the desk** · OPEN · claimed: — · a drawer under the code/preview panes: file, grade (👍/👎 + why), re-run, send to pot, compare two versions side by side. Chat "Open the Bids desk" buttons open the proof IN the desk, no link-out. Done when: each step works from the drawer on a real proof.
 **AGX-3 · Chat box you can resize** · OPEN · claimed: — · drag the top edge, or 3 sizes: dock / half / focus (desk shrinks to a strip); double-click the header = focus; remembered per user (localStorage, try/catch). Done when: all 3 sizes + drag on desktop and phone.
 **AGX-4 · Two-mind duel** · OPEN · claimed: — · with "Both" on, MIND A and MIND B answer in two columns, a middle strip marks where they disagree, tap the winner → a right-vs-wrong pair in COMP's dataset (the stash). Done when: a tap lands as a pair in THE DATASET view.

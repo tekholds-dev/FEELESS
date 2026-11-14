@@ -448,11 +448,15 @@ export function FeaturesFolder({ cat, d, work, onCommand, onBrowse, onOpenIn }) 
 
 // 📂 A proof's own folder on the desk: every PoStatic or PoC folder lives here, and a new one is a new proof.
 const proofsBox = boxRef([760]);   // 📐 its own width, no @container (lib/boxRef.js)
-export function ProofDesk({ cat, kind, work, onCommand, start = null, onBrowse, pool, d, setD, onOpenIn }) {
+export function ProofDesk({ cat, kind, work, onCommand, start = null, onBrowse, pool, d, setD, onOpenIn, focus = null }) {
   const [rows, setRows] = useState(null); const [poc, setPoc] = useState([]); const [statics, setStatics] = useState([]); const [open, setOpen] = useState(null); const [filed, setFiled] = useState(null); const [draft, setDraft] = useState(''); const [name, setName] = useState(''); const [err, setErr] = useState(''); const [play, setPlay] = useState(false);
   const load = useCallback(() => work(cat.id, { op: 'features' }).then(j => { setRows(j.workspaces || []); setPoc(j.pocFolders || []); setStatics(j.psFolders || []); }).catch(e => { setErr(e.message); setRows([]); }), [cat.id, work]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (start?.folder) { setOpen(start.folder); setDraft(start.draft || ''); load(); } }, [start?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // 🎯 AGX-1: the proof picker opens this very proof — a PoC in its filed view, a PoStatic in its build folder (once the lists are in)
+  const picked = useRef(null);
+  useEffect(() => { if (!focus?.id || picked.current === focus.at || rows == null) return; const f = (kind === 'build' ? statics : poc).find(x => x.id === focus.id); if (!f) return; picked.current = focus.at;
+    if (kind === 'content') { setOpen(null); setFiled(f); } else { const home = (rows || []).find(w => w.id === f.ws); if (home) { setFiled(null); setDraft(''); setOpen(home); } } }, [focus?.at, rows, poc, statics, kind]);   // eslint-disable-line react-hooks/exhaustive-deps
   const word = kind === 'build' ? 'PoStatic' : 'PoC'; const mine = (rows || []).filter(w => w.kind === kind);
   const make = async e => { e.preventDefault(); setErr(''); try { const j = await work(cat.id, { op: 'feature_create', text: kind, job: name.trim() }); setRows(j.workspaces); setName(''); setDraft(''); setOpen(j.folder); } catch (er) { setErr(er.message); } };
   const drop = async id => { const j = await work(cat.id, { op: 'feature_delete', text: id }); setRows(j.workspaces); };

@@ -1,0 +1,61 @@
+/* 🎯 AGX-1 proof picker (2026-11-14): a wheel of proof types + the picked type's proofs fanned out as cards lit by pot rank. Tokens only. */
+.ppk { --ppk-s: var(--m-accent); --ppk-a: var(--m-accent); --ppk-b: color-mix(in srgb, var(--m-accent) 50%, var(--m-text)); --ppk-c: var(--m-warn); --ppk-d: var(--m-danger); --ppk-none: var(--m-mute);
+  position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--m-bg) 72%, transparent); animation: ppkFade .18s ease both; }
+.ppk-box { position: relative; width: min(940px, 100%); max-height: min(640px, calc(100% - 8px)); display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 20px; border: 1px solid var(--m-line-hi);
+  background: radial-gradient(120% 80% at 18% 30%, color-mix(in srgb, var(--m-accent) 12%, transparent), transparent 60%), linear-gradient(160deg, color-mix(in srgb, var(--m-text) 6%, transparent), transparent 45%), var(--m-surface);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 12%, transparent), 0 30px 80px color-mix(in srgb, var(--m-bg) 80%, transparent), 0 0 0 1px color-mix(in srgb, var(--m-accent) 18%, transparent); overflow: hidden; }
+.ppk-box::before { content: ''; position: absolute; inset: -40% -10% auto; height: 60%; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--m-accent) 9%, transparent) 50%, transparent 70%); pointer-events: none; animation: ppkSweep 7s ease-in-out infinite; }
+.ppk-h { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.ppk-h > small { font: 700 9px var(--f-mono); letter-spacing: .2em; color: var(--m-accent); white-space: nowrap; }
+.ppk-q { position: relative; display: block; min-width: 0; } .ppk-q span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--m-dim); pointer-events: none; }
+.ppk-q .m-input { width: 100%; min-height: 36px; padding-left: 28px; }
+.ppk-kbd, .ppk-keys kbd { font: 700 10px var(--f-mono); padding: 3px 6px; border-radius: 6px; border: 1px solid var(--m-line-hi); color: var(--m-dim); background: var(--m-surface-2); }
+.ppk-x { min-width: 36px; min-height: 36px; }
+.ppk-main { position: relative; min-height: 0; display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 16px; align-items: center; }
+.ppk-wheel { width: 100%; height: auto; overflow: visible; }
+.ppk-rim { fill: none; stroke: var(--m-line); stroke-width: 1; stroke-dasharray: 2 6; transform-origin: 150px 150px; animation: ppkSpin 60s linear infinite; }
+.ppk-slice { cursor: pointer; outline: none; }
+.ppk-slice path { fill: color-mix(in srgb, var(--m-text) 6%, var(--m-surface-2)); stroke: var(--m-line); stroke-width: 1; transition: fill .18s, stroke .18s; }
+.ppk-slice:hover path, .ppk-slice:focus-visible path { fill: color-mix(in srgb, var(--m-accent) 20%, var(--m-surface-2)); stroke: var(--m-line-hi); }
+.ppk-slice:active path { fill: color-mix(in srgb, var(--m-accent) 30%, var(--m-surface-2)); }
+.ppk-slice.is-on path { fill: var(--m-accent); stroke: var(--m-accent); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--m-accent) 55%, transparent)); }
+.ppk-slice.is-empty:not(.is-on) { opacity: .5; }
+.ppk-slice text { text-anchor: middle; pointer-events: none; }
+.ppk-ic { font-size: 18px; } .ppk-kind { font: 700 10px var(--f-tech); letter-spacing: .08em; fill: var(--m-text); } .ppk-n { font: 700 11px var(--f-mono); fill: var(--m-dim); }
+.ppk-slice.is-on .ppk-kind, .ppk-slice.is-on .ppk-n { fill: var(--m-accent-ink); }
+.ppk-hub { fill: var(--m-surface); stroke: var(--m-line-hi); }
+.ppk-hub-n { text-anchor: middle; font: 700 30px var(--f-display); fill: var(--m-accent); } .ppk-hub-k { text-anchor: middle; font: 700 9px var(--f-mono); letter-spacing: .2em; fill: var(--m-dim); }
+.ppk-fan { min-height: 0; max-height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; }
+.ppk-fan > header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ppk-fan > header b { font: 700 15px var(--f-display); color: var(--m-text); } .ppk-fan > header span { font: 400 11px var(--f-ui); color: var(--m-dim); }
+.ppk-cards { list-style: none; margin: 0; padding: 4px 6px 4px 2px; display: grid; gap: 7px; align-content: start; overflow-x: hidden; overflow-y: auto; max-height: 420px; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.ppk-cards::-webkit-scrollbar { width: 6px; } .ppk-cards::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.ppk-cards > li { transform-origin: 0 100%; }
+.ppk-card { --r: var(--ppk-none); position: relative; width: 100%; min-height: 48px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 12px 8px 16px; border-radius: 12px; border: 1px solid var(--m-line);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--r) 14%, transparent), transparent 55%), var(--m-surface-2); color: var(--m-text); text-align: left; cursor: pointer; overflow: hidden; transition: transform .16s var(--m-ease, ease), border-color .16s, box-shadow .16s; }
+.ppk-card.r-s, .ppk-card.r-a { --r: var(--ppk-a); } .ppk-card.r-b { --r: var(--ppk-b); } .ppk-card.r-c { --r: var(--ppk-c); } .ppk-card.r-d { --r: var(--ppk-d); }
+.ppk-card:hover, .ppk-card.is-hi, .ppk-card:focus-visible { transform: translateX(6px); border-color: var(--r); box-shadow: 0 0 0 1px var(--r), 0 8px 24px color-mix(in srgb, var(--r) 22%, transparent); outline: none; }
+.ppk-card:active { transform: translateX(3px) scale(.99); }
+.ppk-edge { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--r); box-shadow: 0 0 12px var(--r); }
+.ppk-card-t { display: grid; min-width: 0; gap: 2px; } .ppk-card-t em { font: 700 9px var(--f-mono); font-style: normal; letter-spacing: .16em; color: var(--r); }
+.ppk-card-t b { font: 600 13px/1.3 var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ppk-card-s { display: grid; justify-items: end; gap: 1px; } .ppk-card-s strong { font-size: 18px; line-height: 1; color: var(--r); text-shadow: 0 0 14px color-mix(in srgb, var(--r) 45%, transparent); }
+.ppk-card-s small { font: 700 8px var(--f-mono); letter-spacing: .14em; color: var(--m-dim); } .ppk-card-s time { font: 400 10px var(--f-mono); color: var(--m-dim); }
+.ppk-none { padding: 18px; border-radius: 12px; border: 1px dashed var(--m-line-hi); font: 400 12px var(--f-ui); color: var(--m-dim); }
+.ppk-keys { display: flex; gap: 12px; flex-wrap: wrap; font: 400 10px var(--f-ui); color: var(--m-dim); } .ppk-keys span { display: inline-flex; gap: 3px; align-items: center; }
+.dsk-pick { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; } .dsk-pick kbd { font: 700 9px var(--f-mono); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--m-line-hi); color: var(--m-dim); }
+@keyframes ppkFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ppkSweep { 0%, 100% { transform: translateX(-30%); } 50% { transform: translateX(30%); } }
+@keyframes ppkSpin { to { transform: rotate(360deg); } }
+@media (max-width: 640px) {
+  .ppk { padding: 8px; align-items: end; }
+  .ppk-box { max-height: calc(100% - 4px); padding: 10px; gap: 8px; border-radius: 18px 18px 12px 12px; }
+  .ppk-h { grid-template-columns: minmax(0, 1fr) auto; } .ppk-h > small, .ppk-kbd { display: none; }
+  .ppk-main { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); gap: 8px; align-items: stretch; }
+  .ppk-wheel { width: min(220px, 62vw); justify-self: center; }
+  .ppk-cards { max-height: none; } .ppk-keys { display: none; }
+}
+body.fx-lite .ppk-box::before, body.fx-lite .ppk-rim { animation: none; } body.fx-lite .ppk-slice.is-on path { filter: none; }
+@media (prefers-reduced-motion: reduce) { .ppk, .ppk-box::before, .ppk-rim { animation: none; } .ppk-card { transition: none; } }
+body.theme-day .ppk { background: color-mix(in srgb, var(--m-bg) 60%, transparent); }
+body.theme-day .ppk-box { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--m-text) 6%, transparent), 0 24px 60px color-mix(in srgb, var(--m-text) 18%, transparent); }
