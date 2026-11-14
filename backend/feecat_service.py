@@ -2734,6 +2734,8 @@ async def _convo_pass(http, store, now):
                     for cid in (c.get('a'), c.get('b')):
                         if store['cats'].get(cid):
                             _cl.add_boost(store['cats'][cid], 'convo', f"convo:{c.get('id')}", _cl.BOOST_PROVED, now, f"Convo call on {j.get('label')} proved")
+    if not _self_start_ok():   # 🛑 owner 2026-11-14: a convo's two model calls are self-started usage — discontinued (settling above costs none)
+        return
     if now - float(store.get('convoAt') or 0) < 600:
         return
     store['convoAt'] = now

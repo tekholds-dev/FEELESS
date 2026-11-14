@@ -119,7 +119,7 @@ def _forge_dir(rs):
 
 SOURCES = {'proofs': 'Your proofs (every kept proof, open ones too)', 'pow': 'PoW research notes (plans, reasons, calls)', 'docs': 'FEELESS docs (plans, decisions, the build history)',
            'teacher': 'Teacher lessons (a top AI on your proofs)'}
-DOCS_MAX = 1_500_000
+DOCS_MAX = 3_000_000
 
 
 # 🧊 COMP freeze fix (owner 2026-11-14: "comp freezes when stuff folder opens and tabs load"): opening COMP fired 3–4 reads (forge on Grow AND
@@ -174,14 +174,15 @@ def _sources_read(rs):
         pass
     out['pow'] = '\n'.join(rows)
     docs, size = [], 0
-    for f in sorted((rs.Path(__file__).resolve().parent.parent / 'docs').glob('*.md'), key=lambda f: f.stat().st_size):
+    root = rs.Path(__file__).resolve().parent.parent / 'docs'   # 2026-11-14: every folder (specs, history, archive, legal) — the docs were reorganised into them
+    for f in sorted(root.rglob('*.md'), key=lambda f: f.stat().st_size):
         try:
             s = _ml.scrub(f.read_text(errors='ignore'))
         except OSError:
             continue
         if size + len(s) > DOCS_MAX:
             break
-        docs.append(f'### {f.stem}\n{s}\n'); size += len(s)
+        docs.append(f'### {f.relative_to(root).with_suffix("")}\n{s}\n'); size += len(s)
     out['docs'] = '\n'.join(docs)
     return out
 
@@ -396,16 +397,18 @@ def best_version(rs):
     return min(ok, key=lambda x: float(x[1].get('val') if x[1].get('val') is not None else x[1]['bestVal']), default=(None, None))
 
 
-def flagship_rebuild(rs, seconds=FLAGSHIP_SECONDS, version=FLAGSHIP_VERSION):
+def flagship_rebuild(rs, seconds=FLAGSHIP_SECONDS, version=None):
     """🏁 ONE new Flagship (owner 2026-11-14): every old build moves to model_forge/_archive/<stamp>/ (kept, never deleted), and the new
     version starts from the BEST version's weights (lowest held-out loss), reads every source (proofs, PoW notes, docs, teacher lessons) and
     trains for `seconds` on this Mac. Nothing is rented or spent."""
     if any(_alive(d) for d in _jobs(rs)):
         raise rs.HTTPException(409, 'A build is already running. Stop it or wait for it.')
+    board = [_job_view(d) for d in _jobs(rs)]   # the first rebuild is v0.01; a rebuild of a v0.x Flagship is its next version
+    version = version or (_next_version(board) if any(str(j.get('version') or '').startswith('v0.') for j in board) else FLAGSHIP_VERSION)
     bd, card = best_version(rs)
     if bd is None:
         raise rs.HTTPException(409, 'No finished version to start from.')
-    arch = _forge_dir(rs) / '_archive' / time.strftime('%Y%m%d-%H%M%S'); arch.mkdir(parents=True)
+    arch = _forge_dir(rs) / '_archive' / time.strftime('%Y%m%d-%H%M%S'); arch.mkdir(parents=True, exist_ok=True)
     for d in _jobs(rs):
         rs.shutil.move(str(d), str(arch / d.name))
     if bd.parent == _forge_dir(rs):

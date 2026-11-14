@@ -10,6 +10,7 @@ import { HqDeck } from '../components/command/HqDeck';
 import '../styles/hqPop.css';
 import { EcoDesk } from '../components/command/EcoDesk';
 import { ModelLab } from '../components/command/ModelLab';
+import { HiveSwitch } from '../components/command/CatWorkbench';
 import { WatchRoom } from '../components/command/ProofRooms';
 import ecoFix from './ecoFixture.json';
 import '../styles/looks.css';
@@ -95,6 +96,7 @@ if (DECK) {
 export default function HqHarness() {
   if (qa.has('watch')) return <div className="hqp-body" style={{ padding: 16, maxWidth: 900 }}><WatchRoom onBrowse={() => {}} /></div>;   // 🧪 the Watch room on live official feeds
   if (qa.has('evo')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16, maxWidth: 820 }}><EvolutionLab role="reaper" /></div>; }   // 🧪 COL-11 Evolution Lab on the LIVE 5077 route (real archive)
+  if (qa.has('collect')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><HiveSwitch cat={{ id: 'dev-happy', name: 'Happy Assistant', hive: { on: false, every: 300 }, convo: { on: true }, agentWallet: { address: 'DEV' } }} /></div>; }   // 💎 the Auto-collect window on a fixture agent
   if (qa.has('lab')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><ModelLab call={labCall} /></div>; }   // 🧪 COMP Model Lab under the owner's look
   if (qa.has('eco')) { applyLook(DEFAULT_LOOK); return <div className="hqp-body" style={{ padding: 16 }}><EcoDesk cat={{ id: 'dev' }} work={async () => ecoFix} /></div>; }   // 🧪 PoEco desk on server-built sample rows, under the owner's look
   if (DECK) return <MemoryRouter><div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">

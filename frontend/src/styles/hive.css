@@ -126,6 +126,7 @@ body.theme-day .cl-call { color: var(--m-text); background: var(--m-surface); }
 .hv-opp-n { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, var(--m-warn), var(--m-warn)); color: var(--m-bg); font: 900 13px var(--f-mono); }
 .hv-opp > span { display: grid; gap: 4px; min-width: 0; } .hv-opp strong { font: 700 12.5px var(--f-ui); color: var(--m-text); } .hv-opp small { font: 500 11px/1.4 var(--f-ui); color: var(--m-accent); }
 .hv-opp em { font: 800 9px var(--f-mono); letter-spacing: .08em; font-style: normal; color: var(--m-accent); } .hv-opp em.is-on { color: var(--m-accent); }
+.hv-opp.is-paused { border-style: dashed; border-color: var(--m-line); background: none; } .hv-opp.is-paused .hv-opp-n { background: var(--m-surface-2); color: var(--m-dim); } .hv-opp.is-paused small { color: var(--m-dim); } .hv-opp.is-paused em { color: var(--m-warn); }
 .hv-opp-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 @media (prefers-reduced-motion: reduce) { .hv-opp { transition: none; } }
 body.theme-day .hv-opp { background: var(--m-surface); border-color: color-mix(in srgb, var(--m-accent) 20%, transparent); } body.theme-day .hv-opp strong { color: var(--m-text); } body.theme-day .hv-opp small { color: var(--m-accent); }

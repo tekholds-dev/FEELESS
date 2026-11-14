@@ -27,7 +27,7 @@ test('🌳 the colony tree: the pot on top, true vessels, the comb, winning proo
 });
 
 
-test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms at the picked pace, shows a refused stake, and leaves in one click', async () => {
+test('🐝 Colonize opens the popout (what it is, the stake, convos paused, nothing self-started), joins, shows a refused stake, and leaves in one click', async () => {
   const sent = []; let refuse = true; mockSign.mockImplementation(async () => 'SIG');
   global.fetch = async (u, o) => { if (!o) return { ok: true, json: async () => ({ agents: [], cadence: 'daily', nextAirdrop: Date.now() / 1000 + 7200, pool: null }) }; const b = JSON.parse(o.body); sent.push(b); if (refuse && b.on && b.op === 'hive') { refuse = false; return { ok: false, status: 402, json: async () => ({ detail: 'The agent service did not answer.' }) }; } return { ok: true, status: 200, json: async () => (b.op === 'share' ? { colonyShare: { on: b.on, pct: b.cap } } : { hive: { on: b.on, every: b.cap } }) }; };
   const el = document.createElement('div'); document.body.appendChild(el);
@@ -35,18 +35,17 @@ test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms a
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
   expect(sent).toHaveLength(0); const pop = document.body.querySelector('[data-testid="colonize-pop"]');
   expect(pop.textContent).not.toContain('FEECAT in'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Auto-collect for Kit');
+  expect(pop.textContent).toContain('never starts a model call by itself'); expect(pop.textContent).not.toMatch(/files a call|every 2 min/i);
+  expect(document.body.querySelector('[data-testid="colony-convo-paused"]').textContent).toBe('PAUSED'); expect(document.body.querySelector('[data-testid="colony-convo"]')).toBeNull();
 expect(document.body.querySelector('[data-testid="colony-opp-stake"]').textContent).toContain('NOT OPEN YET'); expect(document.body.querySelector('[data-testid="colony-share-sign"]')).not.toBeNull();
   await act(async () => { document.body.querySelector('[data-testid="colony-share-20"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colony-share-sign"]').click(); });   // 🤝 opportunity 2: one wallet signature, no transaction
   expect(mockSign.mock.calls.at(-1)[0]).toMatch(/^FEELESS auto-collect\nSend this % of each winning proof of \+50% or more to the Pool\nagent:h1\npct:20\nts:\d+$/); expect(sent.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' }); sent.length = 0; refuse = true;
-  await act(async () => { document.body.querySelector('[data-testid="colonize-pace-900"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
-  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('did not answer');
+  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 300 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('did not answer');
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
   expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('IN THE COLLECTIVE');
-  const sel = el.querySelector('[data-testid="hive-pace"]');
-  await act(async () => { sel.value = '3600'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
-  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 3600 });
+  expect(el.querySelector('[data-testid="hive-pace"]')).toBeNull();   // no pace: it files nothing on its own
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
   await act(async () => { document.querySelector('[data-testid="colonize-leave"]').click(); });
   expect(sent.at(-1)).toMatchObject({ op: 'hive', on: false });

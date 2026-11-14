@@ -14,7 +14,7 @@ from whitepaper_text import CHAPTERS
 
 def document():
     return {'title': 'FEELESS', 'subtitle': 'Less Noise. More Alpha.', 'tagline': 'A FeeLess Future.',
-            'version': '1.2', 'date': '2026-10-02', 'status': 'Product whitepaper · implementation and policy disclosures',
+            'version': '1.3', 'date': '2026-11-14', 'status': 'Product whitepaper · implementation and policy disclosures',
             'launch_target': 'Q2 2027 · target, not a guarantee',
             'contracts': [{'name': name, 'mint': os.getenv(f'{name}_MINT', DEFAULT_MINTS[name]), 'chain': 'Solana'} for name in ['FEE', 'RFEE', 'FEECAT']],
             'chapters': [{'id': f'chapter-{i + 1}', 'number': i + 1, 'title': title, 'text': text} for i, (title, text) in enumerate(CHAPTERS)]}
@@ -29,7 +29,7 @@ def render_pdf():
     eyebrow = ParagraphStyle('Eyebrow', fontName='Helvetica-Bold', fontSize=8, leading=12, textColor=colors.HexColor('#248c60'), spaceAfter=10)
     cover = ParagraphStyle('Cover', fontName='Helvetica-Bold', fontSize=52, leading=59, textColor=colors.HexColor('#063b26'))
     story = [Spacer(1, 80), Paragraph('FEELESS', cover), Spacer(1, 24), Paragraph('Less Noise. More Alpha.', heading),
-             Paragraph('A FeeLess Future.', body), Spacer(1, 45), Paragraph('WHITEPAPER / VERSION 1.0', eyebrow),
+             Paragraph('A FeeLess Future.', body), Spacer(1, 45), Paragraph(f"WHITEPAPER / VERSION {document()['version']}", eyebrow),
              Paragraph('Economic fee-back. Connected intelligence. A community-first on-chain workspace.', body),
              Spacer(1, 30), Paragraph(escape(data['status']), body), Paragraph('Public platform launch target: Q2 2027. Not a guarantee.', body), PageBreak(),
              Paragraph('Contents', heading)]

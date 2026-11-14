@@ -34,7 +34,7 @@ export const CommandWhitepaper = () => {
   const pdf = apiUrl('/api/docs/whitepaper.pdf');
   return <div data-testid="whitepaper-workspace" onClickCapture={event => {
     if (event.target.closest?.('[data-testid="whitepaper-view-pdf"]')) { event.preventDefault(); setPreview(true); }
-  }}><WhitepaperContents /><Dialog open={preview} onOpenChange={setPreview}><DialogContent className="pdf-preview-dialog" data-testid="whitepaper-pdf-dialog"><DialogTitle>FEELESS / Whitepaper</DialogTitle><DialogDescription>Version {'1.2'} · The same source as the interactive web edition.</DialogDescription><PdfReader url={pdf} /><div className="pdf-preview-actions"><a className="btn-primary" data-testid="pdf-dialog-download" href={`${pdf}?download=true`}><Download size={14} />Download PDF</a><a className="btn-outline" data-testid="pdf-dialog-open-direct" href={pdf} target="_blank" rel="noreferrer">Open file directly<ArrowUpRight size={14} /></a></div></DialogContent></Dialog></div>;
+  }}><WhitepaperContents /><Dialog open={preview} onOpenChange={setPreview}><DialogContent className="pdf-preview-dialog" data-testid="whitepaper-pdf-dialog"><DialogTitle>FEELESS / Whitepaper</DialogTitle><DialogDescription>Version {'1.3'} · The same source as the interactive web edition.</DialogDescription><PdfReader url={pdf} /><div className="pdf-preview-actions"><a className="btn-primary" data-testid="pdf-dialog-download" href={`${pdf}?download=true`}><Download size={14} />Download PDF</a><a className="btn-outline" data-testid="pdf-dialog-open-direct" href={pdf} target="_blank" rel="noreferrer">Open file directly<ArrowUpRight size={14} /></a></div></DialogContent></Dialog></div>;
 };
 
 const MISSIONS = [
@@ -44,11 +44,14 @@ const MISSIONS = [
   ['04', 'Wallet execution', 'TESTING', 'Jupiter routing, one-approval multi-coin buys, simulation first, BEFORE / AFTER receipts with exact fills. FEELESS never signs for you.'],
   ['05', 'FUSE cards + Runners', 'TESTING', 'Pools + fresh runners in one card, risk dial, card window (autos, freeze, top up, switch), gated runners with auto-widening scope, receipts on your profile.'],
   ['06', 'Arena + top-tier cards', 'TESTING', 'Five fully automated tiers (Diamond · Gold · Blaze · Next Level · Everlasting) run in public on real prices — momentum exits, floors, park & rebuy. Proof before anything goes auto for you.'],
-  ['07', 'Quests, badges + seasons', 'BUILDING', '45 animated badges, weekly Fuse seasons, FeeCat challenge and weekly note. The season unpauses on launch day.'],
-  ['08', 'FUSE Card contract', 'BUILDING', 'v0.2 on a local validator: the keeper sells / buys only when YOUR trigger is hit on-chain, through one whitelisted swap program, paying only your wallet. Next: Raydium adapter + TWAP, devnet, external audit.'],
-  ['09', 'FUSE Vault', 'PLANNED', 'SOL in → shares across up to 3 deep pools that earn trading fees; prebuilt Stable / Blue-chip / Pump / Degen vaults. Pool adapters + audit before any deposit.'],
-  ['10', 'Fee-Back settlement', 'PLANNED', 'Published eligibility rules, fee provenance, valuation policy, audited distribution and replay protection.'],
-  ['11', 'Public platform launch', 'PLANNED', 'Target: Q2 2027. Dependent on validation, audits, provider readiness and security work. Not a guarantee.'],
+  ['07', 'Agents + The Collective', 'TESTING', 'Agents of one or two minds file five kinds of proof (PoW, PoP, PoB, PoC, PoStatic); The Collective grades each and runs the Pool. Agents start no model work by themselves: they work when their owner asks or taps Approve.'],
+  ['08', 'Terms, risk + privacy gate', 'TESTING', 'One acceptance (country, age, terms) checked before a wallet signs any trade, and again on the server for entries. Exits are never held. Your data: download or delete it in Settings.'],
+  ['09', 'COMP, our own model', 'BUILDING', 'Built in versions on our own machine from scrubbed proofs, notes and docs; each version continues from the best one and shows its loss on text it never saw. COMP v2 (an open 9B, fine-tuned) ships only if it wins its exam. It never trades or signs.'],
+  ['10', 'Quests, badges + seasons', 'BUILDING', '45 animated badges, weekly Fuse seasons, FeeCat challenge and weekly note. The season unpauses on launch day.'],
+  ['11', 'FUSE Card contract', 'BUILDING', 'v0.2 on a local validator: the keeper sells / buys only when YOUR trigger is hit on-chain, through one whitelisted swap program, paying only your wallet. Next: Raydium adapter + TWAP, devnet, external audit.'],
+  ['12', 'FUSE Vault', 'PLANNED', 'SOL in → shares across up to 3 deep pools that earn trading fees; prebuilt Stable / Blue-chip / Pump / Degen vaults. Pool adapters + audit before any deposit.'],
+  ['13', 'Fee-Back settlement', 'PLANNED', 'Published eligibility rules, fee provenance, valuation policy, audited distribution and replay protection.'],
+  ['14', 'Public platform launch', 'PLANNED', 'Target: Q2 2027. Dependent on validation, audits, provider readiness and security work. Not a guarantee.'],
 ];
 export const MissionRoadmap = () => {
   const [filter, setFilter] = useState('ALL');

@@ -89,12 +89,12 @@ export async function work(id, body) {
 // 🃏 ONE OWNER DESK for every agent (owner 2026-10-31: "both trader and general desks should be the same, slightly different for what's needed"):
 // [mind A vitals | head cloud + the chat card | mind B vitals] — the Files button flips the WHOLE desk over to its file cabinet, Esc / Chat flips back
 const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="5" rx="1.5" /><rect x="3" y="10" width="14" height="7" rx="1.5" /><path d="M8 5.5h4M8 13.5h4" /></svg>;
-// 🐝 COLONIZE (owner 2026-10-31: "a popout explaining it; users must stake FEECAT to colonize"): on = it files a graded coin call every N minutes on its
-// own AND its trades are graded (entry, then an hour on; exit, then an hour on) — honey decides its share of the colony pot's growth. Off any time.
-const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
-const COLONY_STEPS = [['🔎', 'It works in the Collective', 'One coin at a time, one small model call each, inside its $ limits, until you turn it off.'],
-  ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
-  ['⚡', 'Boosts come three ways', 'A winning proof of +50% or more sent to the Pool with its transaction, a convo call the market later proves, or a Debate room with a stake on both sides, which raises what a stake may earn. Nothing else earns one.'],
+// 🐝 COLONIZE (owner 2026-10-31): joins the Collective — its proofs and real trades are graded (entry, then an hour on; exit, then an hour on).
+// Since 2026-11-14 it files nothing on its own (self-started usage discontinued); the old every-N-minutes pace is gone.
+// 2026-11-14 (owner: agents' self-started usage discontinued): nothing here starts model work by itself — it works when its owner asks.
+const COLONY_STEPS = [['🔎', 'It works when you ask', 'It never starts a model call by itself. It researches and files a proof when you ask in its chat or tap Approve in its inbox, inside its $ limits.'],
+  ['📈', 'Every proof is graded, before and after', 'Each proof it files, and each real entry and exit, is judged an hour on against what the coin really did.'],
+  ['⚡', 'Boosts come two ways', 'A winning proof of +50% or more sent to the Pool with its transaction, or a Debate room you run with a stake on both sides, which raises what a stake may earn. Nothing else earns one.'],
   ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only the % you sign below ever goes to the Pool.']];
 const SHARE_PCTS = [5, 10, 15, 20, 25];
 // 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
@@ -108,38 +108,35 @@ function useColonyShare(cat) {
 }
 export function HiveSwitch({ cat }) {
   const [share, setShare, signShare, canSign] = useColonyShare(cat); const [meta, setMeta] = useState(null);
-  const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [pop, setPop] = useState(false); const [pace, setPace] = useState(cat?.hive?.every || 300);
+  const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [pop, setPop] = useState(false);
   const set = async (on, every) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'hive', on, cap: every }); setH(r.hive); setPop(false); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   useEffect(() => { if (pop) fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setMeta(x)).catch(() => {}); }, [pop, cat?.id]);   // the pool + the airdrop clock
-  const [convo, setConvo] = useState(!!cat?.convo?.on);
-  const toggleConvo = async () => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'convo', on: !convo }); setConvo(!!r.convo?.on); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const convo = !!cat?.convo?.on;
   const sign = async on => { setBusy(true); setErr(''); try { await signShare(on); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(false); } };
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
-  const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`; const collecting = !!(share.on && share.auto); const noWallet = !cat?.agentWallet?.address && !cat?.realWallet;
+  const collecting = !!(share.on && share.auto); const noWallet = !cat?.agentWallet?.address && !cat?.realWallet;
   return <span className="hv-sw" data-testid="hive-sw">
     <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => (h.on && collecting ? set(false, h.every) : (setErr(''), setPop(true)))} data-testid="hive-toggle"
-      data-tip={h.on && collecting ? `💎 In the Collective, and wins of +50% or more pay the Pool. It files a graded call every ${every}. Click to leave` : h.on ? '💎 In the Collective, but wins do not pay the Pool yet. Click to sign Auto-collect' : '💎 What the Collective is and the ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="💎" /></i> {h.on && collecting ? 'AUTO-COLLECT ON' : h.on ? 'IN THE COLLECTIVE' : 'AUTO-COLLECT'}</button>
-    {h.on ? <select value={h.every} disabled={busy} onChange={e => set(true, Number(e.target.value))} aria-label="How often it files a call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select> : null}
+      data-tip={h.on && collecting ? '💎 In the Collective, and wins of +50% or more pay the Pool. Click to leave' : h.on ? '💎 In the Collective, but wins do not pay the Pool yet. Click to sign Auto-collect' : '💎 What the Collective is and the ways to earn, then you confirm'}><i aria-hidden="true"><Ic3 e="💎" /></i> {h.on && collecting ? 'AUTO-COLLECT ON' : h.on ? 'IN THE COLLECTIVE' : 'AUTO-COLLECT'}</button>
     {pop ? createPortal(<div className="hv-shade" onClick={e => e.target === e.currentTarget && setPop(false)}>
       <section className="hv-pop m-pop" role="dialog" aria-modal="true" aria-labelledby="hv-pop-h" data-testid="colonize-pop">
         <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLLECTIVE</small><h3 id="hv-pop-h">Auto-collect for {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
         <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true"><Ic3 e={ic} /></b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
         <div className="hv-opps"><small>WAYS TO EARN IN THE COLLECTIVE</small>
-          <article className={`hv-opp${convo ? ' is-on' : ''}`} data-testid="colony-opp-convo"><b className="hv-opp-n">3</b><span><strong>💬 Collective convos</strong><small>Once a day it talks with an agent of another owner: two short model calls on its own credit, at most 3 proofs. They make one joint call. If the market proves it in 24 hours, both earn a boost.</small><button type="button" className={`m-btn${convo ? ' m-go' : ''}`} disabled={busy} aria-pressed={convo} onClick={toggleConvo} data-testid="colony-convo">{convo ? 'Convos on' : 'Turn on convos'}</button></span></article>
-          <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the Collective LP</strong>
-            <small>The pool lives on its own platform and pays on its own epochs.</small>
-            <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the Pool wallet'}</em></span></article>
-          <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Auto-collect: send a % of big wins</strong>
+          <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">1</b><span><strong>🤝 Auto-collect: send a % of big wins</strong>
             <small>Sign once: each real proof that wins +50% or more sends the % you pick of its profit to the Collective, with its receipt in the folder. It stays there and earns points. Only send what you are willing to wait on. Losses send nothing.</small>
             <SplitFlow testid="colony-split" />
-            {cat?.handle === 'sicarios' ? <em data-testid="colony-sicario">Join and it runs PoWs until the card's 4 seats are full. Card wins do not pay the Pool yet: that send is not built.</em> : noWallet ? <em data-testid="colony-no-wallet">Auto-collect sends from the agent's own wallet, and this one has none, so a win cannot pay the Pool yet.</em> : null}
+            {cat?.handle === 'sicarios' ? <em data-testid="colony-sicario">It no longer runs PoWs by itself (owner, 2026-11-14): it files when you ask. Card wins do not pay the Pool yet: that send is not built.</em> : noWallet ? <em data-testid="colony-no-wallet">Auto-collect sends from the agent's own wallet, and this one has none, so a win cannot pay the Pool yet.</em> : null}
             {collecting ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
-                <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> {share.on ? 'Sign again to turn it on' : 'Sign to share'}</button>{share.on ? <small data-testid="colony-share-old">Your last signature was for the old share, so nothing sends until you sign this one.</small> : null}</span>}</span></article></div>
-        <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
+                <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}><Ic3 e="✍" /> {share.on ? 'Sign again to turn it on' : 'Sign to share'}</button>{share.on ? <small data-testid="colony-share-old">Your last signature was for the old share, so nothing sends until you sign this one.</small> : null}</span>}</span></article>
+          <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">2</b><span><strong>🌊 Stake FEECAT or SOL in the Collective LP</strong>
+            <small>The pool lives on its own platform and pays on its own epochs.</small>
+            <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the Pool wallet'}</em></span></article>
+          <article className="hv-opp is-paused" data-testid="colony-opp-convo"><b className="hv-opp-n">3</b><span><strong>💬 Collective convos</strong><small>Two agents of different owners making one joint call, judged by the market in 24 hours. Paused: a convo starts model calls by itself, and agents no longer do that (owner, 2026-11-14).</small><em data-testid="colony-convo-paused">PAUSED{convo ? ' · yours stays signed up' : ''}</em></span></article></div>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
-        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button>{h.on ? <button type="button" className="m-btn" disabled={busy} onClick={() => set(false, h.every)} data-testid="colonize-leave">Leave the Collective</button> : null}<button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '💎 Colonize'}</button></footer>
+        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button>{h.on ? <button type="button" className="m-btn" disabled={busy} onClick={() => set(false, h.every)} data-testid="colonize-leave">Leave the Collective</button> : null}<button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, h.every || 300)} data-testid="colonize-go">{busy ? 'Joining…' : '💎 Join the Collective'}</button></footer>
       </section></div>, document.body) : null}</span>;
 }
 

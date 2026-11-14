@@ -1044,13 +1044,24 @@ async def fuse_wallet_view(request: Request):
     await rs._fw_signer_check()
     d = rs._fw_load(); cfg = rs._fw.clean_cfg(d.get('cfg') or {})
     wallets, bal, err = [], None, None
-    try:
-        wallets = [w for w in await rs._circle_wallets_live() if str(w.get('blockchain', '')).startswith('SOL')]
-    except rs.HTTPException as e:
-        err = str(e.detail)
+    # ⚡ lag catcher 2026-11-14 (p50 3.6 s, p95 9.3 s): the independent network reads run together, not one after another
+    async def _noop():
+        return None
+    got_w, got_b, sol_px = await rs.asyncio.gather(rs._circle_wallets_live(), rs._fw_balances(cfg['address']) if cfg['address'] else _noop(),
+                                                   rs._sol_usd_live(), return_exceptions=True)
+    if isinstance(sol_px, BaseException):
+        raise sol_px
+    if isinstance(got_w, rs.HTTPException):
+        err = str(got_w.detail)
+    elif isinstance(got_w, BaseException):
+        raise got_w
+    else:
+        wallets = [w for w in got_w if str(w.get('blockchain', '')).startswith('SOL')]
     if cfg['address']:
         try:
-            bal = await rs._fw_balances(cfg['address'])
+            if isinstance(got_b, BaseException):
+                raise got_b
+            bal = got_b
             rs._FW_BAL.update(bal=bal, at=rs.time.time(), addr=cfg['address'])
         except Exception as e:   # 🛟 RPC busy (rate limit): never show an EMPTY wallet — last good read, else Circle's own balances
             bal = rs._FW_BAL.get('bal') if rs._FW_BAL.get('addr') == cfg['address'] else None
@@ -1060,11 +1071,10 @@ async def fuse_wallet_view(request: Request):
                 err = err or f'balance read failed: {str(e)[:80]}'
             else:
                 bal = {**bal, 'stale': True}
-    sol_px = await rs._sol_usd_live()
     cards = (rs._json_load(rs.FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
     market_rows = rs._fw_market_rows(cards, d.get('books') or {})
-    px = await rs._hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]) if market_rows else {}
-    jup = await rs._jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
+    px, jup = (await rs.asyncio.gather(rs._hq_prices([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in market_rows]),
+                                       rs._jup_prices([l.get('mint') for l in market_rows]))) if market_rows else ({}, {})
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     full_hq = rs._fw_full_ledger()   # 🧾 every row, not the trimmed KV copy
     books = {tid: {**b, 'valueUsd': rs._fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **rs._fw_led_memo('tot', tid, lambda L: rs._fw.totals(L, tid))} for tid, b in d['books'].items()}

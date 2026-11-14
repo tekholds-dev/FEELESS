@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Teacher, growRead } from './CompGrow';
+import { Rebuild, Teacher, growRead } from './CompGrow';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('motion/react', () => { const R = require('react'); return { motion: { button: R.forwardRef(({ initial, animate, transition, ...p }, ref) => R.createElement('button', { ...p, ref })) } }; });
@@ -31,5 +31,18 @@ test('the teacher shows the live price, sends the exact quote with Pay, and neve
   expect(onPay.mock.calls[0][0].quoteUsd).toBeCloseTo(0.007, 5);
   await act(async () => root.render(<Teacher t={{ ...t, keyOk: false }} onPay={onPay} onStop={() => {}} />));
   expect(host.querySelector('[data-testid=cg-pay]').disabled).toBe(true);
+  act(() => root.unmount()); host.remove();
+});
+
+test('rebuild: names the best version, sends the picked clock, and shows the build while it learns', async () => {
+  const host = document.createElement('div'); document.body.appendChild(host); const root = createRoot(host); const onRun = jest.fn();
+  const forge = { jobs: [{ ...job('v0.01', 5e6, 4.25, 9) }, { ...job('v1.02', 5e6, 4.14, 5) }] };
+  await act(async () => root.render(<Rebuild forge={forge} onRun={onRun} />));
+  expect(host.textContent).toContain('v1.02, loss 4.140');
+  await act(async () => { host.querySelector('[data-testid=cg-clock-300]').click(); });
+  await act(async () => { host.querySelector('[data-testid=cg-rebuild-go]').click(); });
+  expect(onRun).toHaveBeenCalledWith(300);
+  await act(async () => root.render(<Rebuild forge={{ jobs: [{ id: 'x', version: 'v0.02', status: 'training', elapsed: 30, eta: 120, loss: 4.3 }] }} onRun={onRun} />));
+  expect(host.querySelector('[data-testid=cg-rebuild-live]').textContent).toContain('v0.02 is learning'); expect(host.querySelector('[data-testid=cg-rebuild-go]')).toBeNull();
   act(() => root.unmount()); host.remove();
 });

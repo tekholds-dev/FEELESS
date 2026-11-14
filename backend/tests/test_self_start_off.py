@@ -29,3 +29,16 @@ def test_no_self_started_usage(monkeypatch):
     assert asyncio.run(fs._auto_tick(1e9)) == []
     assert asyncio.run(fs._sicario_free(None, store)) is None
     assert not called
+
+
+def test_convos_start_no_model_calls_but_still_settle(monkeypatch):
+    import feecat_service as fs
+    asked = []
+
+    async def ask(*_a, **_k):
+        asked.append(1); return 'a model was called'
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    monkeypatch.setattr(fs._cl, 'pair_up', lambda cats, now: [(cats['a'], cats['b'])])
+    store = {'cats': {'a': {'id': 'a'}, 'b': {'id': 'b'}}, 'convos': []}
+    asyncio.run(fs._convo_pass(None, store, 1e9))
+    assert not asked and store['convos'] == [] and 'convoAt' not in store

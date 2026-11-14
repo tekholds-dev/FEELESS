@@ -98,6 +98,9 @@ def test_flagship_rebuild_archives_every_build_and_continues_from_the_best_one_o
     assert 'what v1.00 read before the docs were trimmed' in (tmp_path / out['id'] / 'corpus.txt').read_text()   # nothing it knew is dropped
     assert job['maxSeconds'] == 30.0 and job['from'].endswith(a['id']) and job['cfg']['name'] == 'COMP Flagship v0.01'
     assert lab._next_version([lab._job_view(d) for d in lab._jobs(None)]) == 'v0.02'
+    mf.train(tmp_path / out['id'])                                                                  # v0.01 trains, then the owner presses Rebuild again
+    again = asyncio.run(lab.forge_flagship(Req(), lab.Flagship(seconds=60)))
+    assert again['version'] == 'v0.02' and [d.name for d in lab._jobs(None)] == [again['id']]
 
 
 def test_the_sources_are_read_once_and_shared_until_reset(monkeypatch):
@@ -107,3 +110,11 @@ def test_the_sources_are_read_once_and_shared_until_reset(monkeypatch):
     assert lab._sources(None) == {'proofs': 'x'} and lab._sources(None) == {'proofs': 'x'} and len(n) == 1
     lab.sources_reset(); lab._sources(None); assert len(n) == 2
     lab.sources_reset()
+
+
+def test_the_docs_source_reads_every_docs_folder(monkeypatch):
+    import rep_model_lab as lab
+    import reputation_service as rs
+    monkeypatch.setattr(lab, '_proof_text', lambda rs_: '')
+    docs = lab._sources_read(rs)['docs']
+    assert '### specs/' in docs and '### history/' in docs and len(docs) <= lab.DOCS_MAX + 100_000   # the reorganised folders, still capped

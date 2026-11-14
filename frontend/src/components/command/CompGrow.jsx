@@ -83,10 +83,32 @@ export function Teacher({ t, onPay, onStop, busy, err }) {
   </section>;
 }
 
+const CLOCKS = [[60, '1 min'], [150, '2.5 min'], [300, '5 min'], [600, '10 min']];
+/** 🏁 One button: archive every build (kept), start the next Flagship from the BEST version's weights, read every source, train on a clock. */
+export function Rebuild({ forge, onRun, busy, err }) {
+  const [sec, setSec] = useState(150);
+  const live = (forge?.jobs || []).find(j => j.status === 'training' || j.status === 'tokenizing');
+  const best = (forge?.jobs || []).filter(j => j.card?.val != null).sort((a, b) => a.card.val - b.card.val)[0];
+  return <section className="cg-card cg-rebuild" data-testid="cg-rebuild">
+    <h4>🏁 REBUILD AS ONE FLAGSHIP<small>free · this Mac · nothing rented</small></h4>
+    <p className="cg-say">Every build moves to the archive (kept, never deleted). The next version starts from the best one{best ? ` (${best.version || best.name}, loss ${Number(best.card.val).toFixed(3)})` : ''}, reads every source and learns for the time you pick.</p>
+    {live ? <div className="cg-job is-running" data-testid="cg-rebuild-live"><header><b>{live.version || live.name} is learning</b><span className="m-num">{live.elapsed ? `${Math.round(live.elapsed)} s` : 'starting'}{live.loss != null ? ` · loss ${Number(live.loss).toFixed(3)}` : ''}</span></header>
+      <i className="cg-bar"><u style={{ transform: `scaleX(${live.eta != null && live.elapsed ? Math.min(1, live.elapsed / (live.elapsed + live.eta)) : 0.02})` }} /></i></div>
+      : <div className="cg-pay"><span className="m-seg" role="radiogroup" aria-label="How long it learns">{CLOCKS.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={sec === v} className={sec === v ? 'active' : ''} onClick={() => setSec(v)} data-testid={`cg-clock-${v}`}>{l}</button>)}</span>
+        <button type="button" className="m-btn m-go" disabled={busy || !best} onClick={() => onRun(sec)} data-testid="cg-rebuild-go">Rebuild · learn {CLOCKS.find(c => c[0] === sec)[1]}</button></div>}
+    {err ? <p className="cg-err" role="alert">⚠ {err}</p> : null}
+  </section>;
+}
+
 export default function CompGrow({ call, onGo }) {
   const [forge, setForge] = useState(null); const [teach, setTeach] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const loadTeach = useCallback(() => (call ? call('/admin/model-lab/teach').then(setTeach).catch(e => setErr(e.message)) : null), [call]);
-  useEffect(() => { if (!call) return; call('/admin/model-lab/forge').then(setForge).catch(e => setErr(e.message)); loadTeach(); }, [call, loadTeach]);
+  const loadForge = useCallback(() => (call ? call('/admin/model-lab/forge').then(setForge).catch(e => setErr(e.message)) : null), [call]);
+  useEffect(() => { loadForge(); loadTeach(); }, [loadForge, loadTeach]);
+  const building = (forge?.jobs || []).some(j => j.status === 'training' || j.status === 'tokenizing');
+  useEffect(() => { if (!building) return undefined; const t = setInterval(() => { if (!document.hidden) loadForge(); }, 3000); return () => clearInterval(t); }, [building, loadForge]);
+  const [rbBusy, setRbBusy] = useState(false); const [rbErr, setRbErr] = useState('');
+  const rebuild = async seconds => { setRbBusy(true); setRbErr(''); try { await call('/admin/model-lab/forge/flagship', { method: 'POST', body: JSON.stringify({ seconds }) }); await loadForge(); } catch (e) { setRbErr(e.message); } finally { setRbBusy(false); } };
   const running = teach?.job?.state === 'running';
   useEffect(() => { if (!running) return undefined; const t = setInterval(() => { if (!document.hidden) loadTeach(); }, 2500); return () => clearInterval(t); }, [running, loadTeach]);
   const pay = async body => { setBusy(true); setErr(''); try { await call('/admin/model-lab/teach', { method: 'POST', body: JSON.stringify(body) }); await loadTeach(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
@@ -105,6 +127,7 @@ export default function CompGrow({ call, onGo }) {
     </section>
     {err ? <p className="cg-err" role="alert">⚠ {err}</p> : null}
     <section className="cg-card"><h4>EVERY VERSION · SIZE VS LOSS<small>bars = parameters (log) · line = loss, lower is better</small></h4><Versions builds={r.builds} /></section>
+    <Rebuild forge={forge} onRun={rebuild} busy={rbBusy} err={rbErr} />
     <Teacher t={teach} onPay={pay} onStop={stop} busy={busy} err="" />
   </div>;
 }
