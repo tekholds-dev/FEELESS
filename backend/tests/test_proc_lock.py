@@ -1,0 +1,53 @@
+"""🔒 SITE-8 slice 4: sql_store.ProcLock — a whole-document JSON store (crews.json) keeps every write when 4 worker processes change it at once."""
+import asyncio
+import json
+import multiprocessing as mp
+import sys
+from pathlib import Path
+
+
+def _bump(path, n, locked):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import sql_store
+
+    async def run():
+        lock = sql_store.ProcLock(path) if locked else asyncio.Lock()
+        for _ in range(n):
+            async with lock:
+                d = json.loads(Path(path).read_text() or '{}')     # load → change → save, exactly like the crews routes
+                await asyncio.sleep(0)                             # an await inside the section (the on-chain payment read)
+                d['n'] = d.get('n', 0) + 1
+                tmp = Path(path).with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
+    asyncio.run(run())
+
+
+def _race(tmp_path, locked):
+    path = tmp_path / 'crews.json'; path.write_text('{}')
+    ctx = mp.get_context('spawn')
+    ps = [ctx.Process(target=_bump, args=(str(path), 60, locked)) for _ in range(4)]
+    [p.start() for p in ps]; [p.join(120) for p in ps]
+    assert all(p.exitcode == 0 for p in ps)
+    return json.loads(path.read_text())['n']
+
+
+def test_four_processes_lose_nothing_under_the_proc_lock(tmp_path):
+    assert _race(tmp_path, True) == 240
+
+
+def test_inside_one_process_it_is_still_a_plain_async_lock(tmp_path):
+    import sql_store
+    lock = sql_store.ProcLock(tmp_path / 'x.json'); order = []
+
+    async def one(i):
+        async with lock:
+            order.append(('in', i)); await asyncio.sleep(0.01); order.append(('out', i))
+    async def main():
+        await asyncio.gather(*(one(i) for i in range(3)))
+        return lock.locked()
+    assert asyncio.run(main()) is False
+    assert all(order[k][0] == 'in' and order[k + 1] == ('out', order[k][1]) for k in range(0, 6, 2))   # never two holders
+
+
+def test_crews_routes_use_the_proc_lock():
+    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    assert '_crews_lock = _sqls_crews.ProcLock(CREWS_PATH)' in src

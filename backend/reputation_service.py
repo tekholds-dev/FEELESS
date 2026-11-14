@@ -7353,7 +7353,8 @@ async def _proof_build(force=False):
 
 # ---- 🛡 Crews (crews.py): 2–8 wallets, an invite code, a members-only-post room, a weekly board of verified results ------------------------------
 CREWS_PATH = FUSE_HQ_PATH.parent / 'crews.json'
-_crews_lock = asyncio.Lock()
+import sql_store as _sqls_crews
+_crews_lock = _sqls_crews.ProcLock(CREWS_PATH)   # 🔒 SITE-8: one holder across every worker process (all 19 crews saves + payment checks sit inside it)
 _crew_cache = {'at': 0.0, 'data': None}
 
 

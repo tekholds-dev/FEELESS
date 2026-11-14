@@ -9,7 +9,11 @@ every process), so two workers touching the same wallet are serialized and two t
   docs = Docs(path[, inner='profiles'])  # <name>.db beside the old file; the old .json is moved in once, byte for byte, and kept read-only
   docs.get(key, default) · docs.all() · docs.put(key, value) · docs.update(key, fn) → fn's return · docs.replace_all(mapping)
 `all()` is cached per database version (`PRAGMA data_version`), so hot readers pay one tiny query until somebody writes.
+
+  lock = ProcLock(path)  # for a WHOLE-document store (crews.json): `async with lock:` = one holder across every worker process
 """
+import asyncio
+import fcntl
 import json
 import os
 import sqlite3
@@ -137,3 +141,44 @@ class Result:
 
     def __init__(self, value, result):
         self.value, self.result = value, result
+
+
+class ProcLock:
+    """🔒 An asyncio lock that also holds across PROCESSES (an OS file lock on <name>.lock beside the store), for whole-document JSON stores
+    whose every load → change → save already sits inside `async with <lock>:`. Swapping the per-process asyncio.Lock for this one makes two
+    uvicorn workers take turns, so neither saves over the other's write (and a payment checked inside the lock is seen by the other worker).
+    The file lock is taken in a thread, so the event loop keeps answering while another worker holds it."""
+
+    def __init__(self, path):
+        self.path = Path(path).with_suffix('.lock')
+        self._a = None; self._fd = None
+
+    def _alock(self):
+        if self._a is None:
+            self._a = asyncio.Lock()
+        return self._a
+
+    async def __aenter__(self):
+        await self._alock().acquire()
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+            try:
+                await asyncio.to_thread(fcntl.flock, fd, fcntl.LOCK_EX)
+            except BaseException:
+                os.close(fd); raise
+            self._fd = fd
+        except BaseException:
+            self._a.release(); raise
+        return self
+
+    async def __aexit__(self, *exc):
+        fd, self._fd = self._fd, None
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd); self._a.release()
+        return False
+
+    def locked(self):
+        return self._a is not None and self._a.locked()
