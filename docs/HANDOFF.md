@@ -9,6 +9,7 @@
 - **Rules cleaned** `86cbbb4d`: no claiming, the owner's ask is the task; §1 untouched.
 - **Not verified:** a real desk with a real running proof (checked on fixtures); the coin shortlist bars need real 24h change (fixture coins have none, so they draw blank on purpose).
 - **Owner's call (unanswered):** 2 old worktrees hold work on neither main nor the stash — `loving-pare-1d9fc9` (Oct 16: prices.py split, open-board perf, staged core_store.py, conflicted CLAUDE.md) and `cool-murdock-a6e91e` (Oct 14: ~96 uncommitted lines in arena_prime.py + test). Merge, stash or delete each.
+- **Next ideas (not built):** how to teach COMP next + the owner's PoB / PoC proof tests → `docs/specs/comp-next.md`.
 - **Claude to-do = none asked.** Only SITE-8 below (scale work, not needed for today's load).
 
 ## CLAUDE
