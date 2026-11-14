@@ -107,6 +107,8 @@ import evidence_marks as _marks
 import proof_stamp as _stamp
 import ps_hidden as _ps_hidden
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
+import datetime as dt
+import postiz as _pz   # 📮 POC-PLAY item 8: a picked week board posts for real through Postiz's official OAuth API
 import week_plan as _wk   # 🗓 POC-PLAY: week boards + brain-made week scenarios, each filed as a PoC
 import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into the PoC as new versions
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
@@ -9244,6 +9246,65 @@ async def _start_auto():
         asyncio.create_task(_auto_loop())
 
 
+_POST_BUSY = set()
+
+
+async def _week_post(cat_id, cat, p, base_, key_):
+    """📮 postiz_channels / week_post after the key check (owner only, one send at a time per agent)."""
+    async with httpx.AsyncClient(timeout=30, follow_redirects=False) as h_:
+        try:
+            chans_ = await _pz.channels(h_, base_, key_)
+        except (ValueError, httpx.HTTPError) as e:
+            raise HTTPException(502, str(e) if isinstance(e, ValueError) else 'Postiz did not answer.')
+        if p.op == 'postiz_channels':
+            return {'channels': [{'id': c.get('id'), 'name': str(c.get('name') or '')[:60], 'platform': c.get('identifier'), 'picture': c.get('picture'), 'off': bool(c.get('disabled'))} for c in chans_ if isinstance(c, dict)]}
+        rows_ = cat.get('pocFolders') or []; f_ = next((x for x in rows_ if x.get('id') == str(p.job or '') and x.get('week')), None)
+        if not f_:
+            raise HTTPException(404, 'No such week plan.')
+        t_ = p.tools if isinstance(p.tools, dict) else {}; mode_ = 'draft' if t_.get('mode') == 'draft' else 'schedule'
+        if (f_.get('posted') or {}).get('sent') and not t_.get('again'):
+            raise HTTPException(409, 'This week already went to Postiz. Change it there, or send it again on purpose.')
+        try:
+            start_ = dt.date.fromisoformat(str(t_.get('start') or '')) if t_.get('start') else _pz.next_monday(dt.datetime.now(dt.timezone.utc).date())
+            if start_.weekday() != 0:
+                raise ValueError
+            tz_ = max(-840, min(840, int(t_.get('tz') or 0)))
+        except (ValueError, TypeError):
+            raise HTTPException(400, 'Pick the Monday the week starts.')
+        files_ = {m.get('id'): m for m in f_.get('media') or []}
+
+        def path_(post_):
+            m_ = files_.get(post_.get('media')) or {}; nm_ = str(m_.get('url') or '').rsplit('/', 1)[-1]
+            fp_ = _media_dir() / cat_id / nm_
+            return fp_ if nm_ and re.fullmatch(r'[\w-]+\.(png|jpe?g|webp|mp4|webm)', nm_) and fp_.is_file() else None
+        go_, skip_ = _pz.plan(f_['week']['posts'], chans_, start_, tz_, dt.datetime.now(dt.timezone.utc), lambda q: bool(path_(q)))
+        if not go_:
+            raise HTTPException(400, 'Nothing can go out: ' + '; '.join(f'{pl} ({why})' for _i, pl, why in skip_[:4]) + '.')
+        ups_ = {}; out_ = []
+        for i_, post_, ch_, utc_ in go_:
+            res_ = {'i': i_, 'platform': post_['platform'], 'channel': str(ch_.get('name') or '')[:60], 'date': utc_.isoformat()}
+            try:
+                fp_ = path_(post_); med_ = None
+                if fp_:
+                    if fp_.name not in ups_:
+                        ext_ = fp_.suffix[1:].lower(); ct_ = ('video/' if ext_ in ('mp4', 'webm') else 'image/') + ('jpeg' if ext_ == 'jpg' else ext_)
+                        ups_[fp_.name] = await _pz.upload(h_, base_, key_, fp_.name, fp_.read_bytes(), ct_)
+                    med_ = ups_[fp_.name]
+                res_['postId'] = await _pz.create(h_, base_, key_, _pz.body(post_, ch_, utc_, mode_, med_))
+            except (ValueError, httpx.HTTPError) as e:
+                res_['error'] = str(e)[:160] if isinstance(e, ValueError) else 'Postiz did not answer.'
+            out_.append(res_)
+    sent_ = sum(1 for r in out_ if r.get('postId') is not None and not r.get('error'))
+    store = _load(); cat = store['cats'].get(cat_id) or cat; f_ = next((x for x in cat.get('pocFolders') or [] if x.get('id') == str(p.job)), None)
+    if f_ is not None:
+        f_['posted'] = {'at': round(time.time()), 'mode': mode_, 'start': start_.isoformat(), 'sent': sent_, 'results': out_,
+                        'skipped': [{'i': i, 'platform': pl, 'why': why} for i, pl, why in skip_]}
+    word_ = 'left as drafts' if mode_ == 'draft' else 'scheduled'
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"📮 {sent_} of {len(f_['week']['posts']) if f_ else sent_} posts {word_} in Postiz for the week of {start_.isoformat()}" + (f", {len(skip_)} skipped" if skip_ else '') + '.', 'at': time.time(), 'open': 'features'}])[-200:]
+    keep_owned(cat); _save(store)
+    return {'pocFolders': _poc_view(cat), 'posted': f_.get('posted') if f_ else None}
+
+
 @app.post('/api/cats/{cat_id}/work')
 async def cat_work(cat_id: str, p: WorkPayload):
     """🫂 Every workbench answer passes the Collective rule on its way out (_for_users)."""
@@ -10313,6 +10374,26 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         f_['week'] = {**plan_, 'style': f_['week'].get('style'), 'edited': round(time.time())}
         keep_owned(cat); _save(store)
         return {'pocFolders': _poc_view(cat)}
+    if p.op in ('postiz_channels', 'week_post'):   # 📮 POC-PLAY item 8: the picked week goes out through the owner's OWN Postiz (official OAuth channels)
+        if internal_ and p.op == 'week_post':
+            raise HTTPException(403, 'Only the owner sends a week out.')
+        if p.op == 'week_post' and cat_id in _POST_BUSY:
+            raise HTTPException(409, 'This week is already going out.')
+        saved_ = _ck.key_for(cat, 'postiz', data_dir=DATA_DIR)
+        if not saved_:
+            raise HTTPException(400, 'Save your Postiz API key on this agent first (Keys › Postiz). Postiz holds the X / Instagram / TikTok logins, never FEELESS.')
+        try:
+            base_, key_ = _pz.split_key(saved_)
+            if base_ != _pz.CLOUD:
+                await _cp.public_url(base_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        if p.op == 'week_post':
+            _POST_BUSY.add(cat_id)
+        try:
+            return await _week_post(cat_id, cat, p, base_, key_)
+        finally:
+            _POST_BUSY.discard(cat_id)
     if p.op == 'poc_answer':   # 🧾 what the minds wrote in this folder's chat becomes its filed proof, so it can be marked and sent
         doc_ = _ws_load(cat['id'], str(p.job or ''))
         calls_ = _feat.answers_of(doc_ or {}, owner_names=('You', 'you', 'owner'))
