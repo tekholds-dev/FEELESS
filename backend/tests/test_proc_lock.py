@@ -119,3 +119,55 @@ def test_old_holds_are_pruned(tmp_path):
     s = sql_store.SharedSet(tmp_path / 'h.json', ttl=0.01)
     s.add('A'); import time; time.sleep(0.02); s.prune()
     assert s.docs.all() == {}
+
+
+def _hits(path, q):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import sql_store
+    h = sql_store.SharedHits(path, 'rpc')
+    q.put(sum(h.hit('9.9.9.9', 50, 3600) for _ in range(20)))
+
+
+def test_a_device_limit_holds_across_worker_processes(tmp_path):
+    """🚦 SITE-8: 6 workers × 20 calls from one device, limit 50 → exactly 50 pass (an in-memory dict would let 120 through)."""
+    import sql_store
+    ctx = mp.get_context('spawn'); q = ctx.Queue()
+    ps = [ctx.Process(target=_hits, args=(str(tmp_path / 'hits.json'), q)) for _ in range(6)]
+    [p.start() for p in ps]; [p.join(60) for p in ps]
+    assert sum(q.get(timeout=5) for _ in ps) == 50
+    h = sql_store.SharedHits(tmp_path / 'hits.json', 'rpc'); other = sql_store.SharedHits(tmp_path / 'hits.json', 'bug')
+    assert not h.hit('9.9.9.9', 50, 3600) and h.hit('8.8.8.8', 50, 3600)   # another device is not locked out
+    assert other.hit('9.9.9.9', 3, 60)                                       # limiters are separate namespaces
+    h.clear(); assert h.hit('9.9.9.9', 50, 3600) and not other.docs.get('rpc:x')
+    assert other.docs.get('bug:9.9.9.9')                                     # clear() empties only its own limiter
+    assert h.hit('7.7.7.7', 1, 0.01) and not h.hit('7.7.7.7', 1, 0.01)
+    import time
+    time.sleep(0.02); h.prune(); assert h.docs.get('rpc:7.7.7.7') is None    # a passed window is pruned
+    assert h.hit('7.7.7.7', 1, 0.01)
+
+
+def test_every_per_device_limiter_is_shared_by_all_workers():
+    """No per-IP limiter is a plain dict any more (each worker would hold its own count)."""
+    import reputation_service as rs
+    import sql_store
+    names = ['_upload_ip', '_fle_hits', '_flv_hits', '_fjp_hits', '_fjx_hits', '_hqp_ip', '_bug_ip_hits', '_appr_hits', '_receipt_hits',
+             '_click_ip', '_ad_ev_ip', '_edge_ip', '_tr_ip', '_rpc_hits']
+    assert all(isinstance(getattr(rs, n), sql_store.SharedHits) for n in names)
+    assert len({getattr(rs, n).ns for n in names}) == len(names)
+    real = (Path(__file__).resolve().parents[1] / 'data').resolve()
+    assert real not in Path(rs._rpc_hits.docs.path).resolve().parents
+    src = ''.join(f.read_text() for f in [Path(rs.__file__), *sorted(Path(rs.__file__).parent.glob('rep_*.py'))])
+    import re
+    assert not re.search(r'for t_? in (?:rs\.)?_\w+\.get\(ip_?, \[\]\) if', src)   # no hand-rolled in-memory limiter left
+
+
+def test_a_broken_shared_limiter_still_limits_in_process():
+    import reputation_service as rs
+
+    class Broken:
+        ns = 'x'
+
+        def hit(self, *a):
+            raise OSError('locked')
+    req = type('R', (), {'headers': {}, 'client': type('C', (), {'host': '5.5.5.5'})()})()
+    assert all(asyncio.run(rs._ip_hit(Broken(), req, 2, 60)) for _ in range(2)) and not asyncio.run(rs._ip_hit(Broken(), req, 2, 60))

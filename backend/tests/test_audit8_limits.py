@@ -76,12 +76,13 @@ def test_one_device_cannot_flood_hq_pair_codes(monkeypatch):
 
 def test_edge_observe_and_perps_send_are_limited_per_device():
     rs._edge_ip.clear(); rs._fjx_hits.clear()
-    assert all(rs._ip_hit(rs._edge_ip, Req(), 120, 3600) for _ in range(120)) and not rs._ip_hit(rs._edge_ip, Req(), 120, 3600)
-    assert all(rs._ip_hit(rs._fjx_hits, Req(), 30, 3600) for _ in range(30)) and not rs._ip_hit(rs._fjx_hits, Req(), 30, 3600)
+    hit = lambda store, n: asyncio.run(rs._ip_hit(store, Req(), n, 3600))
+    assert all(hit(rs._edge_ip, 120) for _ in range(120)) and not hit(rs._edge_ip, 120)
+    assert all(hit(rs._fjx_hits, 30) for _ in range(30)) and not hit(rs._fjx_hits, 30)
     import pathlib
     import re
     src = re.sub(r'\b(?:rs|_RSM)\.', '', ''.join(f.read_text() for f in [pathlib.Path(rs.__file__), *sorted(pathlib.Path(rs.__file__).parent.glob('rep_*.py'))]))   # SITE-5 moves routes out; read them wherever they are
-    assert 'if not _ip_hit(_edge_ip, request, 120, 3600)' in src and 'if not _ip_hit(_fjx_hits, request, 30, 3600)' in src
+    assert 'if not await _ip_hit(_edge_ip, request, 120, 3600)' in src and 'if not await _ip_hit(_fjx_hits, request, 30, 3600)' in src
 
 
 def test_trading_internal_key_is_constant_time_and_a_missing_key_refuses(monkeypatch):

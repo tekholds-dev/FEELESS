@@ -243,3 +243,43 @@ class SharedSet:
 
     def __contains__(self, x):
         return self._fresh(self.docs.get(str(x)))
+
+
+_HITS_DOCS = {}
+
+
+class SharedHits:
+    """🚦 SITE-8: a per-device rate limit every worker process shares (one limiter per `ns`, all in one SQLite file). With N workers an
+    in-memory dict would let each device N× its limit; here `hit(key, n, win)` is ONE transaction: True and recorded when `key` used
+    fewer than n calls in the last `win` seconds, else False (nothing recorded). Rows whose window has passed are pruned as hits come in."""
+
+    def __init__(self, path, ns):
+        self._where = path; self.ns = str(ns)   # a path or a function returning one (read at each use: test sandboxes)
+
+    @property
+    def docs(self):
+        p = str(self._where() if callable(self._where) else self._where)
+        return _HITS_DOCS.get(p) or _HITS_DOCS.setdefault(p, Docs(p))
+
+    def hit(self, key, n, win):
+        now = time.time()
+
+        def take(cur):
+            ts = [t for t in (cur or {}).get('t') or [] if now - t < win]
+            if len(ts) >= n:
+                return Result(cur, False)
+            return Result({'t': ts + [now], 'end': now + win}, True)
+        ok = self.docs.update(f'{self.ns}:{key}', take)
+        if ok and int(now * 10) % 200 == 0:
+            self.prune()
+        return ok
+
+    def prune(self):
+        c = self.docs._db()
+        c.execute("DELETE FROM docs WHERE CAST(json_extract(v, '$.end') AS REAL) < ?", (time.time(),))
+        self.docs._cache = (None, None)
+
+    def clear(self):
+        c = self.docs._db()
+        c.execute("DELETE FROM docs WHERE substr(k, 1, ?) = ?", (len(self.ns) + 1, self.ns + ':'))
+        self.docs._cache = (None, None)

@@ -641,13 +641,9 @@ async def token_approvals(address: str, request: Request):
     rs = _rs()
     if not rs._re.match(rs._B58, address or ''):
         raise rs.HTTPException(400, 'Not a Solana address.')
-    ip_ = rs._guard.request_ip(request); now = rs.time.time()
-    h_ = [t_ for t_ in rs._appr_hits.get(ip_, []) if now - t_ < 3600]
-    if len(h_) >= 20:
+    if not await rs._ip_hit(rs._appr_hits, request, 20, 3600):
         raise rs.HTTPException(429, 'Too many checks from here — try again in a while.')
-    rs._appr_hits[ip_] = h_ + [now]
-    if len(rs._appr_hits) > 5000:
-        rs._appr_hits.clear()
+    now = rs.time.time()
     out = []
     async with rs.httpx.AsyncClient(timeout=12) as http:
         res = await rs.asyncio.gather(*[rs._rpc(http, 'getTokenAccountsByOwner', [address, {'programId': pid_}, {'encoding': 'jsonParsed'}])

@@ -59,6 +59,8 @@ from pydantic import BaseModel, Field, field_validator
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
+import sql_store as _sqls_hits   # 🚦 SITE-8: per-device limits shared by every worker
+_HITS = lambda ns: _sqls_hits.SharedHits(lambda: DATA_DIR / 'ip_hits.json', ns)   # noqa: E731
 STORE_PATH = DATA_DIR / 'reputation.json'
 
 # Solana RPC pool + retrying client live in chain_rpc.py (one module per job); imported here so every caller is unchanged.
@@ -595,19 +597,27 @@ class UploadPayload(BaseModel):
     dataUrl: str
 
 
-_upload_ip: dict = {}
+_upload_ip = _HITS('upload')
 
 
-def _ip_hit(store, request, n, win):
-    """🔒 Audit #8: one tiny per-device limiter (real IP via _guard.request_ip). → False when this device used its n calls in win seconds."""
-    ip, now = _guard.request_ip(request), time.time()
-    hits = [t for t in store.get(ip, []) if now - t < win]
-    if len(hits) >= n:
-        return False
-    store[ip] = hits + [now]
-    if len(store) > 5000:
-        store.clear()
-    return True
+async def _ip_hit(store, request, n, win):
+    """🔒 Audit #8: one per-device limiter (real IP via _guard.request_ip). → False when this device used its n calls in win seconds.
+    🚦 SITE-8: `store` is a SharedHits, so the limit holds across every worker; the transaction runs in a thread (never stalls the loop)."""
+    ip = _guard.request_ip(request)
+    try:
+        return await asyncio.to_thread(store.hit, ip, n, win)
+    except Exception:   # the shared file is locked/broken: keep limiting in this process instead of failing the route
+        now = time.time(); k = (store.ns, ip)
+        hits = [t for t in _IP_HIT_LOCAL.get(k, []) if now - t < win]
+        if len(hits) >= n:
+            return False
+        _IP_HIT_LOCAL[k] = hits + [now]
+        if len(_IP_HIT_LOCAL) > 5000:
+            _IP_HIT_LOCAL.clear()
+        return True
+
+
+_IP_HIT_LOCAL: dict = {}
 
 
 @app.post('/api/reputation/uploads')
@@ -628,11 +638,8 @@ async def upload_image(payload: UploadPayload, request: Request):
     cap = upload_cap(mt.group(1), role)
     if role == 'user':
         # No sign-in needed to upload, so cap it: 20 images per hour per IP (stops anyone filling the disk).
-        ip = _guard.request_ip(request)
-        hits = [x for x in _upload_ip.get(ip, []) if time.time() - x < 3600]
-        if len(hits) >= 20:
+        if not await _ip_hit(_upload_ip, request, 20, 3600):
             raise HTTPException(429, 'Upload limit reached — try again in an hour.')
-        _upload_ip[ip] = hits + [time.time()]
     if len(payload.dataUrl) > cap * 4 // 3 + 64:   # 🔒 audit #8: refuse an oversized body BEFORE the regex and the base64 decode
         raise HTTPException(413, f'Image must be under {cap // 1_000_000} MB.')
     m = re.match(r'^data:(image/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/=]+)$', payload.dataUrl)
@@ -9177,7 +9184,7 @@ _fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
 
 
 
-_fle_hits = {}   # ip → [times] (the deposit builder: 30 an hour per IP)
+_fle_hits = _HITS('fle')   # ip → [times] (the deposit builder: 30 an hour per IP)
 
 
 @app.post('/api/reputation/familia-pools/earn')
@@ -9193,13 +9200,8 @@ async def familia_pools_earn(request: Request):
         raise HTTPException(400, str(e))
     if side_ != 'withdraw':   # ⚖ LEGAL-1 (d): a withdraw is an exit, never held
         _legal_hold(signer_, 'perps', request)
-    ip_ = _guard.request_ip(request); now = time.time()
-    hits_ = [t_ for t_ in _fle_hits.get(ip_, []) if now - t_ < 3600]
-    if len(hits_) >= 30:
+    if not await _ip_hit(_fle_hits, request, 30, 3600):
         raise HTTPException(429, 'Too many deposit builds from here — try again in a while.')
-    _fle_hits[ip_] = hits_ + [now]
-    if len(_fle_hits) > 5000:
-        _fle_hits.clear()
     hub_ = await familia_pools()
     row_ = next((r_ for r_ in (hub_ or {}).get('pools') or [] if r_.get('project') == 'jupiter-lend' and asset_ in (r_.get('mints') or [])), None)
     if not row_:
@@ -9231,7 +9233,7 @@ async def familia_pools_earn(request: Request):
     raise HTTPException(503, why_)
 
 
-_flv_hits = {}     # ip → [times] (the leverage builder: 30 an hour per IP)
+_flv_hits = _HITS('flv')     # ip → [times] (the leverage builder: 30 an hour per IP)
 _flv_vaults = {}   # 'at' + 'rows': Jupiter Lend's vaults, read at most once every 30 s
 
 
@@ -9269,7 +9271,7 @@ async def _jl_markets():
     return _flv_vaults.get('rows') or []
 
 
-_fjp_hits = {}    # ip → [times] (perps builds: 60 an hour per IP)
+_fjp_hits = _HITS('fjp')    # ip → [times] (perps builds: 60 an hour per IP)
 _fjp_pool = {}    # 'at' + 'rows': Jupiter Perps pool info per market, read at most once a minute
 
 
@@ -9302,13 +9304,8 @@ async def familia_perps_real_build(request: Request):
     quote (entry, liquidation, fees), `jup_perps.verify` opens it, the wallet signs it next."""
     import jup_perps as _jp
     body = await request.json()
-    ip_ = _guard.request_ip(request); now = time.time()
-    hits_ = [t_ for t_ in _fjp_hits.get(ip_, []) if now - t_ < 3600]
-    if len(hits_) >= 60:
+    if not await _ip_hit(_fjp_hits, request, 60, 3600):
         raise HTTPException(429, 'Too many perps builds from here — try again in a while.')
-    _fjp_hits[ip_] = hits_ + [now]
-    if len(_fjp_hits) > 5000:
-        _fjp_hits.clear()
     act_ = str((body or {}).get('act') or 'open')
     if act_ != 'close' and not act_.startswith('tpsl-'):   # ⚖ LEGAL-1 (d): anything that builds an open is checked; closing / TP-SL are exits
         _legal_hold((body or {}).get('address') or (body or {}).get('wallet'), 'perps', request)
@@ -9337,7 +9334,7 @@ async def familia_perps_real_build(request: Request):
             'pnlPct': _jp._f(r_.get('estimatedPnlPercent'))} for r_ in (b_ or {}).get('tpslRequests') or []], **what_}
 
 
-_fjx_hits: dict = {}
+_fjx_hits = _HITS('fjx')
 
 
 
@@ -9484,13 +9481,8 @@ async def familia_leverage_build(request: Request):
         raise HTTPException(400, str(e))
     if act_ != 'close':   # ⚖ LEGAL-1 (d): repaying + unlocking is an exit, never held
         _legal_hold(signer_, 'perps', request)
-    ip_ = _guard.request_ip(request); now = time.time()
-    hits_ = [t_ for t_ in _flv_hits.get(ip_, []) if now - t_ < 3600]
-    if len(hits_) >= 30:
+    if not await _ip_hit(_flv_hits, request, 30, 3600):
         raise HTTPException(429, 'Too many leverage builds from here — try again in a while.')
-    _flv_hits[ip_] = hits_ + [now]
-    if len(_flv_hits) > 5000:
-        _flv_hits.clear()
     m_ = next((r_ for r_ in await _jl_markets() if r_['vaultId'] == vid_), None)
     if not m_:
         raise HTTPException(400, 'Only the SOL · BTC · JUP leverage markets open from here.')
@@ -9567,7 +9559,7 @@ def _hqp_site(port):
     return f"http://{ip}:{int(port)}" if ip else None
 
 
-_hqp_ip: dict = {}
+_hqp_ip = _HITS('hqp')
 
 
 
@@ -22745,7 +22737,7 @@ BUGS_PATH = ADMIN_PATH.parent / 'bugs.json'
 _admin_lock = _sqls_proc.ProcLock(lambda: FUSE_HQ_PATH)   # 🔒 SITE-8: one holder across every worker process — guards fuse_hq.json (117 saves) + runners.json (16)
 _status_log = []          # rolling (ts, method, path, status) for the security monitor
 _holder_cache = {}
-_bug_ip_hits = {}
+_bug_ip_hits = _HITS('bug')
 
 
 def _admin_wallets():
@@ -23494,7 +23486,7 @@ async def familia_street_mod(city: str, p: StreetMod):
 
 
 
-_appr_hits = {}
+_appr_hits = _HITS('appr')
 
 
 
@@ -23860,17 +23852,14 @@ class ReceiptIn(BaseModel):
     kind: str = 'swap'
 
 
-_receipt_hits: dict = {}
+_receipt_hits = _HITS('receipt')
 
 
 @app.post('/api/reputation/receipts')
 async def store_receipt(payload: ReceiptIn, request: Request):
     global _receipt_sigs
-    ip = _guard.request_ip(request)
-    now = time.time(); hits = [t for t in _receipt_hits.get(ip, []) if now - t < 60]
-    if len(hits) >= 20:  # each receipt costs RPC lookups; cap per IP
+    if not await _ip_hit(_receipt_hits, request, 20, 60):  # each receipt costs RPC lookups; cap per IP
         raise HTTPException(429, 'Too many receipts — slow down.')
-    _receipt_hits[ip] = hits + [now]
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.sig) or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.wallet):
         raise HTTPException(400, 'Bad signature or wallet.')
     kind = payload.kind if payload.kind in ('swap', 'buy', 'sell', 'airdrop', 'launch', 'transfer', 'pool', 'claim') else 'swap'
@@ -24053,7 +24042,7 @@ async def _perk_tier(address: str):
 
 # ---- Click tracking for $TICKERS, CAs and @mentions in chat -------------------------------
 CLICKS_PATH = DATA_DIR / 'clicks.json'
-_click_ip = {}
+_click_ip = _HITS('click')
 
 
 class ClickIn(BaseModel):
@@ -25403,7 +25392,7 @@ class AdIn(BaseModel):
     sponsor: str = Field(default='', max_length=40)
 
 
-_ad_ev_ip: dict = {}
+_ad_ev_ip = _HITS('adev')
 
 
 
@@ -26362,7 +26351,7 @@ def _edge_price_ok(sent, live):
     return bool(live) and live / 3 <= sent <= live * 3
 
 
-_edge_ip: dict = {}
+_edge_ip = _HITS('edge')
 
 
 
@@ -26905,7 +26894,7 @@ import hashlib as _hashlib
 TRAFFIC_PATH = DATA_DIR / 'traffic.json'
 _tr_buf = {'views': {}, 'uniq': {}, 'coins': {}, 'refs': {}, 'hours': {}}
 _tr_salt = {'day': '', 'salt': ''}
-_tr_ip = {}
+_tr_ip = _HITS('pv')
 
 
 TR_MAP_MAX = 2000
@@ -27809,7 +27798,7 @@ def _rpc_call_ok(c) -> bool:
     p_ = c.get('params') or []
     opt_ = p_[1] if len(p_) > 1 and isinstance(p_[1], dict) else {}
     return bool(p_) and p_[0] in RPC_GPA_PROGRAMS and any(isinstance(f_, dict) and 'memcmp' in f_ for f_ in (opt_.get('filters') or []))
-_rpc_hits: dict = {}
+_rpc_hits = _HITS('rpc')
 
 
 def _relay_spent(r) -> bool:

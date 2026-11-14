@@ -915,7 +915,7 @@ async def familia_perps_real_execute(request: Request):
     rs = _rs()
     import jup_perps as _jp
     body = await request.json()
-    if not rs._ip_hit(rs._fjx_hits, request, 30, 3600):   # 🔒 audit #8: no quota burn on FEELESS's Jupiter key
+    if not await rs._ip_hit(rs._fjx_hits, request, 30, 3600):   # 🔒 audit #8: no quota burn on FEELESS's Jupiter key
         raise rs.HTTPException(429, 'Too many perps sends from here — try again in a while.')
     act_, tx_, me_ = str((body or {}).get('action') or ''), str((body or {}).get('signed') or ''), str((body or {}).get('address') or '')
     if act_ not in ('increase-position', 'decrease-position', 'create-tpsl', 'update-tpsl', 'cancel-tpsl'):
@@ -959,7 +959,7 @@ async def hq_pair_new(request: Request, port: int = Query(51367, ge=1, le=65535)
     """A fresh one-time code (3 min; at most 20 waiting — hq_pair.MAX_OPEN) + the QR link: Phantom CONNECT answering to this computer's
     page on the Wi-Fi (Phantom's deeplink protocol — no in-app browser)."""
     rs = _rs()
-    if not rs._ip_hit(rs._hqp_ip, request, 6, 180):   # 🔒 audit #8: one device can't flood the 20 waiting codes and evict the owner's QR
+    if not await rs._ip_hit(rs._hqp_ip, request, 6, 180):   # 🔒 audit #8: one device can't flood the 20 waiting codes and evict the owner's QR
         raise rs.HTTPException(429, 'Too many sign-in codes — wait a minute.')
     now = rs.time.time(); code = rs._hqp.new_code(rs._hqp_store, now); site = rs._hqp_site(port)
     return {'code': code, 'ttl': rs._hqp.TTL, 'lan': rs._lan_ip(), 'link': rs._hqp.connect_link(rs._hqp_store, code, site, now) if site else None}
@@ -1230,11 +1230,8 @@ async def quest_event(payload: _RSM.QuestEvent):
 @router.post('/api/reputation/bugs')
 async def report_bug(request: Request, payload: _RSM.BugReport):
     rs = _rs()
-    ip = rs._guard.request_ip(request)
-    hits = [t for t in rs._bug_ip_hits.get(ip, []) if rs.time.time() - t < 60]
-    if len(hits) >= 3:
+    if not await rs._ip_hit(rs._bug_ip_hits, request, 3, 60):
         raise rs.HTTPException(429, 'Slow down — 3 reports a minute.')
-    rs._bug_ip_hits[ip] = hits + [rs.time.time()]
     kind = payload.kind if payload.kind in ('bug', 'security', 'idea') else 'bug'
     async with rs._admin_lock:
         d = rs._json_load(rs.BUGS_PATH, {'bugs': []})
@@ -1362,11 +1359,8 @@ async def track_click(request: Request, payload: _RSM.ClickIn):
     rs = _rs()
     if payload.kind not in ('ticker', 'ca', 'mention', 'command'):
         raise rs.HTTPException(400, 'Bad kind.')
-    ip = rs._guard.request_ip(request)
-    hits = [t for t in rs._click_ip.get(ip, []) if rs.time.time() - t < 60]
-    if len(hits) >= 60:
+    if not await rs._ip_hit(rs._click_ip, request, 60, 60):
         raise rs.HTTPException(429, 'Too many clicks.')
-    rs._click_ip[ip] = hits + [rs.time.time()]
     value = payload.value.strip()
     if payload.kind == 'ticker':
         value = value.upper().lstrip('$')[:12]
@@ -1500,7 +1494,7 @@ async def ad_event(ad_id: str, request: Request, kind: str = Query('view')):
     # 🔒 audit #8: a real ad id only, 60 events/min per device, and the file is rewritten only when an ad was counted
     if not rs._re.fullmatch(r'[A-Za-z0-9_-]{1,40}', ad_id) or not any(a.get('id') == ad_id for a in rs._json_load(rs.ADS_PATH, {'ads': []})['ads']):
         return {'ok': False}
-    if not rs._ip_hit(rs._ad_ev_ip, request, 60, 60):
+    if not await rs._ip_hit(rs._ad_ev_ip, request, 60, 60):
         raise rs.HTTPException(429, 'Too many ad events.')
     async with rs._admin_lock:
         d = rs._json_load(rs.ADS_PATH, {'ads': []})
@@ -1604,7 +1598,7 @@ async def follow(payload: _RSM.FollowIn):
 async def edge_observe(o: _RSM.EdgeObservation, request: Request):
     rs = _rs()
     import re
-    if not rs._ip_hit(rs._edge_ip, request, 120, 3600):   # 🔒 audit #8: one device can't pin hundreds of coins' predictions
+    if not await rs._ip_hit(rs._edge_ip, request, 120, 3600):   # 🔒 audit #8: one device can't pin hundreds of coins' predictions
         raise rs.HTTPException(429, 'Too many observations from here.')
     if not (0 <= o.score <= 100) or o.priceUsd <= 0 or len(o.pairAddress) > 80 or len(o.chain) > 24 or not re.fullmatch(r'[A-Za-z0-9]+', o.pairAddress) or not re.fullmatch(r'[a-z0-9-]+', o.chain):
         raise rs.HTTPException(400, 'bad observation')
@@ -1636,10 +1630,8 @@ async def page_view(request: Request, p: _RSM.PageView):
     rs = _rs()
     ip = rs._guard.request_ip(request).strip()
     now = rs.time.time()
-    hits = [t for t in rs._tr_ip.get(ip, []) if now - t < 60]
-    if len(hits) >= 120:
+    if not await rs._ip_hit(rs._tr_ip, request, 120, 60):
         return {'ok': False}
-    rs._tr_ip[ip] = hits + [now]
     day = rs.time.strftime('%Y-%m-%d', rs.time.gmtime(now))
     if rs._tr_salt['day'] != day:
         rs._tr_salt.update(day=day, salt=rs._secrets.token_hex(16))
@@ -1763,11 +1755,8 @@ async def token_meta_create(p: _RSM.TokenMetaIn, request: Request):
 @router.post('/api/reputation/rpc')
 async def rpc_relay(request: Request):
     rs = _rs()
-    ip = rs._guard.request_ip(request)
-    now = rs.time.time(); hits = [t for t in rs._rpc_hits.get(ip, []) if now - t < 10]
-    if len(hits) >= 60:
+    if not await rs._ip_hit(rs._rpc_hits, request, 60, 10):
         raise rs.HTTPException(429, 'Too many RPC calls.')
-    rs._rpc_hits[ip] = hits + [now]
     body = await request.json()
     calls = body if isinstance(body, list) else [body]
     if len(calls) > 10 or any(not rs._rpc_call_ok(c) for c in calls):
