@@ -121,17 +121,23 @@ def test_withdraw_pays_only_the_owner_never_a_client_address_and_refuses_too_muc
     async def cat_for(_c, _me):
         return {}, {'address': agent, 'owner': owner, 'provider': 'circle', 'circleAcct': 'agent', 'circleId': 'w1'}
     async def rpc(_h, method, _params):
-        return {'getBalance': {'value': 1_000_000_000}, 'getLatestBlockhash': {'value': {'blockhash': HASH}}}.get(method, 'sig')
+        return {'getBalance': {'value': 1_000_000_000}, 'getLatestBlockhash': {'value': {'blockhash': HASH, 'lastValidBlockHeight': 100}},
+                'getSignatureStatuses': {'value': [{'confirmationStatus': 'confirmed', 'err': None}]}}.get(method, 'sig')
+    async def nap(_s):
+        return None
     async def circle(_m, path, body=None, agent=False):
         signed.update(path=path, tx=body['rawTransaction'], agent=agent)
         return {'signedTransaction': 'x', 'signature': 'S1'}
+    recorded = []
     class Post:
-        async def post(self, *_a, **_k):
-            return None
+        async def post(self, *_a, **k):
+            recorded.append(k.get('json'))
     monkeypatch.setattr(rs, 'session_address', lambda _s: owner); monkeypatch.setattr(rs, '_cat_for_fund', cat_for)
-    monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_ai_http', Post)
+    monkeypatch.setattr(rs, '_krpc', rpc); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_ai_http', Post)
+    monkeypatch.setattr(rs.asyncio, 'sleep', nap)
     p = rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=0.5)
-    assert asyncio.run(rs.cat_withdraw('c1', p))['to'] == owner
+    out = asyncio.run(rs.cat_withdraw('c1', p))
+    assert out['to'] == owner and out['state'] == 'confirmed' and recorded and recorded[-1]['action'] == 'agent_withdrew'
     keys = [str(k) for k in VersionedTransaction.from_bytes(base64.b64decode(signed['tx'])).message.account_keys]
     assert signed['agent'] is True and keys[:2] == [agent, owner]
     with pytest.raises(HTTPException):
@@ -323,3 +329,77 @@ def test_when_openrouter_is_out_of_credit_feeless_covers_the_agent_free(monkeypa
     assert asyncio.run(fs._or_call('a/x', [], backup=True, key='own')) == ('', 0.0)        # an owner's own key stays their own
     monkeypatch.setenv('GROQ_API_KEY', ''); fs._OR_LAST.clear()
     assert asyncio.run(fs._or_call('a/x', [], backup=True)) == ('', 0.0) and 'OpenRouter' in fs._OR_LAST['err']
+
+
+def test_a_withdraw_that_never_lands_is_never_recorded_and_says_nothing_moved(monkeypatch):
+    """↩ The owner's $1 test (2026-11-14): one send, no confirm → the desk said "sent back", the chain had nothing. Now it is re-broadcast until
+    the chain is past its blockhash; a dropped withdraw is NOT recorded and the owner is told nothing moved (only then can a retry not double)."""
+    import asyncio
+    import reputation_service as rs
+    from fastapi import HTTPException
+    agent, owner = str(Keypair().pubkey()), str(Keypair().pubkey())
+    heights = iter([90, 101])   # 1st look: still valid → re-broadcast · 2nd: past lastValidBlockHeight 100 → it can never land
+    sent = {'n': 0}
+    async def cat_for(_c, _me):
+        return {}, {'address': agent, 'owner': owner, 'provider': 'circle', 'circleAcct': 'agent', 'circleId': 'w1'}
+    async def rpc(_h, method, _params):
+        if method == 'getBlockHeight':
+            return next(heights)
+        return {'getBalance': {'value': 1_000_000_000}, 'getLatestBlockhash': {'value': {'blockhash': HASH, 'lastValidBlockHeight': 100}},
+                'getSignatureStatuses': {'value': [None]}}.get(method, 'sig')
+    async def circle(_m, _path, body=None, agent=False):
+        return {'signedTransaction': 'x', 'signature': 'S1'}
+    async def cast(_h, _tx):
+        sent['n'] += 1; return 3
+    async def nap(_s):
+        return None
+    recorded = []
+    class Post:
+        async def post(self, *_a, **k):
+            recorded.append(k.get('json'))
+    monkeypatch.setattr(rs, 'session_address', lambda _s: owner); monkeypatch.setattr(rs, '_cat_for_fund', cat_for)
+    monkeypatch.setattr(rs, '_krpc', rpc); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_ai_http', Post)
+    monkeypatch.setattr(rs, '_rpc_broadcast', cast); monkeypatch.setattr(rs.asyncio, 'sleep', nap)
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs.cat_withdraw('c1', rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=0.01)))
+    assert e.value.status_code == 409 and 'nothing moved' in e.value.detail and recorded == [] and sent['n'] == 1
+    assert 'c1' not in rs._cat_out_busy
+
+
+def test_a_withdraw_carries_a_priority_fee():
+    from solders.transaction import VersionedTransaction as VT
+    me, cat = Keypair().pubkey(), Keypair().pubkey()
+    tx = VT.from_bytes(base64.b64decode(cf.build_out(str(cat), str(me), 'SOL', 10_000_000, HASH)))
+    progs = [str(tx.message.account_keys[i.program_id_index]) for i in tx.message.instructions]
+    assert progs.count(cf.COMPUTE_PROGRAM) == 2 and progs[-1] == cf.SYSTEM_PROGRAM
+
+
+def test_an_all_out_sol_withdraw_empties_to_zero_and_a_dust_leftover_is_refused(monkeypatch):
+    """🧾 A system account may hold 0 or ≥ rent, nothing between: 'all of it' sends balance − the exact fee (ends at 0); a partial that would
+    leave dust under rent is refused before anything is signed."""
+    import asyncio
+    import reputation_service as rs
+    from fastapi import HTTPException
+    agent, owner = str(Keypair().pubkey()), str(Keypair().pubkey())
+    sent = {}
+    async def cat_for(_c, _me):
+        return {}, {'address': agent, 'owner': owner, 'provider': 'circle', 'circleAcct': 'agent', 'circleId': 'w1'}
+    async def rpc(_h, method, _params):
+        return {'getBalance': {'value': 10_000_000}, 'getLatestBlockhash': {'value': {'blockhash': HASH, 'lastValidBlockHeight': 100}},
+                'getSignatureStatuses': {'value': [{'confirmationStatus': 'confirmed', 'err': None}]}}.get(method, 'sig')
+    async def circle(_m, _path, body=None, agent=False):
+        sent['tx'] = body['rawTransaction']; return {'signedTransaction': 'x', 'signature': 'S1'}
+    async def nap(_s):
+        return None
+    class Post:
+        async def post(self, *_a, **_k):
+            return None
+    monkeypatch.setattr(rs, 'session_address', lambda _s: owner); monkeypatch.setattr(rs, '_cat_for_fund', cat_for)
+    monkeypatch.setattr(rs, '_krpc', rpc); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_ai_http', Post)
+    monkeypatch.setattr(rs.asyncio, 'sleep', nap)
+    out = asyncio.run(rs.cat_withdraw('c1', rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=0)))
+    assert round(out['amount'] * 1e9) == 10_000_000 - cf.OUT_FEE        # balance − exact fee → the wallet ends at 0
+    sent.clear()
+    with pytest.raises(HTTPException) as e:                               # would leave 0.0005 SOL: under rent → refused, nothing signed
+        asyncio.run(rs.cat_withdraw('c1', rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=0.009494)))
+    assert e.value.status_code == 400 and 'Leave at least' in e.value.detail and not sent

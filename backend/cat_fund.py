@@ -35,7 +35,9 @@ GAS_LAMPORTS = 3_000_000   # a USDC funding also drops this SOL in its wallet: w
 COMPUTE_PROGRAM = 'ComputeBudget111111111111111111111111111111'
 LIGHTHOUSE_PROGRAM = 'L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95'
 WALLET_EXTRAS = (COMPUTE_PROGRAM, LIGHTHOUSE_PROGRAM)   # what wallets like Phantom add on signing: fee settings and safety checks, neither can move money
-FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
+OUT_FEE = 5_000 + 1_000     # a withdraw's exact network fee: 1 signature + its priority fee (20,000 CU × 50,000 µ-lamports) — an all-out SOL
+                             # withdraw sends balance − OUT_FEE, so the wallet ends at exactly 0 (a system account may be 0 or rent-exempt, nothing between)
+RENT_MIN = 890_880          # the least a system account may keep (rent-exempt, 0 bytes)
 
 
 def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False, start_credit=0.0, credit_to_wallet=False):
@@ -127,6 +129,7 @@ def build_out(agent_wallet, owner, token, units, blockhash):
     if payer == to or int(units) <= 0:
         raise ValueError('Nothing to withdraw.')
     ixs = [_open_usdc(payer, to), _send_usdc(payer, to, units)] if token == 'USDC' else [transfer(TransferParams(from_pubkey=payer, to_pubkey=to, lamports=int(units)))]
+    ixs = [set_compute_unit_limit(200_000 if token == 'USDC' else 20_000), set_compute_unit_price(50_000)] + ixs   # 🚀 a priority fee (≈1,000 lamports on SOL): without one a busy network dropped the owner's $1 withdraw (2026-11-14)
     return base64.b64encode(bytes(VersionedTransaction.populate(MessageV0.try_compile(payer, ixs, [], bh), [Signature.default()]))).decode()
 
 

@@ -404,20 +404,24 @@ async def cat_withdraw(cat_id: str, p: _RSM.CatWithdrawIn):
     if cat_id in rs._cat_out_busy:
         raise rs.HTTPException(409, 'A withdrawal is already on its way.')
     rs._cat_out_busy.add(cat_id)
+    rpc = rs._krpc   # 💵 the keeper's keyed lanes (money), never the scanners' shared pool
     try:
         async with rs.httpx.AsyncClient(timeout=15) as http:
             if p.token == 'SOL':
-                have = int(((await rs._rpc(http, 'getBalance', [w['address'], {'commitment': 'confirmed'}])) or {}).get('value') or 0) - rs._cfund.FEE_RESERVE; scale = rs._cfund.LAMPORTS
+                have = int(((await rpc(http, 'getBalance', [w['address'], {'commitment': 'confirmed'}])) or {}).get('value') or 0) - rs._cfund.OUT_FEE; scale = rs._cfund.LAMPORTS
             else:
                 try:
-                    have = int((((await rs._rpc(http, 'getTokenAccountBalance', [str(rs._cfund.ata(w['address'])), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
+                    have = int((((await rpc(http, 'getTokenAccountBalance', [str(rs._cfund.ata(w['address'])), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
                 except Exception:
                     have = 0
                 scale = rs._cfund.USDC_UNITS
             units = have if not p.amount else int(p.amount * scale)
             if units <= 0 or units > have:
                 raise rs.HTTPException(400, f'It has {max(0, have) / scale:.6g} {p.token} available.')
-            bh = ((await rs._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            if p.token == 'SOL' and 0 < have - units < rs._cfund.RENT_MIN:   # 🧾 a wallet left with dust below rent is refused by the network
+                raise rs.HTTPException(400, f'Leave at least {rs._cfund.RENT_MIN / scale:.6g} SOL in it, or withdraw all of it ({have / scale:.6g} SOL).')
+            bhv = ((await rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value') or {}
+            bh, last_h = bhv.get('blockhash'), int(bhv.get('lastValidBlockHeight') or 0)
             try:
                 tx = rs._cfund.build_out(w['address'], w['owner'], p.token, units, bh)
             except ValueError as e:
@@ -427,11 +431,21 @@ async def cat_withdraw(cat_id: str, p: _RSM.CatWithdrawIn):
             if not signed_.get('signedTransaction') or not sig_:
                 raise rs.HTTPException(502, 'Circle did not sign it. Nothing moved.')
             try:
-                await rs._rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+                await rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 0}])
             except rs.HTTPException:
                 raise
             except Exception as e:
                 raise rs.HTTPException(400, f'The network refused it, nothing moved: {str(e)[:160]}')
+            # ✅ only a CONFIRMED withdraw is a withdraw (owner's $1 test 2026-11-14: one send, no confirm → "sent back" on the desk, nothing on chain).
+            # Re-broadcast to every node until it confirms or its blockhash is past — then it can never land, so "try again" can't double-pay.
+            # The busy lock stays held the whole time: no second withdraw can start while this one may still land.
+            state = await _cat_out_land(rs, http, sig_, signed_['signedTransaction'], last_h)
+            if state == 'failed':
+                raise rs.HTTPException(400, 'The network ran it and it failed — nothing moved.')
+            if state == 'dropped':
+                raise rs.HTTPException(409, 'It did not land before it expired — nothing moved. Try again.')
+            if state != 'confirmed':
+                raise rs.HTTPException(504, f'Not confirmed yet ({sig_[:10]}…) — check your wallet before trying again.')
     finally:
         rs._cat_out_busy.discard(cat_id)
     try:
@@ -439,7 +453,38 @@ async def cat_withdraw(cat_id: str, p: _RSM.CatWithdrawIn):
                               json={'action': 'agent_withdrew', 'sig': sig_, 'amount': {'amount': units / scale, 'token': p.token}})
     except Exception as e:
         print(f'[cat withdraw] record {cat_id}: {e}')
-    return {'signature': sig_, 'amount': units / scale, 'token': p.token, 'to': w['owner']}
+    return {'signature': sig_, 'amount': units / scale, 'token': p.token, 'to': w['owner'], 'state': 'confirmed'}
+
+
+async def _cat_out_land(rs, http, sig, signed_tx, last_height, every=2.0, cap=150):
+    """↩ Watch one signed withdraw land: re-broadcast it to every node every `every` s (same signature, it can only land once) until it is
+    'confirmed', 'failed' on chain, or 'dropped' (the chain is past its blockhash's last valid height and it never landed — it never can).
+    'unknown' only if `cap` s pass with neither (an RPC outage); the caller then tells the owner to check before retrying."""
+    async def status():
+        try:
+            st = (((await rs._krpc(http, 'getSignatureStatuses', [[sig], {'searchTransactionHistory': True}])) or {}).get('value') or [None])[0]
+        except Exception:
+            return None
+        if not st:
+            return None
+        return 'failed' if st.get('err') else 'confirmed' if st.get('confirmationStatus') in ('confirmed', 'finalized') else None
+    t0 = rs.time.time()
+    while rs.time.time() - t0 < cap:
+        await rs.asyncio.sleep(every)
+        got = await status()
+        if got:
+            return got
+        try:
+            height = int(await rs._krpc(http, 'getBlockHeight', [{'commitment': 'confirmed'}]) or 0)
+        except Exception:
+            height = 0
+        if last_height and height > last_height:
+            return await status() or 'dropped'   # one last look: past its last valid height it can no longer land
+        try:
+            await rs._rpc_broadcast(http, signed_tx)
+        except Exception:
+            pass
+    return 'unknown'
 
 
 @router.post('/api/reputation/cats/{cat_id}/fund/send')
