@@ -43,6 +43,7 @@ import { ProofsFolder, visitorProofs } from './ProofsFolder';
 import ProofPicker from './ProofPicker';
 import { ChatGrip, ChatSizeSeg, useChatSize } from './ChatSize';
 import Duel from './Duel';
+import AgentReplay from './AgentReplay';
 import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { LiveCount, useAgentPool } from './BoostFolder';
@@ -1375,10 +1376,10 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
   useEffect(() => { if (start && typeof start === 'object') openProof(start); else if (start && start !== 'none') openWin(start); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   // 🎯 AGX-1: ⌘K / Ctrl+K opens the proof picker; a picked proof opens IN its desk window (focus = which file, `at` re-fires the same one)
-  const [picker, setPicker] = useState(false); const [focus, setFocus] = useState(null);
+  const [picker, setPicker] = useState(false); const [focus, setFocus] = useState(null); const [replay, setReplay] = useState(false);   // ⏪ AGX-8
   const openProof = useCallback(({ win, id }) => { setPicker(false); setFocus({ win, id, at: Date.now() }); openWin(win); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const k = e => { if ((e.metaKey || e.ctrlKey) && !e.altKey && String(e.key).toLowerCase() === 'k') { e.preventDefault(); setPicker(x => !x); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
-  useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour && !picker) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour, picker]);
+  useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask && !tour && !picker && !replay) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask, tour, picker, replay]);
   const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
     sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
     sites: <SignedSites cat={cat} d={d} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
@@ -1415,11 +1416,12 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
       w[k].open && (!w[k].min || KEEP_MIN.has(k)) ? <DeskWin key={k} k={k} title={t} s={w[k]} hid={!!w[k].min} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })} tools={foldTabs(k)}>{wallFor(k, d, cat) ? <VitalsWall tiles={wallFor(k, d, cat)} onCommand={onCommand} onOpen={openWin}>{body}</VitalsWall> : body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}><Ic3 e={ic} /> {l}</button>)}
-      <button type="button" className="m-btn dsk-pick" onClick={() => setPicker(true)} data-tip="Pick any proof it filed and open it here (⌘K)" data-testid="dsk-pick"><Ic3 e="🎯" /> Proofs <kbd>⌘K</kbd></button>
+      <button type="button" className="m-btn dsk-pick" onClick={() => setPicker(true)} data-tip="Pick any proof it filed and open it here (⌘K)" data-testid="dsk-pick"><Ic3 e="🎯" /> Proofs <kbd>⌘K</kbd></button><button type="button" className="m-btn dsk-pick" onClick={() => setReplay(true)} data-tip="Replay its last day: scrub what it did and the desk rebuilds" data-testid="dsk-replay"><Ic3 e="⏪" /> Replay</button>
       <DeskBell catId={cat.id} onOpen={r => { const k = { PoW: 'pow', PoP: 'pop', PoB: 'bids', PoC: 'poc', PoStatic: 'postatic', PoEco: 'poe' }[r.kind]; if (!k || !w[k]) return; if (r.id) openProof({ win: k, id: r.id }); else { set(k, { open: true, min: false }); setTop(k); } }} />
       <DesktopClock />
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
     {picker ? <ProofPicker d={d} weights={pool?.weights} onPick={openProof} onClose={() => setPicker(false)} /> : null}
+    {replay ? <AgentReplay d={d} name={cat?.name} onOpen={p => { setReplay(false); openProof(p); }} onClose={() => setReplay(false)} /> : null}
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
   </div></PrintLines.Provider></PrintSeed.Provider></IconLook.Provider>, document.body);

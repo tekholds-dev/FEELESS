@@ -1,0 +1,34 @@
+/* ⏪ AGX-8 agent replay (2026-11-14). Tokens only. */
+.arp { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: color-mix(in srgb, var(--m-bg) 72%, transparent); animation: arpFade .18s ease both; }
+.arp-box { width: min(1000px, 100%); max-height: min(680px, calc(100% - 8px)); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 20px; border: 1px solid var(--m-line-hi); overflow: hidden;
+  background: radial-gradient(120% 80% at 80% 0%, color-mix(in srgb, var(--m-accent) 10%, transparent), transparent 60%), var(--m-surface); box-shadow: 0 30px 80px color-mix(in srgb, var(--m-bg) 80%, transparent); }
+.arp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .arp-head > span:first-child { display: grid; margin-right: auto; } .arp-head b { font: 700 15px var(--f-display); color: var(--m-text); }
+.arp-head .m-seg button, .arp-speed button, .arp-head .m-btn { min-height: 32px; }
+.arp-none { margin: 0; padding: 20px; text-align: center; font: 400 13px var(--f-ui); color: var(--m-dim); }
+.arp-bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.arp-play { min-width: 44px; min-height: 40px; font-size: 14px; }
+.arp-track { position: relative; display: grid; } .arp-track input { width: 100%; accent-color: var(--m-accent); margin: 14px 0 0; }
+.arp-ticks { position: absolute; left: 8px; right: 8px; top: 0; height: 12px; }
+.arp-ticks i { position: absolute; top: 0; width: 2px; height: 10px; border-radius: 2px; background: var(--m-mute); opacity: .45; transform: translateX(-1px); }
+.arp-ticks i.is-past { opacity: 1; } .arp-ticks i.is-file, .arp-ticks i.is-send { background: var(--m-accent); height: 12px; } .arp-ticks i.is-buy, .arp-ticks i.is-sell { background: var(--m-warn); } .arp-ticks i.is-grade { background: var(--m-text); } .arp-ticks i.is-ask { background: var(--m-dim); height: 6px; top: 4px; }
+.arp-clock { font-size: 16px; color: var(--m-text); min-width: 52px; text-align: right; }
+.arp-two { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
+.arp-desk { display: grid; align-content: start; gap: 10px; min-height: 0; overflow: auto; padding: 10px; border-radius: 14px; border: 1px solid var(--m-line); background: var(--m-surface-2); }
+.arp-desk h4 { display: flex; justify-content: space-between; margin: 0; font: 700 10px var(--f-mono); letter-spacing: .16em; color: var(--m-dim); }
+.arp-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; } .arp-stats span { display: grid; justify-items: center; padding: 6px 2px; border-radius: 10px; background: var(--m-surface); }
+.arp-stats b { font-size: 18px; color: var(--m-text); transition: color .2s; } .arp-stats small { font: 700 8px var(--f-mono); letter-spacing: .1em; color: var(--m-dim); } .arp-stats .is-good b { color: var(--m-accent); } .arp-stats .is-bad b { color: var(--m-danger); }
+.arp-files { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.arp-files li button { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: center; min-height: 40px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); text-align: left; cursor: pointer; animation: arpIn .25s ease both; }
+.arp-files li button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px var(--f-ui); } .arp-files li button:hover { border-color: var(--m-accent); }
+.arp-files li.is-now button { border-color: var(--m-accent); box-shadow: 0 0 16px color-mix(in srgb, var(--m-accent) 30%, transparent); }
+.arp-empty { padding: 10px; font: 400 12px var(--f-ui); color: var(--m-dim); }
+.arp-said { margin: 0; display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border-left: 3px solid var(--m-accent); background: var(--m-surface); font: 400 12px/1.45 var(--f-ui); color: var(--m-text); } .arp-said.is-ask { border-left-color: var(--m-dim); } .arp-said small { font: 700 9px var(--f-mono); color: var(--m-dim); }
+.arp-feed { list-style: none; margin: 0; padding: 0 4px 0 0; display: grid; align-content: start; gap: 2px; min-height: 0; overflow: auto; scrollbar-width: thin; }
+.arp-feed button { width: 100%; display: grid; grid-template-columns: 42px 22px minmax(0, 1fr); gap: 6px; align-items: baseline; min-height: 32px; padding: 5px 8px; border: 0; border-radius: 8px; background: none; color: var(--m-text); text-align: left; cursor: pointer; }
+.arp-feed time { font-size: 10px; color: var(--m-dim); } .arp-feed span { font: 400 12px/1.4 var(--f-ui); overflow-wrap: anywhere; } .arp-feed span b { margin-right: 6px; font-weight: 700; }
+.arp-feed li.is-later { opacity: .38; } .arp-feed li.is-now button { background: color-mix(in srgb, var(--m-accent) 14%, transparent); box-shadow: inset 3px 0 0 var(--m-accent); }
+.arp-feed li.tone-right span b { color: var(--m-accent); } .arp-feed li.tone-wrong span b { color: var(--m-danger); }
+@keyframes arpFade { from { opacity: 0; } to { opacity: 1; } } @keyframes arpIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) { .arp { padding: 0; } .arp-box { max-height: 100%; height: 100%; border-radius: 0; } .arp-two { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); } .arp-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } .arp-bar { grid-template-columns: auto minmax(0, 1fr) auto; } .arp-speed { display: none; } }
+body.fx-lite .arp, body.fx-lite .arp-files li button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .arp, .arp-files li button { animation: none; } }
