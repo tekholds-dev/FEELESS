@@ -865,3 +865,1771 @@ async def internal_circle_wallet(request: Request, address: str = ''):
         raise rs.HTTPException(404, 'Not a Circle wallet of this project.')
     return {'id': w_.get('id'), 'address': w_.get('address')}
 
+
+@router.get('/api/reputation/leaderboard')
+async def leaderboard(chain: Optional[str] = Query(None), view: str = Query('trusted')):
+    rs = _rs()
+    if view not in rs.LEADERBOARD_VIEWS:
+        view = 'trusted'
+    store = rs._load()
+    now = rs.time.time()
+    rows = []
+    for entry in store['creators'].values():
+        if chain and entry['chain'] != chain:
+            continue
+        scoring = rs.score_creator(entry)
+        rows.append({
+            'chain': entry['chain'], 'address': entry['address'],
+            'firstSeen': entry['firstSeen'], 'lastSeen': entry['lastSeen'],
+            **scoring,
+        })
+
+    if view == 'feeless':
+        launches = store.get('feelessLaunches', {})
+        by_creator = {}
+        for l in launches.values():
+            by_creator.setdefault(rs._creator_key(l['chain'], l['wallet']), []).append(l)
+        rows = [{**r, 'feelessLaunches': len(by_creator[rs._creator_key(r['chain'], r['address'])])} for r in rows if rs._creator_key(r['chain'], r['address']) in by_creator]
+        rows.sort(key=lambda r: (-r['bigWinners'], r['dumpedCount'], -(r['score'] or 0)))
+    elif view == 'flagged':
+        rows = [r for r in rows if r['badge'] == 'flagged' or r['dumpedCount'] >= 2]
+        rows.sort(key=lambda r: (-r['ruggedCount'], -r['dumpedCount'], -r['tokenCount']))
+    elif view == 'serial':
+        # Highest launch volume, regardless of outcome — the wallets flooding the market.
+        rows = [r for r in rows if r['tokenCount'] >= 2]
+        rows.sort(key=lambda r: (-r['tokenCount'], -r['ruggedCount']))
+    elif view == 'rising':
+        # New creators (first seen recently) already showing a clean, decent score.
+        rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0 and (now - r['firstSeen']) <= rs.RISING_WINDOW_SECONDS]
+        rows.sort(key=lambda r: (-(r['score'] or 0), r['firstSeen']))
+    elif view == 'active':
+        rows = [r for r in rows if r['badge'] != 'flagged']
+        rows.sort(key=lambda r: -(r['lastSeen'] or 0))
+    else:
+        rows = [r for r in rows if r['badge'] != 'flagged' and r['dumpedCount'] == 0]
+        rows.sort(key=lambda r: (r['badge'] != 'trusted', -(r['score'] or 0), -(r['tokenCount'] or 0)))
+
+    return {
+        'rows': rows[:50], 'view': view,
+        'totalCreators': len(store['creators']),
+        'totalTokensTracked': sum(len(e['tokens']) for e in store['creators'].values()),
+    }
+
+
+@router.get('/api/reputation/watchlist')
+async def get_watchlist(ownerWallet: str):
+    rs = _rs()
+    store = rs._load()
+    bucket = store['watchlists'].get(ownerWallet, {})
+    rows = []
+    for watch in bucket.values():
+        ckey = rs._creator_key(watch['chain'], watch['address'])
+        entry = store['creators'].get(ckey)
+        scoring = rs.score_creator(entry) if entry else {'score': None, 'badge': 'unproven', 'tokenCount': 0, 'ruggedCount': 0, 'sustainedCount': 0, 'renouncedCount': 0}
+        rows.append({**watch, **scoring})
+    rows.sort(key=lambda r: -r['addedAt'])
+    return {'rows': rows}
+
+
+@router.get('/api/reputation/clusters')
+async def get_clusters(chain: Optional[str] = Query('solana')):
+    """Groups tracked creators by shared on-chain funding source. A cluster of 2+
+    creator wallets funded by the same upstream wallet is a real signal that they're
+    the same operator running multiple "clean" identities — this is the analysis no
+    other launchpad terminal surfaces."""
+    rs = _rs()
+    async with rs._lock:
+        store = rs._load()
+        creators = [e for e in store['creators'].values() if not chain or e['chain'] == chain]
+        resolved_this_call = 0
+        for entry in creators:
+            fkey = rs._creator_key(entry['chain'], entry['address'])
+            if fkey not in store['funding']:
+                if resolved_this_call >= rs.CLUSTER_RESOLVE_BATCH:
+                    continue
+                store['funding'][fkey] = await rs.resolve_funding_source(entry['chain'], entry['address'])
+                resolved_this_call += 1
+        if resolved_this_call:
+            rs._save(store)
+
+        groups: dict[str, list] = {}
+        for entry in creators:
+            fkey = rs._creator_key(entry['chain'], entry['address'])
+            source = store['funding'].get(fkey)
+            if not source:
+                continue
+            groups.setdefault(source, []).append(entry)
+
+        clusters = []
+        for source, members in groups.items():
+            if len(members) < 2:
+                continue
+            scored = [{'address': m['address'], 'chain': m['chain'], **rs.score_creator(m)} for m in members]
+            clusters.append({
+                'fundingSource': source,
+                'members': sorted(scored, key=lambda r: -(r['score'] or 0)),
+                'totalTokens': sum(m['tokenCount'] for m in scored),
+                'totalFlags': sum(m['ruggedCount'] for m in scored),
+            })
+        clusters.sort(key=lambda c: (-c['totalFlags'], -len(c['members'])))
+
+    pending = sum(1 for e in creators if rs._creator_key(e['chain'], e['address']) not in store['funding'])
+    return {'clusters': clusters, 'creatorsScanned': len(creators), 'pendingResolution': pending}
+
+
+@router.get('/api/reputation/roadmap/votes')
+async def roadmap_votes(wallet: Optional[str] = None):
+    rs = _rs()
+    store = rs._load()
+    votes = store.setdefault('votes', {})
+    return {'counts': {k: len(v) for k, v in votes.items()}, 'mine': [k for k, v in votes.items() if wallet and wallet in v]}
+
+
+@router.get('/api/reputation/intel/{chain}/{mint}')   # ⚠ keep this decorator ON token_intel: a helper inserted under it (2026-10-11) bound the route to the helper and every read answered 422
+async def token_intel(chain: str, mint: str):
+    """On-chain launch forensics for a token: bundles, snipers, holder concentration, dev bag.
+    Bundled = distinct wallets (not the creator) buying in the mint's creation slot.
+    Snipers  = distinct wallets buying within the next 3 slots (~1.2s)."""
+    rs = _rs()
+    if chain != 'solana':
+        raise rs.HTTPException(400, 'On-chain forensics currently cover Solana.')
+    hit = rs._intel_cache.get(mint)
+    if hit and rs.time.time() - hit[0] < rs.INTEL_TTL:
+        return hit[1]
+    out = {'mint': mint, 'checkedAt': rs.time.time()}
+    async with rs.httpx.AsyncClient(timeout=12) as http:
+        supply_res, largest = await rs.asyncio.gather(
+            rs._rpc(http, 'getTokenSupply', [mint]), rs._rpc(http, 'getTokenLargestAccounts', [mint]), return_exceptions=True)
+        supply = float(((supply_res or {}).get('value') or {}).get('uiAmount') or 0) if isinstance(supply_res, dict) else 0
+        if not supply and mint.endswith(('pump', 'bonk')):   # launchpad coins mint exactly 1B — an RPC hiccup must not blank the scan
+            supply = 1_000_000_000.0
+        holders = ((largest or {}).get('value') or []) if isinstance(largest, dict) else []
+        owners = {}
+        if holders:
+            accs = await rs._rpc(http, 'getMultipleAccounts', [[h['address'] for h in holders], {'encoding': 'jsonParsed'}])
+            for h, a in zip(holders, (accs or {}).get('value') or []):
+                owners[h['address']] = rs._parsed_info(a).get('owner')
+            owner_list = [o for o in owners.values() if o]
+            kinds = {}
+            if owner_list:
+                oaccs = await rs._rpc(http, 'getMultipleAccounts', [owner_list, {'encoding': 'base64'}])
+                for o, a in zip(owner_list, (oaccs or {}).get('value') or []):
+                    # Wallets are system-owned (or don't exist yet); pools/curves are program-owned PDAs.
+                    kinds[o] = 'wallet' if (a is None or a.get('owner') == rs.SYSTEM_PROGRAM) else 'program'
+        rows = []
+        for h in holders:
+            owner = owners.get(h['address'])
+            amt = float(h.get('uiAmount') or 0)
+            rows.append({'owner': owner, 'amount': amt, 'pct': (amt / supply * 100) if supply else None,
+                         'kind': kinds.get(owner, 'wallet') if owner else 'unknown'})
+        wallets = [r for r in rows if r['kind'] == 'wallet']
+        out['supply'] = supply
+        out['topHolders'] = rows[:12]
+        out['top10Pct'] = round(sum(r['pct'] or 0 for r in wallets[:10]), 2) if supply else None
+        out['poolPct'] = round(sum(r['pct'] or 0 for r in rows if r['kind'] == 'program'), 2) if supply else None
+        if not holders:   # 🩺 NO HOLDER READING IS NOT "0% HELD": a refused / empty getTokenLargestAccounts used to be cached as top-10 = 0% (a clean-looking scan)
+            out['top10Pct'] = None   # for the whole TTL — running coins read 'scanned, top-10 0' and the board called them unscanned. None = incomplete → retried in 60s
+            out['poolPct'] = None
+
+        # 🧬 LAUNCH FACTS NEVER CHANGE. Who created the coin and who bought in its first slots is read ONCE per coin
+        # (`_launch_facts`, kept on disk); every later scan re-reads only the holders (4 calls instead of ~60). The full scan every
+        # 3 minutes for ~70 coins was ~80K calls an hour — it rate-limited every key, and coins sat "unscanned" for good.
+        creator, bundled, snipers = None, set(), set()
+        lf = rs._launch_facts.get(mint)
+        if lf and lf.get('historyComplete') is False and rs.time.time() - rs._fuse._f(lf.get('at')) >= rs.LAUNCH_RETRY_SEC:   # an unread launch is retried after 6h (it re-burned 8 calls every 15 min)
+            lf = None
+        if lf:
+            creator, bundled, snipers = lf.get('creator'), set(lf.get('bundled') or []), set(lf.get('snipers') or [])
+            out['createSlot'] = lf.get('createSlot'); out['historyComplete'] = lf.get('historyComplete')
+        else:
+            # 🧬 page back to the LAUNCH (≤ SIG_PAGES × 1000 txs): a busy coin has > 1000 txs, and the "oldest of the last 1000" was a random
+            # mid-life trader — read as the creator, with 0 bundled / 0 snipers (2026-10-08 $giftr: wrong creator, real creator held 4.4%).
+            sigs, before, page, early_buys = [], None, [], []
+            for _ in range(rs.SIG_PAGES):
+                page = await rs._rpc(http, 'getSignaturesForAddress', [mint, {'limit': 1000, **({'before': before} if before else {})}]) or []
+                sigs += page
+                if len(page) < 1000:
+                    break
+                before = page[-1].get('signature')
+            if (sigs and len(page) >= 1000) or not sigs:   # still not at the launch (or the RPC answered nothing): unknown, never a fake 0 bundles
+                out['createSlot'], out['historyComplete'] = None, False
+                if sigs:   # remembered: not paged again for LAUNCH_RETRY_SEC
+                    rs._launch_facts[mint] = {'creator': None, 'bundled': [], 'snipers': [], 'createSlot': None, 'historyComplete': False, 'at': rs.time.time(), 'early': []}
+                sigs = []
+            if sigs:
+                oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
+                create_slot = oldest[0].get('slot')
+                early = [x for x in oldest if not x.get('err')][:28]   # 🕵 the first ~25 buyers (bundles / snipers still judged by slot below)
+                sem = rs.asyncio.Semaphore(6)
+
+                async def fetch(sig):
+                    async with sem:
+                        try:
+                            return await rs._rpc(http, 'getTransaction', [sig['signature'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}])
+                        except Exception:
+                            return None
+                txs = await rs.asyncio.gather(*(fetch(x) for x in early))
+                for tx in sorted([t for t in txs if t], key=lambda t: t.get('slot') or 0):
+                    keys = ((tx.get('transaction') or {}).get('message') or {}).get('accountKeys') or []
+                    payer = keys[0].get('pubkey') if keys and isinstance(keys[0], dict) else (keys[0] if keys else None)
+                    if not payer:
+                        continue
+                    if creator is None:
+                        creator = payer
+                        continue
+                    if payer == creator:
+                        continue
+                    if (tx.get('slot') or 0) <= create_slot + 3:
+                        (bundled if tx.get('slot') == create_slot else snipers).add(payer)
+                    eb = rs._early_buy(tx, payer, mint, supply)
+                    if eb and payer not in {e['w'] for e in early_buys}:
+                        early_buys.append(eb)
+                snipers -= bundled
+                out['createSlot'] = create_slot
+                out['historyComplete'] = True
+            if creator:
+                rs._launch_facts[mint] = {'creator': creator, 'bundled': sorted(bundled), 'snipers': sorted(snipers), 'createSlot': out.get('createSlot'),
+                                       'historyComplete': out.get('historyComplete'), 'at': rs.time.time(), 'early': early_buys[:25]}
+        if mint.endswith('pump') and not rs.os.environ.get('PYTEST_CURRENT_TEST'):   # 🟢 Pump's own record names the creator — it wins over our read (cached 60s, public)
+            try:
+                pc = (await rs.pump_profile_get(mint) or {}).get('creator')
+                if pc:
+                    creator = pc
+            except Exception:
+                pass
+        out['creator'] = creator
+        known = out.get('historyComplete') is not False   # launch never reached → bundles / snipers UNKNOWN, never a fake 0
+        out['bundledWallets'] = sorted(bundled) if known else None
+        out['sniperWallets'] = sorted(snipers) if known else None
+        insiders = bundled | snipers
+        out['insidersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in insiders), 2) if supply and known else None
+        out['snipersHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in snipers), 2) if supply and known else None
+        out['bundledHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] in bundled), 2) if supply and known else None
+        out['devHoldingPct'] = round(sum(r['pct'] or 0 for r in wallets if r['owner'] == creator), 2) if supply and creator else None
+        # Live holding of every flagged wallet (not just top holders): 0 = sold out, shown struck through.
+        if supply:
+            early_w = [e['w'] for e in ((rs._launch_facts.get(mint) or {}).get('early') or [])]
+            flagged = list(dict.fromkeys(sorted(bundled) + sorted(snipers) + early_w))[:36]   # 🕵 + the first buyers: what the early wallets did since
+            sem = rs.asyncio.Semaphore(8)
+            async def bal(w):
+                async with sem:
+                    try:
+                        r = await rs._rpc(http, 'getTokenAccountsByOwner', [w, {'mint': mint}, {'encoding': 'jsonParsed'}])
+                        amt = sum(float(((a['account']['data']['parsed']['info'].get('tokenAmount') or {}).get('uiAmount')) or 0) for a in (r or {}).get('value') or [])
+                        return w, round(amt / supply * 100, 3)
+                    except Exception:
+                        return w, None
+            fh_hit = rs._flag_hold.get(mint)   # each flagged wallet's live balance = 1 call per wallet: re-read at most every 15 min
+            reuse = bool(fh_hit and rs.time.time() - fh_hit[0] < rs.FLAG_HOLD_TTL)
+            out['flaggedHoldings'] = fh_hit[1] if reuse else dict(await rs.asyncio.gather(*(bal(w) for w in flagged)))
+            if not reuse:
+                rs._flag_hold[mint] = (rs.time.time(), out['flaggedHoldings'])
+            fh = out['flaggedHoldings']
+            if not reuse and len(fh) >= 3 and all(v == 0 for v in fh.values()):
+                # Every sniper/bundler has sold out: the supply overhang is gone — often the dip entry.
+                # Alerts link to the coin's deepest pool so the Trenches chart opens on it.
+                coin = await rs._coin_card(http, mint)
+                url = f"/terminal/chat?chain=solana&pair={coin['pair']}&room=bulls"
+                if rs._radar_event('snipers-out', coin['pair'], coin['symbol'], f"All {len(fh)} flagged snipers/bundlers sold out. No sniper supply left to dump.",
+                                mint=mint, mcap=coin['mcap'], name=coin['name'], cooldown=rs.SNIPERS_OUT_COOLDOWN):
+                    rs.asyncio.create_task(rs._push_snipers_out(mint))
+                # The creator hears it once per coin (it used to repeat on every intel refresh).
+                if creator:
+                    rs.notify(creator, 'snipers', f"Every sniper on your coin {coin['symbol']} has sold out", url, once=f'snipers:{mint}',
+                           meta={'mint': mint, 'symbol': coin['symbol'], 'name': coin['name'], 'mcap': coin['mcap'], 'flagged': len(fh)})
+    flags = []
+    if len(out['bundledWallets'] or []) >= 3:
+        flags.append(f"{len(out['bundledWallets'] or [])} wallets bought in the same block as the mint — a bundled launch.")
+    if len(out['sniperWallets'] or []) >= 5:
+        flags.append(f"{len(out['sniperWallets'] or [])} wallets sniped within ~1 second of launch.")
+    if (out.get('insidersHoldingPct') or 0) >= 10:
+        flags.append(f"Bundlers/snipers still hold {out['insidersHoldingPct']}% of supply among the top holders.")
+    if (out.get('top10Pct') or 0) >= 35:
+        flags.append(f"Top 10 wallets hold {out['top10Pct']}% of supply (excluding pools).")
+    if (out.get('devHoldingPct') or 0) >= 5:
+        flags.append(f"Creator still holds {out['devHoldingPct']}% of supply.")
+    all_offenders = (out.get('bundledWallets') or []) + (out.get('sniperWallets') or [])
+    flagged_funders = {w: rs.funder_lookup(w) for w in all_offenders}
+    flagged_funders = {w: v for w, v in flagged_funders.items() if v}
+    if flagged_funders:
+        distinct_funders = {v['funder'] for v in flagged_funders.values()}
+        flags.append(f"{len(flagged_funders)} sniper/bundler wallet(s) here were funded by {len(distinct_funders)} wallet(s) already linked to prior rug/snipe launches.")
+    try:   # the Intel desk: are known crews inside this launch?
+        crew = rs.intel_desk.check((await rs._desk_get())['snap']['index'], rs._desk['rings'], all_offenders + ([creator] if creator else []))
+    except Exception:
+        crew = {'known': {}, 'rings': []}
+    out['knownActors'] = len(crew['known'])
+    out['knownRings'] = crew['rings']
+    if crew['rings']:
+        r0 = max(crew['rings'], key=lambda r: r['threat'])
+        rugs = f", {r0['rugs']} rugs" if r0['rugs'] else ''
+        flags.append(f"Known crew inside: ring {r0['id']} ({r0['size']} wallets, {r0['launchesHit']} launches hit{rugs}).")
+    out['flags'] = flags
+    out['flaggedFunders'] = flagged_funders
+    await rs._record_offenders(mint, out.get('bundledWallets') or [], out.get('sniperWallets') or [])
+    bl = rs._block_load()
+    out['walletRecords'] = {w: {'strikes': len(bl['wallets'].get(w, {}).get('mints', {})), 'blocked': rs._is_blocked(bl['wallets'].get(w)),
+                                 'flaggedFunder': flagged_funders.get(w)}
+                            for w in all_offenders}
+    rs._intel_cache[mint] = (rs.time.time(), out)
+    if out.get('top10Pct') is not None:
+        rs._ENRICH.note_success(mint, rs.time.time())   # (a scan a user asked for directly is fresh evidence for the scheduler too)
+    try:
+        rs._absorb_intel(mint, out)
+    except Exception:
+        pass
+    return out
+
+
+@router.get('/api/reputation/calls/hot')
+async def hot_calls(minutes: int = Query(60, ge=5, le=1440)):
+    rs = _rs()
+    since = rs.time.time() - minutes * 60
+    agg = {}
+    for c in rs._calls_load()['calls'].values():
+        if c['at'] < since:
+            continue
+        v = rs._call_view(c)
+        a = agg.setdefault(c['pairAddress'], {'symbol': c['symbol'], 'imageUrl': c.get('imageUrl'), 'chain': c['chain'], 'pairAddress': c['pairAddress'], 'callers': set(), 'calls': 0, 'firstX': v['x']})
+        a['calls'] += 1
+        a['callers'].add(c['caller'])
+        a['x'] = v['x']
+    rows = [{**{k: v for k, v in a.items() if k != 'callers'}, 'callers': len(a['callers'])} for a in agg.values()]
+    rows.sort(key=lambda r: (-r['callers'], -r['calls']))
+    return {'rows': rows[:12], 'minutes': minutes}
+
+
+@router.get('/api/reputation/calls/by-room')
+async def calls_by_room(room: str):
+    rs = _rs()
+    out = {}
+    for c in rs._calls_load()['calls'].values():
+        if c['room'] == room[:80] and c.get('messageId'):
+            v = rs._call_view(c)
+            out.setdefault(c['messageId'], []).append({'symbol': v['symbol'], 'x': v['x'], 'peakX': v['peakX'], 'mcAtCall': v['mcAtCall'], 'pairAddress': v['pairAddress']})
+    return {'calls': out}
+
+
+@router.get('/api/reputation/balance/{owner}/{mint}')
+async def token_balance(owner: str, mint: str):
+    """UI-unit balance of a token for a wallet (Solana), used for quick sells."""
+    rs = _rs()
+    try:
+        async with rs.httpx.AsyncClient(timeout=8) as http:
+            if mint == 'So11111111111111111111111111111111111111112':
+                r = await rs._rpc(http, 'getBalance', [owner])
+                return {'amount': ((r or {}).get('value') or 0) / 1e9, 'decimals': 9, 'raw': str((r or {}).get('value') or 0)}
+            r = await rs._rpc(http, 'getTokenAccountsByOwner', [owner, {'mint': mint}, {'encoding': 'jsonParsed'}])
+    except Exception:
+        raise rs.HTTPException(502, 'Balance unavailable right now.')
+    total, decimals, raw = 0.0, None, 0
+    for acc in (r or {}).get('value') or []:
+        info = rs._parsed_info(acc.get('account'))
+        amt = (info.get('tokenAmount') or {})
+        total += float(amt.get('uiAmount') or 0)
+        raw += int(amt.get('amount') or 0)
+        decimals = amt.get('decimals', decimals)
+    return {'amount': total, 'decimals': decimals, 'raw': str(raw)}
+
+
+@router.get('/api/reputation/blocklist')
+async def get_blocklist(limit: int = Query(200, ge=1, le=5000)):
+    rs = _rs()
+    rows = []
+    for w, rec in rs._block_load()['wallets'].items():
+        if not rs._is_blocked(rec):
+            continue
+        roles = list(rec['mints'].values())
+        rows.append({'wallet': w, 'strikes': max(len(rec['mints']), int(rec.get('strikes') or 0)), 'bundles': roles.count('bundler'), 'snipes': roles.count('sniper'),
+                     'reported': bool(rec.get('reported')), 'auto': len(rec['mints']) >= rs.AUTO_BLOCK_STRIKES, 'lastSeen': rec.get('lastSeen')})
+    rows.sort(key=lambda r: (-r['strikes'], -(r['lastSeen'] or 0)))
+    return {'wallets': rows[:limit], 'total': len(rows), 'autoThreshold': rs.AUTO_BLOCK_STRIKES}
+
+
+@router.get('/api/reputation/chart-wallets/{mint}')
+async def chart_wallets(mint: str, pair: str = ''):
+    """🐋 Who traded this chart — snipers · bundles · dev · top holders (from our own launch + holder scan) · whales · top traders (the tape).
+    Public, read-only, 15s cache, the candles service's own trade tape (no extra RPC). Owner, 2026-10-18: "bubbles on each chart"."""
+    rs = _rs()
+    if not rs._re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', mint or '') or (pair and not rs._re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', pair)):
+        raise rs.HTTPException(400, 'bad address')
+    hit = rs._cw_cache.get(mint)
+    if hit and rs.time.time() - hit[0] < 15:
+        return hit[1]
+    pair = pair or next((r_.get('pair') for r_ in (rs._agents.get('table') or []) if r_.get('mint') == mint), None) or ''
+    tr = []
+    if pair:
+        got = rs._flow_trades.get(pair)
+        if got and rs.time.time() - got[0] < 15:
+            tr = got[1]
+        elif not rs.os.environ.get('PYTEST_CURRENT_TEST'):
+            try:
+                async with rs.httpx.AsyncClient(timeout=6) as http:
+                    r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{pair}')
+                    tr = (r.json() or {}).get('trades') or []
+                    rs._flow_trades[pair] = (rs.time.time(), tr)
+            except Exception:
+                tr = []
+    it = (rs._intel_cache.get(mint) or (0, None))[1] or {}
+    out = {**rs._cw.tag_trades(tr, it), 'launchRead': it.get('historyComplete') is not False and bool(it), 'n': len(tr), 'at': round(rs.time.time())}
+    rs._cw_cache[mint] = (rs.time.time(), out)
+    if len(rs._cw_cache) > 400:
+        for k_ in sorted(rs._cw_cache, key=lambda k_: rs._cw_cache[k_][0])[:100]:
+            rs._cw_cache.pop(k_, None)
+    return out
+
+
+@router.get('/api/reputation/coin-read/{mint}')
+async def coin_read(mint: str):
+    """🫀 + 🔥/🎢/🧲 THE FEELESS EDGE for one coin (war room / chart header): its vital (grade, five bars, the three deciding facts, crew) and the
+    read that fits it (new coin → SEND IT · on its curve → curve · off its high → dip). Jupiter's audit + our own scan + the runner board's flow.
+    Cached 15s per coin. A read, never a promise."""
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
+        raise rs.HTTPException(400, 'Not a Solana mint.')
+    hit = rs._coin_read_cache.get(mint)
+    pace_ = rs._ja.pace((hit[1].get('row') if hit else None) or rs._cand_map().get(mint) or {})   # ⏱ busier coin → fresher read
+    if hit and rs.time.time() - hit[0] < pace_['cacheSec']:
+        return hit[1]
+    if rs.time.time() - rs._jup_facts.get(mint, (0.0, None))[0] > pace_['jupSec'] and not rs.os.environ.get('PYTEST_CURRENT_TEST'):   # a WATCHED coin's pulse is re-read at its own pace (hot 12s · busy 25s · quiet 45s)
+        try:
+            t_ = (await rs.asyncio.wait_for(rs._jup_tokens([mint]), timeout=rs.COIN_READ_JUP_SEC)).get(mint)   # ⚡ a busy Jupiter never holds the chart header: the last reading answers
+            if t_:
+                rs._jup_facts[mint] = (rs.time.time(), rs._ja.facts(t_))
+        except Exception:
+            pass
+    try:
+        await rs.asyncio.wait_for(rs._jup_lite([mint]), timeout=rs.COIN_READ_JUP_SEC)
+    except Exception:
+        pass
+    jf = (rs._jup_facts.get(mint) or (0, None))[1]
+    c = rs._cand_map().get(mint) or {}
+    row = {'mint': mint, 'symbol': c.get('symbol'), **{k: c.get(k) for k in ('ageH', 'vol1h', 'vol5m', 'chg5m', 'chg1h', 'buyShare', 'txns1h', 'mcap', 'liq', 'site', 'x', 'tg') if c.get(k) is not None}}
+    row.update(rs._holder_facts(mint))
+    rs._ja.fill_row(row, jf, c)
+    scanning = False
+    if row.get('scanned') is not True and not rs.os.environ.get('PYTEST_CURRENT_TEST'):
+        # 🔍 a coin someone is LOOKING at gets our full holder scan now (insiders · bundled · snipers — Jupiter's audit has none of them);
+        # one scan per coin in flight, the next read of this endpoint carries the result
+        scanning = True
+        rs.asyncio.ensure_future(rs._runner_intel(mint, rs._enr.PRIO['LOOK'], 'coin read'))
+    if c.get('bundled') is not None and row.get('bundledN') is None and row.get('scanned') is True:   # never a 0 from a coin whose launch was not read
+        row['bundledN'] = c.get('bundled')
+    if jf and row.get('holders') is None:
+        row['holders'] = jf.get('holders')
+    vital = rs._ja.verdict(jf, row) if jf else None
+    tv = rs._read_for(row) or ({**(t_ := rs._ja.trench_verdict(jf, row)), 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]} if jf or c else None)
+    pc_ = rs._pump_calls['map'].get(mint)
+    rs._fd_rows([row])
+    tape = None
+    if c.get('pairAddress'):   # 🌊 THE TAPE is part of every coin read (chart header, quick look, drawer) — one pool, 12s cache
+        try:
+            w_ = (await rs._flow_fetch([c['pairAddress']])).get(c['pairAddress'])
+            t_ = rs._flow.tape_read(w_)
+            tape = {'read': t_, 'label': rs._flow.TAPES.get(t_), 'buyUsd': (w_ or {}).get('buyUsd'), 'sellUsd': (w_ or {}).get('sellUsd'), 'n': (w_ or {}).get('n'), 'pxChg': (w_ or {}).get('pxChg')} if t_ else None
+        except Exception:
+            tape = None
+    out = {'mint': mint, 'row': row, 'vital': vital, 'tv': tv, 'tape': tape, 'facts': jf, 'onBoard': bool(c), 'pc': rs._pc.summary(pc_) if pc_ else None, 'scanning': scanning, 'pace': rs._ja.pace(row), 'at': round(rs.time.time(), 1)}
+    rs._coin_read_cache[mint] = (rs.time.time() - (9 if scanning else 0), out)   # waiting on a scan: served 6s, not 15
+    if len(rs._coin_read_cache) > 600:
+        for k in sorted(rs._coin_read_cache, key=lambda k: rs._coin_read_cache[k][0])[:200]:
+            rs._coin_read_cache.pop(k, None)
+    return out
+
+
+@router.get('/api/reputation/fuses/discover')
+async def fuses_discover(lens: str = Query('popular'), chain: str = Query('solana')):
+    """The picker lists + 🧬 holder facts on every launch-coin row (top-10 · dev · insiders · bundled / sniper wallets, from the scan cache) and
+    no dead rows (under $3K traded an hour). The top rows of the list just opened get a scan queued, so the facts fill in while it is open."""
+    rs = _rs()
+    key_ = (lens, chain)
+    got_ = rs._list_now(key_, rs.SIGNAL_CACHE_SEC if lens in rs.SIGNAL_LENSES else rs.LIST_CACHE_SEC, lambda: fuses_discover(lens, chain))
+    if got_ is not None:
+        return got_
+    out = await rs._fuses_discover_raw(lens, chain)
+    rs._disc_cache[key_] = (rs.time.time(), out)   # lists returned as they are (majors, pools…); a dressed launch list replaces this below
+    rows = out.get('pools') if isinstance(out, dict) else None
+    if rows and lens in ('majors', 'stocks', 'risers'):   # 🐋 the majors / stocks tab gets its own TREND read
+        try:
+            await rs._jup_lite([r.get('baseAddress') or r.get('mint') for r in rows])
+        except Exception:
+            pass
+        for r in rows:
+            r['tv'] = rs._read_for(r, {}, lens)
+            rs._ja.fill_row(r, (rs._jup_facts.get(r.get('baseAddress') or r.get('mint')) or (0, None))[1])
+    if not rows or lens in ('majors', 'stocks', 'popular', 'yield', 'deep', 'new'):
+        return out
+    live = [r for r in rows if r.get('vol1h') is None or rs._fuse._f(r.get('vol1h')) >= rs.PICK_DEAD_VOL1H]
+    await rs._jup_lite([r.get('baseAddress') or r.get('mint') for r in live])
+    rs._clean_rows(live)
+    if lens in rs._ja.LENS_READ and rs._ja.LENS_READ[lens] != 'auto':   # 🚀 / 🌊 / 🧲 / 🔥 every tab its OWN read (the curve read still wins on the curve)
+        cmap_l = rs._cand_map()
+        for r in live:
+            tv_ = rs._read_for(r, cmap_l, lens)
+            if tv_:
+                r['tv'] = tv_
+    if not rs.os.environ.get('PYTEST_CURRENT_TEST'):
+        for r in [x for x in live if not x.get('scanned')][:rs.PICK_SCAN_TOP]:
+            m = r.get('baseAddress') or r.get('mint')
+            if m:
+                rs.asyncio.ensure_future(rs._runner_intel(m, rs._enr.PRIO['MOVER'], 'pick list'))
+    cmap_f = rs._cand_map()   # the quick look's tiles: cap, logo, 5-min volume, trades an hour, curve % on EVERY tab's rows
+    for r in live:
+        m_ = r.get('baseAddress') or r.get('mint')
+        rs._ja.fill_row(r, (rs._jup_facts.get(m_) or (0, None))[1], cmap_f.get(m_))
+    rs._pc_rows(live)
+    rs._fd_rows(live)
+    # 🌊 LIVE TAPE + 🎯 CLEAN ENTRY on the rows a picker actually looks at: the last 90s read (⚡ burst · 🧲 absorb · 🏔 climax · 🩸 dump ·
+    # ➖ calm) for the top PICK_TAPE_TOP, and the engine's own clean-entry verdict ("clean" or the reason) on every non-trench row
+    # CACHE ONLY: the tape costs a getSignatures + up to 10 transactions per coin; reading 12 coins × 11 tracked lists every 2 min spent
+    # every RPC lane in minutes (2026-10-09) and blinded the real card's own flow exit + rug radar. Picker rows show the tape the card /
+    # the banger doors / the quick look already read (≤ 60s old); the RPC budget stays with the coins that hold money.
+    for r in live[:rs.PICK_TAPE_TOP]:
+        at_, w_ = rs._flow_now.get(r.get('pairAddress')) or (0, None)
+        t_ = rs._flow.tape_read(w_) if w_ and rs.time.time() - at_ < 60 else None
+        if t_:
+            r['tape'] = t_
+    if lens != 'trench':
+        for r in live:
+            r['entry'] = rs._prime.entry_gate({**r, 'liq': r.get('liq') or r.get('liquidityUsd'), 'chg1h': r.get('chg1h') if r.get('chg1h') is not None else r.get('change1h'),
+                                            'chg5m': r.get('chg5m') if r.get('chg5m') is not None else r.get('change5m'),
+                                            'organicPct': (r.get('vital') or {}).get('organicPct')}) or 'clean'
+    res_ = {**out, 'pools': live, 'dead': len(rows) - len(live)}
+    rs._disc_cache[key_] = (rs.time.time(), res_)
+    return res_
+
+
+@router.get('/api/reputation/why-pump-board')
+async def why_pump_board():
+    """❓ The page around the checker: what is moving right now (the live movers, else Pump trending) + the latest checks."""
+    rs = _rs()
+    mv = [{'mint': r.get('mint'), 'symbol': r.get('symbol'), 'img': r.get('img') or r.get('icon') or r.get('imageUrl'), 'chg': rs._fuse._f(r.get('chg1h')) or rs._fuse._f(r.get('chg5m')), 'cap': r.get('mcap') or r.get('cap')}
+          for r in (rs._live_movers() or [])[:8]]
+    if len(mv) < 6:
+        seen = {x['mint'] for x in mv}
+        for r in sorted([x for x in (rs._open_board() or []) if x.get('mint') not in seen and rs._fuse._f(x.get('chg1h')) > 0], key=lambda x: -rs._fuse._f(x.get('chg1h')))[:8 - len(mv)]:
+            mv.append({'mint': r.get('mint'), 'symbol': r.get('symbol'), 'img': r.get('img') or r.get('imageUrl'), 'chg': rs._fuse._f(r.get('chg1h')), 'cap': r.get('mcap') or r.get('cap')})
+    return {'moving': mv, 'recent': rs._why_recent[:12], 'free': rs.WHY_FREE_DAY, 'at': round(rs.time.time())}
+
+
+@router.get('/api/reputation/fuses/holders')
+async def fuse_holders():
+    """Fuse holders board (Fuse chat side panel): every wallet with verified Fuse positions, live P&L, best first. 60s cache."""
+    rs = _rs()
+    hit = rs._fuse_holders_cache.get('all')
+    if hit and rs.time.time() - hit[0] < 60:
+        return hit[1]
+    pos = rs._json_load(rs.FUSE_HQ_PATH, {}).get('positions') or []
+    px = await rs._hq_prices([leg for x in pos for leg in x['legs']]) if pos else {}
+    by = {}
+    for x in pos:
+        r = rs._hq.position_pnl(x, px)
+        a = by.setdefault(x['wallet'], {'address': x['wallet'], 'handle': rs.handle_of(x['wallet']), 'fuses': 0, 'costUsd': 0.0, 'valueUsd': 0.0, 'lastAt': 0, 'names': []})
+        a['fuses'] += 1; a['costUsd'] += r['costUsd']; a['valueUsd'] += r['valueUsd']; a['lastAt'] = max(a['lastAt'], x.get('at') or 0)
+        if r.get('name') and r['name'] not in a['names']:
+            a['names'].append(r['name'])
+    rows = [{**a, 'names': a['names'][:3], 'costUsd': round(a['costUsd'], 2), 'pnlPct': round((a['valueUsd'] / a['costUsd'] - 1) * 100, 2) if a['costUsd'] else 0.0}
+            for a in by.values()]
+    out = {'holders': sorted(rows, key=lambda r: -r['pnlPct'])[:50], 'total': len(rows)}
+    for r in out['holders']:
+        r.pop('valueUsd', None)
+    rs._fuse_holders_cache['all'] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/fuses/season')
+async def fuse_season():
+    """This week's live Fuse season board (top 10) + the last 4 crowned weeks. 60s cache, warmed in the background."""
+    rs = _rs()
+    now = rs.time.time()
+    if rs._fuse_season_cache['data'] and now - rs._fuse_season_cache['at'] < 60 and not rs._FUSE_FORCE.get():
+        return rs._fuse_season_cache['data']
+    start = rs._hq.season_start(now)
+    rows, bots = await rs._season_rows(start, start + rs._hq.WEEK)
+    board = [{**b, 'handle': rs.handle_of(b['wallet']) or f"{b['wallet'][:4]}…{b['wallet'][-4:]}"} for b in rs._hq.season_board(rows, start, start + rs._hq.WEEK, bots)[:10]]
+    cat = await rs._feecat_raw()
+    cat_pct = rs._hq.feecat_week_pct((cat or {}).get('exits'), (cat or {}).get('positions'), start, start + rs._hq.WEEK) if cat else None
+    beat = set(rs._hq.beats_cat(board, cat_pct))
+    board = [{**b, 'beatsCat': b['id'] in beat} for b in board]
+    if rs._FUSE_FORCE.get():   # background only: the race ticker + top-3 alerts (viewers never trigger them)
+        rs._season_race(start, board, now)
+    season = {**rs.QUEST_SEASON_DEFAULT, **(rs._json_load(rs.QUESTS_PATH, {}).get('season') or {})}
+    hq_ = rs._json_load(rs.FUSE_HQ_PATH, {})
+    data = {'week': start, 'endsAt': start + rs._hq.WEEK, 'cards': len(rows), 'board': board, 'seasonName': season.get('name'), 'feecat': {'pct': cat_pct, 'winPts': rs._hq.CAT_WIN_PTS}, 'boostPct': rs._card_rules()['seasonBoostPct'], 'moves': list(rs._season_moves['list'])[-12:],
+            'past': list(reversed((rs._json_load(rs.FUSE_HQ_PATH, {}).get('seasons') or [])[-4:])), 'at': now,
+            'backers': {'board': [{**r, 'handle': rs.handle_of(r['wallet']) or f"{r['wallet'][:4]}…{r['wallet'][-4:]}"} for r in rs._hq.backer_board(
+                hq_.get('backLog'), hq_.get('backWins'), start, start + rs._hq.WEEK, rs._protected_wallets())[:5]],
+                        'poolUsd': rs._card_rules().get('backerPoolUsd', 0), 'split': list(rs._hq.BACKER_SPLIT), 'minBacks': rs._hq.BACKER_MIN_BACKS}}
+    rs._fuse_season_cache.update(at=now, data=data)
+    return data
+
+
+@router.get('/api/reputation/fuses/ids')
+async def fuse_ids(addrs: str = ''):
+    """🪪 Trader chips (Arena, season board, chat): ⚛️ score + medals + battle W/L for up to 40 wallets, from the CACHE only so
+    the chip never waits. Missing wallets warm in the background and show on the next poll."""
+    rs = _rs()
+    want = [x for x in dict.fromkeys(addrs.split(',')) if rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', x)][:40]
+    out, cold = {}, []
+    for w in want:
+        hit = rs._fuse_score_cache.get(rs.primary_of(w))
+        if hit and rs.time.time() - hit[0] < 900:
+            v = hit[1]; t = v.get('trader') or {}
+            out[w] = {'score': v.get('score'), 'medals': t.get('medals'), 'battles': t.get('battles'), 'catWins': t.get('catWins'), 'held': t.get('held')}
+        elif w not in rs._ids_warming:
+            cold.append(w)
+    if cold:
+        rs._ids_warming.update(cold)
+
+        async def warm():
+            try:
+                await rs.asyncio.gather(*[rs._fuse_score(w) for w in cold], return_exceptions=True)
+            finally:
+                rs._ids_warming.difference_update(cold)
+        rs.asyncio.create_task(warm())
+    return {'ids': out}
+
+
+@router.get('/api/reputation/fuses/arena')
+async def fuse_arena_public():
+    """Fuse 🧬 › Arena for everyone: strategies' settled paper runs, the honest outlook, and the Runners proof — no admin data."""
+    rs = _rs()
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    now = rs.time.time()
+    vals = [rs._hq.arena_value(e, {}, now) for e in d.get('arena') or []]
+    board = rs._hq.arena_board(vals)
+    rd = rs._json_load(rs.RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    cfg = rs._runner_cfg()
+    rounds = []
+    for r in rd['rounds'][-24:]:
+        mults = [rs._rn.play_exits(p['lane'], p['entry'], [x for t, x in rd['paths'].get(p['mint'], []) if t > r['at']], cfg) for p in r['picks']]
+        if mults:
+            rounds.append({'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2)})
+    mega = await rs._arena_mega(rd, cfg, now)
+    bred = rs._bred_load(); hq_d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    board = [{**r, **({'bred': True, 'parent': bred[r['style']].get('parent'), 'against': bred[r['style']].get('against'), 'weights': bred[r['style']].get('weights')} if r['style'] in bred else {})} for r in board]
+    return {'board': board, 'outlook': rs._hq.outlook(board), 'bestStyle': rs._hq.best_style(board), 'runs': [v for v in sorted(vals, key=lambda v: -v['at']) if v['settled']][:12],
+            'bred': [{'style': k, **{x: v.get(x) for x in ('parent', 'against', 'weights', 'at')}, 'runs': next((r['runs'] for r in board if r['style'] == k), 0)} for k, v in bred.items()],
+            'bredScrapped': [{x: r.get(x) for x in ('style', 'parent', 'runs', 'avgPct', 'medPct', 'scrappedAt')} for r in (hq_d.get('bredScrapped') or [])[-5:]][::-1],
+            'runners': {'proof': rs._rn.proof(rd['rounds'], rd['paths'], now, cfg=cfg), 'rounds': rounds}, 'minSettled': rs._hq.MIN_SETTLED,
+            'mega': [c for c in mega if not c.get('bench') and not c.get('fighterOnly')], 'bench': [c for c in mega if c.get('bench')], 'fighters': [c for c in mega if c.get('fighterOnly')] + rs._league_extra(mega),
+            'battles': rs._battle_view(mega, now),
+            # 🎚 auto paper cards per Risk dial: every round also played with each dial's TP/SL — proves a dial BEFORE it goes auto live
+            'dials': {k: {**v, 'label': rs._hq.RISK_DIALS[k]['label'], 'why': rs._hq.RISK_DIALS[k]['why']} for k, v in rs._rn.dial_proof(rd['rounds'], rd['paths'], now, rs._hq.RISK_DIALS).items()},
+            'engineDial': rd.get('cfgDial') or 'custom'}
+
+
+@router.get('/api/reputation/fuses/paper')
+async def fuse_paper(key: str = Query(..., max_length=120)):
+    """📜 A card's Arena paper audit: its live battle book (entries at true fills → now, fees apart) + its finished books."""
+    rs = _rs()
+    d = rs._json_load(rs.FUSE_HQ_PATH, {})
+    live = ((d.get('battles') or {}).get('paper') or {}).get(key)
+    view = None
+    if live:
+        pairs_ = await rs._fuse_pairs([{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for l in live.get('legs') or []])
+        view = rs._pgb.paper_view(live, {k: rs._fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}, {k: rs._fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()})
+    past = [x for x in reversed(d.get('paperLog') or []) if x.get('key') == key][:10]
+    rec = {'won': sum(1 for x in past if x.get('result') == 'won'), 'lost': sum(1 for x in past if x.get('result') == 'lost'),
+           'pnlUsd': round(sum(rs._fuse._f(x.get('pnlUsd')) for x in past), 4), 'feesUsd': round(sum(rs._fuse._f(x.get('feesUsd')) for x in past), 4)}
+    return {'live': view, 'past': past, 'record': rec}
+
+
+@router.get('/api/reputation/social-feed/thread/{pid:path}')
+async def social_feed_thread(pid: str):
+    """💬 One post's comments, read only when its thread is opened."""
+    rs = _rs()
+    return {'comments': [{k: c.get(k) for k in ('name', 'text', 'at', 'by')} for c in rs._fsoc.thread(rs._json_load(rs.FEED_SOCIAL_PATH, {}), pid)]}
+
+
+@router.get('/api/reputation/social-feed')
+async def social_feed(src: str = ''):
+    """📰 FEEd's mixed timeline: FEELESS rooms + Pump callouts + public Telegram channels + Bluesky, newest first. `src` = comma list of the
+    bubbles picked (empty = all). Each source is read at most once a minute and answered from its last copy while it refreshes."""
+    rs = _rs()
+    keys_ = [k for k, _ in rs._sfeed.SOURCES]
+    want_ = {x for x in src.split(',') if x in keys_} or set(keys_)
+    now_ = rs.time.time()
+    for k_ in want_:
+        c_ = rs._SF_CACHE.get(k_)
+        if c_ is None:
+            if k_ not in rs._SF_BUSY:
+                rs._SF_BUSY.add(k_)
+                try:
+                    await rs.asyncio.wait_for(rs._sf_refresh(k_), 6)   # the first visitor waits for a source once (≤ 6s)
+                except rs.asyncio.TimeoutError:
+                    pass
+        elif now_ - c_['at'] > rs._SF_TTL and k_ not in rs._SF_BUSY:
+            rs._SF_BUSY.add(k_)
+            rs.asyncio.create_task(rs._sf_refresh(k_))
+    posts_ = rs._sfeed.mix([(rs._SF_CACHE.get(k_) or {}).get('posts') or [] for k_ in want_], want_)
+    posts_ = await rs._sf_receipts(posts_, now_)
+    return {'posts': posts_, 'sources': [{'key': k, 'label': l, 'n': len((rs._SF_CACHE.get(k) or {}).get('posts') or []), 'at': (rs._SF_CACHE.get(k) or {}).get('at')} for k, l in rs._sfeed.SOURCES],
+            'post': ['x', 'reddit', 'bluesky', 'telegram', 'farcaster'], 'readNeedsApp': {'x': 'X API app (paid read access)', 'reddit': 'Reddit API app (registered)'}}
+
+
+@router.get('/api/reputation/fuses/trench/open')
+async def fuse_trench_open():
+    """🚪 Open gates: every launch coin the feed sees, front-runners first, nothing filtered (each row says what it has not passed)
+    + 📣 the callouts of the last hours with their result. Coin data only. A list to LOOK at; the engine never buys from it."""
+    rs = _rs()
+    got_ = rs._list_now(('open', ''), rs.LIST_CACHE_SEC, fuse_trench_open)
+    if got_ is not None:
+        return got_
+    rows = rs._open_board() if rs._open_pairs else (rs._open_cache.get('rows') or [])
+    await rs._jup_lite([r.get('mint') for r in rows])
+    rows = rs._clean_rows([dict(r) for r in rows])
+    cmap_ = rs._cand_map()
+    for r in rows:   # 🚪 every coin gets a read (split view: reads column) + 🔔 its curve % when the runner board has it
+        c_ = cmap_.get(r.get('mint')) or {}
+        if c_.get('stage') == 'curve' and c_.get('curve') is not None:
+            r['curvePct'] = round(rs._fuse._f(c_['curve']))
+        if not r.get('tv'):
+            x_ = {**{k: c_.get(k) for k in ('vol5m', 'chg6h', 'chg24h') if c_.get(k) is not None}, **{k: v for k, v in r.items() if v is not None}}
+            r['tv'] = rs._ja.open_read((rs._jup_facts.get(r.get('mint')) or (0, None))[1], x_)
+    rs._pc_rows(rows)
+    rs._fd_rows(rows)
+    doc = rs._json_load(rs.TRENCH_CALLOUT_PATH, {})
+    now_px = {r['mint']: r['price'] for r in rows}
+    proof = rs._trench.meta_proof(doc.get('state') or {}, keys=rs._trench.CALLOUTS)
+    calling = {m: k for k, v in (rs._open_cache.get('calls') or {}).items() for m in v}
+    res_ = {'rows': [{**r, 'call': calling.get(r['mint'])} for r in rows], 'seen': len(rs._open_pairs), 'everySec': rs._trench.CALLOUT_SEC, 'at': rs._open_cache.get('at') or None,
+            'kinds': [{'key': k, 'icon': v[0], 'name': v[1], 'rule': v[2], 'proof': proof.get(k)} for k, v in rs._trench.CALLOUTS.items()],
+            'earliness': rs._trench.earliness(doc.get('state') or {}),
+            'feed': rs._trench.callout_feed(doc.get('state') or {}, doc.get('names') or {}, now_px, rs.time.time())}
+    rs._disc_cache[('open', '')] = (rs.time.time(), res_)
+    return res_
+
+
+@router.get('/api/reputation/fuses/call-proof')
+async def fuse_call_proof():
+    """Each trench-vital call's own 1-hour record + whether the engine is taking 🔥 SEND IT coins yet."""
+    rs = _rs()
+    if not rs._call_cache.get('proof'):
+        rs._call_cache['proof'] = rs._trench.meta_proof(rs._json_load(rs.CALL_PROOF_PATH, {}), keys=tuple(dict.fromkeys(rs.CALL_KEYS.values())))
+    pro_rec = rs._trench.meta_proof(rs._json_load(rs.PROCALL_PROOF_PATH, {}), keys=('pro',)).get('pro')
+    return {'proof': {**(rs._call_cache.get('proof') or {}), **({'pro': pro_rec} if pro_rec else {})}, 'auto': rs._sendit_ready(), 'autoMin': rs.CALL_AUTO_MIN, 'send': [r.get('symbol') for r in rs._call_cache.get('send') or []]}
+
+
+@router.get('/api/reputation/fuses/trench')
+async def fuse_trench(meta: str = Query('', max_length=20)):
+    """🗑 The trench list + 🧼 the 10-point clean score and holder facts on every row (owner, 2026-10-08: $giftr, a rug, came from this list)."""
+    rs = _rs()
+    got_ = rs._list_now(('trench', meta), rs.LIST_CACHE_SEC, lambda: fuse_trench(meta))
+    if got_ is not None:
+        return got_
+    out = await rs._fuse_trench_raw(meta)
+    if isinstance(out, dict) and out.get('rows'):
+        await rs._jup_lite([r.get('mint') or r.get('baseAddress') for r in out['rows']])
+        rs._clean_rows(out['rows'])
+        for r in out['rows']:   # 🗑 every row in the trench tab gets a degen read, whatever its age (curve / dip when it fits, else SEND IT)
+            if 'tv' not in r:
+                t_ = rs._ja.trench_verdict((rs._jup_facts.get(r.get('mint') or r.get('baseAddress')) or (0, None))[1], r)
+                r['tv'] = {**t_, 'kind': 'trench', 'meters': [['🔥 HEAT', t_['heat']], ['☠ RUG', t_['rug']]]}
+        for r in out['rows']:   # a trench-gate pass cleared every safety check
+            if r.get('ok') and r.get('safe') is None:
+                r['safe'] = True
+        b_ = rs._brain_state()   # 🧠 the trench brain lives IN the trench tab: every row carries its learned play; once it has judged
+        for r in out['rows']:  # enough coins the list is ordered by it (safety first: failed scans never move up)
+            sc_ = rs._tb.score(r, b_['tbl'])
+            if sc_:
+                r['brain'] = {k: sc_[k] for k in ('est', 'hit', 'n')} | {'why': [list(w) for w in sc_['why'][:2]]}
+        if int((b_['sum'] or {}).get('n') or 0) >= rs._tb.PROOF_MIN:
+            out['rows'] = sorted(out['rows'], key=lambda r: (r.get('safe') is False, -rs._fuse._f((r.get('brain') or {}).get('est', -999))))
+        out['brain'] = {**(b_['sum'] or {}), 'ready': rs._brain_ready()}
+    rs._disc_cache[('trench', meta)] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/familia-world')
+async def familia_world(address: str = '', session: str = ''):
+    """🗺 The whole Familia city: boroughs, bridges, every block, CPU towns, cartels, the season — and, signed in, my family's turf, raids,
+    challenges, errands, rewards and the FEECAT redeem."""
+    rs = _rs()
+    import crews as _cr
+    now = rs.time.time()
+    me = rs._session_or_401(address, session) if address and session else None
+    cartels_ = await rs.asyncio.to_thread(rs._cartels_now, now)
+    await rs._ffuse_tick(now)
+    async with rs._crews_lock:
+        st = rs._json_load(rs.CREWS_PATH, {}); _cr._norm(st)
+        w = st.setdefault('world', rs._fworld.blank())
+        # ⚡ scale (P1): a read rewrote crews.json on EVERY GET — now only when the world moved. CPU stashes are left out of the check: they
+        # refill by time (linear, capped), so recomputing them from the last saved point gives the same number.
+        quiet_ = lambda: rs.json.dumps({k_: v_ for k_, v_ in w.items() if k_ != 'cpu'}, sort_keys=True, default=str)
+        sig_ = quiet_()
+        rs._world_tick(st, w, now)
+        me = rs._seat_of(st, me) if me else None
+        c = _cr.crew_of(st, me) if me else None
+        v = rs._world_view(st, c, me, now, cartels_)
+        if quiet_() != sig_ or not rs.CREWS_PATH.exists():
+            rs._json_save(rs.CREWS_PATH, st)
+    return v
+
+
+@router.get('/api/reputation/familia-pools/chart/{pool}')
+async def familia_pool_chart(pool: str):
+    """📈 One pool's TVL + APY history (DefiLlama /chart, last 90 days, ≤ 90 points) + what $1,000 earned in the last 24h. Cached 30 min."""
+    rs = _rs()
+    if not rs._re.match(r'^[A-Za-z0-9-]{8,64}$', pool or ''):
+        raise rs.HTTPException(400, 'Not a pool id.')
+    now = rs.time.time(); hit = rs._fpl_charts.get(pool)
+    row_ = next((r_ for r_ in ((await rs.familia_pools()) or {}).get('pools') or [] if r_.get('id') == pool), None)
+    earn_ = rs._fpl.earn_24h(row_) if row_ else None
+    if hit and now - hit[0] < 1800:
+        return {'pool': pool, 'points': hit[1], 'earn': earn_}
+    pts_ = []
+    if row_ and row_.get('src') == 'llama':
+        try:
+            r_ = await rs._ai_http().get(f'https://yields.llama.fi/chart/{pool}', timeout=15)
+            pts_ = rs._fpl.chart_points((r_.json() or {}).get('data') if r_.status_code == 200 else [])
+        except Exception:
+            pts_ = []
+    rs._fpl_charts[pool] = (now, pts_)
+    if len(rs._fpl_charts) > 300:
+        for k_ in sorted(rs._fpl_charts, key=lambda k: rs._fpl_charts[k][0])[:len(rs._fpl_charts) - 300]:
+            rs._fpl_charts.pop(k_, None)
+    return {'pool': pool, 'points': pts_, 'earn': earn_}
+
+
+@router.get('/api/reputation/familia-markets')
+async def familia_markets():
+    """🏦 Fee City's markets + today's top Solana coins, live (≤ 60s old)."""
+    rs = _rs()
+    now = rs.time.time(); c = rs._fmk_cache
+    if c['v'] and now - c['at'] < 60:
+        return c['v']
+    if c['lock'] is None:
+        c['lock'] = rs.asyncio.Lock()
+    async with c['lock']:
+        if c['v'] and now - c['at'] < 60:
+            return c['v']
+        tvl, pairs = await rs._fmk_fetch()
+        v = rs._fmk.build(tvl, {k: x for k, x in c['prev'].items() if now - x[1] >= 3600 or not c['v']}, pairs, now)
+        for k, t in tvl.items():   # 🕐 the "move" compares with a reading at least an hour old (the first reading of the day sets the base)
+            if k not in c['prev'] or now - c['prev'][k][1] > 6 * 3600:
+                c['prev'][k] = (t, now)
+        c.update(at=now, v=v)
+    return v
+
+
+@router.get('/api/reputation/predict')
+async def predict_state(address: str = ''):
+    """⚡ Public: this hour's ballot with live moves since it opened, the last result, the week's top callers and (with `address`) your pick + record."""
+    rs = _rs()
+    import predict as _pr
+    now = rs.time.time(); d = rs._json_load(rs.PREDICT_PATH, {'rounds': {}, 'players': {}}); rounds = d.get('rounds') or {}
+    cur = rounds.get(str(_pr.round_id(now))) or next((r for r in sorted(rounds.values(), key=lambda r: -r['id']) if r.get('status') == 'open'), None)
+    done = next((r for r in sorted(rounds.values(), key=lambda r: -r['id']) if r.get('status') == 'settled'), None)
+    me = rs.primary_of(address) if address else ''
+    live = {}
+    if cur:
+        hit = rs._predict_view_cache
+        if hit['data'] and hit['data'][0] == cur['id'] and now - hit['at'] < 10:
+            live = hit['data'][1]
+        else:
+            px = await rs._jup_prices([c['mint'] for c in cur['cands']]); live = _pr.moves(cur, px or {}); rs._predict_view_cache.update(at=now, data=(cur['id'], live))
+    profs = rs._profiles_load()['profiles']
+    nm = lambda a: (profs.get(rs.primary_of(a)) or {}).get('displayName') or (profs.get(rs.primary_of(a)) or {}).get('handle') or f'{a[:4]}…{a[-4:]}'
+    out = {'now': now, 'round': None, 'last': None, 'me': (d.get('players') or {}).get(me) if me else None,
+           'board': [{**r, 'name': nm(r['address'])} for r in _pr.board(d.get('players') or {}, now)], 'rule': f'Pick the coin that leads the next hour. +{_pr.BASE_PTS} season points for a right call, +{_pr.STREAK_PTS} more per win in a row (max +{_pr.STREAK_CAP}). Free — points only. Picks close {_pr.LOCK_SEC // 60} minutes before the bell.'}
+    if cur:
+        out['round'] = {'id': cur['id'], 'closesAt': cur['closesAt'], 'status': cur['status'], 'locked': now >= cur['closesAt'] - _pr.LOCK_SEC, 'mine': (cur['picks'] or {}).get(me) if me else None,
+                        'players': len(cur['picks'] or {}), 'cands': [{**c, 'pct': live.get(c['mint'])} for c in cur['cands']]}
+    if done:
+        out['last'] = {'id': done['id'], 'winner': done.get('winner'), 'symbol': next((c['symbol'] for c in done['cands'] if c['mint'] == done.get('winner')), None),
+                       'moves': done.get('moves'), 'mine': (done['picks'] or {}).get(me) if me else None, 'won': bool(me and (done['picks'] or {}).get(me) == done.get('winner'))}
+    return out
+
+
+@router.get('/api/reputation/bounty')
+async def rug_bounty():
+    """🪙 Public: the rug bounty board — recent catches (coins with the wallets FEELESS's forensics proved bundled / sniped, and who found them first) and the
+    top finders this week and all time, with the season points they earned (bounty.py). Accepted reports only; anonymous ones never rank. 60s cache."""
+    rs = _rs()
+    import bounty as _bo
+    now = rs.time.time()
+    if rs._bounty_cache['data'] and now - rs._bounty_cache['at'] < 60:
+        return rs._bounty_cache['data']
+    b = _bo.board(rs._block_load()['wallets'], now)
+    profs = rs._profiles_load()['profiles']
+    name = lambda a: (profs.get(rs.primary_of(a)) or {}).get('displayName') or (profs.get(rs.primary_of(a)) or {}).get('handle') or f'{a[:4]}…{a[-4:]}'
+    out = {**b, 'recent': [{**c, 'finders': [{'address': a, 'name': name(a)} for a in c['finders']]} for c in b['recent']],
+           'week': [{**r, 'address': r['by'], 'name': name(r['by'])} for r in b['week']], 'all': [{**r, 'address': r['by'], 'name': name(r['by'])} for r in b['all']], 'at': now}
+    rs._bounty_cache.update(at=now, data=out)
+    return out
+
+
+@router.get('/api/reputation/track-record/{address}')
+async def wallet_track_record(address: str, limit: int = Query(40, ge=1, le=120)):
+    """📜 Public: a wallet's track record — proof of what it really did — its verified FEELESS trades (closed pieces first-in-first-out + still-open lots priced live)
+    and its chat calls with the result since, newest first. From FEELESS's own records only (track_record.py); price result, fees apart. 60s cache."""
+    rs = _rs()
+    import track_record as _rc
+    primary = rs.primary_of(address); now = rs.time.time()
+    hit = rs._track_cache.get(primary)
+    if hit and now - hit[0] < 60:
+        return hit[1]
+    mine = set(rs.linked_of(primary)) | {primary, address}
+    trades = rs._json_load(rs.FEELESS_TRADES_PATH, {})
+    rows = [x for w in mine for x in (trades.get(w) or [])]
+    calls = rs._calls_load().get('calls') or {}
+    syms = {c.get('mint'): c.get('symbol') for c in calls.values() if c.get('mint') and c.get('symbol')}
+    syms.update({r.get('mint'): r.get('symbol') for r in rs._runner_cands if r.get('mint') and r.get('symbol')})
+    closed, open_ = _rc.trade_receipts(rows, syms)
+    px = await rs._jup_prices([o['mint'] for o in open_]) if open_ else {}
+    for o in open_:
+        p = rs._fuse._f((px or {}).get(o['mint']))
+        o['exitPx'] = p or None; o['ret'] = round(p / o['entryPx'] - 1, 4) if p > 0 and o['entryPx'] > 0 else None
+        o['usd'] = round(o['tokens'] * (p - o['entryPx']), 4) if p > 0 else None
+    cs = _rc.call_receipts(calls, primary, aliases=mine)
+    feed = sorted(closed + open_ + cs, key=lambda r: -r['at'])[:limit]
+    out = {'address': primary, 'record': feed, 'summary': _rc.summary(closed, cs), 'at': now}
+    rs._track_cache[primary] = (now, out)
+    return out
+
+
+@router.get('/api/reputation/fuses/pay-map')
+async def fuses_pay_map():
+    """📊 Public: what pays on the real card — closed pieces by hold time, opener (hand pick vs engine), exit kind and hour, with plain-words
+    advice that cites the numbers (pay_map.py). Confirmed fills only, price result, fees apart. 60s cache. A record, never a promise."""
+    rs = _rs()
+    import pay_map as _pm
+    now = rs.time.time()
+    if rs._paymap_cache['data'] and now - rs._paymap_cache['at'] < 60:
+        return rs._paymap_cache['data']
+    ledger = list(reversed(rs._fw_full_ledger()))   # every row, newest first, from the in-memory copy of the append-only table (no 100K-row re-parse)
+    cards = sorted({r.get('card') for r in ledger if r.get('card') and r.get('card') != 'wallet'})
+    out = {'cards': {c: _pm.pay_map(ledger, c, now) for c in cards}, 'at': now}
+    rs._paymap_cache.update(at=now, data=out)
+    return out
+
+
+@router.get('/api/reputation/fuses/record/{tpl}')
+async def fuse_card_record(tpl: str):
+    """📜 A tier card's permanent public record: every run it ever finished (start → end, %), best / worst / win rate."""
+    rs = _rs()
+    if tpl not in rs._prime.TEMPLATES:
+        raise rs.HTTPException(404, 'Unknown card.')
+    rows = rs._store.Ledger(rs.CARD_RECORDS_PATH, table='runs').rows(limit=500, card=tpl)
+    pcts = [rs._fuse._f(r.get('pct')) for r in rows]
+    return {'card': tpl, 'runs': rows, 'n': len(rows), 'won': sum(1 for p in pcts if p > 0), 'bestPct': max(pcts) if pcts else None,
+            'worstPct': min(pcts) if pcts else None, 'avgPct': round(sum(pcts) / len(pcts), 2) if pcts else None}
+
+
+@router.get('/api/reputation/internal/sicario-wallet')
+async def internal_sicario_wallet(request: Request):
+    """🎩 The Fuse wallet Sicario's trades from, read only: its address and what the card's own books say. Never a key."""
+    rs = _rs()
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), rs._internal_key()):
+        raise rs.HTTPException(403, 'Internal endpoint.')
+    cards = ((rs._json_load(rs.FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}; tid = next((k for k, c in cards.items() if (c or {}).get('real')), None)
+    if not tid:
+        return {'address': None}
+    v = rs._fw_public(tid); r = v.get('reconciliation') or {}
+    return {'address': v.get('wallet'), 'cardSol': r.get('cardCashSol'), 'walletSol': r.get('walletSol'), 'reserveSol': r.get('gasReserveSol'), 'outsideSol': r.get('outsideCardSol')}
+
+
+@router.get('/api/reputation/internal/sicario-want')
+async def internal_sicario_fate(request: Request, mint: str = ''):
+    """🎩 What the card did with that coin, in its own words."""
+    rs = _rs()
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), rs._internal_key()):
+        raise rs.HTTPException(403, 'Internal endpoint.')
+    f_ = rs._g4.get('fate') or {}; card = rs._real_card({}) or {}; pol = rs._oe.policy(rs._prime.clean_cfg(((rs._json_load(rs.FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('realCfg') or {}))
+    return {'fate': f_.get('why') if f_.get('mint') == mint else None, 'seats': rs._seat.card_seats(card.get('legs'), pol['seats']) if pol.get('aiSeat') == 'real' else None}
+
+
+@router.get('/api/reputation/runners/discover')
+async def runners_discover():
+    """Fuse 🧬 › Runners: one gated list of good runners, tagged by every source that independently likes them —
+    arena round, lit cards, pump scan, snipers-out radar, creators' picks (proven callers + published Fuses). 20s cache."""
+    rs = _rs()
+    now = rs.time.time()
+    if rs._runner_disc_cache['data'] and now - rs._runner_disc_cache['at'] < 40 and not rs._FUSE_FORCE.get():
+        return rs._runner_disc_cache['data']
+    live, board = await rs.asyncio.gather(rs._runner_live(), rs.caller_board(days=30))
+    d = rs._json_load(rs.RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    cfg = rs._runner_cfg()
+    tags: dict = {}
+    tag = lambda m, k, v: m and tags.setdefault(m, {}).setdefault(k, v)
+    rnd = d['rounds'][-1] if d['rounds'] else None
+    for p in (rnd or {}).get('picks') or []:
+        tag(p['mint'], 'arena', f"{p.get('lane', 'runner')} lane · round {str((rnd or {}).get('id', ''))[:4]}")
+    for c in d.get('litCards') or []:
+        if now - c['at'] <= 72 * 3600:
+            res = rs._rn.card_result(c, d['paths'], now, cfg)
+            for p in c['picks']:
+                tag(p['mint'], 'lit', f"lit card {res:+.1f}% since lit")
+    for r in live['passing']:   # every coin passing every gate is a pump-scan find (never a dead tab while anything passes)
+        tag(r['mint'], 'pump', f"passes every gate · score {round(rs._fuse._f(r.get('score')))}")
+        if r.get('bondTier') == 'watch':
+            tag(r['mint'], 'watch', f"{rs._fuse._f(r.get('curve')):.0f}% up the curve, rep-confirmed — {r.get('smartBuyers')} smart buyers")
+        if rs._rn.near_bond(r, cfg):
+            tag(r['mint'], 'bond', f"{rs._fuse._f(r.get('curve')):.0f}% up the curve, {r.get('buyShare')}% buys — about to bond")
+    for e in rs._radar['events']:
+        if e.get('kind') == 'snipers-out' and now - (e.get('at') or 0) < 6 * 3600:
+            tag(e.get('mint'), 'snipers', 'every flagged sniper sold')
+    sharp = {r.get('callerAddress'): r for r in board['rows'] if r.get('calls', 0) >= 3 and r.get('hitRate', 0) >= 0.5}
+    for c in (rs._json_load(rs.CALLS_PATH, {}).get('calls') or {}).values():
+        if c.get('callerAddress') in sharp and now - (c.get('at') or 0) < 48 * 3600:
+            tag(c.get('mint'), 'creator', f"called by {c.get('caller') or 'a sharp caller'} ({round(sharp[c['callerAddress']]['hitRate'] * 100)}% hit)")
+    for f in (rs._json_load(rs.FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():
+        if f.get('enabled', True):
+            for leg in f.get('legs') or []:
+                if leg.get('role') == 'runner':
+                    tag(leg.get('baseAddress') or leg.get('mint'), 'creator', f"in the {f.get('name')} Fuse")
+    for c in rs._arena_mega_cache.get('data') or []:   # 🏟 runner coins on the cards fighting in the Arena right now (stage, tiers, picks)
+        for leg in c.get('legs') or []:
+            if leg.get('runner') or c.get('kind') in ('lit', 'round'):
+                tag(leg.get('baseAddress') or leg.get('mint'), 'arena', f"on {c.get('emoji') or ''} {c.get('name') or 'an Arena card'}".strip())
+    passing_mints = {r['mint'] for r in live['passing']}
+    for f in (rs._json_load(rs.FUSES_PATH, {'fuses': {}}).get('fuses') or {}).values():   # 📣 any passing coin inside a published HQ Fuse
+        for leg in f.get('legs') or []:
+            m_ = leg.get('baseAddress') or leg.get('mint')
+            if f.get('enabled', True) and m_ in passing_mints:
+                tag(m_, 'creator', f"in the {f.get('name')} Fuse")
+    grads = rs._rn.fresh_grads(live['dropped'])
+    for r in grads:
+        tag(r['mint'], 'grad', f"graduated, passes every other gate · score {round(rs._fuse._f(r.get('score')))}")
+    rows = [{**r, 'passedAt': now} for r in rs._rn.discover(live['passing'] + grads, tags, limit=80)]
+    rows = rs._rn.sticky((rs._runner_disc_cache.get('data') or {}).get('runners'), rows, live['dropped'], now)   # 🧲 never a flickering list
+    data = {'runners': rows, 'counts': {k: sum(1 for r in rows if any(s['kind'] == k for s in r['sources'])) for k in rs._rn.SOURCES},
+            'sources': rs._rn.SOURCES, 'nextRoundAt': (rnd['at'] + rs._rn.ROUND_SECONDS) if rnd else now, 'gates': [g[1] for g in rs._rn.gates(cfg)],
+            'swaps': ((rnd or {}).get('swaps') or [])[-5:], 'at': now, 'seen': live['seen'],
+            # This round's picks with their live state (still passing = addable; failing shows why).
+            'round': [{**{k: p.get(k) for k in ('mint', 'symbol', 'logo', 'lane', 'pairAddress', 'score', 'entry')}, 'passing': p['mint'] in {x['mint'] for x in live['passing']},
+                       'move': rs._round_move(p, live),
+                       'gates': next((x.get('gates') for x in live['dropped'] if x['mint'] == p['mint']), None) or ([] if p['mint'] in {x['mint'] for x in live['passing']} else ['left the live feed'])}
+                      for p in (rnd or {}).get('picks') or []],
+            # ⚠️ NEW runners: minutes-old coins through the tight launch filter (site + X, clean creator first) — riskier lane
+            'newRunners': [{k: x.get(k) for k in ('mint', 'symbol', 'logo', 'pairAddress', 'mcap', 'vol1h', 'chg1h', 'buyShare', 'ageH', 'score', 'creatorRep', 'why', 'price')}
+                           for x in rs._rn.new_runners(live['passing'] + [x for x in live['dropped'] if (x.get('gates') or [''])[0].startswith(('mcap', 'vol'))])],
+            # Watch-only: the busiest coins that FAILED a gate, with the reason — shown so the tab is never dead, never addable.
+            'watching': [{k: x.get(k) for k in ('mint', 'symbol', 'logo', 'mcap', 'vol1h', 'chg1h', 'buyShare', 'gates')}
+                         for x in sorted(live['dropped'], key=lambda x: -rs._fuse._f(x.get('vol1h')))[:12]]}
+    rs._runner_disc_cache.update(at=now, data=data)
+    return data
+
+
+@router.get('/api/reputation/runners')
+async def runners_board():
+    """FUSE RUNNERS: live board (every arriving coin gated + scored), the current round by lane, recent rounds' paper
+    results and the proof that decides whether the Fuse button lights up."""
+    rs = _rs()
+    live, sol_usd = await rs.asyncio.gather(rs._runner_live(), rs._sol_usd_live())
+    d = rs._json_load(rs.RUNNERS_PATH, {'rounds': [], 'paths': {}})
+    now = rs.time.time()
+    rnd = d['rounds'][-1] if d['rounds'] else None
+    cfg = rs._runner_cfg(); ex = rs._rn.exits(cfg)
+    hist = []
+    for r in reversed(d['rounds'][-8:-1] if len(d['rounds']) > 1 else []):
+        mults = [rs._rn.play_exits(p['lane'], p['entry'], [x for t, x in d['paths'].get(p['mint'], []) if t > r['at']], cfg) for p in r['picks']]
+        hist.append({'id': r['id'], 'at': r['at'], 'symbols': [p.get('symbol') for p in r['picks']], 'pct': round((sum(mults) / len(mults) - 1) * 100, 2) if mults else 0.0})
+    cur = {p['mint']: p for p in live['passing']}
+    picks = [{**p, 'now': cur.get(p['mint'], {}).get('price') or p['price'], 'exits': ex[p['lane']]['label']} for p in (rnd or {}).get('picks', [])]
+    return {'live': live['passing'][:60], 'dropped': live['dropped'][:30], 'seen': live['seen'], 'widen': live.get('widen'), 'round': rnd and {**rnd, 'picks': picks},
+            'nextRoundAt': (rnd['at'] + rs._rn.ROUND_SECONDS) if rnd else now, 'history': hist, 'proof': rs._rn.proof(d['rounds'], d['paths'], now, cfg=cfg),
+            'exits': {k: v['label'] for k, v in ex.items()}, 'gates': [g[1] for g in rs._rn.gates(cfg)], 'lightMinRounds': cfg['lightRounds'], 'solUsd': sol_usd,
+            'litCards': [{**c, 'pct': rs._rn.card_result(c, d['paths'], now, cfg)} for c in reversed((d.get('litCards') or [])[-12:])],
+            'lanes': (lp := rs._rn.lane_proofs(d['rounds'], d['paths'], now, cfg)), 'laneWeights': rs._rn.lane_weights(lp)}
+
+
+@router.get('/api/reputation/quests-leaderboard')
+async def quest_leaderboard():
+    """Season XP leaderboard (10 min cache). Paused season: no ranking, just the plan."""
+    rs = _rs()
+    season = rs._quest_season()
+    if season.get('paused') or not season.get('start'):
+        return {'season': season, 'rows': [], 'paused': True}
+    if rs._quest_board_cache.get('at', 0) > rs.time.time() - 600:
+        return rs._quest_board_cache['data']
+    wallets = set(rs._json_load(rs.FEELESS_TRADES_PATH, {})) | set(rs._pts()) | set(rs._qs().all())
+    rows = []
+    for w in list(wallets)[:2000]:
+        try:
+            s = await rs._quest_summary(rs.primary_of(w))
+        except Exception:
+            continue
+        if s['season']['score'] > 0:
+            prof = (rs._profiles_load()['profiles'].get(s['address']) or {})
+            rows.append({'address': s['address'], 'name': prof.get('displayName') or prof.get('handle') or s['address'][:4] + '…' + s['address'][-4:],
+                         'xp': s['season']['score'], 'level': s['level']['name'], 'badges': s['earned']})
+    rows.sort(key=lambda r: -r['xp'])
+    data = {'season': season, 'rows': rows[:50], 'paused': False}
+    rs._quest_board_cache.update(at=rs.time.time(), data=data)
+    return data
+
+
+@router.get('/api/reputation/c/{tok}')
+async def war_canary(tok: str, request: Request):
+    """A planted canary token was opened → log the opener's real IP/UA. Always returns a 1×1 gif; it runs nothing anywhere."""
+    rs = _rs()
+    try:
+        ip = rs._guard.client_ip(request.headers, request.client.host if request.client else '', rs.os.environ.get('FEELESS_TRUST_PROXY') == '1')
+        if rs._re.fullmatch(r'[0-9a-f]{32}', tok or '') and rs._war.canary_open(rs._war_s(), tok, ip, request.headers.get('user-agent', ''), dict(request.headers)):
+            rs._war_save(force=True)
+    except Exception:
+        pass
+    gif = bytes.fromhex('47494638396101000100800000000000ffffff21f90401000000002c00000000010001000002024401003b')
+    return rs.Response(content=gif, media_type='image/gif')
+
+
+@router.get('/api/reputation/security/bounty')
+async def war_bounty_scope():
+    """The public bounty scope + rules (opt-in; turns probing into paid, responsible disclosure)."""
+    rs = _rs()
+    return rs._BOUNTY_SCOPE
+
+
+@router.get('/api/reputation/legal/status')
+async def legal_status(request: Request, wallet: Optional[str] = None):
+    """Public: the terms version, the country a CDN saw (none on the bare Mac), whether this wallet accepted THIS version, and every
+    feature's gate. The stated country only comes back (and only counts) with the wallet's own session (x-feeless-session header)."""
+    rs = _rs()
+    s = rs._legal_s(); c = rs._legal.country_of(request.headers)
+    me = rs.primary_of(wallet) if wallet and 20 <= len(wallet) <= 64 else None
+    mine = False
+    sess = request.headers.get('x-feeless-session') or ''
+    if me and sess:
+        try:
+            mine = rs._session_or_401(me, sess) == me
+        except rs.HTTPException:
+            mine = False
+    st = rs._legal.status(s, me) if me else {'accepted': False, 'row': None}
+    row = (st['row'] or {}) if st['accepted'] else {}
+    used = row if mine else ({'adult': True} if st['accepted'] else None)
+    return {'version': rs._legal.VERSION, 'accepted': st['accepted'], 'country': c, 'stated': row.get('country') if mine else None,
+            'minAge': s['cfg'].get('minAge'), 'features': rs._legal.FEATURES, 'sanctioned': s['cfg'].get('everywhere'),
+            'gates': {f: rs._legal.gate(s['cfg'], f, c, used) for f in rs._legal.FEATURES}}
+
+
+@router.get('/api/reputation/receipts/{wallet}')
+async def list_receipts(wallet: str, limit: int = 200):
+    rs = _rs()
+    rows = [r for r in rs._receipt_rows() if r[2] == wallet]
+    rows.sort(key=lambda r: -(r[0] or 0))
+    keys = ['t', 'sig', 'wallet', 'kind', 'tokens', 'sol', 'slot', 'fee']
+    return {'wallet': wallet, 'count': len(rows), 'receipts': [dict(zip(keys, r)) for r in rows[:max(1, min(limit, 1000))]]}
+
+
+@router.get('/api/reputation/wallet-stats/{address}')
+async def wallet_stats(address: str):
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        return {'address': address, 'chain': 'evm' if address.startswith('0x') else None, 'supported': False}
+    hit = rs._wstats_cache.get(address)
+    if hit and rs.time.time() - hit[0] < 300:
+        return hit[1]
+    out = {'address': address, 'chain': 'solana', 'supported': True}
+    async with rs.httpx.AsyncClient(timeout=25) as http:
+        try:
+            out['sol'] = ((await rs._rpc(http, 'getBalance', [address])) or {}).get('value', 0) / 1e9
+        except Exception:
+            out['sol'] = None
+        try:
+            toks = []
+            for prog in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'):
+                r = await rs._rpc(http, 'getTokenAccountsByOwner', [address, {'programId': prog}, {'encoding': 'jsonParsed'}])
+                toks += (r or {}).get('value', [])
+            held = [t for t in toks if float(((t['account']['data']['parsed']['info'].get('tokenAmount') or {}).get('uiAmount')) or 0) > 0]
+            out['tokensHeld'] = len(held)
+        except Exception:
+            out['tokensHeld'] = None
+        before, oldest, count = None, None, 0
+        for _ in range(5):
+            opts = {'limit': 1000}
+            if before:
+                opts['before'] = before
+            try:
+                sigs = await rs._rpc(http, 'getSignaturesForAddress', [address, opts])
+            except Exception:
+                break
+            if not sigs:
+                break
+            count += len(sigs)
+            oldest = sigs[-1].get('blockTime') or oldest
+            before = sigs[-1]['signature']
+            if len(sigs) < 1000:
+                break
+        out['txCount'] = count
+        out['txCountCapped'] = count >= 5000
+        out['firstSeen'] = oldest if not out['txCountCapped'] else None
+    rs._wstats_cache[address] = (rs.time.time(), out)
+    return out
+
+
+@router.get('/api/reputation/activity/{address}')
+async def activity(address: str, limit: int = 30):
+    rs = _rs()
+    me = set(rs.linked_of(address))
+    rows = []
+    for room, msgs in rs._chat_load()['rooms'].items():
+        for m in msgs:
+            if m.get('address') in me or (m.get('profile') or {}).get('address') in me:
+                rows.append({'room': room, 'id': m['id'], 'text': m['text'][:200], 'ts': m['ts'], 'tokens': [t.get('symbol') for t in m.get('tokens') or []]})
+    rows.sort(key=lambda r: -r['ts'])
+    return {'address': address, 'posts': rows[:max(1, min(limit, 100))], 'handle': rs.handle_of(rs.primary_of(address))}
+
+
+@router.get('/api/reputation/search')
+async def search_profiles(q: str, limit: int = 6):
+    """Profile search for the header search bar: @handle / display-name prefix matches."""
+    rs = _rs()
+    ql = q.strip().lstrip('@').lower()
+    if len(ql) < 2:
+        return {'profiles': []}
+    rows = []
+    for a, v in rs._profiles_load()['profiles'].items():
+        v = v or {}
+        h, n = (v.get('handle') or ''), str(v.get('displayName') or '').lower()
+        score = 3 if h == ql else 2 if h.startswith(ql) else 1 if n.startswith(ql) or ql in h else 0
+        if score:
+            rows.append((score, {'address': a, 'handle': h or a[:6].lower(), 'displayName': v.get('displayName'), 'avatarUrl': v.get('avatarUrl')}))
+    rows.sort(key=lambda r: -r[0])
+    return {'profiles': [r[1] for r in rows[:max(1, min(limit, 20))]]}
+
+
+@router.get('/api/reputation/league')
+async def caller_league(week: int = 0):
+    rs = _rs()
+    start = rs._week_start() - week * 7 * 86400
+    end = start + 7 * 86400
+    board = await rs.caller_board(days=min(90, max(7, int((rs.time.time() - start) / 86400) + 1)))
+    rows = []
+    for r in board['rows']:
+        rows.append({'caller': r.get('caller'), 'address': r.get('callerAddress'), 'calls': r.get('calls'), 'hitRate': r.get('hitRate'), 'avgPeakX': r.get('avgPeakX'),
+                     'points': round((r.get('calls') or 0) * 2 + (r.get('hitRate') or 0) * 50 + min(20, (r.get('avgPeakX') or 1) * 4), 1)})
+    rows = [r for r in rows if r['address'] and r['address'] != 'FEE-LEADER-CAT']
+    rows.sort(key=lambda r: -r['points'])
+    return {'weekStart': start, 'weekEnd': end, 'rows': rows[:50], 'prizes': ['🥇 League Champion badge + airdrop', '🥈 badge', '🥉 badge']}
+
+
+@router.get('/api/reputation/dm-inbox')
+async def dm_inbox(address: str, session: str):
+    rs = _rs()
+    me = rs._session_or_401(address, session)
+    rows = []
+    for k, msgs in rs._json_load(rs.DM_PATH, {}).items():
+        a, b = k.split('|')
+        if me in (a, b) and msgs:
+            peer = b if a == me else a
+            pending = rs._dm_pref(me)['policy'] == 'requests' and peer not in rs._dm_pref(me)['accepted'] and not any(m['from'] == me for m in msgs)
+            rows.append({'peer': peer, 'handle': rs.handle_of(peer), 'last': msgs[-1], 'count': len(msgs), 'request': pending})
+    rows.sort(key=lambda r: -r['last']['at'])
+    return {'threads': rows[:50]}
+
+
+@router.get('/api/reputation/rewards/{address}')
+async def rewards(address: str):
+    rs = _rs()
+    me = rs.primary_of(address)
+    rec, items, _ = await rs._reward_state(me)
+    allp = rs._pts()
+    rank = 1 + sum(1 for v in allp.values() if v.get('total', 0) > rec.get('total', 0))
+    return {'address': me, 'total': rec.get('total', 0), 'streak': rec.get('streak', 0), 'rank': rank, 'items': items, 'log': rec.get('log', [])[:20]}
+
+
+@router.get('/api/reputation/rewards-board')
+async def rewards_board(limit: int = 50):
+    rs = _rs()
+    rows = sorted(({'address': a, 'handle': rs.handle_of(a), 'points': v.get('total', 0), 'streak': v.get('streak', 0)} for a, v in rs._pts().items()), key=lambda r: -r['points'])
+    return {'rows': rows[:max(1, min(limit, 200))]}
+
+
+@router.get('/api/reputation/pnl/{address}')
+async def wallet_pnl(address: str):
+    rs = _rs()
+    me = set(rs.linked_of(address))
+    rows = [r for r in rs._receipt_rows() if r[2] in me]
+    by = {}
+    sol_flow = 0.0
+    for r in rows:
+        sol_flow += r[5] or 0
+        for mint, delta in r[4]:
+            if mint == rs.WSOL:
+                continue
+            b = by.setdefault(mint, {'mint': mint, 'bought': 0.0, 'sold': 0.0, 'solIn': 0.0, 'solOut': 0.0, 'trades': 0})
+            b['trades'] += 1
+            if delta > 0:
+                b['bought'] += delta; b['solIn'] += -(r[5] or 0)
+            else:
+                b['sold'] += -delta; b['solOut'] += (r[5] or 0)
+    for b in by.values():
+        b['realizedSol'] = round(b['solOut'] - b['solIn'] * (b['sold'] / b['bought'] if b['bought'] else 1), 6)
+        b['holding'] = round(b['bought'] - b['sold'], 6)
+    return {'trades': len(rows), 'netSolFlow': round(sol_flow, 6), 'tokens': sorted(by.values(), key=lambda b: -abs(b['realizedSol']))[:50],
+            'note': 'From verified FEELESS trade receipts. Trades made outside FEELESS are not included.'}
+
+
+@router.get('/api/reputation/familia/my-money')
+async def familia_my_money(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """💵 YOUR MONEY tower (my_money.py): every position FEELESS can prove for this wallet, priced live — coins from its verified FEELESS trades
+    (value + the coin's 24 h move, never a fee-tainted P&L) and, signed in, its family block's real market positions. One read per wallet / 45 s."""
+    rs = _rs()
+    import my_money as _mym
+    if not address:
+        return _mym.assemble([], {}, [])
+    key_ = rs.primary_of(address) + ('|s' if session else '')
+    hit_ = rs._mm_cache.get(key_)
+    if hit_ and rs.time.time() - hit_[0] < 45:
+        return hit_[1]
+    held_ = [t_ for t_ in (await rs.wallet_pnl(address)).get('tokens') or [] if (t_.get('holding') or 0) > 0][:30]
+    pairs_ = []
+    if held_:
+        try:
+            r_ = await rs._ai_http().get('https://api.dexscreener.com/tokens/v1/solana/' + ','.join(t_['mint'] for t_ in held_), timeout=8)
+            pairs_ = r_.json() if r_.status_code == 200 and isinstance(r_.json(), list) else []
+        except Exception:
+            pairs_ = []
+    blds_ = []
+    if session:
+        try:
+            blds_ = (await rs.familia_block(address, session)).get('buildings') or []
+        except Exception:
+            blds_ = []
+    v_ = _mym.assemble(held_, _mym.best_prices(pairs_), blds_)
+    rs._mm_cache[key_] = (rs.time.time(), v_)
+    if len(rs._mm_cache) > 500:
+        for k_ in sorted(rs._mm_cache, key=lambda k: rs._mm_cache[k][0])[:100]:
+            rs._mm_cache.pop(k_, None)
+    return v_
+
+
+@router.get('/api/reputation/trust-batch')
+async def trust_batch(addresses: str = Query('', max_length=2400)):
+    """Rep marks for names on screen (chat, lists). Answers from cache instantly and scores missing
+    wallets in the background, a few at a time, so a busy chat never stalls on RPC calls."""
+    rs = _rs()
+    out = {}
+    for raw in [x for x in addresses.split(',') if x][:50]:
+        a = rs.primary_of(raw.strip())
+        hit = rs._trust_cache.get(a)
+        if hit:
+            r = hit[1]; out[raw] = {'score': r.get('score'), 'level': r.get('level'), 'blocked': any('Blocklisted' in p['label'] for p in r.get('parts', [])), 'gold': rs._gold_creator(a)}
+        case = rs._quick_rep(a) if rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a) else None
+        if case and case.get('level') in ('watch', 'suspect', 'high'):  # the case-file verdict rides along everywhere a name shows
+            out.setdefault(raw, {'score': None, 'level': None})['case'] = case
+        if (not hit or rs.time.time() - hit[0] > 600) and a not in rs._trust_pending and len(rs._trust_pending) < 8:
+            rs._trust_pending.add(a); rs.asyncio.create_task(rs._trust_fill(a))
+    return {'trust': out}
+
+
+@router.get('/api/reputation/trust/{address}')
+async def trust_score(address: str):
+    rs = _rs()
+    a = rs.primary_of(address)
+    parts, score, evidence = [], 50, 0
+    st = await rs.wallet_stats(a) if rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', a) else {}
+    age_d = (rs.time.time() - st['firstSeen']) / 86400 if st.get('firstSeen') else (365 if st.get('txCountCapped') else None)
+    if age_d is not None:
+        evidence += 1
+        pts = 10 if age_d >= 180 else 6 if age_d >= 30 else 0 if age_d >= 7 else -8
+        score += pts; parts.append({'label': f'Wallet age {int(age_d)}d', 'points': pts})
+    bl = rs._block_load()['wallets'].get(a)
+    if bl and rs._is_blocked(bl):
+        score -= 45; evidence += 1; parts.append({'label': f"Blocklisted — caught on {len(bl.get('mints') or {})} launch(es)", 'points': -45})
+    elif bl:
+        score -= 15; evidence += 1; parts.append({'label': 'Seen sniping/bundling (not yet blocklisted)', 'points': -15})
+    creator = rs._load()['creators'].get(rs._creator_key('solana', a))
+    if creator:
+        sc = rs.score_creator(creator); sc = {**sc, **rs._hygiene(a, sc)}
+        if sc.get('score') is not None:
+            evidence += 1
+            pts = round((sc['score'] - 50) * 0.6)
+            score += pts; parts.append({'label': f"Creator record: {sc['badge']} ({sc['score']})", 'points': pts})
+    board = await rs.caller_board(days=90)
+    me = next((r for r in board['rows'] if r.get('callerAddress') == a), None)
+    if me and me['calls'] >= 3:
+        evidence += 1
+        pts = round((me['hitRate'] - 0.3) * 30)
+        score += pts; parts.append({'label': f"Calls: {me['calls']}, {round(me['hitRate'] * 100)}% hit 2×", 'points': pts})
+    fol = len([x for x, lst in rs._fol()['following'].items() if a in lst])
+    if fol:
+        pts = min(8, fol); score += pts; parts.append({'label': f'{fol} followers', 'points': pts})
+    try:
+        sh = rs.shield_record(a)
+        if sh['broken']:
+            score -= 35 * sh['broken']; evidence += 1; parts.append({'label': f"Broke {sh['broken']} FEELESS Shield promise(s)", 'points': -35 * sh['broken']})
+        if sh['kept']:
+            score += 8 * sh['kept']; evidence += 1; parts.append({'label': f"Kept {sh['kept']} FEELESS Shield(s) to the end", 'points': 8 * sh['kept']})
+    except Exception:
+        pass
+    sh = await rs._shield_of(a)
+    if rs._shield.rep_penalty(sh):
+        score += rs._shield.rep_penalty(sh); evidence += 1; parts.append({'label': f"Bot shield: {sh['verdict']} — {sh['why']}", 'points': rs._shield.rep_penalty(sh)})
+    fz = rs._fuse_rep(a)
+    if fz:
+        score += fz['points']; evidence += 1; parts.append(fz)
+    fsc = (rs._fuse_score_cache.get(a) or (0, None))[1]   # cached only: trust never waits on (or loops through) the Fuse score
+    if fsc and rs._hq.trust_from_fuse(fsc['perf'], fsc['cards']):
+        pts = rs._hq.trust_from_fuse(fsc['perf'], fsc['cards'])
+        score += pts; evidence += 1; parts.append({'label': f"Fuse score {fsc['score']} — verified card P&L, medals, copies, streaks", 'points': pts})
+    if rs.is_verified(a):
+        score += 10; evidence += 1; parts.append({'label': 'Verified by FEELESS', 'points': 10})
+    if rs.is_muted(a):
+        score -= 10; parts.append({'label': 'Currently muted by moderators', 'points': -10})
+    score = max(0, min(100, score))
+    if evidence == 0:
+        return {'address': a, 'score': None, 'level': 'unknown', 'parts': parts, 'note': 'Not enough on-chain or FEELESS history to score this wallet yet.'}
+    level = 'high' if score >= 75 else 'good' if score >= 60 else 'caution' if score >= 40 else 'risky'
+    return {'address': a, 'score': score, 'level': level, 'parts': parts, 'evidence': evidence}
+
+
+@router.get('/api/reputation/standing/{address}')
+async def wallet_standing(address: str):
+    """One wallet across every category FEELESS scores, each with the evidence behind it and a
+    percentile against every wallet FEELESS has scored in that category."""
+    rs = _rs()
+    a = rs.primary_of(address)
+    trust = await rs.trust_score(a)
+    cats = [{'id': 'trust', 'label': 'Overall trust', 'score': trust.get('score'), 'detail': f"{len(trust.get('parts') or [])} signals", 'good': (trust.get('score') or 0) >= 60}]
+    store = rs._load()
+    creator = store['creators'].get(rs._creator_key('solana', a))
+    all_creator_scores = [x.get('score') for x in (rs.score_creator(c) for c in store['creators'].values()) if x.get('score') is not None]
+    if creator:
+        sc = rs.score_creator(creator)
+        pct = round(sum(1 for v in all_creator_scores if v <= (sc.get('score') or 0)) / max(1, len(all_creator_scores)) * 100) if sc.get('score') is not None else None
+        cats.append({'id': 'creator', 'label': 'Creator record', 'score': sc.get('score'), 'percentile': pct,
+                     'detail': f"{sc.get('badge')} · {sc.get('tokenCount', 0)} launches · {sc.get('dumpedCount', 0)} dumped", 'good': sc.get('badge') in ('trusted', 'veteran')})
+    board = await rs.caller_board(days=90)
+    me = next((r for r in board['rows'] if r.get('callerAddress') == a), None)
+    if me:
+        rates = sorted(r['hitRate'] for r in board['rows'] if r['calls'] >= 3)
+        pct = round(sum(1 for v in rates if v <= me['hitRate']) / max(1, len(rates)) * 100) if me['calls'] >= 3 else None
+        cats.append({'id': 'caller', 'label': 'Caller', 'score': round(me['hitRate'] * 100), 'percentile': pct,
+                     'detail': f"{me['calls']} calls · {me['hits']} hit 2× · {me.get('rugs', 0)} rugged", 'good': me['hitRate'] >= 0.3})
+    bl = rs._block_load()['wallets'].get(a)
+    strikes = len((bl or {}).get('mints') or {})
+    roles = sorted(set((bl or {}).get('mints', {}).values()))
+    cats.append({'id': 'clean', 'label': 'Sniper / bundler record', 'score': 100 if not strikes else max(0, 100 - strikes * 30),
+                 'detail': 'never caught sniping or bundling' if not strikes else f"caught on {strikes} launch(es) as {', '.join(roles)}{' · BLOCKLISTED' if rs._is_blocked(bl) else ''}",
+                 'good': not strikes})
+    fd = rs._funders_load()
+    frec = fd['funders'].get(a)
+    funded_by = fd['offenderFunder'].get(a)
+    if frec or funded_by:
+        cats.append({'id': 'funding', 'label': 'Funding trail', 'score': 0 if frec and rs._is_flagged_funder(frec) else 40,
+                     'detail': (f"bankrolled {len(frec['funded'])} sniper/bundler wallets across {len(frec['mints'])} launch(es)" if frec else '')
+                               + (f"{' · ' if frec else ''}funded by {funded_by[:4]}…{funded_by[-4:]}" if funded_by else ''), 'good': False})
+    fol = len([x for x, lst in rs._fol()['following'].items() if a in lst])
+    cats.append({'id': 'social', 'label': 'Community', 'score': min(100, fol * 10), 'detail': f"{fol} followers{' · verified' if rs.is_verified(a) else ''}", 'good': fol >= 3 or rs.is_verified(a)})
+    return {'address': a, 'trust': trust, 'categories': cats, 'at': rs.time.time()}
+
+
+@router.get('/api/reputation/gas/{address}')
+async def gas_check(address: str, sol: str = ''):
+    """Which chains this wallet can (and can't) pay gas on — so the trade desk can offer a one-click
+    route that converts something it already holds into gas where it's missing. `sol`: the same wallet's Solana side, read as a SOURCE
+    (SOL pays for gas on any listed chain through LI.FI)."""
+    rs = _rs()
+    if not rs._re.match(r'^0x[0-9a-fA-F]{40}$', address):
+        raise rs.HTTPException(400, 'EVM address required (0x…).')
+    async with rs.httpx.AsyncClient(timeout=8) as http:
+        px = await rs._native_prices(http)
+
+        async def bal(chain, url):
+            for u in dict.fromkeys([url, rs.GAS_RPC_PUBLIC.get(chain)]):
+                if not u:
+                    continue
+                try:
+                    r = await http.post(u, json={'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBalance', 'params': [address, 'latest']})
+                    return chain, int(r.json()['result'], 16) / 1e18
+                except Exception:
+                    continue
+            return chain, None
+
+        async def sol_bal():
+            if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', sol or ''):
+                return None
+            try:
+                return (((await rs._rpc(http, 'getBalance', [sol])) or {}).get('value') or 0) / 1e9
+            except Exception:
+                return None
+        res, sol_amt, sol_px = await rs.asyncio.gather(rs.asyncio.gather(*(bal(c, u) for c, u in rs.EVM_RPC.items() if c in rs.GAS_RPC_PUBLIC)), sol_bal(),
+                                                    rs._sol_usd() if sol else rs.asyncio.sleep(0, None))
+    out = []
+    for chain, amt in res:
+        sym = rs.NATIVE_SYMBOL.get(chain, 'ETH'); usd = amt * px.get(sym, 0) if amt is not None else None
+        need = rs.GAS_MIN_USD.get(chain, 0.25)
+        out.append({'chain': chain, 'symbol': sym, 'balance': amt, 'usd': round(usd, 2) if usd is not None else None,
+                    'enough': usd is not None and usd >= need, 'minUsd': need})
+    src = None
+    if sol_amt is not None:
+        usd = sol_amt * (sol_px or 0) if sol_px else None
+        src = {'chain': 'solana', 'symbol': 'SOL', 'address': sol, 'balance': sol_amt, 'usd': round(usd, 2) if usd is not None else None}
+    return {'address': address, 'chains': sorted(out, key=lambda x: -(x['usd'] or 0)), 'solana': src, 'at': rs.time.time()}
+
+
+@router.get('/api/reputation/tokens/search')
+async def token_search(q: str = Query(..., min_length=1, max_length=64)):
+    """Name, $ticker or contract → Solana coins, biggest market cap first.
+    Jupiter (keyed, then the keyless lite API) and DexScreener are merged, so one provider being down,
+    rate-limited or missing a fresh Pump coin never leaves the swap picker empty."""
+    rs = _rs()
+    q = q.strip().lstrip('$')
+    hit = rs._tok_search_cache.get(q.lower())
+    if hit and rs.time.time() - hit[0] < 30:
+        return hit[1]
+    found: dict = {}
+    blocks = rs._block_load()['wallets']
+
+    def add(mint, **row):
+        if not mint:
+            return
+        cur = found.setdefault(mint, {'mint': mint, 'symbol': None, 'name': None, 'icon': None, 'decimals': None,
+                                      'price': None, 'mcap': None, 'liquidity': None, 'verified': False, 'blocked': False})
+        for k, v in row.items():
+            if v not in (None, '') and (cur.get(k) in (None, '', False) or k in ('mcap', 'liquidity') and (v or 0) > (cur.get(k) or 0)):
+                cur[k] = v
+
+    async with rs.httpx.AsyncClient(timeout=8) as http:
+        async def jupiter():
+            key = rs._jkeys.read_key(rs.os.environ) or ''
+            urls = ([('https://api.jup.ag/tokens/v2/search', {'x-api-key': key})] if key else []) + [('https://lite-api.jup.ag/tokens/v2/search', {})]
+            for url, headers in urls:
+                try:
+                    r = await http.get(url, params={'query': q}, headers=headers)
+                    if r.status_code == 200 and isinstance(r.json(), list):
+                        return r.json()[:30]
+                except Exception:
+                    continue
+            return []
+
+        async def dexscreener():
+            try:
+                r = await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': q})
+                return [p for p in ((r.json() or {}).get('pairs') or []) if p.get('chainId') == 'solana'][:40] if r.status_code == 200 else []
+            except Exception:
+                return []
+
+        jup, dex = await rs.asyncio.gather(jupiter(), dexscreener())
+    for t in jup:
+        add(t.get('id'), symbol=t.get('symbol'), name=t.get('name'), icon=t.get('icon'), decimals=t.get('decimals'), price=t.get('usdPrice'),
+            mcap=t.get('mcap') or t.get('fdv'), liquidity=t.get('liquidity'), verified=bool(t.get('isVerified')),
+            blocked=rs._is_blocked(blocks.get(t.get('dev') or '')))
+    for p in dex:
+        b = p.get('baseToken') or {}
+        add(b.get('address'), symbol=b.get('symbol'), name=b.get('name'), icon=(p.get('info') or {}).get('imageUrl'),
+            price=float(p['priceUsd']) if p.get('priceUsd') else None, mcap=p.get('marketCap') or p.get('fdv'),
+            liquidity=(p.get('liquidity') or {}).get('usd'))
+    # An exact contract paste leads, then Jupiter-verified coins, then market cap (owner 2026-11-11: a fake "USDC " reporting a $76B cap
+    # outranked the real USDC — a self-reported cap is not trust).
+    rows = sorted(found.values(), key=lambda x: (x['mint'] != q, not x['verified'], -(x['mcap'] or 0), -(x['liquidity'] or 0)))[:20]
+    data = {'q': q, 'tokens': rows, 'ok': bool(jup or dex)}
+    if rows:  # never cache a miss: a provider hiccup must not blank the picker for 30s
+        rs._tok_search_cache[q.lower()] = (rs.time.time(), data)
+    if len(rs._tok_search_cache) > 2000:
+        rs._tok_search_cache.clear()
+    return data
+
+
+@router.get('/api/reputation/position/{address}/{token}')
+async def position(address: str, token: str):
+    """A wallet's position in one coin: exact on-chain fills first (any app), then the wallet-history provider, then
+    FEELESS's own order records. Average entry, real balance, fees paid, per-trade P&L. Feeds the chart line + badge."""
+    rs = _rs()
+    if not (rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or rs._re.match(r'^0x[0-9a-fA-F]{40}$', address)) or len(token) > 64:
+        raise rs.HTTPException(400, 'Bad address.')
+
+    async def history():
+        try:
+            await rs.wallet_trades(address)
+        except Exception:
+            pass   # wallet-history provider down: the chain + FEELESS's own records still give the position
+    await rs._repair_estimates(address, token)
+    _, fills, chain = await rs.asyncio.gather(history(), rs._feeless_fills(address), rs._chain_fills(address, token))
+    tok = token.lower()
+    provider = [r for r in (rs._wtrades_all.get(address) or (0, []))[1] if r['token'].lower() == tok]
+    own = [r for r in rs._json_load(rs.FEELESS_TRADES_PATH, {}).get(address, []) + fills if r['token'].lower() == tok]
+    # Locked rows first — every one of them was read from the chain once and priced at its own moment (FEELESS trades
+    # at signing, outside trades at their block time) — then anything still waiting for its price, then estimates.
+    cf = chain.get('fills') or []
+    rows = rs.trade_fills.merge([r for r in cf if r.get('locked')], [r for r in own if r.get('locked')],
+                             [r for r in cf if not r.get('locked')], [r for r in own if not r.get('locked')], provider)
+    fees = {r.get('sig'): r.get('feeUsd') or 0 for r in rs._json_load(rs.FEE_LEDGER_PATH, {}).get(rs.primary_of(address), [])}
+    pos = rs.trade_fills.position(rows, chain.get('balance') if 'balance' in chain else None, fees)
+    if pos:
+        pos['sources'] = {k: sum(1 for r in rows if (r.get('via') or 'provider') == k) for k in ('chain', 'estimate', 'feeless', 'provider')}
+        pos['chainRead'] = 'balance' in chain
+    return {'address': address, 'token': token, 'position': pos, 'balance': chain.get('balance')}
+
+
+@router.get('/api/reputation/trade-cards/{address}')
+async def trade_cards(address: str):
+    """A wallet's recent FEELESS trades as shareable cards: side, size, per-sell P&L (average cost), fee, tx, coin."""
+    rs = _rs()
+    if not rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address):
+        raise rs.HTTPException(400, 'Bad address.')
+    own = rs._json_load(rs.FEELESS_TRADES_PATH, {}).get(address, [])
+    rows = rs.trade_fills.merge(await rs._locked_fills(address), [r for r in own if r.get('locked')], own, await rs._feeless_fills(address))
+    fees = {r.get('sig'): r.get('feeUsd') or 0 for r in rs._json_load(rs.FEE_LEDGER_PATH, {}).get(rs.primary_of(address), [])}
+    cards = []
+    for tok in {r['token'] for r in rows}:
+        mine = [r for r in rows if r['token'] == tok]
+        pos = rs.trade_fills.position(mine, None, fees)
+        for t in (pos or {}).get('trades') or []:
+            cost = (t.get('tokens') or (t['usd'] / t['price'])) * pos['avgEntry']
+            cards.append({**t, 'token': tok, 'pnlPct': round(t['pnlUsd'] / cost * 100, 2) if t.get('pnlUsd') is not None and cost else None})
+    cards = sorted(cards, key=lambda c: -(c.get('ts') or 0))[:24]
+
+    async def sym(mint):
+        try:
+            async with rs.httpx.AsyncClient(timeout=4) as http:
+                r = await http.get(f'http://127.0.0.1:5001/api/trading/mint/{mint}')
+                return mint, (r.json().get('symbol') if r.status_code == 200 else None)
+        except Exception:
+            return mint, None
+    symbols = dict(await rs.asyncio.gather(*(sym(m) for m in list({c['token'] for c in cards})[:12])))
+    for c in cards:
+        c['symbol'] = symbols.get(c['token'])
+    return {'address': address, 'cards': cards}
+
+
+@router.get('/api/reputation/shields/leaderboard')
+async def shield_leaderboard():
+    rs = _rs()
+    now = rs.time.time(); by = {}
+    for mint, s in rs._json_load(rs.SHIELD_PATH, {}).items():
+        r = by.setdefault(s['creator'], {'creator': s['creator'], 'kept': 0, 'broken': 0, 'active': 0, 'coins': []})
+        st = 'broken' if s['breaches'] else ('active' if now - s['at'] < s['lockDays'] * 86400 else 'kept')
+        r[st] += 1; r['coins'].append({'mint': mint, 'status': st})
+    rows = sorted(by.values(), key=lambda r: (-(r['kept'] * 3 + r['active'] - r['broken'] * 10), -r['kept']))
+    for r in rows:
+        r['handle'] = rs.handle_of(r['creator']); r['score'] = r['kept'] * 3 + r['active'] - r['broken'] * 10
+    return {'rows': rows[:50]}
+
+
+@router.get('/api/reputation/launch-check/{mint}')
+async def launch_check(mint: str, rail: str = 'pump'):
+    """After a launch: is the coin really live? Mint on-chain (RPC), listed on pump.fun (pump rail), seen by DexScreener."""
+    rs = _rs()
+    if not rs._re.match(rs._B58, mint):
+        raise rs.HTTPException(400, 'Bad address.')
+
+    async def chain():
+        try:
+            async with rs.httpx.AsyncClient(timeout=8) as http:
+                return bool(((await rs._rpc(http, 'getAccountInfo', [mint, {'encoding': 'base64', 'commitment': 'confirmed'}])) or {}).get('value'))
+        except Exception:
+            return None
+
+    async def pump():
+        if rail != 'pump':
+            return None
+        try:
+            async with rs.httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0'}) as http:
+                r = await http.get(f'https://frontend-api-v3.pump.fun/coins-v2/{mint}')
+            return r.status_code == 200 and (r.json() or {}).get('mint') == mint
+        except Exception:
+            return None
+
+    async def dex():
+        try:
+            async with rs.httpx.AsyncClient(timeout=8) as http:
+                r = await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{mint}')
+            return bool((r.json() or {}).get('pairs'))
+        except Exception:
+            return None
+    on_chain, on_pump, on_dex = await rs.asyncio.gather(chain(), pump(), dex())
+    return {'mint': mint, 'rail': rail, 'onChain': on_chain, 'onPump': on_pump, 'onDex': on_dex,
+            'pumpUrl': f'https://pump.fun/coin/{mint}' if rail == 'pump' else None}
+
+
+@router.get('/api/reputation/token-logo/{mint}')
+async def token_logo(mint: str, w: int = 0):
+    """A coin's logo. `?w=64|128|256` answers a small webp of it (cached on disk per size), for rows and chips that show it at ≤ 128 px."""
+    rs = _rs()
+    from fastapi.responses import FileResponse, Response
+    got = await rs._token_logo_any(mint)
+    if w not in rs.LOGO_THUMBS:
+        return got
+    over = isinstance(got, FileResponse) and 'max-age=300' in str(got.headers.get('cache-control') or '')   # the owner's own logo can change: never kept as a thumb
+    tdir = rs.LOGO_DIR / 'w'; tf = tdir / f'{mint}-{w}.webp'
+    if not over and tf.exists():
+        return FileResponse(tf, media_type='image/webp', headers={'Cache-Control': 'public, max-age=604800, immutable'})
+    raw = rs.Path(got.path).read_bytes() if isinstance(got, FileResponse) else bytes(got.body)
+    small = await rs.asyncio.to_thread(rs._logo_thumb, raw, w)
+    if not small:
+        return got
+    if not over:
+        tdir.mkdir(parents=True, exist_ok=True); tf.write_bytes(small)
+    return Response(small, media_type='image/webp', headers={'Cache-Control': 'public, max-age=300' if over else 'public, max-age=604800, immutable'})
+
+
+@router.get('/api/reputation/wallet-dust/solana/{address}')
+async def wallet_dust_solana(address: str):
+    """Every coin account in this Solana wallet: $ value, the rent it locks, and the cleanup it allows (swap · burn + close · close). Read-only."""
+    rs = _rs()
+    if not rs._re.match(rs._B58, address):
+        raise rs.HTTPException(400, 'Not a Solana address.')
+    async with rs.httpx.AsyncClient(timeout=15) as http:
+        accts = await rs._sol_token_accounts(http, address)
+    meta = await rs._jup_tokens([a['mint'] for a in accts]) if accts else {}
+    prices = {m: (v or {}).get('usdPrice') for m, v in (meta or {}).items()}
+    rows = rs._dust.classify(accts, prices, meta)
+    return {'chain': 'solana', 'address': address, 'rows': rows, 'summary': rs._dust.summary(rows), 'swapMinUsd': rs._dust.SWAP_MIN_USD}
+
+
+@router.get('/api/reputation/wallet-dust/cronos/{address}')
+async def wallet_dust_cronos(address: str, add: str = Query('')):
+    """EVERY Cronos token this wallet holds, each balance read on-chain by us (balanceOf). Which contracts to read: the swap router's list, a DEX
+    list, the contracts a wallet index reports for this wallet (discovery only) and any contract pasted in `add`. Read-only; swaps go through LI.FI."""
+    rs = _rs()
+    if not rs._re.match(rs._EVM_ADDR, address):
+        raise rs.HTTPException(400, 'Not an EVM address.')
+    async with rs.httpx.AsyncClient(timeout=15) as http:
+        toks, indexed = await rs._cronos_candidates(http, address)
+        known = {str(t.get('address')).lower() for t in toks}
+        extra = [a for a in rs._dust.clean_contracts(add) if a not in known]
+        if extra:   # a pasted contract no list knows: its own decimals() + symbol()
+            toks = rs._dust.merge_tokens(toks, rs._dust.meta_tokens(extra, await rs._cronos_batch(http, rs._dust.meta_calls(extra))))
+        res = await rs._cronos_batch(http, rs._dust.balance_calls(address, toks))
+        if not res:
+            raise rs.HTTPException(503, 'Cronos RPC did not answer — try again in a few seconds.')
+    rows = rs._dust.evm_rows(toks, res)
+    native = int(res.get(0) or '0x0', 16) / 1e18 if res.get(0) else 0.0
+    return {'chain': 'cronos', 'address': address, 'rows': rows, 'nativeCro': native, 'swapMinUsd': rs._dust.SWAP_MIN_USD, 'checked': len(toks), 'indexed': indexed,
+            'summary': {'coins': len(rows), 'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2)}}
+
+
+@router.get('/api/reputation/wallet-dust/evm/{address}')
+async def wallet_dust_evm(address: str, add: str = Query('')):
+    """🌐 EVERY eco this EVM wallet holds something on (owner: "every single eco positive account"): LI.FI's wallet balances across all the chains
+    FEELESS signs on, plus our own Cronos read (LI.FI's list missed Cronos). Native coin = that chain's gas; tokens swap to it through LI.FI."""
+    rs = _rs()
+    if not rs._re.match(rs._EVM_ADDR, address):
+        raise rs.HTTPException(400, 'Not an EVM address.')
+
+    cro_meta: dict = {}
+
+    async def lifi():
+        try:
+            async with rs.httpx.AsyncClient(timeout=20) as http:
+                r = await http.get(f'https://li.quest/v1/wallets/{address}/balances', params={'extended': 'true'})
+                return r.json() if r.status_code == 200 else {}
+        except Exception:
+            return {}
+
+    async def cro():
+        try:
+            d = await rs.wallet_dust_cronos(address, add)
+        except Exception:
+            return []
+        cro_meta.update(checked=d.get('checked'), indexed=d.get('indexed'))
+        rows = [{**r, 'chain': 'cronos', 'chainId': 25, 'native': False} for r in d.get('rows') or []]
+        if rs._fuse._f(d.get('nativeCro')) > 0:
+            px = next((rs._fuse._f(t.get('priceUSD')) for t in (rs._lifi_tok_cache.get(25) or (0, []))[1] if (t.get('symbol') or '').upper() == 'WCRO'), 0.0)
+            rows.append({'chain': 'cronos', 'chainId': 25, 'address': rs._dust.NATIVE_EVM, 'symbol': 'CRO', 'name': 'Cronos', 'logo': '', 'decimals': 18,
+                         'raw': str(int(rs._fuse._f(d['nativeCro']) * 1e18)), 'ui': rs._fuse._f(d['nativeCro']), 'usd': round(rs._fuse._f(d['nativeCro']) * px, 4) if px else None,
+                         'price': px or None, 'native': True, 'best': 'gas', 'actions': []})
+        return rows
+    doc, cro_rows = await rs.asyncio.gather(lifi(), cro())
+    rows = rs._dust.merge_evm(rs._dust.lifi_rows(doc), cro_rows)
+    rows.sort(key=lambda r: (r['chain'], not r['native'], -(r['usd'] or 0)))
+    return {'chain': 'evm', 'address': address, 'rows': rows, 'chains': rs._dust.by_chain(rows), 'swapMinUsd': rs._dust.SWAP_MIN_USD, 'cronos': cro_meta,
+            'summary': {'coins': len(rows), 'chains': len({r['chain'] for r in rows}), 'usd': round(sum(r['usd'] or 0 for r in rows), 2),
+                        'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2), 'dust': sum(1 for r in rows if r['best'] == 'dust')}}
+

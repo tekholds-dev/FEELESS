@@ -6,7 +6,8 @@ A route is moved ONLY when the mover can be sure (anything else is skipped and s
   · GET only, path without 'admin', no money words in its source (sign / send / swap / withdraw / quote / transfer …)
   · decorated by plain @app.get(...) whose arguments name nothing from the module
   · parameters annotated / defaulted only with builtins, Optional, Query, Header, Request
-  · no `global` / `nonlocal`, never binds or reads a name called `rs`, and no name is both a local and a module global
+  · no `global` / `nonlocal`, never binds or reads a name called `rs`; a local may shadow a module name (globals are found by Python's
+    own scope rules: function locals, nested functions, lambdas, comprehensions); no class / match / walrus-in-comprehension inside
   .venv/bin/python scripts/move-routes.py            # dry run: what would move, what is skipped and why
   .venv/bin/python scripts/move-routes.py --apply    # move them (then: route-table.py --check, pyflakes, the backend tests)"""
 import argparse
@@ -45,6 +46,73 @@ def bound_names(fn):
         elif isinstance(n, ast.arg):
             out.add(n.arg)
     return out
+
+
+COMP = (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def scope_binds(node):
+    """Names bound directly in one scope (Python's rule: bound anywhere in a function = local everywhere in it); nested scopes not included."""
+    if isinstance(node, COMP):
+        return {t.id for g in node.generators for t in ast.walk(g.target) if isinstance(t, ast.Name)}
+    a = node.args
+    out = {x.arg for x in a.posonlyargs + a.args + a.kwonlyargs} | {x.arg for x in (a.vararg, a.kwarg) if x}
+    stack = list(node.body) if isinstance(node.body, list) else [node.body]
+    while stack:
+        n = stack.pop()
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.add(n.name); stack.extend(n.decorator_list + n.args.defaults + [d for d in n.args.kw_defaults if d]); continue
+        if isinstance(n, ast.Lambda):
+            stack.extend(n.args.defaults + [d for d in n.args.kw_defaults if d]); continue
+        if isinstance(n, COMP):
+            stack.append(n.generators[0].iter); continue
+        if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            out.add(n.id)
+        elif isinstance(n, (ast.Import, ast.ImportFrom)):
+            out |= {(x.asname or x.name).split('.')[0] for x in n.names}
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            out.add(n.name)
+        stack.extend(ast.iter_child_nodes(n))
+    return out
+
+
+def global_loads(fn, glob):
+    """Every Name read in `fn` that resolves to a module global (not to a local of fn, a nested function / lambda, or a comprehension)."""
+    hits = []
+
+    def visit(n, scopes):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for d in n.decorator_list + n.args.defaults + [d for d in n.args.kw_defaults if d]:
+                visit(d, scopes)
+            inner = scopes + [scope_binds(n)]
+            for st in n.body:
+                visit(st, inner)
+            return
+        if isinstance(n, ast.Lambda):
+            for d in n.args.defaults + [d for d in n.args.kw_defaults if d]:
+                visit(d, scopes)
+            visit(n.body, scopes + [scope_binds(n)]); return
+        if isinstance(n, COMP):
+            visit(n.generators[0].iter, scopes)   # the first iterable is evaluated in the enclosing scope
+            inner = scopes + [scope_binds(n)]
+            for i, g in enumerate(n.generators):
+                if i:
+                    visit(g.iter, inner)
+                for c in g.ifs:
+                    visit(c, inner)
+            for part in ((n.key, n.value) if isinstance(n, ast.DictComp) else (n.elt,)):
+                visit(part, inner)
+            return
+        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load):
+            if n.id in glob and n.id not in OK_ANN and not any(n.id in sc for sc in scopes):
+                hits.append(n)
+            return
+        for c in ast.iter_child_nodes(n):
+            visit(c, scopes)
+    top = [scope_binds(fn)]
+    for st in fn.body:
+        visit(st, top)
+    return hits
 
 
 def module_globals(tree):
@@ -88,10 +156,11 @@ def check(fn, src, glob):
     b = bound_names(fn)
     if 'rs' in b or any(isinstance(n, ast.Name) and n.id == 'rs' for n in ast.walk(fn)):
         return 'uses the name rs'
-    clash = sorted((b & glob) - {a.arg for a in fn.args.args + fn.args.kwonlyargs})
-    params = {a.arg for a in fn.args.args + fn.args.kwonlyargs}
-    if clash or (params & glob):
-        return f'local shadows a module name ({", ".join(sorted(clash or params & glob))[:60]})'
+    # a local that shadows a module name is fine now: global_loads() follows Python's scopes. Only the shapes it does not model are refused.
+    if any(isinstance(n, (ast.ClassDef, ast.Match)) for n in ast.walk(fn)):
+        return 'class or match inside'
+    if any(isinstance(m, ast.NamedExpr) for c in ast.walk(fn) if isinstance(c, COMP) for m in ast.walk(c)):
+        return 'walrus inside a comprehension'
     return None
 
 
@@ -99,12 +168,8 @@ def rewrite(fn, lines, glob):
     """Source of the moved route: @router.get, `rs = _rs()` first, every module global read as rs.NAME (column-exact, right to left)."""
     start = fn.decorator_list[0].lineno - 1; end = fn.end_lineno
     seg = lines[start:end]
-    hits = []
-    for n in ast.walk(fn):
-        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load) and n.id in glob and n.id not in OK_ANN and n is not None:
-            if any(n is x for x in ast.walk(fn.decorator_list[0])):
-                continue
-            hits.append((n.lineno - 1 - start, n.col_offset, n.id))
+    # ast columns count UTF-8 bytes; the line is sliced by characters (a '…' or an emoji earlier on the line would shift it)
+    hits = [(n.lineno - 1 - start, len(lines[n.lineno - 1].encode()[:n.col_offset].decode()), n.id) for n in global_loads(fn, glob)]
     by_line = {}
     for li, col, name in hits:
         by_line.setdefault(li, []).append((col, name))
@@ -166,14 +231,19 @@ def main():
         del lines[s:e]
     names = [fn.name for fn in moves]
     alias = [f'{n} = _rep_more_reads.{n}\n' for n in names]
-    tail = ('\nimport rep_more_reads as _rep_more_reads   # noqa: E402  🧩 SITE-5 slice 8: plain read routes, moved by scripts/move-routes.py\n'
-            'app.include_router(_rep_more_reads.router)\n' + ''.join(alias))
-    SRC.write_text(''.join(lines).rstrip('\n') + '\n' + tail)
+    body = ''.join(lines)
+    wired = 'app.include_router(_rep_more_reads.router)' in body   # a later run adds to the same module and the same router
+    tail = ('' if wired else '\nimport rep_more_reads as _rep_more_reads   # noqa: E402  🧩 SITE-5 slice 8: plain read routes, moved by scripts/move-routes.py\n'
+            'app.include_router(_rep_more_reads.router)\n') + ''.join(alias)
+    SRC.write_text(body.rstrip('\n') + '\n' + tail)
     head = ('"""🧩 SITE-5 slice 8 (2026-11-13): plain read routes (GET, no admin, no money, no staff checks), moved out of reputation_service by\n'
             'scripts/move-routes.py. Helpers stay there and are looked up on reputation_service when a route runs, so a test that patches them still works."""\n'
             'from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\n'
             'from typing import Optional  # noqa: F401\n\nrouter = APIRouter()\n\n\ndef _rs():\n    import reputation_service\n    return reputation_service\n\n\n')
-    DST.write_text(head + '\n\n'.join(out) + '\n')
+    if DST.exists():   # append: the routes moved by earlier runs stay where they are
+        DST.write_text(DST.read_text().rstrip('\n') + '\n\n\n' + '\n\n'.join(out) + '\n')
+    else:
+        DST.write_text(head + '\n\n'.join(out) + '\n')
     print(f'moved {len(names)} → {DST.relative_to(ROOT)}')
     return 0
 
