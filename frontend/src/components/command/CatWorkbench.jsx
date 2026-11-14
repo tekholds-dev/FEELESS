@@ -44,6 +44,7 @@ import ProofPicker from './ProofPicker';
 import { ChatGrip, ChatSizeSeg, useChatSize } from './ChatSize';
 import Duel from './Duel';
 import AgentReplay from './AgentReplay';
+import VerdictLive from './VerdictLive';
 import { ProofsList } from './ProofStamp';
 import { SetupDeck, TermsFolder } from './SetupDeck';
 import { LiveCount, useAgentPool } from './BoostFolder';
@@ -1422,6 +1423,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
       <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
     {picker ? <ProofPicker d={d} weights={pool?.weights} onPick={openProof} onClose={() => setPicker(false)} /> : null}
     {replay ? <AgentReplay d={d} name={cat?.name} onOpen={p => { setReplay(false); openProof(p); }} onClose={() => setReplay(false)} /> : null}
+    <VerdictLive catId={cat.id} onOpen={openProof} />
     {tour ? <DeskTour onDone={() => setTour(false)} /> : null}
     {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
   </div></PrintLines.Provider></PrintSeed.Provider></IconLook.Provider>, document.body);

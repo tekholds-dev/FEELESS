@@ -5,6 +5,7 @@ grade-to-boost deal does not change), and it is free (both run on the owner's ma
 Pure, except what the service passes in."""
 import json
 import re
+import time
 
 import compare_gate as _cmp
 
@@ -413,3 +414,37 @@ def outside(rv, judge, verdict, score, why='', checks=(), now=None):
     out = combine(by, rec, rv.get('builders') or [])
     keep = {k: rv[k] for k in ('hidden', 'evidenceSha', 'at') if rv.get(k) is not None}
     return {**out, **keep, 'outside': sorted(k for k, v in out['by'].items() if (v or {}).get('outside'))}
+
+
+LIVE_KEEP_S = 600   # AGX-9: a finished judging stays on the desk 10 minutes, then the meter goes
+
+
+def live_start(kind, f, recused_=(), now=None):
+    """⚖ AGX-9: the live record of one judging, before any judge answers: every judge waiting (a builder sits out). Pure."""
+    t = round(now if now is not None else time.time())
+    return {'fid': f.get('id'), 'kind': kind, 'n': f.get('n'), 'title': str(f.get('topic') or f.get('sym') or f.get('name') or '')[:80], 'at': t, 'done': None,
+            'judges': {k: {'state': 'out' if k in recused_ else 'wait'} for k, _m, _n in REVIEWERS}}
+
+
+def live_judge(j, key, v=None, state=None, now=None):
+    """One judge's turn on the live record: 'think' while it reads, then its verdict as it lands ('down' when it gave none). Mutates j; returns it."""
+    t = round(now if now is not None else time.time())
+    if state == 'think':
+        j['judges'][key] = {'state': 'think', 'since': t}
+    elif v:
+        j['judges'][key] = {'state': 'done', 'score': v['score'], 'verdict': v['verdict'], 'why': str(v.get('why') or '')[:200], 'checks': list(v.get('checks') or [])[:5], 'at': t}
+    else:
+        j['judges'][key] = {'state': 'down', 'at': t}
+    return j
+
+
+def live_view(j, now=None, keep=LIVE_KEEP_S):
+    """What the desk shows: the judging in flight, or the last one for `keep` seconds after it finished; else None. Pure."""
+    if not j:
+        return None
+    t = now if now is not None else time.time()
+    if j.get('done') and t - float(j['done']) > keep:
+        return None
+    if not j.get('done') and t - float(j.get('at') or 0) > 4 * 240 + 60:   # every judge has a 240 s limit: a record that old was cut off (a restart)
+        return None
+    return j

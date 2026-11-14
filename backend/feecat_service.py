@@ -6302,6 +6302,7 @@ _REVIEW_DONE: list = []   # 🧑‍⚖️ verdicts waiting for the engine (the s
 REVIEW_SCOPE = tuple(x for x in os.environ.get('FEELESS_REVIEW_SCOPE', 'sicarios').split(',') if x.strip() and x.strip() != 'all')   # owner 2026-11-10: test on Sicario's; Happy's is his once all is confirmed (FEELESS_REVIEW_SCOPE=all opens it)
 _REVIEW_LESSONS = {}       # kind → what the reviewers failed lately, every proof of that kind reads it (COL-10)
 _REVIEWED = set()          # (cat, folder) already asked this run, so a failing one is not asked again and again
+_JUDGING: dict = {}       # ⚖ AGX-9: cat id → the proof The Collective is judging now (or judged in the last 10 min), each judge's verdict as it lands
 REVIEW_EVERY_S = 90
 
 
@@ -6347,9 +6348,11 @@ async def _review_one(store):
     builders_ = _review.builders_of(f, cat.get('brainsCfg'), kind); out_ = _review.recused(builders_)   # 🔒 a builder never judges its own proof
     sic = next((c for c in store['cats'].values() if c.get('handle') == 'sicarios'), None) or {'id': 'collective', 'ownerStaff': True}
     rows_ = await _review_rows(); titles_ = _review_titles(store)
+    live_ = _JUDGING[cid] = _review.live_start(kind, f, out_)
     for key, model, name in _review.REVIEWERS:
         if key in out_:
             by[key] = None; continue
+        _review.live_judge(live_, key, state='think')
         tok = _CALL_CTX.set({'kind': kind, 'ref': f'review:{f.get("id")}', 'minds': [m for _k, m, _n in _review.REVIEWERS]})
         try:
             raw, _usd, _via = await asyncio.wait_for(_think({**sic, 'ownerStaff': True}, model, [{'role': 'system', 'content': _review.SYS}, {'role': 'user', 'content': body + _review.misses_line(_review.misses(rows_, key, titles_), name)}], max_tokens=700), 240)   # 🎯 COL-20: each judge reads its OWN misses (the evidence hash stays on the proof alone)
@@ -6357,12 +6360,15 @@ async def _review_one(store):
             if by[key]:
                 row_ = next((r for r in reversed(_calls_of(sic.get('id'), 50)) if r.get('ref') == f'review:{f.get("id")}' and r.get('asked') == model), {})
                 by[key]['answeredBy'] = f"{row_.get('route') or '?'} · {row_.get('model') or '?'}"   # who REALLY answered, from the call log (a stand-in shows as one)
+            _review.live_judge(live_, key, by[key])
         except Exception as e:   # noqa: BLE001: one reviewer down never stops the other
             print(f'[review] {name}: {type(e).__name__}')
             by[key] = None
+            _review.live_judge(live_, key, None)
         finally:
             _CALL_CTX.reset(tok)
     rv = {**_review.combine(by, out_, builders_, body), 'at': round(time.time())}
+    live_.update(done=rv['at'], score=rv['score'], verdict=rv['verdict'], agree=rv['agree'])
     if kind == 'pos' and f_.get('_page'):   # 🕵 P1: code-run checks the builders are never shown; independent of any judge (they still run when every judge sat out)
         rv['hidden'] = _ps_hidden.run(f_['_page'], _kit_pins())   # P2: + every reused kit on today's tested pin (the review lists the kits it checked)
     _REVIEW_DONE.append((cid, kind, f.get('id'), rv)); _POW_WAKE.set()
@@ -11741,6 +11747,17 @@ def _colony_vitals(cat):
     last = max(cells, key=lambda c: float(c.get('at') or 0)) if cells else None
     return {'colonized': _hive_on(cat), 'honey': int(row.get('honey') or 0), 'right': int(row.get('right') or 0), 'graded': int(row.get('graded') or 0),
             'lastCall': {k: last.get(k) for k in ('call', 'sym', 'honey', 'kind')} if last else None, 'pow': _pow_view(cat)}
+
+
+@app.get('/api/cats/{cat_id}/judging')
+async def cat_judging(cat_id: str):
+    """⚖ AGX-9: the proof The Collective is judging on this agent right now, each judge's score + reason as it lands (kept 10 min after).
+    Judges show as The Collective to everyone but the owner's staff agents (the same rule as every review)."""
+    cat = _load()['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    j = _review.live_view(_JUDGING.get(cat_id))
+    return {'judging': _for_users(cat, {'judges': j['judges'], **{k: v for k, v in j.items() if k != 'judges'}}) if j else None}
 
 
 @app.get('/api/cats/{cat_id}/treasury')

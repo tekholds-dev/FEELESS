@@ -10,14 +10,13 @@
 > 1. Read `CLAUDE.md` then this file. Work the build order above, **one card at a time, full build, shown LIVE to the owner before moving to the next** (this is the fix for the surfaces he re-asked 20× that only got half-done).
 > 2. Before building a card, give the owner the shortlist of the best free tools/services for it, then build.
 > 3. **State 2026-11-14 02:30 UTC (opus-5.5, pushed):** POC-PLAY DONE (cut-out, week board, 3 brain weeks filed, references, Postiz posting) · COL-6 needs no Gemma (outside judge; only the stamp clock left) · SITE-5 DONE (613/632 routes outside; 19 stay on purpose) · SITE-8 `--workers` NOT flipped (see card: 61 background loops have no leader).
-> 4. **Next:** the AGX-9…10 cards below, in order (AGX-1…5 + 7 + 8 ✅, AGX-6 built: your exam run left · 2026-11-14) (Collective How it pays + Its pot redone 2026-11-14) · OWNER real-money tests (everything else he asked for is built) · LEGAL-1 owner blanks · SITE-8 multi-worker (scale work, see card — not needed for today's load).
+> 4. **Next:** the AGX-10 card below (AGX-1…5 + 7…9 ✅, AGX-6 built: your exam run left · 2026-11-14) (Collective How it pays + Its pot redone 2026-11-14) · OWNER real-money tests (everything else he asked for is built) · LEGAL-1 owner blanks · SITE-8 multi-worker (scale work, see card — not needed for today's load).
 > 4. Never move real funds / hit mainnet; the owner does all real-money tests.
 
 ## AGENTS + COLLECTIVE NEXT (owner 2026-11-14: "DO 1–10") — work in order, one card at a time, shown live
 Styling: `docs/specs/style.md` tokens only · libraries first (shadcn, Motion, Recharts) · real data · every tab clicked + screenshot. Agent desk = `frontend/src/components/command/CatWorkbench.jsx`; Collective = `CollectiveLanding.jsx`; COMP = the COMP window on `/terminal/feecat/agents`.
 
 **AGX-6 · COMP training as a race** · BUILT 2026-11-14 (opus-5.5) — owner check left · the exam now seats OSSY (this Mac's LM Studio) + G4 (the desktop's, LAN) on the same held-out proofs, never a fallback (off = said, not swapped); every finished exam joins `exam_history.jsonl`; COMP v2 › THE EXAM opens with the race (one line per model, COMP bold, "COMP is #N of M" + crown). **Left:** owner presses Run the exam (COMP v2 tab) once with both LM Studios up → the race plots all models; tell me if G4 says "did not answer".
-**AGX-9 · Collective verdict live** · OPEN · claimed: — · when The Collective judges a proof, both scores animate onto one meter as they arrive, with each judge's reason. Done when: a real judging shows it live.
 **AGX-10 · Pot alerts that teach + an APPROVE spot** · OPEN · claimed: — · a proof under 1x sends the agent's chat "Fix first: …" (`AgentPot.biggestLift`) with a one-tap redo. **The redo spends model usage, so it never runs on its own:** it goes to an "Approve" inbox (one place the user goes; shows what runs, which model, est. usage/cost) and runs only after the user taps Approve. Same inbox for any other agent action that spends usage. Done when: no usage spent without an Approve tap (test), inbox shown live.
 
 ## COLLECTIVE
