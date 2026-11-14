@@ -78,7 +78,9 @@ def test_edge_observe_and_perps_send_are_limited_per_device():
     rs._edge_ip.clear(); rs._fjx_hits.clear()
     assert all(rs._ip_hit(rs._edge_ip, Req(), 120, 3600) for _ in range(120)) and not rs._ip_hit(rs._edge_ip, Req(), 120, 3600)
     assert all(rs._ip_hit(rs._fjx_hits, Req(), 30, 3600) for _ in range(30)) and not rs._ip_hit(rs._fjx_hits, Req(), 30, 3600)
-    src = open(rs.__file__).read()
+    import pathlib
+    import re
+    src = re.sub(r'\b(?:rs|_RSM)\.', '', ''.join(f.read_text() for f in [pathlib.Path(rs.__file__), *sorted(pathlib.Path(rs.__file__).parent.glob('rep_*.py'))]))   # SITE-5 moves routes out; read them wherever they are
     assert 'if not _ip_hit(_edge_ip, request, 120, 3600)' in src and 'if not _ip_hit(_fjx_hits, request, 30, 3600)' in src
 
 

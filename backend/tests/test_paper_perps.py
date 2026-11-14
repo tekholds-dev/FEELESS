@@ -60,7 +60,9 @@ def test_the_paper_desk_through_the_service_never_touches_a_venue(monkeypatch):
     from fastapi import HTTPException
     with pytest.raises(HTTPException):
         asyncio.run(rs.familia_paper_perps_act(rs.PaperPerpAct(address=me, session='s', act='open', coin='DOGE', side='long', margin=50, lev=2)))
-    src = open(rs.__file__).read()
+    import pathlib
+    import re
+    src = re.sub(r'\b(?:rs|_RSM)\.', '', ''.join(f.read_text() for f in [pathlib.Path(rs.__file__), *sorted(pathlib.Path(rs.__file__).parent.glob('rep_*.py'))]))   # SITE-5 moves routes out; read them wherever they are
     i = src.index('async def familia_paper_perps_act('); body = src[i:src.index('\n\n\n', i)]
     assert 'http' not in body.replace('HTTPException', '')                                   # nothing in the paper desk calls out
     rs._perps_cache.update(at=0.0, rows=[])
