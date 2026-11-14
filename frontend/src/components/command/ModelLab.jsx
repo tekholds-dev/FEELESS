@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useCountUp } from '../../lib/useCountUp';
 import SegTabs from '../SegTabs';
 import { ModelComp2 } from './ModelComp2';
+import { DatasetPulse } from './CompExplain';
 import { ModelForge } from './ModelForge';
 import { CompLive, CompTools } from './CompLive';
 import '../../styles/modelLab.css';
@@ -95,6 +96,7 @@ export function ModelLab({ call }) {
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
     {d ? <>
       <section className="mlb-sec"><h4>THE DATASET · LIVE FROM THE STASH<small>{d.snapshots} snapshots kept as evidence, not rows</small></h4>
+        <DatasetPulse d={d} />
         <ul className="mlb-kinds">{d.kinds.map((k, i) => <KindCard key={k.kind} k={k} goals={d.goals} i={i} />)}
           <li className="mlb-kind mlb-duels" style={{ '--i': d.kinds.length }} data-testid="mlb-kind-Duels" data-tip="⚔ Duels: both minds answered one ask in an agent's chat and you tapped the better one. Each is a right-vs-wrong pair, picked by a person">
             <header><b>⚔ Duels</b><span className="m-chip">your picks</span></header>

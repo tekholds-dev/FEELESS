@@ -3,6 +3,7 @@ import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, T
 import { ProgressCircle } from '@heroui/react';
 import { Brain, Globe, GraduationCap, RefreshCw, Scale, Target, ThumbsUp } from 'lucide-react';
 import { useCountUp } from '../../lib/useCountUp';
+import { examVerdict } from './CompExplain';
 
 // 🚀 COMP v2 · 9B (owner 2026-11-12: "see how close or farther it is from being better or same as claude and gpt"). LIVE: Qwen3.5-9B on this
 // Mac, LoRA fine-tuned with MLX on the owner's settled proofs (only what each proof said BEFORE it settled), then examined on held-out proofs
@@ -118,7 +119,7 @@ export function ModelComp2({ call }) {
     </section>
     <Ways d={d} busy={busy} collect={() => go('/admin/model-lab/comp2/collect')} />
     <section className="mlb-sec"><h4>THE EXAM · SAME HELD-OUT PROOFS FOR EVERYONE<small>{d.examRunning ? 'sitting it now…' : d.exam ? `${d.exam.n} questions · ${new Date(d.exam.at * 1000).toLocaleString()}` : 'not sat yet'}</small></h4>
-      {d.exam ? <><Board exam={d.exam} /><Kinds exam={d.exam} /></> : <p className="mlb-none">Train it, then run the exam: every examinee answers the same proofs.</p>}
+      {d.exam ? <>{examVerdict(d.exam) ? <p className="cex-verdict" data-testid="mc2-verdict">{examVerdict(d.exam)}</p> : null}<Board exam={d.exam} /><Kinds exam={d.exam} /></> : <p className="mlb-none">Train it, then run the exam: every examinee answers the same proofs.</p>}
       <small className="mlb-note">A flagship with no key is blocked, never guessed. Save one in HQ › Agents and run the exam again; it asks at most 40 questions.</small>
     </section>
   </div>;

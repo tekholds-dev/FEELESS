@@ -653,7 +653,8 @@ test('🧠 COMPAI: the header name is the model, Build trains its next version f
   const run = el.querySelector('[data-testid="mlf-run"]');
   expect(run.textContent).toContain('LEARNING LIVE'); expect(run.textContent).toContain('from v1.01'); expect(run.textContent).toContain('GRAD NORM');
   expect(el.querySelector('[data-testid="mlf-learn"]').textContent).toContain('sold at +40%'); expect(el.querySelector('[data-testid="mlf-top"]').textContent).toContain('41.0%');
-  expect(el.querySelectorAll('.mlf-attn-grid i').length).toBe(9);
+  expect(el.querySelector('[data-testid="cex-say"]').textContent).toBe('Guessing what comes after “W”, it leaned on “o” most: 1.3× more than “P”.');   // 🔍 AGX-5: the heads blended, said plainly
+  expect(el.querySelectorAll('[data-testid="cex-blend"] span').length).toBe(3);
   const ren = el.querySelector('[data-testid="mlb-name"]'); const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   await act(async () => { setter.call(ren, 'COMP Prime'); ren.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { jest.advanceTimersByTime(700); });

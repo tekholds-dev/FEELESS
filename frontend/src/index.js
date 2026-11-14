@@ -98,6 +98,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/LaunchHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/street') {   // 🧪 THE STREETS on a fixture read (src/dev/StreetHarness.jsx)
   import('./dev/StreetHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/comp') {   // 🧪 AGX-5 COMP explained (src/dev/CompHarness.jsx)
+  import('./dev/CompHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/duel') {   // 🧪 AGX-4 two-mind duel (src/dev/DuelHarness.jsx)
   import('./dev/DuelHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/picker') {   // 🧪 AGX-1 proof picker on an agent's public proofs (src/dev/PickerHarness.jsx)

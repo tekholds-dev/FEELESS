@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis } from 'recharts';
 import { boxRef } from '../../lib/boxRef';
+import { AttnExplained } from './CompExplain';
 import { useCountUp } from '../../lib/useCountUp';
 
 // 🏗 COMPAI · the model forge (owner 2026-11-12: "elite dev's dash … live view of whatever it's learning … one model: COMP Flagship v1.02").
@@ -59,15 +60,6 @@ function Pipe({ live, status }) {   // HOW it learns: the five things every trai
     <li key={k} style={{ '--i': i }} className={status === 'tokenizing' && k === 'tok' ? 'is-on' : ''} data-tip={say}><b>{t}</b><small>{say}</small></li>)}</ol>;
 }
 
-function Attn({ peek }) {   // WHERE it looks: the last block's attention for one fixed probe, one grid per head (row = token, column = what it reads)
-  const [h, setH] = useState(0); const a = peek?.attn; if (!a?.heads?.length) return null; const m = a.heads[Math.min(h, a.heads.length - 1)]; const T = a.tokens.length;
-  return <div className="mlf-attn" data-testid="mlf-attn"><div className="mlf-attn-head"><small className="m-label">WHERE IT LOOKS · LAST BLOCK · STEP {peek.step}</small>
-    <div className="m-seg" role="radiogroup" aria-label="Attention head">{a.heads.map((_, i) => <button key={i} type="button" role="radio" aria-checked={h === i} className={h === i ? 'active' : ''} onClick={() => setH(i)} data-tip={`Head ${i + 1}: each head learns its own way to look back`}>H{i + 1}</button>)}</div></div>
-    <div className="mlf-attn-grid" style={{ '--t': T }} role="img" aria-label={`Attention of head ${h + 1}`}>{m.map((row, i) => row.map((v, j) =>
-      <i key={`${i}-${j}`} style={{ opacity: j > i ? 0 : Math.max(0.05, v) }} data-tip={`“${show(a.tokens[i])}” reads “${show(a.tokens[j])}” ${(v * 100).toFixed(0)}%`} />))}</div>
-    <div className="mlf-attn-toks" style={{ '--t': T }}>{a.tokens.map((t, i) => <span key={i}>{show(t)}</span>)}</div></div>;
-}
-
 function Learning({ job }) {   // WHAT it learns: its own words at each checkpoint + its top-5 guesses for the next token after the probe
   const s = job.samples || []; const pk = job.peek; if (!s.length && !pk) return null; const now = s[s.length - 1];
   return <div className="mlf-learn" data-testid="mlf-learn">
@@ -75,7 +67,7 @@ function Learning({ job }) {   // WHAT it learns: its own words at each checkpoi
       <ol className="mlf-past">{s.slice(0, -1).reverse().slice(0, 4).map(x => <li key={x.step}><em className="m-num">{x.step}</em>{x.text.slice(0, 90)}</li>)}</ol></div> : null}
     {pk ? <div className="mlf-top" data-testid="mlf-top"><small className="m-label">TOP-5 NEXT TOKEN</small>{pk.top.map((t, i) => <span key={`${t.tok}${i}`} style={{ '--i': i }} data-tip={`${(t.p * 100).toFixed(1)}% sure the next token is “${show(t.tok)}”`}>
       <code>{show(t.tok)}</code><i className="mlb-bar"><u style={{ transform: `scaleX(${t.p})` }} /></i><b className="m-num">{(t.p * 100).toFixed(1)}%</b></span>)}</div> : null}
-    <Attn peek={pk} /></div>;
+    <AttnExplained peek={pk} /></div>;
 }
 
 function Versions({ built, pick, setPick }) {   // the version board + the scaling chart (parameters vs held-out loss: lower right = bigger and better)
