@@ -31,7 +31,7 @@ export function CompLive() {
   const moving = !!frame?.live; const kinds = data.kinds || []; const topRows = Math.max(1, ...kinds.map(k => k.rows || 0));
   return <section className={`cplv${moving ? ' is-moving' : ''}`} data-testid="comp-live" aria-label="COMP live">
     <header className="cplv-head"><span className={`cplv-dot${live ? ' is-on' : ''}`} aria-hidden="true" /><b>COMP LIVE</b><small data-testid="cplv-state">{!live ? 'connecting to the live stream…' : moving ? 'TRAINING / EXAM RUNNING · numbers stream as they move' : 'idle · the last real numbers, held still'}</small>{frame ? <em className="m-num">{new Date(frame.at * 1000).toLocaleTimeString()}</em> : null}</header>
-    <div className="cplv-grid">
+    {!frame ? null : <div className="cplv-grid">
       <article className={`cplv-tile${c2.training ? ' is-hot' : ''}`} data-tip="COMP v2 · 9B LoRA: the training loss on the answer word (lower = it fits your proofs better), streamed from its log"><small>COMP v2 · LOSS</small>
         <b className="m-num" data-testid="cplv-loss">{f2(c2.loss)}</b><span>iter <N v={c2.iter} /> / {c2.iters || '—'} · held-out {f2(c2.val)}</span>
         <i className="cplv-bar"><u style={{ transform: `scaleX(${c2.iters ? Math.max(0.02, (c2.iter || 0) / c2.iters) : 0})` }} /></i><Spark pts={c2.tail} color={c.up} testid="cplv-spark-c2" /></article>
@@ -47,7 +47,7 @@ export function CompLive() {
       <article className="cplv-tile" data-tip="The internet learner: live DexScreener snapshots settled an hour later become new training rows"><small>INTERNET LEARNER</small>
         <b className="m-num" data-testid="cplv-market">{mk ? <N v={mk.rows} /> : '—'}</b><span>{mk ? `${mk.open ?? 0} open · ${mk.won ?? 0} won / ${mk.lost ?? 0} lost · ${mk.collects ?? 0} passes` : 'not collecting yet'}</span>
         <span className="cplv-next">next settle <b className="m-num"><Countdown at={mk?.nextSettle} /></b></span></article>
-    </div>
+    </div>}
   </section>;
 }
 

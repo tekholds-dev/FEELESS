@@ -44,6 +44,7 @@ function Gauge({ ratio }) {
 
 function Versions({ builds }) {
   if (!builds.length) return <p className="cg-none">No version built yet.</p>;
+  if (builds.length < 2) { const b = builds[0]; return <p className="cg-none" data-testid="cg-versions">One version so far: <b>{b.v}</b>{b.val != null ? ` · error ${Number(b.val).toFixed(3)}` : ''}. The size-vs-error chart draws from the 2nd build, so you can see if bigger got better.</p>; }   // 2026-11-14: no big empty chart for one dot
   return <div className="cg-chart" data-testid="cg-versions"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={builds} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
     <CartesianGrid stroke="var(--m-line)" vertical={false} />
     <XAxis dataKey="v" tick={{ fill: 'var(--m-dim)', fontSize: 10 }} tickLine={false} axisLine={false} />

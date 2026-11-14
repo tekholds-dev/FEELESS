@@ -12,7 +12,7 @@ test('📡 COMP LIVE shows only streamed numbers: loss, exam, forge, rows per ki
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<CompLive />); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('cplv-state').textContent).toMatch(/connecting/); expect(q('cplv-loss').textContent).toBe('—'); expect(q('cplv-forge').textContent).toBe('—');
+  expect(q('cplv-state').textContent).toMatch(/connecting/); expect(q('cplv-loss')).toBeNull();   // no stream yet: one line, no empty tiles (2026-11-14)
   mockFrame = { at: 1700000000, live: true, comp2: { training: true, iter: 40, iters: 200, loss: 1.4, val: 1.9, tail: [[10, 3], [40, 1.4]], examAnswered: 2, examTotal: 3, examN: 28, best: { name: 'COMP v2', acc: 0.61 }, compAcc: 0.61, baseAcc: 0.54, won: 75, lost: 67, market: { rows: 12, open: 3, won: 5, lost: 4, collects: 9 } },
     forge: { live: false, status: 'done', step: 1000, steps: 1000, loss: 3.61, tps: 1200, version: 'v1.02', tail: [[1, 4], [2, 3.6]] }, data: { rows: 144, pairs: 48, kinds: [{ kind: 'PoW', rows: 38 }, { kind: 'PoB', rows: 57 }] } };
   await act(async () => { root.render(<CompLive key="2" />); });

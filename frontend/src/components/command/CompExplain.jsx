@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import '../../styles/compExplain.css';
 
 // 🔍 AGX-5 · COMP EXPLAINED (owner 2026-11-14: "amaze me" — read at a glance). Pure helpers + three views:
@@ -75,9 +75,10 @@ export function DatasetPulse({ d }) {
       <BarChart data={r.rows} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 4 }} barCategoryGap={6}>
         <XAxis type="number" hide /><YAxis type="category" dataKey="kind" width={78} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--m-dim)' }} />
         <Tooltip contentStyle={tipStyle} cursor={{ fill: 'transparent' }} />
-        <Bar dataKey="right" stackId="a" fill="var(--m-accent)" radius={[4, 0, 0, 4]} isAnimationActive={false} />
-        <Bar dataKey="wrong" stackId="a" fill="var(--m-danger)" isAnimationActive={false} />
-        <Bar dataKey="flat" stackId="a" fill="var(--m-mute)" radius={[0, 4, 4, 0]} isAnimationActive={false} /></BarChart></ResponsiveContainer></div> : null}</div>;
+        <Bar dataKey="right" name="won" stackId="a" fill="var(--m-accent)" radius={[4, 0, 0, 4]} isAnimationActive={false}><LabelList dataKey="right" position="insideLeft" style={{ fontSize: 10, fontWeight: 700, fill: 'var(--m-bg)' }} formatter={v => (v ? v : '')} /></Bar>
+        <Bar dataKey="wrong" name="lost" stackId="a" fill="var(--m-danger)" isAnimationActive={false}><LabelList dataKey="wrong" position="insideLeft" style={{ fontSize: 10, fontWeight: 700, fill: 'var(--m-bg)' }} formatter={v => (v ? v : '')} /></Bar>
+        <Bar dataKey="flat" stackId="a" fill="var(--m-mute)" radius={[0, 4, 4, 0]} isAnimationActive={false} /></BarChart></ResponsiveContainer></div> : null}
+    <ul className="cex-dkey" aria-label="Key"><li style={{ '--c': 'var(--m-accent)' }}><i />won (proved right)</li><li style={{ '--c': 'var(--m-danger)' }}><i />lost (proved wrong)</li><li style={{ '--c': 'var(--m-mute)' }}><i />flat</li><li>goal: {r.goal.toLocaleString()} rows a type</li></ul></div>;
 }
 
 /** Pure: COMP v2's exam in one line. */
