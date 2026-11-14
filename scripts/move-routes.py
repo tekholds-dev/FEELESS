@@ -129,19 +129,20 @@ def module_globals(tree):
     return g
 
 
-def check(fn, src, glob):
+def check(fn, src, glob, writes=False, models=frozenset()):
     if len(fn.decorator_list) != 1:
         return 'not exactly one decorator'
     d = fn.decorator_list[0]
-    if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and isinstance(d.func.value, ast.Name) and d.func.value.id == 'app' and d.func.attr == 'get'):
-        return 'not @app.get'
+    verbs = ('post', 'put', 'delete', 'patch') if writes else ('get',)
+    if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and isinstance(d.func.value, ast.Name) and d.func.value.id == 'app' and d.func.attr in verbs):
+        return f"not @app.{'/'.join(verbs)}"
     if not d.args or not isinstance(d.args[0], ast.Constant) or 'admin' in str(d.args[0].value):
         return 'admin path or computed path'
     if any(isinstance(n, ast.Name) for a in d.args[1:] + [k.value for k in d.keywords] for n in ast.walk(a)):
         return 'decorator names module values'
     for a in fn.args.args + fn.args.kwonlyargs:
         for n in ast.walk(a.annotation) if a.annotation else []:
-            if isinstance(n, ast.Name) and n.id not in OK_ANN:
+            if isinstance(n, ast.Name) and n.id not in OK_ANN and n.id not in models:
                 return f'parameter type {n.id}'
     for dflt in fn.args.defaults + [x for x in fn.args.kw_defaults if x is not None]:
         for n in ast.walk(dflt):
@@ -164,22 +165,24 @@ def check(fn, src, glob):
     return None
 
 
-def rewrite(fn, lines, glob):
+def rewrite(fn, lines, glob, models=frozenset()):
     """Source of the moved route: @router.get, `rs = _rs()` first, every module global read as rs.NAME (column-exact, right to left)."""
     start = fn.decorator_list[0].lineno - 1; end = fn.end_lineno
     seg = lines[start:end]
     # ast columns count UTF-8 bytes; the line is sliced by characters (a '…' or an emoji earlier on the line would shift it)
     hits = [(n.lineno - 1 - start, len(lines[n.lineno - 1].encode()[:n.col_offset].decode()), n.id) for n in global_loads(fn, glob)]
-    by_line = {}
-    for li, col, name in hits:
+    ann = [(n.lineno - 1 - start, len(lines[n.lineno - 1].encode()[:n.col_offset].decode()), n.id) for a in fn.args.args + fn.args.kwonlyargs if a.annotation
+           for n in ast.walk(a.annotation) if isinstance(n, ast.Name) and n.id in models]   # a body model is read off the loaded service: _RSM.Model
+    ann_set = set(ann); by_line = {}
+    for li, col, name in hits + ann:
         by_line.setdefault(li, []).append((col, name))
     for li, cols in by_line.items():
         s = seg[li]
         for col, name in sorted(cols, reverse=True):
             assert s[col:col + len(name)] == name, (fn.name, s, col, name)
-            s = s[:col] + 'rs.' + s[col:]
+            s = s[:col] + ('_RSM.' if (li, col, name) in ann_set else 'rs.') + s[col:]
         seg[li] = s
-    seg[0] = seg[0].replace('@app.get(', '@router.get(', 1)
+    seg[0] = re.sub(r'@app\.(get|post|put|delete|patch)\(', r'@router.\1(', seg[0], count=1)
     body0 = fn.body[0]
     doc = isinstance(body0, ast.Expr) and isinstance(body0.value, ast.Constant) and isinstance(body0.value.value, str)
     at = (body0.end_lineno if doc else body0.lineno) - start   # insert after the docstring, or before the first statement
@@ -189,17 +192,22 @@ def rewrite(fn, lines, glob):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--apply', action='store_true'); ap.add_argument('--max', type=int, default=400); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument('--apply', action='store_true'); ap.add_argument('--max', type=int, default=400)
+    ap.add_argument('--writes', action='store_true', help='move plain WRITE routes (POST/PUT/DELETE/PATCH; no admin, money or staff words) to rep_more_writes.py')
+    a = ap.parse_args()
+    dst = ROOT / 'backend' / ('rep_more_writes.py' if a.writes else 'rep_more_reads.py'); mod = dst.stem
     text = SRC.read_text(); lines = text.splitlines(keepends=True); tree = ast.parse(text); glob = module_globals(tree)
+    models = frozenset(n.name for n in tree.body if isinstance(n, ast.ClassDef) and any(getattr(b, 'id', '') == 'BaseModel' for b in n.bases)) if a.writes else frozenset()
+    verbs = ('post', 'put', 'delete', 'patch') if a.writes else ('get', 'api_route')
     moves, skips = [], {}
     pats = []   # every GET path in the app, as a regex: a moved route lands LAST, so it must not be catchable by any other path pattern
     for n in ast.walk(tree):
-        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in ('get', 'api_route') and n.args and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str) and n.args[0].value.startswith('/'):
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in verbs + ('api_route',) and n.args and isinstance(n.args[0], ast.Constant) and isinstance(n.args[0].value, str) and n.args[0].value.startswith('/'):
             pth = n.args[0].value
             if '{' in pth:
                 pats.append((pth, re.compile('^' + re.sub(r'\\\{[^}]+\\\}', '[^/]+', re.escape(pth)) + '$')))
     for f in sorted(ROOT.joinpath('backend').glob('rep_*.py')):
-        for pth in re.findall(r"@router\.(?:get|api_route)\('([^']+)'", f.read_text()):
+        for pth in re.findall(r"@router\.(?:" + '|'.join(verbs) + r"|api_route)\('([^']+)'", f.read_text()):
             if '{' in pth:
                 pats.append((pth, re.compile('^' + re.sub(r'\\\{[^}]+\\\}', '[^/]+', re.escape(pth)) + '$')))
     for fn in tree.body:
@@ -209,7 +217,7 @@ def main():
         if not (isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and getattr(d.func.value, 'id', '') == 'app'):
             continue
         src = ''.join(lines[d.lineno - 1:fn.end_lineno])
-        why = check(fn, src, glob - {fn.name})
+        why = check(fn, src, glob - {fn.name}, a.writes, models)
         me = d.args[0].value if d.args and isinstance(d.args[0], ast.Constant) else ''
         if not why and any(o != me and rx.match(re.sub(r'\{[^}]+\}', 'x1y', me)) for o, rx in pats):
             why = 'another path pattern could catch it once it moves last'
@@ -218,33 +226,38 @@ def main():
             continue
         moves.append(fn)
     moves = moves[:a.max]
-    print(f'move {len(moves)} read routes')
+    print(f"move {len(moves)} {'write' if a.writes else 'read'} routes")
     for k, v in sorted(skips.items(), key=lambda kv: -len(kv[1])):
         print(f'  skip {len(v):>3}  {k}')
     if not a.apply:
         return 0
     out, cut = [], []
     for fn in moves:
-        code, rng = rewrite(fn, lines, glob - {fn.name})
+        code, rng = rewrite(fn, lines, glob - {fn.name}, models)
         out.append(code); cut.append(rng)
     for s, e in sorted(cut, reverse=True):
         del lines[s:e]
     names = [fn.name for fn in moves]
-    alias = [f'{n} = _rep_more_reads.{n}\n' for n in names]
+    alias = [f'{n} = _{mod}.{n}\n' for n in names]
     body = ''.join(lines)
-    wired = 'app.include_router(_rep_more_reads.router)' in body   # a later run adds to the same module and the same router
-    tail = ('' if wired else '\nimport rep_more_reads as _rep_more_reads   # noqa: E402  🧩 SITE-5 slice 8: plain read routes, moved by scripts/move-routes.py\n'
-            'app.include_router(_rep_more_reads.router)\n') + ''.join(alias)
-    SRC.write_text(body.rstrip('\n') + '\n' + tail)
+    wired = f'app.include_router(_{mod}.router)' in body   # a later run adds to the same module and the same router
+    tail = ('' if wired else f'\nimport {mod} as _{mod}   # noqa: E402  🧩 SITE-5: plain {"write" if a.writes else "read"} routes, moved by scripts/move-routes.py\n'
+            f'app.include_router(_{mod}.router)\n') + ''.join(alias)
     head = ('"""🧩 SITE-5 slice 8 (2026-11-13): plain read routes (GET, no admin, no money, no staff checks), moved out of reputation_service by\n'
             'scripts/move-routes.py. Helpers stay there and are looked up on reputation_service when a route runs, so a test that patches them still works."""\n'
             'from fastapi import APIRouter, Header, HTTPException, Query, Request  # noqa: F401\n'
             'from typing import Optional  # noqa: F401\n\nrouter = APIRouter()\n\n\ndef _rs():\n    import reputation_service\n    return reputation_service\n\n\n')
-    if DST.exists():   # append: the routes moved by earlier runs stay where they are
-        DST.write_text(DST.read_text().rstrip('\n') + '\n\n\n' + '\n\n'.join(out) + '\n')
+    if a.writes:
+        head = ('"""🧩 SITE-5 slice 10 (2026-11-13): plain WRITE routes (POST/PUT/DELETE; no admin, money or staff words), moved out of reputation_service by\n'
+                'scripts/move-routes.py --writes. Helpers stay there and are looked up on reputation_service when a route runs; body models are read\n'
+                'off the loaded service (this module is imported at the END of reputation_service, after every model is defined)."""\n'
+                'import reputation_service as _RSM  # noqa: E402\n' + head.split('"""\n', 1)[1])
+    if dst.exists():   # append: the routes moved by earlier runs stay where they are
+        dst.write_text(dst.read_text().rstrip('\n') + '\n\n\n' + '\n\n'.join(out) + '\n')
     else:
-        DST.write_text(head + '\n\n'.join(out) + '\n')
-    print(f'moved {len(names)} → {DST.relative_to(ROOT)}')
+        dst.write_text(head + '\n\n'.join(out) + '\n')
+    SRC.write_text(body.rstrip('\n') + '\n' + tail)   # last: the module it imports is already on disk
+    print(f'moved {len(names)} → {dst.relative_to(ROOT)}')
     return 0
 
 
