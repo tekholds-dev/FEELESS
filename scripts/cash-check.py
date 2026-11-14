@@ -54,13 +54,17 @@ def pnl_replay(rows, cent=0.011):
     recovered and sold, then sell at $0 cost). Only coins whose first fill is in `rows` are judged (an older basis is unknown here).
     → {sells, ok, off: [(symbol, book cost, replayed cost)], bad: sells whose realized ≠ proceeds − cost, writeoffs, realized, fees}."""
     basis, held, seen = {}, {}, set()
-    out = {'sells': 0, 'ok': 0, 'off': [], 'bad': 0, 'writeoffs': 0, 'realized': 0.0, 'fees': 0.0}
+    out = {'sells': 0, 'ok': 0, 'off': [], 'bad': 0, 'writeoffs': 0, 'realized': 0.0, 'fees': 0.0, 'unjudged': 0}
     for r in rows:
         m, units = r.get('mint'), _f(r.get('units'))
         out['fees'] += _f(r.get('feeUsd'))
         if r.get('side') == 'buy':
             seen.add(m)
             basis[m] = basis.get(m, 0.0) + _f(r.get('usd')); held[m] = held.get(m, 0.0) + units
+            continue
+        if r.get('side') == 'fix':
+            if m:   # 📏 the book was matched to the wallet for this coin (missed sale / ghost / transfer tax): the wallet is the truth and the
+                basis.pop(m, None); held.pop(m, None); seen.discard(m)   # replay can't know that basis → stop judging it until its next buy
             continue
         if r.get('side') == 'writeoff':
             out['writeoffs'] += 1; out['realized'] -= _f(r.get('costUsd'))
@@ -73,6 +77,7 @@ def pnl_replay(rows, cent=0.011):
         if abs(_f(r.get('proceedsUsd')) - _f(r.get('costUsd')) - _f(r.get('realizedPnlUsd'))) > cent:
             out['bad'] += 1
         if m not in seen or held.get(m, 0) <= 0:
+            out['unjudged'] += 1   # bought before the window, or after a book-to-wallet fix: its basis is unknown here — counted, never hidden
             continue
         cost = basis[m] * min(1.0, units / held[m])
         basis[m] -= cost; held[m] = max(0.0, held[m] - units)
@@ -138,12 +143,12 @@ async def main(tid='degen', n=30):
             await asyncio.sleep(0.12)
         print(f"3 SWAPS  last {len(swaps)} re-read from the chain: {len(swaps) - bad} match to the lamport (route rent returned by closes) · {bad} GAP")
     fills = sorted((r for r in recent if r.get('card') == tid and _f(r.get('at')) >= _f(book.get('since'))
-                    and ((r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')) or (r.get('side') == 'writeoff' and r.get('status') == 'done'))),
+                    and ((r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')) or (r.get('side') in ('writeoff', 'fix') and r.get('status') == 'done'))),
                    key=lambda r: _f(r.get('at')))
     pr = pnl_replay(fills)
     worst = sorted(pr['off'], key=lambda x: -abs(x[1] - x[2]))[:3]
     off_txt = f" · {len(pr['off'])} off {worst}" if pr['off'] else ' ✔'
-    print(f"4 P&L $  {pr['sells']} sells replayed with the book's average cost: {pr['ok']} match{off_txt}"
+    print(f"4 P&L $  {pr['sells']} sells replayed with the book's average cost: {pr['ok']} match{off_txt} · {pr['unjudged']} not judged (basis before the window / after a book fix)"
           f" · {pr['bad']} where realized ≠ proceeds − cost · {pr['writeoffs']} drained-pool write-offs · realized ${pr['realized']:+.4f}"
           f" (fees ${pr['fees']:.4f} apart, never in P&L)")
 

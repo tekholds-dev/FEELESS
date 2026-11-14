@@ -283,3 +283,69 @@ class SharedHits:
         c = self.docs._db()
         c.execute("DELETE FROM docs WHERE substr(k, 1, ?) = ?", (len(self.ns) + 1, self.ns + ':'))
         self.docs._cache = (None, None)
+
+
+class Leader:
+    """👑 SITE-8 slice 8 · ONE process runs the background loops. With several uvicorn workers every worker runs the same startup handlers, so
+    each would start its own agent ticks, Fuse autopilot / guard, alerts, drops… (double trades, double alerts). The leader is whoever holds
+    an OS file lock on <data>/loops.leader for its whole life; the lock dies with the process (crash, reload, kill), and a waiting worker takes
+    over within `every` seconds. One worker (today) = it takes the lock at once, nothing changes.
+
+      lead = Leader(lambda: DATA_DIR / 'loops.leader')
+      lead.start(_some_loop)   # a task that waits until this process leads, then runs the loop function
+    Per-process work (flushing THIS worker's in-memory writes, loading config) must NOT go through it."""
+
+    def __init__(self, path, every=2.0):
+        self._where = path; self.every = every; self._fd = None
+        self._poll = None; self._tasks = set()   # ONE poller per process (not one per loop) + strong refs to every scheduled task
+
+    @property
+    def path(self):
+        return Path(self._where() if callable(self._where) else self._where)
+
+    def try_take(self):
+        """Non-blocking: True when this process leads (taken now or earlier)."""
+        if self._fd is not None:
+            return True
+        where = self.path; where.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(where, os.O_RDWR | os.O_CREAT, 0o600)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd); return False
+        os.ftruncate(fd, 0); os.write(fd, str(os.getpid()).encode()); self._fd = fd
+        return True
+
+    @property
+    def leading(self):
+        return self._fd is not None
+
+    def release(self):
+        fd, self._fd = self._fd, None
+        if fd is not None:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            finally:
+                os.close(fd)
+
+    async def _take_loop(self):
+        while not self.try_take():
+            await asyncio.sleep(self.every)
+
+    async def wait(self):
+        if self.try_take():
+            return
+        if self._poll is None or self._poll.done():   # every waiter shares one poller: a non-leader opens the lock file once per `every`
+            self._poll = asyncio.create_task(self._take_loop())
+        await asyncio.shield(self._poll)
+
+    def start(self, fn, *args):
+        """Schedule `fn(*args)` (a coroutine function, or a plain function that starts its own task) to run once this process leads."""
+        async def run():
+            await self.wait()
+            r = fn(*args)
+            if asyncio.iscoroutine(r):
+                await r
+        t = asyncio.create_task(run())
+        self._tasks.add(t); t.add_done_callback(self._tasks.discard)
+        return t

@@ -59,3 +59,54 @@ def test_update_returns_an_answer_and_all_sees_another_writer(tmp_path):
     a.put('k2', [1]); assert b.all() == {'k': {'v': 1}, 'k2': [1]}   # cached per data_version: the other connection's write is seen
     a.update('k', lambda cur: None); assert b.get('k') is None
     a.replace_all({'z': 1}); assert b.all() == {'z': 1}
+
+
+def _try_lead(path, q):
+    q.put(ss.Leader(path).try_take())
+
+
+def test_only_one_process_leads_the_loops_and_a_waiter_takes_over_when_it_dies(tmp_path):
+    """👑 SITE-8 slice 8: one worker holds loops.leader for life; another process can't take it; once the leader lets go (dies / reloads),
+    a waiting worker leads within `every` seconds and only THEN runs its loop."""
+    import asyncio
+    where = tmp_path / 'loops.leader'
+    a = ss.Leader(where)
+    assert a.try_take() and a.leading and a.try_take()          # taken, and asking again keeps it
+    ctx = mp.get_context('spawn'); q = ctx.Queue()
+    p = ctx.Process(target=_try_lead, args=(str(where), q)); p.start(); p.join(30)
+    assert q.get(timeout=5) is False                             # another process can't lead while this one lives
+
+    async def scenario():
+        b = ss.Leader(where, every=0.05); ran = []
+
+        async def loop():
+            ran.append(1)
+        t = b.start(loop)
+        await asyncio.sleep(0.2)
+        t2 = b.start(loop)
+        await asyncio.sleep(0.2)
+        assert ran == [] and b._poll is not None and len(b._tasks) == 2 and not b.leading                       # waits: a second worker never starts the loops
+        a.release()                                              # the leader dies / reloads
+        await asyncio.wait_for(asyncio.gather(t, t2), 2)
+        assert ran == [1, 1] and b.leading and not b._tasks   # ONE shared poller woke both; done tasks drop their refs                          # the waiter took over and ran its loop
+        b.release()
+    asyncio.run(scenario())
+
+
+def test_every_reputation_startup_loop_goes_through_the_leader():
+    """👑 No startup handler in reputation_service starts a background loop on its own — only the per-process flushes of THIS worker's writes
+    (store, traffic) and the lag catcher's own dump may; everything else waits for the leader."""
+    import re
+    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text().split('\n')
+    allowed = {'_store_flush_loop', '_flush_traffic', '_loop_lag_dump'}
+    stray = []
+    for s, line in enumerate(src):
+        if line.strip() == "@app.on_event('startup')":
+            i = s + 2
+            while i < len(src) and (src[i] == '' or src[i].startswith((' ', '\t'))):
+                for name in re.findall(r'(?:create_task|ensure_future)\(([\w.]+)\(', src[i]):
+                    if name not in allowed:
+                        stray.append((i + 1, name))
+                i += 1
+    assert stray == []
+    assert sum(1 for x in src if '_LEAD.start(' in x) >= 25

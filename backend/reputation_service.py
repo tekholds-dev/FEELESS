@@ -60,6 +60,7 @@ from pydantic import BaseModel, Field, field_validator
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
 import sql_store as _sqls_hits   # 🚦 SITE-8: per-device limits shared by every worker
+_LEAD = _sqls_hits.Leader(lambda: DATA_DIR / 'loops.leader')   # 👑 SITE-8: only ONE worker runs the background loops (startup handlers below)
 _HITS = lambda ns: _sqls_hits.SharedHits(lambda: DATA_DIR / 'ip_hits.json', ns)   # noqa: E731
 STORE_PATH = DATA_DIR / 'reputation.json'
 
@@ -499,10 +500,10 @@ async def _start_background():
         _rig_apply()   # 🎛 the owner's model rig, live from the first call
     except Exception as e_:
         print('rig:', str(e_)[:80])
-    asyncio.create_task(_refresh_all_markets())
+    _LEAD.start(_refresh_all_markets)
     asyncio.create_task(_store_flush_loop())
     if not os.environ.get('PYTEST_CURRENT_TEST'):
-        asyncio.create_task(_code_health_loop())
+        _LEAD.start(_code_health_loop)
         _loop_lag.WATCH.start(asyncio.get_running_loop())
         asyncio.create_task(_loop_lag_dump())
 
@@ -772,7 +773,7 @@ async def _refresh_globe():
 
 @app.on_event('startup')
 async def _start_globe():
-    asyncio.create_task(_refresh_globe())
+    _LEAD.start(_refresh_globe)
 
 
 class FeelessLaunchPayload(BaseModel):
@@ -1034,7 +1035,7 @@ async def _evaluate_alerts():
 @app.on_event('startup')
 async def _start_push_watcher():
     _vapid()
-    asyncio.create_task(_evaluate_alerts())
+    _LEAD.start(_evaluate_alerts)
 
 
 # ---- Call Ledger: every coin posted in the Trenches, priced at the moment and tracked forever
@@ -1144,7 +1145,7 @@ async def _refresh_calls():
 
 @app.on_event('startup')
 async def _start_calls():
-    asyncio.create_task(_refresh_calls())
+    _LEAD.start(_refresh_calls)
 
 
 _board_cache: dict = {}
@@ -3126,7 +3127,7 @@ async def _fuse_guard_loop():
 @app.on_event('startup')
 async def _fuse_guard_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
-        asyncio.create_task(_fuse_guard_loop())
+        _LEAD.start(_fuse_guard_loop)
 
 
 class FuseSwitchIn(BaseModel):
@@ -3484,7 +3485,7 @@ async def _fuse_autopilot_loop():
 @app.on_event('startup')
 async def _fuse_autopilot_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
-        asyncio.create_task(_fuse_autopilot_loop())
+        _LEAD.start(_fuse_autopilot_loop)
 
 
 def _card_look(body, prev):
@@ -4563,14 +4564,14 @@ async def _runner_loop():
 @app.on_event('startup')
 async def _runner_start():
     if not os.environ.get('PYTEST_CURRENT_TEST'):
-        asyncio.create_task(_runner_loop())
-        asyncio.create_task(_fuse_warm_loop())
-        asyncio.create_task(_agents_loop())
-        asyncio.create_task(_ai_loop())
-        asyncio.create_task(_g4_loop())
-        asyncio.create_task(_prime_warm())
-        asyncio.create_task(_prime_bell_loop())
-        asyncio.create_task(_real_guard_loop())
+        _LEAD.start(_runner_loop)
+        _LEAD.start(_fuse_warm_loop)
+        _LEAD.start(_agents_loop)
+        _LEAD.start(_ai_loop)
+        _LEAD.start(_g4_loop)
+        _LEAD.start(_prime_warm)
+        _LEAD.start(_prime_bell_loop)
+        _LEAD.start(_real_guard_loop)
 
 
 # ---- ⭐ ARENA PRIME (backend/arena_prime.py): FEELESS's top-tier cards, FULLY AUTO on paper — the proof before configs go live ----
@@ -8081,7 +8082,7 @@ async def _autorange_watch():
 
 @app.on_event('startup')
 async def _autorange_boot():
-    asyncio.create_task(_autorange_watch())
+    _LEAD.start(_autorange_watch)
 
 
 
@@ -20873,7 +20874,7 @@ async def _push_snipers_out(mint):
 
 @app.on_event('startup')
 async def _start_radar():
-    asyncio.create_task(_radar_loop())
+    _LEAD.start(_radar_loop)
 
 
 def _feecat_pins(positions, top, now=None):
@@ -21408,7 +21409,7 @@ async def _refresh_edge_memory():
 
 @app.on_event('startup')
 async def _start_edge_memory():
-    asyncio.create_task(_refresh_edge_memory())
+    _LEAD.start(_refresh_edge_memory)
 
 
 
@@ -21567,7 +21568,7 @@ async def _start_metas():
             except Exception as exc:
                 print('meta engine error', exc)
             await asyncio.sleep(120)
-    asyncio.create_task(loop())
+    _LEAD.start(loop)
 
 
 async def metas(refresh: bool = False):
@@ -21908,7 +21909,7 @@ async def _shield_watch():
 
 @app.on_event('startup')
 async def _start_shield_watch():
-    asyncio.create_task(_shield_watch())
+    _LEAD.start(_shield_watch)
 
 
 # ================================================================================================
@@ -22131,7 +22132,7 @@ async def _drops_loop():
 
 @app.on_event('startup')
 async def _start_drops():
-    asyncio.create_task(_drops_loop())
+    _LEAD.start(_drops_loop)
 
 
 class SeasonEdit(BaseModel):
@@ -22782,7 +22783,7 @@ def _ops_note(text):
 
 @app.on_event('startup')
 async def _start_latency_alarm():
-    asyncio.create_task(_latency_alarm())
+    _LEAD.start(_latency_alarm)
 
 
 # ---- HQ: marketing — 3-day top movers + top/bottom reputations, ready to post -------------
@@ -23311,7 +23312,7 @@ async def _watch_loop():
 
 @app.on_event('startup')
 async def _start_watch():
-    asyncio.create_task(_watch_loop())
+    _LEAD.start(_watch_loop)
 
 
 # ---- After the sell: FeeCat's lesson log, pointed at your own trades ------------------------------------
@@ -23424,7 +23425,7 @@ async def _preflight_watch():
 
 @app.on_event('startup')
 async def _preflight_start():
-    asyncio.create_task(_preflight_watch())
+    _LEAD.start(_preflight_watch)
 
 
 class SplitRecord(BaseModel):
@@ -23718,7 +23719,7 @@ async def _desk_loop():
 
 @app.on_event('startup')
 async def _desk_start():
-    asyncio.create_task(_desk_loop())
+    _LEAD.start(_desk_loop)
 
 
 
@@ -24105,7 +24106,7 @@ app.include_router(_deploy_hosts.router)
 
 @app.on_event('startup')
 async def _start_comp_collect():   # 🌐 COMP's internet learner, every 10 min
-    _rep_model_lab.start_collect_loop()
+    _LEAD.start(_rep_model_lab.start_collect_loop)
 admin_guard, admin_ai_providers = _rep_admin_reads.admin_guard, _rep_admin_reads.admin_ai_providers   # tests call these on this module
 fuse_health = _rep_admin_reads.fuse_health
 admin_familia_rules = _rep_admin_reads.admin_familia_rules

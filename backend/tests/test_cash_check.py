@@ -43,3 +43,16 @@ def test_pnl_replay_rebuilds_the_books_average_cost_in_dollars():
     wo = cc.pnl_replay([{'side': 'buy', 'mint': 'C', 'usd': 0.4753, 'units': 1237}, {'side': 'writeoff', 'mint': 'C', 'costUsd': 0.4753},
                         {'side': 'sell', 'mint': 'C', 'symbol': 'C', 'units': 1237, 'costUsd': 0.0, 'proceedsUsd': 0.0038, 'realizedPnlUsd': 0.0038}])
     assert wo['ok'] == 1 and wo['off'] == [] and wo['writeoffs'] == 1 and round(wo['realized'], 4) == -0.4715   # a drained pool: cost written off, then $0 basis
+
+
+def test_a_coin_fix_row_resyncs_the_replay_to_the_wallet():
+    """📏 A 'book matched to the wallet' fix (the real 10-29 $HI missed sale) leaves units the replay can't see: it stops judging that coin
+    until its next buy, so the next round trip is judged clean instead of carrying a ghost basis."""
+    rows = [{'side': 'buy', 'mint': 'H', 'symbol': 'H', 'usd': 0.38, 'units': 411},
+            {'side': 'fix', 'mint': 'H', 'symbol': 'H'},
+            {'side': 'sell', 'mint': 'H', 'symbol': 'H', 'units': 230, 'costUsd': 0.2134, 'proceedsUsd': 0.0951, 'realizedPnlUsd': -0.1183},
+            {'side': 'fix'},                                                                       # a SOL-only fix (no coin) changes no basis
+            {'side': 'buy', 'mint': 'H', 'symbol': 'H', 'usd': 0.1807, 'units': 169.6},
+            {'side': 'sell', 'mint': 'H', 'symbol': 'H', 'units': 169.6, 'costUsd': 0.1807, 'proceedsUsd': 0.1353, 'realizedPnlUsd': -0.0454}]
+    out = cc.pnl_replay(rows)
+    assert out['sells'] == 1 and out['ok'] == 1 and out['off'] == [] and out['bad'] == 0 and out['unjudged'] == 1   # the post-fix sell is counted, not hidden

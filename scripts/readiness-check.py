@@ -5,7 +5,7 @@ model: every ask goes to the owner's own LM Studio. Prints one ✅ / ❌ / ⏭ l
   .venv/bin/python scripts/readiness-check.py
 
   · services up (5001 server · 5077 reputation · 5088 FeeCat · 5099 candles · 51367 the site)
-  · OSSY (this Mac) and G4 (the desktop, LAN) each answer one basic ask; ZED has a Gemma loaded
+  · OSSY (this Mac) and G4 (the desktop, LAN) each answer one basic ask; ZED's Gemma is optional (⏭ when absent — COL-20)
   · FeeCat AI's public brain answers and never says OSSY / G4 / ZED to visitors
   · each proof type's record (missions per $ by kind) reads, and the daily record check holds
   · a PoC picture serves from the site's own origin (so the playground can edit and save it)
@@ -67,7 +67,8 @@ def mind(name, base, key, want_gemma=False):
     ids = [m.get('id') for m in models.get('data') or [] if 'embed' not in str(m.get('id'))]
     if want_gemma:
         g = [i for i in ids if 'gemma' in str(i).lower()]
-        say(True if g else False, f'{name}: ' + (f'Gemma loaded ({g[0]})' if g else 'no Gemma loaded — lms get google/gemma-3-4b'))
+        # owner 2026-11-14 (COL-20 closed): no Gemma needed — an outside judge grades a proof every model judge built, so ZED is optional
+        say(True if g else None, f'{name}: ' + (f'Gemma loaded ({g[0]})' if g else 'no Gemma loaded — optional (COL-20: outside judge, no Gemma needed)'))
         return
     if not ids:
         say(False, f'{name}: no chat model loaded'); return
