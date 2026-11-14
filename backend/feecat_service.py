@@ -107,6 +107,7 @@ import evidence_marks as _marks
 import proof_stamp as _stamp
 import ps_hidden as _ps_hidden
 import mission as _mission   # 🧾 COL-2: one line per model call made for a proof
+import week_plan as _wk   # 🗓 POC-PLAY: week boards + brain-made week scenarios, each filed as a PoC
 import poc_play as _pplay   # 🎨 POC-PLAY: playground edits filed back into the PoC as new versions
 import media_gen as _mg   # 🎬 PoC images and video on the user's own fal.ai / Replicate key
 import collective_parts as _parts   # 🧩 COL-26: proven page blocks become parts the next build is offered
@@ -6434,6 +6435,36 @@ def _outside_review_apply(store, cat_id, kind, fid, judge, t_):
     return {'review': rv}
 
 
+class WeekRunIn(BaseModel):
+    cat: str
+    ws: str = ''
+    name: str = 'Week plans'
+    topic: str = ''
+
+
+@app.post('/api/cats/internal/week-plans')
+async def week_plans_internal(p: WeekRunIn, request: Request):
+    """🗓 Readiness runs (internal key only): its minds write the 3 week scenarios into a PoC folder — `ws`, or a new content folder named
+    `name` — exactly as the Week tab's button does. Paper only: nothing is posted."""
+    _internal(request)
+    store = _load(); cat = (store.get('cats') or {}).get(p.cat)
+    if not cat or not (cat.get('brainsCfg') or {}).get('brains'):
+        raise HTTPException(404, 'No agent with a mind.')
+    ws = p.ws
+    if not ws:
+        try:
+            row_ = _feat.new_folder(cat, 'content', p.name[:32], time.time())
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        _ws_save(p.cat, _feat.new_doc(row_)); keep_owned(cat); _save(store); ws = row_['id']
+    if (_ws_load(p.cat, ws) or {}).get('kind') != 'content':
+        raise HTTPException(400, 'Week plans live in a PoC folder.')
+    if p.cat in _WEEK_BUSY:
+        raise HTTPException(409, 'Already writing week plans.')
+    _WEEK_BUSY.add(p.cat); asyncio.create_task(_week_file(p.cat, ws, p.topic[:120]))
+    return {'ok': True, 'ws': ws}
+
+
 class OutsideReviewIn(BaseModel):
     cat: str
     kind: str
@@ -8285,6 +8316,55 @@ def _poc_view(cat):
                 f = {**f, 'media': hit[1]}
         rows.append({**f, 'stamp': _stamp.of('PoC', f, time.time())})
     return rows
+
+
+_WEEK_BUSY: set = set()
+
+
+async def _week_file(cat_id, ws, topic):
+    """🗓 Each mind writes one WHOLE week in a different style (launch / drip / hype), all three at once; each plan files as its own PoC proof
+    (paper, graded like any other). Nothing is posted. A style a mind fumbles is skipped and said, never invented."""
+    try:
+        cat = _load()['cats'].get(cat_id) or {}; brains = _lc.minds_for(cat.get('brainsCfg'), 'poc') or []
+        if not brains:
+            return
+        _CALL_CTX.set({'kind': 'poc', 'ref': ws, 'minds': brains})
+        media_ = _poc_media(_ws_load(cat_id, ws) or {}); ids_ = [m['id'] for m in media_]
+
+        async def one(i, style):
+            sys_, user_ = _wk.prompt(style[0], topic, media_)
+            try:
+                raw, usd, own = await asyncio.wait_for(_ws_ask(cat, brains[i % len(brains)], sys_, user_, 1400), 240)
+            except Exception as e:   # noqa: BLE001: one mind down never stops the other weeks
+                return i, style, None, 0.0, False, f'{type(e).__name__}'
+            try:
+                return i, style, _wk.parse(raw, ids_), usd, own, None
+            except ValueError as e:
+                return i, style, None, usd, own, str(e)
+        got = await asyncio.gather(*(one(i, st) for i, st in enumerate(_wk.STYLES)))
+        store = _load(); c_ = store['cats'].get(cat_id)
+        if not c_:
+            return
+        rows = list(c_.get('pocFolders') or []); filed = []; cost = 0.0; paid_own = False
+        for i, (key, name, _how), plan, usd, own, why in got:
+            cost += usd or 0; paid_own = paid_own or own
+            if not plan:
+                print(f'[week] {cat_id} {key}: {why}'); continue
+            rows.append({'id': f'poc{int(time.time())}{i}', 'ws': ws, 'n': _next_n(rows), 'kind': 'PoC', 'at': round(time.time()), 'status': 'closed', 'paper': True,
+                         'topic': f'Week plan · {name}' + (f' · {topic}' if topic else ''), 'week': {**plan, 'style': key},
+                         'calls': [{'mind': i, 'name': str(brains[i % len(brains)]).split('/')[-1][:24], 'angle': name, 'post': plan['idea'] or f"{len(plan['posts'])} posts", 'why': f"{len(plan['posts'])} posts over the week"}],
+                         'cost': round(usd or 0, 5), **({'media': media_} if media_ else {})})
+            filed.append(name)
+        c_['pocFolders'] = rows[-60:]
+        say_ = f"🗓 {len(filed)} week plan{'s' if len(filed) != 1 else ''} filed as PoCs ({', '.join(filed)}). Nothing was posted." if filed else '🗓 No week plan came back usable. Try again.'
+        c_['chat'] = (list(c_.get('chat') or []) + [{'by': 'cats', 'text': say_, 'at': time.time(), 'open': 'features'}])[-200:]
+        if cost and not paid_own and c_.get('brainsCfg'):
+            _lc.charge(c_['brainsCfg'], cost)
+        _save(store)
+    except Exception as e:   # noqa: BLE001
+        print(f'[week] {cat_id}: {str(e)[:140]}')
+    finally:
+        _WEEK_BUSY.discard(cat_id)
 
 
 async def _poc_file(cat_id, topic, ws=None):
@@ -10159,6 +10239,28 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         topic_ = str(p.text or '').strip()[:120]
         _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_, str(p.job or '') or None))
         return {'ok': True, 'pocFolders': _poc_view(cat)}
+    if p.op == 'week_plans':   # 🗓 its minds write 3 different weeks (launch / drip / hype) for this PoC folder; each files as a PoC
+        if not (cat.get('brainsCfg') or {}).get('brains'):
+            raise HTTPException(400, 'It needs a mind first.')
+        doc_ = _ws_load(cat_id, str(p.job or ''))
+        if not doc_ or doc_.get('kind') != 'content':
+            raise HTTPException(400, 'Week plans live in a PoC folder.')
+        if cat_id in _WEEK_BUSY:
+            raise HTTPException(409, 'Its minds are already writing week plans.')
+        _WEEK_BUSY.add(cat_id); asyncio.create_task(_week_file(cat_id, doc_['id'], str(p.text or '').strip()[:120]))
+        return {'ok': True}
+    if p.op == 'week_save':   # 🗓 the owner moved / edited posts on the board: the plan is saved checked; the minds' original stays as weekOrig
+        rows_ = cat.get('pocFolders') or []; f_ = next((x for x in rows_ if x.get('id') == str(p.job or '') and x.get('week')), None)
+        if not f_:
+            raise HTTPException(404, 'No such week plan.')
+        try:
+            plan_ = _wk.clean(p.cap if isinstance(p.cap, dict) else {}, [m.get('id') for m in f_.get('media') or []])
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        f_.setdefault('weekOrig', f_['week'])
+        f_['week'] = {**plan_, 'style': f_['week'].get('style'), 'edited': round(time.time())}
+        keep_owned(cat); _save(store)
+        return {'pocFolders': _poc_view(cat)}
     if p.op == 'poc_answer':   # 🧾 what the minds wrote in this folder's chat becomes its filed proof, so it can be marked and sent
         doc_ = _ws_load(cat['id'], str(p.job or ''))
         calls_ = _feat.answers_of(doc_ or {}, owner_names=('You', 'you', 'owner'))

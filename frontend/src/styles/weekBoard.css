@@ -1,0 +1,27 @@
+/* 🗓 POC-PLAY week board (components/command/WeekBoard.jsx): Mon–Sun columns × platform rows, draggable post cards. m-* tokens only. */
+.wkb { display: grid; gap: 10px; min-width: 0; }
+.wkb-make { display: flex; gap: 6px; min-width: 0; }
+.wkb-make .m-input { flex: 1; min-width: 0; }
+.wkb-msg, .wkb-foot small { color: var(--m-dim); font-size: 12px; }
+.wkb-none { color: var(--m-dim); font-size: 13px; margin: 0; }
+.wkb-tabs { overflow-x: auto; max-width: 100%; }
+.wkb-idea { margin: 0; font-size: 13px; color: var(--m-text); display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.wkb-idea small { color: var(--m-dim); }
+.wkb-grid { display: grid; grid-template-columns: 74px repeat(7, minmax(112px, 1fr)); gap: 4px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
+.wkb-day, .wkb-plat { font-family: var(--m-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); padding: 4px 6px; }
+.wkb-day { text-align: center; border-bottom: 1px solid var(--m-line); }
+.wkb-plat { align-self: start; padding-top: 10px; color: var(--m-text); }
+.wkb-cell { min-height: 92px; padding: 4px; display: grid; align-content: start; gap: 4px; border: 1px solid var(--m-line); border-radius: var(--m-r-sm); background: var(--m-surface); transition: border-color .15s, background .15s; }
+.wkb-cell.is-drop { border-style: dashed; border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); }
+.wkb-cell.is-drop:hover { background: color-mix(in srgb, var(--m-accent) 10%, var(--m-surface)); }
+.wkb-post { display: grid; gap: 4px; padding: 6px; border-radius: var(--m-r-sm); background: var(--m-surface-2); border: 1px solid var(--m-line); cursor: grab; font-size: 12px; animation: wkbIn .22s var(--m-ease) both; transition: transform .12s var(--m-ease), border-color .15s; }
+.wkb-post:hover { border-color: var(--m-line-hi); transform: translateY(-1px); }
+.wkb-post:active { cursor: grabbing; transform: scale(.98); }
+.wkb-post.is-edit { border-color: var(--m-accent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 40%, transparent); cursor: default; }
+.wkb-post small { color: var(--m-accent); }
+.wkb-post p { margin: 0; color: var(--m-text); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.wkb-post img, .wkb-post video { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; }
+.wkb-post textarea { min-height: 80px; resize: vertical; font-size: 12px; }
+.wkb-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+@keyframes wkbIn { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .wkb-post { animation: none; } }
