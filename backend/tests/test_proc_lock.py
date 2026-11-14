@@ -51,3 +51,19 @@ def test_inside_one_process_it_is_still_a_plain_async_lock(tmp_path):
 def test_crews_routes_use_the_proc_lock():
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
     assert '_crews_lock = _sqls_crews.ProcLock(CREWS_PATH)' in src
+
+
+def test_every_fuse_hq_and_runners_save_holds_the_cross_process_admin_lock():
+    import ast
+    src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    assert '_admin_lock = _sqls_admin.ProcLock(FUSE_HQ_PATH)' in src
+    t = ast.parse(src); par = {c: n for n in ast.walk(t) for c in ast.iter_child_nodes(n)}
+    for n in ast.walk(t):
+        if isinstance(n, ast.Call) and getattr(n.func, 'id', None) in ('_json_save', '_json_save_soft') and n.args \
+                and any(k in ast.unparse(n.args[0]) for k in ('FUSE_HQ_PATH', 'RUNNERS_PATH')):
+            p, held = n, set()
+            while p in par:
+                p = par[p]
+                if isinstance(p, ast.AsyncWith):
+                    held |= {ast.unparse(i.context_expr) for i in p.items}
+            assert '_admin_lock' in held, f'line {n.lineno} saves without the admin lock'

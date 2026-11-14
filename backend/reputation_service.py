@@ -11205,7 +11205,7 @@ async def _reaper_lines(now, px):
     """☠ REAPER TRADES HIS COINS LIVE (owner, 2026-10-18: "I barely see Reaper adjusting TP / SL"): for every agent coin on the real card, the
     tape since our buy is tagged (chart_wallets: dev · snipers · bundles · top holders · whales · top traders) and Reaper moves its lines
     (office.reaper_adjust) — written as the coin's own aiTp / aiSl, which his rules R6m / R5m obey. Your coins, your lines, OSSY / G4's seat: never."""
-    async with _prime_tick_lock:
+    async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
         d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {}); hit_ = False
         reps_ = {r_.get('mint'): r_ for r_ in _office.get('reports') or []}
         for tid_, c_ in cs_.items():
@@ -11259,7 +11259,7 @@ async def _flow_guard(now, px):
         return False
     intel = {l.get('mint'): _flow_intel(l.get('mint')) for l in legs}
     hit_any, noted = False, []
-    async with _prime_tick_lock:
+    async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
         d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
         for tid_, c_ in list(cs_.items()):
             if not (c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll')):
@@ -11403,7 +11403,7 @@ async def _real_guard_loop():
                     # for them — Reaper's stop for each seat is applied here, every 6s, not at the next tick
                     try:
                         reaped_ = False
-                        async with _prime_tick_lock:
+                        async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
                             d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
                             for tid_, c_ in list(cs_.items()):
                                 if not (c_ and c_.get('real')):
@@ -11446,7 +11446,7 @@ async def _real_guard_loop():
                         # ⚡ FAST STOP first: the coin at its stop leaves the card and the keeper sells NOW; the full tick (refill,
                         # riders, instant swaps) runs after. Waking the whole tick first cost ~2 minutes ($AGENCY: −15% stop sold −31%).
                         stopped = False
-                        async with _prime_tick_lock:
+                        async with _prime_tick_lock, _admin_lock:   # 🔒 SITE-8: every fuse_hq save holds the admin lock (was the tick lock only)
                             d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {})
                             for tid_, c_ in list(cs_.items()):
                                 if c_ and c_.get('real') and not c_.get('flooredAt') and not c_.get('holdAll'):
@@ -23811,7 +23811,8 @@ import chain_rpc as _chain_rpc_mod   # noqa: E402,F401  (provider names for /hea
 FEE_CREATOR_WALLET = _hq_auth.FEE_CREATOR_WALLET
 ADMIN_PATH = DATA_DIR / 'admin.json'
 BUGS_PATH = ADMIN_PATH.parent / 'bugs.json'
-_admin_lock = asyncio.Lock()
+import sql_store as _sqls_admin
+_admin_lock = _sqls_admin.ProcLock(FUSE_HQ_PATH)   # 🔒 SITE-8: one holder across every worker process — guards fuse_hq.json (117 saves) + runners.json (16)
 _status_log = []          # rolling (ts, method, path, status) for the security monitor
 _holder_cache = {}
 _bug_ip_hits = {}
