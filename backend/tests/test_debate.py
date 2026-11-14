@@ -94,6 +94,7 @@ def _server(monkeypatch, tmp_path):
 
 
 def test_the_whole_journey_on_the_real_route_only_allowed_agents_spend(monkeypatch, tmp_path):
+    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     fs, c, store = _server(monkeypatch, tmp_path); post = lambda who, op, **kw: c.post(f'/api/cats/{who}/work', json={'ownerId': who, 'session': who, 'op': op, **kw})
     r = post('a', 'debate_put', job='pob', text='f1'); assert r.status_code == 200, r.text
     raw = json.dumps(cd.load(tmp_path)); assert 'NBA night' in raw and 'SECRETWALLET' not in raw

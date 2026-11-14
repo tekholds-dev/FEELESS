@@ -165,6 +165,7 @@ def test_fees_circle_wallet_stops_being_watch_only_and_only_fee_pays_from_the_cr
 
 
 def test_the_hive_files_a_cell_per_agent_at_its_pace_grades_it_an_hour_on_and_feeds_fees_brain(monkeypatch, tmp_path):
+    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     """🐝 owner 2026-10-31: agents browse on their own until turned off, at the least usage, graded on what really happened (proof of insight)."""
     import asyncio, hive as hv, feecat_service as fs
     monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')

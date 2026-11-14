@@ -3,7 +3,7 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 
 ## Open questions (the owner answers; Claude never decides these alone)
 - **Q1 · Legal entity:** pick the entity/jurisdiction (an LLC caps personal risk). CLOSED on lawyer — owner 2026-11-13: no lawyer; match how peer sites word terms/risk/gates (LEGAL-1).
-- **Q2 · ANSWERED → AGENT-AUTO card.** Owner 2026-11-13: agents run their own moves only after the owner says go, via encrypted/legal configs; a desk command (one-off or `auto …`) triggers a 3-question-per-proof-type setup gate + kill-switch before anything runs. Research safe delegated-signing (session keys / spend caps / time bounds). Claude still never moves real funds.
+- **Q2 · SUPERSEDED 2026-11-14 (self-started usage discontinued, below).** Was: Owner 2026-11-13: agents run their own moves only after the owner says go, via encrypted/legal configs; a desk command (one-off or `auto …`) triggers a 3-question-per-proof-type setup gate + kill-switch before anything runs. Research safe delegated-signing (session keys / spend caps / time bounds). Claude still never moves real funds.
 - **Q3 · CLOSED.** Owner 2026-11-13: using Jupiter perps / wiring keys is the user's own legal discretion; FEELESS stays an interface, no geo-gate forced on it.
 - **Q4 · More venues past Jupiter** (owner note under #7): other US-reachable lend/perps ecosystems with less entry — research card, nothing ships unasked.
 - **Q5 · Easier broker sign-up than SnapTrade** (owner note under #9): an OAuth / redirect broker a wallet user can join fast.
@@ -11,6 +11,8 @@ How the rule stack works (hard limits, scope, done, reports): `CLAUDE.md`. Below
 - **Q7 · Agent sign-up links** (owner note under #2): per-user wallet creation on payment, part to FEELESS, rest to the agent wallet; trading vs general open different setups — built for cats, check what is left.
 
 ## 2026-11-14
+- **Fee has no engine** (owner: "remove her engine as fee will act as a trader agent and the 2 brains i pick will get it together"). `run_engine` never trades for her (`_engine_cats`); she trades like any trader agent through the two brains HE picks, and her stash seat holds that record.
+- **Agents' self-started usage is discontinued** ("like hive"): the hive, scheduled auto runs (AGENT-AUTO), Sicario's own loop and the debate grader never start model work by themselves (`SELF_START = False`). Usage runs only on the owner's ask or his Approve tap (AGX-10 inbox).
 - terminal.css budget = 497 KB + its STYLE-1 colour palette (516) — owner "yes" to raising it for the tokens. Every other budget still only goes down.
 
 ## 2026-11-13 · Never stop (owner, said twice today)

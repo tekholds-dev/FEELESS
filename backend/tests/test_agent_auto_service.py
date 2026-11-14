@@ -26,7 +26,8 @@ def _say(cat, line):
     return fs._auto_chat(cat, 'a1', line)
 
 
-def test_setup_seals_then_fires_then_bounds_then_kill(env):
+def test_setup_seals_then_fires_then_bounds_then_kill(monkeypatch, env):
+    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     store, cat, fired = env
     assert '1 of 3' in _say(cat, 'auto pob') and '2 of 3' in _say(cat, '$0.40') and '3 of 3' in _say(cat, 'every 1h')
     assert 'confirm' in _say(cat, '$1 total, 24h') and 'autoRun' not in cat          # nothing set before confirm

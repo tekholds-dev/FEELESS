@@ -1551,10 +1551,25 @@ def _hive_on(cat):
     return bool((cat.get('hive') or {}).get('on')) and bool(cat.get('brainsCfg')) and not cat.get('revoked') and not cat.get('needsTopup')
 
 
+SELF_START = False   # 🛑 owner 2026-11-14: "agents self started usage like hive is discontinued" — the hive, scheduled auto runs, Sicario's own loop and
+#   the debate grader never start model work by themselves. An agent spends usage only when its owner asks (or taps Approve, AGX-10).
+
+
+def _engine_cats(store):
+    """The cats run_engine trades for. Never Fee (owner 2026-11-14: "remove her engine as fee will act as a trader agent and the 2 brains i pick
+    will get it together"): she trades like every trader agent, through the two brains he picks, and her stash seat holds that record."""
+    return [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked'] and c.get('id') != LEADER_ID]
+
+
+def _self_start_ok():
+    """Self-started agent work: off by the owner's ruling (SELF_START), and off again whenever the owner's guardrail pauses agents (AGX-7)."""
+    return SELF_START and _gr.on(_rails(), 'agentsWork')
+
+
 def _hive_works(cat):
     """🛡 AGX-7: it may work on its own right now = it is colonized AND the owner's guardrail allows agents to work on their own.
     `_hive_on` stays the agent's own setting (what the public board shows and the minds are told); only the doing is switched off."""
-    return _gr.on(_rails(), 'agentsWork') and _hive_on(cat)
+    return _self_start_ok() and _hive_on(cat)
 
 
 def _colony_trade(cat, side, pos, px_usd):
@@ -4288,7 +4303,7 @@ async def _card_seat_fates(http, store, now):
 
 async def _sicario_free(http, store):
     """🎩 Free seats on the card, asked only while Sicario's is in Auto-collect. None = no answer, so nothing is filed."""
-    if not _gr.on(_rails(), 'agentsWork') or not any(c.get('handle') == 'sicarios' and (c.get('hive') or {}).get('on') and not c.get('revoked') for c in store['cats'].values()):
+    if not _self_start_ok() or not any(c.get('handle') == 'sicarios' and (c.get('hive') or {}).get('on') and not c.get('revoked') for c in store['cats'].values()):
         return None
     try:
         r = await http.get('http://127.0.0.1:5077/api/reputation/internal/sicario-want', headers={'x-feeless-internal': _internal_key_read()}, timeout=5)
@@ -4299,7 +4314,7 @@ async def _sicario_free(http, store):
 
 def _sicario_loop(store, now, free=None):
     """🎩 Two ways it keeps working. Auto-collect (its hive on): PoWs until the card's seats are full, each one sent to a free seat. Endless: the next proof of any kind as soon as it is idle and rested. It has no wallet."""
-    if not _gr.on(_rails(), 'agentsWork'):   # 🛡 AGX-7: no Auto-collect seats and no Endless proofs while the owner has agents paused
+    if not _self_start_ok():   # 🛑 discontinued (SELF_START) · 🛡 AGX-7: no Auto-collect seats and no Endless proofs while the owner has agents paused
         return
     for c in store['cats'].values():
         b_ = c.get('brainsCfg') or {}; cid = c.get('id')
@@ -4598,6 +4613,8 @@ def _debate_bank(st):
 
 async def _debate_pass(store):
     """⚔ Each agent whose owner allows it grades its next proof on the table, on its own AI, a few a day, and moves on until none are left. A bad reply is not saved and costs that proof nothing."""
+    if not SELF_START:   # 🛑 grading on its own AI by itself is self-started usage: discontinued (owner 2026-11-14)
+        return 0
     if _DEBATE_BUSY[0]:
         return 0
     _DEBATE_BUSY[0] = True; done = 0
@@ -6201,7 +6218,7 @@ async def _engine_loop():
             full_at = time.time()
             _migrate(store)
             _apply_overrides(store)
-            running = [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked']]
+            running = _engine_cats(store)   # 🛑 Fee has no engine (owner 2026-11-14)
             if running:
                 await run_engine(store, running)
             await _agent_pass(store)
@@ -6616,7 +6633,7 @@ async def _start_relink():
 
 @app.on_event('startup')
 async def _start_hive():
-    if os.environ.get('FEELESS_HIVE', '1') != '0':
+    if SELF_START and os.environ.get('FEELESS_HIVE', '1') != '0':   # 🛑 discontinued (owner 2026-11-14)
         asyncio.create_task(_hive_loop())
 
 
@@ -9260,6 +9277,8 @@ async def _auto_fire(cat_id, cfg):
 
 async def _auto_tick(now=None):
     """Every agent with an auto run ON: book the fire against its bounds FIRST (sealed), then fire it. → fired cat ids."""
+    if not SELF_START:   # 🛑 scheduled auto runs are self-started usage: discontinued (owner 2026-11-14)
+        return []
     now = now or time.time(); out = []
     store = _load()
     for cid, c in list((store.get('cats') or {}).items()):

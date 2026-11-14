@@ -62,6 +62,7 @@ def test_only_the_owner_reads_or_flips_them(monkeypatch, tmp_path):
 def test_a_flipped_switch_changes_what_agents_do(monkeypatch, tmp_path):
     fs, c, store = _server(monkeypatch, tmp_path)
     monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)
+    monkeypatch.setattr(fs, 'SELF_START', True)   # the guardrail still bites if self-started work is ever switched back on (it is off: owner 2026-11-14)
     cat = store['cats']['g']; cat['hive'] = {'on': True}; cat['brainsCfg'] = cat.get('brainsCfg') or {'brains': ['x']}
     assert fs._hive_works(cat) is True
     post = lambda **kw: c.post('/api/cats/g/work', json={'ownerId': 'g', 'session': 'g', **kw})

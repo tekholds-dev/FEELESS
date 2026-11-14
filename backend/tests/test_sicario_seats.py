@@ -40,7 +40,8 @@ def test_every_model_seat_gets_its_review_in_turn():
     assert seat.review_leg(legs(False), 0) is None
 
 
-def test_auto_collect_files_pows_only_while_seats_are_free():
+def test_auto_collect_files_pows_only_while_seats_are_free(monkeypatch):
+    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     import feecat_service as fs
     fs._POW_WANT.clear()
     c = {'id': 's', 'handle': 'sicarios', 'hive': {'on': True}, 'brainsCfg': {'mindNames': ['OSSY', 'G4']}}
@@ -57,7 +58,8 @@ def test_auto_collect_files_pows_only_while_seats_are_free():
     assert 's' not in fs._POW_WANT   # off means off
 
 
-def test_a_rested_run_from_the_last_proof_does_not_block_the_next():
+def test_a_rested_run_from_the_last_proof_does_not_block_the_next(monkeypatch):
+    import feecat_service as _fs_ss; monkeypatch.setattr(_fs_ss, 'SELF_START', True)   # the mechanic, dormant since owner 2026-11-14 (self-started usage discontinued)
     import feecat_service as fs
     fs._POW_WANT.clear()
     c = {'id': 's', 'handle': 'sicarios', 'hive': {'on': True}, 'powRun': {'n': 2, 'rested': 1.0}, 'brainsCfg': {'mindNames': ['OSSY', 'G4']}}
