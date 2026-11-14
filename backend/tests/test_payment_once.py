@@ -36,5 +36,5 @@ def test_parallel_buys_with_one_payment_spend_it_once(rs, monkeypatch):
 def test_a_payment_used_for_a_crew_cannot_buy_rounds(rs):
     (rs.CREWS_PATH).write_text(json.dumps({'sigs': [SIG]}))
     with pytest.raises(rs.HTTPException) as e:
-        rs._pay_hold(SIG)
+        asyncio.run(rs._pay_hold(SIG))
     assert e.value.status_code == 409

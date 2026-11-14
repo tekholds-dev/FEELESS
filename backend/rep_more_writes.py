@@ -1438,7 +1438,7 @@ async def fuse_rounds(p: _RSM.RoundsIn):
     rs = _rs()
     held = bool(p.signature) and p.mode in ('pay', 'settle')
     if held and rs._re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.signature or ''):
-        rs._pay_hold(p.signature)
+        await rs._pay_hold(p.signature)
     try:
         return await rs._fuse_rounds(p)
     except BaseException:

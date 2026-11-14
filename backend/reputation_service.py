@@ -2846,7 +2846,7 @@ async def fuse_position(p: FusePositionIn):
     prepaid_usd = 0.0
     held_ = False
     if p.prepaySig and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', p.prepaySig) and not _pay_sig_used(p.prepaySig):
-        _pay_hold(p.prepaySig); held_ = True
+        await _pay_hold(p.prepaySig); held_ = True
         to = await _rounds_pay_to()
         tx = None
         if to:
@@ -6885,10 +6885,11 @@ def _pay_sig_used(sig):
     return sig in _PAY_HELD or sig in (_json_load(FUSE_HQ_PATH, {}).get('roundSigs') or []) or _cr.sig_used(_json_load(CREWS_PATH, {}), sig)
 
 
-def _pay_hold(sig):
+async def _pay_hold(sig):
     """Take a payment before the slow on-chain read: `claim` is one transaction shared by every worker, so of N requests (in any process)
-    sending one signature exactly one goes on. → raises 409 when taken or already spent."""
-    if _pay_sig_used(sig) or not _PAY_HELD.claim(sig):
+    sending one signature exactly one goes on. It runs in a thread: a worker waiting on SQLite's write lock never stalls its event loop.
+    → raises 409 when taken or already spent."""
+    if _pay_sig_used(sig) or not await asyncio.to_thread(_PAY_HELD.claim, sig):
         raise HTTPException(409, 'That payment was already used.')
 
 
@@ -6900,7 +6901,7 @@ async def _verify_sol_payment(sig, mine, min_usd, st):
         raise HTTPException(400, 'Send the payment first — no signature yet.')
     if _cr.sig_used(st, sig):
         raise HTTPException(409, 'That payment was already used.')
-    _pay_hold(sig)   # kept on success (the crew store then holds it too); released below when the payment does not check out
+    await _pay_hold(sig)   # kept on success (the crew store then holds it too); released below when the payment does not check out
     try:
         return await _verify_sol_payment_held(sig, mine, min_usd)
     except BaseException:
