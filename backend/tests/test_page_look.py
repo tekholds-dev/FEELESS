@@ -22,3 +22,11 @@ def test_a_real_browser_tells_a_clean_page_from_a_broken_one():
     assert pl.score(a)[0] == 1.0, a
     v, note = pl.score(b)
     assert v < 1.0 and 'overlaps' in note and 'sideways' in note and 'covered' in note, b
+
+
+def test_a_stuck_browser_fails_the_look_instead_of_hanging(monkeypatch):
+    async def never(html, chromium):
+        await asyncio.sleep(3600)
+    monkeypatch.setattr(pl, '_measure', never)
+    with pytest.raises(asyncio.TimeoutError):
+        asyncio.run(pl.measure('<p>x</p>', 'chrome', limit=0.05))

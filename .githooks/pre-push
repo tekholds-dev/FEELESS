@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Pushes to main must pass the gate (scripts/gate.sh). Other branches / tag pushes are not gated.
-while read -r _lref _lsha rref _rsha; do
-  case "$rref" in refs/heads/main) exec bash "$(git rev-parse --show-toplevel)/scripts/gate.sh" ;; esac
+# A commit scripts/gate.sh already passed on a clean tree is let through at once (it wrote the sha down) — no second 5-minute run.
+green="$(git rev-parse --git-common-dir)/feeless-green"
+while read -r _lref lsha rref _rsha; do
+  case "$rref" in refs/heads/main)
+    if [ -f "$green" ] && grep -qx "$lsha" "$green"; then echo "✅ $lsha already passed the gate — pushing"; exit 0; fi
+    exec bash "$(git rev-parse --show-toplevel)/scripts/gate.sh" ;;
+  esac
 done
 exit 0

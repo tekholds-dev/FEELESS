@@ -80,12 +80,21 @@ async def shot(html, chromium, w=1280, h=800, wait=7000):
             await b.close()
 
 
-async def measure(html, chromium):
-    """Opens one page at both sizes. → {size: measures}. Each size has its own context, so nothing carries over."""
+MEASURE_S = 90   # 2026-11-14: a headless Chromium that never answered hung the push gate for 33 min — a look check now fails, never hangs
+
+
+async def measure(html, chromium, limit=MEASURE_S):
+    """Opens one page at both sizes. → {size: measures}. Each size has its own context, so nothing carries over. Raises TimeoutError
+    after `limit` seconds (a stuck browser never holds its caller)."""
+    import asyncio
+    return await asyncio.wait_for(_measure(html, chromium), limit)
+
+
+async def _measure(html, chromium):
     from playwright.async_api import async_playwright
     out = {}
     async with async_playwright() as pw:
-        b = await pw.chromium.launch(executable_path=chromium)
+        b = await pw.chromium.launch(executable_path=chromium, timeout=30000)
         try:
             for name, w, h in SIZES:
                 ctx = await b.new_context(viewport={'width': w, 'height': h}); errs = []
