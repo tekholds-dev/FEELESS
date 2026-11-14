@@ -3,7 +3,7 @@
 > Work top down. **Claim** a card (`claimed: <account> <time>`) before you start so no two Claudes build the same thing.
 > Done = the "Done when" is proven → push → delete the card here → one line in `docs/history/<this month>.md`.
 > Rules: `docs/RULINGS.md` · old detail for any ID: grep `docs/archive/HANDOFF_before_2026-11-12.md` (full old page, word for word).
-> Every report says the % left. **Now (2026-11-13, owner flagged): build order = ~~LOOK-1~~ ✅ → ~~COMP-1~~ ✅ → ~~AGENT-AUTO~~ ✅ → ~~SEC-1~~ ✅ (SITE-8 stays open) → ~~MODEL-CFG~~ ✅ → STYLE-1 (slice 1 ✅) → LEGAL-1 (slices 1+2 ✅, owner fills blanks + $1 test) → ~~JUDGE (COL-20)~~ ✅ → POC-PLAY + the PoC reference check → free readiness run (LAST). Owner is NOT testing real money until all of this works and OSSY+G4 can file easy live proofs with working realtime chat.**
+> Every report says the % left. **Now (2026-11-13, owner flagged): build order = ~~LOOK-1~~ ✅ → ~~COMP-1~~ ✅ → ~~AGENT-AUTO~~ ✅ → ~~SEC-1~~ ✅ (SITE-8 stays open) → ~~MODEL-CFG~~ ✅ → ~~STYLE-1~~ ✅ → LEGAL-1 (slices 1+2 ✅, owner fills blanks + $1 test) → ~~JUDGE (COL-20)~~ ✅ → POC-PLAY + the PoC reference check → free readiness run (LAST). Owner is NOT testing real money until all of this works and OSSY+G4 can file easy live proofs with working realtime chat.**
 > How to work: `CLAUDE.md` (the one rulebook) · ship with the `feeless-ship` skill. These cards came straight from the owner on 2026-11-13 with screenshots — build the full ask, don't re-litigate.
 
 > ## ▶ START HERE (next account — the owner does NOT want to paste instructions)
