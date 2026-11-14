@@ -1,6 +1,7 @@
 """A crew is bought with ONE SOL transfer the buyer signed to the fee wallet. The server re-reads it on-chain (fake RPC here — never the network),
 re-prices it in SOL now, and accepts it once: too small, someone else's, failed, already used → refused."""
 import asyncio
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
@@ -23,7 +24,8 @@ def _patch(monkeypatch, rs, tx, sol_usd=100.0, to=FEE):
         return sol_usd
     monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_rounds_pay_to', pay_to); monkeypatch.setattr(rs, '_sol_usd_live', sol)
     monkeypatch.setattr(rs, '_json_load', lambda *a, **k: {})
-    monkeypatch.setattr(rs, '_PAY_HELD', set())   # each test starts with no payment held (one payment = one use)
+    import sql_store, tempfile
+    monkeypatch.setattr(rs, '_PAY_HELD', sql_store.SharedSet(Path(tempfile.mkdtemp()) / 'held.json'))   # each test starts with no payment held (one payment = one use)
 
 
 def _run(rs, sig, min_usd, st=None):

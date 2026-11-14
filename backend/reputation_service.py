@@ -7353,8 +7353,8 @@ async def _proof_build(force=False):
 
 # ---- 🛡 Crews (crews.py): 2–8 wallets, an invite code, a members-only-post room, a weekly board of verified results ------------------------------
 CREWS_PATH = FUSE_HQ_PATH.parent / 'crews.json'
-import sql_store as _sqls_crews
-_crews_lock = _sqls_crews.ProcLock(lambda: CREWS_PATH)   # 🔒 SITE-8: one holder across every worker process (all 19 crews saves + payment checks sit inside it)
+import sql_store as _sqls_proc   # 🔒 SITE-8: cross-process locks + the shared payment holds
+_crews_lock = _sqls_proc.ProcLock(lambda: CREWS_PATH)   # 🔒 SITE-8: one holder across every worker process (all 19 crews saves + payment checks sit inside it)
 _crew_cache = {'at': 0.0, 'data': None}
 
 
@@ -7449,7 +7449,7 @@ def _crew_view(c, pieces, with_code=False):
                 'bounties': [{**b_, 'byName': _crew_name(b_['by']) if b_.get('by') else None} for b_ in (c.get('bounties') or [])[-20:]]} if with_code else {})}
 
 
-_PAY_HELD = _sqls_crews.SharedSet(lambda: DATA_DIR / 'pay_held.json')   # 💳 payment signatures taken by a request right now, shared by every worker (audit 2026-11-12 #5: N parallel requests spent one payment N times; SITE-8: N workers too)
+_PAY_HELD = _sqls_proc.SharedSet(lambda: DATA_DIR / 'pay_held.json')   # 💳 payment signatures taken by a request right now, shared by every worker (audit 2026-11-12 #5: N parallel requests spent one payment N times; SITE-8: N workers too)
 
 
 def _pay_sig_used(sig):
@@ -7459,14 +7459,10 @@ def _pay_sig_used(sig):
 
 
 def _pay_hold(sig):
-    """Take a payment before the slow on-chain read (check + add with no await between = atomic on the event loop). → raises 409 when taken."""
-    if _pay_sig_used(sig):
+    """Take a payment before the slow on-chain read: `claim` is one transaction shared by every worker, so of N requests (in any process)
+    sending one signature exactly one goes on. → raises 409 when taken or already spent."""
+    if _pay_sig_used(sig) or not _PAY_HELD.claim(sig):
         raise HTTPException(409, 'That payment was already used.')
-    claim = getattr(_PAY_HELD, 'claim', None)   # the shared set claims in one transaction; a plain set (tests) just adds
-    if claim is not None and not claim(sig):
-        raise HTTPException(409, 'That payment was already used.')
-    if claim is None:
-        _PAY_HELD.add(sig)
 
 
 async def _verify_sol_payment(sig, mine, min_usd, st):
@@ -23815,8 +23811,7 @@ import chain_rpc as _chain_rpc_mod   # noqa: E402,F401  (provider names for /hea
 FEE_CREATOR_WALLET = _hq_auth.FEE_CREATOR_WALLET
 ADMIN_PATH = DATA_DIR / 'admin.json'
 BUGS_PATH = ADMIN_PATH.parent / 'bugs.json'
-import sql_store as _sqls_admin
-_admin_lock = _sqls_admin.ProcLock(lambda: FUSE_HQ_PATH)   # 🔒 SITE-8: one holder across every worker process — guards fuse_hq.json (117 saves) + runners.json (16)
+_admin_lock = _sqls_proc.ProcLock(lambda: FUSE_HQ_PATH)   # 🔒 SITE-8: one holder across every worker process — guards fuse_hq.json (117 saves) + runners.json (16)
 _status_log = []          # rolling (ts, method, path, status) for the security monitor
 _holder_cache = {}
 _bug_ip_hits = {}

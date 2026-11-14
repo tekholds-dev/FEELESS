@@ -143,6 +143,16 @@ class Result:
         self.value, self.result = value, result
 
 
+def _drop_late(fut, fd):
+    """A ProcLock wait cancelled mid-way: the flock thread finishes later; release (if it got the lock) and close only then, so the fd number
+    is never closed while a thread can still flock it (a reused number would lock some other file)."""
+    try:
+        if not fut.cancelled() and fut.exception() is None:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    finally:
+        os.close(fd)
+
+
 class ProcLock:
     """🔒 An asyncio lock that also holds across PROCESSES (an OS file lock on <name>.lock beside the store), for whole-document JSON stores
     whose every load → change → save already sits inside `async with <lock>:`. Swapping the per-process asyncio.Lock for this one makes two
@@ -167,10 +177,12 @@ class ProcLock:
         try:
             where = self.path; where.parent.mkdir(parents=True, exist_ok=True)
             fd = os.open(where, os.O_RDWR | os.O_CREAT, 0o600)
+            fut = asyncio.get_running_loop().run_in_executor(None, fcntl.flock, fd, fcntl.LOCK_EX)
             try:
-                await asyncio.to_thread(fcntl.flock, fd, fcntl.LOCK_EX)
+                await asyncio.shield(fut)
             except BaseException:
-                os.close(fd); raise
+                fut.add_done_callback(lambda f, fd=fd: _drop_late(f, fd))   # cancelled: the thread still waits on fd → let it go when it gets it
+                raise
             self._fd = fd
         except BaseException:
             self._a.release(); raise
@@ -190,10 +202,11 @@ class ProcLock:
 
 class SharedSet:
     """💳 A set every worker process shares (payment signatures taken by a request right now). `claim(x)` is ONE transaction: True for the
-    first caller in any process, False for every other until it is discarded or `ttl` passes (a request that died mid-check never locks a
-    payment forever; a payment that went through is kept for good in its own store). Same calls as a set: in · add · discard · clear."""
+    first caller in any process, False for every other until it is discarded or `ttl` (24 h) passes — a request that crashed mid-check
+    frees the payment a day later; a payment that went through is also kept in its own store (that list keeps the last 500). Rows past
+    the ttl are pruned as claims come in, so the file stays small. Same calls as a set: in · add · discard · clear."""
 
-    def __init__(self, path, ttl=900):
+    def __init__(self, path, ttl=86400):
         self._where = path; self.ttl = ttl; self._docs = {}   # a path or a function returning one (read at each use: test sandboxes)
 
     @property
@@ -206,7 +219,17 @@ class SharedSet:
 
     def claim(self, x):
         x = str(x)
-        return self.docs.update(x, lambda cur: Result(cur, False) if self._fresh(cur) else Result({'at': time.time()}, True))
+        if x in self:   # already held: refuse without taking the write lock (the transaction below still decides any race)
+            return False
+        won = self.docs.update(x, lambda cur: Result(cur, False) if self._fresh(cur) else Result({'at': time.time()}, True))
+        if won and int(time.time()) % 50 == 0:
+            self.prune()
+        return won
+
+    def prune(self):
+        c = self.docs._db(); cut = time.time() - self.ttl
+        c.execute("DELETE FROM docs WHERE CAST(json_extract(v, '$.at') AS REAL) < ?", (cut,))
+        self.docs._cache = (None, None)
 
     def add(self, x):
         self.docs.put(str(x), {'at': time.time()})

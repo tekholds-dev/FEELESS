@@ -50,13 +50,13 @@ def test_inside_one_process_it_is_still_a_plain_async_lock(tmp_path):
 
 def test_crews_routes_use_the_proc_lock():
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
-    assert '_crews_lock = _sqls_crews.ProcLock(lambda: CREWS_PATH)' in src
+    assert '_crews_lock = _sqls_proc.ProcLock(lambda: CREWS_PATH)' in src
 
 
 def test_every_fuse_hq_and_runners_save_holds_the_cross_process_admin_lock():
     import ast
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
-    assert '_admin_lock = _sqls_admin.ProcLock(lambda: FUSE_HQ_PATH)' in src
+    assert '_admin_lock = _sqls_proc.ProcLock(lambda: FUSE_HQ_PATH)' in src
     t = ast.parse(src); par = {c: n for n in ast.walk(t) for c in ast.iter_child_nodes(n)}
     for n in ast.walk(t):
         if isinstance(n, ast.Call) and getattr(n.func, 'id', None) in ('_json_save', '_json_save_soft') and n.args \
@@ -92,3 +92,30 @@ def _claim(path, q):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import sql_store
     q.put(sql_store.SharedSet(path).claim('SIG'))
+
+
+def test_a_cancelled_wait_never_closes_a_descriptor_a_thread_still_uses(tmp_path):
+    import sql_store
+    lock = sql_store.ProcLock(tmp_path / 'c.json')
+
+    async def main():
+        holder = sql_store.ProcLock(tmp_path / 'c.json')   # a second holder in this process stands in for another worker
+        await holder.__aenter__()
+        t = asyncio.ensure_future(lock.__aenter__())
+        await asyncio.sleep(0.1); t.cancel()
+        try:
+            await t
+        except asyncio.CancelledError:
+            pass
+        await holder.__aexit__(None, None, None)
+        await asyncio.sleep(0.2)                             # the late thread gets the lock, then lets it go
+        async with lock:                                     # and the lock is still usable
+            return True
+    assert asyncio.run(main()) is True
+
+
+def test_old_holds_are_pruned(tmp_path):
+    import sql_store
+    s = sql_store.SharedSet(tmp_path / 'h.json', ttl=0.01)
+    s.add('A'); import time; time.sleep(0.02); s.prune()
+    assert s.docs.all() == {}
