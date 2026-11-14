@@ -4988,13 +4988,53 @@ async def _kalshi_send(cat, tk):
                     tk.update(status='refused', why=why_, balance=bal_)
                 else:
                     o_ = await _kb.place(h_, kid_, pem_, _kb.order(tk, n_, px_))
-                    st_ = str(o_.get('status') or '')
-                    tk.update(status='filled' if st_ == 'executed' else 'resting' if st_ == 'resting' else 'sent', orderId=o_.get('order_id'), count=n_, price=px_, usd=round(n_ * px_, 2), why=why_, balance=round(bal_ - n_ * px_, 2))
+                    tk.update(orderId=o_.get('order_id'), count=n_, price=px_, why=why_, balance=round(bal_ - n_ * px_, 2), **_kb.settle(o_, n_, px_))
+                    await _kalshi_confirm(h_, kid_, pem_, tk)   # ✅ read it back from Kalshi itself
         except Exception as e:   # noqa: BLE001 — a refused or failed call is shown, never retried by itself
             tk.update(status='failed', why=str(e)[:200])
     tk['doneAt'] = round(time.time())
-    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why')} | {'at': tk['doneAt']}])[-100:]
+    cat['kalshiBids'] = (bids_ + [{k: tk.get(k) for k in _KB_ROW} | {'at': tk['doneAt']}])[-100:]
+    if tk.get('orderId'):
+        _kalshi_say(cat, tk)
     return tk
+
+
+_KB_ROW = ('id', 'ticker', 'side', 'title', 'count', 'price', 'usd', 'status', 'orderId', 'folder', 'why', 'filled', 'kalshiStatus', 'confirmedAt', 'confirmErr')
+
+
+async def _kalshi_confirm(h_, kid_, pem_, row):
+    """✅ Ask Kalshi what it holds for this order now. Never retries or re-sends anything: a read only."""
+    try:
+        o_ = await _kb.order_status(h_, kid_, pem_, row['orderId'])
+        row.update(**_kb.settle(o_, row.get('count'), row.get('price')), confirmedAt=round(time.time()))
+        row.pop('confirmErr', None)
+    except Exception as e:   # noqa: BLE001 — shown on the ticket; the order itself stands as Kalshi has it
+        row['confirmErr'] = str(e)[:160]
+    return row
+
+
+def _kalshi_say(cat, row):
+    """One chat line from the agent with what Kalshi confirmed (or that it could not confirm yet)."""
+    if row.get('confirmedAt'):
+        t_ = f"✅ Kalshi confirmed my bid: {str(row.get('side') or '').upper()} · {row.get('title') or row.get('ticker')} · {row.get('filled', 0)} of {row.get('count')} filled at {float(row.get('price') or 0):.2f} ({row.get('status')})."
+    else:
+        t_ = f"⚠ I sent the bid on {row.get('title') or row.get('ticker')} but could not read it back from Kalshi yet ({row.get('confirmErr') or 'no answer'}). Check it on Kalshi; tap Check on Kalshi to retry the read."
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': t_[:400], 'at': time.time(), 'open': 'bids'}])[-200:]
+
+
+async def _kalshi_refresh(cat, kid_, pem_, limit=6):
+    """✅ Re-read the open orders (sent / resting, last 7 days) so the ledger and the tickets match Kalshi. Read only."""
+    now_ = time.time(); rows_ = [b for b in (cat.get('kalshiBids') or []) if b.get('orderId') and b.get('status') in ('sent', 'resting') and now_ - float(b.get('at') or 0) < 7 * 86400][-limit:]
+    if not rows_:
+        return 0
+    async with httpx.AsyncClient(timeout=10) as h_:
+        for b_ in rows_:
+            await _kalshi_confirm(h_, kid_, pem_, b_)
+            for f_ in cat.get('pobFolders') or []:   # the ticket on the proof says the same as the ledger
+                tk_ = f_.get('kalshi') or {}
+                if tk_.get('orderId') == b_['orderId']:
+                    tk_.update({k: b_.get(k) for k in ('status', 'filled', 'usd', 'kalshiStatus', 'confirmedAt', 'confirmErr')})
+    return len(rows_)
 
 
 def _kalshi_view(cat):
@@ -10121,7 +10161,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 cat.pop('gitNotice', None)
         keep_owned(cat); _save(store)
         return {'clean': _sort.clean_view(cat), 'notice': cat.get('gitNotice')}
-    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
+    if p.op in ('kalshi_state', 'kalshi_cfg', 'kalshi_bid', 'kalshi_skip', 'kalshi_check'):   # 🎯 the real-bid door: his switch, caps, balance and the tickets waiting for his tap
         if p.op == 'kalshi_cfg':
             cat['kalshiCfg'] = _kb.cfg(p.tools); keep_owned(cat); _save(store)
         if p.op in ('kalshi_bid', 'kalshi_skip'):
@@ -10138,7 +10178,14 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             return {**_kalshi_view(cat), 'ticket': tk_, 'pobFolders': _pob_view(cat)}
         out_ = _kalshi_view(cat)
         kid_, pem_ = _kb.split_key(_ck.key_for(cat, 'kalshi', data_dir=DATA_DIR) or '')
-        if kid_ and p.op == 'kalshi_state':
+        if kid_ and p.op in ('kalshi_state', 'kalshi_check'):
+            try:
+                if await _kalshi_refresh(cat, kid_, pem_):
+                    keep_owned(cat); _save(store); out_ = {**_kalshi_view(cat), 'pobFolders': _pob_view(cat)}
+                if p.op == 'kalshi_check' and p.job:
+                    out_['ticket'] = next((f_.get('kalshi') for f_ in cat.get('pobFolders') or [] if (f_.get('kalshi') or {}).get('id') == p.job), None)
+            except Exception as e:   # noqa: BLE001
+                out_['checkErr'] = str(e)[:160]
             try:
                 async with httpx.AsyncClient(timeout=10) as h_:
                     out_['balance'] = await _kb.balance(h_, kid_, pem_)

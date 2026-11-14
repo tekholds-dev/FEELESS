@@ -61,6 +61,11 @@ import { SnapStack, cleanShots, cleanFolderShots } from './SnapStack';
 import { useLivePrice } from '../../lib/livePriceHub';
 import { FirstTips } from '../FirstTips';
 import { twoTap } from '../ActBtn';
+// ⏹ which running proofs the desk picker can stop (two taps). PoB and PoC end by themselves: a PoB waits on its games, and its real Kalshi order lives on Kalshi.
+const STOPPABLE = {
+  pow: { op: ['ask', { text: 'stop PoW' }], sure: 'Stop this PoW? If it bought, it sells at the live price.', tip: 'Stop it (two taps). If it bought, it sells at the live price' },
+  pop: { op: ['pop', { job: 'stop' }], sure: 'Stop this PoP at the live price?', tip: 'Stop it at the live price (two taps). Paper only' },
+};
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
 // the cloud (Steel → Browserbase → the reader: never on this device). Each window: its model, its provider, the page it is on, a bubble top-right
@@ -1650,8 +1655,10 @@ function WorkbenchLive({ cat }) {
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length, wins.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     {kinds.length ? <nav className="cwb-running" aria-label="Proofs running" data-testid="cwb-running"><em>🗂 PROOFS RUNNING <b className="m-num">{kinds.length}/{d?.proofMax || 3}</b></em>
-      {kinds.map(k => <button type="button" key={k} data-k={k} className={`m-chip cwb-rp${liveKind === k && !peek ? ' is-on' : ''}`} aria-pressed={liveKind === k && !peek} onClick={() => { setStagePick(k); setPeek(false); }} data-tip={`Show the live stage of this ${PROOF_SHORT[k]}`} data-testid={`cwb-proof-${k}`}>
-        <i aria-hidden="true" />{PROOF_SHORT[k]}<small>{subject(k, d)}</small></button>)}
+      {kinds.map(k => <span key={k} className="cwb-rpw"><button type="button" data-k={k} className={`m-chip cwb-rp${liveKind === k && !peek ? ' is-on' : ''}`} aria-pressed={liveKind === k && !peek} onClick={() => { setStagePick(k); setPeek(false); }} data-tip={`Show the live stage of this ${PROOF_SHORT[k]}`} data-testid={`cwb-proof-${k}`}>
+        <i aria-hidden="true" />{PROOF_SHORT[k]}<small>{subject(k, d)}</small></button>
+        {STOPPABLE[k] ? <button type="button" className="cwb-rpx" disabled={busy} aria-label={`Stop the ${PROOF_SHORT[k]}`} onClick={() => twoTap(STOPPABLE[k].sure) && act(...STOPPABLE[k].op)} data-tip={STOPPABLE[k].tip} data-testid={`cwb-proof-stop-${k}`}>✕</button>
+          : <small className="cwb-rpx is-auto" data-tip={k === 'pob' ? 'A PoB ends when its games are final. Any real Kalshi order stays on Kalshi either way' : 'It finishes by itself'}>auto</small>}</span>)}
       {kinds.length >= (d?.proofMax || 3) ? <small className="cwb-running-full" data-tip="One agent runs at most 3 proofs at once: a new one starts when one of these finishes or is stopped">full</small> : null}</nav> : null}
     <DeskFlip cat={cat} size={chatSize} onProofs={() => setDesk('picker')} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}

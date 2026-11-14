@@ -29,3 +29,12 @@ test('a ticket sends only on Approve, then shows what Kalshi did', async () => {
   await act(async () => { q(el, 'kd-approve').click(); });
   expect(calls).toEqual([{ op: 'kalshi_bid', job: 'kb1' }]); expect(q(el, 'kd-status').textContent).toContain('2 × 0.40 = $0.80'); expect(q(el, 'kd-approve')).toBeNull();
 });
+
+test('after sending, the ticket shows Kalshi\'s own read-back and can re-check it (a string reason never crashes it)', async () => {
+  const calls = []; const t = { id: 'kb2', ticker: 'KX-LAL', side: 'no', title: 'Lakers win', price: 0.3, conf: [80, 75], why: '1 × NO at 0.30 = $0.30', status: 'resting', count: 1, usd: 0.3, orderId: 'o9', filled: 0, confirmedAt: 1800000000 };
+  const work = async (_c, b) => { calls.push(b); return { ticket: { ...t, status: 'filled', filled: 1 } }; };
+  const el = await mount(<KalshiTicket t={t} catId="c" work={work} />);
+  expect(q(el, 'kd-confirm').textContent).toContain('Kalshi confirmed 0 of 1 filled');
+  await act(async () => { q(el, 'kd-check').click(); });
+  expect(calls).toEqual([{ op: 'kalshi_check', job: 'kb2' }]); expect(q(el, 'kd-confirm').textContent).toContain('1 of 1 filled'); expect(q(el, 'kd-check')).toBeNull();
+});

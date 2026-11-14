@@ -214,3 +214,30 @@ async def place(http, key_id, pem, body):
     if r.status_code not in (200, 201):
         raise RuntimeError(f'Kalshi refused the order ({r.status_code}): {r.text[:200]}')
     return (r.json() or {}).get('order') or {}
+
+
+# ✅ CONFIRM ON KALSHI (owner 2026-11-14: "they should check and confirm the bid on kalshi works"). After an order is sent, the agent reads it
+# back from his own Kalshi account: the ticket then says what Kalshi itself holds (resting / filled / canceled, n of m filled), not what we hoped.
+def settle(o, count, price):
+    """Kalshi's order record → what the ticket shows. A canceled order with no fill frees its money from today's cap."""
+    o = o or {}; count = int(count or 0); st = str(o.get('status') or '').lower()
+    if o.get('fill_count') is not None:
+        filled = int(float(o.get('fill_count') or 0))
+    elif o.get('remaining_count') is not None:
+        filled = max(0, int(o.get('initial_count') or count) - int(float(o.get('remaining_count') or 0)))
+    else:
+        filled = count if st == 'executed' else 0
+    filled = min(filled, count) if count else filled
+    status = 'filled' if st == 'executed' or (count and filled >= count) else 'resting' if st in ('resting', 'pending') else 'canceled' if st == 'canceled' else 'sent'
+    if status == 'canceled' and filled:
+        status = 'filled'   # part filled, the rest canceled: the filled part is a real position
+    usd = round((filled if status in ('filled', 'canceled') else count) * float(price or 0), 2)   # resting/sent: the whole order is reserved
+    return {'status': status, 'filled': filled, 'usd': usd, 'kalshiStatus': st or None}
+
+
+async def order_status(http, key_id, pem, order_id):
+    path = f'/portfolio/orders/{order_id}'
+    r = await http.get(f'{BASE}{path}', headers=headers(key_id, pem, 'GET', path))
+    if r.status_code != 200:
+        raise RuntimeError(f'Kalshi said {r.status_code} reading the order: {r.text[:160]}')
+    return (r.json() or {}).get('order') or {}
