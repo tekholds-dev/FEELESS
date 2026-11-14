@@ -35,13 +35,17 @@ def test_old_file_moves_in_once_and_stays_as_a_read_only_backup(monkeypatch, tmp
 
 
 def _hammer(path, wallet, n):
-    import reputation_service as r
-    r.NOTIF_PATH = __import__('pathlib').Path(path); r._push_load = lambda: {'subs': {}}
+    """A worker writing the inbox the way notify() does (newest first, 200 kept), on sql_store only: a child process never imports the
+    service, so it can never reach backend/data outside the conftest sandbox."""
+    import sys
+    sys.path.insert(0, str(__import__('pathlib').Path(__file__).resolve().parents[1]))
+    import sql_store
+    d = sql_store.Docs(path)
     for i in range(n):
-        r.notify(wallet, 'mention', f'{wallet[:4]}-{i}', push=False)
+        d.update(wallet, lambda box, i=i: [{'id': f'{wallet[:4]}-{i}'}, *(box or [])][:200])
 
 
-def test_four_processes_notifying_at_once_lose_nothing(tmp_path):
+def test_four_processes_writing_one_inbox_store_lose_nothing(tmp_path):
     path = str(tmp_path / 'notifications.json')
     ctx = mp.get_context('spawn')
     ps = [ctx.Process(target=_hammer, args=(path, w, 40)) for w in (A, A, B, B)]

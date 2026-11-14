@@ -22,7 +22,9 @@ function contrast(foreground, background) {
 
 test('defines a daylight black and green hierarchy with readable contrast', () => {
   expect(contrast('#10251a', '#ffffff')).toBeGreaterThanOrEqual(12);
-  expect(contrast('#4d5853', '#ffffff')).toBeGreaterThanOrEqual(5);   // 🟢 2026-10-23 official-green sweep: neutral ink, no grey-green
+  expect(contrast('#4d5853', '#ffffff')).toBeGreaterThanOrEqual(5);
+  expect(contrast('#414b47', '#ffffff')).toBeGreaterThanOrEqual(7);   // the muted ink that actually paints
+  expect(contrast('#121715', '#ffffff')).toBeGreaterThanOrEqual(7);   // 🟢 2026-10-23 official-green sweep: neutral ink, no grey-green
   expect(contrast('#08764e', '#ffffff')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('#07583c', '#d8f4e3')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('#07583c', '#ffffff')).toBeGreaterThanOrEqual(7);
@@ -31,8 +33,9 @@ test('defines a daylight black and green hierarchy with readable contrast', () =
 
 test('keeps the daylight layer scoped and covers shared surfaces and focus states', () => {
   expect(css).toContain('body.theme-day{');
-  expect(css).toContain('--day-ink:#181d1b');
-  expect(css).toContain('--day-muted:#4d5853');
+  // the values the page paints: terminal.css used to set these, then override them later in the sheet (STYLE-1 cut the dead first copies)
+  expect(css).toContain('--day-ink:#121715');
+  expect(css).toContain('--day-muted:#414b47');
   expect(css).toContain('--day-green:#08764e');
   expect(css).toContain('body.theme-day .feeless-dialog');
   expect(css).toContain('body.theme-day .globe-webgl-fallback');
@@ -44,7 +47,7 @@ test('keeps the daylight layer scoped and covers shared surfaces and focus state
 
 test('keeps the official night palette (PLASMA on deep space, owner 2026-11-11) outside the daylight scope', () => {
   expect(css).toContain(':root{--mint:#9b6bff;--mint-bright:#b48cff;--ink:#08051a');
-  expect(css).toContain('.terminal-header{height:82px');
+  expect(css).toMatch(/\.terminal-header\{[^}]*height:64px!important/);   // what paints (an earlier 82px was always overridden)
   expect(css).toContain('background:#090b0a');   // the header: near-black, no green tint
 });
 
