@@ -24,9 +24,20 @@ export function proofOf(d, live) {
   return live ? fromDesk : null;   // a plain ask keeps the chat: only a proof turns into the stage
 }
 
+// 🗂 every proof this agent is running (owner 2026-11-14: up to 3 at once, switched from the desk). The server's list first; the chat's live kind joins it.
+const SERVER_KIND = { PoW: 'pow', PoP: 'pop', PoB: 'pob', PoC: 'poc' };
+export function proofsOf(d, live) {
+  if (!d) return [];
+  const out = Array.isArray(d.activeProofs) ? d.activeProofs.map(k => SERVER_KIND[k]).filter(Boolean)
+    : [d.powFolder && 'pow', d.popFolder && 'pop', (d.pobRun || d.pobRead) && 'pob'].filter(Boolean);
+  const now = live ? proofOf(d, live) : null;
+  return now && !out.includes(now) ? [...out, now] : out;
+}
+export const PROOF_SHORT = { pow: 'PoW', pop: 'PoP', pob: 'PoB', poc: 'PoC', poe: 'PoE', pos: 'PoST' };
+
 // what the run is on, in a few words
-function subject(kind, d) {
-  const f = d?.powFolder; const pop = d?.popFolder; const pob = d?.pobRun || d?.pobRead;
+export function subject(kind, d) {
+  const f = kind === 'pow' ? d?.powFolder : null; const pop = kind === 'pop' ? d?.popFolder : null; const pob = kind === 'pob' ? d?.pobRun || d?.pobRead : null;   // only the picked proof's own run
   if (f) return f.sym ? `$${f.sym}` : `${(f.coins || []).length || 'new'} coins`;
   if (pop) return `${pop.market || 'the market'} ${pop.side || ''}`.trim();
   if (pob) return pob.topic || pob.q || 'tonight\'s games';
@@ -45,7 +56,7 @@ function useTween(value, ms = 600) {
 // 📡 the stage's data — the run's own numbers and words only. Missing data = that scene is not shown.
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : null);
 function useRunData(kind, d, wins, spent, steps) {
-  const f = d?.powFolder; const pop = d?.popFolder; const pob = d?.pobRun || d?.pobRead;
+  const f = kind === 'pow' ? d?.powFolder : null; const pop = kind === 'pop' ? d?.popFolder : null; const pob = kind === 'pob' ? d?.pobRun || d?.pobRead : null;
   const [candles, setCandles] = useState([]);
   useEffect(() => {   // the coin's REAL 1-minute candles from FEELESS's candle service (the same source as every chart), every 15 s
     if (!f?.pair) { setCandles([]); return undefined; } let on = true;
@@ -77,7 +88,7 @@ function useRunData(kind, d, wins, spent, steps) {
 
 export default function ProofLive({ d, wins = [], spent = 0, name = '', kind, onShowChat }) {
   const box = useRef(null); const cv = useRef(null); const on = useOnScreen(box);
-  const seed = d?.task?.id || d?.powFolder?.id || d?.popFolder?.id || d?.deskProof?.id || kind;
+  const seed = `${kind}-${d?.task?.id || d?.powFolder?.id || d?.popFolder?.id || d?.deskProof?.id || ''}`;   // each proof keeps its own look
   const look = useMemo(() => pickLook(kind, seed), [kind, seed]);
   const rnd = useMemo(() => { const r = seeded(seed); return Array.from({ length: 120 }, () => r()); }, [seed]);
   const steps = wins.reduce((n, w) => n + (Array.isArray(w?.steps) ? w.steps.length : Number(w?.steps) || 0), 0);

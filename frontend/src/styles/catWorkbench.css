@@ -791,3 +791,13 @@ body.theme-day .cwb-proof { background: var(--pcw-tx9); color: var(--pcw-ac19); 
 @media (min-width: 1101px) { .cwb-deck { grid-template-columns: minmax(180px, 1fr) minmax(0, 720px) minmax(180px, 1fr); }
   .cwb-deck > :first-child { justify-self: end; width: min(100%, 290px); } .cwb-deck > :last-child { justify-self: start; width: min(100%, 290px); } }
 .pl-back { justify-self: center; margin-bottom: 4px; }
+/* 🗂 the desk's proof picker (owner 2026-11-14): under the 2 monitors, one chip per running proof (max 3) — tap one to put its live stage up */
+.cwb-running { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; min-width: 0; }
+.cwb-running > em { font: 600 9.5px var(--f-mono, monospace); letter-spacing: .14em; color: var(--ppl-tx7); font-style: normal; white-space: nowrap; } .cwb-running > em b { font: inherit; color: var(--ppl-tx2); }
+.cwb-rp { --pc: var(--ppl-ac1); display: inline-flex; align-items: center; gap: 6px; max-width: 260px; min-width: 0; border-color: color-mix(in srgb, var(--pc) 40%, transparent); transition: transform .15s, border-color .15s, background-color .15s; }
+.cwb-rp[data-k="pow"] { --pc: var(--ppl-wn1); } .cwb-rp[data-k="pop"] { --pc: var(--ppl-ac2); } .cwb-rp[data-k="pob"] { --pc: var(--ppl-dg1); } .cwb-rp[data-k="poc"] { --pc: var(--ppl-ac3); } .cwb-rp[data-k="poe"] { --pc: var(--ppl-ac4); } .cwb-rp[data-k="pos"] { --pc: var(--ppl-ac5); }
+.cwb-rp i { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); box-shadow: 0 0 8px var(--pc); flex: none; }
+.cwb-rp small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .75; }
+.cwb-rp:hover { transform: translateY(-1px); border-color: var(--pc); } .cwb-rp:active { transform: scale(.97); }
+.cwb-rp.is-on { background: color-mix(in srgb, var(--pc) 22%, transparent); border-color: var(--pc); }
+.cwb-running-full { font: 600 9.5px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: var(--ppl-wn1); }

@@ -3760,6 +3760,9 @@ def _proof_hosts(cat, kind):
 
 def _site_proof_start(cat, cat_id, site, kind):
     """🔎 One door for the chat's "file a pump pow" and the manual's button: the same proof, with its windows going to that site first. → (ok, what to say)"""
+    room_ = _proof_room(cat, cat_id, {'pow': 'PoW', 'pop': 'PoP'}.get(kind, 'PoB'))
+    if room_:
+        return False, room_
     if kind == 'pow':
         f_ = (cat.get('powRun') or {}).get('folder')
         if f_:
@@ -7345,6 +7348,34 @@ WS_DIR = DATA_DIR / 'agent_workspaces'
 _POC_BUSY: set = set()
 
 
+# 🗂 ONE AGENT, AT MOST 3 PROOFS AT ONCE (owner 2026-11-14: "one agent should only have 3 active proofs max running and must be organized
+# multitasking"). Each proof type keeps its own run slot (PoW folder, PoP run, PoB run, PoC filing), so a PoC can run while a PoB waits on its
+# game; a 4th start is refused with the names of the 3 running. The desk's proof picker switches between them.
+MAX_ACTIVE_PROOFS = 3
+
+
+def _active_proofs(cat, cid):
+    """→ the proof kinds this agent is running now, in a fixed order."""
+    out = []
+    if (cat.get('powRun') or {}).get('folder') or cid in _POW_WANT:
+        out.append('PoW')
+    if cat.get('popRun') or cat.get('popCard') or cat.get('popRead') or cid in _POP_WANT:
+        out.append('PoP')
+    if cat.get('pobRun') or cat.get('pobRead') or cat.get('pobAsk') or cid in _POB_WANT:
+        out.append('PoB')
+    if cid in _POC_BUSY:
+        out.append('PoC')
+    return out
+
+
+def _proof_room(cat, cid, kind):
+    """→ None when a new `kind` proof may start, else what to tell the owner."""
+    on = _active_proofs(cat, cid)
+    if kind in on or len(on) < MAX_ACTIVE_PROOFS:
+        return None
+    return f"🗂 {cat.get('name') or 'This agent'} is already running {len(on)} proofs ({', '.join(on)}), the most at once. Stop one or let it finish first."
+
+
 def _ws_file(cat_id, ws_id):
     return WS_DIR / re.sub(r'[^a-z0-9]', '', str(cat_id).lower())[:40] / (re.sub(r'[^a-z0-9]', '', str(ws_id).lower())[:24] + '.seal')
 
@@ -9458,6 +9489,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         ok_, say_ = _pop.reply(p.job, cat.get('popRun'), cat.get('popCard'))
         if not ok_:
             raise HTTPException(409, say_)
+        if p.job == 'start' and (room_ := _proof_room(cat, cat_id, 'PoP')):
+            raise HTTPException(409, room_)
         cat.pop('proofSite', None)
         _POP_WANT[cat_id] = p.job; _POW_WAKE.set()
         return {'ok': True}
@@ -9578,6 +9611,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
         ok_, say_ = _pob.reply(cat.get('pobRun'), bool(cat.get('pobRead')))
         if not ok_:
             raise HTTPException(409, say_)
+        if (room_ := _proof_room(cat, cat_id, 'PoB')):
+            raise HTTPException(409, room_)
         cat.pop('proofSite', None)
         if str(p.text or '').strip():
             cat['pobAsk'] = str(p.text).strip()[:160]; keep_owned(cat); _save(store)
@@ -10455,6 +10490,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'It needs a mind first.')
         if cat_id in _POC_BUSY:
             raise HTTPException(409, 'A PoC is already being filed.')
+        if (room_ := _proof_room(cat, cat_id, 'PoC')):
+            raise HTTPException(409, room_)
         topic_ = str(p.text or '').strip()[:120]
         _POC_BUSY.add(cat_id); asyncio.create_task(_poc_file(cat_id, topic_, str(p.job or '') or None))
         return {'ok': True, 'pocFolders': _poc_view(cat)}
@@ -11425,6 +11462,8 @@ async def _cat_work(cat_id: str, p: WorkPayload):
                 why_ = '⛏ No PoW folder is open.'
             elif cmd_['do'] == 'start' and not (cat.get('brainsCfg') or {}).get('brains'):
                 why_ = '⛏ It needs a model first.'
+            elif cmd_['do'] == 'start' and _proof_room(cat, cat_id, 'PoW'):
+                why_ = _proof_room(cat, cat_id, 'PoW')
             else:
                 cat.pop('proofSite', None)
                 _POW_WANT[cat_id] = cmd_
@@ -11502,6 +11541,7 @@ async def _cat_work(cat_id: str, p: WorkPayload):
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'kernel': _kernel.view() if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'mailbox': cat.get('mailbox'), 'setup': _as.view(cat), 'siteTrade': cat.get('siteTrade'), 'siteTrades': (cat.get('siteTrades') or [])[::-1], 'siteTradeAuto': bool(cat.get('siteTradeAuto')), 'warmSite': (_warm_for(cat_id) or {}).get('site'), 'topup': cat.get('topup'), 'topups': (cat.get('topups') or [])[::-1], 'siteManuals': cat.get('siteManuals') or {}, 'siteScan': _SCAN_BUSY.get(cat_id), 'watchFolders': (cat.get('watchFolders') or [])[::-1],
+            'activeProofs': _active_proofs(cat, cat['id']), 'proofMax': MAX_ACTIVE_PROOFS,   # 🗂 the desk's proof picker
             'popRead': cat.get('popRead'), 'pobRead': cat.get('pobRead'), 'pobRun': cat.get('pobRun') and _pob.folder(cat['pobRun']), 'pobFolders': _pob_view(cat),
             'popFolder': cat.get('popRun') and _pop.folder(cat['popRun']), 'popCard': cat.get('popCard') and _pop.folder(cat['popCard']),
             'popPoi': _poi_owner_view(_pop_dna_id(cat['id'])) if not (p.ver and p.ver == _pow_ver(cat)) else None,

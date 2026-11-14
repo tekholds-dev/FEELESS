@@ -1,5 +1,5 @@
 import { useOnScreen } from '../../lib/fxPause';
-import ProofLive, { proofOf } from './ProofLive';
+import ProofLive, { proofOf, proofsOf, subject, PROOF_SHORT } from './ProofLive';
 import { KalshiDoor, KalshiTicket } from './KalshiDoor';
 import { priceWord, useProofPrices } from '../../lib/proofPrice';
 import { Creations, PreviewButton } from './AgentStudio';
@@ -1629,7 +1629,9 @@ function WorkbenchLive({ cat }) {
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
   const proofs = useMemo(() => newestProofs(d), [d]);
-  const liveKind = live ? proofOf(d, live) : null; const [peek, setPeek] = useState(false);   // 🎆 a running proof turns the chat into its live stage
+  const kinds = proofsOf(d, live); const [stagePick, setStagePick] = useState(null);   // 🗂 up to 3 proofs at once: the desk's picker switches the stage between them
+  const liveKind = kinds.includes(stagePick) ? stagePick : live ? proofOf(d, live) : null; const [peek, setPeek] = useState(false);   // 🎆 a running proof turns the chat into its live stage
+  useEffect(() => { if (stagePick && !kinds.includes(stagePick)) setStagePick(null); }, [kinds.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPeek(false); }, [liveKind, d?.task?.id]);   // 🖥 an idle monitor shows its agent's newest proofs, never a blank page
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
   const [unseen, toBottom] = useStickToBottom(chatRef, Number(msgs[msgs.length - 1]?.at || 0) + msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
@@ -1647,6 +1649,10 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map((w, n) => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} d={d} w={w} proof={monitorProof(proofs, n, wins.length, wins.map(monitorIdle))} onProof={() => setDesk(true)} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    {kinds.length ? <nav className="cwb-running" aria-label="Proofs running" data-testid="cwb-running"><em>🗂 PROOFS RUNNING <b className="m-num">{kinds.length}/{d?.proofMax || 3}</b></em>
+      {kinds.map(k => <button type="button" key={k} data-k={k} className={`m-chip cwb-rp${liveKind === k && !peek ? ' is-on' : ''}`} aria-pressed={liveKind === k && !peek} onClick={() => { setStagePick(k); setPeek(false); }} data-tip={`Show the live stage of this ${PROOF_SHORT[k]}`} data-testid={`cwb-proof-${k}`}>
+        <i aria-hidden="true" />{PROOF_SHORT[k]}<small>{subject(k, d)}</small></button>)}
+      {kinds.length >= (d?.proofMax || 3) ? <small className="cwb-running-full" data-tip="One agent runs at most 3 proofs at once: a new one starts when one of these finishes or is stopped">full</small> : null}</nav> : null}
     <DeskFlip cat={cat} size={chatSize} onProofs={() => setDesk('picker')} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><MindNow d={d} w={wins[0]} p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}

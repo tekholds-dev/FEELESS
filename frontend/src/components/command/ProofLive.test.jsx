@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import ProofLive, { proofOf } from './ProofLive';
+import ProofLive, { proofOf, proofsOf, subject } from './ProofLive';
 import { SCENES, readyScenes, pickLook } from '../../lib/proofFx';
 
 jest.mock('../../lib/candles', () => { const calls = []; return { calls, fetchFeelessCandles: (...a) => { calls.push(a); return Promise.resolve({ candles: [[1, 1, 1.2, 0.9, 1.1, 5], [2, 1.1, 1.3, 1, 1.25, 7], [3, 1.25, 1.4, 1.2, 1.3, 9]] }); } }; });
@@ -35,4 +35,13 @@ test('the stage fetches the coin\'s real candles, shows the live vitals and hand
   await act(async () => { host.querySelector('[data-testid="proof-live-chat"]').click(); });
   expect(show).toHaveBeenCalled();
   await act(async () => { root.unmount(); });
+});
+
+test('the desk picker lists every running proof (server list first) and each stage shows only its own run', () => {
+  expect(proofsOf({ activeProofs: ['PoB', 'PoC'] }, false)).toEqual(['pob', 'poc']);
+  expect(proofsOf({ activeProofs: ['PoB'], task: { proofKind: 'poc' } }, true)).toEqual(['pob', 'poc']);
+  expect(proofsOf({ powFolder: {}, pobRun: {} }, false)).toEqual(['pow', 'pob']);
+  expect(proofsOf(null, true)).toEqual([]);
+  const d = { powFolder: { sym: 'BONK' }, pobRun: { topic: 'NBA tonight' } };
+  expect(subject('pob', d)).toBe('NBA tonight'); expect(subject('pow', d)).toBe('$BONK');
 });
