@@ -50,13 +50,13 @@ def test_inside_one_process_it_is_still_a_plain_async_lock(tmp_path):
 
 def test_crews_routes_use_the_proc_lock():
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
-    assert '_crews_lock = _sqls_crews.ProcLock(CREWS_PATH)' in src
+    assert '_crews_lock = _sqls_crews.ProcLock(lambda: CREWS_PATH)' in src
 
 
 def test_every_fuse_hq_and_runners_save_holds_the_cross_process_admin_lock():
     import ast
     src = (Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
-    assert '_admin_lock = _sqls_admin.ProcLock(FUSE_HQ_PATH)' in src
+    assert '_admin_lock = _sqls_admin.ProcLock(lambda: FUSE_HQ_PATH)' in src
     t = ast.parse(src); par = {c: n for n in ast.walk(t) for c in ast.iter_child_nodes(n)}
     for n in ast.walk(t):
         if isinstance(n, ast.Call) and getattr(n.func, 'id', None) in ('_json_save', '_json_save_soft') and n.args \
@@ -67,3 +67,28 @@ def test_every_fuse_hq_and_runners_save_holds_the_cross_process_admin_lock():
                 if isinstance(p, ast.AsyncWith):
                     held |= {ast.unparse(i.context_expr) for i in p.items}
             assert '_admin_lock' in held, f'line {n.lineno} saves without the admin lock'
+
+
+def test_tests_never_touch_the_real_lock_files_or_payment_holds():
+    import reputation_service as rs
+    real = (Path(__file__).resolve().parents[1] / 'data').resolve()
+    for p in (rs._crews_lock.path, rs._admin_lock.path, Path(rs._PAY_HELD.docs.path)):
+        assert real not in p.resolve().parents, p
+
+
+def test_one_payment_is_claimed_once_across_processes(tmp_path):
+    import sql_store
+    s = sql_store.SharedSet(tmp_path / 'held.json')
+    ctx = mp.get_context('spawn'); q = ctx.Queue()
+    ps = [ctx.Process(target=_claim, args=(str(tmp_path / 'held.json'), q)) for _ in range(6)]
+    [p.start() for p in ps]; [p.join(60) for p in ps]
+    wins = [q.get(timeout=5) for _ in ps]
+    assert sum(wins) == 1 and 'SIG' in s                                   # six workers, one payment: exactly one gets it
+    s.discard('SIG'); assert 'SIG' not in s and s.claim('SIG') is True       # released (it failed) → spendable again
+    old = sql_store.SharedSet(tmp_path / 'held.json', ttl=0); assert old.claim('SIG') is True   # a hold past its time never blocks forever
+
+
+def _claim(path, q):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    import sql_store
+    q.put(sql_store.SharedSet(path).claim('SIG'))

@@ -150,8 +150,12 @@ class ProcLock:
     The file lock is taken in a thread, so the event loop keeps answering while another worker holds it."""
 
     def __init__(self, path):
-        self.path = Path(path).with_suffix('.lock')
+        self._where = path   # a path, or a function returning one (read at each use, so a test sandbox that moves the store moves the lock)
         self._a = None; self._fd = None
+
+    @property
+    def path(self):
+        return Path(self._where() if callable(self._where) else self._where).with_suffix('.lock')
 
     def _alock(self):
         if self._a is None:
@@ -161,8 +165,8 @@ class ProcLock:
     async def __aenter__(self):
         await self._alock().acquire()
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o600)
+            where = self.path; where.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(where, os.O_RDWR | os.O_CREAT, 0o600)
             try:
                 await asyncio.to_thread(fcntl.flock, fd, fcntl.LOCK_EX)
             except BaseException:
@@ -182,3 +186,37 @@ class ProcLock:
 
     def locked(self):
         return self._a is not None and self._a.locked()
+
+
+class SharedSet:
+    """💳 A set every worker process shares (payment signatures taken by a request right now). `claim(x)` is ONE transaction: True for the
+    first caller in any process, False for every other until it is discarded or `ttl` passes (a request that died mid-check never locks a
+    payment forever; a payment that went through is kept for good in its own store). Same calls as a set: in · add · discard · clear."""
+
+    def __init__(self, path, ttl=900):
+        self._where = path; self.ttl = ttl; self._docs = {}   # a path or a function returning one (read at each use: test sandboxes)
+
+    @property
+    def docs(self):
+        p = str(self._where() if callable(self._where) else self._where)
+        return self._docs.get(p) or self._docs.setdefault(p, Docs(p))
+
+    def _fresh(self, v):
+        return bool(v) and time.time() - float(v.get('at') or 0) < self.ttl
+
+    def claim(self, x):
+        x = str(x)
+        return self.docs.update(x, lambda cur: Result(cur, False) if self._fresh(cur) else Result({'at': time.time()}, True))
+
+    def add(self, x):
+        self.docs.put(str(x), {'at': time.time()})
+
+    def discard(self, x):
+        if x:
+            self.docs.update(str(x), lambda _cur: None)
+
+    def clear(self):
+        self.docs.replace_all({})
+
+    def __contains__(self, x):
+        return self._fresh(self.docs.get(str(x)))
